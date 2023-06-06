@@ -2,6 +2,8 @@ import TroubleshootIcon from '@mui/icons-material/Troubleshoot';
 import { Box, Button, Divider, FormControl, FormLabel, IconButton, Input, Modal, ModalClose, ModalDialog, Sheet, Typography } from '@mui/joy';
 import React from 'react';
 import { Filters } from './Filters';
+import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined';
+import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
 
 export const SearchBar = (props) => {
 
@@ -12,6 +14,7 @@ export const SearchBar = (props) => {
         <Sheet
         className="SearchAndFilters-mobile"
         sx={{
+          background: 'transparent',
           display: {
             xs: 'flex',
             sm: 'none',
@@ -34,18 +37,26 @@ export const SearchBar = (props) => {
           color="neutral"
           onClick={() => setOpen(true)}
         >
-          <i data-feather="filter" />
+          <FilterAltOutlinedIcon />
+        </IconButton>
+        <IconButton
+          size="sm"
+          variant="solid"
+          color="primary"
+          onClick={() => { console.log("Search!"); }}
+        >
+          <SendOutlinedIcon />
         </IconButton>
         <Modal open={open} onClose={() => setOpen(false)}>
-          <ModalDialog aria-labelledby="filter-modal" layout="fullscreen">
-            <ModalClose />
-            <Typography id="filter-modal" level="h2">
-              Filters
-            </Typography>
-            <Divider sx={{ my: 2 }} />
+          <ModalDialog aria-labelledby="filter-modal" layout="fullscreen"
+            sx = {{
+              paddingTop: '7rem',
+            }}
+          >
+            <ModalClose variant="soft" color='primary' sx = {{ marginTop: 'var(--Header-height)' }} />
             <Sheet sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Filters />
-              <Button color="primary" onClick={() => setOpen(false)}>
+              <Button color="primary" onClick={() => {setOpen(false)}}>
                 Submit
               </Button>
             </Sheet>
