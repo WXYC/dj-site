@@ -10,6 +10,7 @@ import Dashboard from './pages/dashboard/DashboardPage';
 import ViewProvider, { ViewContext } from './components/theme/viewStyleToggle';
 import CLASSIC_LoginPage from './CLASSIC_VIEW/CLASSIC_Login';
 import CLASSIC_Dashboard from './CLASSIC_VIEW/CLASSIC_Dashboard';
+import CLASSIC_CatalogPage from './CLASSIC_VIEW/CLASSIC_Catalog';
 
 export const RedirectContext = createContext({redirect: '/'});
 
@@ -103,7 +104,11 @@ function App() {
                     logout={logout}
                   >
                     <Routes>
-                      <Route path="/catalog" element={<div>To be implemented!</div>} />
+                      <Route path="/catalog" element={
+                        <CLASSIC_CatalogPage 
+                          logout={logout}
+                        />
+                      } />
                       <Route path="/flowsheet" element={<div>To be implemented!</div>} />
                       <Route path="/playlist" element={<div>Playlists are unavailable in classic view mode. Please Switch.</div>} />
                       <Route path="/insights" element={<div>Insights are unavailable in classic view mode. Please Switch.</div>} />

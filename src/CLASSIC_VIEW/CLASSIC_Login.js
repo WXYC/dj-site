@@ -26,7 +26,7 @@ export default function CLASSIC_LoginPage({
             <tr>
               <td align="center">
                 <span className="title">
-                  Please log in to WXYC Library:
+                  Please log in to WXYC Library and Flowsheet:
                 </span>
                 <br />
                 <table cellPadding="10">
