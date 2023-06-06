@@ -2,7 +2,7 @@ import Box from '@mui/joy/Box';
 import React, { useEffect } from 'react';
 import FirstSidebar from '../../components/dashboard/FirstSidebar';
 import Header from '../../components/dashboard/Header';
-import { BackpackProvider } from '../../components/dashboard/backpack/Backpack';
+import { BinProvider } from '../../components/dashboard/bin/Bin';
 import { ColorSchemeToggle } from '../../components/theme/colorSchemeToggle';
 import SecondSidebar from '../../components/dashboard/SecondSidebar';
 import { ViewStyleToggle } from '../../components/theme/viewStyleToggle';
@@ -13,7 +13,7 @@ const Dashboard = (props) => {
   return (
     <React.Fragment>
       <SongCardProvider>
-      <BackpackProvider>
+      <BinProvider>
       <Box sx={{ display: 'flex', minHeight: '100dvh' }}>
         <Header altViewAvailable = {props.altViewAvailable} />
         <FirstSidebar
@@ -60,7 +60,7 @@ const Dashboard = (props) => {
         </Box>
         <SecondSidebar />
       </Box>
-      </BackpackProvider>
+      </BinProvider>
       </SongCardProvider>
       </React.Fragment>
   );

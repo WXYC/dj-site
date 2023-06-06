@@ -10,18 +10,18 @@ import Sheet from '@mui/joy/Sheet';
 import Typography from '@mui/joy/Typography';
 import React from 'react';
 
-import BackpackOutlinedIcon from '@mui/icons-material/BackpackOutlined';
+import InboxIcon from '@mui/icons-material/Inbox';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PlayArrowOutlinedIcon from '@mui/icons-material/PlayArrowOutlined';
 import { useContext } from 'react';
-import { BackpackContext } from './backpack/Backpack';
+import { BinContext } from './bin/Bin';
 import { closeSidebar } from './utilities';
 import NowPlaying from '../NowPlaying';
 
 export default function SecondSidebar() {
 
-  const { backpack, addToBackpack, removeFromBackpack, clearBackpack, isInBackpack } = useContext(BackpackContext);
+  const { bin, addToBin, removeFromBin, clearBin, isInBin } = useContext(BinContext);
 
   return (
     <React.Fragment>
@@ -98,19 +98,19 @@ export default function SecondSidebar() {
             }}
           >
             <Stack direction="row">
-            <BackpackOutlinedIcon sx={{ mr: 1 }} />
+            <InboxIcon sx={{ mr: 1 }} />
             <Typography>
-              Backpack
+              Mail Bin
             </Typography>
             </Stack>
-            {(backpack.length > 0) && (<Button
+            {(bin.length > 0) && (<Button
               variant="soft"
               color="warning"
               size="sm"
               sx = {{
                 m: -1,
               }}
-              onClick={() => clearBackpack()}
+              onClick={() => clearBin()}
             >
               Clear
             </Button>)}
@@ -122,8 +122,8 @@ export default function SecondSidebar() {
               height: 300,
             }}
           >
-            {backpack.length > 0 ? (
-              backpack.map((item, index) => (
+            {bin.length > 0 ? (
+              bin.map((item, index) => (
                 <React.Fragment key={index}>
                   <Stack direction = "row" spacing = {2}
                     sx = {{
@@ -152,14 +152,14 @@ export default function SecondSidebar() {
                       size="small"
                       variant="standard"
                       color="warning"
-                      onClick={() => removeFromBackpack(item)}
+                      onClick={() => removeFromBin(item)}
                     >
                       <DeleteOutlineOutlinedIcon />
                     </IconButton>
                     </Tooltip>
                     </Stack>
                   </Stack>
-                  {(index < backpack.length - 1) && <Divider />}
+                  {(index < bin.length - 1) && <Divider />}
                 </React.Fragment>
             ))) : (
               <Typography level="body3">

@@ -18,7 +18,7 @@ import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 
-import { BackpackContext } from '../dashboard/backpack/Backpack';
+import { BinContext } from '../dashboard/bin/Bin';
 
 import { Stack, Tooltip } from '@mui/joy';
 
@@ -77,7 +77,7 @@ const OrderTable = () => {
   const [genre, setGenre] = React.useState('All');
   const [releaseType, setReleaseType] = React.useState('Albums');
 
-  const { backpack, addToBackpack, removeFromBackpack, clearBackpack, isInBackpack } = useContext(BackpackContext);
+  const { bin, addToBin, removeFromBin, clearBin, isInBin } = useContext(BinContext);
   const { getSongCardContent } = useContext(SongCardContext);
 
   useEffect(() => {
@@ -349,29 +349,29 @@ const OrderTable = () => {
                             </Tooltip>
                         )}
                         
-                        {(!isInBackpack(`${row.artist.genre} ${row.artist.lettercode} ${row.artist.numbercode}/${row.release_number}`)) ? (<Tooltip title="Add to backpack"
+                        {(!isInBin(`${row.artist.genre} ${row.artist.lettercode} ${row.artist.numbercode}/${row.release_number}`)) ? (<Tooltip title="Add to bin"
                             variant='outlined'
                             size="sm"
                         ><IconButton
-                            aria-label="Add to backpack"
+                            aria-label="Add to bin"
                             variant="outlined"
                             color="info"
                             size="sm"
                             onClick = {() => {
-                              addToBackpack(`${row.artist.genre} ${row.artist.lettercode} ${row.artist.numbercode}/${row.release_number}`);
+                              addToBin(`${row.artist.genre} ${row.artist.lettercode} ${row.artist.numbercode}/${row.release_number}`);
                             }}
                         >
                             <DoubleArrowIcon />
-                            </IconButton></Tooltip>) : (<Tooltip title="Remove from backpack"
+                            </IconButton></Tooltip>) : (<Tooltip title="Remove from bin"
                             variant='outlined'
                             size="sm"
                         ><IconButton
-                            aria-label="Remove from backpack"
+                            aria-label="Remove from bin"
                             variant="outlined"
                             color="primary"
                             size="sm"
                             onClick = {() => {
-                              removeFromBackpack(`${row.artist.genre} ${row.artist.lettercode} ${row.artist.numbercode}/${row.release_number}`);
+                              removeFromBin(`${row.artist.genre} ${row.artist.lettercode} ${row.artist.numbercode}/${row.release_number}`);
                             }}
                         >
                             <DeleteOutlineOutlinedIcon />
@@ -409,7 +409,7 @@ const OrderTable = () => {
                           marginRight: '1rem',
                         }}
                         >
-                          Add selected to backpack
+                          Add selected to bin
                         </Button>
                     </Box>)}
         </Sheet>
