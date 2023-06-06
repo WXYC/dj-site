@@ -44,7 +44,6 @@ export function ViewStyleToggle({ onClick, ...props }) {
         onClick={(event) => {
           setClassicView(!classicView);
           document.documentElement.dataset.classicView = !classicView;
-          document.body.classList.toggle('centerWidth');
           onClick?.(event);
         }}
       >
