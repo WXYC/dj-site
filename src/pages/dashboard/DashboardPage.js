@@ -5,6 +5,7 @@ import Header from '../../components/dashboard/Header';
 import { BackpackProvider } from '../../components/dashboard/backpack/Backpack';
 import { ColorSchemeToggle } from '../../components/theme/colorSchemeToggle';
 import SecondSidebar from '../../components/dashboard/SecondSidebar';
+import { ViewStyleToggle } from '../../components/theme/viewStyleToggle';
 
 const Dashboard = (props) => {
 
@@ -44,9 +45,14 @@ const Dashboard = (props) => {
           })}
         >
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <ColorSchemeToggle
+            <Box
               sx={{ ml: 'auto', display: { xs: 'none', md: 'inline-flex' } }}
-            />
+            >
+              <ColorSchemeToggle
+              />
+              <ViewStyleToggle
+              />
+            </Box>
           </Box>
           {props.children}
         </Box>

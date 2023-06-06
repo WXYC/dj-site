@@ -5,6 +5,7 @@ import { toggleSidebar } from './utilities';
 import Box from '@mui/joy/Box';
 import Logo from '../branding/logo';
 import { ColorSchemeToggle } from '../theme/colorSchemeToggle';
+import { ViewStyleToggle } from '../theme/viewStyleToggle';
 
 export default function Header() {
   return (
@@ -34,7 +35,10 @@ export default function Header() {
       <Box>
         <Logo />
       </Box>
-      <ColorSchemeToggle />
+      <Box>
+        <ColorSchemeToggle />
+        <ViewStyleToggle />
+      </Box>
     </Sheet>
   );
 }

@@ -1,4 +1,3 @@
-import React, { useState, useContext, useEffect } from 'react';
 import Box from '@mui/joy/Box';
 import Button from '@mui/joy/Button';
 import Checkbox from '@mui/joy/Checkbox';
@@ -6,9 +5,11 @@ import FormControl from '@mui/joy/FormControl';
 import FormLabel, { formLabelClasses } from '@mui/joy/FormLabel';
 import Input from '@mui/joy/Input';
 import Typography from '@mui/joy/Typography';
+import React, { useContext, useEffect, useState } from 'react';
+import { RedirectContext } from '../../App';
 import Logo from '../../components/branding/logo';
 import { ColorSchemeToggle } from '../../components/theme/colorSchemeToggle';
-import { RedirectContext } from '../../App';
+import { ViewStyleToggle } from '../../components/theme/viewStyleToggle';
 
 export default function LoginPage({
   handlePasswordChange,
@@ -87,7 +88,10 @@ const [randomIndexForQuote, setRIFQ] = useState(Math.floor(Math.random() * quote
             >
               <Logo />
             </Box>
-            <ColorSchemeToggle />
+            <Box>
+              <ColorSchemeToggle />
+              <ViewStyleToggle />
+            </Box>
           </Box>
           <Box
             component="main"

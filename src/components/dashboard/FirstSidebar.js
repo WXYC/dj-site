@@ -131,7 +131,7 @@ export default function FirstSidebar({ djname, logout }) {
                 placement='right'
                 size='sm'
                 variant='outlined'
-                disabled
+                disabledw
             >
           <ListItemButton
             onClick={() => navigate('/insights')}
