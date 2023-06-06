@@ -1,6 +1,5 @@
 import React, { useState, createContext, useContext } from 'react';
 import { CssBaseline, CssVarsProvider, GlobalStyles } from '@mui/joy';
-import './App.css';
 import wxycTheme from './theme';
 
 import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom';
@@ -11,6 +10,7 @@ import ViewProvider, { ViewContext } from './components/theme/viewStyleToggle';
 import CLASSIC_LoginPage from './CLASSIC_VIEW/CLASSIC_Login';
 import CLASSIC_Dashboard from './CLASSIC_VIEW/CLASSIC_Dashboard';
 import CLASSIC_CatalogPage from './CLASSIC_VIEW/CLASSIC_Catalog';
+import CatalogPage from './pages/catalog/CatalogPage';
 
 export const RedirectContext = createContext({redirect: '/'});
 
@@ -64,7 +64,9 @@ function App() {
                         altViewAvailable = {(typeof classicView !== 'undefined')}
                       >
                         <Routes>
-                          <Route path="/catalog" element={<div>To be implemented!</div>} />
+                          <Route path="/catalog" element={
+                            <CatalogPage />
+                          } />
                           <Route path="/flowsheet" element={<div>To be implemented!</div>} />
                           <Route path="/playlist" element={<div>To be implemented!</div>} />
                           <Route path="/insights" element={<div>To be implemented!</div>} />

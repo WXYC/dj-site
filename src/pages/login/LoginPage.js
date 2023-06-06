@@ -25,7 +25,7 @@ export default function LoginPage({
         let redirect = query.get('continue');
 
         if (redirect) redirectContext.redirect = redirect;
-    }, []);
+    }, [redirectContext]);
     
   const quotesAndArtists = [
     ["to the Jungle", "Guns N' Roses"],

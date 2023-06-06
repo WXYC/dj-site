@@ -6,11 +6,13 @@ import { BackpackProvider } from '../../components/dashboard/backpack/Backpack';
 import { ColorSchemeToggle } from '../../components/theme/colorSchemeToggle';
 import SecondSidebar from '../../components/dashboard/SecondSidebar';
 import { ViewStyleToggle } from '../../components/theme/viewStyleToggle';
+import { SongCardProvider } from '../../components/catalog/SongCardContext';
 
 const Dashboard = (props) => {
 
   return (
     <React.Fragment>
+      <SongCardProvider>
       <BackpackProvider>
       <Box sx={{ display: 'flex', minHeight: '100dvh' }}>
         <Header altViewAvailable = {props.altViewAvailable} />
@@ -59,6 +61,7 @@ const Dashboard = (props) => {
         <SecondSidebar />
       </Box>
       </BackpackProvider>
+      </SongCardProvider>
       </React.Fragment>
   );
 }
