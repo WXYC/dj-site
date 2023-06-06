@@ -1,10 +1,11 @@
-import logo from './logo.svg';
+import React, { useState, createContext } from 'react';
+import { CssBaseline, CssVarsProvider, GlobalStyles } from '@mui/joy';
 import './App.css';
-import { CssBaseline, CssVarsProvider } from '@mui/joy';
 import wxycTheme from './theme';
 
-import { Toaster, toast } from 'sonner';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom';
+import { Toaster } from 'sonner';
+import LoginPage from './pages/login/LoginPage';
 
 export const RedirectContext = createContext({redirect: '/'});
 
@@ -51,8 +52,8 @@ function App() {
                   <Route path="/*" element={<Navigate to={`/login?continue=${window.location.pathname}`} />} />
                   <Route path="/login" element={
                     <LoginPage 
-                      handlePasswordChange={handlePasswordChange}
-                      handleUserNameChange={handleUserNameChange}
+                      handlePasswordChange={(event) => console.log(event.target.value)}
+                      handleUserNameChange={(event) => console.log(event.target.value)}
                       login={login}
                     />
                   } />
