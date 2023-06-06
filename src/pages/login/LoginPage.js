@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import Box from '@mui/joy/Box';
 import Button from '@mui/joy/Button';
 import Checkbox from '@mui/joy/Checkbox';
@@ -8,6 +8,7 @@ import Input from '@mui/joy/Input';
 import Typography from '@mui/joy/Typography';
 import Logo from '../../components/branding/logo';
 import { ColorSchemeToggle } from '../../components/theme/colorSchemeToggle';
+import { RedirectContext } from '../../App';
 
 export default function LoginPage({
   handlePasswordChange,
