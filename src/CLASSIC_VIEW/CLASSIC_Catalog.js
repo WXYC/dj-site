@@ -22,7 +22,7 @@ const CLASSIC_CatalogPage = ({ logout }) => {
 
                 </div>
 
-                <form name="searchForm" method="GET" action="searchCardCatalog">
+                <form name="searchForm" onSubmit={handleSubmit}>
                 <div id="searchString">
                 <input type="text" name="searchString" size="40" value={searchString} onChange={(e) => {
                     e.preventDefault();
