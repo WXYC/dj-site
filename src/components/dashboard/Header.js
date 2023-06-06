@@ -6,12 +6,14 @@ import Box from '@mui/joy/Box';
 import Logo from '../branding/logo';
 import { ColorSchemeToggle } from '../theme/colorSchemeToggle';
 import { ViewStyleToggle } from '../theme/viewStyleToggle';
+import DragHandleIcon from '@mui/icons-material/DragHandle';
 
 export default function Header({ altViewAvailable }) {
   return (
     <Sheet
       sx={{
         display: { xs: 'flex', md: 'none' },
+        justifyContent: 'space-between',
         alignItems: 'center',
         position: 'fixed',
         top: 0,
@@ -30,9 +32,13 @@ export default function Header({ altViewAvailable }) {
         color="neutral"
         size="sm"
       >
-        <i data-feather="menu" />
+        <DragHandleIcon />
       </IconButton>
-      <Box>
+      <Box
+        sx = {(theme) => ({
+          height: '100%',
+        })}
+      >
         <Logo />
       </Box>
       <Box>
