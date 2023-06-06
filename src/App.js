@@ -61,6 +61,7 @@ function App() {
                     <Route path="/*" element={
                       <Dashboard
                         logout={logout}
+                        altViewAvailable = {(typeof classicView !== 'undefined')}
                       >
                         <Routes>
                           <Route path="/catalog" element={<div>To be implemented!</div>} />
@@ -81,6 +82,7 @@ function App() {
                         handlePasswordChange={(event) => console.log(event.target.value)}
                         handleUserNameChange={(event) => console.log(event.target.value)}
                         login={login}
+                        altViewAvailable = {(typeof classicView !== 'undefined')}
                       />
                     } />
                     </>

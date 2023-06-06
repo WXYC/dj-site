@@ -14,7 +14,8 @@ import { ViewStyleToggle } from '../../components/theme/viewStyleToggle';
 export default function LoginPage({
   handlePasswordChange,
   handleUserNameChange,
-  login
+  login,
+  altViewAvailable,
 }) {
 
     const redirectContext = useContext(RedirectContext);
@@ -90,7 +91,7 @@ const [randomIndexForQuote, setRIFQ] = useState(Math.floor(Math.random() * quote
             </Box>
             <Box>
               <ColorSchemeToggle />
-              <ViewStyleToggle />
+              {(altViewAvailable) && <ViewStyleToggle />}
             </Box>
           </Box>
           <Box

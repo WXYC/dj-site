@@ -13,7 +13,7 @@ const Dashboard = (props) => {
     <React.Fragment>
       <BackpackProvider>
       <Box sx={{ display: 'flex', minHeight: '100dvh' }}>
-        <Header />
+        <Header altViewAvailable = {props.altViewAvailable} />
         <FirstSidebar
           logout = {props.logout}
           djname= {"Hypothetical DJ Name"}

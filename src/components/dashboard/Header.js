@@ -7,7 +7,7 @@ import Logo from '../branding/logo';
 import { ColorSchemeToggle } from '../theme/colorSchemeToggle';
 import { ViewStyleToggle } from '../theme/viewStyleToggle';
 
-export default function Header() {
+export default function Header({ altViewAvailable }) {
   return (
     <Sheet
       sx={{
@@ -37,7 +37,7 @@ export default function Header() {
       </Box>
       <Box>
         <ColorSchemeToggle />
-        <ViewStyleToggle />
+        {(altViewAvailable) && <ViewStyleToggle />}
       </Box>
     </Sheet>
   );
