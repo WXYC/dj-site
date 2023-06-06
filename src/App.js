@@ -45,7 +45,7 @@ function App() {
                   '--Cover-width': '40vw',
                   '--Form-maxWidth': '700px',
                   '--Transition-duration': '0.4s',
-                  '--Header-height': '52px',
+                  '--Header-height': '4rem',
                   [theme.breakpoints.up('md')]: {
                     '--Header-height': '0px',
                   },
