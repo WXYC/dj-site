@@ -4,7 +4,7 @@ import { FormControl, FormLabel, Select, Option } from "@mui/joy";
 export const Filters = (props) => {
     return (
     <React.Fragment>
-      <FormControl size="sm">
+      <FormControl size="sm" sx = {{ flex: 1 }}>
         <FormLabel>Search In</FormLabel>
         <Select
           placeholder="Albums"
@@ -16,7 +16,7 @@ export const Filters = (props) => {
           <Option value="Artists">Artists</Option>
         </Select>
       </FormControl>
-      <FormControl size="sm">
+      <FormControl size="sm" sx = {{ flex: 1 }}>
         <FormLabel>Genre</FormLabel>
         <Select
           placeholder="All"
@@ -32,7 +32,7 @@ export const Filters = (props) => {
           <Option value="Soundtrack">Soundtrack</Option>
         </Select>
       </FormControl>
-      <FormControl size="sm">
+      <FormControl size="sm" sx = {{ flex: 1 }}>
         <FormLabel>Release Type</FormLabel>
         <Select
           placeholder="Albums"

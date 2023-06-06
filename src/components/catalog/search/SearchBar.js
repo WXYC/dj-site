@@ -82,7 +82,7 @@ export const SearchBar = (props) => {
           },
         }}
       >
-        <FormControl sx={{ flex: 1 }} size="sm">
+        <FormControl sx={{ flex: 1, flexBasis: { xs: '100%', lg: 'unset' } }} size="sm">
           <FormLabel>Search for a song, album, or artist</FormLabel>
           <Input 
             placeholder="Search" 
@@ -91,7 +91,7 @@ export const SearchBar = (props) => {
             onChange={(e) => props.setSearchString(e.target.value)}
           />
         </FormControl>
-
+        
         <Filters
           setSearchIn = {props.setSearchIn}
           setGenre = {props.setGenre}

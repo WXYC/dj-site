@@ -39,7 +39,7 @@ export default function SecondSidebar() {
           transition: 'opacity 0.4s',
           transform: {
             xs: 'translateX(calc(100% * (var(--SideNavigation-slideIn, 0) - 1) + var(--SideNavigation-slideIn, 0) * var(--FirstSidebar-width, 0px)))',
-            lg: 'translateX(-100%)',
+            md: 'translateX(-100%)',
           },
         }}
         onClick={() => closeSidebar()}
@@ -49,11 +49,11 @@ export default function SecondSidebar() {
         sx={{
           position: {
             xs: 'fixed',
-            lg: 'sticky',
+            md: 'sticky',
           },
           transform: {
             xs: 'translateX(calc(100% * (var(--SideNavigation-slideIn, 0) - 1) + var(--SideNavigation-slideIn, 0) * var(--FirstSidebar-width, 0px)))',
-            lg: 'none',
+            md: 'none',
           },
           borderLeft: '1px solid',
           borderColor: 'divider',
