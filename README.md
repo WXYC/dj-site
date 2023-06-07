@@ -17,6 +17,7 @@ The revised catalog leverages services defined in `api-service.js`, which utiliz
 
 ## Technologies Used
 - React: The front-end framework used for building the revised WXYC Card Catalog.
+- MUI Joy UI: A library of pre-built UI components for React that allows fast and beautiful feature development.
 - Vercel: The cloud platform used for deployment and hosting.
 - Axios: A JavaScript library used for making HTTP requests to the AWS API Gateway.
 
