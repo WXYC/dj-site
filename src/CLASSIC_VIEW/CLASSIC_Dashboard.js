@@ -1,10 +1,18 @@
-import React from "react";
+import React, { useContext, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ViewStyleToggle } from "../components/theme/viewStyleToggle";
+import { ViewStyleToggle, ViewContext } from "../components/theme/viewStyleToggle";
 
 const CLASSIC_Dashboard = (props) => {
 
     const navigate = useNavigate();
+
+    const { classicView } = useContext(ViewContext);
+
+    useEffect(() => {
+        
+        document.documentElement.dataset.classicView = classicView;
+        
+    }, [classicView]);
 
     return (
         <React.Fragment>

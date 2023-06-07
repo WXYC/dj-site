@@ -11,12 +11,14 @@ import CLASSIC_LoginPage from './CLASSIC_VIEW/CLASSIC_Login';
 import CLASSIC_Dashboard from './CLASSIC_VIEW/CLASSIC_Dashboard';
 import CLASSIC_CatalogPage from './CLASSIC_VIEW/CLASSIC_Catalog';
 import CatalogPage from './pages/catalog/CatalogPage';
+import CLASSIC_Flowsheet from './CLASSIC_VIEW/CLASSIC_Flowsheet';
 
 export const RedirectContext = createContext({redirect: '/'});
 
 function App() {
 
   const { classicView } = useContext(ViewContext);
+
 
   const redirectContext = useContext(RedirectContext);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -67,7 +69,9 @@ function App() {
                           <Route path="/catalog" element={
                             <CatalogPage />
                           } />
-                          <Route path="/flowsheet" element={<div>To be implemented!</div>} />
+                          <Route path="/flowsheet" element={
+                            <div>To be implemented!</div>
+                          } />
                           <Route path="/playlist" element={<div>To be implemented!</div>} />
                           <Route path="/insights" element={<div>To be implemented!</div>} />
                           <Route path="/login" element={<Navigate to={redirectContext.redirect}/>} />
@@ -104,16 +108,18 @@ function App() {
               isAuthenticated ? (
                 <>
                 <Route path="/*" element={
-                  <CLASSIC_Dashboard
-                    logout={logout}
-                  >
+                  <CLASSIC_Dashboard>
                     <Routes>
                       <Route path="/catalog" element={
                         <CLASSIC_CatalogPage 
                           logout={logout}
                         />
                       } />
-                      <Route path="/flowsheet" element={<div>To be implemented!</div>} />
+                      <Route path="/flowsheet" element={
+                        <CLASSIC_Flowsheet 
+                          logout={logout}
+                        />
+                      } />
                       <Route path="/playlist" element={<div>Playlists are unavailable in classic view mode. Please Switch.</div>} />
                       <Route path="/insights" element={<div>Insights are unavailable in classic view mode. Please Switch.</div>} />
                       <Route path="/login" element={<Navigate to={redirectContext.redirect}/>} />
