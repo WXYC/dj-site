@@ -161,7 +161,7 @@ function App() {
               })}
             />
             <Toaster closeButton richColors  />
-            <BrowserRouter>
+            <BrowserRouter basename='/dj-site'>
               <Routes>
                 {
                   isAuthenticated ? (

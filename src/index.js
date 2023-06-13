@@ -15,7 +15,8 @@ Amplify.configure({
     userPoolId: awsExports.USER_POOL_ID,
     userPoolWebClientId: awsExports.USER_POOL_APP_CLIENT_ID,
   }
-})
+});
+
 
 ReactDOM.render(
   <React.StrictMode>
