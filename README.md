@@ -1,6 +1,6 @@
 # WXYC Card Catalog, Revised
 
-[See the site in action here! (No username/password required)](https://card-catalog-draft.vercel.app/)
+[See the site in action here!](https://wxyc.github.io/dj-site/)
 
 ## Description
 The WXYC Card Catalog, Revised is a React-based revision of the original WXYC card catalog and flowsheet. This repository showcases an improved version of the existing catalog and flowsheet, while maintaining the classic theme and preserving the original look. Notably, the revised version is optimized for performance, resulting in faster loading times.
