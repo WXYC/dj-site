@@ -5,6 +5,7 @@ import FormControl from '@mui/joy/FormControl';
 import FormLabel, { formLabelClasses } from '@mui/joy/FormLabel';
 import Input from '@mui/joy/Input';
 import Typography from '@mui/joy/Typography';
+import { LinearProgress } from '@mui/joy';
 import React, { useContext, useEffect, useState } from 'react';
 import { RedirectContext } from '../../App';
 import Logo from '../../components/branding/logo';
@@ -12,13 +13,21 @@ import { ColorSchemeToggle } from '../../components/theme/colorSchemeToggle';
 import { ViewStyleToggle } from '../../components/theme/viewStyleToggle';
 
 export default function LoginPage({
-  handlePasswordChange,
-  handleUserNameChange,
   login,
+  handlePasswordUpdate,
   altViewAvailable,
+  authenticating,
+  resetPasswordRequired,
 }) {
 
     const redirectContext = useContext(RedirectContext);
+
+    const [name, setName] = useState('');
+    const [djName, setDjName] = useState('');
+    const [value, setValue] = React.useState(''); // for the password field
+    const [confirmValue, setConfirmValue] = React.useState(''); // for the confirm password field
+    const [pWordStrength, setPWordStrength] = React.useState(0); // for the password strength meter
+    const minLength = 8;
 
     useEffect(() => {
         let query = new URLSearchParams(window.location.search);
@@ -27,7 +36,7 @@ export default function LoginPage({
         if (redirect) redirectContext.redirect = redirect;
     }, [redirectContext]);
     
-  const quotesAndArtists = [
+  const welcomeQuotesAndArtists = [
     ["to the Jungle", "Guns N' Roses"],
     ["to the Hotel California", "Eagles"],
     ["to the Black Parade", "My Chemical Romance"],
@@ -39,9 +48,54 @@ export default function LoginPage({
     ["to the Machine", "Pink Floyd"],
     ["to the Club", "Manian ft. Aila"]
   ];
+
+  const holdOnQuotesAndArtists = [
+    ["for one more day.", "Wilson Phillips"],
+    ["if you feel like letting go.", "Tom Waits"],
+    ["tight to your dreams.", "Electric Light Orchestra"],
+    ["be strong, and stay true to yourself.", "2Pac"],
+    ["if you believe in love.", "Michael Bublé"],
+    ["when everything falls apart.", "Good Charlotte"],
+    ["to what you believe in.", "Mumford & Sons"],
+    ["I'm still alive.", "Pearl Jam"],
+    ["when the night is closing in.", "Chris Cornell"],
+    ["to hope if you got it.", "Florence + The Machine"]
+  ];
+
+  useEffect(() => {
+    // Needs one capital letter, one lowercase letter, and one number
+    // Needs to be at least 8 characters long
+    // start with capital letter test:
+    let strengthString = 'Needs ';
+    if (!value.match(/[A-Z]/g)) {
+      strengthString += 'one capital letter';
+    }
+    // lowercase letter test:
+    if (!value.match(/[a-z]/g)) {
+      strengthString += (strengthString === 'Needs ' ? 'one lowercase letter' : ', one lowercase letter');
+    }
+    // number test:
+    if (!value.match(/[0-9]/g)) {
+      strengthString += (strengthString === 'Needs ' ? 'one number' : ', one number');
+    }
+    // length test:
+    if (value.length < minLength) {
+      strengthString += (strengthString === 'Needs ' ? `to be at least ${minLength} characters long` : `, to be at least ${minLength} characters long`);
+    }
+    // add 'and' if there are multiple requirements at second-to-last requirement
+    if (strengthString.match(/,/g)?.length > 0) {
+      strengthString = strengthString.replace(/,([^,]*)$/, ' and$1');
+    }
+    // if all tests pass, strengthString will still be 'Needs '
+    if (strengthString === 'Needs ') {
+      strengthString = 'Strong';
+    }
+    setPWordStrength(strengthString);
+  }, [value]);
   
   
-const [randomIndexForQuote, setRIFQ] = useState(Math.floor(Math.random() * quotesAndArtists.length));
+const [randomIndexForWelcomeQuote, setRIFQ] = useState(Math.floor(Math.random() * welcomeQuotesAndArtists.length));
+const [randomIndexForHoldOnQuote, setRIHOQ] = useState(Math.floor(Math.random() * holdOnQuotesAndArtists.length));
 
   return (
     <>
@@ -117,6 +171,116 @@ const [randomIndexForQuote, setRIFQ] = useState(Math.floor(Math.random() * quote
               },
             }}
           >
+            {(resetPasswordRequired) ? 
+              (
+                <>
+              <div>
+              <Typography 
+                level="h1"
+                fontSize={'4.5rem'}
+              >
+                Hold On
+              </Typography>
+              <Typography
+                level="h3"
+                >
+                ...{holdOnQuotesAndArtists[randomIndexForHoldOnQuote][0]}
+                </Typography>
+              <Typography level="body2" sx={{ my: 1, mb: 3, textAlign: 'right' }}>
+                - {holdOnQuotesAndArtists[randomIndexForHoldOnQuote][1]}
+              </Typography>
+              <Typography level="body3">
+                Actually, we just need some more information from you.
+              </Typography>
+            </div>
+            <form
+              onSubmit={handlePasswordUpdate}
+              autoComplete='off'
+            >
+              <FormControl required>
+                <FormLabel>Real Name</FormLabel>
+                <Input placeholder="Enter your real name" type="text" name="realName"
+                  disabled={authenticating}
+                  color={(name.length > 0) ? 'success' : 'primary'}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                  }}
+                  value={name}
+                />
+              </FormControl>
+              <FormControl required>
+                <FormLabel>DJ Name</FormLabel>
+                <Input placeholder="Enter your DJ name" type="text" name="djName"
+                  disabled={authenticating}
+                  color={(djName.length > 0) ? 'success' : 'primary'}
+                  onChange={(e) => {
+                    setDjName(e.target.value);
+                  }}
+                  value={djName}
+                />
+                
+                <Typography level="body4">
+                  You can change this later.
+                </Typography>
+              </FormControl>
+              <FormControl required
+                sx = {{
+                  '--hue': Math.min(value.length * 10, 120),
+                }}
+              >
+                <FormLabel>New Password</FormLabel>
+                <Input placeholder="•••••••" type="password" name="password"
+                  disabled={authenticating}
+                  onChange={(e) => {
+                    setValue(e.target.value);
+                  }}
+                  value={value}
+                  error={(pWordStrength !== 'Strong')}
+                  color={(pWordStrength === 'Strong') ? 'success' : 'primary'}
+                />
+                  <LinearProgress
+                    determinate
+                    size="sm"
+                    value={Math.min((value.length * 100) / minLength, 100)}
+                    sx={{
+                      mt: 1,
+                      bgcolor: 'background.level3',
+                      color: 'hsl(var(--hue) 80% 40%)',
+                    }}
+                  
+                  />
+                  <Typography
+                    level="body4"
+                    sx={{ alignSelf: 'flex-end', color: 'hsl(var(--hue) 80% 30%)' }}
+                  >
+                    {pWordStrength}
+                  </Typography>
+              </FormControl>
+              <FormControl required>
+                <FormLabel>Confirm New Password</FormLabel>
+                <Input placeholder="Confirm your new password" type="password" name="passwordConfirm"
+                  disabled={authenticating}
+                  onChange={(e) => {
+                    setConfirmValue(e.target.value);
+                  }}
+                  value={confirmValue}
+                  error={(confirmValue !== value)}
+                  color={(confirmValue === value && value != '') ? 'success' : 'primary'}
+                />
+              </FormControl>
+              <Button
+                type="submit"
+                variant="solid"
+                color="primary"
+                disabled={authenticating || (name.length === 0) || (djName.length === 0) || (value.length < minLength) || (confirmValue !== value) || pWordStrength !== 'Strong'}
+                loading={authenticating}
+              >
+                Submit
+              </Button>
+              </form>
+                </>
+              ) : (
+            <>
             <div>
               <Typography 
                 level="h1"
@@ -128,31 +292,29 @@ const [randomIndexForQuote, setRIFQ] = useState(Math.floor(Math.random() * quote
                 level="h2"
                 fontSize={'4.5rem'}
                 >
-                ...{quotesAndArtists[randomIndexForQuote][0]}
+                ...{welcomeQuotesAndArtists[randomIndexForWelcomeQuote][0]}
                 </Typography>
               <Typography level="body2" sx={{ my: 1, mb: 3, textAlign: 'right' }}>
-                - {quotesAndArtists[randomIndexForQuote][1]}
+                - {welcomeQuotesAndArtists[randomIndexForWelcomeQuote][1]}
               </Typography>
             </div>
             <form
               onSubmit={(event) => {
                 event.preventDefault();
+                login(event);
               }}
+              autoComplete='off'
             >
               <FormControl required>
                 <FormLabel>Username</FormLabel>
                 <Input placeholder="Enter your username" type="text" name="user" 
-                  onChange={(event) => {
-                    handleUserNameChange(event);
-                  }}
+                  disabled={authenticating}
                 />
               </FormControl>
               <FormControl required>
                 <FormLabel>Password</FormLabel>
                 <Input placeholder="•••••••" type="password" name="password" 
-                  onChange={(event) => {
-                    handlePasswordChange(event);
-                  }}
+                  disabled={authenticating}
                 />
               </FormControl>
               <Box
@@ -165,13 +327,12 @@ const [randomIndexForQuote, setRIFQ] = useState(Math.floor(Math.random() * quote
                 <Checkbox size="sm" label="Remember for 30 days" name="persistent" />
               </Box>
               <Button type="submit" fullWidth
-                onClick={(event) => {
-                  login(event);
-                }}
+                disabled={authenticating}
+                loading={authenticating}
               >
                 Sign in
               </Button>
-            </form>
+            </form></>)}
           </Box>
           <Box component="footer" sx={{ py: 3 }}>
             <Typography level="body3" textAlign="center">

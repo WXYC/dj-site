@@ -1,18 +1,11 @@
 import React from 'react';
 
 export default function CLASSIC_LoginPage({
-  handlePasswordChange,
-  handleUserNameChange,
   login
 }) {
 
-    const handleSubmit = (event) => {
-        event.preventDefault();
-        login();
-    }
-
   return (
-      <form name="userpw" onSubmit={handleSubmit}>
+      <form name="userpw" onSubmit={login}>
         <input type="hidden" name="loginAction" value="userpw" />
         <div align="center">
           <table cellPadding="10">

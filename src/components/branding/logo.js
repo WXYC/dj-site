@@ -1,7 +1,7 @@
 import React from 'react';
 import { useColorScheme } from '@mui/joy/styles';
 
-const Logo = () => {
+const Logo = (props) => {
     const { mode, systemMode } = useColorScheme();
     return (
     <svg version="1.0" xmlns="http://www.w3.org/2000/svg"
@@ -9,7 +9,7 @@ const Logo = () => {
  preserveAspectRatio="xMidYMid meet">
 
 <g transform="translate(0.000000,280.000000) scale(0.100000,-0.100000)"
-fill='var(--joy-palette-primary-solidBg, var(--joy-palette-primary-500, #096BDE))' stroke="none">
+fill={`var(--joy-palette-${props.color ?? 'primary'}-solidBg, var(--joy-palette-${props.color ?? 'primary'}-500, #096BDE))`} stroke="none">
 <path d="M997 2243 c-15 -25 -77 -269 -83 -325 -3 -38 -10 -68 -14 -68 -12 0
 -87 102 -103 141 -8 20 -35 57 -59 83 -38 39 -50 46 -84 46 l-40 0 -21 -72
 c-35 -116 -53 -203 -53 -253 0 -25 -4 -45 -9 -45 -9 0 -65 89 -172 270 -24 41

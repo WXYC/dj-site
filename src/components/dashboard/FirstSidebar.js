@@ -5,7 +5,7 @@ import List from '@mui/joy/List';
 import ListItem from '@mui/joy/ListItem';
 import ListItemButton from '@mui/joy/ListItemButton';
 import Sheet from '@mui/joy/Sheet';
-import React from 'react';
+import React, { useEffect } from 'react';
 import Logo from '../branding/logo';
 
 import AlbumIcon from '@mui/icons-material/Album';
@@ -14,22 +14,34 @@ import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
 import PersonOutlinedIcon from '@mui/icons-material/PersonOutlined';
 import StorageIcon from '@mui/icons-material/Storage';
 import StreamIcon from '@mui/icons-material/Stream';
+import SettingsIcon from '@mui/icons-material/Settings';
 import Tooltip from '@mui/joy/Tooltip';
 
 import { Badge, IconButton, Typography } from '@mui/joy';
 import { useLocation, useNavigate } from 'react-router-dom';
+import DisplaySettingsIcon from '@mui/icons-material/DisplaySettings';
 
-export default function FirstSidebar({ djname, logout }) {
+export default function FirstSidebar({ djName, logout, isAdmin }) {
 
   const navigate = useNavigate();
   const location = useLocation();
   const [hovering, setHovering] = React.useState(false);
 
+  const [style, setStyle] = React.useState("primary");
+
+  useEffect(() => {
+    if (location.pathname === '/admin' || location.pathname === '/settings') {
+      setStyle("success");
+    } else {
+      setStyle("primary");
+    }
+  }, [location.pathname]);
+
   return (
     <Sheet
       className="FirstSidebar"
       variant="soft"
-      color="primary"
+      color={style}
       invertedColors
       sx={{
         position: {
@@ -64,7 +76,7 @@ export default function FirstSidebar({ djname, logout }) {
         }}
       />
       <Box>
-        <Logo />
+        <Logo color={style}/>
       </Box>
       <List sx={{ '--ListItem-radius': '8px', '--List-gap': '12px' }}>
         <ListItem>
@@ -141,13 +153,47 @@ export default function FirstSidebar({ djname, logout }) {
           </ListItemButton>
             </Tooltip>
         </ListItem>
+        {(isAdmin) && (<ListItem>
+            <Tooltip
+                title="Station Management"
+                arrow={true}
+                placement='right'
+                size='sm'
+                variant='outlined'
+                disabledw
+            >
+          <ListItemButton
+            onClick={() => navigate('/admin')}
+            variant={location.pathname === '/admin' ? 'solid' : 'plain'}
+          >
+            <DisplaySettingsIcon />
+          </ListItemButton>
+            </Tooltip>
+        </ListItem>)}
       </List>
+      <Tooltip
+          title="Settings"
+          arrow={true}
+          placement='right'
+          size='sm'
+          variant='outlined'
+          disabledw
+      >
+        <IconButton
+          variant="plain"
+          color={style}
+          size="sm"
+          onClick={() => navigate('/settings')}
+        >     
+          <SettingsIcon />
+        </IconButton>
+      </Tooltip>
       <Divider />
       <Tooltip
         title={
           <>
           <Typography level='body1' color="primary">
-            Logged in as {djname}
+            Logged in as {djName}
           </Typography>
           <Typography level='body2' color="secondary">
             Click to logout
@@ -162,9 +208,7 @@ export default function FirstSidebar({ djname, logout }) {
         variant='outlined'
         onMouseOver={() => setHovering(true)}
         onMouseOut={() => setHovering(false)}
-        onClick={() => {
-          logout();
-        }}
+        onClick={logout}
       >
         {hovering ? (
           <LogoutOutlinedIcon />
