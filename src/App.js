@@ -161,7 +161,7 @@ function App() {
               })}
             />
             <Toaster closeButton richColors  />
-            <HashRouter basename='/dj-site'>
+            <HashRouter basename='/'>
               <Routes>
                 {
                   isAuthenticated ? (
