@@ -357,10 +357,10 @@ const [randomIndexForHoldOnQuote, setRIHOQ] = useState(Math.floor(Math.random() 
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
           backgroundImage:
-            'url("../img/wxyc_color.png")',
+            'url("./img/wxyc_color.png")',
           [theme.getColorSchemeSelector('dark')]: {
             backgroundImage:
-              'url("../img/wxyc_dark.jpg")',
+              'url("./img/wxyc_dark.jpg")',
           },
         })}
       />
