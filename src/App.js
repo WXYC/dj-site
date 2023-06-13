@@ -2,7 +2,7 @@ import React, { useState, createContext, useContext, useEffect } from 'react';
 import { CssBaseline, CssVarsProvider, GlobalStyles } from '@mui/joy';
 import wxycTheme from './theme';
 
-import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom';
+import { BrowserRouter, Route, Routes, Navigate, HashRouter } from 'react-router-dom';
 import { Toaster, toast } from 'sonner';
 import LoginPage from './pages/login/LoginPage';
 import Dashboard from './pages/dashboard/DashboardPage';
@@ -161,7 +161,7 @@ function App() {
               })}
             />
             <Toaster closeButton richColors  />
-            <BrowserRouter basename='/dj-site'>
+            <HashRouter basename='/dj-site'>
               <Routes>
                 {
                   isAuthenticated ? (
@@ -211,7 +211,7 @@ function App() {
                   )
                 }
               </Routes>
-            </BrowserRouter>
+            </HashRouter>
           </CssVarsProvider>
       </div>
     );

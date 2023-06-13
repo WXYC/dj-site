@@ -8,6 +8,7 @@ import ViewProvider from './components/theme/viewStyleToggle';
 
 import { Amplify } from 'aws-amplify';
 import awsExports from './services/authentication/aws-exports';
+import { RouterProvider, createHashRouter } from 'react-router-dom';
 
 Amplify.configure({
   Auth: {
@@ -16,7 +17,6 @@ Amplify.configure({
     userPoolWebClientId: awsExports.USER_POOL_APP_CLIENT_ID,
   }
 });
-
 
 ReactDOM.render(
   <React.StrictMode>
