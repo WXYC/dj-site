@@ -15,6 +15,7 @@ import CLASSIC_Flowsheet from './CLASSIC_VIEW/CLASSIC_Flowsheet';
 import StationManagementPage from './pages/station-management/StationManagementPage';
 
 import { Auth } from 'aws-amplify';
+import FlowsheetPage from './pages/flowsheet/FlowsheetPage';
 
 export const RedirectContext = createContext({redirect: '/'});
 
@@ -178,7 +179,7 @@ function App() {
                             <CatalogPage />
                           } />
                           <Route path="/flowsheet" element={
-                            <div>To be implemented!</div>
+                            <FlowsheetPage />
                           } />
                           <Route path="/playlist" element={<div>To be implemented!</div>} />
                           <Route path="/insights" element={<div>To be implemented!</div>} />
@@ -197,7 +198,7 @@ function App() {
                     </>
                   ) : (
                     <>
-                    <Route path="/*" element={<Navigate to={`/login?continue=${window.location.pathname}`} />} />
+                    <Route path="/*" element={<Navigate to={`/login?continue=${window.location.hash}`} />} />
                     <Route path="/login" element={
                       <LoginPage
                         authenticating={authenticating}
