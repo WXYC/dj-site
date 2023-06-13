@@ -12,7 +12,7 @@ The WXYC Card Catalog, Revised is a React-based revision of the original WXYC ca
 - Mail Bin: a digital mail bin is available on every account, so DJs can add to the flowsheet directly from their bin without having to type during their sets.
 
 ## Deployment
-The application is deployed using Vercel, a cloud platform for static sites and serverless functions. This ensures reliable and scalable hosting for the WXYC Card Catalog, Revised.
+The application is deployed using github pages. In order to deploy to the gh-pages branch, run `npm run deploy`. If you wish to add a commit message to the branch, use `npm run deploy -- -m "YOUR_MESSAGE_HERE"`.
 
 ## API Integration
 The revised catalog leverages services defined in `api-service.js`, which utilizes the popular Axios library to communicate with an AWS API Gateway. This integration allows seamless communication between the front-end application and the API endpoints, enabling data retrieval and manipulation.
