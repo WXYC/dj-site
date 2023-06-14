@@ -1,7 +1,7 @@
 {
   "name": "dj-site",
   "version": "0.1.0",
-  "homepage": "https://WXYC.github.io/dj-site",
+  "homepage": "https://dj.wxyc.org/",
   "private": true,
   "dependencies": {
     "@emotion/react": "^11.11.0",

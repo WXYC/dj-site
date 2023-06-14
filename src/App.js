@@ -2,7 +2,7 @@ import React, { useState, createContext, useContext, useEffect } from 'react';
 import { CssBaseline, CssVarsProvider, GlobalStyles } from '@mui/joy';
 import wxycTheme from './theme';
 
-import { BrowserRouter, Route, Routes, Navigate, HashRouter } from 'react-router-dom';
+import { BrowserRouter, Route, Routes, Navigate, HashRouter, useNavigate } from 'react-router-dom';
 import { Toaster, toast } from 'sonner';
 import LoginPage from './pages/login/LoginPage';
 import Dashboard from './pages/dashboard/DashboardPage';
@@ -20,6 +20,8 @@ import FlowsheetPage from './pages/flowsheet/FlowsheetPage';
 export const RedirectContext = createContext({redirect: '/'});
 
 function App() {
+
+  const navigate = useNavigate();
 
   const { classicView } = useContext(ViewContext);
 
@@ -132,7 +134,7 @@ function App() {
   useEffect(() => {
     if (user) {
       setIsAuthenticated(true);
-      console.log(user);
+      navigate(redirectContext.redirect);
     } else {
       setIsAuthenticated(false);
     }
