@@ -162,7 +162,7 @@ function App() {
               })}
             />
             <Toaster closeButton richColors  />
-            <HashRouter basename='/'>
+            <HashRouter>
               <Routes>
                 {
                   isAuthenticated ? (
