@@ -20,12 +20,12 @@ The revised catalog leverages services defined in `api-service.js`, which utiliz
 ## Technologies Used
 - React: The front-end framework used for building the revised WXYC Card Catalog.
 - MUI Joy UI: A library of pre-built UI components for React that allows fast and beautiful feature development.
-- Vercel: The cloud platform used for deployment and hosting.
+- Github Pages: For hosting the frontend and automating publication.
 - Axios: A JavaScript library used for making HTTP requests to the AWS API Gateway.
 
 ## Installation and Setup
-1. Clone the repository: `git clone https://github.com/your-username/WXYC-Card-Catalog-Revised.git`
-2. Navigate to the project directory: `cd WXYC-Card-Catalog-Revised`
+1. Clone the repository: `git clone https://github.com/WXYC/dj-site.git`
+2. Navigate to the project directory: `cd dj-site`
 3. Install dependencies: `npm install`
 4. Run the application: `npm start`
 5. Access the application locally: Open your web browser and visit `http://localhost:3000`
@@ -35,7 +35,9 @@ Contributions to the WXYC Card Catalog, Revised are welcome! If you would like t
 1. Create a new branch: `git checkout -b my-feature-branch`
 2. Make your changes and commit them: `git commit -m "Add some feature"`
 3. Push to the branch: `git push origin my-feature-branch`
-4. Submit a pull request detailing your changes.
+4. Deploy to the site (rarely): `npm run deploy`
+5. Submit a pull request detailing your changes.
+6. If you did not complete step 4 after your pull request was approved, notify a site admin to do so.
 
 ## License
 The WXYC Card Catalog, Revised is released under the [MIT License](LICENSE). Feel free to use, modify, and distribute the code as per the terms of this license.
