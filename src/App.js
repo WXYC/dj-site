@@ -14,8 +14,8 @@ import CatalogPage from './pages/catalog/CatalogPage';
 import CLASSIC_Flowsheet from './CLASSIC_VIEW/CLASSIC_Flowsheet';
 import StationManagementPage from './pages/station-management/StationManagementPage';
 
-import { Auth } from 'aws-amplify';
 import FlowsheetPage from './pages/flowsheet/FlowsheetPage';
+import { checkAuth, login, logout, updatePassword } from './services/authentication/utils';
 
 export const RedirectContext = createContext({redirect: '/'});
 
@@ -30,101 +30,62 @@ function App() {
   const [resetPasswordRequired, setResetPasswordRequired] = useState(false);
   const [isAdmin, setIsAdmin] = useState(true);
 
-  const [user, setUser] = useState({});
+  const [userObject, setUserObject] = useState({});
 
-  const quietErrors = ['The user is not authenticated'];
-  const handleError = (error) => {
-    if (!quietErrors.includes(error.toString())) {
-      toast.error(error.toString());
-    }
-  }
 
   useEffect(() => {
-    async function checkAuth() {
-      try {
-        const user = await Auth.currentAuthenticatedUser();
-
-        if (user == null || user == {} || user == undefined) {
-          setIsAuthenticated(false);
-          setIsAdmin(false);
-          return;
-        }
-
-        setUser(user);
-        if (user.challengeName === 'NEW_PASSWORD_REQUIRED') {
-          setResetPasswordRequired(true);
-        } else {
-          setIsAuthenticated(true);
-          //setIsAdmin(user.signInUserSession.idToken.payload['cognito:groups'].includes('Admin'));
-        }
-      } catch (error) {
-        handleError(error);
-      }
-    }
-    checkAuth();
+    (async () => {
+      const authResult = await checkAuth();
+      setAuthResult(authResult);
+    })();
   }, []);
 
-  async function login(event) {
+  useEffect(() => {
+    console.log(userObject);
+  }, [userObject]);
+
+  const handleLogin = async (event) => {
     event.preventDefault();
     setAuthenticating(true);
-    const username = event.target.username.value;
-    const password = event.target.password.value;
-
     try {
-      const user = await Auth.signIn(username, password);
-      setUser(user);
-      if (user.challengeName === 'NEW_PASSWORD_REQUIRED') {
-        setResetPasswordRequired(true);
-      } else {
-        setIsAuthenticated(true);
-        //setIsAdmin(user.signInUserSession.idToken.payload['cognito:groups'].includes('Admin'));
-      }
-    }
-    catch (error) {
-      handleError(error);
-    } finally {
-      setAuthenticating(false);
-    }
-
-  }
-
-  async function logout() {
-    try {
-      await Auth.signOut();
-      setIsAuthenticated(false);
-      setIsAdmin(false);
-      setAuthenticating(false);
-    }
-    catch (error) {
-      handleError(error);
-    }
-  }
-
-  async function handlePasswordUpdate(event) {
-    event.preventDefault();
-    try {
-      const user = await Auth.completeNewPassword(
-        user,
-        event.target.password.value,
-        {
-          name: event.target.realName.value,
-        }
-      );
-      await Auth.updateUserAttributes(
-        user,
-        {
-          'custom:djName' : event.target.djName.value,
-        }
-      );
-      setUser(user);
-      setIsAuthenticated(true);
+      const authResult = await login(event);
+      setAuthResult(authResult);
     } catch (error) {
       toast.error(error.toString());
     } finally {
       setAuthenticating(false);
-      setResetPasswordRequired(false);
     }
   }
+
+  const handleLogout = async () => {
+    try {
+      const authResult = await logout();
+      setAuthResult(authResult);
+    } catch (error) {
+      toast.error(error.toString());
+    }
+  }
+
+  const handlePasswordUpdate = async (event) => {
+    event.preventDefault();
+    setAuthenticating(true);
+    try {
+      const authResult = await updatePassword(event, userObject);
+      setAuthResult(authResult);
+    } catch (error) {
+      toast.error(error.toString());
+    } finally {
+      setAuthenticating(false);
+    }
+  }
+
+  const setAuthResult = (authResult) => {
+    setUserObject(authResult.user);
+    setResetPasswordRequired(authResult.resetPasswordRequired);
+    setIsAuthenticated(authResult.isAuthenticated);
+    setIsAdmin(authResult.isAdmin);
+  }
+
 
   if (!classicView) {
     return (
@@ -157,9 +118,9 @@ function App() {
                     <>
                     <Route path="/*" element={
                       <Dashboard
-                        djName = {user.username ?? 'no username'}
+                        djName = {userObject?.username ?? 'no username'}
                         isAdmin = {isAdmin}
-                        logout={logout}
+                        logout={handleLogout}
                         altViewAvailable = {(typeof classicView !== 'undefined')}
                       >
                         <Routes>
@@ -190,7 +151,7 @@ function App() {
                     <Route path="/login" element={
                       <LoginPage
                         authenticating={authenticating}
-                        login={login}
+                        login={handleLogin}
                         resetPasswordRequired={resetPasswordRequired}
                         handlePasswordUpdate={handlePasswordUpdate}
                         altViewAvailable = {(typeof classicView !== 'undefined')}
