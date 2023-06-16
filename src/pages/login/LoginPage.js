@@ -307,7 +307,7 @@ const [randomIndexForHoldOnQuote, setRIHOQ] = useState(Math.floor(Math.random() 
             >
               <FormControl required>
                 <FormLabel>Username</FormLabel>
-                <Input placeholder="Enter your username" type="text" name="user" 
+                <Input placeholder="Enter your username" type="text" name="username" 
                   disabled={authenticating}
                 />
               </FormControl>

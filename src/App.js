@@ -21,8 +21,6 @@ export const RedirectContext = createContext({redirect: '/'});
 
 function App() {
 
-  const navigate = useNavigate();
-
   const { classicView } = useContext(ViewContext);
 
   const [ authenticating, setAuthenticating ] = useState(false);
@@ -32,113 +30,101 @@ function App() {
   const [resetPasswordRequired, setResetPasswordRequired] = useState(false);
   const [isAdmin, setIsAdmin] = useState(true);
 
-  const [user, setUser] = useState(null);
-  const [userObject, setUserObject] = useState(null);
+  const [user, setUser] = useState({});
 
-  const login = async(event) => {
-    event.preventDefault();
-    setAuthenticating(true);
-    try { 
-      let attemptResult = await Auth.signIn(
-        event.target.user.value,
-        event.target.password.value
-      );
-      setUserObject(attemptResult);
-      console.log(attemptResult);
+  const quietErrors = ['The user is not authenticated'];
+  const handleError = (error) => {
+    if (!quietErrors.includes(error.toString())) {
+      toast.error(error.toString());
+    }
+  }
+
+  useEffect(() => {
+    async function checkAuth() {
       try {
-        let user = await Auth.currentAuthenticatedUser();
-        if (user) {
-          setIsAuthenticated(true);
-          toast.success('Logged in successfully!');
-        } else {
-          setAuthenticating(false);
+        const user = await Auth.currentAuthenticatedUser();
+
+        if (user == null || user == {} || user == undefined) {
+          setIsAuthenticated(false);
+          setIsAdmin(false);
+          return;
+        }
+
+        setUser(user);
+        if (user.challengeName === 'NEW_PASSWORD_REQUIRED') {
           setResetPasswordRequired(true);
+        } else {
+          setIsAuthenticated(true);
+          //setIsAdmin(user.signInUserSession.idToken.payload['cognito:groups'].includes('Admin'));
         }
       } catch (error) {
-        if (error === 'The user is not authenticated') {
-          setAuthenticating(false);
-          setResetPasswordRequired(true);
-        } else {
-          toast.error(error);
-        }
+        handleError(error);
       }
-    } catch (error) {
-      toast.error(error.message);
-    } finally {
-      setAuthenticating(false);
     }
-  }
+    checkAuth();
+  }, []);
 
-  const logout = async(event) => {
+  async function login(event) {
     event.preventDefault();
-    
-    try {
-      await Auth.signOut();
-      //toast.success('Logged out successfully!');
-      setIsAuthenticated(false);
-    } catch (error) {
-      toast.error(error.message);
-    } finally {
-      setResetPasswordRequired(false);
-    }
-  }
-
-  const handlePasswordUpdate = async(event) => {
-    event.preventDefault();
-
     setAuthenticating(true);
+    const username = event.target.username.value;
+    const password = event.target.password.value;
 
-    let my_password = event.target.password.value.toString();
-    
     try {
-      await Auth.completeNewPassword(
-          userObject,
-          my_password,
-          {
-            name: event.target.user.value,
-          }
-      );
-      let user = await Auth.currentAuthenticatedUser();
+      const user = await Auth.signIn(username, password);
       setUser(user);
-      if (user) {
+      if (user.challengeName === 'NEW_PASSWORD_REQUIRED') {
+        setResetPasswordRequired(true);
+      } else {
         setIsAuthenticated(true);
-        toast.success(`Welcome, ${user.attributes.name}!`);
-        try {
-          await Auth.updateUserAttributes(user, {
-            'custom:dj-name': event.target.djName.value,
-          });
-        } catch (error) {
-          toast.error(error.message);
-        }
+        //setIsAdmin(user.signInUserSession.idToken.payload['cognito:groups'].includes('Admin'));
       }
     }
     catch (error) {
-      toast.error(error.message);
+      handleError(error);
+    } finally {
+      setAuthenticating(false);
+    }
+
+  }
+
+  async function logout() {
+    try {
+      await Auth.signOut();
+      setIsAuthenticated(false);
+      setIsAdmin(false);
+      setAuthenticating(false);
+    }
+    catch (error) {
+      handleError(error);
+    }
+  }
+
+  async function handlePasswordUpdate(event) {
+    event.preventDefault();
+    try {
+      const user = await Auth.completeNewPassword(
+        user,
+        event.target.password.value,
+        {
+          name: event.target.realName.value,
+        }
+      );
+      await Auth.updateUserAttributes(
+        user,
+        {
+          'custom:djName' : event.target.djName.value,
+        }
+      );
+      setUser(user);
+      setIsAuthenticated(true);
+    } catch (error) {
+      toast.error(error.toString());
     } finally {
       setAuthenticating(false);
       setResetPasswordRequired(false);
     }
   }
-
-  useEffect(() => {
-    (async () => {
-      try {
-        let user = await Auth.currentAuthenticatedUser();
-        setUser(user);
-      } catch (error) {
-        console.log(error);
-      }
-    })();
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    if (user) {
-      setIsAuthenticated(true);
-      navigate(redirectContext.redirect);
-    } else {
-      setIsAuthenticated(false);
-    }
-  }, [user]);
 
   if (!classicView) {
     return (
@@ -164,7 +150,7 @@ function App() {
               })}
             />
             <Toaster closeButton richColors  />
-            <HashRouter>
+            <HashRouter basename='/'>
               <Routes>
                 {
                   isAuthenticated ? (
@@ -200,7 +186,7 @@ function App() {
                     </>
                   ) : (
                     <>
-                    <Route path="/*" element={<Navigate to={`/login?continue=${window.location.hash}`} />} />
+                    <Route path="/*" element={<Navigate to={(window.location.hash.length > 0) ? `/login?continue=${window.location.hash}` : '/login'} />} />
                     <Route path="/login" element={
                       <LoginPage
                         authenticating={authenticating}
