@@ -12,6 +12,7 @@
     "@testing-library/jest-dom": "^5.16.5",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^14.4.3",
+    "amazon-cognito-identity-js": "^6.2.0",
     "aws-amplify": "^5.2.5",
     "aws-sdk": "^2.1398.0",
     "axios": "^1.4.0",

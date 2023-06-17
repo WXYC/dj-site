@@ -70,6 +70,8 @@ const eventTypes = {
 
 const StationSchedule = () => {
 
+    const boolToDifferentiateClickFromDrag = useRef(false);
+
     const [daySelected, setDaySelected] = useState('');
     const [startHourSelected, setStartHourSelected] = useState(0);
     const [startMinuteSelected, setStartMinuteSelected] = useState(0);
@@ -88,28 +90,38 @@ const StationSchedule = () => {
     const [hourHeight, setHourHeight] = useState(-1);
 
     const handleHourDown = (e, day, hour) => {
-        setFormOpen(false);
-        setDragging(true);
-        setDaySelected(day);
-        setStartHourSelected(hour);
-        
-        // round to the nearest division of 4 in the target bounding rect
-        let rect = e.target.getBoundingClientRect();
-        let pixelHeight = rect.height;
-        setHourHeight(pixelHeight);
-        let minuteHeight = pixelHeight / 60; // Assuming 60 minutes per hour
-        let y = e.clientY - rect.top;
-        let roundedMinutes = Math.round(y / minuteHeight / 15) * 15;
-        let roundedValue = Math.round(roundedMinutes / 60 * pixelHeight);
+        boolToDifferentiateClickFromDrag.current = true;
+        let mousePositionAtClick = mousePosition.y;
+        setDaySelected('');
+        setStartHourSelected(0);
 
-        setStartMinuteSelected(roundedMinutes);
+        setTimeout(() => {
+            if (boolToDifferentiateClickFromDrag.current) {
+                setFormOpen(false);
+                setDragging(true);
+                setDaySelected(day);
+                setStartHourSelected(hour);
+                
+                // round to the nearest division of 4 in the target bounding rect
+                let rect = e.target.getBoundingClientRect();
+                let pixelHeight = rect.height;
+                setHourHeight(pixelHeight);
+                let minuteHeight = pixelHeight / 60; // Assuming 60 minutes per hour
+                let y = e.clientY - rect.top;
+                let roundedMinutes = Math.round(y / minuteHeight / 15) * 15;
+                let roundedValue = Math.round(roundedMinutes / 60 * pixelHeight);
 
-        setYDiff(roundedValue);
-        setMouseLock(mousePosition.y);
-        setYToMouse(yDiff);
+                setStartMinuteSelected(roundedMinutes);
+
+                setYDiff(roundedValue);
+                setMouseLock(mousePositionAtClick);
+                setYToMouse(yDiff);
+            }
+        }, 100);
     }
 
     const handleHourUp = (e) => {
+        boolToDifferentiateClickFromDrag.current = false;
         setDragging(false);
         setFormOpen(true);
     }
@@ -246,9 +258,15 @@ const StationSchedule = () => {
                                                 <Typography level="body2">Pick DJs</Typography>
                                                 
                                             </FormControl>
+                                            <FormControl required>
+                                                <Autocomplete>
+
+                                                </Autocomplete>
+                                            </FormControl>
                                         </form>
                                     </TabPanel> 
-                                    <TabList                                    
+                                    <TabList   
+                                    variant='soft'                                 
                                         sx = {{
                                             mt: 2,
                                         }}
@@ -269,7 +287,7 @@ const StationSchedule = () => {
                     >
                     <Sheet 
                         id = "preview" 
-                        variant = 'solid'
+                        variant = 'outlined'
                         color={eventColors[eventType]}
                         style = {{
                             position: 'absolute',
@@ -279,7 +297,7 @@ const StationSchedule = () => {
                             right: 0,
                             bottom: yToMouse,
                             borderRadius: '0.5rem',
-                            transition: 'bottom 0.1s ease-in-out'
+                            transition: 'bottom 0.05s ease-in-out'
                         }}
                     >
                         <Typography
