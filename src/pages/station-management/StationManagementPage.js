@@ -5,6 +5,7 @@ import DJRoster from "../../components/station-management/DJRoster";
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { toast } from "sonner";
 import { Auth } from "aws-amplify";
+import StationSchedule from "../../components/station-management/StationSchedule";
 
 const StationManagementPage = ({style}) => {
 
@@ -52,6 +53,9 @@ const StationManagementPage = ({style}) => {
                 border: `1px solid ${theme.palette.divider}`,
                 width: '100%',
                 flex: 1,
+
+                
+                position: 'relative',
             })}
         >
         <TabList
@@ -62,7 +66,6 @@ const StationManagementPage = ({style}) => {
             fontWeight: 'md',
             flex: 1,
             bgcolor: 'background.body',
-            position: 'relative',
             [`&.${tabClasses.selected}`]: {
               color: `${style ?? 'success'}.500`,
             },
@@ -87,6 +90,13 @@ const StationManagementPage = ({style}) => {
       </TabList>
       <TabPanel value={0}>
         <DJRoster />
+        </TabPanel>
+        <TabPanel value={1}
+        sx = {{
+          flex: '0 1 auto',
+        }}
+        >
+        <StationSchedule />
         </TabPanel>
         </Tabs>
         </>

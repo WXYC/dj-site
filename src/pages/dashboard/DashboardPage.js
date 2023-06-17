@@ -1,5 +1,5 @@
 import Box from '@mui/joy/Box';
-import React, { useEffect } from 'react';
+import React, { useEffect, useContext } from 'react';
 import FirstSidebar from '../../components/dashboard/FirstSidebar';
 import Header from '../../components/dashboard/Header';
 import { BinProvider } from '../../components/dashboard/bin/Bin';
@@ -7,8 +7,17 @@ import { ColorSchemeToggle } from '../../components/theme/colorSchemeToggle';
 import SecondSidebar from '../../components/dashboard/SecondSidebar';
 import { ViewStyleToggle } from '../../components/theme/viewStyleToggle';
 import { SongCardProvider } from '../../components/catalog/SongCardContext';
+import { RedirectContext } from '../../App';
+import { useLocation } from 'react-router-dom';
 
 const Dashboard = (props) => {
+
+  const redirectContext = useContext(RedirectContext);
+  const location = useLocation();
+
+  useEffect(() => {
+    redirectContext.redirect = location.pathname;
+  }, []);
 
   return (
     <React.Fragment>

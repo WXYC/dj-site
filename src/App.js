@@ -16,6 +16,7 @@ import StationManagementPage from './pages/station-management/StationManagementP
 
 import FlowsheetPage from './pages/flowsheet/FlowsheetPage';
 import { checkAuth, login, logout, updatePassword } from './services/authentication/utils';
+import { PopupProvider } from './pages/dashboard/Popup';
 
 export const RedirectContext = createContext({redirect: '/'});
 
@@ -123,6 +124,7 @@ function App() {
                         logout={handleLogout}
                         altViewAvailable = {(typeof classicView !== 'undefined')}
                       >
+                        <PopupProvider>
                         <Routes>
                           <Route path="/catalog" element={
                             <CatalogPage />
@@ -142,6 +144,7 @@ function App() {
                           <Route path="/login" element={<Navigate to={redirectContext.redirect}/>} />
                           <Route path="/*" element={<Navigate to="/catalog" />} />
                         </Routes>
+                        </PopupProvider>
                       </Dashboard>
                     } />
                     </>
