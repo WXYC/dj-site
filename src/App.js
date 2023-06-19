@@ -20,6 +20,7 @@ import { login, checkAuth, logout, updatePassword } from './services/authenticat
 import SettingsPage from './pages/settings/SettingsPage';
 import CallingCard from './widgets/calling-card/CallingCard';
 import NowPlaying from './widgets/now-playing/NowPlaying';
+import { PublicDJPage } from './pages/dj/PublicDJPage';
 
 export const RedirectContext = createContext({redirect: '/'});
 
@@ -36,10 +37,6 @@ function App() {
 
   const [userObject, setUserObject] = useState({});
 
-
-  useEffect(() => {
-    forceUpdate();
-  }, []);
 
   const forceUpdate = async () => {
     const authResult = await checkAuth();
@@ -126,6 +123,13 @@ function App() {
               <Routes>
                 <Route path="/CallingCard" element={<CallingCard />} />
                 <Route path="/NowPlaying" element={<NowPlaying />} />
+                <Route path="/DJ">
+                  <Route exact path="" element={<Navigate to="/login" />} />
+                  <Route path=":djName">
+                    <Route path=""  element={<PublicDJPage />} />
+                    <Route path="shows" element={<div>Shows</div>} />
+                  </Route>
+                </Route>
                 {
                   isAuthenticated ? (
                     <>
@@ -137,6 +141,7 @@ function App() {
                         isAdmin = {isAdmin}
                         logout={handleLogout}
                         altViewAvailable = {(typeof classicView !== 'undefined')}
+                        forceUpdate = {forceUpdate}
                       >
                         <PopupProvider>
                         <Routes>
@@ -162,6 +167,8 @@ function App() {
                               name = {getUserAttribute('name', 'No name!')}
                               forceUpdate = {forceUpdate}
                               showRealName={getUserAttribute('custom:show-real-name', 'error!') === '1' ? true : false}
+                              funFact={getUserAttribute('custom:fun-fact', '')}
+                              funFactType={getUserAttribute('custom:fun-fact-type', 'Favorite Artist')}
                             />
                           } />
                           <Route path="/login" element={<Navigate to={redirectContext.redirect}/>} />

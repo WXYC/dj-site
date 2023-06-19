@@ -10,10 +10,13 @@ import { Chip, Stack } from '@mui/joy';
 import { updateUserAttributes } from "../../services/settings/settingsFunctions";
 
 const CallingCard = ({
+    editor = false,
     variant,
     djName,
     name,
-    showRealName
+    showRealName,
+    funFact,
+    funFactType
 }) => {
 
     const [live, setLive] = React.useState(true); // TODO: replace with real data
@@ -22,12 +25,12 @@ const CallingCard = ({
     <Box
         component="div"
         sx={{
-          width: '100%',
-          height: '100%',
+          minWidth: editor ? 'unset' : '400px',
           position: 'relative',
         }}
     >
         <Card
+          variant={variant ?? 'outlined'}
           orientation="horizontal"
           sx={{
             width: '100%',
@@ -81,7 +84,7 @@ const CallingCard = ({
                 my: 1.5,
                 display: 'flex',
                 gap: 0.5,
-                justifyContent: 'space-between',
+                justifyContent: 'space-around',
                 textAlign: 'center',
               }}
             >
@@ -91,12 +94,14 @@ const CallingCard = ({
                   Shows
                 </Typography>
               </div>
+              {(funFact && funFactType) && (
               <div>
-                <Typography fontWeight="lg">Weyes Blood</Typography>
+                <Typography fontWeight="lg" sx={{ whiteSpace: 'nowrap' }}>{funFact}</Typography>
                 <Typography level="body3" fontWeight="lg">
-                  Favorite Artist
+                  {funFactType}
                 </Typography>
               </div>
+              )}
               <div>
                 <Typography fontWeight="lg">0</Typography>
                 <Typography level="body3" fontWeight="lg">

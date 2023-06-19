@@ -17,6 +17,7 @@ const Dashboard = (props) => {
 
   useEffect(() => {
     redirectContext.redirect = location.pathname;
+    props.forceUpdate();
   }, []);
 
   return (

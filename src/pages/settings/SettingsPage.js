@@ -1,5 +1,5 @@
 import React, {useState} from "react";
-import { Alert, Box, Button, CircularProgress, FormControl, FormHelperText, FormLabel, IconButton, Input, Sheet, Stack, Switch, Typography } from "@mui/joy";
+import { Alert, Box, Button, CircularProgress, FormControl, FormHelperText, FormLabel, IconButton, Input, Option, Select, Sheet, Stack, Switch, Typography } from "@mui/joy";
 import { updateUserAttributes } from "../../services/settings/settingsFunctions";
 import { toast } from "sonner";
 import CallingCard from "../../widgets/calling-card/CallingCard";
@@ -11,7 +11,19 @@ const SettingsPage = ({
     username,
     name,
     showRealName,
+    funFact,
+    funFactType,
 }) => {
+
+    const funFactTypeValues = [
+        'Favorite Artist',
+        'Favorite Song',
+        'Favorite Album',
+        'Favorite Genre',
+        'Favorite Concert',
+        'Favorite Music Video',
+        'Favorite Music Era',
+    ];
 
     const [nameValue, setNameValue] = useState(name);
     const [nameLoading, setNameLoading] = useState(false);
@@ -74,6 +86,28 @@ const SettingsPage = ({
         });
     }
 
+    const [funFactValue, setFunFactValue] = useState(funFact);
+    const [funFactTypeValue, setFunFactTypeValue] = useState(funFactType);
+    const [funFactLoading, setFunFactLoading] = useState(false);
+
+    const handleFunFactSubmit = async (event) => {
+        event.preventDefault();
+        setFunFactLoading(true);
+
+        await updateUserAttributes({
+            'custom:fun-fact-type': event.target.funFactType.value,
+            'custom:fun-fact': event.target.funFact.value,
+        }).then(() => {
+            forceUpdate();
+        }).catch((error) => {
+            toast.error(error.toString());
+        }).finally(() => {
+            setTimeout(() => {
+                setFunFactLoading(false);
+            }, 1000); // a little delay to prevent flashing
+        });
+    }
+
     return (
         <>
           <Box
@@ -97,7 +131,10 @@ const SettingsPage = ({
         <Stack
             direction={{ xs: 'column', lg: 'row' }}
         >
-            <Box>
+            <Stack
+                direction="column"
+                spacing={1}
+            >
             <form
                 onSubmit={handlePasswordSubmit}
             >
@@ -202,7 +239,77 @@ const SettingsPage = ({
                     />
                 </FormControl>
             </form>
-            </Box>
+            <form
+                onSubmit={handleFunFactSubmit}
+                
+                style = {{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    gap: '0.5rem'
+                }}
+            >
+                <FormControl
+                    sx = {{
+                        flex: 0.3,
+                    }}
+                >
+                    <FormLabel>
+                        Fact Type
+                    </FormLabel>
+                    <Select
+                        name="funFactType"
+                        defaultValue={funFactTypeValue}
+                        disabled={funFactLoading}
+                        color={funFactTypeValue === funFactType ? "warning" : "danger"}
+                        onChange={(event) => {
+                            setFunFactTypeValue(event.target.value);
+                        }}
+                    >
+                        {funFactTypeValues.map((funFactTypeOption) => (
+                            <Option
+                                value={funFactTypeOption}
+                            >
+                                {funFactTypeOption}
+                            </Option>
+                        ))}
+                    </Select>
+                </FormControl>
+                <FormControl
+                    sx = {{
+                        flex: 1,
+                    }}
+                >
+                    <FormLabel>
+                        Fun Fact
+                    </FormLabel>
+                    <Input
+                        name="funFact"
+                        placeholder={funFactValue}
+                        value={funFactValue}
+                        disabled={funFactLoading}
+                        autoComplete="off"
+                        endDecorator = {
+                            funFactLoading ? (
+                                <CircularProgress size="sm" />
+                            ) : funFactValue === funFact && funFactTypeValue === funFactType ? null : (
+                                <Button
+                                    type="submit"
+                                    color="warning"
+                                >
+                                    Save
+                                </Button>
+                            )
+                        }
+                        onChange={(event) => {
+                            setFunFactValue(event.target.value);
+                        }}
+                        color = {
+                            funFactValue === funFact && funFactTypeValue === funFactType ? "warning" : "danger"
+                        }
+                    />
+                </FormControl>
+            </form>
+            </Stack>
             <Sheet
                 variant="outlined"
                 sx = {{
@@ -225,14 +332,21 @@ const SettingsPage = ({
                         right: 4,
                         zIndex: 1,
                     }}
+                    onClick={() => {
+                        navigator.clipboard.writeText(`http://localhost:3000/#/DJ/${djNameValue}`);
+                        toast.success('Copied link to clipboard');
+                    }}
                 >
                     <CopyAllIcon />
                 </IconButton>
                 <CallingCard 
-                    variant="solid"
+                    editor
+                    variant="plain"
                     name = {nameValue}
                     djName = {djNameValue}
                     showRealName={showRealName}
+                    funFact={funFactValue}
+                    funFactType={funFactTypeValue}
                 />
                 <Box
                     sx = {{
