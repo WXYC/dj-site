@@ -15,8 +15,9 @@ import CLASSIC_Flowsheet from './CLASSIC_VIEW/CLASSIC_Flowsheet';
 import StationManagementPage from './pages/station-management/StationManagementPage';
 
 import FlowsheetPage from './pages/flowsheet/FlowsheetPage';
-import { checkAuth, login, logout, updatePassword } from './services/authentication/utils';
 import { PopupProvider } from './pages/dashboard/Popup';
+import { login, checkAuth, logout, updatePassword } from './services/authentication/authenticationFunctions';
+import SettingsPage from './pages/settings/SettingsPage';
 
 export const RedirectContext = createContext({redirect: '/'});
 
@@ -35,11 +36,13 @@ function App() {
 
 
   useEffect(() => {
-    (async () => {
-      const authResult = await checkAuth();
-      setAuthResult(authResult);
-    })();
+    forceUpdate();
   }, []);
+
+  const forceUpdate = async () => {
+    const authResult = await checkAuth();
+    setAuthResult(authResult);
+  }
 
   useEffect(() => {
     console.log(userObject);
@@ -81,7 +84,8 @@ function App() {
   }
 
   const setAuthResult = (authResult) => {
-    setUserObject(authResult.user);
+    console.log(authResult);
+    setUserObject(authResult.userObject);
     setResetPasswordRequired(authResult.resetPasswordRequired);
     setIsAuthenticated(authResult.isAuthenticated);
     setIsAdmin(authResult.isAdmin);
@@ -140,6 +144,14 @@ function App() {
                             ) : (
                               <Navigate to={redirectContext.redirect} />
                             )
+                          } />
+                          <Route path="/settings" element = {
+                            <SettingsPage
+                              username = {userObject?.Username}
+                              djName = {userObject?.UserAttributes?.find((attr) => attr.Name === 'custom:dj-name')?.Value ?? 'You have no DJ name!'}
+                              name = {userObject?.UserAttributes?.find((attr) => attr.Name === 'name')?.Value ?? 'You have no name!'}
+                              forceUpdate = {forceUpdate}
+                            />
                           } />
                           <Route path="/login" element={<Navigate to={redirectContext.redirect}/>} />
                           <Route path="/*" element={<Navigate to="/catalog" />} />

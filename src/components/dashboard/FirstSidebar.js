@@ -30,8 +30,10 @@ export default function FirstSidebar({ djName, logout, isAdmin }) {
   const [style, setStyle] = React.useState("primary");
 
   useEffect(() => {
-    if (location.pathname === '/admin' || location.pathname === '/settings') {
+    if (location.pathname === '/admin') {
       setStyle("success");
+    } else if (location.pathname === '/settings') {
+      setStyle("warning");
     } else {
       setStyle("primary");
     }

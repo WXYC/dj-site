@@ -24,16 +24,14 @@ import ManageHistoryIcon from "@mui/icons-material/ManageHistory";
 import SyncLockIcon from "@mui/icons-material/SyncLock";
 import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 import { PopupContentContext } from "../../pages/dashboard/Popup";
-import { /* adminCreateUser, */ listUsers } from "./adminRosterFunctions";
+import { listUsers } from "../../services/station-management/adminRosterFunctions";
 
 const DJRoster = ({ style }) => {
 
   const { openPopup, closePopup } = useContext(PopupContentContext);
 
   useEffect(() => {
-    listUsers().then((data) => {
-      console.log(data);
-    });
+    listUsers();
   }, []);
 
   const DJEntry = ({ name, username, djname, shows, isAdmin }) => {
