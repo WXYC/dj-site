@@ -1,13 +1,16 @@
 import React, {useState} from "react";
-import { Alert, Box, Button, CircularProgress, FormControl, FormHelperText, FormLabel, Input, Stack, Typography } from "@mui/joy";
+import { Alert, Box, Button, CircularProgress, FormControl, FormHelperText, FormLabel, IconButton, Input, Sheet, Stack, Switch, Typography } from "@mui/joy";
 import { updateUserAttributes } from "../../services/settings/settingsFunctions";
 import { toast } from "sonner";
+import CallingCard from "../../widgets/calling-card/CallingCard";
+import CopyAllIcon from '@mui/icons-material/CopyAll';
 
 const SettingsPage = ({
     forceUpdate,
     djName,
     username,
     name,
+    showRealName,
 }) => {
 
     const [nameValue, setNameValue] = useState(name);
@@ -61,6 +64,16 @@ const SettingsPage = ({
         });
     }
 
+    const handleShowRealNameChange = async (event) => {
+        await updateUserAttributes({
+            'custom:show-real-name': event.target.checked ? '1' : '0',
+        }).then(() => {
+            forceUpdate();
+        }).catch((error) => {
+            toast.error(error.toString());
+        });
+    }
+
     return (
         <>
           <Box
@@ -81,112 +94,174 @@ const SettingsPage = ({
             </Typography>
             <Box sx = {{ flex: 999 }}></Box>
         </Box>
-        <iframe src={`../#/CallingCard?dj=Turncoat`} style={{border: '0px', width: '320px', height: '400px', overflow: 'hidden' }} />
-        <iframe src={`../#/NowPlaying`} style={{border: '0px', width: '320px', height: '400px', overflow: 'hidden' }} />
-        <form
-            onSubmit={handlePasswordSubmit}
+        <Stack
+            direction={{ xs: 'column', lg: 'row' }}
         >
-            <Stack
-                direction="row"
-                spacing={2}
+            <Box>
+            <form
+                onSubmit={handlePasswordSubmit}
+            >
+                <Stack
+                    direction="row"
+                    spacing={2}
+                >
+                    <FormControl>
+                        <FormLabel>
+                            Username
+                        </FormLabel>
+                        <Input
+                            name="username"
+                            placeholder={username}
+                            disabled={true}
+                            color="warning"
+                        />
+                    </FormControl>
+                    <FormControl
+                        sx = {{
+                            flex: 1,
+                        }}
+                    >
+                        <FormLabel>
+                            Change Password
+                        </FormLabel>
+                        <Input
+                            name="newPassword"
+                            type="password"
+                            placeholder={'•••••••'}
+                            color="warning"
+                            disabled
+                        />
+                    </FormControl>
+                </Stack>
+            </form>
+            <form
+                onSubmit={handleDJNameSubmit}
             >
                 <FormControl>
                     <FormLabel>
-                        Username
+                        DJ Name
                     </FormLabel>
                     <Input
-                        name="username"
-                        placeholder={username}
-                        disabled={true}
-                        color="warning"
+                        name="djName"
+                        placeholder={djName}
+                        value={djNameValue}
+                        disabled={djNameLoading}
+                        autoComplete="off"
+                        endDecorator = {
+                            djNameLoading ? (
+                                <CircularProgress size="sm" />
+                            ) : djNameValue === djName ? null : (
+                                <Button 
+                                    type="submit"
+                                    color="warning"
+                                >
+                                    Save
+                                </Button>
+                            )
+                        }
+                        onChange={(event) => {
+                            setDJNameValue(event.target.value);
+                        }}
+                        color = {
+                            djNameValue === djName ? "warning" : "danger"
+                        }
                     />
                 </FormControl>
-                <FormControl
+            </form>
+            <form
+                onSubmit={handleNameSubmit}
+            >
+                <FormControl>
+                    <FormLabel>
+                        Name
+                    </FormLabel>
+                    <Input
+                        name="name"
+                        placeholder={nameValue}
+                        value={nameValue}
+                        disabled={nameLoading}
+                        autoComplete="off"
+                        endDecorator = {
+                            nameLoading ? (
+                                <CircularProgress size="sm" />
+                            ) : nameValue === name ? null : (
+                                <Button
+                                    type="submit"
+                                    color="warning"
+                                >
+                                    Save
+                                </Button>
+                            )
+                        }
+                        onChange={(event) => {
+                            setNameValue(event.target.value);
+                        }}
+                        color = {
+                            nameValue === name ? "warning" : "danger"
+                        }
+                    />
+                </FormControl>
+            </form>
+            </Box>
+            <Sheet
+                variant="outlined"
+                sx = {{
+                    flex: 1,
+                    borderRadius: 'lg',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    p: 2,
+                    ml: { xs: 0, lg: 2 },
+                    mt: { xs: 2, lg: 0 },
+                }}
+            >
+                <IconButton
+                    size="sm"
                     sx = {{
-                        flex: 1,
+                        position: 'absolute',
+                        top: 4,
+                        right: 4,
+                        zIndex: 1,
                     }}
                 >
-                    <FormLabel>
-                        Change Password
-                    </FormLabel>
-                    <Input
-                        name="newPassword"
-                        type="password"
-                        placeholder={'•••••••'}
-                        color="warning"
-                        disabled
-                    />
-                </FormControl>
-            </Stack>
-        </form>
-        <form
-            onSubmit={handleDJNameSubmit}
-        >
-            <FormControl>
-                <FormLabel>
-                    DJ Name
-                </FormLabel>
-                <Input
-                    name="djName"
-                    placeholder={djName}
-                    value={djNameValue}
-                    disabled={djNameLoading}
-                    autoComplete="off"
-                    endDecorator = {
-                        djNameLoading ? (
-                            <CircularProgress size="sm" />
-                        ) : djNameValue === djName ? null : (
-                            <Button 
-                                type="submit"
-                                color="warning"
-                            >
-                                Save
-                            </Button>
-                        )
-                    }
-                    onChange={(event) => {
-                        setDJNameValue(event.target.value);
-                    }}
-                    color = {
-                        djNameValue === djName ? "warning" : "danger"
-                    }
+                    <CopyAllIcon />
+                </IconButton>
+                <CallingCard 
+                    variant="solid"
+                    name = {nameValue}
+                    djName = {djNameValue}
+                    showRealName={showRealName}
                 />
-            </FormControl>
-        </form>
-        <form
-            onSubmit={handleNameSubmit}
-        >
-            <FormControl>
-                <FormLabel>
-                    Name
-                </FormLabel>
-                <Input
-                    name="name"
-                    placeholder={nameValue}
-                    value={nameValue}
-                    disabled={nameLoading}
-                    autoComplete="off"
-                    endDecorator = {
-                        nameLoading ? (
-                            <CircularProgress size="sm" />
-                        ) : nameValue === name ? null : (
-                            <Button
-                                type="submit"
-                                color="warning"
-                            >
-                                Save
-                            </Button>
-                        )
-                    }
-                    onChange={(event) => {
-                        setNameValue(event.target.value);
+                <Box
+                    sx = {{
+                        mt: 2,
+                        width: '100%',
+                        display: 'flex',
+                        justifyContent: 'flex-end',
                     }}
-                    color = {
-                        nameValue === name ? "warning" : "danger"
-                    }
-                />
-            </FormControl>
-        </form>
+                >
+                    <Stack direction="row"
+                        sx = {{
+                            alignItems: 'center',
+                        }}
+                    >
+                        <Typography level="body3"
+                            sx = {{
+                                mr: 1,
+                            }}
+                        >
+                            Show Real Name on Calling Card
+                        </Typography>
+                        <Switch
+                            checked={showRealName}
+                            onChange={handleShowRealNameChange}
+                        />
+                    </Stack>
+                </Box>
+            </Sheet>
+        </Stack>
         </>
     )
 }

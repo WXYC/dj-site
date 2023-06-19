@@ -93,6 +93,10 @@ function App() {
     setIsAdmin(authResult.isAdmin);
   }
 
+  const getUserAttribute = (attributeName, errorMessage) => {
+    return userObject?.UserAttributes?.find((attr) => attr.Name === attributeName)?.Value ?? errorMessage ?? 'No attribute!';
+  }
+
 
   if (!classicView) {
     return (
@@ -128,8 +132,8 @@ function App() {
                     <Route path="/*" element={
                       <Dashboard
                         username = {userObject?.Username}
-                        name = {userObject?.UserAttributes?.find((attr) => attr.Name === 'name')?.Value ?? 'No name!'}
-                        djName = {userObject?.UserAttributes?.find((attr) => attr.Name === 'custom:dj-name')?.Value ?? 'No DJ name!'}
+                        name = {getUserAttribute('name', 'No name!')}
+                        djName = {getUserAttribute('custom:dj-name', 'No DJ name!')}
                         isAdmin = {isAdmin}
                         logout={handleLogout}
                         altViewAvailable = {(typeof classicView !== 'undefined')}
@@ -154,9 +158,10 @@ function App() {
                           <Route path="/settings" element = {
                             <SettingsPage
                               username = {userObject?.Username}
-                              djName = {userObject?.UserAttributes?.find((attr) => attr.Name === 'custom:dj-name')?.Value ?? 'You have no DJ name!'}
-                              name = {userObject?.UserAttributes?.find((attr) => attr.Name === 'name')?.Value ?? 'You have no name!'}
+                              djName = {getUserAttribute('custom:dj-name', 'No DJ name!')}
+                              name = {getUserAttribute('name', 'No name!')}
                               forceUpdate = {forceUpdate}
+                              showRealName={getUserAttribute('custom:show-real-name', 'error!') === '1' ? true : false}
                             />
                           } />
                           <Route path="/login" element={<Navigate to={redirectContext.redirect}/>} />

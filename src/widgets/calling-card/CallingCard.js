@@ -7,10 +7,16 @@ import CardContent from '@mui/joy/CardContent';
 import Typography from '@mui/joy/Typography';
 import Sheet from '@mui/joy/Sheet';
 import { Chip, Stack } from '@mui/joy';
+import { updateUserAttributes } from "../../services/settings/settingsFunctions";
 
-const CallingCard = () => {
+const CallingCard = ({
+    variant,
+    djName,
+    name,
+    showRealName
+}) => {
 
-    const [live, setLive] = React.useState(false);
+    const [live, setLive] = React.useState(true); // TODO: replace with real data
 
     return (
     <Box
@@ -35,8 +41,10 @@ const CallingCard = () => {
         >
           <CardContent>
             <Stack direction="row" spacing={1}>
+                {(showRealName) && (
+                <>
                 <Typography fontSize="xl" fontWeight="lg">
-                Jackson Meade
+                    {name}
                 </Typography>
                 <Box
                     sx = {{
@@ -52,8 +60,9 @@ const CallingCard = () => {
                     aka
                     </Typography>
                 </Box>
+                  </>)}
                 <Typography fontSize="xl" fontWeight="lg" color="primary">
-                    DJ Turncoat
+                    DJ {djName}
                 </Typography>
             </Stack>
             <Chip
