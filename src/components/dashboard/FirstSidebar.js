@@ -17,11 +17,11 @@ import StreamIcon from '@mui/icons-material/Stream';
 import SettingsIcon from '@mui/icons-material/Settings';
 import Tooltip from '@mui/joy/Tooltip';
 
-import { Badge, IconButton, Typography } from '@mui/joy';
+import { Badge, Chip, IconButton, Stack, Typography } from '@mui/joy';
 import { useLocation, useNavigate } from 'react-router-dom';
 import DisplaySettingsIcon from '@mui/icons-material/DisplaySettings';
 
-export default function FirstSidebar({ djName, logout, isAdmin }) {
+export default function FirstSidebar({ name, username, djName, logout, isAdmin }) {
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -193,14 +193,44 @@ export default function FirstSidebar({ djName, logout, isAdmin }) {
       <Divider />
       <Tooltip
         title={
-          <>
-          <Typography level='body1' color="primary">
-            Logged in as {djName}
-          </Typography>
-          <Typography level='body2' color="secondary">
-            Click to logout
-          </Typography>
-          </>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              maxWidth: 320,
+              justifyContent: 'center',
+              p: 1,
+            }}
+          >
+            <Typography level='body4'>
+              @{username}
+            </Typography>
+            <Stack direction='row' gap={1}>              
+              <Typography level='body1'>
+                {name}
+              </Typography>
+              <Box
+                sx = {{
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+              >
+                <Typography level='body5'
+                  sx = {{
+                    height: '1.5em',
+                  }}
+                >
+                  aka
+                </Typography>
+              </Box>
+              <Typography level='body1'>
+                DJ {djName}
+              </Typography>
+            </Stack>
+            <Typography level='body2' color='primary'>
+              Click to Log Out
+            </Typography>
+          </Box>
         }
         placement='right'
         arrow

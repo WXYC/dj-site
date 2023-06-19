@@ -81,6 +81,8 @@ const SettingsPage = ({
             </Typography>
             <Box sx = {{ flex: 999 }}></Box>
         </Box>
+        <iframe src={`../#/CallingCard?dj=Turncoat`} style={{border: '0px', width: '320px', height: '400px', overflow: 'hidden' }} />
+        <iframe src={`../#/NowPlaying`} style={{border: '0px', width: '320px', height: '400px', overflow: 'hidden' }} />
         <form
             onSubmit={handlePasswordSubmit}
         >
@@ -112,6 +114,7 @@ const SettingsPage = ({
                         type="password"
                         placeholder={'•••••••'}
                         color="warning"
+                        disabled
                     />
                 </FormControl>
             </Stack>

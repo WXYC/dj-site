@@ -17,7 +17,7 @@ import PlayArrowOutlinedIcon from '@mui/icons-material/PlayArrowOutlined';
 import { useContext } from 'react';
 import { BinContext } from './bin/Bin';
 import { closeSidebar } from './utilities';
-import NowPlaying from '../NowPlaying';
+import NowPlaying from '../../widgets/now-playing/NowPlaying';
 
 export default function SecondSidebar() {
 

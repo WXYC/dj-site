@@ -18,6 +18,8 @@ import FlowsheetPage from './pages/flowsheet/FlowsheetPage';
 import { PopupProvider } from './pages/dashboard/Popup';
 import { login, checkAuth, logout, updatePassword } from './services/authentication/authenticationFunctions';
 import SettingsPage from './pages/settings/SettingsPage';
+import CallingCard from './widgets/calling-card/CallingCard';
+import NowPlaying from './widgets/now-playing/NowPlaying';
 
 export const RedirectContext = createContext({redirect: '/'});
 
@@ -118,12 +120,16 @@ function App() {
             <Toaster closeButton richColors  />
             <HashRouter basename='/'>
               <Routes>
+                <Route path="/CallingCard" element={<CallingCard />} />
+                <Route path="/NowPlaying" element={<NowPlaying />} />
                 {
                   isAuthenticated ? (
                     <>
                     <Route path="/*" element={
                       <Dashboard
-                        djName = {userObject?.username ?? 'no username'}
+                        username = {userObject?.Username}
+                        name = {userObject?.UserAttributes?.find((attr) => attr.Name === 'name')?.Value ?? 'No name!'}
+                        djName = {userObject?.UserAttributes?.find((attr) => attr.Name === 'custom:dj-name')?.Value ?? 'No DJ name!'}
                         isAdmin = {isAdmin}
                         logout={handleLogout}
                         altViewAvailable = {(typeof classicView !== 'undefined')}
