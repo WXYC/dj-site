@@ -61,11 +61,11 @@ const NowPlaying = () => {
   };
 
   useEffect(() => {
- /*    try {
+    try {
       setEmbedded(window.self !== window.top);
     } catch (e) {
       setEmbedded(true);
-    } */
+    }
     destroyAndBuildNewCanvas();
     document.addEventListener('resize', destroyAndBuildNewCanvas);
 
