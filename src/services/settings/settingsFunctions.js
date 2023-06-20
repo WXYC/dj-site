@@ -1,10 +1,9 @@
 import { toast } from "sonner";
-import { cognitoISP } from "../authentication/authenticationFunctions";
 
 
 export const updateUserAttributes = async (userAttributes) => {
 
-    let userAttributesAsArray = [];
+    /* let userAttributesAsArray = [];
     for (let [aName, aValue] of Object.entries(userAttributes)) {
         userAttributesAsArray.push({
             Name: aName,
@@ -19,5 +18,5 @@ export const updateUserAttributes = async (userAttributes) => {
         toast.success('Account updated.');
     }).catch((err) => {
         throw err;
-    });
+    }); */
 }

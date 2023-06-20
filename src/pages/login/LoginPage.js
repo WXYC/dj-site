@@ -18,6 +18,7 @@ export default function LoginPage({
   altViewAvailable,
   authenticating,
   resetPasswordRequired,
+  forceUpdate,
 }) {
 
     const redirectContext = useContext(RedirectContext);
@@ -28,6 +29,10 @@ export default function LoginPage({
     const [confirmValue, setConfirmValue] = React.useState(''); // for the confirm password field
     const [pWordStrength, setPWordStrength] = React.useState(0); // for the password strength meter
     const minLength = 8;
+
+    useEffect(() => {
+      forceUpdate();
+    }, []);
 
     useEffect(() => {
         let query = new URLSearchParams(window.location.search);

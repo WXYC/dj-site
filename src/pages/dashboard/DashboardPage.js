@@ -28,10 +28,7 @@ const Dashboard = (props) => {
         <Header altViewAvailable = {props.altViewAvailable} />
         <FirstSidebar
           logout = {props.logout}
-          username = {props.username}
-          name = {props.name}
-          djName= {props.djName}
-          isAdmin = {props.isAdmin}
+          user = {props.user}
         />
         <Box
           component="main"

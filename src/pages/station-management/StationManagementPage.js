@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Auth } from "aws-amplify";
 import StationSchedule from "../../components/station-management/StationSchedule";
 
-const StationManagementPage = ({style}) => {
+const StationManagementPage = ({style, user}) => {
 
     return (
         <>
@@ -89,7 +89,7 @@ const StationManagementPage = ({style}) => {
         <Tab sx = {{ py: 1.5 }}>Catalog</Tab>
       </TabList>
       <TabPanel value={0}>
-        <DJRoster />
+        <DJRoster user={user} />
         </TabPanel>
         <TabPanel value={1}
         sx = {{

@@ -1,7 +1,4 @@
 import axios from "axios";
-import Cookies from 'js-cookie';
-import Session from "supertokens-auth-react/recipe/session";
-Session.addAxiosInterceptors(axios);
 
 const apiServerUrl = process.env.REACT_APP_API_SERVER_URL;
 

@@ -7,13 +7,14 @@ import CopyAllIcon from '@mui/icons-material/CopyAll';
 
 const SettingsPage = ({
     forceUpdate,
-    djName,
-    username,
-    name,
-    showRealName,
-    funFact,
-    funFactType,
+    user
 }) => {
+    const djName = user.djName;
+    const username = user.username;
+    const name = user.name;
+    const showRealName = user.showRealName;
+    const funFact = user.funFact;
+    const funFactType = user.funFactType;
 
     const funFactTypeValues = [
         'Favorite Artist',
@@ -106,6 +107,12 @@ const SettingsPage = ({
                 setFunFactLoading(false);
             }, 1000); // a little delay to prevent flashing
         });
+    }
+
+    const [callingCardEnabled, setCallingCardEnabled] = useState(false);
+    
+    const handleCallingCardEnabledChange = async (event) => {
+        setCallingCardEnabled(event.target.checked);
     }
 
     return (
@@ -324,8 +331,23 @@ const SettingsPage = ({
                     mt: { xs: 2, lg: 0 },
                 }}
             >
+                <Box
+                    sx = {{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        zIndex: 2,
+                        backdropFilter: callingCardEnabled ? 'blur(0)' : 'blur(1rem)',
+                        borderRadius: 'lg',
+                        pointerEvents: callingCardEnabled ? 'none' : 'auto',
+                        transition: 'backdrop-filter 0.2s',
+                    }}
+                ></Box>
                 <IconButton
                     size="sm"
+                    disabled={!callingCardEnabled}
                     sx = {{
                         position: 'absolute',
                         top: 4,
@@ -356,9 +378,15 @@ const SettingsPage = ({
                         justifyContent: 'flex-end',
                     }}
                 >
+                    <Stack direction="column" gap={1}
+                        sx = {{
+                            justifyContent: 'flex-end',
+                        }}
+                    >
                     <Stack direction="row"
                         sx = {{
                             alignItems: 'center',
+                            justifyContent: 'flex-end',
                         }}
                     >
                         <Typography level="body3"
@@ -372,6 +400,26 @@ const SettingsPage = ({
                             checked={showRealName}
                             onChange={handleShowRealNameChange}
                         />
+                    </Stack>
+                    <Stack direction="row"
+                        sx = {{
+                            alignItems: 'center',
+                            justifyContent: 'flex-end',
+                            zIndex: 3,
+                        }}
+                    >
+                        <Typography level="body3"
+                            sx = {{
+                                mr: 1,
+                            }}
+                        >
+                            Enable Calling Card
+                        </Typography>
+                        <Switch
+                            checked={callingCardEnabled}
+                            onChange={handleCallingCardEnabledChange}
+                        />
+                    </Stack>
                     </Stack>
                 </Box>
             </Sheet>

@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   Checkbox,
+  CircularProgress,
   FormControl,
   FormLabel,
   IconButton,
@@ -24,18 +25,52 @@ import ManageHistoryIcon from "@mui/icons-material/ManageHistory";
 import SyncLockIcon from "@mui/icons-material/SyncLock";
 import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 import { PopupContentContext } from "../../pages/dashboard/Popup";
-import { listUsers } from "../../services/station-management/adminRosterFunctions";
+import { createUser, deleteUser, listUsers, makeAdmin } from "../../services/station-management/admin-service";
+import { toast } from "sonner";
 
-const DJRoster = ({ style }) => {
+const DJRoster = ({ user, style }) => {
 
   const { openPopup, closePopup } = useContext(PopupContentContext);
 
+  const [loading, setLoading] = useState(true);
+
+  const [djs, setDjs] = useState([]);
+
   useEffect(() => {
-    listUsers();
+    setLoading(true);
+    listUsers().then((data) => {
+      console.log(user);
+      setDjs(data);
+      setLoading(false);
+    });
   }, []);
 
-  const DJEntry = ({ name, username, djname, shows, isAdmin }) => {
+  const DJEntry = ({ name, username, djname, shows, isAdmin, isSelf }) => {
     const [checked, setChecked] = useState(isAdmin);
+
+    const handleDeleteDJ = () => {
+      let verify = window.confirm(`Are you sure you want to delete ${((name?.length > 0) ? name : null) ?? username ?? 'this account'}?`);
+      if (!verify) return;
+
+      setDjs(deleteUser(username));
+    };
+
+    const handleChangeAdmin = () => {
+        let verify = window.confirm(
+          checked
+            ? `Are you sure you want to remove ${((name?.length > 0) ? name : null) ?? username ?? 'this account'} as a station manager?`
+            : `Are you sure you want to grant ${((name?.length > 0) ? name : null) ?? username ?? 'this account'} a station management account?`
+        );
+        if (!verify) return;
+
+      if (checked) {
+        makeAdmin(username);
+        setChecked(false);
+      } else {
+        makeAdmin(username);
+        setChecked(true);
+      }
+    };
 
     return (
       <tr>
@@ -46,27 +81,21 @@ const DJRoster = ({ style }) => {
           }}
         >
           <Checkbox
+            disabled = {isSelf}
             color={style ?? "success"}
             sx={{ transform: "translateY(3px)" }}
             checked={checked}
-            onChange={() => {
-              let verify = window.confirm(
-                checked
-                  ? `Are you sure you want to remove ${name} as an admin?`
-                  : `Are you sure you want to make ${name} an admin?`
-              );
-              if (verify) setChecked(!checked);
-            }}
+            onChange={handleChangeAdmin}
           />
         </td>
         <td>{name}</td>
         <td>{username}</td>
-        <td>DJ {djname}</td>
+        <td>{(djname.length > 0) && 'DJ'} {djname}</td>
         <td>{shows}</td>
         <td>
           <Stack direction="row" spacing={0.5}>
             <Tooltip
-              title={`Manage ${name}'s Schedule`}
+              title={`Manage ${name}${(name.length > 0)? "'s" : ''} Schedule`}
               arrow={true}
               placement="top"
               variant="outlined"
@@ -88,13 +117,16 @@ const DJRoster = ({ style }) => {
               </IconButton>
             </Tooltip>
             <Tooltip
-              title={`Delete ${name}'s Profile`}
+              title={(!isSelf) ? `Delete ${name}'s Profile` : `You cannot delete yourself!`}
               arrow={true}
               placement="top"
               variant="outlined"
               size='sm'
             >
-              <IconButton color="warning" variant="outlined" size="sm">
+              <IconButton color="warning" variant="outlined" size="sm"
+                disabled = {isSelf}
+                onClick={handleDeleteDJ}
+              >
                 <DeleteForeverIcon />
               </IconButton>
             </Tooltip>
@@ -124,6 +156,13 @@ const DJRoster = ({ style }) => {
           gap: 1,
         }}
       >
+        <Button
+          variant="outlined"
+          color={style ?? "success"}
+          size="sm"
+        >
+          Export Roster as CSV
+        </Button>
         <Button variant="solid" color={style ?? "success"} size="sm"
           onClick = {
             () => {
@@ -135,7 +174,11 @@ const DJRoster = ({ style }) => {
             
                 console.log(username.value, password.value);
 
-                // await adminCreateUser(username.value, password.value);
+                setLoading(true);
+                (async () => {
+                  setDjs(await listUsers());
+                  setLoading(false);
+                })();
 
                 closePopup();
               }
@@ -144,8 +187,25 @@ const DJRoster = ({ style }) => {
                 event.preventDefault();
 
                 openPopup(addForms(true, true));
-                const { list } = event.target.elements;
-                console.log(list?.value);
+                const { usernames, password } = event.target.elements;
+
+                let new_usernames = usernames.value.replace(/\s/g, '').split(',');
+                new_usernames = new_usernames.filter((username) => username.length > 0);
+                
+                (async () => {
+                  for (let i = 0; i < new_usernames.length; i++) {
+                    try {
+                      let new_user_list = await createUser(new_usernames[i], password.value);
+                      if (i === new_usernames.length - 1) {
+                        setDjs(new_user_list);
+                        setLoading(false);
+                        closePopup();
+                      }
+                    } catch (error) {
+                      toast.error('Could not create user ' + new_usernames[i]);
+                    }
+                  }
+                })();
               }
 
               const addForms = (loading, secondTab = false) => (
@@ -316,13 +376,25 @@ const DJRoster = ({ style }) => {
           </tr>
         </thead>
         <tbody>
-          <DJEntry
-            name="John Doe"
-            username="jdoe"
-            djname="doje"
-            shows="The John Doe Show"
-            isAdmin={true}
-          />
+          {(loading) ? (
+            <tr
+              style={{ background: 'transparent' }}
+            >
+            <td colSpan={6} style={{ textAlign: "center", paddingTop: '2rem' }}>
+              <CircularProgress color={style ?? "success" } />
+            </td>
+            </tr>
+          ) : (djs.map((dj) => (
+            <DJEntry
+              key={dj.username}
+              name={dj.name}
+              username={dj.username}
+              djname={dj.djName}
+              shows={dj.shows || 'Not Scheduled'}
+              isAdmin={dj.isAdmin}
+              isSelf={dj.username === user.Username}
+            />
+          )))}
         </tbody>
       </Table>
     </Sheet>

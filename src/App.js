@@ -16,7 +16,7 @@ import StationManagementPage from './pages/station-management/StationManagementP
 
 import FlowsheetPage from './pages/flowsheet/FlowsheetPage';
 import { PopupProvider } from './pages/dashboard/Popup';
-import { login, checkAuth, logout, updatePassword } from './services/authentication/authenticationFunctions';
+import { login, checkAuth, logout, updatePassword } from './services/authentication/authentication-service';
 import SettingsPage from './pages/settings/SettingsPage';
 import CallingCard from './widgets/calling-card/CallingCard';
 import NowPlaying from './widgets/now-playing/NowPlaying';
@@ -83,15 +83,23 @@ function App() {
   }
 
   const setAuthResult = (authResult) => {
-    console.log(authResult);
-    setUserObject(authResult.userObject);
+    let user = {
+      Username: authResult.userObject.Username,
+      djName: getUserAttribute(authResult.userObject, 'custom:dj-name', 'No DJ name!'),
+      name: getUserAttribute(authResult.userObject, 'name', 'No name!'),
+      showRealName: getUserAttribute(authResult.userObject, 'custom:show-real-name', 'false') === 'true',
+      funFact: getUserAttribute(authResult.userObject, 'custom:fun-fact', ''),
+      funFactType: getUserAttribute(authResult.userObject, 'custom:fun-fact-type', 'Favorite Artist'),
+      isAdmin: authResult.isAdmin,
+    }
+    setUserObject(user);
     setResetPasswordRequired(authResult.resetPasswordRequired);
     setIsAuthenticated(authResult.isAuthenticated);
     setIsAdmin(authResult.isAdmin);
   }
 
-  const getUserAttribute = (attributeName, errorMessage) => {
-    return userObject?.UserAttributes?.find((attr) => attr.Name === attributeName)?.Value ?? errorMessage ?? 'No attribute!';
+  const getUserAttribute = (unformattedUser, attributeName, defaultIfNull) => {
+    return unformattedUser?.UserAttributes?.find((attr) => attr.Name === attributeName)?.Value ?? defaultIfNull ?? 'No attribute!';
   }
 
 
@@ -135,10 +143,7 @@ function App() {
                     <>
                     <Route path="/*" element={
                       <Dashboard
-                        username = {userObject?.Username}
-                        name = {getUserAttribute('name', 'No name!')}
-                        djName = {getUserAttribute('custom:dj-name', 'No DJ name!')}
-                        isAdmin = {isAdmin}
+                        user={userObject}
                         logout={handleLogout}
                         altViewAvailable = {(typeof classicView !== 'undefined')}
                         forceUpdate = {forceUpdate}
@@ -155,20 +160,15 @@ function App() {
                           <Route path="/insights" element={<div>To be implemented!</div>} />
                           <Route path="/admin" element={
                             (isAdmin) ? (
-                              <StationManagementPage />
+                              <StationManagementPage user={userObject} />
                             ) : (
                               <Navigate to={redirectContext.redirect} />
                             )
                           } />
                           <Route path="/settings" element = {
                             <SettingsPage
-                              username = {userObject?.Username}
-                              djName = {getUserAttribute('custom:dj-name', 'No DJ name!')}
-                              name = {getUserAttribute('name', 'No name!')}
+                              user={userObject}
                               forceUpdate = {forceUpdate}
-                              showRealName={getUserAttribute('custom:show-real-name', 'error!') === '1' ? true : false}
-                              funFact={getUserAttribute('custom:fun-fact', '')}
-                              funFactType={getUserAttribute('custom:fun-fact-type', 'Favorite Artist')}
                             />
                           } />
                           <Route path="/login" element={<Navigate to={redirectContext.redirect}/>} />
@@ -188,6 +188,7 @@ function App() {
                         resetPasswordRequired={resetPasswordRequired}
                         handlePasswordUpdate={handlePasswordUpdate}
                         altViewAvailable = {(typeof classicView !== 'undefined')}
+                        forceUpdate={forceUpdate}
                       />
                     } />
                     </>

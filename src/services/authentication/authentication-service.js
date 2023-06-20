@@ -2,17 +2,45 @@ import AWS from 'aws-sdk';
 import { toast } from 'sonner';
 import jwtDecode from 'jwt-decode';
 
-export const AWS_REGION = 'us-east-2';
-export const AWS_CLIENT_ID = '5k75jn39vgdfavhun058t8m2te';
-export const AWS_USER_POOL_ID = 'us-east-2_ilnKaF5KQ';
-export const AWS_IDENTITY_POOL_ID = 'us-east-2:8c147929-6028-4f53-8e1f-fe0a4c23d8fa';
-export const AWS_ROLE_ARN = 'arn:aws:iam::203767826763:role/station-management';
-export const cognitoISP = new AWS.CognitoIdentityServiceProvider({ apiVersion: '2016-04-18', region: AWS_REGION});
 
-AWS.config.update({ region: AWS_REGION });
+export const AWS_REGION = 'us-east-2';
+export const AWS_USER_POOL_ID = 'us-east-2_ilnKaF5KQ';
+export const AWS_CLIENT_ID = '5k75jn39vgdfavhun058t8m2te';
+export const AWS_IDENTITY_POOL_ID = 'us-east-2:1438d416-cb03-4589-986d-e6e71f7d7b39'
+export const AWS_ROLE_ARN = 'arn:aws:iam::203767826763:role/station-management';
+
+AWS.config.update({
+    region: AWS_REGION
+});
 
 const nullResult = { userObject: {}, resetPasswordRequired: false, isAuthenticated: false, isAdmin: false };
 
+export const refreshCognitoCredentials = async (notify = false) => {
+    let idToken = localStorage.getItem('idToken');
+    let cognitoISP = null;
+    const credentialManager = new AWS.CognitoIdentityCredentials({
+        IdentityPoolId: AWS_IDENTITY_POOL_ID,
+        Logins: {
+            [`cognito-idp.${AWS_REGION}.amazonaws.com/${AWS_USER_POOL_ID}`]: idToken
+        }
+    });
+
+    return await new Promise((resolve, reject) => {
+        credentialManager.refresh((error) => {
+            if (error) reject(error);
+
+            if (notify) toast.success("Admin Privilages Granted.");
+
+            cognitoISP = new AWS.CognitoIdentityServiceProvider({ 
+                apiVersion: '2016-04-18', 
+                region: AWS_REGION,
+                credentials: credentialManager
+            });
+
+            resolve(cognitoISP);
+        });
+    });
+}
 
 export const login = async (event) => {
     const username = event.target.username.value;
@@ -27,8 +55,17 @@ export const login = async (event) => {
         }
     };
 
+    AWS.config.update({
+        region: AWS_REGION
+    });
+
+    const creatorISP = new AWS.CognitoIdentityServiceProvider({
+        apiVersion: '2016-04-18',
+        region: AWS_REGION
+    });
+
     return new Promise((resolve, reject) => {
-        cognitoISP.initiateAuth(params, function (err, data) {
+        creatorISP.initiateAuth(params, function (err, data) {
             if (err) resolve(handleError(err));
 
             if (data.ChallengeName === 'NEW_PASSWORD_REQUIRED') {
@@ -48,21 +85,9 @@ export const login = async (event) => {
                 AccessToken: data.AuthenticationResult.AccessToken
             };
 
-            const credentialManager = new AWS.CognitoIdentityCredentials({
-                IdentityPoolId: AWS_IDENTITY_POOL_ID,
-                RoleArn: AWS_ROLE_ARN,
-                Logins: {
-                    [`cognito-idp.${AWS_REGION}.amazonaws.com/${AWS_USER_POOL_ID}`]: data.AuthenticationResult.IdToken
-                }
-            });
+            let adminTest = jwtDecode(data.AuthenticationResult.IdToken)['cognito:groups']?.includes('station-management');
 
-            credentialManager.refresh((error) => {
-                if (error) resolve(handleError(error));
-
-                AWS.config.credentials = credentialManager;
-            });
-
-            cognitoISP.getUser(userParams, function (err, userData) {
+            creatorISP.getUser(userParams, function (err, userData) {
                 if (err) resolve(handleError(err));
 
                 toast.success('Logged in!');
@@ -70,7 +95,7 @@ export const login = async (event) => {
                     userObject: userData,
                     resetPasswordRequired: false,
                     isAuthenticated: true,
-                    isAdmin: jwtDecode(data.AuthenticationResult.IdToken)['cognito:groups']?.includes('station-management')
+                    isAdmin: adminTest
                 });
             });
         });
@@ -78,13 +103,12 @@ export const login = async (event) => {
 };
 
 export const logout = async () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('idToken');
-    localStorage.removeItem('refreshToken');
+    localStorage.clear();
     return nullResult;
 };
 
 export const globalLogout = async (auth) => {
+    const cognitoISP = refreshCognitoCredentials();
     return cognitoISP.globalSignOut({
         AccessToken: auth.AuthenticationResult.AccessToken
     }, function (err, data) {
@@ -107,18 +131,34 @@ export const checkAuth = async () => {
         AccessToken: accessToken
     };
 
+    const creatorISP = new AWS.CognitoIdentityServiceProvider({
+        apiVersion: '2016-04-18',
+        region: AWS_REGION
+    });
+
     return new Promise((resolve, reject) => {
-        cognitoISP.getUser(params, function (err, userData) {
+        creatorISP.getUser(params, function (err, userData) {
+            if (err == 'Access Token has expired') {
+                return refreshYourToken(checkAuth);
+            }
+
             if (err) resolve(handleError(err));
+
+            let adminTest = jwtDecode(idToken)['cognito:groups']?.includes('station-management');
 
             resolve({
                 userObject: userData,
                 resetPasswordRequired: false,
                 isAuthenticated: true,
-                isAdmin: jwtDecode(idToken)['cognito:groups']?.includes('station-management')
+                isAdmin: adminTest
             });
         });
     });
+};
+
+export const refreshYourToken = async (callback) => {
+    
+
 };
 
 export const updatePassword = async (event, user_challenged) => {
@@ -127,9 +167,7 @@ export const updatePassword = async (event, user_challenged) => {
 
 }
 
-const handleError = (error) => {
-    // split after the first colon and get the second part
-    let errorMessage = error.toString().split(': ')[1];
-    toast.error(errorMessage);
+export const handleError = (err) => {
+    toast.error(err.message || JSON.stringify(err));
     return nullResult;
 }

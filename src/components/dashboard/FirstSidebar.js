@@ -21,7 +21,7 @@ import { Badge, Chip, IconButton, Stack, Typography } from '@mui/joy';
 import { useLocation, useNavigate } from 'react-router-dom';
 import DisplaySettingsIcon from '@mui/icons-material/DisplaySettings';
 
-export default function FirstSidebar({ name, username, djName, logout, isAdmin }) {
+export default function FirstSidebar({ user, logout }) {
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -155,7 +155,7 @@ export default function FirstSidebar({ name, username, djName, logout, isAdmin }
           </ListItemButton>
             </Tooltip>
         </ListItem>
-        {(isAdmin) && (<ListItem>
+        {(user.isAdmin) && (<ListItem>
             <Tooltip
                 title="Station Management"
                 arrow={true}
@@ -203,11 +203,11 @@ export default function FirstSidebar({ name, username, djName, logout, isAdmin }
             }}
           >
             <Typography level='body4'>
-              @{username}
+              @{user.Username}
             </Typography>
             <Stack direction='row' gap={1}>              
               <Typography level='body1'>
-                {name}
+                {user.name}
               </Typography>
               <Box
                 sx = {{
@@ -224,7 +224,7 @@ export default function FirstSidebar({ name, username, djName, logout, isAdmin }
                 </Typography>
               </Box>
               <Typography level='body1'>
-                DJ {djName}
+                DJ {user.djName}
               </Typography>
             </Stack>
             <Typography level='body2' color='primary'>
