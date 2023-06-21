@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { RedirectContext } from '../../App';
 import { checkAuth, login, logout, updatePasswordFlow, updateUserInformation } from './authentication-service';
+import { useLocation } from 'react-router-dom';
 
 const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
@@ -15,6 +16,8 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState({});
 
     const redirect = useContext(RedirectContext);
+
+    const location = useLocation();
 
     useEffect(() => {
         const checkAuthStatus = async () => {
@@ -30,7 +33,7 @@ export const AuthProvider = ({ children }) => {
             }
         }
         checkAuthStatus();
-    }, [redirect.redirect]);
+    }, [location.pathname]);
 
     const handleLogin = async (event) => {
         event.preventDefault();

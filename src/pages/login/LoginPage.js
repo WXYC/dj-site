@@ -13,6 +13,7 @@ import { ColorSchemeToggle } from '../../components/theme/colorSchemeToggle';
 import { ViewStyleToggle } from '../../components/theme/viewStyleToggle';
 import ArrowLeftIcon from '@mui/icons-material/ArrowLeft';
 import { useAuth } from '../../services/authentication/authentication-context';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export default function LoginPage({
   altViewAvailable,
@@ -21,6 +22,8 @@ export default function LoginPage({
     const { handleLogin, handlePasswordUpdate, authenticating, resetPasswordRequired } = useAuth();
 
     const redirectContext = useContext(RedirectContext);
+    const location = useLocation();
+    const navigate = useNavigate();
 
     const [name, setName] = useState('');
     const [djName, setDjName] = useState('');
@@ -28,13 +31,6 @@ export default function LoginPage({
     const [confirmValue, setConfirmValue] = React.useState(''); // for the confirm password field
     const [pWordStrength, setPWordStrength] = React.useState(0); // for the password strength meter
     const minLength = 8;
-
-    useEffect(() => {
-        let query = new URLSearchParams(window.location.search);
-        let redirect = query.get('continue');
-
-        if (redirect) redirectContext.redirect = redirect;
-    }, [redirectContext]);
     
   const welcomeQuotesAndArtists = [
     ["to the Jungle", "Guns N' Roses"],
@@ -312,10 +308,7 @@ const [randomIndexForHoldOnQuote, setRIHOQ] = useState(Math.floor(Math.random() 
               </Typography>
             </div>
             <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                handleLogin(event);
-              }}
+              onSubmit={handleLogin}
               autoComplete='off'
             >
               <FormControl required>

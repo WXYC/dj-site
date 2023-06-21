@@ -1,8 +1,7 @@
-import { CssBaseline, CssVarsProvider, GlobalStyles } from '@mui/joy';
-import React, { createContext, useContext } from 'react';
-import wxycTheme from './theme';
+import { CssBaseline, GlobalStyles } from '@mui/joy';
+import React, { createContext, useContext, useEffect } from 'react';
 
-import { BrowserRouter, HashRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import CLASSIC_CatalogPage from './CLASSIC_VIEW/CLASSIC_Catalog';
 import CLASSIC_Dashboard from './CLASSIC_VIEW/CLASSIC_Dashboard';
@@ -20,8 +19,8 @@ import FlowsheetPage from './pages/flowsheet/FlowsheetPage';
 import SettingsPage from './pages/settings/SettingsPage';
 import { useAuth } from './services/authentication/authentication-context';
 import { login, logout } from './services/authentication/authentication-service';
-import CallingCard from './widgets/calling-card/CallingCard';
 import NowPlaying from './widgets/now-playing/NowPlaying';
+import Redirect from './pages/login/redirect';
 
 export const RedirectContext = createContext({redirect: '/'});
 
@@ -34,11 +33,6 @@ function App() {
   if (!classicView) {
     return (
       <div className="App">
-        <CssVarsProvider
-          defaultMode='system'
-          disableTransitionOnChange
-          theme={wxycTheme}
-          >
             <CssBaseline />
             <GlobalStyles
               styles={(theme) => ({
@@ -55,7 +49,6 @@ function App() {
               })}
             />
             <Toaster closeButton richColors  />
-            <HashRouter basename='/'>
               <Routes>
                 <Route path="/NowPlaying" element={<NowPlaying />} />
                 <Route path="/DJ">
@@ -92,8 +85,9 @@ function App() {
                           <Route path="/settings" element = {
                             <SettingsPage />
                           } />
-                          <Route path="/login" element={<Navigate to={redirectContext.redirect}/>} />
-                          <Route path="/*" element={<Navigate to="/catalog" />} />
+                          <Route path="/*" element={
+                            <Navigate to={window.location.hash?.split('?continue=')?.[1]?.replace('#', '') ?? "/catalog"} />} 
+                          />
                         </Routes>
                         </PopupProvider>
                       </Dashboard>
@@ -101,18 +95,17 @@ function App() {
                     </>
                   ) : (
                     <>
-                    <Route path="/*" element={<Navigate to={(window.location.hash.length > 0) ? `/login?continue=${window.location.hash}` : '/login'} />} />
                     <Route path="/login" element={
                       <LoginPage
                         altViewAvailable = {(typeof classicView !== 'undefined')}
                       />
                     } />
+                    <Route exact path="/" element={<Navigate to={`/login`} />} />
+                    <Route path=":redirect" element={<Redirect />} />
                     </>
                   )
                 }
               </Routes>
-            </HashRouter>
-          </CssVarsProvider>
       </div>
     );
   } else {

@@ -25,7 +25,7 @@ import ManageHistoryIcon from "@mui/icons-material/ManageHistory";
 import SyncLockIcon from "@mui/icons-material/SyncLock";
 import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 import { PopupContentContext } from "../../pages/dashboard/Popup";
-import { createUser, deleteUser, listUsers, makeAdmin } from "../../services/station-management/admin-service";
+import { createUser, deleteUser, listUsers, makeAdmin, resetPassword } from "../../services/station-management/admin-service";
 import { toast } from "sonner";
 import { AddDJsPopup } from "./popups/add-djs";
 import { ConfirmPopup } from "../general/popups/general-popups";
@@ -33,6 +33,7 @@ import { useAuth } from "../../services/authentication/authentication-context";
 import exportDjsAsCSV from "./csv-export";
 import TroubleshootIcon from '@mui/icons-material/Troubleshoot';
 import CloseIcon from '@mui/icons-material/Close';
+import { ResetPasswordPopup } from "./popups/reset-password";
 
 const DJRoster = ({ style }) => {
 
@@ -145,7 +146,13 @@ const DJRoster = ({ style }) => {
               variant="outlined"
               size="sm"
             >
-              <IconButton color={style ?? "success"} variant="solid" size="sm">
+              <IconButton color={style ?? "success"} variant="solid" size="sm"
+                onClick={() => {
+                  openPopup(
+                    <ResetPasswordPopup username={username} />
+                  )
+                }}
+              >
                 <SyncLockIcon />
               </IconButton>
             </Tooltip>

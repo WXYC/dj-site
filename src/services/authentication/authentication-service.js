@@ -86,7 +86,7 @@ export const login = async (event) => {
             } else {
                 sessionStorage.setItem('accessToken', data.AuthenticationResult.AccessToken);
                 sessionStorage.setItem('idToken', data.AuthenticationResult.IdToken);
-                sessionStorage.setItem('refreshToken', data.AuthenticationResult.RefreshToken);
+                localStorage.setItem('refreshToken', data.AuthenticationResult.RefreshToken);
 
                 const userParams = {
                     AccessToken: data.AuthenticationResult.AccessToken
@@ -129,7 +129,7 @@ export const globalLogout = async (auth) => {
 export const checkAuth = async () => {
     const accessToken = sessionStorage.getItem('accessToken');
     const idToken = sessionStorage.getItem('idToken');
-    const refreshToken = sessionStorage.getItem('refreshToken');
+    const refreshToken = localStorage.getItem('refreshToken');
 
     if (!accessToken || !idToken || !refreshToken) {
         return nullResult;
@@ -145,9 +145,9 @@ export const checkAuth = async () => {
     });
 
     return new Promise((resolve, reject) => {
-        creatorISP.getUser(params, function (err, userData) {
-            if (err == 'Access Token has expired') {
-                return refreshYourToken(checkAuth);
+        creatorISP.getUser(params, async (err, userData) => {
+            if (err == 'Access Token has expired' || err?.message == 'Access Token has expired') {
+                return resolve(await refreshYourToken(creatorISP));
             }
 
             if (err) handleError(err, resolve);
@@ -164,9 +164,42 @@ export const checkAuth = async () => {
     });
 };
 
-export const refreshYourToken = async (callback) => {
-    
+export const refreshYourToken = async (cognitoISP) => {
 
+    if (!localStorage.getItem('refreshToken')) {
+        return nullResult;
+    }
+
+    return new Promise((resolve, reject) => {
+        cognitoISP.initiateAuth({
+            AuthFlow: 'REFRESH_TOKEN_AUTH',
+            ClientId: AWS_CLIENT_ID,
+            AuthParameters: {
+                REFRESH_TOKEN: localStorage.getItem('refreshToken')
+            }
+        }, function (err, data) {
+            if (err) return handleError(null, resolve);
+
+            sessionStorage.setItem('accessToken', data.AuthenticationResult.AccessToken);
+            sessionStorage.setItem('idToken', data.AuthenticationResult.IdToken);
+            localStorage.setItem('refreshToken', data.AuthenticationResult.RefreshToken);
+
+            cognitoISP.getUser({
+                AccessToken: data.AuthenticationResult.AccessToken
+            }, function (err, userData) {
+                if (err) return handleError(err, resolve);
+
+                let adminTest = jwtDecode(data.AuthenticationResult.IdToken)['cognito:groups']?.includes('station-management');
+
+                resolve({
+                    userObject: userData,
+                    resetPasswordRequired: false,
+                    isAuthenticated: true,
+                    isAdmin: adminTest
+                });
+            });
+        });
+    });
 };
 
 export const updateUserInformation = async (attributes) => {
@@ -236,7 +269,7 @@ export const updatePasswordFlow = async (event, user) => {
                 }).promise().then((data) => {
                     sessionStorage.setItem('accessToken', data.AuthenticationResult.AccessToken);
                     sessionStorage.setItem('idToken', data.AuthenticationResult.IdToken);
-                    sessionStorage.setItem('refreshToken', data.AuthenticationResult.RefreshToken);
+                    localStorage.setItem('refreshToken', data.AuthenticationResult.RefreshToken);
 
                     cognitoISP.getUser({
                         AccessToken: data.AuthenticationResult.AccessToken
@@ -264,6 +297,6 @@ export const updatePasswordFlow = async (event, user) => {
 }
 
 export const handleError = (err, resolve) => {
-    toast.error(err.message || JSON.stringify(err));
+    if (err) toast.error(err.message || JSON.stringify(err));
     resolve(nullResult);
 }
