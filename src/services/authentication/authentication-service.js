@@ -112,6 +112,7 @@ export const login = async (event) => {
 
 export const logout = async () => {
     sessionStorage.clear();
+    localStorage.clear();
     return nullResult;
 };
 
