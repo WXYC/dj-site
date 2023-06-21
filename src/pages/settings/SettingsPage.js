@@ -4,11 +4,12 @@ import { updateUserAttributes } from "../../services/settings/settingsFunctions"
 import { toast } from "sonner";
 import CallingCard from "../../widgets/calling-card/CallingCard";
 import CopyAllIcon from '@mui/icons-material/CopyAll';
+import { useAuth } from "../../services/authentication/authentication-context";
 
-const SettingsPage = ({
-    forceUpdate,
-    user
-}) => {
+const SettingsPage = () => {
+
+    const { user } = useAuth();
+
     const djName = user.djName;
     const username = user.username;
     const name = user.name;
@@ -35,8 +36,6 @@ const SettingsPage = ({
 
         updateUserAttributes({
             name: event.target.name.value,
-        }).then(() => {
-            forceUpdate();
         }).catch((error) => {
             toast.error(error.toString());
             setNameValue(name);
@@ -65,8 +64,6 @@ const SettingsPage = ({
         
         await updateUserAttributes({
             'custom:dj-name': event.target.djName.value,
-        }).then(() => {
-            forceUpdate();
         }).catch((error) => {
             toast.error(error.toString());
             setDJNameValue(djName);
@@ -80,8 +77,6 @@ const SettingsPage = ({
     const handleShowRealNameChange = async (event) => {
         await updateUserAttributes({
             'custom:show-real-name': event.target.checked ? '1' : '0',
-        }).then(() => {
-            forceUpdate();
         }).catch((error) => {
             toast.error(error.toString());
         });
@@ -98,8 +93,6 @@ const SettingsPage = ({
         await updateUserAttributes({
             'custom:fun-fact-type': event.target.funFactType.value,
             'custom:fun-fact': event.target.funFact.value,
-        }).then(() => {
-            forceUpdate();
         }).catch((error) => {
             toast.error(error.toString());
         }).finally(() => {

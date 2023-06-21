@@ -52,7 +52,12 @@ const DJRoster = ({ user, style }) => {
       let verify = window.confirm(`Are you sure you want to delete ${((name?.length > 0) ? name : null) ?? username ?? 'this account'}?`);
       if (!verify) return;
 
-      setDjs(deleteUser(username));
+      (async () => {
+        setLoading(true);
+        await deleteUser(username);
+        setDjs(await listUsers());
+        setLoading(false);
+      })();
     };
 
     const handleChangeAdmin = () => {
@@ -176,11 +181,11 @@ const DJRoster = ({ user, style }) => {
 
                 setLoading(true);
                 (async () => {
+                  await createUser(username.value, password.value);
                   setDjs(await listUsers());
                   setLoading(false);
+                  closePopup();
                 })();
-
-                closePopup();
               }
 
               const handleAddDJs = (event) => {
@@ -193,18 +198,12 @@ const DJRoster = ({ user, style }) => {
                 new_usernames = new_usernames.filter((username) => username.length > 0);
                 
                 (async () => {
-                  for (let i = 0; i < new_usernames.length; i++) {
-                    try {
-                      let new_user_list = await createUser(new_usernames[i], password.value);
-                      if (i === new_usernames.length - 1) {
-                        setDjs(new_user_list);
-                        setLoading(false);
-                        closePopup();
-                      }
-                    } catch (error) {
-                      toast.error('Could not create user ' + new_usernames[i]);
-                    }
-                  }
+                  await Promise.allSettled(
+                    new_usernames.map((username) => createUser(username, password.value))
+                  );
+                  setDjs(await listUsers());
+                  setLoading(false);
+                  closePopup();
                 })();
               }
 

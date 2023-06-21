@@ -6,8 +6,11 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { toast } from "sonner";
 import { Auth } from "aws-amplify";
 import StationSchedule from "../../components/station-management/StationSchedule";
+import { useAuth } from "../../services/authentication/authentication-context";
 
-const StationManagementPage = ({style, user}) => {
+const StationManagementPage = ({style}) => {
+
+  const { user } = useAuth();
 
     return (
         <>

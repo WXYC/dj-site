@@ -16,92 +16,20 @@ import StationManagementPage from './pages/station-management/StationManagementP
 
 import FlowsheetPage from './pages/flowsheet/FlowsheetPage';
 import { PopupProvider } from './pages/dashboard/Popup';
-import { login, checkAuth, logout, updatePassword } from './services/authentication/authentication-service';
+import { login, checkAuth, logout, updateInformation } from './services/authentication/authentication-service';
 import SettingsPage from './pages/settings/SettingsPage';
 import CallingCard from './widgets/calling-card/CallingCard';
 import NowPlaying from './widgets/now-playing/NowPlaying';
 import { PublicDJPage } from './pages/dj/PublicDJPage';
+import { useAuth } from './services/authentication/authentication-context';
 
 export const RedirectContext = createContext({redirect: '/'});
 
 function App() {
 
   const { classicView } = useContext(ViewContext);
-
-  const [ authenticating, setAuthenticating ] = useState(false);
-
   const redirectContext = useContext(RedirectContext);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [resetPasswordRequired, setResetPasswordRequired] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(true);
-
-  const [userObject, setUserObject] = useState({});
-
-
-  const forceUpdate = async () => {
-    const authResult = await checkAuth();
-    setAuthResult(authResult);
-  }
-
-  useEffect(() => {
-    console.log(userObject);
-  }, [userObject]);
-
-  const handleLogin = async (event) => {
-    event.preventDefault();
-    setAuthenticating(true);
-    try {
-      const authResult = await login(event);
-      setAuthResult(authResult);
-    } catch (error) {
-      toast.error(error.toString());
-    } finally {
-      setAuthenticating(false);
-    }
-  }
-
-  const handleLogout = async () => {
-    try {
-      const authResult = await logout();
-      setAuthResult(authResult);
-    } catch (error) {
-      toast.error(error.toString());
-    }
-  }
-
-  const handlePasswordUpdate = async (event) => {
-    event.preventDefault();
-    setAuthenticating(true);
-    try {
-      const authResult = await updatePassword(event, userObject);
-      setAuthResult(authResult);
-    } catch (error) {
-      toast.error(error.toString());
-    } finally {
-      setAuthenticating(false);
-    }
-  }
-
-  const setAuthResult = (authResult) => {
-    let user = {
-      Username: authResult.userObject.Username,
-      djName: getUserAttribute(authResult.userObject, 'custom:dj-name', 'No DJ name!'),
-      name: getUserAttribute(authResult.userObject, 'name', 'No name!'),
-      showRealName: getUserAttribute(authResult.userObject, 'custom:show-real-name', 'false') === 'true',
-      funFact: getUserAttribute(authResult.userObject, 'custom:fun-fact', ''),
-      funFactType: getUserAttribute(authResult.userObject, 'custom:fun-fact-type', 'Favorite Artist'),
-      isAdmin: authResult.isAdmin,
-    }
-    setUserObject(user);
-    setResetPasswordRequired(authResult.resetPasswordRequired);
-    setIsAuthenticated(authResult.isAuthenticated);
-    setIsAdmin(authResult.isAdmin);
-  }
-
-  const getUserAttribute = (unformattedUser, attributeName, defaultIfNull) => {
-    return unformattedUser?.UserAttributes?.find((attr) => attr.Name === attributeName)?.Value ?? defaultIfNull ?? 'No attribute!';
-  }
-
+  const auth = useAuth();
 
   if (!classicView) {
     return (
@@ -139,14 +67,11 @@ function App() {
                   </Route>
                 </Route>
                 {
-                  isAuthenticated ? (
+                  auth.isAuthenticated ? (
                     <>
                     <Route path="/*" element={
                       <Dashboard
-                        user={userObject}
-                        logout={handleLogout}
                         altViewAvailable = {(typeof classicView !== 'undefined')}
-                        forceUpdate = {forceUpdate}
                       >
                         <PopupProvider>
                         <Routes>
@@ -159,17 +84,14 @@ function App() {
                           <Route path="/playlist" element={<div>To be implemented!</div>} />
                           <Route path="/insights" element={<div>To be implemented!</div>} />
                           <Route path="/admin" element={
-                            (isAdmin) ? (
-                              <StationManagementPage user={userObject} />
+                            (auth.isAdmin) ? (
+                              <StationManagementPage />
                             ) : (
                               <Navigate to={redirectContext.redirect} />
                             )
                           } />
                           <Route path="/settings" element = {
-                            <SettingsPage
-                              user={userObject}
-                              forceUpdate = {forceUpdate}
-                            />
+                            <SettingsPage />
                           } />
                           <Route path="/login" element={<Navigate to={redirectContext.redirect}/>} />
                           <Route path="/*" element={<Navigate to="/catalog" />} />
@@ -183,12 +105,7 @@ function App() {
                     <Route path="/*" element={<Navigate to={(window.location.hash.length > 0) ? `/login?continue=${window.location.hash}` : '/login'} />} />
                     <Route path="/login" element={
                       <LoginPage
-                        authenticating={authenticating}
-                        login={handleLogin}
-                        resetPasswordRequired={resetPasswordRequired}
-                        handlePasswordUpdate={handlePasswordUpdate}
                         altViewAvailable = {(typeof classicView !== 'undefined')}
-                        forceUpdate={forceUpdate}
                       />
                     } />
                     </>
@@ -205,7 +122,7 @@ function App() {
         <BrowserRouter>
           <Routes>
             {
-              isAuthenticated ? (
+              auth.isAuthenticated ? (
                 <>
                 <Route path="/*" element={
                   <CLASSIC_Dashboard>

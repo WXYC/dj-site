@@ -6,25 +6,14 @@ export const createUser = async (username, tempPassword) => {
 
     const cognitoISP = await refreshCognitoCredentials();
 
-    return await new Promise((resolve, reject) => {
-        cognitoISP.adminCreateUser({
-            UserPoolId: AWS_USER_POOL_ID,
-            Username: username,
-            TemporaryPassword: tempPassword,
-        }).promise().then((_) => {
-            toast.success(`Successfully created an account for ${username}`);
-            cognitoISP.listUsers({
-                UserPoolId: AWS_USER_POOL_ID,
-            }).promise().then((data) => {
-                resolve(
-                    Promise.all(Array.from(
-                        data.Users.map(async (user) => userObjectToUser(user))
-                    ))
-                );
-            });
-        }).catch((err) => {
-            toast.error(err.message || JSON.stringify(err));
-        });
+    cognitoISP.adminCreateUser({
+        UserPoolId: AWS_USER_POOL_ID,
+        Username: username,
+        TemporaryPassword: tempPassword,
+    }).promise().then((_) => {
+        toast.success(`Successfully created an account for ${username}`);
+    }).catch((err) => {
+        toast.error(err.message || JSON.stringify(err));
     });
 }
 
@@ -32,24 +21,13 @@ export const deleteUser = async (username) => {
 
     const cognitoISP = await refreshCognitoCredentials();
 
-    return await new Promise((resolve, reject) => {
-        cognitoISP.adminDeleteUser({
-            UserPoolId: AWS_USER_POOL_ID,
-            Username: username,
-        }).promise().then((_) => {
-            toast.success(`Successfully deleted ${username}`);
-            cognitoISP.listUsers({
-                UserPoolId: AWS_USER_POOL_ID,
-            }).promise().then((data) => {
-                resolve(
-                    Promise.all(Array.from(
-                        data.Users.map(async (user) => userObjectToUser(user))
-                    ))
-                );
-            });
-        }).catch((err) => {
-            toast.error(err.message || JSON.stringify(err));
-        });
+    cognitoISP.adminDeleteUser({
+        UserPoolId: AWS_USER_POOL_ID,
+        Username: username,
+    }).promise().then((_) => {
+        toast.success(`Successfully deleted ${username}`);
+    }).catch((err) => {
+        toast.error(err.message || JSON.stringify(err));
     });
 }
 

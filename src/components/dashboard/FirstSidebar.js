@@ -20,8 +20,11 @@ import Tooltip from '@mui/joy/Tooltip';
 import { Badge, Chip, IconButton, Stack, Typography } from '@mui/joy';
 import { useLocation, useNavigate } from 'react-router-dom';
 import DisplaySettingsIcon from '@mui/icons-material/DisplaySettings';
+import { useAuth } from '../../services/authentication/authentication-context';
 
-export default function FirstSidebar({ user, logout }) {
+export default function FirstSidebar() {
+
+  const { handleLogout, user } = useAuth();
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -240,7 +243,7 @@ export default function FirstSidebar({ user, logout }) {
         variant='outlined'
         onMouseOver={() => setHovering(true)}
         onMouseOut={() => setHovering(false)}
-        onClick={logout}
+        onClick={handleLogout}
       >
         {hovering ? (
           <LogoutOutlinedIcon />

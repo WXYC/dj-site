@@ -9,6 +9,7 @@ import { ViewStyleToggle } from '../../components/theme/viewStyleToggle';
 import { SongCardProvider } from '../../components/catalog/SongCardContext';
 import { RedirectContext } from '../../App';
 import { useLocation } from 'react-router-dom';
+import { useAuth } from '../../services/authentication/authentication-context';
 
 const Dashboard = (props) => {
 
@@ -17,7 +18,6 @@ const Dashboard = (props) => {
 
   useEffect(() => {
     redirectContext.redirect = location.pathname;
-    props.forceUpdate();
   }, []);
 
   return (
@@ -26,10 +26,7 @@ const Dashboard = (props) => {
       <BinProvider>
       <Box sx={{ display: 'flex', minHeight: '100dvh' }}>
         <Header altViewAvailable = {props.altViewAvailable} />
-        <FirstSidebar
-          logout = {props.logout}
-          user = {props.user}
-        />
+        <FirstSidebar />
         <Box
           component="main"
           className="MainContent"

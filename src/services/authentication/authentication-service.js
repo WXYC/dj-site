@@ -1,4 +1,4 @@
-import AWS from 'aws-sdk';
+import AWS, { CognitoIdentityServiceProvider } from 'aws-sdk';
 import { toast } from 'sonner';
 import jwtDecode from 'jwt-decode';
 
@@ -13,7 +13,9 @@ AWS.config.update({
     region: AWS_REGION
 });
 
-const nullResult = { userObject: {}, resetPasswordRequired: false, isAuthenticated: false, isAdmin: false };
+let persistedISP = null;
+
+const nullResult = { userObject: null, resetPasswordRequired: false, isAuthenticated: false, isAdmin: false };
 
 export const refreshCognitoCredentials = async (notify = false) => {
     let idToken = localStorage.getItem('idToken');
@@ -66,14 +68,15 @@ export const login = async (event) => {
 
     return new Promise((resolve, reject) => {
         creatorISP.initiateAuth(params, function (err, data) {
-            if (err) resolve(handleError(err));
+            if (err) return resolve(handleError(err));
 
-            if (data.ChallengeName === 'NEW_PASSWORD_REQUIRED') {
-                resolve({
+            if (data.ChallengeName == 'NEW_PASSWORD_REQUIRED') {
+                persistedISP = creatorISP;
+                return resolve({
                     userObject: null,
                     resetPasswordRequired: true,
                     isAuthenticated: false,
-                    isAdmin: false
+                    isAdmin: false,
                 });
             }
 
@@ -88,7 +91,7 @@ export const login = async (event) => {
             let adminTest = jwtDecode(data.AuthenticationResult.IdToken)['cognito:groups']?.includes('station-management');
 
             creatorISP.getUser(userParams, function (err, userData) {
-                if (err) resolve(handleError(err));
+                if (err) return resolve(handleError(err));
 
                 toast.success('Logged in!');
                 resolve({
@@ -161,10 +164,14 @@ export const refreshYourToken = async (callback) => {
 
 };
 
-export const updatePassword = async (event, user_challenged) => {
+export const updateInformation = async (event) => {
     event.preventDefault();
-    
 
+    let cognitoISP = persistedISP;
+    
+    return new Promise((resolve, reject) => {
+        
+    });
 }
 
 export const handleError = (err) => {

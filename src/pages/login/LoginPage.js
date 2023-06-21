@@ -5,21 +5,20 @@ import FormControl from '@mui/joy/FormControl';
 import FormLabel, { formLabelClasses } from '@mui/joy/FormLabel';
 import Input from '@mui/joy/Input';
 import Typography from '@mui/joy/Typography';
-import { LinearProgress } from '@mui/joy';
+import { LinearProgress, Link } from '@mui/joy';
 import React, { useContext, useEffect, useState } from 'react';
 import { RedirectContext } from '../../App';
 import Logo from '../../components/branding/logo';
 import { ColorSchemeToggle } from '../../components/theme/colorSchemeToggle';
 import { ViewStyleToggle } from '../../components/theme/viewStyleToggle';
+import ArrowLeftIcon from '@mui/icons-material/ArrowLeft';
+import { useAuth } from '../../services/authentication/authentication-context';
 
 export default function LoginPage({
-  login,
-  handlePasswordUpdate,
   altViewAvailable,
-  authenticating,
-  resetPasswordRequired,
-  forceUpdate,
 }) {
+
+    const { handleLogin, handleInformationUpdate, authenticating, resetPasswordRequired } = useAuth();
 
     const redirectContext = useContext(RedirectContext);
 
@@ -29,10 +28,6 @@ export default function LoginPage({
     const [confirmValue, setConfirmValue] = React.useState(''); // for the confirm password field
     const [pWordStrength, setPWordStrength] = React.useState(0); // for the password strength meter
     const minLength = 8;
-
-    useEffect(() => {
-      forceUpdate();
-    }, []);
 
     useEffect(() => {
         let query = new URLSearchParams(window.location.search);
@@ -180,6 +175,16 @@ const [randomIndexForHoldOnQuote, setRIHOQ] = useState(Math.floor(Math.random() 
               (
                 <>
               <div>
+              <Link
+            startDecorator = {
+              <ArrowLeftIcon />
+            }
+            href="/#/login"
+            variant="body3"
+            sx={{ alignSelf: 'flex-end', mb: 3 }}
+          >
+            Log in with a different account
+          </Link>
               <Typography 
                 level="h1"
                 fontSize={'4.5rem'}
@@ -199,12 +204,12 @@ const [randomIndexForHoldOnQuote, setRIHOQ] = useState(Math.floor(Math.random() 
               </Typography>
             </div>
             <form
-              onSubmit={handlePasswordUpdate}
+              onSubmit={handleInformationUpdate}
               autoComplete='off'
             >
               <FormControl required>
                 <FormLabel>Real Name</FormLabel>
-                <Input placeholder="Enter your real name" type="text" name="realName"
+                <Input placeholder="Enter your real name" type="text" name="name"
                   disabled={authenticating}
                   color={(name.length > 0) ? 'success' : 'primary'}
                   onChange={(e) => {
@@ -212,6 +217,9 @@ const [randomIndexForHoldOnQuote, setRIHOQ] = useState(Math.floor(Math.random() 
                   }}
                   value={name}
                 />
+                <Typography level="body4">
+                  You can change this later.
+                </Typography>
               </FormControl>
               <FormControl required>
                 <FormLabel>DJ Name</FormLabel>
@@ -306,7 +314,7 @@ const [randomIndexForHoldOnQuote, setRIHOQ] = useState(Math.floor(Math.random() 
             <form
               onSubmit={(event) => {
                 event.preventDefault();
-                login(event);
+                handleLogin(event);
               }}
               autoComplete='off'
             >
