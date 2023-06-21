@@ -4,32 +4,7 @@ import useMousePosition from "./station-schedule/MousePosition";
 import simulateAbsolutePositioning from "./station-schedule/SimulateAbsolutePositioning";
 import Chip from '@mui/joy/Chip';
 import Close from '@mui/icons-material/Close';
-
-const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-let hours = Array.from(Array(24).keys());
-hours = hours.map((hour) => {
-    if (hour == 0) {
-        return {
-            number: '12',
-            ampm: 'am',
-        };
-    } else if (hour < 12) {
-        return {
-            number: hour,
-            ampm: 'am',
-        };
-    } else if (hour == 12) {
-        return {
-            number: '12',
-            ampm: 'pm',
-        }
-    } else {
-        return {
-            number: `${(hour - 12)}`,
-            ampm: 'pm',
-        }
-    }
-});
+import { days, hours } from "../schedule/dj-schedule";
 
 // Top 100 films as rated by IMDb users. http://www.imdb.com/chart/top
 const top100Films = [

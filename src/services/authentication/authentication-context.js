@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { toast } from 'sonner';
-import { RedirectContext } from '../../App';
-import { checkAuth, login, logout, updatePasswordFlow, updateUserInformation } from './authentication-service';
 import { useLocation } from 'react-router-dom';
+import { toast } from 'sonner';
+import { checkAuth, login, logout, updatePasswordFlow, updateUserInformation } from './authentication-service';
 
 const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
@@ -14,8 +13,6 @@ export const AuthProvider = ({ children }) => {
     const [isAdmin, setIsAdmin] = useState(false);
 
     const [user, setUser] = useState({});
-
-    const redirect = useContext(RedirectContext);
 
     const location = useLocation();
 

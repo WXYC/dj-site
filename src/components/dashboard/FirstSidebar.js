@@ -7,9 +7,8 @@ import ListItemButton from '@mui/joy/ListItemButton';
 import Sheet from '@mui/joy/Sheet';
 import React, { useEffect } from 'react';
 import Logo from '../branding/logo';
-
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import AlbumIcon from '@mui/icons-material/Album';
-import InsightsIcon from '@mui/icons-material/Insights';
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
 import PersonOutlinedIcon from '@mui/icons-material/PersonOutlined';
 import StorageIcon from '@mui/icons-material/Storage';
@@ -134,8 +133,8 @@ export default function FirstSidebar() {
                 size='sm'
                 variant='outlined'
             >
-          <ListItemButton onClick={() => navigate('/playlist')}
-            variant={location.pathname === '/playlist' ? 'solid' : 'plain'}
+          <ListItemButton onClick={() => navigate('/playlists')}
+            variant={location.pathname === '/playlists' ? 'solid' : 'plain'}
           >
             <StorageIcon />
           </ListItemButton>
@@ -143,7 +142,7 @@ export default function FirstSidebar() {
         </ListItem>
         <ListItem>
             <Tooltip
-                title="Insights"
+                title="Schedule"
                 arrow={true}
                 placement='right'
                 size='sm'
@@ -151,10 +150,10 @@ export default function FirstSidebar() {
                 disabledw
             >
           <ListItemButton
-            onClick={() => navigate('/insights')}
-            variant={location.pathname === '/insights' ? 'solid' : 'plain'}
+            onClick={() => navigate('/schedule')}
+            variant={location.pathname === '/schedule' ? 'solid' : 'plain'}
           >
-            <InsightsIcon />
+         <CalendarMonthIcon />
           </ListItemButton>
             </Tooltip>
         </ListItem>

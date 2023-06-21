@@ -21,13 +21,11 @@ import { useAuth } from './services/authentication/authentication-context';
 import { login, logout } from './services/authentication/authentication-service';
 import NowPlaying from './widgets/now-playing/NowPlaying';
 import Redirect from './pages/login/redirect';
-
-export const RedirectContext = createContext({redirect: '/'});
+import SchedulePage from './pages/schedule/SchedulePage';
 
 function App() {
 
   const { classicView } = useContext(ViewContext);
-  const redirectContext = useContext(RedirectContext);
   const auth = useAuth();
 
   if (!classicView) {
@@ -73,13 +71,15 @@ function App() {
                           <Route path="/flowsheet" element={
                             <FlowsheetPage />
                           } />
-                          <Route path="/playlist" element={<div>To be implemented!</div>} />
-                          <Route path="/insights" element={<div>To be implemented!</div>} />
+                          <Route path="/playlists" element={<div>To be implemented!</div>} />
+                          <Route path="/schedule" element={
+                            <SchedulePage />
+                          } />
                           <Route path="/admin" element={
                             (auth.isAdmin) ? (
                               <StationManagementPage />
                             ) : (
-                              <Navigate to={redirectContext.redirect} />
+                              <Navigate to={'/catalog'} />
                             )
                           } />
                           <Route path="/settings" element = {
@@ -129,9 +129,9 @@ function App() {
                           logout={logout}
                         />
                       } />
-                      <Route path="/playlist" element={<div>Playlists are unavailable in classic view mode. Please Switch.</div>} />
-                      <Route path="/insights" element={<div>Insights are unavailable in classic view mode. Please Switch.</div>} />
-                      <Route path="/login" element={<Navigate to={redirectContext.redirect}/>} />
+                      <Route path="/playlists" element={<div>Playlists are unavailable in classic view mode. Please Switch.</div>} />
+                      <Route path="/schedule" element={<div>schedule are unavailable in classic view mode. Please Switch.</div>} />
+                      <Route path="/login" element={<Navigate to={'broken'}/>} />
                       <Route path="/*" element={<Navigate to="/catalog" />} />
                     </Routes>
                   </CLASSIC_Dashboard>

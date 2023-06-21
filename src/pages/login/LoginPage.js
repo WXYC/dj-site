@@ -1,3 +1,5 @@
+import ArrowLeftIcon from '@mui/icons-material/ArrowLeft';
+import { LinearProgress, Link } from '@mui/joy';
 import Box from '@mui/joy/Box';
 import Button from '@mui/joy/Button';
 import Checkbox from '@mui/joy/Checkbox';
@@ -5,15 +7,12 @@ import FormControl from '@mui/joy/FormControl';
 import FormLabel, { formLabelClasses } from '@mui/joy/FormLabel';
 import Input from '@mui/joy/Input';
 import Typography from '@mui/joy/Typography';
-import { LinearProgress, Link } from '@mui/joy';
-import React, { useContext, useEffect, useState } from 'react';
-import { RedirectContext } from '../../App';
+import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Logo from '../../components/branding/logo';
 import { ColorSchemeToggle } from '../../components/theme/colorSchemeToggle';
 import { ViewStyleToggle } from '../../components/theme/viewStyleToggle';
-import ArrowLeftIcon from '@mui/icons-material/ArrowLeft';
 import { useAuth } from '../../services/authentication/authentication-context';
-import { useLocation, useNavigate } from 'react-router-dom';
 
 export default function LoginPage({
   altViewAvailable,
@@ -21,7 +20,6 @@ export default function LoginPage({
 
     const { handleLogin, handlePasswordUpdate, authenticating, resetPasswordRequired } = useAuth();
 
-    const redirectContext = useContext(RedirectContext);
     const location = useLocation();
     const navigate = useNavigate();
 
