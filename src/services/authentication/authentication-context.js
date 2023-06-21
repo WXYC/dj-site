@@ -1,8 +1,7 @@
-import React, {createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { checkAuth, login, logout, updateInformation } from './authentication-service';
-import { useLocation } from 'react-router-dom';
 import { RedirectContext } from '../../App';
+import { checkAuth, login, logout, updatePasswordFlow, updateUserInformation } from './authentication-service';
 
 const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
@@ -55,18 +54,23 @@ export const AuthProvider = ({ children }) => {
         }
     }
 
-    const handleInformationUpdate = async (event) => {
+    const handlePasswordUpdate = async (event) => {
         event.preventDefault();
         setAuthenticating(true);
         try {
-          const authResult = await updateInformation(event, user);
+          const authResult = await updatePasswordFlow(event, user);
           setAuthResult(authResult);
         } catch (error) {
           toast.error(error.toString());
         } finally {
           setAuthenticating(false);
         }
-      }
+    }
+
+    const handleInformationUpdate = async (attributes) => {
+      const authResult = await updateUserInformation(attributes);
+      setAuthResult(authResult);
+    }
 
     const setAuthResult = (authResult) => {
         setResetPasswordRequired(authResult.resetPasswordRequired);
@@ -101,7 +105,8 @@ export const AuthProvider = ({ children }) => {
             user,
             handleLogin,
             handleLogout,
-            handleInformationUpdate,
+            handlePasswordUpdate,
+            handleInformationUpdate
         }}>
             {children}
         </AuthContext.Provider>

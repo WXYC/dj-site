@@ -27,14 +27,24 @@ import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 import { PopupContentContext } from "../../pages/dashboard/Popup";
 import { createUser, deleteUser, listUsers, makeAdmin } from "../../services/station-management/admin-service";
 import { toast } from "sonner";
+import { AddDJsPopup } from "./popups/add-djs";
+import { ConfirmPopup } from "../general/popups/general-popups";
+import { useAuth } from "../../services/authentication/authentication-context";
+import exportDjsAsCSV from "./csv-export";
+import TroubleshootIcon from '@mui/icons-material/Troubleshoot';
+import CloseIcon from '@mui/icons-material/Close';
 
-const DJRoster = ({ user, style }) => {
+const DJRoster = ({ style }) => {
 
   const { openPopup, closePopup } = useContext(PopupContentContext);
+
+  const { user } = useAuth();
 
   const [loading, setLoading] = useState(true);
 
   const [djs, setDjs] = useState([]);
+  const [results, setResults] = useState([]);
+  const [searchString, setSearchString] = useState("");
 
   useEffect(() => {
     setLoading(true);
@@ -45,19 +55,37 @@ const DJRoster = ({ user, style }) => {
     });
   }, []);
 
+  useEffect(() => {
+    if (searchString.length === 0) {
+      setResults(djs);
+    } else {
+      setResults(
+        djs.filter(
+          (dj) =>
+            dj.name.toLowerCase().includes(searchString.toLowerCase()) ||
+            dj.username.toLowerCase().includes(searchString.toLowerCase())
+        )
+      );
+    }
+  }, [searchString, djs]);
+
   const DJEntry = ({ name, username, djname, shows, isAdmin, isSelf }) => {
     const [checked, setChecked] = useState(isAdmin);
 
     const handleDeleteDJ = () => {
-      let verify = window.confirm(`Are you sure you want to delete ${((name?.length > 0) ? name : null) ?? username ?? 'this account'}?`);
-      if (!verify) return;
-
-      (async () => {
-        setLoading(true);
-        await deleteUser(username);
-        setDjs(await listUsers());
-        setLoading(false);
-      })();
+      openPopup(
+        <ConfirmPopup
+          message={`Are you sure you want to delete ${((name?.length > 0) ? name : null) ?? username ?? 'this account'}?`}
+          onConfirm={() => {
+            (async () => {
+              setLoading(true);
+              await deleteUser(username);
+              setDjs(await listUsers());
+              setLoading(false);
+            })();
+          }}
+        />
+      );
     };
 
     const handleChangeAdmin = () => {
@@ -151,189 +179,64 @@ const DJRoster = ({ user, style }) => {
           "--Table-lastColumnWidth": "120px",
         }}
     >
-      <Sheet
-        sx={{
-          p: 2,
-          justifyContent: "flex-end",
-          width: "100%",
-          display: "flex",
-          
-          gap: 1,
+      <Stack direction={{ xs: "column", lg: "row" }} sx={{ p: 2, justifyContent: 'space-between' }}>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+          }}
+        >
+          <FormControl>
+            <Input 
+              color = {style ?? "success"}
+              size="sm" 
+              sx={{ minWidth: '400px' }} 
+              placeholder="Search DJs"
+              startDecorator = {<TroubleshootIcon />}
+              endDecorator = {
+                (searchString.length > 0) && (
+                  <Button
+                  variant="plain"
+                  color = {style ?? "success"}
+                  size="sm"
+                  onClick={() => { setSearchString(""); }}
+                  sx = {{
+                    px: 0.5,
+                  }}
+                >
+                  <CloseIcon />
+                </Button>
+                )
+              }
+              value={searchString}
+              onChange={(e) => { setSearchString(e.target.value); }}
+            />
+          </FormControl>
+        </form>
+      <Stack direction="row" spacing={1}
+        sx = {{
+          mt: {
+            xs: 2,
+            lg: 0,
+          }
         }}
       >
         <Button
           variant="outlined"
           color={style ?? "success"}
           size="sm"
+          onClick={() => {
+            exportDjsAsCSV(results, searchString.length > 0 ? `djs-search-${searchString}` : "djs");
+          }}
         >
           Export Roster as CSV
         </Button>
         <Button variant="solid" color={style ?? "success"} size="sm"
-          onClick = {
-            () => {
-              const handleAddDJ = async (event) => {
-                event.preventDefault();
-                const { username, password } = event.target.elements;
-                
-                openPopup(addForms(true));
-            
-                console.log(username.value, password.value);
-
-                setLoading(true);
-                (async () => {
-                  await createUser(username.value, password.value);
-                  setDjs(await listUsers());
-                  setLoading(false);
-                  closePopup();
-                })();
-              }
-
-              const handleAddDJs = (event) => {
-                event.preventDefault();
-
-                openPopup(addForms(true, true));
-                const { usernames, password } = event.target.elements;
-
-                let new_usernames = usernames.value.replace(/\s/g, '').split(',');
-                new_usernames = new_usernames.filter((username) => username.length > 0);
-                
-                (async () => {
-                  await Promise.allSettled(
-                    new_usernames.map((username) => createUser(username, password.value))
-                  );
-                  setDjs(await listUsers());
-                  setLoading(false);
-                  closePopup();
-                })();
-              }
-
-              const addForms = (loading, secondTab = false) => (
-
-                <Sheet
-                  sx = {{
-                    minWidth: {
-                      xs: 'unset',
-                      sm: '400px',
-                      md: '600px',
-                    }
-                  }}
-                >
-                <Box sx={{ p: 2 }}>
-                  <Typography level="h1">Add DJs</Typography>
-                </Box>
-                  <Tabs
-                    sx={{ mt: 2 }}
-                    defaultValue={secondTab ? "list" : "manual"}
-                    indicatorColor={style ?? "success"}
-                    textColor={style ?? "success"}
-                  >
-                  <TabList>
-                    <Tab value="manual">Add Manually</Tab>
-                    <Tab value="list">Add By List</Tab>
-                  </TabList>
-                  <TabPanel value="manual">
-                    <form
-                      onSubmit = {handleAddDJ}
-                    >
-                      <Stack spacing={2} sx = {{ p: 2 }}>
-                        <FormControl required>
-                          <FormLabel>Username</FormLabel>
-                          <Typography level = "body3" sx = {{ my: 0.5 }}>
-                            This will be the username that the DJ uses to log in. It must be unique and cannot be changed. <br />
-                            We recommend using the DJ's first name, last name, initials, or some combination of the three.
-                          </Typography>
-                          <Input
-                            placeholder="username"
-                            name = "username"
-                          />
-                        </FormControl>
-                        <FormControl required>
-                          <FormLabel>Temporary Password</FormLabel>
-                          <Typography level = "body3" sx = {{ my: 0.5 }}>
-                            This password will be used to log in for the first time. The DJ will be prompted to change it upon logging in. <br />
-                            <Typography color="primary">
-                              Must contain at least 8 characters, 1 uppercase letter, 1 lowercase letter, and 1 number.
-                            </Typography>
-                          </Typography>
-                          <Input
-                            placeholder="password"
-                            name = "password"
-                          />
-                        </FormControl>
-                        <FormControl>
-                          <Button
-                            variant="solid"
-                            color={style ?? "success"}
-                            size="lg"
-                            loading={loading}
-                            type="submit"
-                            sx = {{ my: 2, ml: 'auto' }}
-                          >
-                            Create New Account
-                          </Button>
-                        </FormControl>
-                      </Stack>
-                    </form>
-                  </TabPanel>
-                  <TabPanel value="list">
-                    <form
-                      onSubmit = {handleAddDJs}
-                    >
-                      <Stack spacing={2} sx = {{ p: 2 }}>
-                        <FormControl required>
-                          <FormLabel>Enter List</FormLabel>
-                          <Typography level = "body3" sx = {{ my: 0.5 }}>
-                            Enter a list of usernames, separated by <Typography color="primary">commas.</Typography> <br />
-                            The usernames must be unique and cannot be changed. <br />
-                            We recommend using the DJ's first name, last name, initials, or some combination of the three.
-                          </Typography>
-                          <Textarea
-                            placeholder="username"
-                            name = "usernames"
-                            sx = {{ height: '100px' }}
-                          />
-                        </FormControl>
-                        <FormControl required>
-                          <FormLabel>Temporary Password</FormLabel>
-                          <Typography level = "body3" sx = {{ my: 0.5 }}>
-                            This password will be used to log in for the first time. The DJs will be prompted to change it upon logging in. <br />
-                            <Typography color="primary">
-                              Must contain at least 8 characters, 1 uppercase letter, 1 lowercase letter, and 1 number.
-                            </Typography>
-                          </Typography>
-                          <Input
-                            placeholder="password"
-                            name = "password"
-                          />
-                        </FormControl>
-                        <FormControl>
-                          <Button
-                            variant="solid"
-                            color={style ?? "success"}
-                            size="lg"
-                            loading={loading}
-                            type="submit"
-                            sx = {{ my: 2, ml: 'auto' }}
-                          >
-                            Create New Accounts
-                          </Button>
-                        </FormControl>
-                      </Stack>
-                    </form>
-                  </TabPanel>
-                  </Tabs>
-                  </Sheet>
-              ) 
-
-              openPopup(
-                addForms(false)
-              );
-            }
-          }
+          onClick = {() => { openPopup(<AddDJsPopup style={style} callback={async () => { setDjs(await listUsers()); }} />); }}
         >
           Add DJs
         </Button>
-      </Sheet>
+      </Stack>
+      </Stack>
       <Table
         stripe="odd"
         sx={{
@@ -364,10 +267,10 @@ const DJRoster = ({ user, style }) => {
               <AdminPanelSettingsIcon />
                 </Tooltip>
             </th>
-            <th>Name</th>
-            <th>Username</th>
-            <th>DJ Name</th>
-            <th>Shows</th>
+            <th style = {{ minWidth: '100px' }}>Name</th>
+            <th style = {{ minWidth: '100px' }}>Username</th>
+            <th style = {{ minWidth: '100px' }}>DJ Name</th>
+            <th style = {{ minWidth: '100px' }}>Shows</th>
             <th
               aria-label="last"
               style={{ width: "var(--Table-lastColumnWidth)" }}
@@ -383,7 +286,7 @@ const DJRoster = ({ user, style }) => {
               <CircularProgress color={style ?? "success" } />
             </td>
             </tr>
-          ) : (djs.map((dj) => (
+          ) : (results.map((dj) => (
             <DJEntry
               key={dj.username}
               name={dj.name}

@@ -1,6 +1,5 @@
-import React, {useState} from "react";
+import React, {useState, useEffect} from "react";
 import { Alert, Box, Button, CircularProgress, FormControl, FormHelperText, FormLabel, IconButton, Input, Option, Select, Sheet, Stack, Switch, Typography } from "@mui/joy";
-import { updateUserAttributes } from "../../services/settings/settingsFunctions";
 import { toast } from "sonner";
 import CallingCard from "../../widgets/calling-card/CallingCard";
 import CopyAllIcon from '@mui/icons-material/CopyAll';
@@ -8,14 +7,7 @@ import { useAuth } from "../../services/authentication/authentication-context";
 
 const SettingsPage = () => {
 
-    const { user } = useAuth();
-
-    const djName = user.djName;
-    const username = user.username;
-    const name = user.name;
-    const showRealName = user.showRealName;
-    const funFact = user.funFact;
-    const funFactType = user.funFactType;
+    const { user, handleInformationUpdate } = useAuth();
 
     const funFactTypeValues = [
         'Favorite Artist',
@@ -27,24 +19,24 @@ const SettingsPage = () => {
         'Favorite Music Era',
     ];
 
-    const [nameValue, setNameValue] = useState(name);
+    const [nameValue, setNameValue] = useState(user.name);
     const [nameLoading, setNameLoading] = useState(false);
 
-    const handleNameSubmit = (event) => {
-        event.preventDefault();
-        setNameLoading(true);
+    const handleNameSubmit = async (event) => {
+    
+            event.preventDefault();
+            setNameLoading(true);
 
-        updateUserAttributes({
-            name: event.target.name.value,
-        }).catch((error) => {
-            toast.error(error.toString());
-            setNameValue(name);
-        }).finally(() => {
+            await handleInformationUpdate({
+                'name': event.target.name.value,
+            }).catch((error) => {
+                toast.error(error.toString());
+                setNameValue(user.name);
+            });
+
             setTimeout(() => {
                 setNameLoading(false);
-            }, 1000); // a little delay to prevent flashing
-        });
-
+            }, 1000);
     }
 
     const [passwordLoading, setPasswordLoading] = useState(false);
@@ -55,50 +47,52 @@ const SettingsPage = () => {
         setPasswordLoading(true);
     }
 
-    const [djNameValue, setDJNameValue] = useState(djName);
+    const [djNameValue, setDJNameValue] = useState(user.djName);
     const [djNameLoading, setDJNameLoading] = useState(false);
 
     const handleDJNameSubmit = async (event) => {
         event.preventDefault();
         setDJNameLoading(true);
         
-        await updateUserAttributes({
+        await handleInformationUpdate({
             'custom:dj-name': event.target.djName.value,
         }).catch((error) => {
             toast.error(error.toString());
-            setDJNameValue(djName);
-        }).finally(() => {
-            setTimeout(() => {
-                setDJNameLoading(false);
-            }, 1000); // a little delay to prevent flashing
+            setDJNameValue(user.djName);
         });
+
+        setTimeout(() => {
+            setDJNameLoading(false);
+        }, 1000);
     }
 
     const handleShowRealNameChange = async (event) => {
-        await updateUserAttributes({
-            'custom:show-real-name': event.target.checked ? '1' : '0',
+        await handleInformationUpdate({
+            'custom:show-real-name': event.target.checked ? 'true' : 'false',
         }).catch((error) => {
             toast.error(error.toString());
         });
     }
 
-    const [funFactValue, setFunFactValue] = useState(funFact);
-    const [funFactTypeValue, setFunFactTypeValue] = useState(funFactType);
+    const [funFactValue, setFunFactValue] = useState(user.funFact);
+    const [funFactTypeValue, setFunFactTypeValue] = useState(user.funFactType);
     const [funFactLoading, setFunFactLoading] = useState(false);
 
     const handleFunFactSubmit = async (event) => {
         event.preventDefault();
         setFunFactLoading(true);
 
-        await updateUserAttributes({
-            'custom:fun-fact-type': event.target.funFactType.value,
-            'custom:fun-fact': event.target.funFact.value,
+        await handleInformationUpdate({
+            'custom:fun-fact': funFactValue,
+            'custom:fun-fact-type': funFactTypeValue,
         }).catch((error) => {
             toast.error(error.toString());
-        }).finally(() => {
-            setTimeout(() => {
-                setFunFactLoading(false);
-            }, 1000); // a little delay to prevent flashing
+            setFunFactValue(user.funFact);
+            setFunFactTypeValue(user.funFactType);
+        });
+
+        setTimeout(() => {
+            setFunFactLoading(false);
         });
     }
 
@@ -148,7 +142,7 @@ const SettingsPage = () => {
                         </FormLabel>
                         <Input
                             name="username"
-                            placeholder={username}
+                            placeholder={user.Username}
                             disabled={true}
                             color="warning"
                         />
@@ -180,14 +174,14 @@ const SettingsPage = () => {
                     </FormLabel>
                     <Input
                         name="djName"
-                        placeholder={djName}
+                        placeholder={user.djName}
                         value={djNameValue}
                         disabled={djNameLoading}
                         autoComplete="off"
                         endDecorator = {
                             djNameLoading ? (
                                 <CircularProgress size="sm" />
-                            ) : djNameValue === djName ? null : (
+                            ) : djNameValue === user.djName ? null : (
                                 <Button 
                                     type="submit"
                                     color="warning"
@@ -200,7 +194,7 @@ const SettingsPage = () => {
                             setDJNameValue(event.target.value);
                         }}
                         color = {
-                            djNameValue === djName ? "warning" : "danger"
+                            djNameValue === user.djName ? "warning" : "danger"
                         }
                     />
                 </FormControl>
@@ -221,7 +215,7 @@ const SettingsPage = () => {
                         endDecorator = {
                             nameLoading ? (
                                 <CircularProgress size="sm" />
-                            ) : nameValue === name ? null : (
+                            ) : nameValue === user.name ? null : (
                                 <Button
                                     type="submit"
                                     color="warning"
@@ -234,7 +228,7 @@ const SettingsPage = () => {
                             setNameValue(event.target.value);
                         }}
                         color = {
-                            nameValue === name ? "warning" : "danger"
+                            nameValue === user.name ? "warning" : "danger"
                         }
                     />
                 </FormControl>
@@ -260,9 +254,9 @@ const SettingsPage = () => {
                         name="funFactType"
                         defaultValue={funFactTypeValue}
                         disabled={funFactLoading}
-                        color={funFactTypeValue === funFactType ? "warning" : "danger"}
-                        onChange={(event) => {
-                            setFunFactTypeValue(event.target.value);
+                        color={funFactTypeValue === user.funFactType ? "warning" : "danger"}
+                        onChange={(event, newValue) => {
+                            setFunFactTypeValue(newValue);
                         }}
                     >
                         {funFactTypeValues.map((funFactTypeOption) => (
@@ -291,7 +285,7 @@ const SettingsPage = () => {
                         endDecorator = {
                             funFactLoading ? (
                                 <CircularProgress size="sm" />
-                            ) : funFactValue === funFact && funFactTypeValue === funFactType ? null : (
+                            ) : funFactValue === user.funFact && funFactTypeValue === user.funFactType ? null : (
                                 <Button
                                     type="submit"
                                     color="warning"
@@ -304,7 +298,7 @@ const SettingsPage = () => {
                             setFunFactValue(event.target.value);
                         }}
                         color = {
-                            funFactValue === funFact && funFactTypeValue === funFactType ? "warning" : "danger"
+                            funFactValue === user.funFact && funFactTypeValue === user.funFactType ? "warning" : "danger"
                         }
                     />
                 </FormControl>
@@ -359,7 +353,7 @@ const SettingsPage = () => {
                     variant="plain"
                     name = {nameValue}
                     djName = {djNameValue}
-                    showRealName={showRealName}
+                    showRealName={user.showRealName}
                     funFact={funFactValue}
                     funFactType={funFactTypeValue}
                 />
@@ -390,7 +384,7 @@ const SettingsPage = () => {
                             Show Real Name on Calling Card
                         </Typography>
                         <Switch
-                            checked={showRealName}
+                            checked={user.showRealName}
                             onChange={handleShowRealNameChange}
                         />
                     </Stack>

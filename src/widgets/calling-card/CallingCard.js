@@ -7,7 +7,6 @@ import CardContent from '@mui/joy/CardContent';
 import Typography from '@mui/joy/Typography';
 import Sheet from '@mui/joy/Sheet';
 import { Chip, Stack } from '@mui/joy';
-import { updateUserAttributes } from "../../services/settings/settingsFunctions";
 
 const CallingCard = ({
     editor = false,
@@ -25,7 +24,7 @@ const CallingCard = ({
     <Box
         component="div"
         sx={{
-          minWidth: editor ? 'unset' : '400px',
+          minWidth: editor ? '320px' : '400px',
           position: 'relative',
         }}
     >

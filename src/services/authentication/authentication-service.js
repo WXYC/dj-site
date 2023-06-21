@@ -169,7 +169,39 @@ export const refreshYourToken = async (callback) => {
 
 };
 
-export const updateInformation = async (event, user) => {
+export const updateUserInformation = async (attributes) => {
+
+    let cognitoISP = await refreshCognitoCredentials();
+
+    let formattedAttributes = Array.from(Object.keys(attributes), key => ({
+        Name: key,
+        Value: attributes[key]
+    }));
+
+    return new Promise((resolve, reject) => {
+        cognitoISP.updateUserAttributes({
+            AccessToken: sessionStorage.getItem('accessToken'),
+            UserAttributes: formattedAttributes
+        }, function (err, data) {
+            if (err) reject(err);
+
+            cognitoISP.getUser({
+                AccessToken: sessionStorage.getItem('accessToken')
+            }, function (err, userData) {
+                if (err) reject(err);
+
+                resolve({
+                    userObject: userData,
+                    resetPasswordRequired: false,
+                    isAuthenticated: true,
+                    isAdmin: jwtDecode(sessionStorage.getItem('idToken'))['cognito:groups']?.includes('station-management')
+                });
+            });
+        });
+    });
+};
+
+export const updatePasswordFlow = async (event, user) => {
     event.preventDefault();
 
     let cognitoISP = persistedISP;

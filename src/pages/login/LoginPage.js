@@ -18,7 +18,7 @@ export default function LoginPage({
   altViewAvailable,
 }) {
 
-    const { handleLogin, handleInformationUpdate, authenticating, resetPasswordRequired } = useAuth();
+    const { handleLogin, handlePasswordUpdate, authenticating, resetPasswordRequired } = useAuth();
 
     const redirectContext = useContext(RedirectContext);
 
@@ -204,7 +204,7 @@ const [randomIndexForHoldOnQuote, setRIHOQ] = useState(Math.floor(Math.random() 
               </Typography>
             </div>
             <form
-              onSubmit={handleInformationUpdate}
+              onSubmit={handlePasswordUpdate}
               autoComplete='off'
             >
               <FormControl required>

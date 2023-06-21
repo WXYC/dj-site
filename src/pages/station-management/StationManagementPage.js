@@ -92,7 +92,7 @@ const StationManagementPage = ({style}) => {
         <Tab sx = {{ py: 1.5 }}>Catalog</Tab>
       </TabList>
       <TabPanel value={0}>
-        <DJRoster user={user} />
+        <DJRoster />
         </TabPanel>
         <TabPanel value={1}
         sx = {{
