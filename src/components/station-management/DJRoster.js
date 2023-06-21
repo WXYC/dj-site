@@ -111,7 +111,7 @@ const DJRoster = ({ user, style }) => {
               </IconButton>
             </Tooltip>
             <Tooltip
-              title={`Reset ${name}'s Password`}
+              title={`Reset ${name}${(name.length > 0)? "'s" : ''} Password`}
               arrow={true}
               placement="top"
               variant="outlined"
@@ -122,7 +122,7 @@ const DJRoster = ({ user, style }) => {
               </IconButton>
             </Tooltip>
             <Tooltip
-              title={(!isSelf) ? `Delete ${name}'s Profile` : `You cannot delete yourself!`}
+              title={(!isSelf) ? `Delete ${name}${(name.length > 0)? "'s" : ''} Profile` : `You cannot delete yourself!`}
               arrow={true}
               placement="top"
               variant="outlined"

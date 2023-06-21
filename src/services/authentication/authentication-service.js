@@ -18,7 +18,7 @@ let persistedISP = null;
 const nullResult = { userObject: null, resetPasswordRequired: false, isAuthenticated: false, isAdmin: false };
 
 export const refreshCognitoCredentials = async (notify = false) => {
-    let idToken = localStorage.getItem('idToken');
+    let idToken = sessionStorage.getItem('idToken');
     let cognitoISP = null;
     const credentialManager = new AWS.CognitoIdentityCredentials({
         IdentityPoolId: AWS_IDENTITY_POOL_ID,
@@ -68,45 +68,50 @@ export const login = async (event) => {
 
     return new Promise((resolve, reject) => {
         creatorISP.initiateAuth(params, function (err, data) {
-            if (err) return resolve(handleError(err));
+            if (err) return handleError(err, resolve);
 
             if (data.ChallengeName == 'NEW_PASSWORD_REQUIRED') {
+                
                 persistedISP = creatorISP;
+
                 return resolve({
-                    userObject: null,
+                    userObject: {
+                        Username: username,
+                        Session: data.Session
+                    },
                     resetPasswordRequired: true,
                     isAuthenticated: false,
-                    isAdmin: false,
+                    isAdmin: false
+                });
+            } else {
+                sessionStorage.setItem('accessToken', data.AuthenticationResult.AccessToken);
+                sessionStorage.setItem('idToken', data.AuthenticationResult.IdToken);
+                sessionStorage.setItem('refreshToken', data.AuthenticationResult.RefreshToken);
+
+                const userParams = {
+                    AccessToken: data.AuthenticationResult.AccessToken
+                };
+
+                let adminTest = jwtDecode(data.AuthenticationResult.IdToken)['cognito:groups']?.includes('station-management');
+
+                creatorISP.getUser(userParams, function (err, userData) {
+                    if (err) return handleError(err, resolve);
+
+                    toast.success('Logged in!');
+                    resolve({
+                        userObject: userData,
+                        resetPasswordRequired: false,
+                        isAuthenticated: true,
+                        isAdmin: adminTest
+                    });
                 });
             }
-
-            localStorage.setItem('accessToken', data.AuthenticationResult.AccessToken);
-            localStorage.setItem('idToken', data.AuthenticationResult.IdToken);
-            localStorage.setItem('refreshToken', data.AuthenticationResult.RefreshToken);
-
-            const userParams = {
-                AccessToken: data.AuthenticationResult.AccessToken
-            };
-
-            let adminTest = jwtDecode(data.AuthenticationResult.IdToken)['cognito:groups']?.includes('station-management');
-
-            creatorISP.getUser(userParams, function (err, userData) {
-                if (err) return resolve(handleError(err));
-
-                toast.success('Logged in!');
-                resolve({
-                    userObject: userData,
-                    resetPasswordRequired: false,
-                    isAuthenticated: true,
-                    isAdmin: adminTest
-                });
-            });
         });
     });
 };
 
 export const logout = async () => {
-    localStorage.clear();
+    sessionStorage.clear();
     return nullResult;
 };
 
@@ -122,9 +127,9 @@ export const globalLogout = async (auth) => {
 };
 
 export const checkAuth = async () => {
-    const accessToken = localStorage.getItem('accessToken');
-    const idToken = localStorage.getItem('idToken');
-    const refreshToken = localStorage.getItem('refreshToken');
+    const accessToken = sessionStorage.getItem('accessToken');
+    const idToken = sessionStorage.getItem('idToken');
+    const refreshToken = sessionStorage.getItem('refreshToken');
 
     if (!accessToken || !idToken || !refreshToken) {
         return nullResult;
@@ -145,7 +150,7 @@ export const checkAuth = async () => {
                 return refreshYourToken(checkAuth);
             }
 
-            if (err) resolve(handleError(err));
+            if (err) handleError(err, resolve);
 
             let adminTest = jwtDecode(idToken)['cognito:groups']?.includes('station-management');
 
@@ -164,17 +169,69 @@ export const refreshYourToken = async (callback) => {
 
 };
 
-export const updateInformation = async (event) => {
+export const updateInformation = async (event, user) => {
     event.preventDefault();
 
     let cognitoISP = persistedISP;
     
     return new Promise((resolve, reject) => {
-        
+        cognitoISP.respondToAuthChallenge({
+            ChallengeName: 'NEW_PASSWORD_REQUIRED',
+            ClientId: AWS_CLIENT_ID,
+            ChallengeResponses: {
+                USERNAME: user.Username,
+                NEW_PASSWORD: event.target.password.value,
+                'userAttributes.name': event.target.name.value,
+            },
+            Session: user.Session
+        }).promise().then((data) => {
+            cognitoISP.updateUserAttributes({
+                AccessToken: data.AuthenticationResult.AccessToken,
+                UserAttributes: [
+                    {
+                        Name: 'custom:dj-name',
+                        Value: event.target.djName.value
+                    },
+                ]
+            }).promise().then(async (data) => {
+                cognitoISP.initiateAuth({
+                    AuthFlow: 'USER_PASSWORD_AUTH',
+                    ClientId: AWS_CLIENT_ID,
+                    AuthParameters: {
+                        USERNAME: user.Username,
+                        PASSWORD: event.target.password.value
+                    }
+                }).promise().then((data) => {
+                    sessionStorage.setItem('accessToken', data.AuthenticationResult.AccessToken);
+                    sessionStorage.setItem('idToken', data.AuthenticationResult.IdToken);
+                    sessionStorage.setItem('refreshToken', data.AuthenticationResult.RefreshToken);
+
+                    cognitoISP.getUser({
+                        AccessToken: data.AuthenticationResult.AccessToken
+                    }, function (err, userData) {
+                        if (err) return handleError(err, resolve);
+
+                        toast.success('Logged in!');
+                        resolve({
+                            userObject: userData,
+                            resetPasswordRequired: false,
+                            isAuthenticated: true,
+                            isAdmin: false
+                        });
+                    });
+                }).catch((err) => {
+                    handleError(err, resolve);
+                });
+            }).catch((err) => {
+                handleError(err, resolve);
+            });
+        }).catch((err) => {
+            handleError(err, resolve);
+        });
     });
 }
 
-export const handleError = (err) => {
+export const handleError = (err, resolve) => {
     toast.error(err.message || JSON.stringify(err));
-    return nullResult;
+    resolve(nullResult);
 }

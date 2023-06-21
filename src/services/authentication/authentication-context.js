@@ -59,7 +59,7 @@ export const AuthProvider = ({ children }) => {
         event.preventDefault();
         setAuthenticating(true);
         try {
-          const authResult = await updateInformation(event);
+          const authResult = await updateInformation(event, user);
           setAuthResult(authResult);
         } catch (error) {
           toast.error(error.toString());
@@ -69,7 +69,10 @@ export const AuthProvider = ({ children }) => {
       }
 
     const setAuthResult = (authResult) => {
-        if (authResult.userObject) {
+        setResetPasswordRequired(authResult.resetPasswordRequired);
+        setIsAuthenticated(authResult.isAuthenticated);
+        setIsAdmin(authResult.isAdmin);
+        if (authResult.userObject && authResult.isAuthenticated) {
           let user = {
             Username: authResult.userObject.Username,
             djName: getUserAttribute(authResult.userObject, 'custom:dj-name', 'No DJ name!'),
@@ -80,10 +83,9 @@ export const AuthProvider = ({ children }) => {
             isAdmin: authResult.isAdmin,
           }
           setUser(user);
+        } else if (authResult.resetPasswordRequired) {
+          setUser(authResult.userObject);
         }
-        setResetPasswordRequired(authResult.resetPasswordRequired);
-        setIsAuthenticated(authResult.isAuthenticated);
-        setIsAdmin(authResult.isAdmin);
       }
     
       const getUserAttribute = (unformattedUser, attributeName, defaultIfNull) => {

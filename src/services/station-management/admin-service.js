@@ -31,6 +31,22 @@ export const deleteUser = async (username) => {
     });
 }
 
+export const resetPassword = async (username, tempPassword) => {
+    
+    const cognitoISP = await refreshCognitoCredentials();
+
+    cognitoISP.adminSetUserPassword({
+        Password: tempPassword,
+        Permanent: false,
+        UserPoolId: AWS_USER_POOL_ID,
+        Username: username,
+    }).promise().then((_) => {
+        toast.success(`Successfully reset ${username}'s password`);
+    }).catch((err) => {
+        toast.error(err.message || JSON.stringify(err));
+    });
+}
+
 export const listUsers = async (formatted = true) => {
 
     const cognitoISP = await refreshCognitoCredentials();
