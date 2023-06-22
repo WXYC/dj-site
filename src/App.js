@@ -22,6 +22,7 @@ import { login, logout } from './services/authentication/authentication-service'
 import NowPlaying from './widgets/now-playing/NowPlaying';
 import Redirect from './pages/login/redirect';
 import SchedulePage from './pages/schedule/SchedulePage';
+import PlaylistsPage from './pages/playlists/PlaylistsPage';
 
 function App() {
 
@@ -71,7 +72,9 @@ function App() {
                           <Route path="/flowsheet" element={
                             <FlowsheetPage />
                           } />
-                          <Route path="/playlists" element={<div>To be implemented!</div>} />
+                          <Route path="/playlists" element={
+                            <PlaylistsPage />
+                          } />
                           <Route path="/schedule" element={
                             <SchedulePage />
                           } />
