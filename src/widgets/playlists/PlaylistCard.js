@@ -1,50 +1,65 @@
 import { AspectRatio, Box, Card, CardContent, CardCover, CardOverflow, Grid, Link, Sheet, Typography } from "@mui/joy";
-import React, { useEffect } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { getArtwork } from "../../services/artwork/artwork-service";
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import LibraryMusicIcon from '@mui/icons-material/LibraryMusic';
+import HeadsetIcon from '@mui/icons-material/Headset';
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../services/authentication/authentication-context";
 
 const PlaylistCard = ({ playlist }) => {
 
-    const [images, setImages] = React.useState([]);
+    const [images, setImages] = useState([]);
 
-    const chooseImages = async (information) => {
+    const navigate = useNavigate();
+    const { user } = useAuth();
+
+    // This code gets reaaaaaalllly intense in order to avoid calling the API too many times
+    const chooseImages = useCallback(async (information) => {
         return Array.from(
-           await Promise.all(
+            await Promise.all(
                 information.map(async (info) => {
-                    return await getArtwork({
-                        title: info.title,
-                        artist: info.artist
-                    });
-                }
+                    let storedArtwork = sessionStorage.getItem(`${playlist.name}-${playlist.DJ}-${info.title}-${info.artist}`);
+                    if (storedArtwork) return storedArtwork;
+                    try {
+                        let retrievedArtwork = await getArtwork({
+                            title: info.title,
+                            artist: info.artist
+                        });
+                        sessionStorage.setItem(`${playlist.name}-${playlist.DJ}-${info.title}-${info.artist}`, retrievedArtwork);
+                        return retrievedArtwork;
+                    } catch (e) {
+                        sessionStorage.setItem(`${playlist.name}-${playlist.DJ}-${info.title}-${info.artist}`, '');
+                        return '';
+                    }
+                })
             )
-        ));
-    }
+        );
+    }, []);
+
+    const getImages = useCallback(async () => {
+        const imageList = await chooseImages(
+            playlist.previewArtists.map((artist, index) => ({
+                title: playlist.previewAlbums[index],
+                artist: artist
+            }))
+        );
+        setImages(imageList);
+    }, [playlist, chooseImages]);
 
     useEffect(() => {
-        const getImages = async () => {
-            chooseImages(playlist.previewArtists.map((artist, index) => {
-                return {
-                    title: playlist.previewAlbums[index],
-                    artist: artist
-                }
-            })).then((images) => {
-                setImages(images);
-                console.log(images);
-            });
-        }
         getImages();
-    }, [playlist]);
+    }, [getImages]);
 
     return (
-                
+       
         <Card 
             sx={{ 
                 p: 1,
                 cursor: 'pointer',
             }}
             onClick={() => {
-                console.log("Clicked");
+                navigate(`/playlists/${user.djName}/${playlist.name}`);
             }}
         >
             <CardOverflow>
@@ -99,6 +114,12 @@ const PlaylistCard = ({ playlist }) => {
                                 level="body1"
                             >
                                 {playlist.name}
+                            </Typography>
+                            <Typography
+                                startDecorator = {<HeadsetIcon />}
+                                level="body4"
+                            >
+                                {playlist.djs.join(', ')}
                             </Typography>
                             <Typography
                                 startDecorator = {<ScheduleIcon />}

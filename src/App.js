@@ -23,6 +23,7 @@ import NowPlaying from './widgets/now-playing/NowPlaying';
 import Redirect from './pages/login/redirect';
 import SchedulePage from './pages/schedule/SchedulePage';
 import PlaylistsPage from './pages/playlists/PlaylistsPage';
+import PlaylistPage from './pages/playlists/PlaylistPage';
 
 function App() {
 
@@ -72,9 +73,14 @@ function App() {
                           <Route path="/flowsheet" element={
                             <FlowsheetPage />
                           } />
-                          <Route path="/playlists" element={
-                            <PlaylistsPage />
-                          } />
+                          <Route path="/playlists">
+                            <Route path="" element={<PlaylistsPage />} />
+                            <Route path=":djName">
+                              <Route path=":playlistName" element={
+                                <PlaylistPage />
+                              } />
+                            </Route>
+                          </Route>
                           <Route path="/schedule" element={
                             <SchedulePage />
                           } />
