@@ -14,8 +14,10 @@ import {
     Sheet,
     Stack,
     Typography,
+    Button,
   } from "@mui/joy";
   import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
+  import ClearIcon from '@mui/icons-material/Clear';
   import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
   import TroubleshootIcon from "@mui/icons-material/Troubleshoot";
   import MicIcon from "@mui/icons-material/Mic";
@@ -733,6 +735,8 @@ import {
   
   const FlowsheetEntry = (props) => {
     const [image, setImage] = useState(null);
+
+    const [canClose, setCanClose] = useState(false);
   
     const getImage = useCallback(async () => {
       let storedArtwork = sessionStorage.getItem(
@@ -785,6 +789,8 @@ import {
               height: "60px",
               borderRadius: "md",
             }}
+            onMouseOver={() => setCanClose(true)}
+            onMouseLeave={() => setCanClose(false)}
           >
             <Stack
               direction="row"
@@ -888,6 +894,29 @@ import {
                 </IconButton>
               )}
             </Stack>
+            {(canClose && !props.current) && (
+            <Button
+                color="neutral"
+                variant="solid"
+                sx = {{
+                    position: 'absolute',
+                    zIndex: 4,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    right: 10,
+                    minWidth: '3px',
+                    minHeight: '3px',
+                    maxWidth: '3px',
+                    maxHeight: '3px',
+                    p: 0,
+                    '& svg': {
+                        width: '15px',
+                        height: '15px',
+                    }
+                }}
+            >
+                <ClearIcon />
+            </Button>)}
           </Sheet>
         );
       case "joined":
