@@ -81,7 +81,7 @@ const FlowSheetPage = () => {
 
     // THIS IS WHERE THE PAGE BEGINS ---------------------------------------------
     const searchRef = useRef(null);
-    const [searching, setSearching] = useState(true);
+    const [searching, setSearching] = useState(false);
 
     const [searchstring, setSearchstring] = useState('');
     const [selected, setSelected] = useState(0);
@@ -123,6 +123,7 @@ const FlowSheetPage = () => {
                         label: 'title',
                     } 
                 }
+                setSearchstring('');
                 setSearchType((previous) => newSearchMap[previous]);
             }
             else if (e.keyCode === 38) {
