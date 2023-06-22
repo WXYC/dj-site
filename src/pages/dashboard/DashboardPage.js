@@ -10,6 +10,7 @@ import { ColorSchemeToggle } from '../../components/theme/colorSchemeToggle';
 import { ViewStyleToggle } from '../../components/theme/viewStyleToggle';
 import { LiveProvider } from '../../services/flowsheet/live-context';
 import { PopupProvider } from './Popup';
+import { FlowsheetProvider } from '../../services/flowsheet/flowsheet-context';
 
 const Dashboard = (props) => {
   
@@ -17,6 +18,7 @@ const Dashboard = (props) => {
 
   return (
     <React.Fragment>
+      <FlowsheetProvider>
       <PopupProvider>
       <LiveProvider>
       <SongCardProvider>
@@ -68,6 +70,7 @@ const Dashboard = (props) => {
       </SongCardProvider>
       </LiveProvider>
       </PopupProvider>
+      </FlowsheetProvider>
       </React.Fragment>
   );
 }

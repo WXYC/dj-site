@@ -20,6 +20,8 @@ import {
   import PlayArrowIcon from '@mui/icons-material/PlayArrow';
   import ClearIcon from '@mui/icons-material/Clear';
   import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+  import PortableWifiOffIcon from '@mui/icons-material/PortableWifiOff';
+  import WifiTetheringIcon from '@mui/icons-material/WifiTethering';
   import TroubleshootIcon from "@mui/icons-material/Troubleshoot";
   import MicIcon from "@mui/icons-material/Mic";
   import HeadphonesIcon from "@mui/icons-material/Headphones";
@@ -29,75 +31,49 @@ import {
   import { getArtwork } from "../../services/artwork/artwork-service";
   import { ArtistAvatar } from "../../components/catalog/ArtistAvatar";
   import { RotationAvatar } from "../../components/flowsheet/RotationAvatar";
-  
-  const exampleEntries = [
-    {
-      message: "",
-      releaseTitle: "Sleep",
-      releaseAlbum: "How Did We Get So Dark?",
-      releaseArtist: "Royal Blood",
-      releaseLabel: "Warner Records",
-      request: false,
-    },
-    {
-      message: "DJ Turncoat left",
-      releaseTitle: "",
-      releaseAlbum: "",
-      releaseArtist: "",
-      releaseLabel: "",
-      request: false,
-    },
-    {
-      message: "",
-      releaseTitle: "The Way You Used To Do",
-      releaseAlbum: "Villains",
-      releaseArtist: "Queens of the Stone Age",
-      releaseLabel: "Matador Records",
-      request: false,
-    },
-    {
-      message: "",
-      releaseTitle: "Cat Food",
-      releaseAlbum: "In the Court of the Crimson King",
-      releaseArtist: "King Crimson",
-      releaseLabel: "Island Records",
-      request: false,
-    },
-    {
-      message: "DJ Turncoat joined",
-      releaseTitle: "",
-      releaseAlbum: "",
-      releaseArtist: "",
-      releaseLabel: "",
-      request: false,
-    },
-    {
-      message: "",
-      releaseTitle: "Engineers",
-      releaseAlbum: "MLDE",
-      releaseArtist: "Marxist Love Disco Ensemble",
-      releaseLabel: "Self-Released",
-      request: true,
-    },
-    {
-      message: "2:00 AM Breakpoint",
-      releaseTitle: "",
-      releaseAlbum: "",
-      releaseArtist: "",
-      releaseLabel: "",
-      request: false,
-    },
-    {
-      message: "Talkset",
-      releaseTitle: "",
-      releaseAlbum: "",
-      releaseArtist: "",
-      releaseLabel: "",
-      request: false,
-    },
-  ];
+import { useFlowsheet } from "../../services/flowsheet/flowsheet-context";
+import { useAuth } from "../../services/authentication/authentication-context";
+import { useLive } from "../../services/flowsheet/live-context";
   
   const FlowSheetPage = () => {
+
+    const [searchResults, setSearchResults] = useState([]); 
+    
+    const { user } = useAuth();
+    const { queue, entries, addToEntries } = useFlowsheet();
+
+    const { live, setLive } = useLive();
+
+    const switchLive = () => {
+        if (live) {
+            setLive(false);
+            addToEntries({
+                message: `DJ ${user.djName} left at ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`,
+            });
+        } else {
+            setLive(true);
+            addToEntries({
+                message: `DJ ${user.djName} joined at ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`,
+            });
+        }
+    }
+
+    const addTalkset = () => {
+        addToEntries({
+            message: "Talkset",
+        });
+    }
+
+    const addBreakpoint = () => {
+        const nextHour = new Date();
+        nextHour.setHours(nextHour.getHours() + 1);
+        nextHour.setMinutes(0);
+        nextHour.setSeconds(0);
+        addToEntries({
+            message: `${nextHour.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} Breakpoint`,
+        });
+    }
+
     // THIS IS WHERE THE PAGE BEGINS ---------------------------------------------
     const searchRef = useRef(null);
     const [searching, setSearching] = useState(false);
@@ -149,7 +125,7 @@ import {
         } else if (e.keyCode === 40) {
           e.preventDefault();
           setSelected((previous) =>
-            Math.min(exampleEntries.length - 1, previous + 1)
+            Math.min(searchResults.length - 1, previous + 1)
           );
         } else if (e.key === "Enter") {
           e.preventDefault();
@@ -192,7 +168,7 @@ import {
   
     // THIS IS WHERE THE PAGE RENDER BEGINS ---------------------------------------------
     return (
-      <>
+      <div>
       {/* HEADER AREA */}
         <Box
           sx={{
@@ -209,6 +185,14 @@ import {
         >
           <Typography level="h1">Flowsheet</Typography>
           <Box sx={{ flex: 999 }}></Box>
+          <Button
+            variant={(live) ? "solid" : "outlined"}
+            color={(live) ? "primary" : "neutral"}
+            startDecorator={(live) ? <WifiTetheringIcon /> : <PortableWifiOffIcon />}
+            onClick={switchLive}
+          >
+            {live ? "You are Live" : "You are Offline"}
+          </Button>
         </Box>
         {/* SEARCH AREA */}
         <Stack direction="row" spacing={1}>
@@ -654,11 +638,12 @@ import {
               ref={searchRef}
               placeholder={
                 searching
-                  ? `Enter ${searchType}`
+                  ? (searchType != "title") ? `Enter ${searchType}` : "Start by providing a song title"
                   : "Press  /  to search or start typing"
               }
               startDecorator={<TroubleshootIcon />}
               endDecorator={
+                <>
                 <IconButton
                   variant="outlined"
                   color="neutral"
@@ -670,6 +655,7 @@ import {
                 >
                   /
                 </IconButton>
+                </>
               }
               onFocus={handleSearchFocused}
               onBlur={closeSearch}
@@ -686,7 +672,7 @@ import {
             title="Add a Breakpoint"
             variant="outlined"
           >
-            <IconButton size="sm" variant="solid" color="warning">
+            <IconButton size="sm" variant="solid" color="warning" onClick={addBreakpoint}>
               <TimerIcon />
             </IconButton>
           </Tooltip>
@@ -696,7 +682,7 @@ import {
             title="Add a Talkset"
             variant="outlined"
           >
-            <IconButton size="sm" variant="solid" color="success">
+            <IconButton size="sm" variant="solid" color="success" onClick={addTalkset}>
               <MicIcon />
             </IconButton>
           </Tooltip>
@@ -710,7 +696,7 @@ import {
           }}
         >
             <Stack direction="column" spacing={1}>
-            {exampleEntries.map((entry, index) => {
+            {queue.map((entry, index) => {
                 if (entry.message.length > 0) return null;
               return (
                 <FlowsheetEntry
@@ -722,7 +708,7 @@ import {
             </Stack>
         <Divider sx = {{ my: 1 }} />
           <Stack direction="column" spacing={1}>
-            {exampleEntries.map((entry, index) => {
+            {entries.map((entry, index) => {
               return (
                 <FlowsheetEntry
                   type={
@@ -745,7 +731,7 @@ import {
             })}
           </Stack>
         </Sheet>
-      </>
+      </div>
     );
   };
   
