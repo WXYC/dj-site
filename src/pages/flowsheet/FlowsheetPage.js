@@ -17,6 +17,7 @@ import {
     Button,
   } from "@mui/joy";
   import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
+  import PlayArrowIcon from '@mui/icons-material/PlayArrow';
   import ClearIcon from '@mui/icons-material/Clear';
   import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
   import TroubleshootIcon from "@mui/icons-material/Troubleshoot";
@@ -192,6 +193,7 @@ import {
     // THIS IS WHERE THE PAGE RENDER BEGINS ---------------------------------------------
     return (
       <>
+      {/* HEADER AREA */}
         <Box
           sx={{
             display: "flex",
@@ -208,6 +210,7 @@ import {
           <Typography level="h1">Flowsheet</Typography>
           <Box sx={{ flex: 999 }}></Box>
         </Box>
+        {/* SEARCH AREA */}
         <Stack direction="row" spacing={1}>
           <FormControl size="sm" sx={{ flex: 1 }}>
             {searching && (
@@ -698,6 +701,7 @@ import {
             </IconButton>
           </Tooltip>
         </Stack>
+        {/* FLOWSHEET AREA */}
         <Sheet
           sx={{
             maxHeight: "calc(100vh - 200px)",
@@ -705,6 +709,18 @@ import {
             background: "transparent",
           }}
         >
+            <Stack direction="column" spacing={1}>
+            {exampleEntries.map((entry, index) => {
+                if (entry.message.length > 0) return null;
+              return (
+                <FlowsheetEntry
+                  type={"queue"}
+                  {...entry}
+                />
+                );
+            })}
+            </Stack>
+        <Divider sx = {{ my: 1 }} />
           <Stack direction="column" spacing={1}>
             {exampleEntries.map((entry, index) => {
               return (
@@ -780,13 +796,14 @@ import {
             }}
           ></Sheet>
         );
+        case "queue":
       case "entry":
         return (
           <Sheet
             color={props.current ? "primary" : "neutral"}
-            variant={props.current ? "solid" : "soft"}
+            variant={(props.type == "queue") ? "outlined" : (props.current ? "solid" : "soft")}
             sx={{
-              height: "60px",
+              height: '60px',
               borderRadius: "md",
             }}
             onMouseOver={() => setCanClose(true)}
@@ -874,6 +891,17 @@ import {
                   </Typography>
                 </Stack>
               </Stack>
+              {(canClose && !props.current && props.type == "queue") && (
+                <IconButton
+                    size="sm"
+                    variant="solid"
+                    sx = {{
+                        position: 'absolute',
+                    }}
+                >
+                    <PlayArrowIcon />
+                </IconButton>
+              )}
               {props.current ? (
                 <IconButton color="neutral" variant="plain" size="sm">
                   <KeyboardArrowDownIcon />
