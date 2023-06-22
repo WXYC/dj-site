@@ -19,17 +19,17 @@ const PlaylistCard = ({ playlist }) => {
         return Array.from(
             await Promise.all(
                 information.map(async (info) => {
-                    let storedArtwork = sessionStorage.getItem(`${playlist.name}-${playlist.DJ}-${info.title}-${info.artist}`);
+                    let storedArtwork = sessionStorage.getItem(`${info.title}-${info.artist}`);
                     if (storedArtwork) return storedArtwork;
                     try {
                         let retrievedArtwork = await getArtwork({
                             title: info.title,
                             artist: info.artist
                         });
-                        sessionStorage.setItem(`${playlist.name}-${playlist.DJ}-${info.title}-${info.artist}`, retrievedArtwork);
+                        sessionStorage.setItem(`${info.title}-${info.artist}`, retrievedArtwork);
                         return retrievedArtwork;
                     } catch (e) {
-                        sessionStorage.setItem(`${playlist.name}-${playlist.DJ}-${info.title}-${info.artist}`, '');
+                        sessionStorage.setItem(`${info.title}-${info.artist}`, '');
                         return '';
                     }
                 })
