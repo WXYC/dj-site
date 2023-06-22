@@ -89,6 +89,7 @@ import { useLive } from "../../services/flowsheet/live-context";
     });
   
     const handleSearchDown = (e) => {
+    if (!live) return;
       if (e.key === "/") {
         e.preventDefault();
         // get input child from searchRef
@@ -160,11 +161,12 @@ import { useLive } from "../../services/flowsheet/live-context";
     };
   
     useEffect(() => {
+    document.removeEventListener("keydown", handleSearchDown);
       document.addEventListener("keydown", handleSearchDown);
       return () => {
         document.removeEventListener("keydown", handleSearchDown);
       };
-    }, []);
+    }, [live]);
   
     // THIS IS WHERE THE PAGE RENDER BEGINS ---------------------------------------------
     return (
@@ -635,6 +637,7 @@ import { useLive } from "../../services/flowsheet/live-context";
               </Sheet>
             )}
             <Input
+                disabled={!live}
               ref={searchRef}
               placeholder={
                 searching
@@ -672,7 +675,7 @@ import { useLive } from "../../services/flowsheet/live-context";
             title="Add a Breakpoint"
             variant="outlined"
           >
-            <IconButton size="sm" variant="solid" color="warning" onClick={addBreakpoint}>
+            <IconButton size="sm" variant="solid" color="warning" onClick={addBreakpoint} disabled={!live}>
               <TimerIcon />
             </IconButton>
           </Tooltip>
@@ -682,7 +685,7 @@ import { useLive } from "../../services/flowsheet/live-context";
             title="Add a Talkset"
             variant="outlined"
           >
-            <IconButton size="sm" variant="solid" color="success" onClick={addTalkset}>
+            <IconButton size="sm" variant="solid" color="success" onClick={addTalkset} disabled={!live}>
               <MicIcon />
             </IconButton>
           </Tooltip>
