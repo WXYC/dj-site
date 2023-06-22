@@ -1,4 +1,4 @@
-import { AspectRatio, Box, Checkbox, Chip, CircularProgress, Divider, FormControl, FormLabel, IconButton, Input, Sheet, Stack, Typography } from "@mui/joy";
+import { AspectRatio, Avatar, Box, Checkbox, Chip, CircularProgress, Divider, FormControl, FormLabel, IconButton, Input, Sheet, Stack, Typography } from "@mui/joy";
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import TroubleshootIcon from '@mui/icons-material/Troubleshoot';
@@ -9,6 +9,8 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { getArtwork } from "../../services/artwork/artwork-service";
 import { ClickAwayListener } from "@mui/material";
+import { ArtistAvatar } from "../../components/catalog/ArtistAvatar";
+import { RotationAvatar } from "../../components/flowsheet/RotationAvatar";
 
 const exampleEntries = [
     {
@@ -133,6 +135,10 @@ const FlowSheetPage = () => {
             else if (e.keyCode === 40) {
                 e.preventDefault();
                 setSelected((previous) => Math.min(exampleEntries.length - 1, previous + 1));
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                console.log('Selected ' + selected);
+                closeSearch();
             }
         }
     };
@@ -224,7 +230,9 @@ const FlowSheetPage = () => {
                         sx = {{
                             p: 1,
                             backgroundColor: (selected == 0) ? 'primary.700' : 'transparent',
+                            cursor: 'pointer',
                         }}
+                        onMouseOver = {() => setSelected(0)}
                     >
                         <Typography
                         level="body4"
@@ -253,7 +261,6 @@ const FlowSheetPage = () => {
                 <Box
                     sx = {{
                         p: 1,
-                        backgroundColor: (selected == 1) ? 'primary.700' : 'transparent',
                     }}
                 >
                         <Typography
@@ -262,7 +269,170 @@ const FlowSheetPage = () => {
                         FROM YOUR MAIL BIN
                     </Typography>
                 </Box>
+                <Stack direction="column">
+                    <Stack direction="row" justifyContent="space-between"
+                        sx = {{
+                            p: 1,
+                            backgroundColor: (selected == 1) ? 'primary.700' : 'transparent',
+                            cursor: 'pointer',
+                        }}
+                        onMouseOver = {() => setSelected(1)}
+                    >
+                        <ArtistAvatar
+                            artist={
+                                {
+                                    genre: 'Rock',
+                                    lettercode: 'AB',
+                                    numbercode: '128',
+                                    entry: '1',
+                                }
+                            }
+                        />
+                        <Stack direction="column" sx = {{ width: 'calc(20%)' }}>
+                            <Typography level="body4" sx={{ mb: -1 }}>SONG</Typography>
+                            <Typography sx = {{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fieldStrings['title']}</Typography>
+                        </Stack>
+                        <Stack direction="column" sx = {{ width: 'calc(20%)' }}>
+                            <Typography level="body4" sx={{ mb: -1 }}>ALBUM</Typography>
+                            <Typography sx = {{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Album Name</Typography>
+                        </Stack>
+                        <Stack direction="column" sx = {{ width: 'calc(20%)' }}>
+                            <Typography level="body4" sx={{ mb: -1 }}>ARTIST</Typography>
+                            <Typography sx = {{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Artist Name</Typography>
+                        </Stack>
+                        <Stack direction="column" sx = {{ width: 'calc(20%)' }}>
+                            <Typography level="body4" sx={{ mb: -1 }}>LABEL</Typography>
+                            <Typography sx = {{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Label Name</Typography>
+                        </Stack>
+                    </Stack>
+                </Stack>
                 </>
+                <>
+                <Divider />
+                <Box
+                    sx = {{
+                        p: 1,
+                    }}
+                >
+                        <Typography
+                        level="body4"
+                    >
+                        ROTATION
+                    </Typography>
+                </Box>
+                <Stack direction="column">
+                    <Stack direction="row" justifyContent="space-between"
+                        sx = {{
+                            p: 1,
+                            backgroundColor: (selected == 2) ? 'primary.700' : 'transparent',
+                            cursor: 'pointer',
+                        }}
+                        onMouseOver = {() => setSelected(2)}
+                    >
+                        <RotationAvatar
+                            rotation="M"
+                        />
+                        <Stack direction="column" sx = {{ width: 'calc(20%)' }}>
+                            <Typography level="body4" sx={{ mb: -1 }}>SONG</Typography>
+                            <Typography sx = {{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fieldStrings['title']}</Typography>
+                        </Stack>
+                        <Stack direction="column" sx = {{ width: 'calc(20%)' }}>
+                            <Typography level="body4" sx={{ mb: -1 }}>ALBUM</Typography>
+                            <Typography sx = {{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Album Name</Typography>
+                        </Stack>
+                        <Stack direction="column" sx = {{ width: 'calc(20%)' }}>
+                            <Typography level="body4" sx={{ mb: -1 }}>ARTIST</Typography>
+                            <Typography sx = {{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Artist Name</Typography>
+                        </Stack>
+                        <Stack direction="column" sx = {{ width: 'calc(20%)' }}>
+                            <Typography level="body4" sx={{ mb: -1 }}>LABEL</Typography>
+                            <Typography sx = {{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Label Name</Typography>
+                        </Stack>
+                    </Stack>
+                </Stack>
+
+                <Stack direction="column">
+                    <Stack direction="row" justifyContent="space-between"
+                        sx = {{
+                            p: 1,
+                            backgroundColor: (selected == 3) ? 'primary.700' : 'transparent',
+                            cursor: 'pointer',
+                        }}
+                        onMouseOver = {() => setSelected(3)}
+                    >
+                        <RotationAvatar
+                            rotation="H"
+                        />
+                        <Stack direction="column" sx = {{ width: 'calc(20%)' }}>
+                            <Typography level="body4" sx={{ mb: -1 }}>SONG</Typography>
+                            <Typography sx = {{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fieldStrings['title']}</Typography>
+                        </Stack>
+                        <Stack direction="column" sx = {{ width: 'calc(20%)' }}>
+                            <Typography level="body4" sx={{ mb: -1 }}>ALBUM</Typography>
+                            <Typography sx = {{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Album Name</Typography>
+                        </Stack>
+                        <Stack direction="column" sx = {{ width: 'calc(20%)' }}>
+                            <Typography level="body4" sx={{ mb: -1 }}>ARTIST</Typography>
+                            <Typography sx = {{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Artist Name</Typography>
+                        </Stack>
+                        <Stack direction="column" sx = {{ width: 'calc(20%)' }}>
+                            <Typography level="body4" sx={{ mb: -1 }}>LABEL</Typography>
+                            <Typography sx = {{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Label Name</Typography>
+                        </Stack>
+                    </Stack>
+                </Stack>
+                </>
+                <>
+                <Divider />
+                <Box
+                    sx = {{
+                        p: 1,
+                    }}
+                >
+                        <Typography
+                        level="body4"
+                    >
+                        CATALOG
+                    </Typography>
+                </Box>
+                <Stack direction="column">
+                    <Stack direction="row" justifyContent="space-between"
+                        sx = {{
+                            p: 1,
+                            backgroundColor: (selected == 4) ? 'primary.700' : 'transparent',
+                            cursor: 'pointer',
+                        }}
+                        onMouseOver = {() => setSelected(4)}
+                    >
+                        <ArtistAvatar
+                            artist={
+                                {
+                                    genre: 'Hiphop',
+                                    lettercode: 'AB',
+                                    numbercode: '128',
+                                    entry: '1',
+                                }
+                            }
+                        />
+                        <Stack direction="column" sx = {{ width: 'calc(20%)' }}>
+                            <Typography level="body4" sx={{ mb: -1 }}>SONG</Typography>
+                            <Typography sx = {{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fieldStrings['title']}</Typography>
+                        </Stack>
+                        <Stack direction="column" sx = {{ width: 'calc(20%)' }}>
+                            <Typography level="body4" sx={{ mb: -1 }}>ALBUM</Typography>
+                            <Typography sx = {{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Album Name</Typography>
+                        </Stack>
+                        <Stack direction="column" sx = {{ width: 'calc(20%)' }}>
+                            <Typography level="body4" sx={{ mb: -1 }}>ARTIST</Typography>
+                            <Typography sx = {{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Artist Name</Typography>
+                        </Stack>
+                        <Stack direction="column" sx = {{ width: 'calc(20%)' }}>
+                            <Typography level="body4" sx={{ mb: -1 }}>LABEL</Typography>
+                            <Typography sx = {{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Label Name</Typography>
+                        </Stack>
+                    </Stack>
+                </Stack>
+                </>   
                 <Divider />
                 <Stack
                     direction="row"

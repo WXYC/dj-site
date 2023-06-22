@@ -1,4 +1,4 @@
-import { Avatar } from "@mui/joy"
+import { Avatar, Stack, Typography } from "@mui/joy"
 import React from "react"
 
 const GENRE_COLORS = {
@@ -21,7 +21,29 @@ export const ArtistAvatar = (props) => {
             variant={props.variant ?? 'solid'}
             color = {color_choice}
         >
-            {props.artist.lettercode}{props.artist.numbercode}
+            <Stack direction="column"
+                sx = {{
+                    textAlign: 'center',
+                    py: 0.2,
+                }}
+            >
+            <Typography level="body5" color="white">
+            {props.artist.numbercode}
+            </Typography>
+            <Avatar
+                variant="solid"
+                color="neutral"
+                sx = {{
+                    width: '1.1rem',
+                    height: '1.1rem',
+                    m: 0,
+                    fontSize: '0.8rem'
+                }}
+                >{props.artist.lettercode}</Avatar>
+            <Typography level="body5" color="white">
+            {props.artist.entry}
+            </Typography>
+            </Stack>
         </Avatar>
     )
 }
