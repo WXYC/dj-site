@@ -175,6 +175,7 @@ const PlaylistsPage = () => {
             sm: '300px',
           }
         }}
+        size="sm"
         defaultValue={"date"}
         onChange={(e, newValue) => setSort(newValue)}
       >
@@ -189,6 +190,7 @@ const PlaylistsPage = () => {
             sm: '200px',
           }
         }}
+        size="sm"
         defaultValue={"desc"}
         onChange={(e, newValue) => setAscdesc(newValue === "asc")}
       >

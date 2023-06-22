@@ -1,11 +1,11 @@
 import { Modal, ModalDialog } from "@mui/joy";
-import React, {createContext, useState} from "react"
+import React, {createContext, useContext, useState} from "react"
 
 export const PopupContentContext = createContext({ openPopup: () => {} });
 
 export const PopupProvider = ({children}) => {
     const [popupContent, setPopupContent] = useState(null);
-    const [o, setOpen] = useState(false);
+    const [open, setOpen] = useState(false);
 
     const openPopup = (content) => {
         setPopupContent(content);
@@ -17,24 +17,31 @@ export const PopupProvider = ({children}) => {
     }
     
     return (
-        <PopupContentContext.Provider value={{ openPopup, closePopup }}>
-            <Modal
-                open={o}
-                onClose={() => setOpen(false)}
-            >
-                <ModalDialog
-                    sx = {{
-                        transform: {
-                            xs: "translate(-50%, -50%)",
-                            sm: "translate(-50%, -50%)",
-                            md: "translate(calc(-50% - 125px), -50%)",
-                        }
-                    }}
-                >
-                    {popupContent}
-                </ModalDialog>
-            </Modal>
+        <PopupContentContext.Provider value={{ open, openPopup, closePopup, popupContent }}>
         {children}
         </PopupContentContext.Provider>
+    )
+}
+
+export const GlobalPopups = () => {
+    const { open, popupContent, closePopup } = useContext(PopupContentContext);
+
+    return (
+        <Modal
+        open={open}
+        onClose={closePopup}
+    >
+        <ModalDialog
+            sx = {{
+                transform: {
+                    xs: "translate(-50%, -50%)",
+                    sm: "translate(-50%, -50%)",
+                    md: "translate(calc(-50% - 125px), -50%)",
+                }
+            }}
+        >
+            {popupContent}
+        </ModalDialog>
+    </Modal>
     )
 }

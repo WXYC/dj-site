@@ -13,7 +13,7 @@ import Dashboard from './pages/dashboard/DashboardPage';
 import LoginPage from './pages/login/LoginPage';
 import StationManagementPage from './pages/station-management/StationManagementPage';
 
-import { PopupProvider } from './pages/dashboard/Popup';
+import { GlobalPopups, PopupProvider } from './pages/dashboard/Popup';
 import { PublicDJPage } from './pages/dj/PublicDJPage';
 import FlowsheetPage from './pages/flowsheet/FlowsheetPage';
 import SettingsPage from './pages/settings/SettingsPage';
@@ -65,7 +65,7 @@ function App() {
                       <Dashboard
                         altViewAvailable = {(typeof classicView !== 'undefined')}
                       >
-                        <PopupProvider>
+                        <GlobalPopups />
                         <Routes>
                           <Route path="/catalog" element={
                             <CatalogPage />
@@ -98,7 +98,6 @@ function App() {
                             <Navigate to={window.location.hash?.split('?continue=')?.[1]?.replace('#', '') ?? "/catalog"} />} 
                           />
                         </Routes>
-                        </PopupProvider>
                       </Dashboard>
                     } />
                     </>

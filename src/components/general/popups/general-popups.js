@@ -8,7 +8,7 @@ export const ConfirmPopup = ({ message, onConfirm }) => {
 
     return (
         <Sheet>
-            <Typography variant="body1">
+            <Typography variant="body1" color="primary">
                 {message}
             </Typography>
             <Stack direction="row" justifyContent="flex-end" spacing={1} sx = {{ mt: 3 }}>

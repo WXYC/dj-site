@@ -8,6 +8,8 @@ import SecondSidebar from '../../components/dashboard/SecondSidebar';
 import { BinProvider } from '../../components/dashboard/bin/Bin';
 import { ColorSchemeToggle } from '../../components/theme/colorSchemeToggle';
 import { ViewStyleToggle } from '../../components/theme/viewStyleToggle';
+import { LiveProvider } from '../../services/flowsheet/live-context';
+import { PopupProvider } from './Popup';
 
 const Dashboard = (props) => {
   
@@ -15,6 +17,8 @@ const Dashboard = (props) => {
 
   return (
     <React.Fragment>
+      <PopupProvider>
+      <LiveProvider>
       <SongCardProvider>
       <BinProvider>
       <Box sx={{ display: 'flex', minHeight: '100dvh' }}>
@@ -62,6 +66,8 @@ const Dashboard = (props) => {
       </Box>
       </BinProvider>
       </SongCardProvider>
+      </LiveProvider>
+      </PopupProvider>
       </React.Fragment>
   );
 }

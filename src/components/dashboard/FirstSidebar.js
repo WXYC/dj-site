@@ -5,7 +5,7 @@ import List from '@mui/joy/List';
 import ListItem from '@mui/joy/ListItem';
 import ListItemButton from '@mui/joy/ListItemButton';
 import Sheet from '@mui/joy/Sheet';
-import React, { useEffect } from 'react';
+import React, { useContext, useEffect } from 'react';
 import Logo from '../branding/logo';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import AlbumIcon from '@mui/icons-material/Album';
@@ -20,6 +20,9 @@ import { Badge, Chip, IconButton, Stack, Typography } from '@mui/joy';
 import { useLocation, useNavigate } from 'react-router-dom';
 import DisplaySettingsIcon from '@mui/icons-material/DisplaySettings';
 import { useAuth } from '../../services/authentication/authentication-context';
+import { useLive } from '../../services/flowsheet/live-context';
+import { PopupContentContext } from '../../pages/dashboard/Popup';
+import { ConfirmPopup } from '../general/popups/general-popups';
 
 export default function FirstSidebar() {
 
@@ -28,6 +31,9 @@ export default function FirstSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [hovering, setHovering] = React.useState(false);
+
+  const { live } = useLive();
+  const { openPopup } = useContext(PopupContentContext);
 
   const [style, setStyle] = React.useState("primary");
 
@@ -117,7 +123,7 @@ export default function FirstSidebar() {
                   horizontal: 'right',
                 }}
                 badgeInset={'-50%'}
-                badgeContent = {''} // will be non-empty when DJ is live
+                badgeContent = {(live) ? '' : null} // will be non-empty when DJ is live
                 size='sm'
                 >
             <StreamIcon />         
@@ -242,7 +248,18 @@ export default function FirstSidebar() {
         variant='outlined'
         onMouseOver={() => setHovering(true)}
         onMouseOut={() => setHovering(false)}
-        onClick={handleLogout}
+        onClick={() => {
+          if (live) {
+            openPopup(
+              <ConfirmPopup
+                message="You're Live! Would you like to complete the flowsheet and log out?"
+                onConfirm={handleLogout}
+              />
+            )
+          } else {
+            handleLogout();
+          }
+        }}
       >
         {hovering ? (
           <LogoutOutlinedIcon />
