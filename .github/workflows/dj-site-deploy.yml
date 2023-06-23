@@ -1,71 +1,70 @@
-# This is a basic workflow to help you get started with Actions
+name: DJ Site Build and Deployment
 
-name: Build and Deployment
-
-# Controls when the workflow will run
 on:
-  # Triggers the workflow on push or pull request events but only for the "main" branch
   push:
-    branches: [ "main" ]
+    branches: [ main ]
   pull_request:
-    branches: [ "main" ]
-
-  workflow_dispatch:
+    branches: [ main ]
 
 jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+    strategy:
+      matrix:
+        node-version: [18.x]
 
-      - name: Install Node.js
-        uses: actions/setup-node@v1
-        with:
-          node-version: 18.x
-          
-      - name: Set up environment variables
-        run: |
-          echo "REACT_APP_AWS_REGION=${{ secrets.AWS_REGION }}" >> $GITHUB_ENV
-          echo "REACT_APP_AWS_USER_POOL_ID=${{ secrets.AWS_USER_POOL_ID }}" >> $GITHUB_ENV
-          echo "REACT_APP_AWS_CLIENT_ID=${{ secrets.AWS_CLIENT_ID }}" >> $GITHUB_ENV
-          echo "REACT_APP_AWS_IDENTITY_POOL_ID=${{ secrets.AWS_IDENTITY_POOL_ID }}" >> $GITHUB_ENV
-          echo "REACT_APP_LAST_FM_KEY=${{ secrets.LAST_FM_KEY }}" >> $GITHUB_ENV
-          echo "REACT_APP_DISCOGS_CONSUMER_KEY=${{ secrets.DISCOGS_CONSUMER_KEY }}" >> $GITHUB_ENV
-          echo "REACT_APP_DISCOGS_CONSUMER_SECRET=${{ secrets.DISCOGS_CONSUMER_SECRET }}" >> $GITHUB_ENV
-        
-      - name: Install npm packages
-        run: npm ci
-        
-      - name: Build project
-        run: npm run build
-        
-      - name: Run tests
-        run: npm run test
-        
-      - name: Upload App
-        uses: actions/upload-artifact@v2
-        with:
-          name: production-files
-          path: ./build
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v1
+      with:
+        node-version: ${{ matrix.node-version }}
+
+    - name: Restore node_modules from cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          node_modules
+          */*/node_modules
+        key: ${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Run the tests
+      run: npm test
+
+    - name: Build
+      run: npm run build
     
+    env:
+      REACT_APP_AWS_USER_POOL_ID: ${{ secrets.AWS_USER_POOL_ID }}
+      REACT_APP_AWS_REGION: ${{ secrets.AWS_REGION }}
+      REACT_APP_AWS_CLIENT_ID: ${{ secrets.AWS_CLIENT_ID }}
+      REACT_APP_AWS_IDENTITY_POOL_ID: ${{ secrets.AWS_IDENTITY_POOL_ID }}
+      REACT_APP_LAST_FM_KEY: ${{ secrets.LAST_FM_KEY }}
+      REACT_APP_DISCOGS_CONSUMER_KEY: ${{ secrets.DISCOGS_CONSUMER_KEY }}
+      REACT_APP_DISCOGS_CONSUMER_SECRET: ${{ secrets.DISCOGS_CONSUMER_SECRET }}
+
   deploy:
     name: Deploy
     needs: build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-
+    
     steps:
-    - name: Download Artifact
-      uses: actions/download-artifact@v2
-      with:
-        name: production-files
-        path: ./build
-
-    - name: Deploy to gh-pages
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./build
+    - name: Deploy to GH Pages
+      run: |
+          git config --global user.name $user_name
+          git config --global user.email $user_email
+          git remote set-url origin https://${github_token}@github.com/${repository}
+          npm run deploy
+      env:
+        user_name: 'github-actions[bot]'
+        user_email: 'github-actions[bot]@users.noreply.github.com'
+        github_token: ${{ secrets.ACTIONS_DEPLOY_ACCESS_TOKEN }}
+        repository: ${{ github.repository }}
+    
