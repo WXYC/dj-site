@@ -26,6 +26,7 @@ import { toast } from 'sonner';
 import { ArtistAvatar } from './ArtistAvatar';
 import { SongCardContext } from './SongCardContext';
 import { SearchBar } from './search/SearchBar';
+import { useLive } from '../../services/flowsheet/live-context';
 
 
 const TIMEOUT_MS = 1000;
@@ -56,26 +57,26 @@ const sorting_algorithms_desc = {
 
 const OrderTable = () => {
 
-    const [live, setLive] = useState(true);
+    const { live } = useLive();
 
   const [releaseList, setReleaseList] = useState([]);
-  const [orderBy, setOrderBy] = React.useState('Title');
-  const [orderDirection, setOrderDirection] = React.useState('asc');
+  const [orderBy, setOrderBy] = useState('Title');
+  const [orderDirection, setOrderDirection] = useState('asc');
 
   const [searchString, setSearchString] = useState("");
 
   const [timeOut, setTimeOutState] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const [selected, setSelected] = React.useState([]);
-  const [open, setOpen] = React.useState(false);
+  const [selected, setSelected] = useState([]);
+  const [open, setOpen] = useState(false);
 
   const [reachedEndForQuery, setReachedEndForQuery] = useState(true);
   const [index, setIndex] = useState(0);
 
-  const [searchIn, setSearchIn] = React.useState('Albums');
-  const [genre, setGenre] = React.useState('All');
-  const [releaseType, setReleaseType] = React.useState('Albums');
+  const [searchIn, setSearchIn] = useState('Albums');
+  const [genre, setGenre] = useState('All');
+  const [releaseType, setReleaseType] = useState('Albums');
 
   const { bin, addToBin, removeFromBin, clearBin, isInBin } = useContext(BinContext);
   const { getSongCardContent } = useContext(SongCardContext);
@@ -175,7 +176,7 @@ const OrderTable = () => {
 
 
       return (
-        <React.Fragment>
+        <>
           <SearchBar 
             searchString={searchString}
             setSearchString={setSearchString}
@@ -255,8 +256,8 @@ const OrderTable = () => {
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', paddingTop: '3rem' }}>
+                <tr style={{ background: 'transparent'}}>
+                  <td colSpan={7} style={{ textAlign: 'center', paddingTop: '3rem', background: 'transparent' }}>
                     <CircularProgress color="primary" size="md" />
                   </td>
                 </tr>
@@ -413,7 +414,7 @@ const OrderTable = () => {
                         </Button>
                     </Box>)}
         </Sheet>
-      </React.Fragment>
+      </>
       )
 
 }
