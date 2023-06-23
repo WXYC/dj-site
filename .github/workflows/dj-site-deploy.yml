@@ -1,0 +1,71 @@
+# This is a basic workflow to help you get started with Actions
+
+name: Build and Deployment
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the "main" branch
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Install Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: 18.x
+          
+      - name: Set up environment variables
+        run: |
+          echo "REACT_APP_AWS_REGION=${{ secrets.AWS_REGION }}" >> $GITHUB_ENV
+          echo "REACT_APP_AWS_USER_POOL_ID=${{ secrets.AWS_USER_POOL_ID }}" >> $GITHUB_ENV
+          echo "REACT_APP_AWS_CLIENT_ID=${{ secrets.AWS_CLIENT_ID }}" >> $GITHUB_ENV
+          echo "REACT_APP_AWS_IDENTITY_POOL_ID=${{ secrets.AWS_IDENTITY_POOL_ID }}" >> $GITHUB_ENV
+          echo "REACT_APP_LAST_FM_KEY=${{ secrets.LAST_FM_KEY }}" >> $GITHUB_ENV
+          echo "REACT_APP_DISCOGS_CONSUMER_KEY=${{ secrets.DISCOGS_CONSUMER_KEY }}" >> $GITHUB_ENV
+          echo "REACT_APP_DISCOGS_CONSUMER_SECRET=${{ secrets.DISCOGS_CONSUMER_SECRET }}" >> $GITHUB_ENV
+        
+      - name: Install npm packages
+        run: npm ci
+        
+      - name: Build project
+        run: npm run build
+        
+      - name: Run tests
+        run: npm run test
+        
+      - name: Upload App
+        uses: actions/upload-artifact@v2
+        with:
+          name: production-files
+          path: ./build
+    
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == "refs/heads/main"
+
+    steps:
+    - name: Download Artifact
+      uses: actions/download-artifact@v2
+      with:
+        name: production-files
+        path: ./build
+
+    - name: Deploy to gh-pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./build
