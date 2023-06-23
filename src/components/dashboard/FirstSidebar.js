@@ -23,6 +23,7 @@ import { useAuth } from '../../services/authentication/authentication-context';
 import { useLive } from '../../services/flowsheet/live-context';
 import { PopupContentContext } from '../../pages/dashboard/Popup';
 import { ConfirmPopup } from '../general/popups/general-popups';
+import { useFlowsheet } from '../../services/flowsheet/flowsheet-context';
 
 export default function FirstSidebar() {
 
@@ -32,7 +33,8 @@ export default function FirstSidebar() {
   const location = useLocation();
   const [hovering, setHovering] = React.useState(false);
 
-  const { live } = useLive();
+  const { live, setLive } = useLive();
+  const { addToEntries } = useFlowsheet();
   const { openPopup } = useContext(PopupContentContext);
 
   const [style, setStyle] = React.useState("primary");
@@ -253,7 +255,13 @@ export default function FirstSidebar() {
             openPopup(
               <ConfirmPopup
                 message="You're Live! Would you like to complete the flowsheet and log out?"
-                onConfirm={handleLogout}
+                onConfirm={() => {
+                  setLive(false);
+                  addToEntries({
+                    message: `DJ ${user.djName} left at ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`,
+                  })
+                  handleLogout();
+                }}
               />
             )
           } else {
