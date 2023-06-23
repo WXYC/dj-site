@@ -1,11 +1,11 @@
-const LAST_FM_KEY = '45f85235ffc46cbb8769d545c8059399';
+
 
 export default async function getArtworkFromLastFM({
     title,
     artist
 }) {
     let url = 'https://ws.audioscrobbler.com/2.0/?type=release&per_page=1&page=1&' +
-    'api_key=' + LAST_FM_KEY + 
+    'api_key=' + process.env.REACT_APP_LAST_FM_KEY + 
     '&method=album.getInfo' + 
     '&album=' + title + 
     '&artist=' + artist + 

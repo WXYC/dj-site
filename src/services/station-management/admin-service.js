@@ -1,5 +1,5 @@
 import { toast } from 'sonner';
-import { AWS_USER_POOL_ID, refreshCognitoCredentials } from '../authentication/authentication-service';
+import { refreshCognitoCredentials } from '../authentication/authentication-service';
 
 
 export const createUser = async (username, tempPassword) => {
@@ -7,7 +7,7 @@ export const createUser = async (username, tempPassword) => {
     const cognitoISP = await refreshCognitoCredentials();
 
     cognitoISP.adminCreateUser({
-        UserPoolId: AWS_USER_POOL_ID,
+        UserPoolId: process.env.REACT_APP_AWS_USER_POOL_ID,
         Username: username,
         TemporaryPassword: tempPassword,
     }).promise().then((_) => {
@@ -22,7 +22,7 @@ export const deleteUser = async (username) => {
     const cognitoISP = await refreshCognitoCredentials();
 
     cognitoISP.adminDeleteUser({
-        UserPoolId: AWS_USER_POOL_ID,
+        UserPoolId: process.env.REACT_APP_AWS_USER_POOL_ID,
         Username: username,
     }).promise().then((_) => {
         toast.success(`Successfully deleted ${username}`);
@@ -38,7 +38,7 @@ export const resetPassword = async (username, tempPassword) => {
     cognitoISP.adminSetUserPassword({
         Password: tempPassword,
         Permanent: false,
-        UserPoolId: AWS_USER_POOL_ID,
+        UserPoolId: process.env.REACT_APP_AWS_USER_POOL_ID,
         Username: username,
     }).promise().then((_) => {
         toast.success(`Successfully reset ${username}'s password`);
@@ -53,7 +53,7 @@ export const listUsers = async (formatted = true) => {
 
     return await new Promise(async (resolve, reject) => {
         cognitoISP.listUsers({
-            UserPoolId: AWS_USER_POOL_ID,
+            UserPoolId: process.env.REACT_APP_AWS_USER_POOL_ID,
         }).promise().then((data) => {
             if (formatted) {
                 Promise.all(Array.from(
@@ -76,7 +76,7 @@ export const listUsersInGroup = async (group, formatted = true) => {
 
     return new Promise((resolve, reject) => {
         cognitoISP.listUsersInGroup({
-            UserPoolId: AWS_USER_POOL_ID,
+            UserPoolId: process.env.REACT_APP_AWS_USER_POOL_ID,
             GroupName: group,
         }).promise().then((data) => {
             if (formatted) {
@@ -104,7 +104,7 @@ export const makeAdmin = async (username) => {
     const cognitoISP = await refreshCognitoCredentials();
 
     cognitoISP.adminAddUserToGroup({
-        UserPoolId: AWS_USER_POOL_ID,
+        UserPoolId: process.env.REACT_APP_AWS_USER_POOL_ID,
         Username: username,
         GroupName: 'station-management',
     }).promise().then((data) => {
@@ -118,7 +118,7 @@ export const removeAdmin = async (username) => {
     const cognitoISP = await refreshCognitoCredentials();
 
     cognitoISP.adminRemoveUserFromGroup({
-        UserPoolId: AWS_USER_POOL_ID,
+        UserPoolId: process.env.REACT_APP_AWS_USER_POOL_ID,
         Username: username,
         GroupName: 'station-management',
     }).promise().then((data) => {

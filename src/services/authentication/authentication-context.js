@@ -81,7 +81,7 @@ export const AuthProvider = ({ children }) => {
             Username: authResult.userObject.Username,
             djName: getUserAttribute(authResult.userObject, 'custom:dj-name', 'No DJ name!'),
             name: getUserAttribute(authResult.userObject, 'name', 'No name!'),
-            showRealName: getUserAttribute(authResult.userObject, 'custom:show-real-name', 'false') === 'true',
+            showRealName: false, //getUserAttribute(authResult.userObject, 'custom:show-real-name', 'false') === 'true',
             funFact: getUserAttribute(authResult.userObject, 'custom:fun-fact', ''),
             funFactType: getUserAttribute(authResult.userObject, 'custom:fun-fact-type', 'Favorite Artist'),
             isAdmin: authResult.isAdmin,
