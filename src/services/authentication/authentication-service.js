@@ -2,15 +2,8 @@ import AWS, { CognitoIdentityServiceProvider } from 'aws-sdk';
 import { toast } from 'sonner';
 import jwtDecode from 'jwt-decode';
 
-
-export const AWS_REGION = 'us-east-2';
-export const AWS_USER_POOL_ID = 'us-east-2_ilnKaF5KQ';
-export const AWS_CLIENT_ID = '5k75jn39vgdfavhun058t8m2te';
-export const AWS_IDENTITY_POOL_ID = 'us-east-2:1438d416-cb03-4589-986d-e6e71f7d7b39'
-export const AWS_ROLE_ARN = 'arn:aws:iam::203767826763:role/station-management';
-
 AWS.config.update({
-    region: AWS_REGION
+    region: process.env.REACT_APP_AWS_REGION
 });
 
 let persistedISP = null;
@@ -21,9 +14,9 @@ export const refreshCognitoCredentials = async (notify = false) => {
     let idToken = sessionStorage.getItem('idToken');
     let cognitoISP = null;
     const credentialManager = new AWS.CognitoIdentityCredentials({
-        IdentityPoolId: AWS_IDENTITY_POOL_ID,
+        IdentityPoolId: process.env.REACT_APP_AWS_IDENTITY_POOL_ID,
         Logins: {
-            [`cognito-idp.${AWS_REGION}.amazonaws.com/${AWS_USER_POOL_ID}`]: idToken
+            [`cognito-idp.${process.env.REACT_APP_AWS_REGION}.amazonaws.com/${process.env.REACT_APP_AWS_USER_POOL_ID}`]: idToken
         }
     });
 
@@ -35,7 +28,7 @@ export const refreshCognitoCredentials = async (notify = false) => {
 
             cognitoISP = new AWS.CognitoIdentityServiceProvider({ 
                 apiVersion: '2016-04-18', 
-                region: AWS_REGION,
+                region: process.env.REACT_APP_AWS_REGION,
                 credentials: credentialManager
             });
 
@@ -50,7 +43,7 @@ export const login = async (event) => {
 
     const params = {
         AuthFlow: 'USER_PASSWORD_AUTH',
-        ClientId: AWS_CLIENT_ID,
+        ClientId: process.env.REACT_APP_AWS_CLIENT_ID,
         AuthParameters: {
             USERNAME: username,
             PASSWORD: password
@@ -58,12 +51,12 @@ export const login = async (event) => {
     };
 
     AWS.config.update({
-        region: AWS_REGION
+        region: process.env.REACT_APP_AWS_REGION
     });
 
     const creatorISP = new AWS.CognitoIdentityServiceProvider({
         apiVersion: '2016-04-18',
-        region: AWS_REGION
+        region: process.env.REACT_APP_AWS_REGION
     });
 
     return new Promise((resolve, reject) => {
@@ -142,7 +135,7 @@ export const checkAuth = async () => {
 
     const creatorISP = new AWS.CognitoIdentityServiceProvider({
         apiVersion: '2016-04-18',
-        region: AWS_REGION
+        region: process.env.REACT_APP_AWS_REGION
     });
 
     return new Promise((resolve, reject) => {
@@ -174,7 +167,7 @@ export const refreshYourToken = async (cognitoISP) => {
     return new Promise((resolve, reject) => {
         cognitoISP.initiateAuth({
             AuthFlow: 'REFRESH_TOKEN_AUTH',
-            ClientId: AWS_CLIENT_ID,
+            ClientId: process.env.REACT_APP_AWS_CLIENT_ID,
             AuthParameters: {
                 REFRESH_TOKEN: localStorage.getItem('refreshToken')
             }
@@ -243,7 +236,7 @@ export const updatePasswordFlow = async (event, user) => {
     return new Promise((resolve, reject) => {
         cognitoISP.respondToAuthChallenge({
             ChallengeName: 'NEW_PASSWORD_REQUIRED',
-            ClientId: AWS_CLIENT_ID,
+            ClientId: process.env.REACT_APP_AWS_CLIENT_ID,
             ChallengeResponses: {
                 USERNAME: user.Username,
                 NEW_PASSWORD: event.target.password.value,
@@ -262,7 +255,7 @@ export const updatePasswordFlow = async (event, user) => {
             }).promise().then(async (data) => {
                 cognitoISP.initiateAuth({
                     AuthFlow: 'USER_PASSWORD_AUTH',
-                    ClientId: AWS_CLIENT_ID,
+                    ClientId: process.env.REACT_APP_AWS_CLIENT_ID,
                     AuthParameters: {
                         USERNAME: user.Username,
                         PASSWORD: event.target.password.value
