@@ -2,14 +2,21 @@ import { toast } from 'sonner';
 import { refreshCognitoCredentials } from '../authentication/authentication-service';
 
 
-export const createUser = async (username, tempPassword) => {
+export const createUser = async (username, email, tempPassword) => {
 
     const cognitoISP = await refreshCognitoCredentials();
-
+    
     cognitoISP.adminCreateUser({
         UserPoolId: process.env.REACT_APP_AWS_USER_POOL_ID,
         Username: username,
         TemporaryPassword: tempPassword,
+        DesiredDeliveryMediums: ["EMAIL"],
+        UserAttributes: [
+            {
+                Name: "email",
+                Value: email,
+            }
+        ]
     }).promise().then((_) => {
         toast.success(`Successfully created an account for ${username}`);
     }).catch((err) => {
@@ -31,7 +38,7 @@ export const deleteUser = async (username) => {
     });
 }
 
-export const resetPassword = async (username, tempPassword) => {
+export const resetPassword = async (username, email, tempPassword) => {
     
     const cognitoISP = await refreshCognitoCredentials();
 
