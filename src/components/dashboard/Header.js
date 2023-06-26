@@ -4,8 +4,8 @@ import Sheet from '@mui/joy/Sheet';
 import { toggleSidebar } from './utilities';
 import Box from '@mui/joy/Box';
 import Logo from '../branding/logo';
-import { ColorSchemeToggle } from '../theme/colorSchemeToggle';
-import { ViewStyleToggle } from '../theme/viewStyleToggle';
+import { ColorSchemeToggle } from '../general/theme/colorSchemeToggle';
+import { ViewStyleToggle } from '../general/theme/viewStyleToggle';
 import DragHandleIcon from '@mui/icons-material/DragHandle';
 
 export default function Header({ altViewAvailable }) {

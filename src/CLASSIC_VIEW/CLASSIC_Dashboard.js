@@ -1,6 +1,6 @@
 import React, { useContext, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ViewStyleToggle, ViewContext } from "../components/theme/viewStyleToggle";
+import { ViewStyleToggle, ViewContext } from "../components/general/theme/viewStyleToggle";
 
 const CLASSIC_Dashboard = (props) => {
 

@@ -16,7 +16,7 @@ import {
     Tooltip,
     Typography
 } from "@mui/joy";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ArtistAvatar } from "../../components/catalog/ArtistAvatar";
 import Search from "../../components/flowsheet/AddToFlowsheetSearch";
 import { RotationAvatar } from "../../components/flowsheet/RotationAvatar";
@@ -29,7 +29,7 @@ const AddToFlowsheetSearch = () => {
 
     const { live, setLive } = useLive();
     const { user } = useAuth();
-    const { queue, entries, addToEntries } = useFlowsheet();
+    const { queue, addToQueue, entries, addToEntries } = useFlowsheet();
 
     const switchLive = () => {
         if (live) {
@@ -61,7 +61,7 @@ const AddToFlowsheetSearch = () => {
         });
     }
 
-    const [searchResults, setSearchResults] = useState([]); // [{title, artist, album, label, id}
+    const [searchResults, setSearchResults] = useState({}); // [{title, artist, album, label, id}
 
     const searchRef = useRef(null);
     const [searching, setSearching] = useState(false);
@@ -75,8 +75,25 @@ const AddToFlowsheetSearch = () => {
       album: "",
       label: "",
     });
+
+    const submitResult = useCallback((asEntry = false) => {
+      let searchResultsAsArray = Object.values(searchResults);
+      let result = searchResultsAsArray[selected];
+      console.log(searchstring);
+      const newEntry = (selected > 0) ?
+      {
+        message: "",
+        ...result
+      } : {
+        message: "",
+        ...fieldStrings
+      };
+      addToQueue(newEntry);
+      console.log(fieldStrings);
+      closeSearch();
+  }, [searchResults, selected, fieldStrings, addToQueue, searchstring]);
   
-    const handleSearchDown = (e) => {
+    const handleSearchDown = useCallback((e) => {
     if (!live) return;
       if (e.key === "/") {
         e.preventDefault();
@@ -118,13 +135,12 @@ const AddToFlowsheetSearch = () => {
           );
         } else if (e.key === "Enter") {
           e.preventDefault();
-          console.log("Selected " + selected);
-          closeSearch();
+          submitResult(e.shiftKey);
         }
       }
-    };
+    }, [live, searchResults, submitResult]);
   
-    const closeSearch = () => {
+    const closeSearch = useCallback(() => {
       setSearching(false);
       setSearchstring("");
       setSelected(0);
@@ -135,18 +151,18 @@ const AddToFlowsheetSearch = () => {
         album: "",
         label: "",
       });
-    };
+    }, []);
   
-    const handleSearchFocused = (e) => {
+    const handleSearchFocused = useCallback((e) => {
       setSearching(true);
-    };
+    }, []);
   
-    const handleSearchChange = (e) => {
+    const handleSearchChange = useCallback((e) => {
       setSearchstring(e.target.value);
       let newFieldStrings = { ...fieldStrings };
       newFieldStrings[searchType] = e.target.value;
       setFieldStrings(newFieldStrings);
-    };
+    }, [searchType, fieldStrings]);
   
     useEffect(() => {
     document.removeEventListener("keydown", handleSearchDown);
@@ -222,14 +238,17 @@ return (
                   cursor: "pointer",
                 }}
                 onMouseOver={() => setSelected(0)}
+                onClick={() => submitResult()}
               >
                 <Typography level="body4">
                   CREATE A NEW ENTRY WITH THE FOLLOWING FIELDS:
                 </Typography>
-                <Stack direction="row" justifyContent="space-between">
+                <Stack direction="row" justifyContent="space-between" flexWrap="wrap">
                   {Object.keys(fieldStrings).map((item, index) =>
                     fieldStrings[item].length > 0 ? (
-                      <Chip key={item}>
+                      <Chip key={item}
+                        sx={{ my: 0.5 }}
+                      >
                         <Typography level="body2">
                           {item}: {fieldStrings[item]}
                         </Typography>
@@ -241,7 +260,7 @@ return (
                 </Stack>
               </Box>
             )}
-            <>
+            {(searchResults["bin"]) && (<>
               <Divider />
               <Box
                 sx={{
@@ -261,6 +280,7 @@ return (
                     cursor: "pointer",
                   }}
                   onMouseOver={() => setSelected(1)}
+                  onClick={submitResult}
                 >
                   <ArtistAvatar
                     artist={{
@@ -328,8 +348,8 @@ return (
                   </Stack>
                 </Stack>
               </Stack>
-            </>
-            <>
+            </>)}
+            {(searchResults["rotation"]) && (<>
               <Divider />
               <Box
                 sx={{
@@ -349,6 +369,7 @@ return (
                     cursor: "pointer",
                   }}
                   onMouseOver={() => setSelected(2)}
+                  onClick={submitResult}
                 >
                   <RotationAvatar rotation="M" />
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
@@ -421,6 +442,7 @@ return (
                     cursor: "pointer",
                   }}
                   onMouseOver={() => setSelected(3)}
+                  onClick={submitResult}
                 >
                   <RotationAvatar rotation="H" />
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
@@ -481,8 +503,8 @@ return (
                   </Stack>
                 </Stack>
               </Stack>
-            </>
-            <>
+            </>)}
+            {(searchResults["catalog"]) && (<>
               <Divider />
               <Box
                 sx={{
@@ -502,6 +524,7 @@ return (
                     cursor: "pointer",
                   }}
                   onMouseOver={() => setSelected(4)}
+                  onClick={submitResult}
                 >
                   <ArtistAvatar
                     artist={{
@@ -569,7 +592,7 @@ return (
                   </Stack>
                 </Stack>
               </Stack>
-            </>
+            </>)}
             <Divider />
             <Stack
               direction="row"

@@ -17,11 +17,17 @@ import {
 } from "@mui/joy";
 import React, { useCallback, useEffect, useState } from "react";
 import { getArtwork } from "../../services/artwork/artwork-service";
+import { useFlowsheet } from '../../services/flowsheet/flowsheet-context';
+import { useLive } from '../../services/flowsheet/live-context';
 
 const FlowsheetEntry = (props) => {
+
+    const { removeFromQueue, removeFromEntries } = useFlowsheet();
+
     const [image, setImage] = useState(null);
 
     const [canClose, setCanClose] = useState(false);
+    const { live } = useLive();
   
     const getImage = useCallback(async () => {
       let storedArtwork = sessionStorage.getItem(
@@ -65,7 +71,7 @@ const FlowsheetEntry = (props) => {
             }}
           ></Sheet>
         );
-        case "queue":
+      case "queue":
       case "entry":
         return (
           <Sheet
@@ -75,7 +81,7 @@ const FlowsheetEntry = (props) => {
               height: '60px',
               borderRadius: "md",
             }}
-            onMouseOver={() => setCanClose(true)}
+            onMouseOver={() => setCanClose(live)}
             onMouseLeave={() => setCanClose(false)}
           >
             <Stack
@@ -210,6 +216,10 @@ const FlowsheetEntry = (props) => {
                         width: '15px',
                         height: '15px',
                     }
+                }}
+                onClick={() => {
+                  var remove = {"queue" : removeFromQueue, "entry" : removeFromEntries}[props.type];
+                  remove(props.id);
                 }}
             >
                 <ClearIcon />

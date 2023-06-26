@@ -7,7 +7,7 @@ import CLASSIC_CatalogPage from './CLASSIC_VIEW/CLASSIC_Catalog';
 import CLASSIC_Dashboard from './CLASSIC_VIEW/CLASSIC_Dashboard';
 import CLASSIC_Flowsheet from './CLASSIC_VIEW/CLASSIC_Flowsheet';
 import CLASSIC_LoginPage from './CLASSIC_VIEW/CLASSIC_Login';
-import { ViewContext } from './components/theme/viewStyleToggle';
+import { ViewContext } from './components/general/theme/viewStyleToggle';
 import CatalogPage from './pages/catalog/CatalogPage';
 import Dashboard from './pages/dashboard/DashboardPage';
 import LoginPage from './pages/login/LoginPage';

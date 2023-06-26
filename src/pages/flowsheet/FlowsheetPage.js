@@ -23,6 +23,7 @@ import { useFlowsheet } from "../../services/flowsheet/flowsheet-context";
             maxHeight: "calc(100vh - 200px)",
             overflowY: "auto",
             background: "transparent",
+            mt: 2,
           }}
         >
             <Stack direction="column" spacing={1}>

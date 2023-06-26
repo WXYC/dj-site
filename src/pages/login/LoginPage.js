@@ -10,8 +10,8 @@ import Typography from '@mui/joy/Typography';
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Logo from '../../components/branding/logo';
-import { ColorSchemeToggle } from '../../components/theme/colorSchemeToggle';
-import { ViewStyleToggle } from '../../components/theme/viewStyleToggle';
+import { ColorSchemeToggle } from '../../components/general/theme/colorSchemeToggle';
+import { ViewStyleToggle } from '../../components/general/theme/viewStyleToggle';
 import { useAuth } from '../../services/authentication/authentication-context';
 
 export default function LoginPage({
