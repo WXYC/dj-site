@@ -12,6 +12,19 @@ import { LiveProvider } from '../../services/flowsheet/live-context';
 import { PopupProvider } from './Popup';
 import { FlowsheetProvider } from '../../services/flowsheet/flowsheet-context';
 
+/**
+ * @page
+ * @category Dashboard
+ *
+ * @description
+ * The Dashboard component is the wrapper for all authenticated pages in the application. It provides the layout and sidebars for the dashboard view. This component is responsible for rendering the header, sidebars, main content area, and toggles for color scheme and view style.
+ *
+ * @param {Object} props - The component props.
+ * @param {boolean} props.altViewAvailable - Indicates whether an alternative view (classic view) is available. Will be moved to ProtectedRoute in a later release.
+ * @param {ReactNode} props.children - The child components to be rendered within the main content area.
+ *
+ * @returns {JSX.Element} The rendered Dashboard component.
+ */
 const Dashboard = (props) => {
   
   const location = useLocation();

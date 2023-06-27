@@ -16,9 +16,50 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PlayArrowOutlinedIcon from '@mui/icons-material/PlayArrowOutlined';
 import { useContext } from 'react';
 import { BinContext } from './bin/Bin';
-import { closeSidebar } from './utilities';
+import { closeSidebar } from './SidebarMobileUtilities';
 import NowPlaying from '../../widgets/now-playing/NowPlaying';
 
+/**
+ * Component representing the Second Sidebar, which renders the 'Mail Bin' for DJs to save their songs and a 'now playing' widget.
+ *
+ * @component
+ * @category Dashboard
+ *
+ * @returns {JSX.Element} The rendered SecondSidebar component.
+ *
+ * @example
+ * // Usage example:
+ * import SecondSidebar from '../components/SecondSidebar';
+ *
+ * const MainComponent = () => {
+ *   return (
+ *     <div>
+ *       <SecondSidebar />
+ *     </div>
+ *   );
+ * };
+ *
+ * @see [Button (Mui-Joy component)](https://mui.com/joy-ui/react-button/)
+ * @see [Card (Mui-Joy component)](https://mui.com/joy-ui/react-card/)
+ * @see [Divider (Mui-Joy component)](https://mui.com/joy-ui/react-divider/)
+ * @see [Stack (Mui-Joy component)](https://mui.com/joy-ui/react-stack/)
+ * @see [Tooltip (Mui-Joy component)](https://mui.com/joy-ui/react-tooltip/)
+ * @see [Box (Mui-Joy component)](https://mui.com/joy-ui/react-box/)
+ * @see [Chip (Mui-Joy component)](https://mui.com/joy-ui/react-chip/)
+ * @see [IconButton (Mui-Joy component)](https://mui.com/joy-ui/react-icon-button/)
+ * @see [List (Mui-Joy component)](https://mui.com/joy-ui/react-list/)
+ * @see [ListItem (Mui-Joy component)](https://mui.com/joy-ui/react-list-item/)
+ * @see [ListItemContent (Mui-Joy component)](https://mui.com/joy-ui/react-list-item-content/)
+ * @see [ListSubheader (Mui-Joy component)](https://mui.com/joy-ui/react-list-subheader/)
+ * @see [Sheet (Mui-Joy component)](https://mui.com/joy-ui/react-sheet/)
+ * @see [Typography (Mui-Joy component)](https://mui.com/joy-ui/react-typography/)
+ * @see [InboxIcon (Mui Icons)](https://mui.com/components/material-icons/#inbox)
+ * @see [DeleteOutlineOutlinedIcon (Mui Icons)](https://mui.com/components/material-icons/#deleteoutlineoutlined)
+ * @see [InfoOutlinedIcon (Mui Icons)](https://mui.com/components/material-icons/#infooutlined)
+ * @see [PlayArrowOutlinedIcon (Mui Icons)](https://mui.com/components/material-icons/#playarrowoutlined)
+ * @see [NowPlaying component](../../widgets/now-playing/NowPlaying)
+ * @see [BinContext component](./bin/Bin)
+ */
 export default function SecondSidebar() {
 
   const { bin, addToBin, removeFromBin, clearBin, isInBin } = useContext(BinContext);

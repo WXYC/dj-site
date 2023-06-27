@@ -1,3 +1,13 @@
+/**
+ * @deprecated
+ * @description Simulates absolute positioning of a child element within a parent element.
+ * @param {React.Component} child 
+ * @param {React.Component} parent 
+ * @param {number} top 
+ * @param {number} left 
+ * @param {number} bottom 
+ * @param {number} right 
+ */
 function simulateAbsolutePositioning(child, parent, top, left, bottom, right) {
     const parentRect = parent.getBoundingClientRect();
     const parentStyle = getComputedStyle(parent);

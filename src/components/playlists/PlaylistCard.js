@@ -7,6 +7,14 @@ import HeadsetIcon from '@mui/icons-material/Headset';
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../services/authentication/authentication-context";
 
+/**
+ * Represents a playlist card component.
+ *
+ * @component
+ * @param {Object} props - The component props.
+ * @param {Object} props.playlist - The playlist object.
+ * @returns {JSX.Element} The playlist card component.
+ */
 const PlaylistCard = ({ playlist }) => {
 
     const [images, setImages] = useState([]);
@@ -14,12 +22,17 @@ const PlaylistCard = ({ playlist }) => {
     const navigate = useNavigate();
     const { user } = useAuth();
 
-    // This code gets reaaaaaalllly intense in order to avoid calling the API too many times
+    /**
+     * Chooses and retrieves artwork images for the playlist.
+     *
+     * @param {Array} information - The information array containing title and artist for each preview album.
+     * @returns {Promise<Array>} A promise that resolves to an array of artwork images.
+     */
     const chooseImages = useCallback(async (information) => {
         return Array.from(
             await Promise.all(
                 information.map(async (info) => {
-                    let storedArtwork = sessionStorage.getItem(`${info.title}-${info.artist}`);
+                    let storedArtwork = sessionStorage.getItem(`img-${info.title}-${info.artist}`);
                     if (storedArtwork) return storedArtwork;
                     try {
                         let retrievedArtwork = await getArtwork({

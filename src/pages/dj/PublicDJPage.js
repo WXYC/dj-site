@@ -4,6 +4,14 @@ import { Card, Box, CardContent, CardHeader, CircularProgress, Sheet, Stack, Typ
 import Logo from "../../components/branding/logo";
 import CallingCard from "../../widgets/calling-card/CallingCard";
 
+/**
+ * Renders a page displaying a 'calling card' for DJs who elect to have that shared.
+ * 
+ * @page
+ * @category DJs
+ * 
+ * @returns {JSX.Element} The rendered component.
+ */
 export const PublicDJPage = () => {
 
     let { djName } = useParams();

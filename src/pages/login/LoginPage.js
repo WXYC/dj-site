@@ -14,6 +14,16 @@ import { ColorSchemeToggle } from '../../components/general/theme/colorSchemeTog
 import { ViewStyleToggle } from '../../components/general/theme/viewStyleToggle';
 import { useAuth } from '../../services/authentication/authentication-context';
 
+/**
+ * @page
+ * @category Authentication
+ * 
+ * @description The login page for the application.
+ * 
+ * @param {boolean} altViewAvailable Whether or not the alternate view is available. Will be moved to ProtectedRoute in a later release.
+ * 
+ * @returns {JSX.Element} The rendered component
+ */
 export default function LoginPage({
   altViewAvailable,
 }) {

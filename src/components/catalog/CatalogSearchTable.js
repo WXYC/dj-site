@@ -55,6 +55,30 @@ const sorting_algorithms_desc = {
   'Format': (a, b) => b.format.localeCompare(a.format),
 }
 
+/**
+ * A table component for catalog search results.
+ *
+ * @component
+ * @category Card Catalog
+ * @example
+ * // Usage example:
+ * import CatalogSearchTable from './CatalogSearchTable';
+ *
+ * function App() {
+ *   return (
+ *     <div>
+ *       <CatalogSearchTable />
+ *     </div>
+ *   );
+ * }
+ *
+ * @returns {JSX.Element} The rendered CatalogSearchTable component.
+ *
+ * @description
+ * The CatalogSearchTable component displays a table with search results from the catalog. It allows sorting the results based on different criteria, and provides options to add selected items to a queue.
+ *
+ * The component selects sorting algorithms on the client side and renders "add to queue" options if the DJ is live.
+ */
 const OrderTable = () => {
 
     const { live } = useLive();

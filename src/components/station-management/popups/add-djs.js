@@ -24,6 +24,20 @@ import { createUser, deleteUser, listUsers, makeAdmin } from "../../../services/
 import { toast } from "sonner";
 import { PopupContentContext } from "../../../pages/dashboard/Popup";
 
+
+/**
+ * Represents a popup component for adding DJs.
+ * Only accessible to station managers.
+ *
+ * @component
+ * @category Station Management
+ *
+ * @param {Object} props - The component props.
+ * @param {function} props.callback - The callback function to be executed after adding DJs.
+ * @param {string} [props.style] - The style of the popup. Defaults to the success color.
+ *
+ * @returns {JSX.Element} The AddDJsPopup component.
+ */
 export const AddDJsPopup = ({callback, style }) => {
 
     const { closePopup } = useContext(PopupContentContext);

@@ -43,6 +43,14 @@ const eventTypes = {
     'new-dj-shift' : 'New DJ Shift',
 };
 
+/**
+ * Renders a schedule interface with draggable and resizable events, similar to Google Calendar functionality.
+ * 
+ * @component
+ * @category Station Management
+ *
+ * @returns {JSX.Element} The rendered component.
+ */
 const StationSchedule = () => {
 
     const boolToDifferentiateClickFromDrag = useRef(false);

@@ -8,6 +8,16 @@ const ROTATION_COLORS = {
     'S': 'success',
 }
 
+/**
+ * @component
+ * @category Flowsheet
+ * @description Displays a rotation avatar
+ * 
+ * @param {Object} props
+ * @param {string} props.rotation Can be 'H', 'M', 'L', or 'S'
+ * @param {string} props.variant Can be 'solid' or 'outlined'
+ * @returns JSX.Element
+ */
 export const RotationAvatar = (props) => {
 
     let color_choice = ROTATION_COLORS[props.rotation];

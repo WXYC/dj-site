@@ -1,6 +1,17 @@
 import React from 'react';
 import { useColorScheme } from '@mui/joy/styles';
 
+/**
+ * 
+ * @param {*} props
+ * @param {string} props.color The color of the logo. Defaults to 'primary'.
+ * @category General
+ * @component
+ * @example
+ * return (
+ *  <Logo color='success' />
+ * )
+ */
 const Logo = (props) => {
     const { mode, systemMode } = useColorScheme();
     return (

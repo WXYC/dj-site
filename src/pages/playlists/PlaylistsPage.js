@@ -1,6 +1,6 @@
 import { Box, CircularProgress, Grid, Option, Select, Sheet, Stack, Typography } from "@mui/joy"
 import React, { useEffect, useState } from "react"
-import PlaylistCard from "../../widgets/playlists/PlaylistCard"
+import PlaylistCard from "../../components/playlists/PlaylistCard"
 
 const examplePlaylists = [
   {
@@ -110,6 +110,14 @@ const examplePlaylists = [
   }
 ];
 
+/**
+ * The page that displays all playlists for a given user. Contains sorting and filtering options.
+ * 
+ * @page
+ * @category Playlists
+ * 
+ * @returns {JSX.Element} The fully rendered PlaylistsPage component.
+ */
 const PlaylistsPage = () => {
 
     const [sort, setSort] = useState("date");

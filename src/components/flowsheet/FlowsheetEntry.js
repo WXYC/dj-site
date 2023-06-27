@@ -20,6 +20,24 @@ import { getArtwork } from "../../services/artwork/artwork-service";
 import { useFlowsheet } from '../../services/flowsheet/flowsheet-context';
 import { useLive } from '../../services/flowsheet/live-context';
 
+
+/**
+ * Represents a Flowsheet Entry component. Contains self-delete and play functionality.
+ * @component
+ * @category Flowsheet
+ *
+ * @param {Object} props - The component props.
+ * @param {string} props.type - The type of the entry. Possible values: "placeholder", "queue", "entry", "joined", "left", "breakpoint", "talkset".
+ * @param {string} [props.album] - The album name.
+ * @param {string} [props.artist] - The artist name.
+ * @param {string} [props.title] - The song title.
+ * @param {string} [props.label] - The label.
+ * @param {boolean} [props.current] - Indicates if the entry is the current one.
+ * @param {string} [props.id] - The entry ID.
+ * @param {string} [props.message] - The entry message. If message is "", then it is an entry. If it is not blank, then it is a placeholder for a talkset, joined, left, or breakpoint notification.
+ *
+ * @returns {JSX.Element} The FlowsheetEntry component.
+ */
 const FlowsheetEntry = (props) => {
 
     const { removeFromQueue, removeFromEntries } = useFlowsheet();
@@ -30,29 +48,30 @@ const FlowsheetEntry = (props) => {
     const { live } = useLive();
   
     const getImage = useCallback(async () => {
+      if (props.album == undefined || props.artist == undefined) return "";
       let storedArtwork = sessionStorage.getItem(
-        `${props.releaseAlbum}-${props.releaseArtist}`
+        `img-${props.album}-${props.artist}`
       );
       if (storedArtwork) return storedArtwork;
       try {
         let retrievedArtwork = await getArtwork({
-          title: props.releaseAlbum,
-          artist: props.releaseArtist,
+          title: props.album,
+          artist: props.artist,
         });
         // THE CONVENTION IS ALBUM THEN ARTIST IN THIS APP
         sessionStorage.setItem(
-          `${props.releaseAlbum}-${props.releaseArtist}`,
+          `img-${props.album}-${props.artist}`,
           retrievedArtwork
         );
         return retrievedArtwork;
       } catch (e) {
         sessionStorage.setItem(
-          `${props.releaseAlbum}-${props.releaseArtist}`,
+          `img-${props.album}-${props.artist}`,
           ""
         );
         return "";
       }
-    }, [props.releaseAlbum, props.releaseArtist]);
+    }, [props.album, props.artist]);
   
     useEffect(() => {
       getImage().then((image) => {
@@ -120,7 +139,7 @@ const FlowsheetEntry = (props) => {
                       textOverflow: "ellipsis",
                     }}
                   >
-                    {props.releaseTitle}
+                    {props.title}
                   </Typography>
                 </Stack>
                 <Stack direction="column" sx={{ width: "calc(25%)" }}>
@@ -134,7 +153,7 @@ const FlowsheetEntry = (props) => {
                       textOverflow: "ellipsis",
                     }}
                   >
-                    {props.releaseArtist}
+                    {props.artist}
                   </Typography>
                 </Stack>
                 <Stack direction="column" sx={{ width: "calc(25%)" }}>
@@ -148,7 +167,7 @@ const FlowsheetEntry = (props) => {
                       textOverflow: "ellipsis",
                     }}
                   >
-                    {props.releaseAlbum}
+                    {props.album}
                   </Typography>
                 </Stack>
                 <Stack direction="column" sx={{ width: "calc(25%)" }}>
@@ -162,7 +181,7 @@ const FlowsheetEntry = (props) => {
                       textOverflow: "ellipsis",
                     }}
                   >
-                    {props.releaseLabel}
+                    {props.label}
                   </Typography>
                 </Stack>
               </Stack>

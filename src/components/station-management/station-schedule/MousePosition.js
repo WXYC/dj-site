@@ -1,4 +1,9 @@
 import React from 'react';
+
+/**
+ * 
+ * @returns {Object} The mouse position
+ */
 const useMousePosition = () => {
   const [
     mousePosition,

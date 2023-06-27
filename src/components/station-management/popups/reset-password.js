@@ -3,6 +3,16 @@ import React, { useContext, useState } from "react"
 import { resetPassword } from "../../../services/station-management/admin-service";
 import { PopupContentContext } from "../../../pages/dashboard/Popup";
 
+/**
+ * Represents a popup component for resetting a user's password.
+ *
+ * @component
+ *
+ * @param {Object} props - The component props.
+ * @param {string} props.username - The username of the user whose password needs to be reset.
+ *
+ * @returns {JSX.Element} The ResetPasswordPopup component.
+ */
 export const ResetPasswordPopup = ({ username }) => {
 
     const [loading, setLoading] = useState(false);

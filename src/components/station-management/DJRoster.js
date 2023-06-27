@@ -26,6 +26,17 @@ import exportDjsAsCSV from "./csv-export";
 import { AddDJsPopup } from "./popups/add-djs";
 import { ResetPasswordPopup } from "./popups/reset-password";
 
+/**
+ * Represents a DJ roster component for managing DJs and their profiles.
+ *
+ * @component
+ * @category Station Management
+ *
+ * @param {Object} props - The component props.
+ * @param {string} [props.style] - The color style for the component.
+ *
+ * @returns {JSX.Element} The DJRoster component.
+ */
 const DJRoster = ({ style }) => {
 
   const { openPopup, closePopup } = useContext(PopupContentContext);

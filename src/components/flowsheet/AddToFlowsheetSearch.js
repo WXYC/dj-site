@@ -24,7 +24,15 @@ import { useLive } from "../../services/flowsheet/live-context";
 import { useAuth } from "../../services/authentication/authentication-context";
 import { useFlowsheet } from "../../services/flowsheet/flowsheet-context";
   
-
+/**
+ * @component
+ * @category Flowsheet
+ * @description Add to flowsheet search component.
+ * Adds event listeners to the search input and handles the search results.
+ * Receives all data from and posts all data to Flowsheet Context to be handled asynchronusly.
+ * @param {Object} props
+ * @returns JSX.Element
+ */
 const AddToFlowsheetSearch = () => {
 
     const { live, setLive } = useLive();
@@ -70,10 +78,10 @@ const AddToFlowsheetSearch = () => {
     const [selected, setSelected] = useState(0);
     const [searchType, setSearchType] = useState("title"); // ['title', 'artist', 'album', 'label']
     const [fieldStrings, setFieldStrings] = useState({
-      title: "",
-      artist: "",
-      album: "",
-      label: "",
+      title: "i",
+      artist: "i",
+      album: "i",
+      label: "i",
     });
 
     const submitResult = useCallback((asEntry = false) => {
@@ -89,7 +97,7 @@ const AddToFlowsheetSearch = () => {
         ...fieldStrings
       };
       addToQueue(newEntry);
-      console.log(fieldStrings);
+      console.log(newEntry);
       closeSearch();
   }, [searchResults, selected, fieldStrings, addToQueue, searchstring]);
   

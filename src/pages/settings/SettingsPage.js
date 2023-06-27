@@ -5,6 +5,12 @@ import CallingCard from "../../widgets/calling-card/CallingCard";
 import CopyAllIcon from '@mui/icons-material/CopyAll';
 import { useAuth } from "../../services/authentication/authentication-context";
 
+/**
+ * Renders a page for user settings. Features inline save buttons for each setting.
+ * @page
+ * 
+ * @returns {JSX.Element} The rendered component.
+ */
 const SettingsPage = () => {
 
     const { user, handleInformationUpdate } = useAuth();

@@ -8,6 +8,13 @@ import AddToFlowsheetSearch from "../../components/flowsheet/AddToFlowsheetSearc
 import FlowsheetEntry from "../../components/flowsheet/FlowsheetEntry";
 import { useFlowsheet } from "../../services/flowsheet/flowsheet-context";
   
+/**
+ * @page
+ * @category Flowsheet
+ * @description The FlowsheetPage component is the wrapper for the flowsheet view.
+ * It provides the add to flowsheet search bar and the flowsheet entries.
+ * @returns {JSX.Element} The rendered FlowSheetPage component.
+ */
   const FlowSheetPage = () => {
 
     const { queue, entries } = useFlowsheet();

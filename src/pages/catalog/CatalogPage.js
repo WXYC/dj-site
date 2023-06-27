@@ -2,6 +2,14 @@ import { Box, Typography } from "@mui/joy";
 import React from "react";
 import CatalogSearchTable from "../../components/catalog/CatalogSearchTable";
 
+/**
+ * CatalogPage component represents a page that displays a catalog search table.
+ *
+ * @page
+ * @category Card Catalog
+ * 
+ * @returns {JSX.Element} The rendered CatalogPage component.
+ */
 const CatalogPage = () => {
     return (
         <>
