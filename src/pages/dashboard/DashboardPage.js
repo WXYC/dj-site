@@ -11,6 +11,7 @@ import { ViewStyleToggle } from '../../components/general/theme/viewStyleToggle'
 import { LiveProvider } from '../../services/flowsheet/live-context';
 import { PopupProvider } from './Popup';
 import { FlowsheetProvider } from '../../services/flowsheet/flowsheet-context';
+import ProtectedRoute from '../../components/authentication/ProtectedRoute';
 
 /**
  * @page
@@ -30,7 +31,7 @@ const Dashboard = (props) => {
   const location = useLocation();
 
   return (
-    <React.Fragment>
+    <ProtectedRoute>
       <FlowsheetProvider>
       <PopupProvider>
       <LiveProvider>
@@ -84,7 +85,7 @@ const Dashboard = (props) => {
       </LiveProvider>
       </PopupProvider>
       </FlowsheetProvider>
-      </React.Fragment>
+      </ProtectedRoute>
   );
 }
 

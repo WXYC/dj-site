@@ -1,7 +1,7 @@
 import { CssBaseline, GlobalStyles } from '@mui/joy';
-import React, { createContext, useContext, useEffect } from 'react';
+import React, { useContext } from 'react';
 
-import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import CLASSIC_CatalogPage from './CLASSIC_VIEW/CLASSIC_Catalog';
 import CLASSIC_Dashboard from './CLASSIC_VIEW/CLASSIC_Dashboard';
@@ -13,17 +13,16 @@ import Dashboard from './pages/dashboard/DashboardPage';
 import LoginPage from './pages/login/LoginPage';
 import StationManagementPage from './pages/station-management/StationManagementPage';
 
-import { GlobalPopups, PopupProvider } from './pages/dashboard/Popup';
+import { GlobalPopups } from './pages/dashboard/Popup';
 import { PublicDJPage } from './pages/dj/PublicDJPage';
 import FlowsheetPage from './pages/flowsheet/FlowsheetPage';
+import PlaylistPage from './pages/playlists/PlaylistPage';
+import PlaylistsPage from './pages/playlists/PlaylistsPage';
+import SchedulePage from './pages/schedule/SchedulePage';
 import SettingsPage from './pages/settings/SettingsPage';
 import { useAuth } from './services/authentication/authentication-context';
 import { login, logout } from './services/authentication/authentication-service';
 import NowPlaying from './widgets/now-playing/NowPlaying';
-import Redirect from './pages/login/redirect';
-import SchedulePage from './pages/schedule/SchedulePage';
-import PlaylistsPage from './pages/playlists/PlaylistsPage';
-import PlaylistPage from './pages/playlists/PlaylistPage';
 
 function App() {
 
@@ -58,61 +57,50 @@ function App() {
                     <Route path="shows" element={<div>Shows</div>} />
                   </Route>
                 </Route>
-                {
-                  auth.isAuthenticated ? (
-                    <>
-                    <Route path="/*" element={
-                      <Dashboard
-                        altViewAvailable = {(typeof classicView !== 'undefined')}
-                      >
-                        <GlobalPopups />
-                        <Routes>
-                          <Route path="/catalog" element={
-                            <CatalogPage />
-                          } />
-                          <Route path="/flowsheet" element={
-                            <FlowsheetPage />
-                          } />
-                          <Route path="/playlists">
-                            <Route path="" element={<PlaylistsPage />} />
-                            <Route path=":djName">
-                              <Route path=":playlistName" element={
-                                <PlaylistPage />
-                              } />
-                            </Route>
-                          </Route>
-                          <Route path="/schedule" element={
-                            <SchedulePage />
-                          } />
-                          <Route path="/admin" element={
-                            (auth.isAdmin) ? (
-                              <StationManagementPage />
-                            ) : (
-                              <Navigate to={'/catalog'} />
-                            )
-                          } />
-                          <Route path="/settings" element = {
-                            <SettingsPage />
-                          } />
-                          <Route path="/*" element={
-                            <Navigate to={window.location.hash?.split('?continue=')?.[1]?.replace('#', '') ?? "/catalog"} />} 
-                          />
-                        </Routes>
-                      </Dashboard>
-                    } />
-                    </>
-                  ) : (
-                    <>
-                    <Route path="/login" element={
+                <Route path="/login" element={
                       <LoginPage
                         altViewAvailable = {(typeof classicView !== 'undefined')}
                       />
-                    } />
-                    <Route exact path="/" element={<Navigate to={`/login`} />} />
-                    <Route path=":redirect" element={<Redirect />} />
-                    </>
-                  )
-                }
+                } />
+                <Route path="/*" element={
+                  <Dashboard
+                    altViewAvailable = {(typeof classicView !== 'undefined')}
+                  >
+                    <GlobalPopups />
+                    <Routes>
+                      <Route path="/catalog" element={
+                        <CatalogPage />
+                      } />
+                      <Route path="/flowsheet" element={
+                        <FlowsheetPage />
+                      } />
+                      <Route path="/playlists">
+                        <Route path="" element={<PlaylistsPage />} />
+                        <Route path=":djName">
+                          <Route path=":playlistName" element={
+                            <PlaylistPage />
+                          } />
+                        </Route>
+                      </Route>
+                      <Route path="/schedule" element={
+                        <SchedulePage />
+                      } />
+                      <Route path="/admin" element={
+                        (auth.isAdmin) ? (
+                          <StationManagementPage />
+                        ) : (
+                          <Navigate to={'/catalog'} />
+                        )
+                      } />
+                      <Route path="/settings" element = {
+                        <SettingsPage />
+                      } />
+                      <Route path="/*" element={
+                        <Navigate to={window.location.hash?.split('?continue=')?.[1]?.replace('#', '') ?? "/catalog"} />} 
+                      />
+                    </Routes>
+                  </Dashboard>
+                } />
               </Routes>
       </div>
     );
