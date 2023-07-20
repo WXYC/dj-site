@@ -200,10 +200,6 @@ const AddToFlowsheetSearch = () => {
       };
     }, [live]);
 
-    useEffect(() => {
-      console.log(selected);
-    }, [selected]);
-
 return (
     <>
     <Box

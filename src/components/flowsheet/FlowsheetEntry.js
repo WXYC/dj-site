@@ -213,7 +213,7 @@ const FlowsheetEntry = (props) => {
                   <KeyboardArrowDownIcon />
                 </IconButton>
               ) : (
-                <IconButton
+                (live) && (<IconButton
                   color="neutral"
                   variant="plain"
                   size="sm"
@@ -228,15 +228,17 @@ const FlowsheetEntry = (props) => {
                     let rect = entryClientRectRef.current.getBoundingClientRect();
                     let button = e.target.getBoundingClientRect();
                     setEntryClientRect({
-                      x: rect.width,
-                      y: rect.height,
+                      x: rect.x,
+                      y: rect.y,
+                      width: rect.width,
+                      height: rect.height,
                       offsetX: button.x - rect.x + 5,
                       offsetY: button.y - rect.y + 5,
                     });
                   }}
                 >
                   <DragIndicatorIcon />
-                </IconButton>
+                </IconButton>)
               )}
             </Stack>
             {(canClose && !props.current) && (

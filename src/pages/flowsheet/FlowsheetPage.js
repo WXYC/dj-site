@@ -3,11 +3,11 @@ import {
   Sheet,
   Stack
 } from "@mui/joy";
-import React, { useEffect } from "react";
+import React from "react";
 import AddToFlowsheetSearch from "../../components/flowsheet/AddToFlowsheetSearch";
+import DraggingPreview from "../../components/flowsheet/DraggingPreview";
 import FlowsheetEntry from "../../components/flowsheet/FlowsheetEntry";
 import { useFlowsheet } from "../../services/flowsheet/flowsheet-context";
-import useMousePosition from "../../widgets/MousePosition";
   
 /**
  * @page
@@ -28,37 +28,10 @@ import useMousePosition from "../../widgets/MousePosition";
       entryClientRect
     } = useFlowsheet();
 
-    const mousePosition = useMousePosition();
-
-    useEffect(() => {
-      console.log(entryClientRect);
-    }, [entryClientRect]);
-
     // THIS IS WHERE THE PAGE RENDER BEGINS ---------------------------------------------
     return (
       <div>
-        {(queuePlaceholderIndex > -1) && (
-          <div
-            style = {{
-              position: "absolute",
-              zIndex: 20000,
-              top: (mousePosition?.y ?? 0) - (entryClientRect?.offsetY ?? 0),
-              left: (mousePosition?.x ?? 0) - (entryClientRect?.offsetX ?? 0),
-              width: entryClientRect?.x ?? 0,
-              height: entryClientRect?.y ?? 0,
-            }}
-            onMouseUp={() => {
-              setQueuePlaceholderIndex(-1);
-            }}
-          >
-            <FlowsheetEntry
-              index = {queuePlaceholderIndex}
-              key={`queue-preview-${queuePlaceholderIndex}`}
-              type={"queue"}
-              {...queue[queuePlaceholderIndex]}
-            />
-          </div>
-        )}
+        <DraggingPreview /> {/* Shows us the preview of the dragged entry */}
       {/* HEADER AREA */}
       <AddToFlowsheetSearch />
         {/* FLOWSHEET AREA */}
