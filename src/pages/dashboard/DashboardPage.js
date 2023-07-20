@@ -6,18 +6,32 @@ import FirstSidebar from '../../components/dashboard/FirstSidebar';
 import Header from '../../components/dashboard/Header';
 import SecondSidebar from '../../components/dashboard/SecondSidebar';
 import { BinProvider } from '../../components/dashboard/bin/Bin';
-import { ColorSchemeToggle } from '../../components/theme/colorSchemeToggle';
-import { ViewStyleToggle } from '../../components/theme/viewStyleToggle';
+import { ColorSchemeToggle } from '../../components/general/theme/colorSchemeToggle';
+import { ViewStyleToggle } from '../../components/general/theme/viewStyleToggle';
 import { LiveProvider } from '../../services/flowsheet/live-context';
 import { PopupProvider } from './Popup';
 import { FlowsheetProvider } from '../../services/flowsheet/flowsheet-context';
+import ProtectedRoute from '../../components/authentication/ProtectedRoute';
 
+/**
+ * @page
+ * @category Dashboard
+ *
+ * @description
+ * The Dashboard component is the wrapper for all authenticated pages in the application. It provides the layout and sidebars for the dashboard view. This component is responsible for rendering the header, sidebars, main content area, and toggles for color scheme and view style.
+ *
+ * @param {Object} props - The component props.
+ * @param {boolean} props.altViewAvailable - Indicates whether an alternative view (classic view) is available. Will be moved to ProtectedRoute in a later release.
+ * @param {ReactNode} props.children - The child components to be rendered within the main content area.
+ *
+ * @returns {JSX.Element} The rendered Dashboard component.
+ */
 const Dashboard = (props) => {
   
   const location = useLocation();
 
   return (
-    <React.Fragment>
+    <ProtectedRoute>
       <FlowsheetProvider>
       <PopupProvider>
       <LiveProvider>
@@ -71,7 +85,7 @@ const Dashboard = (props) => {
       </LiveProvider>
       </PopupProvider>
       </FlowsheetProvider>
-      </React.Fragment>
+      </ProtectedRoute>
   );
 }
 

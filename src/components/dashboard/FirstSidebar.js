@@ -25,6 +25,37 @@ import { PopupContentContext } from '../../pages/dashboard/Popup';
 import { ConfirmPopup } from '../general/popups/general-popups';
 import { useFlowsheet } from '../../services/flowsheet/flowsheet-context';
 
+/**
+ * Component for rendering navigational links to settings and pages, and providing logout functionality.
+ *
+ * @component
+ * @category Dashboard
+ *
+ * @returns {JSX.Element} The rendered FirstSidebar component.
+ * 
+ * @example
+ * // Usage example:
+ * import FirstSidebar from '../components/FirstSidebar';
+ *
+ * const DashboardPage = () => {
+ *   return (
+ *     <div>
+ *       <FirstSidebar />
+ *     </div>
+ *   );
+ * };
+ *
+ * @see [IconButton (Mui-Joy component)](https://mui.com/joy-ui/react-icon-button/)
+ * @see [List (Mui-Joy component)](https://mui.com/joy-ui/react-list/)
+ * @see [ListItemButton (Mui-Joy component)](https://mui.com/joy-ui/react-list-item-button/)
+ * @see [Sheet (Mui-Joy component)](https://mui.com/joy-ui/react-sheet/)
+ * @see [Divider (Mui-Joy component)](https://mui.com/joy-ui/react-divider/)
+ * @see [Tooltip (Mui-Joy component)](https://mui.com/joy-ui/react-tooltip/)
+ * @see [Badge (Mui-Joy component)](https://mui.com/joy-ui/react-badge/)
+ * @see [Chip (Mui-Joy component)](https://mui.com/joy-ui/react-chip/)
+ * @see [Stack (Mui-Joy component)](https://mui.com/joy-ui/react-stack/)
+ * @see [Typography (Mui-Joy component)](https://mui.com/joy-ui/react-typography/)
+ */
 export default function FirstSidebar() {
 
   const { handleLogout, user } = useAuth();

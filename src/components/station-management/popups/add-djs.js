@@ -24,6 +24,20 @@ import { createUser, deleteUser, listUsers, makeAdmin } from "../../../services/
 import { toast } from "sonner";
 import { PopupContentContext } from "../../../pages/dashboard/Popup";
 
+
+/**
+ * Represents a popup component for adding DJs.
+ * Only accessible to station managers.
+ *
+ * @component
+ * @category Station Management
+ *
+ * @param {Object} props - The component props.
+ * @param {function} props.callback - The callback function to be executed after adding DJs.
+ * @param {string} [props.style] - The style of the popup. Defaults to the success color.
+ *
+ * @returns {JSX.Element} The AddDJsPopup component.
+ */
 export const AddDJsPopup = ({callback, style }) => {
 
     const { closePopup } = useContext(PopupContentContext);
@@ -31,7 +45,7 @@ export const AddDJsPopup = ({callback, style }) => {
 
     const handleAddDJ = async (event) => {
         event.preventDefault();
-        const { username, password } = event.target.elements;
+        const { username, email, password } = event.target.elements;
         
         setLoading(true);
     
@@ -39,7 +53,7 @@ export const AddDJsPopup = ({callback, style }) => {
 
         setLoading(true);
         (async () => {
-          await createUser(username.value, password.value);
+          await createUser(username.value, email.value, password.value);
           callback();
           setLoading(false);
           closePopup();
@@ -50,14 +64,17 @@ export const AddDJsPopup = ({callback, style }) => {
         event.preventDefault();
 
         setLoading(true);
-        const { usernames, password } = event.target.elements;
+        const { usernamesandemails, password } = event.target.elements;
 
-        let new_usernames = usernames.value.replace(/\s/g, '').split(',');
-        new_usernames = new_usernames.filter((username) => username.length > 0);
+        let new_entries = usernamesandemails.value.split('\n');
+        new_entries = new_entries.map((entry) => {
+          let [username, email] = entry.split(',');
+          return [username.trim(), email.trim()];
+        });
         
         (async () => {
           await Promise.allSettled(
-            new_usernames.map((username) => createUser(username, password.value))
+            new_entries.map((username, email) => createUser(username, email, password.value))
           );
           callback();
           setLoading(false);
@@ -105,6 +122,16 @@ export const AddDJsPopup = ({callback, style }) => {
                 />
               </FormControl>
               <FormControl required>
+                <FormLabel>Email</FormLabel>
+                <Typography level = "body3" sx = {{ my: 0.5 }}>
+                  New users are notified of their account creation via email.
+                </Typography>
+                <Input
+                  placeholder="email"
+                  name = "email"
+                />
+              </FormControl>
+              <FormControl required>
                 <FormLabel>Temporary Password</FormLabel>
                 <Typography level = "body3" sx = {{ my: 0.5 }}>
                   This password will be used to log in for the first time. The DJ will be prompted to change it upon logging in. <br />
@@ -140,7 +167,8 @@ export const AddDJsPopup = ({callback, style }) => {
               <FormControl required>
                 <FormLabel>Enter List</FormLabel>
                 <Typography level = "body3" sx = {{ my: 0.5 }}>
-                  Enter a list of usernames, separated by <Typography color="primary">commas.</Typography> <br />
+                  Enter a list of usernames and emails separated by <Typography color="primary">commas.</Typography> <br />
+                  Every new entry should be on a <Typography color="primary">new line.</Typography> <br />
                   The usernames must be unique and cannot be changed. <br />
                   We recommend using the DJ's first name, last name, initials, or some combination of the three.
                 </Typography>

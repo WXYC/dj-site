@@ -18,6 +18,32 @@ const ViewProvider = ({ children }) => {
 
 export default ViewProvider;
 
+/**
+ * Component for toggling between classic and new view styles.
+ *
+ * @component
+ * @category Theme
+ *
+ * @example
+ * // Usage example:
+ * import { ViewStyleToggle } from '@mui/joy';
+ *
+ * const ExampleComponent = () => {
+ *   const handleToggleViewStyle = () => {
+ *     // Handle view style toggle logic here
+ *   };
+ *
+ *   return (
+ *     <ViewStyleToggle onClick={handleToggleViewStyle} />
+ *   );
+ * };
+ *
+ * @param {Object} props - The component props.
+ * @param {Function} [props.onClick] - The callback function to be called when the toggle button is clicked.
+ *
+ * @returns {JSX.Element} The rendered ViewStyleToggle component.
+ *
+ */
 export function ViewStyleToggle({ onClick, ...props }) {
     const {classicView, setClassicView} = useContext(ViewContext);
 

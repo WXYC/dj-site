@@ -16,7 +16,7 @@ import {
     Tooltip,
     Typography
 } from "@mui/joy";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ArtistAvatar } from "../../components/catalog/ArtistAvatar";
 import Search from "../../components/flowsheet/AddToFlowsheetSearch";
 import { RotationAvatar } from "../../components/flowsheet/RotationAvatar";
@@ -24,12 +24,20 @@ import { useLive } from "../../services/flowsheet/live-context";
 import { useAuth } from "../../services/authentication/authentication-context";
 import { useFlowsheet } from "../../services/flowsheet/flowsheet-context";
   
-
+/**
+ * @component
+ * @category Flowsheet
+ * @description Add to flowsheet search component.
+ * Adds event listeners to the search input and handles the search results.
+ * Receives all data from and posts all data to Flowsheet Context to be handled asynchronusly.
+ * @param {Object} props
+ * @returns JSX.Element
+ */
 const AddToFlowsheetSearch = () => {
 
     const { live, setLive } = useLive();
     const { user } = useAuth();
-    const { queue, entries, addToEntries } = useFlowsheet();
+    const { queue, addToQueue, entries, addToEntries } = useFlowsheet();
 
     const switchLive = () => {
         if (live) {
@@ -61,7 +69,7 @@ const AddToFlowsheetSearch = () => {
         });
     }
 
-    const [searchResults, setSearchResults] = useState([]); // [{title, artist, album, label, id}
+    const [searchResults, setSearchResults] = useState({}); // [{title, artist, album, label, id}
 
     const searchRef = useRef(null);
     const [searching, setSearching] = useState(false);
@@ -75,8 +83,46 @@ const AddToFlowsheetSearch = () => {
       album: "",
       label: "",
     });
+
+    const [submitting, setSubmitting] = useState(false);
+    const [asEntry, setAsEntry] = useState(false);
+    const submitResult = (asEntry = false) => {
+      setSubmitting(true);
+      setAsEntry(asEntry);
+    }
+
+    useEffect(() => {
+      if (!submitting) return;
+
+      let selectedResult = searchResults[selected];
+      var newEntry = (selected > 0)
+        ? {
+            message: "",
+            ...selectedResult,
+          }
+        : {
+            message: "",
+            ...fieldStrings,
+          };
+
+      (asEntry) ? addToEntries(newEntry) : addToQueue(newEntry);
+      
+      // Now clear everything
+      closeSearch();
+      setSelected(0);
+      const input = searchRef.current.querySelector("input");
+      input.blur();
+      setFieldStrings({
+        title: "",
+        artist: "",
+        album: "",
+        label: "",
+      });
+      setSubmitting(false);
+      setAsEntry(false);
+    }, [submitting]);
   
-    const handleSearchDown = (e) => {
+    const handleSearchDown = useCallback((e) => {
     if (!live) return;
       if (e.key === "/") {
         e.preventDefault();
@@ -114,17 +160,16 @@ const AddToFlowsheetSearch = () => {
         } else if (e.keyCode === 40) {
           e.preventDefault();
           setSelected((previous) =>
-            Math.min(searchResults.length - 1, previous + 1)
+            Math.min((searchResults?.length ?? 1) - 1, previous + 1)
           );
         } else if (e.key === "Enter") {
           e.preventDefault();
-          console.log("Selected " + selected);
-          closeSearch();
+          submitResult(e.shiftKey);
         }
       }
-    };
+    }, [live, searchResults, submitResult]);
   
-    const closeSearch = () => {
+    const closeSearch = useCallback(() => {
       setSearching(false);
       setSearchstring("");
       setSelected(0);
@@ -135,18 +180,19 @@ const AddToFlowsheetSearch = () => {
         album: "",
         label: "",
       });
-    };
+    }, []);
   
-    const handleSearchFocused = (e) => {
+    const handleSearchFocused = useCallback((e) => {
       setSearching(true);
-    };
+    }, []);
   
-    const handleSearchChange = (e) => {
+    const handleSearchChange = useCallback((e) => {
       setSearchstring(e.target.value);
-      let newFieldStrings = { ...fieldStrings };
-      newFieldStrings[searchType] = e.target.value;
-      setFieldStrings(newFieldStrings);
-    };
+      setFieldStrings((prevFieldStrings) => ({
+        ...prevFieldStrings,
+        [searchType]: e.target.value,
+      }));
+    }, [searchType]);
   
     useEffect(() => {
     document.removeEventListener("keydown", handleSearchDown);
@@ -197,7 +243,7 @@ return (
             zIndex: 1,
             borderRadius: "md",
             transition: "height 0.2s ease-in-out",
-            boxShadow: "0px 34px 24px -9px rgba(0,0,0,0.7)",
+            boxShadow: "0px 34px 24px -9px rgba(0,0,0,0.5)",
           }}
         >
           <Box
@@ -222,15 +268,18 @@ return (
                   cursor: "pointer",
                 }}
                 onMouseOver={() => setSelected(0)}
+                onClick={submitResult}
               >
                 <Typography level="body4">
                   CREATE A NEW ENTRY WITH THE FOLLOWING FIELDS:
                 </Typography>
-                <Stack direction="row" justifyContent="space-between">
+                <Stack direction="row" justifyContent="space-between" flexWrap="wrap">
                   {Object.keys(fieldStrings).map((item, index) =>
                     fieldStrings[item].length > 0 ? (
-                      <Chip key={item}>
-                        <Typography level="body2">
+                      <Chip key={item}
+                        sx={{ my: 0.5 }}
+                      >
+                        <Typography level="body2" textColor={'text.primary'}>
                           {item}: {fieldStrings[item]}
                         </Typography>
                       </Chip>
@@ -241,7 +290,7 @@ return (
                 </Stack>
               </Box>
             )}
-            <>
+            {(searchResults["bin"]) && (<>
               <Divider />
               <Box
                 sx={{
@@ -261,6 +310,7 @@ return (
                     cursor: "pointer",
                   }}
                   onMouseOver={() => setSelected(1)}
+                  onClick={submitResult}
                 >
                   <ArtistAvatar
                     artist={{
@@ -328,8 +378,8 @@ return (
                   </Stack>
                 </Stack>
               </Stack>
-            </>
-            <>
+            </>)}
+            {(searchResults["rotation"]) && (<>
               <Divider />
               <Box
                 sx={{
@@ -349,6 +399,7 @@ return (
                     cursor: "pointer",
                   }}
                   onMouseOver={() => setSelected(2)}
+                  onClick={submitResult}
                 >
                   <RotationAvatar rotation="M" />
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
@@ -421,6 +472,7 @@ return (
                     cursor: "pointer",
                   }}
                   onMouseOver={() => setSelected(3)}
+                  onClick={submitResult}
                 >
                   <RotationAvatar rotation="H" />
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
@@ -481,8 +533,8 @@ return (
                   </Stack>
                 </Stack>
               </Stack>
-            </>
-            <>
+            </>)}
+            {(searchResults["catalog"]) && (<>
               <Divider />
               <Box
                 sx={{
@@ -502,6 +554,7 @@ return (
                     cursor: "pointer",
                   }}
                   onMouseOver={() => setSelected(4)}
+                  onClick={submitResult}
                 >
                   <ArtistAvatar
                     artist={{
@@ -569,7 +622,7 @@ return (
                   </Stack>
                 </Stack>
               </Stack>
-            </>
+            </>)}
             <Divider />
             <Stack
               direction="row"
@@ -628,7 +681,7 @@ return (
         placeholder={
           searching
             ? (searchType != "title") ? `Enter ${searchType}` : "Start by providing a song title"
-            : "Press  /  to search or start typing"
+            : "Press  /  to search or start typing in this box"
         }
         startDecorator={<TroubleshootIcon />}
         endDecorator={

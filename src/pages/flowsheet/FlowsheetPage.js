@@ -5,16 +5,33 @@ import {
 } from "@mui/joy";
 import React from "react";
 import AddToFlowsheetSearch from "../../components/flowsheet/AddToFlowsheetSearch";
+import DraggingPreview from "../../components/flowsheet/DraggingPreview";
 import FlowsheetEntry from "../../components/flowsheet/FlowsheetEntry";
 import { useFlowsheet } from "../../services/flowsheet/flowsheet-context";
   
+/**
+ * @page
+ * @category Flowsheet
+ * @description The FlowsheetPage component is the wrapper for the flowsheet view.
+ * It provides the add to flowsheet search bar and the flowsheet entries.
+ * @returns {JSX.Element} The rendered FlowSheetPage component.
+ */
   const FlowSheetPage = () => {
 
-    const { queue, entries } = useFlowsheet();
+    const { 
+      queue, 
+      entries, 
+      queuePlaceholderIndex, 
+      setQueuePlaceholderIndex,
+      entryPlaceholderIndex,
+      setEntryPlaceholderIndex,
+      entryClientRect
+    } = useFlowsheet();
 
     // THIS IS WHERE THE PAGE RENDER BEGINS ---------------------------------------------
     return (
       <div>
+        <DraggingPreview /> {/* Shows us the preview of the dragged entry */}
       {/* HEADER AREA */}
       <AddToFlowsheetSearch />
         {/* FLOWSHEET AREA */}
@@ -23,13 +40,23 @@ import { useFlowsheet } from "../../services/flowsheet/flowsheet-context";
             maxHeight: "calc(100vh - 200px)",
             overflowY: "auto",
             background: "transparent",
+            mt: 2,
           }}
         >
             <Stack direction="column" spacing={1}>
             {queue.map((entry, index) => {
                 if (entry.message.length > 0) return null;
-              return (
+              return (index == queuePlaceholderIndex) ? 
+               (
                 <FlowsheetEntry
+                  key={`queue-${index}`}
+                  type={"placeholder"}
+                />
+               )
+               : (
+                <FlowsheetEntry
+                  index = {index}
+                  key={`queue-${index}`}
                   type={"queue"}
                   {...entry}
                 />
@@ -39,8 +66,17 @@ import { useFlowsheet } from "../../services/flowsheet/flowsheet-context";
         <Divider sx = {{ my: 1 }} />
           <Stack direction="column" spacing={1}>
             {entries.map((entry, index) => {
-              return (
+              return (index == entryPlaceholderIndex) ? 
+              (
                 <FlowsheetEntry
+                  key={`entry-${index}`}
+                  type={"placeholder"}
+                />
+              )
+              : (
+                <FlowsheetEntry
+                  index = {index}
+                  key={`entry-${index}`}
                   type={
                     entry?.message?.length > 0
                       ? entry?.message?.includes("joined")

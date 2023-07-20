@@ -8,6 +8,20 @@ import { Auth } from "aws-amplify";
 import StationSchedule from "../../components/station-management/StationSchedule";
 import { useAuth } from "../../services/authentication/authentication-context";
 
+/**
+ * Depicts the station management page from a station manager perspective.
+ * @page
+ * @category Station Management
+ * 
+ * @param {Object} props - The component props.
+ * @param {string} [props.style] - The style of the page. Defaults to the success color.
+ * 
+ * @returns {JSX.Element} The rendered StationManagementPage component.
+ * @example
+ * return (
+ *  <StationManagementPage />
+ * )
+ */
 const StationManagementPage = ({style}) => {
 
   const { user } = useAuth();

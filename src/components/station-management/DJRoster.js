@@ -1,40 +1,42 @@
 import React, { useContext, useEffect, useState } from "react";
 
+import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
+import CloseIcon from '@mui/icons-material/Close';
+import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
+import ManageHistoryIcon from "@mui/icons-material/ManageHistory";
+import SyncLockIcon from "@mui/icons-material/SyncLock";
+import TroubleshootIcon from '@mui/icons-material/Troubleshoot';
 import {
-  Box,
   Button,
   Checkbox,
   CircularProgress,
   FormControl,
-  FormLabel,
   IconButton,
   Input,
   Sheet,
   Stack,
-  Tab,
-  TabList,
-  TabPanel,
   Table,
-  Tabs,
-  Textarea,
-  Tooltip,
-  Typography,
+  Tooltip
 } from "@mui/joy";
-import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
-import ManageHistoryIcon from "@mui/icons-material/ManageHistory";
-import SyncLockIcon from "@mui/icons-material/SyncLock";
-import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 import { PopupContentContext } from "../../pages/dashboard/Popup";
-import { createUser, deleteUser, listUsers, makeAdmin, resetPassword } from "../../services/station-management/admin-service";
-import { toast } from "sonner";
-import { AddDJsPopup } from "./popups/add-djs";
-import { ConfirmPopup } from "../general/popups/general-popups";
 import { useAuth } from "../../services/authentication/authentication-context";
+import { deleteUser, listUsers, makeAdmin, removeAdmin } from "../../services/station-management/admin-service";
+import { ConfirmPopup } from "../general/popups/general-popups";
 import exportDjsAsCSV from "./csv-export";
-import TroubleshootIcon from '@mui/icons-material/Troubleshoot';
-import CloseIcon from '@mui/icons-material/Close';
+import { AddDJsPopup } from "./popups/add-djs";
 import { ResetPasswordPopup } from "./popups/reset-password";
 
+/**
+ * Represents a DJ roster component for managing DJs and their profiles.
+ *
+ * @component
+ * @category Station Management
+ *
+ * @param {Object} props - The component props.
+ * @param {string} [props.style] - The color style for the component.
+ *
+ * @returns {JSX.Element} The DJRoster component.
+ */
 const DJRoster = ({ style }) => {
 
   const { openPopup, closePopup } = useContext(PopupContentContext);
@@ -90,20 +92,14 @@ const DJRoster = ({ style }) => {
     };
 
     const handleChangeAdmin = () => {
-        let verify = window.confirm(
-          checked
-            ? `Are you sure you want to remove ${((name?.length > 0) ? name : null) ?? username ?? 'this account'} as a station manager?`
-            : `Are you sure you want to grant ${((name?.length > 0) ? name : null) ?? username ?? 'this account'} a station management account?`
-        );
-        if (!verify) return;
-
-      if (checked) {
-        makeAdmin(username);
-        setChecked(false);
-      } else {
-        makeAdmin(username);
-        setChecked(true);
-      }
+        openPopup(
+          <ConfirmPopup
+            message={(checked) ? 
+              `Are you sure you want to remove admin privileges for ${((name?.length > 0) ? name : null) ?? username ?? 'this account'}?` : 
+              `Are you sure you want to grant admin privileges for ${((name?.length > 0) ? name : null) ?? username ?? 'this account'}?`}
+            onConfirm={(checked) ? makeAdmin(username) : removeAdmin(username)}
+          />
+        )
     };
 
     return (

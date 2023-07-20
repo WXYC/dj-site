@@ -1,6 +1,6 @@
 import { Autocomplete, Box, FormControl, Sheet, Stack, Tab, TabList, TabPanel, Tabs, Tooltip, Typography } from "@mui/joy";
 import React, { useEffect, useRef, useState } from "react";
-import useMousePosition from "./station-schedule/MousePosition";
+import useMousePosition from "../../widgets/MousePosition";
 import simulateAbsolutePositioning from "./station-schedule/SimulateAbsolutePositioning";
 import Chip from '@mui/joy/Chip';
 import Close from '@mui/icons-material/Close';
@@ -43,6 +43,14 @@ const eventTypes = {
     'new-dj-shift' : 'New DJ Shift',
 };
 
+/**
+ * Renders a schedule interface with draggable and resizable events, similar to Google Calendar functionality.
+ * 
+ * @component
+ * @category Station Management
+ *
+ * @returns {JSX.Element} The rendered component.
+ */
 const StationSchedule = () => {
 
     const boolToDifferentiateClickFromDrag = useRef(false);

@@ -4,6 +4,19 @@ import DarkModeRoundedIcon from '@mui/icons-material/DarkModeRounded';
 import LightModeRoundedIcon from '@mui/icons-material/LightModeRounded';
 import { useColorScheme } from '@mui/joy/styles';
 
+/**
+ * Component for toggling the color scheme of the application.
+ *
+ * @component
+ * @category Theme
+ *
+ * @param {Object} props - The component props.
+ * @param {Function} [props.onClick] - The callback function to be called when the toggle button is clicked.
+ *
+ * @returns {JSX.Element} The rendered ColorSchemeToggle component.
+ *
+ * @see [ColorSchemeToggle (Joy-UI component)](https://mui.com/joy-ui/customization/dark-mode/)
+ */
 export function ColorSchemeToggle({ onClick, ...props }) {
     const { mode, setMode } = useColorScheme();
     const [mounted, setMounted] = useState(false);

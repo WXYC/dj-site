@@ -15,38 +15,76 @@ import {
     Stack,
     Typography
 } from "@mui/joy";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { getArtwork } from "../../services/artwork/artwork-service";
+import { useFlowsheet } from '../../services/flowsheet/flowsheet-context';
+import { useLive } from '../../services/flowsheet/live-context';
 
+
+/**
+ * Represents a Flowsheet Entry component. Contains self-delete and play functionality.
+ * @component
+ * @category Flowsheet
+ *
+ * @param {Object} props - The component props.
+ * @param {string} props.type - The type of the entry. Possible values: "placeholder", "queue", "entry", "joined", "left", "breakpoint", "talkset".
+ * @param {string} [props.album] - The album name.
+ * @param {string} [props.artist] - The artist name.
+ * @param {string} [props.title] - The song title.
+ * @param {string} [props.label] - The label.
+ * @param {boolean} [props.current] - Indicates if the entry is the current one.
+ * @param {string} [props.id] - The entry ID.
+ * @param {string} [props.message] - The entry message. If message is "", then it is an entry. If it is not blank, then it is a placeholder for a talkset, joined, left, or breakpoint notification.
+ *
+ * @returns {JSX.Element} The FlowsheetEntry component.
+ */
 const FlowsheetEntry = (props) => {
+
+    const { 
+      queue,
+      removeFromQueue, 
+      removeFromEntries, 
+      queuePlaceholderIndex, 
+      entryPlaceholderIndex,
+      setQueuePlaceholderIndex,
+      setEntryPlaceholderIndex,
+      entryClientRect,
+      setEntryClientRect,
+      addToEntries,
+    } = useFlowsheet();
+
     const [image, setImage] = useState(null);
 
+    const entryClientRectRef = useRef(null);
+
     const [canClose, setCanClose] = useState(false);
+    const { live } = useLive();
   
     const getImage = useCallback(async () => {
+      if (props.album == undefined || props.artist == undefined) return "";
       let storedArtwork = sessionStorage.getItem(
-        `${props.releaseAlbum}-${props.releaseArtist}`
+        `img-${props.album}-${props.artist}`
       );
       if (storedArtwork) return storedArtwork;
       try {
         let retrievedArtwork = await getArtwork({
-          title: props.releaseAlbum,
-          artist: props.releaseArtist,
+          title: props.album,
+          artist: props.artist,
         });
         // THE CONVENTION IS ALBUM THEN ARTIST IN THIS APP
         sessionStorage.setItem(
-          `${props.releaseAlbum}-${props.releaseArtist}`,
+          `img-${props.album}-${props.artist}`,
           retrievedArtwork
         );
         return retrievedArtwork;
       } catch (e) {
         sessionStorage.setItem(
-          `${props.releaseAlbum}-${props.releaseArtist}`,
+          `img-${props.album}-${props.artist}`,
           ""
         );
         return "";
       }
-    }, [props.releaseAlbum, props.releaseArtist]);
+    }, [props.album, props.artist]);
   
     useEffect(() => {
       getImage().then((image) => {
@@ -58,6 +96,7 @@ const FlowsheetEntry = (props) => {
       case "placeholder":
         return (
           <Sheet
+            color={(props.current ? "primary" : "neutral")}
             variant="outlined"
             sx={{
               height: "60px",
@@ -65,17 +104,18 @@ const FlowsheetEntry = (props) => {
             }}
           ></Sheet>
         );
-        case "queue":
+      case "queue":
       case "entry":
         return (
           <Sheet
+            ref={entryClientRectRef}
             color={props.current ? "primary" : "neutral"}
             variant={(props.type == "queue") ? "outlined" : (props.current ? "solid" : "soft")}
             sx={{
               height: '60px',
               borderRadius: "md",
             }}
-            onMouseOver={() => setCanClose(true)}
+            onMouseOver={() => setCanClose(live)}
             onMouseLeave={() => setCanClose(false)}
           >
             <Stack
@@ -102,7 +142,7 @@ const FlowsheetEntry = (props) => {
                   <CircularProgress size="sm" />
                 )}
               </AspectRatio>
-              <Stack direction="row" sx={{ flexGrow: 1 }} spacing={1}>
+              <Stack direction="row" sx={{ flexGrow: 1, maxWidth: 'calc(100% - 98px)' }} spacing={1}>
                 <Stack direction="column" sx={{ width: "calc(25%)" }}>
                   <Typography level="body4" sx={{ mb: -1 }}>
                     SONG
@@ -114,7 +154,7 @@ const FlowsheetEntry = (props) => {
                       textOverflow: "ellipsis",
                     }}
                   >
-                    {props.releaseTitle}
+                    {props.title}
                   </Typography>
                 </Stack>
                 <Stack direction="column" sx={{ width: "calc(25%)" }}>
@@ -128,7 +168,7 @@ const FlowsheetEntry = (props) => {
                       textOverflow: "ellipsis",
                     }}
                   >
-                    {props.releaseArtist}
+                    {props.artist}
                   </Typography>
                 </Stack>
                 <Stack direction="column" sx={{ width: "calc(25%)" }}>
@@ -142,7 +182,7 @@ const FlowsheetEntry = (props) => {
                       textOverflow: "ellipsis",
                     }}
                   >
-                    {props.releaseAlbum}
+                    {props.album}
                   </Typography>
                 </Stack>
                 <Stack direction="column" sx={{ width: "calc(25%)" }}>
@@ -156,7 +196,7 @@ const FlowsheetEntry = (props) => {
                       textOverflow: "ellipsis",
                     }}
                   >
-                    {props.releaseLabel}
+                    {props.label}
                   </Typography>
                 </Stack>
               </Stack>
@@ -167,16 +207,31 @@ const FlowsheetEntry = (props) => {
                     sx = {{
                         position: 'absolute',
                     }}
+                    onClick={() => {
+                      addToEntries({
+                        message: "",
+                        title: props.title,
+                        artist: props.artist,
+                        album: props.album,
+                        label: props.label,
+                      });
+                      removeFromQueue(props.id);
+                    }}
                 >
                     <PlayArrowIcon />
                 </IconButton>
               )}
-              {props.current ? (
-                <IconButton color="neutral" variant="plain" size="sm">
+              {props.current && (queue.length > 0) ? (
+                <IconButton color="neutral" variant="plain" size="sm"
+                  onClick={() => {
+                    addToEntries(queue[queue.length - 1]);
+                    removeFromQueue(queue.length);
+                  }}
+                >
                   <KeyboardArrowDownIcon />
                 </IconButton>
               ) : (
-                <IconButton
+                (live) && (<IconButton
                   color="neutral"
                   variant="plain"
                   size="sm"
@@ -186,9 +241,22 @@ const FlowsheetEntry = (props) => {
                       background: "none",
                     },
                   }}
+                  onMouseDown={(e) => {
+                    props.type == "queue" ? setQueuePlaceholderIndex(props.index) : setEntryPlaceholderIndex(props.index);
+                    let rect = entryClientRectRef.current.getBoundingClientRect();
+                    let button = e.target.getBoundingClientRect();
+                    setEntryClientRect({
+                      x: rect.x,
+                      y: rect.y,
+                      width: rect.width,
+                      height: rect.height,
+                      offsetX: button.x - rect.x + 5,
+                      offsetY: button.y - rect.y + 5,
+                    });
+                  }}
                 >
                   <DragIndicatorIcon />
-                </IconButton>
+                </IconButton>)
               )}
             </Stack>
             {(canClose && !props.current) && (
@@ -210,6 +278,10 @@ const FlowsheetEntry = (props) => {
                         width: '15px',
                         height: '15px',
                     }
+                }}
+                onClick={() => {
+                  var remove = {"queue" : removeFromQueue, "entry" : removeFromEntries}[props.type];
+                  remove(props.id);
                 }}
             >
                 <ClearIcon />
@@ -237,7 +309,7 @@ const FlowsheetEntry = (props) => {
                 p: 1,
               }}
             >
-              <Typography color="info">
+              <Typography textColor="info.400">
                 {props.type === "joined" ? (
                   <HeadphonesIcon sx={{ mb: -0.5 }} />
                 ) : (
@@ -247,7 +319,7 @@ const FlowsheetEntry = (props) => {
               <Typography
                 level="body1"
                 endDecorator={
-                  <Typography color="info">{`${props.type} the set!`}</Typography>
+                  <Typography textColor={"info.400"}>{`${props.type} the set!`}</Typography>
                 }
               >
                 {props.message?.split(` ${props.type}`)?.[0] ??
@@ -308,7 +380,7 @@ const FlowsheetEntry = (props) => {
               }}
             >
               <Typography
-                color="success"
+                textColor="success.400"
                 sx={{
                   alignSelf: "flex-start",
                 }}

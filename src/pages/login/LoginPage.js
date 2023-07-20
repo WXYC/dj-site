@@ -8,17 +8,27 @@ import FormLabel, { formLabelClasses } from '@mui/joy/FormLabel';
 import Input from '@mui/joy/Input';
 import Typography from '@mui/joy/Typography';
 import React, { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import Logo from '../../components/branding/logo';
-import { ColorSchemeToggle } from '../../components/theme/colorSchemeToggle';
-import { ViewStyleToggle } from '../../components/theme/viewStyleToggle';
+import { ColorSchemeToggle } from '../../components/general/theme/colorSchemeToggle';
+import { ViewStyleToggle } from '../../components/general/theme/viewStyleToggle';
 import { useAuth } from '../../services/authentication/authentication-context';
 
+/**
+ * @page
+ * @category Authentication
+ * 
+ * @description The login page for the application.
+ * 
+ * @param {boolean} altViewAvailable Whether or not the alternate view is available. Will be moved to ProtectedRoute in a later release.
+ * 
+ * @returns {JSX.Element} The rendered component
+ */
 export default function LoginPage({
   altViewAvailable,
 }) {
 
-    const { handleLogin, handlePasswordUpdate, authenticating, resetPasswordRequired } = useAuth();
+    const { handleLogin, handlePasswordUpdate, authenticating, resetPasswordRequired, isAuthenticated } = useAuth();
 
     const location = useLocation();
     const navigate = useNavigate();
@@ -93,6 +103,7 @@ const [randomIndexForHoldOnQuote, setRIHOQ] = useState(Math.floor(Math.random() 
 
   return (
     <>
+      {isAuthenticated && <Navigate to="/" replace />}
       <Box
         sx={(theme) => ({
           width:

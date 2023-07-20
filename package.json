@@ -17,6 +17,7 @@
     "aws-sdk": "^2.1398.0",
     "axios": "^1.4.0",
     "disconnect": "^1.2.2",
+    "jsdoc": "^4.0.2",
     "jwt-decode": "^3.1.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

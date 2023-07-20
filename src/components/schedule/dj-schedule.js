@@ -85,6 +85,13 @@ export const CalendarThemeProvider = ({ children }) => {
     );
 };
 
+/**
+ * Represents the DJ schedule-setting calendar component.
+ * @component
+ * @category Schedule
+ *
+ * @returns {JSX.Element} The DJSchedule component.
+ */
 const DJSchedule = () => {
 
     return (

@@ -1,3 +1,8 @@
+/**
+ * @description Exports an array of DJs as a CSV file.
+ * @param {Array<string>} djs 
+ * @param {string} title 
+ */
 const exportDJsAsCSV = (djs, title="djs") => {
     let csv = 'data:text/csv;charset=utf-8,';
     csv += 'Name,Username,DJ Name,Shows,Admin\n';
