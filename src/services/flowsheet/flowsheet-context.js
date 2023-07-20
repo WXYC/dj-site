@@ -52,15 +52,28 @@ export const FlowsheetProvider = ({children}) => {
         setEdited(true);
     }
 
+    const switchQueue = (index1, index2) => {
+        let newQueue = [...queue];
+        let temp = newQueue[index1];
+        newQueue[index1] = newQueue[index2];
+        newQueue[index2] = temp;
+        setQueue(newQueue);
+        localStorage.setItem("queue", JSON.stringify(newQueue));
+    }
+
+    const switchEntry = (index1, index2) => {
+        let newEntries = [...entries];
+        let temp = newEntries[index1];
+        newEntries[index1] = newEntries[index2];
+        newEntries[index2] = temp;
+        setEntries(newEntries);
+    }
+
     useEffect(() => {
         console.log("This is where we initialize the entries to the flowsheet, not yet implemented");
         updateWithBackend();
         localStorage.getItem("queue") && setQueue(JSON.parse(localStorage.getItem("queue")));
     }, []);
-
-    useEffect(() => {
-        console.log(queuePlaceholderIndex);
-    }, [queuePlaceholderIndex]);
 
     return (
         <FlowsheetContext.Provider 
@@ -78,7 +91,9 @@ export const FlowsheetProvider = ({children}) => {
                 setQueuePlaceholderIndex, 
                 setEntryPlaceholderIndex,
                 entryClientRect,
-                setEntryClientRect
+                setEntryClientRect,
+                switchQueue,
+                switchEntry
             }}
         >
             {children}

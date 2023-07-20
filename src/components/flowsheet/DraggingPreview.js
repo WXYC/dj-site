@@ -1,26 +1,37 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useFlowsheet } from "../../services/flowsheet/flowsheet-context";
 import useMousePosition from "../../widgets/MousePosition";
 
 import FlowsheetEntry from "./FlowsheetEntry";
 
-const DraggingPreview = ({ entry }) => {
+const DraggingPreview = () => {
 
     const {
         queue,
         queuePlaceholderIndex,
         setQueuePlaceholderIndex,
-        entryPlaceholderIndex,
-        setEntryPlaceholderIndex,
-        entryClientRect
+        entryClientRect,
+        switchQueue,
+        switchEntry
     } = useFlowsheet();
 
     const mousePosition = useMousePosition();
 
+    const [draggedEntryMovedBy, setDraggedEntryMovedBy] = useState(0);
     useEffect(() => {
+        if (queuePlaceholderIndex < 0) return;
+
         let diff = (entryClientRect?.y ?? 0) - (mousePosition?.y ?? 0) + ((entryClientRect?.height ?? 0) / 2);
         let blocs = Math.round(diff / (entryClientRect?.height ?? 1));
+        setDraggedEntryMovedBy(blocs);
     }, [mousePosition, entryClientRect]);
+
+    useEffect(() => {
+        let newPosition = Math.min(Math.max(0, queuePlaceholderIndex - draggedEntryMovedBy), queue.length - 1);
+        if (newPosition == queuePlaceholderIndex) return;
+        switchQueue(queuePlaceholderIndex, newPosition);
+        setQueuePlaceholderIndex(newPosition);
+    }, [draggedEntryMovedBy]);
     
     return (queuePlaceholderIndex > -1) && (
             <div
