@@ -243,7 +243,7 @@ return (
             zIndex: 1,
             borderRadius: "md",
             transition: "height 0.2s ease-in-out",
-            boxShadow: "0px 34px 24px -9px rgba(0,0,0,0.7)",
+            boxShadow: "0px 34px 24px -9px rgba(0,0,0,0.5)",
           }}
         >
           <Box
@@ -279,7 +279,7 @@ return (
                       <Chip key={item}
                         sx={{ my: 0.5 }}
                       >
-                        <Typography level="body2">
+                        <Typography level="body2" textColor={'text.primary'}>
                           {item}: {fieldStrings[item]}
                         </Typography>
                       </Chip>

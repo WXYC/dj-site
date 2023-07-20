@@ -309,7 +309,7 @@ const FlowsheetEntry = (props) => {
                 p: 1,
               }}
             >
-              <Typography color="info">
+              <Typography textColor="info.400">
                 {props.type === "joined" ? (
                   <HeadphonesIcon sx={{ mb: -0.5 }} />
                 ) : (
@@ -319,7 +319,7 @@ const FlowsheetEntry = (props) => {
               <Typography
                 level="body1"
                 endDecorator={
-                  <Typography color="info">{`${props.type} the set!`}</Typography>
+                  <Typography textColor={"info.400"}>{`${props.type} the set!`}</Typography>
                 }
               >
                 {props.message?.split(` ${props.type}`)?.[0] ??
@@ -380,7 +380,7 @@ const FlowsheetEntry = (props) => {
               }}
             >
               <Typography
-                color="success"
+                textColor="success.400"
                 sx={{
                   alignSelf: "flex-start",
                 }}
