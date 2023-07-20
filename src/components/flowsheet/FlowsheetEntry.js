@@ -41,6 +41,7 @@ import { useLive } from '../../services/flowsheet/live-context';
 const FlowsheetEntry = (props) => {
 
     const { 
+      queue,
       removeFromQueue, 
       removeFromEntries, 
       queuePlaceholderIndex, 
@@ -49,6 +50,7 @@ const FlowsheetEntry = (props) => {
       setEntryPlaceholderIndex,
       entryClientRect,
       setEntryClientRect,
+      addToEntries,
     } = useFlowsheet();
 
     const [image, setImage] = useState(null);
@@ -94,6 +96,7 @@ const FlowsheetEntry = (props) => {
       case "placeholder":
         return (
           <Sheet
+            color={(props.current ? "primary" : "neutral")}
             variant="outlined"
             sx={{
               height: "60px",
@@ -204,12 +207,27 @@ const FlowsheetEntry = (props) => {
                     sx = {{
                         position: 'absolute',
                     }}
+                    onClick={() => {
+                      addToEntries({
+                        message: "",
+                        title: props.title,
+                        artist: props.artist,
+                        album: props.album,
+                        label: props.label,
+                      });
+                      removeFromQueue(props.id);
+                    }}
                 >
                     <PlayArrowIcon />
                 </IconButton>
               )}
-              {props.current ? (
-                <IconButton color="neutral" variant="plain" size="sm">
+              {props.current && (queue.length > 0) ? (
+                <IconButton color="neutral" variant="plain" size="sm"
+                  onClick={() => {
+                    addToEntries(queue[queue.length - 1]);
+                    removeFromQueue(queue.length);
+                  }}
+                >
                   <KeyboardArrowDownIcon />
                 </IconButton>
               ) : (

@@ -6,7 +6,7 @@ const GENRE_COLORS = {
     'Electronic': 'warning',
     'Hiphop': 'info',
     'Jazz': 'success',
-    'Classical': 'error',
+    'Classical': 'error'
 }
 
 /**
@@ -114,7 +114,8 @@ export const ArtistAvatar = (props) => {
                     width: '1.1rem',
                     height: '1.1rem',
                     m: 0,
-                    fontSize: '0.8rem'
+                    fontSize: '0.8rem',
+                    bgColor: props.background
                 }}
                 >{props.artist.lettercode}</Avatar>
             <Typography level="body5" color="white">

@@ -681,7 +681,7 @@ return (
         placeholder={
           searching
             ? (searchType != "title") ? `Enter ${searchType}` : "Start by providing a song title"
-            : "Press  /  to search or start typing"
+            : "Press  /  to search or start typing in this box"
         }
         startDecorator={<TroubleshootIcon />}
         endDecorator={
