@@ -78,28 +78,47 @@ const AddToFlowsheetSearch = () => {
     const [selected, setSelected] = useState(0);
     const [searchType, setSearchType] = useState("title"); // ['title', 'artist', 'album', 'label']
     const [fieldStrings, setFieldStrings] = useState({
-      title: "i",
-      artist: "i",
-      album: "i",
-      label: "i",
+      title: "",
+      artist: "",
+      album: "",
+      label: "",
     });
 
-    const submitResult = useCallback((asEntry = false) => {
-      let searchResultsAsArray = Object.values(searchResults);
-      let result = searchResultsAsArray[selected];
-      console.log(searchstring);
-      const newEntry = (selected > 0) ?
-      {
-        message: "",
-        ...result
-      } : {
-        message: "",
-        ...fieldStrings
-      };
-      addToQueue(newEntry);
-      console.log(newEntry);
+    const [submitting, setSubmitting] = useState(false);
+    const [asEntry, setAsEntry] = useState(false);
+    const submitResult = (asEntry = false) => {
+      setSubmitting(true);
+      setAsEntry(asEntry);
+    }
+
+    useEffect(() => {
+      if (!submitting) return;
+
+      let selectedResult = searchResults[selected];
+      var newEntry = (selected > 0)
+        ? {
+            message: "",
+            ...selectedResult,
+          }
+        : {
+            message: "",
+            ...fieldStrings,
+          };
+
+      (asEntry) ? addToEntries(newEntry) : addToQueue(newEntry);
+      
+      // Now clear everything
       closeSearch();
-  }, [searchResults, selected, fieldStrings, addToQueue, searchstring]);
+      setSelected(0);
+      setFieldStrings({
+        title: "",
+        artist: "",
+        album: "",
+        label: "",
+      });
+      setSubmitting(false);
+      setAsEntry(false);
+    }, [submitting]);
   
     const handleSearchDown = useCallback((e) => {
     if (!live) return;
@@ -139,7 +158,7 @@ const AddToFlowsheetSearch = () => {
         } else if (e.keyCode === 40) {
           e.preventDefault();
           setSelected((previous) =>
-            Math.min(searchResults.length - 1, previous + 1)
+            Math.min((searchResults?.length ?? 1) - 1, previous + 1)
           );
         } else if (e.key === "Enter") {
           e.preventDefault();
@@ -167,10 +186,11 @@ const AddToFlowsheetSearch = () => {
   
     const handleSearchChange = useCallback((e) => {
       setSearchstring(e.target.value);
-      let newFieldStrings = { ...fieldStrings };
-      newFieldStrings[searchType] = e.target.value;
-      setFieldStrings(newFieldStrings);
-    }, [searchType, fieldStrings]);
+      setFieldStrings((prevFieldStrings) => ({
+        ...prevFieldStrings,
+        [searchType]: e.target.value,
+      }));
+    }, [searchType]);
   
     useEffect(() => {
     document.removeEventListener("keydown", handleSearchDown);
@@ -179,6 +199,10 @@ const AddToFlowsheetSearch = () => {
         document.removeEventListener("keydown", handleSearchDown);
       };
     }, [live]);
+
+    useEffect(() => {
+      console.log(selected);
+    }, [selected]);
 
 return (
     <>
@@ -246,7 +270,7 @@ return (
                   cursor: "pointer",
                 }}
                 onMouseOver={() => setSelected(0)}
-                onClick={() => submitResult()}
+                onClick={submitResult}
               >
                 <Typography level="body4">
                   CREATE A NEW ENTRY WITH THE FOLLOWING FIELDS:
