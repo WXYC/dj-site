@@ -9,7 +9,7 @@ import IconButton from '@mui/joy/IconButton';
 import Link from '@mui/joy/Link';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
-import { Box } from "@mui/joy";
+import { Box, useTheme } from "@mui/joy";
 import { getArtwork } from "../../services/artwork/artwork-service";
 
 let animationController = null;
@@ -37,6 +37,8 @@ const NowPlaying = () => {
   const source = React.useRef(null);
 
   const canvasRef = React.useRef(null);
+
+  const theme = useTheme();
 
   const [fadeTimeout, setFadeTimeout] = React.useState(null);
 
@@ -104,11 +106,13 @@ const NowPlaying = () => {
     let start = 0;
     const ctx = canvasRef.current.getContext('2d');
     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    let tone_1 = (theme.palette.mode == "light") ? 25 : 180;
+    let tone_2 = (theme.palette.mode == "light") ? 35 : 270;
     for (let i = 0; i < songData.length; i++) {
       start = i * 4;
-      ctx.fillStyle = 'rgba(180,180,180,0.7)';
+      ctx.fillStyle = `rgba(${tone_1},${tone_1},${tone_1},0.7)`;
       ctx.fillRect(start, canvasRef.current.height / 2, bar_width, -songData[i] / 9);
-      ctx.fillStyle = 'rgba(270,270,270,0.5)';
+      ctx.fillStyle = `rgba(${tone_2},${tone_2},${tone_2},0.7)`;
       ctx.fillRect(start, canvasRef.current.height / 2, bar_width, songData[i] / 9);
     };
   }
