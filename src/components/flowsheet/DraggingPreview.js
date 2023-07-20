@@ -27,6 +27,8 @@ const DraggingPreview = () => {
     }, [mousePosition, entryClientRect]);
 
     useEffect(() => {
+        if (queuePlaceholderIndex < 0) return;
+        
         let newPosition = Math.min(Math.max(0, queuePlaceholderIndex - draggedEntryMovedBy), queue.length - 1);
         if (newPosition == queuePlaceholderIndex) return;
         switchQueue(queuePlaceholderIndex, newPosition);

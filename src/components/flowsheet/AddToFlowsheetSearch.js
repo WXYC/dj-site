@@ -110,6 +110,8 @@ const AddToFlowsheetSearch = () => {
       // Now clear everything
       closeSearch();
       setSelected(0);
+      const input = searchRef.current.querySelector("input");
+      input.blur();
       setFieldStrings({
         title: "",
         artist: "",

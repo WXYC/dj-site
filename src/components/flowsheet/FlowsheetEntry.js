@@ -139,7 +139,7 @@ const FlowsheetEntry = (props) => {
                   <CircularProgress size="sm" />
                 )}
               </AspectRatio>
-              <Stack direction="row" sx={{ flexGrow: 1 }} spacing={1}>
+              <Stack direction="row" sx={{ flexGrow: 1, maxWidth: 'calc(100% - 98px)' }} spacing={1}>
                 <Stack direction="column" sx={{ width: "calc(25%)" }}>
                   <Typography level="body4" sx={{ mb: -1 }}>
                     SONG
