@@ -11,6 +11,11 @@ export const FlowsheetProvider = ({children}) => {
     const [edited, setEdited] = useState(false);
     const [breakpointAllowed, setBreakpointAllowed] = useState(true);
 
+    // Placeholder indices that allow editing the order of the queue and entries
+    const [queuePlaceholderIndex, setQueuePlaceholderIndex] = useState(-1);
+    const [entryPlaceholderIndex, setEntryPlaceholderIndex] = useState(-1);
+    const [entryClientRect, setEntryClientRect] = useState(null); // Used to determine the size of the entry placeholder
+
     const addToQueue = (item) => {
         item['id'] = queue.length + 1;
         setQueue([item, ...queue]);
@@ -53,8 +58,29 @@ export const FlowsheetProvider = ({children}) => {
         localStorage.getItem("queue") && setQueue(JSON.parse(localStorage.getItem("queue")));
     }, []);
 
+    useEffect(() => {
+        console.log(queuePlaceholderIndex);
+    }, [queuePlaceholderIndex]);
+
     return (
-        <FlowsheetContext.Provider value={{ queue, entries, addToQueue, removeFromQueue, addToEntries, removeFromEntries, clearQueue, updateFlowsheet }}>
+        <FlowsheetContext.Provider 
+            value={{ 
+                queue, 
+                entries, 
+                addToQueue, 
+                removeFromQueue, 
+                addToEntries, 
+                removeFromEntries, 
+                clearQueue, 
+                updateFlowsheet, 
+                queuePlaceholderIndex, 
+                entryPlaceholderIndex, 
+                setQueuePlaceholderIndex, 
+                setEntryPlaceholderIndex,
+                entryClientRect,
+                setEntryClientRect
+            }}
+        >
             {children}
         </FlowsheetContext.Provider>
     );

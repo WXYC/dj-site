@@ -15,7 +15,7 @@ import {
     Stack,
     Typography
 } from "@mui/joy";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { getArtwork } from "../../services/artwork/artwork-service";
 import { useFlowsheet } from '../../services/flowsheet/flowsheet-context';
 import { useLive } from '../../services/flowsheet/live-context';
@@ -40,9 +40,20 @@ import { useLive } from '../../services/flowsheet/live-context';
  */
 const FlowsheetEntry = (props) => {
 
-    const { removeFromQueue, removeFromEntries } = useFlowsheet();
+    const { 
+      removeFromQueue, 
+      removeFromEntries, 
+      queuePlaceholderIndex, 
+      entryPlaceholderIndex,
+      setQueuePlaceholderIndex,
+      setEntryPlaceholderIndex,
+      entryClientRect,
+      setEntryClientRect,
+    } = useFlowsheet();
 
     const [image, setImage] = useState(null);
+
+    const entryClientRectRef = useRef(null);
 
     const [canClose, setCanClose] = useState(false);
     const { live } = useLive();
@@ -94,6 +105,7 @@ const FlowsheetEntry = (props) => {
       case "entry":
         return (
           <Sheet
+            ref={entryClientRectRef}
             color={props.current ? "primary" : "neutral"}
             variant={(props.type == "queue") ? "outlined" : (props.current ? "solid" : "soft")}
             sx={{
@@ -210,6 +222,17 @@ const FlowsheetEntry = (props) => {
                     "&:hover": {
                       background: "none",
                     },
+                  }}
+                  onMouseDown={(e) => {
+                    props.type == "queue" ? setQueuePlaceholderIndex(props.index) : setEntryPlaceholderIndex(props.index);
+                    let rect = entryClientRectRef.current.getBoundingClientRect();
+                    let button = e.target.getBoundingClientRect();
+                    setEntryClientRect({
+                      x: rect.width,
+                      y: rect.height,
+                      offsetX: button.x - rect.x + 5,
+                      offsetY: button.y - rect.y + 5,
+                    });
                   }}
                 >
                   <DragIndicatorIcon />

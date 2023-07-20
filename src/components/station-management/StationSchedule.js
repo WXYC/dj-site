@@ -1,6 +1,6 @@
 import { Autocomplete, Box, FormControl, Sheet, Stack, Tab, TabList, TabPanel, Tabs, Tooltip, Typography } from "@mui/joy";
 import React, { useEffect, useRef, useState } from "react";
-import useMousePosition from "./station-schedule/MousePosition";
+import useMousePosition from "../../widgets/MousePosition";
 import simulateAbsolutePositioning from "./station-schedule/SimulateAbsolutePositioning";
 import Chip from '@mui/joy/Chip';
 import Close from '@mui/icons-material/Close';

@@ -3,10 +3,11 @@ import {
   Sheet,
   Stack
 } from "@mui/joy";
-import React from "react";
+import React, { useEffect } from "react";
 import AddToFlowsheetSearch from "../../components/flowsheet/AddToFlowsheetSearch";
 import FlowsheetEntry from "../../components/flowsheet/FlowsheetEntry";
 import { useFlowsheet } from "../../services/flowsheet/flowsheet-context";
+import useMousePosition from "../../widgets/MousePosition";
   
 /**
  * @page
@@ -17,11 +18,47 @@ import { useFlowsheet } from "../../services/flowsheet/flowsheet-context";
  */
   const FlowSheetPage = () => {
 
-    const { queue, entries } = useFlowsheet();
+    const { 
+      queue, 
+      entries, 
+      queuePlaceholderIndex, 
+      setQueuePlaceholderIndex,
+      entryPlaceholderIndex,
+      setEntryPlaceholderIndex,
+      entryClientRect
+    } = useFlowsheet();
+
+    const mousePosition = useMousePosition();
+
+    useEffect(() => {
+      console.log(entryClientRect);
+    }, [entryClientRect]);
 
     // THIS IS WHERE THE PAGE RENDER BEGINS ---------------------------------------------
     return (
       <div>
+        {(queuePlaceholderIndex > -1) && (
+          <div
+            style = {{
+              position: "absolute",
+              zIndex: 20000,
+              top: (mousePosition?.y ?? 0) - (entryClientRect?.offsetY ?? 0),
+              left: (mousePosition?.x ?? 0) - (entryClientRect?.offsetX ?? 0),
+              width: entryClientRect?.x ?? 0,
+              height: entryClientRect?.y ?? 0,
+            }}
+            onMouseUp={() => {
+              setQueuePlaceholderIndex(-1);
+            }}
+          >
+            <FlowsheetEntry
+              index = {queuePlaceholderIndex}
+              key={`queue-preview-${queuePlaceholderIndex}`}
+              type={"queue"}
+              {...queue[queuePlaceholderIndex]}
+            />
+          </div>
+        )}
       {/* HEADER AREA */}
       <AddToFlowsheetSearch />
         {/* FLOWSHEET AREA */}
@@ -36,8 +73,17 @@ import { useFlowsheet } from "../../services/flowsheet/flowsheet-context";
             <Stack direction="column" spacing={1}>
             {queue.map((entry, index) => {
                 if (entry.message.length > 0) return null;
-              return (
+              return (index == queuePlaceholderIndex) ? 
+               (
                 <FlowsheetEntry
+                  key={`queue-${index}`}
+                  type={"placeholder"}
+                />
+               )
+               : (
+                <FlowsheetEntry
+                  index = {index}
+                  key={`queue-${index}`}
                   type={"queue"}
                   {...entry}
                 />
@@ -47,8 +93,17 @@ import { useFlowsheet } from "../../services/flowsheet/flowsheet-context";
         <Divider sx = {{ my: 1 }} />
           <Stack direction="column" spacing={1}>
             {entries.map((entry, index) => {
-              return (
+              return (index == entryPlaceholderIndex) ? 
+              (
                 <FlowsheetEntry
+                  key={`entry-${index}`}
+                  type={"placeholder"}
+                />
+              )
+              : (
+                <FlowsheetEntry
+                  index = {index}
+                  key={`entry-${index}`}
                   type={
                     entry?.message?.length > 0
                       ? entry?.message?.includes("joined")
