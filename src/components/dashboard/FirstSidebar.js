@@ -186,7 +186,6 @@ export default function FirstSidebar() {
                 placement='right'
                 size='sm'
                 variant='outlined'
-                disabledw
             >
           <ListItemButton
             onClick={() => navigate('/schedule')}
@@ -203,7 +202,6 @@ export default function FirstSidebar() {
                 placement='right'
                 size='sm'
                 variant='outlined'
-                disabledw
             >
           <ListItemButton
             onClick={() => navigate('/admin')}
@@ -220,7 +218,6 @@ export default function FirstSidebar() {
           placement='right'
           size='sm'
           variant='outlined'
-          disabledw
       >
         <IconButton
           variant="plain"

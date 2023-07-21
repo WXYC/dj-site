@@ -105,6 +105,7 @@ import { useAuth } from "../../services/authentication/authentication-context";
             overflowY: "auto",
             background: "transparent",
             mt: 2,
+            overflowX: 'visible',
           }}
         >
             <Stack direction="column" spacing={1}>

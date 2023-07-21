@@ -64,6 +64,7 @@ const AddToFlowsheetSearch = () => {
       artist: "",
       album: "",
       label: "",
+      
     });
 
     const [submitting, setSubmitting] = useState(false);
@@ -81,10 +82,12 @@ const AddToFlowsheetSearch = () => {
         ? {
             message: "",
             ...selectedResult,
+            request: false,
           }
         : {
             message: "",
             ...fieldStrings,
+            request: false,
           };
 
       (asEntry) ? addToEntries(newEntry) : addToQueue(newEntry);
@@ -99,6 +102,7 @@ const AddToFlowsheetSearch = () => {
         artist: "",
         album: "",
         label: "",
+        
       });
       setSubmitting(false);
       setAsEntry(false);
@@ -161,6 +165,7 @@ const AddToFlowsheetSearch = () => {
         artist: "",
         album: "",
         label: "",
+        
       });
     }, []);
   
@@ -237,7 +242,7 @@ return (
                       <Chip key={item}
                         sx={{ my: 0.5 }}
                       >
-                        <Typography level="body2" textColor={'text.primary'}>
+                        <Typography key={`${item}-label`} level="body2" textColor={'text.primary'}>
                           {item}: {fieldStrings[item]}
                         </Typography>
                       </Chip>
