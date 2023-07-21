@@ -140,6 +140,19 @@ export const FlowsheetProvider = ({children}) => {
         setQueue([]);
     }
 
+    const updateQueueEntry = (id, label, value) => {
+        let newQueue = [...queue];
+        newQueue[id][label] = value;
+        setQueue(newQueue);
+        localStorage.setItem("queue", JSON.stringify(newQueue));
+    }
+
+    const updateEntry = (id, label, value) => {
+        let newEntries = [...entries];
+        newEntries[id][label] = value;
+        setEntries(newEntries);
+    }
+
     const updateWithBackend = () => {
         if (edited) {
             console.log("This is where we update the backend with the entries, not yet implemented");
@@ -188,6 +201,8 @@ export const FlowsheetProvider = ({children}) => {
         console.log("This is where we initialize the entries to the flowsheet, not yet implemented");
         updateWithBackend();
         localStorage.getItem("queue") && setQueue(JSON.parse(localStorage.getItem("queue")));
+
+        setAutoPlay(false);
     }, []);
 
     return (
@@ -213,7 +228,9 @@ export const FlowsheetProvider = ({children}) => {
                 setAutoPlay,
                 currentlyPlayingSongLength,
                 currentTimeStamp,
-                playOffTop
+                playOffTop,
+                updateQueueEntry,
+                updateEntry,
             }}
         >
             {children}

@@ -11,6 +11,7 @@ import {
     Button,
     CircularProgress,
     IconButton,
+    Input,
     LinearProgress,
     Sheet,
     Stack,
@@ -20,6 +21,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { getArtwork } from "../../services/artwork/artwork-service";
 import { useFlowsheet } from '../../services/flowsheet/flowsheet-context';
 import { useLive } from '../../services/flowsheet/live-context';
+import { ClickAwayListener } from '@mui/material';
 
 
 /**
@@ -161,62 +163,10 @@ const FlowsheetEntry = (props) => {
                 )}
               </AspectRatio>
               <Stack direction="row" sx={{ flexGrow: 1, maxWidth: 'calc(100% - 98px)' }} spacing={1}>
-                <Stack direction="column" sx={{ width: "calc(25%)" }}>
-                  <Typography level="body4" sx={{ mb: -1 }}>
-                    SONG
-                  </Typography>
-                  <Typography
-                    sx={{
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {props.title}
-                  </Typography>
-                </Stack>
-                <Stack direction="column" sx={{ width: "calc(25%)" }}>
-                  <Typography level="body4" sx={{ mb: -1 }}>
-                    ARTIST
-                  </Typography>
-                  <Typography
-                    sx={{
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {props.artist}
-                  </Typography>
-                </Stack>
-                <Stack direction="column" sx={{ width: "calc(25%)" }}>
-                  <Typography level="body4" sx={{ mb: -1 }}>
-                    ALBUM
-                  </Typography>
-                  <Typography
-                    sx={{
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {props.album}
-                  </Typography>
-                </Stack>
-                <Stack direction="column" sx={{ width: "calc(25%)" }}>
-                  <Typography level="body4" sx={{ mb: -1 }}>
-                    LABEL
-                  </Typography>
-                  <Typography
-                    sx={{
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {props.label}
-                  </Typography>
-                </Stack>
+                <FlowsheetEntryField label="song" value={props.title} current={props.current} id={props.id} queue={props.type == "queue"} />
+                <FlowsheetEntryField label="artist" value={props.artist} current={props.current} id={props.id} queue={props.type == "queue"} />
+                <FlowsheetEntryField label="album" value={props.album} current={props.current} id={props.id} queue={props.type == "queue"} />
+                <FlowsheetEntryField label="label" value={props.label} current={props.current} id={props.id} queue={props.type == "queue"} />
               </Stack>
               {(canClose && !props.current && props.type == "queue") && (
                 <IconButton
@@ -480,5 +430,82 @@ const FlowsheetEntry = (props) => {
         );
     }
   };
+
+  const FlowsheetEntryField = (props) => {
+
+    const { updateEntry, updateQueueEntry } = useFlowsheet();
+    const { live } = useLive();
+    
+    const [editing, setEditing] = useState(false);
+    const [value, setValue] = useState(props.value ?? "");
+
+    const saveAndClose = (e) => {
+      e.preventDefault();
+      setEditing(false);
+      let label = props.label == "song" ? "title" : props.label; // Hack to handle stylistic choice of 'song' over 'title'
+      if (props.queue) {
+        updateQueueEntry(props.id, label, value);
+      } else {
+        updateEntry(props.id, label, value);
+      }
+    }
+
+    return (
+      <Stack direction="column" sx={{ width: "calc(25%)" }}>
+      <Typography level="body4" sx={{ mb: -1 }} textColor={props.current ? "primary.300" : "unset"}>
+        {props.label.toUpperCase()}
+      </Typography>
+      {(editing) ? (
+        <ClickAwayListener onClickAway={saveAndClose}>
+        <Typography
+        textColor={props.current ? "primary.lightChannel" : "unset"}
+        sx={{
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          borderBottom: '1px solid',
+        }}>
+        <form onSubmit={saveAndClose}>
+        <input 
+          type='text'
+          style = {{
+            color: 'inherit',
+            fontFamily: 'inherit',
+            fontSize: 'inherit',
+            fontWeight: 'inherit',
+            background: 'transparent',
+            width: '100%',
+            border: 'none',
+            outline: 'none',
+            padding: '0',
+            margin: '0',
+          }}
+          defaultValue={props.value}
+          onChange={(e) => {
+            setValue(e.target.value);
+          }}
+          value={value}
+        />
+        </form>
+      </Typography>
+      </ClickAwayListener>
+      )
+      : (<Typography
+        textColor={props.current ? "primary.lightChannel" : "unset"}
+        sx={{
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          cursor: 'text',
+          minWidth: '10px',
+        }}
+        onDoubleClick={() => setEditing(live)}
+      >
+        {props.value}&nbsp;
+      </Typography>)}
+    </Stack>
+    )
+  }
+
 
   export default FlowsheetEntry;

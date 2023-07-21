@@ -80,6 +80,7 @@ import { useAuth } from "../../services/authentication/authentication-context";
     <Box sx={{ flex: 999 }}></Box>
     <Tooltip title={`Autoplay is ${autoPlay ? 'On' : 'Off'}`} placement="top" size="sm" variant="outlined">
     <IconButton
+      disabled={!live}
       variant="outlined"
       color={(autoPlay) ? "primary" : "neutral"}
       onClick={() => setAutoPlay(!autoPlay)}
