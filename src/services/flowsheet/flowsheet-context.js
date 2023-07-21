@@ -70,7 +70,7 @@ export const FlowsheetProvider = ({children}) => {
 
     const index = (set) => {
         for (let i = set.length - 1; i >= 0; i--) {
-            set[i].id = i + 1;
+            set[i].id = i;
         }
     }
 
