@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { useLive } from "../services/flowsheet/live-context";
 import { useFlowsheet } from "../services/flowsheet/flowsheet-context";
 import { useAuth } from "../services/authentication/authentication-context";
@@ -15,6 +15,8 @@ const CLASSIC_Flowsheet = ({ logout }) => {
   const { live, setLive } = useLive();
   const { entries, addToEntries, removeFromEntries, switchEntry } = useFlowsheet();
   const { user } = useAuth();
+
+  const formRef = useRef();
 
   const OpenHelp = () => {
     console.log("Help!");
@@ -37,6 +39,7 @@ const CLASSIC_Flowsheet = ({ logout }) => {
           album: e.target.album.value,
         };
         addToEntries({ message: "", ...libraryRelease });
+        formRef.current.reset();
       break;
       default:
         console.log("Non-configured release type!");
@@ -114,6 +117,7 @@ const CLASSIC_Flowsheet = ({ logout }) => {
       <form
         name="flowsheetEntry"
         onSubmit={validate}
+        ref={formRef}
       >
         <table cellpadding="2" align="center">
           <tbody>

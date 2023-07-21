@@ -11,6 +11,7 @@ import {
     Button,
     CircularProgress,
     IconButton,
+    LinearProgress,
     Sheet,
     Stack,
     Typography
@@ -51,6 +52,10 @@ const FlowsheetEntry = (props) => {
       entryClientRect,
       setEntryClientRect,
       addToEntries,
+      autoPlay,
+      currentlyPlayingSongLength,
+      currentTimeStamp,
+      playOffTop
     } = useFlowsheet();
 
     const [image, setImage] = useState(null);
@@ -114,6 +119,19 @@ const FlowsheetEntry = (props) => {
             sx={{
               height: '60px',
               borderRadius: "md",
+              mb: (props.current && autoPlay) ? '0.25rem' : 'initial',
+              '&::after': (props.current && autoPlay) ? {
+                content: '""',
+                bgcolor: 'var(--joy-palette-primary-solidBg, var(--joy-palette-primary-500, #096BDE))',
+                position: 'absolute',
+                bottom: '-0.25rem',
+                top: 'calc(100% - 1rem)',
+                zIndex: -1,
+                borderBottomRightRadius: '0.7rem',
+                borderBottomLeftRadius: '0.7rem',
+                left: 0,
+                right: 0,
+              } : {},
             }}
             onMouseOver={() => setCanClose(live)}
             onMouseLeave={() => setCanClose(false)}
@@ -223,10 +241,7 @@ const FlowsheetEntry = (props) => {
               )}
               {props.current && (queue.length > 0) ? (
                 <IconButton color="neutral" variant="plain" size="sm"
-                  onClick={() => {
-                    addToEntries(queue[queue.length - 1]);
-                    removeFromQueue(queue.length);
-                  }}
+                  onClick={playOffTop}
                 >
                   <KeyboardArrowDownIcon />
                 </IconButton>
@@ -286,6 +301,49 @@ const FlowsheetEntry = (props) => {
             >
                 <ClearIcon />
             </Button>)}
+            {(props.current && autoPlay) && (<div
+              style = {{
+                position: 'absolute',
+                bottom: '-0.3rem',
+                left: '10px',
+                width: 'calc(100% - 10px)',
+                display: 'flex',
+                flexDirection: 'row',
+              }}
+            >
+              <div
+                style = {{
+                  flexGrow: 1,
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                }}
+              >
+                <LinearProgress
+                  color='primary'
+                  determinate
+                  variant="solid"
+                  value={(currentTimeStamp?.total ?? 0) / (currentlyPlayingSongLength?.total ?? 1) * 100}
+                  thickness={2}
+                  sx = {{
+                    bgcolor: 'transparent'
+                  }}
+                />
+              </div>
+              <div
+                style = {{
+                  marginLeft: '5px',
+                  marginRight: '22.5px',
+                }}
+              >
+              <Typography
+                level="body4"
+                sx = {{ mt: -0.25 }}
+                textColor={'neutral.100'}
+              >
+                {currentTimeStamp.h > 0 && currentTimeStamp.h + ":"}{currentTimeStamp.m < 10 && "0"}{currentTimeStamp.m}:{currentTimeStamp.s < 10 && "0"}{currentTimeStamp.s}
+              </Typography>
+              </div>
+            </div>)}
           </Sheet>
         );
       case "joined":
