@@ -265,6 +265,7 @@ const FlowsheetEntry = (props) => {
                         artist: props.artist,
                         album: props.album,
                         label: props.label,
+                        request: props.request,
                       });
                       removeFromQueue(props.id);
                     }}
@@ -293,9 +294,9 @@ const FlowsheetEntry = (props) => {
                 checked={props.request}
                 onChange={(e) => {
                   if (props.type == "queue") {
-                    updateQueueEntry(props.id, "request", e.target.checked);
+                    updateQueueEntry(props.id, "request", !props.request);
                   } else {
-                    updateEntry(props.id, "request", e.target.checked);
+                    updateEntry(props.id, "request", !props.request);
                   }
                 }}
               />
