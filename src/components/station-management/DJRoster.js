@@ -49,13 +49,17 @@ const DJRoster = ({ style }) => {
   const [results, setResults] = useState([]);
   const [searchString, setSearchString] = useState("");
 
-  useEffect(() => {
+  const updateDjs = async () => {
     setLoading(true);
     listUsers().then((data) => {
       console.log(user);
       setDjs(data);
       setLoading(false);
     });
+  };
+
+  useEffect(() => {
+    updateDjs();
   }, []);
 
   useEffect(() => {
@@ -66,7 +70,8 @@ const DJRoster = ({ style }) => {
         djs.filter(
           (dj) =>
             dj.name.toLowerCase().includes(searchString.toLowerCase()) ||
-            dj.username.toLowerCase().includes(searchString.toLowerCase())
+            dj.username.toLowerCase().includes(searchString.toLowerCase()) ||
+            dj.djName.toLowerCase().includes(searchString.toLowerCase())
         )
       );
     }
@@ -97,7 +102,7 @@ const DJRoster = ({ style }) => {
             message={(checked) ? 
               `Are you sure you want to remove admin privileges for ${((name?.length > 0) ? name : null) ?? username ?? 'this account'}?` : 
               `Are you sure you want to grant admin privileges for ${((name?.length > 0) ? name : null) ?? username ?? 'this account'}?`}
-            onConfirm={(checked) ? makeAdmin(username) : removeAdmin(username)}
+            onConfirm={() => { ((checked) ? removeAdmin(username) : makeAdmin(username)).then(() => updateDjs()) }}
           />
         )
     };

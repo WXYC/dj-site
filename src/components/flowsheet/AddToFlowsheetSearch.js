@@ -1,28 +1,24 @@
 import MicIcon from "@mui/icons-material/Mic";
-import PortableWifiOffIcon from '@mui/icons-material/PortableWifiOff';
 import TimerIcon from "@mui/icons-material/Timer";
 import TroubleshootIcon from "@mui/icons-material/Troubleshoot";
-import WifiTetheringIcon from '@mui/icons-material/WifiTethering';
 import {
-    Box,
-    Button,
-    Chip,
-    Divider,
-    FormControl,
-    IconButton,
-    Input,
-    Sheet,
-    Stack,
-    Tooltip,
-    Typography
+  Box,
+  Chip,
+  Divider,
+  FormControl,
+  IconButton,
+  Input,
+  Sheet,
+  Stack,
+  Tooltip,
+  Typography
 } from "@mui/joy";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ArtistAvatar } from "../../components/catalog/ArtistAvatar";
-import Search from "../../components/flowsheet/AddToFlowsheetSearch";
 import { RotationAvatar } from "../../components/flowsheet/RotationAvatar";
-import { useLive } from "../../services/flowsheet/live-context";
 import { useAuth } from "../../services/authentication/authentication-context";
 import { useFlowsheet } from "../../services/flowsheet/flowsheet-context";
+import { useLive } from "../../services/flowsheet/live-context";
   
 /**
  * @component
@@ -38,20 +34,6 @@ const AddToFlowsheetSearch = () => {
     const { live, setLive } = useLive();
     const { user } = useAuth();
     const { queue, addToQueue, entries, addToEntries } = useFlowsheet();
-
-    const switchLive = () => {
-        if (live) {
-            setLive(false);
-            addToEntries({
-                message: `DJ ${user.djName} left at ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`,
-            });
-        } else {
-            setLive(true);
-            addToEntries({
-                message: `DJ ${user.djName} joined at ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`,
-            });
-        }
-    }
 
     const addTalkset = () => {
         addToEntries({
@@ -82,6 +64,7 @@ const AddToFlowsheetSearch = () => {
       artist: "",
       album: "",
       label: "",
+      
     });
 
     const [submitting, setSubmitting] = useState(false);
@@ -99,10 +82,12 @@ const AddToFlowsheetSearch = () => {
         ? {
             message: "",
             ...selectedResult,
+            request: false,
           }
         : {
             message: "",
             ...fieldStrings,
+            request: false,
           };
 
       (asEntry) ? addToEntries(newEntry) : addToQueue(newEntry);
@@ -117,6 +102,7 @@ const AddToFlowsheetSearch = () => {
         artist: "",
         album: "",
         label: "",
+        
       });
       setSubmitting(false);
       setAsEntry(false);
@@ -179,6 +165,7 @@ const AddToFlowsheetSearch = () => {
         artist: "",
         album: "",
         label: "",
+        
       });
     }, []);
   
@@ -204,30 +191,6 @@ const AddToFlowsheetSearch = () => {
 
 return (
     <>
-    <Box
-    sx={{
-      display: "flex",
-      alignItems: "center",
-      my: 1,
-      gap: 1,
-      flexWrap: "wrap",
-      "& > *": {
-        minWidth: "clamp(0px, (500px - 100%) * 999, 100%)",
-        flexGrow: 1,
-      },
-    }}
-  >
-    <Typography level="h1">Flowsheet</Typography>
-    <Box sx={{ flex: 999 }}></Box>
-    <Button
-      variant={(live) ? "solid" : "outlined"}
-      color={(live) ? "primary" : "neutral"}
-      startDecorator={(live) ? <WifiTetheringIcon /> : <PortableWifiOffIcon />}
-      onClick={switchLive}
-    >
-      {live ? "You Are On Air" : "You Are Off Air"}
-    </Button>
-  </Box>
   {/* SEARCH AREA */}
   <Stack direction="row" spacing={1}>
     <FormControl size="sm" sx={{ flex: 1 }}>
@@ -279,7 +242,7 @@ return (
                       <Chip key={item}
                         sx={{ my: 0.5 }}
                       >
-                        <Typography level="body2" textColor={'text.primary'}>
+                        <Typography key={`${item}-label`} level="body2" textColor={'text.primary'}>
                           {item}: {fieldStrings[item]}
                         </Typography>
                       </Chip>

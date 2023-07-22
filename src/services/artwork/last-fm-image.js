@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 
 
 export default async function getArtworkFromLastFM({
@@ -25,5 +26,31 @@ export default async function getArtworkFromLastFM({
         } else return null;
     });
     console.log(lastFMResponse);
+    return lastFMResponse;
+}
+
+export async function getSongInfoFromLastFM({
+    title,
+    artist
+}) {
+    console.log(title);
+    console.log(artist);
+    let url = 'https://ws.audioscrobbler.com/2.0/?type=release&per_page=1&page=1&' +
+    'api_key=' + process.env.REACT_APP_LAST_FM_KEY +
+    '&method=track.getInfo' +
+    '&track=' + title +
+    '&artist=' + artist +
+    '&format=json';
+    const lastFMResponse = await fetch(url).then(response => {
+        if (response.ok) {
+                return response.body.getReader().read().then(({ value, done }) => {
+                    const decoder = new TextDecoder("utf-8");
+                    const responseText = decoder.decode(value);
+                    const jsonResponse = JSON.parse(responseText);
+                    return jsonResponse;
+                })
+        } else return null;
+    });
+
     return lastFMResponse;
 }

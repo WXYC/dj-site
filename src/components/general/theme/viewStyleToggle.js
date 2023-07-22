@@ -7,7 +7,11 @@ import { Tooltip } from '@mui/joy';
 export const ViewContext = createContext();
 
 const ViewProvider = ({ children }) => {
-    const [classicView, setClassicView] = useState(false);
+    const [classicView, setClassicView] = useState(localStorage.getItem('classicView') === 'true' || false);
+
+    useEffect(() => {
+        localStorage.setItem('classicView', classicView);
+    }, [classicView]);
 
     return (
         <ViewContext.Provider value={{classicView, setClassicView}}>

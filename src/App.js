@@ -107,7 +107,6 @@ function App() {
   } else {
     return (
       <div className="App">
-        <BrowserRouter>
           <Routes>
             {
               auth.isAuthenticated ? (
@@ -145,7 +144,6 @@ function App() {
               )
             }
           </Routes>
-        </BrowserRouter>
       </div>
     )
   }

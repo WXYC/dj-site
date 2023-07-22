@@ -1,6 +1,8 @@
 import ClearIcon from '@mui/icons-material/Clear';
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import HeadphonesIcon from "@mui/icons-material/Headphones";
+import PhoneDisabledIcon from '@mui/icons-material/PhoneDisabled';
+import PhoneEnabledIcon from '@mui/icons-material/PhoneEnabled';
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import LogoutIcon from "@mui/icons-material/Logout";
 import MicIcon from "@mui/icons-material/Mic";
@@ -9,16 +11,21 @@ import TimerIcon from "@mui/icons-material/Timer";
 import {
     AspectRatio,
     Button,
+    Checkbox,
     CircularProgress,
     IconButton,
+    Input,
+    LinearProgress,
     Sheet,
     Stack,
+    Tooltip,
     Typography
 } from "@mui/joy";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { getArtwork } from "../../services/artwork/artwork-service";
 import { useFlowsheet } from '../../services/flowsheet/flowsheet-context';
 import { useLive } from '../../services/flowsheet/live-context';
+import { ClickAwayListener } from '@mui/material';
 
 
 /**
@@ -42,6 +49,7 @@ const FlowsheetEntry = (props) => {
 
     const { 
       queue,
+      updateQueueEntry,
       removeFromQueue, 
       removeFromEntries, 
       queuePlaceholderIndex, 
@@ -51,6 +59,11 @@ const FlowsheetEntry = (props) => {
       entryClientRect,
       setEntryClientRect,
       addToEntries,
+      updateEntry,
+      autoPlay,
+      currentlyPlayingSongLength,
+      currentTimeStamp,
+      playOffTop
     } = useFlowsheet();
 
     const [image, setImage] = useState(null);
@@ -91,6 +104,83 @@ const FlowsheetEntry = (props) => {
         setImage(image);
       });
     }, [getImage]);
+
+    const FlowsheetEntryField = (props) => {
+
+      const { updateEntry, updateQueueEntry } = useFlowsheet();
+      const { live } = useLive();
+      
+      const [editing, setEditing] = useState(false);
+      const [value, setValue] = useState(props.value ?? "");
+  
+      const saveAndClose = (e) => {
+        e.preventDefault();
+        setEditing(false);
+        let label = props.label == "song" ? "title" : props.label; // Hack to handle stylistic choice of 'song' over 'title'
+        if (props.queue) {
+          updateQueueEntry(props.id, label, value);
+        } else {
+          updateEntry(props.id, label, value);
+        }
+      }
+  
+      return (
+        <Stack direction="column" sx={{ width: "calc(25%)" }}>
+        <Typography level="body4" sx={{ mb: -1 }} textColor={props.current ? "primary.300" : "unset"}>
+          {props.label.toUpperCase()}
+        </Typography>
+        {(editing) ? (
+          <ClickAwayListener onClickAway={saveAndClose}>
+          <form onSubmit={saveAndClose}>
+          <Typography
+          textColor={props.current ? "primary.lightChannel" : "unset"}
+          sx={{
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            borderBottom: '1px solid',
+          }}>
+          <input 
+            type='text'
+            style = {{
+              color: 'inherit',
+              fontFamily: 'inherit',
+              fontSize: 'inherit',
+              fontWeight: 'inherit',
+              background: 'transparent',
+              width: '100%',
+              border: 'none',
+              outline: 'none',
+              padding: '0',
+              margin: '0',
+            }}
+            defaultValue={props.value}
+            onChange={(e) => {
+              setValue(e.target.value);
+            }}
+            value={value}
+          />
+          
+        </Typography>
+        </form>
+        </ClickAwayListener>
+        )
+        : (<Typography
+          textColor={props.current ? "primary.lightChannel" : "unset"}
+          sx={{
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            cursor: 'text',
+            minWidth: '10px',
+          }}
+          onDoubleClick={() => setEditing(live)}
+        >
+          {props.value}&nbsp;
+        </Typography>)}
+      </Stack>
+      )
+    }
   
     switch (props.type) {
       case "placeholder":
@@ -114,6 +204,19 @@ const FlowsheetEntry = (props) => {
             sx={{
               height: '60px',
               borderRadius: "md",
+              mb: (props.current && autoPlay) ? '0.25rem' : 'initial',
+              '&::after': (props.current && autoPlay) ? {
+                content: '""',
+                bgcolor: 'var(--joy-palette-primary-solidBg, var(--joy-palette-primary-500, #096BDE))',
+                position: 'absolute',
+                bottom: '-0.25rem',
+                top: 'calc(100% - 1rem)',
+                zIndex: -1,
+                borderBottomRightRadius: '0.7rem',
+                borderBottomLeftRadius: '0.7rem',
+                left: 0,
+                right: 0,
+              } : {},
             }}
             onMouseOver={() => setCanClose(live)}
             onMouseLeave={() => setCanClose(false)}
@@ -139,66 +242,14 @@ const FlowsheetEntry = (props) => {
                 {image ? (
                   <img src={image} alt="album art" />
                 ) : (
-                  <CircularProgress size="sm" />
+                  <img src='apple-touch-icon.png' alt="album art" />
                 )}
               </AspectRatio>
               <Stack direction="row" sx={{ flexGrow: 1, maxWidth: 'calc(100% - 98px)' }} spacing={1}>
-                <Stack direction="column" sx={{ width: "calc(25%)" }}>
-                  <Typography level="body4" sx={{ mb: -1 }}>
-                    SONG
-                  </Typography>
-                  <Typography
-                    sx={{
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {props.title}
-                  </Typography>
-                </Stack>
-                <Stack direction="column" sx={{ width: "calc(25%)" }}>
-                  <Typography level="body4" sx={{ mb: -1 }}>
-                    ARTIST
-                  </Typography>
-                  <Typography
-                    sx={{
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {props.artist}
-                  </Typography>
-                </Stack>
-                <Stack direction="column" sx={{ width: "calc(25%)" }}>
-                  <Typography level="body4" sx={{ mb: -1 }}>
-                    ALBUM
-                  </Typography>
-                  <Typography
-                    sx={{
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {props.album}
-                  </Typography>
-                </Stack>
-                <Stack direction="column" sx={{ width: "calc(25%)" }}>
-                  <Typography level="body4" sx={{ mb: -1 }}>
-                    LABEL
-                  </Typography>
-                  <Typography
-                    sx={{
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {props.label}
-                  </Typography>
-                </Stack>
+                <FlowsheetEntryField label="song" value={props.title} current={props.current} id={props.id} queue={props.type == "queue"} />
+                <FlowsheetEntryField label="artist" value={props.artist} current={props.current} id={props.id} queue={props.type == "queue"} />
+                <FlowsheetEntryField label="album" value={props.album} current={props.current} id={props.id} queue={props.type == "queue"} />
+                <FlowsheetEntryField label="label" value={props.label} current={props.current} id={props.id} queue={props.type == "queue"} />
               </Stack>
               {(canClose && !props.current && props.type == "queue") && (
                 <IconButton
@@ -214,6 +265,7 @@ const FlowsheetEntry = (props) => {
                         artist: props.artist,
                         album: props.album,
                         label: props.label,
+                        request: props.request,
                       });
                       removeFromQueue(props.id);
                     }}
@@ -221,12 +273,37 @@ const FlowsheetEntry = (props) => {
                     <PlayArrowIcon />
                 </IconButton>
               )}
+              <Tooltip
+                variant="outlined"
+                size="sm"
+                title="Was this song a request?"
+              >
+              <Checkbox
+                size="sm"
+                variant="soft"
+                color={props.request ? "warning" : "neutral"}
+                uncheckedIcon={<PhoneDisabledIcon />}
+                checkedIcon={<PhoneEnabledIcon />}
+                disabled={!live}
+                sx = {{
+                  opacity: props.request ? 1 : 0.3,
+                  '& .MuiCheckbox-checkbox' : {
+                    background: 'transparent'
+                  }
+                }}
+                checked={props.request}
+                onChange={(e) => {
+                  if (props.type == "queue") {
+                    updateQueueEntry(props.id, "request", !props.request);
+                  } else {
+                    updateEntry(props.id, "request", !props.request);
+                  }
+                }}
+              />
+              </Tooltip>
               {props.current && (queue.length > 0) ? (
                 <IconButton color="neutral" variant="plain" size="sm"
-                  onClick={() => {
-                    addToEntries(queue[queue.length - 1]);
-                    removeFromQueue(queue.length);
-                  }}
+                  onClick={playOffTop}
                 >
                   <KeyboardArrowDownIcon />
                 </IconButton>
@@ -273,19 +350,66 @@ const FlowsheetEntry = (props) => {
                     minHeight: '3px',
                     maxWidth: '3px',
                     maxHeight: '3px',
+                    background: 'transparent',
                     p: 0,
                     '& svg': {
                         width: '15px',
                         height: '15px',
-                    }
+                    },
+                    '&:hover': {
+                        background: 'transparent',
+                    },
                 }}
                 onClick={() => {
                   var remove = {"queue" : removeFromQueue, "entry" : removeFromEntries}[props.type];
                   remove(props.id);
                 }}
             >
-                <ClearIcon />
+                <ClearIcon color="neutral"/>
             </Button>)}
+            {(props.current && autoPlay) && (<div
+              style = {{
+                position: 'absolute',
+                bottom: '-0.3rem',
+                left: '10px',
+                width: 'calc(100% - 10px)',
+                display: 'flex',
+                flexDirection: 'row',
+              }}
+            >
+              <div
+                style = {{
+                  flexGrow: 1,
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                }}
+              >
+                <LinearProgress
+                  color='primary'
+                  determinate
+                  variant="solid"
+                  value={(currentTimeStamp?.total ?? 0) / (currentlyPlayingSongLength?.total ?? 1) * 100}
+                  thickness={2}
+                  sx = {{
+                    bgcolor: 'transparent'
+                  }}
+                />
+              </div>
+              <div
+                style = {{
+                  marginLeft: '5px',
+                  marginRight: '22.5px',
+                }}
+              >
+              <Typography
+                level="body4"
+                sx = {{ mt: -0.25 }}
+                textColor={'neutral.100'}
+              >
+                {currentTimeStamp.h > 0 && currentTimeStamp.h + ":"}{currentTimeStamp.m < 10 && "0"}{currentTimeStamp.m}:{currentTimeStamp.s < 10 && "0"}{currentTimeStamp.s}
+              </Typography>
+              </div>
+            </div>)}
           </Sheet>
         );
       case "joined":
@@ -338,7 +462,39 @@ const FlowsheetEntry = (props) => {
               height: "40px",
               borderRadius: "md",
             }}
+            onMouseOver = {() => setCanClose(live)}
+            onMouseLeave = {() => setCanClose(false)}
           >
+                        {(canClose) && (
+            <Button
+                color="neutral"
+                variant="solid"
+                sx = {{
+                    position: 'absolute',
+                    zIndex: 4,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    right: 10,
+                    minWidth: '3px',
+                    minHeight: '3px',
+                    maxWidth: '3px',
+                    maxHeight: '3px',
+                    background: 'transparent',
+                    p: 0,
+                    '& svg': {
+                        width: '15px',
+                        height: '15px',
+                    },
+                    '&:hover': {
+                        background: 'transparent',
+                    },
+                }}
+                onClick={() => {
+                  removeFromEntries(props.id);
+                }}
+            >
+                <ClearIcon color="neutral"/>
+            </Button>)}
             <Stack
               direction="row"
               justifyContent="space-between"
@@ -368,7 +524,39 @@ const FlowsheetEntry = (props) => {
               height: "40px",
               borderRadius: "md",
             }}
+            onMouseOver = {() => setCanClose(live)}
+            onMouseLeave = {() => setCanClose(false)}
           >
+          {(canClose) && (
+            <Button
+                color="neutral"
+                variant="solid"
+                sx = {{
+                    position: 'absolute',
+                    zIndex: 4,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    right: 10,
+                    minWidth: '3px',
+                    minHeight: '3px',
+                    maxWidth: '3px',
+                    maxHeight: '3px',
+                    background: 'transparent',
+                    p: 0,
+                    '& svg': {
+                        width: '15px',
+                        height: '15px',
+                    },
+                    '&:hover': {
+                        background: 'transparent',
+                    },
+                }}
+                onClick={() => {
+                  removeFromEntries(props.id);
+                }}
+            >
+                <ClearIcon color="neutral"/>
+            </Button>)}
             <Stack
               direction="row"
               justifyContent="space-between"
@@ -403,7 +591,39 @@ const FlowsheetEntry = (props) => {
               height: "40px",
               borderRadius: "md",
             }}
+            onMouseOver = {() => setCanClose(live)}
+            onMouseLeave = {() => setCanClose(false)}
           >
+          {(canClose) && (
+            <Button
+                color="neutral"
+                variant="solid"
+                sx = {{
+                    position: 'absolute',
+                    zIndex: 4,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    right: 10,
+                    minWidth: '3px',
+                    minHeight: '3px',
+                    maxWidth: '3px',
+                    maxHeight: '3px',
+                    background: 'transparent',
+                    p: 0,
+                    '& svg': {
+                        width: '15px',
+                        height: '15px',
+                    },
+                    '&:hover': {
+                        background: 'transparent',
+                    },
+                }}
+                onClick={() => {
+                  removeFromEntries(props.id);
+                }}
+            >
+                <ClearIcon color="neutral"/>
+            </Button>)}
             <Stack
               direction="row"
               justifyContent="center"
@@ -422,5 +642,6 @@ const FlowsheetEntry = (props) => {
         );
     }
   };
+
 
   export default FlowsheetEntry;

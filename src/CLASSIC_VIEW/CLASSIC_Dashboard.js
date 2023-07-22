@@ -1,6 +1,9 @@
 import React, { useContext, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ViewStyleToggle, ViewContext } from "../components/general/theme/viewStyleToggle";
+import ProtectedRoute from "../components/authentication/ProtectedRoute";
+import { FlowsheetProvider } from "../services/flowsheet/flowsheet-context";
+import { LiveProvider } from "../services/flowsheet/live-context";
 
 const CLASSIC_Dashboard = (props) => {
 
@@ -15,7 +18,9 @@ const CLASSIC_Dashboard = (props) => {
     }, [classicView]);
 
     return (
-        <React.Fragment>
+        <ProtectedRoute>
+            <LiveProvider>
+            <FlowsheetProvider>
             <div
                 style={{
                     display: "flex",
@@ -43,7 +48,9 @@ const CLASSIC_Dashboard = (props) => {
                 <ViewStyleToggle />
             </div>
             {props.children}
-        </React.Fragment>
+            </FlowsheetProvider>
+            </LiveProvider>
+        </ProtectedRoute>
     )
 }
 

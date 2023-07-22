@@ -1,10 +1,22 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
+import { useLive } from "../services/flowsheet/live-context";
+import { useFlowsheet } from "../services/flowsheet/flowsheet-context";
+import { useAuth } from "../services/authentication/authentication-context";
+
+import NorthIcon from '@mui/icons-material/North';
+import SouthIcon from '@mui/icons-material/South';
 
 const CLASSIC_Flowsheet = ({ logout }) => {
   const [releaseType, setReleaseType] = useState("libraryRelease");
   const [rotationType, setRotationType] = useState("heavy");
 
   const [notification, setNotification] = useState('');
+
+  const { live, setLive } = useLive();
+  const { entries, addToEntries, removeFromEntries, switchEntry } = useFlowsheet();
+  const { user } = useAuth();
+
+  const formRef = useRef();
 
   const OpenHelp = () => {
     console.log("Help!");
@@ -14,8 +26,25 @@ const CLASSIC_Flowsheet = ({ logout }) => {
     setReleaseType(event.target.value);
   };
 
-  const validate = () => {
-    console.log("Validate!");
+  const validate = (e) => {
+    e.preventDefault();
+    // Now get all form elements
+    switch(releaseType) {
+      case "libraryRelease":
+        // get all form elements for library release
+        const libraryRelease = {
+          artist: e.target.artist.value,
+          title: e.target.title.value,
+          label: e.target.label.value,
+          album: e.target.album.value,
+        };
+        addToEntries({ message: "", ...libraryRelease });
+        formRef.current.reset();
+      break;
+      default:
+        console.log("Non-configured release type!");
+        return;
+    }
   };
 
   const toggleRotationDropdowns = (event) => {
@@ -46,37 +75,38 @@ const CLASSIC_Flowsheet = ({ logout }) => {
     console.log("Autofill composer on change!");
   };
 
-  const addTalkset = () => {
-    console.log("Add talkset!");
+  const addTalkset = (e) => {
+    e.preventDefault();
+    addToEntries({ message: "Talkset" });
   };
 
   const addBreakpoint = () => {
     console.log("Add breakpoint!");
   };
 
-  return (
+  return live ? (
     <>
       <table cellpadding="2" align="center">
         <tbody>
           <tr>
             <td colSpan="4" className="label" align="center">
-              <a href="#" onClick={addTalkset}>
+              <a href="" onClick={addTalkset}>
                 Add a Talkset!
               </a>{" "}
               &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-              <a href="#" onClick={addBreakpoint}>
+              <a href="" onClick={addBreakpoint}>
                 Add a 3:00 AM Breakpoint
               </a>
               &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{" "}
-              <a href="#" target="_blank">
+              <a href="" target="_blank">
                 Last 24 Hours{" "}
               </a>
               &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-              <a href="#" onClick={logout}>
+              <a href="" onClick={logout}>
                 Sign Out When Finished!
               </a>
               &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{" "}
-              <a href="#" onClick={OpenHelp}>
+              <a href="" onClick={OpenHelp}>
                 Help
               </a>
             </td>
@@ -86,13 +116,9 @@ const CLASSIC_Flowsheet = ({ logout }) => {
       <hr />
       <form
         name="flowsheetEntry"
-        method="POST"
-        action="flowsheetEntryAdd"
         onSubmit={validate}
+        ref={formRef}
       >
-        <input type="hidden" name="prevShowHide" value="show" />
-        <input type="hidden" name="fontSize" value="3" />
-        <input type="hidden" name="composerRequirement" value="no" />
         <table cellpadding="2" align="center">
           <tbody>
             <tr>
@@ -219,7 +245,7 @@ const CLASSIC_Flowsheet = ({ logout }) => {
                 <input
                   type="text"
                   size="40"
-                  name="artistName"
+                  name="artist"
                   onChange={autofillComposerOnChange}
                 />
               </td>
@@ -229,14 +255,7 @@ const CLASSIC_Flowsheet = ({ logout }) => {
                 SONG:
               </td>
               <td colSpan="3" className="redtitle" align="left" valign="top">
-                <input type="text" size="50" name="songTitle" />
-                <input
-                  type="hidden"
-                  name="rotationDropdownArtist"
-                  value="rotationDropdownArtist"
-                />
-                <input type="hidden" name="radioShowID" value="162056" />
-                <input type="hidden" name="workingHour" value="1686117600000" />
+                <input type="text" size="50" name="title" />
               </td>
             </tr>
             {releaseType == "otherRelease" && (
@@ -269,9 +288,9 @@ const CLASSIC_Flowsheet = ({ logout }) => {
                   </font>
                 </div>
                 Release:&nbsp;
-                <input type="text" size="60" name="releaseTitle" />
+                <input type="text" size="60" name="album" />
                 &nbsp;&nbsp;&nbsp; Label:&nbsp;
-                <input type="text" size="25" name="labelName" />
+                <input type="text" size="25" name="label" />
                 &nbsp;&nbsp;&nbsp;
               </td>
             </tr>
@@ -357,7 +376,7 @@ const CLASSIC_Flowsheet = ({ logout }) => {
               style={{ textAlign: "center" }}
               className="redlabel"
             >
-              <font color="black">Disc Jockey:</font>&nbsp;Jackson Meade&nbsp;
+              <font color="black">Disc Jockey:</font>&nbsp;{user.name}&nbsp;
             </th>
           </tr>
         </table>
@@ -377,10 +396,95 @@ const CLASSIC_Flowsheet = ({ logout }) => {
               </th>
               <th>Edit/Delete</th>
             </tr>
+            {
+              entries.map((entry, index) => ((entry.message == "") ? (
+                <tr bgcolor="#F3F3F3" class="flowsheetEntryData">
+                <td align="center"></td>
+                <td align="center"></td>
+                <td align="left">{entry.artist}</td>
+                <td align="left">{entry.title}</td>
+                <td align="left">{entry.album}</td>
+                <td align="left">{entry.label}</td>
+                <td align="center" class="text">
+                  <a href="" onClick={(e) => {
+                    e.preventDefault();
+                    if (entry.id === 0) return;
+                    switchEntry(entry.id - 1, entry.id);
+                  }}>
+                    <NorthIcon />
+                  </a>
+                </td>
+                <td align="center" class="text">
+                  <a href="" onClick={(e) => {
+                    e.preventDefault();
+                    if (entry.id === entries.length - 1) return;
+                    switchEntry(entry.id + 1, entry.id);
+                  }}>
+                    <SouthIcon />
+                  </a>
+                </td>
+                <td align="center" class="text">
+                  <a href="javascript:modEntry(2285301)">Edit</a>&nbsp;&nbsp; 
+                  <a href='' onClick={(e) => { e.preventDefault(); removeFromEntries(entry.id); }}>Delete</a>
+                </td>
+              </tr>
+              ) : (() => {
+                let type = entry.message.includes("left") || entry.message.includes("joined"); // true for starting/leaving show, false for other messages
+                return type ? (
+                  <tr bgcolor="#444444" class="flowsheetEntryData">
+                    <td colspan="8" align="left" class="littlegreenlabel">{entry.message}</td>
+                    <td align="center" class="text">
+                    <a href=""
+                    onClick={(e) => {
+                      e.preventDefault();
+                      removeFromEntries(entry.id);
+                    }}
+                  >
+                    Delete
+                  </a></td>
+                  </tr>
+                ) : 
+                (
+                <tr bgcolor="#BBBBBB" class="flowsheetEntryData">
+                <td colspan="6" align="center" class="redlabel">{entry.message}</td>
+                <td align="center" class="text">
+                  <a href="javascript:moveEntryUp(2285297, 36, 37)">
+                    <NorthIcon />
+                  </a>
+                </td>
+                <td align="center" class="text">
+                  <a href="javascript:moveEntryDown(2285297, 36, 35)">
+                    <SouthIcon />
+                  </a>
+                </td>
+                <td align="center" class="text">
+                  <a href=""
+                    onClick={(e) => {
+                      e.preventDefault();
+                      removeFromEntries(entry.id);
+                    }}
+                  >
+                    Delete
+                  </a>
+                </td>
+              </tr>
+              )})()))
+            }
           </table>
         </div>
       </div>
     </>
+  ) : (
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '50vh', justifyContent: 'center', alignItems: 'center' }}>
+        <img src = 'img/wxyc-logo-classic.gif' />
+        <p>Welcome, DJ Turncoat</p>
+        <button onClick={() => {
+          setLive(true);
+          addToEntries({
+            message: `DJ ${user.djName} joined at ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`,
+          });
+        }} className="button">Sign On and Start the Show!</button>
+    </div>
   );
 };
 

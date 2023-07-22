@@ -276,3 +276,12 @@ html[data-classic-view="true"] .centerWidth {
 	 width: 800px;
 	 text-align: center;
 }
+
+.littlegreenlabel {
+  text-align: center;
+  font-family: Verdana, Arial, Helvetica, sans-serif;
+  font-size: 0.8em;
+  line-height: 1.33;
+  font-weight: bold;
+  color: #00FF00;
+}
