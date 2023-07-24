@@ -78,7 +78,6 @@ const DJRoster = ({ style }) => {
   }, [searchString, djs]);
 
   const DJEntry = ({ name, username, djname, shows, isAdmin, isSelf }) => {
-    const [checked, setChecked] = useState(isAdmin);
 
     const handleDeleteDJ = () => {
       openPopup(
@@ -99,10 +98,10 @@ const DJRoster = ({ style }) => {
     const handleChangeAdmin = () => {
         openPopup(
           <ConfirmPopup
-            message={(checked) ? 
+            message={(isAdmin) ? 
               `Are you sure you want to remove admin privileges for ${((name?.length > 0) ? name : null) ?? username ?? 'this account'}?` : 
               `Are you sure you want to grant admin privileges for ${((name?.length > 0) ? name : null) ?? username ?? 'this account'}?`}
-            onConfirm={() => { ((checked) ? removeAdmin(username) : makeAdmin(username)).then(() => updateDjs()) }}
+            onConfirm={() => { ((isAdmin) ? removeAdmin(username) : makeAdmin(username)).then(() => updateDjs()) }}
           />
         )
     };
@@ -119,7 +118,7 @@ const DJRoster = ({ style }) => {
             disabled = {isSelf}
             color={style ?? "success"}
             sx={{ transform: "translateY(3px)" }}
-            checked={checked}
+            checked={isAdmin}
             onChange={handleChangeAdmin}
           />
         </td>

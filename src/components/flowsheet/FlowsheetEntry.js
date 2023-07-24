@@ -237,10 +237,12 @@ const FlowsheetEntry = (props) => {
                 sx={{
                   flexBasis: "calc(60px - 12px)",
                   borderRadius: "9px",
+                  minWidth: "48px",
+                  minHeight: "48px",
                 }}
               >
                 {image ? (
-                  <img src={image} alt="album art" />
+                  <img src={image} alt="album art" style={{ minWidth: '48px', minHeight: '48px' }} />
                 ) : (
                   <img src='apple-touch-icon.png' alt="album art" />
                 )}
