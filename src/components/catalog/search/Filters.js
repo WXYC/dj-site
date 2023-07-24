@@ -61,18 +61,6 @@ export const Filters = (props) => {
           <Option value="Soundtrack">Soundtrack</Option>
         </Select>
       </FormControl>
-      <FormControl size="sm" sx = {{ flex: 1 }}>
-        <FormLabel>Release Type</FormLabel>
-        <Select
-          placeholder="Albums"
-          slotProps={{ button: { sx: { whiteSpace: 'nowrap' } } }}
-          disabled
-        >
-            <Option value="all">All</Option>
-          <Option value="hiphop">Albums</Option>
-          <Option value="rock">Tracks</Option>
-        </Select>
-      </FormControl>
     </React.Fragment>
   );
 };

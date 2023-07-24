@@ -123,8 +123,8 @@ export const SearchBar = (props) => {
           gap: 1.5,
           '& > *': {
             minWidth: {
-              xs: '120px',
-              md: '160px',
+              xs: '180px',
+              md: '200px',
             },
           },
         }}
