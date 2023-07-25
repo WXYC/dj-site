@@ -36,19 +36,25 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-      
-      - name: Set up Git user identity
-        env:
-          GIT_USER_EMAIL: github-actions@github.com
-          GIT_USER_NAME: github-actions
-          # Add the personal access token as an environment variable
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git config --global user.email "$GIT_USER_EMAIL"
-          git config --global user.name "$GIT_USER_NAME"
         
       - name: Build and Deploy
         run: npm run deploy
+      
+      - name: Github Configuration
+        run : git config user.name github-actions
+        shell: bash
+      - run : git config user.email github-actions@github.com
+        shell: bash
+        
+      - name: Build
+        run : git --work-tree build add --all
+        shell: bash
+      - run : git commit -m "Automatic Deploy action run by github-actions"
+        shell: bash
+        
+      - name: Deploy
+        run : git push origin HEAD:gh-pages --force
+        shell: bash
 
     env:
       CI: false
