@@ -39,7 +39,7 @@ jobs:
 
       - name: Build
         run: npm run build
-        
+
     env:
       CI: false
       REACT_APP_AWS_USER_POOL_ID: ${{ secrets.AWS_USER_POOL_ID }}
@@ -67,12 +67,11 @@ jobs:
           fi
 
           # Delete all files except the CNAME file
-          find . -not -name 'CNAME' -type f -delete
-          find . -not -name 'CNAME' -type d -exec rm -rf {} +
+          find . -mindepth 1 -not -name 'CNAME' -delete
 
           # Restore the CNAME file
           echo "$CNAME_CONTENT" > CNAME
-        working-directory: ./
+        working-directory: ./ # Set working directory to the root of the repository
 
       - name: Deploy to GitHub Pages
         run: |
