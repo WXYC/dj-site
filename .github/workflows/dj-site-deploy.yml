@@ -65,7 +65,6 @@ jobs:
           rm -rf ./*
           echo "$CNAME_CONTENT" > CNAME
         fi
-      working-directory: ./build
 
     - name: Deploy to GitHub Pages - Publish
       uses: peaceiris/actions-gh-pages@v3
