@@ -2,9 +2,11 @@ name: DJ Site Build and Deployment
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
   build:
@@ -16,28 +18,28 @@ jobs:
         node-version: [18.x]
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-    - name: Set up Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v1
-      with:
-        node-version: ${{ matrix.node-version }}
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node-version }}
 
-    - name: Restore node_modules from cache
-      uses: actions/cache@v2
-      with:
-        path: |
-          node_modules
-          */*/node_modules
-        key: ${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+      - name: Restore node_modules from cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            node_modules
+            */*/node_modules
+          key: ${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
 
-    - name: Install dependencies
-      run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-    - name: Build
-      run: npm run build
-
+      - name: Build
+        run: npm run build
+        
     env:
       CI: false
       REACT_APP_AWS_USER_POOL_ID: ${{ secrets.AWS_USER_POOL_ID }}
@@ -54,21 +56,36 @@ jobs:
     needs: build  # Ensure the 'build' job completes before deployment
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-    - name: Deploy to GitHub Pages - Prepare CNAME
-      run: |
-        # Preserve CNAME file if it exists
-        if [ -f CNAME ]; then
-          CNAME_CONTENT=$(cat CNAME)
-          rm -rf ./*
+      - name: Prepare CNAME file
+        run: |
+          # Preserve CNAME file if it exists
+          if [ -f CNAME ]; then
+            CNAME_CONTENT=$(cat CNAME)
+          fi
+
+          # Delete all files except the CNAME file
+          find . -not -name 'CNAME' -type f -delete
+          find . -not -name 'CNAME' -type d -exec rm -rf {} +
+
+          # Restore the CNAME file
           echo "$CNAME_CONTENT" > CNAME
-        fi
+        working-directory: ./build
 
-    - name: Deploy to GitHub Pages - Publish
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_branch: gh-pages
-        publish_dir: ./build
+      - name: Deploy to GitHub Pages
+        run: |
+          # Copy the contents of the build directory to the root of the repository
+          cp -r ./build/* .
+
+          # Configure Git user information for the deployment commit
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          # Commit and push changes to the gh-pages branch
+          git add -A
+          git commit -m "Deploy to GitHub Pages"
+          git push origin gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
