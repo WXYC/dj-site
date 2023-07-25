@@ -72,7 +72,7 @@ jobs:
 
           # Restore the CNAME file
           echo "$CNAME_CONTENT" > CNAME
-        working-directory: ./build
+        working-directory: ./
 
       - name: Deploy to GitHub Pages
         run: |
