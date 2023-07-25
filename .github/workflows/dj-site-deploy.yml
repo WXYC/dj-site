@@ -36,43 +36,40 @@ jobs:
       run: npm ci
 
     - name: Build
-      run: npm run build 
-      
-    - name: Deploy to GitHub Pages
+      run: npm run build
+
+    env:
+      CI: false
+      REACT_APP_AWS_USER_POOL_ID: ${{ secrets.AWS_USER_POOL_ID }}
+      REACT_APP_AWS_REGION: ${{ secrets.AWS_REGION }}
+      REACT_APP_AWS_CLIENT_ID: ${{ secrets.AWS_CLIENT_ID }}
+      REACT_APP_AWS_IDENTITY_POOL_ID: ${{ secrets.AWS_IDENTITY_POOL_ID }}
+      REACT_APP_LAST_FM_KEY: ${{ secrets.LAST_FM_KEY }}
+      REACT_APP_DISCOGS_CONSUMER_KEY: ${{ secrets.DISCOGS_CONSUMER_KEY }}
+      REACT_APP_DISCOGS_CONSUMER_SECRET: ${{ secrets.DISCOGS_CONSUMER_SECRET }}
+
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: build  # Ensure the 'build' job completes before deployment
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Deploy to GitHub Pages - Prepare CNAME
       run: |
-        # Configure Git user information for the deployment commit
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-
-        # Checkout the gh-pages branch
-        git checkout gh-pages
-
         # Preserve CNAME file if it exists
         if [ -f CNAME ]; then
           CNAME_CONTENT=$(cat CNAME)
-          rm -rf *
+          rm -rf ./*
           echo "$CNAME_CONTENT" > CNAME
-        else
-          # Remove all existing files except the .git directory
-          ls -A | grep -v .git | xargs rm -rf
         fi
+      working-directory: ./build
 
-        # Copy the contents of the build directory into the root of the repository
-        cp -r build/* .
-
-        # Commit and push changes to the gh-pages branch
-        git add -A
-        git commit -m "Deploy to GitHub Pages"
-        git push origin gh-pages
-        
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        CI: false
-        REACT_APP_AWS_USER_POOL_ID: ${{ secrets.AWS_USER_POOL_ID }}
-        REACT_APP_AWS_REGION: ${{ secrets.AWS_REGION }}
-        REACT_APP_AWS_CLIENT_ID: ${{ secrets.AWS_CLIENT_ID }}
-        REACT_APP_AWS_IDENTITY_POOL_ID: ${{ secrets.AWS_IDENTITY_POOL_ID }}
-        REACT_APP_LAST_FM_KEY: ${{ secrets.LAST_FM_KEY }}
-        REACT_APP_DISCOGS_CONSUMER_KEY: ${{ secrets.DISCOGS_CONSUMER_KEY }}
-        REACT_APP_DISCOGS_CONSUMER_SECRET: ${{ secrets.DISCOGS_CONSUMER_SECRET }}
-
+    - name: Deploy to GitHub Pages - Publish
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_branch: gh-pages
+        publish_dir: ./build
