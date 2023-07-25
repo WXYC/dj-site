@@ -18,40 +18,10 @@ jobs:
         node-version: [18.x]
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+    - uses: actions/checkout@v2
 
-      - name: Set up Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v1
-        with:
-          node-version: ${{ matrix.node-version }}
-
-      - name: Restore node_modules from cache
-        uses: actions/cache@v2
-        with:
-          path: |
-            node_modules
-            */*/node_modules
-          key: ${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
-
-      - name: Install dependencies
-        run: npm ci
-      
-      - name: Github Configuration
-        run : git config user.name github-actions
-        shell: bash
-      - run : git config user.email github-actions@github.com
-        shell: bash
-        
-      - name: Build
-        run : git --work-tree build add --all
-        shell: bash
-      - run : git commit -m "Automatic Deploy action run by github-actions"
-        shell: bash
-        
-      - name: Deploy
-        run : git push origin HEAD:gh-pages --force
-        shell: bash
+    - name: Deploy react app to github pages
+      uses: tanwanimohit/deploy-react-to-ghpages@v1.0.2
 
     env:
       CI: false
