@@ -36,11 +36,13 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Build
-        run: npm run build
         
-      - name: Deploy
+      - name: Git Config
+        run: |
+          git config --global user.email "action@github.com"
+          git config --global user.name "Actions"
+        
+      - name: Build and Deploy
         run: npm run deploy
 
     env:
