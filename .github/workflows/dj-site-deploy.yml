@@ -2,9 +2,9 @@ name: DJ Site Build and Deployment
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   build:
@@ -37,7 +37,7 @@ jobs:
 
     - name: Build
       run: npm run build
-    
+
     env:
       CI: false
       REACT_APP_AWS_USER_POOL_ID: ${{ secrets.AWS_USER_POOL_ID }}
@@ -50,22 +50,15 @@ jobs:
 
   deploy:
     name: Deploy
-    needs: build
     runs-on: ubuntu-latest
-    
+    needs: build  # Ensure the 'build' job completes before deployment
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
-      
-    - name: Deploy to GH Pages
-      run: |
-          git config --global user.name $user_name
-          git config --global user.email $user_email
-          git remote set-url origin https://${github_token}@github.com/${repository}
-          npm run deploy
-      env:
-        user_name: 'github-actions[bot]'
-        user_email: 'github-actions[bot]@users.noreply.github.com'
+
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
         github_token: ${{ secrets.ACTIONS_DEPLOY_ACCESS_TOKEN }}
-        repository: ${{ github.repository }}
-    
+        publish_dir: ./build
