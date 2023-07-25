@@ -39,6 +39,7 @@ jobs:
       run: npm run build
     
     env:
+      CI: false
       REACT_APP_AWS_USER_POOL_ID: ${{ secrets.AWS_USER_POOL_ID }}
       REACT_APP_AWS_REGION: ${{ secrets.AWS_REGION }}
       REACT_APP_AWS_CLIENT_ID: ${{ secrets.AWS_CLIENT_ID }}
