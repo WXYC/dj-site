@@ -36,10 +36,10 @@ The revised catalog leverages services defined in `api-service.js`, which utiliz
 Contributions to the WXYC Card Catalog, Revised are welcome! If you would like to contribute, please follow these steps:
 1. Create a new branch: `git checkout -b my-feature-branch`
 2. Make your changes and commit them: `git commit -m "Add some feature"`
-3. Push to the branch: `git push origin my-feature-branch`
-4. Deploy to the site (rarely): `npm run deploy`
+3. Test your build: `npm run build`
+4. Push to the branch: `git push origin my-feature-branch`
 5. Submit a pull request detailing your changes.
-6. If you did not complete step 4 after your pull request was approved, notify a site admin to do so.
+6. When your pull request is approved, Github Actions will auto-deploy your changes to the site. Be sure to give 5-10 minutes after the build completes for the changes to propagate.
 
 ## License
 The WXYC Card Catalog, Revised is released under the [MIT License](LICENSE). Feel free to use, modify, and distribute the code as per the terms of this license.
