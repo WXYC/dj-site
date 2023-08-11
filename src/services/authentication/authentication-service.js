@@ -10,11 +10,12 @@ let persistedISP = null;
 
 const nullResult = { userObject: null, resetPasswordRequired: false, isAuthenticated: false, isAdmin: false };
 
-export const refreshCognitoCredentials = async (notify = false) => {
+// ---------- CREDENTIAL MANAGEMENT ---------- //
+export const refreshCognitoCredentials = async (notify = false, admin = false) => {
     let idToken = sessionStorage.getItem('idToken');
     let cognitoISP = null;
     const credentialManager = new AWS.CognitoIdentityCredentials({
-        IdentityPoolId: process.env.REACT_APP_AWS_IDENTITY_POOL_ID,
+        IdentityPoolId: admin ? process.env.REACT_APP_AWS_ADMIN_IDENTITY_POOL_ID : process.env.REACT_APP_AWS_USER_IDENTITY_POOL_ID,
         Logins: {
             [`cognito-idp.${process.env.REACT_APP_AWS_REGION}.amazonaws.com/${process.env.REACT_APP_AWS_USER_POOL_ID}`]: idToken
         }
@@ -24,7 +25,7 @@ export const refreshCognitoCredentials = async (notify = false) => {
         credentialManager.refresh((error) => {
             if (error) reject(error);
 
-            if (notify) toast.success("Admin Privilages Granted.");
+            if (notify) toast.success(`${admin ? 'Admin' : 'Library'} Privilages Granted.`);
 
             cognitoISP = new AWS.CognitoIdentityServiceProvider({ 
                 apiVersion: '2016-04-18', 
@@ -37,6 +38,9 @@ export const refreshCognitoCredentials = async (notify = false) => {
     });
 }
 
+export const refreshAdminCognitoCredentials = async (notify = false) => refreshCognitoCredentials(notify, true);
+
+// ---------- AUTHENTICATION ---------- //
 export const login = async (event) => {
     const username = event.target.username.value;
     const password = event.target.password.value;
@@ -110,7 +114,7 @@ export const logout = async () => {
 };
 
 export const globalLogout = async (auth) => {
-    const cognitoISP = refreshCognitoCredentials();
+    const cognitoISP = refreshAdminCognitoCredentials();
     return cognitoISP.globalSignOut({
         AccessToken: auth.AuthenticationResult.AccessToken
     }, function (err, data) {
@@ -196,9 +200,10 @@ export const refreshYourToken = async (cognitoISP) => {
     });
 };
 
+// ---------- USER MANAGEMENT ---------- //
 export const updateUserInformation = async (attributes) => {
 
-    let cognitoISP = await refreshCognitoCredentials();
+    let cognitoISP = await refreshAdminCognitoCredentials();
 
     let formattedAttributes = Array.from(Object.keys(attributes), key => ({
         Name: key,

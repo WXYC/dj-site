@@ -1,6 +1,8 @@
 import { Box, Typography } from "@mui/joy";
-import React from "react";
+import React, { useEffect } from "react";
 import CatalogSearchTable from "../../components/catalog/CatalogSearchTable";
+import { getRotation } from "../../services/card-catalog/card-catalog-service";
+import { toast } from "sonner";
 
 /**
  * CatalogPage component represents a page that displays a catalog search table.
@@ -11,6 +13,7 @@ import CatalogSearchTable from "../../components/catalog/CatalogSearchTable";
  * @returns {JSX.Element} The rendered CatalogPage component.
  */
 const CatalogPage = () => {
+
     return (
         <>
           <Box

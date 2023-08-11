@@ -1,5 +1,6 @@
 import { Avatar, Stack, Typography } from "@mui/joy"
 import React from "react"
+import ReactCurvedText from 'react-curved-text';
 
 const GENRE_COLORS = {
     'Rock': 'primary',
@@ -105,11 +106,11 @@ export const ArtistAvatar = (props) => {
                 }}
             >
             <Typography level="body5" color="white">
-            {props.artist.numbercode}
+            {props.artist.genre.substring(0, 2).toUpperCase()}
             </Typography>
             <Avatar
-                variant="solid"
-                color="neutral"
+                variant="soft"
+                color={props.format == 'cd' ? 'primary' : 'warning'}
                 sx = {{
                     width: '1.1rem',
                     height: '1.1rem',
@@ -119,7 +120,7 @@ export const ArtistAvatar = (props) => {
                 }}
                 >{props.artist.lettercode}</Avatar>
             <Typography level="body5" color="white">
-            {props.artist.entry}
+            {props.artist.numbercode}
             </Typography>
             </Stack>
         </Avatar>

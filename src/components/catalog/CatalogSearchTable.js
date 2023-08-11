@@ -27,6 +27,7 @@ import { ArtistAvatar } from './ArtistAvatar';
 import { SongCardContext } from './SongCardContext';
 import { SearchBar } from './search/SearchBar';
 import { useLive } from '../../services/flowsheet/live-context';
+import { getReleasesMatching } from '../../services/card-catalog/card-catalog-service';
 
 
 const TIMEOUT_MS = 1000;
@@ -100,7 +101,6 @@ const OrderTable = () => {
 
   const [searchIn, setSearchIn] = useState('Albums');
   const [genre, setGenre] = useState('All');
-  const [releaseType, setReleaseType] = useState('Albums');
 
   const { bin, addToBin, removeFromBin, clearBin, isInBin } = useContext(BinContext);
   const { getSongCardContent } = useContext(SongCardContext);
@@ -174,29 +174,19 @@ const OrderTable = () => {
   
       setTimeOutState(
         setTimeout(async () => {
-          /*const getSearchedReleases = async () => {
-            const { data, error } = await (getReleasesMatching(searchString, searchIn, genre, releaseType))();
-  
-            if (error) {
-              toast.error(`Error During Catalog Retrieval: ${error.message}`);
-            }
-  
-            if (data) {
-              toast.success(`Retrieved ${data.length} Releases`);
-              setReleaseList(data);
-            }
-          };
           
           if (searchString.length > 0) {
-            await getSearchedReleases();
-          } else {
-            await getDefaultReleaseList();
+            let data = await getReleasesMatching(searchString, searchIn, genre);
+
+            if (data != null) {
+              setReleaseList(data);
+            }
           }
   
-          setLoading(false);*/
+          setLoading(false);
         }, TIMEOUT_MS)
       );
-    }, [searchString, searchIn, genre, releaseType]);
+    }, [searchString, searchIn, genre]);
 
 
       return (
@@ -218,10 +208,25 @@ const OrderTable = () => {
             width: '100%',
             borderRadius: 'md',
             flex: 1,
-            overflow: 'auto',
+            overflow: searchString.length > 0 ? 'auto' : 'hidden',
             minHeight: 0,
           }}
         >
+          
+          <Box
+                    sx = {{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        zIndex: 10000,
+                        backdropFilter: searchString.length > 0 ? 'blur(0)' : 'blur(1rem)',
+                        borderRadius: 'lg',
+                        pointerEvents: searchString.length > 0 ? 'none' : 'auto',
+                        transition: 'backdrop-filter 0.2s',
+                    }}
+                ></Box>
           <Table
             aria-labelledby="tableTitle"
             stickyHeader
@@ -264,10 +269,10 @@ const OrderTable = () => {
                  <TableHeader textValue="Code" />
                 </th>
                 <th style={{ width: 220, padding: 12 }}>
-                  <TableHeader textValue="Title" />
+                  <TableHeader textValue="Artist" />
                 </th>
                 <th style={{ width: 220, padding: 12 }}>
-                  <TableHeader textValue="Artist" />
+                  <TableHeader textValue="Title" />
                 </th>
                 <th style={{ width: 70, padding: 12 }}>
                   <TableHeader textValue="Format" />
@@ -310,11 +315,12 @@ const OrderTable = () => {
                       {row.artist.lettercode} {row.artist.numbercode}/{row.release_number}
                     </Typography>
                   </td>
-                  <td>{row.title}</td>
                   <td>
                     <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                       <ArtistAvatar
+                        entry={row.release_number}
                         artist = {row.artist}
+                        format={row.format}
                       />
                       <div>
                         <Typography
@@ -328,6 +334,7 @@ const OrderTable = () => {
                       </div>
                     </Box>
                   </td>
+                  <td>{row.title}</td>
                   <td>
                     <Chip
                       variant="soft"
