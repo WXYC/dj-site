@@ -19,6 +19,8 @@ import { BinContext } from './bin/Bin';
 import { closeSidebar } from './SidebarMobileUtilities';
 import NowPlaying from '../../widgets/now-playing/NowPlaying';
 
+import { ArtistAvatar } from '../catalog/ArtistAvatar';
+
 /**
  * Component representing the Second Sidebar, which renders the 'Mail Bin' for DJs to save their songs and a 'now playing' widget.
  *
@@ -173,10 +175,21 @@ export default function SecondSidebar() {
                       justifyContent: 'space-between',
                     }}
                   >
-                    <Chip
-                    variant='soft'
-                    color="info"
-                    >{item}</Chip>
+                    <ArtistAvatar
+                        entry={item.release_number}
+                        artist = {item.artist}
+                        format={item.format}
+                      />
+                      <Typography level='body2'
+                        sx = {{
+                          height: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {item.title}
+                      </Typography>
                     <Stack direction="row">
                       <Tooltip title="More Info" variant='outlined' size="sm">
                     <IconButton

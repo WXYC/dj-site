@@ -30,7 +30,7 @@ import { useLive } from '../../services/flowsheet/live-context';
 import { getReleasesMatching } from '../../services/card-catalog/card-catalog-service';
 
 
-const TIMEOUT_MS = 1000;
+const TIMEOUT_MS = 800;
 
 const sorting_algorithms_asc = {
   'Code': (a, b) => {
@@ -182,7 +182,7 @@ const OrderTable = () => {
               setReleaseList(data);
             }
           }
-  
+
           setLoading(false);
         }, TIMEOUT_MS)
       );
@@ -265,14 +265,14 @@ const OrderTable = () => {
                     sx={{ verticalAlign: 'text-bottom' }}
                   />
                 </th>
-                <th style={{ width: 60, padding: 12 }}>
-                 <TableHeader textValue="Code" />
-                </th>
                 <th style={{ width: 220, padding: 12 }}>
                   <TableHeader textValue="Artist" />
                 </th>
                 <th style={{ width: 220, padding: 12 }}>
                   <TableHeader textValue="Title" />
+                </th>
+                <th style={{ width: 60, padding: 12 }}>
+                 <TableHeader textValue="Code" />
                 </th>
                 <th style={{ width: 70, padding: 12 }}>
                   <TableHeader textValue="Format" />
@@ -308,14 +308,6 @@ const OrderTable = () => {
                     />
                   </td>
                   <td>
-                    <Typography level="body3">
-                        {row.artist.genre}
-                    </Typography>
-                    <Typography level="body1">
-                      {row.artist.lettercode} {row.artist.numbercode}/{row.release_number}
-                    </Typography>
-                  </td>
-                  <td>
                     <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                       <ArtistAvatar
                         entry={row.release_number}
@@ -335,6 +327,14 @@ const OrderTable = () => {
                     </Box>
                   </td>
                   <td>{row.title}</td>
+                  <td>
+                    <Typography level="body3">
+                        {row.artist.genre}
+                    </Typography>
+                    <Typography level="body1">
+                      {row.artist.lettercode} {row.artist.numbercode}/{row.release_number}
+                    </Typography>
+                  </td>
                   <td>
                     <Chip
                       variant="soft"
@@ -381,7 +381,7 @@ const OrderTable = () => {
                             </Tooltip>
                         )}
                         
-                        {(!isInBin(`${row.artist.genre} ${row.artist.lettercode} ${row.artist.numbercode}/${row.release_number}`)) ? (<Tooltip title="Add to bin"
+                        {(!isInBin(row)) ? (<Tooltip title="Add to bin"
                             variant='outlined'
                             size="sm"
                         ><IconButton
@@ -390,7 +390,7 @@ const OrderTable = () => {
                             color="info"
                             size="sm"
                             onClick = {() => {
-                              addToBin(`${row.artist.genre} ${row.artist.lettercode} ${row.artist.numbercode}/${row.release_number}`);
+                              addToBin(row);
                             }}
                         >
                             <DoubleArrowIcon />
@@ -403,7 +403,7 @@ const OrderTable = () => {
                             color="primary"
                             size="sm"
                             onClick = {() => {
-                              removeFromBin(`${row.artist.genre} ${row.artist.lettercode} ${row.artist.numbercode}/${row.release_number}`);
+                              removeFromBin(row);
                             }}
                         >
                             <DeleteOutlineOutlinedIcon />

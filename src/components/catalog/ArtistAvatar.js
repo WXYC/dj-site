@@ -1,4 +1,4 @@
-import { Avatar, Stack, Typography } from "@mui/joy"
+import { Avatar, Stack, Tooltip, Typography } from "@mui/joy"
 import React from "react"
 import ReactCurvedText from 'react-curved-text';
 
@@ -95,10 +95,26 @@ export const ArtistAvatar = (props) => {
     }
 
     return (
+        <Tooltip title={props.artist.entry} placement="top">
         <Avatar
             variant={props.variant ?? 'solid'}
             color = {color_choice}
         >
+            <Stack direction="row">
+            <Stack direction="column"
+                sx = {{
+                    justifyContent: 'center',
+                }}
+            >
+            <Typography level="body5" color="white"
+                sx = {{
+                    width: 9.45,
+                    pr: 0.05,
+                }}
+            >
+            {props.artist.genre.substring(0, 2).toUpperCase()}
+            </Typography>
+            </Stack>
             <Stack direction="column"
                 sx = {{
                     textAlign: 'center',
@@ -106,23 +122,41 @@ export const ArtistAvatar = (props) => {
                 }}
             >
             <Typography level="body5" color="white">
-            {props.artist.genre.substring(0, 2).toUpperCase()}
+            {props.artist.numbercode}
             </Typography>
             <Avatar
                 variant="soft"
                 color={props.format == 'cd' ? 'primary' : 'warning'}
                 sx = {{
-                    width: '1.1rem',
-                    height: '1.1rem',
+                    width: '1.2rem',
+                    height: '1.2rem',
                     m: 0,
-                    fontSize: '0.8rem',
+                    fontSize: '0.7rem',
                     bgColor: props.background
                 }}
                 >{props.artist.lettercode}</Avatar>
             <Typography level="body5" color="white">
-            {props.artist.numbercode}
+            {props.entry}
             </Typography>
             </Stack>
+            <Stack direction="column"
+                sx = {{
+                    width: 9.45,
+                    textAlign: 'center',
+                    py: 0.2,
+                    justifyContent: 'center'
+                }}
+            >
+            <Typography level="body5" color="white"
+                sx = {{
+                    pl: 0.05,
+                }}
+            >
+            {props.format.substring(0, 2).toUpperCase()}
+            </Typography>
+            </Stack>
+            </Stack>
         </Avatar>
+        </Tooltip>
     )
 }

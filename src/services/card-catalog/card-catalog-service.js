@@ -2,7 +2,7 @@ import { toast } from "sonner";
 import { callApi, getter } from "../api-service";
 import { refreshCognitoCredentials } from "../authentication/authentication-service";
 
-const getRotationEntries = getter("library?artist_name=A Guy Called Gerald&album_name=Automanikk");
+const getRotationEntries = getter("library?artist_name=A Guy Called Gerald&album_title=Automanikk");
 
 export const getRotation = async() => {
 
@@ -27,16 +27,16 @@ export const getReleasesMatching = async (term, medium, genre) => {
 
     switch (medium) {
       case "All":
-        url += `artist_name=${term}&album_name=${term}`;
+        url += `artist_name=${term}&album_title=${term}`;
         break;
       case "Albums":
-        url += `artist_name=A Guy Named Gerald&album_name=${term}`;
+        url += `album_title=${term}`;
         break;
       case "Artists":
-        url += `artist_name=${term}&album_name=`;
+        url += `artist_name=${term}`;
         break;
       default:
-        url += `artist_name=${term}&album_name=${term}`;
+        url += `artist_name=${term}&album_title=${term}`;
         break;
     }
 
