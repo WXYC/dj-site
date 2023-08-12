@@ -19,11 +19,11 @@ export const getRotation = async() => {
 
 }
 
-export const getReleasesMatching = async (term, medium, genre) => {
+export const getReleasesMatching = async (term, medium, genre, n = 10) => {
   
     const cognitoISP = await refreshCognitoCredentials();
 
-    let url = 'library?';
+    let url = `library?n=${n}&`;
 
     switch (medium) {
       case "All":

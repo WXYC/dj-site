@@ -17,12 +17,14 @@ const BinProvider = ({ children }) => {
   };
 
   const isInBin = (item) => {
-    return bin.includes(item);
+    return bin.some((i) => {
+      return i.id === item.id;
+    });
   };
 
   // Remove an item from the bin
   const removeFromBin = (item) => {
-    setBin((prevBin) => prevBin.filter((i) => i !== item));
+    setBin((prevBin) => prevBin.filter((i) => i.id != item.id));
   };
 
   // Clear the bin

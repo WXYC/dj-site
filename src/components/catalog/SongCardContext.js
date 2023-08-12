@@ -1,6 +1,8 @@
-import React, { createContext, useState } from 'react';
+import React, { createContext, useCallback, useEffect, useState } from 'react';
 import Modal from '@mui/joy/Modal';
-import { Card, CardOverflow, AspectRatio, Typography, Divider, ModalClose } from '@mui/joy';
+import { Card, CardOverflow, AspectRatio, Typography, Divider, ModalClose, Box, CardContent } from '@mui/joy';
+import { getArtwork } from '../../services/artwork/artwork-service';
+import { ArtistAvatar } from './ArtistAvatar';
 
 const SongCardContext = createContext();
 
@@ -72,16 +74,49 @@ const SongCardContext = createContext();
 
 const SongCardProvider = ({ children }) => {
 
-    const [songCardContent, setSongCardContent] = useState({});
+    const [songCardContent, setSongCardContent] = useState(undefined);
     const [songCardOpen, setSongCardOpen] = useState(false);
 
+    const [image, setImage] = useState("");
+
     const getSongCardContent = (song) => {
+        setSongCardContent(song);
         setSongCardOpen(true);
-    }
+    };
+
+    const getImage = useCallback(async () => {
+        if (songCardContent == {} || songCardContent == undefined) return "";
+        let storedArtwork = sessionStorage.getItem(
+          `img-${songCardContent.title}-${songCardContent.artist.name}`
+        );
+        if (storedArtwork) return storedArtwork;
+        try {
+          let retrievedArtwork = await getArtwork({
+            title: songCardContent.title,
+            artist: songCardContent.artist.name,
+          });
+          // THE CONVENTION IS ALBUM THEN ARTIST IN THIS APP
+          sessionStorage.setItem(
+            `img-${songCardContent.title}-${songCardContent.artist.name}`,
+            retrievedArtwork
+          );
+          return retrievedArtwork;
+        } catch (e) {
+          sessionStorage.setItem(
+            `img-${songCardContent.title}-${songCardContent.artist.name}`,
+            ""
+          );
+          return "";
+        }
+      }, [songCardContent]);
+
+    useEffect(() => {
+        getImage().then((img) => setImage(img));
+    }, [songCardContent]);
 
     const contextValue = {
         getSongCardContent,
-    }
+    };
 
     return (
         <SongCardContext.Provider value={contextValue}>
@@ -105,18 +140,61 @@ const SongCardProvider = ({ children }) => {
                     }}
                 >
                     <CardOverflow>
+
                         <AspectRatio ratio="4">
-                            <img src='./img/wxyc_board.png' />
+                            <img src={image.length > 0 ? image : 'img/wxyc_dark.jpg'} />
                         </AspectRatio>
+                        <Box
+                            sx = {{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                width: '100%',
+                                height: '100%',
+                                borderTopRightRadius: 'var(--CardOverflow-radius)',
+                                borderTopLeftRadius: 'var(--CardOverflow-radius)',
+                                backdropFilter: 'blur(0.2rem)',
+                                pointerEvents: 'none'
+                            }}
+                        ></Box>
+                        <Box
+                            sx = {{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                width: '100%',
+                                height: '100%',
+                                borderTopRightRadius: 'var(--CardOverflow-radius)',
+                                borderTopLeftRadius: 'var(--CardOverflow-radius)',
+                                bgcolor: 'rgba(0,0,0,0.5)'
+                            }}
+                        ></Box>
                         <ModalClose 
                             variant="solid"
                             onClick={() =>{
                                 setSongCardOpen(false);
-                                setSongCardContent({});
+                                setSongCardContent(undefined);
                             }}
                         />
+                        <Box
+                            sx = {{
+                                position: 'absolute',
+                                bottom: -10,
+                                left: 40,
+                                right: 'auto',
+                                transform: 'scale(1.8)',
+                            }}
+                        >
+                        {(songCardContent != undefined) && (<ArtistAvatar
+                            artist={songCardContent.artist}
+                            format={songCardContent.format}
+                            entry={songCardContent.release_number}
+                        />)}
+                        </Box>
                     </CardOverflow>
-
+                    <CardContent sx = {{ pt: 3 }}>
+                        No Reviews Yet!
+                    </CardContent>
                     <CardOverflow
                         variant="soft"
                         sx={{
@@ -128,11 +206,11 @@ const SongCardProvider = ({ children }) => {
                         }}
                     >
                         <Typography level="body3" sx={{ fontWeight: 'md', color: 'text.secondary' }}>
-                        6.3k views
+                        6.3k plays
                         </Typography>
                         <Divider orientation="vertical" />
                         <Typography level="body3" sx={{ fontWeight: 'md', color: 'text.secondary' }}>
-                        1 hour ago
+                        Added in 2003
                         </Typography>
                     </CardOverflow>
                 </Card>

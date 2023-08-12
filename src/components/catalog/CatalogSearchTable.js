@@ -8,7 +8,7 @@ import Link from '@mui/joy/Link';
 import Sheet from '@mui/joy/Sheet';
 import Table from '@mui/joy/Table';
 import Typography from '@mui/joy/Typography';
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useState } from 'react';
 
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import DoubleArrowIcon from '@mui/icons-material/DoubleArrow';
@@ -18,43 +18,15 @@ import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 
-import { BinContext } from '../dashboard/bin/Bin';
+import { BinContext } from '../../services/bin/bin-context';
 
 import { Stack, Tooltip } from '@mui/joy';
 
-import { toast } from 'sonner';
+import { useCatalog } from '../../services/card-catalog/card-catalog-context';
+import { useLive } from '../../services/flowsheet/live-context';
 import { ArtistAvatar } from './ArtistAvatar';
 import { SongCardContext } from './SongCardContext';
 import { SearchBar } from './search/SearchBar';
-import { useLive } from '../../services/flowsheet/live-context';
-import { getReleasesMatching } from '../../services/card-catalog/card-catalog-service';
-
-
-const TIMEOUT_MS = 800;
-
-const sorting_algorithms_asc = {
-  'Code': (a, b) => {
-            let codeA = `${a.artist.genre} ${a.artist.lettercode} ${a.artist.numbercode}/${a.release_number}`;
-            let codeB = `${b.artist.genre} ${b.artist.lettercode} ${b.artist.numbercode}/${b.release_number}`;
-            return codeA.localeCompare(codeB);
-          },
-  'Title': (a, b) => (a.title < b.title) ? -1 : (a.title > b.title) ? 1 : 0,
-  'Artist': (a, b) => (a.artist.name < b.artist.name) ? -1 : (a.artist.name > b.artist.name) ? 1 : 0,
-  'Genre': (a, b) => (a.artist.genre < b.artist.genre) ? -1 : (a.artist.genre > b.artist.genre) ? 1 : 0,
-  'Format': (a, b) => a.format.localeCompare(b.format),
-}
-
-const sorting_algorithms_desc = {
-  'Code': (a, b) => {
-            let codeA = `${a.artist.genre} ${a.artist.lettercode} ${a.artist.numbercode}/${a.release_number}`;
-            let codeB = `${b.artist.genre} ${b.artist.lettercode} ${b.artist.numbercode}/${b.release_number}`;
-            return codeB.localeCompare(codeA);
-          },
-  'Title': (a, b) => (b.title < a.title) ? -1 : (b.title > a.title) ? 1 : 0,
-  'Artist': (a, b) => (b.artist.name < a.artist.name) ? -1 : (b.artist.name > a.artist.name) ? 1 : 0,
-  'Genre': (a, b) => (b.artist.genre < a.artist.genre) ? -1 : (b.artist.genre > a.artist.genre) ? 1 : 0,
-  'Format': (a, b) => b.format.localeCompare(a.format),
-}
 
 /**
  * A table component for catalog search results.
@@ -84,37 +56,29 @@ const OrderTable = () => {
 
     const { live } = useLive();
 
-  const [releaseList, setReleaseList] = useState([]);
-  const [orderBy, setOrderBy] = useState('Title');
-  const [orderDirection, setOrderDirection] = useState('asc');
-
-  const [searchString, setSearchString] = useState("");
-
-  const [timeOut, setTimeOutState] = useState(null);
-  const [loading, setLoading] = useState(true);
+    const { 
+      loadMore,
+      searchString, 
+      setSearchString, 
+      setSearchIn,
+      setGenre,
+      loading, 
+      releaseList, 
+      orderBy, 
+      setOrderBy, 
+      orderDirection, 
+      setOrderDirection,
+      reachedEndForQuery
+    } = useCatalog();
 
   const [selected, setSelected] = useState([]);
   const [open, setOpen] = useState(false);
 
-  const [reachedEndForQuery, setReachedEndForQuery] = useState(true);
   const [index, setIndex] = useState(0);
-
-  const [searchIn, setSearchIn] = useState('Albums');
-  const [genre, setGenre] = useState('All');
 
   const { bin, addToBin, removeFromBin, clearBin, isInBin } = useContext(BinContext);
   const { getSongCardContent } = useContext(SongCardContext);
 
-  useEffect(() => {
-    const sortReleaseList = () => {
-      const sortingAlgorithm = (orderDirection === 'asc') ? sorting_algorithms_asc[orderBy] : sorting_algorithms_desc[orderBy];
-      const sortedReleaseList = [...releaseList].sort(sortingAlgorithm);
-      setReleaseList(sortedReleaseList);
-    }
-
-    if (!loading) sortReleaseList();
-
-  }, [orderBy, orderDirection, loading]);
 
   // DOES NOT YET WORK: CODE IS NOT UNIQUE
   /*const getDefaultReleaseList = async (start = 0, end = 0) => {
@@ -159,35 +123,6 @@ const OrderTable = () => {
       setOrderBy(property);
     };
 
-    useEffect(() => {
-
-
-    }, [orderBy, orderDirection]);
-
-    useEffect(() => {
-      console.log(searchString);
-      if (timeOut) {
-        clearTimeout(timeOut);
-      }
-  
-      setLoading(true);
-  
-      setTimeOutState(
-        setTimeout(async () => {
-          
-          if (searchString.length > 0) {
-            let data = await getReleasesMatching(searchString, searchIn, genre);
-
-            if (data != null) {
-              setReleaseList(data);
-            }
-          }
-
-          setLoading(false);
-        }, TIMEOUT_MS)
-      );
-    }, [searchString, searchIn, genre]);
-
 
       return (
         <>
@@ -220,7 +155,7 @@ const OrderTable = () => {
                         left: 0,
                         width: '100%',
                         height: '100%',
-                        zIndex: 10000,
+                        zIndex: 999,
                         backdropFilter: searchString.length > 0 ? 'blur(0)' : 'blur(1rem)',
                         borderRadius: 'lg',
                         pointerEvents: searchString.length > 0 ? 'none' : 'auto',
@@ -265,6 +200,8 @@ const OrderTable = () => {
                     sx={{ verticalAlign: 'text-bottom' }}
                   />
                 </th>
+                <th style={{ width: 50, padding: 12 }}>
+                </th>
                 <th style={{ width: 220, padding: 12 }}>
                   <TableHeader textValue="Artist" />
                 </th>
@@ -280,13 +217,13 @@ const OrderTable = () => {
                 <th style={{ width: 60, padding: 12 }}>
                   <TableHeader textValue="Plays" />
                 </th>
-                <th style={{ width: 90, padding: 12}}></th>
+                <th style={{ width: 120, padding: 12}}></th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr style={{ background: 'transparent'}}>
-                  <td colSpan={7} style={{ textAlign: 'center', paddingTop: '3rem', background: 'transparent' }}>
+                  <td colSpan={8} style={{ textAlign: 'center', paddingTop: '3rem', background: 'transparent' }}>
                     <CircularProgress color="primary" size="md" />
                   </td>
                 </tr>
@@ -308,12 +245,14 @@ const OrderTable = () => {
                     />
                   </td>
                   <td>
-                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                      <ArtistAvatar
+                  <ArtistAvatar
                         entry={row.release_number}
                         artist = {row.artist}
                         format={row.format}
                       />
+                  </td>
+                  <td>
+                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                       <div>
                         <Typography
                           fontWeight="lg"
@@ -362,7 +301,7 @@ const OrderTable = () => {
                             color="info"
                             size="sm"
                             onClick = {() => {
-                              getSongCardContent(`${row.artist.genre} ${row.artist.lettercode} ${row.artist.numbercode}/${row.release_number}`);
+                              getSongCardContent(row);
                             }}
                         >
                             <InfoOutlinedIcon />
@@ -413,9 +352,19 @@ const OrderTable = () => {
                     </td>
                 </tr>
               )))}
-              {(!loading && !reachedEndForQuery) && (<tr>
-                  <td colSpan={7} style={{ textAlign: 'left' }}>
-                    <CircularProgress color="primary" size="md" />
+                {(!loading && !reachedEndForQuery) && (<tr>
+                  <td colSpan={8} style={{ textAlign: 'center' }}>
+                    <Button
+                      variant="solid"
+                      color="primary"
+                      size="lg"
+                      sx = {{
+                        marginRight: '1rem',
+                      }}
+                      onClick={loadMore}
+                    >
+                      Load more
+                    </Button>
                   </td>
                 </tr>)}
             </tbody>
@@ -440,6 +389,11 @@ const OrderTable = () => {
                         sx = {{
                           marginRight: '1rem',
                         }}
+                        onClick={() =>
+                          selected.map((id) => {
+                            addToBin(releaseList.find((row) => row.id === id));
+                          })
+                        }
                         >
                           Add selected to bin
                         </Button>

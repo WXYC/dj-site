@@ -15,7 +15,7 @@ import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PlayArrowOutlinedIcon from '@mui/icons-material/PlayArrowOutlined';
 import { useContext } from 'react';
-import { BinContext } from './bin/Bin';
+import { BinContext } from '../../services/bin/bin-context';
 import { closeSidebar } from './SidebarMobileUtilities';
 import NowPlaying from '../../widgets/now-playing/NowPlaying';
 
@@ -163,6 +163,7 @@ export default function SecondSidebar() {
             sx = {{
               overflowY: 'scroll',
               height: 300,
+              width: 250,
             }}
           >
             {bin.length > 0 ? (
@@ -186,6 +187,7 @@ export default function SecondSidebar() {
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
+                          textOverflow: 'ellipsis',
                         }}
                       >
                         {item.title}

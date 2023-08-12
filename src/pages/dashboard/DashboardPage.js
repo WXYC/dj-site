@@ -5,13 +5,14 @@ import { SongCardProvider } from '../../components/catalog/SongCardContext';
 import FirstSidebar from '../../components/dashboard/FirstSidebar';
 import Header from '../../components/dashboard/Header';
 import SecondSidebar from '../../components/dashboard/SecondSidebar';
-import { BinProvider } from '../../components/dashboard/bin/Bin';
+import { BinProvider } from '../../services/bin/bin-context';
 import { ColorSchemeToggle } from '../../components/general/theme/colorSchemeToggle';
 import { ViewStyleToggle } from '../../components/general/theme/viewStyleToggle';
 import { LiveProvider } from '../../services/flowsheet/live-context';
 import { PopupProvider } from './Popup';
 import { FlowsheetProvider } from '../../services/flowsheet/flowsheet-context';
 import ProtectedRoute from '../../components/authentication/ProtectedRoute';
+import { CatalogProvider } from '../../services/card-catalog/card-catalog-context';
 
 /**
  * @page
@@ -33,6 +34,7 @@ const Dashboard = (props) => {
   return (
     <ProtectedRoute>
       <FlowsheetProvider>
+      <CatalogProvider>
       <PopupProvider>
       <LiveProvider>
       <SongCardProvider>
@@ -84,6 +86,7 @@ const Dashboard = (props) => {
       </SongCardProvider>
       </LiveProvider>
       </PopupProvider>
+      </CatalogProvider>
       </FlowsheetProvider>
       </ProtectedRoute>
   );
