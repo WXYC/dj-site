@@ -27,6 +27,7 @@ import { useLive } from '../../services/flowsheet/live-context';
 import { ArtistAvatar } from './ArtistAvatar';
 import { SongCardContext } from './SongCardContext';
 import { SearchBar } from './search/SearchBar';
+import { useFlowsheet } from '../../services/flowsheet/flowsheet-context';
 
 /**
  * A table component for catalog search results.
@@ -70,6 +71,8 @@ const OrderTable = () => {
       setOrderDirection,
       reachedEndForQuery
     } = useCatalog();
+
+    const { addToQueue } = useFlowsheet();
 
   const [selected, setSelected] = useState([]);
   const [open, setOpen] = useState(false);
@@ -282,7 +285,7 @@ const OrderTable = () => {
                         {
                           cd: 'primary',
                           vinyl: 'warning',
-                        }[row.format]
+                        }[row.format.includes('vinyl') ? 'vinyl' : 'cd']
                       }
                     >
                       {row.format}
@@ -314,6 +317,7 @@ const OrderTable = () => {
                             >
                             <IconButton size="sm"
                                 color="info"
+                                onClick={() => addToQueue(row)}
                             >
                                 <PlaylistAddIcon />
                             </IconButton>

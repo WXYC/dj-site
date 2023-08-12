@@ -12,6 +12,7 @@ import React from 'react';
 
 import InboxIcon from '@mui/icons-material/Inbox';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
+import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PlayArrowOutlinedIcon from '@mui/icons-material/PlayArrowOutlined';
 import { useContext } from 'react';
@@ -20,6 +21,9 @@ import { closeSidebar } from './SidebarMobileUtilities';
 import NowPlaying from '../../widgets/now-playing/NowPlaying';
 
 import { ArtistAvatar } from '../catalog/ArtistAvatar';
+import { useLive } from '../../services/flowsheet/live-context';
+import { AddToQueue } from '@mui/icons-material';
+import { useFlowsheet } from '../../services/flowsheet/flowsheet-context';
 
 /**
  * Component representing the Second Sidebar, which renders the 'Mail Bin' for DJs to save their songs and a 'now playing' widget.
@@ -64,7 +68,10 @@ import { ArtistAvatar } from '../catalog/ArtistAvatar';
  */
 export default function SecondSidebar() {
 
+  const { live } = useLive();
+
   const { bin, addToBin, removeFromBin, clearBin, isInBin } = useContext(BinContext);
+  const { addToQueue } = useFlowsheet();
 
   return (
     <React.Fragment>
@@ -163,7 +170,7 @@ export default function SecondSidebar() {
             sx = {{
               overflowY: 'scroll',
               height: 300,
-              width: 250,
+              width: 270,
             }}
           >
             {bin.length > 0 ? (
@@ -181,17 +188,28 @@ export default function SecondSidebar() {
                         artist = {item.artist}
                         format={item.format}
                       />
+                      <div>
+                      <Typography level='body4'
+                        sx = {{
+                          whiteSpace: 'nowrap',
+                          textOverflow: 'ellipsis',
+                          overflow: 'hidden',
+                          width: 89,
+                        }}
+                      >
+                        {item.artist.name}
+                      </Typography>
                       <Typography level='body2'
                         sx = {{
-                          height: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
+                          whiteSpace: 'nowrap',
                           textOverflow: 'ellipsis',
+                          overflow: 'hidden',
+                          width: 89,
                         }}
                       >
                         {item.title}
                       </Typography>
+                      </div>
                     <Stack direction="row">
                       <Tooltip title="More Info" variant='outlined' size="sm">
                     <IconButton
@@ -203,6 +221,21 @@ export default function SecondSidebar() {
                       <InfoOutlinedIcon />
                     </IconButton>
                     </Tooltip>
+                    {(live) && (
+                      <Tooltip title="Add to Queue" placement="bottom"
+                      variant="outlined"
+                      size="sm"
+                      >
+                      <IconButton
+                          size="small"
+                          variant="standard"
+                          color="info"
+                          onClick={() => addToQueue(item)}
+                      >
+                          <PlaylistAddIcon />
+                      </IconButton>
+                      </Tooltip>
+                    )}
                     <Tooltip title="Remove" variant='outlined' size="sm">
                     <IconButton
                       size="small"

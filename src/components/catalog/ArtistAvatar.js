@@ -126,7 +126,7 @@ export const ArtistAvatar = (props) => {
             </Typography>
             <Avatar
                 variant="soft"
-                color={props.format == 'cd' ? 'primary' : 'warning'}
+                color={(props.format ?? '') == 'cd' ? 'primary' : 'warning'}
                 sx = {{
                     width: '1.2rem',
                     height: '1.2rem',
@@ -152,7 +152,7 @@ export const ArtistAvatar = (props) => {
                     pl: 0.05,
                 }}
             >
-            {props.format.substring(0, 2).toUpperCase()}
+            {props.format?.substring(0, 2).toUpperCase() ?? ''}
             </Typography>
             </Stack>
             </Stack>

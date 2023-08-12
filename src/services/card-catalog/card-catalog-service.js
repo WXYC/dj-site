@@ -58,7 +58,8 @@ export const getReleasesMatching = async (term, medium, genre, n = 10) => {
       release_number: release.code_number,
       format: release.format_name,
       title: release.album_title,
-      alternate_artist: ''
+      alternate_artist: '',
+      label: ""
     }));
   
 }

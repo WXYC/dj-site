@@ -14,6 +14,44 @@ import { FlowsheetProvider } from '../../services/flowsheet/flowsheet-context';
 import ProtectedRoute from '../../components/authentication/ProtectedRoute';
 import { CatalogProvider } from '../../services/card-catalog/card-catalog-context';
 
+Array.prototype.fuzzySearchByNestedProps = function (query, props) {
+  var search = query.split(' ');
+  var ret = this.reduce((found, i) => {
+    var matches = 0;
+    search.forEach(s => {
+      var propsMatched = 0;
+
+      // Recursive function to search through nested objects
+      function searchNestedProps(obj, propChain) {
+        if (typeof obj === 'object') {
+          for (var nestedProp in obj) {
+            var newPropChain = propChain.concat(nestedProp);
+            if (props.includes(newPropChain.join('.')) && typeof obj[nestedProp] === 'string' && obj[nestedProp].indexOf(s) > -1) {
+              propsMatched++;
+            }
+            searchNestedProps(obj[nestedProp], newPropChain);
+          }
+        }
+      }
+
+      searchNestedProps(i, []);
+
+      if (propsMatched === props.length) {
+        matches++;
+      }
+    });
+
+    if (matches === search.length) {
+      found.push(i);
+    }
+    return found;
+  }, []);
+
+  return ret;
+};
+
+
+
 /**
  * @page
  * @category Dashboard
