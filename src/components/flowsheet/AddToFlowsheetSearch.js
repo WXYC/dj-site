@@ -13,13 +13,16 @@ import {
   Tooltip,
   Typography
 } from "@mui/joy";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { ArtistAvatar } from "../../components/catalog/ArtistAvatar";
 import { RotationAvatar } from "../../components/flowsheet/RotationAvatar";
 import { useAuth } from "../../services/authentication/authentication-context";
 import { useFlowsheet } from "../../services/flowsheet/flowsheet-context";
 import { useLive } from "../../services/flowsheet/live-context";
-  
+import { ClickAwayListener } from "@mui/material";
+import { BinContext } from "../../services/bin/bin-context";
+import { getReleasesMatching } from "../../services/card-catalog/card-catalog-service";
+
 /**
  * @component
  * @category Flowsheet
@@ -34,6 +37,8 @@ const AddToFlowsheetSearch = () => {
     const { live, setLive } = useLive();
     const { user } = useAuth();
     const { queue, addToQueue, entries, addToEntries } = useFlowsheet();
+
+    const { bin, findInBin } = useContext(BinContext);
 
     const addTalkset = () => {
         addToEntries({
@@ -51,149 +56,147 @@ const AddToFlowsheetSearch = () => {
         });
     }
 
-    const [searchResults, setSearchResults] = useState({}); // [{title, artist, album, label, id}
+    const [binResults, setBinResults] = useState([]);
+    const [rotationResults, setRotationResults] = useState([]);
+    const [catalogResults, setCatalogResults] = useState([]);
 
     const searchRef = useRef(null);
     const [searching, setSearching] = useState(false);
   
-    const [searchstring, setSearchstring] = useState("");
     const [selected, setSelected] = useState(0);
-    const [searchType, setSearchType] = useState("title"); // ['title', 'artist', 'album', 'label']
-    const [fieldStrings, setFieldStrings] = useState({
-      title: "",
-      artist: "",
-      album: "",
-      label: "",
-      
-    });
+    
+    const [song, setSong] = useState("");
+    const [artist, setArtist] = useState("");
+    const [album, setAlbum] = useState("");
+    const [label, setLabel] = useState("");
 
-    const [submitting, setSubmitting] = useState(false);
-    const [asEntry, setAsEntry] = useState(false);
-    const submitResult = (asEntry = false) => {
-      setSubmitting(true);
-      setAsEntry(asEntry);
-    }
-
+    const [searchTimeout, setSearchTimeout] = useState(null);
     useEffect(() => {
-      if (!submitting) return;
+      if (searchTimeout) clearTimeout(searchTimeout);
 
-      let selectedResult = searchResults[selected];
-      var newEntry = (selected > 0)
-        ? {
-            message: "",
-            ...selectedResult,
-            request: false,
-          }
-        : {
-            message: "",
-            ...fieldStrings,
-            request: false,
-          };
+      if (searching && ((artist.length + album.length + label.length) > Math.max(artist.length, album.length, label.length))) {
+        setSearchTimeout(setTimeout(() => {
+          getReleasesMatching(`${artist} ${album} ${label}`, 'All', 'All', 4).then((results) => {
+            setCatalogResults(results);
+          });
+        }, 1000));
+      } else {
+        setCatalogResults([]);
+      }
+    }, [artist, album, label, searching]);
 
-      (asEntry) ? addToEntries(newEntry) : addToQueue(newEntry);
+    const submitResult = useCallback((e) => {
+      e.preventDefault();
+
+      let submission = {
+        message: "",
+        title: song,
+        artist: artist,
+        album: album,
+        label: label,
+      };
+
+      if (selected > 0 && selected <= binResults.length) {
+        submission.artist = binResults[selected - 1].artist.name;
+        submission.album = binResults[selected - 1].title;
+        submission.label = binResults[selected - 1].label;
+      }
+      if (selected > binResults.length && selected <= binResults.length + rotationResults.length) {
+        submission.artist = rotationResults[selected - binResults.length - 1].artist.name;
+        submission.album = rotationResults[selected - binResults.length - 1].title;
+        submission.label = rotationResults[selected - binResults.length - 1].label;
+      }
+      if (selected > binResults.length + rotationResults.length && selected <= binResults.length + rotationResults.length + catalogResults.length) {
+        submission.artist = catalogResults[selected - binResults.length - rotationResults.length - 1].artist.name;
+        submission.album = catalogResults[selected - binResults.length - rotationResults.length - 1].title;
+        submission.label = catalogResults[selected - binResults.length - rotationResults.length - 1].label;
+      }
+
+      if (e.shiftKey) {
+        addToEntries(submission);
+      } else {
+        addToQueue(submission);
+      }
       
-      // Now clear everything
       closeSearch();
-      setSelected(0);
-      const input = searchRef.current.querySelector("input");
-      input.blur();
-      setFieldStrings({
-        title: "",
-        artist: "",
-        album: "",
-        label: "",
-        
-      });
-      setSubmitting(false);
-      setAsEntry(false);
-    }, [submitting]);
+
+    }, [selected, binResults, rotationResults, catalogResults, song, artist, album, label]);
   
-    const handleSearchDown = useCallback((e) => {
-    if (!live) return;
-      if (e.key === "/") {
-        e.preventDefault();
-        // get input child from searchRef
-        const input = searchRef.current.querySelector("input");
-        input.focus();
-      }
-      if (searchRef.current.querySelector("input") === document.activeElement) {
-        if (e.key === "Escape") {
-          e.preventDefault();
-          e.target.blur();
-        } else if (e.key === "Tab") {
-          e.preventDefault();
-          let newSearchMap = null;
-          if (e.shiftKey) {
-            newSearchMap = {
-              title: "label",
-              artist: "title",
-              album: "artist",
-              label: "album",
-            };
-          } else {
-            newSearchMap = {
-              title: "artist",
-              artist: "album",
-              album: "label",
-              label: "title",
-            };
-          }
-          setSearchstring("");
-          setSearchType((previous) => newSearchMap[previous]);
-        } else if (e.keyCode === 38) {
-          e.preventDefault();
-          setSelected((previous) => Math.max(0, previous - 1));
-        } else if (e.keyCode === 40) {
-          e.preventDefault();
-          setSelected((previous) =>
-            Math.min((searchResults?.length ?? 1) - 1, previous + 1)
-          );
-        } else if (e.key === "Enter") {
-          e.preventDefault();
-          submitResult(e.shiftKey);
-        }
-      }
-    }, [live, searchResults, submitResult]);
-  
-    const closeSearch = useCallback(() => {
+    const closeSearch = () => {
+      setBinResults([]);
+      setRotationResults([]);
+      setCatalogResults([]);
       setSearching(false);
-      setSearchstring("");
       setSelected(0);
-      setSearchType("title");
-      setFieldStrings({
-        title: "",
-        artist: "",
-        album: "",
-        label: "",
-        
+      setSong("");
+      setArtist("");
+      setAlbum("");
+      setLabel("");
+      searchRef.current.blur();
+      searchRef.current.querySelectorAll("input").forEach((input) => {
+        input.blur();
       });
-    }, []);
+    };
   
     const handleSearchFocused = useCallback((e) => {
       setSearching(true);
     }, []);
-  
-    const handleSearchChange = useCallback((e) => {
-      setSearchstring(e.target.value);
-      setFieldStrings((prevFieldStrings) => ({
-        ...prevFieldStrings,
-        [searchType]: e.target.value,
-      }));
-    }, [searchType]);
-  
+
     useEffect(() => {
-    document.removeEventListener("keydown", handleSearchDown);
-      document.addEventListener("keydown", handleSearchDown);
+
+        setBinResults(findInBin(`${artist} ${album} ${label}`));
+
+    }, [artist, album, label]);
+    
+    const handleKeyDown = useCallback(
+      (e) => {
+        if (!live) return;
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setSelected((prev) => (prev > 0 ? prev - 1 : 0));
+        }
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          let max = binResults.length + rotationResults.length + catalogResults.length;
+          setSelected((prev) => (prev < max ? prev + 1 : max));
+        }
+        if (e.key === "/") {
+          e.preventDefault();
+          searchRef.current.querySelector("input").focus();
+        }
+        if (!searching) return;
+        if (e.key === "Escape") {
+          closeSearch();
+        }
+        if (e.key === "Enter") {
+          e.preventDefault();
+          submitResult(e);
+        }
+      },
+      [live, binResults, rotationResults, catalogResults, searching, submitResult]
+    );
+
+    useEffect(() => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.addEventListener("keydown", handleKeyDown);
+
       return () => {
-        document.removeEventListener("keydown", handleSearchDown);
+        document.removeEventListener("keydown", handleKeyDown);
       };
-    }, [live]);
+    }, [handleKeyDown]);
+
+    useEffect(() => {
+      console.log(selected);
+    }, [selected]);
 
 return (
     <>
   {/* SEARCH AREA */}
   <Stack direction="row" spacing={1}>
-    <FormControl size="sm" sx={{ flex: 1 }}>
+  <ClickAwayListener
+        onClickAway={closeSearch}
+      >
+    <FormControl size="sm" sx={{ flex: 1, minWidth: 0 }}>
       {searching && (
         <Sheet
           variant="outlined"
@@ -218,11 +221,7 @@ return (
               transition: "height 0.2s ease-in-out",
             }}
           >
-            {searchstring.length +
-              Object.keys(fieldStrings).reduce((total, item) => {
-                return total + fieldStrings[item].length;
-              }, 0) >
-              0 && (
+            {(song.length + artist.length + album.length + label.length > 0) && (
               <Box
                 sx={{
                   p: 1,
@@ -233,27 +232,52 @@ return (
                 onMouseOver={() => setSelected(0)}
                 onClick={submitResult}
               >
-                <Typography level="body4">
+                <Typography level="body4"
+                  sx = {{ color: selected == (0) ? "neutral.200" : "inherit"}}
+                >
                   CREATE A NEW ENTRY WITH THE FOLLOWING FIELDS:
                 </Typography>
                 <Stack direction="row" justifyContent="space-between" flexWrap="wrap">
-                  {Object.keys(fieldStrings).map((item, index) =>
-                    fieldStrings[item].length > 0 ? (
-                      <Chip key={item}
+                {(song.length > 0) ? (
+                      <Chip
                         sx={{ my: 0.5 }}
                       >
-                        <Typography key={`${item}-label`} level="body2" textColor={'text.primary'}>
-                          {item}: {fieldStrings[item]}
+                        <Typography level="body2" textColor={'text.primary'}>
+                          Song: {song}
                         </Typography>
                       </Chip>
-                    ) : (
-                      <div></div>
-                    )
-                  )}
+                    ) : ( <div></div> )}
+                    {(artist.length > 0) ? (
+                      <Chip
+                        sx={{ my: 0.5 }}
+                      >
+                        <Typography level="body2" textColor={'text.primary'}>
+                          Artist: {artist}
+                        </Typography>
+                      </Chip>
+                    ) : ( <div></div> )}
+                    {(album.length > 0) ? (
+                      <Chip
+                        sx={{ my: 0.5 }}
+                      >
+                        <Typography level="body2" textColor={'text.primary'}>
+                          Album: {album}
+                        </Typography>
+                      </Chip>
+                    ) : ( <div></div> )}
+                    {(label.length > 0) ? (
+                      <Chip
+                        sx={{ my: 0.5 }}
+                      >
+                        <Typography level="body2" textColor={'text.primary'}>
+                          Label: {label}
+                        </Typography>
+                      </Chip>
+                    ) : ( <div></div> )}
                 </Stack>
               </Box>
             )}
-            {(searchResults["bin"]) && (<>
+            {(binResults.length > 0) && (<>
               <Divider />
               <Box
                 sx={{
@@ -263,56 +287,48 @@ return (
                 <Typography level="body4">FROM YOUR MAIL BIN</Typography>
               </Box>
               <Stack direction="column">
+                {binResults.map((binItem, index) => (
                 <Stack
+                  key={`bin-${index}`}
                   direction="row"
                   justifyContent="space-between"
                   sx={{
                     p: 1,
                     backgroundColor:
-                      selected == 1 ? "primary.700" : "transparent",
+                      selected == (1 + index) ? "primary.700" : "transparent",
                     cursor: "pointer",
                   }}
-                  onMouseOver={() => setSelected(1)}
+                  onMouseOver={() => setSelected(1 + index)}
                   onClick={submitResult}
                 >
                   <ArtistAvatar
-                    artist={{
-                      genre: "Rock",
-                      lettercode: "AB",
-                      numbercode: "128",
-                      entry: "1",
-                    }}
+                    artist={binItem.artist}
+                    format={binItem.format}
+                    entry={binItem.release_number}
                   />
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" sx={{ mb: -1 }}>
-                      SONG
+                    <Typography level="body4" sx={{ 
+                      mb: -1,
+                      color: selected == (1 + index) ? "neutral.200" : "inherit",
+                    }}>
+                      CODE
                     </Typography>
                     <Typography
                       sx={{
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
+                        color: selected == (1 + index) ? "white" : "inherit",
                       }}
                     >
-                      {fieldStrings["title"]}
+                      {binItem.artist.genre} {binItem.artist.lettercode} {binItem.artist.numbercode}/{binItem.release_number}
                     </Typography>
                   </Stack>
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" sx={{ mb: -1 }}>
-                      ALBUM
-                    </Typography>
-                    <Typography
-                      sx={{
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      Album Name
-                    </Typography>
-                  </Stack>
-                  <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" sx={{ mb: -1 }}>
+                    <Typography level="body4" sx={{ 
+                      mb: -1,
+                      color: selected == (1 + index) ? "neutral.200" : "inherit",
+                    }}>
                       ARTIST
                     </Typography>
                     <Typography
@@ -320,13 +336,35 @@ return (
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
+                        color: selected == (1 + index) ? "white" : "inherit",
                       }}
                     >
-                      Artist Name
+                      {binItem.artist.name}
                     </Typography>
                   </Stack>
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" sx={{ mb: -1 }}>
+                    <Typography level="body4" sx={{ 
+                      mb: -1,
+                      color: selected == (1 + index) ? "neutral.200" : "inherit",
+                    }}>
+                      ALBUM
+                    </Typography>
+                    <Typography
+                      sx={{
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        color: selected == (1 + index) ? "white" : "inherit",
+                      }}
+                    >
+                      {binItem.title}
+                    </Typography>
+                  </Stack>
+                  <Stack direction="column" sx={{ width: "calc(20%)" }}>
+                    <Typography level="body4" sx={{ 
+                      mb: -1,
+                      color: selected == (1 + index) ? "neutral.200" : "inherit",
+                    }}>
                       LABEL
                     </Typography>
                     <Typography
@@ -334,170 +372,16 @@ return (
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
+                        color: selected == (1 + index) ? "white" : "inherit",
                       }}
                     >
-                      Label Name
+                      {binItem.label}
                     </Typography>
                   </Stack>
-                </Stack>
+                </Stack>))}
               </Stack>
             </>)}
-            {(searchResults["rotation"]) && (<>
-              <Divider />
-              <Box
-                sx={{
-                  p: 1,
-                }}
-              >
-                <Typography level="body4">ROTATION</Typography>
-              </Box>
-              <Stack direction="column">
-                <Stack
-                  direction="row"
-                  justifyContent="space-between"
-                  sx={{
-                    p: 1,
-                    backgroundColor:
-                      selected == 2 ? "primary.700" : "transparent",
-                    cursor: "pointer",
-                  }}
-                  onMouseOver={() => setSelected(2)}
-                  onClick={submitResult}
-                >
-                  <RotationAvatar rotation="M" />
-                  <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" sx={{ mb: -1 }}>
-                      SONG
-                    </Typography>
-                    <Typography
-                      sx={{
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      {fieldStrings["title"]}
-                    </Typography>
-                  </Stack>
-                  <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" sx={{ mb: -1 }}>
-                      ALBUM
-                    </Typography>
-                    <Typography
-                      sx={{
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      Album Name
-                    </Typography>
-                  </Stack>
-                  <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" sx={{ mb: -1 }}>
-                      ARTIST
-                    </Typography>
-                    <Typography
-                      sx={{
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      Artist Name
-                    </Typography>
-                  </Stack>
-                  <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" sx={{ mb: -1 }}>
-                      LABEL
-                    </Typography>
-                    <Typography
-                      sx={{
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      Label Name
-                    </Typography>
-                  </Stack>
-                </Stack>
-              </Stack>
-
-              <Stack direction="column">
-                <Stack
-                  direction="row"
-                  justifyContent="space-between"
-                  sx={{
-                    p: 1,
-                    backgroundColor:
-                      selected == 3 ? "primary.700" : "transparent",
-                    cursor: "pointer",
-                  }}
-                  onMouseOver={() => setSelected(3)}
-                  onClick={submitResult}
-                >
-                  <RotationAvatar rotation="H" />
-                  <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" sx={{ mb: -1 }}>
-                      SONG
-                    </Typography>
-                    <Typography
-                      sx={{
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      {fieldStrings["title"]}
-                    </Typography>
-                  </Stack>
-                  <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" sx={{ mb: -1 }}>
-                      ALBUM
-                    </Typography>
-                    <Typography
-                      sx={{
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      Album Name
-                    </Typography>
-                  </Stack>
-                  <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" sx={{ mb: -1 }}>
-                      ARTIST
-                    </Typography>
-                    <Typography
-                      sx={{
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      Artist Name
-                    </Typography>
-                  </Stack>
-                  <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" sx={{ mb: -1 }}>
-                      LABEL
-                    </Typography>
-                    <Typography
-                      sx={{
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      Label Name
-                    </Typography>
-                  </Stack>
-                </Stack>
-              </Stack>
-            </>)}
-            {(searchResults["catalog"]) && (<>
+            {(catalogResults.length > 0) && (<>
               <Divider />
               <Box
                 sx={{
@@ -507,56 +391,52 @@ return (
                 <Typography level="body4">CATALOG</Typography>
               </Box>
               <Stack direction="column">
+                {catalogResults.map((catalogItem, index) => (
                 <Stack
+                  key={`catalog-${index}`}
                   direction="row"
                   justifyContent="space-between"
                   sx={{
                     p: 1,
                     backgroundColor:
-                      selected == 4 ? "primary.700" : "transparent",
+                      selected == (1 + binResults.length + index) ? "primary.700" : "transparent",
                     cursor: "pointer",
                   }}
-                  onMouseOver={() => setSelected(4)}
+                  onMouseOver={() => setSelected(1 + binResults.length + index)}
                   onClick={submitResult}
                 >
                   <ArtistAvatar
-                    artist={{
-                      genre: "Hiphop",
-                      lettercode: "AB",
-                      numbercode: "128",
-                      entry: "1",
-                    }}
+                    artist={catalogItem.artist}
+                    format={catalogItem.format}
+                    entry={catalogItem.release_number}
                   />
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" sx={{ mb: -1 }}>
-                      SONG
+                    <Typography level="body4" 
+                      sx={{
+                        mb: -1,
+                        color: selected == (1 + binResults.length + index) ? "neutral.200" : "inherit",
+                      }}
+                    >
+                      CODE
                     </Typography>
                     <Typography
                       sx={{
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
+                        color: selected == (1 + binResults.length + index) ? "white" : "inherit",
                       }}
                     >
-                      {fieldStrings["title"]}
+                      {catalogItem.artist.genre} {catalogItem.artist.lettercode} {catalogItem.artist.numbercode}/{catalogItem.release_number}
                     </Typography>
                   </Stack>
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" sx={{ mb: -1 }}>
-                      ALBUM
-                    </Typography>
-                    <Typography
+                    <Typography level="body4" 
                       sx={{
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
+                        mb: -1,
+                        color: selected == (1 + binResults.length + index) ? "neutral.200" : "inherit",
                       }}
                     >
-                      Album Name
-                    </Typography>
-                  </Stack>
-                  <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" sx={{ mb: -1 }}>
                       ARTIST
                     </Typography>
                     <Typography
@@ -564,13 +444,39 @@ return (
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
+                        color: selected == (1 + binResults.length + index) ? "white" : "inherit",
                       }}
                     >
-                      Artist Name
+                      {catalogItem.artist.name}
                     </Typography>
                   </Stack>
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" sx={{ mb: -1 }}>
+                    <Typography level="body4" 
+                      sx={{
+                        mb: -1,
+                        color: selected == (1 + binResults.length + index) ? "neutral.200" : "inherit",
+                      }}
+                    >
+                      ALBUM
+                    </Typography>
+                    <Typography
+                      sx={{
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        color: selected == (1 + binResults.length + index) ? "white" : "inherit",
+                      }}
+                    >
+                      {catalogItem.title}
+                    </Typography>
+                  </Stack>
+                  <Stack direction="column" sx={{ width: "calc(20%)" }}>
+                    <Typography level="body4" 
+                      sx={{
+                        mb: -1,
+                        color: selected == (1 + binResults.length + index) ? "neutral.200" : "inherit",
+                      }}
+                    >
                       LABEL
                     </Typography>
                     <Typography
@@ -578,12 +484,14 @@ return (
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
+                        color: selected == (1 + binResults.length + index) ? "white" : "inherit",
                       }}
                     >
-                      Label Name
+                      {catalogItem.label}
                     </Typography>
                   </Stack>
                 </Stack>
+                ))}
               </Stack>
             </>)}
             <Divider />
@@ -638,17 +546,62 @@ return (
           </Box>
         </Sheet>
       )}
-      <Input
-          disabled={!live}
+      <Box
+        className = {`MuiInput-root MuiInput-variantOutlined MuiInput-colorNeutral MuiInput-sizeSm MuiInput-formControl css-lr3pbo-JoyInput-root ${!live && 'Joy-disabled'}`}
         ref={searchRef}
-        placeholder={
-          searching
-            ? (searchType != "title") ? `Enter ${searchType}` : "Start by providing a song title"
-            : "Press  /  to search or start typing in this box"
-        }
-        startDecorator={<TroubleshootIcon />}
-        endDecorator={
-          <>
+        sx = {{
+          display: 'flex',
+          justifyContent: 'space-between',
+          flexDirection: 'row',
+          zIndex: 2,
+          '& input': {
+            background: 'transparent !important',
+            outline: 'none !important',
+            border: 'none !important',
+            fontFamily: 'inherit !important',
+            minWidth: '0 !important',
+            px: 1,
+            flex: 1,
+          },
+        }}
+        onFocus={handleSearchFocused}
+      >
+        <Box className="MuiInput-startDecorator css-7ikbr-JoyInput-startDecorator">
+          <TroubleshootIcon />
+        </Box>
+        <input
+          placeholder="Song"
+          value={song}
+          onChange={(e) => setSong(e.target.value)}
+        />
+        <Divider orientation="vertical" />
+        <input
+          placeholder="Artist"
+          value={artist}
+          onChange={(e) => setArtist(e.target.value)}
+        />
+        <Divider orientation="vertical" />
+        <input
+          placeholder="Album"
+          value={album}
+          onChange={(e) => setAlbum(e.target.value)}
+        />
+        <Divider orientation="vertical" />
+        <input
+          placeholder="Label"
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+        />
+        <Box
+        component="div"
+          className="MuiInput-endDecorator css-x3cgwv-JoyInput-endDecorator"
+          sx = {{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            mr: -0.5,
+          }}
+          >
           <IconButton
             variant="outlined"
             color="neutral"
@@ -660,17 +613,10 @@ return (
           >
             /
           </IconButton>
-          </>
-        }
-        onFocus={handleSearchFocused}
-        onBlur={closeSearch}
-        value={searchstring}
-        onChange={handleSearchChange}
-        sx={{
-          zIndex: 2,
-        }}
-      />
+          </Box>
+      </Box>
     </FormControl>
+    </ClickAwayListener>
     <Tooltip
       placement="top"
       size="sm"

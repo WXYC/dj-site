@@ -36,7 +36,7 @@ export const Filters = (props) => {
       <FormControl size="sm" sx = {{ flex: 1 }}>
         <FormLabel>Search In</FormLabel>
         <Select
-          placeholder="Albums"
+          placeholder="All"
           slotProps={{ button: { sx: { whiteSpace: 'nowrap' } } }}
           onChange={(e, newValue) => props.setSearchIn(newValue)}
         >

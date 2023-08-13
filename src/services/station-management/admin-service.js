@@ -1,10 +1,10 @@
 import { toast } from 'sonner';
-import { refreshCognitoCredentials } from '../authentication/authentication-service';
+import { refreshAdminCognitoCredentials } from '../authentication/authentication-service';
 
 
 export const createUser = async (username, email, tempPassword) => {
 
-    const cognitoISP = await refreshCognitoCredentials();
+    const cognitoISP = await refreshAdminCognitoCredentials();
     
     cognitoISP.adminCreateUser({
         UserPoolId: process.env.REACT_APP_AWS_USER_POOL_ID,
@@ -26,7 +26,7 @@ export const createUser = async (username, email, tempPassword) => {
 
 export const deleteUser = async (username) => {
 
-    const cognitoISP = await refreshCognitoCredentials();
+    const cognitoISP = await refreshAdminCognitoCredentials();
 
     cognitoISP.adminDeleteUser({
         UserPoolId: process.env.REACT_APP_AWS_USER_POOL_ID,
@@ -40,7 +40,7 @@ export const deleteUser = async (username) => {
 
 export const resetPassword = async (username, email, tempPassword) => {
     
-    const cognitoISP = await refreshCognitoCredentials();
+    const cognitoISP = await refreshAdminCognitoCredentials();
 
     cognitoISP.adminSetUserPassword({
         Password: tempPassword,
@@ -56,7 +56,7 @@ export const resetPassword = async (username, email, tempPassword) => {
 
 export const listUsers = async (formatted = true) => {
 
-    const cognitoISP = await refreshCognitoCredentials();
+    const cognitoISP = await refreshAdminCognitoCredentials();
 
     return await new Promise(async (resolve, reject) => {
         cognitoISP.listUsers({
@@ -79,7 +79,7 @@ export const listUsers = async (formatted = true) => {
 
 export const listUsersInGroup = async (group, formatted = true) => {
 
-    const cognitoISP = await refreshCognitoCredentials();
+    const cognitoISP = await refreshAdminCognitoCredentials();
 
     return new Promise((resolve, reject) => {
         cognitoISP.listUsersInGroup({
@@ -108,7 +108,7 @@ export const isAdmin = async (username) => {
 }
 
 export const makeAdmin = async (username) => {
-    const cognitoISP = await refreshCognitoCredentials();
+    const cognitoISP = await refreshAdminCognitoCredentials();
 
     cognitoISP.adminAddUserToGroup({
         UserPoolId: process.env.REACT_APP_AWS_USER_POOL_ID,
@@ -122,7 +122,7 @@ export const makeAdmin = async (username) => {
 }
 
 export const removeAdmin = async (username) => {
-    const cognitoISP = await refreshCognitoCredentials();
+    const cognitoISP = await refreshAdminCognitoCredentials();
 
     cognitoISP.adminRemoveUserFromGroup({
         UserPoolId: process.env.REACT_APP_AWS_USER_POOL_ID,

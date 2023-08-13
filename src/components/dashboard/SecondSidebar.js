@@ -12,12 +12,18 @@ import React from 'react';
 
 import InboxIcon from '@mui/icons-material/Inbox';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
+import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PlayArrowOutlinedIcon from '@mui/icons-material/PlayArrowOutlined';
 import { useContext } from 'react';
-import { BinContext } from './bin/Bin';
+import { BinContext } from '../../services/bin/bin-context';
 import { closeSidebar } from './SidebarMobileUtilities';
 import NowPlaying from '../../widgets/now-playing/NowPlaying';
+
+import { ArtistAvatar } from '../catalog/ArtistAvatar';
+import { useLive } from '../../services/flowsheet/live-context';
+import { AddToQueue } from '@mui/icons-material';
+import { useFlowsheet } from '../../services/flowsheet/flowsheet-context';
 
 /**
  * Component representing the Second Sidebar, which renders the 'Mail Bin' for DJs to save their songs and a 'now playing' widget.
@@ -62,7 +68,10 @@ import NowPlaying from '../../widgets/now-playing/NowPlaying';
  */
 export default function SecondSidebar() {
 
+  const { live } = useLive();
+
   const { bin, addToBin, removeFromBin, clearBin, isInBin } = useContext(BinContext);
+  const { addToQueue } = useFlowsheet();
 
   return (
     <React.Fragment>
@@ -161,6 +170,7 @@ export default function SecondSidebar() {
             sx = {{
               overflowY: 'scroll',
               height: 300,
+              width: 270,
             }}
           >
             {bin.length > 0 ? (
@@ -173,10 +183,33 @@ export default function SecondSidebar() {
                       justifyContent: 'space-between',
                     }}
                   >
-                    <Chip
-                    variant='soft'
-                    color="info"
-                    >{item}</Chip>
+                    <ArtistAvatar
+                        entry={item.release_number}
+                        artist = {item.artist}
+                        format={item.format}
+                      />
+                      <div>
+                      <Typography level='body4'
+                        sx = {{
+                          whiteSpace: 'nowrap',
+                          textOverflow: 'ellipsis',
+                          overflow: 'hidden',
+                          width: 89,
+                        }}
+                      >
+                        {item.artist.name}
+                      </Typography>
+                      <Typography level='body2'
+                        sx = {{
+                          whiteSpace: 'nowrap',
+                          textOverflow: 'ellipsis',
+                          overflow: 'hidden',
+                          width: 89,
+                        }}
+                      >
+                        {item.title}
+                      </Typography>
+                      </div>
                     <Stack direction="row">
                       <Tooltip title="More Info" variant='outlined' size="sm">
                     <IconButton
@@ -188,6 +221,21 @@ export default function SecondSidebar() {
                       <InfoOutlinedIcon />
                     </IconButton>
                     </Tooltip>
+                    {(live) && (
+                      <Tooltip title="Add to Queue" placement="bottom"
+                      variant="outlined"
+                      size="sm"
+                      >
+                      <IconButton
+                          size="small"
+                          variant="standard"
+                          color="info"
+                          onClick={() => addToQueue(item)}
+                      >
+                          <PlaylistAddIcon />
+                      </IconButton>
+                      </Tooltip>
+                    )}
                     <Tooltip title="Remove" variant='outlined' size="sm">
                     <IconButton
                       size="small"
@@ -209,6 +257,28 @@ export default function SecondSidebar() {
             )}
           
           </Card>
+        </List>
+        <Divider />
+        <List>
+        <Stack direction="row" sx = {{
+          justifyContent: 'space-between',
+          alignItems: 'flex-end',
+          pb: 1
+        }}>
+        <Typography level="body3" sx={{ color: 'text.secondary', py: 0 }}>
+          {`© ${new Date().getFullYear()} WXYC Chapel Hill`}
+        </Typography>
+        <Typography level="body4" sx={{ color: 'text.secondary', pt: 0 }}>
+          DJ Site v1.0.0
+        </Typography>
+        </Stack>
+        <Button size="sm" variant="soft" color="info" 
+        href='https://docs.google.com/forms/d/e/1FAIpQLSfBMYYQeCEkRGsSBM3CAkjuBcHYA9Lk2Su6-ZncWH4hXwULvA/viewform?usp=sf_link' 
+        target='_blank'
+          component="a"
+        >
+          Feedback
+        </Button>
         </List>
       </Sheet>
     </React.Fragment>

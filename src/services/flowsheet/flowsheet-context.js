@@ -24,6 +24,17 @@ export const FlowsheetProvider = ({children}) => {
     const [entryClientRect, setEntryClientRect] = useState(null); // Used to determine the size of the entry placeholder
 
     const addToQueue = (item) => {
+        if (item.artist != null && typeof item.artist == "object") {
+            let newItem = {
+                message: "",
+                title: "",
+                artist: item.artist.name,
+                album: item.title,
+                label: item.label
+            };
+            item = newItem;
+        }
+
         let newQueue = [item, ...queue];
         index(newQueue);
         setQueue(newQueue);

@@ -1,12 +1,27 @@
-import { Avatar, Stack, Typography } from "@mui/joy"
+import { Avatar, Stack, Tooltip, Typography } from "@mui/joy"
 import React from "react"
+import ReactCurvedText from 'react-curved-text';
 
 const GENRE_COLORS = {
     'Rock': 'primary',
     'Electronic': 'warning',
     'Hiphop': 'info',
     'Jazz': 'success',
-    'Classical': 'error'
+    'Classical': 'primary',
+    'Reggae': 'warning',
+    'Soundtracks': 'info',
+    'OCS': 'success',
+}
+
+const GENRE_VARIANTS = {
+    'Rock': 'solid',
+    'Electronic': 'solid',
+    'Hiphop': 'solid',
+    'Jazz': 'solid',
+    'Classical': 'soft',
+    'Reggae': 'soft',
+    'Soundtracks': 'soft',
+    'OCS': 'soft',
 }
 
 /**
@@ -93,11 +108,32 @@ export const ArtistAvatar = (props) => {
         color_choice = 'neutral';
     }
 
+    let variant_choice = GENRE_VARIANTS[props.artist.genre];
+    if (variant_choice === undefined) {
+        variant_choice = 'solid';
+    }
+
     return (
+        <Tooltip title={props.artist.entry} placement="top">
         <Avatar
-            variant={props.variant ?? 'solid'}
+            variant={variant_choice}
             color = {color_choice}
         >
+            <Stack direction="row">
+            <Stack direction="column"
+                sx = {{
+                    justifyContent: 'center',
+                }}
+            >
+            <Typography level="body5" color="white"
+                sx = {{
+                    width: 9.45,
+                    pr: 0.05,
+                }}
+            >
+            {props.artist.genre.substring(0, 2).toUpperCase()}
+            </Typography>
+            </Stack>
             <Stack direction="column"
                 sx = {{
                     textAlign: 'center',
@@ -108,20 +144,38 @@ export const ArtistAvatar = (props) => {
             {props.artist.numbercode}
             </Typography>
             <Avatar
-                variant="solid"
-                color="neutral"
+                variant={variant_choice == 'solid' ? 'soft' : 'solid'}
+                color={(props.format ?? '') == 'cd' ? 'primary' : 'warning'}
                 sx = {{
-                    width: '1.1rem',
-                    height: '1.1rem',
+                    width: '1.2rem',
+                    height: '1.2rem',
                     m: 0,
-                    fontSize: '0.8rem',
+                    fontSize: '0.7rem',
                     bgColor: props.background
                 }}
                 >{props.artist.lettercode}</Avatar>
             <Typography level="body5" color="white">
-            {props.artist.entry}
+            {props.entry}
             </Typography>
             </Stack>
+            <Stack direction="column"
+                sx = {{
+                    width: 9.45,
+                    textAlign: 'center',
+                    py: 0.2,
+                    justifyContent: 'center'
+                }}
+            >
+            <Typography level="body5" color="white"
+                sx = {{
+                    pl: 0.05,
+                }}
+            >
+            {props.format?.substring(0, 2).toUpperCase() ?? ''}
+            </Typography>
+            </Stack>
+            </Stack>
         </Avatar>
+        </Tooltip>
     )
 }

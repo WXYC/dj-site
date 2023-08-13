@@ -1,6 +1,7 @@
 import AWS, { CognitoIdentityServiceProvider } from 'aws-sdk';
 import { toast } from 'sonner';
 import jwtDecode from 'jwt-decode';
+import { getter, setter } from '../api-service';
 
 AWS.config.update({
     region: process.env.REACT_APP_AWS_REGION
@@ -10,11 +11,12 @@ let persistedISP = null;
 
 const nullResult = { userObject: null, resetPasswordRequired: false, isAuthenticated: false, isAdmin: false };
 
-export const refreshCognitoCredentials = async (notify = false) => {
+// ---------- CREDENTIAL MANAGEMENT ---------- //
+export const refreshCognitoCredentials = async (notify = false, admin = false) => {
     let idToken = sessionStorage.getItem('idToken');
     let cognitoISP = null;
     const credentialManager = new AWS.CognitoIdentityCredentials({
-        IdentityPoolId: process.env.REACT_APP_AWS_IDENTITY_POOL_ID,
+        IdentityPoolId: admin ? process.env.REACT_APP_AWS_ADMIN_IDENTITY_POOL_ID : process.env.REACT_APP_AWS_USER_IDENTITY_POOL_ID,
         Logins: {
             [`cognito-idp.${process.env.REACT_APP_AWS_REGION}.amazonaws.com/${process.env.REACT_APP_AWS_USER_POOL_ID}`]: idToken
         }
@@ -24,7 +26,7 @@ export const refreshCognitoCredentials = async (notify = false) => {
         credentialManager.refresh((error) => {
             if (error) reject(error);
 
-            if (notify) toast.success("Admin Privilages Granted.");
+            if (notify) toast.success(`${admin ? 'Admin' : 'Library'} Privilages Granted.`);
 
             cognitoISP = new AWS.CognitoIdentityServiceProvider({ 
                 apiVersion: '2016-04-18', 
@@ -37,6 +39,9 @@ export const refreshCognitoCredentials = async (notify = false) => {
     });
 }
 
+export const refreshAdminCognitoCredentials = async (notify = false) => refreshCognitoCredentials(notify, true);
+
+// ---------- AUTHENTICATION ---------- //
 export const login = async (event) => {
     const username = event.target.username.value;
     const password = event.target.password.value;
@@ -110,7 +115,7 @@ export const logout = async () => {
 };
 
 export const globalLogout = async (auth) => {
-    const cognitoISP = refreshCognitoCredentials();
+    const cognitoISP = refreshAdminCognitoCredentials();
     return cognitoISP.globalSignOut({
         AccessToken: auth.AuthenticationResult.AccessToken
     }, function (err, data) {
@@ -121,6 +126,7 @@ export const globalLogout = async (auth) => {
 };
 
 export const checkAuth = async () => {
+
     const accessToken = sessionStorage.getItem('accessToken');
     const idToken = sessionStorage.getItem('idToken');
     const refreshToken = localStorage.getItem('refreshToken');
@@ -147,6 +153,29 @@ export const checkAuth = async () => {
             if (err) handleError(err, resolve);
 
             let adminTest = jwtDecode(idToken)['cognito:groups']?.includes('station-management');
+
+            // BEGIN BACKEND SYNC ----------------------------------------------------------------------------
+            const { data: backendData, error: backendError } = await (getter(`djs?cognito_user_name=${userData.Username}`))();
+
+            if (backendError) {
+                if (backendError.message.includes('404')) {
+                    const { data: creationData, error: creationError } = await (setter(`djs/register`))({
+                        cognito_user_name: userData.Username,
+                        real_name: userData.UserAttributes.find(attr => attr.Name == 'name').Value,
+                    });
+
+                    if (creationError) {
+                        return handleError(creationError, resolve);
+                    }
+
+                    sessionStorage.setItem('djId', creationData.id);
+                } else {
+                    toast.error('The backend is out of sync with the user database. This is fatal. Contact a site admin immediately.');
+                }
+            } else {
+                sessionStorage.setItem('djId', backendData.id);
+            }
+            // END BACKEND SYNC ------------------------------------------------------------------------------
 
             resolve({
                 userObject: userData,
@@ -196,9 +225,10 @@ export const refreshYourToken = async (cognitoISP) => {
     });
 };
 
+// ---------- USER MANAGEMENT ---------- //
 export const updateUserInformation = async (attributes) => {
 
-    let cognitoISP = await refreshCognitoCredentials();
+    let cognitoISP = await refreshAdminCognitoCredentials();
 
     let formattedAttributes = Array.from(Object.keys(attributes), key => ({
         Name: key,

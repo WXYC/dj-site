@@ -82,6 +82,23 @@ export const setter = (url) => {
     }
 }
 
+export const deleter = (url) => {
+    return async (data_in) => {
+        const config = {
+            method: "DELETE",
+            url: `${apiServerUrl}/${url}`,
+            data: data_in,
+        }
+
+        const { data, error } = await callApi({ config });
+
+        return {
+            data: data,
+            error,
+        }
+    }
+}
+
 export const updater = (url) => {
     return async (data_in) => {
         const config = {

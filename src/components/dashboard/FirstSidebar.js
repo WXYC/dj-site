@@ -174,6 +174,7 @@ export default function FirstSidebar() {
             >
           <ListItemButton onClick={() => navigate('/playlists')}
             variant={location.pathname === '/playlists' ? 'solid' : 'plain'}
+            disabled
           >
             <StorageIcon />
           </ListItemButton>
@@ -190,6 +191,7 @@ export default function FirstSidebar() {
           <ListItemButton
             onClick={() => navigate('/schedule')}
             variant={location.pathname === '/schedule' ? 'solid' : 'plain'}
+            disabled
           >
          <CalendarMonthIcon />
           </ListItemButton>
