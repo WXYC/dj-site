@@ -15,11 +15,10 @@ export default async function getArtworkFromItunes({
                     const jsonResponse = JSON.parse(responseText);
 
                     let lowResDefault = jsonResponse?.results?.[0]?.artworkUrl100;
-                    return lowResDefault.replace("100x100", "600x600");
+                    return lowResDefault?.replace("100x100", "600x600");
                 }
             )
         } else return null;
     });
-    console.log(iTunesResponse);
     return iTunesResponse;
 }
