@@ -1,6 +1,7 @@
-import React, {createContext, useContext, useEffect, useRef, useState} from "react";
+import React, {createContext, useCallback, useContext, useEffect, useRef, useState} from "react";
 import { getSongInfoFromLastFM } from "../artwork/last-fm-image";
 import { toast } from "sonner";
+import { getFlowsheetFromBackend } from "./flowsheet-service";
 
 const FlowsheetContext = createContext();
 
@@ -54,7 +55,9 @@ export const FlowsheetProvider = ({children}) => {
         
         autoPlay && entry.message == "" && dispatchAutoPlayOfSong(entry);
 
+
         setEntries(newEntries);
+        updateFlowsheet();
     }
 
     useEffect(() => {
@@ -164,12 +167,46 @@ export const FlowsheetProvider = ({children}) => {
         setEntries(newEntries);
     }
 
-    const updateWithBackend = () => {
+    const [backendCaller, setBackendCaller] = useState(null);
+    const updateWithBackend = useCallback(() => {
+        console.log("updating from backend if necessary");
+        setBackendCaller(setTimeout(updateWithBackend, 5000)); // Update every 1 minute
         if (edited) {
-            console.log("This is where we update the backend with the entries, not yet implemented");
+            console.log('edited!');
+            const { data, error } = getFlowsheetFromBackend();
+
+            if (error) {
+                toast.error("Error updating flowsheet");
+                setEdited(false);
+                return;
+            }
+
+            if (data) {
+                updateEntriesFromBackend(data);
+            }
             setEdited(false);
         }
-        setTimeout(updateWithBackend, 60000); // Update every 1 minute
+    }, [edited]);
+
+    const updateEntriesFromBackend = (data) => {
+        let newEntries = data.map((item) => (
+            (item?.message?.length) > 0 ? 
+            {
+                message: item.message,
+                title: "",
+                album: "",
+                artist: "",
+                label: ""
+            } : {
+                message: "",
+                title: item.track_title,
+                album: item.album_title,
+                artist: item.artist_name,
+                label: item.record_label
+            }));
+
+        index(newEntries);
+        setEntries(newEntries);
     }
 
     const updateFlowsheet = () => {
@@ -209,11 +246,28 @@ export const FlowsheetProvider = ({children}) => {
     }
 
     useEffect(() => {
-        console.log("This is where we initialize the entries to the flowsheet, not yet implemented");
-        updateWithBackend();
+
+        (async () => {
+            const { data, error } = await getFlowsheetFromBackend();
+
+            if (error) {
+                toast.error("Error updating flowsheet");
+                return;
+            }
+            
+            if (data) {
+                updateEntriesFromBackend(data);
+            }
+        })();
+
+        updateWithBackend(); // kicks off auto-update
         localStorage.getItem("queue") && setQueue(JSON.parse(localStorage.getItem("queue")));
 
         setAutoPlay(false);
+
+        return () => {
+            if (backendCaller) clearTimeout(backendCaller);
+        }
     }, []);
 
     return (

@@ -1,4 +1,4 @@
-import React, { useEffect } from "react"
+import React, { useEffect, useCallback } from "react"
 import AspectRatio from '@mui/joy/AspectRatio';
 import Card from '@mui/joy/Card';
 import CardContent from '@mui/joy/CardContent';
@@ -9,8 +9,9 @@ import IconButton from '@mui/joy/IconButton';
 import Link from '@mui/joy/Link';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
-import { Box, useTheme } from "@mui/joy";
+import { Box, Stack, useTheme } from "@mui/joy";
 import { getArtwork } from "../../services/artwork/artwork-service";
+import { getNowPlayingFromBackend } from "../../services/flowsheet/flowsheet-service";
 
 let animationController = null;
 
@@ -21,9 +22,10 @@ const BOT_RESPONSES = {
 
 const NowPlaying = () => {
 
-  const songName = BOT_RESPONSES.song;
-  const artistName = '';
-  const djName = BOT_RESPONSES.dj;
+  const [songName, setSongName] = React.useState(BOT_RESPONSES.song);
+  const [albumName, setAlbumName] = React.useState('');
+  const [artistName, setArtistName] = React.useState('');
+  const [djName, setDjName] = React.useState(BOT_RESPONSES.dj);
 
   const [imageUrl, setImageUrl] = React.useState('img/cassette.png');
 
@@ -54,14 +56,33 @@ const NowPlaying = () => {
     }
   }
 
-  const getImageArtwork = async () => {
-    let imgUrl = await getArtwork({
-      artist: artistName,
-      title: songName,
-    });
-    setImageUrl(imgUrl ?? 'img/cassette.png');
+  const getImage = async (artist, album) => {
+    if (album == undefined || artist == undefined) return "";
+    let storedArtwork = sessionStorage.getItem(
+      `img-${album}-${artist}`
+    );
+    if (storedArtwork) return storedArtwork;
+    try {
+      let retrievedArtwork = await getArtwork({
+        title: album,
+        artist: artist,
+      });
+      // THE CONVENTION IS ALBUM THEN ARTIST IN THIS APP
+      sessionStorage.setItem(
+        `img-${album}-${artist}`,
+        retrievedArtwork
+      );
+      return retrievedArtwork;
+    } catch (e) {
+      sessionStorage.setItem(
+        `img-${album}-${artist}`,
+        ""
+      );
+      return "";
+    }
   };
 
+  const [getSongTimeout, setGetSongTimeout] = React.useState(null);
   useEffect(() => {
 /*     try {
       setEmbedded(window.self !== window.top);
@@ -71,11 +92,35 @@ const NowPlaying = () => {
     destroyAndBuildNewCanvas();
     document.addEventListener('resize', destroyAndBuildNewCanvas);
 
-    if (djName !== BOT_RESPONSES.dj && songName !== BOT_RESPONSES.song)
-      getImageArtwork();
+    const getSong = async () => {
+      const { data, error } = await getNowPlayingFromBackend();
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      if (data) {
+        setSongName(data.track_title);
+        setAlbumName(data.album_title);
+        setArtistName(data.artist_name);
+      }
+
+      setGetSongTimeout(setTimeout(getSong, 30000));
+
+      if (data.artist_name !== BOT_RESPONSES.dj && data.track_title !== BOT_RESPONSES.song)
+      {
+        (async () => {
+          setImageUrl(await getImage(data.artist_name, data.album_title));
+        })();
+      }
+    }
+
+    getSong();
 
     return () => {
       document.removeEventListener('resize', destroyAndBuildNewCanvas);
+      if (getSongTimeout) clearTimeout(getSongTimeout);
     }
   }, []);
 
@@ -176,9 +221,11 @@ const NowPlaying = () => {
         <Typography level="body1" fontSize="md">
           {songName ?? 'Automatically Chosen Song'}
         </Typography>
+        <Stack direction="row">
         <Typography level="body2" sx={{ mt: 0.5 }} color="primary">
-          {artistName ?? 'Automatically Chosen Artist'}
+          {artistName ?? 'Automatically Chosen Artist'} &nbsp;&nbsp; • &nbsp;&nbsp; {(albumName.length > 0) && albumName}
         </Typography>
+        </Stack>
       </CardContent>
       <CardOverflow variant="soft" sx={{ bgcolor: 'background.level1' }}>
         <CardContent orientation="horizontal">

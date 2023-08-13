@@ -25,7 +25,6 @@ export default async function getArtworkFromLastFM({
                 })
         } else return null;
     });
-    console.log(lastFMResponse);
     return lastFMResponse;
 }
 
@@ -33,8 +32,6 @@ export async function getSongInfoFromLastFM({
     title,
     artist
 }) {
-    console.log(title);
-    console.log(artist);
     let url = 'https://ws.audioscrobbler.com/2.0/?type=release&per_page=1&page=1&' +
     'api_key=' + process.env.REACT_APP_LAST_FM_KEY +
     '&method=track.getInfo' +
