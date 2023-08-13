@@ -258,6 +258,24 @@ export default function SecondSidebar() {
           
           </Card>
         </List>
+        <Divider />
+        <List>
+        <Stack direction="row" sx = {{
+          justifyContent: 'space-between',
+          alignItems: 'flex-end',
+          pb: 1
+        }}>
+        <Typography level="body3" sx={{ color: 'text.secondary', py: 0 }}>
+          {`© ${new Date().getFullYear()} WXYC Chapel Hill`}
+        </Typography>
+        <Typography level="body4" sx={{ color: 'text.secondary', pt: 0 }}>
+          DJ Site v1.0.0
+        </Typography>
+        </Stack>
+        <Button size="sm" variant="soft" color="info" onClick={() => console.log("feedback")}>
+          Feedback
+        </Button>
+        </List>
       </Sheet>
     </React.Fragment>
   );

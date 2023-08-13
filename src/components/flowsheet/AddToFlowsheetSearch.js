@@ -21,6 +21,7 @@ import { useFlowsheet } from "../../services/flowsheet/flowsheet-context";
 import { useLive } from "../../services/flowsheet/live-context";
 import { ClickAwayListener } from "@mui/material";
 import { BinContext } from "../../services/bin/bin-context";
+import { getReleasesMatching } from "../../services/card-catalog/card-catalog-service";
 
 /**
  * @component
@@ -70,19 +71,70 @@ const AddToFlowsheetSearch = () => {
     const [label, setLabel] = useState("");
 
     const [searchTimeout, setSearchTimeout] = useState(null);
+    useEffect(() => {
+      if (searchTimeout) clearTimeout(searchTimeout);
 
-    const submitResult = () => {
+      if (searching && artist.length > 0 + album.length > 0 + label.length > Math.min(artist.length, album.length, label.length)) {
+        setSearchTimeout(setTimeout(() => {
+          getReleasesMatching(`${artist} ${album} ${label}`, 'All', 'All', 4).then((results) => {
+            setCatalogResults(results);
+          });
+        }, 1000));
+      }
+    }, [artist, album, label, searching]);
 
-    };
+    const submitResult = useCallback((e) => {
+      e.preventDefault();
+
+      let submission = {
+        message: "",
+        title: song,
+        artist: artist,
+        album: album,
+        label: label,
+      };
+
+      if (selected > 0 && selected <= binResults.length) {
+        submission.artist = binResults[selected - 1].artist.name;
+        submission.album = binResults[selected - 1].title;
+        submission.label = binResults[selected - 1].label;
+      }
+      if (selected > binResults.length && selected <= binResults.length + rotationResults.length) {
+        submission.artist = rotationResults[selected - binResults.length - 1].artist.name;
+        submission.album = rotationResults[selected - binResults.length - 1].title;
+        submission.label = rotationResults[selected - binResults.length - 1].label;
+      }
+      if (selected > binResults.length + rotationResults.length && selected <= binResults.length + rotationResults.length + catalogResults.length) {
+        submission.artist = catalogResults[selected - binResults.length - rotationResults.length - 1].artist.name;
+        submission.album = catalogResults[selected - binResults.length - rotationResults.length - 1].title;
+        submission.label = catalogResults[selected - binResults.length - rotationResults.length - 1].label;
+      }
+
+      if (e.shiftKey) {
+        addToEntries(submission);
+      } else {
+        addToQueue(submission);
+      }
+      
+      closeSearch();
+
+    }, [selected, binResults, rotationResults, catalogResults, song, artist, album, label]);
   
-    const closeSearch = useCallback(() => {
+    const closeSearch = () => {
+      setBinResults([]);
+      setRotationResults([]);
+      setCatalogResults([]);
       setSearching(false);
       setSelected(0);
       setSong("");
       setArtist("");
       setAlbum("");
       setLabel("");
-    }, []);
+      searchRef.current.blur();
+      searchRef.current.querySelectorAll("input").forEach((input) => {
+        input.blur();
+      });
+    };
   
     const handleSearchFocused = useCallback((e) => {
       setSearching(true);
@@ -90,15 +142,50 @@ const AddToFlowsheetSearch = () => {
 
     useEffect(() => {
 
-        setBinResults(() => {
-          let matchBy = [];
-          if (artist?.length > 0) matchBy.push("artist.name");
-          if (album?.length > 0) matchBy.push("title");
-          if (label?.length > 0) matchBy.push("label");
-          return findInBin(`${artist} ${album} ${label}`, matchBy);
-        });
+        setBinResults(findInBin(`${artist} ${album} ${label}`));
 
     }, [artist, album, label]);
+    
+    const handleKeyDown = useCallback(
+      (e) => {
+        if (!live) return;
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setSelected((prev) => (prev > 0 ? prev - 1 : 0));
+        }
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          let max = binResults.length + rotationResults.length + catalogResults.length;
+          setSelected((prev) => (prev < max ? prev + 1 : max));
+        }
+        if (e.key === "/") {
+          e.preventDefault();
+          searchRef.current.querySelector("input").focus();
+        }
+        if (!searching) return;
+        if (e.key === "Escape") {
+          closeSearch();
+        }
+        if (e.key === "Enter") {
+          e.preventDefault();
+          submitResult(e);
+        }
+      },
+      [live, binResults, rotationResults, catalogResults, searching, submitResult]
+    );
+
+    useEffect(() => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.addEventListener("keydown", handleKeyDown);
+
+      return () => {
+        document.removeEventListener("keydown", handleKeyDown);
+      };
+    }, [handleKeyDown]);
+
+    useEffect(() => {
+      console.log(selected);
+    }, [selected]);
 
 return (
     <>
@@ -132,6 +219,62 @@ return (
               transition: "height 0.2s ease-in-out",
             }}
           >
+            {(song.length + artist.length + album.length + label.length > 0) && (
+              <Box
+                sx={{
+                  p: 1,
+                  backgroundColor:
+                    selected == 0 ? "primary.700" : "transparent",
+                  cursor: "pointer",
+                }}
+                onMouseOver={() => setSelected(0)}
+                onClick={submitResult}
+              >
+                <Typography level="body4"
+                  sx = {{ color: selected == (0) ? "neutral.200" : "inherit"}}
+                >
+                  CREATE A NEW ENTRY WITH THE FOLLOWING FIELDS:
+                </Typography>
+                <Stack direction="row" justifyContent="space-between" flexWrap="wrap">
+                {(song.length > 0) ? (
+                      <Chip
+                        sx={{ my: 0.5 }}
+                      >
+                        <Typography level="body2" textColor={'text.primary'}>
+                          Song: {song}
+                        </Typography>
+                      </Chip>
+                    ) : ( <div></div> )}
+                    {(artist.length > 0) ? (
+                      <Chip
+                        sx={{ my: 0.5 }}
+                      >
+                        <Typography level="body2" textColor={'text.primary'}>
+                          Artist: {artist}
+                        </Typography>
+                      </Chip>
+                    ) : ( <div></div> )}
+                    {(album.length > 0) ? (
+                      <Chip
+                        sx={{ my: 0.5 }}
+                      >
+                        <Typography level="body2" textColor={'text.primary'}>
+                          Album: {album}
+                        </Typography>
+                      </Chip>
+                    ) : ( <div></div> )}
+                    {(label.length > 0) ? (
+                      <Chip
+                        sx={{ my: 0.5 }}
+                      >
+                        <Typography level="body2" textColor={'text.primary'}>
+                          Label: {label}
+                        </Typography>
+                      </Chip>
+                    ) : ( <div></div> )}
+                </Stack>
+              </Box>
+            )}
             {(binResults.length > 0) && (<>
               <Divider />
               <Box
@@ -144,6 +287,7 @@ return (
               <Stack direction="column">
                 {binResults.map((binItem, index) => (
                 <Stack
+                  key={`bin-${index}`}
                   direction="row"
                   justifyContent="space-between"
                   sx={{
@@ -183,24 +327,6 @@ return (
                       mb: -1,
                       color: selected == (1 + index) ? "neutral.200" : "inherit",
                     }}>
-                      ALBUM
-                    </Typography>
-                    <Typography
-                      sx={{
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        color: selected == (1 + index) ? "white" : "inherit",
-                      }}
-                    >
-                      {binItem.title}
-                    </Typography>
-                  </Stack>
-                  <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" sx={{ 
-                      mb: -1,
-                      color: selected == (1 + index) ? "neutral.200" : "inherit",
-                    }}>
                       ARTIST
                     </Typography>
                     <Typography
@@ -212,6 +338,24 @@ return (
                       }}
                     >
                       {binItem.artist.name}
+                    </Typography>
+                  </Stack>
+                  <Stack direction="column" sx={{ width: "calc(20%)" }}>
+                    <Typography level="body4" sx={{ 
+                      mb: -1,
+                      color: selected == (1 + index) ? "neutral.200" : "inherit",
+                    }}>
+                      ALBUM
+                    </Typography>
+                    <Typography
+                      sx={{
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        color: selected == (1 + index) ? "white" : "inherit",
+                      }}
+                    >
+                      {binItem.title}
                     </Typography>
                   </Stack>
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
@@ -233,6 +377,119 @@ return (
                     </Typography>
                   </Stack>
                 </Stack>))}
+              </Stack>
+            </>)}
+            {(catalogResults.length > 0) && (<>
+              <Divider />
+              <Box
+                sx={{
+                  p: 1,
+                }}
+              >
+                <Typography level="body4">CATALOG</Typography>
+              </Box>
+              <Stack direction="column">
+                {catalogResults.map((catalogItem, index) => (
+                <Stack
+                  key={`catalog-${index}`}
+                  direction="row"
+                  justifyContent="space-between"
+                  sx={{
+                    p: 1,
+                    backgroundColor:
+                      selected == (1 + binResults.length + index) ? "primary.700" : "transparent",
+                    cursor: "pointer",
+                  }}
+                  onMouseOver={() => setSelected(1 + binResults.length + index)}
+                  onClick={submitResult}
+                >
+                  <ArtistAvatar
+                    artist={catalogItem.artist}
+                    format={catalogItem.format}
+                    entry={catalogItem.release_number}
+                  />
+                  <Stack direction="column" sx={{ width: "calc(20%)" }}>
+                    <Typography level="body4" 
+                      sx={{
+                        mb: -1,
+                        color: selected == (1 + binResults.length + index) ? "neutral.200" : "inherit",
+                      }}
+                    >
+                      CODE
+                    </Typography>
+                    <Typography
+                      sx={{
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        color: selected == (1 + binResults.length + index) ? "white" : "inherit",
+                      }}
+                    >
+                      {catalogItem.artist.genre} {catalogItem.artist.lettercode} {catalogItem.artist.numbercode}/{catalogItem.release_number}
+                    </Typography>
+                  </Stack>
+                  <Stack direction="column" sx={{ width: "calc(20%)" }}>
+                    <Typography level="body4" 
+                      sx={{
+                        mb: -1,
+                        color: selected == (1 + binResults.length + index) ? "neutral.200" : "inherit",
+                      }}
+                    >
+                      ARTIST
+                    </Typography>
+                    <Typography
+                      sx={{
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        color: selected == (1 + binResults.length + index) ? "white" : "inherit",
+                      }}
+                    >
+                      {catalogItem.artist.name}
+                    </Typography>
+                  </Stack>
+                  <Stack direction="column" sx={{ width: "calc(20%)" }}>
+                    <Typography level="body4" 
+                      sx={{
+                        mb: -1,
+                        color: selected == (1 + binResults.length + index) ? "neutral.200" : "inherit",
+                      }}
+                    >
+                      ALBUM
+                    </Typography>
+                    <Typography
+                      sx={{
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        color: selected == (1 + binResults.length + index) ? "white" : "inherit",
+                      }}
+                    >
+                      {catalogItem.title}
+                    </Typography>
+                  </Stack>
+                  <Stack direction="column" sx={{ width: "calc(20%)" }}>
+                    <Typography level="body4" 
+                      sx={{
+                        mb: -1,
+                        color: selected == (1 + binResults.length + index) ? "neutral.200" : "inherit",
+                      }}
+                    >
+                      LABEL
+                    </Typography>
+                    <Typography
+                      sx={{
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        color: selected == (1 + binResults.length + index) ? "white" : "inherit",
+                      }}
+                    >
+                      {catalogItem.label}
+                    </Typography>
+                  </Stack>
+                </Stack>
+                ))}
               </Stack>
             </>)}
             <Divider />

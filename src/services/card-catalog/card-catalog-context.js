@@ -88,15 +88,12 @@ export const CatalogProvider = ({children}) => {
 
 
     useEffect(() => {
-        const sortReleaseList = () => {
-          const sortingAlgorithm = (orderDirection === 'asc') ? sorting_algorithms_asc[orderBy] : sorting_algorithms_desc[orderBy];
-          const sortedReleaseList = [...releaseList].sort(sortingAlgorithm);
-          setReleaseList(sortedReleaseList);
-        }
+      
+      const sortingAlgorithm = (orderDirection === 'asc') ? sorting_algorithms_asc[orderBy] : sorting_algorithms_desc[orderBy];
+      const sortedReleaseList = [...releaseList].sort(sortingAlgorithm);
+      setReleaseList(sortedReleaseList);
     
-        if (!loading) sortReleaseList();
-    
-    }, [orderBy, orderDirection, loading]);
+    }, [orderBy, orderDirection]);
 
     const loadMore = () => setN((prevN) => prevN + 10);
 
