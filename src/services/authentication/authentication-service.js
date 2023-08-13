@@ -1,6 +1,7 @@
 import AWS, { CognitoIdentityServiceProvider } from 'aws-sdk';
 import { toast } from 'sonner';
 import jwtDecode from 'jwt-decode';
+import { getter, setter } from '../api-service';
 
 AWS.config.update({
     region: process.env.REACT_APP_AWS_REGION
@@ -125,6 +126,7 @@ export const globalLogout = async (auth) => {
 };
 
 export const checkAuth = async () => {
+
     const accessToken = sessionStorage.getItem('accessToken');
     const idToken = sessionStorage.getItem('idToken');
     const refreshToken = localStorage.getItem('refreshToken');
@@ -151,6 +153,29 @@ export const checkAuth = async () => {
             if (err) handleError(err, resolve);
 
             let adminTest = jwtDecode(idToken)['cognito:groups']?.includes('station-management');
+
+            // BEGIN BACKEND SYNC ----------------------------------------------------------------------------
+            const { data: backendData, error: backendError } = await (getter(`djs?cognito_user_name=${userData.Username}`))();
+
+            if (backendError) {
+                if (backendError.message.includes('404')) {
+                    const { data: creationData, error: creationError } = await (setter(`djs/register`))({
+                        cognito_user_name: userData.Username,
+                        real_name: userData.UserAttributes.find(attr => attr.Name == 'name').Value,
+                    });
+
+                    if (creationError) {
+                        return handleError(creationError, resolve);
+                    }
+
+                    sessionStorage.setItem('djId', creationData.id);
+                } else {
+                    toast.error('The backend is out of sync with the user database. This is fatal. Contact a site admin immediately.');
+                }
+            } else {
+                sessionStorage.setItem('djId', backendData.id);
+            }
+            // END BACKEND SYNC ------------------------------------------------------------------------------
 
             resolve({
                 userObject: userData,

@@ -7,7 +7,21 @@ const GENRE_COLORS = {
     'Electronic': 'warning',
     'Hiphop': 'info',
     'Jazz': 'success',
-    'Classical': 'error'
+    'Classical': 'primary',
+    'Reggae': 'warning',
+    'Soundtracks': 'info',
+    'OCS': 'success',
+}
+
+const GENRE_VARIANTS = {
+    'Rock': 'solid',
+    'Electronic': 'solid',
+    'Hiphop': 'solid',
+    'Jazz': 'solid',
+    'Classical': 'soft',
+    'Reggae': 'soft',
+    'Soundtracks': 'soft',
+    'OCS': 'soft',
 }
 
 /**
@@ -94,10 +108,15 @@ export const ArtistAvatar = (props) => {
         color_choice = 'neutral';
     }
 
+    let variant_choice = GENRE_VARIANTS[props.artist.genre];
+    if (variant_choice === undefined) {
+        variant_choice = 'solid';
+    }
+
     return (
         <Tooltip title={props.artist.entry} placement="top">
         <Avatar
-            variant={props.variant ?? 'solid'}
+            variant={variant_choice}
             color = {color_choice}
         >
             <Stack direction="row">
@@ -125,7 +144,7 @@ export const ArtistAvatar = (props) => {
             {props.artist.numbercode}
             </Typography>
             <Avatar
-                variant="soft"
+                variant={variant_choice == 'solid' ? 'soft' : 'solid'}
                 color={(props.format ?? '') == 'cd' ? 'primary' : 'warning'}
                 sx = {{
                     width: '1.2rem',

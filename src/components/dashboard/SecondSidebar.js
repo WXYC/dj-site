@@ -272,7 +272,11 @@ export default function SecondSidebar() {
           DJ Site v1.0.0
         </Typography>
         </Stack>
-        <Button size="sm" variant="soft" color="info" onClick={() => console.log("feedback")}>
+        <Button size="sm" variant="soft" color="info" 
+        href='https://docs.google.com/forms/d/e/1FAIpQLSfBMYYQeCEkRGsSBM3CAkjuBcHYA9Lk2Su6-ZncWH4hXwULvA/viewform?usp=sf_link' 
+        target='_blank'
+          component="a"
+        >
           Feedback
         </Button>
         </List>

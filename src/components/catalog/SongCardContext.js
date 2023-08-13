@@ -1,8 +1,9 @@
 import React, { createContext, useCallback, useEffect, useState } from 'react';
 import Modal from '@mui/joy/Modal';
-import { Card, CardOverflow, AspectRatio, Typography, Divider, ModalClose, Box, CardContent } from '@mui/joy';
+import { Card, CardOverflow, AspectRatio, Typography, Divider, ModalClose, Box, CardContent, Chip, Button } from '@mui/joy';
 import { getArtwork } from '../../services/artwork/artwork-service';
 import { ArtistAvatar } from './ArtistAvatar';
+import { Stack } from '@mui/material';
 
 const SongCardContext = createContext();
 
@@ -140,7 +141,6 @@ const SongCardProvider = ({ children }) => {
                     }}
                 >
                     <CardOverflow>
-
                         <AspectRatio ratio="4">
                             <img src={image.length > 0 ? image : 'img/wxyc_dark.jpg'} />
                         </AspectRatio>
@@ -169,6 +169,46 @@ const SongCardProvider = ({ children }) => {
                                 bgcolor: 'rgba(0,0,0,0.5)'
                             }}
                         ></Box>
+                        <Box
+                            sx = {{
+                                position: 'absolute',
+                                bottom: 3,
+                                left: 0,
+                                display: 'flex',
+                                alignItems: 'flex-end',
+                                justifyContent: 'flex-start',
+                            }}
+                        >                            
+                            {(songCardContent != undefined) && (
+                            <Box 
+                                sx = {{ 
+                                    ml: 5,
+                                    width: 70,
+                                    '& > *' : {
+                                    transform: 'scale(1.8) translateY(13px)',
+                                    }
+                                }}
+                            >
+                            <ArtistAvatar
+                                artist={songCardContent.artist}
+                                format={songCardContent.format}
+                                entry={songCardContent.release_number}
+                            />
+                            </Box>)}
+                            <Typography level="body1" 
+                                sx={{ 
+                                    color: 'white',
+                                    overflow: 'hidden',
+                                    lineHeight: '1.5em',
+                                    height: '3em',
+                                    pl: 3.2,
+                                    textOverflow: 'ellipsis',
+                                    fontSize: '1.5rem',
+                                    maxWidth: 'calc(100% - 40px)'
+                                }}>
+                                {(songCardContent != undefined) && songCardContent.title}
+                            </Typography>
+                        </Box>
                         <ModalClose 
                             variant="solid"
                             onClick={() =>{
@@ -176,23 +216,26 @@ const SongCardProvider = ({ children }) => {
                                 setSongCardContent(undefined);
                             }}
                         />
-                        <Box
+                    </CardOverflow>
+                    <CardContent>
+                        <Stack direction="row" spacing={2}
                             sx = {{
-                                position: 'absolute',
-                                bottom: -10,
-                                left: 40,
-                                right: 'auto',
-                                transform: 'scale(1.8)',
+                                ml: 12,
+                                mb: 1,
                             }}
                         >
-                        {(songCardContent != undefined) && (<ArtistAvatar
-                            artist={songCardContent.artist}
-                            format={songCardContent.format}
-                            entry={songCardContent.release_number}
-                        />)}
-                        </Box>
-                    </CardOverflow>
-                    <CardContent sx = {{ pt: 3 }}>
+                            {(songCardContent != undefined) && (<Typography level="body1">
+                                {songCardContent.artist.name} &nbsp;&nbsp; • &nbsp;&nbsp; {songCardContent.artist.genre} {songCardContent.artist.lettercode} {songCardContent.numbercode}/{songCardContent.release_number} &nbsp;&nbsp; • &nbsp;&nbsp; {songCardContent?.format ?? ''}
+                            </Typography>)}
+                            <Button
+                                size="xs"
+                                variant="soft"
+                                color="primary"
+                                disabled
+                            >
+                                Find in Station
+                            </Button>
+                            </Stack>
                         No Reviews Yet!
                     </CardContent>
                     <CardOverflow
@@ -206,11 +249,11 @@ const SongCardProvider = ({ children }) => {
                         }}
                     >
                         <Typography level="body3" sx={{ fontWeight: 'md', color: 'text.secondary' }}>
-                        6.3k plays
+                        0 plays
                         </Typography>
                         <Divider orientation="vertical" />
                         <Typography level="body3" sx={{ fontWeight: 'md', color: 'text.secondary' }}>
-                        Added in 2003
+                        Added in Dates Not Implemented Yet
                         </Typography>
                     </CardOverflow>
                 </Card>

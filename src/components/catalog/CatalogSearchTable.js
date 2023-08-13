@@ -270,10 +270,10 @@ const OrderTable = () => {
                   </td>
                   <td>{row.title}</td>
                   <td>
-                    <Typography level="body3">
+                    <Typography level="body4">
                         {row.artist.genre}
                     </Typography>
-                    <Typography level="body1">
+                    <Typography level="body2">
                       {row.artist.lettercode} {row.artist.numbercode}/{row.release_number}
                     </Typography>
                   </td>

@@ -1,4 +1,6 @@
-import React, { createContext, useState } from 'react';
+import React, { createContext, useEffect, useState } from 'react';
+import { addToBinBackend, loadFromBinBackend, removeFromBinBackend } from './bin-service';
+import { toast } from 'sonner';
 
 // Create a new context
 const BinContext = createContext();
@@ -46,6 +48,7 @@ const BinProvider = ({ children }) => {
     // ensure the item is not already in the bin
     if (!isInBin(item)) {
       setBin((prevBin) => [...prevBin, item]);
+      addToBinBackend(item.id);
     }
   };
 
@@ -58,12 +61,24 @@ const BinProvider = ({ children }) => {
   // Remove an item from the bin
   const removeFromBin = (item) => {
     setBin((prevBin) => prevBin.filter((i) => i.id != item.id));
+    removeFromBinBackend(item.id);
   };
 
   // Clear the bin
   const clearBin = () => {
+    for (var i = 0; i < bin.length; i++) {
+      removeFromBinBackend(bin[i].id);
+    }
     setBin([]);
   };
+
+  useEffect(() => {
+    loadFromBinBackend().then((data) => {
+      console.log(data);
+    }).catch((error) => {
+      toast.error(error.message);
+    });
+  }, []);
 
   // Value object to be passed to consumers of the context
   const contextValue = {

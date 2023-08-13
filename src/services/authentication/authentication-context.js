@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { checkAuth, login, logout, updatePasswordFlow, updateUserInformation } from './authentication-service';
 
@@ -7,30 +6,15 @@ const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
-    const [authenticating, setAuthenticating] = useState(false);
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
+  const [authenticating, setAuthenticating] = useState(false);
+  
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
     const [resetPasswordRequired, setResetPasswordRequired] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
 
     const [user, setUser] = useState({});
-
-    const location = useLocation();
-
-    useEffect(() => {
-        const checkAuthStatus = async () => {
-            setAuthenticating(true);
-            try {
-                const authResult = await checkAuth();
-                setAuthResult(authResult);
-            } catch (error) {
-                toast.error(error.toString());
-                setIsAuthenticated(false);
-            } finally {
-                setAuthenticating(false);
-            }
-        }
-        checkAuthStatus();
-    }, [location.pathname]);
 
     const handleLogin = async (event) => {
         event.preventDefault();
@@ -99,7 +83,11 @@ export const AuthProvider = ({ children }) => {
     return (
         <AuthContext.Provider value={{
             authenticating,
+            setAuthenticating,
+            checkAuth,
+            setAuthResult,
             isAuthenticated,
+            setIsAuthenticated,
             resetPasswordRequired,
             isAdmin,
             user,
