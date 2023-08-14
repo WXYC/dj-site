@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { getReleasesMatching } from "./card-catalog-service";
+import { getReleasesMatching, getRotation } from "./card-catalog-service";
 
 const TIMEOUT_MS = 800;
 
@@ -96,6 +96,10 @@ export const CatalogProvider = ({children}) => {
     }, [orderBy, orderDirection]);
 
     const loadMore = () => setN((prevN) => prevN + 10);
+
+    useEffect(() => {
+      getRotation();
+    }, []);
 
     const contextValue = {
         n,

@@ -124,6 +124,7 @@ export default function SecondSidebar() {
             '--ListItem-radius': '8px',
             '--ListItem-minHeight': '32px',
             '--List-gap': '4px',
+            flex: 1,
           }}
         >
           <ListSubheader role="presentation" sx={{ color: 'text.primary' }}>
@@ -132,12 +133,16 @@ export default function SecondSidebar() {
           </ListSubheader>
           <ListItem>
             <ListItemContent>
-              <NowPlaying />
+              <NowPlaying sx = {{ maxWidth: 270 }} />
             </ListItemContent>
           </ListItem>
         </List>
         <Divider />
-        <List>
+        <List
+          sx = {{
+            flexGrow: 1
+          }}
+        >
           <ListSubheader 
             role="presentation" 
             sx={{ 
@@ -169,7 +174,7 @@ export default function SecondSidebar() {
             variant="outlined"
             sx = {{
               overflowY: 'scroll',
-              height: 300,
+              flex: 1,
               width: 270,
             }}
           >
@@ -259,7 +264,11 @@ export default function SecondSidebar() {
           </Card>
         </List>
         <Divider />
-        <List>
+        <List
+          sx = {{
+            flex: 0,
+          }}
+        >
         <Stack direction="row" sx = {{
           justifyContent: 'space-between',
           alignItems: 'flex-end',

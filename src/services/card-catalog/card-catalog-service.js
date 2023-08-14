@@ -1,12 +1,15 @@
 import { toast } from "sonner";
-import { callApi, getter } from "../api-service";
+import { callApi, getter, setter } from "../api-service";
 import { refreshCognitoCredentials } from "../authentication/authentication-service";
 
-const getRotationEntries = getter("library?artist_name=A Guy Called Gerald&album_title=Automanikk");
+const getRotationEntries = getter("library/rotation");
+
+const tempRotationPost = () => setter("library/rotation")({
+  album_id: 400,
+  play_freq: 'H'
+});
 
 export const getRotation = async() => {
-
-    const cognitoISP = await refreshCognitoCredentials();
 
     const { data, error } = await getRotationEntries();
 
@@ -16,6 +19,10 @@ export const getRotation = async() => {
     }
 
     console.table(data);
+
+    if (data.length === 0) {
+      tempRotationPost();
+    };
 
 }
 

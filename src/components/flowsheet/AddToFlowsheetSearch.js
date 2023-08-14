@@ -185,10 +185,6 @@ const AddToFlowsheetSearch = () => {
       };
     }, [handleKeyDown]);
 
-    useEffect(() => {
-      console.log(selected);
-    }, [selected]);
-
 return (
     <>
   {/* SEARCH AREA */}

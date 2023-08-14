@@ -1,7 +1,7 @@
 import React, {createContext, useCallback, useContext, useEffect, useRef, useState} from "react";
 import { getSongInfoFromLastFM } from "../artwork/last-fm-image";
 import { toast } from "sonner";
-import { getFlowsheetFromBackend } from "./flowsheet-service";
+import { addSongToBackend, getFlowsheetFromBackend, joinBackend, leaveBackend, sendMessageToBackend } from "./flowsheet-service";
 
 const FlowsheetContext = createContext();
 
@@ -11,7 +11,7 @@ export const FlowsheetProvider = ({children}) => {
 
     const [queue, setQueue] = useState([]);
     const [entries, setEntries] = useState([]);
-    const [edited, setEdited] = useState(false);
+    const edited = useRef(true);
     const [breakpointAllowed, setBreakpointAllowed] = useState(true);
     const [autoPlay, setAutoPlay] = useState(false);
     const [currentlyPlayingSongLength, setCurrentlyPlayingSongLength] = useState({ h: 0, m: 0, s: 0, total: 0 });
@@ -55,9 +55,8 @@ export const FlowsheetProvider = ({children}) => {
         
         autoPlay && entry.message == "" && dispatchAutoPlayOfSong(entry);
 
-
         setEntries(newEntries);
-        updateFlowsheet();
+        updateFlowsheet(entry);
     }
 
     useEffect(() => {
@@ -168,25 +167,31 @@ export const FlowsheetProvider = ({children}) => {
     }
 
     const [backendCaller, setBackendCaller] = useState(null);
-    const updateWithBackend = useCallback(() => {
-        console.log("updating from backend if necessary");
-        setBackendCaller(setTimeout(updateWithBackend, 5000)); // Update every 1 minute
-        if (edited) {
-            console.log('edited!');
-            const { data, error } = getFlowsheetFromBackend();
+    const updateWithBackend = () => {
+        console.log(`updating from backend i${edited.current ? 's' : 's not'} necessary`);
+        setBackendCaller(setTimeout(updateWithBackend, 60000)); // Update every 1 minute
+        if (edited.current) {
+            (async () => {
 
-            if (error) {
-                toast.error("Error updating flowsheet");
-                setEdited(false);
-                return;
-            }
+                const { data, error } = await getFlowsheetFromBackend();
 
-            if (data) {
-                updateEntriesFromBackend(data);
-            }
-            setEdited(false);
+                if (error) {
+                    toast.error("Error updating flowsheet");
+                    edited.current = false;
+                    return;
+                }
+
+                console.log(data);
+
+                if (data) {
+                    toast.success("Flowsheet updated");
+                    updateEntriesFromBackend(data);
+                }
+                edited.current = false;
+
+            })();
         }
-    }, [edited]);
+    }
 
     const updateEntriesFromBackend = (data) => {
         let newEntries = data.map((item) => (
@@ -209,8 +214,43 @@ export const FlowsheetProvider = ({children}) => {
         setEntries(newEntries);
     }
 
-    const updateFlowsheet = () => {
-        setEdited(true);
+    const updateFlowsheet = async (entry = null) => {
+
+        if (entry) {
+
+            const { data, error} = await (async (entry) => {
+                if (entry.message == "") {
+                    addSongToBackend(entry);
+                } else {
+                    if (entry.message.includes("joined")) {
+                        return joinBackend().then((data) => {
+                            sessionStorage.setItem("showId", data.data.id);
+                            return { data: data.data, error: null };
+                        }).catch((error) => {
+                            return { data: null, error: error.error };
+                        });
+                    } else if (entry.message.includes("left")) {
+                        return leaveBackend();
+                    } else {
+                        return sendMessageToBackend(entry.message);
+                    }
+                }
+            })(entry);
+
+            if (error) {
+                toast.error("Flowsheet is out of sync with backend. Make sure you are connected to the internet and contact a site admin.");
+                console.log(error);
+                return;
+            }
+
+            if (data) {
+                console.log(data);
+            }
+            
+        }
+
+        // important: mark flowsheet for backend sync
+        edited.current = true;
     }
 
     const switchQueue = (index1, index2) => {
@@ -246,19 +286,6 @@ export const FlowsheetProvider = ({children}) => {
     }
 
     useEffect(() => {
-
-        (async () => {
-            const { data, error } = await getFlowsheetFromBackend();
-
-            if (error) {
-                toast.error("Error updating flowsheet");
-                return;
-            }
-            
-            if (data) {
-                updateEntriesFromBackend(data);
-            }
-        })();
 
         updateWithBackend(); // kicks off auto-update
         localStorage.getItem("queue") && setQueue(JSON.parse(localStorage.getItem("queue")));
