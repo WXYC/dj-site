@@ -52,7 +52,6 @@ const DJRoster = ({ style }) => {
   const updateDjs = async () => {
     setLoading(true);
     listUsers().then((data) => {
-      console.log(user);
       setDjs(data);
       setLoading(false);
     });

@@ -48,8 +48,6 @@ export const AddDJsPopup = ({callback, style }) => {
         const { username, email, password } = event.target.elements;
         
         setLoading(true);
-    
-        console.log(username.value, password.value);
 
         setLoading(true);
         (async () => {

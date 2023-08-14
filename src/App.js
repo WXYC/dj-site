@@ -23,6 +23,7 @@ import SettingsPage from './pages/settings/SettingsPage';
 import { useAuth } from './services/authentication/authentication-context';
 import { login, logout } from './services/authentication/authentication-service';
 import NowPlaying from './widgets/now-playing/NowPlaying';
+import { FlowsheetProvider } from './services/flowsheet/flowsheet-context';
 
 function App() {
 
@@ -49,7 +50,9 @@ function App() {
             />
             <Toaster closeButton richColors  />
               <Routes>
-                <Route path="/NowPlaying" element={<NowPlaying />} />
+                <Route path="/NowPlaying" element={
+                    <NowPlaying />
+                } />
                 <Route path="/DJ">
                   <Route exact path="" element={<Navigate to="/login" />} />
                   <Route path=":djName">

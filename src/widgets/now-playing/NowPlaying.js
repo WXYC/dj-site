@@ -20,17 +20,20 @@ const BOT_RESPONSES = {
   dj: '🤖 Auto DJ',
 }
 
-const NowPlaying = () => {
+const NowPlaying = (props) => {
 
   const [songName, setSongName] = React.useState(BOT_RESPONSES.song);
   const [albumName, setAlbumName] = React.useState('');
   const [artistName, setArtistName] = React.useState('');
+  const [message, setMessage] = React.useState('');
   const [djName, setDjName] = React.useState(BOT_RESPONSES.dj);
 
   const [imageUrl, setImageUrl] = React.useState('img/cassette.png');
 
   const [playing, setPlaying] = React.useState(false);
   const [embedded, setEmbedded] = React.useState(true);
+
+  const [isSong, setIsSong] = React.useState(false);
 
   const AUDIO_SOURCE = 'https://audio-mp3.ibiblio.org/wxyc.mp3';
 
@@ -101,18 +104,22 @@ const NowPlaying = () => {
       }
 
       if (data) {
-        setSongName(data.track_title);
-        setAlbumName(data.album_title);
-        setArtistName(data.artist_name);
+          setIsSong(data.message == "");
+          setMessage(data.message);
+          setSongName(data.track_title);
+          setAlbumName(data.album_title);
+          setArtistName(data.artist_name);
       }
 
       setGetSongTimeout(setTimeout(getSong, 30000));
 
-      if (data.artist_name !== BOT_RESPONSES.dj && data.track_title !== BOT_RESPONSES.song)
+      if (data.artist_name !== BOT_RESPONSES.dj && data.track_title !== BOT_RESPONSES.song && data.message == "")
       {
         (async () => {
           setImageUrl(await getImage(data.artist_name, data.album_title));
         })();
+      } else {
+        setImageUrl('img/cassette.png');
       }
     }
 
@@ -172,6 +179,8 @@ const NowPlaying = () => {
           minWidth: '200px',
           minHeight: '225px',
           maxWidth: '500px',
+          position: 'relative',
+          ...props?.sx
         }}
       >
       <CardOverflow>
@@ -181,6 +190,30 @@ const NowPlaying = () => {
             loading="lazy"
             alt=""
           />
+        <Box
+        component="a"
+        href="https://www.wxyc.org/"
+        target="_blank"
+        sx = {{
+          position: 'absolute',
+          top: '0.3rem',
+          left: '1.3rem',
+          minWidth: '0.5rem',
+          minHeight: '0.5rem',
+          borderRadius: '1rem 1rem 1rem 1rem !important',
+          '& *': {
+            borderRadius: '1rem 1rem 1rem 1rem !important',
+          }
+        }}
+      >
+        <AspectRatio ratio="1">
+          <img
+            src="apple-touch-icon.png"
+            loading="lazy"
+            alt=""
+          />
+        </AspectRatio>
+      </Box>
         </AspectRatio>
         {embedded && (<IconButton
           aria-label="Like minimal photography"
@@ -217,7 +250,7 @@ const NowPlaying = () => {
           </Box>
         )}
       </CardOverflow>
-      <CardContent sx = {{ mt: embedded ? 4 : 'unset' }}>
+      {(isSong) ? (<CardContent sx = {{ mt: embedded ? 4 : 'unset' }}>
         <Typography level="body1" fontSize="md">
           {songName ?? 'Automatically Chosen Song'}
         </Typography>
@@ -226,7 +259,13 @@ const NowPlaying = () => {
           {artistName ?? 'Automatically Chosen Artist'} &nbsp;&nbsp; • &nbsp;&nbsp; {(albumName.length > 0) && albumName}
         </Typography>
         </Stack>
+      </CardContent>) : (
+        <CardContent sx = {{ mt: embedded ? 4 : 'unset' }}>
+        <Typography level="body1" fontSize="md">
+          {message}
+        </Typography>
       </CardContent>
+      )}
       <CardOverflow variant="soft" sx={{ bgcolor: 'background.level1' }}>
         <CardContent orientation="horizontal">
           <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
