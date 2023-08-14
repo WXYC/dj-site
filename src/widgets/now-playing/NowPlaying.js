@@ -41,6 +41,11 @@ const NowPlaying = (props) => {
   const audioRef = React.useRef(null);
   const source = React.useRef(null);
 
+  const upperText = React.useRef(null);
+  const [upperTextMarquee, setUpperTextMarquee] = React.useState(false);
+  const lowerText = React.useRef(null);
+  const [lowerTextMarquee, setLowerTextMarquee] = React.useState(false);
+
   const canvasRef = React.useRef(null);
 
   const theme = useTheme();
@@ -61,6 +66,7 @@ const NowPlaying = (props) => {
 
   const getImage = async (artist, album) => {
     if (album == undefined || artist == undefined) return "";
+    if (artist == "" || album == "") return "";
     let storedArtwork = sessionStorage.getItem(
       `img-${album}-${artist}`
     );
@@ -104,7 +110,7 @@ const NowPlaying = (props) => {
       }
 
       if (data) {
-          setIsSong(data.message == "");
+          setIsSong(!data.message);
           setMessage(data.message);
           setSongName(data.track_title);
           setAlbumName(data.album_title);
@@ -113,14 +119,9 @@ const NowPlaying = (props) => {
 
       setGetSongTimeout(setTimeout(getSong, 30000));
 
-      if (data.artist_name !== BOT_RESPONSES.dj && data.track_title !== BOT_RESPONSES.song && data.message == "")
-      {
         (async () => {
           setImageUrl(await getImage(data.artist_name, data.album_title));
         })();
-      } else {
-        setImageUrl('img/cassette.png');
-      }
     }
 
     getSong();
@@ -148,6 +149,17 @@ const NowPlaying = (props) => {
       audioRef.current.src = '';
     }
   }, [playing]);
+
+  useEffect(() => {
+    const isOverflowing = (element) => {
+      if (element == null) return false;
+      return element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth;
+    }
+
+    setUpperTextMarquee(isOverflowing(upperText.current));
+    setLowerTextMarquee(isOverflowing(lowerText.current));
+
+  }, [songName, albumName, artistName, message]);
 
   const visualize = () => {
     animationController = window.requestAnimationFrame(visualize);
@@ -250,13 +262,21 @@ const NowPlaying = (props) => {
           </Box>
         )}
       </CardOverflow>
-      {(isSong) ? (<CardContent sx = {{ mt: embedded ? 4 : 'unset' }}>
-        <Typography level="body1" fontSize="md">
-          {songName ?? 'Automatically Chosen Song'}
+      {(isSong) ? (<CardContent sx = {{ mt: embedded ? 4 : 'unset', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+        <Typography level="body1" fontSize="md" ref={upperText} sx = {{ whiteSpace: 'nowrap' }}>
+          {upperTextMarquee ? (
+            <marquee>{songName ?? 'Automatically Chosen Song'}</marquee>
+          ): (
+            <>{songName ?? 'Automatically Chosen Song'}</>
+          )}
         </Typography>
         <Stack direction="row">
-        <Typography level="body2" sx={{ mt: 0.5 }} color="primary">
-          {artistName ?? 'Automatically Chosen Artist'} &nbsp;&nbsp; • &nbsp;&nbsp; {(albumName.length > 0) && albumName}
+        <Typography level="body2" sx={{ mt: 0.5, whiteSpace: 'nowrap', overflow: 'hidden' }} color="primary" ref={lowerText}>
+          {lowerTextMarquee ? (
+            <marquee>{artistName ?? 'Automatically Chosen Artist'} &nbsp;&nbsp; • &nbsp;&nbsp; {(albumName.length > 0) && albumName}</marquee>
+          ): (
+            <>{artistName ?? 'Automatically Chosen Artist'} &nbsp;&nbsp; • &nbsp;&nbsp; {(albumName.length > 0) && albumName}</>
+          )}
         </Typography>
         </Stack>
       </CardContent>) : (

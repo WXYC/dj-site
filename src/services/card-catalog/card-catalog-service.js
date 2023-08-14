@@ -20,10 +20,6 @@ export const getRotation = async() => {
 
     console.table(data);
 
-    if (data.length === 0) {
-      tempRotationPost();
-    };
-
 }
 
 export const getReleasesMatching = async (term, medium, genre, n = 10) => {
