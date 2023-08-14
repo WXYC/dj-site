@@ -73,8 +73,8 @@ const FlowsheetEntry = (props) => {
     const [canClose, setCanClose] = useState(false);
     const { live } = useLive();
   
-    const getImage = useCallback(async () => {
-      if (props.album == undefined || props.artist == undefined) return "";
+    const getImage = useCallback(async (default_return = "") => {
+      if (props.album == undefined || props.artist == undefined) return default_return;
       let storedArtwork = sessionStorage.getItem(
         `img-${props.album}-${props.artist}`
       );
@@ -84,6 +84,7 @@ const FlowsheetEntry = (props) => {
           title: props.album,
           artist: props.artist,
         });
+        if (retrievedArtwork == null) return default_return;
         // THE CONVENTION IS ALBUM THEN ARTIST IN THIS APP
         sessionStorage.setItem(
           `img-${props.album}-${props.artist}`,
@@ -93,14 +94,14 @@ const FlowsheetEntry = (props) => {
       } catch (e) {
         sessionStorage.setItem(
           `img-${props.album}-${props.artist}`,
-          ""
+          default_return
         );
-        return "";
+        return default_return;
       }
     }, [props.album, props.artist]);
   
     useEffect(() => {
-      getImage().then((image) => {
+      getImage("apple-touch-icon.png").then((image) => {
         setImage(image);
       });
     }, [getImage]);
@@ -241,11 +242,7 @@ const FlowsheetEntry = (props) => {
                   minHeight: "48px",
                 }}
               >
-                {image ? (
                   <img src={image} alt="album art" style={{ minWidth: '48px', minHeight: '48px' }} />
-                ) : (
-                  <img src='apple-touch-icon.png' alt="album art" />
-                )}
               </AspectRatio>
               <Stack direction="row" sx={{ flexGrow: 1, maxWidth: 'calc(100% - 98px)' }} spacing={1}>
                 <FlowsheetEntryField label="song" value={props.title} current={props.current} id={props.id} queue={props.type == "queue"} />
