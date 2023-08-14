@@ -200,9 +200,9 @@ const NowPlaying = (props) => {
           left: '1.3rem',
           minWidth: '0.5rem',
           minHeight: '0.5rem',
-          borderRadius: '1rem 1rem 1rem 1rem !important',
+          borderRadius: '0.4rem !important',
           '& *': {
-            borderRadius: '1rem 1rem 1rem 1rem !important',
+            borderRadius: '0.4rem !important',
           }
         }}
       >
@@ -278,19 +278,21 @@ const NowPlaying = (props) => {
           </Box>
           <Divider orientation="vertical" />
           <Link
-            href="https://www.wxyclistenlive.com/"
+            href={`https://open.spotify.com/search/${songName} ${artistName}`}
+            disabled={!isSong}
             target="_blank"
           >
             <img src='/social-icons/spotify-logo.png' alt="Spotify" 
-              style={{ filter: "invert(100%)", WebkitFilter: "invert(100%)", width: '25px', height: '25px' }} 
+              style={{ width: '15px', height: '15px', filter: isSong ? 'none' : 'grayscale(100%)' }} 
             />
           </Link>
           <Link
-            href="https://www.wxyclistenlive.com/"
+            href={`https://music.apple.com/us/search?term=${songName} ${artistName}`}
+            disabled={!isSong}
             target="_blank"
           >
             <img src='/social-icons/apple-music-logo.png' alt="Apple Music"
-              style={{ width: '15px', height: '15px' }}
+              style={{ width: '15px', height: '15px', filter: isSong ? 'none' : 'grayscale(100%)' }}
             />
           </Link>
         </CardContent>
