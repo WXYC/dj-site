@@ -3,6 +3,7 @@ import TimerIcon from "@mui/icons-material/Timer";
 import TroubleshootIcon from "@mui/icons-material/Troubleshoot";
 import {
   Box,
+  Button,
   Chip,
   Divider,
   FormControl,
@@ -543,13 +544,20 @@ return (
         </Sheet>
       )}
       <Box
-        className = {`MuiInput-root MuiInput-variantOutlined MuiInput-colorNeutral MuiInput-sizeSm MuiInput-formControl css-lr3pbo-JoyInput-root ${!live && 'Joy-disabled'}`}
         ref={searchRef}
+        component="div"
         sx = {{
           display: 'flex',
           justifyContent: 'space-between',
           flexDirection: 'row',
           zIndex: 2,
+          background: 'var(--joy-palette-background-surface)',
+          outline: '1px solid',
+          outlineColor: 'var(--joy-palette-neutral-outlinedBorder, var(--joy-palette-neutral-200, #D8D8DF))',
+          borderRadius: '8px',
+          minHeight: 'var(--Input-minHeight)',
+          paddingInline: '0.5rem',
+          cursor: live ? 'text' : 'default',
           '& input': {
             background: 'transparent !important',
             outline: 'none !important',
@@ -558,35 +566,67 @@ return (
             minWidth: '0 !important',
             px: 1,
             flex: 1,
+            minHeight: '2rem',
+            cursor: live ? 'text' : 'default',
+          },
+          '&:hover': {
+            outlineColor: live ? 'var(--joy-palette-neutral-700)' : 'var(--joy-palette-neutral-outlinedBorder, var(--joy-palette-neutral-200, #D8D8DF))',
+          },
+          '&:focus-within': {
+            outline: '2px solid',
+            outlineColor: 'var(--joy-palette-primary-400, #02367D)',
           },
         }}
+        onClick={() => live && searchRef.current.querySelector("input").focus()}
         onFocus={handleSearchFocused}
       >
-        <Box className="MuiInput-startDecorator css-7ikbr-JoyInput-startDecorator">
+        <Box
+          sx = {{
+            marginInlineEnd: '0.5rem',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 'min(1.5rem, var(--Input-minHeight))',
+            pointerEvents: 'none',
+            '& svg': {
+              fill: 'var(--joy-palette-neutral-400) !important',
+              pointerEvents: 'none',
+            },
+          }}
+        >
           <TroubleshootIcon />
         </Box>
         <input
+          disabled={!live}
           placeholder="Song"
           value={song}
           onChange={(e) => setSong(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
         />
         <Divider orientation="vertical" />
         <input
+          disabled={!live}
           placeholder="Artist"
           value={artist}
           onChange={(e) => setArtist(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
         />
         <Divider orientation="vertical" />
         <input
+          disabled={!live}
           placeholder="Album"
           value={album}
           onChange={(e) => setAlbum(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
         />
         <Divider orientation="vertical" />
         <input
+          disabled={!live}
           placeholder="Label"
           value={label}
           onChange={(e) => setLabel(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
         />
         <Box
         component="div"
@@ -598,17 +638,27 @@ return (
             mr: -0.5,
           }}
           >
-          <IconButton
+          <Button
+            size="sm"
             variant="outlined"
             color="neutral"
+            disabled={!live}
             onClick={() => {
               const input = searchRef.current.querySelector("input");
               input.value = "";
               input.focus();
             }}
+            sx = {{
+              minHeight: '22px',
+              maxWidth: '22px !important',
+              borderRadius: '0.3rem',
+              '& > button': {
+                maxWidth: '12px !important',
+              }
+            }}
           >
             /
-          </IconButton>
+          </Button>
           </Box>
       </Box>
     </FormControl>
