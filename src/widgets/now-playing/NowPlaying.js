@@ -64,9 +64,9 @@ const NowPlaying = (props) => {
     }
   }
 
-  const getImage = async (artist, album) => {
-    if (album == undefined || artist == undefined) return "";
-    if (artist == "" || album == "") return "";
+  const getImage = async (artist, album, default_return = "") => {
+    if (album == undefined || artist == undefined) return default_return;
+    if (artist == "" || album == "") return default_return;
     let storedArtwork = sessionStorage.getItem(
       `img-${album}-${artist}`
     );
@@ -85,9 +85,9 @@ const NowPlaying = (props) => {
     } catch (e) {
       sessionStorage.setItem(
         `img-${album}-${artist}`,
-        ""
+        default_return
       );
-      return "";
+      return default_return;
     }
   };
 
@@ -120,7 +120,7 @@ const NowPlaying = (props) => {
       setGetSongTimeout(setTimeout(getSong, 30000));
 
         (async () => {
-          setImageUrl(await getImage(data.artist_name, data.album_title));
+          setImageUrl(await getImage(data.artist_name, data.album_title, 'img/cassette.png'));
         })();
     }
 
