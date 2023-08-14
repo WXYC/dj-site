@@ -133,7 +133,7 @@ export default function SecondSidebar() {
           </ListSubheader>
           <ListItem>
             <ListItemContent>
-              <NowPlaying sx = {{ maxWidth: 270 }} />
+              <NowPlaying sx = {{ maxWidth: 250 }} />
             </ListItemContent>
           </ListItem>
         </List>
