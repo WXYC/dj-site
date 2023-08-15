@@ -3,7 +3,7 @@ import Modal from '@mui/joy/Modal';
 import { Card, CardOverflow, AspectRatio, Typography, Divider, ModalClose, Box, CardContent, Chip, Button } from '@mui/joy';
 import { getArtwork } from '../../services/artwork/artwork-service';
 import { ArtistAvatar } from './ArtistAvatar';
-import { Stack } from '@mui/material';
+import { ClickAwayListener, Stack } from '@mui/material';
 
 const SongCardContext = createContext();
 
@@ -129,6 +129,11 @@ const SongCardProvider = ({ children }) => {
                     alignItems: 'center',
                 }}
             >
+            <ClickAwayListener onClickAway={() =>{
+                setSongCardOpen(false);
+                setSongCardContent(undefined);
+            }
+        }>
                 <Card
                     variant="outlined"
                     sx = {{
@@ -257,6 +262,7 @@ const SongCardProvider = ({ children }) => {
                         </Typography>
                     </CardOverflow>
                 </Card>
+                </ClickAwayListener>
             </Modal>
             {children}
         </SongCardContext.Provider>

@@ -56,7 +56,7 @@ import { useAuth } from "../../services/authentication/authentication-context";
               message: `DJ ${user.djName} joined at ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`,
           });
       }
-  }
+  };
 
     // THIS IS WHERE THE PAGE RENDER BEGINS ---------------------------------------------
     return (
