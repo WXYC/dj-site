@@ -1,12 +1,15 @@
 import React, { createContext, useEffect, useState } from 'react';
-import { addToBinBackend, loadFromBinBackend, removeFromBinBackend } from './bin-service';
+import { addToBinBackend, loadBin, removeFromBinBackend } from './bin-service';
 import { toast } from 'sonner';
+import { useAuth } from '../authentication/authentication-context';
 
 // Create a new context
 const BinContext = createContext();
 
 // Create a provider component
 const BinProvider = ({ children }) => {
+
+  const { isAuthenticated } = useAuth();
   // State to store the bin array
   const [bin, setBin] = useState([]);
 
@@ -73,12 +76,14 @@ const BinProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    loadFromBinBackend().then((data) => {
-      console.log(data);
+    if (!isAuthenticated) return;
+
+    loadBin().then((data) => {
+      setBin(data);
     }).catch((error) => {
       toast.error(error.message);
     });
-  }, []);
+  }, [isAuthenticated]);
 
   // Value object to be passed to consumers of the context
   const contextValue = {

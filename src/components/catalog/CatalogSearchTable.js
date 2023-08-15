@@ -20,7 +20,7 @@ import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 
 import { BinContext } from '../../services/bin/bin-context';
 
-import { Stack, Tooltip } from '@mui/joy';
+import { AspectRatio, Stack, Tooltip } from '@mui/joy';
 
 import { useCatalog } from '../../services/card-catalog/card-catalog-context';
 import { useLive } from '../../services/flowsheet/live-context';
@@ -28,6 +28,7 @@ import { ArtistAvatar } from './ArtistAvatar';
 import { SongCardContext } from './SongCardContext';
 import { SearchBar } from './search/SearchBar';
 import { useFlowsheet } from '../../services/flowsheet/flowsheet-context';
+import Logo from '../branding/logo';
 
 /**
  * A table component for catalog search results.
@@ -163,8 +164,19 @@ const OrderTable = () => {
                         borderRadius: 'lg',
                         pointerEvents: searchString.length > 0 ? 'none' : 'auto',
                         transition: 'backdrop-filter 0.2s',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        alignItems: 'center',
                     }}
-                ></Box>
+                >
+                  <Box sx = {{ height: '80%', opacity: searchString.length > 0 ? 0 : 1, transition: 'opacity 0.2s', pb: 2 }}>
+                    <Logo color='primary' />
+                    <Typography color='primary' level="body1" sx = {{ textAlign: 'center' }}>
+                      Start typing in the search bar above to explore the library!
+                    </Typography>
+                  </Box>
+                </Box>
           <Table
             aria-labelledby="tableTitle"
             stickyHeader

@@ -24,6 +24,9 @@ import { ArtistAvatar } from '../catalog/ArtistAvatar';
 import { useLive } from '../../services/flowsheet/live-context';
 import { AddToQueue } from '@mui/icons-material';
 import { useFlowsheet } from '../../services/flowsheet/flowsheet-context';
+import { ScrollOnHoverText } from '../../widgets/scroll-on-hover-text';
+
+import { SongCardContext } from '../catalog/SongCardContext'
 
 /**
  * Component representing the Second Sidebar, which renders the 'Mail Bin' for DJs to save their songs and a 'now playing' widget.
@@ -69,6 +72,7 @@ import { useFlowsheet } from '../../services/flowsheet/flowsheet-context';
 export default function SecondSidebar() {
 
   const { live } = useLive();
+  const { getSongCardContent } = useContext(SongCardContext);
 
   const { bin, addToBin, removeFromBin, clearBin, isInBin } = useContext(BinContext);
   const { addToQueue } = useFlowsheet();
@@ -174,10 +178,11 @@ export default function SecondSidebar() {
             variant="outlined"
             sx = {{
               overflowY: 'scroll',
-              flex: 1,
               width: 270,
+              maxHeight: 270,
             }}
           >
+            <div>
             {bin.length > 0 ? (
               bin.map((item, index) => (
                 <React.Fragment key={index}>
@@ -185,7 +190,7 @@ export default function SecondSidebar() {
                     sx = {{
                       mt: 1,
                       mb: 1,
-                      justifyContent: 'space-between',
+                      justifyContent: 'space-between'
                     }}
                   >
                     <ArtistAvatar
@@ -194,7 +199,8 @@ export default function SecondSidebar() {
                         format={item.format}
                       />
                       <div>
-                      <Typography level='body4'
+                      <ScrollOnHoverText
+                        level='body4'
                         sx = {{
                           whiteSpace: 'nowrap',
                           textOverflow: 'ellipsis',
@@ -203,8 +209,9 @@ export default function SecondSidebar() {
                         }}
                       >
                         {item.artist.name}
-                      </Typography>
-                      <Typography level='body2'
+                      </ScrollOnHoverText>
+                      <ScrollOnHoverText
+                      level='body2'
                         sx = {{
                           whiteSpace: 'nowrap',
                           textOverflow: 'ellipsis',
@@ -213,7 +220,7 @@ export default function SecondSidebar() {
                         }}
                       >
                         {item.title}
-                      </Typography>
+                      </ScrollOnHoverText>
                       </div>
                     <Stack direction="row">
                       <Tooltip title="More Info" variant='outlined' size="sm">
@@ -221,7 +228,7 @@ export default function SecondSidebar() {
                       size="small"
                       variant="standard"
                       color="info"
-                      onClick = {() => { console.log("display song information")}}
+                      onClick = {() => getSongCardContent(item)}
                     >
                       <InfoOutlinedIcon />
                     </IconButton>
@@ -260,7 +267,7 @@ export default function SecondSidebar() {
                 An empty record...
               </Typography>
             )}
-          
+            </div>
           </Card>
         </List>
         <Divider />
