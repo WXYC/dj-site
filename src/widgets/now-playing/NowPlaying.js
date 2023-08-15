@@ -196,36 +196,44 @@ const NowPlaying = (props) => {
         }}
       >
       <CardOverflow>
-        <AspectRatio ratio="2">
+        <AspectRatio ratio="2"
+        >
           <img
             src={imageUrl}
             loading="lazy"
             alt=""
+            style={{
+              filter: isSong ? 'blur(10px)' : 'none',
+              zIndex: 0,
+            }}
           />
-        <Box
-        component="a"
-        href="https://www.wxyc.org/"
-        target="_blank"
-        sx = {{
-          position: 'absolute',
-          top: '0.3rem',
-          left: '1.3rem',
-          minWidth: '0.5rem',
-          minHeight: '0.5rem',
-          borderRadius: '0.4rem !important',
-          '& *': {
-            borderRadius: '0.4rem !important',
-          }
-        }}
-      >
-        <AspectRatio ratio="1">
-          <img
-            src="apple-touch-icon.png"
-            loading="lazy"
-            alt=""
-          />
-        </AspectRatio>
-      </Box>
+          {(isSong) && (<Box
+            sx = {{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              p: '5%',
+            }}
+          >
+            <AspectRatio ratio="1"
+              style={{
+                width: '50%',
+                borderRadius: '1rem',
+                boxShadow: '0 0 1.5rem 0 rgba(0, 0, 0, 0.4)',
+              }}
+            >
+              <img
+                src={imageUrl}
+                loading="lazy"
+                alt=""
+              />
+            </AspectRatio>
+          </Box>)}
         </AspectRatio>
         {embedded && (<IconButton
           aria-label="Like minimal photography"
@@ -296,25 +304,6 @@ const NowPlaying = (props) => {
             {djName ?? 'No DJ'}
           </Typography>
           </Box>
-          <Divider orientation="vertical" />
-          <Link
-            href={`https://open.spotify.com/search/${songName} ${artistName}`}
-            disabled={!isSong}
-            target="_blank"
-          >
-            <img src='/social-icons/spotify-logo.png' alt="Spotify" 
-              style={{ width: '15px', height: '15px', filter: isSong ? 'none' : 'grayscale(100%)' }} 
-            />
-          </Link>
-          <Link
-            href={`https://music.apple.com/us/search?term=${songName} ${artistName}`}
-            disabled={!isSong}
-            target="_blank"
-          >
-            <img src='/social-icons/apple-music-logo.png' alt="Apple Music"
-              style={{ width: '15px', height: '15px', filter: isSong ? 'none' : 'grayscale(100%)' }}
-            />
-          </Link>
         </CardContent>
       </CardOverflow>
     </Card>
