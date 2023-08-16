@@ -11,13 +11,15 @@ export const FlowsheetProvider = ({children}) => {
 
     const [queue, setQueue] = useState([]);
     const [entries, setEntries] = useState([]);
-    const edited = useRef(true);
+    const [edited, setEdited] = useState(true);
     const [breakpointAllowed, setBreakpointAllowed] = useState(true);
     const [autoPlay, setAutoPlay] = useState(false);
     const [currentlyPlayingSongLength, setCurrentlyPlayingSongLength] = useState({ h: 0, m: 0, s: 0, total: 0 });
     const [currentTimeStamp, setCurrentTimeStamp] = useState({ h: 0, m: 0, s: 0, total: 0 });
     const [counter, setCounter] = useState(null); // used to kill timeouts
     const [gettingSongLength, setGettingSongLength] = useState(true); // used to kill timeouts
+
+    const [maxEditDepth, setMaxEditDepth] = useState(50); // used to kill timeouts
 
     // Placeholder indices that allow editing the order of the queue and entries
     const [queuePlaceholderIndex, setQueuePlaceholderIndex] = useState(-1);
@@ -166,33 +168,33 @@ export const FlowsheetProvider = ({children}) => {
     }
 
     const [backendCaller, setBackendCaller] = useState(null);
-    const updateWithBackend = () => {
-        console.log(`updating from backend i${edited.current ? 's' : 's not'} necessary`);
-        setBackendCaller(setTimeout(updateWithBackend, 60000)); // Update every 1 minute
-        if (edited.current) {
+    const updateWithBackend = useCallback(() => {
+        console.log(`updating from backend i${edited ? 's' : 's not'} necessary`);
+        if (edited) {
             (async () => {
 
-                const { data, error } = await getFlowsheetFromBackend();
+                const { data, error } = await getFlowsheetFromBackend({ page: 0, limit: maxEditDepth });
 
                 if (error) {
                     toast.error("Error updating flowsheet");
-                    edited.current = false;
+                    setEdited(false);
                     return;
                 }
 
                 console.log(data);
 
                 if (data) {
-                    toast.success("Flowsheet updated");
                     updateEntriesFromBackend(data);
                 }
-                edited.current = false;
+                setEdited(false);
+                setMaxEditDepth(0);
 
             })();
         }
-    }
+    }, [edited, maxEditDepth]);
 
     const updateEntriesFromBackend = (data) => {
+
         let newEntries = data.map((item) => (
             (item?.message?.length) > 0 ? 
             {
@@ -209,6 +211,8 @@ export const FlowsheetProvider = ({children}) => {
                 label: item.record_label
             }));
 
+        let newEntriesPlusOldEntries = [...newEntries, ...(entries.slice(maxEditDepth, maxEditDepth - newEntries.length))];
+
         index(newEntries);
         setEntries(newEntries);
     }
@@ -216,8 +220,10 @@ export const FlowsheetProvider = ({children}) => {
     const updateFlowsheet = async (entry = null) => {
 
         if (entry) {
+            
+            setMaxEditDepth((prev) => prev + 1);
 
-            const { data, error} = await (async (entry) => {
+            const { data, error } = await (async (entry) => {
                 if (entry.message == "") {
                     addSongToBackend(entry);
                 } else {
@@ -249,7 +255,7 @@ export const FlowsheetProvider = ({children}) => {
         }
 
         // important: mark flowsheet for backend sync
-        edited.current = true;
+        setEdited(true);
     }
 
     const switchQueue = (index1, index2) => {
@@ -286,13 +292,14 @@ export const FlowsheetProvider = ({children}) => {
 
     useEffect(() => {
 
-        updateWithBackend(); // kicks off auto-update
+        updateWithBackend();
+        setBackendCaller(setInterval(updateWithBackend, 60000)); // kicks off auto-update
         localStorage.getItem("queue") && setQueue(JSON.parse(localStorage.getItem("queue")));
 
         setAutoPlay(false);
 
         return () => {
-            if (backendCaller) clearTimeout(backendCaller);
+            if (backendCaller) clearInterval(backendCaller);
         }
     }, []);
 

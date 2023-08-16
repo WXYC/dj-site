@@ -22,18 +22,18 @@ export const loadBin = async () => {
     if (data) {
         console.log(data);
         return data.map((item) => ({
-            id: item.album_id,
+            id: item.album_id ?? -1,
             artist: {
-                genre: item.genre_name,
-                lettercode: item.code_letters,
-                numbercode: item.code_artist_number,
-                name: item.artist_name
+                genre: item.genre_name ?? '',
+                lettercode: item.code_letters ?? '',
+                numbercode: item.code_artist_number ?? -1,
+                name: item.artist_name ?? ''
             },
-            release_number: item.code_number,
-            title: item.album_title,
-            format: item.format_name,
+            release_number: item.code_number ?? -1,
+            title: item.album_title ?? '',
+            format: item.format_name ?? '',
             alternate_artist: '',
-            label: item.label,
+            label: item.label ?? '',
         }));
     } else return [];
 }
