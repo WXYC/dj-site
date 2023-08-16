@@ -91,7 +91,7 @@ const NowPlaying = (props) => {
     }
   };
 
-  const [getSongTimeout, setGetSongTimeout] = React.useState(null);
+  const [getSongInterval, setGetSongInterval] = React.useState(null);
   useEffect(() => {
 /*     try {
       setEmbedded(window.self !== window.top);
@@ -117,18 +117,16 @@ const NowPlaying = (props) => {
           setArtistName(data.artist_name);
       }
 
-      setGetSongTimeout(setTimeout(getSong, 30000));
-
         (async () => {
           setImageUrl(await getImage(data.artist_name, data.album_title, 'img/cassette.png'));
         })();
     }
 
-    getSong();
+    setInterval(getSong, 30000);
 
     return () => {
       document.removeEventListener('resize', destroyAndBuildNewCanvas);
-      if (getSongTimeout) clearTimeout(getSongTimeout);
+      if (getSongInterval) clearInterval(getSongInterval);
     }
   }, []);
 

@@ -100,8 +100,8 @@ export const FlowsheetProvider = ({children}) => {
 
     useEffect(() => {
         const dispatchSecondwiseDecrement = () => {
-            clearTimeout(counter);
-            setCounter(setTimeout(() => {
+            clearInterval(counter);
+            setCounter(setInterval(() => {
                 setCurrentTimeStamp((prev) => {
                     let { h, m, s, total } = prev;
                     if (s == 0) {
@@ -119,15 +119,14 @@ export const FlowsheetProvider = ({children}) => {
                     }
                 });
 
-                if (currentTimeStamp.total > 0) dispatchSecondwiseDecrement();
+                if (currentTimeStamp.total <= 0) clearInterval(counter);
             }, 1000));
         }
 
-        clearTimeout(counter);
         dispatchSecondwiseDecrement();
 
         return () => {
-            clearTimeout(counter);
+            clearInterval(counter);
         }
     }, [currentlyPlayingSongLength]);
 
