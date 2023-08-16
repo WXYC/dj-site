@@ -23,8 +23,6 @@ export const getRotation = async() => {
 }
 
 export const getReleasesMatching = async (term, medium, genre, n = 10) => {
-  
-    const cognitoISP = await refreshCognitoCredentials();
 
     let url = `library?n=${n}&`;
 
@@ -51,18 +49,18 @@ export const getReleasesMatching = async (term, medium, genre, n = 10) => {
     }
   
     return data.map((release) => ({
-      id: release.id,
+      id: release.id ?? -1,
       artist: {
-        genre: release.genre_name,
-        lettercode: release.code_letters,
-        numbercode: release.code_artist_number,
-        name: release.artist_name
+        genre: release.genre_name ?? '',
+        lettercode: release.code_letters ?? -1,
+        numbercode: release.code_artist_number ?? -1,
+        name: release.artist_name ?? ''
       },
-      release_number: release.code_number,
-      format: release.format_name,
-      title: release.album_title,
+      release_number: release.code_number ?? -1,
+      format: release.format_name ?? '',
+      title: release.album_title ?? '',
       alternate_artist: '',
-      label: ""
+      label: release.label_name ?? ''
     }));
   
 }

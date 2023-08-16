@@ -9,7 +9,7 @@ import IconButton from '@mui/joy/IconButton';
 import Link from '@mui/joy/Link';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
-import { Box, Stack, useTheme } from "@mui/joy";
+import { Box, Stack, useColorScheme, useTheme } from "@mui/joy";
 import { getArtwork } from "../../services/artwork/artwork-service";
 import { getNowPlayingFromBackend } from "../../services/flowsheet/flowsheet-service";
 
@@ -49,6 +49,7 @@ const NowPlaying = (props) => {
   const canvasRef = React.useRef(null);
 
   const theme = useTheme();
+  const { mode, setMode } = useColorScheme();
 
   const [fadeTimeout, setFadeTimeout] = React.useState(null);
 
@@ -91,7 +92,7 @@ const NowPlaying = (props) => {
     }
   };
 
-  const [getSongTimeout, setGetSongTimeout] = React.useState(null);
+  const [getSongInterval, setGetSongInterval] = React.useState(null);
   useEffect(() => {
 /*     try {
       setEmbedded(window.self !== window.top);
@@ -117,18 +118,26 @@ const NowPlaying = (props) => {
           setArtistName(data.artist_name);
       }
 
-      setGetSongTimeout(setTimeout(getSong, 30000));
-
         (async () => {
           setImageUrl(await getImage(data.artist_name, data.album_title, 'img/cassette.png'));
         })();
     }
 
-    getSong();
+    setInterval(getSong, 30000);
+
+    var query = window.location.search.substring(1);
+    var vars = query.split("&");
+    var pair = vars[0].split("=");
+    for (var i = 0; i < vars.length; i++) {
+      pair = vars[i].split("=");
+      if(pair[0] == "theme") {
+        setMode(pair[1]);
+      }
+    }
 
     return () => {
       document.removeEventListener('resize', destroyAndBuildNewCanvas);
-      if (getSongTimeout) clearTimeout(getSongTimeout);
+      if (getSongInterval) clearInterval(getSongInterval);
     }
   }, []);
 

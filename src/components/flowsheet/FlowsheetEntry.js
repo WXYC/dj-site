@@ -28,6 +28,10 @@ import { useLive } from '../../services/flowsheet/live-context';
 import { ClickAwayListener } from '@mui/material';
 
 
+function timeout(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
 /**
  * Represents a Flowsheet Entry component. Contains self-delete and play functionality.
  * @component
@@ -75,6 +79,9 @@ const FlowsheetEntry = (props) => {
   
     const getImage = useCallback(async (default_return = "") => {
       if (props.album == undefined || props.artist == undefined) return default_return;
+      
+      await timeout(Math.random() * 800);
+
       let storedArtwork = sessionStorage.getItem(
         `img-${props.album}-${props.artist}`
       );
@@ -84,7 +91,7 @@ const FlowsheetEntry = (props) => {
           title: props.album,
           artist: props.artist,
         });
-        if (retrievedArtwork == null) return default_return;
+        if (retrievedArtwork == null) retrievedArtwork = default_return;
         // THE CONVENTION IS ALBUM THEN ARTIST IN THIS APP
         sessionStorage.setItem(
           `img-${props.album}-${props.artist}`,

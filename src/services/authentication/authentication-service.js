@@ -92,8 +92,31 @@ export const login = async (event) => {
 
                 let adminTest = jwtDecode(data.AuthenticationResult.IdToken)['cognito:groups']?.includes('station-management');
 
-                creatorISP.getUser(userParams, function (err, userData) {
+                creatorISP.getUser(userParams, async function (err, userData) {
                     if (err) return handleError(err, resolve);
+
+                    // BEGIN BACKEND SYNC ----------------------------------------------------------------------------
+                    const { data: backendData, error: backendError } = await (getter(`djs?cognito_user_name=${userData.Username}`))();
+
+                    if (backendError) {
+                        if (backendError.message.includes('404')) {
+                            const { data: creationData, error: creationError } = await (setter(`djs/register`))({
+                                cognito_user_name: userData.Username,
+                                real_name: userData.UserAttributes.find(attr => attr.Name == 'name').Value,
+                            });
+
+                            if (creationError) {
+                                return handleError(creationError, resolve);
+                            }
+
+                            sessionStorage.setItem('djId', creationData.id);
+                        } else {
+                            toast.error('The backend is out of sync with the user database. This is fatal. Contact a site admin immediately.');
+                        }
+                    } else {
+                        sessionStorage.setItem('djId', backendData.id);
+                    }
+                    // END BACKEND SYNC ------------------------------------------------------------------------------
 
                     toast.success('Logged in!');
                     resolve({

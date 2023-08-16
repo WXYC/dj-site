@@ -21,6 +21,9 @@ const BinProvider = ({ children }) => {
 
     for (var i = 0; i < bin.length; i++) {
       var item = bin[i];
+
+      console.log(item);
+
       var isMatch = true;
 
       var terms = [item.artist.name.toLowerCase(), item.title.toLowerCase(), item.label.toLowerCase()];

@@ -99,7 +99,7 @@ const SettingsPage = () => {
 
         setTimeout(() => {
             setFunFactLoading(false);
-        });
+        }, 1000);
     }
 
     const [callingCardEnabled, setCallingCardEnabled] = useState(false);

@@ -73,9 +73,9 @@ const AddToFlowsheetSearch = () => {
 
     const [searchTimeout, setSearchTimeout] = useState(null);
     useEffect(() => {
-      if (searchTimeout) clearTimeout(searchTimeout);
 
       if (searching && ((artist.length + album.length + label.length) > Math.max(artist.length, album.length, label.length))) {
+        clearTimeout(searchTimeout);
         setSearchTimeout(setTimeout(() => {
           getReleasesMatching(`${artist} ${album} ${label}`, 'All', 'All', 4).then((results) => {
             setCatalogResults(results);
@@ -83,6 +83,10 @@ const AddToFlowsheetSearch = () => {
         }, 1000));
       } else {
         setCatalogResults([]);
+      }
+
+      return () => {
+        clearTimeout(searchTimeout);
       }
     }, [artist, album, label, searching]);
 
