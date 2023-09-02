@@ -35,7 +35,7 @@ import { getReleasesMatching } from "../../services/card-catalog/card-catalog-se
  */
 const AddToFlowsheetSearch = () => {
 
-    const { live, setLive } = useLive();
+    const { live, goLive, goOff } = useLive();
     const { user } = useAuth();
     const { queue, addToQueue, entries, addToEntries } = useFlowsheet();
 

@@ -8,7 +8,7 @@ import {
   IconButton,
   Tooltip,
 } from "@mui/joy";
-import React from "react";
+import React, { useEffect } from "react";
 import AddToFlowsheetSearch from "../../components/flowsheet/AddToFlowsheetSearch";
 import DraggingPreview from "../../components/flowsheet/DraggingPreview";
 import FlowsheetEntry from "../../components/flowsheet/FlowsheetEntry";
@@ -29,7 +29,7 @@ import { useAuth } from "../../services/authentication/authentication-context";
  */
   const FlowSheetPage = () => {
 
-    const { live, setLive } = useLive();
+    const { live, goLive, goOff, intermediate } = useLive();
     const { user } = useAuth();
     const { 
       queue, 
@@ -45,18 +45,17 @@ import { useAuth } from "../../services/authentication/authentication-context";
     } = useFlowsheet();
 
     const switchLive = () => {
-      if (live) {
-          setLive(false);
-          addToEntries({
-              message: `DJ ${user.djName} left at ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`,
-          });
-      } else {
-          setLive(true);
-          addToEntries({
-              message: `DJ ${user.djName} joined at ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`,
-          });
-      }
-  };
+      (live) ? goOff() : goLive();
+
+      addToEntries({
+        message: `DJ ${user?.djName ?? "You"} ${(live) ? 'left' : 'joined'} the set!`,
+        title: "",
+        artist: "",
+        album: "",
+        label: "",
+        request: false,
+      });
+    };
 
     // THIS IS WHERE THE PAGE RENDER BEGINS ---------------------------------------------
     return (
@@ -93,6 +92,8 @@ import { useAuth } from "../../services/authentication/authentication-context";
       color={(live) ? "primary" : "neutral"}
       startDecorator={(live) ? <WifiTetheringIcon /> : <PortableWifiOffIcon />}
       onClick={switchLive}
+      disabled={intermediate}
+      loading={intermediate}
     >
       {live ? "You Are On Air" : "You Are Off Air"}
     </Button>

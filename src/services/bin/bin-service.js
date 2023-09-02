@@ -6,7 +6,7 @@ export const addToBinBackend = (id) => setter(`djs/bin`)({
     dj_id: sessionStorage.getItem('djId'),
     album_id: id
 });
-export const removeFromBinBackend = (id) => deleter(`djs/bin?dj_id=${sessionStorage.getItem('djId')}&bin_entry_id=${id}`)();
+export const removeFromBinBackend = (id) => deleter(`djs/bin?dj_id=${sessionStorage.getItem('djId')}&album_id=${id}`)();
 
 const loadFromBinBackend = () => getter(`djs/bin?dj_id=${sessionStorage.getItem('djId')}`)();
 

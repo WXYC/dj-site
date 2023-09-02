@@ -64,7 +64,7 @@ export default function FirstSidebar() {
   const location = useLocation();
   const [hovering, setHovering] = React.useState(false);
 
-  const { live, setLive } = useLive();
+  const { live, goOff } = useLive();
   const { addToEntries } = useFlowsheet();
   const { openPopup } = useContext(PopupContentContext);
 
@@ -286,10 +286,7 @@ export default function FirstSidebar() {
               <ConfirmPopup
                 message="You're Live! Would you like to complete the flowsheet and log out?"
                 onConfirm={() => {
-                  setLive(false);
-                  addToEntries({
-                    message: `DJ ${user.djName} left at ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`,
-                  })
+                  goOff();
                   handleLogout();
                 }}
               />

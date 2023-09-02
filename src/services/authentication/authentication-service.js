@@ -103,6 +103,7 @@ export const login = async (event) => {
                             const { data: creationData, error: creationError } = await (setter(`djs/register`))({
                                 cognito_user_name: userData.Username,
                                 real_name: userData.UserAttributes.find(attr => attr.Name == 'name').Value,
+                                dj_name: userData.UserAttributes.find(attr => attr.Name == 'custom:dj-name').Value,
                             });
 
                             if (creationError) {
@@ -185,6 +186,7 @@ export const checkAuth = async () => {
                     const { data: creationData, error: creationError } = await (setter(`djs/register`))({
                         cognito_user_name: userData.Username,
                         real_name: userData.UserAttributes.find(attr => attr.Name == 'name').Value,
+                        dj_name: userData.UserAttributes.find(attr => attr.Name == 'custom:dj-name').Value,
                     });
 
                     if (creationError) {

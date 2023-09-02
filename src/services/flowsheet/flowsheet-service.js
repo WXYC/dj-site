@@ -1,6 +1,10 @@
-import { getter, setter } from "../api-service";
+import { deleter, getter, setter, updater } from "../api-service";
 
 export const getNowPlayingFromBackend = () => getter('flowsheet/latest')();
+
+export const getOnAirFromBackend = () => getter(`flowsheet/on-air?dj_id=${sessionStorage.getItem('djId')}`)();
+
+export const getDJListFromBackend = () => getter('flowsheet/djs-on-air')();
 
 export const getFlowsheetFromBackend = (page = 0, limit = 50) => getter(`flowsheet?limit=${limit}&page=${page}`)();
 
@@ -11,18 +15,25 @@ export const joinBackend = (show_name = '', specialty_id = null) => setter('flow
 });
 
 export const leaveBackend = () => setter('flowsheet/end')({
-    show_id: Number(sessionStorage.getItem('showId'))
+    dj_id: sessionStorage.getItem('djId')
 });
 
 export const sendMessageToBackend = (message) => setter('flowsheet')({
-    show_id: sessionStorage.getItem('showId'),
     message: message
 });
 
 export const addSongToBackend = (song) => setter('flowsheet')({
-    show_id: sessionStorage.getItem('showId'),
     artist_name: song?.artist ?? '',
     album_title: song?.album ?? '',
     track_title: song?.title ?? '',
     record_label: song?.label ?? '',
+});
+
+export const removeFromFlowsheetBackend = (id) => deleter(`flowsheet`)({
+    entry_id: id,
+});
+
+export const updateFlowsheetEntryOnBackend = (id, quality, value) => updater(`flowsheet`)({
+    entry_id: id,
+    [quality]: value,
 });
