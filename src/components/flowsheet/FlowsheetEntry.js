@@ -249,7 +249,7 @@ const FlowsheetEntry = (props) => {
                   minHeight: "48px",
                 }}
               >
-                  <img src={image} alt="album art" style={{ minWidth: '48px', minHeight: '48px' }} />
+                  {image ? <img src={image} alt="album art" style={{ minWidth: '48px', minHeight: '48px' }} /> : <CircularProgress />}
               </AspectRatio>
               <Stack direction="row" sx={{ flexGrow: 1, maxWidth: 'calc(100% - 98px)' }} spacing={1}>
                 <FlowsheetEntryField label="song" value={props.title} current={props.current} id={props.id} queue={props.type == "queue"} />
