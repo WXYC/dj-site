@@ -182,7 +182,7 @@ const FlowsheetEntry = (props) => {
             cursor: 'text',
             minWidth: '10px',
           }}
-          onDoubleClick={() => setEditing(live)}
+          onDoubleClick={() => setEditing(props.editable && live)}
         >
           {props.value}&nbsp;
         </Typography>)}
@@ -226,7 +226,7 @@ const FlowsheetEntry = (props) => {
                 right: 0,
               } : {},
             }}
-            onMouseOver={() => setCanClose(live)}
+            onMouseOver={() => setCanClose(props.editable && live)}
             onMouseLeave={() => setCanClose(false)}
           >
             <Stack
@@ -290,7 +290,7 @@ const FlowsheetEntry = (props) => {
                 color={props.request ? "warning" : "neutral"}
                 uncheckedIcon={<PhoneDisabledIcon />}
                 checkedIcon={<PhoneEnabledIcon />}
-                disabled={!live}
+                disabled={!(props.editable && live)}
                 sx = {{
                   opacity: props.request ? 1 : 0.3,
                   '& .MuiCheckbox-checkbox' : {
@@ -314,7 +314,7 @@ const FlowsheetEntry = (props) => {
                   <KeyboardArrowDownIcon />
                 </IconButton>
               ) : (
-                (live) && (<IconButton
+                (props.editable && live) && (<IconButton
                   color="neutral"
                   variant="plain"
                   size="sm"
@@ -468,7 +468,7 @@ const FlowsheetEntry = (props) => {
               height: "40px",
               borderRadius: "md",
             }}
-            onMouseOver = {() => setCanClose(live)}
+            onMouseOver = {() => setCanClose(props.editable && live)}
             onMouseLeave = {() => setCanClose(false)}
           >
                         {(canClose) && (
@@ -530,7 +530,7 @@ const FlowsheetEntry = (props) => {
               height: "40px",
               borderRadius: "md",
             }}
-            onMouseOver = {() => setCanClose(live)}
+            onMouseOver = {() => setCanClose(props.editable && live)}
             onMouseLeave = {() => setCanClose(false)}
           >
           {(canClose) && (
@@ -597,7 +597,7 @@ const FlowsheetEntry = (props) => {
               height: "40px",
               borderRadius: "md",
             }}
-            onMouseOver = {() => setCanClose(live)}
+            onMouseOver = {() => setCanClose(props.editable && live)}
             onMouseLeave = {() => setCanClose(false)}
           >
           {(canClose) && (

@@ -115,12 +115,14 @@ import { useAuth } from "../../services/authentication/authentication-context";
               return (index == queuePlaceholderIndex) ? 
                (
                 <FlowsheetEntry
+                  editable={true}
                   key={`queue-${index}`}
                   type={"placeholder"}
                 />
                )
                : (
                 <FlowsheetEntry
+                  editable={true}
                   index = {index}
                   key={`queue-${index}`}
                   type={"queue"}
@@ -141,6 +143,7 @@ import { useAuth } from "../../services/authentication/authentication-context";
               )
               : (
                 <FlowsheetEntry
+                  editable={true}
                   index = {index}
                   key={`entry-${index}`}
                   type={

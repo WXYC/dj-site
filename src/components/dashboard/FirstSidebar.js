@@ -173,8 +173,7 @@ export default function FirstSidebar() {
                 variant='outlined'
             >
           <ListItemButton onClick={() => navigate('/playlists')}
-            variant={location.pathname === '/playlists' ? 'solid' : 'plain'}
-            disabled
+            variant={location.pathname.includes('/playlists') ? 'solid' : 'plain'}
           >
             <StorageIcon />
           </ListItemButton>

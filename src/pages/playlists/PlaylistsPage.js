@@ -1,6 +1,8 @@
 import { Box, CircularProgress, Grid, Option, Select, Sheet, Stack, Typography } from "@mui/joy"
 import React, { useEffect, useState } from "react"
 import PlaylistCard from "../../components/playlists/PlaylistCard"
+import { getPlaylistsFromBackend } from "../../services/playlists/playlists-service";
+import { toast } from "sonner";
 
 const examplePlaylists = [
   {
@@ -122,7 +124,30 @@ const PlaylistsPage = () => {
 
     const [sort, setSort] = useState("date");
     const [ascdesc, setAscdesc] = useState(false); // false = descending, true = ascending
-    const [playlists, setPlaylists] = useState(examplePlaylists);
+    const [playlists, setPlaylists] = useState([]);
+
+    useEffect(() => {
+        (async () => {
+          const { data, error } = await getPlaylistsFromBackend();
+
+          if (error) {
+            toast.error("We could not retrieve your playlists...");
+            console.error(error);
+          }
+
+          let dj_set = data.map((item, idx) => ({
+            id: item.show,
+            name: item.show_name.length > 0 ? item.show_name : `Playlist ${idx + 1}`,
+            date: item.date,
+            previewArtists: item.preview.map((item) => item.artist_name),
+            previewAlbums: item.preview.map((item) => item.album_name),
+            djs: item.djs,
+          }));
+
+          console.log(data);
+          setPlaylists(dj_set);
+        })();
+    }, []);
 
     const sortPlaylists = (playlistSet, by, asc) => {
       if (playlistSet === undefined || playlistSet?.length === 0 || playlistSet === null) return null;
