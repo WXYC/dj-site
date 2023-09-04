@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Auth } from "aws-amplify";
 import StationSchedule from "../../components/station-management/StationSchedule";
 import { useAuth } from "../../services/authentication/authentication-context";
+import { RotationManagement } from "../../components/station-management/catalog/rotation/Rotation";
 
 /**
  * Depicts the station management page from a station manager perspective.
@@ -101,8 +102,9 @@ const StationManagementPage = ({style}) => {
           },
         }}
       >
-        <Tab sx = {{ py: 1.5 }}>DJ Roster</Tab>
-        <Tab sx = {{ py: 1.5 }}>Station Schedule</Tab>
+        <Tab sx = {{ py: 1.5 }}>Roster</Tab>
+        <Tab sx = {{ py: 1.5 }}>Schedule</Tab>
+        <Tab sx = {{ py: 1.5 }}>Rotation</Tab>
         <Tab sx = {{ py: 1.5 }}>Catalog</Tab>
       </TabList>
       <TabPanel value={0}>
@@ -114,6 +116,12 @@ const StationManagementPage = ({style}) => {
         }}
         >
         <StationSchedule />
+        </TabPanel>
+        <TabPanel value={2}>
+          <RotationManagement />
+        </TabPanel>
+        <TabPanel value={3}>
+          <Typography level="h2">Coming Soon</Typography>
         </TabPanel>
         </Tabs>
         </>

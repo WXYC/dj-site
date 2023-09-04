@@ -126,6 +126,7 @@ const PlaylistCard = ({ playlist }) => {
                         >
                             <Typography
                                 level="body1"
+                                textColor={'white'}
                             >
                                 {playlist.name}
                             </Typography>

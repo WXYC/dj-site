@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { getPlaylistFromBackend } from "../../services/playlists/playlists-service";
 import { toast } from "sonner";
-import { Box, Sheet, Stack, Typography } from "@mui/joy";
+import { Box, Button, Sheet, Stack, Typography } from "@mui/joy";
 import FlowsheetEntry from "../../components/flowsheet/FlowsheetEntry";
+import KeyboardBackspaceIcon from '@mui/icons-material/KeyboardBackspace';
 
 /**
  * @page
@@ -17,6 +18,8 @@ const PlaylistPage = () => {
 
     const { djName, playlistId } = useParams();
     const [ playlist, setPlaylist ] = useState([]);
+
+    const navigate = useNavigate();
 
     const updatePlaylistFromBackend = (data) => {
 
@@ -61,17 +64,28 @@ const PlaylistPage = () => {
         <Box
         sx={{
           display: "flex",
-          alignItems: "center",
+          alignItems: "flex-start",
           my: 1,
           gap: 1,
           flexWrap: "wrap",
+          flexDirection: "column",
           "& > *": {
             minWidth: "clamp(0px, (500px - 100%) * 999, 100%)",
             flexGrow: 1,
           },
         }}
       >
-        <Typography level="h3">{}</Typography>
+        <Button
+            variant="outlined"
+            color="neutral"
+            size="sm"
+            onClick={() => navigate(`/playlists`)}
+            startDecorator={<KeyboardBackspaceIcon />}
+        >
+            Back
+        </Button>
+        <Typography level="h2">Playlist 1</Typography>
+        <Typography level="body1">Playlist 1</Typography>
         <Box sx={{ flex: 999 }}></Box>
     </Box>
         <Sheet
