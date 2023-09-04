@@ -98,13 +98,21 @@ export const RotationManagement = () => {
                 }}
             >
             <Stack direction="row" alignItems="center" justifyContent={'space-between'}>
+            <ButtonGroup>
             <Button
                 variant='outlined'
                 color='success'
                 startDecorator={<SummarizeIcon />}
             >
-                Download Report
+                Download Report (.pdf)
             </Button>
+            <Button>
+                .csv
+            </Button>
+            <Button>
+                .docx
+            </Button>
+            </ButtonGroup>
             <Stack direction="row" spacing={0} alignItems="center" justifyContent={'flex-end'}>
             <ButtonGroup>
                 <Tooltip variant="outlined" placement='top' size="sm" title="Alphabetically">

@@ -18,12 +18,13 @@ const PlaylistPage = () => {
 
     const { djName, playlistId } = useParams();
     const [ playlist, setPlaylist ] = useState([]);
+    const [ playlistMetadata, setPlaylistMetadata ] = useState({});
 
     const navigate = useNavigate();
 
     const updatePlaylistFromBackend = (data) => {
 
-        let newPlaylist = data.map((item) => (
+        let newPlaylist = data?.map((item) => (
             (item?.message?.length) > 0 ? 
             {
                 message: item.message,
@@ -39,7 +40,7 @@ const PlaylistPage = () => {
                 artist: item.artist_name,
                 label: item.record_label,
                 entry_id: item.id
-            }));
+            })) ?? [];
 
         setPlaylist(newPlaylist);
     }
@@ -53,8 +54,12 @@ const PlaylistPage = () => {
                 toast.error("We could not retrieve your playlist...");
             }
 
-            console.table(data);
-            updatePlaylistFromBackend(data);
+            let metadata = JSON.parse(JSON.stringify(data));
+            delete metadata.entries;
+            setPlaylistMetadata(metadata);
+
+            console.table(data.entries);
+            updatePlaylistFromBackend(data.entries);
 
         })();
     }, []);
@@ -66,7 +71,6 @@ const PlaylistPage = () => {
           display: "flex",
           alignItems: "flex-start",
           my: 1,
-          gap: 1,
           flexWrap: "wrap",
           flexDirection: "column",
           "& > *": {
@@ -81,11 +85,15 @@ const PlaylistPage = () => {
             size="sm"
             onClick={() => navigate(`/playlists`)}
             startDecorator={<KeyboardBackspaceIcon />}
+            sx = {{
+                mb: 1,
+            }}
         >
             Back
         </Button>
-        <Typography level="h2">Playlist 1</Typography>
-        <Typography level="body1">Playlist 1</Typography>
+        <Typography level="h2">{playlistMetadata.show_name?.length ?? 0 > 0 ? playlistMetadata.show_name : `Playlist ${playlistId}`}</Typography>
+        <Typography level="body3">Aired</Typography>
+        <Typography level="body1">{new Date(playlistMetadata.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} • {new Date(playlistMetadata.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}</Typography>
         <Box sx={{ flex: 999 }}></Box>
     </Box>
         <Sheet
