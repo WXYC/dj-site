@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Box, Button, Chip, Divider, FormControl, Option, Select, Sheet, Stack, Typography } from "@mui/joy";
 
 import TroubleshootIcon from "@mui/icons-material/Troubleshoot";
-import { getFormatsFromBackend } from "../../../../services/station-management/rotation-service";
+import { getFormatsFromBackend } from "../../../services/station-management/rotation-service";
 import { ClickAwayListener } from "@mui/material";
 
 export const AddToRotationSearch = () => {

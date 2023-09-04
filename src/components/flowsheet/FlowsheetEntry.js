@@ -10,6 +10,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import TimerIcon from "@mui/icons-material/Timer";
 import {
     AspectRatio,
+    Badge,
     Button,
     Checkbox,
     CircularProgress,
@@ -26,6 +27,7 @@ import { getArtwork } from "../../services/artwork/artwork-service";
 import { useFlowsheet } from '../../services/flowsheet/flowsheet-context';
 import { useLive } from '../../services/flowsheet/live-context';
 import { ClickAwayListener } from '@mui/material';
+import { rotationStyles } from '../station-management/rotation/Rotation';
 
 
 function timeout(ms) {
@@ -240,6 +242,14 @@ const FlowsheetEntry = (props) => {
                 pr: 2,
               }}
             >
+              <Badge
+                badgeContent={props.play_freq ?? null}
+                color={props.play_freq  && rotationStyles[props.play_freq]}
+                anchorOrigin={{
+                  vertical: 'top',
+                  horizontal: 'left',
+                }}
+              >
               <AspectRatio
                 ratio={1}
                 sx={{
@@ -251,6 +261,7 @@ const FlowsheetEntry = (props) => {
               >
                   {image ? <img src={image} alt="album art" style={{ minWidth: '48px', minHeight: '48px' }} /> : <CircularProgress />}
               </AspectRatio>
+              </Badge>
               <Stack direction="row" sx={{ flexGrow: 1, maxWidth: 'calc(100% - 98px)' }} spacing={1}>
                 <FlowsheetEntryField label="song" value={props.title} current={props.current} id={props.id} queue={props.type == "queue"} />
                 <FlowsheetEntryField label="artist" value={props.artist} current={props.current} id={props.id} queue={props.type == "queue"} />

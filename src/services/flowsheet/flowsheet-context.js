@@ -2,6 +2,7 @@ import React, {createContext, useCallback, useContext, useEffect, useRef, useSta
 import { getSongInfoFromLastFM } from "../artwork/last-fm-image";
 import { toast } from "sonner";
 import { addSongToBackend, getFlowsheetFromBackend, removeFromFlowsheetBackend, sendMessageToBackend, updateFlowsheetEntryOnBackend } from "./flowsheet-service";
+import { getRotationEntries } from "../station-management/rotation-service";
 
 const FlowsheetContext = createContext();
 
@@ -35,6 +36,7 @@ export const FlowsheetProvider = ({children}) => {
                 album: item.title,
                 label: item.label,
                 request: item.request ?? false,
+                play_freq: item.play_freq ?? null
             };
             item = newItem;
         }
@@ -235,7 +237,8 @@ export const FlowsheetProvider = ({children}) => {
                 album: item.album_title,
                 artist: item.artist_name,
                 label: item.record_label,
-                entry_id: item.id
+                entry_id: item.id,
+                play_freq: item.play_freq ?? null
             }));
 
         let newEntriesPlusOldEntries = [...newEntries, ...(entries.slice(maxEditDepth.current, maxEditDepth.current - newEntries.length))];

@@ -20,7 +20,6 @@ export const loadBin = async () => {
     }
 
     if (data) {
-        console.log(data);
         return data.map((item) => ({
             id: item.album_id ?? -1,
             artist: {

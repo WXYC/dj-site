@@ -14,7 +14,7 @@ const BinProvider = ({ children }) => {
   const [bin, setBin] = useState([]);
 
   const findInBin = (query) => {
-    if (query.length < 3) return [];
+    if (query.length <= 3) return [];
     const searchTerms = query.toLowerCase().split(' ');
 
     var matches = [];

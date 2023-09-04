@@ -23,6 +23,7 @@ import { useLive } from "../../services/flowsheet/live-context";
 import { ClickAwayListener } from "@mui/material";
 import { BinContext } from "../../services/bin/bin-context";
 import { getReleasesMatching } from "../../services/card-catalog/card-catalog-service";
+import { useCatalog } from "../../services/card-catalog/card-catalog-context";
 
 /**
  * @component
@@ -39,7 +40,8 @@ const AddToFlowsheetSearch = () => {
     const { user } = useAuth();
     const { queue, addToQueue, entries, addToEntries } = useFlowsheet();
 
-    const { bin, findInBin } = useContext(BinContext);
+    const { findInBin } = useContext(BinContext);
+    const { findInRotation } = useCatalog();
 
     const addTalkset = () => {
         addToEntries({
@@ -99,6 +101,7 @@ const AddToFlowsheetSearch = () => {
         artist: artist,
         album: album,
         label: label,
+        play_freq: null,
       };
 
       if (selected > 0 && selected <= binResults.length) {
@@ -110,6 +113,7 @@ const AddToFlowsheetSearch = () => {
         submission.artist = rotationResults[selected - binResults.length - 1].artist.name;
         submission.album = rotationResults[selected - binResults.length - 1].title;
         submission.label = rotationResults[selected - binResults.length - 1].label;
+        submission.play_freq = rotationResults[selected - binResults.length - 1].play_freq;
       }
       if (selected > binResults.length + rotationResults.length && selected <= binResults.length + rotationResults.length + catalogResults.length) {
         submission.artist = catalogResults[selected - binResults.length - rotationResults.length - 1].artist.name;
@@ -149,9 +153,10 @@ const AddToFlowsheetSearch = () => {
 
     useEffect(() => {
 
+        setRotationResults(findInRotation(`${artist} ${album} ${label}`));
         setBinResults(findInBin(`${artist} ${album} ${label}`));
 
-    }, [artist, album, label]);
+    }, [artist, album, label]); 
     
     const handleKeyDown = useCallback(
       (e) => {
@@ -377,6 +382,111 @@ return (
                       }}
                     >
                       {binItem.label}
+                    </Typography>
+                  </Stack>
+                </Stack>))}
+              </Stack>
+            </>)}
+            {(rotationResults.length > 0) && (<>
+              <Divider />
+              <Box
+                sx={{
+                  p: 1,
+                }}
+              >
+                <Typography level="body4">FROM ROTATION</Typography>
+              </Box>
+              <Stack direction="column">
+                {rotationResults.map((rotationItem, index) => (
+                <Stack
+                  key={`rotation-${index}`}
+                  direction="row"
+                  justifyContent="space-between"
+                  sx={{
+                    p: 1,
+                    backgroundColor:
+                      selected == (1 + index) ? "primary.700" : "transparent",
+                    cursor: "pointer",
+                  }}
+                  onMouseOver={() => setSelected(1 + index)}
+                  onClick={submitResult}
+                >
+                  <ArtistAvatar
+                    artist={rotationItem.artist}
+                    format={rotationItem.format}
+                    entry={rotationItem.release_number}
+                    play_freq={rotationItem.play_freq}
+                  />
+                  <Stack direction="column" sx={{ width: "calc(20%)" }}>
+                    <Typography level="body4" sx={{ 
+                      mb: -1,
+                      color: selected == (1 + index) ? "neutral.200" : "inherit",
+                    }}>
+                      CODE
+                    </Typography>
+                    <Typography
+                      sx={{
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        color: selected == (1 + index) ? "white" : "inherit",
+                      }}
+                    >
+                      {rotationItem.artist.genre} {rotationItem.artist.lettercode} {rotationItem.artist.numbercode}/{rotationItem.release_number}
+                    </Typography>
+                  </Stack>
+                  <Stack direction="column" sx={{ width: "calc(20%)" }}>
+                    <Typography level="body4" sx={{ 
+                      mb: -1,
+                      color: selected == (1 + index) ? "neutral.200" : "inherit",
+                    }}>
+                      ARTIST
+                    </Typography>
+                    <Typography
+                      sx={{
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        color: selected == (1 + index) ? "white" : "inherit",
+                      }}
+                    >
+                      {rotationItem.artist.name}
+                    </Typography>
+                  </Stack>
+                  <Stack direction="column" sx={{ width: "calc(20%)" }}>
+                    <Typography level="body4" sx={{ 
+                      mb: -1,
+                      color: selected == (1 + index) ? "neutral.200" : "inherit",
+                    }}>
+                      ALBUM
+                    </Typography>
+                    <Typography
+                      sx={{
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        color: selected == (1 + index) ? "white" : "inherit",
+                      }}
+                    >
+                      {rotationItem.title}
+                    </Typography>
+                  </Stack>
+                  <Stack direction="column" sx={{ width: "calc(20%)" }}>
+                    <Typography level="body4" sx={{ 
+                      mb: -1,
+                      color: selected == (1 + index) ? "neutral.200" : "inherit",
+                    }}>
+                      LABEL
+                    </Typography>
+                    <Typography
+                      sx={{
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        color: selected == (1 + index) ? "white" : "inherit",
+                      }}
+                    >
+                      {rotationItem.label}
                     </Typography>
                   </Stack>
                 </Stack>))}

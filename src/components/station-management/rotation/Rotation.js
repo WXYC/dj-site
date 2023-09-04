@@ -2,9 +2,9 @@ import ClearIcon from '@mui/icons-material/Clear';
 import EditIcon from '@mui/icons-material/Edit';
 import InfoIcon from '@mui/icons-material/Info';
 import { Box, Button, ButtonGroup, Chip, CircularProgress, Divider, IconButton, Sheet, Stack, Table, Tooltip, Typography, useTheme } from "@mui/joy";
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { addAlbumToRotation, getRotationEntries, removeFromRotationBackend } from "../../../../services/station-management/rotation-service";
+import { addAlbumToRotation, getRotationEntries, removeFromRotationBackend } from "../../../services/station-management/rotation-service";
 import { AddToRotationSearch } from "./AddToRotationSearch";
 import { RotationPlays } from "./RotationPlays";
 
@@ -12,8 +12,10 @@ import AbcIcon from '@mui/icons-material/Abc';
 import AutoModeIcon from '@mui/icons-material/AutoMode';
 import PlayCircleIcon from '@mui/icons-material/PlayCircle';
 import SummarizeIcon from '@mui/icons-material/Summarize';
+import { ConfirmPopup } from '../../general/popups/general-popups';
+import { PopupContentContext } from '../../../pages/dashboard/Popup';
 
-const rotationStyles = {
+export const rotationStyles = {
     'H': 'primary',
     'M': 'info',
     'L': 'success',
@@ -36,6 +38,9 @@ const algorithms = {
 }
 
 export const RotationManagement = () => {
+
+    
+    const { openPopup } = useContext(PopupContentContext);
 
     const { palette } = useTheme();
 
@@ -61,6 +66,27 @@ export const RotationManagement = () => {
         setRemovalWork(removalWork.filter((item) => item !== id));
     };
 
+    const changeRotation = async (id, album, code) => {
+        setRemovalWork([...removalWork, id]);
+
+        const { data: removalData, error: removalError } = await removeFromRotationBackend(id);
+
+        if (removalError) {
+            toast.error("Failed to change rotation.");
+            console.error(removalError);
+            return;
+        }
+
+        const { data, error } = await addAlbumToRotation(album, code);
+
+        if (error) {
+            toast.error("Failed to change rotation.");
+            console.error(error);
+        }
+
+        setRemovalWork(removalWork.filter((item) => item !== id));
+    };
+
     useEffect(() => {
         if (removalWork.length > 0) return;
         (async () => {
@@ -71,7 +97,7 @@ export const RotationManagement = () => {
                     console.error(error);
                 }
 
-                setBackendData(data.filter((item) => item.kill_date === null));
+                setBackendData(data.filter((item) => item.kill_date === null).sort(algorithms[sortType]));
         })();
     }, [removalWork]);
 
@@ -169,30 +195,38 @@ export const RotationManagement = () => {
                                     width: '50px',
                                 }}
                             >
-                                <Chip color = {rotationStyles[item.play_freq]} size="sm">
-                                    {item.play_freq}
-                                </Chip>
+                                <ButtonGroup>
+                                    {rotationCodes.map((code) => (
+                                        <Button
+                                            key={code}
+                                            variant={code === item.play_freq ? "solid" : "soft"}
+                                            color={rotationStyles[code]}
+                                            size="sm"
+                                            onClick={() => changeRotation(item.rotation_id, item.library_id, code)}
+                                            loading={removalWork.includes(item.rotation_id)}
+                                        >
+                                            {code}
+                                        </Button>
+                                    ))}
+                                </ButtonGroup>
                             </td>
                             <td>
                                 <Stack direction="row" spacing={0.3} justifyContent={'flex-end'}>
                                 <IconButton
                                     size="sm"
-                                    variant="solid"
-                                    color="success"
-                                >
-                                    <EditIcon />
-                                </IconButton>
-                                <IconButton
-                                    size="sm"
-                                    variant="solid"
+                                    variant="outlined"
                                     color="info"
                                 >
                                     <InfoIcon />
                                 </IconButton>
                                 <IconButton
                                     size="sm"
-                                    variant="solid"
-                                    onClick={() => deleteFromRotation(item.rotation_id)}
+                                    variant="outlined"
+                                    onClick={() => openPopup(
+                                    <ConfirmPopup 
+                                        message={`Are you sure you want to remove ${item.artist_name} - ${item.album_title} from rotation?`}
+                                        onConfirm={() => deleteFromRotation(item.rotation_id)}
+                                    />)}
                                     disabled={removalWork.includes(item.rotation_id)}
                                 >
                                     <ClearIcon />

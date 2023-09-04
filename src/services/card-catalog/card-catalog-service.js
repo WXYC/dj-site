@@ -1,13 +1,11 @@
 import { toast } from "sonner";
-import { callApi, getter, setter } from "../api-service";
+import { getter, setter } from "../api-service";
 import { refreshCognitoCredentials } from "../authentication/authentication-service";
 
-const getRotationEntries = getter("library/rotation");
 
-const tempRotationPost = () => setter("library/rotation")({
-  album_id: 400,
-  play_freq: 'H'
-});
+
+const getRotationEntries = () => getter("library/rotation")();
+
 
 export const getRotation = async() => {
 
@@ -18,7 +16,23 @@ export const getRotation = async() => {
       return;
     }
 
-    console.table(data);
+    return data?.map((item) => ({
+      id: item.album_id ?? -1,
+      artist: {
+          genre: item.genre_name ?? '',
+          lettercode: item.code_letters ?? '',
+          numbercode: item.code_artist_number ?? -1,
+          name: item.artist_name ?? ''
+      },
+      release_number: item.code_number ?? -1,
+      title: item.album_title ?? '',
+      format: item.format_name ?? '',
+      alternate_artist: '',
+      label: item.label ?? '',
+      kill_date: item.kill_date ?? null,
+      play_freq: item.play_freq ?? '',
+      plays: item.plays ?? 0
+  }))?.filter((item) => item.kill_date === null) ?? [];
 
 }
 
@@ -48,7 +62,7 @@ export const getReleasesMatching = async (term, medium, genre, n = 10) => {
       return;
     }
   
-    return data.map((release) => ({
+    return data?.map((release) => ({
       id: release.id ?? -1,
       artist: {
         genre: release.genre_name ?? '',
@@ -61,6 +75,6 @@ export const getReleasesMatching = async (term, medium, genre, n = 10) => {
       title: release.album_title ?? '',
       alternate_artist: '',
       label: release.label_name ?? ''
-    }));
+    })) ?? [];
   
 }

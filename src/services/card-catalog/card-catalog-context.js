@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { getReleasesMatching, getRotation } from "./card-catalog-service";
+import { toast } from "sonner";
+import { useAuth } from "../authentication/authentication-context";
 
 const TIMEOUT_MS = 800;
 
@@ -35,6 +37,7 @@ export const CatalogProvider = ({children}) => {
 
     const [n, setN] = useState(10);
     const [searchString, setSearchString] = useState("");
+    const { isAuthenticated } = useAuth();
 
     const [reachedEndForQuery, setReachedEndForQuery] = useState(false);
 
@@ -48,6 +51,9 @@ export const CatalogProvider = ({children}) => {
 
   const [searchIn, setSearchIn] = useState('All');
   const [genre, setGenre] = useState('All');
+
+  
+  const [rotation, setRotation] = useState([]);
 
 
     useEffect(() => {
@@ -66,6 +72,7 @@ export const CatalogProvider = ({children}) => {
   
               if (data != null) {
                 setReleaseList(data);
+                console.log(data);
               }
             }
   
@@ -96,10 +103,56 @@ export const CatalogProvider = ({children}) => {
     }, [orderBy, orderDirection]);
 
     const loadMore = () => setN((prevN) => prevN + 10);
+    
 
-    useEffect(() => {
-      getRotation();
-    }, []);
+  const findInRotation = (query) => {
+    console.log(rotation.length);
+    if (query.length <= 3) return [];
+    const searchTerms = query.toLowerCase().split(' ');
+
+    var matches = [];
+
+    for (var i = 0; i < rotation.length; i++) {
+      var item = rotation[i];
+
+      console.log(item);
+
+      var isMatch = true;
+
+      var terms = [item.artist.name.toLowerCase(), item.title.toLowerCase(), item.label.toLowerCase()];
+      for (var j = 0; j < searchTerms.length; j++) {
+        var searchTerm = searchTerms[j];
+  
+        // Check if any of the terms match the search term
+        var termMatches = terms.some(term => term.indexOf(searchTerm) !== -1);
+  
+        // If the current search term doesn't match any of the terms, break the loop
+        if (!termMatches) {
+          isMatch = false;
+          break;
+        }
+      }
+
+      // If all search terms match any of the terms, add the item to the matches
+      if (isMatch) {
+        matches.push(item);
+      }
+    }
+  
+    return matches;
+  };
+
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    getRotation().then((data) => {
+      setRotation(data);
+    }).catch((error) => {
+      toast.error("Failed to load rotation.");
+      console.error(error);
+    });
+  }, [isAuthenticated]);
 
     const contextValue = {
         n,
@@ -117,7 +170,8 @@ export const CatalogProvider = ({children}) => {
         setOrderBy,
         orderDirection,
         setOrderDirection,
-        reachedEndForQuery
+        reachedEndForQuery,
+        findInRotation
     };
 
     return (

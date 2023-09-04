@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Auth } from "aws-amplify";
 import StationSchedule from "../../components/station-management/StationSchedule";
 import { useAuth } from "../../services/authentication/authentication-context";
-import { RotationManagement } from "../../components/station-management/catalog/rotation/Rotation";
+import { RotationManagement } from "../../components/station-management/rotation/Rotation";
 
 /**
  * Depicts the station management page from a station manager perspective.
