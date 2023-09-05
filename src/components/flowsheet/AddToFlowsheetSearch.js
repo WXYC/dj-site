@@ -152,9 +152,7 @@ const AddToFlowsheetSearch = () => {
     }, []);
 
     useEffect(() => {
-        let data = findInRotation(`${artist} ${album} ${label}`);
-        console.log(data);
-        setRotationResults(data);
+        setRotationResults(findInRotation(`${artist} ${album} ${label}`));
         setBinResults(findInBin(`${artist} ${album} ${label}`));
 
     }, [artist, album, label]); 

@@ -13,7 +13,7 @@ import { PopupProvider } from './Popup';
 import { FlowsheetProvider } from '../../services/flowsheet/flowsheet-context';
 import ProtectedRoute from '../../components/authentication/ProtectedRoute';
 import { CatalogProvider } from '../../services/card-catalog/card-catalog-context';
-import { checkAuth } from '../../services/authentication/authentication-service';
+import { useAuth } from '../../services/authentication/authentication-context';
 
 /**
  * @page
@@ -29,12 +29,6 @@ import { checkAuth } from '../../services/authentication/authentication-service'
  * @returns {JSX.Element} The rendered Dashboard component.
  */
 const Dashboard = (props) => {
-  
-  const location = useLocation();
-
-  useEffect(() => {
-    checkAuth();
-  }, [location]);
 
   return (
     <ProtectedRoute>

@@ -25,9 +25,6 @@ export const LiveProvider = ({ children }) => {
                 console.error(error);
                 return;
             }
-            
-            console.log("Getting on air from backend");
-            console.log(data);
 
             setLive(data);
             setIntermediate(false);

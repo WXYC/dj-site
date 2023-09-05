@@ -106,7 +106,7 @@ export const FlowsheetProvider = ({children}) => {
             setGettingSongLength(false);
         } catch (error) {
             toast.error("Song duration not found, autoplay disabled");
-            console.log(error);
+            console.error(error);
             setAutoPlay(false);
             return;
         }
@@ -188,7 +188,7 @@ export const FlowsheetProvider = ({children}) => {
 
     const [backendCaller, setBackendCaller] = useState(null);
     const updateWithBackend = () => {
-        console.log(`updating from backend i${edited.current ? 's' : 's not'} necessary`);
+        // console.log(`updating from backend i${edited.current ? 's' : 's not'} necessary`);
         if (edited.current) {
             (async () => {
 
@@ -207,8 +207,6 @@ export const FlowsheetProvider = ({children}) => {
                     }]);
                     return;
                 }
-
-                console.log(data);
 
                 if (data) {
                     updateEntriesFromBackend(data);
@@ -261,7 +259,6 @@ export const FlowsheetProvider = ({children}) => {
         for (let i = set.length - 1; i >= 0; i--) {
             set[i].id = i;
         }
-        console.table(set);
     }
 
     const switchEntry = (index1, index2) => {

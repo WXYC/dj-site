@@ -35,8 +35,7 @@ const PlaylistsPage = () => {
             previewAlbums: item.preview.map((item) => item.album_title),
             djs: item.djs,
           }));
-
-          console.log(data);
+          
           setPlaylists(dj_set);
         })();
     }, []);

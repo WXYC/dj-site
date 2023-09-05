@@ -58,8 +58,7 @@ const PlaylistPage = () => {
             let metadata = JSON.parse(JSON.stringify(data));
             delete metadata.entries;
             setPlaylistMetadata(metadata);
-
-            console.table(data.entries);
+            
             updatePlaylistFromBackend(data.entries);
 
         })();

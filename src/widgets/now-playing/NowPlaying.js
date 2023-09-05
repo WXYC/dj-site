@@ -54,7 +54,6 @@ const NowPlaying = (props) => {
   const [fadeTimeout, setFadeTimeout] = React.useState(null);
 
   const destroyAndBuildNewCanvas = () => {
-    console.log("destroyAndBuildNewCanvas");
     let container = document.getElementById('canvas-container');
     if (container) {
       container.innerHTML = '';

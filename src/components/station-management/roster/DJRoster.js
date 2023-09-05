@@ -18,13 +18,13 @@ import {
   Table,
   Tooltip
 } from "@mui/joy";
-import { PopupContentContext } from "../../pages/dashboard/Popup";
-import { useAuth } from "../../services/authentication/authentication-context";
-import { deleteUser, listUsers, makeAdmin, removeAdmin } from "../../services/station-management/admin-service";
-import { ConfirmPopup } from "../general/popups/general-popups";
-import exportDjsAsCSV from "./csv-export";
-import { AddDJsPopup } from "./popups/add-djs";
-import { ResetPasswordPopup } from "./popups/reset-password";
+import { PopupContentContext } from "../../../pages/dashboard/Popup";
+import { useAuth } from "../../../services/authentication/authentication-context";
+import { deleteUser, listUsers, makeAdmin, removeAdmin } from "../../../services/station-management/admin-service";
+import { ConfirmPopup } from "../../general/popups/general-popups";
+import exportDjsAsCSV from "../csv-export";
+import { AddDJsPopup } from "../popups/add-djs";
+import { ResetPasswordPopup } from "../popups/reset-password";
 
 /**
  * Represents a DJ roster component for managing DJs and their profiles.

@@ -48,6 +48,10 @@ export const callApi = async (options) => {
   }
 };
 
+/**
+ * @param {string} method - The HTTP method to use.
+ * @returns {function} A function that takes a url and returns a function that takes data and returns a promise.
+ */
 const api_caller = (method) => {
   return (url) => {
     return async (data_in) => {
@@ -67,6 +71,9 @@ const api_caller = (method) => {
   }
 };
 
+/**
+ * @description Note that this function cannot take a data parameter, despite the presence of the argument in the function signature.
+ */
 export const getter = api_caller("GET");
 
 export const setter = api_caller("POST");

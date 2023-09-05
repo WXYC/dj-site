@@ -1,7 +1,7 @@
 import React from "react";
 import { Box, Button, Link, Tab, TabList, TabPanel, Tabs, Typography } from "@mui/joy";
 import { tabClasses } from "@mui/joy";
-import DJRoster from "../../components/station-management/DJRoster";
+import DJRoster from "../../components/station-management/roster/DJRoster";
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { toast } from "sonner";
 import { Auth } from "aws-amplify";

@@ -16,8 +16,6 @@ export const getRotation = async() => {
       return;
     }
 
-    console.log(data);
-
     return data?.map((item) => ({
       id: item.id ?? -1,
       artist: {

@@ -72,7 +72,6 @@ export const CatalogProvider = ({children}) => {
   
               if (data != null) {
                 setReleaseList(data);
-                console.log(data);
               }
             }
   
@@ -106,7 +105,6 @@ export const CatalogProvider = ({children}) => {
     
 
   const findInRotation = (query) => {
-    console.log(rotation.length);
     if (query.length <= 3) return [];
     const searchTerms = query.toLowerCase().split(' ');
 
@@ -114,8 +112,6 @@ export const CatalogProvider = ({children}) => {
 
     for (var i = 0; i < rotation.length; i++) {
       var item = rotation[i];
-
-      console.log(item);
 
       var isMatch = true;
 

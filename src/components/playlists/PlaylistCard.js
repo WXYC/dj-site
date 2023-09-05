@@ -29,7 +29,6 @@ const PlaylistCard = ({ playlist }) => {
      * @returns {Promise<Array>} A promise that resolves to an array of artwork images.
      */
     const chooseImages = useCallback(async (information) => {
-        console.log(information);
         return Array.from(
             await Promise.all(
                 information.map(async (info) => {

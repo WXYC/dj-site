@@ -189,7 +189,6 @@ export default function FirstSidebar() {
           <ListItemButton
             onClick={() => navigate('/schedule')}
             variant={location.pathname === '/schedule' ? 'solid' : 'plain'}
-            disabled
           >
          <CalendarMonthIcon />
           </ListItemButton>

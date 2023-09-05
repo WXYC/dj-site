@@ -1,5 +1,6 @@
-import React, { createContext, useState } from "react";
+import React, { createContext, useEffect, useState } from "react";
 import CalendarWidget from "../../widgets/dj-schedule/calendar";
+import { getSchedule } from "../../services/schedule/schedule-service";
 
 export const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 export const hours = Array.from(Array(24).keys()).map((hour) => {
@@ -94,9 +95,20 @@ export const CalendarThemeProvider = ({ children }) => {
  */
 const DJSchedule = () => {
 
+    const [events, setEvents] = useState({});
+
+    useEffect(() => {
+        (async () => {
+            const data = await getSchedule();
+
+            setEvents(data);
+
+        })();
+    }, []);
+
     return (
         <CalendarThemeProvider>
-            <CalendarWidget items={exampleItems} />
+            <CalendarWidget items={events} />
         </CalendarThemeProvider>
     )
 }
