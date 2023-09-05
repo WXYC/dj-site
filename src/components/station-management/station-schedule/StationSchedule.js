@@ -1,13 +1,13 @@
 import Close from '@mui/icons-material/Close';
 import { AspectRatio, Box, Button, Select, Sheet, Stack, Tooltip, Typography, Option, Autocomplete, IconButton } from "@mui/joy";
 import React, { useEffect, useRef, useState } from "react";
-import { getSchedule } from "../../services/schedule/schedule-service";
-import useMousePosition from "../../widgets/MousePosition";
-import EventWidget from "../../widgets/dj-schedule/Event";
+import { getSchedule } from "../../../services/schedule/schedule-service";
+import useMousePosition from "../../../widgets/MousePosition";
+import EventWidget from "../../../widgets/dj-schedule/Event";
 import AlbumIcon from '@mui/icons-material/Album';
 import PeopleIcon from '@mui/icons-material/People';
 import StarsIcon from '@mui/icons-material/Stars';
-import { days, hours } from "../schedule/dj-schedule";
+import { days, hours } from "../../schedule/dj-schedule";
 
 const eventColors = {
     'dj-shift': 'primary',
@@ -29,11 +29,13 @@ const eventTypes = {
  *
  * @returns {JSX.Element} The rendered component.
  */
-const StationSchedule = () => {
+const StationSchedule = (props) => {
 
     const boolToDifferentiateClickFromDrag = useRef(false);
 
     const [events, setEvents] = useState({});
+
+    const [roster, setRoster] = useState([]);
 
     useEffect(() => {
         (async () => {
@@ -43,6 +45,12 @@ const StationSchedule = () => {
 
         })();
     }, []);
+
+    useEffect(() => {
+        
+        setRoster(props.roster.map((dj) => (`${dj.djName} (${dj.name})`)));
+
+    }, [props.roster]);
 
     const [daySelected, setDaySelected] = useState('');
     const [startHourSelected, setStartHourSelected] = useState(0);
@@ -354,10 +362,11 @@ const StationSchedule = () => {
                                                 <td>
                                                     <Autocomplete
                                                         multiple 
-                                                        options={[]}
-                                                        placeholder="Select DJs"
+                                                        options={roster}
+                                                        placeholder="Select DJs (Type to Search)"
                                                         sx = {{
                                                             width: '100%',
+                                                            maxWidth: '300px'
                                                         }}
                                                     />
                                                 </td>
