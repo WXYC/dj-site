@@ -41,7 +41,7 @@ const AddToFlowsheetSearch = () => {
     const { queue, addToQueue, entries, addToEntries } = useFlowsheet();
 
     const { findInBin } = useContext(BinContext);
-    const { findInRotation } = useCatalog();
+    const { rotation, findInRotation } = useCatalog();
 
     const addTalkset = () => {
         addToEntries({
@@ -101,7 +101,7 @@ const AddToFlowsheetSearch = () => {
         artist: artist,
         album: album,
         label: label,
-        play_freq: null,
+        rotation_id: null,
       };
 
       if (selected > 0 && selected <= binResults.length) {
@@ -113,7 +113,7 @@ const AddToFlowsheetSearch = () => {
         submission.artist = rotationResults[selected - binResults.length - 1].artist.name;
         submission.album = rotationResults[selected - binResults.length - 1].title;
         submission.label = rotationResults[selected - binResults.length - 1].label;
-        submission.play_freq = rotationResults[selected - binResults.length - 1].play_freq;
+        submission.rotation_id = rotationResults[selected - binResults.length - 1].rotation_id;
       }
       if (selected > binResults.length + rotationResults.length && selected <= binResults.length + rotationResults.length + catalogResults.length) {
         submission.artist = catalogResults[selected - binResults.length - rotationResults.length - 1].artist.name;
@@ -152,8 +152,9 @@ const AddToFlowsheetSearch = () => {
     }, []);
 
     useEffect(() => {
-
-        setRotationResults(findInRotation(`${artist} ${album} ${label}`));
+        let data = findInRotation(`${artist} ${album} ${label}`);
+        console.log(data);
+        setRotationResults(data);
         setBinResults(findInBin(`${artist} ${album} ${label}`));
 
     }, [artist, album, label]); 

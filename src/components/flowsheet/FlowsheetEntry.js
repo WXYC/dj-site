@@ -28,6 +28,7 @@ import { useFlowsheet } from '../../services/flowsheet/flowsheet-context';
 import { useLive } from '../../services/flowsheet/live-context';
 import { ClickAwayListener } from '@mui/material';
 import { rotationStyles } from '../station-management/rotation/Rotation';
+import { useCatalog } from '../../services/card-catalog/card-catalog-context';
 
 
 function timeout(ms) {
@@ -78,6 +79,9 @@ const FlowsheetEntry = (props) => {
 
     const [canClose, setCanClose] = useState(false);
     const { live } = useLive();
+
+    const { rotation } = useCatalog();
+    const play_freq = rotation?.find((item) => item.rotation_id == props.rotation_id)?.play_freq ?? null;
   
     const getImage = useCallback(async (default_return = "") => {
       if (props.album == undefined || props.artist == undefined) return default_return;
@@ -243,8 +247,9 @@ const FlowsheetEntry = (props) => {
               }}
             >
               <Badge
-                badgeContent={props.play_freq ?? null}
-                color={props.play_freq  && rotationStyles[props.play_freq]}
+                size='sm'
+                badgeContent={play_freq ?? null}
+                color={play_freq  && rotationStyles[play_freq]}
                 anchorOrigin={{
                   vertical: 'top',
                   horizontal: 'left',
@@ -283,6 +288,7 @@ const FlowsheetEntry = (props) => {
                         album: props.album,
                         label: props.label,
                         request: props.request,
+                        rotation_id: props.rotation_id,
                       });
                       removeFromQueue(props.id);
                     }}

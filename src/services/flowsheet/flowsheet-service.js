@@ -27,6 +27,7 @@ export const addSongToBackend = (song) => setter('flowsheet')({
     album_title: song?.album ?? '',
     track_title: song?.title ?? '',
     record_label: song?.label ?? '',
+    rotation_id: song?.rotation_id ?? null,
 });
 
 export const removeFromFlowsheetBackend = (id) => deleter(`flowsheet`)({

@@ -16,8 +16,10 @@ export const getRotation = async() => {
       return;
     }
 
+    console.log(data);
+
     return data?.map((item) => ({
-      id: item.album_id ?? -1,
+      id: item.id ?? -1,
       artist: {
           genre: item.genre_name ?? '',
           lettercode: item.code_letters ?? '',
@@ -30,7 +32,8 @@ export const getRotation = async() => {
       alternate_artist: '',
       label: item.label ?? '',
       kill_date: item.kill_date ?? null,
-      play_freq: item.play_freq ?? '',
+      rotation_id: item.rotation_id ?? null,
+      play_freq: item.play_freq ?? 0,
       plays: item.plays ?? 0
   }))?.filter((item) => item.kill_date === null) ?? [];
 

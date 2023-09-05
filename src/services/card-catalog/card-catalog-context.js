@@ -171,6 +171,7 @@ export const CatalogProvider = ({children}) => {
         orderDirection,
         setOrderDirection,
         reachedEndForQuery,
+        rotation,
         findInRotation
     };
 

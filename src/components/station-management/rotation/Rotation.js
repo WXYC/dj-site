@@ -199,10 +199,10 @@ export const RotationManagement = () => {
                                     {rotationCodes.map((code) => (
                                         <Button
                                             key={code}
-                                            variant={code === item.play_freq ? "solid" : "soft"}
-                                            color={rotationStyles[code]}
+                                            variant={code === item.play_freq ? "solid" : "outlined"}
+                                            color={code === item.play_freq ? rotationStyles[code] : 'neutral'}
                                             size="sm"
-                                            onClick={() => changeRotation(item.rotation_id, item.library_id, code)}
+                                            onClick={() => changeRotation(item.rotation_id, item.id, code)}
                                             loading={removalWork.includes(item.rotation_id)}
                                         >
                                             {code}

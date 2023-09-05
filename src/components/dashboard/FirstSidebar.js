@@ -65,7 +65,6 @@ export default function FirstSidebar() {
   const [hovering, setHovering] = React.useState(false);
 
   const { live, goOff } = useLive();
-  const { addToEntries } = useFlowsheet();
   const { openPopup } = useContext(PopupContentContext);
 
   const [style, setStyle] = React.useState("primary");

@@ -36,7 +36,7 @@ export const FlowsheetProvider = ({children}) => {
                 album: item.title,
                 label: item.label,
                 request: item.request ?? false,
-                play_freq: item.play_freq ?? null
+                rotation_id: item.rotation_id ?? null
             };
             item = newItem;
         }
@@ -238,7 +238,7 @@ export const FlowsheetProvider = ({children}) => {
                 artist: item.artist_name,
                 label: item.record_label,
                 entry_id: item.id,
-                play_freq: item.play_freq ?? null
+                rotation_id: item.rotation_id ?? null
             }));
 
         let newEntriesPlusOldEntries = [...newEntries, ...(entries.slice(maxEditDepth.current, maxEditDepth.current - newEntries.length))];

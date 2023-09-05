@@ -1,5 +1,5 @@
 import Box from '@mui/joy/Box';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { SongCardProvider } from '../../components/catalog/SongCardContext';
 import FirstSidebar from '../../components/dashboard/FirstSidebar';
@@ -13,6 +13,7 @@ import { PopupProvider } from './Popup';
 import { FlowsheetProvider } from '../../services/flowsheet/flowsheet-context';
 import ProtectedRoute from '../../components/authentication/ProtectedRoute';
 import { CatalogProvider } from '../../services/card-catalog/card-catalog-context';
+import { checkAuth } from '../../services/authentication/authentication-service';
 
 /**
  * @page
@@ -30,6 +31,10 @@ import { CatalogProvider } from '../../services/card-catalog/card-catalog-contex
 const Dashboard = (props) => {
   
   const location = useLocation();
+
+  useEffect(() => {
+    checkAuth();
+  }, [location]);
 
   return (
     <ProtectedRoute>

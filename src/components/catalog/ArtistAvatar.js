@@ -2,6 +2,7 @@ import { Avatar, Badge, Stack, Tooltip, Typography } from "@mui/joy"
 import React from "react"
 import ReactCurvedText from 'react-curved-text';
 import { rotationStyles } from "../station-management/rotation/Rotation";
+import { useCatalog } from "../../services/card-catalog/card-catalog-context";
 
 const GENRE_COLORS = {
     'Rock': 'primary',

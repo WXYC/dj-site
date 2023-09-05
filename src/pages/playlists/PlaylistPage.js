@@ -32,14 +32,15 @@ const PlaylistPage = () => {
                 album: "",
                 artist: "",
                 label: "",
-                entry_id: item.id
+                entry_id: item.id,
             } : {
                 message: "",
                 title: item.track_title,
                 album: item.album_title,
                 artist: item.artist_name,
                 label: item.record_label,
-                entry_id: item.id
+                entry_id: item.id,
+                rotation_id: item.rotation_id
             })) ?? [];
 
         setPlaylist(newPlaylist);
