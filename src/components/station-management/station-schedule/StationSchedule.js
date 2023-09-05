@@ -1,13 +1,14 @@
 import Close from '@mui/icons-material/Close';
 import { AspectRatio, Box, Button, Select, Sheet, Stack, Tooltip, Typography, Option, Autocomplete, IconButton } from "@mui/joy";
 import React, { useEffect, useRef, useState } from "react";
-import { getSchedule } from "../../../services/schedule/schedule-service";
+import { addToSchedule, getSchedule, toDbTime } from "../../../services/schedule/schedule-service";
 import useMousePosition from "../../../widgets/MousePosition";
 import EventWidget from "../../../widgets/dj-schedule/Event";
 import AlbumIcon from '@mui/icons-material/Album';
 import PeopleIcon from '@mui/icons-material/People';
 import StarsIcon from '@mui/icons-material/Stars';
 import { days, hours } from "../../schedule/dj-schedule";
+import { toast } from 'sonner';
 
 const eventColors = {
     'dj-shift': 'primary',
@@ -36,15 +37,20 @@ const StationSchedule = (props) => {
     const [events, setEvents] = useState({});
 
     const [roster, setRoster] = useState([]);
+    const [djsSelected, setDJsSelected] = useState([]);
+
+    const [edited, setEdited] = useState(true);
 
     useEffect(() => {
+        if (!edited) return;
         (async () => {
             const data = await getSchedule();
 
             setEvents(data);
+            setEdited(false);
 
         })();
-    }, []);
+    }, [edited]);
 
     useEffect(() => {
         
@@ -126,6 +132,33 @@ const StationSchedule = (props) => {
 
     useEffect(() => {
     }, [yToMouse]);
+
+    const saveEvent = async () => {
+        
+        let new_event = {
+            day: days.indexOf(daySelected),
+            start_time: toDbTime(startHourSelected, startMinuteSelected),
+            show_duration: (-Number(extent) * 4),
+            specialty_id: null,
+            assigned_dj_id: 1,
+            assigned_dj_id2: null,
+        };
+
+        console.log(new_event);
+
+        const { data, error } = await addToSchedule(new_event);
+
+        if (error) {
+            toast.error("Could not add event");
+            console.error(error);
+            return;
+        }
+
+        console.log(data);
+        setEdited(true);
+
+        closeForm();
+    };
             
 
     return (
@@ -368,6 +401,7 @@ const StationSchedule = (props) => {
                                                             width: '100%',
                                                             maxWidth: '300px'
                                                         }}
+                                                        onChange={(e, newValue) => setDJsSelected(newValue)}
                                                     />
                                                 </td>
                                             </tr>
@@ -385,6 +419,7 @@ const StationSchedule = (props) => {
                                         <Button
                                             color={eventColors[eventType]}
                                             size="sm"
+                                            onClick={saveEvent}
                                         >
                                             Save
                                         </Button>

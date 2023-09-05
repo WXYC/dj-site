@@ -1,5 +1,5 @@
 import { toast } from "sonner";
-import { getter } from "../api-service";
+import { getter, setter } from "../api-service";
 import { getDJInfo } from "../dj/dj-service";
 
 const dayStrings = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -19,6 +19,8 @@ export const getSchedule = async () => {
 
   return Object.fromEntries(formattedSchedule);
 };
+
+export const addToSchedule = (new_event) => setter('schedule')(new_event);
 
 const formatEvent = async (event) => {
     const { id, day, start_time, show_duration, specialty_id, assigned_dj_id, assigned_dj_id2 } = event;
@@ -51,4 +53,28 @@ const extractTo12Hour = (time) => {
     }
 
     return `${hour}-${ampm}`;
+};
+
+export const toDbTime = (hourAmPm, minutes) => {
+    // input: 12 hour time, { hour, ampm }, minutes
+    // output 24 hour time, 00:00:00
+    let hour = hourAmPm['number'];
+    let ampm = hourAmPm['ampm'];
+    if (ampm == 'pm') {
+        hour = Number(hour) + 12;
+    }
+    if (minutes > 45) {
+        minutes = 0;
+        hour = Math.min(hour + minutes / 60, 24);
+    }
+    let hourString = hour.toString();
+    if (hourString.length == 1) {
+        hourString = '0' + hourString;
+    }
+    let minuteString = minutes.toString();
+    if (minuteString.length == 1) {
+        minuteString = '0' + minuteString;
+    }
+    return `${hourString}:${minuteString}:00`;
+    
 };

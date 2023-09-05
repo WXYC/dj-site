@@ -1,11 +1,11 @@
-import { AspectRatio, Box, Button, Input, Sheet, Table, useTheme, Link } from "@mui/joy";
+import { AspectRatio, Box, Button, Input, Sheet, Table, useTheme, Link, FormControl, FormLabel, Select, Option } from "@mui/joy";
 import Checkbox from '@mui/joy/Checkbox';
 import Chip from '@mui/joy/Chip';
 import CircularProgress from '@mui/joy/CircularProgress';
 import IconButton from '@mui/joy/IconButton';
 import Typography from '@mui/joy/Typography';
 import { ClickAwayListener } from "@mui/material";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useCatalog } from "../../../services/card-catalog/card-catalog-context";
 import { SearchBar } from "../../catalog/search/SearchBar";
 
@@ -23,8 +23,14 @@ import { Edit } from "@mui/icons-material";
 
 export const CatalogEditor = (props) => {
 
-    const [editing, setEditing] = useState(true);
-    const [selected, setSelected] = useState([]);
+    const [editing, setEditing] = useState(false);
+    const [edited, setEdited] = useState(false);
+
+    const [song, setSong] = useState({});
+    const [editedSong, setEditedSong] = useState({});
+    const [editList, setEditList] = useState({
+      title: false,
+    });
 
     const { palette } = useTheme();
 
@@ -43,10 +49,19 @@ export const CatalogEditor = (props) => {
         reachedEndForQuery
       } = useCatalog();
 
-      const openEditor = (e) => {
+      const openEditor = (e, song) => {
         e.stopPropagation();
         setEditing(true);
+        setSong(song);
+        setEditedSong(song);
+        console.log(song);
       }
+
+      useEffect(() => {
+        let edited = true;
+        
+        setEdited(edited);
+      }, [editedSong, song])
 
       const TableHeader = ({ textValue }) => {
         return (
@@ -108,13 +123,104 @@ export const CatalogEditor = (props) => {
                 <img src="img/wxyc_dark.jpg" alt="Cassette" />
             </AspectRatio>
             <Box
+              sx = {{
+                width: '100%',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                transform: 'translateY(-50%)',
+                height: 75
+              }}
+            >
+                <Box
+                  sx = {{
+                    backgroundColor: palette.primary[500],
+                    height: 150,
+                    width: 150,
+                    borderRadius: '50%',
+                    '& .MuiInput-root, .MuiSelect-root': {
+                      backgroundColor: 'transparent',
+                      border: 'none !important',
+                      '& input': {
+                        textAlign: 'center',
+                      },
+                      '&.Joy-focused': {
+                        backgroundColor: palette.background.surface
+                      }
+                    }
+                  }}
+                >
+                  <Stack direction={'row'} sx = {{ width: '100%', height: '100%' }} justifyContent={'center'} alignItems={'center'}>
+                    <Select defaultValue={editedSong?.genre} size="sm" indicator={null} onChange={(e, newValue) => setEditedSong((prev) => ({...prev, artist: { ...prev.artist, genre: newValue }}))} >
+                      <Option value="Rock">RO</Option>
+                      <Option value="HipHop">HI</Option>
+                    </Select>
+                    <Stack direction="column" justifyContent={'center'} alignItems={'center'}>
+                      <Input size="sm" sx = {{ width: 50 }} value={editedSong?.artist?.numbercode} onChange={(e, newValue) => setEditedSong((prev) => ({...prev, artist: { ...prev.artist, numbercode: newValue }}))} />
+                      <Box
+                        sx = {{
+                          backgroundColor: palette.neutral[700],
+                          height: 75,
+                          width: 75,
+                          borderRadius: '50%',
+                          display: 'flex',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Input value={editedSong?.artist?.lettercode} onChange={(e, newValue) => setEditedSong((prev) => ({...prev, artist: { ...prev.artist, lettercode: newValue }}))} 
+                          sx = {{
+                            height: '90%',
+                            width: '90%',
+                            borderRadius: '50%',
+                          }}
+                        />
+                      </Box>
+                      <Input size="sm" sx = {{ width: 50 }} value={editedSong?.release_number} onChange={(e, newValue) => setEditedSong((prev) => ({...prev, release_number: newValue }))} />
+                    </Stack>
+                    <Select value={editedSong?.genre} size="sm" indicator={null}>
+                      <Option value="Rock">RO</Option>
+                    </Select>
+                  </Stack>
+                </Box>
+            </Box>
+            <Box
                 sx = {{
                     p: 2,
                 }}
             >
-                <Input
-                    endDecorator={<Button variant="solid" color="primary">Save</Button>}
-                />
+              <Stack direction="column" spacing={2}>
+                <FormControl size="sm">
+                  <FormLabel>Title</FormLabel>
+                  <Input
+                      value={editedSong?.title}
+                      onChange={(e, newValue) => {
+                        setEditedSong((prev) => ({...prev, title: newValue }));
+                      }}
+                  />
+                </FormControl>
+                <FormControl size="sm">
+                  <FormLabel>Artist</FormLabel>
+                  <Input
+                      defaultValue={song?.artist?.name ?? ''}
+                      endDecorator={
+                        editList.artist ? (<Button 
+                          variant="solid" 
+                          color="primary"
+                          onClick={() => {
+                            setEditList((prev) => ({ ...prev, artist: false }));
+                          }}
+                        >
+                          Save
+                        </Button>) : null
+                      }
+                      onChange={(e) => {
+                        setEditList((prev) => ({ ...prev, artist: song?.artist?.name !== e.target.value }));
+                      }}
+                  />
+                </FormControl>
+                {edited && (<Button>Save</Button>)}
+              </Stack>
             </Box>
         </Sheet>
         </ClickAwayListener>
@@ -155,7 +261,7 @@ export const CatalogEditor = (props) => {
                 </tr>
               ) : (releaseList.map((row) => (
                 <tr key={row.id}
-                    onClick={openEditor}
+                    onClick={(e) => openEditor(e, row)}
                     style={{
                         cursor: 'pointer'
                     }}
