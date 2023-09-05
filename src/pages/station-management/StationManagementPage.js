@@ -9,6 +9,7 @@ import StationSchedule from "../../components/station-management/station-schedul
 import { useAuth } from "../../services/authentication/authentication-context";
 import { RotationManagement } from "../../components/station-management/rotation/Rotation";
 import { listUsers } from "../../services/station-management/admin-service";
+import { CatalogEditor } from "../../components/station-management/catalog/CatalogEditor";
 
 /**
  * Depicts the station management page from a station manager perspective.
@@ -145,7 +146,7 @@ const StationManagementPage = ({style}) => {
           <RotationManagement />
         </TabPanel>
         <TabPanel value={3}>
-          <Typography level="h2">Coming Soon</Typography>
+          <CatalogEditor />
         </TabPanel>
         </Tabs>
         </>

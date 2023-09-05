@@ -71,6 +71,7 @@ export const SearchBar = (props) => {
         }}
       >
         <Input
+          color={props.color ?? "neutral"}
           size="sm"
           placeholder="Search"
           startDecorator={<TroubleshootIcon />}
@@ -89,7 +90,7 @@ export const SearchBar = (props) => {
         <IconButton
           size="sm"
           variant="solid"
-          color="primary"
+          color={props.color ?? "primary"}
           onClick={() => { console.log("Search!"); }}
         >
           <SendOutlinedIcon />
@@ -103,7 +104,7 @@ export const SearchBar = (props) => {
             <ModalClose variant="soft" color='primary' sx = {{ marginTop: 'var(--Header-height)' }} />
             <Sheet sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Filters />
-              <Button color="primary" onClick={() => {setOpen(false)}}>
+              <Button color={props.color ?? "primary"} onClick={() => {setOpen(false)}}>
                 Submit
               </Button>
             </Sheet>
@@ -132,6 +133,7 @@ export const SearchBar = (props) => {
         <FormControl sx={{ flex: 1, flexBasis: { xs: '100%', lg: 'unset' } }} size="sm">
           <FormLabel>Search for a song, album, or artist</FormLabel>
           <Input 
+            color={props.color ?? "neutral"}
             placeholder="Search" 
             startDecorator={<TroubleshootIcon />}
             value={props.searchString}
