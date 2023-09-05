@@ -1,9 +1,12 @@
-import { Autocomplete, Box, FormControl, Sheet, Stack, Tab, TabList, TabPanel, Tabs, Tooltip, Typography } from "@mui/joy";
-import React, { useEffect, useRef, useState } from "react";
-import useMousePosition from "../../widgets/MousePosition";
-import simulateAbsolutePositioning from "./station-schedule/SimulateAbsolutePositioning";
-import Chip from '@mui/joy/Chip';
 import Close from '@mui/icons-material/Close';
+import { AspectRatio, Box, Button, Select, Sheet, Stack, Tooltip, Typography, Option, Autocomplete, IconButton } from "@mui/joy";
+import React, { useEffect, useRef, useState } from "react";
+import { getSchedule } from "../../services/schedule/schedule-service";
+import useMousePosition from "../../widgets/MousePosition";
+import EventWidget from "../../widgets/dj-schedule/Event";
+import AlbumIcon from '@mui/icons-material/Album';
+import PeopleIcon from '@mui/icons-material/People';
+import StarsIcon from '@mui/icons-material/Stars';
 import { days, hours } from "../schedule/dj-schedule";
 
 const eventColors = {
@@ -30,6 +33,17 @@ const StationSchedule = () => {
 
     const boolToDifferentiateClickFromDrag = useRef(false);
 
+    const [events, setEvents] = useState({});
+
+    useEffect(() => {
+        (async () => {
+            const data = await getSchedule();
+
+            setEvents(data);
+
+        })();
+    }, []);
+
     const [daySelected, setDaySelected] = useState('');
     const [startHourSelected, setStartHourSelected] = useState(0);
     const [startMinuteSelected, setStartMinuteSelected] = useState(0);
@@ -46,6 +60,13 @@ const StationSchedule = () => {
     const [eventType, setEventType] = useState('dj-shift');
 
     const [hourHeight, setHourHeight] = useState(-1);
+
+    const closeForm = () => {
+        setFormOpen(false);
+        setDragging(false);
+        setDaySelected('');
+        setStartHourSelected(0);
+    };
 
     const handleHourDown = (e, day, hour) => {
         boolToDifferentiateClickFromDrag.current = true;
@@ -196,44 +217,170 @@ const StationSchedule = () => {
                     <Tooltip
                         variant = 'outlined'
                         title = {
-                            <Box 
-                                sx = {{
-                                    p: 1,
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    justifyContent: 'center',
-                                }}
-                            >
-                                <Tabs
-                                    defaultValue={'dj-shift'}
-                                    value={eventType}
-                                    onChange={(e, value) => setEventType(value)}
+                            <Box>
+                                <AspectRatio 
+                                    variant="solid"
+                                    ratio={10} 
+                                    color={eventColors[eventType]}
+                                    sx = {{
+                                        borderTopRightRadius: '4px',
+                                        borderTopLeftRadius: '4px',
+                                    }}
                                 >
-                                    
-                                    <TabPanel value={'dj-shift'}>
-                                        <form>
-                                            <FormControl required>
-                                                <Typography level="body2">Pick DJs</Typography>
-                                                
-                                            </FormControl>
-                                            <FormControl required>
-                                                <Autocomplete>
-
-                                                </Autocomplete>
-                                            </FormControl>
-                                        </form>
-                                    </TabPanel> 
-                                    <TabList   
-                                    variant='soft'                                 
+                                </AspectRatio>
+                                <Box
+                                    sx = {{
+                                        position: 'absolute',
+                                        top: 0,
+                                        right: 0,
+                                        left: 5,
+                                        display: 'flex',
+                                        flexDirection: 'row',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                    }}
+                                >
+                                    <Typography level="body3" variant='solid' sx = {{ background: 'transparent !important' }}>
+                                        {day}s from {hour['number'] + hour['ampm']} to {hour['number'] + hour['ampm']}
+                                    </Typography>
+                                    <IconButton
+                                        variant="solid"
+                                        size="sm"
                                         sx = {{
-                                            mt: 2,
+                                            background: 'transparent',
+                                            '&:hover' : {
+                                                background: 'transparent',
+                                                transform: 'scale(1.1)',
+                                            }
+                                        }}
+                                        onClick={closeForm}
+                                    >
+                                        <Close />
+                                    </IconButton>
+                                </Box>
+                                <Box
+                                    sx = {{
+                                        p: 1,
+                                        minWidth: '300px'
+                                    }}
+                                >
+                                    <table>
+                                        <tbody>
+                                            <tr>
+                                                <td style={{ minWidth: '2rem' }}>
+                                                    <Box sx = {{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        width: '100%',
+                                                        height: '100%',
+                                                    }}>
+                                                        <AlbumIcon
+                                                            color="neutral"
+                                                            fontSize='xl'
+                                                            sx = {{
+                                                                my: 'auto',
+                                                            }}
+                                                        />
+                                                    </Box>
+                                                </td>
+                                                <td style={{ width: '100%' }}>
+                                                    <Select
+                                                        required 
+                                                        color={eventColors[eventType]}
+                                                        variant="solid"
+                                                        placeholder="Select Type"
+                                                        defaultValue={eventType}
+                                                        sx = {{
+                                                            width: '100%',
+                                                        }}
+                                                        onChange={(e, newValue) => setEventType(newValue)}
+                                                    >
+                                                        <Option value="dj-shift">DJ Shift</Option>
+                                                        <Option value="specialty-show">Specialty Show</Option>
+                                                        <Option value="new-dj-shift">New DJ Shift</Option>
+                                                    </Select>
+                                                </td>
+                                            </tr>
+                                            {(eventType == 'specialty-show') && (<tr>
+                                                <td>
+                                                    <Box sx = {{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        width: '100%',
+                                                        height: '100%',
+                                                    }}>
+                                                        <StarsIcon
+                                                            color="neutral"
+                                                            fontSize='xl'
+                                                            sx = {{
+                                                                my: 'auto',
+                                                            }}
+                                                        />
+                                                    </Box>
+                                                </td>
+                                                <td>
+                                                    <Autocomplete
+                                                        required={eventType == 'specialty-show'}
+                                                        multiple 
+                                                        options={[]}
+                                                        placeholder="Select Specialty Show"
+                                                        sx = {{
+                                                            width: '100%',
+                                                        }}
+                                                    />
+                                                </td>
+                                            </tr>)}
+                                            <tr>
+                                                <td>
+                                                    <Box sx = {{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        width: '100%',
+                                                        height: '100%',
+                                                    }}>
+                                                        <PeopleIcon
+                                                            required
+                                                            color="neutral"
+                                                            fontSize='xl'
+                                                            sx = {{
+                                                                my: 'auto',
+                                                            }}
+                                                        />
+                                                    </Box>
+                                                </td>
+                                                <td>
+                                                    <Autocomplete
+                                                        multiple 
+                                                        options={[]}
+                                                        placeholder="Select DJs"
+                                                        sx = {{
+                                                            width: '100%',
+                                                        }}
+                                                    />
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                    <Box
+                                        sx = {{
+                                            display: 'flex',
+                                            flexDirection: 'row',
+                                            justifyContent: 'flex-end',
+                                            width: '100%',
+                                            py: 1,
                                         }}
                                     >
-                                        <Tab value={'dj-shift'}>DJ Shift</Tab>
-                                        <Tab value={'new-dj-shift'}>New DJ Shift</Tab>
-                                        <Tab value={'specialty-show'}>Specialty Show</Tab>
-                                    </TabList>
-                                </Tabs>   
+                                        <Button
+                                            color={eventColors[eventType]}
+                                            size="sm"
+                                        >
+                                            Save
+                                        </Button>
+                                    </Box>
+                                </Box>
                             </Box>
                         }
                         open = {formOpen}
@@ -241,6 +388,7 @@ const StationSchedule = () => {
                         onMouseDown = {(e) => e.stopPropagation()}
                         sx = {{
                             pointerEvents: 'all',
+                            p: 0
                         }}
                     >
                     <Sheet 
@@ -255,7 +403,7 @@ const StationSchedule = () => {
                             right: 0,
                             bottom: yToMouse,
                             borderRadius: '0.5rem',
-                            transition: 'bottom 0.05s ease-in-out'
+                            transition: 'bottom 0.1s ease-in-out'
                         }}
                     >
                         <Typography
@@ -272,6 +420,11 @@ const StationSchedule = () => {
                         </Typography>
                     </Sheet>
                     </Tooltip>
+                )}
+                {events[`${day}-${hour['number']}-${hour['ampm']}`] && (
+                    <EventWidget
+                        {...events[`${day}-${hour['number']}-${hour['ampm']}`]}
+                    />
                 )}
             </Sheet>   
         ))}   

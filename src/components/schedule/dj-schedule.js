@@ -1,4 +1,4 @@
-import React, { createContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import CalendarWidget from "../../widgets/dj-schedule/calendar";
 import { getSchedule } from "../../services/schedule/schedule-service";
 
@@ -30,44 +30,44 @@ export const hours = Array.from(Array(24).keys()).map((hour) => {
 const exampleItems = {
     'Sunday-1-am': {
         type: 'DJ Show',
-        name: '',
-        DJ: 'Turncoat',
+        DJ2: '',
+        DJ1: 'Turncoat',
         lengthInHours: 2,
     },
     'Tuesday-4-am': {
         type: 'DJ Show',
-        name: '',
-        DJ: 'Turncoat',
+        DJ2: '',
+        DJ1: 'Turncoat',
         lengthInHours: 0.25,
     },
     'Monday-5-am': {
         type: 'New DJ Show',
-        name: '',
-        DJ: '',
+        DJ2: '',
+        DJ1: '',
         lengthInHours: 0.5,
     },
     'Wednesday-6-am': {
         type: 'Specialty Show',
-        name: 'Sunset Sountrack',
-        DJ: '',
+        DJ2: 'Sunset Sountrack',
+        DJ1: '',
         lengthInHours: 0.75,
     },
     'Thursday-7-am': {
         type: 'DJ Show',
-        name: '',
-        DJ: '',
+        DJ2: '',
+        DJ1: '',
         lengthInHours: 1,
     },
     'Friday-8-am': {
         type: 'DJ Show',
-        name: 'Dark Sounds',
-        DJ: 'Turncoat',
+        DJ2: 'Dark Sounds',
+        DJ1: 'Turncoat',
         lengthInHours: 3.75,
     },
     'Saturday-9-am': {
         type: 'Specialty Show',
-        name: 'Orange County Special',
-        DJ: '',
+        DJ2: 'Orange County Special',
+        DJ1: '',
         lengthInHours: 4.5,
     },
     

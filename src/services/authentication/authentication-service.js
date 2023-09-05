@@ -14,29 +14,40 @@ const nullResult = { userObject: null, resetPasswordRequired: false, isAuthentic
 // ---------- CREDENTIAL MANAGEMENT ---------- //
 export const refreshCognitoCredentials = async (notify = false, admin = false) => {
     let idToken = sessionStorage.getItem('idToken');
-    let cognitoISP = null;
-    const credentialManager = new AWS.CognitoIdentityCredentials({
-        IdentityPoolId: admin ? process.env.REACT_APP_AWS_ADMIN_IDENTITY_POOL_ID : process.env.REACT_APP_AWS_USER_IDENTITY_POOL_ID,
-        Logins: {
-            [`cognito-idp.${process.env.REACT_APP_AWS_REGION}.amazonaws.com/${process.env.REACT_APP_AWS_USER_POOL_ID}`]: idToken
+
+
+    try {
+        if (!idToken) {
+            throw new Error('No ID Token');
         }
-    });
 
-    return await new Promise((resolve, reject) => {
-        credentialManager.refresh((error) => {
-            if (error) reject(error);
-
-            if (notify) toast.success(`${admin ? 'Admin' : 'Library'} Privilages Granted.`);
-
-            cognitoISP = new AWS.CognitoIdentityServiceProvider({ 
-                apiVersion: '2016-04-18', 
-                region: process.env.REACT_APP_AWS_REGION,
-                credentials: credentialManager
-            });
-
-            resolve(cognitoISP);
+        let cognitoISP = null;
+        const credentialManager = new AWS.CognitoIdentityCredentials({
+            IdentityPoolId: admin ? process.env.REACT_APP_AWS_ADMIN_IDENTITY_POOL_ID : process.env.REACT_APP_AWS_USER_IDENTITY_POOL_ID,
+            Logins: {
+                [`cognito-idp.${process.env.REACT_APP_AWS_REGION}.amazonaws.com/${process.env.REACT_APP_AWS_USER_POOL_ID}`]: idToken
+            }
         });
-    });
+
+        return await new Promise((resolve, reject) => {
+            credentialManager.refresh((error) => {
+                if (error) reject(error);
+
+                if (notify) toast.success(`${admin ? 'Admin' : 'Library'} Privilages Granted.`);
+
+                cognitoISP = new AWS.CognitoIdentityServiceProvider({ 
+                    apiVersion: '2016-04-18', 
+                    region: process.env.REACT_APP_AWS_REGION,
+                    credentials: credentialManager
+                });
+
+                resolve(cognitoISP);
+            });
+        });
+    } catch (e) {
+        console.error(e);
+        logout();
+    }
 }
 
 export const refreshAdminCognitoCredentials = async (notify = false) => refreshCognitoCredentials(notify, true);
