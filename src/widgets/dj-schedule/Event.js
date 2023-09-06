@@ -19,7 +19,7 @@ const EventColors = {
 const EventWidget = (props) => {
 
     const { user } = useAuth();
-    const { colorScheme, open, setOpen } = useContext(CalendarThemeContext);
+    const { colorScheme, open, setOpen } = props.themeData ?? { colorScheme: 'Type', open: false, setOpen: null};
     const [colorChoice, setColorChoice] = useState(null);
 
     const [isOpen, setIsOpen] = useState(false);
@@ -37,14 +37,14 @@ const EventWidget = (props) => {
                 break;
             case 'Relevance':
                 setColorChoice(EventColors.Relevance[
-                    (props.DJ == user?.djName) ? 'mine' : 'not'
+                    (props.DJ1 == user?.djName || props.DJ2 == user?.djName) ? 'mine' : 'not'
                 ]);
                 break;
             default:
                 setColorChoice(null);
                 break;
         }
-    }, [props.type, props.DJ, user.djName, colorScheme]);
+    }, [props.type, props.DJ1, props.DJ2, user.djName, colorScheme]);
 
     return (
         <ClickAwayListener
@@ -68,6 +68,7 @@ const EventWidget = (props) => {
                 borderRadius: '0.5rem',
                 transition: 'all 0.1s ease-in-out',
                 cursor: isOpen ? 'pointer' : (open ? 'default' : 'pointer'),
+                pointerEvents: setOpen ? 'auto' : 'none',
             }}
             onClick = {() => {
                 setIsOpen(!isOpen);
@@ -77,7 +78,7 @@ const EventWidget = (props) => {
             <Badge
                 size="sm"
                 color="warning"
-                invisible={(props.DJ?.length > 0 ? true : false)}
+                invisible={((props.DJ1?.length + props.DJ2?.length) > 0 ? true : false)}
                 sx = {{
                     position: 'absolute',
                     top: 0,
@@ -111,9 +112,9 @@ const EventWidget = (props) => {
                     mt: (props.lengthInHours > 1.5) ? 0 : (props.lengthInHours >= 1) ? 0.5 : (props.lengthInHours > 0.5) ? 0 : (props.lengthInHours > 0.25) ? 0.35 : -0.25,
                 }}
             >
-                1 AM - 2 AM {props.lengthInHours > 0.5 ? '' : `• DJ ${(props.DJ?.length > 0 ? props.DJ : null) ?? 'TBD'}` }
+                1 AM - 2 AM {props.lengthInHours > 0.5 ? '' : `• DJ ${((props.DJ1?.length + props.DJ2?.length) > 0 ? props.DJ1 : null) ?? 'TBD'}` }
             </Typography>
-            {(props.lengthInHours >= 1.75 && props.type != "Specialty Show" && props.name) && (<Typography
+            {(props.lengthInHours >= 1.75 && props.type != "Specialty Show" && props.DJ2) && (<Typography
                 level="body1"
                 sx = {{
                     mx: 1,
@@ -123,9 +124,9 @@ const EventWidget = (props) => {
                     whiteSpace: (props.lengthInHours > 2) ? 'normal' : 'nowrap',
                 }}
             >
-                {props.name}
+                {props.DJ2}
             </Typography>)}
-            {(props.lengthInHours >= 2.5 && props.type != "Specialty Show" && props.name) && (<Typography
+            {(props.lengthInHours >= 2.5 && props.type != "Specialty Show" && props.DJ2) && (<Typography
                 level="body4"
                 sx = {{
                     textTransform: 'uppercase',
@@ -148,7 +149,7 @@ const EventWidget = (props) => {
                     whiteSpace: (props.lengthInHours > 2) ? 'normal' : 'nowrap',
                 }}
             >
-                {(props.type == "Specialty Show" && (props.name?.length > 0)) ? props.name : `DJ ${(props.DJ?.length > 0 ? props.DJ : null) ?? 'TO BE DECIDED'}`}
+                {(props.type == "Specialty Show" && (props.DJ2?.length > 0)) ? props.DJ2 : `DJ ${(props.DJ1?.length > 0 ? props.DJ1 : null) ?? 'TO BE DECIDED'}`}
             </Typography>)}
             {(props.lengthInHours >= 1.5 && props.type == "Specialty Show") && (<Typography
                 level="body4"
@@ -173,7 +174,7 @@ const EventWidget = (props) => {
                     whiteSpace: (props.lengthInHours > 2) ? 'normal' : 'nowrap',
                 }}
             >
-                {`DJ ${(props.DJ?.length > 0 ? props.DJ : null) ?? 'TO BE DECIDED'}`}
+                {`DJ ${(props.DJ1?.length > 0 ? props.DJ1 : null) ?? 'TO BE DECIDED'}`}
             </Typography>)}
         </Sheet>
         </ClickAwayListener>

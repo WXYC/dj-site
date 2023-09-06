@@ -1,5 +1,5 @@
 import Box from '@mui/joy/Box';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { SongCardProvider } from '../../components/catalog/SongCardContext';
 import FirstSidebar from '../../components/dashboard/FirstSidebar';
@@ -13,6 +13,7 @@ import { PopupProvider } from './Popup';
 import { FlowsheetProvider } from '../../services/flowsheet/flowsheet-context';
 import ProtectedRoute from '../../components/authentication/ProtectedRoute';
 import { CatalogProvider } from '../../services/card-catalog/card-catalog-context';
+import { useAuth } from '../../services/authentication/authentication-context';
 
 /**
  * @page
@@ -28,8 +29,6 @@ import { CatalogProvider } from '../../services/card-catalog/card-catalog-contex
  * @returns {JSX.Element} The rendered Dashboard component.
  */
 const Dashboard = (props) => {
-  
-  const location = useLocation();
 
   return (
     <ProtectedRoute>

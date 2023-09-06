@@ -10,6 +10,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import TimerIcon from "@mui/icons-material/Timer";
 import {
     AspectRatio,
+    Badge,
     Button,
     Checkbox,
     CircularProgress,
@@ -26,6 +27,8 @@ import { getArtwork } from "../../services/artwork/artwork-service";
 import { useFlowsheet } from '../../services/flowsheet/flowsheet-context';
 import { useLive } from '../../services/flowsheet/live-context';
 import { ClickAwayListener } from '@mui/material';
+import { rotationStyles } from '../station-management/rotation/Rotation';
+import { useCatalog } from '../../services/card-catalog/card-catalog-context';
 
 
 function timeout(ms) {
@@ -76,6 +79,9 @@ const FlowsheetEntry = (props) => {
 
     const [canClose, setCanClose] = useState(false);
     const { live } = useLive();
+
+    const { rotation } = useCatalog();
+    const play_freq = rotation?.find((item) => item.rotation_id == props.rotation_id)?.play_freq ?? null;
   
     const getImage = useCallback(async (default_return = "") => {
       if (props.album == undefined || props.artist == undefined) return default_return;
@@ -182,7 +188,7 @@ const FlowsheetEntry = (props) => {
             cursor: 'text',
             minWidth: '10px',
           }}
-          onDoubleClick={() => setEditing(live)}
+          onDoubleClick={() => setEditing(props.editable && live)}
         >
           {props.value}&nbsp;
         </Typography>)}
@@ -226,7 +232,7 @@ const FlowsheetEntry = (props) => {
                 right: 0,
               } : {},
             }}
-            onMouseOver={() => setCanClose(live)}
+            onMouseOver={() => setCanClose(props.editable && live)}
             onMouseLeave={() => setCanClose(false)}
           >
             <Stack
@@ -240,6 +246,15 @@ const FlowsheetEntry = (props) => {
                 pr: 2,
               }}
             >
+              <Badge
+                size='sm'
+                badgeContent={play_freq ?? null}
+                color={play_freq  && rotationStyles[play_freq]}
+                anchorOrigin={{
+                  vertical: 'top',
+                  horizontal: 'left',
+                }}
+              >
               <AspectRatio
                 ratio={1}
                 sx={{
@@ -249,8 +264,9 @@ const FlowsheetEntry = (props) => {
                   minHeight: "48px",
                 }}
               >
-                  <img src={image} alt="album art" style={{ minWidth: '48px', minHeight: '48px' }} />
+                  {image ? <img src={image} alt="album art" style={{ minWidth: '48px', minHeight: '48px' }} /> : <CircularProgress />}
               </AspectRatio>
+              </Badge>
               <Stack direction="row" sx={{ flexGrow: 1, maxWidth: 'calc(100% - 98px)' }} spacing={1}>
                 <FlowsheetEntryField label="song" value={props.title} current={props.current} id={props.id} queue={props.type == "queue"} />
                 <FlowsheetEntryField label="artist" value={props.artist} current={props.current} id={props.id} queue={props.type == "queue"} />
@@ -272,6 +288,7 @@ const FlowsheetEntry = (props) => {
                         album: props.album,
                         label: props.label,
                         request: props.request,
+                        rotation_id: props.rotation_id,
                       });
                       removeFromQueue(props.id);
                     }}
@@ -290,7 +307,7 @@ const FlowsheetEntry = (props) => {
                 color={props.request ? "warning" : "neutral"}
                 uncheckedIcon={<PhoneDisabledIcon />}
                 checkedIcon={<PhoneEnabledIcon />}
-                disabled={!live}
+                disabled={!(props.editable && live)}
                 sx = {{
                   opacity: props.request ? 1 : 0.3,
                   '& .MuiCheckbox-checkbox' : {
@@ -314,7 +331,7 @@ const FlowsheetEntry = (props) => {
                   <KeyboardArrowDownIcon />
                 </IconButton>
               ) : (
-                (live) && (<IconButton
+                (props.editable && live) && (<IconButton
                   color="neutral"
                   variant="plain"
                   size="sm"
@@ -468,7 +485,7 @@ const FlowsheetEntry = (props) => {
               height: "40px",
               borderRadius: "md",
             }}
-            onMouseOver = {() => setCanClose(live)}
+            onMouseOver = {() => setCanClose(props.editable && live)}
             onMouseLeave = {() => setCanClose(false)}
           >
                         {(canClose) && (
@@ -530,7 +547,7 @@ const FlowsheetEntry = (props) => {
               height: "40px",
               borderRadius: "md",
             }}
-            onMouseOver = {() => setCanClose(live)}
+            onMouseOver = {() => setCanClose(props.editable && live)}
             onMouseLeave = {() => setCanClose(false)}
           >
           {(canClose) && (
@@ -597,7 +614,7 @@ const FlowsheetEntry = (props) => {
               height: "40px",
               borderRadius: "md",
             }}
-            onMouseOver = {() => setCanClose(live)}
+            onMouseOver = {() => setCanClose(props.editable && live)}
             onMouseLeave = {() => setCanClose(false)}
           >
           {(canClose) && (

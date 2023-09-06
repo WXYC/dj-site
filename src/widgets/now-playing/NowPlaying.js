@@ -11,7 +11,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
 import { Box, Stack, useColorScheme, useTheme } from "@mui/joy";
 import { getArtwork } from "../../services/artwork/artwork-service";
-import { getNowPlayingFromBackend } from "../../services/flowsheet/flowsheet-service";
+import { getDJListFromBackend, getNowPlayingFromBackend } from "../../services/flowsheet/flowsheet-service";
 
 let animationController = null;
 
@@ -54,7 +54,6 @@ const NowPlaying = (props) => {
   const [fadeTimeout, setFadeTimeout] = React.useState(null);
 
   const destroyAndBuildNewCanvas = () => {
-    console.log("destroyAndBuildNewCanvas");
     let container = document.getElementById('canvas-container');
     if (container) {
       container.innerHTML = '';
@@ -93,6 +92,7 @@ const NowPlaying = (props) => {
   };
 
   const [getSongInterval, setGetSongInterval] = React.useState(null);
+  const [getDJListInterval, setgetDJListInterval] = React.useState(null);
   useEffect(() => {
 /*     try {
       setEmbedded(window.self !== window.top);
@@ -123,7 +123,24 @@ const NowPlaying = (props) => {
         })();
     }
 
-    setInterval(getSong, 30000);
+    getSong();
+    setGetSongInterval(setInterval(getSong, 30000));
+
+    const getDJList = async () => {
+      const { data, error } = await getDJListFromBackend();
+
+      if (error) {
+        console.error(error);
+        setDjName(BOT_RESPONSES.dj);
+      }
+
+      if (data) {
+        setDjName(data.dj_name);
+      }
+    }
+
+    getDJList();
+    setgetDJListInterval(setInterval(getDJList, 30000));
 
     var query = window.location.search.substring(1);
     var vars = query.split("&");
@@ -138,6 +155,7 @@ const NowPlaying = (props) => {
     return () => {
       document.removeEventListener('resize', destroyAndBuildNewCanvas);
       if (getSongInterval) clearInterval(getSongInterval);
+      if (getDJListInterval) clearInterval(getDJListInterval);
     }
   }, []);
 

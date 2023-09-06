@@ -1,7 +1,8 @@
 import React, {createContext, useCallback, useContext, useEffect, useRef, useState} from "react";
 import { getSongInfoFromLastFM } from "../artwork/last-fm-image";
 import { toast } from "sonner";
-import { addSongToBackend, getFlowsheetFromBackend, joinBackend, leaveBackend, sendMessageToBackend } from "./flowsheet-service";
+import { addSongToBackend, getFlowsheetFromBackend, removeFromFlowsheetBackend, sendMessageToBackend, updateFlowsheetEntryOnBackend } from "./flowsheet-service";
+import { getRotationEntries } from "../station-management/rotation-service";
 
 const FlowsheetContext = createContext();
 
@@ -11,7 +12,7 @@ export const FlowsheetProvider = ({children}) => {
 
     const [queue, setQueue] = useState([]);
     const [entries, setEntries] = useState([]);
-    const [edited, setEdited] = useState(true);
+    const edited = useRef(true);
     const [breakpointAllowed, setBreakpointAllowed] = useState(true);
     const [autoPlay, setAutoPlay] = useState(false);
     const [currentlyPlayingSongLength, setCurrentlyPlayingSongLength] = useState({ h: 0, m: 0, s: 0, total: 0 });
@@ -19,7 +20,7 @@ export const FlowsheetProvider = ({children}) => {
     const [counter, setCounter] = useState(null); // used to kill timeouts
     const [gettingSongLength, setGettingSongLength] = useState(true); // used to kill timeouts
 
-    const [maxEditDepth, setMaxEditDepth] = useState(50); // used to kill timeouts
+    const maxEditDepth = useRef(50);
 
     // Placeholder indices that allow editing the order of the queue and entries
     const [queuePlaceholderIndex, setQueuePlaceholderIndex] = useState(-1);
@@ -33,7 +34,9 @@ export const FlowsheetProvider = ({children}) => {
                 title: "",
                 artist: item.artist.name,
                 album: item.title,
-                label: item.label
+                label: item.label,
+                request: item.request ?? false,
+                rotation_id: item.rotation_id ?? null
             };
             item = newItem;
         }
@@ -55,10 +58,19 @@ export const FlowsheetProvider = ({children}) => {
         let newEntries = [entry, ...entries];
         index(newEntries);
         
-        autoPlay && entry.message == "" && dispatchAutoPlayOfSong(entry);
+        if (entry.message == "") {
+            if (autoPlay) dispatchAutoPlayOfSong(entry);
+            addSongToBackend(entry);
+        } else {
+            if (!(entry.message.includes("joined") || entry.message.includes("left"))) {
+                sendMessageToBackend(entry.message);
+            }
+        }
+
+        edited.current = true;
+        maxEditDepth.current = maxEditDepth.current + 1;
 
         setEntries(newEntries);
-        updateFlowsheet(entry);
     }
 
     useEffect(() => {
@@ -94,7 +106,7 @@ export const FlowsheetProvider = ({children}) => {
             setGettingSongLength(false);
         } catch (error) {
             toast.error("Song duration not found, autoplay disabled");
-            console.log(error);
+            console.error(error);
             setAutoPlay(false);
             return;
         }
@@ -146,12 +158,18 @@ export const FlowsheetProvider = ({children}) => {
 
     const removeFromEntries = (id) => {
         let newEntries = entries.filter((item) => item.id !== id);
+        removeFromFlowsheetBackend(entries.filter(item => item.id === id)[0].entry_id);
+
+        edited.current = true;
+        maxEditDepth.current = Math.max(entries.findIndex((item) => item.id === id), maxEditDepth.current) + 1;
+
         index(newEntries);
         setEntries(newEntries);
     }
 
     const clearQueue = () => {
         setQueue([]);
+        localStorage.setItem("queue", JSON.stringify([]));
     }
 
     const updateQueueEntry = (id, label, value) => {
@@ -163,35 +181,42 @@ export const FlowsheetProvider = ({children}) => {
 
     const updateEntry = (id, label, value) => {
         let newEntries = [...entries];
+        updateFlowsheetEntryOnBackend(newEntries[id].entry_id, label, value);
         newEntries[id][label] = value;
         setEntries(newEntries);
     }
 
     const [backendCaller, setBackendCaller] = useState(null);
-    const updateWithBackend = useCallback(() => {
-        console.log(`updating from backend i${edited ? 's' : 's not'} necessary`);
-        if (edited) {
+    const updateWithBackend = () => {
+        // console.log(`updating from backend i${edited.current ? 's' : 's not'} necessary`);
+        if (edited.current) {
             (async () => {
 
-                const { data, error } = await getFlowsheetFromBackend({ page: 0, limit: maxEditDepth });
+                const { data, error } = await getFlowsheetFromBackend({ page: 0, limit: maxEditDepth.current });
 
                 if (error) {
                     toast.error("Error updating flowsheet");
-                    setEdited(false);
+                    edited.current = false;
+                    updateEntriesFromBackend([{
+                        message: "The flowsheet is out of sync with the backend. Make sure you are connected to the internet and contact a site admin.",
+                        title: "",
+                        album: "",
+                        artist: "",
+                        label: "",
+                        entry_id: -1
+                    }]);
                     return;
                 }
-
-                console.log(data);
 
                 if (data) {
                     updateEntriesFromBackend(data);
                 }
-                setEdited(false);
-                setMaxEditDepth(0);
+                edited.current = false;
+                maxEditDepth.current = 0;
 
             })();
         }
-    }, [edited, maxEditDepth]);
+    }
 
     const updateEntriesFromBackend = (data) => {
 
@@ -202,60 +227,22 @@ export const FlowsheetProvider = ({children}) => {
                 title: "",
                 album: "",
                 artist: "",
-                label: ""
+                label: "",
+                entry_id: item.id
             } : {
                 message: "",
                 title: item.track_title,
                 album: item.album_title,
                 artist: item.artist_name,
-                label: item.record_label
+                label: item.record_label,
+                entry_id: item.id,
+                rotation_id: item.rotation_id ?? null
             }));
 
-        let newEntriesPlusOldEntries = [...newEntries, ...(entries.slice(maxEditDepth, maxEditDepth - newEntries.length))];
+        let newEntriesPlusOldEntries = [...newEntries, ...(entries.slice(maxEditDepth.current, maxEditDepth.current - newEntries.length))];
 
         index(newEntries);
         setEntries(newEntries);
-    }
-
-    const updateFlowsheet = async (entry = null) => {
-
-        if (entry) {
-            
-            setMaxEditDepth((prev) => prev + 1);
-
-            const { data, error } = await (async (entry) => {
-                if (entry.message == "") {
-                    addSongToBackend(entry);
-                } else {
-                    if (entry.message.includes("joined")) {
-                        return joinBackend().then((data) => {
-                            sessionStorage.setItem("showId", data.data.id);
-                            return { data: data.data, error: null };
-                        }).catch((error) => {
-                            return { data: null, error: error.error };
-                        });
-                    } else if (entry.message.includes("left")) {
-                        return leaveBackend();
-                    } else {
-                        return sendMessageToBackend(entry.message);
-                    }
-                }
-            })(entry);
-
-            if (error) {
-                toast.error("Flowsheet is out of sync with backend. Make sure you are connected to the internet and contact a site admin.");
-                console.log(error);
-                return;
-            }
-
-            if (data) {
-                console.log(data);
-            }
-            
-        }
-
-        // important: mark flowsheet for backend sync
-        setEdited(true);
     }
 
     const switchQueue = (index1, index2) => {
@@ -312,8 +299,7 @@ export const FlowsheetProvider = ({children}) => {
                 removeFromQueue, 
                 addToEntries, 
                 removeFromEntries, 
-                clearQueue, 
-                updateFlowsheet, 
+                clearQueue,
                 queuePlaceholderIndex, 
                 entryPlaceholderIndex, 
                 setQueuePlaceholderIndex, 
@@ -329,6 +315,7 @@ export const FlowsheetProvider = ({children}) => {
                 playOffTop,
                 updateQueueEntry,
                 updateEntry,
+                updateWithBackend
             }}
         >
             {children}

@@ -64,8 +64,7 @@ export default function FirstSidebar() {
   const location = useLocation();
   const [hovering, setHovering] = React.useState(false);
 
-  const { live, setLive } = useLive();
-  const { addToEntries } = useFlowsheet();
+  const { live, goOff } = useLive();
   const { openPopup } = useContext(PopupContentContext);
 
   const [style, setStyle] = React.useState("primary");
@@ -173,8 +172,7 @@ export default function FirstSidebar() {
                 variant='outlined'
             >
           <ListItemButton onClick={() => navigate('/playlists')}
-            variant={location.pathname === '/playlists' ? 'solid' : 'plain'}
-            disabled
+            variant={location.pathname.includes('/playlists') ? 'solid' : 'plain'}
           >
             <StorageIcon />
           </ListItemButton>
@@ -191,7 +189,6 @@ export default function FirstSidebar() {
           <ListItemButton
             onClick={() => navigate('/schedule')}
             variant={location.pathname === '/schedule' ? 'solid' : 'plain'}
-            disabled
           >
          <CalendarMonthIcon />
           </ListItemButton>
@@ -286,10 +283,7 @@ export default function FirstSidebar() {
               <ConfirmPopup
                 message="You're Live! Would you like to complete the flowsheet and log out?"
                 onConfirm={() => {
-                  setLive(false);
-                  addToEntries({
-                    message: `DJ ${user.djName} left at ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`,
-                  })
+                  goOff();
                   handleLogout();
                 }}
               />

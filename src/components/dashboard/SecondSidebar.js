@@ -185,7 +185,7 @@ export default function SecondSidebar() {
             <div>
             {bin.length > 0 ? (
               bin.map((item, index) => (
-                <React.Fragment key={index}>
+                <React.Fragment key={`${index}-${item.id}`}>
                   <Stack direction = "row" spacing = {2}
                     sx = {{
                       mt: 1,
@@ -200,6 +200,7 @@ export default function SecondSidebar() {
                       />
                       <div>
                       <ScrollOnHoverText
+                      key = {`${index}-${item.id}-name`}
                         level='body4'
                         sx = {{
                           whiteSpace: 'nowrap',
@@ -211,6 +212,7 @@ export default function SecondSidebar() {
                         {item.artist.name}
                       </ScrollOnHoverText>
                       <ScrollOnHoverText
+                      key={`${index}-${item.id}-title`}
                       level='body2'
                         sx = {{
                           whiteSpace: 'nowrap',

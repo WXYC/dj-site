@@ -48,73 +48,37 @@ export const callApi = async (options) => {
   }
 };
 
-
-export const getter = (url) => {
-    return async () => {
-        const config = {
-            method: "GET",
-            url: `${apiServerUrl}/${url}`,
-        }
-
-        const { data, error } = await callApi({ config });
-
-        return {
-            data: data,
-            error,
-        }
-    }
-}
-
-export const setter = (url) => {
+/**
+ * @param {string} method - The HTTP method to use.
+ * @returns {function} A function that takes a url and returns a function that takes data and returns a promise.
+ */
+const api_caller = (method) => {
+  return (url) => {
     return async (data_in) => {
-        const config = {
-            method: "POST",
-            url: `${apiServerUrl}/${url}`,
-            data: data_in,
-        }
+      const config = {
+        method,
+        url: `${apiServerUrl}/${url}`,
+        data: data_in,
+      };
 
-        const { data, error } = await callApi({ config });
+      const { data, error } = await callApi({ config });
 
-        return {
-            data: data,
-            error,
-        }
-    }
-}
+      return {
+        data: data,
+        error,
+      };
+    };
+  }
+};
 
-export const deleter = (url) => {
-    return async (data_in) => {
-        const config = {
-            method: "DELETE",
-            url: `${apiServerUrl}/${url}`,
-            data: data_in,
-        }
+/**
+ * @description Note that this function cannot take a data parameter, despite the presence of the argument in the function signature.
+ */
+export const getter = api_caller("GET");
 
-        const { data, error } = await callApi({ config });
+export const setter = api_caller("POST");
 
-        return {
-            data: data,
-            error,
-        }
-    }
-}
+export const deleter = api_caller("DELETE");
 
-export const updater = (url) => {
-    return async (data_in) => {
-        const config = {
-            method: "PUT",
-            url: `${apiServerUrl}/${url}`,
-            data: data_in,
-        }
-
-        const { data, error } = await callApi({ config });
-
-        return {
-            data: data,
-            error,
-        }
-    }
-}
-
-    
+export const updater = api_caller("PATCH");
     

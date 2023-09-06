@@ -23,6 +23,11 @@ code {
     monospace;
 }
 
+/* fix for autocomplete z-index since we're hacking the tooltip on the schedule edit page in station management */
+.MuiAutocomplete-listbox, .MuiAutocomplete-listbox > * {
+  z-index: 800000 !important;
+}
+
 /* CLASSIC VIEW CSS. REMOVE BELOW HERE IF ELIMINATING. */
 
 html[data-classic-view="true"] body {

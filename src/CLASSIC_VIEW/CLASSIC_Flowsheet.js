@@ -12,7 +12,7 @@ const CLASSIC_Flowsheet = ({ logout }) => {
 
   const [notification, setNotification] = useState('');
 
-  const { live, setLive } = useLive();
+  const { live, goLive, goOff } = useLive();
   const { entries, addToEntries, removeFromEntries, switchEntry } = useFlowsheet();
   const { user } = useAuth();
 
@@ -479,10 +479,7 @@ const CLASSIC_Flowsheet = ({ logout }) => {
         <img src = 'img/wxyc-logo-classic.gif' />
         <p>Welcome, DJ Turncoat</p>
         <button onClick={() => {
-          setLive(true);
-          addToEntries({
-            message: `DJ ${user.djName} joined at ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`,
-          });
+          goLive();
         }} className="button">Sign On and Start the Show!</button>
     </div>
   );

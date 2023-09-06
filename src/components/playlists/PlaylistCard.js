@@ -39,10 +39,10 @@ const PlaylistCard = ({ playlist }) => {
                             title: info.title,
                             artist: info.artist
                         });
-                        sessionStorage.setItem(`${info.title}-${info.artist}`, retrievedArtwork);
+                        sessionStorage.setItem(`img-${info.title}-${info.artist}`, retrievedArtwork);
                         return retrievedArtwork;
                     } catch (e) {
-                        sessionStorage.setItem(`${info.title}-${info.artist}`, '');
+                        sessionStorage.setItem(`img-${info.title}-${info.artist}`, 'img/cassette.png');
                         return '';
                     }
                 })
@@ -72,7 +72,7 @@ const PlaylistCard = ({ playlist }) => {
                 cursor: 'pointer',
             }}
             onClick={() => {
-                navigate(`/playlists/${user.djName}/${playlist.name}`);
+                navigate(`/playlists/${user.djName}/${playlist.id}`);
             }}
         >
             <CardOverflow>
@@ -125,6 +125,7 @@ const PlaylistCard = ({ playlist }) => {
                         >
                             <Typography
                                 level="body1"
+                                textColor={'white'}
                             >
                                 {playlist.name}
                             </Typography>

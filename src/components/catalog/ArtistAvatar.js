@@ -1,6 +1,8 @@
-import { Avatar, Stack, Tooltip, Typography } from "@mui/joy"
+import { Avatar, Badge, Stack, Tooltip, Typography } from "@mui/joy"
 import React from "react"
 import ReactCurvedText from 'react-curved-text';
+import { rotationStyles } from "../station-management/rotation/Rotation";
+import { useCatalog } from "../../services/card-catalog/card-catalog-context";
 
 const GENRE_COLORS = {
     'Rock': 'primary',
@@ -115,6 +117,10 @@ export const ArtistAvatar = (props) => {
 
     return (
         <Tooltip title={props.artist.entry} placement="top">
+        <Badge
+            badgeContent={props.play_freq ?? null}
+            color={props.play_freq  && rotationStyles[props.play_freq]}
+        >
         <Avatar
             variant={variant_choice}
             color = {color_choice}
@@ -176,6 +182,7 @@ export const ArtistAvatar = (props) => {
             </Stack>
             </Stack>
         </Avatar>
+        </Badge>
         </Tooltip>
     )
 }

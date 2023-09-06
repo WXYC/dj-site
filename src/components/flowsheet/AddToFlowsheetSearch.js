@@ -23,6 +23,7 @@ import { useLive } from "../../services/flowsheet/live-context";
 import { ClickAwayListener } from "@mui/material";
 import { BinContext } from "../../services/bin/bin-context";
 import { getReleasesMatching } from "../../services/card-catalog/card-catalog-service";
+import { useCatalog } from "../../services/card-catalog/card-catalog-context";
 
 /**
  * @component
@@ -35,11 +36,12 @@ import { getReleasesMatching } from "../../services/card-catalog/card-catalog-se
  */
 const AddToFlowsheetSearch = () => {
 
-    const { live, setLive } = useLive();
+    const { live, goLive, goOff } = useLive();
     const { user } = useAuth();
     const { queue, addToQueue, entries, addToEntries } = useFlowsheet();
 
-    const { bin, findInBin } = useContext(BinContext);
+    const { findInBin } = useContext(BinContext);
+    const { rotation, findInRotation } = useCatalog();
 
     const addTalkset = () => {
         addToEntries({
@@ -99,6 +101,7 @@ const AddToFlowsheetSearch = () => {
         artist: artist,
         album: album,
         label: label,
+        rotation_id: null,
       };
 
       if (selected > 0 && selected <= binResults.length) {
@@ -110,6 +113,7 @@ const AddToFlowsheetSearch = () => {
         submission.artist = rotationResults[selected - binResults.length - 1].artist.name;
         submission.album = rotationResults[selected - binResults.length - 1].title;
         submission.label = rotationResults[selected - binResults.length - 1].label;
+        submission.rotation_id = rotationResults[selected - binResults.length - 1].rotation_id;
       }
       if (selected > binResults.length + rotationResults.length && selected <= binResults.length + rotationResults.length + catalogResults.length) {
         submission.artist = catalogResults[selected - binResults.length - rotationResults.length - 1].artist.name;
@@ -148,10 +152,10 @@ const AddToFlowsheetSearch = () => {
     }, []);
 
     useEffect(() => {
-
+        setRotationResults(findInRotation(`${artist} ${album} ${label}`));
         setBinResults(findInBin(`${artist} ${album} ${label}`));
 
-    }, [artist, album, label]);
+    }, [artist, album, label]); 
     
     const handleKeyDown = useCallback(
       (e) => {
@@ -207,7 +211,7 @@ return (
             top: -5,
             left: -5,
             right: -5,
-            zIndex: 1,
+            zIndex: 8000,
             borderRadius: "md",
             transition: "height 0.2s ease-in-out",
             boxShadow: "0px 34px 24px -9px rgba(0,0,0,0.5)",
@@ -323,6 +327,21 @@ return (
                       }}
                     >
                       {binItem.artist.genre} {binItem.artist.lettercode} {binItem.artist.numbercode}/{binItem.release_number}
+                      <Chip
+                        variant="soft"
+                        size="sm"
+                        color={
+                          {
+                            cd: 'primary',
+                            vinyl: 'warning',
+                          }[binItem.format.includes('vinyl') ? 'vinyl' : 'cd']
+                        }
+                        sx = {{
+                          ml: 2,
+                        }}
+                      >
+                        {binItem.format.includes('vinyl') ? 'vinyl' : 'cd'}
+                      </Chip>
                     </Typography>
                   </Stack>
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
@@ -382,6 +401,126 @@ return (
                 </Stack>))}
               </Stack>
             </>)}
+            {(rotationResults.length > 0) && (<>
+              <Divider />
+              <Box
+                sx={{
+                  p: 1,
+                }}
+              >
+                <Typography level="body4">FROM ROTATION</Typography>
+              </Box>
+              <Stack direction="column">
+                {rotationResults.map((rotationItem, index) => (
+                <Stack
+                  key={`rotation-${index}`}
+                  direction="row"
+                  justifyContent="space-between"
+                  sx={{
+                    p: 1,
+                    backgroundColor:
+                      selected == (1 + binResults.length + index) ? "primary.700" : "transparent",
+                    cursor: "pointer",
+                  }}
+                  onMouseOver={() => setSelected(1 + binResults.length + index)}
+                  onClick={submitResult}
+                >
+                  <ArtistAvatar
+                    artist={rotationItem.artist}
+                    format={rotationItem.format}
+                    entry={rotationItem.release_number}
+                    play_freq={rotationItem.play_freq}
+                  />
+                  <Stack direction="column" sx={{ width: "calc(20%)" }}>
+                    <Typography level="body4" sx={{ 
+                      mb: -1,
+                      color: selected == (1 + binResults.length + index) ? "neutral.200" : "inherit",
+                    }}>
+                      CODE
+                    </Typography>
+                    <Typography
+                      sx={{
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        color: selected == (1 + binResults.length + index) ? "white" : "inherit",
+                      }}
+                    >
+                      {rotationItem.artist.genre} {rotationItem.artist.lettercode} {rotationItem.artist.numbercode}/{rotationItem.release_number}
+                      <Chip
+                        variant="soft"
+                        size="sm"
+                        color={
+                          {
+                            cd: 'primary',
+                            vinyl: 'warning',
+                          }[rotationItem.format.includes('vinyl') ? 'vinyl' : 'cd']
+                        }
+                        sx = {{
+                          ml: 2,
+                        }}
+                      >
+                        {rotationItem.format.includes('vinyl') ? 'vinyl' : 'cd'}
+                      </Chip>
+                    </Typography>
+                  </Stack>
+                  <Stack direction="column" sx={{ width: "calc(20%)" }}>
+                    <Typography level="body4" sx={{ 
+                      mb: -1,
+                      color: selected == (1 + binResults.length + index) ? "neutral.200" : "inherit",
+                    }}>
+                      ARTIST
+                    </Typography>
+                    <Typography
+                      sx={{
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        color: selected == (1 + binResults.length + index) ? "white" : "inherit",
+                      }}
+                    >
+                      {rotationItem.artist.name}
+                    </Typography>
+                  </Stack>
+                  <Stack direction="column" sx={{ width: "calc(20%)" }}>
+                    <Typography level="body4" sx={{ 
+                      mb: -1,
+                      color: selected == (1 + binResults.length + index) ? "neutral.200" : "inherit",
+                    }}>
+                      ALBUM
+                    </Typography>
+                    <Typography
+                      sx={{
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        color: selected == (1 + binResults.length + index) ? "white" : "inherit",
+                      }}
+                    >
+                      {rotationItem.title}
+                    </Typography>
+                  </Stack>
+                  <Stack direction="column" sx={{ width: "calc(20%)" }}>
+                    <Typography level="body4" sx={{ 
+                      mb: -1,
+                      color: selected == (1 + binResults.length + index) ? "neutral.200" : "inherit",
+                    }}>
+                      LABEL
+                    </Typography>
+                    <Typography
+                      sx={{
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        color: selected == (1 + binResults.length + index) ? "white" : "inherit",
+                      }}
+                    >
+                      {rotationItem.label}
+                    </Typography>
+                  </Stack>
+                </Stack>))}
+              </Stack>
+            </>)}
             {(catalogResults.length > 0) && (<>
               <Divider />
               <Box
@@ -400,10 +539,10 @@ return (
                   sx={{
                     p: 1,
                     backgroundColor:
-                      selected == (1 + binResults.length + index) ? "primary.700" : "transparent",
+                      selected == (1 + binResults.length + rotationResults.length + index) ? "primary.700" : "transparent",
                     cursor: "pointer",
                   }}
-                  onMouseOver={() => setSelected(1 + binResults.length + index)}
+                  onMouseOver={() => setSelected(1 + binResults.length + rotationResults.length + index)}
                   onClick={submitResult}
                 >
                   <ArtistAvatar
@@ -415,7 +554,7 @@ return (
                     <Typography level="body4" 
                       sx={{
                         mb: -1,
-                        color: selected == (1 + binResults.length + index) ? "neutral.200" : "inherit",
+                        color: selected == (1 + binResults.length + rotationResults.length + index) ? "neutral.200" : "inherit",
                       }}
                     >
                       CODE
@@ -425,17 +564,32 @@ return (
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
-                        color: selected == (1 + binResults.length + index) ? "white" : "inherit",
+                        color: selected == (1 + binResults.length + rotationResults.length + index) ? "white" : "inherit",
                       }}
                     >
                       {catalogItem.artist.genre} {catalogItem.artist.lettercode} {catalogItem.artist.numbercode}/{catalogItem.release_number}
+                      <Chip
+                        variant="soft"
+                        size="sm"
+                        color={
+                          {
+                            cd: 'primary',
+                            vinyl: 'warning',
+                          }[catalogItem.format.includes('vinyl') ? 'vinyl' : 'cd']
+                        }
+                        sx = {{
+                          ml: 2,
+                        }}
+                      >
+                        {catalogItem.format.includes('vinyl') ? 'vinyl' : 'cd'}
+                      </Chip>
                     </Typography>
                   </Stack>
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
                     <Typography level="body4" 
                       sx={{
                         mb: -1,
-                        color: selected == (1 + binResults.length + index) ? "neutral.200" : "inherit",
+                        color: selected == (1 + binResults.length + rotationResults.length + index) ? "neutral.200" : "inherit",
                       }}
                     >
                       ARTIST
@@ -445,7 +599,7 @@ return (
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
-                        color: selected == (1 + binResults.length + index) ? "white" : "inherit",
+                        color: selected == (1 + binResults.length + rotationResults.length + index) ? "white" : "inherit",
                       }}
                     >
                       {catalogItem.artist.name}
@@ -455,7 +609,7 @@ return (
                     <Typography level="body4" 
                       sx={{
                         mb: -1,
-                        color: selected == (1 + binResults.length + index) ? "neutral.200" : "inherit",
+                        color: selected == (1 + binResults.length + rotationResults.length + index) ? "neutral.200" : "inherit",
                       }}
                     >
                       ALBUM
@@ -465,7 +619,7 @@ return (
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
-                        color: selected == (1 + binResults.length + index) ? "white" : "inherit",
+                        color: selected == (1 + binResults.length + rotationResults.length + index) ? "white" : "inherit",
                       }}
                     >
                       {catalogItem.title}
@@ -475,7 +629,7 @@ return (
                     <Typography level="body4" 
                       sx={{
                         mb: -1,
-                        color: selected == (1 + binResults.length + index) ? "neutral.200" : "inherit",
+                        color: selected == (1 + binResults.length + rotationResults.length + index) ? "neutral.200" : "inherit",
                       }}
                     >
                       LABEL
@@ -485,7 +639,7 @@ return (
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
-                        color: selected == (1 + binResults.length + index) ? "white" : "inherit",
+                        color: selected == (1 + binResults.length + rotationResults.length + index) ? "white" : "inherit",
                       }}
                     >
                       {catalogItem.label}
@@ -554,7 +708,7 @@ return (
           display: 'flex',
           justifyContent: 'space-between',
           flexDirection: 'row',
-          zIndex: 2,
+          zIndex: 8001,
           background: 'var(--joy-palette-background-surface)',
           outline: '1px solid',
           outlineColor: 'var(--joy-palette-neutral-outlinedBorder, var(--joy-palette-neutral-200, #D8D8DF))',

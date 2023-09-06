@@ -11,6 +11,8 @@ import DJSchedule from "../../components/schedule/dj-schedule";
  */
 const SchedulePage = () => {
 
+  
+
     return (
         <>
         <Box

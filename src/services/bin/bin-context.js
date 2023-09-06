@@ -14,15 +14,13 @@ const BinProvider = ({ children }) => {
   const [bin, setBin] = useState([]);
 
   const findInBin = (query) => {
-    if (query.length < 3) return [];
+    if (query.length <= 3) return [];
     const searchTerms = query.toLowerCase().split(' ');
 
     var matches = [];
 
     for (var i = 0; i < bin.length; i++) {
       var item = bin[i];
-
-      console.log(item);
 
       var isMatch = true;
 

@@ -18,55 +18,40 @@ import {
   Table,
   Tooltip
 } from "@mui/joy";
-import { PopupContentContext } from "../../pages/dashboard/Popup";
-import { useAuth } from "../../services/authentication/authentication-context";
-import { deleteUser, listUsers, makeAdmin, removeAdmin } from "../../services/station-management/admin-service";
-import { ConfirmPopup } from "../general/popups/general-popups";
-import exportDjsAsCSV from "./csv-export";
-import { AddDJsPopup } from "./popups/add-djs";
-import { ResetPasswordPopup } from "./popups/reset-password";
+import { PopupContentContext } from "../../../pages/dashboard/Popup";
+import { useAuth } from "../../../services/authentication/authentication-context";
+import { deleteUser, listUsers, makeAdmin, removeAdmin } from "../../../services/station-management/admin-service";
+import { ConfirmPopup } from "../../general/popups/general-popups";
+import exportDjsAsCSV from "../csv-export";
+import { AddDJsPopup } from "../popups/add-djs";
+import { ResetPasswordPopup } from "../popups/reset-password";
 
 /**
- * Represents a DJ roster component for managing DJs and their profiles.
+ * Represents a DJ roster component for managing djs and their profiles.
  *
  * @component
  * @category Station Management
  *
  * @param {Object} props - The component props.
- * @param {string} [props.style] - The color style for the component.
+ * @param {string} [props.props.style] - The color props.style for the component.
  *
  * @returns {JSX.Element} The DJRoster component.
  */
-const DJRoster = ({ style }) => {
+const DJRoster = (props) => {
 
   const { openPopup, closePopup } = useContext(PopupContentContext);
 
   const { user } = useAuth();
-
-  const [loading, setLoading] = useState(true);
-
-  const [djs, setDjs] = useState([]);
+  
   const [results, setResults] = useState([]);
   const [searchString, setSearchString] = useState("");
 
-  const updateDjs = async () => {
-    setLoading(true);
-    listUsers().then((data) => {
-      setDjs(data);
-      setLoading(false);
-    });
-  };
-
-  useEffect(() => {
-    updateDjs();
-  }, []);
-
   useEffect(() => {
     if (searchString.length === 0) {
-      setResults(djs);
+      setResults(props.roster);
     } else {
       setResults(
-        djs.filter(
+        props.roster.filter(
           (dj) =>
             dj.name.toLowerCase().includes(searchString.toLowerCase()) ||
             dj.username.toLowerCase().includes(searchString.toLowerCase()) ||
@@ -74,7 +59,7 @@ const DJRoster = ({ style }) => {
         )
       );
     }
-  }, [searchString, djs]);
+  }, [searchString, props.roster]);
 
   const DJEntry = ({ name, username, djname, shows, isAdmin, isSelf }) => {
 
@@ -84,10 +69,10 @@ const DJRoster = ({ style }) => {
           message={`Are you sure you want to delete ${((name?.length > 0) ? name : null) ?? username ?? 'this account'}?`}
           onConfirm={() => {
             (async () => {
-              setLoading(true);
+              props.setLoading(true);
               await deleteUser(username);
-              setDjs(await listUsers());
-              setLoading(false);
+              props.setDjs(await listUsers());
+              props.setLoading(false);
             })();
           }}
         />
@@ -100,7 +85,7 @@ const DJRoster = ({ style }) => {
             message={(isAdmin) ? 
               `Are you sure you want to remove admin privileges for ${((name?.length > 0) ? name : null) ?? username ?? 'this account'}?` : 
               `Are you sure you want to grant admin privileges for ${((name?.length > 0) ? name : null) ?? username ?? 'this account'}?`}
-            onConfirm={() => { ((isAdmin) ? removeAdmin(username) : makeAdmin(username)).then(() => updateDjs()) }}
+            onConfirm={() => { ((isAdmin) ? removeAdmin(username) : makeAdmin(username)).then(() => props.updateDjs()) }}
           />
         )
     };
@@ -115,7 +100,7 @@ const DJRoster = ({ style }) => {
         >
           <Checkbox
             disabled = {isSelf}
-            color={style ?? "success"}
+            color={props.style ?? "success"}
             sx={{ transform: "translateY(3px)" }}
             checked={isAdmin}
             onChange={handleChangeAdmin}
@@ -134,7 +119,7 @@ const DJRoster = ({ style }) => {
               variant="outlined"
                 size="sm"
             >
-              <IconButton color={style ?? "success"} variant="solid" size="sm">
+              <IconButton color={props.style ?? "success"} variant="solid" size="sm">
                 <ManageHistoryIcon />
               </IconButton>
             </Tooltip>
@@ -145,7 +130,7 @@ const DJRoster = ({ style }) => {
               variant="outlined"
               size="sm"
             >
-              <IconButton color={style ?? "success"} variant="solid" size="sm"
+              <IconButton color={props.style ?? "success"} variant="solid" size="sm"
                 onClick={() => {
                   openPopup(
                     <ResetPasswordPopup username={username} />
@@ -193,16 +178,16 @@ const DJRoster = ({ style }) => {
         >
           <FormControl>
             <Input 
-              color = {style ?? "success"}
+              color = {props.style ?? "success"}
               size="sm" 
               sx={{ minWidth: '400px' }} 
-              placeholder="Search DJs"
+              placeholder="Search props.roster"
               startDecorator = {<TroubleshootIcon />}
               endDecorator = {
                 (searchString.length > 0) && (
                   <Button
                   variant="plain"
-                  color = {style ?? "success"}
+                  color = {props.style ?? "success"}
                   size="sm"
                   onClick={() => { setSearchString(""); }}
                   sx = {{
@@ -228,18 +213,18 @@ const DJRoster = ({ style }) => {
       >
         <Button
           variant="outlined"
-          color={style ?? "success"}
+          color={props.style ?? "success"}
           size="sm"
           onClick={() => {
-            exportDjsAsCSV(results, searchString.length > 0 ? `djs-search-${searchString}` : "djs");
+            exportDjsAsCSV(results, searchString.length > 0 ? `props.roster-search-${searchString}` : "props.roster");
           }}
         >
           Export Roster as CSV
         </Button>
-        <Button variant="solid" color={style ?? "success"} size="sm"
-          onClick = {() => { openPopup(<AddDJsPopup style={style} callback={async () => { setDjs(await listUsers()); }} />); }}
+        <Button variant="solid" color={props.style ?? "success"} size="sm"
+          onClick = {() => { openPopup(<AddDJsPopup style={props.style} callback={async () => { props.setDjs(await listUsers()); }} />); }}
         >
-          Add DJs
+          Add djs
         </Button>
       </Stack>
       </Stack>
@@ -284,12 +269,12 @@ const DJRoster = ({ style }) => {
           </tr>
         </thead>
         <tbody>
-          {(loading) ? (
+          {(props.loading) ? (
             <tr
               style={{ background: 'transparent' }}
             >
             <td colSpan={6} style={{ textAlign: "center", paddingTop: '2rem' }}>
-              <CircularProgress color={style ?? "success" } />
+              <CircularProgress color={props.style ?? "success" } />
             </td>
             </tr>
           ) : (results.map((dj) => (

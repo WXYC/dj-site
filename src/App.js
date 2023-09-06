@@ -80,7 +80,7 @@ function App() {
                       <Route path="/playlists">
                         <Route path="" element={<PlaylistsPage />} />
                         <Route path=":djName">
-                          <Route path=":playlistName" element={
+                          <Route path=":playlistId" element={
                             <PlaylistPage />
                           } />
                         </Route>

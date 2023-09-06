@@ -134,6 +134,7 @@ const CalendarWidget = (props) => {
     >
         {props.items[`${day}-${hour['number']}-${hour['ampm']}`] && (
             <EventWidget 
+                themeData = {{ colorScheme, open, setOpen }}
                 {...props.items[`${day}-${hour['number']}-${hour['ampm']}`]}
             />
         )}

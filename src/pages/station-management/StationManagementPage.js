@@ -1,12 +1,15 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Box, Button, Link, Tab, TabList, TabPanel, Tabs, Typography } from "@mui/joy";
 import { tabClasses } from "@mui/joy";
-import DJRoster from "../../components/station-management/DJRoster";
+import DJRoster from "../../components/station-management/roster/DJRoster";
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { toast } from "sonner";
 import { Auth } from "aws-amplify";
-import StationSchedule from "../../components/station-management/StationSchedule";
+import StationSchedule from "../../components/station-management/station-schedule/StationSchedule";
 import { useAuth } from "../../services/authentication/authentication-context";
+import { RotationManagement } from "../../components/station-management/rotation/Rotation";
+import { listUsers } from "../../services/station-management/admin-service";
+import { CatalogEditor } from "../../components/station-management/catalog/CatalogEditor";
 
 /**
  * Depicts the station management page from a station manager perspective.
@@ -25,6 +28,21 @@ import { useAuth } from "../../services/authentication/authentication-context";
 const StationManagementPage = ({style}) => {
 
   const { user } = useAuth();
+
+  const [djs, setDjs] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const updateDjs = async () => {
+    setLoading(true);
+    listUsers().then((data) => {
+      setDjs(data);
+      setLoading(false);
+    });
+  };
+
+  useEffect(() => {
+    updateDjs();
+  }, []);
 
     return (
         <>
@@ -101,19 +119,34 @@ const StationManagementPage = ({style}) => {
           },
         }}
       >
-        <Tab sx = {{ py: 1.5 }}>DJ Roster</Tab>
-        <Tab sx = {{ py: 1.5 }}>Station Schedule</Tab>
+        <Tab sx = {{ py: 1.5 }}>Roster</Tab>
+        <Tab sx = {{ py: 1.5 }}>Schedule</Tab>
+        <Tab sx = {{ py: 1.5 }}>Rotation</Tab>
         <Tab sx = {{ py: 1.5 }}>Catalog</Tab>
       </TabList>
       <TabPanel value={0}>
-        <DJRoster />
+        <DJRoster  
+          roster={djs} 
+          updateDjs={updateDjs}
+          setDjs={setDjs}
+          loading={loading}
+          setLoading={setLoading}
+        />
         </TabPanel>
         <TabPanel value={1}
         sx = {{
           flex: '0 1 auto',
         }}
         >
-        <StationSchedule />
+        <StationSchedule
+          roster={djs}
+        />
+        </TabPanel>
+        <TabPanel value={2}>
+          <RotationManagement />
+        </TabPanel>
+        <TabPanel value={3}>
+          <CatalogEditor />
         </TabPanel>
         </Tabs>
         </>

@@ -1,11 +1,13 @@
 import React, { useEffect } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../services/authentication/authentication-context";
 import { toast } from "sonner";
 
 const ProtectedRoute = (props) => {
 
   const { isAuthenticated, checkAuth, setIsAuthenticated, setAuthenticating, setAuthResult } = useAuth();
+
+  const { location } = useLocation();
 
   useEffect(() => {
     const checkAuthStatus = async () => {
@@ -21,7 +23,7 @@ const ProtectedRoute = (props) => {
         }
     }
     checkAuthStatus();
-}, []);
+}, [location]);
 
   return isAuthenticated ? props.children : <Navigate to={`/login?continue=${window.location.pathname}`} />
 };

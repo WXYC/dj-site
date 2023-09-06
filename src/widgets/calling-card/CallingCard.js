@@ -18,7 +18,7 @@ const CallingCard = ({
     funFactType
 }) => {
 
-    const [live, setLive] = React.useState(true); // TODO: replace with real data
+    const [live ] = React.useState(true); // TODO: replace with real data
 
     return (
     <Box
