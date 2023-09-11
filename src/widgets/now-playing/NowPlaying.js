@@ -12,6 +12,7 @@ import StopIcon from '@mui/icons-material/Stop';
 import { Box, Stack, useColorScheme, useTheme } from "@mui/joy";
 import { getArtwork } from "../../services/artwork/artwork-service";
 import { getDJListFromBackend, getNowPlayingFromBackend } from "../../services/flowsheet/flowsheet-service";
+import { useLocation, useParams } from "react-router-dom";
 
 let animationController = null;
 
@@ -50,6 +51,8 @@ const NowPlaying = (props) => {
 
   const theme = useTheme();
   const { mode, setMode } = useColorScheme();
+
+  const { search } = useLocation();
 
   const [fadeTimeout, setFadeTimeout] = React.useState(null);
 
@@ -187,6 +190,14 @@ const NowPlaying = (props) => {
     setLowerTextMarquee(isOverflowing(lowerText.current));
 
   }, [songName, albumName, artistName, message]);
+
+  useEffect(() => {
+    let query = new URLSearchParams(search);
+    let theme = query.get('theme');
+    if (theme) {
+      setMode(theme);
+    }
+  }, [search]);
 
   const visualize = () => {
     animationController = window.requestAnimationFrame(visualize);
