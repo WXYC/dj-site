@@ -308,8 +308,17 @@ const NowPlaying = (props) => {
           </Box>
         )}
       </CardOverflow>
-      {(isSong) ? (<CardContent sx = {{ mt: embedded ? 4 : 'unset', whiteSpace: 'nowrap', overflow: 'hidden' }}>
-        <Typography level="body1" fontSize="md" ref={upperText} sx = {{ whiteSpace: 'nowrap' }}>
+      {(isSong) ? (
+      <CardContent 
+        sx = {{ 
+          mt: embedded ? 4 : 'unset', 
+          whiteSpace: 'nowrap', 
+          overflow: 'hidden',
+          display: 'flex',
+          justifyContent: 'flex-end',
+        }}
+      >
+        <Typography level="body1" fontSize="lg" ref={upperText} sx = {{ whiteSpace: 'nowrap' }}>
           {upperTextMarquee ? (
             <marquee>{songName ?? 'Automatically Chosen Song'}</marquee>
           ): (
