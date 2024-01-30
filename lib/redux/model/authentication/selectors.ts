@@ -17,5 +17,5 @@ export const getAuthenticatedUser = (state: ReduxState): User | undefined => {
 }
 
 function isAuthenticatedUser(user: User | AuthenticatingUser | undefined): user is User {
-    return (user as User).djName !== undefined;
+    return (user as User)?.djName !== undefined;
 }

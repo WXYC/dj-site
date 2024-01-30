@@ -24,6 +24,7 @@ export interface Time {
 };
 
 export interface FlowSheetEntry {
+    id: number;
     message?: string;
     title?: string;
     song?: Song;

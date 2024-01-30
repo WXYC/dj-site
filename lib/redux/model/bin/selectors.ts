@@ -1,3 +1,4 @@
 import type { ReduxState } from "@/lib/redux";
 
-export const isInBin = (state: ReduxState, id: string) => state.bin.bin.includes(id);
+export const getBin = (state: ReduxState) => state.bin.bin;
+export const isInBin = (state: ReduxState, id: number) => state.bin.bin.some((item) => item.album.id === id);

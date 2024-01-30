@@ -9,8 +9,17 @@ export const binSlice = createSlice({
     name: "bin",
     initialState,
     reducers: {
-        addBin: (state, action) => {
+        loadBin: (state, action) => {
             state.bin = action.payload;
+        },
+        addToBin: (state, action) => {
+            state.bin.push(action.payload);
+        },
+        removeFromBin: (state, action) => {
+            state.bin = state.bin.filter((item) => item.album.id !== action.payload);
+        },
+        clearBin: (state) => {
+            state.bin = [];
         },
     },
 });

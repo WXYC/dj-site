@@ -1,4 +1,5 @@
+import { CatalogResult } from "../catalog";
 
 export interface BinState {
-    bin: string[];
+    bin: CatalogResult[];
 }

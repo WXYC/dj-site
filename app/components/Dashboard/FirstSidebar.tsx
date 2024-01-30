@@ -23,6 +23,7 @@ import DisplaySettingsIcon from '@mui/icons-material/DisplaySettings';
 import { Badge, ColorPaletteProp, IconButton, Stack, Typography } from '@mui/joy';
 import { redirect, usePathname } from 'next/navigation';
 import { ConfirmPopup } from '../General/Popups/Popups';
+import Link from 'next/link';
 
 /**
  * Component for rendering navigational links to settings and pages, and providing logout functionality.
@@ -120,6 +121,7 @@ export default function FirstSidebar(): JSX.Element {
         <Logo color={style}/>
       </Box>
       <List sx={{ '--ListItem-radius': '8px', '--List-gap': '12px' }}>
+        <Link href='/dashboard/catalog'>
         <ListItem>
         <Tooltip 
             title="Card Catalog"
@@ -129,13 +131,15 @@ export default function FirstSidebar(): JSX.Element {
             variant='outlined'
         >
           <ListItemButton
-            onClick={() => redirect('/dashboard/catalog')}
             variant={pathname === '/dashboard/catalog' ? 'solid' : 'plain'}
           >
             <AlbumIcon />
           </ListItemButton>
+          
         </Tooltip>
         </ListItem>
+        </Link>
+        <Link href='/dashboard/flowsheet'>
         <ListItem>
             <Tooltip
                 title="Flow Sheet"
@@ -144,10 +148,9 @@ export default function FirstSidebar(): JSX.Element {
                 size='sm'
                 variant='outlined'
             >
-          <ListItemButton onClick={() => redirect('/dashboard/flowsheet')}
+          <ListItemButton
             variant={pathname === '/dashboard/flowsheet' ? 'solid' : 'plain'}
           >
-            
             <Badge
                 anchorOrigin={{
                   vertical: 'top',
@@ -162,6 +165,7 @@ export default function FirstSidebar(): JSX.Element {
           </ListItemButton>
             </Tooltip>
         </ListItem>
+        </Link>
         <ListItem>
             <Tooltip
                 title="Previous Sets"
@@ -170,6 +174,7 @@ export default function FirstSidebar(): JSX.Element {
                 size='sm'
                 variant='outlined'
             >
+
           <ListItemButton onClick={() => redirect('/dashboard/playlists')}
             variant={pathname.includes('/dashboard/playlists') ? 'solid' : 'plain'}
           >

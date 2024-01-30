@@ -21,7 +21,7 @@ const AuthenticationGuard = (props: AuthenticationGuardProps) => {
         dispatch(verifySession());
     }, [dispatch]);
 
-    if (authenticating) {
+    if (authenticating ? true : !isLoggedIn) {
         return (
             <Modal open={true}>
                 <Box

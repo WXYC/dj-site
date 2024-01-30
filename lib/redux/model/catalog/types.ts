@@ -1,3 +1,8 @@
+import { Album } from "../types";
+
+export interface AlbumCard {
+    album: Album;
+}
 
 export interface CatalogState {
     query: string;
@@ -5,4 +10,5 @@ export interface CatalogState {
 };
 
 export interface CatalogResult {
+    album: Album;
 };

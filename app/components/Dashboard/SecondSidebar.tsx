@@ -1,6 +1,5 @@
 import { Button, Card, Divider, Stack, Tooltip } from '@mui/joy';
 import Box from '@mui/joy/Box';
-import Chip from '@mui/joy/Chip';
 import IconButton from '@mui/joy/IconButton';
 import List from '@mui/joy/List';
 import ListItem from '@mui/joy/ListItem';
@@ -10,24 +9,20 @@ import Sheet from '@mui/joy/Sheet';
 import Typography from '@mui/joy/Typography';
 import React from 'react';
 
-import InboxIcon from '@mui/icons-material/Inbox';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
-import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
+import InboxIcon from '@mui/icons-material/Inbox';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PlayArrowOutlinedIcon from '@mui/icons-material/PlayArrowOutlined';
+import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import { useContext } from 'react';
-import { BinContext } from '../../services/bin/bin-context';
-import { closeSidebar } from './SidebarMobileUtilities';
 import NowPlaying from '../../widgets/now-playing/NowPlaying';
+import { closeSidebar } from './SidebarMobileUtilites';
 
-import { ArtistAvatar } from '../catalog/ArtistAvatar';
-import { useLive } from '../../services/flowsheet/live-context';
-import { AddToQueue } from '@mui/icons-material';
-import { useFlowsheet } from '../../services/flowsheet/flowsheet-context';
 import { ScrollOnHoverText } from '../../widgets/scroll-on-hover-text';
+import { ArtistAvatar } from '../catalog/ArtistAvatar';
 
-import { SongCardContext } from '../catalog/SongCardContext'
-import { isLive, useSelector } from '@/lib/redux';
+import { binSlice, flowSheetSlice, getBin, isLive, useDispatch, useSelector } from '@/lib/redux';
+import { SongCardContext } from '../catalog/SongCardContext';
 
 /**
  * Component representing the Second Sidebar, which renders the 'Mail Bin' for DJs to save their songs and a 'now playing' widget.
@@ -51,11 +46,16 @@ import { isLive, useSelector } from '@/lib/redux';
  */
 export default function SecondSidebar(): JSX.Element {
 
+  const dispatch = useDispatch();
+
   const live = useSelector(isLive);
   const { getSongCardContent } = useContext(SongCardContext);
 
-  const { bin, addToBin, removeFromBin, clearBin, isInBin } = useContext(BinContext);
-  const { addToQueue } = useFlowsheet();
+  const bin = useSelector(getBin);
+  const removeFromBin = (item: number) => dispatch(binSlice.actions.removeFromBin(item));
+  const clearBin = () => dispatch(binSlice.actions.clearBin());
+
+  const addToQueue = (bin_id: number) => dispatch(flowSheetSlice.actions.addToQueue(bin[bin_id]));
 
   return (
     <React.Fragment>

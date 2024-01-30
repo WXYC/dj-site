@@ -13,6 +13,7 @@ export interface Song {
 };
 
 export interface Album {
+    id: number;
     title: string;
     artist?: Artist;
 };
