@@ -6,6 +6,7 @@ import { getClassicViewAvailable, useSelector } from '@/lib/redux';
 import FirstSidebar from '../components/Dashboard/FirstSidebar';
 import { ColorSchemeToggle } from '../components/General/Theme/ColorSchemeToggle';
 import { ViewStyleToggle } from '../components/General/Theme/ViewStyleToggle';
+import SecondSidebar from '../components/Dashboard/SecondSidebar';
 
 /**
  * @page
@@ -64,7 +65,7 @@ export default function DashboardLayout(props: React.PropsWithChildren): JSX.Ele
           </Box>
           {props.children}
         </Box>
-            
+            <SecondSidebar />
         </Box>
     </>
     );

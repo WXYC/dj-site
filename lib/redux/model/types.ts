@@ -1,9 +1,13 @@
+import { Rotation } from "./rotation";
+
 // APP STATE
 export interface ApplicationState {
     enableClassicView: boolean;
     classicView: boolean;
     popupContent?: JSX.Element;
+    songCardContent?: JSX.Element;
     popupOpen: boolean;
+    songCardOpen: boolean;
 };
 
 // GLOBAL CONCEPTS
@@ -13,16 +17,22 @@ export interface Song {
 };
 
 export interface Album {
-    id: number;
+    release: number;
     title: string;
-    artist?: Artist;
+    format: Format;
+    artist: Artist;
+    entry: number;
+    label?: string;
+    rotation?: Rotation;
 };
 
 export interface Artist {
     name: string;
     genre: Genre;
+    numbercode: number;
+    lettercode: string;
 };
 
-export interface Genre {
-    name: "Rock" | "Hip Hop" | "Electronic" | "Jazz" | "Folk" | "Other"; // NOT DONE
-};
+export type Format = "Vinyl" | "CD";
+
+export type Genre = "Rock" | "Electronic" | "Hiphop" | "Jazz" | "Classical" | "Reggae" | "Soundtracks" | "OCS";

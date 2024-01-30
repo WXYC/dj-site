@@ -5,6 +5,7 @@ export const initialState: ApplicationState = {
     enableClassicView: true, // set this to false to disable classic view option
     classicView: false,
     popupOpen: false,
+    songCardOpen: false,
 };
 
 export const applicationSlice = createSlice({
@@ -22,5 +23,12 @@ export const applicationSlice = createSlice({
             state.popupContent = undefined;
             state.popupOpen = false;
         },
+        openSongCard: (state, action) => {
+            state.songCardContent = action.payload;
+            state.songCardOpen = true;
+        },
+        closeSongCard: (state) => {
+            state.songCardOpen = false;
+        }
     },
 });

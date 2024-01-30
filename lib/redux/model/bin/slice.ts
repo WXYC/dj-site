@@ -16,7 +16,7 @@ export const binSlice = createSlice({
             state.bin.push(action.payload);
         },
         removeFromBin: (state, action) => {
-            state.bin = state.bin.filter((item) => item.album.id !== action.payload);
+            state.bin = state.bin.filter((item) => item.id !== action.payload.id);
         },
         clearBin: (state) => {
             state.bin = [];

@@ -6,3 +6,6 @@ export const getClassicViewAvailable = (state: ReduxState) => state.application.
 
 export const getPopupState = (state: ReduxState) => state.application.popupOpen;
 export const getPopupContent = (state: ReduxState) => state.application.popupContent;
+
+export const getSongCardState = (state: ReduxState) => state.application.songCardOpen;
+export const getSongCardContent = (state: ReduxState) => state.application.songCardContent;

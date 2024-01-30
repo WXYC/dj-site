@@ -10,5 +10,6 @@ export interface CatalogState {
 };
 
 export interface CatalogResult {
+    id: number;
     album: Album;
 };

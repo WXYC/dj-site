@@ -14,15 +14,13 @@ import InboxIcon from '@mui/icons-material/Inbox';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PlayArrowOutlinedIcon from '@mui/icons-material/PlayArrowOutlined';
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
-import { useContext } from 'react';
-import NowPlaying from '../../widgets/now-playing/NowPlaying';
+import NowPlaying from '../widgets/now-playing/NowPlaying';
 import { closeSidebar } from './SidebarMobileUtilites';
 
-import { ScrollOnHoverText } from '../../widgets/scroll-on-hover-text';
-import { ArtistAvatar } from '../catalog/ArtistAvatar';
+import ScrollOnHoverText from '../widgets/scroll-on-hover-text';
+import { ArtistAvatar } from '../Catalog/ArtistAvatar';
 
-import { binSlice, flowSheetSlice, getBin, isLive, useDispatch, useSelector } from '@/lib/redux';
-import { SongCardContext } from '../catalog/SongCardContext';
+import { CatalogResult, applicationSlice, binSlice, flowSheetSlice, getBin, isLive, useDispatch, useSelector } from '@/lib/redux';
 
 /**
  * Component representing the Second Sidebar, which renders the 'Mail Bin' for DJs to save their songs and a 'now playing' widget.
@@ -32,30 +30,19 @@ import { SongCardContext } from '../catalog/SongCardContext';
  *
  * @returns {JSX.Element} The rendered SecondSidebar component.
  *
- * @example
- * // Usage example:
- * import SecondSidebar from '../components/SecondSidebar';
- *
- * const MainComponent = () => {
- *   return (
- *     <div>
- *       <SecondSidebar />
- *     </div>
- *   );
- * };
  */
 export default function SecondSidebar(): JSX.Element {
 
   const dispatch = useDispatch();
 
   const live = useSelector(isLive);
-  const { getSongCardContent } = useContext(SongCardContext);
+  const openSongCard = (item: CatalogResult) => dispatch(applicationSlice.actions.openSongCard(item));
 
   const bin = useSelector(getBin);
-  const removeFromBin = (item: number) => dispatch(binSlice.actions.removeFromBin(item));
+  const removeFromBin = (item: CatalogResult) => dispatch(binSlice.actions.removeFromBin(item));
   const clearBin = () => dispatch(binSlice.actions.clearBin());
 
-  const addToQueue = (bin_id: number) => dispatch(flowSheetSlice.actions.addToQueue(bin[bin_id]));
+  const addToQueue = (item: CatalogResult) => dispatch(flowSheetSlice.actions.addToQueue(item));
 
   return (
     <React.Fragment>
@@ -174,9 +161,9 @@ export default function SecondSidebar(): JSX.Element {
                     }}
                   >
                     <ArtistAvatar
-                        entry={item.release_number}
-                        artist = {item.artist}
-                        format={item.format}
+                        entry={item.album.release}
+                        artist = {item.album.artist}
+                        format={item.album.format}
                       />
                       <div>
                       <ScrollOnHoverText
@@ -189,7 +176,7 @@ export default function SecondSidebar(): JSX.Element {
                           width: 89,
                         }}
                       >
-                        {item.artist.name}
+                        {item.album.artist?.name}
                       </ScrollOnHoverText>
                       <ScrollOnHoverText
                       key={`${index}-${item.id}-title`}
@@ -201,16 +188,15 @@ export default function SecondSidebar(): JSX.Element {
                           width: 89,
                         }}
                       >
-                        {item.title}
+                        {item.album.title}
                       </ScrollOnHoverText>
                       </div>
                     <Stack direction="row">
                       <Tooltip title="More Info" variant='outlined' size="sm">
                     <IconButton
-                      size="small"
-                      variant="standard"
-                      color="info"
-                      onClick = {() => getSongCardContent(item)}
+                      size="sm"
+                      color="neutral"
+                      onClick = {() => openSongCard(item)}
                     >
                       <InfoOutlinedIcon />
                     </IconButton>
@@ -221,9 +207,8 @@ export default function SecondSidebar(): JSX.Element {
                       size="sm"
                       >
                       <IconButton
-                          size="small"
-                          variant="standard"
-                          color="info"
+                          size="sm"
+                          color="neutral"
                           onClick={() => addToQueue(item)}
                       >
                           <PlaylistAddIcon />
@@ -232,8 +217,7 @@ export default function SecondSidebar(): JSX.Element {
                     )}
                     <Tooltip title="Remove" variant='outlined' size="sm">
                     <IconButton
-                      size="small"
-                      variant="standard"
+                      size="sm"
                       color="warning"
                       onClick={() => removeFromBin(item)}
                     >
@@ -245,7 +229,7 @@ export default function SecondSidebar(): JSX.Element {
                   {(index < bin.length - 1) && <Divider />}
                 </React.Fragment>
             ))) : (
-              <Typography level="body3">
+              <Typography level="body-md">
                 An empty record...
               </Typography>
             )}
@@ -263,14 +247,14 @@ export default function SecondSidebar(): JSX.Element {
           alignItems: 'flex-end',
           pb: 1
         }}>
-        <Typography level="body3" sx={{ color: 'text.secondary', py: 0 }}>
+        <Typography level="body-md" sx={{ color: 'text.secondary', py: 0 }}>
           {`© ${new Date().getFullYear()} WXYC Chapel Hill`}
         </Typography>
-        <Typography level="body4" sx={{ color: 'text.secondary', pt: 0 }}>
+        <Typography level="body-sm" sx={{ color: 'text.secondary', pt: 0 }}>
           DJ Site v1.0.0
         </Typography>
         </Stack>
-        <Button size="sm" variant="soft" color="info" 
+        <Button size="sm" variant="soft" color="neutral" 
         href='https://docs.google.com/forms/d/e/1FAIpQLSfBMYYQeCEkRGsSBM3CAkjuBcHYA9Lk2Su6-ZncWH4hXwULvA/viewform?usp=sf_link' 
         target='_blank'
           component="a"
