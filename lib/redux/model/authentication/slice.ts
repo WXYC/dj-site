@@ -4,7 +4,7 @@ import { AuthenticationState } from "./types";
 import { toast } from "sonner";
 
 const initialState: AuthenticationState = {
-    authenticating: true,
+    authenticating: false,
     isAuthenticated: false,
 };
 

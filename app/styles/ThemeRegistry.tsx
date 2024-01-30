@@ -6,6 +6,7 @@ import { CssVarsProvider } from '@mui/joy/styles';
 import CssBaseline from '@mui/joy/CssBaseline';
 import theme from './theme';
 import React from 'react';
+import { GlobalStyles } from '@mui/joy';
 
 // This implementation is from emotion-js
 // https://github.com/emotion-js/emotion/issues/2928#issuecomment-1319747902
@@ -56,6 +57,20 @@ export default function ThemeRegistry(props: React.PropsWithChildren<{ options?:
       <CacheProvider value={cache}>
         <CssVarsProvider theme={theme}>
           <CssBaseline />
+          <GlobalStyles
+              styles={(theme) => ({
+                ':root': {
+                  '--Collapsed-breakpoint': '769px',
+                  '--Cover-width': '40vw',
+                  '--Form-maxWidth': '700px',
+                  '--Transition-duration': '0.4s',
+                  '--Header-height': '4rem',
+                  [theme.breakpoints.up('md')]: {
+                    '--Header-height': '0px',
+                  },
+                },
+              })}
+            />
           {children}
         </CssVarsProvider>
       </CacheProvider>

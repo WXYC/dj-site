@@ -10,7 +10,7 @@ import IconButton from '@mui/joy/IconButton';
 import Typography from '@mui/joy/Typography';
 import { useSearchParams } from "next/navigation";
 import React, { useEffect } from "react";
-import { getDJListFromBackend, getNowPlayingFromBackend } from "../../services/flowsheet/flowsheet-service";
+import { getDJListFromBackend, getNowPlayingFromBackend } from "@/lib/services/flowsheet/flowsheet-service";
 
 let animationController = null;
 
@@ -45,7 +45,7 @@ const NowPlaying = (props) => {
   const lowerText = React.useRef(null);
   const [lowerTextMarquee, setLowerTextMarquee] = React.useState(false);
 
-  const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
+  const canvasRef = React.useRef(null);
 
   const theme = useTheme();
   const { mode, setMode } = useColorScheme();

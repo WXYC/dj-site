@@ -2,7 +2,7 @@
 import Box from '@mui/joy/Box';
 import AuthenticationGuard from "../components/Authentication/AuthenticationGuard";
 import Header from '../components/Dashboard/Header';
-import { getClassicViewAvailable, useSelector } from '@/lib/redux';
+import { getClassicView, getClassicViewAvailable, useSelector } from '@/lib/redux';
 import FirstSidebar from '../components/Dashboard/FirstSidebar';
 import { ColorSchemeToggle } from '../components/General/Theme/ColorSchemeToggle';
 import { ViewStyleToggle } from '../components/General/Theme/ViewStyleToggle';
@@ -21,7 +21,10 @@ import SecondSidebar from '../components/Dashboard/SecondSidebar';
  */
 export default function DashboardLayout(props: React.PropsWithChildren): JSX.Element {
 
+    const classicView = useSelector(getClassicView);
     const classicViewAvailable = useSelector(getClassicViewAvailable);
+
+    if (classicView) return (<>{props.children}</>)
 
     return (
     <>

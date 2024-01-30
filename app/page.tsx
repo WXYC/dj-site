@@ -1,10 +1,10 @@
 /* Components */
-import { Counter } from "./components/Counter/Counter";
+import { redirect } from "next/navigation";
 
 export default function IndexPage() {
-  return <Counter />;
+  redirect("/dashboard/flowsheet");
 }
 
 export const metadata = {
-  title: "Redux Toolkit",
+  title: "WXYC DJ Site",
 };
