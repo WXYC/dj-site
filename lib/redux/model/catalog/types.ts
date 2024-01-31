@@ -10,7 +10,7 @@ export interface CatalogState {
     results: CatalogResult[];
     resultCount: number;
     searchIn: SearchInOption;
-    genre: Genre | "any";
+    genre: Genre | "All";
     orderBy: OrderByOption;
     orderDirection: OrderDirectionOption;
     noResultsRemain: boolean;

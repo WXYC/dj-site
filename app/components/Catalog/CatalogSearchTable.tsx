@@ -9,7 +9,7 @@ import Link from '@mui/joy/Link';
 import Sheet from '@mui/joy/Sheet';
 import Table from '@mui/joy/Table';
 import Typography from '@mui/joy/Typography';
-import { ChangeEvent, useState } from 'react';
+import { ChangeEvent, useEffect, useState } from 'react';
 
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import DoubleArrowIcon from '@mui/icons-material/DoubleArrow';
@@ -22,7 +22,7 @@ import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 
 import { Stack, Tooltip } from '@mui/joy';
 
-import { CatalogResult, FlowSheetEntry, Genre, OrderByOption, OrderDirectionOption, SearchInOption, applicationSlice, binSlice, catalogSlice, flowSheetSlice, getBin, getCatalogLoading, getOrderBy, getOrderDirection, getQuery, getReachedEnd, getResults, isLive, useDispatch, useSelector } from '@/lib/redux';
+import { CatalogResult, FlowSheetEntry, Genre, OrderByOption, OrderDirectionOption, SearchInOption, applicationSlice, binSlice, catalogSlice, flowSheetSlice, getBin, getCatalogLoading, getGenre, getN, getOrderBy, getOrderDirection, getQuery, getReachedEnd, getResults, getSearchIn, isLive, searchCatalog, useDispatch, useSelector } from '@/lib/redux';
 import Logo from '../Branding/logo';
 import { ArtistAvatar } from './ArtistAvatar';
 import { SearchBar } from './search/SearchBar';
@@ -62,7 +62,9 @@ const CatalogSearchTable = (): JSX.Element => {
     const loading = useSelector(getCatalogLoading);
     const searchString = useSelector(getQuery);
     const setSearchString = (value: string) => dispatch(catalogSlice.actions.setQuery(value));
+    const genre = useSelector(getGenre);
     const setGenre = (value: Genre) => dispatch(catalogSlice.actions.setGenre(value));
+    const searchIn = useSelector(getSearchIn);
     const setSearchIn = (value: SearchInOption) => dispatch(catalogSlice.actions.setSearchIn(value));
     const releaseList = useSelector(getResults);
     const orderBy = useSelector(getOrderBy);
@@ -70,7 +72,22 @@ const CatalogSearchTable = (): JSX.Element => {
     const orderDirection = useSelector(getOrderDirection);
     const setOrderDirection = (value: OrderDirectionOption) => dispatch(catalogSlice.actions.setOrderDirection(value));
     const reachedEndForQuery = useSelector(getReachedEnd);
+    const n = useSelector(getN);
     // -------------------------------------------------------------------------
+    const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | undefined>(undefined);
+    useEffect(() => {
+      if (reachedEndForQuery) return;
+
+      clearTimeout(searchTimeout);
+      setSearchTimeout(setTimeout(() => {
+        dispatch(searchCatalog({
+          term: searchString,
+          medium: searchIn,
+          genre: genre,
+          n: n
+        }));
+      }, 500));
+    }, [searchString, searchIn, genre, n]);
 
   const addToQueue = (item: FlowSheetEntry) => dispatch(flowSheetSlice.actions.addToQueue(item));
 
@@ -85,24 +102,7 @@ const CatalogSearchTable = (): JSX.Element => {
   const isInBin = (item: CatalogResult) => useSelector(getBin).includes(item);
   // -------------------------------------------------------------------------
   
-const getSongCardFor = (item: CatalogResult | undefined) => dispatch(applicationSlice.actions.openSongCard(item));
-
-
-  // DOES NOT YET WORK: CODE IS NOT UNIQUE
-  /*const getDefaultReleaseList = async (start = 0, end = 0) => {
-    const { data, error } = await (getReleaseFeed(start, end))();
-
-    if (error) {
-      toast.error(`Error During Catalog Retrieval: ${error.message}`);
-    }
-
-    if (data) {
-      setReleaseList(data.releases);
-      setLoading(false);
-    }
-
-  };*/
-
+  const getSongCardFor = (item: CatalogResult | undefined) => dispatch(applicationSlice.actions.openSongCard(item));
     const TableHeader = (props: TableHeaderProps) => {
       return (
         <Link

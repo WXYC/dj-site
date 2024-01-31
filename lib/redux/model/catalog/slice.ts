@@ -1,14 +1,15 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { CatalogState } from "../..";
+import { CatalogState, useDispatch } from "../..";
+import { searchCatalog } from "./thunks";
 
 const initialState: CatalogState = {
     query: "",
     loading: false,
     results: [],
-    resultCount: 0,
-    searchIn: "albums",
-    genre: "any",
-    orderBy: "album",
+    resultCount: 10,
+    searchIn: "Albums",
+    genre: "All",
+    orderBy: "Title",
     orderDirection: "asc",
     noResultsRemain: false,
 };
@@ -34,6 +35,18 @@ export const catalogSlice = createSlice({
         },
         setOrderDirection: (state, action) => {
             state.orderDirection = action.payload;
-        },
+        }
+    },
+    extraReducers: (builder) => {
+        builder
+        .addCase(searchCatalog.pending, (state) => {
+            state.loading = true;
+        })
+        .addCase(searchCatalog.fulfilled, (state, action) => {
+            state.loading = false;
+            state.results = action.payload;
+            state.resultCount = action.payload.length;
+            state.noResultsRemain = action.payload.length < state.resultCount && action.payload.length > 0;
+        });
     },
 });

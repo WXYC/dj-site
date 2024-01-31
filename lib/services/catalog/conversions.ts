@@ -1,7 +1,7 @@
 import { CatalogResult, Format, Genre, Rotation } from "@/lib/redux";
-import { BRotationResult } from "./backend-types";
+import { BRotationResult, BSearchResult } from "./backend-types";
 
-export function convertRotationResults(backend: BRotationResult): CatalogResult {
+export function convertRotationResult(backend: BRotationResult): CatalogResult {
     return {
         id: backend.id,
         album: {
@@ -15,9 +15,28 @@ export function convertRotationResults(backend: BRotationResult): CatalogResult 
                 lettercode: backend.code_letters
             },
             label: backend.record_label,
-            rotation: convertRotation(backend.rotation_id),
+            rotation: convertRotationId(backend.rotation_id),
         }
     };
+}
+
+export function convertSearchResult(backend: BSearchResult): CatalogResult {
+    return {
+        id: backend.id,
+        album: {
+            release: backend.code_number,
+            title: backend.album_title,
+            format: convertFormat(backend.format_name),
+            artist: {
+                name: backend.artist_name,
+                genre: convertGenre(backend.genre_name),
+                numbercode: backend.code_artist_number,
+                lettercode: backend.code_letters
+            },
+            rotation: convertRotation(backend.rotation_freq),
+        }
+    };
+
 }
 
 export function convertFormat(backend: string): Format {
@@ -34,6 +53,10 @@ export function convertGenre(backend: string): Genre {
     return backend as Genre ?? 'Unknown';
 }
 
-export function convertRotation(backend: number): Rotation {
+export function convertRotationId(backend: number): Rotation {
     return ['H', 'M', 'L', 'S'][backend] as Rotation;
+}
+
+export function convertRotation(backend: string): Rotation | undefined {
+    return backend as Rotation ?? undefined;
 }

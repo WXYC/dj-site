@@ -1,8 +1,8 @@
 import { toast } from "sonner";
 import { getter } from "../api-service";
 import { CatalogResult, Genre, SearchInOption } from "@/lib/redux";
-import { BRotationResult } from "./backend-types";
-import { convertRotationResults } from "./conversions";
+import { BRotationResult, BSearchResult } from "./backend-types";
+import { convertRotationResult, convertSearchResult } from "./conversions";
 
 
 
@@ -19,27 +19,27 @@ export const getRotation = async(): Promise<CatalogResult[] | null> => {
     }
 
     return data?.map((item: BRotationResult) => 
-      convertRotationResults(item)
+      convertRotationResult(item)
     )?.filter((item: BRotationResult) => item.kill_date === null) ?? [];
 
 }
 
-export const getReleasesMatching = async (term: string, medium: SearchInOption, genre: Genre, n = 10) => {
+export const getReleasesMatching = async (params: SearchParameters): Promise<CatalogResult[] | null> => {
 
-    let url = `library?n=${n}&`;
+    let url = `library?n=${params.n}&`;
 
-    switch (medium) {
+    switch (params.medium) {
       case "All":
-        url += `artist_name=${term}&album_title=${term}`;
+        url += `artist_name=${params.term}&album_title=${params.term}`;
         break;
       case "Albums":
-        url += `album_title=${term}`;
+        url += `album_title=${params.term}`;
         break;
       case "Artists":
-        url += `artist_name=${term}`;
+        url += `artist_name=${params.term}`;
         break;
       default:
-        url += `artist_name=${term}&album_title=${term}`;
+        url += `artist_name=${params.term}&album_title=${params.term}`;
         break;
     }
 
@@ -47,22 +47,16 @@ export const getReleasesMatching = async (term: string, medium: SearchInOption, 
   
     if (error) {
       toast.error(error.message);
-      return;
+      return null;
     }
   
-    return data?.map((release) => ({
-      id: release.id ?? -1,
-      artist: {
-        genre: release.genre_name ?? '',
-        lettercode: release.code_letters ?? -1,
-        numbercode: release.code_artist_number ?? -1,
-        name: release.artist_name ?? ''
-      },
-      release_number: release.code_number ?? -1,
-      format: release.format_name ?? '',
-      title: release.album_title ?? '',
-      alternate_artist: '',
-      label: release.label_name ?? ''
-    })) ?? [];
+    return data?.map((release: BSearchResult) => convertSearchResult(release)) ?? [];
   
 }
+
+export interface SearchParameters {
+  term: string;
+  medium: SearchInOption;
+  genre: Genre | "All";
+  n: number;
+};
