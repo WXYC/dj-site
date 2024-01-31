@@ -1,42 +1,30 @@
 import { toast } from "sonner";
 import { getter } from "../api-service";
+import { CatalogResult, Genre, SearchInOption } from "@/lib/redux";
+import { BRotationResult } from "./backend-types";
+import { convertRotationResults } from "./conversions";
 
 
 
 const getRotationEntries = () => getter("library/rotation")();
 
 
-export const getRotation = async() => {
+export const getRotation = async(): Promise<CatalogResult[] | null> => {
 
     const { data, error } = await getRotationEntries();
 
     if (error) {
       toast.error(error.message);
-      return;
+      return null;
     }
 
-    return data?.map((item) => ({
-      id: item.id ?? -1,
-      artist: {
-          genre: item.genre_name ?? '',
-          lettercode: item.code_letters ?? '',
-          numbercode: item.code_artist_number ?? -1,
-          name: item.artist_name ?? ''
-      },
-      release_number: item.code_number ?? -1,
-      title: item.album_title ?? '',
-      format: item.format_name ?? '',
-      alternate_artist: '',
-      label: item.label ?? '',
-      kill_date: item.kill_date ?? null,
-      rotation_id: item.rotation_id ?? null,
-      play_freq: item.play_freq ?? 0,
-      plays: item.plays ?? 0
-  }))?.filter((item) => item.kill_date === null) ?? [];
+    return data?.map((item: BRotationResult) => 
+      convertRotationResults(item)
+    )?.filter((item: BRotationResult) => item.kill_date === null) ?? [];
 
 }
 
-export const getReleasesMatching = async (term, medium, genre, n = 10) => {
+export const getReleasesMatching = async (term: string, medium: SearchInOption, genre: Genre, n = 10) => {
 
     let url = `library?n=${n}&`;
 

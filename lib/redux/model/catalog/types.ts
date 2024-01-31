@@ -16,7 +16,7 @@ export interface CatalogState {
     noResultsRemain: boolean;
 };
 
-export type SearchInOption = "albums" | "artists" | "any";
+export type SearchInOption = "All" | "Albums" | "Artists";
 export type OrderByOption = "Artist" | "Title" | "Code" | "Format" | "Plays";
 export type OrderDirectionOption = "asc" | "desc";
 

@@ -23,7 +23,6 @@ export interface Album {
     format: Format;
     artist: Artist;
     alternate_artist?: Artist;
-    entry: number;
     label?: string;
     rotation?: Rotation;
 };
@@ -35,6 +34,6 @@ export interface Artist {
     lettercode: string;
 };
 
-export type Format = "Vinyl" | "CD";
+export type Format = "Vinyl" | "CD" | "Unknown";
 
-export type Genre = "Rock" | "Electronic" | "Hiphop" | "Jazz" | "Classical" | "Reggae" | "Soundtracks" | "OCS";
+export type Genre = "Rock" | "Electronic" | "Hiphop" | "Jazz" | "Classical" | "Reggae" | "Soundtracks" | "OCS" | "Unknown";
