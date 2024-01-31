@@ -10,7 +10,7 @@ import IconButton from '@mui/joy/IconButton';
 import Typography from '@mui/joy/Typography';
 import { useSearchParams } from "next/navigation";
 import React, { useEffect } from "react";
-import { getDJListFromBackend, getNowPlayingFromBackend } from "@/lib/services/flowsheet/flowsheet-service";
+import { getDJListFromBackend, getNowPlayingFromBackend } from "@/lib/services";
 
 let animationController = null;
 

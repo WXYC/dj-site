@@ -129,7 +129,7 @@ export default function LoginPage(): JSX.Element {
     // ----------------------------
 
     return (
-        <>
+        <div>
         <Box
           sx={(theme) => ({
             width:
@@ -151,7 +151,6 @@ export default function LoginPage(): JSX.Element {
             sx={{
               display: 'flex',
               flexDirection: 'column',
-              minHeight: '100dvh',
               width:
                 'clamp(var(--Form-maxWidth), (var(--Collapsed-breakpoint) - 100vw) * 999, 100%)',
               maxWidth: '100%',
@@ -184,7 +183,7 @@ export default function LoginPage(): JSX.Element {
               sx={{
                 my: 'auto',
                 py: 2,
-                pb: 5,
+                pb: 2,
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 2,
@@ -411,6 +410,6 @@ export default function LoginPage(): JSX.Element {
             },
           })}
         />
-        </>
+        </div>
     );
 }
