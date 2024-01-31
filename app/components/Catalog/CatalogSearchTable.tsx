@@ -1,3 +1,4 @@
+'use client';
 import Box from '@mui/joy/Box';
 import Button from '@mui/joy/Button';
 import Checkbox from '@mui/joy/Checkbox';
@@ -8,7 +9,7 @@ import Link from '@mui/joy/Link';
 import Sheet from '@mui/joy/Sheet';
 import Table from '@mui/joy/Table';
 import Typography from '@mui/joy/Typography';
-import { useContext, useState } from 'react';
+import { ChangeEvent, useState } from 'react';
 
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import DoubleArrowIcon from '@mui/icons-material/DoubleArrow';
@@ -18,14 +19,12 @@ import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 
-import { BinContext } from '../../services/bin/bin-context';
 
 import { Stack, Tooltip } from '@mui/joy';
 
-import { FlowSheetEntry, Genre, OrderByOption, OrderDirectionOption, SearchInOption, binSlice, catalogSlice, flowSheetSlice, getBin, getCatalogLoading, getOrderBy, getOrderDirection, getQuery, getReachedEnd, getResults, isInBin, isLive, useDispatch, useSelector } from '@/lib/redux';
-import Logo from '../branding/logo';
+import { CatalogResult, FlowSheetEntry, Genre, OrderByOption, OrderDirectionOption, SearchInOption, applicationSlice, binSlice, catalogSlice, flowSheetSlice, getBin, getCatalogLoading, getOrderBy, getOrderDirection, getQuery, getReachedEnd, getResults, isLive, useDispatch, useSelector } from '@/lib/redux';
+import Logo from '../Branding/logo';
 import { ArtistAvatar } from './ArtistAvatar';
-import { SongCardContext } from './SongCardContext';
 import { SearchBar } from './search/SearchBar';
 
 /**
@@ -52,7 +51,7 @@ import { SearchBar } from './search/SearchBar';
  *
  * The component selects sorting algorithms on the client side and renders "add to queue" options if the DJ is live.
  */
-const OrderTable = () => {
+const CatalogSearchTable = (): JSX.Element => {
 
     const dispatch = useDispatch();
 
@@ -67,7 +66,7 @@ const OrderTable = () => {
     const setSearchIn = (value: SearchInOption) => dispatch(catalogSlice.actions.setSearchIn(value));
     const releaseList = useSelector(getResults);
     const orderBy = useSelector(getOrderBy);
-    const setOrderBy = (value: OrderByOption) => dispatch(catalogSlice.actions.setOrderBy(value));
+    const handleRequestSort = (value: OrderByOption) => dispatch(catalogSlice.actions.setOrderBy(value));
     const orderDirection = useSelector(getOrderDirection);
     const setOrderDirection = (value: OrderDirectionOption) => dispatch(catalogSlice.actions.setOrderDirection(value));
     const reachedEndForQuery = useSelector(getReachedEnd);
@@ -75,18 +74,18 @@ const OrderTable = () => {
 
   const addToQueue = (item: FlowSheetEntry) => dispatch(flowSheetSlice.actions.addToQueue(item));
 
-  const [selected, setSelected] = useState([]);
+  const [selected, setSelected] = useState<number[]>([]);
   const [open, setOpen] = useState(false);
 
   const [index, setIndex] = useState(0);
 
   // Bin Context --------------------------------------------------------------
-  const addToBin = (item: FlowSheetEntry) => dispatch(binSlice.actions.addToBin(item));
-  const removeFromBin = (item: FlowSheetEntry) => dispatch(binSlice.actions.removeFromBin(item));
-  const isInBin = (item: FlowSheetEntry) => useSelector(getBin).includes(item);
+  const addToBin = (item: CatalogResult | undefined) => dispatch(binSlice.actions.addToBin(item));
+  const removeFromBin = (item: CatalogResult) => dispatch(binSlice.actions.removeFromBin(item));
+  const isInBin = (item: CatalogResult) => useSelector(getBin).includes(item);
   // -------------------------------------------------------------------------
   
-  const openSongCard = (item: FlowSheetEntry) => useSelector(getSongCardContent(item));
+const getSongCardFor = (item: CatalogResult | undefined) => dispatch(applicationSlice.actions.openSongCard(item));
 
 
   // DOES NOT YET WORK: CODE IS NOT UNIQUE
@@ -104,14 +103,13 @@ const OrderTable = () => {
 
   };*/
 
-    const TableHeader = (textValue: string) => {
+    const TableHeader = (props: TableHeaderProps) => {
       return (
         <Link
         variant="plain"
         color="neutral"
-        size="sm"
         endDecorator = {
-          (orderBy === textValue) && (
+          (orderBy === props.textValue) && (
             orderDirection === 'asc' ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
           )
         }
@@ -119,18 +117,13 @@ const OrderTable = () => {
           padding: 0,
         }}
         onClick={() => {
-          handleRequestSort(textValue);
+          handleRequestSort(props.textValue);
         }}
       >
-          {textValue}
+          {props.textValue}
       </Link>
       )
     }
-
-    const handleRequestSort = (property) => {
-      if (property === orderBy) setOrderDirection(orderDirection === 'asc' ? 'desc' : 'asc');
-      setOrderBy(property);
-    };
 
 
       return (
@@ -138,10 +131,10 @@ const OrderTable = () => {
           <SearchBar 
             searchString={searchString}
             setSearchString={setSearchString}
-            setSearchIn={(value) => {
+            setSearchIn={(value: SearchInOption) => {
               setSearchIn(value);
             }}
-            setGenre={(value) => {
+            setGenre={(value: Genre) => {
               setGenre(value);
             }}
           />
@@ -177,7 +170,7 @@ const OrderTable = () => {
                 >
                   <Box sx = {{ height: '80%', opacity: searchString.length > 0 ? 0 : 1, transition: 'opacity 0.2s', pb: 2 }}>
                     <Logo color='primary' />
-                    <Typography color='primary' level="body1" sx = {{ textAlign: 'center' }}>
+                    <Typography color='primary' level="body-lg" sx = {{ textAlign: 'center' }}>
                       Start typing in the search bar above to explore the library!
                     </Typography>
                   </Box>
@@ -207,7 +200,7 @@ const OrderTable = () => {
                       selected.length > 0 && selected.length !== releaseList.length
                     }
                     checked={selected.length === releaseList.length}
-                    onChange={(event) => {
+                    onChange={(event: ChangeEvent<HTMLInputElement>) => {
                       setSelected(
                         event.target.checked ? releaseList.map((row) => row.id) : [],
                       );
@@ -266,9 +259,9 @@ const OrderTable = () => {
                   </td>
                   <td>
                   <ArtistAvatar
-                        entry={row.release_number}
-                        artist = {row.artist}
-                        format={row.format}
+                        entry={row.album.release}
+                        artist = {row.album.artist}
+                        format={row.album.format}
                       />
                   </td>
                   <td>
@@ -276,36 +269,31 @@ const OrderTable = () => {
                       <div>
                         <Typography
                           fontWeight="lg"
-                          level="body3"
+                          level="body-sm"
                           textColor="text.primary"
                         >
-                          {row.artist.name}
+                          {row.album.artist.name}
                         </Typography>
-                        <Typography level="body3">{row.alternate_artist}</Typography>
+                        <Typography level="body-sm">{row.album.alternate_artist?.name}</Typography>
                       </div>
                     </Box>
                   </td>
-                  <td>{row.title}</td>
+                  <td>{row.album.title}</td>
                   <td>
-                    <Typography level="body4">
-                        {row.artist.genre}
+                    <Typography level="body-xs">
+                        {row.album.artist.genre}
                     </Typography>
-                    <Typography level="body2">
-                      {row.artist.lettercode} {row.artist.numbercode}/{row.release_number}
+                    <Typography level="body-md">
+                      {row.album.artist.lettercode} {row.album.artist.numbercode}/{row.album.release}
                     </Typography>
                   </td>
                   <td>
                     <Chip
                       variant="soft"
                       size="sm"
-                      color={
-                        {
-                          cd: 'primary',
-                          vinyl: 'warning',
-                        }[row.format.includes('vinyl') ? 'vinyl' : 'cd']
-                      }
+                    color={row.album.format.includes('Vinyl') ? "primary" : "warning"}
                     >
-                      {row.format}
+                      {row.album.format}
                     </Chip>
                   </td>
                   <td>0</td>
@@ -318,10 +306,10 @@ const OrderTable = () => {
                         <IconButton
                             aria-label="More information"
                             variant="soft"
-                            color="info"
+                            color="neutral"
                             size="sm"
                             onClick = {() => {
-                              getSongCardContent(row);
+                              getSongCardFor(row);
                             }}
                         >
                             <InfoOutlinedIcon />
@@ -333,7 +321,7 @@ const OrderTable = () => {
                                 size="sm"
                             >
                             <IconButton size="sm"
-                                color="info"
+                                color="neutral"
                                 onClick={() => addToQueue(row)}
                             >
                                 <PlaylistAddIcon />
@@ -347,7 +335,7 @@ const OrderTable = () => {
                         ><IconButton
                             aria-label="Add to bin"
                             variant="outlined"
-                            color="info"
+                            color="neutral"
                             size="sm"
                             onClick = {() => {
                               addToBin(row);
@@ -425,4 +413,8 @@ const OrderTable = () => {
 
 }
 
-export default OrderTable;
+interface TableHeaderProps {
+    textValue: OrderByOption;
+};
+
+export default CatalogSearchTable;

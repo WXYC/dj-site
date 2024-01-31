@@ -1,8 +1,5 @@
 import { Box, Typography } from "@mui/joy";
-import React, { useEffect } from "react";
-import CatalogSearchTable from "../../components/catalog/CatalogSearchTable";
-import { getRotation } from "../../services/card-catalog/card-catalog-service";
-import { toast } from "sonner";
+import CatalogSearchTable from "@/app/components/Catalog/CatalogSearchTable";
 
 /**
  * CatalogPage component represents a page that displays a catalog search table.

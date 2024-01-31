@@ -17,7 +17,7 @@ export interface CatalogState {
 };
 
 export type SearchInOption = "albums" | "artists" | "any";
-export type OrderByOption = "artist" | "album" | "plays" | "genre";
+export type OrderByOption = "Artist" | "Title" | "Code" | "Format" | "Plays";
 export type OrderDirectionOption = "asc" | "desc";
 
 export interface CatalogResult {
