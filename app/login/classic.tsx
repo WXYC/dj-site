@@ -1,5 +1,11 @@
 'use client';
 
+import { Box } from "@mui/joy";
+
 export default function ClassicLogin() {
-  return <div>ClassicLogin</div>;
+  return (
+    <Box>
+      Classic Login
+    </Box>
+  );
 }

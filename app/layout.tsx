@@ -8,20 +8,12 @@ import ThemeRegistry from "./styles/ThemeRegistry";
 import "./styles/globals.css";
 import VersionSelector from "./versionselector";
 import { CssBaseline } from "@mui/joy";
+import ViewGuard from "./components/General/ViewGuard";
 
 export default function RootLayout(props: React.PropsWithChildren) {
 
   return (
     <Providers>
-      <VersionSelector
-        classicChildren = {
-          <html lang="en">
-            <body>
-              {props.children}
-            </body>
-          </html>
-        }
-      >
       <ThemeRegistry options={{ key: 'joy' }}>
         <html lang="en">
           <body>
@@ -32,11 +24,9 @@ export default function RootLayout(props: React.PropsWithChildren) {
                 {props.children}
             </main>
           </div>
-
           </body>
         </html>
       </ThemeRegistry>
-      </VersionSelector>
     </Providers>
   );
 }

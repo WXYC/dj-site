@@ -1,7 +1,6 @@
 'use client';
 
 import { getClassicView, getClassicViewAvailable, isAuthenticating, isLoggedIn, login, needsNewPassword, useDispatch, useSelector } from "@/lib/redux";
-import { redirect, useSearchParams} from "next/navigation";
 import ArrowLeftIcon from '@mui/icons-material/ArrowLeft';
 import { LinearProgress, Link } from '@mui/joy';
 import Box from '@mui/joy/Box';
@@ -11,7 +10,9 @@ import FormControl from '@mui/joy/FormControl';
 import FormLabel, { formLabelClasses } from '@mui/joy/FormLabel';
 import Input from '@mui/joy/Input';
 import Typography from '@mui/joy/Typography';
+import { redirect, useSearchParams } from "next/navigation";
 import React, { useEffect, useState } from 'react';
+import AuthenticationGuard from "../components/Authentication/AuthenticationGuard";
 import Logo from "../components/Branding/logo";
 import { ColorSchemeToggle } from "../components/General/Theme/ColorSchemeToggle";
 import { ViewStyleToggle } from "../components/General/Theme/ViewStyleToggle";
@@ -20,17 +21,12 @@ import ClassicLogin from "./classic";
 /**
  * @page
  * @category Authentication
- * 
  * @description The login page for the application.
- * 
- * @param {boolean} altViewAvailable Whether or not the alternate view is available. Will be moved to ProtectedRoute in a later release.
- * 
  * @returns {JSX.Element} The rendered component
  */
 export default function LoginPage(): JSX.Element {
 
     const classicView = useSelector(getClassicView);
-    if (classicView) return <ClassicLogin />;
 
     const params = useSearchParams();
     const redirectTo = params.get('redirect') ?? '/dashboard';
@@ -128,8 +124,12 @@ export default function LoginPage(): JSX.Element {
     if (!authenticating && loggedIn) redirect(redirectTo);
     // ----------------------------
 
+    if (classicView) {
+      return <ClassicLogin />
+    }
+
     return (
-        <div>
+        <Box sx = {{ height: '100%' }}>
         <Box
           sx={(theme) => ({
             width:
@@ -138,6 +138,7 @@ export default function LoginPage(): JSX.Element {
             transitionDelay: 'calc(var(--Transition-duration) + 0.1s)',
             position: 'relative',
             zIndex: 1,
+            height: '100%',
             display: 'flex',
             justifyContent: 'flex-end',
             backdropFilter: 'blur(4px)',
@@ -410,6 +411,6 @@ export default function LoginPage(): JSX.Element {
             },
           })}
         />
-        </div>
+        </Box>
     );
 }

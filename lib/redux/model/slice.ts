@@ -15,6 +15,9 @@ export const applicationSlice = createSlice({
         toggleClassicView: (state) => {
             state.classicView = !state.classicView;
         },
+        setClassicView: (state, action) => {
+            state.classicView = action.payload;
+        },
         openPopup: (state, action) => {
             state.popupContent = action.payload;
             state.popupOpen = true;

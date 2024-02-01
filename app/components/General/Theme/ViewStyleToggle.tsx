@@ -4,6 +4,7 @@ import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import AutoFixOffIcon from '@mui/icons-material/AutoFixOff';
 import { Tooltip } from '@mui/joy';
 import IconButton from '@mui/joy/IconButton';
+import { redirect, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 interface ViewStyleToggleProps {
@@ -41,9 +42,17 @@ export function ViewStyleToggle(props: ViewStyleToggleProps): JSX.Element {
     const dispatch = useDispatch();
     const classicView = useSelector(getClassicView);
 
+    const pathname = usePathname();
+
     const [mounted, setMounted] = useState(false);
     useEffect(() => {
       setMounted(true);
+
+      dispatch(applicationSlice.actions.setClassicView(sessionStorage.getItem("classicView") === "true"));
+      
+      return () => {
+        setMounted(false);
+      };
     }, []);
     if (!mounted) {
       return <IconButton size="sm" variant="plain" color="neutral" disabled />;
@@ -64,6 +73,8 @@ export function ViewStyleToggle(props: ViewStyleToggleProps): JSX.Element {
         onClick={(event) => {
           dispatch(applicationSlice.actions.toggleClassicView());
           props.onClick?.(event);
+          sessionStorage.setItem("classicView", classicView ? "true" : "false");
+          redirect(`../${classicView ? "dashboard" : "classic"}/${pathname}`);
         }}
       >
         {classicView ? <AutoFixHighIcon /> : <AutoFixOffIcon />}

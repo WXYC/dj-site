@@ -7,6 +7,7 @@ import FirstSidebar from '../components/Dashboard/FirstSidebar';
 import { ColorSchemeToggle } from '../components/General/Theme/ColorSchemeToggle';
 import { ViewStyleToggle } from '../components/General/Theme/ViewStyleToggle';
 import SecondSidebar from '../components/Dashboard/SecondSidebar';
+import ViewGuard from '../components/General/ViewGuard';
 
 /**
  * @page
@@ -21,14 +22,12 @@ import SecondSidebar from '../components/Dashboard/SecondSidebar';
  */
 export default function DashboardLayout(props: React.PropsWithChildren): JSX.Element {
 
-    const classicView = useSelector(getClassicView);
     const classicViewAvailable = useSelector(getClassicViewAvailable);
-
-    if (classicView) return (<>{props.children}</>)
 
     return (
     <>
-        <AuthenticationGuard redirectTo="/login" savePath />
+        <ViewGuard />
+        <AuthenticationGuard redirectTo='/login' savePath />
         <Box sx={{ display: 'flex', minHeight: '100dvh' }}>
             <Header altViewAvailable = {classicViewAvailable} />
             <FirstSidebar />

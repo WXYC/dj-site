@@ -27,7 +27,7 @@ const NowPlaying = (props) => {
   const [message, setMessage] = React.useState('');
   const [djName, setDjName] = React.useState(BOT_RESPONSES.dj);
 
-  const [imageUrl, setImageUrl] = React.useState('img/cassette.png');
+  const [imageUrl, setImageUrl] = React.useState('/img/cassette.png');
 
   const [playing, setPlaying] = React.useState(false);
   const [embedded, setEmbedded] = React.useState(true);
@@ -117,7 +117,7 @@ const NowPlaying = (props) => {
       }
 
         (async () => {
-          setImageUrl(await getImage(data.artist_name, data.album_title, 'img/cassette.png'));
+          setImageUrl(await getImage(data.artist_name, data.album_title, '/img/cassette.png'));
         })();
     }
 

@@ -1,5 +1,7 @@
+'use client';
 
 const FlowsheetPage = () => {
+
     return <div>Flowsheet</div>;
 }
 
