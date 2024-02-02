@@ -99,7 +99,8 @@ const CatalogSearchTable = (): JSX.Element => {
   // Bin Context --------------------------------------------------------------
   const addToBin = (item: CatalogResult | undefined) => dispatch(binSlice.actions.addToBin(item));
   const removeFromBin = (item: CatalogResult) => dispatch(binSlice.actions.removeFromBin(item));
-  const isInBin = (item: CatalogResult) => useSelector(getBin).includes(item);
+  const bin = useSelector(getBin);
+  const isInBin = (item: CatalogResult) => bin.includes(item);
   // -------------------------------------------------------------------------
   
   const getSongCardFor = (item: CatalogResult | undefined) => dispatch(applicationSlice.actions.openSongCard(item));

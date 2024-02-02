@@ -36,4 +36,4 @@ export interface Artist {
 
 export type Format = "Vinyl" | "CD" | "Unknown";
 
-export type Genre = "Rock" | "Electronic" | "Hiphop" | "Jazz" | "Classical" | "Reggae" | "Soundtracks" | "OCS" | "Unknown";
+export type Genre = "Blues" | "Rock" | "Electronic" | "Hiphop" | "Jazz" | "Classical" | "Reggae" | "Soundtracks" | "OCS" | "Unknown";

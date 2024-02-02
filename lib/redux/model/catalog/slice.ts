@@ -7,7 +7,7 @@ const initialState: CatalogState = {
     loading: false,
     results: [],
     resultCount: 10,
-    searchIn: "Albums",
+    searchIn: "All",
     genre: "All",
     orderBy: "Title",
     orderDirection: "asc",
@@ -23,12 +23,15 @@ export const catalogSlice = createSlice({
         },
         setQuery: (state, action) => {
             state.query = action.payload;
+            state.noResultsRemain = false;
         },
         setSearchIn: (state, action) => {
             state.searchIn = action.payload;
+            state.noResultsRemain = false;
         },
         setGenre: (state, action) => {
             state.genre = action.payload;
+            state.noResultsRemain = false;
         },
         setOrderBy: (state, action) => {
             state.orderBy = action.payload;
@@ -45,7 +48,6 @@ export const catalogSlice = createSlice({
         .addCase(searchCatalog.fulfilled, (state, action) => {
             state.loading = false;
             state.results = action.payload;
-            state.resultCount = action.payload.length;
             state.noResultsRemain = action.payload.length < state.resultCount && action.payload.length > 0;
         });
     },

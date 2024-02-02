@@ -2,7 +2,7 @@
 import { applicationSlice, getClassicView, useDispatch, useSelector } from '@/lib/redux';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import AutoFixOffIcon from '@mui/icons-material/AutoFixOff';
-import { Tooltip } from '@mui/joy';
+import { Tooltip, useColorScheme } from '@mui/joy';
 import IconButton from '@mui/joy/IconButton';
 import { redirect, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -42,6 +42,8 @@ export function ViewStyleToggle(props: ViewStyleToggleProps): JSX.Element {
     const dispatch = useDispatch();
     const classicView = useSelector(getClassicView);
 
+    const { mode, setMode } = useColorScheme();
+
     const pathname = usePathname();
 
     const [mounted, setMounted] = useState(false);
@@ -54,6 +56,11 @@ export function ViewStyleToggle(props: ViewStyleToggleProps): JSX.Element {
         setMounted(false);
       };
     }, []);
+
+    useEffect(() => {
+      document.querySelector('html')?.setAttribute('data-classic-view', classicView ? 'true' : 'false');
+    }, [classicView]);
+
     if (!mounted) {
       return <IconButton size="sm" variant="plain" color="neutral" disabled />;
     }
@@ -74,6 +81,8 @@ export function ViewStyleToggle(props: ViewStyleToggleProps): JSX.Element {
           dispatch(applicationSlice.actions.toggleClassicView());
           props.onClick?.(event);
           sessionStorage.setItem("classicView", classicView ? "true" : "false");
+          sessionStorage.setItem("modeSavedFromClassic", mode === 'light' ? "light": "dark");
+          setMode('light');
           redirect(`../${classicView ? "dashboard" : "classic"}/${pathname}`);
         }}
       >

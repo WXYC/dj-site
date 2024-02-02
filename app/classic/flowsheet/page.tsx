@@ -6,8 +6,9 @@ import { FlowSheetEntry, authenticationSlice, flowSheetSlice, getAuthenticatedUs
 import NorthIcon from '@mui/icons-material/North';
 import SouthIcon from '@mui/icons-material/South';
 import { useSelector } from "react-redux";
+import { Box } from "@mui/joy";
 
-const CLASSIC_Flowsheet = (props: React.PropsWithChildren) => {
+const ClassicFlowsheetPage = () => {
   
     const dispatch = useDispatch();
 
@@ -96,7 +97,7 @@ const toggleReleaseType = (event: any) => {
   };
 
   return live ? (
-    <>
+    <Box>
       <table cellPadding="2" align="center">
         <tbody>
           <tr>
@@ -482,7 +483,7 @@ const toggleReleaseType = (event: any) => {
           </table>
         </div>
       </div>
-    </>
+    </Box>
   ) : (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '50vh', justifyContent: 'center', alignItems: 'center' }}>
         <img src = '/img/wxyc-logo-classic.gif' />
@@ -494,4 +495,4 @@ const toggleReleaseType = (event: any) => {
   );
 };
 
-export default CLASSIC_Flowsheet;
+export default ClassicFlowsheetPage;

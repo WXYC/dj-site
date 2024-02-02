@@ -1,3 +1,4 @@
+'use client';
 import { getClassicView, useSelector } from "@/lib/redux"
 import { redirect, usePathname } from "next/navigation";
 

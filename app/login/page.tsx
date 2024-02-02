@@ -130,6 +130,7 @@ export default function LoginPage(): JSX.Element {
 
     return (
         <Box sx = {{ height: '100%' }}>
+        <AuthenticationGuard redirectTo='/login' savePath />
         <Box
           sx={(theme) => ({
             width:

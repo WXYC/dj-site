@@ -12,6 +12,7 @@ interface ArtistAvatarProps {
 
 const GENRE_COLORS: { [id in Genre]: ColorPaletteProp } = {
     'Rock': 'primary',
+    'Blues': 'success',
     'Electronic': 'warning',
     'Hiphop': 'neutral',
     'Jazz': 'success',
@@ -19,6 +20,7 @@ const GENRE_COLORS: { [id in Genre]: ColorPaletteProp } = {
     'Reggae': 'warning',
     'Soundtracks': 'neutral',
     'OCS': 'success',
+    'Unknown': 'neutral',
 }
 
 const GENRE_VARIANTS: { [id in Genre]: VariantProp; } = {
@@ -26,10 +28,12 @@ const GENRE_VARIANTS: { [id in Genre]: VariantProp; } = {
     'Electronic': 'solid',
     'Hiphop': 'solid',
     'Jazz': 'solid',
+    'Blues': 'soft',
     'Classical': 'soft',
     'Reggae': 'soft',
     'Soundtracks': 'soft',
     'OCS': 'soft',
+    'Unknown': 'soft',
 }
 
 /**
@@ -75,41 +79,8 @@ const GENRE_VARIANTS: { [id in Genre]: VariantProp; } = {
  *
  * The genre of the artist is used to determine the color of the avatar, based on the predefined `GENRE_COLORS` object.
  *
- *
- * @example
- * // Usage example:
- * import { Avatar, Stack, Typography } from '@mui/joy';
- * import React from 'react';
- *
- * const GENRE_COLORS = {
- *   'Rock': 'primary',
- *   'Electronic': 'warning',
- *   'Hiphop': 'info',
- *   'Jazz': 'success',
- *   'Classical': 'error',
- * };
- *
- * export const ArtistAvatar = (props) => {
- *   let colorChoice = GENRE_COLORS[props.artist.genre] || 'neutral';
- *
- *   return (
- *     <Avatar variant={props.variant ?? 'solid'} color={colorChoice}>
- *       <Stack direction="column" sx={{ textAlign: 'center', py: 0.2 }}>
- *         <Typography level="body5" color="white">
- *           {props.artist.numbercode}
- *         </Typography>
- *         <Avatar variant="solid" color="neutral" sx={{ width: '1.1rem', height: '1.1rem', m: 0, fontSize: '0.8rem' }}>
- *           {props.artist.lettercode}
- *         </Avatar>
- *         <Typography level="body5" color="white">
- *           {props.artist.entry}
- *         </Typography>
- *       </Stack>
- *     </Avatar>
- *   );
- * }
  */
-export const ArtistAvatar = (props: ArtistAvatarProps) => {
+export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
 
     let color_choice = GENRE_COLORS[props.artist.genre];
     if (color_choice === undefined) {
@@ -122,16 +93,25 @@ export const ArtistAvatar = (props: ArtistAvatarProps) => {
     }
 
     return (
-        <Tooltip title={props.entry} placement="top">
+        <Tooltip title={`${props.artist.genre} ${props.format}   ♪   ${props.artist.lettercode} ${props.artist.numbercode}/${props.entry}`} placement="top">
         <Badge
             badgeContent={props.rotation ?? null}
             color={props.rotation && rotationStyles[props.rotation]}
+            sx = {{
+                width: '3.2rem',
+                height: '3.2rem',
+                fontSize: '0.2rem',
+            }}
         >
         <Avatar
             variant={variant_choice}
             color = {color_choice}
+            sx = {{
+                width: '3.2rem',
+                height: '3.2rem',
+            }}
         >
-            <Stack direction="row">
+            <Stack direction="row" spacing={0.2} sx = {{ ml: -0.1 }}>
             <Stack direction="column"
                 sx = {{
                     justifyContent: 'center',
@@ -141,7 +121,7 @@ export const ArtistAvatar = (props: ArtistAvatarProps) => {
                 sx = {{
                     color: "white",
                     width: 9.45,
-                    pr: 0.05,
+                    fontSize: '0.6rem',
                 }}
             >
             {props.artist.genre.substring(0, 2).toUpperCase()}
@@ -150,24 +130,25 @@ export const ArtistAvatar = (props: ArtistAvatarProps) => {
             <Stack direction="column"
                 sx = {{
                     textAlign: 'center',
-                    py: 0.2,
                 }}
             >
-            <Typography level="body-xs" sx = {{ color: "white" }} >
+            <Typography level="body-xs" sx = {{ color: "white",
+                    fontSize: '0.6rem' }} >
             {props.artist.numbercode}
             </Typography>
             <Avatar
                 variant={variant_choice == 'solid' ? 'soft' : 'solid'}
                 color={(props.format ?? '') == 'CD' ? 'primary' : 'warning'}
                 sx = {{
-                    width: '1.2rem',
-                    height: '1.2rem',
+                    width: '1.4rem',
+                    height: '1.4rem',
                     m: 0,
-                    fontSize: '0.7rem',
+                    fontSize: '0.8rem',
                     bgColor: props.background
                 }}
                 >{props.artist.lettercode}</Avatar>
-            <Typography level="body-xs" sx = {{ color: "white" }}>
+            <Typography level="body-xs" sx = {{ color: "white",
+                    fontSize: '0.6rem', }}>
             {props.entry}
             </Typography>
             </Stack>
@@ -175,14 +156,13 @@ export const ArtistAvatar = (props: ArtistAvatarProps) => {
                 sx = {{
                     width: 9.45,
                     textAlign: 'center',
-                    py: 0.2,
                     justifyContent: 'center'
                 }}
             >
             <Typography level="body-xs"
                 sx = {{
                     color: "white",
-                    pl: 0.05,
+                    fontSize: '0.6rem',
                 }}
             >
             {props.format?.substring(0, 2).toUpperCase() ?? ''}

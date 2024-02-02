@@ -39,7 +39,7 @@ const AuthenticationGuard = (props: AuthenticationGuardProps) => {
         );
     }
 
-    if (!loggedIn) {
+    if (!loggedIn && !pathname.startsWith(props.redirectTo)) {
         var redirectPath = props.redirectTo;
         redirectPath += props.savePath ? `?redirect=${pathname}` : "";
         redirect(redirectPath);

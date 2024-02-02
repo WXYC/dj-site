@@ -33,10 +33,10 @@ export const getReleasesMatching = async (params: SearchParameters): Promise<Cat
         url += `artist_name=${params.term}&album_title=${params.term}`;
         break;
       case "Albums":
-        url += `album_title=${params.term}`;
+        url += `album_title=${params.term}&artist_name=`;
         break;
       case "Artists":
-        url += `artist_name=${params.term}`;
+        url += `artist_name=${params.term}&album_title=`;
         break;
       default:
         url += `artist_name=${params.term}&album_title=${params.term}`;
@@ -49,6 +49,8 @@ export const getReleasesMatching = async (params: SearchParameters): Promise<Cat
       toast.error(error.message);
       return null;
     }
+
+    toast.success(`Found ${data?.length} results`);
   
     return data?.map((release: BSearchResult) => convertSearchResult(release)) ?? [];
   
