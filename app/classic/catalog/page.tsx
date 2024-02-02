@@ -2,7 +2,7 @@
 import AuthenticationGuard from "@/app/components/Authentication/AuthenticationGuard";
 import LogoutClassic from "@/app/components/Classic/LogoutClassic";
 import { Genre, OrderByOption, OrderDirectionOption, SearchInOption, catalogSlice, getAuthenticatedUser, getCatalogLoading, getGenre, getN, getOrderBy, getOrderDirection, getQuery, getReachedEnd, getResults, getSearchIn, searchCatalog, useDispatch, useSelector } from "@/lib/redux";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 
 const ClassicCatalogPage = () => {
     
@@ -29,12 +29,14 @@ const ClassicCatalogPage = () => {
     // -------------------------------------------------------------------------
     const [openResults, setOpenResults] = useState(false);
 
-   const handleSubmit = (event: any) => {
+    const [localSearchString, setLocalSearchString] = useState(searchString);
+
+    const handleSubmit = useCallback((event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         if (searchString.length > 0) setOpenResults(true);
-        console.log(event.target.searchString.value);
-        setSearchString(event.target.searchString.value);
-    }
+        console.log(event.currentTarget.localSearchString.value);
+        setSearchString(localSearchString);
+    }, [localSearchString, searchString]);
 
     const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | undefined>(undefined);
 
@@ -64,7 +66,7 @@ const ClassicCatalogPage = () => {
         }, 500));
       }, [searchString, searchIn, genre, n]);
 
-    if (openResults) {
+    if (openResults || searchString.length > 0) {
         return (
             <div style={{ position: 'relative' }}>
             <AuthenticationGuard redirectTo='/login' savePath />
@@ -77,16 +79,17 @@ const ClassicCatalogPage = () => {
 
                 <form name="searchForm" onSubmit={handleSubmit}>
                 <div id="searchString">
-                <input type="text" name="searchString" size={40} value={searchString} onChange={(e) => {
+                <input type="text" name="localSearchString" size={40} value={localSearchString} onChange={(e) => {
                     e.preventDefault();
-                    setSearchString(e.target.value);
+                    setLocalSearchString(e.target.value);
                 }} />
                 </div>
+                <div id="searchButton"><input type='submit' value="Search WXYC Library!" /></div>
                 <div id="sortbyRelevance">
                 <b><a href="searchCardCatalog" onClick={(e) => {
                     e.preventDefault();
                     setOpenResults(false);
-                    setSearchString("");
+                    setLocalSearchString("");
                 }}>Search Tips</a></b>
                 </div>
                 </form>
@@ -136,7 +139,7 @@ const ClassicCatalogPage = () => {
 <p></p>
 &nbsp;&nbsp;Displaying <b>{releaseList.length}</b> results
 matching text query <b>{searchString}</b><p></p>
-&nbsp;&nbsp;{reachedEndForQuery && (<a href="#" onClick={loadMore}>Load more</a>)}
+&nbsp;&nbsp;{!reachedEndForQuery && (<a href="#" onClick={loadMore}>Load more</a>)}
 &nbsp;&nbsp;
 
 <p></p>
@@ -179,7 +182,10 @@ matching text query <b>{searchString}</b><p></p>
                         </td>
                     </tr>
                     <tr>
-                        <td align="center"><input type="text" name="searchString" size={60} /></td>
+                        <td align="center"><input type="text" name="localSearchString" size={60} value={localSearchString} onChange={(e) => {
+                                                e.preventDefault();
+                                                setLocalSearchString(e.target.value);
+                                            }} /></td>
                     </tr>
                     <tr>
                         <td align="center">

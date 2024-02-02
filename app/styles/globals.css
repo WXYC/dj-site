@@ -172,8 +172,8 @@ html[data-classic-view="true"] #searchString{
 html[data-classic-view="true"] #searchButton{
 	margin: 10px;
     position: absolute;
-    top: 10px; 
-    left: 400px; 
+    top: 6px; 
+    left: 470px; 
     width: 200px;
 }
 

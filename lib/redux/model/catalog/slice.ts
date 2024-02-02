@@ -24,6 +24,7 @@ export const catalogSlice = createSlice({
         setQuery: (state, action) => {
             state.query = action.payload;
             state.noResultsRemain = false;
+            state.resultCount = 10;
         },
         setSearchIn: (state, action) => {
             state.searchIn = action.payload;
