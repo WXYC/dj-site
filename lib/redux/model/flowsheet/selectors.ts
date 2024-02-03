@@ -8,3 +8,4 @@ export const getQueuePlaceholderIndex = (state: ReduxState) => state.flowsheet.q
 export const getEntries = (state: ReduxState) => state.flowsheet.entries;
 export const getEntryPlaceholderIndex = (state: ReduxState) => state.flowsheet.entryPlaceholderIndex;
 export const getAutoplay = (state: ReduxState) => state.flowsheet.autoplay;
+export const getEntryClientRect = (state: ReduxState) => state.flowsheet.entryClientRect;

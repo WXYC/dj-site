@@ -1,6 +1,21 @@
 'use client';
 import AddToFlowsheetSearch from "@/app/components/Flowsheet/AddToFlowsheetSearch";
-import { flowSheetSlice, getAuthenticatedUser, getAutoplay, getEntries, getEntryPlaceholderIndex, getQueue, getQueuePlaceholderIndex, isLive, join, leave, processingLive, useDispatch, useSelector } from "@/lib/redux";
+import { 
+    FlowSheetEntry,
+    flowSheetSlice, 
+    getAuthenticatedUser, 
+    getAutoplay, 
+    getEntries, 
+    getEntryPlaceholderIndex, 
+    getQueue, 
+    getQueuePlaceholderIndex, 
+    isLive, 
+    join, 
+    leave, 
+    processingLive, 
+    useDispatch, 
+    useSelector 
+} from "@/lib/redux";
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PlayDisabledIcon from '@mui/icons-material/PlayDisabled';
 import PortableWifiOffIcon from '@mui/icons-material/PortableWifiOff';
@@ -16,8 +31,8 @@ import {
     Typography,
 } from "@mui/joy";
 import { useCallback } from "react";
-import DraggingPreview from "../../components/flowsheet/DraggingPreview";
-import FlowsheetEntry from "../../components/flowsheet/FlowsheetEntry";
+import DraggingPreview from "@/app/components/Flowsheet/DraggingPreview";
+import SongBox from "@/app/components/Flowsheet/SongBox";
 
 /**
  * @page
@@ -60,7 +75,7 @@ import FlowsheetEntry from "../../components/flowsheet/FlowsheetEntry";
 
     const queue = useSelector(getQueue);
     const entries = useSelector(getEntries);
-    const addToEntries = (entry: FlowsheetEntry) => dispatch(flowSheetSlice.actions.addToEntries(entry));
+    const addToEntries = (entry: FlowSheetEntry) => dispatch(flowSheetSlice.actions.addToEntries(entry));
     const queuePlaceholderIndex = useSelector(getQueuePlaceholderIndex);
     const entryPlaceholderIndex = useSelector(getEntryPlaceholderIndex);
     const autoPlay = useSelector(getAutoplay);
@@ -138,14 +153,14 @@ import FlowsheetEntry from "../../components/flowsheet/FlowsheetEntry";
                 if (entry?.message?.length ?? 0 > 0) return null;
               return (index == queuePlaceholderIndex) ? 
                (
-                <FlowsheetEntry
+                <SongBox
                   editable={true}
                   key={`queue-${index}`}
                   type={"placeholder"}
                 />
                )
                : (
-                <FlowsheetEntry
+                <SongBox
                   editable={true}
                   index = {index}
                   key={`queue-${index}`}
@@ -160,13 +175,13 @@ import FlowsheetEntry from "../../components/flowsheet/FlowsheetEntry";
             {entries.map((entry, index) => {
               return (index == entryPlaceholderIndex) ? 
               (
-                <FlowsheetEntry
+                <SongBox
                   key={`entry-${index}`}
                   type={"placeholder"}
                 />
               )
               : (
-                <FlowsheetEntry
+                <SongBox
                   editable={true}
                   index = {index}
                   key={`entry-${index}`}

@@ -24,6 +24,9 @@ export const flowSheetSlice = createSlice({
         setAutoPlay: (state, action) => {
             state.autoplay = action.payload;
         },
+        setEntryPlaceholderIndex: (state, action) => {
+            state.entryPlaceholderIndex = action.payload;
+        },
         addToEntries: (state, action) => {
             state.entries.push(action.payload);
             state.editDepth++;
@@ -31,6 +34,9 @@ export const flowSheetSlice = createSlice({
         removeFromEntries: (state, action) => {
             state.entries = state.entries.filter((item) => item.id !== action.payload);
             state.editDepth++;
+        },
+        setQueuePlaceholderIndex: (state, action) => {
+            state.queuePlaceholderIndex = action.payload;
         },
         addToQueue: (state, action) => {
             state.queue.push(action.payload);
@@ -40,6 +46,21 @@ export const flowSheetSlice = createSlice({
         },
         clearQueue: (state) => {
             state.queue = [];
+        },
+        setEntryClientRect: (state, action) => {
+            state.entryClientRect = action.payload;
+        },
+        switchQueue: (state, action) => {
+            const { sourceIndex, destinationIndex } = action.payload;
+            const sourceItem = state.queue[sourceIndex];
+            state.queue = state.queue.filter((item) => item.id !== sourceItem.id);
+            state.queue.splice(destinationIndex, 0, sourceItem);
+        },
+        switchEntries: (state, action) => {
+            const { sourceIndex, destinationIndex } = action.payload;
+            const sourceItem = state.entries[sourceIndex];
+            state.entries = state.entries.filter((item) => item.id !== sourceItem.id);
+            state.entries.splice(destinationIndex, 0, sourceItem);
         },
     },
     extraReducers: (builder) => {

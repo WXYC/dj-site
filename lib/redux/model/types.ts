@@ -37,3 +37,5 @@ export interface Artist {
 export type Format = "Vinyl" | "CD" | "Unknown";
 
 export type Genre = "Blues" | "Rock" | "Electronic" | "Hiphop" | "Jazz" | "Classical" | "Reggae" | "Soundtracks" | "OCS" | "Unknown";
+
+export type Tuple<T> = [T, T];
