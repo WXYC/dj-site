@@ -18,6 +18,7 @@ export default function VerifyPage() {
           toast.error(error.message);
         } else {
           console.table(data);
+          toast.success(data.message);
         }
       }
     }

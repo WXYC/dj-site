@@ -69,7 +69,6 @@ const ClassicCatalogPage = () => {
     if (openResults || searchString.length > 0) {
         return (
             <div style={{ position: 'relative' }}>
-            <AuthenticationGuard redirectTo='/login' savePath />
             <div id="adminLogin">
 
                 <b>Welcome, {user?.name ?? `DJ ${user?.djName}`}</b><br />
