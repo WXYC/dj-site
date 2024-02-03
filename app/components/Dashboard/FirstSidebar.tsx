@@ -177,6 +177,7 @@ export default function FirstSidebar(): JSX.Element {
             </Tooltip>
         </ListItem>
         </Link>
+        <Link href="/dashboard/playlists">
         <ListItem>
             <Tooltip
                 title="Previous Sets"
@@ -186,30 +187,17 @@ export default function FirstSidebar(): JSX.Element {
                 variant='outlined'
             >
 
-          <ListItemButton onClick={() => redirect('/dashboard/playlists')}
+          <ListItemButton
             variant={pathname.includes('/dashboard/playlists') ? 'solid' : 'plain'}
           >
             <StorageIcon />
           </ListItemButton>
             </Tooltip>
         </ListItem>
+        </Link>
+        {(user) && (
+        <Link href="/dashboard/admin">
         <ListItem>
-            <Tooltip
-                title="Schedule"
-                arrow={true}
-                placement='right'
-                size='sm'
-                variant='outlined'
-            >
-          <ListItemButton
-            onClick={() => redirect('/dashboard/schedule')}
-            variant={pathname === '/dashboard/schedule' ? 'solid' : 'plain'}
-          >
-         <CalendarMonthIcon />
-          </ListItemButton>
-            </Tooltip>
-        </ListItem>
-        {(user) && (<ListItem>
             <Tooltip
                 title="Station Management"
                 arrow={true}
@@ -218,13 +206,13 @@ export default function FirstSidebar(): JSX.Element {
                 variant='outlined'
             >
           <ListItemButton
-            onClick={() => redirect('/dashboard/admin')}
             variant={pathname === '/dashboard/admin' ? 'solid' : 'plain'}
           >
             <DisplaySettingsIcon />
           </ListItemButton>
             </Tooltip>
-        </ListItem>)}
+        </ListItem>
+        </Link>)}
       </List>
       <Tooltip
           title="Settings"
