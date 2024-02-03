@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import useMousePosition from "../widgets/MousePosition";
 
-import FlowsheetEntry from "./FlowsheetEntry";
+import SongBox from "./SongBox";
 import { flowSheetSlice, getEntries, getEntryClientRect, getEntryPlaceholderIndex, getQueue, getQueuePlaceholderIndex, useDispatch, useSelector } from "@/lib/redux";
 
 const DraggingPreview = () => {
@@ -72,7 +72,7 @@ const DraggingPreview = () => {
                 setQueuePlaceholderIndex(-1);
               }}
             >
-              <FlowsheetEntry
+              <SongBox
                 index = {queuePlaceholderIndex}
                 key={`queue-preview-${queuePlaceholderIndex}`}
                 type={"queue"}
@@ -93,7 +93,7 @@ const DraggingPreview = () => {
                     setEntryPlaceholderIndex(-1);
                 }}
             >
-                <FlowsheetEntry
+                <SongBox
                     index = {entryPlaceholderIndex}
                     key={`entry-preview-${entryPlaceholderIndex}`}
                     type={"entry"}

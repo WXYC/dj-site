@@ -31,6 +31,9 @@ export const flowSheetSlice = createSlice({
             state.entries.push(action.payload);
             state.editDepth++;
         },
+        updateEntry: (state, action) => {
+
+        },
         removeFromEntries: (state, action) => {
             state.entries = state.entries.filter((item) => item.id !== action.payload);
             state.editDepth++;
@@ -40,6 +43,9 @@ export const flowSheetSlice = createSlice({
         },
         addToQueue: (state, action) => {
             state.queue.push(action.payload);
+        },
+        updateQueueEntry: (state, action) => {
+
         },
         removeFromQueue: (state, action) => {
             state.queue = state.queue.filter((item) => item.id !== action.payload);
@@ -56,11 +62,14 @@ export const flowSheetSlice = createSlice({
             state.queue = state.queue.filter((item) => item.id !== sourceItem.id);
             state.queue.splice(destinationIndex, 0, sourceItem);
         },
-        switchEntries: (state, action) => {
+        switchEntry: (state, action) => {
             const { sourceIndex, destinationIndex } = action.payload;
             const sourceItem = state.entries[sourceIndex];
             state.entries = state.entries.filter((item) => item.id !== sourceItem.id);
             state.entries.splice(destinationIndex, 0, sourceItem);
+        },
+        playOffTop: (state) => {
+
         },
     },
     extraReducers: (builder) => {

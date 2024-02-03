@@ -15,10 +15,10 @@ import ListItem from '@mui/joy/ListItem';
 import ListItemButton from '@mui/joy/ListItemButton';
 import Sheet from '@mui/joy/Sheet';
 import Tooltip from '@mui/joy/Tooltip';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Logo from '../Branding/logo';
 
-import { applicationSlice, authenticationSlice, flowSheetSlice, getAuthenticatedUser, isLive, useDispatch, useSelector } from '@/lib/redux';
+import { applicationSlice, authenticationSlice, flowSheetSlice, getAuthenticatedUser, isLive, leave, useDispatch, useSelector } from '@/lib/redux';
 import DisplaySettingsIcon from '@mui/icons-material/DisplaySettings';
 import { Badge, ColorPaletteProp, IconButton, Stack, Typography } from '@mui/joy';
 import { redirect, usePathname } from 'next/navigation';
@@ -65,7 +65,18 @@ export default function FirstSidebar(): JSX.Element {
   const [hovering, setHovering] = useState(false);
 
   const live = useSelector(isLive);
-  const goOff = () => dispatch(flowSheetSlice.actions.setLive(false));
+
+  const goOff = useCallback(() => {
+
+    if (!user?.djId) {
+      return;
+    }
+
+    dispatch(leave({
+      dj_id: user?.djId,
+    }));
+
+  }, [user?.djId]);
 
   const [style, setStyle] = useState<ColorPaletteProp>("primary");
 

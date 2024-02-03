@@ -31,7 +31,8 @@ import { useLive } from '../../services/flowsheet/live-context';
 import { ClickAwayListener } from '@mui/material';
 import { rotationStyles } from '../station-management/rotation/Rotation';
 import { useCatalog } from '../../services/card-catalog/card-catalog-context';
-import { Album, FlowSheetEntry } from '@/lib/redux';
+import { Album, EntryRectProps, FlowSheetEntry, Rotation, flowSheetSlice, getAutoplay, getCurrentlyPlayingSongLength, getCurrentlyPlayingSongRemaining, getQueue, getRotation, useSelector } from '@/lib/redux';
+import { useDispatch } from 'react-redux';
 
 
 function timeout(ms: number) {
@@ -39,7 +40,19 @@ function timeout(ms: number) {
 }
 
 interface SongBoxProps extends FlowSheetEntry {
-    editable: boolean;
+    index?: number;
+    current?: boolean;
+    type: "entry" | "queue" | "placeholder" | "joined" | "left" | "breakpoint" | "talkset" | "error";
+    editable?: boolean;
+    rotation?: Rotation;
+}
+
+interface FlowsheetEntryFieldProps {
+    label: string;
+    value: string;
+    current: boolean;
+    id: number;
+    queue: boolean;
 }
 
 /**
@@ -52,24 +65,21 @@ interface SongBoxProps extends FlowSheetEntry {
  */
 const SongBox = (entry: SongBoxProps): JSX.Element => {
 
-    const { 
-      queue,
-      updateQueueEntry,
-      removeFromQueue, 
-      removeFromEntries, 
-      queuePlaceholderIndex, 
-      entryPlaceholderIndex,
-      setQueuePlaceholderIndex,
-      setEntryPlaceholderIndex,
-      entryClientRect,
-      setEntryClientRect,
-      addToEntries,
-      updateEntry,
-      autoPlay,
-      currentlyPlayingSongLength,
-      currentTimeStamp,
-      playOffTop
-    } = useFlowsheet();
+    const dispatch = useDispatch();
+
+    const queue = useSelector(getQueue);
+    const updateQueueEntry = (id: number, field: string, value: string) => dispatch(flowSheetSlice.actions.updateQueueEntry({id, field, value}));
+    const removeFromQueue = (id: number) => dispatch(flowSheetSlice.actions.removeFromQueue(id));
+    const removeFromEntries = (id: number) => dispatch(flowSheetSlice.actions.removeFromEntries(id));
+    const setQueuePlaceholderIndex = (index: number) => dispatch(flowSheetSlice.actions.setQueuePlaceholderIndex(index));
+    const setEntryPlaceholderIndex = (index: number) => dispatch(flowSheetSlice.actions.setEntryPlaceholderIndex(index));
+    const setEntryClientRect = (rect: EntryRectProps) => dispatch(flowSheetSlice.actions.setEntryClientRect(rect));
+    const addToEntries = (entry: FlowSheetEntry) => dispatch(flowSheetSlice.actions.addToEntries(entry));
+    const updateEntry = (id: number, field: string, value: string) => dispatch(flowSheetSlice.actions.updateEntry({id, field, value}));
+    const autoPlay = useSelector(getAutoplay);
+    const currentlyPlayingSongLength = useSelector(getCurrentlyPlayingSongLength);
+    const currentTimeStamp = useSelector(getCurrentlyPlayingSongRemaining);
+    const playOffTop = () => dispatch(flowSheetSlice.actions.playOffTop());
 
     const [image, setImage] = useState(null);
 
@@ -78,38 +88,38 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
     const [canClose, setCanClose] = useState(false);
     const { live } = useLive();
 
-    const { rotation } = useCatalog();
-    const play_freq = rotation?.find((item) => item.rotation_id == props.rotation_id)?.play_freq ?? null;
+    const rotation = useSelector(getRotation);
+    const play_freq = rotation?.find((item) => item.level == entry.rotation)?.level ?? null;
   
     const getImage = useCallback(async (default_return = "") => {
-      if (props.album == undefined || props.artist == undefined) return default_return;
+      if (entry.song?.album == undefined || entry.song?.album.artist == undefined) return default_return;
       
       await timeout(Math.random() * 800);
 
       let storedArtwork = sessionStorage.getItem(
-        `img-${props.album}-${props.artist}`
+        `img-${entry.song?.album?.title}-${entry.song?.album.artist.name}`
       );
       if (storedArtwork) return storedArtwork;
       try {
         let retrievedArtwork = await getArtwork({
-          title: props.album,
-          artist: props.artist,
+          title: entry.song?.album,
+          artist: entry.song?.album.artist,
         });
         if (retrievedArtwork == null) retrievedArtwork = default_return;
         // THE CONVENTION IS ALBUM THEN ARTIST IN THIS APP
         sessionStorage.setItem(
-          `img-${props.album}-${props.artist}`,
+          `img-${entry.song?.album.title}-${entry.song?.album.artist.name}`,
           retrievedArtwork
         );
         return retrievedArtwork;
       } catch (e) {
         sessionStorage.setItem(
-          `img-${props.album}-${props.artist}`,
+          `img-${entry.song?.album.title}-${entry.song?.album.artist.name}`,
           default_return
         );
         return default_return;
       }
-    }, [props.album, props.artist]);
+    }, [entry.song?.album, entry.song?.album?.artist]);
   
     useEffect(() => {
       getImage("apple-touch-icon.png").then((image) => {
@@ -117,7 +127,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
       });
     }, [getImage]);
 
-    const FlowsheetEntryField = (props) => {
+    const FlowsheetEntryField = (props: FlowsheetEntryFieldProps) => {
 
       const { updateEntry, updateQueueEntry } = useFlowsheet();
       const { live } = useLive();
@@ -128,24 +138,24 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
       const saveAndClose = (e) => {
         e.preventDefault();
         setEditing(false);
-        let label = props.label == "song" ? "title" : props.label; // Hack to handle stylistic choice of 'song' over 'title'
-        if (props.queue) {
-          updateQueueEntry(props.id, label, value);
+        let label = entry.label == "song" ? "title" : entry.label; // Hack to handle stylistic choice of 'song' over 'title'
+        if (entry.queue) {
+          updateQueueEntry(entry.id, label, value);
         } else {
-          updateEntry(props.id, label, value);
+          updateEntry(entry.id, label, value);
         }
       }
   
       return (
         <Stack direction="column" sx={{ width: "calc(25%)" }}>
-        <Typography level="body-sm" sx={{ mb: -1 }} textColor={props.current ? "primary.300" : "unset"}>
-          {props.label.toUpperCase()}
+        <Typography level="body-sm" sx={{ mb: -1 }} textColor={entry.current ? "primary.300" : "unset"}>
+          {entry.label.toUpperCase()}
         </Typography>
         {(editing) ? (
           <ClickAwayListener onClickAway={saveAndClose}>
           <form onSubmit={saveAndClose}>
           <Typography
-          textColor={props.current ? "primary.lightChannel" : "unset"}
+          textColor={entry.current ? "primary.lightChannel" : "unset"}
           sx={{
             whiteSpace: "nowrap",
             overflow: "hidden",
@@ -166,7 +176,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
               padding: '0',
               margin: '0',
             }}
-            defaultValue={props.value}
+            defaultValue={entry.value}
             onChange={(e) => {
               setValue(e.target.value);
             }}
@@ -178,7 +188,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
         </ClickAwayListener>
         )
         : (<Typography
-          textColor={props.current ? "primary.lightChannel" : "unset"}
+          textColor={entry.current ? "primary.lightChannel" : "unset"}
           sx={{
             whiteSpace: "nowrap",
             overflow: "hidden",
@@ -186,19 +196,19 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
             cursor: 'text',
             minWidth: '10px',
           }}
-          onDoubleClick={() => setEditing(props.editable && live)}
+          onDoubleClick={() => setEditing(entry.editable && live)}
         >
-          {props.value}&nbsp;
+          {entry.value}&nbsp;
         </Typography>)}
       </Stack>
       )
     }
   
-    switch (props.type) {
+    switch (entry.type) {
       case "placeholder":
         return (
           <Sheet
-            color={(props.current ? "primary" : "neutral")}
+            color={(entry.current ? "primary" : "neutral")}
             variant="outlined"
             sx={{
               height: "60px",
@@ -211,13 +221,13 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
         return (
           <Sheet
             ref={entryClientRectRef}
-            color={props.current ? "primary" : "neutral"}
-            variant={(props.type == "queue") ? "outlined" : (props.current ? "solid" : "soft")}
+            color={entry.current ? "primary" : "neutral"}
+            variant={(entry.type == "queue") ? "outlined" : (entry.current ? "solid" : "soft")}
             sx={{
               height: '60px',
               borderRadius: "md",
-              mb: (props.current && autoPlay) ? '0.25rem' : 'initial',
-              '&::after': (props.current && autoPlay) ? {
+              mb: (entry.current && autoPlay) ? '0.25rem' : 'initial',
+              '&::after': (entry.current && autoPlay) ? {
                 content: '""',
                 bgcolor: 'var(--joy-palette-primary-solidBg, var(--joy-palette-primary-500, #096BDE))',
                 position: 'absolute',
@@ -230,7 +240,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
                 right: 0,
               } : {},
             }}
-            onMouseOver={() => setCanClose(props.editable && live)}
+            onMouseOver={() => setCanClose(entry.editable && live)}
             onMouseLeave={() => setCanClose(false)}
           >
             <Stack
@@ -266,12 +276,12 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
               </AspectRatio>
               </Badge>
               <Stack direction="row" sx={{ flexGrow: 1, maxWidth: 'calc(100% - 98px)' }} spacing={1}>
-                <FlowsheetEntryField label="song" value={props.title} current={props.current} id={props.id} queue={props.type == "queue"} />
-                <FlowsheetEntryField label="artist" value={props.artist} current={props.current} id={props.id} queue={props.type == "queue"} />
-                <FlowsheetEntryField label="album" value={props.album} current={props.current} id={props.id} queue={props.type == "queue"} />
-                <FlowsheetEntryField label="label" value={props.label} current={props.current} id={props.id} queue={props.type == "queue"} />
+                <FlowsheetEntryField label="song" value={entry.song?.title ?? ""} current={entry.current} id={entry.id} queue={entry.type == "queue"} />
+                <FlowsheetEntryField label="artist" value={entry.song?.album.artist} current={entry.current} id={entry.id} queue={entry.type == "queue"} />
+                <FlowsheetEntryField label="album" value={entry.song?.album} current={entry.current} id={entry.id} queue={entry.type == "queue"} />
+                <FlowsheetEntryField label="label" value={entry.label} current={entry.current} id={entry.id} queue={entry.type == "queue"} />
               </Stack>
-              {(canClose && !props.current && props.type == "queue") && (
+              {(canClose && !entry.current && entry.type == "queue") && (
                 <IconButton
                     size="sm"
                     variant="solid"
@@ -281,14 +291,14 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
                     onClick={() => {
                       addToEntries({
                         message: "",
-                        title: props.title,
-                        artist: props.artist,
-                        album: props.album,
-                        label: props.label,
-                        request: props.request,
-                        rotation_id: props.rotation_id,
+                        title: entry.title,
+                        artist: entry.song?.album.artist,
+                        album: entry.song?.album,
+                        label: entry.label,
+                        request: entry.request,
+                        rotation_id: entry.rotation_id,
                       });
-                      removeFromQueue(props.id);
+                      removeFromQueue(entry.id);
                     }}
                 >
                     <PlayArrowIcon />
@@ -302,34 +312,34 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
               <Checkbox
                 size="sm"
                 variant="soft"
-                color={props.request ? "warning" : "neutral"}
+                color={entry.request ? "warning" : "neutral"}
                 uncheckedIcon={<PhoneDisabledIcon />}
                 checkedIcon={<PhoneEnabledIcon />}
-                disabled={!(props.editable && live)}
+                disabled={!(entry.editable && live)}
                 sx = {{
-                  opacity: props.request ? 1 : 0.3,
+                  opacity: entry.request ? 1 : 0.3,
                   '& .MuiCheckbox-checkbox' : {
                     background: 'transparent'
                   }
                 }}
-                checked={props.request}
+                checked={entry.request}
                 onChange={(e) => {
-                  if (props.type == "queue") {
-                    updateQueueEntry(props.id, "request", !props.request);
+                  if (entry.type == "queue") {
+                    updateQueueEntry(entry.id, "request", !entry.request);
                   } else {
-                    updateEntry(props.id, "request", !props.request);
+                    updateEntry(entry.id, "request", !entry.request);
                   }
                 }}
               />
               </Tooltip>
-              {props.current && (queue.length > 0) ? (
+              {entry.current && (queue.length > 0) ? (
                 <IconButton color="neutral" variant="plain" size="sm"
                   onClick={playOffTop}
                 >
                   <KeyboardArrowDownIcon />
                 </IconButton>
               ) : (
-                (props.editable && live) && (<IconButton
+                (entry.editable && live) && (<IconButton
                   color="neutral"
                   variant="plain"
                   size="sm"
@@ -340,7 +350,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
                     },
                   }}
                   onMouseDown={(e) => {
-                    props.type == "queue" ? setQueuePlaceholderIndex(props.index) : setEntryPlaceholderIndex(props.index);
+                    entry.type == "queue" ? setQueuePlaceholderIndex(entry.index) : setEntryPlaceholderIndex(entry.index);
                     let rect = entryClientRectRef.current.getBoundingClientRect();
                     let button = e.target.getBoundingClientRect();
                     setEntryClientRect({
@@ -357,7 +367,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
                 </IconButton>)
               )}
             </Stack>
-            {(canClose && !props.current) && (
+            {(canClose && !entry.current) && (
             <Button
                 color="neutral"
                 variant="solid"
@@ -382,13 +392,13 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
                     },
                 }}
                 onClick={() => {
-                  var remove = {"queue" : removeFromQueue, "entry" : removeFromEntries}[props.type];
-                  remove(props.id);
+                  var remove = {"queue" : removeFromQueue, "entry" : removeFromEntries}[entry.type];
+                  remove(entry.id);
                 }}
             >
                 <ClearIcon color="neutral"/>
             </Button>)}
-            {(props.current && autoPlay) && (<div
+            {(entry.current && autoPlay) && (<div
               style = {{
                 position: 'absolute',
                 bottom: '-0.3rem',
@@ -455,7 +465,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
               }}
             >
               <Typography textColor="info.400">
-                {props.type === "joined" ? (
+                {entry.type === "joined" ? (
                   <HeadphonesIcon sx={{ mb: -0.5 }} />
                 ) : (
                   <LogoutIcon sx={{ mb: -0.5 }} />
@@ -464,10 +474,10 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
               <Typography
                 level="body-lg"
                 endDecorator={
-                  <Typography textColor={"info.400"}>{`${props.type} the set!`}</Typography>
+                  <Typography textColor={"info.400"}>{`${entry.type} the set!`}</Typography>
                 }
               >
-                {props.message?.split(` ${props.type}`)?.[0] ??
+                {entry.message?.split(` ${entry.type}`)?.[0] ??
                   "Processing Error"}
               </Typography>
               <div></div>
@@ -483,7 +493,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
               height: "40px",
               borderRadius: "md",
             }}
-            onMouseOver = {() => setCanClose(props.editable && live)}
+            onMouseOver = {() => setCanClose(entry.editable && live)}
             onMouseLeave = {() => setCanClose(false)}
           >
                         {(canClose) && (
@@ -511,7 +521,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
                     },
                 }}
                 onClick={() => {
-                  removeFromEntries(props.id);
+                  removeFromEntries(entry.id);
                 }}
             >
                 <ClearIcon color="neutral"/>
@@ -530,7 +540,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
                 <TimerIcon sx={{ mb: -0.5 }} />
               </Typography>
               <Typography level="body-lg" color="warning">
-                {props.message ?? "Processing Error"}
+                {entry.message ?? "Processing Error"}
               </Typography>
               <div></div>
             </Stack>
@@ -545,7 +555,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
               height: "40px",
               borderRadius: "md",
             }}
-            onMouseOver = {() => setCanClose(props.editable && live)}
+            onMouseOver = {() => setCanClose(entry.editable && live)}
             onMouseLeave = {() => setCanClose(false)}
           >
           {(canClose) && (
@@ -573,7 +583,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
                     },
                 }}
                 onClick={() => {
-                  removeFromEntries(props.id);
+                  removeFromEntries(entry.id);
                 }}
             >
                 <ClearIcon color="neutral"/>
@@ -597,7 +607,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
                 <MicIcon sx={{ mb: -0.7 }} />
               </Typography>
               <Typography level="body-lg">
-                {props.message ?? "Processing Error"}
+                {entry.message ?? "Processing Error"}
               </Typography>
               <div></div>
             </Stack>
@@ -612,7 +622,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
               height: "40px",
               borderRadius: "md",
             }}
-            onMouseOver = {() => setCanClose(props.editable && live)}
+            onMouseOver = {() => setCanClose(entry.editable && live)}
             onMouseLeave = {() => setCanClose(false)}
           >
           {(canClose) && (
@@ -640,7 +650,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
                     },
                 }}
                 onClick={() => {
-                  removeFromEntries(props.id);
+                  removeFromEntries(entry.id);
                 }}
             >
                 <ClearIcon color="info"/>
@@ -656,13 +666,12 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
               }}
             >
               <Typography level="body-lg">
-                {props.message ?? "Processing Error"}
+                {entry.message ?? "Processing Error"}
               </Typography>
             </Stack>
           </Sheet>
         );
     }
   };
-
 
   export default SongBox;

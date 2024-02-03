@@ -7,7 +7,7 @@ export interface FlowSheetState {
     changingAir: boolean;
     entries: FlowSheetEntry[];
     entryPlaceholderIndex: number;
-    entryClientRect?: React.ReactNode;
+    entryClientRect?: EntryRectProps;
     queue: FlowSheetEntry[];
     queuePlaceholderIndex: number;
     autoplay: boolean;
@@ -38,4 +38,13 @@ export interface FlowSheetEntry {
 export interface Show {
     id: number;
     dj?: User;
+};
+
+export interface EntryRectProps {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    offsetX: number;
+    offsetY: number;
 };

@@ -88,11 +88,6 @@ import SongBox from "@/app/components/Flowsheet/SongBox";
 
       addToEntries({
         message: `DJ ${user?.djName ?? "You"} ${(live) ? 'left' : 'joined'} the set!`,
-        title: "",
-        artist: "",
-        album: "",
-        label: "",
-        request: false,
       });
     };
 
