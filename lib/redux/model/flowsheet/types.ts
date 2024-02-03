@@ -4,8 +4,12 @@ import { Song } from "../types";
 /* Types */
 export interface FlowSheetState {
     live: boolean;
-    flowSheet: FlowSheetEntry[];
+    changingAir: boolean;
+    entries: FlowSheetEntry[];
+    entryPlaceholderIndex: number;
+    entryClientRect?: React.ReactNode;
     queue: FlowSheetEntry[];
+    queuePlaceholderIndex: number;
     autoplay: boolean;
     editDepth: number;
     timer?: SongTimer;
@@ -24,7 +28,7 @@ export interface Time {
 };
 
 export interface FlowSheetEntry {
-    id: number;
+    id?: number;
     message?: string;
     title?: string;
     song?: Song;

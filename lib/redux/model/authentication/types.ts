@@ -14,6 +14,7 @@ export interface AuthenticationState {
 export interface User {
     username: string;
     djName: string;
+    djId: number;
     name: string;
     isAdmin: boolean;
     showRealName: boolean;

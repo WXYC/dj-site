@@ -1,10 +1,11 @@
 
-import { CognitoIdentityProviderClient, GetUserCommand, InitiateAuthCommand, InitiateAuthCommandInput } from "@aws-sdk/client-cognito-identity-provider";
+import { CognitoIdentityProviderClient, GetUserCommand, GetUserCommandOutput, InitiateAuthCommand, InitiateAuthCommandInput } from "@aws-sdk/client-cognito-identity-provider";
 import { jwtDecode } from 'jwt-decode';
 import { toast } from 'sonner';
-import { AuthenticationState, DJwtPayload, nullState } from "../..";
+import { AuthenticationState, BackendResponse, DJwtPayload, getter, nullState, setter } from "../..";
 import { createAppAsyncThunk } from "../../createAppAsyncThunk";
-import { LoginCredentials } from "./types";
+import { LoginCredentials, User } from "./types";
+import { AxiosResponse } from "axios";
 
 export const login = createAppAsyncThunk(
     "authentication/authenticateAsync",
@@ -51,12 +52,24 @@ export const login = createAppAsyncThunk(
                 });
                 const userResponse = await client.send(getUserCommmand);
 
+                if (!userResponse.Username || !userResponse.UserAttributes) {
+                    return nullState;
+                }
+
+                const { data: backendData, error: backendError } = await backendSync(userResponse);
+
+                if (backendError || !backendData) {
+                    toast.error("The backend is out of sync with the user database. This is fatal. Contact a site admin immediately.");
+                    return nullState;
+                }
+
                 return {
                     authenticating: false,
                     isAuthenticated: true,
                     user: {
                         username: userResponse.Username || credentials.username,
                         djName: userResponse.UserAttributes?.find(x => x.Name == "custom:dj-name")?.Value || "",
+                        djId: backendData.id,
                         name: userResponse.UserAttributes?.find(x => x.Name == "name")?.Value || "",
                         isAdmin: isAdmin,
                         showRealName: false
@@ -72,29 +85,82 @@ export const login = createAppAsyncThunk(
 
 export const verifySession = createAppAsyncThunk(
     "authentication/verifyAuthenticationAsync",
-    async (): Promise<boolean> => {
+    async (): Promise<AuthenticationState> => {
         const accessToken = sessionStorage.getItem("accessToken");
         const refreshToken = sessionStorage.getItem("refreshToken");
         const idToken = sessionStorage.getItem("idToken");
 
         if (!idToken || !accessToken || !refreshToken) {
-            return false;
+            return nullState;
         }
 
         const client = new CognitoIdentityProviderClient({
             region: process.env.NEXT_PUBLIC_AWS_REGION
         });
 
+        var jwt_payload = jwtDecode<DJwtPayload>(idToken);
+        const isAdmin: boolean = jwt_payload["cognito:groups"]?.includes("station-management") || false;
+
         try {
             const getUserCommmand = new GetUserCommand({
                 AccessToken: accessToken
             });
-            await client.send(getUserCommmand);
+            const userResponse = await client.send(getUserCommmand);
+            
+            if (!userResponse.Username || !userResponse.UserAttributes) {
+                return nullState;
+            }
 
-            return true;
+            const { data: backendData, error: backendError } = await backendSync(userResponse);
+            if (backendError || !backendData) {
+                toast.error("The backend is out of sync with the user database. This is fatal. Contact a site admin immediately.");
+                return nullState;
+            }
+
+            return {
+                authenticating: false,
+                isAuthenticated: true,
+                user: {
+                    username: userResponse.Username,
+                    djId: Number(backendData.id),
+                    djName: userResponse.UserAttributes?.find(x => x.Name == "custom:dj-name")?.Value || "",
+                    name: userResponse.UserAttributes?.find(x => x.Name == "name")?.Value || "",
+                    isAdmin: isAdmin,
+                    showRealName: false
+                }
+            };
         } catch (error) {
-            return false;
+            toast.error("Invalid username or password");
+            return nullState;
         }
         
     }
 );
+
+const backendSync = async (userData: GetUserCommandOutput): Promise<BackendResponse> => {
+    // BEGIN BACKEND SYNC ----------------------------------------------------------------------------
+    const { data: backendData, error: backendError } = await (getter(`djs?cognito_user_name=${userData.Username}`))();
+
+    if (backendError) {
+        if (backendError.message.includes('404')) {
+
+            const { data: creationData, error: creationError } = await (setter(`djs/register`))({
+                cognito_user_name: userData.Username,
+                real_name: userData?.UserAttributes?.find(attr => attr.Name == 'name')?.Value,
+                dj_name: userData?.UserAttributes?.find(attr => attr.Name == 'custom:dj-name')?.Value,
+            });
+
+            if (creationError) {
+                return { data: null, error: creationError };
+            }
+
+            return { data: creationData, error: null };
+        } else {
+            toast.error('The backend is out of sync with the user database. This is fatal. Contact a site admin immediately.');
+        }
+    } else {
+        return { data: backendData, error: null };
+    }
+    // END BACKEND SYNC ------------------------------------------------------------------------------
+    return { data: null, error: null };
+}

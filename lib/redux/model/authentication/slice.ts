@@ -39,10 +39,8 @@ export const authenticationSlice = createSlice({
         })
         .addCase(verifySession.fulfilled, (state, action) => {
             state.authenticating = false;
-            state.isAuthenticated = action.payload;
-            if (!action.payload) {
-                state.user = undefined;
-            }
+            state.isAuthenticated = action.payload.isAuthenticated;
+            state.user = action.payload.user;
         });
     }
 });
