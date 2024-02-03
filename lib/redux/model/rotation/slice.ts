@@ -1,13 +1,17 @@
 import { createSlice } from "@reduxjs/toolkit";
+import { RotationState } from "./types";
+
+const initialState: RotationState = {
+    loading: false,
+    entries: [],
+};
 
 export const rotationSlice = createSlice({
     name: "rotation",
-    initialState: {
-        rotation: [],
-    },
+    initialState,
     reducers: {
         addRotation: (state, action) => {
-            state.rotation = action.payload;
+            state.entries.push(action.payload);
         },
     },
 });

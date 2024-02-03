@@ -6,12 +6,12 @@ import { convertRotationResult, convertSearchResult } from "./conversions";
 
 
 
-const getRotationEntries = () => getter("library/rotation")();
+const retrieveRotationEntries = () => getter("library/rotation")();
 
 
-export const getRotation = async(): Promise<CatalogResult[] | null> => {
+export const retrieveRotation = async(): Promise<CatalogResult[] | null> => {
 
-    const { data, error } = await getRotationEntries();
+    const { data, error } = await retrieveRotationEntries();
 
     if (error) {
       toast.error(error.message);

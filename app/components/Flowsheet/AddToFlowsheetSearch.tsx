@@ -1,10 +1,11 @@
 'use client';
-import { FlowSheetEntry, flowSheetSlice, isLive, useDispatch, useSelector } from "@/lib/redux";
+import { CatalogResult, FlowSheetEntry, flowSheetSlice, isLive, useDispatch, useSelector } from "@/lib/redux";
 import MicIcon from "@mui/icons-material/Mic";
 import TimerIcon from "@mui/icons-material/Timer";
 import TroubleshootIcon from "@mui/icons-material/Troubleshoot";
 import {
     Box,
+    BoxSlot,
     Button,
     Chip,
     Divider,
@@ -16,9 +17,9 @@ import {
     Typography
 } from "@mui/joy";
 import { ClickAwayListener } from "@mui/material";
-import { useCallback, useContext, useEffect, useRef, useState } from "react";
-import { BinContext } from "../../services/bin/bin-context";
-import { useCatalog } from "../../services/card-catalog/card-catalog-context";
+import { createRef, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { findInBin } from "../Bin/local-search";
+import { findInRotation } from "../Catalog/search/local-search";
 import { getReleasesMatching } from "../../services/card-catalog/card-catalog-service";
 import { ArtistAvatar } from "../Catalog/ArtistAvatar";
 
@@ -40,9 +41,6 @@ const AddToFlowsheetSearch = () => {
     const addToQueue = (item: FlowSheetEntry) => dispatch(flowSheetSlice.actions.addToQueue(item));
     const addToEntries = (item: FlowSheetEntry) => dispatch(flowSheetSlice.actions.addToEntries(item));
 
-    const { findInBin } = useContext(BinContext);
-    const { rotation, findInRotation } = useCatalog();
-
     const addTalkset = () => {
         addToEntries({
             message: "Talkset",
@@ -59,11 +57,11 @@ const AddToFlowsheetSearch = () => {
         });
     }
 
-    const [binResults, setBinResults] = useState([]);
+    const [binResults, setBinResults] = useState<CatalogResult[]>([]);
     const [rotationResults, setRotationResults] = useState([]);
     const [catalogResults, setCatalogResults] = useState([]);
 
-    const searchRef = useRef(null);
+    const searchRef = useRef<HTMLInputElement | null>();
     const [searching, setSearching] = useState(false);
   
     const [selected, setSelected] = useState(0);
@@ -73,11 +71,11 @@ const AddToFlowsheetSearch = () => {
     const [album, setAlbum] = useState("");
     const [label, setLabel] = useState("");
 
-    const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout>(null);
+    const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
     useEffect(() => {
 
       if (searching && ((artist.length + album.length + label.length) > Math.max(artist.length, album.length, label.length))) {
-        clearTimeout(searchTimeout);
+        if (searchTimeout) clearTimeout(searchTimeout);
         setSearchTimeout(setTimeout(() => {
           getReleasesMatching(`${artist} ${album} ${label}`, 'All', 'All', 4).then((results) => {
             setCatalogResults(results);
@@ -88,37 +86,29 @@ const AddToFlowsheetSearch = () => {
       }
 
       return () => {
-        clearTimeout(searchTimeout);
+        if (searchTimeout) clearTimeout(searchTimeout);
       }
     }, [artist, album, label, searching]);
 
     const submitResult = useCallback((e: any) => {
       e.preventDefault();
-
-      let submission = {
+    
+      let submission: FlowSheetEntry = {
         message: "",
-        title: song,
-        artist: artist,
-        album: album,
-        label: label,
-        rotation_id: null,
-      };
-
-      if (selected > 0 && selected <= binResults.length) {
-        submission.artist = binResults[selected - 1].artist.name;
-        submission.album = binResults[selected - 1].title;
-        submission.label = binResults[selected - 1].label;
-      }
-      if (selected > binResults.length && selected <= binResults.length + rotationResults.length) {
-        submission.artist = rotationResults[selected - binResults.length - 1].artist.name;
-        submission.album = rotationResults[selected - binResults.length - 1].title;
-        submission.label = rotationResults[selected - binResults.length - 1].label;
-        submission.rotation_id = rotationResults[selected - binResults.length - 1].rotation_id;
-      }
-      if (selected > binResults.length + rotationResults.length && selected <= binResults.length + rotationResults.length + catalogResults.length) {
-        submission.artist = catalogResults[selected - binResults.length - rotationResults.length - 1].artist.name;
-        submission.album = catalogResults[selected - binResults.length - rotationResults.length - 1].title;
-        submission.label = catalogResults[selected - binResults.length - rotationResults.length - 1].label;
+        song: {
+            title: song,
+            album: (() => {
+                if (selected > 0 && selected <= binResults.length) {
+                    return binResults[selected - 1].album;
+                }
+                if (selected > binResults.length && selected <= binResults.length + rotationResults.length) {
+                    return rotationResults[selected - binResults.length - 1];
+                }
+                if (selected > binResults.length + rotationResults.length && selected <= binResults.length + rotationResults.length + catalogResults.length) {
+                    return catalogResults[selected - binResults.length - rotationResults.length - 1];
+                }
+            })()
+        }
       }
 
       if (e.shiftKey) {
@@ -132,22 +122,24 @@ const AddToFlowsheetSearch = () => {
     }, [selected, binResults, rotationResults, catalogResults, song, artist, album, label]);
   
     const closeSearch = () => {
-      setBinResults([]);
-      setRotationResults([]);
-      setCatalogResults([]);
-      setSearching(false);
-      setSelected(0);
-      setSong("");
-      setArtist("");
-      setAlbum("");
-      setLabel("");
-      searchRef.current.blur();
-      searchRef.current.querySelectorAll("input").forEach((input) => {
-        input.blur();
-      });
+        setBinResults([]);
+        setRotationResults([]);
+        setCatalogResults([]);
+        setSearching(false);
+        setSelected(0);
+        setSong("");
+        setArtist("");
+        setAlbum("");
+        setLabel("");
+        if (searchRef.current) {
+            searchRef.current.blur();
+            searchRef.current.querySelectorAll("input").forEach((input) => {
+                input.blur();
+            });
+        }
     };
   
-    const handleSearchFocused = useCallback((e) => {
+    const handleSearchFocused = useCallback((e: any) => {
       setSearching(true);
     }, []);
 
@@ -158,7 +150,7 @@ const AddToFlowsheetSearch = () => {
     }, [artist, album, label]); 
     
     const handleKeyDown = useCallback(
-      (e) => {
+      (e: any) => {
         if (!live) return;
         if (e.key === "ArrowUp") {
           e.preventDefault();
@@ -171,7 +163,7 @@ const AddToFlowsheetSearch = () => {
         }
         if (e.key === "/") {
           e.preventDefault();
-          searchRef.current.querySelector("input").focus();
+          searchRef?.current?.querySelector("input")?.focus();
         }
         if (!searching) return;
         if (e.key === "Escape") {
@@ -237,7 +229,7 @@ return (
                 onMouseOver={() => setSelected(0)}
                 onClick={submitResult}
               >
-                <Typography level="body4"
+                <Typography level="body-md"
                   sx = {{ color: selected == (0) ? "neutral.200" : "inherit"}}
                 >
                   CREATE A NEW ENTRY WITH THE FOLLOWING FIELDS:
@@ -247,7 +239,7 @@ return (
                       <Chip
                         sx={{ my: 0.5 }}
                       >
-                        <Typography level="body2" textColor={'text.primary'}>
+                        <Typography level="body-lg" textColor={'text.primary'}>
                           Song: {song}
                         </Typography>
                       </Chip>
@@ -256,7 +248,7 @@ return (
                       <Chip
                         sx={{ my: 0.5 }}
                       >
-                        <Typography level="body2" textColor={'text.primary'}>
+                        <Typography level="body-lg" textColor={'text.primary'}>
                           Artist: {artist}
                         </Typography>
                       </Chip>
@@ -265,7 +257,7 @@ return (
                       <Chip
                         sx={{ my: 0.5 }}
                       >
-                        <Typography level="body2" textColor={'text.primary'}>
+                        <Typography level="body-lg" textColor={'text.primary'}>
                           Album: {album}
                         </Typography>
                       </Chip>
@@ -274,7 +266,7 @@ return (
                       <Chip
                         sx={{ my: 0.5 }}
                       >
-                        <Typography level="body2" textColor={'text.primary'}>
+                        <Typography level="body-lg" textColor={'text.primary'}>
                           Label: {label}
                         </Typography>
                       </Chip>
@@ -289,7 +281,7 @@ return (
                   p: 1,
                 }}
               >
-                <Typography level="body4">FROM YOUR MAIL BIN</Typography>
+                <Typography level="body-md">FROM YOUR MAIL BIN</Typography>
               </Box>
               <Stack direction="column">
                 {binResults.map((binItem, index) => (
@@ -307,12 +299,12 @@ return (
                   onClick={submitResult}
                 >
                   <ArtistAvatar
-                    artist={binItem.artist}
-                    format={binItem.format}
-                    entry={binItem.release_number}
+                    artist={binItem.album.artist}
+                    format={binItem.album.format}
+                    entry={binItem.album.release}
                   />
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" sx={{ 
+                    <Typography level="body-md" sx={{ 
                       mb: -1,
                       color: selected == (1 + index) ? "neutral.200" : "inherit",
                     }}>
@@ -345,7 +337,7 @@ return (
                     </Typography>
                   </Stack>
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" sx={{ 
+                    <Typography level="body-md" sx={{ 
                       mb: -1,
                       color: selected == (1 + index) ? "neutral.200" : "inherit",
                     }}>
@@ -363,7 +355,7 @@ return (
                     </Typography>
                   </Stack>
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" sx={{ 
+                    <Typography level="body-md" sx={{ 
                       mb: -1,
                       color: selected == (1 + index) ? "neutral.200" : "inherit",
                     }}>
@@ -381,7 +373,7 @@ return (
                     </Typography>
                   </Stack>
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" sx={{ 
+                    <Typography level="body-md" sx={{ 
                       mb: -1,
                       color: selected == (1 + index) ? "neutral.200" : "inherit",
                     }}>
@@ -408,7 +400,7 @@ return (
                   p: 1,
                 }}
               >
-                <Typography level="body4">FROM ROTATION</Typography>
+                <Typography level="body-md">FROM ROTATION</Typography>
               </Box>
               <Stack direction="column">
                 {rotationResults.map((rotationItem, index) => (
@@ -432,7 +424,7 @@ return (
                     play_freq={rotationItem.play_freq}
                   />
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" sx={{ 
+                    <Typography level="body-md" sx={{ 
                       mb: -1,
                       color: selected == (1 + binResults.length + index) ? "neutral.200" : "inherit",
                     }}>
@@ -465,7 +457,7 @@ return (
                     </Typography>
                   </Stack>
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" sx={{ 
+                    <Typography level="body-md" sx={{ 
                       mb: -1,
                       color: selected == (1 + binResults.length + index) ? "neutral.200" : "inherit",
                     }}>
@@ -483,7 +475,7 @@ return (
                     </Typography>
                   </Stack>
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" sx={{ 
+                    <Typography level="body-md" sx={{ 
                       mb: -1,
                       color: selected == (1 + binResults.length + index) ? "neutral.200" : "inherit",
                     }}>
@@ -501,7 +493,7 @@ return (
                     </Typography>
                   </Stack>
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" sx={{ 
+                    <Typography level="body-md" sx={{ 
                       mb: -1,
                       color: selected == (1 + binResults.length + index) ? "neutral.200" : "inherit",
                     }}>
@@ -528,7 +520,7 @@ return (
                   p: 1,
                 }}
               >
-                <Typography level="body4">CATALOG</Typography>
+                <Typography level="body-md">CATALOG</Typography>
               </Box>
               <Stack direction="column">
                 {catalogResults.map((catalogItem, index) => (
@@ -551,7 +543,7 @@ return (
                     entry={catalogItem.release_number}
                   />
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" 
+                    <Typography level="body-md" 
                       sx={{
                         mb: -1,
                         color: selected == (1 + binResults.length + rotationResults.length + index) ? "neutral.200" : "inherit",
@@ -586,7 +578,7 @@ return (
                     </Typography>
                   </Stack>
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" 
+                    <Typography level="body-md" 
                       sx={{
                         mb: -1,
                         color: selected == (1 + binResults.length + rotationResults.length + index) ? "neutral.200" : "inherit",
@@ -606,7 +598,7 @@ return (
                     </Typography>
                   </Stack>
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" 
+                    <Typography level="body-md" 
                       sx={{
                         mb: -1,
                         color: selected == (1 + binResults.length + rotationResults.length + index) ? "neutral.200" : "inherit",
@@ -626,7 +618,7 @@ return (
                     </Typography>
                   </Stack>
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
-                    <Typography level="body4" 
+                    <Typography level="body-md" 
                       sx={{
                         mb: -1,
                         color: selected == (1 + binResults.length + rotationResults.length + index) ? "neutral.200" : "inherit",
@@ -668,33 +660,33 @@ return (
               }}
             >
               <Chip variant="soft" size="sm" color="neutral">
-                <Typography level="body5">TAB</Typography>
+                <Typography level="body-sm">TAB</Typography>
               </Chip>
-              <Typography level="body4">switches search fields</Typography>
+              <Typography level="body-md">switches search fields</Typography>
               <Chip variant="soft" size="sm" color="neutral">
-                <Typography level="body5">SHIFT + TAB</Typography>
+                <Typography level="body-sm">SHIFT + TAB</Typography>
               </Chip>
-              <Typography level="body4">goes back a field</Typography>
+              <Typography level="body-md">goes back a field</Typography>
               <Chip variant="soft" size="sm" color="neutral">
-                <Typography level="body5">UP ARROW</Typography>
+                <Typography level="body-sm">UP ARROW</Typography>
               </Chip>
-              <Typography level="body4">
+              <Typography level="body-md">
                 selects the previous entry
               </Typography>
               <Chip variant="soft" size="sm" color="neutral">
-                <Typography level="body5">DOWN ARROW</Typography>
+                <Typography level="body-sm">DOWN ARROW</Typography>
               </Chip>
-              <Typography level="body4">selects the next entry</Typography>
+              <Typography level="body-md">selects the next entry</Typography>
               <Chip variant="soft" size="sm" color="neutral">
-                <Typography level="body5">ENTER</Typography>
+                <Typography level="body-sm">ENTER</Typography>
               </Chip>
-              <Typography level="body4">
+              <Typography level="body-md">
                 adds the result to the queue
               </Typography>
               <Chip variant="soft" size="sm" color="neutral">
-                <Typography level="body5">SHIFT + ENTER</Typography>
+                <Typography level="body-sm">SHIFT + ENTER</Typography>
               </Chip>
-              <Typography level="body4">
+              <Typography level="body-md">
                 sets the current result playing
               </Typography>
             </Stack>
