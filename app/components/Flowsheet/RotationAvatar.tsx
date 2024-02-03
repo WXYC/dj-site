@@ -1,7 +1,7 @@
 import { Rotation } from "@/lib/redux";
 import { Avatar, ColorPaletteProp, Typography } from "@mui/joy";
 
-const ROTATION_COLORS: { [id in Rotation] : ColorPaletteProp } = {
+export const ROTATION_COLORS: { [id in Rotation] : ColorPaletteProp } = {
     "H": 'primary',
     "M": 'warning',
     "L": 'neutral',

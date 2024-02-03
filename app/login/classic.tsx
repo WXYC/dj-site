@@ -34,7 +34,7 @@ export default function ClassicLogin() {
           <tbody>
           <tr>
             <td align="center" valign="top">
-              <img src="img/wxyc-logo-classic.gif" alt="WXYC logo" style = {{ border: 0 }} />
+              <img src="/img/wxyc-logo-classic.gif" alt="WXYC logo" style = {{ border: 0 }} />
             </td>
           </tr>
           </tbody>
@@ -106,7 +106,7 @@ export default function ClassicLogin() {
             <tbody>
             <tr>
               <td align="center" valign="top" style={{ display: 'flex', justifyContent: 'center' }}>
-                <img src="img/wxyc-logo-classic.gif" alt="WXYC logo" style = {{ border: 0 }} />
+                <img src="/img/wxyc-logo-classic.gif" alt="WXYC logo" style = {{ border: 0 }} />
               </td>
             </tr>
             </tbody>
