@@ -1,5 +1,5 @@
 'use client';
-import { CatalogResult, FlowSheetEntry, flowSheetSlice, isLive, useDispatch, useSelector } from "@/lib/redux";
+import { CatalogResult, FlowSheetEntry, RotationEntry, flowSheetSlice, isLive, useDispatch, useSelector } from "@/lib/redux";
 import MicIcon from "@mui/icons-material/Mic";
 import TimerIcon from "@mui/icons-material/Timer";
 import TroubleshootIcon from "@mui/icons-material/Troubleshoot";
@@ -20,7 +20,7 @@ import { ClickAwayListener } from "@mui/material";
 import { createRef, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { findInBin } from "../Bin/local-search";
 import { findInRotation } from "../Catalog/search/local-search";
-import { getReleasesMatching } from "../../services/card-catalog/card-catalog-service";
+import { getReleasesMatching } from "@/lib/redux";
 import { ArtistAvatar } from "../Catalog/ArtistAvatar";
 
 /**
@@ -58,8 +58,8 @@ const AddToFlowsheetSearch = () => {
     }
 
     const [binResults, setBinResults] = useState<CatalogResult[]>([]);
-    const [rotationResults, setRotationResults] = useState([]);
-    const [catalogResults, setCatalogResults] = useState([]);
+    const [rotationResults, setRotationResults] = useState<RotationEntry[]>([]);
+    const [catalogResults, setCatalogResults] = useState<CatalogResult[]>([]);
 
     const searchRef = useRef<HTMLInputElement | null>();
     const [searching, setSearching] = useState(false);
@@ -77,8 +77,15 @@ const AddToFlowsheetSearch = () => {
       if (searching && ((artist.length + album.length + label.length) > Math.max(artist.length, album.length, label.length))) {
         if (searchTimeout) clearTimeout(searchTimeout);
         setSearchTimeout(setTimeout(() => {
-          getReleasesMatching(`${artist} ${album} ${label}`, 'All', 'All', 4).then((results) => {
-            setCatalogResults(results);
+          getReleasesMatching({
+            term: `${artist} ${album} ${label}`, 
+            medium: "All", 
+            genre: "All",
+            n: 4
+          }).then((results) => {
+            if (results) {
+                setCatalogResults(results);
+            }
           });
         }, 1000));
       } else {
@@ -102,10 +109,10 @@ const AddToFlowsheetSearch = () => {
                     return binResults[selected - 1].album;
                 }
                 if (selected > binResults.length && selected <= binResults.length + rotationResults.length) {
-                    return rotationResults[selected - binResults.length - 1];
+                    return rotationResults[selected - binResults.length - 1].album;
                 }
                 if (selected > binResults.length + rotationResults.length && selected <= binResults.length + rotationResults.length + catalogResults.length) {
-                    return catalogResults[selected - binResults.length - rotationResults.length - 1];
+                    return catalogResults[selected - binResults.length - rotationResults.length - 1].album;
                 }
             })()
         }
@@ -318,21 +325,16 @@ return (
                         color: selected == (1 + index) ? "white" : "inherit",
                       }}
                     >
-                      {binItem.artist.genre} {binItem.artist.lettercode} {binItem.artist.numbercode}/{binItem.release_number}
+                      {binItem.album.artist.genre} {binItem.album.artist.lettercode} {binItem.album.artist.numbercode}/{binItem.album.release}
                       <Chip
                         variant="soft"
                         size="sm"
-                        color={
-                          {
-                            cd: 'primary',
-                            vinyl: 'warning',
-                          }[binItem.format.includes('vinyl') ? 'vinyl' : 'cd']
-                        }
+                        color={binItem.album.format.includes('vinyl') ? "primary" : "warning"}
                         sx = {{
                           ml: 2,
                         }}
                       >
-                        {binItem.format.includes('vinyl') ? 'vinyl' : 'cd'}
+                        {binItem.album.format.includes('vinyl') ? 'vinyl' : 'cd'}
                       </Chip>
                     </Typography>
                   </Stack>
@@ -351,7 +353,7 @@ return (
                         color: selected == (1 + index) ? "white" : "inherit",
                       }}
                     >
-                      {binItem.artist.name}
+                      {binItem.album.artist.name}
                     </Typography>
                   </Stack>
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
@@ -369,7 +371,7 @@ return (
                         color: selected == (1 + index) ? "white" : "inherit",
                       }}
                     >
-                      {binItem.title}
+                      {binItem.album.title}
                     </Typography>
                   </Stack>
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
@@ -387,7 +389,7 @@ return (
                         color: selected == (1 + index) ? "white" : "inherit",
                       }}
                     >
-                      {binItem.label}
+                      {binItem.album.label}
                     </Typography>
                   </Stack>
                 </Stack>))}
@@ -418,10 +420,10 @@ return (
                   onClick={submitResult}
                 >
                   <ArtistAvatar
-                    artist={rotationItem.artist}
-                    format={rotationItem.format}
-                    entry={rotationItem.release_number}
-                    play_freq={rotationItem.play_freq}
+                    artist={rotationItem.album.artist}
+                    format={rotationItem.album.format}
+                    entry={rotationItem.album.release}
+                    rotation={rotationItem.level}
                   />
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
                     <Typography level="body-md" sx={{ 
@@ -438,21 +440,16 @@ return (
                         color: selected == (1 + binResults.length + index) ? "white" : "inherit",
                       }}
                     >
-                      {rotationItem.artist.genre} {rotationItem.artist.lettercode} {rotationItem.artist.numbercode}/{rotationItem.release_number}
+                      {rotationItem.album.artist.genre} {rotationItem.album.artist.lettercode} {rotationItem.album.artist.numbercode}/{rotationItem.album.release}
                       <Chip
                         variant="soft"
                         size="sm"
-                        color={
-                          {
-                            cd: 'primary',
-                            vinyl: 'warning',
-                          }[rotationItem.format.includes('vinyl') ? 'vinyl' : 'cd']
-                        }
+                        color={rotationItem.album.format.includes('vinyl') ? "primary" : "warning"}
                         sx = {{
                           ml: 2,
                         }}
                       >
-                        {rotationItem.format.includes('vinyl') ? 'vinyl' : 'cd'}
+                        {rotationItem.album.format.includes('vinyl') ? 'vinyl' : 'cd'}
                       </Chip>
                     </Typography>
                   </Stack>
@@ -471,7 +468,7 @@ return (
                         color: selected == (1 + binResults.length + index) ? "white" : "inherit",
                       }}
                     >
-                      {rotationItem.artist.name}
+                      {rotationItem.album.artist.name}
                     </Typography>
                   </Stack>
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
@@ -489,7 +486,7 @@ return (
                         color: selected == (1 + binResults.length + index) ? "white" : "inherit",
                       }}
                     >
-                      {rotationItem.title}
+                      {rotationItem.album.title}
                     </Typography>
                   </Stack>
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
@@ -507,7 +504,7 @@ return (
                         color: selected == (1 + binResults.length + index) ? "white" : "inherit",
                       }}
                     >
-                      {rotationItem.label}
+                      {rotationItem.album.label}
                     </Typography>
                   </Stack>
                 </Stack>))}
@@ -538,9 +535,9 @@ return (
                   onClick={submitResult}
                 >
                   <ArtistAvatar
-                    artist={catalogItem.artist}
-                    format={catalogItem.format}
-                    entry={catalogItem.release_number}
+                    artist={catalogItem.album.artist}
+                    format={catalogItem.album.format}
+                    entry={catalogItem.album.release}
                   />
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
                     <Typography level="body-md" 
@@ -559,21 +556,16 @@ return (
                         color: selected == (1 + binResults.length + rotationResults.length + index) ? "white" : "inherit",
                       }}
                     >
-                      {catalogItem.artist.genre} {catalogItem.artist.lettercode} {catalogItem.artist.numbercode}/{catalogItem.release_number}
+                      {catalogItem.album.artist.genre} {catalogItem.album.artist.lettercode} {catalogItem.album.artist.numbercode}/{catalogItem.album.release}
                       <Chip
                         variant="soft"
                         size="sm"
-                        color={
-                          {
-                            cd: 'primary',
-                            vinyl: 'warning',
-                          }[catalogItem.format.includes('vinyl') ? 'vinyl' : 'cd']
-                        }
+                        color={catalogItem.album.format.includes('vinyl') ? "primary" : "warning"}
                         sx = {{
                           ml: 2,
                         }}
                       >
-                        {catalogItem.format.includes('vinyl') ? 'vinyl' : 'cd'}
+                        {catalogItem.album.format.includes('vinyl') ? 'vinyl' : 'cd'}
                       </Chip>
                     </Typography>
                   </Stack>
@@ -594,7 +586,7 @@ return (
                         color: selected == (1 + binResults.length + rotationResults.length + index) ? "white" : "inherit",
                       }}
                     >
-                      {catalogItem.artist.name}
+                      {catalogItem.album.artist.name}
                     </Typography>
                   </Stack>
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
@@ -614,7 +606,7 @@ return (
                         color: selected == (1 + binResults.length + rotationResults.length + index) ? "white" : "inherit",
                       }}
                     >
-                      {catalogItem.title}
+                      {catalogItem.album.title}
                     </Typography>
                   </Stack>
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
@@ -634,7 +626,7 @@ return (
                         color: selected == (1 + binResults.length + rotationResults.length + index) ? "white" : "inherit",
                       }}
                     >
-                      {catalogItem.label}
+                      {catalogItem.album.label}
                     </Typography>
                   </Stack>
                 </Stack>
@@ -727,7 +719,7 @@ return (
             outlineColor: 'var(--joy-palette-primary-400, #02367D)',
           },
         }}
-        onClick={() => live && searchRef.current.querySelector("input").focus()}
+        onClick={() => live && searchRef.current?.querySelector("input")?.focus()}
         onFocus={handleSearchFocused}
       >
         <Box
@@ -794,9 +786,11 @@ return (
             color="neutral"
             disabled={!live}
             onClick={() => {
-              const input = searchRef.current.querySelector("input");
-              input.value = "";
-              input.focus();
+              const input = searchRef.current?.querySelector("input");
+              if (input) {
+                input.value = "";
+                input.focus();
+              }
             }}
             sx = {{
               minHeight: '22px',

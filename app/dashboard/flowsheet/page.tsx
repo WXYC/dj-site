@@ -1,26 +1,23 @@
 'use client';
-import {
-  Divider,
-  Sheet,
-  Stack,
-  Box,
-  Typography,
-  Button,
-  IconButton,
-  Tooltip,
-} from "@mui/joy";
-import React, { useCallback, useEffect } from "react";
-import AddToFlowsheetSearch from "../../components/flowsheet/AddToFlowsheetSearch";
-import DraggingPreview from "../../components/flowsheet/DraggingPreview";
-import FlowsheetEntry from "../../components/flowsheet/FlowsheetEntry";
-import { useFlowsheet } from "../../services/flowsheet/flowsheet-context";
+import AddToFlowsheetSearch from "@/app/components/Flowsheet/AddToFlowsheetSearch";
+import { flowSheetSlice, getAuthenticatedUser, getAutoplay, getEntries, getEntryPlaceholderIndex, getQueue, getQueuePlaceholderIndex, isLive, join, leave, processingLive, useDispatch, useSelector } from "@/lib/redux";
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PlayDisabledIcon from '@mui/icons-material/PlayDisabled';
-import { useLive } from "../../services/flowsheet/live-context";
-import WifiTetheringIcon from '@mui/icons-material/WifiTethering';
 import PortableWifiOffIcon from '@mui/icons-material/PortableWifiOff';
-import { useAuth } from "../../services/authentication/authentication-context";
-import { flowSheetSlice, isLive, processingLive, useDispatch, useSelector, join, authenticationSlice, getAuthenticatedUser, leave, getQueue, getFlowSheet, getEntries, getEntryPlaceholderIndex, getQueuePlaceholderIndex, getAutoplay } from "@/lib/redux";
+import WifiTetheringIcon from '@mui/icons-material/WifiTethering';
+import {
+    Box,
+    Button,
+    Divider,
+    IconButton,
+    Sheet,
+    Stack,
+    Tooltip,
+    Typography,
+} from "@mui/joy";
+import { useCallback } from "react";
+import DraggingPreview from "../../components/flowsheet/DraggingPreview";
+import FlowsheetEntry from "../../components/flowsheet/FlowsheetEntry";
 
 /**
  * @page

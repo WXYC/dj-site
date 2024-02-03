@@ -5,9 +5,8 @@ export interface RotationState {
     entries: RotationEntry[];
 }
 
-export interface RotationEntry {
+export interface RotationEntry extends CatalogResult {
     level: Rotation;
-    entry: CatalogResult;
 }
 
 export type Rotation = "H" | "M" | "L" | "S";
