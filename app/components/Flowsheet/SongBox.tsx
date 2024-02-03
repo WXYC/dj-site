@@ -79,7 +79,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
   const dispatch = useDispatch();
 
   const queue = useSelector(getQueue);
-  const updateQueueEntry = (id: number, field: string, value: string) =>
+  const updateQueueEntry = (id: number, field: string, value: any) =>
     dispatch(flowSheetSlice.actions.updateQueueEntry({ id, field, value }));
   const removeFromQueue = (id: number) =>
     dispatch(flowSheetSlice.actions.removeFromQueue(id));
@@ -93,7 +93,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
     dispatch(flowSheetSlice.actions.setEntryClientRect(rect));
   const addToEntries = (entry: FlowSheetEntry) =>
     dispatch(flowSheetSlice.actions.addToEntries(entry));
-  const updateEntry = (id: number, field: string, value: string) =>
+  const updateEntry = (id: number, field: string, value: any) =>
     dispatch(flowSheetSlice.actions.updateEntry({ id, field, value }));
   const autoPlay = useSelector(getAutoplay);
   const currentlyPlayingSongLength = useSelector(getCurrentlyPlayingSongLength);
@@ -434,21 +434,26 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
                       background: "none",
                     },
                   }}
-                  onMouseDown={(e) => {
-                    entry.type == "queue"
-                      ? setQueuePlaceholderIndex(entry.index)
-                      : setEntryPlaceholderIndex(entry.index);
+                  onMouseDown={(e: React.MouseEvent) => {
+                    if (entry.index) {
+                        entry.type == "queue"
+                        ? setQueuePlaceholderIndex(entry.index)
+                        : setEntryPlaceholderIndex(entry.index);
+                    }
                     let rect =
-                      entryClientRectRef.current.getBoundingClientRect();
-                    let button = e.target.getBoundingClientRect();
-                    setEntryClientRect({
-                      x: rect.x,
-                      y: rect.y,
-                      width: rect.width,
-                      height: rect.height,
-                      offsetX: button.x - rect.x + 5,
-                      offsetY: button.y - rect.y + 5,
-                    });
+                      entryClientRectRef.current?.getBoundingClientRect();
+                    const target = e.target as HTMLElement;
+                    let button = target.getBoundingClientRect();
+                    if (rect) {
+                        setEntryClientRect({
+                        x: rect.x,
+                        y: rect.y,
+                        width: rect.width,
+                        height: rect.height,
+                        offsetX: button.x - rect.x + 5,
+                        offsetY: button.y - rect.y + 5,
+                        });
+                    }
                   }}
                 >
                   <DragIndicatorIcon />
@@ -481,14 +486,19 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
                 },
               }}
               onClick={() => {
-                var remove = {
-                  queue: removeFromQueue,
-                  entry: removeFromEntries,
-                }[entry.type];
-                remove(entry.id);
+                if (entry.id) {
+                    switch (entry.type) {
+                        case "queue":
+                            removeFromQueue(entry.id);
+                            break;
+                        case "entry":
+                            removeFromEntries(entry.id);
+                            break;
+                    }
+                }
               }}
             >
-              <ClearIcon color="neutral" />
+              <ClearIcon color="info" />
             </Button>
           )}
           {entry.current && autoPlay && (
@@ -535,10 +545,10 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
                   sx={{ mt: -0.25 }}
                   textColor={"neutral.100"}
                 >
-                  {currentTimeStamp.h > 0 && currentTimeStamp.h + ":"}
-                  {currentTimeStamp.m < 10 && "0"}
-                  {currentTimeStamp.m}:{currentTimeStamp.s < 10 && "0"}
-                  {currentTimeStamp.s}
+                  {currentTimeStamp && currentTimeStamp.hour > 0 && currentTimeStamp.hour + ":"}
+                  {currentTimeStamp && currentTimeStamp.minute < 10 && "0"}
+                  {currentTimeStamp && currentTimeStamp.minute}:{currentTimeStamp && currentTimeStamp.second < 10 && "0"}
+                  {currentTimeStamp && currentTimeStamp.second}
                 </Typography>
               </div>
             </div>
@@ -549,7 +559,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
     case "left":
       return (
         <Sheet
-          color="info"
+          color="neutral"
           variant="solid"
           sx={{
             height: "40px",
@@ -597,7 +607,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
             height: "40px",
             borderRadius: "md",
           }}
-          onMouseOver={() => setCanClose(entry.editable && live)}
+          onMouseOver={() => setCanClose((entry.editable ?? false) && live)}
           onMouseLeave={() => setCanClose(false)}
         >
           {canClose && (
@@ -625,10 +635,10 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
                 },
               }}
               onClick={() => {
-                removeFromEntries(entry.id);
+                if (entry.id) removeFromEntries(entry.id);
               }}
             >
-              <ClearIcon color="neutral" />
+              <ClearIcon color="info" />
             </Button>
           )}
           <Stack
@@ -660,7 +670,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
             height: "40px",
             borderRadius: "md",
           }}
-          onMouseOver={() => setCanClose(entry.editable && live)}
+          onMouseOver={() => setCanClose((entry.editable ?? false) && live)}
           onMouseLeave={() => setCanClose(false)}
         >
           {canClose && (
@@ -688,10 +698,10 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
                 },
               }}
               onClick={() => {
-                removeFromEntries(entry.id);
+                if (entry.id) removeFromEntries(entry.id);
               }}
             >
-              <ClearIcon color="neutral" />
+              <ClearIcon color="info" />
             </Button>
           )}
           <Stack
@@ -728,7 +738,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
             height: "40px",
             borderRadius: "md",
           }}
-          onMouseOver={() => setCanClose(entry.editable && live)}
+          onMouseOver={() => setCanClose((entry.editable ?? false) && live)}
           onMouseLeave={() => setCanClose(false)}
         >
           {canClose && (
@@ -756,7 +766,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
                 },
               }}
               onClick={() => {
-                removeFromEntries(entry.id);
+                if (entry.id) removeFromEntries(entry.id);
               }}
             >
               <ClearIcon color="info" />
