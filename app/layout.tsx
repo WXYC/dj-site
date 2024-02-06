@@ -5,10 +5,8 @@ import { Providers } from "@/lib/providers";
 import { Toaster } from "sonner";
 import { GlobalPopups } from "./components/General/Popups/Popups";
 import ThemeRegistry from "./styles/ThemeRegistry";
+import "./styles/classic.css";
 import "./styles/globals.css";
-import VersionSelector from "./versionselector";
-import { CssBaseline } from "@mui/joy";
-import ViewGuard from "./components/General/ViewGuard";
 
 export default function RootLayout(props: React.PropsWithChildren) {
 

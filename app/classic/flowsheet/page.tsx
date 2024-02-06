@@ -12,6 +12,13 @@ const ClassicFlowsheetPage = (): JSX.Element => {
 
   const dispatch = useDispatch();
 
+  const [fontSizeSetting, setFontSizeSetting] = useState(2);
+
+  useEffect(() => {
+    // make the html data-attribute reflect the font size setting
+    document.documentElement.setAttribute('data-classic-font-size', fontSizeSetting.toString());
+  }, [fontSizeSetting]);
+
   const logout = (e: any) => dispatch(authenticationSlice.actions.logout());
   const user = useSelector(getAuthenticatedUser);
 
@@ -19,7 +26,7 @@ const ClassicFlowsheetPage = (): JSX.Element => {
     dispatch(loadFlowsheet());
   }, []);
 
-  const live = true;
+  const live = useSelector(isLive);
   const intermediate = useSelector(processingLive);
   const goLive = useCallback(() => {
 
@@ -385,27 +392,16 @@ const ClassicFlowsheetPage = (): JSX.Element => {
             </th>
             <th>
               <div id="font-adjuster">
-                <span className="button" id="font-1">
+              {[...Array(7)].map((_, index) => (
+                <button
+                  key={index}
+                  className={`fontButton ${(fontSizeSetting === index + 1) ? 'active' : ''}`}
+                  onClick={() => setFontSizeSetting(index + 1)}
+                  id={`font-${index + 1}`}
+                >
                   Aa
-                </span>
-                <span className="button" id="font-2">
-                  Aa
-                </span>
-                <span className="button" id="font-3">
-                  Aa
-                </span>
-                <span className="button" id="font-4">
-                  Aa
-                </span>
-                <span className="button" id="font-5">
-                  Aa
-                </span>
-                <span className="button" id="font-6">
-                  Aa
-                </span>
-                <span className="button" id="font-7">
-                  Aa
-                </span>
+                </button>
+              ))}
               </div>
             </th>
             <th
@@ -450,7 +446,7 @@ const ClassicFlowsheetPage = (): JSX.Element => {
                     if (entry.id === 0) return;
                     switchEntry(entry.id - 1, entry.id);
                   }}>
-                    <NorthIcon />
+                    <img src="/img/icons/up.png" style = {{ height: '1.5rem' }} />
                   </a>
                 </td>
                 <td align="center" className="text">
@@ -459,7 +455,7 @@ const ClassicFlowsheetPage = (): JSX.Element => {
                     if (entry.id === entries.length - 1) return;
                     switchEntry(entry.id + 1, entry.id);
                   }}>
-                    <SouthIcon />
+                    <img src="/img/icons/down.png" style = {{ height: '1.5rem' }} />
                   </a>
                 </td>
                 <td align="center" className="text">
@@ -470,8 +466,8 @@ const ClassicFlowsheetPage = (): JSX.Element => {
               ) : (() => {
                 let type = entry.message.includes("left") || entry.message.includes("joined"); // true for starting/leaving show, false for other messages
                 return type ? (
-                  <tr style = {{ background: "$1" }} className="flowsheetEntryData">
-                    <td colSpan={8} align="left" className="littlegreenlabel">{entry.message}</td>
+                  <tr style = {{ background: "#999999" }} className="flowsheetEntryData">
+                    <td colSpan={8} align="left" className="redlabel">--- {entry.message} ---</td>
                     <td align="center" className="text">
                     <a href=""
                     onClick={(e) => {
@@ -488,12 +484,12 @@ const ClassicFlowsheetPage = (): JSX.Element => {
                 <td colSpan={6} align="center" className="redlabel">{entry.message}</td>
                 <td align="center" className="text">
                   <a href="javascript:moveEntryUp(2285297, 36, 37)">
-                    <NorthIcon />
+                    <img src="/img/icons/up.png" style = {{ height: '1.5rem' }} />
                   </a>
                 </td>
                 <td align="center" className="text">
                   <a href="javascript:moveEntryDown(2285297, 36, 35)">
-                    <SouthIcon />
+                    <img src="/img/icons/down.png" style = {{ height: '1.5rem' }} />
                   </a>
                 </td>
                 <td align="center" className="text">
