@@ -1,6 +1,7 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { FlowSheetState } from "./types";
-import { join, leave, loadFlowsheet } from "./thunks";
+import { getIsLive, join, leave, loadFlowsheet } from "./thunks";
+import { toast } from "sonner";
 
 
 const initialState: FlowSheetState = {
@@ -82,6 +83,18 @@ export const flowSheetSlice = createSlice({
         })
         .addCase(loadFlowsheet.rejected, (state) => {
             state.loading = false;
+        })
+        .addCase(getIsLive.pending, (state) => {
+            state.changingAir = true;
+        })
+        .addCase(getIsLive.fulfilled, (state, action) => {
+            state.changingAir = false;
+            state.live = action.payload;
+            toast.success("You are live!");
+        })
+        .addCase(getIsLive.rejected, (state) => {
+            state.changingAir = false;
+            state.live = false;
         })
         .addCase(join.pending, (state) => {
             state.changingAir = true;

@@ -1,12 +1,13 @@
 'use client';
 
-import { Album, FlowSheetEntry, FlowSheetEntryProps, Rotation, authenticationSlice, flowSheetSlice, getAuthenticatedUser, getEntries, getQueue, isLive, join, leave, loadFlowsheet, processingLive, useDispatch } from "@/lib/redux";
+import { Album, FlowSheetEntry, FlowSheetEntryProps, Rotation, authenticationSlice, flowSheetSlice, getAuthenticatedUser, getEntries, getIsLive, getQueue, isLive, join, leave, loadFlowsheet, processingLive, useDispatch } from "@/lib/redux";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 
 import NorthIcon from '@mui/icons-material/North';
 import SouthIcon from '@mui/icons-material/South';
 import { Box } from "@mui/joy";
+import { toast } from "sonner";
 
 const ClassicFlowsheetPage = (): JSX.Element => {
 
@@ -25,6 +26,10 @@ const ClassicFlowsheetPage = (): JSX.Element => {
   useEffect(() => {
     dispatch(loadFlowsheet());
   }, []);
+
+  useEffect(() => {
+    dispatch(getIsLive(user?.djId));
+  }, [user?.djId]);
 
   const live = useSelector(isLive);
   const intermediate = useSelector(processingLive);

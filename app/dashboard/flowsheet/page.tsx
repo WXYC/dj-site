@@ -8,6 +8,7 @@ import {
     getAutoplay, 
     getEntries, 
     getEntryPlaceholderIndex, 
+    getIsLive, 
     getQueue, 
     getQueuePlaceholderIndex, 
     isLive, 
@@ -52,6 +53,10 @@ import SongBox from "@/app/components/Flowsheet/SongBox";
     useEffect(() => {
       dispatch(loadFlowsheet());
     }, []);
+  
+    useEffect(() => {
+      dispatch(getIsLive(user?.djId));
+    }, [user?.djId]);
 
     const live = useSelector(isLive);
     const intermediate = useSelector(processingLive);

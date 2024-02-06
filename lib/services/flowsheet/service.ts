@@ -7,7 +7,9 @@ import { FlowSheetEntry } from '@/lib/redux';
 
 export const getNowPlayingFromBackend = () => getter('flowsheet/latest')();
 
-export const getOnAirFromBackend = () => getter(`flowsheet/on-air?dj_id=${sessionStorage.getItem('djId')}`)();
+export const getOnAirFromBackend = (djId: number) => {
+    return getter(`flowsheet/on-air?dj_id=${djId}`)();
+};
 
 export const getDJListFromBackend = () => getter('flowsheet/djs-on-air')();
 
@@ -23,7 +25,7 @@ export const retrieveFlowsheet = async (page = 0, limit = 50): Promise<FlowSheet
     }
 
     return data?.map((item: FSEntry, index: number) => convertFlowsheetResult(index, item)) ?? [];
-}
+};
 
 export const joinBackend = (show_name = '', specialty_id = null) => setter('flowsheet/join')({
     dj_id: sessionStorage.getItem('djId'),

@@ -1,6 +1,7 @@
 import { JoinRequestBody } from "@/lib/services/flowsheet/backend-types";
 import { createAppAsyncThunk } from "../../createAppAsyncThunk";
-import { FlowSheetEntry, retrieveFlowsheet, setter } from "../..";
+import { FlowSheetEntry, getOnAirFromBackend, retrieveFlowsheet, setter } from "../..";
+import { toast } from "sonner";
 
 export const join = createAppAsyncThunk(
     "flowsheet/join",
@@ -32,6 +33,27 @@ export const loadFlowsheet = createAppAsyncThunk(
     "flowsheet/loadFlowsheet",
     async (): Promise<FlowSheetEntry[]> => {
         const data = await retrieveFlowsheet();
+        return data;
+    }
+);
+
+export const getIsLive = createAppAsyncThunk(
+    "flowsheet/getIsLive",
+    async (id: number | null | undefined): Promise<boolean> => {
+        if (!id) {
+            return false;
+        }
+
+        const { data, error } = await getOnAirFromBackend(id);
+
+        if (error) {
+            console.error(error);
+            toast.error("Did not properly confirm whether you are live!");
+            return false;
+        }
+
+        console.log(data);
+
         return data;
     }
 );
