@@ -23,14 +23,14 @@ const AuthenticationGuard = (props: AuthenticationGuardProps) => {
 
     if (authenticating) {
         return (
-            <Modal open={true}>
+            <Modal open={true} style={{ zIndex: 10000 }}>
                 <Box
                     sx = {{
                         alignItems: "center",
                         display: "flex",
                         height: "100%",
                         justifyContent: "center",
-                        width: "100%"
+                        width: "100%",
                     }}
                 >
                     <CircularProgress />

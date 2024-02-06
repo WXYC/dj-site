@@ -654,31 +654,31 @@ return (
               <Chip variant="soft" size="sm" color="neutral">
                 <Typography level="body-sm">TAB</Typography>
               </Chip>
-              <Typography level="body-md">switches search fields</Typography>
+              <Typography level="body-xs">switches search fields</Typography>
               <Chip variant="soft" size="sm" color="neutral">
                 <Typography level="body-sm">SHIFT + TAB</Typography>
               </Chip>
-              <Typography level="body-md">goes back a field</Typography>
+              <Typography level="body-xs">goes back a field</Typography>
               <Chip variant="soft" size="sm" color="neutral">
                 <Typography level="body-sm">UP ARROW</Typography>
               </Chip>
-              <Typography level="body-md">
+              <Typography level="body-xs">
                 selects the previous entry
               </Typography>
               <Chip variant="soft" size="sm" color="neutral">
                 <Typography level="body-sm">DOWN ARROW</Typography>
               </Chip>
-              <Typography level="body-md">selects the next entry</Typography>
+              <Typography level="body-xs">selects the next entry</Typography>
               <Chip variant="soft" size="sm" color="neutral">
                 <Typography level="body-sm">ENTER</Typography>
               </Chip>
-              <Typography level="body-md">
+              <Typography level="body-xs">
                 adds the result to the queue
               </Typography>
               <Chip variant="soft" size="sm" color="neutral">
                 <Typography level="body-sm">SHIFT + ENTER</Typography>
               </Chip>
-              <Typography level="body-md">
+              <Typography level="body-xs">
                 sets the current result playing
               </Typography>
             </Stack>
