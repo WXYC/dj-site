@@ -53,7 +53,8 @@ export function convertGenre(backend: string): Genre {
     return backend as Genre ?? 'Unknown';
 }
 
-export function convertRotationId(backend: number): Rotation {
+export function convertRotationId(backend: number | undefined): Rotation | undefined {
+    if (!backend) return undefined;
     return ['H', 'M', 'L', 'S'][backend] as Rotation;
 }
 

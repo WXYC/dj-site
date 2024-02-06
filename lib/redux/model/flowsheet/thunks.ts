@@ -1,6 +1,6 @@
 import { JoinRequestBody } from "@/lib/services/flowsheet/backend-types";
 import { createAppAsyncThunk } from "../../createAppAsyncThunk";
-import { setter } from "../..";
+import { FlowSheetEntry, retrieveFlowsheet, setter } from "../..";
 
 export const join = createAppAsyncThunk(
     "flowsheet/join",
@@ -25,5 +25,13 @@ export const leave = createAppAsyncThunk(
         console.log("error", error);
 
         return !error;
+    }
+);
+
+export const loadFlowsheet = createAppAsyncThunk(
+    "flowsheet/loadFlowsheet",
+    async (): Promise<FlowSheetEntry[]> => {
+        const data = await retrieveFlowsheet();
+        return data;
     }
 );

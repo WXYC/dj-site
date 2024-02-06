@@ -12,6 +12,7 @@ import {
     isLive, 
     join, 
     leave, 
+    loadFlowsheet, 
     processingLive, 
     useDispatch, 
     useSelector 
@@ -30,7 +31,7 @@ import {
     Tooltip,
     Typography,
 } from "@mui/joy";
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import DraggingPreview from "@/app/components/Flowsheet/DraggingPreview";
 import SongBox from "@/app/components/Flowsheet/SongBox";
 
@@ -46,6 +47,10 @@ import SongBox from "@/app/components/Flowsheet/SongBox";
     const dispatch = useDispatch();
 
     const user = useSelector(getAuthenticatedUser);
+
+    useEffect(() => {
+      dispatch(loadFlowsheet());
+    }, []);
 
     const live = useSelector(isLive);
     const intermediate = useSelector(processingLive);

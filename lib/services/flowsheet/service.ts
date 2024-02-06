@@ -1,5 +1,9 @@
-import { Song } from '../../redux/model/types';
+import { toast } from 'sonner';
+import { Album, Song } from '../../redux/model/types';
 import { deleter, getter, setter, updater } from "../api-service";
+import { FSEntry } from './backend-types';
+import { convertFlowsheetResult } from './conversions';
+import { FlowSheetEntry } from '@/lib/redux';
 
 export const getNowPlayingFromBackend = () => getter('flowsheet/latest')();
 
@@ -8,6 +12,18 @@ export const getOnAirFromBackend = () => getter(`flowsheet/on-air?dj_id=${sessio
 export const getDJListFromBackend = () => getter('flowsheet/djs-on-air')();
 
 export const getFlowsheetFromBackend = (page = 0, limit = 50) => getter(`flowsheet?limit=${limit}&page=${page}`)();
+
+export const retrieveFlowsheet = async (page = 0, limit = 50): Promise<FlowSheetEntry[]> => {
+
+    const { data, error } = await getFlowsheetFromBackend(page, limit);
+
+    if (error) {
+        toast.error(error.message);
+        return [];
+    }
+
+    return data?.map((item: FSEntry, index: number) => convertFlowsheetResult(index, item)) ?? [];
+}
 
 export const joinBackend = (show_name = '', specialty_id = null) => setter('flowsheet/join')({
     dj_id: sessionStorage.getItem('djId'),
@@ -23,13 +39,18 @@ export const sendMessageToBackend = (message: string) => setter('flowsheet')({
     message: message
 });
 
-export const addSongToBackend = (song: Song) => setter('flowsheet')({
-    artist_name: song?.album?.artist.name ?? '',
-    album_title: song?.album?.title ?? '',
-    track_title: song?.title ?? '',
-    record_label: song?.album?.label ?? '',
-    rotation_id: song?.album?.rotation ?? null,
-});
+export const addSongToBackend = (song: Song) => {
+    
+    let album = song?.album as Album;
+
+    return setter('flowsheet')({
+        artist_name: album?.artist.name ?? '',
+        album_title: album?.title ?? '',
+        track_title: song?.title ?? '',
+        record_label: album?.label ?? '',
+        rotation_id: album?.rotation ?? null,
+    });
+};
 
 export const removeFromFlowsheetBackend = (id: number) => deleter(`flowsheet`)({
     entry_id: id,

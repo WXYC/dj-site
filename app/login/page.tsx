@@ -365,15 +365,6 @@ export default function LoginPage(): JSX.Element {
                     disabled={authenticating}
                   />
                 </FormControl>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
-                >
-                  <Checkbox size="sm" label="Remember for 30 days" name="persistent" />
-                </Box>
                 <Button type="submit" fullWidth
                   disabled={authenticating}
                   loading={authenticating}

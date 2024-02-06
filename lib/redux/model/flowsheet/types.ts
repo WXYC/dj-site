@@ -5,6 +5,7 @@ import { Song } from "../types";
 export interface FlowSheetState {
     live: boolean;
     changingAir: boolean;
+    loading: boolean;
     entries: FlowSheetEntry[];
     entryPlaceholderIndex: number;
     entryClientRect?: EntryRectProps;
@@ -32,7 +33,7 @@ export interface FlowSheetEntry {
     message?: string;
     song?: Song;
     request?: boolean;
-    rotation_id?: number;
+    rotation_freq?: string;
 };
 
 export interface Show {
@@ -48,3 +49,12 @@ export interface EntryRectProps {
     offsetX: number;
     offsetY: number;
 };
+
+export interface FlowsheetAlbum {
+    title: string;
+    artist: FlowsheetArtist;
+}
+
+export interface FlowsheetArtist {
+    name: string;
+}

@@ -1,11 +1,12 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { FlowSheetState } from "./types";
-import { join, leave } from "./thunks";
+import { join, leave, loadFlowsheet } from "./thunks";
 
 
 const initialState: FlowSheetState = {
     live: false,
     changingAir: false,
+    loading: false,
     entries: [],
     entryPlaceholderIndex: -1,
     queue: [],
@@ -18,9 +19,6 @@ export const flowSheetSlice = createSlice({
     name: "flowSheet",
     initialState,
     reducers: {
-        loadFlowSheet: (state, action) => {
-            state.entries = action.payload;
-        },
         setAutoPlay: (state, action) => {
             state.autoplay = action.payload;
         },
@@ -74,6 +72,16 @@ export const flowSheetSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
+        .addCase(loadFlowsheet.pending, (state) => {
+            state.loading = true;
+        })
+        .addCase(loadFlowsheet.fulfilled, (state, action) => {
+            state.loading = false;
+            state.entries = action.payload;
+        })
+        .addCase(loadFlowsheet.rejected, (state) => {
+            state.loading = false;
+        })
         .addCase(join.pending, (state) => {
             state.changingAir = true;
         })

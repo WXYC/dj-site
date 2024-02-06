@@ -6,7 +6,7 @@ export type QueryParams = {
 };
 
 interface IFSEntry extends FSEntry {
-    rotation_play_freq: string | null;
+    rotation_play_freq: string | null | undefined;
 }
 
 export type FSEntryRequestBody = {
@@ -38,14 +38,14 @@ export type JoinRequestBody = {
 
 export type FSEntry = {
     id: number;
-    artist_name: string | null;
-    album_title: string | null;
-    album_id: number | null;
-    show_id: number | null;
-    rotation_id: number | null;
-    track_title: string | null;
-    record_label: string | null;
+    artist_name: string | null | undefined;
+    album_title: string | null | undefined;
+    album_id: number | null | undefined;
+    show_id: number | null | undefined;
+    rotation_id: number | null | undefined;
+    track_title: string | null | undefined;
+    record_label: string | null | undefined;
     play_order: number;
     request_flag: boolean;
-    message: string | null;
+    message: string | null | undefined;
 };

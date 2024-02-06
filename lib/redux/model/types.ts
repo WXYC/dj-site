@@ -1,4 +1,5 @@
 import { CatalogResult } from "./catalog";
+import { FlowsheetAlbum, FlowsheetArtist } from "./flowsheet";
 import { Rotation } from "./rotation";
 
 // APP STATE
@@ -14,15 +15,15 @@ export interface ApplicationState {
 // GLOBAL CONCEPTS
 export interface Song {
     title: string;
-    album?: Album;
+    album?: Album | FlowsheetAlbum;
 };
 
 export interface Album {
     release: number;
     title: string;
     format: Format;
-    artist: Artist;
-    alternate_artist?: Artist;
+    artist: Artist | FlowsheetArtist;
+    alternate_artist?: Artist | FlowsheetArtist;
     label?: string;
     rotation?: Rotation;
 };
