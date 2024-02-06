@@ -28,8 +28,11 @@ export interface Time {
     total: number;
 };
 
-export interface FlowSheetEntry {
-    id?: number;
+export interface FlowSheetEntry extends FlowSheetEntryProps {
+    id: number;
+};
+
+export interface FlowSheetEntryProps {
     message?: string;
     song?: Song;
     request?: boolean;

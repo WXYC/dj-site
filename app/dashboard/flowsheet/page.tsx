@@ -2,6 +2,7 @@
 import AddToFlowsheetSearch from "@/app/components/Flowsheet/AddToFlowsheetSearch";
 import { 
     FlowSheetEntry,
+    FlowSheetEntryProps,
     flowSheetSlice, 
     getAuthenticatedUser, 
     getAutoplay, 
@@ -80,7 +81,7 @@ import SongBox from "@/app/components/Flowsheet/SongBox";
 
     const queue = useSelector(getQueue);
     const entries = useSelector(getEntries);
-    const addToEntries = (entry: FlowSheetEntry) => dispatch(flowSheetSlice.actions.addToEntries(entry));
+    const addToEntries = (entry: FlowSheetEntryProps) => dispatch(flowSheetSlice.actions.addToEntries(entry));
     const queuePlaceholderIndex = useSelector(getQueuePlaceholderIndex);
     const entryPlaceholderIndex = useSelector(getEntryPlaceholderIndex);
     const autoPlay = useSelector(getAutoplay);
@@ -154,6 +155,7 @@ import SongBox from "@/app/components/Flowsheet/SongBox";
               return (index == queuePlaceholderIndex) ? 
                (
                 <SongBox
+                  id={entry?.id}
                   editable={true}
                   key={`queue-${index}`}
                   type={"placeholder"}
@@ -176,6 +178,7 @@ import SongBox from "@/app/components/Flowsheet/SongBox";
               return (index == entryPlaceholderIndex) ? 
               (
                 <SongBox
+                  id={entry?.id}
                   key={`entry-${index}`}
                   type={"placeholder"}
                 />

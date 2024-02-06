@@ -1,8 +1,10 @@
 "use client";
 
 import {
+  Album,
     EntryRectProps,
     FlowSheetEntry,
+    FlowSheetEntryProps,
     Rotation,
     flowSheetSlice, getArtwork, getAutoplay,
     getCurrentlyPlayingSongLength,
@@ -91,7 +93,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
     dispatch(flowSheetSlice.actions.setEntryPlaceholderIndex(index));
   const setEntryClientRect = (rect: EntryRectProps) =>
     dispatch(flowSheetSlice.actions.setEntryClientRect(rect));
-  const addToEntries = (entry: FlowSheetEntry) =>
+  const addToEntries = (entry: FlowSheetEntryProps) =>
     dispatch(flowSheetSlice.actions.addToEntries(entry));
   const updateEntry = (id: number, field: string, value: any) =>
     dispatch(flowSheetSlice.actions.updateEntry({ id, field, value }));
@@ -354,7 +356,10 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
               />
               <FlowsheetEntryField
                 label="label"
-                value={entry.song?.album?.label ?? ""}
+                value={(() => {
+                  let album = entry.song?.album as Album;
+                  return album?.label ?? ""
+                })()}
                 current={entry.current ?? false}
                 id={entry.id ?? -1}
                 queue={entry.type == "queue"}
@@ -372,7 +377,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
                     message: "",
                     song: entry.song,
                     request: entry.request,
-                    rotation_id: entry.rotation_id,
+                    rotation_freq: entry.rotation,
                   });
                   if (entry.id) {
                     removeFromQueue(entry.id);
