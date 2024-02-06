@@ -1,11 +1,9 @@
-import { getRotation, useSelector } from "@/lib/redux";
+import { RotationEntry } from "@/lib/redux";
 
 
-export const findInRotation = (query: string) => {
+export const findInRotation = (query: string, rotation: RotationEntry[]) => {
     if (query.length <= 3) return [];
     const searchTerms = query.toLowerCase().split(' ');
-
-    const rotation = useSelector(getRotation);
 
     var matches = [];
 
@@ -14,9 +12,9 @@ export const findInRotation = (query: string) => {
 
       var isMatch = true;
 
-      var terms = [item.entry.album.artist.name.toLowerCase(), item.entry.album.title.toLowerCase()];
-      if (item.entry.album.label) {
-        terms.push(item.entry.album.label.toLowerCase());
+      var terms = [item.album.artist.name.toLowerCase(), item.album.title.toLowerCase()];
+      if (item.album.label) {
+        terms.push(item.album.label.toLowerCase());
       }
       
       for (var j = 0; j < searchTerms.length; j++) {

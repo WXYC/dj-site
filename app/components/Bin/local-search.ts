@@ -1,13 +1,11 @@
-import { getBin, useSelector } from "@/lib/redux";
+import { CatalogResult } from "@/lib/redux";
 
 
-export const findInBin = (query: string) => {
+export const findInBin = (query: string, bin: CatalogResult[]) => {
     if (query.length <= 3) return [];
     const searchTerms = query.toLowerCase().split(' ');
 
     var matches = [];
-
-    const bin = useSelector(getBin);
 
     for (var i = 0; i < bin.length; i++) {
       var item = bin[i];
