@@ -27,14 +27,14 @@ export const retrieveFlowsheet = async (page = 0, limit = 50): Promise<FlowSheet
     return data?.map((item: FSEntry, index: number) => convertFlowsheetResult(index, item)) ?? [];
 };
 
-export const joinBackend = (show_name = '', specialty_id = null) => setter('flowsheet/join')({
-    dj_id: sessionStorage.getItem('djId'),
+export const joinBackend = (djId: number, show_name = '', specialty_id: number | undefined = undefined) => setter('flowsheet/join')({
+    dj_id: djId,
     show_name,
     specialty_id
 });
 
-export const leaveBackend = () => setter('flowsheet/end')({
-    dj_id: sessionStorage.getItem('djId')
+export const leaveBackend = (djId: number) => setter('flowsheet/end')({
+    dj_id: djId
 });
 
 export const sendMessageToBackend = (message: string) => setter('flowsheet')({

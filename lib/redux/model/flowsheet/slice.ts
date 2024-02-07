@@ -1,6 +1,6 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { FlowSheetState } from "./types";
-import { getIsLive, join, leave, loadFlowsheet } from "./thunks";
+import { getIsLive, join, leave, loadFlowsheet, loadFlowsheetEntries } from "./thunks";
 import { toast } from "sonner";
 
 
@@ -90,7 +90,11 @@ export const flowSheetSlice = createSlice({
         .addCase(getIsLive.fulfilled, (state, action) => {
             state.changingAir = false;
             state.live = action.payload;
-            toast.success("You are live!");
+            if (action.payload) {
+                toast.success("You are live!");
+            } else {
+                toast.info("You are not live.");
+            }
         })
         .addCase(getIsLive.rejected, (state) => {
             state.changingAir = false;
@@ -109,6 +113,20 @@ export const flowSheetSlice = createSlice({
         .addCase(leave.fulfilled, (state, action) => {
             state.changingAir = false;
             state.live = !action.payload;
+        })
+        .addCase(loadFlowsheetEntries.pending, (state) => {
+            state.loading = true;
+        })
+        .addCase(loadFlowsheetEntries.fulfilled, (state, action) => {
+            state.loading = false;
+            const numberUpdated = action.payload.length;
+            // replace the first numberUpdated entries with the new ones
+            state.entries = action.payload.concat(state.entries.slice(numberUpdated));
+            toast.info(`Flowsheet saved and updated.`);
+        })
+        .addCase(loadFlowsheetEntries.rejected, (state) => {
+            state.loading = false;
+            toast.error("Could not save and update the flowsheet.");
         });
     }
 });

@@ -1,18 +1,22 @@
 import { JoinRequestBody } from "@/lib/services/flowsheet/backend-types";
 import { createAppAsyncThunk } from "../../createAppAsyncThunk";
-import { FlowSheetEntry, getOnAirFromBackend, retrieveFlowsheet, setter } from "../..";
+import { FlowSheetEntry, getOnAirFromBackend, joinBackend, leaveBackend, retrieveFlowsheet, setter } from "../..";
 import { toast } from "sonner";
 
 export const join = createAppAsyncThunk(
     "flowsheet/join",
     async (body: JoinRequestBody): Promise<boolean> => {
 
-        const { data, error } = await setter("flowsheet/join")(body);
+        const { data, error } = await joinBackend(body.dj_id, body.show_name, body.specialty_id);
 
-        console.log("data", data);
-        console.log("error", error);
+        if (error) {
+            console.error(error);
+            toast.error(`Could not join the show!\n${error.message}`);
+            return false;
+        }
 
-        return !error;
+        console.log(data);
+        return true;
     }
 );
 
@@ -20,12 +24,16 @@ export const leave = createAppAsyncThunk(
     "flowsheet/leave",
     async (body: JoinRequestBody): Promise<boolean> => {
 
-        const { data, error } = await setter("flowsheet/end")(body);
+        const { data, error } = await leaveBackend(body.dj_id);
 
-        console.log("data", data);
-        console.log("error", error);
+        if (error) {
+            console.error(error);
+            toast.error(`Could not leave the show!\n${error.message}`);
+            return false;
+        }
 
-        return !error;
+        console.log(data);
+        return true;
     }
 );
 
@@ -33,6 +41,14 @@ export const loadFlowsheet = createAppAsyncThunk(
     "flowsheet/loadFlowsheet",
     async (): Promise<FlowSheetEntry[]> => {
         const data = await retrieveFlowsheet();
+        return data;
+    }
+);
+
+export const loadFlowsheetEntries = createAppAsyncThunk(
+    "flowsheet/loadFlowsheetEntries",
+    async (editDepth: number): Promise<FlowSheetEntry[]> => {
+        const data = await retrieveFlowsheet(0, editDepth);
         return data;
     }
 );

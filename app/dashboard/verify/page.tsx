@@ -1,26 +1,26 @@
 'use client';
 
-import { getAuthenticatedUser, useSelector } from "@/lib/redux";
+import { fetchDJs, getAuthenticatedUser, useDispatch, useSelector } from "@/lib/redux";
 import { getter } from "@/lib/services";
 import { useEffect } from "react";
 import { toast } from "sonner";
 
 export default function VerifyPage() {
 
+  const user = useSelector(getAuthenticatedUser);
+  const dispatch = useDispatch();
+
   useEffect(() => {
     console.log("mounted");
 
     const process = async (e: KeyboardEvent) => {
       if ((e as KeyboardEvent).key === 'v') {
-        const { data, error } = await getter('testAuth')();
-        
-        if (error) {
-          console.error(error);
-          toast.error(error.message);
-        } else {
-          console.table(data);
-          toast.success(data.message);
+        let token = sessionStorage.getItem("idToken");
+        if (!token) {
+          toast.error("No TOKEN!!!");
+          return;
         }
+        await dispatch(fetchDJs(token));
       }
     }
 
@@ -30,9 +30,7 @@ export default function VerifyPage() {
       console.log('Verify page unmounted');
       window.removeEventListener('keydown', process);
     }
-  }, []);
-
-  const user = useSelector(getAuthenticatedUser);
+  }, [user?.djId]);
 
   return (
     <>

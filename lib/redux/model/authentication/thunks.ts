@@ -2,10 +2,9 @@
 import { CognitoIdentityProviderClient, GetUserCommand, GetUserCommandOutput, InitiateAuthCommand, InitiateAuthCommandInput } from "@aws-sdk/client-cognito-identity-provider";
 import { jwtDecode } from 'jwt-decode';
 import { toast } from 'sonner';
-import { AuthenticationState, BackendResponse, DJwtPayload, getter, nullState, setter } from "../..";
+import { AuthenticationState, BackendResponse, DJwtPayload, getter, nullState, setter, updater } from "../..";
 import { createAppAsyncThunk } from "../../createAppAsyncThunk";
-import { LoginCredentials, User } from "./types";
-import { AxiosResponse } from "axios";
+import { LoginCredentials } from "./types";
 
 export const login = createAppAsyncThunk(
     "authentication/authenticateAsync",
@@ -63,14 +62,30 @@ export const login = createAppAsyncThunk(
                     return nullState;
                 }
 
+                let djName = "";
+                if (!backendData.dj_name || !backendData.real_name) {
+                    const { data: updateData, error: updateError } = await (updater(`djs/register`))({
+                        cognito_user_name: userResponse.Username,
+                        real_name: userResponse?.UserAttributes?.find(attr => attr.Name == 'name')?.Value,
+                        dj_name: userResponse?.UserAttributes?.find(attr => attr.Name == 'custom:dj-name')?.Value,
+                    });
+
+                    if (updateError) {
+                        toast.error("The backend is out of sync with the user database. This is fatal. Contact a site admin immediately.");
+                        return nullState;
+                    }
+
+                    djName = updateData.dj_name;
+                }
+
                 return {
                     authenticating: false,
                     isAuthenticated: true,
                     user: {
                         username: userResponse.Username || credentials.username,
-                        djName: userResponse.UserAttributes?.find(x => x.Name == "custom:dj-name")?.Value || "",
-                        djId: backendData.id,
-                        name: userResponse.UserAttributes?.find(x => x.Name == "name")?.Value || "",
+                        djName: backendData.dj_name || userResponse.UserAttributes?.find(x => x.Name == "custom:dj-name")?.Value || "",
+                        djId: Number(backendData.id),
+                        name: backendData.real_name || userResponse.UserAttributes?.find(x => x.Name == "name")?.Value || "",
                         isAdmin: isAdmin,
                         showRealName: false
                     }
