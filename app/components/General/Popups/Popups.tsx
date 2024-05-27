@@ -4,7 +4,7 @@ import React, { useContext } from 'react';
 import { Button, Modal, ModalDialog, Sheet, Stack, Typography } from '@mui/joy';
 import { applicationSlice, getPopupContent, getPopupState, useDispatch, useSelector } from '@/lib/redux';
 
-interface PopupContentContextType {
+export interface PopupContentContextType {
     message: string;
 }
 

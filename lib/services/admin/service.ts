@@ -15,7 +15,7 @@ export const getCredentials = async (idToken: string) => {
         }),
         identityPoolId,
         logins: {
-            [`cognito-idp.${process.env.NEXT_PUBLIC_AWS_REGION}.amazonaws.com/${process.env.NEXT_PUBLIC_USER_IDENTITY_POOL_ID}`]: idToken
+            [`cognito-idp.${process.env.NEXT_PUBLIC_AWS_REGION}.amazonaws.com/${process.env.NEXT_PUBLIC_AWS_USER_POOL_ID}`]: idToken
         }
     });
 

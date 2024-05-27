@@ -148,7 +148,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
   );
 
   useEffect(() => {
-    getImage("apple-touch-icon.png").then((image) => {
+    getImage("/apple-touch-icon.png").then((image) => {
       setImage(image);
     });
   }, [getImage]);

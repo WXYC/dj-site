@@ -1,5 +1,5 @@
 'use client';
-import { CatalogResult, FlowSheetEntry, RotationEntry, flowSheetSlice, isLive, useDispatch, useSelector } from "@/lib/redux";
+import { CatalogResult, FlowSheetEntry, FlowSheetEntryProps, RotationEntry, flowSheetSlice, isLive, useDispatch, useSelector } from "@/lib/redux";
 import MicIcon from "@mui/icons-material/Mic";
 import TimerIcon from "@mui/icons-material/Timer";
 import TroubleshootIcon from "@mui/icons-material/Troubleshoot";
@@ -38,8 +38,8 @@ const AddToFlowsheetSearch = () => {
 
     const live = useSelector(isLive);
 
-    const addToQueue = (item: FlowSheetEntry) => dispatch(flowSheetSlice.actions.addToQueue(item));
-    const addToEntries = (item: FlowSheetEntry) => dispatch(flowSheetSlice.actions.addToEntries(item));
+    const addToQueue = (item: FlowSheetEntryProps) => dispatch(flowSheetSlice.actions.addToQueue(item));
+    const addToEntries = (item: FlowSheetEntryProps) => dispatch(flowSheetSlice.actions.addToEntries(item));
 
     const addTalkset = () => {
         addToEntries({
@@ -100,7 +100,7 @@ const AddToFlowsheetSearch = () => {
     const submitResult = useCallback((e: any) => {
       e.preventDefault();
     
-      let submission: FlowSheetEntry = {
+      let submission: FlowSheetEntryProps = {
         message: "",
         song: {
             title: song,

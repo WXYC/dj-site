@@ -18,12 +18,13 @@ import Tooltip from '@mui/joy/Tooltip';
 import { useCallback, useEffect, useState } from 'react';
 import Logo from '../Branding/logo';
 
-import { applicationSlice, authenticationSlice, flowSheetSlice, getAuthenticatedUser, isLive, leave, useDispatch, useSelector } from '@/lib/redux';
+import { applicationSlice, authenticationSlice, fetchDJs, flowSheetSlice, getAuthenticatedUser, isLive, leave, useDispatch, useSelector } from '@/lib/redux';
 import DisplaySettingsIcon from '@mui/icons-material/DisplaySettings';
 import { Badge, ColorPaletteProp, IconButton, Stack, Typography } from '@mui/joy';
 import { redirect, usePathname } from 'next/navigation';
 import { ConfirmPopup } from '../General/Popups/Popups';
 import Link from 'next/link';
+import { AdminPanelSettings, EditCalendar, LibraryMusic, ManageAccounts, RepeatOn } from '@mui/icons-material';
 
 /**
  * Component for rendering navigational links to settings and pages, and providing logout functionality.
@@ -81,9 +82,9 @@ export default function FirstSidebar(): JSX.Element {
   const [style, setStyle] = useState<ColorPaletteProp>("primary");
 
   useEffect(() => {
-    if (pathname === '/dashboard/dashboard/admin') {
+    if (pathname.includes('/dashboard/admin')) {
       setStyle("success");
-    } else if (pathname === '/dashboard/dashboard/settings') {
+    } else if (pathname.includes('/dashboard/settings')) {
       setStyle("warning");
     } else {
       setStyle("primary");
@@ -196,23 +197,77 @@ export default function FirstSidebar(): JSX.Element {
         </ListItem>
         </Link>
         {(user) && (
-        <Link href="/dashboard/admin">
+        <>
+        <Divider sx = {{ mt: 1.5 }} />
+        <Link href="/dashboard/admin/roster">
         <ListItem>
             <Tooltip
-                title="Station Management"
+                title="Station Management  -  DJ Roster"
                 arrow={true}
                 placement='right'
                 size='sm'
                 variant='outlined'
             >
           <ListItemButton
-            variant={pathname === '/dashboard/admin' ? 'solid' : 'plain'}
+            variant={pathname === '/dashboard/admin/roster' ? 'solid' : 'plain'}
           >
-            <DisplaySettingsIcon />
+            <ManageAccounts />
           </ListItemButton>
             </Tooltip>
         </ListItem>
-        </Link>)}
+        </Link>
+        <Link href="/dashboard/admin/schedule">
+        <ListItem>
+            <Tooltip
+                title="Station Management  -  Schedule"
+                arrow={true}
+                placement='right'
+                size='sm'
+                variant='outlined'
+            >
+          <ListItemButton
+            variant={pathname === '/dashboard/admin/schedule' ? 'solid' : 'plain'}
+          >
+            <EditCalendar />
+          </ListItemButton>
+            </Tooltip>
+        </ListItem>
+        </Link>
+        <Link href="/dashboard/admin/rotation">
+        <ListItem>
+            <Tooltip
+                title="Station Management  -  Rotation"
+                arrow={true}
+                placement='right'
+                size='sm'
+                variant='outlined'
+            >
+          <ListItemButton
+            variant={pathname === '/dashboard/admin/rotation' ? 'solid' : 'plain'}
+          >
+            <RepeatOn />
+          </ListItemButton>
+            </Tooltip>
+        </ListItem>
+        </Link>
+        <Link href="/dashboard/admin/catalog">
+        <ListItem>
+            <Tooltip
+                title="Station Management  -  Catalog"
+                arrow={true}
+                placement='right'
+                size='sm'
+                variant='outlined'
+            >
+          <ListItemButton
+            variant={pathname === '/dashboard/admin/catalog' ? 'solid' : 'plain'}
+          >
+            <LibraryMusic />
+          </ListItemButton>
+            </Tooltip>
+        </ListItem>
+        </Link>
+        </>)}
       </List>
       <Tooltip
           title="Settings"
