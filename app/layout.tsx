@@ -16,8 +16,8 @@ export default function RootLayout(props: React.PropsWithChildren) {
         <html lang="en">
           <body>
           <Toaster closeButton richColors  />
-          <GlobalPopups />
           <div id="root">
+          <GlobalPopups />
             <main>
                 {props.children}
             </main>

@@ -6,6 +6,7 @@ import {
     flowSheetSlice, 
     getAuthenticatedUser, 
     getAutoplay, 
+    getEditDepth, 
     getEntries, 
     getEntryPlaceholderIndex, 
     getIsLive, 
@@ -15,6 +16,7 @@ import {
     join, 
     leave, 
     loadFlowsheet, 
+    loadFlowsheetEntries, 
     processingLive, 
     useDispatch, 
     useSelector 
@@ -50,9 +52,21 @@ import SongBox from "@/app/components/Flowsheet/SongBox";
 
     const user = useSelector(getAuthenticatedUser);
 
+    const editDepth = useSelector(getEditDepth);
+
+    const refresh = useCallback(() => {
+      dispatch(loadFlowsheetEntries(editDepth));
+    }, [dispatch, editDepth]);
+
     useEffect(() => {
       dispatch(loadFlowsheet());
-    }, []);
+      let updateLoop = setInterval(() => refresh(), 60000);
+
+      return () => {
+        clearInterval(updateLoop);
+      }
+
+    }, [dispatch, editDepth]);
   
     useEffect(() => {
       dispatch(getIsLive(user?.djId));
@@ -91,8 +105,6 @@ import SongBox from "@/app/components/Flowsheet/SongBox";
     const entryPlaceholderIndex = useSelector(getEntryPlaceholderIndex);
     const autoPlay = useSelector(getAutoplay);
     const setAutoPlay = (autoPlay: boolean) => dispatch(flowSheetSlice.actions.setAutoPlay(autoPlay));
-
-
 
     const switchLive = () => {
       (live) ? goOff() : goLive();
@@ -156,11 +168,11 @@ import SongBox from "@/app/components/Flowsheet/SongBox";
         >
             <Stack direction="column" spacing={1}>
             {queue.map((entry, index) => {
-                if (entry?.message?.length ?? 0 > 0) return null;
+                if (entry.message?.length ?? 0 > 0) return null;
               return (index == queuePlaceholderIndex) ? 
                (
                 <SongBox
-                  id={entry?.id}
+                  id={entry.id}
                   editable={true}
                   key={`queue-${index}`}
                   type={"placeholder"}
@@ -183,7 +195,7 @@ import SongBox from "@/app/components/Flowsheet/SongBox";
               return (index == entryPlaceholderIndex) ? 
               (
                 <SongBox
-                  id={entry?.id}
+                  id={entry.id}
                   key={`entry-${index}`}
                   type={"placeholder"}
                 />
@@ -194,14 +206,14 @@ import SongBox from "@/app/components/Flowsheet/SongBox";
                   index = {index}
                   key={`entry-${index}`}
                   type={
-                    entry?.message?.length ?? 0 > 0
-                      ? entry?.message?.includes("joined")
+                    entry.message?.length ?? 0 > 0
+                      ? entry.message?.includes("joined")
                         ? "joined"
-                        : entry?.message?.includes("left")
+                        : entry.message?.includes("left")
                         ? "left"
-                        : entry?.message?.includes("Breakpoint")
+                        : entry.message?.includes("Breakpoint")
                         ? "breakpoint"
-                        : entry?.message?.includes("Talkset")
+                        : entry.message?.includes("Talkset")
                         ? "talkset"
                         : "error"
                       : "entry"

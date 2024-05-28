@@ -11,3 +11,4 @@ export const getAutoplay = (state: ReduxState) => state.flowsheet.autoplay;
 export const getEntryClientRect = (state: ReduxState) => state.flowsheet.entryClientRect;
 export const getCurrentlyPlayingSongLength = (state: ReduxState) => state.flowsheet.timer?.length;
 export const getCurrentlyPlayingSongRemaining = (state: ReduxState) => state.flowsheet.timer?.remaining;
+export const getEditDepth = (state: ReduxState) => state.flowsheet.editDepth;

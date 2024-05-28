@@ -21,7 +21,7 @@ import {
     Typography,
 } from "@mui/joy";
 import { toast } from "sonner";
-import { applicationSlice, useDispatch } from "@/lib/redux";
+import { addDJ, applicationSlice, fetchDJs, populateAdmins, useDispatch } from "@/lib/redux";
 
 type AddDJsPopupProps = { };
 
@@ -41,8 +41,25 @@ type AddDJsPopupProps = { };
 export const AddDJsPopup = (props: AddDJsPopupProps) => {
 
     const dispatch = useDispatch();
-    const closePopup = dispatch(applicationSlice.actions.closePopup);
+    const closePopup = () => dispatch(applicationSlice.actions.closePopup());
     const [loading, setLoading] = useState(false);
+
+    const [username, setUsername] = useState("");
+    const [email, setEmail] = useState("");
+    const [tempPassword, setTempPassword] = useState("");
+
+    const createUser = async (username: string, email: string, password: string) => {
+        await dispatch(addDJ({
+            dj: {
+                userName: username,
+                realName: "Anonymous",
+                djName: "WXYC",
+                isAdmin: false,
+                email: email
+            },
+            temporaryPassword: password
+        }));
+    };
 
     const handleAddDJ = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -50,12 +67,16 @@ export const AddDJsPopup = (props: AddDJsPopupProps) => {
         
         setLoading(true);
 
-        setLoading(true);
         (async () => {
-          //await createUser(username.value, email.value, password.value);
+          await createUser(username.value, email.value, password.value);
           setLoading(false);
-          closePopup();
-        })();
+        })().finally(() => {
+          dispatch(fetchDJs()).then(() => {
+            dispatch(populateAdmins());
+          }).then(() => {
+            closePopup();
+          });
+        });
       }
 
       const handleAddDJs = (event: React.FormEvent<HTMLFormElement>) => {
@@ -67,16 +88,24 @@ export const AddDJsPopup = (props: AddDJsPopupProps) => {
         let entries = usernamesandemails.value.split('\n');
         let new_entries = entries.map((entry) => {
           let [username, email] = entry.split(',');
-          return [username.trim(), email.trim()];
+          return {
+            userName: username.trim(), 
+            email: email.trim()
+          };
         });
         
         (async () => {
-          /* await Promise.allSettled(
-            new_entries.map((username, email) => createUser(username, email, password.value))
-          ); */
+          await Promise.allSettled(
+            new_entries.map((entry) => createUser(entry.userName, entry.email, password.value))
+          );
           setLoading(false);
-          closePopup();
-        })();
+        })().finally(() => {
+          dispatch(fetchDJs()).then(() => {
+            dispatch(populateAdmins());
+          }).then(() => {
+            closePopup();
+          });
+        });
       }
 
     return (
@@ -94,6 +123,7 @@ export const AddDJsPopup = (props: AddDJsPopupProps) => {
       </Box>
         <Tabs
           sx={{ mt: 2 }}
+          defaultValue={"manual"}
         >
         <TabList>
           <Tab value="manual">Add Manually</Tab>
@@ -107,10 +137,12 @@ export const AddDJsPopup = (props: AddDJsPopupProps) => {
               <FormControl required>
                 <FormLabel>Username</FormLabel>
                 <Typography level = "body-sm" sx = {{ my: 0.5 }}>
-                  This will be the username that the DJ uses to log in. It must be unique and cannot be changed. <br />
-                  We recommend using the DJ's first name, last name, initials, or some combination of the three.
+                  This will be the username that the DJ uses to log in. <Typography color="primary">It must be unique and cannot be changed.</Typography> <br />
+                  We recommend using the DJ's onyen, first name, last name, initials, or some combination thereof.
                 </Typography>
                 <Input
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   placeholder="username"
                   name = "username"
                 />
@@ -121,6 +153,8 @@ export const AddDJsPopup = (props: AddDJsPopupProps) => {
                   New users are notified of their account creation via email.
                 </Typography>
                 <Input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="email"
                   name = "email"
                 />
@@ -134,6 +168,8 @@ export const AddDJsPopup = (props: AddDJsPopupProps) => {
                   </Typography>
                 </Typography>
                 <Input
+                  value={tempPassword}
+                  onChange={(e) => setTempPassword(e.target.value)}
                   placeholder="password"
                   name = "password"
                 />
@@ -146,6 +182,10 @@ export const AddDJsPopup = (props: AddDJsPopupProps) => {
                   loading={loading}
                   type="submit"
                   sx = {{ my: 2, ml: 'auto' }}
+                  disabled = {
+                    !username || !email || !tempPassword ||
+                    !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$/.test(tempPassword)
+                  }
                 >
                   Create New Account
                 </Button>
@@ -163,8 +203,8 @@ export const AddDJsPopup = (props: AddDJsPopupProps) => {
                 <Typography level = "body-sm" sx = {{ my: 0.5 }}>
                   Enter a list of usernames and emails separated by <Typography color="primary">commas.</Typography> <br />
                   Every new entry should be on a <Typography color="primary">new line.</Typography> <br />
-                  The usernames must be unique and cannot be changed. <br />
-                  We recommend using the DJ's first name, last name, initials, or some combination of the three.
+                  The usernames must be unique and <Typography color="primary">cannot be changed.</Typography> <br />
+                  We recommend using the DJ's onyen, first name, last name, initials, or some combination thereof.
                 </Typography>
                 <Textarea
                   placeholder="username"

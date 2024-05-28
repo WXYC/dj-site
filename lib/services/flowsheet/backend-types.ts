@@ -43,6 +43,7 @@ export type FSEntry = {
     album_id: number | null | undefined;
     show_id: number | null | undefined;
     rotation_id: number | null | undefined;
+    rotation_play_freq: string | null | undefined;
     track_title: string | null | undefined;
     record_label: string | null | undefined;
     play_order: number;

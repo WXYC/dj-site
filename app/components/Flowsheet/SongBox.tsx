@@ -5,6 +5,7 @@ import {
     EntryRectProps,
     FlowSheetEntry,
     FlowSheetEntryProps,
+    FlowsheetAlbum,
     Rotation,
     flowSheetSlice, getArtwork, getAutoplay,
     getCurrentlyPlayingSongLength,
@@ -339,7 +340,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
               />
               <FlowsheetEntryField
                 label="artist"
-                value={entry.song?.album?.artist.name ?? ""}
+                value={entry.song?.album?.artist?.name ?? ""}
                 current={entry.current ?? false}
                 id={entry.id ?? -1}
                 queue={entry.type == "queue"}
@@ -354,7 +355,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
               <FlowsheetEntryField
                 label="label"
                 value={(() => {
-                  let album = entry.song?.album as Album;
+                  let album = entry.song?.album as FlowsheetAlbum;
                   return album?.label ?? ""
                 })()}
                 current={entry.current ?? false}

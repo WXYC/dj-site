@@ -2,50 +2,21 @@ import Close from '@mui/icons-material/Close';
 import { AspectRatio, Box, Button, Select, Sheet, Stack, Tooltip, Typography, Option, Autocomplete, IconButton } from "@mui/joy";
 import React, { useEffect, useRef, useState } from "react";
 import useMousePosition from '@/app/components/Widgets/MousePosition';
-import AlbumIcon from '@mui/icons-material/Album';
-import PeopleIcon from '@mui/icons-material/People';
-import StarsIcon from '@mui/icons-material/Stars';
 import { toast } from 'sonner';
 import { DAYS, HOURS } from '@/lib/utilities/calendar/constants';
-
-const eventColors = {
-    'dj-shift': 'primary',
-    'specialty-show': 'success',
-    'new-dj-shift' : 'info',
-};
-
-const eventTypes = {
-    'dj-shift': 'DJ Shift',
-    'specialty-show': 'Specialty Show',
-    'new-dj-shift' : 'New DJ Shift',
-};
+import { ShowType, getSchedule, useSelector } from '@/lib/redux';
+import { eventColors } from '@/app/styles/schedule/ScheduleStyles';
+import { Album } from '@mui/icons-material';
 
 const SchedulePage = () => {
     const boolToDifferentiateClickFromDrag = useRef(false);
 
-    const [events, setEvents] = useState({});
+    const events = useSelector(getSchedule);
 
     const [roster, setRoster] = useState([]);
     const [djsSelected, setDJsSelected] = useState([]);
 
     const [edited, setEdited] = useState(true);
-
-    useEffect(() => {
-        if (!edited) return;
-        (async () => {
-            const data = await getSchedule();
-
-            setEvents(data);
-            setEdited(false);
-
-        })();
-    }, [edited]);
-
-    useEffect(() => {
-        
-        setRoster(props.roster.map((dj) => (`${dj.djName} (${dj.name})`)));
-
-    }, [props.roster]);
 
     const [daySelected, setDaySelected] = useState('');
     const [startHourSelected, setStartHourSelected] = useState(0);
@@ -60,7 +31,7 @@ const SchedulePage = () => {
 
     const [formOpen, setFormOpen] = useState(false);
 
-    const [eventType, setEventType] = useState('dj-shift');
+    const [eventType, setEventType] = useState<ShowType>('dj-shift');
 
     const [hourHeight, setHourHeight] = useState(-1);
 
@@ -195,7 +166,7 @@ const SchedulePage = () => {
                 }}
             >
                 <Typography
-                    level="body4"
+                    level="body-sm"
                     sx = {{
                         textAlign: 'center',
                         ml: 'auto',
@@ -270,7 +241,7 @@ const SchedulePage = () => {
                                         alignItems: 'center',
                                     }}
                                 >
-                                    <Typography level="body3" variant='solid' sx = {{ background: 'transparent !important' }}>
+                                    <Typography level="body-md" variant='solid' sx = {{ background: 'transparent !important' }}>
                                         {day}s from {hour['number'] + hour['ampm']} to {hour['number'] + hour['ampm']}
                                     </Typography>
                                     <IconButton
@@ -305,7 +276,7 @@ const SchedulePage = () => {
                                                         width: '100%',
                                                         height: '100%',
                                                     }}>
-                                                        <AlbumIcon
+                                                        <Album
                                                             color="neutral"
                                                             fontSize='xl'
                                                             sx = {{
@@ -371,7 +342,7 @@ const SchedulePage = () => {
                                                         width: '100%',
                                                         height: '100%',
                                                     }}>
-                                                        <PeopleIcon
+                                                        <People
                                                             required
                                                             color="neutral"
                                                             fontSize='xl'
@@ -454,7 +425,7 @@ const SchedulePage = () => {
                     </Sheet>
                     </Tooltip>
                 )}
-                {events[`${day}-${hour['number']}-${hour['ampm']}`] && (
+                {events?.[`${day}-${hour['number']}-${hour['ampm']}`] && (
                     <EventWidget
                         {...events[`${day}-${hour['number']}-${hour['ampm']}`]}
                     />

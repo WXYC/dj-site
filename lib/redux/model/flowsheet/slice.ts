@@ -28,6 +28,7 @@ export const flowSheetSlice = createSlice({
         },
         addToEntries: (state, action) => {
             let nextId = state.entries[0].id + 1;
+            console.log(action.payload);
             state.entries.push({ ...action.payload, id: nextId });
             state.editDepth++;
         },

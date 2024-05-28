@@ -128,6 +128,15 @@ const AddToFlowsheetSearch = () => {
                 if (selected > binResults.length + rotationResults.length && selected <= binResults.length + rotationResults.length + catalogResults.length) {
                     return catalogResults[selected - binResults.length - rotationResults.length - 1].album;
                 }
+
+                return {
+                  release: -1,
+                  title: album,
+                  artist: {
+                    name: artist,
+                  },
+                  label: label,
+                }
             })()
         }
       }

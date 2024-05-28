@@ -1,6 +1,12 @@
 import { DJ } from "../admin";
 
 export type ScheduleState = {
-    event?: Event;
-    dj?: DJ;
+    events?: Show[];
+    forDJ?: DJ;
 }
+
+export type Show = {
+    type: ShowType;
+}
+
+export type ShowType = 'dj-shift' | 'specialty-show' | 'new-dj-shift';

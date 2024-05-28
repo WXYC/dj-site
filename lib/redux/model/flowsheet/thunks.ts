@@ -16,6 +16,7 @@ export const join = createAppAsyncThunk(
         }
 
         console.log(data);
+        console.log(body);
         return true;
     }
 );

@@ -1,19 +1,19 @@
 'use client';
 
-import React, { PropsWithChildren, useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
+import { AddDJsPopup } from "@/app/components/Admin/Popups/AddDJsPopup";
+import DJEntry from "@/app/components/Admin/Roster/DJEntry";
+import { DJ, applicationSlice, fetchDJs, getAdminError, getAdminLoading, getAuthenticatedUser, getDJs, populateAdmins, useDispatch, useSelector } from "@/lib/redux";
+import exportDJsAsCSV from "@/lib/utilities/admin/dj-csv-export";
+import { GppBad } from "@mui/icons-material";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import CloseIcon from '@mui/icons-material/Close';
-import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
-import ManageHistoryIcon from "@mui/icons-material/ManageHistory";
-import SyncLockIcon from "@mui/icons-material/SyncLock";
 import TroubleshootIcon from '@mui/icons-material/Troubleshoot';
 import {
   Button,
-  Checkbox,
   CircularProgress,
   FormControl,
-  IconButton,
   Input,
   Sheet,
   Stack,
@@ -21,11 +21,6 @@ import {
   Tooltip,
   Typography
 } from "@mui/joy";
-import exportDJsAsCSV from "@/lib/utilities/admin/dj-csv-export";
-import { applicationSlice, getAuthenticatedUser, getDJs, getDJListFromBackend, useSelector, DJ, getAdminLoading, fetchDJs, getAdminError, useDispatch } from "@/lib/redux";
-import DJEntry from "@/app/components/Admin/Roster/DJEntry";
-import { AddDJsPopup } from "@/app/components/Admin/Popups/AddDJsPopup";
-import { GppBad } from "@mui/icons-material";
 
 /**
  * Represents a DJ roster component for managing djs and their profiles.
@@ -40,7 +35,7 @@ const DJRoster = (): JSX.Element => {
 
   const dispatch = useDispatch();
 
-  const openPopup = applicationSlice.actions.openPopup;
+  const openPopup = (content: JSX.Element) => dispatch(applicationSlice.actions.openPopup(content));
 
   const user = useSelector(getAuthenticatedUser);
 
@@ -53,8 +48,10 @@ const DJRoster = (): JSX.Element => {
   const [searchString, setSearchString] = useState("");
 
   useEffect(() => {
-    dispatch(fetchDJs());
-  }, []);
+    dispatch(fetchDJs()).then(() => {
+      dispatch(populateAdmins());
+    });
+  }, [dispatch]);
 
   useEffect(() => {
     if (searchString.length === 0) {
@@ -207,11 +204,7 @@ const DJRoster = (): JSX.Element => {
           ) : (results.map((dj) => (
             <DJEntry
               key={dj.userName}
-              name={dj.realName}
-              username={dj.userName}
-              djname={dj.djName}
-              shows={dj.shows ?? 'Not Scheduled'}
-              isAdmin={dj.isAdmin}
+              dj={dj}
               isSelf={dj.userName === user?.username}
             />
           ))))}

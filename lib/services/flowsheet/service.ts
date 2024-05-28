@@ -22,7 +22,7 @@ export const retrieveFlowsheet = async (page = 0, limit = 50): Promise<FlowSheet
     if (error) {
         toast.error(error.message);
         return [];
-    }
+    };
 
     return data?.map((item: FSEntry, index: number) => convertFlowsheetResult(index, item)) ?? [];
 };

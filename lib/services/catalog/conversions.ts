@@ -33,7 +33,7 @@ export function convertSearchResult(backend: BSearchResult): CatalogResult {
                 numbercode: backend.code_artist_number,
                 lettercode: backend.code_letters
             },
-            rotation: convertRotation(backend.rotation_freq),
+            rotation: backend.rotation_freq as Rotation ?? undefined,
         }
     };
 
@@ -48,6 +48,8 @@ export function convertFormat(backend: string): Format {
         return 'Unknown';
     }
 }
+
+
 
 export function convertGenre(backend: string): Genre {
     return backend as Genre ?? 'Unknown';

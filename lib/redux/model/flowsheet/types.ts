@@ -56,11 +56,9 @@ export interface EntryRectProps {
 export interface FlowsheetAlbum {
     release: number;
     title: string;
-    format: Format;
     artist: FlowsheetArtist;
     alternate_artist?: FlowsheetArtist;
     label?: string;
-    rotation?: Rotation;
 }
 
 export interface FlowsheetArtist {

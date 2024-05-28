@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useContext } from 'react';
-import { Button, Modal, ModalDialog, Sheet, Stack, Typography } from '@mui/joy';
 import { applicationSlice, getPopupContent, getPopupState, useDispatch, useSelector } from '@/lib/redux';
+import { Button, ColorPaletteProp, Modal, ModalDialog, Sheet, Stack, Typography } from '@mui/joy';
+import { useEffect } from 'react';
 
 export interface PopupContentContextType {
     message: string;
+    style?: ColorPaletteProp;
 }
 
 interface ConfirmPopupProps extends PopupContentContextType {
@@ -24,13 +25,17 @@ export const GlobalPopups = (): JSX.Element => {
     const dispatch = useDispatch();
     const open = useSelector(getPopupState);
     const popupContent = useSelector(getPopupContent);
-    const closePopup = () => dispatch(applicationSlice.actions.closePopup);
+    const closePopup = () => dispatch(applicationSlice.actions.closePopup());
+
+    useEffect(() => {
+        console.log("GLOBAL POPUPS");
+    }, [open]);
 
     return (
         <Modal
-        open={open}
-        onClose={closePopup}
-    >
+            open={open}
+            onClose={closePopup}
+        >
         <ModalDialog
             sx = {{
                 transform: {
@@ -62,16 +67,16 @@ export const GlobalPopups = (): JSX.Element => {
 export const ConfirmPopup = (props: ConfirmPopupProps) => {
 
     const dispatch = useDispatch();
-    const closePopup = () => dispatch(applicationSlice.actions.closePopup);
+    const closePopup = () => dispatch(applicationSlice.actions.closePopup());
 
     return (
         <Sheet>
-            <Typography level="body-lg" color="primary">
+            <Typography level="body-lg" color={props.style ?? "primary"}>
                 {props.message}
             </Typography>
             <Stack direction="row" justifyContent="flex-end" spacing={1} sx = {{ mt: 3 }}>
-                <Button size="sm" variant="outlined" onClick={closePopup}>Cancel</Button>
-                <Button size="sm" variant="solid" onClick={() => {
+                <Button color={props.style ?? "primary"} size="sm" variant="outlined" onClick={closePopup}>Cancel</Button>
+                <Button color={props.style ?? "primary"} size="sm" variant="solid" onClick={() => {
                     props.onConfirm();
                     closePopup();
                 }}>Confirm</Button>
@@ -98,12 +103,12 @@ export const NotifyPopup = (props: PopupContentContextType) => {
     const closePopup = () => dispatch(applicationSlice.actions.closePopup);
 
     return (
-        <Sheet>
+        <Sheet color={props.style ?? "primary"}>
             <Typography level="body-lg">
                 {props.message}
             </Typography>
             <Stack direction="row" justifyContent="flex-end" spacing={1} sx = {{ mt: 3 }}>
-                <Button size="sm" variant="solid" onClick={closePopup}>OK</Button>
+                <Button color={props.style ?? "primary"} size="sm" variant="solid" onClick={closePopup}>OK</Button>
             </Stack>
         </Sheet>
     );

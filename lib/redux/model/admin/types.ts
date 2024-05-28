@@ -1,7 +1,7 @@
 
 export interface AdminState {
     loading: boolean;
-    error: string | null;
+    error: string | undefined;
     djs: DJ[];
 };
 
@@ -11,4 +11,5 @@ export interface DJ {
     djName: string;
     isAdmin: boolean;
     shows?: string;
+    email?: string;
 }

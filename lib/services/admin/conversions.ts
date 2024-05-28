@@ -7,5 +7,6 @@ export function convertUserToDJResult(backend: UserType): DJ {
         realName: backend.Attributes?.find((attr) => attr.Name === "name")?.Value ?? "No Real Name",
         djName: backend.Attributes?.find((attr) => attr.Name === "custom:dj-name")?.Value ?? "No DJ Name",
         isAdmin: false,
+        email: backend.Attributes?.find((attr) => attr.Name === "email")?.Value
     };
 }
