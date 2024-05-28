@@ -1,28 +1,15 @@
-import { AspectRatio, Button, Card, CardContent, CardOverflow, Divider, FormControl, Input, Stack, Textarea, Tooltip } from '@mui/joy';
+import { AspectRatio, Button, Card, CardContent, CardOverflow, Divider, Input, Stack, Textarea } from '@mui/joy';
 import Box from '@mui/joy/Box';
 import IconButton from '@mui/joy/IconButton';
-import List from '@mui/joy/List';
-import ListItem from '@mui/joy/ListItem';
-import ListItemContent from '@mui/joy/ListItemContent';
-import ListSubheader from '@mui/joy/ListSubheader';
-import Sheet from '@mui/joy/Sheet';
 import Typography from '@mui/joy/Typography';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
-import InboxIcon from '@mui/icons-material/Inbox';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import PlayArrowOutlinedIcon from '@mui/icons-material/PlayArrowOutlined';
-import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
-import NowPlaying from '../../widgets/now-playing/NowPlaying';
-import { closeSidebar } from '../../Dashboard/SidebarMobileUtilites';
 
-import ScrollOnHoverText from '../../widgets/scroll-on-hover-text';
 import { ArtistAvatar } from '../ArtistAvatar';
 
-import { CatalogResult, applicationSlice, binSlice, flowSheetSlice, getArtwork, getAuthenticatedUser, getBin, getSongCardContent, getSongCardState, isLive, useDispatch, useSelector } from '@/lib/redux';
-import { ArrowBack, SpaceBar } from '@mui/icons-material';
+import { applicationSlice, getArtwork, getAuthenticatedUser, getSongCardContent, useDispatch, useSelector } from '@/lib/redux';
 import { timeout } from '@/lib/utilities/timeout';
+import { ArrowBack } from '@mui/icons-material';
 import { Review } from './Review';
 
 export default function SongCard() : JSX.Element {

@@ -1,5 +1,5 @@
 /* Instruments */
-import { counterSlice, flowSheetSlice, authenticationSlice, binSlice, catalogSlice, rotationSlice, applicationSlice, adminSlice } from "./model";
+import { counterSlice, flowSheetSlice, authenticationSlice, binSlice, catalogSlice, rotationSlice, applicationSlice, adminSlice, scheduleSlice } from "./model";
 
 export const reducer = {
   application: applicationSlice.reducer,
@@ -9,5 +9,6 @@ export const reducer = {
   bin: binSlice.reducer,
   catalog: catalogSlice.reducer,
   flowsheet: flowSheetSlice.reducer,
-  rotation: rotationSlice.reducer
+  rotation: rotationSlice.reducer,
+  schedule: scheduleSlice.reducer
 };

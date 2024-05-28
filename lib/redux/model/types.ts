@@ -7,7 +7,7 @@ export interface ApplicationState {
     enableClassicView: boolean;
     classicView: boolean;
     popupContent?: JSX.Element;
-    songCardContent: CatalogResult;
+    songCardContent?: CatalogResult;
     popupOpen: boolean;
     songCardOpen: boolean;
 };

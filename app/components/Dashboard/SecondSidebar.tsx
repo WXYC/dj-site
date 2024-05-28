@@ -7,22 +7,20 @@ import ListItemContent from '@mui/joy/ListItemContent';
 import ListSubheader from '@mui/joy/ListSubheader';
 import Sheet from '@mui/joy/Sheet';
 import Typography from '@mui/joy/Typography';
-import React, { useCallback, useEffect, useState } from 'react';
+import React from 'react';
 
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import InboxIcon from '@mui/icons-material/Inbox';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PlayArrowOutlinedIcon from '@mui/icons-material/PlayArrowOutlined';
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
-import NowPlaying from '../widgets/now-playing/NowPlaying';
+import NowPlaying from '../Widgets/now-playing/NowPlaying';
 import { closeSidebar } from './SidebarMobileUtilites';
 
-import ScrollOnHoverText from '../widgets/scroll-on-hover-text';
 import { ArtistAvatar } from '../Catalog/ArtistAvatar';
+import ScrollOnHoverText from '../Widgets/scroll-on-hover-text';
 
-import { CatalogResult, applicationSlice, binSlice, flowSheetSlice, getArtwork, getBin, getSongCardContent, getSongCardState, isLive, useDispatch, useSelector } from '@/lib/redux';
-import { ArrowBack } from '@mui/icons-material';
-import { timeout } from '@/lib/utilities/timeout';
+import { CatalogResult, applicationSlice, binSlice, flowSheetSlice, getBin, getSongCardState, isLive, useDispatch, useSelector } from '@/lib/redux';
 import SongCard from '../Catalog/Reviews/SongCard';
 
 /**

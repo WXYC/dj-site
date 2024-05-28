@@ -1,6 +1,6 @@
 'use client';
 import React, { useEffect, useState } from "react";
-import useMousePosition from "../widgets/MousePosition";
+import useMousePosition from "../Widgets/MousePosition";
 
 import SongBox from "./SongBox";
 import { flowSheetSlice, getEntries, getEntryClientRect, getEntryPlaceholderIndex, getQueue, getQueuePlaceholderIndex, useDispatch, useSelector } from "@/lib/redux";
