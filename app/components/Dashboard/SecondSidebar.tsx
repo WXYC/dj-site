@@ -7,7 +7,7 @@ import ListItemContent from '@mui/joy/ListItemContent';
 import ListSubheader from '@mui/joy/ListSubheader';
 import Sheet from '@mui/joy/Sheet';
 import Typography from '@mui/joy/Typography';
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import InboxIcon from '@mui/icons-material/Inbox';
@@ -20,7 +20,10 @@ import { closeSidebar } from './SidebarMobileUtilites';
 import ScrollOnHoverText from '../widgets/scroll-on-hover-text';
 import { ArtistAvatar } from '../Catalog/ArtistAvatar';
 
-import { CatalogResult, applicationSlice, binSlice, flowSheetSlice, getBin, isLive, useDispatch, useSelector } from '@/lib/redux';
+import { CatalogResult, applicationSlice, binSlice, flowSheetSlice, getArtwork, getBin, getSongCardContent, getSongCardState, isLive, useDispatch, useSelector } from '@/lib/redux';
+import { ArrowBack } from '@mui/icons-material';
+import { timeout } from '@/lib/utilities/timeout';
+import SongCard from '../Catalog/Reviews/SongCard';
 
 /**
  * Component representing the Second Sidebar, which renders the 'Mail Bin' for DJs to save their songs and a 'now playing' widget.
@@ -36,6 +39,9 @@ export default function SecondSidebar(): JSX.Element {
   const dispatch = useDispatch();
 
   const live = useSelector(isLive);
+
+  const songCardOpen = useSelector(getSongCardState);
+
   const openSongCard = (item: CatalogResult) => dispatch(applicationSlice.actions.openSongCard(item));
 
   const bin = useSelector(getBin);
@@ -78,18 +84,24 @@ export default function SecondSidebar(): JSX.Element {
           },
           borderLeft: '1px solid',
           borderColor: 'divider',
-          transition: 'transform 0.4s',
+          transition: 'transform 0.4s, width 0.4s',
           zIndex: 9999,
           height: '100dvh',
           top: 0,
-          p: 2,
-          py: 3,
           flexShrink: 0,
           display: 'flex',
           flexDirection: 'column',
-          gap: 2,
+          justifyContent: 'space-between',
+          gap: 2
         }}
       >
+          {(songCardOpen) ? (
+            <SongCard />
+          ) : (
+          <Box sx = {{
+          p: 2,
+          py: 3,
+          }}>        
         <List
           sx={{
             '--ListItem-radius': '8px',
@@ -98,7 +110,7 @@ export default function SecondSidebar(): JSX.Element {
             flex: 1,
           }}
         >
-          <ListSubheader role="presentation" sx={{ color: 'text.primary' }}>
+            <ListSubheader role="presentation" sx={{ color: 'text.primary' }}>
             <PlayArrowOutlinedIcon sx={{ mr: 1 }} />
             Playing Now
           </ListSubheader>
@@ -236,10 +248,13 @@ export default function SecondSidebar(): JSX.Element {
             </div>
           </Card>
         </List>
+        </Box>)}
+        <Box>
         <Divider />
         <List
           sx = {{
             flex: 0,
+            px: 2,
           }}
         >
         <Stack direction="row" sx = {{
@@ -262,6 +277,7 @@ export default function SecondSidebar(): JSX.Element {
           Feedback
         </Button>
         </List>
+        </Box>
       </Sheet>
     </React.Fragment>
   );

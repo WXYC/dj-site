@@ -1,5 +1,5 @@
-import { User } from "../..";
-import { Song } from "../types";
+import { Rotation, User } from "../..";
+import { Album, Format, Song } from "../types";
 
 /* Types */
 export interface FlowSheetState {
@@ -54,8 +54,13 @@ export interface EntryRectProps {
 };
 
 export interface FlowsheetAlbum {
+    release: number;
     title: string;
+    format: Format;
     artist: FlowsheetArtist;
+    alternate_artist?: FlowsheetArtist;
+    label?: string;
+    rotation?: Rotation;
 }
 
 export interface FlowsheetArtist {

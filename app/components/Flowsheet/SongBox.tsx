@@ -39,10 +39,7 @@ import { ClickAwayListener } from "@mui/material";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 import { ROTATION_COLORS } from "./RotationAvatar";
-
-function timeout(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+import { timeout } from "@/lib/utilities/timeout";
 
 interface SongBoxProps extends FlowSheetEntry {
   index?: number;
@@ -111,7 +108,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
 
   const rotation = useSelector(getRotation);
   const play_freq =
-    rotation?.find((item) => item.level == entry.rotation)?.level ?? null;
+    rotation?.find((item) => item.album.rotation == entry.rotation)?.album.rotation ?? null;
 
   const getImage = useCallback(
     async (default_return = "") => {

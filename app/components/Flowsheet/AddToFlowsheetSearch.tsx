@@ -1,5 +1,5 @@
 'use client';
-import { CatalogResult, FlowSheetEntry, FlowSheetEntryProps, RotationEntry, flowSheetSlice, isLive, useDispatch, useSelector } from "@/lib/redux";
+import { CatalogResult, FlowSheetEntry, FlowSheetEntryProps, flowSheetSlice, getBin, getRotation, isLive, useDispatch, useSelector } from "@/lib/redux";
 import MicIcon from "@mui/icons-material/Mic";
 import TimerIcon from "@mui/icons-material/Timer";
 import TroubleshootIcon from "@mui/icons-material/Troubleshoot";
@@ -22,6 +22,7 @@ import { findInBin } from "../Bin/local-search";
 import { findInRotation } from "../Catalog/search/local-search";
 import { getReleasesMatching } from "@/lib/redux";
 import { ArtistAvatar } from "../Catalog/ArtistAvatar";
+import { loadRotation } from "@/lib/redux/model/rotation/thunks";
 
 /**
  * @component
@@ -37,6 +38,9 @@ const AddToFlowsheetSearch = () => {
     const dispatch = useDispatch();
 
     const live = useSelector(isLive);
+
+    const rotationEntries = useSelector(getRotation);
+    const binEntries = useSelector(getBin);
 
     const addToQueue = (item: FlowSheetEntryProps) => dispatch(flowSheetSlice.actions.addToQueue(item));
     const addToEntries = (item: FlowSheetEntryProps) => dispatch(flowSheetSlice.actions.addToEntries(item));
@@ -58,7 +62,7 @@ const AddToFlowsheetSearch = () => {
     }
 
     const [binResults, setBinResults] = useState<CatalogResult[]>([]);
-    const [rotationResults, setRotationResults] = useState<RotationEntry[]>([]);
+    const [rotationResults, setRotationResults] = useState<CatalogResult[]>([]);
     const [catalogResults, setCatalogResults] = useState<CatalogResult[]>([]);
 
     const searchRef = useRef<HTMLInputElement | null>();
@@ -84,7 +88,13 @@ const AddToFlowsheetSearch = () => {
             n: 4
           }).then((results) => {
             if (results) {
-                setCatalogResults(results);
+              results.forEach((result) => {
+                let match = rotationEntries.find((entry) => entry.id === result.id);
+                if (match) {
+                  result.album.rotation = match.album.rotation;
+                }
+              });
+              setCatalogResults(results);
             }
           });
         }, 1000));
@@ -95,7 +105,11 @@ const AddToFlowsheetSearch = () => {
       return () => {
         if (searchTimeout) clearTimeout(searchTimeout);
       }
-    }, [artist, album, label, searching]);
+    }, [artist, album, label, searching, rotationEntries]);
+
+    useEffect(() => {
+      dispatch(loadRotation());
+    }, []);
 
     const submitResult = useCallback((e: any) => {
       e.preventDefault();
@@ -151,8 +165,8 @@ const AddToFlowsheetSearch = () => {
     }, []);
 
     useEffect(() => {
-        setRotationResults(findInRotation(`${artist} ${album} ${label}`));
-        setBinResults(findInBin(`${artist} ${album} ${label}`));
+        setRotationResults(findInRotation(`${artist} ${album} ${label}`, rotationEntries));
+        setBinResults(findInBin(`${artist} ${album} ${label}`, binEntries));
 
     }, [artist, album, label]); 
     
@@ -423,7 +437,7 @@ return (
                     artist={rotationItem.album.artist}
                     format={rotationItem.album.format}
                     entry={rotationItem.album.release}
-                    rotation={rotationItem.level}
+                    rotation={rotationItem.album.rotation}
                   />
                   <Stack direction="column" sx={{ width: "calc(20%)" }}>
                     <Typography level="body-md" sx={{ 

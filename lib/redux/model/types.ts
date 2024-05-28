@@ -7,7 +7,7 @@ export interface ApplicationState {
     enableClassicView: boolean;
     classicView: boolean;
     popupContent?: JSX.Element;
-    songCardContent?: CatalogResult;
+    songCardContent: CatalogResult;
     popupOpen: boolean;
     songCardOpen: boolean;
 };
@@ -22,8 +22,8 @@ export interface Album {
     release: number;
     title: string;
     format: Format;
-    artist: Artist | FlowsheetArtist;
-    alternate_artist?: Artist | FlowsheetArtist;
+    artist: Artist;
+    alternate_artist?: Artist;
     label?: string;
     rotation?: Rotation;
 };

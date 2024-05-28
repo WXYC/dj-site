@@ -22,10 +22,12 @@ import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 
 import { Stack, Tooltip } from '@mui/joy';
 
-import { CatalogResult, FlowSheetEntry, Genre, OrderByOption, OrderDirectionOption, SearchInOption, applicationSlice, binSlice, catalogSlice, flowSheetSlice, getBin, getCatalogLoading, getGenre, getN, getOrderBy, getOrderDirection, getQuery, getReachedEnd, getResults, getSearchIn, isLive, searchCatalog, useDispatch, useSelector } from '@/lib/redux';
+import { CatalogResult, FlowSheetEntry, Genre, applicationSlice, binSlice, catalogSlice, flowSheetSlice, getBin, getCatalogLoading, getGenre, getN, getOrderBy, getOrderDirection, getQuery, getReachedEnd, getResults, getSearchIn, isLive, searchCatalog, useDispatch, useSelector } from '@/lib/redux';
 import Logo from '../Branding/logo';
 import { ArtistAvatar } from './ArtistAvatar';
 import { SearchBar } from './search/SearchBar';
+import { OrderByOption, OrderDirectionOption, SearchInOption, TableHeaderProps } from '../Table/types';
+import TableHeader from '../Table/TableHeader';
 
 /**
  * A table component for catalog search results.
@@ -102,31 +104,8 @@ const CatalogSearchTable = (): JSX.Element => {
   const bin = useSelector(getBin);
   const isInBin = (item: CatalogResult) => bin.includes(item);
   // -------------------------------------------------------------------------
-  
   const getSongCardFor = (item: CatalogResult | undefined) => dispatch(applicationSlice.actions.openSongCard(item));
-    const TableHeader = (props: TableHeaderProps) => {
-      return (
-        <Link
-        variant="plain"
-        color="neutral"
-        endDecorator = {
-          (orderBy === props.textValue) && (
-            orderDirection === 'asc' ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
-          )
-        }
-        sx = {{
-          padding: 0,
-        }}
-        onClick={() => {
-          handleRequestSort(props.textValue);
-        }}
-      >
-          {props.textValue}
-      </Link>
-      )
-    }
-
-
+  
       return (
         <>
           <SearchBar 
@@ -217,19 +196,44 @@ const CatalogSearchTable = (): JSX.Element => {
                 <th style={{ width: 50, padding: 12 }}>
                 </th>
                 <th style={{ width: 220, padding: 12 }}>
-                  <TableHeader textValue="Artist" />
+                  <TableHeader
+                    textValue="Artist"
+                    orderBy={orderBy}
+                    orderDirection={orderDirection}
+                    handleRequestSort={handleRequestSort}
+                  />
                 </th>
                 <th style={{ width: 220, padding: 12 }}>
-                  <TableHeader textValue="Title" />
+                  <TableHeader 
+                    textValue="Title" 
+                    orderBy={orderBy}
+                    orderDirection={orderDirection}
+                    handleRequestSort={handleRequestSort}
+                  />
                 </th>
                 <th style={{ width: 60, padding: 12 }}>
-                 <TableHeader textValue="Code" />
+                 <TableHeader 
+                  textValue="Code" 
+                  orderBy={orderBy}
+                  orderDirection={orderDirection}
+                  handleRequestSort={handleRequestSort}  
+                />
                 </th>
                 <th style={{ width: 70, padding: 12 }}>
-                  <TableHeader textValue="Format" />
+                  <TableHeader 
+                    textValue="Format" 
+                    orderBy={orderBy}
+                    orderDirection={orderDirection}
+                    handleRequestSort={handleRequestSort}
+                  />
                 </th>
                 <th style={{ width: 60, padding: 12 }}>
-                  <TableHeader textValue="Plays" />
+                  <TableHeader 
+                    textValue="Plays" 
+                    orderBy={orderBy}
+                    orderDirection={orderDirection}
+                    handleRequestSort={handleRequestSort}
+                  />
                 </th>
                 <th style={{ width: 120, padding: 12}}></th>
               </tr>
@@ -414,8 +418,5 @@ const CatalogSearchTable = (): JSX.Element => {
 
 }
 
-interface TableHeaderProps {
-    textValue: OrderByOption;
-};
 
 export default CatalogSearchTable;

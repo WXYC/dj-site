@@ -1,26 +1,30 @@
 import { toast } from "sonner";
-import { getter } from "../api-service";
-import { CatalogResult, Genre, SearchInOption } from "@/lib/redux";
+import { getter, setter } from "../api-service";
+import { CatalogResult } from "@/lib/redux";
 import { BRotationResult, BSearchResult } from "./backend-types";
 import { convertRotationResult, convertSearchResult } from "./conversions";
+import { RotationQueryParameters, SearchParameters } from "./frontend-types";
 
+export const addRotationBackend = (params: RotationQueryParameters) => setter('library/rotation')({
+  album_id: params.album_id,
+  play_freq: params.play_freq
+});
 
+export const retrieveRotation = async(): Promise<CatalogResult[]> => {
 
-const retrieveRotationEntries = () => getter("library/rotation")();
-
-
-export const retrieveRotation = async(): Promise<CatalogResult[] | null> => {
-
-    const { data, error } = await retrieveRotationEntries();
+    const { data, error } = await getter("library/rotation")();
 
     if (error) {
       toast.error(error.message);
-      return null;
+      return [];
     }
 
-    return data?.map((item: BRotationResult) => 
+    var relevantData = data?.filter((item: BRotationResult) => item.kill_date === null);
+    sessionStorage.setItem("rotation", JSON.stringify(relevantData));
+
+    return relevantData?.map((item: BRotationResult) => 
       convertRotationResult(item)
-    )?.filter((item: BRotationResult) => item.kill_date === null) ?? [];
+    );
 
 }
 
@@ -56,9 +60,3 @@ export const getReleasesMatching = async (params: SearchParameters): Promise<Cat
   
 }
 
-export interface SearchParameters {
-  term: string;
-  medium: SearchInOption;
-  genre: Genre | "All";
-  n: number;
-};

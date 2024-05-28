@@ -4,7 +4,9 @@ import React from 'react';
 import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined';
 import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
 import { Filters } from './Filters';
-import { Genre, SearchInOption } from '@/lib/redux';
+import { Genre } from '@/lib/redux';
+import { SearchInOption } from '../../Table/types';
+import { Cancel } from '@mui/icons-material';
 
 /**
  * @component
@@ -140,6 +142,15 @@ export const SearchBar = (props: SearchBarProps) => {
             color={props.color ?? "neutral"}
             placeholder="Search" 
             startDecorator={<TroubleshootIcon />}
+            endDecorator={
+              (props.searchString != '') ? (<IconButton
+                variant="plain"
+                color={props.color ?? "primary"}
+                onClick={() => props.setSearchString('')}
+              >
+                <Cancel />
+              </IconButton>) : (<></>)
+            }
             value={props.searchString}
             onChange={(e) => props.setSearchString(e.target.value)}
           />

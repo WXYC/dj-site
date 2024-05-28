@@ -1,7 +1,8 @@
 'use client';
 import AuthenticationGuard from "@/app/components/Authentication/AuthenticationGuard";
 import LogoutClassic from "@/app/components/Classic/LogoutClassic";
-import { Genre, OrderByOption, OrderDirectionOption, SearchInOption, catalogSlice, getAuthenticatedUser, getCatalogLoading, getGenre, getN, getOrderBy, getOrderDirection, getQuery, getReachedEnd, getResults, getSearchIn, searchCatalog, useDispatch, useSelector } from "@/lib/redux";
+import { OrderByOption, OrderDirectionOption, SearchInOption } from "@/app/components/Table/types";
+import { Genre, catalogSlice, getAuthenticatedUser, getCatalogLoading, getGenre, getN, getOrderBy, getOrderDirection, getQuery, getReachedEnd, getResults, getSearchIn, searchCatalog, useDispatch, useSelector } from "@/lib/redux";
 import React, { useCallback, useEffect, useState } from "react";
 
 const ClassicCatalogPage = () => {

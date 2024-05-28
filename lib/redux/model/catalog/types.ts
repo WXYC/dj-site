@@ -1,3 +1,4 @@
+import { OrderByOption, OrderDirectionOption, SearchInOption } from "@/app/components/Table/types";
 import { Album, Genre } from "../types";
 
 export interface AlbumCard {
@@ -16,11 +17,14 @@ export interface CatalogState {
     noResultsRemain: boolean;
 };
 
-export type SearchInOption = "All" | "Albums" | "Artists";
-export type OrderByOption = "Artist" | "Title" | "Code" | "Format" | "Plays";
-export type OrderDirectionOption = "asc" | "desc";
-
 export interface CatalogResult {
     id: number;
     album: Album;
+    reviews?: Review[];
+};
+
+export interface Review {
+    username: string;
+    content: string;
+    recommends?: number[];
 };

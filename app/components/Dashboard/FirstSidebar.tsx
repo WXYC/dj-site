@@ -250,23 +250,6 @@ export default function FirstSidebar(): JSX.Element {
             </Tooltip>
         </ListItem>
         </Link>
-        <Link href="/dashboard/admin/catalog">
-        <ListItem>
-            <Tooltip
-                title="Station Management  -  Catalog"
-                arrow={true}
-                placement='right'
-                size='sm'
-                variant='outlined'
-            >
-          <ListItemButton
-            variant={pathname === '/dashboard/admin/catalog' ? 'solid' : 'plain'}
-          >
-            <LibraryMusic />
-          </ListItemButton>
-            </Tooltip>
-        </ListItem>
-        </Link>
         </>)}
       </List>
       <Tooltip

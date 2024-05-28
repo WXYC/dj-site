@@ -15,7 +15,7 @@ export function convertRotationResult(backend: BRotationResult): CatalogResult {
                 lettercode: backend.code_letters
             },
             label: backend.record_label,
-            rotation: convertRotationId(backend.rotation_id),
+            rotation: backend.play_freq as Rotation ?? undefined,
         }
     };
 }
@@ -51,11 +51,6 @@ export function convertFormat(backend: string): Format {
 
 export function convertGenre(backend: string): Genre {
     return backend as Genre ?? 'Unknown';
-}
-
-export function convertRotationId(backend: number | undefined): Rotation | undefined {
-    if (!backend) return undefined;
-    return ['H', 'M', 'L', 'S'][backend] as Rotation;
 }
 
 export function convertRotation(backend: string): Rotation | undefined {
