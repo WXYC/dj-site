@@ -1,10 +1,8 @@
 'use client';
 import RotationSearchTable from "@/app/components/Rotation/RotationSearchTable";
-import { Rotation, getRotation, rotationSlice, useDispatch, useSelector } from "@/lib/redux";
-import { addToRotation, loadRotation } from "@/lib/redux/model/rotation/thunks";
-import { RotationQueryParameters } from "@/lib/services/catalog/frontend-types";
+import { Rotation, getRotation, useDispatch, useSelector } from "@/lib/redux";
+import { addToRotation } from "@/lib/redux/model/rotation/thunks";
 import { Sheet } from "@mui/joy";
-import { useEffect } from "react";
 
 interface RotationQuery extends HTMLFormControlsCollection {
     album: HTMLInputElement;
@@ -14,11 +12,6 @@ interface RotationQuery extends HTMLFormControlsCollection {
 const RotationPage = (): JSX.Element => {
 
     const dispatch = useDispatch();
-    const rotationEntries = useSelector(getRotation);
-
-    useEffect(() => {
-        dispatch(loadRotation());
-    }, []);
 
     const tempHandleAdd = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();

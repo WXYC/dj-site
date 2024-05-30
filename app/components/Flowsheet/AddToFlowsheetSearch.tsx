@@ -1,28 +1,25 @@
 'use client';
-import { CatalogResult, FlowSheetEntry, FlowSheetEntryProps, flowSheetSlice, getBin, getRotation, isLive, useDispatch, useSelector } from "@/lib/redux";
+import { CatalogResult, FlowSheetEntryProps, flowSheetSlice, getBin, getReleasesMatching, getRotation, isLive, useDispatch, useSelector } from "@/lib/redux";
 import MicIcon from "@mui/icons-material/Mic";
 import TimerIcon from "@mui/icons-material/Timer";
 import TroubleshootIcon from "@mui/icons-material/Troubleshoot";
 import {
-    Box,
-    BoxSlot,
-    Button,
-    Chip,
-    Divider,
-    FormControl,
-    IconButton,
-    Sheet,
-    Stack,
-    Tooltip,
-    Typography
+  Box,
+  Button,
+  Chip,
+  Divider,
+  FormControl,
+  IconButton,
+  Sheet,
+  Stack,
+  Tooltip,
+  Typography
 } from "@mui/joy";
 import { ClickAwayListener } from "@mui/material";
-import { createRef, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { findInBin } from "../Bin/local-search";
-import { findInRotation } from "../Catalog/search/local-search";
-import { getReleasesMatching } from "@/lib/redux";
 import { ArtistAvatar } from "../Catalog/ArtistAvatar";
-import { loadRotation } from "@/lib/redux/model/rotation/thunks";
+import { findInRotation } from "../Catalog/Search/local-search";
 
 /**
  * @component
@@ -106,10 +103,6 @@ const AddToFlowsheetSearch = () => {
         if (searchTimeout) clearTimeout(searchTimeout);
       }
     }, [artist, album, label, searching, rotationEntries]);
-
-    useEffect(() => {
-      dispatch(loadRotation());
-    }, []);
 
     const submitResult = useCallback((e: any) => {
       e.preventDefault();

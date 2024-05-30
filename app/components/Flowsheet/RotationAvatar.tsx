@@ -1,12 +1,6 @@
+import { rotationStyles } from "@/app/styles/rotation/RotationStyles";
 import { Rotation } from "@/lib/redux";
 import { Avatar, ColorPaletteProp, Typography } from "@mui/joy";
-
-export const ROTATION_COLORS: { [id in Rotation] : ColorPaletteProp } = {
-    "H": 'primary',
-    "M": 'warning',
-    "L": 'neutral',
-    "S": 'success',
-}
 
 interface RotationAvatarProps {
     rotation: Rotation,
@@ -25,7 +19,7 @@ interface RotationAvatarProps {
  */
 export const RotationAvatar = (props: RotationAvatarProps) => {
 
-    let color_choice = ROTATION_COLORS[props.rotation];
+    let color_choice = rotationStyles[props.rotation];
     if (color_choice === undefined) {
         color_choice = 'neutral';
     }

@@ -55,6 +55,7 @@ import SongBox from "@/app/components/Flowsheet/SongBox";
     const editDepth = useSelector(getEditDepth);
 
     const refresh = useCallback(() => {
+      if (editDepth === 0) return;
       dispatch(loadFlowsheetEntries(editDepth));
     }, [dispatch, editDepth]);
 
@@ -67,10 +68,6 @@ import SongBox from "@/app/components/Flowsheet/SongBox";
       }
 
     }, [dispatch, editDepth]);
-  
-    useEffect(() => {
-      dispatch(getIsLive(user?.djId));
-    }, [user?.djId]);
 
     const live = useSelector(isLive);
     const intermediate = useSelector(processingLive);

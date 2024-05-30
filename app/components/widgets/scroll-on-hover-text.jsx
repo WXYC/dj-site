@@ -13,11 +13,11 @@ const ScrollOnHoverText = (props) => {
     useEffect(() => {
         if (!textRef.current) return;
 
-        if ((textRef.current.scrollWidth - textRef.current.clientWidth) < 3) {
+        if (!hovering && (textRef.current.scrollWidth - textRef.current.clientWidth) < 3) {
             setCanHover(false);
         }
 
-    }, [textRef.current]);
+    }, [textRef.current, hovering]);
 
     return (
         <Typography

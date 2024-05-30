@@ -1,7 +1,9 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { FlowSheetState } from "./types";
+import { FlowSheetEntry, FlowSheetState } from "./types";
 import { getIsLive, join, leave, loadFlowsheet, loadFlowsheetEntries } from "./thunks";
 import { toast } from "sonner";
+import { CatalogResult } from "../catalog";
+import { convertCatalogToFlowsheet } from "../..";
 
 
 const initialState: FlowSheetState = {
@@ -43,10 +45,51 @@ export const flowSheetSlice = createSlice({
             state.queuePlaceholderIndex = action.payload;
         },
         addToQueue: (state, action) => {
-            state.queue.push(action.payload);
+            state.queue.push({
+                ...convertCatalogToFlowsheet(action.payload),
+                id: state.queue.length + 1
+            });
         },
         updateQueueEntry: (state, action) => {
+            const { id, field, value } = action.payload;
+            const match = state.queue.find((item) => item.id === id);
+            if (match)
+            {
+                const entry: FlowSheetEntry = { ...match };
+                switch (field) {
+                    case "song":
+                        entry.song!.title = value;
+                        break;
+                    case "artist":
+                        if (value !== entry.song!.album!.artist.name)
+                        {
+                            entry.catalog_id = undefined;
+                        }
+                        entry.song!.album!.artist.name = value;
+                        break;
+                    case "album":
+                        if (value !== entry.song!.album!.title)
+                        {
+                            entry.catalog_id = undefined;
+                        }
+                        entry.song!.album!.title = value;
+                        break;
+                    case "label":
+                        if (value !== entry.song!.album!.label)
+                        {
+                            entry.catalog_id = undefined;
+                        }
+                        entry.song!.album!.label = value;
+                        break;
+                    default:
+                        break;
+                }
 
+                state.queue = state.queue.map((item) => item.id === id ? entry : item);
+            }
+        },
+        removeCatalogEntryFromQueue: (state, action) => {
+            state.queue = state.queue.filter((item: FlowSheetEntry) => item.catalog_id !== action.payload);
         },
         removeFromQueue: (state, action) => {
             state.queue = state.queue.filter((item) => item.id !== action.payload);

@@ -1,5 +1,6 @@
 import { toast } from "sonner";
-import { getter, setter } from "../api-service";
+import { getter, setter, updater } from "../api-service";
+import { onlyUnique } from "@/lib/utilities/unique";
 import { CatalogResult } from "@/lib/redux";
 import { BRotationResult, BSearchResult } from "./backend-types";
 import { convertRotationResult, convertSearchResult } from "./conversions";
@@ -8,6 +9,10 @@ import { RotationQueryParameters, SearchParameters } from "./frontend-types";
 export const addRotationBackend = (params: RotationQueryParameters) => setter('library/rotation')({
   album_id: params.album_id,
   play_freq: params.play_freq
+});
+
+export const removeFromRotationBackend = (params: RotationQueryParameters) => updater('library/rotation')({
+  album_id: null
 });
 
 export const retrieveRotation = async(): Promise<CatalogResult[]> => {
@@ -54,9 +59,16 @@ export const getReleasesMatching = async (params: SearchParameters): Promise<Cat
       return null;
     }
 
-    toast.success(`Found ${data?.length} results`);
-  
-    return data?.map((release: BSearchResult) => convertSearchResult(release)) ?? [];
+    const uniqueData: BSearchResult[] = data && onlyUnique(data, "id");
+
+    toast.success(`Found ${uniqueData?.length} results`);
+
+    let searchResults = uniqueData?.map((item: BSearchResult) => {
+      let match = params.rotation?.find((rotation: CatalogResult) => rotation.id === item.id);
+      return match ? { ...item, rotation_freq: match.album.rotation?.toString() ?? "" } : item;
+    });
+
+    return searchResults?.map((release: BSearchResult) => convertSearchResult(release)) ?? [];
   
 }
 

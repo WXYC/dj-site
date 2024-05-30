@@ -1,18 +1,19 @@
 "use client";
 
+import { rotationStyles } from "@/app/styles/rotation/RotationStyles";
 import {
-  Album,
-    EntryRectProps,
-    FlowSheetEntry,
-    FlowSheetEntryProps,
-    FlowsheetAlbum,
-    Rotation,
-    flowSheetSlice, getArtwork, getAutoplay,
-    getCurrentlyPlayingSongLength,
-    getCurrentlyPlayingSongRemaining,
-    getQueue,
-    getRotation, isLive, useSelector
+  EntryRectProps,
+  FlowSheetEntry,
+  FlowSheetEntryProps,
+  FlowsheetAlbum,
+  Rotation,
+  flowSheetSlice, getArtwork, getAutoplay,
+  getCurrentlyPlayingSongLength,
+  getCurrentlyPlayingSongRemaining,
+  getQueue,
+  getRotation, isLive, useSelector
 } from "@/lib/redux";
+import { timeout } from "@/lib/utilities/timeout";
 import ClearIcon from "@mui/icons-material/Clear";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import HeadphonesIcon from "@mui/icons-material/Headphones";
@@ -24,23 +25,21 @@ import PhoneEnabledIcon from "@mui/icons-material/PhoneEnabled";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import TimerIcon from "@mui/icons-material/Timer";
 import {
-    AspectRatio,
-    Badge,
-    Button,
-    Checkbox,
-    CircularProgress,
-    IconButton,
-    LinearProgress,
-    Sheet,
-    Stack,
-    Tooltip,
-    Typography
+  AspectRatio,
+  Badge,
+  Button,
+  Checkbox,
+  CircularProgress,
+  IconButton,
+  LinearProgress,
+  Sheet,
+  Stack,
+  Tooltip,
+  Typography
 } from "@mui/joy";
-import { ClickAwayListener } from "@mui/material";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
-import { ROTATION_COLORS } from "./RotationAvatar";
-import { timeout } from "@/lib/utilities/timeout";
+import FlowsheetEntryField from "./FlowsheetEntryField";
 
 interface SongBoxProps extends FlowSheetEntry {
   index?: number;
@@ -56,15 +55,6 @@ interface SongBoxProps extends FlowSheetEntry {
     | "error";
   editable?: boolean;
   rotation?: Rotation;
-}
-
-interface FlowsheetEntryFieldProps {
-  label: string;
-  value: string;
-  current: boolean;
-  id: number;
-  queue: boolean;
-    editable?: boolean;
 }
 
 /**
@@ -151,91 +141,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
     });
   }, [getImage]);
 
-  const FlowsheetEntryField = (props: FlowsheetEntryFieldProps) => {
-    const dispatch = useDispatch();
 
-    const live = useSelector(isLive);
-    const updateQueueEntry = (id: number, field: string, value: string) =>
-      dispatch(flowSheetSlice.actions.updateQueueEntry({ id, field, value }));
-    const updateEntry = (id: number, field: string, value: string) =>
-      dispatch(flowSheetSlice.actions.updateEntry({ id, field, value }));
-
-    const [editing, setEditing] = useState(false);
-    const [value, setValue] = useState(props.value ?? "");
-
-    const saveAndClose = (e: any) => {
-      e.preventDefault();
-      setEditing(false);
-      let label = props.label == "song" ? "title" : props.label; // Hack to handle stylistic choice of 'song' over 'title'
-      if (props.queue) {
-        updateQueueEntry(props.id, label, value);
-      } else {
-        updateEntry(props.id, label, value);
-      }
-    };
-
-    return (
-      <Stack direction="column" sx={{ width: "calc(25%)" }}>
-        <Typography
-          level="body-sm"
-          sx={{ mb: -1 }}
-          textColor={props.current ? "primary.300" : "unset"}
-        >
-          {props.label.toUpperCase()}
-        </Typography>
-        {editing ? (
-          <ClickAwayListener onClickAway={saveAndClose}>
-            <form onSubmit={saveAndClose}>
-              <Typography
-                textColor={props.current ? "primary.lightChannel" : "unset"}
-                sx={{
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  borderBottom: "1px solid",
-                }}
-              >
-                <input
-                  type="text"
-                  style={{
-                    color: "inherit",
-                    fontFamily: "inherit",
-                    fontSize: "inherit",
-                    fontWeight: "inherit",
-                    background: "transparent",
-                    width: "100%",
-                    border: "none",
-                    outline: "none",
-                    padding: "0",
-                    margin: "0",
-                  }}
-                  defaultValue={props.value}
-                  onChange={(e) => {
-                    setValue(e.target.value);
-                  }}
-                  value={value}
-                />
-              </Typography>
-            </form>
-          </ClickAwayListener>
-        ) : (
-          <Typography
-            textColor={props.current ? "primary.lightChannel" : "unset"}
-            sx={{
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              cursor: "text",
-              minWidth: "10px",
-            }}
-            onDoubleClick={() => setEditing((props.editable ?? false) && live)}
-          >
-            {props.value}&nbsp;
-          </Typography>
-        )}
-      </Stack>
-    );
-  };
 
   switch (entry.type) {
     case "placeholder":
@@ -300,7 +206,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
             <Badge
               size="sm"
               badgeContent={play_freq ?? null}
-              color={(play_freq && ROTATION_COLORS[play_freq]) ?? "neutral"}
+              color={(play_freq && rotationStyles[play_freq]) ?? "neutral"}
               anchorOrigin={{
                 vertical: "top",
                 horizontal: "left",

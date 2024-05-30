@@ -1,4 +1,4 @@
-import { getArtwork } from "@/lib/services";
+import { getArtwork, getNowPlayingFromBackend } from "@/lib/services";
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
 import { Box, Stack, useColorScheme, useTheme } from "@mui/joy";
@@ -9,23 +9,16 @@ import CardOverflow from '@mui/joy/CardOverflow';
 import IconButton from '@mui/joy/IconButton';
 import Typography from '@mui/joy/Typography';
 import { useSearchParams } from "next/navigation";
-import React, { useEffect } from "react";
-import { getDJListFromBackend, getNowPlayingFromBackend } from "@/lib/services";
+import React, { useCallback, useEffect } from "react";
 
 let animationController = null;
 
-const BOT_RESPONSES = {
-  song: 'Random Selection',
-  dj: '🤖 Auto DJ',
-}
-
 const NowPlaying = (props) => {
 
-  const [songName, setSongName] = React.useState(BOT_RESPONSES.song);
+  const [songName, setSongName] = React.useState('Random Selection');
   const [albumName, setAlbumName] = React.useState('');
   const [artistName, setArtistName] = React.useState('');
   const [message, setMessage] = React.useState('');
-  const [djName, setDjName] = React.useState(BOT_RESPONSES.dj);
 
   const [imageUrl, setImageUrl] = React.useState('/img/cassette.png');
 
@@ -47,6 +40,8 @@ const NowPlaying = (props) => {
 
   const canvasRef = React.useRef(null);
 
+  const [hovered, setHovered] = React.useState(false)
+
   const theme = useTheme();
   const { mode, setMode } = useColorScheme();
 
@@ -54,16 +49,24 @@ const NowPlaying = (props) => {
 
   const [fadeTimeout, setFadeTimeout] = React.useState(null);
 
-  const destroyAndBuildNewCanvas = () => {
+  const destroyAndBuildNewCanvas = useCallback(() => {
     let container = document.getElementById('canvas-container');
     if (container) {
       container.innerHTML = '';
       canvasRef.current = document.createElement('canvas');
-      canvasRef.current.width = container.clientWidth - 40;
-      canvasRef.current.height = container.clientHeight;
+      if (props.mini)
+      {
+        canvasRef.current.width = container.clientWidth - 5;
+        canvasRef.current.marginLeft = 5;
+        canvasRef.current.height = container.clientHeight;
+      }
+      else {
+        canvasRef.current.width = container.clientWidth - 40;
+        canvasRef.current.height = container.clientHeight;
+      }
       container.appendChild(canvasRef.current);
     }
-  }
+  }, [props.mini]);
 
   const getImage = async (artist, album, default_return = "") => {
     if (album == undefined || artist == undefined) return default_return;
@@ -90,7 +93,6 @@ const NowPlaying = (props) => {
   };
 
   const [getSongInterval, setGetSongInterval] = React.useState(null);
-  const [getDJListInterval, setgetDJListInterval] = React.useState(null);
   useEffect(() => {
 /*     try {
       setEmbedded(window.self !== window.top);
@@ -124,22 +126,6 @@ const NowPlaying = (props) => {
     getSong();
     setGetSongInterval(setInterval(getSong, 30000));
 
-    const getDJList = async () => {
-      const { data, error } = await getDJListFromBackend();
-
-      if (error) {
-        console.error(error);
-        setDjName(BOT_RESPONSES.dj);
-      }
-
-      if (data) {
-        setDjName(data.dj_name);
-      }
-    }
-
-    getDJList();
-    setgetDJListInterval(setInterval(getDJList, 30000));
-
     var query = window.location.search.substring(1);
     var vars = query.split("&");
     var pair = vars[0].split("=");
@@ -153,7 +139,6 @@ const NowPlaying = (props) => {
     return () => {
       document.removeEventListener('resize', destroyAndBuildNewCanvas);
       if (getSongInterval) clearInterval(getSongInterval);
-      if (getDJListInterval) clearInterval(getDJListInterval);
     }
   }, []);
 
@@ -168,12 +153,18 @@ const NowPlaying = (props) => {
         source.current.connect(analyzer.current);
         analyzer.current.connect(audioContext.destination);
       }
-      visualize();
     } else if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = '';
     }
   }, [playing]);
+
+  useEffect(() => {
+    if (playing && audioRef.current) {
+      destroyAndBuildNewCanvas();
+      visualize();
+    }
+  }, [playing, props.mini, theme.palette.mode]);
 
   useEffect(() => {
     const isOverflowing = (element) => {
@@ -194,7 +185,11 @@ const NowPlaying = (props) => {
     }
   }, [search]);
 
-  const visualize = () => {
+  const visualize = useCallback(() => {
+
+    if (!canvasRef.current) return;
+    if (!analyzer.current) return;
+
     animationController = window.requestAnimationFrame(visualize);
 
     const songData = new Uint8Array(140);
@@ -208,16 +203,112 @@ const NowPlaying = (props) => {
     for (let i = 0; i < songData.length; i++) {
       start = i * 4;
       ctx.fillStyle = `rgba(${tone_1},${tone_1},${tone_1},0.7)`;
-      ctx.fillRect(start, canvasRef.current.height / 2, bar_width, -songData[i] / 9);
-      ctx.fillStyle = `rgba(${tone_2},${tone_2},${tone_2},0.7)`;
-      ctx.fillRect(start, canvasRef.current.height / 2, bar_width, songData[i] / 9);
+      let height = props.mini ? canvasRef.current.height - 1 : canvasRef.current.height / 2;
+      ctx.fillRect(start, height, bar_width, -songData[i] / 9);
+      if (!props.mini)
+      {
+        ctx.fillStyle = `rgba(${tone_2},${tone_2},${tone_2},0.7)`;
+        ctx.fillRect(start, canvasRef.current.height / 2, bar_width, songData[i] / 9);
+      }
     };
-  }
+  }, [canvasRef.current, theme.palette.mode, analyzer.current, props.mini]);
 
     return (
       <>      
       <audio id="now-playing-music" crossOrigin="anonymous" ref={audioRef} ></audio>
-      <Card variant="outlined"
+      {(props.mini) ? (
+        <Card orientation="horizontal" variant="outlined" sx={{ width: 295 }}
+          onMouseEnter = {() => setHovered(true)}
+          onMouseLeave = {() => setHovered(false)}
+        >
+        <CardOverflow>
+        <AspectRatio ratio="1" sx={{ width: 90 }}>
+          <img
+            src={imageUrl}
+            loading="lazy"
+            alt={imageUrl}
+          />
+          {(hovered) && (<IconButton
+            size="lg"
+            variant="solid"
+            color="primary"
+            sx={{
+              position: "absolute",
+              zIndex: 2,
+              top: '50%',
+              left: '50%',
+              transform: "translate(-50%, -50%)",
+            }}
+            onClick={() => {
+              setPlaying(!playing);
+            }}
+          >
+            {playing ? <StopIcon /> : <PlayArrowIcon />}
+        </IconButton>)}
+        </AspectRatio>
+      </CardOverflow>
+      {(isSong) ? (
+      <CardContent>
+        <Typography level="body-md" fontSize="lg" ref={upperText} sx = {{ whiteSpace: 'nowrap' }}>
+          {upperTextMarquee ? (
+            <marquee>{songName ?? 'Automatically Chosen Song'}</marquee>
+          ): (
+            <>{songName ?? 'Automatically Chosen Song'}</>
+          )}
+        </Typography>
+        <Stack direction="row">
+        <Typography level="body-md" sx={{ whiteSpace: 'nowrap', overflow: 'hidden' }} color="primary" ref={lowerText}>
+          {lowerTextMarquee ? (
+            <marquee>{artistName ?? 'Automatically Chosen Artist'} &nbsp;&nbsp; • &nbsp;&nbsp; {(albumName.length > 0) && albumName}</marquee>
+          ): (
+            <>{artistName ?? 'Automatically Chosen Artist'} &nbsp;&nbsp; • &nbsp;&nbsp; {(albumName.length > 0) && albumName}</>
+          )}
+        </Typography>
+        </Stack>
+      </CardContent>) : (
+        <CardContent
+          sx = {{
+            maxHeight: 45
+          }}
+        >
+          <Typography
+            component="div"
+            level="body-md"
+          >
+          <marquee>{message}</marquee>
+        </Typography>
+      </CardContent>
+      )}
+      <Box
+            component={"div"}
+            id = "canvas-container"
+            sx = {{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+            }}
+          ></Box>
+          <CardOverflow
+        variant="soft"
+        color={message.includes("End of Show") ? "error" : "primary"}
+        sx={{
+          px: 0.2,
+          writingMode: 'vertical-rl',
+          justifyContent: 'center',
+          fontSize: 'xs',
+          fontWeight: 'xl',
+          letterSpacing: '1px',
+          textTransform: 'uppercase',
+          borderLeft: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
+        {message.includes("End of Show") ? "Off Air" : "On Air"}
+      </CardOverflow>
+        </Card>
+      ) : (<Card variant="outlined"
         sx = {{
           width: embedded ? '100%' : '225px',
           height: '100%',
@@ -234,7 +325,7 @@ const NowPlaying = (props) => {
           <img
             src={imageUrl}
             loading="lazy"
-            alt=""
+            alt={imageUrl}
             style={{
               filter: isSong ? 'blur(10px)' : 'none',
               zIndex: 0,
@@ -263,7 +354,7 @@ const NowPlaying = (props) => {
               <img
                 src={imageUrl}
                 loading="lazy"
-                alt=""
+                alt={imageUrl}
               />
             </AspectRatio>
           </Box>)}
@@ -313,7 +404,7 @@ const NowPlaying = (props) => {
           justifyContent: 'flex-end',
         }}
       >
-        <Typography level="body1" fontSize="lg" ref={upperText} sx = {{ whiteSpace: 'nowrap' }}>
+        <Typography level="body-lg" fontSize="lg" ref={upperText} sx = {{ whiteSpace: 'nowrap' }}>
           {upperTextMarquee ? (
             <marquee>{songName ?? 'Automatically Chosen Song'}</marquee>
           ): (
@@ -321,7 +412,7 @@ const NowPlaying = (props) => {
           )}
         </Typography>
         <Stack direction="row">
-        <Typography level="body2" sx={{ mt: 0.5, whiteSpace: 'nowrap', overflow: 'hidden' }} color="primary" ref={lowerText}>
+        <Typography level="body-md" sx={{ mt: 0.5, whiteSpace: 'nowrap', overflow: 'hidden' }} color="primary" ref={lowerText}>
           {lowerTextMarquee ? (
             <marquee>{artistName ?? 'Automatically Chosen Artist'} &nbsp;&nbsp; • &nbsp;&nbsp; {(albumName.length > 0) && albumName}</marquee>
           ): (
@@ -331,24 +422,26 @@ const NowPlaying = (props) => {
         </Stack>
       </CardContent>) : (
         <CardContent sx = {{ mt: embedded ? 4 : 'unset' }}>
-        <Typography level="body1" fontSize="md">
+        <Typography level="body-lg" fontSize="md">
           {message}
         </Typography>
       </CardContent>
       )}
-      <CardOverflow variant="soft" sx={{ bgcolor: 'background.level1' }}>
+      <CardOverflow variant={message.includes("End of Show") ? "solid" : "soft"} color={message.includes("End of Show") ? "neutral" : "primary"}>
         <CardContent orientation="horizontal">
           <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
           <Typography
             level="body3"
-            sx={{ fontWeight: 'md', color: 'text.secondary' }}
+            sx={{ fontWeight: 'md', color: 'text.secondary',
+              textTransform: 'uppercase',
+             }}
           >
-            {djName ?? 'No DJ'}
+            {message.includes("End of Show") ? "Off Air" : "On Air"}
           </Typography>
           </Box>
         </CardContent>
       </CardOverflow>
-    </Card>
+    </Card>)}
     </>
   )
 }

@@ -5,29 +5,31 @@ import Checkbox from '@mui/joy/Checkbox';
 import Chip from '@mui/joy/Chip';
 import CircularProgress from '@mui/joy/CircularProgress';
 import IconButton from '@mui/joy/IconButton';
-import Link from '@mui/joy/Link';
 import Sheet from '@mui/joy/Sheet';
 import Table from '@mui/joy/Table';
 import Typography from '@mui/joy/Typography';
-import { ChangeEvent, useEffect, useState } from 'react';
+import { ChangeEvent, useCallback, useEffect, useState } from 'react';
 
-import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import DoubleArrowIcon from '@mui/icons-material/DoubleArrow';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
-import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 
 
 import { Stack, Tooltip } from '@mui/joy';
 
-import { CatalogResult, FlowSheetEntry, Genre, applicationSlice, binSlice, catalogSlice, flowSheetSlice, getBin, getCatalogLoading, getGenre, getN, getOrderBy, getOrderDirection, getQuery, getReachedEnd, getResults, getSearchIn, isLive, searchCatalog, useDispatch, useSelector } from '@/lib/redux';
+import { CatalogResult, FlowSheetEntry, Genre, applicationSlice, catalogSlice, flowSheetSlice, getAuthenticatedUser, getBin, getCatalogLoading, getGenre, getN, getOrderBy, getOrderDirection, getQuery, getQueue, getReachedEnd, getResults, getRotation, getSearchIn, isLive, searchCatalog, useDispatch, useSelector } from '@/lib/redux';
+import { deleteFromBin, insertToBin } from '@/lib/redux/model/bin/thunks';
+import { FolderDelete, Inbox, Inventory, MoveToInbox, Outbox, PlaylistAdd, PlaylistRemove, QueueMusic } from '@mui/icons-material';
 import Logo from '../Branding/logo';
-import { ArtistAvatar } from './ArtistAvatar';
-import { SearchBar } from './search/SearchBar';
-import { OrderByOption, OrderDirectionOption, SearchInOption, TableHeaderProps } from '../Table/types';
 import TableHeader from '../Table/TableHeader';
+import { OrderByOption, OrderDirectionOption, SearchInOption } from '../Table/types';
+import { ArtistAvatar } from './ArtistAvatar';
+import { SearchBar } from './Search/SearchBar';
+import HoverIconButton from '../General/Buttons/HoverIconButton';
+import QueueButton from '../Flowsheet/Queue/QueueButton';
+import BinButton from '../Bin/BinButton';
+import PlayButton from '../Flowsheet/Entries/PlayButton';
 
 /**
  * A table component for catalog search results.
@@ -57,7 +59,9 @@ const CatalogSearchTable = (): JSX.Element => {
 
     const dispatch = useDispatch();
 
-    const live = useSelector(isLive);
+    const user = useSelector(getAuthenticatedUser);
+    
+    const rotation = useSelector(getRotation);
 
     // Catalog Search State ----------------------------------------------------
     const loadMore = () => dispatch(catalogSlice.actions.loadMore());
@@ -86,12 +90,11 @@ const CatalogSearchTable = (): JSX.Element => {
           term: searchString,
           medium: searchIn,
           genre: genre,
-          n: n
-        }));
+          n: n,
+          rotation: rotation
+        }))
       }, 500));
-    }, [searchString, searchIn, genre, n]);
-
-  const addToQueue = (item: FlowSheetEntry) => dispatch(flowSheetSlice.actions.addToQueue(item));
+    }, [searchString, searchIn, genre, n, rotation]);
 
   const [selected, setSelected] = useState<number[]>([]);
   const [open, setOpen] = useState(false);
@@ -99,11 +102,12 @@ const CatalogSearchTable = (): JSX.Element => {
   const [index, setIndex] = useState(0);
 
   // Bin Context --------------------------------------------------------------
-  const addToBin = (item: CatalogResult | undefined) => dispatch(binSlice.actions.addToBin(item));
-  const removeFromBin = (item: CatalogResult) => dispatch(binSlice.actions.removeFromBin(item));
-  const bin = useSelector(getBin);
-  const isInBin = (item: CatalogResult) => bin.includes(item);
+  const addToBin = (item: CatalogResult) => dispatch(insertToBin({
+    entry: item,
+    dj: user!
+  }));
   // -------------------------------------------------------------------------
+
   const getSongCardFor = (item: CatalogResult | undefined) => dispatch(applicationSlice.actions.openSongCard(item));
   
       return (
@@ -255,7 +259,7 @@ const CatalogSearchTable = (): JSX.Element => {
                         setSelected((ids) =>
                           event.target.checked
                             ? ids.concat(row.id)
-                            : ids.filter((itemId) => itemId !== row.id),
+                            : ids.filter((item) => item !== row.id),
                         );
                       }}
                       slotProps={{ checkbox: { sx: { textAlign: 'left' } } }}
@@ -267,6 +271,7 @@ const CatalogSearchTable = (): JSX.Element => {
                         entry={row.album.release}
                         artist = {row.album.artist}
                         format={row.album.format}
+                        rotation={row.album.rotation}
                       />
                   </td>
                   <td>
@@ -320,52 +325,13 @@ const CatalogSearchTable = (): JSX.Element => {
                             <InfoOutlinedIcon />
                         </IconButton>
                         </Tooltip>
-                        {(live) && (
-                            <Tooltip title="Add to Queue" placement="bottom"
-                                variant="outlined"
-                                size="sm"
-                            >
-                            <IconButton size="sm"
-                                color="neutral"
-                                onClick={() => addToQueue(row)}
-                            >
-                                <PlaylistAddIcon />
-                            </IconButton>
-                            </Tooltip>
-                        )}
-                        
-                        {(!isInBin(row)) ? (<Tooltip title="Add to bin"
-                            variant='outlined'
-                            size="sm"
-                        ><IconButton
-                            aria-label="Add to bin"
-                            variant="outlined"
-                            color="neutral"
-                            size="sm"
-                            onClick = {() => {
-                              addToBin(row);
-                            }}
-                        >
-                            <DoubleArrowIcon />
-                            </IconButton></Tooltip>) : (<Tooltip title="Remove from bin"
-                            variant='outlined'
-                            size="sm"
-                        ><IconButton
-                            aria-label="Remove from bin"
-                            variant="outlined"
-                            color="primary"
-                            size="sm"
-                            onClick = {() => {
-                              removeFromBin(row);
-                            }}
-                        >
-                            <DeleteOutlineOutlinedIcon />
-                            </IconButton></Tooltip>)}
-                        
+                        <QueueButton entry={row} />
+                        <BinButton entry={row} />
                         </Stack>
                     </td>
                 </tr>
               )))}
+              
                 {(!loading && !reachedEndForQuery) && (<tr>
                   <td colSpan={8} style={{ textAlign: 'center' }}>
                     <Button
@@ -404,8 +370,8 @@ const CatalogSearchTable = (): JSX.Element => {
                           marginRight: '1rem',
                         }}
                         onClick={() =>
-                          selected.map((id) => {
-                            addToBin(releaseList.find((row) => row.id === id));
+                          selected.map((row) => {
+                            addToBin(releaseList.find((item) => item.id === row)!);
                           })
                         }
                         >

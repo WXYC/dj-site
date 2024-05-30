@@ -36,7 +36,8 @@ export interface FlowSheetEntryProps {
     message?: string;
     song?: Song;
     request?: boolean;
-    rotation_freq?: string;
+    rotation_freq?: Rotation;
+    catalog_id?: number;
 };
 
 export interface Show {

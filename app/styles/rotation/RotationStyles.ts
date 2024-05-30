@@ -3,7 +3,7 @@ import { ColorPaletteProp } from "@mui/joy";
 
 export const rotationStyles : { [id in Rotation] : ColorPaletteProp } = {
     'H': 'primary',
-    'M': 'neutral',
+    'M': 'warning',
     'L': 'success',
-    'S': 'warning',
+    'S': 'neutral',
 };

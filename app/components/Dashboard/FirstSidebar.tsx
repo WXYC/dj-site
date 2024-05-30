@@ -226,6 +226,7 @@ export default function FirstSidebar(): JSX.Element {
                 variant='outlined'
             >
           <ListItemButton
+          disabled
             variant={pathname === '/dashboard/admin/schedule' ? 'solid' : 'plain'}
           >
             <EditCalendar />

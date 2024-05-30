@@ -1,35 +1,26 @@
 'use client';
 import Box from '@mui/joy/Box';
 import Button from '@mui/joy/Button';
-import Checkbox from '@mui/joy/Checkbox';
 import Chip from '@mui/joy/Chip';
 import CircularProgress from '@mui/joy/CircularProgress';
 import IconButton from '@mui/joy/IconButton';
-import Link from '@mui/joy/Link';
-import Sheet from '@mui/joy/Sheet';
 import Table from '@mui/joy/Table';
 import Typography from '@mui/joy/Typography';
-import { ChangeEvent, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
-import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
-import DoubleArrowIcon from '@mui/icons-material/DoubleArrow';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
-import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 
 
 import { ButtonGroup, Divider, Stack, Tooltip } from '@mui/joy';
 
-import { CatalogResult, FlowSheetEntry, Genre, Rotations, applicationSlice, binSlice, catalogSlice, flowSheetSlice, getBin, getCatalogLoading, getGenre, getN, getOrderBy, getOrderDirection, getQuery, getReachedEnd, getResults, getRotation, getRotationLoading, getSearchIn, isLive, rotationSlice, searchCatalog, useDispatch, useSelector } from '@/lib/redux';
-import Logo from '../Branding/logo';
+import { rotationStyles } from '@/app/styles/rotation/RotationStyles';
+import { CatalogResult, Genre, Rotations, applicationSlice, catalogSlice, getCatalogLoading, getGenre, getN, getOrderBy, getOrderDirection, getQuery, getReachedEnd, getResults, getRotation, getRotationLoading, getSearchIn, searchCatalog, useDispatch, useSelector } from '@/lib/redux';
+import { SyncDisabled } from '@mui/icons-material';
 import { ArtistAvatar } from '../Catalog/ArtistAvatar';
+import { SearchBar } from '../Catalog/Search/SearchBar';
 import TableHeader from '../Table/TableHeader';
 import { OrderByOption, OrderDirectionOption, SearchInOption } from '../Table/types';
-import { ROTATION_COLORS } from '../Flowsheet/RotationAvatar';
-import { SyncDisabled } from '@mui/icons-material';
-import { SearchBar } from '../Catalog/search/SearchBar';
 
 
 const RotationSearchTable = () => {
@@ -168,6 +159,7 @@ const RotationSearchTable = () => {
                     entry={row.album.release}
                     artist = {row.album.artist}
                     format={row.album.format}
+                    rotation={row.album.rotation}
                   />
               </td>
               <td>
@@ -227,7 +219,7 @@ const RotationSearchTable = () => {
                             <Button
                                 key={`${(searchString === '') ? "rotation" : "catalog"}-${row.id}-${rotation}-btn`}
                                 variant={rotation === row.album.rotation ? 'solid' : 'outlined'}
-                                color={rotation === row.album.rotation ? ROTATION_COLORS[row.album.rotation] : 'neutral'}
+                                color={rotation === row.album.rotation ? rotationStyles[row.album.rotation] : 'neutral'}
                                 size="sm"
                                 onClick={() => {
                                   handleRotationChange(row, rotation);

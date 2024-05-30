@@ -58,11 +58,7 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
         <Badge
             badgeContent={props.rotation ?? null}
             color={props.rotation && rotationStyles[props.rotation]}
-            sx = {{
-                width: '3.2rem',
-                height: '3.2rem',
-                fontSize: '0.2rem',
-            }}
+            size="sm"
         >
         <Avatar
             variant={variant_choice}
@@ -80,9 +76,10 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
             >
             <Typography level="body-xs"
                 sx = {{
-                    color: "white",
+                    color: 'text.primary',
                     width: 9.45,
                     fontSize: '0.6rem',
+                    ml: -0.1,
                 }}
             >
             {props.artist.genre.substring(0, 2).toUpperCase()}
@@ -93,7 +90,7 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
                     textAlign: 'center',
                 }}
             >
-            <Typography level="body-xs" sx = {{ color: "white",
+            <Typography level="body-xs" sx = {{ color: 'text.primary',
                     fontSize: '0.6rem' }} >
             {props.artist.numbercode}
             </Typography>
@@ -108,7 +105,7 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
                     bgColor: props.background
                 }}
                 >{props.artist.lettercode}</Avatar>
-            <Typography level="body-xs" sx = {{ color: "white",
+            <Typography level="body-xs" sx = {{ color: 'text.primary',
                     fontSize: '0.6rem', }}>
             {props.entry}
             </Typography>
@@ -122,7 +119,7 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
             >
             <Typography level="body-xs"
                 sx = {{
-                    color: "white",
+                    color: 'text.primary',
                     fontSize: '0.6rem',
                 }}
             >

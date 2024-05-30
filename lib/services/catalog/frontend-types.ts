@@ -6,6 +6,7 @@ export interface SearchParameters {
     medium: SearchInOption;
     genre: Genre | "All";
     n: number;
+    rotation?: CatalogResult[];
   };
 
 export interface RotationQueryParameters {

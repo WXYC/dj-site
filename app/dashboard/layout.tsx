@@ -1,13 +1,8 @@
 'use client';
-import Box from '@mui/joy/Box';
+import { getClassicViewAvailable, useSelector } from '@/lib/redux';
 import AuthenticationGuard from "../components/Authentication/AuthenticationGuard";
-import Header from '../components/Dashboard/Header';
-import { getClassicView, getClassicViewAvailable, useSelector } from '@/lib/redux';
-import FirstSidebar from '../components/Dashboard/FirstSidebar';
-import { ColorSchemeToggle } from '../components/General/Theme/ColorSchemeToggle';
-import { ViewStyleToggle } from '../components/General/Theme/ViewStyleToggle';
-import SecondSidebar from '../components/Dashboard/SecondSidebar';
 import ViewGuard from '../components/General/ViewGuard';
+import DashboardContent from './dashboard';
 
 /**
  * @page
@@ -20,55 +15,15 @@ import ViewGuard from '../components/General/ViewGuard';
  *
  * @returns {JSX.Element} The rendered Dashboard component.
  */
-export default function DashboardLayout(props: React.PropsWithChildren): JSX.Element {
-
-    const classicViewAvailable = useSelector(getClassicViewAvailable);
+export default function Dashboard(props: React.PropsWithChildren): JSX.Element {
 
     return (
     <>
         <ViewGuard />
         <AuthenticationGuard redirectTo='/login' savePath />
-        <Box sx={{ display: 'flex', minHeight: '100dvh' }}>
-            <Header altViewAvailable = {classicViewAvailable} />
-            <FirstSidebar />
-        <Box
-          component="main"
-          className="MainContent"
-          sx={(theme) => ({
-            px: {
-              xs: 2,
-              md: 6,
-            },
-            pt: {
-              xs: `calc(${theme.spacing(2)} + var(--Header-height))`,
-              sm: `calc(${theme.spacing(2)} + var(--Header-height))`,
-              md: 3,
-            },
-            pb: {
-              xs: 2,
-              sm: 2,
-              md: 3,
-            },
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            minWidth: 0,
-            height: '100dvh',
-            gap: 1,
-          })}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Box
-              sx={{ ml: 'auto', display: { xs: 'none', md: 'inline-flex' } }}
-            >
-              <ColorSchemeToggle />
-              <ViewStyleToggle />
-            </Box>
-          </Box>
-          {props.children}
-        </Box>
-            <SecondSidebar />
-        </Box>
+        <DashboardContent>
+            {props.children}
+        </DashboardContent>
     </>
     );
 }

@@ -7,7 +7,7 @@ import ListItemContent from '@mui/joy/ListItemContent';
 import ListSubheader from '@mui/joy/ListSubheader';
 import Sheet from '@mui/joy/Sheet';
 import Typography from '@mui/joy/Typography';
-import React from 'react';
+import React, { useCallback, useEffect } from 'react';
 
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import InboxIcon from '@mui/icons-material/Inbox';
@@ -20,8 +20,12 @@ import { closeSidebar } from './SidebarMobileUtilites';
 import { ArtistAvatar } from '../Catalog/ArtistAvatar';
 import ScrollOnHoverText from '../Widgets/scroll-on-hover-text';
 
-import { CatalogResult, applicationSlice, binSlice, flowSheetSlice, getBin, getSongCardState, isLive, useDispatch, useSelector } from '@/lib/redux';
+import { CatalogResult, applicationSlice, binSlice, flowSheetSlice, getAuthenticatedUser, getBin, getSongCardState, isLive, useDispatch, useSelector } from '@/lib/redux';
 import SongCard from '../Catalog/Reviews/SongCard';
+import { loadBin, deleteFromBin, deleteAllFromBin } from '@/lib/redux/model/bin/thunks';
+import QueueButton from '../Flowsheet/Queue/QueueButton';
+import BinButton from '../Bin/BinButton';
+import MoreInfoButton from '../General/Buttons/MoreInfoButton';
 
 /**
  * Component representing the Second Sidebar, which renders the 'Mail Bin' for DJs to save their songs and a 'now playing' widget.
@@ -36,17 +40,25 @@ export default function SecondSidebar(): JSX.Element {
 
   const dispatch = useDispatch();
 
-  const live = useSelector(isLive);
-
+  const user = useSelector(getAuthenticatedUser);
   const songCardOpen = useSelector(getSongCardState);
 
-  const openSongCard = (item: CatalogResult) => dispatch(applicationSlice.actions.openSongCard(item));
-
   const bin = useSelector(getBin);
-  const removeFromBin = (item: CatalogResult) => dispatch(binSlice.actions.removeFromBin(item));
-  const clearBin = () => dispatch(binSlice.actions.clearBin());
-
-  const addToQueue = (item: CatalogResult) => dispatch(flowSheetSlice.actions.addToQueue(item));
+  const clearBin = () => dispatch(deleteAllFromBin(
+    {
+      dj: user!,
+      entry: bin
+    }
+  )).finally(() => {
+    dispatch(loadBin(user!.djId));
+  });
+  
+  useEffect(() => {
+    if (user)
+    {
+      dispatch(loadBin(user.djId));
+    }
+  }, [dispatch, user]);
 
   return (
     <React.Fragment>
@@ -93,32 +105,21 @@ export default function SecondSidebar(): JSX.Element {
           gap: 2
         }}
       >
-          {(songCardOpen) ? (
-            <SongCard />
-          ) : (
-          <Box sx = {{
+        <Box sx = {{
           p: 2,
           py: 3,
-          }}>        
-        <List
-          sx={{
-            '--ListItem-radius': '8px',
-            '--ListItem-minHeight': '32px',
-            '--List-gap': '4px',
-            flex: 1,
-          }}
-        >
-            <ListSubheader role="presentation" sx={{ color: 'text.primary' }}>
-            <PlayArrowOutlinedIcon sx={{ mr: 1 }} />
-            Playing Now
-          </ListSubheader>
-          <ListItem>
-            <ListItemContent>
-              <NowPlaying sx = {{ maxWidth: 250 }} />
-            </ListItemContent>
-          </ListItem>
-        </List>
-        <Divider />
+          }}>     
+          <Stack direction = "column" spacing = {2} sx = {{ pb: 2 }}>
+            <Stack direction = "row">
+              <PlayArrowOutlinedIcon sx={{ mr: 1 }} />
+              Playing Now
+            </Stack>
+            <NowPlaying sx = {{ maxWidth: 295 }} mini={songCardOpen} />
+          </Stack>
+        {(songCardOpen) ? (
+            <SongCard />
+          ) : (<>
+          <Divider />
         <List
           sx = {{
             flexGrow: 1
@@ -155,19 +156,20 @@ export default function SecondSidebar(): JSX.Element {
             variant="outlined"
             sx = {{
               overflowY: 'scroll',
-              width: 270,
-              maxHeight: 270,
+              width: 295,
+              maxHeight: 400,
             }}
           >
             <div>
             {bin.length > 0 ? (
               bin.map((item, index) => (
                 <React.Fragment key={`${index}-${item.id}`}>
-                  <Stack direction = "row" spacing = {2}
+                  <Stack direction = "row" spacing = {1}
                     sx = {{
                       mt: 1,
                       mb: 1,
-                      justifyContent: 'space-between'
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
                     }}
                   >
                     <ArtistAvatar
@@ -178,7 +180,7 @@ export default function SecondSidebar(): JSX.Element {
                       <div>
                       <ScrollOnHoverText
                       key = {`${index}-${item.id}-name`}
-                        level='body4'
+                        level='body-xs'
                         sx = {{
                           whiteSpace: 'nowrap',
                           textOverflow: 'ellipsis',
@@ -190,7 +192,7 @@ export default function SecondSidebar(): JSX.Element {
                       </ScrollOnHoverText>
                       <ScrollOnHoverText
                       key={`${index}-${item.id}-title`}
-                      level='body2'
+                      level='body-sm'
                         sx = {{
                           whiteSpace: 'nowrap',
                           textOverflow: 'ellipsis',
@@ -202,38 +204,9 @@ export default function SecondSidebar(): JSX.Element {
                       </ScrollOnHoverText>
                       </div>
                     <Stack direction="row">
-                      <Tooltip title="More Info" variant='outlined' size="sm">
-                    <IconButton
-                      size="sm"
-                      color="neutral"
-                      onClick = {() => openSongCard(item)}
-                    >
-                      <InfoOutlinedIcon />
-                    </IconButton>
-                    </Tooltip>
-                    {(live) && (
-                      <Tooltip title="Add to Queue" placement="bottom"
-                      variant="outlined"
-                      size="sm"
-                      >
-                      <IconButton
-                          size="sm"
-                          color="neutral"
-                          onClick={() => addToQueue(item)}
-                      >
-                          <PlaylistAddIcon />
-                      </IconButton>
-                      </Tooltip>
-                    )}
-                    <Tooltip title="Remove" variant='outlined' size="sm">
-                    <IconButton
-                      size="sm"
-                      color="warning"
-                      onClick={() => removeFromBin(item)}
-                    >
-                      <DeleteOutlineOutlinedIcon />
-                    </IconButton>
-                    </Tooltip>
+                    <MoreInfoButton item={item} variant="plain"/>
+                    <QueueButton entry={item} variant="plain"/>
+                    <BinButton entry={item} variant="plain"/>
                     </Stack>
                   </Stack>
                   {(index < bin.length - 1) && <Divider />}
@@ -245,8 +218,8 @@ export default function SecondSidebar(): JSX.Element {
             )}
             </div>
           </Card>
-        </List>
-        </Box>)}
+        </List></>)}
+        </Box>
         <Box>
         <Divider />
         <List
