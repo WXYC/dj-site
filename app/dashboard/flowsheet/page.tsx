@@ -1,9 +1,9 @@
 'use client';
-import AddToFlowsheetSearch from "@/app/components/Flowsheet/AddToFlowsheetSearch";
 import { 
     FlowSheetEntry,
     FlowSheetEntryProps,
     flowSheetSlice, 
+    flowsheetLoading, 
     getAuthenticatedUser, 
     getAutoplay, 
     getEditDepth, 
@@ -18,6 +18,7 @@ import {
     loadFlowsheet, 
     loadFlowsheetEntries, 
     processingLive, 
+    pushToEntries, 
     useDispatch, 
     useSelector 
 } from "@/lib/redux";
@@ -28,6 +29,7 @@ import WifiTetheringIcon from '@mui/icons-material/WifiTethering';
 import {
     Box,
     Button,
+    CircularProgress,
     Divider,
     IconButton,
     Sheet,
@@ -36,8 +38,10 @@ import {
     Typography,
 } from "@mui/joy";
 import { useCallback, useEffect } from "react";
+import { useInterval } from "@/lib/utilities/react-interval";
 import DraggingPreview from "@/app/components/Flowsheet/DraggingPreview";
 import SongBox from "@/app/components/Flowsheet/SongBox";
+import AddToFlowsheetSearch from "@/app/components/Flowsheet/AddToFlowsheetSearch";
 
 /**
  * @page
@@ -53,21 +57,18 @@ import SongBox from "@/app/components/Flowsheet/SongBox";
     const user = useSelector(getAuthenticatedUser);
 
     const editDepth = useSelector(getEditDepth);
+    const loading = useSelector(flowsheetLoading);
 
     const refresh = useCallback(() => {
-      if (editDepth === 0) return;
+      if (editDepth == 0) return;
       dispatch(loadFlowsheetEntries(editDepth));
-    }, [dispatch, editDepth]);
+    }, [editDepth]);
 
     useEffect(() => {
       dispatch(loadFlowsheet());
-      let updateLoop = setInterval(() => refresh(), 60000);
+    }, [dispatch]);
 
-      return () => {
-        clearInterval(updateLoop);
-      }
-
-    }, [dispatch, editDepth]);
+    useInterval(refresh, 10000);
 
     const live = useSelector(isLive);
     const intermediate = useSelector(processingLive);
@@ -97,7 +98,7 @@ import SongBox from "@/app/components/Flowsheet/SongBox";
 
     const queue = useSelector(getQueue);
     const entries = useSelector(getEntries);
-    const addToEntries = (entry: FlowSheetEntryProps) => dispatch(flowSheetSlice.actions.addToEntries(entry));
+    const addToEntries = (entry: FlowSheetEntryProps) => dispatch(pushToEntries(entry));
     const queuePlaceholderIndex = useSelector(getQueuePlaceholderIndex);
     const entryPlaceholderIndex = useSelector(getEntryPlaceholderIndex);
     const autoPlay = useSelector(getAutoplay);
@@ -131,6 +132,7 @@ import SongBox from "@/app/components/Flowsheet/SongBox";
   >
     <Typography level="h1">Flowsheet</Typography>
     <Box sx={{ flex: 999 }}></Box>
+    {(loading) && <CircularProgress size="sm" />}
     <Tooltip title={`Autoplay is ${autoPlay ? 'On' : 'Off'}`} placement="top" size="sm" variant="outlined">
     <IconButton
       disabled={!live}
@@ -170,6 +172,7 @@ import SongBox from "@/app/components/Flowsheet/SongBox";
                (
                 <SongBox
                   id={entry.id}
+                  index={index}
                   editable={true}
                   key={`queue-${index}`}
                   type={"placeholder"}

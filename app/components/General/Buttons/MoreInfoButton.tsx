@@ -8,6 +8,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Box, Tooltip } from '@mui/joy';
 
 import { CatalogResult, applicationSlice, useDispatch } from '@/lib/redux';
+import SongCard from '../../Catalog/Reviews/SongCard';
 
 interface MoreInfoButtonProps extends IconButtonProps {
     item: CatalogResult;
@@ -16,7 +17,7 @@ interface MoreInfoButtonProps extends IconButtonProps {
 const MoreInfoButton = (props: MoreInfoButtonProps): JSX.Element => {
     const dispatch = useDispatch();
 
-  const openSongCard = (item: CatalogResult) => dispatch(applicationSlice.actions.openSongCard(item));
+  const openSongCard = (item: CatalogResult) => dispatch(applicationSlice.actions.openSideBar(<SongCard songCardContent={item} />));
   
     return (
         <Tooltip title="More Info" variant='outlined' size="sm">

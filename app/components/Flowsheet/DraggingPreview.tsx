@@ -22,11 +22,11 @@ const DraggingPreview = () => {
 
     const mousePosition = useMousePosition();
 
-    const [draggedQueueMovedBy, setDraggedQueueMovedBy] = useState(0);
+    const [draggedQueueMovedBy, setDraggedQueueMovedBy] = useState(-1);
     useEffect(() => {
         if (queuePlaceholderIndex < 0) return;
 
-        let diff = (entryClientRect?.y ?? 0) - (mousePosition?.y ?? 0) + ((entryClientRect?.height ?? 0) / 2);
+        let diff = (entryClientRect?.y ?? 0) - (mousePosition?.y ?? 0) - ((entryClientRect?.height ?? 0) / 2);
         let blocs = Math.round(diff / (entryClientRect?.height ?? 1));
         setDraggedQueueMovedBy(blocs);
     }, [mousePosition, entryClientRect]);
@@ -44,7 +44,7 @@ const DraggingPreview = () => {
     useEffect(() => {
         if (entryPlaceholderIndex < 0) return;
 
-        let diff = (entryClientRect?.y ?? 0) - (mousePosition?.y ?? 0) + ((entryClientRect?.height ?? 0) / 2);
+        let diff = (entryClientRect?.y ?? 0) - (mousePosition?.y ?? 0) - ((entryClientRect?.height ?? 0) / 3);
         let blocs = Math.round(diff / (entryClientRect?.height ?? 1));
         setDraggedEntryMovedBy(blocs);
     }, [mousePosition, entryClientRect]);

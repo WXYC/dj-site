@@ -1,11 +1,14 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { ApplicationState } from "./types";
+import { openSidebar } from "@/app/components/Dashboard/SidebarMobileUtilites";
+import SongCard from "@/app/components/Catalog/Reviews/SongCard";
+import { CatalogResult } from "./catalog";
 
 export const initialState: ApplicationState = {
     enableClassicView: true, // set this to false to disable classic view option
     classicView: false,
     popupOpen: false,
-    songCardOpen: false,
+    sideBarOpen: false,
 };
 
 export const applicationSlice = createSlice({
@@ -26,12 +29,13 @@ export const applicationSlice = createSlice({
             state.popupContent = undefined;
             state.popupOpen = false;
         },
-        openSongCard: (state, action) => {
-            state.songCardContent = action.payload;
-            state.songCardOpen = true;
+        openSideBar: (state, action) => {
+            state.sideBarContent = action.payload;
+            state.sideBarOpen = true;
         },
-        closeSongCard: (state) => {
-            state.songCardOpen = false;
+        closeSideBar: (state) => {
+            state.sideBarContent = undefined;
+            state.sideBarOpen = false;
         }
     },
 });

@@ -1,3 +1,5 @@
+import { Rotation } from "@/lib/redux";
+
 export type QueryParams = {
     page: number;
     limit: number;
@@ -50,3 +52,20 @@ export type FSEntry = {
     request_flag: boolean;
     message: string | null | undefined;
 };
+
+export interface SpecificEntry {
+    message: string | undefined;
+    request_flag: boolean;
+}
+
+export interface CatalogFSEntry extends SpecificEntry {
+    track_title: string | undefined;
+    album_id: number;
+    rotation_id: number | undefined;
+}
+
+export interface PersonalFSEntry extends SpecificEntry {
+    artist_name: string;
+    album_title: string;
+    track_title: string;
+}

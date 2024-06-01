@@ -1,9 +1,9 @@
 import { CatalogResult, FlowSheetEntry, FlowSheetEntryProps, Rotation } from "@/lib/redux";
-import { FSEntry } from "./backend-types";
+import { CatalogFSEntry, FSEntry, PersonalFSEntry, SpecificEntry } from "./backend-types";
 
-export const convertFlowsheetResult = (index: number, result: FSEntry) : FlowSheetEntry => {
+export const convertFlowsheetResult = (result: FSEntry) : FlowSheetEntry => {
     return {
-        id: index,
+        id: result.id,
         message: result.message ?? undefined,
         song: result.track_title ? {
             title: result.track_title ?? '',
@@ -33,3 +33,18 @@ export const convertCatalogToFlowsheet = (input: CatalogResult): FlowSheetEntryP
         rotation_freq: input.album.rotation
     };
 }
+
+export const convertGeneralToSpecificEntry = (entry: FlowSheetEntryProps): SpecificEntry =>
+    entry.catalog_id ? {
+        message: entry.message,
+        request_flag: entry.request,
+        track_title: entry.song?.title,
+        album_id: entry.catalog_id,
+        rotation_id: undefined
+    } as CatalogFSEntry : {
+        message: entry.message,
+        request_flag: entry.request,
+        track_title: entry.song?.title,
+        album_title: entry.song?.album?.title,
+        artist_name: entry.song?.album?.artist?.name
+    } as PersonalFSEntry;

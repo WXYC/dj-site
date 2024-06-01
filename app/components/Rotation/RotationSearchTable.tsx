@@ -12,19 +12,24 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 
 
-import { ButtonGroup, Divider, Stack, Tooltip } from '@mui/joy';
+import { ButtonGroup, Stack, Tooltip } from '@mui/joy';
 
 import { rotationStyles } from '@/app/styles/rotation/RotationStyles';
-import { CatalogResult, Genre, Rotations, applicationSlice, catalogSlice, getCatalogLoading, getGenre, getN, getOrderBy, getOrderDirection, getQuery, getReachedEnd, getResults, getRotation, getRotationLoading, getSearchIn, searchCatalog, useDispatch, useSelector } from '@/lib/redux';
-import { SyncDisabled } from '@mui/icons-material';
+import { Artist, CatalogResult, Genre, ROTATIONS, applicationSlice, catalogSlice, getCatalogLoading, getEditedSong, getGenre, getN, getOrderBy, getOrderDirection, getQuery, getReachedEnd, getResults, getRotation, getRotationLoading, getSearchIn, searchCatalog, useDispatch, useSelector } from '@/lib/redux';
+import { Add, SyncDisabled } from '@mui/icons-material';
+import AddToCatalog from '../Catalog/AddToCatalog';
 import { ArtistAvatar } from '../Catalog/ArtistAvatar';
+import SongCard from '../Catalog/Reviews/SongCard';
 import { SearchBar } from '../Catalog/Search/SearchBar';
 import TableHeader from '../Table/TableHeader';
 import { OrderByOption, OrderDirectionOption, SearchInOption } from '../Table/types';
+import { convertFormat } from '@/lib/services/catalog/conversions';
 
 
 const RotationSearchTable = () => {
     const dispatch = useDispatch(); 
+
+    const editedSong = useSelector(getEditedSong);
 
     // Rotation Search State ----------------------------------------------------
     const loadMore = () => dispatch(catalogSlice.actions.loadMore());
@@ -47,7 +52,7 @@ const RotationSearchTable = () => {
     // -------------------------------------------------------------------------
 
     const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | undefined>(undefined);
-    const getSongCardFor = (item: CatalogResult | undefined) => dispatch(applicationSlice.actions.openSongCard(item));
+    const getSongCardFor = (item: CatalogResult | undefined) => dispatch(applicationSlice.actions.openSideBar(<SongCard songCardContent={item} />));
 
     const handleRotationChange = (row: CatalogResult, rotation: string) => {
       console.table(row);
@@ -100,7 +105,7 @@ const RotationSearchTable = () => {
       >
         <thead>
           <tr>
-            <th style={{ width: 50, padding: 12 }}>
+            <th style={{ width: 60, padding: 12 }}>
             </th>
             <th style={{ width: 220, padding: 12 }}>
               <TableHeader
@@ -142,10 +147,123 @@ const RotationSearchTable = () => {
                 handleRequestSort={handleRequestSort}
               />
             </th>
-            <th style={{ width: 200, padding: 12}}></th>
+            <th style={{ width: 250 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <IconButton
+                  size="sm"
+                  variant="solid"
+                  color="success"
+                  onClick={() => dispatch(applicationSlice.actions.openSideBar(
+                    <AddToCatalog />
+                  ))}
+                >
+                  <Add />
+                </IconButton>
+              </Box>
+            </th>
           </tr>
         </thead>
         <tbody>
+          {(editedSong && (
+            <tr key={`${(searchString === '') ? "rotation" : "catalog"}-editedSong`}>
+            <td>
+            <ArtistAvatar
+                  entry={editedSong?.album?.release}
+                  artist = {editedSong?.album?.artist as Artist}
+                  format={convertFormat(editedSong?.album?.format ?? "")}
+                  rotation={editedSong?.album?.rotation}
+                />
+            </td>
+            <td>
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                <div>
+                  <Typography
+                    fontWeight="lg"
+                    level="body-sm"
+                    textColor="text.success"
+                  >
+                    {editedSong?.album?.artist?.name}
+                  </Typography>
+                  <Typography level="body-sm">{editedSong?.album?.alternate_artist?.name}</Typography>
+                </div>
+              </Box>
+            </td>
+            <td>{editedSong?.album?.title}</td>
+            <td>
+              <Typography level="body-xs">
+                  {editedSong?.album?.artist?.genre}
+              </Typography>
+              <Typography level="body-md">
+                {editedSong?.album?.artist?.lettercode} {editedSong?.album?.artist?.numbercode}/{editedSong?.album?.release}
+              </Typography>
+            </td>
+            <td>
+              <Chip
+                variant="soft"
+                size="sm"
+                color={editedSong?.album?.format?.includes('Vinyl') ? "success" : "warning"}
+              >
+                {convertFormat(editedSong?.album?.format ?? "")}
+              </Chip>
+            </td>
+            <td>0</td>
+              <td>
+                  <Stack direction="row" gap={0.25}
+                      sx = {{ display: 'flex', justifyContent: 'space-between' }}
+                  >
+                  <Stack direction="row" gap={0.25}>
+                  <ButtonGroup>
+                      {(ROTATIONS.map((rotation) => (
+                          <Button
+                              key={`${(searchString === '') ? "rotation" : "catalog"}-editedSong-btn`}
+                              variant={rotation === editedSong?.album?.rotation ? 'solid' : 'outlined'}
+                              color={rotation === editedSong?.album?.rotation ? rotationStyles[editedSong?.album?.rotation] : 'neutral'}
+                              size="sm"
+                              onClick={() => {
+                                // DO SOMETHING
+                              }}
+                          >
+                              {rotation}
+                          </Button>
+                      )))}
+                  </ButtonGroup>
+                  <Tooltip 
+                      variant='outlined'
+                      size="sm"
+                      title="Remove From Rotation">
+                  <IconButton
+                      aria-label="Remove From Rotation"
+                      variant="solid"
+                      color="danger"
+                      disabled={editedSong?.album?.rotation === undefined}
+                      size="sm"
+                      onClick = {() => {
+                        // DO SOMETHING
+                      }}
+                      sx = {{ ml: 0.5 }}
+                  >
+                      <SyncDisabled />
+                  </IconButton>
+                  </Tooltip>
+                  </Stack>
+                  <Tooltip 
+                      variant='outlined'
+                      size="sm"
+                      title="More information">
+                  <IconButton
+                      aria-label="More information"
+                      variant="soft"
+                      color="neutral"
+                      size="sm"
+                      disabled
+                  >
+                      <InfoOutlinedIcon />
+                  </IconButton>
+                  </Tooltip>
+                  </Stack>
+              </td>
+            </tr>
+          ))}
           {(rotationLoading || catalogLoading) ? (
             <tr style={{ background: 'transparent'}}>
               <td colSpan={7} style={{ textAlign: 'center', paddingTop: '3rem', background: 'transparent' }}>
@@ -196,26 +314,12 @@ const RotationSearchTable = () => {
               </td>
               <td>0</td>
                 <td>
-                    <Stack direction="row" gap={0.25}>
-                    <Tooltip 
-                        variant='outlined'
-                        size="sm"
-                        title="More information">
-                    <IconButton
-                        aria-label="More information"
-                        variant="soft"
-                        color="neutral"
-                        size="sm"
-                        onClick = {() => {
-                          getSongCardFor(row);
-                        }}
+                    <Stack direction="row" gap={0.25}
+                        sx = {{ display: 'flex', justifyContent: 'space-between' }}
                     >
-                        <InfoOutlinedIcon />
-                    </IconButton>
-                    </Tooltip>
-                    <Divider orientation="vertical" sx = {{ ml: 0.5, mr: 1 }} />
+                    <Stack direction="row" gap={0.25}>
                     <ButtonGroup>
-                        {(Rotations.map((rotation) => (
+                        {(ROTATIONS.map((rotation) => (
                             <Button
                                 key={`${(searchString === '') ? "rotation" : "catalog"}-${row.id}-${rotation}-btn`}
                                 variant={rotation === row.album.rotation ? 'solid' : 'outlined'}
@@ -245,6 +349,23 @@ const RotationSearchTable = () => {
                         sx = {{ ml: 0.5 }}
                     >
                         <SyncDisabled />
+                    </IconButton>
+                    </Tooltip>
+                    </Stack>
+                    <Tooltip 
+                        variant='outlined'
+                        size="sm"
+                        title="More information">
+                    <IconButton
+                        aria-label="More information"
+                        variant="soft"
+                        color="neutral"
+                        size="sm"
+                        onClick = {() => {
+                          getSongCardFor(row);
+                        }}
+                    >
+                        <InfoOutlinedIcon />
                     </IconButton>
                     </Tooltip>
                     </Stack>

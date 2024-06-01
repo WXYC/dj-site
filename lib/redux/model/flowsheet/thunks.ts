@@ -1,6 +1,6 @@
 import { JoinRequestBody } from "@/lib/services/flowsheet/backend-types";
 import { createAppAsyncThunk } from "../../createAppAsyncThunk";
-import { FlowSheetEntry, getOnAirFromBackend, joinBackend, leaveBackend, retrieveFlowsheet, setter } from "../..";
+import { FlowSheetEntry, FlowSheetEntryProps, addToFlowsheetBackend, getOnAirFromBackend, joinBackend, leaveBackend, retrieveFlowsheet, setter } from "../..";
 import { toast } from "sonner";
 
 export const join = createAppAsyncThunk(
@@ -50,6 +50,7 @@ export const loadFlowsheetEntries = createAppAsyncThunk(
     "flowsheet/loadFlowsheetEntries",
     async (editDepth: number): Promise<FlowSheetEntry[]> => {
         const data = await retrieveFlowsheet(0, editDepth);
+        console.log(editDepth);
         return data;
     }
 );
@@ -72,5 +73,22 @@ export const getIsLive = createAppAsyncThunk(
         console.log(data);
 
         return data;
+    }
+);
+
+export const pushToEntries = createAppAsyncThunk(
+    "flowsheet/addToEntries",
+    async (entry: FlowSheetEntryProps): Promise<FlowSheetEntryProps | undefined> => {
+        
+        const { data, error } = await addToFlowsheetBackend(entry);
+
+        if (error) {
+            console.error(error);
+            toast.error("Could not add the entry to the flowsheet.");
+            return undefined;
+        }
+
+        return entry;
+
     }
 );

@@ -2,8 +2,8 @@ import { toast } from 'sonner';
 import { Album, Song } from '../../redux/model/types';
 import { deleter, getter, setter, updater } from "../api-service";
 import { FSEntry } from './backend-types';
-import { convertFlowsheetResult } from './conversions';
-import { FlowSheetEntry } from '@/lib/redux';
+import { convertFlowsheetResult, convertGeneralToSpecificEntry } from './conversions';
+import { FlowSheetEntry, FlowSheetEntryProps } from '@/lib/redux';
 
 export const getNowPlayingFromBackend = () => getter('flowsheet/latest')();
 
@@ -24,7 +24,7 @@ export const retrieveFlowsheet = async (page = 0, limit = 50): Promise<FlowSheet
         return [];
     };
 
-    return data?.map((item: FSEntry, index: number) => convertFlowsheetResult(index, item)) ?? [];
+    return data?.map((item: FSEntry) => convertFlowsheetResult(item)) ?? [];
 };
 
 export const joinBackend = (djId: number, show_name = '', specialty_id: number | undefined = undefined) => setter('flowsheet/join')({
@@ -41,18 +41,8 @@ export const sendMessageToBackend = (message: string) => setter('flowsheet')({
     message: message
 });
 
-export const addSongToBackend = (song: Song) => {
-    
-    let album = song?.album as Album;
-
-    return setter('flowsheet')({
-        artist_name: album?.artist.name ?? '',
-        album_title: album?.title ?? '',
-        track_title: song?.title ?? '',
-        record_label: album?.label ?? '',
-        rotation_id: album?.rotation ?? null,
-    });
-};
+export const addToFlowsheetBackend = (entry: FlowSheetEntryProps) => 
+    setter('flowsheet')(convertGeneralToSpecificEntry(entry));
 
 export const removeFromFlowsheetBackend = (id: number) => deleter(`flowsheet`)({
     entry_id: id,

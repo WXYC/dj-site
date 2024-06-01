@@ -1,5 +1,5 @@
 'use client';
-import { CatalogResult, FlowSheetEntryProps, flowSheetSlice, getBin, getReleasesMatching, getRotation, isLive, useDispatch, useSelector } from "@/lib/redux";
+import { CatalogResult, FlowSheetEntryProps, flowSheetSlice, getBin, getReleasesMatching, getRotation, isLive, pushToEntries, useDispatch, useSelector } from "@/lib/redux";
 import MicIcon from "@mui/icons-material/Mic";
 import TimerIcon from "@mui/icons-material/Timer";
 import TroubleshootIcon from "@mui/icons-material/Troubleshoot";
@@ -40,7 +40,7 @@ const AddToFlowsheetSearch = () => {
     const binEntries = useSelector(getBin);
 
     const addToQueue = (item: FlowSheetEntryProps) => dispatch(flowSheetSlice.actions.addToQueue(item));
-    const addToEntries = (item: FlowSheetEntryProps) => dispatch(flowSheetSlice.actions.addToEntries(item));
+    const addToEntries = (item: FlowSheetEntryProps) => dispatch(pushToEntries(item));
 
     const addTalkset = () => {
         addToEntries({
@@ -108,7 +108,7 @@ const AddToFlowsheetSearch = () => {
       e.preventDefault();
     
       let submission: FlowSheetEntryProps = {
-        message: "",
+        message: undefined,
         song: {
             title: song,
             album: (() => {

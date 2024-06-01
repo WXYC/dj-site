@@ -2,14 +2,15 @@
 import RotationSearchTable from "@/app/components/Rotation/RotationSearchTable";
 import { Rotation, getRotation, useDispatch, useSelector } from "@/lib/redux";
 import { addToRotation } from "@/lib/redux/model/rotation/thunks";
-import { Sheet } from "@mui/joy";
+import { Add } from "@mui/icons-material";
+import { IconButton, Sheet, Stack } from "@mui/joy";
 
 interface RotationQuery extends HTMLFormControlsCollection {
     album: HTMLInputElement;
     freq: HTMLInputElement;
 }
 
-const RotationPage = (): JSX.Element => {
+const CatalogManagementPage = (): JSX.Element => {
 
     const dispatch = useDispatch();
 
@@ -38,16 +39,8 @@ const RotationPage = (): JSX.Element => {
             }}
         >
             <RotationSearchTable />
-
-            <ul>
-                <form onSubmit={tempHandleAdd}>
-                    <input type="text" name="album" placeholder="Album ID" />
-                    <input type="text" name="freq" placeholder="Play Frequency" />
-                    <button>Submit</button>
-                </form>
-            </ul>
         </Sheet>
     );
 }
 
-export default RotationPage;
+export default CatalogManagementPage;

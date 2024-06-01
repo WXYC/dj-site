@@ -1,10 +1,11 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { FlowSheetEntry, FlowSheetState } from "./types";
-import { getIsLive, join, leave, loadFlowsheet, loadFlowsheetEntries } from "./thunks";
+import { getIsLive, join, leave, loadFlowsheet, loadFlowsheetEntries, pushToEntries } from "./thunks";
 import { toast } from "sonner";
 import { CatalogResult } from "../catalog";
 import { convertCatalogToFlowsheet } from "../..";
-
+import { cp } from "fs";
+import { current } from '@reduxjs/toolkit';
 
 const initialState: FlowSheetState = {
     live: false,
@@ -27,12 +28,7 @@ export const flowSheetSlice = createSlice({
         },
         setEntryPlaceholderIndex: (state, action) => {
             state.entryPlaceholderIndex = action.payload;
-        },
-        addToEntries: (state, action) => {
-            let nextId = state.entries[0].id + 1;
-            console.log(action.payload);
-            state.entries.push({ ...action.payload, id: nextId });
-            state.editDepth++;
+            console.log(`Setting entry placeholder index to ${action.payload}`);
         },
         updateEntry: (state, action) => {
 
@@ -101,10 +97,9 @@ export const flowSheetSlice = createSlice({
             state.entryClientRect = action.payload;
         },
         switchQueue: (state, action) => {
-            const { sourceIndex, destinationIndex } = action.payload;
-            const sourceItem = state.queue[sourceIndex];
-            state.queue = state.queue.filter((item) => item.id !== sourceItem.id);
-            state.queue.splice(destinationIndex, 0, sourceItem);
+            console.log(action.payload);
+            const { from, to } = action.payload;
+            console.table(current(state.queue));
         },
         switchEntry: (state, action) => {
             const { sourceIndex, destinationIndex } = action.payload;
@@ -124,6 +119,7 @@ export const flowSheetSlice = createSlice({
         .addCase(loadFlowsheet.fulfilled, (state, action) => {
             state.loading = false;
             state.entries = action.payload;
+            state.editDepth = 0;
         })
         .addCase(loadFlowsheet.rejected, (state) => {
             state.loading = false;
@@ -167,10 +163,32 @@ export const flowSheetSlice = createSlice({
             // replace the first numberUpdated entries with the new ones
             state.entries = action.payload.concat(state.entries.slice(numberUpdated));
             toast.info(`Flowsheet saved and updated.`);
+            state.editDepth = 0;
         })
         .addCase(loadFlowsheetEntries.rejected, (state) => {
             state.loading = false;
             toast.error("Could not save and update the flowsheet.");
+        })
+        .addCase(pushToEntries.pending, (state, action) => {
+            state.loading = true;
+        })
+        .addCase(pushToEntries.rejected, (state) => {
+            toast.error("Could not add the entry to the flowsheet.");
+            state.loading = false;
+        })
+        .addCase(pushToEntries.fulfilled, (state, action) => {
+            state.loading = false;
+            let nextId = state.entries[0].id + 1;
+            console.log(action.payload);
+            console.log(nextId);
+            console.log(state.entries.length);
+            state.entries = [
+                ({ ...action.payload, id: nextId }),
+                ...state.entries
+            ];
+            state.editDepth = state.editDepth + 1;
+            console.log(state.entries.length);
+            console.log(state.editDepth);
         });
     }
 });

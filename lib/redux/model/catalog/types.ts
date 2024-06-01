@@ -1,5 +1,5 @@
 import { OrderByOption, OrderDirectionOption, SearchInOption } from "@/app/components/Table/types";
-import { Album, Genre } from "../types";
+import { Album, Genre, ProposedAlbum } from "../types";
 
 export interface AlbumCard {
     album: Album;
@@ -17,11 +17,18 @@ export interface CatalogState {
     noResultsRemain: boolean;
 };
 
-export interface CatalogResult {
+export interface CatalogResult extends CatalogResultProps {
     id: number;
+};
+
+export interface CatalogResultProps {
     album: Album;
     reviews?: Review[];
-};
+}
+
+export interface CatalogEntryProps {
+    album?: ProposedAlbum;
+}
 
 export interface Review {
     username: string;

@@ -16,6 +16,9 @@ export const rotationSlice = createSlice({
         setOrderBy: (state, action) => {
             state.orderBy = action.payload;
         },
+        setEditedSong: (state, action) => {
+            state.editedSong = action.payload;
+        },
         setOrderDirection: (state, action) => {
             state.orderDirection = action.payload;
         },

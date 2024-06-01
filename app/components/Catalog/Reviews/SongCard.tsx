@@ -1,4 +1,4 @@
-import { AspectRatio, Button, ButtonGroup, Card, CardContent, CardOverflow, Divider, Input, Stack, Textarea } from '@mui/joy';
+import { AspectRatio, Button, Card, CardContent, CardOverflow, Divider, Input, Stack, Textarea } from '@mui/joy';
 import Box from '@mui/joy/Box';
 import IconButton from '@mui/joy/IconButton';
 import Typography from '@mui/joy/Typography';
@@ -7,54 +7,57 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { ArtistAvatar } from '../ArtistAvatar';
 
-import { applicationSlice, getArtwork, getAuthenticatedUser, getSongCardContent, useDispatch, useSelector } from '@/lib/redux';
+import { CatalogResult, applicationSlice, getArtwork, getAuthenticatedUser, useDispatch, useSelector } from '@/lib/redux';
 import { timeout } from '@/lib/utilities/timeout';
-import { ArrowBack, PlayArrow } from '@mui/icons-material';
-import { Review } from './Review';
-import QueueButton from '../../Flowsheet/Queue/QueueButton';
+import { ArrowBack } from '@mui/icons-material';
 import BinButton from '../../Bin/BinButton';
 import PlayButton from '../../Flowsheet/Entries/PlayButton';
+import QueueButton from '../../Flowsheet/Queue/QueueButton';
+import { Review } from './Review';
 
-export default function SongCard() : JSX.Element {
+type SongCardContentProps = {
+  songCardContent: CatalogResult | undefined;
+}
+
+export default function SongCard(props: SongCardContentProps) : JSX.Element {
   const [image, setImage] = useState<string | null>(null);
 
   const dispatch = useDispatch();
-  const songCardContent = useSelector(getSongCardContent);
 
   const user = useSelector(getAuthenticatedUser);
 
   const getImage = useCallback(
     async (default_return = "") => {
       if (
-        songCardContent?.album == undefined ||
-        songCardContent?.album.artist == undefined
+        props.songCardContent?.album == undefined ||
+        props.songCardContent?.album.artist == undefined
       )
         return default_return;
 
       await timeout(Math.random() * 800);
 
       let storedArtwork = sessionStorage.getItem(
-        `img-${songCardContent?.album.title}-${songCardContent?.album.artist.name}`
+        `img-${props.songCardContent?.album.title}-${props.songCardContent?.album.artist.name}`
       );
       if (storedArtwork) return storedArtwork;
       try {
-        let retrievedArtwork = await getArtwork(songCardContent?.album.title, songCardContent?.album.artist.name);
+        let retrievedArtwork = await getArtwork(props.songCardContent?.album.title, props.songCardContent?.album.artist.name);
         if (retrievedArtwork == null) retrievedArtwork = default_return;
         // THE CONVENTION IS ALBUM THEN ARTIST IN THIS APP
         sessionStorage.setItem(
-          `img-${songCardContent?.album.title}-${songCardContent?.album.artist.name}`,
+          `img-${props.songCardContent?.album.title}-${props.songCardContent?.album.artist.name}`,
           retrievedArtwork
         );
         return retrievedArtwork;
       } catch (e) {
         sessionStorage.setItem(
-          `img-${songCardContent?.album.title}-${songCardContent?.album.artist.name}`,
+          `img-${props.songCardContent?.album.title}-${props.songCardContent?.album.artist.name}`,
           default_return
         );
         return default_return;
       }
     },
-    [songCardContent?.album]
+    [props.songCardContent?.album]
   );
 
   useEffect(() => {
@@ -68,7 +71,7 @@ export default function SongCard() : JSX.Element {
     <Card variant='plain'>
         <CardOverflow>
             <AspectRatio ratio={2}>
-                <img src = {image ?? "/img/cassette.png"} alt = {songCardContent?.album.title} />
+                <img src = {image ?? "/img/cassette.png"} alt = {props.songCardContent?.album.title} />
             </AspectRatio>
             <Stack direction='row' sx = {{ 
               position: 'absolute',
@@ -79,7 +82,7 @@ export default function SongCard() : JSX.Element {
               <IconButton 
                 variant="solid"
                 color="primary"
-                onClick={() => dispatch(applicationSlice.actions.closeSongCard())}
+                onClick={() => dispatch(applicationSlice.actions.closeSideBar())}
               >
                 <ArrowBack />
               </IconButton>
@@ -95,14 +98,14 @@ export default function SongCard() : JSX.Element {
                 }
             }}>
                 <ArtistAvatar 
-                    artist={songCardContent?.album.artist!}
-                    entry={songCardContent?.album.release!}
-                    format={songCardContent?.album.format}
+                    artist={props.songCardContent?.album.artist!}
+                    entry={props.songCardContent?.album.release!}
+                    format={props.songCardContent?.album.format}
                 />
             </Box>
             <Box sx = {{ justifyContent: 'flex-end' }}>
-            <Typography level="title-md" sx = {{ pl: '35%', textAlign: 'right', textWrap: 'wrap' }}>{songCardContent?.album.title}</Typography>
-            <Typography level="body-sm" sx = {{ pl: '35%', textAlign: 'right', textWrap: 'wrap' }}>{songCardContent?.album.artist?.name}</Typography>
+            <Typography level="title-md" sx = {{ pl: '35%', textAlign: 'right', textWrap: 'wrap' }}>{props.songCardContent?.album.title}</Typography>
+            <Typography level="body-sm" sx = {{ pl: '35%', textAlign: 'right', textWrap: 'wrap' }}>{props.songCardContent?.album.artist?.name}</Typography>
             </Box>
         </CardContent>
         <CardOverflow variant="soft" sx={{ bgcolor: 'background.level1', borderRadius: 0 }}>
@@ -120,13 +123,13 @@ export default function SongCard() : JSX.Element {
           </Typography>
           <Divider orientation="vertical" />
           <Stack direction="row" spacing={0.5}>
-              <PlayButton entry={songCardContent!} />
-              <QueueButton entry={songCardContent!} />
-              <BinButton entry={songCardContent!} />
+              <PlayButton entry={props.songCardContent!} />
+              <QueueButton entry={props.songCardContent!} />
+              <BinButton entry={props.songCardContent!} />
           </Stack>
             <Divider orientation="vertical" />
             <Typography level="body-xs" fontWeight="md" textColor="text.secondary">
-              C# {songCardContent?.id}
+              C# {props.songCardContent?.id}
           </Typography>
         </CardContent>
         <Divider inset="context" />
@@ -142,7 +145,7 @@ export default function SongCard() : JSX.Element {
           height: '100%',
           maxHeight: 320,
         }}>
-      {songCardContent?.reviews?.map((review, index) => (
+      {props.songCardContent?.reviews?.map((review, index) => (
         <Review
           key={index}
           username={review.username}

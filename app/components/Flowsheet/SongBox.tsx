@@ -11,7 +11,7 @@ import {
   getCurrentlyPlayingSongLength,
   getCurrentlyPlayingSongRemaining,
   getQueue,
-  getRotation, isLive, useSelector
+  getRotation, isLive, pushToEntries, useDispatch, useSelector
 } from "@/lib/redux";
 import { timeout } from "@/lib/utilities/timeout";
 import ClearIcon from "@mui/icons-material/Clear";
@@ -38,7 +38,6 @@ import {
   Typography
 } from "@mui/joy";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useDispatch } from "react-redux";
 import FlowsheetEntryField from "./FlowsheetEntryField";
 
 interface SongBoxProps extends FlowSheetEntry {
@@ -82,7 +81,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
   const setEntryClientRect = (rect: EntryRectProps) =>
     dispatch(flowSheetSlice.actions.setEntryClientRect(rect));
   const addToEntries = (entry: FlowSheetEntryProps) =>
-    dispatch(flowSheetSlice.actions.addToEntries(entry));
+    dispatch(pushToEntries(entry));
   const updateEntry = (id: number, field: string, value: any) =>
     dispatch(flowSheetSlice.actions.updateEntry({ id, field, value }));
   const autoPlay = useSelector(getAutoplay);
@@ -271,6 +270,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
             </Stack>
             {canClose && !entry.current && entry.type == "queue" && (
               <IconButton
+                color="primary"
                 size="sm"
                 variant="solid"
                 sx={{
@@ -278,7 +278,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
                 }}
                 onClick={() => {
                   addToEntries({
-                    message: "",
+                    message: undefined,
                     song: entry.song,
                     request: entry.request,
                     rotation_freq: entry.rotation,
@@ -291,6 +291,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
                 <PlayArrowIcon />
               </IconButton>
             )}
+            {entry.id} : {entry.index}
             <Tooltip
               variant="outlined"
               size="sm"
@@ -344,7 +345,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
                     },
                   }}
                   onMouseDown={(e: React.MouseEvent) => {
-                    if (entry.index) {
+                    if (entry.index != undefined) {
                         entry.type == "queue"
                         ? setQueuePlaceholderIndex(entry.index)
                         : setEntryPlaceholderIndex(entry.index);
@@ -503,7 +504,7 @@ const SongBox = (entry: SongBoxProps): JSX.Element => {
               {entry.message?.split(` ${entry.type}`)?.[0] ??
                 "Processing Error"}
             </Typography>
-            <div></div>
+            <div>{entry.id} : {entry.index}</div>
           </Stack>
         </Sheet>
       );

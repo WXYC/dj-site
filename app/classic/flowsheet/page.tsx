@@ -1,6 +1,6 @@
 'use client';
 
-import { Album, FlowSheetEntry, FlowSheetEntryProps, Rotation, authenticationSlice, flowSheetSlice, getAuthenticatedUser, getEntries, getIsLive, isLive, join, leave, loadFlowsheet, processingLive, useDispatch } from "@/lib/redux";
+import { Album, FlowSheetEntry, FlowSheetEntryProps, Rotation, authenticationSlice, flowSheetSlice, getAuthenticatedUser, getEntries, getIsLive, isLive, join, leave, loadFlowsheet, processingLive, pushToEntries, useDispatch } from "@/lib/redux";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 
@@ -55,7 +55,7 @@ const ClassicFlowsheetPage = (): JSX.Element => {
   }, [user?.djId]);
 
   const entries = useSelector(getEntries);
-  const addToEntries = (entry: FlowSheetEntryProps) => dispatch(flowSheetSlice.actions.addToEntries(entry));
+  const addToEntries = (entry: FlowSheetEntry) => dispatch(pushToEntries(entry));
   const removeFromEntries = (id: number) => dispatch(flowSheetSlice.actions.removeFromEntries(id));
   const switchEntry = (id1: number, id2: number) => dispatch(flowSheetSlice.actions.switchEntry({ id1, id2 }));
 
@@ -85,7 +85,7 @@ const ClassicFlowsheetPage = (): JSX.Element => {
           label: e.target.label.value,
           album: e.target.album.value,
         };
-        addToEntries({ message: "", ...libraryRelease });
+        pushToEntries({ message: undefined, ...libraryRelease });
         formRef.current?.reset();
       break;
       default:
@@ -124,7 +124,7 @@ const ClassicFlowsheetPage = (): JSX.Element => {
 
   const addTalkset = (e: any) => {
     e.preventDefault();
-    addToEntries({ message: "Talkset" });
+    pushToEntries({ message: "Talkset" });
   };
 
   const addBreakpoint = () => {

@@ -30,6 +30,7 @@ import HoverIconButton from '../General/Buttons/HoverIconButton';
 import QueueButton from '../Flowsheet/Queue/QueueButton';
 import BinButton from '../Bin/BinButton';
 import PlayButton from '../Flowsheet/Entries/PlayButton';
+import SongCard from './Reviews/SongCard';
 
 /**
  * A table component for catalog search results.
@@ -108,7 +109,7 @@ const CatalogSearchTable = (): JSX.Element => {
   }));
   // -------------------------------------------------------------------------
 
-  const getSongCardFor = (item: CatalogResult | undefined) => dispatch(applicationSlice.actions.openSongCard(item));
+  const getSongCardFor = (item: CatalogResult | undefined) => dispatch(applicationSlice.actions.openSideBar(<SongCard songCardContent={item} />));
   
       return (
         <>

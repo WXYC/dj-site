@@ -3,8 +3,8 @@ import { rotationStyles } from "@/app/styles/rotation/RotationStyles";
 import { Artist, Format, Genre, Rotation } from "@/lib/redux";
 
 interface ArtistAvatarProps {
-    artist: Artist;
-    entry: number;
+    artist?: Artist;
+    entry?: number;
     background?: string;
     rotation?: Rotation;
     format?: Format
@@ -43,18 +43,18 @@ const GENRE_VARIANTS: { [id in Genre]: VariantProp; } = {
  */
 export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
 
-    let color_choice = GENRE_COLORS[props.artist.genre];
+    let color_choice = GENRE_COLORS[props.artist?.genre ?? 'Unknown'];
     if (color_choice === undefined) {
         color_choice = 'neutral';
     }
 
-    let variant_choice = GENRE_VARIANTS[props.artist.genre];
+    let variant_choice = GENRE_VARIANTS[props.artist?.genre ?? 'Unknown'];
     if (variant_choice === undefined) {
         variant_choice = 'solid';
     }
 
     return (
-        <Tooltip variant="outlined" title={`${props.artist.genre} ${props.format}   ♪   ${props.artist.lettercode} ${props.artist.numbercode}/${props.entry}`} placement="top">
+        <Tooltip variant="outlined" title={`${props.artist?.genre} ${props.format}   ♪   ${props.artist?.lettercode} ${props.artist?.numbercode}/${props.entry}`} placement="top">
         <Badge
             badgeContent={props.rotation ?? null}
             color={props.rotation && rotationStyles[props.rotation]}
@@ -82,7 +82,7 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
                     ml: -0.1,
                 }}
             >
-            {props.artist.genre.substring(0, 2).toUpperCase()}
+            {props.artist?.genre?.substring(0, 2)?.toUpperCase()}
             </Typography>
             </Stack>
             <Stack direction="column"
@@ -92,7 +92,7 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
             >
             <Typography level="body-xs" sx = {{ color: 'text.primary',
                     fontSize: '0.6rem' }} >
-            {props.artist.numbercode}
+            {props.artist?.numbercode}
             </Typography>
             <Avatar
                 variant={variant_choice == 'solid' ? 'soft' : 'solid'}
@@ -104,7 +104,7 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
                     fontSize: '0.8rem',
                     bgColor: props.background
                 }}
-                >{props.artist.lettercode}</Avatar>
+                >{props.artist?.lettercode}</Avatar>
             <Typography level="body-xs" sx = {{ color: 'text.primary',
                     fontSize: '0.6rem', }}>
             {props.entry}

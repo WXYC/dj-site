@@ -91,7 +91,6 @@ const FlowsheetEntryField = (props: FlowsheetEntryFieldProps) => {
                     margin: "0"
                   }}
                   placeholder="Enter a value..."
-                  defaultValue={props.value}
                   onChange={(e) => {
                     setValue(e.target.value);
                   }}

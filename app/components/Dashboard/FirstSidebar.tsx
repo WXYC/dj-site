@@ -234,19 +234,19 @@ export default function FirstSidebar(): JSX.Element {
             </Tooltip>
         </ListItem>
         </Link>
-        <Link href="/dashboard/admin/rotation">
+        <Link href="/dashboard/admin/catalog">
         <ListItem>
             <Tooltip
-                title="Station Management  -  Rotation"
+                title="Station Management  -  Catalog Management"
                 arrow={true}
                 placement='right'
                 size='sm'
                 variant='outlined'
             >
           <ListItemButton
-            variant={pathname === '/dashboard/admin/rotation' ? 'solid' : 'plain'}
+            variant={pathname === '/dashboard/admin/catalog' ? 'solid' : 'plain'}
           >
-            <RepeatOn />
+            <LibraryMusic />
           </ListItemButton>
             </Tooltip>
         </ListItem>

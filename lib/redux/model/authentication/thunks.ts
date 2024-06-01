@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { AuthenticationState, BackendResponse, DJwtPayload, getter, nullState, setter, updater } from "../..";
 import { createAppAsyncThunk } from "../../createAppAsyncThunk";
 import { LoginCredentials } from "./types";
+import local from "next/font/local";
 
 export const login = createAppAsyncThunk(
     "authentication/authenticateAsync",
@@ -102,10 +103,9 @@ export const verifySession = createAppAsyncThunk(
     "authentication/verifyAuthenticationAsync",
     async (): Promise<AuthenticationState> => {
         const accessToken = sessionStorage.getItem("accessToken");
-        const refreshToken = sessionStorage.getItem("refreshToken");
         const idToken = sessionStorage.getItem("idToken");
 
-        if (!idToken || !accessToken || !refreshToken) {
+        if (!idToken || !accessToken) {
             return nullState;
         }
 
@@ -122,35 +122,87 @@ export const verifySession = createAppAsyncThunk(
             });
             const userResponse = await client.send(getUserCommmand);
             
-            if (!userResponse.Username || !userResponse.UserAttributes) {
-                return nullState;
+            return processUserResponse(userResponse, isAdmin);
+
+        } catch (error: any) {
+            if (error == "Access Token has expired" || error?.message == "Access Token has expired") {
+                return refreshTokenLogin(client);
             }
 
-            const { data: backendData, error: backendError } = await backendSync(userResponse);
-            if (backendError || !backendData) {
-                toast.error("The backend is out of sync with the user database. This is fatal. Contact a site admin immediately.");
-                return nullState;
-            }
-
-            return {
-                authenticating: false,
-                isAuthenticated: true,
-                user: {
-                    username: userResponse.Username,
-                    djId: Number(backendData.id),
-                    djName: userResponse.UserAttributes?.find(x => x.Name == "custom:dj-name")?.Value || "",
-                    name: userResponse.UserAttributes?.find(x => x.Name == "name")?.Value || "",
-                    isAdmin: isAdmin,
-                    showRealName: false
-                }
-            };
-        } catch (error) {
-            toast.error("Invalid username or password");
+            toast.error("Could not log you in.");
             return nullState;
         }
         
     }
 );
+
+const refreshTokenLogin = async (client: CognitoIdentityProviderClient): Promise<AuthenticationState> => {
+
+    const refreshToken = sessionStorage.getItem("refreshToken");
+
+    if (!refreshToken) {
+        return nullState;
+    }
+
+    const params: InitiateAuthCommandInput = {
+        ClientId: process.env.NEXT_PUBLIC_AWS_CLIENT_ID,
+        AuthFlow: "REFRESH_TOKEN_AUTH",
+        AuthParameters: {
+            REFRESH_TOKEN: refreshToken
+        }
+    };
+
+    try {
+        const authCommand = new InitiateAuthCommand(params);
+        const authResponse = await client.send(authCommand);
+
+        const accessToken = authResponse.AuthenticationResult?.AccessToken;
+        sessionStorage.setItem("accessToken", accessToken || "");
+        sessionStorage.setItem("refreshToken", authResponse.AuthenticationResult?.RefreshToken || "");
+        sessionStorage.setItem("idToken", authResponse.AuthenticationResult?.IdToken || "");
+
+        var jwt_payload = jwtDecode<DJwtPayload>(authResponse?.AuthenticationResult?.IdToken || "");
+        const isAdmin: boolean = jwt_payload["cognito:groups"]?.includes("station-management") || false;
+
+        const getUserCommmand = new GetUserCommand({
+            AccessToken: accessToken
+        });
+        const userResponse = await client.send(getUserCommmand);
+
+        return processUserResponse(userResponse, isAdmin);
+
+    } catch (error: any) {
+        toast.error("Could not log you back in.");
+        return nullState;
+    }
+
+}
+
+const processUserResponse = async (userResponse: GetUserCommandOutput, isAdmin: boolean): Promise<AuthenticationState> => {
+    
+    if (!userResponse.Username || !userResponse.UserAttributes) {
+        return nullState;
+    }
+
+    const { data: backendData, error: backendError } = await backendSync(userResponse);
+    if (backendError || !backendData) {
+        toast.error("The backend is out of sync with the user database. This is fatal. Contact a site admin immediately.");
+        return nullState;
+    }
+
+    return {
+        authenticating: false,
+        isAuthenticated: true,
+        user: {
+            username: userResponse.Username,
+            djId: Number(backendData.id),
+            djName: userResponse.UserAttributes?.find(x => x.Name == "custom:dj-name")?.Value || "",
+            name: userResponse.UserAttributes?.find(x => x.Name == "name")?.Value || "",
+            isAdmin: isAdmin,
+            showRealName: false
+        }
+    };
+}
 
 const backendSync = async (userData: GetUserCommandOutput): Promise<BackendResponse> => {
     // BEGIN BACKEND SYNC ----------------------------------------------------------------------------

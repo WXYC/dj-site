@@ -1,30 +1,23 @@
-import { Button, Card, Divider, Stack, Tooltip } from '@mui/joy';
+import { Button, Card, Divider, Stack } from '@mui/joy';
 import Box from '@mui/joy/Box';
-import IconButton from '@mui/joy/IconButton';
 import List from '@mui/joy/List';
-import ListItem from '@mui/joy/ListItem';
-import ListItemContent from '@mui/joy/ListItemContent';
 import ListSubheader from '@mui/joy/ListSubheader';
 import Sheet from '@mui/joy/Sheet';
 import Typography from '@mui/joy/Typography';
-import React, { useCallback, useEffect } from 'react';
+import React, { useEffect } from 'react';
 
-import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import InboxIcon from '@mui/icons-material/Inbox';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PlayArrowOutlinedIcon from '@mui/icons-material/PlayArrowOutlined';
-import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import NowPlaying from '../Widgets/now-playing/NowPlaying';
 import { closeSidebar } from './SidebarMobileUtilites';
 
 import { ArtistAvatar } from '../Catalog/ArtistAvatar';
 import ScrollOnHoverText from '../Widgets/scroll-on-hover-text';
 
-import { CatalogResult, applicationSlice, binSlice, flowSheetSlice, getAuthenticatedUser, getBin, getSongCardState, isLive, useDispatch, useSelector } from '@/lib/redux';
-import SongCard from '../Catalog/Reviews/SongCard';
-import { loadBin, deleteFromBin, deleteAllFromBin } from '@/lib/redux/model/bin/thunks';
-import QueueButton from '../Flowsheet/Queue/QueueButton';
+import { getAuthenticatedUser, getBin, getSideBarContent, getSideBarOpen, useDispatch, useSelector } from '@/lib/redux';
+import { deleteAllFromBin, loadBin } from '@/lib/redux/model/bin/thunks';
 import BinButton from '../Bin/BinButton';
+import QueueButton from '../Flowsheet/Queue/QueueButton';
 import MoreInfoButton from '../General/Buttons/MoreInfoButton';
 
 /**
@@ -41,7 +34,8 @@ export default function SecondSidebar(): JSX.Element {
   const dispatch = useDispatch();
 
   const user = useSelector(getAuthenticatedUser);
-  const songCardOpen = useSelector(getSongCardState);
+  const sideBarOpen = useSelector(getSideBarOpen);
+  const sideBarContent = useSelector(getSideBarContent);
 
   const bin = useSelector(getBin);
   const clearBin = () => dispatch(deleteAllFromBin(
@@ -114,11 +108,9 @@ export default function SecondSidebar(): JSX.Element {
               <PlayArrowOutlinedIcon sx={{ mr: 1 }} />
               Playing Now
             </Stack>
-            <NowPlaying sx = {{ maxWidth: 295 }} mini={songCardOpen} />
+            <NowPlaying sx = {{ maxWidth: 295 }} mini={sideBarOpen} />
           </Stack>
-        {(songCardOpen) ? (
-            <SongCard />
-          ) : (<>
+        {(sideBarOpen) ? (sideBarContent) : (<>
           <Divider />
         <List
           sx = {{
@@ -157,7 +149,7 @@ export default function SecondSidebar(): JSX.Element {
             sx = {{
               overflowY: 'scroll',
               width: 295,
-              maxHeight: 400,
+              maxHeight: 350,
             }}
           >
             <div>

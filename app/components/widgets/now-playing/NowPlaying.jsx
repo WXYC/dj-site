@@ -56,7 +56,7 @@ const NowPlaying = (props) => {
       canvasRef.current = document.createElement('canvas');
       if (props.mini)
       {
-        canvasRef.current.width = container.clientWidth - 5;
+        canvasRef.current.width = container.clientWidth - 23;
         canvasRef.current.marginLeft = 5;
         canvasRef.current.height = container.clientHeight;
       }
