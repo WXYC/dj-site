@@ -14,9 +14,9 @@ const GENRE_COLORS: { [id in Genre]: ColorPaletteProp } = {
     'Rock': 'primary',
     'Blues': 'success',
     'Electronic': 'warning',
-    'Hiphop': 'neutral',
+    'Hiphop': 'primary',
     'Jazz': 'success',
-    'Classical': 'primary',
+    'Classical': 'neutral',
     'Reggae': 'warning',
     'Soundtracks': 'neutral',
     'OCS': 'success',
@@ -26,7 +26,7 @@ const GENRE_COLORS: { [id in Genre]: ColorPaletteProp } = {
 const GENRE_VARIANTS: { [id in Genre]: VariantProp; } = {
     'Rock': 'solid',
     'Electronic': 'solid',
-    'Hiphop': 'solid',
+    'Hiphop': 'soft',
     'Jazz': 'solid',
     'Blues': 'soft',
     'Classical': 'soft',
@@ -54,7 +54,7 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
     }
 
     return (
-        <Tooltip variant="outlined" title={`${props.artist?.genre} ${props.format}   ♪   ${props.artist?.lettercode} ${props.artist?.numbercode}/${props.entry}`} placement="top">
+        <Tooltip variant="outlined" title={`${props.artist?.genre ?? "GE"} ${props.format == "Unknown" ? "FF" : props.format ?? "FF"}   ♪   ${props.artist?.lettercode ?? "&&"} ${props.artist?.numbercode ?? "##"}/${props.entry ?? "##"}`} placement="top">
         <Badge
             badgeContent={props.rotation ?? null}
             color={props.rotation && rotationStyles[props.rotation]}
@@ -82,7 +82,7 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
                     ml: -0.1,
                 }}
             >
-            {props.artist?.genre?.substring(0, 2)?.toUpperCase()}
+            {props.artist?.genre?.substring(0, 2)?.toUpperCase() ?? "—"}
             </Typography>
             </Stack>
             <Stack direction="column"
@@ -92,7 +92,7 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
             >
             <Typography level="body-xs" sx = {{ color: 'text.primary',
                     fontSize: '0.6rem' }} >
-            {props.artist?.numbercode}
+            {props.artist?.numbercode ?? "|"}
             </Typography>
             <Avatar
                 variant={variant_choice == 'solid' ? 'soft' : 'solid'}
@@ -107,7 +107,7 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
                 >{props.artist?.lettercode}</Avatar>
             <Typography level="body-xs" sx = {{ color: 'text.primary',
                     fontSize: '0.6rem', }}>
-            {props.entry}
+            {props.entry ?? "|"}
             </Typography>
             </Stack>
             <Stack direction="column"
@@ -123,7 +123,7 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
                     fontSize: '0.6rem',
                 }}
             >
-            {props.format?.substring(0, 2).toUpperCase() ?? ''}
+            {props.format == "Unknown" ? "—" : props.format?.substring(0, 2).toUpperCase() ?? "--"}
             </Typography>
             </Stack>
             </Stack>

@@ -1,5 +1,5 @@
 'use client';
-import { CatalogEntryProps, ROTATIONS, applicationSlice, catalogSlice, getter, rotationSlice, useDispatch } from "@/lib/redux";
+import { CatalogEntryProps, Genre, ROTATIONS, applicationSlice, autoCompleteArtist, catalogSlice, getAutocompleteResults, getter, rotationSlice, useDispatch, useSelector } from "@/lib/redux";
 import { Album, ArrowBack, Category, ContentPasteSearch, DiscFull, DynamicForm, FindReplace, InterpreterMode, Repeat, Save } from "@mui/icons-material";
 import { Autocomplete, Box, Button, ButtonGroup, CircularProgress, IconButton, Input, Sheet, Stack, Switch, Tooltip, Typography } from "@mui/joy";
 import { useEffect, useRef, useState } from "react";
@@ -11,6 +11,12 @@ const AddToCatalog = () => {
   const dispatch = useDispatch();
   
   const searchRef = useRef<HTMLInputElement | null>();
+
+  const artists = useSelector(getAutocompleteResults);
+
+  const [autocomplete, setAutocomplete] = useState(true);
+  const [autocompleting, setAutocompleting] = useState(false);
+  const [autocompleteTimeout, setAutocompleteTimeout] = useState<NodeJS.Timeout | null>(null);
 
   const [entry, setEntry] = useState<CatalogEntryProps>({});
 
@@ -95,28 +101,57 @@ const AddToCatalog = () => {
             <Stack direction="row" sx = {{ justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography level="body-md">Artist Information</Typography>
               <Tooltip variant="outlined" title="Autofill Information from Catalog" placement="top">
-              <Switch defaultChecked startDecorator={<FindReplace fontSize="small" />} />
+              <Switch 
+                checked={autocomplete}
+                onChange={(event) => setAutocomplete(event.target.checked)}
+                startDecorator={<FindReplace fontSize="small" />} 
+              />
               </Tooltip>
             </Stack>
           <Autocomplete
-            freeSolo={true}
+            freeSolo={!autocomplete}
             startDecorator={<InterpreterMode />}
             placeholder="Name"
-            options={[]}
+            options={artists.map((artist) => artist.name)}
             sx={{ width: 250 }}
-            endDecorator={<CircularProgress size="sm" />}
-            onChange={(event, newValue) => {
-              setEntry({ ...entry, album: { ...entry.album, artist: { name: newValue ?? undefined } } });
+            endDecorator={autocompleting && <CircularProgress size="sm" />}
+            onInputChange={(event, newValue) => {
+              if (newValue && !artists.map((artist) => artist.name).includes(newValue))
+                {
+                  setAutocompleting(true);
+                  if (autocompleteTimeout)
+                  {
+                    clearTimeout(autocompleteTimeout);
+                  }
+                  setAutocompleteTimeout(setTimeout(() => {
+                    setAutocompleting(false);
+                    dispatch(autoCompleteArtist(newValue));
+                    console.log(`Autocompleting ${newValue}`);
+                  }, 3000));
+                }
+                setEntry({ ...entry, album: 
+                  { ...entry.album, artist: 
+                    { 
+                      name: newValue ?? undefined,
+                      genre: artists.find((artist) => artist.name === newValue)?.genre as Genre ?? undefined,
+                      numbercode: artists.find((artist) => artist.name === newValue)?.numbercode ?? undefined,
+                      lettercode: artists.find((artist) => artist.name === newValue)?.lettercode ?? undefined,
+                    } 
+                  } 
+                });
+                
             }}
           />
           <Autocomplete
-            freeSolo={true}
+            freeSolo={!autocomplete}
+            disabled={autocomplete}
             startDecorator={<Category fontSize="small" />}
             placeholder="Genre"
+            value={entry.album?.artist?.genre}
             options={GENRES}
             sx={{ width: 250 }}
             endDecorator={genresLoading && <CircularProgress size="sm" />}
-            onChange={(event, newValue) => {
+            onInputChange={(event, newValue) => {
               setEntry({ ...entry, album: { ...entry.album, artist: { ...entry.album?.artist, genre: newValue ?? undefined } } });
             }}
           />
@@ -175,6 +210,7 @@ const AddToCatalog = () => {
         <input
           style = {{ maxWidth: '70px', borderRight: '1px solid var(--joy-palette-neutral-outlinedBorder)' }}
           placeholder="Initials"
+          disabled={autocomplete}
           onClick={(e) => e.stopPropagation()}
           value={entry.album?.artist?.lettercode}
           onChange={(event) => setEntry({ ...entry, album: { ...entry.album, artist: { ...entry.album?.artist, lettercode: event.target.value } } })}
@@ -182,6 +218,7 @@ const AddToCatalog = () => {
         <input
           style = {{ maxWidth: '50px', borderRight: '1px solid var(--joy-palette-neutral-outlinedBorder)' }}
           placeholder="##"
+          disabled={autocomplete}
           onClick={(e) => e.stopPropagation()}
           value={entry.album?.artist?.numbercode}
           onChange={(event) => {

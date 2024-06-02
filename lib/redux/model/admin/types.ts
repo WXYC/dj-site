@@ -1,6 +1,8 @@
+import { ProposedArtist } from "../types";
 
 export interface AdminState {
     loading: boolean;
+    autocompletedArtists: ProposedArtist[];
     error: string | undefined;
     djs: DJ[];
 };

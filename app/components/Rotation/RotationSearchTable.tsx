@@ -165,7 +165,9 @@ const RotationSearchTable = () => {
         </thead>
         <tbody>
           {(editedSong && (
-            <tr key={`${(searchString === '') ? "rotation" : "catalog"}-editedSong`}>
+            <tr key={`${(searchString === '') ? "rotation" : "catalog"}-editedSong`}
+              style={{ borderBottom: '1px solid #e0e0e0' }}
+            >
             <td>
             <ArtistAvatar
                   entry={editedSong?.album?.release}

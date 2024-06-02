@@ -1,12 +1,13 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { addDJ, fetchDJs, makeAdmin, populateAdmins, removeAdmin, resetPassword } from "./thunks";
+import { addDJ, autoCompleteArtist, fetchDJs, makeAdmin, populateAdmins, removeAdmin, resetPassword } from "./thunks";
 import { AdminState } from "./types";
 import { toast } from "sonner";
 
 const initialState: AdminState = {
     loading: false,
     error: undefined,
-    djs: []
+    djs: [],
+    autocompletedArtists: []
 };
 
 export const adminSlice = createSlice({
@@ -93,6 +94,17 @@ export const adminSlice = createSlice({
         })
         .addCase(addDJ.rejected, (state, action) => {
             state.loading = false;
+            state.error = action.error.message;
+        })
+        .addCase(autoCompleteArtist.pending, (state) => {
+            state.error = undefined;
+            state.autocompletedArtists = [];
+        })
+        .addCase(autoCompleteArtist.fulfilled, (state, action) => {
+            state.error = undefined;
+            state.autocompletedArtists = action.payload;
+        })
+        .addCase(autoCompleteArtist.rejected, (state, action) => {
             state.error = action.error.message;
         });
     }

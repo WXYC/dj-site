@@ -1,7 +1,8 @@
 import { convertUserToDJResult } from "@/lib/services/admin/conversions";
 import { AdminAddUserToGroupCommand, AdminAddUserToGroupCommandInput, AdminCreateUserCommand, AdminCreateUserCommandInput, AdminDeleteUserCommand, AdminDeleteUserCommandInput, AdminRemoveUserFromGroupCommand, AdminRemoveUserFromGroupCommandInput, AdminResetUserPasswordCommand, AdminResetUserPasswordCommandInput, CognitoIdentityProviderClient, ListUsersCommand, ListUsersCommandInput, ListUsersInGroupCommand, ListUsersInGroupCommandInput, VerifyUserAttributeCommandInput } from "@aws-sdk/client-cognito-identity-provider";
-import { DJ, getCredentials } from "../..";
+import { CatalogResult, DJ, ProposedArtist, getCredentials, getReleasesMatching } from "../..";
 import { createAppAsyncThunk } from "../../createAppAsyncThunk";
+import { onlyUnique } from "@/lib/utilities/unique";
 
 export const fetchDJs = createAppAsyncThunk(
     "admin/fetchDJs",
@@ -30,6 +31,32 @@ export type AccountInput = {
     dj: DJ,
     temporaryPassword: string
 };
+
+export const autoCompleteArtist = createAppAsyncThunk(
+    "admin/autoCompleteArtist",
+    async (input: string): Promise<ProposedArtist[]> => {
+        
+        const results: CatalogResult[] | null = await getReleasesMatching({
+            term: input,
+            n: 5,
+            medium: "Artists",
+            genre: "All",
+        });
+
+        const mappedData = results?.map((result) => {
+            return {
+                name: result.album.artist.name,
+                genre: result.album.artist.genre,
+                numbercode: result.album.artist.numbercode,
+                lettercode: result.album.artist.lettercode
+            };
+        }) ?? [];
+
+        const uniqueData = onlyUnique(mappedData, "name");
+
+        return uniqueData;
+    }
+);
 
 export const addDJ = createAppAsyncThunk(
     "admin/addDJ",
