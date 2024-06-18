@@ -22,7 +22,7 @@ import Typography from "@mui/joy/Typography";
 import { redirect, useSearchParams } from "next/navigation";
 import React, { useEffect, useState } from "react";
 import AuthenticationGuard from "../components/Authentication/AuthenticationGuard";
-import Logo from "../components/Branding/logo";
+import Logo from "../components/Branding/Logo";
 import { ColorSchemeToggle } from "../components/General/Theme/ColorSchemeToggle";
 import { ViewStyleToggle } from "../components/General/Theme/ViewStyleToggle";
 import ClassicLogin from "./classic";

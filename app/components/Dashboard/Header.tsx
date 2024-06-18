@@ -2,7 +2,7 @@ import DragHandleIcon from "@mui/icons-material/DragHandle";
 import Box from "@mui/joy/Box";
 import IconButton from "@mui/joy/IconButton";
 import Sheet from "@mui/joy/Sheet";
-import Logo from "../Branding/logo";
+import Logo from "../Branding/Logo";
 import { ColorSchemeToggle } from "../General/Theme/ColorSchemeToggle";
 import { ViewStyleToggle } from "../General/Theme/ViewStyleToggle";
 import { toggleSidebar } from "./SidebarMobileUtilites";
