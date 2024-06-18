@@ -1,0 +1,14 @@
+{
+  "files": {
+    "main.css": "/static/css/main.73b0c7f8.css",
+    "main.js": "/static/js/main.af95d89e.js",
+    "static/media/Minbus-A352.otf": "/static/media/Minbus-A352.6421abe3b02ea959109b.otf",
+    "index.html": "/index.html",
+    "main.73b0c7f8.css.map": "/static/css/main.73b0c7f8.css.map",
+    "main.af95d89e.js.map": "/static/js/main.af95d89e.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.73b0c7f8.css",
+    "static/js/main.af95d89e.js"
+  ]
+}
