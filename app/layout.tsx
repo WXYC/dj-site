@@ -7,6 +7,7 @@ import { GlobalPopups } from "./components/General/Popups/Popups";
 import ThemeRegistry from "./styles/ThemeRegistry";
 import "./styles/classic.css";
 import "./styles/globals.css";
+import { Suspense } from "react";
 
 export default function RootLayout(props: React.PropsWithChildren) {
   return (
@@ -17,7 +18,9 @@ export default function RootLayout(props: React.PropsWithChildren) {
             <Toaster closeButton richColors />
             <div id="root">
               <GlobalPopups />
+              <Suspense>
               <main>{props.children}</main>
+              </Suspense>
             </div>
           </body>
         </html>
