@@ -2,7 +2,7 @@
 import { redirect } from "next/navigation";
 
 export default function IndexPage() {
-  redirect("/dashboard/flowsheet");
+  redirect("/dashboard/catalog");
 }
 
 export const metadata = {

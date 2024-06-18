@@ -1,14 +1,14 @@
-import DragHandleIcon from '@mui/icons-material/DragHandle';
-import Box from '@mui/joy/Box';
-import IconButton from '@mui/joy/IconButton';
-import Sheet from '@mui/joy/Sheet';
-import Logo from '../Branding/logo';
-import { ColorSchemeToggle } from '../General/Theme/ColorSchemeToggle';
-import { ViewStyleToggle } from '../General/Theme/ViewStyleToggle';
-import { toggleSidebar } from './SidebarMobileUtilites';
+import DragHandleIcon from "@mui/icons-material/DragHandle";
+import Box from "@mui/joy/Box";
+import IconButton from "@mui/joy/IconButton";
+import Sheet from "@mui/joy/Sheet";
+import Logo from "../Branding/logo";
+import { ColorSchemeToggle } from "../General/Theme/ColorSchemeToggle";
+import { ViewStyleToggle } from "../General/Theme/ViewStyleToggle";
+import { toggleSidebar } from "./SidebarMobileUtilites";
 
 interface HeaderProps {
-    altViewAvailable: boolean;
+  altViewAvailable: boolean;
 }
 
 /**
@@ -48,18 +48,18 @@ export default function Header(props: HeaderProps): JSX.Element {
   return (
     <Sheet
       sx={{
-        display: { xs: 'flex', md: 'none' },
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        position: 'fixed',
+        display: { xs: "flex", md: "none" },
+        justifyContent: "space-between",
+        alignItems: "center",
+        position: "fixed",
         top: 0,
-        width: '100vw',
-        height: 'var(--Header-height)',
+        width: "100vw",
+        height: "var(--Header-height)",
         zIndex: 9995,
         py: 1,
         px: 2,
         gap: 1,
-        boxShadow: 'sm',
+        boxShadow: "sm",
       }}
     >
       <IconButton
@@ -71,15 +71,15 @@ export default function Header(props: HeaderProps): JSX.Element {
         <DragHandleIcon />
       </IconButton>
       <Box
-        sx = {(theme) => ({
-          height: '100%',
+        sx={(theme) => ({
+          height: "100%",
         })}
       >
         <Logo />
       </Box>
       <Box>
         <ColorSchemeToggle />
-        {(props.altViewAvailable) && <ViewStyleToggle />}
+        {props.altViewAvailable && <ViewStyleToggle />}
       </Box>
     </Sheet>
   );

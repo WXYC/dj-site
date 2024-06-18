@@ -9,24 +9,19 @@ import "./styles/classic.css";
 import "./styles/globals.css";
 
 export default function RootLayout(props: React.PropsWithChildren) {
-
   return (
     <Providers>
-      <ThemeRegistry options={{ key: 'joy' }}>
+      <ThemeRegistry options={{ key: "joy" }}>
         <html lang="en">
           <body>
-          <Toaster closeButton richColors  />
-          <div id="root">
-          <GlobalPopups />
-            <main>
-                {props.children}
-            </main>
-          </div>
+            <Toaster closeButton richColors />
+            <div id="root">
+              <GlobalPopups />
+              <main>{props.children}</main>
+            </div>
           </body>
         </html>
       </ThemeRegistry>
     </Providers>
   );
 }
-
-

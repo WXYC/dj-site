@@ -1,8 +1,8 @@
-'use client';
-import { getClassicViewAvailable, useSelector } from '@/lib/redux';
+"use client";
+import { getClassicViewAvailable, useSelector } from "@/lib/redux";
 import AuthenticationGuard from "../components/Authentication/AuthenticationGuard";
-import ViewGuard from '../components/General/ViewGuard';
-import DashboardContent from './dashboard';
+import ViewGuard from "../components/General/ViewGuard";
+import DashboardContent from "./dashboard";
 
 /**
  * @page
@@ -16,14 +16,11 @@ import DashboardContent from './dashboard';
  * @returns {JSX.Element} The rendered Dashboard component.
  */
 export default function Dashboard(props: React.PropsWithChildren): JSX.Element {
-
-    return (
+  return (
     <>
-        <ViewGuard />
-        <AuthenticationGuard redirectTo='/login' savePath />
-        <DashboardContent>
-            {props.children}
-        </DashboardContent>
+      <ViewGuard />
+      <AuthenticationGuard redirectTo="/login" savePath />
+      <DashboardContent>{props.children}</DashboardContent>
     </>
-    );
+  );
 }
