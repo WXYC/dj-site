@@ -13,7 +13,7 @@ The WXYC Card Catalog, Revised is a React-based revision of the original WXYC ca
 - Mail Bin: a digital mail bin is available on every account, so DJs can add to the flowsheet directly from their bin without having to type during their sets.
 
 ## Deployment
-TBD...
+Is handled by github actions.
 
 ## API Integration
 The revised catalog leverages services defined in `api-service.js`, which utilizes the popular Axios library to communicate with an AWS API Gateway. This integration allows seamless communication between the front-end application and the API endpoints, enabling data retrieval and manipulation.
