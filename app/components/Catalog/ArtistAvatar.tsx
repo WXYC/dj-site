@@ -13,9 +13,9 @@ interface ArtistAvatarProps {
 const GENRE_COLORS: { [id in Genre]: ColorPaletteProp } = {
     'Rock': 'primary',
     'Blues': 'success',
-    'Electronic': 'warning',
+    'Electronic': 'success',
     'Hiphop': 'primary',
-    'Jazz': 'success',
+    'Jazz': 'warning',
     'Classical': 'neutral',
     'Reggae': 'warning',
     'Soundtracks': 'neutral',
@@ -54,7 +54,7 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
     }
 
     return (
-        <Tooltip variant="outlined" title={`${props.artist?.genre ?? "GE"} ${props.format == "Unknown" ? "FF" : props.format ?? "FF"}   ♪   ${props.artist?.lettercode ?? "&&"} ${props.artist?.numbercode ?? "##"}/${props.entry ?? "##"}`} placement="top">
+        <Tooltip variant="outlined" title={`${props.artist?.genre ?? "[Genre]"} ${props.format == "Unknown" ? "[Format]" : props.format ?? "[Format]"}   ♪   ${props.artist?.lettercode ?? "&&"} ${props.artist?.numbercode ?? "##"}/${props.entry ?? "##"}`} placement="top">
         <Badge
             badgeContent={props.rotation ?? null}
             color={props.rotation && rotationStyles[props.rotation]}

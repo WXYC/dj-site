@@ -1,6 +1,7 @@
 'use client';
 
-import { Box, Divider, Typography } from "@mui/joy";
+import PlaylistCard from "@/app/components/Playlists/PlaylistCard";
+import { Box, Divider, Stack, Typography } from "@mui/joy";
 
 const PlaylistsPage = () => {
     return (
@@ -17,9 +18,11 @@ const PlaylistsPage = () => {
           },
         }}
     >
+      <Stack direction="column" spacing={1}>
         <Typography level="h1">Your Playlists</Typography>
-        <Box sx={{ flex: 999 }}></Box>
         <Divider />
+        <PlaylistCard />
+      </Stack>
       </Box>
     );
 };

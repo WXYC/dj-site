@@ -1,6 +1,6 @@
 'use client';
 import { CatalogEntryProps, Genre, ROTATIONS, applicationSlice, autoCompleteArtist, catalogSlice, getAutocompleteResults, getter, rotationSlice, useDispatch, useSelector } from "@/lib/redux";
-import { Album, ArrowBack, Category, ContentPasteSearch, DiscFull, DynamicForm, FindReplace, InterpreterMode, Repeat, Save } from "@mui/icons-material";
+import { Album, ArrowBack, Category, ContentPasteSearch, DiscFull, DynamicForm, FindReplace, InterpreterMode, Repeat, Save, VideoLabel } from "@mui/icons-material";
 import { Autocomplete, Box, Button, ButtonGroup, CircularProgress, IconButton, Input, Sheet, Stack, Switch, Tooltip, Typography } from "@mui/joy";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -103,7 +103,9 @@ const AddToCatalog = () => {
               <Tooltip variant="outlined" title="Autofill Information from Catalog" placement="top">
               <Switch 
                 checked={autocomplete}
-                onChange={(event) => setAutocomplete(event.target.checked)}
+                onChange={(event) => {
+                  setAutocomplete(event.target.checked);
+                }}
                 startDecorator={<FindReplace fontSize="small" />} 
               />
               </Tooltip>
@@ -129,22 +131,42 @@ const AddToCatalog = () => {
                     console.log(`Autocompleting ${newValue}`);
                   }, 3000));
                 }
-                setEntry({ ...entry, album: 
-                  { ...entry.album, artist: 
-                    { 
-                      name: newValue ?? undefined,
-                      genre: artists.find((artist) => artist.name === newValue)?.genre as Genre ?? undefined,
-                      numbercode: artists.find((artist) => artist.name === newValue)?.numbercode ?? undefined,
-                      lettercode: artists.find((artist) => artist.name === newValue)?.lettercode ?? undefined,
+                if (autocomplete)
+                {
+                  console.log("autocompleting");
+                  console.log(artists.find((artist) => artist.name === newValue)?.genre as Genre ?? undefined);
+                  setEntry({ ...entry, album: 
+                    { ...entry.album, artist: 
+                      { 
+                        name: newValue ?? undefined,
+                        genre: artists.find((artist) => artist.name === newValue)?.genre as Genre ?? undefined,
+                        numbercode: artists.find((artist) => artist.name === newValue)?.numbercode ?? undefined,
+                        lettercode: artists.find((artist) => artist.name === newValue)?.lettercode ?? undefined,
+                      } 
                     } 
-                  } 
-                });
+                  });
+                }
+                else
+                {
+                  setEntry({ ...entry, album: 
+                    { ...entry.album, artist: 
+                      { 
+                        name: newValue ?? undefined,
+                      } 
+                    } 
+                  });
+                }
+
                 
             }}
           />
-          <Autocomplete
-            freeSolo={!autocomplete}
-            disabled={autocomplete}
+          {(autocomplete) ? (<Input 
+            startDecorator={<Category fontSize="small" />}
+            placeholder="Genre"
+            value={entry.album?.artist?.genre}
+            sx={{ width: 250 }}
+            disabled
+          />) : (<Autocomplete
             startDecorator={<Category fontSize="small" />}
             placeholder="Genre"
             value={entry.album?.artist?.genre}
@@ -152,9 +174,9 @@ const AddToCatalog = () => {
             sx={{ width: 250 }}
             endDecorator={genresLoading && <CircularProgress size="sm" />}
             onInputChange={(event, newValue) => {
-              setEntry({ ...entry, album: { ...entry.album, artist: { ...entry.album?.artist, genre: newValue ?? undefined } } });
+              setEntry({ ...entry, album: { ...entry.album, artist: { ...entry.album?.artist, genre: newValue?.toString() } } });
             }}
-          />
+          />)}
       <Box
         ref={searchRef}
         component="div"
@@ -258,6 +280,13 @@ const AddToCatalog = () => {
       </Box>
           </Stack>
         </Sheet>
+        <Input
+          startDecorator={<VideoLabel />}
+          value={entry.album?.label}
+          onChange={(event) => setEntry({ ...entry, album: { ...entry.album, label: event.target.value } })}
+          placeholder="Record Label"
+          sx = {{ maxWidth: 293 }}
+        />
         <Sheet variant="outlined"
           sx = {{
             padding: 2,
@@ -273,6 +302,7 @@ const AddToCatalog = () => {
             <Autocomplete
               freeSolo={true}
               placeholder="Format"
+              size="sm"
               options={FORMATS}
               sx={{ width: 138 }}
               endDecorator={formatsLoading && <CircularProgress size="sm" />}
@@ -307,6 +337,16 @@ const AddToCatalog = () => {
         <Button
           color="success"
           startDecorator={<Save />}
+          disabled = {
+            entry.album?.title === undefined ||  entry.album?.title.length === 0 ||
+            entry.album?.artist?.name === undefined || entry.album?.artist?.name.length === 0 ||
+            entry.album?.release === undefined || entry.album?.release.toString().length === 0 ||
+            entry.album?.artist?.numbercode === undefined || entry.album?.artist?.numbercode.toString().length === 0 ||
+            entry.album?.artist?.lettercode === undefined || entry.album?.artist?.lettercode.length === 0 ||
+            entry.album?.artist?.genre === undefined || entry.album?.artist?.genre.length === 0 ||
+            entry.album?.label === undefined || entry.album?.label.length === 0 ||
+            entry.album?.format === undefined || entry.album?.format.length === 0
+          }
         >
           Save
         </Button>
