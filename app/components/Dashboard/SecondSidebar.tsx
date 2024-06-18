@@ -8,7 +8,7 @@ import React from "react";
 
 import InboxIcon from "@mui/icons-material/Inbox";
 import PlayArrowOutlinedIcon from "@mui/icons-material/PlayArrowOutlined";
-import NowPlaying from "../Widgets/now-playing/NowPlaying";
+import NowPlaying from "../Widgets/NowPlaying/NowPlaying";
 import { closeSidebar } from "./SidebarMobileUtilites";
 
 import {
