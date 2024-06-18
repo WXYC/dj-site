@@ -76,7 +76,7 @@ const ClassicArtistPage = () => {
             <td align="center" className="text">
               <a href="comment?objectType=release&amp;ID=68894">
                 <img
-                  src="/img/commentIcon.jpg"
+                  src="/nextjs-github-pages/img/commentIcon.jpg"
                   title="Make a comment about this release"
                 />
               </a>

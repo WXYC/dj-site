@@ -41,7 +41,7 @@ export default function ClassicLogin() {
               <tr>
                 <td align="center" valign="top">
                   <img
-                    src="/img/wxyc-logo-classic.gif"
+                    src="/nextjs-github-pages/img/wxyc-logo-classic.gif"
                     alt="WXYC logo"
                     style={{ border: 0 }}
                   />
@@ -126,7 +126,7 @@ export default function ClassicLogin() {
                   style={{ display: "flex", justifyContent: "center" }}
                 >
                   <img
-                    src="/img/wxyc-logo-classic.gif"
+                    src="/nextjs-github-pages/img/wxyc-logo-classic.gif"
                     alt="WXYC logo"
                     style={{ border: 0 }}
                   />

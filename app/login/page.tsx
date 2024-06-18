@@ -436,9 +436,9 @@ export default function LoginPage(): JSX.Element {
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
-          backgroundImage: 'url("/img/wxyc_color.png")',
+          backgroundImage: 'url("/nextjs-github-pages/img/wxyc_color.png")',
           [theme.getColorSchemeSelector("dark")]: {
-            backgroundImage: 'url("/img/wxyc_dark.jpg")',
+            backgroundImage: 'url("/nextjs-github-pages/img/wxyc_dark.jpg")',
           },
         })}
       />

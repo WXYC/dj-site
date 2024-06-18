@@ -35,7 +35,7 @@ const ClassicCatalogPage = () => {
               <td align="center" valign="top">
                 <span className="title">Search the&nbsp;&nbsp;</span>
                 <img
-                  src="/img/wxyc-logo-classic.gif"
+                  src="/nextjs-github-pages/img/wxyc-logo-classic.gif"
                   alt="WXYC logo"
                   style={{ border: 0 }}
                 />

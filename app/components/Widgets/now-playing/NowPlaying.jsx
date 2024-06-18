@@ -19,7 +19,7 @@ const NowPlaying = (props) => {
   const [artistName, setArtistName] = React.useState("");
   const [message, setMessage] = React.useState("");
 
-  const [imageUrl, setImageUrl] = React.useState("/img/cassette.png");
+  const [imageUrl, setImageUrl] = React.useState("/nextjs-github-pages/img/cassette.png");
 
   const [playing, setPlaying] = React.useState(false);
   const [embedded, setEmbedded] = React.useState(true);
@@ -112,7 +112,7 @@ const NowPlaying = (props) => {
           await getImage(
             data.artist_name,
             data.album_title,
-            "/img/cassette.png"
+            "/nextjs-github-pages/img/cassette.png"
           )
         );
       })();
