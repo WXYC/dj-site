@@ -17,7 +17,7 @@ interface LogoProps {
  * )
  */
 const Logo = (props: LogoProps) => {
-  const { mode, systemMode } = useColorScheme();
+  
   return (
     <svg
       version="1.0"
