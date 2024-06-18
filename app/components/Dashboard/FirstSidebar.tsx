@@ -15,7 +15,7 @@ import ListItemButton from "@mui/joy/ListItemButton";
 import Sheet from "@mui/joy/Sheet";
 import Tooltip from "@mui/joy/Tooltip";
 import { useCallback, useEffect, useState } from "react";
-import Logo from "../Branding/logo";
+import Logo from "../Branding/Logo";
 
 import {
   applicationSlice,
