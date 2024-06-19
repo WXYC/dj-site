@@ -8,8 +8,10 @@ export const getSearchIn = (state: ReduxState) => state.catalog.searchIn;
 export const getGenre = (state: ReduxState) => state.catalog.genre;
 
 export const getOrderBy = (state: ReduxState) => state.catalog.orderBy;
-export const getOrderDirection = (state: ReduxState) => state.catalog.orderDirection;
-export const getReachedEnd = (state: ReduxState) => state.catalog.noResultsRemain;
+export const getOrderDirection = (state: ReduxState) =>
+  state.catalog.orderDirection;
+export const getReachedEnd = (state: ReduxState) =>
+  state.catalog.noResultsRemain;
 
 export const getN = (state: ReduxState) => state.catalog.resultCount;
 

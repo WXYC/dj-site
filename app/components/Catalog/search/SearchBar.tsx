@@ -1,12 +1,24 @@
-import TroubleshootIcon from '@mui/icons-material/Troubleshoot';
-import { Box, Button, ColorPaletteProp, Divider, FormControl, FormLabel, IconButton, Input, Modal, ModalClose, ModalDialog, Sheet, Typography } from '@mui/joy';
-import React from 'react';
-import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined';
-import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
-import { Filters } from './Filters';
-import { Genre } from '@/lib/redux';
-import { SearchInOption } from '../../Table/types';
-import { Cancel } from '@mui/icons-material';
+import { Genre } from "@/lib/redux";
+import { Cancel } from "@mui/icons-material";
+import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
+import SendOutlinedIcon from "@mui/icons-material/SendOutlined";
+import TroubleshootIcon from "@mui/icons-material/Troubleshoot";
+import {
+  Box,
+  Button,
+  ColorPaletteProp,
+  FormControl,
+  FormLabel,
+  IconButton,
+  Input,
+  Modal,
+  ModalClose,
+  ModalDialog,
+  Sheet
+} from "@mui/joy";
+import React from "react";
+import { SearchInOption } from "../../Table/types";
+import { Filters } from "./Filters";
 
 /**
  * @component
@@ -35,7 +47,7 @@ import { Cancel } from '@mui/icons-material';
  * @see [FormControl (Joy-UI component)](https://mui.com/joy-ui/react-form-control/)
  * @see [FormLabel (Joy-UI component)](https://mui.com/joy-ui/react-form-label/)
  * @see [Filters (custom component)](./Filters)
- * 
+ *
  * @example
  * // Usage example:
  * import { SearchBar } from './SearchBar';
@@ -56,18 +68,17 @@ import { Cancel } from '@mui/icons-material';
  * }
  */
 export const SearchBar = (props: SearchBarProps) => {
+  const [open, setOpen] = React.useState(false);
 
-    const [open, setOpen] = React.useState(false);
-
-    return (
-        <React.Fragment>
-        <Sheet
+  return (
+    <React.Fragment>
+      <Sheet
         className="SearchAndFilters-mobile"
         sx={{
-          background: 'transparent',
+          background: "transparent",
           display: {
-            xs: 'flex',
-            sm: 'none',
+            xs: "flex",
+            sm: "none",
           },
           my: 1,
           gap: 1,
@@ -94,23 +105,36 @@ export const SearchBar = (props: SearchBarProps) => {
           size="sm"
           variant="solid"
           color={props.color ?? "primary"}
-          onClick={() => { console.log("Search!"); }}
+          onClick={() => {
+            console.log("Search!");
+          }}
         >
           <SendOutlinedIcon />
         </IconButton>
         <Modal open={open} onClose={() => setOpen(false)}>
-          <ModalDialog aria-labelledby="filter-modal" layout="fullscreen"
-            sx = {{
-              paddingTop: '7rem',
+          <ModalDialog
+            aria-labelledby="filter-modal"
+            layout="fullscreen"
+            sx={{
+              paddingTop: "7rem",
             }}
           >
-            <ModalClose variant="soft" color='primary' sx = {{ marginTop: 'var(--Header-height)' }} />
-            <Sheet sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <ModalClose
+              variant="soft"
+              color="primary"
+              sx={{ marginTop: "var(--Header-height)" }}
+            />
+            <Sheet sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <Filters
                 setSearchIn={props.setSearchIn}
                 setGenre={props.setGenre}
               />
-              <Button color={props.color ?? "primary"} onClick={() => {setOpen(false)}}>
+              <Button
+                color={props.color ?? "primary"}
+                onClick={() => {
+                  setOpen(false);
+                }}
+              >
                 Submit
               </Button>
             </Sheet>
@@ -120,55 +144,59 @@ export const SearchBar = (props: SearchBarProps) => {
       <Box
         className="SearchAndFilters-tabletUp"
         sx={{
-          borderRadius: 'sm',
+          borderRadius: "sm",
           py: 2,
           display: {
-            xs: 'none',
-            sm: 'flex',
+            xs: "none",
+            sm: "flex",
           },
-          flexWrap: 'wrap',
+          flexWrap: "wrap",
           gap: 1.5,
-          '& > *': {
+          "& > *": {
             minWidth: {
-              xs: '180px',
-              md: '200px',
+              xs: "180px",
+              md: "200px",
             },
           },
         }}
       >
-        <FormControl sx={{ flex: 1, flexBasis: { xs: '100%', lg: 'unset' } }} size="sm">
+        <FormControl
+          sx={{ flex: 1, flexBasis: { xs: "100%", lg: "unset" } }}
+          size="sm"
+        >
           <FormLabel>Search for a song, album, or artist</FormLabel>
-          <Input 
+          <Input
             color={props.color ?? "neutral"}
-            placeholder="Search" 
+            placeholder="Search"
             startDecorator={<TroubleshootIcon />}
             endDecorator={
-              (props.searchString != '') ? (<IconButton
-                variant="plain"
-                color={props.color ?? "primary"}
-                onClick={() => props.setSearchString('')}
-              >
-                <Cancel />
-              </IconButton>) : (<></>)
+              props.searchString != "" ? (
+                <IconButton
+                  variant="plain"
+                  color={props.color ?? "primary"}
+                  onClick={() => props.setSearchString("")}
+                >
+                  <Cancel />
+                </IconButton>
+              ) : (
+                <></>
+              )
             }
             value={props.searchString}
             onChange={(e) => props.setSearchString(e.target.value)}
           />
         </FormControl>
-        
-        <Filters
-          setSearchIn = {props.setSearchIn}
-          setGenre = {props.setGenre}
-        />
+
+        <Filters setSearchIn={props.setSearchIn} setGenre={props.setGenre} />
       </Box>
     </React.Fragment>
-    )
+  );
 };
 
 interface SearchBarProps {
-    searchString: string;
-    setSearchString: (searchString: string) => void;
-    setSearchIn: (searchIn: SearchInOption) => void;
-    setGenre: (genre: Genre) => void;
-    color?: ColorPaletteProp;
+  searchString: string;
+  setSearchString: (searchString: string) => void;
+  setSearchIn: (searchIn: SearchInOption) => void;
+  setGenre: (genre: Genre) => void;
+  color?: ColorPaletteProp;
 }
