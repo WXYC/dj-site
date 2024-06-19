@@ -1,36 +1,8 @@
 import React from "react";
 import { FormControl, FormLabel, Select, Option } from "@mui/joy";
-import { Genre, SearchInOption } from "@/lib/redux";
+import { Genre } from "@/lib/redux";
+import { SearchInOption } from "../../Table/types";
 
-/**
- * @component
- * @category Card Catalog
- *
- * @param {Object} props - The component props.
- * @param {function} props.setSearchIn - The function to set the selected search-in option.
- * @param {function} props.setGenre - The function to set the selected genre option.
- *
- * @returns {JSX.Element} The rendered Filters component.
- *
- * @description
- * The Filters component renders the 'select' dropdowns for searching the card catalog. It provides options to filter the search based on different criteria.
- *
- * The `props.setSearchIn` function is used to set the selected search-in option.
- * The `props.setGenre` function is used to set the selected genre option.
- * 
- * @example
- * // Usage example:
- * import { Filters } from './Filters';
- *
- * function CardCatalog() {
- *   const [searchIn, setSearchIn] = useState('Albums');
- *   const [genre, setGenre] = useState('All');
- *
- *   return (
- *     <Filters setSearchIn={setSearchIn} setGenre={setGenre} />
- *   );
- * }
- */
 export const Filters = (props: FiltersProps) => {
     return (
     <React.Fragment>

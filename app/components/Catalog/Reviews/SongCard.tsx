@@ -1,4 +1,4 @@
-import { AspectRatio, Button, Card, CardContent, CardOverflow, Divider, Input, Stack, Textarea } from '@mui/joy';
+import { AspectRatio, Button, Card, CardContent, CardOverflow, Divider, Input, Stack, Textarea, Tooltip } from '@mui/joy';
 import Box from '@mui/joy/Box';
 import IconButton from '@mui/joy/IconButton';
 import Typography from '@mui/joy/Typography';
@@ -9,10 +9,7 @@ import { ArtistAvatar } from '../ArtistAvatar';
 
 import { CatalogResult, applicationSlice, getArtwork, getAuthenticatedUser, useDispatch, useSelector } from '@/lib/redux';
 import { timeout } from '@/lib/utilities/timeout';
-import { ArrowBack } from '@mui/icons-material';
-import BinButton from '../../Bin/BinButton';
-import PlayButton from '../../Flowsheet/Entries/PlayButton';
-import QueueButton from '../../Flowsheet/Queue/QueueButton';
+import { ArrowBack, Inventory, PlayArrow, QueueMusic } from '@mui/icons-material';
 import { Review } from './Review';
 
 type SongCardContentProps = {
@@ -123,9 +120,21 @@ export default function SongCard(props: SongCardContentProps) : JSX.Element {
           </Typography>
           <Divider orientation="vertical" />
           <Stack direction="row" spacing={0.5}>
-              <PlayButton entry={props.songCardContent!} />
-              <QueueButton entry={props.songCardContent!} />
-              <BinButton entry={props.songCardContent!} />
+          <Tooltip title="Will add to queue">
+                          <IconButton onClick={() => {}}>
+                            <QueueMusic />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Will add to bin">
+                          <IconButton onClick={() => {}}>
+                            <Inventory />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Will play this album">
+                          <IconButton onClick={() => {}}>
+                            <PlayArrow />
+                          </IconButton>
+                        </Tooltip>
           </Stack>
             <Divider orientation="vertical" />
             <Typography level="body-xs" fontWeight="md" textColor="text.secondary">

@@ -8,29 +8,24 @@ import IconButton from '@mui/joy/IconButton';
 import Sheet from '@mui/joy/Sheet';
 import Table from '@mui/joy/Table';
 import Typography from '@mui/joy/Typography';
-import { ChangeEvent, useCallback, useEffect, useState } from 'react';
+import { ChangeEvent, useEffect, useState } from 'react';
 
 import DoubleArrowIcon from '@mui/icons-material/DoubleArrow';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 
 
 
 import { Stack, Tooltip } from '@mui/joy';
 
-import { CatalogResult, FlowSheetEntry, Genre, applicationSlice, catalogSlice, flowSheetSlice, getAuthenticatedUser, getBin, getCatalogLoading, getGenre, getN, getOrderBy, getOrderDirection, getQuery, getQueue, getReachedEnd, getResults, getRotation, getSearchIn, isLive, searchCatalog, useDispatch, useSelector } from '@/lib/redux';
-import { deleteFromBin, insertToBin } from '@/lib/redux/model/bin/thunks';
-import { FolderDelete, Inbox, Inventory, MoveToInbox, Outbox, PlaylistAdd, PlaylistRemove, QueueMusic } from '@mui/icons-material';
-import Logo from '../Branding/logo';
+import { CatalogResult, Genre, applicationSlice, catalogSlice, getAuthenticatedUser, getCatalogLoading, getGenre, getN, getOrderBy, getOrderDirection, getQuery, getReachedEnd, getResults, getSearchIn, searchCatalog, useDispatch, useSelector } from '@/lib/redux';
+
+import Logo from '../Branding/Logo';
 import TableHeader from '../Table/TableHeader';
 import { OrderByOption, OrderDirectionOption, SearchInOption } from '../Table/types';
 import { ArtistAvatar } from './ArtistAvatar';
-import { SearchBar } from './Search/SearchBar';
-import HoverIconButton from '../General/Buttons/HoverIconButton';
-import QueueButton from '../Flowsheet/Queue/QueueButton';
-import BinButton from '../Bin/BinButton';
-import PlayButton from '../Flowsheet/Entries/PlayButton';
 import SongCard from './Reviews/SongCard';
+import { SearchBar } from './Search/SearchBar';
+import { Inventory, QueueMusic } from '@mui/icons-material';
 
 /**
  * A table component for catalog search results.
@@ -61,8 +56,6 @@ const CatalogSearchTable = (): JSX.Element => {
     const dispatch = useDispatch();
 
     const user = useSelector(getAuthenticatedUser);
-    
-    const rotation = useSelector(getRotation);
 
     // Catalog Search State ----------------------------------------------------
     const loadMore = () => dispatch(catalogSlice.actions.loadMore());
@@ -92,22 +85,12 @@ const CatalogSearchTable = (): JSX.Element => {
           medium: searchIn,
           genre: genre,
           n: n,
-          rotation: rotation
+          rotation: []
         }))
       }, 500));
-    }, [searchString, searchIn, genre, n, rotation]);
+    }, [searchString, searchIn, genre, n]);
 
   const [selected, setSelected] = useState<number[]>([]);
-  const [open, setOpen] = useState(false);
-
-  const [index, setIndex] = useState(0);
-
-  // Bin Context --------------------------------------------------------------
-  const addToBin = (item: CatalogResult) => dispatch(insertToBin({
-    entry: item,
-    dj: user!
-  }));
-  // -------------------------------------------------------------------------
 
   const getSongCardFor = (item: CatalogResult | undefined) => dispatch(applicationSlice.actions.openSideBar(<SongCard songCardContent={item} />));
   
@@ -326,8 +309,16 @@ const CatalogSearchTable = (): JSX.Element => {
                             <InfoOutlinedIcon />
                         </IconButton>
                         </Tooltip>
-                        <QueueButton entry={row} />
-                        <BinButton entry={row} />
+                        <Tooltip title="Will add to queue">
+                          <IconButton onClick={() => {}}>
+                            <QueueMusic />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Will add to bin">
+                          <IconButton onClick={() => {}}>
+                            <Inventory />
+                          </IconButton>
+                        </Tooltip>
                         </Stack>
                     </td>
                 </tr>
@@ -371,9 +362,7 @@ const CatalogSearchTable = (): JSX.Element => {
                           marginRight: '1rem',
                         }}
                         onClick={() =>
-                          selected.map((row) => {
-                            addToBin(releaseList.find((item) => item.id === row)!);
-                          })
+                          alert("Will add selected to bin!")
                         }
                         >
                           Add selected to bin
