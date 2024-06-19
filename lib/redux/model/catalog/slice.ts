@@ -1,5 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { CatalogResult, CatalogState, useDispatch } from "../..";
+import { CatalogState } from "../..";
 import { searchCatalog } from "./thunks";
 
 const initialState: CatalogState = {

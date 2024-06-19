@@ -1,5 +1,4 @@
-import { CatalogResult } from "./catalog";
-import { FlowsheetAlbum, FlowsheetArtist } from "./flowsheet";
+import { FlowsheetAlbum } from "./flowsheet";
 import { Rotation } from "./rotation";
 
 // APP STATE
