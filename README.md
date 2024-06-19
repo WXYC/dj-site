@@ -2,7 +2,6 @@
 
 [See the site in action here!](https://wxyc.github.io/dj-site/)
 
-![Simplified Map of WXYC Card Catalog Frontend](https://dj.wxyc.org/img/FrontendMap.png)
 
 ## Description
 The WXYC Card Catalog, Revised is a React-based revision of the original WXYC card catalog and flowsheet. This repository showcases an improved version of the existing catalog and flowsheet, while maintaining the classic theme and preserving the original look. Notably, the revised version is optimized for performance, resulting in faster loading times.
@@ -14,7 +13,7 @@ The WXYC Card Catalog, Revised is a React-based revision of the original WXYC ca
 - Mail Bin: a digital mail bin is available on every account, so DJs can add to the flowsheet directly from their bin without having to type during their sets.
 
 ## Deployment
-The application is deployed using github pages. In order to deploy to the gh-pages branch, run `npm run deploy`. If you wish to add a commit message to the branch, use `npm run deploy -- -m "YOUR_MESSAGE_HERE"`.
+Is handled by github actions.
 
 ## API Integration
 The revised catalog leverages services defined in `api-service.js`, which utilizes the popular Axios library to communicate with an AWS API Gateway. This integration allows seamless communication between the front-end application and the API endpoints, enabling data retrieval and manipulation.
@@ -29,7 +28,7 @@ The revised catalog leverages services defined in `api-service.js`, which utiliz
 1. Clone the repository: `git clone https://github.com/WXYC/dj-site.git`
 2. Navigate to the project directory: `cd dj-site`
 3. Install dependencies: `npm install`
-4. Run the application: `npm start`
+4. Run the application: `npm run dev`
 5. Access the application locally: Open your web browser and visit `http://localhost:3000`
 
 ## Contributing
