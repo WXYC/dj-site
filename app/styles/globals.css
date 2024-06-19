@@ -1,0 +1,23 @@
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+div {
+  display: block;
+}
+
+main {
+  height: 100vh;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* fix for autocomplete z-index since we're hacking the tooltip on the schedule edit page in station management */
+.MuiAutocomplete-listbox, .MuiAutocomplete-listbox > * {
+  z-index: 800000 !important;
+}
