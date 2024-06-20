@@ -3,6 +3,7 @@
 import { login, needsNewPassword, useDispatch, useSelector } from "@/lib/redux";
 import AuthenticationGuard from "../components/Authentication/AuthenticationGuard";
 import LeaveClassic from "../components/Classic/LeaveClassic";
+import { prefix } from "@/utils/prefix";
 
 export default function ClassicLogin() {
   const dispatch = useDispatch();
@@ -41,7 +42,7 @@ export default function ClassicLogin() {
               <tr>
                 <td align="center" valign="top">
                   <img
-                    src="/nextjs-github-pages/img/wxyc-logo-classic.gif"
+                    src={`/img/wxyc-logo-classic.gif`}
                     alt="WXYC logo"
                     style={{ border: 0 }}
                   />
@@ -126,7 +127,7 @@ export default function ClassicLogin() {
                   style={{ display: "flex", justifyContent: "center" }}
                 >
                   <img
-                    src="/nextjs-github-pages/img/wxyc-logo-classic.gif"
+                    src={`/img/wxyc-logo-classic.gif`}
                     alt="WXYC logo"
                     style={{ border: 0 }}
                   />
