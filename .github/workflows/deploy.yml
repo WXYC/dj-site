@@ -101,4 +101,5 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v3
         with:
-          branch: gh-pages
+          artifact: .next
+          token: ${{ secrets.GITHUB_TOKEN }}
