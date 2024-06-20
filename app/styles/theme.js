@@ -11,7 +11,7 @@ const kanit = Kanit({
 });
 
 const minbus = localFont({
-  src: `${prefix}/fonts/Minbus.otf`,
+  src: '/fonts/Minbus.otf',
 });
 
 const wxycTheme = extendTheme({
