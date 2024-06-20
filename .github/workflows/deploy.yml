@@ -101,5 +101,5 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v3
         with:
-          artifact: .next
+          artifact_name: .next
           token: ${{ secrets.GITHUB_TOKEN }}
