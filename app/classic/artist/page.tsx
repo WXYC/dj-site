@@ -78,7 +78,7 @@ const ClassicArtistPage = () => {
             <td align="center" className="text">
               <a href="comment?objectType=release&amp;ID=68894">
                 <img
-                  src={`${prefix}/commentIcon.jpg`}
+                  src={`/img/commentIcon.jpg`}
                   title="Make a comment about this release"
                 />
               </a>

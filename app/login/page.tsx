@@ -437,9 +437,9 @@ export default function LoginPage(): JSX.Element {
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
-          backgroundImage: `url("${prefix}/wxyc_color.png")`,
+          backgroundImage: `url("/img/wxyc_color.png")`,
           [theme.getColorSchemeSelector("dark")]: {
-            backgroundImage: `url("${prefix}/wxyc_dark.png")`,
+            backgroundImage: `url("/img/wxyc_dark.png")`,
           },
         })}
       />

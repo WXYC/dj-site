@@ -42,7 +42,7 @@ export default function ClassicLogin() {
               <tr>
                 <td align="center" valign="top">
                   <img
-                    src={`${prefix}/wxyc-logo-classic.gif`}
+                    src={`/img/wxyc-logo-classic.gif`}
                     alt="WXYC logo"
                     style={{ border: 0 }}
                   />
@@ -127,7 +127,7 @@ export default function ClassicLogin() {
                   style={{ display: "flex", justifyContent: "center" }}
                 >
                   <img
-                    src={`${prefix}/wxyc-logo-classic.gif`}
+                    src={`/img/wxyc-logo-classic.gif`}
                     alt="WXYC logo"
                     style={{ border: 0 }}
                   />
