@@ -26,6 +26,7 @@ import Logo from "../components/Branding/Logo";
 import { ColorSchemeToggle } from "../components/General/Theme/ColorSchemeToggle";
 import { ViewStyleToggle } from "../components/General/Theme/ViewStyleToggle";
 import ClassicLogin from "./classic";
+import { prefix } from "@/utils/prefix";
 
 /**
  * @page
@@ -436,9 +437,9 @@ export default function LoginPage(): JSX.Element {
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
-          backgroundImage: 'url("/nextjs-github-pages/img/wxyc_color.png")',
+          backgroundImage: `url("${prefix}/wxyc_color.png")`,
           [theme.getColorSchemeSelector("dark")]: {
-            backgroundImage: 'url("/nextjs-github-pages/img/wxyc_dark.jpg")',
+            backgroundImage: `url("${prefix}/wxyc_dark.png")`,
           },
         })}
       />

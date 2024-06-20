@@ -1,6 +1,7 @@
 "use client";
 import AuthenticationGuard from "@/app/components/Authentication/AuthenticationGuard";
 import { getAuthenticatedUser, useDispatch, useSelector } from "@/lib/redux";
+import { prefix } from "@/utils/prefix";
 import React, { useState } from "react";
 
 const ClassicCatalogPage = () => {
@@ -35,7 +36,7 @@ const ClassicCatalogPage = () => {
               <td align="center" valign="top">
                 <span className="title">Search the&nbsp;&nbsp;</span>
                 <img
-                  src="/nextjs-github-pages/img/wxyc-logo-classic.gif"
+                  src={`${prefix}/wxyc-logo-classic.gif`}
                   alt="WXYC logo"
                   style={{ border: 0 }}
                 />
