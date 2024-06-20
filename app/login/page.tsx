@@ -439,7 +439,7 @@ export default function LoginPage(): JSX.Element {
           backgroundRepeat: "no-repeat",
           backgroundImage: `url("/img/wxyc_color.png")`,
           [theme.getColorSchemeSelector("dark")]: {
-            backgroundImage: `url("/img/wxyc_dark.png")`,
+            backgroundImage: `url("/img/wxyc_dark.jpg")`,
           },
         })}
       />
