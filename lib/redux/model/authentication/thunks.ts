@@ -40,8 +40,10 @@ export const login = createAppAsyncThunk(
 
     try {
       const authCommand = new InitiateAuthCommand(params);
+      console.log("Auth command: ", authCommand);
       const authResponse = await client.send(authCommand);
-
+      console.log("Auth response: ", authResponse);
+      
       if (authResponse.ChallengeName == "NEW_PASSWORD_REQUIRED") {
         return {
           authenticating: false,
