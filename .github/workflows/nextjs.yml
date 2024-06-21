@@ -79,15 +79,15 @@ jobs:
         run: ${{ steps.detect-package-manager.outputs.runner }} next build
         env:
           CI: false
-          REACT_APP_AWS_USER_POOL_ID: ${{ secrets.AWS_USER_POOL_ID }}
-          REACT_APP_AWS_REGION: ${{ secrets.AWS_REGION }}
-          REACT_APP_AWS_CLIENT_ID: ${{ secrets.AWS_CLIENT_ID }}
-          REACT_APP_AWS_ADMIN_IDENTITY_POOL_ID: ${{ secrets.AWS_ADMIN_IDENTITY_POOL_ID }}
-          REACT_APP_AWS_USER_IDENTITY_POOL_ID: ${{ secrets.AWS_USER_IDENTITY_POOL_ID }}
-          REACT_APP_LAST_FM_KEY: ${{ secrets.LAST_FM_KEY }}
-          REACT_APP_DISCOGS_CONSUMER_KEY: ${{ secrets.DISCOGS_CONSUMER_KEY }}
-          REACT_APP_DISCOGS_CONSUMER_SECRET: ${{ secrets.DISCOGS_CONSUMER_SECRET }}
-          REACT_APP_API_SERVER_URL: ${{ secrets.API_SERVER_URL }}
+          NEXT_PUBLIC_AWS_USER_POOL_ID: ${{ secrets.AWS_USER_POOL_ID }}
+          NEXT_PUBLIC_AWS_REGION: ${{ secrets.AWS_REGION }}
+          NEXT_PUBLIC_AWS_CLIENT_ID: ${{ secrets.AWS_CLIENT_ID }}
+          NEXT_PUBLIC_AWS_ADMIN_IDENTITY_POOL_ID: ${{ secrets.AWS_ADMIN_IDENTITY_POOL_ID }}
+          NEXT_PUBLIC_AWS_USER_IDENTITY_POOL_ID: ${{ secrets.AWS_USER_IDENTITY_POOL_ID }}
+          NEXT_PUBLIC_LAST_FM_KEY: ${{ secrets.LAST_FM_KEY }}
+          NEXT_PUBLIC_DISCOGS_CONSUMER_KEY: ${{ secrets.DISCOGS_CONSUMER_KEY }}
+          NEXT_PUBLIC_DISCOGS_CONSUMER_SECRET: ${{ secrets.DISCOGS_CONSUMER_SECRET }}
+          NEXT_PUBLIC_API_SERVER_URL: ${{ secrets.API_SERVER_URL }}
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
