@@ -51,7 +51,10 @@ export default function LoginPage(): JSX.Element {
     const username = form.username.value;
     const password = form.password.value;
 
+    console.log("Logging in");
+
     if (username && password) {
+      console.log("Dispatching login action");
       dispatch(login({ username, password }));
     }
   };
