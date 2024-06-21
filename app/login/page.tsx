@@ -27,6 +27,7 @@ import { ColorSchemeToggle } from "../components/General/Theme/ColorSchemeToggle
 import { ViewStyleToggle } from "../components/General/Theme/ViewStyleToggle";
 import ClassicLogin from "./classic";
 import { prefix } from "@/utils/prefix";
+import PageHeader from "@/utils/head";
 
 /**
  * @page
@@ -154,6 +155,7 @@ export default function LoginPage(): JSX.Element {
   return (
     <Box sx={{ height: "100%" }}>
       <AuthenticationGuard redirectTo="/login" savePath />
+      <PageHeader title="Login" />
       <Box
         sx={(theme) => ({
           width:

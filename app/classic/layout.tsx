@@ -5,12 +5,14 @@ import AuthenticationGuard from "../components/Authentication/AuthenticationGuar
 import LeaveClassic from "../components/Classic/LeaveClassic";
 import LogoutClassic from "../components/Classic/LogoutClassic";
 import ViewGuard from "../components/General/ViewGuard";
+import PageHeader from "@/utils/head";
 
 export default function ClassicLayout(props: React.PropsWithChildren) {
   return (
     <div>
       <ViewGuard />
       <AuthenticationGuard redirectTo="/login" savePath />
+      <PageHeader title = "Classic Site" />
       <nav style={{ display: "flex", justifyContent: "space-around" }}>
         <Link href="/classic/catalog">Access the Card Catalog</Link>
         <Link href="/classic/flowsheet">Visit the Flowsheet</Link>
