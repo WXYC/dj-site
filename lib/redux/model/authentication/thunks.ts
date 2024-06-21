@@ -22,9 +22,6 @@ import { LoginCredentials } from "./types";
 export const login = createAppAsyncThunk(
   "authentication/authenticateAsync",
   async (credentials: LoginCredentials): Promise<AuthenticationState> => {
-    
-    console.log("Logging in with credentials: ", credentials);
-
     const client = new CognitoIdentityProviderClient({
       region: process.env.NEXT_PUBLIC_AWS_REGION,
     });
@@ -40,9 +37,7 @@ export const login = createAppAsyncThunk(
 
     try {
       const authCommand = new InitiateAuthCommand(params);
-      console.log("Auth command: ", authCommand);
       const authResponse = await client.send(authCommand);
-      console.log("Auth response: ", authResponse);
       
       if (authResponse.ChallengeName == "NEW_PASSWORD_REQUIRED") {
         return {
@@ -55,9 +50,6 @@ export const login = createAppAsyncThunk(
           },
         };
       } else {
-
-        console.log("Auth response: ", authResponse);
-
         const accessToken = authResponse.AuthenticationResult?.AccessToken;
         sessionStorage.setItem("accessToken", accessToken || "");
         sessionStorage.setItem(
@@ -80,10 +72,7 @@ export const login = createAppAsyncThunk(
         const getUserCommmand = new GetUserCommand({
           AccessToken: accessToken,
         });
-        console.log("Getting user with command: ", getUserCommmand);
         const userResponse = await client.send(getUserCommmand);
-
-        console.log("User response: ", userResponse);
 
         if (!userResponse.Username || !userResponse.UserAttributes) {
           return nullState;
@@ -157,8 +146,6 @@ export const verifySession = createAppAsyncThunk(
   "authentication/verifyAuthenticationAsync",
   async (): Promise<AuthenticationState> => {
 
-    console.log("Verifying session");
-
     const accessToken = sessionStorage.getItem("accessToken");
     const idToken = sessionStorage.getItem("idToken");
 
@@ -178,9 +165,7 @@ export const verifySession = createAppAsyncThunk(
       const getUserCommmand = new GetUserCommand({
         AccessToken: accessToken,
       });
-      console.log("Getting user with command: ", getUserCommmand);
       const userResponse = await client.send(getUserCommmand);
-      console.log("User response: ", userResponse);
 
       return processUserResponse(userResponse, isAdmin);
     } catch (error: any) {
