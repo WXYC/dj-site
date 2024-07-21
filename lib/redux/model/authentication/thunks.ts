@@ -22,125 +22,126 @@ import local from "next/font/local";
 
 export const login = createAppAsyncThunk(
   "authentication/authenticateAsync",
-  async (credentials: LoginCredentials): Promise<AuthenticationState> => {
-    const client = new CognitoIdentityProviderClient({
-      region: process.env.NEXT_PUBLIC_AWS_REGION,
-    });
+   async (credentials: LoginCredentials): Promise<AuthenticationState> => {
+      const client = new CognitoIdentityProviderClient({
+         region: process.env.NEXT_PUBLIC_AWS_REGION,
+      });
 
-    const params: InitiateAuthCommandInput = {
-      ClientId: process.env.NEXT_PUBLIC_AWS_CLIENT_ID,
-      AuthFlow: "USER_PASSWORD_AUTH",
-      AuthParameters: {
-        USERNAME: credentials.username,
-        PASSWORD: credentials.password,
-      },
-    };
+      const params: InitiateAuthCommandInput = {
+         ClientId: process.env.NEXT_PUBLIC_AWS_CLIENT_ID,
+         AuthFlow: "USER_PASSWORD_AUTH",
+         AuthParameters: {
+            USERNAME: credentials.username,
+            PASSWORD: credentials.password,
+         },
+      };
 
-    try {
-      const authCommand = new InitiateAuthCommand(params);
-      const authResponse = await client.send(authCommand);
+      try {
+         const authCommand = new InitiateAuthCommand(params);
+         const authResponse = await client.send(authCommand);
 
-      if (authResponse.ChallengeName == "NEW_PASSWORD_REQUIRED") {
-        return {
-          authenticating: false,
-          isAuthenticated: false,
-          user: {
-            username: credentials.username,
-            resetPassword: true,
-            session: authResponse.Session,
-          },
-        };
-      } else {
-        const accessToken = authResponse.AuthenticationResult?.AccessToken;
-        sessionStorage.setItem("accessToken", accessToken || "");
-        sessionStorage.setItem(
-          "refreshToken",
-          authResponse.AuthenticationResult?.RefreshToken || ""
-        );
-        sessionStorage.setItem(
-          "idToken",
-          authResponse.AuthenticationResult?.IdToken || ""
-        );
+         switch (authResponse.ChallengeName) {
+            case "NEW_PASSWORD_REQUIRED":
+               return {
+                  authenticating: false,
+                  isAuthenticated: false,
+                  user: {
+                     username: credentials.username,
+                     resetPassword: true,
+                     session: authResponse.Session,
+                  },
+               };
+            default:
+               const accessToken = authResponse.AuthenticationResult?.AccessToken;
+               sessionStorage.setItem("accessToken", accessToken || "");
+               sessionStorage.setItem(
+                  "refreshToken",
+                  authResponse.AuthenticationResult?.RefreshToken || ""
+               );
+               sessionStorage.setItem(
+                  "idToken",
+                  authResponse.AuthenticationResult?.IdToken || ""
+               );
 
-        var jwt_payload = jwtDecode<DJwtPayload>(
-          authResponse?.AuthenticationResult?.IdToken || ""
-        );
+               var jwt_payload = jwtDecode<DJwtPayload>(
+                  authResponse?.AuthenticationResult?.IdToken || ""
+               );
 
-        var isAdmin: boolean =
-          jwt_payload["cognito:groups"]?.includes("station-management") ||
-          false;
+               var isAdmin: boolean =
+                  jwt_payload["cognito:groups"]?.includes("station-management") ||
+                  false;
 
-        const getUserCommmand = new GetUserCommand({
-          AccessToken: accessToken,
-        });
-        const userResponse = await client.send(getUserCommmand);
+               const getUserCommmand = new GetUserCommand({
+                  AccessToken: accessToken,
+               });
+               const userResponse = await client.send(getUserCommmand);
 
-        if (!userResponse.Username || !userResponse.UserAttributes) {
-          return nullState;
-        }
+               if (!userResponse.Username || !userResponse.UserAttributes) {
+                  return nullState;
+               }
 
-        const { data: backendData, error: backendError } = await backendSync(
-          userResponse
-        );
+               const { data: backendData, error: backendError } = await backendSync(
+                  userResponse
+               );
 
-        if (backendError || !backendData) {
-          toast.error(
-            "The backend is out of sync with the user database. This is fatal. Contact a site admin immediately."
-          );
-          return nullState;
-        }
+               if (backendError || !backendData) {
+                  toast.error(
+                     "The backend is out of sync with the user database. This is fatal. Contact a site admin immediately."
+                  );
+                  return nullState;
+               }
 
-        let djName = "";
-        if (!backendData.dj_name || !backendData.real_name) {
-          const { data: updateData, error: updateError } = await updater(
-            `djs/register`
-          )({
-            cognito_user_name: userResponse.Username,
-            real_name: userResponse?.UserAttributes?.find(
-              (attr) => attr.Name == "name"
-            )?.Value,
-            dj_name: userResponse?.UserAttributes?.find(
-              (attr) => attr.Name == "custom:dj-name"
-            )?.Value,
-          });
+               let djName = "";
+               if (!backendData.dj_name || !backendData.real_name) {
+                  const { data: updateData, error: updateError } = await updater(
+                     `djs/register`
+                  )({
+                     cognito_user_name: userResponse.Username,
+                     real_name: userResponse?.UserAttributes?.find(
+                        (attr) => attr.Name == "name"
+                     )?.Value,
+                     dj_name: userResponse?.UserAttributes?.find(
+                        (attr) => attr.Name == "custom:dj-name"
+                     )?.Value,
+                  });
 
-          if (updateError) {
-            toast.error(
-              "The backend is out of sync with the user database. This is fatal. Contact a site admin immediately."
-            );
-            return nullState;
-          }
+                  if (updateError) {
+                     toast.error(
+                        "The backend is out of sync with the user database. This is fatal. Contact a site admin immediately."
+                     );
+                     return nullState;
+                  }
 
-          djName = updateData.dj_name;
-        }
+                  djName = updateData.dj_name;
+               }
 
-        return {
-          authenticating: false,
-          isAuthenticated: true,
-          user: {
-            username: userResponse.Username || credentials.username,
-            djName:
-              backendData.dj_name ||
-              userResponse.UserAttributes?.find(
-                (x) => x.Name == "custom:dj-name"
-              )?.Value ||
-              "",
-            djId: Number(backendData.id),
-            name:
-              backendData.real_name ||
-              userResponse.UserAttributes?.find((x) => x.Name == "name")
-                ?.Value ||
-              "",
-            isAdmin: isAdmin,
-            showRealName: false,
-          },
-        };
+               return {
+                  authenticating: false,
+                  isAuthenticated: true,
+                  user: {
+                     username: userResponse.Username || credentials.username,
+                     djName:
+                        backendData.dj_name ||
+                        userResponse.UserAttributes?.find(
+                           (x) => x.Name == "custom:dj-name"
+                        )?.Value ||
+                        "",
+                     djId: Number(backendData.id),
+                     name:
+                        backendData.real_name ||
+                        userResponse.UserAttributes?.find((x) => x.Name == "name")
+                           ?.Value ||
+                        "",
+                     isAdmin: isAdmin,
+                     showRealName: false,
+                  },
+               };
+         }
+      } catch (error) {
+         toast.error("Invalid username or password");
+         return nullState;
       }
-    } catch (error) {
-      toast.error("Invalid username or password");
-      return nullState;
-    }
-  }
+   }
 );
 
 export const verifySession = createAppAsyncThunk(
