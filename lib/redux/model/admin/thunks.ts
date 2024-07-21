@@ -156,6 +156,24 @@ export const populateAdmins = createAppAsyncThunk(
     }
 );
 
+export const populateMusicDirectors = createAppAsyncThunk(
+    "admin/getMusicDirectors",
+    async (): Promise<DJ[]> => {
+        
+        const client = await getAdminClient();
+
+        const params: ListUsersInGroupCommandInput = {
+            UserPoolId: process.env.NEXT_PUBLIC_AWS_USER_POOL_ID,
+            GroupName: process.env.NEXT_PUBLIC_AWS_MD_GROUP_NAME
+        }
+
+        const listCommand = new ListUsersInGroupCommand(params);
+        const listResponse = await client.send(listCommand);
+
+        return listResponse.Users?.map((user) => convertUserToDJResult(user)) ?? [];
+    }
+);
+
 export const makeAdmin = createAppAsyncThunk(
     "admin/makeAdmin",
     async (dj: DJ): Promise<void> => {
@@ -165,6 +183,25 @@ export const makeAdmin = createAppAsyncThunk(
         const params: AdminAddUserToGroupCommandInput = {
             UserPoolId: process.env.NEXT_PUBLIC_AWS_USER_POOL_ID,
             GroupName: process.env.NEXT_PUBLIC_AWS_ADMIN_GROUP_NAME,
+            Username: dj.userName
+        };
+
+        const addCommand = new AdminAddUserToGroupCommand(params);
+        const addResponse = await client.send(addCommand);
+
+        return;
+    }
+);
+
+export const makeMusicDirector = createAppAsyncThunk(
+    "admin/makeMusicDirector",
+    async (dj: DJ): Promise<void> => {
+        
+        const client = await getAdminClient();
+        
+        const params: AdminAddUserToGroupCommandInput = {
+            UserPoolId: process.env.NEXT_PUBLIC_AWS_USER_POOL_ID,
+            GroupName: process.env.NEXT_PUBLIC_AWS_MD_GROUP_NAME,
             Username: dj.userName
         };
 
@@ -193,6 +230,26 @@ export const removeAdmin = createAppAsyncThunk(
         return;
     }
 );
+
+export const removeMusicDirector = createAppAsyncThunk(
+    "admin/removeMusicDirector",
+    async (dj: DJ): Promise<void> => {
+        
+        const client = await getAdminClient();
+
+        const params: AdminRemoveUserFromGroupCommandInput = {
+            UserPoolId: process.env.NEXT_PUBLIC_AWS_USER_POOL_ID,
+            GroupName: process.env.NEXT_PUBLIC_AWS_MD_GROUP_NAME,
+            Username: dj.userName
+        };
+
+        const removeCommand = new AdminRemoveUserFromGroupCommand(params);
+        const removeResponse = await client.send(removeCommand);
+
+        return;
+    }
+);
+
 
 const getAdminClient = async (): Promise<CognitoIdentityProviderClient> => {
 
