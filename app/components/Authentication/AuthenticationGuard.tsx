@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  AdminProtectedRoutes,
   AdminType,
   getAuthenticatedUser,
   getCurrentUser,
@@ -57,11 +58,15 @@ const AuthenticationGuard = (props: AuthenticationGuardProps) => {
     redirect(redirectPath);
   }
 
-  if (loggedIn && pathname.includes("admin") && user?.adminType == AdminType.None)
+  if (loggedIn && !authenticating && pathname.includes("admin"))
+  {
+    var adminRoute = pathname.split("/");
+    if (!AdminProtectedRoutes[user?.adminType ?? AdminType.None].includes(adminRoute[adminRoute.length - 1]))
     {
-      toast.error("You do not have permission to access this page.");
-      redirect("/");
+      toast.error(`You do not have permission to access this page (${adminRoute[adminRoute.length - 1]}).`);
+      redirect("/dashboard/catalog");
     }
+  }
 };
 
 export default AuthenticationGuard;

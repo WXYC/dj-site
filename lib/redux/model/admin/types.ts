@@ -18,3 +18,13 @@ export interface DJ {
     shows?: string;
     email?: string;
 }
+
+export interface AdminProtectedRoutesType {
+    [key: string]: string[];
+}
+
+export const AdminProtectedRoutes: AdminProtectedRoutesType = {
+    [AdminType.StationManager]: ["roster", "catalog"],
+    [AdminType.MusicDirector]: ["catalog"],
+    [AdminType.None]: []
+};
