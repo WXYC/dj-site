@@ -233,31 +233,6 @@ export default function FirstSidebar(): JSX.Element {
               </ListItem>
             </Link>
             <Link
-              href="/dashboard/admin/schedule"
-              onClick={(e) => (user.adminType != AdminType.StationManager) && e.preventDefault()}
-            >
-              <ListItem>
-                <Tooltip
-                  title="Station Management  -  Schedule"
-                  arrow={true}
-                  placement="right"
-                  size="sm"
-                  variant="outlined"
-                >
-                  <ListItemButton
-                    disabled={(user.adminType != AdminType.StationManager)}
-                    variant={
-                      pathname === "/dashboard/admin/schedule"
-                        ? "solid"
-                        : "plain"
-                    }
-                  >
-                    <EditCalendar />
-                  </ListItemButton>
-                </Tooltip>
-              </ListItem>
-            </Link>
-            <Link
               href="/dashboard/admin/catalog"
             >
               <ListItem>

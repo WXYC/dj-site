@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { AddDJsPopup } from "@/app/components/Admin/Popups/AddDJsPopup";
 import DJEntry from "@/app/components/Admin/Roster/DJEntry";
-import { DJ, applicationSlice, fetchDJs, getAdminError, getAdminLoading, getAuthenticatedUser, getDJs, populateAdmins, useDispatch, useSelector } from "@/lib/redux";
+import { DJ, applicationSlice, fetchDJs, getAdminError, getAdminLoading, getAuthenticatedUser, getDJs, useDispatch, useSelector } from "@/lib/redux";
 import exportDJsAsCSV from "@/lib/utilities/admin/dj-csv-export";
 import { GppBad } from "@mui/icons-material";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
@@ -49,7 +49,7 @@ const DJRoster = (): JSX.Element => {
 
   useEffect(() => {
     dispatch(fetchDJs()).then(() => {
-      dispatch(populateAdmins());
+      dispatch(populateSta());
     });
   }, [dispatch]);
 

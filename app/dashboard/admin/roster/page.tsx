@@ -189,7 +189,7 @@ const DJRoster = (): JSX.Element => {
             <th style = {{ minWidth: '100px' }}>Name</th>
             <th style = {{ minWidth: '100px' }}>Username</th>
             <th style = {{ minWidth: '100px' }}>DJ Name</th>
-            <th style = {{ minWidth: '100px' }}>Shows</th>
+            <th style = {{ minWidth: '100px' }}>Email</th>
             <th
               aria-label="last"
               style={{ width: "var(--Table-lastColumnWidth)" }}

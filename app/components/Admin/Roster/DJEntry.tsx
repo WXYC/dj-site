@@ -117,7 +117,7 @@ const DJEntry = (props: DJEntryProps) => {
         <td>{props.dj.realName}</td>
         <td>{props.dj.userName}</td>
         <td>{(props.dj.djName.length > 0) && 'DJ'} {props.dj.djName}</td>
-        <td>{props.dj.shows}</td>
+        <td>{props.dj.email}</td>
         <td>
           <Stack direction="row" spacing={0.5}>
             <Tooltip

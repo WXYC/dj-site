@@ -21,7 +21,7 @@ import {
     Typography,
 } from "@mui/joy";
 import { toast } from "sonner";
-import { addDJ, applicationSlice, fetchDJs, populateAdmins, useDispatch } from "@/lib/redux";
+import { addDJ, applicationSlice, fetchDJs, populateStationManagers, populateMusicDirectors, useDispatch, AdminType } from "@/lib/redux";
 
 type AddDJsPopupProps = { };
 
@@ -54,7 +54,7 @@ export const AddDJsPopup = (props: AddDJsPopupProps) => {
                 userName: username,
                 realName: "Anonymous",
                 djName: "WXYC",
-                isAdmin: false,
+                adminType: AdminType.None,
                 email: email
             },
             temporaryPassword: password
@@ -72,7 +72,8 @@ export const AddDJsPopup = (props: AddDJsPopupProps) => {
           setLoading(false);
         })().finally(() => {
           dispatch(fetchDJs()).then(() => {
-            dispatch(populateAdmins());
+            dispatch(populateStationManagers());
+            dispatch(populateMusicDirectors());
           }).then(() => {
             closePopup();
           });
@@ -101,7 +102,8 @@ export const AddDJsPopup = (props: AddDJsPopupProps) => {
           setLoading(false);
         })().finally(() => {
           dispatch(fetchDJs()).then(() => {
-            dispatch(populateAdmins());
+            dispatch(populateStationManagers());
+            dispatch(populateMusicDirectors());
           }).then(() => {
             closePopup();
           });
