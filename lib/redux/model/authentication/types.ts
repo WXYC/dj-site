@@ -11,6 +11,10 @@ export interface NewUserCredentials extends LoginCredentials {
   session: string;
 }
 
+export interface NewPasswordCredentials extends LoginCredentials {
+  confirmationCode: string;
+};
+
 export interface AuthenticationState {
   authenticating: boolean;
   isAuthenticated: boolean;
@@ -43,8 +47,15 @@ export enum AdminType
 
 export interface AuthenticatingUser {
   username: string;
-  resetPassword: boolean;
+  userType: AuthenticatingUserState;
   session?: string;
+}
+
+export enum AuthenticatingUserState {
+  None,
+  IsUser,
+  IsNewUser,
+  IsResettingPassword
 }
 
 export interface FunFact {

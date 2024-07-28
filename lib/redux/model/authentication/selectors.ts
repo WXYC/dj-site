@@ -4,13 +4,16 @@ import {
   type ReduxState,
   User,
   type AuthenticatingUser,
+  AuthenticatingUserState,
 } from "@/lib/redux";
 
 export const isLoggedIn = (state: ReduxState) => state.auth.isAuthenticated;
 export const isAuthenticating = (state: ReduxState) =>
   state.auth.authenticating;
+export const isNewUser = (state: ReduxState) =>
+  (state.auth.user as AuthenticatingUser)?.userType == AuthenticatingUserState.IsNewUser ?? false;
 export const needsNewPassword = (state: ReduxState) =>
-  (state.auth.user as AuthenticatingUser)?.resetPassword ?? false;
+  (state.auth.user as AuthenticatingUser)?.userType == AuthenticatingUserState.IsResettingPassword ?? false;
 
 export const getFloatingUsername = (state: ReduxState) =>
   (state.auth.user as AuthenticatingUser)?.username ?? undefined;

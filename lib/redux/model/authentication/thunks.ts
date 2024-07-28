@@ -1,10 +1,13 @@
 import {
   AuthenticationResultType,
   CognitoIdentityProviderClient,
+  ConfirmForgotPasswordCommand,
+  ConfirmForgotPasswordCommandInput,
   GetUserCommand,
   GetUserCommandOutput,
   InitiateAuthCommand,
   InitiateAuthCommandInput,
+  PasswordResetRequiredException,
   RespondToAuthChallengeCommand,
   RespondToAuthChallengeCommandInput,
   UpdateUserAttributesCommand,
@@ -22,7 +25,7 @@ import {
   updater,
 } from "../..";
 import { createAppAsyncThunk } from "../../createAppAsyncThunk";
-import { AdminType, LoginCredentials, NewUserCredentials, ProcessedAuthenticationResult } from "./types";
+import { AdminType, AuthenticatingUserState, LoginCredentials, NewPasswordCredentials, NewUserCredentials, ProcessedAuthenticationResult } from "./types";
 import local from "next/font/local";
 
 export const login = createAppAsyncThunk(
@@ -52,7 +55,7 @@ export const login = createAppAsyncThunk(
                   isAuthenticated: false,
                   user: {
                      username: credentials.username,
-                     resetPassword: true,
+                     userType: AuthenticatingUserState.IsNewUser,
                      session: authResponse.Session,
                   },
                };
@@ -126,8 +129,22 @@ export const login = createAppAsyncThunk(
                };
          }
       } catch (error) {
-         toast.error("Invalid username or password");
-         return nullState;
+        if (error instanceof PasswordResetRequiredException)
+        {
+          return {
+            authenticating: false,
+            isAuthenticated: false,
+            user: {
+               username: credentials.username,
+               userType: AuthenticatingUserState.IsResettingPassword,
+            },
+         };
+        }
+        else
+        {
+          toast.error("Invalid username or password");
+          return nullState;
+        }
       }
    }
 );
@@ -198,6 +215,76 @@ export const handleNewUser = createAppAsyncThunk(
       },
     };
 
+  }
+);
+
+export const handleNewPassword = createAppAsyncThunk(
+  "authentication/handleNewPasswordAsync",
+  async (credentials: NewPasswordCredentials): Promise<AuthenticationState> => {
+    const client = new CognitoIdentityProviderClient({
+      region: process.env.NEXT_PUBLIC_AWS_REGION,
+    });
+
+    const params: ConfirmForgotPasswordCommandInput = {
+      ClientId: process.env.NEXT_PUBLIC_AWS_CLIENT_ID,
+      ConfirmationCode: credentials.confirmationCode,
+      Password: credentials.password,
+      Username: credentials.username,
+    };
+
+    const command = new ConfirmForgotPasswordCommand(params);
+    await client.send(command);
+
+    const initiateAuthParams: InitiateAuthCommandInput = {
+      ClientId: process.env.NEXT_PUBLIC_AWS_CLIENT_ID,
+      AuthFlow: "USER_PASSWORD_AUTH",
+      AuthParameters: {
+        USERNAME: credentials.username,
+        PASSWORD: credentials.password,
+      },
+    };
+
+    const authCommand = new InitiateAuthCommand(initiateAuthParams);
+    const authResponse = await client.send(authCommand);
+
+    const result = handleAuthenticationResult(authResponse.AuthenticationResult);
+
+    const getUserCommmand = new GetUserCommand({
+      AccessToken: result.accessToken,
+    });
+
+    const userResponse = await client.send(getUserCommmand);
+
+    if (!userResponse.Username || !userResponse.UserAttributes) {
+      return nullState;
+    }
+
+    const { data: backendData, error: backendError } = await backendSync(
+      userResponse
+    );
+
+    if (backendError || !backendData) {
+      toast.error(
+        "The backend is out of sync with the user database. This is fatal. Contact a site admin immediately."
+      );
+      return nullState;
+    }
+
+    return {
+      authenticating: false,
+      isAuthenticated: true,
+      user: {
+        username: userResponse.Username,
+        djId: Number(backendData.id),
+        djName:
+          userResponse.UserAttributes?.find((x) => x.Name == "custom:dj-name")
+            ?.Value || "",
+        name:
+          userResponse.UserAttributes?.find((x) => x.Name == "name")?.Value || "",
+        adminType: result.adminType,
+        showRealName: false,
+      },
+    };
   }
 );
 
