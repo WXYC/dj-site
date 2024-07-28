@@ -1,8 +1,12 @@
 "use client";
 
 import {
+  NewUserCredentials,
   getClassicView,
   getClassicViewAvailable,
+  getFloatingSession,
+  getFloatingUsername,
+  handleNewUser,
   isAuthenticating,
   isLoggedIn,
   login,
@@ -43,6 +47,9 @@ export default function LoginPage(): JSX.Element {
   const loggedIn = useSelector(isLoggedIn);
   const resetPasswordRequired = useSelector(needsNewPassword);
 
+  const currentSession = useSelector(getFloatingSession);
+  const currentUsername = useSelector(getFloatingUsername);
+
   const dispatch = useDispatch();
   const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -57,6 +64,21 @@ export default function LoginPage(): JSX.Element {
 
   const handlePasswordUpdate = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    const form = e.currentTarget;
+
+    const credentials : NewUserCredentials = {
+      username: currentUsername ?? "",
+      password: form.password.value,
+      realName: form.realName.value,
+      djName: form.djName.value,
+      session: currentSession ?? ""
+    };
+
+    if (credentials.realName && credentials.djName && credentials.password) {
+      dispatch(handleNewUser(credentials));
+    };
+
   };
 
   const altViewAvailable = useSelector(getClassicViewAvailable);
@@ -94,12 +116,20 @@ export default function LoginPage(): JSX.Element {
     ["to hope if you got it.", "Florence + The Machine"],
   ];
 
-  const randomIndexForWelcomeQuote = Math.floor(
+  const getRandomIndexForWelcomeQuote = () => Math.floor(
     Math.random() * welcomeQuotesAndArtists.length
   );
-  const randomIndexForHoldOnQuote = Math.floor(
+  const getRandomIndexForHoldOnQuote = () => Math.floor(
     Math.random() * holdOnQuotesAndArtists.length
   );
+
+  const [randomIndexForWelcomeQuote, setRandomIndexForWelcomeQuote] = useState(0);
+  const [randomIndexForHoldOnQuote, setRandomIndexForHoldOnQuote] = useState(0);
+
+  useEffect(() => {
+    setRandomIndexForWelcomeQuote(getRandomIndexForWelcomeQuote());
+    setRandomIndexForHoldOnQuote(getRandomIndexForHoldOnQuote());
+  }, []);
 
   useEffect(() => {
     // Needs one capital letter, one lowercase letter, and one number
@@ -256,7 +286,7 @@ export default function LoginPage(): JSX.Element {
                     <Input
                       placeholder="Enter your real name"
                       type="text"
-                      name="name"
+                      name="realName"
                       disabled={authenticating}
                       color={name.length > 0 ? "success" : "primary"}
                       onChange={(e) => {

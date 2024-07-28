@@ -1,9 +1,14 @@
 import {
+  AuthenticationResultType,
   CognitoIdentityProviderClient,
   GetUserCommand,
   GetUserCommandOutput,
   InitiateAuthCommand,
   InitiateAuthCommandInput,
+  RespondToAuthChallengeCommand,
+  RespondToAuthChallengeCommandInput,
+  UpdateUserAttributesCommand,
+  UpdateUserAttributesCommandInput,
 } from "@aws-sdk/client-cognito-identity-provider";
 import { jwtDecode } from "jwt-decode";
 import { toast } from "sonner";
@@ -17,7 +22,7 @@ import {
   updater,
 } from "../..";
 import { createAppAsyncThunk } from "../../createAppAsyncThunk";
-import { AdminType, LoginCredentials } from "./types";
+import { AdminType, LoginCredentials, NewUserCredentials, ProcessedAuthenticationResult } from "./types";
 import local from "next/font/local";
 
 export const login = createAppAsyncThunk(
@@ -52,28 +57,10 @@ export const login = createAppAsyncThunk(
                   },
                };
             default:
-               const accessToken = authResponse.AuthenticationResult?.AccessToken;
-               sessionStorage.setItem("accessToken", accessToken || "");
-               sessionStorage.setItem(
-                  "refreshToken",
-                  authResponse.AuthenticationResult?.RefreshToken || ""
-               );
-               sessionStorage.setItem(
-                  "idToken",
-                  authResponse.AuthenticationResult?.IdToken || ""
-               );
-
-               var jwt_payload = jwtDecode<DJwtPayload>(
-                  authResponse?.AuthenticationResult?.IdToken || ""
-               );
-
-               var adminType: AdminType =
-                  jwt_payload["cognito:groups"]?.includes("station-management") ? AdminType.StationManager :
-                  jwt_payload["cognito:groups"]?.includes("music-management") ? AdminType.MusicDirector :
-                  AdminType.None;
+               const result = handleAuthenticationResult(authResponse.AuthenticationResult);
 
                const getUserCommmand = new GetUserCommand({
-                  AccessToken: accessToken,
+                  AccessToken: result.accessToken,
                });
                const userResponse = await client.send(getUserCommmand);
 
@@ -133,7 +120,7 @@ export const login = createAppAsyncThunk(
                         userResponse.UserAttributes?.find((x) => x.Name == "name")
                            ?.Value ||
                         "",
-                     adminType: adminType,
+                     adminType: result.adminType,
                      showRealName: false,
                   },
                };
@@ -143,6 +130,75 @@ export const login = createAppAsyncThunk(
          return nullState;
       }
    }
+);
+
+export const handleNewUser = createAppAsyncThunk(
+  "authentication/handleNewUserAsync",
+  async (credentials: NewUserCredentials): Promise<AuthenticationState> => {
+    const client = new CognitoIdentityProviderClient({
+      region: process.env.NEXT_PUBLIC_AWS_REGION,
+    });
+
+    const responseParams: RespondToAuthChallengeCommandInput = {
+      ChallengeName: "NEW_PASSWORD_REQUIRED",
+      ClientId: process.env.NEXT_PUBLIC_AWS_CLIENT_ID,
+      ChallengeResponses: {
+        "USERNAME": credentials.username,
+        "NEW_PASSWORD": credentials.password,
+      },
+      Session: credentials.session || "",
+    };
+
+    const authCommand = new RespondToAuthChallengeCommand(responseParams);
+    const authResponse = await client.send(authCommand);
+
+    const result = handleAuthenticationResult(authResponse.AuthenticationResult);
+
+    const updateParams: UpdateUserAttributesCommandInput = {
+      AccessToken: result.accessToken,
+      UserAttributes: [
+        { Name: "name", Value: credentials.realName },
+        { Name: "custom:dj-name", Value: credentials.djName },
+      ],
+    };
+
+    const updateCommand = new UpdateUserAttributesCommand(updateParams);
+    await client.send(updateCommand);
+
+    const getUserCommmand = new GetUserCommand({
+      AccessToken: result.accessToken,
+    });
+    const userResponse = await client.send(getUserCommmand);
+
+    if (!userResponse.Username || !userResponse.UserAttributes) {
+      return nullState;
+    }
+
+    const { data: backendData, error: backendError } = await backendSync(
+      userResponse
+    );
+
+    if (backendError || !backendData) {
+      toast.error(
+        "The backend is out of sync with the user database. This is fatal. Contact a site admin immediately."
+      );
+      return nullState;
+    }
+
+    return {
+      authenticating: false,
+      isAuthenticated: true,
+      user: {
+        username: userResponse.Username,
+        djId: Number(backendData.id),
+        djName: credentials.djName,
+        name: credentials.realName,
+        adminType: AdminType.None,
+        showRealName: false,
+      },
+    };
+
+  }
 );
 
 export const verifySession = createAppAsyncThunk(
@@ -207,35 +263,52 @@ const refreshTokenLogin = async (
     const authCommand = new InitiateAuthCommand(params);
     const authResponse = await client.send(authCommand);
 
-    const accessToken = authResponse.AuthenticationResult?.AccessToken;
-    sessionStorage.setItem("accessToken", accessToken || "");
-    sessionStorage.setItem(
-      "refreshToken",
-      authResponse.AuthenticationResult?.RefreshToken || ""
-    );
-    sessionStorage.setItem(
-      "idToken",
-      authResponse.AuthenticationResult?.IdToken || ""
-    );
-
-    var jwt_payload = jwtDecode<DJwtPayload>(
-      authResponse?.AuthenticationResult?.IdToken || ""
-    );
-    const adminType: AdminType =
-      jwt_payload["cognito:groups"]?.includes("station-management") ? AdminType.StationManager :
-      jwt_payload["cognito:groups"]?.includes("music-management") ? AdminType.MusicDirector :
-      AdminType.None;
+    const result = handleAuthenticationResult(authResponse.AuthenticationResult);
 
     const getUserCommmand = new GetUserCommand({
-      AccessToken: accessToken,
+      AccessToken: result.accessToken,
     });
     const userResponse = await client.send(getUserCommmand);
 
-    return processUserResponse(userResponse, adminType);
+    return processUserResponse(userResponse, result.adminType);
   } catch (error: any) {
     toast.error("Could not log you back in.");
     return nullState;
   }
+};
+
+const handleAuthenticationResult = (
+  result : AuthenticationResultType | undefined
+): ProcessedAuthenticationResult => {
+
+  const accessToken = result?.AccessToken;
+
+  sessionStorage.setItem("accessToken", accessToken || "");
+  sessionStorage.setItem(
+    "refreshToken",
+    result?.RefreshToken || ""
+  );
+  sessionStorage.setItem(
+    "idToken",
+    result?.IdToken || ""
+  );
+
+  var jwt_payload = jwtDecode<DJwtPayload>(
+    result?.IdToken || ""
+  );
+
+  var adminType: AdminType =
+    jwt_payload["cognito:groups"]?.includes("station-management") ? AdminType.StationManager :
+    jwt_payload["cognito:groups"]?.includes("music-management") ? AdminType.MusicDirector :
+    AdminType.None;
+
+  return {
+    accessToken: accessToken,
+    refreshToken: result?.RefreshToken || "",
+    idToken: result?.IdToken || "",
+    adminType: adminType
+  };
+
 };
 
 const processUserResponse = async (

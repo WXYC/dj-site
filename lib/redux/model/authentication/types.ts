@@ -5,10 +5,23 @@ export interface LoginCredentials {
   password: string;
 }
 
+export interface NewUserCredentials extends LoginCredentials {
+  realName: string;
+  djName: string;
+  session: string;
+}
+
 export interface AuthenticationState {
   authenticating: boolean;
   isAuthenticated: boolean;
   user?: User | AuthenticatingUser;
+}
+
+export interface ProcessedAuthenticationResult {
+  accessToken: string | undefined;
+  refreshToken: string;
+  idToken: string;
+  adminType: AdminType;
 }
 
 export interface User {
