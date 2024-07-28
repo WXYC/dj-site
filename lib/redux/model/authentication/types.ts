@@ -16,9 +16,16 @@ export interface User {
   djName: string;
   djId: number;
   name: string;
-  isAdmin: boolean;
+  adminType: AdminType;
   showRealName: boolean;
   funFact?: FunFact;
+}
+
+export enum AdminType
+{
+  None = "None",
+  StationManager = "Station Manager",
+  MusicDirector = "Music Director",
 }
 
 export interface AuthenticatingUser {

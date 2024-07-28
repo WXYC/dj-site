@@ -17,7 +17,7 @@ import {
   updater,
 } from "../..";
 import { createAppAsyncThunk } from "../../createAppAsyncThunk";
-import { LoginCredentials } from "./types";
+import { AdminType, LoginCredentials } from "./types";
 import local from "next/font/local";
 
 export const login = createAppAsyncThunk(
@@ -67,9 +67,10 @@ export const login = createAppAsyncThunk(
                   authResponse?.AuthenticationResult?.IdToken || ""
                );
 
-               var isAdmin: boolean =
-                  jwt_payload["cognito:groups"]?.includes("station-management") ||
-                  false;
+               var adminType: AdminType =
+                  jwt_payload["cognito:groups"]?.includes("station-management") ? AdminType.StationManager :
+                  jwt_payload["cognito:groups"]?.includes("music-management") ? AdminType.MusicDirector :
+                  AdminType.None;
 
                const getUserCommmand = new GetUserCommand({
                   AccessToken: accessToken,
@@ -132,7 +133,7 @@ export const login = createAppAsyncThunk(
                         userResponse.UserAttributes?.find((x) => x.Name == "name")
                            ?.Value ||
                         "",
-                     isAdmin: isAdmin,
+                     adminType: adminType,
                      showRealName: false,
                   },
                };
@@ -159,8 +160,10 @@ export const verifySession = createAppAsyncThunk(
     });
 
     var jwt_payload = jwtDecode<DJwtPayload>(idToken);
-    const isAdmin: boolean =
-      jwt_payload["cognito:groups"]?.includes("station-management") || false;
+    const adminType: AdminType =
+      jwt_payload["cognito:groups"]?.includes("station-management") ? AdminType.StationManager :
+      jwt_payload["cognito:groups"]?.includes("music-management") ? AdminType.MusicDirector :
+      AdminType.None;
 
     try {
       const getUserCommmand = new GetUserCommand({
@@ -168,7 +171,7 @@ export const verifySession = createAppAsyncThunk(
       });
       const userResponse = await client.send(getUserCommmand);
 
-      return processUserResponse(userResponse, isAdmin);
+      return processUserResponse(userResponse, adminType);
     } catch (error: any) {
       if (
         error == "Access Token has expired" ||
@@ -218,15 +221,17 @@ const refreshTokenLogin = async (
     var jwt_payload = jwtDecode<DJwtPayload>(
       authResponse?.AuthenticationResult?.IdToken || ""
     );
-    const isAdmin: boolean =
-      jwt_payload["cognito:groups"]?.includes("station-management") || false;
+    const adminType: AdminType =
+      jwt_payload["cognito:groups"]?.includes("station-management") ? AdminType.StationManager :
+      jwt_payload["cognito:groups"]?.includes("music-management") ? AdminType.MusicDirector :
+      AdminType.None;
 
     const getUserCommmand = new GetUserCommand({
       AccessToken: accessToken,
     });
     const userResponse = await client.send(getUserCommmand);
 
-    return processUserResponse(userResponse, isAdmin);
+    return processUserResponse(userResponse, adminType);
   } catch (error: any) {
     toast.error("Could not log you back in.");
     return nullState;
@@ -235,7 +240,7 @@ const refreshTokenLogin = async (
 
 const processUserResponse = async (
   userResponse: GetUserCommandOutput,
-  isAdmin: boolean
+  adminType: AdminType
 ): Promise<AuthenticationState> => {
   if (!userResponse.Username || !userResponse.UserAttributes) {
     return nullState;
@@ -262,7 +267,7 @@ const processUserResponse = async (
           ?.Value || "",
       name:
         userResponse.UserAttributes?.find((x) => x.Name == "name")?.Value || "",
-      isAdmin: isAdmin,
+      adminType: adminType,
       showRealName: false,
     },
   };

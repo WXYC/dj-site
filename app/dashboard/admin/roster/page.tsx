@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 
 import { AddDJsPopup } from "@/app/components/Admin/Popups/AddDJsPopup";
 import DJEntry from "@/app/components/Admin/Roster/DJEntry";
-import { DJ, applicationSlice, fetchDJs, getAdminError, getAdminLoading, getAuthenticatedUser, getDJs, populateAdmins, useDispatch, useSelector } from "@/lib/redux";
+import { DJ, applicationSlice, fetchDJs, getAdminError, getAdminLoading, getAuthenticatedUser, getDJs, populateStationManagers, populateMusicDirectors, useDispatch, useSelector } from "@/lib/redux";
 import exportDJsAsCSV from "@/lib/utilities/admin/dj-csv-export";
-import { GppBad } from "@mui/icons-material";
+import { GppBad, HeadsetMic } from "@mui/icons-material";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import CloseIcon from '@mui/icons-material/Close';
 import TroubleshootIcon from '@mui/icons-material/Troubleshoot';
@@ -49,7 +49,8 @@ const DJRoster = (): JSX.Element => {
 
   useEffect(() => {
     dispatch(fetchDJs()).then(() => {
-      dispatch(populateAdmins());
+      dispatch(populateStationManagers());
+      dispatch(populateMusicDirectors());
     });
   }, [dispatch]);
 
@@ -159,13 +160,30 @@ const DJRoster = (): JSX.Element => {
               }}
             >
                 <Tooltip
-                    title="Toggle Admin Status"
+                    title="Toggle Station Manager Status"
                     arrow={true}
                     placement="top"
                     variant="outlined"
                     size="sm"
                 >
-              <AdminPanelSettingsIcon />
+                  <AdminPanelSettingsIcon />
+                </Tooltip>
+            </th>
+            <th
+              style={{
+                width: 48,
+                verticalAlign: "center",
+                textAlign: "center",
+              }}
+            >
+                <Tooltip
+                    title="Toggle Music Director Status"
+                    arrow={true}
+                    placement="top"
+                    variant="outlined"
+                    size="sm"
+                >
+                  <HeadsetMic />
                 </Tooltip>
             </th>
             <th style = {{ minWidth: '100px' }}>Name</th>

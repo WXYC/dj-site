@@ -1,10 +1,13 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { addDJ, autoCompleteArtist, fetchDJs, makeAdmin, populateAdmins, removeAdmin, resetPassword } from "./thunks";
+import { addDJ, autoCompleteArtist, fetchDJs, makeMusicDirector, makeStationManager, populateMusicDirectors, populateStationManagers, removeMusicDirector, removeStationManager, resetPassword } from "./thunks";
 import { AdminState } from "./types";
 import { toast } from "sonner";
+import { AdminType } from "../authentication";
 
 const initialState: AdminState = {
     loading: false,
+    adminLoading: false,
+    musicDirectorLoading: false,
     error: undefined,
     djs: [],
     autocompletedArtists: []
@@ -32,44 +35,108 @@ export const adminSlice = createSlice({
             state.error = "Request to fetch DJ Roster was rejected. Do you have admin privileges?";
             state.djs = [];
         })
-        .addCase(populateAdmins.pending, (state) => {
-            state.loading = true;
+        .addCase(populateStationManagers.pending, (state) => {
+            state.adminLoading = true;
+            state.loading = state.adminLoading || state.musicDirectorLoading;
             state.error = undefined;
         })
-        .addCase(populateAdmins.fulfilled, (state, action) => {
-            state.loading = false;
+        .addCase(populateStationManagers.fulfilled, (state, action) => {
+            state.adminLoading = false;
+            state.loading = state.adminLoading || state.musicDirectorLoading;
             state.error = undefined;
             state.djs = state.djs.map((dj) => {
-                dj.isAdmin = action.payload.find((admin) => admin.userName === dj.userName) !== undefined;
+                dj.adminType = action.payload.find((admin) => admin.userName === dj.userName) !== undefined ? 
+                    AdminType.StationManager : 
+                    dj.adminType ?? AdminType.None;
                 return dj;
             });
         })
-        .addCase(populateAdmins.rejected, (state) => {
-            state.loading = false;
+        .addCase(populateStationManagers.rejected, (state) => {
+            state.adminLoading = false;
+            state.loading = state.adminLoading || state.musicDirectorLoading;
             state.error = "Request to fetch Admin Roster was rejected. Do you have admin privileges?";
         })
-        .addCase(makeAdmin.pending, (state) => {
-            state.loading = true;
+        .addCase(populateMusicDirectors.pending, (state) => {
+            state.musicDirectorLoading = true;
+            state.loading = state.adminLoading || state.musicDirectorLoading;
             state.error = undefined;
         })
-        .addCase(makeAdmin.fulfilled, (state) => {
-            state.loading = false;
+        .addCase(populateMusicDirectors.fulfilled, (state, action) => {
+            state.musicDirectorLoading = false;
+            state.loading = state.adminLoading || state.musicDirectorLoading;
+            state.error = undefined;
+            state.djs = state.djs.map((dj) => {
+                if (dj.adminType !== AdminType.StationManager) {
+                    dj.adminType = action.payload.find((admin) => admin.userName === dj.userName) !== undefined ? 
+                        AdminType.MusicDirector : 
+                        AdminType.None;
+                }
+                return dj;
+            });
+        })
+        .addCase(populateMusicDirectors.rejected, (state) => {
+            state.musicDirectorLoading = false;
+            state.loading = state.adminLoading || state.musicDirectorLoading;
+            state.error = "Request to fetch Admin Roster was rejected. Do you have admin privileges?";
+        })
+        .addCase(makeStationManager.pending, (state) => {
+            state.adminLoading = true;
+            state.loading = state.adminLoading || state.musicDirectorLoading;
             state.error = undefined;
         })
-        .addCase(makeAdmin.rejected, (state, action) => {
-            state.loading = false;
+        .addCase(makeStationManager.fulfilled, (state) => {
+            state.adminLoading = false;
+            state.loading = state.adminLoading || state.musicDirectorLoading;
+            state.error = undefined;
+        })
+        .addCase(makeStationManager.rejected, (state, action) => {
+            state.adminLoading = false;
+            state.loading = state.adminLoading || state.musicDirectorLoading;
             state.error = action.error.message;
         })
-        .addCase(removeAdmin.pending, (state) => {
-            state.loading = true;
+        .addCase(makeMusicDirector.pending, (state) => {
+            state.musicDirectorLoading = true;
+            state.loading = state.adminLoading || state.musicDirectorLoading;
             state.error = undefined;
         })
-        .addCase(removeAdmin.fulfilled, (state) => {
-            state.loading = false;
+        .addCase(makeMusicDirector.fulfilled, (state) => {
+            state.musicDirectorLoading = false;
+            state.loading = state.adminLoading || state.musicDirectorLoading;
             state.error = undefined;
         })
-        .addCase(removeAdmin.rejected, (state, action) => {
-            state.loading = false;
+        .addCase(makeMusicDirector.rejected, (state, action) => {
+            state.musicDirectorLoading = false;
+            state.loading = state.adminLoading || state.musicDirectorLoading;
+            state.error = action.error.message;
+        })
+        .addCase(removeStationManager.pending, (state) => {
+            state.adminLoading = true;
+            state.loading = state.adminLoading || state.musicDirectorLoading;
+            state.error = undefined;
+        })
+        .addCase(removeStationManager.fulfilled, (state) => {
+            state.adminLoading = false;
+            state.loading = state.adminLoading || state.musicDirectorLoading;
+            state.error = undefined;
+        })
+        .addCase(removeStationManager.rejected, (state, action) => {
+            state.adminLoading = false;
+            state.loading = state.adminLoading || state.musicDirectorLoading;
+            state.error = action.error.message;
+        })
+        .addCase(removeMusicDirector.pending, (state) => {
+            state.musicDirectorLoading = true;
+            state.loading = state.adminLoading || state.musicDirectorLoading;
+            state.error = undefined;
+        })
+        .addCase(removeMusicDirector.fulfilled, (state) => {
+            state.musicDirectorLoading = false;
+            state.loading = state.adminLoading || state.musicDirectorLoading;
+            state.error = undefined;
+        })
+        .addCase(removeMusicDirector.rejected, (state, action) => {
+            state.musicDirectorLoading = false;
+            state.loading = state.adminLoading || state.musicDirectorLoading;
             state.error = action.error.message;
         })
         .addCase(resetPassword.pending, (state) => {

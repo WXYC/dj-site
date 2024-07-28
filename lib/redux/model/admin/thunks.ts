@@ -138,8 +138,8 @@ export const resetPassword = createAppAsyncThunk(
 );
 
 
-export const populateAdmins = createAppAsyncThunk(
-    "admin/getAdmins",
+export const populateStationManagers = createAppAsyncThunk(
+    "admin/getStationManagers",
     async (): Promise<DJ[]> => {
         
         const client = await getAdminClient();
@@ -174,8 +174,8 @@ export const populateMusicDirectors = createAppAsyncThunk(
     }
 );
 
-export const makeAdmin = createAppAsyncThunk(
-    "admin/makeAdmin",
+export const makeStationManager = createAppAsyncThunk(
+    "admin/makeStationManager",
     async (dj: DJ): Promise<void> => {
         
         const client = await getAdminClient();
@@ -212,20 +212,29 @@ export const makeMusicDirector = createAppAsyncThunk(
     }
 );
 
-export const removeAdmin = createAppAsyncThunk(
-    "admin/removeAdmin",
+export const removeStationManager = createAppAsyncThunk(
+    "admin/removeStationManager",
     async (dj: DJ): Promise<void> => {
         
         const client = await getAdminClient();
 
-        const params: AdminRemoveUserFromGroupCommandInput = {
+        let params: AdminRemoveUserFromGroupCommandInput = {
             UserPoolId: process.env.NEXT_PUBLIC_AWS_USER_POOL_ID,
             GroupName: process.env.NEXT_PUBLIC_AWS_ADMIN_GROUP_NAME,
             Username: dj.userName
         };
 
-        const removeCommand = new AdminRemoveUserFromGroupCommand(params);
-        const removeResponse = await client.send(removeCommand);
+        let removeCommand = new AdminRemoveUserFromGroupCommand(params);
+        await client.send(removeCommand);
+
+        params = {
+            UserPoolId: process.env.NEXT_PUBLIC_AWS_USER_POOL_ID,
+            GroupName: process.env.NEXT_PUBLIC_AWS_MD_GROUP_NAME,
+            Username: dj.userName
+        };
+        
+        removeCommand = new AdminRemoveUserFromGroupCommand(params);
+        await client.send(removeCommand);
 
         return;
     }
