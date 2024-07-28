@@ -1,6 +1,6 @@
 import { convertUserToDJResult } from "@/lib/services/admin/conversions";
 import { AdminAddUserToGroupCommand, AdminAddUserToGroupCommandInput, AdminCreateUserCommand, AdminCreateUserCommandInput, AdminDeleteUserCommand, AdminDeleteUserCommandInput, AdminRemoveUserFromGroupCommand, AdminRemoveUserFromGroupCommandInput, AdminResetUserPasswordCommand, AdminResetUserPasswordCommandInput, CognitoIdentityProviderClient, ListUsersCommand, ListUsersCommandInput, ListUsersInGroupCommand, ListUsersInGroupCommandInput, VerifyUserAttributeCommandInput } from "@aws-sdk/client-cognito-identity-provider";
-import { CatalogResult, DJ, ProposedArtist, getCredentials, getReleasesMatching } from "../..";
+import { CatalogResult, DJ, ProposedArtist, getCredentials, getReleasesMatching, setter } from "../..";
 import { createAppAsyncThunk } from "../../createAppAsyncThunk";
 import { onlyUnique } from "@/lib/utilities/unique";
 
@@ -95,6 +95,16 @@ export const addDJ = createAppAsyncThunk(
 
         } catch (error) {
             throw error;
+        }
+
+        const { data: creationData, error: creationError } = await setter(
+            `djs/register`
+        )({
+            cognito_user_name: input.dj.userName
+        });
+    
+        if (creationError) {
+            throw creationError;
         }
 
         return;
