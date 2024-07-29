@@ -1,5 +1,5 @@
 import { convertUserToDJResult } from "@/lib/services/admin/conversions";
-import { AdminAddUserToGroupCommand, AdminAddUserToGroupCommandInput, AdminCreateUserCommand, AdminCreateUserCommandInput, AdminDeleteUserCommand, AdminDeleteUserCommandInput, AdminRemoveUserFromGroupCommand, AdminRemoveUserFromGroupCommandInput, AdminResetUserPasswordCommand, AdminResetUserPasswordCommandInput, CognitoIdentityProviderClient, ListUsersCommand, ListUsersCommandInput, ListUsersInGroupCommand, ListUsersInGroupCommandInput, VerifyUserAttributeCommandInput } from "@aws-sdk/client-cognito-identity-provider";
+import { AdminAddUserToGroupCommand, AdminAddUserToGroupCommandInput, AdminCreateUserCommand, AdminCreateUserCommandInput, AdminDeleteUserCommand, AdminDeleteUserCommandInput, AdminRemoveUserFromGroupCommand, AdminRemoveUserFromGroupCommandInput, AdminResetUserPasswordCommand, AdminResetUserPasswordCommandInput, AdminSetUserPasswordCommand, AdminSetUserPasswordCommandInput, CognitoIdentityProviderClient, ListUsersCommand, ListUsersCommandInput, ListUsersInGroupCommand, ListUsersInGroupCommandInput, VerifyUserAttributeCommandInput } from "@aws-sdk/client-cognito-identity-provider";
 import { CatalogResult, DJ, ProposedArtist, getCredentials, getReleasesMatching, setter } from "../..";
 import { createAppAsyncThunk } from "../../createAppAsyncThunk";
 import { onlyUnique } from "@/lib/utilities/unique";
@@ -135,13 +135,23 @@ export const resetPassword = createAppAsyncThunk(
         
         const client = await getAdminClient();
 
-        const params: AdminResetUserPasswordCommandInput = {
+        const params: AdminSetUserPasswordCommandInput = {
+            UserPoolId: process.env.NEXT_PUBLIC_AWS_USER_POOL_ID,
+            Username: args.dj.userName,
+            Password: args.temporaryPassword,
+            Permanent: false
+        };
+
+        const removeCommand = new AdminSetUserPasswordCommand(params);
+        await client.send(removeCommand);
+
+        const resetParams: AdminResetUserPasswordCommandInput = {
             UserPoolId: process.env.NEXT_PUBLIC_AWS_USER_POOL_ID,
             Username: args.dj.userName
         };
 
-        const removeCommand = new AdminResetUserPasswordCommand(params);
-        const removeResponse = await client.send(removeCommand);
+        const resetCommand = new AdminResetUserPasswordCommand(resetParams);
+        await client.send(resetCommand);
 
         return;
     }

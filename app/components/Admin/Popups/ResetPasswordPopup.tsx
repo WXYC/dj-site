@@ -22,6 +22,8 @@ type ResetPasswordContext = {
 export const ResetPasswordPopup = (props: ResetPasswordContext) => {
 
     const [loading, setLoading] = useState(false);
+    const [newPassword, setNewPassword] = useState("");
+
     const dispatch = useDispatch();
     const closePopup = () => dispatch(applicationSlice.actions.closePopup());
 
@@ -31,10 +33,7 @@ export const ResetPasswordPopup = (props: ResetPasswordContext) => {
         setLoading(true);
         (async () => {
             dispatch(resetPassword({
-                dj: {
-                    email: email.value,
-                    ...props.dj
-                },
+                dj: props.dj,
                 temporaryPassword: tempPassword.value
             })).finally(() => {
                 closePopup();
@@ -53,17 +52,30 @@ export const ResetPasswordPopup = (props: ResetPasswordContext) => {
                 <Input
                     type="text"
                     name="tempPassword"
+                    value={newPassword}
+                    required
+                    onChange={(event) => setNewPassword(event.target.value)}
                 />
             </FormControl>
             <FormControl required sx = {{ mt: 2 }}>
-                <FormLabel>Email to Notify</FormLabel>
+                <FormLabel>Notifying:</FormLabel>
                 <Input
                     type="email"
                     name="email"
                     defaultValue={props.dj.email}
+                    disabled
                 />
             </FormControl>
-            <Button type="submit" variant="solid" color="success" sx = {{ mt: 2 }} loading={loading}>Reset Password</Button>
+            <Button 
+                type="submit" 
+                variant="solid" 
+                color="success" 
+                sx = {{ mt: 2 }} 
+                loading={loading}
+                disabled={loading || newPassword.length === 0}
+            >
+                Reset Password
+            </Button>
         </form>
     )
 }
