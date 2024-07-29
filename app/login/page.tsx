@@ -32,6 +32,8 @@ import Logo from "../components/Branding/Logo";
 import { ColorSchemeToggle } from "../components/General/Theme/ColorSchemeToggle";
 import { ViewStyleToggle } from "../components/General/Theme/ViewStyleToggle";
 import ClassicLogin from "./classic";
+import { prefix } from "@/utils/prefix";
+import PageHeader from "@/utils/head";
 
 /**
  * @page
@@ -60,7 +62,10 @@ export default function LoginPage(): JSX.Element {
     const username = form.username.value;
     const password = form.password.value;
 
+    console.log("Logging in");
+
     if (username && password) {
+      console.log("Dispatching login action");
       dispatch(login({ username, password }));
     }
   };
@@ -197,6 +202,7 @@ export default function LoginPage(): JSX.Element {
   return (
     <Box sx={{ height: "100%" }}>
       <AuthenticationGuard redirectTo="/login" savePath />
+      <PageHeader title="Login" />
       <Box
         sx={(theme) => ({
           width:
@@ -608,9 +614,9 @@ export default function LoginPage(): JSX.Element {
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
-          backgroundImage: 'url("/nextjs-github-pages/img/wxyc_color.png")',
+          backgroundImage: `url("/img/wxyc_color.png")`,
           [theme.getColorSchemeSelector("dark")]: {
-            backgroundImage: 'url("/nextjs-github-pages/img/wxyc_dark.jpg")',
+            backgroundImage: `url("/img/wxyc_dark.jpg")`,
           },
         })}
       />

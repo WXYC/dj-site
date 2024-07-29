@@ -1,11 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: false,
-  /*output: "export",
-  basePath: "/nextjs-github-pages",
+  output: "export",
   images: {
-    unoptimized: true,
-  },*/
+    loader: "akamai",
+    path: "",
+  },
+  assetPrefix: "/",
 };
 
 export default nextConfig;

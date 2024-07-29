@@ -291,6 +291,7 @@ export const handleNewPassword = createAppAsyncThunk(
 export const verifySession = createAppAsyncThunk(
   "authentication/verifyAuthenticationAsync",
   async (): Promise<AuthenticationState> => {
+
     const accessToken = sessionStorage.getItem("accessToken");
     const idToken = sessionStorage.getItem("idToken");
 

@@ -1,5 +1,6 @@
 import { Box, Typography } from "@mui/joy";
 import CatalogSearchTable from "@/app/components/Catalog/CatalogSearchTable";
+import PageHeader from "@/utils/head";
 
 /**
  * CatalogPage component represents a page that displays a catalog search table.
@@ -13,6 +14,7 @@ const CatalogPage = (): JSX.Element => {
 
     return (
         <>
+          <PageHeader title = "Card Catalog" />
           <Box
             sx={{
               display: 'flex',

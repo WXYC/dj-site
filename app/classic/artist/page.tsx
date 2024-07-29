@@ -1,5 +1,7 @@
 "use client";
 
+import { prefix } from "@/utils/prefix";
+
 const ClassicArtistPage = () => {
   return (
     <div id="searchResultsPanel">
@@ -76,7 +78,7 @@ const ClassicArtistPage = () => {
             <td align="center" className="text">
               <a href="comment?objectType=release&amp;ID=68894">
                 <img
-                  src="/nextjs-github-pages/img/commentIcon.jpg"
+                  src={`/img/commentIcon.jpg`}
                   title="Make a comment about this release"
                 />
               </a>
