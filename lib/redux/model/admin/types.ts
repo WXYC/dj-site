@@ -15,8 +15,15 @@ export interface DJ {
     realName: string;
     djName: string;
     adminType: AdminType;
+    authType: AdminAuthenticationStatus;
     shows?: string;
     email?: string;
+}
+
+export enum AdminAuthenticationStatus {
+    Confirmed,
+    New,
+    Reset
 }
 
 export interface AdminProtectedRoutesType {

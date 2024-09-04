@@ -1,4 +1,4 @@
-import { DJ, adminSlice, applicationSlice, fetchDJs, makeStationManager, populateStationManagers, removeStationManager, removeDJ, useDispatch, AdminType, makeMusicDirector, populateMusicDirectors, removeMusicDirector } from "@/lib/redux";
+import { DJ, adminSlice, applicationSlice, fetchDJs, makeStationManager, populateStationManagers, removeStationManager, removeDJ, useDispatch, AdminType, makeMusicDirector, populateMusicDirectors, removeMusicDirector, AdminAuthenticationStatus } from "@/lib/redux";
 import { ConfirmPopup } from "../../General/Popups/Popups";
 import { Checkbox, ColorPaletteProp, IconButton, Stack, Tooltip } from "@mui/joy";
 import { DeleteForever, ManageHistory, SyncLock } from "@mui/icons-material";
@@ -128,6 +128,7 @@ const DJEntry = (props: DJEntryProps) => {
               size="sm"
             >
               <IconButton color={props.style ?? "success"} variant="solid" size="sm"
+                disabled = {props.dj.authType != AdminAuthenticationStatus.Confirmed}
                 onClick={() => {
                   openPopup(
                     <ResetPasswordPopup dj={props.dj} />

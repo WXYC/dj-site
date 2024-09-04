@@ -19,6 +19,7 @@ import { toast } from "sonner";
 interface AuthenticationGuardProps {
   redirectTo: string;
   savePath?: boolean;
+  adminPath?: string;
 }
 
 const AuthenticationGuard = (props: AuthenticationGuardProps) => {
@@ -58,7 +59,7 @@ const AuthenticationGuard = (props: AuthenticationGuardProps) => {
     redirect(redirectPath);
   }
 
-  if (loggedIn && !authenticating && pathname.includes("admin"))
+  if (loggedIn && !authenticating && pathname.includes(props.adminPath ?? ""))
   {
     var adminRoute = pathname.split("/");
     if (!AdminProtectedRoutes[user?.adminType ?? AdminType.None].includes(adminRoute[adminRoute.length - 1]))

@@ -1,9 +1,8 @@
 'use client';
 import RotationSearchTable from "@/app/components/Rotation/RotationSearchTable";
-import { Rotation, getRotation, useDispatch, useSelector } from "@/lib/redux";
+import { Rotation, useDispatch } from "@/lib/redux";
 import { addToRotation } from "@/lib/redux/model/rotation/thunks";
-import { Add } from "@mui/icons-material";
-import { IconButton, Sheet, Stack } from "@mui/joy";
+import { Sheet } from "@mui/joy";
 
 interface RotationQuery extends HTMLFormControlsCollection {
     album: HTMLInputElement;

@@ -145,14 +145,6 @@ export const resetPassword = createAppAsyncThunk(
         const removeCommand = new AdminSetUserPasswordCommand(params);
         await client.send(removeCommand);
 
-        const resetParams: AdminResetUserPasswordCommandInput = {
-            UserPoolId: process.env.NEXT_PUBLIC_AWS_USER_POOL_ID,
-            Username: args.dj.userName
-        };
-
-        const resetCommand = new AdminResetUserPasswordCommand(resetParams);
-        await client.send(resetCommand);
-
         return;
     }
 );
