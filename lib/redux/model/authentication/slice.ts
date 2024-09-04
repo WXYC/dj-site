@@ -1,5 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { login, verifySession } from "./thunks";
+import { handleNewPassword, handleNewUser, login, verifySession } from "./thunks";
 import { AuthenticationState } from "./types";
 import { toast } from "sonner";
 
@@ -41,6 +41,30 @@ export const authenticationSlice = createSlice({
         state.authenticating = false;
         state.isAuthenticated = action.payload.isAuthenticated;
         state.user = action.payload.user;
+      })
+      .addCase(handleNewUser.pending, (state) => {
+        state.authenticating = true;
+      })
+      .addCase(handleNewUser.fulfilled, (state, action) => {
+        state.authenticating = false;
+        state.isAuthenticated = action.payload.isAuthenticated;
+        state.user = action.payload.user;
+      })
+      .addCase(handleNewUser.rejected, (state, action) => {
+        state.authenticating = false;
+        toast.error(action.error.message);
+      })
+      .addCase(handleNewPassword.pending, (state) => {
+        state.authenticating = true;
+      })
+      .addCase(handleNewPassword.fulfilled, (state, action) => {
+        state.authenticating = false;
+        state.isAuthenticated = action.payload.isAuthenticated;
+        state.user = action.payload.user;
+      })
+      .addCase(handleNewPassword.rejected, (state, action) => {
+        state.authenticating = false;
+        toast.error(action.error.message);
       });
   },
 });

@@ -5,10 +5,27 @@ export interface LoginCredentials {
   password: string;
 }
 
+export interface NewUserCredentials extends LoginCredentials {
+  realName: string;
+  djName: string;
+  session: string;
+}
+
+export interface NewPasswordCredentials extends LoginCredentials {
+  confirmationCode: string;
+};
+
 export interface AuthenticationState {
   authenticating: boolean;
   isAuthenticated: boolean;
   user?: User | AuthenticatingUser;
+}
+
+export interface ProcessedAuthenticationResult {
+  accessToken: string | undefined;
+  refreshToken: string;
+  idToken: string;
+  adminType: AdminType;
 }
 
 export interface User {
@@ -16,15 +33,29 @@ export interface User {
   djName: string;
   djId: number;
   name: string;
-  isAdmin: boolean;
+  adminType: AdminType;
   showRealName: boolean;
   funFact?: FunFact;
 }
 
+export enum AdminType
+{
+  None = "None",
+  StationManager = "Station Manager",
+  MusicDirector = "Music Director",
+}
+
 export interface AuthenticatingUser {
   username: string;
-  resetPassword: boolean;
+  userType: AuthenticatingUserState;
   session?: string;
+}
+
+export enum AuthenticatingUserState {
+  None,
+  IsUser,
+  IsNewUser,
+  IsResettingPassword
 }
 
 export interface FunFact {

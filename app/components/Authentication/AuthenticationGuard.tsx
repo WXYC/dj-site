@@ -1,6 +1,10 @@
 "use client";
 
 import {
+  AdminProtectedRoutes,
+  AdminType,
+  getAuthenticatedUser,
+  getCurrentUser,
   isAuthenticating,
   isLoggedIn,
   useDispatch,
@@ -10,10 +14,12 @@ import {
 import { Box, CircularProgress, Modal } from "@mui/joy";
 import { redirect, usePathname } from "next/navigation";
 import { useEffect } from "react";
+import { toast } from "sonner";
 
 interface AuthenticationGuardProps {
   redirectTo: string;
   savePath?: boolean;
+  adminPath?: string;
 }
 
 const AuthenticationGuard = (props: AuthenticationGuardProps) => {
@@ -22,6 +28,8 @@ const AuthenticationGuard = (props: AuthenticationGuardProps) => {
 
   const authenticating = useSelector(isAuthenticating);
   const loggedIn = useSelector(isLoggedIn);
+
+  const user = useSelector(getAuthenticatedUser);
 
   useEffect(() => {
     dispatch(verifySession());
@@ -49,6 +57,16 @@ const AuthenticationGuard = (props: AuthenticationGuardProps) => {
     var redirectPath = props.redirectTo;
     redirectPath += props.savePath ? `?redirect=${pathname}` : "";
     redirect(redirectPath);
+  }
+
+  if (loggedIn && !authenticating && pathname.includes(props.adminPath ?? ""))
+  {
+    var adminRoute = pathname.split("/");
+    if (!AdminProtectedRoutes[user?.adminType ?? AdminType.None].includes(adminRoute[adminRoute.length - 1]))
+    {
+      toast.error(`You do not have permission to access this page (${adminRoute[adminRoute.length - 1]}).`);
+      redirect("/dashboard/catalog");
+    }
   }
 };
 

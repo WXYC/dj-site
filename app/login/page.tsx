@@ -1,10 +1,16 @@
 "use client";
 
 import {
+  NewUserCredentials,
   getClassicView,
   getClassicViewAvailable,
+  getFloatingSession,
+  getFloatingUsername,
+  handleNewPassword,
+  handleNewUser,
   isAuthenticating,
   isLoggedIn,
+  isNewUser,
   login,
   needsNewPassword,
   useDispatch,
@@ -43,7 +49,11 @@ export default function LoginPage(): JSX.Element {
 
   const authenticating = useSelector(isAuthenticating);
   const loggedIn = useSelector(isLoggedIn);
-  const resetPasswordRequired = useSelector(needsNewPassword);
+  const needsNewUserInfo = useSelector(isNewUser);
+  const needsPasswordReset = useSelector(needsNewPassword);
+
+  const currentSession = useSelector(getFloatingSession);
+  const currentUsername = useSelector(getFloatingUsername);
 
   const dispatch = useDispatch();
   const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
@@ -60,14 +70,43 @@ export default function LoginPage(): JSX.Element {
     }
   };
 
-  const handlePasswordUpdate = (e: React.FormEvent<HTMLFormElement>) => {
+  const handlePasswordReset = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    const form = e.currentTarget;
+    const username = currentUsername ?? "";
+    const resetCode = form.resetCode.value;
+    const password = form.password.value;
+
+    if (username && resetCode && password) {
+      dispatch(handleNewPassword({ username, password, confirmationCode: resetCode  }));
+    }
+  };
+
+  const handleNewUserUpdate = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    const form = e.currentTarget;
+
+    const credentials : NewUserCredentials = {
+      username: currentUsername ?? "",
+      password: form.password.value,
+      realName: form.realName.value,
+      djName: form.djName.value,
+      session: currentSession ?? ""
+    };
+
+    if (credentials.realName && credentials.djName && credentials.password) {
+      dispatch(handleNewUser(credentials));
+    };
+
   };
 
   const altViewAvailable = useSelector(getClassicViewAvailable);
 
   const [name, setName] = useState("");
   const [djName, setDjName] = useState("");
+  const [resetCode, setResetCode] = useState("");
   const [value, setValue] = useState(""); // for the password field
   const [confirmValue, setConfirmValue] = useState(""); // for the confirm password field
   const [pWordStrength, setPWordStrength] = useState(""); // for the password strength meter
@@ -99,12 +138,20 @@ export default function LoginPage(): JSX.Element {
     ["to hope if you got it.", "Florence + The Machine"],
   ];
 
-  const randomIndexForWelcomeQuote = Math.floor(
+  const getRandomIndexForWelcomeQuote = () => Math.floor(
     Math.random() * welcomeQuotesAndArtists.length
   );
-  const randomIndexForHoldOnQuote = Math.floor(
+  const getRandomIndexForHoldOnQuote = () => Math.floor(
     Math.random() * holdOnQuotesAndArtists.length
   );
+
+  const [randomIndexForWelcomeQuote, setRandomIndexForWelcomeQuote] = useState(0);
+  const [randomIndexForHoldOnQuote, setRandomIndexForHoldOnQuote] = useState(0);
+
+  useEffect(() => {
+    setRandomIndexForWelcomeQuote(getRandomIndexForWelcomeQuote());
+    setRandomIndexForHoldOnQuote(getRandomIndexForHoldOnQuote());
+  }, []);
 
   useEffect(() => {
     // Needs one capital letter, one lowercase letter, and one number
@@ -228,7 +275,7 @@ export default function LoginPage(): JSX.Element {
               },
             }}
           >
-            {resetPasswordRequired ? (
+            {needsNewUserInfo ? (
               <>
                 <div>
                   <Link
@@ -256,13 +303,13 @@ export default function LoginPage(): JSX.Element {
                     Actually, we just need some more information from you.
                   </Typography>
                 </div>
-                <form onSubmit={handlePasswordUpdate} autoComplete="off">
+                <form onSubmit={handleNewUserUpdate} autoComplete="off">
                   <FormControl required>
                     <FormLabel>Real Name</FormLabel>
                     <Input
                       placeholder="Enter your real name"
                       type="text"
-                      name="name"
+                      name="realName"
                       disabled={authenticating}
                       color={name.length > 0 ? "success" : "primary"}
                       onChange={(e) => {
@@ -368,6 +415,131 @@ export default function LoginPage(): JSX.Element {
                   </Button>
                 </form>
               </>
+            ) : 
+            (needsPasswordReset ? (
+              <>
+                <div>
+                  <Link
+                    startDecorator={<ArrowLeftIcon />}
+                    href="/#/login"
+                    level="body-sm"
+                    sx={{ alignSelf: "flex-end", mb: 3 }}
+                  >
+                    Log in with a different account
+                  </Link>
+                  <Typography level="h1" fontSize={"4.5rem"}>
+                    Hold On
+                  </Typography>
+                  <Typography level="h3" suppressHydrationWarning>
+                    ...{holdOnQuotesAndArtists[randomIndexForHoldOnQuote][0]}
+                  </Typography>
+                  <Typography
+                    level="body-md"
+                    sx={{ my: 1, mb: 3, textAlign: "right" }}
+                    suppressHydrationWarning
+                  >
+                    - {holdOnQuotesAndArtists[randomIndexForHoldOnQuote][1]}
+                  </Typography>
+                  <Typography level="body-sm">
+                    Actually, we just need some more information from you. Make sure to check your email for a Password Reset Code.
+                  </Typography>
+                </div>
+                <form onSubmit={handlePasswordReset} autoComplete="off">
+                  <FormControl required>
+                    <FormLabel>Username</FormLabel>
+                    <Input
+                      placeholder="Enter your username"
+                      type="text"
+                      name="username"
+                      disabled={true}
+                    />
+                  </FormControl>
+                  <FormControl required>
+                    <FormLabel>Password Reset Code</FormLabel>
+                    <Input
+                      placeholder="######"
+                      type="number"
+                      name="resetCode"
+                      disabled={authenticating}
+                      onChange={(e) => {
+                        setResetCode(e.target.value);
+                      }}
+                    />
+                  </FormControl>
+                  <FormControl
+                    required
+                    sx={{
+                      "--hue": Math.min(value.length * 10, 120),
+                    }}
+                  >
+                    <FormLabel>New Password</FormLabel>
+                    <Input
+                      placeholder="•••••••"
+                      type="password"
+                      name="password"
+                      disabled={authenticating}
+                      onChange={(e) => {
+                        setValue(e.target.value);
+                      }}
+                      value={value}
+                      error={pWordStrength !== "Strong"}
+                      color={pWordStrength === "Strong" ? "success" : "primary"}
+                    />
+                    <LinearProgress
+                      determinate
+                      size="sm"
+                      value={Math.min((value.length * 100) / minLength, 100)}
+                      sx={{
+                        mt: 1,
+                        bgcolor: "background.level3",
+                        color: "hsl(var(--hue) 80% 40%)",
+                      }}
+                    />
+                    <Typography
+                      level="body-xs"
+                      sx={{
+                        alignSelf: "flex-end",
+                        color: "hsl(var(--hue) 80% 30%)",
+                      }}
+                    >
+                      {pWordStrength}
+                    </Typography>
+                  </FormControl>
+                  <FormControl required>
+                    <FormLabel>Confirm New Password</FormLabel>
+                    <Input
+                      placeholder="Confirm your new password"
+                      type="password"
+                      name="passwordConfirm"
+                      disabled={authenticating}
+                      onChange={(e) => {
+                        setConfirmValue(e.target.value);
+                      }}
+                      value={confirmValue}
+                      error={confirmValue !== value}
+                      color={
+                        confirmValue === value && value != ""
+                          ? "success"
+                          : "primary"
+                      }
+                    />
+                  </FormControl>
+                  <Button
+                    type="submit"
+                    fullWidth
+                    disabled={
+                      authenticating ||
+                      resetCode.length != 6 ||
+                      value.length < minLength ||
+                      confirmValue !== value ||
+                      pWordStrength !== "Strong"
+                    }
+                    loading={authenticating}
+                  >
+                    Sign in
+                  </Button>
+                </form>
+              </>
             ) : (
               <>
                 <div>
@@ -418,7 +590,7 @@ export default function LoginPage(): JSX.Element {
                   </Button>
                 </form>
               </>
-            )}
+            ))}
           </Box>
           <Box component="footer" sx={{ py: 3 }}>
             <Typography level="body-sm" textAlign="center">

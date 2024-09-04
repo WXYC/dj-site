@@ -18,6 +18,7 @@ import { useCallback, useEffect, useState } from "react";
 import Logo from "../Branding/Logo";
 
 import {
+  AdminType,
   applicationSlice,
   authenticationSlice,
   getAuthenticatedUser,
@@ -205,12 +206,12 @@ export default function FirstSidebar(): JSX.Element {
             </Tooltip>
           </ListItem>
         </Link>
-        {user && (
+        {user && (user.adminType != AdminType.None) && (
           <>
             <Divider sx={{ mt: 1.5 }} />
             <Link
               href="/dashboard/admin/roster"
-              onClick={(e) => e.preventDefault()}
+              onClick={(e) => (user.adminType != AdminType.StationManager) && e.preventDefault()}
             >
               <ListItem>
                 <Tooltip
@@ -221,7 +222,7 @@ export default function FirstSidebar(): JSX.Element {
                   variant="outlined"
                 >
                   <ListItemButton
-                    disabled
+                    disabled={(user.adminType != AdminType.StationManager)}
                     variant={
                       pathname === "/dashboard/admin/roster" ? "solid" : "plain"
                     }
@@ -232,33 +233,7 @@ export default function FirstSidebar(): JSX.Element {
               </ListItem>
             </Link>
             <Link
-              href="/dashboard/admin/schedule"
-              onClick={(e) => e.preventDefault()}
-            >
-              <ListItem>
-                <Tooltip
-                  title="Station Management  -  Schedule"
-                  arrow={true}
-                  placement="right"
-                  size="sm"
-                  variant="outlined"
-                >
-                  <ListItemButton
-                    disabled
-                    variant={
-                      pathname === "/dashboard/admin/schedule"
-                        ? "solid"
-                        : "plain"
-                    }
-                  >
-                    <EditCalendar />
-                  </ListItemButton>
-                </Tooltip>
-              </ListItem>
-            </Link>
-            <Link
               href="/dashboard/admin/catalog"
-              onClick={(e) => e.preventDefault()}
             >
               <ListItem>
                 <Tooltip
@@ -269,7 +244,6 @@ export default function FirstSidebar(): JSX.Element {
                   variant="outlined"
                 >
                   <ListItemButton
-                    disabled
                     variant={
                       pathname === "/dashboard/admin/catalog"
                         ? "solid"

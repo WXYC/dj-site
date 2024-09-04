@@ -19,7 +19,7 @@ export default function Dashboard(props: React.PropsWithChildren): JSX.Element {
   return (
     <>
       <ViewGuard />
-      <AuthenticationGuard redirectTo="/login" savePath />
+      <AuthenticationGuard redirectTo="/login" adminPath="/admin" savePath />
       <DashboardContent>{props.children}</DashboardContent>
     </>
   );
