@@ -1,47 +1,36 @@
-# WXYC Card Catalog, Revised
+This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
-[See the site in action here!](https://wxyc.github.io/dj-site/)
+## Getting Started
 
+First, run the development server:
 
-## Description
-The WXYC Card Catalog, Revised is a React-based revision of the original WXYC card catalog and flowsheet. This repository showcases an improved version of the existing catalog and flowsheet, while maintaining the classic theme and preserving the original look. Notably, the revised version is optimized for performance, resulting in faster loading times.
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
 
-## Features
-- Retains the classic theme: The revised version of the WXYC Card Catalog doesn't modify the old look in any way. Users will still experience the familiar aesthetics they are accustomed to.
-- Classic theme views: All views within the application that utilize the classic theme are prepended with `CLASSIC_`. This helps users distinguish between the classic and updated versions of the application.
-- New theme: With updated components and views, a faster and more seamless workflow between the flowsheet and card catalog is possible.
-- Mail Bin: a digital mail bin is available on every account, so DJs can add to the flowsheet directly from their bin without having to type during their sets.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-## Deployment
-Is handled by github actions.
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-## API Integration
-The revised catalog leverages services defined in `api-service.js`, which utilizes the popular Axios library to communicate with an AWS API Gateway. This integration allows seamless communication between the front-end application and the API endpoints, enabling data retrieval and manipulation.
+This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
 
-## Technologies Used
-- React: The front-end framework used for building the revised WXYC Card Catalog.
-- MUI Joy UI: A library of pre-built UI components for React that allows fast and beautiful feature development.
-- Github Pages: For hosting the frontend and automating publication.
-- Axios: A JavaScript library used for making HTTP requests to the AWS API Gateway.
+## Learn More
 
-## Installation and Setup
-1. Clone the repository: `git clone https://github.com/WXYC/dj-site.git`
-2. Navigate to the project directory: `cd dj-site`
-3. Install dependencies: `npm install`
-4. Run the application: `npm run dev`
-5. Access the application locally: Open your web browser and visit `http://localhost:3000`
+To learn more about Next.js, take a look at the following resources:
 
-## Contributing
-Contributions to the WXYC Card Catalog, Revised are welcome! If you would like to contribute, please follow these steps:
-1. Create a new branch: `git checkout -b my-feature-branch`
-2. Make your changes and commit them: `git commit -m "Add some feature"`
-3. Test your build: `npm run build`
-4. Push to the branch: `git push origin my-feature-branch`
-5. Submit a pull request detailing your changes.
-6. When your pull request is approved, Github Actions will auto-deploy your changes to the site. Be sure to give 5-10 minutes after the build completes for the changes to propagate.
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-## License
-The WXYC Card Catalog, Revised is released under the [MIT License](LICENSE). Feel free to use, modify, and distribute the code as per the terms of this license.
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
 
-## Acknowledgments
-We would like to express our gratitude to the contributors and maintainers of the original WXYC Card Catalog for their valuable work, which served as the foundation for this revised version. In particular, Tim Ross/Tubafrenzy, who developed the original flowsheet site and maintained the database for years during decades when it was much more difficult to maintain and develop a site like this one.
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
