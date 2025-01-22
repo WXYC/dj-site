@@ -1,0 +1,290 @@
+main {
+    height: 100vh;
+}
+
+html[data-classic-view="true"] * {
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+html[data-classic-view="true"] button:not("#themeSwitcher") {
+    align-items: normal;
+    background-color: rgba(0,0,0,0);
+    border-color: rgb(0, 0, 238);
+    border-style: none;
+    box-sizing: content-box;
+    color: rgb(0, 0, 238); 
+    cursor: pointer;
+    display: inline;
+    font: inherit;
+    height: auto;
+    padding: 0;
+    perspective-origin: 0 0;
+    text-align: start;
+    text-decoration: underline;
+    transform-origin: 0 0;
+    width: auto;
+    -moz-appearance: none;
+    -webkit-logical-height: 1em; /* Chrome ignores auto, so we have to use this hack to set the correct height  */
+    -webkit-logical-width: auto; /* Chrome ignores auto, but here for completeness */
+}
+
+@supports (-moz-appearance:none) { /* Mozilla-only */
+    html[data-classic-view="true"] button::-moz-focus-inner { /* reset any predefined properties */ 
+      border: none;
+      padding: 0;
+    }
+    html[data-classic-view="true"] button:focus { /* add outline to focus pseudo-class */
+      outline-style: dotted;
+      outline-width: 1px;
+    }
+}
+
+html[data-classic-view="true"] nav {
+    background-color: whitesmoke;
+}
+
+html[data-classic-view="true"] .searchResultsHeader {
+	background:#AAAAAA;
+	text-align: center;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 0.8em;
+	line-height: 1.33;
+	font-weight: bold;
+	color: #FF0000;
+}
+
+html[data-classic-view="true"] .title
+{
+  font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+  font-size: 1em;
+  font-weight: bold;
+}
+
+html[data-classic-view="true"] .subtitle
+{
+  font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+  font-size: 0.9em;
+  line-height: 1.33;
+}
+
+html[data-classic-view="true"] .bigtext
+{
+  font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+  font-size: 1.3em;
+  line-height: 1.50;
+}
+
+html[data-classic-view="true"] .text
+{
+  font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+  font-size: 0.8em;
+  line-height: 1.33;
+}
+
+html[data-classic-view="true"] .smalltext
+{
+  font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+  font-size: 0.7em;
+  line-height: 1.33;
+}
+
+html[data-classic-view="true"] .label
+{
+  font-family: Verdana,Arial,Helvetica,sans-serif;
+  font-size: 0.8em;
+  line-height: 1.33;
+  font-weight: bold;
+}
+
+html[data-classic-view="true"] .redlabel
+{
+  font-family: Verdana,Arial,Helvetica,sans-serif;
+  font-size: 0.8em;
+  line-height: 1.33;
+  font-weight: bold;
+  color:#FF0000
+}
+
+html[data-classic-view="true"] .smalllabel
+{
+  font-family: Verdana,Arial,Helvetica,sans-serif;
+  font-size: 0.7em;
+  line-height: 1.33;
+}
+
+html[data-classic-view="true"] .text TD
+{
+  font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+  font-size: 0.8em;
+  line-height: 1.33;
+}
+
+html[data-classic-view="true"] .submenu
+{
+  font-family: Geneva,Verdana,Arial,Helvetica,sans-serif;
+  font-size: 0.8em;
+}
+
+html[data-classic-view="true"] .submenu TD
+{
+  font-family: Geneva,Verdana,Arial,Helvetica,sans-serif;
+  font-size: 0.8em;
+  font-weight: bold;
+}
+
+html[data-classic-view="true"] .submenu TD A
+{
+  font-family: Geneva,Verdana,Arial,Helvetica,sans-serif;
+  font-weight: normal;
+  text-decoration: none;
+  color:#000000;
+}
+
+html[data-classic-view="true"] .submenu TD A:hover
+{
+  font-family: Geneva,Verdana,Arial,Helvetica,sans-serif;
+  font-weight: normal;
+  text-decoration: underline;
+  color:#000000;
+}
+
+html[data-classic-view="true"] #facetLinksHeader {
+	text-align: left;
+	font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+    font-size: 0.7em;
+    line-height: 1.33;
+    position: absolute;
+    top: 145px; 
+    left: 5px; 
+    
+}
+html[data-classic-view="true"] #facetLinks {
+	text-align: left;
+	font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+    font-size: 0.7em;
+    line-height: 1.33;
+    position: absolute;
+    top: 200px; 
+    left: 15px; 
+    
+}
+
+html[data-classic-view="true"] #searchString{
+	text-align: left;
+	font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+    font-size: 0.7em;
+    line-height: 1.33;
+    position: absolute;
+    top: 10px; 
+    left: 130px; 
+    width: 150px;
+    margin: 10px;
+}
+
+
+html[data-classic-view="true"] #searchButton{
+	margin: 10px;
+    position: absolute;
+    top: 10px; 
+    left: 400px; 
+    width: 200px;
+}
+
+
+html[data-classic-view="true"] #adminLogin {
+	text-align: left;
+	font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+    font-size: 0.7em;
+    line-height: 1.33;
+    position: absolute;
+    top: 10px; 
+    left: 625px; 
+    width: 200px;
+    margin: 10px;
+}
+
+html[data-classic-view="true"] #sortbyRelevance{
+	text-align: left;
+	font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+    font-size: 0.7em;
+    line-height: 1.33;
+    position: absolute;
+    top: 10px; 
+ 	left: 10px; 
+    width: 100px;
+    margin: 10px;
+}
+
+html[data-classic-view="true"] #searchResultsPanel {
+	text-align: left;
+	font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+    font-size: 0.7em;
+    line-height: 1.33;
+    position: absolute;
+    top: 60px; 
+    left: 130px; 
+    width: 670px;
+    
+}
+
+html[data-classic-view="true"] #libraryReleasePanel {
+	text-align: left;
+	font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+    font-size: 0.7em;
+    line-height: 1.33;
+    position: absolute;
+    top: 60px; 
+    left: 10px; 
+    width: 790px;
+    
+}
+
+html[data-classic-view="true"] #searchResultsHeader {
+	background:#AAAAAA;
+	text-align: center;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 0.8em;
+	line-height: 1.33;
+	font-weight: bold;
+	color: #FF0000;
+}
+ 
+html[data-classic-view="true"] .sortFieldHighlight {
+	background:#EEEEEE;
+}
+
+html[data-classic-view="true"] #facetLinks a:hover{
+    color:#FF0000;
+}
+
+html[data-classic-view="true"] #pageLinks {
+	text-align: left;
+	font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+    font-size: 0.7em;
+    line-height: 1.33;
+}
+
+
+html[data-classic-view="true"] ul 
+{ 
+  list-style-type: circle; padding-top: 0; padding-bottom: 0;  border: 0;
+}
+
+html[data-classic-view="true"] ol 
+{ 
+  padding-top: 0; padding-bottom: 0;  border: 0;
+}
+
+html[data-classic-view="true"] li
+{
+  padding-top: 0; padding-bottom: 0; border: 0;
+}
+
+html[data-classic-view="true"] INPUT { font-family: Verdana,Arial,Helvetica,sans-serif; color:#000000; font-size:12px; }
+html[data-classic-view="true"] SELECT { font-family: Verdana,Arial,Helvetica,sans-serif; color:#000000; font-size:12px; }
+html[data-classic-view="true"] TEXTAREA { font-family: Verdana,Arial,Helvetica,sans-serif; color:#000000; font-size:12px; }
+
+html[data-classic-view="true"] .centerWidth {
+	 width: 800px;
+	 text-align: center;
+}
