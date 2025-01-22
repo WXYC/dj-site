@@ -27,7 +27,6 @@ export default function Header() {
         <Logo />
       </Box>
       <Box>
-        <ColorSchemeToggle />
       </Box>
     </Box>
   );

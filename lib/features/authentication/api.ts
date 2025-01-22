@@ -12,18 +12,10 @@ export const authenticationApi = createApi({
         method: "POST",
         body: credentials,
       }),
-      transformResponse: (response: any) => {
-        console.log("response", response);
-        return response;
-      },
       invalidatesTags: ["Authentication"],
     }),
     getAuthentication: builder.query<AuthenticationData, void>({
       query: () => "",
-      transformResponse: (response: any) => {
-        console.log("response", response);
-        return response;
-      },
       providesTags: ["Authentication"],
     }),
     logout: builder.mutation<AuthenticationData, void>({

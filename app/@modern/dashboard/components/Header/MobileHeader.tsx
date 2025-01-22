@@ -5,9 +5,18 @@ import DragHandleIcon from "@mui/icons-material/DragHandle";
 import Box from "@mui/joy/Box";
 import IconButton from "@mui/joy/IconButton";
 import Sheet from "@mui/joy/Sheet";
-import { toggleSidebar } from "../../utilities";
+import { useAppDispatch } from "@/lib/hooks";
+import { applicationSlice } from "@/lib/features/application/slice";
+import { toggleSidebarCSS } from "../../utilities";
 
 export default function MobileHeader(): JSX.Element {
+
+  const dispatch = useAppDispatch();
+  const toggleSidebar = () => {
+    dispatch(applicationSlice.actions.toggleSidebar());
+    toggleSidebarCSS();
+  };
+
   return (
     <Sheet
       sx={{
@@ -26,7 +35,7 @@ export default function MobileHeader(): JSX.Element {
       }}
     >
       <IconButton
-        onClick={() => toggleSidebar()}
+        onClick={toggleSidebar}
         variant="outlined"
         color="neutral"
         size="sm"

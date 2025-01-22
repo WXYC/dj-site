@@ -15,12 +15,16 @@ import { authenticationApi } from "./features/authentication/api";
 import { authenticationSlice } from "./features/authentication/slice";
 import { toast } from "sonner";
 import { catalogApi } from "./features/catalog/api";
+import { flowsheetApi } from "./features/flowsheet/api";
+import { applicationSlice } from "./features/application/slice";
 
 const rootReducer = combineSlices(
   authenticationSlice,
   authenticationApi,
+  applicationSlice,
   applicationApi,
-  catalogApi
+  catalogApi,
+  flowsheetApi
 );
 
 export type RootState = ReturnType<typeof rootReducer>;
@@ -33,7 +37,8 @@ export const makeStore = () => {
         .concat(rtkQueryErrorLogger)
         .concat(authenticationApi.middleware)
         .concat(applicationApi.middleware)
-        .concat(catalogApi.middleware);
+        .concat(catalogApi.middleware)
+        .concat(flowsheetApi.middleware);
     },
   });
 };

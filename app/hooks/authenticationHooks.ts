@@ -29,7 +29,7 @@ export const useLogin = () => {
 
   useEffect(() => {
     if (result.isSuccess) {
-      router.push("/dashboard");
+      router.push(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE));
     }
   }, [result]);
 

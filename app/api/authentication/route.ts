@@ -1,13 +1,13 @@
 import {
-  defaultAuthenticationData,
-  toClient,
-} from "@/lib/features/authentication/utilities";
-import {
   AuthenticationData,
   AuthenticationSession,
   AuthenticationStage,
   Credentials,
 } from "@/lib/features/authentication/types";
+import {
+  defaultAuthenticationData,
+  toClient,
+} from "@/lib/features/authentication/utilities";
 import { sessionOptions } from "@/lib/features/session";
 import { setDefault } from "@/lib/features/types";
 import {
@@ -25,6 +25,8 @@ import {
 import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
+
+export const runtime = "edge";
 
 interface AuthResult {
   stage?: AuthenticationStage;
@@ -52,15 +54,16 @@ export async function GET(request: NextRequest) {
   const cookieStore = await cookies();
 
   const currentAuthenticationData: AuthenticationData = JSON.parse(
-    String(cookieStore.get("auth_state")?.value ?? defaultAuthenticationData)
+    String(
+      cookieStore.get("auth_state")?.value ??
+        JSON.stringify(defaultAuthenticationData)
+    )
   );
 
   const session = await getIronSession<AuthenticationSession>(
     cookieStore,
     sessionOptions
   );
-
-  console.log("session", session);
 
   // If we are already logged in or the data is not present, sign the user out and default
   if (
@@ -87,7 +90,11 @@ export async function GET(request: NextRequest) {
     if (result.AuthenticationResult) stage = AuthenticationStage.Authenticated;
 
     return NextResponse.json(
-      toClient(stage, result.AuthenticationResult?.IdToken),
+      toClient(
+        stage,
+        result.AuthenticationResult?.IdToken,
+        result.AuthenticationResult?.AccessToken
+      ),
       { status: 200 }
     );
   } catch (error: any) {
@@ -132,7 +139,7 @@ export async function POST(request: NextRequest) {
             },
           });
         },
-        onFailure: (err) => reject(err),
+        onFailure: (error) => reject(error),
         newPasswordRequired: (userAttributes, requiredAttributes) => {
           resolve({
             stage: AuthenticationStage.NewPassword,
@@ -167,10 +174,8 @@ export async function POST(request: NextRequest) {
       setDefault(session);
     }
 
-    session.save();
+    await session.save();
     //#endregion
-
-    console.log("session in api", session);
 
     let response = toClient(
       stage,
@@ -229,7 +234,7 @@ export async function DELETE(request: NextRequest) {
 
     return response;
   } catch (error: any) {
-    return Response.json({ message: error.message }, { status: 400 });
+    return response;
   }
   //#endregion
 }

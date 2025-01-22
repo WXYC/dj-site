@@ -23,17 +23,17 @@ export async function middleware(request: NextRequest) {
       isOnAdminArea &&
       sessionData.authentication.user.authority <= Authorization.DJ
     )
-      return NextResponse.redirect(new URL("/dashboard", request.nextUrl));
+      return NextResponse.redirect(new URL(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE), request.nextUrl));
     return response;
   } else if (isOnLogin) {
     if (
       sessionData?.authentication?.user &&
       sessionData.authentication.stage === AuthenticationStage.Authenticated
     )
-      return NextResponse.redirect(new URL("/dashboard", request.nextUrl));
+      return NextResponse.redirect(new URL(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE), request.nextUrl));
     return response;
   } else {
-    return NextResponse.redirect(new URL("/dashboard", request.nextUrl));
+    return NextResponse.redirect(new URL(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE), request.nextUrl));
   }
 }
 
