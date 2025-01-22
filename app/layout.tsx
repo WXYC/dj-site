@@ -8,6 +8,8 @@ import { Toaster } from "sonner";
 import Appbar from "./components/Theme/Appbar";
 import ThemeRegistry from "./styles/ThemeRegistry";
 
+export const runtime = "edge";
+
 interface Props {
   readonly classic: ReactNode;
   readonly modern: ReactNode;
