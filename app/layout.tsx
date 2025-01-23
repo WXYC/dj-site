@@ -1,21 +1,19 @@
-import { Suspense, type ReactNode } from "react";
-import { StoreProvider } from "./StoreProvider";
+import { type ReactNode } from "react";
+import { StoreProvider } from "../src/StoreProvider";
 
-import { LoadingPage } from "@/app/components/LoadingPage";
-import "@/app/styles/globals.css";
+import "@/src/styles/globals.css";
 import { createServerSideProps } from "@/lib/features/session";
 import { Toaster } from "sonner";
-import Appbar from "./components/Theme/Appbar";
-import ThemeRegistry from "./styles/ThemeRegistry";
+import Appbar from "../src/components/Theme/Appbar";
+import ThemeRegistry from "../src/styles/ThemeRegistry";
 
 export const runtime = "edge";
 
 interface Props {
-  readonly classic: ReactNode;
-  readonly modern: ReactNode;
+  children: ReactNode;
 }
 
-export default async function RootLayout({ classic, modern }: Props) {
+export default async function RootLayout({ children }: Props) {
   const serverSideProps = await createServerSideProps();
 
   return (
@@ -26,9 +24,7 @@ export default async function RootLayout({ classic, modern }: Props) {
             <Toaster closeButton richColors />
             <div id="root">
               <main>
-                <Suspense fallback={<LoadingPage />}>
-                  {serverSideProps.application.classic ? classic : modern}
-                </Suspense>
+                {children}
                 <Appbar />
               </main>
             </div>

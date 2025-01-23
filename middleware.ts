@@ -4,8 +4,6 @@ import { AuthenticationStage } from "./lib/features/authentication/types";
 import { createServerSideProps } from "./lib/features/session";
 
 export async function middleware(request: NextRequest) {
-  const response = NextResponse.next();
-
   const sessionData = await createServerSideProps();
 
   const isOnLogin = request.nextUrl.pathname.startsWith("/login");
@@ -23,18 +21,26 @@ export async function middleware(request: NextRequest) {
       isOnAdminArea &&
       sessionData.authentication.user.authority <= Authorization.DJ
     )
-      return NextResponse.redirect(new URL(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE), request.nextUrl));
-    return response;
+      return NextResponse.redirect(
+        new URL(
+          String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE),
+          request.nextUrl
+        )
+      );
   } else if (isOnLogin) {
     if (
       sessionData?.authentication?.user &&
       sessionData.authentication.stage === AuthenticationStage.Authenticated
     )
-      return NextResponse.redirect(new URL(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE), request.nextUrl));
-    return response;
-  } else {
-    return NextResponse.redirect(new URL(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE), request.nextUrl));
+      return NextResponse.redirect(
+        new URL(
+          String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE),
+          request.nextUrl
+        )
+      );
   }
+
+  return NextResponse.next();
 }
 
 export const config = {
