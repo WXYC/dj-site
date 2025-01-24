@@ -79,7 +79,7 @@ export default function NotFoundCard() {
         <Typography level="body-md" suppressHydrationWarning>
           {randomQuote.prefix}
         </Typography>
-        <Typography level="h1" fontSize={"4.5rem"} suppressHydrationWarning>
+        <Typography level="h1" suppressHydrationWarning>
           {randomQuote.quote.substring(0, randomQuote.quote.indexOf("Lost"))}
           <Typography color="primary" suppressHydrationWarning>
             Lost

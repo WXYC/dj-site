@@ -10,7 +10,3 @@ export default function LoginPage() {
     </>
   );
 }
-
-export const metadata: Metadata = {
-  title: "WXYC | Login",
-};

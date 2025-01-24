@@ -1,7 +1,7 @@
 import Logo from "@/src/components/Branding/Logo";
 import { Box, Sheet } from "@mui/joy";
 import NotFoundCard from "../src/components/NotFoundCard";
-import { BackgroundImage } from "./login/@modern/components/Layout/Background";
+import { BackgroundImage } from "../src/Layout/Background";
 
 export const runtime = "edge";
 

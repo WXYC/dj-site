@@ -1,7 +1,7 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { backendBaseQuery } from "../backend";
 import {
-  Album,
+  AlbumEntry,
   AlbumParams,
   AlbumRequestParams,
   AlbumQueryResponse,
@@ -16,10 +16,10 @@ export const catalogApi = createApi({
   reducerPath: "catalogApi",
   baseQuery: backendBaseQuery("library"),
   endpoints: (builder) => ({
-    searchCatalog: builder.query<Album[], SearchCatalogQueryParams>({
-      query: ({ artist_name, album_name }) => ({
+    searchCatalog: builder.query<AlbumEntry[], SearchCatalogQueryParams>({
+      query: ({ artist_name, album_name, n }) => ({
         url: "/",
-        params: { artist_name, album_name },
+        params: { artist_name, album_name, n },
       }),
       transformResponse: (response: AlbumQueryResponse[]) =>
         response.map(convertAlbumFromSearch),

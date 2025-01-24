@@ -17,12 +17,14 @@ import { toast } from "sonner";
 import { catalogApi } from "./features/catalog/api";
 import { flowsheetApi } from "./features/flowsheet/api";
 import { applicationSlice } from "./features/application/slice";
+import { catalogSlice } from "./features/catalog/slice";
 
 const rootReducer = combineSlices(
   authenticationSlice,
   authenticationApi,
   applicationSlice,
   applicationApi,
+  catalogSlice,
   catalogApi,
   flowsheetApi
 );

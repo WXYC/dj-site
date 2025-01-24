@@ -31,26 +31,32 @@ const wxycTheme = extendTheme({
     h1: {
       fontFamily: minbus.style.fontFamily,
       fontWeight: "100",
+      fontSize: "4.5rem",
     },
     h2: {
       fontFamily: minbus.style.fontFamily,
       fontWeight: "100",
+      fontSize: "3.75rem",
     },
     h3: {
       fontFamily: minbus.style.fontFamily,
       fontWeight: "100",
+      fontSize: "3rem",
     },
     h4: {
       fontFamily: minbus.style.fontFamily,
       fontWeight: "100",
+      fontSize: "2.125rem",
     },
     h5: {
-      fontFamily: minbus.style.fontFamily,
+      fontFamily: kanit.style.fontFamily,
       fontWeight: "100",
+      fontSize: "1.5rem",
     },
     h6: {
-      fontFamily: minbus.style.fontFamily,
+      fontFamily: kanit.style.fontFamily,
       fontWeight: "100",
+      fontSize: "1rem",
     },
   },
   colorSchemes: {

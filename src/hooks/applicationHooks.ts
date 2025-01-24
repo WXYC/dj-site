@@ -1,5 +1,6 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 export function useWindowSize() {
   // Initialize state with undefined width/height so server and client renders match
@@ -44,11 +45,16 @@ export const usePublicRoutes = () => {
 
   const pathname = usePathname();
 
-  const [isPublic, setPublic] = useState(publicRoutes.includes(pathname));
+  const [isPublic, setPublic] = useState(getIsPublic(pathname));
 
   useEffect(() => {
-    setPublic(publicRoutes.includes(pathname));
+    setPublic(getIsPublic(pathname));
   }, [pathname]);
+
+  function getIsPublic(route: string)
+  {
+    return publicRoutes.includes(route) || route.length <= 1;
+  }
 
   return isPublic;
 }

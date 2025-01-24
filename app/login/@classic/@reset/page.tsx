@@ -9,7 +9,3 @@ export default function Home() {
     </div>
   );
 }
-
-export const metadata: Metadata = {
-  title: "WXYC | Login",
-};

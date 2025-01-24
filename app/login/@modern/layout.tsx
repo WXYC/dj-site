@@ -1,10 +1,6 @@
 import { AuthenticationStage } from "@/lib/features/authentication/types";
 import { createServerSideProps } from "@/lib/features/session";
-import Box from "@mui/joy/Box";
-import { BackgroundBox, BackgroundImage } from "./components/Layout/Background";
-import Header from "./components/Layout/Header";
-import Main from "./components/Layout/Main";
-import Footer from "./components/Layout/Footer";
+import WXYCPage from "@/src/Layout/WXYCPage";
 
 export default async function ModernLoginLayout({
   normal,
@@ -16,18 +12,10 @@ export default async function ModernLoginLayout({
   const serverSideProps = await createServerSideProps();
 
   return (
-    <Box sx={{ height: "100%" }}>
-      <BackgroundBox>
-        <Header />
-        <Main>
-          {serverSideProps.authentication?.stage ==
-          AuthenticationStage.NewPassword
-            ? reset
-            : normal}
-        </Main>
-        <Footer />
-      </BackgroundBox>
-      <BackgroundImage />
-    </Box>
+    <WXYCPage title="Login">
+      {serverSideProps.authentication?.stage == AuthenticationStage.NewPassword
+        ? reset
+        : normal}
+    </WXYCPage>
   );
 }

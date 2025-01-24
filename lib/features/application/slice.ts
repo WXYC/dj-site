@@ -1,7 +1,7 @@
 import { createAppSlice } from "@/lib/createAppSlice";
-import { RightbarMenu } from "./types";
+import { ApplicationFrontendState, RightbarMenu } from "./types";
 
-export const defaultApplicationFrontendState = {
+export const defaultApplicationFrontendState: ApplicationFrontendState = {
   rightbar: {
     mini: false,
     sidebarOpen: false,

@@ -21,10 +21,10 @@ export default function WelcomeQuotes() {
 
   return (
     <div>
-      <Typography level="h1" fontSize={"4.5rem"}>
+      <Typography level="h1">
         Welcome...
       </Typography>
-      <Typography level="h1" fontSize={"4.5rem"} suppressHydrationWarning>
+      <Typography level="h1" suppressHydrationWarning>
         {welcomeQuotesAndArtists[randomIndexForWelcomeQuote][0]}
       </Typography>
       <Typography

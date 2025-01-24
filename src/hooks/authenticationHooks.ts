@@ -41,7 +41,7 @@ export const useLogin = () => {
   return {
     handleLogin,
     verified,
-    authenticating: result.isLoading,
+    authenticating: result.isLoading || result.isSuccess,
   };
 };
 
@@ -62,6 +62,6 @@ export const useLogout = () => {
 
   return {
     handleLogout,
-    loggingOut: result.isLoading,
+    loggingOut: result.isLoading || result.isSuccess,
   };
 };

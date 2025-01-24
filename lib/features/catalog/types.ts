@@ -1,6 +1,7 @@
 export type SearchCatalogQueryParams = {
   artist_name: string | undefined;
   album_name: string | undefined;
+  n: number | undefined;
 };
 
 export type AlbumParams = {
@@ -26,7 +27,7 @@ export type ArtistParams = {
 
 export type RotationParams = {
     album_id: string;
-    play_freq: Frequency;
+    play_freq: Rotation;
 }
 
 export type KillRotationParams = {
@@ -47,35 +48,72 @@ export type AlbumQueryResponse = {
     format_name: string;
     genre_name: string;
     label: string;
-    play_freq: Frequency | undefined;
+    play_freq: Rotation | undefined;
 }
 
-export type Album = {
+export type AlbumEntry = {
     id: number;
     title: string;
-    artist: Artist;
+    artist: ArtistEntry;
     entry: number;
-    format: string;
+    format: Format;
     alternate_artist: string | undefined;
-    play_freq: Frequency | undefined;
+    play_freq: Rotation | undefined;
 }
 
-export type Artist = {
+export type ArtistEntry = {
     name: string;
-    code: number;
-    genre: Genre;
+    lettercode: string;
+    numbercode: number;
+    genre: GenreEntry;
     id: number;
 }
 
-export type Genre = {
+export type GenreEntry = {
     name: string;
     id: number;
-    code: string;
 }
 
-export enum Frequency {
+export enum Rotation {
     S = "S",
     L = "L",
     M = "M",
     H = "H",
 }
+
+export type CatalogFrontendState = {
+    search: CatalogSearchState;
+    results: CatalogResultsState;
+}
+
+export type CatalogSearchState = {
+    query: string;
+    in: SearchIn;
+    genre: Genre | "All";
+    mobileOpen: boolean;
+    params: {
+        n: number;
+        orderBy?: string;
+        orderDirection?: "asc" | "desc";
+    }
+}
+
+export type CatalogResultsState = {
+    selected: number[];
+}
+
+export type SearchIn = "Artists" | "Albums" | "Both";
+
+export type Format = "Vinyl" | "CD" | "Unknown";
+
+export type Genre =
+  | "Blues"
+  | "Rock"
+  | "Electronic"
+  | "Hiphop"
+  | "Jazz"
+  | "Classical"
+  | "Reggae"
+  | "Soundtracks"
+  | "OCS"
+  | "Unknown";

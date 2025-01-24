@@ -40,7 +40,7 @@ export default function ThemeSwitcher() {
     <Tooltip
       title={`Switch to ${classic ? "new" : "classic"} view`}
       size="sm"
-      placement="bottom"
+      placement="top-start"
       variant="outlined"
     >
       <IconButton id="toggle-classic" onClick={handleSwitch} loading={isLoading} disabled={isLoading}>

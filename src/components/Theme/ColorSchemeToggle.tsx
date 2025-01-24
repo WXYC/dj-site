@@ -20,7 +20,7 @@ export default function ColorSchemeToggle(): JSX.Element {
     <Tooltip
       title={`Switch to ${mode == "dark" ? "light" : "dark"} mode`}
       size="sm"
-      placement="bottom"
+      placement="top-start"
       variant="outlined"
     >
       <IconButton
