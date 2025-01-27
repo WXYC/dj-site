@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
 
     if (result.challengeName) {
       if (result.challengeName !== "NEW_PASSWORD_REQUIRED")
-        return Response.json(
+        return NextResponse.json(
           { message: result.challengeName },
           { status: 400 }
         );
@@ -200,7 +200,7 @@ export async function POST(request: NextRequest) {
 
 //#region LOGOUT
 export async function DELETE(request: NextRequest) {
-  let response = Response.json(toClient(AuthenticationStage.NotAuthenticated), {
+  let response = NextResponse.json(toClient(AuthenticationStage.NotAuthenticated), {
     status: 200,
   });
 
