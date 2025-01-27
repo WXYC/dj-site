@@ -8,6 +8,7 @@ import {
 } from "@/lib/features/catalog/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useCallback, useEffect, useState } from "react";
+import { useAuthentication } from "./authenticationHooks";
 
 export const useCatalogSearch = () => {
   const dispatch = useAppDispatch();
@@ -86,13 +87,7 @@ export const useCatalogResults = () => {
     orderBy
   } = useCatalogSearch();
 
-  const {
-    data: userData,
-    isLoading: authenticating,
-    isSuccess: authenticated,
-  } = useGetAuthenticationQuery(undefined, {
-    pollingInterval: 2700000,
-  });
+  const { authenticating, authenticated } = useAuthentication();
 
   const searchIn = useAppSelector(catalogSlice.selectors.getSearchIn);
   const [formattedQuery, setFormattedQuery] =

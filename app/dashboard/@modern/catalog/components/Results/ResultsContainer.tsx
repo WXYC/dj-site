@@ -4,6 +4,7 @@ import Logo from "@/src/components/Branding/Logo";
 import { useCatalogSearch } from "@/src/hooks/catalogHooks";
 import { DoubleArrow } from "@mui/icons-material";
 import { Box, Button, Sheet, Table, Typography } from "@mui/joy";
+import { useRef } from "react";
 
 export default function ResultsContainer({
   children,
@@ -11,6 +12,7 @@ export default function ResultsContainer({
   children: React.ReactNode;
 }) {
   const { searchString, selected } = useCatalogSearch();
+  const tableRef = useRef<HTMLTableElement>(null);
 
   return (
     <Sheet
@@ -60,25 +62,7 @@ export default function ResultsContainer({
           </Typography>
         </Box>
       </Box>
-      <Table
-        aria-labelledby="tableTitle"
-        stickyHeader
-        hoverRow
-        sx={{
-          "--TableCell-headBackground": (theme) =>
-            theme.vars.palette.background.level1,
-          "--Table-headerUnderlineThickness": "1px",
-          "--TableRow-hoverBackground": (theme) =>
-            theme.vars.palette.background.level1,
-          "& tr > *:last-child": {
-            position: "sticky",
-            right: 0,
-            bgcolor: "var(--TableCell-headBackground)",
-          },
-        }}
-      >
         {children}
-      </Table>
       {selected.length > 0 && (
         <Box
           sx={{

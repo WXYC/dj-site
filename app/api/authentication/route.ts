@@ -98,6 +98,8 @@ export async function GET(request: NextRequest) {
       { status: 200 }
     );
   } catch (error: any) {
+    cookieStore.delete("auth_state");
+    session.destroy();
     return NextResponse.json({ message: error.message }, { status: 400 });
   }
   //#endregion

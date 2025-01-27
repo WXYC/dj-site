@@ -1,6 +1,5 @@
 import { createAppSlice } from "@/lib/createAppSlice";
 import { CatalogFrontendState } from "./types";
-import { get } from "http";
 
 export const defaultCatalogFrontendState: CatalogFrontendState = {
   search: {

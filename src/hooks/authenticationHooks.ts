@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useGetAuthenticationQuery,
   useLoginMutation,
   useLogoutMutation,
 } from "@/lib/features/authentication/api";
@@ -50,7 +51,7 @@ export const useLogout = () => {
   const [logout, result] = useLogoutMutation();
 
   const handleLogout = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+    event?.preventDefault();
     logout();
   };
 
@@ -63,5 +64,36 @@ export const useLogout = () => {
   return {
     handleLogout,
     loggingOut: result.isLoading || result.isSuccess,
+  };
+};
+
+export const useAuthentication = () => {
+  const router = useRouter();
+  const [logout, result] = useLogoutMutation();
+
+  const {
+    data,
+    isLoading: authenticating,
+    isSuccess: authenticated,
+    isError,
+  } = useGetAuthenticationQuery(undefined, {
+    pollingInterval: 2700000,
+  });
+
+  useEffect(() => {
+    if (isError) {
+      logout();
+    }
+  }, [data]);
+
+  useEffect(() => {
+    if (result.isSuccess) {
+      router.push("/login");
+    }
+  }, [result]);
+
+  return {
+    authenticating,
+    authenticated,
   };
 };
