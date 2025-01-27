@@ -51,11 +51,23 @@ const client = new CognitoIdentityProviderClient({
       const { hostname, pathname, search, headers, method, body } = request;
       const url = `https://${hostname}${pathname}${search}`;
 
-      const response = await fetch(url, {
+      // Only include supported fetch options
+      const fetchOptions: RequestInit = {
         method,
-        headers: Object.fromEntries(headers),
-        ...(body && { body: body as ReadableStream }),
-      });
+        headers: Object.fromEntries(
+          Object.entries(Object.fromEntries(headers)).filter(
+            ([key]) =>
+              !["mode", "credentials", "cache"].includes(key.toLowerCase())
+          )
+        ),
+      };
+
+      // Only add body if it exists
+      if (body) {
+        fetchOptions.body = body as ReadableStream;
+      }
+
+      const response = await fetch(url, fetchOptions);
 
       return {
         response,
