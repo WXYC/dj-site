@@ -44,6 +44,26 @@ interface AuthResult {
 // This client will be used to send commands to the Cognito Identity Provider
 const client = new CognitoIdentityProviderClient({
   region: String(process.env.AWS_REGION),
+  // Add these configurations to make it work with Edge Runtime
+  customUserAgent: "NextJS Edge Runtime",
+  requestHandler: {
+    async handle(request: any) {
+      const { hostname, pathname, search, headers, method, body } = request;
+      const url = `https://${hostname}${pathname}${search}`;
+
+      const response = await fetch(url, {
+        method,
+        headers: Object.fromEntries(headers),
+        ...(body && { body: body as ReadableStream }),
+      });
+
+      return {
+        response,
+        headers: response.headers,
+        statusCode: response.status,
+      };
+    },
+  },
 });
 
 //#region GET CURRENT USER
@@ -200,9 +220,12 @@ export async function POST(request: NextRequest) {
 
 //#region LOGOUT
 export async function DELETE(request: NextRequest) {
-  let response = NextResponse.json(toClient(AuthenticationStage.NotAuthenticated), {
-    status: 200,
-  });
+  let response = NextResponse.json(
+    toClient(AuthenticationStage.NotAuthenticated),
+    {
+      status: 200,
+    }
+  );
 
   //#region Cookie Management
   const cookieStore = await cookies();
