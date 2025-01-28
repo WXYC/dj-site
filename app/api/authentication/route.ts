@@ -44,38 +44,6 @@ interface AuthResult {
 // This client will be used to send commands to the Cognito Identity Provider
 const client = new CognitoIdentityProviderClient({
   region: String(process.env.AWS_REGION),
-  // Add these configurations to make it work with Edge Runtime
-  customUserAgent: "NextJS Edge Runtime",
-  requestHandler: {
-    async handle(request: any) {
-      const { hostname, pathname, search, headers, method, body } = request;
-      const url = `https://${hostname}${pathname}${search}`;
-
-      // Only include supported fetch options
-      const fetchOptions: RequestInit = {
-        method,
-        headers: Object.fromEntries(
-          Object.entries(Object.fromEntries(headers)).filter(
-            ([key]) =>
-              !["mode", "credentials", "cache"].includes(key.toLowerCase())
-          )
-        ),
-      };
-
-      // Only add body if it exists
-      if (body) {
-        fetchOptions.body = body as ReadableStream;
-      }
-
-      const response = await fetch(url, fetchOptions);
-
-      return {
-        response,
-        headers: response.headers,
-        statusCode: response.status,
-      };
-    },
-  },
 });
 
 //#region GET CURRENT USER
@@ -145,47 +113,18 @@ export async function POST(request: NextRequest) {
 
   try {
     //#region Cognito Auth Flow with Username and Password
-    const userPoolData: ICognitoUserPoolData = {
-      UserPoolId: String(process.env.AWS_USER_POOL_ID),
+    const params: InitiateAuthCommandInput = {
+      AuthFlow: "USER_PASSWORD_AUTH",
+      AuthParameters: {
+        USERNAME: username,
+        PASSWORD: password,
+      },
       ClientId: String(process.env.AWS_USER_POOL_CLIENT_ID),
     };
 
-    const user = new CognitoUser({
-      Username: username,
-      Pool: new CognitoUserPool(userPoolData),
-    });
-
-    const authParameters = new AuthenticationDetails({
-      Username: username,
-      Password: password,
-    });
-
-    const result: AuthResult = await new Promise((resolve, reject) => {
-      user.authenticateUser(authParameters, {
-        onSuccess: (session) => {
-          resolve({
-            stage: AuthenticationStage.Authenticated,
-            AuthenticationResult: {
-              // We are using the JWT tokens for the client
-              IdToken: session.getIdToken().getJwtToken(),
-              AccessToken: session.getAccessToken().getJwtToken(),
-              RefreshToken: session.getRefreshToken().getToken(),
-            },
-          });
-        },
-        onFailure: (error) => reject(error),
-        newPasswordRequired: (userAttributes, requiredAttributes) => {
-          resolve({
-            stage: AuthenticationStage.NewPassword,
-            challengeName: "NEW_PASSWORD_REQUIRED",
-            userAttributes,
-          });
-        },
-      });
-    });
+    const command = new InitiateAuthCommand(params);
+    const result = await client.send(command);
     //#endregion
-
-    stage = result.stage ?? stage;
 
     //#region Cookie Management
     const cookieStore = await cookies();
@@ -194,16 +133,17 @@ export async function POST(request: NextRequest) {
       sessionOptions
     );
 
-    if (result.challengeName) {
-      if (result.challengeName !== "NEW_PASSWORD_REQUIRED")
+    if (result.ChallengeName) {
+      if (result.ChallengeName !== "NEW_PASSWORD_REQUIRED")
         return NextResponse.json(
-          { message: result.challengeName },
+          { message: result.ChallengeName },
           { status: 400 }
         );
 
       session.refreshToken = undefined;
     } else if (result.AuthenticationResult) {
       session.refreshToken = result.AuthenticationResult.RefreshToken;
+      stage = AuthenticationStage.Authenticated;
     } else {
       setDefault(session);
     }
@@ -232,12 +172,9 @@ export async function POST(request: NextRequest) {
 
 //#region LOGOUT
 export async function DELETE(request: NextRequest) {
-  let response = NextResponse.json(
-    toClient(AuthenticationStage.NotAuthenticated),
-    {
-      status: 200,
-    }
-  );
+  let response = NextResponse.json(toClient(AuthenticationStage.NotAuthenticated), {
+    status: 200,
+  });
 
   //#region Cookie Management
   const cookieStore = await cookies();
