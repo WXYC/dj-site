@@ -76,6 +76,17 @@ export type DJRegistryRequestParams =
   | {
       cognito_user_name: string;
     }
-  | {
-      dj_id: number;
-    };
+  | DJRequestParams;
+
+export type DJRequestParams = {
+  dj_id: number;
+};
+
+export type DJInfoResponse = {
+  id: number;
+  add_date: string;
+  cognito_user_name: string;
+  dj_name: string;
+  real_name: string;
+  shows_covered: number;
+};

@@ -1,6 +1,6 @@
 import { useGetAuthenticationQuery } from "@/lib/features/authentication/api";
 import { useSearchCatalogQuery } from "@/lib/features/catalog/api";
-import { catalogSlice } from "@/lib/features/catalog/slice";
+import { catalogSlice } from "@/lib/features/catalog/frontend";
 import {
   Genre,
   SearchCatalogQueryParams,
@@ -80,11 +80,8 @@ export const useCatalogResults = () => {
     catalogSlice,
     addSelection,
     removeSelection,
-    setSelection,
     clearSelection,
-    selected,
     n,
-    orderBy
   } = useCatalogSearch();
 
   const { authenticating, authenticated } = useAuthentication();
@@ -169,13 +166,9 @@ export const useCatalogResults = () => {
     setSearchGenre,
     addSelection,
     removeSelection,
-    setSelection,
-    clearSelection,
-    selected,
     loadMore,
     reachedEndForQuery,
     dispatch,
-    catalogSlice,
-    orderBy
+    catalogSlice
   };
 };

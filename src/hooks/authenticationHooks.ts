@@ -6,7 +6,7 @@ import {
   useLoginMutation,
   useLogoutMutation,
 } from "@/lib/features/authentication/api";
-import { authenticationSlice } from "@/lib/features/authentication/slice";
+import { authenticationSlice } from "@/lib/features/authentication/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";

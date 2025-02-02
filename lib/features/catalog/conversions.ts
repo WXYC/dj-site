@@ -3,7 +3,6 @@ import { AlbumEntry, AlbumQueryResponse, Format, Genre } from "./types";
 export function convertAlbumFromSearch(
   response: AlbumQueryResponse
 ): AlbumEntry {
-  console.log(response);
   return {
     id: response.id,
     title: response.album_title,

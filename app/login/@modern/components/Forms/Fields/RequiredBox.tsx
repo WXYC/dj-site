@@ -1,6 +1,6 @@
 "use client";
 
-import { authenticationSlice } from "@/lib/features/authentication/slice";
+import { authenticationSlice } from "@/lib/features/authentication/frontend";
 import { VerifiedData } from "@/lib/features/authentication/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import FormControl from "@mui/joy/FormControl";

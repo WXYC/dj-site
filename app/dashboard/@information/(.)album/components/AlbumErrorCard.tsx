@@ -7,12 +7,12 @@ import {
   CardContent,
   CardOverflow,
   Divider,
+  ModalClose,
   Stack,
   Typography,
 } from "@mui/joy";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import BackButton from "../../components/BackButton";
 
 export default function AlbumErrorCard() {
   const router = useRouter();
@@ -29,7 +29,7 @@ export default function AlbumErrorCard() {
         <AspectRatio ratio="4">
           <img src="/img/wxyc_dark.jpg" />
         </AspectRatio>
-        <BackButton />
+        <ModalClose variant="solid" />;
       </CardOverflow>
       <CardContent>
         <CardContent>

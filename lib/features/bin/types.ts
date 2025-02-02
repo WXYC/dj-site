@@ -2,6 +2,10 @@ export type DJBinQuery = {
   dj_id: number;
 };
 
+export type BinMutationQuery = DJBinQuery & {
+  album_id: number;
+};
+
 export type BinQueryResponse = {
   album_id: number;
   album_title: string;

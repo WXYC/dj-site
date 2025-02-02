@@ -1,14 +1,17 @@
-"use client";
-
-import ArtistLoadingAvatar from "@/app/dashboard/@modern/catalog/components/ArtistLoadingAvatar";
-import { AspectRatio, Box, Button, Card, CardContent, CardOverflow, ModalClose, Skeleton, Stack, Typography } from "@mui/joy";
-import { useRouter } from "next/navigation";
-import BackButton from "../../components/BackButton";
+import ArtistLoadingAvatar from "@/src/components/modern/catalog/ArtistLoadingAvatar";
+import {
+  AspectRatio,
+  Box,
+  Card,
+  CardContent,
+  CardOverflow,
+  ModalClose,
+  Skeleton,
+  Stack,
+  Typography,
+} from "@mui/joy";
 
 export default function AlbumLoadingCard() {
-
-    const router = useRouter();
-
   return (
     <Card
       variant="outlined"
@@ -42,25 +45,31 @@ export default function AlbumLoadingCard() {
           >
             <ArtistLoadingAvatar />
           </Box>
-          <Skeleton variant="text" level="body-lg" height={"3em"} width={"8rem"} sx={{ ml: 3.2, mb: -1.5 }} />
+          <Skeleton
+            variant="text"
+            level="body-lg"
+            height={"3em"}
+            width={"8rem"}
+            sx={{ ml: 3.2, mb: -1.5 }}
+          />
         </Box>
-        <BackButton />
+        <ModalClose variant="solid" />;
       </CardOverflow>
       <CardContent>
-      <CardContent>
-        <Stack
-          direction="row"
-          spacing={2}
-          sx={{
-            ml: 12,
-            mb: 1,
-          }}
-        >
-          <Typography level="body-lg">
-            <Skeleton variant="text" width={"19rem"} sx = {{ ml: 3 }}/>
-          </Typography>
-        </Stack>
-      </CardContent>
+        <CardContent>
+          <Stack
+            direction="row"
+            spacing={2}
+            sx={{
+              ml: 12,
+              mb: 1,
+            }}
+          >
+            <Typography level="body-lg">
+              <Skeleton variant="text" width={"19rem"} sx={{ ml: 3 }} />
+            </Typography>
+          </Stack>
+        </CardContent>
       </CardContent>
     </Card>
   );

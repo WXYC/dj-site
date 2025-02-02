@@ -1,6 +1,6 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { backendBaseQuery } from "../backend";
-import { AuthenticationData, Credentials, DJRegistryParams, DJRegistryRequestParams } from "./types";
+import { AuthenticationData, Credentials, DJInfoResponse, DJRegistryParams, DJRegistryRequestParams } from "./types";
 
 export const authenticationApi = createApi({
   baseQuery: fetchBaseQuery({ baseUrl: "/api/authentication" }),
@@ -48,7 +48,7 @@ export const djRegistryApi = createApi({
       }),
       invalidatesTags: ["DJInfo"],
     }),
-    getDJInfo: builder.query<any, DJRegistryRequestParams>({
+    getDJInfo: builder.query<DJInfoResponse, DJRegistryRequestParams>({
       query: (params) => ({
         url: "/",
         params,

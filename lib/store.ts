@@ -12,16 +12,17 @@ import {
 } from "@reduxjs/toolkit";
 import { toast } from "sonner";
 import { applicationApi } from "./features/application/api";
-import { applicationSlice } from "./features/application/slice";
+import { applicationSlice } from "./features/application/frontend";
 import {
   authenticationApi,
   djRegistryApi,
 } from "./features/authentication/api";
-import { authenticationSlice } from "./features/authentication/slice";
+import { authenticationSlice } from "./features/authentication/frontend";
 import { binApi } from "./features/bin/api";
 import { catalogApi } from "./features/catalog/api";
-import { catalogSlice } from "./features/catalog/slice";
+import { catalogSlice } from "./features/catalog/frontend";
 import { flowsheetApi } from "./features/flowsheet/api";
+import { flowsheetSlice } from "./features/flowsheet/frontend";
 
 const rootReducer = combineSlices(
   authenticationSlice,
@@ -32,6 +33,7 @@ const rootReducer = combineSlices(
   catalogSlice,
   catalogApi,
   binApi,
+  flowsheetSlice,
   flowsheetApi
 );
 

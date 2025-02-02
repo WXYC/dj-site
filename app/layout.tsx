@@ -1,11 +1,11 @@
 import { type ReactNode } from "react";
-import { StoreProvider } from "../src/StoreProvider";
+import { StoreProvider } from "@/src/StoreProvider";
 
 import "@/src/styles/globals.css";
 import { createServerSideProps } from "@/lib/features/session";
 import { Toaster } from "sonner";
-import Appbar from "../src/components/Theme/Appbar";
-import ThemeRegistry from "../src/styles/ThemeRegistry";
+import Appbar from "@/src/components/Theme/Appbar";
+import ThemeRegistry from "@/src/styles/ThemeRegistry";
 
 export const runtime = "edge";
 

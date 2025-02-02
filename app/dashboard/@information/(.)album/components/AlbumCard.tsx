@@ -2,7 +2,7 @@
 
 import { AlbumEntry } from "@/lib/features/catalog/types";
 
-import { ArtistAvatar } from "@/app/dashboard/@modern/catalog/components/ArtistAvatar";
+import { ArtistAvatar } from "@/src/components/modern/catalog/ArtistAvatar";
 import {
   AspectRatio,
   Box,
@@ -11,18 +11,14 @@ import {
   CardContent,
   CardOverflow,
   Divider,
+  ModalClose,
   Stack,
   Typography,
 } from "@mui/joy";
 import { useEffect, useState } from "react";
-import BackButton from "../../components/BackButton";
 
 export default function AlbumCard({ album }: { album: AlbumEntry }) {
   const [image, setImage] = useState("");
-
-  useEffect(() => {
-    console.log(album);
-  }, [album]);
 
   return (
     <Card
@@ -102,7 +98,7 @@ export default function AlbumCard({ album }: { album: AlbumEntry }) {
             {album.title}
           </Typography>
         </Box>
-        <BackButton />
+        <ModalClose variant="solid" />;
       </CardOverflow>
       <CardContent>
         <Stack
