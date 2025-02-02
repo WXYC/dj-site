@@ -67,11 +67,6 @@ export function convertToStartShow(
 export function convertToEndShow(
   response: FlowsheetEntryResponse
 ): FlowsheetEndShowEntry {
-  let djNameExtractionRegex =
-    /End of Show:\s*(DJ\s+[A-Za-z]+)\s+joined the set/i;
-  let djName =
-    response.message?.match(djNameExtractionRegex)?.[1] || "Unknown DJ";
-
   let datetimeExtractionRegex =
     /(\d{1,2}\/\d{1,2}\/\d{4},\s+\d{1,2}:\d{2}:\d{2}\s*[APM]*)/i;
   let dateString =
@@ -82,7 +77,6 @@ export function convertToEndShow(
     id: response.id,
     play_order: response.play_order,
     show_id: response.show_id,
-    dj_name: djName,
     date_string: dateString,
   };
 }

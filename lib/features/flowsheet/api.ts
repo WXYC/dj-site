@@ -37,7 +37,7 @@ export const flowsheetApi = createApi({
     }),
     leaveShow: builder.mutation<any, DJRequestParams>({
       query: (params) => ({
-        url: "/leave",
+        url: "/end",
         method: "POST",
         body: params,
       }),

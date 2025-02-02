@@ -13,6 +13,7 @@ export const defaultFlowsheetFrontendState: FlowsheetFrontendState = {
       label: "",
       request: false,
     },
+    selectedResult: 0,
   },
   queue: [],
 };
@@ -54,11 +55,16 @@ export const flowsheetSlice = createAppSlice({
     removeFromQueue: (state, action) => {
       state.queue = state.queue.filter((entry) => entry.id !== action.payload);
     },
+    setSelectedResult: (state, action) => {
+      state.search.selectedResult = action.payload;
+    },
   },
   selectors: {
     getAutoplay: (state) => state.autoplay,
     getSearchOpen: (state) => state.search.open,
     getSearchQuery: (state) => state.search.query,
+    getSearchQueryLength: (state) => Object.values(state.search.query).filter((value) => value).length,
     getQueue: (state) => state.queue,
+    getSelectedResult: (state) => state.search.selectedResult,
   },
 });

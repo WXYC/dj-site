@@ -57,7 +57,7 @@ const wxycTheme = extendTheme({
       fontFamily: kanit.style.fontFamily,
       fontWeight: "100",
       fontSize: "1rem",
-    },
+    }
   },
   colorSchemes: {
     light: {

@@ -5,6 +5,7 @@ export type FlowsheetFrontendState = {
   search: {
     open: boolean;
     query: FlowsheetQuery;
+    selectedResult: number;
   };
   queue: FlowsheetSongEntry[];
 };
@@ -53,11 +54,14 @@ export type FlowsheetStartShowEntry = FlowsheetEntryBase & {
   date_string: string;
 };
 
-export type FlowsheetEndShowEntry = FlowsheetStartShowEntry;
-
 export type FlowsheetMessageEntry = FlowsheetEntryBase & {
   message: string;
 };
+
+
+export type FlowsheetEndShowEntry = FlowsheetEntryBase & {
+  date_string: string;
+}
 
 export type FlowsheetEntry =
   | FlowsheetSongEntry
@@ -74,7 +78,7 @@ export function isFlowsheetStartShowEntry(entry: FlowsheetEntry): entry is Flows
 }
 
 export function isFlowsheetEndShowEntry(entry: FlowsheetEntry): entry is FlowsheetEndShowEntry {
-  return (entry as FlowsheetEndShowEntry).dj_name !== undefined;
+  return (entry as FlowsheetEndShowEntry).date_string !== undefined;
 }
 
 export function isFlowsheetMessageEntry(entry: FlowsheetEntry): entry is FlowsheetMessageEntry {

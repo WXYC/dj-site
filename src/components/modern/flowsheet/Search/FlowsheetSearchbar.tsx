@@ -14,6 +14,7 @@ import {
 import { ClickAwayListener } from "@mui/material";
 import { useCallback, useEffect, useRef } from "react";
 import FlowsheetSearchInput from "./FlowsheetSearchInput";
+import FlowsheetSearchResults from "./Results/FlowsheetSearchResults";
 
 export default function FlowsheetSearchbar() {
   const { live, setSearchOpen } = useFlowsheetSearch();
@@ -43,6 +44,7 @@ export default function FlowsheetSearchbar() {
     <Stack direction={"row"} spacing={1}>
       <ClickAwayListener onClickAway={() => setSearchOpen(false)}>
         <FormControl size="sm" sx={{ flex: 1, minWidth: 0 }}>
+          <FlowsheetSearchResults />
           <Box
             ref={searchRef}
             component="form"
