@@ -10,22 +10,28 @@ import {
   isRejected,
   isRejectedWithValue,
 } from "@reduxjs/toolkit";
-import { applicationApi } from "./features/application/api";
-import { authenticationApi } from "./features/authentication/api";
-import { authenticationSlice } from "./features/authentication/slice";
 import { toast } from "sonner";
-import { catalogApi } from "./features/catalog/api";
-import { flowsheetApi } from "./features/flowsheet/api";
+import { applicationApi } from "./features/application/api";
 import { applicationSlice } from "./features/application/slice";
+import {
+  authenticationApi,
+  djRegistryApi,
+} from "./features/authentication/api";
+import { authenticationSlice } from "./features/authentication/slice";
+import { binApi } from "./features/bin/api";
+import { catalogApi } from "./features/catalog/api";
 import { catalogSlice } from "./features/catalog/slice";
+import { flowsheetApi } from "./features/flowsheet/api";
 
 const rootReducer = combineSlices(
   authenticationSlice,
   authenticationApi,
+  djRegistryApi,
   applicationSlice,
   applicationApi,
   catalogSlice,
   catalogApi,
+  binApi,
   flowsheetApi
 );
 
@@ -38,8 +44,10 @@ export const makeStore = () => {
       return getDefaultMiddleware()
         .concat(rtkQueryErrorLogger)
         .concat(authenticationApi.middleware)
+        .concat(djRegistryApi.middleware)
         .concat(applicationApi.middleware)
         .concat(catalogApi.middleware)
+        .concat(binApi.middleware)
         .concat(flowsheetApi.middleware);
     },
   });
@@ -60,7 +68,9 @@ export const rtkQueryErrorLogger: Middleware =
   (api: MiddlewareAPI) => (next) => (action) => {
     // RTK Query uses `createAsyncThunk` from redux-toolkit under the hood, so we're able to utilize these matchers!
     if (isRejectedWithValue(action)) {
-      toast.error((action.payload as { data: { message: string } }).data.message);
+      toast.error(
+        (action.payload as { data: { message: string } }).data.message
+      );
     }
 
     return next(action);

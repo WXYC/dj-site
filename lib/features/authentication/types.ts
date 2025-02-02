@@ -66,3 +66,16 @@ export interface DJwtPayload extends JwtPayload {
   "custom:dj-name": string;
   "cognito:groups"?: string[];
 }
+
+export type DJRegistryParams = {
+  cognito_user_name: string;
+  real_name: string | undefined;
+};
+
+export type DJRegistryRequestParams =
+  | {
+      cognito_user_name: string;
+    }
+  | {
+      dj_id: number;
+    };

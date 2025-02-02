@@ -19,6 +19,7 @@ import { ColorPaletteProp } from "@mui/joy";
 import { ArtistAvatar } from "../ArtistAvatar";
 import ResultsContainer from "./ResultsContainer";
 import TableHeader from "./TableHeader";
+import Link from "next/link";
 
 export default function Results({
   color,
@@ -162,7 +163,7 @@ export default function Results({
                 </td>
                 <td>
                   <Typography level="body-xs">
-                    {album.artist.genre.name}
+                    {album.artist.genre}
                   </Typography>
                   <Typography level="body-md">
                     {album.artist.lettercode} {album.artist.numbercode}/
@@ -188,15 +189,16 @@ export default function Results({
                       size="sm"
                       title="More information"
                     >
+                      <Link href={`/dashboard/album/${album.id}`}>
                       <IconButton
                         aria-label="More information"
                         variant="soft"
                         color="neutral"
                         size="sm"
-                        onClick={() => {}}
                       >
                         <InfoOutlinedIcon />
                       </IconButton>
+                      </Link>
                     </Tooltip>
                     <Tooltip title="Will add to queue">
                       <IconButton onClick={() => {}}>

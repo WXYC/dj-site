@@ -2,6 +2,7 @@
 
 import {
   useGetAuthenticationQuery,
+  useGetDJInfoQuery,
   useLoginMutation,
   useLogoutMutation,
 } from "@/lib/features/authentication/api";
@@ -93,7 +94,26 @@ export const useAuthentication = () => {
   }, [result]);
 
   return {
+    user: data?.user,
     authenticating,
     authenticated,
+  };
+};
+
+export const useRegistry = () => {
+  const { user, authenticated, authenticating } = useAuthentication();
+
+  const { data, isLoading, isError } = useGetDJInfoQuery(
+    {
+      cognito_user_name: user?.username!,
+    },
+    {
+      skip: !user || !authenticated || authenticating,
+    }
+  );
+
+  return {
+    loading: isLoading || authenticating || !authenticated,
+    info: data,
   };
 };

@@ -9,11 +9,13 @@ export default function RequiredBox({
   name,
   title,
   type,
+  disabled,
 }: {
   name: keyof VerifiedData;
   title: string;
   placeholder?: string;
   type?: React.HTMLInputTypeAttribute;
+  disabled?: boolean;
 }): JSX.Element {
   const [value, setValue] = useState("");
 
@@ -43,6 +45,7 @@ export default function RequiredBox({
           type={type || "text"}
           name={String(name)}
           value={value}
+          disabled={disabled}
           onChange={(e) => {
             let value = e.target.value;
             setValue(value);

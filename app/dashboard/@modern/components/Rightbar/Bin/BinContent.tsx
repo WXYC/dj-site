@@ -1,46 +1,54 @@
-import { Inbox } from "@mui/icons-material";
-import { Box, Card, List, ListSubheader, Stack, Typography } from "@mui/joy";
+"use client";
+
+import { useBin } from "@/src/hooks/binHooks";
+import { Card, Divider, Skeleton, Typography } from "@mui/joy";
+import BinContainer from "./BinContainer";
+import BinEntry from "./BinEntry";
 
 export default function BinContent() {
-  return (
-    <Box
-      sx={{
-        p: 2,
-        pb: 3,
-      }}
-    >
-      <List
-        sx={{
-          flexGrow: 1,
-        }}
-      >
-        <ListSubheader
-          role="presentation"
-          sx={{
-            color: "text.primary",
-            mb: 1,
-            display: "flex",
-            justifyContent: "space-between",
-          }}
-        >
-          <Stack direction="row">
-            <Inbox sx={{ mr: 1 }} />
-            <Typography>Mail Bin</Typography>
-          </Stack>
-        </ListSubheader>
-        <Card
-          variant="outlined"
+  const { bin, isError, loading } = useBin();
+
+  if (loading) {
+    return (
+      <BinContainer>
+        <Skeleton
+          variant="rectangular"
           sx={{
             overflowY: "scroll",
             width: { xs: "100%", sm: 300, lg: 400 },
             height: 350,
+            borderRadius: "max((8px - 1px) - 1rem, min(1rem / 2, (8px - 1px) / 2))",
           }}
-        >
+        />
+      </BinContainer>
+    );
+  }
+
+  return (
+    <BinContainer>
+      <Card
+        variant="outlined"
+        sx={{
+          overflowY: "scroll",
+          width: { xs: "100%", sm: 300, lg: 400 },
+          height: 350,
+        }}
+      >
+        {!bin || bin.length <= 0 || isError ? (
           <div>
             <Typography level="body-md">An empty record...</Typography>
           </div>
-        </Card>
-      </List>
-    </Box>
+        ) : (
+          bin.map((entry, index) => (
+            <div key={`bin-${entry.id}-${index}`}>
+              <BinEntry key={`bin-entry-${entry.id}`} entry={entry} />
+              {index < bin.length - 1 && (
+                <Divider key={`bin-divider-${entry.id}`} />
+              )}
+            </div>
+          ))
+        )}
+      </Card>
+    </BinContainer>
   );
 }

@@ -57,11 +57,13 @@ export const catalogApi = createApi({
         body: rotation,
       }),
     }),
-    getInformation: builder.query<any, AlbumRequestParams>({
+    getInformation: builder.query<AlbumEntry, AlbumRequestParams>({
       query: ({ album_id }) => ({
         url: "/info",
         params: { album_id },
       }),
+      transformResponse: (response: AlbumQueryResponse) =>
+        convertAlbumFromSearch(response),
     }),
     getFormats: builder.query<any, void>({
       query: () => ({

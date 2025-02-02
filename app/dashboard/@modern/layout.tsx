@@ -9,6 +9,7 @@ import Rightbar from "./components/Rightbar/Rightbar";
 export default function ModernDashboard({
   children,
 }: {
+  information: React.ReactNode;
   children: React.ReactNode;
 }): JSX.Element {
   return (

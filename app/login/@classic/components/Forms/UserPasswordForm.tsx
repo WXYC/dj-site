@@ -27,10 +27,16 @@ export default function UserPasswordForm() {
                 title="User Login"
                 placeholder="Username"
                 type="text"
+                disabled={authenticating}
               />
             </tr>
             <tr>
-              <RequiredBox name="password" title="Password" type="password" />
+              <RequiredBox
+                name="password"
+                title="Password"
+                type="password"
+                disabled={authenticating}
+              />
             </tr>
             <tr>
               <td></td>

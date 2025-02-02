@@ -14,8 +14,14 @@ export default function UserPasswordForm() {
         title="Username"
         placeholder="Username"
         type="text"
+        disabled={authenticating}
       />
-      <RequiredBox name="password" title="Password" type="password" />
+      <RequiredBox
+        name="password"
+        title="Password"
+        type="password"
+        disabled={authenticating}
+      />
       <ValidatedSubmitButton
         authenticating={authenticating}
         valid={verified}

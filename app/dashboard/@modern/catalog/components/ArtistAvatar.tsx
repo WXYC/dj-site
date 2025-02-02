@@ -57,13 +57,13 @@ const GENRE_VARIANTS: { [id in Genre]: VariantProp } = {
 
 export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
   let color_choice =
-    GENRE_COLORS[(props.artist?.genre.name as Genre) ?? "Unknown"];
+    GENRE_COLORS[(props.artist?.genre as Genre) ?? "Unknown"];
   if (color_choice === undefined) {
     color_choice = "neutral";
   }
 
   let variant_choice =
-    GENRE_VARIANTS[(props.artist?.genre.name as Genre) ?? "Unknown"];
+    GENRE_VARIANTS[(props.artist?.genre as Genre) ?? "Unknown"];
   if (variant_choice === undefined) {
     variant_choice = "solid";
   }
@@ -71,7 +71,7 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
   return (
     <Tooltip
       variant="outlined"
-      title={`${props.artist?.genre.name ?? "[Genre]"} ${
+      title={`${props.artist?.genre ?? "[Genre]"} ${
         props.format == "Unknown" ? "[Format]" : props.format ?? "[Format]"
       }   ♪   ${props.artist?.lettercode ?? "&&"} ${
         props.artist?.numbercode ?? "##"
@@ -107,7 +107,7 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
                   ml: -0.1,
                 }}
               >
-                {props.artist?.genre?.name.substring(0, 2)?.toUpperCase() ??
+                {props.artist?.genre?.substring(0, 2)?.toUpperCase() ??
                   "—"}
               </Typography>
             </Stack>
