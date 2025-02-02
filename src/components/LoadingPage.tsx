@@ -1,10 +1,17 @@
 import { Box, CircularProgress, Modal } from "@mui/joy";
-import { createServerSideProps } from "../../lib/features/session";
 
 export const LoadingPage = (): JSX.Element => {
   return (
     <Modal open={true}>
-      <Box>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+          width: "100vw",
+        }}
+      >
         <CircularProgress />
       </Box>
     </Modal>
