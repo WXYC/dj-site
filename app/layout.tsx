@@ -1,30 +1,36 @@
-/* Components */
-import { Providers } from "@/lib/providers";
+import { type ReactNode } from "react";
+import { StoreProvider } from "@/src/StoreProvider";
 
-/* Instruments */
+import "@/src/styles/globals.css";
+import { createServerSideProps } from "@/lib/features/session";
 import { Toaster } from "sonner";
-import { GlobalPopups } from "./components/General/Popups/Popups";
-import ThemeRegistry from "./styles/ThemeRegistry";
-import "./styles/classic.css";
-import "./styles/globals.css";
-import { Suspense } from "react";
+import Appbar from "@/src/components/Theme/Appbar";
+import ThemeRegistry from "@/src/styles/ThemeRegistry";
 
-export default function RootLayout(props: React.PropsWithChildren) {
+export const runtime = "edge";
+
+interface Props {
+  children: ReactNode;
+}
+
+export default async function RootLayout({ children }: Props) {
+  const serverSideProps = await createServerSideProps();
+
   return (
-    <Providers>
+    <StoreProvider>
       <ThemeRegistry options={{ key: "joy" }}>
-        <html lang="en">
+        <html lang="en" data-classic-view={serverSideProps.application.classic}>
           <body>
             <Toaster closeButton richColors />
             <div id="root">
-              <GlobalPopups />
-              <Suspense>
-              <main>{props.children}</main>
-              </Suspense>
+              <main>
+                {children}
+                <Appbar />
+              </main>
             </div>
           </body>
         </html>
       </ThemeRegistry>
-    </Providers>
+    </StoreProvider>
   );
 }
