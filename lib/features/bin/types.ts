@@ -1,3 +1,7 @@
+export type BinFrontendState = {
+  searchQuery: string;
+};
+
 export type DJBinQuery = {
   dj_id: number;
 };

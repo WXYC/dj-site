@@ -1,6 +1,13 @@
-import { usePathname, useRouter } from "next/navigation";
+import { authenticationApi } from "@/lib/features/authentication/api";
+import { authenticationSlice } from "@/lib/features/authentication/frontend";
+import { binApi } from "@/lib/features/bin/api";
+import { catalogApi } from "@/lib/features/catalog/api";
+import { catalogSlice } from "@/lib/features/catalog/frontend";
+import { flowsheetApi } from "@/lib/features/flowsheet/api";
+import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
+import { useAppDispatch } from "@/lib/hooks";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
 
 export function useWindowSize() {
   // Initialize state with undefined width/height so server and client renders match
@@ -37,11 +44,7 @@ export function useWindowSize() {
 }
 
 export const usePublicRoutes = () => {
-
-  const publicRoutes = [
-    "/live",
-    "/login",
-  ];
+  const publicRoutes = ["/live", "/login"];
 
   const pathname = usePathname();
 
@@ -51,10 +54,19 @@ export const usePublicRoutes = () => {
     setPublic(getIsPublic(pathname));
   }, [pathname]);
 
-  function getIsPublic(route: string)
-  {
+  function getIsPublic(route: string) {
     return publicRoutes.includes(route) || route.length <= 1;
   }
 
   return isPublic;
+};
+
+export function resetApplication(dispatch: ReturnType<typeof useAppDispatch>) {
+  dispatch(flowsheetApi.util.resetApiState());
+  dispatch(flowsheetSlice.actions.reset());
+  dispatch(catalogApi.util.resetApiState());
+  dispatch(catalogSlice.actions.reset());
+  dispatch(binApi.util.resetApiState());
+  dispatch(authenticationApi.util.resetApiState());
+  dispatch(authenticationSlice.actions.reset());
 }

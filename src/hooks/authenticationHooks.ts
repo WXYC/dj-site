@@ -10,6 +10,7 @@ import { authenticationSlice } from "@/lib/features/authentication/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { resetApplication } from "./applicationHooks";
 
 export const useLogin = () => {
   const router = useRouter();
@@ -56,9 +57,11 @@ export const useLogout = () => {
     logout();
   };
 
+  const dispatch = useAppDispatch();
   useEffect(() => {
     if (result.isSuccess) {
       router.push("/login");
+      resetApplication(dispatch);
     }
   }, [result]);
 

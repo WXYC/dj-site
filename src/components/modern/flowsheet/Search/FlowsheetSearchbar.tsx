@@ -39,10 +39,15 @@ export default function FlowsheetSearchbar() {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [handleKeyDown]);
+  
+  const handleClose = useCallback((event: MouseEvent | TouchEvent) => {
+    setSearchOpen(false);
+    searchRef.current?.querySelector("input")?.blur();
+  }, [searchRef.current]);
 
   return (
     <Stack direction={"row"} spacing={1}>
-      <ClickAwayListener onClickAway={() => setSearchOpen(false)}>
+      <ClickAwayListener onClickAway={handleClose}>
         <FormControl size="sm" sx={{ flex: 1, minWidth: 0 }}>
           <FlowsheetSearchResults />
           <Box
@@ -86,7 +91,7 @@ export default function FlowsheetSearchbar() {
             onClick={() =>
               live && searchRef.current?.querySelector("input")?.focus()
             }
-            onFocus={() => setSearchOpen(true)}
+            onFocus={() => live && setSearchOpen(true)}
           >
             <Box
               sx={{

@@ -31,12 +31,15 @@ export const useShowControl = () => {
     skip: !userData || userloading,
   });
 
-  const { data, isLoading: entriesLoading, isSuccess, isError } = useGetEntriesQuery(
-    undefined,
-    {
-      skip: !userData || userloading,
-    }
-  );
+  const pagination = useAppSelector(flowsheetSlice.selectors.getPagination);
+  const {
+    data,
+    isLoading: entriesLoading,
+    isSuccess,
+    isError,
+  } = useGetEntriesQuery(pagination, {
+    skip: !userData || userloading,
+  });
 
   const [currentShow, setCurrentShow] = useState<number>(-1);
   useEffect(() => {
@@ -58,11 +61,18 @@ export const useShowControl = () => {
   const [goLiveFunction, goingLiveResult] = useJoinShowMutation();
   const [leaveFunction, leavingResult] = useLeaveShowMutation();
 
+  const autoplay = useAppSelector((state) => state.flowsheet.autoplay);
+  const dispatch = useAppDispatch();
+  const setAutoPlay = (autoplay: boolean) => {
+    dispatch(flowsheetSlice.actions.setAutoplay(autoplay));
+  };
+
   const goLive = () => {
     if (!userData || userData.id === undefined || userloading) {
       return;
     }
 
+    dispatch(flowsheetSlice.actions.setPagination({ page: 0, limit: 1 }));
     goLiveFunction({ dj_id: userData.id });
   };
 
@@ -71,13 +81,8 @@ export const useShowControl = () => {
       return;
     }
 
+    dispatch(flowsheetSlice.actions.setPagination({ page: 0, limit: 1 }));
     leaveFunction({ dj_id: userData.id });
-  };
-
-  const autoplay = useAppSelector((state) => state.flowsheet.autoplay);
-  const dispatch = useAppDispatch();
-  const setAutoPlay = (autoplay: boolean) => {
-    dispatch(flowsheetSlice.actions.setAutoplay(autoplay));
   };
 
   return {
@@ -103,9 +108,16 @@ export const useFlowsheetSearch = () => {
   const searchOpen = useAppSelector((state) => state.flowsheet.search.open);
   const setSearchOpen = (open: boolean) => {
     dispatch(flowsheetSlice.actions.setSearchOpen(open));
+    if (!open)
+    {
+      dispatch(flowsheetSlice.actions.resetSearch());
+    }
   };
   const searchQuery = useAppSelector((state) => state.flowsheet.search.query);
-  const setSearchProperty = (name: keyof Omit<FlowsheetQuery, "request">, value: string) => {
+  const setSearchProperty = (
+    name: keyof Omit<FlowsheetQuery, "request">,
+    value: string
+  ) => {
     dispatch(flowsheetSlice.actions.setSearchProperty({ name, value }));
   };
 
@@ -122,21 +134,18 @@ export const useFlowsheetSearch = () => {
 export const useFlowsheet = () => {
   const { loading: userloading, info: userData } = useRegistry();
 
+  const pagination = useAppSelector(flowsheetSlice.selectors.getPagination);
   const { data, isLoading, isSuccess, isError } = useGetEntriesQuery(
-    undefined,
+    pagination,
     {
       skip: !userData || userloading,
     }
   );
 
-  useEffect(() => {
-    console.log(data);
-  }, [data]);
-
   return {
     entries: data,
     loading: isLoading || userloading,
     isSuccess,
-    isError,
+    isError
   };
 };

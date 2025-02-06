@@ -2,11 +2,16 @@
 
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useAppSelector } from "@/lib/hooks";
+import { useBinResults } from "@/src/hooks/binHooks";
+import { useCatalogFlowsheetSearch } from "@/src/hooks/catalogHooks";
 import { Box, Chip, Divider, Sheet, Stack, Typography } from "@mui/joy";
-import NewEntryPreview from "./NewEntryPreview";
+import FlowsheetBackendResults from "./BackendResults/FlowsheetBackendResults";
+import NewEntryPreview from "./NewEntry/NewEntryPreview";
 
 export default function FlowsheetSearchResults() {
   const open = useAppSelector(flowsheetSlice.selectors.getSearchOpen);
+  const { searchResults: binResults } = useBinResults();
+  const { searchResults: catalogResults } = useCatalogFlowsheetSearch();
 
   return (
     <Sheet
@@ -34,6 +39,22 @@ export default function FlowsheetSearchResults() {
         }}
       >
         <NewEntryPreview submitResult={() => {}} />
+        <Divider
+          sx={{ visibility: binResults.length > 0 ? "inherit" : "hidden" }}
+        />
+        <FlowsheetBackendResults
+          results={binResults}
+          offset={1}
+          label="From Your Mail Bin"
+        />{" "}
+        <Divider
+          sx={{ visibility: catalogResults.length > 0 ? "inherit" : "hidden" }}
+        />
+        <FlowsheetBackendResults
+          results={catalogResults}
+          offset={binResults.length + 1}
+          label="From the Card Catalog"
+        />
         <Divider />
         <Stack
           direction="row"
@@ -76,7 +97,8 @@ export default function FlowsheetSearchResults() {
             <Typography level="body-xs">SHIFT + ENTER</Typography>
           </Chip>
           <Typography level="body-xs">
-            sets the current result <Typography color="primary">playing</Typography>
+            sets the current result{" "}
+            <Typography color="primary">playing</Typography>
           </Typography>
         </Stack>
       </Box>

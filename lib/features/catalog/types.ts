@@ -62,6 +62,7 @@ export type AlbumEntry = {
   play_freq: Rotation | undefined;
   plays: number | undefined;
   add_date: string | undefined;
+  label: string;
 };
 
 export type ArtistEntry = {

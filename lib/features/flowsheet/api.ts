@@ -5,13 +5,15 @@ import { convertFlowsheetResponse } from "./conversions";
 import {
   FlowsheetEntry,
   FlowsheetEntryResponse,
+  FlowsheetRequestParams,
+  FlowsheetSubmissionParams,
   OnAirDJResponse,
 } from "./types";
 
 export const flowsheetApi = createApi({
   reducerPath: "flowsheetApi",
   baseQuery: backendBaseQuery("flowsheet"),
-  tagTypes: ["NowPlaying", "Flowsheet", "WhoIsLive"],
+  tagTypes: ["NowPlaying", "WhoIsLive", "Flowsheet"],
   endpoints: (builder) => ({
     getNowPlaying: builder.query<any, void>({
       query: () => ({
@@ -19,13 +21,29 @@ export const flowsheetApi = createApi({
       }),
       providesTags: ["NowPlaying"],
     }),
-    getEntries: builder.query<FlowsheetEntry[], void>({
-      query: () => ({
-        url: "/",
+    getEntries: builder.query<FlowsheetEntry[], FlowsheetRequestParams>({
+      query: (params) => ({
+        url: !params ? "/" : `/?page=${params.page}&limit=${params.limit}`,
       }),
-      providesTags: ["Flowsheet"],
+      serializeQueryArgs: ({ endpointName }) => endpointName,
       transformResponse: (response: FlowsheetEntryResponse[]) =>
         convertFlowsheetResponse(response),
+      providesTags: ["Flowsheet"],
+      merge: (currentCache, newItems) => {
+        const map = new Map(currentCache.map((entry) => [entry.id, entry]));
+        newItems.forEach((entry) => {
+          map.set(entry.id, entry);
+        });
+        return Array.from(map.values()).sort(
+          (a, b) => b.play_order - a.play_order
+        );
+      },
+      forceRefetch({ currentArg, previousArg }) {
+        return (
+          currentArg?.page !== previousArg?.page ||
+          currentArg?.limit !== previousArg?.limit
+        );
+      },
     }),
     joinShow: builder.mutation<any, DJRequestParams>({
       query: (params) => ({
@@ -33,7 +51,7 @@ export const flowsheetApi = createApi({
         method: "POST",
         body: params,
       }),
-      invalidatesTags: ["NowPlaying", "Flowsheet", "WhoIsLive"],
+      invalidatesTags: ["NowPlaying", "WhoIsLive", "Flowsheet"],
     }),
     leaveShow: builder.mutation<any, DJRequestParams>({
       query: (params) => ({
@@ -41,13 +59,21 @@ export const flowsheetApi = createApi({
         method: "POST",
         body: params,
       }),
-      invalidatesTags: ["NowPlaying", "Flowsheet", "WhoIsLive"],
+      invalidatesTags: ["NowPlaying", "WhoIsLive", "Flowsheet"],
     }),
     whoIsLive: builder.query<OnAirDJResponse[], void>({
       query: () => ({
         url: "/djs-on-air",
       }),
       providesTags: ["WhoIsLive"],
+    }),
+    addToFlowsheet: builder.mutation<any, FlowsheetSubmissionParams>({
+      query: (params) => ({
+        url: "/",
+        method: "POST",
+        body: params,
+      }),
+      invalidatesTags: ["Flowsheet", "NowPlaying"],
     }),
   }),
 });

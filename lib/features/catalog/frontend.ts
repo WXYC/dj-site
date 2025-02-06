@@ -61,6 +61,7 @@ export const catalogSlice = createAppSlice({
         ...action.payload,
       };
     },
+    reset: () => defaultCatalogFrontendState,
   },
   selectors: {
     getSearchQuery: (state) => state.search.query,

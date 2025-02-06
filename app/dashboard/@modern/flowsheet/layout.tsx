@@ -1,8 +1,8 @@
 import FlowsheetSkeletonLoader from "@/src/components/modern/flowsheet/FlowsheetSkeletonLoader";
 import GoLive from "@/src/components/modern/flowsheet/GoLive";
-import FlowsheetSearchbar from "@/src/components/modern/flowsheet/Search/FlowsheetSearchbar";
+import InfiniteScroller from "@/src/components/modern/flowsheet/InfiniteScroller";
 import PageHeader from "@/src/components/modern/Header/PageHeader.";
-import { Divider, Sheet } from "@mui/joy";
+import { Divider } from "@mui/joy";
 import { Suspense } from "react";
 
 export type FlowsheetPageProps = {
@@ -11,7 +11,11 @@ export type FlowsheetPageProps = {
   entries: React.ReactNode;
 };
 
-export default function FlowsheetPage({ children, queue, entries }: FlowsheetPageProps) {
+export default function FlowsheetPage({
+  children,
+  queue,
+  entries,
+}: FlowsheetPageProps) {
   return (
     <>
       <PageHeader title="Flowsheet">
@@ -19,23 +23,15 @@ export default function FlowsheetPage({ children, queue, entries }: FlowsheetPag
       </PageHeader>
       <>
         {children}
-        <Sheet
-          sx={{
-            maxHeight: "calc(100vh - 200px)",
-            overflowY: "auto",
-            background: "transparent",
-            mt: 2,
-            overflowX: "visible",
-          }}
-        >
+        <InfiniteScroller>
           <Suspense fallback={<FlowsheetSkeletonLoader count={2} />}>
-          {queue}
+            {queue}
           </Suspense>
           <Divider sx={{ my: 1 }} />
           <Suspense fallback={<FlowsheetSkeletonLoader count={8} />}>
             {entries}
           </Suspense>
-        </Sheet>
+        </InfiniteScroller>
       </>
     </>
   );

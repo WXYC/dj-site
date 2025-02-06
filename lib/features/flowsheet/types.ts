@@ -8,6 +8,7 @@ export type FlowsheetFrontendState = {
     selectedResult: number;
   };
   queue: FlowsheetSongEntry[];
+  pagination: FlowsheetRequestParams;
 };
 
 export type FlowsheetQuery = {
@@ -58,10 +59,28 @@ export type FlowsheetMessageEntry = FlowsheetEntryBase & {
   message: string;
 };
 
-
 export type FlowsheetEndShowEntry = FlowsheetEntryBase & {
   date_string: string;
-}
+};
+
+export type FlowsheetSubmissionParams =
+  | {
+      album_id: number;
+      track_title: string;
+      rotation_id?: number;
+      request_flag: boolean;
+      record_label?: string;
+    }
+  | {
+      artist_name: string;
+      album_title: string;
+      track_title: string;
+      request_flag: boolean;
+      record_label?: string;
+    }
+  | {
+      message: string;
+    };
 
 export type FlowsheetEntry =
   | FlowsheetSongEntry
@@ -69,23 +88,49 @@ export type FlowsheetEntry =
   | FlowsheetEndShowEntry
   | FlowsheetMessageEntry;
 
-export function isFlowsheetSongEntry(entry: FlowsheetEntry): entry is FlowsheetSongEntry {
+export function isFlowsheetSongEntry(
+  entry: FlowsheetEntry
+): entry is FlowsheetSongEntry {
   return (entry as FlowsheetSongEntry).track_title !== undefined;
 }
 
-export function isFlowsheetStartShowEntry(entry: FlowsheetEntry): entry is FlowsheetStartShowEntry {
+export function isFlowsheetStartShowEntry(
+  entry: FlowsheetEntry
+): entry is FlowsheetStartShowEntry {
   return (entry as FlowsheetStartShowEntry).dj_name !== undefined;
 }
 
-export function isFlowsheetEndShowEntry(entry: FlowsheetEntry): entry is FlowsheetEndShowEntry {
+export function isFlowsheetEndShowEntry(
+  entry: FlowsheetEntry
+): entry is FlowsheetEndShowEntry {
   return (entry as FlowsheetEndShowEntry).date_string !== undefined;
 }
 
-export function isFlowsheetMessageEntry(entry: FlowsheetEntry): entry is FlowsheetMessageEntry {
-  return (entry as FlowsheetMessageEntry).message !== undefined;
+export function isFlowsheetTalksetEntry(
+  entry: FlowsheetEntry
+): entry is FlowsheetMessageEntry {
+  return (
+    (entry as FlowsheetMessageEntry).message !== undefined &&
+    (entry as FlowsheetMessageEntry).message.includes("Talkset")
+  );
+}
+
+export function isFlowsheetBreakpointEntry(
+  entry: FlowsheetEntry
+): entry is FlowsheetMessageEntry {
+  return (
+    (entry as FlowsheetMessageEntry).message !== undefined &&
+    (entry as FlowsheetMessageEntry).message.includes("Breakpoint")
+  );
 }
 
 export type OnAirDJResponse = {
   id: number;
   dj_name: string;
+};
+
+export type FlowsheetRequestParams = {
+  page: number;
+  limit: number;
+  max: number;
 };
