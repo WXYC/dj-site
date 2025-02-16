@@ -1,6 +1,5 @@
 import {
   AuthenticationData,
-  AuthenticationSession,
   AuthenticationStage,
   Credentials,
 } from "@/lib/features/authentication/types";
@@ -8,21 +7,13 @@ import {
   defaultAuthenticationData,
   toClient,
 } from "@/lib/features/authentication/utilities";
-import { sessionOptions } from "@/lib/features/session";
-import { setDefault } from "@/lib/features/types";
+import { clearSession, getSession, sessionOptions, setSession } from "@/lib/features/session";
 import {
   CognitoIdentityProviderClient,
   GlobalSignOutCommand,
   InitiateAuthCommand,
   InitiateAuthCommandInput,
 } from "@aws-sdk/client-cognito-identity-provider";
-import {
-  AuthenticationDetails,
-  CognitoUser,
-  CognitoUserPool,
-  ICognitoUserPoolData,
-} from "amazon-cognito-identity-js";
-import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -60,10 +51,7 @@ export async function GET(request: NextRequest) {
     )
   );
 
-  const session = await getIronSession<AuthenticationSession>(
-    cookieStore,
-    sessionOptions
-  );
+  const session = await getSession();
 
   // If we are already logged in or the data is not present, sign the user out and default
   if (
@@ -99,7 +87,7 @@ export async function GET(request: NextRequest) {
     );
   } catch (error: any) {
     cookieStore.delete("auth_state");
-    session.destroy();
+    await clearSession();
     return NextResponse.json({ message: error.message }, { status: 400 });
   }
   //#endregion
@@ -128,10 +116,6 @@ export async function POST(request: NextRequest) {
 
     //#region Cookie Management
     const cookieStore = await cookies();
-    const session = await getIronSession<AuthenticationSession>(
-      cookieStore,
-      sessionOptions
-    );
 
     if (result.ChallengeName) {
       if (result.ChallengeName !== "NEW_PASSWORD_REQUIRED")
@@ -140,15 +124,13 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
 
-      session.refreshToken = undefined;
+      await setSession(undefined);
     } else if (result.AuthenticationResult) {
-      session.refreshToken = result.AuthenticationResult.RefreshToken;
+      await setSession(result.AuthenticationResult.RefreshToken);
       stage = AuthenticationStage.Authenticated;
     } else {
-      setDefault(session);
+      await setSession(undefined);
     }
-
-    await session.save();
     //#endregion
 
     let response = toClient(
@@ -172,19 +154,17 @@ export async function POST(request: NextRequest) {
 
 //#region LOGOUT
 export async function DELETE(request: NextRequest) {
-  let response = NextResponse.json(toClient(AuthenticationStage.NotAuthenticated), {
-    status: 200,
-  });
+  let response = NextResponse.json(
+    toClient(AuthenticationStage.NotAuthenticated),
+    {
+      status: 200,
+    }
+  );
 
   //#region Cookie Management
   const cookieStore = await cookies();
 
-  const session = await getIronSession<AuthenticationSession>(
-    cookieStore,
-    sessionOptions
-  );
-
-  session.destroy();
+  clearSession();
 
   const currentAuthenticationData: AuthenticationData = JSON.parse(
     String(cookieStore.get("auth_state")?.value ?? defaultAuthenticationData)

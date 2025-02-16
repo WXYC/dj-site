@@ -13,10 +13,12 @@ export type AuthenticationData = {
 
 export const defaultAuthenticationSession: AuthenticationSession = {
   refreshToken: undefined,
+  expiresAt: undefined,
 };
 
 export type AuthenticationSession = {
   refreshToken: string | undefined;
+  expiresAt: Date | undefined;
 };
 
 export enum AuthenticationStage {
