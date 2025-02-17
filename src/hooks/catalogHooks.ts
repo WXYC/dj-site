@@ -9,6 +9,7 @@ import {
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useCallback, useEffect, useState } from "react";
 import { useAuthentication } from "./authenticationHooks";
+import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 
 export const useCatalogSearch = () => {
   const dispatch = useAppDispatch();
@@ -172,3 +173,26 @@ export const useCatalogResults = () => {
     catalogSlice
   };
 };
+
+export const useCatalogFlowsheetSearch = () => {
+  const MIN_SEARCH_LENGTH = 3;
+
+  const { authenticating, authenticated } = useAuthentication();
+  
+  const flowsheetQuery = useAppSelector(flowsheetSlice.selectors.getSearchQuery);
+
+  const { data } = useSearchCatalogQuery({
+    artist_name: flowsheetQuery.artist,
+    album_name: flowsheetQuery.album,
+    n: 3,
+  }, {
+    skip:
+      authenticating ||
+      !authenticated ||
+      (flowsheetQuery.artist.length + flowsheetQuery.album.length) <= MIN_SEARCH_LENGTH,
+  });
+
+  return {
+    searchResults: (flowsheetQuery.artist.length + flowsheetQuery.album.length) > MIN_SEARCH_LENGTH ? (data ?? []) : [],
+  };
+}

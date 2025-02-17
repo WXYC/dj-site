@@ -10,6 +10,7 @@ import { authenticationSlice } from "@/lib/features/authentication/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { resetApplication } from "./applicationHooks";
 
 export const useLogin = () => {
   const router = useRouter();
@@ -17,6 +18,8 @@ export const useLogin = () => {
   const verified = useAppSelector(
     authenticationSlice.selectors.allCredentialsVerified
   );
+
+  const { handleLogout } = useLogout();
 
   const [login, result] = useLoginMutation();
 
@@ -32,6 +35,8 @@ export const useLogin = () => {
   useEffect(() => {
     if (result.isSuccess) {
       router.push(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE));
+    } else if (result.isError) {
+      handleLogout();
     }
   }, [result]);
 
@@ -51,14 +56,16 @@ export const useLogout = () => {
   const router = useRouter();
   const [logout, result] = useLogoutMutation();
 
-  const handleLogout = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleLogout = async (event?: React.FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
     logout();
   };
 
+  const dispatch = useAppDispatch();
   useEffect(() => {
-    if (result.isSuccess) {
+    if (result.isSuccess || result.isError) {
       router.push("/login");
+      resetApplication(dispatch);
     }
   }, [result]);
 
@@ -88,7 +95,7 @@ export const useAuthentication = () => {
   }, [data]);
 
   useEffect(() => {
-    if (result.isSuccess) {
+    if (result.isSuccess || result.isError) {
       router.push("/login");
     }
   }, [result]);

@@ -26,6 +26,7 @@ export const applicationSlice = createAppSlice({
     toggleSidebar: (state) => {
       state.rightbar.sidebarOpen = !state.rightbar.sidebarOpen;
     },
+    reset: () => defaultApplicationFrontendState,
   },
   selectors: {
     getRightbarMini: (state) => state.rightbar.mini,

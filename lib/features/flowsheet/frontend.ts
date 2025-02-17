@@ -1,6 +1,6 @@
 import { createAppSlice } from "@/lib/createAppSlice";
 import { PayloadAction } from "@reduxjs/toolkit";
-import { FlowsheetFrontendState, FlowsheetQuery } from "./types";
+import { FlowsheetFrontendState, FlowsheetQuery, FlowsheetRequestParams } from "./types";
 
 export const defaultFlowsheetFrontendState: FlowsheetFrontendState = {
   autoplay: false,
@@ -16,6 +16,11 @@ export const defaultFlowsheetFrontendState: FlowsheetFrontendState = {
     selectedResult: 0,
   },
   queue: [],
+  pagination: {
+    page: 0,
+    limit: 20,
+    max: 0,
+  }
 };
 
 export const flowsheetSlice = createAppSlice({
@@ -58,6 +63,15 @@ export const flowsheetSlice = createAppSlice({
     setSelectedResult: (state, action) => {
       state.search.selectedResult = action.payload;
     },
+    setPage: (state, action) => {
+      state.pagination.page = action.payload;
+    },
+    setPagination: (state, action: PayloadAction<Omit<FlowsheetRequestParams, "max">>) => {
+      state.pagination.page = action.payload.page;
+      state.pagination.limit = action.payload.limit;
+      state.pagination.max = Math.max(state.pagination.max, action.payload.page);
+    },
+    reset: () => defaultFlowsheetFrontendState,
   },
   selectors: {
     getAutoplay: (state) => state.autoplay,
@@ -66,5 +80,6 @@ export const flowsheetSlice = createAppSlice({
     getSearchQueryLength: (state) => Object.values(state.search.query).filter((value) => value).length,
     getQueue: (state) => state.queue,
     getSelectedResult: (state) => state.search.selectedResult,
+    getPagination: (state) => state.pagination,
   },
 });

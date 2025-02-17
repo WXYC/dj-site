@@ -19,5 +19,6 @@ export function convertAlbumFromSearch(
     play_freq: response.play_freq,
     add_date: response.add_date,
     plays: response.plays ?? 0,
+    label: response.label,
   };
 }

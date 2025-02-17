@@ -9,7 +9,7 @@ export default function FlowsheetEntries() {
   const { loading, entries } = useFlowsheet();
 
   if (loading || !entries) {
-    return <FlowsheetSkeletonLoader count={8} />;
+    return <FlowsheetSkeletonLoader count={10} />;
   }
 
   return (

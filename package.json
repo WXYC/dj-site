@@ -18,7 +18,7 @@
     "@reduxjs/toolkit": "^2.2.0",
     "amazon-cognito-identity-js": "^6.3.12",
     "cookie": "^1.0.2",
-    "iron-session": "^8.0.4",
+    "jose": "^5.9.6",
     "jwt-decode": "^4.0.0",
     "next": "latest",
     "react": "^18.2.0",

@@ -20,5 +20,6 @@ export function convertAlbumFromBin(
     play_freq: undefined,
     add_date: undefined,
     plays: undefined,
+    label: response.label ?? "",
   };
 }
