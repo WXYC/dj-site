@@ -1,7 +1,8 @@
 "use client";
 
+import { useAddToFlowsheetMutation } from "@/lib/features/flowsheet/api";
 import { useFlowsheetSearch } from "@/src/hooks/flowsheetHooks";
-import { Mic, Timer, Troubleshoot } from "@mui/icons-material";
+import { Mic, Troubleshoot } from "@mui/icons-material";
 import {
   Box,
   Button,
@@ -13,12 +14,23 @@ import {
 } from "@mui/joy";
 import { ClickAwayListener } from "@mui/material";
 import { useCallback, useEffect, useRef } from "react";
+import BreakpointButton from "./BreakpointButton";
 import FlowsheetSearchInput from "./FlowsheetSearchInput";
 import FlowsheetSearchResults from "./Results/FlowsheetSearchResults";
 
 export default function FlowsheetSearchbar() {
   const { live, setSearchOpen } = useFlowsheetSearch();
   const searchRef = useRef<HTMLDivElement>(null);
+
+  const [addToFlowsheet, addToFlowsheetResult] = useAddToFlowsheetMutation();
+
+  const handleClose = useCallback(
+    (event: MouseEvent | TouchEvent | React.FormEvent<HTMLFormElement>) => {
+      setSearchOpen(false);
+      searchRef.current?.querySelector("input")?.blur();
+    },
+    [searchRef.current]
+  );
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -31,6 +43,25 @@ export default function FlowsheetSearchbar() {
     [live]
   );
 
+  const handleSubmit = useCallback(
+    (e: React.FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      handleClose(e);
+
+      const formData = new FormData(e.currentTarget);
+      const data = Object.fromEntries(formData.entries());
+
+      addToFlowsheet({
+        track_title: data.song as string,
+        artist_name: data.artist as string,
+        album_title: data.album as string,
+        record_label: data.label as string,
+        request_flag: false,
+      });
+    },
+    [handleClose, addToFlowsheet]
+  );
+
   useEffect(() => {
     document.removeEventListener("keydown", handleKeyDown);
     document.addEventListener("keydown", handleKeyDown);
@@ -39,12 +70,6 @@ export default function FlowsheetSearchbar() {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [handleKeyDown]);
-  
-  const handleClose = useCallback((event: MouseEvent | TouchEvent) => {
-    setSearchOpen(false);
-    searchRef.current?.querySelector("input")?.blur();
-  }, [searchRef.current]);
-
   return (
     <Stack direction={"row"} spacing={1}>
       <ClickAwayListener onClickAway={handleClose}>
@@ -53,7 +78,7 @@ export default function FlowsheetSearchbar() {
           <Box
             ref={searchRef}
             component="form"
-            onSubmit={(e) => e.preventDefault()}
+            onSubmit={handleSubmit}
             sx={{
               display: "flex",
               justifyContent: "space-between",
@@ -110,14 +135,30 @@ export default function FlowsheetSearchbar() {
             >
               <Troubleshoot />
             </Box>
-            <FlowsheetSearchInput name={"song"} disabled={!live} suppressHydrationWarning/>
+            <FlowsheetSearchInput
+              name={"song"}
+              disabled={!live}
+              suppressHydrationWarning
+            />
             <Divider orientation="vertical" />
-            <FlowsheetSearchInput name={"artist"} disabled={!live} suppressHydrationWarning/>
+            <FlowsheetSearchInput
+              name={"artist"}
+              disabled={!live}
+              suppressHydrationWarning
+            />
             <Divider orientation="vertical" />
-            <FlowsheetSearchInput name={"album"} disabled={!live} suppressHydrationWarning/>
+            <FlowsheetSearchInput
+              name={"album"}
+              disabled={!live}
+              suppressHydrationWarning
+            />
             <Divider orientation="vertical" />
-            <FlowsheetSearchInput name={"label"} disabled={!live} suppressHydrationWarning/>
-
+            <FlowsheetSearchInput
+              name={"label"}
+              disabled={!live}
+              suppressHydrationWarning
+            />
+            <input type="submit" hidden />
             <Box
               component="div"
               className="MuiInput-endDecorator css-x3cgwv-JoyInput-endDecorator"
@@ -156,22 +197,7 @@ export default function FlowsheetSearchbar() {
           </Box>
         </FormControl>
       </ClickAwayListener>
-      <Tooltip
-        placement="top"
-        size="sm"
-        title="Add a Breakpoint"
-        variant="outlined"
-      >
-        <IconButton
-          size="sm"
-          variant="solid"
-          color="warning"
-          onClick={() => {}}
-          disabled={!live}
-        >
-          <Timer />
-        </IconButton>
-      </Tooltip>
+      <BreakpointButton />
       <Tooltip
         placement="top"
         size="sm"
@@ -182,7 +208,11 @@ export default function FlowsheetSearchbar() {
           size="sm"
           variant="solid"
           color="success"
-          onClick={() => {}}
+          onClick={() => {
+            addToFlowsheet({
+              message: "Talkset",
+            });
+          }}
           disabled={!live}
         >
           <Mic />

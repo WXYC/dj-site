@@ -1,4 +1,5 @@
 import {
+  FlowsheetBreakpointEntry,
   FlowsheetEntry,
   FlowsheetMessageEntry,
   isFlowsheetBreakpointEntry,
@@ -17,6 +18,7 @@ import {
 import { Stack, Typography } from "@mui/joy";
 import MessageEntry from "./MessageEntry";
 import SongEntry from "./SongEntry/SongEntry";
+import { useFlowsheet } from "@/src/hooks/flowsheetHooks";
 
 export default function Entry({
   entry,
@@ -89,7 +91,7 @@ export default function Entry({
       >
         <Stack direction="row" spacing={0.5}>
           <Typography level="body-lg">
-            {(entry as FlowsheetMessageEntry).message}
+            {(entry as FlowsheetBreakpointEntry).message}
           </Typography>
         </Stack>
       </MessageEntry>
