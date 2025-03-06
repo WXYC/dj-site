@@ -1,4 +1,5 @@
 import { Authorization } from "@/lib/features/admin/types";
+import { AuthenticatedUser } from "@/lib/features/authentication/types";
 import { createServerSideProps } from "@/lib/features/session";
 import {
   EditCalendar,
@@ -8,17 +9,18 @@ import {
 import AlbumIcon from "@mui/icons-material/Album";
 import SettingsIcon from "@mui/icons-material/Settings";
 import StorageIcon from "@mui/icons-material/Storage";
-import StreamIcon from "@mui/icons-material/Stream";
 import Divider from "@mui/joy/Divider";
 import List from "@mui/joy/List";
+import FlowsheetLink from "./FlowsheetLink";
 import LeftbarContainer from "./LeftbarContainer";
 import LeftbarLink from "./LeftbarLink";
 import LeftbarLogout from "./LeftbarLogout";
-import FlowsheetLink from "./FlowsheetLink";
 
 export default async function Leftbar(): Promise<JSX.Element> {
   // user is guaranteed to be defined here because middleware will redirect to login if not authenticated
-  const user = (await createServerSideProps()).authentication.user!;
+  const user = (
+    (await createServerSideProps()).authentication as AuthenticatedUser
+  ).user!;
 
   return (
     <LeftbarContainer>

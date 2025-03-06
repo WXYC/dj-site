@@ -1,4 +1,4 @@
-import { AuthenticationStage } from "@/lib/features/authentication/types";
+import { isIncomplete } from "@/lib/features/authentication/types";
 import { createServerSideProps } from "@/lib/features/session";
 import WXYCPage from "@/src/Layout/WXYCPage";
 
@@ -13,9 +13,7 @@ export default async function ModernLoginLayout({
 
   return (
     <WXYCPage title="Login">
-      {serverSideProps.authentication?.stage == AuthenticationStage.NewPassword
-        ? reset
-        : normal}
+      {isIncomplete(serverSideProps.authentication) ? reset : normal}
     </WXYCPage>
   );
 }

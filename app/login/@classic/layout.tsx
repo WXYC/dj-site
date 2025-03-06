@@ -1,4 +1,4 @@
-import { AuthenticationStage } from "@/lib/features/authentication/types";
+import { isIncomplete } from "@/lib/features/authentication/types";
 import { createServerSideProps } from "@/lib/features/session";
 import { ReactNode } from "react";
 import Header from "./components/Layout/Header";
@@ -19,14 +19,11 @@ export default async function Layout({ normal, reset }: LoginProps) {
         justifyContent: "center",
         alignItems: "center",
         flexDirection: "column",
-        height: "100%"
+        height: "100%",
       }}
     >
       <Header />
-        {serverSideProps.authentication?.stage ==
-        AuthenticationStage.NewPassword
-          ? reset
-          : normal}
+      {isIncomplete(serverSideProps.authentication) ? reset : normal}
       <footer>
         <p>Copyright &copy; {new Date().getFullYear()} WXYC Chapel Hill</p>
       </footer>

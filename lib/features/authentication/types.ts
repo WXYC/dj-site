@@ -5,10 +5,28 @@ export type AuthenticationState = {
   verifications: Verification<VerifiedData>;
 };
 
-export type AuthenticationData = {
-  stage: AuthenticationStage;
+export type AuthenticationData = AuthenticatedUser | IncompleteUser | {
+  message: "Not Authenticated";
+};
+
+export type AuthenticatedUser = {
   user?: User;
   accessToken?: string;
+};
+
+export function isAuthenticated(
+  data: AuthenticationData
+): data is AuthenticatedUser {
+  return data !== undefined && (data as AuthenticatedUser)?.user !== undefined;
+}
+
+export function isIncomplete(data: AuthenticationData): data is IncompleteUser {
+  return data !== undefined && (data as IncompleteUser)?.requiredAttributes !== undefined;
+}
+
+export type IncompleteUser = {
+  username: string;
+  requiredAttributes: string[];
 };
 
 export const defaultAuthenticationSession: AuthenticationSession = {
@@ -20,13 +38,6 @@ export type AuthenticationSession = {
   refreshToken: string | undefined;
   expiresAt: Date | undefined;
 };
-
-export enum AuthenticationStage {
-  NotAuthenticated,
-  NewUser,
-  NewPassword,
-  Authenticated,
-}
 
 export type Credentials = {
   username: string;

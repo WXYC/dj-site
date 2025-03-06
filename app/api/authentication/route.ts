@@ -1,13 +1,18 @@
 import {
   AuthenticationData,
-  AuthenticationStage,
   Credentials,
+  isAuthenticated,
 } from "@/lib/features/authentication/types";
 import {
   defaultAuthenticationData,
   toClient,
 } from "@/lib/features/authentication/utilities";
-import { clearSession, getSession, sessionOptions, setSession } from "@/lib/features/session";
+import {
+  clearSession,
+  getSession,
+  sessionOptions,
+  setSession,
+} from "@/lib/features/session";
 import {
   CognitoIdentityProviderClient,
   GlobalSignOutCommand,
@@ -19,19 +24,6 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "edge";
 
-interface AuthResult {
-  stage?: AuthenticationStage;
-  challengeName?: string;
-  challengeParameters?: Record<string, string>;
-  userAttributes?: Record<string, string>;
-  session?: string;
-  AuthenticationResult?: {
-    IdToken: string;
-    AccessToken: string;
-    RefreshToken: string;
-  };
-}
-
 // This client will be used to send commands to the Cognito Identity Provider
 const client = new CognitoIdentityProviderClient({
   region: String(process.env.AWS_REGION),
@@ -39,8 +31,6 @@ const client = new CognitoIdentityProviderClient({
 
 //#region GET CURRENT USER
 export async function GET(request: NextRequest) {
-  let stage = AuthenticationStage.NotAuthenticated;
-
   //#region Cookie Retrieval
   const cookieStore = await cookies();
 
@@ -54,10 +44,7 @@ export async function GET(request: NextRequest) {
   const session = await getSession();
 
   // If we are already logged in or the data is not present, sign the user out and default
-  if (
-    !session?.refreshToken ||
-    currentAuthenticationData.stage !== AuthenticationStage.Authenticated
-  ) {
+  if (!session?.refreshToken || !isAuthenticated(currentAuthenticationData)) {
     return NextResponse.json(defaultAuthenticationData, { status: 200 });
   }
   //#endregion
@@ -75,16 +62,10 @@ export async function GET(request: NextRequest) {
     const command = new InitiateAuthCommand(params);
     const result = await client.send(command);
 
-    if (result.AuthenticationResult) stage = AuthenticationStage.Authenticated;
+    console.log("AuthenticationResult", result.AuthenticationResult);
+    console.log("ChallengeName", result.ChallengeName);
 
-    return NextResponse.json(
-      toClient(
-        stage,
-        result.AuthenticationResult?.IdToken,
-        result.AuthenticationResult?.AccessToken
-      ),
-      { status: 200 }
-    );
+    return NextResponse.json(toClient(result), { status: 200 });
   } catch (error: any) {
     cookieStore.delete("auth_state");
     await clearSession();
@@ -97,7 +78,6 @@ export async function GET(request: NextRequest) {
 //#region LOGIN
 export async function POST(request: NextRequest) {
   const { username, password } = (await request.json()) as Credentials;
-  let stage = AuthenticationStage.NotAuthenticated;
 
   try {
     //#region Cognito Auth Flow with Username and Password
@@ -127,17 +107,12 @@ export async function POST(request: NextRequest) {
       await setSession(undefined);
     } else if (result.AuthenticationResult) {
       await setSession(result.AuthenticationResult.RefreshToken);
-      stage = AuthenticationStage.Authenticated;
     } else {
       await setSession(undefined);
     }
     //#endregion
 
-    let response = toClient(
-      stage,
-      result.AuthenticationResult?.IdToken,
-      result.AuthenticationResult?.AccessToken
-    );
+    let response = toClient(result);
 
     cookieStore.set({
       ...sessionOptions.cookieOptions,
@@ -154,31 +129,25 @@ export async function POST(request: NextRequest) {
 
 //#region LOGOUT
 export async function DELETE(request: NextRequest) {
-  let response = NextResponse.json(
-    toClient(AuthenticationStage.NotAuthenticated),
-    {
-      status: 200,
-    }
-  );
+  let response = NextResponse.json(defaultAuthenticationData, {
+    status: 200,
+  });
 
   //#region Cookie Management
   const cookieStore = await cookies();
 
   clearSession();
 
-  const currentAuthenticationData: AuthenticationData = JSON.parse(
-    String(cookieStore.get("auth_state")?.value ?? defaultAuthenticationData)
-  );
+  const currentAuthenticationData: AuthenticationData =
+    cookieStore.get("auth_state") !== undefined
+      ? JSON.parse(String(cookieStore.get("auth_state")!.value))
+      : defaultAuthenticationData;
   cookieStore.delete("auth_state");
   //#endregion
 
   //#region Cognito Logout
   try {
-    if (
-      !currentAuthenticationData.user ||
-      !currentAuthenticationData.accessToken
-    )
-      return response;
+    if (!isAuthenticated(currentAuthenticationData)) return response;
 
     const command = new GlobalSignOutCommand({
       AccessToken: currentAuthenticationData.accessToken,

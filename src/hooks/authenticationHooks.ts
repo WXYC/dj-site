@@ -7,6 +7,10 @@ import {
   useLogoutMutation,
 } from "@/lib/features/authentication/api";
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
+import {
+  AuthenticatedUser,
+  isAuthenticated,
+} from "@/lib/features/authentication/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -34,7 +38,11 @@ export const useLogin = () => {
 
   useEffect(() => {
     if (result.isSuccess) {
-      router.push(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE));
+      if (isAuthenticated(result.data)) {
+        router.push(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE));
+      } else {
+        router.refresh();
+      }
     } else if (result.isError) {
       handleLogout();
     }
@@ -64,7 +72,7 @@ export const useLogout = () => {
   const dispatch = useAppDispatch();
   useEffect(() => {
     if (result.isSuccess || result.isError) {
-      router.push("/login");
+      router.refresh();
       resetApplication(dispatch);
     }
   }, [result]);
@@ -101,26 +109,30 @@ export const useAuthentication = () => {
   }, [result]);
 
   return {
-    user: data?.user,
+    data: data,
     authenticating,
     authenticated,
   };
 };
 
 export const useRegistry = () => {
-  const { user, authenticated, authenticating } = useAuthentication();
+  const { data, authenticated, authenticating } = useAuthentication();
 
-  const { data, isLoading, isError } = useGetDJInfoQuery(
+  const {
+    data: info,
+    isLoading,
+    isError,
+  } = useGetDJInfoQuery(
     {
-      cognito_user_name: user?.username!,
+      cognito_user_name: (data as AuthenticatedUser)?.user?.username!,
     },
     {
-      skip: !user || !authenticated || authenticating,
+      skip: !data || !authenticated || authenticating,
     }
   );
 
   return {
     loading: isLoading || authenticating || !authenticated,
-    info: data,
+    info: info,
   };
 };
