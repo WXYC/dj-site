@@ -1,21 +1,18 @@
-"use client";
+import { IncompleteUser } from "@/lib/features/authentication/types";
+import { createServerSideProps } from "@/lib/features/session";
+import ResetBackButton from "@/src/components/modern/login/Forms/ResetBackButton";
+import ResetPasswordForm from "@/src/components/modern/login/Forms/ResetPasswordForm";
+import HoldOnQuotes from "@/src/components/modern/login/Quotes/HoldOn";
 
-import { useLogout } from "@/src/hooks/authenticationHooks";
-import { Button } from "@mui/joy";
-
-export default function Home() {
-  const { handleLogout, loggingOut } = useLogout();
+export default async function ResetPasswordPage() {
+  const resetData = (await createServerSideProps())
+    .authentication as IncompleteUser;
 
   return (
-    <div>
-      <h1>Welcome to Next.js</h1>
-      <p>This is a modern reset password page template.</p>
-
-      <form onSubmit={handleLogout}>
-        <Button type="submit" loading={loggingOut}>
-          Logout
-        </Button>
-      </form>
-    </div>
+    <>
+      <ResetBackButton />
+      <HoldOnQuotes />
+      <ResetPasswordForm {...resetData} />
+    </>
   );
 }

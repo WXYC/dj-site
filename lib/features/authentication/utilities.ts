@@ -7,7 +7,7 @@ export const defaultAuthenticationData: AuthenticationData = {
   message: "Not Authenticated",
 };
 
-const requiredUserParameters = ["email", "name", "custom:dj-name"];
+const requiredUserParameters = ["name", "custom:dj-name"];
 
 export function toClient(data: InitiateAuthCommandOutput): AuthenticationData {
   if (
