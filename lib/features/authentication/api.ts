@@ -19,6 +19,14 @@ export const authenticationApi = createApi({
       query: () => "",
       providesTags: ["Authentication"],
     }),
+    changePassword: builder.mutation<AuthenticationData, Credentials>({
+      query: (credentials) => ({
+        url: "",
+        method: "PUT",
+        body: credentials,
+      }),
+      invalidatesTags: ["Authentication"],
+    }),
     logout: builder.mutation<AuthenticationData, void>({
       query: () => ({
         url: "",
@@ -33,6 +41,7 @@ export const {
   useGetAuthenticationQuery,
   useLoginMutation,
   useLogoutMutation,
+  useChangePasswordMutation,
 } = authenticationApi;
 
 export const djRegistryApi = createApi({

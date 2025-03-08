@@ -4,16 +4,16 @@ import WXYCPage from "@/src/Layout/WXYCPage";
 
 export default async function ModernLoginLayout({
   normal,
-  reset,
+  newuser,
 }: {
   normal: React.ReactNode;
-  reset: React.ReactNode;
+  newuser: React.ReactNode;
 }) {
   const serverSideProps = await createServerSideProps();
 
   return (
     <WXYCPage title="Login">
-      {isIncomplete(serverSideProps.authentication) ? reset : normal}
+      {isIncomplete(serverSideProps.authentication) ? newuser : normal}
     </WXYCPage>
   );
 }

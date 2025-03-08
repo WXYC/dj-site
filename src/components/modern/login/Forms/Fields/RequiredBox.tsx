@@ -16,6 +16,7 @@ export default function RequiredBox({
   placeholder,
   helper,
   disabled,
+  validationFunction
 }: {
   name: keyof VerifiedData;
   title: string;
@@ -23,6 +24,7 @@ export default function RequiredBox({
   helper?: string;
   disabled?: boolean;
   type?: React.HTMLInputTypeAttribute;
+  validationFunction?: (value: string) => boolean;
 }): JSX.Element {
   const [value, setValue] = useState("");
 
@@ -54,7 +56,7 @@ export default function RequiredBox({
         onChange={(e) => {
           let value = e.target.value;
           setValue(value);
-          reportValidation(value.length > 0);
+          reportValidation((validationFunction ?? ((value) => value.length > 0))(value));
         }}
         value={value}
       />

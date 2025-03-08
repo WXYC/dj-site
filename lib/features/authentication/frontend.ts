@@ -11,6 +11,7 @@ export const defaultAuthenticationState: AuthenticationState = {
     confirmPassword: false,
     code: false,
   },
+  required: ["username", "password", "confirmPassword"],
 };
 
 export const authenticationSlice = createAppSlice({
@@ -30,11 +31,20 @@ export const authenticationSlice = createAppSlice({
     ),
     reset: create.reducer((state) => {
       state.verifications = defaultAuthenticationState.verifications;
+      state.required = defaultAuthenticationState.required;
     }),
+    addRequiredCredentials: create.reducer(
+      (state, action: PayloadAction<(keyof VerifiedData)[]>) => {
+        state.required = [...state.required, ...action.payload];
+      }
+    ),
   }),
   selectors: {
     getVerification: (state, key: keyof VerifiedData) => {
       return state.verifications[key];
+    },
+    requiredCredentialsVerified: (state) => {
+      return state.required.every((key) => state.verifications[key]);
     },
     allCredentialsVerified: (state) => {
       return state.verifications.username && state.verifications.password;

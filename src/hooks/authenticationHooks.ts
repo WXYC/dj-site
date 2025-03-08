@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useChangePasswordMutation,
   useGetAuthenticationQuery,
   useGetDJInfoQuery,
   useLoginMutation,
@@ -9,7 +10,10 @@ import {
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
 import {
   AuthenticatedUser,
+  djAttributeNames,
   isAuthenticated,
+  NewUserCredentials,
+  VerifiedData,
 } from "@/lib/features/authentication/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useRouter } from "next/navigation";
@@ -134,5 +138,65 @@ export const useRegistry = () => {
   return {
     loading: isLoading || authenticating || !authenticated,
     info: info,
+  };
+};
+
+export const useResetPassword = () => {
+  const router = useRouter();
+
+  const verified = useAppSelector(
+    authenticationSlice.selectors.requiredCredentialsVerified
+  );
+
+  const { handleLogout } = useLogout();
+
+  const [changePassword, result] = useChangePasswordMutation();
+
+  const handleReset = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    const username = e.currentTarget.username.value;
+    const password = e.currentTarget.password.value;
+
+    const params: NewUserCredentials = {
+      username,
+      password,
+    };
+
+    for (const attribute of Object.keys(djAttributeNames)) {
+      const fieldName = djAttributeNames[attribute];
+      if (e.currentTarget[fieldName].value) {
+        params[attribute] = e.currentTarget[fieldName].value;
+      }
+    }
+
+    changePassword(params);
+  };
+
+  useEffect(() => {
+    if (result.isSuccess) {
+      if (isAuthenticated(result.data)) {
+        router.push(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE));
+      } else {
+        router.refresh();
+      }
+    } else if (result.isError) {
+      handleLogout();
+    }
+  }, [result]);
+
+  const dispatch = useAppDispatch();
+  useEffect(() => {
+    dispatch(authenticationSlice.actions.reset());
+  }, []);
+
+  const addRequiredCredentials = (required: (keyof VerifiedData)[]) =>
+    dispatch(authenticationSlice.actions.addRequiredCredentials(required));
+
+  return {
+    handleReset,
+    verified,
+    authenticating: result.isLoading || result.isSuccess,
+    addRequiredCredentials,
   };
 };

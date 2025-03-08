@@ -3,6 +3,7 @@ import { Authorization } from "../admin/types";
 
 export type AuthenticationState = {
   verifications: Verification<VerifiedData>;
+  required: (keyof VerifiedData)[];
 };
 
 export type AuthenticationData = AuthenticatedUser | IncompleteUser | {
@@ -26,7 +27,7 @@ export function isIncomplete(data: AuthenticationData): data is IncompleteUser {
 
 export type IncompleteUser = {
   username: string;
-  requiredAttributes: string[];
+  requiredAttributes: (keyof VerifiedData)[];
 };
 
 export const defaultAuthenticationSession: AuthenticationSession = {
@@ -43,6 +44,8 @@ export type Credentials = {
   username: string;
   password: string;
 };
+
+export type NewUserCredentials = Credentials & Record<string, string>;
 
 export type User = {
   username: string;
@@ -102,4 +105,19 @@ export type DJInfoResponse = {
   dj_name: string;
   real_name: string;
   shows_covered: number;
+};
+
+
+export const djAttributeNames: Record<string, keyof VerifiedData> = {
+  "name": "realName",
+  "custom:dj-name": "djName",
+};
+
+export const djAttributeTitles: Record<keyof VerifiedData, string> = {
+  "realName": "Real Name",
+  "djName": "DJ Name",
+  "username": "Username",
+  "password": "Password",
+  "code": "Code",
+  "confirmPassword": "Confirm Password",
 };

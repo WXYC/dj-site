@@ -1,24 +1,27 @@
-import { InitiateAuthCommandOutput } from "@aws-sdk/client-cognito-identity-provider";
+import {
+  InitiateAuthCommandOutput,
+  RespondToAuthChallengeCommandOutput,
+} from "@aws-sdk/client-cognito-identity-provider";
 import { jwtDecode } from "jwt-decode";
 import { Authorization } from "../admin/types";
-import { AuthenticationData, DJwtPayload, User } from "./types";
+import { AuthenticationData, djAttributeNames, DJwtPayload, User, VerifiedData } from "./types";
 
 export const defaultAuthenticationData: AuthenticationData = {
   message: "Not Authenticated",
 };
 
-const requiredUserParameters = ["name", "custom:dj-name"];
-
-export function toClient(data: InitiateAuthCommandOutput): AuthenticationData {
+export function toClient(
+  data: InitiateAuthCommandOutput | RespondToAuthChallengeCommandOutput
+): AuthenticationData {
   if (
     data.ChallengeName === "NEW_PASSWORD_REQUIRED" &&
     data.ChallengeParameters
   ) {
     return {
       username: data.ChallengeParameters["USER_ID_FOR_SRP"],
-      requiredAttributes: requiredUserParameters.filter(
+      requiredAttributes: Object.keys(djAttributeNames).filter(
         (attribute) => !data.ChallengeParameters![attribute]
-      ),
+      ).map((attribute) => djAttributeNames[attribute]),
     };
   } else if (
     data.AuthenticationResult &&

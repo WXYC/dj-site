@@ -1,12 +1,17 @@
+import WelcomeQuotes from "@/src/components/modern/login/Quotes/Welcome";
 import WXYCPage from "@/src/Layout/WXYCPage";
-import { Button, Divider, Stack, Typography } from "@mui/joy";
+import { Button, Divider, Stack } from "@mui/joy";
 import Link from "next/link";
-import WelcomeQuotes from "./login/@modern/components/Quotes/Welcome";
 
 export default function HomePage() {
   return (
     <WXYCPage title="DJ Site">
-      <Stack direction="column" spacing={2} alignItems="center" sx = {{height: "100%"}}>
+      <Stack
+        direction="column"
+        spacing={2}
+        alignItems="center"
+        sx={{ height: "100%" }}
+      >
         <WelcomeQuotes />
         <Divider />
         <Link href="/login" style={{ width: "100%" }}>
