@@ -49,21 +49,5 @@ export const authenticationSlice = createAppSlice({
     allCredentialsVerified: (state) => {
       return state.verifications.username && state.verifications.password;
     },
-    allUserVerified: (state) => {
-      return (
-        state.verifications.username &&
-        state.verifications.realName &&
-        state.verifications.djName &&
-        state.verifications.password &&
-        state.verifications.confirmPassword
-      );
-    },
-    allResetPasswordCredentialsVerified: (state) => {
-      return (
-        state.verifications.code &&
-        state.verifications.password &&
-        state.verifications.confirmPassword
-      );
-    },
   },
 });

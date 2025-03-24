@@ -1,17 +1,21 @@
-import { IncompleteUser } from "@/lib/features/authentication/types";
+import { PasswordResetUser } from "@/lib/features/authentication/types";
 import { createServerSideProps } from "@/lib/features/session";
-import ResetBackButton from "@/src/components/modern/login/Forms/ResetBackButton";
+import AuthBackButton from "@/src/components/modern/login/Forms/AuthBackButton";
 import ResetPasswordForm from "@/src/components/modern/login/Forms/ResetPasswordForm";
-import HoldOnQuotes from "@/src/components/modern/login/Quotes/HoldOn";
+import ForgotQuotes from "@/src/components/modern/login/Quotes/Forgot";
+import { Alert } from "@mui/joy";
 
-export default async function ResetPasswordPage() {
+export default async function PasswordResetPage() {
   const resetData = (await createServerSideProps())
-    .authentication as IncompleteUser;
+    .authentication as PasswordResetUser;
 
   return (
     <>
-      <ResetBackButton />
-      <HoldOnQuotes />
+      <AuthBackButton text="Never mind, I remembered" />
+      <ForgotQuotes />
+      
+      <Alert>{resetData.confirmationMessage}</Alert>
+
       <ResetPasswordForm {...resetData} />
     </>
   );

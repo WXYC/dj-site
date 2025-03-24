@@ -7,7 +7,8 @@ import {
   VerifiedData,
 } from "@/lib/features/authentication/types";
 import { useAppDispatch } from "@/lib/hooks";
-import { useResetPassword } from "@/src/hooks/authenticationHooks";
+import { useNewUser } from "@/src/hooks/authenticationHooks";
+import { Typography } from "@mui/joy";
 import { useEffect, useState } from "react";
 import RequiredBox from "./Fields/RequiredBox";
 import { ValidatedSubmitButton } from "./Fields/ValidatedSubmitButton";
@@ -18,8 +19,8 @@ export default function NewUserForm({
 }: IncompleteUser) {
   const [newPassword, setNewPassword] = useState("");
 
-  const { handleReset, verified, authenticating, addRequiredCredentials } =
-    useResetPassword();
+  const { handleNewUser, verified, authenticating, addRequiredCredentials } =
+    useNewUser();
 
   useEffect(() => {
     addRequiredCredentials(requiredAttributes as (keyof VerifiedData)[]);
@@ -36,7 +37,7 @@ export default function NewUserForm({
   }, [username]);
 
   return (
-    <form onSubmit={handleReset} method="put">
+    <form onSubmit={handleNewUser} method="put">
       <input type="hidden" name="username" value={username} />
       {requiredAttributes.map((attribute: keyof VerifiedData) => (
         <RequiredBox
@@ -54,7 +55,10 @@ export default function NewUserForm({
         type="password"
         disabled={authenticating}
         helper={
-          "Must be at least 8 characters, with at least 1 number and 1 capital letter"
+          <Typography level="body-xs">
+            Must be at least 8 characters, with at least 1 number and 1 capital
+            letter
+          </Typography>
         }
         validationFunction={(value: string) => {
           setNewPassword(value);

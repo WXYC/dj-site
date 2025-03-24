@@ -1,11 +1,13 @@
 "use client";
 
 import {
-  useChangePasswordMutation,
   useGetAuthenticationQuery,
   useGetDJInfoQuery,
   useLoginMutation,
   useLogoutMutation,
+  useNewUserMutation,
+  useRequestPasswordResetMutation,
+  useResetPasswordMutation,
 } from "@/lib/features/authentication/api";
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
 import {
@@ -13,6 +15,7 @@ import {
   djAttributeNames,
   isAuthenticated,
   NewUserCredentials,
+  ResetPasswordRequest,
   VerifiedData,
 } from "@/lib/features/authentication/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
@@ -141,7 +144,7 @@ export const useRegistry = () => {
   };
 };
 
-export const useResetPassword = () => {
+export const useNewUser = () => {
   const router = useRouter();
 
   const verified = useAppSelector(
@@ -150,9 +153,9 @@ export const useResetPassword = () => {
 
   const { handleLogout } = useLogout();
 
-  const [changePassword, result] = useChangePasswordMutation();
+  const [setNewUserData, result] = useNewUserMutation();
 
-  const handleReset = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleNewUser = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const username = e.currentTarget.username.value;
@@ -170,7 +173,7 @@ export const useResetPassword = () => {
       }
     }
 
-    changePassword(params);
+    setNewUserData(params);
   };
 
   useEffect(() => {
@@ -194,9 +197,72 @@ export const useResetPassword = () => {
     dispatch(authenticationSlice.actions.addRequiredCredentials(required));
 
   return {
-    handleReset,
+    handleNewUser,
     verified,
     authenticating: result.isLoading || result.isSuccess,
     addRequiredCredentials,
+  };
+};
+
+export const useResetPassword = () => {
+  const router = useRouter();
+  const { handleLogout } = useLogout();
+
+  const [makeForgotRequest, forgotResult] = useRequestPasswordResetMutation();
+
+  const verified = useAppSelector(
+    authenticationSlice.selectors.requiredCredentialsVerified
+  );
+
+  // button clicked
+  const handleRequestReset = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    const username = e.currentTarget.form?.username.value;
+    if (!username) return;
+
+    makeForgotRequest(String(username));
+  };
+
+  useEffect(() => {
+    if (forgotResult.isSuccess) {
+      router.refresh();
+    } else if (forgotResult.isError) {
+      handleLogout();
+    }
+  }, [forgotResult]);
+
+  const [resetPassword, resetResult] = useResetPasswordMutation();
+
+  const handleReset = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    const code = e.currentTarget.code.value;
+    const password = e.currentTarget.password.value;
+    const username = e.currentTarget.username.value;
+
+    if (!code || !password || !username) return;
+
+    const params: ResetPasswordRequest = { code, password, username };
+
+    resetPassword(params);
+  }
+
+  useEffect(() => {
+    if (resetResult.isSuccess) {
+      if (isAuthenticated(resetResult.data)) {
+        router.push(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE));
+      } else {
+        router.refresh();
+      }
+    } else if (resetResult.isError) {
+      handleLogout();
+    }
+  }, [resetResult]);
+
+  return {
+    handleReset,
+    handleRequestReset,
+    verified,
+    requestingReset: forgotResult.isLoading || forgotResult.isSuccess,
   };
 };

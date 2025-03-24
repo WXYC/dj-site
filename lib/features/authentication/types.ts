@@ -6,7 +6,7 @@ export type AuthenticationState = {
   required: (keyof VerifiedData)[];
 };
 
-export type AuthenticationData = AuthenticatedUser | IncompleteUser | {
+export type AuthenticationData = AuthenticatedUser | IncompleteUser | PasswordResetUser | {
   message: "Not Authenticated";
 };
 
@@ -28,6 +28,15 @@ export function isIncomplete(data: AuthenticationData): data is IncompleteUser {
 export type IncompleteUser = {
   username: string;
   requiredAttributes: (keyof VerifiedData)[];
+};
+
+export function isPasswordReset(data: AuthenticationData): data is PasswordResetUser {
+  return data !== undefined && (data as PasswordResetUser)?.username !== undefined && (data as PasswordResetUser)?.confirmationMessage !== undefined;
+}
+
+export type PasswordResetUser = {
+  username: string;
+  confirmationMessage: string;
 };
 
 export const defaultAuthenticationSession: AuthenticationSession = {
@@ -58,6 +67,10 @@ export type User = {
 export type ResetPasswordCredentials = {
   code: string;
   password: string;
+};
+
+export type ResetPasswordRequest = ResetPasswordCredentials & {
+  username: string;
 };
 
 export type VerifiedData = Omit<User, "authority" | "email"> &

@@ -1,14 +1,14 @@
-import { isIncomplete } from "@/lib/features/authentication/types";
+import { isIncomplete, isPasswordReset } from "@/lib/features/authentication/types";
 import { createServerSideProps } from "@/lib/features/session";
 import { ReactNode } from "react";
 import Header from "./components/Layout/Header";
 
 interface LoginProps {
   readonly normal: ReactNode;
-  readonly reset: ReactNode;
+  readonly newuser: ReactNode;
 }
 
-export default async function Layout({ normal, reset }: LoginProps) {
+export default async function Layout({ normal, newuser }: LoginProps) {
   const serverSideProps = await createServerSideProps();
 
   return (
@@ -23,7 +23,7 @@ export default async function Layout({ normal, reset }: LoginProps) {
       }}
     >
       <Header />
-      {isIncomplete(serverSideProps.authentication) ? reset : normal}
+      {isIncomplete(serverSideProps.authentication) ? newuser : normal}
       <footer>
         <p>Copyright &copy; {new Date().getFullYear()} WXYC Chapel Hill</p>
       </footer>
