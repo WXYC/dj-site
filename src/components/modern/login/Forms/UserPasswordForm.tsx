@@ -32,6 +32,7 @@ export default function UserPasswordForm() {
           <Typography level="body-xs" sx={{ textAlign: "right" }}>
             <Link
               component="button"
+              type="button"
               onClick={handleRequestReset}
               disabled={!hasUsername || authenticating}
             >
