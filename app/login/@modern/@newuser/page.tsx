@@ -4,7 +4,7 @@ import AuthBackButton from "@/src/components/modern/login/Forms/AuthBackButton";
 import NewUserForm from "@/src/components/modern/login/Forms/NewUserForm";
 import HoldOnQuotes from "@/src/components/modern/login/Quotes/HoldOn";
 
-export default async function ResetPasswordPage() {
+export default async function NewUserPage() {
   const resetData = (await createServerSideProps())
     .authentication as IncompleteUser;
 
