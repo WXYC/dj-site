@@ -13,6 +13,8 @@ export default function HoldOnQuotes() {
     ["I'm still alive.", "Pearl Jam"],
     ["when the night is closing in.", "Chris Cornell"],
     ["to hope if you got it.", "Florence + The Machine"],
+    ["to that feeling", "Journey"],
+    ["you'd better step my way", "Black Box"],
   ];
 
   const randomIndexForHoldOnQuote = Math.floor(

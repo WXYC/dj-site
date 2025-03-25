@@ -54,10 +54,12 @@ export async function handleCognitoResponse(
 
   if (result.ChallengeName) {
     if (result.ChallengeName !== "NEW_PASSWORD_REQUIRED")
+    {
       return NextResponse.json(
         { message: result.ChallengeName },
         { status: 400 }
       );
+    }
 
     await setSession(result.Session);
   } else if (result.AuthenticationResult) {

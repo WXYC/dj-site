@@ -112,7 +112,10 @@ export async function DELETE(request: NextRequest) {
 
   //#region Cognito Logout
   try {
-    if (!isAuthenticated(currentAuthenticationData)) return response;
+    if (!isAuthenticated(currentAuthenticationData))
+      {
+        return response;
+      }
 
     const command = new GlobalSignOutCommand({
       AccessToken: currentAuthenticationData.accessToken,
