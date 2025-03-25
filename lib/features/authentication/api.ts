@@ -1,6 +1,7 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { backendBaseQuery } from "../backend";
-import { AuthenticationData, Credentials, DJInfoResponse, DJRegistryParams, DJRegistryRequestParams } from "./types";
+import { AuthenticationData, Credentials, DJInfoResponse, DJRegistryParams, DJRegistryRequestParams, ResetPasswordRequest } from "./types";
+import { request } from "http";
 
 export const authenticationApi = createApi({
   baseQuery: fetchBaseQuery({ baseUrl: "/api/authentication" }),
@@ -19,6 +20,29 @@ export const authenticationApi = createApi({
       query: () => "",
       providesTags: ["Authentication"],
     }),
+    newUser: builder.mutation<AuthenticationData, Credentials>({
+      query: (credentials) => ({
+        url: "/password",
+        method: "PUT",
+        body: credentials,
+      }),
+      invalidatesTags: ["Authentication"],
+    }),
+    requestPasswordReset: builder.mutation<AuthenticationData, string>({
+      query: (username) => ({
+        url: `/password?username=${username}`,
+        method: "GET"
+      }),
+      invalidatesTags: ["Authentication"],
+    }),
+    resetPassword: builder.mutation<AuthenticationData, ResetPasswordRequest>({
+      query: (data) => ({
+        url: `/password`,
+        method: "POST",
+        body: data,
+      }),
+      invalidatesTags: ["Authentication"],
+    }),
     logout: builder.mutation<AuthenticationData, void>({
       query: () => ({
         url: "",
@@ -33,6 +57,9 @@ export const {
   useGetAuthenticationQuery,
   useLoginMutation,
   useLogoutMutation,
+  useNewUserMutation,
+  useResetPasswordMutation,
+  useRequestPasswordResetMutation,
 } = authenticationApi;
 
 export const djRegistryApi = createApi({

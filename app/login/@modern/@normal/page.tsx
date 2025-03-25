@@ -1,6 +1,5 @@
-import { Metadata } from "next";
-import UserPasswordForm from "../components/Forms/UserPasswordForm";
-import WelcomeQuotes from "../components/Quotes/Welcome";
+import UserPasswordForm from "@/src/components/modern/login/Forms/UserPasswordForm";
+import WelcomeQuotes from "@/src/components/modern/login/Quotes/Welcome";
 
 export default function LoginPage() {
   return (

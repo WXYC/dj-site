@@ -20,6 +20,8 @@ export default function FlowsheetSearchInput({
 
   return (
     <input
+      name={name}
+      type="text"
       placeholder={toTitleCase(name)}
       value={searchQuery[name]}
       onChange={(e) => setSearchProperty(name, e.target.value)}

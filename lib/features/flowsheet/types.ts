@@ -1,4 +1,4 @@
-import { Rotation } from "../catalog/types";
+import { AlbumEntry, Rotation } from "../catalog/types";
 
 export type FlowsheetFrontendState = {
   autoplay: boolean;
@@ -59,9 +59,11 @@ export type FlowsheetMessageEntry = FlowsheetEntryBase & {
   message: string;
 };
 
-export type FlowsheetEndShowEntry = FlowsheetEntryBase & {
+export type FlowsheetBreakpointEntry = FlowsheetMessageEntry & {
   date_string: string;
-};
+}
+
+export type FlowsheetEndShowEntry = FlowsheetBreakpointEntry;
 
 export type FlowsheetSubmissionParams =
   | {
@@ -103,7 +105,8 @@ export function isFlowsheetStartShowEntry(
 export function isFlowsheetEndShowEntry(
   entry: FlowsheetEntry
 ): entry is FlowsheetEndShowEntry {
-  return (entry as FlowsheetEndShowEntry).date_string !== undefined;
+  return (entry as FlowsheetEndShowEntry).date_string !== undefined &&
+  (entry as FlowsheetEndShowEntry).message.includes("Breakpoint")
 }
 
 export function isFlowsheetTalksetEntry(
@@ -117,10 +120,10 @@ export function isFlowsheetTalksetEntry(
 
 export function isFlowsheetBreakpointEntry(
   entry: FlowsheetEntry
-): entry is FlowsheetMessageEntry {
+): entry is FlowsheetBreakpointEntry {
   return (
-    (entry as FlowsheetMessageEntry).message !== undefined &&
-    (entry as FlowsheetMessageEntry).message.includes("Breakpoint")
+    (entry as FlowsheetBreakpointEntry).message !== undefined &&
+    (entry as FlowsheetBreakpointEntry).message.includes("Breakpoint")
   );
 }
 

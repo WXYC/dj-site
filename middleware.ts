@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { Authorization } from "./lib/features/admin/types";
-import { AuthenticationStage } from "./lib/features/authentication/types";
+import { isAuthenticated } from "./lib/features/authentication/types";
 import { createServerSideProps } from "./lib/features/session";
 
 export async function middleware(request: NextRequest) {
@@ -12,13 +12,11 @@ export async function middleware(request: NextRequest) {
   const isOnAdminArea = request.nextUrl.pathname.startsWith("/dashboard/admin");
 
   if (isOnDashboard) {
-    if (
-      !sessionData?.authentication?.user ||
-      sessionData.authentication.stage !== AuthenticationStage.Authenticated
-    )
+    if (!isAuthenticated(sessionData.authentication))
       return NextResponse.redirect(new URL("/login", request.nextUrl));
     if (
       isOnAdminArea &&
+      sessionData.authentication.user !== undefined &&
       sessionData.authentication.user.authority <= Authorization.DJ
     )
       return NextResponse.redirect(
@@ -29,8 +27,8 @@ export async function middleware(request: NextRequest) {
       );
   } else if (isOnLogin) {
     if (
-      sessionData?.authentication?.user &&
-      sessionData.authentication.stage === AuthenticationStage.Authenticated
+      isAuthenticated(sessionData.authentication) &&
+      sessionData.authentication.user !== undefined
     )
       return NextResponse.redirect(
         new URL(

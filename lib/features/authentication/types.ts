@@ -3,12 +3,40 @@ import { Authorization } from "../admin/types";
 
 export type AuthenticationState = {
   verifications: Verification<VerifiedData>;
+  required: (keyof VerifiedData)[];
 };
 
-export type AuthenticationData = {
-  stage: AuthenticationStage;
+export type AuthenticationData = AuthenticatedUser | IncompleteUser | PasswordResetUser | {
+  message: "Not Authenticated";
+};
+
+export type AuthenticatedUser = {
   user?: User;
   accessToken?: string;
+};
+
+export function isAuthenticated(
+  data: AuthenticationData
+): data is AuthenticatedUser {
+  return data !== undefined && (data as AuthenticatedUser)?.user !== undefined;
+}
+
+export function isIncomplete(data: AuthenticationData): data is IncompleteUser {
+  return data !== undefined && (data as IncompleteUser)?.requiredAttributes !== undefined;
+}
+
+export type IncompleteUser = {
+  username: string;
+  requiredAttributes: (keyof VerifiedData)[];
+};
+
+export function isPasswordReset(data: AuthenticationData): data is PasswordResetUser {
+  return data !== undefined && (data as PasswordResetUser)?.username !== undefined && (data as PasswordResetUser)?.confirmationMessage !== undefined;
+}
+
+export type PasswordResetUser = {
+  username: string;
+  confirmationMessage: string;
 };
 
 export const defaultAuthenticationSession: AuthenticationSession = {
@@ -21,17 +49,12 @@ export type AuthenticationSession = {
   expiresAt: Date | undefined;
 };
 
-export enum AuthenticationStage {
-  NotAuthenticated,
-  NewUser,
-  NewPassword,
-  Authenticated,
-}
-
 export type Credentials = {
   username: string;
   password: string;
 };
+
+export type NewUserCredentials = Credentials & Record<string, string>;
 
 export type User = {
   username: string;
@@ -44,6 +67,10 @@ export type User = {
 export type ResetPasswordCredentials = {
   code: string;
   password: string;
+};
+
+export type ResetPasswordRequest = ResetPasswordCredentials & {
+  username: string;
 };
 
 export type VerifiedData = Omit<User, "authority" | "email"> &
@@ -91,4 +118,19 @@ export type DJInfoResponse = {
   dj_name: string;
   real_name: string;
   shows_covered: number;
+};
+
+
+export const djAttributeNames: Record<string, keyof VerifiedData> = {
+  "name": "realName",
+  "custom:dj-name": "djName",
+};
+
+export const djAttributeTitles: Record<keyof VerifiedData, string> = {
+  "realName": "Real Name",
+  "djName": "DJ Name",
+  "username": "Username",
+  "password": "Password",
+  "code": "Code",
+  "confirmPassword": "Confirm Password",
 };

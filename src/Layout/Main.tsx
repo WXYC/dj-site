@@ -13,7 +13,7 @@ export default function Main({ children }: { children: React.ReactNode }) {
         display: "flex",
         flexDirection: "column",
         gap: 2,
-        width: 400,
+        width: 450,
         maxWidth: "100%",
         mx: "auto",
         borderRadius: "sm",

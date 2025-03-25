@@ -7,7 +7,7 @@ import {
   useWhoIsLiveQuery,
 } from "@/lib/features/flowsheet/api";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
-import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
+import { FlowsheetEntry, FlowsheetQuery, FlowsheetSubmissionParams } from "@/lib/features/flowsheet/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useEffect, useState } from "react";
 import { useRegistry } from "./authenticationHooks";

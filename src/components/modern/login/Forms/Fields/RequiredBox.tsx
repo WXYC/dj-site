@@ -6,7 +6,6 @@ import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import FormControl from "@mui/joy/FormControl";
 import FormLabel from "@mui/joy/FormLabel";
 import Input from "@mui/joy/Input";
-import Typography from "@mui/joy/Typography";
 import { useState } from "react";
 
 export default function RequiredBox({
@@ -16,13 +15,15 @@ export default function RequiredBox({
   placeholder,
   helper,
   disabled,
+  validationFunction,
 }: {
   name: keyof VerifiedData;
   title: string;
   placeholder?: string;
-  helper?: string;
+  helper?: string | React.ReactNode;
   disabled?: boolean;
   type?: React.HTMLInputTypeAttribute;
+  validationFunction?: (value: string) => boolean;
 }): JSX.Element {
   const [value, setValue] = useState("");
 
@@ -54,11 +55,13 @@ export default function RequiredBox({
         onChange={(e) => {
           let value = e.target.value;
           setValue(value);
-          reportValidation(value.length > 0);
+          reportValidation(
+            (validationFunction ?? ((value) => value.length > 0))(value)
+          );
         }}
         value={value}
       />
-      {helper && <Typography level="body-xs">{helper}</Typography>}
+      {helper}
     </FormControl>
   );
 }

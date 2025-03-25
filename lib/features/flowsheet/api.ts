@@ -84,4 +84,5 @@ export const {
   useJoinShowMutation,
   useLeaveShowMutation,
   useWhoIsLiveQuery,
+  useAddToFlowsheetMutation,
 } = flowsheetApi;

@@ -1,5 +1,6 @@
 import { Rotation } from "../catalog/types";
 import {
+  FlowsheetBreakpointEntry,
   FlowsheetEndShowEntry,
   FlowsheetEntryResponse,
   FlowsheetMessageEntry,
@@ -8,19 +9,23 @@ import {
 } from "./types";
 
 export function convertFlowsheetResponse(entries: FlowsheetEntryResponse[]) {
-    return entries.map((entry) => {
-        if (entry.message) {
-            if (entry.message.includes("Start of Show")) {
-                return convertToStartShow(entry);
-            } else if (entry.message.includes("End of Show")) {
-                return convertToEndShow(entry);
-            } else {
-                return convertToMessage(entry);
-            }
+  return entries
+    .map((entry) => {
+      if (entry.message) {
+        if (entry.message.includes("Start of Show")) {
+          return convertToStartShow(entry);
+        } else if (entry.message.includes("End of Show")) {
+          return convertToEndShow(entry);
+        } else if (entry.message.includes("Breakpoint")) {
+          return convertToBreakpoint(entry);
         } else {
-            return convertToSong(entry);
+          return convertToMessage(entry);
         }
-    }).sort((a, b) => b.play_order - a.play_order);
+      } else {
+        return convertToSong(entry);
+      }
+    })
+    .sort((a, b) => b.play_order - a.play_order);
 }
 
 export function convertToSong(
@@ -37,7 +42,7 @@ export function convertToSong(
     request_flag: response.request_flag,
     album_id: response.album_id,
     rotation_id: response.rotation_id,
-    rotation: (response.rotation_play_freq as Rotation),
+    rotation: response.rotation_play_freq as Rotation,
   };
 }
 
@@ -77,6 +82,25 @@ export function convertToEndShow(
     id: response.id,
     play_order: response.play_order,
     show_id: response.show_id,
+    message: response.message || "",
+    date_string: dateString,
+  };
+}
+
+export function convertToBreakpoint(
+  response: FlowsheetEntryResponse
+): FlowsheetBreakpointEntry {
+  let datetimeExtractionRegex = /(\d{1,2}:\d{2}\s?[APMapm]{2})/g;
+  let dateString =
+    response.message?.match(datetimeExtractionRegex)?.[1] ||
+    "Unknown Date or Time";
+    console.log(dateString);
+
+  return {
+    id: response.id,
+    play_order: response.play_order,
+    show_id: response.show_id,
+    message: response.message || "",
     date_string: dateString,
   };
 }

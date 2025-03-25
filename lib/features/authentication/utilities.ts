@@ -1,35 +1,40 @@
-import { jwtDecode } from "jwt-decode";
-import { SignJWT, jwtVerify } from "jose";
-import { cookies } from "next/headers";
-import { Authorization } from "../admin/types";
 import {
-  AuthenticationData,
-  AuthenticationStage,
-  DJwtPayload,
-  User,
-} from "./types";
+  InitiateAuthCommandOutput,
+  RespondToAuthChallengeCommandOutput,
+} from "@aws-sdk/client-cognito-identity-provider";
+import { jwtDecode } from "jwt-decode";
+import { Authorization } from "../admin/types";
+import { AuthenticationData, djAttributeNames, DJwtPayload, User, VerifiedData } from "./types";
 
 export const defaultAuthenticationData: AuthenticationData = {
-  stage: AuthenticationStage.NotAuthenticated,
-  user: undefined,
+  message: "Not Authenticated",
 };
 
 export function toClient(
-  stage: AuthenticationStage,
-  idToken?: string,
-  accessToken?: string
+  data: InitiateAuthCommandOutput | RespondToAuthChallengeCommandOutput
 ): AuthenticationData {
-  return {
-    stage: stage,
-    user:
-      idToken && accessToken && stage === AuthenticationStage.Authenticated
-        ? toUser(idToken)
-        : undefined,
-    accessToken:
-      accessToken && idToken && stage === AuthenticationStage.Authenticated
-        ? accessToken
-        : undefined,
-  };
+  if (
+    data.ChallengeName === "NEW_PASSWORD_REQUIRED" &&
+    data.ChallengeParameters
+  ) {
+    return {
+      username: data.ChallengeParameters["USER_ID_FOR_SRP"],
+      requiredAttributes: Object.keys(djAttributeNames).filter(
+        (attribute) => !data.ChallengeParameters![attribute]
+      ).map((attribute) => djAttributeNames[attribute]),
+    };
+  } else if (
+    data.AuthenticationResult &&
+    data.AuthenticationResult.IdToken &&
+    data.AuthenticationResult.AccessToken
+  ) {
+    return {
+      user: toUser(data.AuthenticationResult.IdToken),
+      accessToken: data.AuthenticationResult.AccessToken,
+    };
+  }
+
+  return {};
 }
 
 export function toUser(token: string): User {
