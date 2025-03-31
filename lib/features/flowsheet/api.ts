@@ -75,6 +75,16 @@ export const flowsheetApi = createApi({
       }),
       invalidatesTags: ["Flowsheet", "NowPlaying"],
     }),
+    removeFromFlowsheet: builder.mutation<any, number>({
+      query: (entry_id) => ({
+        url: "/",
+        method: "DELETE",
+        body: {
+          entry_id,
+        },
+      }),
+      invalidatesTags: ["Flowsheet", "NowPlaying"],
+    }),
   }),
 });
 
@@ -85,4 +95,5 @@ export const {
   useLeaveShowMutation,
   useWhoIsLiveQuery,
   useAddToFlowsheetMutation,
+  useRemoveFromFlowsheetMutation,
 } = flowsheetApi;

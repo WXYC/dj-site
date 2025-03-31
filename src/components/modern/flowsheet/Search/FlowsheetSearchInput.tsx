@@ -1,6 +1,6 @@
 "use client";
 
-import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
+import { FlowsheetQuery, FlowsheetSearchProperty } from "@/lib/features/flowsheet/types";
 import { useFlowsheetSearch } from "@/src/hooks/flowsheetHooks";
 import { toTitleCase } from "@/src/utilities/stringutilities";
 import { InputHTMLAttributes, useEffect } from "react";
@@ -11,7 +11,7 @@ export default function FlowsheetSearchInput({
 }: Omit<
   InputHTMLAttributes<HTMLInputElement>,
   "placeholder" | "value" | "onChange" | "onClick"
-> & { name: keyof Omit<FlowsheetQuery, "request"> }) {
+> & { name: FlowsheetSearchProperty }) {
   const { searchQuery, setSearchProperty } = useFlowsheetSearch();
 
   useEffect(() => {
@@ -24,6 +24,7 @@ export default function FlowsheetSearchInput({
       type="text"
       placeholder={toTitleCase(name)}
       value={searchQuery[name]}
+      autoComplete="off"
       onChange={(e) => setSearchProperty(name, e.target.value)}
       onClick={(e) => e.stopPropagation()}
       {...props}

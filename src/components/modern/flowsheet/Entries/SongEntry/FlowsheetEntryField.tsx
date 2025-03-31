@@ -56,6 +56,7 @@ export default function FlowsheetEntryField({
             >
               <input
                 type="text"
+                autoComplete="off"
                 style={{
                   color: "inherit",
                   fontFamily: "inherit",

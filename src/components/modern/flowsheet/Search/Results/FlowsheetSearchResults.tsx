@@ -1,17 +1,22 @@
 "use client";
 
+import { AlbumEntry } from "@/lib/features/catalog/types";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useAppSelector } from "@/lib/hooks";
-import { useBinResults } from "@/src/hooks/binHooks";
-import { useCatalogFlowsheetSearch } from "@/src/hooks/catalogHooks";
 import { Box, Chip, Divider, Sheet, Stack, Typography } from "@mui/joy";
 import FlowsheetBackendResults from "./BackendResults/FlowsheetBackendResults";
 import NewEntryPreview from "./NewEntry/NewEntryPreview";
 
-export default function FlowsheetSearchResults() {
+export default function FlowsheetSearchResults({
+  binResults,
+  catalogResults,
+  rotationResults,
+}: {
+  binResults: AlbumEntry[];
+  catalogResults: AlbumEntry[];
+  rotationResults: AlbumEntry[];
+}) {
   const open = useAppSelector(flowsheetSlice.selectors.getSearchOpen);
-  const { searchResults: binResults } = useBinResults();
-  const { searchResults: catalogResults } = useCatalogFlowsheetSearch();
 
   return (
     <Sheet
@@ -48,14 +53,21 @@ export default function FlowsheetSearchResults() {
           label="From Your Mail Bin"
         />{" "}
         <Divider
+          sx={{ visibility: rotationResults.length > 0 ? "inherit" : "hidden" }}
+        />
+        <FlowsheetBackendResults
+          results={rotationResults}
+          offset={binResults.length + 1}
+          label="From Rotation"
+        />{" "}
+        <Divider
           sx={{ visibility: catalogResults.length > 0 ? "inherit" : "hidden" }}
         />
         <FlowsheetBackendResults
           results={catalogResults}
-          offset={binResults.length + 1}
+          offset={binResults.length + rotationResults.length + 1}
           label="From the Card Catalog"
         />
-        <Divider />
         <Stack
           direction="row"
           justifyContent="flex-end"

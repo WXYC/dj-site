@@ -34,7 +34,7 @@ export default function InfiniteScroller({
         dispatch(
           flowsheetSlice.actions.setPagination({
             page: pagination.max + 1,
-            limit: 20,
+            limit: 20
           })
         );
       }

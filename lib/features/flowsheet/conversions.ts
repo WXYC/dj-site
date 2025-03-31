@@ -4,8 +4,10 @@ import {
   FlowsheetEndShowEntry,
   FlowsheetEntryResponse,
   FlowsheetMessageEntry,
+  FlowsheetQuery,
   FlowsheetSongEntry,
   FlowsheetStartShowEntry,
+  FlowsheetSubmissionParams,
 } from "./types";
 
 export function convertFlowsheetResponse(entries: FlowsheetEntryResponse[]) {
@@ -45,6 +47,20 @@ export function convertToSong(
     rotation: response.rotation_play_freq as Rotation,
   };
 }
+
+export function convertQueryToSubmission(
+  query: FlowsheetQuery
+): FlowsheetSubmissionParams {
+  return {
+    track_title: query.song,
+    artist_name: query.artist,
+    album_title: query.album,
+    record_label: query.label,
+    request_flag: query.request,
+    album_id: query.album_id,
+    rotation_id: query.rotation_id,
+  };
+};
 
 export function convertToStartShow(
   response: FlowsheetEntryResponse

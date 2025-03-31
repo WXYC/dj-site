@@ -1,7 +1,15 @@
 "use client";
 
-import { useAddToFlowsheetMutation } from "@/lib/features/flowsheet/api";
-import { useFlowsheetSearch } from "@/src/hooks/flowsheetHooks";
+import { convertQueryToSubmission } from "@/lib/features/flowsheet/conversions";
+import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
+import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import { useBinResults } from "@/src/hooks/binHooks";
+import {
+  useCatalogFlowsheetSearch,
+  useRotationFlowsheetSearch,
+} from "@/src/hooks/catalogHooks";
+import { useFlowsheet, useFlowsheetSearch } from "@/src/hooks/flowsheetHooks";
 import { Mic, Troubleshoot } from "@mui/icons-material";
 import {
   Box,
@@ -13,20 +21,32 @@ import {
   Tooltip,
 } from "@mui/joy";
 import { ClickAwayListener } from "@mui/material";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import BreakpointButton from "./BreakpointButton";
 import FlowsheetSearchInput from "./FlowsheetSearchInput";
 import FlowsheetSearchResults from "./Results/FlowsheetSearchResults";
 
 export default function FlowsheetSearchbar() {
-  const { live, setSearchOpen } = useFlowsheetSearch();
+  const dispatch = useAppDispatch();
+
+  const { searchResults: binResults } = useBinResults();
+  const { searchResults: catalogResults } = useCatalogFlowsheetSearch();
+  const { searchResults: rotationResults } = useRotationFlowsheetSearch();
+
+  const selectedResult = useAppSelector(
+    flowsheetSlice.selectors.getSelectedResult
+  );
+
+  const [shiftKeyPressed, setShiftKeyPressed] = useState(false);
+
+  const { live, setSearchOpen, resetSearch } = useFlowsheetSearch();
   const searchRef = useRef<HTMLDivElement>(null);
 
-  const [addToFlowsheet, addToFlowsheetResult] = useAddToFlowsheetMutation();
+  const { addToFlowsheet } = useFlowsheet();
 
   const handleClose = useCallback(
     (event: MouseEvent | TouchEvent | React.FormEvent<HTMLFormElement>) => {
-      setSearchOpen(false);
+      resetSearch();
       searchRef.current?.querySelector("input")?.blur();
     },
     [searchRef.current]
@@ -39,42 +59,118 @@ export default function FlowsheetSearchbar() {
         if (!live) return;
         searchRef.current?.querySelector("input")?.focus();
       }
+      if (e.key === "Shift") {
+        setShiftKeyPressed(true);
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        let nextIndex = Math.min(
+          selectedResult + 1,
+          binResults.length + catalogResults.length + rotationResults.length
+        );
+        dispatch(flowsheetSlice.actions.setSelectedResult(nextIndex));
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        let prevIndex = Math.max(selectedResult - 1, 0);
+        dispatch(flowsheetSlice.actions.setSelectedResult(prevIndex));
+      }
     },
-    [live]
+    [
+      live,
+      dispatch,
+      binResults,
+      catalogResults,
+      rotationResults,
+      selectedResult,
+    ]
   );
+
+  const handleKeyUp = useCallback((e: KeyboardEvent) => {
+    if (e.key === "Shift") {
+      setShiftKeyPressed(false);
+    }
+  }, []);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
       handleClose(e);
 
-      const formData = new FormData(e.currentTarget);
-      const data = Object.fromEntries(formData.entries());
+      const formData = Object.fromEntries(
+        new FormData(e.currentTarget).entries()
+      );
+      let data: FlowsheetQuery;
+      if (selectedResult == 0) {
+        data = {
+          song: formData.song as string,
+          artist: formData.artist as string,
+          album: formData.album as string,
+          label: formData.label as string,
+          request: false,
+        };
+      } else {
+        const collectedResults = [
+          binResults,
+          rotationResults,
+          catalogResults,
+        ].flat();
+        console.log("COLLECTED RESULTS", collectedResults);
+        console.log("SELECTED RESULT", collectedResults[selectedResult - 1]);
+        data = {
+          song: formData.song as string,
+          artist: collectedResults[selectedResult - 1].artist?.name ?? "",
+          album: collectedResults[selectedResult - 1].title ?? "",
+          label: collectedResults[selectedResult - 1].label ?? "",
+          album_id: collectedResults[selectedResult - 1].id ?? undefined,
+          play_freq:
+            collectedResults[selectedResult - 1].play_freq ?? undefined,
+          rotation_id:
+            collectedResults[selectedResult - 1].rotation_id ?? undefined,
+          request: false,
+        };
+      }
 
-      addToFlowsheet({
-        track_title: data.song as string,
-        artist_name: data.artist as string,
-        album_title: data.album as string,
-        record_label: data.label as string,
-        request_flag: false,
-      });
+      console.table(data);
+
+      if (shiftKeyPressed) {
+        addToFlowsheet(convertQueryToSubmission(data));
+      } else {
+        dispatch(flowsheetSlice.actions.addToQueue(data));
+      }
     },
-    [handleClose, addToFlowsheet]
+    [
+      handleClose,
+      addToFlowsheet,
+      shiftKeyPressed,
+      selectedResult,
+      dispatch,
+      binResults,
+      catalogResults,
+      rotationResults,
+    ]
   );
 
   useEffect(() => {
     document.removeEventListener("keydown", handleKeyDown);
     document.addEventListener("keydown", handleKeyDown);
+    document.removeEventListener("keyup", handleKeyUp);
+    document.addEventListener("keyup", handleKeyUp);
 
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keyup", handleKeyUp);
     };
   }, [handleKeyDown]);
   return (
     <Stack direction={"row"} spacing={1}>
       <ClickAwayListener onClickAway={handleClose}>
         <FormControl size="sm" sx={{ flex: 1, minWidth: 0 }}>
-          <FlowsheetSearchResults />
+          <FlowsheetSearchResults
+            binResults={binResults}
+            catalogResults={catalogResults}
+            rotationResults={rotationResults}
+          />
           <Box
             ref={searchRef}
             component="form"

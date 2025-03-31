@@ -26,8 +26,8 @@ export default function BreakpointButton() {
         setBreakpointAvailable(
             parseTimeStringToDate(breakpoint.date_string) < cutoff
         );
-        console.log("Most recent breakpoint:", parseTimeStringToDate(breakpoint.date_string));
-        console.log("Most recent breakpoint raw:", breakpoint.date_string);
+        //console.log("Most recent breakpoint:", parseTimeStringToDate(breakpoint.date_string));
+        //console.log("Most recent breakpoint raw:", breakpoint.date_string);
       }
     }
   }, [entries]);

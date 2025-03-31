@@ -3,6 +3,7 @@ import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { ArtistAvatar } from "@/src/components/modern/catalog/ArtistAvatar";
 import { Chip, ColorPaletteProp, Stack, Typography } from "@mui/joy";
+import { useState } from "react";
 
 export default function FlowsheetBackendResult({
   entry,
@@ -34,6 +35,7 @@ export default function FlowsheetBackendResult({
         artist={entry.artist}
         format={entry.format}
         entry={entry.entry}
+        rotation={entry.play_freq}
       />
       <Stack direction="column" sx={{ width: "calc(20%)" }}>
         <Typography

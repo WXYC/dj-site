@@ -50,6 +50,7 @@ export type AlbumQueryResponse = {
   label: string;
   play_freq: Rotation | undefined;
   plays: number | undefined;
+  rotation_id: number | undefined;
 };
 
 export type AlbumEntry = {
@@ -60,6 +61,7 @@ export type AlbumEntry = {
   format: Format;
   alternate_artist: string | undefined;
   play_freq: Rotation | undefined;
+  rotation_id: number | undefined;
   plays: number | undefined;
   add_date: string | undefined;
   label: string;
