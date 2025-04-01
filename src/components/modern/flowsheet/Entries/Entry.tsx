@@ -16,9 +16,9 @@ import {
   Timer,
 } from "@mui/icons-material";
 import { Stack, Typography } from "@mui/joy";
+import DateTimeStack from "./Components/DateTimeStack";
 import MessageEntry from "./MessageEntry";
 import SongEntry from "./SongEntry/SongEntry";
-import { useFlowsheet } from "@/src/hooks/flowsheetHooks";
 
 export default function Entry({
   entry,
@@ -34,16 +34,20 @@ export default function Entry({
   if (isFlowsheetStartShowEntry(entry)) {
     return (
       <MessageEntry
+        entryRef={entry}
         startDecorator={<Headphones sx={{ mb: -0.5, mr: 0.5 }} />}
-        endDecorator={
-          <Typography level="body-xs">{entry.date_string}</Typography>
-        }
+        endDecorator={<DateTimeStack day={entry.day} time={entry.time} />}
         color={"success"}
-        variant={"soft"}
+        variant="plain"
+        disableEditing={true}
       >
         <Stack direction="row" spacing={0.5}>
-          <Typography level="body-lg">{entry.dj_name}</Typography>
-          <Typography textColor={"text.tertiary"} sx={{ alignSelf: "center" }}>started the set</Typography>
+          <Typography level="body-lg" color={"success"}>
+            {entry.dj_name}
+          </Typography>
+          <Typography textColor={"text.tertiary"} sx={{ alignSelf: "center" }}>
+            started the set
+          </Typography>
         </Stack>
       </MessageEntry>
     );
@@ -52,15 +56,20 @@ export default function Entry({
   if (isFlowsheetEndShowEntry(entry)) {
     return (
       <MessageEntry
+        entryRef={entry}
         startDecorator={<Logout sx={{ mb: -0.5, mr: 0.5 }} />}
-        endDecorator={
-          <Typography level="body-xs">{entry.date_string}</Typography>
-        }
+        endDecorator={<DateTimeStack day={entry.day} time={entry.time} />}
         color={"neutral"}
-        variant={"soft"}
+        variant="plain"
+        disableEditing={true}
       >
         <Stack direction="row" spacing={0.5}>
-          <Typography level="body-lg">Set Ended</Typography>
+          <Typography level="body-lg" color={"primary"}>
+            {entry.dj_name}
+          </Typography>
+          <Typography textColor={"text.tertiary"} sx={{ alignSelf: "center" }}>
+            ended the set
+          </Typography>
         </Stack>
       </MessageEntry>
     );
@@ -69,12 +78,13 @@ export default function Entry({
   if (isFlowsheetTalksetEntry(entry)) {
     return (
       <MessageEntry
+        entryRef={entry}
         startDecorator={<Mic sx={{ mb: -0.5, mr: 0.5 }} />}
-        color={"success"}
-        variant={"solid"}
+        color={"danger"}
+        variant="plain"
       >
         <Stack direction="row" spacing={0.5}>
-          <Typography level="body-lg">
+          <Typography level="body-lg" color={"danger"}>
             {(entry as FlowsheetMessageEntry).message}
           </Typography>
         </Stack>
@@ -85,12 +95,13 @@ export default function Entry({
   if (isFlowsheetBreakpointEntry(entry)) {
     return (
       <MessageEntry
+        entryRef={entry}
         startDecorator={<Timer sx={{ mb: -0.5, mr: 0.5 }} />}
         color={"warning"}
-        variant={"solid"}
+        variant="plain"
       >
         <Stack direction="row" spacing={0.5}>
-          <Typography level="body-lg">
+          <Typography level="body-lg" color="warning">
             {(entry as FlowsheetBreakpointEntry).message}
           </Typography>
         </Stack>
@@ -100,11 +111,12 @@ export default function Entry({
 
   return (
     <MessageEntry
-      color={"primary"}
-      variant={"soft"}
+      entryRef={entry}
+      color={"warning"}
+      variant="plain"
       startDecorator={<Notifications sx={{ mb: -0.5, mr: 0.5 }} />}
     >
-      <Typography level="body-lg">
+      <Typography level="body-lg" color={"warning"}>
         {(entry as FlowsheetMessageEntry).message}
       </Typography>
     </MessageEntry>

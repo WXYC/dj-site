@@ -46,5 +46,5 @@ export default function RemoveButton({
     >
       <Clear color="secondary" />
     </Button>
-  ) : null;
+  ) : <></>;
 }

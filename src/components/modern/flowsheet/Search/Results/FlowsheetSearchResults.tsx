@@ -39,45 +39,56 @@ export default function FlowsheetSearchResults({
           mt: "40px",
           position: "relative",
           minHeight: "40px",
-          pb: "40px",
+          maxHeight: "calc(80vh - 60px)",
           transition: "height 0.2s ease-in-out",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
         }}
       >
-        <NewEntryPreview submitResult={() => {}} />
-        <Divider
-          sx={{ visibility: binResults.length > 0 ? "inherit" : "hidden" }}
-        />
-        <FlowsheetBackendResults
-          results={binResults}
-          offset={1}
-          label="From Your Mail Bin"
-        />{" "}
-        <Divider
-          sx={{ visibility: rotationResults.length > 0 ? "inherit" : "hidden" }}
-        />
-        <FlowsheetBackendResults
-          results={rotationResults}
-          offset={binResults.length + 1}
-          label="From Rotation"
-        />{" "}
-        <Divider
-          sx={{ visibility: catalogResults.length > 0 ? "inherit" : "hidden" }}
-        />
-        <FlowsheetBackendResults
-          results={catalogResults}
-          offset={binResults.length + rotationResults.length + 1}
-          label="From the Card Catalog"
-        />
+        <Box
+          sx={{
+            overflowY: "auto",
+            flex: 1,
+          }}
+        >
+          <NewEntryPreview />
+          <Divider
+            sx={{ visibility: binResults.length > 0 ? "inherit" : "hidden" }}
+          />
+          <FlowsheetBackendResults
+            results={binResults}
+            offset={1}
+            label="From Your Mail Bin"
+          />{" "}
+          <Divider
+            sx={{
+              visibility: rotationResults.length > 0 ? "inherit" : "hidden",
+            }}
+          />
+          <FlowsheetBackendResults
+            results={rotationResults}
+            offset={binResults.length + 1}
+            label="From Rotation"
+          />{" "}
+          <Divider
+            sx={{
+              visibility: catalogResults.length > 0 ? "inherit" : "hidden",
+            }}
+          />
+          <FlowsheetBackendResults
+            results={catalogResults}
+            offset={binResults.length + rotationResults.length + 1}
+            label="From the Card Catalog"
+          />
+        </Box>
         <Stack
           direction="row"
           justifyContent="flex-end"
           alignItems="center"
           spacing={0.25}
           sx={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
+            flexShrink: 0,
             height: "40px",
             p: 1,
             "& > *": {
@@ -104,13 +115,16 @@ export default function FlowsheetSearchResults({
           <Chip variant="soft" size="sm" color="neutral">
             <Typography level="body-xs">ENTER</Typography>
           </Chip>
-          <Typography level="body-xs">adds the result to the queue</Typography>
-          <Chip variant="soft" size="sm" color="neutral">
-            <Typography level="body-xs">SHIFT + ENTER</Typography>
-          </Chip>
           <Typography level="body-xs">
             sets the current result{" "}
             <Typography color="primary">playing</Typography>
+          </Typography>
+          <Chip variant="soft" size="sm" color="neutral">
+            <Typography level="body-xs">CTRL + ENTER</Typography>
+          </Chip>
+          <Typography level="body-xs">
+            adds the result to the{" "}
+            <Typography color="success">queue</Typography>
           </Typography>
         </Stack>
       </Box>

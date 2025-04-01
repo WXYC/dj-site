@@ -18,11 +18,13 @@ import Link from "next/link";
 import DeleteFromBin from "../../Rightbar/Bin/DeleteFromBin";
 import { ArtistAvatar } from "../ArtistAvatar";
 import AddToBin from "./AddToBin";
+import { useShowControl } from "@/src/hooks/flowsheetHooks";
+import AddRemoveBin from "./AddRemoveBin";
 
 export default function CatalogResult({ album }: { album: AlbumEntry }) {
-  const { selected, setSelection, orderBy } = useCatalogSearch();
+  const { live } = useShowControl();
 
-  const { bin, loading: binLoading } = useBin();
+  const { selected, setSelection, orderBy } = useCatalogSearch();
 
   return (
     <tr key={album.id}>
@@ -102,20 +104,12 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
               </IconButton>
             </Link>
           </Tooltip>
-          <Tooltip title="Will add to queue">
+          {live && (<Tooltip title="Add to Queue">
             <IconButton onClick={() => {}}>
               <QueueMusic />
             </IconButton>
-          </Tooltip>
-          {binLoading || !bin ? (
-            <IconButton loading disabled>
-              <Inventory />
-            </IconButton>
-          ) : bin.find((item) => item.id === album.id) ? (
-            <DeleteFromBin album={album} />
-          ) : (
-            <AddToBin album={album} />
-          )}
+          </Tooltip>)}
+          <AddRemoveBin album={album} />
         </Stack>
       </td>
     </tr>

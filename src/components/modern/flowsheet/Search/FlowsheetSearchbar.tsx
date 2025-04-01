@@ -1,16 +1,14 @@
 "use client";
 
-import { convertQueryToSubmission } from "@/lib/features/flowsheet/conversions";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
-import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { useBinResults } from "@/src/hooks/binHooks";
 import {
-  useCatalogFlowsheetSearch,
-  useRotationFlowsheetSearch,
-} from "@/src/hooks/catalogHooks";
-import { useFlowsheet, useFlowsheetSearch } from "@/src/hooks/flowsheetHooks";
-import { Mic, Troubleshoot } from "@mui/icons-material";
+  useFlowsheet,
+  useFlowsheetSearch,
+  useFlowsheetSubmit,
+  useQueue,
+} from "@/src/hooks/flowsheetHooks";
+import { Mic, PlayArrow, QueueMusic, Troubleshoot } from "@mui/icons-material";
 import {
   Box,
   Button,
@@ -21,7 +19,7 @@ import {
   Tooltip,
 } from "@mui/joy";
 import { ClickAwayListener } from "@mui/material";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import BreakpointButton from "./BreakpointButton";
 import FlowsheetSearchInput from "./FlowsheetSearchInput";
 import FlowsheetSearchResults from "./Results/FlowsheetSearchResults";
@@ -29,23 +27,25 @@ import FlowsheetSearchResults from "./Results/FlowsheetSearchResults";
 export default function FlowsheetSearchbar() {
   const dispatch = useAppDispatch();
 
-  const { searchResults: binResults } = useBinResults();
-  const { searchResults: catalogResults } = useCatalogFlowsheetSearch();
-  const { searchResults: rotationResults } = useRotationFlowsheetSearch();
+  const {
+    ctrlKeyPressed,
+    handleSubmit,
+    binResults,
+    catalogResults,
+    rotationResults,
+  } = useFlowsheetSubmit();
+
+  const { addToFlowsheet } = useFlowsheet();
 
   const selectedResult = useAppSelector(
     flowsheetSlice.selectors.getSelectedResult
   );
 
-  const [shiftKeyPressed, setShiftKeyPressed] = useState(false);
-
-  const { live, setSearchOpen, resetSearch } = useFlowsheetSearch();
-  const searchRef = useRef<HTMLDivElement>(null);
-
-  const { addToFlowsheet } = useFlowsheet();
+  const { live, searchOpen, setSearchOpen, resetSearch } = useFlowsheetSearch();
+  const searchRef = useRef<HTMLFormElement>(null);
 
   const handleClose = useCallback(
-    (event: MouseEvent | TouchEvent | React.FormEvent<HTMLFormElement>) => {
+    (event: any) => {
       resetSearch();
       searchRef.current?.querySelector("input")?.blur();
     },
@@ -58,9 +58,6 @@ export default function FlowsheetSearchbar() {
         e.preventDefault();
         if (!live) return;
         searchRef.current?.querySelector("input")?.focus();
-      }
-      if (e.key === "Shift") {
-        setShiftKeyPressed(true);
       }
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -86,82 +83,23 @@ export default function FlowsheetSearchbar() {
     ]
   );
 
-  const handleKeyUp = useCallback((e: KeyboardEvent) => {
-    if (e.key === "Shift") {
-      setShiftKeyPressed(false);
-    }
-  }, []);
-
-  const handleSubmit = useCallback(
+  const handleFormSubmit = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
-      handleClose(e);
-
-      const formData = Object.fromEntries(
-        new FormData(e.currentTarget).entries()
-      );
-      let data: FlowsheetQuery;
-      if (selectedResult == 0) {
-        data = {
-          song: formData.song as string,
-          artist: formData.artist as string,
-          album: formData.album as string,
-          label: formData.label as string,
-          request: false,
-        };
-      } else {
-        const collectedResults = [
-          binResults,
-          rotationResults,
-          catalogResults,
-        ].flat();
-        console.log("COLLECTED RESULTS", collectedResults);
-        console.log("SELECTED RESULT", collectedResults[selectedResult - 1]);
-        data = {
-          song: formData.song as string,
-          artist: collectedResults[selectedResult - 1].artist?.name ?? "",
-          album: collectedResults[selectedResult - 1].title ?? "",
-          label: collectedResults[selectedResult - 1].label ?? "",
-          album_id: collectedResults[selectedResult - 1].id ?? undefined,
-          play_freq:
-            collectedResults[selectedResult - 1].play_freq ?? undefined,
-          rotation_id:
-            collectedResults[selectedResult - 1].rotation_id ?? undefined,
-          request: false,
-        };
-      }
-
-      console.table(data);
-
-      if (shiftKeyPressed) {
-        addToFlowsheet(convertQueryToSubmission(data));
-      } else {
-        dispatch(flowsheetSlice.actions.addToQueue(data));
-      }
+      handleSubmit(e);
     },
-    [
-      handleClose,
-      addToFlowsheet,
-      shiftKeyPressed,
-      selectedResult,
-      dispatch,
-      binResults,
-      catalogResults,
-      rotationResults,
-    ]
+    [handleSubmit]
   );
 
   useEffect(() => {
     document.removeEventListener("keydown", handleKeyDown);
     document.addEventListener("keydown", handleKeyDown);
-    document.removeEventListener("keyup", handleKeyUp);
-    document.addEventListener("keyup", handleKeyUp);
 
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
-      document.removeEventListener("keyup", handleKeyUp);
     };
   }, [handleKeyDown]);
+  
   return (
     <Stack direction={"row"} spacing={1}>
       <ClickAwayListener onClickAway={handleClose}>
@@ -174,7 +112,7 @@ export default function FlowsheetSearchbar() {
           <Box
             ref={searchRef}
             component="form"
-            onSubmit={handleSubmit}
+            onSubmit={handleFormSubmit}
             sx={{
               display: "flex",
               justifyContent: "space-between",
@@ -206,7 +144,9 @@ export default function FlowsheetSearchbar() {
               },
               "&:focus-within": {
                 outline: "2px solid",
-                outlineColor: "var(--joy-palette-primary-400, #02367D)",
+                outlineColor: ctrlKeyPressed
+                  ? "var(--joy-palette-success-400, #02367D)"
+                  : "var(--joy-palette-primary-400, #02367D)",
               },
             }}
             onClick={() =>
@@ -232,20 +172,23 @@ export default function FlowsheetSearchbar() {
               <Troubleshoot />
             </Box>
             <FlowsheetSearchInput
-              name={"song"}
+              name={"album"}
               disabled={!live}
+              required={selectedResult == 0}
               suppressHydrationWarning
             />
             <Divider orientation="vertical" />
             <FlowsheetSearchInput
               name={"artist"}
+              required={selectedResult == 0}
               disabled={!live}
               suppressHydrationWarning
             />
             <Divider orientation="vertical" />
             <FlowsheetSearchInput
-              name={"album"}
+              name={"song"}
               disabled={!live}
+              required={true}
               suppressHydrationWarning
             />
             <Divider orientation="vertical" />
@@ -267,15 +210,24 @@ export default function FlowsheetSearchbar() {
             >
               <Button
                 size="sm"
-                variant="outlined"
-                color="neutral"
+                variant={searchOpen ? "solid" : "outlined"}
+                color={
+                  searchOpen
+                    ? ctrlKeyPressed
+                      ? "success"
+                      : "primary"
+                    : "neutral"
+                }
                 disabled={!live}
                 onClick={() => {
-                  const input = searchRef.current?.querySelector("input");
-
-                  if (input) {
-                    input.value = "";
-                    input.focus();
+                  if (searchOpen) {
+                    searchRef.current?.requestSubmit();
+                  } else {
+                    const input = searchRef.current?.querySelector("input");
+                    if (input) {
+                      input.value = "";
+                      input.focus();
+                    }
                   }
                 }}
                 sx={{
@@ -287,7 +239,15 @@ export default function FlowsheetSearchbar() {
                   },
                 }}
               >
-                /
+                {searchOpen ? (
+                  ctrlKeyPressed ? (
+                    <QueueMusic fontSize="small" />
+                  ) : (
+                    <PlayArrow fontSize="small" />
+                  )
+                ) : (
+                  "/"
+                )}
               </Button>
             </Box>
           </Box>
@@ -303,7 +263,7 @@ export default function FlowsheetSearchbar() {
         <IconButton
           size="sm"
           variant="solid"
-          color="success"
+          color="danger"
           onClick={() => {
             addToFlowsheet({
               message: "Talkset",

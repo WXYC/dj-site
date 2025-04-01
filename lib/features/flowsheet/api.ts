@@ -7,6 +7,7 @@ import {
   FlowsheetEntryResponse,
   FlowsheetRequestParams,
   FlowsheetSubmissionParams,
+  FlowsheetUpdateParams,
   OnAirDJResponse,
 } from "./types";
 
@@ -85,6 +86,14 @@ export const flowsheetApi = createApi({
       }),
       invalidatesTags: ["Flowsheet", "NowPlaying"],
     }),
+    updateFlowsheet: builder.mutation<any, FlowsheetUpdateParams>({
+      query: (params) => ({
+        url: "/",
+        method: "PATCH",
+        body: params,
+      }),
+      invalidatesTags: ["Flowsheet", "NowPlaying"],
+    }),
   }),
 });
 
@@ -96,4 +105,5 @@ export const {
   useWhoIsLiveQuery,
   useAddToFlowsheetMutation,
   useRemoveFromFlowsheetMutation,
+  useUpdateFlowsheetMutation,
 } = flowsheetApi;

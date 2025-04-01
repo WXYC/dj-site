@@ -74,7 +74,7 @@ export const useCatalogSearch = () => {
 };
 
 export const useCatalogResults = () => {
-  const MIN_SEARCH_LENGTH = 3;
+  const MIN_SEARCH_LENGTH = 2;
 
   const {
     searchString,
@@ -182,7 +182,7 @@ export const useCatalogResults = () => {
 };
 
 export const useCatalogFlowsheetSearch = () => {
-  const MIN_SEARCH_LENGTH = 3;
+  const MIN_SEARCH_LENGTH = 2;
 
   const { authenticating, authenticated } = useAuthentication();
 
@@ -194,7 +194,7 @@ export const useCatalogFlowsheetSearch = () => {
     {
       artist_name: flowsheetQuery.artist,
       album_name: flowsheetQuery.album,
-      n: 3,
+      n: 10,
     },
     {
       skip:
@@ -215,7 +215,7 @@ export const useCatalogFlowsheetSearch = () => {
 };
 
 export const useRotationFlowsheetSearch = () => {
-  const MIN_SEARCH_LENGTH = 3;
+  const MIN_SEARCH_LENGTH = 2;
 
   const { authenticating, authenticated } = useAuthentication();
 
