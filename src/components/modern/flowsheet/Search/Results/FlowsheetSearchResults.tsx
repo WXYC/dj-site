@@ -1,17 +1,22 @@
 "use client";
 
+import { AlbumEntry } from "@/lib/features/catalog/types";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useAppSelector } from "@/lib/hooks";
-import { useBinResults } from "@/src/hooks/binHooks";
-import { useCatalogFlowsheetSearch } from "@/src/hooks/catalogHooks";
 import { Box, Chip, Divider, Sheet, Stack, Typography } from "@mui/joy";
 import FlowsheetBackendResults from "./BackendResults/FlowsheetBackendResults";
 import NewEntryPreview from "./NewEntry/NewEntryPreview";
 
-export default function FlowsheetSearchResults() {
+export default function FlowsheetSearchResults({
+  binResults,
+  catalogResults,
+  rotationResults,
+}: {
+  binResults: AlbumEntry[];
+  catalogResults: AlbumEntry[];
+  rotationResults: AlbumEntry[];
+}) {
   const open = useAppSelector(flowsheetSlice.selectors.getSearchOpen);
-  const { searchResults: binResults } = useBinResults();
-  const { searchResults: catalogResults } = useCatalogFlowsheetSearch();
 
   return (
     <Sheet
@@ -34,38 +39,56 @@ export default function FlowsheetSearchResults() {
           mt: "40px",
           position: "relative",
           minHeight: "40px",
-          pb: "40px",
+          maxHeight: "calc(80vh - 60px)",
           transition: "height 0.2s ease-in-out",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
         }}
       >
-        <NewEntryPreview submitResult={() => {}} />
-        <Divider
-          sx={{ visibility: binResults.length > 0 ? "inherit" : "hidden" }}
-        />
-        <FlowsheetBackendResults
-          results={binResults}
-          offset={1}
-          label="From Your Mail Bin"
-        />{" "}
-        <Divider
-          sx={{ visibility: catalogResults.length > 0 ? "inherit" : "hidden" }}
-        />
-        <FlowsheetBackendResults
-          results={catalogResults}
-          offset={binResults.length + 1}
-          label="From the Card Catalog"
-        />
-        <Divider />
+        <Box
+          sx={{
+            overflowY: "auto",
+            flex: 1,
+          }}
+        >
+          <NewEntryPreview />
+          <Divider
+            sx={{ visibility: binResults.length > 0 ? "inherit" : "hidden" }}
+          />
+          <FlowsheetBackendResults
+            results={binResults}
+            offset={1}
+            label="From Your Mail Bin"
+          />{" "}
+          <Divider
+            sx={{
+              visibility: rotationResults.length > 0 ? "inherit" : "hidden",
+            }}
+          />
+          <FlowsheetBackendResults
+            results={rotationResults}
+            offset={binResults.length + 1}
+            label="From Rotation"
+          />{" "}
+          <Divider
+            sx={{
+              visibility: catalogResults.length > 0 ? "inherit" : "hidden",
+            }}
+          />
+          <FlowsheetBackendResults
+            results={catalogResults}
+            offset={binResults.length + rotationResults.length + 1}
+            label="From the Card Catalog"
+          />
+        </Box>
         <Stack
           direction="row"
           justifyContent="flex-end"
           alignItems="center"
           spacing={0.25}
           sx={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
+            flexShrink: 0,
             height: "40px",
             p: 1,
             "& > *": {
@@ -92,13 +115,16 @@ export default function FlowsheetSearchResults() {
           <Chip variant="soft" size="sm" color="neutral">
             <Typography level="body-xs">ENTER</Typography>
           </Chip>
-          <Typography level="body-xs">adds the result to the queue</Typography>
-          <Chip variant="soft" size="sm" color="neutral">
-            <Typography level="body-xs">SHIFT + ENTER</Typography>
-          </Chip>
           <Typography level="body-xs">
             sets the current result{" "}
             <Typography color="primary">playing</Typography>
+          </Typography>
+          <Chip variant="soft" size="sm" color="neutral">
+            <Typography level="body-xs">CTRL + ENTER</Typography>
+          </Chip>
+          <Typography level="body-xs">
+            adds the result to the{" "}
+            <Typography color="success">queue</Typography>
           </Typography>
         </Stack>
       </Box>

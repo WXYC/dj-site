@@ -1,4 +1,4 @@
-import { AlbumEntry, Rotation } from "../catalog/types";
+import { Rotation } from "../catalog/types";
 
 export type FlowsheetFrontendState = {
   autoplay: boolean;
@@ -17,7 +17,15 @@ export type FlowsheetQuery = {
   album: string;
   label: string;
   request: boolean;
+  album_id?: number;
+  play_freq?: Rotation;
+  rotation_id?: number;
 };
+
+export type FlowsheetSearchProperty = keyof Omit<
+  FlowsheetQuery,
+  "request" | "album_id" | "play_freq" | "rotation_id"
+>;
 
 export type FlowsheetEntryBase = {
   id: number;
@@ -50,20 +58,22 @@ export type FlowsheetSongBase = {
 
 export type FlowsheetSongEntry = FlowsheetEntryBase & FlowsheetSongBase;
 
-export type FlowsheetStartShowEntry = FlowsheetEntryBase & {
-  dj_name: string;
-  date_string: string;
-};
+export type FlowsheetShowBlockEntry = FlowsheetEntryBase &
+  DateTimeEntry & {
+    dj_name: string;
+    isStart: boolean;
+  };
 
 export type FlowsheetMessageEntry = FlowsheetEntryBase & {
   message: string;
 };
 
-export type FlowsheetBreakpointEntry = FlowsheetMessageEntry & {
-  date_string: string;
-}
+export type DateTimeEntry = {
+  day: string;
+  time: string;
+};
 
-export type FlowsheetEndShowEntry = FlowsheetBreakpointEntry;
+export type FlowsheetBreakpointEntry = FlowsheetMessageEntry & DateTimeEntry;
 
 export type FlowsheetSubmissionParams =
   | {
@@ -72,6 +82,7 @@ export type FlowsheetSubmissionParams =
       rotation_id?: number;
       request_flag: boolean;
       record_label?: string;
+      play_freq?: Rotation;
     }
   | {
       artist_name: string;
@@ -86,8 +97,7 @@ export type FlowsheetSubmissionParams =
 
 export type FlowsheetEntry =
   | FlowsheetSongEntry
-  | FlowsheetStartShowEntry
-  | FlowsheetEndShowEntry
+  | FlowsheetShowBlockEntry
   | FlowsheetMessageEntry;
 
 export function isFlowsheetSongEntry(
@@ -98,15 +108,20 @@ export function isFlowsheetSongEntry(
 
 export function isFlowsheetStartShowEntry(
   entry: FlowsheetEntry
-): entry is FlowsheetStartShowEntry {
-  return (entry as FlowsheetStartShowEntry).dj_name !== undefined;
+): entry is FlowsheetShowBlockEntry {
+  return (
+    (entry as FlowsheetShowBlockEntry).dj_name !== undefined &&
+    (entry as FlowsheetShowBlockEntry).isStart === true
+  );
 }
 
 export function isFlowsheetEndShowEntry(
   entry: FlowsheetEntry
-): entry is FlowsheetEndShowEntry {
-  return (entry as FlowsheetEndShowEntry).date_string !== undefined &&
-  (entry as FlowsheetEndShowEntry).message.includes("Breakpoint")
+): entry is FlowsheetShowBlockEntry {
+  return (
+    (entry as FlowsheetShowBlockEntry).dj_name !== undefined &&
+    (entry as FlowsheetShowBlockEntry).isStart === false
+  );
 }
 
 export function isFlowsheetTalksetEntry(
@@ -136,4 +151,15 @@ export type FlowsheetRequestParams = {
   page: number;
   limit: number;
   max: number;
+  deleted?: number;
 };
+
+export type FlowsheetUpdateParams = {
+  entry_id: number;
+  data: UpdateRequestBody;
+};
+
+export type UpdateRequestBody = Partial<Record<
+  keyof Omit<FlowsheetSongBase, "album_id" | "rotation_id" | "rotation">,
+  string | boolean
+>>;

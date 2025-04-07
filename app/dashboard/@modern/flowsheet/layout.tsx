@@ -27,7 +27,6 @@ export default function FlowsheetPage({
           <Suspense fallback={<FlowsheetSkeletonLoader count={2} />}>
             {queue}
           </Suspense>
-          <Divider sx={{ my: 1 }} />
           <Suspense fallback={<FlowsheetSkeletonLoader count={8} />}>
             {entries}
           </Suspense>

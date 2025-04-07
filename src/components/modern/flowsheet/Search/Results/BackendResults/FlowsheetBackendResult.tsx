@@ -2,6 +2,7 @@ import { AlbumEntry } from "@/lib/features/catalog/types";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { ArtistAvatar } from "@/src/components/modern/catalog/ArtistAvatar";
+import { useFlowsheetSubmit } from "@/src/hooks/flowsheetHooks";
 import { Chip, ColorPaletteProp, Stack, Typography } from "@mui/joy";
 
 export default function FlowsheetBackendResult({
@@ -17,6 +18,9 @@ export default function FlowsheetBackendResult({
   const setSelected = (index: number) =>
     dispatch(flowsheetSlice.actions.setSelectedResult(index));
 
+  const { ctrlKeyPressed: submittingToQueue, handleSubmit } =
+    useFlowsheetSubmit();
+
   return (
     <Stack
       key={`bin-${index}`}
@@ -24,16 +28,22 @@ export default function FlowsheetBackendResult({
       justifyContent="space-between"
       sx={{
         p: 1,
-        backgroundColor: selected == index ? "primary.700" : "transparent",
+        backgroundColor:
+          selected == index
+            ? submittingToQueue
+              ? "success.700"
+              : "primary.700"
+            : "transparent",
         cursor: "pointer",
       }}
       onMouseOver={() => setSelected(index)}
-      onClick={() => `Will submit ${selected}`}
+      onClick={handleSubmit}
     >
       <ArtistAvatar
         artist={entry.artist}
         format={entry.format}
         entry={entry.entry}
+        rotation={entry.play_freq}
       />
       <Stack direction="column" sx={{ width: "calc(20%)" }}>
         <Typography

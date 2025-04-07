@@ -1,6 +1,6 @@
 import { createAppSlice } from "@/lib/createAppSlice";
 import { PayloadAction } from "@reduxjs/toolkit";
-import { FlowsheetFrontendState, FlowsheetQuery, FlowsheetRequestParams } from "./types";
+import { FlowsheetFrontendState, FlowsheetQuery, FlowsheetRequestParams, FlowsheetSearchProperty } from "./types";
 
 export const defaultFlowsheetFrontendState: FlowsheetFrontendState = {
   autoplay: false,
@@ -19,7 +19,7 @@ export const defaultFlowsheetFrontendState: FlowsheetFrontendState = {
   pagination: {
     page: 0,
     limit: 20,
-    max: 0,
+    max: 0
   }
 };
 
@@ -34,11 +34,13 @@ export const flowsheetSlice = createAppSlice({
       state.search.open = action.payload;
     },
     resetSearch: (state) => {
+      state.search.open = defaultFlowsheetFrontendState.search.open;
       state.search.query = defaultFlowsheetFrontendState.search.query;
+      state.search.selectedResult = defaultFlowsheetFrontendState.search.selectedResult;
     },
     setSearchProperty: (
       state,
-      action: PayloadAction<{ name: keyof Omit<FlowsheetQuery, "request">; value: string }>
+      action: PayloadAction<{ name: FlowsheetSearchProperty; value: string }>
     ) => {
       state.search.query[action.payload.name] = action.payload.value;
     },
@@ -55,6 +57,9 @@ export const flowsheetSlice = createAppSlice({
         album_title: action.payload.album,
         record_label: action.payload.label,
         request_flag: action.payload.request,
+        rotation: action.payload.play_freq,
+        rotation_id: action.payload.rotation_id,
+        album_id: action.payload.album_id,
       })
     },
     removeFromQueue: (state, action) => {
@@ -70,6 +75,7 @@ export const flowsheetSlice = createAppSlice({
       state.pagination.page = action.payload.page;
       state.pagination.limit = action.payload.limit;
       state.pagination.max = Math.max(state.pagination.max, action.payload.page);
+      state.pagination.deleted = action.payload.deleted || state.pagination.deleted;
     },
     reset: () => defaultFlowsheetFrontendState,
   },
@@ -80,6 +86,6 @@ export const flowsheetSlice = createAppSlice({
     getSearchQueryLength: (state) => Object.values(state.search.query).filter((value) => value).length,
     getQueue: (state) => state.queue,
     getSelectedResult: (state) => state.search.selectedResult,
-    getPagination: (state) => state.pagination,
+    getPagination: (state) => state.pagination
   },
 });

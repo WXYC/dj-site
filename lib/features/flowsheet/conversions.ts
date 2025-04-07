@@ -1,14 +1,17 @@
 import { Rotation } from "../catalog/types";
 import {
   FlowsheetBreakpointEntry,
-  FlowsheetEndShowEntry,
   FlowsheetEntryResponse,
   FlowsheetMessageEntry,
+  FlowsheetQuery,
+  FlowsheetShowBlockEntry,
   FlowsheetSongEntry,
-  FlowsheetStartShowEntry,
+  FlowsheetSubmissionParams,
 } from "./types";
 
 export function convertFlowsheetResponse(entries: FlowsheetEntryResponse[]) {
+  console.log("Converting flowsheet response", entries);
+  console.table(entries);
   return entries
     .map((entry) => {
       if (entry.message) {
@@ -46,9 +49,23 @@ export function convertToSong(
   };
 }
 
+export function convertQueryToSubmission(
+  query: FlowsheetQuery
+): FlowsheetSubmissionParams {
+  return {
+    track_title: query.song,
+    artist_name: query.artist,
+    album_title: query.album,
+    record_label: query.label,
+    request_flag: query.request,
+    album_id: query.album_id,
+    rotation_id: query.rotation_id,
+  };
+}
+
 export function convertToStartShow(
   response: FlowsheetEntryResponse
-): FlowsheetStartShowEntry {
+): FlowsheetShowBlockEntry {
   let djNameExtractionRegex =
     /Start of Show:\s*(DJ\s+[A-Za-z]+)\s+joined the set/i;
   let djName =
@@ -59,31 +76,48 @@ export function convertToStartShow(
   let dateString =
     response.message?.match(datetimeExtractionRegex)?.[1] ||
     "Unknown Date or Time";
+  let isUnknown = dateString === "Unknown Date or Time";
+
+  let day = isUnknown ? "Unknown" : dateString.split(",")[0].trim();
+  let time = isUnknown ? "Unknown" : dateString.split(",")[1].trim();
 
   return {
     id: response.id,
     play_order: response.play_order,
     show_id: response.show_id,
     dj_name: djName,
-    date_string: dateString,
+    day: day,
+    time: time,
+    isStart: true,
   };
 }
 
 export function convertToEndShow(
   response: FlowsheetEntryResponse
-): FlowsheetEndShowEntry {
+): FlowsheetShowBlockEntry {
+  let djNameExtractionRegex =
+    /Start of Show:\s*(DJ\s+[A-Za-z]+)\s+joined the set/i;
+  let djName =
+    response.message?.match(djNameExtractionRegex)?.[1] || "Unknown DJ";
+
   let datetimeExtractionRegex =
     /(\d{1,2}\/\d{1,2}\/\d{4},\s+\d{1,2}:\d{2}:\d{2}\s*[APM]*)/i;
   let dateString =
     response.message?.match(datetimeExtractionRegex)?.[1] ||
     "Unknown Date or Time";
+  let isUnknown = dateString === "Unknown Date or Time";
+
+  let day = isUnknown ? "Unknown" : dateString.split(",")[0].trim();
+  let time = isUnknown ? "Unknown" : dateString.split(",")[1].trim();
 
   return {
     id: response.id,
     play_order: response.play_order,
     show_id: response.show_id,
-    message: response.message || "",
-    date_string: dateString,
+    dj_name: djName,
+    day: day,
+    time: time,
+    isStart: false,
   };
 }
 
@@ -94,14 +128,18 @@ export function convertToBreakpoint(
   let dateString =
     response.message?.match(datetimeExtractionRegex)?.[1] ||
     "Unknown Date or Time";
-    console.log(dateString);
+  let isUnknown = dateString === "Unknown Date or Time";
+
+  let day = isUnknown ? "Unknown" : dateString.split(",")[0].trim();
+  let time = isUnknown ? "Unknown" : dateString.split(",")[1].trim();
 
   return {
     id: response.id,
     play_order: response.play_order,
     show_id: response.show_id,
     message: response.message || "",
-    date_string: dateString,
+    day: day,
+    time: time,
   };
 }
 

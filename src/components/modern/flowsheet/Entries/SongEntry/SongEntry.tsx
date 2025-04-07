@@ -1,10 +1,39 @@
 "use client";
 
-import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
+import { useAddToFlowsheetMutation } from "@/lib/features/flowsheet/api";
+import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
+import {
+  FlowsheetSongEntry,
+  FlowsheetSubmissionParams,
+} from "@/lib/features/flowsheet/types";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import { LinkIconButton } from "@/src/components/General/LinkButton";
+import { useAlbumImages } from "@/src/hooks/applicationHooks";
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
 import { getStyleForRotation } from "@/src/utilities/modern/rotationstyles";
-import { AspectRatio, Badge, CircularProgress, Sheet, Stack } from "@mui/joy";
-import { useState } from "react";
+import {
+  Album,
+  InfoOutlined,
+  KeyboardArrowDown,
+  MusicNote,
+  PhoneDisabled,
+  PhoneEnabled,
+  PlayArrow,
+} from "@mui/icons-material";
+import {
+  AspectRatio,
+  Badge,
+  Box,
+  Checkbox,
+  CircularProgress,
+  IconButton,
+  Sheet,
+  Stack,
+  Tooltip,
+} from "@mui/joy";
+import { useEffect, useState } from "react";
+import DragButton from "../Components/DragButton";
+import RemoveButton from "../Components/RemoveButton";
 import FlowsheetEntryField from "./FlowsheetEntryField";
 
 export default function SongEntry({
@@ -17,53 +46,44 @@ export default function SongEntry({
   entry: FlowsheetSongEntry;
 }) {
   const { live, autoplay, currentShow } = useShowControl();
+  const [addToFlowsheet, addToFlowsheetResult] = useAddToFlowsheetMutation();
+  const queueItems = useAppSelector((state) => state.flowsheet.queue);
 
   const [canClose, setCanClose] = useState(false);
 
-  const editable = entry.show_id == currentShow;
+  const editable = queue || entry.show_id == currentShow;
 
-  const [image, setImage] = useState<string>("/img/cassette.png");
+  const {
+    url: image,
+    loading: imageLoading,
+    setAlbum,
+    setArtist,
+  } = useAlbumImages();
+
+  useEffect(() => {
+    if (!entry.album_title || !entry.artist_name) return;
+
+    setAlbum(entry.album_title);
+    setArtist(entry.artist_name);
+  }, [entry.album_title, entry.artist_name, setAlbum, setArtist]);
+
+  const dispatch = useAppDispatch();
 
   return (
     <Sheet
-      //ref={entryClientRectRef}
+      component="tr"
+      variant="plain"
       color={playing ? "primary" : "neutral"}
-      variant={queue || !editable ? "outlined" : playing ? "solid" : "soft"}
-      sx={{
+      style={{
         height: "60px",
         borderRadius: "md",
-        mb: playing && autoplay ? "0.25rem" : "initial",
-        "&::after":
-          playing && autoplay
-            ? {
-                content: '""',
-                bgcolor:
-                  "var(--joy-palette-primary-solidBg, var(--joy-palette-primary-500, #096BDE))",
-                position: "absolute",
-                bottom: "-0.25rem",
-                top: "calc(100% - 1rem)",
-                zIndex: -1,
-                borderBottomRightRadius: "0.7rem",
-                borderBottomLeftRadius: "0.7rem",
-                left: 0,
-                right: 0,
-              }
-            : {},
+        marginBottom: playing && autoplay ? "0.25rem" : "initial",
+        background: playing ? "primary.200" : "none",
       }}
       onMouseOver={() => setCanClose(editable && live)}
       onMouseLeave={() => setCanClose(false)}
     >
-      <Stack
-        direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        spacing={1}
-        sx={{
-          height: "100%",
-          p: 1,
-          pr: 2,
-        }}
-      >
+      <td>
         <Badge
           size="sm"
           badgeContent={entry.rotation ?? null}
@@ -82,7 +102,7 @@ export default function SongEntry({
               minHeight: "48px",
             }}
           >
-            {image ? (
+            {image && !imageLoading ? (
               <img
                 src={image}
                 alt="album art"
@@ -93,45 +113,147 @@ export default function SongEntry({
             )}
           </AspectRatio>
         </Badge>
+      </td>
+      <td colSpan={2}>
+        <FlowsheetEntryField
+          label="album"
+          name={"album_title"}
+          entry={entry}
+          playing={playing}
+          queue={queue}
+          editable={editable}
+        />
+        <FlowsheetEntryField
+          label="artist"
+          name={"artist_name"}
+          entry={entry}
+          playing={playing}
+          queue={queue}
+          editable={editable}
+          level="body-xs"
+        />
+      </td>
+      <td colSpan={2}>
+        <FlowsheetEntryField
+          label="song"
+          name={"track_title"}
+          entry={entry}
+          playing={playing}
+          queue={queue}
+          editable={editable}
+          startDecorator={<MusicNote />}
+        />
+      </td>
+      <td colSpan={2}>
+        <FlowsheetEntryField
+          label="label"
+          name={"record_label"}
+          entry={entry}
+          playing={playing}
+          queue={queue}
+          editable={editable}
+          startDecorator={<Album />}
+        />
+      </td>
+      <td>
         <Stack
           direction="row"
-          sx={{ flexGrow: 1, maxWidth: "calc(100% - 98px)" }}
-          spacing={1}
+          justifyContent={"flex-end"}
+          alignItems={"center"}
+          sx={{
+            pr: 1.5,
+          }}
         >
-          <FlowsheetEntryField
-            label="song"
-            name={"track_title"}
-            entry={entry}
+          {canClose && queue && (
+            <IconButton
+              size="sm"
+              variant="solid"
+              color="primary"
+              sx={{
+                position: "absolute",
+                left: 16,
+              }}
+              onClick={() => {
+                addToFlowsheet({
+                  track_title: entry.track_title,
+                  artist_name: entry.artist_name,
+                  album_title: entry.album_title,
+                  record_label: entry.record_label,
+                  request_flag: entry.request_flag,
+                  rotation_id: entry.rotation_id,
+                  album_id: entry.album_id,
+                  play_freq: entry.rotation,
+                } as FlowsheetSubmissionParams).then(() => {
+                  dispatch(flowsheetSlice.actions.removeFromQueue(entry.id));
+                });
+              }}
+            >
+              <PlayArrow />
+            </IconButton>
+          )}
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "40px",
+              height: "40px",
+            }}
+          >
+            <Tooltip
+              variant="outlined"
+              size="sm"
+              title="Was this song a request?"
+            >
+              <Checkbox
+                size="sm"
+                variant="soft"
+                color={entry.request_flag ? "warning" : "neutral"}
+                uncheckedIcon={<PhoneDisabled />}
+                checkedIcon={<PhoneEnabled />}
+                disabled={!(editable && live)}
+                sx={{
+                  opacity: entry.request_flag ? 1 : 0.3,
+                  "& .MuiCheckbox-checkbox": {
+                    background: "transparent",
+                  },
+                }}
+                checked={entry.request_flag}
+                onChange={(e) => {}}
+              />
+            </Tooltip>
+          </Box>
+          <LinkIconButton
+            color="neutral"
+            variant="plain"
+            size="sm"
+            href={`/dashboard/album/${entry.album_id}`}
+            disabled={!entry?.album_id || entry.album_id < 0}
+          >
+            <InfoOutlined />
+          </LinkIconButton>
+          {playing && queueItems.length > 0 ? (
+            <IconButton
+              color="neutral"
+              variant="plain"
+              size="sm"
+              onClick={() => {
+                console.log("play off top");
+              }}
+            >
+              <KeyboardArrowDown />
+            </IconButton>
+          ) : (
+            editable && live && <DragButton entry={entry} queue={queue} />
+          )}
+          <RemoveButton
+            canClose={canClose}
             playing={playing}
             queue={queue}
-            editable={editable}
-          />
-          <FlowsheetEntryField
-            label="artist"
-            name={"artist_name"}
             entry={entry}
-            playing={playing}
-            queue={queue}
-            editable={editable}
-          />
-          <FlowsheetEntryField
-            label="album"
-            name={"album_title"}
-            entry={entry}
-            playing={playing}
-            queue={queue}
-            editable={editable}
-          />
-          <FlowsheetEntryField
-            label="label"
-            name={"record_label"}
-            entry={entry}
-            playing={playing}
-            queue={queue}
-            editable={editable}
           />
         </Stack>
-      </Stack>
+      </td>
     </Sheet>
   );
 }

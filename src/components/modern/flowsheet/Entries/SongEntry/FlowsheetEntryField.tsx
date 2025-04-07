@@ -1,10 +1,11 @@
 "use client";
 
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
-import { useShowControl } from "@/src/hooks/flowsheetHooks";
-import { Stack, Typography } from "@mui/joy";
+import { useFlowsheet, useShowControl } from "@/src/hooks/flowsheetHooks";
+import { toTitleCase } from "@/src/utilities/stringutilities";
+import { Typography, TypographyProps } from "@mui/joy";
 import { ClickAwayListener } from "@mui/material";
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 
 export default function FlowsheetEntryField({
   entry,
@@ -13,6 +14,7 @@ export default function FlowsheetEntryField({
   queue,
   playing,
   editable,
+  ...props
 }: {
   entry: FlowsheetSongEntry;
   name: keyof FlowsheetSongEntry;
@@ -20,78 +22,84 @@ export default function FlowsheetEntryField({
   queue: boolean;
   playing: boolean;
   editable: boolean;
-}) {
+} & Omit<TypographyProps, "whiteSpace" | "overflow" | "textOverflow">) {
   const { live } = useShowControl();
 
   const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(String(entry[name]) ?? "");
+  const [value, setValue] = useState(String(entry[name]));
 
-  const saveAndClose = (
-    e: MouseEvent | TouchEvent | React.FormEvent<HTMLFormElement>
-  ) => {
-    e.preventDefault();
-    setEditing(false);
-  };
+  const { updateFlowsheet } = useFlowsheet();
 
-  return (
-    <Stack direction="column" sx={{ width: "calc(25%)" }}>
-      <Typography
-        level="body-xs"
-        sx={{ mb: -1 }}
-        textColor={playing ? "primary.300" : "neutral.600"}
-      >
-        {label.toUpperCase()}
-      </Typography>
-      {editing ? (
-        <ClickAwayListener onClickAway={saveAndClose}>
-          <form onSubmit={saveAndClose}>
-            <Typography
-              textColor={playing ? "primary.lightChannel" : "neutral.700"}
-              sx={{
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                borderBottom: "1px solid",
-              }}
-            >
-              <input
-                type="text"
-                style={{
-                  color: "inherit",
-                  fontFamily: "inherit",
-                  fontSize: "inherit",
-                  fontWeight: "inherit",
-                  background: "transparent",
-                  width: "100%",
-                  border: "none",
-                  outline: "none",
-                  padding: "0",
-                  margin: "0",
-                }}
-                defaultValue={String(entry[name])}
-                onChange={(e) => {
-                  setValue(e.target.value);
-                }}
-                value={value}
-              />
-            </Typography>
-          </form>
-        </ClickAwayListener>
-      ) : (
+  const saveAndClose = useCallback(
+    (e: MouseEvent | TouchEvent | React.FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      setEditing(false);
+
+      updateFlowsheet({
+        entry_id: entry.id,
+        data: {
+          [name]: value,
+        },
+      });
+    },
+    [entry, value]
+  );
+
+  return editing ? (
+    <ClickAwayListener onClickAway={saveAndClose}>
+      <form onSubmit={saveAndClose}>
         <Typography
-          textColor={playing ? "primary.lightChannel" : "unset"}
+          {...props}
+          textColor={playing ? "primary.lightChannel" : "neutral.700"}
           sx={{
+            ...props.sx,
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
-            cursor: "text",
-            minWidth: "10px",
+            borderBottom: "1px solid",
           }}
-          onDoubleClick={() => setEditing(editable && live)}
         >
-          {String(entry[name])}&nbsp;
+          <input
+            type="text"
+            autoComplete="off"
+            style={{
+              color: "inherit",
+              fontFamily: "inherit",
+              fontSize: "inherit",
+              fontWeight: "inherit",
+              background: "transparent",
+              width: "100%",
+              border: "none",
+              outline: "none",
+              padding: "0",
+              margin: "0",
+            }}
+            onChange={(e) => {
+              setValue(e.target.value);
+            }}
+            value={value}
+          />
         </Typography>
-      )}
-    </Stack>
+      </form>
+    </ClickAwayListener>
+  ) : (
+    <Typography
+      {...props}
+      sx={{
+        ...props.sx,
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        cursor: "text",
+        minWidth: "10px",
+        opacity: String(entry[name]).length > 0 ? 1 : 0.5,
+      }}
+      onDoubleClick={() => setEditing(editable && live)}
+    >
+      {String(entry[name]).length > 0
+        ? String(entry[name])
+        : `${toTitleCase(label)} Unspecified`}
+      &nbsp;
+    </Typography>
   );
 }

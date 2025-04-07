@@ -3,9 +3,11 @@
 import Entry from "@/src/components/modern/flowsheet/Entries/Entry";
 import FlowsheetSkeletonLoader from "@/src/components/modern/flowsheet/FlowsheetSkeletonLoader";
 import { useFlowsheet } from "@/src/hooks/flowsheetHooks";
-import { Stack } from "@mui/joy";
+import { Table, useColorScheme } from "@mui/joy";
 
 export default function FlowsheetEntries() {
+  const { mode } = useColorScheme();
+
   const { loading, entries } = useFlowsheet();
 
   if (loading || !entries) {
@@ -13,10 +15,31 @@ export default function FlowsheetEntries() {
   }
 
   return (
-    <Stack direction="column" spacing={1}>
-      {entries.map((entry, index) => (
-        <Entry key={entry.id} entry={entry} playing={index == 0} />
-      ))}
-    </Stack>
+    <Table borderAxis={mode == "dark" ? "none" : "x"}>
+      <thead
+        style={{
+          visibility: "collapse",
+        }}
+      >
+        <tr>
+        <td
+          style={{
+            width: "60px"
+          }}
+        ></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        </tr>
+      </thead>
+      <tbody>
+        {entries.map((entry, index) => (
+          <Entry key={entry.id} entry={entry} playing={index == 0} />
+        ))}
+      </tbody>
+    </Table>
   );
 }
