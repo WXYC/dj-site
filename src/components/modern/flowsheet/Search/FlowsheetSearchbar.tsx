@@ -17,6 +17,7 @@ import {
   IconButton,
   Stack,
   Tooltip,
+  useTheme,
 } from "@mui/joy";
 import { ClickAwayListener } from "@mui/material";
 import { useCallback, useEffect, useRef } from "react";
@@ -25,6 +26,8 @@ import FlowsheetSearchInput from "./FlowsheetSearchInput";
 import FlowsheetSearchResults from "./Results/FlowsheetSearchResults";
 
 export default function FlowsheetSearchbar() {
+  const theme = useTheme();
+
   const dispatch = useAppDispatch();
 
   const {
@@ -118,10 +121,9 @@ export default function FlowsheetSearchbar() {
               justifyContent: "space-between",
               flexDirection: "row",
               zIndex: 8001,
-              background: "var(--joy-palette-background-surface)",
+              background: "transparent",
               outline: "1px solid",
-              outlineColor:
-                "var(--joy-palette-neutral-outlinedBorder, var(--joy-palette-neutral-200, #D8D8DF))",
+              outlineColor: theme.palette.neutral.outlinedBorder,
               borderRadius: "8px",
               minHeight: "var(--Input-minHeight)",
               paddingInline: "0.5rem",
@@ -139,20 +141,21 @@ export default function FlowsheetSearchbar() {
               },
               "&:hover": {
                 outlineColor: live
-                  ? "var(--joy-palette-neutral-700)"
-                  : "var(--joy-palette-neutral-outlinedBorder, var(--joy-palette-neutral-200, #D8D8DF))",
+                  ? theme.palette.neutral["700"]
+                  : theme.palette.neutral.outlinedBorder,
               },
               "&:focus-within": {
                 outline: "2px solid",
                 outlineColor: ctrlKeyPressed
-                  ? "var(--joy-palette-success-400, #02367D)"
-                  : "var(--joy-palette-primary-400, #02367D)",
+                  ? theme.palette.success["400"]
+                  : theme.palette.primary["400"],
               },
             }}
             onClick={() =>
               live && searchRef.current?.querySelector("input")?.focus()
             }
             onFocus={() => live && setSearchOpen(true)}
+            suppressHydrationWarning
           >
             <Box
               sx={{
@@ -164,7 +167,7 @@ export default function FlowsheetSearchbar() {
                 minHeight: "min(1.5rem, var(--Input-minHeight))",
                 pointerEvents: "none",
                 "& svg": {
-                  fill: "var(--joy-palette-neutral-400) !important",
+                  fill: "var(--wxyc-palette-neutral-400) !important",
                   pointerEvents: "none",
                 },
               }}

@@ -8,7 +8,7 @@ export default async function getArtworkFromLastFM({
   let url =
     "https://ws.audioscrobbler.com/2.0/?type=release&per_page=1&page=1&" +
     "api_key=" +
-    process.env.REACT_APP_LAST_FM_KEY +
+    process.env.LAST_FM_KEY +
     "&method=album.getInfo" +
     "&album=" +
     title +
@@ -45,7 +45,7 @@ export async function getSongInfoFromLastFM({
   let url =
     "https://ws.audioscrobbler.com/2.0/?type=release&per_page=1&page=1&" +
     "api_key=" +
-    process.env.REACT_APP_LAST_FM_KEY +
+    process.env.LAST_FM_KEY +
     "&method=track.getInfo" +
     "&track=" +
     title +
