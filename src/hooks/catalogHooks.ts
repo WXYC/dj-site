@@ -279,7 +279,6 @@ export const useRotationFlowsheetSearch = () => {
 
   useEffect(() => {
     if (!isLoading && isSuccess && data) {
-      console.table(data);
       setSearchResults(findInRotation(rotationQuery));
     }
   }, [data, isLoading, isSuccess, rotationQuery]);

@@ -10,8 +10,6 @@ import {
 } from "./types";
 
 export function convertFlowsheetResponse(entries: FlowsheetEntryResponse[]) {
-  console.log("Converting flowsheet response", entries);
-  console.table(entries);
   return entries
     .map((entry) => {
       if (entry.message) {

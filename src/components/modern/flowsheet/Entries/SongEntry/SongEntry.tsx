@@ -9,7 +9,7 @@ import {
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { LinkIconButton } from "@/src/components/General/LinkButton";
 import { useAlbumImages } from "@/src/hooks/applicationHooks";
-import { useShowControl } from "@/src/hooks/flowsheetHooks";
+import { useFlowsheet, useShowControl } from "@/src/hooks/flowsheetHooks";
 import { getStyleForRotation } from "@/src/utilities/modern/rotationstyles";
 import {
   Album,
@@ -27,13 +27,14 @@ import {
   Checkbox,
   CircularProgress,
   IconButton,
-  Sheet,
   Stack,
   Tooltip,
 } from "@mui/joy";
+import { useDragControls } from "motion/react";
 import { useEffect, useState } from "react";
 import DragButton from "../Components/DragButton";
 import RemoveButton from "../Components/RemoveButton";
+import DraggableEntryWrapper from "../DraggableEntryWrapper";
 import FlowsheetEntryField from "./FlowsheetEntryField";
 
 export default function SongEntry({
@@ -49,9 +50,13 @@ export default function SongEntry({
   const [addToFlowsheet, addToFlowsheetResult] = useAddToFlowsheetMutation();
   const queueItems = useAppSelector((state) => state.flowsheet.queue);
 
+  const controls = useDragControls();
+
   const [canClose, setCanClose] = useState(false);
 
   const editable = queue || entry.show_id == currentShow;
+
+  const { updateFlowsheet } = useFlowsheet();
 
   const {
     url: image,
@@ -70,49 +75,50 @@ export default function SongEntry({
   const dispatch = useAppDispatch();
 
   return (
-    <Sheet
-      component="tr"
+    <DraggableEntryWrapper
+      controls={controls}
+      entryRef={entry}
       variant="plain"
       color={playing ? "primary" : "neutral"}
       style={{
         height: "60px",
         borderRadius: "md",
         marginBottom: playing && autoplay ? "0.25rem" : "initial",
-        background: playing ? "primary.200" : "none",
       }}
-      onMouseOver={() => setCanClose(editable && live)}
-      onMouseLeave={() => setCanClose(false)}
     >
       <td>
-        <Badge
-          size="sm"
-          badgeContent={entry.rotation ?? null}
-          color={entry.rotation && getStyleForRotation(entry.rotation)}
-          anchorOrigin={{
-            vertical: "top",
-            horizontal: "left",
-          }}
-        >
-          <AspectRatio
-            ratio={1}
-            sx={{
-              flexBasis: "calc(60px - 12px)",
-              borderRadius: "9px",
-              minWidth: "48px",
-              minHeight: "48px",
+        <Stack direction="row">
+          {editable && live && <DragButton controls={controls} />}
+          <Badge
+            size="sm"
+            badgeContent={entry.rotation ?? null}
+            color={entry.rotation && getStyleForRotation(entry.rotation)}
+            anchorOrigin={{
+              vertical: "top",
+              horizontal: "left",
             }}
           >
-            {image && !imageLoading ? (
-              <img
-                src={image}
-                alt="album art"
-                style={{ minWidth: "48px", minHeight: "48px" }}
-              />
-            ) : (
-              <CircularProgress />
-            )}
-          </AspectRatio>
-        </Badge>
+            <AspectRatio
+              ratio={1}
+              sx={{
+                flexBasis: "calc(60px - 12px)",
+                borderRadius: "9px",
+                minWidth: "48px",
+                minHeight: "48px",
+              }}
+            >
+              {image && !imageLoading ? (
+                <img
+                  src={image}
+                  alt="album art"
+                  style={{ minWidth: "48px", minHeight: "48px" }}
+                />
+              ) : (
+                <CircularProgress />
+              )}
+            </AspectRatio>
+          </Badge>
+        </Stack>
       </td>
       <td colSpan={2}>
         <FlowsheetEntryField
@@ -160,8 +166,9 @@ export default function SongEntry({
           direction="row"
           justifyContent={"flex-end"}
           alignItems={"center"}
+          spacing={0.5}
           sx={{
-            pr: 1.5,
+            position: "relative",
           }}
         >
           {canClose && queue && (
@@ -219,7 +226,14 @@ export default function SongEntry({
                   },
                 }}
                 checked={entry.request_flag}
-                onChange={(e) => {}}
+                onChange={(e) =>
+                  updateFlowsheet({
+                    entry_id: entry.id,
+                    data: {
+                      request_flag: e.target.checked,
+                    },
+                  })
+                }
               />
             </Tooltip>
           </Box>
@@ -232,7 +246,7 @@ export default function SongEntry({
           >
             <InfoOutlined />
           </LinkIconButton>
-          {playing && queueItems.length > 0 ? (
+          {playing && queueItems.length > 0 && (
             <IconButton
               color="neutral"
               variant="plain"
@@ -243,17 +257,15 @@ export default function SongEntry({
             >
               <KeyboardArrowDown />
             </IconButton>
-          ) : (
-            editable && live && <DragButton entry={entry} queue={queue} />
           )}
-          <RemoveButton
-            canClose={canClose}
-            playing={playing}
-            queue={queue}
-            entry={entry}
-          />
+          {editable && live && (
+            <>
+              <RemoveButton queue={queue} entry={entry} />
+              <DragButton controls={controls} />
+            </>
+          )}
         </Stack>
       </td>
-    </Sheet>
+    </DraggableEntryWrapper>
   );
 }

@@ -9,6 +9,7 @@ export type FlowsheetFrontendState = {
   };
   queue: FlowsheetSongEntry[];
   pagination: FlowsheetRequestParams;
+  currentShowEntries: FlowsheetEntry[];
 };
 
 export type FlowsheetQuery = {
@@ -158,6 +159,11 @@ export type FlowsheetUpdateParams = {
   entry_id: number;
   data: UpdateRequestBody;
 };
+
+export type FlowsheetSwitchParams = {
+  entry_id: number;
+  new_position: number;
+}
 
 export type UpdateRequestBody = Partial<Record<
   keyof Omit<FlowsheetSongBase, "album_id" | "rotation_id" | "rotation">,

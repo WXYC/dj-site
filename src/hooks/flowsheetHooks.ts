@@ -7,16 +7,20 @@ import {
   useJoinShowMutation,
   useLeaveShowMutation,
   useRemoveFromFlowsheetMutation,
+  useSwitchEntriesMutation,
   useUpdateFlowsheetMutation,
   useWhoIsLiveQuery,
 } from "@/lib/features/flowsheet/api";
 import { convertQueryToSubmission } from "@/lib/features/flowsheet/conversions";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import {
+  FlowsheetEntry,
   FlowsheetQuery,
   FlowsheetSearchProperty,
   FlowsheetSubmissionParams,
   FlowsheetUpdateParams,
+  isFlowsheetEndShowEntry,
+  isFlowsheetStartShowEntry,
 } from "@/lib/features/flowsheet/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useCallback, useEffect, useState } from "react";
@@ -26,6 +30,7 @@ import {
   useCatalogFlowsheetSearch,
   useRotationFlowsheetSearch,
 } from "./catalogHooks";
+import { useDebounce } from "@uidotdev/usehooks";
 
 export const useShowControl = () => {
   const { loading: userloading, info: userData } = useRegistry();
@@ -228,13 +233,90 @@ export const useFlowsheet = () => {
   const removeFromQueue = (entry: number) =>
     dispatch(flowsheetSlice.actions.removeFromQueue(entry));
 
+  const { currentShow, live } = useShowControl();
+
+  const currentShowEntries = useAppSelector(
+    flowsheetSlice.selectors.getCurrentShowEntries
+  );
+  const setCurrentShowEntries = (entries: FlowsheetEntry[]) => {
+    dispatch(flowsheetSlice.actions.setCurrentShowEntries(entries));
+  };
+
+  useEffect(() => {
+    if (currentShow === -1) return;
+
+    setCurrentShowEntries(
+      data?.filter(
+        (entry) =>
+          entry.show_id == currentShow && (!live ||
+          !isFlowsheetStartShowEntry(entry) &&
+          !isFlowsheetEndShowEntry(entry))
+      ) ?? []
+    );
+  }, [data, currentShow, dispatch, isSuccess, live]);
+
+  const lastShowsEntries =
+    data?.filter(
+      (entry) =>
+        entry.show_id != currentShow ||
+        isFlowsheetStartShowEntry(entry) ||
+        isFlowsheetEndShowEntry(entry)
+    ) ?? [];
+
+  const [switchBackendEntries, switchBackendResult] =
+    useSwitchEntriesMutation();
+
+  const switchEntries = useCallback(
+    async (entry: FlowsheetEntry) => {
+      if (!userData?.id || userloading) return;
+
+      const newLocation = currentShowEntries.findIndex(
+        (e) => e.id === entry.id
+      );
+
+      const swappedWith = data?.[newLocation];
+
+      if (!swappedWith) return;
+
+      try {
+        switchBackendEntries({
+          entry_id: entry.id,
+          new_position: swappedWith.play_order!,
+        }).then(() => {
+          dispatch(
+            flowsheetSlice.actions.setPagination({
+              page: 0,
+              limit: currentShowEntries.length,
+            })
+          );
+        });
+      } catch (err) {
+        console.error("Failed to switch entries:", err);
+      }
+    },
+    [
+      userData?.id,
+      userloading,
+      data,
+      currentShow,
+      switchBackendEntries,
+      currentShowEntries,
+      dispatch,
+    ]
+  );
+
   return {
-    entries: data,
+    entries: {
+      current: currentShowEntries,
+      previous: lastShowsEntries,
+      setCurrentShowEntries,
+      switchEntries,
+    },
     addToFlowsheet: addToFlowsheetCallback,
     removeFromFlowsheet: removeFromFlowsheetCallback,
     updateFlowsheet,
     removeFromQueue,
-    loading: isLoading || userloading,
+    loading: isLoading || userloading || !data,
     isSuccess,
     isError,
   };
@@ -339,8 +421,6 @@ export const useFlowsheetSubmit = () => {
           request: false,
         };
       }
-
-      console.table(data);
 
       if (ctrlKeyPressed) {
         addToQueue(data);

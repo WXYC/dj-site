@@ -20,6 +20,7 @@ declare module "@mui/joy/styles" {
 }
 
 const wxycTheme = extendTheme({
+  cssVarPrefix: "wxyc",
   components: {
     JoyTooltip: {
       styleOverrides: {
