@@ -1,6 +1,6 @@
 import { createAppSlice } from "@/lib/createAppSlice";
 import { PayloadAction } from "@reduxjs/toolkit";
-import { FlowsheetFrontendState, FlowsheetQuery, FlowsheetRequestParams, FlowsheetSearchProperty } from "./types";
+import { FlowsheetEntry, FlowsheetFrontendState, FlowsheetQuery, FlowsheetRequestParams, FlowsheetSearchProperty, FlowsheetSwitchParams } from "./types";
 
 export const defaultFlowsheetFrontendState: FlowsheetFrontendState = {
   autoplay: false,
@@ -20,7 +20,8 @@ export const defaultFlowsheetFrontendState: FlowsheetFrontendState = {
     page: 0,
     limit: 20,
     max: 0
-  }
+  },
+  currentShowEntries: [],
 };
 
 export const flowsheetSlice = createAppSlice({
@@ -77,6 +78,9 @@ export const flowsheetSlice = createAppSlice({
       state.pagination.max = Math.max(state.pagination.max, action.payload.page);
       state.pagination.deleted = action.payload.deleted || state.pagination.deleted;
     },
+    setCurrentShowEntries: (state, action: PayloadAction<FlowsheetEntry[]>) => {
+      state.currentShowEntries = action.payload;
+    },
     reset: () => defaultFlowsheetFrontendState,
   },
   selectors: {
@@ -86,6 +90,7 @@ export const flowsheetSlice = createAppSlice({
     getSearchQueryLength: (state) => Object.values(state.search.query).filter((value) => value).length,
     getQueue: (state) => state.queue,
     getSelectedResult: (state) => state.search.selectedResult,
-    getPagination: (state) => state.pagination
+    getPagination: (state) => state.pagination,
+    getCurrentShowEntries: (state) => state.currentShowEntries,
   },
 });

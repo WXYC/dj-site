@@ -1,19 +1,23 @@
 "use client";
 
 import {
+  FlowsheetEntry,
+  isFlowsheetEndShowEntry,
+  isFlowsheetStartShowEntry,
+} from "@/lib/features/flowsheet/types";
+import { useShowControl } from "@/src/hooks/flowsheetHooks";
+import {
   AspectRatio,
   Box,
   ColorPaletteProp,
-  Sheet,
   Stack,
   Typography,
   VariantProp,
 } from "@mui/joy";
-import RemoveButton from "./Components/RemoveButton";
-import { FlowsheetEntry } from "@/lib/features/flowsheet/types";
-import { useState } from "react";
-import { useShowControl } from "@/src/hooks/flowsheetHooks";
+import { useDragControls } from "motion/react";
 import DragButton from "./Components/DragButton";
+import RemoveButton from "./Components/RemoveButton";
+import DraggableEntryWrapper from "./DraggableEntryWrapper";
 
 export default function MessageEntry({
   startDecorator,
@@ -33,21 +37,21 @@ export default function MessageEntry({
   disableEditing?: boolean;
 }) {
   const { live, currentShow } = useShowControl();
-  const [canClose, setCanClose] = useState(false);
 
-  const editable = (entryRef.show_id == currentShow) && !disableEditing;
+  const controls = useDragControls();
+
+  const editable = entryRef.show_id == currentShow && !disableEditing;
 
   return (
-    <Sheet
-      component="tr"
+    <DraggableEntryWrapper
+      controls={controls}
+      entryRef={entryRef}
       variant={variant}
       color={color}
       style={{
         height: "40px",
         borderRadius: "md",
       }}
-      onMouseOver={() => setCanClose(live && editable)}
-      onMouseLeave={() => setCanClose(false)}
     >
       <td>
         <AspectRatio
@@ -74,14 +78,20 @@ export default function MessageEntry({
         {children}
       </Box>
       <td>
-        <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="end" sx = {{
-          pr: live ? 1 : 0,
-        }}>
+        <Stack
+          direction="row"
+          spacing={0.5}
+          alignItems="center"
+          justifyContent="end"
+        >
           <Typography level="body-xs">{endDecorator}</Typography>
-          {live && editable && (<DragButton entry={entryRef} queue={false} />)}
+          {live && editable && <DragButton controls={controls} />}
+          {live && editable && !isFlowsheetStartShowEntry(entryRef) &&
+            !isFlowsheetEndShowEntry(entryRef) && (
+              <RemoveButton queue={false} entry={entryRef} />
+            )}
         </Stack>
-        <RemoveButton canClose={canClose} queue={false} playing={false} entry={entryRef} />
       </td>
-    </Sheet>
+    </DraggableEntryWrapper>
   );
 }

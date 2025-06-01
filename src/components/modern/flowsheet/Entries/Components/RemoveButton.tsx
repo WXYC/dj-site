@@ -1,50 +1,40 @@
-import { FlowsheetEntry } from "@/lib/features/flowsheet/types";
+import {
+  FlowsheetEntry,
+  isFlowsheetSongEntry,
+} from "@/lib/features/flowsheet/types";
 import { useFlowsheet } from "@/src/hooks/flowsheetHooks";
 import { Clear } from "@mui/icons-material";
-import { Button } from "@mui/joy";
+import { IconButton, Tooltip } from "@mui/joy";
 
 export default function RemoveButton({
-  canClose,
-  playing,
   queue,
   entry,
 }: {
-  canClose: boolean;
-  playing: boolean;
   queue: boolean;
   entry: FlowsheetEntry;
 }) {
   const { removeFromQueue, removeFromFlowsheet } = useFlowsheet();
 
-  return canClose && !playing ? (
-    <Button
-      color="neutral"
-      variant="solid"
-      sx={{
-        position: "absolute",
-        zIndex: 4,
-        top: "50%",
-        transform: "translateY(-50%)",
-        right: 10,
-        minWidth: "3px",
-        minHeight: "3px",
-        maxWidth: "3px",
-        maxHeight: "3px",
-        background: "transparent",
-        p: 0,
-        "& svg": {
-          width: "15px",
-          height: "15px",
-        },
-        "&:hover": {
-          background: "transparent",
-        },
-      }}
-      onClick={() =>
-        queue ? removeFromQueue(entry.id) : removeFromFlowsheet(entry.id)
+  return (
+    <Tooltip
+      variant="plain"
+      placement="top-start"
+      size="sm"
+      title={
+        isFlowsheetSongEntry(entry)
+          ? `Remove ${entry.track_title} from ${queue ? "Queue" : "Flowsheet"}`
+          : `Remove from ${queue ? "Queue" : "Flowsheet"}`
       }
     >
-      <Clear color="secondary" />
-    </Button>
-  ) : <></>;
+      <IconButton
+        color="neutral"
+        size="sm"
+        onClick={() =>
+          queue ? removeFromQueue(entry.id) : removeFromFlowsheet(entry.id)
+        }
+      >
+        <Clear color="secondary" fontSize="small" />
+      </IconButton>
+    </Tooltip>
+  );
 }

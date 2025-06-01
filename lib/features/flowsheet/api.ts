@@ -7,6 +7,7 @@ import {
   FlowsheetEntryResponse,
   FlowsheetRequestParams,
   FlowsheetSubmissionParams,
+  FlowsheetSwitchParams,
   FlowsheetUpdateParams,
   OnAirDJResponse,
 } from "./types";
@@ -45,6 +46,14 @@ export const flowsheetApi = createApi({
           currentArg?.limit !== previousArg?.limit
         );
       },
+    }),
+    switchEntries: builder.mutation<undefined, FlowsheetSwitchParams>({
+      query: (params) => ({
+        url: "/play-order",
+        method: "PATCH",
+        body: params,
+      }),
+      invalidatesTags: ["Flowsheet", "NowPlaying"],
     }),
     joinShow: builder.mutation<any, DJRequestParams>({
       query: (params) => ({
@@ -106,4 +115,5 @@ export const {
   useAddToFlowsheetMutation,
   useRemoveFromFlowsheetMutation,
   useUpdateFlowsheetMutation,
+  useSwitchEntriesMutation,
 } = flowsheetApi;

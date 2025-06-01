@@ -14,9 +14,9 @@ const Logo = (props: LogoProps) => {
     >
       <g
         transform="translate(0.000000,280.000000) scale(0.100000,-0.100000)"
-        fill={`var(--joy-palette-${
+        fill={`var(--wxyc-palette-${
           props.color ?? "primary"
-        }-solidBg, var(--joy-palette-${
+        }-solidBg, var(--wxyc-palette-${
           props.color ?? "primary"
         }-500, #096BDE))`}
         stroke="none"

@@ -4,13 +4,17 @@ import Entry from "@/src/components/modern/flowsheet/Entries/Entry";
 import FlowsheetSkeletonLoader from "@/src/components/modern/flowsheet/FlowsheetSkeletonLoader";
 import { useFlowsheet } from "@/src/hooks/flowsheetHooks";
 import { Table, useColorScheme } from "@mui/joy";
+import { Reorder } from "motion/react";
 
 export default function FlowsheetEntries() {
   const { mode } = useColorScheme();
 
-  const { loading, entries } = useFlowsheet();
+  const {
+    loading,
+    entries: { current, setCurrentShowEntries, previous },
+  } = useFlowsheet();
 
-  if (loading || !entries) {
+  if (loading) {
     return <FlowsheetSkeletonLoader count={10} />;
   }
 
@@ -22,24 +26,36 @@ export default function FlowsheetEntries() {
         }}
       >
         <tr>
-        <td
-          style={{
-            width: "60px"
-          }}
-        ></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
+          <td
+            style={{
+              width: "60px",
+            }}
+          ></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
         </tr>
       </thead>
-      <tbody>
-        {entries.map((entry, index) => (
+      <Reorder.Group
+        values={current}
+        axis="y"
+        onReorder={setCurrentShowEntries}
+        as="tbody"
+      >
+        {current.map((entry, index) => (
           <Entry key={entry.id} entry={entry} playing={index == 0} />
         ))}
-      </tbody>
+        {previous.map((entry, index) => (
+          <Entry
+            key={entry.id}
+            entry={entry}
+            playing={index == 0 && current.length == 0}
+          />
+        ))}
+      </Reorder.Group>
     </Table>
   );
 }
