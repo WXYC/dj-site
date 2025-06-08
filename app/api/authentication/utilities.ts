@@ -10,6 +10,9 @@ import {
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+
+export const runtime = "edge";
+
 // This client will be used to send commands to the Cognito Identity Provider
 export const client = new CognitoIdentityProviderClient({
   region: String(process.env.AWS_REGION),

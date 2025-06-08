@@ -3,6 +3,8 @@ import { Authorization } from "./lib/features/admin/types";
 import { isAuthenticated } from "./lib/features/authentication/types";
 import { createServerSideProps } from "./lib/features/session";
 
+export const runtime = "experimental-edge";
+
 export async function middleware(request: NextRequest) {
   const sessionData = await createServerSideProps();
 
