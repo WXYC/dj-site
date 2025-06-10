@@ -71,9 +71,9 @@ export const useShowControl = () => {
   useEffect(() => {
     if (isSuccess) {
       setLive(
-        liveList !== undefined &&
-          liveList?.length !== 0 &&
-          liveList.some((dj) => dj.id === userData?.id)
+        liveList?.djs !== undefined &&
+          liveList?.djs.length !== 0 &&
+          liveList.djs.some((dj) => dj.id === userData?.id)
       );
     }
   }, [liveList, isSuccess]);

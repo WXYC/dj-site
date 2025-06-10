@@ -98,6 +98,7 @@ export type FlowsheetSubmissionParams =
 
 export type FlowsheetEntry =
   | FlowsheetSongEntry
+  | FlowsheetBreakpointEntry
   | FlowsheetShowBlockEntry
   | FlowsheetMessageEntry;
 
@@ -147,6 +148,11 @@ export type OnAirDJResponse = {
   id: number;
   dj_name: string;
 };
+
+export type OnAirDJData = {
+  djs: OnAirDJResponse[];
+  onAir: string;
+}
 
 export type FlowsheetRequestParams = {
   page: number;

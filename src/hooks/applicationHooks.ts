@@ -112,8 +112,7 @@ export const useAlbumImages = () => {
 
   useEffect(() => {
     (async () => {
-      setUrl(DEFAULT_URL);
-      //setUrl(await getImageForSong(album, artist));
+      setUrl(await getImageForSong(album, artist));
     })();
   }, [album, artist]);
 
