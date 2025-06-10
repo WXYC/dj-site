@@ -24,7 +24,6 @@ export default function NowPlayingMain({
   loading,
 }: {
   entry?: FlowsheetEntry;
-  isSong: boolean;
   live: boolean;
   onAirDJ?: string;
   loading?: boolean;

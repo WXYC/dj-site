@@ -16,11 +16,6 @@ export type NowPlayingWidgetProps = {
 export default function NowPlaying({ mini = false }: NowPlayingWidgetProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  const [hovered, setHovered] = useState(false);
-
-  const [playing, setPlaying] = useState(false);
-  const [isSong, setIsSong] = useState(false);
-
   const {
     data: djsOnAirData,
     isLoading: djLoading,
@@ -45,15 +40,12 @@ export default function NowPlaying({ mini = false }: NowPlayingWidgetProps) {
         <NowPlayingMini
         entry={latestEntry}
         live={live}
-        isSong={isSong}
         onAirDJs={djsOnAirData?.djs}
-        loading={djLoading}
         />
       ) : (
         <NowPlayingMain
           entry={latestEntry}
           live={live}
-          isSong={isSong}
           onAirDJ={onAirDJ}
           loading={djLoading}
         />

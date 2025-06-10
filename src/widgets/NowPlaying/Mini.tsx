@@ -19,20 +19,13 @@ import EntryText from "./EntryText";
 import { GradientAudioVisualizer } from "./GradientAudioVisualizer";
 
 export default function NowPlayingMini({
-  width,
-  height,
   entry,
   live,
   onAirDJs,
-  loading,
 }: {
   entry?: FlowsheetEntry;
-  isSong: boolean;
   live: boolean;
   onAirDJs?: OnAirDJResponse[];
-  loading?: boolean;
-  width?: number;
-  height?: number;
 }) {
   const playRef = useRef<{
     play: () => void;
