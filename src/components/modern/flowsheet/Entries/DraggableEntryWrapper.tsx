@@ -1,6 +1,7 @@
 import { FlowsheetEntry } from "@/lib/features/flowsheet/types";
 import { useFlowsheet } from "@/src/hooks/flowsheetHooks";
-import { ColorPaletteProp, useTheme, VariantProp } from "@mui/joy";
+import { ColorPaletteProp, VariantProp } from "@mui/joy";
+import { useTheme } from '@mui/joy/styles';
 import { DragControls, MotionProps, Reorder } from "motion/react";
 import RemoveButton from "./Components/RemoveButton";
 

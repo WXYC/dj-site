@@ -1,7 +1,7 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { DJRequestParams } from "../authentication/types";
 import { backendBaseQuery } from "../backend";
-import { convertFlowsheetResponse } from "./conversions";
+import { convertDJsOnAir, convertFlowsheetResponse } from "./conversions";
 import {
   FlowsheetEntry,
   FlowsheetEntryResponse,
@@ -9,6 +9,7 @@ import {
   FlowsheetSubmissionParams,
   FlowsheetSwitchParams,
   FlowsheetUpdateParams,
+  OnAirDJData,
   OnAirDJResponse,
 } from "./types";
 
@@ -17,10 +18,12 @@ export const flowsheetApi = createApi({
   baseQuery: backendBaseQuery("flowsheet"),
   tagTypes: ["NowPlaying", "WhoIsLive", "Flowsheet"],
   endpoints: (builder) => ({
-    getNowPlaying: builder.query<any, void>({
+    getNowPlaying: builder.query<FlowsheetEntry, void>({
       query: () => ({
         url: "/latest",
       }),
+      transformResponse: (response: FlowsheetEntryResponse) =>
+        convertFlowsheetResponse([response])[0],
       providesTags: ["NowPlaying"],
     }),
     getEntries: builder.query<FlowsheetEntry[], FlowsheetRequestParams>({
@@ -71,10 +74,12 @@ export const flowsheetApi = createApi({
       }),
       invalidatesTags: ["NowPlaying", "WhoIsLive", "Flowsheet"],
     }),
-    whoIsLive: builder.query<OnAirDJResponse[], void>({
+    whoIsLive: builder.query<OnAirDJData, void>({
       query: () => ({
         url: "/djs-on-air",
       }),
+      transformResponse: (response: OnAirDJResponse[]): OnAirDJData =>
+        convertDJsOnAir(response),
       providesTags: ["WhoIsLive"],
     }),
     addToFlowsheet: builder.mutation<any, FlowsheetSubmissionParams>({

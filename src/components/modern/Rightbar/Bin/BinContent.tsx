@@ -1,8 +1,9 @@
 "use client";
 
 import { useBin } from "@/src/hooks/binHooks";
+import { Inbox } from "@mui/icons-material";
 import { Card, Divider, Skeleton, Typography } from "@mui/joy";
-import BinContainer from "./BinContainer";
+import RightBarContentContainer from "../RightBarContentContainer";
 import BinEntry from "./BinEntry";
 
 export default function BinContent() {
@@ -10,22 +11,29 @@ export default function BinContent() {
 
   if (loading) {
     return (
-      <BinContainer>
+      <RightBarContentContainer
+        label="Mail Bin"
+        decorator={<Inbox sx={{ mt: 0.3, mr: 1 }} />}
+      >
         <Skeleton
           variant="rectangular"
           sx={{
             overflowY: "scroll",
             width: { xs: "100%", sm: 300, lg: 400 },
             height: 350,
-            borderRadius: "max((8px - 1px) - 1rem, min(1rem / 2, (8px - 1px) / 2))",
+            borderRadius:
+              "max((8px - 1px) - 1rem, min(1rem / 2, (8px - 1px) / 2))",
           }}
         />
-      </BinContainer>
+      </RightBarContentContainer>
     );
   }
 
   return (
-    <BinContainer>
+    <RightBarContentContainer
+      label="Mail Bin"
+      decorator={<Inbox sx={{ mt: 0.3, mr: 1 }} />}
+    >
       <Card
         variant="outlined"
         sx={{
@@ -49,6 +57,6 @@ export default function BinContent() {
           ))
         )}
       </Card>
-    </BinContainer>
+    </RightBarContentContainer>
   );
 }

@@ -1,8 +1,9 @@
+import NowPlaying from "@/src/widgets/NowPlaying";
 import { Box, Divider } from "@mui/joy";
-import RightbarContainer from "./RightbarContainer";
-import { NowPlayingContent } from "../../NowPlaying/NowPlayingContent";
-import RightbarMobileClose from "./RightbarMobileClose";
 import BinContent from "./Bin/BinContent";
+import RightbarContainer from "./RightbarContainer";
+import RightbarMobileClose from "./RightbarMobileClose";
+import NowPlayingContent from "./NowPlayingContent";
 
 export default function Rightbar() {
   return (

@@ -1,9 +1,13 @@
 import { Inbox } from "@mui/icons-material";
 import { Box, List, ListSubheader, Stack, Typography } from "@mui/joy";
 
-export default function BinContainer({
+export default function RightBarContentContainer({
+  decorator,
+  label,
   children,
 }: {
+  decorator: React.ReactNode;
+  label: string;
   children: React.ReactNode;
 }) {
   return (
@@ -28,8 +32,8 @@ export default function BinContainer({
           }}
         >
           <Stack direction="row">
-            <Inbox sx={{ mr: 1 }} />
-            <Typography>Mail Bin</Typography>
+            {decorator}
+            <Typography>{label}</Typography>
           </Stack>
         </ListSubheader>
         {children}

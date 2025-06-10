@@ -1,3 +1,4 @@
+import { djRegistryApi } from "../authentication/api";
 import { Rotation } from "../catalog/types";
 import {
   FlowsheetBreakpointEntry,
@@ -7,6 +8,8 @@ import {
   FlowsheetShowBlockEntry,
   FlowsheetSongEntry,
   FlowsheetSubmissionParams,
+  OnAirDJData,
+  OnAirDJResponse,
 } from "./types";
 
 export function convertFlowsheetResponse(entries: FlowsheetEntryResponse[]) {
@@ -149,5 +152,22 @@ export function convertToMessage(
     play_order: response.play_order,
     show_id: response.show_id,
     message: response.message || "",
+  };
+}
+
+
+export function convertDJsOnAir(
+  response: OnAirDJResponse[] | undefined
+): OnAirDJData {
+  if (!response || response.length === 0) {
+    return {
+      djs: [],
+      onAir: "Off Air",
+    }
+  }
+
+  return {
+    djs: response,
+    onAir: response.map((dj) => `DJ ${dj.dj_name}`).join(", ")
   };
 }
