@@ -6,6 +6,9 @@ import { AuthenticationSession } from "./authentication/types";
 import { defaultAuthenticationData } from "./authentication/utilities";
 import { SiteProps } from "./types";
 
+
+export const runtime = "edge";
+
 const SESSION_SECRET = process.env.SESSION_SECRET;
 const ENCODED_KEY = new TextEncoder().encode(SESSION_SECRET);
 

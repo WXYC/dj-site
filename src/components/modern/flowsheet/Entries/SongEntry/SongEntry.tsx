@@ -198,6 +198,7 @@ export default function SongEntry({
               <PlayArrow />
             </IconButton>
           )}
+            {entry.play_order} | {entry.id}
           <Box
             sx={{
               display: "flex",

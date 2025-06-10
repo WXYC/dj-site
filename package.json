@@ -21,7 +21,7 @@
     "cookie": "^1.0.2",
     "jose": "^5.9.6",
     "jwt-decode": "^4.0.0",
-    "motion": "^12.6.3",
+    "motion": "^12.16.0",
     "next": "latest",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

@@ -53,7 +53,7 @@ export default function MessageEntry({
         borderRadius: "md",
       }}
     >
-      <td>
+      <td>{entryRef.show_id} 
         <AspectRatio
           ratio={1.5}
           variant="plain"
