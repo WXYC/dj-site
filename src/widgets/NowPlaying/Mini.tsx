@@ -72,7 +72,7 @@ export default function NowPlayingMini({
       }}>
         <AlbumArtAndIcons entry={entry} />
         <IconButton
-          aria-label="Like minimal photography"
+          aria-label={playing ? "Pause audio" : "Play audio"}
           size="sm"
           variant="solid"
           color="danger"
