@@ -67,7 +67,7 @@ export default function NowPlayingMini({
         ref={playRef}
         overlayColor="rgba(0, 0, 0, 0.8)"
       />
-      <CardContent sx = {{
+      <CardContent sx={{
         maxWidth: "calc(100px + 1.5rem)"
       }}>
         <AlbumArtAndIcons entry={entry} />
