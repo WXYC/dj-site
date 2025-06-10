@@ -93,7 +93,7 @@ export default function NowPlayingMini({
         <EntryText entry={entry} />
         <Stack direction="row" spacing={1} alignItems="center">
           {onAirDJs?.map((dj) => (
-            <Chip variant="soft" startDecorator={<Headset />}>
+            <Chip key={dj.dj_name} variant="soft" startDecorator={<Headset />}>
               DJ {dj.dj_name}
             </Chip>
           ))}
