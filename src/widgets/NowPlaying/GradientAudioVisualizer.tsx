@@ -80,8 +80,9 @@ export const GradientAudioVisualizer = forwardRef(
       resize();
       window.addEventListener("resize", resize);
 
+      let frameId: number;
       const draw = () => {
-        requestAnimationFrame(draw);
+        frameId = requestAnimationFrame(draw);
         analyser.getByteFrequencyData(buffer);
 
         c.fillStyle = "rgba(255, 110, 199,0.08)"; // motion-blur trail
