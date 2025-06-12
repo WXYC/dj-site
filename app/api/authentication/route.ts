@@ -164,8 +164,6 @@ export async function PATCH(request: NextRequest) {
       })),
     };
 
-    console.log("UpdateUserAttributesCommandInput", params);
-
     const command = new UpdateUserAttributesCommand(params);
     const result = await client.send(command);
 
