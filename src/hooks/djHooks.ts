@@ -34,7 +34,7 @@ export function useDJAccount() {
       toast.success("User settings saved.");
       router.refresh();
     }
-  }, [result, backendResult, dispatch]);
+  }, [result, backendResult, dispatch, router]);
 
   const handleSaveData = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
