@@ -3,12 +3,17 @@ import { Authorization } from "../admin/types";
 
 export type AuthenticationState = {
   verifications: Verification<VerifiedData>;
+  modifications: Verification<ModifiableData>;
   required: (keyof VerifiedData)[];
 };
 
-export type AuthenticationData = AuthenticatedUser | IncompleteUser | PasswordResetUser | {
-  message: "Not Authenticated";
-};
+export type AuthenticationData =
+  | AuthenticatedUser
+  | IncompleteUser
+  | PasswordResetUser
+  | {
+      message: "Not Authenticated";
+    };
 
 export type AuthenticatedUser = {
   user?: User;
@@ -22,7 +27,10 @@ export function isAuthenticated(
 }
 
 export function isIncomplete(data: AuthenticationData): data is IncompleteUser {
-  return data !== undefined && (data as IncompleteUser)?.requiredAttributes !== undefined;
+  return (
+    data !== undefined &&
+    (data as IncompleteUser)?.requiredAttributes !== undefined
+  );
 }
 
 export type IncompleteUser = {
@@ -30,8 +38,14 @@ export type IncompleteUser = {
   requiredAttributes: (keyof VerifiedData)[];
 };
 
-export function isPasswordReset(data: AuthenticationData): data is PasswordResetUser {
-  return data !== undefined && (data as PasswordResetUser)?.username !== undefined && (data as PasswordResetUser)?.confirmationMessage !== undefined;
+export function isPasswordReset(
+  data: AuthenticationData
+): data is PasswordResetUser {
+  return (
+    data !== undefined &&
+    (data as PasswordResetUser)?.username !== undefined &&
+    (data as PasswordResetUser)?.confirmationMessage !== undefined
+  );
 }
 
 export type PasswordResetUser = {
@@ -79,6 +93,8 @@ export type VerifiedData = Omit<User, "authority" | "email"> &
     confirmPassword: string;
   };
 
+export type ModifiableData = Omit<User, "authority" | "username">;
+
 export type Verification<T> = {
   [K in keyof T]: boolean;
 };
@@ -120,17 +136,28 @@ export type DJInfoResponse = {
   shows_covered: number;
 };
 
-
 export const djAttributeNames: Record<string, keyof VerifiedData> = {
-  "name": "realName",
+  name: "realName",
   "custom:dj-name": "djName",
 };
 
 export const djAttributeTitles: Record<keyof VerifiedData, string> = {
-  "realName": "Real Name",
-  "djName": "DJ Name",
-  "username": "Username",
-  "password": "Password",
-  "code": "Code",
-  "confirmPassword": "Confirm Password",
+  realName: "Real Name",
+  djName: "DJ Name",
+  username: "Username",
+  password: "Password",
+  code: "Code",
+  confirmPassword: "Confirm Password",
+};
+
+export type AccountModification = Partial<Record<keyof ModifiableData, string>>;
+
+export const modifiableAttributeNames: Record<keyof ModifiableData, string> = {
+  realName: "name",
+  djName: "custom:dj-name",
+  email: "email",
+};
+
+export type BackendAccountModification = AccountModification & {
+  cognito_user_name: string;
 };

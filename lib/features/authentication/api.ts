@@ -1,7 +1,15 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { backendBaseQuery } from "../backend";
-import { AuthenticationData, Credentials, DJInfoResponse, DJRegistryParams, DJRegistryRequestParams, ResetPasswordRequest } from "./types";
-import { request } from "http";
+import {
+  AccountModification,
+  AuthenticationData,
+  BackendAccountModification,
+  Credentials,
+  DJInfoResponse,
+  DJRegistryParams,
+  DJRegistryRequestParams,
+  ResetPasswordRequest,
+} from "./types";
 
 export const authenticationApi = createApi({
   baseQuery: fetchBaseQuery({ baseUrl: "/api/authentication" }),
@@ -13,6 +21,14 @@ export const authenticationApi = createApi({
         url: "",
         method: "POST",
         body: credentials,
+      }),
+      invalidatesTags: ["Authentication"],
+    }),
+    modifyUser: builder.mutation<void, AccountModification>({
+      query: (modification) => ({
+        url: "",
+        method: "PATCH",
+        body: modification,
       }),
       invalidatesTags: ["Authentication"],
     }),
@@ -31,7 +47,7 @@ export const authenticationApi = createApi({
     requestPasswordReset: builder.mutation<AuthenticationData, string>({
       query: (username) => ({
         url: `/password?username=${username}`,
-        method: "GET"
+        method: "GET",
       }),
       invalidatesTags: ["Authentication"],
     }),
@@ -60,6 +76,7 @@ export const {
   useNewUserMutation,
   useResetPasswordMutation,
   useRequestPasswordResetMutation,
+  useModifyUserMutation,
 } = authenticationApi;
 
 export const djRegistryApi = createApi({
@@ -75,6 +92,14 @@ export const djRegistryApi = createApi({
       }),
       invalidatesTags: ["DJInfo"],
     }),
+    modDJInfo: builder.mutation<DJInfoResponse, BackendAccountModification>({
+      query: (params) => ({
+        url: "/register",
+        method: "PATCH",
+        body: params,
+      }),
+      invalidatesTags: ["DJInfo"],
+    }),
     getDJInfo: builder.query<DJInfoResponse, DJRegistryRequestParams>({
       query: (params) => ({
         url: "/",
@@ -85,4 +110,8 @@ export const djRegistryApi = createApi({
   }),
 });
 
-export const { useRegisterDJMutation, useGetDJInfoQuery } = djRegistryApi;
+export const {
+  useRegisterDJMutation,
+  useGetDJInfoQuery,
+  useModDJInfoMutation,
+} = djRegistryApi;

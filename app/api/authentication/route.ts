@@ -1,7 +1,9 @@
 import {
+  AccountModification,
   AuthenticationData,
   Credentials,
   isAuthenticated,
+  modifiableAttributeNames,
 } from "@/lib/features/authentication/types";
 import {
   defaultAuthenticationData,
@@ -9,14 +11,19 @@ import {
 } from "@/lib/features/authentication/utilities";
 import { clearSession, getSession } from "@/lib/features/session";
 import {
-  CognitoIdentityProviderClient,
   GlobalSignOutCommand,
   InitiateAuthCommand,
   InitiateAuthCommandInput,
+  UpdateUserAttributesCommand,
+  UpdateUserAttributesCommandInput,
 } from "@aws-sdk/client-cognito-identity-provider";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { client, handleCognitoResponse } from "./utilities";
+import {
+  client,
+  handleCognitoResponse,
+  handleUpdateUserAttributesResponse,
+} from "./utilities";
 
 export const runtime = "edge";
 
@@ -127,3 +134,41 @@ export async function DELETE(request: NextRequest) {
   //#endregion
 }
 //#endregion
+
+export async function PATCH(request: NextRequest) {
+  //#region Cookie Retrieval
+  const cookieStore = await cookies();
+
+  const currentAuthenticationData: AuthenticationData = JSON.parse(
+    String(
+      cookieStore.get("auth_state")?.value ??
+        JSON.stringify(defaultAuthenticationData)
+    )
+  );
+  //#endregion
+
+  try {
+    if (!isAuthenticated(currentAuthenticationData))
+      return NextResponse.json(
+        { message: "Not authenticated!" },
+        { status: 400 }
+      );
+
+    const modifications = (await request.json()) as AccountModification;
+
+    const params: UpdateUserAttributesCommandInput = {
+      AccessToken: currentAuthenticationData.accessToken,
+      UserAttributes: Object.entries(modifications).map(([key, value]) => ({
+        Name: modifiableAttributeNames[key as keyof AccountModification],
+        Value: String(value),
+      })),
+    };
+
+    const command = new UpdateUserAttributesCommand(params);
+    const result = await client.send(command);
+
+    return handleUpdateUserAttributesResponse({ result, modifications });
+  } catch (error: any) {
+    return NextResponse.json({ message: error.message }, { status: 500 });
+  }
+}
