@@ -1,4 +1,8 @@
-import { AuthenticationData, PasswordResetUser } from "@/lib/features/authentication/types";
+import {
+  AccountModification,
+  AuthenticatedUser,
+  PasswordResetUser,
+} from "@/lib/features/authentication/types";
 import { toClient } from "@/lib/features/authentication/utilities";
 import { sessionOptions, setSession } from "@/lib/features/session";
 import {
@@ -6,10 +10,10 @@ import {
   ForgotPasswordCommandOutput,
   InitiateAuthCommandOutput,
   RespondToAuthChallengeCommandOutput,
+  UpdateUserAttributesCommandOutput,
 } from "@aws-sdk/client-cognito-identity-provider";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-
 
 export const runtime = "edge";
 
@@ -19,35 +23,31 @@ export const client = new CognitoIdentityProviderClient({
 });
 
 export async function handleForgotPasswordFlow(
-    username: string,
-    result: ForgotPasswordCommandOutput
-)
-{
-    await setSession(undefined);
-    const cookieStore = await cookies();
+  username: string,
+  result: ForgotPasswordCommandOutput
+) {
+  await setSession(undefined);
+  const cookieStore = await cookies();
 
-    if (result.CodeDeliveryDetails) {
-        const response : PasswordResetUser = {
-            username: username,
-            confirmationMessage: `A code has been sent to ${result.CodeDeliveryDetails.Destination}.`,
-        }
+  if (result.CodeDeliveryDetails) {
+    const response: PasswordResetUser = {
+      username: username,
+      confirmationMessage: `A code has been sent to ${result.CodeDeliveryDetails.Destination}.`,
+    };
 
-        cookieStore.set({
-            ...sessionOptions.cookieOptions,
-            name: "auth_state",
-            value: JSON.stringify(response),
-          });
+    cookieStore.set({
+      ...sessionOptions.cookieOptions,
+      name: "auth_state",
+      value: JSON.stringify(response),
+    });
 
-        return NextResponse.json(
-            response,
-            { status: 200 }
-        );
-    }
+    return NextResponse.json(response, { status: 200 });
+  }
 
-    return NextResponse.json(
-        { message: "No code delivery details found." },
-        { status: 400 }
-    );
+  return NextResponse.json(
+    { message: "No code delivery details found." },
+    { status: 400 }
+  );
 }
 
 export async function handleCognitoResponse(
@@ -78,4 +78,43 @@ export async function handleCognitoResponse(
   });
 
   return NextResponse.json(response, { status: 200 });
+}
+
+export async function handleUpdateUserAttributesResponse({
+  result,
+  modifications,
+}: {
+  result: UpdateUserAttributesCommandOutput;
+  modifications: AccountModification;
+}) {
+  if (
+    !result.$metadata.httpStatusCode ||
+    result.$metadata.httpStatusCode !== 200
+  ) {
+    return NextResponse.json(
+      { message: "Failed to update user attributes." },
+      { status: 400 }
+    );
+  }
+
+  const cookieStore = await cookies();
+  const currentAuthenticationData: AuthenticatedUser = JSON.parse(
+    String(cookieStore.get("auth_state")?.value ?? JSON.stringify({}))
+  );
+
+  const updatedData = {
+    ...currentAuthenticationData,
+    user: {
+      ...currentAuthenticationData.user,
+      ...modifications,
+    },
+  };
+
+  cookieStore.set({
+    ...sessionOptions.cookieOptions,
+    name: "auth_state",
+    value: JSON.stringify(updatedData),
+  });
+
+  return NextResponse.json(updatedData, { status: 200 });
 }
