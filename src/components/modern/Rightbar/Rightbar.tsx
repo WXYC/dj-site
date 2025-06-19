@@ -14,7 +14,7 @@ export default function Rightbar() {
         <Divider />
         <BinContent />
         <Divider />
-        <Box sx={{ height: "35px" }}></Box>
+        <Box sx={{ minHeight: "65px" }}></Box>
       </RightbarContainer>
     </>
   );

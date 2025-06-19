@@ -54,7 +54,7 @@ export default function SongEntry({
 
   const [canClose, setCanClose] = useState(false);
 
-  const editable = queue || entry.show_id == currentShow;
+  const editable = queue || (live && entry.show_id == currentShow);
 
   const { updateFlowsheet } = useFlowsheet();
 
@@ -88,7 +88,7 @@ export default function SongEntry({
     >
       <td>
         <Stack direction="row">
-          {editable && live && <DragButton controls={controls} />}
+          {editable && <DragButton controls={controls} />}
           <Badge
             size="sm"
             badgeContent={entry.rotation ?? null}
@@ -198,7 +198,6 @@ export default function SongEntry({
               <PlayArrow />
             </IconButton>
           )}
-            {entry.play_order} | {entry.id}
           <Box
             sx={{
               display: "flex",
@@ -219,7 +218,7 @@ export default function SongEntry({
                 color={entry.request_flag ? "warning" : "neutral"}
                 uncheckedIcon={<PhoneDisabled />}
                 checkedIcon={<PhoneEnabled />}
-                disabled={!(editable && live)}
+                disabled={!editable}
                 sx={{
                   opacity: entry.request_flag ? 1 : 0.3,
                   "& .MuiCheckbox-checkbox": {
@@ -259,7 +258,7 @@ export default function SongEntry({
               <KeyboardArrowDown />
             </IconButton>
           )}
-          {editable && live && (
+          {editable && (
             <>
               <RemoveButton queue={queue} entry={entry} />
               <DragButton controls={controls} />

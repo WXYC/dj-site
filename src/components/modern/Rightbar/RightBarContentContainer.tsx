@@ -1,12 +1,13 @@
-import { Inbox } from "@mui/icons-material";
 import { Box, List, ListSubheader, Stack, Typography } from "@mui/joy";
 
 export default function RightBarContentContainer({
-  decorator,
+  startDecorator,
+  endDecorator,
   label,
   children,
 }: {
-  decorator: React.ReactNode;
+  startDecorator: React.ReactNode;
+  endDecorator?: React.ReactNode;
   label: string;
   children: React.ReactNode;
 }) {
@@ -32,9 +33,10 @@ export default function RightBarContentContainer({
           }}
         >
           <Stack direction="row">
-            {decorator}
+            {startDecorator}
             <Typography>{label}</Typography>
           </Stack>
+          {endDecorator}
         </ListSubheader>
         {children}
       </List>

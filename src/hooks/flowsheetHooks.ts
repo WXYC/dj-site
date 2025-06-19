@@ -30,7 +30,6 @@ import {
   useCatalogFlowsheetSearch,
   useRotationFlowsheetSearch,
 } from "./catalogHooks";
-import { useDebounce } from "@uidotdev/usehooks";
 
 export const useShowControl = () => {
   const { loading: userloading, info: userData } = useRegistry();
@@ -246,22 +245,26 @@ export const useFlowsheet = () => {
     if (currentShow === -1) return;
 
     setCurrentShowEntries(
-      data?.filter(
-        (entry) =>
-          entry.show_id == currentShow && (!live ||
-          !isFlowsheetStartShowEntry(entry) &&
-          !isFlowsheetEndShowEntry(entry))
-      ) ?? []
+      live
+        ? data?.filter(
+            (entry) =>
+              entry.show_id == currentShow &&
+              (!live ||
+                (!isFlowsheetStartShowEntry(entry) &&
+                  !isFlowsheetEndShowEntry(entry)))
+          ) ?? []
+        : []
     );
   }, [data, currentShow, dispatch, isSuccess, live]);
 
-  const lastShowsEntries =
-    data?.filter(
-      (entry) =>
-        entry.show_id != currentShow ||
-        isFlowsheetStartShowEntry(entry) ||
-        isFlowsheetEndShowEntry(entry)
-    ) ?? [];
+  const lastShowsEntries = live
+    ? data?.filter(
+        (entry) =>
+          entry.show_id != currentShow ||
+          isFlowsheetStartShowEntry(entry) ||
+          isFlowsheetEndShowEntry(entry)
+      ) ?? []
+    : data ?? [];
 
   const [switchBackendEntries, switchBackendResult] =
     useSwitchEntriesMutation();

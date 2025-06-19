@@ -28,7 +28,7 @@ export default function RightbarContainer({
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
-        gap: 2,
+        gap: 1,
       }}
     >
       {children}
