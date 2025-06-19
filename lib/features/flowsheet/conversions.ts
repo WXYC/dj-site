@@ -68,7 +68,7 @@ export function convertToStartShow(
   response: FlowsheetEntryResponse
 ): FlowsheetShowBlockEntry {
   let djNameExtractionRegex =
-    /Start of Show:\s*(DJ\s+[A-Za-z]+)\s+joined the set/i;
+    /Start of Show:\s*([A-Za-z\s]+)\s+joined the set/i;
   let djName =
     response.message?.match(djNameExtractionRegex)?.[1] || "Unknown DJ";
 
@@ -97,7 +97,7 @@ export function convertToEndShow(
   response: FlowsheetEntryResponse
 ): FlowsheetShowBlockEntry {
   let djNameExtractionRegex =
-    /Start of Show:\s*(DJ\s+[A-Za-z]+)\s+joined the set/i;
+    /End of Show:\s*([A-Za-z\s]+)\s+left the set/i;
   let djName =
     response.message?.match(djNameExtractionRegex)?.[1] || "Unknown DJ";
 

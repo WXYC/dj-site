@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, ButtonProps, IconButton, IconButtonProps } from "@mui/joy";
+import { Button, ButtonProps, IconButton, IconButtonProps, MenuItem, MenuItemProps } from "@mui/joy";
 import { useRouter } from "next/navigation";
 
 export function LinkButton({
@@ -36,5 +36,24 @@ export function LinkIconButton({
     <IconButton onClick={() => router.push(href)} {...props}>
       {children}
     </IconButton>
+  );
+}
+
+export function MenuLinkItem({
+  href,
+  children,
+  ...props
+}: MenuItemProps & { href: string }) {
+  const router = useRouter();
+
+  return (
+    <MenuItem
+      variant="plain"
+      color="neutral"
+      onClick={() => router.push(href)}
+      {...props}
+    >
+      {children}
+    </MenuItem>
   );
 }

@@ -1,10 +1,12 @@
 
 export const defaultApplicationState: ApplicationState = {
     classic: false,
+    rightBarMini: true,
 };
 
 export interface ApplicationState {
     classic: boolean;
+    rightBarMini: boolean;
 }
 
 export interface ApplicationFrontendState {
