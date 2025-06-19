@@ -7,7 +7,6 @@ import type {
 import {
   combineSlices,
   configureStore,
-  isRejected,
   isRejectedWithValue,
 } from "@reduxjs/toolkit";
 import { toast } from "sonner";
@@ -23,6 +22,8 @@ import { catalogApi } from "./features/catalog/api";
 import { catalogSlice } from "./features/catalog/frontend";
 import { flowsheetApi } from "./features/flowsheet/api";
 import { flowsheetSlice } from "./features/flowsheet/frontend";
+import { rotationApi } from "./features/rotation/api";
+import { rotationSlice } from "./features/rotation/frontend";
 
 const rootReducer = combineSlices(
   authenticationSlice,
@@ -34,7 +35,9 @@ const rootReducer = combineSlices(
   catalogApi,
   binApi,
   flowsheetSlice,
-  flowsheetApi
+  flowsheetApi,
+  rotationSlice,
+  rotationApi
 );
 
 export type RootState = ReturnType<typeof rootReducer>;

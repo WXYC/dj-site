@@ -1,17 +1,12 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { backendBaseQuery } from "../backend";
-import {
-  convertAlbumFromRotation,
-  convertAlbumFromSearch,
-} from "./conversions";
+import { convertAlbumFromSearch } from "./conversions";
 import {
   AlbumEntry,
   AlbumParams,
   AlbumQueryResponse,
   AlbumRequestParams,
   ArtistParams,
-  KillRotationParams,
-  RotationParams,
   SearchCatalogQueryParams,
 } from "./types";
 
@@ -41,30 +36,6 @@ export const catalogApi = createApi({
         method: "POST",
         body: artist,
       }),
-    }),
-    getRotation: builder.query<AlbumEntry[], void>({
-      query: () => ({
-        url: "/rotation",
-      }),
-      transformResponse: (response: AlbumQueryResponse[]) =>
-        response.map(convertAlbumFromRotation),
-      providesTags: ["Rotation"],
-    }),
-    addRotationEntry: builder.mutation<any, RotationParams>({
-      query: (rotation) => ({
-        url: "/rotation",
-        method: "POST",
-        body: rotation,
-      }),
-      invalidatesTags: ["Rotation"],
-    }),
-    killRotationEntry: builder.mutation<any, KillRotationParams>({
-      query: (rotation) => ({
-        url: "/rotation",
-        method: "PATCH",
-        body: rotation,
-      }),
-      invalidatesTags: ["Rotation"],
     }),
     getInformation: builder.query<AlbumEntry, AlbumRequestParams>({
       query: ({ album_id }) => ({
@@ -105,9 +76,6 @@ export const {
   useSearchCatalogQuery,
   useAddAlbumMutation,
   useAddArtistMutation,
-  useGetRotationQuery,
-  useAddRotationEntryMutation,
-  useKillRotationEntryMutation,
   useGetInformationQuery,
   useGetFormatsQuery,
   useAddFormatMutation,

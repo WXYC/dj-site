@@ -1,7 +1,4 @@
-import {
-  useGetRotationQuery,
-  useSearchCatalogQuery,
-} from "@/lib/features/catalog/api";
+import { useSearchCatalogQuery } from "@/lib/features/catalog/api";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
 import {
   AlbumEntry,
@@ -11,6 +8,7 @@ import {
 } from "@/lib/features/catalog/types";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
+import { useGetRotationQuery } from "@/lib/features/rotation/api";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useCallback, useEffect, useState } from "react";
 import { useAuthentication } from "./authenticationHooks";
@@ -221,9 +219,7 @@ export const useRotationFlowsheetSearch = () => {
 
   const rotationQuery = useAppSelector(flowsheetSlice.selectors.getSearchQuery);
   const { data, isLoading, isSuccess } = useGetRotationQuery(undefined, {
-    skip:
-      authenticating ||
-      !authenticated,
+    skip: authenticating || !authenticated,
   });
 
   const findInRotation = useCallback(
