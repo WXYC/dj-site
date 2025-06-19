@@ -34,9 +34,9 @@ export async function getAdminCredentials() {
     client: new CognitoIdentityClient({
       region: String(process.env.AWS_REGION),
     }),
-    identityPoolId: String(process.env.AWS_IDENTITY_POOL_ID),
+    identityPoolId: String(process.env.AWS_ADMIN_IDENTITY_POOL_ID),
     logins: {
-      [`cognito-idp.${process.env.NEXT_PUBLIC_AWS_REGION}.amazonaws.com/${process.env.NEXT_PUBLIC_AWS_USER_POOL_ID}`]:
+      [`cognito-idp.${process.env.AWS_REGION}.amazonaws.com/${process.env.AWS_USER_POOL_ID}`]:
         currentAuthenticationData.idToken,
     },
   });

@@ -25,7 +25,11 @@ export default async function Leftbar(): Promise<JSX.Element> {
           <AlbumIcon />
         </LeftbarLink>
         <FlowsheetLink />
-        <LeftbarLink path="/dashboard/playlists" title="Previous Sets">
+        <LeftbarLink
+          path="/dashboard/playlists"
+          title="Previous Sets"
+          disabled={true}
+        >
           <StorageIcon />
         </LeftbarLink>
         {user && user.authority > Authorization.DJ && (

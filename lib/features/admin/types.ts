@@ -1,3 +1,7 @@
+export type AdminFrontendState = {
+  searchString: string;
+};
+
 export enum Authorization {
   NO,
   DJ,
@@ -5,7 +9,7 @@ export enum Authorization {
   SM,
 }
 
-export interface Account {
+export type Account = {
   userName: string;
   realName: string;
   djName: string;
@@ -13,21 +17,21 @@ export interface Account {
   authType: AdminAuthenticationStatus;
   shows?: string;
   email?: string;
-}
+};
 
-export interface NewAccountParams {
+export type NewAccountParams = {
   username: string;
   email: string;
   realName: string;
   djName: string;
   temporaryPassword: string;
-}
+};
 
-export interface PromotionParams {
+export type PromotionParams = {
   username: string;
   currentAuthorization: Authorization;
   nextAuthorization: Authorization;
-}
+};
 
 export enum AdminAuthenticationStatus {
   Confirmed,

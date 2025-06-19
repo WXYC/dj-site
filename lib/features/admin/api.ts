@@ -1,16 +1,15 @@
-import { UserType } from "@aws-sdk/client-cognito-identity-provider";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
-import { convertAWSToAcccountResult } from "./conversions";
 import { Account, NewAccountParams, PromotionParams } from "./types";
 
 export const adminApi = createApi({
   baseQuery: fetchBaseQuery({ baseUrl: "/api/admin" }),
   reducerPath: "adminApi",
-  tagTypes: ["DJs"],
+  tagTypes: ["Accounts"],
   endpoints: (builder) => ({
     listAccounts: builder.query<Account[], void>({
       query: () => "/djs",
-      providesTags: ["DJs"],
+      providesTags: ["Accounts"],
+      transformResponse: (response: { users: Account[] }) => response.users,
     }),
     createAccount: builder.mutation<void, NewAccountParams>({
       query: (params) => ({
@@ -18,7 +17,7 @@ export const adminApi = createApi({
         method: "POST",
         body: params,
       }),
-      invalidatesTags: ["DJs"],
+      invalidatesTags: ["Accounts"],
     }),
     deleteAccount: builder.mutation<void, string>({
       query: (username) => ({
@@ -26,7 +25,7 @@ export const adminApi = createApi({
         method: "DELETE",
         body: { username },
       }),
-      invalidatesTags: ["DJs"],
+      invalidatesTags: ["Accounts"],
     }),
     promoteAccount: builder.mutation<void, PromotionParams>({
       query: (params) => ({
@@ -34,6 +33,15 @@ export const adminApi = createApi({
         method: "PATCH",
         body: params,
       }),
+      invalidatesTags: ["Accounts"],
+    }),
+    resetPassword: builder.mutation<void, string>({
+      query: (username) => ({
+        url: `/password`,
+        method: "PATCH",
+        body: { username },
+      }),
+      invalidatesTags: ["Accounts"],
     }),
   }),
 });
@@ -43,4 +51,5 @@ export const {
   useCreateAccountMutation,
   useDeleteAccountMutation,
   usePromoteAccountMutation,
+  useResetPasswordMutation,
 } = adminApi;

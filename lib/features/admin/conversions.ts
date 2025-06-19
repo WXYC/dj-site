@@ -49,7 +49,7 @@ export function getGroupNameFromAuthorization(
 ): string | undefined {
   switch (authorization) {
     case Authorization.SM:
-      return process.env.AWS_ADMIN_GROUP_NAME;
+      return process.env.AWS_SM_GROUP_NAME;
     case Authorization.MD:
       return process.env.AWS_MD_GROUP_NAME;
     default:

@@ -85,6 +85,7 @@ export async function GET(request: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
+    console.error("Error fetching DJs:", error);
     return NextResponse.json(
       {
         message: String(error),

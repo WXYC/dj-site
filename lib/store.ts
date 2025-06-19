@@ -11,6 +11,7 @@ import {
 } from "@reduxjs/toolkit";
 import { toast } from "sonner";
 import { adminApi } from "./features/admin/api";
+import { adminSlice } from "./features/admin/frontend";
 import { applicationApi } from "./features/application/api";
 import { applicationSlice } from "./features/application/frontend";
 import {
@@ -39,6 +40,7 @@ const rootReducer = combineSlices(
   flowsheetApi,
   rotationSlice,
   rotationApi,
+  adminSlice,
   adminApi
 );
 
