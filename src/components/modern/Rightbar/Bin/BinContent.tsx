@@ -5,22 +5,26 @@ import { Inbox } from "@mui/icons-material";
 import { Card, Divider, Skeleton, Typography } from "@mui/joy";
 import RightBarContentContainer from "../RightBarContentContainer";
 import BinEntry from "./BinEntry";
+import { useGetRightbarQuery } from "@/lib/features/application/api";
 
 export default function BinContent() {
+  const { data: max  } = useGetRightbarQuery();
   const { bin, isError, loading } = useBin();
+
+  const height = max ? 500 : 335;
 
   if (loading) {
     return (
       <RightBarContentContainer
         label="Mail Bin"
-        decorator={<Inbox sx={{ mt: 0.3, mr: 1 }} />}
+        startDecorator={<Inbox sx={{ mt: 0.3, mr: 1 }} />}
       >
         <Skeleton
           variant="rectangular"
           sx={{
             overflowY: "scroll",
             width: { xs: "100%", sm: 300, lg: 400 },
-            height: 350,
+            height: height,
             borderRadius:
               "max((8px - 1px) - 1rem, min(1rem / 2, (8px - 1px) / 2))",
           }}
@@ -32,14 +36,14 @@ export default function BinContent() {
   return (
     <RightBarContentContainer
       label="Mail Bin"
-      decorator={<Inbox sx={{ mt: 0.3, mr: 1 }} />}
+      startDecorator={<Inbox sx={{ mt: 0.3, mr: 1 }} />}
     >
       <Card
         variant="outlined"
         sx={{
           overflowY: "scroll",
           width: { xs: "100%", sm: 300, lg: 400 },
-          height: 350,
+          height: height,
         }}
       >
         {!bin || bin.length <= 0 || isError ? (

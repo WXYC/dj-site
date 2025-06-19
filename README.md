@@ -1,6 +1,6 @@
 # WXYC Card Catalog, Revised
 
-[See the site in action here!](https://wxyc.github.io/dj-site/)
+[See the site in action here!](https://dj.wxyc.org)
 
 
 ## Description

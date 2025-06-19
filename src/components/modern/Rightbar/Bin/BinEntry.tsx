@@ -1,16 +1,11 @@
 import { AlbumEntry } from "@/lib/features/catalog/types";
-import { Button, Stack, Tooltip } from "@mui/joy";
+import { Stack } from "@mui/joy";
 
-import { LinkButton } from "@/src/components/General/LinkButton";
-import InfoOutlined from "@mui/icons-material/InfoOutlined";
-import PlaylistAdd from "@mui/icons-material/PlaylistAdd";
 import { ArtistAvatar } from "../../catalog/ArtistAvatar";
-import DeleteFromBin from "./DeleteFromBin";
+import BinMenu from "./BinMenu";
 import ScrollOnHoverText from "./ScrollOnHoverText";
 
 export default function BinEntry({ entry }: { entry: AlbumEntry }) {
-  const live: boolean = false;
-
   return (
     <Stack
       key={`bin-stack-${entry.id}`}
@@ -44,41 +39,7 @@ export default function BinEntry({ entry }: { entry: AlbumEntry }) {
           {entry.title}
         </ScrollOnHoverText>
       </div>
-      <Stack direction="row">
-        <Tooltip title="More Info" variant="outlined" size="sm">
-          <LinkButton
-            href={`/dashboard/album/${entry.id}`}
-            size="sm"
-            variant="plain"
-            color="neutral"
-          >
-            <InfoOutlined />
-          </LinkButton>
-        </Tooltip>
-        {live && (
-          <Tooltip
-            title="Add to Queue"
-            placement="bottom"
-            variant="outlined"
-            size="sm"
-          >
-            <Button
-              size="sm"
-              variant="plain"
-              color="neutral"
-              onClick={() => console.log("Adds to queue")}
-            >
-              <PlaylistAdd />
-            </Button>
-          </Tooltip>
-        )}
-        <DeleteFromBin
-          album={entry}
-          size="sm"
-          variant="plain"
-          color="warning"
-        />
-      </Stack>
+      <BinMenu entry={entry} />
     </Stack>
   );
 }

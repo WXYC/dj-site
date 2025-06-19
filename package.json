@@ -9,6 +9,7 @@
     "deploy": "npm run pages:build && wrangler pages deploy"
   },
   "dependencies": {
+    "@atlaskit/pragmatic-drag-and-drop": "^1.7.2",
     "@aws-sdk/client-cognito-identity-provider": "^3.731.1",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
