@@ -18,6 +18,7 @@ export type AuthenticationData =
 export type AuthenticatedUser = {
   user?: User;
   accessToken?: string;
+  idToken?: string;
 };
 
 export function isAuthenticated(
