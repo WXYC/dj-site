@@ -1,5 +1,9 @@
 export type AdminFrontendState = {
   searchString: string;
+  adding: boolean;
+  formData: {
+    authorization: Authorization;
+  }
 };
 
 export enum Authorization {
@@ -22,8 +26,9 @@ export type Account = {
 export type NewAccountParams = {
   username: string;
   email: string;
-  realName: string;
-  djName: string;
+  realName?: string;
+  djName?: string;
+  authorization: Authorization;
   temporaryPassword: string;
 };
 

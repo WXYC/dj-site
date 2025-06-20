@@ -13,6 +13,7 @@ import {
   AdminDeleteUserCommandInput,
   AdminRemoveUserFromGroupCommand,
   AdminRemoveUserFromGroupCommandInput,
+  AttributeType,
   ListUsersCommand,
   ListUsersCommandInput,
   ListUsersInGroupCommand,
@@ -102,22 +103,40 @@ export async function POST(request: NextRequest) {
     const { username, email, realName, djName, temporaryPassword } =
       await request.json();
 
+    if (!username || !email || !temporaryPassword) {
+      return NextResponse.json(
+        {
+          message: "Username, email, and temporary password are required",
+        },
+        { status: 400 }
+      );
+    }
+
     const client = await getAdminClient();
+
+    const userAttributes: AttributeType[] = [
+      { Name: "email", Value: email },
+      { Name: "email_verified", Value: "true" },
+    ];
+    if (realName) {
+      userAttributes.push({ Name: "name", Value: realName });
+    }
+
+    if (djName) {
+      userAttributes.push({ Name: "custom:dj-name", Value: djName });
+    }
 
     const params: AdminCreateUserCommandInput = {
       UserPoolId: String(process.env.AWS_USER_POOL_ID),
       Username: username,
-      UserAttributes: [
-        { Name: "email", Value: email },
-        { Name: "name", Value: realName },
-        { Name: "custom:dj-name", Value: djName },
-        { Name: "email_verified", Value: "true" },
-      ],
+      UserAttributes: userAttributes,
       TemporaryPassword: temporaryPassword,
     };
 
     const addCommand = new AdminCreateUserCommand(params);
-    client.send(addCommand);
+    await client.send(addCommand);
+
+    
 
     return NextResponse.json(
       {
