@@ -17,7 +17,7 @@ export async function PATCH(request: NextRequest) {
     };
 
     const addCommand = new AdminResetUserPasswordCommand(params);
-    client.send(addCommand);
+    await client.send(addCommand);
 
     return NextResponse.json(
       {

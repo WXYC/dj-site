@@ -4,7 +4,7 @@ import {
 } from "@aws-sdk/client-cognito-identity-provider";
 import { Account, AdminAuthenticationStatus, Authorization } from "./types";
 
-export function convertAWSToAcccountResult(
+export function convertAWSToAccountResult(
   backend: UserType,
   stationManagersList: string[],
   musicDirectorsList: string[]

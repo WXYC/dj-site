@@ -1,6 +1,6 @@
 import { getAdminClient } from "@/lib/features/admin/client";
 import {
-  convertAWSToAcccountResult,
+  convertAWSToAccountResult,
   getGroupNameFromAuthorization,
 } from "@/lib/features/admin/conversions";
 import { Authorization } from "@/lib/features/admin/types";
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         users: listResponse.Users.map((user) =>
-          convertAWSToAcccountResult(
+          convertAWSToAccountResult(
             user,
             stationManagersList,
             musicDirectorsList
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
     const addCommand = new AdminCreateUserCommand(params);
     await client.send(addCommand);
 
-    
+
 
     return NextResponse.json(
       {
