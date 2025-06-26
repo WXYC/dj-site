@@ -31,6 +31,7 @@ export function toClient(
     return {
       user: toUser(data.AuthenticationResult.IdToken),
       accessToken: data.AuthenticationResult.AccessToken,
+      idToken: data.AuthenticationResult.IdToken,
     };
   }
 

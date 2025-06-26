@@ -1,11 +1,7 @@
 import { Authorization } from "@/lib/features/admin/types";
 import { AuthenticatedUser } from "@/lib/features/authentication/types";
 import { createServerSideProps } from "@/lib/features/session";
-import {
-  EditCalendar,
-  LibraryMusic,
-  ManageAccounts,
-} from "@mui/icons-material";
+import { EditCalendar, ManageAccounts } from "@mui/icons-material";
 import AlbumIcon from "@mui/icons-material/Album";
 import SettingsIcon from "@mui/icons-material/Settings";
 import StorageIcon from "@mui/icons-material/Storage";
@@ -29,7 +25,11 @@ export default async function Leftbar(): Promise<JSX.Element> {
           <AlbumIcon />
         </LeftbarLink>
         <FlowsheetLink />
-        <LeftbarLink path="/dashboard/playlists" title="Previous Sets">
+        <LeftbarLink
+          path="/dashboard/playlists"
+          title="Previous Sets"
+          disabled={true}
+        >
           <StorageIcon />
         </LeftbarLink>
         {user && user.authority > Authorization.DJ && (
@@ -45,16 +45,9 @@ export default async function Leftbar(): Promise<JSX.Element> {
             <LeftbarLink
               path="/dashboard/admin/schedule"
               title="Station Schedule"
-              disabled={user.authority < Authorization.SM}
+              disabled={true}
             >
               <EditCalendar />
-            </LeftbarLink>
-            <LeftbarLink
-              path="/dashboard/admin/catalog"
-              title="Station Management"
-              disabled={false}
-            >
-              <LibraryMusic />
             </LeftbarLink>
           </>
         )}

@@ -15,11 +15,10 @@ export default function LeftbarLink(props: LeftbarLinkProps): JSX.Element {
 
   return (
     <Link
+      aria-disabled={props.disabled}
       href={props.path}
-      onClick={(e) => {
-        if (props.disabled) {
-          e.preventDefault();
-        }
+      style={{
+        pointerEvents: props.disabled ? "none" : "auto",
       }}
     >
       <ListItem>

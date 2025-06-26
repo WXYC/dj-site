@@ -1,9 +1,5 @@
-import {
-  ArtistEntry,
-  Format,
-  Genre,
-  Rotation,
-} from "@/lib/features/catalog/types";
+import { ArtistEntry, Format, Genre } from "@/lib/features/catalog/types";
+import { Rotation } from "@/lib/features/rotation/types";
 import {
   Avatar,
   Badge,
@@ -56,8 +52,7 @@ const GENRE_VARIANTS: { [id in Genre]: VariantProp } = {
 };
 
 export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
-  let color_choice =
-    GENRE_COLORS[(props.artist?.genre as Genre) ?? "Unknown"];
+  let color_choice = GENRE_COLORS[(props.artist?.genre as Genre) ?? "Unknown"];
   if (color_choice === undefined) {
     color_choice = "neutral";
   }
@@ -107,8 +102,7 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
                   ml: -0.1,
                 }}
               >
-                {props.artist?.genre?.substring(0, 2)?.toUpperCase() ??
-                  "—"}
+                {props.artist?.genre?.substring(0, 2)?.toUpperCase() ?? "—"}
               </Typography>
             </Stack>
             <Stack

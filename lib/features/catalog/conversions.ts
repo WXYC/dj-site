@@ -1,4 +1,5 @@
-import { AlbumEntry, AlbumQueryResponse, Format, Genre, Rotation } from "./types";
+import { Rotation } from "../rotation/types";
+import { AlbumEntry, AlbumQueryResponse, Format, Genre } from "./types";
 
 export function convertAlbumFromSearch(
   response: AlbumQueryResponse
@@ -20,7 +21,7 @@ export function convertAlbumFromSearch(
     add_date: response.add_date,
     plays: response.plays ?? 0,
     label: response.label,
-    rotation_id: undefined
+    rotation_id: undefined,
   };
 }
 

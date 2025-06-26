@@ -1,3 +1,5 @@
+import { Rotation } from "../rotation/types";
+
 export type SearchCatalogQueryParams = {
   artist_name: string | undefined;
   album_name: string | undefined;
@@ -25,15 +27,6 @@ export type ArtistParams = {
   genre_id: string;
 };
 
-export type RotationParams = {
-  album_id: string;
-  play_freq: Rotation;
-};
-
-export type KillRotationParams = {
-  rotation_id: number;
-  kill_date: Date | undefined;
-};
 
 export type AlbumQueryResponse = {
   id: number;
@@ -74,13 +67,6 @@ export type ArtistEntry = {
   genre: Genre;
   id: number | undefined;
 };
-
-export enum Rotation {
-  S = "S",
-  L = "L",
-  M = "M",
-  H = "H",
-}
 
 export type CatalogFrontendState = {
   search: CatalogSearchState;

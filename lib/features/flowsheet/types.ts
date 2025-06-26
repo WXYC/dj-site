@@ -1,4 +1,4 @@
-import { Rotation } from "../catalog/types";
+import { Rotation } from "../rotation/types";
 
 export type FlowsheetFrontendState = {
   autoplay: boolean;
@@ -152,7 +152,7 @@ export type OnAirDJResponse = {
 export type OnAirDJData = {
   djs: OnAirDJResponse[];
   onAir: string;
-}
+};
 
 export type FlowsheetRequestParams = {
   page: number;
@@ -169,9 +169,11 @@ export type FlowsheetUpdateParams = {
 export type FlowsheetSwitchParams = {
   entry_id: number;
   new_position: number;
-}
+};
 
-export type UpdateRequestBody = Partial<Record<
-  keyof Omit<FlowsheetSongBase, "album_id" | "rotation_id" | "rotation">,
-  string | boolean
->>;
+export type UpdateRequestBody = Partial<
+  Record<
+    keyof Omit<FlowsheetSongBase, "album_id" | "rotation_id" | "rotation">,
+    string | boolean
+  >
+>;

@@ -1,5 +1,5 @@
 
-import PageHeader from "@/src/components/modern/Header/PageHeader.";
+import PageHeader from "@/src/components/modern/Header/PageHeader";
 import MobileSearchBar from "@/src/components/modern/catalog/Search/MobileSearchBar";
 import SearchBar from "@/src/components/modern/catalog/Search/SearchBar";
 import Results from "@/src/components/modern/catalog/Results/Results";

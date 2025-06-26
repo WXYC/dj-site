@@ -1,5 +1,4 @@
-import { djRegistryApi } from "../authentication/api";
-import { Rotation } from "../catalog/types";
+import { Rotation } from "../rotation/types";
 import {
   FlowsheetBreakpointEntry,
   FlowsheetEntryResponse,
@@ -96,8 +95,7 @@ export function convertToStartShow(
 export function convertToEndShow(
   response: FlowsheetEntryResponse
 ): FlowsheetShowBlockEntry {
-  let djNameExtractionRegex =
-    /End of Show:\s*([A-Za-z\s]+)\s+left the set/i;
+  let djNameExtractionRegex = /End of Show:\s*([A-Za-z\s]+)\s+left the set/i;
   let djName =
     response.message?.match(djNameExtractionRegex)?.[1] || "Unknown DJ";
 
@@ -155,7 +153,6 @@ export function convertToMessage(
   };
 }
 
-
 export function convertDJsOnAir(
   response: OnAirDJResponse[] | undefined
 ): OnAirDJData {
@@ -163,11 +160,11 @@ export function convertDJsOnAir(
     return {
       djs: [],
       onAir: "Off Air",
-    }
+    };
   }
 
   return {
     djs: response,
-    onAir: response.map((dj) => `DJ ${dj.dj_name}`).join(", ")
+    onAir: response.map((dj) => `DJ ${dj.dj_name}`).join(", "),
   };
 }
