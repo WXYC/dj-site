@@ -16,7 +16,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/joy";
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { AccountEntry } from "./AccountEntry";
 import AccountSearchForm from "./AccountSearchForm";
 import ExportDJsButton from "./ExportCSV";
@@ -45,7 +45,7 @@ export default function RosterTable({ user }: { user: User }) {
         username: formData.get("username") as string,
         djName: formData.get("djName")
           ? (formData.get("djName") as string)
-          : undefined,
+          : "Anonymous",
         email: formData.get("email") as string,
         temporaryPassword: "Freak893",
         authorization: authorizationOfNewAccount, // Default to NO, can be changed later
@@ -55,6 +55,13 @@ export default function RosterTable({ user }: { user: User }) {
     },
     [authorizationOfNewAccount]
   );
+
+  useEffect(() => {
+    if (addAccountResult.isSuccess) {
+      dispatch(adminSlice.actions.setAdding(false));
+      dispatch(adminSlice.actions.reset());
+    }
+  }, [addAccountResult.isSuccess, dispatch]);
 
   return (
     <Sheet
