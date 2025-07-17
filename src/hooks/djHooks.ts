@@ -5,7 +5,7 @@ import {
   useModifyUserMutation,
 } from "@/lib/features/authentication/api";
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
-import { AccountModification } from "@/lib/features/authentication/types";
+import { AccountModification, BackendAccountModification } from "@/lib/features/authentication/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect } from "react";
@@ -54,10 +54,14 @@ export function useDJAccount() {
 
       if (Object.keys(data).length > 0) {
         updateUserData(data);
-        reflectBackendUpdate({
-          ...info,
-          ...data,
-        });
+
+        const backendData: BackendAccountModification = {
+          cognito_user_name: info.cognito_user_name,
+          real_name: data.realName || info.real_name,
+          dj_name: data.djName || info.dj_name,
+        }
+
+        reflectBackendUpdate(backendData);
       }
     },
     [modifications]

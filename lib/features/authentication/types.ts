@@ -159,6 +159,13 @@ export const modifiableAttributeNames: Record<keyof ModifiableData, string> = {
   email: "email",
 };
 
-export type BackendAccountModification = AccountModification & {
+export const modifiableAttributesToBackend: Record<keyof Omit<ModifiableData, "email">, keyof BackendAccountModification> = {
+  realName: "real_name",
+  djName: "dj_name"
+};
+
+export type BackendAccountModification = {
   cognito_user_name: string;
+  dj_name: string;
+  real_name: string;
 };

@@ -156,6 +156,8 @@ export async function PATCH(request: NextRequest) {
 
     const modifications = (await request.json()) as AccountModification;
 
+    console.log("Modifications", modifications);
+
     const params: UpdateUserAttributesCommandInput = {
       AccessToken: currentAuthenticationData.accessToken,
       UserAttributes: Object.entries(modifications).map(([key, value]) => ({
