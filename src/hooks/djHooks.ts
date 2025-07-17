@@ -59,7 +59,7 @@ export function useDJAccount() {
           cognito_user_name: info.cognito_user_name,
           real_name: data.realName || info.real_name,
           dj_name: data.djName || info.dj_name,
-        }
+        };
 
         reflectBackendUpdate(backendData);
       }
