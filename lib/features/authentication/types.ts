@@ -159,6 +159,8 @@ export const modifiableAttributeNames: Record<keyof ModifiableData, string> = {
   email: "email",
 };
 
-export type BackendAccountModification = AccountModification & {
+export type BackendAccountModification = {
   cognito_user_name: string;
+  dj_name: string;
+  real_name: string;
 };
