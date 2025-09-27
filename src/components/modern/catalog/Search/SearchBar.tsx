@@ -44,7 +44,7 @@ export default function SearchBar({
         sx={{ flex: 1, flexBasis: { xs: "100%", lg: "50%" } }}
         size="sm"
       >
-        <FormLabel>Search for a song, album, or artist</FormLabel>
+        <FormLabel>Search for an album or artist</FormLabel>
         <Input
           color={color ?? "neutral"}
           placeholder="Search"
