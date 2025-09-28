@@ -102,10 +102,18 @@ export const djRegistryApi = createApi({
     }),
     getDJInfo: builder.query<DJInfoResponse, DJRegistryRequestParams>({
       query: (params) => ({
-        url: "/",
+        url: "",
         params,
       }),
       providesTags: ["DJInfo"],
+    }),
+    deleteDJInfo: builder.mutation<void, string>({
+      query: (cognito_user_name) => ({
+        url: "",
+        method: "DELETE",
+        body: { cognito_user_name },
+      }),
+      invalidatesTags: ["DJInfo"],
     }),
   }),
 });
@@ -114,4 +122,5 @@ export const {
   useRegisterDJMutation,
   useGetDJInfoQuery,
   useModDJInfoMutation,
+  useDeleteDJInfoMutation,
 } = djRegistryApi;

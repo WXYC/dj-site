@@ -1,10 +1,12 @@
 "use client";
 
 import {
+  authenticationApi,
   useGetAuthenticationQuery,
   useGetDJInfoQuery,
   useLoginMutation,
   useLogoutMutation,
+  useModDJInfoMutation,
   useNewUserMutation,
   useRequestPasswordResetMutation,
   useResetPasswordMutation,
@@ -146,14 +148,15 @@ export const useRegistry = () => {
 
 export const useNewUser = () => {
   const router = useRouter();
-
+  const dispatch = useAppDispatch();
   const verified = useAppSelector(
     authenticationSlice.selectors.requiredCredentialsVerified
   );
 
   const { handleLogout } = useLogout();
 
-  const [setNewUserData, result] = useNewUserMutation();
+  const [setNewUserData, newUserResult] = useNewUserMutation();
+  const [reflectNewUserData, reflectResult] = useModDJInfoMutation();
 
   const handleNewUser = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -173,22 +176,34 @@ export const useNewUser = () => {
       }
     }
 
-    setNewUserData(params);
+    await setNewUserData(params);
   };
 
   useEffect(() => {
-    if (result.isSuccess) {
-      if (isAuthenticated(result.data)) {
-        router.push(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE));
+    if (newUserResult.isSuccess) {
+      if (isAuthenticated(newUserResult.data)) {
+        dispatch(
+          authenticationApi.util.upsertQueryData(
+            "getAuthentication",
+            undefined,
+            newUserResult.data
+          )
+        );
+        reflectNewUserData({
+          cognito_user_name: newUserResult.data.user?.username!,
+          real_name: newUserResult.data.user?.realName || undefined,
+          dj_name: newUserResult.data.user?.djName || undefined,
+        }).then(() =>
+          router.push(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE))
+        );
       } else {
         router.refresh();
       }
-    } else if (result.isError) {
+    } else if (newUserResult.isError) {
       handleLogout();
     }
-  }, [result]);
+  }, [newUserResult]);
 
-  const dispatch = useAppDispatch();
   useEffect(() => {
     dispatch(authenticationSlice.actions.reset());
   }, []);
@@ -199,7 +214,7 @@ export const useNewUser = () => {
   return {
     handleNewUser,
     verified,
-    authenticating: result.isLoading || result.isSuccess,
+    authenticating: newUserResult.isLoading || newUserResult.isSuccess,
     addRequiredCredentials,
   };
 };
@@ -245,7 +260,7 @@ export const useResetPassword = () => {
     const params: ResetPasswordRequest = { code, password, username };
 
     resetPassword(params);
-  }
+  };
 
   useEffect(() => {
     if (resetResult.isSuccess) {
