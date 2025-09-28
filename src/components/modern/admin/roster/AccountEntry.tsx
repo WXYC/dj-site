@@ -10,6 +10,7 @@ import {
   AdminAuthenticationStatus,
   Authorization,
 } from "@/lib/features/admin/types";
+import { useDeleteDJInfoMutation } from "@/lib/features/authentication/api";
 import { DeleteForever, SyncLock } from "@mui/icons-material";
 import { ButtonGroup, Checkbox, IconButton, Stack, Tooltip } from "@mui/joy";
 
@@ -23,6 +24,7 @@ export const AccountEntry = ({
   const [promoteAccount, promoteResult] = usePromoteAccountMutation();
   const [resetPassword, resetResult] = useResetPasswordMutation();
   const [deleteAccount, deleteResult] = useDeleteAccountMutation();
+  const [clearInfo, clearResult] = useDeleteDJInfoMutation();
 
   return (
     <tr>
@@ -180,7 +182,9 @@ export const AccountEntry = ({
                     `Are you sure you want to delete ${account.realName}'s account?`
                   )
                 ) {
-                  deleteAccount(account.userName);
+                  deleteAccount(account.userName).then(async () => {
+                    return await clearInfo(account.userName);
+                  });
                 }
               }}
             >

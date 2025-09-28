@@ -1,7 +1,9 @@
 "use client";
 
+import { useCreateAccountMutation } from "@/lib/features/admin/api";
 import { adminSlice } from "@/lib/features/admin/frontend";
 import { NewAccountParams } from "@/lib/features/admin/types";
+import { useRegisterDJMutation } from "@/lib/features/authentication/api";
 import { User } from "@/lib/features/authentication/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useAccountListResults } from "@/src/hooks/adminHooks";
@@ -21,12 +23,12 @@ import { AccountEntry } from "./AccountEntry";
 import AccountSearchForm from "./AccountSearchForm";
 import ExportDJsButton from "./ExportCSV";
 import NewAccountForm from "./NewAccountForm";
-import { useCreateAccountMutation } from "@/lib/features/admin/api";
 
 export default function RosterTable({ user }: { user: User }) {
   const { data, isLoading, isError, error } = useAccountListResults();
 
   const [addAccount, addAccountResult] = useCreateAccountMutation();
+  const [registerDJ, registerDJResult] = useRegisterDJMutation();
 
   const dispatch = useAppDispatch();
   const isAdding = useAppSelector(adminSlice.selectors.getAdding);
@@ -51,7 +53,13 @@ export default function RosterTable({ user }: { user: User }) {
         authorization: authorizationOfNewAccount, // Default to NO, can be changed later
       };
 
-      return addAccount(newAccount)
+      return await (addAccount(newAccount).then(() => {
+        return registerDJ({
+          cognito_user_name: newAccount.username,
+          real_name: newAccount.realName,
+          dj_name: newAccount.djName,
+        });
+      }));
     },
     [authorizationOfNewAccount]
   );

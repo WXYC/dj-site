@@ -116,6 +116,7 @@ export interface DJwtPayload extends JwtPayload {
 export type DJRegistryParams = {
   cognito_user_name: string;
   real_name: string | undefined;
+  dj_name: string | undefined;
 };
 
 export type DJRegistryRequestParams =
@@ -161,6 +162,6 @@ export const modifiableAttributeNames: Record<keyof ModifiableData, string> = {
 
 export type BackendAccountModification = {
   cognito_user_name: string;
-  dj_name: string;
-  real_name: string;
+  dj_name: string | undefined;
+  real_name: string | undefined;
 };
