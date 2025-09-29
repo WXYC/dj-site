@@ -40,9 +40,14 @@ export default function Appbar() {
             <Button variant="soft">Log In</Button>
           </Link>
         ) : (
-          <Link href="https://forms.gle/VCw43XejNte27Bef7" target="_blank">
-            <Button variant="soft">Feedback</Button>
-          </Link>
+          <>
+            <Link href="https://forms.gle/9q1mGCFtPS7DXQUE9" target="_blank">
+              <Button variant="soft">Beta Tester Form</Button>
+            </Link>
+            <Link href="https://forms.gle/VCw43XejNte27Bef7" target="_blank">
+              <Button variant="soft">General Feedback</Button>
+            </Link>
+          </>
         )}
         <ThemeSwitcher />
         <ColorSchemeToggle />
