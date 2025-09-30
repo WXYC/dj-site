@@ -56,6 +56,7 @@ export default function MobileSearchBar({
         variant="solid"
         color={color ?? "primary"}
         onClick={() => {
+          // TODO: Implement search functionality
           console.log("Search!");
         }}
       >

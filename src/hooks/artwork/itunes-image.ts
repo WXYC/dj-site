@@ -27,7 +27,7 @@ export default async function getArtworkFromItunes({
             let lowResDefault = jsonResponse?.results?.[0]?.artworkUrl100;
             return lowResDefault?.replace("100x100", "600x600");
           } catch (e) {
-            console.error("Error fetching data from Itunes:", e);
+            console.warn(`[iTunes] Failed to fetch artwork: ${e instanceof Error ? e.message : 'Unknown error'}`);
             return null;
           }
         });

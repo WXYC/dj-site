@@ -5,13 +5,14 @@ import { Inbox } from "@mui/icons-material";
 import { Card, Divider, Skeleton, Typography } from "@mui/joy";
 import RightBarContentContainer from "../RightBarContentContainer";
 import BinEntry from "./BinEntry";
-import { useGetRightbarQuery } from "@/lib/features/application/api";
+import { useAppSelector } from "@/lib/hooks";
+import { applicationSlice } from "@/lib/features/application/frontend";
 
 export default function BinContent() {
-  const { data: max  } = useGetRightbarQuery();
+  const mini = useAppSelector(applicationSlice.selectors.getRightbarMini);
   const { bin, isError, loading } = useBin();
 
-  const height = max ? 500 : 335;
+  const height = mini ? 500 : 335;
 
   if (loading) {
     return (

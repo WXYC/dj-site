@@ -1,4 +1,3 @@
-import { authenticationApi } from "@/lib/features/authentication/api";
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
 import { binApi } from "@/lib/features/bin/api";
 import { catalogApi } from "@/lib/features/catalog/api";
@@ -11,6 +10,7 @@ import { useEffect, useState } from "react";
 import getArtworkFromDiscogs from "./artwork/discogs-image";
 import getArtworkFromItunes from "./artwork/itunes-image";
 import getArtworkFromLastFM from "./artwork/last-fm-image";
+import { useColorScheme } from "@mui/joy";
 
 export function useWindowSize() {
   // Initialize state with undefined width/height so server and client renders match
@@ -158,6 +158,5 @@ export function resetApplication(dispatch: ReturnType<typeof useAppDispatch>) {
   dispatch(catalogApi.util.resetApiState());
   dispatch(catalogSlice.actions.reset());
   dispatch(binApi.util.resetApiState());
-  dispatch(authenticationApi.util.resetApiState());
   dispatch(authenticationSlice.actions.reset());
 }

@@ -30,6 +30,7 @@ export default function InfiniteScroller({
         scroller.scrollHeight ===
         scroller.scrollTop + scroller.clientHeight;
       if (scrolledToBottom && !loading && entries) {
+        // Debug logging - can be removed in production
         console.log(pagination.max + 1);
         dispatch(
           flowsheetSlice.actions.setPagination({

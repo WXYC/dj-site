@@ -88,7 +88,11 @@ export async function GET(request: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
-    console.error("Error fetching DJs:", error);
+    console.warn(
+      `[Admin API] Failed to fetch DJs: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
     return NextResponse.json(
       {
         message: String(error),
@@ -137,8 +141,6 @@ export async function POST(request: NextRequest) {
 
     const addCommand = new AdminCreateUserCommand(params);
     await client.send(addCommand);
-
-
 
     return NextResponse.json(
       {

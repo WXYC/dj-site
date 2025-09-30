@@ -1,5 +1,6 @@
 import { createAppSlice } from "@/lib/createAppSlice";
 import { PayloadAction } from "@reduxjs/toolkit";
+import { hydrateSession } from "./thunks";
 import { AuthenticationState, ModifiableData, VerifiedData } from "./types";
 
 export const defaultAuthenticationState: AuthenticationState = {
@@ -17,6 +18,7 @@ export const defaultAuthenticationState: AuthenticationState = {
     email: false,
   },
   required: ["username", "password", "confirmPassword"],
+  session: { loading: false, user: null },
 };
 
 export const authenticationSlice = createAppSlice({
@@ -76,5 +78,22 @@ export const authenticationSlice = createAppSlice({
     isModified: (state) => {
       return Object.values(state.modifications).some((value) => value);
     },
+    clearSession: (state) => {
+      state.session.loading = defaultAuthenticationState.session.loading;
+      state.session.user = defaultAuthenticationState.session.user;
+    },
+  },
+  extraReducers: (builder) => {
+    builder.addCase(hydrateSession.pending, (state) => {
+      state.session.loading = true;
+    });
+    builder.addCase(hydrateSession.fulfilled, (state, action) => {
+      state.session.loading = false;
+      state.session.user = action.payload;
+    });
+    builder.addCase(hydrateSession.rejected, (state) => {
+      state.session.loading = false;
+      state.session.user = null;
+    });
   },
 });

@@ -1,4 +1,4 @@
-import { createServerSideProps } from "@/lib/features/session";
+import { getServerSideProps } from "@/lib/features/authentication/session";
 import { ReactNode, Suspense } from "react";
 import { LoadingPage } from "./components/LoadingPage";
 
@@ -13,12 +13,12 @@ export default async function ThemedLayout({
   modern,
   information,
 }: ThemedLayoutProps) {
-  const serverSideProps = await createServerSideProps();
+  const serverSideProps = await getServerSideProps();
 
   return (
     <Suspense fallback={<LoadingPage />}>
         {information}
-      {classic && modern && serverSideProps.application.classic
+      {classic && modern && serverSideProps.application.appSkin === "classic"
         ? <div id="classic-container">{classic}</div>
         : modern}
     </Suspense>

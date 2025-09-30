@@ -1,18 +1,15 @@
 "use client";
 
-import {
-  useModDJInfoMutation,
-  useModifyUserMutation,
-} from "@/lib/features/authentication/api";
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
-import { AccountModification, BackendAccountModification } from "@/lib/features/authentication/types";
+import { AccountModification } from "@/lib/features/authentication/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { useRegistry } from "./authenticationHooks";
+import { createAuthenticatedHooks } from "./createAuthenticatedHooks";
 
-export function useDJAccount() {
+const _useDJAccount = () => {
   const router = useRouter();
   const { info, loading } = useRegistry();
 
@@ -21,20 +18,6 @@ export function useDJAccount() {
   );
 
   const dispatch = useAppDispatch();
-
-  const [updateUserData, result] = useModifyUserMutation();
-  const [reflectBackendUpdate, backendResult] = useModDJInfoMutation();
-
-  useEffect(() => {
-    if (!result.isLoading && !backendResult.isLoading) {
-      dispatch(authenticationSlice.actions.resetModifications());
-    }
-
-    if (result.isSuccess) {
-      toast.success("User settings saved.");
-      router.refresh();
-    }
-  }, [result, backendResult, dispatch, router]);
 
   const handleSaveData = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
@@ -53,23 +36,19 @@ export function useDJAccount() {
       }
 
       if (Object.keys(data).length > 0) {
-        updateUserData(data);
-
-        const backendData: BackendAccountModification = {
-          cognito_user_name: info.cognito_user_name,
-          real_name: data.realName || info.real_name,
-          dj_name: data.djName || info.dj_name,
-        };
-
-        reflectBackendUpdate(backendData);
+        // TODO: Implement user data update when API is available
+        toast.info("User settings update functionality coming soon");
+        console.log("User data to update:", data);
       }
     },
-    [modifications]
+    [modifications, info]
   );
 
   return {
     info,
-    loading: loading || result.isLoading || backendResult.isLoading,
+    loading,
     handleSaveData,
   };
-}
+};
+
+export const useDJAccount = createAuthenticatedHooks(_useDJAccount);

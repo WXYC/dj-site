@@ -252,6 +252,7 @@ export default function SongEntry({
               variant="plain"
               size="sm"
               onClick={() => {
+                // TODO: Implement play off top functionality
                 console.log("play off top");
               }}
             >

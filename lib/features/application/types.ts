@@ -1,25 +1,22 @@
-
 export const defaultApplicationState: ApplicationState = {
-    classic: false,
-    rightBarMini: true,
+  rightBarMini: true,
 };
 
 export interface ApplicationState {
-    classic: boolean;
-    rightBarMini: boolean;
+  rightBarMini: boolean;
 }
 
 export interface ApplicationFrontendState {
-    rightbar: RightbarState;
+  rightbar: RightbarState;
 }
 
 export interface RightbarState {
-    mini: boolean;
-    sidebarOpen: boolean;
-    menu: RightbarMenu;
+  mini: boolean;
+  sidebarOpen: boolean;
+  menu: RightbarMenu;
 }
 
 export enum RightbarMenu {
-    BIN,
-    CATALOG_EDITOR
+  BIN,
+  CATALOG_EDITOR,
 }

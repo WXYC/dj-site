@@ -11,7 +11,7 @@ import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
 import { useGetRotationQuery } from "@/lib/features/rotation/api";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useCallback, useEffect, useState } from "react";
-import { useAuthentication } from "./authenticationHooks";
+import { createAuthenticatedHooks } from "./createAuthenticatedHooks";
 
 export const useCatalogSearch = () => {
   const dispatch = useAppDispatch();
@@ -71,7 +71,7 @@ export const useCatalogSearch = () => {
   };
 };
 
-export const useCatalogResults = () => {
+const _useCatalogResults = () => {
   const MIN_SEARCH_LENGTH = 2;
 
   const {
@@ -86,8 +86,6 @@ export const useCatalogResults = () => {
     clearSelection,
     n,
   } = useCatalogSearch();
-
-  const { authenticating, authenticated } = useAuthentication();
 
   const searchIn = useAppSelector(catalogSlice.selectors.getSearchIn);
   const [formattedQuery, setFormattedQuery] =
@@ -144,10 +142,7 @@ export const useCatalogResults = () => {
   const { data, isLoading, isSuccess, isError } = useSearchCatalogQuery(
     formattedQuery,
     {
-      skip:
-        authenticating ||
-        !authenticated ||
-        searchString.length < MIN_SEARCH_LENGTH,
+      skip: searchString.length < MIN_SEARCH_LENGTH,
     }
   );
 
@@ -179,10 +174,10 @@ export const useCatalogResults = () => {
   };
 };
 
-export const useCatalogFlowsheetSearch = () => {
-  const MIN_SEARCH_LENGTH = 2;
+export const useCatalogResults = createAuthenticatedHooks(_useCatalogResults);
 
-  const { authenticating, authenticated } = useAuthentication();
+const _useCatalogFlowsheetSearch = () => {
+  const MIN_SEARCH_LENGTH = 2;
 
   const flowsheetQuery = useAppSelector(
     flowsheetSlice.selectors.getSearchQuery
@@ -196,8 +191,6 @@ export const useCatalogFlowsheetSearch = () => {
     },
     {
       skip:
-        authenticating ||
-        !authenticated ||
         flowsheetQuery.artist.length + flowsheetQuery.album.length <=
           MIN_SEARCH_LENGTH,
     }
@@ -212,15 +205,13 @@ export const useCatalogFlowsheetSearch = () => {
   };
 };
 
-export const useRotationFlowsheetSearch = () => {
+export const useCatalogFlowsheetSearch = createAuthenticatedHooks(_useCatalogFlowsheetSearch);
+
+const _useRotationFlowsheetSearch = () => {
   const MIN_SEARCH_LENGTH = 2;
 
-  const { authenticating, authenticated } = useAuthentication();
-
   const rotationQuery = useAppSelector(flowsheetSlice.selectors.getSearchQuery);
-  const { data, isLoading, isSuccess } = useGetRotationQuery(undefined, {
-    skip: authenticating || !authenticated,
-  });
+  const { data, isLoading, isSuccess } = useGetRotationQuery(undefined);
 
   const findInRotation = useCallback(
     (query: FlowsheetQuery) => {
@@ -290,3 +281,5 @@ export const useRotationFlowsheetSearch = () => {
     loading: isLoading,
   };
 };
+
+export const useRotationFlowsheetSearch = createAuthenticatedHooks(_useRotationFlowsheetSearch);

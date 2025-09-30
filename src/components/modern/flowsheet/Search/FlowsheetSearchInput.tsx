@@ -15,6 +15,7 @@ export default function FlowsheetSearchInput({
   const { searchQuery, setSearchProperty } = useFlowsheetSearch();
 
   useEffect(() => {
+    // Debug logging - can be removed in production
     console.log(toTitleCase(name));
   }, [name]);
 

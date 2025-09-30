@@ -2,8 +2,9 @@ import { useListAccountsQuery } from "@/lib/features/admin/api";
 import { adminSlice } from "@/lib/features/admin/frontend";
 import { useAppSelector } from "@/lib/hooks";
 import { useMemo } from "react";
+import { createAuthenticatedHooks } from "./createAuthenticatedHooks";
 
-export const useAccountListResults = () => {
+const _useAccountListResults = () => {
   const { data, isError, isLoading, error } = useListAccountsQuery(undefined);
 
   const searchString = useAppSelector(adminSlice.selectors.getSearchString);
@@ -33,3 +34,5 @@ export const useAccountListResults = () => {
     error,
   };
 };
+
+export const useAccountListResults = createAuthenticatedHooks(_useAccountListResults);

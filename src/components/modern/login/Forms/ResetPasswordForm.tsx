@@ -1,7 +1,7 @@
 "use client";
 
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
-import { useAppDispatch } from "@/lib/hooks";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useResetPassword } from "@/src/hooks/authenticationHooks";
 import { Typography } from "@mui/joy";
 import { useEffect, useState } from "react";
@@ -14,28 +14,34 @@ export default function ResetPasswordForm({
 } : PasswordResetUser) {
   const [newPassword, setNewPassword] = useState("");
 
-  const { handleReset, verified, requestingReset } = useResetPassword();
+  const { handleResetPassword, resetting } = useResetPassword();
+  
+  // Get verification state from Redux
+  const hasCode = useAppSelector((state) => authenticationSlice.selectors.getVerification(state, "code"));
+  const hasPassword = useAppSelector((state) => authenticationSlice.selectors.getVerification(state, "password"));
+  const hasConfirmPassword = useAppSelector((state) => authenticationSlice.selectors.getVerification(state, "confirmPassword"));
+  const verified = hasCode && hasPassword && hasConfirmPassword;
 
   const dispatch = useAppDispatch();
   useEffect(() => {
-    dispatch(authenticationSlice.actions.addRequiredCredentials(["code"]));
+    dispatch(authenticationSlice.actions.addRequiredCredentials(["code", "password", "confirmPassword"]));
     dispatch(
         authenticationSlice.actions.verify({
           key: "username",
           value: username.length > 0,
         })
       );
-  }, [dispatch]);
+  }, [dispatch, username]);
 
   return (
-    <form onSubmit={handleReset} method="post">
+    <form onSubmit={handleResetPassword} method="post">
       <input type="hidden" name="username" value={username} />
       <RequiredBox
         name="code"
         title="Code"
         placeholder="Code"
         type="number"
-        disabled={requestingReset}
+        disabled={resetting}
       />
       <RequiredBox
         name="password"
@@ -55,7 +61,7 @@ export default function ResetPasswordForm({
             !!value.match(/[0-9]/)
           );
         }}
-        disabled={requestingReset}
+        disabled={resetting}
       />
       <RequiredBox
         name="confirmPassword"
@@ -65,10 +71,10 @@ export default function ResetPasswordForm({
         validationFunction={(value: string) =>
           value === newPassword && value.length >= 8
         }
-        disabled={requestingReset}
+        disabled={resetting}
       />
       <ValidatedSubmitButton
-        authenticating={requestingReset}
+        authenticating={resetting}
         valid={verified}
         fullWidth
       />

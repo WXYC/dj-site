@@ -66,7 +66,7 @@ export async function getSongInfoFromLastFM({
           });
       } else return null;
     } catch (e) {
-      console.error("Error fetching data from LastFM:", e);
+      console.warn(`[LastFM] Failed to fetch artwork: ${e instanceof Error ? e.message : 'Unknown error'}`);
       return null;
     }
   });

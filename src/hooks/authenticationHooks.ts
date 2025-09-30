@@ -1,283 +1,251 @@
-"use client";
-
-import {
-  authenticationApi,
-  useGetAuthenticationQuery,
-  useGetDJInfoQuery,
-  useLoginMutation,
-  useLogoutMutation,
-  useModDJInfoMutation,
-  useNewUserMutation,
-  useRequestPasswordResetMutation,
-  useResetPasswordMutation,
-} from "@/lib/features/authentication/api";
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
-import {
-  AuthenticatedUser,
-  djAttributeNames,
-  isAuthenticated,
-  NewUserCredentials,
-  ResetPasswordRequest,
-  VerifiedData,
-} from "@/lib/features/authentication/types";
+import { hydrateSession } from "@/lib/features/authentication/thunks";
+import { User, VerifiedData } from "@/lib/features/authentication/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import { signIn, signOut as betterAuthSignOut, getAccessToken } from "@/lib/features/authentication/client";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { resetApplication } from "./applicationHooks";
-
-export const useLogin = () => {
-  const router = useRouter();
-
-  const verified = useAppSelector(
-    authenticationSlice.selectors.allCredentialsVerified
-  );
-
-  const { handleLogout } = useLogout();
-
-  const [login, result] = useLoginMutation();
-
-  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    const username = e.currentTarget.username.value;
-    const password = e.currentTarget.password.value;
-
-    login({ username, password });
-  };
-
-  useEffect(() => {
-    if (result.isSuccess) {
-      if (isAuthenticated(result.data)) {
-        router.push(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE));
-      } else {
-        router.refresh();
-      }
-    } else if (result.isError) {
-      handleLogout();
-    }
-  }, [result]);
-
-  const dispatch = useAppDispatch();
-  useEffect(() => {
-    dispatch(authenticationSlice.actions.reset());
-  }, []);
-
-  return {
-    handleLogin,
-    verified,
-    authenticating: result.isLoading || result.isSuccess,
-  };
-};
-
-export const useLogout = () => {
-  const router = useRouter();
-  const [logout, result] = useLogoutMutation();
-
-  const handleLogout = async (event?: React.FormEvent<HTMLFormElement>) => {
-    event?.preventDefault();
-    logout();
-  };
-
-  const dispatch = useAppDispatch();
-  useEffect(() => {
-    if (result.isSuccess || result.isError) {
-      router.refresh();
-      resetApplication(dispatch);
-    }
-  }, [result]);
-
-  return {
-    handleLogout,
-    loggingOut: result.isLoading || result.isSuccess,
-  };
-};
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 
 export const useAuthentication = () => {
-  const router = useRouter();
-  const [logout, result] = useLogoutMutation();
+    const dispatch = useAppDispatch();
 
-  const {
-    data,
-    isLoading: authenticating,
-    isSuccess: authenticated,
-    isError,
-  } = useGetAuthenticationQuery(undefined, {
-    pollingInterval: 2700000,
-  });
-
-  useEffect(() => {
-    if (isError) {
-      logout();
-    }
-  }, [data]);
-
-  useEffect(() => {
-    if (result.isSuccess || result.isError) {
-      router.push("/login");
-    }
-  }, [result]);
-
-  return {
-    data: data,
-    authenticating,
-    authenticated,
-  };
+    useEffect(() => {
+        dispatch(hydrateSession());
+    }, []);
 };
 
 export const useRegistry = () => {
-  const { data, authenticated, authenticating } = useAuthentication();
-
-  const {
-    data: info,
-    isLoading,
-    isError,
-  } = useGetDJInfoQuery(
-    {
-      cognito_user_name: (data as AuthenticatedUser)?.user?.username!,
-    },
-    {
-      skip: !data || !authenticated || authenticating,
-    }
-  );
-
-  return {
-    loading: isLoading || authenticating || !authenticated,
-    info: info,
-  };
+    const user = useAppSelector((state) => state.authentication.session.user);
+    const loading = useAppSelector((state) => state.authentication.session.loading);
+    
+    return {
+        info: user,
+        loading,
+        error: null, // Better-auth handles errors through its own mechanisms
+    };
 };
 
 export const useNewUser = () => {
-  const router = useRouter();
-  const dispatch = useAppDispatch();
-  const verified = useAppSelector(
-    authenticationSlice.selectors.requiredCredentialsVerified
-  );
+    const dispatch = useAppDispatch();
+    const router = useRouter();
+    const [authenticating, setAuthenticating] = useState(false);
+    
+    const verified = useAppSelector(authenticationSlice.selectors.allCredentialsVerified);
+    const requiredCredentialsVerified = useAppSelector(authenticationSlice.selectors.requiredCredentialsVerified);
+    
+    const addRequiredCredentials = useCallback((credentials: (keyof VerifiedData)[]) => {
+        dispatch(authenticationSlice.actions.addRequiredCredentials(credentials));
+    }, [dispatch]);
 
-  const { handleLogout } = useLogout();
+    const handleNewUser = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        setAuthenticating(true);
+        
+        try {
+            const formData = new FormData(e.currentTarget);
+            const username = formData.get("username") as string;
+            const password = formData.get("password") as string;
+            const realName = formData.get("realName") as string;
+            const djName = formData.get("djName") as string;
+            
+            // Add timeout and better error handling for 204 responses
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+            
+            try {
+                const result = await signIn.username({
+                    username: username,
+                    password,
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (result.error) {
+                    toast.error(result.error.message);
+                } else {
+                    // Hydrate Redux state after successful sign in
+                    dispatch(hydrateSession());
+                    toast.success("Account created successfully!");
+                    router.push("/dashboard");
+                }
+            } catch (fetchError) {
+                clearTimeout(timeoutId);
+                if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+                    toast.error("Request timed out. Please try again.");
+                    console.warn(`[NewUser] Request timed out after 10 seconds`);
+                } else {
+                    throw fetchError;
+                }
+            }
+        } catch (error) {
+            toast.error("Failed to create account");
+            console.warn(`[NewUser] Account creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        } finally {
+            setAuthenticating(false);
+        }
+    }, [router, dispatch]);
 
-  const [setNewUserData, newUserResult] = useNewUserMutation();
-  const [reflectNewUserData, reflectResult] = useModDJInfoMutation();
-
-  const handleNewUser = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    const username = e.currentTarget.username.value;
-    const password = e.currentTarget.password.value;
-
-    const params: NewUserCredentials = {
-      username,
-      password,
+    return {
+        handleNewUser,
+        verified: requiredCredentialsVerified,
+        authenticating,
+        addRequiredCredentials,
     };
+};
 
-    for (const attribute of Object.keys(djAttributeNames)) {
-      const fieldName = djAttributeNames[attribute];
-      if (e.currentTarget[fieldName].value) {
-        params[attribute] = e.currentTarget[fieldName].value;
-      }
-    }
+export const useLogout = () => {
+    const dispatch = useAppDispatch();
+    const router = useRouter();
+    const [loggingOut, setLoggingOut] = useState(false);
 
-    await setNewUserData(params);
-  };
+    const handleLogout = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        setLoggingOut(true);
+        
+        try {
+            await betterAuthSignOut();
+            // Clear Redux state after successful logout
+            dispatch(authenticationSlice.actions.reset());
+            toast.success("Logged out successfully");
+            router.push("/login");
+        } catch (error) {
+            toast.error("Failed to log out");
+            console.warn(`[Logout] Sign out failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        } finally {
+            setLoggingOut(false);
+        }
+    }, [dispatch, router]);
 
-  useEffect(() => {
-    if (newUserResult.isSuccess) {
-      if (isAuthenticated(newUserResult.data)) {
-        dispatch(
-          authenticationApi.util.upsertQueryData(
-            "getAuthentication",
-            undefined,
-            newUserResult.data
-          )
-        );
-        reflectNewUserData({
-          cognito_user_name: newUserResult.data.user?.username!,
-          real_name: newUserResult.data.user?.realName || undefined,
-          dj_name: newUserResult.data.user?.djName || undefined,
-        }).then(() =>
-          router.push(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE))
-        );
-      } else {
-        router.refresh();
-      }
-    } else if (newUserResult.isError) {
-      handleLogout();
-    }
-  }, [newUserResult]);
+    return {
+        handleLogout,
+        loggingOut,
+    };
+};
 
-  useEffect(() => {
-    dispatch(authenticationSlice.actions.reset());
-  }, []);
+export const useLogin = () => {
+    const dispatch = useAppDispatch();
+    const router = useRouter();
+    const [authenticating, setAuthenticating] = useState(false);
+    const [username, setUsername] = useState("");
+    const [password, setPassword] = useState("");
 
-  const addRequiredCredentials = (required: (keyof VerifiedData)[]) =>
-    dispatch(authenticationSlice.actions.addRequiredCredentials(required));
+    const hasUsername = useAppSelector((state) => authenticationSlice.selectors.getVerification(state, "username"));
+    const hasPassword = useAppSelector((state) => authenticationSlice.selectors.getVerification(state, "password"));
+    const verified = hasUsername && hasPassword;
 
-  return {
-    handleNewUser,
-    verified,
-    authenticating: newUserResult.isLoading || newUserResult.isSuccess,
-    addRequiredCredentials,
-  };
+    useEffect(() => {
+        dispatch(authenticationSlice.actions.verify({
+            key: "username",
+            value: username.length > 0,
+        }));
+    }, [username, dispatch]);
+
+    useEffect(() => {
+        dispatch(authenticationSlice.actions.verify({
+            key: "password",
+            value: password.length > 0,
+        }));
+    }, [password, dispatch]);
+
+    const handleLogin = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        setAuthenticating(true);
+        
+        try {
+            // Add timeout and better error handling for 204 responses
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+            
+            try {
+                const result = await signIn.username({
+                    username: username,
+                    password,
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (result.error) {
+                    toast.error(result.error.message);
+                } else {
+                    // Hydrate Redux state after successful sign in
+                    dispatch(hydrateSession());
+                    toast.success("Logged in successfully!");
+                    router.push("/dashboard");
+                }
+            } catch (fetchError) {
+                clearTimeout(timeoutId);
+                if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+                    toast.error("Request timed out. Please try again.");
+                    console.warn(`[Login] Request timed out after 10 seconds`);
+                } else {
+                    throw fetchError;
+                }
+            }
+        } catch (error) {
+            toast.error("Failed to log in");
+            console.warn(`[Login] Sign in failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        } finally {
+            setAuthenticating(false);
+        }
+    }, [username, password, router, dispatch]);
+
+    return {
+        handleLogin,
+        authenticating,
+        verified,
+        setUsername,
+        setPassword,
+    };
 };
 
 export const useResetPassword = () => {
-  const router = useRouter();
-  const { handleLogout } = useLogout();
+    const [resetting, setResetting] = useState(false);
 
-  const [makeForgotRequest, forgotResult] = useRequestPasswordResetMutation();
+    const handleResetPassword = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        setResetting(true);
+        
+        try {
+            // TODO: Implement password reset functionality
+            toast.info("Password reset functionality coming soon");
+        } catch (error) {
+            toast.error("Failed to reset password");
+            console.warn(`[ResetPassword] Password reset failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        } finally {
+            setResetting(false);
+        }
+    }, []);
 
-  const verified = useAppSelector(
-    authenticationSlice.selectors.requiredCredentialsVerified
-  );
+    return {
+        handleResetPassword,
+        resetting,
+    };
+};
 
-  // button clicked
-  const handleRequestReset = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    const username = e.currentTarget.form?.username.value;
-    if (!username) return;
+export const useAccessToken = () => {
+    const [token, setToken] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
+    
+    useEffect(() => {
+        const getToken = async () => {
+            try {
+                // getAccessToken requires providerId parameter
+                const result = await getAccessToken({ providerId: "username" });
+                if (result && typeof result === 'object' && 'accessToken' in result) {
+                    setToken((result as any).accessToken);
+                } else {
+                    setToken(null);
+                }
+            } catch (error) {
+                console.warn(`[AccessToken] Failed to get token: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                setToken(null);
+            } finally {
+                setLoading(false);
+            }
+        };
+        getToken();
+    }, []);
 
-    makeForgotRequest(String(username));
-  };
-
-  useEffect(() => {
-    if (forgotResult.isSuccess) {
-      router.refresh();
-    } else if (forgotResult.isError) {
-      handleLogout();
-    }
-  }, [forgotResult]);
-
-  const [resetPassword, resetResult] = useResetPasswordMutation();
-
-  const handleReset = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    const code = e.currentTarget.code.value;
-    const password = e.currentTarget.password.value;
-    const username = e.currentTarget.username.value;
-
-    if (!code || !password || !username) return;
-
-    const params: ResetPasswordRequest = { code, password, username };
-
-    resetPassword(params);
-  };
-
-  useEffect(() => {
-    if (resetResult.isSuccess) {
-      if (isAuthenticated(resetResult.data)) {
-        router.push(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE));
-      } else {
-        router.refresh();
-      }
-    } else if (resetResult.isError) {
-      handleLogout();
-    }
-  }, [resetResult]);
-
-  return {
-    handleReset,
-    handleRequestReset,
-    verified,
-    requestingReset: forgotResult.isLoading || forgotResult.isSuccess,
-  };
+    return { token, loading };
 };

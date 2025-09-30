@@ -2,9 +2,8 @@
 
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
 import {
-  djAttributeTitles,
-  IncompleteUser,
   VerifiedData,
+  djAttributeTitles,
 } from "@/lib/features/authentication/types";
 import { useAppDispatch } from "@/lib/hooks";
 import { useNewUser } from "@/src/hooks/authenticationHooks";
@@ -16,15 +15,29 @@ import { ValidatedSubmitButton } from "./Fields/ValidatedSubmitButton";
 export default function NewUserForm({
   username,
   requiredAttributes,
-}: IncompleteUser) {
+}: {
+  username: string;
+  requiredAttributes: string[];
+}) {
   const [newPassword, setNewPassword] = useState("");
 
   const { handleNewUser, verified, authenticating, addRequiredCredentials } =
     useNewUser();
 
   useEffect(() => {
-    addRequiredCredentials(requiredAttributes as (keyof VerifiedData)[]);
-  }, [requiredAttributes]);
+    addRequiredCredentials(
+      requiredAttributes.filter((attr) =>
+        [
+          "username",
+          "realName",
+          "djName",
+          "password",
+          "confirmPassword",
+          "code",
+        ].includes(attr)
+      ) as (keyof VerifiedData)[]
+    );
+  }, [requiredAttributes, addRequiredCredentials]);
 
   const dispatch = useAppDispatch();
   useEffect(() => {
@@ -39,16 +52,20 @@ export default function NewUserForm({
   return (
     <form onSubmit={handleNewUser} method="put">
       <input type="hidden" name="username" value={username} />
-      {requiredAttributes.map((attribute: keyof VerifiedData) => (
-        <RequiredBox
-          key={attribute}
-          name={attribute}
-          title={djAttributeTitles[attribute]}
-          placeholder={djAttributeTitles[attribute]}
-          type="text"
-          disabled={authenticating}
-        />
-      ))}
+      {requiredAttributes.map((attribute: string) => {
+        const verifiedAttribute = attribute as keyof VerifiedData;
+        const title = djAttributeTitles[verifiedAttribute] || attribute;
+        return (
+          <RequiredBox
+            key={attribute}
+            name={verifiedAttribute}
+            title={title}
+            placeholder={title}
+            type="text"
+            disabled={authenticating}
+          />
+        );
+      })}
       <RequiredBox
         name="password"
         title="New Password"

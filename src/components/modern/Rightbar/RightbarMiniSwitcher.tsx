@@ -1,23 +1,24 @@
 "use client";
 
-import {
-  useGetRightbarQuery,
-  useToggleRightbarMutation,
-} from "@/lib/features/application/api";
 import { ArrowDropDown, ArrowDropUp } from "@mui/icons-material";
 import { IconButton } from "@mui/joy";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import { applicationSlice } from "@/lib/features/application/frontend";
 
 export default function RightbarMiniSwitcher() {
-  const { data: mini, isLoading } = useGetRightbarQuery();
-  const [toggleRightbar] = useToggleRightbarMutation();
+  const dispatch = useAppDispatch();
+  const mini = useAppSelector(applicationSlice.selectors.getRightbarMini);
+
+  const handleToggle = () => {
+    dispatch(applicationSlice.actions.setRightbarMini(!mini));
+  };
 
   return (
     <IconButton
       size="sm"
       variant="plain"
       color="neutral"
-      onClick={() => toggleRightbar()}
-      disabled={isLoading}
+      onClick={handleToggle}
     >
       {mini ? <ArrowDropDown /> : <ArrowDropUp />}
     </IconButton>

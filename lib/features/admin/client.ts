@@ -1,10 +1,10 @@
 import { CognitoIdentityClient } from "@aws-sdk/client-cognito-identity";
+import { CognitoIdentityProviderClient } from "@aws-sdk/client-cognito-identity-provider";
 import { fromCognitoIdentityPool } from "@aws-sdk/credential-provider-cognito-identity";
 import { cookies } from "next/headers";
 import { AuthenticationData, isAuthenticated } from "../authentication/types";
-import { defaultAuthenticationData } from "../authentication/utilities";
-import { CognitoIdentityProviderClient } from "@aws-sdk/client-cognito-identity-provider";
 import { Authorization } from "./types";
+import { defaultAuthenticationState } from "../authentication/frontend";
 
 export async function getAdminCredentials() {
   const cookieStore = await cookies();
@@ -12,7 +12,7 @@ export async function getAdminCredentials() {
   const currentAuthenticationData: AuthenticationData = JSON.parse(
     String(
       cookieStore.get("auth_state")?.value ??
-        JSON.stringify(defaultAuthenticationData)
+        JSON.stringify(defaultAuthenticationState)
     )
   );
 
@@ -23,10 +23,7 @@ export async function getAdminCredentials() {
     throw new Error("User is not authenticated");
   }
 
-  if (
-    currentAuthenticationData.user?.authority !== Authorization.SM
-  )
-  {
+  if (currentAuthenticationData.user?.authority !== Authorization.SM) {
     throw new Error("User does not have admin privileges");
   }
 
@@ -44,10 +41,9 @@ export async function getAdminCredentials() {
   return await cognitoProvider();
 }
 
-
 export async function getAdminClient() {
-    return new CognitoIdentityProviderClient({
-        credentials: await getAdminCredentials(),
-        region: String(process.env.AWS_REGION),
-    });
+  return new CognitoIdentityProviderClient({
+    credentials: await getAdminCredentials(),
+    region: String(process.env.AWS_REGION),
+  });
 }

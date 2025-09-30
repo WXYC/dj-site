@@ -3,7 +3,7 @@ export type AdminFrontendState = {
   adding: boolean;
   formData: {
     authorization: Authorization;
-  }
+  };
 };
 
 export enum Authorization {

@@ -1,5 +1,5 @@
 import { isIncomplete, isPasswordReset } from "@/lib/features/authentication/types";
-import { createServerSideProps } from "@/lib/features/session";
+import { getServerSideProps } from "@/lib/features/authentication/session";
 import WXYCPage from "@/src/Layout/WXYCPage";
 
 export default async function ModernLoginLayout({
@@ -11,7 +11,7 @@ export default async function ModernLoginLayout({
   newuser: React.ReactNode;
   reset: React.ReactNode;
 }) {
-  const serverSideProps = await createServerSideProps();
+  const serverSideProps = await getServerSideProps();
 
   return (
     <WXYCPage title="Login">

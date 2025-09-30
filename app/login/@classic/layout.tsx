@@ -1,5 +1,5 @@
-import { isIncomplete, isPasswordReset } from "@/lib/features/authentication/types";
-import { createServerSideProps } from "@/lib/features/session";
+import { getServerSideProps } from "@/lib/features/authentication/session";
+import { isIncomplete } from "@/lib/features/authentication/types";
 import { ReactNode } from "react";
 import Header from "./components/Layout/Header";
 
@@ -9,7 +9,7 @@ interface LoginProps {
 }
 
 export default async function Layout({ normal, newuser }: LoginProps) {
-  const serverSideProps = await createServerSideProps();
+  const serverSideProps = await getServerSideProps();
 
   return (
     <div

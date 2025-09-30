@@ -11,6 +11,7 @@ import {
   useUpdateFlowsheetMutation,
   useWhoIsLiveQuery,
 } from "@/lib/features/flowsheet/api";
+import { toast } from "sonner";
 import { convertQueryToSubmission } from "@/lib/features/flowsheet/conversions";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import {
@@ -30,8 +31,9 @@ import {
   useCatalogFlowsheetSearch,
   useRotationFlowsheetSearch,
 } from "./catalogHooks";
+import { createAuthenticatedHooks } from "./createAuthenticatedHooks";
 
-export const useShowControl = () => {
+const _useShowControl = () => {
   const { loading: userloading, info: userData } = useRegistry();
 
   const [live, setLive] = useState(false);
@@ -72,7 +74,7 @@ export const useShowControl = () => {
       setLive(
         liveList?.djs !== undefined &&
           liveList?.djs.length !== 0 &&
-          liveList.djs.some((dj) => dj.id === userData?.id)
+          liveList.djs.some((dj) => dj.id === Number(userData?.id))
       );
     }
   }, [liveList, isSuccess]);
@@ -97,7 +99,7 @@ export const useShowControl = () => {
         limit: 1,
       })
     );
-    goLiveFunction({ dj_id: userData.id });
+    goLiveFunction({ dj_id: Number(userData.id) });
   };
 
   const leave = () => {
@@ -111,7 +113,7 @@ export const useShowControl = () => {
         limit: 1,
       })
     );
-    leaveFunction({ dj_id: userData.id });
+    leaveFunction({ dj_id: Number(userData.id) });
   };
 
   return {
@@ -129,6 +131,8 @@ export const useShowControl = () => {
     leave,
   };
 };
+
+export const useShowControl = createAuthenticatedHooks(_useShowControl);
 
 export const useFlowsheetSearch = () => {
   const { live, loading } = useShowControl();
@@ -155,7 +159,7 @@ export const useFlowsheetSearch = () => {
   };
 };
 
-export const useFlowsheet = () => {
+const _useFlowsheet = () => {
   const { loading: userloading, info: userData } = useRegistry();
   const dispatch = useAppDispatch();
 
@@ -295,6 +299,7 @@ export const useFlowsheet = () => {
         });
       } catch (err) {
         console.error("Failed to switch entries:", err);
+        toast.error("Failed to switch entries. Please try again.");
       }
     },
     [
@@ -324,6 +329,8 @@ export const useFlowsheet = () => {
     isError,
   };
 };
+
+export const useFlowsheet = createAuthenticatedHooks(_useFlowsheet);
 
 export const useQueue = () => {
   const { live, loading } = useShowControl();
@@ -409,6 +416,7 @@ export const useFlowsheetSubmit = () => {
           rotationResults,
           catalogResults,
         ].flat();
+        // Debug logging - can be removed in production
         console.log("COLLECTED RESULTS", collectedResults);
         console.log("SELECTED RESULT", collectedResults[selectedResult - 1]);
         data = {
