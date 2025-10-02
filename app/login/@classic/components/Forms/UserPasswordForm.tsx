@@ -43,7 +43,7 @@ export default function UserPasswordForm() {
               <td>
                 <ValidatedSubmitButton
                   authenticating={authenticating}
-                  valid={verified}
+                  valid={verified || false}
                 />
               </td>
             </tr>

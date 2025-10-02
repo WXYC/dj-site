@@ -11,18 +11,47 @@ import { Typography } from "@mui/joy";
 import { useEffect, useState } from "react";
 import RequiredBox from "./Fields/RequiredBox";
 import { ValidatedSubmitButton } from "./Fields/ValidatedSubmitButton";
+import { toast } from "sonner";
 
 export default function NewUserForm({
   username,
   requiredAttributes,
+  onboardingToken,
 }: {
   username: string;
   requiredAttributes: string[];
+  onboardingToken?: string;
 }) {
   const [newPassword, setNewPassword] = useState("");
+  const [tokenUser, setTokenUser] = useState<{ username: string; email: string; realName: string; djName: string } | null>(null);
+  const [tokenValidated, setTokenValidated] = useState(false);
 
   const { handleNewUser, verified, authenticating, addRequiredCredentials } =
     useNewUser();
+
+  // Validate onboarding token and get user info
+  useEffect(() => {
+    if (onboardingToken && !tokenValidated) {
+      const validateToken = async () => {
+        try {
+          const response = await fetch(`/api/auth/onboard?token=${onboardingToken}`);
+          const result = await response.json();
+          
+          if (response.ok && result.valid) {
+            setTokenUser(result.user);
+            setTokenValidated(true);
+          } else {
+            toast.error(result.error || "Invalid onboarding token");
+          }
+        } catch (error) {
+          toast.error("Failed to validate onboarding token");
+          console.error("[NewUserForm] Token validation error:", error);
+        }
+      };
+      
+      validateToken();
+    }
+  }, [onboardingToken, tokenValidated]);
 
   useEffect(() => {
     addRequiredCredentials(
@@ -41,20 +70,39 @@ export default function NewUserForm({
 
   const dispatch = useAppDispatch();
   useEffect(() => {
+    const usernameValue = tokenUser?.username || username;
     dispatch(
       authenticationSlice.actions.verify({
         key: "username",
-        value: username.length > 0,
+        value: usernameValue.length > 0,
       })
     );
-  }, [username]);
+  }, [username, tokenUser, dispatch]);
+
+  // Show loading state while validating token
+  if (onboardingToken && !tokenValidated) {
+    return (
+      <div style={{ textAlign: "center", padding: "2rem" }}>
+        <Typography level="body-lg">Validating onboarding link...</Typography>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleNewUser} method="put">
-      <input type="hidden" name="username" value={username} />
+      <input type="hidden" name="username" value={tokenUser?.username || username} />
+      {onboardingToken && <input type="hidden" name="token" value={onboardingToken} />}
       {requiredAttributes.map((attribute: string) => {
         const verifiedAttribute = attribute as keyof VerifiedData;
         const title = djAttributeTitles[verifiedAttribute] || attribute;
+        
+        // Get default value from token if available
+        let defaultValue = "";
+        if (tokenUser) {
+          if (attribute === "realName") defaultValue = tokenUser.realName;
+          if (attribute === "djName") defaultValue = tokenUser.djName;
+        }
+        
         return (
           <RequiredBox
             key={attribute}
@@ -63,6 +111,7 @@ export default function NewUserForm({
             placeholder={title}
             type="text"
             disabled={authenticating}
+            defaultValue={defaultValue}
           />
         );
       })}

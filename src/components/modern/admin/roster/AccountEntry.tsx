@@ -183,7 +183,7 @@ export const AccountEntry = ({
                   )
                 ) {
                   deleteAccount(account.userName).then(async () => {
-                    return await clearInfo(account.userName);
+                    return await clearInfo({ username: account.userName });
                   });
                 }
               }}

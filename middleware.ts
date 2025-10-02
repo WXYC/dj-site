@@ -17,7 +17,7 @@ if (!AUTH_BASE) {
 }
 
 export const config = {
-  matcher: ["/dashboard/admin/:path*", "/dashboard/:path*", "/login"],
+  matcher: ["/dashboard/admin/:path*", "/dashboard/:path*", "/login", "/onboarding"],
 };
 
 export async function middleware(req: NextRequest) {
@@ -95,8 +95,18 @@ export async function middleware(req: NextRequest) {
   if (url.pathname.startsWith("/dashboard")) {
     if (!isAuthenticated) {
       const to = new URL("/login", url);
-      to.searchParams.set("next", url.pathname);
+      // Only set 'next' parameter for specific dashboard routes, default to catalog
+      if (url.pathname !== "/dashboard" && url.pathname !== "/dashboard/") {
+        to.searchParams.set("next", url.pathname);
+      } else {
+        to.searchParams.set("next", "/dashboard/catalog");
+      }
       return NextResponse.redirect(to);
+    } else {
+      // If authenticated and accessing /dashboard root, redirect to catalog
+      if (url.pathname === "/dashboard" || url.pathname === "/dashboard/") {
+        return NextResponse.redirect(new URL("/dashboard/catalog", url));
+      }
     }
   }
 

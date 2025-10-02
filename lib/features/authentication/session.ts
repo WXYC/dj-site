@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { Authorization } from "../admin/types";
-import { AppSkin, ServerSideProps, isValidAppSkin, BetterAuthUser, User } from "./types";
+import { AppSkin, ServerSideProps, isValidAppSkin, BetterAuthUser, User, OrganizationRole, authorizationToRole } from "./types";
 
 export const defaultSession = {
   user: null,
@@ -76,6 +76,12 @@ export async function getServerSideProps(): Promise<ServerSideProps> {
       const { session } = await res.json();
       if (session?.user) {
         const user = session.user as BetterAuthUser;
+        
+        // Extract organization role from better-auth member data
+        const organizationRole: OrganizationRole = user.member?.[0]?.role || "member";
+        const organizationId = user.member?.[0]?.organizationId;
+        
+        // Create authenticated user data
         authentication = {
           user: {
             id: user.id,
@@ -83,7 +89,9 @@ export async function getServerSideProps(): Promise<ServerSideProps> {
             email: user.email || "",
             realName: user.realName || "",
             djName: user.djName || "",
-            authority: Authorization.DJ,
+            authority: Authorization.DJ, // Keep for backward compatibility
+            role: organizationRole, // New better-auth role
+            organizationId,
             appSkin:
               user.appSkin && isValidAppSkin(user.appSkin)
                 ? (user.appSkin as AppSkin)

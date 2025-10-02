@@ -1,4 +1,5 @@
 import { Authorization } from "@/lib/features/admin/types";
+import { canManageUsers, hasMinimumRole } from "@/lib/features/authentication/types";
 import { AuthenticatedUser } from "@/lib/features/authentication/types";
 import { getServerSideProps } from "@/lib/features/authentication/session";
 import { EditCalendar, ManageAccounts } from "@mui/icons-material";
@@ -32,13 +33,13 @@ export default async function Leftbar(): Promise<JSX.Element> {
         >
           <StorageIcon />
         </LeftbarLink>
-        {user && user.authority > Authorization.DJ && (
+        {user && hasMinimumRole(user, "music-director") && (
           <>
             <Divider sx={{ mt: 1.5 }} />
             <LeftbarLink
               path="/dashboard/admin/roster"
               title="DJ Roster"
-              disabled={user.authority < Authorization.SM}
+              disabled={!canManageUsers(user)}
             >
               <ManageAccounts />
             </LeftbarLink>

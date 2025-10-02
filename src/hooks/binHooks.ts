@@ -16,7 +16,7 @@ export const useBin = () => {
 
   const { data, isLoading, isSuccess, isError } = useGetBinQuery(
     {
-      dj_id: info?.id!,
+      dj_id: parseInt(info?.id!) || 0,
     },
     {
       skip: !info || loading,
@@ -40,7 +40,7 @@ export const useDeleteFromBin = () => {
     (album_id: number) => {
       if (loading || !info) return;
 
-      deleteFromBin({ dj_id: info?.id!, album_id });
+      deleteFromBin({ dj_id: parseInt(info?.id!) || 0, album_id });
     },
     [info, loading]
   );
@@ -66,7 +66,7 @@ export const useAddToBin = () => {
     (album_id: number) => {
       if (loading || !info) return;
 
-      addToBin({ dj_id: info?.id!, album_id });
+      addToBin({ dj_id: parseInt(info?.id!) || 0, album_id });
     },
     [info, loading]
   );

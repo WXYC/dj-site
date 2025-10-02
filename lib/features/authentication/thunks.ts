@@ -1,6 +1,6 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import { Authorization } from "../admin/types";
-import { User, BetterAuthUser } from "./types";
+import { User, BetterAuthUser, OrganizationRole } from "./types";
 import { getSession } from "./client";
 
 export const hydrateSession = createAsyncThunk(
@@ -12,13 +12,19 @@ export const hydrateSession = createAsyncThunk(
 
       const user = session.data.user as BetterAuthUser;
       
+      // Extract organization role from better-auth member data
+      const organizationRole: OrganizationRole = user.member?.[0]?.role || "member";
+      const organizationId = user.member?.[0]?.organizationId;
+      
       return {
         id: user.id,
         username: user.username || user.email,
         email: user.email || "",
         realName: user.realName || "",
         djName: user.djName || "",
-        authority: Authorization.DJ,
+        authority: Authorization.DJ, // Keep for backward compatibility
+        role: organizationRole, // New better-auth role
+        organizationId,
         appSkin: user.appSkin || "modern-light",
       } as User;
     } catch (error) {

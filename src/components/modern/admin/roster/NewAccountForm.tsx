@@ -4,7 +4,7 @@ import { adminSlice } from "@/lib/features/admin/frontend";
 import { Authorization } from "@/lib/features/admin/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { PersonAdd } from "@mui/icons-material";
-import { Button, ButtonGroup, Checkbox, Input } from "@mui/joy";
+import { Button, ButtonGroup, Checkbox, Input, Select, Option } from "@mui/joy";
 import { ClickAwayListener } from "@mui/material";
 
 export default function NewAccountForm() {
@@ -28,34 +28,19 @@ export default function NewAccountForm() {
             textAlign: "center",
           }}
         >
-          <ButtonGroup>
-            <Checkbox
-              color="success"
-              onChange={(e) => {
-                if (e.target.checked) {
-                  setAuthorizationOfNewAccount(Authorization.SM);
-                } else {
-                  setAuthorizationOfNewAccount(Authorization.DJ);
-                }
-              }}
-              checked={authorizationOfNewAccount == Authorization.SM}
-            />
-            <Checkbox
-              color="success"
-              checked={
-                authorizationOfNewAccount == Authorization.MD ||
-                authorizationOfNewAccount == Authorization.SM
+          <Select
+            size="sm"
+            value={authorizationOfNewAccount}
+            onChange={(_, value) => {
+              if (value !== null) {
+                setAuthorizationOfNewAccount(value as Authorization);
               }
-              onChange={(e) => {
-                if (e.target.checked) {
-                  setAuthorizationOfNewAccount(Authorization.MD);
-                } else {
-                  setAuthorizationOfNewAccount(Authorization.DJ);
-                }
-              }}
-              disabled={authorizationOfNewAccount == Authorization.SM}
-            />
-          </ButtonGroup>
+            }}
+          >
+            <Option value={Authorization.DJ}>DJ</Option>
+            <Option value={Authorization.MD}>Music Director</Option>
+            <Option value={Authorization.SM}>Station Management</Option>
+          </Select>
         </td>
         <td>
           <Input
@@ -91,8 +76,8 @@ export default function NewAccountForm() {
             size="sm"
             color="success"
             placeholder="Email"
-            required
             type="email"
+            required
           />
         </td>
         <td

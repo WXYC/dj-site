@@ -2,11 +2,12 @@
 
 import { useCreateAccountMutation } from "@/lib/features/admin/api";
 import { adminSlice } from "@/lib/features/admin/frontend";
-import { NewAccountParams } from "@/lib/features/admin/types";
+import { NewAccountParams, Authorization } from "@/lib/features/admin/types";
+import { authorizationToRole } from "@/lib/features/authentication/types";
 import { useRegisterDJMutation } from "@/lib/features/authentication/api";
 import { User } from "@/lib/features/authentication/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { useAccountListResults } from "@/src/hooks/adminHooks";
+import { useAccountListResults, useCreateUserAccount } from "@/src/hooks/adminHooks";
 import { Add, GppBad } from "@mui/icons-material";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import {
@@ -27,6 +28,10 @@ import NewAccountForm from "./NewAccountForm";
 export default function RosterTable({ user }: { user: User }) {
   const { data, isLoading, isError, error } = useAccountListResults();
 
+  // Use the new better-auth user creation hook
+  const { createUserAccount, creating } = useCreateUserAccount();
+  
+  // Keep the old mutations for backward compatibility if needed
   const [addAccount, addAccountResult] = useCreateAccountMutation();
   const [registerDJ, registerDJResult] = useRegisterDJMutation();
 
@@ -42,26 +47,38 @@ export default function RosterTable({ user }: { user: User }) {
       e.preventDefault();
       const formData = new FormData(e.currentTarget);
 
-      const newAccount: NewAccountParams = {
+      const userData = {
         realName: formData.get("realName") as string,
         username: formData.get("username") as string,
-        djName: formData.get("djName")
-          ? (formData.get("djName") as string)
-          : "Anonymous",
+        djName: formData.get("djName") as string || undefined,
         email: formData.get("email") as string,
-        temporaryPassword: "Freak893",
-        authorization: authorizationOfNewAccount, // Default to NO, can be changed later
+        role: authorizationToRole(authorizationOfNewAccount), // Convert Authorization enum to organization role
       };
 
-      return await (addAccount(newAccount).then(() => {
-        return registerDJ({
-          cognito_user_name: newAccount.username,
-          real_name: newAccount.realName,
-          dj_name: newAccount.djName,
-        });
-      }));
+      // Use the new better-auth user creation
+      const result = await createUserAccount(userData);
+      
+      if (result.success) {
+        // Register DJ in the legacy system if needed
+        try {
+          await registerDJ({
+            cognito_user_name: userData.username,
+            real_name: userData.realName,
+            dj_name: userData.djName || userData.realName,
+          });
+        } catch (error) {
+          console.warn("[RosterTable] DJ registration failed:", error);
+          // Don't fail the whole process if DJ registration fails
+        }
+        
+        // Reset the form
+        dispatch(adminSlice.actions.setAdding(false));
+        dispatch(adminSlice.actions.reset());
+      }
+      
+      return result;
     },
-    [authorizationOfNewAccount]
+    [authorizationOfNewAccount, createUserAccount, registerDJ, dispatch]
   );
 
   useEffect(() => {

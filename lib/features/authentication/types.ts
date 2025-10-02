@@ -4,7 +4,7 @@ import { Authorization } from "../admin/types";
 // Note: better-auth types are extended through the client configuration
 // The additionalFields in authClient will be included in the user object
 
-// Type for better-auth session with our custom user fields
+// Type for better-auth session with our custom user fields and organization data
 export type BetterAuthUser = {
   id: string;
   createdAt: Date;
@@ -22,6 +22,15 @@ export type BetterAuthUser = {
   realName?: string;
   djName?: string;
   appSkin?: string;
+  onboarded?: boolean;
+  // Organization data from better-auth
+  member?: {
+    id: string;
+    organizationId: string;
+    userId: string;
+    role: OrganizationRole;
+    createdAt: Date;
+  }[];
 };
 
 export type AuthenticationState = {
@@ -111,13 +120,18 @@ export type NewUserCredentials = Credentials & Record<string, string>;
 
 export type AppSkin = "classic" | "modern-light" | "modern-dark";
 
+// Better-auth organization roles
+export type OrganizationRole = "member" | "dj" | "music-director" | "admin";
+
 export type User = {
   id: string;
   username: string;
   email: string;
   realName: string;
   djName: string;
-  authority: Authorization;
+  authority: Authorization; // Keep for backward compatibility
+  role: OrganizationRole; // New better-auth role
+  organizationId?: string;
   appSkin: AppSkin;
 };
 
@@ -132,7 +146,7 @@ export type ResetPasswordRequest = ResetPasswordCredentials & {
 
 export type VerifiedData = Omit<
   User,
-  "id" | "authority" | "email" | "appSkin"
+  "id" | "authority" | "email" | "appSkin" | "role" | "organizationId"
 > &
   Credentials &
   ResetPasswordCredentials & {
@@ -141,7 +155,7 @@ export type VerifiedData = Omit<
 
 export type ModifiableData = Omit<
   User,
-  "id" | "authority" | "username" | "appSkin"
+  "id" | "authority" | "username" | "appSkin" | "role" | "organizationId"
 >;
 
 export type Verification<T> = {
@@ -166,6 +180,64 @@ export type DJRegistryParams = {
   real_name: string | undefined;
   dj_name: string | undefined;
 };
+
+// Utility functions for role checking
+export function hasRole(user: User, role: OrganizationRole): boolean {
+  return user.role === role;
+}
+
+export function hasMinimumRole(user: User, minimumRole: OrganizationRole): boolean {
+  const roleHierarchy: Record<OrganizationRole, number> = {
+    member: 0,
+    dj: 1,
+    "music-director": 2,
+    admin: 3,
+  };
+  
+  return roleHierarchy[user.role] >= roleHierarchy[minimumRole];
+}
+
+export function canManageUsers(user: User): boolean {
+  return hasMinimumRole(user, "admin");
+}
+
+export function canManageLibrary(user: User): boolean {
+  return hasMinimumRole(user, "music-director");
+}
+
+export function canAccessFlowsheet(user: User): boolean {
+  return hasMinimumRole(user, "dj");
+}
+
+// Convert legacy Authorization to OrganizationRole
+export function authorizationToRole(auth: Authorization): OrganizationRole {
+  switch (auth) {
+    case Authorization.SM:
+      return "admin";
+    case Authorization.MD:
+      return "music-director";
+    case Authorization.DJ:
+      return "dj";
+    case Authorization.NO:
+    default:
+      return "member";
+  }
+}
+
+// Convert OrganizationRole to legacy Authorization
+export function roleToAuthorization(role: OrganizationRole): Authorization {
+  switch (role) {
+    case "admin":
+      return Authorization.SM;
+    case "music-director":
+      return Authorization.MD;
+    case "dj":
+      return Authorization.DJ;
+    case "member":
+    default:
+      return Authorization.NO;
+  }
+}
 
 export type DJRegistryRequestParams =
   | {

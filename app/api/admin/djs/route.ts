@@ -4,6 +4,8 @@ import {
   getGroupNameFromAuthorization,
 } from "@/lib/features/admin/conversions";
 import { Authorization } from "@/lib/features/admin/types";
+import { getSession } from "@/lib/features/authentication/client";
+import { BetterAuthUser, canManageUsers, OrganizationRole } from "@/lib/features/authentication/types";
 import {
   AdminAddUserToGroupCommand,
   AdminAddUserToGroupCommandInput,
@@ -194,6 +196,30 @@ export async function DELETE(request: NextRequest) {
 //#region Promote DJ
 export async function PATCH(request: NextRequest) {
   try {
+    // Check if the requester is authenticated and has admin privileges
+    const session = await getSession();
+    if (!session?.data?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const user = session.data.user as BetterAuthUser;
+    
+    // Extract organization role from better-auth member data
+    const organizationRole: OrganizationRole = user.member?.[0]?.role || "member";
+    const userWithRole = {
+      ...user,
+      role: organizationRole,
+      authority: user.role || "NO", // Fallback for legacy compatibility
+    };
+
+    // Check if user has admin privileges (station management)
+    if (!canManageUsers(userWithRole as any)) {
+      return NextResponse.json(
+        { error: "Forbidden: Only station management can modify user roles" },
+        { status: 403 }
+      );
+    }
+
     const { username, currentAuthorization, nextAuthorization } =
       await request.json();
 
@@ -223,6 +249,14 @@ export async function PATCH(request: NextRequest) {
           message: "Cannot demote to NO authorization",
         },
         { status: 400 }
+      );
+    }
+
+    // Only station management (admin) can promote to admin or music director roles
+    if ((nextAuthorization === Authorization.SM || nextAuthorization === Authorization.MD) && organizationRole !== "admin") {
+      return NextResponse.json(
+        { error: "Forbidden: Only station management can assign admin or music director roles" },
+        { status: 403 }
       );
     }
 

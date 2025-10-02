@@ -6,7 +6,7 @@ import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import FormControl from "@mui/joy/FormControl";
 import FormLabel from "@mui/joy/FormLabel";
 import Input from "@mui/joy/Input";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function RequiredBox({
   name,
@@ -16,6 +16,7 @@ export default function RequiredBox({
   helper,
   disabled,
   validationFunction,
+  defaultValue,
 }: {
   name: keyof VerifiedData;
   title: string;
@@ -24,8 +25,9 @@ export default function RequiredBox({
   disabled?: boolean;
   type?: React.HTMLInputTypeAttribute;
   validationFunction?: (value: string) => boolean;
+  defaultValue?: string;
 }): JSX.Element {
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState(defaultValue || "");
 
   const validated = useAppSelector((state) =>
     authenticationSlice.selectors.getVerification(
@@ -42,6 +44,16 @@ export default function RequiredBox({
         value,
       })
     );
+
+  // Validate default value on mount
+  useEffect(() => {
+    if (defaultValue) {
+      setValue(defaultValue);
+      reportValidation(
+        (validationFunction ?? ((value) => value.length > 0))(defaultValue)
+      );
+    }
+  }, [defaultValue, validationFunction]);
 
   return (
     <FormControl required>

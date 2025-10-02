@@ -44,43 +44,55 @@ export const useNewUser = () => {
         
         try {
             const formData = new FormData(e.currentTarget);
-            const username = formData.get("username") as string;
+            const token = formData.get("token") as string;
             const password = formData.get("password") as string;
             const realName = formData.get("realName") as string;
             const djName = formData.get("djName") as string;
             
-            // Add timeout and better error handling for 204 responses
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-            
-            try {
-                const result = await signIn.username({
-                    username: username,
-                    password,
-                });
-                
-                clearTimeout(timeoutId);
-                
-                if (result.error) {
-                    toast.error(result.error.message);
-                } else {
-                    // Hydrate Redux state after successful sign in
-                    dispatch(hydrateSession());
-                    toast.success("Account created successfully!");
-                    router.push("/dashboard");
-                }
-            } catch (fetchError) {
-                clearTimeout(timeoutId);
-                if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-                    toast.error("Request timed out. Please try again.");
-                    console.warn(`[NewUser] Request timed out after 10 seconds`);
-                } else {
-                    throw fetchError;
-                }
+            if (!token) {
+                toast.error("Invalid onboarding link. Please contact an administrator.");
+                return;
             }
+            
+            // Complete onboarding process
+            const response = await fetch("/api/auth/onboard", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    token,
+                    password,
+                    realName,
+                    djName,
+                }),
+            });
+            
+            const result = await response.json();
+            
+            if (!response.ok) {
+                toast.error(result.error || "Failed to complete onboarding");
+                return;
+            }
+            
+            // Now sign in with the new credentials
+            const signInResult = await signIn.username({
+                username: result.user.username,
+                password,
+            });
+            
+            if (signInResult.error) {
+                toast.error(signInResult.error.message);
+            } else {
+                // Hydrate Redux state after successful sign in
+                dispatch(hydrateSession());
+                toast.success("Account setup completed successfully!");
+                router.push("/dashboard/catalog");
+            }
+            
         } catch (error) {
-            toast.error("Failed to create account");
-            console.warn(`[NewUser] Account creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            toast.error("Failed to complete account setup");
+            console.warn(`[NewUser] Account setup failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         } finally {
             setAuthenticating(false);
         }

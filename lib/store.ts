@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { adminApi } from "./features/admin/api";
 import { adminSlice } from "./features/admin/frontend";
 import { applicationSlice } from "./features/application/frontend";
+import { authenticationApi } from "./features/authentication/api";
 import { authenticationSlice } from "./features/authentication/frontend";
 import { binApi } from "./features/bin/api";
 import { catalogApi } from "./features/catalog/api";
@@ -24,6 +25,7 @@ import { rotationSlice } from "./features/rotation/frontend";
 
 const rootReducer = combineSlices(
   authenticationSlice,
+  authenticationApi,
   applicationSlice,
   catalogSlice,
   catalogApi,
@@ -44,6 +46,7 @@ export const makeStore = () => {
     middleware: (getDefaultMiddleware) => {
       return getDefaultMiddleware()
         .concat(rtkQueryErrorLogger)
+        .concat(authenticationApi.middleware)
         .concat(catalogApi.middleware)
         .concat(binApi.middleware)
         .concat(flowsheetApi.middleware)
