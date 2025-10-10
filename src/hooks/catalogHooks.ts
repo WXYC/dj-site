@@ -10,7 +10,7 @@ import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
 import { useGetRotationQuery } from "@/lib/features/rotation/api";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuthentication } from "./authenticationHooks";
 
 export const useCatalogSearch = () => {
@@ -151,6 +151,11 @@ export const useCatalogResults = () => {
     }
   );
 
+  // ✅ Calculate loading state during render - simpler than separate useEffect
+  const combinedLoading = useMemo(() => {
+    return isLoading || loading;
+  }, [isLoading, loading]);
+
   const [lastData, setLastData] = useState(0);
   useEffect(() => {
     if (isSuccess || isError) {
@@ -161,11 +166,11 @@ export const useCatalogResults = () => {
     } else {
       setLastData(data?.length ?? 0);
     }
-  }, [data]);
+  }, [data, isSuccess, isError, lastData]);
 
   return {
     data,
-    loading: isLoading || loading,
+    loading: combinedLoading,
     searchString,
     setSearchString,
     setSearchIn,
@@ -222,69 +227,37 @@ export const useRotationFlowsheetSearch = () => {
     skip: authenticating || !authenticated,
   });
 
-  const findInRotation = useCallback(
-    (query: FlowsheetQuery) => {
-      if (
-        query.album.length + query.artist.length + query.label.length <= 3 ||
-        !data
-      )
-        return [];
-      var searchTerms = [query.album, query.artist, query.label].map((term) =>
-        term.toLowerCase()
-      );
-
-      var matches = [];
-
-      for (var i = 0; i < data.length; i++) {
-        var item = data[i];
-
-        var isMatch = false;
-
-        var terms = [
-          item.artist?.name.toLowerCase() ?? "",
-          item.title?.toLowerCase() ?? "",
-          item.label?.toLowerCase() ?? "",
-        ];
-        for (var j = 0; j < searchTerms.length; j++) {
-          var searchTerm = searchTerms[j];
-
-          if (searchTerm.length <= 3) continue;
-
-          // Check if any of the terms match the search term
-          var termMatches = terms.some(
-            (term) => term.indexOf(searchTerm) !== -1
-          );
-
-          // If the current search term doesn't match any of the terms, break the loop
-          if (termMatches) {
-            isMatch = true;
-            break;
-          }
-        }
-
-        // If all search terms match any of the terms, add the item to the matches
-        if (isMatch) {
-          matches.push(item);
-        }
-      }
-
-      return matches;
-    },
-    [data]
-  );
-
-  useEffect(() => {
-    if (!isLoading && isSuccess && data) {
-      setSearchResults(findInRotation(rotationQuery));
+  // ✅ Calculate search results during render with useMemo instead of useState + useEffect
+  const searchResults = useMemo(() => {
+    if (
+      !data ||
+      isLoading ||
+      !isSuccess ||
+      rotationQuery.album.length + rotationQuery.artist.length + rotationQuery.label.length <= 3
+    ) {
+      return [];
     }
-  }, [data, isLoading, isSuccess, rotationQuery]);
 
-  const [searchResults, setSearchResults] = useState<AlbumEntry[]>([]);
+    const searchTerms = [rotationQuery.album, rotationQuery.artist, rotationQuery.label]
+      .map((term) => term.toLowerCase())
+      .filter((term) => term.length > 3);
+
+    return data.filter((item) => {
+      const terms = [
+        item.artist?.name.toLowerCase() ?? "",
+        item.title?.toLowerCase() ?? "",
+        item.label?.toLowerCase() ?? "",
+      ];
+
+      return searchTerms.some((searchTerm) =>
+        terms.some((term) => term.includes(searchTerm))
+      );
+    });
+  }, [data, isLoading, isSuccess, rotationQuery]);
 
   return {
     searchResults:
-      rotationQuery.artist.length + rotationQuery.album.length >
-      MIN_SEARCH_LENGTH
+      rotationQuery.artist.length + rotationQuery.album.length > MIN_SEARCH_LENGTH
         ? searchResults
         : [],
     loading: isLoading,

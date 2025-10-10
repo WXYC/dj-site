@@ -7,7 +7,7 @@ import { flowsheetApi } from "@/lib/features/flowsheet/api";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useAppDispatch } from "@/lib/hooks";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import getArtworkFromDiscogs from "./artwork/discogs-image";
 import getArtworkFromItunes from "./artwork/itunes-image";
 import getArtworkFromLastFM from "./artwork/last-fm-image";
@@ -48,18 +48,12 @@ export function useWindowSize() {
 
 export const usePublicRoutes = () => {
   const publicRoutes = ["/live", "/login"];
-
   const pathname = usePathname();
 
-  const [isPublic, setPublic] = useState(getIsPublic(pathname));
-
-  useEffect(() => {
-    setPublic(getIsPublic(pathname));
+  // ✅ Calculate during render - no useState/useEffect needed
+  const isPublic = useMemo(() => {
+    return publicRoutes.includes(pathname) || pathname.length <= 1;
   }, [pathname]);
-
-  function getIsPublic(route: string) {
-    return publicRoutes.includes(route) || route.length <= 1;
-  }
 
   return isPublic;
 };
