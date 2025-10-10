@@ -151,7 +151,7 @@ export const useCatalogResults = () => {
     }
   );
 
-  // ✅ Calculate loading state during render - simpler than separate useEffect
+  // Calculate loading state during render - simpler than separate useEffect
   const combinedLoading = useMemo(() => {
     return isLoading || loading;
   }, [isLoading, loading]);
@@ -227,7 +227,7 @@ export const useRotationFlowsheetSearch = () => {
     skip: authenticating || !authenticated,
   });
 
-  // ✅ Calculate search results during render with useMemo instead of useState + useEffect
+  // Calculate search results during render with useMemo instead of useState + useEffect
   const searchResults = useMemo(() => {
     if (
       !data ||

@@ -52,7 +52,7 @@ export const useShowControl = () => {
     skip: !userData || userloading,
   });
 
-  // ✅ Calculate derived state during render - no useState/useEffect needed
+  // Calculate derived state during render - no useState/useEffect needed
   const currentShow = useMemo(() => {
     return isSuccess && data && data.length > 0 ? data[0].show_id : -1;
   }, [data, isSuccess]);
@@ -163,7 +163,7 @@ export const useFlowsheet = () => {
     }
 
     addToFlowsheet(arg);
-    // ✅ Dispatch immediately after action instead of watching in useEffect
+    // Dispatch immediately after action instead of watching in useEffect
     dispatch(
       flowsheetSlice.actions.setPagination({
         page: 0,
@@ -212,7 +212,7 @@ export const useFlowsheet = () => {
 
   const { currentShow, live } = useShowControl();
 
-  // ✅ Calculate derived state during render instead of useEffect + Redux
+  // Calculate derived state during render instead of useEffect + Redux
   const currentShowEntries = useMemo(() => {
     if (currentShow === -1 || !live || !data) return [];
     return data.filter(
@@ -409,7 +409,7 @@ export const useFlowsheetSubmit = () => {
       dispatch(flowsheetSlice.actions.resetSearch());
     },
     [
-      // ✅ Removed handleKeyDown/handleKeyUp from dependencies
+      // Removed handleKeyDown/handleKeyUp from dependencies
       ctrlKeyPressed,
       addToFlowsheet,
       addToQueue,
@@ -422,7 +422,7 @@ export const useFlowsheetSubmit = () => {
     ]
   );
 
-  // ✅ Combine both keyboard listeners into one effect
+  // Combine both keyboard listeners into one effect
   useEffect(() => {
     document.addEventListener("keydown", handleKeyDown);
     document.addEventListener("keyup", handleKeyUp);

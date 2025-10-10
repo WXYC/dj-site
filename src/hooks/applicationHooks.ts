@@ -50,7 +50,7 @@ export const usePublicRoutes = () => {
   const publicRoutes = ["/live", "/login"];
   const pathname = usePathname();
 
-  // ✅ Calculate during render - no useState/useEffect needed
+  // Calculate during render - no useState/useEffect needed
   const isPublic = useMemo(() => {
     return publicRoutes.includes(pathname) || pathname.length <= 1;
   }, [pathname]);

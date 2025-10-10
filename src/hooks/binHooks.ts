@@ -87,7 +87,7 @@ export const useBinResults = () => {
   const { bin, loading, isSuccess } = useBin();
   const flowsheetQuery = useAppSelector(flowsheetSlice.selectors.getSearchQuery);
 
-  // ✅ Calculate search results during render with useMemo instead of useState + useEffect
+  // Calculate search results during render with useMemo instead of useState + useEffect
   const searchResults = useMemo(() => {
     if (
       !bin ||
