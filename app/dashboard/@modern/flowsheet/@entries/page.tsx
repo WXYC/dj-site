@@ -42,7 +42,7 @@ export default function FlowsheetEntries() {
       <Reorder.Group
         values={current}
         axis="y"
-        onReorder={setCurrentShowEntries}
+        onReorder={() => {}} // Disabled for now
         as="tbody"
       >
         {current.map((entry, index) => (

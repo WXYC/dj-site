@@ -45,6 +45,7 @@ export function convertBinToQueue(binEntry: AlbumEntry): FlowsheetQuery {
     artist: binEntry.artist.name,
     label: binEntry.label,
     rotation_id: binEntry.rotation_id,
+    play_freq: binEntry.play_freq,
     request: false,
   };
 }

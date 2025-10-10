@@ -6,6 +6,8 @@ import { toTitleCase } from "@/src/utilities/stringutilities";
 import { Typography, TypographyProps } from "@mui/joy";
 import { ClickAwayListener } from "@mui/material";
 import React, { useCallback, useState } from "react";
+import { useAppDispatch } from "@/lib/hooks";
+import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 
 export default function FlowsheetEntryField({
   entry,
@@ -24,6 +26,7 @@ export default function FlowsheetEntryField({
   editable: boolean;
 } & Omit<TypographyProps, "whiteSpace" | "overflow" | "textOverflow">) {
   const { live } = useShowControl();
+  const dispatch = useAppDispatch();
 
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(String(entry[name]));
@@ -35,14 +38,24 @@ export default function FlowsheetEntryField({
       e.preventDefault();
       setEditing(false);
 
-      updateFlowsheet({
-        entry_id: entry.id,
-        data: {
-          [name]: value,
-        },
-      });
+      if (queue) {
+        // Update queue entry in Redux state
+        dispatch(flowsheetSlice.actions.updateQueueEntry({
+          entry_id: entry.id,
+          field: name,
+          value: value,
+        }));
+      } else {
+        // Update flowsheet entry via API
+        updateFlowsheet({
+          entry_id: entry.id,
+          data: {
+            [name]: value,
+          },
+        });
+      }
     },
-    [entry, value]
+    [entry, value, queue, name, dispatch, updateFlowsheet]
   );
 
   return editing ? (

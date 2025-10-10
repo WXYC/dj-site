@@ -26,8 +26,12 @@ export default function EntryText({
   if (isFlowsheetSongEntry(entry)) {
     return (
       <EntryStack>
-        <Typography level="title-md">{entry.album_title}</Typography>
-        <Typography level="body-sm">{entry.artist_name}</Typography>
+        <Typography level="title-md" noWrap sx={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+          {entry.album_title}
+        </Typography>
+        <Typography level="body-sm" noWrap sx={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+          {entry.artist_name}
+        </Typography>
       </EntryStack>
     );
   }
@@ -35,7 +39,7 @@ export default function EntryText({
   if (isFlowsheetBreakpointEntry(entry)) {
     return (
       <EntryStack>
-        <Typography color="warning" level="title-md">
+        <Typography color="warning" level="title-md" noWrap sx={{ overflow: "hidden", textOverflow: "ellipsis" }}>
           {entry.message}
         </Typography>
       </EntryStack>
@@ -45,14 +49,14 @@ export default function EntryText({
   if (isFlowsheetStartShowEntry(entry)) {
     return (
       <EntryStack>
-        <Stack direction="row" spacing={0.5}>
-          <Typography level="title-md" color={"success"}>
+        <Stack direction="row" spacing={0.5} sx={{ minWidth: 0, overflow: "hidden" }}>
+          <Typography level="title-md" color={"success"} sx={{ flexShrink: 0 }}>
             {entry.dj_name}
           </Typography>
           <Typography
             level="title-md"
             textColor={"text.tertiary"}
-            sx={{ alignSelf: "center" }}
+            sx={{ alignSelf: "center", flexShrink: 0 }}
           >
             started the set
           </Typography>
@@ -64,14 +68,14 @@ export default function EntryText({
   if (isFlowsheetEndShowEntry(entry)) {
     return (
       <EntryStack>
-        <Stack direction="row" spacing={0.5}>
-          <Typography level="title-md" color={"primary"}>
+        <Stack direction="row" spacing={0.5} sx={{ minWidth: 0, overflow: "hidden" }}>
+          <Typography level="title-md" color={"primary"} sx={{ flexShrink: 0 }}>
             {entry.dj_name}
           </Typography>
           <Typography
             level="title-md"
             textColor={"text.tertiary"}
-            sx={{ alignSelf: "center" }}
+            sx={{ alignSelf: "center", flexShrink: 0 }}
           >
             ended the set
           </Typography>
@@ -92,7 +96,7 @@ export default function EntryText({
 
   return (
     <EntryStack>
-      <Typography level="title-md">
+      <Typography level="title-md" noWrap sx={{ overflow: "hidden", textOverflow: "ellipsis" }}>
         {(entry as FlowsheetMessageEntry).message}
       </Typography>
     </EntryStack>
@@ -105,6 +109,9 @@ const EntryStack = ({ children }: { children?: React.ReactNode }) => {
       sx={{
         minHeight: "60px",
         justifyContent: "center",
+        minWidth: 0,
+        width: "100%",
+        overflow: "hidden",
       }}
     >
       {children}

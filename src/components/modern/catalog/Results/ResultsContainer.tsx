@@ -5,14 +5,29 @@ import { useCatalogSearch } from "@/src/hooks/catalogHooks";
 import { DoubleArrow } from "@mui/icons-material";
 import { Box, Button, Sheet, Table, Typography } from "@mui/joy";
 import { useRef } from "react";
+import { useAddToBin } from "@/src/hooks/binHooks";
+import { toast } from "sonner";
 
 export default function ResultsContainer({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { searchString, selected } = useCatalogSearch();
+  const { searchString, selected, clearSelection } = useCatalogSearch();
+  const { addToBin, loading } = useAddToBin();
   const tableRef = useRef<HTMLTableElement>(null);
+
+  const handleAddSelectedToBin = () => {
+    if (selected.length === 0) return;
+    
+    // Add each selected album to bin
+    selected.forEach((albumId) => {
+      addToBin(albumId);
+    });
+    
+    toast.success(`Added ${selected.length} album${selected.length > 1 ? 's' : ''} to bin`);
+    clearSelection();
+  };
 
   return (
     <Sheet
@@ -80,12 +95,13 @@ export default function ResultsContainer({
             variant="solid"
             color="primary"
             size="lg"
+            loading={loading}
             sx={{
               marginRight: "1rem",
             }}
-            onClick={() => alert("Will add selected to bin!")}
+            onClick={handleAddSelectedToBin}
           >
-            Add selected to bin
+            Add {selected.length} to bin
           </Button>
         </Box>
       )}

@@ -3,7 +3,7 @@ import {
   useDeleteFromBinMutation,
   useGetBinQuery,
 } from "@/lib/features/bin/api";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useRegistry } from "./authenticationHooks";
 import { useAppSelector } from "@/lib/hooks";
@@ -84,60 +84,39 @@ export const useAddToBin = () => {
 };
 
 export const useBinResults = () => {
+  const { bin, loading, isSuccess } = useBin();
+  const flowsheetQuery = useAppSelector(flowsheetSlice.selectors.getSearchQuery);
 
-  const { bin, loading, isSuccess, isError } = useBin();
+  // Calculate search results during render with useMemo instead of useState + useEffect
+  const searchResults = useMemo(() => {
+    if (
+      !bin ||
+      loading ||
+      !isSuccess ||
+      flowsheetQuery.album.length + flowsheetQuery.artist.length + flowsheetQuery.label.length <= 3
+    ) {
+      return [];
+    }
 
-  const findInBin = useCallback((query: FlowsheetQuery) => {
-    if ((query.album.length + query.artist.length + query.label.length) <= 3 || !bin) return [];
-    var searchTerms = [query.album, query.artist, query.label].map((term) => term.toLowerCase());
+    const searchTerms = [flowsheetQuery.album, flowsheetQuery.artist, flowsheetQuery.label].map((term) =>
+      term.toLowerCase()
+    );
 
-    var matches = [];
-
-    for (var i = 0; i < bin.length; i++) {
-      var item = bin[i];
-
-      var isMatch = false;
-
-      var terms = [
+    return bin.filter((item) => {
+      const terms = [
         item.artist?.name.toLowerCase() ?? "",
         item.title?.toLowerCase() ?? "",
         item.label?.toLowerCase() ?? "",
       ];
-      for (var j = 0; j < searchTerms.length; j++) {
-        var searchTerm = searchTerms[j];
 
-        if (searchTerm.length <= 3) continue;
-
-        // Check if any of the terms match the search term
-        var termMatches = terms.some((term) => term.indexOf(searchTerm) !== -1);
-
-        // If the current search term doesn't match any of the terms, break the loop
-        if (termMatches) {
-          isMatch = true;
-          break;
-        }
-      }
-
-      // If all search terms match any of the terms, add the item to the matches
-      if (isMatch) {
-        matches.push(item);
-      }
-    }
-
-    return matches;
-  }, [bin]);
-
-  const [searchResults, setSearchResults] = useState<AlbumEntry[]>([]);
-
-  const flowsheetQuery = useAppSelector(flowsheetSlice.selectors.getSearchQuery);
-
-  useEffect(() => {
-    if (!loading && isSuccess && bin) {
-      setSearchResults(findInBin(flowsheetQuery));
-    }
+      return searchTerms.some((searchTerm) => {
+        if (searchTerm.length <= 3) return false;
+        return terms.some((term) => term.includes(searchTerm));
+      });
+    });
   }, [bin, loading, isSuccess, flowsheetQuery]);
 
   return {
-    searchResults
-  }
+    searchResults,
+  };
 };

@@ -23,7 +23,7 @@ import {
   isFlowsheetStartShowEntry,
 } from "@/lib/features/flowsheet/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRegistry } from "./authenticationHooks";
 import { useBinResults } from "./binHooks";
 import {
@@ -33,14 +33,6 @@ import {
 
 export const useShowControl = () => {
   const { loading: userloading, info: userData } = useRegistry();
-
-  const [live, setLive] = useState(false);
-
-  useEffect(() => {
-    if (!userData || userData.id === undefined || userloading) {
-      return;
-    }
-  }, [userData, userloading]);
 
   const {
     data: liveList,
@@ -60,22 +52,19 @@ export const useShowControl = () => {
     skip: !userData || userloading,
   });
 
-  const [currentShow, setCurrentShow] = useState<number>(-1);
-  useEffect(() => {
-    if (isSuccess && data) {
-      setCurrentShow(data[0].show_id);
-    }
+  // Calculate derived state during render - no useState/useEffect needed
+  const currentShow = useMemo(() => {
+    return isSuccess && data && data.length > 0 ? data[0].show_id : -1;
   }, [data, isSuccess]);
 
-  useEffect(() => {
-    if (isSuccess) {
-      setLive(
-        liveList?.djs !== undefined &&
-          liveList?.djs.length !== 0 &&
-          liveList.djs.some((dj) => dj.id === userData?.id)
-      );
-    }
-  }, [liveList, isSuccess]);
+  const live = useMemo(() => {
+    if (!isSuccess) return false;
+    return (
+      liveList?.djs !== undefined &&
+      liveList?.djs.length !== 0 &&
+      liveList.djs.some((dj) => dj.id === userData?.id)
+    );
+  }, [liveList, isSuccess, userData?.id]);
 
   const [goLiveFunction, goingLiveResult] = useJoinShowMutation();
   const [leaveFunction, leavingResult] = useLeaveShowMutation();
@@ -174,25 +163,14 @@ export const useFlowsheet = () => {
     }
 
     addToFlowsheet(arg);
+    // Dispatch immediately after action instead of watching in useEffect
+    dispatch(
+      flowsheetSlice.actions.setPagination({
+        page: 0,
+        limit: 1,
+      })
+    );
   };
-
-  useEffect(() => {
-    if (addToFlowsheetResult.isLoading) {
-      dispatch(
-        flowsheetSlice.actions.setPagination({
-          page: 0,
-          limit: 1,
-        })
-      );
-    } else if (addToFlowsheetResult.isSuccess) {
-      dispatch(
-        flowsheetSlice.actions.setPagination({
-          page: 0,
-          limit: 1,
-        })
-      );
-    }
-  }, [addToFlowsheetResult]);
 
   const [removeFromFlowsheet, _] = useRemoveFromFlowsheetMutation();
   const removeFromFlowsheetCallback = (entry: number) => {
@@ -234,37 +212,32 @@ export const useFlowsheet = () => {
 
   const { currentShow, live } = useShowControl();
 
-  const currentShowEntries = useAppSelector(
-    flowsheetSlice.selectors.getCurrentShowEntries
-  );
+  // Calculate derived state during render instead of useEffect + Redux
+  const currentShowEntries = useMemo(() => {
+    if (currentShow === -1 || !live || !data) return [];
+    return data.filter(
+      (entry) =>
+        entry.show_id === currentShow &&
+        !isFlowsheetStartShowEntry(entry) &&
+        !isFlowsheetEndShowEntry(entry)
+    );
+  }, [data, currentShow, live]);
+
   const setCurrentShowEntries = (entries: FlowsheetEntry[]) => {
     dispatch(flowsheetSlice.actions.setCurrentShowEntries(entries));
   };
 
-  useEffect(() => {
-    if (currentShow === -1) return;
-
-    setCurrentShowEntries(
-      live
-        ? data?.filter(
-            (entry) =>
-              entry.show_id == currentShow &&
-              (!live ||
-                (!isFlowsheetStartShowEntry(entry) &&
-                  !isFlowsheetEndShowEntry(entry)))
-          ) ?? []
-        : []
-    );
-  }, [data, currentShow, dispatch, isSuccess, live]);
-
-  const lastShowsEntries = live
-    ? data?.filter(
-        (entry) =>
-          entry.show_id != currentShow ||
-          isFlowsheetStartShowEntry(entry) ||
-          isFlowsheetEndShowEntry(entry)
-      ) ?? []
-    : data ?? [];
+  const lastShowsEntries = useMemo(() => {
+    if (!data) return [];
+    return live
+      ? data.filter(
+          (entry) =>
+            entry.show_id !== currentShow ||
+            isFlowsheetStartShowEntry(entry) ||
+            isFlowsheetEndShowEntry(entry)
+        )
+      : data;
+  }, [data, live, currentShow]);
 
   const [switchBackendEntries, switchBackendResult] =
     useSwitchEntriesMutation();
@@ -366,6 +339,7 @@ export const useFlowsheetSubmit = () => {
 
   const { addToQueue } = useQueue();
   const { addToFlowsheet } = useFlowsheet();
+  const dispatch = useAppDispatch();
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === "Control") {
@@ -430,10 +404,12 @@ export const useFlowsheetSubmit = () => {
       } else {
         addToFlowsheet(convertQueryToSubmission(data));
       }
+
+      // Close the search bar after submission
+      dispatch(flowsheetSlice.actions.resetSearch());
     },
     [
-      handleKeyDown,
-      handleKeyUp,
+      // Removed handleKeyDown/handleKeyUp from dependencies
       ctrlKeyPressed,
       addToFlowsheet,
       addToQueue,
@@ -442,26 +418,20 @@ export const useFlowsheetSubmit = () => {
       binResults,
       rotationResults,
       catalogResults,
+      dispatch,
     ]
   );
 
+  // Combine both keyboard listeners into one effect
   useEffect(() => {
-    document.removeEventListener("keydown", handleKeyDown);
     document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [handleKeyDown]);
-
-  useEffect(() => {
-    document.removeEventListener("keyup", handleKeyUp);
     document.addEventListener("keyup", handleKeyUp);
 
     return () => {
+      document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("keyup", handleKeyUp);
     };
-  }, [handleKeyUp]);
+  }, [handleKeyDown, handleKeyUp]);
 
   return {
     ctrlKeyPressed,
