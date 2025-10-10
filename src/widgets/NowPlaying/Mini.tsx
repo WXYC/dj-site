@@ -53,6 +53,9 @@ export default function NowPlayingMini({
       variant="outlined"
       sx={{
         overflow: "hidden",
+        width: "100%",
+        maxWidth: "100%",
+        minWidth: 0,
       }}
     >
       <GradientAudioVisualizer
@@ -82,9 +85,9 @@ export default function NowPlayingMini({
           {playing ? <Pause /> : <PlayArrow />}
         </IconButton>
       </CardContent>
-      <CardContent sx={{ justifyContent: "space-between" }}>
+      <CardContent sx={{ justifyContent: "space-between", minWidth: 0, flex: 1, overflow: "hidden" }}>
         <EntryText entry={entry} />
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: "wrap" }}>
           {onAirDJs?.map((dj) => (
             <Chip key={dj.dj_name} variant="soft" startDecorator={<Headset />}>
               DJ {dj.dj_name}

@@ -11,18 +11,18 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
 import { Stack, Tooltip } from "@mui/joy";
 
-import { useBin } from "@/src/hooks/binHooks";
 import { useCatalogSearch } from "@/src/hooks/catalogHooks";
-import { Inventory, QueueMusic } from "@mui/icons-material";
+import { QueueMusic } from "@mui/icons-material";
 import Link from "next/link";
-import DeleteFromBin from "../../Rightbar/Bin/DeleteFromBin";
 import { ArtistAvatar } from "../ArtistAvatar";
-import AddToBin from "./AddToBin";
-import { useShowControl } from "@/src/hooks/flowsheetHooks";
+import { useQueue, useShowControl } from "@/src/hooks/flowsheetHooks";
 import AddRemoveBin from "./AddRemoveBin";
+import { convertBinToQueue } from "@/lib/features/bin/conversions";
+import { toast } from "sonner";
 
 export default function CatalogResult({ album }: { album: AlbumEntry }) {
   const { live } = useShowControl();
+  const { addToQueue } = useQueue();
 
   const { selected, setSelection, orderBy } = useCatalogSearch();
 
@@ -104,11 +104,21 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
               </IconButton>
             </Link>
           </Tooltip>
-          {live && (<Tooltip title="Add to Queue">
-            <IconButton onClick={() => {}}>
-              <QueueMusic />
-            </IconButton>
-          </Tooltip>)}
+          {live && (
+            <Tooltip title="Add to Queue" variant="outlined" size="sm">
+              <IconButton
+                variant="soft"
+                color="neutral"
+                size="sm"
+                onClick={() => {
+                  addToQueue(convertBinToQueue(album));
+                  toast.success(`Added ${album.title} to queue`);
+                }}
+              >
+                <QueueMusic />
+              </IconButton>
+            </Tooltip>
+          )}
           <AddRemoveBin album={album} />
         </Stack>
       </td>

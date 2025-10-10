@@ -1,6 +1,6 @@
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import { useAddToBin } from "@/src/hooks/binHooks";
-import { Inventory } from "@mui/icons-material";
+import { Archive } from "@mui/icons-material";
 import { IconButton, IconButtonProps, Tooltip } from "@mui/joy";
 
 export default function AddToBin({
@@ -16,7 +16,7 @@ export default function AddToBin({
         loading={binLoading}
         {...props}
       >
-        <Inventory />
+        <Archive />
       </IconButton>
     </Tooltip>
   );

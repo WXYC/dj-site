@@ -1,3 +1,5 @@
+import { toast } from "sonner";
+
 export default async function getArtworkFromItunes({
   title,
   artist,
@@ -5,33 +7,27 @@ export default async function getArtworkFromItunes({
   title: string;
   artist: string;
 }) {
-  let url =
-    "https://itunes.apple.com/search?" +
-    "&term=" +
-    title +
-    " " +
-    artist +
-    "&entity=album";
-  const iTunesResponse = await fetch(url).then((response) => {
-    if (response.ok && response.body) {
-      return response.body
-        .getReader()
-        .read()
-        .then(({ value, done }) => {
-          let responseText = "";
-          try {
-            const decoder = new TextDecoder("utf-8");
-            responseText = decoder.decode(value);
-            const jsonResponse = JSON.parse(responseText);
-
-            let lowResDefault = jsonResponse?.results?.[0]?.artworkUrl100;
-            return lowResDefault?.replace("100x100", "600x600");
-          } catch (e) {
-            console.error("Error fetching data from Itunes:", e);
-            return null;
-          }
-        });
-    } else return null;
-  });
-  return iTunesResponse;
+  try {
+    const searchTerm = encodeURIComponent(`${title} ${artist}`);
+    const url = `https://itunes.apple.com/search?term=${searchTerm}&entity=album`;
+    
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      console.log(`Failed to fetch album art from iTunes (${response.status})`);
+      return null;
+    }
+    
+    const jsonResponse = await response.json();
+    
+    const lowResDefault = jsonResponse?.results?.[0]?.artworkUrl100;
+    if (!lowResDefault) {
+      return null;
+    }
+    
+    return lowResDefault.replace("100x100", "600x600");
+  } catch (e) {
+    console.log("Error fetching album art from iTunes");
+    return null;
+  }
 }

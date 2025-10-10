@@ -29,6 +29,9 @@ export default function RightbarContainer({
         flexDirection: "column",
         justifyContent: "space-between",
         gap: 1,
+        width: { xs: "100%", sm: 350, lg: 450 },
+        maxWidth: { xs: "100%", sm: 350, lg: 450 },
+        minWidth: 0,
       }}
     >
       {children}

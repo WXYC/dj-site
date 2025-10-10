@@ -74,20 +74,34 @@ export default function SongEntry({
 
   const dispatch = useAppDispatch();
 
+  const handleMouseEnter = () => {
+    if (queue && live) {
+      setCanClose(true);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setCanClose(false);
+  };
+
   return (
     <DraggableEntryWrapper
       controls={controls}
       entryRef={entry}
-      variant="plain"
-      color={playing ? "primary" : "neutral"}
+      variant={queue ? "soft" : playing ? "solid" : "plain"}
+      color={queue ? "success" : playing ? "primary" : "neutral"}
       style={{
         height: "60px",
         borderRadius: "md",
         marginBottom: playing && autoplay ? "0.25rem" : "initial",
+        opacity: queue ? 0.85 : 1,
       }}
     >
-      <td>
-        <Stack direction="row">
+      <td
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
+        <Stack direction="row" sx={{ position: "relative" }}>
           {editable && <DragButton controls={controls} />}
           <Badge
             size="sm"
@@ -118,9 +132,46 @@ export default function SongEntry({
               )}
             </AspectRatio>
           </Badge>
+          {canClose && queue && (
+            <Tooltip
+              title="Play this song now (add to flowsheet)"
+              placement="right"
+              variant="outlined"
+              size="sm"
+            >
+              <IconButton
+                size="sm"
+                variant="solid"
+                color="primary"
+                sx={{
+                  position: "absolute",
+                  left: editable ? "10px" : "0px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  zIndex: 10,
+                }}
+                onClick={() => {
+                  addToFlowsheet({
+                    track_title: entry.track_title,
+                    artist_name: entry.artist_name,
+                    album_title: entry.album_title,
+                    record_label: entry.record_label,
+                    request_flag: entry.request_flag,
+                    rotation_id: entry.rotation_id,
+                    album_id: entry.album_id,
+                    play_freq: entry.rotation,
+                  } as FlowsheetSubmissionParams).then(() => {
+                    dispatch(flowsheetSlice.actions.removeFromQueue(entry.id));
+                  });
+                }}
+              >
+                <PlayArrow />
+              </IconButton>
+            </Tooltip>
+          )}
         </Stack>
       </td>
-      <td colSpan={2}>
+      <td colSpan={2} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
         <FlowsheetEntryField
           label="album"
           name={"album_title"}
@@ -139,7 +190,7 @@ export default function SongEntry({
           level="body-xs"
         />
       </td>
-      <td colSpan={2}>
+      <td colSpan={2} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
         <FlowsheetEntryField
           label="song"
           name={"track_title"}
@@ -150,7 +201,7 @@ export default function SongEntry({
           startDecorator={<MusicNote />}
         />
       </td>
-      <td colSpan={2}>
+      <td colSpan={2} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
         <FlowsheetEntryField
           label="label"
           name={"record_label"}
@@ -161,43 +212,13 @@ export default function SongEntry({
           startDecorator={<Album />}
         />
       </td>
-      <td>
+      <td onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
         <Stack
           direction="row"
           justifyContent={"flex-end"}
           alignItems={"center"}
           spacing={0.5}
-          sx={{
-            position: "relative",
-          }}
         >
-          {canClose && queue && (
-            <IconButton
-              size="sm"
-              variant="solid"
-              color="primary"
-              sx={{
-                position: "absolute",
-                left: 16,
-              }}
-              onClick={() => {
-                addToFlowsheet({
-                  track_title: entry.track_title,
-                  artist_name: entry.artist_name,
-                  album_title: entry.album_title,
-                  record_label: entry.record_label,
-                  request_flag: entry.request_flag,
-                  rotation_id: entry.rotation_id,
-                  album_id: entry.album_id,
-                  play_freq: entry.rotation,
-                } as FlowsheetSubmissionParams).then(() => {
-                  dispatch(flowsheetSlice.actions.removeFromQueue(entry.id));
-                });
-              }}
-            >
-              <PlayArrow />
-            </IconButton>
-          )}
           <Box
             sx={{
               display: "flex",
@@ -226,14 +247,24 @@ export default function SongEntry({
                   },
                 }}
                 checked={entry.request_flag}
-                onChange={(e) =>
-                  updateFlowsheet({
-                    entry_id: entry.id,
-                    data: {
-                      request_flag: e.target.checked,
-                    },
-                  })
-                }
+                onChange={(e) => {
+                  if (queue) {
+                    // Update queue entry in Redux state
+                    dispatch(flowsheetSlice.actions.updateQueueEntry({
+                      entry_id: entry.id,
+                      field: 'request_flag',
+                      value: e.target.checked,
+                    }));
+                  } else {
+                    // Update flowsheet entry via API
+                    updateFlowsheet({
+                      entry_id: entry.id,
+                      data: {
+                        request_flag: e.target.checked,
+                      },
+                    });
+                  }
+                }}
               />
             </Tooltip>
           </Box>
@@ -246,18 +277,6 @@ export default function SongEntry({
           >
             <InfoOutlined />
           </LinkIconButton>
-          {playing && queueItems.length > 0 && (
-            <IconButton
-              color="neutral"
-              variant="plain"
-              size="sm"
-              onClick={() => {
-                console.log("play off top");
-              }}
-            >
-              <KeyboardArrowDown />
-            </IconButton>
-          )}
           {editable && (
             <>
               <RemoveButton queue={queue} entry={entry} />

@@ -56,7 +56,8 @@ export default function NowPlayingMain({
       sx={{
         width: width || "100%",
         height: height || "100%",
-        minWidth: "350px",
+        minWidth: 0,
+        maxWidth: "100%",
         minHeight: "150px",
       }}
     >

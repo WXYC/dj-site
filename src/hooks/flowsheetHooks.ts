@@ -366,6 +366,7 @@ export const useFlowsheetSubmit = () => {
 
   const { addToQueue } = useQueue();
   const { addToFlowsheet } = useFlowsheet();
+  const dispatch = useAppDispatch();
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === "Control") {
@@ -430,6 +431,9 @@ export const useFlowsheetSubmit = () => {
       } else {
         addToFlowsheet(convertQueryToSubmission(data));
       }
+
+      // Close the search bar after submission
+      dispatch(flowsheetSlice.actions.resetSearch());
     },
     [
       handleKeyDown,
@@ -442,6 +446,7 @@ export const useFlowsheetSubmit = () => {
       binResults,
       rotationResults,
       catalogResults,
+      dispatch,
     ]
   );
 

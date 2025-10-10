@@ -1,6 +1,6 @@
 import { createAppSlice } from "@/lib/createAppSlice";
 import { PayloadAction } from "@reduxjs/toolkit";
-import { FlowsheetEntry, FlowsheetFrontendState, FlowsheetQuery, FlowsheetRequestParams, FlowsheetSearchProperty, FlowsheetSwitchParams } from "./types";
+import { FlowsheetEntry, FlowsheetFrontendState, FlowsheetQuery, FlowsheetRequestParams, FlowsheetSearchProperty, FlowsheetSongEntry, FlowsheetSwitchParams } from "./types";
 
 export const defaultFlowsheetFrontendState: FlowsheetFrontendState = {
   autoplay: false,
@@ -65,6 +65,15 @@ export const flowsheetSlice = createAppSlice({
     },
     removeFromQueue: (state, action) => {
       state.queue = state.queue.filter((entry) => entry.id !== action.payload);
+    },
+    updateQueueEntry: (state, action: PayloadAction<{ entry_id: number; field: keyof FlowsheetSongEntry; value: string | boolean }>) => {
+      const entry = state.queue.find((e) => e.id === action.payload.entry_id);
+      if (entry) {
+        (entry as any)[action.payload.field] = action.payload.value;
+      }
+    },
+    reorderQueue: (state, action: PayloadAction<FlowsheetSongEntry[]>) => {
+      state.queue = action.payload;
     },
     setSelectedResult: (state, action) => {
       state.search.selectedResult = action.payload;
