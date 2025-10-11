@@ -1,6 +1,7 @@
 import { createAppSlice } from "@/lib/createAppSlice";
 import { PayloadAction } from "@reduxjs/toolkit";
 import { FlowsheetEntry, FlowsheetFrontendState, FlowsheetQuery, FlowsheetRequestParams, FlowsheetSearchProperty, FlowsheetSongEntry, FlowsheetSwitchParams } from "./types";
+import { clearQueueFromStorage, loadQueueFromStorage, saveQueueToStorage } from "./queue-storage";
 
 export const defaultFlowsheetFrontendState: FlowsheetFrontendState = {
   autoplay: false,
@@ -61,19 +62,30 @@ export const flowsheetSlice = createAppSlice({
         rotation: action.payload.play_freq,
         rotation_id: action.payload.rotation_id,
         album_id: action.payload.album_id,
-      })
+      });
+      saveQueueToStorage(state.queue);
     },
     removeFromQueue: (state, action) => {
       state.queue = state.queue.filter((entry) => entry.id !== action.payload);
+      saveQueueToStorage(state.queue);
+    },
+    clearQueue: (state) => {
+      state.queue = [];
+      clearQueueFromStorage();
+    },
+    loadQueue: (state) => {
+      state.queue = loadQueueFromStorage();
     },
     updateQueueEntry: (state, action: PayloadAction<{ entry_id: number; field: keyof FlowsheetSongEntry; value: string | boolean }>) => {
       const entry = state.queue.find((e) => e.id === action.payload.entry_id);
       if (entry) {
         (entry as any)[action.payload.field] = action.payload.value;
       }
+      saveQueueToStorage(state.queue);
     },
     reorderQueue: (state, action: PayloadAction<FlowsheetSongEntry[]>) => {
       state.queue = action.payload;
+      saveQueueToStorage(state.queue);
     },
     setSelectedResult: (state, action) => {
       state.search.selectedResult = action.payload;

@@ -5,12 +5,18 @@ import SongEntry from "@/src/components/modern/flowsheet/Entries/SongEntry/SongE
 import { Table, useColorScheme } from "@mui/joy";
 import { Reorder } from "motion/react";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export default function Queue() {
   const { mode } = useColorScheme();
   const queue = useAppSelector((state) => state.flowsheet.queue);
   const dispatch = useAppDispatch();
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Only render queue content after client-side mount to avoid hydration mismatch
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Handler for reordering queue items - Disabled for now
   const handleReorder = useCallback((newOrder: typeof queue) => {
@@ -39,12 +45,12 @@ export default function Queue() {
         </tr>
       </thead>
       <Reorder.Group
-        values={queue.toReversed()}
+        values={isMounted ? queue.toReversed() : []}
         axis="y"
         onReorder={handleReorder}
         as="tbody"
       >
-        {queue.toReversed().map((entry) => (
+        {isMounted && queue.toReversed().map((entry) => (
           <SongEntry
             key={`queue-${entry.id}`}
             entry={entry}
