@@ -40,6 +40,7 @@ export const useShowControl = () => {
     isSuccess: liveListSuccess,
   } = useWhoIsLiveQuery(undefined, {
     skip: !userData || userloading,
+    pollingInterval: 60000, // Poll every 60 seconds to keep live status updated
   });
 
   const pagination = useAppSelector(flowsheetSlice.selectors.getPagination);
@@ -50,6 +51,7 @@ export const useShowControl = () => {
     isError,
   } = useGetEntriesQuery(pagination, {
     skip: !userData || userloading,
+    pollingInterval: 60000, // Poll every 60 seconds to keep flowsheet updated
   });
 
   // Calculate derived state during render - no useState/useEffect needed
@@ -153,23 +155,27 @@ export const useFlowsheet = () => {
     pagination,
     {
       skip: !userData || userloading,
+      pollingInterval: 60000, // Poll every 60 seconds to keep flowsheet updated
     }
   );
 
   const [addToFlowsheet, addToFlowsheetResult] = useAddToFlowsheetMutation();
   const addToFlowsheetCallback = (arg: FlowsheetSubmissionParams) => {
     if (!userData || userData.id === undefined || userloading) {
-      return;
+      return Promise.reject('User not logged in');
     }
 
-    addToFlowsheet(arg);
-    // Dispatch immediately after action instead of watching in useEffect
-    dispatch(
-      flowsheetSlice.actions.setPagination({
-        page: 0,
-        limit: 1,
-      })
-    );
+    // Return the promise so callers can wait for completion
+    return addToFlowsheet(arg).unwrap().then((result) => {
+      // Dispatch after successful mutation
+      dispatch(
+        flowsheetSlice.actions.setPagination({
+          page: 0,
+          limit: 1,
+        })
+      );
+      return result;
+    });
   };
 
   const [removeFromFlowsheet, _] = useRemoveFromFlowsheetMutation();
