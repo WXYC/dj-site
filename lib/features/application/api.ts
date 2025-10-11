@@ -12,29 +12,10 @@ export const applicationApi = createApi({
   reducerPath: "applicationApi",
   tagTypes: ["Experience", "Rightbar"],
   endpoints: (builder) => ({
-    /**
-     * @deprecated Use useGetActiveExperienceQuery from experienceApi instead
-     */
-    getClassic: builder.query<boolean, void>({
-      query: () => "",
-      providesTags: ["Experience"],
-      transformResponse: (response: ApplicationState) => response.experience === "classic",
-    }),
     getRightbar: builder.query<boolean, void>({
       query: () => "",
       providesTags: ["Rightbar"],
       transformResponse: (response: ApplicationState) => response.rightBarMini,
-    }),
-    /**
-     * @deprecated Use useSwitchExperienceMutation from experienceApi instead
-     */
-    toggleClassic: builder.mutation<boolean, void>({
-      query: () => ({
-        url: "/classic",
-        method: "POST",
-      }),
-      invalidatesTags: ["Experience"],
-      transformResponse: (response: ApplicationState) => response.experience === "classic",
     }),
     toggleRightbar: builder.mutation<boolean, void>({
       query: () => ({
@@ -48,8 +29,6 @@ export const applicationApi = createApi({
 });
 
 export const {
-  useGetClassicQuery,
-  useToggleClassicMutation,
   useGetRightbarQuery,
   useToggleRightbarMutation,
 } = applicationApi;
