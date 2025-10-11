@@ -2,7 +2,7 @@
 
 import { AlbumEntry } from "@/lib/features/catalog/types";
 
-import { ArtistAvatar } from "@/src/components/modern/catalog/ArtistAvatar";
+import { ArtistAvatar } from "@/src/components/experiences/modern/catalog/ArtistAvatar";
 import {
   AspectRatio,
   Box,

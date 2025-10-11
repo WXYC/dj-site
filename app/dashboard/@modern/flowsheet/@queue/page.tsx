@@ -1,7 +1,7 @@
 "use client";
 
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import SongEntry from "@/src/components/modern/flowsheet/Entries/SongEntry/SongEntry";
+import SongEntry from "@/src/components/experiences/modern/flowsheet/Entries/SongEntry/SongEntry";
 import { Table, useColorScheme } from "@mui/joy";
 import { Reorder } from "motion/react";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";

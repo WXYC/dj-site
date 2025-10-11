@@ -1,8 +1,8 @@
 
-import PageHeader from "@/src/components/modern/Header/PageHeader";
-import MobileSearchBar from "@/src/components/modern/catalog/Search/MobileSearchBar";
-import SearchBar from "@/src/components/modern/catalog/Search/SearchBar";
-import Results from "@/src/components/modern/catalog/Results/Results";
+import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
+import MobileSearchBar from "@/src/components/experiences/modern/catalog/Search/MobileSearchBar";
+import SearchBar from "@/src/components/experiences/modern/catalog/Search/SearchBar";
+import Results from "@/src/components/experiences/modern/catalog/Results/Results";
 
 export default function CatalogPage() {
   return (

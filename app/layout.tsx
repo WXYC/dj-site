@@ -4,10 +4,9 @@ import { StoreProvider } from "@/src/StoreProvider";
 import "@/src/styles/globals.css";
 import { createServerSideProps } from "@/lib/features/session";
 import { Toaster } from "sonner";
-import Appbar from "@/src/components/Theme/Appbar";
+import Appbar from "@/src/components/shared/Theme/Appbar";
 import ThemeRegistry from "@/src/styles/ThemeRegistry";
 
-export const runtime = "edge";
 
 interface Props {
   children: ReactNode;
@@ -19,7 +18,7 @@ export default async function RootLayout({ children }: Props) {
   return (
     <StoreProvider>
       <ThemeRegistry options={{ key: "joy" }}>
-        <html lang="en" data-classic-view={serverSideProps.application.classic}>
+        <html lang="en" data-experience={serverSideProps.application.experience}>
           <body>
             <Toaster closeButton richColors />
             <div id="root">

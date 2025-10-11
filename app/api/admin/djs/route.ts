@@ -21,7 +21,6 @@ import {
 } from "@aws-sdk/client-cognito-identity-provider";
 import { NextRequest, NextResponse } from "next/server";
 
-export const runtime = "edge";
 
 //#region Get DJs
 export async function GET(request: NextRequest) {

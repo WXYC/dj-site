@@ -25,7 +25,6 @@ import {
   handleUpdateUserAttributesResponse,
 } from "./utilities";
 
-export const runtime = "edge";
 
 //#region GET CURRENT USER
 export async function GET(request: NextRequest) {

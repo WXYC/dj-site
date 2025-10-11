@@ -1,28 +1,21 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { ExperienceId } from "../experiences/types";
 import { ApplicationState } from "./types";
 
+/**
+ * Application API
+ * Manages application-level settings like rightbar state
+ * For experience switching, use experienceApi instead
+ */
 export const applicationApi = createApi({
   baseQuery: fetchBaseQuery({ baseUrl: "/api/view" }),
   reducerPath: "applicationApi",
-  tagTypes: ["Classic", "Rightbar"],
+  tagTypes: ["Experience", "Rightbar"],
   endpoints: (builder) => ({
-    getClassic: builder.query<boolean, void>({
-      query: () => "",
-      providesTags: ["Classic"],
-      transformResponse: (response: ApplicationState) => response.classic,
-    }),
     getRightbar: builder.query<boolean, void>({
       query: () => "",
       providesTags: ["Rightbar"],
       transformResponse: (response: ApplicationState) => response.rightBarMini,
-    }),
-    toggleClassic: builder.mutation<boolean, void>({
-      query: () => ({
-        url: "/classic",
-        method: "POST",
-      }),
-      invalidatesTags: ["Classic"],
-      transformResponse: (response: ApplicationState) => response.classic,
     }),
     toggleRightbar: builder.mutation<boolean, void>({
       query: () => ({
@@ -36,8 +29,6 @@ export const applicationApi = createApi({
 });
 
 export const {
-  useGetClassicQuery,
-  useToggleClassicMutation,
   useGetRightbarQuery,
   useToggleRightbarMutation,
 } = applicationApi;

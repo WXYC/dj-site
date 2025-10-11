@@ -1,7 +1,7 @@
 "use client";
 
-import Entry from "@/src/components/modern/flowsheet/Entries/Entry";
-import FlowsheetSkeletonLoader from "@/src/components/modern/flowsheet/FlowsheetSkeletonLoader";
+import Entry from "@/src/components/experiences/modern/flowsheet/Entries/Entry";
+import FlowsheetSkeletonLoader from "@/src/components/experiences/modern/flowsheet/FlowsheetSkeletonLoader";
 import { useFlowsheet } from "@/src/hooks/flowsheetHooks";
 import { Table, useColorScheme } from "@mui/joy";
 import { Reorder } from "motion/react";

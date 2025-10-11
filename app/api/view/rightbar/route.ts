@@ -3,8 +3,6 @@ import { sessionOptions } from "@/lib/features/session";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
-export const runtime = "edge";
-
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies();
 

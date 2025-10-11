@@ -1,7 +1,7 @@
-import FlowsheetSkeletonLoader from "@/src/components/modern/flowsheet/FlowsheetSkeletonLoader";
-import GoLive from "@/src/components/modern/flowsheet/GoLive";
-import InfiniteScroller from "@/src/components/modern/flowsheet/InfiniteScroller";
-import PageHeader from "@/src/components/modern/Header/PageHeader";
+import FlowsheetSkeletonLoader from "@/src/components/experiences/modern/flowsheet/FlowsheetSkeletonLoader";
+import GoLive from "@/src/components/experiences/modern/flowsheet/GoLive";
+import InfiniteScroller from "@/src/components/experiences/modern/flowsheet/InfiniteScroller";
+import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
 import { Divider } from "@mui/joy";
 import { Suspense } from "react";
 

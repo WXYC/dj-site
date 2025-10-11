@@ -6,7 +6,9 @@ import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
 import { useServerInsertedHTML } from "next/navigation";
 import React from "react";
-import theme from "./theme";
+import { useActiveExperience } from "@/lib/features/experiences/hooks";
+import modernTheme from "@/lib/features/experiences/modern/theme";
+import classicTheme from "@/lib/features/experiences/classic/theme";
 
 // This implementation is from emotion-js
 // https://github.com/emotion-js/emotion/issues/2928#issuecomment-1319747902
@@ -54,6 +56,9 @@ export default function ThemeRegistry(
       />
     );
   });
+
+  const experience = useActiveExperience();
+  const theme = experience === "classic" ? classicTheme : modernTheme;
 
   return (
     <CacheProvider value={cache}>

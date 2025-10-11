@@ -1,7 +1,7 @@
 import { isIncomplete, isPasswordReset } from "@/lib/features/authentication/types";
 import { createServerSideProps } from "@/lib/features/session";
 import { ReactNode } from "react";
-import Header from "./components/Layout/Header";
+import Header from "@/src/components/experiences/classic/login/Layout/Header";
 
 interface LoginProps {
   readonly normal: ReactNode;

@@ -1,4 +1,4 @@
-import ArtistLoadingAvatar from "@/src/components/modern/catalog/ArtistLoadingAvatar";
+import ArtistLoadingAvatar from "@/src/components/experiences/modern/catalog/ArtistLoadingAvatar";
 import {
   AspectRatio,
   Box,

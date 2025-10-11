@@ -1,12 +1,14 @@
 {
   "private": true,
   "scripts": {
-    "dev": "next",
+    "dev": "next dev",
     "build": "next build",
+    "build:opennext": "opennextjs-cloudflare build && node scripts/post-build.js",
     "start": "next start",
-    "pages:build": "npx @cloudflare/next-on-pages",
-    "preview": "npm run pages:build && wrangler pages dev",
-    "deploy": "npm run pages:build && wrangler pages deploy"
+    "preview": "npm run build:opennext && opennextjs-cloudflare preview",
+    "deploy": "npm run build:opennext && wrangler pages deploy .open-next/assets",
+    "upload": "npm run build:opennext && opennextjs-cloudflare upload",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
     "@atlaskit/pragmatic-drag-and-drop": "^1.7.2",
@@ -17,6 +19,7 @@
     "@mui/icons-material": "^6.4.0",
     "@mui/joy": "^5.0.0-beta.51",
     "@mui/material": "^6.4.0",
+    "@opennextjs/cloudflare": "^1.10.1",
     "@reduxjs/toolkit": "^2.2.0",
     "@uidotdev/usehooks": "^2.4.1",
     "amazon-cognito-identity-js": "^6.3.12",
@@ -24,7 +27,7 @@
     "jose": "^5.9.6",
     "jwt-decode": "^4.0.0",
     "motion": "^12.16.0",
-    "next": "latest",
+    "next": "^15.5.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-fast-marquee": "^1.6.5",
@@ -34,10 +37,19 @@
     "webcrypt-session": "^0.5.1"
   },
   "devDependencies": {
-    "@cloudflare/next-on-pages": "^1.13.7",
     "@types/node": "20.2.5",
     "@types/react": "18.2.37",
     "@types/react-dom": "^18.2.18",
-    "typescript": "^5.3.3"
+    "esbuild": "^0.24.0",
+    "typescript": "^5.3.3",
+    "wrangler": "^4.42.2"
+  },
+  "optionalDependencies": {
+    "@ast-grep/napi-darwin-arm64": "^0.35.0",
+    "@ast-grep/napi-darwin-x64": "^0.35.0",
+    "@ast-grep/napi-linux-arm64-gnu": "^0.35.0",
+    "@ast-grep/napi-linux-x64-gnu": "^0.35.0",
+    "@ast-grep/napi-win32-arm64-msvc": "^0.35.0",
+    "@ast-grep/napi-win32-x64-msvc": "^0.35.0"
   }
 }

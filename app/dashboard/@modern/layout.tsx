@@ -1,10 +1,10 @@
 import { Box } from "@mui/joy";
 import React from "react";
-import Main from "@/src/components/modern/Main";
-import Rightbar from "@/src/components/modern/Rightbar/Rightbar";
-import MobileHeader from "@/src/components/modern/Header/MobileHeader";
-import DesktopHeader from "@/src/components/modern/Header/DesktopHeader";
-import Leftbar from "@/src/components/modern/Leftbar/Leftbar";
+import Main from "@/src/components/experiences/modern/Main";
+import Rightbar from "@/src/components/experiences/modern/Rightbar/Rightbar";
+import MobileHeader from "@/src/components/experiences/modern/Header/MobileHeader";
+import DesktopHeader from "@/src/components/experiences/modern/Header/DesktopHeader";
+import Leftbar from "@/src/components/experiences/modern/Leftbar/Leftbar";
 
 export default function ModernDashboard({
   children,
