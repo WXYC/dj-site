@@ -96,6 +96,9 @@ export const useShowControl = () => {
       return;
     }
 
+    // Clear the queue when ending the show
+    dispatch(flowsheetSlice.actions.clearQueue());
+    
     dispatch(
       flowsheetSlice.actions.setPagination({
         page: 0,
@@ -309,6 +312,18 @@ export const useQueue = () => {
   const dispatch = useAppDispatch();
 
   const queue = useAppSelector((state) => state.flowsheet.queue);
+
+  // Load queue from localStorage on mount
+  useEffect(() => {
+    dispatch(flowsheetSlice.actions.loadQueue());
+  }, [dispatch]); // Only run on mount
+
+  // Clear queue when user goes offline or is not live after loading completes
+  useEffect(() => {
+    if (!loading && !live && queue.length > 0) {
+      dispatch(flowsheetSlice.actions.clearQueue());
+    }
+  }, [live, loading, queue.length, dispatch]);
 
   const addToQueue = useCallback(
     (entry: FlowsheetQuery) => {
