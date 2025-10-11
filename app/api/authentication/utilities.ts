@@ -15,10 +15,14 @@ import {
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-
 // This client will be used to send commands to the Cognito Identity Provider
+// Explicitly configure to prevent file system access in Cloudflare Workers
 export const client = new CognitoIdentityProviderClient({
   region: String(process.env.AWS_REGION),
+  // Prevent AWS SDK from trying to read credentials from filesystem
+  credentials: undefined,
+  // Ensure SDK doesn't try to load config from files
+  runtime: "browser",
 });
 
 export async function handleForgotPasswordFlow(
