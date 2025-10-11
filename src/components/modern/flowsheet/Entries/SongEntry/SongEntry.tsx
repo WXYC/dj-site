@@ -36,6 +36,7 @@ import DragButton from "../Components/DragButton";
 import RemoveButton from "../Components/RemoveButton";
 import DraggableEntryWrapper from "../DraggableEntryWrapper";
 import FlowsheetEntryField from "./FlowsheetEntryField";
+import { toast } from "sonner";
 
 export default function SongEntry({
   playing,
@@ -160,9 +161,13 @@ export default function SongEntry({
                     rotation_id: entry.rotation_id,
                     album_id: entry.album_id,
                     play_freq: entry.rotation,
-                  } as FlowsheetSubmissionParams).then(() => {
-                    dispatch(flowsheetSlice.actions.removeFromQueue(entry.id));
-                  });
+                  } as FlowsheetSubmissionParams)
+                    .then(() => {
+                      dispatch(flowsheetSlice.actions.removeFromQueue(entry.id));
+                    })
+                    .catch((error) => {
+                      toast.error("Failed to add to flowsheet:", error);
+                    });
                 }}
               >
                 <PlayArrow />
