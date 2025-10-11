@@ -2,14 +2,6 @@
 
 This guide walks through creating a new experience (e.g., "minimal", "premium", etc.) for the application.
 
-## Prerequisites
-
-- Understanding of Next.js 13+ parallel routes
-- Familiarity with RTK Query and Redux
-- Knowledge of the existing codebase structure
-
-## Step-by-Step Guide
-
 ### 1. Define the Experience Type
 
 Update `lib/features/experiences/types.ts`:
@@ -316,73 +308,3 @@ if (!features.hasRightbar) {
   return null;
 }
 ```
-
-## Testing Checklist
-
-- [ ] Experience appears in registry
-- [ ] Theme loads correctly
-- [ ] CSS is properly scoped
-- [ ] All parallel routes render
-- [ ] Login flow works
-- [ ] Catalog search works
-- [ ] Flowsheet CRUD operations work
-- [ ] Experience switching works
-- [ ] Responsive design works
-- [ ] No console errors
-- [ ] Linter passes
-
-## Troubleshooting
-
-### Parallel Route Not Found
-- Ensure all parallel route folders have matching slots
-- Create `default.tsx` files for catch-all cases
-
-### Theme Not Applied
-- Check theme is exported as default
-- Verify theme is imported in `ThemeRegistry.tsx`
-- Check CSS variable prefix matches
-
-### Components Not Rendering
-- Verify import paths are correct
-- Check `ThemedLayout.tsx` includes your experience
-- Ensure slot names match in layout props
-
-## Advanced Topics
-
-### Custom Hooks Per Experience
-
-Create experience-specific hooks:
-```typescript
-// src/components/experiences/minimal/hooks/useMinimalLayout.ts
-export function useMinimalLayout() {
-  // Experience-specific logic
-}
-```
-
-### Experience-Specific Middleware
-
-Add experience-specific logic to `middleware.ts`:
-```typescript
-if (experience === "minimal") {
-  // Minimal-specific middleware logic
-}
-```
-
-### Progressive Enhancement
-
-Start with a basic implementation and progressively add features:
-1. Basic layout (header, main, footer)
-2. Core features (login, catalog, flowsheet)
-3. Enhanced features (search, filters, sorting)
-4. Optimizations (loading states, error handling)
-
-## Resources
-
-- [Next.js Parallel Routes](https://nextjs.org/docs/app/building-your-application/routing/parallel-routes)
-- [MUI Joy UI Theming](https://mui.com/joy-ui/customization/theme-builder/)
-- [RTK Query Documentation](https://redux-toolkit.js.org/rtk-query/overview)
-
-## Example: Complete Minimal Experience
-
-See `src/components/experiences/_template/` for a complete example structure (if available).
-
