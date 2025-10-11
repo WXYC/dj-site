@@ -86,46 +86,68 @@ export default function FlowsheetSearchResults({
           direction="row"
           justifyContent="flex-end"
           alignItems="center"
-          spacing={0.25}
+          spacing={0.5}
           sx={{
             flexShrink: 0,
-            height: "40px",
+            minHeight: "40px",
             p: 1,
-            "& > *": {
-              lineHeight: "0.5rem !important",
-            },
+            flexWrap: "wrap",
+            gap: 0.5,
           }}
         >
-          <Chip variant="soft" size="sm" color="neutral">
-            <Typography level="body-xs">TAB</Typography>
-          </Chip>
-          <Typography level="body-xs">switches search fields</Typography>
-          <Chip variant="soft" size="sm" color="neutral">
-            <Typography level="body-xs">SHIFT + TAB</Typography>
-          </Chip>
-          <Typography level="body-xs">goes back a field</Typography>
-          <Chip variant="soft" size="sm" color="neutral">
-            <Typography level="body-xs">UP ARROW</Typography>
-          </Chip>
-          <Typography level="body-xs">selects the previous entry</Typography>
-          <Chip variant="soft" size="sm" color="neutral">
-            <Typography level="body-xs">DOWN ARROW</Typography>
-          </Chip>
-          <Typography level="body-xs">selects the next entry</Typography>
-          <Chip variant="soft" size="sm" color="neutral">
-            <Typography level="body-xs">ENTER</Typography>
-          </Chip>
-          <Typography level="body-xs">
-            sets the current result{" "}
-            <Typography color="primary">playing</Typography>
-          </Typography>
-          <Chip variant="soft" size="sm" color="neutral">
-            <Typography level="body-xs">CTRL + ENTER</Typography>
-          </Chip>
-          <Typography level="body-xs">
-            adds the result to the{" "}
-            <Typography color="success">queue</Typography>
-          </Typography>
+          <Stack direction="row" alignItems="center" spacing={0.5}>
+            <Chip variant="soft" size="sm" color="neutral">
+              <Typography level="body-xs">TAB</Typography>
+            </Chip>
+            <Typography level="body-xs" sx={{ whiteSpace: "nowrap" }}>
+              switch fields
+            </Typography>
+          </Stack>
+
+          <Stack direction="row" alignItems="center" spacing={0.5}>
+            <Chip variant="soft" size="sm" color="neutral">
+              <Typography level="body-xs">⇧ TAB</Typography>
+            </Chip>
+            <Typography level="body-xs" sx={{ whiteSpace: "nowrap" }}>
+              prev field
+            </Typography>
+          </Stack>
+
+          <Stack direction="row" alignItems="center" spacing={0.5}>
+            <Chip variant="soft" size="sm" color="neutral">
+              <Typography level="body-xs">↑</Typography>
+            </Chip>
+            <Typography level="body-xs" sx={{ whiteSpace: "nowrap" }}>
+              prev entry
+            </Typography>
+          </Stack>
+
+          <Stack direction="row" alignItems="center" spacing={0.5}>
+            <Chip variant="soft" size="sm" color="neutral">
+              <Typography level="body-xs">↓</Typography>
+            </Chip>
+            <Typography level="body-xs" sx={{ whiteSpace: "nowrap" }}>
+              next entry
+            </Typography>
+          </Stack>
+
+          <Stack direction="row" alignItems="center" spacing={0.5}>
+            <Chip variant="soft" size="sm" color="neutral">
+              <Typography level="body-xs">↵</Typography>
+            </Chip>
+            <Typography level="body-xs" sx={{ whiteSpace: "nowrap" }}>
+              <Typography color="primary">play</Typography>
+            </Typography>
+          </Stack>
+
+          <Stack direction="row" alignItems="center" spacing={0.5}>
+            <Chip variant="soft" size="sm" color="neutral">
+              <Typography level="body-xs">CTRL ↵</Typography>
+            </Chip>
+            <Typography level="body-xs" sx={{ whiteSpace: "nowrap" }}>
+              <Typography color="success">queue</Typography>
+            </Typography>
+          </Stack>
         </Stack>
       </Box>
     </Sheet>

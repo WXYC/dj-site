@@ -6,24 +6,15 @@ import {
   useFlowsheet,
   useFlowsheetSearch,
   useFlowsheetSubmit,
-  useQueue,
 } from "@/src/hooks/flowsheetHooks";
-import { Mic, PlayArrow, QueueMusic, Troubleshoot } from "@mui/icons-material";
-import {
-  Box,
-  Button,
-  Divider,
-  FormControl,
-  IconButton,
-  Stack,
-  Tooltip,
-  useTheme,
-} from "@mui/joy";
+import { PlayArrow, QueueMusic, Troubleshoot } from "@mui/icons-material";
+import { Box, Button, Divider, FormControl, Stack, useTheme } from "@mui/joy";
 import { ClickAwayListener } from "@mui/material";
 import { useCallback, useEffect, useRef } from "react";
 import BreakpointButton from "./BreakpointButton";
 import FlowsheetSearchInput from "./FlowsheetSearchInput";
 import FlowsheetSearchResults from "./Results/FlowsheetSearchResults";
+import TalksetButton from "./TalksetButton";
 
 export default function FlowsheetSearchbar() {
   const theme = useTheme();
@@ -102,16 +93,18 @@ export default function FlowsheetSearchbar() {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [handleKeyDown]);
-  
+
   return (
-    <Stack direction={"row"} spacing={1}>
-      <ClickAwayListener onClickAway={handleClose}>
-        <FormControl size="sm" sx={{ flex: 1, minWidth: 0 }}>
-          <FlowsheetSearchResults
-            binResults={binResults}
-            catalogResults={catalogResults}
-            rotationResults={rotationResults}
-          />
+    <ClickAwayListener onClickAway={handleClose}>
+      <FormControl size="sm" sx={{ flex: 1, minWidth: 0 }}>
+        <FlowsheetSearchResults
+          binResults={binResults}
+          catalogResults={catalogResults}
+          rotationResults={rotationResults}
+        />
+        <Stack direction="row" spacing={0.5}>
+          <BreakpointButton />
+          <TalksetButton />
           <Box
             ref={searchRef}
             component="form"
@@ -120,6 +113,7 @@ export default function FlowsheetSearchbar() {
               display: "flex",
               justifyContent: "space-between",
               flexDirection: "row",
+              flexGrow: 1,
               zIndex: 8001,
               background: "transparent",
               outline: "1px solid",
@@ -175,9 +169,9 @@ export default function FlowsheetSearchbar() {
               <Troubleshoot />
             </Box>
             <FlowsheetSearchInput
-              name={"album"}
+              name={"song"}
               disabled={!live}
-              required={selectedResult == 0}
+              required={true}
               suppressHydrationWarning
             />
             <Divider orientation="vertical" />
@@ -189,9 +183,9 @@ export default function FlowsheetSearchbar() {
             />
             <Divider orientation="vertical" />
             <FlowsheetSearchInput
-              name={"song"}
+              name={"album"}
               disabled={!live}
-              required={true}
+              required={selectedResult == 0}
               suppressHydrationWarning
             />
             <Divider orientation="vertical" />
@@ -254,29 +248,8 @@ export default function FlowsheetSearchbar() {
               </Button>
             </Box>
           </Box>
-        </FormControl>
-      </ClickAwayListener>
-      <BreakpointButton />
-      <Tooltip
-        placement="top"
-        size="sm"
-        title="Add a Talkset"
-        variant="outlined"
-      >
-        <IconButton
-          size="sm"
-          variant="solid"
-          color="danger"
-          onClick={() => {
-            addToFlowsheet({
-              message: "Talkset",
-            });
-          }}
-          disabled={!live}
-        >
-          <Mic />
-        </IconButton>
-      </Tooltip>
-    </Stack>
+        </Stack>
+      </FormControl>
+    </ClickAwayListener>
   );
 }

@@ -47,10 +47,10 @@ export default function FlowsheetBackendResult({
       />
       <Stack direction="column" sx={{ width: "calc(20%)" }}>
         <Typography
-          level="body-md"
+          level="body-xs"
           sx={{
-            mb: -1,
-            color: selected == index ? "neutral.200" : "inherit",
+            mb: -0.5,
+            color: selected == index ? "neutral.300" : "text.tertiary",
           }}
         >
           CODE
@@ -84,10 +84,10 @@ export default function FlowsheetBackendResult({
       </Stack>
       <Stack direction="column" sx={{ width: "calc(20%)" }}>
         <Typography
-          level="body-md"
+          level="body-xs"
           sx={{
-            mb: -1,
-            color: selected == index ? "neutral.200" : "inherit",
+            mb: -0.5,
+            color: selected == index ? "neutral.300" : "text.tertiary",
           }}
         >
           ARTIST
@@ -98,17 +98,19 @@ export default function FlowsheetBackendResult({
             overflow: "hidden",
             textOverflow: "ellipsis",
             color: selected == index ? "white" : "inherit",
+            fontStyle: entry.artist.name ? "normal" : "italic",
+            opacity: entry.artist.name ? 1 : 0.6,
           }}
         >
-          {entry.artist.name}
+          {entry.artist.name || "Unknown"}
         </Typography>
       </Stack>
       <Stack direction="column" sx={{ width: "calc(20%)" }}>
         <Typography
-          level="body-md"
+          level="body-xs"
           sx={{
-            mb: -1,
-            color: selected == index ? "neutral.200" : "inherit",
+            mb: -0.5,
+            color: selected == index ? "neutral.300" : "text.tertiary",
           }}
         >
           ALBUM
@@ -119,17 +121,19 @@ export default function FlowsheetBackendResult({
             overflow: "hidden",
             textOverflow: "ellipsis",
             color: selected == index ? "white" : "inherit",
+            fontStyle: entry.title ? "normal" : "italic",
+            opacity: entry.title ? 1 : 0.6,
           }}
         >
-          {entry.title}
+          {entry.title || "Unknown"}
         </Typography>
       </Stack>
       <Stack direction="column" sx={{ width: "calc(20%)" }}>
         <Typography
-          level="body-md"
+          level="body-xs"
           sx={{
-            mb: -1,
-            color: selected == index ? "neutral.200" : "inherit",
+            mb: -0.5,
+            color: selected == index ? "neutral.300" : "text.tertiary",
           }}
         >
           LABEL
@@ -140,9 +144,11 @@ export default function FlowsheetBackendResult({
             overflow: "hidden",
             textOverflow: "ellipsis",
             color: selected == index ? "white" : "inherit",
+            fontStyle: entry.label ? "normal" : "italic",
+            opacity: entry.label ? 1 : 0.6,
           }}
         >
-          {entry.label}
+          {entry.label || "Unknown"}
         </Typography>
       </Stack>
     </Stack>

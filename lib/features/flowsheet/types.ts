@@ -8,6 +8,7 @@ export type FlowsheetFrontendState = {
     selectedResult: number;
   };
   queue: FlowsheetSongEntry[];
+  queueIdCounter: number;
   pagination: FlowsheetRequestParams;
   currentShowEntries: FlowsheetEntry[];
 };

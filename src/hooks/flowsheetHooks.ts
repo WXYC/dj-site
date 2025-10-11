@@ -133,10 +133,49 @@ export const useFlowsheetSearch = () => {
     dispatch(flowsheetSlice.actions.setSearchOpen(open));
   };
   const resetSearch = () => dispatch(flowsheetSlice.actions.resetSearch());
-  const searchQuery = useAppSelector((state) => state.flowsheet.search.query);
+  const searchQuery = useAppSelector(flowsheetSlice.selectors.getSearchQuery);
+  const selectedIndex = useAppSelector(flowsheetSlice.selectors.getSelectedResult);
   const setSearchProperty = (name: FlowsheetSearchProperty, value: string) => {
     dispatch(flowsheetSlice.actions.setSearchProperty({ name, value }));
   };
+
+  // Get the selected entry from search results
+  const { searchResults: binResults } = useBinResults();
+  const { searchResults: catalogResults } = useCatalogFlowsheetSearch();
+  const { searchResults: rotationResults } = useRotationFlowsheetSearch();
+
+  const allSearchResults = useMemo(() => [
+    ...binResults,
+    ...rotationResults,
+    ...catalogResults,
+  ], [binResults, rotationResults, catalogResults]);
+
+  const selectedEntry = useMemo(() => {
+    if (selectedIndex === 0) return null;
+    return allSearchResults[selectedIndex - 1] ?? null;
+  }, [selectedIndex, allSearchResults]);
+
+  // Get the display value for a field - either from selected result or raw query
+  const getDisplayValue = useCallback((name: FlowsheetSearchProperty): string => {
+    if (selectedIndex === 0 || !selectedEntry) {
+      // Show raw query values when creating new
+      return searchQuery[name] as string;
+    }
+    
+    // Show selected result values when a result is selected
+    switch (name) {
+      case "song":
+        return searchQuery.song as string; // Always show user input for song
+      case "artist":
+        return selectedEntry.artist?.name || searchQuery.artist as string;
+      case "album":
+        return selectedEntry.title || searchQuery.album as string;
+      case "label":
+        return selectedEntry.label || searchQuery.label as string;
+      default:
+        return searchQuery[name] as string;
+    }
+  }, [selectedIndex, selectedEntry, searchQuery]);
 
   return {
     live,
@@ -145,7 +184,10 @@ export const useFlowsheetSearch = () => {
     setSearchOpen,
     resetSearch,
     searchQuery,
+    selectedIndex,
+    selectedEntry,
     setSearchProperty,
+    getDisplayValue,
   };
 };
 
@@ -387,58 +429,62 @@ export const useFlowsheetSubmit = () => {
     flowsheetSlice.selectors.getSearchQuery
   );
 
+  // Memoized collection of all search results
+  const allSearchResults = useMemo(() => [
+    ...binResults,
+    ...rotationResults,
+    ...catalogResults,
+  ], [binResults, rotationResults, catalogResults]);
+
+  // Memoized selected entry (null if creating new)
+  const selectedEntry = useMemo(() => {
+    if (selectedResult === 0) return null;
+    return allSearchResults[selectedResult - 1] ?? null;
+  }, [selectedResult, allSearchResults]);
+
+  // Memoized calculation of the selected result data
+  const selectedResultData = useMemo<FlowsheetQuery>(() => {
+    if (selectedResult == 0 || !selectedEntry) {
+      // User is creating a new entry manually
+      return {
+        song: flowSheetRawQuery.song as string,
+        artist: flowSheetRawQuery.artist as string,
+        album: flowSheetRawQuery.album as string,
+        label: flowSheetRawQuery.label as string,
+        request: false,
+      };
+    } else {
+      // User has selected a result from the search
+      // Use result values if available, otherwise fall back to user edits
+      return {
+        song: flowSheetRawQuery.song as string,
+        artist: selectedEntry.artist?.name || flowSheetRawQuery.artist as string,
+        album: selectedEntry.title || flowSheetRawQuery.album as string,
+        label: selectedEntry.label || flowSheetRawQuery.label as string,
+        album_id: selectedEntry.id ?? undefined,
+        play_freq: selectedEntry.play_freq ?? undefined,
+        rotation_id: selectedEntry.rotation_id ?? undefined,
+        request: false,
+      };
+    }
+  }, [selectedResult, selectedEntry, flowSheetRawQuery]);
+
   const handleSubmit = useCallback(
     (e: any) => {
-      let data: FlowsheetQuery;
-      if (selectedResult == 0) {
-        data = {
-          song: flowSheetRawQuery.song as string,
-          artist: flowSheetRawQuery.artist as string,
-          album: flowSheetRawQuery.album as string,
-          label: flowSheetRawQuery.label as string,
-          request: false,
-        };
-      } else {
-        const collectedResults = [
-          binResults,
-          rotationResults,
-          catalogResults,
-        ].flat();
-        console.log("COLLECTED RESULTS", collectedResults);
-        console.log("SELECTED RESULT", collectedResults[selectedResult - 1]);
-        data = {
-          song: flowSheetRawQuery.song as string,
-          artist: collectedResults[selectedResult - 1].artist?.name ?? "",
-          album: collectedResults[selectedResult - 1].title ?? "",
-          label: collectedResults[selectedResult - 1].label ?? "",
-          album_id: collectedResults[selectedResult - 1].id ?? undefined,
-          play_freq:
-            collectedResults[selectedResult - 1].play_freq ?? undefined,
-          rotation_id:
-            collectedResults[selectedResult - 1].rotation_id ?? undefined,
-          request: false,
-        };
-      }
-
       if (ctrlKeyPressed) {
-        addToQueue(data);
+        addToQueue(selectedResultData);
       } else {
-        addToFlowsheet(convertQueryToSubmission(data));
+        addToFlowsheet(convertQueryToSubmission(selectedResultData));
       }
 
       // Close the search bar after submission
       dispatch(flowsheetSlice.actions.resetSearch());
     },
     [
-      // Removed handleKeyDown/handleKeyUp from dependencies
       ctrlKeyPressed,
       addToFlowsheet,
       addToQueue,
-      selectedResult,
-      flowSheetRawQuery,
-      binResults,
-      rotationResults,
-      catalogResults,
+      selectedResultData,
       dispatch,
     ]
   );
@@ -460,5 +506,7 @@ export const useFlowsheetSubmit = () => {
     binResults,
     catalogResults,
     rotationResults,
+    selectedResultData,
+    selectedEntry,
   };
 };

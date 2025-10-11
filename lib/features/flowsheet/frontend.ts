@@ -17,6 +17,7 @@ export const defaultFlowsheetFrontendState: FlowsheetFrontendState = {
     selectedResult: 0,
   },
   queue: [],
+  queueIdCounter: 0,
   pagination: {
     page: 0,
     limit: 20,
@@ -50,8 +51,9 @@ export const flowsheetSlice = createAppSlice({
       state.search.query.request = !state.search.query.request;
     },
     addToQueue: (state, action: PayloadAction<FlowsheetQuery>) => {
+      const newId = state.queueIdCounter;
       state.queue.push({
-        id: state.queue.length,
+        id: newId,
         play_order: state.queue.length,
         show_id: -1,
         track_title: action.payload.song,
@@ -63,6 +65,7 @@ export const flowsheetSlice = createAppSlice({
         rotation_id: action.payload.rotation_id,
         album_id: action.payload.album_id,
       });
+      state.queueIdCounter += 1;
       saveQueueToStorage(state.queue);
     },
     removeFromQueue: (state, action) => {
@@ -71,10 +74,14 @@ export const flowsheetSlice = createAppSlice({
     },
     clearQueue: (state) => {
       state.queue = [];
+      state.queueIdCounter = 0;
       clearQueueFromStorage();
     },
     loadQueue: (state) => {
       state.queue = loadQueueFromStorage();
+      // Set counter to max ID + 1 to avoid duplicates
+      const maxId = state.queue.reduce((max, entry) => Math.max(max, entry.id), -1);
+      state.queueIdCounter = maxId + 1;
     },
     updateQueueEntry: (state, action: PayloadAction<{ entry_id: number; field: keyof FlowsheetSongEntry; value: string | boolean }>) => {
       const entry = state.queue.find((e) => e.id === action.payload.entry_id);
