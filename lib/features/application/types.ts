@@ -1,11 +1,12 @@
+import { ExperienceId } from "../experiences/types";
 
 export const defaultApplicationState: ApplicationState = {
-    classic: false,
+    experience: "modern",
     rightBarMini: true,
 };
 
 export interface ApplicationState {
-    classic: boolean;
+    experience: ExperienceId;
     rightBarMini: boolean;
 }
 

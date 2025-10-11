@@ -24,7 +24,7 @@
     "jose": "^5.9.6",
     "jwt-decode": "^4.0.0",
     "motion": "^12.16.0",
-    "next": "latest",
+    "next": "^15.5.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-fast-marquee": "^1.6.5",

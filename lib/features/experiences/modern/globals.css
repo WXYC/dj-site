@@ -1,0 +1,15 @@
+/**
+ * Modern Experience Styles
+ * These styles are applied when data-experience="modern"
+ * Most modern styling is handled via MUI Joy theme system
+ */
+
+html[data-experience="modern"] {
+  /* Modern experience specific overrides can go here */
+}
+
+/* Ensure modern container doesn't interfere with layout */
+#modern-container {
+  display: contents;
+}
+

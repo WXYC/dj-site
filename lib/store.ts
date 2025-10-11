@@ -22,6 +22,7 @@ import { authenticationSlice } from "./features/authentication/frontend";
 import { binApi } from "./features/bin/api";
 import { catalogApi } from "./features/catalog/api";
 import { catalogSlice } from "./features/catalog/frontend";
+import { experienceApi } from "./features/experiences/api";
 import { flowsheetApi } from "./features/flowsheet/api";
 import { flowsheetSlice } from "./features/flowsheet/frontend";
 import { rotationApi } from "./features/rotation/api";
@@ -33,6 +34,7 @@ const rootReducer = combineSlices(
   djRegistryApi,
   applicationSlice,
   applicationApi,
+  experienceApi,
   catalogSlice,
   catalogApi,
   binApi,
@@ -55,6 +57,7 @@ export const makeStore = () => {
         .concat(authenticationApi.middleware)
         .concat(djRegistryApi.middleware)
         .concat(applicationApi.middleware)
+        .concat(experienceApi.middleware)
         .concat(catalogApi.middleware)
         .concat(binApi.middleware)
         .concat(flowsheetApi.middleware)

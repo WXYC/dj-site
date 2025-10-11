@@ -14,13 +14,16 @@ export default async function ThemedLayout({
   information,
 }: ThemedLayoutProps) {
   const serverSideProps = await createServerSideProps();
+  const isClassic = serverSideProps.application.experience === "classic";
 
   return (
     <Suspense fallback={<LoadingPage />}>
-        {information}
-      {classic && modern && serverSideProps.application.classic
-        ? <div id="classic-container">{classic}</div>
-        : modern}
+      {information}
+      {classic && modern && isClassic ? (
+        <div id="classic-container">{classic}</div>
+      ) : (
+        <div id="modern-container">{modern}</div>
+      )}
     </Suspense>
   );
 }

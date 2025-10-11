@@ -1,4 +1,4 @@
-import Logo from "@/src/components/Branding/Logo";
+import Logo from "@/src/components/shared/Branding/Logo";
 import { Box, Sheet } from "@mui/joy";
 import NotFoundCard from "@/src/components/NotFoundCard";
 import { BackgroundImage } from "@/src/Layout/Background";

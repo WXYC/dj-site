@@ -1,7 +1,7 @@
 import { AuthenticatedUser } from "@/lib/features/authentication/types";
 import { createServerSideProps } from "@/lib/features/session";
-import PageHeader from "@/src/components/modern/Header/PageHeader";
-import RosterTable from "@/src/components/modern/admin/roster/RosterTable";
+import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
+import RosterTable from "@/src/components/experiences/modern/admin/roster/RosterTable";
 
 export default async function AdminPage() {
   const user = (
