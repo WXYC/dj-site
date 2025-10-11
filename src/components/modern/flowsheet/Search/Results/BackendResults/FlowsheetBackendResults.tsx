@@ -20,7 +20,9 @@ export default function FlowsheetBackendResults({
           height: results.length > 0 ? "auto" : 0,
         }}
       >
-        <Typography level="body-md">{label.toUpperCase()}</Typography>
+        <Typography level="body-xs" sx={{ color: "text.tertiary" }}>
+          {label.toUpperCase()}
+        </Typography>
       </Box>
       <Stack
         direction="column"
