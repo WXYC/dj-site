@@ -3,6 +3,7 @@ import WXYCPage from "@/src/Layout/WXYCPage";
 import { Button, Divider, Stack } from "@mui/joy";
 import Link from "next/link";
 
+
 export default function HomePage() {
   return (
     <WXYCPage title="DJ Site">

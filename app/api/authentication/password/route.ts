@@ -17,7 +17,6 @@ import {
   handleForgotPasswordFlow,
 } from "../utilities";
 
-export const runtime = "edge";
 
 export async function GET(request: NextRequest) {
   // get from params

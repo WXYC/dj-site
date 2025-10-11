@@ -7,7 +7,6 @@ import { Toaster } from "sonner";
 import Appbar from "@/src/components/shared/Theme/Appbar";
 import ThemeRegistry from "@/src/styles/ThemeRegistry";
 
-export const runtime = "edge";
 
 interface Props {
   children: ReactNode;

@@ -1,12 +1,14 @@
-import { setupDevPlatform } from '@cloudflare/next-on-pages/next-dev';
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: false,
+  // Explicitly set workspace root to silence lockfile warning
+  outputFileTracingRoot: import.meta.dirname,
+  // Required for OpenNext Cloudflare
+  output: "standalone",
 };
 
-if (process.env.NODE_ENV === 'development') {
-  await setupDevPlatform();
-}
-
 export default nextConfig;
+
+// OpenNext Cloudflare dev initialization
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
+initOpenNextCloudflareForDev();
