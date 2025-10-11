@@ -1,13 +1,9 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"main": ".open-next/worker.js",
 	"name": "wxyc-dj-site",
 	"compatibility_date": "2025-10-11",
 	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
-	"assets": {
-		"directory": ".open-next/assets",
-		"binding": "ASSETS"
-	},
+	"pages_build_output_dir": ".open-next/assets",
 	"observability": {
 		"enabled": true
 	}
