@@ -1,6 +1,6 @@
-import ThemedLayout, { ThemedLayoutProps } from "@/src/ThemedLayout";
+import ThemedLayout, { DashboardLayoutProps } from "@/src/ThemedLayout";
 
-const Layout = async (props: ThemedLayoutProps): Promise<JSX.Element> =>
+const Layout = async (props: DashboardLayoutProps): Promise<JSX.Element> =>
   ThemedLayout(props);
 
 export default Layout;

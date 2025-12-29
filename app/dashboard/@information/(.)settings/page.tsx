@@ -1,6 +1,6 @@
 import { AuthenticatedUser } from "@/lib/features/authentication/types";
 import { createServerSideProps } from "@/lib/features/session";
-import SettingsPopup from "@/src/components/modern/settings/SettingsPopup";
+import SettingsPopup from "@/src/components/experiences/modern/settings/SettingsPopup";
 
 
 export default async function SettingsPage() {

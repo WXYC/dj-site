@@ -1,7 +1,8 @@
-import WelcomeQuotes from "@/src/components/modern/login/Quotes/Welcome";
+import WelcomeQuotes from "@/src/components/experiences/modern/login/Quotes/Welcome";
 import WXYCPage from "@/src/Layout/WXYCPage";
 import { Button, Divider, Stack } from "@mui/joy";
 import Link from "next/link";
+
 
 export default function HomePage() {
   return (

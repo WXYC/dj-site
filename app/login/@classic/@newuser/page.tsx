@@ -1,6 +1,6 @@
 import { IncompleteUser } from "@/lib/features/authentication/types";
 import { createServerSideProps } from "@/lib/features/session";
-import NewUserForm from "@/src/components/modern/login/Forms/NewUserForm";
+import NewUserForm from "@/src/components/experiences/modern/login/Forms/NewUserForm";
 
 export default async function ResetPasswordPage() {
 

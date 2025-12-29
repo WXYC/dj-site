@@ -33,6 +33,9 @@ export async function getAdminCredentials() {
   const cognitoProvider = fromCognitoIdentityPool({
     client: new CognitoIdentityClient({
       region: String(process.env.AWS_REGION),
+      // Prevent AWS SDK from trying to read credentials from filesystem
+      credentials: undefined,
+      runtime: "browser",
     }),
     identityPoolId: String(process.env.AWS_ADMIN_IDENTITY_POOL_ID),
     logins: {
@@ -49,5 +52,7 @@ export async function getAdminClient() {
     return new CognitoIdentityProviderClient({
         credentials: await getAdminCredentials(),
         region: String(process.env.AWS_REGION),
+        // Prevent AWS SDK from trying to read config from filesystem
+        runtime: "browser",
     });
 }

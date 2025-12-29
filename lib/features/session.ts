@@ -79,14 +79,31 @@ export async function decrypt(session: string | undefined) {
 export const createServerSideProps = async (): Promise<SiteProps> => {
   const cookieStore = await cookies();
 
+  const appStateValue = cookieStore.get("app_state")?.value;
+  let appState = defaultApplicationState;
+  
+  if (appStateValue) {
+    try {
+      const parsed = JSON.parse(appStateValue);
+      // Migrate old 'classic' boolean to new 'experience' string
+      if (parsed && typeof parsed === "object") {
+        if ("classic" in parsed && !("experience" in parsed)) {
+          appState = {
+            ...defaultApplicationState,
+            ...parsed,
+            experience: parsed.classic ? "classic" : "modern",
+          };
+        } else {
+          appState = { ...defaultApplicationState, ...parsed };
+        }
+      }
+    } catch (e) {
+      console.error("Failed to parse app_state cookie", e);
+    }
+  }
+
   return {
-    application:
-      JSON.parse(
-        String(
-          cookieStore.get("app_state")?.value ??
-            JSON.stringify(defaultApplicationState)
-        )
-      ) ?? defaultApplicationState,
+    application: appState,
     authentication:
       JSON.parse(
         String(
