@@ -106,8 +106,10 @@ export default function FlowsheetEntryField({
         cursor: "text",
         minWidth: "10px",
         opacity: String(entry[name]).length > 0 ? 1 : 0.5,
+        color: "primary.lightChannel"
       }}
       onDoubleClick={() => setEditing(editable && live)}
+      level="body-sm"
     >
       {String(entry[name]).length > 0
         ? String(entry[name])

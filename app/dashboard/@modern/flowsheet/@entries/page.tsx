@@ -3,12 +3,10 @@
 import Entry from "@/src/components/modern/flowsheet/Entries/Entry";
 import FlowsheetSkeletonLoader from "@/src/components/modern/flowsheet/FlowsheetSkeletonLoader";
 import { useFlowsheet } from "@/src/hooks/flowsheetHooks";
-import { Table, useColorScheme } from "@mui/joy";
+import { Box, Stack } from "@mui/joy";
 import { Reorder } from "motion/react";
 
 export default function FlowsheetEntries() {
-  const { mode } = useColorScheme();
-
   const {
     loading,
     entries: { current, setCurrentShowEntries, previous },
@@ -19,31 +17,13 @@ export default function FlowsheetEntries() {
   }
 
   return (
-    <Table borderAxis={mode == "dark" ? "none" : "x"}>
-      <thead
-        style={{
-          visibility: "collapse",
-        }}
-      >
-        <tr>
-          <td
-            style={{
-              width: "60px",
-            }}
-          ></td>
-          <td></td>
-          <td></td>
-          <td></td>
-          <td></td>
-          <td></td>
-          <td></td>
-        </tr>
-      </thead>
+    <Stack spacing={0.5}>
       <Reorder.Group
         values={current}
         axis="y"
         onReorder={() => {}} // Disabled for now
-        as="tbody"
+        as="div"
+        style={{ display: "flex", flexDirection: "column", gap: "4px" }}
       >
         {current.map((entry, index) => (
           <Entry key={entry.id} entry={entry} playing={index == 0} />
@@ -56,6 +36,6 @@ export default function FlowsheetEntries() {
           />
         ))}
       </Reorder.Group>
-    </Table>
+    </Stack>
   );
 }

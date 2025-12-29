@@ -29,12 +29,17 @@ export default function DraggableEntryWrapper({
   return (
     <Reorder.Item
       value={entryRef}
-      as="tr"
+      as="div"
       dragListener={false}
       dragControls={controls}
       onDragEnd={() => switchEntries(entryRef)}
       style={{
         ...style,
+        display: "flex",
+        flexDirection: "row",
+        alignItems: "center",
+        gap: "0.5rem",
+        padding: "0 0.5rem",
         background:
           variant ?? "plain" == "plain"
             ? theme.palette?.[color ?? "neutral"]?.[

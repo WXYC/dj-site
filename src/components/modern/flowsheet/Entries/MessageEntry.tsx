@@ -50,15 +50,24 @@ export default function MessageEntry({
       color={color}
       style={{
         height: "40px",
-        borderRadius: "md",
+        borderRadius: "8px",
       }}
     >
-      <td>
+      {/* Icon Section */}
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+          width: "60px",
+        }}
+      >
         <AspectRatio
           ratio={1.5}
           variant="plain"
           sx={{
-            flexBasis: "calc(60px - 12px)",
+            width: "48px",
             borderRadius: "9px",
             minWidth: "48px",
             minHeight: "20px",
@@ -66,32 +75,36 @@ export default function MessageEntry({
         >
           <Typography>{startDecorator}</Typography>
         </AspectRatio>
-      </td>
+      </Box>
+
       <Box
-        component={"td"}
-        style={{
-          height: "30px",
-          borderRadius: "md",
+        sx={{
+          flex: 4,
+          minWidth: 0,
+          display: "flex",
+          alignItems: "center",
+          px: 1,
         }}
-        colSpan={6}
       >
         {children}
       </Box>
-      <td>
-        <Stack
-          direction="row"
-          spacing={0.5}
-          alignItems="center"
-          justifyContent="end"
-        >
-          <Typography level="body-xs">{endDecorator}</Typography>
-          {live && editable && <DragButton controls={controls} />}
-          {live && editable && !isFlowsheetStartShowEntry(entryRef) &&
-            !isFlowsheetEndShowEntry(entryRef) && (
-              <RemoveButton queue={false} entry={entryRef} />
-            )}
-        </Stack>
-      </td>
+
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "flex-end",
+          flexShrink: 0,
+          gap: 0.5,
+        }}
+      >
+        <Typography level="body-xs">{endDecorator}</Typography>
+        {live && editable && <DragButton controls={controls} />}
+        {live && editable && !isFlowsheetStartShowEntry(entryRef) &&
+          !isFlowsheetEndShowEntry(entryRef) && (
+            <RemoveButton queue={false} entry={entryRef} />
+          )}
+      </Box>
     </DraggableEntryWrapper>
   );
 }

@@ -2,13 +2,12 @@
 
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import SongEntry from "@/src/components/modern/flowsheet/Entries/SongEntry/SongEntry";
-import { Table, useColorScheme } from "@mui/joy";
+import { Box, Stack } from "@mui/joy";
 import { Reorder } from "motion/react";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useCallback, useEffect, useState } from "react";
 
 export default function Queue() {
-  const { mode } = useColorScheme();
   const queue = useAppSelector((state) => state.flowsheet.queue);
   const dispatch = useAppDispatch();
   const [isMounted, setIsMounted] = useState(false);
@@ -24,31 +23,13 @@ export default function Queue() {
   }, []);
 
   return (
-    <Table borderAxis={mode == "dark" ? "x" : "x"} variant="soft">
-      <thead
-        style={{
-          visibility: "collapse",
-        }}
-      >
-        <tr>
-          <td
-            style={{
-              width: "60px",
-            }}
-          ></td>
-          <td></td>
-          <td></td>
-          <td></td>
-          <td></td>
-          <td></td>
-          <td></td>
-        </tr>
-      </thead>
+    <Stack spacing={0.5}>
       <Reorder.Group
         values={isMounted ? queue.toReversed() : []}
         axis="y"
         onReorder={handleReorder}
-        as="tbody"
+        as="div"
+        style={{ display: "flex", flexDirection: "column", gap: "4px" }}
       >
         {isMounted && queue.toReversed().map((entry) => (
           <SongEntry
@@ -59,6 +40,6 @@ export default function Queue() {
           />
         ))}
       </Reorder.Group>
-    </Table>
+    </Stack>
   );
 }
