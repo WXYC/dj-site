@@ -21,12 +21,25 @@ export type BetterAuthSession = {
     appSkin?: string;
     createdAt?: Date;
     updatedAt?: Date;
+    role?: string;  // Base user role (e.g., "user")
+    banned?: boolean;
+    banReason?: string | null;
+    banExpires?: Date | null;
+    displayUsername?: string | null;
+    image?: string | null;
+    // Organization member data (if using organizationClient)
+    organization?: {
+      id: string;
+      name: string;
+      role?: string;  // Organization member role (e.g., "member", "dj", "musicDirector", "stationManager")
+    };
   };
   session: {
     id: string;
     userId: string;
     expiresAt: Date;
-    token?: string;  // JWT token if using jwtClient plugin
+    token?: string;  // Session ID (not a JWT token)
+    activeOrganizationId?: string | null;  // Active organization ID if user is part of an organization
   };
 };
 
@@ -61,66 +74,60 @@ export function toUserFromBetterAuthJWT(token: string): User {
 export function betterAuthSessionToAuthenticationData(
   session: BetterAuthSession | null | undefined
 ): AuthenticationData {
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/a0b0c584-4e13-42f0-9bc9-82a7db02d9db',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'utilities.ts:61',message:'betterAuthSessionToAuthenticationData entry',data:{hasSession:!!session,hasUser:!!session?.user},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
+
   if (!session || !session.user) {
     return { message: "Not Authenticated" };
   }
 
-  const token = session.session?.token;
-  let user: User | undefined;
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/a0b0c584-4e13-42f0-9bc9-82a7db02d9db',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'utilities.ts:68',message:'Session user structure',data:{sessionUser:session.user,hasToken:!!session.session?.token,tokenLength:session.session?.token?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+  // #endregion
 
-  if (token) {
-    // Decode JWT to get role and other claims
-    try {
-      const decodedToken = jwtDecode<BetterAuthJwtPayload>(token);
-      user = {
-        id: session.user.id,
-        username: session.user.username || session.user.name,
-        email: session.user.email,
-        realName: session.user.realName,
-        djName: session.user.djName,
-        authority: mapRoleToAuthorization(decodedToken.role),
-        name: session.user.name,
-        emailVerified: session.user.emailVerified,
-        appSkin: session.user.appSkin,
-        createdAt: session.user.createdAt,
-        updatedAt: session.user.updatedAt,
-      };
-    } catch (error) {
-      // If JWT decode fails, create user without role (will default to NO)
-      user = {
-        id: session.user.id,
-        username: session.user.username || session.user.name,
-        email: session.user.email,
-        realName: session.user.realName,
-        djName: session.user.djName,
-        authority: Authorization.NO, // Default if can't decode
-        name: session.user.name,
-        emailVerified: session.user.emailVerified,
-        appSkin: session.user.appSkin,
-        createdAt: session.user.createdAt,
-        updatedAt: session.user.updatedAt,
-      };
-    }
-  } else {
-    // No token, create basic user object
-    user = {
-      id: session.user.id,
-      username: session.user.username || session.user.name,
-      email: session.user.email,
-      realName: session.user.realName,
-      djName: session.user.djName,
-      authority: Authorization.NO, // Default if no token
-      name: session.user.name,
-      emailVerified: session.user.emailVerified,
-      appSkin: session.user.appSkin,
-      createdAt: session.user.createdAt,
-      updatedAt: session.user.updatedAt,
-    };
-  }
+  // Get role from organization member data (if available) or user role
+  // Organization role takes precedence over base user role
+  // Also check if role is stored in metadata or other custom fields
+  const organizationRole = (session.user as any).organization?.role;
+  const userRole = (session.user as any).role;
+  // Check for role in metadata or other potential locations
+  const metadataRole = (session.user as any).metadata?.role;
+  const customRole = (session.user as any).customRole;
+  const roleToMap = organizationRole || metadataRole || customRole || userRole;
+
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/a0b0c584-4e13-42f0-9bc9-82a7db02d9db',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'utilities.ts:77',message:'Role extraction - all sources',data:{organizationRole:organizationRole,userRole:userRole,metadataRole:metadataRole,customRole:customRole,roleToMap:roleToMap,allUserKeys:Object.keys(session.user)},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'S'})}).catch(()=>{});
+  // #endregion
+
+  const token = session.session?.token;
+  const authority = mapRoleToAuthorization(roleToMap);
+
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/a0b0c584-4e13-42f0-9bc9-82a7db02d9db',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'utilities.ts:82',message:'Mapped authority',data:{roleToMap:roleToMap,authority:authority},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+  // #endregion
+
+  const user: User = {
+    id: session.user.id,
+    username: session.user.username || session.user.name,
+    email: session.user.email,
+    realName: session.user.realName,
+    djName: session.user.djName,
+    authority: authority,
+    name: session.user.name,
+    emailVerified: session.user.emailVerified,
+    appSkin: session.user.appSkin,
+    createdAt: session.user.createdAt,
+    updatedAt: session.user.updatedAt,
+  };
+
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/a0b0c584-4e13-42f0-9bc9-82a7db02d9db',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'utilities.ts:96',message:'Final user object',data:{user:user},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+  // #endregion
 
   return {
     user,
     accessToken: token,
-    token: token, // Better-auth uses 'token' field
+    token: token, // Session ID (not a JWT)
   } as AuthenticatedUser;
 }

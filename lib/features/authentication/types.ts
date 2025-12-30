@@ -133,7 +133,7 @@ export type DJRegistryRequestParams =
   | DJRequestParams;
 
 export type DJRequestParams = {
-  dj_id: number;
+  dj_id: string; // User ID from better-auth (string)
 };
 
 export type DJInfoResponse = {
@@ -174,15 +174,26 @@ export type BackendAccountModification = {
 };
 
 // Utility function to map better-auth role to Authorization enum
-export function mapRoleToAuthorization(role: WXYCRole | undefined): Authorization {
-  switch (role) {
-    case "stationManager":
+export function mapRoleToAuthorization(role: WXYCRole | string | undefined): Authorization {
+  if (!role) {
+    return Authorization.NO;
+  }
+  
+  // Normalize role string (case-insensitive)
+  const normalizedRole = role.toLowerCase();
+  
+  switch (normalizedRole) {
+    case "stationmanager":
+    case "station_manager":
       return Authorization.SM;
-    case "musicDirector":
+    case "musicdirector":
+    case "music_director":
       return Authorization.MD;
     case "dj":
       return Authorization.DJ;
     case "member":
+    case "user":  // Base user role maps to member
+      return Authorization.NO;
     default:
       return Authorization.NO;
   }

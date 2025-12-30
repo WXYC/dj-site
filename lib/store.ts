@@ -13,9 +13,6 @@ import { toast } from "sonner";
 import { adminSlice } from "./features/admin/frontend";
 import { applicationApi } from "./features/application/api";
 import { applicationSlice } from "./features/application/frontend";
-import {
-  djRegistryApi,
-} from "./features/authentication/api";
 import { authenticationSlice } from "./features/authentication/frontend";
 import { binApi } from "./features/bin/api";
 import { catalogApi } from "./features/catalog/api";
@@ -28,7 +25,6 @@ import { rotationSlice } from "./features/rotation/frontend";
 
 const rootReducer = combineSlices(
   authenticationSlice,
-  djRegistryApi,
   applicationSlice,
   applicationApi,
   experienceApi,
@@ -50,7 +46,6 @@ export const makeStore = () => {
     middleware: (getDefaultMiddleware) => {
       return getDefaultMiddleware()
         .concat(rtkQueryErrorLogger)
-        .concat(djRegistryApi.middleware)
         .concat(applicationApi.middleware)
         .concat(experienceApi.middleware)
         .concat(catalogApi.middleware)

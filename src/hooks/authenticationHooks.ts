@@ -1,8 +1,5 @@
 "use client";
 
-import {
-  useGetDJInfoQuery,
-} from "@/lib/features/authentication/api";
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
 import { authClient } from "@/lib/features/authentication/client";
 import {
@@ -140,21 +137,17 @@ export const useAuthentication = () => {
 export const useRegistry = () => {
   const { data, authenticated, authenticating } = useAuthentication();
 
-  const {
-    data: info,
-    isLoading,
-    isError,
-  } = useGetDJInfoQuery(
-    {
-      cognito_user_name: (data as AuthenticatedUser)?.user?.username!,
-    },
-    {
-      skip: !data || !authenticated || authenticating,
-    }
-  );
+  // Return user data from better-auth session instead of fetching from DJ Registry API
+  const user = isAuthenticated(data) ? data.user : null;
+  
+  const info = user ? {
+    id: user.id!, // User ID (string) - backend now accepts this instead of numeric DJ ID
+    real_name: user.realName || undefined,
+    dj_name: user.djName || undefined,
+  } : null;
 
   return {
-    loading: isLoading || authenticating || !authenticated,
+    loading: authenticating || !authenticated,
     info: info,
   };
 };
