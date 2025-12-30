@@ -2,6 +2,15 @@ import { createAppSlice } from "@/lib/createAppSlice";
 import { PayloadAction } from "@reduxjs/toolkit";
 import { AuthenticationState, ModifiableData, VerifiedData } from "./types";
 
+/**
+ * Authentication Slice - Form Validation Only
+ * 
+ * This slice is ONLY for managing form validation state (username, password, etc.)
+ * It does NOT store authentication state. Authentication state is managed by
+ * better-auth via HTTP-only session cookies and accessed via:
+ * - Client: authClient.useSession() hook
+ * - Server: getServerSession() from server-utils
+ */
 export const defaultAuthenticationState: AuthenticationState = {
   verifications: {
     username: false,

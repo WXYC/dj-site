@@ -1,6 +1,5 @@
 import { Authorization } from "@/lib/features/admin/types";
-import { AuthenticatedUser } from "@/lib/features/authentication/types";
-import { createServerSideProps } from "@/lib/features/session";
+import { requireAuth, getUserFromSession } from "@/lib/features/authentication/server-utils";
 import { EditCalendar, ManageAccounts } from "@mui/icons-material";
 import AlbumIcon from "@mui/icons-material/Album";
 import SettingsIcon from "@mui/icons-material/Settings";
@@ -13,10 +12,9 @@ import LeftbarLink from "./LeftbarLink";
 import LeftbarLogout from "./LeftbarLogout";
 
 export default async function Leftbar(): Promise<JSX.Element> {
-  // user is guaranteed to be defined here because middleware will redirect to login if not authenticated
-  const user = (
-    (await createServerSideProps()).authentication as AuthenticatedUser
-  ).user!;
+  // user is guaranteed to be defined here because requireAuth will redirect to login if not authenticated
+  const session = await requireAuth();
+  const user = getUserFromSession(session);
 
   return (
     <LeftbarContainer>
