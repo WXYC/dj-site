@@ -66,7 +66,6 @@ export function toUserFromBetterAuthJWT(token: string): User {
     username: decodedToken.email.split("@")[0] || decodedToken.id || "", // Fallback if username not in token
     email: decodedToken.email,
     authority: mapRoleToAuthorization(decodedToken.role),
-    // Additional fields would need to be fetched from session/user object
   };
 }
 
@@ -74,38 +73,19 @@ export function toUserFromBetterAuthJWT(token: string): User {
 export function betterAuthSessionToAuthenticationData(
   session: BetterAuthSession | null | undefined
 ): AuthenticationData {
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/a0b0c584-4e13-42f0-9bc9-82a7db02d9db',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'utilities.ts:61',message:'betterAuthSessionToAuthenticationData entry',data:{hasSession:!!session,hasUser:!!session?.user},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-  // #endregion
-
   if (!session || !session.user) {
     return { message: "Not Authenticated" };
   }
 
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/a0b0c584-4e13-42f0-9bc9-82a7db02d9db',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'utilities.ts:68',message:'Session user structure',data:{sessionUser:session.user,hasToken:!!session.session?.token,tokenLength:session.session?.token?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-  // #endregion
-
-  // Get role from organization member data (if available) or user role
-  // Organization role takes precedence over base user role
-  // Also check if role is stored in metadata or other custom fields
+  // Get role from organization member data (preferred) or user role
   const organizationRole = (session.user as any).organization?.role;
   const userRole = (session.user as any).role;
-  // Check for role in metadata or other potential locations
   const metadataRole = (session.user as any).metadata?.role;
   const customRole = (session.user as any).customRole;
   const roleToMap = organizationRole || metadataRole || customRole || userRole;
 
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/a0b0c584-4e13-42f0-9bc9-82a7db02d9db',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'utilities.ts:77',message:'Role extraction - all sources',data:{organizationRole:organizationRole,userRole:userRole,metadataRole:metadataRole,customRole:customRole,roleToMap:roleToMap,allUserKeys:Object.keys(session.user)},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'S'})}).catch(()=>{});
-  // #endregion
-
   const token = session.session?.token;
   const authority = mapRoleToAuthorization(roleToMap);
-
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/a0b0c584-4e13-42f0-9bc9-82a7db02d9db',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'utilities.ts:82',message:'Mapped authority',data:{roleToMap:roleToMap,authority:authority},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-  // #endregion
 
   const user: User = {
     id: session.user.id,
@@ -120,10 +100,6 @@ export function betterAuthSessionToAuthenticationData(
     createdAt: session.user.createdAt,
     updatedAt: session.user.updatedAt,
   };
-
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/a0b0c584-4e13-42f0-9bc9-82a7db02d9db',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'utilities.ts:96',message:'Final user object',data:{user:user},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-  // #endregion
 
   return {
     user,
