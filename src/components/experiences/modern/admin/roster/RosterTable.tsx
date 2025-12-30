@@ -86,7 +86,7 @@ export default function RosterTable({ user }: { user: User }) {
 
         // Register DJ info
         await registerDJ({
-          cognito_user_name: newAccount.username,
+          username: newAccount.username,
           real_name: newAccount.realName,
           dj_name: newAccount.djName,
         });

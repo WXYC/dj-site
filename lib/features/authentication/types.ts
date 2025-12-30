@@ -18,7 +18,6 @@ export type AuthenticationData =
 export type AuthenticatedUser = {
   user?: User;
   accessToken?: string;  // JWT token from better-auth
-  idToken?: string;      // Legacy Cognito field, may be undefined with better-auth
   token?: string;        // Better-auth JWT token (alternative to accessToken)
 };
 
@@ -121,14 +120,14 @@ export interface BetterAuthJwtPayload extends JwtPayload {
 export type WXYCRole = "member" | "dj" | "musicDirector" | "stationManager";
 
 export type DJRegistryParams = {
-  cognito_user_name: string;
+  username: string;
   real_name: string | undefined;
   dj_name: string | undefined;
 };
 
 export type DJRegistryRequestParams =
   | {
-      cognito_user_name: string;
+      username: string;
     }
   | DJRequestParams;
 
@@ -139,7 +138,7 @@ export type DJRequestParams = {
 export type DJInfoResponse = {
   id: number;
   add_date: string;
-  cognito_user_name: string;
+  username: string;
   dj_name: string;
   real_name: string;
   shows_covered: number;
@@ -168,7 +167,7 @@ export const modifiableAttributeNames: Partial<Record<keyof ModifiableData, stri
 };
 
 export type BackendAccountModification = {
-  cognito_user_name: string;  // Legacy field name, but will contain username
+  username: string;
   dj_name: string | undefined;
   real_name: string | undefined;
 };
