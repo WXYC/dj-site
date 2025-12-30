@@ -1,8 +1,8 @@
 "use client";
 
-import { useCreateAccountMutation } from "@/lib/features/admin/api";
+import { authClient } from "@/lib/features/authentication/client";
 import { adminSlice } from "@/lib/features/admin/frontend";
-import { NewAccountParams } from "@/lib/features/admin/types";
+import { NewAccountParams, Authorization } from "@/lib/features/admin/types";
 import { useRegisterDJMutation } from "@/lib/features/authentication/api";
 import { User } from "@/lib/features/authentication/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
@@ -18,7 +18,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/joy";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AccountEntry } from "./AccountEntry";
 import AccountSearchForm from "./AccountSearchForm";
 import ExportDJsButton from "./ExportCSV";
@@ -27,8 +27,9 @@ import NewAccountForm from "./NewAccountForm";
 export default function RosterTable({ user }: { user: User }) {
   const { data, isLoading, isError, error } = useAccountListResults();
 
-  const [addAccount, addAccountResult] = useCreateAccountMutation();
   const [registerDJ, registerDJResult] = useRegisterDJMutation();
+  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState<Error | null>(null);
 
   const dispatch = useAppDispatch();
   const isAdding = useAppSelector(adminSlice.selectors.getAdding);
@@ -40,36 +41,69 @@ export default function RosterTable({ user }: { user: User }) {
   const handleAddAccount = useCallback(
     async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
-      const formData = new FormData(e.currentTarget);
+      setIsCreating(true);
+      setCreateError(null);
 
-      const newAccount: NewAccountParams = {
-        realName: formData.get("realName") as string,
-        username: formData.get("username") as string,
-        djName: formData.get("djName")
-          ? (formData.get("djName") as string)
-          : "Anonymous",
-        email: formData.get("email") as string,
-        temporaryPassword: "Freak893",
-        authorization: authorizationOfNewAccount, // Default to NO, can be changed later
-      };
+      try {
+        const formData = new FormData(e.currentTarget);
 
-      return await (addAccount(newAccount).then(() => {
-        return registerDJ({
+        const newAccount: NewAccountParams = {
+          realName: formData.get("realName") as string,
+          username: formData.get("username") as string,
+          djName: formData.get("djName")
+            ? (formData.get("djName") as string)
+            : "Anonymous",
+          email: formData.get("email") as string,
+          temporaryPassword: "Freak893",
+          authorization: authorizationOfNewAccount,
+        };
+
+        // Map Authorization enum to better-auth role
+        let role: "member" | "dj" | "musicDirector" | "stationManager" = "member";
+        if (authorizationOfNewAccount === Authorization.SM) {
+          role = "stationManager";
+        } else if (authorizationOfNewAccount === Authorization.MD) {
+          role = "musicDirector";
+        } else if (authorizationOfNewAccount === Authorization.DJ) {
+          role = "dj";
+        }
+
+        // Create user via better-auth admin API
+        const result = await authClient.admin.createUser({
+          name: newAccount.username,
+          email: newAccount.email,
+          password: newAccount.temporaryPassword,
+          role: role,
+          data: {
+            realName: newAccount.realName || undefined,
+            djName: newAccount.djName || undefined,
+          },
+        });
+
+        if (result.error) {
+          throw new Error(result.error.message || "Failed to create user");
+        }
+
+        // Register DJ info
+        await registerDJ({
           cognito_user_name: newAccount.username,
           real_name: newAccount.realName,
           dj_name: newAccount.djName,
         });
-      }));
-    },
-    [authorizationOfNewAccount]
-  );
 
-  useEffect(() => {
-    if (addAccountResult.isSuccess) {
-      dispatch(adminSlice.actions.setAdding(false));
-      dispatch(adminSlice.actions.reset());
-    }
-  }, [addAccountResult.isSuccess, dispatch]);
+        dispatch(adminSlice.actions.setAdding(false));
+        dispatch(adminSlice.actions.reset());
+        
+        // Refresh account list
+        window.location.reload();
+      } catch (err) {
+        setCreateError(err instanceof Error ? err : new Error(String(err)));
+      } finally {
+        setIsCreating(false);
+      }
+    },
+    [authorizationOfNewAccount, registerDJ, dispatch]
+  );
 
   return (
     <Sheet

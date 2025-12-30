@@ -10,12 +10,10 @@ import {
   isRejectedWithValue,
 } from "@reduxjs/toolkit";
 import { toast } from "sonner";
-import { adminApi } from "./features/admin/api";
 import { adminSlice } from "./features/admin/frontend";
 import { applicationApi } from "./features/application/api";
 import { applicationSlice } from "./features/application/frontend";
 import {
-  authenticationApi,
   djRegistryApi,
 } from "./features/authentication/api";
 import { authenticationSlice } from "./features/authentication/frontend";
@@ -30,7 +28,6 @@ import { rotationSlice } from "./features/rotation/frontend";
 
 const rootReducer = combineSlices(
   authenticationSlice,
-  authenticationApi,
   djRegistryApi,
   applicationSlice,
   applicationApi,
@@ -42,8 +39,7 @@ const rootReducer = combineSlices(
   flowsheetApi,
   rotationSlice,
   rotationApi,
-  adminSlice,
-  adminApi
+  adminSlice
 );
 
 export type RootState = ReturnType<typeof rootReducer>;
@@ -54,15 +50,13 @@ export const makeStore = () => {
     middleware: (getDefaultMiddleware) => {
       return getDefaultMiddleware()
         .concat(rtkQueryErrorLogger)
-        .concat(authenticationApi.middleware)
         .concat(djRegistryApi.middleware)
         .concat(applicationApi.middleware)
         .concat(experienceApi.middleware)
         .concat(catalogApi.middleware)
         .concat(binApi.middleware)
         .concat(flowsheetApi.middleware)
-        .concat(rotationApi.middleware)
-        .concat(adminApi.middleware);
+        .concat(rotationApi.middleware);
     },
   });
 };

@@ -1,28 +1,25 @@
 "use client";
 
 import {
-  authenticationApi,
-  useGetAuthenticationQuery,
   useGetDJInfoQuery,
-  useLoginMutation,
-  useLogoutMutation,
-  useModDJInfoMutation,
-  useNewUserMutation,
-  useRequestPasswordResetMutation,
-  useResetPasswordMutation,
 } from "@/lib/features/authentication/api";
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
+import { authClient } from "@/lib/features/authentication/client";
 import {
   AuthenticatedUser,
+  AuthenticationData,
   djAttributeNames,
   isAuthenticated,
   NewUserCredentials,
   ResetPasswordRequest,
   VerifiedData,
 } from "@/lib/features/authentication/types";
+import { betterAuthSessionToAuthenticationData } from "@/lib/features/authentication/utilities";
+import { Authorization } from "@/lib/features/admin/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { resetApplication } from "./applicationHooks";
 
 export const useLogin = () => {
@@ -34,28 +31,51 @@ export const useLogin = () => {
 
   const { handleLogout } = useLogout();
 
-  const [login, result] = useLoginMutation();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setIsLoading(true);
+    setError(null);
 
     const username = e.currentTarget.username.value;
     const password = e.currentTarget.password.value;
 
-    login({ username, password });
-  };
+    try {
+      const result = await authClient.signIn.username({
+        username,
+        password,
+      });
 
-  useEffect(() => {
-    if (result.isSuccess) {
-      if (isAuthenticated(result.data)) {
-        router.push(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE));
+      if (result.error) {
+        const errorMessage = result.error instanceof Error 
+          ? result.error.message 
+          : typeof result.error === 'string' 
+            ? result.error 
+            : (result.error as any)?.message || 'Login failed. Please check your credentials.';
+        
+        setError(result.error instanceof Error ? result.error : new Error(errorMessage));
+        toast.error(errorMessage);
+        handleLogout();
       } else {
+        // Sign in successful, session cookie is set
+        toast.success("Login successful");
+        router.push(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE));
         router.refresh();
       }
-    } else if (result.isError) {
+    } catch (err) {
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : 'An unexpected error occurred during login. Please try again.';
+      
+      setError(err instanceof Error ? err : new Error(errorMessage));
+      toast.error(errorMessage);
       handleLogout();
+    } finally {
+      setIsLoading(false);
     }
-  }, [result]);
+  };
 
   const dispatch = useAppDispatch();
   useEffect(() => {
@@ -65,62 +85,55 @@ export const useLogin = () => {
   return {
     handleLogin,
     verified,
-    authenticating: result.isLoading || result.isSuccess,
+    authenticating: isLoading,
+    error,
   };
 };
 
 export const useLogout = () => {
   const router = useRouter();
-  const [logout, result] = useLogoutMutation();
+  const dispatch = useAppDispatch();
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleLogout = async (event?: React.FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
-    logout();
-  };
+    setIsLoading(true);
 
-  const dispatch = useAppDispatch();
-  useEffect(() => {
-    if (result.isSuccess || result.isError) {
+    try {
+      await authClient.signOut();
+      toast.success("Logged out successfully");
       router.refresh();
       resetApplication(dispatch);
+    } catch (error) {
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Failed to logout. Please try again.';
+      
+      console.error("Logout error:", error);
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
-  }, [result]);
+  };
 
   return {
     handleLogout,
-    loggingOut: result.isLoading || result.isSuccess,
+    loggingOut: isLoading,
   };
 };
 
 export const useAuthentication = () => {
-  const router = useRouter();
-  const [logout, result] = useLogoutMutation();
-
-  const {
-    data,
-    isLoading: authenticating,
-    isSuccess: authenticated,
-    isError,
-  } = useGetAuthenticationQuery(undefined, {
-    pollingInterval: 2700000,
-  });
-
-  useEffect(() => {
-    if (isError) {
-      logout();
-    }
-  }, [data]);
-
-  useEffect(() => {
-    if (result.isSuccess || result.isError) {
-      router.push("/login");
-    }
-  }, [result]);
+  const { data: session, isPending, error: sessionError } = authClient.useSession();
+  
+  const authData: AuthenticationData = session 
+    ? betterAuthSessionToAuthenticationData(session as any)
+    : { message: "Not Authenticated" };
 
   return {
-    data: data,
-    authenticating,
-    authenticated,
+    data: authData,
+    authenticating: isPending,
+    authenticated: session ? isAuthenticated(authData) : false,
+    error: sessionError ? (sessionError as Error) : null,
   };
 };
 
@@ -155,11 +168,12 @@ export const useNewUser = () => {
 
   const { handleLogout } = useLogout();
 
-  const [setNewUserData, newUserResult] = useNewUserMutation();
-  const [reflectNewUserData, reflectResult] = useModDJInfoMutation();
-
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
   const handleNewUser = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setIsLoading(true);
+    setError(null);
 
     const username = e.currentTarget.username.value;
     const password = e.currentTarget.password.value;
@@ -176,33 +190,49 @@ export const useNewUser = () => {
       }
     }
 
-    await setNewUserData(params);
-  };
-
-  useEffect(() => {
-    if (newUserResult.isSuccess) {
-      if (isAuthenticated(newUserResult.data)) {
-        dispatch(
-          authenticationApi.util.upsertQueryData(
-            "getAuthentication",
-            undefined,
-            newUserResult.data
-          )
-        );
-        reflectNewUserData({
-          cognito_user_name: newUserResult.data.user?.username!,
-          real_name: newUserResult.data.user?.realName || undefined,
-          dj_name: newUserResult.data.user?.djName || undefined,
-        }).then(() =>
-          router.push(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE))
-        );
-      } else {
-        router.refresh();
+    try {
+      // better-auth has disableSignUp: true, so new users must be created via admin API
+      // Get current session to ensure user is authenticated
+      const session = await authClient.getSession();
+      if (!session.data) {
+        throw new Error("You must be authenticated to create users");
       }
-    } else if (newUserResult.isError) {
-      handleLogout();
+
+      // Map Authorization enum to better-auth role
+      const role: "member" | "dj" | "musicDirector" | "stationManager" = "dj";
+
+      const result = await authClient.admin.createUser({
+        name: params.username,
+        email: params.email || `${params.username}@example.com`,
+        password: params.password,
+        role: role,
+        data: {
+          realName: params.realName || undefined,
+          djName: params.djName || undefined,
+        },
+      });
+
+      if (result.error) {
+        const errorMessage = result.error.message || 'Failed to create user';
+        throw new Error(errorMessage);
+      }
+
+      // User created successfully, redirect to login or dashboard
+      toast.success("User created successfully");
+      router.push(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE));
+      router.refresh();
+    } catch (err) {
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : 'Failed to create user. Please try again.';
+      
+      setError(err instanceof Error ? err : new Error(errorMessage));
+      toast.error(errorMessage);
+      // Don't logout on error - let user see the error message
+    } finally {
+      setIsLoading(false);
     }
-  }, [newUserResult]);
+  };
 
   useEffect(() => {
     dispatch(authenticationSlice.actions.reset());
@@ -214,8 +244,9 @@ export const useNewUser = () => {
   return {
     handleNewUser,
     verified,
-    authenticating: newUserResult.isLoading || newUserResult.isSuccess,
+    authenticating: isLoading,
     addRequiredCredentials,
+    error,
   };
 };
 
@@ -223,61 +254,121 @@ export const useResetPassword = () => {
   const router = useRouter();
   const { handleLogout } = useLogout();
 
-  const [makeForgotRequest, forgotResult] = useRequestPasswordResetMutation();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const [requestingReset, setRequestingReset] = useState(false);
 
   const verified = useAppSelector(
     authenticationSlice.selectors.requiredCredentialsVerified
   );
 
-  // button clicked
+  // Note: better-auth may not have built-in password reset
+  // This may need to call an admin API endpoint
   const handleRequestReset = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     const username = e.currentTarget.form?.username.value;
     if (!username) return;
 
-    makeForgotRequest(String(username));
-  };
+    setRequestingReset(true);
+    setError(null);
 
-  useEffect(() => {
-    if (forgotResult.isSuccess) {
+    try {
+      // Password reset must be done via admin API
+      // Get current session to ensure user is authenticated
+      const session = await authClient.getSession();
+      if (!session.data) {
+        throw new Error("You must be authenticated to reset passwords");
+      }
+
+      // Find user by username
+      const listResult = await authClient.admin.listUsers({
+        query: {
+          searchValue: username,
+          searchField: "name",
+          limit: 1,
+        },
+      });
+
+      if (listResult.error || !listResult.data?.users || listResult.data.users.length === 0) {
+        throw new Error(`User with username ${username} not found`);
+      }
+
+      const targetUserId = listResult.data.users[0].id;
+
+      // Generate a temporary password (better-auth doesn't have a built-in reset, so we'll set a new one)
+      // In a real scenario, you might want to generate a secure temporary password
+      const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+
+      const result = await authClient.admin.updateUser({
+        userId: targetUserId,
+        password: tempPassword,
+      });
+
+      if (result.error) {
+        const errorMessage = result.error.message || 'Failed to reset password';
+        throw new Error(errorMessage);
+      }
+
+      toast.success(`Password reset successfully. Temporary password: ${tempPassword}`);
       router.refresh();
-    } else if (forgotResult.isError) {
-      handleLogout();
+    } catch (err) {
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : 'Failed to reset password. Please try again.';
+      
+      setError(err instanceof Error ? err : new Error(errorMessage));
+      toast.error(errorMessage);
+      // Don't logout on error - let user see the error message
+    } finally {
+      setRequestingReset(false);
     }
-  }, [forgotResult]);
-
-  const [resetPassword, resetResult] = useResetPasswordMutation();
+  };
 
   const handleReset = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setIsLoading(true);
+    setError(null);
 
     const code = e.currentTarget.code.value;
     const password = e.currentTarget.password.value;
     const username = e.currentTarget.username.value;
 
-    if (!code || !password || !username) return;
-
-    const params: ResetPasswordRequest = { code, password, username };
-
-    resetPassword(params);
-  };
-
-  useEffect(() => {
-    if (resetResult.isSuccess) {
-      if (isAuthenticated(resetResult.data)) {
-        router.push(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE));
-      } else {
-        router.refresh();
-      }
-    } else if (resetResult.isError) {
-      handleLogout();
+    if (!code || !password || !username) {
+      const errorMessage = "All fields are required";
+      setError(new Error(errorMessage));
+      toast.error(errorMessage);
+      setIsLoading(false);
+      return;
     }
-  }, [resetResult]);
+
+    try {
+      // Password reset confirmation: user sets new password after admin reset
+      // This flow requires the user to login with the temporary password first
+      // Then they can change it, or we could add a change password endpoint
+      const errorMessage = "Password reset confirmation requires login with temporary password. Please contact an administrator for a password reset.";
+      throw new Error(errorMessage);
+      
+      // After successful reset, user should be able to login
+      // router.push(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE));
+      // router.refresh();
+    } catch (err) {
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : 'Password reset failed. Please try again.';
+      
+      setError(err instanceof Error ? err : new Error(errorMessage));
+      toast.error(errorMessage);
+      // Don't logout on error - let user see the error message
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return {
     handleReset,
     handleRequestReset,
     verified,
-    requestingReset: forgotResult.isLoading || forgotResult.isSuccess,
+    requestingReset,
+    error,
   };
 };

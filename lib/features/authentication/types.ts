@@ -17,8 +17,9 @@ export type AuthenticationData =
 
 export type AuthenticatedUser = {
   user?: User;
-  accessToken?: string;
-  idToken?: string;
+  accessToken?: string;  // JWT token from better-auth
+  idToken?: string;      // Legacy Cognito field, may be undefined with better-auth
+  token?: string;        // Better-auth JWT token (alternative to accessToken)
 };
 
 export function isAuthenticated(
@@ -54,15 +55,6 @@ export type PasswordResetUser = {
   confirmationMessage: string;
 };
 
-export const defaultAuthenticationSession: AuthenticationSession = {
-  refreshToken: undefined,
-  expiresAt: undefined,
-};
-
-export type AuthenticationSession = {
-  refreshToken: string | undefined;
-  expiresAt: Date | undefined;
-};
 
 export type Credentials = {
   username: string;
@@ -74,9 +66,16 @@ export type NewUserCredentials = Credentials & Record<string, string>;
 export type User = {
   username: string;
   email: string;
-  realName: string;
-  djName: string;
+  realName?: string;     // Optional: User's real name
+  djName?: string;        // Optional: DJ name/on-air name
   authority: Authorization;
+  // Better-auth fields (optional for compatibility)
+  id?: string;
+  name?: string;          // Username (duplicate of username)
+  emailVerified?: boolean;
+  appSkin?: string;       // UI theme
+  createdAt?: Date;
+  updatedAt?: Date;
 };
 
 export type ResetPasswordCredentials = {
@@ -105,13 +104,21 @@ export type Validators =
   | "UserData"
   | "ResetPasswordCredentials";
 
-export interface DJwtPayload extends JwtPayload {
-  "cognito:username": string;
-  email: string;
-  name: string;
-  "custom:dj-name": string;
-  "cognito:groups"?: string[];
+
+// Better-auth JWT payload structure
+export interface BetterAuthJwtPayload extends JwtPayload {
+  sub?: string;        // User ID
+  id?: string;         // User ID (better-auth may include both)
+  email: string;       // User email
+  role: WXYCRole;      // Organization member role
+  exp: number;         // Expiration timestamp
+  iat: number;         // Issued at timestamp
+  iss?: string;        // Issuer
+  aud?: string;        // Audience
 }
+
+// Better-auth role type
+export type WXYCRole = "member" | "dj" | "musicDirector" | "stationManager";
 
 export type DJRegistryParams = {
   cognito_user_name: string;
@@ -143,7 +150,7 @@ export const djAttributeNames: Record<string, keyof VerifiedData> = {
   "custom:dj-name": "djName",
 };
 
-export const djAttributeTitles: Record<keyof VerifiedData, string> = {
+export const djAttributeTitles: Partial<Record<keyof VerifiedData, string>> = {
   realName: "Real Name",
   djName: "DJ Name",
   username: "Username",
@@ -154,14 +161,29 @@ export const djAttributeTitles: Record<keyof VerifiedData, string> = {
 
 export type AccountModification = Partial<Record<keyof ModifiableData, string>>;
 
-export const modifiableAttributeNames: Record<keyof ModifiableData, string> = {
+export const modifiableAttributeNames: Partial<Record<keyof ModifiableData, string>> = {
   realName: "name",
   djName: "custom:dj-name",
   email: "email",
 };
 
 export type BackendAccountModification = {
-  cognito_user_name: string;
+  cognito_user_name: string;  // Legacy field name, but will contain username
   dj_name: string | undefined;
   real_name: string | undefined;
 };
+
+// Utility function to map better-auth role to Authorization enum
+export function mapRoleToAuthorization(role: WXYCRole | undefined): Authorization {
+  switch (role) {
+    case "stationManager":
+      return Authorization.SM;
+    case "musicDirector":
+      return Authorization.MD;
+    case "dj":
+      return Authorization.DJ;
+    case "member":
+    default:
+      return Authorization.NO;
+  }
+}

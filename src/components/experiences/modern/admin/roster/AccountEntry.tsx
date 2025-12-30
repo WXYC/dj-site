@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  useDeleteAccountMutation,
-  usePromoteAccountMutation,
-  useResetPasswordMutation,
-} from "@/lib/features/admin/api";
+import { authClient } from "@/lib/features/authentication/client";
 import {
   Account,
   AdminAuthenticationStatus,
@@ -13,6 +9,7 @@ import {
 import { useDeleteDJInfoMutation } from "@/lib/features/authentication/api";
 import { DeleteForever, SyncLock } from "@mui/icons-material";
 import { ButtonGroup, Checkbox, IconButton, Stack, Tooltip } from "@mui/joy";
+import { useState } from "react";
 
 export const AccountEntry = ({
   account,
@@ -21,10 +18,13 @@ export const AccountEntry = ({
   account: Account;
   isSelf: boolean;
 }) => {
-  const [promoteAccount, promoteResult] = usePromoteAccountMutation();
-  const [resetPassword, resetResult] = useResetPasswordMutation();
-  const [deleteAccount, deleteResult] = useDeleteAccountMutation();
   const [clearInfo, clearResult] = useDeleteDJInfoMutation();
+  const [isPromoting, setIsPromoting] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [promoteError, setPromoteError] = useState<Error | null>(null);
+  const [resetError, setResetError] = useState<Error | null>(null);
+  const [deleteError, setDeleteError] = useState<Error | null>(null);
 
   return (
     <tr>
@@ -40,7 +40,8 @@ export const AccountEntry = ({
             color={"success"}
             sx={{ transform: "translateY(3px)" }}
             checked={account.authorization == Authorization.SM}
-            onChange={(e) => {
+            disabled={isSelf || isPromoting}
+            onChange={async (e) => {
               if (e.target.checked) {
                 if (
                   confirm(
@@ -49,11 +50,40 @@ export const AccountEntry = ({
                     } account to Station Manager?`
                   )
                 ) {
-                  promoteAccount({
-                    username: account.userName,
-                    currentAuthorization: account.authorization,
-                    nextAuthorization: Authorization.SM,
-                  });
+                  setIsPromoting(true);
+                  setPromoteError(null);
+                  try {
+                    // Find user by username
+                    const listResult = await authClient.admin.listUsers({
+                      query: {
+                        searchValue: account.userName,
+                        searchField: "name",
+                        limit: 1,
+                      },
+                    });
+
+                    if (listResult.error || !listResult.data?.users || listResult.data.users.length === 0) {
+                      throw new Error(`User with username ${account.userName} not found`);
+                    }
+
+                    const targetUserId = listResult.data.users[0].id;
+
+                    // Update user role
+                    const result = await authClient.admin.setRole({
+                      userId: targetUserId,
+                      role: "stationManager",
+                    });
+
+                    if (result.error) {
+                      throw new Error(result.error.message || "Failed to promote user");
+                    }
+
+                    window.location.reload();
+                  } catch (err) {
+                    setPromoteError(err instanceof Error ? err : new Error(String(err)));
+                  } finally {
+                    setIsPromoting(false);
+                  }
                 }
               } else {
                 if (
@@ -63,11 +93,40 @@ export const AccountEntry = ({
                     } access to Station Manager privileges?`
                   )
                 ) {
-                  promoteAccount({
-                    username: account.userName,
-                    currentAuthorization: account.authorization,
-                    nextAuthorization: Authorization.MD,
-                  });
+                  setIsPromoting(true);
+                  setPromoteError(null);
+                  try {
+                    // Find user by username
+                    const listResult = await authClient.admin.listUsers({
+                      query: {
+                        searchValue: account.userName,
+                        searchField: "name",
+                        limit: 1,
+                      },
+                    });
+
+                    if (listResult.error || !listResult.data?.users || listResult.data.users.length === 0) {
+                      throw new Error(`User with username ${account.userName} not found`);
+                    }
+
+                    const targetUserId = listResult.data.users[0].id;
+
+                    // Update user role
+                    const result = await authClient.admin.setRole({
+                      userId: targetUserId,
+                      role: "musicDirector",
+                    });
+
+                    if (result.error) {
+                      throw new Error(result.error.message || "Failed to update user role");
+                    }
+
+                    window.location.reload();
+                  } catch (err) {
+                    setPromoteError(err instanceof Error ? err : new Error(String(err)));
+                  } finally {
+                    setIsPromoting(false);
+                  }
                 }
               }
             }}
@@ -76,7 +135,7 @@ export const AccountEntry = ({
             disabled={
               isSelf ||
               account.authorization == Authorization.SM ||
-              promoteResult.isLoading
+              isPromoting
             }
             color={"success"}
             sx={{ transform: "translateY(3px)" }}
@@ -84,7 +143,7 @@ export const AccountEntry = ({
               account.authorization == Authorization.SM ||
               account.authorization == Authorization.MD
             }
-            onChange={(e) => {
+            onChange={async (e) => {
               if (e.target.checked) {
                 if (
                   confirm(
@@ -93,11 +152,40 @@ export const AccountEntry = ({
                     } account to Music Director?`
                   )
                 ) {
-                  promoteAccount({
-                    username: account.userName,
-                    currentAuthorization: account.authorization,
-                    nextAuthorization: Authorization.MD,
-                  });
+                  setIsPromoting(true);
+                  setPromoteError(null);
+                  try {
+                    // Find user by username
+                    const listResult = await authClient.admin.listUsers({
+                      query: {
+                        searchValue: account.userName,
+                        searchField: "name",
+                        limit: 1,
+                      },
+                    });
+
+                    if (listResult.error || !listResult.data?.users || listResult.data.users.length === 0) {
+                      throw new Error(`User with username ${account.userName} not found`);
+                    }
+
+                    const targetUserId = listResult.data.users[0].id;
+
+                    // Update user role
+                    const result = await authClient.admin.setRole({
+                      userId: targetUserId,
+                      role: "musicDirector",
+                    });
+
+                    if (result.error) {
+                      throw new Error(result.error.message || "Failed to promote user");
+                    }
+
+                    window.location.reload();
+                  } catch (err) {
+                    setPromoteError(err instanceof Error ? err : new Error(String(err)));
+                  } finally {
+                    setIsPromoting(false);
+                  }
                 }
               } else {
                 if (
@@ -107,11 +195,40 @@ export const AccountEntry = ({
                     } access to Music Director privileges?`
                   )
                 ) {
-                  promoteAccount({
-                    username: account.userName,
-                    currentAuthorization: account.authorization,
-                    nextAuthorization: Authorization.DJ,
-                  });
+                  setIsPromoting(true);
+                  setPromoteError(null);
+                  try {
+                    // Find user by username
+                    const listResult = await authClient.admin.listUsers({
+                      query: {
+                        searchValue: account.userName,
+                        searchField: "name",
+                        limit: 1,
+                      },
+                    });
+
+                    if (listResult.error || !listResult.data?.users || listResult.data.users.length === 0) {
+                      throw new Error(`User with username ${account.userName} not found`);
+                    }
+
+                    const targetUserId = listResult.data.users[0].id;
+
+                    // Update user role
+                    const result = await authClient.admin.setRole({
+                      userId: targetUserId,
+                      role: "dj",
+                    });
+
+                    if (result.error) {
+                      throw new Error(result.error.message || "Failed to update user role");
+                    }
+
+                    window.location.reload();
+                  } catch (err) {
+                    setPromoteError(err instanceof Error ? err : new Error(String(err)));
+                  } finally {
+                    setIsPromoting(false);
+                  }
                 }
               }
             }}
@@ -142,15 +259,53 @@ export const AccountEntry = ({
               disabled={
                 account.authType != AdminAuthenticationStatus.Confirmed ||
                 isSelf ||
-                resetResult.isSuccess
+                isResetting
               }
-              onClick={() => {
+              loading={isResetting}
+              onClick={async () => {
                 if (
                   confirm(
                     "Are you sure you want to reset this user's password?"
                   )
                 ) {
-                  resetPassword(account.userName);
+                  setIsResetting(true);
+                  setResetError(null);
+                  try {
+                    // Find user by username
+                    const listResult = await authClient.admin.listUsers({
+                      query: {
+                        searchValue: account.userName,
+                        searchField: "name",
+                        limit: 1,
+                      },
+                    });
+
+                    if (listResult.error || !listResult.data?.users || listResult.data.users.length === 0) {
+                      throw new Error(`User with username ${account.userName} not found`);
+                    }
+
+                    const targetUserId = listResult.data.users[0].id;
+
+                    // Generate a temporary password
+                    const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+
+                    // Reset password via better-auth admin API
+                    const result = await authClient.admin.updateUser({
+                      userId: targetUserId,
+                      password: tempPassword,
+                    });
+
+                    if (result.error) {
+                      throw new Error(result.error.message || "Failed to reset password");
+                    }
+
+                    alert(`Password reset successfully. Temporary password: ${tempPassword}`);
+                  } catch (err) {
+                    setResetError(err instanceof Error ? err : new Error(String(err)));
+                    alert(err instanceof Error ? err.message : "Failed to reset password");
+                  } finally {
+                    setIsResetting(false);
+                  }
                 }
               }}
             >
@@ -174,17 +329,51 @@ export const AccountEntry = ({
               color="warning"
               variant="outlined"
               size="sm"
-              disabled={isSelf || deleteResult.isSuccess}
-              loading={deleteResult.isLoading}
-              onClick={() => {
+              disabled={isSelf || isDeleting}
+              loading={isDeleting}
+              onClick={async () => {
                 if (
                   confirm(
                     `Are you sure you want to delete ${account.realName}'s account?`
                   )
                 ) {
-                  deleteAccount(account.userName).then(async () => {
-                    return await clearInfo(account.userName);
-                  });
+                  setIsDeleting(true);
+                  setDeleteError(null);
+                  try {
+                    // Find user by username
+                    const listResult = await authClient.admin.listUsers({
+                      query: {
+                        searchValue: account.userName,
+                        searchField: "name",
+                        limit: 1,
+                      },
+                    });
+
+                    if (listResult.error || !listResult.data?.users || listResult.data.users.length === 0) {
+                      throw new Error(`User with username ${account.userName} not found`);
+                    }
+
+                    const targetUserId = listResult.data.users[0].id;
+
+                    // Delete user via better-auth admin API
+                    const result = await authClient.admin.deleteUser({
+                      userId: targetUserId,
+                    });
+
+                    if (result.error) {
+                      throw new Error(result.error.message || "Failed to delete user");
+                    }
+
+                    // Clear DJ info
+                    await clearInfo(account.userName);
+
+                    window.location.reload();
+                  } catch (err) {
+                    setDeleteError(err instanceof Error ? err : new Error(String(err)));
+                    alert(err instanceof Error ? err.message : "Failed to delete account");
+                  } finally {
+                    setIsDeleting(false);
+                  }
                 }
               }}
             >

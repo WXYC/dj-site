@@ -2,13 +2,13 @@
 
 import {
   useModDJInfoMutation,
-  useModifyUserMutation,
 } from "@/lib/features/authentication/api";
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
 import { AccountModification, BackendAccountModification } from "@/lib/features/authentication/types";
+import { authClient } from "@/lib/features/authentication/client";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useRegistry } from "./authenticationHooks";
 
@@ -22,54 +22,88 @@ export function useDJAccount() {
 
   const dispatch = useAppDispatch();
 
-  const [updateUserData, result] = useModifyUserMutation();
   const [reflectBackendUpdate, backendResult] = useModDJInfoMutation();
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [updateError, setUpdateError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!result.isLoading && !backendResult.isLoading) {
+    if (!isUpdating && !backendResult.isLoading) {
       dispatch(authenticationSlice.actions.resetModifications());
     }
 
-    if (result.isSuccess) {
+    if (!isUpdating && !updateError && backendResult.isSuccess) {
       toast.success("User settings saved.");
       router.refresh();
     }
-  }, [result, backendResult, dispatch, router]);
+  }, [isUpdating, backendResult, dispatch, router, updateError]);
 
   const handleSaveData = useCallback(
-    (e: React.FormEvent<HTMLFormElement>) => {
+    async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
 
       if (info === undefined || info === null) return;
 
-      const formData = new FormData(e.currentTarget);
+      setIsUpdating(true);
+      setUpdateError(null);
 
-      let data: AccountModification = {};
+      try {
+        const formData = new FormData(e.currentTarget);
 
-      for (const [key, value] of formData.entries()) {
-        if (value !== "" && modifications.some((name) => name == key)) {
-          data[key as keyof AccountModification] = value as string;
+        let data: AccountModification = {};
+
+        for (const [key, value] of formData.entries()) {
+          if (value !== "" && modifications.some((name) => name == key)) {
+            data[key as keyof AccountModification] = value as string;
+          }
         }
-      }
 
-      if (Object.keys(data).length > 0) {
-        updateUserData(data);
+        if (Object.keys(data).length > 0) {
+          // Get current session to get user ID
+          const session = await authClient.getSession();
+          if (!session.data?.user?.id) {
+            throw new Error("User not authenticated");
+          }
 
-        const backendData: BackendAccountModification = {
-          cognito_user_name: info.cognito_user_name,
-          real_name: data.realName || info.real_name,
-          dj_name: data.djName || info.dj_name,
-        };
+          // Update user via better-auth admin API
+          // Note: This requires admin privileges, or we need a user update endpoint
+          // For now, using admin API - in production, you might want a dedicated user update endpoint
+          const updateData: Record<string, any> = {};
+          if (data.realName) updateData.realName = data.realName;
+          if (data.djName) updateData.djName = data.djName;
+          if (data.email) updateData.email = data.email;
 
-        reflectBackendUpdate(backendData);
+          if (Object.keys(updateData).length > 0) {
+            const result = await authClient.admin.updateUser({
+              userId: session.data.user.id,
+              ...updateData,
+            });
+
+            if (result.error) {
+              throw new Error(result.error.message || "Failed to update user");
+            }
+          }
+
+          const backendData: BackendAccountModification = {
+            cognito_user_name: info.cognito_user_name,
+            real_name: data.realName || info.real_name,
+            dj_name: data.djName || info.dj_name,
+          };
+
+          await reflectBackendUpdate(backendData);
+        }
+      } catch (err) {
+        setUpdateError(err instanceof Error ? err : new Error(String(err)));
+        toast.error(err instanceof Error ? err.message : "Failed to update user settings");
+      } finally {
+        setIsUpdating(false);
       }
     },
-    [modifications]
+    [modifications, info, reflectBackendUpdate]
   );
 
   return {
     info,
-    loading: loading || result.isLoading || backendResult.isLoading,
+    loading: loading || isUpdating || backendResult.isLoading,
     handleSaveData,
   };
 }
