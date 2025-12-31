@@ -11,7 +11,7 @@ import {
   ResetPasswordRequest,
   VerifiedData,
 } from "@/lib/features/authentication/types";
-import { betterAuthSessionToAuthenticationData } from "@/lib/features/authentication/utilities";
+import { betterAuthSessionToAuthenticationData, betterAuthSessionToAuthenticationDataAsync } from "@/lib/features/authentication/utilities";
 import { Authorization } from "@/lib/features/admin/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useRouter } from "next/navigation";
@@ -121,14 +121,37 @@ export const useLogout = () => {
 
 export const useAuthentication = () => {
   const { data: session, isPending, error: sessionError } = authClient.useSession();
-  
-  const authData: AuthenticationData = session 
-    ? betterAuthSessionToAuthenticationData(session as any)
-    : { message: "Not Authenticated" };
+  const [authData, setAuthData] = useState<AuthenticationData>(
+    session 
+      ? betterAuthSessionToAuthenticationData(session as any)
+      : { message: "Not Authenticated" }
+  );
+  const [isLoadingRole, setIsLoadingRole] = useState(false);
+
+  // Fetch organization role when session is available
+  useEffect(() => {
+    if (session && !isPending) {
+      setIsLoadingRole(true);
+      betterAuthSessionToAuthenticationDataAsync(session as any)
+        .then((data) => {
+          setAuthData(data);
+        })
+        .catch((error) => {
+          console.error("Failed to fetch organization role, using session data:", error);
+          // Fall back to synchronous version on error
+          setAuthData(betterAuthSessionToAuthenticationData(session as any));
+        })
+        .finally(() => {
+          setIsLoadingRole(false);
+        });
+    } else if (!session) {
+      setAuthData({ message: "Not Authenticated" });
+    }
+  }, [session, isPending]);
 
   return {
     data: authData,
-    authenticating: isPending,
+    authenticating: isPending || isLoadingRole,
     authenticated: session ? isAuthenticated(authData) : false,
     error: sessionError ? (sessionError as Error) : null,
   };

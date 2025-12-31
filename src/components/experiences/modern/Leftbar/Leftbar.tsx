@@ -14,7 +14,7 @@ import LeftbarLogout from "./LeftbarLogout";
 export default async function Leftbar(): Promise<JSX.Element> {
   // user is guaranteed to be defined here because requireAuth will redirect to login if not authenticated
   const session = await requireAuth();
-  const user = getUserFromSession(session);
+  const user = await getUserFromSession(session);
 
   return (
     <LeftbarContainer>
