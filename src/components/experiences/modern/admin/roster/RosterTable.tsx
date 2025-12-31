@@ -3,7 +3,6 @@
 import { authClient } from "@/lib/features/authentication/client";
 import { adminSlice } from "@/lib/features/admin/frontend";
 import { NewAccountParams, Authorization } from "@/lib/features/admin/types";
-import { useRegisterDJMutation } from "@/lib/features/authentication/api";
 import { User } from "@/lib/features/authentication/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useAccountListResults } from "@/src/hooks/adminHooks";
@@ -18,16 +17,16 @@ import {
   Tooltip,
   Typography,
 } from "@mui/joy";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { toast } from "sonner";
 import { AccountEntry } from "./AccountEntry";
 import AccountSearchForm from "./AccountSearchForm";
 import ExportDJsButton from "./ExportCSV";
 import NewAccountForm from "./NewAccountForm";
 
 export default function RosterTable({ user }: { user: User }) {
-  const { data, isLoading, isError, error } = useAccountListResults();
+  const { data, isLoading, isError, error, refetch } = useAccountListResults();
 
-  const [registerDJ, registerDJResult] = useRegisterDJMutation();
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<Error | null>(null);
 
@@ -84,25 +83,22 @@ export default function RosterTable({ user }: { user: User }) {
           throw new Error(result.error.message || "Failed to create user");
         }
 
-        // Register DJ info
-        await registerDJ({
-          username: newAccount.username,
-          real_name: newAccount.realName,
-          dj_name: newAccount.djName,
-        });
-
+        toast.success(`Account created successfully for ${newAccount.username}`);
+        
         dispatch(adminSlice.actions.setAdding(false));
         dispatch(adminSlice.actions.reset());
         
         // Refresh account list
-        window.location.reload();
+        await refetch();
       } catch (err) {
-        setCreateError(err instanceof Error ? err : new Error(String(err)));
+        const errorMessage = err instanceof Error ? err.message : "Failed to create account";
+        setCreateError(err instanceof Error ? err : new Error(errorMessage));
+        toast.error(errorMessage);
       } finally {
         setIsCreating(false);
       }
     },
-    [authorizationOfNewAccount, registerDJ, dispatch]
+    [authorizationOfNewAccount, dispatch, refetch]
   );
 
   return (
@@ -213,6 +209,7 @@ export default function RosterTable({ user }: { user: User }) {
                   key={`roster-entry-${dj.userName}`}
                   account={dj}
                   isSelf={dj.userName === user.username}
+                  onAccountChange={refetch}
                 />
               ))
             )}
