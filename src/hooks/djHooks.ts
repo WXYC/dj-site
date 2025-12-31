@@ -49,25 +49,25 @@ export function useDJAccount() {
         }
 
         if (Object.keys(data).length > 0) {
-          // Get current session to get user ID
+          // Get current session to ensure user is authenticated
           const session = await authClient.getSession();
           if (!session.data?.user?.id) {
             throw new Error("User not authenticated");
           }
 
-          // Update user via better-auth admin API
-          // Note: This requires admin privileges, or we need a user update endpoint
-          // For now, using admin API - in production, you might want a dedicated user update endpoint
+          // Update user via better-auth non-admin updateUser (updates current user)
+          // Custom metadata fields (realName, djName) go at the top level
+          // Email updates may require special handling in better-auth
           const updateData: Record<string, any> = {};
           if (data.realName) updateData.realName = data.realName;
           if (data.djName) updateData.djName = data.djName;
+          // Note: Email updates via non-admin updateUser may have restrictions
+          // If email update fails, user may need admin assistance
           if (data.email) updateData.email = data.email;
 
           if (Object.keys(updateData).length > 0) {
-            const result = await authClient.admin.updateUser({
-              userId: session.data.user.id,
-              ...updateData,
-            });
+            // Use non-admin updateUser (same pattern as onboarding fix)
+            const result = await authClient.updateUser(updateData);
 
             if (result.error) {
               throw new Error(result.error.message || "Failed to update user");

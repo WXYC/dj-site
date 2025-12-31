@@ -15,13 +15,16 @@ export default async function ModernLoginLayout({
 }) {
   // Check if user is already authenticated
   const session = await getServerSession();
-  if (session) {
-    // User is authenticated, redirect to dashboard
-    redirect(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard"));
-  }
-
+  
   // Convert session to authentication data format for compatibility
   const authData = session ? betterAuthSessionToAuthenticationData(session) : { message: "Not Authenticated" };
+  
+  // If user is authenticated and complete, redirect to dashboard
+  // If user is incomplete, allow them to access the newuser page
+  if (session && !isIncomplete(authData)) {
+    // User is authenticated and complete, redirect to dashboard
+    redirect(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard"));
+  }
 
   return (
     <WXYCPage title="Login">

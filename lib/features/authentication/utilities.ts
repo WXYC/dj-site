@@ -4,8 +4,10 @@ import {
   AuthenticationData, 
   AuthenticatedUser,
   BetterAuthJwtPayload,
+  IncompleteUser,
   mapRoleToAuthorization,
-  User
+  User,
+  VerifiedData
 } from "./types";
 
 // Better-auth session type (from better-auth client)
@@ -87,9 +89,28 @@ export function betterAuthSessionToAuthenticationData(
   const token = session.session?.token;
   const authority = mapRoleToAuthorization(roleToMap);
 
+  const username = session.user.username || session.user.name;
+  
+  // Check if user is incomplete (missing required fields: realName or djName)
+  const missingAttributes: (keyof VerifiedData)[] = [];
+  if (!session.user.realName || session.user.realName.trim() === "") {
+    missingAttributes.push("realName");
+  }
+  if (!session.user.djName || session.user.djName.trim() === "") {
+    missingAttributes.push("djName");
+  }
+
+  // If user is missing required fields, return IncompleteUser
+  if (missingAttributes.length > 0) {
+    return {
+      username,
+      requiredAttributes: missingAttributes,
+    } as IncompleteUser;
+  }
+
   const user: User = {
     id: session.user.id,
-    username: session.user.username || session.user.name,
+    username: username,
     email: session.user.email,
     realName: session.user.realName,
     djName: session.user.djName,
