@@ -4,7 +4,7 @@ import SettingsPopup from "@/src/components/experiences/modern/settings/Settings
 
 export default async function SettingsPage() {
       const session = await requireAuth();
-      const user = getUserFromSession(session);
+      const user = await getUserFromSession(session);
 
       return <SettingsPopup user={user} />;
 }

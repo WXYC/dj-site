@@ -7,7 +7,7 @@ export default async function AdminPage() {
   const session = await requireAuth();
   await requireRole(session, Authorization.SM);
   
-  const user = getUserFromSession(session);
+  const user = await getUserFromSession(session);
   
   return (
     <>
