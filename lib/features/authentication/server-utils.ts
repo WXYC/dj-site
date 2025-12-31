@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { serverAuthClient } from "./server-client";
 import { BetterAuthSessionResponse, BetterAuthSession } from "./utilities";
 import { Authorization } from "../admin/types";
-import { mapRoleToAuthorization } from "./types";
+import { mapRoleToAuthorization, VerifiedData } from "./types";
 
 /**
  * Get the current session from better-auth in a server component
@@ -25,13 +25,22 @@ export async function getServerSession(): Promise<BetterAuthSession | null> {
 
 /**
  * Require authentication - redirects to login if not authenticated
- * Returns the session if authenticated
+ * Redirects to onboarding page if user is incomplete (missing required fields)
+ * Returns the session if authenticated and complete
  */
 export async function requireAuth(): Promise<BetterAuthSession> {
   const session = await getServerSession();
   if (!session) {
     redirect("/login");
   }
+
+  // Check if user is incomplete (missing required fields: realName or djName)
+  if (isUserIncomplete(session)) {
+    // Redirect to /login - the login layout will automatically show the newuser slot
+    // because the user is incomplete (detected via betterAuthSessionToAuthenticationData)
+    redirect("/login");
+  }
+
   return session;
 }
 
@@ -75,6 +84,33 @@ export async function requireRole(session: BetterAuthSession, requiredRole: Auth
   if (!checkRole(session, requiredRole)) {
     redirect(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard"));
   }
+}
+
+/**
+ * Check if user is incomplete (missing required fields: realName or djName)
+ */
+export function isUserIncomplete(session: BetterAuthSession): boolean {
+  const realName = session.user.realName;
+  const djName = session.user.djName;
+  
+  return !realName || realName.trim() === "" || !djName || djName.trim() === "";
+}
+
+/**
+ * Get array of missing required attributes for incomplete user
+ */
+export function getIncompleteUserAttributes(session: BetterAuthSession): (keyof VerifiedData)[] {
+  const missingAttributes: (keyof VerifiedData)[] = [];
+  
+  if (!session.user.realName || session.user.realName.trim() === "") {
+    missingAttributes.push("realName");
+  }
+  
+  if (!session.user.djName || session.user.djName.trim() === "") {
+    missingAttributes.push("djName");
+  }
+  
+  return missingAttributes;
 }
 
 /**
