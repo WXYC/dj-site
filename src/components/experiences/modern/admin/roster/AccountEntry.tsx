@@ -6,19 +6,20 @@ import {
   AdminAuthenticationStatus,
   Authorization,
 } from "@/lib/features/admin/types";
-import { useDeleteDJInfoMutation } from "@/lib/features/authentication/api";
 import { DeleteForever, SyncLock } from "@mui/icons-material";
 import { ButtonGroup, Checkbox, IconButton, Stack, Tooltip } from "@mui/joy";
 import { useState } from "react";
+import { toast } from "sonner";
 
 export const AccountEntry = ({
   account,
   isSelf,
+  onAccountChange,
 }: {
   account: Account;
   isSelf: boolean;
+  onAccountChange?: () => Promise<void>;
 }) => {
-  const [clearInfo, clearResult] = useDeleteDJInfoMutation();
   const [isPromoting, setIsPromoting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -36,7 +37,6 @@ export const AccountEntry = ({
       >
         <ButtonGroup>
           <Checkbox
-            disabled={isSelf || promoteResult.isLoading}
             color={"success"}
             sx={{ transform: "translateY(3px)" }}
             checked={account.authorization == Authorization.SM}
@@ -78,9 +78,14 @@ export const AccountEntry = ({
                       throw new Error(result.error.message || "Failed to promote user");
                     }
 
-                    window.location.reload();
+                    toast.success(`${account.realName} promoted to Station Manager`);
+                    if (onAccountChange) {
+                      await onAccountChange();
+                    }
                   } catch (err) {
-                    setPromoteError(err instanceof Error ? err : new Error(String(err)));
+                    const errorMessage = err instanceof Error ? err.message : "Failed to promote user";
+                    setPromoteError(err instanceof Error ? err : new Error(errorMessage));
+                    toast.error(errorMessage);
                   } finally {
                     setIsPromoting(false);
                   }
@@ -121,9 +126,14 @@ export const AccountEntry = ({
                       throw new Error(result.error.message || "Failed to update user role");
                     }
 
-                    window.location.reload();
+                    toast.success(`${account.realName} role updated to Music Director`);
+                    if (onAccountChange) {
+                      await onAccountChange();
+                    }
                   } catch (err) {
-                    setPromoteError(err instanceof Error ? err : new Error(String(err)));
+                    const errorMessage = err instanceof Error ? err.message : "Failed to update user role";
+                    setPromoteError(err instanceof Error ? err : new Error(errorMessage));
+                    toast.error(errorMessage);
                   } finally {
                     setIsPromoting(false);
                   }
@@ -180,9 +190,14 @@ export const AccountEntry = ({
                       throw new Error(result.error.message || "Failed to promote user");
                     }
 
-                    window.location.reload();
+                    toast.success(`${account.realName} promoted to Music Director`);
+                    if (onAccountChange) {
+                      await onAccountChange();
+                    }
                   } catch (err) {
-                    setPromoteError(err instanceof Error ? err : new Error(String(err)));
+                    const errorMessage = err instanceof Error ? err.message : "Failed to promote user";
+                    setPromoteError(err instanceof Error ? err : new Error(errorMessage));
+                    toast.error(errorMessage);
                   } finally {
                     setIsPromoting(false);
                   }
@@ -223,9 +238,14 @@ export const AccountEntry = ({
                       throw new Error(result.error.message || "Failed to update user role");
                     }
 
-                    window.location.reload();
+                    toast.success(`${account.realName} role updated to DJ`);
+                    if (onAccountChange) {
+                      await onAccountChange();
+                    }
                   } catch (err) {
-                    setPromoteError(err instanceof Error ? err : new Error(String(err)));
+                    const errorMessage = err instanceof Error ? err.message : "Failed to update user role";
+                    setPromoteError(err instanceof Error ? err : new Error(errorMessage));
+                    toast.error(errorMessage);
                   } finally {
                     setIsPromoting(false);
                   }
@@ -299,10 +319,13 @@ export const AccountEntry = ({
                       throw new Error(result.error.message || "Failed to reset password");
                     }
 
-                    alert(`Password reset successfully. Temporary password: ${tempPassword}`);
+                    toast.success(`Password reset successfully. Temporary password: ${tempPassword}`, {
+                      duration: 10000, // Show longer so admin can copy password
+                    });
                   } catch (err) {
-                    setResetError(err instanceof Error ? err : new Error(String(err)));
-                    alert(err instanceof Error ? err.message : "Failed to reset password");
+                    const errorMessage = err instanceof Error ? err.message : "Failed to reset password";
+                    setResetError(err instanceof Error ? err : new Error(errorMessage));
+                    toast.error(errorMessage);
                   } finally {
                     setIsResetting(false);
                   }
@@ -364,13 +387,14 @@ export const AccountEntry = ({
                       throw new Error(result.error.message || "Failed to delete user");
                     }
 
-                    // Clear DJ info
-                    await clearInfo(account.userName);
-
-                    window.location.reload();
+                    toast.success(`${account.realName}'s account deleted successfully`);
+                    if (onAccountChange) {
+                      await onAccountChange();
+                    }
                   } catch (err) {
-                    setDeleteError(err instanceof Error ? err : new Error(String(err)));
-                    alert(err instanceof Error ? err.message : "Failed to delete account");
+                    const errorMessage = err instanceof Error ? err.message : "Failed to delete account";
+                    setDeleteError(err instanceof Error ? err : new Error(errorMessage));
+                    toast.error(errorMessage);
                   } finally {
                     setIsDeleting(false);
                   }
