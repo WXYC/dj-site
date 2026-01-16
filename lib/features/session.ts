@@ -6,8 +6,17 @@ import { getUserRoleInOrganization, getAppOrganizationId } from "./authenticatio
 import { mapRoleToAuthorization, isAuthenticated, AuthenticatedUser } from "./authentication/types";
 import { SiteProps } from "./types";
 import { serverAuthClient } from "./authentication/server-client";
+import { parseAppSkinPreference } from "./experiences/preferences";
 
 export const runtime = "edge";
+
+export const sessionOptions = {
+  cookieOptions: {
+    path: "/",
+    sameSite: "lax" as const,
+    secure: process.env.NODE_ENV === "production",
+  },
+};
 
 export const createServerSideProps = async (): Promise<SiteProps> => {
   const cookieStore = await cookies();
@@ -82,6 +91,16 @@ export const createServerSideProps = async (): Promise<SiteProps> => {
       } else {
         // No organization ID set, use session data
         authentication = betterAuthSessionToAuthenticationData(session.data);
+      }
+
+      const appSkin = session.data.user?.appSkin;
+      const parsedPreference = parseAppSkinPreference(appSkin);
+      if (parsedPreference) {
+        appState = {
+          ...appState,
+          experience: parsedPreference.experience,
+          colorMode: parsedPreference.colorMode,
+        };
       }
     }
   } catch (error) {
