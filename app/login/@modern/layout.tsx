@@ -23,7 +23,7 @@ export default async function ModernLoginLayout({
   // If user is incomplete, allow them to access the newuser page
   if (session && !isIncomplete(authData)) {
     // User is authenticated and complete, redirect to dashboard
-    redirect(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard"));
+    redirect(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog"));
   }
 
   return (

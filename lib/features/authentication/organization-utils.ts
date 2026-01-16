@@ -58,7 +58,7 @@ async function resolveOrganizationId(
   try {
     // Make direct HTTP request to better-auth API to get organization by slug
     // The client SDK's findOrganizationBySlug returns 404, so we'll use the API directly
-    const baseURL = (globalThis as any).process?.env?.NEXT_PUBLIC_BETTER_AUTH_URL || "http://localhost:8082/api/auth";
+    const baseURL = process?.env?.NEXT_PUBLIC_BETTER_AUTH_URL || "https://api.wxyc.org/auth";
     const response = await fetch(`${baseURL}/organization/get-full-organization?organizationSlug=${encodeURIComponent(organizationSlugOrId)}`, {
       method: 'GET',
       headers: cookieHeader ? {

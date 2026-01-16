@@ -109,7 +109,7 @@ export async function requireRole(session: BetterAuthSession, requiredRole: Auth
   const header = cookieHeader || cookieStore.toString();
   
   if (!(await checkRole(session, requiredRole, header))) {
-    redirect(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard"));
+    redirect(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog"));
   }
 }
 

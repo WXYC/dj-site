@@ -57,8 +57,9 @@ export const useLogin = () => {
         handleLogout();
       } else {
         // Sign in successful, session cookie is set
+        const dashboardHome = String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog");
         toast.success("Login successful");
-        router.push(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE));
+        router.push(dashboardHome);
         router.refresh();
       }
     } catch (err) {
@@ -263,8 +264,9 @@ export const useNewUser = () => {
       }
 
       // User updated successfully, redirect to dashboard
+      const dashboardHome = String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog");
       toast.success("Profile updated successfully");
-      router.push(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE));
+      router.push(dashboardHome);
       router.refresh();
     } catch (err) {
       const errorMessage = err instanceof Error 
