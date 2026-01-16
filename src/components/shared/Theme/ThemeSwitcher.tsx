@@ -6,11 +6,14 @@ import React from "react";
 import { useRouter } from "next/navigation";
 
 import { AutoFixHigh, AutoFixOff } from "@mui/icons-material";
-import { useEffect } from "react";
 import {
   useGetActiveExperienceQuery,
-  useSwitchExperienceMutation,
 } from "@/lib/features/experiences/api";
+import { useColorScheme } from "@mui/joy/styles";
+import {
+  buildPreference,
+  useThemePreferenceActions,
+} from "@/src/hooks/themePreferenceHooks";
 
 export function ThemeSwitchLoader() {
   return (
@@ -24,19 +27,18 @@ export default function ThemeSwitcher() {
   const router = useRouter();
 
   const { data: experience, isLoading } = useGetActiveExperienceQuery();
-  const [switchExperience, result] = useSwitchExperienceMutation();
+  const { mode } = useColorScheme();
+  const { persistPreference } = useThemePreferenceActions();
 
   const handleSwitch = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     const newExperience = experience === "classic" ? "modern" : "classic";
-    switchExperience(newExperience);
+    const nextMode = mode ?? "light";
+    await persistPreference(buildPreference(newExperience, nextMode), {
+      updateUser: true,
+    });
+    router.refresh();
   };
-  
-  useEffect(() => {
-    if (result.isSuccess) {
-      router.refresh();
-    }
-  }, [result.isSuccess, router]);
 
   const isClassic = experience === "classic";
 

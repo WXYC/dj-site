@@ -1,12 +1,14 @@
-import { ExperienceId } from "../experiences/types";
+import { ColorMode, ExperienceId } from "../experiences/types";
 
 export const defaultApplicationState: ApplicationState = {
     experience: "modern",
+    colorMode: "light",
     rightBarMini: true,
 };
 
 export interface ApplicationState {
     experience: ExperienceId;
+    colorMode: ColorMode;
     rightBarMini: boolean;
 }
 
