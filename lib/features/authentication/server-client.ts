@@ -8,8 +8,7 @@ import { adminClient, usernameClient, jwtClient, organizationClient } from "bett
 function getBaseURL(): string {
   // Server-side: access process.env directly
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const env = (globalThis as any).process?.env;
-  return env?.NEXT_PUBLIC_BETTER_AUTH_URL || "http://localhost:8082/api/auth";
+  return process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "https://api.wxyc.org/auth";
 }
 
 const baseURL = getBaseURL();

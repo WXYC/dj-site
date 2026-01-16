@@ -8,15 +8,38 @@ import { adminClient, usernameClient, jwtClient, organizationClient } from "bett
 
 // NEXT_PUBLIC_ variables are available at build time in Next.js
 function getBaseURL(): string {
-  // Client-side: NEXT_PUBLIC_ variables are injected at build time
-  return (globalThis as typeof globalThis & { process?: { env?: { NEXT_PUBLIC_BETTER_AUTH_URL?: string } } })
-    .process?.env?.NEXT_PUBLIC_BETTER_AUTH_URL || "http://localhost:8082/api/auth";
+  // Client-side: prefer same-origin proxy to ensure session cookies are set
+  const envURL = process?.env?.NEXT_PUBLIC_BETTER_AUTH_URL;
+
+  if (typeof window !== "undefined") {
+    if (envURL) {
+      try {
+        const url = new URL(envURL);
+        if (url.origin !== window.location.origin) {
+          return `${window.location.origin}/auth`;
+        }
+        return envURL;
+      } catch {
+        // If envURL isn't a valid absolute URL, treat it as a path
+        return envURL.startsWith("/")
+          ? `${window.location.origin}${envURL}`
+          : `${window.location.origin}/auth`;
+      }
+    }
+
+    return `${window.location.origin}/auth`;
+  }
+
+  return envURL || "https://api.wxyc.org/auth";
 }
 
 const baseURL = getBaseURL();
 
 const baseConfig = {
     baseURL,
+    fetchOptions: {
+        credentials: "include" as RequestCredentials,
+    },
     plugins: [
         adminClient(),
         usernameClient(),
