@@ -299,7 +299,6 @@ export const useNewUser = () => {
 
 export const useResetPassword = () => {
   const router = useRouter();
-  const { handleLogout } = useLogout();
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -309,63 +308,41 @@ export const useResetPassword = () => {
     authenticationSlice.selectors.requiredCredentialsVerified
   );
 
-  // Note: better-auth may not have built-in password reset
-  // This may need to call an admin API endpoint
-  const handleRequestReset = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    const username = e.currentTarget.form?.username.value;
-    if (!username) return;
+  const handleRequestReset = async (email: string) => {
+    if (!email) {
+      const errorMessage = "Please enter your email address";
+      setError(new Error(errorMessage));
+      toast.error(errorMessage);
+      return;
+    }
 
     setRequestingReset(true);
     setError(null);
 
     try {
-      // Password reset must be done via admin API
-      // Get current session to ensure user is authenticated
-      const session = await authClient.getSession();
-      if (!session.data) {
-        throw new Error("You must be authenticated to reset passwords");
-      }
+      const redirectTo =
+        typeof window !== "undefined"
+          ? `${window.location.origin}/login`
+          : undefined;
 
-      // Find user by username
-      const listResult = await authClient.admin.listUsers({
-        query: {
-          searchValue: username,
-          searchField: "name",
-          limit: 1,
-        },
-      });
-
-      if (listResult.error || !listResult.data?.users || listResult.data.users.length === 0) {
-        throw new Error(`User with username ${username} not found`);
-      }
-
-      const targetUserId = listResult.data.users[0].id;
-
-      // Generate a temporary password (better-auth doesn't have a built-in reset, so we'll set a new one)
-      // In a real scenario, you might want to generate a secure temporary password
-      const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
-
-      const result = await authClient.admin.updateUser({
-        userId: targetUserId,
-        password: tempPassword,
+      const result = await authClient.requestPasswordReset({
+        email,
+        redirectTo,
       });
 
       if (result.error) {
-        const errorMessage = result.error.message || 'Failed to reset password';
+        const errorMessage = result.error.message || "Failed to request password reset";
         throw new Error(errorMessage);
       }
 
-      toast.success(`Password reset successfully. Temporary password: ${tempPassword}`);
-      router.refresh();
+      toast.success(result.data?.message || "If this email exists, check for a reset link.");
     } catch (err) {
-      const errorMessage = err instanceof Error 
-        ? err.message 
-        : 'Failed to reset password. Please try again.';
-      
+      const errorMessage = err instanceof Error
+        ? err.message
+        : "Failed to request password reset. Please try again.";
+
       setError(err instanceof Error ? err : new Error(errorMessage));
       toast.error(errorMessage);
-      // Don't logout on error - let user see the error message
     } finally {
       setRequestingReset(false);
     }
@@ -376,11 +353,10 @@ export const useResetPassword = () => {
     setIsLoading(true);
     setError(null);
 
-    const code = e.currentTarget.code.value;
+    const token = e.currentTarget.token?.value;
     const password = e.currentTarget.password.value;
-    const username = e.currentTarget.username.value;
 
-    if (!code || !password || !username) {
+    if (!token || !password) {
       const errorMessage = "All fields are required";
       setError(new Error(errorMessage));
       toast.error(errorMessage);
@@ -389,20 +365,24 @@ export const useResetPassword = () => {
     }
 
     try {
-      // Password reset confirmation: user sets new password after admin reset
-      // This flow requires the user to login with the temporary password first
-      // Then they can change it, or we could add a change password endpoint
-      const errorMessage = "Password reset confirmation requires login with temporary password. Please contact an administrator for a password reset.";
-      throw new Error(errorMessage);
-      
-      // After successful reset, user should be able to login
-      // router.push(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE));
-      // router.refresh();
+      const result = await authClient.resetPassword({
+        newPassword: password,
+        token,
+      });
+
+      if (result.error) {
+        const errorMessage = result.error.message || "Password reset failed";
+        throw new Error(errorMessage);
+      }
+
+      toast.success("Password reset successfully. Please log in.");
+      router.push("/login");
+      router.refresh();
     } catch (err) {
-      const errorMessage = err instanceof Error 
-        ? err.message 
-        : 'Password reset failed. Please try again.';
-      
+      const errorMessage = err instanceof Error
+        ? err.message
+        : "Password reset failed. Please try again.";
+
       setError(err instanceof Error ? err : new Error(errorMessage));
       toast.error(errorMessage);
       // Don't logout on error - let user see the error message
