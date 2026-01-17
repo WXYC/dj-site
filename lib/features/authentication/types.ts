@@ -44,14 +44,14 @@ export function isPasswordReset(
 ): data is PasswordResetUser {
   return (
     data !== undefined &&
-    (data as PasswordResetUser)?.username !== undefined &&
     (data as PasswordResetUser)?.confirmationMessage !== undefined
   );
 }
 
 export type PasswordResetUser = {
-  username: string;
   confirmationMessage: string;
+  token?: string;
+  error?: string;
 };
 
 
