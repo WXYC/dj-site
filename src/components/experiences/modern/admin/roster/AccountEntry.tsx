@@ -26,6 +26,29 @@ export const AccountEntry = ({
   const [promoteError, setPromoteError] = useState<Error | null>(null);
   const [resetError, setResetError] = useState<Error | null>(null);
   const [deleteError, setDeleteError] = useState<Error | null>(null);
+  const resolveUserId = async () => {
+    if (account.id) {
+      return account.id;
+    }
+
+    const listResult = await authClient.admin.listUsers({
+      query: {
+        searchValue: account.email || account.userName,
+        searchField: account.email ? "email" : "name",
+        limit: 1,
+      },
+    });
+
+    if (
+      listResult.error ||
+      !listResult.data?.users ||
+      listResult.data.users.length === 0
+    ) {
+      throw new Error(`User with username ${account.userName} not found`);
+    }
+
+    return listResult.data.users[0].id;
+  };
 
   return (
     <tr>
@@ -53,20 +76,7 @@ export const AccountEntry = ({
                   setIsPromoting(true);
                   setPromoteError(null);
                   try {
-                    // Find user by username
-                    const listResult = await authClient.admin.listUsers({
-                      query: {
-                        searchValue: account.userName,
-                        searchField: "name",
-                        limit: 1,
-                      },
-                    });
-
-                    if (listResult.error || !listResult.data?.users || listResult.data.users.length === 0) {
-                      throw new Error(`User with username ${account.userName} not found`);
-                    }
-
-                    const targetUserId = listResult.data.users[0].id;
+                    const targetUserId = await resolveUserId();
 
                     // Update user role
                     const result = await authClient.admin.setRole({
@@ -85,7 +95,9 @@ export const AccountEntry = ({
                   } catch (err) {
                     const errorMessage = err instanceof Error ? err.message : "Failed to promote user";
                     setPromoteError(err instanceof Error ? err : new Error(errorMessage));
-                    toast.error(errorMessage);
+                    if (errorMessage.trim().length > 0) {
+                      toast.error(errorMessage);
+                    }
                   } finally {
                     setIsPromoting(false);
                   }
@@ -101,20 +113,7 @@ export const AccountEntry = ({
                   setIsPromoting(true);
                   setPromoteError(null);
                   try {
-                    // Find user by username
-                    const listResult = await authClient.admin.listUsers({
-                      query: {
-                        searchValue: account.userName,
-                        searchField: "name",
-                        limit: 1,
-                      },
-                    });
-
-                    if (listResult.error || !listResult.data?.users || listResult.data.users.length === 0) {
-                      throw new Error(`User with username ${account.userName} not found`);
-                    }
-
-                    const targetUserId = listResult.data.users[0].id;
+                    const targetUserId = await resolveUserId();
 
                     // Update user role
                     const result = await authClient.admin.setRole({
@@ -133,7 +132,9 @@ export const AccountEntry = ({
                   } catch (err) {
                     const errorMessage = err instanceof Error ? err.message : "Failed to update user role";
                     setPromoteError(err instanceof Error ? err : new Error(errorMessage));
-                    toast.error(errorMessage);
+                    if (errorMessage.trim().length > 0) {
+                      toast.error(errorMessage);
+                    }
                   } finally {
                     setIsPromoting(false);
                   }
@@ -165,20 +166,7 @@ export const AccountEntry = ({
                   setIsPromoting(true);
                   setPromoteError(null);
                   try {
-                    // Find user by username
-                    const listResult = await authClient.admin.listUsers({
-                      query: {
-                        searchValue: account.userName,
-                        searchField: "name",
-                        limit: 1,
-                      },
-                    });
-
-                    if (listResult.error || !listResult.data?.users || listResult.data.users.length === 0) {
-                      throw new Error(`User with username ${account.userName} not found`);
-                    }
-
-                    const targetUserId = listResult.data.users[0].id;
+                    const targetUserId = await resolveUserId();
 
                     // Update user role
                     const result = await authClient.admin.setRole({
@@ -197,7 +185,9 @@ export const AccountEntry = ({
                   } catch (err) {
                     const errorMessage = err instanceof Error ? err.message : "Failed to promote user";
                     setPromoteError(err instanceof Error ? err : new Error(errorMessage));
-                    toast.error(errorMessage);
+                    if (errorMessage.trim().length > 0) {
+                      toast.error(errorMessage);
+                    }
                   } finally {
                     setIsPromoting(false);
                   }
@@ -213,20 +203,7 @@ export const AccountEntry = ({
                   setIsPromoting(true);
                   setPromoteError(null);
                   try {
-                    // Find user by username
-                    const listResult = await authClient.admin.listUsers({
-                      query: {
-                        searchValue: account.userName,
-                        searchField: "name",
-                        limit: 1,
-                      },
-                    });
-
-                    if (listResult.error || !listResult.data?.users || listResult.data.users.length === 0) {
-                      throw new Error(`User with username ${account.userName} not found`);
-                    }
-
-                    const targetUserId = listResult.data.users[0].id;
+                    const targetUserId = await resolveUserId();
 
                     // Update user role
                     const result = await authClient.admin.setRole({
@@ -245,7 +222,9 @@ export const AccountEntry = ({
                   } catch (err) {
                     const errorMessage = err instanceof Error ? err.message : "Failed to update user role";
                     setPromoteError(err instanceof Error ? err : new Error(errorMessage));
-                    toast.error(errorMessage);
+                    if (errorMessage.trim().length > 0) {
+                      toast.error(errorMessage);
+                    }
                   } finally {
                     setIsPromoting(false);
                   }
@@ -291,20 +270,7 @@ export const AccountEntry = ({
                   setIsResetting(true);
                   setResetError(null);
                   try {
-                    // Find user by username
-                    const listResult = await authClient.admin.listUsers({
-                      query: {
-                        searchValue: account.userName,
-                        searchField: "name",
-                        limit: 1,
-                      },
-                    });
-
-                    if (listResult.error || !listResult.data?.users || listResult.data.users.length === 0) {
-                      throw new Error(`User with username ${account.userName} not found`);
-                    }
-
-                    const targetUserId = listResult.data.users[0].id;
+                    const targetUserId = await resolveUserId();
 
                     // Generate a temporary password
                     const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
@@ -325,7 +291,9 @@ export const AccountEntry = ({
                   } catch (err) {
                     const errorMessage = err instanceof Error ? err.message : "Failed to reset password";
                     setResetError(err instanceof Error ? err : new Error(errorMessage));
-                    toast.error(errorMessage);
+                    if (errorMessage.trim().length > 0) {
+                      toast.error(errorMessage);
+                    }
                   } finally {
                     setIsResetting(false);
                   }
@@ -363,23 +331,10 @@ export const AccountEntry = ({
                   setIsDeleting(true);
                   setDeleteError(null);
                   try {
-                    // Find user by username
-                    const listResult = await authClient.admin.listUsers({
-                      query: {
-                        searchValue: account.userName,
-                        searchField: "name",
-                        limit: 1,
-                      },
-                    });
-
-                    if (listResult.error || !listResult.data?.users || listResult.data.users.length === 0) {
-                      throw new Error(`User with username ${account.userName} not found`);
-                    }
-
-                    const targetUserId = listResult.data.users[0].id;
+                    const targetUserId = await resolveUserId();
 
                     // Delete user via better-auth admin API
-                    const result = await authClient.admin.deleteUser({
+                    const result = await authClient.admin.removeUser({
                       userId: targetUserId,
                     });
 
@@ -394,7 +349,9 @@ export const AccountEntry = ({
                   } catch (err) {
                     const errorMessage = err instanceof Error ? err.message : "Failed to delete account";
                     setDeleteError(err instanceof Error ? err : new Error(errorMessage));
-                    toast.error(errorMessage);
+                    if (errorMessage.trim().length > 0) {
+                      toast.error(errorMessage);
+                    }
                   } finally {
                     setIsDeleting(false);
                   }

@@ -24,6 +24,7 @@ export function convertBetterAuthToAccountResult(
   user: BetterAuthUser
 ): Account {
   return {
+    id: user.id,
     userName: user.username || user.name,
     realName: user.realName || user.name || "No Real Name",
     djName: user.djName || "No DJ Name",

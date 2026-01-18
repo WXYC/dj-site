@@ -13,6 +13,7 @@ import {
 } from "@/lib/features/authentication/types";
 import { betterAuthSessionToAuthenticationData, betterAuthSessionToAuthenticationDataAsync } from "@/lib/features/authentication/utilities";
 import { Authorization } from "@/lib/features/admin/types";
+import { applicationSlice } from "@/lib/features/application/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -53,7 +54,9 @@ export const useLogin = () => {
             : (result.error as any)?.message || 'Login failed. Please check your credentials.';
         
         setError(result.error instanceof Error ? result.error : new Error(errorMessage));
-        toast.error(errorMessage);
+        if (errorMessage.trim().length > 0) {
+          toast.error(errorMessage);
+        }
         handleLogout();
       } else {
         // Sign in successful, session cookie is set
@@ -68,7 +71,9 @@ export const useLogin = () => {
         : 'An unexpected error occurred during login. Please try again.';
       
       setError(err instanceof Error ? err : new Error(errorMessage));
-      toast.error(errorMessage);
+      if (errorMessage.trim().length > 0) {
+        toast.error(errorMessage);
+      }
       handleLogout();
     } finally {
       setIsLoading(false);
@@ -99,7 +104,6 @@ export const useLogout = () => {
 
     try {
       await authClient.signOut();
-      toast.success("Logged out successfully");
       router.refresh();
       resetApplication(dispatch);
     } catch (error) {
@@ -108,7 +112,9 @@ export const useLogout = () => {
         : 'Failed to logout. Please try again.';
       
       console.error("Logout error:", error);
-      toast.error(errorMessage);
+      if (errorMessage.trim().length > 0) {
+        toast.error(errorMessage);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -194,6 +200,13 @@ export const useNewUser = () => {
 
     const username = e.currentTarget.username.value;
     const password = e.currentTarget.password.value;
+    const currentPassword = String(
+      process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD || ""
+    );
+
+    if (!currentPassword) {
+      throw new Error("Missing onboarding temp password configuration.");
+    }
 
     const params: NewUserCredentials = {
       username,
@@ -231,7 +244,6 @@ export const useNewUser = () => {
       if (params.djName) {
         updateRequest.djName = params.djName;
       }
-
       // Update user profile data (non-admin - updates current user)
       const result = await authClient.updateUser(updateRequest);
 
@@ -240,26 +252,16 @@ export const useNewUser = () => {
         throw new Error(errorMessage);
       }
 
-      // Handle password update separately if provided (after successful profile update)
       if (params.password) {
-        // Note: Password update via admin API requires admin privileges
-        // Since non-admin users can't use admin API, this will fail
-        // In production, you might want to use a dedicated password change endpoint
-        // For now, we handle the failure gracefully and don't block the profile update
-        try {
-          const passwordResult = await authClient.admin.updateUser({
-            userId: session.data.user.id,
-            password: params.password,
-          });
+        const passwordResult = await authClient.changePassword({
+          currentPassword,
+          newPassword: params.password,
+        });
 
-          if (passwordResult.error) {
-            // Password update failed, but profile update succeeded
-            // Log warning but don't fail the entire operation
-            console.warn("Password update failed:", passwordResult.error.message);
-          }
-        } catch (passwordErr) {
-          // Password update failed, but profile update succeeded
-          console.warn("Password update error:", passwordErr);
+        if (passwordResult.error) {
+          const errorMessage =
+            passwordResult.error.message || "Failed to update password";
+          throw new Error(errorMessage);
         }
       }
 
@@ -274,7 +276,9 @@ export const useNewUser = () => {
         : 'Failed to update user profile. Please try again.';
       
       setError(err instanceof Error ? err : new Error(errorMessage));
-      toast.error(errorMessage);
+      if (errorMessage.trim().length > 0) {
+        toast.error(errorMessage);
+      }
       // Don't logout on error - let user see the error message
     } finally {
       setIsLoading(false);
@@ -299,6 +303,7 @@ export const useNewUser = () => {
 
 export const useResetPassword = () => {
   const router = useRouter();
+  const dispatch = useAppDispatch();
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -312,7 +317,9 @@ export const useResetPassword = () => {
     if (!email) {
       const errorMessage = "Please enter your email address";
       setError(new Error(errorMessage));
-      toast.error(errorMessage);
+      if (errorMessage.trim().length > 0) {
+        toast.error(errorMessage);
+      }
       return;
     }
 
@@ -336,13 +343,17 @@ export const useResetPassword = () => {
       }
 
       toast.success(result.data?.message || "If this email exists, check for a reset link.");
+      dispatch(applicationSlice.actions.setAuthStage("login"));
+      router.push("/login");
     } catch (err) {
       const errorMessage = err instanceof Error
         ? err.message
         : "Failed to request password reset. Please try again.";
 
       setError(err instanceof Error ? err : new Error(errorMessage));
-      toast.error(errorMessage);
+      if (errorMessage.trim().length > 0) {
+        toast.error(errorMessage);
+      }
     } finally {
       setRequestingReset(false);
     }
@@ -359,7 +370,9 @@ export const useResetPassword = () => {
     if (!token || !password) {
       const errorMessage = "All fields are required";
       setError(new Error(errorMessage));
-      toast.error(errorMessage);
+      if (errorMessage.trim().length > 0) {
+        toast.error(errorMessage);
+      }
       setIsLoading(false);
       return;
     }
@@ -376,6 +389,7 @@ export const useResetPassword = () => {
       }
 
       toast.success("Password reset successfully. Please log in.");
+      dispatch(applicationSlice.actions.setAuthStage("login"));
       router.push("/login");
       router.refresh();
     } catch (err) {
@@ -384,7 +398,9 @@ export const useResetPassword = () => {
         : "Password reset failed. Please try again.";
 
       setError(err instanceof Error ? err : new Error(errorMessage));
-      toast.error(errorMessage);
+      if (errorMessage.trim().length > 0) {
+        toast.error(errorMessage);
+      }
       // Don't logout on error - let user see the error message
     } finally {
       setIsLoading(false);

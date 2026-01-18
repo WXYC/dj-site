@@ -49,13 +49,18 @@ export const createServerSideProps = async (): Promise<SiteProps> => {
   try {
     // Get all cookies as a string for better-auth client
     const cookieHeader = cookieStore.toString();
-    const session = await serverAuthClient.getSession({
-      fetchOptions: {
-        headers: {
-          cookie: cookieHeader,
+    const session = await serverAuthClient
+      .getSession({
+        fetchOptions: {
+          headers: {
+            cookie: cookieHeader,
+          },
         },
-      },
-    }) as BetterAuthSessionResponse;
+      })
+      .catch((error) => {
+        // Swallow auth-server fetch errors to avoid noisy Next.js errors.
+        return { data: null, error } as BetterAuthSessionResponse;
+      });
 
     if (session.data) {
       // Fetch organization role from APP_ORGANIZATION first
@@ -103,9 +108,8 @@ export const createServerSideProps = async (): Promise<SiteProps> => {
         };
       }
     }
-  } catch (error) {
+  } catch {
     // If better-auth session fetch fails, use default (not authenticated)
-    console.error("Failed to get better-auth session:", error);
   }
 
   return {

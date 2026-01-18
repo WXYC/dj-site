@@ -15,11 +15,16 @@ export async function getServerSession(): Promise<BetterAuthSession | null> {
   const cookieHeader = cookieStore.toString();
   
   // Use fetchOptions to pass cookies to better-auth client
-  const session = await serverAuthClient.getSession({
-    fetchOptions: {
-      headers: { cookie: cookieHeader },
-    },
-  }) as BetterAuthSessionResponse;
+  const session = await serverAuthClient
+    .getSession({
+      fetchOptions: {
+        headers: { cookie: cookieHeader },
+      },
+    })
+    .catch((error) => {
+      // Swallow auth-server fetch errors to avoid noisy Next.js errors.
+      return { data: null, error } as BetterAuthSessionResponse;
+    });
   
   return session.data;
 }
@@ -32,13 +37,6 @@ export async function getServerSession(): Promise<BetterAuthSession | null> {
 export async function requireAuth(): Promise<BetterAuthSession> {
   const session = await getServerSession();
   if (!session) {
-    redirect("/login");
-  }
-
-  // Check if user is incomplete (missing required fields: realName or djName)
-  if (isUserIncomplete(session)) {
-    // Redirect to /login - the login layout will automatically show the newuser slot
-    // because the user is incomplete (detected via betterAuthSessionToAuthenticationData)
     redirect("/login");
   }
 

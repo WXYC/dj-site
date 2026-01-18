@@ -17,6 +17,7 @@ export const defaultAuthenticationState: AuthenticationState = {
     realName: false,
     djName: false,
     password: false,
+    currentPassword: false,
     confirmPassword: false,
     code: false,
   },

@@ -80,7 +80,10 @@ export function useDJAccount() {
         }
       } catch (err) {
         setUpdateError(err instanceof Error ? err : new Error(String(err)));
-        toast.error(err instanceof Error ? err.message : "Failed to update user settings");
+        const message = err instanceof Error ? err.message : "Failed to update user settings";
+        if (message.trim().length > 0) {
+          toast.error(message);
+        }
       } finally {
         setIsUpdating(false);
       }
