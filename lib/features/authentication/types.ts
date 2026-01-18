@@ -89,6 +89,7 @@ export type ResetPasswordRequest = ResetPasswordCredentials & {
 export type VerifiedData = Omit<User, "authority" | "email"> &
   Credentials &
   ResetPasswordCredentials & {
+    currentPassword: string;
     confirmPassword: string;
   };
 

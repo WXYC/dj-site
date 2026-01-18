@@ -3,7 +3,7 @@
 import { authClient } from "@/lib/features/authentication/client";
 import { adminSlice } from "@/lib/features/admin/frontend";
 import { NewAccountParams, Authorization } from "@/lib/features/admin/types";
-import { User } from "@/lib/features/authentication/types";
+import { User, WXYCRole } from "@/lib/features/authentication/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useAccountListResults } from "@/src/hooks/adminHooks";
 import { Add, GppBad } from "@mui/icons-material";
@@ -32,6 +32,7 @@ export default function RosterTable({ user }: { user: User }) {
 
   const dispatch = useAppDispatch();
   const isAdding = useAppSelector(adminSlice.selectors.getAdding);
+  const canCreateUser = user.authority >= Authorization.SM;
 
   const authorizationOfNewAccount = useAppSelector(
     adminSlice.selectors.getFormData
@@ -44,7 +45,19 @@ export default function RosterTable({ user }: { user: User }) {
       setCreateError(null);
 
       try {
+        if (!canCreateUser) {
+          throw new Error("You do not have permission to add users.");
+        }
+
         const formData = new FormData(e.currentTarget);
+
+        const tempPassword = String(
+          process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD || ""
+        );
+
+        if (!tempPassword) {
+          throw new Error("Missing onboarding temp password configuration.");
+        }
 
         const newAccount: NewAccountParams = {
           realName: formData.get("realName") as string,
@@ -53,12 +66,12 @@ export default function RosterTable({ user }: { user: User }) {
             ? (formData.get("djName") as string)
             : "Anonymous",
           email: formData.get("email") as string,
-          temporaryPassword: "Freak893",
+          temporaryPassword: tempPassword,
           authorization: authorizationOfNewAccount,
         };
 
         // Map Authorization enum to better-auth role
-        let role: "member" | "dj" | "musicDirector" | "stationManager" = "member";
+        let role: WXYCRole = "member";
         if (authorizationOfNewAccount === Authorization.SM) {
           role = "stationManager";
         } else if (authorizationOfNewAccount === Authorization.MD) {
@@ -66,14 +79,17 @@ export default function RosterTable({ user }: { user: User }) {
         } else if (authorizationOfNewAccount === Authorization.DJ) {
           role = "dj";
         }
+        // Better-auth types only include default roles; allow our custom roles.
+        const adminRole = role as unknown as "user" | "admin" | ("user" | "admin")[];
 
         // Create user via better-auth admin API
         const result = await authClient.admin.createUser({
-          name: newAccount.username,
+          name: newAccount.realName || newAccount.username,
           email: newAccount.email,
           password: newAccount.temporaryPassword,
-          role: role,
+          role: adminRole,
           data: {
+            username: newAccount.username,
             realName: newAccount.realName || undefined,
             djName: newAccount.djName || undefined,
           },
@@ -82,7 +98,7 @@ export default function RosterTable({ user }: { user: User }) {
         if (result.error) {
           throw new Error(result.error.message || "Failed to create user");
         }
-
+        
         toast.success(`Account created successfully for ${newAccount.username}`);
         
         dispatch(adminSlice.actions.setAdding(false));
@@ -93,12 +109,14 @@ export default function RosterTable({ user }: { user: User }) {
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to create account";
         setCreateError(err instanceof Error ? err : new Error(errorMessage));
-        toast.error(errorMessage);
+        if (errorMessage.trim().length > 0) {
+          toast.error(errorMessage);
+        }
       } finally {
         setIsCreating(false);
       }
     },
-    [authorizationOfNewAccount, dispatch, refetch]
+    [authorizationOfNewAccount, canCreateUser, dispatch, refetch]
   );
 
   return (
@@ -131,7 +149,7 @@ export default function RosterTable({ user }: { user: User }) {
             variant="solid"
             color={"success"}
             size="sm"
-            disabled={isAdding}
+            disabled={isAdding || !canCreateUser}
             onClick={() => dispatch(adminSlice.actions.setAdding(true))}
           >
             Add DJ
@@ -229,6 +247,7 @@ export default function RosterTable({ user }: { user: User }) {
                     color="success"
                     startDecorator={<Add />}
                     onClick={() => dispatch(adminSlice.actions.setAdding(true))}
+                    disabled={!canCreateUser}
                   >
                     Add
                   </Button>
