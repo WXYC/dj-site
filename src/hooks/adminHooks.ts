@@ -31,8 +31,8 @@ export const useAccountListResults = () => {
       }
 
       const users = result.data?.users || [];
-      const convertedAccounts = users.map((user: BetterAuthUser) =>
-        convertBetterAuthToAccountResult(user)
+      const convertedAccounts = users.map((user) =>
+        convertBetterAuthToAccountResult(user as BetterAuthUser)
       );
       setAccounts(convertedAccounts);
     } catch (err) {
