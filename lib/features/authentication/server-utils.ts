@@ -26,7 +26,19 @@ export async function getServerSession(): Promise<BetterAuthSession | null> {
       return { data: null, error } as BetterAuthSessionResponse;
     });
   
-  return session.data;
+  if (!session.data) {
+    return null;
+  }
+
+  const normalizedSession = {
+    ...session.data,
+    user: {
+      ...session.data.user,
+      username: session.data.user.username ?? undefined,
+    },
+  } as BetterAuthSession;
+
+  return normalizedSession;
 }
 
 /**

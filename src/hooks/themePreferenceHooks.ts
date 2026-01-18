@@ -66,7 +66,7 @@ export function useThemePreferenceActions() {
 
       if (options.updateUser && session?.user?.id) {
         try {
-          await authClient.updateUser({ appSkin: preference });
+          await authClient.updateUser({ appSkin: preference } as any);
         } catch (error) {
           console.error("Failed to update user appSkin:", error);
         }
@@ -89,10 +89,16 @@ export function useThemePreferenceSync() {
     if (hasSyncedRef.current || !mode) return;
 
     const sync = async () => {
-      const appSkinPreference = parseAppSkinPreference(session?.user?.appSkin);
+      const appSkinParsed = parseAppSkinPreference((session?.user as any)?.appSkin);
       const localPreference = readLocalPreference();
 
-      let resolvedPreference = appSkinPreference || localPreference;
+      let resolvedPreference: AppSkinPreference | null = null;
+      
+      if (appSkinParsed) {
+        resolvedPreference = toAppSkinPreference(appSkinParsed.experience, appSkinParsed.colorMode);
+      } else if (localPreference) {
+        resolvedPreference = localPreference;
+      }
 
       if (!resolvedPreference) {
         const appState = await fetchAppState();
@@ -130,7 +136,7 @@ export function useThemePreferenceSync() {
     };
 
     sync();
-  }, [mode, persistPreference, router, session?.user?.appSkin, setMode]);
+  }, [mode, persistPreference, router, (session?.user as any)?.appSkin, setMode]);
 }
 
 export function buildPreference(

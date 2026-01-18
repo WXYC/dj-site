@@ -33,7 +33,7 @@ export default function ThemeSwitcher() {
   const handleSwitch = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     const newExperience = experience === "classic" ? "modern" : "classic";
-    const nextMode = mode ?? "light";
+    const nextMode = mode === "light" || mode === "dark" ? mode : "light";
     await persistPreference(buildPreference(newExperience, nextMode), {
       updateUser: true,
     });

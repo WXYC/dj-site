@@ -169,12 +169,14 @@ async function resolveOrganizationIdClient(
   organizationSlugOrId: string
 ): Promise<string | undefined> {
   try {
-    // First, try to find organization by slug
-    const orgResult = await authClient.organization.findOrganizationBySlug({
-      slug: organizationSlugOrId,
+    // First, try to find organization by slug via getFullOrganization
+    const orgResult = await authClient.organization.getFullOrganization({
+      query: {
+        organizationSlug: organizationSlugOrId,
+      },
     });
 
-    if (orgResult.error) {
+    if (orgResult.error || !orgResult.data?.id) {
       // If slug lookup fails, assume it might already be an ID
       // Return it as-is (will be validated when we try to use it)
       return organizationSlugOrId;
