@@ -6,9 +6,6 @@ import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
-  // #region agent log
-  fetch('http://127.0.0.1:7244/ingest/7be3dc8b-1b33-42b3-9bd8-f0412303cb87',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/experiences/preferences/route.ts:9',message:'preferences route entry',data:{hasBody:request.body !== null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-  // #endregion
   const cookieStore = await cookies();
   const body = await request.json();
 
@@ -31,9 +28,6 @@ export async function POST(request: NextRequest) {
   const resolvedColorMode = parsedPreference?.colorMode ?? colorMode ?? currentState.colorMode;
 
   if (!isExperienceId(resolvedExperience)) {
-    // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/7be3dc8b-1b33-42b3-9bd8-f0412303cb87',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/experiences/preferences/route.ts:34',message:'invalid experience',data:{resolvedExperience},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-    // #endregion
     return NextResponse.json(
       { error: "Invalid experience", experience: currentState.experience },
       { status: 400 }
@@ -41,9 +35,6 @@ export async function POST(request: NextRequest) {
   }
 
   if (!isColorMode(resolvedColorMode)) {
-    // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/7be3dc8b-1b33-42b3-9bd8-f0412303cb87',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/experiences/preferences/route.ts:43',message:'invalid color mode',data:{resolvedColorMode},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-    // #endregion
     return NextResponse.json(
       { error: "Invalid color mode", colorMode: currentState.colorMode },
       { status: 400 }
@@ -66,9 +57,6 @@ export async function POST(request: NextRequest) {
     name: "app_state",
     value: JSON.stringify(newState),
   });
-  // #region agent log
-  fetch('http://127.0.0.1:7244/ingest/7be3dc8b-1b33-42b3-9bd8-f0412303cb87',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/experiences/preferences/route.ts:72',message:'app_state set',data:{experience:resolvedExperience,colorMode:resolvedColorMode,cookiePath:sessionOptions.cookieOptions.path,sameSite:sessionOptions.cookieOptions.sameSite},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H3'})}).catch(()=>{});
-  // #endregion
 
   return NextResponse.json(
     {
