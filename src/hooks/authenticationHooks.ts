@@ -41,10 +41,10 @@ export const useLogin = () => {
     const password = e.currentTarget.password.value;
 
     try {
-      const result = await authClient.signIn.username({
+      const result = (await authClient.signIn.username({
         username,
         password,
-      });
+      })) as { error?: unknown };
 
       if (result.error) {
         const errorMessage = result.error instanceof Error 

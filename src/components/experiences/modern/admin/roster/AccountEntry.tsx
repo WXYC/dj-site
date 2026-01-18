@@ -26,6 +26,13 @@ export const AccountEntry = ({
   const [promoteError, setPromoteError] = useState<Error | null>(null);
   const [resetError, setResetError] = useState<Error | null>(null);
   const [deleteError, setDeleteError] = useState<Error | null>(null);
+  const toAdminRole = (
+    role: "member" | "dj" | "musicDirector" | "stationManager"
+  ) =>
+    (role === "stationManager" ? "admin" : "user") as
+      | "user"
+      | "admin"
+      | ("user" | "admin")[];
   const resolveUserId = async () => {
     if (account.id) {
       return account.id;
@@ -81,7 +88,7 @@ export const AccountEntry = ({
                     // Update user role
                     const result = await authClient.admin.setRole({
                       userId: targetUserId,
-                      role: "stationManager",
+                      role: toAdminRole("stationManager"),
                     });
 
                     if (result.error) {
@@ -118,7 +125,7 @@ export const AccountEntry = ({
                     // Update user role
                     const result = await authClient.admin.setRole({
                       userId: targetUserId,
-                      role: "musicDirector",
+                      role: toAdminRole("musicDirector"),
                     });
 
                     if (result.error) {
@@ -171,7 +178,7 @@ export const AccountEntry = ({
                     // Update user role
                     const result = await authClient.admin.setRole({
                       userId: targetUserId,
-                      role: "musicDirector",
+                      role: toAdminRole("musicDirector"),
                     });
 
                     if (result.error) {
@@ -208,7 +215,7 @@ export const AccountEntry = ({
                     // Update user role
                     const result = await authClient.admin.setRole({
                       userId: targetUserId,
-                      role: "dj",
+                      role: toAdminRole("dj"),
                     });
 
                     if (result.error) {
@@ -276,7 +283,12 @@ export const AccountEntry = ({
                     const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
 
                     // Reset password via better-auth admin API
-                    const result = await authClient.admin.updateUser({
+                    const result = await (
+                      authClient.admin.updateUser as unknown as (args: {
+                        userId: string;
+                        password: string;
+                      }) => Promise<{ error?: { message?: string } | null }>
+                    )({
                       userId: targetUserId,
                       password: tempPassword,
                     });
