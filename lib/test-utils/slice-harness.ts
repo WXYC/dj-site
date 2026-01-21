@@ -84,8 +84,6 @@ export function createSliceHarness<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   S extends Slice<State, any, Name>
 >(slice: S, initialState: State) {
-  type SliceActions = ReturnType<S["actions"][keyof S["actions"]]>;
-
   return {
     /**
      * The slice being tested
@@ -100,14 +98,14 @@ export function createSliceHarness<
     /**
      * Apply a single action to the state
      */
-    reduce(action: SliceActions | UnknownAction, state: State = initialState): State {
+    reduce(action: UnknownAction, state: State = initialState): State {
       return slice.reducer(state, action as Action);
     },
 
     /**
      * Apply multiple actions in sequence, returning the final state
      */
-    chain(...actions: (SliceActions | UnknownAction)[]): State {
+    chain(...actions: (UnknownAction)[]): State {
       return actions.reduce(
         (state, action) => slice.reducer(state, action as Action),
         initialState
@@ -117,7 +115,7 @@ export function createSliceHarness<
     /**
      * Apply multiple actions starting from a custom initial state
      */
-    chainFrom(state: State, ...actions: (SliceActions | UnknownAction)[]): State {
+    chainFrom(state: State, ...actions: (UnknownAction)[]): State {
       return actions.reduce(
         (s, action) => slice.reducer(s, action as Action),
         state
@@ -132,7 +130,7 @@ export function createSliceHarness<
       const store = makeStore();
       return {
         store,
-        dispatch: (action: SliceActions | UnknownAction) => {
+        dispatch: (action: UnknownAction) => {
           store.dispatch(action as Action);
         },
         getState: () => store.getState(),
@@ -149,7 +147,7 @@ export interface SliceStoreHarness<
   S extends Slice<any, any, any>
 > {
   store: AppStore;
-  dispatch: (action: ReturnType<S["actions"][keyof S["actions"]]> | UnknownAction) => void;
+  dispatch: (action: UnknownAction) => void;
   getState: () => RootState;
   select: <T>(selector: (state: RootState) => T) => T;
 }
