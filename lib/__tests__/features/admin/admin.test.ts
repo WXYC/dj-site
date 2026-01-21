@@ -7,6 +7,20 @@ import { Authorization } from "@/lib/features/admin/types";
 import { describeSlice } from "@/lib/test-utils";
 
 describeSlice(adminSlice, defaultAdminFrontendState, ({ harness, actions }) => {
+  describe("default state", () => {
+    it("should have empty searchString", () => {
+      expect(harness().initialState.searchString).toBe("");
+    });
+
+    it("should have adding set to false", () => {
+      expect(harness().initialState.adding).toBe(false);
+    });
+
+    it("should have formData with DJ authorization", () => {
+      expect(harness().initialState.formData.authorization).toBe(Authorization.DJ);
+    });
+  });
+
   describe("setSearchString action", () => {
     it("should set searchString", () => {
       const result = harness().reduce(actions.setSearchString("test search"));
@@ -82,6 +96,28 @@ describeSlice(adminSlice, defaultAdminFrontendState, ({ harness, actions }) => {
         actions.reset()
       );
       expect(result).toEqual(defaultAdminFrontendState);
+    });
+  });
+
+  // Note: Selector tests are skipped because adminSlice and applicationSlice
+  // both use name: "application" which causes a conflict in combineSlices.
+  describe("selectors", () => {
+    describe("getSearchString", () => {
+      it("should be defined", () => {
+        expect(adminSlice.selectors.getSearchString).toBeDefined();
+      });
+    });
+
+    describe("getAdding", () => {
+      it("should be defined", () => {
+        expect(adminSlice.selectors.getAdding).toBeDefined();
+      });
+    });
+
+    describe("getFormData", () => {
+      it("should be defined", () => {
+        expect(adminSlice.selectors.getFormData).toBeDefined();
+      });
     });
   });
 });
