@@ -31,6 +31,95 @@ The revised catalog leverages services defined in `api-service.js`, which utiliz
 4. Run the application: `npm run dev`
 5. Access the application locally: Open your web browser and visit `http://localhost:3000`
 
+## Testing
+
+The project uses [Vitest](https://vitest.dev/) for testing with React Testing Library and MSW for API mocking.
+
+### Running Tests
+
+```bash
+# Run tests in watch mode
+npm test
+
+# Run tests once
+npm run test:run
+
+# Run tests with UI
+npm run test:ui
+
+# Run tests with coverage
+npm run test:coverage
+```
+
+### Test Structure
+
+- `lib/__tests__/` - Feature tests (Redux slices, RTK Query APIs)
+- `**/*.test.tsx` - Component tests (co-located with components)
+- `lib/test-utils/` - Shared test utilities
+
+### Writing Tests
+
+#### Redux Slice Tests
+
+```typescript
+import { describe, it, expect } from "vitest";
+import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
+
+describe("flowsheetSlice", () => {
+  it("should set autoplay", () => {
+    const nextState = flowsheetSlice.reducer(
+      initialState,
+      flowsheetSlice.actions.setAutoplay(true)
+    );
+    expect(nextState.autoplay).toBe(true);
+  });
+});
+```
+
+#### RTK Query Tests with MSW
+
+```typescript
+import { describe, it, expect } from "vitest";
+import { http, HttpResponse } from "msw";
+import { server, TEST_BACKEND_URL } from "@/lib/test-utils";
+
+describe("catalogApi", () => {
+  it("should fetch albums", async () => {
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/`, () => {
+        return HttpResponse.json([{ id: 1, title: "Test Album" }]);
+      })
+    );
+    // ... test implementation
+  });
+});
+```
+
+#### Component Tests
+
+```typescript
+import { describe, it, expect } from "vitest";
+import { screen } from "@testing-library/react";
+import { renderWithProviders } from "@/lib/test-utils";
+import MyComponent from "./MyComponent";
+
+describe("MyComponent", () => {
+  it("should render", () => {
+    renderWithProviders(<MyComponent />);
+    expect(screen.getByText("Hello")).toBeInTheDocument();
+  });
+});
+```
+
+### Test Utilities
+
+Import test utilities from `@/lib/test-utils`:
+
+- `renderWithProviders` - Render with Redux and MUI providers
+- `createTestAlbum`, `createTestArtist`, etc. - Factory functions for test data
+- `server` - MSW server instance for API mocking
+- `TEST_BACKEND_URL` - Backend URL constant for MSW handlers
+
 ## Contributing
 Contributions to the WXYC Card Catalog, Revised are welcome! If you would like to contribute, please follow these steps:
 1. Create a new branch: `git checkout -b my-feature-branch`
