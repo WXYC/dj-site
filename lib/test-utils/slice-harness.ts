@@ -1,6 +1,59 @@
 import type { Action, Slice, UnknownAction } from "@reduxjs/toolkit";
+import { describe, beforeEach } from "vitest";
 import { makeStore } from "@/lib/store";
 import type { AppStore, RootState } from "@/lib/store";
+
+/**
+ * Describes a Redux slice with automatic harness setup.
+ * Eliminates boilerplate for slice testing.
+ *
+ * @example
+ * describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions }) => {
+ *   it("should set autoplay", () => {
+ *     const result = harness().reduce(actions.setAutoplay(true));
+ *     expect(result.autoplay).toBe(true);
+ *   });
+ * });
+ */
+export function describeSlice<
+  State,
+  Name extends string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  S extends Slice<State, any, Name>
+>(
+  slice: S,
+  defaultState: State,
+  testFn: (ctx: SliceTestContext<State, Name, S>) => void
+): void {
+  describe(slice.name + "Slice", () => {
+    let currentHarness: ReturnType<typeof createSliceHarness<State, Name, S>>;
+
+    beforeEach(() => {
+      currentHarness = createSliceHarness(slice, defaultState);
+    });
+
+    const context: SliceTestContext<State, Name, S> = {
+      harness: () => currentHarness,
+      actions: slice.actions as S["actions"],
+      selectors: slice.selectors as S["selectors"],
+      slice,
+    };
+
+    testFn(context);
+  });
+}
+
+export interface SliceTestContext<
+  State,
+  Name extends string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  S extends Slice<State, any, Name>
+> {
+  harness: () => ReturnType<typeof createSliceHarness<State, Name, S>>;
+  actions: S["actions"];
+  selectors: S["selectors"];
+  slice: S;
+}
 
 /**
  * Creates a test harness for Redux slices that provides utilities for
