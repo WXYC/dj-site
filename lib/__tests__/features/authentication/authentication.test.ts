@@ -224,4 +224,33 @@ describeSlice(authenticationSlice, defaultAuthenticationState, ({ harness, actio
       });
     });
   });
+
+  describe("default state", () => {
+    it("should have all verifications set to false", () => {
+      expect(harness().initialState.verifications).toEqual({
+        username: false,
+        realName: false,
+        djName: false,
+        password: false,
+        confirmPassword: false,
+        code: false,
+      });
+    });
+
+    it("should have all modifications set to false", () => {
+      expect(harness().initialState.modifications).toEqual({
+        realName: false,
+        djName: false,
+        email: false,
+      });
+    });
+
+    it("should have default required credentials", () => {
+      expect(harness().initialState.required).toEqual([
+        "username",
+        "password",
+        "confirmPassword",
+      ]);
+    });
+  });
 });
