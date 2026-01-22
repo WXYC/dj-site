@@ -1,5 +1,46 @@
-import { Rotation } from "../rotation/types";
+/**
+ * Flowsheet Types
+ *
+ * This file now re-exports shared DTOs from @wxyc/shared and adds
+ * frontend-specific types that aren't needed by the backend.
+ */
 
+// Re-export shared DTOs
+export {
+  FlowsheetEntryBase,
+  FlowsheetEntryResponse,
+  FlowsheetSongEntry,
+  FlowsheetShowBlockEntry,
+  FlowsheetMessageEntry,
+  FlowsheetBreakpointEntry,
+  FlowsheetEntry,
+  FlowsheetCreateRequest,
+  FlowsheetUpdateRequest,
+  FlowsheetQueryParams,
+  OnAirDJ,
+  OnAirStatusResponse,
+  // Type guards
+  isFlowsheetSongEntry,
+  isFlowsheetShowBlockEntry,
+  isFlowsheetStartShowEntry,
+  isFlowsheetEndShowEntry,
+  isFlowsheetMessageEntry,
+  isFlowsheetTalksetEntry,
+  isFlowsheetBreakpointEntry,
+} from "@wxyc/shared/dtos";
+
+export type { DateTimeEntry } from "@wxyc/shared/dtos";
+
+// Import rotation type for frontend-specific types
+import type { RotationFrequency } from "@wxyc/shared/dtos";
+
+// ============================================================================
+// Frontend-specific types (not shared with backend)
+// ============================================================================
+
+/**
+ * Frontend state for the flowsheet Redux slice
+ */
 export type FlowsheetFrontendState = {
   autoplay: boolean;
   search: {
@@ -7,12 +48,15 @@ export type FlowsheetFrontendState = {
     query: FlowsheetQuery;
     selectedResult: number;
   };
-  queue: FlowsheetSongEntry[];
+  queue: FlowsheetSongEntryLocal[];
   queueIdCounter: number;
   pagination: FlowsheetRequestParams;
-  currentShowEntries: FlowsheetEntry[];
+  currentShowEntries: FlowsheetEntryLocal[];
 };
 
+/**
+ * Query state for flowsheet search UI
+ */
 export type FlowsheetQuery = {
   song: string;
   artist: string;
@@ -20,7 +64,7 @@ export type FlowsheetQuery = {
   label: string;
   request: boolean;
   album_id?: number;
-  play_freq?: Rotation;
+  play_freq?: RotationFrequency;
   rotation_id?: number;
 };
 
@@ -29,25 +73,14 @@ export type FlowsheetSearchProperty = keyof Omit<
   "request" | "album_id" | "play_freq" | "rotation_id"
 >;
 
-export type FlowsheetEntryBase = {
+/**
+ * Local song entry type with frontend-specific rotation field
+ * (backend returns rotation_play_freq, frontend adds rotation object)
+ */
+export type FlowsheetSongEntryLocal = {
   id: number;
   play_order: number;
   show_id: number;
-};
-
-export type FlowsheetEntryResponse = FlowsheetEntryBase & {
-  album_id?: number;
-  track_title?: string;
-  album_title?: string;
-  artist_name?: string;
-  record_label?: string;
-  rotation_id?: number;
-  rotation_play_freq?: string;
-  message?: string;
-  request_flag: boolean;
-};
-
-export type FlowsheetSongBase = {
   track_title: string;
   artist_name: string;
   album_title: string;
@@ -55,106 +88,45 @@ export type FlowsheetSongBase = {
   request_flag: boolean;
   album_id?: number;
   rotation_id?: number;
-  rotation?: Rotation;
+  rotation?: {
+    play_freq: RotationFrequency;
+  };
 };
 
-export type FlowsheetSongEntry = FlowsheetEntryBase & FlowsheetSongBase;
+/**
+ * Union type for all flowsheet entry types (frontend version)
+ */
+export type FlowsheetEntryLocal =
+  | FlowsheetSongEntryLocal
+  | FlowsheetBreakpointEntryLocal
+  | FlowsheetShowBlockEntryLocal
+  | FlowsheetMessageEntryLocal;
 
-export type FlowsheetShowBlockEntry = FlowsheetEntryBase &
-  DateTimeEntry & {
-    dj_name: string;
-    isStart: boolean;
-  };
+export type FlowsheetShowBlockEntryLocal = {
+  id: number;
+  play_order: number;
+  show_id: number;
+  day: string;
+  time: string;
+  dj_name: string;
+  isStart: boolean;
+};
 
-export type FlowsheetMessageEntry = FlowsheetEntryBase & {
+export type FlowsheetMessageEntryLocal = {
+  id: number;
+  play_order: number;
+  show_id: number;
   message: string;
 };
 
-export type DateTimeEntry = {
+export type FlowsheetBreakpointEntryLocal = FlowsheetMessageEntryLocal & {
   day: string;
   time: string;
 };
 
-export type FlowsheetBreakpointEntry = FlowsheetMessageEntry & DateTimeEntry;
-
-export type FlowsheetSubmissionParams =
-  | {
-      album_id: number;
-      track_title: string;
-      rotation_id?: number;
-      request_flag: boolean;
-      record_label?: string;
-      play_freq?: Rotation;
-    }
-  | {
-      artist_name: string;
-      album_title: string;
-      track_title: string;
-      request_flag: boolean;
-      record_label?: string;
-    }
-  | {
-      message: string;
-    };
-
-export type FlowsheetEntry =
-  | FlowsheetSongEntry
-  | FlowsheetBreakpointEntry
-  | FlowsheetShowBlockEntry
-  | FlowsheetMessageEntry;
-
-export function isFlowsheetSongEntry(
-  entry: FlowsheetEntry
-): entry is FlowsheetSongEntry {
-  return (entry as FlowsheetSongEntry).track_title !== undefined;
-}
-
-export function isFlowsheetStartShowEntry(
-  entry: FlowsheetEntry
-): entry is FlowsheetShowBlockEntry {
-  return (
-    (entry as FlowsheetShowBlockEntry).dj_name !== undefined &&
-    (entry as FlowsheetShowBlockEntry).isStart === true
-  );
-}
-
-export function isFlowsheetEndShowEntry(
-  entry: FlowsheetEntry
-): entry is FlowsheetShowBlockEntry {
-  return (
-    (entry as FlowsheetShowBlockEntry).dj_name !== undefined &&
-    (entry as FlowsheetShowBlockEntry).isStart === false
-  );
-}
-
-export function isFlowsheetTalksetEntry(
-  entry: FlowsheetEntry
-): entry is FlowsheetMessageEntry {
-  return (
-    (entry as FlowsheetMessageEntry).message !== undefined &&
-    (entry as FlowsheetMessageEntry).message.includes("Talkset")
-  );
-}
-
-export function isFlowsheetBreakpointEntry(
-  entry: FlowsheetEntry
-): entry is FlowsheetBreakpointEntry {
-  return (
-    (entry as FlowsheetBreakpointEntry).message !== undefined &&
-    (entry as FlowsheetBreakpointEntry).message.includes("Breakpoint")
-  );
-}
-
-export type OnAirDJResponse = {
-  id: number;
-  dj_name: string;
-};
-
-export type OnAirDJData = {
-  djs: OnAirDJResponse[];
-  onAir: string;
-};
-
+/**
+ * Pagination parameters for flowsheet requests
+ */
 export type FlowsheetRequestParams = {
   page: number;
   limit: number;
@@ -162,19 +134,34 @@ export type FlowsheetRequestParams = {
   deleted?: number;
 };
 
+/**
+ * Parameters for updating a flowsheet entry
+ */
 export type FlowsheetUpdateParams = {
   entry_id: number;
   data: UpdateRequestBody;
 };
 
+/**
+ * Parameters for switching entry position
+ */
 export type FlowsheetSwitchParams = {
   entry_id: number;
   new_position: number;
 };
 
-export type UpdateRequestBody = Partial<
-  Record<
-    keyof Omit<FlowsheetSongBase, "album_id" | "rotation_id" | "rotation">,
-    string | boolean
-  >
->;
+/**
+ * Body for PATCH requests to update entries
+ */
+export type UpdateRequestBody = Partial<{
+  track_title: string;
+  artist_name: string;
+  album_title: string;
+  record_label: string;
+  request_flag: boolean;
+}>;
+
+// Legacy type aliases for backwards compatibility
+export type OnAirDJResponse = OnAirDJ;
+export type OnAirDJData = OnAirStatusResponse;
+export type FlowsheetSubmissionParams = FlowsheetCreateRequest;
