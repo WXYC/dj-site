@@ -80,7 +80,7 @@ export default function AlbumCard({ album }: { album: AlbumEntry }) {
               artist={album.artist}
               format={album.format}
               entry={album.entry}
-              rotation={album.play_freq}
+              rotation={album.rotation_bin}
             />
           </Box>
           <Typography

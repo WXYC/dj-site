@@ -516,7 +516,7 @@ export const useFlowsheetSubmit = () => {
         album: selectedTrackEntry.album_title || flowSheetRawQuery.album as string,
         label: selectedTrackEntry.label || flowSheetRawQuery.label as string,
         album_id: selectedTrackEntry.album_id ?? undefined,
-        play_freq: selectedTrackEntry.play_freq ?? undefined,
+        rotation_bin: selectedTrackEntry.rotation_bin ?? undefined,
         rotation_id: selectedTrackEntry.rotation_id ?? undefined,
         request: false,
       };
@@ -530,7 +530,7 @@ export const useFlowsheetSubmit = () => {
         album: selectedEntry.title || flowSheetRawQuery.album as string,
         label: selectedEntry.label || flowSheetRawQuery.label as string,
         album_id: selectedEntry.id ?? undefined,
-        play_freq: selectedEntry.play_freq ?? undefined,
+        rotation_bin: selectedEntry.rotation_bin ?? undefined,
         rotation_id: selectedEntry.rotation_id ?? undefined,
         request: false,
       };

@@ -1,0 +1,42 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#9b59b6', 'primaryTextColor': '#fff', 'primaryBorderColor': '#8e44ad', 'lineColor': '#5a6a7a', 'secondaryColor': '#3498db', 'tertiaryColor': '#27ae60'}}}%%
+flowchart TB
+    subgraph host["Host Machine"]
+        PW["Playwright<br/>Test Runner"]
+
+        subgraph shared["@wxyc/test-utils"]
+            FIX["fixtures/<br/>createTestAlbum()<br/>createTestUser()"]
+        end
+
+        subgraph docker["Docker Compose (e2e profile)"]
+            subgraph frontend["e2e-frontend :3000"]
+                NEXT["Next.js<br/>(dj-site)"]
+            end
+
+            subgraph backend["e2e-backend :8085"]
+                EXPRESS["Express API"]
+            end
+
+            subgraph auth["e2e-auth :8086"]
+                AUTH["Better Auth"]
+            end
+
+            subgraph db["e2e-db :5435"]
+                PG["PostgreSQL"]
+            end
+        end
+    end
+
+    PW -->|"imports"| FIX
+    PW -->|"browser automation"| NEXT
+    NEXT -->|"API calls"| EXPRESS
+    EXPRESS -->|"auth"| AUTH
+    EXPRESS -->|"queries"| PG
+    AUTH -->|"sessions"| PG
+
+    style host fill:#ecf0f1,stroke:#bdc3c7
+    style shared fill:#27ae60,stroke:#1e8449,color:#fff
+    style docker fill:#3498db,stroke:#2980b9,color:#fff
+    style frontend fill:#5dade2,stroke:#3498db,color:#fff
+    style backend fill:#5dade2,stroke:#3498db,color:#fff
+    style auth fill:#5dade2,stroke:#3498db,color:#fff
+    style db fill:#5dade2,stroke:#3498db,color:#fff

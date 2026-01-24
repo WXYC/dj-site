@@ -61,7 +61,7 @@ export const flowsheetSlice = createAppSlice({
         album_title: action.payload.album,
         record_label: action.payload.label,
         request_flag: action.payload.request,
-        rotation_play_freq: action.payload.play_freq,
+        rotation_bin: action.payload.rotation_bin,
         rotation_id: action.payload.rotation_id,
         album_id: action.payload.album_id,
       });

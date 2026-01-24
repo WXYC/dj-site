@@ -1,0 +1,52 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#4a90a4', 'primaryTextColor': '#fff', 'primaryBorderColor': '#2d5a6b', 'lineColor': '#5a6a7a', 'secondaryColor': '#f4a460', 'tertiaryColor': '#e8e8e8', 'background': '#ffffff'}}}%%
+flowchart LR
+    subgraph frontend["dj-site (Frontend)"]
+        direction TB
+        FT1["lib/features/catalog/types.ts<br/>Album, Artist, Genre, Format"]
+        FT2["lib/features/flowsheet/types.ts<br/>FlowsheetEntry, Show"]
+        FT3["lib/features/rotation/types.ts<br/>Rotation enum (S,L,M,H)"]
+        FT4["lib/features/admin/types.ts<br/>Authorization enum"]
+        FT5["lib/features/authentication/types.ts<br/>User, Credentials"]
+    end
+
+    subgraph middle[" "]
+        direction TB
+        D1([Duplicated])
+        D2([Duplicated])
+        D3([Duplicated])
+        D4([Duplicated])
+        D5([Duplicated])
+    end
+
+    subgraph backend["Backend-Service"]
+        direction TB
+        BT1["shared/database/schema.ts<br/>Drizzle: library, artists, genres"]
+        BT2["apps/backend/controllers/<br/>FSEntry, IFSEntry interfaces"]
+        BT3["shared/database/schema.ts<br/>freqEnum pgEnum (S,L,M,H)"]
+        BT4["shared/authentication/auth.roles.ts<br/>WXYCRoles (member,dj,md,sm)"]
+        BT5["shared/database/schema.ts<br/>User table definition"]
+    end
+
+    FT1 -.- D1 -.- BT1
+    FT2 -.- D2 -.- BT2
+    FT3 -.- D3 -.- BT3
+    FT4 -.- D4 -.- BT4
+    FT5 -.- D5 -.- BT5
+
+    API{{"REST API<br/>(contract undefined)"}}
+    HTTP([HTTP])
+    JSON([JSON])
+    frontend --> HTTP --> API
+    API --> JSON --> backend
+
+    style frontend fill:#4a90a4,stroke:#2d5a6b,color:#fff
+    style backend fill:#f4a460,stroke:#c47830,color:#fff
+    style middle fill:transparent,stroke:transparent
+    style API fill:#e74c3c,stroke:#c0392b,color:#fff
+    style HTTP fill:#f4a460,stroke:#c47830,color:#fff
+    style JSON fill:#f4a460,stroke:#c47830,color:#fff
+    style D1 fill:#f4a460,stroke:#c47830,color:#fff
+    style D2 fill:#f4a460,stroke:#c47830,color:#fff
+    style D3 fill:#f4a460,stroke:#c47830,color:#fff
+    style D4 fill:#f4a460,stroke:#c47830,color:#fff
+    style D5 fill:#f4a460,stroke:#c47830,color:#fff

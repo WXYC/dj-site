@@ -1,0 +1,21 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#3498db', 'primaryTextColor': '#333', 'actorTextColor': '#333', 'actorBkg': '#3498db', 'signalTextColor': '#333', 'noteTextColor': '#333', 'noteBkgColor': '#fff9c4', 'lineColor': '#5a6a7a'}}}%%
+sequenceDiagram
+    participant UI as Frontend UI
+    participant RTK as RTK Query
+    participant Types as @wxyc/types
+    participant API as Express API
+    participant DB as PostgreSQL
+
+    Note over Types: Single source of truth
+
+    UI->>RTK: search catalog
+    RTK->>Types: SearchParams
+    RTK->>API: GET /library
+    API->>DB: SELECT query
+    DB-->>API: rows
+    API->>Types: AlbumResponse
+    API-->>RTK: JSON
+    RTK->>Types: AlbumEntry
+    RTK-->>UI: typed results
+
+    Note over UI,DB: Compile-time type safety across the stack

@@ -1,0 +1,38 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#27ae60', 'primaryTextColor': '#fff', 'primaryBorderColor': '#1e8449', 'lineColor': '#5a6a7a', 'secondaryColor': '#3498db', 'tertiaryColor': '#e74c3c'}}}%%
+flowchart TB
+    subgraph shared["wxyc-shared Repository"]
+        SPEC["openapi/api.yaml<br/>(Single Source of Truth)"]
+
+        subgraph gen["Generated Packages"]
+            TS["@wxyc/types<br/>TypeScript"]
+            KT["@wxyc/types-kotlin<br/>Kotlin"]
+            SW["@wxyc/types-swift<br/>Swift"]
+        end
+
+        SPEC -->|"openapi-typescript"| TS
+        SPEC -->|"openapi-generator"| KT
+        SPEC -->|"openapi-generator"| SW
+    end
+
+    subgraph clients["Client Applications"]
+        WEB["dj-site<br/>(React/Next.js)"]
+        AND["Android App<br/>(Kotlin)"]
+        IOS["iOS App<br/>(Swift)"]
+    end
+
+    subgraph backend["Backend-Service"]
+        API["Express API"]
+    end
+
+    TS -->|"npm"| WEB
+    KT -->|"maven/gradle"| AND
+    SW -->|"SPM/CocoaPods"| IOS
+
+    WEB <-->|"REST"| API
+    AND <-->|"REST"| API
+    IOS <-->|"REST"| API
+
+    style shared fill:#27ae60,stroke:#1e8449,color:#fff
+    style gen fill:#2ecc71,stroke:#27ae60,color:#fff
+    style clients fill:#3498db,stroke:#2980b9,color:#fff
+    style backend fill:#f4a460,stroke:#c47830,color:#fff

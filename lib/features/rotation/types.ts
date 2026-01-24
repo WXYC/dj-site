@@ -7,7 +7,7 @@ export type RotationFrontendState = {
 
 export type RotationParams = {
   album_id: string;
-  play_freq: RotationBin;
+  rotation_bin: RotationBin;
 };
 
 export type KillRotationParams = {

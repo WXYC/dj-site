@@ -73,13 +73,13 @@ export type FlowsheetQuery = {
   label: string;
   request: boolean;
   album_id?: number;
-  play_freq?: RotationBin;
+  rotation_bin?: RotationBin;
   rotation_id?: number;
 };
 
 export type FlowsheetSearchProperty = keyof Omit<
   FlowsheetQuery,
-  "request" | "album_id" | "play_freq" | "rotation_id"
+  "request" | "album_id" | "rotation_bin" | "rotation_id"
 >;
 
 /**

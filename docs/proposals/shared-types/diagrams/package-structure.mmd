@@ -1,0 +1,59 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#3498db', 'primaryTextColor': '#fff', 'primaryBorderColor': '#2980b9', 'lineColor': '#5a6a7a', 'secondaryColor': '#9b59b6', 'tertiaryColor': '#e8e8e8'}}}%%
+flowchart TB
+    subgraph repo["wxyc-shared Repository"]
+        direction TB
+
+        ROOT["package.json<br/>(workspaces)"]
+        TSBASE["tsconfig.base.json"]
+
+        subgraph pkgtypes["packages/types/"]
+            direction TB
+            PKG1["package.json"]
+            TSUP1["tsup.config.ts"]
+
+            subgraph src["src/"]
+                INDEX["index.ts"]
+
+                subgraph enums["enums/"]
+                    E1["rotation.ts"]
+                    E2["authorization.ts"]
+                    E3["search.ts"]
+                end
+
+                subgraph api["api/"]
+                    A1["catalog.ts"]
+                    A2["flowsheet.ts"]
+                    A3["rotation.ts"]
+                end
+
+                subgraph domain["domain/"]
+                    D1["album.ts"]
+                    D2["flowsheet.ts"]
+                    D3["user.ts"]
+                end
+
+                subgraph guards["guards/"]
+                    G1["flowsheet.ts"]
+                end
+            end
+        end
+
+        subgraph pkgtest["packages/test-utils/ (future)"]
+            direction TB
+            PKG2["fixtures/"]
+            PKG3["factories/"]
+        end
+    end
+
+    ROOT --> pkgtypes
+    ROOT --> pkgtest
+    TSBASE -.-> pkgtypes
+
+    style repo fill:#ecf0f1,stroke:#bdc3c7
+    style pkgtypes fill:#3498db,stroke:#2980b9,color:#fff
+    style pkgtest fill:#95a5a6,stroke:#7f8c8d,color:#fff
+    style src fill:#5dade2,stroke:#3498db,color:#fff
+    style enums fill:#85c1e9,stroke:#5dade2
+    style api fill:#85c1e9,stroke:#5dade2
+    style domain fill:#85c1e9,stroke:#5dade2
+    style guards fill:#85c1e9,stroke:#5dade2

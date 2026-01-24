@@ -46,14 +46,14 @@ describe("convertAlbumFromSearch", () => {
 
   it("should not include rotation data (convertAlbumFromSearch ignores rotation)", () => {
     const apiResponse: AlbumQueryResponse = createTestAlbumQueryResponse({
-      play_freq: "H" as any,
+      rotation_bin: "H" as any,
       rotation_id: TEST_ENTITY_IDS.ROTATION.HEAVY,
       plays: 25,
     });
 
     const result = convertAlbumFromSearch(apiResponse);
 
-    expect(result.play_freq).toBeUndefined();
+    expect(result.rotation_bin).toBeUndefined();
     expect(result.rotation_id).toBeUndefined();
     expect(result.plays).toBe(25);
   });
@@ -65,7 +65,7 @@ describe("convertAlbumFromSearch", () => {
 
     const result = convertAlbumFromSearch(apiResponse);
 
-    expect(result.play_freq).toBeUndefined();
+    expect(result.rotation_bin).toBeUndefined();
     expect(result.rotation_id).toBeUndefined();
     expect(result.plays).toBe(0);
   });

@@ -87,14 +87,14 @@ export default function FlowsheetTrackResult({
           }}
         >
           {entry.title}
-          {entry.play_freq && (
+          {entry.rotation_bin && (
             <Chip
               variant="soft"
               size="sm"
-              color={rotationColor(entry.play_freq)}
+              color={rotationColor(entry.rotation_bin)}
               sx={{ ml: 1 }}
             >
-              {entry.play_freq}
+              {entry.rotation_bin}
             </Chip>
           )}
         </Typography>

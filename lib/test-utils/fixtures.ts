@@ -38,7 +38,7 @@ export function createTestAlbum(overrides: Partial<AlbumEntry> = {}): AlbumEntry
     entry: 1,
     format: "CD",
     alternate_artist: undefined,
-    play_freq: undefined,
+    rotation_bin: undefined,
     rotation_id: undefined,
     plays: 0,
     add_date: toDateString(TEST_TIMESTAMPS.ONE_WEEK_AGO),
@@ -64,7 +64,7 @@ export function createTestAlbumQueryResponse(
     format_name: "CD",
     genre_name: "Rock",
     label: TEST_SEARCH_STRINGS.LABEL,
-    play_freq: undefined,
+    rotation_bin: undefined,
     plays: 0,
     rotation_id: undefined,
     ...overrides,
@@ -86,7 +86,7 @@ export function createTestFlowsheetEntry(
     request_flag: false,
     album_id: TEST_ENTITY_IDS.ALBUM.ROCK_ALBUM,
     rotation_id: undefined,
-    rotation_play_freq: undefined,
+    rotation_bin: undefined,
     ...overrides,
   };
 }
@@ -102,7 +102,7 @@ export function createTestFlowsheetQuery(
     label: TEST_SEARCH_STRINGS.LABEL,
     request: false,
     album_id: undefined,
-    play_freq: undefined,
+    rotation_bin: undefined,
     rotation_id: undefined,
     ...overrides,
   };
@@ -163,7 +163,7 @@ export function createTestRotationAlbum(
 ): AlbumEntry {
   return createTestAlbum({
     id: TEST_ENTITY_IDS.ALBUM.ROTATION_ALBUM,
-    play_freq: rotation,
+    rotation_bin: rotation,
     rotation_id: TEST_ENTITY_IDS.ROTATION.HEAVY,
     ...overrides,
   });

@@ -16,7 +16,7 @@ export function convertAlbumFromBin(response: BinQueryResponse): AlbumEntry {
     entry: response.code_number,
     format: (response.format_name as Format) ?? "Unknown",
     alternate_artist: "",
-    play_freq: undefined,
+    rotation_bin: undefined,
     add_date: undefined,
     plays: undefined,
     rotation_id: undefined,
@@ -45,7 +45,7 @@ export function convertBinToQueue(binEntry: AlbumEntry): FlowsheetQuery {
     artist: binEntry.artist.name,
     label: binEntry.label,
     rotation_id: binEntry.rotation_id,
-    play_freq: binEntry.play_freq,
+    rotation_bin: binEntry.rotation_bin,
     request: false,
   };
 }

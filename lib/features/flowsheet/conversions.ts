@@ -44,7 +44,7 @@ export function convertToSong(
     request_flag: response.request_flag,
     album_id: response.album_id,
     rotation_id: response.rotation_id,
-    rotation_play_freq: response.rotation_play_freq,
+    rotation_bin: response.rotation_bin,
   };
 }
 

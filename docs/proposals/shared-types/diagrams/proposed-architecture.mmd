@@ -1,0 +1,37 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#4a90a4', 'primaryTextColor': '#fff', 'primaryBorderColor': '#2d5a6b', 'lineColor': '#5a6a7a', 'secondaryColor': '#f4a460', 'tertiaryColor': '#27ae60', 'background': '#ffffff'}}}%%
+flowchart LR
+    subgraph frontend["dj-site (Frontend)"]
+        direction TB
+        FC["React/Next.js<br/>RTK Query APIs<br/>UI Components"]
+    end
+
+    subgraph shared["wxyc-shared (New Repository)"]
+        direction TB
+        subgraph types["@wxyc/types"]
+            ST1["enums/"]
+            ST2["api/"]
+            ST3["domain/"]
+            ST4["guards/"]
+        end
+        subgraph future["Future Packages"]
+            ST5["@wxyc/test-utils"]
+            ST6["@wxyc/validation"]
+        end
+    end
+
+    subgraph backend["Backend-Service"]
+        direction TB
+        BC["Express Controllers<br/>Drizzle ORM<br/>Business Logic"]
+        BD["@wxyc/database<br/>(DB-specific types)"]
+    end
+
+    shared -->|"npm"| frontend
+    shared -->|"npm"| backend
+
+    frontend <-->|"REST API<br/>(typed contract)"| backend
+
+    style shared fill:#27ae60,stroke:#1e8449,color:#fff
+    style types fill:#2ecc71,stroke:#27ae60,color:#fff
+    style future fill:#95a5a6,stroke:#7f8c8d,color:#fff
+    style frontend fill:#4a90a4,stroke:#2d5a6b,color:#fff
+    style backend fill:#f4a460,stroke:#c47830,color:#fff
