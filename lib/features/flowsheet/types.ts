@@ -5,8 +5,8 @@
  * frontend-specific types that aren't needed by the backend.
  */
 
-// Re-export shared DTOs
-export {
+// Re-export shared DTOs - types only (no runtime value)
+export type {
   FlowsheetEntryBase,
   FlowsheetEntryResponse,
   FlowsheetSongEntry,
@@ -19,7 +19,11 @@ export {
   FlowsheetQueryParams,
   OnAirDJ,
   OnAirStatusResponse,
-  // Type guards
+  DateTimeEntry,
+} from "@wxyc/shared";
+
+// Re-export type guards (these have runtime values)
+export {
   isFlowsheetSongEntry,
   isFlowsheetShowBlockEntry,
   isFlowsheetStartShowEntry,
@@ -27,12 +31,17 @@ export {
   isFlowsheetMessageEntry,
   isFlowsheetTalksetEntry,
   isFlowsheetBreakpointEntry,
-} from "@wxyc/shared/dtos";
+} from "@wxyc/shared";
 
-export type { DateTimeEntry } from "@wxyc/shared/dtos";
-
-// Import rotation type for frontend-specific types
-import type { RotationFrequency } from "@wxyc/shared/dtos";
+// Import types for frontend-specific types
+import type {
+  RotationBin,
+  FlowsheetSongEntry,
+  FlowsheetEntry,
+  FlowsheetCreateRequest,
+  OnAirDJ,
+  OnAirStatusResponse,
+} from "@wxyc/shared";
 
 // ============================================================================
 // Frontend-specific types (not shared with backend)
@@ -48,10 +57,10 @@ export type FlowsheetFrontendState = {
     query: FlowsheetQuery;
     selectedResult: number;
   };
-  queue: FlowsheetSongEntryLocal[];
+  queue: FlowsheetSongEntry[];
   queueIdCounter: number;
   pagination: FlowsheetRequestParams;
-  currentShowEntries: FlowsheetEntryLocal[];
+  currentShowEntries: FlowsheetEntry[];
 };
 
 /**
@@ -64,7 +73,7 @@ export type FlowsheetQuery = {
   label: string;
   request: boolean;
   album_id?: number;
-  play_freq?: RotationFrequency;
+  play_freq?: RotationBin;
   rotation_id?: number;
 };
 
@@ -72,57 +81,6 @@ export type FlowsheetSearchProperty = keyof Omit<
   FlowsheetQuery,
   "request" | "album_id" | "play_freq" | "rotation_id"
 >;
-
-/**
- * Local song entry type with frontend-specific rotation field
- * (backend returns rotation_play_freq, frontend adds rotation object)
- */
-export type FlowsheetSongEntryLocal = {
-  id: number;
-  play_order: number;
-  show_id: number;
-  track_title: string;
-  artist_name: string;
-  album_title: string;
-  record_label: string;
-  request_flag: boolean;
-  album_id?: number;
-  rotation_id?: number;
-  rotation?: {
-    play_freq: RotationFrequency;
-  };
-};
-
-/**
- * Union type for all flowsheet entry types (frontend version)
- */
-export type FlowsheetEntryLocal =
-  | FlowsheetSongEntryLocal
-  | FlowsheetBreakpointEntryLocal
-  | FlowsheetShowBlockEntryLocal
-  | FlowsheetMessageEntryLocal;
-
-export type FlowsheetShowBlockEntryLocal = {
-  id: number;
-  play_order: number;
-  show_id: number;
-  day: string;
-  time: string;
-  dj_name: string;
-  isStart: boolean;
-};
-
-export type FlowsheetMessageEntryLocal = {
-  id: number;
-  play_order: number;
-  show_id: number;
-  message: string;
-};
-
-export type FlowsheetBreakpointEntryLocal = FlowsheetMessageEntryLocal & {
-  day: string;
-  time: string;
-};
 
 /**
  * Pagination parameters for flowsheet requests

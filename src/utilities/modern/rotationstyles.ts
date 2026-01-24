@@ -1,7 +1,7 @@
-import { Rotation } from "@/lib/features/rotation/types";
+import { RotationBin } from "@wxyc/shared";
 import { ColorPaletteProp } from "@mui/joy";
 
-export const RotationStyles: Record<Rotation, ColorPaletteProp> = {
+export const RotationStyles: Record<RotationBin, ColorPaletteProp> = {
   H: "primary",
   M: "neutral",
   L: "success",
@@ -9,7 +9,7 @@ export const RotationStyles: Record<Rotation, ColorPaletteProp> = {
 };
 
 export const getStyleForRotation = (
-  rotation: Rotation
+  rotation: RotationBin
 ): ColorPaletteProp | undefined => {
   return (RotationStyles[rotation] as ColorPaletteProp) ?? undefined;
 };

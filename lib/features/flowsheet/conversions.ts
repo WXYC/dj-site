@@ -1,4 +1,3 @@
-import { Rotation } from "../rotation/types";
 import {
   FlowsheetBreakpointEntry,
   FlowsheetEntryResponse,
@@ -45,7 +44,7 @@ export function convertToSong(
     request_flag: response.request_flag,
     album_id: response.album_id,
     rotation_id: response.rotation_id,
-    rotation: response.rotation_play_freq as Rotation,
+    rotation_play_freq: response.rotation_play_freq,
   };
 }
 

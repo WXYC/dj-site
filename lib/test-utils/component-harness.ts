@@ -92,7 +92,7 @@ export function createComponentHarnessWithQueries<
 /**
  * Common query factories for frequently used element lookups.
  */
-export const queries = {
+export const queryFactories = {
   byPlaceholder: (text: string) => () => screen.getByPlaceholderText(text),
   byText: (text: string) => () => screen.getByText(text),
   byRole: (role: string, options?: { name?: string }) => () =>

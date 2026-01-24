@@ -1,12 +1,13 @@
+import type { RotationBin } from "@wxyc/shared";
+
 export type RotationFrontendState = {
   orderBy: "title" | "artist" | "album";
   orderDirection: "asc" | "desc";
 };
 
-
 export type RotationParams = {
   album_id: string;
-  play_freq: Rotation;
+  play_freq: RotationBin;
 };
 
 export type KillRotationParams = {
@@ -14,10 +15,6 @@ export type KillRotationParams = {
   kill_date: Date | undefined;
 };
 
-export enum Rotation {
-  S = "S",
-  L = "L",
-  M = "M",
-  H = "H",
-}
+// Re-export for backwards compatibility during migration
+export type { RotationBin as Rotation } from "@wxyc/shared";
 

@@ -31,7 +31,8 @@ export function createSliceHarness<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   S extends Slice<State, any, Name>
 >(slice: S, initialState: State) {
-  type SliceActions = ReturnType<S["actions"][keyof S["actions"]]>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  type SliceActions = ReturnType<Extract<S["actions"][keyof S["actions"]], (...args: any) => any>>;
 
   return {
     /**
@@ -96,7 +97,8 @@ export interface SliceStoreHarness<
   S extends Slice<any, any, any>
 > {
   store: AppStore;
-  dispatch: (action: ReturnType<S["actions"][keyof S["actions"]]> | UnknownAction) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  dispatch: (action: ReturnType<Extract<S["actions"][keyof S["actions"]], (...args: any) => any>> | UnknownAction) => void;
   getState: () => RootState;
   select: <T>(selector: (state: RootState) => T) => T;
 }

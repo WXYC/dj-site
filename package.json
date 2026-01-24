@@ -16,7 +16,6 @@
     "test:watch": "vitest --watch"
   },
   "dependencies": {
-    "@wxyc/shared": "github:WXYC/wxyc-shared",
     "@atlaskit/pragmatic-drag-and-drop": "^1.7.2",
     "@aws-sdk/client-cognito-identity-provider": "^3.731.1",
     "@aws-sdk/credential-provider-cognito-identity": "^3.830.0",
@@ -28,6 +27,7 @@
     "@opennextjs/cloudflare": "^1.10.1",
     "@reduxjs/toolkit": "^2.2.0",
     "@uidotdev/usehooks": "^2.4.1",
+    "@wxyc/shared": "github:WXYC/wxyc-shared",
     "amazon-cognito-identity-js": "^6.3.12",
     "cookie": "^1.0.2",
     "jose": "^5.9.6",

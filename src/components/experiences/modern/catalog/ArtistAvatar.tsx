@@ -1,5 +1,6 @@
 import { ArtistEntry, Format, Genre } from "@/lib/features/catalog/types";
-import { Rotation } from "@/lib/features/rotation/types";
+import { RotationStyles } from "@/src/utilities/modern/rotationstyles";
+import type { RotationBin } from "@wxyc/shared";
 import {
   Avatar,
   Badge,
@@ -14,16 +15,12 @@ interface ArtistAvatarProps {
   artist?: ArtistEntry;
   entry?: number;
   background?: string;
-  rotation?: Rotation;
+  rotation?: RotationBin;
   format?: Format;
 }
 
-export const ROTATION_STYLES: { [id in Rotation]: ColorPaletteProp } = {
-  H: "primary",
-  M: "warning",
-  L: "success",
-  S: "neutral",
-};
+// Re-export for backwards compatibility
+export const ROTATION_STYLES = RotationStyles;
 
 const GENRE_COLORS: { [id in Genre]: ColorPaletteProp } = {
   Rock: "primary",

@@ -29,7 +29,9 @@ import { useBinResults } from "./binHooks";
 import {
   useCatalogFlowsheetSearch,
   useRotationFlowsheetSearch,
+  useTrackSearch,
 } from "./catalogHooks";
+import type { TrackSearchResult } from "@wxyc/shared";
 
 export const useShowControl = () => {
   const { loading: userloading, info: userData } = useRegistry();
@@ -143,39 +145,76 @@ export const useFlowsheetSearch = () => {
   const { searchResults: binResults } = useBinResults();
   const { searchResults: catalogResults } = useCatalogFlowsheetSearch();
   const { searchResults: rotationResults } = useRotationFlowsheetSearch();
+  const { trackResults } = useTrackSearch();
 
+  // Track results come first when song field is populated
   const allSearchResults = useMemo(() => [
     ...binResults,
     ...rotationResults,
     ...catalogResults,
   ], [binResults, rotationResults, catalogResults]);
 
+  const allTrackResults = useMemo(() => trackResults, [trackResults]);
+
+  // Calculate which result is selected, accounting for track results shown first
+  const selectedTrackEntry = useMemo((): TrackSearchResult | null => {
+    if (selectedIndex === 0) return null;
+    const trackIndex = selectedIndex - 1;
+    if (trackIndex < allTrackResults.length) {
+      return allTrackResults[trackIndex];
+    }
+    return null;
+  }, [selectedIndex, allTrackResults]);
+
   const selectedEntry = useMemo(() => {
     if (selectedIndex === 0) return null;
-    return allSearchResults[selectedIndex - 1] ?? null;
-  }, [selectedIndex, allSearchResults]);
+    // If within track results range, return null (handled by selectedTrackEntry)
+    const adjustedIndex = selectedIndex - 1 - allTrackResults.length;
+    if (adjustedIndex < 0) return null;
+    return allSearchResults[adjustedIndex] ?? null;
+  }, [selectedIndex, allSearchResults, allTrackResults]);
 
   // Get the display value for a field - either from selected result or raw query
   const getDisplayValue = useCallback((name: FlowsheetSearchProperty): string => {
-    if (selectedIndex === 0 || !selectedEntry) {
+    if (selectedIndex === 0) {
       // Show raw query values when creating new
       return searchQuery[name] as string;
     }
-    
-    // Show selected result values when a result is selected
-    switch (name) {
-      case "song":
-        return searchQuery.song as string; // Always show user input for song
-      case "artist":
-        return selectedEntry.artist?.name || searchQuery.artist as string;
-      case "album":
-        return selectedEntry.title || searchQuery.album as string;
-      case "label":
-        return selectedEntry.label || searchQuery.label as string;
-      default:
-        return searchQuery[name] as string;
+
+    // Check if a track result is selected
+    if (selectedTrackEntry) {
+      switch (name) {
+        case "song":
+          return selectedTrackEntry.title || searchQuery.song as string;
+        case "artist":
+          return selectedTrackEntry.artist_name || searchQuery.artist as string;
+        case "album":
+          return selectedTrackEntry.album_title || searchQuery.album as string;
+        case "label":
+          return selectedTrackEntry.label || searchQuery.label as string;
+        default:
+          return searchQuery[name] as string;
+      }
     }
-  }, [selectedIndex, selectedEntry, searchQuery]);
+
+    // Check if an album result is selected
+    if (selectedEntry) {
+      switch (name) {
+        case "song":
+          return searchQuery.song as string; // Always show user input for song
+        case "artist":
+          return selectedEntry.artist?.name || searchQuery.artist as string;
+        case "album":
+          return selectedEntry.title || searchQuery.album as string;
+        case "label":
+          return selectedEntry.label || searchQuery.label as string;
+        default:
+          return searchQuery[name] as string;
+      }
+    }
+
+    return searchQuery[name] as string;
+  }, [selectedIndex, selectedEntry, selectedTrackEntry, searchQuery]);
 
   return {
     live,
@@ -420,6 +459,7 @@ export const useFlowsheetSubmit = () => {
   const { searchResults: binResults } = useBinResults();
   const { searchResults: catalogResults } = useCatalogFlowsheetSearch();
   const { searchResults: rotationResults } = useRotationFlowsheetSearch();
+  const { trackResults } = useTrackSearch();
 
   const selectedResult = useAppSelector(
     flowsheetSlice.selectors.getSelectedResult
@@ -429,22 +469,35 @@ export const useFlowsheetSubmit = () => {
     flowsheetSlice.selectors.getSearchQuery
   );
 
-  // Memoized collection of all search results
+  // Memoized collection of all search results (album-based)
   const allSearchResults = useMemo(() => [
     ...binResults,
     ...rotationResults,
     ...catalogResults,
   ], [binResults, rotationResults, catalogResults]);
 
-  // Memoized selected entry (null if creating new)
+  // Calculate which result is selected, accounting for track results shown first
+  const selectedTrackEntry = useMemo((): TrackSearchResult | null => {
+    if (selectedResult === 0) return null;
+    const trackIndex = selectedResult - 1;
+    if (trackIndex < trackResults.length) {
+      return trackResults[trackIndex];
+    }
+    return null;
+  }, [selectedResult, trackResults]);
+
+  // Memoized selected album entry (null if creating new or if track is selected)
   const selectedEntry = useMemo(() => {
     if (selectedResult === 0) return null;
-    return allSearchResults[selectedResult - 1] ?? null;
-  }, [selectedResult, allSearchResults]);
+    // If within track results range, return null
+    const adjustedIndex = selectedResult - 1 - trackResults.length;
+    if (adjustedIndex < 0) return null;
+    return allSearchResults[adjustedIndex] ?? null;
+  }, [selectedResult, allSearchResults, trackResults]);
 
   // Memoized calculation of the selected result data
   const selectedResultData = useMemo<FlowsheetQuery>(() => {
-    if (selectedResult == 0 || !selectedEntry) {
+    if (selectedResult === 0) {
       // User is creating a new entry manually
       return {
         song: flowSheetRawQuery.song as string,
@@ -453,9 +506,24 @@ export const useFlowsheetSubmit = () => {
         label: flowSheetRawQuery.label as string,
         request: false,
       };
-    } else {
-      // User has selected a result from the search
-      // Use result values if available, otherwise fall back to user edits
+    }
+
+    // Check if a track result is selected
+    if (selectedTrackEntry) {
+      return {
+        song: selectedTrackEntry.title,
+        artist: selectedTrackEntry.artist_name || flowSheetRawQuery.artist as string,
+        album: selectedTrackEntry.album_title || flowSheetRawQuery.album as string,
+        label: selectedTrackEntry.label || flowSheetRawQuery.label as string,
+        album_id: selectedTrackEntry.album_id ?? undefined,
+        play_freq: selectedTrackEntry.play_freq ?? undefined,
+        rotation_id: selectedTrackEntry.rotation_id ?? undefined,
+        request: false,
+      };
+    }
+
+    // Check if an album result is selected
+    if (selectedEntry) {
       return {
         song: flowSheetRawQuery.song as string,
         artist: selectedEntry.artist?.name || flowSheetRawQuery.artist as string,
@@ -467,7 +535,16 @@ export const useFlowsheetSubmit = () => {
         request: false,
       };
     }
-  }, [selectedResult, selectedEntry, flowSheetRawQuery]);
+
+    // Fallback to raw query
+    return {
+      song: flowSheetRawQuery.song as string,
+      artist: flowSheetRawQuery.artist as string,
+      album: flowSheetRawQuery.album as string,
+      label: flowSheetRawQuery.label as string,
+      request: false,
+    };
+  }, [selectedResult, selectedEntry, selectedTrackEntry, flowSheetRawQuery]);
 
   const handleSubmit = useCallback(
     (e: any) => {
@@ -506,7 +583,9 @@ export const useFlowsheetSubmit = () => {
     binResults,
     catalogResults,
     rotationResults,
+    trackResults,
     selectedResultData,
     selectedEntry,
+    selectedTrackEntry,
   };
 };

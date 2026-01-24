@@ -106,8 +106,8 @@ export default function SongEntry({
           {editable && <DragButton controls={controls} />}
           <Badge
             size="sm"
-            badgeContent={entry.rotation ?? null}
-            color={entry.rotation && getStyleForRotation(entry.rotation)}
+            badgeContent={entry.rotation_play_freq ?? null}
+            color={entry.rotation_play_freq ? getStyleForRotation(entry.rotation_play_freq) : undefined}
             anchorOrigin={{
               vertical: "top",
               horizontal: "left",
@@ -160,7 +160,7 @@ export default function SongEntry({
                     request_flag: entry.request_flag,
                     rotation_id: entry.rotation_id,
                     album_id: entry.album_id,
-                    play_freq: entry.rotation,
+                    play_freq: entry.rotation_play_freq,
                   } as FlowsheetSubmissionParams)
                     .then(() => {
                       dispatch(flowsheetSlice.actions.removeFromQueue(entry.id));

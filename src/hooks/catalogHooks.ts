@@ -1,4 +1,4 @@
-import { useSearchCatalogQuery } from "@/lib/features/catalog/api";
+import { useSearchCatalogQuery, useSearchTracksQuery } from "@/lib/features/catalog/api";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
 import {
   AlbumEntry,
@@ -260,6 +260,49 @@ export const useRotationFlowsheetSearch = () => {
       rotationQuery.artist.length + rotationQuery.album.length > MIN_SEARCH_LENGTH
         ? searchResults
         : [],
+    loading: isLoading,
+  };
+};
+
+export const useTrackSearch = () => {
+  const MIN_SEARCH_LENGTH = 2;
+  const DEBOUNCE_MS = 300;
+
+  const { authenticating, authenticated } = useAuthentication();
+
+  const flowsheetQuery = useAppSelector(
+    flowsheetSlice.selectors.getSearchQuery
+  );
+
+  const [debouncedSong, setDebouncedSong] = useState(flowsheetQuery.song);
+
+  // Debounce the song query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSong(flowsheetQuery.song);
+    }, DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [flowsheetQuery.song]);
+
+  const { data, isLoading } = useSearchTracksQuery(
+    {
+      song: debouncedSong,
+      artist: flowsheetQuery.artist || undefined,
+      album: flowsheetQuery.album || undefined,
+      label: flowsheetQuery.label || undefined,
+      n: 10,
+    },
+    {
+      skip:
+        authenticating ||
+        !authenticated ||
+        debouncedSong.length < MIN_SEARCH_LENGTH,
+    }
+  );
+
+  return {
+    trackResults: debouncedSong.length >= MIN_SEARCH_LENGTH ? data ?? [] : [],
     loading: isLoading,
   };
 };

@@ -9,6 +9,7 @@ import {
   ArtistParams,
   SearchCatalogQueryParams,
 } from "./types";
+import type { TrackSearchResult, TrackSearchParams } from "@wxyc/shared";
 
 export const catalogApi = createApi({
   reducerPath: "catalogApi",
@@ -69,6 +70,12 @@ export const catalogApi = createApi({
         body: genre,
       }),
     }),
+    searchTracks: builder.query<TrackSearchResult[], TrackSearchParams>({
+      query: ({ song, artist, album, label, n }) => ({
+        url: "/tracks/search",
+        params: { song, artist, album, label, n },
+      }),
+    }),
   }),
 });
 
@@ -81,4 +88,5 @@ export const {
   useAddFormatMutation,
   useGetGenresQuery,
   useAddGenreMutation,
+  useSearchTracksQuery,
 } = catalogApi;

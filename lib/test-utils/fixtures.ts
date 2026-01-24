@@ -13,7 +13,7 @@ import {
   FlowsheetQuery,
   FlowsheetSongEntry,
 } from "@/lib/features/flowsheet/types";
-import { Rotation } from "@/lib/features/rotation/types";
+import type { RotationBin } from "@wxyc/shared";
 import { TEST_ENTITY_IDS, TEST_SEARCH_STRINGS } from "./constants";
 import { TEST_TIMESTAMPS, toDateString } from "./time";
 
@@ -86,7 +86,7 @@ export function createTestFlowsheetEntry(
     request_flag: false,
     album_id: TEST_ENTITY_IDS.ALBUM.ROCK_ALBUM,
     rotation_id: undefined,
-    rotation: undefined,
+    rotation_play_freq: undefined,
     ...overrides,
   };
 }
@@ -158,7 +158,7 @@ export function createTestFlowsheetEntryList(count: number = 3): FlowsheetSongEn
 
 // Rotation-specific album factory
 export function createTestRotationAlbum(
-  rotation: Rotation,
+  rotation: RotationBin,
   overrides: Partial<AlbumEntry> = {}
 ): AlbumEntry {
   return createTestAlbum({

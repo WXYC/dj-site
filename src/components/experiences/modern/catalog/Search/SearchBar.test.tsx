@@ -3,7 +3,7 @@ import { screen } from "@testing-library/react";
 import SearchBar from "./SearchBar";
 import {
   createComponentHarnessWithQueries,
-  queries,
+  queryFactories,
 } from "@/lib/test-utils";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
 
@@ -11,9 +11,9 @@ const setup = createComponentHarnessWithQueries(
   SearchBar,
   { color: "primary" as const },
   {
-    input: queries.byPlaceholder("Search"),
-    label: queries.byText("Search for an album or artist"),
-    clearButton: queries.queryByRole("button", { name: "" }),
+    input: queryFactories.byPlaceholder("Search"),
+    label: queryFactories.byText("Search for an album or artist"),
+    clearButton: queryFactories.queryByRole("button", { name: "" }),
   }
 );
 

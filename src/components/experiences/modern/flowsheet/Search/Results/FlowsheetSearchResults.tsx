@@ -5,16 +5,20 @@ import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useAppSelector } from "@/lib/hooks";
 import { Box, Chip, Divider, Sheet, Stack, Typography } from "@mui/joy";
 import FlowsheetBackendResults from "./BackendResults/FlowsheetBackendResults";
+import FlowsheetTrackResults from "./TrackResults/FlowsheetTrackResults";
 import NewEntryPreview from "./NewEntry/NewEntryPreview";
+import type { TrackSearchResult } from "@wxyc/shared";
 
 export default function FlowsheetSearchResults({
   binResults,
   catalogResults,
   rotationResults,
+  trackResults,
 }: {
   binResults: AlbumEntry[];
   catalogResults: AlbumEntry[];
   rotationResults: AlbumEntry[];
+  trackResults: TrackSearchResult[];
 }) {
   const open = useAppSelector(flowsheetSlice.selectors.getSearchOpen);
 
@@ -54,11 +58,19 @@ export default function FlowsheetSearchResults({
         >
           <NewEntryPreview />
           <Divider
+            sx={{ visibility: trackResults.length > 0 ? "inherit" : "hidden" }}
+          />
+          <FlowsheetTrackResults
+            results={trackResults}
+            offset={1}
+            label="Songs"
+          />
+          <Divider
             sx={{ visibility: binResults.length > 0 ? "inherit" : "hidden" }}
           />
           <FlowsheetBackendResults
             results={binResults}
-            offset={1}
+            offset={trackResults.length + 1}
             label="From Your Mail Bin"
           />{" "}
           <Divider
@@ -68,7 +80,7 @@ export default function FlowsheetSearchResults({
           />
           <FlowsheetBackendResults
             results={rotationResults}
-            offset={binResults.length + 1}
+            offset={trackResults.length + binResults.length + 1}
             label="From Rotation"
           />{" "}
           <Divider
@@ -78,7 +90,7 @@ export default function FlowsheetSearchResults({
           />
           <FlowsheetBackendResults
             results={catalogResults}
-            offset={binResults.length + rotationResults.length + 1}
+            offset={trackResults.length + binResults.length + rotationResults.length + 1}
             label="From the Card Catalog"
           />
         </Box>
