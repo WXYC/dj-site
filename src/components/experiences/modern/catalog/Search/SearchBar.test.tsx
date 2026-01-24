@@ -66,12 +66,12 @@ describe("SearchBar", () => {
   });
 
   it.each([
-    { color: "primary" as const },
-    { color: "success" as const },
-    { color: "neutral" as const },
+    { color: "primary" },
+    { color: "success" },
+    { color: "neutral" },
     { color: undefined },
-  ])("should render with color=$color", (props) => {
-    const { input } = setup(props);
+  ] as const)("should render with color=$color", (props) => {
+    const { input } = setup(props as { color?: "primary" });
     expect(input()).toBeInTheDocument();
   });
 });
