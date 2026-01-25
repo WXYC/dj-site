@@ -1,6 +1,7 @@
 "use client";
 
 import { AlbumEntry } from "@/lib/features/catalog/types";
+import { getFormatColor } from "@/lib/design-system/tokens";
 import Box from "@mui/joy/Box";
 import Checkbox from "@mui/joy/Checkbox";
 import Chip from "@mui/joy/Chip";
@@ -84,7 +85,7 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
         <Chip
           variant="soft"
           size="sm"
-          color={album.format.includes("Vinyl") ? "primary" : "warning"}
+          color={getFormatColor(album.format)}
         >
           {album.format}
         </Chip>
