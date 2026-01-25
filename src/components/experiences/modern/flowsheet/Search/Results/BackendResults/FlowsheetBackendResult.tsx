@@ -3,7 +3,8 @@ import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { ArtistAvatar } from "@/src/components/experiences/modern/catalog/ArtistAvatar";
 import { useFlowsheetSubmit } from "@/src/hooks/flowsheetHooks";
-import { Chip, ColorPaletteProp, Stack, Typography } from "@mui/joy";
+import { getFormatColor } from "@/lib/design-system/tokens";
+import { Chip, Stack, Typography } from "@mui/joy";
 
 export default function FlowsheetBackendResult({
   entry,
@@ -69,16 +70,12 @@ export default function FlowsheetBackendResult({
           <Chip
             variant="soft"
             size="sm"
-            color={
-              (entry.format.includes("vinyl")
-                ? "primary"
-                : "info") as ColorPaletteProp
-            }
+            color={getFormatColor(entry.format)}
             sx={{
               ml: 2,
             }}
           >
-            {entry.format.includes("vinyl") ? "vinyl" : "cd"}
+            {entry.format}
           </Chip>
         </Typography>
       </Stack>

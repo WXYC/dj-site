@@ -2,7 +2,8 @@ import type { TrackSearchResult } from "@wxyc/shared";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useFlowsheetSubmit } from "@/src/hooks/flowsheetHooks";
-import { Chip, ColorPaletteProp, Stack, Typography } from "@mui/joy";
+import { getRotationColor } from "@/lib/design-system/tokens";
+import { Chip, Stack, Typography } from "@mui/joy";
 import { MusicNote } from "@mui/icons-material";
 
 export default function FlowsheetTrackResult({
@@ -20,21 +21,6 @@ export default function FlowsheetTrackResult({
 
   const { ctrlKeyPressed: submittingToQueue, handleSubmit } =
     useFlowsheetSubmit();
-
-  const rotationColor = (freq: string | undefined): ColorPaletteProp => {
-    switch (freq) {
-      case "H":
-        return "danger";
-      case "M":
-        return "warning";
-      case "L":
-        return "success";
-      case "S":
-        return "primary";
-      default:
-        return "neutral";
-    }
-  };
 
   return (
     <Stack
@@ -91,7 +77,7 @@ export default function FlowsheetTrackResult({
             <Chip
               variant="soft"
               size="sm"
-              color={rotationColor(entry.rotation_bin)}
+              color={getRotationColor(entry.rotation_bin)}
               sx={{ ml: 1 }}
             >
               {entry.rotation_bin}

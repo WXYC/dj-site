@@ -1,15 +1,16 @@
-import { RotationBin } from "@wxyc/shared";
-import { ColorPaletteProp } from "@mui/joy";
+/**
+ * Rotation styles - re-exported from the centralized token system.
+ */
 
-export const RotationStyles: Record<RotationBin, ColorPaletteProp> = {
-  H: "primary",
-  M: "neutral",
-  L: "success",
-  S: "warning",
-};
+export { RotationStyles, getRotationColor } from "@/lib/design-system/tokens";
 
+import { getRotationColor } from "@/lib/design-system/tokens";
+import type { RotationBin } from "@wxyc/shared";
+import type { ColorPaletteProp } from "@mui/joy";
+
+/** Get the style/color for a rotation bin. */
 export const getStyleForRotation = (
   rotation: RotationBin
 ): ColorPaletteProp | undefined => {
-  return (RotationStyles[rotation] as ColorPaletteProp) ?? undefined;
+  return getRotationColor(rotation);
 };

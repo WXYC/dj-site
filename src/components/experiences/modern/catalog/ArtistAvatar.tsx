@@ -1,64 +1,23 @@
 import { ArtistEntry, Format, Genre } from "@/lib/features/catalog/types";
-import { RotationStyles } from "@/src/utilities/modern/rotationstyles";
-import type { RotationBin } from "@wxyc/shared";
 import {
-  Avatar,
-  Badge,
-  ColorPaletteProp,
-  Stack,
-  Tooltip,
-  Typography,
-  VariantProp,
-} from "@mui/joy";
+  getGenreColor,
+  getRotationColor,
+  getFormatColor,
+} from "@/lib/design-system/tokens";
+import type { RotationBin } from "@wxyc/shared";
+import { Avatar, Badge, Stack, Tooltip, Typography } from "@mui/joy";
 
 interface ArtistAvatarProps {
   artist?: ArtistEntry;
   entry?: number;
   background?: string;
   rotation?: RotationBin;
-  format?: Format;
+  format: Format;
 }
 
-// Re-export for backwards compatibility
-export const ROTATION_STYLES = RotationStyles;
-
-const GENRE_COLORS: { [id in Genre]: ColorPaletteProp } = {
-  Rock: "primary",
-  Blues: "success",
-  Electronic: "success",
-  Hiphop: "primary",
-  Jazz: "warning",
-  Classical: "neutral",
-  Reggae: "warning",
-  Soundtracks: "neutral",
-  OCS: "success",
-  Unknown: "neutral",
-};
-
-const GENRE_VARIANTS: { [id in Genre]: VariantProp } = {
-  Rock: "solid",
-  Electronic: "solid",
-  Hiphop: "soft",
-  Jazz: "solid",
-  Blues: "soft",
-  Classical: "soft",
-  Reggae: "soft",
-  Soundtracks: "soft",
-  OCS: "soft",
-  Unknown: "soft",
-};
-
 export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
-  let color_choice = GENRE_COLORS[(props.artist?.genre as Genre) ?? "Unknown"];
-  if (color_choice === undefined) {
-    color_choice = "neutral";
-  }
-
-  let variant_choice =
-    GENRE_VARIANTS[(props.artist?.genre as Genre) ?? "Unknown"];
-  if (variant_choice === undefined) {
-    variant_choice = "solid";
-  }
+  const genre = (props.artist?.genre as Genre) ?? "Unknown";
+  const { color: genreColor, variant: genreVariant } = getGenreColor(genre);
 
   return (
     <Tooltip
@@ -72,12 +31,12 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
     >
       <Badge
         badgeContent={props.rotation ?? null}
-        color={props.rotation && ROTATION_STYLES[props.rotation]}
+        color={props.rotation ? getRotationColor(props.rotation) : undefined}
         size="sm"
       >
         <Avatar
-          variant={variant_choice}
-          color={color_choice}
+          variant={genreVariant}
+          color={genreColor}
           sx={{
             width: "3.2rem",
             height: "3.2rem",
@@ -115,8 +74,8 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
                 {props.artist?.numbercode ?? "|"}
               </Typography>
               <Avatar
-                variant={variant_choice == "solid" ? "soft" : "solid"}
-                color={(props.format ?? "") == "CD" ? "primary" : "warning"}
+                variant={genreVariant === "solid" ? "soft" : "solid"}
+                color={getFormatColor(props.format)}
                 sx={{
                   width: "1.4rem",
                   height: "1.4rem",
