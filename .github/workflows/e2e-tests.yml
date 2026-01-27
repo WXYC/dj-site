@@ -111,6 +111,10 @@ jobs:
         working-directory: Backend-Service
         run: npm ci
 
+      - name: Build Backend-Service workspaces
+        working-directory: Backend-Service
+        run: npm run build
+
       - name: Set up E2E test users
         working-directory: Backend-Service
         env:
