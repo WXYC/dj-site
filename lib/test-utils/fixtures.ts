@@ -138,7 +138,7 @@ export function createTestAuthenticatedUser(
   return {
     user: createTestUser(overrides.user),
     accessToken: "test-access-token-12345",
-    idToken: "test-id-token-12345",
+    token: "test-token-12345",
     ...overrides,
   };
 }
@@ -229,6 +229,7 @@ export function createTestVerificationState(
     djName: false,
     password: false,
     confirmPassword: false,
+    currentPassword: false,
     code: false,
     ...overrides,
   };
@@ -257,7 +258,7 @@ export function createTestAuthenticationState(
 
 // Better Auth session fixtures
 import type { BetterAuthSession } from "@/lib/features/authentication/utilities";
-import type { BetterAuthJwtPayload, WXYCRole, VerifiedData } from "@/lib/features/authentication/types";
+import type { BetterAuthJwtPayload, WXYCRole } from "@/lib/features/authentication/types";
 
 export function createTestBetterAuthSession(
   overrides: Partial<BetterAuthSession> = {}
