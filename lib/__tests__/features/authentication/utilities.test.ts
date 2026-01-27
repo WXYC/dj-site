@@ -1,14 +1,31 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Authorization } from "@/lib/features/admin/types";
-import type { DJwtPayload } from "@/lib/features/authentication/types";
+import type { BetterAuthJwtPayload } from "@/lib/features/authentication/types";
 
 // Mock jwt-decode before importing the module under test
 vi.mock("jwt-decode", () => ({
   jwtDecode: vi.fn(),
 }));
 
-import { toClient, toUser, defaultAuthenticationData } from "@/lib/features/authentication/utilities";
+// Mock organization-utils
+vi.mock("@/lib/features/authentication/organization-utils", () => ({
+  getAppOrganizationId: vi.fn(() => undefined),
+  getAppOrganizationIdClient: vi.fn(() => undefined),
+}));
+
+import {
+  defaultAuthenticationData,
+  betterAuthSessionToAuthenticationData,
+  toUserFromBetterAuthJWT,
+  BetterAuthSession,
+} from "@/lib/features/authentication/utilities";
 import { jwtDecode } from "jwt-decode";
+import {
+  createTestBetterAuthSession,
+  createTestIncompleteSession,
+  createTestSessionWithOrgRole,
+  createTestBetterAuthJWTPayload,
+} from "@/lib/test-utils";
 
 const mockedJwtDecode = vi.mocked(jwtDecode);
 
@@ -23,230 +40,294 @@ describe("authentication utilities", () => {
     });
   });
 
-  describe("toUser", () => {
-    const createMockPayload = (overrides: Partial<DJwtPayload> = {}): DJwtPayload => ({
-      "cognito:username": "testuser",
-      email: "test@wxyc.org",
-      name: "Test User",
-      "custom:dj-name": "DJ Test",
-      "cognito:groups": [],
-      ...overrides,
+  describe("betterAuthSessionToAuthenticationData", () => {
+    it("should return 'Not Authenticated' for null session", () => {
+      const result = betterAuthSessionToAuthenticationData(null);
+      expect(result).toEqual({ message: "Not Authenticated" });
     });
 
-    it("should extract username from token", () => {
-      const payload = createMockPayload({ "cognito:username": "myuser" });
+    it("should return 'Not Authenticated' for undefined session", () => {
+      const result = betterAuthSessionToAuthenticationData(undefined);
+      expect(result).toEqual({ message: "Not Authenticated" });
+    });
+
+    it("should return 'Not Authenticated' for session without user", () => {
+      const result = betterAuthSessionToAuthenticationData({
+        session: { id: "test", userId: "test", expiresAt: new Date() },
+      } as any);
+      expect(result).toEqual({ message: "Not Authenticated" });
+    });
+
+    it("should extract username from session.user.username", () => {
+      const session = createTestBetterAuthSession({
+        user: {
+          id: "test-id",
+          email: "test@wxyc.org",
+          name: "Test Name",
+          username: "testusername",
+          emailVerified: true,
+          realName: "Test User",
+          djName: "DJ Test",
+        },
+      });
+      const result = betterAuthSessionToAuthenticationData(session);
+      expect((result as any).user?.username).toBe("testusername");
+    });
+
+    it("should fall back to session.user.name when username is not set", () => {
+      const session = createTestBetterAuthSession({
+        user: {
+          id: "test-id",
+          email: "test@wxyc.org",
+          name: "fallbackname",
+          username: undefined,
+          emailVerified: true,
+          realName: "Test User",
+          djName: "DJ Test",
+        },
+      });
+      const result = betterAuthSessionToAuthenticationData(session);
+      expect((result as any).user?.username).toBe("fallbackname");
+    });
+
+    it("should identify incomplete users missing realName", () => {
+      const session = createTestIncompleteSession(["realName"]);
+      const result = betterAuthSessionToAuthenticationData(session);
+      expect((result as any).requiredAttributes).toContain("realName");
+    });
+
+    it("should identify incomplete users missing djName", () => {
+      const session = createTestIncompleteSession(["djName"]);
+      const result = betterAuthSessionToAuthenticationData(session);
+      expect((result as any).requiredAttributes).toContain("djName");
+    });
+
+    it("should identify incomplete users missing both realName and djName", () => {
+      const session = createTestIncompleteSession(["realName", "djName"]);
+      const result = betterAuthSessionToAuthenticationData(session);
+      expect((result as any).requiredAttributes).toContain("realName");
+      expect((result as any).requiredAttributes).toContain("djName");
+    });
+
+    it("should treat empty string realName as incomplete", () => {
+      const session = createTestBetterAuthSession({
+        user: {
+          id: "test-id",
+          email: "test@wxyc.org",
+          name: "testuser",
+          emailVerified: true,
+          realName: "   ",
+          djName: "DJ Test",
+        },
+      });
+      const result = betterAuthSessionToAuthenticationData(session);
+      expect((result as any).requiredAttributes).toContain("realName");
+    });
+
+    it("should map organization.role to Authorization", () => {
+      const session = createTestSessionWithOrgRole("stationManager");
+      const result = betterAuthSessionToAuthenticationData(session);
+      expect((result as any).user?.authority).toBe(Authorization.SM);
+    });
+
+    it("should map musicDirector role to MD Authorization", () => {
+      const session = createTestSessionWithOrgRole("musicDirector");
+      const result = betterAuthSessionToAuthenticationData(session);
+      expect((result as any).user?.authority).toBe(Authorization.MD);
+    });
+
+    it("should map dj role to DJ Authorization", () => {
+      const session = createTestSessionWithOrgRole("dj");
+      const result = betterAuthSessionToAuthenticationData(session);
+      expect((result as any).user?.authority).toBe(Authorization.DJ);
+    });
+
+    it("should map member role to NO Authorization", () => {
+      const session = createTestSessionWithOrgRole("member");
+      const result = betterAuthSessionToAuthenticationData(session);
+      expect((result as any).user?.authority).toBe(Authorization.NO);
+    });
+
+    describe("role fallback chain", () => {
+      it("should prefer organization.role over user.role", () => {
+        const session = createTestBetterAuthSession({
+          user: {
+            id: "test-id",
+            email: "test@wxyc.org",
+            name: "testuser",
+            emailVerified: true,
+            realName: "Test User",
+            djName: "DJ Test",
+            role: "member", // Base role
+            organization: {
+              id: "org-123",
+              name: "WXYC",
+              role: "stationManager", // Org role should take precedence
+            },
+          },
+        });
+        const result = betterAuthSessionToAuthenticationData(session);
+        expect((result as any).user?.authority).toBe(Authorization.SM);
+      });
+
+      it("should use metadata.role when organization.role is not present", () => {
+        const session = createTestBetterAuthSession({
+          user: {
+            id: "test-id",
+            email: "test@wxyc.org",
+            name: "testuser",
+            emailVerified: true,
+            realName: "Test User",
+            djName: "DJ Test",
+            role: "member", // Base role
+            metadata: {
+              role: "musicDirector",
+            },
+          } as any,
+        });
+        const result = betterAuthSessionToAuthenticationData(session);
+        expect((result as any).user?.authority).toBe(Authorization.MD);
+      });
+
+      it("should fall back to user.role when no org or metadata role", () => {
+        const session = createTestBetterAuthSession({
+          user: {
+            id: "test-id",
+            email: "test@wxyc.org",
+            name: "testuser",
+            emailVerified: true,
+            realName: "Test User",
+            djName: "DJ Test",
+            role: "dj",
+          },
+        });
+        const result = betterAuthSessionToAuthenticationData(session);
+        expect((result as any).user?.authority).toBe(Authorization.DJ);
+      });
+    });
+
+    it("should include session token in result", () => {
+      const session = createTestBetterAuthSession({
+        session: {
+          id: "session-id",
+          userId: "user-id",
+          expiresAt: new Date(),
+          token: "my-session-token",
+        },
+      });
+      const result = betterAuthSessionToAuthenticationData(session);
+      expect((result as any).token).toBe("my-session-token");
+      expect((result as any).accessToken).toBe("my-session-token");
+    });
+
+    it("should extract all user fields correctly", () => {
+      const createdAt = new Date("2024-01-01");
+      const updatedAt = new Date("2024-06-01");
+      const session = createTestBetterAuthSession({
+        user: {
+          id: "user-123",
+          email: "test@wxyc.org",
+          name: "testuser",
+          username: "testuser",
+          emailVerified: true,
+          realName: "Test Real Name",
+          djName: "DJ Test Name",
+          appSkin: "dark",
+          createdAt,
+          updatedAt,
+          role: "dj",
+        },
+      });
+      const result = betterAuthSessionToAuthenticationData(session);
+      const user = (result as any).user;
+
+      expect(user.id).toBe("user-123");
+      expect(user.email).toBe("test@wxyc.org");
+      expect(user.username).toBe("testuser");
+      expect(user.realName).toBe("Test Real Name");
+      expect(user.djName).toBe("DJ Test Name");
+      expect(user.emailVerified).toBe(true);
+      expect(user.appSkin).toBe("dark");
+      expect(user.createdAt).toEqual(createdAt);
+      expect(user.updatedAt).toEqual(updatedAt);
+    });
+  });
+
+  describe("toUserFromBetterAuthJWT", () => {
+    it("should extract user ID from token", () => {
+      const payload = createTestBetterAuthJWTPayload({ id: "user-456" });
       mockedJwtDecode.mockReturnValue(payload);
 
-      const result = toUser("fake-token");
+      const result = toUserFromBetterAuthJWT("fake-token");
 
-      expect(result.username).toBe("myuser");
+      expect(result.id).toBe("user-456");
       expect(mockedJwtDecode).toHaveBeenCalledWith("fake-token");
     });
 
-    it("should extract email from token", () => {
-      const payload = createMockPayload({ email: "dj@station.org" });
+    it("should fall back to sub when id is not present", () => {
+      const payload = createTestBetterAuthJWTPayload({
+        id: undefined,
+        sub: "sub-user-789",
+      });
       mockedJwtDecode.mockReturnValue(payload);
 
-      const result = toUser("fake-token");
+      const result = toUserFromBetterAuthJWT("fake-token");
+
+      expect(result.id).toBe("sub-user-789");
+    });
+
+    it("should extract email from token", () => {
+      const payload = createTestBetterAuthJWTPayload({ email: "dj@station.org" });
+      mockedJwtDecode.mockReturnValue(payload);
+
+      const result = toUserFromBetterAuthJWT("fake-token");
 
       expect(result.email).toBe("dj@station.org");
     });
 
-    it("should extract realName from token", () => {
-      const payload = createMockPayload({ name: "John Smith" });
+    it("should derive username from email", () => {
+      const payload = createTestBetterAuthJWTPayload({ email: "cooluser@wxyc.org" });
       mockedJwtDecode.mockReturnValue(payload);
 
-      const result = toUser("fake-token");
+      const result = toUserFromBetterAuthJWT("fake-token");
 
-      expect(result.realName).toBe("John Smith");
+      expect(result.username).toBe("cooluser");
     });
 
-    it("should extract djName from token", () => {
-      const payload = createMockPayload({ "custom:dj-name": "DJ Awesome" });
+    it("should map stationManager role to SM authority", () => {
+      const payload = createTestBetterAuthJWTPayload({ role: "stationManager" });
       mockedJwtDecode.mockReturnValue(payload);
 
-      const result = toUser("fake-token");
-
-      expect(result.djName).toBe("DJ Awesome");
-    });
-
-    it("should assign SM authority for station-management group", () => {
-      const payload = createMockPayload({
-        "cognito:groups": ["station-management"],
-      });
-      mockedJwtDecode.mockReturnValue(payload);
-
-      const result = toUser("fake-token");
+      const result = toUserFromBetterAuthJWT("fake-token");
 
       expect(result.authority).toBe(Authorization.SM);
     });
 
-    it("should assign MD authority for music-directors group", () => {
-      const payload = createMockPayload({
-        "cognito:groups": ["music-directors"],
-      });
+    it("should map musicDirector role to MD authority", () => {
+      const payload = createTestBetterAuthJWTPayload({ role: "musicDirector" });
       mockedJwtDecode.mockReturnValue(payload);
 
-      const result = toUser("fake-token");
+      const result = toUserFromBetterAuthJWT("fake-token");
 
       expect(result.authority).toBe(Authorization.MD);
     });
 
-    it("should assign DJ authority when no special groups", () => {
-      const payload = createMockPayload({
-        "cognito:groups": [],
-      });
+    it("should map dj role to DJ authority", () => {
+      const payload = createTestBetterAuthJWTPayload({ role: "dj" });
       mockedJwtDecode.mockReturnValue(payload);
 
-      const result = toUser("fake-token");
+      const result = toUserFromBetterAuthJWT("fake-token");
 
       expect(result.authority).toBe(Authorization.DJ);
     });
 
-    it("should assign DJ authority when cognito:groups is undefined", () => {
-      const payload = createMockPayload({
-        "cognito:groups": undefined,
-      });
+    it("should map member role to NO authority", () => {
+      const payload = createTestBetterAuthJWTPayload({ role: "member" });
       mockedJwtDecode.mockReturnValue(payload);
 
-      const result = toUser("fake-token");
+      const result = toUserFromBetterAuthJWT("fake-token");
 
-      expect(result.authority).toBe(Authorization.DJ);
-    });
-
-    it("should prioritize SM over MD when user is in both groups", () => {
-      const payload = createMockPayload({
-        "cognito:groups": ["station-management", "music-directors"],
-      });
-      mockedJwtDecode.mockReturnValue(payload);
-
-      const result = toUser("fake-token");
-
-      expect(result.authority).toBe(Authorization.SM);
-    });
-  });
-
-  describe("toClient", () => {
-    const createMockPayload = (overrides: Partial<DJwtPayload> = {}): DJwtPayload => ({
-      "cognito:username": "testuser",
-      email: "test@wxyc.org",
-      name: "Test User",
-      "custom:dj-name": "DJ Test",
-      "cognito:groups": [],
-      ...overrides,
-    });
-
-    it("should return authenticated user when AuthenticationResult present", () => {
-      const payload = createMockPayload();
-      mockedJwtDecode.mockReturnValue(payload);
-
-      const data = {
-        AuthenticationResult: {
-          IdToken: "id-token-123",
-          AccessToken: "access-token-456",
-        },
-      };
-
-      const result = toClient(data);
-
-      expect(result.user).toBeDefined();
-      expect(result.accessToken).toBe("access-token-456");
-      expect(result.idToken).toBe("id-token-123");
-    });
-
-    it("should extract user data from IdToken", () => {
-      const payload = createMockPayload({
-        "cognito:username": "djcool",
-        email: "cool@wxyc.org",
-      });
-      mockedJwtDecode.mockReturnValue(payload);
-
-      const data = {
-        AuthenticationResult: {
-          IdToken: "id-token-123",
-          AccessToken: "access-token-456",
-        },
-      };
-
-      const result = toClient(data);
-
-      expect(result.user?.username).toBe("djcool");
-      expect(result.user?.email).toBe("cool@wxyc.org");
-    });
-
-    it("should return NEW_PASSWORD_REQUIRED challenge data", () => {
-      const data = {
-        ChallengeName: "NEW_PASSWORD_REQUIRED" as const,
-        ChallengeParameters: {
-          USER_ID_FOR_SRP: "newuser",
-          name: "Some Name",
-        },
-      };
-
-      const result = toClient(data);
-
-      expect(result.username).toBe("newuser");
-      expect(result.requiredAttributes).toBeDefined();
-    });
-
-    it("should identify missing attributes for NEW_PASSWORD_REQUIRED", () => {
-      const data = {
-        ChallengeName: "NEW_PASSWORD_REQUIRED" as const,
-        ChallengeParameters: {
-          USER_ID_FOR_SRP: "newuser",
-          // 'name' is present, so 'realName' should NOT be in requiredAttributes
-          // 'custom:dj-name' is missing, so 'djName' SHOULD be in requiredAttributes
-          name: "John Doe",
-        },
-      };
-
-      const result = toClient(data);
-
-      expect(result.requiredAttributes).toContain("djName");
-      expect(result.requiredAttributes).not.toContain("realName");
-    });
-
-    it("should return empty object when no AuthenticationResult or Challenge", () => {
-      const data = {};
-
-      const result = toClient(data);
-
-      expect(result).toEqual({});
-    });
-
-    it("should return empty object when AuthenticationResult missing IdToken", () => {
-      const data = {
-        AuthenticationResult: {
-          AccessToken: "access-token-456",
-        },
-      };
-
-      const result = toClient(data);
-
-      expect(result).toEqual({});
-    });
-
-    it("should return empty object when AuthenticationResult missing AccessToken", () => {
-      const data = {
-        AuthenticationResult: {
-          IdToken: "id-token-123",
-        },
-      };
-
-      const result = toClient(data);
-
-      expect(result).toEqual({});
-    });
-
-    it("should handle NEW_PASSWORD_REQUIRED without ChallengeParameters", () => {
-      const data = {
-        ChallengeName: "NEW_PASSWORD_REQUIRED" as const,
-      };
-
-      const result = toClient(data);
-
-      // Should not crash, and should return empty object
-      expect(result).toEqual({});
+      expect(result.authority).toBe(Authorization.NO);
     });
   });
 });
