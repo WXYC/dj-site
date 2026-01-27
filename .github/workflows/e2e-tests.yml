@@ -123,6 +123,7 @@ jobs:
           DB_NAME: wxyc_db
           DB_USERNAME: wxyc_admin
           DB_PASSWORD: 'RadioIsEpic$1100'
+          BETTER_AUTH_JWKS_URL: http://localhost:8084/auth/.well-known/jwks.json
         run: |
           # Wait a moment for services to fully stabilize
           sleep 5
