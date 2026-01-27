@@ -6,6 +6,16 @@ import {
 import { describeSlice } from "@/lib/test-utils";
 
 describeSlice(rotationSlice, defaultRotationFrontendState, ({ harness, actions }) => {
+  describe("default state", () => {
+    it("should have orderBy set to title", () => {
+      expect(harness().initialState.orderBy).toBe("title");
+    });
+
+    it("should have orderDirection set to asc", () => {
+      expect(harness().initialState.orderDirection).toBe("asc");
+    });
+  });
+
   describe("setOrderBy action", () => {
     it.each(["artist", "title", "album"] as const)("should set orderBy to %s", (value) => {
       const result = harness().reduce(actions.setOrderBy(value));

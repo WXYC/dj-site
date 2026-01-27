@@ -3,6 +3,12 @@ import { binSlice, defaultBinFrontendState } from "@/lib/features/bin/frontend";
 import { describeSlice } from "@/lib/test-utils";
 
 describeSlice(binSlice, defaultBinFrontendState, ({ harness, actions }) => {
+  describe("default state", () => {
+    it("should have empty searchQuery", () => {
+      expect(harness().initialState.searchQuery).toBe("");
+    });
+  });
+
   describe("setSearchQuery action", () => {
     it("should set searchQuery", () => {
       const result = harness().reduce(actions.setSearchQuery("test search"));
@@ -24,6 +30,15 @@ describeSlice(binSlice, defaultBinFrontendState, ({ harness, actions }) => {
         actions.setSearchQuery("third")
       );
       expect(result.searchQuery).toBe("third");
+    });
+  });
+
+  // Note: Selector tests are skipped because binSlice is not registered in combineSlices.
+  describe("selectors", () => {
+    describe("getSearchQuery", () => {
+      it("should be defined", () => {
+        expect(binSlice.selectors.getSearchQuery).toBeDefined();
+      });
     });
   });
 });
