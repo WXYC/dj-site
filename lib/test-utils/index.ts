@@ -15,7 +15,13 @@ export * from "./render";
 // Test harnesses
 export * from "./slice-harness";
 export * from "./api-harness";
-export * from "./component-harness";
+export {
+  createComponentHarness,
+  createComponentHarnessWithQueries,
+  componentQueries,
+  testPropVariants,
+  type ComponentHarnessResult,
+} from "./component-harness";
 export * from "./conversion-harness";
 
 // MSW server and handlers
