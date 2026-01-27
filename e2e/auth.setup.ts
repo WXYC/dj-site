@@ -1,7 +1,8 @@
 import { test as setup, expect } from "@playwright/test";
 import { TEST_USERS } from "./fixtures/auth.fixture";
+import path from "path";
 
-const authDir = "e2e/.auth";
+const authDir = path.join(__dirname, ".auth");
 
 /**
  * Setup authentication state for Station Manager
