@@ -36,7 +36,7 @@ describe("authentication utilities", () => {
 
   describe("defaultAuthenticationData", () => {
     it("should have 'Not Authenticated' message", () => {
-      expect(defaultAuthenticationData.message).toBe("Not Authenticated");
+      expect((defaultAuthenticationData as { message: string }).message).toBe("Not Authenticated");
     });
   });
 

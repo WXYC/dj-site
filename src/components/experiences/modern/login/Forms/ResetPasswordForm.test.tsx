@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import ResetPasswordForm from "./ResetPasswordForm";
 import { renderWithProviders } from "@/lib/test-utils";
+import type { PasswordResetUser } from "@/lib/features/authentication/types";
 
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
@@ -12,8 +13,9 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("ResetPasswordForm", () => {
-  const defaultProps = {
+  const defaultProps: PasswordResetUser = {
     token: "test-reset-token-123",
+    confirmationMessage: "Password reset requested",
   };
 
   it("should render new password field", () => {
@@ -93,7 +95,11 @@ describe("ResetPasswordForm", () => {
   });
 
   it("should keep submit disabled without token", () => {
-    renderWithProviders(<ResetPasswordForm token={undefined} />);
+    const propsWithoutToken: PasswordResetUser = {
+      token: undefined,
+      confirmationMessage: "Password reset requested",
+    };
+    renderWithProviders(<ResetPasswordForm {...propsWithoutToken} />);
 
     // Even with valid fields, submit should be disabled without token
     expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();

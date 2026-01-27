@@ -70,22 +70,26 @@ describe("organization-utils", () => {
 
     it("should warn in development when APP_ORGANIZATION is not set", () => {
       delete process.env.APP_ORGANIZATION;
-      process.env.NODE_ENV = "development";
+      const originalNodeEnv = process.env.NODE_ENV;
+      Object.defineProperty(process.env, 'NODE_ENV', { value: 'development', writable: true });
 
       getAppOrganizationId();
 
       expect(console.warn).toHaveBeenCalledWith(
         expect.stringContaining("APP_ORGANIZATION environment variable is not set")
       );
+      Object.defineProperty(process.env, 'NODE_ENV', { value: originalNodeEnv, writable: true });
     });
 
     it("should not warn in production when APP_ORGANIZATION is not set", () => {
       delete process.env.APP_ORGANIZATION;
-      process.env.NODE_ENV = "production";
+      const originalNodeEnv = process.env.NODE_ENV;
+      Object.defineProperty(process.env, 'NODE_ENV', { value: 'production', writable: true });
 
       getAppOrganizationId();
 
       expect(console.warn).not.toHaveBeenCalled();
+      Object.defineProperty(process.env, 'NODE_ENV', { value: originalNodeEnv, writable: true });
     });
   });
 

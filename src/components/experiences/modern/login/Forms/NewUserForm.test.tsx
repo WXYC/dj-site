@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import NewUserForm from "./NewUserForm";
 import { renderWithProviders } from "@/lib/test-utils";
+import type { IncompleteUser } from "@/lib/features/authentication/types";
 
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
@@ -12,9 +13,9 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("NewUserForm", () => {
-  const defaultProps = {
+  const defaultProps: IncompleteUser = {
     username: "testuser",
-    requiredAttributes: [] as string[],
+    requiredAttributes: [],
   };
 
   it("should render submit button", () => {
@@ -44,9 +45,11 @@ describe("NewUserForm", () => {
   });
 
   it("should render required attributes as fields", () => {
-    renderWithProviders(
-      <NewUserForm username="testuser" requiredAttributes={["realName", "djName"]} />
-    );
+    const props: IncompleteUser = {
+      username: "testuser",
+      requiredAttributes: ["realName", "djName"],
+    };
+    renderWithProviders(<NewUserForm {...props} />);
 
     expect(screen.getByText("Real Name")).toBeInTheDocument();
     expect(screen.getByText("DJ Name")).toBeInTheDocument();
