@@ -1,20 +1,23 @@
-import { test, expect, TEST_USERS, clearAuthCookies } from "../../fixtures/auth.fixture";
+import { test, expect, TEST_USERS } from "../../fixtures/auth.fixture";
 import { LoginPage } from "../../pages/login.page";
 import { DashboardPage } from "../../pages/dashboard.page";
+import path from "path";
+
+const authDir = path.join(__dirname, "../../.auth");
 
 test.describe("Logout Flow", () => {
+  // Start authenticated as DJ via storageState
+  test.use({ storageState: path.join(authDir, "dj.json") });
+
   let loginPage: LoginPage;
   let dashboardPage: DashboardPage;
 
   test.beforeEach(async ({ page }) => {
     loginPage = new LoginPage(page);
     dashboardPage = new DashboardPage(page);
-
-    // Login first
-    await loginPage.goto();
-    const user = TEST_USERS.dj1;
-    await loginPage.login(user.username, user.password);
-    await loginPage.waitForRedirectToDashboard();
+    // Already authenticated via storageState - navigate to dashboard
+    await page.goto("/dashboard");
+    await dashboardPage.waitForPageLoad();
   });
 
   test("should logout and redirect to login page", async ({ page }) => {

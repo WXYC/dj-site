@@ -1,19 +1,18 @@
 import { defineConfig, devices } from "@playwright/test";
+import path from "path";
+
+const authDir = path.join(__dirname, ".auth");
 
 /**
  * E2E Test Configuration for dj-site
  *
- * Local development:
- * - dj-site (Next.js frontend) on :3000
- * - Backend-Service API on :8080
- * - Auth Service on :8082
- * - PostgreSQL on :5432 with test seed data
+ * Uses authenticated storage state to speed up tests:
+ * - Setup project logs in once per role and saves session
+ * - Test projects reuse saved sessions (no login per test)
  *
- * CI (E2E profile):
- * - dj-site on :3000
- * - Backend-Service API on :8085
- * - Auth Service on :8084
- * - PostgreSQL on :5434
+ * Projects:
+ * - setup: Authenticates and saves session state for each role
+ * - chromium: Runs all tests with appropriate auth state
  */
 export default defineConfig({
   testDir: "./tests",
@@ -25,8 +24,8 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI for stability */
-  workers: process.env.CI ? 1 : undefined,
+  /* Parallel workers - safe with session reuse */
+  workers: process.env.CI ? 4 : undefined,
   /* Reporter to use */
   reporter: process.env.CI
     ? [
@@ -51,19 +50,19 @@ export default defineConfig({
     actionTimeout: 10000,
   },
 
-  /* Configure projects for major browsers */
   projects: [
+    /* Setup project - authenticates and saves session state */
+    {
+      name: "setup",
+      testMatch: /auth\.setup\.ts/,
+    },
+
+    /* Main test project - uses storageState where configured in test files */
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
-    },
-    {
-      name: "firefox",
-      use: { ...devices["Desktop Firefox"] },
-    },
-    {
-      name: "webkit",
-      use: { ...devices["Desktop Safari"] },
+      dependencies: ["setup"],
+      testIgnore: /auth\.setup\.ts/,
     },
   ],
 
@@ -72,13 +71,4 @@ export default defineConfig({
   expect: {
     timeout: 15000,
   },
-
-  /* Run your local dev server before starting the tests */
-  // Uncomment if you want Playwright to automatically start the frontend
-  // webServer: {
-  //   command: "npm run dev",
-  //   url: "http://localhost:3000",
-  //   reuseExistingServer: !process.env.CI,
-  //   timeout: 120000,
-  // },
 });

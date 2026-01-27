@@ -1,26 +1,24 @@
 import { test, expect, TEST_USERS } from "../../fixtures/auth.fixture";
-import { LoginPage } from "../../pages/login.page";
 import { DashboardPage } from "../../pages/dashboard.page";
 import { RosterPage } from "../../pages/roster.page";
+import path from "path";
+
+const authDir = path.join(__dirname, "../../.auth");
 
 test.describe("Admin Password Reset", () => {
-  let loginPage: LoginPage;
+  // Use Station Manager auth state
+  test.use({ storageState: path.join(authDir, "stationManager.json") });
+
   let dashboardPage: DashboardPage;
   let rosterPage: RosterPage;
 
   const generateUsername = () => `e2e_pwreset_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
   test.beforeEach(async ({ page }) => {
-    loginPage = new LoginPage(page);
     dashboardPage = new DashboardPage(page);
     rosterPage = new RosterPage(page);
 
-    // Login as Station Manager
-    await loginPage.goto();
-    await loginPage.login(TEST_USERS.stationManager.username, TEST_USERS.stationManager.password);
-    await loginPage.waitForRedirectToDashboard();
-
-    // Navigate to roster page
+    // Already authenticated as Station Manager via storageState
     await dashboardPage.gotoAdminRoster();
     await rosterPage.waitForTableLoaded();
   });

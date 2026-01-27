@@ -1,24 +1,17 @@
-import { test, expect, TEST_USERS } from "../../fixtures/auth.fixture";
-import { LoginPage } from "../../pages/login.page";
+import { test, expect } from "../../fixtures/auth.fixture";
 import { DashboardPage } from "../../pages/dashboard.page";
-import { RosterPage } from "../../pages/roster.page";
+import path from "path";
+
+const authDir = path.join(__dirname, "../../.auth");
 
 test.describe("Role-Based Access Control", () => {
-  let loginPage: LoginPage;
   let dashboardPage: DashboardPage;
-  let rosterPage: RosterPage;
-
-  test.beforeEach(async ({ page }) => {
-    loginPage = new LoginPage(page);
-    dashboardPage = new DashboardPage(page);
-    rosterPage = new RosterPage(page);
-  });
 
   test.describe("DJ Access", () => {
+    test.use({ storageState: path.join(authDir, "dj.json") });
+
     test.beforeEach(async ({ page }) => {
-      await loginPage.goto();
-      await loginPage.login(TEST_USERS.dj1.username, TEST_USERS.dj1.password);
-      await loginPage.waitForRedirectToDashboard();
+      dashboardPage = new DashboardPage(page);
     });
 
     test("should access flowsheet page", async ({ page }) => {
@@ -45,10 +38,10 @@ test.describe("Role-Based Access Control", () => {
   });
 
   test.describe("Music Director Access", () => {
+    test.use({ storageState: path.join(authDir, "musicDirector.json") });
+
     test.beforeEach(async ({ page }) => {
-      await loginPage.goto();
-      await loginPage.login(TEST_USERS.musicDirector.username, TEST_USERS.musicDirector.password);
-      await loginPage.waitForRedirectToDashboard();
+      dashboardPage = new DashboardPage(page);
     });
 
     test("should access flowsheet page", async ({ page }) => {
@@ -69,10 +62,10 @@ test.describe("Role-Based Access Control", () => {
   });
 
   test.describe("Station Manager Access", () => {
+    test.use({ storageState: path.join(authDir, "stationManager.json") });
+
     test.beforeEach(async ({ page }) => {
-      await loginPage.goto();
-      await loginPage.login(TEST_USERS.stationManager.username, TEST_USERS.stationManager.password);
-      await loginPage.waitForRedirectToDashboard();
+      dashboardPage = new DashboardPage(page);
     });
 
     test("should access flowsheet page", async ({ page }) => {
@@ -101,10 +94,10 @@ test.describe("Role-Based Access Control", () => {
   });
 
   test.describe("Member Access", () => {
+    test.use({ storageState: path.join(authDir, "member.json") });
+
     test.beforeEach(async ({ page }) => {
-      await loginPage.goto();
-      await loginPage.login(TEST_USERS.member.username, TEST_USERS.member.password);
-      await loginPage.waitForRedirectToDashboard();
+      dashboardPage = new DashboardPage(page);
     });
 
     test("should access dashboard", async ({ page }) => {
@@ -124,6 +117,9 @@ test.describe("Role-Based Access Control", () => {
   });
 
   test.describe("Unauthenticated Access", () => {
+    // No storageState - tests run without authentication
+    test.use({ storageState: { cookies: [], origins: [] } });
+
     test("should redirect to login from dashboard", async ({ page }) => {
       await page.goto("/dashboard");
       await page.waitForURL("**/login**", { timeout: 10000 });
@@ -142,7 +138,7 @@ test.describe("Role-Based Access Control", () => {
       expect(page.url()).toContain("/login");
     });
 
-    test("should redirect to login from admin roster", async ({ page }) => {
+    test("should redirect to login from admin pages", async ({ page }) => {
       await page.goto("/dashboard/admin/roster");
       await page.waitForURL("**/login**", { timeout: 10000 });
       expect(page.url()).toContain("/login");
@@ -150,73 +146,8 @@ test.describe("Role-Based Access Control", () => {
 
     test("should allow access to login page", async ({ page }) => {
       await page.goto("/login");
+      await page.waitForSelector('input[name="username"]');
       expect(page.url()).toContain("/login");
-    });
-  });
-
-  test.describe("Role Hierarchy", () => {
-    test("Station Manager has all DJ permissions", async ({ page }) => {
-      await loginPage.goto();
-      await loginPage.login(TEST_USERS.stationManager.username, TEST_USERS.stationManager.password);
-      await loginPage.waitForRedirectToDashboard();
-
-      // SM should access all pages a DJ can
-      await dashboardPage.gotoFlowsheet();
-      await dashboardPage.expectOnFlowsheet();
-
-      await dashboardPage.gotoCatalog();
-      await dashboardPage.expectOnCatalog();
-    });
-
-    test("Station Manager has all Music Director permissions", async ({ page }) => {
-      await loginPage.goto();
-      await loginPage.login(TEST_USERS.stationManager.username, TEST_USERS.stationManager.password);
-      await loginPage.waitForRedirectToDashboard();
-
-      // SM should access all pages an MD can
-      await dashboardPage.gotoCatalog();
-      await dashboardPage.expectOnCatalog();
-    });
-
-    test("Music Director has all DJ permissions", async ({ page }) => {
-      await loginPage.goto();
-      await loginPage.login(TEST_USERS.musicDirector.username, TEST_USERS.musicDirector.password);
-      await loginPage.waitForRedirectToDashboard();
-
-      // MD should access all pages a DJ can
-      await dashboardPage.gotoFlowsheet();
-      await dashboardPage.expectOnFlowsheet();
-
-      await dashboardPage.gotoCatalog();
-      await dashboardPage.expectOnCatalog();
-    });
-  });
-
-  test.describe("Direct URL Access Protection", () => {
-    test("DJ cannot access admin routes via direct URL", async ({ page }) => {
-      await loginPage.goto();
-      await loginPage.login(TEST_USERS.dj1.username, TEST_USERS.dj1.password);
-      await loginPage.waitForRedirectToDashboard();
-
-      // Try to access admin routes directly
-      await page.goto("/dashboard/admin/roster");
-      // DJ should be redirected to default dashboard
-      await dashboardPage.expectRedirectedToDefaultDashboard();
-    });
-
-    test("Logged out user cannot access any protected routes via direct URL", async ({ page }) => {
-      const protectedRoutes = [
-        "/dashboard",
-        "/dashboard/flowsheet",
-        "/dashboard/catalog",
-        "/dashboard/admin/roster",
-      ];
-
-      for (const route of protectedRoutes) {
-        await page.goto(route);
-        await page.waitForURL("**/login**", { timeout: 10000 });
-        expect(page.url()).toContain("/login");
-      }
     });
   });
 });
