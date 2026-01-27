@@ -15,7 +15,7 @@ const authDir = path.join(__dirname, ".auth");
  * - chromium: Runs all tests with appropriate auth state
  */
 export default defineConfig({
-  testDir: "./tests",
+  testDir: ".",
   /* Output directory for test artifacts */
   outputDir: "../test-results",
   /* Run tests in files in parallel */
@@ -62,7 +62,7 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
       dependencies: ["setup"],
-      testIgnore: /auth\.setup\.ts/,
+      testMatch: /tests\/.+\.spec\.ts/,
     },
   ],
 
