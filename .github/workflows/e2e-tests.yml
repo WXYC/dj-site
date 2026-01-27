@@ -69,7 +69,7 @@ jobs:
           DB_NAME=wxyc_db
           DB_USERNAME=wxyc_admin
           DB_PASSWORD='RadioIsEpic$1100'
-          BETTER_AUTH_SECRET=e2e-auth-secret-for-testing
+          BETTER_AUTH_SECRET=e2e-auth-secret-for-testing-min-32-chars
           BETTER_AUTH_URL=http://localhost:8084/auth
           BETTER_AUTH_TRUSTED_ORIGINS=http://localhost:3000
           FRONTEND_SOURCE=http://localhost:3000
