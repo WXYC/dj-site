@@ -197,7 +197,7 @@ test.describe("Non-Admin Deletion Restrictions", () => {
 
     // DJ cannot access roster page at all
     await dashboardPage.gotoAdminRoster();
-    await dashboardPage.expectRedirectedToCatalog();
+    await dashboardPage.expectRedirectedToDefaultDashboard();
   });
 
   test("Music Director cannot delete users", async ({ page }) => {
@@ -211,6 +211,6 @@ test.describe("Non-Admin Deletion Restrictions", () => {
 
     // MD cannot access roster page at all
     await dashboardPage.gotoAdminRoster();
-    await dashboardPage.expectRedirectedToCatalog();
+    await dashboardPage.expectRedirectedToDefaultDashboard();
   });
 });

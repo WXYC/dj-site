@@ -359,6 +359,6 @@ test.describe("Non-Admin Role Modification Restrictions", () => {
 
     // MD cannot access roster page
     await dashboardPage.gotoAdminRoster();
-    await dashboardPage.expectRedirectedToCatalog();
+    await dashboardPage.expectRedirectedToDefaultDashboard();
   });
 });

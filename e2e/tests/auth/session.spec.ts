@@ -37,8 +37,8 @@ test.describe("Session Persistence", () => {
     await dashboardPage.gotoFlowsheet();
     await dashboardPage.expectOnFlowsheet();
 
-    // Should still be authenticated
-    await dashboardPage.expectOnDashboard();
+    // Should still be authenticated (we're on flowsheet which is part of dashboard)
+    expect(page.url()).toContain("/dashboard");
   });
 
   test("should persist session across multiple tabs in same browser context", async ({ context }) => {

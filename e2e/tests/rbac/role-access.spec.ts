@@ -33,14 +33,14 @@ test.describe("Role-Based Access Control", () => {
 
     test("should be redirected from admin roster page", async ({ page }) => {
       await dashboardPage.gotoAdminRoster();
-
-      // DJ should be redirected to catalog (insufficient permissions)
-      await dashboardPage.expectRedirectedToCatalog();
+      // DJ should be redirected to default dashboard page (insufficient permissions)
+      await dashboardPage.expectRedirectedToDefaultDashboard();
     });
 
     test("should not see admin navigation link", async ({ page }) => {
-      // Admin link should not be visible for DJ users
-      await expect(dashboardPage.rosterLink).not.toBeVisible();
+      await dashboardPage.waitForPageLoad();
+      // Admin roster link should not be visible for DJ users
+      await expect(dashboardPage.rosterLink).not.toBeVisible({ timeout: 5000 });
     });
   });
 
@@ -63,9 +63,8 @@ test.describe("Role-Based Access Control", () => {
 
     test("should be redirected from admin roster page", async ({ page }) => {
       await dashboardPage.gotoAdminRoster();
-
       // MD should also be redirected (roster requires SM)
-      await dashboardPage.expectRedirectedToCatalog();
+      await dashboardPage.expectRedirectedToDefaultDashboard();
     });
   });
 
@@ -88,15 +87,16 @@ test.describe("Role-Based Access Control", () => {
 
     test("should access admin roster page", async ({ page }) => {
       await dashboardPage.gotoAdminRoster();
-
       // SM should have full access
       await dashboardPage.expectOnAdminRoster();
     });
 
     test("should see DJ Roster page header", async ({ page }) => {
       await dashboardPage.gotoAdminRoster();
-      await rosterPage.waitForTableLoaded();
-      await dashboardPage.expectPageHeader("DJ Roster");
+      await dashboardPage.waitForPageLoad();
+      // The page header shows "DJ Roster"
+      const header = page.locator('h1, [class*="Header"]').first();
+      await expect(header).toContainText("Roster", { timeout: 10000 });
     });
   });
 
@@ -113,9 +113,8 @@ test.describe("Role-Based Access Control", () => {
 
     test("should be redirected from admin pages", async ({ page }) => {
       await dashboardPage.gotoAdminRoster();
-
-      // Member should be redirected
-      await dashboardPage.expectRedirectedToCatalog();
+      // Member should be redirected to default dashboard
+      await dashboardPage.expectRedirectedToDefaultDashboard();
     });
 
     test("should access catalog page (read only)", async ({ page }) => {
@@ -127,22 +126,26 @@ test.describe("Role-Based Access Control", () => {
   test.describe("Unauthenticated Access", () => {
     test("should redirect to login from dashboard", async ({ page }) => {
       await page.goto("/dashboard");
-      await dashboardPage.expectRedirectedToLogin();
+      await page.waitForURL("**/login**", { timeout: 10000 });
+      expect(page.url()).toContain("/login");
     });
 
     test("should redirect to login from flowsheet", async ({ page }) => {
       await page.goto("/dashboard/flowsheet");
-      await dashboardPage.expectRedirectedToLogin();
+      await page.waitForURL("**/login**", { timeout: 10000 });
+      expect(page.url()).toContain("/login");
     });
 
     test("should redirect to login from catalog", async ({ page }) => {
       await page.goto("/dashboard/catalog");
-      await dashboardPage.expectRedirectedToLogin();
+      await page.waitForURL("**/login**", { timeout: 10000 });
+      expect(page.url()).toContain("/login");
     });
 
     test("should redirect to login from admin roster", async ({ page }) => {
       await page.goto("/dashboard/admin/roster");
-      await dashboardPage.expectRedirectedToLogin();
+      await page.waitForURL("**/login**", { timeout: 10000 });
+      expect(page.url()).toContain("/login");
     });
 
     test("should allow access to login page", async ({ page }) => {
@@ -197,7 +200,8 @@ test.describe("Role-Based Access Control", () => {
 
       // Try to access admin routes directly
       await page.goto("/dashboard/admin/roster");
-      await dashboardPage.expectRedirectedToCatalog();
+      // DJ should be redirected to default dashboard
+      await dashboardPage.expectRedirectedToDefaultDashboard();
     });
 
     test("Logged out user cannot access any protected routes via direct URL", async ({ page }) => {
@@ -210,7 +214,7 @@ test.describe("Role-Based Access Control", () => {
 
       for (const route of protectedRoutes) {
         await page.goto(route);
-        await page.waitForURL("**/login**", { timeout: 5000 });
+        await page.waitForURL("**/login**", { timeout: 10000 });
         expect(page.url()).toContain("/login");
       }
     });

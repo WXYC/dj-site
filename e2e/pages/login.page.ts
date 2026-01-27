@@ -52,13 +52,17 @@ export class LoginPage {
   }
 
   async gotoWithToken(token: string): Promise<void> {
-    await this.page.goto(`/login?token=${token}`);
+    await this.page.goto(`/login?token=${encodeURIComponent(token)}`);
     await this.page.waitForLoadState("networkidle");
+    // Wait for the reset form to appear (state change from useEffect)
+    await this.newPasswordInput.waitFor({ state: "visible", timeout: 5000 });
   }
 
   async gotoWithError(error: string): Promise<void> {
     await this.page.goto(`/login?error=${encodeURIComponent(error)}`);
     await this.page.waitForLoadState("networkidle");
+    // Wait for the alert to appear (state change from useEffect)
+    await this.alertMessage.waitFor({ state: "visible", timeout: 5000 });
   }
 
   async login(username: string, password: string): Promise<void> {
@@ -69,6 +73,8 @@ export class LoginPage {
 
   async clickForgotPassword(): Promise<void> {
     await this.forgotPasswordLink.click();
+    // Wait for the password reset form to appear (state change)
+    await this.emailInput.waitFor({ state: "visible", timeout: 5000 });
   }
 
   async requestPasswordReset(email: string): Promise<void> {
@@ -103,16 +109,20 @@ export class LoginPage {
   }
 
   async expectErrorToast(message?: string): Promise<void> {
-    await expect(this.errorToast).toBeVisible({ timeout: 5000 });
     if (message) {
-      await expect(this.errorToast).toContainText(message);
+      const specificToast = this.page.locator(`[data-sonner-toast][data-type="error"]:has-text("${message}")`);
+      await expect(specificToast).toBeVisible({ timeout: 5000 });
+    } else {
+      await expect(this.errorToast).toBeVisible({ timeout: 5000 });
     }
   }
 
   async expectSuccessToast(message?: string): Promise<void> {
-    await expect(this.successToast).toBeVisible({ timeout: 5000 });
     if (message) {
-      await expect(this.successToast).toContainText(message);
+      const specificToast = this.page.locator(`[data-sonner-toast][data-type="success"]:has-text("${message}")`);
+      await expect(specificToast).toBeVisible({ timeout: 5000 });
+    } else {
+      await expect(this.successToast).toBeVisible({ timeout: 5000 });
     }
   }
 

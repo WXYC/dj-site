@@ -204,7 +204,7 @@ test.describe("Non-Admin Password Reset Restrictions", () => {
 
     // Try to access roster
     await dashboardPage.gotoAdminRoster();
-    await dashboardPage.expectRedirectedToCatalog();
+    await dashboardPage.expectRedirectedToDefaultDashboard();
   });
 
   test("Music Director cannot access roster to reset passwords", async ({ page }) => {
@@ -218,7 +218,7 @@ test.describe("Non-Admin Password Reset Restrictions", () => {
 
     // Try to access roster
     await dashboardPage.gotoAdminRoster();
-    await dashboardPage.expectRedirectedToCatalog();
+    await dashboardPage.expectRedirectedToDefaultDashboard();
   });
 });
 

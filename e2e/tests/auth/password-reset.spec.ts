@@ -207,9 +207,11 @@ test.describe("Password Reset - Error Handling", () => {
   test("should handle empty token gracefully", async ({ page }) => {
     // Go to login with empty token
     await page.goto("/login?token=");
+    await page.waitForLoadState("networkidle");
 
-    // Should show the request reset form, not the new password form
-    await loginPage.expectPasswordResetFormVisible();
+    // Empty token is treated as no token, so should show normal login form
+    // (the LoginSlotSwitcher checks `!!searchParams?.get("token")` which is false for "")
+    await loginPage.expectLoginFormVisible();
   });
 
   test("should display helpful error message for expired link", async ({ page }) => {

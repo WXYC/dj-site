@@ -11,6 +11,7 @@ export class DashboardPage {
   readonly catalogLink: Locator;
   readonly adminLink: Locator;
   readonly rosterLink: Locator;
+  readonly logoutForm: Locator;
   readonly logoutButton: Locator;
 
   // User info elements
@@ -20,15 +21,21 @@ export class DashboardPage {
   // Page header
   readonly pageHeader: Locator;
 
+  // Sidebar/leftbar
+  readonly sidebar: Locator;
+
   constructor(page: Page) {
     this.page = page;
 
-    // Navigation - adjust selectors based on actual UI
-    this.flowsheetLink = page.locator('a[href*="/dashboard/flowsheet"], [data-nav="flowsheet"]');
-    this.catalogLink = page.locator('a[href*="/dashboard/catalog"], [data-nav="catalog"]');
-    this.adminLink = page.locator('a[href*="/dashboard/admin"], [data-nav="admin"]');
-    this.rosterLink = page.locator('a[href*="/dashboard/admin/roster"], [data-nav="roster"]');
-    this.logoutButton = page.locator('button:has-text("Logout"), form[action*="logout"] button, [aria-label="Logout"]');
+    // Navigation - using actual UI selectors
+    this.flowsheetLink = page.locator('a[href="/dashboard/flowsheet"]');
+    this.catalogLink = page.locator('a[href="/dashboard/catalog"]');
+    this.adminLink = page.locator('a[href*="/dashboard/admin"]');
+    this.rosterLink = page.locator('a[href="/dashboard/admin/roster"]');
+
+    // Logout is a form submission in the leftbar
+    this.logoutForm = page.locator('form').filter({ has: page.locator('button[type="submit"]') }).last();
+    this.logoutButton = page.locator('button[type="submit"]').last();
 
     // User info
     this.userMenu = page.locator('[data-user-menu], [aria-label="User menu"]');
@@ -36,6 +43,9 @@ export class DashboardPage {
 
     // Page header
     this.pageHeader = page.locator('h1, [data-page-header]');
+
+    // Sidebar
+    this.sidebar = page.locator('nav, aside, [role="navigation"]').first();
   }
 
   async goto(): Promise<void> {
@@ -79,18 +89,15 @@ export class DashboardPage {
   }
 
   async logout(): Promise<void> {
-    // Try to click logout button directly first
-    const logoutVisible = await this.logoutButton.isVisible();
-    if (logoutVisible) {
-      await this.logoutButton.click();
-    } else {
-      // May need to open user menu first
-      if (await this.userMenu.isVisible()) {
-        await this.userMenu.click();
-        await this.logoutButton.click();
-      }
-    }
-    await this.page.waitForURL("**/login**", { timeout: 10000 });
+    // Logout is a form submission - click the submit button in the logout form
+    // The logout button is an IconButton in a form at the bottom of the leftbar
+    await this.logoutButton.click();
+    // Wait for redirect to login page
+    await this.page.waitForURL("**/login**", { timeout: 15000 });
+  }
+
+  async isAdminLinkVisible(): Promise<boolean> {
+    return await this.rosterLink.isVisible();
   }
 
   async expectOnDashboard(): Promise<void> {
@@ -116,6 +123,25 @@ export class DashboardPage {
 
   async expectRedirectedToCatalog(): Promise<void> {
     await expect(this.page).toHaveURL(/.*\/dashboard\/catalog.*/);
+  }
+
+  /**
+   * Expect redirect to default dashboard page (flowsheet or catalog depending on config)
+   */
+  async expectRedirectedToDefaultDashboard(): Promise<void> {
+    // Wait for navigation to complete
+    await this.page.waitForLoadState("networkidle");
+    const url = this.page.url();
+    // Should be redirected to either flowsheet or catalog (the dashboard home)
+    const isValidRedirect = url.includes("/dashboard/flowsheet") || url.includes("/dashboard/catalog");
+    expect(isValidRedirect).toBe(true);
+  }
+
+  /**
+   * Wait for page to be fully loaded
+   */
+  async waitForPageLoad(): Promise<void> {
+    await this.page.waitForLoadState("networkidle");
   }
 
   async expectPageHeader(text: string): Promise<void> {

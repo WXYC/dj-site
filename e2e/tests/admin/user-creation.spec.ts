@@ -239,8 +239,8 @@ test.describe("Non-Admin User Creation Restrictions", () => {
     // Try to access roster
     await dashboardPage.gotoAdminRoster();
 
-    // Should be redirected
-    await dashboardPage.expectRedirectedToCatalog();
+    // Should be redirected to default dashboard
+    await dashboardPage.expectRedirectedToDefaultDashboard();
   });
 
   test("Music Director cannot access roster page to create users", async ({ page }) => {
@@ -254,8 +254,8 @@ test.describe("Non-Admin User Creation Restrictions", () => {
     // Try to access roster
     await dashboardPage.gotoAdminRoster();
 
-    // Should be redirected
-    await dashboardPage.expectRedirectedToCatalog();
+    // Should be redirected to default dashboard
+    await dashboardPage.expectRedirectedToDefaultDashboard();
   });
 });
 

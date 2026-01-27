@@ -84,8 +84,10 @@ export class RosterPage {
   }
 
   async clickAddDj(): Promise<void> {
-    await this.addDjButton.click();
-    await this.realNameInput.waitFor({ state: "visible" });
+    // There are two "Add" buttons - use the main one at the top right
+    const mainAddButton = this.page.locator('button:has-text("Add DJ")');
+    await mainAddButton.click();
+    await this.realNameInput.waitFor({ state: "visible", timeout: 5000 });
   }
 
   async fillNewAccountForm(data: {
@@ -114,6 +116,9 @@ export class RosterPage {
 
   async submitNewAccount(): Promise<void> {
     await this.saveButton.click();
+    // Wait for the form row to disappear (form closed after submission)
+    // or for a toast to appear
+    await this.page.waitForTimeout(500);
   }
 
   async createAccount(data: {
@@ -148,12 +153,16 @@ export class RosterPage {
 
   /**
    * Get action buttons for a user row
+   * The buttons are IconButtons in a Stack - reset password is first, delete is last
    */
   getActionButtons(username: string): { resetPassword: Locator; delete: Locator } {
     const row = this.getUserRow(username);
+    // The buttons are in the last cell (td) of the row, in a Stack
+    const actionCell = row.locator("td").last();
+    const buttons = actionCell.locator("button");
     return {
-      resetPassword: row.locator('button[aria-label*="Reset"], button:has(svg)').first(),
-      delete: row.locator('button[aria-label*="Delete"], button:has(svg)').last(),
+      resetPassword: buttons.first(),
+      delete: buttons.last(),
     };
   }
 
@@ -187,18 +196,70 @@ export class RosterPage {
     await resetPassword.click();
   }
 
-  async acceptConfirmDialog(): Promise<void> {
-    // Handle browser confirm dialog
+  /**
+   * Set up dialog handler to accept confirm dialogs.
+   * MUST be called BEFORE the action that triggers the dialog.
+   */
+  setupAcceptConfirmDialog(): void {
     this.page.once("dialog", async (dialog) => {
       await dialog.accept();
     });
   }
 
-  async dismissConfirmDialog(): Promise<void> {
-    // Handle browser confirm dialog
+  /**
+   * Alias for setupAcceptConfirmDialog for test compatibility
+   */
+  acceptConfirmDialog(): void {
+    this.setupAcceptConfirmDialog();
+  }
+
+  /**
+   * Set up dialog handler to dismiss confirm dialogs.
+   * MUST be called BEFORE the action that triggers the dialog.
+   */
+  setupDismissConfirmDialog(): void {
     this.page.once("dialog", async (dialog) => {
       await dialog.dismiss();
     });
+  }
+
+  /**
+   * Alias for setupDismissConfirmDialog for test compatibility
+   */
+  dismissConfirmDialog(): void {
+    this.setupDismissConfirmDialog();
+  }
+
+  /**
+   * Delete a user with confirmation
+   */
+  async deleteUserWithConfirm(username: string): Promise<void> {
+    this.setupAcceptConfirmDialog();
+    await this.deleteUser(username);
+  }
+
+  /**
+   * Reset password with confirmation
+   */
+  async resetPasswordWithConfirm(username: string): Promise<void> {
+    this.setupAcceptConfirmDialog();
+    await this.resetUserPassword(username);
+  }
+
+  /**
+   * Promote to station manager with confirmation
+   */
+  async promoteToSmWithConfirm(username: string): Promise<void> {
+    this.setupAcceptConfirmDialog();
+    await this.promoteToStationManager(username);
+  }
+
+  /**
+   * Demote from station manager with confirmation
+   */
+  async demoteFromSmWithConfirm(username: string): Promise<void> {
+    this.setupAcceptConfirmDialog();
+    await this.demoteFromStationManager(username);
   }
 
   async expectUserInRoster(username: string): Promise<void> {
@@ -210,16 +271,22 @@ export class RosterPage {
   }
 
   async expectSuccessToast(message?: string): Promise<void> {
-    await expect(this.successToast).toBeVisible({ timeout: 10000 });
     if (message) {
-      await expect(this.successToast).toContainText(message);
+      // Wait for a toast containing the specific message
+      const specificToast = this.page.locator(`[data-sonner-toast][data-type="success"]:has-text("${message}")`);
+      await expect(specificToast).toBeVisible({ timeout: 10000 });
+    } else {
+      await expect(this.successToast).toBeVisible({ timeout: 10000 });
     }
   }
 
   async expectErrorToast(message?: string): Promise<void> {
-    await expect(this.errorToast).toBeVisible({ timeout: 10000 });
     if (message) {
-      await expect(this.errorToast).toContainText(message);
+      // Wait for a toast containing the specific message
+      const specificToast = this.page.locator(`[data-sonner-toast][data-type="error"]:has-text("${message}")`);
+      await expect(specificToast).toBeVisible({ timeout: 10000 });
+    } else {
+      await expect(this.errorToast).toBeVisible({ timeout: 10000 });
     }
   }
 
