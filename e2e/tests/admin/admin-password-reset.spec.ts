@@ -1,6 +1,7 @@
 import { test, expect, TEST_USERS } from "../../fixtures/auth.fixture";
 import { DashboardPage } from "../../pages/dashboard.page";
 import { RosterPage } from "../../pages/roster.page";
+import { LoginPage } from "../../pages/login.page";
 import path from "path";
 
 const authDir = path.join(__dirname, "../../.auth");
