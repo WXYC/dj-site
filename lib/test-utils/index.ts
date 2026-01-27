@@ -16,6 +16,7 @@ export * from "./render";
 export * from "./slice-harness";
 export * from "./api-harness";
 export * from "./component-harness";
+export * from "./conversion-harness";
 
 // MSW server and handlers
 export { server } from "./msw/server";
