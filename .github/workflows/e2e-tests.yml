@@ -63,7 +63,7 @@ jobs:
       - name: Create Backend .env file
         working-directory: Backend-Service
         run: |
-          cat > .env << EOF
+          cat > .env << 'EOF'
           DB_HOST=localhost
           DB_PORT=5434
           DB_NAME=wxyc_db
