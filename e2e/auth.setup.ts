@@ -1,86 +1,109 @@
 import { test as setup, expect } from "@playwright/test";
 import { TEST_USERS } from "./fixtures/auth.fixture";
 import path from "path";
+import fs from "fs";
 
 const authDir = path.join(__dirname, ".auth");
+
+// Ensure auth directory exists
+if (!fs.existsSync(authDir)) {
+  fs.mkdirSync(authDir, { recursive: true });
+}
+
+/**
+ * Helper to perform login and save auth state
+ */
+async function performLogin(
+  page: import("@playwright/test").Page,
+  username: string,
+  password: string,
+  statePath: string
+) {
+  await page.goto("/login");
+  await page.waitForSelector('input[name="username"]');
+
+  await page.fill('input[name="username"]', username);
+  await page.fill('input[name="password"]', password);
+
+  // Click submit and wait for either:
+  // 1. URL changes (successful login)
+  // 2. Error toast appears (failed login)
+  await page.click('button[type="submit"]');
+
+  // Wait for navigation away from login page
+  try {
+    await page.waitForURL((url) => !url.pathname.includes("/login"), {
+      timeout: 15000,
+    });
+  } catch {
+    // If navigation didn't happen, check for error messages
+    const errorToast = await page
+      .locator('[role="alert"], .toast-error, [data-sonner-toast]')
+      .first()
+      .textContent()
+      .catch(() => null);
+    const pageContent = await page.content();
+
+    throw new Error(
+      `Login failed for user "${username}". ` +
+        `Error toast: ${errorToast || "none"}. ` +
+        `Current URL: ${page.url()}. ` +
+        `Page contains 'error': ${pageContent.toLowerCase().includes("error")}`
+    );
+  }
+
+  // Verify we're authenticated
+  await expect(page).not.toHaveURL(/\/login/);
+
+  // Save storage state
+  await page.context().storageState({ path: statePath });
+}
 
 /**
  * Setup authentication state for Station Manager
  * Used by tests that require admin access
  */
 setup("authenticate as station manager", async ({ page }) => {
-  await page.goto("/login");
-  await page.waitForSelector('input[name="username"]');
-
-  await page.fill('input[name="username"]', TEST_USERS.stationManager.username);
-  await page.fill('input[name="password"]', TEST_USERS.stationManager.password);
-  await page.click('button[type="submit"]');
-
-  // Wait for successful login
-  await page.waitForURL((url) => !url.pathname.includes("/login"), {
-    timeout: 15000,
-  });
-
-  // Verify we're authenticated
-  await expect(page).not.toHaveURL(/\/login/);
-
-  // Save storage state
-  await page.context().storageState({ path: `${authDir}/stationManager.json` });
+  await performLogin(
+    page,
+    TEST_USERS.stationManager.username,
+    TEST_USERS.stationManager.password,
+    `${authDir}/stationManager.json`
+  );
 });
 
 /**
  * Setup authentication state for Music Director
  */
 setup("authenticate as music director", async ({ page }) => {
-  await page.goto("/login");
-  await page.waitForSelector('input[name="username"]');
-
-  await page.fill('input[name="username"]', TEST_USERS.musicDirector.username);
-  await page.fill('input[name="password"]', TEST_USERS.musicDirector.password);
-  await page.click('button[type="submit"]');
-
-  await page.waitForURL((url) => !url.pathname.includes("/login"), {
-    timeout: 15000,
-  });
-
-  await expect(page).not.toHaveURL(/\/login/);
-  await page.context().storageState({ path: `${authDir}/musicDirector.json` });
+  await performLogin(
+    page,
+    TEST_USERS.musicDirector.username,
+    TEST_USERS.musicDirector.password,
+    `${authDir}/musicDirector.json`
+  );
 });
 
 /**
  * Setup authentication state for DJ
  */
 setup("authenticate as dj", async ({ page }) => {
-  await page.goto("/login");
-  await page.waitForSelector('input[name="username"]');
-
-  await page.fill('input[name="username"]', TEST_USERS.dj1.username);
-  await page.fill('input[name="password"]', TEST_USERS.dj1.password);
-  await page.click('button[type="submit"]');
-
-  await page.waitForURL((url) => !url.pathname.includes("/login"), {
-    timeout: 15000,
-  });
-
-  await expect(page).not.toHaveURL(/\/login/);
-  await page.context().storageState({ path: `${authDir}/dj.json` });
+  await performLogin(
+    page,
+    TEST_USERS.dj1.username,
+    TEST_USERS.dj1.password,
+    `${authDir}/dj.json`
+  );
 });
 
 /**
  * Setup authentication state for Member (no org role)
  */
 setup("authenticate as member", async ({ page }) => {
-  await page.goto("/login");
-  await page.waitForSelector('input[name="username"]');
-
-  await page.fill('input[name="username"]', TEST_USERS.member.username);
-  await page.fill('input[name="password"]', TEST_USERS.member.password);
-  await page.click('button[type="submit"]');
-
-  await page.waitForURL((url) => !url.pathname.includes("/login"), {
-    timeout: 15000,
-  });
-
-  await expect(page).not.toHaveURL(/\/login/);
-  await page.context().storageState({ path: `${authDir}/member.json` });
+  await performLogin(
+    page,
+    TEST_USERS.member.username,
+    TEST_USERS.member.password,
+    `${authDir}/member.json`
+  );
 });
