@@ -152,7 +152,7 @@ jobs:
 
       - name: Run E2E tests
         working-directory: dj-site
-        run: npm run test:e2e -- --project=chromium --reporter=html --reporter=github
+        run: npm run test:e2e -- --reporter=html --reporter=github
 
       - name: Show service logs on failure
         if: failure()
