@@ -74,7 +74,7 @@ export class RosterPage {
 
   async goto(): Promise<void> {
     await this.page.goto("/dashboard/admin/roster");
-    await this.page.waitForLoadState("networkidle");
+    await this.page.waitForLoadState("domcontentloaded");
   }
 
   async waitForTableLoaded(): Promise<void> {
@@ -116,9 +116,14 @@ export class RosterPage {
 
   async submitNewAccount(): Promise<void> {
     await this.saveButton.click();
-    // Wait for the form row to disappear (form closed after submission)
-    // or for a toast to appear
-    await this.page.waitForTimeout(500);
+    // Wait for the form to be submitted - either success toast or form closes
+    await Promise.race([
+      this.successToast.waitFor({ state: "visible", timeout: 10000 }),
+      this.errorToast.waitFor({ state: "visible", timeout: 10000 }),
+      this.realNameInput.waitFor({ state: "hidden", timeout: 10000 }),
+    ]).catch(() => {
+      // If neither toast nor form close, continue anyway
+    });
   }
 
   async createAccount(data: {

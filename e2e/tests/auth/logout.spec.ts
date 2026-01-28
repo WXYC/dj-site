@@ -1,4 +1,4 @@
-import { test, expect, TEST_USERS } from "../../fixtures/auth.fixture";
+import { test, expect, TEST_USERS, clearAuthCookies } from "../../fixtures/auth.fixture";
 import { LoginPage } from "../../pages/login.page";
 import { DashboardPage } from "../../pages/dashboard.page";
 import path from "path";
@@ -15,9 +15,8 @@ test.describe("Logout Flow", () => {
   test.beforeEach(async ({ page }) => {
     loginPage = new LoginPage(page);
     dashboardPage = new DashboardPage(page);
-    // Already authenticated via storageState - navigate to dashboard
-    await page.goto("/dashboard");
-    await dashboardPage.waitForPageLoad();
+    // Already authenticated via storageState - navigate to flowsheet
+    await dashboardPage.gotoFlowsheet();
   });
 
   test("should logout and redirect to login page", async ({ page }) => {

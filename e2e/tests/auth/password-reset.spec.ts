@@ -197,7 +197,7 @@ test.describe("Password Reset - Error Handling", () => {
     await loginPage.gotoWithToken("malformed<script>alert('xss')</script>");
 
     // Either the page should show an error or handle it gracefully
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
 
     // Page should not crash
     const url = page.url();
@@ -207,7 +207,7 @@ test.describe("Password Reset - Error Handling", () => {
   test("should handle empty token gracefully", async ({ page }) => {
     // Go to login with empty token
     await page.goto("/login?token=");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
 
     // Empty token is treated as no token, so should show normal login form
     // (the LoginSlotSwitcher checks `!!searchParams?.get("token")` which is false for "")

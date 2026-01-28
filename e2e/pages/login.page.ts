@@ -48,19 +48,19 @@ export class LoginPage {
 
   async goto(): Promise<void> {
     await this.page.goto("/login");
-    await this.page.waitForLoadState("networkidle");
+    await this.page.waitForLoadState("domcontentloaded");
   }
 
   async gotoWithToken(token: string): Promise<void> {
     await this.page.goto(`/login?token=${encodeURIComponent(token)}`);
-    await this.page.waitForLoadState("networkidle");
+    await this.page.waitForLoadState("domcontentloaded");
     // Wait for the reset form to appear (state change from useEffect)
     await this.newPasswordInput.waitFor({ state: "visible", timeout: 5000 });
   }
 
   async gotoWithError(error: string): Promise<void> {
     await this.page.goto(`/login?error=${encodeURIComponent(error)}`);
-    await this.page.waitForLoadState("networkidle");
+    await this.page.waitForLoadState("domcontentloaded");
     // Wait for the alert to appear (state change from useEffect)
     await this.alertMessage.waitFor({ state: "visible", timeout: 5000 });
   }

@@ -101,6 +101,7 @@ test.describe("Role-Based Access Control", () => {
     });
 
     test("should access dashboard", async ({ page }) => {
+      await dashboardPage.goto();
       await dashboardPage.expectOnDashboard();
     });
 

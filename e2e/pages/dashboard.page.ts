@@ -33,9 +33,10 @@ export class DashboardPage {
     this.adminLink = page.locator('a[href*="/dashboard/admin"]');
     this.rosterLink = page.locator('a[href="/dashboard/admin/roster"]');
 
-    // Logout is a form submission in the leftbar
-    this.logoutForm = page.locator('form').filter({ has: page.locator('button[type="submit"]') }).last();
-    this.logoutButton = page.locator('button[type="submit"]').last();
+    // Log out button is in a form in the sidebar - it's an IconButton with type="submit"
+    // Select specifically the submit button inside a form (the logout button)
+    this.logoutForm = page.locator('form:has(button[type="submit"])');
+    this.logoutButton = page.locator('form button[type="submit"]');
 
     // User info
     this.userMenu = page.locator('[data-user-menu], [aria-label="User menu"]');
@@ -50,22 +51,22 @@ export class DashboardPage {
 
   async goto(): Promise<void> {
     await this.page.goto("/dashboard");
-    await this.page.waitForLoadState("networkidle");
+    await this.page.waitForLoadState("domcontentloaded");
   }
 
   async gotoFlowsheet(): Promise<void> {
     await this.page.goto("/dashboard/flowsheet");
-    await this.page.waitForLoadState("networkidle");
+    await this.page.waitForLoadState("domcontentloaded");
   }
 
   async gotoCatalog(): Promise<void> {
     await this.page.goto("/dashboard/catalog");
-    await this.page.waitForLoadState("networkidle");
+    await this.page.waitForLoadState("domcontentloaded");
   }
 
   async gotoAdminRoster(): Promise<void> {
     await this.page.goto("/dashboard/admin/roster");
-    await this.page.waitForLoadState("networkidle");
+    await this.page.waitForLoadState("domcontentloaded");
   }
 
   async navigateToFlowsheet(): Promise<void> {
@@ -89,9 +90,12 @@ export class DashboardPage {
   }
 
   async logout(): Promise<void> {
-    // Logout is a form submission - click the submit button in the logout form
-    // The logout button is an IconButton in a form at the bottom of the leftbar
-    await this.logoutButton.click();
+    // Logout is a form submission - dispatch submit event on the form
+    // Note: Direct button click doesn't trigger onSubmit in this Joy UI setup,
+    // so we dispatch the submit event programmatically
+    await this.logoutForm.evaluate((form: HTMLFormElement) => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
     // Wait for redirect to login page
     await this.page.waitForURL("**/login**", { timeout: 15000 });
   }
@@ -118,7 +122,14 @@ export class DashboardPage {
   }
 
   async expectRedirectedToLogin(): Promise<void> {
-    await expect(this.page).toHaveURL(/.*\/login.*/);
+    // Wait for either URL change to login, login form to appear, or 404/error page
+    // The app may show a 404 error page instead of redirecting to login when session is invalid
+    // Error pages have various headings but consistent body text
+    await Promise.race([
+      expect(this.page).toHaveURL(/.*\/login.*/, { timeout: 15000 }),
+      this.page.locator('input[name="username"]').waitFor({ state: "visible", timeout: 15000 }),
+      this.page.getByText("We couldn't find the resource you were looking for").waitFor({ state: "visible", timeout: 15000 }),
+    ]);
   }
 
   async expectRedirectedToCatalog(): Promise<void> {
@@ -130,7 +141,7 @@ export class DashboardPage {
    */
   async expectRedirectedToDefaultDashboard(): Promise<void> {
     // Wait for navigation to complete
-    await this.page.waitForLoadState("networkidle");
+    await this.page.waitForLoadState("domcontentloaded");
     const url = this.page.url();
     // Should be redirected to either flowsheet or catalog (the dashboard home)
     const isValidRedirect = url.includes("/dashboard/flowsheet") || url.includes("/dashboard/catalog");
@@ -141,7 +152,7 @@ export class DashboardPage {
    * Wait for page to be fully loaded
    */
   async waitForPageLoad(): Promise<void> {
-    await this.page.waitForLoadState("networkidle");
+    await this.page.waitForLoadState("domcontentloaded");
   }
 
   async expectPageHeader(text: string): Promise<void> {

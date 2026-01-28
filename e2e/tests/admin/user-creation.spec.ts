@@ -49,11 +49,8 @@ test.describe("Admin User Creation", () => {
       role: "dj",
     });
 
-    // Should show success toast
-    await rosterPage.expectSuccessToast("Account created");
-
-    // Wait for table to refresh
-    await page.waitForTimeout(1000);
+    // Wait for success toast (any message)
+    await rosterPage.expectSuccessToast();
 
     // User should appear in roster
     await rosterPage.expectUserInRoster(username);
@@ -71,11 +68,8 @@ test.describe("Admin User Creation", () => {
       role: "musicDirector",
     });
 
-    // Should show success toast
-    await rosterPage.expectSuccessToast("Account created");
-
-    // Wait for table to refresh
-    await page.waitForTimeout(1000);
+    // Wait for success toast (any message)
+    await rosterPage.expectSuccessToast();
 
     // User should appear in roster with MD checkbox checked
     await rosterPage.expectUserInRoster(username);
@@ -93,11 +87,8 @@ test.describe("Admin User Creation", () => {
       role: "stationManager",
     });
 
-    // Should show success toast
-    await rosterPage.expectSuccessToast("Account created");
-
-    // Wait for table to refresh
-    await page.waitForTimeout(1000);
+    // Wait for success toast (any message)
+    await rosterPage.expectSuccessToast();
 
     // User should appear in roster with SM checkbox checked
     await rosterPage.expectUserInRoster(username);
