@@ -22,8 +22,8 @@ export default defineConfig({
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code */
   forbidOnly: !!process.env.CI,
-  /* Retry on CI only */
-  retries: process.env.CI ? 2 : 0,
+  /* Retry on CI only - reduced to avoid timeout with many failures */
+  retries: process.env.CI ? 1 : 0,
   /* Parallel workers - safe with session reuse */
   workers: process.env.CI ? 4 : undefined,
   /* Reporter to use */
@@ -66,8 +66,8 @@ export default defineConfig({
     },
   ],
 
-  /* Configure timeout for individual tests */
-  timeout: 60000,
+  /* Configure timeout for individual tests - reduced for faster feedback */
+  timeout: 30000,
   expect: {
     timeout: 15000,
   },
