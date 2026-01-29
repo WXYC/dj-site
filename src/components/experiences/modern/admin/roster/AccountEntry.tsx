@@ -321,15 +321,10 @@ export const AccountEntry = ({
                     // Use the configured temporary password for consistency with user creation
                     const tempPassword = String(process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD || "temppass123");
 
-                    // Reset password via better-auth admin API
-                    const result = await (
-                      authClient.admin.updateUser as unknown as (args: {
-                        userId: string;
-                        data: { password: string };
-                      }) => Promise<{ error?: { message?: string } | null }>
-                    )({
+                    // Reset password via better-auth admin API (setUserPassword properly hashes the password)
+                    const result = await authClient.admin.setUserPassword({
                       userId: targetUserId,
-                      data: { password: tempPassword },
+                      newPassword: tempPassword,
                     });
 
                     if (result.error) {

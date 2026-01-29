@@ -124,10 +124,7 @@ test.describe("Admin Password Reset", () => {
 test.describe("Password Reset - User Can Login After Reset", () => {
   test.use({ storageState: path.join(authDir, "stationManager.json") });
 
-  // Skip: Better Auth admin.updateUser may not properly handle password updates.
-  // The API call succeeds but login with the new password fails.
-  // Needs investigation into correct Better Auth admin API for password reset.
-  test.skip("user should be able to login with temporary password after admin reset", async ({ page, browser }) => {
+  test("user should be able to login with temporary password after admin reset", async ({ page, browser }) => {
     const dashboardPage = new DashboardPage(page);
     const rosterPage = new RosterPage(page);
 
@@ -208,9 +205,7 @@ test.describe("Non-Admin Password Reset Restrictions", () => {
 test.describe("Password Reset for Different User States", () => {
   test.use({ storageState: path.join(authDir, "stationManager.json") });
 
-  // Skip: Better Auth admin.updateUser may not properly handle password updates.
-  // See "user should be able to login with temporary password after admin reset" skip comment.
-  test.skip("should be able to reset password for unconfirmed user", async ({ page, browser }) => {
+  test("should be able to reset password for unconfirmed user", async ({ page, browser }) => {
     const dashboardPage = new DashboardPage(page);
     const rosterPage = new RosterPage(page);
 
