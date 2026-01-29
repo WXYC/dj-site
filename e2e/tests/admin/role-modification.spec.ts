@@ -141,6 +141,9 @@ test.describe("Admin Role Modification", () => {
         rosterPage.acceptConfirmDialog();
         await rosterPage.promoteToMusicDirector(username);
         await page.waitForTimeout(1500);
+        // Dismiss any toasts from the promotion step
+        await page.keyboard.press("Escape");
+        await page.waitForTimeout(500);
       }
 
       // Accept confirmation dialog for demotion
@@ -149,8 +152,8 @@ test.describe("Admin Role Modification", () => {
       // Demote from MD (uncheck MD checkbox)
       await rosterPage.demoteFromMusicDirector(username);
 
-      // Should show success toast
-      await rosterPage.expectSuccessToast("DJ");
+      // Should show success toast - use specific text to avoid matching user name
+      await rosterPage.expectSuccessToast("role updated to DJ");
 
       // Verify MD checkbox is now unchecked
       const checkboxes = rosterPage.getRoleCheckboxes(username);
