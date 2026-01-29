@@ -52,9 +52,11 @@ export default defineConfig({
 
   projects: [
     /* Setup project - authenticates and saves session state */
+    /* Run sequentially to avoid auth service concurrency issues */
     {
       name: "setup",
       testMatch: /auth\.setup\.ts/,
+      fullyParallel: false,
     },
 
     /* Main test project - uses storageState where configured in test files */
