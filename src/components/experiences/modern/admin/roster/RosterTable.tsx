@@ -24,6 +24,31 @@ import AccountSearchForm from "./AccountSearchForm";
 import ExportDJsButton from "./ExportCSV";
 import NewAccountForm from "./NewAccountForm";
 
+/**
+ * Helper function to resolve organization slug to ID
+ */
+async function getOrganizationId(): Promise<string | null> {
+  const orgSlugOrId = process.env.NEXT_PUBLIC_APP_ORGANIZATION;
+  if (!orgSlugOrId) {
+    console.warn("NEXT_PUBLIC_APP_ORGANIZATION not set");
+    return null;
+  }
+
+  // Try to resolve slug to ID
+  const orgResult = await authClient.organization.getFullOrganization({
+    query: {
+      organizationSlug: orgSlugOrId,
+    },
+  });
+
+  if (orgResult.data?.id) {
+    return orgResult.data.id;
+  }
+
+  // If slug lookup fails, assume it's already an ID
+  return orgSlugOrId;
+}
+
 export default function RosterTable({ user }: { user: User }) {
   const { data, isLoading, isError, error, refetch } = useAccountListResults();
 
@@ -98,7 +123,26 @@ export default function RosterTable({ user }: { user: User }) {
         if (result.error) {
           throw new Error(result.error.message || "Failed to create user");
         }
-        
+
+        // Add user to the organization with the appropriate role
+        const organizationId = await getOrganizationId();
+
+        if (organizationId && result.data?.user?.id) {
+          const addMemberResult = await authClient.organization.addMember({
+            userId: result.data.user.id,
+            organizationId,
+            role,
+          });
+
+          if (addMemberResult.error) {
+            console.error("Failed to add user to organization:", addMemberResult.error);
+            // Don't fail the whole operation, but log the warning
+            toast.warning("User created but could not be added to organization. Role management may not work.");
+          }
+        } else if (!organizationId) {
+          console.warn("Organization ID not configured, user created without organization membership");
+        }
+
         toast.success(`Account created successfully for ${newAccount.username}`);
         
         dispatch(adminSlice.actions.setAdding(false));

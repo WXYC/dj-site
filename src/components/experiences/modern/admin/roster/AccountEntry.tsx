@@ -2,6 +2,9 @@
 
 import { authClient } from "@/lib/features/authentication/client";
 import {
+  getAppOrganizationIdClient,
+} from "@/lib/features/authentication/organization-utils";
+import {
   Account,
   AdminAuthenticationStatus,
   Authorization,
@@ -26,13 +29,81 @@ export const AccountEntry = ({
   const [promoteError, setPromoteError] = useState<Error | null>(null);
   const [resetError, setResetError] = useState<Error | null>(null);
   const [deleteError, setDeleteError] = useState<Error | null>(null);
-  const toAdminRole = (
-    role: "member" | "dj" | "musicDirector" | "stationManager"
-  ) =>
-    (role === "stationManager" ? "admin" : "user") as
-      | "user"
-      | "admin"
-      | ("user" | "admin")[];
+  /**
+   * Resolve organization slug to organization ID
+   */
+  const resolveOrganizationId = async (): Promise<string> => {
+    // Use NEXT_PUBLIC_APP_ORGANIZATION directly - inlined at build time by Next.js
+    const orgSlugOrId = process.env.NEXT_PUBLIC_APP_ORGANIZATION || getAppOrganizationIdClient();
+
+    if (!orgSlugOrId) {
+      throw new Error("Organization not configured (NEXT_PUBLIC_APP_ORGANIZATION not set)");
+    }
+
+    // Try to resolve slug to ID
+    const orgResult = await authClient.organization.getFullOrganization({
+      query: {
+        organizationSlug: orgSlugOrId,
+      },
+    });
+
+    if (orgResult.data?.id) {
+      return orgResult.data.id;
+    }
+
+    // If slug lookup fails, assume it's already an ID
+    return orgSlugOrId;
+  };
+
+  /**
+   * Get the member ID for a user in the organization
+   */
+  const resolveMemberId = async (userId: string, organizationId: string): Promise<string> => {
+    const result = await authClient.organization.listMembers({
+      query: {
+        organizationId,
+        filterField: "userId",
+        filterOperator: "eq",
+        filterValue: userId,
+        limit: 1,
+      },
+    });
+
+    if (result.error) {
+      throw new Error(result.error.message || "Failed to fetch member");
+    }
+
+    const member = result.data?.members?.find((m: { userId: string }) => m.userId === userId);
+    if (!member) {
+      throw new Error("User is not a member of the organization");
+    }
+
+    return member.id;
+  };
+
+  /**
+   * Update user's role in the organization
+   */
+  const updateOrganizationRole = async (
+    userId: string,
+    newRole: "member" | "dj" | "musicDirector" | "stationManager"
+  ) => {
+    const organizationId = await resolveOrganizationId();
+    const memberId = await resolveMemberId(userId, organizationId);
+
+    const result = await authClient.organization.updateMemberRole({
+      memberId,
+      organizationId,
+      role: newRole,
+    });
+
+    if (result.error) {
+      throw new Error(result.error.message || "Failed to update role");
+    }
+
+    return result;
+  };
+
   const resolveUserId = async () => {
     if (account.id) {
       return account.id;
@@ -85,15 +156,8 @@ export const AccountEntry = ({
                   try {
                     const targetUserId = await resolveUserId();
 
-                    // Update user role
-                    const result = await authClient.admin.setRole({
-                      userId: targetUserId,
-                      role: toAdminRole("stationManager"),
-                    });
-
-                    if (result.error) {
-                      throw new Error(result.error.message || "Failed to promote user");
-                    }
+                    // Update organization member role
+                    await updateOrganizationRole(targetUserId, "stationManager");
 
                     toast.success(`${account.realName} promoted to Station Manager`);
                     if (onAccountChange) {
@@ -122,15 +186,8 @@ export const AccountEntry = ({
                   try {
                     const targetUserId = await resolveUserId();
 
-                    // Update user role
-                    const result = await authClient.admin.setRole({
-                      userId: targetUserId,
-                      role: toAdminRole("musicDirector"),
-                    });
-
-                    if (result.error) {
-                      throw new Error(result.error.message || "Failed to update user role");
-                    }
+                    // Update organization member role - demote to Music Director
+                    await updateOrganizationRole(targetUserId, "musicDirector");
 
                     toast.success(`${account.realName} role updated to Music Director`);
                     if (onAccountChange) {
@@ -175,15 +232,8 @@ export const AccountEntry = ({
                   try {
                     const targetUserId = await resolveUserId();
 
-                    // Update user role
-                    const result = await authClient.admin.setRole({
-                      userId: targetUserId,
-                      role: toAdminRole("musicDirector"),
-                    });
-
-                    if (result.error) {
-                      throw new Error(result.error.message || "Failed to promote user");
-                    }
+                    // Update organization member role
+                    await updateOrganizationRole(targetUserId, "musicDirector");
 
                     toast.success(`${account.realName} promoted to Music Director`);
                     if (onAccountChange) {
@@ -212,15 +262,8 @@ export const AccountEntry = ({
                   try {
                     const targetUserId = await resolveUserId();
 
-                    // Update user role
-                    const result = await authClient.admin.setRole({
-                      userId: targetUserId,
-                      role: toAdminRole("dj"),
-                    });
-
-                    if (result.error) {
-                      throw new Error(result.error.message || "Failed to update user role");
-                    }
+                    // Update organization member role - demote to DJ
+                    await updateOrganizationRole(targetUserId, "dj");
 
                     toast.success(`${account.realName} role updated to DJ`);
                     if (onAccountChange) {
