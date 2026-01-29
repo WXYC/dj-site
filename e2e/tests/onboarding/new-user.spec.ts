@@ -17,11 +17,7 @@ test.describe("New User Onboarding", () => {
   });
 
   test.describe("Incomplete User Login", () => {
-    // Skip: Incomplete user login redirect not working - needs investigation into:
-    // 1. Password hash verification (temppass123)
-    // 2. Session returning realName/djName fields
-    // 3. Redirect logic in authenticationHooks.ts
-    test.skip("should redirect incomplete user to onboarding after login", async ({ page }) => {
+    test("should redirect incomplete user to onboarding after login", async ({ page }) => {
       // This test requires the test_incomplete user to exist in the database
       // with missing realName and djName fields
 
@@ -34,8 +30,7 @@ test.describe("New User Onboarding", () => {
       expect(await onboardingPage.isOnOnboardingPage()).toBe(true);
     });
 
-    // Skip: Depends on incomplete user redirect working
-    test.skip("should show onboarding form with required fields", async ({ page }) => {
+    test("should show onboarding form with required fields", async ({ page }) => {
       // Login as incomplete user
       const user = TEST_USERS.incomplete;
       await loginPage.goto();
@@ -49,8 +44,7 @@ test.describe("New User Onboarding", () => {
     });
   });
 
-  // Skip entire group: Depends on incomplete user redirect working
-  test.describe.skip("Onboarding Form Validation", () => {
+  test.describe("Onboarding Form Validation", () => {
     // These tests assume we can access the onboarding page directly
     // or are on it after login as an incomplete user
 
@@ -133,8 +127,7 @@ test.describe("New User Onboarding", () => {
     });
   });
 
-  // Skip entire group: Depends on incomplete user redirect working
-  test.describe.skip("Onboarding Completion", () => {
+  test.describe("Onboarding Completion", () => {
     test("should redirect to dashboard after successful onboarding", async ({ page }) => {
       const user = TEST_USERS.incomplete;
       await loginPage.goto();

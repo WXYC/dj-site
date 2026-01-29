@@ -64,7 +64,15 @@ export const useLogin = () => {
         const session = await authClient.getSession();
         const user = session?.data?.user;
 
-        if (user && (!user.realName || !user.djName)) {
+        // Check if user profile is incomplete (missing or empty realName/djName)
+        const isIncomplete = user && (
+          !user.realName ||
+          (typeof user.realName === 'string' && user.realName.trim() === '') ||
+          !user.djName ||
+          (typeof user.djName === 'string' && user.djName.trim() === '')
+        );
+
+        if (isIncomplete) {
           // User is incomplete, redirect to onboarding
           toast.success("Please complete your profile");
           router.push("/onboarding");
