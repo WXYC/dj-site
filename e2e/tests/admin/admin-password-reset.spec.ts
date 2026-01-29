@@ -1,4 +1,4 @@
-import { test, expect, TEST_USERS } from "../../fixtures/auth.fixture";
+import { test, expect, TEST_USERS, TEMP_PASSWORD } from "../../fixtures/auth.fixture";
 import { DashboardPage } from "../../pages/dashboard.page";
 import { RosterPage } from "../../pages/roster.page";
 import { LoginPage } from "../../pages/login.page";
@@ -122,23 +122,56 @@ test.describe("Admin Password Reset", () => {
 });
 
 test.describe("Password Reset - User Can Login After Reset", () => {
-  test.skip("user should be able to login with temporary password after admin reset", async ({ browser }) => {
-    // This test requires:
-    // 1. Admin resets user's password
-    // 2. Capturing the temporary password from the toast
-    // 3. User logging in with the temporary password
+  test.use({ storageState: path.join(authDir, "stationManager.json") });
 
-    // This is complex because:
-    // - The temporary password is randomly generated
-    // - We need to capture it from the UI
-    // - Then use it to login as a different user
+  // TODO: Requires frontend rebuild - AccountEntry.tsx now uses TEMP_PASSWORD instead of random
+  test.skip("user should be able to login with temporary password after admin reset", async ({ page, browser }) => {
+    const dashboardPage = new DashboardPage(page);
+    const rosterPage = new RosterPage(page);
 
-    // Implementation would need to:
-    // 1. Parse toast text to extract temporary password
-    // 2. Create new browser context for the target user
-    // 3. Login with the temporary password
+    // Use existing seeded user that is confirmed and has complete profile
+    const targetUser = TEST_USERS.dj2;
+    const username = targetUser.username;
 
-    // Skipped due to complexity
+    // Navigate to roster
+    await dashboardPage.gotoAdminRoster();
+    await rosterPage.waitForTableLoaded();
+
+    // Reset the user's password
+    rosterPage.acceptConfirmDialog();
+    await rosterPage.resetUserPassword(username);
+
+    // Wait for success toast
+    await rosterPage.expectSuccessToast("Password reset");
+    await page.waitForTimeout(1000);
+
+    // Create a new browser context to login as the user
+    // Pass baseURL explicitly and ensure clean session with storageState: undefined
+    const baseURL = process.env.E2E_BASE_URL || "http://localhost:3000";
+    const userContext = await browser.newContext({ baseURL, storageState: undefined });
+    const userPage = await userContext.newPage();
+
+    // Clear any inherited cookies
+    await userContext.clearCookies();
+
+    const userLoginPage = new LoginPage(userPage);
+    const userDashboard = new DashboardPage(userPage);
+
+    // Login with the temp password (admin-set passwords use the same temp password)
+    await userLoginPage.goto();
+    await userPage.waitForLoadState("networkidle");
+
+    // Verify we're on the login page
+    await expect(userPage.locator('input[name="username"]')).toBeVisible({ timeout: 5000 });
+
+    await userLoginPage.login(username, TEMP_PASSWORD);
+
+    // User has complete profile (seeded with realName and djName), should go to dashboard
+    await userLoginPage.waitForRedirectToDashboard();
+    await userDashboard.expectOnDashboard();
+
+    // Cleanup
+    await userContext.close();
   });
 });
 
@@ -171,8 +204,63 @@ test.describe("Non-Admin Password Reset Restrictions", () => {
 });
 
 test.describe("Password Reset for Different User States", () => {
-  test.skip("should be able to reset password for unconfirmed user", async ({ page }) => {
-    // The reset button is disabled for users with authType != Confirmed
-    // This test would need a user in unconfirmed state to verify behavior
+  test.use({ storageState: path.join(authDir, "stationManager.json") });
+
+  // TODO: Requires frontend rebuild - AccountEntry.tsx now uses TEMP_PASSWORD instead of random
+  test.skip("should be able to reset password for unconfirmed user", async ({ page, browser }) => {
+    const dashboardPage = new DashboardPage(page);
+    const rosterPage = new RosterPage(page);
+
+    // Create a new user (who will be "New" / unconfirmed) with complete profile
+    const username = `unconfirmed_${Date.now()}`;
+    const email = `${username}@test.wxyc.org`;
+
+    await dashboardPage.gotoAdminRoster();
+    await rosterPage.waitForTableLoaded();
+
+    await rosterPage.createAccount({
+      realName: "Unconfirmed Reset Test",
+      username,
+      email,
+      djName: "Unconfirmed DJ",
+      role: "dj",
+    });
+
+    await rosterPage.expectSuccessToast();
+    await page.waitForTimeout(1000);
+
+    // Reset password for the new (unconfirmed) user
+    // Note: The reset button should work for new users too since they need to set up their account
+    rosterPage.acceptConfirmDialog();
+    await rosterPage.resetUserPassword(username);
+
+    // Should show success toast
+    await rosterPage.expectSuccessToast("Password reset");
+
+    // Verify the user can now login with temp password
+    const baseURL = process.env.E2E_BASE_URL || "http://localhost:3000";
+    const userContext = await browser.newContext({ baseURL, storageState: undefined });
+    const userPage = await userContext.newPage();
+
+    // Clear any inherited cookies
+    await userContext.clearCookies();
+
+    const userLoginPage = new LoginPage(userPage);
+    const userDashboard = new DashboardPage(userPage);
+
+    await userLoginPage.goto();
+    await userPage.waitForLoadState("networkidle");
+
+    // Verify we're on the login page
+    await expect(userPage.locator('input[name="username"]')).toBeVisible({ timeout: 5000 });
+
+    await userLoginPage.login(username, TEMP_PASSWORD);
+
+    // User has complete profile, should go to dashboard
+    await userLoginPage.waitForRedirectToDashboard();
+    await userDashboard.expectOnDashboard();
+
+    // Cleanup
+    await userContext.close();
   });
 });

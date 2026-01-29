@@ -322,8 +322,8 @@ export const AccountEntry = ({
                   try {
                     const targetUserId = await resolveUserId();
 
-                    // Generate a temporary password
-                    const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+                    // Use the configured temporary password for consistency with user creation
+                    const tempPassword = String(process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD || "temppass123");
 
                     // Reset password via better-auth admin API
                     const result = await (

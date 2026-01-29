@@ -1,6 +1,12 @@
 import { test as base, expect, Page } from "@playwright/test";
 
 /**
+ * Temporary password used for admin-created users
+ * Must match NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD in .env.local
+ */
+export const TEMP_PASSWORD = process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD || "temppass123";
+
+/**
  * Test users seeded in Backend-Service database
  * These users must exist in dev_env/seed_db.sql
  */
@@ -76,6 +82,23 @@ export const TEST_USERS = {
     role: "stationManager",
     realName: "Test Demotable SM",
     djName: "Demotable SM",
+  },
+  // Dedicated users for password reset tests (to avoid conflicts with other tests)
+  reset1: {
+    username: "test_reset1",
+    password: "testpassword123",
+    email: "test_reset1@wxyc.org",
+    role: "dj",
+    realName: "Test Reset 1",
+    djName: "Reset DJ 1",
+  },
+  reset2: {
+    username: "test_reset2",
+    password: "testpassword123",
+    email: "test_reset2@wxyc.org",
+    role: "dj",
+    realName: "Test Reset 2",
+    djName: "Reset DJ 2",
   },
 } as const;
 
@@ -187,5 +210,81 @@ export const test = base.extend<{
     });
   },
 });
+
+/**
+ * Get the auth service base URL, with automatic port detection
+ * Checks environment variables, then tries common ports
+ */
+async function getAuthServiceBaseUrl(): Promise<string> {
+  // Check env vars first
+  const authUrl = process.env.NEXT_PUBLIC_BETTER_AUTH_URL;
+  if (authUrl) {
+    return authUrl.replace("/auth", "");
+  }
+
+  // Check E2E_AUTH_PORT (used in docker-compose.yml)
+  const authPort = process.env.E2E_AUTH_PORT;
+  if (authPort) {
+    return `http://localhost:${authPort}`;
+  }
+
+  // Try to discover the port by attempting connections
+  const portsToTry = [8084, 8083, 8082, 8080];
+  for (const port of portsToTry) {
+    try {
+      const response = await fetch(`http://localhost:${port}/healthcheck`, {
+        method: "GET",
+        signal: AbortSignal.timeout(1000),
+      });
+      if (response.ok) {
+        return `http://localhost:${port}`;
+      }
+    } catch {
+      // Port not available, try next
+    }
+  }
+
+  // Fallback to most common E2E port
+  return "http://localhost:8084";
+}
+
+/**
+ * Fetch verification token from test endpoint (for password reset testing)
+ * Requires Backend-Service to be running with NODE_ENV !== 'production'
+ */
+export async function getVerificationToken(identifier: string): Promise<{ token: string; expiresAt: string } | null> {
+  const baseUrl = await getAuthServiceBaseUrl();
+
+  try {
+    const response = await fetch(`${baseUrl}/auth/test/verification-token?identifier=${encodeURIComponent(identifier)}`);
+    if (!response.ok) {
+      return null;
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Failed to fetch verification token:", error);
+    return null;
+  }
+}
+
+/**
+ * Expire a user's session via test endpoint (for session timeout testing)
+ * Requires Backend-Service to be running with NODE_ENV !== 'production'
+ */
+export async function expireUserSession(userId: string): Promise<boolean> {
+  const baseUrl = await getAuthServiceBaseUrl();
+
+  try {
+    const response = await fetch(`${baseUrl}/auth/test/expire-session`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+    return response.ok;
+  } catch (error) {
+    console.error("Failed to expire session:", error);
+    return false;
+  }
+}
 
 export { expect };

@@ -1,4 +1,4 @@
-import { test, expect, TEST_USERS } from "../../fixtures/auth.fixture";
+import { test, expect, TEST_USERS, TEMP_PASSWORD } from "../../fixtures/auth.fixture";
 import { DashboardPage } from "../../pages/dashboard.page";
 import { RosterPage } from "../../pages/roster.page";
 import { LoginPage } from "../../pages/login.page";
@@ -251,13 +251,76 @@ test.describe("Non-Admin User Creation Restrictions", () => {
 });
 
 test.describe("New User Can Login", () => {
-  test.skip("newly created user should be able to login with temporary password", async ({ page, browser }) => {
-    // This test requires:
-    // 1. Creating a user (which we can do)
-    // 2. Knowing the temporary password (from env var NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD)
-    // 3. The new user then logs in
+  test.use({ storageState: path.join(authDir, "stationManager.json") });
 
-    // Since the temp password is an env var, this test may need
-    // special setup or be run in specific environments
+  test("newly created user should be able to login with temporary password", async ({ page, browser }) => {
+    const dashboardPage = new DashboardPage(page);
+    const rosterPage = new RosterPage(page);
+
+    // Generate unique username
+    const username = `e2e_login_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const email = `${username}@test.wxyc.org`;
+
+    // Create the user as admin (with complete profile - realName and djName)
+    await dashboardPage.gotoAdminRoster();
+    await rosterPage.waitForTableLoaded();
+
+    await rosterPage.createAccount({
+      realName: "New Login Test User",
+      username,
+      email,
+      djName: "DJ Login Test",
+      role: "dj",
+    });
+
+    await rosterPage.expectSuccessToast();
+    await page.waitForTimeout(1000);
+
+    // Create a new browser context for the new user to login
+    // Pass baseURL explicitly since newContext() doesn't inherit it from config
+    // Use storageState: undefined to ensure no session is inherited
+    const baseURL = process.env.E2E_BASE_URL || "http://localhost:3000";
+    const newUserContext = await browser.newContext({ baseURL, storageState: undefined });
+    const newUserPage = await newUserContext.newPage();
+
+    // Clear any cookies that might have been set
+    await newUserContext.clearCookies();
+
+    const newUserLoginPage = new LoginPage(newUserPage);
+    const newUserDashboard = new DashboardPage(newUserPage);
+
+    // Login as the newly created user with the temp password
+    await newUserLoginPage.goto();
+    await newUserPage.waitForLoadState("networkidle");
+
+    // Verify we're on the login page
+    await expect(newUserPage.locator('input[name="username"]')).toBeVisible({ timeout: 5000 });
+
+    await newUserLoginPage.login(username, TEMP_PASSWORD);
+
+    // Wait for either success (redirect to dashboard/onboarding) or error
+    // Give more time for the auth server to respond
+    await Promise.race([
+      newUserPage.waitForURL((url) => url.pathname.includes("/dashboard") || url.pathname.includes("/onboarding"), { timeout: 15000 }),
+      newUserLoginPage.expectErrorToast().then(() => {
+        throw new Error("Login failed with error toast");
+      }),
+    ]).catch(async (err) => {
+      // Take a screenshot for debugging
+      const url = newUserPage.url();
+      console.log(`Login redirect failed. Current URL: ${url}`);
+      // Check for error toast
+      const errorToast = newUserPage.locator('[data-sonner-toast][data-type="error"]');
+      if (await errorToast.isVisible()) {
+        const errorText = await errorToast.textContent();
+        console.log(`Error toast: ${errorText}`);
+      }
+      throw err;
+    });
+
+    await newUserDashboard.expectOnDashboard();
+
+    // Cleanup
+    await newUserContext.close();
   });
 });

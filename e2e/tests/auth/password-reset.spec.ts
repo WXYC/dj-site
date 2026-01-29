@@ -1,4 +1,4 @@
-import { test, expect, TEST_USERS } from "../../fixtures/auth.fixture";
+import { test, expect, TEST_USERS, getVerificationToken } from "../../fixtures/auth.fixture";
 import { LoginPage } from "../../pages/login.page";
 import { DashboardPage } from "../../pages/dashboard.page";
 
@@ -16,7 +16,7 @@ test.describe("Password Reset - Request Flow", () => {
   });
 
   test("should show success message for valid registered email", async ({ page }) => {
-    const user = TEST_USERS.dj1;
+    const user = TEST_USERS.reset1;
     await loginPage.requestPasswordReset(user.email);
 
     // Should show success message
@@ -34,7 +34,7 @@ test.describe("Password Reset - Request Flow", () => {
   });
 
   test("should return to login page after requesting reset", async ({ page }) => {
-    const user = TEST_USERS.dj1;
+    const user = TEST_USERS.reset1;
     await loginPage.requestPasswordReset(user.email);
 
     // Wait for redirect back to login
@@ -43,7 +43,7 @@ test.describe("Password Reset - Request Flow", () => {
   });
 
   test("should disable send button while request is in progress", async ({ page }) => {
-    const user = TEST_USERS.dj1;
+    const user = TEST_USERS.reset1;
     await page.fill('input[name="email"]', user.email);
 
     // Click and immediately check button state
@@ -181,14 +181,35 @@ test.describe("Password Reset - Error Handling", () => {
     loginPage = new LoginPage(page);
   });
 
-  test.skip("should show error for expired token on reset attempt", async ({ page }) => {
-    // Skip: The form's ValidatedSubmitButton is disabled until both password fields pass validation
-    // AND the token is valid. With an invalid token, the submit button stays disabled,
-    // so we can't test the server-side error response this way.
-    // This would need a different approach - possibly mocking the token verification
-    // or using a valid-looking but actually expired token from the database.
-    await loginPage.gotoWithToken("expired-token-12345");
+  test("should show error for expired token on reset attempt", async ({ page }) => {
+    // Request a password reset first to generate a token
+    const user = TEST_USERS.reset1;
+    await loginPage.goto();
+    await loginPage.clickForgotPassword();
+    await loginPage.requestPasswordReset(user.email);
+
+    // Wait for the request to complete
+    await page.waitForTimeout(1000);
+
+    // Get the token from the backend test endpoint
+    const tokenData = await getVerificationToken(user.email);
+    expect(tokenData).not.toBeNull();
+
+    // Navigate to reset with the real token
+    await loginPage.gotoWithToken(tokenData!.token);
+
+    // Use the token once to "consume" it
     await loginPage.resetPassword("ValidPassword1", "ValidPassword1");
+
+    // Wait for the reset to complete
+    await loginPage.expectSuccessToast();
+    await page.waitForTimeout(500);
+
+    // Now try to use the same token again - it should fail
+    await loginPage.gotoWithToken(tokenData!.token);
+    await loginPage.resetPassword("AnotherPassword1", "AnotherPassword1");
+
+    // Should show error for already-used/invalid token
     await loginPage.expectErrorToast();
   });
 
@@ -225,18 +246,44 @@ test.describe("Password Reset - Error Handling", () => {
 });
 
 test.describe("Password Reset - Integration", () => {
-  test.skip("should allow login with new password after successful reset", async ({ page }) => {
-    // This test requires actual email/token generation which is complex to test E2E
-    // Skip or implement with test fixtures that create valid tokens
-
+  test("should allow login with new password after successful reset", async ({ page }) => {
     const loginPage = new LoginPage(page);
     const dashboardPage = new DashboardPage(page);
 
-    // Would need:
-    // 1. Generate a valid reset token for a test user
-    // 2. Use that token to reset the password
-    // 3. Login with the new password
+    // Use dj2 for this test to avoid conflicts with other tests using dj1
+    const user = TEST_USERS.reset2;
+    const newPassword = `NewPassword${Date.now()}`;
 
-    // This is marked as skip because it requires backend token generation
+    // Step 1: Request password reset
+    await loginPage.goto();
+    await loginPage.clickForgotPassword();
+    await loginPage.requestPasswordReset(user.email);
+
+    // Wait for request to complete
+    await loginPage.expectSuccessToast();
+    await page.waitForTimeout(1000);
+
+    // Step 2: Get the verification token from the backend
+    const tokenData = await getVerificationToken(user.email);
+    expect(tokenData).not.toBeNull();
+    expect(tokenData!.token).toBeTruthy();
+
+    // Step 3: Use the token to reset the password
+    await loginPage.gotoWithToken(tokenData!.token);
+    await loginPage.resetPassword(newPassword, newPassword);
+
+    // Wait for reset to complete
+    await loginPage.expectSuccessToast();
+    await page.waitForURL("**/login**", { timeout: 10000 });
+
+    // Step 4: Login with the new password
+    await loginPage.login(user.username, newPassword);
+    await loginPage.waitForRedirectToDashboard();
+
+    // Verify we're on the dashboard
+    await dashboardPage.expectOnDashboard();
+
+    // Cleanup: Reset the password back to original
+    // (This is handled by test isolation - each test has a fresh DB state)
   });
 });

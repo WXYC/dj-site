@@ -91,10 +91,6 @@ test.describe("Admin Role Modification", () => {
       await page.waitForTimeout(1000);
     });
 
-    test.skip("should promote DJ directly to Station Manager", async ({ page }) => {
-      // Skip: Promoting DJ directly to SM is tested by first promoting to MD, then to SM
-      // This test creates a new user which won't have organization membership
-    });
   });
 
   test.describe("Demotion", () => {
@@ -309,10 +305,8 @@ test.describe("Role Change Persistence", () => {
   // Run this test serially to avoid conflicts with parallel tests
   test.describe.configure({ mode: 'serial' });
 
-  // Skip: The setRole API returns success but the role change doesn't persist.
-  // Debug findings: Dialog shown + Success toast ("promoted to Music Director") appears,
-  // but checkbox shows unchecked even BEFORE page refresh.
-  // This indicates a potential backend issue where setRole succeeds but doesn't save to DB.
+  // TODO: Fix role change persistence - checkbox shows unchecked even BEFORE page refresh
+  // Debug findings: Dialog shown but checkbox doesn't toggle, indicating API or state update issue
   test.skip("role change should persist after page refresh", async ({ page }) => {
     const loginPage = new LoginPage(page);
     const dashboardPage = new DashboardPage(page);
@@ -400,12 +394,6 @@ test.describe("Role Change Persistence", () => {
     await expect(updatedCheckboxes.md).toBeChecked({ timeout: 10000 });
   });
 
-  test.skip("promoted user should have new permissions after logout/login", async ({ browser }) => {
-    // This test requires:
-    // 1. Create user, promote them
-    // 2. Have that user login and verify permissions
-    // Skipped due to complexity of multi-user authentication in single test
-  });
 });
 
 test.describe("Non-Admin Role Modification Restrictions", () => {

@@ -1,4 +1,4 @@
-import { test, expect, TEST_USERS } from "../../fixtures/auth.fixture";
+import { test, expect, TEST_USERS, TEMP_PASSWORD } from "../../fixtures/auth.fixture";
 import { DashboardPage } from "../../pages/dashboard.page";
 import { RosterPage } from "../../pages/roster.page";
 import { LoginPage } from "../../pages/login.page";
@@ -139,28 +139,27 @@ test.describe("Admin User Deletion", () => {
 });
 
 test.describe("User Deletion Session Invalidation", () => {
-  test.skip("should invalidate deleted user's session", async ({ browser }) => {
+  test("should invalidate deleted user's session", async ({ browser }) => {
     // This test verifies that when a user is deleted, their session is invalidated
+    const baseURL = process.env.E2E_BASE_URL || "http://localhost:3000";
+    const adminContext = await browser.newContext({ baseURL });
+    const userContext = await browser.newContext({ baseURL });
 
-    // Create a dedicated test user that we can delete
-    // This requires creating the user first, then testing session invalidation
-
-    const context1 = await browser.newContext(); // Admin context
-    const context2 = await browser.newContext(); // User context
-
-    const adminPage = await context1.newPage();
-    const userPage = await context2.newPage();
+    const adminPage = await adminContext.newPage();
+    const userPage = await userContext.newPage();
 
     const adminLoginPage = new LoginPage(adminPage);
     const adminRosterPage = new RosterPage(adminPage);
     const adminDashboard = new DashboardPage(adminPage);
+    const userLoginPage = new LoginPage(userPage);
+    const userDashboard = new DashboardPage(userPage);
 
     // Login as admin
     await adminLoginPage.goto();
     await adminLoginPage.login(TEST_USERS.stationManager.username, TEST_USERS.stationManager.password);
     await adminLoginPage.waitForRedirectToDashboard();
 
-    // Create a user to delete
+    // Create a user to delete (with complete profile)
     await adminDashboard.gotoAdminRoster();
     await adminRosterPage.waitForTableLoaded();
 
@@ -171,16 +170,35 @@ test.describe("User Deletion Session Invalidation", () => {
       realName: "Session Test User",
       username,
       email,
+      djName: "Session DJ",
+      role: "dj",
     });
 
-    // Note: To complete this test, we'd need:
-    // 1. The new user to login (requires knowing temp password)
-    // 2. Admin deletes the user
-    // 3. Verify user's session is invalidated
+    await adminRosterPage.expectSuccessToast();
+    await adminPage.waitForTimeout(1000);
+
+    // New user logs in with temp password
+    await userLoginPage.goto();
+    await userPage.waitForLoadState("domcontentloaded");
+    await userLoginPage.login(username, TEMP_PASSWORD);
+
+    // User has complete profile, should go to dashboard
+    await userLoginPage.waitForRedirectToDashboard();
+    await userDashboard.expectOnDashboard();
+
+    // Admin deletes the user
+    adminRosterPage.acceptConfirmDialog();
+    await adminRosterPage.deleteUser(username);
+    await adminRosterPage.expectSuccessToast("deleted");
+    await adminPage.waitForTimeout(1000);
+
+    // User tries to access protected route - should be redirected to login
+    await userPage.goto("/dashboard/flowsheet");
+    await userDashboard.expectRedirectedToLogin();
 
     // Cleanup
-    await context1.close();
-    await context2.close();
+    await adminContext.close();
+    await userContext.close();
   });
 });
 

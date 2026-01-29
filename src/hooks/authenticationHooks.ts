@@ -47,12 +47,12 @@ export const useLogin = () => {
       })) as { error?: unknown };
 
       if (result.error) {
-        const errorMessage = result.error instanceof Error 
-          ? result.error.message 
-          : typeof result.error === 'string' 
-            ? result.error 
+        const errorMessage = result.error instanceof Error
+          ? result.error.message
+          : typeof result.error === 'string'
+            ? result.error
             : (result.error as any)?.message || 'Login failed. Please check your credentials.';
-        
+
         setError(result.error instanceof Error ? result.error : new Error(errorMessage));
         if (errorMessage.trim().length > 0) {
           toast.error(errorMessage);
@@ -60,10 +60,22 @@ export const useLogin = () => {
         handleLogout();
       } else {
         // Sign in successful, session cookie is set
-        const dashboardHome = String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog");
-        toast.success("Login successful");
-        router.push(dashboardHome);
-        router.refresh();
+        // Check if user profile is incomplete (needs onboarding)
+        const session = await authClient.getSession();
+        const user = session?.data?.user;
+
+        if (user && (!user.realName || !user.djName)) {
+          // User is incomplete, redirect to onboarding
+          toast.success("Please complete your profile");
+          router.push("/onboarding");
+          router.refresh();
+        } else {
+          // User profile is complete, go to dashboard
+          const dashboardHome = String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog");
+          toast.success("Login successful");
+          router.push(dashboardHome);
+          router.refresh();
+        }
       }
     } catch (err) {
       const errorMessage = err instanceof Error 
