@@ -185,31 +185,29 @@ test.describe("User Deletion Session Invalidation", () => {
 });
 
 test.describe("Non-Admin Deletion Restrictions", () => {
-  test("DJ cannot delete users", async ({ page }) => {
-    const loginPage = new LoginPage(page);
-    const dashboardPage = new DashboardPage(page);
+  test.describe("DJ Restrictions", () => {
+    // Use DJ auth state instead of manual login
+    test.use({ storageState: path.join(authDir, "dj.json") });
 
-    // Login as DJ
-    await loginPage.goto();
-    await loginPage.login(TEST_USERS.dj1.username, TEST_USERS.dj1.password);
-    await loginPage.waitForRedirectToDashboard();
+    test("DJ cannot delete users", async ({ page }) => {
+      const dashboardPage = new DashboardPage(page);
 
-    // DJ cannot access roster page at all
-    await dashboardPage.gotoAdminRoster();
-    await dashboardPage.expectRedirectedToDefaultDashboard();
+      // DJ cannot access roster page at all (already authenticated via storageState)
+      await dashboardPage.gotoAdminRoster();
+      await dashboardPage.expectRedirectedToDefaultDashboard();
+    });
   });
 
-  test("Music Director cannot delete users", async ({ page }) => {
-    const loginPage = new LoginPage(page);
-    const dashboardPage = new DashboardPage(page);
+  test.describe("Music Director Restrictions", () => {
+    // Use Music Director auth state instead of manual login
+    test.use({ storageState: path.join(authDir, "musicDirector.json") });
 
-    // Login as Music Director
-    await loginPage.goto();
-    await loginPage.login(TEST_USERS.musicDirector.username, TEST_USERS.musicDirector.password);
-    await loginPage.waitForRedirectToDashboard();
+    test("Music Director cannot delete users", async ({ page }) => {
+      const dashboardPage = new DashboardPage(page);
 
-    // MD cannot access roster page at all
-    await dashboardPage.gotoAdminRoster();
-    await dashboardPage.expectRedirectedToDefaultDashboard();
+      // MD cannot access roster page at all (already authenticated via storageState)
+      await dashboardPage.gotoAdminRoster();
+      await dashboardPage.expectRedirectedToDefaultDashboard();
+    });
   });
 });

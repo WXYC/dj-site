@@ -3,6 +3,8 @@ import { LoginPage } from "../../pages/login.page";
 import { DashboardPage } from "../../pages/dashboard.page";
 
 test.describe("Login Flow", () => {
+  // Login tests do manual logins and must run sequentially
+  test.describe.configure({ mode: 'serial' });
   let loginPage: LoginPage;
   let dashboardPage: DashboardPage;
 

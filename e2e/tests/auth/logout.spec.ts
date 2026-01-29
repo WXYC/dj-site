@@ -81,6 +81,9 @@ test.describe("Logout Flow", () => {
 });
 
 test.describe("Session Invalidation", () => {
+  // These tests do manual logins and must run sequentially
+  test.describe.configure({ mode: 'serial' });
+
   test("should redirect to login when session cookie is manually cleared", async ({ page, context }) => {
     const loginPage = new LoginPage(page);
     const dashboardPage = new DashboardPage(page);

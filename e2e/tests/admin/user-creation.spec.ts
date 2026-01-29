@@ -219,34 +219,34 @@ test.describe("Admin User Creation", () => {
 });
 
 test.describe("Non-Admin User Creation Restrictions", () => {
-  test("DJ cannot access roster page to create users", async ({ page }) => {
-    const loginPage = new LoginPage(page);
-    const dashboardPage = new DashboardPage(page);
+  test.describe("DJ Restrictions", () => {
+    // Use DJ auth state instead of manual login
+    test.use({ storageState: path.join(authDir, "dj.json") });
 
-    await loginPage.goto();
-    await loginPage.login(TEST_USERS.dj1.username, TEST_USERS.dj1.password);
-    await loginPage.waitForRedirectToDashboard();
+    test("DJ cannot access roster page to create users", async ({ page }) => {
+      const dashboardPage = new DashboardPage(page);
 
-    // Try to access roster
-    await dashboardPage.gotoAdminRoster();
+      // Try to access roster (already authenticated as DJ via storageState)
+      await dashboardPage.gotoAdminRoster();
 
-    // Should be redirected to default dashboard
-    await dashboardPage.expectRedirectedToDefaultDashboard();
+      // Should be redirected to default dashboard
+      await dashboardPage.expectRedirectedToDefaultDashboard();
+    });
   });
 
-  test("Music Director cannot access roster page to create users", async ({ page }) => {
-    const loginPage = new LoginPage(page);
-    const dashboardPage = new DashboardPage(page);
+  test.describe("Music Director Restrictions", () => {
+    // Use Music Director auth state instead of manual login
+    test.use({ storageState: path.join(authDir, "musicDirector.json") });
 
-    await loginPage.goto();
-    await loginPage.login(TEST_USERS.musicDirector.username, TEST_USERS.musicDirector.password);
-    await loginPage.waitForRedirectToDashboard();
+    test("Music Director cannot access roster page to create users", async ({ page }) => {
+      const dashboardPage = new DashboardPage(page);
 
-    // Try to access roster
-    await dashboardPage.gotoAdminRoster();
+      // Try to access roster (already authenticated as MD via storageState)
+      await dashboardPage.gotoAdminRoster();
 
-    // Should be redirected to default dashboard
-    await dashboardPage.expectRedirectedToDefaultDashboard();
+      // Should be redirected to default dashboard
+      await dashboardPage.expectRedirectedToDefaultDashboard();
+    });
   });
 });
 

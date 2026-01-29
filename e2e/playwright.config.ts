@@ -24,8 +24,8 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   /* Retry on CI only - reduced to avoid timeout with many failures */
   retries: process.env.CI ? 1 : 0,
-  /* Parallel workers - safe with session reuse */
-  workers: process.env.CI ? 4 : undefined,
+  /* Limit parallel workers to avoid overwhelming auth service */
+  workers: process.env.CI ? 2 : 3,
   /* Reporter to use */
   reporter: process.env.CI
     ? [

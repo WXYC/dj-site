@@ -4,6 +4,8 @@ import { DashboardPage } from "../../pages/dashboard.page";
 import { OnboardingPage } from "../../pages/onboarding.page";
 
 test.describe("New User Onboarding", () => {
+  // Onboarding tests do manual logins and must run sequentially
+  test.describe.configure({ mode: 'serial' });
   let loginPage: LoginPage;
   let onboardingPage: OnboardingPage;
   let dashboardPage: DashboardPage;
