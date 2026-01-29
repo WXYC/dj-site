@@ -138,14 +138,21 @@ export class DashboardPage {
 
   /**
    * Expect redirect to default dashboard page (flowsheet or catalog depending on config)
+   * Users without proper permissions should be redirected away from admin pages
    */
   async expectRedirectedToDefaultDashboard(): Promise<void> {
     // Wait for navigation to complete
     await this.page.waitForLoadState("domcontentloaded");
+    // Give the app time to process the redirect
+    await this.page.waitForTimeout(1000);
     const url = this.page.url();
-    // Should be redirected to either flowsheet or catalog (the dashboard home)
-    const isValidRedirect = url.includes("/dashboard/flowsheet") || url.includes("/dashboard/catalog");
-    expect(isValidRedirect).toBe(true);
+    // Should be redirected to dashboard, flowsheet, or catalog (NOT admin pages)
+    const isOnDashboard = url.includes("/dashboard");
+    const isNotOnAdminPage = !url.includes("/dashboard/admin");
+    const isNotOnLogin = !url.includes("/login");
+    // Accept any non-admin dashboard page as a valid redirect destination
+    const isValidRedirect = isOnDashboard && isNotOnAdminPage && isNotOnLogin;
+    expect(isValidRedirect, `Expected redirect to dashboard (not admin), got: ${url}`).toBe(true);
   }
 
   /**

@@ -13,7 +13,10 @@ test.describe("Admin Password Reset", () => {
   let dashboardPage: DashboardPage;
   let rosterPage: RosterPage;
 
-  const generateUsername = () => `e2e_pwreset_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  // Use existing seeded user for password reset tests
+  // Newly created users have authType: New which disables the reset button
+  // Seeded users are already "Confirmed" and have the reset button enabled
+  const targetUser = TEST_USERS.dj2;
 
   test.beforeEach(async ({ page }) => {
     dashboardPage = new DashboardPage(page);
@@ -25,18 +28,8 @@ test.describe("Admin Password Reset", () => {
   });
 
   test("should reset password for another user", async ({ page }) => {
-    // Create a user to reset password for
-    const username = generateUsername();
-    const email = `${username}@test.wxyc.org`;
-
-    await rosterPage.createAccount({
-      realName: "Password Reset Target",
-      username,
-      email,
-    });
-
-    await rosterPage.expectSuccessToast("Account created");
-    await page.waitForTimeout(1000);
+    // Use existing seeded user that is already confirmed
+    const username = targetUser.username;
 
     // Accept confirmation dialog
     rosterPage.acceptConfirmDialog();
@@ -49,17 +42,7 @@ test.describe("Admin Password Reset", () => {
   });
 
   test("should show confirmation dialog before resetting password", async ({ page }) => {
-    const username = generateUsername();
-    const email = `${username}@test.wxyc.org`;
-
-    await rosterPage.createAccount({
-      realName: "Confirm Reset Target",
-      username,
-      email,
-    });
-
-    await rosterPage.expectSuccessToast();
-    await page.waitForTimeout(1000);
+    const username = targetUser.username;
 
     let dialogShown = false;
     let dialogMessage = "";
@@ -77,17 +60,7 @@ test.describe("Admin Password Reset", () => {
   });
 
   test("should not reset password if confirmation is cancelled", async ({ page }) => {
-    const username = generateUsername();
-    const email = `${username}@test.wxyc.org`;
-
-    await rosterPage.createAccount({
-      realName: "Cancel Reset Target",
-      username,
-      email,
-    });
-
-    await rosterPage.expectSuccessToast();
-    await page.waitForTimeout(1000);
+    const username = targetUser.username;
 
     // Dismiss confirmation
     rosterPage.dismissConfirmDialog();
@@ -98,7 +71,6 @@ test.describe("Admin Password Reset", () => {
     await page.waitForTimeout(500);
 
     // Should not show success toast for password reset
-    // The success toast from account creation may still be visible
   });
 
   test("should prevent resetting own password via admin panel", async ({ page }) => {
@@ -109,17 +81,7 @@ test.describe("Admin Password Reset", () => {
   });
 
   test("should display temporary password in toast for admin to share", async ({ page }) => {
-    const username = generateUsername();
-    const email = `${username}@test.wxyc.org`;
-
-    await rosterPage.createAccount({
-      realName: "Temp Password Test",
-      username,
-      email,
-    });
-
-    await rosterPage.expectSuccessToast();
-    await page.waitForTimeout(1000);
+    const username = targetUser.username;
 
     // Accept confirmation
     rosterPage.acceptConfirmDialog();
@@ -139,18 +101,7 @@ test.describe("Admin Password Reset", () => {
   test("toast should have longer duration for password reset", async ({ page }) => {
     // This test verifies the toast stays visible longer than normal
     // so the admin has time to copy the temporary password
-
-    const username = generateUsername();
-    const email = `${username}@test.wxyc.org`;
-
-    await rosterPage.createAccount({
-      realName: "Long Toast Test",
-      username,
-      email,
-    });
-
-    await rosterPage.expectSuccessToast();
-    await page.waitForTimeout(1000);
+    const username = targetUser.username;
 
     // Accept confirmation
     rosterPage.acceptConfirmDialog();

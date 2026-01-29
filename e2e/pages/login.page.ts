@@ -30,7 +30,8 @@ export class LoginPage {
     // Login form
     this.usernameInput = page.locator('input[name="username"]');
     this.passwordInput = page.locator('input[name="password"]');
-    this.submitButton = page.locator('button[type="submit"]');
+    // Use a specific selector for the Submit button (excluding "Never mind" link which is also type="submit")
+    this.submitButton = page.locator('button[type="submit"]:has-text("Submit")');
     this.forgotPasswordLink = page.locator('button:has-text("Forgot?"), a:has-text("Forgot?")');
 
     // Password reset form
@@ -43,7 +44,8 @@ export class LoginPage {
     // Feedback - sonner toast notifications
     this.errorToast = page.locator('[data-sonner-toast][data-type="error"]');
     this.successToast = page.locator('[data-sonner-toast][data-type="success"]');
-    this.alertMessage = page.locator('[role="alert"]');
+    // MUI Joy Alert component (exclude Next.js route announcer)
+    this.alertMessage = page.locator('[role="alert"].MuiAlert-root');
   }
 
   async goto(): Promise<void> {
@@ -86,6 +88,13 @@ export class LoginPage {
     await this.newPasswordInput.fill(newPassword);
     await this.confirmPasswordInput.fill(confirmPassword);
     await this.submitButton.click();
+  }
+
+  async fillPasswordFields(newPassword: string, confirmPassword: string): Promise<void> {
+    await this.newPasswordInput.fill(newPassword);
+    await this.confirmPasswordInput.fill(confirmPassword);
+    // Wait for validation to process
+    await this.page.waitForTimeout(500);
   }
 
   async goBackToLogin(): Promise<void> {

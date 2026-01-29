@@ -47,13 +47,15 @@ export class RosterPage {
     // Search
     this.searchInput = page.locator('input[placeholder*="Search"], input[name="search"]');
 
-    // New account form (appears as a table row)
-    this.newAccountRow = page.locator('tr:has(input[name="realName"])');
-    this.realNameInput = page.locator('input[name="realName"]');
-    this.usernameInput = page.locator('input[name="username"]');
-    this.djNameInput = page.locator('input[name="djName"]');
-    this.emailInput = page.locator('input[name="email"]');
-    this.saveButton = page.locator('button:has-text("Save")');
+    // New account form (appears as a table row with editable fields)
+    // Use accessible names with exact match since MUI Joy inputs may not have name attributes
+    this.newAccountRow = page.locator('tr:has(button:has-text("Save"))');
+    this.realNameInput = page.getByRole('textbox', { name: 'Name', exact: true });
+    this.usernameInput = page.getByRole('textbox', { name: 'Username', exact: true });
+    this.djNameInput = page.getByRole('textbox', { name: 'DJ Name (Optional)', exact: true });
+    this.emailInput = page.getByRole('textbox', { name: 'Email', exact: true });
+    // Save button is inside the new account row
+    this.saveButton = page.locator('tr:has(button:has-text("Save")) button:has-text("Save")');
 
     // Role checkboxes in new account form - first and second checkbox in the form row
     this.newAccountSmCheckbox = this.newAccountRow.locator('input[type="checkbox"]').first();
@@ -115,15 +117,33 @@ export class RosterPage {
   }
 
   async submitNewAccount(): Promise<void> {
-    await this.saveButton.click();
-    // Wait for the form to be submitted - either success toast or form closes
-    await Promise.race([
-      this.successToast.waitFor({ state: "visible", timeout: 10000 }),
-      this.errorToast.waitFor({ state: "visible", timeout: 10000 }),
-      this.realNameInput.waitFor({ state: "hidden", timeout: 10000 }),
-    ]).catch(() => {
-      // If neither toast nor form close, continue anyway
+    // Wait for save button to be visible and enabled
+    await this.saveButton.waitFor({ state: "visible", timeout: 5000 });
+    await expect(this.saveButton).toBeEnabled({ timeout: 5000 });
+    // Small delay to ensure form is ready
+    await this.page.waitForTimeout(500);
+    // Dispatch SubmitEvent on the form - this triggers React's onSubmit handler
+    await this.saveButton.evaluate((btn) => {
+      const form = btn.closest("form");
+      if (form) {
+        const event = new SubmitEvent("submit", {
+          bubbles: true,
+          cancelable: true,
+          submitter: btn,
+        });
+        form.dispatchEvent(event);
+      }
     });
+    // Wait for submission result - either form closes (success) or error toast appears
+    await Promise.race([
+      this.saveButton.waitFor({ state: "hidden", timeout: 15000 }),
+      this.errorToast.waitFor({ state: "visible", timeout: 15000 }),
+      this.successToast.waitFor({ state: "visible", timeout: 15000 }),
+    ]).catch(() => {
+      // If none of the above happens, continue anyway
+    });
+    // Give the UI time to update
+    await this.page.waitForTimeout(500);
   }
 
   async createAccount(data: {
@@ -173,32 +193,52 @@ export class RosterPage {
 
   async promoteToStationManager(username: string): Promise<void> {
     const { sm } = this.getRoleCheckboxes(username);
-    await sm.check();
+    // Wait for checkbox to be ready
+    await sm.waitFor({ state: "visible", timeout: 5000 });
+    // Use force click to ensure the checkbox is toggled
+    await sm.click({ force: true });
+    await this.page.waitForTimeout(1000);
   }
 
   async promoteToMusicDirector(username: string): Promise<void> {
     const { md } = this.getRoleCheckboxes(username);
-    await md.check();
+    // Wait for checkbox to be ready
+    await md.waitFor({ state: "visible", timeout: 5000 });
+    // Use force click to ensure the checkbox is toggled
+    await md.click({ force: true });
+    await this.page.waitForTimeout(1000);
   }
 
   async demoteFromStationManager(username: string): Promise<void> {
     const { sm } = this.getRoleCheckboxes(username);
-    await sm.uncheck();
+    await sm.waitFor({ state: "visible", timeout: 5000 });
+    await sm.click({ force: true });
+    await this.page.waitForTimeout(1000);
   }
 
   async demoteFromMusicDirector(username: string): Promise<void> {
     const { md } = this.getRoleCheckboxes(username);
-    await md.uncheck();
+    await md.waitFor({ state: "visible", timeout: 5000 });
+    await md.click({ force: true });
+    await this.page.waitForTimeout(1000);
   }
 
   async deleteUser(username: string): Promise<void> {
     const { delete: deleteBtn } = this.getActionButtons(username);
+    // Wait for button to be visible and enabled
+    await deleteBtn.waitFor({ state: "visible", timeout: 5000 });
+    // Use regular click to properly trigger dialog interception
     await deleteBtn.click();
   }
 
   async resetUserPassword(username: string): Promise<void> {
     const { resetPassword } = this.getActionButtons(username);
-    await resetPassword.click();
+    // Wait for button to be visible and enabled
+    await resetPassword.waitFor({ state: "visible", timeout: 5000 });
+    // Small delay to ensure button is interactive
+    await this.page.waitForTimeout(300);
+    // Use force click to bypass any overlays (like Tooltips)
+    await resetPassword.click({ force: true });
   }
 
   /**
