@@ -85,15 +85,26 @@ export default function RosterTable({ user }: { user: User }) {
         }
 
         const newAccount: NewAccountParams = {
-          realName: formData.get("realName") as string,
-          username: formData.get("username") as string,
+          realName: (formData.get("realName") as string)?.trim() || "",
+          username: (formData.get("username") as string)?.trim() || "",
           djName: formData.get("djName")
-            ? (formData.get("djName") as string)
+            ? (formData.get("djName") as string).trim()
             : "Anonymous",
-          email: formData.get("email") as string,
+          email: (formData.get("email") as string)?.trim() || "",
           temporaryPassword: tempPassword,
           authorization: authorizationOfNewAccount,
         };
+
+        // Validate required fields
+        if (!newAccount.realName) {
+          throw new Error("Name is required");
+        }
+        if (!newAccount.username) {
+          throw new Error("Username is required");
+        }
+        if (!newAccount.email) {
+          throw new Error("Email is required");
+        }
 
         // Map Authorization enum to better-auth role
         let role: WXYCRole = "member";
