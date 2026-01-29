@@ -85,7 +85,8 @@ setup("authenticate as music director", async ({ page }) => {
 });
 
 /**
- * Setup authentication state for DJ
+ * Setup authentication state for DJ (dj1)
+ * Used by tests that don't invalidate the session (logout tests use this)
  */
 setup("authenticate as dj", async ({ page }) => {
   await performLogin(
@@ -93,6 +94,19 @@ setup("authenticate as dj", async ({ page }) => {
     TEST_USERS.dj1.username,
     TEST_USERS.dj1.password,
     `${authDir}/dj.json`
+  );
+});
+
+/**
+ * Setup authentication state for DJ2
+ * Used by RBAC tests to avoid conflicts with logout tests that use dj1
+ */
+setup("authenticate as dj2", async ({ page }) => {
+  await performLogin(
+    page,
+    TEST_USERS.dj2.username,
+    TEST_USERS.dj2.password,
+    `${authDir}/dj2.json`
   );
 });
 

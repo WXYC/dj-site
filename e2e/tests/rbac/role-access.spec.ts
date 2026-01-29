@@ -8,7 +8,8 @@ test.describe("Role-Based Access Control", () => {
   let dashboardPage: DashboardPage;
 
   test.describe("DJ Access", () => {
-    test.use({ storageState: path.join(authDir, "dj.json") });
+    // Use dj2.json to avoid conflicts with logout tests that use dj1
+    test.use({ storageState: path.join(authDir, "dj2.json") });
 
     test.beforeEach(async ({ page }) => {
       dashboardPage = new DashboardPage(page);
