@@ -57,16 +57,22 @@ export class DashboardPage {
   async gotoFlowsheet(): Promise<void> {
     await this.page.goto("/dashboard/flowsheet");
     await this.page.waitForLoadState("domcontentloaded");
+    // Wait for Suspense content to load
+    await this.page.waitForTimeout(500);
   }
 
   async gotoCatalog(): Promise<void> {
     await this.page.goto("/dashboard/catalog");
     await this.page.waitForLoadState("domcontentloaded");
+    // Wait for Suspense content to load
+    await this.page.waitForTimeout(500);
   }
 
   async gotoAdminRoster(): Promise<void> {
     await this.page.goto("/dashboard/admin/roster");
     await this.page.waitForLoadState("domcontentloaded");
+    // Wait for Suspense content to load
+    await this.page.waitForTimeout(500);
   }
 
   async navigateToFlowsheet(): Promise<void> {
@@ -160,6 +166,7 @@ export class DashboardPage {
    */
   async waitForPageLoad(): Promise<void> {
     await this.page.waitForLoadState("domcontentloaded");
+    await this.page.waitForTimeout(500);
   }
 
   async expectPageHeader(text: string): Promise<void> {

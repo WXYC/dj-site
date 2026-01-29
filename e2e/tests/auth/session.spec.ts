@@ -26,8 +26,7 @@ test.describe("Session Persistence", () => {
     await dashboardPage.expectOnDashboard();
   });
 
-  // Skip: Intermittent timeout when navigating to flowsheet
-  test.skip("should maintain session when navigating between pages", async ({ page }) => {
+  test("should maintain session when navigating between pages", async ({ page }) => {
     // Login
     await loginPage.goto();
     await loginPage.login(TEST_USERS.dj1.username, TEST_USERS.dj1.password);
@@ -162,8 +161,7 @@ test.describe("Session Cookies", () => {
 });
 
 test.describe("Concurrent Sessions", () => {
-  // Skip: Intermittent timeout during page reload
-  test.skip("should allow login from two different browser contexts", async ({ browser }) => {
+  test("should allow login from two different browser contexts", async ({ browser }) => {
     // Create two separate browser contexts (like two different browsers/incognito)
     const context1 = await browser.newContext();
     const context2 = await browser.newContext();
