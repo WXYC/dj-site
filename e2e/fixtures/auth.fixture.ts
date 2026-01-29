@@ -53,7 +53,7 @@ export const TEST_USERS = {
   },
   incomplete: {
     username: "test_incomplete",
-    password: "testpassword123",
+    password: "temppass123", // Uses temp password for onboarding flow
     email: "test_incomplete@wxyc.org",
     role: "dj",
     realName: "", // Missing required field
@@ -99,6 +99,15 @@ export const TEST_USERS = {
     role: "dj",
     realName: "Test Reset 2",
     djName: "Reset DJ 2",
+  },
+  // Dedicated user for admin-initiated password reset tests
+  adminReset1: {
+    username: "test_adminreset1",
+    password: "testpassword123",
+    email: "test_adminreset1@wxyc.org",
+    role: "dj",
+    realName: "Test AdminReset 1",
+    djName: "AdminReset DJ",
   },
 } as const;
 

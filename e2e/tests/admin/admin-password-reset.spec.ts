@@ -13,10 +13,10 @@ test.describe("Admin Password Reset", () => {
   let dashboardPage: DashboardPage;
   let rosterPage: RosterPage;
 
-  // Use existing seeded user for password reset tests
-  // Newly created users have authType: New which disables the reset button
+  // Use dedicated seeded user for admin password reset tests
+  // Using adminReset1 to avoid conflicts with other tests that use dj2
   // Seeded users are already "Confirmed" and have the reset button enabled
-  const targetUser = TEST_USERS.dj2;
+  const targetUser = TEST_USERS.adminReset1;
 
   test.beforeEach(async ({ page }) => {
     dashboardPage = new DashboardPage(page);
@@ -124,13 +124,15 @@ test.describe("Admin Password Reset", () => {
 test.describe("Password Reset - User Can Login After Reset", () => {
   test.use({ storageState: path.join(authDir, "stationManager.json") });
 
-  // TODO: Requires frontend rebuild - AccountEntry.tsx now uses TEMP_PASSWORD instead of random
+  // Skip: Better Auth admin.updateUser may not properly handle password updates.
+  // The API call succeeds but login with the new password fails.
+  // Needs investigation into correct Better Auth admin API for password reset.
   test.skip("user should be able to login with temporary password after admin reset", async ({ page, browser }) => {
     const dashboardPage = new DashboardPage(page);
     const rosterPage = new RosterPage(page);
 
-    // Use existing seeded user that is confirmed and has complete profile
-    const targetUser = TEST_USERS.dj2;
+    // Use dedicated seeded user that is confirmed and has complete profile
+    const targetUser = TEST_USERS.adminReset1;
     const username = targetUser.username;
 
     // Navigate to roster
@@ -206,7 +208,8 @@ test.describe("Non-Admin Password Reset Restrictions", () => {
 test.describe("Password Reset for Different User States", () => {
   test.use({ storageState: path.join(authDir, "stationManager.json") });
 
-  // TODO: Requires frontend rebuild - AccountEntry.tsx now uses TEMP_PASSWORD instead of random
+  // Skip: Better Auth admin.updateUser may not properly handle password updates.
+  // See "user should be able to login with temporary password after admin reset" skip comment.
   test.skip("should be able to reset password for unconfirmed user", async ({ page, browser }) => {
     const dashboardPage = new DashboardPage(page);
     const rosterPage = new RosterPage(page);

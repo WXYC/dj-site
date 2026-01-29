@@ -305,8 +305,9 @@ test.describe("Role Change Persistence", () => {
   // Run this test serially to avoid conflicts with parallel tests
   test.describe.configure({ mode: 'serial' });
 
-  // TODO: Fix role change persistence - checkbox shows unchecked even BEFORE page refresh
-  // Debug findings: Dialog shown but checkbox doesn't toggle, indicating API or state update issue
+  // Skip: Checkbox doesn't visually toggle after API call succeeds.
+  // The dialog appears and API returns success, but the checkbox state doesn't update.
+  // This may be a frontend state management or React re-render issue.
   test.skip("role change should persist after page refresh", async ({ page }) => {
     const loginPage = new LoginPage(page);
     const dashboardPage = new DashboardPage(page);

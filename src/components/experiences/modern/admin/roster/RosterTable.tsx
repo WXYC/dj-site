@@ -108,6 +108,7 @@ export default function RosterTable({ user }: { user: User }) {
         const adminRole = role as unknown as "user" | "admin" | ("user" | "admin")[];
 
         // Create user via better-auth admin API
+        // Email will be auto-verified by the backend since admin is a trusted source
         const result = await authClient.admin.createUser({
           name: newAccount.realName || newAccount.username,
           email: newAccount.email,
