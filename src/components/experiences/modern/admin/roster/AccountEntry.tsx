@@ -169,9 +169,8 @@ export const AccountEntry = ({
                     if (errorMessage.trim().length > 0) {
                       toast.error(errorMessage);
                     }
-                  } finally {
-                    setIsPromoting(false);
                   }
+                  setIsPromoting(false);
                 }
               } else {
                 if (
@@ -199,9 +198,8 @@ export const AccountEntry = ({
                     if (errorMessage.trim().length > 0) {
                       toast.error(errorMessage);
                     }
-                  } finally {
-                    setIsPromoting(false);
                   }
+                  setIsPromoting(false);
                 }
               }
             }}
@@ -245,9 +243,8 @@ export const AccountEntry = ({
                     if (errorMessage.trim().length > 0) {
                       toast.error(errorMessage);
                     }
-                  } finally {
-                    setIsPromoting(false);
                   }
+                  setIsPromoting(false);
                 }
               } else {
                 if (
@@ -275,9 +272,8 @@ export const AccountEntry = ({
                     if (errorMessage.trim().length > 0) {
                       toast.error(errorMessage);
                     }
-                  } finally {
-                    setIsPromoting(false);
                   }
+                  setIsPromoting(false);
                 }
               }
             }}

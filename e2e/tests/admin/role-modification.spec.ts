@@ -305,10 +305,7 @@ test.describe("Role Change Persistence", () => {
   // Run this test serially to avoid conflicts with parallel tests
   test.describe.configure({ mode: 'serial' });
 
-  // Skip: Checkbox doesn't visually toggle after API call succeeds.
-  // The dialog appears and API returns success, but the checkbox state doesn't update.
-  // This may be a frontend state management or React re-render issue.
-  test.skip("role change should persist after page refresh", async ({ page }) => {
+  test("role change should persist after page refresh", async ({ page }) => {
     const loginPage = new LoginPage(page);
     const dashboardPage = new DashboardPage(page);
     const rosterPage = new RosterPage(page);
@@ -320,79 +317,44 @@ test.describe("Role Change Persistence", () => {
     await dashboardPage.gotoAdminRoster();
     await rosterPage.waitForTableLoaded();
 
-    // Create a DJ user
-    const username = `persist_${Date.now()}`;
-    const email = `${username}@test.wxyc.org`;
-
-    await rosterPage.createAccount({
-      realName: "Persist Test",
-      username,
-      email,
-      role: "dj",
-    });
-
-    await rosterPage.expectSuccessToast();
-    await page.waitForTimeout(1500); // Give more time for user creation to complete
+    // Use existing seeded user who is already an organization member
+    const username = TEST_USERS.dj1.username;
 
     // Verify user row exists and checkbox is visible
     await rosterPage.expectUserInRoster(username);
     const { md } = rosterPage.getRoleCheckboxes(username);
     await expect(md).toBeVisible({ timeout: 5000 });
 
-    // Promote to MD - wait for the checkbox to be interactable
-    await md.waitFor({ state: "visible", timeout: 5000 });
-
-    // Monitor console for errors
-    const consoleErrors: string[] = [];
-    page.on("console", (msg) => {
-      if (msg.type() === "error") {
-        consoleErrors.push(msg.text());
-      }
-    });
-
-    // Set up dialog handler and track if dialog was shown
-    let dialogShown = false;
-    page.once("dialog", async (dialog) => {
-      dialogShown = true;
-      console.log(`Dialog shown: ${dialog.message()}`);
-      await dialog.accept();
-    });
-
-    // Click the checkbox
-    await rosterPage.promoteToMusicDirector(username);
-
-    // Wait for API call to complete
-    await page.waitForTimeout(3000);
-    console.log(`Dialog was shown: ${dialogShown}`);
-    console.log(`Console errors: ${JSON.stringify(consoleErrors)}`);
-
-    // Check for any toast (success or error)
-    const anyToast = page.locator('[data-sonner-toast]');
-    const toastCount = await anyToast.count();
-    console.log(`Toast count: ${toastCount}`);
-    if (toastCount > 0) {
-      const toastText = await anyToast.first().textContent();
-      console.log(`Toast text: ${toastText}`);
+    // First ensure the user is a DJ (not MD) - demote if needed
+    if (await md.isChecked()) {
+      rosterPage.acceptConfirmDialog();
+      await rosterPage.demoteFromMusicDirector(username);
+      await page.waitForTimeout(1500);
+      // Dismiss any toasts
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(500);
     }
 
-    // Also check if checkbox is now checked (before refresh)
-    const isCheckedBeforeRefresh = await md.isChecked();
-    console.log(`MD checkbox checked before refresh: ${isCheckedBeforeRefresh}`);
+    // Promote to MD
+    rosterPage.acceptConfirmDialog();
+    await rosterPage.promoteToMusicDirector(username);
 
-    // Wait for success toast to appear and give time for API to complete
+    // Wait for success toast
     await rosterPage.expectSuccessToast("Music Director");
-    await page.waitForTimeout(2000); // Extra time for database to commit
+    await page.waitForTimeout(1500);
 
     // Refresh the page
     await page.reload();
     await rosterPage.waitForTableLoaded();
 
-    // Give time for data to load
-    await page.waitForTimeout(1000);
-
-    // Verify MD checkbox is still checked
+    // Verify MD checkbox is still checked after refresh
     const updatedCheckboxes = rosterPage.getRoleCheckboxes(username);
     await expect(updatedCheckboxes.md).toBeChecked({ timeout: 10000 });
+
+    // Clean up: demote back to DJ
+    rosterPage.acceptConfirmDialog();
+    await rosterPage.demoteFromMusicDirector(username);
+    await page.waitForTimeout(1000);
   });
 
 });
