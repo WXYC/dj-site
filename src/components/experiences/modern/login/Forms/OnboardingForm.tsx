@@ -1,11 +1,7 @@
 "use client";
 
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
-import {
-  djAttributeTitles,
-  IncompleteUser,
-  VerifiedData,
-} from "@/lib/features/authentication/types";
+import { VerifiedData } from "@/lib/features/authentication/types";
 import { useAppDispatch } from "@/lib/hooks";
 import { useNewUser } from "@/src/hooks/authenticationHooks";
 import { Typography } from "@mui/joy";
@@ -13,20 +9,33 @@ import { useEffect, useState } from "react";
 import RequiredBox from "./Fields/RequiredBox";
 import { ValidatedSubmitButton } from "./Fields/ValidatedSubmitButton";
 
-export default function NewUserForm({
-  username,
-  requiredAttributes,
-}: IncompleteUser) {
-  const [newPassword, setNewPassword] = useState("");
+type OnboardingFormProps = {
+  username: string;
+  realName?: string;
+  djName?: string;
+};
 
+export default function OnboardingForm({
+  username,
+  realName,
+  djName,
+}: OnboardingFormProps) {
+  const [newPassword, setNewPassword] = useState("");
   const { handleNewUser, verified, authenticating, addRequiredCredentials } =
     useNewUser();
 
-  useEffect(() => {
-    addRequiredCredentials(requiredAttributes as (keyof VerifiedData)[]);
-  }, [requiredAttributes]);
-
   const dispatch = useAppDispatch();
+
+  useEffect(() => {
+    addRequiredCredentials([
+      "username",
+      "realName",
+      "djName",
+      "password",
+      "confirmPassword",
+    ]);
+  }, [addRequiredCredentials]);
+
   useEffect(() => {
     dispatch(
       authenticationSlice.actions.verify({
@@ -39,16 +48,20 @@ export default function NewUserForm({
   return (
     <form onSubmit={handleNewUser} method="put">
       <input type="hidden" name="username" value={username} />
-      {requiredAttributes.map((attribute: keyof VerifiedData) => (
-        <RequiredBox
-          key={attribute}
-          name={attribute}
-          title={djAttributeTitles[attribute] || String(attribute)}
-          placeholder={djAttributeTitles[attribute] || String(attribute)}
-          type="text"
-          disabled={authenticating}
-        />
-      ))}
+      <RequiredBox
+        name="realName"
+        title="Real Name"
+        placeholder="Real Name"
+        disabled={authenticating}
+        initialValue={realName}
+      />
+      <RequiredBox
+        name="djName"
+        title="DJ Name"
+        placeholder="DJ Name"
+        disabled={authenticating}
+        initialValue={djName}
+      />
       <RequiredBox
         name="password"
         title="New Password"
