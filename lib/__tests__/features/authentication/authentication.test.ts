@@ -7,7 +7,7 @@ import { describeSlice } from "@/lib/test-utils";
 
 describeSlice(authenticationSlice, defaultAuthenticationState, ({ harness, actions }) => {
   describe("verify action", () => {
-    it.each(["username", "password", "realName", "djName", "confirmPassword", "code"] as const)(
+    it.each(["username", "password", "realName", "djName", "confirmPassword", "code", "currentPassword"] as const)(
       "should set %s verification to true",
       (key) => {
         const result = harness().reduce(actions.verify({ key, value: true }));
@@ -232,6 +232,7 @@ describeSlice(authenticationSlice, defaultAuthenticationState, ({ harness, actio
         realName: false,
         djName: false,
         password: false,
+        currentPassword: false,
         confirmPassword: false,
         code: false,
       });

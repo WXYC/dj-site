@@ -138,7 +138,7 @@ export function createTestAuthenticatedUser(
   return {
     user: createTestUser(overrides.user),
     accessToken: "test-access-token-12345",
-    idToken: "test-id-token-12345",
+    token: "test-token-12345",
     ...overrides,
   };
 }
@@ -229,6 +229,7 @@ export function createTestVerificationState(
     djName: false,
     password: false,
     confirmPassword: false,
+    currentPassword: false,
     code: false,
     ...overrides,
   };
@@ -255,14 +256,82 @@ export function createTestAuthenticationState(
   };
 }
 
-// JWT payload fixture for testing toUser
-export function createTestJWTPayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+// Better Auth session fixtures
+import type { BetterAuthSession } from "@/lib/features/authentication/utilities";
+import type { BetterAuthJwtPayload, WXYCRole } from "@/lib/features/authentication/types";
+
+export function createTestBetterAuthSession(
+  overrides: Partial<BetterAuthSession> = {}
+): BetterAuthSession {
   return {
-    "cognito:username": "testdj",
+    user: {
+      id: "test-user-id-123",
+      email: "testdj@wxyc.org",
+      name: "testdj",
+      username: "testdj",
+      emailVerified: true,
+      realName: "Test User",
+      djName: "DJ Test",
+      role: "dj",
+      createdAt: new Date("2024-01-01"),
+      updatedAt: new Date("2024-01-01"),
+      ...overrides.user,
+    },
+    session: {
+      id: "test-session-id",
+      userId: "test-user-id-123",
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      token: "test-session-token",
+      ...overrides.session,
+    },
+  };
+}
+
+export function createTestIncompleteSession(
+  missingFields: ("realName" | "djName")[] = ["realName", "djName"]
+): BetterAuthSession {
+  const session = createTestBetterAuthSession();
+
+  if (missingFields.includes("realName")) {
+    session.user.realName = undefined;
+  }
+  if (missingFields.includes("djName")) {
+    session.user.djName = undefined;
+  }
+
+  return session;
+}
+
+export function createTestSessionWithOrgRole(role: WXYCRole): BetterAuthSession {
+  return createTestBetterAuthSession({
+    user: {
+      id: "test-user-id-123",
+      email: "testdj@wxyc.org",
+      name: "testdj",
+      username: "testdj",
+      emailVerified: true,
+      realName: "Test User",
+      djName: "DJ Test",
+      role: "user", // Base user role
+      organization: {
+        id: "org-123",
+        name: "WXYC",
+        role: role,
+      },
+    },
+  });
+}
+
+export function createTestBetterAuthJWTPayload(
+  overrides: Partial<BetterAuthJwtPayload> = {}
+): BetterAuthJwtPayload {
+  return {
+    sub: "test-user-id-123",
+    id: "test-user-id-123",
     email: "testdj@wxyc.org",
-    name: "Test User",
-    "custom:dj-name": "DJ Test",
-    "cognito:groups": [],
+    role: "dj",
+    exp: Math.floor(Date.now() / 1000) + 3600,
+    iat: Math.floor(Date.now() / 1000),
     ...overrides,
   };
 }
@@ -291,24 +360,6 @@ export function createTestAccountFormData(
   };
 }
 
-// AWS user type fixture for conversion testing
-export function createTestAWSUser(
-  overrides: {
-    Username?: string;
-    UserStatus?: "CONFIRMED" | "FORCE_CHANGE_PASSWORD" | "RESET_REQUIRED";
-    Attributes?: Array<{ Name: string; Value: string }>;
-  } = {}
-) {
-  return {
-    Username: overrides.Username ?? "testuser",
-    UserStatus: overrides.UserStatus ?? "CONFIRMED",
-    Attributes: overrides.Attributes ?? [
-      { Name: "name", Value: "Test User" },
-      { Name: "custom:dj-name", Value: "DJ Test" },
-      { Name: "email", Value: "test@wxyc.org" },
-    ],
-  };
-}
 
 // Bin fixtures
 export function createTestBinQueryResponse(
@@ -330,10 +381,10 @@ export function createTestBinQueryResponse(
 
 // On-air DJ fixtures
 export function createTestOnAirDJResponse(
-  overrides: { id?: number; dj_name?: string } = {}
+  overrides: { id?: string; dj_name?: string } = {}
 ) {
   return {
-    id: overrides.id ?? 1,
+    id: overrides.id ?? "1",
     dj_name: overrides.dj_name ?? "Test DJ",
   };
 }

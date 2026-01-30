@@ -24,12 +24,75 @@ The revised catalog leverages services defined in `api-service.js`, which utiliz
 - Github Pages: For hosting the frontend and automating publication.
 - Axios: A JavaScript library used for making HTTP requests to the AWS API Gateway.
 
+## Local Development Prerequisites
+
+The frontend requires the WXYC Backend-Service to be running locally for full functionality. Without the backend:
+- Authentication will not work
+- API calls (flowsheet, library, etc.) will fail
+- Most features will be unavailable
+
+**Option 1: Manual Setup**
+1. Clone and start [Backend-Service](https://github.com/WXYC/Backend-Service) following its Quick Start guide
+2. Ensure both backend (:8080) and auth (:8082) services are running
+3. Continue with frontend setup below
+
+**Option 2: Automated Setup**
+Use the setup script from [wxyc-shared](https://github.com/WXYC/wxyc-shared) to automatically configure the entire stack.
+
 ## Installation and Setup
 1. Clone the repository: `git clone https://github.com/WXYC/dj-site.git`
 2. Navigate to the project directory: `cd dj-site`
 3. Install dependencies: `npm install`
-4. Run the application: `npm run dev`
-5. Access the application locally: Open your web browser and visit `http://localhost:3000`
+4. Create `.env.local` with required environment variables (see below)
+5. Run the application: `npm run dev`
+6. Access the application locally: Open your web browser and visit `http://localhost:3000`
+
+## Environment Variables
+
+Create a `.env.local` file in the project root with the following variables:
+
+```bash
+# Backend API URL (required)
+NEXT_PUBLIC_BACKEND_URL=http://localhost:8080
+
+# Better Auth service URL (required for authentication)
+NEXT_PUBLIC_BETTER_AUTH_URL=http://localhost:8082/auth
+
+# Default page after login
+NEXT_PUBLIC_DASHBOARD_HOME_PAGE=/dashboard/flowsheet
+
+# UI Experience settings
+NEXT_PUBLIC_DEFAULT_EXPERIENCE=modern
+NEXT_PUBLIC_ENABLED_EXPERIENCES=modern,classic
+NEXT_PUBLIC_ALLOW_EXPERIENCE_SWITCHING=true
+```
+
+### Environment Variable Reference
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `NEXT_PUBLIC_BACKEND_URL` | Yes | Backend API base URL |
+| `NEXT_PUBLIC_BETTER_AUTH_URL` | Yes | Auth service URL (must end with `/auth`) |
+| `NEXT_PUBLIC_DASHBOARD_HOME_PAGE` | No | Redirect path after login |
+| `NEXT_PUBLIC_DEFAULT_EXPERIENCE` | No | Default UI theme (`modern` or `classic`) |
+| `NEXT_PUBLIC_ENABLED_EXPERIENCES` | No | Comma-separated list of available themes |
+| `NEXT_PUBLIC_ALLOW_EXPERIENCE_SWITCHING` | No | Enable theme switching in UI |
+
+## Authentication Flow
+
+The application uses [Better Auth](https://www.better-auth.com/) for authentication, running as a separate service within Backend-Service.
+
+**How it works:**
+1. User submits credentials on the login page
+2. Frontend sends request to Better Auth service (`NEXT_PUBLIC_BETTER_AUTH_URL`)
+3. Better Auth validates credentials against the PostgreSQL database
+4. On success, Better Auth returns a JWT token stored in an HTTP-only cookie
+5. Subsequent API requests include the token automatically
+6. Backend validates tokens via JWKS endpoint
+
+**Test credentials** (local development):
+- Username: `test_member`, `test_dj1`, `test_dj2`, `test_music_director`, or `test_station_manager`
+- Password: `testpassword123`
 
 ## Testing
 
