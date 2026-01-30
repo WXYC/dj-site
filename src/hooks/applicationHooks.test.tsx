@@ -7,6 +7,7 @@ import {
   useWindowSize,
   usePublicRoutes,
   useShiftKey,
+  useAlbumImages,
   resetApplication,
 } from "./applicationHooks";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
@@ -192,6 +193,130 @@ describe("applicationHooks", () => {
       });
 
       expect(result.current).toBe(false);
+    });
+  });
+
+  describe("useAlbumImages", () => {
+    beforeEach(async () => {
+      // Reset all artwork mocks to return null by default
+      const discogs = await import("./artwork/discogs-image");
+      const itunes = await import("./artwork/itunes-image");
+      const lastfm = await import("./artwork/last-fm-image");
+      vi.mocked(discogs.default).mockResolvedValue(null);
+      vi.mocked(itunes.default).mockResolvedValue(null);
+      vi.mocked(lastfm.default).mockResolvedValue(null);
+    });
+
+    it("should return default URL initially", () => {
+      const { result } = renderHook(() => useAlbumImages());
+
+      expect(result.current.url).toBe("/img/cassette.png");
+      expect(result.current.loading).toBe(false);
+    });
+
+    it("should return setAlbum and setArtist functions", () => {
+      const { result } = renderHook(() => useAlbumImages());
+
+      expect(typeof result.current.setAlbum).toBe("function");
+      expect(typeof result.current.setArtist).toBe("function");
+    });
+
+    it("should return default URL when album is not set", async () => {
+      const { result } = renderHook(() => useAlbumImages());
+
+      await act(async () => {
+        result.current.setArtist("Test Artist");
+      });
+
+      await waitFor(() => {
+        expect(result.current.url).toBe("/img/cassette.png");
+      });
+    });
+
+    it("should return default URL when artist is not set", async () => {
+      const { result } = renderHook(() => useAlbumImages());
+
+      await act(async () => {
+        result.current.setAlbum("Test Album");
+      });
+
+      await waitFor(() => {
+        expect(result.current.url).toBe("/img/cassette.png");
+      });
+    });
+
+    it("should fetch artwork when both album and artist are set", async () => {
+      const discogs = await import("./artwork/discogs-image");
+      vi.mocked(discogs.default).mockResolvedValue("https://example.com/artwork.jpg");
+
+      const { result } = renderHook(() => useAlbumImages());
+
+      await act(async () => {
+        result.current.setAlbum("Test Album");
+        result.current.setArtist("Test Artist");
+      });
+
+      await waitFor(() => {
+        expect(result.current.url).toBe("https://example.com/artwork.jpg");
+      });
+    });
+
+    it("should try second source when first returns null", async () => {
+      const discogs = await import("./artwork/discogs-image");
+      const itunes = await import("./artwork/itunes-image");
+      vi.mocked(discogs.default).mockResolvedValue(null);
+      vi.mocked(itunes.default).mockResolvedValue("https://itunes.com/artwork.jpg");
+
+      const { result } = renderHook(() => useAlbumImages());
+
+      await act(async () => {
+        result.current.setAlbum("Test Album");
+        result.current.setArtist("Test Artist");
+      });
+
+      await waitFor(() => {
+        // May return itunes or lastfm result depending on random order
+        expect(result.current.url).not.toBe("/img/cassette.png");
+      }, { timeout: 2000 });
+    });
+
+    it("should return default URL when all sources fail", async () => {
+      const discogs = await import("./artwork/discogs-image");
+      const itunes = await import("./artwork/itunes-image");
+      const lastfm = await import("./artwork/last-fm-image");
+      vi.mocked(discogs.default).mockResolvedValue(null);
+      vi.mocked(itunes.default).mockResolvedValue(null);
+      vi.mocked(lastfm.default).mockResolvedValue(null);
+
+      const { result } = renderHook(() => useAlbumImages());
+
+      await act(async () => {
+        result.current.setAlbum("Unknown Album");
+        result.current.setArtist("Unknown Artist");
+      });
+
+      await waitFor(() => {
+        expect(result.current.url).toBe("/img/cassette.png");
+      });
+    });
+
+    it("should call artwork functions with correct parameters", async () => {
+      const discogs = await import("./artwork/discogs-image");
+      vi.mocked(discogs.default).mockResolvedValue("https://example.com/artwork.jpg");
+
+      const { result } = renderHook(() => useAlbumImages());
+
+      await act(async () => {
+        result.current.setAlbum("My Album");
+        result.current.setArtist("My Artist");
+      });
+
+      await waitFor(() => {
+        expect(vi.mocked(discogs.default)).toHaveBeenCalledWith({
+          title: "My Album",
+          artist: "My Artist",
+        });
+      });
     });
   });
 

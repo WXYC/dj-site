@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, act, waitFor } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { configureStore } from "@reduxjs/toolkit";
 import { useDJAccount } from "./djHooks";
@@ -119,7 +119,6 @@ describe("djHooks", () => {
         currentTarget: mockForm,
       } as unknown as React.FormEvent<HTMLFormElement>;
 
-      // Mock FormData constructor to return our formData
       const originalFormData = global.FormData;
       global.FormData = vi.fn(() => formData) as any;
 
@@ -148,10 +147,9 @@ describe("djHooks", () => {
       });
 
       expect(mockEvent.preventDefault).toHaveBeenCalled();
-      // No toast should be shown since no modifications
     });
 
-    it("should set loading during save operation", async () => {
+    it("should set loading state to false after save completes", async () => {
       const store = configureStore({
         reducer: {
           authentication: authenticationSlice.reducer,
@@ -182,14 +180,12 @@ describe("djHooks", () => {
       const originalFormData = global.FormData;
       global.FormData = vi.fn(() => formData) as any;
 
-      // Just verify the operation completes without throwing
       await act(async () => {
         await result.current.handleSaveData(mockEvent);
       });
 
       global.FormData = originalFormData;
 
-      // After save, loading should be false
       expect(result.current.loading).toBe(false);
     });
   });

@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { LinkButton, LinkIconButton } from "./LinkButton";
 
 // Mock next/navigation
@@ -8,102 +7,93 @@ const mockPush = vi.fn();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: mockPush,
-    refresh: vi.fn(),
   }),
 }));
 
-describe("LinkButton", () => {
+describe("LinkButton components", () => {
   beforeEach(() => {
-    mockPush.mockClear();
+    vi.clearAllMocks();
   });
 
-  it("should render with children", () => {
-    render(<LinkButton href="/test">Click me</LinkButton>);
-    expect(screen.getByText("Click me")).toBeInTheDocument();
+  describe("LinkButton", () => {
+    it("should render children text", () => {
+      render(<LinkButton href="/test">Click me</LinkButton>);
+      expect(screen.getByText("Click me")).toBeInTheDocument();
+    });
+
+    it("should render as anchor for external URLs", () => {
+      render(<LinkButton href="https://example.com">External</LinkButton>);
+      const button = screen.getByRole("link");
+      expect(button).toHaveAttribute("href", "https://example.com");
+    });
+
+    it("should render as anchor for http URLs", () => {
+      render(<LinkButton href="http://example.com">HTTP Link</LinkButton>);
+      const button = screen.getByRole("link");
+      expect(button).toHaveAttribute("href", "http://example.com");
+    });
+
+    it("should render with target attribute for external URLs", () => {
+      render(
+        <LinkButton href="https://example.com" target="_blank">
+          External
+        </LinkButton>
+      );
+      const button = screen.getByRole("link");
+      expect(button).toHaveAttribute("target", "_blank");
+    });
+
+    it("should call router.push for internal URLs", () => {
+      render(<LinkButton href="/dashboard">Dashboard</LinkButton>);
+      const button = screen.getByRole("button");
+
+      fireEvent.click(button);
+
+      expect(mockPush).toHaveBeenCalledWith("/dashboard");
+    });
+
+    it("should pass additional props to button", () => {
+      render(
+        <LinkButton href="/test" data-testid="link-button">
+          Test
+        </LinkButton>
+      );
+      expect(screen.getByTestId("link-button")).toBeInTheDocument();
+    });
   });
 
-  it("should render as a button for internal links", () => {
-    render(<LinkButton href="/dashboard">Go to Dashboard</LinkButton>);
-    const button = screen.getByRole("button");
-    expect(button).toBeInTheDocument();
+  describe("LinkIconButton", () => {
+    it("should render children", () => {
+      render(<LinkIconButton href="/test">Icon</LinkIconButton>);
+      expect(screen.getByText("Icon")).toBeInTheDocument();
+    });
+
+    it("should render as anchor for external URLs", () => {
+      render(<LinkIconButton href="https://example.com">Icon</LinkIconButton>);
+      const button = screen.getByRole("link");
+      expect(button).toHaveAttribute("href", "https://example.com");
+    });
+
+    it("should render with target attribute for external URLs", () => {
+      render(
+        <LinkIconButton href="https://example.com" target="_blank">
+          Icon
+        </LinkIconButton>
+      );
+      const button = screen.getByRole("link");
+      expect(button).toHaveAttribute("target", "_blank");
+    });
+
+    it("should call router.push for internal URLs", () => {
+      render(<LinkIconButton href="/settings">Settings Icon</LinkIconButton>);
+      const button = screen.getByRole("button");
+
+      fireEvent.click(button);
+
+      expect(mockPush).toHaveBeenCalledWith("/settings");
+    });
   });
 
-  it("should render as an anchor for external links", () => {
-    render(<LinkButton href="https://example.com">External</LinkButton>);
-    const link = screen.getByRole("link");
-    expect(link).toHaveAttribute("href", "https://example.com");
-  });
-
-  it("should navigate using router.push for internal links", async () => {
-    const user = userEvent.setup();
-    render(<LinkButton href="/dashboard">Navigate</LinkButton>);
-
-    const button = screen.getByRole("button");
-    await user.click(button);
-
-    expect(mockPush).toHaveBeenCalledWith("/dashboard");
-  });
-
-  it("should support variant prop", () => {
-    render(
-      <LinkButton href="/test" variant="outlined">
-        Outlined Button
-      </LinkButton>
-    );
-    expect(screen.getByText("Outlined Button")).toBeInTheDocument();
-  });
-
-  it("should support color prop", () => {
-    render(
-      <LinkButton href="/test" color="primary">
-        Primary Button
-      </LinkButton>
-    );
-    expect(screen.getByText("Primary Button")).toBeInTheDocument();
-  });
-
-  it("should support target prop for external links", () => {
-    render(
-      <LinkButton href="https://example.com" target="_blank">
-        Open in new tab
-      </LinkButton>
-    );
-    const link = screen.getByRole("link");
-    expect(link).toHaveAttribute("target", "_blank");
-  });
+  // Note: MenuLinkItem tests require a Menu/List context wrapper
+  // and are omitted for simplicity
 });
-
-describe("LinkIconButton", () => {
-  beforeEach(() => {
-    mockPush.mockClear();
-  });
-
-  it("should render children", () => {
-    render(<LinkIconButton href="/test">X</LinkIconButton>);
-    expect(screen.getByText("X")).toBeInTheDocument();
-  });
-
-  it("should render as a button for internal links", () => {
-    render(<LinkIconButton href="/test">Icon</LinkIconButton>);
-    const button = screen.getByRole("button");
-    expect(button).toBeInTheDocument();
-  });
-
-  it("should render as an anchor for external links", () => {
-    render(<LinkIconButton href="https://example.com">Icon</LinkIconButton>);
-    const link = screen.getByRole("link");
-    expect(link).toHaveAttribute("href", "https://example.com");
-  });
-
-  it("should navigate using router.push for internal links", async () => {
-    const user = userEvent.setup();
-    render(<LinkIconButton href="/settings">Icon</LinkIconButton>);
-
-    const button = screen.getByRole("button");
-    await user.click(button);
-
-    expect(mockPush).toHaveBeenCalledWith("/settings");
-  });
-});
-
-// MenuLinkItem tests require Menu context - tested via integration tests
