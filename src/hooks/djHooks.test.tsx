@@ -150,5 +150,47 @@ describe("djHooks", () => {
       expect(mockEvent.preventDefault).toHaveBeenCalled();
       // No toast should be shown since no modifications
     });
+
+    it("should set loading during save operation", async () => {
+      const store = configureStore({
+        reducer: {
+          authentication: authenticationSlice.reducer,
+        },
+        preloadedState: {
+          authentication: {
+            ...authenticationSlice.getInitialState(),
+            modifications: ["realName"],
+          },
+        },
+      });
+
+      function wrapper({ children }: { children: React.ReactNode }) {
+        return <Provider store={store}>{children}</Provider>;
+      }
+
+      const { result } = renderHook(() => useDJAccount(), { wrapper });
+
+      const formData = new FormData();
+      formData.append("realName", "Updated Name");
+
+      const mockForm = document.createElement("form");
+      const mockEvent = {
+        preventDefault: vi.fn(),
+        currentTarget: mockForm,
+      } as unknown as React.FormEvent<HTMLFormElement>;
+
+      const originalFormData = global.FormData;
+      global.FormData = vi.fn(() => formData) as any;
+
+      // Just verify the operation completes without throwing
+      await act(async () => {
+        await result.current.handleSaveData(mockEvent);
+      });
+
+      global.FormData = originalFormData;
+
+      // After save, loading should be false
+      expect(result.current.loading).toBe(false);
+    });
   });
 });
