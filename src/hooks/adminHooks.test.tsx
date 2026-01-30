@@ -1,9 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
-import { Provider } from "react-redux";
-import { configureStore } from "@reduxjs/toolkit";
 import { useAccountListResults } from "./adminHooks";
 import { adminSlice } from "@/lib/features/admin/frontend";
+import { createHookWrapperFactory } from "@/lib/test-utils";
 
 // Mock authClient
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -13,22 +12,8 @@ vi.mock("@/lib/features/authentication/client", () => ({
         Promise.resolve({
           data: {
             users: [
-              {
-                id: "user-1",
-                name: "Test User",
-                email: "test@example.com",
-                realName: "Real Name",
-                djName: "DJ Test",
-                role: "member",
-              },
-              {
-                id: "user-2",
-                name: "Admin User",
-                email: "admin@example.com",
-                realName: "Admin Real",
-                djName: "DJ Admin",
-                role: "admin",
-              },
+              { id: "user-1", name: "Test User", email: "test@example.com", realName: "Real Name", djName: "DJ Test", role: "member" },
+              { id: "user-2", name: "Admin User", email: "admin@example.com", realName: "Admin Real", djName: "DJ Admin", role: "admin" },
             ],
           },
           error: null,
@@ -36,19 +21,10 @@ vi.mock("@/lib/features/authentication/client", () => ({
       ),
     },
     organization: {
-      getFullOrganization: vi.fn(() =>
-        Promise.resolve({
-          data: { id: "org-1" },
-        })
-      ),
+      getFullOrganization: vi.fn(() => Promise.resolve({ data: { id: "org-1" } })),
       listMembers: vi.fn(() =>
         Promise.resolve({
-          data: {
-            members: [
-              { userId: "user-1", role: "member" },
-              { userId: "user-2", role: "admin" },
-            ],
-          },
+          data: { members: [{ userId: "user-1", role: "member" }, { userId: "user-2", role: "admin" }] },
           error: null,
         })
       ),
@@ -67,26 +43,7 @@ vi.mock("@/lib/features/admin/conversions-better-auth", () => ({
   })),
 }));
 
-function createTestStore(searchString = "") {
-  return configureStore({
-    reducer: {
-      admin: adminSlice.reducer,
-    },
-    preloadedState: {
-      admin: {
-        ...adminSlice.getInitialState(),
-        searchString,
-      },
-    },
-  });
-}
-
-function createWrapper(searchString = "") {
-  const store = createTestStore(searchString);
-  return function Wrapper({ children }: { children: React.ReactNode }) {
-    return <Provider store={store}>{children}</Provider>;
-  };
-}
+const createWrapper = createHookWrapperFactory({ admin: adminSlice });
 
 describe("adminHooks", () => {
   beforeEach(() => {
@@ -139,23 +96,9 @@ describe("adminHooks", () => {
     });
 
     it("should filter accounts by search string", async () => {
-      const store = configureStore({
-        reducer: {
-          admin: adminSlice.reducer,
-        },
-        preloadedState: {
-          admin: {
-            ...adminSlice.getInitialState(),
-            searchString: "admin",
-          },
-        },
+      const { result } = renderHook(() => useAccountListResults(), {
+        wrapper: createWrapper({ admin: { searchString: "admin" } }),
       });
-
-      function wrapper({ children }: { children: React.ReactNode }) {
-        return <Provider store={store}>{children}</Provider>;
-      }
-
-      const { result } = renderHook(() => useAccountListResults(), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);

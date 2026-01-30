@@ -1,9 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { Provider } from "react-redux";
-import { configureStore } from "@reduxjs/toolkit";
 import { useBin, useDeleteFromBin, useAddToBin, useBinResults } from "./binHooks";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
+import { createHookWrapper, createTestAlbum, createTestArtist } from "@/lib/test-utils";
 
 // Mock authentication hooks
 vi.mock("./authenticationHooks", () => ({
@@ -25,15 +24,17 @@ vi.mock("sonner", () => ({
 const mockDeleteFromBin = vi.fn();
 const mockAddToBin = vi.fn();
 
+const mockBinData = [
+  createTestAlbum({ id: 1, title: "Test Album", artist: createTestArtist({ name: "Test Artist" }) }),
+  createTestAlbum({ id: 2, title: "Another Album", artist: createTestArtist({ name: "Another Artist" }) }),
+];
+
 vi.mock("@/lib/features/bin/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/features/bin/api")>();
   return {
     ...actual,
     useGetBinQuery: vi.fn(() => ({
-      data: [
-        { id: 1, title: "Test Album", artist: { name: "Test Artist" }, label: "Test Label" },
-        { id: 2, title: "Another Album", artist: { name: "Another Artist" }, label: "Another Label" },
-      ],
+      data: mockBinData,
       isLoading: false,
       isSuccess: true,
       isError: false,
@@ -49,20 +50,7 @@ vi.mock("@/lib/features/bin/api", async (importOriginal) => {
   };
 });
 
-function createTestStore() {
-  return configureStore({
-    reducer: {
-      flowsheet: flowsheetSlice.reducer,
-    },
-  });
-}
-
-function createWrapper() {
-  const store = createTestStore();
-  return function Wrapper({ children }: { children: React.ReactNode }) {
-    return <Provider store={store}>{children}</Provider>;
-  };
-}
+const createWrapper = () => createHookWrapper({ flowsheet: flowsheetSlice });
 
 describe("binHooks", () => {
   beforeEach(() => {
@@ -157,29 +145,18 @@ describe("binHooks", () => {
 
     it("should filter bin by search terms", () => {
       const initialState = flowsheetSlice.getInitialState();
-      const store = configureStore({
-        reducer: {
-          flowsheet: flowsheetSlice.reducer,
-        },
-        preloadedState: {
+      const wrapper = createHookWrapper(
+        { flowsheet: flowsheetSlice },
+        {
           flowsheet: {
             ...initialState,
             search: {
               ...initialState.search,
-              query: {
-                ...initialState.search.query,
-                album: "Test Album",
-                artist: "",
-                label: "",
-              },
+              query: { ...initialState.search.query, album: "Test Album", artist: "", label: "" },
             },
           },
-        },
-      });
-
-      function wrapper({ children }: { children: React.ReactNode }) {
-        return <Provider store={store}>{children}</Provider>;
-      }
+        }
+      );
 
       const { result } = renderHook(() => useBinResults(), { wrapper });
 
@@ -189,29 +166,18 @@ describe("binHooks", () => {
 
     it("should search by artist name", () => {
       const initialState = flowsheetSlice.getInitialState();
-      const store = configureStore({
-        reducer: {
-          flowsheet: flowsheetSlice.reducer,
-        },
-        preloadedState: {
+      const wrapper = createHookWrapper(
+        { flowsheet: flowsheetSlice },
+        {
           flowsheet: {
             ...initialState,
             search: {
               ...initialState.search,
-              query: {
-                ...initialState.search.query,
-                album: "",
-                artist: "Another Artist",
-                label: "",
-              },
+              query: { ...initialState.search.query, album: "", artist: "Another Artist", label: "" },
             },
           },
-        },
-      });
-
-      function wrapper({ children }: { children: React.ReactNode }) {
-        return <Provider store={store}>{children}</Provider>;
-      }
+        }
+      );
 
       const { result } = renderHook(() => useBinResults(), { wrapper });
 

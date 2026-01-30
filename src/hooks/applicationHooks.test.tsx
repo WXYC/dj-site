@@ -11,7 +11,6 @@ import {
 } from "./applicationHooks";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
-import React from "react";
 
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
@@ -35,7 +34,7 @@ describe("applicationHooks", () => {
   let store: AppStore;
 
   function wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(Provider, { store }, children);
+    return <Provider store={store}>{children}</Provider>;
   }
 
   beforeEach(() => {

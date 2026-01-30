@@ -1,7 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { Provider } from "react-redux";
-import { configureStore } from "@reduxjs/toolkit";
 import {
   useActiveExperience,
   useExperienceConfig,
@@ -9,26 +7,13 @@ import {
   useExperienceFeatures,
 } from "@/lib/features/experiences/hooks";
 import { applicationSlice } from "@/lib/features/application/frontend";
-
-function createTestStore(experience: string = "modern") {
-  return configureStore({
-    reducer: {
-      application: applicationSlice.reducer,
-    },
-    preloadedState: {
-      application: {
-        ...applicationSlice.getInitialState(),
-        experience,
-      } as any,
-    },
-  });
-}
+import { createHookWrapper } from "@/lib/test-utils";
 
 function createWrapper(experience: string = "modern") {
-  const store = createTestStore(experience);
-  return function Wrapper({ children }: { children: React.ReactNode }) {
-    return <Provider store={store}>{children}</Provider>;
-  };
+  return createHookWrapper(
+    { application: applicationSlice },
+    { application: { ...applicationSlice.getInitialState(), experience } }
+  );
 }
 
 describe("useActiveExperience", () => {

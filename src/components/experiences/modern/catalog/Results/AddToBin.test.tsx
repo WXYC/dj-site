@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import AddToBin from "./AddToBin";
+import { createTestAlbum } from "@/lib/test-utils/fixtures";
 
 const mockAddToBin = vi.fn();
 
@@ -11,16 +12,7 @@ vi.mock("@/src/hooks/binHooks", () => ({
   }),
 }));
 
-const mockAlbum = {
-  id: 1,
-  title: "Test Album",
-  artist: { name: "Test Artist", lettercode: "TA", numbercode: 1, genre: "Rock" },
-  entry: 42,
-  format: "CD",
-  label: "Test Label",
-  add_date: "2024-01-01",
-  plays: 0,
-};
+const mockAlbum = createTestAlbum({ id: 1 });
 
 describe("AddToBin", () => {
   beforeEach(() => {

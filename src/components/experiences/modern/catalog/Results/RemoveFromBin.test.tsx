@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import RemoveFromBin from "./RemoveFromBin";
+import { createTestAlbum } from "@/lib/test-utils/fixtures";
 
 const mockDeleteFromBin = vi.fn();
 
@@ -11,16 +12,7 @@ vi.mock("@/src/hooks/binHooks", () => ({
   }),
 }));
 
-const mockAlbum = {
-  id: 2,
-  title: "Another Album",
-  artist: { name: "Another Artist", lettercode: "AA", numbercode: 2, genre: "Jazz" },
-  entry: 43,
-  format: "Vinyl",
-  label: "Another Label",
-  add_date: "2024-02-01",
-  plays: 5,
-};
+const mockAlbum = createTestAlbum({ id: 2 });
 
 describe("RemoveFromBin", () => {
   beforeEach(() => {

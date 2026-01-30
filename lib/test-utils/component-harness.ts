@@ -4,6 +4,8 @@ import type { RenderResult } from "@testing-library/react";
 import type userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "./render";
 import type { AppStore, RootState } from "@/lib/store";
+import { Provider } from "react-redux";
+import { configureStore, type Slice } from "@reduxjs/toolkit";
 
 type UserEvent = ReturnType<typeof userEvent.setup>;
 
@@ -131,4 +133,74 @@ export function testPropVariants<P extends object>(
     assertion(result);
     result.unmount();
   });
+}
+
+/**
+ * Creates a Redux Provider wrapper for hook testing with minimal slices.
+ * Use this when testing hooks that only need specific Redux slices.
+ *
+ * @example
+ * import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
+ *
+ * const wrapper = createHookWrapper({ flowsheet: flowsheetSlice });
+ *
+ * const { result } = renderHook(() => useMyHook(), { wrapper });
+ *
+ * @example
+ * // With preloaded state
+ * const wrapper = createHookWrapper(
+ *   { flowsheet: flowsheetSlice },
+ *   { flowsheet: { ...flowsheetSlice.getInitialState(), autoplay: true } }
+ * );
+ */
+export function createHookWrapper<S extends Record<string, Slice>>(
+  slices: S,
+  preloadedState?: Record<string, unknown>
+) {
+  const store = configureStore({
+    reducer: Object.fromEntries(
+      Object.entries(slices).map(([key, slice]) => [key, slice.reducer])
+    ) as { [K in keyof S]: S[K]["reducer"] },
+    preloadedState,
+  });
+
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return React.createElement(Provider, { store }, children);
+  };
+}
+
+/**
+ * Creates a Redux Provider wrapper factory for hook testing.
+ * Returns a function that creates new wrapper instances with optional state overrides.
+ *
+ * @example
+ * const createWrapper = createHookWrapperFactory({ admin: adminSlice });
+ *
+ * // Basic usage
+ * const { result } = renderHook(() => useHook(), { wrapper: createWrapper() });
+ *
+ * // With state override
+ * const { result } = renderHook(() => useHook(), {
+ *   wrapper: createWrapper({ admin: { searchString: "test" } })
+ * });
+ */
+export function createHookWrapperFactory<S extends Record<string, Slice>>(
+  slices: S
+) {
+  return function createWrapper(stateOverrides?: Record<string, unknown>) {
+    const initialState = Object.fromEntries(
+      Object.entries(slices).map(([key, slice]) => [key, slice.getInitialState()])
+    );
+
+    const preloadedState = stateOverrides
+      ? Object.fromEntries(
+          Object.entries(initialState).map(([key, state]) => [
+            key,
+            stateOverrides[key] ? { ...state, ...stateOverrides[key] } : state,
+          ])
+        )
+      : undefined;
+
+    return createHookWrapper(slices, preloadedState);
+  };
 }
