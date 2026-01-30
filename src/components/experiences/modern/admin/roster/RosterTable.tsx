@@ -140,7 +140,10 @@ export default function RosterTable({ user }: { user: User }) {
         const organizationId = await getOrganizationId();
 
         if (organizationId && result.data?.user?.id) {
-          const addMemberResult = await authClient.organization.addMember({
+          // Type assertion needed - addMember is provided by organizationClient but not fully typed
+          const addMemberResult = await (authClient.organization as typeof authClient.organization & {
+            addMember: (params: { userId: string; organizationId: string; role: string }) => Promise<{ error?: { message?: string } }>
+          }).addMember({
             userId: result.data.user.id,
             organizationId,
             role,

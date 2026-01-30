@@ -65,11 +65,13 @@ export const useLogin = () => {
         const user = session?.data?.user;
 
         // Check if user profile is incomplete (missing or empty realName/djName)
-        const isIncomplete = user && (
-          !user.realName ||
-          (typeof user.realName === 'string' && user.realName.trim() === '') ||
-          !user.djName ||
-          (typeof user.djName === 'string' && user.djName.trim() === '')
+        // Cast to include custom user fields (realName, djName are custom schema fields)
+        const userWithCustomFields = user as typeof user & { realName?: string | null; djName?: string | null };
+        const isIncomplete = userWithCustomFields && (
+          !userWithCustomFields.realName ||
+          (typeof userWithCustomFields.realName === 'string' && userWithCustomFields.realName.trim() === '') ||
+          !userWithCustomFields.djName ||
+          (typeof userWithCustomFields.djName === 'string' && userWithCustomFields.djName.trim() === '')
         );
 
         if (isIncomplete) {
