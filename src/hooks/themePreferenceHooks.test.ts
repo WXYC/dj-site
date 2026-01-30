@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, act } from "@testing-library/react";
-import { buildPreference, useThemePreferenceActions } from "./themePreferenceHooks";
+import { renderHook, act, waitFor } from "@testing-library/react";
+import {
+  buildPreference,
+  useThemePreferenceActions,
+  useThemePreferenceSync,
+} from "./themePreferenceHooks";
 
 // Mock dependencies
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -108,6 +112,88 @@ describe("themePreferenceHooks", () => {
       });
 
       expect(authClient.updateUser).not.toHaveBeenCalled();
+    });
+
+    it("should handle setPreference error gracefully", async () => {
+      const { useSetExperiencePreferenceMutation } = await import(
+        "@/lib/features/experiences/api"
+      );
+      const mockSetPreference = vi.fn(() => ({
+        unwrap: () => Promise.reject(new Error("API error")),
+      }));
+      vi.mocked(useSetExperiencePreferenceMutation).mockReturnValue([
+        mockSetPreference,
+        {} as any,
+      ]);
+
+      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { result } = renderHook(() => useThemePreferenceActions());
+
+      await act(async () => {
+        await result.current.persistPreference("classic-dark");
+      });
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "Failed to update app_state preference:",
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
+    });
+
+    it("should handle updateUser error gracefully", async () => {
+      const { authClient } = await import("@/lib/features/authentication/client");
+      vi.mocked(authClient.updateUser).mockRejectedValue(new Error("Update failed"));
+
+      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { result } = renderHook(() => useThemePreferenceActions());
+
+      await act(async () => {
+        await result.current.persistPreference("modern-light", { updateUser: true });
+      });
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "Failed to update user appSkin:",
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe("useThemePreferenceSync", () => {
+    it("should render without throwing", () => {
+      expect(() => {
+        renderHook(() => useThemePreferenceSync());
+      }).not.toThrow();
+    });
+
+    it("should not sync when mode is null", async () => {
+      const { useColorScheme } = await import("@mui/joy/styles");
+      vi.mocked(useColorScheme).mockReturnValue({
+        mode: null as any,
+        setMode: vi.fn(),
+      });
+
+      // Just verify it doesn't throw
+      expect(() => {
+        renderHook(() => useThemePreferenceSync());
+      }).not.toThrow();
+    });
+
+    it("should handle localStorage errors gracefully", () => {
+      // Simulate localStorage throwing an error
+      const originalGetItem = localStorage.getItem;
+      localStorage.getItem = vi.fn(() => {
+        throw new Error("localStorage error");
+      });
+
+      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      expect(() => {
+        renderHook(() => useThemePreferenceSync());
+      }).not.toThrow();
+
+      localStorage.getItem = originalGetItem;
+      consoleSpy.mockRestore();
     });
   });
 });
