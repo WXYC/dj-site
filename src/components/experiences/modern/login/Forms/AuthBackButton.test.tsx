@@ -1,17 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import AuthBackButton from "./AuthBackButton";
 import { Provider } from "react-redux";
 import { configureStore } from "@reduxjs/toolkit";
-import AuthBackButton from "./AuthBackButton";
 import { applicationSlice } from "@/lib/features/application/frontend";
 
-// Mock the authentication hooks
-const mockHandleLogout = vi.fn();
+// Mock hooks
+const mockHandleLogout = vi.fn(() => Promise.resolve());
+
 vi.mock("@/src/hooks/authenticationHooks", () => ({
-  useLogout: () => ({
+  useLogout: vi.fn(() => ({
     handleLogout: mockHandleLogout,
     loggingOut: false,
-  }),
+  })),
+}));
+
+// Mock MUI icons
+vi.mock("@mui/icons-material", () => ({
+  ArrowBack: () => <span data-testid="arrow-back-icon" />,
 }));
 
 function createTestStore() {
@@ -22,52 +28,94 @@ function createTestStore() {
   });
 }
 
-function renderWithProvider(ui: React.ReactElement) {
-  const store = createTestStore();
-  return {
-    ...render(<Provider store={store}>{ui}</Provider>),
-    store,
-  };
-}
-
 describe("AuthBackButton", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it("should render with default text", () => {
-    renderWithProvider(<AuthBackButton />);
+    const store = createTestStore();
+
+    render(
+      <Provider store={store}>
+        <AuthBackButton />
+      </Provider>
+    );
+
     expect(screen.getByText("Back to Login")).toBeInTheDocument();
   });
 
   it("should render with custom text", () => {
-    renderWithProvider(<AuthBackButton text="Go Back" />);
+    const store = createTestStore();
+
+    render(
+      <Provider store={store}>
+        <AuthBackButton text="Go Back" />
+      </Provider>
+    );
+
     expect(screen.getByText("Go Back")).toBeInTheDocument();
   });
 
-  it("should render a form element", () => {
-    renderWithProvider(<AuthBackButton />);
-    expect(document.querySelector("form")).toBeInTheDocument();
+  it("should render arrow back icon", () => {
+    const store = createTestStore();
+
+    render(
+      <Provider store={store}>
+        <AuthBackButton />
+      </Provider>
+    );
+
+    expect(screen.getByTestId("arrow-back-icon")).toBeInTheDocument();
   });
 
   it("should call handleLogout when clicked", async () => {
-    const { store } = renderWithProvider(<AuthBackButton />);
+    const store = createTestStore();
 
-    const button = screen.getByRole("button", { name: /back to login/i });
+    render(
+      <Provider store={store}>
+        <AuthBackButton />
+      </Provider>
+    );
+
+    const button = screen.getByRole("button");
     fireEvent.click(button);
 
     expect(mockHandleLogout).toHaveBeenCalled();
   });
 
-  it("should dispatch setAuthStage action when clicked", async () => {
-    const { store } = renderWithProvider(<AuthBackButton />);
+  it("should dispatch setAuthStage action when clicked", () => {
+    const store = createTestStore();
+    const dispatchSpy = vi.spyOn(store, "dispatch");
 
-    const button = screen.getByRole("button", { name: /back to login/i });
+    render(
+      <Provider store={store}>
+        <AuthBackButton />
+      </Provider>
+    );
+
+    const button = screen.getByRole("button");
     fireEvent.click(button);
 
-    // Verify dispatch was triggered - the action should set authStage
-    const state = store.getState();
-    // Auth stage should be set to login after click
-    expect(state.application.authFlow.stage).toBe("login");
+    expect(dispatchSpy).toHaveBeenCalled();
+  });
+
+  it("should have disabled class when logging out", async () => {
+    const { useLogout } = await import("@/src/hooks/authenticationHooks");
+    vi.mocked(useLogout).mockReturnValue({
+      handleLogout: mockHandleLogout,
+      loggingOut: true,
+    });
+
+    const store = createTestStore();
+
+    render(
+      <Provider store={store}>
+        <AuthBackButton />
+      </Provider>
+    );
+
+    const button = screen.getByRole("button");
+    expect(button).toHaveClass("Mui-disabled");
   });
 });

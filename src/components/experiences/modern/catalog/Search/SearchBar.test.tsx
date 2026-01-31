@@ -1,77 +1,134 @@
-import { describe, it, expect } from "vitest";
-import { screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import SearchBar from "./SearchBar";
-import {
-  createComponentHarnessWithQueries,
-  componentQueries,
-} from "@/lib/test-utils";
-import { catalogSlice } from "@/lib/features/catalog/frontend";
 
-const setup = createComponentHarnessWithQueries(
-  SearchBar,
-  { color: "primary" as const },
-  {
-    input: componentQueries.byPlaceholder("Search"),
-    label: componentQueries.byText("Search for an album or artist"),
-    clearButton: componentQueries.queryByRole("button", { name: "" }),
-  }
-);
+// Mock hooks
+const mockSetSearchString = vi.fn();
+
+vi.mock("@/src/hooks/catalogHooks", () => ({
+  useCatalogSearch: vi.fn(() => ({
+    searchString: "",
+    setSearchString: mockSetSearchString,
+  })),
+}));
+
+// Mock Filters component
+vi.mock("./Filters", () => ({
+  Filters: ({ color }: any) => (
+    <div data-testid="filters" data-color={color}>
+      Filters
+    </div>
+  ),
+}));
+
+// Mock MUI icons
+vi.mock("@mui/icons-material", () => ({
+  Cancel: () => <span data-testid="cancel-icon" />,
+  Troubleshoot: () => <span data-testid="search-icon" />,
+}));
 
 describe("SearchBar", () => {
-  it("should render the search input", () => {
-    const { label, input } = setup();
-
-    expect(label()).toBeInTheDocument();
-    expect(input()).toBeInTheDocument();
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it("should not show clear button when search is empty", () => {
-    const { input } = setup();
+  it("should render search input", () => {
+    render(<SearchBar color="primary" />);
 
-    expect(input()).toHaveValue("");
+    expect(screen.getByPlaceholderText("Search")).toBeInTheDocument();
+  });
 
-    const buttons = screen.queryAllByRole("button");
-    buttons.forEach((button) => {
-      expect(button).not.toHaveAttribute("aria-label", "clear");
+  it("should render search icon", () => {
+    render(<SearchBar color="primary" />);
+
+    expect(screen.getByTestId("search-icon")).toBeInTheDocument();
+  });
+
+  it("should render form label", () => {
+    render(<SearchBar color="primary" />);
+
+    expect(screen.getByText("Search for an album or artist")).toBeInTheDocument();
+  });
+
+  it("should render Filters component", () => {
+    render(<SearchBar color="primary" />);
+
+    expect(screen.getByTestId("filters")).toBeInTheDocument();
+  });
+
+  it("should pass color prop to Filters", () => {
+    render(<SearchBar color="warning" />);
+
+    expect(screen.getByTestId("filters")).toHaveAttribute("data-color", "warning");
+  });
+
+  it("should call setSearchString when input changes", () => {
+    render(<SearchBar color="primary" />);
+
+    const input = screen.getByPlaceholderText("Search");
+    fireEvent.change(input, { target: { value: "test query" } });
+
+    expect(mockSetSearchString).toHaveBeenCalledWith("test query");
+  });
+
+  it("should display current search string value", async () => {
+    const { useCatalogSearch } = await import("@/src/hooks/catalogHooks");
+    vi.mocked(useCatalogSearch).mockReturnValue({
+      searchString: "existing search",
+      setSearchString: mockSetSearchString,
     });
+
+    render(<SearchBar color="primary" />);
+
+    const input = screen.getByPlaceholderText("Search");
+    expect(input).toHaveValue("existing search");
   });
 
-  it("should display the search value from Redux store", async () => {
-    const { input, user, getState } = setup();
+  it("should show cancel button when search string is not empty", async () => {
+    const { useCatalogSearch } = await import("@/src/hooks/catalogHooks");
+    vi.mocked(useCatalogSearch).mockReturnValue({
+      searchString: "some search",
+      setSearchString: mockSetSearchString,
+    });
 
-    await user.type(input(), "Test Artist");
+    render(<SearchBar color="primary" />);
 
-    expect(input()).toHaveValue("Test Artist");
-    expect(catalogSlice.selectors.getSearchQuery(getState())).toBe("Test Artist");
+    expect(screen.getByTestId("cancel-icon")).toBeInTheDocument();
   });
 
-  it("should show clear button when search has value", async () => {
-    const { input, clearButton, user } = setup();
+  it("should not show cancel button when search string is empty", async () => {
+    const { useCatalogSearch } = await import("@/src/hooks/catalogHooks");
+    vi.mocked(useCatalogSearch).mockReturnValue({
+      searchString: "",
+      setSearchString: mockSetSearchString,
+    });
 
-    await user.type(input(), "Test");
+    render(<SearchBar color="primary" />);
 
-    expect(clearButton()).toBeInTheDocument();
+    expect(screen.queryByTestId("cancel-icon")).not.toBeInTheDocument();
   });
 
-  it("should clear search when clear button is clicked", async () => {
-    const { input, clearButton, user, getState } = setup();
+  it("should clear search when cancel button is clicked", async () => {
+    const { useCatalogSearch } = await import("@/src/hooks/catalogHooks");
+    vi.mocked(useCatalogSearch).mockReturnValue({
+      searchString: "some search",
+      setSearchString: mockSetSearchString,
+    });
 
-    await user.type(input(), "Test Artist");
-    expect(input()).toHaveValue("Test Artist");
+    render(<SearchBar color="primary" />);
 
-    await user.click(clearButton()!);
+    const cancelButton = screen.getByTestId("cancel-icon").closest("button");
+    if (cancelButton) {
+      fireEvent.click(cancelButton);
+    }
 
-    expect(input()).toHaveValue("");
-    expect(catalogSlice.selectors.getSearchQuery(getState())).toBe("");
+    expect(mockSetSearchString).toHaveBeenCalledWith("");
   });
 
-  it.each([
-    { color: "primary" as const },
-    { color: "success" as const },
-    { color: "neutral" as const },
-    { color: undefined },
-  ])("should render with color=$color", (props) => {
-    const { input } = setup(props as { color: "primary" });
-    expect(input()).toBeInTheDocument();
+  it("should use neutral color as default when color is undefined", () => {
+    render(<SearchBar color={undefined} />);
+
+    // Input should still render with neutral color
+    expect(screen.getByPlaceholderText("Search")).toBeInTheDocument();
   });
 });

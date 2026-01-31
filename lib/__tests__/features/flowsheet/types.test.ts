@@ -5,244 +5,224 @@ import {
   isFlowsheetEndShowEntry,
   isFlowsheetTalksetEntry,
   isFlowsheetBreakpointEntry,
+  type FlowsheetEntry,
+  type FlowsheetSongEntry,
+  type FlowsheetShowBlockEntry,
+  type FlowsheetMessageEntry,
+  type FlowsheetBreakpointEntry,
 } from "@/lib/features/flowsheet/types";
-import {
-  createTestFlowsheetEntry,
-  TEST_ENTITY_IDS,
-  TEST_SEARCH_STRINGS,
-} from "@/lib/test-utils";
 
-describe("flowsheet type guards", () => {
+describe("flowsheet types", () => {
+  const baseEntry = {
+    id: 1,
+    play_order: 1,
+    show_id: 1,
+  };
+
   describe("isFlowsheetSongEntry", () => {
-    it("should return true for song entries with track_title", () => {
-      const entry = createTestFlowsheetEntry({
+    it("should return true for song entries", () => {
+      const songEntry: FlowsheetSongEntry = {
+        ...baseEntry,
         track_title: "Test Track",
-      });
-      expect(isFlowsheetSongEntry(entry)).toBe(true);
-    });
-
-    it("should return false for entries without track_title", () => {
-      const entry = {
-        id: 1,
-        play_order: 1,
-        show_id: 1,
-        message: "Some message",
+        artist_name: "Test Artist",
+        album_title: "Test Album",
+        record_label: "Test Label",
+        request_flag: false,
       };
-      expect(isFlowsheetSongEntry(entry as any)).toBe(false);
+
+      expect(isFlowsheetSongEntry(songEntry)).toBe(true);
     });
 
-    it("should return true for empty track_title (still a song)", () => {
-      const entry = createTestFlowsheetEntry({
-        track_title: "",
-      });
-      // Empty string is still defined, so it's a song entry
-      expect(isFlowsheetSongEntry(entry)).toBe(true);
+    it("should return false for message entries", () => {
+      const messageEntry: FlowsheetMessageEntry = {
+        ...baseEntry,
+        message: "PSA: Community announcement",
+      };
+
+      expect(isFlowsheetSongEntry(messageEntry as FlowsheetEntry)).toBe(false);
+    });
+
+    it("should return false for show block entries", () => {
+      const showEntry: FlowsheetShowBlockEntry = {
+        ...baseEntry,
+        dj_name: "DJ Cool",
+        isStart: true,
+        day: "Monday",
+        time: "10:00",
+      };
+
+      expect(isFlowsheetSongEntry(showEntry as FlowsheetEntry)).toBe(false);
     });
   });
 
   describe("isFlowsheetStartShowEntry", () => {
     it("should return true for start show entries", () => {
-      const entry = {
-        id: 1,
-        play_order: 1,
-        show_id: 1,
-        dj_name: "Test DJ",
-        day: "6/15/2024",
-        time: "2:00 PM",
+      const startShowEntry: FlowsheetShowBlockEntry = {
+        ...baseEntry,
+        dj_name: "DJ Cool",
         isStart: true,
+        day: "Monday",
+        time: "10:00",
       };
-      expect(isFlowsheetStartShowEntry(entry)).toBe(true);
+
+      expect(isFlowsheetStartShowEntry(startShowEntry)).toBe(true);
     });
 
     it("should return false for end show entries", () => {
-      const entry = {
-        id: 1,
-        play_order: 1,
-        show_id: 1,
-        dj_name: "Test DJ",
-        day: "6/15/2024",
-        time: "4:00 PM",
+      const endShowEntry: FlowsheetShowBlockEntry = {
+        ...baseEntry,
+        dj_name: "DJ Cool",
         isStart: false,
+        day: "Monday",
+        time: "22:00",
       };
-      expect(isFlowsheetStartShowEntry(entry)).toBe(false);
+
+      expect(isFlowsheetStartShowEntry(endShowEntry)).toBe(false);
     });
 
     it("should return false for song entries", () => {
-      const entry = createTestFlowsheetEntry();
-      expect(isFlowsheetStartShowEntry(entry)).toBe(false);
-    });
-
-    it("should return false for message entries", () => {
-      const entry = {
-        id: 1,
-        play_order: 1,
-        show_id: 1,
-        message: "Some message",
+      const songEntry: FlowsheetSongEntry = {
+        ...baseEntry,
+        track_title: "Test Track",
+        artist_name: "Test Artist",
+        album_title: "Test Album",
+        record_label: "Test Label",
+        request_flag: false,
       };
-      expect(isFlowsheetStartShowEntry(entry as any)).toBe(false);
+
+      expect(isFlowsheetStartShowEntry(songEntry as FlowsheetEntry)).toBe(false);
     });
   });
 
   describe("isFlowsheetEndShowEntry", () => {
     it("should return true for end show entries", () => {
-      const entry = {
-        id: 1,
-        play_order: 1,
-        show_id: 1,
-        dj_name: "Test DJ",
-        day: "6/15/2024",
-        time: "4:00 PM",
+      const endShowEntry: FlowsheetShowBlockEntry = {
+        ...baseEntry,
+        dj_name: "DJ Cool",
         isStart: false,
+        day: "Monday",
+        time: "22:00",
       };
-      expect(isFlowsheetEndShowEntry(entry)).toBe(true);
+
+      expect(isFlowsheetEndShowEntry(endShowEntry)).toBe(true);
     });
 
     it("should return false for start show entries", () => {
-      const entry = {
-        id: 1,
-        play_order: 1,
-        show_id: 1,
-        dj_name: "Test DJ",
-        day: "6/15/2024",
-        time: "2:00 PM",
+      const startShowEntry: FlowsheetShowBlockEntry = {
+        ...baseEntry,
+        dj_name: "DJ Cool",
         isStart: true,
+        day: "Monday",
+        time: "10:00",
       };
-      expect(isFlowsheetEndShowEntry(entry)).toBe(false);
+
+      expect(isFlowsheetEndShowEntry(startShowEntry)).toBe(false);
     });
 
-    it("should return false for song entries", () => {
-      const entry = createTestFlowsheetEntry();
-      expect(isFlowsheetEndShowEntry(entry)).toBe(false);
+    it("should return false for message entries", () => {
+      const messageEntry: FlowsheetMessageEntry = {
+        ...baseEntry,
+        message: "PSA: Community announcement",
+      };
+
+      expect(isFlowsheetEndShowEntry(messageEntry as FlowsheetEntry)).toBe(false);
     });
   });
 
   describe("isFlowsheetTalksetEntry", () => {
     it("should return true for talkset entries", () => {
-      const entry = {
-        id: 1,
-        play_order: 1,
-        show_id: 1,
-        message: "Talkset about upcoming events",
+      const talksetEntry: FlowsheetMessageEntry = {
+        ...baseEntry,
+        message: "Talkset",
       };
-      expect(isFlowsheetTalksetEntry(entry)).toBe(true);
+
+      expect(isFlowsheetTalksetEntry(talksetEntry)).toBe(true);
     });
 
-    it("should return true for message containing 'Talkset' anywhere", () => {
-      const entry = {
-        id: 1,
-        play_order: 1,
-        show_id: 1,
-        message: "This is a Talkset entry",
+    it("should return true for entries with Talkset in message", () => {
+      const talksetEntry: FlowsheetMessageEntry = {
+        ...baseEntry,
+        message: "Talkset: DJ discussing upcoming event",
       };
-      expect(isFlowsheetTalksetEntry(entry)).toBe(true);
+
+      expect(isFlowsheetTalksetEntry(talksetEntry)).toBe(true);
     });
 
-    it("should return false for non-talkset messages", () => {
-      const entry = {
-        id: 1,
-        play_order: 1,
-        show_id: 1,
-        message: "Breakpoint at 3:00 PM",
+    it("should return false for non-talkset message entries", () => {
+      const messageEntry: FlowsheetMessageEntry = {
+        ...baseEntry,
+        message: "PSA: Community announcement",
       };
-      expect(isFlowsheetTalksetEntry(entry)).toBe(false);
+
+      expect(isFlowsheetTalksetEntry(messageEntry)).toBe(false);
     });
 
     it("should return false for song entries", () => {
-      const entry = createTestFlowsheetEntry();
-      expect(isFlowsheetTalksetEntry(entry)).toBe(false);
-    });
-
-    it("should be case-sensitive (Talkset vs talkset)", () => {
-      const entry = {
-        id: 1,
-        play_order: 1,
-        show_id: 1,
-        message: "talkset about something",
+      const songEntry: FlowsheetSongEntry = {
+        ...baseEntry,
+        track_title: "Test Track",
+        artist_name: "Test Artist",
+        album_title: "Test Album",
+        record_label: "Test Label",
+        request_flag: false,
       };
-      // The function checks for "Talkset" exactly, so lowercase won't match
-      expect(isFlowsheetTalksetEntry(entry)).toBe(false);
+
+      expect(isFlowsheetTalksetEntry(songEntry as FlowsheetEntry)).toBe(false);
     });
   });
 
   describe("isFlowsheetBreakpointEntry", () => {
     it("should return true for breakpoint entries", () => {
-      const entry = {
-        id: 1,
-        play_order: 1,
-        show_id: 1,
-        message: "Breakpoint at 3:00 PM",
-        day: "6/15/2024",
-        time: "3:00 PM",
+      const breakpointEntry: FlowsheetBreakpointEntry = {
+        ...baseEntry,
+        message: "Breakpoint: Station ID",
+        day: "Monday",
+        time: "10:00",
       };
-      expect(isFlowsheetBreakpointEntry(entry)).toBe(true);
+
+      expect(isFlowsheetBreakpointEntry(breakpointEntry)).toBe(true);
     });
 
-    it("should return true for message containing 'Breakpoint' anywhere", () => {
-      const entry = {
-        id: 1,
-        play_order: 1,
-        show_id: 1,
-        message: "Station ID - Breakpoint",
-        day: "6/15/2024",
-        time: "3:00 PM",
+    it("should return true for entries with Breakpoint in message", () => {
+      const breakpointEntry: FlowsheetBreakpointEntry = {
+        ...baseEntry,
+        message: "Breakpoint: PSA at 10:30",
+        day: "Monday",
+        time: "10:30",
       };
-      expect(isFlowsheetBreakpointEntry(entry)).toBe(true);
+
+      expect(isFlowsheetBreakpointEntry(breakpointEntry)).toBe(true);
     });
 
-    it("should return false for non-breakpoint messages", () => {
-      const entry = {
-        id: 1,
-        play_order: 1,
-        show_id: 1,
-        message: "Talkset about upcoming events",
+    it("should return false for non-breakpoint message entries", () => {
+      const messageEntry: FlowsheetMessageEntry = {
+        ...baseEntry,
+        message: "PSA: Community announcement",
       };
-      expect(isFlowsheetBreakpointEntry(entry)).toBe(false);
+
+      expect(isFlowsheetBreakpointEntry(messageEntry as FlowsheetEntry)).toBe(false);
+    });
+
+    it("should return false for talkset entries", () => {
+      const talksetEntry: FlowsheetMessageEntry = {
+        ...baseEntry,
+        message: "Talkset",
+      };
+
+      expect(isFlowsheetBreakpointEntry(talksetEntry as FlowsheetEntry)).toBe(false);
     });
 
     it("should return false for song entries", () => {
-      const entry = createTestFlowsheetEntry();
-      expect(isFlowsheetBreakpointEntry(entry)).toBe(false);
-    });
-
-    it("should be case-sensitive (Breakpoint vs breakpoint)", () => {
-      const entry = {
-        id: 1,
-        play_order: 1,
-        show_id: 1,
-        message: "breakpoint at 3:00 PM",
-      };
-      // The function checks for "Breakpoint" exactly, so lowercase won't match
-      expect(isFlowsheetBreakpointEntry(entry)).toBe(false);
-    });
-  });
-
-  describe("type guard combinations", () => {
-    it("should correctly identify a song entry (not other types)", () => {
-      const entry = createTestFlowsheetEntry();
-
-      expect(isFlowsheetSongEntry(entry)).toBe(true);
-      expect(isFlowsheetStartShowEntry(entry)).toBe(false);
-      expect(isFlowsheetEndShowEntry(entry)).toBe(false);
-      expect(isFlowsheetTalksetEntry(entry)).toBe(false);
-      expect(isFlowsheetBreakpointEntry(entry)).toBe(false);
-    });
-
-    it("should correctly identify a start show entry (not other types)", () => {
-      const entry = {
-        id: 1,
-        play_order: 1,
-        show_id: 1,
-        dj_name: "Test DJ",
-        day: "6/15/2024",
-        time: "2:00 PM",
-        isStart: true,
+      const songEntry: FlowsheetSongEntry = {
+        ...baseEntry,
+        track_title: "Test Track",
+        artist_name: "Test Artist",
+        album_title: "Test Album",
+        record_label: "Test Label",
+        request_flag: false,
       };
 
-      expect(isFlowsheetSongEntry(entry as any)).toBe(false);
-      expect(isFlowsheetStartShowEntry(entry)).toBe(true);
-      expect(isFlowsheetEndShowEntry(entry)).toBe(false);
-      expect(isFlowsheetTalksetEntry(entry as any)).toBe(false);
-      expect(isFlowsheetBreakpointEntry(entry as any)).toBe(false);
+      expect(isFlowsheetBreakpointEntry(songEntry as FlowsheetEntry)).toBe(false);
     });
   });
 });

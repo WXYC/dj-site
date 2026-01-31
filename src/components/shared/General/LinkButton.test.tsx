@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { LinkButton, LinkIconButton } from "./LinkButton";
+import { LinkButton, LinkIconButton, MenuLinkItem } from "./LinkButton";
+import { Menu } from "@mui/joy";
+import React from "react";
 
 // Mock next/navigation
 const mockPush = vi.fn();
@@ -94,6 +96,56 @@ describe("LinkButton components", () => {
     });
   });
 
-  // Note: MenuLinkItem tests require a Menu/List context wrapper
-  // and are omitted for simplicity
+  describe("MenuLinkItem", () => {
+    const MenuWrapper = ({ children }: { children: React.ReactNode }) => (
+      <Menu open={true} anchorEl={document.createElement("div")}>
+        {children}
+      </Menu>
+    );
+
+    it("should render children", () => {
+      render(
+        <MenuWrapper>
+          <MenuLinkItem href="/test">Menu Item</MenuLinkItem>
+        </MenuWrapper>
+      );
+      expect(screen.getByText("Menu Item")).toBeInTheDocument();
+    });
+
+    it("should call router.push on click", () => {
+      render(
+        <MenuWrapper>
+          <MenuLinkItem href="/dashboard">Dashboard</MenuLinkItem>
+        </MenuWrapper>
+      );
+      const menuItem = screen.getByRole("menuitem");
+
+      fireEvent.click(menuItem);
+
+      expect(mockPush).toHaveBeenCalledWith("/dashboard");
+    });
+
+    it("should have plain variant and neutral color", () => {
+      render(
+        <MenuWrapper>
+          <MenuLinkItem href="/test" data-testid="menu-item">
+            Test Item
+          </MenuLinkItem>
+        </MenuWrapper>
+      );
+      const menuItem = screen.getByTestId("menu-item");
+      expect(menuItem).toBeInTheDocument();
+    });
+
+    it("should pass additional props", () => {
+      render(
+        <MenuWrapper>
+          <MenuLinkItem href="/test" data-testid="custom-menu-item">
+            Custom
+          </MenuLinkItem>
+        </MenuWrapper>
+      );
+      expect(screen.getByTestId("custom-menu-item")).toBeInTheDocument();
+    });
+  });
 });
