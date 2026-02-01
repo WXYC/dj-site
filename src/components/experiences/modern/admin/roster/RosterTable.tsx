@@ -140,17 +140,18 @@ export default function RosterTable({ user }: { user: User }) {
         const organizationId = await getOrganizationId();
 
         if (organizationId && result.data?.user?.id) {
-          // Type assertion needed - addMember is provided by organizationClient but not fully typed
-          const addMemberResult = await (authClient.organization as typeof authClient.organization & {
-            addMember: (params: { userId: string; organizationId: string; role: string }) => Promise<{ error?: { message?: string } }>
-          }).addMember({
-            userId: result.data.user.id,
+          // Use inviteMember to add user to organization - this sends an invitation
+          // that auto-accepts since the user was just created by an admin
+          // Type assertion needed: WXYC uses custom roles (stationManager, musicDirector, dj, member)
+          // that are defined on the server but not in the default client types
+          const inviteResult = await authClient.organization.inviteMember({
+            email: newAccount.email,
+            role: role as "admin" | "member" | "owner",
             organizationId,
-            role,
           });
 
-          if (addMemberResult.error) {
-            console.error("Failed to add user to organization:", addMemberResult.error);
+          if (inviteResult.error) {
+            console.error("Failed to invite user to organization:", inviteResult.error);
             // Don't fail the whole operation, but log the warning
             toast.warning("User created but could not be added to organization. Role management may not work.");
           }
