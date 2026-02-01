@@ -68,37 +68,114 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use the server auth client to add member directly
-    // addMember is a server-side only function that bypasses the invitation flow
-    const baseURL = process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "https://api.wxyc.org/auth";
+    // Try to use the SDK's addMember method if available
+    // This is a server-side only function that bypasses the invitation flow
+    // If not available, fall back to inviting the member (which requires acceptance)
+    let result: any;
+    let usedInvitation = false;
 
-    const response = await fetch(`${baseURL}/organization/add-member`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        cookie: cookieHeader,
-      },
-      body: JSON.stringify({
+    // Check if organization SDK has addMember method
+    const orgClient = serverAuthClient.organization as any;
+    if (typeof orgClient?.addMember === "function") {
+      // Use SDK method directly
+      const addResult = await orgClient.addMember({
         userId,
         organizationId,
         role,
-      }),
-    });
+      }, {
+        fetchOptions: {
+          headers: {
+            cookie: cookieHeader,
+          },
+        },
+      });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: response.statusText }));
-      console.error("Failed to add member to organization:", errorData);
-      return NextResponse.json(
-        { error: errorData.message || "Failed to add member to organization" },
-        { status: response.status }
-      );
+      if (addResult.error) {
+        console.error("SDK addMember failed:", addResult.error);
+        return NextResponse.json(
+          { error: addResult.error.message || "Failed to add member to organization" },
+          { status: 400 }
+        );
+      }
+      result = addResult.data;
+    } else {
+      // Fallback: Try HTTP endpoint (may not exist on all Better Auth servers)
+      const baseURL = process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "https://api.wxyc.org/auth";
+      const response = await fetch(`${baseURL}/organization/add-member`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          cookie: cookieHeader,
+        },
+        body: JSON.stringify({
+          userId,
+          organizationId,
+          role,
+        }),
+      });
+
+      if (!response.ok) {
+        // If add-member endpoint doesn't exist (404), try inviteMember as fallback
+        // Note: This requires the user to accept the invitation
+        if (response.status === 404) {
+          console.warn("add-member endpoint not available, falling back to invitation");
+
+          // Get user email for invitation
+          const userResult = await serverAuthClient.admin.listUsers({
+            query: {
+              filterField: "id",
+              filterValue: userId,
+              limit: 1,
+            },
+            fetchOptions: {
+              headers: {
+                cookie: cookieHeader,
+              },
+            },
+          });
+
+          const userEmail = userResult.data?.users?.[0]?.email;
+          if (!userEmail) {
+            return NextResponse.json(
+              { error: "Could not find user email for invitation" },
+              { status: 400 }
+            );
+          }
+
+          // Send invitation (user will need to accept)
+          const inviteResult = await serverAuthClient.organization.inviteMember({
+            email: userEmail,
+            organizationId,
+            role: role as "admin" | "member" | "owner",
+          });
+
+          if (inviteResult.error) {
+            return NextResponse.json(
+              { error: inviteResult.error.message || "Failed to invite member" },
+              { status: 400 }
+            );
+          }
+
+          result = inviteResult.data;
+          usedInvitation = true;
+        } else {
+          const errorData = await response.json().catch(() => ({ message: response.statusText }));
+          console.error("Failed to add member to organization:", errorData);
+          return NextResponse.json(
+            { error: errorData.message || "Failed to add member to organization" },
+            { status: response.status }
+          );
+        }
+      } else {
+        result = await response.json();
+      }
     }
-
-    const result = await response.json();
 
     return NextResponse.json({
       success: true,
       data: result,
+      // Indicate if invitation was used (requires user acceptance) vs direct add
+      usedInvitation,
     });
   } catch (error) {
     console.error("Error in add-member endpoint:", error);
