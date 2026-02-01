@@ -10,7 +10,7 @@ export type BetterAuthUser = {
   emailVerified: boolean;
   realName?: string;
   djName?: string;
-  role: "member" | "dj" | "musicDirector" | "stationManager";
+  role: "member" | "dj" | "musicDirector" | "stationManager" | "admin";
   createdAt: Date;
   updatedAt: Date;
   banned?: boolean;
@@ -40,7 +40,7 @@ export function convertBetterAuthToAccountResult(
  * Maps better-auth role to Authorization enum
  */
 export function mapBetterAuthRoleToAuthorization(
-  role: "member" | "dj" | "musicDirector" | "stationManager"
+  role: "member" | "dj" | "musicDirector" | "stationManager" | "admin"
 ): Authorization {
   return mapRoleToAuthorization(role);
 }

@@ -105,7 +105,7 @@ async function getUserAuthority(session: BetterAuthSession, cookieHeader?: strin
 export async function checkRole(session: BetterAuthSession, requiredRole: Authorization, cookieHeader?: string): Promise<boolean> {
   const userAuthority = await getUserAuthority(session, cookieHeader);
   
-  // Role hierarchy: SM > MD > DJ > NO
+  // Role hierarchy: ADMIN > SM > MD > DJ > NO
   // User must have at least the required role
   return userAuthority >= requiredRole;
 }
