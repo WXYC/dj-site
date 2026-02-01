@@ -6,11 +6,16 @@ export type AdminFrontendState = {
   }
 };
 
+/**
+ * @deprecated Use WXYCRole from @wxyc/shared/auth-client instead.
+ * This enum will be removed in a future version.
+ */
 export enum Authorization {
   NO,
   DJ,
   MD,
   SM,
+  ADMIN,
 }
 
 export type Account = {
@@ -50,6 +55,7 @@ export interface AdminProtectedRoutesType {
 }
 
 export const AdminProtectedRoutes: AdminProtectedRoutesType = {
+  [Authorization.ADMIN]: ["roster", "catalog"],
   [Authorization.SM]: ["roster", "catalog"],
   [Authorization.MD]: ["catalog"],
   [Authorization.NO]: [],
