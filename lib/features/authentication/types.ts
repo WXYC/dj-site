@@ -65,14 +65,18 @@ export type NewUserCredentials = Credentials & Record<string, string>;
 export type User = {
   username: string;
   email: string;
-  realName?: string;     // Optional: User's real name
-  djName?: string;        // Optional: DJ name/on-air name
+  realName?: string;
+  djName?: string;
+  /**
+   * @deprecated Use `role: WXYCRole` instead. The Authorization enum is deprecated.
+   * See lib/features/admin/types.ts for migration helpers.
+   */
   authority: Authorization;
   // Better-auth fields (optional for compatibility)
   id?: string;
-  name?: string;          // Username (duplicate of username)
+  name?: string;
   emailVerified?: boolean;
-  appSkin?: string;       // UI theme
+  appSkin?: string;
   createdAt?: Date;
   updatedAt?: Date;
 };
