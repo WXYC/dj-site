@@ -3,12 +3,8 @@
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
 import { authClient } from "@/lib/features/authentication/client";
 import {
-  AuthenticatedUser,
   AuthenticationData,
-  djAttributeNames,
   isAuthenticated,
-  NewUserCredentials,
-  ResetPasswordRequest,
   VerifiedData,
 } from "@/lib/features/authentication/types";
 import { betterAuthSessionToAuthenticationData, betterAuthSessionToAuthenticationDataAsync } from "@/lib/features/authentication/utilities";
@@ -211,41 +207,18 @@ export const useNewUser = () => {
     authenticationSlice.selectors.requiredCredentialsVerified
   );
 
-  const { handleLogout } = useLogout();
-
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+
   const handleNewUser = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
-    const username = e.currentTarget.username.value;
-    const password = e.currentTarget.password.value;
-    const currentPassword = String(
-      process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD || ""
-    );
-
-    if (!currentPassword) {
-      throw new Error("Missing onboarding temp password configuration.");
-    }
-
-    const params: NewUserCredentials = {
-      username,
-      password,
-    };
-
-    // Extract form values - form fields use the attribute names directly (realName, djName)
-    // not the djAttributeNames keys (name, custom:dj-name)
+    // Extract form values - only collect profile fields
+    // Password is already set via the email link before the user reaches onboarding
     const realNameValue = e.currentTarget.realName?.value || "";
     const djNameValue = e.currentTarget.djName?.value || "";
-    
-    if (realNameValue) {
-      params.realName = realNameValue;
-    }
-    if (djNameValue) {
-      params.djName = djNameValue;
-    }
 
     try {
       // Get current session to ensure user is authenticated
@@ -256,47 +229,38 @@ export const useNewUser = () => {
 
       // Update user via better-auth non-admin updateUser (updates current user)
       // Custom metadata fields (realName, djName) go at the top level, not in a 'data' object
-      // This is different from admin.createUser which uses a 'data' object
-      const updateRequest: any = {};
+      const updateRequest: Record<string, string> = {};
 
-      // Add custom metadata fields at the top level (non-admin updateUser format)
-      if (params.realName) {
-        updateRequest.realName = params.realName;
+      if (realNameValue) {
+        updateRequest.realName = realNameValue;
       }
-      if (params.djName) {
-        updateRequest.djName = params.djName;
+      if (djNameValue) {
+        updateRequest.djName = djNameValue;
       }
+
       // Update user profile data (non-admin - updates current user)
       const result = await authClient.updateUser(updateRequest);
 
       if (result.error) {
-        const errorMessage = result.error.message || 'Failed to update user profile';
+        const errorMessage = result.error.message || "Failed to update user profile";
         throw new Error(errorMessage);
       }
 
-      if (params.password) {
-        const passwordResult = await authClient.changePassword({
-          currentPassword,
-          newPassword: params.password,
-        });
-
-        if (passwordResult.error) {
-          const errorMessage =
-            passwordResult.error.message || "Failed to update password";
-          throw new Error(errorMessage);
-        }
-      }
+      // No password change needed - user already set it via email link
 
       // User updated successfully, redirect to dashboard
-      const dashboardHome = String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog");
+      const dashboardHome = String(
+        process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog"
+      );
       toast.success("Profile updated successfully");
       router.push(dashboardHome);
       router.refresh();
     } catch (err) {
-      const errorMessage = err instanceof Error 
-        ? err.message 
-        : 'Failed to update user profile. Please try again.';
-      
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "Failed to update user profile. Please try again.";
+
       setError(err instanceof Error ? err : new Error(errorMessage));
       if (errorMessage.trim().length > 0) {
         toast.error(errorMessage);
