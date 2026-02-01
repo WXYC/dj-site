@@ -108,7 +108,9 @@ export default function RosterTable({ user }: { user: User }) {
 
         // Map Authorization enum to better-auth role
         let role: WXYCRole = "member";
-        if (authorizationOfNewAccount === Authorization.SM) {
+        if (authorizationOfNewAccount === Authorization.ADMIN) {
+          role = "admin";
+        } else if (authorizationOfNewAccount === Authorization.SM) {
           role = "stationManager";
         } else if (authorizationOfNewAccount === Authorization.MD) {
           role = "musicDirector";
@@ -231,13 +233,13 @@ export default function RosterTable({ user }: { user: User }) {
             <tr>
               <th
                 style={{
-                  width: 55,
+                  width: 160,
                   verticalAlign: "center",
                   textAlign: "center",
                 }}
               >
                 <Tooltip
-                  title="Toggle Admin Status"
+                  title="User Role"
                   arrow={true}
                   placement="top"
                   variant="outlined"
@@ -286,12 +288,13 @@ export default function RosterTable({ user }: { user: User }) {
                   key={`roster-entry-${dj.userName}`}
                   account={dj}
                   isSelf={dj.userName === user.username}
+                  currentUserAuthority={user.authority}
                   onAccountChange={refetch}
                 />
               ))
             )}
             {!isLoading && isAdding ? (
-              <NewAccountForm />
+              <NewAccountForm currentUserAuthority={user.authority} />
             ) : (
               <tr>
                 <td colSpan={5}></td>

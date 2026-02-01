@@ -1,17 +1,17 @@
 import { describe, it, expect } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import NewAccountForm from "./NewAccountForm";
 import { renderWithProviders } from "@/lib/test-utils";
 import { adminSlice } from "@/lib/features/admin/frontend";
 import { Authorization } from "@/lib/features/admin/types";
 
 // Wrap in table since component renders a <tr>
-function renderInTable() {
+function renderInTable(currentUserAuthority: Authorization = Authorization.SM) {
   return renderWithProviders(
     <table>
       <tbody>
         <form>
-          <NewAccountForm />
+          <NewAccountForm currentUserAuthority={currentUserAuthority} />
         </form>
       </tbody>
     </table>
@@ -55,38 +55,49 @@ describe("NewAccountForm", () => {
     expect(screen.getByRole("button", { name: /Save/i })).toHaveAttribute("type", "submit");
   });
 
-  it("should render checkboxes for authorization", () => {
+  it("should render role dropdown", () => {
     renderInTable();
 
-    const checkboxes = screen.getAllByRole("checkbox");
-    expect(checkboxes).toHaveLength(2);
+    expect(screen.getByRole("combobox")).toBeInTheDocument();
   });
 
-  it("should default to DJ authorization (both unchecked)", () => {
+  it("should default to DJ authorization", () => {
     const { store } = renderInTable();
 
     const formData = adminSlice.selectors.getFormData(store.getState());
     expect(formData.authorization).toBe(Authorization.DJ);
   });
 
-  it("should update authorization to SM when first checkbox is checked", async () => {
+  it("should update authorization when role is selected", async () => {
     const { user, store } = renderInTable();
 
-    const checkboxes = screen.getAllByRole("checkbox");
-    await user.click(checkboxes[0]);
+    const dropdown = screen.getByRole("combobox");
+    await user.click(dropdown);
 
-    const formData = adminSlice.selectors.getFormData(store.getState());
-    expect(formData.authorization).toBe(Authorization.SM);
-  });
-
-  it("should update authorization to MD when second checkbox is checked", async () => {
-    const { user, store } = renderInTable();
-
-    const checkboxes = screen.getAllByRole("checkbox");
-    await user.click(checkboxes[1]);
+    // Select "Music Director" from the dropdown
+    const mdOption = screen.getByRole("option", { name: "Music Director" });
+    await user.click(mdOption);
 
     const formData = adminSlice.selectors.getFormData(store.getState());
     expect(formData.authorization).toBe(Authorization.MD);
+  });
+
+  it("should show admin option when user is admin", async () => {
+    const { user } = renderInTable(Authorization.ADMIN);
+
+    const dropdown = screen.getByRole("combobox");
+    await user.click(dropdown);
+
+    expect(screen.getByRole("option", { name: "Admin" })).toBeInTheDocument();
+  });
+
+  it("should not show admin option when user is station manager", async () => {
+    const { user } = renderInTable(Authorization.SM);
+
+    const dropdown = screen.getByRole("combobox");
+    await user.click(dropdown);
+
+    expect(screen.queryByRole("option", { name: "Admin" })).not.toBeInTheDocument();
   });
 
   it("should have required attributes on name, username, and email inputs", () => {
