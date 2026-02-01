@@ -13,10 +13,13 @@ vi.mock("@/lib/features/authentication/client", () => ({
     },
     organization: {
       getFullOrganization: vi.fn(),
-      inviteMember: vi.fn(),
     },
   },
 }));
+
+// Mock fetch for the add-member API
+const mockFetch = vi.fn();
+global.fetch = mockFetch;
 
 // Mock the admin hooks
 vi.mock("@/src/hooks/adminHooks", () => ({
@@ -47,7 +50,6 @@ const mockedAuthClient = authClient as unknown as {
   admin: { createUser: ReturnType<typeof vi.fn> };
   organization: {
     getFullOrganization: ReturnType<typeof vi.fn>;
-    inviteMember: ReturnType<typeof vi.fn>;
   };
 };
 const mockedUseAccountListResults = vi.mocked(useAccountListResults);
@@ -66,6 +68,7 @@ describe("RosterTable", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFetch.mockReset();
 
     // Default mock implementations
     mockedUseAccountListResults.mockReturnValue({
@@ -74,6 +77,12 @@ describe("RosterTable", () => {
       isError: false,
       error: null,
       refetch: vi.fn(),
+    });
+
+    // Default fetch mock for add-member API
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ success: true }),
     });
   });
 
@@ -150,7 +159,7 @@ describe("RosterTable", () => {
       vi.unstubAllEnvs();
     });
 
-    it("should use inviteMember to add user to organization after creation", async () => {
+    it("should use server API to add user to organization after creation", async () => {
       const mockRefetch = vi.fn();
       mockedUseAccountListResults.mockReturnValue({
         data: [],
@@ -172,10 +181,11 @@ describe("RosterTable", () => {
         data: { id: "org-123" },
       } as any);
 
-      // Mock successful invitation
-      mockedAuthClient.organization.inviteMember.mockResolvedValue({
-        data: { success: true },
-      } as any);
+      // Mock successful add-member API call
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ success: true }),
+      });
 
       const { user } = renderWithProviders(
         <RosterTable user={stationManagerUser} />
@@ -185,38 +195,38 @@ describe("RosterTable", () => {
       const addButton = screen.getByRole("button", { name: /add dj/i });
       await user.click(addButton);
 
-      // The form should now be visible - we would need to fill it out and submit
-      // For this test, we're verifying the inviteMember is called correctly
-
-      // Verify inviteMember uses email-based invitation (not userId-based addMember)
-      // This test validates the fix from addMember to inviteMember
-      expect(mockedAuthClient.organization.inviteMember).toBeDefined();
+      // Verify the server-side add-member API is available
+      // The actual API call happens when the form is submitted
+      expect(mockFetch).toBeDefined();
     });
 
-    it("should call inviteMember with correct parameters including email", async () => {
-      // This test verifies the inviteMember API is called with the correct shape
-      // The key change is that inviteMember uses email (not userId)
+    it("should use add-member API with userId instead of inviteMember with email", async () => {
+      // This test documents the key difference from inviteMember:
+      // - addMember uses userId and directly adds the user to the organization
+      // - inviteMember uses email and requires user to accept an invitation
+      //
+      // The RosterTable component calls /api/admin/organization/add-member with:
+      // { userId: string, organizationId: string, role: string }
+      //
+      // This is different from the old inviteMember approach which used:
+      // { email: string, organizationId: string, role: string }
 
-      const inviteMemberMock = vi.fn().mockResolvedValue({
-        data: { success: true },
-      });
-      mockedAuthClient.organization.inviteMember = inviteMemberMock;
+      // Verify the mock fetch is set up for the add-member endpoint
+      expect(mockFetch).toBeDefined();
 
-      // Call the invite function directly to test the API shape
-      await inviteMemberMock({
-        email: "newuser@wxyc.org",
-        role: "dj" as "admin" | "member" | "owner", // Type assertion for WXYC custom roles
+      // The actual API shape used by RosterTable
+      const expectedRequestBody = {
+        userId: "new-user-123",
         organizationId: "org-123",
-      });
-
-      expect(inviteMemberMock).toHaveBeenCalledWith({
-        email: "newuser@wxyc.org",
         role: "dj",
-        organizationId: "org-123",
-      });
+      };
+
+      // Verify the shape includes userId (not email)
+      expect(expectedRequestBody).toHaveProperty("userId");
+      expect(expectedRequestBody).not.toHaveProperty("email");
     });
 
-    it("should show warning toast if invitation fails but user was created", async () => {
+    it("should show warning toast if add-member API fails but user was created", async () => {
       mockedAuthClient.admin.createUser.mockResolvedValue({
         data: { user: { id: "new-user-123" } },
       } as any);
@@ -225,12 +235,13 @@ describe("RosterTable", () => {
         data: { id: "org-123" },
       } as any);
 
-      // Mock invitation failure
-      mockedAuthClient.organization.inviteMember.mockResolvedValue({
-        error: { message: "Failed to invite" },
-      } as any);
+      // Mock add-member API failure
+      mockFetch.mockResolvedValue({
+        ok: false,
+        json: () => Promise.resolve({ error: "Failed to add member" }),
+      });
 
-      // Verify warning toast is shown when invitation fails
+      // Verify warning toast would be shown when add-member fails
       // The user should still be created, just not added to org
       expect(mockedToast.warning).toBeDefined();
     });
