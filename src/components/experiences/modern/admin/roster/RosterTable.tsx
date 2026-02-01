@@ -76,13 +76,9 @@ export default function RosterTable({ user }: { user: User }) {
 
         const formData = new FormData(e.currentTarget);
 
-        const tempPassword = String(
-          process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD || ""
-        );
-
-        if (!tempPassword) {
-          throw new Error("Missing onboarding temp password configuration.");
-        }
+        // Generate a random password that will never be shared with the user
+        // The user will set their own password via the setup email link
+        const randomPassword = crypto.randomUUID();
 
         const newAccount: NewAccountParams = {
           realName: (formData.get("realName") as string)?.trim() || "",
@@ -91,7 +87,7 @@ export default function RosterTable({ user }: { user: User }) {
             ? (formData.get("djName") as string).trim()
             : "Anonymous",
           email: (formData.get("email") as string)?.trim() || "",
-          temporaryPassword: tempPassword,
+          temporaryPassword: randomPassword,
           authorization: authorizationOfNewAccount,
         };
 
@@ -122,6 +118,9 @@ export default function RosterTable({ user }: { user: User }) {
 
         // Create user via better-auth admin API
         // Email will be auto-verified by the backend since admin is a trusted source
+        // Note: We intentionally do NOT pass realName/djName here - the user will fill
+        // these in during onboarding. This allows the backend to detect this as a "new user"
+        // and send a welcome/setup email instead of a password reset email.
         const result = await authClient.admin.createUser({
           name: newAccount.realName || newAccount.username,
           email: newAccount.email,
@@ -129,8 +128,7 @@ export default function RosterTable({ user }: { user: User }) {
           role: adminRole,
           data: {
             username: newAccount.username,
-            realName: newAccount.realName || undefined,
-            djName: newAccount.djName || undefined,
+            // realName and djName intentionally omitted - user fills in during onboarding
           },
         });
 
@@ -166,7 +164,23 @@ export default function RosterTable({ user }: { user: User }) {
           console.warn("Organization ID not configured, user created without organization membership");
         }
 
-        toast.success(`Account created successfully for ${newAccount.username}`);
+        // Trigger password setup email for the new user
+        // The backend will detect this is a new user (no realName filled in yet)
+        // and send a "Welcome! Set up your password" email instead of a password reset email
+        const setupEmailResult = await fetch("/api/admin/send-password-setup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: newAccount.email }),
+        });
+
+        if (!setupEmailResult.ok) {
+          console.warn("Could not send password setup email:", await setupEmailResult.text().catch(() => ""));
+          toast.warning(
+            `Account created for ${newAccount.username}. Could not send setup email - ask them to use "Forgot Password" to set up their account.`
+          );
+        } else {
+          toast.success(`Account created for ${newAccount.username}. Setup email sent.`);
+        }
         
         dispatch(adminSlice.actions.setAdding(false));
         dispatch(adminSlice.actions.reset());
