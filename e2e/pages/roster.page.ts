@@ -356,4 +356,108 @@ export class RosterPage {
     const count = await this.tableRows.count();
     return Math.max(0, count - 1);
   }
+
+  /**
+   * Get the email edit button for a user row
+   */
+  getEmailEditButton(username: string): Locator {
+    const row = this.getUserRow(username);
+    // The email cell has a Stack with the email text and an edit button
+    // Find the cell containing the email, then get the button inside it
+    return row.locator("td").nth(4).locator("button");
+  }
+
+  /**
+   * Get the email input field when editing
+   */
+  getEmailInput(username: string): Locator {
+    const row = this.getUserRow(username);
+    return row.locator("td").nth(4).locator("input");
+  }
+
+  /**
+   * Get the confirm button when editing email
+   */
+  getEmailConfirmButton(username: string): Locator {
+    const row = this.getUserRow(username);
+    // The confirm button is the first button in the email cell (green checkmark)
+    return row.locator("td").nth(4).locator("button").first();
+  }
+
+  /**
+   * Get the cancel button when editing email
+   */
+  getEmailCancelButton(username: string): Locator {
+    const row = this.getUserRow(username);
+    // The cancel button is the second button in the email cell
+    return row.locator("td").nth(4).locator("button").nth(1);
+  }
+
+  /**
+   * Start editing a user's email
+   */
+  async startEditEmail(username: string): Promise<void> {
+    const editButton = this.getEmailEditButton(username);
+    await editButton.waitFor({ state: "visible", timeout: 5000 });
+    // Use JavaScript click to bypass MUI Chips in adjacent cells that intercept pointer events
+    await editButton.evaluate((el) => (el as HTMLElement).click());
+    // Wait for input to appear
+    await this.getEmailInput(username).waitFor({ state: "visible", timeout: 5000 });
+  }
+
+  /**
+   * Update a user's email (full flow)
+   */
+  async updateUserEmail(username: string, newEmail: string): Promise<void> {
+    await this.startEditEmail(username);
+    const emailInput = this.getEmailInput(username);
+    await emailInput.clear();
+    await emailInput.fill(newEmail);
+  }
+
+  /**
+   * Confirm the email change
+   */
+  async confirmEmailChange(username: string): Promise<void> {
+    const confirmButton = this.getEmailConfirmButton(username);
+    // Use JavaScript click to bypass MUI Chips in adjacent cells that intercept pointer events
+    await confirmButton.evaluate((el) => (el as HTMLElement).click());
+  }
+
+  /**
+   * Cancel the email change
+   */
+  async cancelEmailChange(username: string): Promise<void> {
+    const cancelButton = this.getEmailCancelButton(username);
+    // Use JavaScript click to bypass MUI Chips in adjacent cells that intercept pointer events
+    await cancelButton.evaluate((el) => (el as HTMLElement).click());
+  }
+
+  /**
+   * Update email with confirmation dialog
+   */
+  async updateEmailWithConfirm(username: string, newEmail: string): Promise<void> {
+    this.setupAcceptConfirmDialog();
+    await this.updateUserEmail(username, newEmail);
+    await this.confirmEmailChange(username);
+  }
+
+  /**
+   * Get the current email displayed for a user
+   */
+  async getUserEmail(username: string): Promise<string> {
+    const row = this.getUserRow(username);
+    const emailCell = row.locator("td").nth(4);
+    // Get the text content, filtering out any button text
+    const emailSpan = emailCell.locator("span").first();
+    return (await emailSpan.textContent()) || "";
+  }
+
+  /**
+   * Expect user to have specific email
+   */
+  async expectUserEmail(username: string, email: string): Promise<void> {
+    const userEmail = await this.getUserEmail(username);
+    expect(userEmail).toBe(email);
+  }
 }
