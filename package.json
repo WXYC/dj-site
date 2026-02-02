@@ -26,6 +26,7 @@
     "@mui/material": "^6.4.0",
     "@opennextjs/cloudflare": "^1.10.1",
     "@reduxjs/toolkit": "^2.2.0",
+    "@sentry/nextjs": "^10.38.0",
     "@uidotdev/usehooks": "^2.4.1",
     "amazon-cognito-identity-js": "^6.3.12",
     "cookie": "^1.0.2",
