@@ -1,18 +1,27 @@
 "use client";
 
 import { authClient } from "@/lib/features/authentication/client";
-import {
-  getAppOrganizationIdClient,
-} from "@/lib/features/authentication/organization-utils";
+import { getAppOrganizationIdClient } from "@/lib/features/authentication/organization-utils";
 import {
   Account,
   AdminAuthenticationStatus,
   Authorization,
 } from "@/lib/features/admin/types";
-import { DeleteForever, SyncLock } from "@mui/icons-material";
-import { ButtonGroup, Checkbox, IconButton, Stack, Tooltip } from "@mui/joy";
+import { Check, Close, DeleteForever, Edit, Language, SyncLock } from "@mui/icons-material";
+import {
+  ButtonGroup,
+  Checkbox,
+  Chip,
+  IconButton,
+  Input,
+  Stack,
+  Tooltip,
+} from "@mui/joy";
 import { useState } from "react";
 import { toast } from "sonner";
+
+const CAPABILITIES = ["editor", "webmaster"] as const;
+type Capability = (typeof CAPABILITIES)[number];
 
 export const AccountEntry = ({
   account,
@@ -26,9 +35,119 @@ export const AccountEntry = ({
   const [isPromoting, setIsPromoting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isUpdatingCapabilities, setIsUpdatingCapabilities] = useState(false);
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
+  const [newEmail, setNewEmail] = useState(account.email);
   const [promoteError, setPromoteError] = useState<Error | null>(null);
   const [resetError, setResetError] = useState<Error | null>(null);
   const [deleteError, setDeleteError] = useState<Error | null>(null);
+
+  const userCapabilities = (account.capabilities ?? []) as Capability[];
+
+  /**
+   * Update user capabilities via API
+   */
+  const updateCapabilities = async (newCapabilities: Capability[]) => {
+    const userId = await resolveUserId();
+
+    const response = await fetch("/api/admin/capabilities", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        userId,
+        capabilities: newCapabilities,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response
+        .json()
+        .catch(() => ({ error: response.statusText }));
+      throw new Error(errorData.error || "Failed to update capabilities");
+    }
+
+    return response.json();
+  };
+
+  /**
+   * Handle admin email update (bypasses verification)
+   */
+  const handleEmailUpdate = async () => {
+    if (!newEmail || newEmail === account.email) {
+      setIsEditingEmail(false);
+      return;
+    }
+
+    const confirmed = confirm(
+      `Are you sure you want to change ${account.realName}'s email to ${newEmail}? This will take effect immediately without verification.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsUpdatingEmail(true);
+    try {
+      const targetUserId = await resolveUserId();
+
+      const result = await authClient.admin.updateUser({
+        userId: targetUserId,
+        data: { email: newEmail, emailVerified: true },
+      });
+
+      if (result.error) {
+        throw new Error(result.error.message || "Failed to update email");
+      }
+
+      toast.success(`Email updated to ${newEmail}`);
+      setIsEditingEmail(false);
+      if (onAccountChange) {
+        await onAccountChange();
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to update email";
+      toast.error(errorMessage);
+    } finally {
+      setIsUpdatingEmail(false);
+    }
+  };
+
+  /**
+   * Toggle a capability on/off for the user
+   */
+  const handleCapabilityToggle = async (capability: Capability) => {
+    const hasCapability = userCapabilities.includes(capability);
+    const newCapabilities = hasCapability
+      ? userCapabilities.filter((c) => c !== capability)
+      : [...userCapabilities, capability];
+
+    const action = hasCapability ? "remove" : "grant";
+    const confirmMessage = `Are you sure you want to ${action} the "${capability}" capability ${hasCapability ? "from" : "to"} ${account.realName}?`;
+
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    setIsUpdatingCapabilities(true);
+    try {
+      await updateCapabilities(newCapabilities);
+      toast.success(
+        `${capability} capability ${hasCapability ? "removed from" : "granted to"} ${account.realName}`
+      );
+      if (onAccountChange) {
+        await onAccountChange();
+      }
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to update capabilities";
+      toast.error(errorMessage);
+    } finally {
+      setIsUpdatingCapabilities(false);
+    }
+  };
   /**
    * Resolve organization slug to organization ID
    */
@@ -285,7 +404,119 @@ export const AccountEntry = ({
       <td>
         {account.djName.length > 0 && "DJ"} {account.djName}
       </td>
-      <td>{account.email}</td>
+      <td>
+        {isEditingEmail ? (
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            <Input
+              size="sm"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              sx={{ minWidth: 200 }}
+              disabled={isUpdatingEmail}
+            />
+            <IconButton
+              size="sm"
+              color="success"
+              onClick={handleEmailUpdate}
+              loading={isUpdatingEmail}
+            >
+              <Check />
+            </IconButton>
+            <IconButton
+              size="sm"
+              color="neutral"
+              onClick={() => {
+                setIsEditingEmail(false);
+                setNewEmail(account.email);
+              }}
+              disabled={isUpdatingEmail}
+            >
+              <Close />
+            </IconButton>
+          </Stack>
+        ) : (
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            <span>{account.email}</span>
+            {!isSelf && (
+              <Tooltip
+                title={`Edit ${account.realName}'s email`}
+                arrow
+                placement="top"
+                variant="outlined"
+                size="sm"
+              >
+                <IconButton
+                  size="sm"
+                  variant="plain"
+                  onClick={() => setIsEditingEmail(true)}
+                >
+                  <Edit />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Stack>
+        )}
+      </td>
+      <td>
+        <Stack direction="row" spacing={0.5}>
+          <Tooltip
+            title={
+              isSelf
+                ? "You cannot modify your own capabilities"
+                : userCapabilities.includes("editor")
+                  ? "Remove editor capability"
+                  : "Grant editor capability (allows website editing)"
+            }
+            arrow
+            placement="top"
+            variant="outlined"
+            size="sm"
+          >
+            <Chip
+              variant={userCapabilities.includes("editor") ? "solid" : "outlined"}
+              color={userCapabilities.includes("editor") ? "success" : "neutral"}
+              size="sm"
+              startDecorator={<Edit sx={{ fontSize: 14 }} />}
+              onClick={() => !isSelf && handleCapabilityToggle("editor")}
+              disabled={isSelf || isUpdatingCapabilities}
+              sx={{
+                cursor: isSelf ? "not-allowed" : "pointer",
+                opacity: isUpdatingCapabilities ? 0.5 : 1,
+              }}
+            >
+              Editor
+            </Chip>
+          </Tooltip>
+          <Tooltip
+            title={
+              isSelf
+                ? "You cannot modify your own capabilities"
+                : userCapabilities.includes("webmaster")
+                  ? "Remove webmaster capability"
+                  : "Grant webmaster capability (can delegate editor)"
+            }
+            arrow
+            placement="top"
+            variant="outlined"
+            size="sm"
+          >
+            <Chip
+              variant={userCapabilities.includes("webmaster") ? "solid" : "outlined"}
+              color={userCapabilities.includes("webmaster") ? "primary" : "neutral"}
+              size="sm"
+              startDecorator={<Language sx={{ fontSize: 14 }} />}
+              onClick={() => !isSelf && handleCapabilityToggle("webmaster")}
+              disabled={isSelf || isUpdatingCapabilities}
+              sx={{
+                cursor: isSelf ? "not-allowed" : "pointer",
+                opacity: isUpdatingCapabilities ? 0.5 : 1,
+              }}
+            >
+              Webmaster
+            </Chip>
+          </Tooltip>
+        </Stack>
+      </td>
       <td>
         <Stack direction="row" spacing={0.5}>
           <Tooltip

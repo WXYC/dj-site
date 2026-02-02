@@ -15,6 +15,8 @@ export type BetterAuthUser = {
   updatedAt: Date;
   banned?: boolean;
   banReason?: string;
+  /** Cross-cutting capabilities independent of role hierarchy */
+  capabilities?: string[];
 };
 
 /**
@@ -29,10 +31,11 @@ export function convertBetterAuthToAccountResult(
     realName: user.realName || user.name || "No Real Name",
     djName: user.djName || "No DJ Name",
     authorization: mapRoleToAuthorization(user.role),
-    authType: user.emailVerified 
-      ? AdminAuthenticationStatus.Confirmed 
+    authType: user.emailVerified
+      ? AdminAuthenticationStatus.Confirmed
       : AdminAuthenticationStatus.New,
     email: user.email,
+    capabilities: user.capabilities ?? [],
   };
 }
 

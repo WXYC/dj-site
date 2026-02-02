@@ -250,6 +250,7 @@ export default function RosterTable({ user }: { user: User }) {
               <th style={{ minWidth: "100px" }}>Username</th>
               <th style={{ minWidth: "100px" }}>DJ Name</th>
               <th style={{ minWidth: "100px" }}>Email</th>
+              <th style={{ minWidth: "140px" }}>Capabilities</th>
               <th
                 aria-label="last"
                 style={{ width: "var(--Table-lastColumnWidth)" }}
@@ -260,7 +261,7 @@ export default function RosterTable({ user }: { user: User }) {
             {isLoading ? (
               <tr style={{ background: "transparent" }}>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   style={{ textAlign: "center", paddingTop: "2rem" }}
                 >
                   <CircularProgress color={"success"} />
@@ -269,7 +270,7 @@ export default function RosterTable({ user }: { user: User }) {
             ) : isError ? (
               <tr style={{ background: "transparent" }}>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   style={{ textAlign: "center", paddingTop: "2rem" }}
                 >
                   <GppBad color="error" sx={{ fontSize: "5rem" }} />
@@ -294,7 +295,7 @@ export default function RosterTable({ user }: { user: User }) {
               <NewAccountForm />
             ) : (
               <tr>
-                <td colSpan={5}></td>
+                <td colSpan={6}></td>
                 <td
                   style={{
                     display: "flex",
