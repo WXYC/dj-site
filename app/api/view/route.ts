@@ -6,7 +6,15 @@ export async function GET(request: NextRequest) {
   const cookieStore = await cookies();
 
   const data = cookieStore.get("app_state");
-  const appState = data ? JSON.parse(data.value) : defaultApplicationState;
+  let appState = defaultApplicationState;
+
+  if (data?.value) {
+    try {
+      appState = { ...defaultApplicationState, ...JSON.parse(data.value) };
+    } catch (e) {
+      console.error("Failed to parse app_state", e);
+    }
+  }
 
   return NextResponse.json(appState ?? defaultApplicationState, {
     status: 200,

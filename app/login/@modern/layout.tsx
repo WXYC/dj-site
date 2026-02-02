@@ -1,6 +1,7 @@
-import { isIncomplete, isPasswordReset } from "@/lib/features/authentication/types";
-import { createServerSideProps } from "@/lib/features/session";
+import { getServerSession } from "@/lib/features/authentication/server-utils";
+import { redirect } from "next/navigation";
 import WXYCPage from "@/src/Layout/WXYCPage";
+import LoginSlotSwitcher from "./LoginSlotSwitcher";
 
 export default async function ModernLoginLayout({
   normal,
@@ -11,11 +12,22 @@ export default async function ModernLoginLayout({
   newuser: React.ReactNode;
   reset: React.ReactNode;
 }) {
-  const serverSideProps = await createServerSideProps();
+  // Check if user is already authenticated
+  const session = await getServerSession();
+
+  if (session) {
+    // User is authenticated, redirect to dashboard
+    redirect(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog"));
+  }
 
   return (
     <WXYCPage title="Login">
-      {isPasswordReset(serverSideProps.authentication) ? reset : isIncomplete(serverSideProps.authentication) ? newuser : normal}
+      <LoginSlotSwitcher
+        normal={normal}
+        newuser={newuser}
+        reset={reset}
+        isIncomplete={false}
+      />
     </WXYCPage>
   );
 }
