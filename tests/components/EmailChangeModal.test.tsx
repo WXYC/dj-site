@@ -24,6 +24,14 @@ vi.mock("sonner", () => ({
   },
 }));
 
+// Mock shared validation (uses same regex as original implementation)
+vi.mock("@wxyc/shared/validation", () => ({
+  isValidEmail: (email: string) => {
+    if (typeof email !== "string") return false;
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  },
+}));
+
 describe("EmailChangeModal", () => {
   const defaultProps = {
     open: true,
