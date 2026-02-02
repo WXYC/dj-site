@@ -1,6 +1,7 @@
 "use client";
 
 import { authClient } from "@/lib/features/authentication/client";
+import { isValidEmail } from "@wxyc/shared/validation";
 import { Email, Key } from "@mui/icons-material";
 import {
   Button,
@@ -61,9 +62,8 @@ export default function EmailChangeModal({
       return;
     }
 
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(newEmail)) {
+    // Email format validation using shared validator
+    if (!isValidEmail(newEmail)) {
       setError("Please enter a valid email address");
       return;
     }
