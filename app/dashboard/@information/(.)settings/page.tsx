@@ -1,12 +1,10 @@
-import { AuthenticatedUser } from "@/lib/features/authentication/types";
-import { createServerSideProps } from "@/lib/features/session";
+import { requireAuth, getUserFromSession } from "@/lib/features/authentication/server-utils";
 import SettingsPopup from "@/src/components/experiences/modern/settings/SettingsPopup";
 
 
 export default async function SettingsPage() {
-      const user = (
-        (await createServerSideProps()).authentication as AuthenticatedUser
-      ).user!;
+      const session = await requireAuth();
+      const user = await getUserFromSession(session);
 
       return <SettingsPopup user={user} />;
 }

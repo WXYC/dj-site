@@ -10,7 +10,7 @@ import { ValidatedSubmitButton } from "./Fields/ValidatedSubmitButton";
 import { PasswordResetUser } from "@/lib/features/authentication/types";
 
 export default function ResetPasswordForm({
-    username
+    token
 } : PasswordResetUser) {
   const [newPassword, setNewPassword] = useState("");
 
@@ -18,25 +18,17 @@ export default function ResetPasswordForm({
 
   const dispatch = useAppDispatch();
   useEffect(() => {
-    dispatch(authenticationSlice.actions.addRequiredCredentials(["code"]));
     dispatch(
         authenticationSlice.actions.verify({
           key: "username",
-          value: username.length > 0,
+          value: true,
         })
       );
   }, [dispatch]);
 
   return (
     <form onSubmit={handleReset} method="post">
-      <input type="hidden" name="username" value={username} />
-      <RequiredBox
-        name="code"
-        title="Code"
-        placeholder="Code"
-        type="number"
-        disabled={requestingReset}
-      />
+      <input type="hidden" name="token" value={token || ""} />
       <RequiredBox
         name="password"
         title="New Password"
@@ -69,7 +61,7 @@ export default function ResetPasswordForm({
       />
       <ValidatedSubmitButton
         authenticating={requestingReset}
-        valid={verified}
+        valid={verified && !!token}
         fullWidth
       />
     </form>

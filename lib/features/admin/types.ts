@@ -14,6 +14,7 @@ export enum Authorization {
 }
 
 export type Account = {
+  id?: string;
   userName: string;
   realName: string;
   djName: string;
@@ -21,6 +22,8 @@ export type Account = {
   authType: AdminAuthenticationStatus;
   shows?: string;
   email?: string;
+  /** Cross-cutting capabilities independent of role hierarchy */
+  capabilities?: string[];
 };
 
 export type NewAccountParams = {

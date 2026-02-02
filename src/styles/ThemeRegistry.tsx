@@ -7,6 +7,7 @@ import { CssVarsProvider } from "@mui/joy/styles";
 import { useServerInsertedHTML } from "next/navigation";
 import React from "react";
 import { useActiveExperience } from "@/lib/features/experiences/hooks";
+import { useThemePreferenceSync } from "@/src/hooks/themePreferenceHooks";
 import modernTheme from "@/lib/features/experiences/modern/theme";
 import classicTheme from "@/lib/features/experiences/classic/theme";
 
@@ -63,6 +64,7 @@ export default function ThemeRegistry(
   return (
     <CacheProvider value={cache}>
       <CssVarsProvider theme={theme}>
+        <ThemePreferenceSync />
         <CssBaseline />
         <GlobalStyles
           styles={(theme) => ({
@@ -82,4 +84,9 @@ export default function ThemeRegistry(
       </CssVarsProvider>
     </CacheProvider>
   );
+}
+
+function ThemePreferenceSync() {
+  useThemePreferenceSync();
+  return null;
 }

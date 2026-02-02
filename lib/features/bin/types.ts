@@ -3,7 +3,7 @@ export type BinFrontendState = {
 };
 
 export type DJBinQuery = {
-  dj_id: number;
+  dj_id: string; // User ID from better-auth (string)
 };
 
 export type BinMutationQuery = DJBinQuery & {

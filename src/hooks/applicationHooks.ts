@@ -1,4 +1,3 @@
-import { authenticationApi } from "@/lib/features/authentication/api";
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
 import { binApi } from "@/lib/features/bin/api";
 import { catalogApi } from "@/lib/features/catalog/api";
@@ -152,6 +151,5 @@ export function resetApplication(dispatch: ReturnType<typeof useAppDispatch>) {
   dispatch(catalogApi.util.resetApiState());
   dispatch(catalogSlice.actions.reset());
   dispatch(binApi.util.resetApiState());
-  dispatch(authenticationApi.util.resetApiState());
   dispatch(authenticationSlice.actions.reset());
 }

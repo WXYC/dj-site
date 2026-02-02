@@ -3,7 +3,7 @@
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
 import { VerifiedData } from "@/lib/features/authentication/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function RequiredBox({
   name,
@@ -18,6 +18,7 @@ export default function RequiredBox({
   disabled?: boolean;
 }): JSX.Element {
   const [value, setValue] = useState("");
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   const validated = useAppSelector((state) =>
     authenticationSlice.selectors.getVerification(
@@ -35,6 +36,29 @@ export default function RequiredBox({
       })
     );
 
+  useEffect(() => {
+    const isValid = value.length > 0;
+    if (validated !== isValid) {
+      reportValidation(isValid);
+    }
+  }, [value, validated]);
+
+  useEffect(() => {
+    const syncFromDom = () => {
+      const domValue = inputRef.current?.value ?? value;
+      if (domValue !== value) {
+        setValue(domValue);
+      }
+      const isValid = domValue.length > 0;
+      if (validated !== isValid) {
+        reportValidation(isValid);
+      }
+    };
+
+    const timers = [setTimeout(syncFromDom, 0), setTimeout(syncFromDom, 300)];
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
   return (
     <>
       <td align="right" className="label">
@@ -46,6 +70,7 @@ export default function RequiredBox({
           name={String(name)}
           value={value}
           disabled={disabled}
+          ref={inputRef}
           onChange={(e) => {
             let value = e.target.value;
             setValue(value);

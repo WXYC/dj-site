@@ -146,7 +146,7 @@ export function isFlowsheetBreakpointEntry(
 }
 
 export type OnAirDJResponse = {
-  id: number;
+  id: string; // User ID from better-auth (string)
   dj_name: string;
 };
 

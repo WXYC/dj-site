@@ -10,7 +10,7 @@ export const defaultAdminFrontendState: AdminFrontendState = {
 };
 
 export const adminSlice = createAppSlice({
-  name: "application",
+  name: "admin",
   initialState: defaultAdminFrontendState,
   reducers: {
     setSearchString: (state, action) => {

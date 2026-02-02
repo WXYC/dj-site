@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import ResetPasswordForm from "./ResetPasswordForm";
 import { renderWithProviders } from "@/lib/test-utils";
+import type { PasswordResetUser } from "@/lib/features/authentication/types";
 
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
@@ -12,15 +13,10 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("ResetPasswordForm", () => {
-  const defaultProps = {
-    username: "testuser",
+  const defaultProps: PasswordResetUser = {
+    token: "test-reset-token-123",
+    confirmationMessage: "Password reset requested",
   };
-
-  it("should render code field", () => {
-    renderWithProviders(<ResetPasswordForm {...defaultProps} />);
-
-    expect(screen.getByText("Code")).toBeInTheDocument();
-  });
 
   it("should render new password field", () => {
     renderWithProviders(<ResetPasswordForm {...defaultProps} />);
@@ -48,12 +44,12 @@ describe("ResetPasswordForm", () => {
     expect(screen.getByRole("button", { name: "Submit" })).toBeInTheDocument();
   });
 
-  it("should have hidden username input", () => {
+  it("should have hidden token input", () => {
     const { container } = renderWithProviders(<ResetPasswordForm {...defaultProps} />);
 
-    const hiddenInput = container.querySelector('input[name="username"]');
+    const hiddenInput = container.querySelector('input[name="token"]');
     expect(hiddenInput).toHaveAttribute("type", "hidden");
-    expect(hiddenInput).toHaveValue("testuser");
+    expect(hiddenInput).toHaveValue("test-reset-token-123");
   });
 
   it("should have submit button disabled initially", () => {
@@ -65,40 +61,47 @@ describe("ResetPasswordForm", () => {
   it("should enable submit when all fields are valid", async () => {
     const { user } = renderWithProviders(<ResetPasswordForm {...defaultProps} />);
 
-    const codeInput = screen.getByPlaceholderText("Code");
     const passwordInput = screen.getByPlaceholderText("Enter your new password");
     const confirmInput = screen.getByPlaceholderText("Confirm New Password");
 
-    await user.type(codeInput, "123456");
     await user.type(passwordInput, "Password1");
     await user.type(confirmInput, "Password1");
 
     expect(screen.getByRole("button", { name: "Submit" })).not.toBeDisabled();
   });
 
-  it("should keep submit disabled without code", async () => {
+  it("should keep submit disabled when password invalid", async () => {
+    const { user } = renderWithProviders(<ResetPasswordForm {...defaultProps} />);
+
+    const passwordInput = screen.getByPlaceholderText("Enter your new password");
+    const confirmInput = screen.getByPlaceholderText("Confirm New Password");
+
+    await user.type(passwordInput, "weak");
+    await user.type(confirmInput, "weak");
+
+    expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();
+  });
+
+  it("should keep submit disabled when passwords do not match", async () => {
     const { user } = renderWithProviders(<ResetPasswordForm {...defaultProps} />);
 
     const passwordInput = screen.getByPlaceholderText("Enter your new password");
     const confirmInput = screen.getByPlaceholderText("Confirm New Password");
 
     await user.type(passwordInput, "Password1");
-    await user.type(confirmInput, "Password1");
+    await user.type(confirmInput, "Password2");
 
     expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();
   });
 
-  it("should keep submit disabled when password invalid", async () => {
-    const { user } = renderWithProviders(<ResetPasswordForm {...defaultProps} />);
+  it("should keep submit disabled without token", () => {
+    const propsWithoutToken: PasswordResetUser = {
+      token: undefined,
+      confirmationMessage: "Password reset requested",
+    };
+    renderWithProviders(<ResetPasswordForm {...propsWithoutToken} />);
 
-    const codeInput = screen.getByPlaceholderText("Code");
-    const passwordInput = screen.getByPlaceholderText("Enter your new password");
-    const confirmInput = screen.getByPlaceholderText("Confirm New Password");
-
-    await user.type(codeInput, "123456");
-    await user.type(passwordInput, "weak");
-    await user.type(confirmInput, "weak");
-
+    // Even with valid fields, submit should be disabled without token
     expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();
   });
 

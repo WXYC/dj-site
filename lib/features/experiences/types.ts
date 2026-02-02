@@ -6,6 +6,11 @@ import { ComponentType, ReactNode } from "react";
 export type ExperienceId = "classic" | "modern";
 
 /**
+ * Supported color scheme modes
+ */
+export type ColorMode = "light" | "dark";
+
+/**
  * Experience metadata and configuration
  */
 export interface ExperienceConfig {

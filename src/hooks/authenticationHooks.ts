@@ -1,28 +1,23 @@
 "use client";
 
-import {
-  authenticationApi,
-  useGetAuthenticationQuery,
-  useGetDJInfoQuery,
-  useLoginMutation,
-  useLogoutMutation,
-  useModDJInfoMutation,
-  useNewUserMutation,
-  useRequestPasswordResetMutation,
-  useResetPasswordMutation,
-} from "@/lib/features/authentication/api";
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
+import { authClient } from "@/lib/features/authentication/client";
 import {
   AuthenticatedUser,
+  AuthenticationData,
   djAttributeNames,
   isAuthenticated,
   NewUserCredentials,
   ResetPasswordRequest,
   VerifiedData,
 } from "@/lib/features/authentication/types";
+import { betterAuthSessionToAuthenticationData, betterAuthSessionToAuthenticationDataAsync } from "@/lib/features/authentication/utilities";
+import { Authorization } from "@/lib/features/admin/types";
+import { applicationSlice } from "@/lib/features/application/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { resetApplication } from "./applicationHooks";
 
 export const useLogin = () => {
@@ -34,28 +29,78 @@ export const useLogin = () => {
 
   const { handleLogout } = useLogout();
 
-  const [login, result] = useLoginMutation();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setIsLoading(true);
+    setError(null);
 
     const username = e.currentTarget.username.value;
     const password = e.currentTarget.password.value;
 
-    login({ username, password });
-  };
+    try {
+      const result = (await authClient.signIn.username({
+        username,
+        password,
+      })) as { error?: unknown };
 
-  useEffect(() => {
-    if (result.isSuccess) {
-      if (isAuthenticated(result.data)) {
-        router.push(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE));
+      if (result.error) {
+        const errorMessage = result.error instanceof Error
+          ? result.error.message
+          : typeof result.error === 'string'
+            ? result.error
+            : (result.error as any)?.message || 'Login failed. Please check your credentials.';
+
+        setError(result.error instanceof Error ? result.error : new Error(errorMessage));
+        if (errorMessage.trim().length > 0) {
+          toast.error(errorMessage);
+        }
+        handleLogout();
       } else {
-        router.refresh();
+        // Sign in successful, session cookie is set
+        // Check if user profile is incomplete (needs onboarding)
+        const session = await authClient.getSession();
+        const user = session?.data?.user;
+
+        // Check if user profile is incomplete (missing or empty realName/djName)
+        // Cast to include custom user fields (realName, djName are custom schema fields)
+        const userWithCustomFields = user as typeof user & { realName?: string | null; djName?: string | null };
+        const isIncomplete = userWithCustomFields && (
+          !userWithCustomFields.realName ||
+          (typeof userWithCustomFields.realName === 'string' && userWithCustomFields.realName.trim() === '') ||
+          !userWithCustomFields.djName ||
+          (typeof userWithCustomFields.djName === 'string' && userWithCustomFields.djName.trim() === '')
+        );
+
+        if (isIncomplete) {
+          // User is incomplete, redirect to onboarding
+          toast.success("Please complete your profile");
+          router.push("/onboarding");
+          router.refresh();
+        } else {
+          // User profile is complete, go to dashboard
+          const dashboardHome = String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog");
+          toast.success("Login successful");
+          router.push(dashboardHome);
+          router.refresh();
+        }
       }
-    } else if (result.isError) {
+    } catch (err) {
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : 'An unexpected error occurred during login. Please try again.';
+      
+      setError(err instanceof Error ? err : new Error(errorMessage));
+      if (errorMessage.trim().length > 0) {
+        toast.error(errorMessage);
+      }
       handleLogout();
+    } finally {
+      setIsLoading(false);
     }
-  }, [result]);
+  };
 
   const dispatch = useAppDispatch();
   useEffect(() => {
@@ -65,83 +110,96 @@ export const useLogin = () => {
   return {
     handleLogin,
     verified,
-    authenticating: result.isLoading || result.isSuccess,
+    authenticating: isLoading,
+    error,
   };
 };
 
 export const useLogout = () => {
   const router = useRouter();
-  const [logout, result] = useLogoutMutation();
+  const dispatch = useAppDispatch();
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleLogout = async (event?: React.FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
-    logout();
-  };
+    setIsLoading(true);
 
-  const dispatch = useAppDispatch();
-  useEffect(() => {
-    if (result.isSuccess || result.isError) {
+    try {
+      await authClient.signOut();
       router.refresh();
       resetApplication(dispatch);
+    } catch (error) {
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Failed to logout. Please try again.';
+      
+      console.error("Logout error:", error);
+      if (errorMessage.trim().length > 0) {
+        toast.error(errorMessage);
+      }
+    } finally {
+      setIsLoading(false);
     }
-  }, [result]);
+  };
 
   return {
     handleLogout,
-    loggingOut: result.isLoading || result.isSuccess,
+    loggingOut: isLoading,
   };
 };
 
 export const useAuthentication = () => {
-  const router = useRouter();
-  const [logout, result] = useLogoutMutation();
+  const { data: session, isPending, error: sessionError } = authClient.useSession();
+  const [authData, setAuthData] = useState<AuthenticationData>(
+    session 
+      ? betterAuthSessionToAuthenticationData(session as any)
+      : { message: "Not Authenticated" }
+  );
+  const [isLoadingRole, setIsLoadingRole] = useState(false);
 
-  const {
-    data,
-    isLoading: authenticating,
-    isSuccess: authenticated,
-    isError,
-  } = useGetAuthenticationQuery(undefined, {
-    pollingInterval: 2700000,
-  });
-
+  // Fetch organization role when session is available
   useEffect(() => {
-    if (isError) {
-      logout();
+    if (session && !isPending) {
+      setIsLoadingRole(true);
+      betterAuthSessionToAuthenticationDataAsync(session as any)
+        .then((data) => {
+          setAuthData(data);
+        })
+        .catch((error) => {
+          console.error("Failed to fetch organization role, using session data:", error);
+          // Fall back to synchronous version on error
+          setAuthData(betterAuthSessionToAuthenticationData(session as any));
+        })
+        .finally(() => {
+          setIsLoadingRole(false);
+        });
+    } else if (!session) {
+      setAuthData({ message: "Not Authenticated" });
     }
-  }, [data]);
-
-  useEffect(() => {
-    if (result.isSuccess || result.isError) {
-      router.push("/login");
-    }
-  }, [result]);
+  }, [session, isPending]);
 
   return {
-    data: data,
-    authenticating,
-    authenticated,
+    data: authData,
+    authenticating: isPending || isLoadingRole,
+    authenticated: session ? isAuthenticated(authData) : false,
+    error: sessionError ? (sessionError as Error) : null,
   };
 };
 
 export const useRegistry = () => {
   const { data, authenticated, authenticating } = useAuthentication();
 
-  const {
-    data: info,
-    isLoading,
-    isError,
-  } = useGetDJInfoQuery(
-    {
-      cognito_user_name: (data as AuthenticatedUser)?.user?.username!,
-    },
-    {
-      skip: !data || !authenticated || authenticating,
-    }
-  );
+  // Return user data from better-auth session instead of fetching from DJ Registry API
+  const user = isAuthenticated(data) ? data.user : null;
+  
+  const info = user ? {
+    id: user.id!, // User ID (string) - backend now accepts this instead of numeric DJ ID
+    real_name: user.realName || undefined,
+    dj_name: user.djName || undefined,
+  } : null;
 
   return {
-    loading: isLoading || authenticating || !authenticated,
+    loading: authenticating || !authenticated,
     info: info,
   };
 };
@@ -155,54 +213,99 @@ export const useNewUser = () => {
 
   const { handleLogout } = useLogout();
 
-  const [setNewUserData, newUserResult] = useNewUserMutation();
-  const [reflectNewUserData, reflectResult] = useModDJInfoMutation();
-
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
   const handleNewUser = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setIsLoading(true);
+    setError(null);
 
     const username = e.currentTarget.username.value;
     const password = e.currentTarget.password.value;
+    const currentPassword = String(
+      process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD || ""
+    );
+
+    if (!currentPassword) {
+      throw new Error("Missing onboarding temp password configuration.");
+    }
 
     const params: NewUserCredentials = {
       username,
       password,
     };
 
-    for (const attribute of Object.keys(djAttributeNames)) {
-      const fieldName = djAttributeNames[attribute];
-      if (e.currentTarget[fieldName].value) {
-        params[attribute] = e.currentTarget[fieldName].value;
-      }
+    // Extract form values - form fields use the attribute names directly (realName, djName)
+    // not the djAttributeNames keys (name, custom:dj-name)
+    const realNameValue = e.currentTarget.realName?.value || "";
+    const djNameValue = e.currentTarget.djName?.value || "";
+    
+    if (realNameValue) {
+      params.realName = realNameValue;
+    }
+    if (djNameValue) {
+      params.djName = djNameValue;
     }
 
-    await setNewUserData(params);
+    try {
+      // Get current session to ensure user is authenticated
+      const session = await authClient.getSession();
+      if (!session.data?.user?.id) {
+        throw new Error("You must be authenticated to update your profile");
+      }
+
+      // Update user via better-auth non-admin updateUser (updates current user)
+      // Custom metadata fields (realName, djName) go at the top level, not in a 'data' object
+      // This is different from admin.createUser which uses a 'data' object
+      const updateRequest: any = {};
+
+      // Add custom metadata fields at the top level (non-admin updateUser format)
+      if (params.realName) {
+        updateRequest.realName = params.realName;
+      }
+      if (params.djName) {
+        updateRequest.djName = params.djName;
+      }
+      // Update user profile data (non-admin - updates current user)
+      const result = await authClient.updateUser(updateRequest);
+
+      if (result.error) {
+        const errorMessage = result.error.message || 'Failed to update user profile';
+        throw new Error(errorMessage);
+      }
+
+      if (params.password) {
+        const passwordResult = await authClient.changePassword({
+          currentPassword,
+          newPassword: params.password,
+        });
+
+        if (passwordResult.error) {
+          const errorMessage =
+            passwordResult.error.message || "Failed to update password";
+          throw new Error(errorMessage);
+        }
+      }
+
+      // User updated successfully, redirect to dashboard
+      const dashboardHome = String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog");
+      toast.success("Profile updated successfully");
+      router.push(dashboardHome);
+      router.refresh();
+    } catch (err) {
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : 'Failed to update user profile. Please try again.';
+      
+      setError(err instanceof Error ? err : new Error(errorMessage));
+      if (errorMessage.trim().length > 0) {
+        toast.error(errorMessage);
+      }
+      // Don't logout on error - let user see the error message
+    } finally {
+      setIsLoading(false);
+    }
   };
-
-  useEffect(() => {
-    if (newUserResult.isSuccess) {
-      if (isAuthenticated(newUserResult.data)) {
-        dispatch(
-          authenticationApi.util.upsertQueryData(
-            "getAuthentication",
-            undefined,
-            newUserResult.data
-          )
-        );
-        reflectNewUserData({
-          cognito_user_name: newUserResult.data.user?.username!,
-          real_name: newUserResult.data.user?.realName || undefined,
-          dj_name: newUserResult.data.user?.djName || undefined,
-        }).then(() =>
-          router.push(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE))
-        );
-      } else {
-        router.refresh();
-      }
-    } else if (newUserResult.isError) {
-      handleLogout();
-    }
-  }, [newUserResult]);
 
   useEffect(() => {
     dispatch(authenticationSlice.actions.reset());
@@ -214,70 +317,123 @@ export const useNewUser = () => {
   return {
     handleNewUser,
     verified,
-    authenticating: newUserResult.isLoading || newUserResult.isSuccess,
+    authenticating: isLoading,
     addRequiredCredentials,
+    error,
   };
 };
 
 export const useResetPassword = () => {
   const router = useRouter();
-  const { handleLogout } = useLogout();
+  const dispatch = useAppDispatch();
 
-  const [makeForgotRequest, forgotResult] = useRequestPasswordResetMutation();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const [requestingReset, setRequestingReset] = useState(false);
 
   const verified = useAppSelector(
     authenticationSlice.selectors.requiredCredentialsVerified
   );
 
-  // button clicked
-  const handleRequestReset = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    const username = e.currentTarget.form?.username.value;
-    if (!username) return;
-
-    makeForgotRequest(String(username));
-  };
-
-  useEffect(() => {
-    if (forgotResult.isSuccess) {
-      router.refresh();
-    } else if (forgotResult.isError) {
-      handleLogout();
+  const handleRequestReset = async (email: string) => {
+    if (!email) {
+      const errorMessage = "Please enter your email address";
+      setError(new Error(errorMessage));
+      if (errorMessage.trim().length > 0) {
+        toast.error(errorMessage);
+      }
+      return;
     }
-  }, [forgotResult]);
 
-  const [resetPassword, resetResult] = useResetPasswordMutation();
+    setRequestingReset(true);
+    setError(null);
+
+    try {
+      const redirectTo =
+        typeof window !== "undefined"
+          ? `${window.location.origin}/login`
+          : undefined;
+
+      const result = await authClient.requestPasswordReset({
+        email,
+        redirectTo,
+      });
+
+      if (result.error) {
+        const errorMessage = result.error.message || "Failed to request password reset";
+        throw new Error(errorMessage);
+      }
+
+      toast.success(result.data?.message || "If this email exists, check for a reset link.");
+      dispatch(applicationSlice.actions.setAuthStage("login"));
+      router.push("/login");
+    } catch (err) {
+      const errorMessage = err instanceof Error
+        ? err.message
+        : "Failed to request password reset. Please try again.";
+
+      setError(err instanceof Error ? err : new Error(errorMessage));
+      if (errorMessage.trim().length > 0) {
+        toast.error(errorMessage);
+      }
+    } finally {
+      setRequestingReset(false);
+    }
+  };
 
   const handleReset = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setIsLoading(true);
+    setError(null);
 
-    const code = e.currentTarget.code.value;
+    const token = e.currentTarget.token?.value;
     const password = e.currentTarget.password.value;
-    const username = e.currentTarget.username.value;
 
-    if (!code || !password || !username) return;
-
-    const params: ResetPasswordRequest = { code, password, username };
-
-    resetPassword(params);
-  };
-
-  useEffect(() => {
-    if (resetResult.isSuccess) {
-      if (isAuthenticated(resetResult.data)) {
-        router.push(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE));
-      } else {
-        router.refresh();
+    if (!token || !password) {
+      const errorMessage = "All fields are required";
+      setError(new Error(errorMessage));
+      if (errorMessage.trim().length > 0) {
+        toast.error(errorMessage);
       }
-    } else if (resetResult.isError) {
-      handleLogout();
+      setIsLoading(false);
+      return;
     }
-  }, [resetResult]);
+
+    try {
+      const result = await authClient.resetPassword({
+        newPassword: password,
+        token,
+      });
+
+      if (result.error) {
+        const errorMessage = result.error.message || "Password reset failed";
+        throw new Error(errorMessage);
+      }
+
+      toast.success("Password reset successfully. Please log in.");
+      dispatch(applicationSlice.actions.setAuthStage("login"));
+      router.push("/login");
+      router.refresh();
+    } catch (err) {
+      const errorMessage = err instanceof Error
+        ? err.message
+        : "Password reset failed. Please try again.";
+
+      setError(err instanceof Error ? err : new Error(errorMessage));
+      if (errorMessage.trim().length > 0) {
+        toast.error(errorMessage);
+      }
+      // Don't logout on error - let user see the error message
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return {
     handleReset,
     handleRequestReset,
     verified,
-    requestingReset: forgotResult.isLoading || forgotResult.isSuccess,
+    requestingReset,
+    error,
   };
 };

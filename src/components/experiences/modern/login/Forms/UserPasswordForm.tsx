@@ -1,18 +1,20 @@
 "use client";
 
-import { useLogin, useResetPassword } from "@/src/hooks/authenticationHooks";
+import { applicationSlice } from "@/lib/features/application/frontend";
+import { useAppDispatch } from "@/lib/hooks";
+import { useLogin } from "@/src/hooks/authenticationHooks";
 import { Link, Typography } from "@mui/joy";
-import { useState } from "react";
 import RequiredBox from "./Fields/RequiredBox";
 import { ValidatedSubmitButton } from "./Fields/ValidatedSubmitButton";
-import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { authenticationSlice } from "@/lib/features/authentication/frontend";
 
 export default function UserPasswordForm() {
+  const dispatch = useAppDispatch();
   const { handleLogin, verified, authenticating } = useLogin();
-  const { handleRequestReset } = useResetPassword();
 
-  const hasUsername = useAppSelector((state) => authenticationSlice.selectors.getVerification(state, "username"))
+  const handleForgot = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    dispatch(applicationSlice.actions.setAuthStage("forgot"));
+  };
 
   return (
     <form onSubmit={handleLogin} method="post">
@@ -33,8 +35,8 @@ export default function UserPasswordForm() {
             <Link
               component="button"
               type="button"
-              onClick={handleRequestReset}
-              disabled={!hasUsername || authenticating}
+              onClick={handleForgot}
+              disabled={authenticating}
             >
               Forgot?
             </Link>

@@ -20,7 +20,9 @@ export async function POST(request: NextRequest) {
 
   // Get current state
   const data = cookieStore.get("app_state")?.value;
-  const currentState = data ? JSON.parse(data) : defaultApplicationState;
+  const currentState = data
+    ? { ...defaultApplicationState, ...JSON.parse(data) }
+    : defaultApplicationState;
   
   // Update with new experience
   const newState = {

@@ -1,11 +1,21 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
-import { ExperienceId } from "./types";
+import { ColorMode, ExperienceId } from "./types";
+import { AppSkinPreference } from "./preferences";
 
 /**
  * Response type for experience API
  */
 interface ExperienceResponse {
   experience: ExperienceId;
+}
+
+interface ExperiencePreferenceResponse extends ExperienceResponse {
+  colorMode: ColorMode;
+  preference: AppSkinPreference;
+}
+
+interface ExperiencePreferenceRequest {
+  preference: AppSkinPreference;
 }
 
 /**
@@ -30,11 +40,23 @@ export const experienceApi = createApi({
       invalidatesTags: ["Experience"],
       transformResponse: (response: ExperienceResponse) => response.experience,
     }),
+    setExperiencePreference: builder.mutation<
+      ExperiencePreferenceResponse,
+      ExperiencePreferenceRequest
+    >({
+      query: (payload) => ({
+        url: "/preferences",
+        method: "POST",
+        body: payload,
+      }),
+      invalidatesTags: ["Experience"],
+    }),
   }),
 });
 
 export const {
   useGetActiveExperienceQuery,
   useSwitchExperienceMutation,
+  useSetExperiencePreferenceMutation,
 } = experienceApi;
 

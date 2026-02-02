@@ -13,6 +13,7 @@ import {
   IconButton,
   Stack,
 } from "@mui/joy";
+import { useColorScheme } from "@mui/joy/styles";
 import { useRef, useState } from "react";
 import AlbumArtAndIcons from "./AlbumArtAndIcons";
 import EntryText from "./EntryText";
@@ -27,6 +28,7 @@ export default function NowPlayingMini({
   live: boolean;
   onAirDJs?: OnAirDJResponse[];
 }) {
+  const { mode } = useColorScheme();
   const playRef = useRef<{
     play: () => void;
     pause: () => void;
@@ -47,6 +49,9 @@ export default function NowPlayingMini({
     }
   };
 
+  const overlayColor =
+    mode === "light" ? "white" : "neutral.800";
+
   return (
     <Card
       orientation="horizontal"
@@ -61,7 +66,7 @@ export default function NowPlayingMini({
       <GradientAudioVisualizer
         src="https://audio-mp3.ibiblio.org/wxyc.mp3"
         ref={playRef}
-        overlayColor="rgba(0, 0, 0, 0.8)"
+        overlayColor={overlayColor}
       />
       <CardContent sx={{
         maxWidth: "calc(100px + 1.5rem)"

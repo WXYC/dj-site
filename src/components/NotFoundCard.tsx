@@ -99,7 +99,7 @@ export default function NotFoundCard() {
         <Typography level="body-md" sx={{ mb: 2 }}>
           We couldn't find the resource you were looking for.
         </Typography>
-        <Link href={String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE)}>
+        <Link href={String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog")}>
           <Button variant="solid" color="primary" fullWidth>
             Back to Safety
           </Button>

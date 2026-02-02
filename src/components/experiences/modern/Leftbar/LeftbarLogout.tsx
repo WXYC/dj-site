@@ -23,25 +23,33 @@ export default function LeftbarLogout({ user }: { user: User }): JSX.Element {
           }}
         >
           <Typography level="body-sm">@{user?.username}</Typography>
-          <Stack direction="row" gap={1}>
-            <Typography level="body-lg">{user?.realName}</Typography>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <Typography
-                level="body-xs"
-                sx={{
-                  height: "1.5em",
-                }}
-              >
-                aka
-              </Typography>
-            </Box>
-            <Typography level="body-lg">DJ {user?.djName}</Typography>
-          </Stack>
+          {(user?.realName || user?.djName) && (
+            <Stack direction="row" gap={1}>
+              {user?.realName && (
+                <Typography level="body-lg">{user.realName}</Typography>
+              )}
+              {user?.realName && user?.djName && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <Typography
+                    level="body-xs"
+                    sx={{
+                      height: "1.5em",
+                    }}
+                  >
+                    aka
+                  </Typography>
+                </Box>
+              )}
+              {user?.djName && (
+                <Typography level="body-lg">DJ {user.djName}</Typography>
+              )}
+            </Stack>
+          )}
           <Typography level="body-md" color="primary">
             Click to Log Out
           </Typography>

@@ -43,8 +43,8 @@ export default function NewUserForm({
         <RequiredBox
           key={attribute}
           name={attribute}
-          title={djAttributeTitles[attribute]}
-          placeholder={djAttributeTitles[attribute]}
+          title={djAttributeTitles[attribute] || String(attribute)}
+          placeholder={djAttributeTitles[attribute] || String(attribute)}
           type="text"
           disabled={authenticating}
         />

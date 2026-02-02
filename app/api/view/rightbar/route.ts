@@ -7,11 +7,17 @@ export async function POST(request: NextRequest) {
   const cookieStore = await cookies();
 
   const data = cookieStore.get("app_state")?.value;
-  const appState = data ? JSON.parse(data) : defaultApplicationState;
+  const appState = data
+    ? { ...defaultApplicationState, ...JSON.parse(data) }
+    : defaultApplicationState;
+  const newState = {
+    ...appState,
+    rightBarMini: !appState.rightBarMini,
+  };
   cookieStore.set({
     ...sessionOptions.cookieOptions,
     name: "app_state",
-    value: JSON.stringify({ rightBarMini: !appState.rightBarMini }),
+    value: JSON.stringify(newState),
   });
 
   return NextResponse.json(appState ?? defaultApplicationState, {

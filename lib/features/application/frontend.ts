@@ -1,11 +1,14 @@
 import { createAppSlice } from "@/lib/createAppSlice";
-import { ApplicationFrontendState, RightbarMenu } from "./types";
+import { ApplicationFrontendState, AuthStage, RightbarMenu } from "./types";
 
 export const defaultApplicationFrontendState: ApplicationFrontendState = {
   rightbar: {
     mini: false,
     sidebarOpen: false,
     menu: RightbarMenu.BIN,
+  },
+  authFlow: {
+    stage: "login" as AuthStage,
   },
 };
 
@@ -26,10 +29,14 @@ export const applicationSlice = createAppSlice({
     toggleSidebar: (state) => {
       state.rightbar.sidebarOpen = !state.rightbar.sidebarOpen;
     },
+    setAuthStage: (state, action) => {
+      state.authFlow.stage = action.payload;
+    },
     reset: () => defaultApplicationFrontendState,
   },
   selectors: {
     getRightbarMini: (state) => state.rightbar.mini,
     getRightbarMenu: (state) => state.rightbar.menu,
+    getAuthStage: (state) => state.authFlow.stage,
   },
 });
