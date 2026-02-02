@@ -5,7 +5,12 @@ import type userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "./render";
 import type { AppStore, RootState } from "@/lib/store";
 import { Provider } from "react-redux";
-import { configureStore, type Slice } from "@reduxjs/toolkit";
+import { configureStore, type Slice, type Reducer } from "@reduxjs/toolkit";
+
+/** Extract reducer map from a record of slices */
+type SliceReducers<S extends Record<string, Slice>> = {
+  [K in keyof S]: S[K]["reducer"];
+};
 
 type UserEvent = ReturnType<typeof userEvent.setup>;
 
@@ -157,15 +162,17 @@ export function createHookWrapper<S extends Record<string, Slice>>(
   slices: S,
   preloadedState?: Record<string, unknown>
 ) {
+  const reducers = Object.fromEntries(
+    Object.entries(slices).map(([key, slice]) => [key, slice.reducer])
+  ) as SliceReducers<S>;
+
   const store = configureStore({
-    reducer: Object.fromEntries(
-      Object.entries(slices).map(([key, slice]) => [key, slice.reducer])
-    ) as { [K in keyof S]: S[K]["reducer"] },
+    reducer: reducers as unknown as Reducer,
     preloadedState,
   });
 
   return function Wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(Provider, { store }, children);
+    return React.createElement(Provider, { store, children });
   };
 }
 
