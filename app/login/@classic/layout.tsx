@@ -1,5 +1,3 @@
-import { isIncomplete, isPasswordReset } from "@/lib/features/authentication/types";
-import { createServerSideProps } from "@/lib/features/session";
 import { ReactNode } from "react";
 import Header from "@/src/components/experiences/classic/login/Layout/Header";
 
@@ -9,8 +7,6 @@ interface LoginProps {
 }
 
 export default async function Layout({ normal, newuser }: LoginProps) {
-  const serverSideProps = await createServerSideProps();
-
   return (
     <div
       style={{
@@ -23,7 +19,7 @@ export default async function Layout({ normal, newuser }: LoginProps) {
       }}
     >
       <Header />
-      {isIncomplete(serverSideProps.authentication) ? newuser : normal}
+      {normal}
       <footer>
         <p>Copyright &copy; {new Date().getFullYear()} WXYC Chapel Hill</p>
       </footer>
