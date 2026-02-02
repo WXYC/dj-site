@@ -15,6 +15,7 @@ export type BetterAuthUser = {
   updatedAt: Date;
   banned?: boolean;
   banReason?: string;
+  /** Cross-cutting capabilities independent of role hierarchy */
   capabilities?: string[];
 };
 
