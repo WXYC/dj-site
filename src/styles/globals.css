@@ -1,3 +1,8 @@
+/* Import experience-specific styles */
+@import "../../lib/features/experiences/classic/globals.css";
+@import "../../lib/features/experiences/modern/globals.css";
+
+
 /**
  * Global Styles - Shared across all experiences
  */
@@ -9,7 +14,3 @@ main {
   0% { transform: translateX(100%); }
   100% { transform: translateX(-100%); }
 }
-
-/* Import experience-specific styles */
-@import "../../lib/features/experiences/classic/globals.css";
-@import "../../lib/features/experiences/modern/globals.css";
