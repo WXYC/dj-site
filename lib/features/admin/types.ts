@@ -14,6 +14,7 @@ export enum Authorization {
 }
 
 export type Account = {
+  id?: string;
   userName: string;
   realName: string;
   djName: string;
