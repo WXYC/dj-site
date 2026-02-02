@@ -46,3 +46,4 @@ export function mapBetterAuthRoleToAuthorization(
 ): Authorization {
   return mapRoleToAuthorization(role);
 }
+
