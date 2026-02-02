@@ -106,6 +106,7 @@ describe("ResetPasswordForm", () => {
     await user.type(passwordInput, "Password1");
     await user.type(confirmInput, "Password1");
 
+    // Even with valid fields, submit should be disabled without token
     expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();
   });
 
