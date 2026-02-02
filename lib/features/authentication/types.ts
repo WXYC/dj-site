@@ -164,15 +164,15 @@ export type BackendAccountModification = {
 
 /**
  * Maps a better-auth role string to the Authorization enum
- * 
+ *
  * Handles the following role types:
  * - WXYC custom roles: "member", "dj", "musicDirector", "stationManager"
  * - Role variations: "station_manager", "music_director" (with underscores)
  * - Better-auth default roles: "member", "user" (map to NO access)
  * - Owner/admin roles: If better-auth uses "owner" or "admin", they may need custom handling
- * 
+ *
  * Role hierarchy: SM (Station Manager) > MD (Music Director) > DJ > NO (No access)
- * 
+ *
  * @param role - The role string from better-auth (WXYCRole or any string)
  * @returns The corresponding Authorization enum value
  */
@@ -180,10 +180,10 @@ export function mapRoleToAuthorization(role: WXYCRole | string | undefined): Aut
   if (!role) {
     return Authorization.NO;
   }
-  
+
   // Normalize role string (case-insensitive, handle underscores)
   const normalizedRole = role.toLowerCase().trim();
-  
+
   switch (normalizedRole) {
     case "stationmanager":
     case "station_manager":

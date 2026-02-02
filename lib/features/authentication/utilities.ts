@@ -1,7 +1,7 @@
 import { jwtDecode } from "jwt-decode";
 import { Authorization } from "../admin/types";
-import { 
-  AuthenticationData, 
+import {
+  AuthenticationData,
   AuthenticatedUser,
   BetterAuthJwtPayload,
   IncompleteUser,
@@ -96,7 +96,7 @@ export function betterAuthSessionToAuthenticationData(
   const authority = mapRoleToAuthorization(roleToMap);
 
   const username = session.user.username || session.user.name;
-  
+
   // Check if user is incomplete (missing required fields: realName or djName)
   const missingAttributes: (keyof VerifiedData)[] = [];
   if (!session.user.realName || session.user.realName.trim() === "") {
@@ -148,10 +148,10 @@ export async function betterAuthSessionToAuthenticationDataAsync(
   }
 
   let roleToMap: string | undefined;
-  
+
   // Try to get role from APP_ORGANIZATION first
   // Use client-safe function that checks NEXT_PUBLIC_APP_ORGANIZATION first, then server-side APP_ORGANIZATION
-  const organizationId = typeof window !== "undefined" 
+  const organizationId = typeof window !== "undefined"
     ? getAppOrganizationIdClient()
     : getAppOrganizationId();
 
@@ -161,7 +161,7 @@ export async function betterAuthSessionToAuthenticationDataAsync(
       // The client function uses authClient which is marked "use client" and can't be imported on server
       const { getUserRoleInOrganizationClient } = await import("./organization-utils");
       const orgRole = await getUserRoleInOrganizationClient(session.user.id, organizationId);
-      
+
       if (orgRole !== undefined) {
         roleToMap = orgRole;
       }
@@ -172,7 +172,7 @@ export async function betterAuthSessionToAuthenticationDataAsync(
   }
   // On server-side, skip organization role fetch here - server-side code should use
   // betterAuthSessionToAuthenticationData with getUserRoleInOrganization separately (as in session.ts)
-  
+
   // Fallback: Get role from session data if not already set
   if (!roleToMap) {
     const organizationRole = (session.user as any).organization?.role;
@@ -186,7 +186,7 @@ export async function betterAuthSessionToAuthenticationDataAsync(
   const authority = mapRoleToAuthorization(roleToMap);
 
   const username = session.user.username || session.user.name;
-  
+
   // Check if user is incomplete (missing required fields: realName or djName)
   const missingAttributes: (keyof VerifiedData)[] = [];
   if (!session.user.realName || session.user.realName.trim() === "") {
