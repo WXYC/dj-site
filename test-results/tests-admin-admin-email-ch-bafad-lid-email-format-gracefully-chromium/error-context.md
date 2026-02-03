@@ -1,0 +1,493 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - region "Notifications alt+T"
+  - main [ref=e3]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - img [ref=e8]
+        - list [ref=e30]:
+          - link "Card Catalog" [ref=e31] [cursor=pointer]:
+            - /url: /dashboard/catalog
+            - listitem [ref=e32]:
+              - button "Card Catalog" [ref=e33]:
+                - img [ref=e35]
+          - link "Flowsheet" [ref=e38] [cursor=pointer]:
+            - /url: /dashboard/flowsheet
+            - listitem [ref=e39]:
+              - button "Flowsheet" [ref=e40]:
+                - img [ref=e42]
+          - link "Previous Sets" [disabled]:
+            - /url: /dashboard/playlists
+            - listitem:
+              - button "Previous Sets" [disabled]:
+                - generic:
+                  - img
+          - separator [ref=e48]
+          - link "DJ Roster" [ref=e49] [cursor=pointer]:
+            - /url: /dashboard/admin/roster
+            - listitem [ref=e50]:
+              - button "DJ Roster" [ref=e51]:
+                - img [ref=e53]
+          - link "Station Schedule" [disabled]:
+            - /url: /dashboard/admin/schedule
+            - listitem:
+              - button "Station Schedule" [disabled]:
+                - generic:
+                  - img
+        - link "Settings" [ref=e56] [cursor=pointer]:
+          - /url: /dashboard/settings
+          - listitem [ref=e57]:
+            - button "Settings" [ref=e58]:
+              - img [ref=e60]
+        - separator [ref=e62]
+        - button [ref=e64] [cursor=pointer]:
+          - img [ref=e65]
+      - main [ref=e67]:
+        - heading "DJ Roster" [level=2] [ref=e69]
+        - generic [ref=e70]:
+          - generic [ref=e71]:
+            - generic [ref=e74]:
+              - img [ref=e76]
+              - textbox "Search Roster" [ref=e79]
+            - generic [ref=e80]:
+              - button "Export Roster as CSV" [ref=e81] [cursor=pointer]
+              - button "Add DJ" [ref=e82] [cursor=pointer]
+          - table [ref=e84]:
+            - rowgroup [ref=e85]:
+              - row "Name Username DJ Name Email Capabilities last" [ref=e86]:
+                - columnheader [ref=e87]:
+                  - img [ref=e88]
+                - columnheader "Name" [ref=e91]
+                - columnheader "Username" [ref=e92]
+                - columnheader "DJ Name" [ref=e93]
+                - columnheader "Email" [ref=e94]
+                - columnheader "Capabilities" [ref=e95]
+                - columnheader "last" [ref=e96]
+            - rowgroup [ref=e97]:
+              - row "Test Member test_member DJ Test Member DJ test_member@wxyc.org Edit Test Member's email Grant editor capability (allows website editing) Grant webmaster capability (can delegate editor) Reset Test Member's Password Delete Test Member's Profile" [ref=e98]:
+                - cell [ref=e99]:
+                  - group [ref=e100]:
+                    - checkbox [ref=e104] [cursor=pointer]
+                    - checkbox [ref=e108] [cursor=pointer]
+                - cell "Test Member" [ref=e109]
+                - cell "test_member" [ref=e110]
+                - cell "DJ Test Member DJ" [ref=e111]
+                - cell "test_member@wxyc.org Edit Test Member's email" [ref=e112]:
+                  - generic [ref=e113]:
+                    - generic [ref=e114]: test_member@wxyc.org
+                    - button "Edit Test Member's email" [ref=e115] [cursor=pointer]:
+                      - img [ref=e116]
+                - cell "Grant editor capability (allows website editing) Grant webmaster capability (can delegate editor)" [ref=e118]:
+                  - generic [ref=e119]:
+                    - generic "Grant editor capability (allows website editing)" [ref=e120] [cursor=pointer]:
+                      - button "Editor" [ref=e121]
+                      - generic: Editor
+                      - generic:
+                        - img
+                    - generic "Grant webmaster capability (can delegate editor)" [ref=e122] [cursor=pointer]:
+                      - button "Webmaster" [ref=e123]
+                      - generic: Webmaster
+                      - generic:
+                        - img
+                - cell "Reset Test Member's Password Delete Test Member's Profile" [ref=e124]:
+                  - generic [ref=e125]:
+                    - button "Reset Test Member's Password" [ref=e126] [cursor=pointer]:
+                      - img [ref=e127]
+                    - button "Delete Test Member's Profile" [ref=e129] [cursor=pointer]:
+                      - img [ref=e130]
+              - row "Test Music Director test_music_director DJ Test MD test_music_director@wxyc.org Edit Test Music Director's email Grant editor capability (allows website editing) Grant webmaster capability (can delegate editor) Reset Test Music Director's Password Delete Test Music Director's Profile" [ref=e132]:
+                - cell [ref=e133]:
+                  - group [ref=e134]:
+                    - checkbox [ref=e138] [cursor=pointer]
+                    - generic [ref=e140]:
+                      - checkbox [checked] [ref=e142] [cursor=pointer]
+                      - img [ref=e143]
+                - cell "Test Music Director" [ref=e145]
+                - cell "test_music_director" [ref=e146]
+                - cell "DJ Test MD" [ref=e147]
+                - cell "test_music_director@wxyc.org Edit Test Music Director's email" [ref=e148]:
+                  - generic [ref=e149]:
+                    - generic [ref=e150]: test_music_director@wxyc.org
+                    - button "Edit Test Music Director's email" [ref=e151] [cursor=pointer]:
+                      - img [ref=e152]
+                - cell "Grant editor capability (allows website editing) Grant webmaster capability (can delegate editor)" [ref=e154]:
+                  - generic [ref=e155]:
+                    - generic "Grant editor capability (allows website editing)" [ref=e156] [cursor=pointer]:
+                      - button "Editor" [ref=e157]
+                      - generic: Editor
+                      - generic:
+                        - img
+                    - generic "Grant webmaster capability (can delegate editor)" [ref=e158] [cursor=pointer]:
+                      - button "Webmaster" [ref=e159]
+                      - generic: Webmaster
+                      - generic:
+                        - img
+                - cell "Reset Test Music Director's Password Delete Test Music Director's Profile" [ref=e160]:
+                  - generic [ref=e161]:
+                    - button "Reset Test Music Director's Password" [ref=e162] [cursor=pointer]:
+                      - img [ref=e163]
+                    - button "Delete Test Music Director's Profile" [ref=e165] [cursor=pointer]:
+                      - img [ref=e166]
+              - row "Test Station Manager test_station_manager DJ Test SM test_station_manager@wxyc.org You cannot modify your own capabilities You cannot modify your own capabilities Reset Test Station Manager's Password You cannot delete yourself!" [ref=e168]:
+                - cell [ref=e169]:
+                  - group [ref=e170]:
+                    - generic [ref=e171]:
+                      - generic:
+                        - generic:
+                          - checkbox [checked] [disabled]
+                        - img
+                    - generic [ref=e172]:
+                      - generic:
+                        - generic:
+                          - checkbox [checked] [disabled]
+                        - img
+                - cell "Test Station Manager" [ref=e173]
+                - cell "test_station_manager" [ref=e174]
+                - cell "DJ Test SM" [ref=e175]
+                - cell "test_station_manager@wxyc.org" [ref=e176]:
+                  - generic [ref=e178]: test_station_manager@wxyc.org
+                - cell "You cannot modify your own capabilities You cannot modify your own capabilities" [ref=e179]:
+                  - generic [ref=e180]:
+                    - generic "You cannot modify your own capabilities" [ref=e181]:
+                      - button "Editor" [disabled]
+                      - generic: Editor
+                      - generic:
+                        - img
+                    - generic "You cannot modify your own capabilities" [ref=e182]:
+                      - button "Webmaster" [disabled]
+                      - generic: Webmaster
+                      - generic:
+                        - img
+                - cell "Reset Test Station Manager's Password You cannot delete yourself!" [ref=e183]:
+                  - generic [ref=e184]:
+                    - button "Reset Test Station Manager's Password" [disabled]:
+                      - img
+                    - button "You cannot delete yourself!" [disabled]:
+                      - img
+              - row "test_incomplete test_incomplete DJ No DJ Name test_incomplete@wxyc.org Edit test_incomplete's email Grant editor capability (allows website editing) Grant webmaster capability (can delegate editor) Reset test_incomplete's Password Delete test_incomplete's Profile" [ref=e185]:
+                - cell [ref=e186]:
+                  - group [ref=e187]:
+                    - checkbox [ref=e191] [cursor=pointer]
+                    - checkbox [ref=e195] [cursor=pointer]
+                - cell "test_incomplete" [ref=e196]
+                - cell "test_incomplete" [ref=e197]
+                - cell "DJ No DJ Name" [ref=e198]
+                - cell "test_incomplete@wxyc.org Edit test_incomplete's email" [ref=e199]:
+                  - generic [ref=e200]:
+                    - generic [ref=e201]: test_incomplete@wxyc.org
+                    - button "Edit test_incomplete's email" [ref=e202] [cursor=pointer]:
+                      - img [ref=e203]
+                - cell "Grant editor capability (allows website editing) Grant webmaster capability (can delegate editor)" [ref=e205]:
+                  - generic [ref=e206]:
+                    - generic "Grant editor capability (allows website editing)" [ref=e207] [cursor=pointer]:
+                      - button "Editor" [ref=e208]
+                      - generic: Editor
+                      - generic:
+                        - img
+                    - generic "Grant webmaster capability (can delegate editor)" [ref=e209] [cursor=pointer]:
+                      - button "Webmaster" [ref=e210]
+                      - generic: Webmaster
+                      - generic:
+                        - img
+                - cell "Reset test_incomplete's Password Delete test_incomplete's Profile" [ref=e211]:
+                  - generic [ref=e212]:
+                    - button "Reset test_incomplete's Password" [ref=e213] [cursor=pointer]:
+                      - img [ref=e214]
+                    - button "Delete test_incomplete's Profile" [ref=e216] [cursor=pointer]:
+                      - img [ref=e217]
+              - row "Test Deletable test_deletable_user DJ Deletable DJ test_deletable@wxyc.org Edit Test Deletable's email Grant editor capability (allows website editing) Grant webmaster capability (can delegate editor) Reset Test Deletable's Password Delete Test Deletable's Profile" [ref=e219]:
+                - cell [ref=e220]:
+                  - group [ref=e221]:
+                    - checkbox [ref=e225] [cursor=pointer]
+                    - checkbox [ref=e229] [cursor=pointer]
+                - cell "Test Deletable" [ref=e230]
+                - cell "test_deletable_user" [ref=e231]
+                - cell "DJ Deletable DJ" [ref=e232]
+                - cell "test_deletable@wxyc.org Edit Test Deletable's email" [ref=e233]:
+                  - generic [ref=e234]:
+                    - generic [ref=e235]: test_deletable@wxyc.org
+                    - button "Edit Test Deletable's email" [ref=e236] [cursor=pointer]:
+                      - img [ref=e237]
+                - cell "Grant editor capability (allows website editing) Grant webmaster capability (can delegate editor)" [ref=e239]:
+                  - generic [ref=e240]:
+                    - generic "Grant editor capability (allows website editing)" [ref=e241] [cursor=pointer]:
+                      - button "Editor" [ref=e242]
+                      - generic: Editor
+                      - generic:
+                        - img
+                    - generic "Grant webmaster capability (can delegate editor)" [ref=e243] [cursor=pointer]:
+                      - button "Webmaster" [ref=e244]
+                      - generic: Webmaster
+                      - generic:
+                        - img
+                - cell "Reset Test Deletable's Password Delete Test Deletable's Profile" [ref=e245]:
+                  - generic [ref=e246]:
+                    - button "Reset Test Deletable's Password" [ref=e247] [cursor=pointer]:
+                      - img [ref=e248]
+                    - button "Delete Test Deletable's Profile" [ref=e250] [cursor=pointer]:
+                      - img [ref=e251]
+              - row "Test Promotable test_promotable_user DJ Promotable DJ test_promotable@wxyc.org Edit Test Promotable's email Grant editor capability (allows website editing) Grant webmaster capability (can delegate editor) Reset Test Promotable's Password Delete Test Promotable's Profile" [ref=e253]:
+                - cell [ref=e254]:
+                  - group [ref=e255]:
+                    - checkbox [ref=e259] [cursor=pointer]
+                    - checkbox [ref=e263] [cursor=pointer]
+                - cell "Test Promotable" [ref=e264]
+                - cell "test_promotable_user" [ref=e265]
+                - cell "DJ Promotable DJ" [ref=e266]
+                - cell "test_promotable@wxyc.org Edit Test Promotable's email" [ref=e267]:
+                  - generic [ref=e268]:
+                    - generic [ref=e269]: test_promotable@wxyc.org
+                    - button "Edit Test Promotable's email" [ref=e270] [cursor=pointer]:
+                      - img [ref=e271]
+                - cell "Grant editor capability (allows website editing) Grant webmaster capability (can delegate editor)" [ref=e273]:
+                  - generic [ref=e274]:
+                    - generic "Grant editor capability (allows website editing)" [ref=e275] [cursor=pointer]:
+                      - button "Editor" [ref=e276]
+                      - generic: Editor
+                      - generic:
+                        - img
+                    - generic "Grant webmaster capability (can delegate editor)" [ref=e277] [cursor=pointer]:
+                      - button "Webmaster" [ref=e278]
+                      - generic: Webmaster
+                      - generic:
+                        - img
+                - cell "Reset Test Promotable's Password Delete Test Promotable's Profile" [ref=e279]:
+                  - generic [ref=e280]:
+                    - button "Reset Test Promotable's Password" [ref=e281] [cursor=pointer]:
+                      - img [ref=e282]
+                    - button "Delete Test Promotable's Profile" [ref=e284] [cursor=pointer]:
+                      - img [ref=e285]
+              - row "Test Demotable SM test_demotable_sm DJ Demotable SM test_demotable_sm@wxyc.org Edit Test Demotable SM's email Grant editor capability (allows website editing) Grant webmaster capability (can delegate editor) Reset Test Demotable SM's Password Delete Test Demotable SM's Profile" [ref=e287]:
+                - cell [ref=e288]:
+                  - group [ref=e289]:
+                    - generic [ref=e291]:
+                      - checkbox [checked] [ref=e293] [cursor=pointer]
+                      - img [ref=e294]
+                    - generic [ref=e296]:
+                      - generic:
+                        - generic:
+                          - checkbox [checked] [disabled]
+                        - img
+                - cell "Test Demotable SM" [ref=e297]
+                - cell "test_demotable_sm" [ref=e298]
+                - cell "DJ Demotable SM" [ref=e299]
+                - cell "test_demotable_sm@wxyc.org Edit Test Demotable SM's email" [ref=e300]:
+                  - generic [ref=e301]:
+                    - generic [ref=e302]: test_demotable_sm@wxyc.org
+                    - button "Edit Test Demotable SM's email" [ref=e303] [cursor=pointer]:
+                      - img [ref=e304]
+                - cell "Grant editor capability (allows website editing) Grant webmaster capability (can delegate editor)" [ref=e306]:
+                  - generic [ref=e307]:
+                    - generic "Grant editor capability (allows website editing)" [ref=e308] [cursor=pointer]:
+                      - button "Editor" [ref=e309]
+                      - generic: Editor
+                      - generic:
+                        - img
+                    - generic "Grant webmaster capability (can delegate editor)" [ref=e310] [cursor=pointer]:
+                      - button "Webmaster" [ref=e311]
+                      - generic: Webmaster
+                      - generic:
+                        - img
+                - cell "Reset Test Demotable SM's Password Delete Test Demotable SM's Profile" [ref=e312]:
+                  - generic [ref=e313]:
+                    - button "Reset Test Demotable SM's Password" [ref=e314] [cursor=pointer]:
+                      - img [ref=e315]
+                    - button "Delete Test Demotable SM's Profile" [ref=e317] [cursor=pointer]:
+                      - img [ref=e318]
+              - row "Test Reset 1 test_reset1 DJ Reset DJ 1 test_reset1@wxyc.org Edit Test Reset 1's email Grant editor capability (allows website editing) Grant webmaster capability (can delegate editor) Reset Test Reset 1's Password Delete Test Reset 1's Profile" [ref=e320]:
+                - cell [ref=e321]:
+                  - group [ref=e322]:
+                    - checkbox [ref=e326] [cursor=pointer]
+                    - checkbox [ref=e330] [cursor=pointer]
+                - cell "Test Reset 1" [ref=e331]
+                - cell "test_reset1" [ref=e332]
+                - cell "DJ Reset DJ 1" [ref=e333]
+                - cell "test_reset1@wxyc.org Edit Test Reset 1's email" [ref=e334]:
+                  - generic [ref=e335]:
+                    - generic [ref=e336]: test_reset1@wxyc.org
+                    - button "Edit Test Reset 1's email" [ref=e337] [cursor=pointer]:
+                      - img [ref=e338]
+                - cell "Grant editor capability (allows website editing) Grant webmaster capability (can delegate editor)" [ref=e340]:
+                  - generic [ref=e341]:
+                    - generic "Grant editor capability (allows website editing)" [ref=e342] [cursor=pointer]:
+                      - button "Editor" [ref=e343]
+                      - generic: Editor
+                      - generic:
+                        - img
+                    - generic "Grant webmaster capability (can delegate editor)" [ref=e344] [cursor=pointer]:
+                      - button "Webmaster" [ref=e345]
+                      - generic: Webmaster
+                      - generic:
+                        - img
+                - cell "Reset Test Reset 1's Password Delete Test Reset 1's Profile" [ref=e346]:
+                  - generic [ref=e347]:
+                    - button "Reset Test Reset 1's Password" [ref=e348] [cursor=pointer]:
+                      - img [ref=e349]
+                    - button "Delete Test Reset 1's Profile" [ref=e351] [cursor=pointer]:
+                      - img [ref=e352]
+              - row "Test Reset 2 test_reset2 DJ Reset DJ 2 test_reset2@wxyc.org Edit Test Reset 2's email Grant editor capability (allows website editing) Grant webmaster capability (can delegate editor) Reset Test Reset 2's Password Delete Test Reset 2's Profile" [ref=e354]:
+                - cell [ref=e355]:
+                  - group [ref=e356]:
+                    - checkbox [ref=e360] [cursor=pointer]
+                    - checkbox [ref=e364] [cursor=pointer]
+                - cell "Test Reset 2" [ref=e365]
+                - cell "test_reset2" [ref=e366]
+                - cell "DJ Reset DJ 2" [ref=e367]
+                - cell "test_reset2@wxyc.org Edit Test Reset 2's email" [ref=e368]:
+                  - generic [ref=e369]:
+                    - generic [ref=e370]: test_reset2@wxyc.org
+                    - button "Edit Test Reset 2's email" [ref=e371] [cursor=pointer]:
+                      - img [ref=e372]
+                - cell "Grant editor capability (allows website editing) Grant webmaster capability (can delegate editor)" [ref=e374]:
+                  - generic [ref=e375]:
+                    - generic "Grant editor capability (allows website editing)" [ref=e376] [cursor=pointer]:
+                      - button "Editor" [ref=e377]
+                      - generic: Editor
+                      - generic:
+                        - img
+                    - generic "Grant webmaster capability (can delegate editor)" [ref=e378] [cursor=pointer]:
+                      - button "Webmaster" [ref=e379]
+                      - generic: Webmaster
+                      - generic:
+                        - img
+                - cell "Reset Test Reset 2's Password Delete Test Reset 2's Profile" [ref=e380]:
+                  - generic [ref=e381]:
+                    - button "Reset Test Reset 2's Password" [ref=e382] [cursor=pointer]:
+                      - img [ref=e383]
+                    - button "Delete Test Reset 2's Profile" [ref=e385] [cursor=pointer]:
+                      - img [ref=e386]
+              - row "Test AdminReset 1 test_adminreset1 DJ AdminReset DJ test_adminreset1@wxyc.org Edit Test AdminReset 1's email Grant editor capability (allows website editing) Grant webmaster capability (can delegate editor) Reset Test AdminReset 1's Password Delete Test AdminReset 1's Profile" [ref=e388]:
+                - cell [ref=e389]:
+                  - group [ref=e390]:
+                    - checkbox [ref=e394] [cursor=pointer]
+                    - checkbox [ref=e398] [cursor=pointer]
+                - cell "Test AdminReset 1" [ref=e399]
+                - cell "test_adminreset1" [ref=e400]
+                - cell "DJ AdminReset DJ" [ref=e401]
+                - cell "test_adminreset1@wxyc.org Edit Test AdminReset 1's email" [ref=e402]:
+                  - generic [ref=e403]:
+                    - generic [ref=e404]: test_adminreset1@wxyc.org
+                    - button "Edit Test AdminReset 1's email" [ref=e405] [cursor=pointer]:
+                      - img [ref=e406]
+                - cell "Grant editor capability (allows website editing) Grant webmaster capability (can delegate editor)" [ref=e408]:
+                  - generic [ref=e409]:
+                    - generic "Grant editor capability (allows website editing)" [ref=e410] [cursor=pointer]:
+                      - button "Editor" [ref=e411]
+                      - generic: Editor
+                      - generic:
+                        - img
+                    - generic "Grant webmaster capability (can delegate editor)" [ref=e412] [cursor=pointer]:
+                      - button "Webmaster" [ref=e413]
+                      - generic: Webmaster
+                      - generic:
+                        - img
+                - cell "Reset Test AdminReset 1's Password Delete Test AdminReset 1's Profile" [ref=e414]:
+                  - generic [ref=e415]:
+                    - button "Reset Test AdminReset 1's Password" [ref=e416] [cursor=pointer]:
+                      - img [ref=e417]
+                    - button "Delete Test AdminReset 1's Profile" [ref=e419] [cursor=pointer]:
+                      - img [ref=e420]
+              - row "Test DJ 1 test_dj1 DJ Test dj1 not-an-email Edit Test DJ 1's email Grant editor capability (allows website editing) Grant webmaster capability (can delegate editor) Reset Test DJ 1's Password Delete Test DJ 1's Profile" [ref=e422]:
+                - cell [ref=e423]:
+                  - group [ref=e424]:
+                    - checkbox [ref=e428] [cursor=pointer]
+                    - checkbox [ref=e432] [cursor=pointer]
+                - cell "Test DJ 1" [ref=e433]
+                - cell "test_dj1" [ref=e434]
+                - cell "DJ Test dj1" [ref=e435]
+                - cell "not-an-email Edit Test DJ 1's email" [ref=e436]:
+                  - generic [ref=e437]:
+                    - generic [ref=e438]: not-an-email
+                    - button "Edit Test DJ 1's email" [ref=e439] [cursor=pointer]:
+                      - img [ref=e440]
+                - cell "Grant editor capability (allows website editing) Grant webmaster capability (can delegate editor)" [ref=e442]:
+                  - generic [ref=e443]:
+                    - generic "Grant editor capability (allows website editing)" [ref=e444] [cursor=pointer]:
+                      - button "Editor" [ref=e445]
+                      - generic: Editor
+                      - generic:
+                        - img
+                    - generic "Grant webmaster capability (can delegate editor)" [ref=e446] [cursor=pointer]:
+                      - button "Webmaster" [ref=e447]
+                      - generic: Webmaster
+                      - generic:
+                        - img
+                - cell "Reset Test DJ 1's Password Delete Test DJ 1's Profile" [ref=e448]:
+                  - generic [ref=e449]:
+                    - button "Reset Test DJ 1's Password" [ref=e450] [cursor=pointer]:
+                      - img [ref=e451]
+                    - button "Delete Test DJ 1's Profile" [ref=e453] [cursor=pointer]:
+                      - img [ref=e454]
+              - row "Test DJ 2 test_dj2 DJ Test dj2 admin_verified_1770079012559@wxyc.org Edit Test DJ 2's email Grant editor capability (allows website editing) Grant webmaster capability (can delegate editor) Reset Test DJ 2's Password Delete Test DJ 2's Profile" [ref=e456]:
+                - cell [ref=e457]:
+                  - group [ref=e458]:
+                    - checkbox [ref=e462] [cursor=pointer]
+                    - checkbox [ref=e466] [cursor=pointer]
+                - cell "Test DJ 2" [ref=e467]
+                - cell "test_dj2" [ref=e468]
+                - cell "DJ Test dj2" [ref=e469]
+                - cell "admin_verified_1770079012559@wxyc.org Edit Test DJ 2's email" [ref=e470]:
+                  - generic [ref=e471]:
+                    - generic [ref=e472]: admin_verified_1770079012559@wxyc.org
+                    - button "Edit Test DJ 2's email" [ref=e473] [cursor=pointer]:
+                      - img [ref=e474]
+                - cell "Grant editor capability (allows website editing) Grant webmaster capability (can delegate editor)" [ref=e476]:
+                  - generic [ref=e477]:
+                    - generic "Grant editor capability (allows website editing)" [ref=e478] [cursor=pointer]:
+                      - button "Editor" [ref=e479]
+                      - generic: Editor
+                      - generic:
+                        - img
+                    - generic "Grant webmaster capability (can delegate editor)" [ref=e480] [cursor=pointer]:
+                      - button "Webmaster" [ref=e481]
+                      - generic: Webmaster
+                      - generic:
+                        - img
+                - cell "Reset Test DJ 2's Password Delete Test DJ 2's Profile" [ref=e482]:
+                  - generic [ref=e483]:
+                    - button "Reset Test DJ 2's Password" [ref=e484] [cursor=pointer]:
+                      - img [ref=e485]
+                    - button "Delete Test DJ 2's Profile" [ref=e487] [cursor=pointer]:
+                      - img [ref=e488]
+              - row "Add" [ref=e490]:
+                - cell [ref=e491]
+                - cell "Add" [ref=e492]:
+                  - button "Add" [ref=e493] [cursor=pointer]:
+                    - img [ref=e495]
+                    - text: Add
+      - generic [ref=e498]:
+        - list [ref=e500]:
+          - generic [ref=e501]:
+            - img [ref=e502]
+            - paragraph [ref=e504]: Now Playing
+          - button [ref=e505] [cursor=pointer]:
+            - img [ref=e506]
+          - generic [ref=e508]:
+            - button "Play audio" [ref=e512] [cursor=pointer]:
+              - img [ref=e513]
+            - generic [ref=e516]:
+              - paragraph [ref=e517]: You're Listening To
+              - paragraph [ref=e518]: WXYC Chapel Hill
+            - generic [ref=e519]: OFF AIR
+        - separator [ref=e520]
+        - list [ref=e522]:
+          - generic [ref=e523]:
+            - img [ref=e524]
+            - paragraph [ref=e526]: Mail Bin
+          - paragraph [ref=e529]: An empty record...
+        - separator [ref=e530]
+    - generic [ref=e532]:
+      - generic [ref=e533]: WXYC DJ Site ve2e
+      - group [ref=e534]:
+        - link "Beta Tester Form" [ref=e535] [cursor=pointer]:
+          - /url: https://forms.gle/9q1mGCFtPS7DXQUE9
+        - link "General Feedback" [ref=e536] [cursor=pointer]:
+          - /url: https://forms.gle/VCw43XejNte27Bef7
+        - button "Switch to classic experience" [ref=e537] [cursor=pointer]:
+          - img [ref=e538]
+        - button "Switch to dark mode" [ref=e540] [cursor=pointer]:
+          - img [ref=e541]
+  - alert [ref=e543]
+```
