@@ -1,0 +1,47 @@
+{
+  "cookies": [
+    {
+      "name": "app_state",
+      "value": "%7B%22experience%22%3A%22modern%22%2C%22colorMode%22%3A%22light%22%2C%22rightBarMini%22%3Atrue%7D",
+      "domain": "localhost",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "better-auth.session_token",
+      "value": "rh7B6rGAi5qzvcMo1EOFWN9vnRVlENT1.%2FKZz7egWzQavb9Vf65CHn91l94hcFe%2BQz%2FMYKunbFNc%3D",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1770683898.45009,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "http://localhost:3000",
+      "localStorage": [
+        {
+          "name": "joy-mode",
+          "value": "light"
+        },
+        {
+          "name": "joy-color-scheme-dark",
+          "value": "dark"
+        },
+        {
+          "name": "wxyc_app_skin",
+          "value": "modern-light"
+        },
+        {
+          "name": "joy-color-scheme-light",
+          "value": "light"
+        }
+      ]
+    }
+  ]
+}

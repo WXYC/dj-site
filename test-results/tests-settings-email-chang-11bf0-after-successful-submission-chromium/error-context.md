@@ -1,0 +1,92 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: WXYC DJ Site ve2e
+      - group [ref=e6]:
+        - link [ref=e7] [cursor=pointer]:
+          - /url: https://forms.gle/9q1mGCFtPS7DXQUE9
+          - text: Beta Tester Form
+        - link [ref=e8] [cursor=pointer]:
+          - /url: https://forms.gle/VCw43XejNte27Bef7
+          - text: General Feedback
+        - button [ref=e9] [cursor=pointer]:
+          - img [ref=e10]
+        - button [ref=e12] [cursor=pointer]:
+          - img [ref=e13]
+  - alert [ref=e15]
+  - dialog [ref=e18]:
+    - button [ref=e19] [cursor=pointer]:
+      - img [ref=e20]
+    - heading [level=2] [ref=e22]:
+      - generic [ref=e23]:
+        - img [ref=e24]
+        - text: Your Information
+    - separator [ref=e26]
+    - generic [ref=e28]:
+      - generic [ref=e29]:
+        - generic [ref=e30]: Username
+        - generic:
+          - textbox [disabled]: test_dj1
+          - generic:
+            - img
+      - generic [ref=e31]:
+        - generic [ref=e32]: Personal Name
+        - generic [ref=e33]:
+          - textbox [ref=e34]: Test DJ 1
+          - img [ref=e36]
+      - generic [ref=e38]:
+        - generic [ref=e39]: DJ Name
+        - generic [ref=e40]:
+          - textbox [ref=e41]: Test dj1
+          - img [ref=e43]
+      - generic [ref=e46]:
+        - generic [ref=e47]: Email
+        - generic [ref=e48]:
+          - generic:
+            - textbox [disabled]: not-an-email
+            - generic:
+              - img
+          - button [ref=e49] [cursor=pointer]:
+            - img [ref=e50]
+        - generic [ref=e52]: Changing your email requires verification via the new address.
+      - generic [ref=e53]:
+        - button [disabled]: Save
+  - dialog "Change Email Address" [active] [ref=e55]:
+    - button [ref=e56] [cursor=pointer]:
+      - img [ref=e57]
+    - heading "Change Email Address" [level=2] [ref=e59]:
+      - generic [ref=e60]:
+        - img [ref=e61]
+        - text: Change Email Address
+    - generic [ref=e63]:
+      - paragraph [ref=e64]: We'll send a verification link to your new email address. Your email won't change until you click that link.
+      - generic [ref=e66]:
+        - generic [ref=e67]:
+          - generic [ref=e68]: Current Email
+          - generic:
+            - textbox "Current Email" [disabled]: not-an-email
+            - generic:
+              - img
+        - generic [ref=e69]:
+          - generic [ref=e70]: New Email
+          - generic [ref=e71]:
+            - textbox "New Email" [ref=e72]:
+              - /placeholder: Enter your new email
+              - text: test_email_change_1770079345851@wxyc.org
+            - img [ref=e74]
+        - generic [ref=e76]:
+          - generic [ref=e77]: Current Password
+          - generic [ref=e78]:
+            - textbox "Current Password" [ref=e79]:
+              - /placeholder: Confirm your password
+              - text: testpassword123
+            - img [ref=e81]
+          - generic [ref=e83]: Enter your password to confirm this change
+        - paragraph [ref=e84]: Change email is disabled
+        - generic [ref=e85]:
+          - button "Cancel" [ref=e86] [cursor=pointer]
+          - button "Send Verification Email" [ref=e87] [cursor=pointer]
+```
