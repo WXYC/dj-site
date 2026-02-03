@@ -1,6 +1,59 @@
 import type { Action, Slice, UnknownAction } from "@reduxjs/toolkit";
+import { describe, beforeEach } from "vitest";
 import { makeStore } from "@/lib/store";
 import type { AppStore, RootState } from "@/lib/store";
+
+/**
+ * Describes a Redux slice with automatic harness setup.
+ * Eliminates boilerplate for slice testing.
+ *
+ * @example
+ * describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions }) => {
+ *   it("should set autoplay", () => {
+ *     const result = harness().reduce(actions.setAutoplay(true));
+ *     expect(result.autoplay).toBe(true);
+ *   });
+ * });
+ */
+export function describeSlice<
+  State,
+  Name extends string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  S extends Slice<State, any, Name>
+>(
+  slice: S,
+  defaultState: State,
+  testFn: (ctx: SliceTestContext<State, Name, S>) => void
+): void {
+  describe(slice.name + "Slice", () => {
+    let currentHarness: ReturnType<typeof createSliceHarness<State, Name, S>>;
+
+    beforeEach(() => {
+      currentHarness = createSliceHarness(slice, defaultState);
+    });
+
+    const context: SliceTestContext<State, Name, S> = {
+      harness: () => currentHarness,
+      actions: slice.actions as S["actions"],
+      selectors: slice.selectors as S["selectors"],
+      slice,
+    };
+
+    testFn(context);
+  });
+}
+
+export interface SliceTestContext<
+  State,
+  Name extends string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  S extends Slice<State, any, Name>
+> {
+  harness: () => ReturnType<typeof createSliceHarness<State, Name, S>>;
+  actions: S["actions"];
+  selectors: S["selectors"];
+  slice: S;
+}
 
 /**
  * Creates a test harness for Redux slices that provides utilities for
@@ -31,8 +84,6 @@ export function createSliceHarness<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   S extends Slice<State, any, Name>
 >(slice: S, initialState: State) {
-  type SliceActions = ReturnType<S["actions"][keyof S["actions"]]>;
-
   return {
     /**
      * The slice being tested
@@ -47,14 +98,14 @@ export function createSliceHarness<
     /**
      * Apply a single action to the state
      */
-    reduce(action: SliceActions | UnknownAction, state: State = initialState): State {
+    reduce(action: UnknownAction, state: State = initialState): State {
       return slice.reducer(state, action as Action);
     },
 
     /**
      * Apply multiple actions in sequence, returning the final state
      */
-    chain(...actions: (SliceActions | UnknownAction)[]): State {
+    chain(...actions: (UnknownAction)[]): State {
       return actions.reduce(
         (state, action) => slice.reducer(state, action as Action),
         initialState
@@ -64,7 +115,7 @@ export function createSliceHarness<
     /**
      * Apply multiple actions starting from a custom initial state
      */
-    chainFrom(state: State, ...actions: (SliceActions | UnknownAction)[]): State {
+    chainFrom(state: State, ...actions: (UnknownAction)[]): State {
       return actions.reduce(
         (s, action) => slice.reducer(s, action as Action),
         state
@@ -79,7 +130,7 @@ export function createSliceHarness<
       const store = makeStore();
       return {
         store,
-        dispatch: (action: SliceActions | UnknownAction) => {
+        dispatch: (action: UnknownAction) => {
           store.dispatch(action as Action);
         },
         getState: () => store.getState(),
@@ -96,7 +147,7 @@ export interface SliceStoreHarness<
   S extends Slice<any, any, any>
 > {
   store: AppStore;
-  dispatch: (action: ReturnType<S["actions"][keyof S["actions"]]> | UnknownAction) => void;
+  dispatch: (action: UnknownAction) => void;
   getState: () => RootState;
   select: <T>(selector: (state: RootState) => T) => T;
 }
