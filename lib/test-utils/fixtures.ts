@@ -138,7 +138,7 @@ export function createTestAuthenticatedUser(
   return {
     user: createTestUser(overrides.user),
     accessToken: "test-access-token-12345",
-    idToken: "test-id-token-12345",
+    token: "test-id-token-12345",
     ...overrides,
   };
 }
