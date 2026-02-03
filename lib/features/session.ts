@@ -2,8 +2,6 @@ import { cookies } from "next/headers";
 import "server-only";
 import { defaultApplicationState } from "./application/types";
 import { defaultAuthenticationData, betterAuthSessionToAuthenticationData, BetterAuthSessionResponse, BetterAuthSession } from "./authentication/utilities";
-import { getUserRoleInOrganization, getAppOrganizationId } from "./authentication/organization-utils";
-import { mapRoleToAuthorization, isAuthenticated, AuthenticatedUser } from "./authentication/types";
 import { SiteProps } from "./types";
 import { serverAuthClient } from "./authentication/server-client";
 import { parseAppSkinPreference } from "./experiences/preferences";
@@ -75,40 +73,8 @@ export const createServerSideProps = async (): Promise<SiteProps> => {
         },
       } as BetterAuthSession;
 
-      // Fetch organization role from APP_ORGANIZATION first
-      const organizationId = getAppOrganizationId();
-      if (organizationId) {
-        try {
-          const orgRole = await getUserRoleInOrganization(
-            normalizedSession.user.id,
-            organizationId,
-            cookieHeader
-          );
-          
-          if (orgRole !== undefined) {
-            // Create authentication data with the fetched organization role
-            const authority = mapRoleToAuthorization(orgRole);
-            const authData = betterAuthSessionToAuthenticationData(normalizedSession);
-            
-            // If we have an authenticated user, update the authority with the organization role
-            if (isAuthenticated(authData) && authData.user) {
-              authData.user.authority = authority;
-            }
-            
-            authentication = authData;
-          } else {
-            // User is not a member of the organization, use default (will have NO access)
-            authentication = betterAuthSessionToAuthenticationData(normalizedSession);
-          }
-        } catch (error) {
-          // If organization query fails, fall back to session-based role extraction
-          console.warn("Failed to fetch organization role, using session data:", error);
-          authentication = betterAuthSessionToAuthenticationData(normalizedSession);
-        }
-      } else {
-        // No organization ID set, use session data
-        authentication = betterAuthSessionToAuthenticationData(normalizedSession);
-      }
+      // Convert session to authentication data (uses user.role directly)
+      authentication = betterAuthSessionToAuthenticationData(normalizedSession);
 
       const appSkin = normalizedSession.user?.appSkin;
       const parsedPreference = parseAppSkinPreference(appSkin);

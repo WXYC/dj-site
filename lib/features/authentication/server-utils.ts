@@ -4,7 +4,6 @@ import { serverAuthClient } from "./server-client";
 import { BetterAuthSessionResponse, BetterAuthSession } from "./utilities";
 import { Authorization } from "../admin/types";
 import { mapRoleToAuthorization, VerifiedData } from "./types";
-import { getUserRoleInOrganization, getAppOrganizationId } from "./organization-utils";
 
 /**
  * Get the current session from better-auth in a server component
@@ -57,55 +56,22 @@ export async function requireAuth(): Promise<BetterAuthSession> {
 
 /**
  * Extract user's authorization level from session
- * Fetches role from APP_ORGANIZATION organization first, then falls back to session data
- * Gets role from organization query, session.user.organization.role, or session.user.role, then maps to Authorization enum
+ * Uses session.user.role directly (Direct Role Model)
  */
-async function getUserAuthority(session: BetterAuthSession, cookieHeader?: string): Promise<Authorization> {
-  // Try to get role from APP_ORGANIZATION first
-  const organizationId = getAppOrganizationId();
-  
-  if (organizationId) {
-    try {
-      const orgRole = await getUserRoleInOrganization(
-        session.user.id,
-        organizationId,
-        cookieHeader
-      );
-      
-      if (orgRole !== undefined) {
-        // Successfully fetched role from organization
-        return mapRoleToAuthorization(orgRole);
-      }
-      // If user is not a member, continue to fallback logic (will return NO access)
-    } catch (error) {
-      // If organization query fails, fall back to session-based role extraction
-      console.warn("Failed to fetch organization role, falling back to session data:", error);
-    }
-  }
-  
-  // Fallback: Get role from session data (organization member data if available, or user role)
-  // Organization role takes precedence over base user role
-  // Also check if role is stored in metadata or other custom fields
-  const organizationRole = (session.user as any).organization?.role;
-  const userRole = (session.user as any).role;
-  // Check for role in metadata or other potential locations
-  const metadataRole = (session.user as any).metadata?.role;
-  const customRole = (session.user as any).customRole;
-  const roleToMap = organizationRole || metadataRole || customRole || userRole;
-
-  const authority = mapRoleToAuthorization(roleToMap);
-  
-  return authority;
+function getUserAuthority(session: BetterAuthSession): Authorization {
+  // Get role directly from user.role (Direct Role Model)
+  const roleToMap = session.user.role;
+  return mapRoleToAuthorization(roleToMap);
 }
 
 /**
  * Check if user has the required role (non-redirecting)
  * Returns true if user has sufficient permissions
  */
-export async function checkRole(session: BetterAuthSession, requiredRole: Authorization, cookieHeader?: string): Promise<boolean> {
-  const userAuthority = await getUserAuthority(session, cookieHeader);
+export function checkRole(session: BetterAuthSession, requiredRole: Authorization): boolean {
+  const userAuthority = getUserAuthority(session);
   
-  // Role hierarchy: SM > MD > DJ > NO
+  // Role hierarchy: ADMIN > SM > MD > DJ > NO
   // User must have at least the required role
   return userAuthority >= requiredRole;
 }
@@ -114,11 +80,8 @@ export async function checkRole(session: BetterAuthSession, requiredRole: Author
  * Require a specific role - redirects if user doesn't have sufficient permissions
  * Redirects to dashboard home if insufficient permissions
  */
-export async function requireRole(session: BetterAuthSession, requiredRole: Authorization, cookieHeader?: string): Promise<void> {
-  const cookieStore = await cookies();
-  const header = cookieHeader || cookieStore.toString();
-  
-  if (!(await checkRole(session, requiredRole, header))) {
+export function requireRole(session: BetterAuthSession, requiredRole: Authorization): void {
+  if (!checkRole(session, requiredRole)) {
     redirect(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog"));
   }
 }
@@ -153,11 +116,9 @@ export function getIncompleteUserAttributes(session: BetterAuthSession): (keyof 
 /**
  * Get user object from session (for compatibility with existing code)
  */
-export async function getUserFromSession(session: BetterAuthSession, cookieHeader?: string) {
+export function getUserFromSession(session: BetterAuthSession) {
   const token = session.session?.token;
-  const cookieStore = await cookies();
-  const header = cookieHeader || cookieStore.toString();
-  const userAuthority = await getUserAuthority(session, header);
+  const userAuthority = getUserAuthority(session);
 
   const result = {
     id: session.user.id,
