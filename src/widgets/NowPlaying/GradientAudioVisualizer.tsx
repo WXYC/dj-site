@@ -126,7 +126,8 @@ export const GradientAudioVisualizer = forwardRef(
         />
         <Box
           sx={{
-            backgroundColor: playing ? (overlayColor ?? "transparent") : "neutral.800",
+            backgroundColor: overlayColor,
+            opacity: playing ? 0.5 : 1,
             position: "absolute",
             inset: 0,
             width: "100%",
@@ -134,7 +135,7 @@ export const GradientAudioVisualizer = forwardRef(
             pointerEvents: "none",
             zIndex: 1,
             backdropFilter: "blur(2px)",
-            transition: "background-color 2s ease",
+            transition: "background-color 2s ease, opacity 2s ease",
           }}
         ></Box>
         <audio
