@@ -227,6 +227,7 @@ export default function RosterTable({ user }: { user: User }) {
                   key={`roster-entry-${dj.userName}`}
                   account={dj}
                   isSelf={dj.userName === user.username}
+                  currentUserAuthority={user.authority}
                   onAccountChange={refetch}
                 />
               ))

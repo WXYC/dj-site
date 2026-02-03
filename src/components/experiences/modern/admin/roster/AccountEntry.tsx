@@ -6,33 +6,96 @@ import {
   AdminAuthenticationStatus,
   Authorization,
 } from "@/lib/features/admin/types";
+import { WXYCRole } from "@/lib/features/authentication/types";
 import { DeleteForever, SyncLock } from "@mui/icons-material";
-import { ButtonGroup, Checkbox, IconButton, Stack, Tooltip } from "@mui/joy";
+import { IconButton, Option, Select, Stack, Tooltip } from "@mui/joy";
 import { useState } from "react";
 import { toast } from "sonner";
+
+/**
+ * All WXYC roles in display order (highest privilege first).
+ */
+const ALL_ROLES: WXYCRole[] = ["admin", "stationManager", "musicDirector", "dj", "member"];
+
+/**
+ * Display names for roles.
+ */
+const ROLE_DISPLAY_NAMES: Record<WXYCRole, string> = {
+  admin: "Admin",
+  stationManager: "Station Manager",
+  musicDirector: "Music Director",
+  dj: "DJ",
+  member: "Member",
+};
+
+/**
+ * Get the roles that a user with the given authority can assign.
+ */
+function getAssignableRoles(authority: Authorization): WXYCRole[] {
+  if (authority >= Authorization.ADMIN) {
+    return [...ALL_ROLES];
+  }
+  if (authority >= Authorization.SM) {
+    // Station managers can assign all roles except admin
+    return ["stationManager", "musicDirector", "dj", "member"];
+  }
+  return [];
+}
+
+/**
+ * Map Authorization enum to WXYCRole.
+ */
+function authorizationToRole(auth: Authorization): WXYCRole {
+  switch (auth) {
+    case Authorization.ADMIN:
+      return "admin";
+    case Authorization.SM:
+      return "stationManager";
+    case Authorization.MD:
+      return "musicDirector";
+    case Authorization.DJ:
+      return "dj";
+    case Authorization.NO:
+    default:
+      return "member";
+  }
+}
 
 export const AccountEntry = ({
   account,
   isSelf,
+  currentUserAuthority,
   onAccountChange,
 }: {
   account: Account;
   isSelf: boolean;
+  currentUserAuthority: Authorization;
   onAccountChange?: () => Promise<void>;
 }) => {
-  const [isPromoting, setIsPromoting] = useState(false);
+  const [isUpdatingRole, setIsUpdatingRole] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [promoteError, setPromoteError] = useState<Error | null>(null);
-  const [resetError, setResetError] = useState<Error | null>(null);
-  const [deleteError, setDeleteError] = useState<Error | null>(null);
-  const toAdminRole = (
-    role: "member" | "dj" | "musicDirector" | "stationManager"
-  ) =>
-    (role === "stationManager" ? "admin" : "user") as
-      | "user"
-      | "admin"
-      | ("user" | "admin")[];
+
+  const currentRole = authorizationToRole(account.authorization);
+  const assignableRoles = getAssignableRoles(currentUserAuthority);
+  const canChangeRole = !isSelf && assignableRoles.length > 0;
+
+  /**
+   * Update user's role directly using Better Auth admin API
+   */
+  const updateUserRole = async (userId: string, newRole: WXYCRole) => {
+    const result = await authClient.admin.setRole({
+      userId,
+      role: newRole,
+    });
+
+    if (result.error) {
+      throw new Error(result.error.message || "Failed to update role");
+    }
+
+    return result;
+  };
+
   const resolveUserId = async () => {
     if (account.id) {
       return account.id;
@@ -57,6 +120,43 @@ export const AccountEntry = ({
     return listResult.data.users[0].id;
   };
 
+  const handleRoleChange = async (newRole: WXYCRole | null) => {
+    if (!newRole || newRole === currentRole) return;
+
+    // Prevent non-admins from promoting to admin
+    if (newRole === "admin" && currentUserAuthority < Authorization.ADMIN) {
+      toast.error("Only admins can promote users to admin");
+      return;
+    }
+
+    const roleName = ROLE_DISPLAY_NAMES[newRole];
+    const confirmed = confirm(
+      `Are you sure you want to change ${account.realName}${
+        account.realName.length > 0 ? "'s" : ""
+      } role to ${roleName}?`
+    );
+
+    if (!confirmed) return;
+
+    setIsUpdatingRole(true);
+    try {
+      const targetUserId = await resolveUserId();
+      await updateUserRole(targetUserId, newRole);
+
+      toast.success(`${account.realName} role updated to ${roleName}`);
+      if (onAccountChange) {
+        await onAccountChange();
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to update role";
+      if (errorMessage.trim().length > 0) {
+        toast.error(errorMessage);
+      }
+    } finally {
+      setIsUpdatingRole(false);
+    }
+  };
+
   return (
     <tr>
       <td
@@ -65,181 +165,25 @@ export const AccountEntry = ({
           textAlign: "center",
         }}
       >
-        <ButtonGroup>
-          <Checkbox
-            color={"success"}
-            sx={{ transform: "translateY(3px)" }}
-            checked={account.authorization == Authorization.SM}
-            disabled={isSelf || isPromoting}
-            onChange={async (e) => {
-              if (e.target.checked) {
-                if (
-                  confirm(
-                    `Are you sure you want to promote ${account.realName}${
-                      account.realName.length > 0 ? "'s" : ""
-                    } account to Station Manager?`
-                  )
-                ) {
-                  setIsPromoting(true);
-                  setPromoteError(null);
-                  try {
-                    const targetUserId = await resolveUserId();
-
-                    // Update user role
-                    const result = await authClient.admin.setRole({
-                      userId: targetUserId,
-                      role: toAdminRole("stationManager"),
-                    });
-
-                    if (result.error) {
-                      throw new Error(result.error.message || "Failed to promote user");
-                    }
-
-                    toast.success(`${account.realName} promoted to Station Manager`);
-                    if (onAccountChange) {
-                      await onAccountChange();
-                    }
-                  } catch (err) {
-                    const errorMessage = err instanceof Error ? err.message : "Failed to promote user";
-                    setPromoteError(err instanceof Error ? err : new Error(errorMessage));
-                    if (errorMessage.trim().length > 0) {
-                      toast.error(errorMessage);
-                    }
-                  } finally {
-                    setIsPromoting(false);
-                  }
-                }
-              } else {
-                if (
-                  confirm(
-                    `Are you sure you want to remove ${account.realName}${
-                      account.realName.length > 0 ? "'s" : ""
-                    } access to Station Manager privileges?`
-                  )
-                ) {
-                  setIsPromoting(true);
-                  setPromoteError(null);
-                  try {
-                    const targetUserId = await resolveUserId();
-
-                    // Update user role
-                    const result = await authClient.admin.setRole({
-                      userId: targetUserId,
-                      role: toAdminRole("musicDirector"),
-                    });
-
-                    if (result.error) {
-                      throw new Error(result.error.message || "Failed to update user role");
-                    }
-
-                    toast.success(`${account.realName} role updated to Music Director`);
-                    if (onAccountChange) {
-                      await onAccountChange();
-                    }
-                  } catch (err) {
-                    const errorMessage = err instanceof Error ? err.message : "Failed to update user role";
-                    setPromoteError(err instanceof Error ? err : new Error(errorMessage));
-                    if (errorMessage.trim().length > 0) {
-                      toast.error(errorMessage);
-                    }
-                  } finally {
-                    setIsPromoting(false);
-                  }
-                }
-              }
-            }}
-          />
-          <Checkbox
-            disabled={
-              isSelf ||
-              account.authorization == Authorization.SM ||
-              isPromoting
-            }
-            color={"success"}
-            sx={{ transform: "translateY(3px)" }}
-            checked={
-              account.authorization == Authorization.SM ||
-              account.authorization == Authorization.MD
-            }
-            onChange={async (e) => {
-              if (e.target.checked) {
-                if (
-                  confirm(
-                    `Are you sure you want to promote ${account.realName}${
-                      account.realName.length > 0 ? "'s" : ""
-                    } account to Music Director?`
-                  )
-                ) {
-                  setIsPromoting(true);
-                  setPromoteError(null);
-                  try {
-                    const targetUserId = await resolveUserId();
-
-                    // Update user role
-                    const result = await authClient.admin.setRole({
-                      userId: targetUserId,
-                      role: toAdminRole("musicDirector"),
-                    });
-
-                    if (result.error) {
-                      throw new Error(result.error.message || "Failed to promote user");
-                    }
-
-                    toast.success(`${account.realName} promoted to Music Director`);
-                    if (onAccountChange) {
-                      await onAccountChange();
-                    }
-                  } catch (err) {
-                    const errorMessage = err instanceof Error ? err.message : "Failed to promote user";
-                    setPromoteError(err instanceof Error ? err : new Error(errorMessage));
-                    if (errorMessage.trim().length > 0) {
-                      toast.error(errorMessage);
-                    }
-                  } finally {
-                    setIsPromoting(false);
-                  }
-                }
-              } else {
-                if (
-                  confirm(
-                    `Are you sure you want to remove ${account.realName}${
-                      account.realName.length > 0 ? "'s" : ""
-                    } access to Music Director privileges?`
-                  )
-                ) {
-                  setIsPromoting(true);
-                  setPromoteError(null);
-                  try {
-                    const targetUserId = await resolveUserId();
-
-                    // Update user role
-                    const result = await authClient.admin.setRole({
-                      userId: targetUserId,
-                      role: toAdminRole("dj"),
-                    });
-
-                    if (result.error) {
-                      throw new Error(result.error.message || "Failed to update user role");
-                    }
-
-                    toast.success(`${account.realName} role updated to DJ`);
-                    if (onAccountChange) {
-                      await onAccountChange();
-                    }
-                  } catch (err) {
-                    const errorMessage = err instanceof Error ? err.message : "Failed to update user role";
-                    setPromoteError(err instanceof Error ? err : new Error(errorMessage));
-                    if (errorMessage.trim().length > 0) {
-                      toast.error(errorMessage);
-                    }
-                  } finally {
-                    setIsPromoting(false);
-                  }
-                }
-              }
-            }}
-          />
-        </ButtonGroup>
+        <Select
+          value={currentRole}
+          onChange={(_, value) => handleRoleChange(value)}
+          disabled={!canChangeRole || isUpdatingRole}
+          size="sm"
+          sx={{ minWidth: 140 }}
+        >
+          {assignableRoles.map((role) => (
+            <Option key={role} value={role}>
+              {ROLE_DISPLAY_NAMES[role]}
+            </Option>
+          ))}
+          {/* Show current role even if not assignable (e.g., viewing admin as SM) */}
+          {!assignableRoles.includes(currentRole) && (
+            <Option key={currentRole} value={currentRole} disabled>
+              {ROLE_DISPLAY_NAMES[currentRole]}
+            </Option>
+          )}
+        </Select>
       </td>
       <td>{account.realName}</td>
       <td>{account.userName}</td>
@@ -275,22 +219,14 @@ export const AccountEntry = ({
                   )
                 ) {
                   setIsResetting(true);
-                  setResetError(null);
                   try {
                     const targetUserId = await resolveUserId();
 
-                    // Generate a temporary password
-                    const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+                    const tempPassword = String(process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD || "temppass123");
 
-                    // Reset password via better-auth admin API
-                    const result = await (
-                      authClient.admin.updateUser as unknown as (args: {
-                        userId: string;
-                        password: string;
-                      }) => Promise<{ error?: { message?: string } | null }>
-                    )({
+                    const result = await authClient.admin.setUserPassword({
                       userId: targetUserId,
-                      password: tempPassword,
+                      newPassword: tempPassword,
                     });
 
                     if (result.error) {
@@ -298,11 +234,10 @@ export const AccountEntry = ({
                     }
 
                     toast.success(`Password reset successfully. Temporary password: ${tempPassword}`, {
-                      duration: 10000, // Show longer so admin can copy password
+                      duration: 10000,
                     });
                   } catch (err) {
                     const errorMessage = err instanceof Error ? err.message : "Failed to reset password";
-                    setResetError(err instanceof Error ? err : new Error(errorMessage));
                     if (errorMessage.trim().length > 0) {
                       toast.error(errorMessage);
                     }
@@ -341,11 +276,9 @@ export const AccountEntry = ({
                   )
                 ) {
                   setIsDeleting(true);
-                  setDeleteError(null);
                   try {
                     const targetUserId = await resolveUserId();
 
-                    // Delete user via better-auth admin API
                     const result = await authClient.admin.removeUser({
                       userId: targetUserId,
                     });
@@ -360,7 +293,6 @@ export const AccountEntry = ({
                     }
                   } catch (err) {
                     const errorMessage = err instanceof Error ? err.message : "Failed to delete account";
-                    setDeleteError(err instanceof Error ? err : new Error(errorMessage));
                     if (errorMessage.trim().length > 0) {
                       toast.error(errorMessage);
                     }
