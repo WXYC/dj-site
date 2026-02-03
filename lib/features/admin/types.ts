@@ -11,6 +11,7 @@ export enum Authorization {
   DJ,
   MD,
   SM,
+  ADMIN,
 }
 
 export type Account = {
