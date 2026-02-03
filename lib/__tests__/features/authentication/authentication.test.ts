@@ -232,6 +232,7 @@ describeSlice(authenticationSlice, defaultAuthenticationState, ({ harness, actio
         realName: false,
         djName: false,
         password: false,
+        currentPassword: false,
         confirmPassword: false,
         code: false,
       });
