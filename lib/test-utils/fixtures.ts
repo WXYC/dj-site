@@ -228,6 +228,7 @@ export function createTestVerificationState(
     realName: false,
     djName: false,
     password: false,
+    currentPassword: false,
     confirmPassword: false,
     code: false,
     ...overrides,
