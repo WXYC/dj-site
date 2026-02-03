@@ -8,7 +8,12 @@
     "preview": "npm run build:opennext && opennextjs-cloudflare preview",
     "deploy": "npm run build:opennext && wrangler pages deploy .open-next/assets",
     "upload": "npm run build:opennext && opennextjs-cloudflare upload",
-    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest --watch"
   },
   "dependencies": {
     "@atlaskit/pragmatic-drag-and-drop": "^1.7.2",
@@ -35,11 +40,20 @@
     "webcrypt-session": "^0.5.1"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.5.0",
+    "@testing-library/react": "^16.0.0",
+    "@testing-library/user-event": "^14.5.0",
     "@types/node": "20.2.5",
     "@types/react": "18.2.37",
     "@types/react-dom": "^18.2.18",
+    "@vitejs/plugin-react": "^5.1.2",
+    "@vitest/coverage-v8": "^2.0.0",
+    "@vitest/ui": "^2.0.0",
     "esbuild": "^0.24.0",
+    "jsdom": "^25.0.0",
+    "msw": "^2.4.0",
     "typescript": "^5.3.3",
+    "vitest": "^2.0.0",
     "wrangler": "^4.42.2"
   },
   "optionalDependencies": {
