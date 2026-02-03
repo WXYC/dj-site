@@ -4,7 +4,7 @@ import { serverAuthClient } from "./server-client";
 import { BetterAuthSessionResponse, BetterAuthSession } from "./utilities";
 import { Authorization } from "../admin/types";
 import { mapRoleToAuthorization, VerifiedData } from "./types";
-import { getUserRoleInOrganization, getAppOrganizationId } from "./organization-utils";
+import { getUserRoleInOrganization, getAppOrganizationId } from "./organization-utils.server";
 
 /**
  * Get the current session from better-auth in a server component
