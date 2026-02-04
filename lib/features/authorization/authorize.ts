@@ -88,25 +88,18 @@ export async function authorize<R extends Authorization>(
   const cookieHeader = request.headers.get("cookie") ?? "";
 
   // Get session from better-auth
-  let sessionResponse: BetterAuthSessionResponse;
-  try {
-    sessionResponse = await serverAuthClient.getSession({
+  const sessionResponse = await serverAuthClient
+    .getSession({
       fetchOptions: {
         headers: {
           cookie: cookieHeader,
         },
       },
+    })
+    .catch((error) => {
+      console.error("Failed to get session:", error);
+      return { data: null, error } as BetterAuthSessionResponse;
     });
-  } catch (error) {
-    console.error("Failed to get session:", error);
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { error: "Authentication service unavailable" },
-        { status: 503 }
-      ),
-    };
-  }
 
   const session = sessionResponse.data;
 
@@ -137,16 +130,18 @@ export async function authorize<R extends Authorization>(
   }
 
   // Create the branded session
+  // Cast user to access custom fields (realName, djName) that aren't in base better-auth type
+  const user = session.user as typeof session.user & { realName?: string; djName?: string };
   const authorizedSession: RoleAuthorizedSession<R> = {
     user: {
-      id: session.user.id,
-      username: session.user.username ?? session.user.name,
-      email: session.user.email,
+      id: user.id,
+      username: user.username ?? user.name,
+      email: user.email,
       authority: userAuthority,
-      name: session.user.name,
-      realName: session.user.realName,
-      djName: session.user.djName,
-      emailVerified: session.user.emailVerified,
+      name: user.name,
+      realName: user.realName,
+      djName: user.djName,
+      emailVerified: user.emailVerified,
     },
     session: {
       id: session.session.id,
