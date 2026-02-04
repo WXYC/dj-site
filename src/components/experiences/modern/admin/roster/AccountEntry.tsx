@@ -82,11 +82,13 @@ export const AccountEntry = ({
 
   /**
    * Update user's role directly using Better Auth admin API
+   * Note: We cast to 'admin' | 'user' because better-auth's admin API has limited roles,
+   * but our backend extends the role field to support WXYC-specific roles.
    */
   const updateUserRole = async (userId: string, newRole: WXYCRole) => {
     const result = await authClient.admin.setRole({
       userId,
-      role: newRole,
+      role: newRole as "admin" | "user",
     });
 
     if (result.error) {

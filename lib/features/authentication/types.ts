@@ -118,7 +118,7 @@ export interface BetterAuthJwtPayload extends JwtPayload {
 }
 
 // Better-auth role type
-export type WXYCRole = "member" | "dj" | "musicDirector" | "stationManager";
+export type WXYCRole = "member" | "dj" | "musicDirector" | "stationManager" | "admin";
 
 export type DJRegistryParams = {
   username: string;
@@ -211,9 +211,8 @@ export function mapRoleToAuthorization(role: WXYCRole | string | undefined): Aut
     // Better-auth default roles that might be used
     case "owner":
     case "admin":
-      // Owners/admins typically have full access, map to station manager
-      // Adjust this mapping based on your business logic
-      return Authorization.SM;
+      // Owners/admins have full access
+      return Authorization.ADMIN;
     default:
       // Unknown roles default to NO access
       return Authorization.NO;

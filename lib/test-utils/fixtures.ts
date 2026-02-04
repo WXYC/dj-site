@@ -331,10 +331,10 @@ export function createTestBinQueryResponse(
 
 // On-air DJ fixtures
 export function createTestOnAirDJResponse(
-  overrides: { id?: number; dj_name?: string } = {}
+  overrides: { id?: string; dj_name?: string } = {}
 ) {
   return {
-    id: overrides.id ?? 1,
+    id: overrides.id ?? "1",
     dj_name: overrides.dj_name ?? "Test DJ",
   };
 }
