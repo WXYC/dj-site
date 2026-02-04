@@ -11,6 +11,7 @@ export enum Authorization {
   DJ,
   MD,
   SM,
+  ADMIN,
 }
 
 export type Account = {
@@ -50,6 +51,7 @@ export interface AdminProtectedRoutesType {
 }
 
 export const AdminProtectedRoutes: AdminProtectedRoutesType = {
+  [Authorization.ADMIN]: ["roster", "catalog"],
   [Authorization.SM]: ["roster", "catalog"],
   [Authorization.MD]: ["catalog"],
   [Authorization.NO]: [],
