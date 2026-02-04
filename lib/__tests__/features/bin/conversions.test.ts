@@ -8,9 +8,9 @@ import {
   createTestBinQueryResponse,
   createTestAlbum,
   TEST_ENTITY_IDS,
-  TEST_SEARCH_STRINGS,
 } from "@/lib/test-utils";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
+import { Rotation } from "@/lib/features/rotation/types";
 
 describe("bin conversions", () => {
   describe("convertAlbumFromBin", () => {
@@ -153,27 +153,27 @@ describe("bin conversions", () => {
 
     it("should convert album_id", () => {
       const binEntry = createBinEntry({ id: 123 });
-      const result = convertBinToFlowsheet(binEntry);
+      const result = convertBinToFlowsheet(binEntry) as { album_id: number };
       expect(result.album_id).toBe(123);
     });
 
     it("should use album title as track_title", () => {
       const binEntry = createBinEntry({ title: "Cool Album" });
-      const result = convertBinToFlowsheet(binEntry);
+      const result = convertBinToFlowsheet(binEntry) as { track_title: string };
       expect(result.track_title).toBe("Cool Album");
     });
 
     it("should include artist_name", () => {
       const binEntry = createBinEntry({
-        artist: { name: "Awesome Artist", lettercode: "AA", numbercode: 1, genre: "Rock" },
+        artist: { name: "Awesome Artist", lettercode: "AA", numbercode: 1, genre: "Rock", id: undefined },
       });
-      const result = convertBinToFlowsheet(binEntry);
+      const result = convertBinToFlowsheet(binEntry) as { artist_name: string };
       expect(result.artist_name).toBe("Awesome Artist");
     });
 
     it("should include record_label", () => {
       const binEntry = createBinEntry({ label: "Big Label" });
-      const result = convertBinToFlowsheet(binEntry);
+      const result = convertBinToFlowsheet(binEntry) as { record_label: string };
       expect(result.record_label).toBe("Big Label");
     });
 
@@ -181,13 +181,13 @@ describe("bin conversions", () => {
       const binEntry = createBinEntry({
         rotation_id: TEST_ENTITY_IDS.ROTATION.HEAVY,
       });
-      const result = convertBinToFlowsheet(binEntry);
+      const result = convertBinToFlowsheet(binEntry) as { rotation_id: number };
       expect(result.rotation_id).toBe(TEST_ENTITY_IDS.ROTATION.HEAVY);
     });
 
     it("should set request_flag to false", () => {
       const binEntry = createBinEntry();
-      const result = convertBinToFlowsheet(binEntry);
+      const result = convertBinToFlowsheet(binEntry) as { request_flag: boolean };
       expect(result.request_flag).toBe(false);
     });
   });
@@ -216,7 +216,7 @@ describe("bin conversions", () => {
 
     it("should include artist name", () => {
       const binEntry = createBinEntry({
-        artist: { name: "Queue Artist", lettercode: "QA", numbercode: 1, genre: "Electronic" },
+        artist: { name: "Queue Artist", lettercode: "QA", numbercode: 1, genre: "Electronic", id: undefined },
       });
       const result = convertBinToQueue(binEntry);
       expect(result.artist).toBe("Queue Artist");
@@ -237,9 +237,9 @@ describe("bin conversions", () => {
     });
 
     it("should include play_freq", () => {
-      const binEntry = createBinEntry({ play_freq: "H" });
+      const binEntry = createBinEntry({ play_freq: Rotation.H });
       const result = convertBinToQueue(binEntry);
-      expect(result.play_freq).toBe("H");
+      expect(result.play_freq).toBe(Rotation.H);
     });
 
     it("should set request to false", () => {
