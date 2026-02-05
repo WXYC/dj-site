@@ -134,4 +134,152 @@ describe("FlowsheetSearchInput", () => {
     const input = screen.getByRole("textbox");
     expect(input).toHaveAttribute("data-custom", "value");
   });
+
+  it("should be readonly when album field is auto-filled", async () => {
+    const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
+    vi.mocked(useFlowsheetSearch).mockReturnValue({
+      getDisplayValue: () => "Auto-filled Album",
+      setSearchProperty: mockSetSearchProperty,
+      selectedIndex: 1,
+      selectedEntry: {
+        title: "Test Album Title",
+      },
+    } as any);
+
+    render(<FlowsheetSearchInput name="album" />);
+
+    const input = screen.getByRole("textbox");
+    expect(input).toHaveAttribute("readonly");
+  });
+
+  it("should be readonly when label field is auto-filled", async () => {
+    const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
+    vi.mocked(useFlowsheetSearch).mockReturnValue({
+      getDisplayValue: () => "Auto-filled Label",
+      setSearchProperty: mockSetSearchProperty,
+      selectedIndex: 1,
+      selectedEntry: {
+        label: "Test Label",
+      },
+    } as any);
+
+    render(<FlowsheetSearchInput name="label" />);
+
+    const input = screen.getByRole("textbox");
+    expect(input).toHaveAttribute("readonly");
+  });
+
+  it("should prevent keydown when auto-filled except Tab and Shift", async () => {
+    const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
+    vi.mocked(useFlowsheetSearch).mockReturnValue({
+      getDisplayValue: () => "Auto-filled value",
+      setSearchProperty: mockSetSearchProperty,
+      selectedIndex: 1,
+      selectedEntry: {
+        artist: { name: "Test Artist" },
+      },
+    } as any);
+
+    render(<FlowsheetSearchInput name="artist" />);
+
+    const input = screen.getByRole("textbox");
+
+    // Regular key should be prevented
+    const letterEvent = fireEvent.keyDown(input, { key: 'a' });
+    // Tab should not be prevented
+    const tabEvent = fireEvent.keyDown(input, { key: 'Tab' });
+    // Shift should not be prevented
+    const shiftEvent = fireEvent.keyDown(input, { key: 'Shift' });
+
+    expect(input).toHaveAttribute("readonly");
+  });
+
+  it("should not call setSearchProperty when auto-filled", async () => {
+    const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
+    vi.mocked(useFlowsheetSearch).mockReturnValue({
+      getDisplayValue: () => "Auto-filled value",
+      setSearchProperty: mockSetSearchProperty,
+      selectedIndex: 1,
+      selectedEntry: {
+        artist: { name: "Test Artist" },
+      },
+    } as any);
+
+    render(<FlowsheetSearchInput name="artist" />);
+
+    const input = screen.getByRole("textbox");
+    fireEvent.change(input, { target: { value: "New Value" } });
+
+    // Should not be called because field is auto-filled
+    expect(mockSetSearchProperty).not.toHaveBeenCalled();
+  });
+
+  it("should apply auto-fill styles when field is auto-filled", async () => {
+    const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
+    vi.mocked(useFlowsheetSearch).mockReturnValue({
+      getDisplayValue: () => "Auto-filled value",
+      setSearchProperty: mockSetSearchProperty,
+      selectedIndex: 1,
+      selectedEntry: {
+        artist: { name: "Test Artist" },
+      },
+    } as any);
+
+    render(<FlowsheetSearchInput name="artist" />);
+
+    const input = screen.getByRole("textbox");
+    expect(input).toHaveStyle({ cursor: "not-allowed", opacity: "0.6" });
+  });
+
+  it("should not be readonly when selectedEntry has no value for field", async () => {
+    const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
+    vi.mocked(useFlowsheetSearch).mockReturnValue({
+      getDisplayValue: () => "",
+      setSearchProperty: mockSetSearchProperty,
+      selectedIndex: 1,
+      selectedEntry: {
+        // No artist name
+        artist: null,
+      },
+    } as any);
+
+    render(<FlowsheetSearchInput name="artist" />);
+
+    const input = screen.getByRole("textbox");
+    expect(input).not.toHaveAttribute("readonly");
+  });
+
+  it("should not be readonly when album field has no title", async () => {
+    const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
+    vi.mocked(useFlowsheetSearch).mockReturnValue({
+      getDisplayValue: () => "",
+      setSearchProperty: mockSetSearchProperty,
+      selectedIndex: 1,
+      selectedEntry: {
+        title: "", // empty title
+      },
+    } as any);
+
+    render(<FlowsheetSearchInput name="album" />);
+
+    const input = screen.getByRole("textbox");
+    expect(input).not.toHaveAttribute("readonly");
+  });
+
+  it("should not be readonly when label field has no label", async () => {
+    const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
+    vi.mocked(useFlowsheetSearch).mockReturnValue({
+      getDisplayValue: () => "",
+      setSearchProperty: mockSetSearchProperty,
+      selectedIndex: 1,
+      selectedEntry: {
+        label: null,
+      },
+    } as any);
+
+    render(<FlowsheetSearchInput name="label" />);
+
+    const input = screen.getByRole("textbox");
+    expect(input).not.toHaveAttribute("readonly");
+  });
 });

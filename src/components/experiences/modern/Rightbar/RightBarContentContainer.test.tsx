@@ -98,4 +98,94 @@ describe("RightBarContentContainer", () => {
     expect(screen.getByTestId("child-2")).toBeInTheDocument();
     expect(screen.getByTestId("child-3")).toBeInTheDocument();
   });
+
+  describe("different label values", () => {
+    it("should render with Mail Bin label", () => {
+      render(
+        <RightBarContentContainer
+          label="Mail Bin"
+          startDecorator={<span>Icon</span>}
+        >
+          <div>Content</div>
+        </RightBarContentContainer>
+      );
+
+      expect(screen.getByText("Mail Bin")).toBeInTheDocument();
+    });
+
+    it("should render with Now Playing label", () => {
+      render(
+        <RightBarContentContainer
+          label="Now Playing"
+          startDecorator={<span>Icon</span>}
+        >
+          <div>Content</div>
+        </RightBarContentContainer>
+      );
+
+      expect(screen.getByText("Now Playing")).toBeInTheDocument();
+    });
+  });
+
+  describe("decorator configurations", () => {
+    it("should render with SVG icon as start decorator", () => {
+      render(
+        <RightBarContentContainer
+          label="Test"
+          startDecorator={<svg data-testid="svg-icon" />}
+        >
+          <div>Content</div>
+        </RightBarContentContainer>
+      );
+
+      expect(screen.getByTestId("svg-icon")).toBeInTheDocument();
+    });
+
+    it("should render with button as end decorator", () => {
+      render(
+        <RightBarContentContainer
+          label="Test"
+          startDecorator={<span>Start</span>}
+          endDecorator={<button data-testid="action-button">Action</button>}
+        >
+          <div>Content</div>
+        </RightBarContentContainer>
+      );
+
+      expect(screen.getByTestId("action-button")).toBeInTheDocument();
+    });
+
+    it("should render start decorator in Stack with label", () => {
+      render(
+        <RightBarContentContainer
+          label="Test Label"
+          startDecorator={<span data-testid="decorator">Icon</span>}
+        >
+          <div>Content</div>
+        </RightBarContentContainer>
+      );
+
+      const decorator = screen.getByTestId("decorator");
+      const label = screen.getByText("Test Label");
+
+      // Both should be in the same parent Stack
+      expect(decorator.parentElement).toBe(label.parentElement);
+    });
+  });
+
+  describe("list structure", () => {
+    it("should render List as container for children", () => {
+      render(
+        <RightBarContentContainer
+          label="Test"
+          startDecorator={<span>Start</span>}
+        >
+          <li data-testid="list-item">Item</li>
+        </RightBarContentContainer>
+      );
+
+      expect(screen.getByRole("list")).toBeInTheDocument();
+      expect(screen.getByTestId("list-item")).toBeInTheDocument();
+    });
+  });
 });

@@ -97,4 +97,110 @@ describe("LeftbarContainer", () => {
     const container = document.querySelector(".MuiSheet-root");
     expect(container).toBeInTheDocument();
   });
+
+  describe("admin path detection", () => {
+    it("should use success color for admin schedule path", async () => {
+      const { usePathname } = await import("next/navigation");
+      vi.mocked(usePathname).mockReturnValue("/dashboard/admin/schedule");
+
+      render(
+        <LeftbarContainer>
+          <div>Content</div>
+        </LeftbarContainer>
+      );
+
+      expect(screen.getByTestId("logo")).toHaveAttribute(
+        "data-color",
+        "success"
+      );
+    });
+
+    it("should use primary color for catalog path", async () => {
+      const { usePathname } = await import("next/navigation");
+      vi.mocked(usePathname).mockReturnValue("/dashboard/catalog");
+
+      render(
+        <LeftbarContainer>
+          <div>Content</div>
+        </LeftbarContainer>
+      );
+
+      expect(screen.getByTestId("logo")).toHaveAttribute(
+        "data-color",
+        "primary"
+      );
+    });
+
+    it("should use primary color for flowsheet path", async () => {
+      const { usePathname } = await import("next/navigation");
+      vi.mocked(usePathname).mockReturnValue("/dashboard/flowsheet");
+
+      render(
+        <LeftbarContainer>
+          <div>Content</div>
+        </LeftbarContainer>
+      );
+
+      expect(screen.getByTestId("logo")).toHaveAttribute(
+        "data-color",
+        "primary"
+      );
+    });
+
+    it("should use primary color for settings path", async () => {
+      const { usePathname } = await import("next/navigation");
+      vi.mocked(usePathname).mockReturnValue("/dashboard/settings");
+
+      render(
+        <LeftbarContainer>
+          <div>Content</div>
+        </LeftbarContainer>
+      );
+
+      expect(screen.getByTestId("logo")).toHaveAttribute(
+        "data-color",
+        "primary"
+      );
+    });
+
+    it("should use success color when admin appears anywhere in path", async () => {
+      const { usePathname } = await import("next/navigation");
+      vi.mocked(usePathname).mockReturnValue("/some/admin/nested/path");
+
+      render(
+        <LeftbarContainer>
+          <div>Content</div>
+        </LeftbarContainer>
+      );
+
+      expect(screen.getByTestId("logo")).toHaveAttribute(
+        "data-color",
+        "success"
+      );
+    });
+  });
+
+  describe("sheet styling", () => {
+    it("should render Sheet with soft variant", () => {
+      render(
+        <LeftbarContainer>
+          <div>Content</div>
+        </LeftbarContainer>
+      );
+
+      const container = document.querySelector(".MuiSheet-variantSoft");
+      expect(container).toBeInTheDocument();
+    });
+
+    it("should render Sheet component with MuiSheet-root class", () => {
+      render(
+        <LeftbarContainer>
+          <div>Content</div>
+        </LeftbarContainer>
+      );
+
+      const container = document.querySelector(".MuiSheet-root");
+      expect(container).toBeInTheDocument();
+    });
+  });
 });
