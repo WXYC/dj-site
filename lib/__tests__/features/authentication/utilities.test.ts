@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Authorization } from "@/lib/features/admin/types";
+import type { BetterAuthJwtPayload } from "@/lib/features/authentication/types";
 
 // Mock jwt-decode before importing the module under test
 vi.mock("jwt-decode", () => ({
@@ -8,11 +9,17 @@ vi.mock("jwt-decode", () => ({
 
 import {
   defaultAuthenticationData,
-  toUserFromBetterAuthJWT,
   betterAuthSessionToAuthenticationData,
-  type BetterAuthSession,
+  toUserFromBetterAuthJWT,
+  BetterAuthSession,
 } from "@/lib/features/authentication/utilities";
 import { jwtDecode } from "jwt-decode";
+import {
+  createTestBetterAuthSession,
+  createTestIncompleteSession,
+  createTestSessionWithRole,
+  createTestBetterAuthJWTPayload,
+} from "@/lib/test-utils";
 
 const mockedJwtDecode = vi.mocked(jwtDecode);
 
@@ -23,239 +30,240 @@ describe("authentication utilities", () => {
 
   describe("defaultAuthenticationData", () => {
     it("should have 'Not Authenticated' message", () => {
-      expect("message" in defaultAuthenticationData).toBe(true);
-      expect(
-        (defaultAuthenticationData as { message: string }).message
-      ).toBe("Not Authenticated");
+      expect((defaultAuthenticationData as { message: string }).message).toBe("Not Authenticated");
+    });
+  });
+
+  describe("betterAuthSessionToAuthenticationData", () => {
+    it("should return 'Not Authenticated' for null session", () => {
+      const result = betterAuthSessionToAuthenticationData(null);
+      expect(result).toEqual({ message: "Not Authenticated" });
+    });
+
+    it("should return 'Not Authenticated' for undefined session", () => {
+      const result = betterAuthSessionToAuthenticationData(undefined);
+      expect(result).toEqual({ message: "Not Authenticated" });
+    });
+
+    it("should return 'Not Authenticated' for session without user", () => {
+      const result = betterAuthSessionToAuthenticationData({
+        session: { id: "test", userId: "test", expiresAt: new Date() },
+      } as any);
+      expect(result).toEqual({ message: "Not Authenticated" });
+    });
+
+    it("should extract username from session.user.username", () => {
+      const session = createTestBetterAuthSession({
+        user: {
+          id: "test-id",
+          email: "test@wxyc.org",
+          name: "Test Name",
+          username: "testusername",
+          emailVerified: true,
+          realName: "Test User",
+          djName: "DJ Test",
+        },
+      });
+      const result = betterAuthSessionToAuthenticationData(session);
+      expect((result as any).user?.username).toBe("testusername");
+    });
+
+    it("should fall back to session.user.name when username is not set", () => {
+      const session = createTestBetterAuthSession({
+        user: {
+          id: "test-id",
+          email: "test@wxyc.org",
+          name: "fallbackname",
+          username: undefined,
+          emailVerified: true,
+          realName: "Test User",
+          djName: "DJ Test",
+        },
+      });
+      const result = betterAuthSessionToAuthenticationData(session);
+      expect((result as any).user?.username).toBe("fallbackname");
+    });
+
+    it("should identify incomplete users missing realName", () => {
+      const session = createTestIncompleteSession(["realName"]);
+      const result = betterAuthSessionToAuthenticationData(session);
+      expect((result as any).requiredAttributes).toContain("realName");
+    });
+
+    it("should identify incomplete users missing djName", () => {
+      const session = createTestIncompleteSession(["djName"]);
+      const result = betterAuthSessionToAuthenticationData(session);
+      expect((result as any).requiredAttributes).toContain("djName");
+    });
+
+    it("should identify incomplete users missing both realName and djName", () => {
+      const session = createTestIncompleteSession(["realName", "djName"]);
+      const result = betterAuthSessionToAuthenticationData(session);
+      expect((result as any).requiredAttributes).toContain("realName");
+      expect((result as any).requiredAttributes).toContain("djName");
+    });
+
+    it("should treat empty string realName as incomplete", () => {
+      const session = createTestBetterAuthSession({
+        user: {
+          id: "test-id",
+          email: "test@wxyc.org",
+          name: "testuser",
+          emailVerified: true,
+          realName: "   ",
+          djName: "DJ Test",
+        },
+      });
+      const result = betterAuthSessionToAuthenticationData(session);
+      expect((result as any).requiredAttributes).toContain("realName");
+    });
+
+    it("should map stationManager role to SM Authorization", () => {
+      const session = createTestSessionWithRole("stationManager");
+      const result = betterAuthSessionToAuthenticationData(session);
+      expect((result as any).user?.authority).toBe(Authorization.SM);
+    });
+
+    it("should map musicDirector role to MD Authorization", () => {
+      const session = createTestSessionWithRole("musicDirector");
+      const result = betterAuthSessionToAuthenticationData(session);
+      expect((result as any).user?.authority).toBe(Authorization.MD);
+    });
+
+    it("should map dj role to DJ Authorization", () => {
+      const session = createTestSessionWithRole("dj");
+      const result = betterAuthSessionToAuthenticationData(session);
+      expect((result as any).user?.authority).toBe(Authorization.DJ);
+    });
+
+    it("should map member role to NO Authorization", () => {
+      const session = createTestSessionWithRole("member");
+      const result = betterAuthSessionToAuthenticationData(session);
+      expect((result as any).user?.authority).toBe(Authorization.NO);
+    });
+
+    it("should include session token in result", () => {
+      const session = createTestBetterAuthSession({
+        session: {
+          id: "session-id",
+          userId: "user-id",
+          expiresAt: new Date(),
+          token: "my-session-token",
+        },
+      });
+      const result = betterAuthSessionToAuthenticationData(session);
+      expect((result as any).token).toBe("my-session-token");
+      expect((result as any).accessToken).toBe("my-session-token");
+    });
+
+    it("should extract all user fields correctly", () => {
+      const createdAt = new Date("2024-01-01");
+      const updatedAt = new Date("2024-06-01");
+      const session = createTestBetterAuthSession({
+        user: {
+          id: "user-123",
+          email: "test@wxyc.org",
+          name: "testuser",
+          username: "testuser",
+          emailVerified: true,
+          realName: "Test Real Name",
+          djName: "DJ Test Name",
+          appSkin: "dark",
+          createdAt,
+          updatedAt,
+          role: "dj",
+        },
+      });
+      const result = betterAuthSessionToAuthenticationData(session);
+      const user = (result as any).user;
+
+      expect(user.id).toBe("user-123");
+      expect(user.email).toBe("test@wxyc.org");
+      expect(user.username).toBe("testuser");
+      expect(user.realName).toBe("Test Real Name");
+      expect(user.djName).toBe("DJ Test Name");
+      expect(user.emailVerified).toBe(true);
+      expect(user.appSkin).toBe("dark");
+      expect(user.createdAt).toEqual(createdAt);
+      expect(user.updatedAt).toEqual(updatedAt);
     });
   });
 
   describe("toUserFromBetterAuthJWT", () => {
-    it("should derive username from email", () => {
-      mockedJwtDecode.mockReturnValue({
-        sub: "user-123",
-        email: "testuser@wxyc.org",
-      });
+    it("should extract user ID from token", () => {
+      const payload = createTestBetterAuthJWTPayload({ id: "user-456" });
+      mockedJwtDecode.mockReturnValue(payload);
 
       const result = toUserFromBetterAuthJWT("fake-token");
 
-      expect(result.username).toBe("testuser");
+      expect(result.id).toBe("user-456");
       expect(mockedJwtDecode).toHaveBeenCalledWith("fake-token");
     });
 
-    it("should extract email from token", () => {
-      mockedJwtDecode.mockReturnValue({
-        sub: "user-123",
-        username: "testuser",
-        email: "dj@station.org",
+    it("should fall back to sub when id is not present", () => {
+      const payload = createTestBetterAuthJWTPayload({
+        id: undefined,
+        sub: "sub-user-789",
       });
+      mockedJwtDecode.mockReturnValue(payload);
+
+      const result = toUserFromBetterAuthJWT("fake-token");
+
+      expect(result.id).toBe("sub-user-789");
+    });
+
+    it("should extract email from token", () => {
+      const payload = createTestBetterAuthJWTPayload({ email: "dj@station.org" });
+      mockedJwtDecode.mockReturnValue(payload);
 
       const result = toUserFromBetterAuthJWT("fake-token");
 
       expect(result.email).toBe("dj@station.org");
     });
 
-    it("should extract user id from token", () => {
-      mockedJwtDecode.mockReturnValue({
-        sub: "user-123",
-        id: "user-456",
-        email: "test@wxyc.org",
-      });
+    it("should derive username from email", () => {
+      const payload = createTestBetterAuthJWTPayload({ email: "cooluser@wxyc.org" });
+      mockedJwtDecode.mockReturnValue(payload);
 
       const result = toUserFromBetterAuthJWT("fake-token");
 
-      expect(result.id).toBe("user-456");
+      expect(result.username).toBe("cooluser");
     });
 
-    it("should fall back to sub for id if id not present", () => {
-      mockedJwtDecode.mockReturnValue({
-        sub: "user-123",
-        email: "test@wxyc.org",
-      });
-
-      const result = toUserFromBetterAuthJWT("fake-token");
-
-      expect(result.id).toBe("user-123");
-    });
-
-    it("should assign SM authority for admin role (admin maps to SM on main)", () => {
-      mockedJwtDecode.mockReturnValue({
-        sub: "user-123",
-        username: "testuser",
-        email: "test@wxyc.org",
-        role: "admin",
-      });
+    it("should map stationManager role to SM authority", () => {
+      const payload = createTestBetterAuthJWTPayload({ role: "stationManager" });
+      mockedJwtDecode.mockReturnValue(payload);
 
       const result = toUserFromBetterAuthJWT("fake-token");
 
       expect(result.authority).toBe(Authorization.SM);
     });
 
-    it("should assign SM authority for stationManager role", () => {
-      mockedJwtDecode.mockReturnValue({
-        sub: "user-123",
-        username: "testuser",
-        email: "test@wxyc.org",
-        role: "stationManager",
-      });
-
-      const result = toUserFromBetterAuthJWT("fake-token");
-
-      expect(result.authority).toBe(Authorization.SM);
-    });
-
-    it("should assign MD authority for musicDirector role", () => {
-      mockedJwtDecode.mockReturnValue({
-        sub: "user-123",
-        username: "testuser",
-        email: "test@wxyc.org",
-        role: "musicDirector",
-      });
+    it("should map musicDirector role to MD authority", () => {
+      const payload = createTestBetterAuthJWTPayload({ role: "musicDirector" });
+      mockedJwtDecode.mockReturnValue(payload);
 
       const result = toUserFromBetterAuthJWT("fake-token");
 
       expect(result.authority).toBe(Authorization.MD);
     });
 
-    it("should assign DJ authority for dj role", () => {
-      mockedJwtDecode.mockReturnValue({
-        sub: "user-123",
-        username: "testuser",
-        email: "test@wxyc.org",
-        role: "dj",
-      });
+    it("should map dj role to DJ authority", () => {
+      const payload = createTestBetterAuthJWTPayload({ role: "dj" });
+      mockedJwtDecode.mockReturnValue(payload);
 
       const result = toUserFromBetterAuthJWT("fake-token");
 
       expect(result.authority).toBe(Authorization.DJ);
     });
 
-    it("should assign NO authority for member role", () => {
-      mockedJwtDecode.mockReturnValue({
-        sub: "user-123",
-        username: "testuser",
-        email: "test@wxyc.org",
-        role: "member",
-      });
+    it("should map member role to NO authority", () => {
+      const payload = createTestBetterAuthJWTPayload({ role: "member" });
+      mockedJwtDecode.mockReturnValue(payload);
 
       const result = toUserFromBetterAuthJWT("fake-token");
 
       expect(result.authority).toBe(Authorization.NO);
-    });
-  });
-
-  describe("betterAuthSessionToAuthenticationData", () => {
-    const createMockSession = (userOverrides: Record<string, any> = {}): BetterAuthSession => ({
-      user: {
-        id: "user-123",
-        email: "test@wxyc.org",
-        name: "Test User",
-        username: "testuser",
-        emailVerified: true,
-        role: "dj",
-        realName: "Test User",
-        djName: "DJ Test",
-        ...userOverrides,
-      },
-      session: {
-        id: "sess-123",
-        userId: "user-123",
-        expiresAt: new Date(),
-      },
-    });
-
-    it("should return 'Not Authenticated' for null session", () => {
-      const result = betterAuthSessionToAuthenticationData(null);
-
-      expect(result).toEqual({ message: "Not Authenticated" });
-    });
-
-    it("should return 'Not Authenticated' for undefined session", () => {
-      const result = betterAuthSessionToAuthenticationData(undefined);
-
-      expect(result).toEqual({ message: "Not Authenticated" });
-    });
-
-    it("should return 'Not Authenticated' for session without user", () => {
-      const result = betterAuthSessionToAuthenticationData({ user: null } as any);
-
-      expect(result).toEqual({ message: "Not Authenticated" });
-    });
-
-    it("should return authenticated user data for valid session with complete profile", () => {
-      const session = createMockSession();
-
-      const result = betterAuthSessionToAuthenticationData(session);
-
-      expect(result).toHaveProperty("user");
-      expect((result as any).user.username).toBe("testuser");
-      expect((result as any).user.email).toBe("test@wxyc.org");
-    });
-
-    it("should return IncompleteUser when realName is missing", () => {
-      const session = createMockSession({ realName: "" });
-
-      const result = betterAuthSessionToAuthenticationData(session);
-
-      expect(result).toHaveProperty("requiredAttributes");
-      expect((result as any).requiredAttributes).toContain("realName");
-    });
-
-    it("should return IncompleteUser when djName is missing", () => {
-      const session = createMockSession({ djName: "" });
-
-      const result = betterAuthSessionToAuthenticationData(session);
-
-      expect(result).toHaveProperty("requiredAttributes");
-      expect((result as any).requiredAttributes).toContain("djName");
-    });
-
-    it("should map stationManager role to SM authority", () => {
-      const session = createMockSession({ role: "stationManager" });
-
-      const result = betterAuthSessionToAuthenticationData(session);
-
-      expect((result as any).user.authority).toBe(Authorization.SM);
-    });
-
-    it("should map musicDirector role to MD authority", () => {
-      const session = createMockSession({ role: "musicDirector" });
-
-      const result = betterAuthSessionToAuthenticationData(session);
-
-      expect((result as any).user.authority).toBe(Authorization.MD);
-    });
-
-    it("should map dj role to DJ authority", () => {
-      const session = createMockSession({ role: "dj" });
-
-      const result = betterAuthSessionToAuthenticationData(session);
-
-      expect((result as any).user.authority).toBe(Authorization.DJ);
-    });
-
-    it("should map admin role to SM authority (admin maps to SM on main)", () => {
-      const session = createMockSession({ role: "admin" });
-
-      const result = betterAuthSessionToAuthenticationData(session);
-
-      expect((result as any).user.authority).toBe(Authorization.SM);
-    });
-
-    it("should extract realName from session", () => {
-      const session = createMockSession({ realName: "John Smith" });
-
-      const result = betterAuthSessionToAuthenticationData(session);
-
-      expect((result as any).user.realName).toBe("John Smith");
-    });
-
-    it("should extract djName from session", () => {
-      const session = createMockSession({ djName: "DJ Cool" });
-
-      const result = betterAuthSessionToAuthenticationData(session);
-
-      expect((result as any).user.djName).toBe("DJ Cool");
     });
   });
 });
