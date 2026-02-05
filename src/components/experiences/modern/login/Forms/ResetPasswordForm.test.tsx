@@ -79,6 +79,30 @@ describe("ResetPasswordForm", () => {
     await user.type(passwordInput, "weak");
     await user.type(confirmInput, "weak");
 
+
+    expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();
+  });
+
+  it("should keep submit disabled when passwords do not match", async () => {
+    const { user } = renderWithProviders(<ResetPasswordForm {...defaultProps} />);
+
+    const passwordInput = screen.getByPlaceholderText("Enter your new password");
+    const confirmInput = screen.getByPlaceholderText("Confirm New Password");
+
+    await user.type(passwordInput, "Password1");
+    await user.type(confirmInput, "Password2");
+
+    expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();
+  });
+
+  it("should keep submit disabled without token", () => {
+    const propsWithoutToken: PasswordResetUser = {
+      token: undefined,
+      confirmationMessage: "Password reset requested",
+    };
+    renderWithProviders(<ResetPasswordForm {...propsWithoutToken} />);
+
+    // Even with valid fields, submit should be disabled without token
     expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();
   });
 
