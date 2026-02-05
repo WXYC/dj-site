@@ -13,17 +13,6 @@ import {
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 import { Rotation } from "@/lib/features/rotation/types";
 
-
-/** The shape `convertBinToFlowsheet` actually returns (the album_id variant). */
-type BinFlowsheetSubmission = {
-  album_id: number;
-  track_title: string;
-  artist_name: string;
-  record_label?: string;
-  rotation_id?: number;
-  request_flag: boolean;
-};
-
 describe("bin conversions", () => {
   describe("convertToAlbumEntry", () => {
     it("should convert album_id to id", () => {
@@ -163,15 +152,25 @@ describe("bin conversions", () => {
     const createBinEntry = (overrides: Partial<AlbumEntry> = {}): AlbumEntry =>
       createTestAlbum(overrides);
 
+    // Type for the actual return shape from convertBinToFlowsheet
+    type BinFlowsheetResult = {
+      album_id: number;
+      track_title: string;
+      artist_name: string;
+      record_label: string;
+      rotation_id?: number;
+      request_flag: boolean;
+    };
+
     it("should convert album_id", () => {
       const binEntry = createBinEntry({ id: 123 });
-      const result = convertBinToFlowsheet(binEntry) as BinFlowsheetSubmission;
+      const result = convertBinToFlowsheet(binEntry) as BinFlowsheetResult;
       expect(result.album_id).toBe(123);
     });
 
     it("should use album title as track_title", () => {
       const binEntry = createBinEntry({ title: "Cool Album" });
-      const result = convertBinToFlowsheet(binEntry) as BinFlowsheetSubmission;
+      const result = convertBinToFlowsheet(binEntry) as BinFlowsheetResult;
       expect(result.track_title).toBe("Cool Album");
     });
 
@@ -179,13 +178,13 @@ describe("bin conversions", () => {
       const binEntry = createBinEntry({
         artist: { id: undefined, name: "Awesome Artist", lettercode: "AA", numbercode: 1, genre: "Rock" },
       });
-      const result = convertBinToFlowsheet(binEntry) as BinFlowsheetSubmission;
+      const result = convertBinToFlowsheet(binEntry) as BinFlowsheetResult;
       expect(result.artist_name).toBe("Awesome Artist");
     });
 
     it("should include record_label", () => {
       const binEntry = createBinEntry({ label: "Big Label" });
-      const result = convertBinToFlowsheet(binEntry) as BinFlowsheetSubmission;
+      const result = convertBinToFlowsheet(binEntry) as BinFlowsheetResult;
       expect(result.record_label).toBe("Big Label");
     });
 
@@ -193,13 +192,13 @@ describe("bin conversions", () => {
       const binEntry = createBinEntry({
         rotation_id: TEST_ENTITY_IDS.ROTATION.HEAVY,
       });
-      const result = convertBinToFlowsheet(binEntry) as BinFlowsheetSubmission;
+      const result = convertBinToFlowsheet(binEntry) as BinFlowsheetResult;
       expect(result.rotation_id).toBe(TEST_ENTITY_IDS.ROTATION.HEAVY);
     });
 
     it("should set request_flag to false", () => {
       const binEntry = createBinEntry();
-      const result = convertBinToFlowsheet(binEntry) as BinFlowsheetSubmission;
+      const result = convertBinToFlowsheet(binEntry) as BinFlowsheetResult;
       expect(result.request_flag).toBe(false);
     });
   });
