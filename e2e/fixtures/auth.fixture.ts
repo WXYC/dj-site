@@ -1,150 +1,32 @@
 import { test as base, expect, Page } from "@playwright/test";
+import { MOCK_USERS, MockUserKey, MockUser } from "@/lib/test-utils/fixtures";
 
 /**
- * Temporary password used for admin-created users
- * Must match NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD in .env.local
+ * Temporary password used for admin-created users.
+ * Must match NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD in .env.local.
  */
 export const TEMP_PASSWORD = process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD || "temppass123";
 
-/**
- * Test users seeded in Backend-Service database
- * These users must exist in dev_env/seed_db.sql
- */
-export const TEST_USERS = {
-  member: {
-    username: "test_member",
-    password: "testpassword123",
-    email: "test_member@wxyc.org",
-    role: "member",
-    realName: "Test Member",
-    djName: "Test Member DJ",
-  },
-  dj1: {
-    username: "test_dj1",
-    password: "testpassword123",
-    email: "test_dj1@wxyc.org",
-    role: "dj",
-    realName: "Test DJ 1",
-    djName: "Test dj1",
-  },
-  dj2: {
-    username: "test_dj2",
-    password: "testpassword123",
-    email: "test_dj2@wxyc.org",
-    role: "dj",
-    realName: "Test DJ 2",
-    djName: "Test dj2",
-  },
-  musicDirector: {
-    username: "test_music_director",
-    password: "testpassword123",
-    email: "test_music_director@wxyc.org",
-    role: "musicDirector",
-    realName: "Test Music Director",
-    djName: "Test MD",
-  },
-  stationManager: {
-    username: "test_station_manager",
-    password: "testpassword123",
-    email: "test_station_manager@wxyc.org",
-    role: "stationManager",
-    realName: "Test Station Manager",
-    djName: "Test SM",
-  },
-  incomplete: {
-    username: "test_incomplete",
-    password: "temppass123", // Uses temp password for onboarding flow
-    email: "test_incomplete@wxyc.org",
-    role: "dj",
-    realName: "", // Missing required field
-    djName: "", // Missing required field
-  },
-  deletable: {
-    username: "test_deletable_user",
-    password: "testpassword123",
-    email: "test_deletable@wxyc.org",
-    role: "dj",
-    realName: "Test Deletable",
-    djName: "Deletable DJ",
-  },
-  promotable: {
-    username: "test_promotable_user",
-    password: "testpassword123",
-    email: "test_promotable@wxyc.org",
-    role: "member",
-    realName: "Test Promotable",
-    djName: "Promotable DJ",
-  },
-  demotableSm: {
-    username: "test_demotable_sm",
-    password: "testpassword123",
-    email: "test_demotable_sm@wxyc.org",
-    role: "stationManager",
-    realName: "Test Demotable SM",
-    djName: "Demotable SM",
-  },
-  // Dedicated users for password reset tests (to avoid conflicts with other tests)
-  reset1: {
-    username: "test_reset1",
-    password: "testpassword123",
-    email: "test_reset1@wxyc.org",
-    role: "dj",
-    realName: "Test Reset 1",
-    djName: "Reset DJ 1",
-  },
-  reset2: {
-    username: "test_reset2",
-    password: "testpassword123",
-    email: "test_reset2@wxyc.org",
-    role: "dj",
-    realName: "Test Reset 2",
-    djName: "Reset DJ 2",
-  },
-  // Dedicated user for admin-initiated password reset tests
-  adminReset1: {
-    username: "test_adminreset1",
-    password: "testpassword123",
-    email: "test_adminreset1@wxyc.org",
-    role: "dj",
-    realName: "Test AdminReset 1",
-    djName: "AdminReset DJ",
-  },
-} as const;
+/** Re-export shared mock users for e2e convenience. */
+export const TEST_USERS = MOCK_USERS;
+export type TestUserKey = MockUserKey;
+export type TestUser = MockUser;
 
-export type TestUserKey = keyof typeof TEST_USERS;
-export type TestUser = (typeof TEST_USERS)[TestUserKey];
-
-/**
- * Login helper - performs login via UI
- */
 export async function login(
   page: Page,
   user: TestUser | { username: string; password: string }
 ): Promise<void> {
   await page.goto("/login");
-
-  // Wait for the login form to be ready
   await page.waitForSelector('input[name="username"]');
-
-  // Fill in credentials
   await page.fill('input[name="username"]', user.username);
   await page.fill('input[name="password"]', user.password);
-
-  // Submit the form
   await page.click('button[type="submit"]');
-
-  // Wait for navigation away from login page
   await page.waitForURL((url) => !url.pathname.includes("/login"), {
     timeout: 10000,
   });
 }
 
-/**
- * Logout helper - performs logout via UI
- */
 export async function logout(page: Page): Promise<void> {
-  // Look for logout button/link in the UI
-  // This may need adjustment based on actual logout implementation
   const logoutButton = page.locator('button:has-text("Logout"), a:has-text("Logout"), [aria-label="Logout"]');
 
   if (await logoutButton.isVisible()) {
@@ -153,19 +35,12 @@ export async function logout(page: Page): Promise<void> {
   }
 }
 
-/**
- * Check if user is currently authenticated
- */
 export async function isAuthenticated(page: Page): Promise<boolean> {
-  // Check if we can access a protected page
-  const response = await page.goto("/dashboard");
+  await page.goto("/dashboard");
   const currentUrl = page.url();
   return !currentUrl.includes("/login");
 }
 
-/**
- * Get session cookies from the page
- */
 export async function getSessionCookies(page: Page): Promise<{ name: string; value: string }[]> {
   const context = page.context();
   const cookies = await context.cookies();
@@ -177,17 +52,11 @@ export async function getSessionCookies(page: Page): Promise<{ name: string; val
   );
 }
 
-/**
- * Clear all auth cookies
- */
 export async function clearAuthCookies(page: Page): Promise<void> {
   const context = page.context();
   await context.clearCookies();
 }
 
-/**
- * Extended test fixture with auth helpers
- */
 export const test = base.extend<{
   loginAs: (userKey: TestUserKey) => Promise<void>;
   loginWithCredentials: (username: string, password: string) => Promise<void>;
@@ -220,26 +89,29 @@ export const test = base.extend<{
   },
 });
 
+const PORT_RANGE_START = 8080;
+const PORT_RANGE_SIZE = 5;
+
 /**
- * Get the auth service base URL, with automatic port detection
- * Checks environment variables, then tries common ports
+ * Discover the auth service base URL. Checks environment variables first,
+ * then probes a range of ports starting at {@link PORT_RANGE_START}.
+ * Throws if no reachable port is found.
  */
 async function getAuthServiceBaseUrl(): Promise<string> {
-  // Check env vars first
   const authUrl = process.env.NEXT_PUBLIC_BETTER_AUTH_URL;
   if (authUrl) {
-    return authUrl.replace("/auth", "");
+    // The env var includes the /auth path (e.g., "http://localhost:8084/auth").
+    // Strip it to get the service base URL for direct HTTP calls.
+    return authUrl.replace(/\/auth\/?$/, "");
   }
 
-  // Check E2E_AUTH_PORT (used in docker-compose.yml)
   const authPort = process.env.E2E_AUTH_PORT;
   if (authPort) {
     return `http://localhost:${authPort}`;
   }
 
-  // Try to discover the port by attempting connections
-  const portsToTry = [8084, 8083, 8082, 8080];
-  for (const port of portsToTry) {
+  for (let i = 0; i < PORT_RANGE_SIZE; i++) {
+    const port = PORT_RANGE_START + i;
     try {
       const response = await fetch(`http://localhost:${port}/healthcheck`, {
         method: "GET",
@@ -253,13 +125,15 @@ async function getAuthServiceBaseUrl(): Promise<string> {
     }
   }
 
-  // Fallback to most common E2E port
-  return "http://localhost:8084";
+  throw new Error(
+    `Auth service not found on ports ${PORT_RANGE_START}-${PORT_RANGE_START + PORT_RANGE_SIZE - 1}. ` +
+    `Set NEXT_PUBLIC_BETTER_AUTH_URL or E2E_AUTH_PORT.`
+  );
 }
 
 /**
- * Fetch verification token from test endpoint (for password reset testing)
- * Requires Backend-Service to be running with NODE_ENV !== 'production'
+ * Fetch verification token from test endpoint (for password reset testing).
+ * Requires Backend-Service to be running with NODE_ENV !== 'production'.
  */
 export async function getVerificationToken(identifier: string): Promise<{ token: string; expiresAt: string } | null> {
   const baseUrl = await getAuthServiceBaseUrl();
@@ -277,21 +151,26 @@ export async function getVerificationToken(identifier: string): Promise<{ token:
 }
 
 /**
- * Expire a user's session via test endpoint (for session timeout testing)
- * Requires Backend-Service to be running with NODE_ENV !== 'production'
+ * Revoke all sessions for a user via better-auth's revoke-sessions endpoint.
+ * Requires an active session cookie (admin-level access).
+ *
+ * For unit tests, prefer better-auth's getTestInstance() and client.revokeSessions().
+ * See: https://better-auth.com/docs/concepts/session-management
  */
-export async function expireUserSession(userId: string): Promise<boolean> {
+export async function revokeUserSessions(sessionCookie: string): Promise<boolean> {
   const baseUrl = await getAuthServiceBaseUrl();
 
   try {
-    const response = await fetch(`${baseUrl}/auth/test/expire-session`, {
+    const response = await fetch(`${baseUrl}/auth/revoke-sessions`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId }),
+      headers: {
+        "Content-Type": "application/json",
+        cookie: sessionCookie,
+      },
     });
     return response.ok;
   } catch (error) {
-    console.error("Failed to expire session:", error);
+    console.error("Failed to revoke sessions:", error);
     return false;
   }
 }
