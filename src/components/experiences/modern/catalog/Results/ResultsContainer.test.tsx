@@ -2,8 +2,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import ResultsContainer from "./ResultsContainer";
 
-// Mock catalogHooks
+// Mock functions
 const mockClearSelection = vi.fn();
+const mockAddToBin = vi.fn();
+
+// Mock useCatalogSearch hook
 vi.mock("@/src/hooks/catalogHooks", () => ({
   useCatalogSearch: vi.fn(() => ({
     searchString: "",
@@ -12,8 +15,7 @@ vi.mock("@/src/hooks/catalogHooks", () => ({
   })),
 }));
 
-// Mock binHooks
-const mockAddToBin = vi.fn();
+// Mock useAddToBin hook
 vi.mock("@/src/hooks/binHooks", () => ({
   useAddToBin: vi.fn(() => ({
     addToBin: mockAddToBin,
@@ -21,7 +23,7 @@ vi.mock("@/src/hooks/binHooks", () => ({
   })),
 }));
 
-// Mock sonner toast
+// Mock toast
 vi.mock("sonner", () => ({
   toast: {
     success: vi.fn(),
@@ -31,12 +33,109 @@ vi.mock("sonner", () => ({
 
 // Mock Logo component
 vi.mock("@/src/components/shared/Branding/Logo", () => ({
-  default: () => <div data-testid="logo">Logo</div>,
+  default: ({ color }: { color: string }) => (
+    <div data-testid="logo" data-color={color}>
+      Logo
+    </div>
+  ),
 }));
 
 // Mock MUI icons
-vi.mock("@mui/icons-material", () => ({
-  DoubleArrow: () => <span data-testid="double-arrow-icon" />,
+vi.mock("@mui/icons-material/DoubleArrow", () => ({
+  default: () => <svg data-testid="double-arrow-icon" />,
+}));
+
+// Mock MUI components
+vi.mock("@mui/joy", () => ({
+  Box: ({
+    children,
+    sx,
+  }: {
+    children?: React.ReactNode;
+    sx?: any;
+  }) => (
+    <div
+      data-testid="box"
+      data-pointer-events={sx?.pointerEvents}
+      style={{
+        opacity: sx?.opacity,
+        position: sx?.position as any,
+        backdropFilter: sx?.backdropFilter,
+      }}
+    >
+      {children}
+    </div>
+  ),
+  Button: ({
+    children,
+    onClick,
+    loading,
+    endDecorator,
+    variant,
+    color,
+    size,
+    sx,
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+    loading?: boolean;
+    endDecorator?: React.ReactNode;
+    variant?: string;
+    color?: string;
+    size?: string;
+    sx?: any;
+  }) => (
+    <button
+      data-testid="add-to-bin-button"
+      onClick={onClick}
+      disabled={loading}
+      data-loading={loading?.toString()}
+      data-variant={variant}
+      data-color={color}
+      data-size={size}
+    >
+      {children}
+      {endDecorator}
+    </button>
+  ),
+  Sheet: ({
+    children,
+    id,
+    variant,
+    sx,
+  }: {
+    children: React.ReactNode;
+    id?: string;
+    variant?: string;
+    sx?: any;
+  }) => (
+    <div
+      data-testid="sheet"
+      id={id}
+      data-variant={variant}
+      style={{ overflow: sx?.overflow }}
+    >
+      {children}
+    </div>
+  ),
+  Table: ({ children }: { children: React.ReactNode }) => (
+    <table data-testid="table">{children}</table>
+  ),
+  Typography: ({
+    children,
+    color,
+    level,
+    sx,
+  }: {
+    children: React.ReactNode;
+    color?: string;
+    level?: string;
+    sx?: any;
+  }) => (
+    <span data-testid="typography" data-color={color} data-level={level}>
+      {children}
+    </span>
+  ),
 }));
 
 describe("ResultsContainer", () => {
@@ -47,171 +146,396 @@ describe("ResultsContainer", () => {
   it("should render children", () => {
     render(
       <ResultsContainer>
-        <div data-testid="child-content">Test content</div>
+        <div data-testid="child-content">Child Content</div>
       </ResultsContainer>
     );
 
     expect(screen.getByTestId("child-content")).toBeInTheDocument();
   });
 
-  it("should render logo when search string is empty", () => {
+  it("should render Sheet with OrderTableContainer id", () => {
     render(
       <ResultsContainer>
         <div>Content</div>
       </ResultsContainer>
     );
 
-    expect(screen.getByTestId("logo")).toBeInTheDocument();
+    const sheet = screen.getByTestId("sheet");
+    expect(sheet).toHaveAttribute("id", "OrderTableContainer");
   });
 
-  it("should show helper text when search string is empty", () => {
+  it("should render Sheet with outlined variant", () => {
     render(
       <ResultsContainer>
         <div>Content</div>
       </ResultsContainer>
     );
 
-    expect(
-      screen.getByText(/start typing in the search bar/i)
-    ).toBeInTheDocument();
+    const sheet = screen.getByTestId("sheet");
+    expect(sheet).toHaveAttribute("data-variant", "outlined");
   });
 
-  it("should not show add to bin button when no items selected", () => {
+  it("should render Logo with primary color", () => {
     render(
       <ResultsContainer>
         <div>Content</div>
       </ResultsContainer>
     );
 
-    expect(
-      screen.queryByRole("button", { name: /add.*to bin/i })
-    ).not.toBeInTheDocument();
+    const logo = screen.getByTestId("logo");
+    expect(logo).toHaveAttribute("data-color", "primary");
   });
 
-  it("should show add to bin button when items are selected", async () => {
-    const { useCatalogSearch } = await import("@/src/hooks/catalogHooks");
-    vi.mocked(useCatalogSearch).mockReturnValue({
-      searchString: "test",
-      selected: [1, 2, 3],
-      clearSelection: mockClearSelection,
+  describe("search string behavior", () => {
+    it("should show prompt message when search string is empty", () => {
+      render(
+        <ResultsContainer>
+          <div>Content</div>
+        </ResultsContainer>
+      );
+
+      expect(
+        screen.getByText(
+          "Start typing in the search bar above to explore the library!"
+        )
+      ).toBeInTheDocument();
     });
 
-    render(
-      <ResultsContainer>
-        <div>Content</div>
-      </ResultsContainer>
-    );
+    it("should set overflow to hidden when search string is empty", () => {
+      render(
+        <ResultsContainer>
+          <div>Content</div>
+        </ResultsContainer>
+      );
 
-    expect(screen.getByRole("button", { name: /add 3 to bin/i })).toBeInTheDocument();
+      const sheet = screen.getByTestId("sheet");
+      expect(sheet).toHaveStyle({ overflow: "hidden" });
+    });
+
+    it("should set overflow to auto when search string has content", async () => {
+      const { useCatalogSearch } = await import("@/src/hooks/catalogHooks");
+      vi.mocked(useCatalogSearch).mockReturnValue({
+        searchString: "test search",
+        selected: [],
+        clearSelection: mockClearSelection,
+      } as any);
+
+      render(
+        <ResultsContainer>
+          <div>Content</div>
+        </ResultsContainer>
+      );
+
+      const sheet = screen.getByTestId("sheet");
+      expect(sheet).toHaveStyle({ overflow: "auto" });
+    });
   });
 
-  it("should call addToBin for each selected item when button is clicked", async () => {
-    const { useCatalogSearch } = await import("@/src/hooks/catalogHooks");
-    vi.mocked(useCatalogSearch).mockReturnValue({
-      searchString: "test",
-      selected: [1, 2],
-      clearSelection: mockClearSelection,
+  describe("selection behavior", () => {
+    it("should not show add to bin button when no items selected", () => {
+      render(
+        <ResultsContainer>
+          <div>Content</div>
+        </ResultsContainer>
+      );
+
+      expect(screen.queryByTestId("add-to-bin-button")).not.toBeInTheDocument();
     });
 
-    render(
-      <ResultsContainer>
-        <div>Content</div>
-      </ResultsContainer>
-    );
+    it("should show add to bin button when items are selected", async () => {
+      const { useCatalogSearch } = await import("@/src/hooks/catalogHooks");
+      vi.mocked(useCatalogSearch).mockReturnValue({
+        searchString: "test",
+        selected: [1, 2, 3],
+        clearSelection: mockClearSelection,
+      } as any);
 
-    const addButton = screen.getByRole("button", { name: /add 2 to bin/i });
-    fireEvent.click(addButton);
+      render(
+        <ResultsContainer>
+          <div>Content</div>
+        </ResultsContainer>
+      );
 
-    expect(mockAddToBin).toHaveBeenCalledTimes(2);
-    expect(mockAddToBin).toHaveBeenCalledWith(1);
-    expect(mockAddToBin).toHaveBeenCalledWith(2);
+      expect(screen.getByTestId("add-to-bin-button")).toBeInTheDocument();
+    });
+
+    it("should display correct count in button text for single selection", async () => {
+      const { useCatalogSearch } = await import("@/src/hooks/catalogHooks");
+      vi.mocked(useCatalogSearch).mockReturnValue({
+        searchString: "test",
+        selected: [1],
+        clearSelection: mockClearSelection,
+      } as any);
+
+      render(
+        <ResultsContainer>
+          <div>Content</div>
+        </ResultsContainer>
+      );
+
+      expect(screen.getByText(/Add 1 to bin/)).toBeInTheDocument();
+    });
+
+    it("should display correct count in button text for multiple selections", async () => {
+      const { useCatalogSearch } = await import("@/src/hooks/catalogHooks");
+      vi.mocked(useCatalogSearch).mockReturnValue({
+        searchString: "test",
+        selected: [1, 2, 3, 4, 5],
+        clearSelection: mockClearSelection,
+      } as any);
+
+      render(
+        <ResultsContainer>
+          <div>Content</div>
+        </ResultsContainer>
+      );
+
+      expect(screen.getByText(/Add 5 to bin/)).toBeInTheDocument();
+    });
+
+    it("should call addToBin for each selected album when button clicked", async () => {
+      const { useCatalogSearch } = await import("@/src/hooks/catalogHooks");
+      vi.mocked(useCatalogSearch).mockReturnValue({
+        searchString: "test",
+        selected: [1, 2, 3],
+        clearSelection: mockClearSelection,
+      } as any);
+
+      render(
+        <ResultsContainer>
+          <div>Content</div>
+        </ResultsContainer>
+      );
+
+      const button = screen.getByTestId("add-to-bin-button");
+      fireEvent.click(button);
+
+      expect(mockAddToBin).toHaveBeenCalledTimes(3);
+      expect(mockAddToBin).toHaveBeenCalledWith(1);
+      expect(mockAddToBin).toHaveBeenCalledWith(2);
+      expect(mockAddToBin).toHaveBeenCalledWith(3);
+    });
+
+    it("should call clearSelection after adding to bin", async () => {
+      const { useCatalogSearch } = await import("@/src/hooks/catalogHooks");
+      vi.mocked(useCatalogSearch).mockReturnValue({
+        searchString: "test",
+        selected: [1, 2],
+        clearSelection: mockClearSelection,
+      } as any);
+
+      render(
+        <ResultsContainer>
+          <div>Content</div>
+        </ResultsContainer>
+      );
+
+      const button = screen.getByTestId("add-to-bin-button");
+      fireEvent.click(button);
+
+      expect(mockClearSelection).toHaveBeenCalledTimes(1);
+    });
+
+    it("should show toast success message for single album", async () => {
+      const { toast } = await import("sonner");
+      const { useCatalogSearch } = await import("@/src/hooks/catalogHooks");
+      vi.mocked(useCatalogSearch).mockReturnValue({
+        searchString: "test",
+        selected: [1],
+        clearSelection: mockClearSelection,
+      } as any);
+
+      render(
+        <ResultsContainer>
+          <div>Content</div>
+        </ResultsContainer>
+      );
+
+      const button = screen.getByTestId("add-to-bin-button");
+      fireEvent.click(button);
+
+      expect(toast.success).toHaveBeenCalledWith("Added 1 album to bin");
+    });
+
+    it("should show toast success message for multiple albums", async () => {
+      const { toast } = await import("sonner");
+      const { useCatalogSearch } = await import("@/src/hooks/catalogHooks");
+      vi.mocked(useCatalogSearch).mockReturnValue({
+        searchString: "test",
+        selected: [1, 2, 3],
+        clearSelection: mockClearSelection,
+      } as any);
+
+      render(
+        <ResultsContainer>
+          <div>Content</div>
+        </ResultsContainer>
+      );
+
+      const button = screen.getByTestId("add-to-bin-button");
+      fireEvent.click(button);
+
+      expect(toast.success).toHaveBeenCalledWith("Added 3 albums to bin");
+    });
+
+    it("should not call addToBin when selected is empty and button is somehow clicked", async () => {
+      const { useCatalogSearch } = await import("@/src/hooks/catalogHooks");
+      vi.mocked(useCatalogSearch).mockReturnValue({
+        searchString: "test",
+        selected: [],
+        clearSelection: mockClearSelection,
+      } as any);
+
+      // Directly test the early return behavior
+      // Since button won't render with 0 selections, we verify no calls are made
+      render(
+        <ResultsContainer>
+          <div>Content</div>
+        </ResultsContainer>
+      );
+
+      expect(mockAddToBin).not.toHaveBeenCalled();
+      expect(mockClearSelection).not.toHaveBeenCalled();
+    });
   });
 
-  it("should call clearSelection after adding to bin", async () => {
-    const { useCatalogSearch } = await import("@/src/hooks/catalogHooks");
-    vi.mocked(useCatalogSearch).mockReturnValue({
-      searchString: "test",
-      selected: [1],
-      clearSelection: mockClearSelection,
+  describe("loading state", () => {
+    it("should show loading state on button when addToBin is loading", async () => {
+      const { useCatalogSearch } = await import("@/src/hooks/catalogHooks");
+      const { useAddToBin } = await import("@/src/hooks/binHooks");
+
+      vi.mocked(useCatalogSearch).mockReturnValue({
+        searchString: "test",
+        selected: [1, 2],
+        clearSelection: mockClearSelection,
+      } as any);
+
+      vi.mocked(useAddToBin).mockReturnValue({
+        addToBin: mockAddToBin,
+        loading: true,
+      });
+
+      render(
+        <ResultsContainer>
+          <div>Content</div>
+        </ResultsContainer>
+      );
+
+      const button = screen.getByTestId("add-to-bin-button");
+      expect(button).toHaveAttribute("data-loading", "true");
     });
-
-    render(
-      <ResultsContainer>
-        <div>Content</div>
-      </ResultsContainer>
-    );
-
-    const addButton = screen.getByRole("button", { name: /add 1 to bin/i });
-    fireEvent.click(addButton);
-
-    expect(mockClearSelection).toHaveBeenCalled();
   });
 
-  it("should show toast success when items are added", async () => {
-    const { toast } = await import("sonner");
-    const { useCatalogSearch } = await import("@/src/hooks/catalogHooks");
-    vi.mocked(useCatalogSearch).mockReturnValue({
-      searchString: "test",
-      selected: [1, 2],
-      clearSelection: mockClearSelection,
+  describe("button styling", () => {
+    it("should have solid variant", async () => {
+      const { useCatalogSearch } = await import("@/src/hooks/catalogHooks");
+      vi.mocked(useCatalogSearch).mockReturnValue({
+        searchString: "test",
+        selected: [1],
+        clearSelection: mockClearSelection,
+      } as any);
+
+      render(
+        <ResultsContainer>
+          <div>Content</div>
+        </ResultsContainer>
+      );
+
+      const button = screen.getByTestId("add-to-bin-button");
+      expect(button).toHaveAttribute("data-variant", "solid");
     });
 
-    render(
-      <ResultsContainer>
-        <div>Content</div>
-      </ResultsContainer>
-    );
+    it("should have primary color", async () => {
+      const { useCatalogSearch } = await import("@/src/hooks/catalogHooks");
+      vi.mocked(useCatalogSearch).mockReturnValue({
+        searchString: "test",
+        selected: [1],
+        clearSelection: mockClearSelection,
+      } as any);
 
-    const addButton = screen.getByRole("button", { name: /add 2 to bin/i });
-    fireEvent.click(addButton);
+      render(
+        <ResultsContainer>
+          <div>Content</div>
+        </ResultsContainer>
+      );
 
-    expect(toast.success).toHaveBeenCalledWith("Added 2 albums to bin");
+      const button = screen.getByTestId("add-to-bin-button");
+      expect(button).toHaveAttribute("data-color", "primary");
+    });
+
+    it("should have lg size", async () => {
+      const { useCatalogSearch } = await import("@/src/hooks/catalogHooks");
+      vi.mocked(useCatalogSearch).mockReturnValue({
+        searchString: "test",
+        selected: [1],
+        clearSelection: mockClearSelection,
+      } as any);
+
+      render(
+        <ResultsContainer>
+          <div>Content</div>
+        </ResultsContainer>
+      );
+
+      const button = screen.getByTestId("add-to-bin-button");
+      expect(button).toHaveAttribute("data-size", "lg");
+    });
+
+    it("should have DoubleArrow end decorator", async () => {
+      const { useCatalogSearch } = await import("@/src/hooks/catalogHooks");
+      vi.mocked(useCatalogSearch).mockReturnValue({
+        searchString: "test",
+        selected: [1],
+        clearSelection: mockClearSelection,
+      } as any);
+
+      render(
+        <ResultsContainer>
+          <div>Content</div>
+        </ResultsContainer>
+      );
+
+      expect(screen.getByTestId("double-arrow-icon")).toBeInTheDocument();
+    });
   });
 
-  it("should show singular text when adding 1 album", async () => {
-    const { toast } = await import("sonner");
-    const { useCatalogSearch } = await import("@/src/hooks/catalogHooks");
-    vi.mocked(useCatalogSearch).mockReturnValue({
-      searchString: "test",
-      selected: [1],
-      clearSelection: mockClearSelection,
+  describe("multiple children", () => {
+    it("should render multiple children", () => {
+      render(
+        <ResultsContainer>
+          <div data-testid="child-1">Child 1</div>
+          <div data-testid="child-2">Child 2</div>
+          <div data-testid="child-3">Child 3</div>
+        </ResultsContainer>
+      );
+
+      expect(screen.getByTestId("child-1")).toBeInTheDocument();
+      expect(screen.getByTestId("child-2")).toBeInTheDocument();
+      expect(screen.getByTestId("child-3")).toBeInTheDocument();
     });
-
-    render(
-      <ResultsContainer>
-        <div>Content</div>
-      </ResultsContainer>
-    );
-
-    const addButton = screen.getByRole("button", { name: /add 1 to bin/i });
-    fireEvent.click(addButton);
-
-    expect(toast.success).toHaveBeenCalledWith("Added 1 album to bin");
   });
 
-  it("should show loading state on button when adding", async () => {
-    const { useCatalogSearch } = await import("@/src/hooks/catalogHooks");
-    const { useAddToBin } = await import("@/src/hooks/binHooks");
+  describe("typography styling", () => {
+    it("should render prompt typography with primary color", () => {
+      render(
+        <ResultsContainer>
+          <div>Content</div>
+        </ResultsContainer>
+      );
 
-    vi.mocked(useCatalogSearch).mockReturnValue({
-      searchString: "test",
-      selected: [1],
-      clearSelection: mockClearSelection,
+      const typography = screen.getByTestId("typography");
+      expect(typography).toHaveAttribute("data-color", "primary");
     });
 
-    vi.mocked(useAddToBin).mockReturnValue({
-      addToBin: mockAddToBin,
-      loading: true,
+    it("should render prompt typography with body-lg level", () => {
+      render(
+        <ResultsContainer>
+          <div>Content</div>
+        </ResultsContainer>
+      );
+
+      const typography = screen.getByTestId("typography");
+      expect(typography).toHaveAttribute("data-level", "body-lg");
     });
-
-    render(
-      <ResultsContainer>
-        <div>Content</div>
-      </ResultsContainer>
-    );
-
-    // Button should render with loading state (MUI Joy uses data-loading attribute)
-    const addButton = screen.getByRole("button", { name: /add 1 to bin/i });
-    expect(addButton).toBeInTheDocument();
   });
 });

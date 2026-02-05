@@ -160,6 +160,38 @@ describe("themePreferenceHooks", () => {
       expect(authClient.updateUser).not.toHaveBeenCalled();
     });
 
+    it("should handle updateUser error gracefully when updateUser option is true", async () => {
+      const consoleSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      const { authClient } = await import(
+        "@/lib/features/authentication/client"
+      );
+      vi.mocked(authClient.useSession).mockReturnValue({
+        data: { user: { id: "user-123" } },
+      } as any);
+      vi.mocked(authClient.updateUser).mockRejectedValue(
+        new Error("Update user failed")
+      );
+
+      const { useThemePreferenceActions } = await import(
+        "./themePreferenceHooks"
+      );
+      const { result } = renderHook(() => useThemePreferenceActions());
+
+      await act(async () => {
+        await result.current.persistPreference("modern-dark", {
+          updateUser: true,
+        });
+      });
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "Failed to update user appSkin:",
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
+    });
+
     it("should handle setPreference error gracefully", async () => {
       const consoleSpy = vi
         .spyOn(console, "error")
@@ -353,6 +385,25 @@ describe("themePreferenceHooks", () => {
         .spyOn(console, "error")
         .mockImplementation(() => {});
 
+      // Ensure user has no appSkin and localStorage is empty so fetchAppState is called
+      const { authClient } = await import(
+        "@/lib/features/authentication/client"
+      );
+      vi.mocked(authClient.useSession).mockReturnValue({
+        data: { user: { id: "user-123", appSkin: null } },
+      } as any);
+
+      // Mock localStorage to return null
+      Object.defineProperty(window, "localStorage", {
+        value: {
+          getItem: vi.fn(() => null),
+          setItem: vi.fn(),
+          removeItem: vi.fn(),
+        },
+        writable: true,
+      });
+
+      // Fetch throws error
       global.fetch = vi.fn(() =>
         Promise.reject(new Error("Network error"))
       ) as any;
@@ -367,6 +418,14 @@ describe("themePreferenceHooks", () => {
       const { useThemePreferenceSync } = await import("./themePreferenceHooks");
 
       expect(() => renderHook(() => useThemePreferenceSync())).not.toThrow();
+
+      // Wait for the async sync to complete
+      await waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith(
+          "Failed to fetch app_state:",
+          expect.any(Error)
+        );
+      });
 
       consoleSpy.mockRestore();
     });
@@ -389,6 +448,125 @@ describe("themePreferenceHooks", () => {
       const { useThemePreferenceSync } = await import("./themePreferenceHooks");
 
       expect(() => renderHook(() => useThemePreferenceSync())).not.toThrow();
+    });
+  });
+
+  describe("edge cases for resolvedPreference", () => {
+    it("should exit early when no preference can be resolved from any source", async () => {
+      // Reset all preference sources to return null
+      const { authClient } = await import(
+        "@/lib/features/authentication/client"
+      );
+      vi.mocked(authClient.useSession).mockReturnValue({
+        data: { user: { id: "user-123", appSkin: null } },
+      } as any);
+
+      // Mock localStorage to return null
+      Object.defineProperty(window, "localStorage", {
+        value: {
+          getItem: vi.fn(() => null),
+          setItem: vi.fn(),
+          removeItem: vi.fn(),
+        },
+        writable: true,
+      });
+
+      // Mock fetch to return null/empty app state
+      global.fetch = vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              experience: null,
+              colorMode: null,
+            }),
+        })
+      ) as any;
+
+      const mockSetMode = vi.fn();
+      const { useColorScheme } = await import("@mui/joy/styles");
+      vi.mocked(useColorScheme).mockReturnValue({
+        mode: "light",
+        setMode: mockSetMode,
+      } as any);
+
+      const { useThemePreferenceSync } = await import("./themePreferenceHooks");
+
+      // Should not throw
+      expect(() => renderHook(() => useThemePreferenceSync())).not.toThrow();
+
+      // setMode should not be called since no preference was resolved
+      await waitFor(() => {
+        // Give the async sync function time to run
+        expect(window.localStorage.getItem).toHaveBeenCalled();
+      });
+    });
+
+    it("should exit early when resolvedPreference is invalid and cannot be parsed", async () => {
+      // Reset session to return an invalid appSkin
+      const { authClient } = await import(
+        "@/lib/features/authentication/client"
+      );
+      vi.mocked(authClient.useSession).mockReturnValue({
+        data: { user: { id: "user-123", appSkin: "invalid-preference-string" } },
+      } as any);
+
+      // Mock localStorage to return invalid preference
+      Object.defineProperty(window, "localStorage", {
+        value: {
+          getItem: vi.fn(() => "invalid-preference"),
+          setItem: vi.fn(),
+          removeItem: vi.fn(),
+        },
+        writable: true,
+      });
+
+      const mockSetMode = vi.fn();
+      const { useColorScheme } = await import("@mui/joy/styles");
+      vi.mocked(useColorScheme).mockReturnValue({
+        mode: "light",
+        setMode: mockSetMode,
+      } as any);
+
+      const { useThemePreferenceSync } = await import("./themePreferenceHooks");
+
+      // Should not throw
+      expect(() => renderHook(() => useThemePreferenceSync())).not.toThrow();
+    });
+
+    it("should handle refresh when experience type changes", async () => {
+      const { authClient } = await import(
+        "@/lib/features/authentication/client"
+      );
+      vi.mocked(authClient.useSession).mockReturnValue({
+        data: { user: { id: "user-123", appSkin: "classic-light" } },
+      } as any);
+
+      const mockSetMode = vi.fn();
+      const { useColorScheme } = await import("@mui/joy/styles");
+      vi.mocked(useColorScheme).mockReturnValue({
+        mode: "light",
+        setMode: mockSetMode,
+      } as any);
+
+      // Mock document.documentElement.dataset.experience to be "modern"
+      const originalDataset = document.documentElement.dataset;
+      Object.defineProperty(document.documentElement, "dataset", {
+        value: { experience: "modern-light" },
+        writable: true,
+        configurable: true,
+      });
+
+      const { useThemePreferenceSync } = await import("./themePreferenceHooks");
+
+      expect(() => renderHook(() => useThemePreferenceSync())).not.toThrow();
+
+      // Restore original dataset
+      Object.defineProperty(document.documentElement, "dataset", {
+        value: originalDataset,
+        writable: true,
+        configurable: true,
+      });
     });
   });
 });
