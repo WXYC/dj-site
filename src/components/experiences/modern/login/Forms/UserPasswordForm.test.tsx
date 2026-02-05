@@ -58,19 +58,10 @@ describe("UserPasswordForm", () => {
     expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();
   });
 
-  it("should have forgot link disabled without username", () => {
+  it("should have forgot link enabled by default", () => {
     renderWithProviders(<UserPasswordForm />);
 
-    // MUI Joy Link uses Mui-disabled class rather than disabled attribute
-    expect(screen.getByRole("button", { name: "Forgot?" })).toHaveClass("Mui-disabled");
-  });
-
-  it("should enable forgot link when username has value", async () => {
-    const { user } = renderWithProviders(<UserPasswordForm />);
-
-    const usernameInput = screen.getByPlaceholderText("Username");
-    await user.type(usernameInput, "testuser");
-
+    // Forgot link is always enabled except during authentication
     expect(screen.getByRole("button", { name: "Forgot?" })).not.toHaveClass("Mui-disabled");
   });
 

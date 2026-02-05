@@ -45,9 +45,11 @@ describe("NewUserForm", () => {
   });
 
   it("should render required attributes as fields", () => {
-    renderWithProviders(
-      <NewUserForm username="testuser" requiredAttributes={["realName", "djName"]} />
-    );
+    const props: IncompleteUser = {
+      username: "testuser",
+      requiredAttributes: ["realName", "djName"],
+    };
+    renderWithProviders(<NewUserForm {...props} />);
 
     expect(screen.getByText("Real Name")).toBeInTheDocument();
     expect(screen.getByText("DJ Name")).toBeInTheDocument();
