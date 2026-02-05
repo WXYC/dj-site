@@ -302,7 +302,7 @@ export function createTestIncompleteSession(
   return session;
 }
 
-export function createTestSessionWithOrgRole(role: WXYCRole): BetterAuthSession {
+export function createTestSessionWithRole(role: WXYCRole): BetterAuthSession {
   return createTestBetterAuthSession({
     user: {
       id: "test-user-id-123",
@@ -312,12 +312,7 @@ export function createTestSessionWithOrgRole(role: WXYCRole): BetterAuthSession 
       emailVerified: true,
       realName: "Test User",
       djName: "DJ Test",
-      role: "user", // Base user role
-      organization: {
-        id: "org-123",
-        name: "WXYC",
-        role: role,
-      },
+      role: role,
     },
   });
 }

@@ -7,7 +7,6 @@ vi.mock("better-auth/client", () => ({
     signIn: vi.fn(),
     signOut: vi.fn(),
     admin: {},
-    organization: {},
   })),
 }));
 
@@ -16,7 +15,6 @@ vi.mock("better-auth/client/plugins", () => ({
   adminClient: vi.fn(() => ({})),
   usernameClient: vi.fn(() => ({})),
   jwtClient: vi.fn(() => ({})),
-  organizationClient: vi.fn(() => ({})),
 }));
 
 describe("server-client", () => {
@@ -69,13 +67,6 @@ describe("server-client", () => {
       "@/lib/features/authentication/server-client"
     );
     expect(serverAuthClient.admin).toBeDefined();
-  });
-
-  it("should have organization property", async () => {
-    const { serverAuthClient } = await import(
-      "@/lib/features/authentication/server-client"
-    );
-    expect(serverAuthClient.organization).toBeDefined();
   });
 
   it("should use default base URL when env not set", async () => {

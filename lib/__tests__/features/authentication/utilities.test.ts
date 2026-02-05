@@ -7,16 +7,9 @@ vi.mock("jwt-decode", () => ({
   jwtDecode: vi.fn(),
 }));
 
-// Mock organization-utils
-vi.mock("@/lib/features/authentication/organization-utils", () => ({
-  getAppOrganizationId: vi.fn(() => undefined),
-  getAppOrganizationIdClient: vi.fn(() => undefined),
-}));
-
 import {
   defaultAuthenticationData,
   betterAuthSessionToAuthenticationData,
-  betterAuthSessionToAuthenticationDataAsync,
   toUserFromBetterAuthJWT,
   BetterAuthSession,
 } from "@/lib/features/authentication/utilities";
@@ -24,7 +17,7 @@ import { jwtDecode } from "jwt-decode";
 import {
   createTestBetterAuthSession,
   createTestIncompleteSession,
-  createTestSessionWithOrgRole,
+  createTestSessionWithRole,
   createTestBetterAuthJWTPayload,
 } from "@/lib/test-utils";
 
@@ -125,86 +118,28 @@ describe("authentication utilities", () => {
       expect((result as any).requiredAttributes).toContain("realName");
     });
 
-    it("should map organization.role to Authorization", () => {
-      const session = createTestSessionWithOrgRole("stationManager");
+    it("should map stationManager role to SM Authorization", () => {
+      const session = createTestSessionWithRole("stationManager");
       const result = betterAuthSessionToAuthenticationData(session);
       expect((result as any).user?.authority).toBe(Authorization.SM);
     });
 
     it("should map musicDirector role to MD Authorization", () => {
-      const session = createTestSessionWithOrgRole("musicDirector");
+      const session = createTestSessionWithRole("musicDirector");
       const result = betterAuthSessionToAuthenticationData(session);
       expect((result as any).user?.authority).toBe(Authorization.MD);
     });
 
     it("should map dj role to DJ Authorization", () => {
-      const session = createTestSessionWithOrgRole("dj");
+      const session = createTestSessionWithRole("dj");
       const result = betterAuthSessionToAuthenticationData(session);
       expect((result as any).user?.authority).toBe(Authorization.DJ);
     });
 
     it("should map member role to NO Authorization", () => {
-      const session = createTestSessionWithOrgRole("member");
+      const session = createTestSessionWithRole("member");
       const result = betterAuthSessionToAuthenticationData(session);
       expect((result as any).user?.authority).toBe(Authorization.NO);
-    });
-
-    describe("role fallback chain", () => {
-      it("should prefer organization.role over user.role", () => {
-        const session = createTestBetterAuthSession({
-          user: {
-            id: "test-id",
-            email: "test@wxyc.org",
-            name: "testuser",
-            emailVerified: true,
-            realName: "Test User",
-            djName: "DJ Test",
-            role: "member", // Base role
-            organization: {
-              id: "org-123",
-              name: "WXYC",
-              role: "stationManager", // Org role should take precedence
-            },
-          },
-        });
-        const result = betterAuthSessionToAuthenticationData(session);
-        expect((result as any).user?.authority).toBe(Authorization.SM);
-      });
-
-      it("should use metadata.role when organization.role is not present", () => {
-        const session = createTestBetterAuthSession({
-          user: {
-            id: "test-id",
-            email: "test@wxyc.org",
-            name: "testuser",
-            emailVerified: true,
-            realName: "Test User",
-            djName: "DJ Test",
-            role: "member", // Base role
-            metadata: {
-              role: "musicDirector",
-            },
-          } as any,
-        });
-        const result = betterAuthSessionToAuthenticationData(session);
-        expect((result as any).user?.authority).toBe(Authorization.MD);
-      });
-
-      it("should fall back to user.role when no org or metadata role", () => {
-        const session = createTestBetterAuthSession({
-          user: {
-            id: "test-id",
-            email: "test@wxyc.org",
-            name: "testuser",
-            emailVerified: true,
-            realName: "Test User",
-            djName: "DJ Test",
-            role: "dj",
-          },
-        });
-        const result = betterAuthSessionToAuthenticationData(session);
-        expect((result as any).user?.authority).toBe(Authorization.DJ);
-      });
     });
 
     it("should include session token in result", () => {
@@ -329,119 +264,6 @@ describe("authentication utilities", () => {
       const result = toUserFromBetterAuthJWT("fake-token");
 
       expect(result.authority).toBe(Authorization.NO);
-    });
-  });
-
-  describe("betterAuthSessionToAuthenticationDataAsync", () => {
-    it("should return 'Not Authenticated' for null session", async () => {
-      const result = await betterAuthSessionToAuthenticationDataAsync(null);
-      expect(result).toEqual({ message: "Not Authenticated" });
-    });
-
-    it("should return 'Not Authenticated' for undefined session", async () => {
-      const result = await betterAuthSessionToAuthenticationDataAsync(undefined);
-      expect(result).toEqual({ message: "Not Authenticated" });
-    });
-
-    it("should return 'Not Authenticated' for session without user", async () => {
-      const result = await betterAuthSessionToAuthenticationDataAsync({
-        session: { id: "test", userId: "test", expiresAt: new Date() },
-      } as any);
-      expect(result).toEqual({ message: "Not Authenticated" });
-    });
-
-    it("should extract username from session.user.username", async () => {
-      const session = createTestBetterAuthSession({
-        user: {
-          id: "test-id",
-          email: "test@wxyc.org",
-          name: "Test Name",
-          username: "testusername",
-          emailVerified: true,
-          realName: "Test User",
-          djName: "DJ Test",
-        },
-      });
-      const result = await betterAuthSessionToAuthenticationDataAsync(session);
-      expect((result as any).user?.username).toBe("testusername");
-    });
-
-    it("should fall back to session.user.name when username is not set", async () => {
-      const session = createTestBetterAuthSession({
-        user: {
-          id: "test-id",
-          email: "test@wxyc.org",
-          name: "fallbackname",
-          username: undefined,
-          emailVerified: true,
-          realName: "Test User",
-          djName: "DJ Test",
-        },
-      });
-      const result = await betterAuthSessionToAuthenticationDataAsync(session);
-      expect((result as any).user?.username).toBe("fallbackname");
-    });
-
-    it("should identify incomplete users missing realName", async () => {
-      const session = createTestIncompleteSession(["realName"]);
-      const result = await betterAuthSessionToAuthenticationDataAsync(session);
-      expect((result as any).requiredAttributes).toContain("realName");
-    });
-
-    it("should identify incomplete users missing djName", async () => {
-      const session = createTestIncompleteSession(["djName"]);
-      const result = await betterAuthSessionToAuthenticationDataAsync(session);
-      expect((result as any).requiredAttributes).toContain("djName");
-    });
-
-    it("should map organization.role to Authorization", async () => {
-      const session = createTestSessionWithOrgRole("stationManager");
-      const result = await betterAuthSessionToAuthenticationDataAsync(session);
-      expect((result as any).user?.authority).toBe(Authorization.SM);
-    });
-
-    it("should include session token in result", async () => {
-      const session = createTestBetterAuthSession({
-        session: {
-          id: "session-id",
-          userId: "user-id",
-          expiresAt: new Date(),
-          token: "my-session-token",
-        },
-      });
-      const result = await betterAuthSessionToAuthenticationDataAsync(session);
-      expect((result as any).token).toBe("my-session-token");
-      expect((result as any).accessToken).toBe("my-session-token");
-    });
-
-    it("should extract all user fields correctly", async () => {
-      const createdAt = new Date("2024-01-01");
-      const updatedAt = new Date("2024-06-01");
-      const session = createTestBetterAuthSession({
-        user: {
-          id: "user-123",
-          email: "test@wxyc.org",
-          name: "testuser",
-          username: "testuser",
-          emailVerified: true,
-          realName: "Test Real Name",
-          djName: "DJ Test Name",
-          appSkin: "dark",
-          createdAt,
-          updatedAt,
-          role: "dj",
-        },
-      });
-      const result = await betterAuthSessionToAuthenticationDataAsync(session);
-      const user = (result as any).user;
-
-      expect(user.id).toBe("user-123");
-      expect(user.email).toBe("test@wxyc.org");
-      expect(user.username).toBe("testuser");
-      expect(user.realName).toBe("Test Real Name");
-      expect(user.djName).toBe("DJ Test Name");
-      expect(user.emailVerified).toBe(true);
-      expect(user.appSkin).toBe("dark");
     });
   });
 });

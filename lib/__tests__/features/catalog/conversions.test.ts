@@ -9,6 +9,7 @@ import {
   TEST_SEARCH_STRINGS,
 } from "@/lib/test-utils";
 import type { AlbumQueryResponse } from "@/lib/features/catalog/types";
+import { Rotation } from "@/lib/features/rotation/types";
 
 describe("catalog conversions", () => {
   describe("convertAlbumFromSearch", () => {
@@ -29,7 +30,7 @@ describe("catalog conversions", () => {
 
     it("should set play_freq to undefined (search results ignore rotation)", () => {
       const response = createTestAlbumQueryResponse({
-        play_freq: "H",
+        play_freq: Rotation.H,
         rotation_id: 123,
       });
       const result = convertAlbumFromSearch(response);
@@ -101,33 +102,33 @@ describe("catalog conversions", () => {
   describe("convertAlbumFromRotation", () => {
     it("should convert basic rotation album response", () => {
       const response = createTestAlbumQueryResponse({
-        play_freq: "H",
+        play_freq: Rotation.H,
         rotation_id: TEST_ENTITY_IDS.ROTATION.HEAVY,
       });
       const result = convertAlbumFromRotation(response);
 
       expect(result.id).toBe(TEST_ENTITY_IDS.ALBUM.ROCK_ALBUM);
       expect(result.title).toBe(TEST_SEARCH_STRINGS.ALBUM_NAME);
-      expect(result.play_freq).toBe("H");
+      expect(result.play_freq).toBe(Rotation.H);
       expect(result.rotation_id).toBe(TEST_ENTITY_IDS.ROTATION.HEAVY);
     });
 
     it("should preserve rotation data (unlike convertAlbumFromSearch)", () => {
       const response = createTestAlbumQueryResponse({
-        play_freq: "M",
+        play_freq: Rotation.M,
         rotation_id: 456,
       });
       const result = convertAlbumFromRotation(response);
 
-      expect(result.play_freq).toBe("M");
+      expect(result.play_freq).toBe(Rotation.M);
       expect(result.rotation_id).toBe(456);
     });
 
     it.each([
-      ["H", "Heavy"],
-      ["M", "Medium"],
-      ["L", "Light"],
-    ] as const)("should preserve rotation '%s'", (rotation) => {
+      [Rotation.H, "Heavy"],
+      [Rotation.M, "Medium"],
+      [Rotation.L, "Light"],
+    ] as const)("should preserve rotation '%s'", (rotation, _label) => {
       const response = createTestAlbumQueryResponse({
         play_freq: rotation,
       });
@@ -183,7 +184,7 @@ describe("catalog conversions", () => {
   describe("conversion differences", () => {
     it("convertAlbumFromSearch should ignore rotation data", () => {
       const response = createTestAlbumQueryResponse({
-        play_freq: "H",
+        play_freq: Rotation.H,
         rotation_id: 123,
       });
       const searchResult = convertAlbumFromSearch(response);
@@ -193,11 +194,11 @@ describe("catalog conversions", () => {
 
     it("convertAlbumFromRotation should preserve rotation data", () => {
       const response = createTestAlbumQueryResponse({
-        play_freq: "H",
+        play_freq: Rotation.H,
         rotation_id: 123,
       });
       const rotationResult = convertAlbumFromRotation(response);
-      expect(rotationResult.play_freq).toBe("H");
+      expect(rotationResult.play_freq).toBe(Rotation.H);
       expect(rotationResult.rotation_id).toBe(123);
     });
   });

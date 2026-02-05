@@ -20,12 +20,6 @@ vi.mock("@/lib/features/authentication/server-client", () => ({
   },
 }));
 
-// Mock organization utils
-vi.mock("@/lib/features/authentication/organization-utils", () => ({
-  getUserRoleInOrganization: vi.fn(),
-  getAppOrganizationId: vi.fn(),
-}));
-
 // Mock preferences
 vi.mock("@/lib/features/experiences/preferences", () => ({
   parseAppSkinPreference: vi.fn(),
@@ -37,12 +31,6 @@ vi.mock("@/lib/features/authentication/utilities", () => ({
   betterAuthSessionToAuthenticationData: vi.fn(() => ({
     message: "Not Authenticated",
   })),
-}));
-
-// Mock authentication types
-vi.mock("@/lib/features/authentication/types", () => ({
-  mapRoleToAuthorization: vi.fn(),
-  isAuthenticated: vi.fn(() => false),
 }));
 
 // Mock application types
@@ -163,9 +151,6 @@ describe("session", () => {
       const { betterAuthSessionToAuthenticationData } = await import(
         "@/lib/features/authentication/utilities"
       );
-      const { getAppOrganizationId } = await import(
-        "@/lib/features/authentication/organization-utils"
-      );
 
       vi.mocked(serverAuthClient.getSession).mockResolvedValue({
         data: {
@@ -173,6 +158,7 @@ describe("session", () => {
             id: "user-123",
             email: "test@example.com",
             name: "Test User",
+            role: "dj",
           },
           session: {
             id: "session-123",
@@ -185,8 +171,6 @@ describe("session", () => {
       vi.mocked(betterAuthSessionToAuthenticationData).mockReturnValue({
         user: { id: "user-123" },
       } as any);
-
-      vi.mocked(getAppOrganizationId).mockReturnValue(undefined);
 
       const { createServerSideProps } = await import("@/lib/features/session");
       const result = await createServerSideProps();
@@ -194,102 +178,9 @@ describe("session", () => {
       expect(betterAuthSessionToAuthenticationData).toHaveBeenCalled();
     });
 
-    it("should fetch organization role when organization ID is set", async () => {
-      const { serverAuthClient } = await import(
-        "@/lib/features/authentication/server-client"
-      );
-      const { betterAuthSessionToAuthenticationData } = await import(
-        "@/lib/features/authentication/utilities"
-      );
-      const { getAppOrganizationId, getUserRoleInOrganization } = await import(
-        "@/lib/features/authentication/organization-utils"
-      );
-      const { mapRoleToAuthorization, isAuthenticated } = await import(
-        "@/lib/features/authentication/types"
-      );
-
-      vi.mocked(serverAuthClient.getSession).mockResolvedValue({
-        data: {
-          user: {
-            id: "user-123",
-            email: "test@example.com",
-            name: "Test User",
-          },
-          session: {
-            id: "session-123",
-            userId: "user-123",
-            expiresAt: new Date(),
-          },
-        },
-      } as any);
-
-      vi.mocked(getAppOrganizationId).mockReturnValue("org-123");
-      vi.mocked(getUserRoleInOrganization).mockResolvedValue("dj");
-      vi.mocked(mapRoleToAuthorization).mockReturnValue(2); // DJ
-      vi.mocked(betterAuthSessionToAuthenticationData).mockReturnValue({
-        user: { id: "user-123", authority: 0 },
-      } as any);
-      vi.mocked(isAuthenticated).mockReturnValue(true);
-
-      const { createServerSideProps } = await import("@/lib/features/session");
-      await createServerSideProps();
-
-      expect(getUserRoleInOrganization).toHaveBeenCalledWith(
-        "user-123",
-        "org-123",
-        expect.any(String)
-      );
-    });
-
-    it("should handle organization role fetch error", async () => {
-      const { serverAuthClient } = await import(
-        "@/lib/features/authentication/server-client"
-      );
-      const { getAppOrganizationId, getUserRoleInOrganization } = await import(
-        "@/lib/features/authentication/organization-utils"
-      );
-      const { betterAuthSessionToAuthenticationData } = await import(
-        "@/lib/features/authentication/utilities"
-      );
-
-      const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-      vi.mocked(serverAuthClient.getSession).mockResolvedValue({
-        data: {
-          user: {
-            id: "user-123",
-            email: "test@example.com",
-            name: "Test User",
-          },
-          session: {
-            id: "session-123",
-            userId: "user-123",
-            expiresAt: new Date(),
-          },
-        },
-      } as any);
-
-      vi.mocked(getAppOrganizationId).mockReturnValue("org-123");
-      vi.mocked(getUserRoleInOrganization).mockRejectedValue(
-        new Error("Org fetch failed")
-      );
-      vi.mocked(betterAuthSessionToAuthenticationData).mockReturnValue({
-        user: { id: "user-123" },
-      } as any);
-
-      const { createServerSideProps } = await import("@/lib/features/session");
-      await createServerSideProps();
-
-      expect(consoleSpy).toHaveBeenCalled();
-      consoleSpy.mockRestore();
-    });
-
     it("should apply user appSkin preference to application state", async () => {
       const { serverAuthClient } = await import(
         "@/lib/features/authentication/server-client"
-      );
-      const { getAppOrganizationId } = await import(
-        "@/lib/features/authentication/organization-utils"
       );
       const { parseAppSkinPreference } = await import(
         "@/lib/features/experiences/preferences"
@@ -311,7 +202,6 @@ describe("session", () => {
         },
       } as any);
 
-      vi.mocked(getAppOrganizationId).mockReturnValue(undefined);
       vi.mocked(parseAppSkinPreference).mockReturnValue({
         experience: "classic",
         colorMode: "dark",
