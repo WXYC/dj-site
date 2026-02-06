@@ -12,13 +12,14 @@ export default async function ModernLoginLayout({
   newuser: React.ReactNode;
   reset: React.ReactNode;
 }) {
-  // Check if user is already authenticated
+  // Check if user is already authenticated and email-verified
   const session = await getServerSession();
 
-  if (session) {
-    // User is authenticated, redirect to dashboard
+  if (session?.user?.emailVerified) {
+    // User is authenticated and verified — redirect to dashboard
     redirect(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog"));
   }
+  // If authenticated but NOT verified, stay on login to show verification message
 
   return (
     <WXYCPage title="Login">

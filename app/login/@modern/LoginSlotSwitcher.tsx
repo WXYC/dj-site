@@ -4,6 +4,7 @@ import { applicationSlice } from "@/lib/features/application/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useSearchParams } from "next/navigation";
 import { ReactNode, useEffect } from "react";
+import { Alert } from "@mui/joy";
 
 export default function LoginSlotSwitcher({
   normal,
@@ -20,14 +21,18 @@ export default function LoginSlotSwitcher({
   const dispatch = useAppDispatch();
   const authStage = useAppSelector(applicationSlice.selectors.getAuthStage);
 
-  useEffect(() => {
-    const hasResetParams =
-      !!searchParams?.get("token") || !!searchParams?.get("error");
+  const errorParam = searchParams?.get("error");
+  const isEmailNotVerified = errorParam === "email-not-verified";
 
-    if (hasResetParams) {
+  useEffect(() => {
+    // Only trigger reset flow for reset-specific params, not email-verification errors
+    const hasResetToken = !!searchParams?.get("token");
+    const hasResetError = !!errorParam && !isEmailNotVerified;
+
+    if (hasResetToken || hasResetError) {
       dispatch(applicationSlice.actions.setAuthStage("reset"));
     }
-  }, [dispatch, searchParams]);
+  }, [dispatch, searchParams, errorParam, isEmailNotVerified]);
 
   if (isIncomplete) return <>{newuser}</>;
 
@@ -35,5 +40,15 @@ export default function LoginSlotSwitcher({
     return <>{reset}</>;
   }
 
-  return <>{normal}</>;
+  return (
+    <>
+      {isEmailNotVerified && (
+        <Alert color="warning" sx={{ mb: 2 }}>
+          Please verify your email before continuing. Check your inbox for a
+          verification link.
+        </Alert>
+      )}
+      {normal}
+    </>
+  );
 }

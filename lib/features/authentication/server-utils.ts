@@ -43,13 +43,17 @@ export async function getServerSession(): Promise<BetterAuthSession | null> {
 
 /**
  * Require authentication - redirects to login if not authenticated
- * Redirects to onboarding page if user is incomplete (missing required fields)
- * Returns the session if authenticated and complete
+ * Redirects to login if email is not verified (user must verify via email link first)
+ * Returns the session if authenticated and email-verified
  */
 export async function requireAuth(): Promise<BetterAuthSession> {
   const session = await getServerSession();
   if (!session) {
     redirect("/login");
+  }
+
+  if (!session.user.emailVerified) {
+    redirect("/login?error=email-not-verified");
   }
 
   return session;
