@@ -4,7 +4,7 @@ import { authenticationSlice } from "@/lib/features/authentication/frontend";
 import { VerifiedData } from "@/lib/features/authentication/types";
 import { useAppDispatch } from "@/lib/hooks";
 import { useNewUser } from "@/src/hooks/authenticationHooks";
-import { Typography } from "@mui/joy";
+import { FormControl, FormLabel, Input, Typography } from "@mui/joy";
 import { useEffect, useState } from "react";
 import RequiredBox from "./Fields/RequiredBox";
 import { ValidatedSubmitButton } from "./Fields/ValidatedSubmitButton";
@@ -30,7 +30,6 @@ export default function OnboardingForm({
     addRequiredCredentials([
       "username",
       "realName",
-      "djName",
       "password",
       "confirmPassword",
     ]);
@@ -55,13 +54,15 @@ export default function OnboardingForm({
         disabled={authenticating}
         initialValue={realName}
       />
-      <RequiredBox
-        name="djName"
-        title="DJ Name"
-        placeholder="DJ Name"
-        disabled={authenticating}
-        initialValue={djName}
-      />
+      <FormControl>
+        <FormLabel>DJ Name</FormLabel>
+        <Input
+          name="djName"
+          placeholder="DJ Name"
+          disabled={authenticating}
+          defaultValue={djName}
+        />
+      </FormControl>
       <RequiredBox
         name="password"
         title="New Password"
