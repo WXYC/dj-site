@@ -244,7 +244,7 @@ export const AccountEntry = ({
       <td>{account.realName}</td>
       <td>{account.userName}</td>
       <td>
-        {account.djName.length > 0 && "DJ"} {account.djName}
+        {account.djName && account.djName.length > 0 && "DJ"} {account.djName ?? ""}
       </td>
       <td>{account.email}</td>
       <td>
