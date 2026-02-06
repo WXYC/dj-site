@@ -3,32 +3,31 @@ import { NextRequest, NextResponse } from "next/server";
 /**
  * Route handler that intercepts better-auth's email verification links.
  *
- * Better-auth generates links like:
- *   https://dj.wxyc.org/auth/verify-email?token=xxx&callbackURL=https://dj.wxyc.org/onboarding
+ * The backend keeps its baseURL as api.wxyc.org (to preserve JWT issuer/
+ * audience and JWKS), but rewrites the host of the verification URL in its
+ * sendVerificationEmail callback to point to dj.wxyc.org — which lands here.
  *
- * The Next.js rewrite normally proxies /auth/* to the backend, but on
- * Cloudflare Pages the upstream 302 redirect is followed internally —
- * the browser URL never updates, and the verification token leaks into
- * the login page's search params, triggering the password-reset UI.
- *
- * This filesystem route takes precedence over the rewrite. It:
- *   1. Forwards the verification request to the real backend
+ * This filesystem route takes precedence over the Next.js rewrite. It:
+ *   1. Forwards the verification request to the real backend at api.wxyc.org
  *   2. Extracts any session cookies the backend set (autoSignInAfterVerification)
- *   3. Forwards those cookies to the browser on the frontend domain
+ *   3. Strips the backend Domain= attribute and forwards the cookies so they
+ *      are scoped to the frontend domain (dj.wxyc.org)
  *   4. Issues a proper 302 back to the browser with a clean URL
  *
  * When the backend has `emailVerification.autoSignInAfterVerification: true`,
- * the backend will return Set-Cookie headers with a session token alongside
- * its redirect. We forward those cookies so the user is seamlessly signed in
- * on the frontend domain — making the verification link act as a magic link.
+ * the verify-email endpoint returns Set-Cookie headers with a session token
+ * alongside its redirect. We forward those cookies so the user is seamlessly
+ * signed in on the frontend domain — making the verification link act as a
+ * magic link.
  *
- * If the backend does NOT set session cookies (autoSignInAfterVerification
- * is not enabled), we fall back to redirecting to /login?verified=true so
- * the user can sign in manually.
+ * If the backend does NOT set session cookies, we fall back to redirecting
+ * to /login?verified=true so the user can sign in manually.
  */
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const token = searchParams.get("token");
+  // The callbackURL arrives as a relative path (e.g. "/onboarding") because
+  // the backend rewrites only the host, leaving query params untouched.
   const callbackURL = searchParams.get("callbackURL");
 
   if (!token) {
@@ -68,7 +67,8 @@ export async function GET(request: NextRequest) {
     // --- Extract session cookies from the backend response ---
     // When autoSignInAfterVerification is enabled, the backend attaches
     // Set-Cookie headers with the session token to its redirect response.
-    const setCookieHeaders: string[] = backendResponse.headers.getSetCookie?.() ?? [];
+    const setCookieHeaders: string[] =
+      backendResponse.headers.getSetCookie?.() ?? [];
 
     // Check whether the backend actually created a session (i.e. set cookies
     // that look like session tokens). If so we can send the user straight to
@@ -80,7 +80,9 @@ export async function GET(request: NextRequest) {
         c.includes("session")
     );
 
-    // Choose destination: onboarding (auto-signed-in) or login (manual sign-in)
+    // Choose destination: onboarding (auto-signed-in) or login (manual sign-in).
+    // callbackURL is a relative path like "/onboarding", resolved against the
+    // frontend origin by the URL constructor.
     const destination = hasSessionCookies
       ? new URL(callbackURL || "/onboarding", request.url)
       : new URL("/login?verified=true", request.url);
