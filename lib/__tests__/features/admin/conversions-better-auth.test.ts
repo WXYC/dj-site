@@ -98,10 +98,10 @@ describe("conversions-better-auth", () => {
       expect(result.djName).toBe("DJ Cool");
     });
 
-    it("should fall back to 'No DJ Name' when djName is not available", () => {
+    it("should return undefined when djName is not available", () => {
       const result = convertBetterAuthToAccountResult(baseUser);
 
-      expect(result.djName).toBe("No DJ Name");
+      expect(result.djName).toBeUndefined();
     });
 
     it("should set authType to Confirmed when email is verified", () => {
