@@ -87,13 +87,12 @@ export function requireRole(session: BetterAuthSession, requiredRole: Authorizat
 }
 
 /**
- * Check if user is incomplete (missing required fields: realName or djName)
+ * Check if user is incomplete (missing required fields: realName)
  */
 export function isUserIncomplete(session: BetterAuthSession): boolean {
   const realName = session.user.realName;
-  const djName = session.user.djName;
-  
-  return !realName || realName.trim() === "" || !djName || djName.trim() === "";
+
+  return !realName || realName.trim() === "";
 }
 
 /**
@@ -104,10 +103,6 @@ export function getIncompleteUserAttributes(session: BetterAuthSession): (keyof 
   
   if (!session.user.realName || session.user.realName.trim() === "") {
     missingAttributes.push("realName");
-  }
-  
-  if (!session.user.djName || session.user.djName.trim() === "") {
-    missingAttributes.push("djName");
   }
   
   return missingAttributes;

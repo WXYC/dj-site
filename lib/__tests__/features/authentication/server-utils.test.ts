@@ -224,12 +224,12 @@ describe("server-utils", () => {
       expect(result).toBe(true);
     });
 
-    it("should return true when djName is missing", () => {
+    it("should return false when djName is missing", () => {
       const session = createTestIncompleteSession(["djName"]);
 
       const result = isUserIncomplete(session);
 
-      expect(result).toBe(true);
+      expect(result).toBe(false);
     });
 
     it("should return true when realName is empty string", () => {
@@ -285,25 +285,25 @@ describe("server-utils", () => {
       expect(result).not.toContain("djName");
     });
 
-    it("should return djName when missing", () => {
+    it("should not return djName when missing (djName is optional)", () => {
       const session = createTestIncompleteSession(["djName"]);
 
       const result = getIncompleteUserAttributes(session);
 
-      expect(result).toContain("djName");
+      expect(result).not.toContain("djName");
       expect(result).not.toContain("realName");
     });
 
-    it("should return both when both are missing", () => {
+    it("should return only realName when both are missing", () => {
       const session = createTestIncompleteSession(["realName", "djName"]);
 
       const result = getIncompleteUserAttributes(session);
 
       expect(result).toContain("realName");
-      expect(result).toContain("djName");
+      expect(result).not.toContain("djName");
     });
 
-    it("should detect empty string as missing", () => {
+    it("should detect empty string realName as missing but not djName", () => {
       const session = createTestBetterAuthSession({
         user: {
           id: "test-id",
@@ -318,10 +318,10 @@ describe("server-utils", () => {
       const result = getIncompleteUserAttributes(session);
 
       expect(result).toContain("realName");
-      expect(result).toContain("djName");
+      expect(result).not.toContain("djName");
     });
 
-    it("should detect whitespace-only strings as missing", () => {
+    it("should detect whitespace-only realName as missing but not djName", () => {
       const session = createTestBetterAuthSession({
         user: {
           id: "test-id",
@@ -336,7 +336,7 @@ describe("server-utils", () => {
       const result = getIncompleteUserAttributes(session);
 
       expect(result).toContain("realName");
-      expect(result).toContain("djName");
+      expect(result).not.toContain("djName");
     });
   });
 
@@ -583,7 +583,7 @@ describe("server-utils", () => {
   });
 
   describe("isUserIncomplete edge cases", () => {
-    it("should return true when djName is whitespace only", () => {
+    it("should return false when djName is whitespace only (djName is optional)", () => {
       const session = createTestBetterAuthSession({
         user: {
           id: "test-id",
@@ -597,7 +597,7 @@ describe("server-utils", () => {
 
       const result = isUserIncomplete(session);
 
-      expect(result).toBe(true);
+      expect(result).toBe(false);
     });
 
     it("should return false when both names have valid values", () => {

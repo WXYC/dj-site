@@ -66,10 +66,10 @@ describe("admin conversions (Better Auth)", () => {
       expect(result.djName).toBe("DJ Awesome");
     });
 
-    it("should use 'No DJ Name' when djName is not set", () => {
+    it("should return undefined when djName is not set", () => {
       const user = createTestBetterAuthUser({ djName: undefined });
       const result = convertBetterAuthToAccountResult(user);
-      expect(result.djName).toBe("No DJ Name");
+      expect(result.djName).toBeUndefined();
     });
 
     it("should extract email from user", () => {

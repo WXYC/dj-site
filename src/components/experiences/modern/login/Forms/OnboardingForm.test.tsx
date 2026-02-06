@@ -131,7 +131,6 @@ describe("OnboardingForm", () => {
     expect(mockAddRequiredCredentials).toHaveBeenCalledWith([
       "username",
       "realName",
-      "djName",
       "password",
       "confirmPassword",
     ]);
