@@ -5,6 +5,7 @@ import { useAppDispatch } from "@/lib/hooks";
 import { useLogout } from "@/src/hooks/authenticationHooks";
 import { ArrowBack } from "@mui/icons-material";
 import { Button, Link } from "@mui/joy";
+import { useRouter } from "next/navigation";
 
 export default function AuthBackButton({
   text
@@ -13,10 +14,15 @@ export default function AuthBackButton({
 }) {
   const { handleLogout, loggingOut } = useLogout();
   const dispatch = useAppDispatch();
+  const router = useRouter();
 
   const handleBack = async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     dispatch(applicationSlice.actions.setAuthStage("login"));
+    // Navigate to a clean /login URL first — this clears any stale ?token= or
+    // ?error= search params that would otherwise re-trigger the reset flow
+    // when the useEffect in LoginSlotSwitcher runs after the re-render.
+    router.replace("/login");
     await handleLogout();
   };
 
