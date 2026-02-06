@@ -17,7 +17,7 @@ export type Account = {
   id?: string;
   userName: string;
   realName: string;
-  djName: string;
+  djName?: string;
   authorization: Authorization;
   authType: AdminAuthenticationStatus;
   shows?: string;
