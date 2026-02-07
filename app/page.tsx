@@ -30,6 +30,11 @@ export default function HomePage() {
             Listen
           </Button>
         </Link>
+        <Link href="/playlists" style={{ width: "100%" }}>
+          <Button variant="outlined" color="neutral" fullWidth>
+            Playlist Archive
+          </Button>
+        </Link>
       </Stack>
     </WXYCPage>
   );
