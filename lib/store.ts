@@ -20,6 +20,8 @@ import { catalogSlice } from "./features/catalog/frontend";
 import { experienceApi } from "./features/experiences/api";
 import { flowsheetApi } from "./features/flowsheet/api";
 import { flowsheetSlice } from "./features/flowsheet/frontend";
+import { playlistSearchApi } from "./features/playlist-search/api";
+import { playlistSearchSlice } from "./features/playlist-search/frontend";
 import { rotationApi } from "./features/rotation/api";
 import { rotationSlice } from "./features/rotation/frontend";
 
@@ -33,6 +35,8 @@ const rootReducer = combineSlices(
   binApi,
   flowsheetSlice,
   flowsheetApi,
+  playlistSearchSlice,
+  playlistSearchApi,
   rotationSlice,
   rotationApi,
   adminSlice
@@ -51,6 +55,7 @@ export const makeStore = () => {
         .concat(catalogApi.middleware)
         .concat(binApi.middleware)
         .concat(flowsheetApi.middleware)
+        .concat(playlistSearchApi.middleware)
         .concat(rotationApi.middleware);
     },
   });
