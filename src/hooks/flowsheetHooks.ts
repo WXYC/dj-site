@@ -3,7 +3,7 @@
 import {
   flowsheetApi,
   useAddToFlowsheetMutation,
-  useGetEntriesQuery,
+  useGetInfiniteEntriesInfiniteQuery,
   useJoinShowMutation,
   useLeaveShowMutation,
   useRemoveFromFlowsheetMutation,
@@ -37,27 +37,34 @@ export const useShowControl = () => {
   const {
     data: liveList,
     isLoading: loadingLiveList,
-    isSuccess: liveListSuccess,
   } = useWhoIsLiveQuery(undefined, {
     skip: !userData || userloading,
     pollingInterval: 60000, // Poll every 60 seconds to keep live status updated
   });
 
-  const pagination = useAppSelector(flowsheetSlice.selectors.getPagination);
   const {
-    data,
+    data: infiniteData,
     isLoading: entriesLoading,
     isSuccess,
-    isError,
-  } = useGetEntriesQuery(pagination, {
+  } = useGetInfiniteEntriesInfiniteQuery(undefined, {
     skip: !userData || userloading,
     pollingInterval: 60000, // Poll every 60 seconds to keep flowsheet updated
   });
 
+  // Flatten all pages into a single sorted array
+  const allEntries = useMemo(() => {
+    if (!infiniteData?.pages) return [];
+    const map = new Map<number, FlowsheetEntry>();
+    infiniteData.pages.flat().forEach((entry) => map.set(entry.id, entry));
+    return Array.from(map.values()).sort(
+      (a, b) => b.play_order - a.play_order
+    );
+  }, [infiniteData?.pages]);
+
   // Calculate derived state during render - no useState/useEffect needed
   const currentShow = useMemo(() => {
-    return isSuccess && data && data.length > 0 ? data[0].show_id : -1;
-  }, [data, isSuccess]);
+    return isSuccess && allEntries.length > 0 ? allEntries[0].show_id : -1;
+  }, [allEntries, isSuccess]);
 
   const live = useMemo(() => {
     if (!isSuccess) return false;
@@ -81,13 +88,7 @@ export const useShowControl = () => {
     if (!userData || userData.id === undefined || userloading) {
       return;
     }
-
-    dispatch(
-      flowsheetSlice.actions.setPagination({
-        page: 0,
-        limit: 1,
-      })
-    );
+    // Tag invalidation from the mutation handles refetching
     goLiveFunction({ dj_id: userData.id });
   };
 
@@ -98,13 +99,7 @@ export const useShowControl = () => {
 
     // Clear the queue when ending the show
     dispatch(flowsheetSlice.actions.clearQueue());
-    
-    dispatch(
-      flowsheetSlice.actions.setPagination({
-        page: 0,
-        limit: 1,
-      })
-    );
+    // Tag invalidation from the mutation handles refetching
     leaveFunction({ dj_id: userData.id });
   };
 
@@ -195,14 +190,28 @@ export const useFlowsheet = () => {
   const { loading: userloading, info: userData } = useRegistry();
   const dispatch = useAppDispatch();
 
-  const pagination = useAppSelector(flowsheetSlice.selectors.getPagination);
-  const { data, isLoading, isSuccess, isError } = useGetEntriesQuery(
-    pagination,
-    {
-      skip: !userData || userloading,
-      pollingInterval: 60000, // Poll every 60 seconds to keep flowsheet updated
-    }
-  );
+  const {
+    data: infiniteData,
+    isLoading,
+    isSuccess,
+    isError,
+    isFetching,
+    hasNextPage,
+    fetchNextPage,
+  } = useGetInfiniteEntriesInfiniteQuery(undefined, {
+    skip: !userData || userloading,
+    pollingInterval: 60000, // Poll every 60 seconds to keep flowsheet updated
+  });
+
+  // Flatten all pages into a single deduplicated, sorted array
+  const allEntries = useMemo(() => {
+    if (!infiniteData?.pages) return [];
+    const map = new Map<number, FlowsheetEntry>();
+    infiniteData.pages.flat().forEach((entry) => map.set(entry.id, entry));
+    return Array.from(map.values()).sort(
+      (a, b) => b.play_order - a.play_order
+    );
+  }, [infiniteData?.pages]);
 
   const [addToFlowsheet, addToFlowsheetResult] = useAddToFlowsheetMutation();
   const addToFlowsheetCallback = (arg: FlowsheetSubmissionParams) => {
@@ -210,17 +219,8 @@ export const useFlowsheet = () => {
       return Promise.reject('User not logged in');
     }
 
-    // Return the promise so callers can wait for completion
-    return addToFlowsheet(arg).unwrap().then((result) => {
-      // Dispatch after successful mutation
-      dispatch(
-        flowsheetSlice.actions.setPagination({
-          page: 0,
-          limit: 1,
-        })
-      );
-      return result;
-    });
+    // Tag invalidation from the mutation handles refetching
+    return addToFlowsheet(arg).unwrap();
   };
 
   const [removeFromFlowsheet, _] = useRemoveFromFlowsheetMutation();
@@ -228,13 +228,21 @@ export const useFlowsheet = () => {
     if (!userData || userData.id === undefined || userloading) {
       return;
     }
+    // Optimistic update: remove entry from all pages in the infinite query cache
     dispatch(
-      flowsheetApi.util.updateQueryData("getEntries", pagination, (draft) => {
-        const index = draft.findIndex((item) => item.id === entry);
-        if (index !== -1) {
-          draft.splice(index, 1);
+      flowsheetApi.util.updateQueryData(
+        "getInfiniteEntries",
+        undefined,
+        (draft) => {
+          for (const page of draft.pages) {
+            const index = page.findIndex((item) => item.id === entry);
+            if (index !== -1) {
+              page.splice(index, 1);
+              return;
+            }
+          }
         }
-      })
+      )
     );
     removeFromFlowsheet(entry);
   };
@@ -245,15 +253,23 @@ export const useFlowsheet = () => {
     if (!userData || userData.id === undefined || userloading) {
       return;
     }
+    // Optimistic update: apply field changes across all pages
     dispatch(
-      flowsheetApi.util.updateQueryData("getEntries", pagination, (draft) => {
-        const index = draft.findIndex(
-          (item) => item.id === updateData.entry_id
-        );
-        if (index !== -1) {
-          Object.assign(draft[index], updateData.data);
+      flowsheetApi.util.updateQueryData(
+        "getInfiniteEntries",
+        undefined,
+        (draft) => {
+          for (const page of draft.pages) {
+            const index = page.findIndex(
+              (item) => item.id === updateData.entry_id
+            );
+            if (index !== -1) {
+              Object.assign(page[index], updateData.data);
+              return;
+            }
+          }
         }
-      })
+      )
     );
     updateFlowsheetEntry(updateData);
   };
@@ -265,30 +281,30 @@ export const useFlowsheet = () => {
 
   // Calculate derived state during render instead of useEffect + Redux
   const currentShowEntries = useMemo(() => {
-    if (currentShow === -1 || !live || !data) return [];
-    return data.filter(
+    if (currentShow === -1 || !live || allEntries.length === 0) return [];
+    return allEntries.filter(
       (entry) =>
         entry.show_id === currentShow &&
         !isFlowsheetStartShowEntry(entry) &&
         !isFlowsheetEndShowEntry(entry)
     );
-  }, [data, currentShow, live]);
+  }, [allEntries, currentShow, live]);
 
   const setCurrentShowEntries = (entries: FlowsheetEntry[]) => {
     dispatch(flowsheetSlice.actions.setCurrentShowEntries(entries));
   };
 
   const lastShowsEntries = useMemo(() => {
-    if (!data) return [];
+    if (allEntries.length === 0) return [];
     return live
-      ? data.filter(
+      ? allEntries.filter(
           (entry) =>
             entry.show_id !== currentShow ||
             isFlowsheetStartShowEntry(entry) ||
             isFlowsheetEndShowEntry(entry)
         )
-      : data;
-  }, [data, live, currentShow]);
+      : allEntries;
+  }, [allEntries, live, currentShow]);
 
   const [switchBackendEntries, switchBackendResult] =
     useSwitchEntriesMutation();
@@ -301,21 +317,15 @@ export const useFlowsheet = () => {
         (e) => e.id === entry.id
       );
 
-      const swappedWith = data?.[newLocation];
+      const swappedWith = allEntries[newLocation];
 
       if (!swappedWith) return;
 
       try {
-        switchBackendEntries({
+        // Tag invalidation from the mutation handles refetching
+        await switchBackendEntries({
           entry_id: entry.id,
           new_position: swappedWith.play_order!,
-        }).then(() => {
-          dispatch(
-            flowsheetSlice.actions.setPagination({
-              page: 0,
-              limit: currentShowEntries.length,
-            })
-          );
         });
       } catch (err) {
         console.error("Failed to switch entries:", err);
@@ -324,11 +334,10 @@ export const useFlowsheet = () => {
     [
       userData?.id,
       userloading,
-      data,
+      allEntries,
       currentShow,
       switchBackendEntries,
       currentShowEntries,
-      dispatch,
     ]
   );
 
@@ -343,7 +352,10 @@ export const useFlowsheet = () => {
     removeFromFlowsheet: removeFromFlowsheetCallback,
     updateFlowsheet,
     removeFromQueue,
-    loading: isLoading || userloading || !data,
+    loading: isLoading || userloading || !infiniteData,
+    isFetching,
+    hasNextPage,
+    fetchNextPage,
     isSuccess,
     isError,
   };
