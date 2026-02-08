@@ -65,14 +65,21 @@ export type NewUserCredentials = Credentials & Record<string, string>;
 export type User = {
   username: string;
   email: string;
-  realName?: string;     // Optional: User's real name
-  djName?: string;        // Optional: DJ name/on-air name
+  realName?: string;          // Optional: User's real name
+  djName?: string;            // Optional: DJ name/on-air name
+  pronouns?: string;          // Optional: User's pronouns (e.g., "they/them")
+  namePronunciation?: string; // Optional: Phonetic pronunciation guide
+  showTimes?: string;         // Optional: When the DJ has their show
+  title?: string;             // Optional: Role/title at the station
+  semesterHired?: string;     // Optional: When they joined (e.g., "Fall 2024")
+  bio?: string;               // Optional: Short biography
+  location?: string;          // Optional: Where they're based
   authority: Authorization;
   // Better-auth fields (optional for compatibility)
   id?: string;
-  name?: string;          // Username (duplicate of username)
+  name?: string;              // Username (duplicate of username)
   emailVerified?: boolean;
-  appSkin?: string;       // UI theme
+  appSkin?: string;           // UI theme
   createdAt?: Date;
   updatedAt?: Date;
 };
@@ -153,6 +160,13 @@ export const djAttributeNames: Record<string, keyof VerifiedData> = {
 export const djAttributeTitles: Partial<Record<keyof VerifiedData, string>> = {
   realName: "Real Name",
   djName: "DJ Name",
+  pronouns: "Pronouns",
+  namePronunciation: "Name Pronunciation",
+  showTimes: "Show Times",
+  title: "Title",
+  semesterHired: "Semester Hired",
+  bio: "Bio",
+  location: "Location",
   username: "Username",
   password: "Password",
   code: "Code",

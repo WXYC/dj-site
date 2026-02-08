@@ -56,7 +56,7 @@ export function useDJAccount() {
           }
 
           // Update user via better-auth non-admin updateUser (updates current user)
-          // Custom metadata fields (realName, djName) go at the top level
+          // Custom metadata fields go at the top level
           // Email updates may require special handling in better-auth
           const updateData: Record<string, any> = {};
           if (data.realName) updateData.realName = data.realName;
@@ -64,6 +64,14 @@ export function useDJAccount() {
           // Note: Email updates via non-admin updateUser may have restrictions
           // If email update fails, user may need admin assistance
           if (data.email) updateData.email = data.email;
+          // Optional profile fields - use !== undefined to allow clearing
+          if (data.pronouns !== undefined) updateData.pronouns = data.pronouns;
+          if (data.namePronunciation !== undefined) updateData.namePronunciation = data.namePronunciation;
+          if (data.showTimes !== undefined) updateData.showTimes = data.showTimes;
+          if (data.title !== undefined) updateData.title = data.title;
+          if (data.semesterHired !== undefined) updateData.semesterHired = data.semesterHired;
+          if (data.bio !== undefined) updateData.bio = data.bio;
+          if (data.location !== undefined) updateData.location = data.location;
 
           if (Object.keys(updateData).length > 0) {
             // Use non-admin updateUser (same pattern as onboarding fix)
