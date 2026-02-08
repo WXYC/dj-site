@@ -23,6 +23,41 @@ import { NextRequest, NextResponse } from "next/server";
  * If the backend does NOT set session cookies, we fall back to redirecting
  * to /login?verified=true so the user can sign in manually.
  */
+
+/**
+ * Extract all Set-Cookie header values from a Response.
+ *
+ * Headers.getSetCookie() is the standard API but may not be available in every
+ * runtime (some Cloudflare Workers / OpenNext polyfills omit it).  We try
+ * getSetCookie() first, then fall back to parsing the raw "set-cookie" header
+ * (which joins multiple values with ", " — not ideal, but good enough to
+ * detect presence and forward whole cookies).
+ */
+function extractSetCookieHeaders(headers: Headers): string[] {
+  // Preferred: getSetCookie() returns one entry per Set-Cookie header
+  if (typeof headers.getSetCookie === "function") {
+    const cookies = headers.getSetCookie();
+    if (cookies.length > 0) return cookies;
+  }
+
+  // Fallback: raw header string — multiple Set-Cookie values are joined
+  // with ", " by the Headers spec.  Split carefully on ", " that is followed
+  // by a cookie-name= pattern (letters/digits/dash/underscore then "=").
+  const raw = headers.get("set-cookie");
+  if (!raw) return [];
+
+  // Simple heuristic split: cookies rarely have ", <word>=" in their values
+  // except in "Expires=Thu, 01 Jan 2026 …" — so we split on ", " only when
+  // followed by a token that looks like a cookie name and "=".
+  return raw.split(/,\s*(?=[A-Za-z0-9_.-]+=)/).map((s) => s.trim());
+}
+
+// Explicitly handle HEAD so email-client link previews get a cheap 200
+// without consuming the token or triggering verification.
+export function HEAD() {
+  return new Response(null, { status: 200 });
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const token = searchParams.get("token");
@@ -52,14 +87,22 @@ export async function GET(request: NextRequest) {
       redirect: "manual",
     });
 
+    const status = backendResponse.status;
+    console.log(
+      `[verify-email] backend responded ${status}; ` +
+        `Location: ${backendResponse.headers.get("location") ?? "(none)"}; ` +
+        `Set-Cookie present: ${backendResponse.headers.has("set-cookie")}`
+    );
+
     // A 302/301 means verification succeeded (backend is redirecting to
     // callbackURL). A 200 also counts as success for some configurations.
     const verificationSucceeded =
-      backendResponse.ok ||
-      backendResponse.status === 302 ||
-      backendResponse.status === 301;
+      status === 200 || status === 301 || status === 302;
 
     if (!verificationSucceeded) {
+      console.warn(
+        `[verify-email] verification failed with status ${status}`
+      );
       const dest = new URL("/login?error=verification-failed", request.url);
       return NextResponse.redirect(dest);
     }
@@ -67,8 +110,12 @@ export async function GET(request: NextRequest) {
     // --- Extract session cookies from the backend response ---
     // When autoSignInAfterVerification is enabled, the backend attaches
     // Set-Cookie headers with the session token to its redirect response.
-    const setCookieHeaders: string[] =
-      backendResponse.headers.getSetCookie?.() ?? [];
+    const setCookieHeaders = extractSetCookieHeaders(backendResponse.headers);
+
+    console.log(
+      `[verify-email] extracted ${setCookieHeaders.length} Set-Cookie header(s)`,
+      setCookieHeaders.map((c) => c.substring(0, 60) + "…")
+    );
 
     // Check whether the backend actually created a session (i.e. set cookies
     // that look like session tokens). If so we can send the user straight to
@@ -78,6 +125,11 @@ export async function GET(request: NextRequest) {
         c.includes("session_token") ||
         c.includes("better-auth") ||
         c.includes("session")
+    );
+
+    console.log(
+      `[verify-email] hasSessionCookies: ${hasSessionCookies}; ` +
+        `callbackURL: ${callbackURL}`
     );
 
     // Choose destination: onboarding (auto-signed-in) or login (manual sign-in).
