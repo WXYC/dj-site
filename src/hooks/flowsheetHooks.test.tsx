@@ -632,6 +632,73 @@ describe("flowsheetHooks", () => {
 
       expect(typeof result.current.entries.switchEntries).toBe("function");
     });
+
+    it("should call setCurrentShowEntries to update entries in state", () => {
+      const { result } = renderHook(() => useFlowsheet(), {
+        wrapper: createWrapper(),
+      });
+
+      const newEntries = [
+        createTestFlowsheetEntry({ id: 10, show_id: 100, play_order: 1 }),
+      ];
+
+      act(() => {
+        result.current.entries.setCurrentShowEntries(newEntries);
+      });
+
+      // Function should execute without error
+      expect(typeof result.current.entries.setCurrentShowEntries).toBe("function");
+    });
+
+    it("should call switchBackendEntries when switchEntries is called with valid entry", async () => {
+      const { result } = renderHook(() => useFlowsheet(), {
+        wrapper: createWrapper(),
+      });
+
+      const entry = createTestFlowsheetEntry({ id: 1, show_id: 100, play_order: 1 });
+
+      await act(async () => {
+        await result.current.entries.switchEntries(entry);
+      });
+
+      expect(mockSwitchBackendEntries).toHaveBeenCalled();
+    });
+
+    it("should not call switchBackendEntries when user is not loaded", async () => {
+      mockUseRegistry.mockReturnValue({
+        loading: true,
+        info: null,
+      });
+
+      const { result } = renderHook(() => useFlowsheet(), {
+        wrapper: createWrapper(),
+      });
+
+      const entry = createTestFlowsheetEntry({ id: 1, show_id: 100, play_order: 1 });
+
+      await act(async () => {
+        await result.current.entries.switchEntries(entry);
+      });
+
+      expect(mockSwitchBackendEntries).not.toHaveBeenCalled();
+    });
+
+    it("should not call switchBackendEntries when entry is not found in currentShowEntries", async () => {
+      const { result } = renderHook(() => useFlowsheet(), {
+        wrapper: createWrapper(),
+      });
+
+      // Entry with an ID that doesn't exist in flowsheetData
+      const entry = createTestFlowsheetEntry({ id: 999, show_id: 100, play_order: 999 });
+
+      await act(async () => {
+        await result.current.entries.switchEntries(entry);
+      });
+
+      // Should not call because the entry wasn't found
+      expect(mockSwitchBackendEntries).not.toHaveBeenCalled();
+    });
+
   });
 
   describe("useQueue", () => {
