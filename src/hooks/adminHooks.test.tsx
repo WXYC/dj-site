@@ -128,5 +128,104 @@ describe("adminHooks", () => {
 
       expect(result.current.isError).toBe(true);
     });
+
+    it("should handle error without message", async () => {
+      const { authClient } = await import("@/lib/features/authentication/client");
+      vi.mocked(authClient.admin.listUsers).mockResolvedValueOnce({
+        data: null,
+        error: {},
+      } as any);
+
+      const { result } = renderHook(() => useAccountListResults(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.isError).toBe(true);
+      expect(result.current.error?.message).toBe("Failed to fetch users");
+    });
+
+    it("should handle empty users array", async () => {
+      const { authClient } = await import("@/lib/features/authentication/client");
+      vi.mocked(authClient.admin.listUsers).mockResolvedValueOnce({
+        data: { users: undefined },
+        error: null,
+      } as any);
+
+      const { result } = renderHook(() => useAccountListResults(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.data).toEqual([]);
+    });
+
+    it("should handle non-Error exceptions", async () => {
+      const { authClient } = await import("@/lib/features/authentication/client");
+      vi.mocked(authClient.admin.listUsers).mockRejectedValueOnce("string error");
+
+      const { result } = renderHook(() => useAccountListResults(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.isError).toBe(true);
+      expect(result.current.error?.message).toBe("string error");
+    });
+
+    it("should filter by djName when djName is present", async () => {
+      const { result } = renderHook(() => useAccountListResults(), {
+        wrapper: createWrapper({ admin: { searchString: "DJ Test" } }),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.data.length).toBeGreaterThan(0);
+    });
+
+    it("should handle accounts with null djName during filtering", async () => {
+      const { authClient } = await import("@/lib/features/authentication/client");
+      vi.mocked(authClient.admin.listUsers).mockResolvedValueOnce({
+        data: {
+          users: [
+            { id: "user-1", name: "No DJ", email: "no@example.com", realName: "No DJ Name", djName: null, role: "member" },
+          ],
+        },
+        error: null,
+      } as any);
+
+      const { convertBetterAuthToAccountResult } = await import(
+        "@/lib/features/admin/conversions-better-auth"
+      );
+      vi.mocked(convertBetterAuthToAccountResult).mockReturnValueOnce({
+        id: "user-1",
+        userName: "no@example.com",
+        realName: "No DJ Name",
+        djName: null as any,
+        role: "member",
+      } as any);
+
+      const { result } = renderHook(() => useAccountListResults(), {
+        wrapper: createWrapper({ admin: { searchString: "searching" } }),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      // Should not crash when djName is null
+      expect(Array.isArray(result.current.data)).toBe(true);
+    });
   });
 });
