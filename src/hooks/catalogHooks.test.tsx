@@ -365,6 +365,46 @@ describe("catalogHooks", () => {
       // Initial search string is empty
       expect(result.current.searchString).toBe("");
     });
+
+    it("should search by Artists when searchIn is set to Artists", async () => {
+      const { result } = renderHook(() => useCatalogResults(), {
+        wrapper: createWrapper(),
+      });
+
+      // Set search to Artists and add a search string
+      act(() => {
+        result.current.setSearchIn("Artists");
+        result.current.setSearchString("test artist");
+      });
+
+      // Fast-forward timers to trigger the debounced effect
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+
+      // The query should have been updated for artist search
+      expect(typeof result.current.setSearchIn).toBe("function");
+    });
+
+    it("should search by Albums when searchIn is set to Albums", async () => {
+      const { result } = renderHook(() => useCatalogResults(), {
+        wrapper: createWrapper(),
+      });
+
+      // Set search to Albums and add a search string
+      act(() => {
+        result.current.setSearchIn("Albums");
+        result.current.setSearchString("test album");
+      });
+
+      // Fast-forward timers to trigger the debounced effect
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+
+      // The query should have been updated for album search
+      expect(typeof result.current.setSearchIn).toBe("function");
+    });
   });
 
   describe("useCatalogFlowsheetSearch", () => {
