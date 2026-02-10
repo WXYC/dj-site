@@ -227,6 +227,7 @@ export function createTestAccountResult(
   overrides: Partial<Account> = {}
 ): Account {
   return {
+    id: "test-user-id-123",
     userName: "testuser",
     realName: "Test User",
     djName: "DJ Test",
