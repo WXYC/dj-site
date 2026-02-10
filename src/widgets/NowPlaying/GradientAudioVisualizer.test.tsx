@@ -329,4 +329,201 @@ describe("GradientAudioVisualizer", () => {
       expect(audio).toHaveAttribute("src", "https://different.com/stream.mp3");
     });
   });
+
+  describe("audio events and visualization", () => {
+    it("should handle play event and update playing state", () => {
+      const { container } = render(
+        <GradientAudioVisualizer src="https://example.com/audio.mp3" overlayColor="white" />
+      );
+
+      const audio = container.querySelector("audio") as HTMLAudioElement;
+
+      // Trigger play event
+      act(() => {
+        const playEvent = new Event("play");
+        audio.dispatchEvent(playEvent);
+      });
+
+      // Overlay opacity should change to 0.5 when playing
+      const overlay = screen.getByTestId("overlay-box");
+      expect(overlay).toHaveAttribute("data-opacity", "0.5");
+    });
+
+    it("should handle pause event and update playing state", () => {
+      const { container } = render(
+        <GradientAudioVisualizer src="https://example.com/audio.mp3" overlayColor="white" />
+      );
+
+      const audio = container.querySelector("audio") as HTMLAudioElement;
+
+      // First play then pause
+      act(() => {
+        audio.dispatchEvent(new Event("play"));
+      });
+
+      act(() => {
+        audio.dispatchEvent(new Event("pause"));
+      });
+
+      // Overlay opacity should be back to 1 when paused
+      const overlay = screen.getByTestId("overlay-box");
+      expect(overlay).toHaveAttribute("data-opacity", "1");
+    });
+
+    it("should call context resume on audio.onplay", () => {
+      const { container } = render(
+        <GradientAudioVisualizer src="https://example.com/audio.mp3" />
+      );
+
+      const audio = container.querySelector("audio") as HTMLAudioElement;
+
+      // Trigger onplay handler
+      if (audio.onplay) {
+        audio.onplay(new Event("play"));
+      }
+
+      expect(mockAudioContext.resume).toHaveBeenCalled();
+    });
+
+    it("should start animation loop on audio.onplay", () => {
+      const { container } = render(
+        <GradientAudioVisualizer src="https://example.com/audio.mp3" />
+      );
+
+      const audio = container.querySelector("audio") as HTMLAudioElement;
+
+      // Trigger onplay handler
+      if (audio.onplay) {
+        audio.onplay(new Event("play"));
+      }
+
+      expect(window.requestAnimationFrame).toHaveBeenCalled();
+    });
+
+    it("should get frequency data during draw loop", () => {
+      const { container } = render(
+        <GradientAudioVisualizer src="https://example.com/audio.mp3" />
+      );
+
+      const audio = container.querySelector("audio") as HTMLAudioElement;
+
+      // Trigger onplay handler which calls draw()
+      if (audio.onplay) {
+        audio.onplay(new Event("play"));
+      }
+
+      expect(mockAnalyser.getByteFrequencyData).toHaveBeenCalled();
+    });
+
+    it("should draw bars on canvas during animation", () => {
+      const { container } = render(
+        <GradientAudioVisualizer src="https://example.com/audio.mp3" />
+      );
+
+      const audio = container.querySelector("audio") as HTMLAudioElement;
+
+      // Trigger onplay handler which calls draw()
+      if (audio.onplay) {
+        audio.onplay(new Event("play"));
+      }
+
+      expect(mockCanvasContext.fillRect).toHaveBeenCalled();
+    });
+  });
+
+  describe("resize handling", () => {
+    it("should handle window resize event", () => {
+      const { container } = render(
+        <GradientAudioVisualizer src="https://example.com/audio.mp3" />
+      );
+
+      // Trigger resize
+      act(() => {
+        window.dispatchEvent(new Event("resize"));
+      });
+
+      // createLinearGradient should be called for the gradient
+      expect(mockCanvasContext.createLinearGradient).toHaveBeenCalled();
+    });
+
+    it("should create gradient with color stops on resize", () => {
+      render(<GradientAudioVisualizer src="https://example.com/audio.mp3" />);
+
+      // Gradient should have color stops added
+      expect(mockGradient.addColorStop).toHaveBeenCalled();
+    });
+  });
+
+  describe("cleanup", () => {
+    it("should close audio context on unmount", () => {
+      const { unmount } = render(
+        <GradientAudioVisualizer src="https://example.com/audio.mp3" />
+      );
+
+      unmount();
+
+      expect(mockAudioContext.close).toHaveBeenCalled();
+    });
+
+    it("should remove resize event listener on unmount", () => {
+      const removeEventListenerSpy = vi.spyOn(window, "removeEventListener");
+
+      const { unmount } = render(
+        <GradientAudioVisualizer src="https://example.com/audio.mp3" />
+      );
+
+      unmount();
+
+      expect(removeEventListenerSpy).toHaveBeenCalledWith("resize", expect.any(Function));
+      removeEventListenerSpy.mockRestore();
+    });
+  });
+
+  describe("imperative handle methods", () => {
+    it("should call audio.play when play() is called through ref", () => {
+      const ref = createRef<{
+        play: () => void;
+        pause: () => void;
+        readonly isPlaying: boolean;
+      }>();
+
+      const { container } = render(
+        <GradientAudioVisualizer
+          src="https://example.com/audio.mp3"
+          ref={ref}
+        />
+      );
+
+      const audio = container.querySelector("audio") as HTMLAudioElement;
+      const playSpy = vi.spyOn(audio, "play").mockResolvedValue(undefined);
+
+      ref.current?.play();
+
+      expect(playSpy).toHaveBeenCalled();
+      playSpy.mockRestore();
+    });
+
+    it("should call audio.pause when pause() is called through ref", () => {
+      const ref = createRef<{
+        play: () => void;
+        pause: () => void;
+        readonly isPlaying: boolean;
+      }>();
+
+      const { container } = render(
+        <GradientAudioVisualizer
+          src="https://example.com/audio.mp3"
+          ref={ref}
+        />
+      );
+
+      const audio = container.querySelector("audio") as HTMLAudioElement;
+      const pauseSpy = vi.spyOn(audio, "pause").mockImplementation(() => {});
+
+      ref.current?.pause();
+
+      expect(pauseSpy).toHaveBeenCalled();
+      pauseSpy.mockRestore();
+    });
+  });
 });
