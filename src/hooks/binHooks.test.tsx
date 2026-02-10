@@ -101,6 +101,22 @@ describe("binHooks", () => {
 
       expect(result.current.loading).toBe(false);
     });
+
+    it("should show error toast when deletion fails", async () => {
+      const { useDeleteFromBinMutation } = await import("@/lib/features/bin/api");
+      vi.mocked(useDeleteFromBinMutation).mockReturnValue([
+        mockDeleteFromBin,
+        { isLoading: false, isError: true } as any,
+      ]);
+
+      const { toast } = await import("sonner");
+
+      renderHook(() => useDeleteFromBin(), {
+        wrapper: createWrapper(),
+      });
+
+      expect(toast.error).toHaveBeenCalledWith("Failed to remove album from bin");
+    });
   });
 
   describe("useAddToBin", () => {
@@ -130,6 +146,22 @@ describe("binHooks", () => {
       });
 
       expect(result.current.loading).toBe(false);
+    });
+
+    it("should show error toast when add fails", async () => {
+      const { useAddToBinMutation } = await import("@/lib/features/bin/api");
+      vi.mocked(useAddToBinMutation).mockReturnValue([
+        mockAddToBin,
+        { isLoading: false, isError: true } as any,
+      ]);
+
+      const { toast } = await import("sonner");
+
+      renderHook(() => useAddToBin(), {
+        wrapper: createWrapper(),
+      });
+
+      expect(toast.error).toHaveBeenCalledWith("Failed to add album to bin");
     });
   });
 
