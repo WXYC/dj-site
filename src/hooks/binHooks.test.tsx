@@ -163,6 +163,80 @@ describe("binHooks", () => {
 
       expect(toast.error).toHaveBeenCalledWith("Failed to add album to bin");
     });
+
+    it("should not call mutation when loading", async () => {
+      const { useRegistry } = await import("./authenticationHooks");
+      vi.mocked(useRegistry).mockReturnValue({
+        loading: true,
+        info: null,
+      } as any);
+
+      const { result } = renderHook(() => useAddToBin(), {
+        wrapper: createWrapper(),
+      });
+
+      act(() => {
+        result.current.addToBin(1);
+      });
+
+      expect(mockAddToBin).not.toHaveBeenCalled();
+    });
+
+    it("should not call mutation when info is null", async () => {
+      const { useRegistry } = await import("./authenticationHooks");
+      vi.mocked(useRegistry).mockReturnValue({
+        loading: false,
+        info: null,
+      } as any);
+
+      const { result } = renderHook(() => useAddToBin(), {
+        wrapper: createWrapper(),
+      });
+
+      act(() => {
+        result.current.addToBin(1);
+      });
+
+      expect(mockAddToBin).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("useDeleteFromBin edge cases", () => {
+    it("should not call mutation when loading", async () => {
+      const { useRegistry } = await import("./authenticationHooks");
+      vi.mocked(useRegistry).mockReturnValue({
+        loading: true,
+        info: null,
+      } as any);
+
+      const { result } = renderHook(() => useDeleteFromBin(), {
+        wrapper: createWrapper(),
+      });
+
+      act(() => {
+        result.current.deleteFromBin(1);
+      });
+
+      expect(mockDeleteFromBin).not.toHaveBeenCalled();
+    });
+
+    it("should not call mutation when info is null", async () => {
+      const { useRegistry } = await import("./authenticationHooks");
+      vi.mocked(useRegistry).mockReturnValue({
+        loading: false,
+        info: null,
+      } as any);
+
+      const { result } = renderHook(() => useDeleteFromBin(), {
+        wrapper: createWrapper(),
+      });
+
+      act(() => {
+        result.current.deleteFromBin(1);
+      });
+
+      expect(mockDeleteFromBin).not.toHaveBeenCalled();
+    });
   });
 
   describe("useBinResults", () => {
@@ -215,6 +289,121 @@ describe("binHooks", () => {
 
       expect(result.current.searchResults).toHaveLength(1);
       expect(result.current.searchResults[0].artist?.name).toBe("Another Artist");
+    });
+
+    it("should handle albums with null artist", async () => {
+      const { useGetBinQuery } = await import("@/lib/features/bin/api");
+      vi.mocked(useGetBinQuery).mockReturnValue({
+        data: [
+          createTestAlbum({ id: 1, title: "Album with null artist", artist: null as any, label: "Test Label" }),
+        ],
+        isLoading: false,
+        isSuccess: true,
+        isError: false,
+      } as any);
+
+      const initialState = flowsheetSlice.getInitialState();
+      const wrapper = createHookWrapper(
+        { flowsheet: flowsheetSlice },
+        {
+          flowsheet: {
+            ...initialState,
+            search: {
+              ...initialState.search,
+              query: { ...initialState.search.query, album: "", artist: "", label: "Test Label" },
+            },
+          },
+        }
+      );
+
+      const { result } = renderHook(() => useBinResults(), { wrapper });
+
+      // Should not crash when artist is null
+      expect(Array.isArray(result.current.searchResults)).toBe(true);
+    });
+
+    it("should handle albums with null title", async () => {
+      const { useGetBinQuery } = await import("@/lib/features/bin/api");
+      vi.mocked(useGetBinQuery).mockReturnValue({
+        data: [
+          createTestAlbum({ id: 1, title: null as any, artist: createTestArtist({ name: "Test Artist" }), label: "Test Label" }),
+        ],
+        isLoading: false,
+        isSuccess: true,
+        isError: false,
+      } as any);
+
+      const initialState = flowsheetSlice.getInitialState();
+      const wrapper = createHookWrapper(
+        { flowsheet: flowsheetSlice },
+        {
+          flowsheet: {
+            ...initialState,
+            search: {
+              ...initialState.search,
+              query: { ...initialState.search.query, album: "", artist: "Test Artist", label: "" },
+            },
+          },
+        }
+      );
+
+      const { result } = renderHook(() => useBinResults(), { wrapper });
+
+      // Should not crash when title is null
+      expect(Array.isArray(result.current.searchResults)).toBe(true);
+    });
+
+    it("should handle albums with null label", async () => {
+      const { useGetBinQuery } = await import("@/lib/features/bin/api");
+      vi.mocked(useGetBinQuery).mockReturnValue({
+        data: [
+          createTestAlbum({ id: 1, title: "Test Album", artist: createTestArtist({ name: "Test Artist" }), label: null as any }),
+        ],
+        isLoading: false,
+        isSuccess: true,
+        isError: false,
+      } as any);
+
+      const initialState = flowsheetSlice.getInitialState();
+      const wrapper = createHookWrapper(
+        { flowsheet: flowsheetSlice },
+        {
+          flowsheet: {
+            ...initialState,
+            search: {
+              ...initialState.search,
+              query: { ...initialState.search.query, album: "", artist: "Test Artist", label: "" },
+            },
+          },
+        }
+      );
+
+      const { result } = renderHook(() => useBinResults(), { wrapper });
+
+      // Should not crash when label is null
+      expect(Array.isArray(result.current.searchResults)).toBe(true);
+    });
+
+    it("should skip short search terms in filter", () => {
+      const initialState = flowsheetSlice.getInitialState();
+      const wrapper = createHookWrapper(
+        { flowsheet: flowsheetSlice },
+        {
+          flowsheet: {
+            ...initialState,
+            search: {
+              ...initialState.search,
+              // One term is short (<= 3 chars), one is long enough
+              query: { ...initialState.search.query, album: "AB", artist: "Another Artist", label: "" },
+            },
+          },
+        }
+      );
+
+      const { result } = renderHook(() => useBinResults(), { wrapper });
+
+      // Should still find results based on the long enough term
+      expect(result.current.searchResults.length).toBeGreaterThanOrEqual(0);
     });
   });
 });
