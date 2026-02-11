@@ -58,7 +58,7 @@ export const useAccountListResults = () => {
             account.realName
               .toLowerCase()
               .includes(searchString.toLowerCase()) ||
-            account.djName.toLowerCase().includes(searchString.toLowerCase())
+            (account.djName?.toLowerCase().includes(searchString.toLowerCase()) ?? false)
         ) ?? []
       );
     }
