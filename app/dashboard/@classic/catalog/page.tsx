@@ -1,10 +1,18 @@
-// pages/index.js
-export default function Home() {
-    return (
-      <div>
-        <h1>Welcome to Next.js</h1>
-        <p>This is a basic page template.</p>
-      </div>
-    );
-  }
-  
+import { Metadata } from "next";
+import { getPageTitle } from "@/lib/utils/page-title";
+import Main from "@/src/components/experiences/classic/catalog/Layout/Main";
+import SearchForm from "@/src/components/experiences/classic/catalog/SearchForm";
+import SearchResults from "@/src/components/experiences/classic/catalog/SearchResults";
+
+export const metadata: Metadata = {
+  title: getPageTitle("Card Catalog"),
+};
+
+export default function ClassicCatalogPage() {
+  return (
+    <Main>
+      <SearchForm />
+      <SearchResults />
+    </Main>
+  );
+}

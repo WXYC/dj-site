@@ -1,0 +1,245 @@
+.searchResultsHeader {
+	background:#AAAAAA;
+	text-align: center;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 0.8em;
+	line-height: 1.33;
+	font-weight: bold;
+	color: #FF0000;
+}
+
+.title
+{
+  font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+  font-size: 1em;
+  font-weight: bold;
+}
+
+.subtitle
+{
+  font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+  font-size: 0.9em;
+  line-height: 1.33;
+}
+
+.bigtext
+{
+  font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+  font-size: 1.3em;
+  line-height: 1.50;
+}
+
+.text
+{
+  font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+  font-size: 0.8em;
+  line-height: 1.33;
+}
+
+.smalltext
+{
+  font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+  font-size: 0.7em;
+  line-height: 1.33;
+}
+
+.label
+{
+  font-family: Verdana,Arial,Helvetica,sans-serif;
+  font-size: 0.8em;
+  line-height: 1.33;
+  font-weight: bold;
+}
+
+.redlabel
+{
+  font-family: Verdana,Arial,Helvetica,sans-serif;
+  font-size: 0.8em;
+  line-height: 1.33;
+  font-weight: bold;
+  color:#FF0000
+}
+
+.smalllabel
+{
+  font-family: Verdana,Arial,Helvetica,sans-serif;
+  font-size: 0.7em;
+  line-height: 1.33;
+}
+
+.text TD
+{
+  font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+  font-size: 0.8em;
+  line-height: 1.33;
+}
+
+.submenu
+{
+  font-family: Geneva,Verdana,Arial,Helvetica,sans-serif;
+  font-size: 0.8em;
+}
+
+.submenu TD
+{
+  font-family: Geneva,Verdana,Arial,Helvetica,sans-serif;
+  font-size: 0.8em;
+  font-weight: bold;
+}
+
+.submenu TD A
+{
+  font-family: Geneva,Verdana,Arial,Helvetica,sans-serif;
+  font-weight: normal;
+  text-decoration: none;
+  color:#000000;
+}
+
+.submenu TD A:hover
+{
+  font-family: Geneva,Verdana,Arial,Helvetica,sans-serif;
+  font-weight: normal;
+  text-decoration: underline;
+  color:#000000;
+}
+
+#facetLinksHeader {
+	text-align: left;
+	font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+    font-size: 0.7em;
+    line-height: 1.33;
+    position: absolute;
+    top: 145px; 
+    left: 5px; 
+    
+}
+#facetLinks {
+	text-align: left;
+	font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+    font-size: 0.7em;
+    line-height: 1.33;
+    position: absolute;
+    top: 200px; 
+    left: 15px; 
+    
+}
+
+#searchString{
+	text-align: left;
+	font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+    font-size: 0.7em;
+    line-height: 1.33;
+    position: absolute;
+    top: 10px; 
+    left: 130px; 
+    width: 150px;
+    margin: 10px;
+}
+
+
+#searchButton{
+	margin: 10px;
+    position: absolute;
+    top: 10px; 
+    left: 400px; 
+    width: 200px;
+}
+
+
+#adminLogin {
+	text-align: left;
+	font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+    font-size: 0.7em;
+    line-height: 1.33;
+    position: absolute;
+    top: 10px; 
+    left: 625px; 
+    width: 200px;
+    margin: 10px;
+}
+
+#sortbyRelevance{
+	text-align: left;
+	font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+    font-size: 0.7em;
+    line-height: 1.33;
+    position: absolute;
+    top: 10px; 
+	left: 10px; 
+    width: 100px;
+    margin: 10px;
+}
+
+#searchResultsPanel {
+	text-align: left;
+	font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+    font-size: 0.7em;
+    line-height: 1.33;
+    position: absolute;
+    top: 60px; 
+    left: 130px; 
+    width: 670px;
+    
+}
+
+#libraryReleasePanel {
+	text-align: left;
+	font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+    font-size: 0.7em;
+    line-height: 1.33;
+    position: absolute;
+    top: 60px; 
+    left: 10px; 
+    width: 790px;
+    
+}
+
+#searchResultsHeader {
+	background:#AAAAAA;
+	text-align: center;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 0.8em;
+	line-height: 1.33;
+	font-weight: bold;
+	color: #FF0000;
+}
+ 
+.sortFieldHighlight {
+	background:#EEEEEE;
+}
+
+#facetLinks a:hover{
+    color:#FF0000;
+}
+
+#pageLinks {
+	text-align: left;
+	font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+    font-size: 0.7em;
+    line-height: 1.33;
+}
+
+
+ul 
+{ 
+  list-style-type: circle; padding-top: 0; padding-bottom: 0;  border: 0;
+}
+
+ol 
+{ 
+  padding-top: 0; padding-bottom: 0;  border: 0;
+}
+
+li
+{
+  padding-top: 0; padding-bottom: 0; border: 0;
+}
+
+INPUT { font-family: Verdana,Arial,Helvetica,sans-serif; color:#000000; font-size:12px; }
+SELECT { font-family: Verdana,Arial,Helvetica,sans-serif; color:#000000; font-size:12px; }
+TEXTAREA { font-family: Verdana,Arial,Helvetica,sans-serif; color:#000000; font-size:12px; }
+
+.centerWidth {
+	 width: 800px;
+	 text-align: center;
+}
