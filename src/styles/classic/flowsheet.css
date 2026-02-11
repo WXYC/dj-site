@@ -283,3 +283,212 @@ TEXTAREA {
 .ac_even {
 	background-color: #F8F8F8;
 }
+
+/* Windows 2000 Dark Theme - Retro Palette */
+html[data-experience="classic"][data-joy-color-scheme="dark"] body,
+html[data-experience="classic"][data-joy-color-scheme="dark"] {
+	background-color: #2D2D2D;
+	color: #E0E0E0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] #font-adjuster {
+	background-color: #5A5A5A;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] #font-adjuster .button {
+	background-color: #3D3D3D;
+	color: #E0E0E0;
+	border: 1px solid #5A5A5A;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] #font-adjuster .button:hover {
+	background-color: #4A4A4A;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] #messageArea {
+	background-color: #3D3D3D;
+	color: #E0E0E0;
+	border: 1px solid #5A5A5A;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .redtitle {
+	color: #FF8080;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .title {
+	color: #E0E0E0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .subtitle {
+	color: #D0D0D0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .fontHover {
+	color: #FF9999;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .fontSelected {
+	color: #FF8080;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .flowsheetEntryData {
+	color: #D0D0D0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] #flowsheet th {
+	background-color: #5A5A5A;
+	color: #FF8080;
+	border-color: #6A6A6A;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .bigtext {
+	color: #E0E0E0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .text {
+	color: #D0D0D0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .smalltext {
+	color: #C0C0C0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .label {
+	color: #E0E0E0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .redlabel {
+	color: #FF8080;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .littlegreenlabel {
+	color: #80FF80;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .breakpoint {
+	color: #80FF80;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .talkset {
+	color: #FFFF80;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .bigblue {
+	color: #80B0FF;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .greenlabel {
+	color: #80FF80;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .smalllabel {
+	color: #C0C0C0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .text TD {
+	color: #D0D0D0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .submenu TD A {
+	color: #E0E0E0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .submenu TD A:hover {
+	color: #FF8080;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] INPUT {
+	background-color: #3D3D3D;
+	color: #E0E0E0;
+	border: 1px solid #5A5A5A;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] INPUT:disabled {
+	background-color: #2D2D2D;
+	color: #808080;
+	border: 1px solid #4A4A4A;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] INPUT.artist-error {
+	border: 2px solid #FF6666;
+	background-color: #4D2D2D;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .artist-error-message {
+	color: #FF8080;
+	background-color: #4D2D2D;
+	border: 1px solid #FF6666;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] SELECT {
+	background-color: #3D3D3D;
+	color: #E0E0E0;
+	border: 1px solid #5A5A5A;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] SELECT:disabled {
+	background-color: #2D2D2D;
+	color: #808080;
+	border: 1px solid #4A4A4A;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] TEXTAREA {
+	background-color: #3D3D3D;
+	color: #E0E0E0;
+	border: 1px solid #5A5A5A;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .ac_results {
+	background-color: #3D3D3D;
+	border: 1px solid #5A5A5A;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .ac_results li {
+	border-bottom: 1px solid #4A4A4A;
+	color: #E0E0E0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .ac_over {
+	background-color: #5A5A5A;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .ac_odd {
+	background-color: #3D3D3D;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .ac_even {
+	background-color: #353535;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] table {
+	border-color: #5A5A5A;
+	background-color: #2D2D2D;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] td,
+html[data-experience="classic"][data-joy-color-scheme="dark"] th {
+	border-color: #5A5A5A;
+}
+
+/* Flowsheet entry row backgrounds */
+html[data-experience="classic"][data-joy-color-scheme="dark"] tr[bgcolor="#F3F3F3"] {
+	background-color: #3D3D3D !important;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] tr[bgcolor="#CCCCCC"] {
+	background-color: #5A5A5A !important;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] tr[bgcolor="#999999"] {
+	background-color: #4A4A4A !important;
+}
+
+/* Table backgrounds */
+html[data-experience="classic"][data-joy-color-scheme="dark"] table[bgcolor="#AAAAAA"] {
+	background-color: #5A5A5A !important;
+}
+
+/* Font color adjustments */
+html[data-experience="classic"][data-joy-color-scheme="dark"] font[color="black"] {
+	color: #E0E0E0 !important;
+}
