@@ -1,4 +1,4 @@
-import { RefObject, useEffect, useRef } from "react";
+import { MutableRefObject, RefObject, useEffect, useRef } from "react";
 
 import { Box } from "@mui/joy";
 
@@ -8,7 +8,7 @@ export type GradientAudioVisualizerProps = {
   audioContext: AudioContext | null;
   analyserNode: AnalyserNode | null;
   overlayColor?: string;
-  animationFrameRef: RefObject<number | null>;
+  animationFrameRef: MutableRefObject<number | null>;
 };
 
 export function GradientAudioVisualizer({

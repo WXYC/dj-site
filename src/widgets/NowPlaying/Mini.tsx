@@ -14,7 +14,7 @@ import {
   Stack,
 } from "@mui/joy";
 import { useColorScheme } from "@mui/joy/styles";
-import { RefObject } from "react";
+import { MutableRefObject, RefObject } from "react";
 import AlbumArtAndIcons from "./AlbumArtAndIcons";
 import EntryText from "./EntryText";
 import { GradientAudioVisualizer } from "./GradientAudioVisualizer";
@@ -38,7 +38,7 @@ export default function NowPlayingMini({
   onTogglePlay: () => void;
   audioContext: AudioContext | null;
   analyserNode: AnalyserNode | null;
-  animationFrameRef: RefObject<number | null>;
+  animationFrameRef: MutableRefObject<number | null>;
 }) {
   const { mode } = useColorScheme();
   const overlayColor = mode === "light" ? "white" : "neutral.800";
