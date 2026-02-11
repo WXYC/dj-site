@@ -9,10 +9,10 @@ export const metadata: Metadata = {
 };
 
 export default function ClassicCatalogPage() {
-  return (
+    return (
     <Main>
       <SearchForm />
       <SearchResults />
     </Main>
-  );
-}
+    );
+  }

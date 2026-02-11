@@ -9,6 +9,7 @@ import EntryForm from "../EntryForm";
 import EntryTable from "../EntryTable";
 import FontSizeAdjuster from "../FontSizeAdjuster";
 import Navigation from "../../Navigation";
+import StartShow from "../StartShow";
 import {
   isFlowsheetStartShowEntry,
   FlowsheetEntry,
@@ -127,6 +128,17 @@ export default function Main() {
     );
   }
 
+  // Show StartShow component when not live
+  if (!live) {
+    return (
+      <div style={{ width: "100%", margin: "0 auto" }}>
+        <Navigation />
+        <StartShow />
+      </div>
+    );
+  }
+
+  // Show flowsheet when live
   return (
     <div style={{ width: "100%", margin: "0 auto" }}>
       <Navigation />
