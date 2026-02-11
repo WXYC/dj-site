@@ -145,11 +145,6 @@ export type DJInfoResponse = {
   shows_covered: number;
 };
 
-export const djAttributeNames: Record<string, keyof VerifiedData> = {
-  name: "realName",
-  "custom:dj-name": "djName",
-};
-
 export const djAttributeTitles: Partial<Record<keyof VerifiedData, string>> = {
   realName: "Real Name",
   djName: "DJ Name",
@@ -160,12 +155,6 @@ export const djAttributeTitles: Partial<Record<keyof VerifiedData, string>> = {
 };
 
 export type AccountModification = Partial<Record<keyof ModifiableData, string>>;
-
-export const modifiableAttributeNames: Partial<Record<keyof ModifiableData, string>> = {
-  realName: "name",
-  djName: "custom:dj-name",
-  email: "email",
-};
 
 export type BackendAccountModification = {
   username: string;
