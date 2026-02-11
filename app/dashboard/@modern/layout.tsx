@@ -13,7 +13,7 @@ export default function ModernDashboard({
   children: React.ReactNode;
 }): JSX.Element {
   return (
-    <Box sx={{ display: "flex", minHeight: "100dvh" }}>
+    <Box sx={{ display: "flex", height: "100dvh", overflow: "hidden" }}>
       <MobileHeader />
       <Leftbar />
       <Main>

@@ -21,7 +21,7 @@ export default async function RootLayout({ children }: Props) {
         <html lang="en" data-experience={serverSideProps.application.experience}>
           <body>
             <Toaster closeButton richColors />
-            <div id="root">
+            <div id="root" style={{ height: "100%", overflow: "hidden" }}>
               <main>
                 {children}
                 <Appbar />

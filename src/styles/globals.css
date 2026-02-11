@@ -6,8 +6,15 @@
 /**
  * Global Styles - Shared across all experiences
  */
+html,
+body {
+    height: 100%;
+    overflow: hidden;
+}
+
 main {
     height: 100vh;
+    overflow: hidden;
 }
 
 @keyframes scroll {
