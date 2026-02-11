@@ -73,7 +73,14 @@ html[data-experience="classic"] #classic-container .bigtext {
 }
 
 html[data-experience="classic"] #classic-container .text {
-  font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
+  
+/* Windows 2000 Dark Theme - App Background */
+html[data-experience="classic"][data-joy-color-scheme="dark"] body,
+html[data-experience="classic"][data-joy-color-scheme="dark"] html,
+html[data-experience="classic"][data-joy-color-scheme="dark"] #root,
+html[data-experience="classic"][data-joy-color-scheme="dark"] main {
+	background-color: #2D2D2D !important;
+}font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
   font-size: 0.8em;
   line-height: 1.33;
 }
