@@ -6,6 +6,7 @@ import { createServerSideProps } from "@/lib/features/session";
 import { Toaster } from "sonner";
 import Appbar from "@/src/components/shared/Theme/Appbar";
 import ThemeRegistry from "@/src/styles/ThemeRegistry";
+import PageTitleUpdater from "@/src/components/shared/PageTitleUpdater";
 
 
 interface Props {
@@ -21,6 +22,7 @@ export default async function RootLayout({ children }: Props) {
         <html lang="en" data-experience={serverSideProps.application.experience}>
           <body>
             <Toaster closeButton richColors />
+            <PageTitleUpdater />
             <div id="root" style={{ height: "100%", overflow: "hidden" }}>
               <main>
                 {children}
