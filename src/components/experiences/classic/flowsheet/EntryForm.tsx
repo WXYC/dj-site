@@ -350,13 +350,13 @@ export default function EntryForm({
       </table>
       <table cellPadding={2} align="center">
         <tbody>
-          <tr id="regularReleaseRow" align="center">
+          <tr id="regularReleaseRow">
             <td colSpan={4} className="label">
-              <div id="rotationDisclaimer2" align="center">
-                <font size={-2}>
+              <div id="rotationDisclaimer2" style={{ textAlign: "center" }}>
+                <span style={{ fontSize: "0.7em" }}>
                   'Release' and 'Label' are optional fields but listeners may be
                   interested in this information.
-                </font>
+                </span>
               </div>
               Release:&nbsp;
               <input
@@ -379,7 +379,7 @@ export default function EntryForm({
               &nbsp;&nbsp;&nbsp;
             </td>
           </tr>
-          <tr id="requestSubmitRow" align="center">
+          <tr id="requestSubmitRow">
             <td colSpan={4} className="redlabel" style={{ textAlign: "center" }}>
               Was this song a request?{" "}
               <input

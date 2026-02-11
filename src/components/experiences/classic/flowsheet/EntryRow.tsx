@@ -41,15 +41,33 @@ export default function EntryRow({
     );
   }
 
-  if (
-    isFlowsheetBreakpointEntry(entry) ||
-    isFlowsheetStartShowEntry(entry) ||
-    isFlowsheetEndShowEntry(entry)
-  ) {
+  if (isFlowsheetBreakpointEntry(entry)) {
     return (
       <tr style={{ backgroundColor: "#444444" }} className={`flowsheetEntryData ${fontSizeClass}`}>
         <td colSpan={6} align="left" className="littlegreenlabel">
-          {entry.message || (isFlowsheetStartShowEntry(entry) ? `Start: ${entry.dj_name}` : isFlowsheetEndShowEntry(entry) ? `End: ${entry.dj_name}` : "")}
+          {entry.message}
+        </td>
+        <td colSpan={3}>&nbsp;</td>
+      </tr>
+    );
+  }
+
+  if (isFlowsheetStartShowEntry(entry)) {
+    return (
+      <tr style={{ backgroundColor: "#444444" }} className={`flowsheetEntryData ${fontSizeClass}`}>
+        <td colSpan={6} align="left" className="littlegreenlabel">
+          Start: {entry.dj_name}
+        </td>
+        <td colSpan={3}>&nbsp;</td>
+      </tr>
+    );
+  }
+
+  if (isFlowsheetEndShowEntry(entry)) {
+    return (
+      <tr style={{ backgroundColor: "#444444" }} className={`flowsheetEntryData ${fontSizeClass}`}>
+        <td colSpan={6} align="left" className="littlegreenlabel">
+          End: {entry.dj_name}
         </td>
         <td colSpan={3}>&nbsp;</td>
       </tr>
@@ -91,7 +109,7 @@ export default function EntryRow({
                 src="/img/classic/blue_up.gif"
                 title="Move this entry up"
                 alt="Move this entry up"
-                border={0}
+                style={{ border: 0 }}
               />
             </a>
           ) : (
@@ -111,7 +129,7 @@ export default function EntryRow({
                 src="/img/classic/blue_down.gif"
                 title="Move this entry down"
                 alt="Move this entry down"
-                border={0}
+                style={{ border: 0 }}
               />
             </a>
           ) : (

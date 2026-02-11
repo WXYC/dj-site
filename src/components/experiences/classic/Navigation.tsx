@@ -33,8 +33,7 @@ export default function Navigation() {
       cellPadding={5}
       cellSpacing={0}
       border={0}
-      width="100%"
-      style={{ marginBottom: "20px", borderBottom: "2px solid #AAAAAA" }}
+      style={{ width: "100%", marginBottom: "20px", borderBottom: "2px solid #AAAAAA" }}
     >
       <tbody>
         <tr>

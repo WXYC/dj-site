@@ -38,13 +38,13 @@ export default function Main() {
       return {
         date: startEntry.day,
         timeRange: startEntry.time,
-        djName: startEntry.dj_name || userData?.name || "Unknown DJ",
+        djName: startEntry.dj_name || userData?.real_name || "Unknown DJ",
       };
     }
     return {
       date: new Date().toLocaleDateString(),
       timeRange: new Date().toLocaleTimeString(),
-      djName: userData?.name || "Unknown DJ",
+      djName: userData?.real_name || "Unknown DJ",
     };
   }, [currentShowEntries, userData]);
 
@@ -122,7 +122,7 @@ export default function Main() {
 
   if (loading) {
     return (
-      <div align="center" className="text">
+      <div style={{ textAlign: "center" }} className="text">
         <p>Loading flowsheet...</p>
       </div>
     );
@@ -150,38 +150,36 @@ export default function Main() {
       <hr />
       <EntryForm onSuccess={() => {}} isLive={live} />
       <hr />
-      <div className="redlabel" align="center">
+      <div className="redlabel" style={{ textAlign: "center" }}>
         &nbsp;
       </div>
       <hr />
-      <div align="center">
+      <div style={{ textAlign: "center" }}>
         <table
           cellPadding={2}
           cellSpacing={2}
           border={0}
-          style={{ backgroundColor: "#AAAAAA" }}
-          width="100%"
+          style={{ backgroundColor: "#AAAAAA", width: "100%" }}
         >
           <tbody>
             <tr>
-              <th width="25%" style={{ textAlign: "left" }} className="redlabel">
-                <font color="black">
+              <th style={{ width: "25%", textAlign: "left" }} className="redlabel">
+                <span className="text-override-black" style={{ color: "black" }}>
                   Date of Show: {showInfo?.date || "N/A"}
                   <br />
                   Hours: {showInfo?.timeRange || "N/A"}
-                </font>
+                </span>
               </th>
               <th>
                 <FontSizeAdjuster onFontSizeChange={setFontSize} />
               </th>
               <th
-                width="25%"
-                style={{ textAlign: "center", backgroundColor: "#AAAAAA" }}
+                style={{ width: "25%", textAlign: "center", backgroundColor: "#AAAAAA" }}
                 className="redlabel"
               >
-                <font color="black">
+                <span className="text-override-black" style={{ color: "black" }}>
                   Disc Jockey: {showInfo?.djName || "N/A"}&nbsp;
-                </font>
+                </span>
               </th>
             </tr>
           </tbody>

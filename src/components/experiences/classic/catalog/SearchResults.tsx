@@ -27,7 +27,7 @@ export default function SearchResults() {
 
   if (isLoading) {
     return (
-      <div align="center" className="text">
+      <div style={{ textAlign: "center" }} className="text">
         <p>Loading search results...</p>
       </div>
     );
@@ -35,7 +35,7 @@ export default function SearchResults() {
 
   if (error) {
     return (
-      <div align="center" className="text">
+      <div style={{ textAlign: "center" }} className="text">
         <p>Error loading search results. Please try again.</p>
       </div>
     );
@@ -43,20 +43,19 @@ export default function SearchResults() {
 
   if (!results || results.length === 0) {
     return (
-      <div align="center" className="text">
+      <div style={{ textAlign: "center" }} className="text">
         <p>No results found for &quot;{searchString}&quot;</p>
       </div>
     );
   }
 
   return (
-    <div align="center">
+    <div style={{ textAlign: "center" }}>
       <table
         cellPadding={4}
         cellSpacing={2}
         border={0}
-        width="100%"
-        style={{ marginTop: "20px" }}
+        style={{ width: "100%", marginTop: "20px" }}
       >
         <thead>
           <tr className="searchResultsHeader">

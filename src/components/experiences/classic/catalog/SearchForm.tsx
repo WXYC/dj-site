@@ -46,8 +46,8 @@ export default function SearchForm() {
         action="/dashboard/catalog"
         onSubmit={handleSubmit}
       >
-        <div align="center">
-          <table cellPadding={5} cellSpacing={1} border={0} width="75%" align="center">
+        <div style={{ textAlign: "center" }}>
+          <table cellPadding={5} cellSpacing={1} border={0} style={{ width: "75%" }} align="center">
             <tbody>
               <tr>
                 <td align="center" valign="top">
@@ -55,7 +55,7 @@ export default function SearchForm() {
                   <img
                     src="/img/wxyc-logo-classic.gif"
                     alt="WXYC logo"
-                    border={0}
+                    style={{ border: 0 }}
                   />
                   <span className="title">&nbsp;&nbsp;Library:</span>
                 </td>
@@ -101,7 +101,7 @@ export default function SearchForm() {
       </form>
 
       <p>&nbsp;</p>
-      <div id="notes" className="smalltext" align="center">
+      <div id="notes" className="smalltext" style={{ textAlign: "center" }}>
         <b>Tips for searching the WXYC Library:</b>
         <p>
           Queries will be matched against library releases based on artist name

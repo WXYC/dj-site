@@ -27,7 +27,7 @@ export default function HelpScreen() {
           <tr>
             <td className="title" colSpan={4} style={{ textAlign: "center" }}>
               <span style={{ color: "rgb(0, 0, 0)" }}>
-                <a name="faCodes"></a>Help Screen
+                <a id="faCodes"></a>Help Screen
               </span>
             </td>
           </tr>

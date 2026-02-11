@@ -489,6 +489,7 @@ html[data-experience="classic"][data-joy-color-scheme="dark"] table[bgcolor="#AA
 }
 
 /* Font color adjustments */
-html[data-experience="classic"][data-joy-color-scheme="dark"] font[color="black"] {
+html[data-experience="classic"][data-joy-color-scheme="dark"] font[color="black"],
+html[data-experience="classic"][data-joy-color-scheme="dark"] .text-override-black {
 	color: #E0E0E0 !important;
 }
