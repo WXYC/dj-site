@@ -25,12 +25,12 @@ export default function EntryTable({
 
   return (
     <div id="flowsheet">
-      <table cellPadding={4} cellSpacing={2} border={0} width="100%">
+      <table cellPadding={4} cellSpacing={2} border={0} style={{ width: "100%" }}>
         <thead>
           <tr>
             <th>Playlist</th>
             <th>Req.</th>
-            <th width="25%">Artist</th>
+            <th style={{ width: "25%" }}>Artist</th>
             <th>Song</th>
             <th>Release</th>
             <th>Label</th>
@@ -66,7 +66,7 @@ export default function EntryTable({
           )}
         </tbody>
       </table>
-      <table cellPadding={4} cellSpacing={2} border={0} width="100%">
+      <table cellPadding={4} cellSpacing={2} border={0} style={{ width: "100%" }}>
         <tbody>
           <tr style={{ backgroundColor: "#FFFFFF" }}>
             <td colSpan={6} align="center" className="redlabel">
