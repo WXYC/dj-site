@@ -9,7 +9,7 @@ import {
   User,
   VerifiedData
 } from "./types";
-import { getAppOrganizationId, getAppOrganizationIdClient } from "./organization-utils";
+import { getAppOrganizationId, getAppOrganizationIdClient } from "./organization-config";
 
 // Better-auth session type (from better-auth client)
 export type BetterAuthSession = {
