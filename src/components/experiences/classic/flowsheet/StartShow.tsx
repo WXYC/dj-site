@@ -4,6 +4,7 @@ import "@/src/styles/classic/wxyc.css";
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
 import { useRegistry } from "@/src/hooks/authenticationHooks";
 import { FormEvent } from "react";
+import { OpenHelp } from "@/src/utils/helpScreen";
 
 export default function StartShow() {
   const { goLive } = useShowControl();
@@ -39,7 +40,13 @@ export default function StartShow() {
           </tr>
           <tr>
             <td align="center" valign="top" className="title">
-              <a href="#" onClick={(e) => { e.preventDefault(); }}>
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  OpenHelp();
+                }}
+              >
                 Help
               </a>
             </td>

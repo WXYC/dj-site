@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
 import { useRegistry } from "@/src/hooks/authenticationHooks";
+import { OpenHelp } from "@/src/utils/helpScreen";
 
 export default function ActionsBar({
   onAddTalkset,
@@ -62,7 +63,13 @@ export default function ActionsBar({
               <span>Not currently live</span>
             )}
             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-            <a href="#" onClick={(e) => { e.preventDefault(); /* OpenHelp(); */ }}>
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                OpenHelp();
+              }}
+            >
               Help
             </a>
             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
