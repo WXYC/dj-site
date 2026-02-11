@@ -10,7 +10,7 @@ import CardOverflow from "@mui/joy/CardOverflow";
 import Divider from "@mui/joy/Divider";
 import IconButton from "@mui/joy/IconButton";
 import Typography from "@mui/joy/Typography";
-import { useRef, useState } from "react";
+import { RefObject } from "react";
 import AlbumArtAndIcons from "./AlbumArtAndIcons";
 import EntryText from "./EntryText";
 import { GradientAudioVisualizer } from "./GradientAudioVisualizer";
@@ -22,6 +22,12 @@ export default function NowPlayingMain({
   live,
   onAirDJ,
   loading,
+  audioRef,
+  isPlaying,
+  onTogglePlay,
+  audioContext,
+  analyserNode,
+  animationFrameRef,
 }: {
   entry?: FlowsheetEntry;
   live: boolean;
@@ -29,27 +35,13 @@ export default function NowPlayingMain({
   loading?: boolean;
   width?: number;
   height?: number;
+  audioRef: RefObject<HTMLAudioElement>;
+  isPlaying: boolean;
+  onTogglePlay: () => void;
+  audioContext: AudioContext | null;
+  analyserNode: AnalyserNode | null;
+  animationFrameRef: RefObject<number | null>;
 }) {
-  const playRef = useRef<{
-    play: () => void;
-    pause: () => void;
-    readonly isPlaying: boolean;
-  }>(null);
-
-  const [playing, setPlaying] = useState(false); // ← drives the icon
-
-  const toggle = () => {
-    if (!playRef.current) return;
-
-    if (playRef.current.isPlaying) {
-      playRef.current.pause();
-      setPlaying(false);
-    } else {
-      playRef.current.play();
-      setPlaying(true);
-    }
-  };
-
   return (
     <Card
       variant="outlined"
@@ -64,12 +56,15 @@ export default function NowPlayingMain({
       <CardOverflow>
         <AspectRatio ratio="2.5" variant="plain">
           <GradientAudioVisualizer
-            src="https://audio-mp3.ibiblio.org/wxyc.mp3"
-            ref={playRef}
+            audioRef={audioRef}
+            isPlaying={isPlaying}
+            audioContext={audioContext}
+            analyserNode={analyserNode}
+            animationFrameRef={animationFrameRef}
           />
         </AspectRatio>
         <IconButton
-          aria-label="Like minimal photography"
+          aria-label={isPlaying ? "Pause audio" : "Play audio"}
           size="lg"
           variant="solid"
           color="danger"
@@ -81,9 +76,9 @@ export default function NowPlayingMain({
             bottom: 0,
             transform: "translateY(50%)",
           }}
-          onClick={toggle}
+          onClick={onTogglePlay}
         >
-          {playing ? <Pause /> : <PlayArrow />}
+          {isPlaying ? <Pause /> : <PlayArrow />}
         </IconButton>
         <Box
           sx={{
