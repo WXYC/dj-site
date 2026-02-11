@@ -4,7 +4,7 @@ import { StoreProvider } from "@/src/StoreProvider";
 import "@/src/styles/globals.css";
 import { createServerSideProps } from "@/lib/features/session";
 import { Toaster } from "sonner";
-import Appbar from "@/src/components/shared/Theme/Appbar";
+import AppbarWrapper from "@/src/components/shared/Theme/AppbarWrapper";
 import ThemeRegistry from "@/src/styles/ThemeRegistry";
 import PageTitleUpdater from "@/src/components/shared/PageTitleUpdater";
 import { Metadata } from "next";
@@ -52,7 +52,7 @@ export default async function RootLayout({ children }: Props) {
             <div id="root" style={{ height: "100%", overflow: "hidden" }}>
               <main>
                 {children}
-                <Appbar />
+                <AppbarWrapper />
               </main>
             </div>
           </body>
