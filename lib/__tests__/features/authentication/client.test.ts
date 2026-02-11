@@ -1,9 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-// Store captured config from createAuthClient
 let capturedConfig: any = null;
 
-// Mock better-auth/react
 vi.mock("better-auth/react", () => ({
   createAuthClient: vi.fn((config) => {
     capturedConfig = config;
@@ -17,7 +15,6 @@ vi.mock("better-auth/react", () => ({
   }),
 }));
 
-// Mock better-auth/client/plugins
 vi.mock("better-auth/client/plugins", () => ({
   adminClient: vi.fn(() => ({ name: "admin" })),
   usernameClient: vi.fn(() => ({ name: "username" })),
@@ -234,7 +231,7 @@ describe("authentication client", () => {
       expect(global.fetch).toHaveBeenCalledTimes(2);
     });
 
-    it("should return empty string token if that is what server returns", async () => {
+    it("should return null for empty string token", async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({ token: "" }),
@@ -245,117 +242,30 @@ describe("authentication client", () => {
       );
       const token = await getJWTToken();
 
-      // Empty string is falsy, so should return null due to `|| null`
       expect(token).toBeNull();
     });
   });
 
-  describe("authClient", () => {
-    it("should export authClient", async () => {
-      const { authClient } = await import(
-        "@/lib/features/authentication/client"
-      );
-      expect(authClient).toBeDefined();
-    });
-
-    it("should have useSession hook", async () => {
-      const { authClient } = await import(
-        "@/lib/features/authentication/client"
-      );
-      expect(typeof authClient.useSession).toBe("function");
-    });
-
-    it("should have signIn method", async () => {
-      const { authClient } = await import(
-        "@/lib/features/authentication/client"
-      );
-      expect(typeof authClient.signIn).toBe("function");
-    });
-
-    it("should have signOut method", async () => {
-      const { authClient } = await import(
-        "@/lib/features/authentication/client"
-      );
-      expect(typeof authClient.signOut).toBe("function");
-    });
-
-    it("should have admin property", async () => {
-      const { authClient } = await import(
-        "@/lib/features/authentication/client"
-      );
-      expect(authClient.admin).toBeDefined();
-    });
-  });
-
-  describe("plugin configuration", () => {
-    it("should create auth client with admin plugin", async () => {
-      const { createAuthClient } = await import("better-auth/react");
-      const { adminClient } = await import("better-auth/client/plugins");
-
+  describe("client configuration", () => {
+    it("should configure createAuthClient with plugins, credentials, and baseURL", async () => {
       vi.resetModules();
       await import("@/lib/features/authentication/client");
 
-      expect(adminClient).toHaveBeenCalled();
-      expect(createAuthClient).toHaveBeenCalled();
-    });
-
-    it("should create auth client with username plugin", async () => {
-      const { usernameClient } = await import("better-auth/client/plugins");
-
-      vi.resetModules();
-      await import("@/lib/features/authentication/client");
-
-      expect(usernameClient).toHaveBeenCalled();
-    });
-
-    it("should create auth client with JWT plugin", async () => {
-      const { jwtClient } = await import("better-auth/client/plugins");
-
-      vi.resetModules();
-      await import("@/lib/features/authentication/client");
-
-      expect(jwtClient).toHaveBeenCalled();
-    });
-
-    it("should include all three plugins in configuration", async () => {
-      const { createAuthClient } = await import("better-auth/react");
-
-      vi.resetModules();
-      await import("@/lib/features/authentication/client");
-
-      expect(createAuthClient).toHaveBeenCalledWith(
-        expect.objectContaining({
-          plugins: expect.arrayContaining([
-            expect.objectContaining({ name: "admin" }),
-            expect.objectContaining({ name: "username" }),
-            expect.objectContaining({ name: "jwt" }),
-          ]),
-        })
-      );
-    });
-  });
-
-  describe("fetchOptions configuration", () => {
-    it("should configure credentials as include", async () => {
-      const { createAuthClient } = await import("better-auth/react");
-
-      vi.resetModules();
-      await import("@/lib/features/authentication/client");
-
-      expect(createAuthClient).toHaveBeenCalledWith(
-        expect.objectContaining({
-          fetchOptions: expect.objectContaining({
-            credentials: "include",
-          }),
-        })
-      );
+      expect(capturedConfig).toMatchObject({
+        fetchOptions: { credentials: "include" },
+        plugins: [
+          { name: "admin" },
+          { name: "username" },
+          { name: "jwt" },
+        ],
+      });
+      expect(capturedConfig.baseURL).toBeDefined();
     });
   });
 
   describe("getBaseURL function behavior", () => {
     describe("in browser environment", () => {
       beforeEach(() => {
-        // Set up window with location
         (global as any).window = {
           location: {
             origin: "https://app.example.com",

@@ -5,7 +5,6 @@ import { authClient } from "@/lib/features/authentication/client";
 import {
   AuthenticatedUser,
   AuthenticationData,
-  djAttributeNames,
   isAuthenticated,
   NewUserCredentials,
   ResetPasswordRequest,
@@ -209,8 +208,6 @@ export const useNewUser = () => {
       password,
     };
 
-    // Extract form values - form fields use the attribute names directly (realName, djName)
-    // not the djAttributeNames keys (name, custom:dj-name)
     const realNameValue = e.currentTarget.realName?.value || "";
     const djNameValue = e.currentTarget.djName?.value || "";
     

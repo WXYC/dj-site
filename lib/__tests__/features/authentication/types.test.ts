@@ -4,9 +4,7 @@ import {
   isIncomplete,
   isPasswordReset,
   mapRoleToAuthorization,
-  djAttributeNames,
   djAttributeTitles,
-  modifiableAttributeNames,
 } from "@/lib/features/authentication/types";
 import { Authorization } from "@/lib/features/admin/types";
 import type {
@@ -15,18 +13,16 @@ import type {
   IncompleteUser,
   PasswordResetUser,
 } from "@/lib/features/authentication/types";
+import {
+  createTestAuthenticatedUser,
+  createTestIncompleteUser,
+  createTestPasswordResetUser,
+} from "@/lib/test-utils";
 
 describe("authentication types", () => {
   describe("isAuthenticated", () => {
     it("should return true for authenticated user with user object", () => {
-      const data: AuthenticatedUser = {
-        user: {
-          username: "testuser",
-          email: "test@example.com",
-          authority: Authorization.DJ,
-        },
-        accessToken: "token123",
-      };
+      const data: AuthenticatedUser = createTestAuthenticatedUser();
       expect(isAuthenticated(data)).toBe(true);
     });
 
@@ -36,28 +32,20 @@ describe("authentication types", () => {
     });
 
     it("should return false for incomplete user", () => {
-      const data: IncompleteUser = {
-        username: "testuser",
-        requiredAttributes: ["realName", "djName"],
-      };
+      const data: IncompleteUser = createTestIncompleteUser();
       expect(isAuthenticated(data)).toBe(false);
     });
 
     it("should return false for password reset user", () => {
-      const data: PasswordResetUser = {
-        confirmationMessage: "Check your email",
-      };
+      const data: PasswordResetUser = createTestPasswordResetUser();
       expect(isAuthenticated(data)).toBe(false);
     });
 
     it("should return true even without accessToken if user exists", () => {
-      const data: AuthenticatedUser = {
-        user: {
-          username: "testuser",
-          email: "test@example.com",
-          authority: Authorization.DJ,
-        },
-      };
+      const data: AuthenticatedUser = createTestAuthenticatedUser({
+        accessToken: undefined,
+        token: undefined,
+      });
       expect(isAuthenticated(data)).toBe(true);
     });
 
@@ -69,29 +57,19 @@ describe("authentication types", () => {
 
   describe("isIncomplete", () => {
     it("should return true for incomplete user with required attributes", () => {
-      const data: IncompleteUser = {
-        username: "testuser",
-        requiredAttributes: ["realName", "djName"],
-      };
+      const data: IncompleteUser = createTestIncompleteUser();
       expect(isIncomplete(data)).toBe(true);
     });
 
     it("should return true for incomplete user with empty required attributes", () => {
-      const data: IncompleteUser = {
-        username: "testuser",
+      const data: IncompleteUser = createTestIncompleteUser({
         requiredAttributes: [],
-      };
+      });
       expect(isIncomplete(data)).toBe(true);
     });
 
     it("should return false for authenticated user", () => {
-      const data: AuthenticatedUser = {
-        user: {
-          username: "testuser",
-          email: "test@example.com",
-          authority: Authorization.DJ,
-        },
-      };
+      const data: AuthenticatedUser = createTestAuthenticatedUser();
       expect(isIncomplete(data)).toBe(false);
     });
 
@@ -101,53 +79,41 @@ describe("authentication types", () => {
     });
 
     it("should return false for password reset user", () => {
-      const data: PasswordResetUser = {
-        confirmationMessage: "Check your email",
-      };
+      const data: PasswordResetUser = createTestPasswordResetUser();
       expect(isIncomplete(data)).toBe(false);
     });
   });
 
   describe("isPasswordReset", () => {
     it("should return true for password reset user with confirmation message", () => {
-      const data: PasswordResetUser = {
-        confirmationMessage: "Password reset email sent",
-      };
+      const data: PasswordResetUser = createTestPasswordResetUser();
       expect(isPasswordReset(data)).toBe(true);
     });
 
     it("should return true for password reset user with token", () => {
-      const data: PasswordResetUser = {
-        confirmationMessage: "Enter new password",
+      const data: PasswordResetUser = createTestPasswordResetUser({
         token: "reset-token-123",
-      };
+      });
       expect(isPasswordReset(data)).toBe(true);
     });
 
     it("should return true for password reset user with error", () => {
-      const data: PasswordResetUser = {
+      const data: PasswordResetUser = createTestPasswordResetUser({
         confirmationMessage: "Reset failed",
         error: "Token expired",
-      };
+      });
       expect(isPasswordReset(data)).toBe(true);
     });
 
     it("should return false for authenticated user", () => {
-      const data: AuthenticatedUser = {
-        user: {
-          username: "testuser",
-          email: "test@example.com",
-          authority: Authorization.DJ,
-        },
-      };
+      const data: AuthenticatedUser = createTestAuthenticatedUser();
       expect(isPasswordReset(data)).toBe(false);
     });
 
     it("should return false for incomplete user", () => {
-      const data: IncompleteUser = {
-        username: "testuser",
+      const data: IncompleteUser = createTestIncompleteUser({
         requiredAttributes: ["realName"],
-      };
+      });
       expect(isPasswordReset(data)).toBe(false);
     });
 
@@ -235,16 +201,6 @@ describe("authentication types", () => {
     });
   });
 
-  describe("djAttributeNames", () => {
-    it("should map 'name' to 'realName'", () => {
-      expect(djAttributeNames["name"]).toBe("realName");
-    });
-
-    it("should map 'custom:dj-name' to 'djName'", () => {
-      expect(djAttributeNames["custom:dj-name"]).toBe("djName");
-    });
-  });
-
   describe("djAttributeTitles", () => {
     it("should have correct titles for each attribute", () => {
       expect(djAttributeTitles.realName).toBe("Real Name");
@@ -253,20 +209,6 @@ describe("authentication types", () => {
       expect(djAttributeTitles.password).toBe("Password");
       expect(djAttributeTitles.code).toBe("Code");
       expect(djAttributeTitles.confirmPassword).toBe("Confirm Password");
-    });
-  });
-
-  describe("modifiableAttributeNames", () => {
-    it("should map realName to 'name'", () => {
-      expect(modifiableAttributeNames.realName).toBe("name");
-    });
-
-    it("should map djName to 'custom:dj-name'", () => {
-      expect(modifiableAttributeNames.djName).toBe("custom:dj-name");
-    });
-
-    it("should map email to 'email'", () => {
-      expect(modifiableAttributeNames.email).toBe("email");
     });
   });
 });
