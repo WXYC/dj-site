@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Authorization } from "@/lib/features/admin/types";
 import type { BetterAuthJwtPayload } from "@/lib/features/authentication/types";
 
-// Mock jwt-decode before importing the module under test
 vi.mock("jwt-decode", () => ({
   jwtDecode: vi.fn(),
 }));
