@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useLogout } from "@/src/hooks/authenticationHooks";
 import "@/src/styles/classic/wxyc.css";
 
 type NavLink = {
@@ -12,6 +13,7 @@ type NavLink = {
 
 export default function Navigation() {
   const pathname = usePathname();
+  const { handleLogout } = useLogout();
   
   const navLinks: NavLink[] = [
     { path: "/dashboard/catalog", title: "Card Catalog" },
@@ -76,6 +78,23 @@ export default function Navigation() {
                 </span>
               );
             })}
+            <span className="smalltext" style={{ color: "#666666" }}>
+              &nbsp;&nbsp;|&nbsp;&nbsp;
+            </span>
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                handleLogout();
+              }}
+              style={{
+                textDecoration: "none",
+                color: "#0000EE",
+              }}
+              className="smalltext"
+            >
+              Log Out
+            </a>
           </td>
         </tr>
       </tbody>
