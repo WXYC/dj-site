@@ -5,17 +5,18 @@ import {
   convertBinToQueue,
 } from "@/lib/features/bin/conversions";
 import {
-  createTestBinQueryResponse,
+  createTestBinResponse,
   createTestAlbum,
   TEST_ENTITY_IDS,
   TEST_SEARCH_STRINGS,
 } from "@/lib/test-utils";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
+import { Rotation } from "@/lib/features/rotation/types";
 
 describe("bin conversions", () => {
   describe("convertAlbumFromBin", () => {
     it("should convert album_id to id", () => {
-      const response = createTestBinQueryResponse({
+      const response = createTestBinResponse({
         album_id: TEST_ENTITY_IDS.ALBUM.ROCK_ALBUM,
       });
       const result = convertAlbumFromBin(response);
@@ -23,7 +24,7 @@ describe("bin conversions", () => {
     });
 
     it("should convert album_title to title", () => {
-      const response = createTestBinQueryResponse({
+      const response = createTestBinResponse({
         album_title: "Great Album",
       });
       const result = convertAlbumFromBin(response);
@@ -31,7 +32,7 @@ describe("bin conversions", () => {
     });
 
     it("should extract artist name", () => {
-      const response = createTestBinQueryResponse({
+      const response = createTestBinResponse({
         artist_name: "Cool Artist",
       });
       const result = convertAlbumFromBin(response);
@@ -39,7 +40,7 @@ describe("bin conversions", () => {
     });
 
     it("should extract artist lettercode", () => {
-      const response = createTestBinQueryResponse({
+      const response = createTestBinResponse({
         code_letters: "CA",
       });
       const result = convertAlbumFromBin(response);
@@ -47,7 +48,7 @@ describe("bin conversions", () => {
     });
 
     it("should extract artist numbercode", () => {
-      const response = createTestBinQueryResponse({
+      const response = createTestBinResponse({
         code_artist_number: 42,
       });
       const result = convertAlbumFromBin(response);
@@ -55,7 +56,7 @@ describe("bin conversions", () => {
     });
 
     it("should extract artist genre", () => {
-      const response = createTestBinQueryResponse({
+      const response = createTestBinResponse({
         genre_name: "Jazz",
       });
       const result = convertAlbumFromBin(response);
@@ -63,7 +64,7 @@ describe("bin conversions", () => {
     });
 
     it("should use Unknown for null genre", () => {
-      const response = createTestBinQueryResponse({
+      const response = createTestBinResponse({
         genre_name: null as unknown as string,
       });
       const result = convertAlbumFromBin(response);
@@ -71,7 +72,7 @@ describe("bin conversions", () => {
     });
 
     it("should extract entry from code_number", () => {
-      const response = createTestBinQueryResponse({
+      const response = createTestBinResponse({
         code_number: 99,
       });
       const result = convertAlbumFromBin(response);
@@ -79,7 +80,7 @@ describe("bin conversions", () => {
     });
 
     it("should extract format", () => {
-      const response = createTestBinQueryResponse({
+      const response = createTestBinResponse({
         format_name: "Vinyl",
       });
       const result = convertAlbumFromBin(response);
@@ -87,7 +88,7 @@ describe("bin conversions", () => {
     });
 
     it("should use Unknown for null format", () => {
-      const response = createTestBinQueryResponse({
+      const response = createTestBinResponse({
         format_name: null as unknown as string,
       });
       const result = convertAlbumFromBin(response);
@@ -95,7 +96,7 @@ describe("bin conversions", () => {
     });
 
     it("should extract label", () => {
-      const response = createTestBinQueryResponse({
+      const response = createTestBinResponse({
         label: "Indie Records",
       });
       const result = convertAlbumFromBin(response);
@@ -103,7 +104,7 @@ describe("bin conversions", () => {
     });
 
     it("should handle undefined label as empty string", () => {
-      const response = createTestBinQueryResponse({
+      const response = createTestBinResponse({
         label: undefined,
       });
       const result = convertAlbumFromBin(response);
@@ -111,37 +112,37 @@ describe("bin conversions", () => {
     });
 
     it("should set alternate_artist to empty string", () => {
-      const response = createTestBinQueryResponse();
+      const response = createTestBinResponse();
       const result = convertAlbumFromBin(response);
       expect(result.alternate_artist).toBe("");
     });
 
-    it("should set play_freq to undefined", () => {
-      const response = createTestBinQueryResponse();
+    it("should set rotation_bin to undefined", () => {
+      const response = createTestBinResponse();
       const result = convertAlbumFromBin(response);
-      expect(result.play_freq).toBeUndefined();
+      expect(result.rotation_bin).toBeUndefined();
     });
 
     it("should set add_date to undefined", () => {
-      const response = createTestBinQueryResponse();
+      const response = createTestBinResponse();
       const result = convertAlbumFromBin(response);
       expect(result.add_date).toBeUndefined();
     });
 
     it("should set plays to undefined", () => {
-      const response = createTestBinQueryResponse();
+      const response = createTestBinResponse();
       const result = convertAlbumFromBin(response);
       expect(result.plays).toBeUndefined();
     });
 
     it("should set rotation_id to undefined", () => {
-      const response = createTestBinQueryResponse();
+      const response = createTestBinResponse();
       const result = convertAlbumFromBin(response);
       expect(result.rotation_id).toBeUndefined();
     });
 
     it("should set artist.id to undefined", () => {
-      const response = createTestBinQueryResponse();
+      const response = createTestBinResponse();
       const result = convertAlbumFromBin(response);
       expect(result.artist.id).toBeUndefined();
     });
@@ -236,10 +237,10 @@ describe("bin conversions", () => {
       expect(result.rotation_id).toBe(TEST_ENTITY_IDS.ROTATION.MEDIUM);
     });
 
-    it("should include play_freq", () => {
-      const binEntry = createBinEntry({ play_freq: "H" });
+    it("should include rotation_bin", () => {
+      const binEntry = createBinEntry({ rotation_bin: Rotation.H });
       const result = convertBinToQueue(binEntry);
-      expect(result.play_freq).toBe("H");
+      expect(result.rotation_bin).toBe(Rotation.H);
     });
 
     it("should set request to false", () => {
