@@ -12,18 +12,17 @@ import {
   VerifiedData,
   Verification,
 } from "@/lib/features/authentication/types";
+import type { FlowsheetEntryResponse, BinLibraryDetails } from "@wxyc/shared/dtos";
 import {
   AlbumEntry,
-  AlbumQueryResponse,
+  AlbumSearchResultJSON,
   ArtistEntry,
   Genre,
 } from "@/lib/features/catalog/types";
 import {
-  FlowsheetEntryResponse,
   FlowsheetQuery,
   FlowsheetSongEntry,
 } from "@/lib/features/flowsheet/types";
-import { BinQueryResponse } from "@/lib/features/bin/types";
 import { Rotation } from "@/lib/features/rotation/types";
 import { TEST_ENTITY_IDS, TEST_SEARCH_STRINGS } from "./constants";
 import { TEST_TIMESTAMPS, toDateString } from "./time";
@@ -49,7 +48,7 @@ export function createTestAlbum(overrides: Partial<AlbumEntry> = {}): AlbumEntry
     entry: 1,
     format: "CD",
     alternate_artist: undefined,
-    play_freq: undefined,
+    rotation_bin: undefined,
     rotation_id: undefined,
     plays: 0,
     add_date: toDateString(TEST_TIMESTAMPS.ONE_WEEK_AGO),
@@ -58,16 +57,14 @@ export function createTestAlbum(overrides: Partial<AlbumEntry> = {}): AlbumEntry
   };
 }
 
-// Album query response (raw API response format)
-export function createTestAlbumQueryResponse(
-  overrides: Partial<AlbumQueryResponse> = {}
-): AlbumQueryResponse {
+// Album search result (raw API response format)
+export function createTestAlbumSearchResult(
+  overrides: Partial<AlbumSearchResultJSON> = {}
+): AlbumSearchResultJSON {
   return {
     id: TEST_ENTITY_IDS.ALBUM.ROCK_ALBUM,
     add_date: toDateString(TEST_TIMESTAMPS.ONE_WEEK_AGO),
-    album_dist: undefined,
     album_title: TEST_SEARCH_STRINGS.ALBUM_NAME,
-    artist_dist: undefined,
     artist_name: TEST_SEARCH_STRINGS.ARTIST_NAME,
     code_artist_number: 1,
     code_letters: "TA",
@@ -75,9 +72,7 @@ export function createTestAlbumQueryResponse(
     format_name: "CD",
     genre_name: "Rock",
     label: TEST_SEARCH_STRINGS.LABEL,
-    play_freq: undefined,
     plays: 0,
-    rotation_id: undefined,
     ...overrides,
   };
 }
@@ -113,7 +108,7 @@ export function createTestFlowsheetQuery(
     label: TEST_SEARCH_STRINGS.LABEL,
     request: false,
     album_id: undefined,
-    play_freq: undefined,
+    rotation_bin: undefined,
     rotation_id: undefined,
     ...overrides,
   };
@@ -174,7 +169,7 @@ export function createTestRotationAlbum(
 ): AlbumEntry {
   return createTestAlbum({
     id: TEST_ENTITY_IDS.ALBUM.ROTATION_ALBUM,
-    play_freq: rotation,
+    rotation_bin: rotation,
     rotation_id: TEST_ENTITY_IDS.ROTATION.HEAVY,
     ...overrides,
   });
@@ -195,7 +190,7 @@ export function createTestFlowsheetEntryResponse(
     request_flag: false,
     album_id: TEST_ENTITY_IDS.ALBUM.ROCK_ALBUM,
     rotation_id: undefined,
-    rotation_play_freq: undefined,
+    rotation_bin: undefined,
     message: undefined,
     ...overrides,
   };
@@ -281,9 +276,9 @@ export function createTestAccountFormData(
 }
 
 // Bin fixtures
-export function createTestBinQueryResponse(
-  overrides: Partial<BinQueryResponse> = {}
-): BinQueryResponse {
+export function createTestBinResponse(
+  overrides: Partial<BinLibraryDetails> = {}
+): BinLibraryDetails {
   return {
     album_id: TEST_ENTITY_IDS.ALBUM.ROCK_ALBUM,
     album_title: TEST_SEARCH_STRINGS.ALBUM_NAME,

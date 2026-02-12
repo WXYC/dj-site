@@ -1,4 +1,7 @@
+import type { FlowsheetEntryResponse } from "@wxyc/shared/dtos";
 import { Rotation } from "../rotation/types";
+
+export type { FlowsheetEntryResponse };
 
 export type FlowsheetFrontendState = {
   autoplay: boolean;
@@ -20,31 +23,19 @@ export type FlowsheetQuery = {
   label: string;
   request: boolean;
   album_id?: number;
-  play_freq?: Rotation;
+  rotation_bin?: Rotation;
   rotation_id?: number;
 };
 
 export type FlowsheetSearchProperty = keyof Omit<
   FlowsheetQuery,
-  "request" | "album_id" | "play_freq" | "rotation_id"
+  "request" | "album_id" | "rotation_bin" | "rotation_id"
 >;
 
 export type FlowsheetEntryBase = {
   id: number;
   play_order: number;
   show_id: number;
-};
-
-export type FlowsheetEntryResponse = FlowsheetEntryBase & {
-  album_id?: number;
-  track_title?: string;
-  album_title?: string;
-  artist_name?: string;
-  record_label?: string;
-  rotation_id?: number;
-  rotation_play_freq?: string;
-  message?: string;
-  request_flag: boolean;
 };
 
 export type FlowsheetSongBase = {
@@ -84,7 +75,7 @@ export type FlowsheetSubmissionParams =
       rotation_id?: number;
       request_flag: boolean;
       record_label?: string;
-      play_freq?: Rotation;
+      rotation_bin?: Rotation;
     }
   | {
       artist_name: string;
