@@ -3,7 +3,7 @@ import { sessionOptions } from "@/lib/features/session";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   const cookieStore = await cookies();
 
   const data = cookieStore.get("app_state")?.value;

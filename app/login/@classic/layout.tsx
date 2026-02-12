@@ -9,10 +9,9 @@ export const metadata: Metadata = {
 
 interface LoginProps {
   readonly normal: ReactNode;
-  readonly newuser: ReactNode;
 }
 
-export default async function Layout({ normal, newuser }: LoginProps) {
+export default async function Layout({ normal }: LoginProps) {
   return (
     <div
       style={{

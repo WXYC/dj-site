@@ -8,7 +8,6 @@ import {
   createTestBinQueryResponse,
   createTestAlbum,
   TEST_ENTITY_IDS,
-  TEST_SEARCH_STRINGS,
 } from "@/lib/test-utils";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 

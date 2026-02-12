@@ -31,6 +31,18 @@ The revised catalog leverages services defined in `api-service.js`, which utiliz
 4. Run the application: `npm run dev`
 5. Access the application locally: Open your web browser and visit `http://localhost:3000`
 
+## Linting
+
+The project uses [ESLint](https://eslint.org/) with [eslint-config-next](https://nextjs.org/docs/app/api-reference/config/eslint) for static analysis.
+
+```bash
+# Check for lint errors
+npm run lint
+
+# Auto-fix lint errors
+npm run lint:fix
+```
+
 ## Testing
 
 The project uses [Vitest](https://vitest.dev/) for testing with React Testing Library and MSW for API mocking.

@@ -66,20 +66,20 @@ export function convertQueryToSubmission(
 export function convertToStartShow(
   response: FlowsheetEntryResponse
 ): FlowsheetShowBlockEntry {
-  let djNameExtractionRegex =
+  const djNameExtractionRegex =
     /Start of Show:\s*([A-Za-z\s]+)\s+joined the set/i;
-  let djName =
+  const djName =
     response.message?.match(djNameExtractionRegex)?.[1] || "Unknown DJ";
 
-  let datetimeExtractionRegex =
+  const datetimeExtractionRegex =
     /(\d{1,2}\/\d{1,2}\/\d{4},\s+\d{1,2}:\d{2}:\d{2}\s*[APM]*)/i;
-  let dateString =
+  const dateString =
     response.message?.match(datetimeExtractionRegex)?.[1] ||
     "Unknown Date or Time";
-  let isUnknown = dateString === "Unknown Date or Time";
+  const isUnknown = dateString === "Unknown Date or Time";
 
-  let day = isUnknown ? "Unknown" : dateString.split(",")[0].trim();
-  let time = isUnknown ? "Unknown" : dateString.split(",")[1].trim();
+  const day = isUnknown ? "Unknown" : dateString.split(",")[0].trim();
+  const time = isUnknown ? "Unknown" : dateString.split(",")[1].trim();
 
   return {
     id: response.id,
@@ -95,19 +95,19 @@ export function convertToStartShow(
 export function convertToEndShow(
   response: FlowsheetEntryResponse
 ): FlowsheetShowBlockEntry {
-  let djNameExtractionRegex = /End of Show:\s*([A-Za-z\s]+)\s+left the set/i;
-  let djName =
+  const djNameExtractionRegex = /End of Show:\s*([A-Za-z\s]+)\s+left the set/i;
+  const djName =
     response.message?.match(djNameExtractionRegex)?.[1] || "Unknown DJ";
 
-  let datetimeExtractionRegex =
+  const datetimeExtractionRegex =
     /(\d{1,2}\/\d{1,2}\/\d{4},\s+\d{1,2}:\d{2}:\d{2}\s*[APM]*)/i;
-  let dateString =
+  const dateString =
     response.message?.match(datetimeExtractionRegex)?.[1] ||
     "Unknown Date or Time";
-  let isUnknown = dateString === "Unknown Date or Time";
+  const isUnknown = dateString === "Unknown Date or Time";
 
-  let day = isUnknown ? "Unknown" : dateString.split(",")[0].trim();
-  let time = isUnknown ? "Unknown" : dateString.split(",")[1].trim();
+  const day = isUnknown ? "Unknown" : dateString.split(",")[0].trim();
+  const time = isUnknown ? "Unknown" : dateString.split(",")[1].trim();
 
   return {
     id: response.id,
@@ -123,14 +123,14 @@ export function convertToEndShow(
 export function convertToBreakpoint(
   response: FlowsheetEntryResponse
 ): FlowsheetBreakpointEntry {
-  let datetimeExtractionRegex = /(\d{1,2}:\d{2}\s?[APMapm]{2})/g;
-  let dateString =
+  const datetimeExtractionRegex = /(\d{1,2}:\d{2}\s?[APMapm]{2})/g;
+  const dateString =
     response.message?.match(datetimeExtractionRegex)?.[1] ||
     "Unknown Date or Time";
-  let isUnknown = dateString === "Unknown Date or Time";
+  const isUnknown = dateString === "Unknown Date or Time";
 
-  let day = isUnknown ? "Unknown" : dateString.split(",")[0].trim();
-  let time = isUnknown ? "Unknown" : dateString.split(",")[1].trim();
+  const day = isUnknown ? "Unknown" : dateString.split(",")[0].trim();
+  const time = isUnknown ? "Unknown" : dateString.split(",")[1].trim();
 
   return {
     id: response.id,

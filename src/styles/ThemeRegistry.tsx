@@ -14,6 +14,7 @@ import classicTheme from "@/lib/features/experiences/classic/theme";
 // This implementation is from emotion-js
 // https://github.com/emotion-js/emotion/issues/2928#issuecomment-1319747902
 export default function ThemeRegistry(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Emotion createCache options type is not exported
   props: React.PropsWithChildren<{ options?: any }>
 ) {
   const { options, children } = props;
