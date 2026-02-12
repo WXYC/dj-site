@@ -11,7 +11,7 @@ export default function FlowsheetEntries() {
 
   const {
     loading,
-    entries: { current, setCurrentShowEntries, previous },
+    entries: { current, previous },
   } = useFlowsheet();
 
   if (loading) {

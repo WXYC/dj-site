@@ -68,7 +68,7 @@ export type AppThunk<ThunkReturnType = void> = ThunkAction<
 >;
 
 export const rtkQueryErrorLogger: Middleware =
-  (api: MiddlewareAPI) => (next) => (action) => {
+  (_api: MiddlewareAPI) => (next) => (action) => {
     if (isRejectedWithValue(action)) {
       const payload = action.payload as {
         data?: { message?: string };

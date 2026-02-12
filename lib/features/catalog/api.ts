@@ -23,6 +23,7 @@ export const catalogApi = createApi({
       transformResponse: (response: AlbumSearchResultJSON[]) =>
         response.map(convertToAlbumEntry),
     }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- backend response type not defined
     addAlbum: builder.mutation<any, AlbumParams>({
       query: (album) => ({
         url: "/",
@@ -30,6 +31,7 @@ export const catalogApi = createApi({
         body: album,
       }),
     }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- backend response type not defined
     addArtist: builder.mutation<any, ArtistParams>({
       query: (artist) => ({
         url: "/artists",
@@ -45,11 +47,13 @@ export const catalogApi = createApi({
       transformResponse: (response: AlbumSearchResultJSON) =>
         convertToAlbumEntry(response),
     }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- backend response type not defined
     getFormats: builder.query<any, void>({
       query: () => ({
         url: "/formats",
       }),
     }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- backend response type not defined
     addFormat: builder.mutation<any, string>({
       query: (format) => ({
         url: "/formats",
@@ -57,11 +61,13 @@ export const catalogApi = createApi({
         body: format,
       }),
     }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- backend response type not defined
     getGenres: builder.query<any, void>({
       query: () => ({
         url: "/genres",
       }),
     }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- backend response type not defined
     addGenre: builder.mutation<any, string>({
       query: (genre) => ({
         url: "/genres",

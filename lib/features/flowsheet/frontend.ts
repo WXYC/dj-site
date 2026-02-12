@@ -81,6 +81,7 @@ export const flowsheetSlice = createAppSlice({
     updateQueueEntry: (state, action: PayloadAction<{ entry_id: number; field: keyof FlowsheetSongEntry; value: string | boolean }>) => {
       const entry = state.queue.find((e) => e.id === action.payload.entry_id);
       if (entry) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic field assignment from action payload
         (entry as any)[action.payload.field] = action.payload.value;
       }
       saveQueueToStorage(state.queue);

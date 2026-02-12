@@ -14,9 +14,8 @@ import ResultsContainer from "./ResultsContainer";
 import TableHeader from "./TableHeader";
 
 export default function Results({
-  color,
 }: {
-  color: ColorPaletteProp | undefined;
+  color?: ColorPaletteProp | undefined;
 }) {
   const { selected, setSelection } = useCatalogSearch();
 
