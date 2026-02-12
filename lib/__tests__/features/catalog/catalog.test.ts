@@ -1,15 +1,17 @@
 import { describe, it, expect } from "vitest";
 import { catalogApi } from "@/lib/features/catalog/api";
 import { catalogSlice, defaultCatalogFrontendState } from "@/lib/features/catalog/frontend";
-import { convertAlbumFromSearch } from "@/lib/features/catalog/conversions";
+import { convertToAlbumEntry } from "@/lib/features/catalog/conversions";
 import {
   describeApi,
   describeSlice,
+  describeConversionWithAssertions,
   createTestAlbumSearchResult,
+  createTestBinResponse,
   TEST_ENTITY_IDS,
   TEST_SEARCH_STRINGS,
 } from "@/lib/test-utils";
-import type { AlbumSearchResultJSON } from "@/lib/features/catalog/types";
+import { Rotation } from "@/lib/features/rotation/types";
 
 describe("catalogApi", () => {
   describeApi(catalogApi, {
@@ -19,81 +21,144 @@ describe("catalogApi", () => {
   });
 });
 
-describe("convertAlbumFromSearch", () => {
-  it("should convert API response to AlbumEntry format", () => {
-    const apiResponse: AlbumSearchResultJSON = createTestAlbumSearchResult({
-      id: TEST_ENTITY_IDS.ALBUM.ROCK_ALBUM,
-      album_title: TEST_SEARCH_STRINGS.ALBUM_NAME,
-      artist_name: TEST_SEARCH_STRINGS.ARTIST_NAME,
-      code_letters: "TA",
-      code_artist_number: 1,
-      code_number: 42,
-      format_name: "CD",
-      genre_name: "Rock",
-      label: TEST_SEARCH_STRINGS.LABEL,
+
+describe("convertToAlbumEntry", () => {
+  describeConversionWithAssertions(
+    "from search result (AlbumSearchResultJSON)",
+    convertToAlbumEntry,
+    [
+      {
+        name: "should convert basic fields",
+        input: createTestAlbumSearchResult({
+          id: TEST_ENTITY_IDS.ALBUM.ROCK_ALBUM,
+          album_title: TEST_SEARCH_STRINGS.ALBUM_NAME,
+          artist_name: TEST_SEARCH_STRINGS.ARTIST_NAME,
+          code_letters: "TA",
+          code_artist_number: 1,
+          code_number: 42,
+          format_name: "CD",
+          genre_name: "Rock",
+          label: TEST_SEARCH_STRINGS.LABEL,
+        }),
+        assertions: (result) => {
+          expect(result.id).toBe(TEST_ENTITY_IDS.ALBUM.ROCK_ALBUM);
+          expect(result.title).toBe(TEST_SEARCH_STRINGS.ALBUM_NAME);
+          expect(result.artist.name).toBe(TEST_SEARCH_STRINGS.ARTIST_NAME);
+          expect(result.artist.lettercode).toBe("TA");
+          expect(result.artist.numbercode).toBe(1);
+          expect(result.artist.genre).toBe("Rock");
+          expect(result.entry).toBe(42);
+          expect(result.format).toBe("CD");
+          expect(result.label).toBe(TEST_SEARCH_STRINGS.LABEL);
+        },
+      },
+      {
+        name: "should pass through rotation data when present",
+        input: createTestAlbumSearchResult({
+          rotation_bin: "H" as any,
+          rotation_id: TEST_ENTITY_IDS.ROTATION.HEAVY,
+        }),
+        assertions: (result) => {
+          expect(result.rotation_bin).toBe(Rotation.H);
+          expect(result.rotation_id).toBe(TEST_ENTITY_IDS.ROTATION.HEAVY);
+        },
+      },
+      {
+        name: "should default plays to 0 when undefined",
+        input: createTestAlbumSearchResult({ plays: undefined }),
+        assertions: (result) => {
+          expect(result.plays).toBe(0);
+        },
+      },
+      {
+        name: "should preserve add_date",
+        input: createTestAlbumSearchResult({ add_date: "2024-06-08" }),
+        assertions: (result) => {
+          expect(result.add_date).toBe("2024-06-08");
+        },
+      },
+    ]
+  );
+
+  describeConversionWithAssertions(
+    "from bin response (BinLibraryDetails)",
+    convertToAlbumEntry,
+    [
+      {
+        name: "should use album_id as id",
+        input: createTestBinResponse({
+          album_id: TEST_ENTITY_IDS.ALBUM.ROCK_ALBUM,
+        }),
+        assertions: (result) => {
+          expect(result.id).toBe(TEST_ENTITY_IDS.ALBUM.ROCK_ALBUM);
+        },
+      },
+      {
+        name: "should convert basic fields from bin response",
+        input: createTestBinResponse({
+          album_title: "Great Album",
+          artist_name: "Cool Artist",
+          code_letters: "CA",
+          code_artist_number: 42,
+          code_number: 99,
+          format_name: "Vinyl",
+          genre_name: "Jazz",
+          label: "Indie Records",
+        }),
+        assertions: (result) => {
+          expect(result.title).toBe("Great Album");
+          expect(result.artist.name).toBe("Cool Artist");
+          expect(result.artist.lettercode).toBe("CA");
+          expect(result.artist.numbercode).toBe(42);
+          expect(result.artist.genre).toBe("Jazz");
+          expect(result.entry).toBe(99);
+          expect(result.format).toBe("Vinyl");
+          expect(result.label).toBe("Indie Records");
+        },
+      },
+      {
+        name: "should default optional bin fields",
+        input: {} as any,
+        assertions: (result) => {
+          expect(result.id).toBe(0);
+          expect(result.title).toBe("");
+          expect(result.artist.name).toBe("");
+          expect(result.artist.lettercode).toBe("");
+          expect(result.artist.numbercode).toBe(0);
+          expect(result.entry).toBe(0);
+          expect(result.label).toBe("");
+        },
+      },
+      {
+        name: "should have no rotation data from bin response",
+        input: createTestBinResponse(),
+        assertions: (result) => {
+          expect(result.rotation_bin).toBeUndefined();
+          expect(result.rotation_id).toBeUndefined();
+          expect(result.add_date).toBeUndefined();
+          expect(result.plays).toBe(0);
+        },
+      },
+    ]
+  );
+
+  describe("bug fixes", () => {
+    it("should not set artist.id to the album id", () => {
+      const searchResult = createTestAlbumSearchResult({
+        id: 999,
+      });
+      const result = convertToAlbumEntry(searchResult);
+      expect(result.artist.id).toBeUndefined();
     });
-
-    const result = convertAlbumFromSearch(apiResponse);
-
-    expect(result.id).toBe(TEST_ENTITY_IDS.ALBUM.ROCK_ALBUM);
-    expect(result.title).toBe(TEST_SEARCH_STRINGS.ALBUM_NAME);
-    expect(result.artist.name).toBe(TEST_SEARCH_STRINGS.ARTIST_NAME);
-    expect(result.artist.lettercode).toBe("TA");
-    expect(result.artist.numbercode).toBe(1);
-    expect(result.artist.genre).toBe("Rock");
-    expect(result.entry).toBe(42);
-    expect(result.format).toBe("CD");
-    expect(result.label).toBe(TEST_SEARCH_STRINGS.LABEL);
-  });
-
-  it("should not include rotation data (convertAlbumFromSearch ignores rotation)", () => {
-    const apiResponse: AlbumSearchResultJSON = createTestAlbumSearchResult({
-      rotation_bin: "H" as any,
-      rotation_id: TEST_ENTITY_IDS.ROTATION.HEAVY,
-      plays: 25,
-    });
-
-    const result = convertAlbumFromSearch(apiResponse);
-
-    expect(result.rotation_bin).toBeUndefined();
-    expect(result.rotation_id).toBeUndefined();
-    expect(result.plays).toBe(25);
-  });
-
-  it("should default plays to 0 when undefined", () => {
-    const apiResponse: AlbumSearchResultJSON = createTestAlbumSearchResult({
-      plays: undefined,
-    });
-
-    const result = convertAlbumFromSearch(apiResponse);
-    expect(result.plays).toBe(0);
   });
 
   it.each([
     ["Vinyl", "Vinyl"],
     ["CD", "CD"],
+    ["Unknown format", "Unknown format"],
   ])("should convert format %s correctly", (input, expected) => {
     const response = createTestAlbumSearchResult({ format_name: input });
-    expect(convertAlbumFromSearch(response).format).toBe(expected);
-  });
-
-  it("should preserve the add_date", () => {
-    const apiResponse = createTestAlbumSearchResult({
-      add_date: "2024-06-08",
-    });
-
-    const result = convertAlbumFromSearch(apiResponse);
-    expect(result.add_date).toBe("2024-06-08");
-  });
-
-  it("should handle distance values when present", () => {
-    const apiResponse = createTestAlbumSearchResult({
-      album_dist: 0.5,
-      artist_dist: 0.3,
-    });
-
-    const result = convertAlbumFromSearch(apiResponse);
-    expect(result.id).toBeDefined();
+    expect(convertToAlbumEntry(response).format).toBe(expected);
   });
 });
 
