@@ -48,7 +48,7 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
           entry={album.entry}
           artist={album.artist}
           format={album.format}
-          rotation={album.play_freq}
+          rotation={album.rotation_bin}
         />
       </td>
       <td>

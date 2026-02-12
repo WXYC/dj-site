@@ -5,11 +5,11 @@ import { convertAlbumFromSearch } from "@/lib/features/catalog/conversions";
 import {
   describeApi,
   describeSlice,
-  createTestAlbumQueryResponse,
+  createTestAlbumSearchResult,
   TEST_ENTITY_IDS,
   TEST_SEARCH_STRINGS,
 } from "@/lib/test-utils";
-import type { AlbumQueryResponse } from "@/lib/features/catalog/types";
+import type { AlbumSearchResultJSON } from "@/lib/features/catalog/types";
 
 describe("catalogApi", () => {
   describeApi(catalogApi, {
@@ -21,7 +21,7 @@ describe("catalogApi", () => {
 
 describe("convertAlbumFromSearch", () => {
   it("should convert API response to AlbumEntry format", () => {
-    const apiResponse: AlbumQueryResponse = createTestAlbumQueryResponse({
+    const apiResponse: AlbumSearchResultJSON = createTestAlbumSearchResult({
       id: TEST_ENTITY_IDS.ALBUM.ROCK_ALBUM,
       album_title: TEST_SEARCH_STRINGS.ALBUM_NAME,
       artist_name: TEST_SEARCH_STRINGS.ARTIST_NAME,
@@ -47,21 +47,21 @@ describe("convertAlbumFromSearch", () => {
   });
 
   it("should not include rotation data (convertAlbumFromSearch ignores rotation)", () => {
-    const apiResponse: AlbumQueryResponse = createTestAlbumQueryResponse({
-      play_freq: "H" as any,
+    const apiResponse: AlbumSearchResultJSON = createTestAlbumSearchResult({
+      rotation_bin: "H" as any,
       rotation_id: TEST_ENTITY_IDS.ROTATION.HEAVY,
       plays: 25,
     });
 
     const result = convertAlbumFromSearch(apiResponse);
 
-    expect(result.play_freq).toBeUndefined();
+    expect(result.rotation_bin).toBeUndefined();
     expect(result.rotation_id).toBeUndefined();
     expect(result.plays).toBe(25);
   });
 
   it("should default plays to 0 when undefined", () => {
-    const apiResponse: AlbumQueryResponse = createTestAlbumQueryResponse({
+    const apiResponse: AlbumSearchResultJSON = createTestAlbumSearchResult({
       plays: undefined,
     });
 
@@ -73,12 +73,12 @@ describe("convertAlbumFromSearch", () => {
     ["Vinyl", "Vinyl"],
     ["CD", "CD"],
   ])("should convert format %s correctly", (input, expected) => {
-    const response = createTestAlbumQueryResponse({ format_name: input });
+    const response = createTestAlbumSearchResult({ format_name: input });
     expect(convertAlbumFromSearch(response).format).toBe(expected);
   });
 
   it("should preserve the add_date", () => {
-    const apiResponse = createTestAlbumQueryResponse({
+    const apiResponse = createTestAlbumSearchResult({
       add_date: "2024-06-08",
     });
 
@@ -87,7 +87,7 @@ describe("convertAlbumFromSearch", () => {
   });
 
   it("should handle distance values when present", () => {
-    const apiResponse = createTestAlbumQueryResponse({
+    const apiResponse = createTestAlbumSearchResult({
       album_dist: 0.5,
       artist_dist: 0.3,
     });
