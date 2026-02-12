@@ -29,6 +29,3 @@ export * from "./conversion-harness";
 // MSW server and handlers
 export { server } from "./msw/server";
 export { handlers } from "./msw/handlers";
-
-// Common mock factories
-export * from "./mocks";
