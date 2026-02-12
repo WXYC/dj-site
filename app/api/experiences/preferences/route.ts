@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
 
   // Remove old 'classic' property if it exists
   if ("classic" in newState) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- deleting legacy property from untyped cookie data
     delete (newState as any).classic;
   }
 

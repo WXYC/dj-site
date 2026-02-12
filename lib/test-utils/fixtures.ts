@@ -27,7 +27,6 @@ import {
   AlbumEntry,
   AlbumSearchResultJSON,
   ArtistEntry,
-  Genre,
 } from "@/lib/features/catalog/types";
 import {
   FlowsheetQuery,

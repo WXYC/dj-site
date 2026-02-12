@@ -2,7 +2,7 @@ import { defaultApplicationState } from "@/lib/features/application/types";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   const cookieStore = await cookies();
 
   const data = cookieStore.get("app_state");

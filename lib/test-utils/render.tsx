@@ -49,15 +49,13 @@ function createTestWrapper(store: AppStore) {
  */
 export function renderWithProviders(
   ui: ReactElement,
-  {
-    preloadedState,
-    store = makeStore(),
-    ...renderOptions
-  }: ExtendedRenderOptions = {}
+  options: ExtendedRenderOptions = {}
 ): CustomRenderResult {
   // Apply preloaded state to the store if provided
   // Note: For full preloadedState support, makeStore would need to accept it
   // This is a simplified version that works with the current store setup
+  const { preloadedState, store = makeStore(), ...renderOptions } = options;
+  void preloadedState;
 
   const user = userEvent.setup();
   const wrapper = createTestWrapper(store);

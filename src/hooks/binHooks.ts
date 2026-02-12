@@ -3,20 +3,18 @@ import {
   useDeleteFromBinMutation,
   useGetBinQuery,
 } from "@/lib/features/bin/api";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { useRegistry } from "./authenticationHooks";
 import { useAppSelector } from "@/lib/hooks";
-import { AlbumEntry } from "@/lib/features/catalog/types";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
-import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
 
 export const useBin = () => {
   const { loading, info } = useRegistry();
 
   const { data, isLoading, isSuccess, isError } = useGetBinQuery(
     {
-      dj_id: info?.id!,
+      dj_id: info?.id ?? "",
     },
     {
       skip: !info || loading,
@@ -40,16 +38,16 @@ export const useDeleteFromBin = () => {
     (album_id: number) => {
       if (loading || !info) return;
 
-      deleteFromBin({ dj_id: info?.id!, album_id });
+      deleteFromBin({ dj_id: info.id, album_id });
     },
-    [info, loading]
+    [info, loading, deleteFromBin]
   );
 
   useEffect(() => {
     if (result.isError) {
       toast.error("Failed to remove album from bin");
     }
-  }, [result]);
+  }, [result.isError]);
 
   return {
     deleteFromBin: deleteMethod,
@@ -66,16 +64,16 @@ export const useAddToBin = () => {
     (album_id: number) => {
       if (loading || !info) return;
 
-      addToBin({ dj_id: info?.id!, album_id });
+      addToBin({ dj_id: info.id, album_id });
     },
-    [info, loading]
+    [info, loading, addToBin]
   );
 
   useEffect(() => {
     if (result.isError) {
       toast.error("Failed to add album to bin");
     }
-  }, [result]);
+  }, [result.isError]);
 
   return {
     addToBin: addMethod,

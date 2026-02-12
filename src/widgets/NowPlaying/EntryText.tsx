@@ -17,7 +17,7 @@ export default function EntryText({
   if (!entry) {
     return (
       <EntryStack>
-        <Typography level="body-sm">You're Listening To</Typography>
+        <Typography level="body-sm">You&apos;re Listening To</Typography>
         <Typography level="title-md">WXYC Chapel Hill</Typography>
       </EntryStack>
     );

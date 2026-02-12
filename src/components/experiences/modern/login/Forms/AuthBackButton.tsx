@@ -4,7 +4,7 @@ import { applicationSlice } from "@/lib/features/application/frontend";
 import { useAppDispatch } from "@/lib/hooks";
 import { useLogout } from "@/src/hooks/authenticationHooks";
 import { ArrowBack } from "@mui/icons-material";
-import { Button, Link } from "@mui/joy";
+import { Link } from "@mui/joy";
 import { useRouter } from "next/navigation";
 
 export default function AuthBackButton({

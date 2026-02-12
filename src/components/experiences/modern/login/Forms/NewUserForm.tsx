@@ -24,6 +24,7 @@ export default function NewUserForm({
 
   useEffect(() => {
     addRequiredCredentials(requiredAttributes as (keyof VerifiedData)[]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- addRequiredCredentials is a dispatch wrapper, intentionally excluded
   }, [requiredAttributes]);
 
   const dispatch = useAppDispatch();
@@ -34,6 +35,7 @@ export default function NewUserForm({
         value: username.length > 0,
       })
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- dispatch is stable; intentionally only reacts to username changes
   }, [username]);
 
   return (

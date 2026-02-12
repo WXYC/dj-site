@@ -88,6 +88,7 @@ export async function GET(request: NextRequest) {
     });
 
     const status = backendResponse.status;
+    // eslint-disable-next-line no-console -- server-side diagnostic log for email verification flow
     console.log(
       `[verify-email] backend responded ${status}; ` +
         `Location: ${backendResponse.headers.get("location") ?? "(none)"}; ` +
@@ -112,6 +113,7 @@ export async function GET(request: NextRequest) {
     // Set-Cookie headers with the session token to its redirect response.
     const setCookieHeaders = extractSetCookieHeaders(backendResponse.headers);
 
+    // eslint-disable-next-line no-console -- server-side diagnostic log for email verification flow
     console.log(
       `[verify-email] extracted ${setCookieHeaders.length} Set-Cookie header(s)`,
       setCookieHeaders.map((c) => c.substring(0, 60) + "…")
@@ -127,6 +129,7 @@ export async function GET(request: NextRequest) {
         c.includes("session")
     );
 
+    // eslint-disable-next-line no-console -- server-side diagnostic log for email verification flow
     console.log(
       `[verify-email] hasSessionCookies: ${hasSessionCookies}; ` +
         `callbackURL: ${callbackURL}`

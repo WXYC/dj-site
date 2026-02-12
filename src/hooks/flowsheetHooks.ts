@@ -37,7 +37,6 @@ export const useShowControl = () => {
   const {
     data: liveList,
     isLoading: loadingLiveList,
-    isSuccess: liveListSuccess,
   } = useWhoIsLiveQuery(undefined, {
     skip: !userData || userloading,
     pollingInterval: 60000, // Poll every 60 seconds to keep live status updated
@@ -48,7 +47,6 @@ export const useShowControl = () => {
     data,
     isLoading: entriesLoading,
     isSuccess,
-    isError,
   } = useGetEntriesQuery(pagination, {
     skip: !userData || userloading,
     pollingInterval: 60000, // Poll every 60 seconds to keep flowsheet updated
@@ -204,7 +202,7 @@ export const useFlowsheet = () => {
     }
   );
 
-  const [addToFlowsheet, addToFlowsheetResult] = useAddToFlowsheetMutation();
+  const [addToFlowsheet] = useAddToFlowsheetMutation();
   const addToFlowsheetCallback = (arg: FlowsheetSubmissionParams) => {
     if (!userData || userData.id === undefined || userloading) {
       return Promise.reject('User not logged in');
@@ -223,7 +221,7 @@ export const useFlowsheet = () => {
     });
   };
 
-  const [removeFromFlowsheet, _] = useRemoveFromFlowsheetMutation();
+  const [removeFromFlowsheet] = useRemoveFromFlowsheetMutation();
   const removeFromFlowsheetCallback = (entry: number) => {
     if (!userData || userData.id === undefined || userloading) {
       return;
@@ -239,7 +237,7 @@ export const useFlowsheet = () => {
     removeFromFlowsheet(entry);
   };
 
-  const [updateFlowsheetEntry, updateFlowsheetResult] =
+  const [updateFlowsheetEntry] =
     useUpdateFlowsheetMutation();
   const updateFlowsheet = (updateData: FlowsheetUpdateParams) => {
     if (!userData || userData.id === undefined || userloading) {
@@ -290,7 +288,7 @@ export const useFlowsheet = () => {
       : data;
   }, [data, live, currentShow]);
 
-  const [switchBackendEntries, switchBackendResult] =
+  const [switchBackendEntries] =
     useSwitchEntriesMutation();
 
   const switchEntries = useCallback(
@@ -325,7 +323,6 @@ export const useFlowsheet = () => {
       userData?.id,
       userloading,
       data,
-      currentShow,
       switchBackendEntries,
       currentShowEntries,
       dispatch,
@@ -470,7 +467,7 @@ export const useFlowsheetSubmit = () => {
   }, [selectedResult, selectedEntry, flowSheetRawQuery]);
 
   const handleSubmit = useCallback(
-    (e: any) => {
+    () => {
       if (ctrlKeyPressed) {
         addToQueue(selectedResultData);
       } else {

@@ -52,6 +52,7 @@ export const usePublicRoutes = () => {
   // Calculate during render - no useState/useEffect needed
   const isPublic = useMemo(() => {
     return publicRoutes.includes(pathname) || pathname.length <= 1;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- publicRoutes is a constant array defined in function scope
   }, [pathname]);
 
   return isPublic;
@@ -66,7 +67,7 @@ export const useAlbumImages = () => {
 
   const [url, setUrl] = useState<string>(DEFAULT_URL);
 
-  let functions = [
+  const functions = [
     getArtworkFromDiscogs,
     getArtworkFromItunes,
     getArtworkFromLastFM,
@@ -80,9 +81,9 @@ export const useAlbumImages = () => {
       return DEFAULT_URL;
     }
 
-    let first = Math.floor(Math.random() * functions.length);
-    let second = (first + 1) % functions.length;
-    let third = (second + 1) % functions.length;
+    const first = Math.floor(Math.random() * functions.length);
+    const second = (first + 1) % functions.length;
+    const third = (second + 1) % functions.length;
 
     const response =
       (await functions[first]({
@@ -107,6 +108,7 @@ export const useAlbumImages = () => {
     (async () => {
       setUrl(await getImageForSong(album, artist));
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- getImageForSong is stable but not memoized; only album/artist changes should trigger refetch
   }, [album, artist]);
 
   return {

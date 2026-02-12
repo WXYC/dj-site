@@ -1,6 +1,6 @@
 import { createAppSlice } from "@/lib/createAppSlice";
 import { PayloadAction } from "@reduxjs/toolkit";
-import { FlowsheetEntry, FlowsheetFrontendState, FlowsheetQuery, FlowsheetRequestParams, FlowsheetSearchProperty, FlowsheetSongEntry, FlowsheetSwitchParams } from "./types";
+import { FlowsheetEntry, FlowsheetFrontendState, FlowsheetQuery, FlowsheetRequestParams, FlowsheetSearchProperty, FlowsheetSongEntry } from "./types";
 import { clearQueueFromStorage, loadQueueFromStorage, saveQueueToStorage } from "./queue-storage";
 
 export const defaultFlowsheetFrontendState: FlowsheetFrontendState = {
@@ -86,6 +86,7 @@ export const flowsheetSlice = createAppSlice({
     updateQueueEntry: (state, action: PayloadAction<{ entry_id: number; field: keyof FlowsheetSongEntry; value: string | boolean }>) => {
       const entry = state.queue.find((e) => e.id === action.payload.entry_id);
       if (entry) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic field assignment from action payload
         (entry as any)[action.payload.field] = action.payload.value;
       }
       saveQueueToStorage(state.queue);

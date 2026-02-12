@@ -3,7 +3,6 @@ import { AlbumEntry } from "@/lib/features/catalog/types";
 import { Dropdown, IconButton, Menu, MenuButton } from "@mui/joy";
 
 import { MenuLinkItem } from "@/src/components/shared/General/LinkButton";
-import { useShiftKey } from "@/src/hooks/applicationHooks";
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
 import { MoreVert } from "@mui/icons-material";
 import InfoOutlined from "@mui/icons-material/InfoOutlined";

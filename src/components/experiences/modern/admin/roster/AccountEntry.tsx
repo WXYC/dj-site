@@ -23,9 +23,9 @@ export const AccountEntry = ({
   const [isPromoting, setIsPromoting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [promoteError, setPromoteError] = useState<Error | null>(null);
-  const [resetError, setResetError] = useState<Error | null>(null);
-  const [deleteError, setDeleteError] = useState<Error | null>(null);
+  const [, setPromoteError] = useState<Error | null>(null);
+  const [, setResetError] = useState<Error | null>(null);
+  const [, setDeleteError] = useState<Error | null>(null);
   const toAdminRole = (
     role: "member" | "dj" | "musicDirector" | "stationManager"
   ) =>

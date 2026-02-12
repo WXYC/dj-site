@@ -1,6 +1,6 @@
 import WXYCPage from "@/src/Layout/WXYCPage";
 import NowPlaying from "@/src/widgets/NowPlaying";
-import { Box, Card } from "@mui/joy";
+import { Box } from "@mui/joy";
 import { Metadata } from "next";
 import { getPageTitle } from "@/lib/utils/page-title";
 

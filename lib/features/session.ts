@@ -4,7 +4,7 @@ import "server-only";
 import { defaultApplicationState } from "./application/types";
 import { defaultAuthenticationData, betterAuthSessionToAuthenticationData, BetterAuthSessionResponse, BetterAuthSession } from "./authentication/utilities";
 import { getUserRoleInOrganization, getAppOrganizationId } from "./authentication/organization-utils";
-import { mapRoleToAuthorization, isAuthenticated, AuthenticatedUser } from "./authentication/types";
+import { mapRoleToAuthorization, isAuthenticated } from "./authentication/types";
 import { SiteProps } from "./types";
 import { serverAuthClient } from "./authentication/server-client";
 import { parseAppSkinPreference } from "./experiences/preferences";
@@ -67,10 +67,12 @@ export const createServerSideProps = cache(async (): Promise<SiteProps> => {
         user: {
           ...session.data.user,
           username: session.data.user.username ?? undefined,
+          /* eslint-disable @typescript-eslint/no-explicit-any -- better-auth SDK getSession() response does not expose these fields in its type */
           role: (session.data.user as any).role ?? undefined,
           banned: (session.data.user as any).banned ?? undefined,
           banReason: (session.data.user as any).banReason ?? undefined,
           banExpires: (session.data.user as any).banExpires ?? undefined,
+          /* eslint-enable @typescript-eslint/no-explicit-any */
         },
       } as BetterAuthSession;
 

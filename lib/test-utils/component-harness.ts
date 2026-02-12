@@ -126,7 +126,7 @@ export function testPropVariants<P extends object>(
 ) {
   const setup = createComponentHarness(Component, defaultProps);
 
-  variants.forEach((variant, index) => {
+  variants.forEach((variant) => {
     const result = setup(variant);
     assertion(result);
     result.unmount();

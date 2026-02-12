@@ -3,16 +3,12 @@
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
 import { authClient } from "@/lib/features/authentication/client";
 import {
-  AuthenticatedUser,
   AuthenticationData,
-  djAttributeNames,
   isAuthenticated,
   NewUserCredentials,
-  ResetPasswordRequest,
   VerifiedData,
 } from "@/lib/features/authentication/types";
 import { betterAuthSessionToAuthenticationData, betterAuthSessionToAuthenticationDataAsync } from "@/lib/features/authentication/utilities";
-import { Authorization } from "@/lib/features/admin/types";
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useRouter } from "next/navigation";
@@ -49,6 +45,7 @@ export const useLogin = () => {
           ? result.error.message 
           : typeof result.error === 'string' 
             ? result.error 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- better-auth error shape is not narrowly typed
             : (result.error as any)?.message || 'Login failed. Please check your credentials.';
         
         setError(result.error instanceof Error ? result.error : new Error(errorMessage));
@@ -79,7 +76,7 @@ export const useLogin = () => {
   const dispatch = useAppDispatch();
   useEffect(() => {
     dispatch(authenticationSlice.actions.reset());
-  }, []);
+  }, [dispatch]);
 
   return {
     handleLogin,
@@ -125,7 +122,8 @@ export const useLogout = () => {
 export const useAuthentication = () => {
   const { data: session, isPending, error: sessionError } = authClient.useSession();
   const [authData, setAuthData] = useState<AuthenticationData>(
-    session 
+    session
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- better-auth useSession() return type differs from our BetterAuthSession
       ? betterAuthSessionToAuthenticationData(session as any)
       : { message: "Not Authenticated" }
   );
@@ -135,6 +133,7 @@ export const useAuthentication = () => {
   useEffect(() => {
     if (session && !isPending) {
       setIsLoadingRole(true);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- better-auth useSession() return type differs from our BetterAuthSession
       betterAuthSessionToAuthenticationDataAsync(session as any)
         .then((data) => {
           setAuthData(data);
@@ -142,6 +141,7 @@ export const useAuthentication = () => {
         .catch((error) => {
           console.error("Failed to fetch organization role, using session data:", error);
           // Fall back to synchronous version on error
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- better-auth useSession() return type differs from our BetterAuthSession
           setAuthData(betterAuthSessionToAuthenticationData(session as any));
         })
         .finally(() => {
@@ -184,8 +184,6 @@ export const useNewUser = () => {
   const verified = useAppSelector(
     authenticationSlice.selectors.requiredCredentialsVerified
   );
-
-  const { handleLogout } = useLogout();
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -231,6 +229,7 @@ export const useNewUser = () => {
       // Update user via better-auth non-admin updateUser (updates current user)
       // Custom metadata fields (realName, djName) go at the top level, not in a 'data' object
       // This is different from admin.createUser which uses a 'data' object
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- better-auth updateUser accepts custom fields not in its base type
       const updateRequest: any = {};
 
       // Add custom metadata fields at the top level (non-admin updateUser format)
@@ -283,7 +282,7 @@ export const useNewUser = () => {
 
   useEffect(() => {
     dispatch(authenticationSlice.actions.reset());
-  }, []);
+  }, [dispatch]);
 
   const addRequiredCredentials = (required: (keyof VerifiedData)[]) =>
     dispatch(authenticationSlice.actions.addRequiredCredentials(required));
@@ -301,7 +300,7 @@ export const useResetPassword = () => {
   const router = useRouter();
   const dispatch = useAppDispatch();
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [requestingReset, setRequestingReset] = useState(false);
 

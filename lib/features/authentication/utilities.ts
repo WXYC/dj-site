@@ -1,7 +1,6 @@
 import { jwtDecode } from "jwt-decode";
-import { Authorization } from "../admin/types";
-import { 
-  AuthenticationData, 
+import {
+  AuthenticationData,
   AuthenticatedUser,
   BetterAuthJwtPayload,
   IncompleteUser,
@@ -86,10 +85,12 @@ export function betterAuthSessionToAuthenticationData(
   }
 
   // Get role from organization member data (preferred) or user role
+  /* eslint-disable @typescript-eslint/no-explicit-any -- better-auth SDK session type may include extra fields at runtime */
   const organizationRole = (session.user as any).organization?.role;
   const userRole = (session.user as any).role;
   const metadataRole = (session.user as any).metadata?.role;
   const customRole = (session.user as any).customRole;
+  /* eslint-enable @typescript-eslint/no-explicit-any */
   const roleToMap = organizationRole || metadataRole || customRole || userRole;
 
   const token = session.session?.token;
@@ -175,10 +176,12 @@ export async function betterAuthSessionToAuthenticationDataAsync(
   
   // Fallback: Get role from session data if not already set
   if (!roleToMap) {
+    /* eslint-disable @typescript-eslint/no-explicit-any -- better-auth SDK session type may include extra fields at runtime */
     const organizationRole = (session.user as any).organization?.role;
     const userRole = (session.user as any).role;
     const metadataRole = (session.user as any).metadata?.role;
     const customRole = (session.user as any).customRole;
+    /* eslint-enable @typescript-eslint/no-explicit-any */
     roleToMap = organizationRole || metadataRole || customRole || userRole;
   }
 

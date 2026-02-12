@@ -66,6 +66,7 @@ export function useThemePreferenceActions() {
 
       if (options.updateUser && session?.user?.id) {
         try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- appSkin is a custom field not in better-auth's updateUser type
           await authClient.updateUser({ appSkin: preference } as any);
         } catch (error) {
           console.error("Failed to update user appSkin:", error);
@@ -89,6 +90,7 @@ export function useThemePreferenceSync() {
     if (hasSyncedRef.current || !mode) return;
 
     const sync = async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- appSkin is a custom field not in better-auth's session user type
       const appSkinParsed = parseAppSkinPreference((session?.user as any)?.appSkin);
       const localPreference = readLocalPreference();
 
@@ -136,6 +138,7 @@ export function useThemePreferenceSync() {
     };
 
     sync();
+  // eslint-disable-next-line react-hooks/exhaustive-deps, @typescript-eslint/no-explicit-any -- appSkin is a custom field not in better-auth's session user type; complex expression is intentional
   }, [mode, persistPreference, router, (session?.user as any)?.appSkin, setMode]);
 }
 

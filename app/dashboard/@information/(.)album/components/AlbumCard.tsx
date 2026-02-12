@@ -6,7 +6,6 @@ import { ArtistAvatar } from "@/src/components/experiences/modern/catalog/Artist
 import {
   AspectRatio,
   Box,
-  Button,
   Card,
   CardContent,
   CardOverflow,
@@ -15,10 +14,10 @@ import {
   Stack,
   Typography,
 } from "@mui/joy";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export default function AlbumCard({ album }: { album: AlbumEntry }) {
-  const [image, setImage] = useState("");
+  const [image] = useState("");
 
   return (
     <Card
@@ -30,7 +29,8 @@ export default function AlbumCard({ album }: { album: AlbumEntry }) {
     >
       <CardOverflow>
         <AspectRatio ratio="4">
-          <img src={image.length > 0 ? image : "/img/wxyc_dark.jpg"} />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={image.length > 0 ? image : "/img/wxyc_dark.jpg"} alt={`${album.title} album cover`} />
         </AspectRatio>
         <Box
           sx={{

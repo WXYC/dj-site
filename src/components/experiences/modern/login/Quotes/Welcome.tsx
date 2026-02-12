@@ -1,6 +1,5 @@
 "use client";
-import React from "react";
-import { Box, Typography } from "@mui/joy";
+import { Typography } from "@mui/joy";
 
 export default function WelcomeQuotes() {
   const welcomeQuotesAndArtists = [

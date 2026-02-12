@@ -43,9 +43,9 @@ export default function MobileHeader(): JSX.Element {
         <DragHandleIcon />
       </IconButton>
       <Box
-        sx={(theme) => ({
+        sx={{
           height: "100%",
-        })}
+        }}
       >
         <Logo />
       </Box>

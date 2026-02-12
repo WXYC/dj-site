@@ -1,5 +1,3 @@
-import { toast } from "sonner";
-
 export default async function getArtworkFromDiscogs({
   title,
   artist,
@@ -22,14 +20,14 @@ export default async function getArtworkFromDiscogs({
     const discogsResponse = await fetch(url);
     
     if (!discogsResponse.ok) {
-      console.log(`Failed to fetch album art from Discogs (${discogsResponse.status})`);
+      console.error(`Failed to fetch album art from Discogs (${discogsResponse.status})`);
       return null;
     }
     
     const discogsJSON = await discogsResponse.json();
     return discogsJSON?.results?.[0]?.cover_image || null;
-  } catch (e) {
-    console.log("Error fetching album art from Discogs");
+  } catch {
+    console.error("Error fetching album art from Discogs");
     return null;
   }
 }
