@@ -3,7 +3,6 @@ import { useFlowsheet } from "@/src/hooks/flowsheetHooks";
 import { ColorPaletteProp, VariantProp } from "@mui/joy";
 import { useTheme } from '@mui/joy/styles';
 import { DragControls, MotionProps, Reorder } from "motion/react";
-import RemoveButton from "./Components/RemoveButton";
 
 export default function DraggableEntryWrapper({
   children,

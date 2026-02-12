@@ -18,6 +18,7 @@ export function useActiveExperience(): ExperienceId {
     }
     // Fall back to old 'classic' boolean
     if ("classic" in state.application) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- legacy state shape migration
       return (state.application as any).classic ? "classic" : "modern";
     }
     return "modern";
