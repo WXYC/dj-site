@@ -18,7 +18,7 @@ import type { AppStore, RootState } from "@/lib/store";
 export function describeSlice<
   State,
   Name extends string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   S extends Slice<State, any, Name>
 >(
   slice: S,
@@ -46,7 +46,7 @@ export function describeSlice<
 export interface SliceTestContext<
   State,
   Name extends string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   S extends Slice<State, any, Name>
 > {
   harness: () => ReturnType<typeof createSliceHarness<State, Name, S>>;
@@ -81,7 +81,7 @@ export interface SliceTestContext<
 export function createSliceHarness<
   State,
   Name extends string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   S extends Slice<State, any, Name>
 >(slice: S, initialState: State) {
   return {
@@ -126,7 +126,7 @@ export function createSliceHarness<
      * Create a fresh store for testing selectors and store integration.
      * Use this when selectors require the full RootState (combineSlices).
      */
-    withStore(): SliceStoreHarness<S> {
+    withStore(): SliceStoreHarness {
       const store = makeStore();
       return {
         store,
@@ -142,10 +142,7 @@ export function createSliceHarness<
   };
 }
 
-export interface SliceStoreHarness<
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  S extends Slice<any, any, any>
-> {
+export interface SliceStoreHarness {
   store: AppStore;
   dispatch: (action: UnknownAction) => void;
   getState: () => RootState;

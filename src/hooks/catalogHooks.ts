@@ -21,7 +21,6 @@ export function formatCatalogSearchQuery(
   }
 }
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
-import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
 import { useGetRotationQuery } from "@/lib/features/rotation/api";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -63,7 +62,7 @@ export const useCatalogSearch = () => {
         })
       );
     },
-    [orderBy, orderDirection]
+    [orderBy, orderDirection, dispatch]
   );
 
   return {
@@ -127,6 +126,7 @@ export const useCatalogResults = () => {
         setFormattedQuery(formatCatalogSearchQuery(searchIn, searchString, n));
       }, 500)
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- queryTimeout and clearSelection are intentionally excluded to avoid infinite re-renders
   }, [searchIn, searchString, n]);
 
   useEffect(() => {

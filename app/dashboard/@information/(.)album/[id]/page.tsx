@@ -13,7 +13,7 @@ export default function AlbumPopup() {
 
   const params = useParams<{ id: string }>();
 
-  const { data, isLoading, isSuccess, isError } = useGetInformationQuery(
+  const { data, isLoading, isError } = useGetInformationQuery(
     {
       album_id: Number(params.id),
     },

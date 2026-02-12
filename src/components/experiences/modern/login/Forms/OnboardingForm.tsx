@@ -1,7 +1,6 @@
 "use client";
 
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
-import { VerifiedData } from "@/lib/features/authentication/types";
 import { useAppDispatch } from "@/lib/hooks";
 import { useNewUser } from "@/src/hooks/authenticationHooks";
 import { FormControl, FormLabel, Input, Typography } from "@mui/joy";
@@ -42,6 +41,7 @@ export default function OnboardingForm({
         value: username.length > 0,
       })
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- dispatch is stable; intentionally only reacts to username changes
   }, [username]);
 
   return (
