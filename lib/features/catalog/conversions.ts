@@ -1,50 +1,38 @@
+import type { BinLibraryDetails } from "@wxyc/shared/dtos";
 import { Rotation } from "../rotation/types";
 import { AlbumEntry, AlbumSearchResultJSON, Format, Genre } from "./types";
 
-export function convertAlbumFromSearch(
-  response: AlbumSearchResultJSON
+function isSearchResult(
+  response: AlbumSearchResultJSON | BinLibraryDetails
+): response is AlbumSearchResultJSON {
+  return "id" in response && response.id !== undefined;
+}
+
+export function convertToAlbumEntry(
+  response: AlbumSearchResultJSON | BinLibraryDetails
 ): AlbumEntry {
+  const id = isSearchResult(response) ? response.id : (response.album_id ?? 0);
+
   return {
-    id: response.id,
-    title: response.album_title,
+    id,
+    title: response.album_title ?? "",
     artist: {
-      name: response.artist_name,
-      lettercode: response.code_letters,
-      numbercode: response.code_artist_number,
+      name: response.artist_name ?? "",
+      lettercode: response.code_letters ?? "",
+      numbercode: response.code_artist_number ?? 0,
       genre: (response.genre_name as Genre) ?? "Unknown",
-      id: response.id,
+      id: undefined,
     },
-    entry: response.code_number,
+    entry: response.code_number ?? 0,
     format: (response.format_name as Format) ?? "Unknown",
     alternate_artist: "",
-    rotation_bin: undefined,
-    add_date: response.add_date,
-    plays: response.plays ?? 0,
-    label: response.label,
-    rotation_id: undefined,
+    rotation_bin: isSearchResult(response)
+      ? (response.rotation_bin as Rotation)
+      : undefined,
+    add_date: isSearchResult(response) ? response.add_date : undefined,
+    plays: (isSearchResult(response) ? response.plays : undefined) ?? 0,
+    label: response.label ?? "",
+    rotation_id: isSearchResult(response) ? response.rotation_id : undefined,
   };
 }
 
-export function convertAlbumFromRotation(
-  response: AlbumSearchResultJSON
-): AlbumEntry {
-  return {
-    id: response.id,
-    title: response.album_title,
-    artist: {
-      name: response.artist_name,
-      lettercode: response.code_letters,
-      numbercode: response.code_artist_number,
-      genre: (response.genre_name as Genre) ?? "Unknown",
-      id: response.id,
-    },
-    entry: response.code_number,
-    format: (response.format_name as Format) ?? "Unknown",
-    alternate_artist: "",
-    rotation_bin: response.rotation_bin as Rotation,
-    add_date: response.add_date,
-    plays: response.plays ?? 0,
-    label: response.label,
-    rotation_id: response.rotation_id,
-  };
-}
