@@ -6,7 +6,7 @@ import {
   FlowsheetSongEntry,
   FlowsheetSubmissionParams,
 } from "@/lib/features/flowsheet/types";
-import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import { useAppDispatch } from "@/lib/hooks";
 import { LinkIconButton } from "@/src/components/shared/General/LinkButton";
 import { useAlbumImages } from "@/src/hooks/applicationHooks";
 import { useFlowsheet, useShowControl } from "@/src/hooks/flowsheetHooks";
@@ -14,7 +14,6 @@ import { getStyleForRotation } from "@/src/utilities/modern/rotationstyles";
 import {
   Album,
   InfoOutlined,
-  KeyboardArrowDown,
   MusicNote,
   PhoneDisabled,
   PhoneEnabled,
@@ -48,8 +47,7 @@ export default function SongEntry({
   entry: FlowsheetSongEntry;
 }) {
   const { live, autoplay, currentShow } = useShowControl();
-  const [addToFlowsheet, addToFlowsheetResult] = useAddToFlowsheetMutation();
-  const queueItems = useAppSelector((state) => state.flowsheet.queue);
+  const [addToFlowsheet] = useAddToFlowsheetMutation();
 
   const controls = useDragControls();
 
@@ -123,6 +121,7 @@ export default function SongEntry({
               }}
             >
               {image && !imageLoading ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={image}
                   alt="album art"

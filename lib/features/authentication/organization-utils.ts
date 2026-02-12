@@ -11,7 +11,7 @@ import { WXYCRole } from "./types";
  */
 export function getAppOrganizationId(): string | undefined {
   // Server-side: access process.env directly
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- globalThis.process is not typed in all environments
   const env = (globalThis as any).process?.env;
   const orgSlugOrId = env?.APP_ORGANIZATION;
   
@@ -37,7 +37,7 @@ export function getAppOrganizationId(): string | undefined {
  */
 export function getAppOrganizationIdClient(): string | undefined {
   // Client-side: try NEXT_PUBLIC_APP_ORGANIZATION (set at build time)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const publicEnv = (globalThis as typeof globalThis & { process?: { env?: { NEXT_PUBLIC_APP_ORGANIZATION?: string } } })
     .process?.env;
   const publicOrgSlugOrId = publicEnv?.NEXT_PUBLIC_APP_ORGANIZATION;
@@ -66,6 +66,7 @@ async function resolveOrganizationId(
       } : {},
     });
     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw HTTP response shape from better-auth API
     let orgResult: any;
     if (response.ok) {
       const data = await response.json();
@@ -136,6 +137,7 @@ export async function getUserRoleInOrganization(
     }
 
     // Find the member matching the userId
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- better-auth SDK member type is not exported
     const member = result.data?.members?.find((m: any) => m.userId === userId);
     
     if (!member) {
@@ -229,6 +231,7 @@ export async function getUserRoleInOrganizationClient(
     }
 
     // Find the member matching the userId
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- better-auth SDK member type is not exported
     const member = result.data?.members?.find((m: any) => m.userId === userId);
     
     if (!member) {

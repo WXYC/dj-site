@@ -30,7 +30,6 @@ export default function InfiniteScroller({
         scroller.scrollHeight ===
         scroller.scrollTop + scroller.clientHeight;
       if (scrolledToBottom && !loading && entries) {
-        console.log(pagination.max + 1);
         dispatch(
           flowsheetSlice.actions.setPagination({
             page: pagination.max + 1,
@@ -45,7 +44,7 @@ export default function InfiniteScroller({
     return () => {
       scroller?.removeEventListener("scroll", onScroll);
     };
-  }, [loading, entries, pagination.max]);
+  }, [loading, entries, pagination.max, dispatch]);
 
   return (
     <Sheet

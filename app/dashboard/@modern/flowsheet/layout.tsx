@@ -2,7 +2,6 @@ import FlowsheetSkeletonLoader from "@/src/components/experiences/modern/flowshe
 import GoLive from "@/src/components/experiences/modern/flowsheet/GoLive";
 import InfiniteScroller from "@/src/components/experiences/modern/flowsheet/InfiniteScroller";
 import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
-import { Divider } from "@mui/joy";
 import { Suspense } from "react";
 
 export type FlowsheetPageProps = {

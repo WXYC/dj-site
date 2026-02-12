@@ -56,7 +56,7 @@ export default function MobileSearchBar({
         variant="solid"
         color={color ?? "primary"}
         onClick={() => {
-          console.log("Search!");
+          // no-op: search triggered via form submission
         }}
       >
         <SendOutlined />

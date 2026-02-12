@@ -12,8 +12,8 @@ const exportDJsAsCSV = (djs: Account[], title = "djs") => {
       dj.authorization == Authorization.SM ? "true" : "false"
     }\n`;
   });
-  var encodedUri = encodeURI(csv);
-  var link = document.createElement("a");
+  const encodedUri = encodeURI(csv);
+  const link = document.createElement("a");
   link.setAttribute("href", encodedUri);
   link.setAttribute("style", "display: none;");
   link.setAttribute("download", `${title}.csv`);
@@ -34,8 +34,8 @@ export default function ExportDJsButton() {
       color={"success"}
       size="sm"
       onClick={() => {
-        let currentDateTime = new Date();
-        let formattedDate = currentDateTime.toISOString().slice(0, 10);
+        const currentDateTime = new Date();
+        const formattedDate = currentDateTime.toISOString().slice(0, 10);
         exportDJsAsCSV(
           data ?? [],
           searchString.length > 0

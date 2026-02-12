@@ -3,7 +3,6 @@
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import {
-  useFlowsheet,
   useFlowsheetSearch,
   useFlowsheetSubmit,
 } from "@/src/hooks/flowsheetHooks";
@@ -29,8 +28,6 @@ export default function FlowsheetSearchbar() {
     rotationResults,
   } = useFlowsheetSubmit();
 
-  const { addToFlowsheet } = useFlowsheet();
-
   const selectedResult = useAppSelector(
     flowsheetSlice.selectors.getSelectedResult
   );
@@ -39,11 +36,11 @@ export default function FlowsheetSearchbar() {
   const searchRef = useRef<HTMLFormElement>(null);
 
   const handleClose = useCallback(
-    (event: any) => {
+    () => {
       resetSearch();
       searchRef.current?.querySelector("input")?.blur();
     },
-    [searchRef.current]
+    [resetSearch]
   );
 
   const handleKeyDown = useCallback(
@@ -55,7 +52,7 @@ export default function FlowsheetSearchbar() {
       }
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        let nextIndex = Math.min(
+        const nextIndex = Math.min(
           selectedResult + 1,
           binResults.length + catalogResults.length + rotationResults.length
         );
@@ -63,7 +60,7 @@ export default function FlowsheetSearchbar() {
       }
       if (e.key === "ArrowUp") {
         e.preventDefault();
-        let prevIndex = Math.max(selectedResult - 1, 0);
+        const prevIndex = Math.max(selectedResult - 1, 0);
         dispatch(flowsheetSlice.actions.setSelectedResult(prevIndex));
       }
     },
@@ -80,7 +77,7 @@ export default function FlowsheetSearchbar() {
   const handleFormSubmit = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
-      handleSubmit(e);
+      handleSubmit();
     },
     [handleSubmit]
   );

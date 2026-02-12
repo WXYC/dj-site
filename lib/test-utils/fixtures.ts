@@ -16,7 +16,6 @@ import {
   AlbumEntry,
   AlbumQueryResponse,
   ArtistEntry,
-  Genre,
 } from "@/lib/features/catalog/types";
 import {
   FlowsheetEntryResponse,
