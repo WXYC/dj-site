@@ -1,22 +1,22 @@
+import type { BinLibraryDetails } from "@wxyc/shared/dtos";
 import { AlbumEntry, Format, Genre } from "../catalog/types";
 import { FlowsheetQuery, FlowsheetSubmissionParams } from "../flowsheet/types";
-import { BinQueryResponse } from "./types";
 
-export function convertAlbumFromBin(response: BinQueryResponse): AlbumEntry {
+export function convertAlbumFromBin(response: BinLibraryDetails): AlbumEntry {
   return {
-    id: response.album_id,
-    title: response.album_title,
+    id: response.album_id ?? 0,
+    title: response.album_title ?? "",
     artist: {
-      name: response.artist_name,
-      lettercode: response.code_letters,
-      numbercode: response.code_artist_number,
+      name: response.artist_name ?? "",
+      lettercode: response.code_letters ?? "",
+      numbercode: response.code_artist_number ?? 0,
       genre: (response.genre_name as Genre) ?? "Unknown",
       id: undefined,
     },
-    entry: response.code_number,
+    entry: response.code_number ?? 0,
     format: (response.format_name as Format) ?? "Unknown",
     alternate_artist: "",
-    play_freq: undefined,
+    rotation_bin: undefined,
     add_date: undefined,
     plays: undefined,
     rotation_id: undefined,
@@ -45,7 +45,7 @@ export function convertBinToQueue(binEntry: AlbumEntry): FlowsheetQuery {
     artist: binEntry.artist.name,
     label: binEntry.label,
     rotation_id: binEntry.rotation_id,
-    play_freq: binEntry.play_freq,
+    rotation_bin: binEntry.rotation_bin,
     request: false,
   };
 }
