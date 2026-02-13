@@ -1,7 +1,14 @@
-import type { FlowsheetEntryResponse } from "@wxyc/shared/dtos";
+import type {
+  FlowsheetV2TrackEntry,
+  FlowsheetV2ShowStartEntry,
+  FlowsheetV2ShowEndEntry,
+  FlowsheetV2DJJoinEntry,
+  FlowsheetV2DJLeaveEntry,
+  FlowsheetV2TalksetEntry,
+  FlowsheetV2BreakpointEntry,
+  FlowsheetV2MessageEntry,
+} from "@wxyc/shared/dtos";
 import { Rotation } from "../rotation/types";
-
-export type { FlowsheetEntryResponse };
 
 export type FlowsheetFrontendState = {
   autoplay: boolean;
@@ -169,3 +176,37 @@ export type UpdateRequestBody = Partial<
     string | boolean
   >
 >;
+
+// V2 JSON boundary types (Date fields arrive as strings over the wire)
+
+/** Replaces Date fields with string for JSON boundary */
+type JSONDates<T> = {
+  [K in keyof T]: T[K] extends Date ? string : T[K];
+};
+
+export type FlowsheetV2TrackEntryJSON = JSONDates<FlowsheetV2TrackEntry>;
+export type FlowsheetV2ShowStartEntryJSON = JSONDates<FlowsheetV2ShowStartEntry>;
+export type FlowsheetV2ShowEndEntryJSON = JSONDates<FlowsheetV2ShowEndEntry>;
+export type FlowsheetV2DJJoinEntryJSON = JSONDates<FlowsheetV2DJJoinEntry>;
+export type FlowsheetV2DJLeaveEntryJSON = JSONDates<FlowsheetV2DJLeaveEntry>;
+export type FlowsheetV2TalksetEntryJSON = JSONDates<FlowsheetV2TalksetEntry>;
+export type FlowsheetV2BreakpointEntryJSON = JSONDates<FlowsheetV2BreakpointEntry>;
+export type FlowsheetV2MessageEntryJSON = JSONDates<FlowsheetV2MessageEntry>;
+
+export type FlowsheetV2EntryJSON =
+  | FlowsheetV2TrackEntryJSON
+  | FlowsheetV2ShowStartEntryJSON
+  | FlowsheetV2ShowEndEntryJSON
+  | FlowsheetV2DJJoinEntryJSON
+  | FlowsheetV2DJLeaveEntryJSON
+  | FlowsheetV2TalksetEntryJSON
+  | FlowsheetV2BreakpointEntryJSON
+  | FlowsheetV2MessageEntryJSON;
+
+export type FlowsheetV2PaginatedResponseJSON = {
+  entries: FlowsheetV2EntryJSON[];
+  page: number;
+  limit: number;
+  total: number;
+  total_pages: number;
+};
