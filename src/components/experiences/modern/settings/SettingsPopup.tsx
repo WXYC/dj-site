@@ -3,12 +3,20 @@ import { authenticationSlice } from "@/lib/features/authentication/frontend";
 import { User } from "@/lib/features/authentication/types";
 import { useAppSelector } from "@/lib/hooks";
 import SettingsInput from "@/src/components/experiences/modern/settings/SettingsInput";
+import SettingsTextarea from "@/src/components/experiences/modern/settings/SettingsTextarea";
 import { useDJAccount } from "@/src/hooks/djHooks";
 import {
   AccountCircle,
   AlternateEmail,
   Email,
   TheaterComedy,
+  RecordVoiceOver,
+  VolumeUp,
+  Schedule,
+  Work,
+  School,
+  Notes,
+  LocationOn,
 } from "@mui/icons-material";
 import BadgeIcon from "@mui/icons-material/Badge";
 import { Modal } from "@mui/joy";
@@ -43,12 +51,11 @@ export default function SettingsPopup({ user }: { user: User }) {
       <Card
         variant="outlined"
         sx={{
-          maxHeight: "max-content",
-          maxWidth: "100%",
+          maxHeight: "90vh",
+          maxWidth: "600px",
+          width: "100%",
           mx: "auto",
-          // to make the demo resizable
           overflow: "auto",
-          resize: "horizontal",
         }}
       >
         <Typography level="title-lg" startDecorator={<AccountCircle />}>
@@ -60,10 +67,14 @@ export default function SettingsPopup({ user }: { user: User }) {
           onSubmit={handleSaveData}
           sx={{
             display: "grid",
-            gridTemplateColumns: "repeat(1, minmax(80px, 1fr))",
+            gridTemplateColumns: "repeat(2, minmax(80px, 1fr))",
             gap: 1.5,
           }}
         >
+          {/* Identity Section */}
+          <Typography level="title-sm" sx={{ gridColumn: "1/-1" }}>
+            Identity
+          </Typography>
           <FormControl sx={{ gridColumn: "1/-1" }}>
             <FormLabel>Username</FormLabel>
             <Input
@@ -72,7 +83,7 @@ export default function SettingsPopup({ user }: { user: User }) {
               value={user.username}
             />
           </FormControl>
-          <FormControl sx={{ gridColumn: "1/-1" }}>
+          <FormControl>
             <FormLabel>Personal Name</FormLabel>
             <SettingsInput
               name="realName"
@@ -80,7 +91,7 @@ export default function SettingsPopup({ user }: { user: User }) {
               endDecorator={<BadgeIcon />}
             />
           </FormControl>
-          <FormControl sx={{ gridColumn: "1/-1" }}>
+          <FormControl>
             <FormLabel>DJ Name</FormLabel>
             <SettingsInput
               name="djName"
@@ -88,7 +99,83 @@ export default function SettingsPopup({ user }: { user: User }) {
               endDecorator={<TheaterComedy />}
             />
           </FormControl>
+          <FormControl>
+            <FormLabel>Pronouns</FormLabel>
+            <SettingsInput
+              name="pronouns"
+              backendValue={user.pronouns}
+              endDecorator={<RecordVoiceOver />}
+              placeholder="e.g., they/them"
+            />
+          </FormControl>
+          <FormControl>
+            <FormLabel>Name Pronunciation</FormLabel>
+            <SettingsInput
+              name="namePronunciation"
+              backendValue={user.namePronunciation}
+              endDecorator={<VolumeUp />}
+              placeholder="e.g., JAY-kub"
+            />
+          </FormControl>
+
+          <Divider sx={{ gridColumn: "1/-1", my: 1 }} />
+
+          {/* Station Info Section */}
+          <Typography level="title-sm" sx={{ gridColumn: "1/-1" }}>
+            Station Info
+          </Typography>
+          <FormControl>
+            <FormLabel>Title</FormLabel>
+            <SettingsInput
+              name="title"
+              backendValue={user.title}
+              endDecorator={<Work />}
+              placeholder="e.g., Music Director"
+            />
+          </FormControl>
+          <FormControl>
+            <FormLabel>Show Times</FormLabel>
+            <SettingsInput
+              name="showTimes"
+              backendValue={user.showTimes}
+              endDecorator={<Schedule />}
+              placeholder="e.g., Fridays 2-4pm"
+            />
+          </FormControl>
+          <FormControl>
+            <FormLabel>Semester Hired</FormLabel>
+            <SettingsInput
+              name="semesterHired"
+              backendValue={user.semesterHired}
+              endDecorator={<School />}
+              placeholder="e.g., Fall 2024"
+            />
+          </FormControl>
+
+          <Divider sx={{ gridColumn: "1/-1", my: 1 }} />
+
+          {/* About Section */}
+          <Typography level="title-sm" sx={{ gridColumn: "1/-1" }}>
+            About
+          </Typography>
           <FormControl sx={{ gridColumn: "1/-1" }}>
+            <FormLabel>Bio</FormLabel>
+            <SettingsTextarea
+              name="bio"
+              backendValue={user.bio}
+              placeholder="Tell us about yourself..."
+            />
+          </FormControl>
+          <FormControl>
+            <FormLabel>Location</FormLabel>
+            <SettingsInput
+              name="location"
+              backendValue={user.location}
+              endDecorator={<LocationOn />}
+              placeholder="e.g., Chapel Hill, NC"
+            />
+          </FormControl>
+          <FormControl>
             <FormLabel>Email</FormLabel>
             <SettingsInput
               name="email"
@@ -97,6 +184,7 @@ export default function SettingsPopup({ user }: { user: User }) {
               disabled
             />
           </FormControl>
+
           <CardActions sx={{ gridColumn: "1/-1" }}>
             <Button
               variant="solid"

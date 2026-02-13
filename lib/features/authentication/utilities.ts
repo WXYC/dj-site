@@ -21,6 +21,13 @@ export type BetterAuthSession = {
     emailVerified: boolean;
     realName?: string;
     djName?: string;
+    pronouns?: string;
+    namePronunciation?: string;
+    showTimes?: string;
+    title?: string;
+    semesterHired?: string;
+    bio?: string;
+    location?: string;
     appSkin?: string;
     createdAt?: Date;
     updatedAt?: Date;
@@ -120,6 +127,13 @@ export function betterAuthSessionToAuthenticationData(
     email: session.user.email,
     realName: session.user.realName,
     djName: session.user.djName,
+    pronouns: session.user.pronouns,
+    namePronunciation: session.user.namePronunciation,
+    showTimes: session.user.showTimes,
+    title: session.user.title,
+    semesterHired: session.user.semesterHired,
+    bio: session.user.bio,
+    location: session.user.location,
     authority: authority,
     name: session.user.name,
     emailVerified: session.user.emailVerified,
@@ -210,6 +224,13 @@ export async function betterAuthSessionToAuthenticationDataAsync(
     email: session.user.email,
     realName: session.user.realName,
     djName: session.user.djName,
+    pronouns: session.user.pronouns,
+    namePronunciation: session.user.namePronunciation,
+    showTimes: session.user.showTimes,
+    title: session.user.title,
+    semesterHired: session.user.semesterHired,
+    bio: session.user.bio,
+    location: session.user.location,
     authority: authority,
     name: session.user.name,
     emailVerified: session.user.emailVerified,
