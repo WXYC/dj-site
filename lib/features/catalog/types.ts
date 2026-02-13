@@ -1,4 +1,15 @@
+import type { AlbumSearchResult } from "@wxyc/shared/dtos";
 import { Rotation } from "../rotation/types";
+
+export type { AlbumSearchResult };
+
+/**
+ * JSON boundary adapter for AlbumSearchResult.
+ * RTK Query delivers raw JSON where add_date is a string, not a Date.
+ */
+export type AlbumSearchResultJSON = Omit<AlbumSearchResult, "add_date"> & {
+  add_date: string;
+};
 
 export type SearchCatalogQueryParams = {
   artist_name: string | undefined;
@@ -27,25 +38,6 @@ export type ArtistParams = {
   genre_id: string;
 };
 
-
-export type AlbumQueryResponse = {
-  id: number;
-  add_date: string;
-  album_dist: number | undefined;
-  album_title: string;
-  artist_dist: number | undefined;
-  artist_name: string;
-  code_artist_number: number;
-  code_letters: string;
-  code_number: number;
-  format_name: string;
-  genre_name: string;
-  label: string;
-  play_freq: Rotation | undefined;
-  plays: number | undefined;
-  rotation_id: number | undefined;
-};
-
 export type AlbumEntry = {
   id: number;
   title: string;
@@ -53,7 +45,7 @@ export type AlbumEntry = {
   entry: number;
   format: Format;
   alternate_artist: string | undefined;
-  play_freq: Rotation | undefined;
+  rotation_bin: Rotation | undefined;
   rotation_id: number | undefined;
   plays: number | undefined;
   add_date: string | undefined;

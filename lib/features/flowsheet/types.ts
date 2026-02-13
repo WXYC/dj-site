@@ -1,3 +1,13 @@
+import type {
+  FlowsheetV2TrackEntry,
+  FlowsheetV2ShowStartEntry,
+  FlowsheetV2ShowEndEntry,
+  FlowsheetV2DJJoinEntry,
+  FlowsheetV2DJLeaveEntry,
+  FlowsheetV2TalksetEntry,
+  FlowsheetV2BreakpointEntry,
+  FlowsheetV2MessageEntry,
+} from "@wxyc/shared/dtos";
 import { Rotation } from "../rotation/types";
 
 export type FlowsheetFrontendState = {
@@ -20,31 +30,19 @@ export type FlowsheetQuery = {
   label: string;
   request: boolean;
   album_id?: number;
-  play_freq?: Rotation;
+  rotation_bin?: Rotation;
   rotation_id?: number;
 };
 
 export type FlowsheetSearchProperty = keyof Omit<
   FlowsheetQuery,
-  "request" | "album_id" | "play_freq" | "rotation_id"
+  "request" | "album_id" | "rotation_bin" | "rotation_id"
 >;
 
 export type FlowsheetEntryBase = {
   id: number;
   play_order: number;
   show_id: number;
-};
-
-export type FlowsheetEntryResponse = FlowsheetEntryBase & {
-  album_id?: number;
-  track_title?: string;
-  album_title?: string;
-  artist_name?: string;
-  record_label?: string;
-  rotation_id?: number;
-  rotation_play_freq?: string;
-  message?: string;
-  request_flag: boolean;
 };
 
 export type FlowsheetSongBase = {
@@ -84,7 +82,7 @@ export type FlowsheetSubmissionParams =
       rotation_id?: number;
       request_flag: boolean;
       record_label?: string;
-      play_freq?: Rotation;
+      rotation_bin?: Rotation;
     }
   | {
       artist_name: string;
@@ -178,3 +176,37 @@ export type UpdateRequestBody = Partial<
     string | boolean
   >
 >;
+
+// V2 JSON boundary types (Date fields arrive as strings over the wire)
+
+/** Replaces Date fields with string for JSON boundary */
+type JSONDates<T> = {
+  [K in keyof T]: T[K] extends Date ? string : T[K];
+};
+
+export type FlowsheetV2TrackEntryJSON = JSONDates<FlowsheetV2TrackEntry>;
+export type FlowsheetV2ShowStartEntryJSON = JSONDates<FlowsheetV2ShowStartEntry>;
+export type FlowsheetV2ShowEndEntryJSON = JSONDates<FlowsheetV2ShowEndEntry>;
+export type FlowsheetV2DJJoinEntryJSON = JSONDates<FlowsheetV2DJJoinEntry>;
+export type FlowsheetV2DJLeaveEntryJSON = JSONDates<FlowsheetV2DJLeaveEntry>;
+export type FlowsheetV2TalksetEntryJSON = JSONDates<FlowsheetV2TalksetEntry>;
+export type FlowsheetV2BreakpointEntryJSON = JSONDates<FlowsheetV2BreakpointEntry>;
+export type FlowsheetV2MessageEntryJSON = JSONDates<FlowsheetV2MessageEntry>;
+
+export type FlowsheetV2EntryJSON =
+  | FlowsheetV2TrackEntryJSON
+  | FlowsheetV2ShowStartEntryJSON
+  | FlowsheetV2ShowEndEntryJSON
+  | FlowsheetV2DJJoinEntryJSON
+  | FlowsheetV2DJLeaveEntryJSON
+  | FlowsheetV2TalksetEntryJSON
+  | FlowsheetV2BreakpointEntryJSON
+  | FlowsheetV2MessageEntryJSON;
+
+export type FlowsheetV2PaginatedResponseJSON = {
+  entries: FlowsheetV2EntryJSON[];
+  page: number;
+  limit: number;
+  total: number;
+  total_pages: number;
+};
