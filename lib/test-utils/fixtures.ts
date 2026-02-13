@@ -12,7 +12,17 @@ import {
   VerifiedData,
   Verification,
 } from "@/lib/features/authentication/types";
-import type { FlowsheetEntryResponse, BinLibraryDetails } from "@wxyc/shared/dtos";
+import type { BinLibraryDetails } from "@wxyc/shared/dtos";
+import type {
+  FlowsheetV2TrackEntryJSON,
+  FlowsheetV2ShowStartEntryJSON,
+  FlowsheetV2ShowEndEntryJSON,
+  FlowsheetV2DJJoinEntryJSON,
+  FlowsheetV2DJLeaveEntryJSON,
+  FlowsheetV2TalksetEntryJSON,
+  FlowsheetV2BreakpointEntryJSON,
+  FlowsheetV2MessageEntryJSON,
+} from "@/lib/features/flowsheet/types";
 import {
   AlbumEntry,
   AlbumSearchResultJSON,
@@ -25,7 +35,7 @@ import {
 } from "@/lib/features/flowsheet/types";
 import { Rotation } from "@/lib/features/rotation/types";
 import { TEST_ENTITY_IDS, TEST_SEARCH_STRINGS } from "./constants";
-import { TEST_TIMESTAMPS, toDateString } from "./time";
+import { TEST_TIMESTAMPS, toDateString, toISOString } from "./time";
 
 // Artist fixtures
 export function createTestArtist(overrides: Partial<ArtistEntry> = {}): ArtistEntry {
@@ -175,45 +185,6 @@ export function createTestRotationAlbum(
   });
 }
 
-// Flowsheet entry response fixtures (for conversion testing)
-export function createTestFlowsheetEntryResponse(
-  overrides: Partial<FlowsheetEntryResponse> = {}
-): FlowsheetEntryResponse {
-  return {
-    id: TEST_ENTITY_IDS.FLOWSHEET.ENTRY_1,
-    play_order: 1,
-    show_id: TEST_ENTITY_IDS.SHOW.CURRENT_SHOW,
-    track_title: TEST_SEARCH_STRINGS.TRACK_TITLE,
-    artist_name: TEST_SEARCH_STRINGS.ARTIST_NAME,
-    album_title: TEST_SEARCH_STRINGS.ALBUM_NAME,
-    record_label: TEST_SEARCH_STRINGS.LABEL,
-    request_flag: false,
-    album_id: TEST_ENTITY_IDS.ALBUM.ROCK_ALBUM,
-    rotation_id: undefined,
-    rotation_bin: undefined,
-    message: undefined,
-    ...overrides,
-  };
-}
-
-export function createTestStartShowMessage(
-  djName: string = "Test DJ",
-  dateTime: string = "6/15/2024, 2:30:00 PM"
-): string {
-  return `Start of Show: ${djName} joined the set at ${dateTime}`;
-}
-
-export function createTestEndShowMessage(
-  djName: string = "Test DJ",
-  dateTime: string = "6/15/2024, 4:30:00 PM"
-): string {
-  return `End of Show: ${djName} left the set at ${dateTime}`;
-}
-
-export function createTestBreakpointMessage(time: string = "3:00 PM"): string {
-  return `Breakpoint at ${time}`;
-}
-
 // Authentication fixtures
 export function createTestVerificationState(
   overrides: Partial<Verification<VerifiedData>> = {}
@@ -300,5 +271,109 @@ export function createTestOnAirDJResponse(
   return {
     id: overrides.id ?? "1",
     dj_name: overrides.dj_name ?? "Test DJ",
+  };
+}
+
+// V2 flowsheet entry fixtures
+
+const V2_ENTRY_BASE = {
+  id: TEST_ENTITY_IDS.FLOWSHEET.ENTRY_1,
+  show_id: TEST_ENTITY_IDS.SHOW.CURRENT_SHOW as number | null,
+  play_order: 1,
+  add_time: toISOString(TEST_TIMESTAMPS.NOW),
+};
+
+export function createTestV2TrackEntry(
+  overrides: Partial<FlowsheetV2TrackEntryJSON> = {}
+): FlowsheetV2TrackEntryJSON {
+  return {
+    ...V2_ENTRY_BASE,
+    entry_type: "track",
+    track_title: TEST_SEARCH_STRINGS.TRACK_TITLE,
+    artist_name: TEST_SEARCH_STRINGS.ARTIST_NAME,
+    album_title: TEST_SEARCH_STRINGS.ALBUM_NAME,
+    record_label: TEST_SEARCH_STRINGS.LABEL,
+    request_flag: false,
+    album_id: TEST_ENTITY_IDS.ALBUM.ROCK_ALBUM,
+    ...overrides,
+  };
+}
+
+export function createTestV2ShowStartEntry(
+  overrides: Partial<FlowsheetV2ShowStartEntryJSON> = {}
+): FlowsheetV2ShowStartEntryJSON {
+  return {
+    ...V2_ENTRY_BASE,
+    entry_type: "show_start",
+    dj_name: "Test DJ",
+    timestamp: "6/15/2024, 2:30:00 PM",
+    ...overrides,
+  };
+}
+
+export function createTestV2ShowEndEntry(
+  overrides: Partial<FlowsheetV2ShowEndEntryJSON> = {}
+): FlowsheetV2ShowEndEntryJSON {
+  return {
+    ...V2_ENTRY_BASE,
+    entry_type: "show_end",
+    dj_name: "Test DJ",
+    timestamp: "6/15/2024, 4:30:00 PM",
+    ...overrides,
+  };
+}
+
+export function createTestV2DJJoinEntry(
+  overrides: Partial<FlowsheetV2DJJoinEntryJSON> = {}
+): FlowsheetV2DJJoinEntryJSON {
+  return {
+    ...V2_ENTRY_BASE,
+    entry_type: "dj_join",
+    dj_name: "Test DJ",
+    ...overrides,
+  };
+}
+
+export function createTestV2DJLeaveEntry(
+  overrides: Partial<FlowsheetV2DJLeaveEntryJSON> = {}
+): FlowsheetV2DJLeaveEntryJSON {
+  return {
+    ...V2_ENTRY_BASE,
+    entry_type: "dj_leave",
+    dj_name: "Test DJ",
+    ...overrides,
+  };
+}
+
+export function createTestV2TalksetEntry(
+  overrides: Partial<FlowsheetV2TalksetEntryJSON> = {}
+): FlowsheetV2TalksetEntryJSON {
+  return {
+    ...V2_ENTRY_BASE,
+    entry_type: "talkset",
+    message: "Talkset about upcoming event",
+    ...overrides,
+  };
+}
+
+export function createTestV2BreakpointEntry(
+  overrides: Partial<FlowsheetV2BreakpointEntryJSON> = {}
+): FlowsheetV2BreakpointEntryJSON {
+  return {
+    ...V2_ENTRY_BASE,
+    entry_type: "breakpoint",
+    message: "Breakpoint",
+    ...overrides,
+  };
+}
+
+export function createTestV2MessageEntry(
+  overrides: Partial<FlowsheetV2MessageEntryJSON> = {}
+): FlowsheetV2MessageEntryJSON {
+  return {
+    ...V2_ENTRY_BASE,
+    entry_type: "message",
+    message: "Custom message",
+    ...overrides,
   };
 }
