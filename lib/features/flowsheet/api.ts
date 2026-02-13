@@ -20,12 +20,12 @@ import {
 
 export const flowsheetApi = createApi({
   reducerPath: "flowsheetApi",
-  baseQuery: backendBaseQuery(""),
+  baseQuery: backendBaseQuery("flowsheet"),
   tagTypes: ["NowPlaying", "WhoIsLive", "Flowsheet"],
   endpoints: (builder) => ({
     getNowPlaying: builder.query<FlowsheetEntry, void>({
       query: () => ({
-        url: "v2/flowsheet/latest",
+        url: "/latest",
       }),
       transformResponse: (response: FlowsheetV2EntryJSON) =>
         convertV2Entry(response),
@@ -34,8 +34,8 @@ export const flowsheetApi = createApi({
     getEntries: builder.query<FlowsheetEntry[], FlowsheetRequestParams>({
       query: (params) => ({
         url: !params
-          ? "v2/flowsheet/"
-          : `v2/flowsheet/?page=${params.page}&limit=${params.limit}`,
+          ? "/"
+          : `/?page=${params.page}&limit=${params.limit}`,
       }),
       serializeQueryArgs: ({ endpointName }) => endpointName,
       transformResponse: (response: FlowsheetV2PaginatedResponseJSON) =>
@@ -59,7 +59,7 @@ export const flowsheetApi = createApi({
     }),
     switchEntries: builder.mutation<undefined, FlowsheetSwitchParams>({
       query: (params) => ({
-        url: "flowsheet/play-order",
+        url: "/play-order",
         method: "PATCH",
         body: params,
       }),
@@ -67,7 +67,7 @@ export const flowsheetApi = createApi({
     }),
     joinShow: builder.mutation<any, DJRequestParams>({
       query: (params) => ({
-        url: "flowsheet/join",
+        url: "/join",
         method: "POST",
         body: params,
       }),
@@ -75,7 +75,7 @@ export const flowsheetApi = createApi({
     }),
     leaveShow: builder.mutation<any, DJRequestParams>({
       query: (params) => ({
-        url: "flowsheet/end",
+        url: "/end",
         method: "POST",
         body: params,
       }),
@@ -83,7 +83,7 @@ export const flowsheetApi = createApi({
     }),
     whoIsLive: builder.query<OnAirDJData, void>({
       query: () => ({
-        url: "flowsheet/djs-on-air",
+        url: "/djs-on-air",
       }),
       transformResponse: (response: OnAirDJResponse[]): OnAirDJData =>
         convertDJsOnAir(response),
@@ -91,7 +91,7 @@ export const flowsheetApi = createApi({
     }),
     addToFlowsheet: builder.mutation<any, FlowsheetSubmissionParams>({
       query: (params) => ({
-        url: "flowsheet/",
+        url: "/",
         method: "POST",
         body: params,
       }),
@@ -99,7 +99,7 @@ export const flowsheetApi = createApi({
     }),
     removeFromFlowsheet: builder.mutation<any, number>({
       query: (entry_id) => ({
-        url: "flowsheet/",
+        url: "/",
         method: "DELETE",
         body: {
           entry_id,
@@ -109,7 +109,7 @@ export const flowsheetApi = createApi({
     }),
     updateFlowsheet: builder.mutation<any, FlowsheetUpdateParams>({
       query: (params) => ({
-        url: "flowsheet/",
+        url: "/",
         method: "PATCH",
         body: params,
       }),
