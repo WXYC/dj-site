@@ -1,28 +1,5 @@
-import type { BinLibraryDetails } from "@wxyc/shared/dtos";
-import { AlbumEntry, Format, Genre } from "../catalog/types";
+import { AlbumEntry } from "../catalog/types";
 import { FlowsheetQuery, FlowsheetSubmissionParams } from "../flowsheet/types";
-
-export function convertAlbumFromBin(response: BinLibraryDetails): AlbumEntry {
-  return {
-    id: response.album_id ?? 0,
-    title: response.album_title ?? "",
-    artist: {
-      name: response.artist_name ?? "",
-      lettercode: response.code_letters ?? "",
-      numbercode: response.code_artist_number ?? 0,
-      genre: (response.genre_name as Genre) ?? "Unknown",
-      id: undefined,
-    },
-    entry: response.code_number ?? 0,
-    format: (response.format_name as Format) ?? "Unknown",
-    alternate_artist: "",
-    rotation_bin: undefined,
-    add_date: undefined,
-    plays: undefined,
-    rotation_id: undefined,
-    label: response.label ?? "",
-  };
-}
 
 export function convertBinToFlowsheet(
   binEntry: AlbumEntry

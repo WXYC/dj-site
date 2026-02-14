@@ -1,6 +1,6 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { backendBaseQuery } from "../backend";
-import { convertAlbumFromSearch } from "./conversions";
+import { convertToAlbumEntry } from "./conversions";
 import {
   AlbumEntry,
   AlbumParams,
@@ -21,7 +21,7 @@ export const catalogApi = createApi({
         params: { artist_name, album_name, n },
       }),
       transformResponse: (response: AlbumSearchResultJSON[]) =>
-        response.map(convertAlbumFromSearch),
+        response.map(convertToAlbumEntry),
     }),
     addAlbum: builder.mutation<any, AlbumParams>({
       query: (album) => ({
@@ -43,7 +43,7 @@ export const catalogApi = createApi({
         params: { album_id },
       }),
       transformResponse: (response: AlbumSearchResultJSON) =>
-        convertAlbumFromSearch(response),
+        convertToAlbumEntry(response),
     }),
     getFormats: builder.query<any, void>({
       query: () => ({
