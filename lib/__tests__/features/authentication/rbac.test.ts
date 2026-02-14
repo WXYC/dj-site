@@ -20,6 +20,11 @@ vi.mock("@/lib/features/authentication/server-client", () => ({
   },
 }));
 
+vi.mock("@/lib/features/authentication/organization-utils", () => ({
+  getAppOrganizationId: vi.fn().mockReturnValue(undefined),
+  getUserRoleInOrganization: vi.fn().mockResolvedValue(undefined),
+}));
+
 import {
   checkRole,
   requireRole,
@@ -30,51 +35,57 @@ import {
 } from "@/lib/test-utils";
 
 describe("checkRole", () => {
-  it("should return true when user has sufficient role", () => {
+  beforeEach(() => {
+    mockCookies.mockReturnValue({
+      toString: () => "session=test-cookie",
+    });
+  });
+
+  it("should return true when user has sufficient role", async () => {
     const session = createTestSessionWithRole("stationManager");
 
-    expect(checkRole(session, Authorization.DJ)).toBe(true);
+    expect(await checkRole(session, Authorization.DJ)).toBe(true);
   });
 
-  it("should return true when user has exact role", () => {
+  it("should return true when user has exact role", async () => {
     const session = createTestSessionWithRole("dj");
 
-    expect(checkRole(session, Authorization.DJ)).toBe(true);
+    expect(await checkRole(session, Authorization.DJ)).toBe(true);
   });
 
-  it("should return false when user has insufficient role", () => {
+  it("should return false when user has insufficient role", async () => {
     const session = createTestSessionWithRole("member");
 
-    expect(checkRole(session, Authorization.DJ)).toBe(false);
+    expect(await checkRole(session, Authorization.DJ)).toBe(false);
   });
 
-  it("should check role hierarchy: SM > MD > DJ > NO", () => {
+  it("should check role hierarchy: SM > MD > DJ > NO", async () => {
     const smSession = createTestSessionWithRole("stationManager");
     const mdSession = createTestSessionWithRole("musicDirector");
     const djSession = createTestSessionWithRole("dj");
 
-    expect(checkRole(smSession, Authorization.SM)).toBe(true);
-    expect(checkRole(smSession, Authorization.MD)).toBe(true);
-    expect(checkRole(smSession, Authorization.DJ)).toBe(true);
+    expect(await checkRole(smSession, Authorization.SM)).toBe(true);
+    expect(await checkRole(smSession, Authorization.MD)).toBe(true);
+    expect(await checkRole(smSession, Authorization.DJ)).toBe(true);
 
-    expect(checkRole(mdSession, Authorization.SM)).toBe(false);
-    expect(checkRole(mdSession, Authorization.MD)).toBe(true);
-    expect(checkRole(mdSession, Authorization.DJ)).toBe(true);
+    expect(await checkRole(mdSession, Authorization.SM)).toBe(false);
+    expect(await checkRole(mdSession, Authorization.MD)).toBe(true);
+    expect(await checkRole(mdSession, Authorization.DJ)).toBe(true);
 
-    expect(checkRole(djSession, Authorization.SM)).toBe(false);
-    expect(checkRole(djSession, Authorization.MD)).toBe(false);
-    expect(checkRole(djSession, Authorization.DJ)).toBe(true);
+    expect(await checkRole(djSession, Authorization.SM)).toBe(false);
+    expect(await checkRole(djSession, Authorization.MD)).toBe(false);
+    expect(await checkRole(djSession, Authorization.DJ)).toBe(true);
   });
 
-  it("should handle NO authorization requirement", () => {
+  it("should handle NO authorization requirement", async () => {
     const memberSession = createTestSessionWithRole("member");
     const djSession = createTestSessionWithRole("dj");
 
-    expect(checkRole(memberSession, Authorization.NO)).toBe(true);
-    expect(checkRole(djSession, Authorization.NO)).toBe(true);
+    expect(await checkRole(memberSession, Authorization.NO)).toBe(true);
+    expect(await checkRole(djSession, Authorization.NO)).toBe(true);
   });
 
-  it("should handle session with no role property", () => {
+  it("should handle session with no role property", async () => {
     const session = createTestBetterAuthSession({
       user: {
         id: "test-id",
@@ -87,8 +98,8 @@ describe("checkRole", () => {
     });
     delete (session.user as any).role;
 
-    expect(checkRole(session, Authorization.NO)).toBe(true);
-    expect(checkRole(session, Authorization.DJ)).toBe(false);
+    expect(await checkRole(session, Authorization.NO)).toBe(true);
+    expect(await checkRole(session, Authorization.DJ)).toBe(false);
   });
 });
 
@@ -97,6 +108,9 @@ describe("requireRole", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCookies.mockReturnValue({
+      toString: () => "session=test-cookie",
+    });
     process.env = { ...originalEnv, NEXT_PUBLIC_DASHBOARD_HOME_PAGE: "/dashboard" };
   });
 
@@ -104,51 +118,51 @@ describe("requireRole", () => {
     process.env = originalEnv;
   });
 
-  it("should not redirect when user has sufficient role", () => {
+  it("should not redirect when user has sufficient role", async () => {
     const session = createTestSessionWithRole("stationManager");
 
-    requireRole(session, Authorization.DJ);
+    await requireRole(session, Authorization.DJ);
 
     expect(mockRedirect).not.toHaveBeenCalled();
   });
 
-  it("should redirect to dashboard home when user has insufficient role", () => {
+  it("should redirect to dashboard home when user has insufficient role", async () => {
     const session = createTestSessionWithRole("member");
 
-    expect(() => requireRole(session, Authorization.DJ)).toThrow(
+    await expect(requireRole(session, Authorization.DJ)).rejects.toThrow(
       "REDIRECT:/dashboard"
     );
     expect(mockRedirect).toHaveBeenCalledWith("/dashboard");
   });
 
-  it("should redirect to default path when NEXT_PUBLIC_DASHBOARD_HOME_PAGE is not set", () => {
+  it("should redirect to default path when NEXT_PUBLIC_DASHBOARD_HOME_PAGE is not set", async () => {
     process.env = { ...originalEnv };
     delete process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE;
     const session = createTestSessionWithRole("member");
 
-    expect(() => requireRole(session, Authorization.DJ)).toThrow(
+    await expect(requireRole(session, Authorization.DJ)).rejects.toThrow(
       "REDIRECT:/dashboard/catalog"
     );
   });
 
-  it("should allow SM to access SM-required resources", () => {
+  it("should allow SM to access SM-required resources", async () => {
     const session = createTestSessionWithRole("stationManager");
 
-    requireRole(session, Authorization.SM);
+    await requireRole(session, Authorization.SM);
 
     expect(mockRedirect).not.toHaveBeenCalled();
   });
 
-  it("should not allow MD to access SM-required resources", () => {
+  it("should not allow MD to access SM-required resources", async () => {
     const session = createTestSessionWithRole("musicDirector");
 
-    expect(() => requireRole(session, Authorization.SM)).toThrow("REDIRECT:/dashboard");
+    await expect(requireRole(session, Authorization.SM)).rejects.toThrow("REDIRECT:/dashboard");
   });
 
-  it("should allow any role to access NO-required resources", () => {
+  it("should allow any role to access NO-required resources", async () => {
     const memberSession = createTestSessionWithRole("member");
 
-    requireRole(memberSession, Authorization.NO);
+    await requireRole(memberSession, Authorization.NO);
 
     expect(mockRedirect).not.toHaveBeenCalled();
   });
