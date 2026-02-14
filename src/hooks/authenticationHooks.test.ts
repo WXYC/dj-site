@@ -1,8 +1,28 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import React from "react";
 import { renderHook, act, waitFor } from "@testing-library/react";
+import { configureStore, type Reducer, type Slice } from "@reduxjs/toolkit";
+import { Provider } from "react-redux";
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
 import { applicationSlice } from "@/lib/features/application/frontend";
-import { createHookWrapper } from "@/lib/test-utils";
+
+function createHookWrapper<S extends Record<string, Slice>>(
+  slices: S,
+  preloadedState?: Record<string, unknown>
+) {
+  const reducers = Object.fromEntries(
+    Object.entries(slices).map(([key, slice]) => [key, slice.reducer])
+  );
+
+  const store = configureStore({
+    reducer: reducers as unknown as Reducer,
+    preloadedState,
+  });
+
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return React.createElement(Provider, { store, children });
+  };
+}
 
 // Use vi.hoisted for variables used in vi.mock
 const {
@@ -68,6 +88,13 @@ vi.mock("@/lib/features/authentication/client", () => ({
 // Mock resetApplication
 vi.mock("./applicationHooks", () => ({
   resetApplication: vi.fn(),
+}));
+
+// Mock organization-utils to prevent real org lookups
+vi.mock("@/lib/features/authentication/organization-utils", () => ({
+  getAppOrganizationId: vi.fn().mockReturnValue(undefined),
+  getAppOrganizationIdClient: vi.fn().mockReturnValue(undefined),
+  getUserRoleInOrganizationClient: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Import hooks after mocks
@@ -496,7 +523,7 @@ describe("authenticationHooks", () => {
   });
 
   describe("useAuthentication", () => {
-    it("should return unauthenticated state when no session", () => {
+    it("should return unauthenticated state when no session", async () => {
       mockUseSession.mockReturnValue({
         data: null,
         isPending: false,
@@ -526,7 +553,7 @@ describe("authenticationHooks", () => {
       expect(result.current.authenticating).toBe(true);
     });
 
-    it("should return authenticated state with session", () => {
+    it("should return authenticated state with session", async () => {
       mockUseSession.mockReturnValue({
         data: {
           user: {
@@ -549,6 +576,8 @@ describe("authenticationHooks", () => {
         wrapper: createWrapper(),
       });
 
+      // Wait for async org role fetch to complete
+      await waitFor(() => expect(result.current.authenticating).toBe(false));
       expect(result.current.authenticated).toBe(true);
     });
 
@@ -597,7 +626,7 @@ describe("authenticationHooks", () => {
       expect(result.current.info).toBeNull();
     });
 
-    it("should return user info when authenticated", () => {
+    it("should return user info when authenticated", async () => {
       mockUseSession.mockReturnValue({
         data: {
           user: {
@@ -619,6 +648,9 @@ describe("authenticationHooks", () => {
       const { result } = renderHook(() => useRegistry(), {
         wrapper: createWrapper(),
       });
+
+      // Wait for async org role fetch to complete
+      await waitFor(() => expect(result.current.loading).toBe(false));
 
       expect(result.current.info).toEqual({
         id: "test-user-id",
