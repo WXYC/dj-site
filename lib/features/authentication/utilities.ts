@@ -30,12 +30,19 @@ export type BetterAuthSession = {
     banExpires?: Date | null;
     displayUsername?: string | null;
     image?: string | null;
+    // Organization member data (if using organizationClient)
+    organization?: {
+      id: string;
+      name: string;
+      role?: string;  // Organization member role (e.g., "member", "dj", "musicDirector", "stationManager")
+    };
   };
   session: {
     id: string;
     userId: string;
     expiresAt: Date;
     token?: string;  // Session ID (not a JWT token)
+    activeOrganizationId?: string | null;  // Active organization ID if user is part of an organization
   };
 };
 

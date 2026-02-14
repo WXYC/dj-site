@@ -1,5 +1,5 @@
 import { createAuthClient } from "better-auth/client"
-import { adminClient, usernameClient, jwtClient } from "better-auth/client/plugins"
+import { adminClient, usernameClient, jwtClient, organizationClient } from "better-auth/client/plugins"
 import { headers } from "next/headers";
 
 // Server-side only - no React dependencies
@@ -32,6 +32,7 @@ const baseConfig = {
         adminClient(),
         usernameClient(),
         jwtClient(),
+        organizationClient(),
     ]
 };
 

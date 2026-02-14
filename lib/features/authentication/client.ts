@@ -1,7 +1,7 @@
 "use client";
 
 import { createAuthClient } from "better-auth/react"
-import { adminClient, usernameClient, jwtClient } from "better-auth/client/plugins"
+import { adminClient, usernameClient, jwtClient, organizationClient } from "better-auth/client/plugins"
 
 // Client-side only - contains React hooks
 // This file should only be imported in client components
@@ -44,6 +44,7 @@ const baseConfig = {
         adminClient(),
         usernameClient(),
         jwtClient(),
+        organizationClient(),
     ]
 };
 
