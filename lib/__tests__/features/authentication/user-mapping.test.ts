@@ -1,8 +1,9 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Authorization } from "@/lib/features/admin/types";
 
+const mockCookies = vi.fn();
 vi.mock("next/headers", () => ({
-  cookies: vi.fn(),
+  cookies: () => mockCookies(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -15,6 +16,11 @@ vi.mock("@/lib/features/authentication/server-client", () => ({
   },
 }));
 
+vi.mock("@/lib/features/authentication/organization-utils", () => ({
+  getAppOrganizationId: vi.fn().mockReturnValue(undefined),
+  getUserRoleInOrganization: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { getUserFromSession } from "@/lib/features/authentication/server-utils";
 import {
   createTestBetterAuthSession,
@@ -22,7 +28,13 @@ import {
 } from "@/lib/test-utils";
 
 describe("getUserFromSession", () => {
-  it("should extract basic user information from session", () => {
+  beforeEach(() => {
+    mockCookies.mockReturnValue({
+      toString: () => "session=test-cookie",
+    });
+  });
+
+  it("should extract basic user information from session", async () => {
     const session = createTestBetterAuthSession({
       user: {
         id: "user-123",
@@ -36,7 +48,7 @@ describe("getUserFromSession", () => {
       },
     });
 
-    const result = getUserFromSession(session);
+    const result = await getUserFromSession(session);
 
     expect(result.id).toBe("user-123");
     expect(result.email).toBe("dj@wxyc.org");
@@ -45,7 +57,7 @@ describe("getUserFromSession", () => {
     expect(result.djName).toBe("DJ Cool");
   });
 
-  it("should use username when available", () => {
+  it("should use username when available", async () => {
     const session = createTestBetterAuthSession({
       user: {
         id: "test-id",
@@ -58,10 +70,10 @@ describe("getUserFromSession", () => {
       },
     });
 
-    expect(getUserFromSession(session).username).toBe("usernamevalue");
+    expect((await getUserFromSession(session)).username).toBe("usernamevalue");
   });
 
-  it("should fall back to name when username is not set", () => {
+  it("should fall back to name when username is not set", async () => {
     const session = createTestBetterAuthSession({
       user: {
         id: "test-id",
@@ -74,34 +86,34 @@ describe("getUserFromSession", () => {
       },
     });
 
-    expect(getUserFromSession(session).username).toBe("fallbackname");
+    expect((await getUserFromSession(session)).username).toBe("fallbackname");
   });
 
-  it("should map station manager role to SM authority", () => {
+  it("should map station manager role to SM authority", async () => {
     const session = createTestSessionWithRole("stationManager");
 
-    expect(getUserFromSession(session).authority).toBe(Authorization.SM);
+    expect((await getUserFromSession(session)).authority).toBe(Authorization.SM);
   });
 
-  it("should map music director role to MD authority", () => {
+  it("should map music director role to MD authority", async () => {
     const session = createTestSessionWithRole("musicDirector");
 
-    expect(getUserFromSession(session).authority).toBe(Authorization.MD);
+    expect((await getUserFromSession(session)).authority).toBe(Authorization.MD);
   });
 
-  it("should map dj role to DJ authority", () => {
+  it("should map dj role to DJ authority", async () => {
     const session = createTestSessionWithRole("dj");
 
-    expect(getUserFromSession(session).authority).toBe(Authorization.DJ);
+    expect((await getUserFromSession(session)).authority).toBe(Authorization.DJ);
   });
 
-  it("should map member role to NO authority", () => {
+  it("should map member role to NO authority", async () => {
     const session = createTestSessionWithRole("member");
 
-    expect(getUserFromSession(session).authority).toBe(Authorization.NO);
+    expect((await getUserFromSession(session)).authority).toBe(Authorization.NO);
   });
 
-  it("should handle missing role by defaulting to NO authority", () => {
+  it("should handle missing role by defaulting to NO authority", async () => {
     const session = createTestBetterAuthSession({
       user: {
         id: "test-id",
@@ -114,10 +126,10 @@ describe("getUserFromSession", () => {
       },
     });
 
-    expect(getUserFromSession(session).authority).toBe(Authorization.NO);
+    expect((await getUserFromSession(session)).authority).toBe(Authorization.NO);
   });
 
-  it("should convert undefined realName to undefined (not null)", () => {
+  it("should convert undefined realName to undefined (not null)", async () => {
     const session = createTestBetterAuthSession({
       user: {
         id: "test-id",
@@ -129,10 +141,10 @@ describe("getUserFromSession", () => {
       },
     });
 
-    expect(getUserFromSession(session).realName).toBeUndefined();
+    expect((await getUserFromSession(session)).realName).toBeUndefined();
   });
 
-  it("should convert undefined djName to undefined (not null)", () => {
+  it("should convert undefined djName to undefined (not null)", async () => {
     const session = createTestBetterAuthSession({
       user: {
         id: "test-id",
@@ -144,10 +156,10 @@ describe("getUserFromSession", () => {
       },
     });
 
-    expect(getUserFromSession(session).djName).toBeUndefined();
+    expect((await getUserFromSession(session)).djName).toBeUndefined();
   });
 
-  it("should include emailVerified status", () => {
+  it("should include emailVerified status", async () => {
     const sessionVerified = createTestBetterAuthSession({
       user: {
         id: "test-id",
@@ -170,11 +182,11 @@ describe("getUserFromSession", () => {
       },
     });
 
-    expect(getUserFromSession(sessionVerified).emailVerified).toBe(true);
-    expect(getUserFromSession(sessionUnverified).emailVerified).toBe(false);
+    expect((await getUserFromSession(sessionVerified)).emailVerified).toBe(true);
+    expect((await getUserFromSession(sessionUnverified)).emailVerified).toBe(false);
   });
 
-  it("should include appSkin preference", () => {
+  it("should include appSkin preference", async () => {
     const session = createTestBetterAuthSession({
       user: {
         id: "test-id",
@@ -187,10 +199,10 @@ describe("getUserFromSession", () => {
       },
     });
 
-    expect(getUserFromSession(session).appSkin).toBe("dark");
+    expect((await getUserFromSession(session)).appSkin).toBe("dark");
   });
 
-  it("should include createdAt and updatedAt timestamps", () => {
+  it("should include createdAt and updatedAt timestamps", async () => {
     const createdAt = new Date("2024-01-15");
     const updatedAt = new Date("2024-06-20");
     const session = createTestBetterAuthSession({
@@ -206,7 +218,7 @@ describe("getUserFromSession", () => {
       },
     });
 
-    const result = getUserFromSession(session);
+    const result = await getUserFromSession(session);
 
     expect(result.createdAt).toEqual(createdAt);
     expect(result.updatedAt).toEqual(updatedAt);
