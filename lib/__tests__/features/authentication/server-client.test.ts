@@ -19,11 +19,7 @@ vi.mock("better-auth/client/plugins", () => ({
   adminClient: vi.fn(() => ({ name: "admin" })),
   usernameClient: vi.fn(() => ({ name: "username" })),
   jwtClient: vi.fn(() => ({ name: "jwt" })),
-}));
-
-const mockHeaders = vi.fn();
-vi.mock("next/headers", () => ({
-  headers: () => mockHeaders(),
+  organizationClient: vi.fn(() => ({ name: "organization" })),
 }));
 
 describe("server-client", () => {
@@ -48,6 +44,7 @@ describe("server-client", () => {
           { name: "admin" },
           { name: "username" },
           { name: "jwt" },
+          { name: "organization" },
         ],
       });
       expect(capturedConfig.baseURL).toBeDefined();
@@ -55,66 +52,16 @@ describe("server-client", () => {
   });
 
   describe("getBaseURL function behavior", () => {
-    it("should construct URL from host header when available", async () => {
-      mockHeaders.mockResolvedValue({
-        get: (name: string) => {
-          if (name === "host") return "app.example.com";
-          if (name === "x-forwarded-proto") return "https";
-          return null;
-        },
-      });
+    it("should use env var when NEXT_PUBLIC_BETTER_AUTH_URL is set", async () => {
+      process.env = { ...originalEnv, NEXT_PUBLIC_BETTER_AUTH_URL: "https://custom.example.com/auth" };
 
       vi.resetModules();
       await import("@/lib/features/authentication/server-client");
 
-      expect(capturedConfig?.baseURL).toContain("/auth");
+      expect(capturedConfig?.baseURL).toBe("https://custom.example.com/auth");
     });
 
-    it("should default to https protocol when x-forwarded-proto is not set", async () => {
-      mockHeaders.mockResolvedValue({
-        get: (name: string) => {
-          if (name === "host") return "app.example.com";
-          return null;
-        },
-      });
-
-      vi.resetModules();
-      await import("@/lib/features/authentication/server-client");
-
-      expect(capturedConfig?.baseURL).toMatch(/^https:\/\//);
-    });
-
-    it("should use http when x-forwarded-proto is http", async () => {
-      mockHeaders.mockResolvedValue({
-        get: (name: string) => {
-          if (name === "host") return "localhost:3000";
-          if (name === "x-forwarded-proto") return "http";
-          return null;
-        },
-      });
-
-      vi.resetModules();
-      await import("@/lib/features/authentication/server-client");
-
-      expect(capturedConfig?.baseURL).toMatch(/^http:\/\//);
-    });
-
-    it("should fall back to env var when headers() throws", async () => {
-      mockHeaders.mockImplementation(() => {
-        throw new Error("Headers not available during build");
-      });
-      process.env = { ...originalEnv, NEXT_PUBLIC_BETTER_AUTH_URL: "https://fallback.example.com/auth" };
-
-      vi.resetModules();
-      await import("@/lib/features/authentication/server-client");
-
-      expect(capturedConfig?.baseURL).toBe("https://fallback.example.com/auth");
-    });
-
-    it("should use default URL when both headers and env are unavailable", async () => {
-      mockHeaders.mockImplementation(() => {
-        throw new Error("Headers not available during build");
-      });
+    it("should use default URL when env var is not set", async () => {
       process.env = { ...originalEnv };
       delete process.env.NEXT_PUBLIC_BETTER_AUTH_URL;
 
@@ -122,36 +69,6 @@ describe("server-client", () => {
       await import("@/lib/features/authentication/server-client");
 
       expect(capturedConfig?.baseURL).toBe("https://api.wxyc.org/auth");
-    });
-
-    it("should handle host without port", async () => {
-      mockHeaders.mockResolvedValue({
-        get: (name: string) => {
-          if (name === "host") return "wxyc.org";
-          if (name === "x-forwarded-proto") return "https";
-          return null;
-        },
-      });
-
-      vi.resetModules();
-      await import("@/lib/features/authentication/server-client");
-
-      expect(capturedConfig?.baseURL).toBe("https://wxyc.org/auth");
-    });
-
-    it("should handle host with port", async () => {
-      mockHeaders.mockResolvedValue({
-        get: (name: string) => {
-          if (name === "host") return "localhost:3001";
-          if (name === "x-forwarded-proto") return "http";
-          return null;
-        },
-      });
-
-      vi.resetModules();
-      await import("@/lib/features/authentication/server-client");
-
-      expect(capturedConfig?.baseURL).toBe("http://localhost:3001/auth");
     });
   });
 });
