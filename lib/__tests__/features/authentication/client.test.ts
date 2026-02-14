@@ -257,6 +257,7 @@ describe("authentication client", () => {
           { name: "admin" },
           { name: "username" },
           { name: "jwt" },
+          { name: "organization" },
         ],
       });
       expect(capturedConfig.baseURL).toBeDefined();
