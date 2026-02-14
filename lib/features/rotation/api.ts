@@ -1,7 +1,7 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { backendBaseQuery } from "../backend";
 import { convertAlbumFromRotation } from "../catalog/conversions";
-import { AlbumEntry, AlbumQueryResponse } from "../catalog/types";
+import { AlbumEntry, AlbumSearchResultJSON } from "../catalog/types";
 import { KillRotationParams, RotationParams } from "./types";
 
 export const rotationApi = createApi({
@@ -13,7 +13,7 @@ export const rotationApi = createApi({
       query: () => ({
         url: "",
       }),
-      transformResponse: (response: AlbumQueryResponse[]) =>
+      transformResponse: (response: AlbumSearchResultJSON[]) =>
         response.map(convertAlbumFromRotation),
       providesTags: ["Rotation"],
     }),

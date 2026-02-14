@@ -160,7 +160,7 @@ export default function SongEntry({
                     request_flag: entry.request_flag,
                     rotation_id: entry.rotation_id,
                     album_id: entry.album_id,
-                    play_freq: entry.rotation,
+                    rotation_bin: entry.rotation,
                   } as FlowsheetSubmissionParams)
                     .then(() => {
                       dispatch(flowsheetSlice.actions.removeFromQueue(entry.id));

@@ -1,8 +1,9 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { backendBaseQuery } from "../backend";
 import { AlbumEntry } from "../catalog/types";
+import type { BinLibraryDetails } from "@wxyc/shared/dtos";
 import { convertAlbumFromBin } from "./conversions";
-import { BinMutationQuery, BinQueryResponse, DJBinQuery } from "./types";
+import { BinMutationQuery, DJBinQuery } from "./types";
 
 export const binApi = createApi({
   reducerPath: "binApi",
@@ -13,7 +14,7 @@ export const binApi = createApi({
       query: ({ dj_id }) => ({
         url: `/?dj_id=${dj_id}`,
       }),
-      transformResponse: (response: BinQueryResponse[]) =>
+      transformResponse: (response: BinLibraryDetails[]) =>
         response.map(convertAlbumFromBin),
       providesTags: ["Bin"],
     }),

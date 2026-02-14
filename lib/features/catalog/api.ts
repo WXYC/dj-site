@@ -4,7 +4,7 @@ import { convertAlbumFromSearch } from "./conversions";
 import {
   AlbumEntry,
   AlbumParams,
-  AlbumQueryResponse,
+  AlbumSearchResultJSON,
   AlbumRequestParams,
   ArtistParams,
   SearchCatalogQueryParams,
@@ -20,7 +20,7 @@ export const catalogApi = createApi({
         url: "/",
         params: { artist_name, album_name, n },
       }),
-      transformResponse: (response: AlbumQueryResponse[]) =>
+      transformResponse: (response: AlbumSearchResultJSON[]) =>
         response.map(convertAlbumFromSearch),
     }),
     addAlbum: builder.mutation<any, AlbumParams>({
@@ -42,7 +42,7 @@ export const catalogApi = createApi({
         url: "/info",
         params: { album_id },
       }),
-      transformResponse: (response: AlbumQueryResponse) =>
+      transformResponse: (response: AlbumSearchResultJSON) =>
         convertAlbumFromSearch(response),
     }),
     getFormats: builder.query<any, void>({

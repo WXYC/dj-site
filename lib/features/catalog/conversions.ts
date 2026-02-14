@@ -1,8 +1,8 @@
 import { Rotation } from "../rotation/types";
-import { AlbumEntry, AlbumQueryResponse, Format, Genre } from "./types";
+import { AlbumEntry, AlbumSearchResultJSON, Format, Genre } from "./types";
 
 export function convertAlbumFromSearch(
-  response: AlbumQueryResponse
+  response: AlbumSearchResultJSON
 ): AlbumEntry {
   return {
     id: response.id,
@@ -17,7 +17,7 @@ export function convertAlbumFromSearch(
     entry: response.code_number,
     format: (response.format_name as Format) ?? "Unknown",
     alternate_artist: "",
-    play_freq: undefined,
+    rotation_bin: undefined,
     add_date: response.add_date,
     plays: response.plays ?? 0,
     label: response.label,
@@ -26,7 +26,7 @@ export function convertAlbumFromSearch(
 }
 
 export function convertAlbumFromRotation(
-  response: AlbumQueryResponse
+  response: AlbumSearchResultJSON
 ): AlbumEntry {
   return {
     id: response.id,
@@ -41,7 +41,7 @@ export function convertAlbumFromRotation(
     entry: response.code_number,
     format: (response.format_name as Format) ?? "Unknown",
     alternate_artist: "",
-    play_freq: response.play_freq as Rotation,
+    rotation_bin: response.rotation_bin as Rotation,
     add_date: response.add_date,
     plays: response.plays ?? 0,
     label: response.label,

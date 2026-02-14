@@ -19,7 +19,7 @@ import {
   TEST_ENTITY_IDS,
   TEST_SEARCH_STRINGS,
 } from "@/lib/test-utils";
-import type { FlowsheetEntryResponse } from "@/lib/features/flowsheet/types";
+import type { FlowsheetEntryResponse } from "@wxyc/shared/dtos";
 
 describe("flowsheet conversions", () => {
   describe("convertToSong", () => {
@@ -65,7 +65,7 @@ describe("flowsheet conversions", () => {
     it("should preserve rotation data when present", () => {
       const response = createTestFlowsheetEntryResponse({
         rotation_id: TEST_ENTITY_IDS.ROTATION.HEAVY,
-        rotation_play_freq: "H",
+        rotation_bin: "H",
       });
       const result = convertToSong(response);
       expect(result.rotation_id).toBe(TEST_ENTITY_IDS.ROTATION.HEAVY);

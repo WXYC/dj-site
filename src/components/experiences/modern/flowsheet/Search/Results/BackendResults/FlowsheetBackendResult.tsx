@@ -43,7 +43,7 @@ export default function FlowsheetBackendResult({
         artist={entry.artist}
         format={entry.format}
         entry={entry.entry}
-        rotation={entry.play_freq}
+        rotation={entry.rotation_bin}
       />
       <Stack direction="column" sx={{ width: "calc(20%)" }}>
         <Typography
