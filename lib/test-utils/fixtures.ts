@@ -7,11 +7,15 @@ import {
 import {
   AuthenticatedUser,
   AuthenticationState,
+  BetterAuthJwtPayload,
+  IncompleteUser,
   ModifiableData,
+  PasswordResetUser,
   User,
   VerifiedData,
   Verification,
 } from "@/lib/features/authentication/types";
+import { BetterAuthSession } from "@/lib/features/authentication/utilities";
 import {
   AlbumEntry,
   AlbumQueryResponse,
@@ -256,7 +260,79 @@ export function createTestAuthenticationState(
   };
 }
 
-// JWT payload fixture for testing toUser
+// BetterAuth session fixtures
+export function createTestBetterAuthSession(
+  overrides: Partial<{ user: Partial<BetterAuthSession["user"]>; session: Partial<BetterAuthSession["session"]> }> = {}
+): BetterAuthSession {
+  return {
+    user: {
+      id: "test-user-id",
+      email: "testdj@wxyc.org",
+      name: "testdj",
+      username: "testdj",
+      emailVerified: true,
+      realName: "Test DJ",
+      djName: "DJ Test",
+      role: "dj",
+      ...overrides.user,
+    },
+    session: {
+      id: "test-session-id",
+      userId: "test-user-id",
+      expiresAt: new Date("2025-12-31"),
+      ...overrides.session,
+    },
+  };
+}
+
+export function createTestIncompleteSession(
+  missingFields: ("realName" | "djName")[]
+): BetterAuthSession {
+  const userOverrides: Partial<BetterAuthSession["user"]> = {};
+  for (const field of missingFields) {
+    userOverrides[field] = undefined;
+  }
+  return createTestBetterAuthSession({ user: userOverrides });
+}
+
+export function createTestSessionWithRole(role: string): BetterAuthSession {
+  return createTestBetterAuthSession({ user: { role } });
+}
+
+export function createTestBetterAuthJWTPayload(
+  overrides: Partial<BetterAuthJwtPayload> = {}
+): BetterAuthJwtPayload {
+  return {
+    sub: "test-user-id",
+    id: "test-user-id",
+    email: "testdj@wxyc.org",
+    role: "dj",
+    exp: Math.floor(Date.now() / 1000) + 3600,
+    iat: Math.floor(Date.now() / 1000),
+    ...overrides,
+  };
+}
+
+export function createTestIncompleteUser(
+  overrides: Partial<IncompleteUser> = {}
+): IncompleteUser {
+  return {
+    username: "testuser",
+    requiredAttributes: ["realName", "djName"],
+    ...overrides,
+  };
+}
+
+export function createTestPasswordResetUser(
+  overrides: Partial<PasswordResetUser> = {}
+): PasswordResetUser {
+  return {
+    confirmationMessage: "Check your email",
+    ...overrides,
+  };
+}
+
+// Cognito JWT payload fixture (legacy, for conversion testing)
 export function createTestJWTPayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     "cognito:username": "testdj",
