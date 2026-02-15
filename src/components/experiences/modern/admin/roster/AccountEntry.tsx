@@ -6,10 +6,17 @@ import {
   AdminAuthenticationStatus,
   Authorization,
 } from "@/lib/features/admin/types";
+import type { WXYCRole } from "@/lib/features/authentication/types";
 import { DeleteForever, SyncLock } from "@mui/icons-material";
 import { ButtonGroup, Checkbox, IconButton, Stack, Tooltip } from "@mui/joy";
 import { useState } from "react";
 import { toast } from "sonner";
+
+// Better Auth's TypeScript types only allow "user" | "admin" for setRole,
+// but the API accepts any string. We use WXYC's custom roles and cast them.
+type SetRoleParams = Parameters<typeof authClient.admin.setRole>[0];
+type RoleParam = SetRoleParams["role"];
+const asRole = (role: WXYCRole): RoleParam => role as unknown as RoleParam;
 
 export const AccountEntry = ({
   account,
@@ -26,13 +33,7 @@ export const AccountEntry = ({
   const [promoteError, setPromoteError] = useState<Error | null>(null);
   const [resetError, setResetError] = useState<Error | null>(null);
   const [deleteError, setDeleteError] = useState<Error | null>(null);
-  const toAdminRole = (
-    role: "member" | "dj" | "musicDirector" | "stationManager"
-  ) =>
-    (role === "stationManager" ? "admin" : "user") as
-      | "user"
-      | "admin"
-      | ("user" | "admin")[];
+
   const resolveUserId = async () => {
     if (account.id) {
       return account.id;
@@ -88,7 +89,7 @@ export const AccountEntry = ({
                     // Update user role
                     const result = await authClient.admin.setRole({
                       userId: targetUserId,
-                      role: toAdminRole("stationManager"),
+                      role: asRole("stationManager"),
                     });
 
                     if (result.error) {
@@ -125,7 +126,7 @@ export const AccountEntry = ({
                     // Update user role
                     const result = await authClient.admin.setRole({
                       userId: targetUserId,
-                      role: toAdminRole("musicDirector"),
+                      role: asRole("musicDirector"),
                     });
 
                     if (result.error) {
@@ -178,7 +179,7 @@ export const AccountEntry = ({
                     // Update user role
                     const result = await authClient.admin.setRole({
                       userId: targetUserId,
-                      role: toAdminRole("musicDirector"),
+                      role: asRole("musicDirector"),
                     });
 
                     if (result.error) {
@@ -215,7 +216,7 @@ export const AccountEntry = ({
                     // Update user role
                     const result = await authClient.admin.setRole({
                       userId: targetUserId,
-                      role: toAdminRole("dj"),
+                      role: asRole("dj"),
                     });
 
                     if (result.error) {
