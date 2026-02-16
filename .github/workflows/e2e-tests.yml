@@ -157,7 +157,8 @@ jobs:
       - name: Start dj-site
         working-directory: dj-site
         run: |
-          npm run start &
+          npm run start > /tmp/frontend.log 2>&1 &
+          echo $! > /tmp/frontend.pid
 
           # Wait for frontend to be ready
           echo "Waiting for frontend..."
@@ -175,6 +176,9 @@ jobs:
           echo ""
           echo "=== Backend Service Logs ==="
           cat /tmp/backend.log 2>/dev/null || echo "No backend log"
+          echo ""
+          echo "=== Frontend Logs ==="
+          cat /tmp/frontend.log 2>/dev/null || echo "No frontend log"
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
@@ -195,5 +199,6 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
+          kill $(cat /tmp/frontend.pid 2>/dev/null) 2>/dev/null || true
           kill $(cat /tmp/auth.pid 2>/dev/null) 2>/dev/null || true
           kill $(cat /tmp/backend.pid 2>/dev/null) 2>/dev/null || true
