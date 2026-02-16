@@ -27,7 +27,7 @@ env:
   APP_ORGANIZATION_ID: test-org-id-0000000000000000001
   # E2E test config
   E2E_BASE_URL: http://localhost:3000
-  # Backend service ports (E2E profile)
+  # Backend service ports
   E2E_DB_PORT: 5434
   E2E_AUTH_PORT: 8084
   E2E_BACKEND_PORT: 8085
@@ -36,7 +36,22 @@ jobs:
   e2e:
     name: E2E Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:18.0-alpine
+        env:
+          POSTGRES_PASSWORD: 'RadioIsEpic$1100'
+          POSTGRES_USER: wxyc_admin
+          POSTGRES_DB: wxyc_db
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U wxyc_admin -d wxyc_db"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout dj-site
@@ -72,75 +87,72 @@ jobs:
           DB_PASSWORD='RadioIsEpic$1100'
           BETTER_AUTH_SECRET=e2e-auth-secret-for-testing-min-32-chars
           BETTER_AUTH_URL=http://localhost:8084/auth
+          BETTER_AUTH_JWKS_URL=http://localhost:8084/auth/.well-known/jwks.json
           BETTER_AUTH_TRUSTED_ORIGINS=http://localhost:3000
           FRONTEND_SOURCE=http://localhost:3000
           DEFAULT_ORG_SLUG=test-org
-          DEFAULT_ORG_NAME=Test Organization
+          DEFAULT_ORG_NAME='Test Organization'
           APP_ORGANIZATION_ID=test-org-id-0000000000000000001
           E2E_DB_PORT=5434
           E2E_AUTH_PORT=8084
           E2E_BACKEND_PORT=8085
           EOF
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('dj-site/package-lock.json') }}
 
-      - name: Start backend services with Docker Compose
-        working-directory: Backend-Service
+      - name: Install dependencies
         run: |
-          # Build and start E2E services
-          docker compose -f dev_env/docker-compose.yml --env-file .env --profile e2e up -d e2e-db
+          (cd Backend-Service && npm ci) &
+          (cd dj-site && npm ci) &
+          wait
 
-          # Wait for database to be ready
-          echo "Waiting for database..."
-          timeout 60 bash -c 'until docker compose -f dev_env/docker-compose.yml --env-file .env --profile e2e exec -T e2e-db pg_isready; do sleep 2; done'
-
-          # Run database initialization
-          docker compose -f dev_env/docker-compose.yml --env-file .env --profile e2e up e2e-db-init
-
-          # Start auth and backend services
-          docker compose -f dev_env/docker-compose.yml --env-file .env --profile e2e up -d e2e-auth e2e-backend
-
-          # Wait for services to be healthy
-          echo "Waiting for auth service..."
-          timeout 120 bash -c 'until curl -sf http://localhost:8084/healthcheck; do sleep 5; done'
-
-          echo "Waiting for backend service..."
-          timeout 120 bash -c 'until curl -sf http://localhost:8085/healthcheck; do sleep 5; done'
-
-      - name: Install Backend-Service dependencies
-        working-directory: Backend-Service
-        run: npm ci
-
-      - name: Build Backend-Service workspaces
-        working-directory: Backend-Service
-        run: npm run build
-
-      - name: Set up E2E test users
-        working-directory: Backend-Service
-        env:
-          DB_HOST: localhost
-          DB_PORT: 5434
-          DB_NAME: wxyc_db
-          DB_USERNAME: wxyc_admin
-          DB_PASSWORD: 'RadioIsEpic$1100'
-          BETTER_AUTH_JWKS_URL: http://localhost:8084/auth/.well-known/jwks.json
+      - name: Build and start services
         run: |
-          # Wait a moment for services to fully stabilize
-          sleep 5
-          npm run setup:e2e-users
+          # Backend track: build -> init-db -> start services -> seed users
+          (
+            cd Backend-Service
 
-      - name: Install dj-site dependencies
-        working-directory: dj-site
-        run: npm ci
+            # Export all .env vars so they're available at module-import time
+            # (shared/authentication checks BETTER_AUTH_JWKS_URL before dotenv loads)
+            set -a; source .env; set +a
 
-      - name: Install Playwright browsers
-        working-directory: dj-site
-        run: npx playwright install --with-deps chromium
+            npm run build
+            node dev_env/init-db.mjs
 
-      - name: Build dj-site
-        working-directory: dj-site
-        run: npm run build
+            # Start auth service
+            AUTH_PORT=8084 node apps/auth/dist/app.js > /tmp/auth.log 2>&1 &
+            echo $! > /tmp/auth.pid
+            echo "Waiting for auth service..."
+            timeout 60 bash -c 'until curl -sf http://localhost:8084/healthcheck; do sleep 1; done'
+
+            # Start backend service (PORT and auth issuer/audience not in .env)
+            PORT=8085 \
+            BETTER_AUTH_ISSUER=http://localhost:8084 \
+            BETTER_AUTH_AUDIENCE=http://localhost:8084 \
+            node apps/backend/dist/app.js > /tmp/backend.log 2>&1 &
+            echo $! > /tmp/backend.pid
+            echo "Waiting for backend service..."
+            timeout 60 bash -c 'until curl -sf http://localhost:8085/healthcheck; do sleep 1; done'
+
+            # Seed E2E test users
+            npm run setup:e2e-users
+          ) &
+          PID_BACKEND=$!
+
+          # Frontend track: install Playwright + build dj-site (concurrent)
+          (cd dj-site && npx playwright install --with-deps chromium) &
+          PID_PW=$!
+          (cd dj-site && npm run build) &
+          PID_BUILD=$!
+
+          # Wait for all tracks -- fail if any fails
+          wait $PID_BACKEND || exit 1
+          wait $PID_PW || exit 1
+          wait $PID_BUILD || exit 1
 
       - name: Start dj-site
         working-directory: dj-site
@@ -153,17 +165,16 @@ jobs:
 
       - name: Run E2E tests
         working-directory: dj-site
-        run: npm run test:e2e -- --reporter=html --reporter=github
+        run: npm run test:e2e -- --max-failures=10 --reporter=html --reporter=github
 
       - name: Show service logs on failure
         if: failure()
-        working-directory: Backend-Service
         run: |
           echo "=== Auth Service Logs ==="
-          docker compose -f dev_env/docker-compose.yml --env-file .env --profile e2e logs e2e-auth --tail=100
+          cat /tmp/auth.log 2>/dev/null || echo "No auth log"
           echo ""
           echo "=== Backend Service Logs ==="
-          docker compose -f dev_env/docker-compose.yml --env-file .env --profile e2e logs e2e-backend --tail=100
+          cat /tmp/backend.log 2>/dev/null || echo "No backend log"
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
@@ -183,6 +194,6 @@ jobs:
 
       - name: Cleanup
         if: always()
-        working-directory: Backend-Service
         run: |
-          docker compose -f dev_env/docker-compose.yml --env-file .env --profile e2e down -v --remove-orphans
+          kill $(cat /tmp/auth.pid 2>/dev/null) 2>/dev/null || true
+          kill $(cat /tmp/backend.pid 2>/dev/null) 2>/dev/null || true
