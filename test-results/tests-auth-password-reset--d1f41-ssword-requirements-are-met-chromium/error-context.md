@@ -1,0 +1,42 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - region "Notifications alt+T"
+  - main [ref=e3]:
+    - generic [ref=e7]:
+      - img [ref=e10]
+      - main [ref=e32]:
+        - button "Never mind, I remembered" [ref=e34] [cursor=pointer]:
+          - img [ref=e36]
+          - text: Never mind, I remembered
+        - generic [ref=e38]:
+          - heading "Forget About It" [level=2] [ref=e39]
+          - paragraph [ref=e40]: ...but don't forget your password!
+          - paragraph [ref=e41]: "- Alison Krauss"
+        - alert [ref=e42]: Enter your new password below.
+        - generic [ref=e43]:
+          - generic [ref=e44]:
+            - generic [ref=e45]:
+              - text: New Password
+              - generic [ref=e46]: "*"
+            - textbox "New Password" [ref=e48]:
+              - /placeholder: Enter your new password
+            - generic [ref=e49]: Must be at least 8 characters, with at least 1 number and 1 capital letter
+          - generic [ref=e50]:
+            - generic [ref=e51]:
+              - text: Confirm New Password
+              - generic [ref=e52]: "*"
+            - textbox "Confirm New Password" [active] [ref=e54]: ValidPassword1
+          - button "Submit" [disabled]
+      - generic [ref=e55]: Copyright © 2026 WXYC Chapel Hill
+    - generic [ref=e57]:
+      - generic [ref=e58]: WXYC DJ Site ve2e
+      - group [ref=e59]:
+        - button "Log In" [ref=e60] [cursor=pointer]
+        - button "Switch to classic experience" [ref=e61] [cursor=pointer]:
+          - img [ref=e62]
+        - button "Switch to dark mode" [ref=e64] [cursor=pointer]:
+          - img [ref=e65]
+  - alert [ref=e67]
+```
