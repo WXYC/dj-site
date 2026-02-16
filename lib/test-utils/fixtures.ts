@@ -256,18 +256,6 @@ export function createTestAuthenticationState(
   };
 }
 
-// JWT payload fixture for testing toUser
-export function createTestJWTPayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-  return {
-    "cognito:username": "testdj",
-    email: "testdj@wxyc.org",
-    name: "Test User",
-    "custom:dj-name": "DJ Test",
-    "cognito:groups": [],
-    ...overrides,
-  };
-}
-
 // Admin fixtures
 export function createTestAccountResult(
   overrides: Partial<Account> = {}
@@ -292,25 +280,6 @@ export function createTestAccountFormData(
   };
 }
 
-// AWS user type fixture for conversion testing
-export function createTestAWSUser(
-  overrides: {
-    Username?: string;
-    UserStatus?: "CONFIRMED" | "FORCE_CHANGE_PASSWORD" | "RESET_REQUIRED";
-    Attributes?: Array<{ Name: string; Value: string }>;
-  } = {}
-) {
-  return {
-    Username: overrides.Username ?? "testuser",
-    UserStatus: overrides.UserStatus ?? "CONFIRMED",
-    Attributes: overrides.Attributes ?? [
-      { Name: "name", Value: "Test User" },
-      { Name: "custom:dj-name", Value: "DJ Test" },
-      { Name: "email", Value: "test@wxyc.org" },
-    ],
-  };
-}
-
 // Bin fixtures
 export function createTestBinQueryResponse(
   overrides: Partial<BinQueryResponse> = {}
@@ -331,10 +300,10 @@ export function createTestBinQueryResponse(
 
 // On-air DJ fixtures
 export function createTestOnAirDJResponse(
-  overrides: { id?: number; dj_name?: string } = {}
+  overrides: { id?: string; dj_name?: string } = {}
 ) {
   return {
-    id: overrides.id ?? 1,
+    id: overrides.id ?? "1",
     dj_name: overrides.dj_name ?? "Test DJ",
   };
 }

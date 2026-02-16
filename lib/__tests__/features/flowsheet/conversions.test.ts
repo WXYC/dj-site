@@ -21,6 +21,17 @@ import {
 } from "@/lib/test-utils";
 import type { FlowsheetEntryResponse } from "@/lib/features/flowsheet/types";
 
+/** The shape `convertQueryToSubmission` actually returns (the artist_name variant, plus album_id/rotation_id). */
+type QuerySubmission = {
+  track_title: string;
+  artist_name: string;
+  album_title: string;
+  record_label?: string;
+  request_flag: boolean;
+  album_id?: number;
+  rotation_id?: number;
+};
+
 describe("flowsheet conversions", () => {
   describe("convertToSong", () => {
     it("should convert a basic song response", () => {
@@ -82,7 +93,7 @@ describe("flowsheet conversions", () => {
   describe("convertQueryToSubmission", () => {
     it("should convert query to submission params", () => {
       const query = createTestFlowsheetQuery();
-      const result = convertQueryToSubmission(query);
+      const result = convertQueryToSubmission(query) as QuerySubmission;
 
       expect(result.track_title).toBe(TEST_SEARCH_STRINGS.TRACK_TITLE);
       expect(result.artist_name).toBe(TEST_SEARCH_STRINGS.ARTIST_NAME);
@@ -95,7 +106,7 @@ describe("flowsheet conversions", () => {
 
     it("should include album_id when present", () => {
       const query = createTestFlowsheetQuery({ album_id: 123 });
-      const result = convertQueryToSubmission(query);
+      const result = convertQueryToSubmission(query) as QuerySubmission;
       expect(result.album_id).toBe(123);
     });
 
@@ -103,13 +114,13 @@ describe("flowsheet conversions", () => {
       const query = createTestFlowsheetQuery({
         rotation_id: TEST_ENTITY_IDS.ROTATION.HEAVY,
       });
-      const result = convertQueryToSubmission(query);
+      const result = convertQueryToSubmission(query) as QuerySubmission;
       expect(result.rotation_id).toBe(TEST_ENTITY_IDS.ROTATION.HEAVY);
     });
 
     it("should preserve request flag", () => {
       const query = createTestFlowsheetQuery({ request: true });
-      const result = convertQueryToSubmission(query);
+      const result = convertQueryToSubmission(query) as QuerySubmission;
       expect(result.request_flag).toBe(true);
     });
   });
@@ -414,8 +425,8 @@ describe("flowsheet conversions", () => {
 
     it("should format multiple DJs on air", () => {
       const response = [
-        createTestOnAirDJResponse({ id: 1, dj_name: "First DJ" }),
-        createTestOnAirDJResponse({ id: 2, dj_name: "Second DJ" }),
+        createTestOnAirDJResponse({ id: "1", dj_name: "First DJ" }),
+        createTestOnAirDJResponse({ id: "2", dj_name: "Second DJ" }),
       ];
       const result = convertDJsOnAir(response);
 
@@ -424,10 +435,10 @@ describe("flowsheet conversions", () => {
     });
 
     it("should preserve original DJ response objects", () => {
-      const response = [createTestOnAirDJResponse({ id: 42, dj_name: "Test" })];
+      const response = [createTestOnAirDJResponse({ id: "42", dj_name: "Test" })];
       const result = convertDJsOnAir(response);
 
-      expect(result.djs[0].id).toBe(42);
+      expect(result.djs[0].id).toBe("42");
       expect(result.djs[0].dj_name).toBe("Test");
     });
   });
