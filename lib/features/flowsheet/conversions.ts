@@ -1,53 +1,12 @@
-import type { FlowsheetEntryResponse } from "@wxyc/shared/dtos";
 import { Rotation } from "../rotation/types";
 import {
-  FlowsheetBreakpointEntry,
-  FlowsheetMessageEntry,
+  FlowsheetEntry,
   FlowsheetQuery,
-  FlowsheetShowBlockEntry,
-  FlowsheetSongEntry,
   FlowsheetSubmissionParams,
+  FlowsheetV2EntryJSON,
   OnAirDJData,
   OnAirDJResponse,
 } from "./types";
-
-export function convertFlowsheetResponse(entries: FlowsheetEntryResponse[]) {
-  return entries
-    .map((entry) => {
-      if (entry.message) {
-        if (entry.message.includes("Start of Show")) {
-          return convertToStartShow(entry);
-        } else if (entry.message.includes("End of Show")) {
-          return convertToEndShow(entry);
-        } else if (entry.message.includes("Breakpoint")) {
-          return convertToBreakpoint(entry);
-        } else {
-          return convertToMessage(entry);
-        }
-      } else {
-        return convertToSong(entry);
-      }
-    })
-    .sort((a, b) => b.play_order - a.play_order);
-}
-
-export function convertToSong(
-  response: FlowsheetEntryResponse
-): FlowsheetSongEntry {
-  return {
-    id: response.id,
-    play_order: response.play_order,
-    show_id: response.show_id,
-    track_title: response.track_title || "",
-    artist_name: response.artist_name || "",
-    album_title: response.album_title || "",
-    record_label: response.record_label || "",
-    request_flag: response.request_flag,
-    album_id: response.album_id,
-    rotation_id: response.rotation_id,
-    rotation: response.rotation_bin as Rotation,
-  };
-}
 
 export function convertQueryToSubmission(
   query: FlowsheetQuery
@@ -60,96 +19,6 @@ export function convertQueryToSubmission(
     request_flag: query.request,
     album_id: query.album_id,
     rotation_id: query.rotation_id,
-  };
-}
-
-export function convertToStartShow(
-  response: FlowsheetEntryResponse
-): FlowsheetShowBlockEntry {
-  let djNameExtractionRegex =
-    /Start of Show:\s*([A-Za-z\s]+)\s+joined the set/i;
-  let djName =
-    response.message?.match(djNameExtractionRegex)?.[1] || "Unknown DJ";
-
-  let datetimeExtractionRegex =
-    /(\d{1,2}\/\d{1,2}\/\d{4},\s+\d{1,2}:\d{2}:\d{2}\s*[APM]*)/i;
-  let dateString =
-    response.message?.match(datetimeExtractionRegex)?.[1] ||
-    "Unknown Date or Time";
-  let isUnknown = dateString === "Unknown Date or Time";
-
-  let day = isUnknown ? "Unknown" : dateString.split(",")[0].trim();
-  let time = isUnknown ? "Unknown" : dateString.split(",")[1].trim();
-
-  return {
-    id: response.id,
-    play_order: response.play_order,
-    show_id: response.show_id,
-    dj_name: djName,
-    day: day,
-    time: time,
-    isStart: true,
-  };
-}
-
-export function convertToEndShow(
-  response: FlowsheetEntryResponse
-): FlowsheetShowBlockEntry {
-  let djNameExtractionRegex = /End of Show:\s*([A-Za-z\s]+)\s+left the set/i;
-  let djName =
-    response.message?.match(djNameExtractionRegex)?.[1] || "Unknown DJ";
-
-  let datetimeExtractionRegex =
-    /(\d{1,2}\/\d{1,2}\/\d{4},\s+\d{1,2}:\d{2}:\d{2}\s*[APM]*)/i;
-  let dateString =
-    response.message?.match(datetimeExtractionRegex)?.[1] ||
-    "Unknown Date or Time";
-  let isUnknown = dateString === "Unknown Date or Time";
-
-  let day = isUnknown ? "Unknown" : dateString.split(",")[0].trim();
-  let time = isUnknown ? "Unknown" : dateString.split(",")[1].trim();
-
-  return {
-    id: response.id,
-    play_order: response.play_order,
-    show_id: response.show_id,
-    dj_name: djName,
-    day: day,
-    time: time,
-    isStart: false,
-  };
-}
-
-export function convertToBreakpoint(
-  response: FlowsheetEntryResponse
-): FlowsheetBreakpointEntry {
-  let datetimeExtractionRegex = /(\d{1,2}:\d{2}\s?[APMapm]{2})/g;
-  let dateString =
-    response.message?.match(datetimeExtractionRegex)?.[1] ||
-    "Unknown Date or Time";
-  let isUnknown = dateString === "Unknown Date or Time";
-
-  let day = isUnknown ? "Unknown" : dateString.split(",")[0].trim();
-  let time = isUnknown ? "Unknown" : dateString.split(",")[1].trim();
-
-  return {
-    id: response.id,
-    play_order: response.play_order,
-    show_id: response.show_id,
-    message: response.message || "",
-    day: day,
-    time: time,
-  };
-}
-
-export function convertToMessage(
-  response: FlowsheetEntryResponse
-): FlowsheetMessageEntry {
-  return {
-    id: response.id,
-    play_order: response.play_order,
-    show_id: response.show_id,
-    message: response.message || "",
   };
 }
 
@@ -167,4 +36,125 @@ export function convertDJsOnAir(
     djs: response,
     onAir: response.map((dj) => `DJ ${dj.dj_name}`).join(", "),
   };
+}
+
+// V2 conversion functions
+
+function parseTimestamp(timestamp: string): { day: string; time: string } {
+  if (!timestamp) {
+    return { day: "Unknown", time: "Unknown" };
+  }
+  const commaIndex = timestamp.indexOf(",");
+  if (commaIndex === -1) {
+    return { day: "Unknown", time: "Unknown" };
+  }
+  return {
+    day: timestamp.substring(0, commaIndex).trim(),
+    time: timestamp.substring(commaIndex + 1).trim(),
+  };
+}
+
+function formatAddTime(isoString: string): { day: string; time: string } {
+  const date = new Date(isoString);
+  const day = `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+  const h = date.getHours() % 12 || 12;
+  const m = date.getMinutes().toString().padStart(2, "0");
+  const s = date.getSeconds().toString().padStart(2, "0");
+  const ampm = date.getHours() >= 12 ? "PM" : "AM";
+  return { day, time: `${h}:${m}:${s} ${ampm}` };
+}
+
+export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
+  const base = {
+    id: entry.id,
+    play_order: entry.play_order,
+    show_id: entry.show_id ?? 0,
+  };
+
+  switch (entry.entry_type) {
+    case "track":
+      return {
+        ...base,
+        track_title: entry.track_title || "",
+        artist_name: entry.artist_name || "",
+        album_title: entry.album_title || "",
+        record_label: entry.record_label || "",
+        request_flag: entry.request_flag,
+        album_id: entry.album_id ?? undefined,
+        rotation_id: entry.rotation_id ?? undefined,
+        rotation: entry.rotation_bin as Rotation,
+      };
+
+    case "show_start": {
+      const { day, time } = parseTimestamp(entry.timestamp);
+      return {
+        ...base,
+        dj_name: entry.dj_name,
+        isStart: true,
+        day,
+        time,
+      };
+    }
+
+    case "show_end": {
+      const { day, time } = parseTimestamp(entry.timestamp);
+      return {
+        ...base,
+        dj_name: entry.dj_name,
+        isStart: false,
+        day,
+        time,
+      };
+    }
+
+    case "dj_join": {
+      const { day, time } = formatAddTime(entry.add_time);
+      return {
+        ...base,
+        dj_name: entry.dj_name,
+        isStart: true,
+        day,
+        time,
+      };
+    }
+
+    case "dj_leave": {
+      const { day, time } = formatAddTime(entry.add_time);
+      return {
+        ...base,
+        dj_name: entry.dj_name,
+        isStart: false,
+        day,
+        time,
+      };
+    }
+
+    case "breakpoint": {
+      const { day, time } = formatAddTime(entry.add_time);
+      return {
+        ...base,
+        message: entry.message || "",
+        day,
+        time,
+      };
+    }
+
+    case "talkset":
+    case "message":
+      return {
+        ...base,
+        message: entry.message,
+      };
+
+    default:
+      throw new Error(`Unknown entry type: ${(entry as any).entry_type}`);
+  }
+}
+
+export function convertV2FlowsheetResponse(
+  entries: FlowsheetV2EntryJSON[]
+): FlowsheetEntry[] {
+  return entries
+    .map(convertV2Entry)
+    .sort((a, b) => b.play_order - a.play_order);
 }
