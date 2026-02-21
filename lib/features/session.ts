@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import "server-only";
 import { defaultApplicationState } from "./application/types";
@@ -8,8 +9,6 @@ import { SiteProps } from "./types";
 import { serverAuthClient } from "./authentication/server-client";
 import { parseAppSkinPreference } from "./experiences/preferences";
 
-export const runtime = "edge";
-
 export const sessionOptions = {
   cookieOptions: {
     path: "/",
@@ -18,7 +17,7 @@ export const sessionOptions = {
   },
 };
 
-export const createServerSideProps = async (): Promise<SiteProps> => {
+export const createServerSideProps = cache(async (): Promise<SiteProps> => {
   const cookieStore = await cookies();
 
   const appStateValue = cookieStore.get("app_state")?.value;
@@ -128,4 +127,4 @@ export const createServerSideProps = async (): Promise<SiteProps> => {
     application: appState,
     authentication,
   };
-};
+});
