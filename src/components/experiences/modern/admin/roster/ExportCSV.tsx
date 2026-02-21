@@ -4,22 +4,55 @@ import { useAppSelector } from "@/lib/hooks";
 import { useAccountListResults } from "@/src/hooks/adminHooks";
 import { Button } from "@mui/joy";
 
-const exportDJsAsCSV = (djs: Account[], title = "djs") => {
-  let csv = "data:text/csv;charset=utf-8,";
-  csv += "Name,Username,DJ Name,Email,Admin\n";
+const FORMULA_PREFIXES = ["=", "+", "-", "@"];
+
+export function escapeCSVField(field: string): string {
+  if (!field) return field;
+
+  let escaped = field;
+
+  if (FORMULA_PREFIXES.some((prefix) => escaped.startsWith(prefix))) {
+    escaped = `'${escaped}`;
+  }
+
+  if (
+    escaped.includes(",") ||
+    escaped.includes('"') ||
+    escaped.includes("\n")
+  ) {
+    escaped = `"${escaped.replace(/"/g, '""')}"`;
+  }
+
+  return escaped;
+}
+
+export function buildCSVContent(djs: Account[]): string {
+  let csv = "Name,Username,DJ Name,Email,Admin\n";
   djs.forEach((dj) => {
-    csv += `${dj.realName},${dj.userName},${dj.djName},${dj.email},${
-      dj.authorization == Authorization.SM ? "true" : "false"
-    }\n`;
+    const fields = [
+      escapeCSVField(dj.realName),
+      escapeCSVField(dj.userName),
+      escapeCSVField(dj.djName),
+      escapeCSVField(dj.email ?? ""),
+      dj.authorization == Authorization.SM ? "true" : "false",
+    ];
+    csv += fields.join(",") + "\n";
   });
-  var encodedUri = encodeURI(csv);
-  var link = document.createElement("a");
-  link.setAttribute("href", encodedUri);
+  return csv;
+}
+
+const exportDJsAsCSV = (djs: Account[], title = "djs") => {
+  const csv = buildCSVContent(djs);
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
   link.setAttribute("style", "display: none;");
   link.setAttribute("download", `${title}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 };
 
 export default function ExportDJsButton() {
@@ -34,8 +67,8 @@ export default function ExportDJsButton() {
       color={"success"}
       size="sm"
       onClick={() => {
-        let currentDateTime = new Date();
-        let formattedDate = currentDateTime.toISOString().slice(0, 10);
+        const currentDateTime = new Date();
+        const formattedDate = currentDateTime.toISOString().slice(0, 10);
         exportDJsAsCSV(
           data ?? [],
           searchString.length > 0
