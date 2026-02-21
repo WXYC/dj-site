@@ -36,7 +36,7 @@ export default function DraggableEntryWrapper({
       style={{
         ...style,
         background:
-          variant ?? "plain" == "plain"
+          (variant ?? "plain") == "plain"
             ? theme.palette?.[color ?? "neutral"]?.[
                 `${variant ?? "plain"}Bg` as keyof typeof theme.palette.primary
               ]
