@@ -1,11 +1,25 @@
 import { useSearchCatalogQuery } from "@/lib/features/catalog/api";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
 import {
-  AlbumEntry,
   Genre,
   SearchCatalogQueryParams,
   SearchIn,
 } from "@/lib/features/catalog/types";
+
+export function formatCatalogSearchQuery(
+  searchIn: SearchIn,
+  searchString: string,
+  n: number
+): SearchCatalogQueryParams {
+  switch (searchIn) {
+    case "Albums":
+      return { artist_name: undefined, album_name: searchString, n };
+    case "Artists":
+      return { artist_name: searchString, album_name: undefined, n };
+    default:
+      return { artist_name: searchString, album_name: searchString, n };
+  }
+}
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
 import { useGetRotationQuery } from "@/lib/features/rotation/api";
@@ -92,8 +106,8 @@ export const useCatalogResults = () => {
   const searchIn = useAppSelector(catalogSlice.selectors.getSearchIn);
   const [formattedQuery, setFormattedQuery] =
     useState<SearchCatalogQueryParams>({
-      artist_name: String(undefined),
-      album_name: String(undefined),
+      artist_name: undefined,
+      album_name: undefined,
       n: 10,
     });
   const loadMore = () => dispatch(catalogSlice.actions.loadMore());
@@ -110,29 +124,7 @@ export const useCatalogResults = () => {
       setTimeout(() => {
         setLoading(true);
         clearSelection();
-        switch (searchIn) {
-          case "Albums":
-            setFormattedQuery({
-              artist_name: String(undefined),
-              album_name: searchString,
-              n: n,
-            });
-            break;
-          case "Artists":
-            setFormattedQuery({
-              artist_name: searchString,
-              album_name: String(undefined),
-              n: n,
-            });
-            break;
-          default:
-            setFormattedQuery({
-              artist_name: searchString,
-              album_name: searchString,
-              n: n,
-            });
-            break;
-        }
+        setFormattedQuery(formatCatalogSearchQuery(searchIn, searchString, n));
       }, 500)
     );
   }, [searchIn, searchString, n]);
