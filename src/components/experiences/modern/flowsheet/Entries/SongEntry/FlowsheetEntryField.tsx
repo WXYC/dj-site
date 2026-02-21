@@ -5,7 +5,7 @@ import { useFlowsheet, useShowControl } from "@/src/hooks/flowsheetHooks";
 import { toTitleCase } from "@/src/utilities/stringutilities";
 import { Typography, TypographyProps } from "@mui/joy";
 import { ClickAwayListener } from "@mui/material";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useAppDispatch } from "@/lib/hooks";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 
@@ -30,6 +30,12 @@ export default function FlowsheetEntryField({
 
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(String(entry[name]));
+
+  useEffect(() => {
+    if (!editing) {
+      setValue(String(entry[name]));
+    }
+  }, [entry[name], editing]);
 
   const { updateFlowsheet } = useFlowsheet();
 
