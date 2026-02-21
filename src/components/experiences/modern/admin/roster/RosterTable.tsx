@@ -173,7 +173,7 @@ export default function RosterTable({ user }: { user: User }) {
               <th
                 style={{
                   width: 55,
-                  verticalAlign: "center",
+                  verticalAlign: "middle",
                   textAlign: "center",
                 }}
               >

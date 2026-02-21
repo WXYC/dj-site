@@ -61,7 +61,7 @@ export const AccountEntry = ({
     <tr>
       <td
         style={{
-          verticalAlign: "center",
+          verticalAlign: "middle",
           textAlign: "center",
         }}
       >
