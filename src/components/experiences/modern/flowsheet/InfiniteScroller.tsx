@@ -27,8 +27,7 @@ export default function InfiniteScroller({
       }
 
       const scrolledToBottom =
-        scroller.scrollHeight ===
-        scroller.scrollTop + scroller.clientHeight;
+        scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 1;
       if (scrolledToBottom && !loading && entries) {
         console.log(pagination.max + 1);
         dispatch(
