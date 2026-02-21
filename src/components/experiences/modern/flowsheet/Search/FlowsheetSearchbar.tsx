@@ -197,7 +197,7 @@ export default function FlowsheetSearchbar() {
             <input type="submit" hidden />
             <Box
               component="div"
-              className="MuiInput-endDecorator css-x3cgwv-JoyInput-endDecorator"
+              className="MuiInput-endDecorator"
               sx={{
                 display: "flex",
                 alignItems: "center",
