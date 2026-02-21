@@ -122,14 +122,16 @@ export default function SongEntry({
                 minHeight: "48px",
               }}
             >
-              {image && !imageLoading ? (
+              {imageLoading ? (
+                <CircularProgress />
+              ) : image ? (
                 <img
                   src={image}
                   alt="album art"
                   style={{ minWidth: "48px", minHeight: "48px" }}
                 />
               ) : (
-                <CircularProgress />
+                <Album sx={{ fontSize: 28, opacity: 0.4 }} />
               )}
             </AspectRatio>
           </Badge>
