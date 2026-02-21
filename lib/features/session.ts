@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import "server-only";
 import { defaultApplicationState } from "./application/types";
@@ -16,7 +17,7 @@ export const sessionOptions = {
   },
 };
 
-export const createServerSideProps = async (): Promise<SiteProps> => {
+export const createServerSideProps = cache(async (): Promise<SiteProps> => {
   const cookieStore = await cookies();
 
   const appStateValue = cookieStore.get("app_state")?.value;
@@ -126,4 +127,4 @@ export const createServerSideProps = async (): Promise<SiteProps> => {
     application: appState,
     authentication,
   };
-};
+});
