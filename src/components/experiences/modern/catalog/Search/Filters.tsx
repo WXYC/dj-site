@@ -23,7 +23,7 @@ export const Filters = ({ color }: { color: ColorPaletteProp | undefined }) => {
           placeholder="All"
           slotProps={{ button: { sx: { whiteSpace: "nowrap" } } }}
           onChange={(e, newValue) =>
-            setSearchIn((newValue as SearchIn) || "Both")
+            setSearchIn((newValue as SearchIn) || "All")
           }
         >
           <Option value="All">All</Option>

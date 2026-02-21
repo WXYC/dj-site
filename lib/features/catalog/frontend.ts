@@ -3,7 +3,7 @@ import { CatalogFrontendState } from "./types";
 
 export const defaultCatalogFrontendState: CatalogFrontendState = {
   search: {
-    in: "Both",
+    in: "All",
     query: "",
     genre: "All",
     mobileOpen: false,
