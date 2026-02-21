@@ -166,7 +166,7 @@ export default function SongEntry({
                       dispatch(flowsheetSlice.actions.removeFromQueue(entry.id));
                     })
                     .catch((error) => {
-                      toast.error("Failed to add to flowsheet:", error);
+                      toast.error(`Failed to add to flowsheet: ${error}`);
                     });
                 }}
               >
