@@ -69,11 +69,22 @@ export type AppThunk<ThunkReturnType = void> = ThunkAction<
 
 export const rtkQueryErrorLogger: Middleware =
   (api: MiddlewareAPI) => (next) => (action) => {
-    // RTK Query uses `createAsyncThunk` from redux-toolkit under the hood, so we're able to utilize these matchers!
     if (isRejectedWithValue(action)) {
-      const message = (action.payload as { data?: { message?: string } })?.data?.message;
-      if (message && message.trim().length > 0) {
-        toast.error(message);
+      const payload = action.payload as {
+        data?: { message?: string };
+        status?: string;
+        error?: string;
+      };
+
+      const serverMessage = payload?.data?.message;
+      if (serverMessage && serverMessage.trim().length > 0) {
+        toast.error(serverMessage);
+      } else if (payload?.status === "FETCH_ERROR") {
+        toast.error("Network error — please check your connection.");
+      } else if (payload?.status === "TIMEOUT_ERROR") {
+        toast.error("Request timed out — please try again.");
+      } else if (payload?.error && typeof payload.error === "string") {
+        toast.error(payload.error);
       }
     }
 
