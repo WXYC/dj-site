@@ -17,15 +17,23 @@ export default function ResultsContainer({
   const { addToBin, loading } = useAddToBin();
   const tableRef = useRef<HTMLTableElement>(null);
 
-  const handleAddSelectedToBin = () => {
+  const handleAddSelectedToBin = async () => {
     if (selected.length === 0) return;
-    
-    // Add each selected album to bin
-    selected.forEach((albumId) => {
-      addToBin(albumId);
-    });
-    
-    toast.success(`Added ${selected.length} album${selected.length > 1 ? 's' : ''} to bin`);
+
+    const results = await Promise.allSettled(
+      selected.map((albumId) => addToBin(albumId))
+    );
+
+    const failures = results.filter((r) => r.status === "rejected");
+    if (failures.length > 0) {
+      toast.error(`Failed to add ${failures.length} album${failures.length > 1 ? "s" : ""} to bin`);
+    }
+
+    const successes = results.length - failures.length;
+    if (successes > 0) {
+      toast.success(`Added ${successes} album${successes > 1 ? "s" : ""} to bin`);
+    }
+
     clearSelection();
   };
 
