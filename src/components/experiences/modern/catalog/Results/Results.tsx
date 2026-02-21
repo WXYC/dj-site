@@ -52,7 +52,11 @@ export default function Results({
                 indeterminate={
                   selected.length > 0 && selected.length !== releaseList?.length
                 }
-                checked={selected.length === releaseList?.length}
+                checked={
+                  releaseList != null &&
+                  releaseList.length > 0 &&
+                  selected.length === releaseList.length
+                }
                 onChange={(event: ChangeEvent<HTMLInputElement>) => {
                   setSelection(
                     event.target.checked
