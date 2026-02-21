@@ -24,7 +24,7 @@ export default function NewAccountForm() {
       <tr>
         <td
           style={{
-            verticalAlign: "center",
+            verticalAlign: "middle",
             textAlign: "center",
           }}
         >
