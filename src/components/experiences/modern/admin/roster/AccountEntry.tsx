@@ -280,7 +280,7 @@ export const AccountEntry = ({
                     const targetUserId = await resolveUserId();
 
                     // Generate a temporary password
-                    const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+                    const tempPassword = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
 
                     // Reset password via better-auth admin API
                     const result = await (
