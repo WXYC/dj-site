@@ -7,6 +7,7 @@ import { InputHTMLAttributes } from "react";
 
 export default function FlowsheetSearchInput({
   name,
+  style: externalStyle,
   ...props
 }: Omit<
   InputHTMLAttributes<HTMLInputElement>,
@@ -59,13 +60,13 @@ export default function FlowsheetSearchInput({
       onClick={(e) => e.stopPropagation()}
       readOnly={isAutoFilled}
       disabled={Boolean(props.disabled)}
-      style={{
-        cursor: isAutoFilled ? "not-allowed" : undefined,
-        opacity: isAutoFilled ? 0.6 : undefined,
-        backgroundColor: isAutoFilled ? "rgba(0, 0, 0, 0.05)" : undefined,
-        ...props.style,
-      }}
       {...props}
+      style={{
+        ...externalStyle,
+        cursor: isAutoFilled ? "not-allowed" : externalStyle?.cursor,
+        opacity: isAutoFilled ? 0.6 : externalStyle?.opacity,
+        backgroundColor: isAutoFilled ? "rgba(0, 0, 0, 0.05)" : externalStyle?.backgroundColor,
+      }}
     />
   );
 }
