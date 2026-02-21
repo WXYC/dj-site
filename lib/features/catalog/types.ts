@@ -89,7 +89,7 @@ export type CatalogResultsState = {
   selected: number[];
 };
 
-export type SearchIn = "Artists" | "Albums" | "Both";
+export type SearchIn = "Artists" | "Albums" | "All";
 
 export type Format = "Vinyl" | "CD" | "Unknown";
 
