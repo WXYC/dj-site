@@ -8,8 +8,6 @@ import { SiteProps } from "./types";
 import { serverAuthClient } from "./authentication/server-client";
 import { parseAppSkinPreference } from "./experiences/preferences";
 
-export const runtime = "edge";
-
 export const sessionOptions = {
   cookieOptions: {
     path: "/",
