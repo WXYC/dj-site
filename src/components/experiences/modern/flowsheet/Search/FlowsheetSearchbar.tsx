@@ -53,23 +53,24 @@ export default function FlowsheetSearchbar() {
         if (!live) return;
         searchRef.current?.querySelector("input")?.focus();
       }
-      if (e.key === "ArrowDown") {
+      if (e.key === "ArrowDown" && searchOpen) {
         e.preventDefault();
-        let nextIndex = Math.min(
+        const nextIndex = Math.min(
           selectedResult + 1,
           binResults.length + catalogResults.length + rotationResults.length
         );
         dispatch(flowsheetSlice.actions.setSelectedResult(nextIndex));
       }
-      if (e.key === "ArrowUp") {
+      if (e.key === "ArrowUp" && searchOpen) {
         e.preventDefault();
-        let prevIndex = Math.max(selectedResult - 1, 0);
+        const prevIndex = Math.max(selectedResult - 1, 0);
         dispatch(flowsheetSlice.actions.setSelectedResult(prevIndex));
       }
     },
     [
       live,
       dispatch,
+      searchOpen,
       binResults,
       catalogResults,
       rotationResults,
