@@ -51,25 +51,55 @@ const baseConfig = {
 // Client-side auth client (for React components)
 export const authClient = createAuthClient(baseConfig);
 
-/**
- * Get JWT token from better-auth /token endpoint
- * Use this for API calls that require authentication
- */
-export async function getJWTToken(): Promise<string | null> {
+let cachedToken: string | null = null;
+let cacheExpiry = 0;
+let inflight: Promise<string | null> | null = null;
+const TOKEN_CACHE_MS = 4 * 60 * 1000;
+
+async function fetchJWTToken(): Promise<string | null> {
   try {
     const response = await fetch(`${baseURL}/token`, {
       method: "GET",
       credentials: "include",
     });
-    
+
     if (!response.ok) {
       return null;
     }
-    
+
     const data = await response.json();
     return data.token || null;
   } catch (error) {
     console.error("Failed to get JWT token:", error);
     return null;
   }
+}
+
+/**
+ * Get JWT token from better-auth /token endpoint.
+ * Caches the token for 4 minutes and deduplicates concurrent requests.
+ */
+export async function getJWTToken(): Promise<string | null> {
+  if (cachedToken && Date.now() < cacheExpiry) {
+    return cachedToken;
+  }
+
+  if (inflight) {
+    return inflight;
+  }
+
+  inflight = fetchJWTToken().then((token) => {
+    cachedToken = token;
+    cacheExpiry = token ? Date.now() + TOKEN_CACHE_MS : 0;
+    inflight = null;
+    return token;
+  });
+
+  return inflight;
+}
+
+export function clearTokenCache(): void {
+  cachedToken = null;
+  cacheExpiry = 0;
+  inflight = null;
 }
