@@ -32,7 +32,7 @@ export function buildCSVContent(djs: Account[]): string {
     const fields = [
       escapeCSVField(dj.realName),
       escapeCSVField(dj.userName),
-      escapeCSVField(dj.djName),
+      escapeCSVField(dj.djName ?? ""),
       escapeCSVField(dj.email ?? ""),
       dj.authorization == Authorization.SM ? "true" : "false",
     ];
