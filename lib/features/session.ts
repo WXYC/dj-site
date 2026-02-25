@@ -22,7 +22,7 @@ export const createServerSideProps = cache(async (): Promise<SiteProps> => {
 
   const appStateValue = cookieStore.get("app_state")?.value;
   let appState = defaultApplicationState;
-  
+
   if (appStateValue) {
     try {
       const parsed = JSON.parse(appStateValue);
@@ -83,17 +83,17 @@ export const createServerSideProps = cache(async (): Promise<SiteProps> => {
             organizationId,
             cookieHeader
           );
-          
+
           if (orgRole !== undefined) {
             // Create authentication data with the fetched organization role
             const authority = mapRoleToAuthorization(orgRole);
             const authData = betterAuthSessionToAuthenticationData(normalizedSession);
-            
+
             // If we have an authenticated user, update the authority with the organization role
             if (isAuthenticated(authData) && authData.user) {
               authData.user.authority = authority;
             }
-            
+
             authentication = authData;
           } else {
             // User is not a member of the organization, use default (will have NO access)

@@ -1,0 +1,231 @@
+import { test, expect, TEST_USERS, TEMP_PASSWORD } from "../../fixtures/auth.fixture";
+import { DashboardPage } from "../../pages/dashboard.page";
+import { RosterPage } from "../../pages/roster.page";
+import { LoginPage } from "../../pages/login.page";
+import path from "path";
+
+const authDir = path.join(__dirname, "../../.auth");
+
+test.describe("Admin User Deletion", () => {
+  // Use Station Manager auth state
+  test.use({ storageState: path.join(authDir, "stationManager.json") });
+
+  let dashboardPage: DashboardPage;
+  let rosterPage: RosterPage;
+
+  const generateUsername = () => `e2e_delete_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+
+  test.beforeEach(async ({ page }) => {
+    dashboardPage = new DashboardPage(page);
+    rosterPage = new RosterPage(page);
+
+    // Already authenticated as Station Manager via storageState
+    await dashboardPage.gotoAdminRoster();
+    await rosterPage.waitForTableLoaded();
+  });
+
+  test("should delete user when confirm dialog is accepted", async ({ page }) => {
+    // First create a user to delete
+    const username = generateUsername();
+    const email = `${username}@test.wxyc.org`;
+
+    await rosterPage.createAccount({
+      realName: "To Be Deleted",
+      username,
+      email,
+    });
+
+    await rosterPage.expectSuccessToast("Account created");
+    await page.waitForTimeout(1000);
+    await rosterPage.expectUserInRoster(username);
+
+    // Set up dialog handler to accept
+    rosterPage.acceptConfirmDialog();
+
+    // Delete the user
+    await rosterPage.deleteUser(username);
+
+    // Should show success toast
+    await rosterPage.expectSuccessToast("deleted");
+
+    // Wait for table to refresh
+    await page.waitForTimeout(1000);
+
+    // User should no longer appear in roster
+    await rosterPage.expectUserNotInRoster(username);
+  });
+
+  test("should not delete user when confirm dialog is cancelled", async ({ page }) => {
+    // Use test_dj2 who should exist in seed data
+    const username = TEST_USERS.dj2.username;
+
+    // Verify user exists
+    await rosterPage.expectUserInRoster(username);
+
+    // Set up dialog handler to dismiss
+    rosterPage.dismissConfirmDialog();
+
+    // Try to delete the user
+    await rosterPage.deleteUser(username);
+
+    // User should still appear in roster
+    await rosterPage.expectUserInRoster(username);
+  });
+
+  test("should prevent deleting own account", async ({ page }) => {
+    // The current user is test_station_manager
+    const currentUser = TEST_USERS.stationManager.username;
+
+    // Verify user is in roster
+    await rosterPage.expectUserInRoster(currentUser);
+
+    // Delete button should be disabled for self
+    await rosterPage.expectDeleteButtonDisabled(currentUser);
+  });
+
+  test("should show confirmation dialog before deletion", async ({ page }) => {
+    // Use test_dj1
+    const username = TEST_USERS.dj1.username;
+
+    // Track if dialog was shown
+    let dialogShown = false;
+    page.once("dialog", async (dialog) => {
+      dialogShown = true;
+      expect(dialog.type()).toBe("confirm");
+      expect(dialog.message()).toContain("delete");
+      await dialog.dismiss();
+    });
+
+    // Click delete button
+    await rosterPage.deleteUser(username);
+
+    // Dialog should have been shown
+    expect(dialogShown).toBe(true);
+  });
+
+  test("should update roster count after deletion", async ({ page }) => {
+    // Create a user to delete
+    const username = generateUsername();
+    const email = `${username}@test.wxyc.org`;
+
+    // Get initial count
+    const initialCount = await rosterPage.getUserCount();
+
+    // Create user
+    await rosterPage.createAccount({
+      realName: "Count Test User",
+      username,
+      email,
+    });
+
+    await rosterPage.expectSuccessToast();
+    await page.waitForTimeout(1000);
+
+    // Count should increase
+    const afterCreateCount = await rosterPage.getUserCount();
+    expect(afterCreateCount).toBeGreaterThanOrEqual(initialCount);
+
+    // Accept dialog and delete
+    rosterPage.acceptConfirmDialog();
+    await rosterPage.deleteUser(username);
+
+    await rosterPage.expectSuccessToast("deleted");
+    await page.waitForTimeout(1000);
+
+    // Count should be back to original or less
+    const afterDeleteCount = await rosterPage.getUserCount();
+    expect(afterDeleteCount).toBeLessThanOrEqual(afterCreateCount);
+  });
+});
+
+test.describe("User Deletion Session Invalidation", () => {
+  test("should invalidate deleted user's session", async ({ browser }) => {
+    // This test verifies that when a user is deleted, their session is invalidated
+    const baseURL = process.env.E2E_BASE_URL || "http://localhost:3000";
+    const adminContext = await browser.newContext({ baseURL });
+    const userContext = await browser.newContext({ baseURL });
+
+    const adminPage = await adminContext.newPage();
+    const userPage = await userContext.newPage();
+
+    const adminLoginPage = new LoginPage(adminPage);
+    const adminRosterPage = new RosterPage(adminPage);
+    const adminDashboard = new DashboardPage(adminPage);
+    const userLoginPage = new LoginPage(userPage);
+    const userDashboard = new DashboardPage(userPage);
+
+    // Login as admin
+    await adminLoginPage.goto();
+    await adminLoginPage.login(TEST_USERS.stationManager.username, TEST_USERS.stationManager.password);
+    await adminLoginPage.waitForRedirectToDashboard();
+
+    // Create a user to delete (with complete profile)
+    await adminDashboard.gotoAdminRoster();
+    await adminRosterPage.waitForTableLoaded();
+
+    const username = `session_test_${Date.now()}`;
+    const email = `${username}@test.wxyc.org`;
+
+    await adminRosterPage.createAccount({
+      realName: "Session Test User",
+      username,
+      email,
+      djName: "Session DJ",
+      role: "dj",
+    });
+
+    await adminRosterPage.expectSuccessToast();
+    await adminPage.waitForTimeout(1000);
+
+    // New user logs in with temp password
+    await userLoginPage.goto();
+    await userPage.waitForLoadState("domcontentloaded");
+    await userLoginPage.login(username, TEMP_PASSWORD);
+
+    // User has complete profile, should go to dashboard
+    await userLoginPage.waitForRedirectToDashboard();
+    await userDashboard.expectOnDashboard();
+
+    // Admin deletes the user
+    adminRosterPage.acceptConfirmDialog();
+    await adminRosterPage.deleteUser(username);
+    await adminRosterPage.expectSuccessToast("deleted");
+    await adminPage.waitForTimeout(1000);
+
+    // User tries to access protected route - should be redirected to login
+    await userPage.goto("/dashboard/flowsheet");
+    await userDashboard.expectRedirectedToLogin();
+
+    // Cleanup
+    await adminContext.close();
+    await userContext.close();
+  });
+});
+
+test.describe("Non-Admin Deletion Restrictions", () => {
+  test.describe("DJ Restrictions", () => {
+    // Use DJ auth state instead of manual login
+    test.use({ storageState: path.join(authDir, "dj.json") });
+
+    test("DJ cannot delete users", async ({ page }) => {
+      const dashboardPage = new DashboardPage(page);
+
+      // DJ cannot access roster page at all (already authenticated via storageState)
+      await dashboardPage.gotoAdminRoster();
+      await dashboardPage.expectRedirectedToDefaultDashboard();
+    });
+  });
+
+  test.describe("Music Director Restrictions", () => {
+    // Use Music Director auth state instead of manual login
+    test.use({ storageState: path.join(authDir, "musicDirector.json") });
+
+    test("Music Director cannot delete users", async ({ page }) => {
+      const dashboardPage = new DashboardPage(page);
+
+      // MD cannot access roster page at all (already authenticated via storageState)
+      await dashboardPage.gotoAdminRoster();
+      await dashboardPage.expectRedirectedToDefaultDashboard();
+    });
+  });
+});

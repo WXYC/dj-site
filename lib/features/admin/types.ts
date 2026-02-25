@@ -22,6 +22,8 @@ export type Account = {
   authType: AdminAuthenticationStatus;
   shows?: string;
   email?: string;
+  /** Cross-cutting capabilities independent of role hierarchy */
+  capabilities?: string[];
 };
 
 export type NewAccountParams = {

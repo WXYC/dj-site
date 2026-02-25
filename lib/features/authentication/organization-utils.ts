@@ -26,7 +26,7 @@ async function resolveOrganizationId(
         cookie: cookieHeader,
       } : {},
     });
-    
+
     let orgResult: any;
     if (response.ok) {
       const data = await response.json();
@@ -71,7 +71,7 @@ export async function getUserRoleInOrganization(
   try {
     // Resolve slug to ID if needed
     const organizationId = await resolveOrganizationId(organizationSlugOrId, cookieHeader);
-    
+
     if (!organizationId) {
       return undefined;
     }
@@ -98,7 +98,7 @@ export async function getUserRoleInOrganization(
 
     // Find the member matching the userId
     const member = result.data?.members?.find((m: any) => m.userId === userId);
-    
+
     if (!member) {
       // User is not a member of this organization
       return undefined;
@@ -108,7 +108,7 @@ export async function getUserRoleInOrganization(
     // Better-auth organization roles: "owner", "admin", "member" by default
     // But may be customized to our roles: "member", "dj", "musicDirector", "stationManager"
     const role = member.role as string | undefined;
-    
+
     if (!role) {
       return undefined;
     }
@@ -169,7 +169,7 @@ export async function getUserRoleInOrganizationClient(
   try {
     // Resolve slug to ID if needed
     const organizationId = await resolveOrganizationIdClient(organizationSlugOrId);
-    
+
     if (!organizationId) {
       return undefined;
     }
@@ -191,7 +191,7 @@ export async function getUserRoleInOrganizationClient(
 
     // Find the member matching the userId
     const member = result.data?.members?.find((m: any) => m.userId === userId);
-    
+
     if (!member) {
       // User is not a member of this organization
       return undefined;
@@ -199,7 +199,7 @@ export async function getUserRoleInOrganizationClient(
 
     // Extract role from member object
     const role = member.role as string | undefined;
-    
+
     if (!role) {
       return undefined;
     }
@@ -216,16 +216,16 @@ export async function getUserRoleInOrganizationClient(
  * Normalize role string format (case and separator variations)
  * Converts role strings to a consistent format for our WXYCRole type
  * Handles variations in role naming (e.g., "musicDirector" vs "music_director" vs "music-director")
- * 
+ *
  * Note: This function only normalizes the format, not the role value itself.
  * The actual role mapping (e.g., "owner"/"admin" to "stationManager") is handled by mapRoleToAuthorization()
- * 
+ *
  * @param role - The role string from better-auth
  * @returns Normalized role string that matches WXYCRole format (camelCase for multi-word roles)
  */
 function normalizeRole(role: string): string {
   const normalized = role.toLowerCase().trim();
-  
+
   // Handle our WXYC role formats - convert to camelCase
   if (normalized === "musicdirector" || normalized === "music_director" || normalized === "music-director") {
     return "musicDirector";
@@ -233,12 +233,12 @@ function normalizeRole(role: string): string {
   if (normalized === "stationmanager" || normalized === "station_manager" || normalized === "station-manager") {
     return "stationManager";
   }
-  
+
   // Single-word roles (member, dj) - return as-is
   if (normalized === "member" || normalized === "dj") {
     return normalized;
   }
-  
+
   // For any other role string, return the original (mapRoleToAuthorization will handle it)
   // This includes better-auth default roles like "owner", "admin", "user"
   return role;
