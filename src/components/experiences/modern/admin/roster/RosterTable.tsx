@@ -24,6 +24,31 @@ import AccountSearchForm from "./AccountSearchForm";
 import ExportDJsButton from "./ExportCSV";
 import NewAccountForm from "./NewAccountForm";
 
+/**
+ * Helper function to resolve organization slug to ID
+ */
+async function getOrganizationId(): Promise<string | null> {
+  const orgSlugOrId = process.env.NEXT_PUBLIC_APP_ORGANIZATION;
+  if (!orgSlugOrId) {
+    console.warn("NEXT_PUBLIC_APP_ORGANIZATION not set");
+    return null;
+  }
+
+  // Try to resolve slug to ID
+  const orgResult = await authClient.organization.getFullOrganization({
+    query: {
+      organizationSlug: orgSlugOrId,
+    },
+  });
+
+  if (orgResult.data?.id) {
+    return orgResult.data.id;
+  }
+
+  // If slug lookup fails, assume it's already an ID
+  return orgSlugOrId;
+}
+
 export default function RosterTable({ user }: { user: User }) {
   const { data, isLoading, isError, error, refetch } = useAccountListResults();
 
@@ -98,12 +123,34 @@ export default function RosterTable({ user }: { user: User }) {
         if (result.error) {
           throw new Error(result.error.message || "Failed to create user");
         }
-        
+
+        // Add user to the organization with the appropriate role
+        const organizationId = await getOrganizationId();
+
+        if (organizationId && result.data?.user?.id) {
+          // Type assertion needed - addMember is provided by organizationClient but not fully typed
+          const addMemberResult = await (authClient.organization as typeof authClient.organization & {
+            addMember: (params: { userId: string; organizationId: string; role: string }) => Promise<{ error?: { message?: string } }>
+          }).addMember({
+            userId: result.data.user.id,
+            organizationId,
+            role,
+          });
+
+          if (addMemberResult.error) {
+            console.error("Failed to add user to organization:", addMemberResult.error);
+            // Don't fail the whole operation, but log the warning
+            toast.warning("User created but could not be added to organization. Role management may not work.");
+          }
+        } else if (!organizationId) {
+          console.warn("Organization ID not configured, user created without organization membership");
+        }
+
         toast.success(`Account created successfully for ${newAccount.username}`);
-        
+
         dispatch(adminSlice.actions.setAdding(false));
         dispatch(adminSlice.actions.reset());
-        
+
         // Refresh account list
         await refetch();
       } catch (err) {
@@ -191,6 +238,7 @@ export default function RosterTable({ user }: { user: User }) {
               <th style={{ minWidth: "100px" }}>Username</th>
               <th style={{ minWidth: "100px" }}>DJ Name</th>
               <th style={{ minWidth: "100px" }}>Email</th>
+              <th style={{ minWidth: "140px" }}>Capabilities</th>
               <th
                 aria-label="last"
                 style={{ width: "var(--Table-lastColumnWidth)" }}
@@ -201,7 +249,7 @@ export default function RosterTable({ user }: { user: User }) {
             {isLoading ? (
               <tr style={{ background: "transparent" }}>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   style={{ textAlign: "center", paddingTop: "2rem" }}
                 >
                   <CircularProgress color={"success"} />
@@ -210,7 +258,7 @@ export default function RosterTable({ user }: { user: User }) {
             ) : isError ? (
               <tr style={{ background: "transparent" }}>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   style={{ textAlign: "center", paddingTop: "2rem" }}
                 >
                   <GppBad color="error" sx={{ fontSize: "5rem" }} />
@@ -235,7 +283,7 @@ export default function RosterTable({ user }: { user: User }) {
               <NewAccountForm />
             ) : (
               <tr>
-                <td colSpan={5}></td>
+                <td colSpan={6}></td>
                 <td
                   style={{
                     display: "flex",

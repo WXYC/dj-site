@@ -72,7 +72,7 @@ describe("SearchBar", () => {
     { color: "neutral" as const },
     { color: undefined },
   ])("should render with color=$color", (props) => {
-    const { input } = setup(props);
+    const { input } = setup(props as { color: "primary" });
     expect(input()).toBeInTheDocument();
   });
 });

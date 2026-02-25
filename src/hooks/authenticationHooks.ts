@@ -45,12 +45,12 @@ export const useLogin = () => {
       })) as { error?: unknown };
 
       if (result.error) {
-        const errorMessage = result.error instanceof Error 
-          ? result.error.message 
-          : typeof result.error === 'string' 
-            ? result.error 
+        const errorMessage = result.error instanceof Error
+          ? result.error.message
+          : typeof result.error === 'string'
+            ? result.error
             : (result.error as any)?.message || 'Login failed. Please check your credentials.';
-        
+
         setError(result.error instanceof Error ? result.error : new Error(errorMessage));
         if (errorMessage.trim().length > 0) {
           toast.error(errorMessage);
@@ -63,10 +63,10 @@ export const useLogin = () => {
         router.refresh();
       }
     } catch (err) {
-      const errorMessage = err instanceof Error 
-        ? err.message 
+      const errorMessage = err instanceof Error
+        ? err.message
         : 'An unexpected error occurred during login. Please try again.';
-      
+
       setError(err instanceof Error ? err : new Error(errorMessage));
       if (errorMessage.trim().length > 0) {
         toast.error(errorMessage);
@@ -103,10 +103,10 @@ export const useLogout = () => {
       router.refresh();
       resetApplication(dispatch);
     } catch (error) {
-      const errorMessage = error instanceof Error 
-        ? error.message 
+      const errorMessage = error instanceof Error
+        ? error.message
         : 'Failed to logout. Please try again.';
-      
+
       console.error("Logout error:", error);
       if (errorMessage.trim().length > 0) {
         toast.error(errorMessage);
@@ -125,7 +125,7 @@ export const useLogout = () => {
 export const useAuthentication = () => {
   const { data: session, isPending, error: sessionError } = authClient.useSession();
   const [authData, setAuthData] = useState<AuthenticationData>(
-    session 
+    session
       ? betterAuthSessionToAuthenticationData(session as any)
       : { message: "Not Authenticated" }
   );
@@ -165,7 +165,7 @@ export const useRegistry = () => {
 
   // Return user data from better-auth session instead of fetching from DJ Registry API
   const user = isAuthenticated(data) ? data.user : null;
-  
+
   const info = user ? {
     id: user.id!, // User ID (string) - backend now accepts this instead of numeric DJ ID
     real_name: user.realName || undefined,
@@ -213,7 +213,7 @@ export const useNewUser = () => {
     // not the djAttributeNames keys (name, custom:dj-name)
     const realNameValue = e.currentTarget.realName?.value || "";
     const djNameValue = e.currentTarget.djName?.value || "";
-    
+
     if (realNameValue) {
       params.realName = realNameValue;
     }
@@ -267,10 +267,10 @@ export const useNewUser = () => {
       router.push(dashboardHome);
       router.refresh();
     } catch (err) {
-      const errorMessage = err instanceof Error 
-        ? err.message 
+      const errorMessage = err instanceof Error
+        ? err.message
         : 'Failed to update user profile. Please try again.';
-      
+
       setError(err instanceof Error ? err : new Error(errorMessage));
       if (errorMessage.trim().length > 0) {
         toast.error(errorMessage);

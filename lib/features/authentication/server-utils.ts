@@ -13,7 +13,7 @@ import { getUserRoleInOrganization, getAppOrganizationId } from "./organization-
 export async function getServerSession(): Promise<BetterAuthSession | null> {
   const cookieStore = await cookies();
   const cookieHeader = cookieStore.toString();
-  
+
   // Use fetchOptions to pass cookies to better-auth client
   const session = await serverAuthClient
     .getSession({
@@ -25,7 +25,7 @@ export async function getServerSession(): Promise<BetterAuthSession | null> {
       // Swallow auth-server fetch errors to avoid noisy Next.js errors.
       return { data: null, error } as BetterAuthSessionResponse;
     });
-  
+
   if (!session.data) {
     return null;
   }
@@ -67,7 +67,7 @@ export async function requireAuth(): Promise<BetterAuthSession> {
 async function getUserAuthority(session: BetterAuthSession, cookieHeader?: string): Promise<Authorization> {
   // Try to get role from APP_ORGANIZATION first
   const organizationId = getAppOrganizationId();
-  
+
   if (organizationId) {
     try {
       const orgRole = await getUserRoleInOrganization(
@@ -75,7 +75,7 @@ async function getUserAuthority(session: BetterAuthSession, cookieHeader?: strin
         organizationId,
         cookieHeader
       );
-      
+
       if (orgRole !== undefined) {
         // Successfully fetched role from organization
         return mapRoleToAuthorization(orgRole);
@@ -86,7 +86,7 @@ async function getUserAuthority(session: BetterAuthSession, cookieHeader?: strin
       console.warn("Failed to fetch organization role, falling back to session data:", error);
     }
   }
-  
+
   // Fallback: Get role from session data (organization member data if available, or user role)
   // Organization role takes precedence over base user role
   // Also check if role is stored in metadata or other custom fields
@@ -98,7 +98,7 @@ async function getUserAuthority(session: BetterAuthSession, cookieHeader?: strin
   const roleToMap = organizationRole || metadataRole || customRole || userRole;
 
   const authority = mapRoleToAuthorization(roleToMap);
-  
+
   return authority;
 }
 
@@ -108,7 +108,7 @@ async function getUserAuthority(session: BetterAuthSession, cookieHeader?: strin
  */
 export async function checkRole(session: BetterAuthSession, requiredRole: Authorization, cookieHeader?: string): Promise<boolean> {
   const userAuthority = await getUserAuthority(session, cookieHeader);
-  
+
   // Role hierarchy: SM > MD > DJ > NO
   // User must have at least the required role
   return userAuthority >= requiredRole;
@@ -121,7 +121,7 @@ export async function checkRole(session: BetterAuthSession, requiredRole: Author
 export async function requireRole(session: BetterAuthSession, requiredRole: Authorization, cookieHeader?: string): Promise<void> {
   const cookieStore = await cookies();
   const header = cookieHeader || cookieStore.toString();
-  
+
   if (!(await checkRole(session, requiredRole, header))) {
     redirect(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog"));
   }
@@ -141,11 +141,11 @@ export function isUserIncomplete(session: BetterAuthSession): boolean {
  */
 export function getIncompleteUserAttributes(session: BetterAuthSession): (keyof VerifiedData)[] {
   const missingAttributes: (keyof VerifiedData)[] = [];
-  
+
   if (!session.user.realName || session.user.realName.trim() === "") {
     missingAttributes.push("realName");
   }
-  
+
   return missingAttributes;
 }
 
@@ -174,4 +174,3 @@ export async function getUserFromSession(session: BetterAuthSession, cookieHeade
 
   return result;
 }
-
