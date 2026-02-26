@@ -24,18 +24,10 @@ vi.mock("./Footer", () => ({
   default: () => <footer data-testid="footer">Footer</footer>,
 }));
 
-vi.mock("./PageData", () => ({
-  default: ({ title }: any) => (
-    <div data-testid="page-data" data-title={title}>
-      Page Data
-    </div>
-  ),
-}));
-
 describe("WXYCPage", () => {
   it("should render children in Main component", () => {
     render(
-      <WXYCPage title="Test Page">
+      <WXYCPage>
         <div data-testid="page-content">Page Content</div>
       </WXYCPage>
     );
@@ -45,7 +37,7 @@ describe("WXYCPage", () => {
 
   it("should render Header component", () => {
     render(
-      <WXYCPage title="Test Page">
+      <WXYCPage>
         <span>Content</span>
       </WXYCPage>
     );
@@ -55,7 +47,7 @@ describe("WXYCPage", () => {
 
   it("should render Footer component", () => {
     render(
-      <WXYCPage title="Test Page">
+      <WXYCPage>
         <span>Content</span>
       </WXYCPage>
     );
@@ -65,7 +57,7 @@ describe("WXYCPage", () => {
 
   it("should render BackgroundBox component", () => {
     render(
-      <WXYCPage title="Test Page">
+      <WXYCPage>
         <span>Content</span>
       </WXYCPage>
     );
@@ -75,7 +67,7 @@ describe("WXYCPage", () => {
 
   it("should render BackgroundImage component", () => {
     render(
-      <WXYCPage title="Test Page">
+      <WXYCPage>
         <span>Content</span>
       </WXYCPage>
     );
@@ -83,22 +75,9 @@ describe("WXYCPage", () => {
     expect(screen.getByTestId("background-image")).toBeInTheDocument();
   });
 
-  it("should pass title to PageData", () => {
-    render(
-      <WXYCPage title="Custom Title">
-        <span>Content</span>
-      </WXYCPage>
-    );
-
-    expect(screen.getByTestId("page-data")).toHaveAttribute(
-      "data-title",
-      "Custom Title"
-    );
-  });
-
   it("should have ignoreClassic class", () => {
     const { container } = render(
-      <WXYCPage title="Test Page">
+      <WXYCPage>
         <span>Content</span>
       </WXYCPage>
     );

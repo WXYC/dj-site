@@ -3,6 +3,14 @@ import { defaultApplicationState } from "@/lib/features/application/types";
 
 vi.mock("server-only", () => ({}));
 
+vi.mock("react", async () => {
+  const actual = await vi.importActual<typeof import("react")>("react");
+  return {
+    ...actual,
+    cache: (fn: Function) => fn,
+  };
+});
+
 vi.mock("next/headers", () => {
   let cookieStore: Record<string, string> = {};
   return {

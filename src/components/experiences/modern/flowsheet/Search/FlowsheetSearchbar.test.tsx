@@ -215,6 +215,7 @@ describe("FlowsheetSearchbar", () => {
     it("should handle ArrowDown key to increment selected result", () => {
       // Provide mock results so the max index is > 0
       mockCatalogResults = [{ id: "1" }, { id: "2" }];
+      mockSearchOpen = true;
 
       const store = createTestStore();
 
@@ -234,6 +235,7 @@ describe("FlowsheetSearchbar", () => {
     it("should handle ArrowUp key to decrement selected result", () => {
       // Provide mock results so there are valid indices
       mockCatalogResults = [{ id: "1" }, { id: "2" }, { id: "3" }];
+      mockSearchOpen = true;
 
       const store = createTestStore({
         flowsheet: {

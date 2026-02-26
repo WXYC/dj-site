@@ -7,11 +7,23 @@ import { applicationSlice } from "@/lib/features/application/frontend";
 
 // Mock hooks
 const mockHandleLogout = vi.fn(() => Promise.resolve());
+const mockReplace = vi.fn();
 
 vi.mock("@/src/hooks/authenticationHooks", () => ({
   useLogout: vi.fn(() => ({
     handleLogout: mockHandleLogout,
     loggingOut: false,
+  })),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: vi.fn(() => ({
+    replace: mockReplace,
+    push: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    refresh: vi.fn(),
+    prefetch: vi.fn(),
   })),
 }));
 

@@ -50,7 +50,7 @@ describe("FlowsheetBackendResult", () => {
     entry: 5,
     format: "CD",
     label: "Test Label",
-    play_freq: "H",
+    rotation_bin: "H",
     rotation_id: 10,
     artist: {
       id: 1,
@@ -290,7 +290,7 @@ describe("FlowsheetBackendResult", () => {
         entry: 10,
         format: "vinyl" as any,
         label: "Complete Label",
-        play_freq: "M",
+        rotation_bin: "M",
         rotation_id: 20,
         artist: {
           id: 50,
@@ -375,7 +375,7 @@ describe("FlowsheetBackendResult", () => {
     it("should handle missing rotation", () => {
       const entryWithoutRotation: AlbumEntry = {
         ...mockEntry,
-        play_freq: undefined,
+        rotation_bin: undefined,
       };
 
       render(<FlowsheetBackendResult entry={entryWithoutRotation} index={1} />);
