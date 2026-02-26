@@ -8,11 +8,6 @@ import type {
 } from "@/lib/features/flowsheet/types";
 import React from "react";
 
-// Track the ref's mock methods
-const mockPlay = vi.fn();
-const mockPause = vi.fn();
-let mockIsPlayingState = false;
-
 // Mock child components
 vi.mock("./AlbumArtAndIcons", () => ({
   default: ({ entry }: any) => (
@@ -26,24 +21,15 @@ vi.mock("./EntryText", () => ({
   ),
 }));
 
-// Mock GradientAudioVisualizer with ref support using factory function
+// Mock GradientAudioVisualizer -- now takes props instead of ref
 vi.mock("./GradientAudioVisualizer", () => ({
-  GradientAudioVisualizer: React.forwardRef(({ src }: { src: string }, ref: any) => {
-    React.useImperativeHandle(ref, () => ({
-      play: () => {
-        mockPlay();
-        mockIsPlayingState = true;
-      },
-      pause: () => {
-        mockPause();
-        mockIsPlayingState = false;
-      },
-      get isPlaying() {
-        return mockIsPlayingState;
-      },
-    }));
-    return <div data-testid="gradient-visualizer" data-src={src} />;
-  }),
+  GradientAudioVisualizer: ({ isPlaying, overlayColor }: any) => (
+    <div
+      data-testid="gradient-visualizer"
+      data-is-playing={isPlaying}
+      data-overlay-color={overlayColor}
+    />
+  ),
 }));
 
 // Mock MUI Joy components
@@ -136,6 +122,19 @@ vi.mock("@mui/icons-material", () => ({
 // Import after mocks are set up
 import NowPlayingMain from "./Main";
 
+function createDefaultProps(overrides: Record<string, any> = {}) {
+  return {
+    live: false as boolean,
+    audioRef: { current: null } as React.RefObject<HTMLAudioElement>,
+    isPlaying: false,
+    onTogglePlay: vi.fn(),
+    audioContext: null as AudioContext | null,
+    analyserNode: null as AnalyserNode | null,
+    animationFrameRef: { current: null } as React.MutableRefObject<number | null>,
+    ...overrides,
+  };
+}
+
 describe("NowPlayingMain", () => {
   const baseEntry = {
     id: 1,
@@ -145,121 +144,103 @@ describe("NowPlayingMain", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockIsPlayingState = false;
   });
 
   describe("rendering", () => {
     it("should render without crashing", () => {
       expect(() =>
-        render(<NowPlayingMain live={false} />)
+        render(<NowPlayingMain {...createDefaultProps()} />)
       ).not.toThrow();
     });
 
     it("should render Card component", () => {
-      render(<NowPlayingMain live={false} />);
+      render(<NowPlayingMain {...createDefaultProps()} />);
       expect(screen.getByTestId("card")).toBeInTheDocument();
     });
 
     it("should render GradientAudioVisualizer", () => {
-      render(<NowPlayingMain live={false} />);
+      render(<NowPlayingMain {...createDefaultProps()} />);
       expect(screen.getByTestId("gradient-visualizer")).toBeInTheDocument();
     });
 
     it("should render AlbumArtAndIcons component", () => {
-      render(<NowPlayingMain live={false} />);
+      render(<NowPlayingMain {...createDefaultProps()} />);
       expect(screen.getByTestId("album-art-icons")).toBeInTheDocument();
     });
 
     it("should render EntryText component", () => {
-      render(<NowPlayingMain live={false} />);
+      render(<NowPlayingMain {...createDefaultProps()} />);
       expect(screen.getByTestId("entry-text")).toBeInTheDocument();
-    });
-
-    it("should pass audio source to GradientAudioVisualizer", () => {
-      render(<NowPlayingMain live={false} />);
-      expect(screen.getByTestId("gradient-visualizer")).toHaveAttribute(
-        "data-src",
-        "https://audio-mp3.ibiblio.org/wxyc.mp3"
-      );
     });
   });
 
   describe("dimensions", () => {
     it("should apply width prop to card", () => {
-      render(<NowPlayingMain live={false} width={400} />);
+      render(<NowPlayingMain {...createDefaultProps({ width: 400 })} />);
       expect(screen.getByTestId("card")).toHaveAttribute("data-width", "400");
     });
 
     it("should apply height prop to card", () => {
-      render(<NowPlayingMain live={false} height={300} />);
+      render(<NowPlayingMain {...createDefaultProps({ height: 300 })} />);
       expect(screen.getByTestId("card")).toHaveAttribute("data-height", "300");
     });
 
     it("should use 100% width when not specified", () => {
-      render(<NowPlayingMain live={false} />);
+      render(<NowPlayingMain {...createDefaultProps()} />);
       expect(screen.getByTestId("card")).toHaveAttribute("data-width", "100%");
     });
 
     it("should use 100% height when not specified", () => {
-      render(<NowPlayingMain live={false} />);
+      render(<NowPlayingMain {...createDefaultProps()} />);
       expect(screen.getByTestId("card")).toHaveAttribute("data-height", "100%");
     });
   });
 
   describe("play/pause toggle", () => {
-    it("should show PlayArrow icon initially", () => {
-      render(<NowPlayingMain live={false} />);
+    it("should show PlayArrow icon when not playing", () => {
+      render(<NowPlayingMain {...createDefaultProps({ isPlaying: false })} />);
       expect(screen.getByTestId("play-icon")).toBeInTheDocument();
     });
 
-    it("should call play when clicking play button while paused", () => {
-      render(<NowPlayingMain live={false} />);
-      const button = screen.getByTestId("icon-button");
-      fireEvent.click(button);
-      expect(mockPlay).toHaveBeenCalledTimes(1);
-    });
-
-    it("should show Pause icon after clicking play", () => {
-      render(<NowPlayingMain live={false} />);
-      const button = screen.getByTestId("icon-button");
-      fireEvent.click(button);
+    it("should show Pause icon when playing", () => {
+      render(<NowPlayingMain {...createDefaultProps({ isPlaying: true })} />);
       expect(screen.getByTestId("pause-icon")).toBeInTheDocument();
     });
 
-    it("should call pause when clicking button while playing", () => {
-      render(<NowPlayingMain live={false} />);
+    it("should call onTogglePlay when clicking the button", () => {
+      const onTogglePlay = vi.fn();
+      render(<NowPlayingMain {...createDefaultProps({ onTogglePlay })} />);
       const button = screen.getByTestId("icon-button");
-      // First click to play
       fireEvent.click(button);
-      // Second click to pause
-      fireEvent.click(button);
-      expect(mockPause).toHaveBeenCalledTimes(1);
+      expect(onTogglePlay).toHaveBeenCalledTimes(1);
     });
 
-    it("should show PlayArrow icon after pausing", () => {
-      render(<NowPlayingMain live={false} />);
+    it("should have correct aria-label when not playing", () => {
+      render(<NowPlayingMain {...createDefaultProps({ isPlaying: false })} />);
       const button = screen.getByTestId("icon-button");
-      // First click to play
-      fireEvent.click(button);
-      // Second click to pause
-      fireEvent.click(button);
-      expect(screen.getByTestId("play-icon")).toBeInTheDocument();
+      expect(button).toHaveAttribute("aria-label", "Play audio");
+    });
+
+    it("should have correct aria-label when playing", () => {
+      render(<NowPlayingMain {...createDefaultProps({ isPlaying: true })} />);
+      const button = screen.getByTestId("icon-button");
+      expect(button).toHaveAttribute("aria-label", "Pause audio");
     });
   });
 
   describe("live status", () => {
     it("should display 'LIVE' when live is true", () => {
-      render(<NowPlayingMain live={true} />);
+      render(<NowPlayingMain {...createDefaultProps({ live: true })} />);
       expect(screen.getByText("LIVE")).toBeInTheDocument();
     });
 
     it("should display 'OFF AIR' when live is false", () => {
-      render(<NowPlayingMain live={false} />);
+      render(<NowPlayingMain {...createDefaultProps({ live: false })} />);
       expect(screen.getByText("OFF AIR")).toBeInTheDocument();
     });
 
     it("should apply primary color to card overflow when live", () => {
-      render(<NowPlayingMain live={true} />);
+      render(<NowPlayingMain {...createDefaultProps({ live: true })} />);
       const cardOverflows = screen.getAllByTestId("card-overflow");
       const liveOverflow = cardOverflows.find(
         (el) => el.getAttribute("data-color") === "primary"
@@ -268,7 +249,7 @@ describe("NowPlayingMain", () => {
     });
 
     it("should apply neutral color to card overflow when not live", () => {
-      render(<NowPlayingMain live={false} />);
+      render(<NowPlayingMain {...createDefaultProps({ live: false })} />);
       const cardOverflows = screen.getAllByTestId("card-overflow");
       const neutralOverflow = cardOverflows.find(
         (el) => el.getAttribute("data-color") === "neutral"
@@ -279,17 +260,17 @@ describe("NowPlayingMain", () => {
 
   describe("DJ name display", () => {
     it("should display DJ name when live and onAirDJ is provided", () => {
-      render(<NowPlayingMain live={true} onAirDJ="DJ Cool" />);
+      render(<NowPlayingMain {...createDefaultProps({ live: true, onAirDJ: "DJ Cool" })} />);
       expect(screen.getByText("DJ Cool")).toBeInTheDocument();
     });
 
     it("should not display DJ name when not live", () => {
-      render(<NowPlayingMain live={false} onAirDJ="DJ Cool" />);
+      render(<NowPlayingMain {...createDefaultProps({ live: false, onAirDJ: "DJ Cool" })} />);
       expect(screen.queryByText("DJ Cool")).not.toBeInTheDocument();
     });
 
     it("should display vertical divider when live", () => {
-      render(<NowPlayingMain live={true} onAirDJ="DJ Cool" />);
+      render(<NowPlayingMain {...createDefaultProps({ live: true, onAirDJ: "DJ Cool" })} />);
       const dividers = screen.getAllByTestId("divider");
       const verticalDivider = dividers.find(
         (el) => el.getAttribute("data-orientation") === "vertical"
@@ -300,22 +281,22 @@ describe("NowPlayingMain", () => {
 
   describe("loading state", () => {
     it("should show CircularProgress when loading is true and live", () => {
-      render(<NowPlayingMain live={true} loading={true} />);
+      render(<NowPlayingMain {...createDefaultProps({ live: true, loading: true })} />);
       expect(screen.getByTestId("circular-progress")).toBeInTheDocument();
     });
 
     it("should show CircularProgress when loading is true even if not live", () => {
-      render(<NowPlayingMain live={false} loading={true} />);
+      render(<NowPlayingMain {...createDefaultProps({ live: false, loading: true })} />);
       expect(screen.getByTestId("circular-progress")).toBeInTheDocument();
     });
 
     it("should not show DJ name when loading", () => {
-      render(<NowPlayingMain live={true} loading={true} onAirDJ="DJ Cool" />);
+      render(<NowPlayingMain {...createDefaultProps({ live: true, loading: true, onAirDJ: "DJ Cool" })} />);
       expect(screen.queryByText("DJ Cool")).not.toBeInTheDocument();
     });
 
     it("should not show CircularProgress when not loading and live", () => {
-      render(<NowPlayingMain live={true} loading={false} onAirDJ="DJ Cool" />);
+      render(<NowPlayingMain {...createDefaultProps({ live: true, loading: false, onAirDJ: "DJ Cool" })} />);
       expect(screen.queryByTestId("circular-progress")).not.toBeInTheDocument();
     });
   });
@@ -331,7 +312,7 @@ describe("NowPlayingMain", () => {
         request_flag: false,
       };
 
-      render(<NowPlayingMain live={false} entry={songEntry} />);
+      render(<NowPlayingMain {...createDefaultProps({ entry: songEntry })} />);
       const albumArt = screen.getByTestId("album-art-icons");
       expect(albumArt).toHaveAttribute("data-has-entry", "true");
       expect(albumArt).toHaveAttribute("data-entry-id", "1");
@@ -347,7 +328,7 @@ describe("NowPlayingMain", () => {
         request_flag: false,
       };
 
-      render(<NowPlayingMain live={false} entry={songEntry} />);
+      render(<NowPlayingMain {...createDefaultProps({ entry: songEntry })} />);
       const entryText = screen.getByTestId("entry-text");
       expect(entryText).toHaveAttribute("data-has-entry", "true");
       expect(entryText).toHaveAttribute("data-entry-id", "1");
@@ -362,7 +343,7 @@ describe("NowPlayingMain", () => {
         time: "10:00",
       };
 
-      render(<NowPlayingMain live={false} entry={breakpointEntry} />);
+      render(<NowPlayingMain {...createDefaultProps({ entry: breakpointEntry })} />);
       const albumArt = screen.getByTestId("album-art-icons");
       expect(albumArt).toHaveAttribute("data-has-entry", "true");
       expect(albumArt).toHaveAttribute("data-entry-id", "2");
@@ -378,7 +359,7 @@ describe("NowPlayingMain", () => {
         time: "10:00",
       };
 
-      render(<NowPlayingMain live={true} entry={showBlockEntry} />);
+      render(<NowPlayingMain {...createDefaultProps({ live: true, entry: showBlockEntry })} />);
       const entryText = screen.getByTestId("entry-text");
       expect(entryText).toHaveAttribute("data-has-entry", "true");
       expect(entryText).toHaveAttribute("data-entry-id", "3");
@@ -391,14 +372,14 @@ describe("NowPlayingMain", () => {
         message: "PSA: Community announcement",
       };
 
-      render(<NowPlayingMain live={false} entry={messageEntry} />);
+      render(<NowPlayingMain {...createDefaultProps({ entry: messageEntry })} />);
       const albumArt = screen.getByTestId("album-art-icons");
       expect(albumArt).toHaveAttribute("data-has-entry", "true");
       expect(albumArt).toHaveAttribute("data-entry-id", "4");
     });
 
     it("should handle undefined entry", () => {
-      render(<NowPlayingMain live={false} entry={undefined} />);
+      render(<NowPlayingMain {...createDefaultProps({ entry: undefined })} />);
       const albumArt = screen.getByTestId("album-art-icons");
       expect(albumArt).toHaveAttribute("data-has-entry", "false");
     });
@@ -406,7 +387,7 @@ describe("NowPlayingMain", () => {
 
   describe("aspect ratio", () => {
     it("should render AspectRatio component with ratio 2.5", () => {
-      render(<NowPlayingMain live={false} />);
+      render(<NowPlayingMain {...createDefaultProps()} />);
       expect(screen.getByTestId("aspect-ratio")).toHaveAttribute(
         "data-ratio",
         "2.5"
@@ -416,17 +397,17 @@ describe("NowPlayingMain", () => {
 
   describe("card content structure", () => {
     it("should render CardContent component", () => {
-      render(<NowPlayingMain live={false} />);
+      render(<NowPlayingMain {...createDefaultProps()} />);
       expect(screen.getAllByTestId("card-content").length).toBeGreaterThan(0);
     });
 
     it("should render CardOverflow components", () => {
-      render(<NowPlayingMain live={false} />);
+      render(<NowPlayingMain {...createDefaultProps()} />);
       expect(screen.getAllByTestId("card-overflow").length).toBe(2);
     });
 
     it("should render horizontal CardContent for live status", () => {
-      render(<NowPlayingMain live={true} onAirDJ="DJ Cool" />);
+      render(<NowPlayingMain {...createDefaultProps({ live: true, onAirDJ: "DJ Cool" })} />);
       const cardContents = screen.getAllByTestId("card-content");
       const horizontalContent = cardContents.find(
         (el) => el.getAttribute("data-orientation") === "horizontal"

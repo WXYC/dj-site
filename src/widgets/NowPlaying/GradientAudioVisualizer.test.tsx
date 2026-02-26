@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { createRef } from "react";
 import { GradientAudioVisualizer } from "./GradientAudioVisualizer";
 
@@ -17,12 +17,25 @@ vi.mock("@mui/joy", () => ({
   ),
 }));
 
+function createMockAudioRef(element?: Partial<HTMLAudioElement>) {
+  return {
+    current: {
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      ...element,
+    } as unknown as HTMLAudioElement,
+  };
+}
+
+function createMockAnimationFrameRef() {
+  return { current: null } as React.MutableRefObject<number | null>;
+}
+
 describe("GradientAudioVisualizer", () => {
-  let mockAudioContext: any;
   let mockAnalyser: any;
-  let mockSource: any;
   let mockGradient: any;
   let mockCanvasContext: any;
+  let mockAudioContext: any;
 
   beforeEach(() => {
     mockGradient = {
@@ -42,23 +55,14 @@ describe("GradientAudioVisualizer", () => {
       getByteFrequencyData: vi.fn(),
     };
 
-    mockSource = {
-      connect: vi.fn(),
-    };
-
     mockAudioContext = {
-      createAnalyser: vi.fn(() => mockAnalyser),
-      createMediaElementSource: vi.fn(() => mockSource),
       resume: vi.fn(),
-      close: vi.fn(),
+      destination: {},
     };
-
-    // Mock AudioContext
-    (window as any).AudioContext = vi.fn(() => mockAudioContext);
-    (window as any).webkitAudioContext = vi.fn(() => mockAudioContext);
 
     // Mock requestAnimationFrame
     vi.spyOn(window, "requestAnimationFrame").mockImplementation(() => 1);
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
 
     // Mock canvas getContext
     HTMLCanvasElement.prototype.getContext = vi.fn(() => mockCanvasContext) as any;
@@ -70,62 +74,69 @@ describe("GradientAudioVisualizer", () => {
 
   describe("rendering", () => {
     it("should render without crashing", () => {
+      const audioRef = createMockAudioRef();
+      const animationFrameRef = createMockAnimationFrameRef();
+
       expect(() =>
-        render(<GradientAudioVisualizer src="https://example.com/audio.mp3" />)
+        render(
+          <GradientAudioVisualizer
+            audioRef={audioRef}
+            isPlaying={false}
+            audioContext={mockAudioContext}
+            analyserNode={mockAnalyser}
+            animationFrameRef={animationFrameRef}
+          />
+        )
       ).not.toThrow();
     });
 
     it("should render a canvas element", () => {
+      const audioRef = createMockAudioRef();
+      const animationFrameRef = createMockAnimationFrameRef();
+
       const { container } = render(
-        <GradientAudioVisualizer src="https://example.com/audio.mp3" />
+        <GradientAudioVisualizer
+          audioRef={audioRef}
+          isPlaying={false}
+          audioContext={mockAudioContext}
+          analyserNode={mockAnalyser}
+          animationFrameRef={animationFrameRef}
+        />
       );
       const canvas = container.querySelector("canvas");
       expect(canvas).toBeInTheDocument();
     });
 
-    it("should render an audio element with the provided src", () => {
-      const { container } = render(
-        <GradientAudioVisualizer src="https://example.com/audio.mp3" />
-      );
-      const audio = container.querySelector("audio");
-      expect(audio).toBeInTheDocument();
-      expect(audio).toHaveAttribute("src", "https://example.com/audio.mp3");
-    });
-
     it("should render overlay Box component", () => {
-      render(<GradientAudioVisualizer src="https://example.com/audio.mp3" />);
+      const audioRef = createMockAudioRef();
+      const animationFrameRef = createMockAnimationFrameRef();
+
+      render(
+        <GradientAudioVisualizer
+          audioRef={audioRef}
+          isPlaying={false}
+          audioContext={mockAudioContext}
+          analyserNode={mockAnalyser}
+          animationFrameRef={animationFrameRef}
+        />
+      );
       expect(screen.getByTestId("overlay-box")).toBeInTheDocument();
-    });
-
-    it("should set crossOrigin attribute on audio element", () => {
-      const { container } = render(
-        <GradientAudioVisualizer src="https://example.com/audio.mp3" />
-      );
-      const audio = container.querySelector("audio");
-      expect(audio).toHaveAttribute("crossOrigin", "anonymous");
-    });
-
-    it("should set playsInline attribute on audio element", () => {
-      const { container } = render(
-        <GradientAudioVisualizer src="https://example.com/audio.mp3" />
-      );
-      const audio = container.querySelector("audio");
-      expect(audio).toHaveAttribute("playsinline");
-    });
-
-    it("should hide audio element with display none", () => {
-      const { container } = render(
-        <GradientAudioVisualizer src="https://example.com/audio.mp3" />
-      );
-      const audio = container.querySelector("audio");
-      expect(audio).toHaveStyle({ display: "none" });
     });
   });
 
   describe("canvas styling", () => {
     it("should apply gradient background to canvas", () => {
+      const audioRef = createMockAudioRef();
+      const animationFrameRef = createMockAnimationFrameRef();
+
       const { container } = render(
-        <GradientAudioVisualizer src="https://example.com/audio.mp3" />
+        <GradientAudioVisualizer
+          audioRef={audioRef}
+          isPlaying={false}
+          audioContext={mockAudioContext}
+          analyserNode={mockAnalyser}
+          animationFrameRef={animationFrameRef}
+        />
       );
       const canvas = container.querySelector("canvas");
       expect(canvas).toHaveStyle({
@@ -134,8 +145,17 @@ describe("GradientAudioVisualizer", () => {
     });
 
     it("should position canvas absolutely", () => {
+      const audioRef = createMockAudioRef();
+      const animationFrameRef = createMockAnimationFrameRef();
+
       const { container } = render(
-        <GradientAudioVisualizer src="https://example.com/audio.mp3" />
+        <GradientAudioVisualizer
+          audioRef={audioRef}
+          isPlaying={false}
+          audioContext={mockAudioContext}
+          analyserNode={mockAnalyser}
+          animationFrameRef={animationFrameRef}
+        />
       );
       const canvas = container.querySelector("canvas");
       expect(canvas).toHaveStyle({
@@ -147,8 +167,17 @@ describe("GradientAudioVisualizer", () => {
     });
 
     it("should set pointer-events to none on canvas", () => {
+      const audioRef = createMockAudioRef();
+      const animationFrameRef = createMockAnimationFrameRef();
+
       const { container } = render(
-        <GradientAudioVisualizer src="https://example.com/audio.mp3" />
+        <GradientAudioVisualizer
+          audioRef={audioRef}
+          isPlaying={false}
+          audioContext={mockAudioContext}
+          analyserNode={mockAnalyser}
+          animationFrameRef={animationFrameRef}
+        />
       );
       const canvas = container.querySelector("canvas");
       expect(canvas).toHaveStyle({ pointerEvents: "none" });
@@ -157,10 +186,17 @@ describe("GradientAudioVisualizer", () => {
 
   describe("overlay styling", () => {
     it("should apply overlay color when provided", () => {
+      const audioRef = createMockAudioRef();
+      const animationFrameRef = createMockAnimationFrameRef();
+
       render(
         <GradientAudioVisualizer
-          src="https://example.com/audio.mp3"
+          audioRef={audioRef}
+          isPlaying={false}
+          audioContext={mockAudioContext}
+          analyserNode={mockAnalyser}
           overlayColor="white"
+          animationFrameRef={animationFrameRef}
         />
       );
       expect(screen.getByTestId("overlay-box")).toHaveAttribute(
@@ -170,10 +206,17 @@ describe("GradientAudioVisualizer", () => {
     });
 
     it("should have opacity 1 when not playing", () => {
+      const audioRef = createMockAudioRef();
+      const animationFrameRef = createMockAnimationFrameRef();
+
       render(
         <GradientAudioVisualizer
-          src="https://example.com/audio.mp3"
+          audioRef={audioRef}
+          isPlaying={false}
+          audioContext={mockAudioContext}
+          analyserNode={mockAnalyser}
           overlayColor="white"
+          animationFrameRef={animationFrameRef}
         />
       );
       expect(screen.getByTestId("overlay-box")).toHaveAttribute(
@@ -181,152 +224,152 @@ describe("GradientAudioVisualizer", () => {
         "1"
       );
     });
-  });
 
-  describe("imperative handle", () => {
-    it("should expose play method through ref", () => {
-      const ref = createRef<{
-        play: () => void;
-        pause: () => void;
-        readonly isPlaying: boolean;
-      }>();
+    it("should have opacity 0.5 when playing", () => {
+      const audioRef = createMockAudioRef();
+      const animationFrameRef = createMockAnimationFrameRef();
 
       render(
         <GradientAudioVisualizer
-          src="https://example.com/audio.mp3"
-          ref={ref}
+          audioRef={audioRef}
+          isPlaying={true}
+          audioContext={mockAudioContext}
+          analyserNode={mockAnalyser}
+          overlayColor="white"
+          animationFrameRef={animationFrameRef}
         />
       );
-
-      expect(ref.current).toBeDefined();
-      expect(typeof ref.current?.play).toBe("function");
-    });
-
-    it("should expose pause method through ref", () => {
-      const ref = createRef<{
-        play: () => void;
-        pause: () => void;
-        readonly isPlaying: boolean;
-      }>();
-
-      render(
-        <GradientAudioVisualizer
-          src="https://example.com/audio.mp3"
-          ref={ref}
-        />
+      expect(screen.getByTestId("overlay-box")).toHaveAttribute(
+        "data-opacity",
+        "0.5"
       );
-
-      expect(ref.current).toBeDefined();
-      expect(typeof ref.current?.pause).toBe("function");
-    });
-
-    it("should expose isPlaying getter through ref", () => {
-      const ref = createRef<{
-        play: () => void;
-        pause: () => void;
-        readonly isPlaying: boolean;
-      }>();
-
-      render(
-        <GradientAudioVisualizer
-          src="https://example.com/audio.mp3"
-          ref={ref}
-        />
-      );
-
-      expect(ref.current).toBeDefined();
-      expect(typeof ref.current?.isPlaying).toBe("boolean");
-    });
-
-    it("should return false for isPlaying when audio is paused", () => {
-      const ref = createRef<{
-        play: () => void;
-        pause: () => void;
-        readonly isPlaying: boolean;
-      }>();
-
-      render(
-        <GradientAudioVisualizer
-          src="https://example.com/audio.mp3"
-          ref={ref}
-        />
-      );
-
-      // Initially paused
-      expect(ref.current?.isPlaying).toBe(false);
     });
   });
 
   describe("without overlayColor prop", () => {
     it("should render overlay with undefined background color", () => {
-      render(<GradientAudioVisualizer src="https://example.com/audio.mp3" />);
-      // When overlayColor is undefined, data-background-color will be empty or not present
+      const audioRef = createMockAudioRef();
+      const animationFrameRef = createMockAnimationFrameRef();
+
+      render(
+        <GradientAudioVisualizer
+          audioRef={audioRef}
+          isPlaying={false}
+          audioContext={mockAudioContext}
+          analyserNode={mockAnalyser}
+          animationFrameRef={animationFrameRef}
+        />
+      );
       const overlayBox = screen.getByTestId("overlay-box");
       expect(overlayBox).toBeInTheDocument();
     });
   });
 
   describe("component structure", () => {
-    it("should render canvas and audio elements", () => {
+    it("should render canvas and overlay elements", () => {
+      const audioRef = createMockAudioRef();
+      const animationFrameRef = createMockAnimationFrameRef();
+
       const { container } = render(
-        <GradientAudioVisualizer src="https://example.com/audio.mp3" />
+        <GradientAudioVisualizer
+          audioRef={audioRef}
+          isPlaying={false}
+          audioContext={mockAudioContext}
+          analyserNode={mockAnalyser}
+          animationFrameRef={animationFrameRef}
+        />
       );
 
       expect(container.querySelector("canvas")).toBeInTheDocument();
       expect(screen.getByTestId("overlay-box")).toBeInTheDocument();
-      expect(container.querySelector("audio")).toBeInTheDocument();
     });
   });
 
   describe("canvas z-index", () => {
     it("should have z-index 0 on canvas", () => {
+      const audioRef = createMockAudioRef();
+      const animationFrameRef = createMockAnimationFrameRef();
+
       const { container } = render(
-        <GradientAudioVisualizer src="https://example.com/audio.mp3" />
+        <GradientAudioVisualizer
+          audioRef={audioRef}
+          isPlaying={false}
+          audioContext={mockAudioContext}
+          analyserNode={mockAnalyser}
+          animationFrameRef={animationFrameRef}
+        />
       );
       const canvas = container.querySelector("canvas");
       expect(canvas).toHaveStyle({ zIndex: "0" });
     });
   });
 
-  describe("audio context setup", () => {
-    it("should create AudioContext on mount", () => {
-      render(<GradientAudioVisualizer src="https://example.com/audio.mp3" />);
-      expect(window.AudioContext).toHaveBeenCalled();
-    });
+  describe("audio context interaction", () => {
+    it("should start animation when isPlaying is true", () => {
+      const audioRef = createMockAudioRef();
+      const animationFrameRef = createMockAnimationFrameRef();
 
-    it("should create analyser from audio context", () => {
-      render(<GradientAudioVisualizer src="https://example.com/audio.mp3" />);
-      expect(mockAudioContext.createAnalyser).toHaveBeenCalled();
-    });
-
-    it("should create media element source from audio context", () => {
-      render(<GradientAudioVisualizer src="https://example.com/audio.mp3" />);
-      expect(mockAudioContext.createMediaElementSource).toHaveBeenCalled();
-    });
-
-    it("should connect source to analyser", () => {
-      render(<GradientAudioVisualizer src="https://example.com/audio.mp3" />);
-      expect(mockSource.connect).toHaveBeenCalledWith(mockAnalyser);
-    });
-
-    it("should connect analyser to destination", () => {
-      render(<GradientAudioVisualizer src="https://example.com/audio.mp3" />);
-      expect(mockAnalyser.connect).toHaveBeenCalled();
-    });
-
-    it("should set fftSize on analyser", () => {
-      render(<GradientAudioVisualizer src="https://example.com/audio.mp3" />);
-      expect(mockAnalyser.fftSize).toBe(512);
-    });
-  });
-
-  describe("different src props", () => {
-    it("should render with different audio source", () => {
-      const { container } = render(
-        <GradientAudioVisualizer src="https://different.com/stream.mp3" />
+      render(
+        <GradientAudioVisualizer
+          audioRef={audioRef}
+          isPlaying={true}
+          audioContext={mockAudioContext}
+          analyserNode={mockAnalyser}
+          animationFrameRef={animationFrameRef}
+        />
       );
-      const audio = container.querySelector("audio");
-      expect(audio).toHaveAttribute("src", "https://different.com/stream.mp3");
+      expect(mockAudioContext.resume).toHaveBeenCalled();
+      expect(window.requestAnimationFrame).toHaveBeenCalled();
+    });
+
+    it("should not start animation when isPlaying is false", () => {
+      const audioRef = createMockAudioRef();
+      const animationFrameRef = createMockAnimationFrameRef();
+
+      render(
+        <GradientAudioVisualizer
+          audioRef={audioRef}
+          isPlaying={false}
+          audioContext={mockAudioContext}
+          analyserNode={mockAnalyser}
+          animationFrameRef={animationFrameRef}
+        />
+      );
+      expect(mockAudioContext.resume).not.toHaveBeenCalled();
+    });
+
+    it("should handle null audioContext gracefully", () => {
+      const audioRef = createMockAudioRef();
+      const animationFrameRef = createMockAnimationFrameRef();
+
+      expect(() =>
+        render(
+          <GradientAudioVisualizer
+            audioRef={audioRef}
+            isPlaying={false}
+            audioContext={null}
+            analyserNode={null}
+            animationFrameRef={animationFrameRef}
+          />
+        )
+      ).not.toThrow();
+    });
+
+    it("should handle null analyserNode gracefully", () => {
+      const audioRef = createMockAudioRef();
+      const animationFrameRef = createMockAnimationFrameRef();
+
+      expect(() =>
+        render(
+          <GradientAudioVisualizer
+            audioRef={audioRef}
+            isPlaying={false}
+            audioContext={mockAudioContext}
+            analyserNode={null}
+            animationFrameRef={animationFrameRef}
+          />
+        )
+      ).not.toThrow();
     });
   });
 });
