@@ -3,6 +3,7 @@ const authBaseURL = process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "https://api.wxyc
 
 const nextConfig = {
   reactStrictMode: false,
+  productionBrowserSourceMaps: true,
   // Explicitly set workspace root to silence lockfile warning
   outputFileTracingRoot: import.meta.dirname,
   // Required for OpenNext Cloudflare
