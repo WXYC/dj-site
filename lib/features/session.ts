@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import "server-only";
 import { defaultApplicationState } from "./application/types";
 import { defaultAuthenticationData, betterAuthSessionToAuthenticationData, BetterAuthSessionResponse, BetterAuthSession } from "./authentication/utilities";
-import { getUserRoleInOrganization, getAppOrganizationId } from "./authentication/organization-utils.server";
+import { getUserRoleInOrganization, getAppOrganizationId } from "./authentication/organization-utils";
 import { mapRoleToAuthorization, isAuthenticated, AuthenticatedUser } from "./authentication/types";
 import { SiteProps } from "./types";
 import { serverAuthClient } from "./authentication/server-client";
