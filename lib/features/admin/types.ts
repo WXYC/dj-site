@@ -1,3 +1,6 @@
+export { Authorization } from "@wxyc/shared/auth-client/auth";
+import { Authorization } from "@wxyc/shared/auth-client/auth";
+
 export type AdminFrontendState = {
   searchString: string;
   adding: boolean;
@@ -5,13 +8,6 @@ export type AdminFrontendState = {
     authorization: Authorization;
   }
 };
-
-export enum Authorization {
-  NO,
-  DJ,
-  MD,
-  SM,
-}
 
 export type Account = {
   id?: string;
