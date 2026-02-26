@@ -46,30 +46,22 @@ export const AccountEntry = ({
   const userCapabilities = (account.capabilities ?? []) as Capability[];
 
   /**
-   * Update user capabilities via API
+   * Update user capabilities via better-auth admin API directly.
+   * The backend is the authority on whether the caller has permission.
    */
   const updateCapabilities = async (newCapabilities: Capability[]) => {
     const userId = await resolveUserId();
 
-    const response = await fetch("/api/admin/capabilities", {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        userId,
-        capabilities: newCapabilities,
-      }),
+    const result = await (authClient.admin as any).updateUser({
+      userId,
+      data: { capabilities: newCapabilities },
     });
 
-    if (!response.ok) {
-      const errorData = await response
-        .json()
-        .catch(() => ({ error: response.statusText }));
-      throw new Error(errorData.error || "Failed to update capabilities");
+    if (result.error) {
+      throw new Error(result.error.message || "Failed to update capabilities");
     }
 
-    return response.json();
+    return result.data;
   };
 
   /**
