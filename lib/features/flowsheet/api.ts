@@ -38,8 +38,12 @@ export const flowsheetApi = createApi({
           : `/?page=${params.page}&limit=${params.limit}`,
       }),
       serializeQueryArgs: ({ endpointName }) => endpointName,
-      transformResponse: (response: FlowsheetV2PaginatedResponseJSON) =>
-        convertV2FlowsheetResponse(response.entries),
+      transformResponse: (
+        response: FlowsheetV2PaginatedResponseJSON | FlowsheetV2EntryJSON[]
+      ) =>
+        convertV2FlowsheetResponse(
+          Array.isArray(response) ? response : response.entries
+        ),
       providesTags: ["Flowsheet"],
       merge: (currentCache = [], newItems) => {
         const map = new Map(currentCache.map((entry) => [entry.id, entry]));
