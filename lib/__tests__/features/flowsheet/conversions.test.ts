@@ -4,6 +4,7 @@ import {
   convertDJsOnAir,
   convertV2Entry,
   convertV2FlowsheetResponse,
+  extractFlowsheetEntries,
 } from "@/lib/features/flowsheet/conversions";
 import {
   createTestFlowsheetQuery,
@@ -294,6 +295,55 @@ describe("flowsheet conversions", () => {
         expect(result).toHaveLength(5);
         expect(result[0].play_order).toBe(5);
         expect(result[4].play_order).toBe(1);
+      });
+    });
+
+    describe("extractFlowsheetEntries", () => {
+      it("should return entries directly when response is a bare array", () => {
+        const entries = [
+          createTestV2TrackEntry({ id: 1 }),
+          createTestV2TrackEntry({ id: 2 }),
+        ];
+
+        const result = extractFlowsheetEntries(entries);
+
+        expect(result).toBe(entries);
+        expect(result).toHaveLength(2);
+      });
+
+      it("should unwrap entries from paginated response", () => {
+        const entries = [
+          createTestV2TrackEntry({ id: 1 }),
+          createTestV2TrackEntry({ id: 2 }),
+        ];
+        const paginatedResponse = {
+          entries,
+          page: 0,
+          limit: 20,
+          total: 2,
+          total_pages: 1,
+        };
+
+        const result = extractFlowsheetEntries(paginatedResponse);
+
+        expect(result).toBe(entries);
+        expect(result).toHaveLength(2);
+      });
+
+      it("should return empty array for bare empty array", () => {
+        const result = extractFlowsheetEntries([]);
+        expect(result).toEqual([]);
+      });
+
+      it("should return empty array from paginated response with no entries", () => {
+        const result = extractFlowsheetEntries({
+          entries: [],
+          page: 0,
+          limit: 20,
+          total: 0,
+          total_pages: 0,
+        });
+        expect(result).toEqual([]);
       });
     });
   });

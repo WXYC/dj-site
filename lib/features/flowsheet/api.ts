@@ -5,6 +5,7 @@ import {
   convertDJsOnAir,
   convertV2Entry,
   convertV2FlowsheetResponse,
+  extractFlowsheetEntries,
 } from "./conversions";
 import {
   FlowsheetEntry,
@@ -40,10 +41,7 @@ export const flowsheetApi = createApi({
       serializeQueryArgs: ({ endpointName }) => endpointName,
       transformResponse: (
         response: FlowsheetV2PaginatedResponseJSON | FlowsheetV2EntryJSON[]
-      ) =>
-        convertV2FlowsheetResponse(
-          Array.isArray(response) ? response : response.entries
-        ),
+      ) => convertV2FlowsheetResponse(extractFlowsheetEntries(response)),
       providesTags: ["Flowsheet"],
       merge: (currentCache = [], newItems) => {
         const map = new Map(currentCache.map((entry) => [entry.id, entry]));
