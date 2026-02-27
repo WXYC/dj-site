@@ -95,13 +95,6 @@ export function RequireSM(props: ConvenienceProps) {
   return <AuthorizedView requiredRole={Authorization.SM} {...props} />;
 }
 
-/**
- * Require Admin role to view content.
- */
-export function RequireAdmin(props: ConvenienceProps) {
-  return <AuthorizedView requiredRole={Authorization.ADMIN} {...props} />;
-}
-
 // ============================================================================
 // Exports
 // ============================================================================
