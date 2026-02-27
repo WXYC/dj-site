@@ -109,6 +109,8 @@ jobs:
           (cd Backend-Service && npm ci) &
           (cd dj-site && npm ci) &
           wait
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Build and start services
         run: |
