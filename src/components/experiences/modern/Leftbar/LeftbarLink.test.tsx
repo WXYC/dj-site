@@ -9,7 +9,7 @@ vi.mock("next/navigation", () => ({
 
 // Mock next/link
 vi.mock("next/link", () => ({
-  default: ({ children, href, ...props }: any) => (
+  default: ({ children, href, prefetch, ...props }: any) => (
     <a href={href} {...props}>
       {children}
     </a>
