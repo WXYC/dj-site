@@ -7,7 +7,7 @@ vi.mock("react", async () => {
   const actual = await vi.importActual<typeof import("react")>("react");
   return {
     ...actual,
-    cache: (fn: Function) => fn,
+    cache: (fn: (...args: unknown[]) => unknown) => fn,
   };
 });
 
