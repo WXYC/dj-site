@@ -111,6 +111,8 @@ jobs:
       - name: Install Backend-Service dependencies
         working-directory: Backend-Service
         run: npm ci
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Build Backend-Service workspaces
         working-directory: Backend-Service
@@ -133,6 +135,8 @@ jobs:
       - name: Install dj-site dependencies
         working-directory: dj-site
         run: npm ci
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Install Playwright browsers
         working-directory: dj-site
