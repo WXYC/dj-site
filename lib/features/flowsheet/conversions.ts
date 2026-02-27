@@ -4,6 +4,7 @@ import {
   FlowsheetQuery,
   FlowsheetSubmissionParams,
   FlowsheetV2EntryJSON,
+  FlowsheetV2PaginatedResponseJSON,
   OnAirDJData,
   OnAirDJResponse,
 } from "./types";
@@ -149,6 +150,16 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
     default:
       throw new Error(`Unknown entry type: ${(entry as any).entry_type}`);
   }
+}
+
+/**
+ * Extracts the entries array from a flowsheet API response,
+ * handling both bare-array (V1) and paginated-wrapper (V2) formats.
+ */
+export function extractFlowsheetEntries(
+  response: FlowsheetV2PaginatedResponseJSON | FlowsheetV2EntryJSON[]
+): FlowsheetV2EntryJSON[] {
+  return Array.isArray(response) ? response : response.entries;
 }
 
 export function convertV2FlowsheetResponse(
