@@ -41,7 +41,7 @@ export const flowsheetApi = createApi({
       transformResponse: (response: FlowsheetV2PaginatedResponseJSON) =>
         convertV2FlowsheetResponse(response.entries),
       providesTags: ["Flowsheet"],
-      merge: (currentCache, newItems) => {
+      merge: (currentCache = [], newItems) => {
         const map = new Map(currentCache.map((entry) => [entry.id, entry]));
         newItems.forEach((entry) => {
           map.set(entry.id, entry);

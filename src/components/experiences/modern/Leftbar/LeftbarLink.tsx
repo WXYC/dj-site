@@ -17,6 +17,7 @@ export default function LeftbarLink(props: LeftbarLinkProps): JSX.Element {
     <Link
       aria-disabled={props.disabled}
       href={props.path}
+      prefetch={props.disabled ? false : undefined}
       style={{
         pointerEvents: props.disabled ? "none" : "auto",
       }}
