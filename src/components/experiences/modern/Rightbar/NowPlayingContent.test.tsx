@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import NowPlayingContent from "./NowPlayingContent";
 
 // Mock API hooks
-const mockUseGetRightbarQuery = vi.fn(() => ({
+const mockUseGetRightbarQuery = vi.fn((): { data: boolean | undefined } => ({
   data: false,
 }));
 

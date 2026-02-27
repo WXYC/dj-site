@@ -22,13 +22,13 @@ vi.mock("@mui/icons-material/DragHandle", () => ({
   default: () => <span data-testid="drag-handle-icon" />,
 }));
 
-function createTestStore(initialState?: { rightbar?: { sidebarOpen?: boolean } }) {
+function createTestStore(overrides?: { rightbar?: { sidebarOpen?: boolean } }) {
   return configureStore({
     reducer: {
       application: applicationSlice.reducer,
     },
-    preloadedState: initialState
-      ? { application: { ...applicationSlice.getInitialState(), ...initialState } }
+    preloadedState: overrides
+      ? { application: { ...applicationSlice.getInitialState(), rightbar: { ...applicationSlice.getInitialState().rightbar, ...overrides.rightbar } } }
       : undefined,
   });
 }
