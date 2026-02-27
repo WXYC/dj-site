@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { Authorization } from "@/lib/features/admin/types";
-import { AuthorizedView, RequireDJ, RequireMD, RequireSM, RequireAdmin } from "./AuthorizedView";
+import { AuthorizedView, RequireDJ, RequireMD, RequireSM } from "./AuthorizedView";
 
 // Mock the auth client
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -165,15 +165,4 @@ describe("Convenience Components", () => {
     expect(screen.getByText("SM content")).toBeInTheDocument();
   });
 
-  it("RequireAdmin renders for Admin users", () => {
-    mockUseSession.mockReturnValue(createMockSession("admin"));
-    
-    render(
-      <RequireAdmin fallback={<div>No access</div>}>
-        <div>Admin content</div>
-      </RequireAdmin>
-    );
-    
-    expect(screen.getByText("Admin content")).toBeInTheDocument();
-  });
 });

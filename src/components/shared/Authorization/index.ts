@@ -3,6 +3,5 @@ export {
   RequireDJ,
   RequireMD,
   RequireSM,
-  RequireAdmin,
   type AuthorizedViewProps,
 } from "./AuthorizedView";
