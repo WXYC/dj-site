@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
         "warn",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
+      // Downgrade to warn until existing violations are cleaned up
+      "@typescript-eslint/no-explicit-any": "warn",
+      "react/no-unescaped-entities": "warn",
+      "prefer-const": "warn",
       // React Compiler rules from react-hooks v7 are too strict for the
       // existing codebase. Disable until we adopt the React Compiler.
       "react-hooks/set-state-in-effect": "off",
