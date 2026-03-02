@@ -263,12 +263,12 @@ describe("server-utils", () => {
       expect(result).toBe(true);
     });
 
-    it("should return true when djName is missing", () => {
+    it("should return false when only djName is missing", () => {
       const session = createTestIncompleteSession(["djName"]);
 
       const result = isUserIncomplete(session);
 
-      expect(result).toBe(true);
+      expect(result).toBe(false);
     });
 
     it("should return true when realName is empty string", () => {
@@ -324,25 +324,24 @@ describe("server-utils", () => {
       expect(result).not.toContain("djName");
     });
 
-    it("should return djName when missing", () => {
+    it("should not return djName when only djName is missing", () => {
       const session = createTestIncompleteSession(["djName"]);
 
       const result = getIncompleteUserAttributes(session);
 
-      expect(result).toContain("djName");
+      expect(result).not.toContain("djName");
       expect(result).not.toContain("realName");
     });
 
-    it("should return both when both are missing", () => {
+    it("should return realName when both are missing", () => {
       const session = createTestIncompleteSession(["realName", "djName"]);
 
       const result = getIncompleteUserAttributes(session);
 
       expect(result).toContain("realName");
-      expect(result).toContain("djName");
     });
 
-    it("should detect empty string as missing", () => {
+    it("should detect empty string realName as missing", () => {
       const session = createTestBetterAuthSession({
         user: {
           id: "test-id",
@@ -357,7 +356,6 @@ describe("server-utils", () => {
       const result = getIncompleteUserAttributes(session);
 
       expect(result).toContain("realName");
-      expect(result).toContain("djName");
     });
   });
 });

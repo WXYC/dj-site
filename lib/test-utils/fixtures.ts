@@ -196,7 +196,6 @@ export function createTestVerificationState(
     password: false,
     currentPassword: false,
     confirmPassword: false,
-    currentPassword: false,
     code: false,
     ...overrides,
   };
