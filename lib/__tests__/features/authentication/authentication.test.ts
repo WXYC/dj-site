@@ -243,6 +243,13 @@ describeSlice(authenticationSlice, defaultAuthenticationState, ({ harness, actio
         realName: false,
         djName: false,
         email: false,
+        pronouns: false,
+        namePronunciation: false,
+        showTimes: false,
+        title: false,
+        semesterHired: false,
+        bio: false,
+        location: false,
       });
     });
 

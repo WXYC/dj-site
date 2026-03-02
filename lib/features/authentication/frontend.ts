@@ -25,6 +25,13 @@ export const defaultAuthenticationState: AuthenticationState = {
     realName: false,
     djName: false,
     email: false,
+    pronouns: false,
+    namePronunciation: false,
+    showTimes: false,
+    title: false,
+    semesterHired: false,
+    bio: false,
+    location: false,
   },
   required: ["username", "password", "confirmPassword"],
 };
