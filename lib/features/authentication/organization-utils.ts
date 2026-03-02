@@ -223,7 +223,7 @@ export async function getUserRoleInOrganizationClient(
  * @param role - The role string from better-auth
  * @returns Normalized role string that matches WXYCRole format (camelCase for multi-word roles)
  */
-function normalizeRole(role: string): string {
+export function normalizeRole(role: string): string {
   const normalized = role.toLowerCase().trim();
   
   // Handle our WXYC role formats - convert to camelCase
