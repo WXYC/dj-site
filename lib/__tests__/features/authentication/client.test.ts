@@ -28,6 +28,7 @@ describe("authentication client", () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
+    vi.resetModules();
     vi.clearAllMocks();
     capturedConfig = null;
     process.env = { ...originalEnv };
@@ -216,16 +217,17 @@ describe("authentication client", () => {
       );
     });
 
-    it("should call fetch exactly once per invocation", async () => {
+    it("should call fetch exactly once per invocation when cache is cleared", async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({ token: "test-token" }),
       });
 
-      const { getJWTToken } = await import(
+      const { getJWTToken, clearTokenCache } = await import(
         "@/lib/features/authentication/client"
       );
       await getJWTToken();
+      clearTokenCache();
       await getJWTToken();
 
       expect(global.fetch).toHaveBeenCalledTimes(2);
