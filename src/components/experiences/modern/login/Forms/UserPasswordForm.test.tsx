@@ -61,8 +61,9 @@ describe("UserPasswordForm", () => {
   it("should have forgot link enabled by default", () => {
     renderWithProviders(<UserPasswordForm />);
 
-    // Forgot link is always enabled except during authentication
-    expect(screen.getByRole("button", { name: "Forgot?" })).not.toHaveClass("Mui-disabled");
+    // The forgot link is always enabled - users will be prompted for email on the forgot page
+    const forgotLink = screen.getByRole("button", { name: "Forgot?" });
+    expect(forgotLink).not.toHaveClass("Mui-disabled");
   });
 
   it("should render as a form with post method", () => {
