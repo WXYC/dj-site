@@ -17,10 +17,10 @@ vi.mock("next/navigation", () => ({
 }));
 
 // Mock useDJAccount hook
-const mockHandleSaveData = vi.fn((e: React.FormEvent) => e.preventDefault());
+const mockHandleSaveData = vi.fn(async (e: React.FormEvent) => { e.preventDefault(); });
 vi.mock("@/src/hooks/djHooks", () => ({
   useDJAccount: vi.fn(() => ({
-    info: { id: 1, djName: "Test DJ" },
+    info: { id: "1", dj_name: "Test DJ", real_name: "Test User" },
     loading: false,
     handleSaveData: mockHandleSaveData,
   })),
@@ -199,7 +199,7 @@ describe("SettingsPopup", () => {
       // Override the mock for this test
       const { useDJAccount } = await import("@/src/hooks/djHooks");
       vi.mocked(useDJAccount).mockReturnValue({
-        info: { id: 1, djName: "Test DJ" },
+        info: { id: "1", dj_name: "Test DJ", real_name: "Test User" },
         loading: true,
         handleSaveData: mockHandleSaveData,
       });

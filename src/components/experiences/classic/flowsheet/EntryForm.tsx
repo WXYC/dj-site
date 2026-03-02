@@ -36,10 +36,10 @@ export default function EntryForm({
 
   const { data: rotationData } = useGetRotationQuery();
 
-  const heavyReleases = rotationData?.filter((r) => r.play_freq === Rotation.H) || [];
-  const mediumReleases = rotationData?.filter((r) => r.play_freq === Rotation.M) || [];
-  const lightReleases = rotationData?.filter((r) => r.play_freq === Rotation.L) || [];
-  const singlesReleases = rotationData?.filter((r) => r.play_freq === Rotation.S) || [];
+  const heavyReleases = rotationData?.filter((r) => r.rotation_bin === Rotation.H) || [];
+  const mediumReleases = rotationData?.filter((r) => r.rotation_bin === Rotation.M) || [];
+  const lightReleases = rotationData?.filter((r) => r.rotation_bin === Rotation.L) || [];
+  const singlesReleases = rotationData?.filter((r) => r.rotation_bin === Rotation.S) || [];
 
   useEffect(() => {
     if (useArtistForComposer) {
@@ -73,7 +73,7 @@ export default function EntryForm({
         rotation_id: release.rotation_id,
         request_flag: requestAnswer === "yes",
         record_label: labelName || release.label,
-        play_freq: release.play_freq,
+        play_freq: release.rotation_bin,
       };
     } else if (releaseType === "libraryRelease") {
       // For library releases, we'd need album_id from search
