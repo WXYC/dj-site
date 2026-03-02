@@ -1,0 +1,142 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  validate-token:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+          registry-url: 'https://npm.pkg.github.com'
+
+      - name: Validate NPM_TOKEN
+        run: |
+          npm view @wxyc/shared version || {
+            echo ""
+            echo "ERROR: NPM_TOKEN is invalid or expired."
+            echo "The GitHub Personal Access Token used to authenticate with GitHub Packages"
+            echo "has expired. Generate a new token with 'read:packages' scope at:"
+            echo "  https://github.com/settings/tokens"
+            echo "Then update the NPM_TOKEN secret in:"
+            echo "  1. This repo: Settings > Secrets > Actions > NPM_TOKEN"
+            echo "  2. Cloudflare Pages: wxyc-dj project > Settings > Environment variables > NPM_TOKEN"
+            exit 1
+          }
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  build:
+    needs: validate-token
+    if: always() && (needs.validate-token.result == 'success' || needs.validate-token.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+          registry-url: 'https://npm.pkg.github.com'
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Build (OpenNext)
+        run: npm run build:opennext
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-next-build
+          path: .open-next/
+          include-hidden-files: true
+
+  test:
+    needs: validate-token
+    if: always() && (needs.validate-token.result == 'success' || needs.validate-token.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+          registry-url: 'https://npm.pkg.github.com'
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Run tests
+        run: npm run test:run
+
+  smoke-test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+          registry-url: 'https://npm.pkg.github.com'
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: open-next-build
+          path: .open-next/
+
+      - name: Start wrangler dev server
+        run: |
+          npx wrangler pages dev .open-next/assets \
+            --compatibility-date 2025-10-11 \
+            --compatibility-flags nodejs_compat_v2 \
+            --compatibility-flags global_fetch_strictly_public \
+            --port 8788 &
+          WRANGLER_PID=$!
+          echo "WRANGLER_PID=$WRANGLER_PID" >> $GITHUB_ENV
+
+          for i in $(seq 1 30); do
+            if curl -s -o /dev/null -w '%{http_code}' http://localhost:8788 | grep -q '[23]0[0-9]'; then
+              echo "Server ready after ${i}s"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "ERROR: Server failed to start within 30s"
+              kill $WRANGLER_PID 2>/dev/null
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: Assert HTTP 200
+        run: curl -sf http://localhost:8788 > /dev/null
+
+      - name: Tear down wrangler
+        if: always()
+        run: kill $WRANGLER_PID 2>/dev/null
