@@ -1,5 +1,6 @@
 import { type ReactNode } from "react";
 import { StoreProvider } from "@/src/StoreProvider";
+import { PostHogProvider } from "@/src/components/shared/PostHogProvider";
 
 import "@/src/styles/globals.css";
 import { createServerSideProps } from "@/lib/features/session";
@@ -44,20 +45,22 @@ export default async function RootLayout({ children }: Props) {
 
   return (
     <StoreProvider>
-      <ThemeRegistry options={{ key: "joy" }}>
-        <html lang="en" data-experience={serverSideProps.application.experience}>
-          <body>
-            <Toaster closeButton richColors />
-            <PageTitleUpdater />
-            <div id="root" style={{ height: "100%", overflow: "hidden" }}>
-              <main>
-                {children}
-                <Appbar />
-              </main>
-            </div>
-          </body>
-        </html>
-      </ThemeRegistry>
+      <PostHogProvider>
+        <ThemeRegistry options={{ key: "joy" }}>
+          <html lang="en" data-experience={serverSideProps.application.experience}>
+            <body>
+              <Toaster closeButton richColors />
+              <PageTitleUpdater />
+              <div id="root" style={{ height: "100%", overflow: "hidden" }}>
+                <main>
+                  {children}
+                  <Appbar />
+                </main>
+              </div>
+            </body>
+          </html>
+        </ThemeRegistry>
+      </PostHogProvider>
     </StoreProvider>
   );
 }
