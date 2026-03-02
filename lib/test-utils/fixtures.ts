@@ -7,7 +7,9 @@ import {
 import {
   AuthenticatedUser,
   AuthenticationState,
+  IncompleteUser,
   ModifiableData,
+  PasswordResetUser,
   User,
   VerifiedData,
   Verification,
@@ -286,6 +288,34 @@ export function createTestSessionWithOrgRole(role: WXYCRole): BetterAuthSession 
       },
     },
   });
+}
+
+/**
+ * Alias for createTestSessionWithOrgRole - creates a session with a specific role
+ * set in the user object. When organization-utils is mocked to return undefined for
+ * getAppOrganizationId, the auth system falls back to session.user.role.
+ */
+export function createTestSessionWithRole(role: string): BetterAuthSession {
+  return createTestBetterAuthSession({ user: { role } });
+}
+
+export function createTestIncompleteUser(
+  overrides: Partial<IncompleteUser> = {}
+): IncompleteUser {
+  return {
+    username: "testuser",
+    requiredAttributes: ["realName", "djName"],
+    ...overrides,
+  };
+}
+
+export function createTestPasswordResetUser(
+  overrides: Partial<PasswordResetUser> = {}
+): PasswordResetUser {
+  return {
+    confirmationMessage: "Check your email",
+    ...overrides,
+  };
 }
 
 export function createTestBetterAuthJWTPayload(
