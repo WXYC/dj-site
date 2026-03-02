@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { screen, act, waitFor } from "@testing-library/react";
 import RequiredBox from "./RequiredBox";
 import { renderWithProviders } from "@/lib/test-utils";
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
@@ -97,5 +97,85 @@ describe("RequiredBox", () => {
     // The input should be required
     const input = screen.getByRole("textbox");
     expect(input).toBeRequired();
+  });
+
+  it("should set initial value when provided", () => {
+    renderWithProviders(
+      <RequiredBox name="username" title="Username" initialValue="testuser" />
+    );
+    const input = screen.getByRole("textbox") as HTMLInputElement;
+    expect(input.value).toBe("testuser");
+  });
+
+  it("should update value when initialValue prop changes", async () => {
+    const { rerender } = renderWithProviders(
+      <RequiredBox name="username" title="Username" initialValue="first" />
+    );
+
+    const input = screen.getByRole("textbox") as HTMLInputElement;
+    expect(input.value).toBe("first");
+
+    rerender(<RequiredBox name="username" title="Username" initialValue="second" />);
+
+    await waitFor(() => {
+      expect(input.value).toBe("second");
+    });
+  });
+});
+
+describe("RequiredBox DOM sync", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("should sync from DOM when DOM value differs from state", async () => {
+    const { store } = renderWithProviders(
+      <RequiredBox name="username" title="Username" />
+    );
+
+    const input = screen.getByRole("textbox") as HTMLInputElement;
+
+    // Simulate browser autofill by directly setting DOM value
+    Object.defineProperty(input, "value", {
+      get: () => "autofilled",
+      set: () => {},
+      configurable: true,
+    });
+
+    // Advance timers to trigger the syncFromDom effect
+    await act(async () => {
+      vi.advanceTimersByTime(0);
+    });
+
+    // The validation should have been triggered
+    const state = store.getState();
+    expect(
+      authenticationSlice.selectors.getVerification(state, "username")
+    ).toBe(true);
+  });
+
+  it("should sync validation state on mount timeout", async () => {
+    const { store } = renderWithProviders(
+      <RequiredBox name="username" title="Username" />
+    );
+
+    // Initial state should be unverified
+    expect(
+      authenticationSlice.selectors.getVerification(store.getState(), "username")
+    ).toBe(false);
+
+    // Advance timers past the 300ms sync timeout
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+
+    // Validation should still be false (empty input)
+    expect(
+      authenticationSlice.selectors.getVerification(store.getState(), "username")
+    ).toBe(false);
   });
 });
