@@ -73,12 +73,27 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
     });
   });
 
+  describe("setAuthStage action", () => {
+    it.each(["login", "forgot", "reset"] as const)(
+      "should set authStage to %s",
+      (stage) => {
+        const result = harness().reduce(actions.setAuthStage(stage));
+        expect(result.authFlow.stage).toBe(stage);
+      }
+    );
+
+    it("should default to login stage", () => {
+      expect(harness().initialState.authFlow.stage).toBe("login");
+    });
+  });
+
   describe("reset action", () => {
     it("should reset state to default", () => {
       const result = harness().chain(
         actions.setRightbarMini(true),
         actions.toggleSidebar(),
         actions.setRightbarMenu(RightbarMenu.CATALOG_EDITOR),
+        actions.setAuthStage("forgot"),
         actions.reset()
       );
       expect(result).toEqual(defaultApplicationFrontendState);
@@ -98,6 +113,12 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
     describe("getRightbarMenu", () => {
       it("should be defined", () => {
         expect(applicationSlice.selectors.getRightbarMenu).toBeDefined();
+      });
+    });
+
+    describe("getAuthStage", () => {
+      it("should be defined", () => {
+        expect(applicationSlice.selectors.getAuthStage).toBeDefined();
       });
     });
   });
