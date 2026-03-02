@@ -1,0 +1,89 @@
+name: Cloudflare Deployment Status Monitor
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  check-deployment:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Query Cloudflare API for latest production deployment
+        id: query
+        run: |
+          RESPONSE=$(curl -sf \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            "https://api.cloudflare.com/client/v4/accounts/${{ vars.CLOUDFLARE_ACCOUNT_ID }}/pages/projects/wxyc-dj/deployments?env=production&per_page=1")
+
+          STATUS=$(echo "$RESPONSE" | jq -r '.result[0].latest_stage.status')
+          DEPLOY_ID=$(echo "$RESPONSE" | jq -r '.result[0].id')
+          COMMIT_SHA=$(echo "$RESPONSE" | jq -r '.result[0].deployment_trigger.metadata.commit_hash')
+          COMMIT_MSG=$(echo "$RESPONSE" | jq -r '.result[0].deployment_trigger.metadata.commit_message')
+
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          echo "deploy_id=$DEPLOY_ID" >> "$GITHUB_OUTPUT"
+          echo "commit_sha=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
+          echo "commit_msg=$COMMIT_MSG" >> "$GITHUB_OUTPUT"
+
+      - name: Handle deployment failure
+        if: steps.query.outputs.status == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEPLOY_ID: ${{ steps.query.outputs.deploy_id }}
+          COMMIT_SHA: ${{ steps.query.outputs.commit_sha }}
+          COMMIT_MSG: ${{ steps.query.outputs.commit_msg }}
+        run: |
+          EXISTING_ISSUE=$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --label cloudflare-deploy-failure \
+            --state open \
+            --limit 1 \
+            --json number \
+            --jq '.[0].number // empty')
+
+          BODY="The latest production deployment to Cloudflare Pages failed.
+
+          - **Commit:** ${COMMIT_SHA} (${COMMIT_MSG})
+          - **Deployment ID:** ${DEPLOY_ID}
+          - **Dashboard:** https://dash.cloudflare.com/${{ vars.CLOUDFLARE_ACCOUNT_ID }}/pages/view/wxyc-dj/${DEPLOY_ID}
+
+          This issue was automatically created by the deployment status monitor."
+
+          if [ -z "$EXISTING_ISSUE" ]; then
+            gh issue create \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Cloudflare Pages production deployment failed" \
+              --label "cloudflare-deploy-failure" \
+              --body "$BODY"
+          else
+            gh issue comment "$EXISTING_ISSUE" \
+              --repo "$GITHUB_REPOSITORY" \
+              --body "$BODY"
+          fi
+
+      - name: Handle deployment recovery
+        if: steps.query.outputs.status == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMIT_SHA: ${{ steps.query.outputs.commit_sha }}
+        run: |
+          EXISTING_ISSUE=$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --label cloudflare-deploy-failure \
+            --state open \
+            --limit 1 \
+            --json number \
+            --jq '.[0].number // empty')
+
+          if [ -n "$EXISTING_ISSUE" ]; then
+            gh issue comment "$EXISTING_ISSUE" \
+              --repo "$GITHUB_REPOSITORY" \
+              --body "Production deployment recovered. Commit: ${COMMIT_SHA}"
+            gh issue close "$EXISTING_ISSUE" \
+              --repo "$GITHUB_REPOSITORY"
+          fi
