@@ -49,10 +49,16 @@ vi.mock("@/src/components/experiences/modern/settings/SettingsInput", () => ({
   ),
 }));
 
+// Mock EmailChangeModal
+vi.mock("@/src/components/experiences/modern/settings/EmailChangeModal", () => ({
+  default: () => null,
+}));
+
 // Mock MUI icons
 vi.mock("@mui/icons-material", () => ({
   AccountCircle: () => <span data-testid="account-circle-icon" />,
   AlternateEmail: () => <span data-testid="alternate-email-icon" />,
+  Edit: () => <span data-testid="edit-icon" />,
   Email: () => <span data-testid="email-icon" />,
   TheaterComedy: () => <span data-testid="theater-comedy-icon" />,
 }));
@@ -115,7 +121,7 @@ describe("SettingsPopup", () => {
       renderWithProviders(<SettingsPopup user={testUser} />);
 
       expect(screen.getByText("Email")).toBeInTheDocument();
-      const emailInput = screen.getByTestId("settings-input-email");
+      const emailInput = screen.getByDisplayValue("testdj@wxyc.org");
       expect(emailInput).toBeDisabled();
     });
 
@@ -135,9 +141,7 @@ describe("SettingsPopup", () => {
       expect(screen.getByTestId("settings-input-djName")).toHaveValue(
         "DJ Test"
       );
-      expect(screen.getByTestId("settings-input-email")).toHaveValue(
-        "testdj@wxyc.org"
-      );
+      expect(screen.getByDisplayValue("testdj@wxyc.org")).toBeInTheDocument();
     });
   });
 
