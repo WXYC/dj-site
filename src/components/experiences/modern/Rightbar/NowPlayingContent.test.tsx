@@ -4,7 +4,7 @@ import NowPlayingContent from "./NowPlayingContent";
 
 // Mock API hooks
 const mockUseGetRightbarQuery = vi.fn(() => ({
-  data: false,
+  data: false as boolean | undefined,
 }));
 
 vi.mock("@/lib/features/application/api", () => ({

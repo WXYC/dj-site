@@ -28,7 +28,7 @@ function createTestStore(initialState?: { rightbar?: { sidebarOpen?: boolean } }
       application: applicationSlice.reducer,
     },
     preloadedState: initialState
-      ? { application: { ...applicationSlice.getInitialState(), ...initialState } }
+      ? { application: { ...applicationSlice.getInitialState(), ...initialState } as any }
       : undefined,
   });
 }

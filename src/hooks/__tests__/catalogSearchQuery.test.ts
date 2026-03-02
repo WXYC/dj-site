@@ -19,7 +19,7 @@ describe("catalog search query formatting (Bug 11)", () => {
   });
 
   it("should set both fields to the search string when searching Both", () => {
-    const query = formatCatalogSearchQuery("Both", "search term", 10);
+    const query = formatCatalogSearchQuery("All", "search term", 10);
 
     expect(query.artist_name).toBe("search term");
     expect(query.album_name).toBe("search term");
@@ -29,7 +29,7 @@ describe("catalog search query formatting (Bug 11)", () => {
     const queries = [
       formatCatalogSearchQuery("Albums", "test", 10),
       formatCatalogSearchQuery("Artists", "test", 10),
-      formatCatalogSearchQuery("Both", "test", 10),
+      formatCatalogSearchQuery("All", "test", 10),
     ];
 
     for (const query of queries) {

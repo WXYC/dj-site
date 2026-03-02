@@ -34,7 +34,7 @@ vi.mock("./GradientAudioVisualizer", () => ({
 }));
 
 // Mock useColorScheme hook
-const mockMode = vi.fn(() => "light");
+const mockMode = vi.fn(() => "light" as string | undefined);
 vi.mock("@mui/joy/styles", () => ({
   useColorScheme: () => ({ mode: mockMode() }),
 }));
