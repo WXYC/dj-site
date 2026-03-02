@@ -1,5 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// Mock react cache - must be before any imports that use it
+vi.mock("react", async () => {
+  const actual = await vi.importActual("react");
+  return {
+    ...actual,
+    cache: (fn: Function) => fn,
+  };
+});
+
 // Mock server-only
 vi.mock("server-only", () => ({}));
 
@@ -25,12 +34,24 @@ vi.mock("@/lib/features/experiences/preferences", () => ({
   parseAppSkinPreference: vi.fn(),
 }));
 
+// Mock organization-utils (used by session.ts for server-side role fetching)
+vi.mock("@/lib/features/authentication/organization-utils", () => ({
+  getUserRoleInOrganization: vi.fn(),
+  getAppOrganizationId: vi.fn(() => undefined),
+}));
+
 // Mock authentication utilities
 vi.mock("@/lib/features/authentication/utilities", () => ({
   defaultAuthenticationData: { message: "Not Authenticated" },
   betterAuthSessionToAuthenticationData: vi.fn(() => ({
     message: "Not Authenticated",
   })),
+}));
+
+// Mock authentication types (used by session.ts)
+vi.mock("@/lib/features/authentication/types", () => ({
+  mapRoleToAuthorization: vi.fn(),
+  isAuthenticated: vi.fn(() => false),
 }));
 
 // Mock application types
@@ -215,10 +236,11 @@ describe("session", () => {
     });
   });
 
-  describe("runtime", () => {
-    it("should export edge runtime", async () => {
-      const { runtime } = await import("@/lib/features/session");
-      expect(runtime).toBe("edge");
+  describe("module exports", () => {
+    it("should export sessionOptions and createServerSideProps", async () => {
+      const session = await import("@/lib/features/session");
+      expect(session.sessionOptions).toBeDefined();
+      expect(session.createServerSideProps).toBeDefined();
     });
   });
 });
