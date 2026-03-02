@@ -20,6 +20,8 @@ export {
   createComponentHarnessWithQueries,
   componentQueries,
   testPropVariants,
+  createHookWrapper,
+  createHookWrapperFactory,
   type ComponentHarnessResult,
 } from "./component-harness";
 export * from "./conversion-harness";
