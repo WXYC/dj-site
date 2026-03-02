@@ -9,7 +9,6 @@ import {
 } from "./conversions";
 import {
   FlowsheetEntry,
-  FlowsheetRequestParams,
   FlowsheetSubmissionParams,
   FlowsheetSwitchParams,
   FlowsheetUpdateParams,
@@ -32,32 +31,25 @@ export const flowsheetApi = createApi({
         convertV2Entry(response),
       providesTags: ["NowPlaying"],
     }),
-    getEntries: builder.query<FlowsheetEntry[], FlowsheetRequestParams>({
-      query: (params) => ({
-        url: !params
-          ? "/"
-          : `/?page=${params.page}&limit=${params.limit}`,
-      }),
-      serializeQueryArgs: ({ endpointName }) => endpointName,
+    getInfiniteEntries: builder.infiniteQuery<
+      FlowsheetEntry[],
+      void,
+      number
+    >({
+      infiniteQueryOptions: {
+        initialPageParam: 0,
+        getNextPageParam: (lastPage, _allPages, lastPageParam) =>
+          lastPage.length < 20 ? undefined : lastPageParam + 1,
+      },
+      query({ pageParam }) {
+        return {
+          url: `/?page=${pageParam}&limit=20`,
+        };
+      },
       transformResponse: (
         response: FlowsheetV2PaginatedResponseJSON | FlowsheetV2EntryJSON[]
       ) => convertV2FlowsheetResponse(extractFlowsheetEntries(response)),
       providesTags: ["Flowsheet"],
-      merge: (currentCache = [], newItems) => {
-        const map = new Map(currentCache.map((entry) => [entry.id, entry]));
-        newItems.forEach((entry) => {
-          map.set(entry.id, entry);
-        });
-        return Array.from(map.values()).sort(
-          (a, b) => b.play_order - a.play_order
-        );
-      },
-      forceRefetch({ currentArg, previousArg }) {
-        return (
-          currentArg?.page !== previousArg?.page ||
-          currentArg?.limit !== previousArg?.limit
-        );
-      },
     }),
     switchEntries: builder.mutation<undefined, FlowsheetSwitchParams>({
       query: (params) => ({
@@ -122,7 +114,7 @@ export const flowsheetApi = createApi({
 
 export const {
   useGetNowPlayingQuery,
-  useGetEntriesQuery,
+  useGetInfiniteEntriesInfiniteQuery,
   useJoinShowMutation,
   useLeaveShowMutation,
   useWhoIsLiveQuery,
