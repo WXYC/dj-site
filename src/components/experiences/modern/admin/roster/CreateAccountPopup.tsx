@@ -16,7 +16,7 @@ export default function CreateAccountPopup() {
   const router = useRouter();
 
   const modified = useAppSelector(authenticationSlice.selectors.isModified);
-  const { info, loading, handleSaveData } = useDJAccount();
+  const { loading, handleSaveData } = useDJAccount();
 
   return (
     <Modal

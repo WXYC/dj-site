@@ -27,7 +27,7 @@ async function resolveOrganizationId(
       } : {},
     });
     
-    let orgResult: any;
+    let orgResult: { data: { id?: string } | null; error: { code?: string; message: string; status?: number; statusText?: string } | null };
     if (response.ok) {
       const data = await response.json();
       orgResult = { data, error: null };
@@ -97,8 +97,8 @@ export async function getUserRoleInOrganization(
     }
 
     // Find the member matching the userId
-    const member = result.data?.members?.find((m: any) => m.userId === userId);
-    
+    const member = result.data?.members?.find((m: { userId: string; role?: string }) => m.userId === userId);
+
     if (!member) {
       // User is not a member of this organization
       return undefined;
@@ -107,7 +107,7 @@ export async function getUserRoleInOrganization(
     // Extract role from member object
     // Better-auth organization roles: "owner", "admin", "member" by default
     // But may be customized to our roles: "member", "dj", "musicDirector", "stationManager"
-    const role = member.role as string | undefined;
+    const role = member.role;
     
     if (!role) {
       return undefined;
@@ -190,15 +190,15 @@ export async function getUserRoleInOrganizationClient(
     }
 
     // Find the member matching the userId
-    const member = result.data?.members?.find((m: any) => m.userId === userId);
-    
+    const member = result.data?.members?.find((m: { userId: string; role?: string }) => m.userId === userId);
+
     if (!member) {
       // User is not a member of this organization
       return undefined;
     }
 
     // Extract role from member object
-    const role = member.role as string | undefined;
+    const role = member.role;
     
     if (!role) {
       return undefined;

@@ -5,11 +5,17 @@ import { Authorization } from "@/lib/features/admin/types";
 import type { User } from "@/lib/features/authentication/types";
 
 // Mock server-side authentication utilities
-const mockUser: User = {
+const mockUser = {
+  id: "test-user-id",
   username: "testuser",
   email: "test@example.com",
   realName: "Test User",
   djName: "DJ Test",
+  name: "testuser",
+  emailVerified: true,
+  appSkin: undefined as string | undefined,
+  createdAt: new Date(),
+  updatedAt: new Date(),
   authority: Authorization.DJ,
 };
 

@@ -148,7 +148,7 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
       };
 
     default:
-      throw new Error(`Unknown entry type: ${(entry as any).entry_type}`);
+      throw new Error(`Unknown entry type: ${(entry as { entry_type: string }).entry_type}`);
   }
 }
 

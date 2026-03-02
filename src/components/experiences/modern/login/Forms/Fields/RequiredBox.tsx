@@ -59,6 +59,7 @@ export default function RequiredBox({
     if (validated !== isValid) {
       reportValidation(isValid);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reportValidation is intentionally excluded to avoid infinite re-renders
   }, [value, validated, validationFunction]);
 
   useEffect(() => {
@@ -77,6 +78,7 @@ export default function RequiredBox({
 
     const timers = [setTimeout(syncFromDom, 0), setTimeout(syncFromDom, 300)];
     return () => timers.forEach(clearTimeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally runs once on mount to detect browser autofill
   }, []);
 
   return (
@@ -90,7 +92,7 @@ export default function RequiredBox({
         color={validated ? "success" : "primary"}
         slotProps={{ input: { ref: inputRef } }}
         onChange={(e) => {
-          let value = e.target.value;
+          const value = e.target.value;
           setValue(value);
           reportValidation(
             (validationFunction ?? ((value) => value.length > 0))(value)

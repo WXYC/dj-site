@@ -74,8 +74,8 @@ export const authenticationSlice = createAppSlice({
     },
     getModifications: (state) => {
       return Object.entries(state.modifications)
-        .filter(([_, value]) => value)
-        .map(([key, _]) => key as keyof ModifiableData);
+        .filter(([_key, value]) => value)
+        .map(([key, _value]) => key as keyof ModifiableData);
     },
     requiredCredentialsVerified: (state) => {
       return state.required.every((key) => state.verifications[key]);

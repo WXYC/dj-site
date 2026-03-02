@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import NewAccountForm from "./NewAccountForm";
 import { renderWithProviders } from "@/lib/test-utils";
 import { adminSlice } from "@/lib/features/admin/frontend";

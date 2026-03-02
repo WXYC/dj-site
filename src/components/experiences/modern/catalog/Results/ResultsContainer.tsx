@@ -3,8 +3,7 @@
 import Logo from "@/src/components/shared/Branding/Logo";
 import { useCatalogSearch } from "@/src/hooks/catalogHooks";
 import { DoubleArrow } from "@mui/icons-material";
-import { Box, Button, Sheet, Table, Typography } from "@mui/joy";
-import { useRef } from "react";
+import { Box, Button, Sheet, Typography } from "@mui/joy";
 import { useAddToBin } from "@/src/hooks/binHooks";
 import { toast } from "sonner";
 
@@ -15,7 +14,6 @@ export default function ResultsContainer({
 }) {
   const { searchString, selected, clearSelection } = useCatalogSearch();
   const { addToBin, loading } = useAddToBin();
-  const tableRef = useRef<HTMLTableElement>(null);
 
   const handleAddSelectedToBin = async () => {
     if (selected.length === 0) return;

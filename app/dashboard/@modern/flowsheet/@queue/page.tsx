@@ -1,16 +1,14 @@
 "use client";
 
-import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import { useAppSelector } from "@/lib/hooks";
 import SongEntry from "@/src/components/experiences/modern/flowsheet/Entries/SongEntry/SongEntry";
 import { Table, useColorScheme } from "@mui/joy";
 import { Reorder } from "motion/react";
-import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useCallback, useEffect, useState } from "react";
 
 export default function Queue() {
   const { mode } = useColorScheme();
   const queue = useAppSelector((state) => state.flowsheet.queue);
-  const dispatch = useAppDispatch();
   const [isMounted, setIsMounted] = useState(false);
 
   // Only render queue content after client-side mount to avoid hydration mismatch
@@ -19,7 +17,7 @@ export default function Queue() {
   }, []);
 
   // Handler for reordering queue items - Disabled for now
-  const handleReorder = useCallback((newOrder: typeof queue) => {
+  const handleReorder = useCallback((_newOrder: typeof queue) => {
     // Reordering disabled
   }, []);
 

@@ -67,6 +67,7 @@ export const flowsheetApi = createApi({
       }),
       invalidatesTags: ["Flowsheet", "NowPlaying"],
     }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- backend response type not defined
     joinShow: builder.mutation<any, DJRequestParams>({
       query: (params) => ({
         url: "/join",
@@ -75,6 +76,7 @@ export const flowsheetApi = createApi({
       }),
       invalidatesTags: ["NowPlaying", "WhoIsLive", "Flowsheet"],
     }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- backend response type not defined
     leaveShow: builder.mutation<any, DJRequestParams>({
       query: (params) => ({
         url: "/end",
@@ -91,6 +93,7 @@ export const flowsheetApi = createApi({
         convertDJsOnAir(response),
       providesTags: ["WhoIsLive"],
     }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- backend response type not defined
     addToFlowsheet: builder.mutation<any, FlowsheetSubmissionParams>({
       query: (params) => ({
         url: "/",
@@ -99,6 +102,7 @@ export const flowsheetApi = createApi({
       }),
       invalidatesTags: ["Flowsheet", "NowPlaying"],
     }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- backend response type not defined
     removeFromFlowsheet: builder.mutation<any, number>({
       query: (entry_id) => ({
         url: "/",
@@ -109,6 +113,7 @@ export const flowsheetApi = createApi({
       }),
       invalidatesTags: ["Flowsheet", "NowPlaying"],
     }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- backend response type not defined
     updateFlowsheet: builder.mutation<any, FlowsheetUpdateParams>({
       query: (params) => ({
         url: "/",

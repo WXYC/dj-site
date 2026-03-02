@@ -33,6 +33,7 @@ export default function AlbumArtAndIcons({
   if (!entry || loading) {
     return (
       <ImageWrapper>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/img/cassette.png"
           srcSet="/img/cassette.png"
@@ -47,6 +48,7 @@ export default function AlbumArtAndIcons({
   if (isFlowsheetSongEntry(entry)) {
     return (
       <ImageWrapper>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={url}
           srcSet={url}
@@ -92,6 +94,7 @@ export default function AlbumArtAndIcons({
 
   return (
     <ImageWrapper>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/img/cassette.png"
         srcSet="/img/cassette.png"

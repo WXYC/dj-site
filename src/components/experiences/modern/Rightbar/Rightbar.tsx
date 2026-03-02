@@ -1,4 +1,3 @@
-import NowPlaying from "@/src/widgets/NowPlaying";
 import { Box, Divider } from "@mui/joy";
 import BinContent from "./Bin/BinContent";
 import RightbarContainer from "./RightbarContainer";

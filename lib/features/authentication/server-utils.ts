@@ -90,11 +90,13 @@ async function getUserAuthority(session: BetterAuthSession, cookieHeader?: strin
   // Fallback: Get role from session data (organization member data if available, or user role)
   // Organization role takes precedence over base user role
   // Also check if role is stored in metadata or other custom fields
+  /* eslint-disable @typescript-eslint/no-explicit-any -- better-auth session user type does not expose these optional fields */
   const organizationRole = (session.user as any).organization?.role;
   const userRole = (session.user as any).role;
   // Check for role in metadata or other potential locations
   const metadataRole = (session.user as any).metadata?.role;
   const customRole = (session.user as any).customRole;
+  /* eslint-enable @typescript-eslint/no-explicit-any */
   const roleToMap = organizationRole || metadataRole || customRole || userRole;
 
   const authority = mapRoleToAuthorization(roleToMap);
@@ -153,7 +155,6 @@ export function getIncompleteUserAttributes(session: BetterAuthSession): (keyof 
  * Get user object from session (for compatibility with existing code)
  */
 export async function getUserFromSession(session: BetterAuthSession, cookieHeader?: string) {
-  const token = session.session?.token;
   const cookieStore = await cookies();
   const header = cookieHeader || cookieStore.toString();
   const userAuthority = await getUserAuthority(session, header);

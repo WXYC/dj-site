@@ -56,6 +56,7 @@ export default function NotFoundCard() {
 
   useEffect(() => {
     setRandomQuote(lostQuotes[Math.floor(Math.random() * lostQuotes.length)]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- lostQuotes is stable within this component; run once on mount
   }, []);
 
   return (
@@ -97,7 +98,7 @@ export default function NotFoundCard() {
       <Divider />
       <CardContent>
         <Typography level="body-md" sx={{ mb: 2 }}>
-          We couldn't find the resource you were looking for.
+          We couldn&apos;t find the resource you were looking for.
         </Typography>
         <Link href={String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog")}>
           <Button variant="solid" color="primary" fullWidth>

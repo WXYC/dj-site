@@ -27,7 +27,8 @@ export default function AlbumErrorCard() {
     >
       <CardOverflow>
         <AspectRatio ratio="4">
-          <img src="/img/wxyc_dark.jpg" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/img/wxyc_dark.jpg" alt="WXYC logo" />
         </AspectRatio>
         <ModalClose variant="solid" />;
       </CardOverflow>

@@ -20,7 +20,7 @@ export function useDJAccount() {
   const dispatch = useAppDispatch();
 
   const [isUpdating, setIsUpdating] = useState(false);
-  const [updateError, setUpdateError] = useState<Error | null>(null);
+  const [, setUpdateError] = useState<Error | null>(null);
 
   useEffect(() => {
     if (!isUpdating) {
@@ -40,7 +40,7 @@ export function useDJAccount() {
       try {
         const formData = new FormData(e.currentTarget);
 
-        let data: AccountModification = {};
+        const data: AccountModification = {};
 
         for (const [key, value] of formData.entries()) {
           if (value !== "" && modifications.some((name) => name == key)) {
@@ -58,6 +58,7 @@ export function useDJAccount() {
           // Update user via better-auth non-admin updateUser (updates current user)
           // Custom metadata fields (realName, djName) go at the top level
           // Email updates may require special handling in better-auth
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- better-auth updateUser accepts custom fields not in its base type
           const updateData: Record<string, any> = {};
           if (data.realName) updateData.realName = data.realName;
           if (data.djName) updateData.djName = data.djName;
@@ -88,7 +89,7 @@ export function useDJAccount() {
         setIsUpdating(false);
       }
     },
-    [modifications]
+    [modifications, info, router]
   );
 
   return {

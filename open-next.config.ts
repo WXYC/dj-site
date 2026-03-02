@@ -1,4 +1,4 @@
-export default {
+const openNextConfig = {
   default: {
     override: {
       wrapper: "cloudflare-node",
@@ -23,3 +23,4 @@ export default {
   },
 };
 
+export default openNextConfig;
