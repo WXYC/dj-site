@@ -40,6 +40,7 @@ import {
   requireRole,
   isUserIncomplete,
   getIncompleteUserAttributes,
+  getUserFromSession,
 } from "@/lib/features/authentication/server-utils";
 import {
   createTestBetterAuthSession,
@@ -263,12 +264,12 @@ describe("server-utils", () => {
       expect(result).toBe(true);
     });
 
-    it("should return false when only djName is missing", () => {
+    it("should return true when only djName is missing", () => {
       const session = createTestIncompleteSession(["djName"]);
 
       const result = isUserIncomplete(session);
 
-      expect(result).toBe(false);
+      expect(result).toBe(true);
     });
 
     it("should return true when realName is empty string", () => {
@@ -324,21 +325,22 @@ describe("server-utils", () => {
       expect(result).not.toContain("djName");
     });
 
-    it("should not return djName when only djName is missing", () => {
+    it("should return djName when only djName is missing", () => {
       const session = createTestIncompleteSession(["djName"]);
 
       const result = getIncompleteUserAttributes(session);
 
-      expect(result).not.toContain("djName");
+      expect(result).toContain("djName");
       expect(result).not.toContain("realName");
     });
 
-    it("should return realName when both are missing", () => {
+    it("should return both realName and djName when both are missing", () => {
       const session = createTestIncompleteSession(["realName", "djName"]);
 
       const result = getIncompleteUserAttributes(session);
 
       expect(result).toContain("realName");
+      expect(result).toContain("djName");
     });
 
     it("should detect empty string realName as missing", () => {
@@ -356,6 +358,77 @@ describe("server-utils", () => {
       const result = getIncompleteUserAttributes(session);
 
       expect(result).toContain("realName");
+    });
+  });
+
+  describe("getUserFromSession", () => {
+    it("should extract basic user information from session", async () => {
+      const session = createTestBetterAuthSession({
+        user: { id: "user-123", email: "dj@wxyc.org", name: "djuser", username: "djuser", emailVerified: true, realName: "Real DJ Name", djName: "DJ Cool", role: "dj" },
+      });
+      const result = await getUserFromSession(session);
+      expect(result.id).toBe("user-123");
+      expect(result.email).toBe("dj@wxyc.org");
+      expect(result.realName).toBe("Real DJ Name");
+      expect(result.djName).toBe("DJ Cool");
+    });
+
+    it("should use username when available", async () => {
+      const session = createTestBetterAuthSession({
+        user: { id: "test-id", email: "test@wxyc.org", name: "namevalue", username: "usernamevalue", emailVerified: true, realName: "Test User", djName: "DJ Test" },
+      });
+      const result = await getUserFromSession(session);
+      expect(result.username).toBe("usernamevalue");
+    });
+
+    it("should fall back to name when username is not set", async () => {
+      const session = createTestBetterAuthSession({
+        user: { id: "test-id", email: "test@wxyc.org", name: "fallbackname", username: undefined, emailVerified: true, realName: "Test User", djName: "DJ Test" },
+      });
+      const result = await getUserFromSession(session);
+      expect(result.username).toBe("fallbackname");
+    });
+
+    it("should map station manager role to SM authority", async () => {
+      const session = createTestSessionWithOrgRole("stationManager");
+      const result = await getUserFromSession(session);
+      expect(result.authority).toBe(Authorization.SM);
+    });
+
+    it("should map dj role to DJ authority", async () => {
+      const session = createTestSessionWithOrgRole("dj");
+      const result = await getUserFromSession(session);
+      expect(result.authority).toBe(Authorization.DJ);
+    });
+
+    it("should map member role to NO authority", async () => {
+      const session = createTestSessionWithOrgRole("member");
+      const result = await getUserFromSession(session);
+      expect(result.authority).toBe(Authorization.NO);
+    });
+  });
+
+  describe("checkRole edge cases", () => {
+    it("should handle NO authorization requirement", async () => {
+      const memberSession = createTestSessionWithOrgRole("member");
+      expect(await checkRole(memberSession, Authorization.NO)).toBe(true);
+    });
+  });
+
+  describe("requireRole additional cases", () => {
+    const originalEnv = process.env;
+    beforeEach(() => { process.env = { ...originalEnv, NEXT_PUBLIC_DASHBOARD_HOME_PAGE: "/dashboard" }; });
+    afterEach(() => { process.env = originalEnv; });
+
+    it("should allow SM to access SM-required resources", async () => {
+      const session = createTestSessionWithOrgRole("stationManager");
+      await requireRole(session, Authorization.SM);
+      expect(mockRedirect).not.toHaveBeenCalled();
+    });
+
+    it("should not allow MD to access SM-required resources", async () => {
+      const session = createTestSessionWithOrgRole("musicDirector");
+      await expect(requireRole(session, Authorization.SM)).rejects.toThrow("REDIRECT:/dashboard");
     });
   });
 });
