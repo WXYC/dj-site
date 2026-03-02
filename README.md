@@ -94,6 +94,18 @@ The application uses [Better Auth](https://www.better-auth.com/) for authenticat
 - Username: `test_member`, `test_dj1`, `test_dj2`, `test_music_director`, or `test_station_manager`
 - Password: `testpassword123`
 
+## Linting
+
+The project uses [ESLint](https://eslint.org/) with [eslint-config-next](https://nextjs.org/docs/app/api-reference/config/eslint) for static analysis.
+
+```bash
+# Check for lint errors
+npm run lint
+
+# Auto-fix lint errors
+npm run lint:fix
+```
+
 ## Testing
 
 The project uses [Vitest](https://vitest.dev/) for testing with React Testing Library and MSW for API mocking.

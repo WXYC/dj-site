@@ -5,11 +5,7 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:300
 // Base handlers that can be extended in individual tests
 export const handlers = [
   // Catalog API handlers
-  http.get(`${BACKEND_URL}/library/`, ({ request }) => {
-    const url = new URL(request.url);
-    const artistName = url.searchParams.get("artist_name");
-    const albumName = url.searchParams.get("album_name");
-
+  http.get(`${BACKEND_URL}/library/`, () => {
     // Return empty array by default - tests can override with specific handlers
     return HttpResponse.json([]);
   }),
