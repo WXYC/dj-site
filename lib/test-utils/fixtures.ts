@@ -296,7 +296,17 @@ export function createTestSessionWithOrgRole(role: WXYCRole): BetterAuthSession 
  * getAppOrganizationId, the auth system falls back to session.user.role.
  */
 export function createTestSessionWithRole(role: string): BetterAuthSession {
-  return createTestBetterAuthSession({ user: { role } });
+  return createTestBetterAuthSession({
+    user: {
+      id: "test-user-id-123",
+      email: "testdj@wxyc.org",
+      name: "testdj",
+      emailVerified: true,
+      realName: "Test User",
+      djName: "DJ Test",
+      role,
+    },
+  });
 }
 
 export function createTestIncompleteUser(
