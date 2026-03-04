@@ -39,7 +39,7 @@ export class SettingsPage {
     this.page = page;
 
     // Settings popup - it's a Card inside a Modal
-    this.settingsModal = page.locator('[role="dialog"]:has-text("Your Information")');
+    this.settingsModal = page.locator('.MuiModal-root:has-text("Your Information")');
     this.usernameInput = this.settingsModal.locator('input').first();
     this.realNameInput = this.settingsModal.locator('input[name="realName"]');
     this.djNameInput = this.settingsModal.locator('input[name="djName"]');

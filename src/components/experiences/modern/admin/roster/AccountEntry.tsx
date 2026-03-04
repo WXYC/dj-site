@@ -4,7 +4,6 @@ import { authClient } from "@/lib/features/authentication/client";
 import { getAppOrganizationIdClient } from "@/lib/features/authentication/organization-utils";
 import {
   Account,
-  AdminAuthenticationStatus,
   Authorization,
 } from "@/lib/features/admin/types";
 import { Check, Close, DeleteForever, Edit, Language, SyncLock } from "@mui/icons-material";
@@ -528,11 +527,7 @@ export const AccountEntry = ({
               color={"success"}
               variant="solid"
               size="sm"
-              disabled={
-                account.authType != AdminAuthenticationStatus.Confirmed ||
-                isSelf ||
-                isResetting
-              }
+              disabled={isSelf || isResetting}
               loading={isResetting}
               onClick={async () => {
                 if (

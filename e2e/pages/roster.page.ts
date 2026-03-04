@@ -117,33 +117,14 @@ export class RosterPage {
   }
 
   async submitNewAccount(): Promise<void> {
-    // Wait for save button to be visible and enabled
     await this.saveButton.waitFor({ state: "visible", timeout: 5000 });
     await expect(this.saveButton).toBeEnabled({ timeout: 5000 });
-    // Small delay to ensure form is ready
-    await this.page.waitForTimeout(500);
-    // Dispatch SubmitEvent on the form - this triggers React's onSubmit handler
-    await this.saveButton.evaluate((btn) => {
-      const form = btn.closest("form");
-      if (form) {
-        const event = new SubmitEvent("submit", {
-          bubbles: true,
-          cancelable: true,
-          submitter: btn,
-        });
-        form.dispatchEvent(event);
-      }
-    });
-    // Wait for submission result - either form closes (success) or error toast appears
+    await this.saveButton.click();
     await Promise.race([
       this.saveButton.waitFor({ state: "hidden", timeout: 15000 }),
       this.errorToast.waitFor({ state: "visible", timeout: 15000 }),
       this.successToast.waitFor({ state: "visible", timeout: 15000 }),
-    ]).catch(() => {
-      // If none of the above happens, continue anyway
-    });
-    // Give the UI time to update
-    await this.page.waitForTimeout(500);
+    ]).catch(() => {});
   }
 
   async createAccount(data: {
