@@ -61,9 +61,9 @@ export class RosterPage {
     this.newAccountSmCheckbox = this.newAccountRow.locator('input[type="checkbox"]').first();
     this.newAccountMdCheckbox = this.newAccountRow.locator('input[type="checkbox"]').nth(1);
 
-    // Table
-    this.rosterTable = page.locator("table");
-    this.tableRows = page.locator("tbody tr");
+    // Table - scoped to the roster form to avoid matching other tables on the page
+    this.rosterTable = page.locator("form table");
+    this.tableRows = page.locator("form tbody tr");
 
     // States
     this.loadingSpinner = page.locator('[role="progressbar"], .MuiCircularProgress-root');
