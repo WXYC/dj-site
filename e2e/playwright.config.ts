@@ -18,12 +18,14 @@ export default defineConfig({
   testDir: ".",
   /* Output directory for test artifacts */
   outputDir: "../test-results",
+  /* Hard cap on entire Playwright run to prevent runaway CI */
+  globalTimeout: 10 * 60 * 1000,
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code */
   forbidOnly: !!process.env.CI,
-  /* Retry on CI only - reduced to avoid timeout with many failures */
-  retries: process.env.CI ? 1 : 0,
+  /* No retries during development -- re-enable once suite is stable */
+  retries: 0,
   /* Limit parallel workers to avoid overwhelming auth service */
   workers: process.env.CI ? 2 : 3,
   /* Reporter to use */
@@ -68,9 +70,10 @@ export default defineConfig({
     },
   ],
 
-  /* Configure timeout for individual tests - reduced for faster feedback */
-  timeout: 30000,
+  /* 15s per test (3x the ~5s baseline) */
+  timeout: 15000,
   expect: {
-    timeout: 15000,
+    /* Aligned with actionTimeout */
+    timeout: 10000,
   },
 });
