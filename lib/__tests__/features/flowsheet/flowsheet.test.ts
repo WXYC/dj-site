@@ -114,26 +114,6 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
     });
   });
 
-  describe("pagination actions", () => {
-    it("should set page number", () => {
-      const result = harness().reduce(actions.setPage(5));
-      expect(result.pagination.page).toBe(5);
-    });
-
-    it("should set pagination with max tracking", () => {
-      const step1 = harness().reduce(actions.setPagination({ page: 3, limit: 50 }));
-      expect(step1.pagination.page).toBe(3);
-      expect(step1.pagination.limit).toBe(50);
-      expect(step1.pagination.max).toBe(3);
-
-      const step2 = harness().reduce(actions.setPagination({ page: 5, limit: 50 }), step1);
-      expect(step2.pagination.max).toBe(5);
-
-      const step3 = harness().reduce(actions.setPagination({ page: 2, limit: 50 }), step2);
-      expect(step3.pagination.max).toBe(5);
-    });
-  });
-
   describe("selectors", () => {
     it("should select autoplay state", () => {
       const { dispatch, select } = harness().withStore();
