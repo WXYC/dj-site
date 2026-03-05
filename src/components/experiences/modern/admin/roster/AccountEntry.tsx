@@ -544,14 +544,17 @@ export const AccountEntry = ({
                     const tempPassword = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
 
                     // Reset password via better-auth admin API
+                    // Password goes at the top level (not inside `data`) because
+                    // better-auth handles it on the account table, not the user table.
+                    // Putting it in `data` would clear other user fields like realName.
                     const result = await (
                       authClient.admin.updateUser as unknown as (args: {
                         userId: string;
-                        data: { password: string };
+                        password: string;
                       }) => Promise<{ error?: { message?: string } | null }>
                     )({
                       userId: targetUserId,
-                      data: { password: tempPassword },
+                      password: tempPassword,
                     });
 
                     if (result.error) {

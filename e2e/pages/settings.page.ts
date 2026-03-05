@@ -95,7 +95,9 @@ export class SettingsPage {
   }
 
   async submitEmailChange(): Promise<void> {
-    await this.sendVerificationButton.click();
+    // Use force:true because the outer SettingsPopup Modal's CardActions
+    // can intercept pointer events on the nested EmailChangeModal buttons
+    await this.sendVerificationButton.click({ force: true });
   }
 
   async changeEmail(newEmail: string, password: string): Promise<void> {
@@ -105,11 +107,15 @@ export class SettingsPage {
   }
 
   async cancelEmailChange(): Promise<void> {
-    await this.cancelButton.click();
+    // Use force:true because the outer SettingsPopup Modal's CardActions
+    // can intercept pointer events on the nested EmailChangeModal buttons
+    await this.cancelButton.click({ force: true });
   }
 
   async closeSuccessModal(): Promise<void> {
-    await this.doneButton.click();
+    // Use force:true because the outer SettingsPopup Modal's CardActions
+    // can intercept pointer events on the nested EmailChangeModal buttons
+    await this.doneButton.click({ force: true });
   }
 
   async expectEmailChangeModalVisible(): Promise<void> {
