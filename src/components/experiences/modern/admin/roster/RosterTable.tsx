@@ -121,7 +121,7 @@ export default function RosterTable({ user }: { user: User }) {
         });
 
         if (result.error) {
-          throw new Error(result.error.message || "Failed to create user");
+          throw new Error(result.error.message || `Failed to create user: ${result.error.code || "unknown error"}`);
         }
 
         if (result.data?.user?.id) {

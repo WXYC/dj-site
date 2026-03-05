@@ -56,6 +56,10 @@ export async function requireAuth(): Promise<BetterAuthSession> {
     redirect("/login?error=email-not-verified");
   }
 
+  if (isUserIncomplete(session)) {
+    redirect("/login?incomplete=true");
+  }
+
   return session;
 }
 
