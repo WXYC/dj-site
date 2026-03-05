@@ -128,6 +128,43 @@ describe("server-utils", () => {
       await expect(requireAuth()).rejects.toThrow("REDIRECT:/login");
       expect(mockRedirect).toHaveBeenCalledWith("/login");
     });
+
+    it("should redirect to /login?incomplete=true when user is incomplete", async () => {
+      const session = createTestIncompleteSession(["realName"]);
+      mockGetSession.mockResolvedValue({ data: session, error: null });
+
+      await expect(requireAuth()).rejects.toThrow("REDIRECT:/login?incomplete=true");
+      expect(mockRedirect).toHaveBeenCalledWith("/login?incomplete=true");
+    });
+
+    it("should not redirect incomplete users when realName is not in session", async () => {
+      // Simulate a session where better-auth didn't include realName at all
+      const session = createTestBetterAuthSession();
+      delete (session.user as any).realName;
+      mockGetSession.mockResolvedValue({ data: session, error: null });
+
+      const result = await requireAuth();
+
+      expect(result.user.id).toBe(session.user.id);
+      expect(mockRedirect).not.toHaveBeenCalled();
+    });
+
+    it("should redirect to /login when email is not verified", async () => {
+      const session = createTestBetterAuthSession({
+        user: {
+          id: "test-id",
+          email: "test@wxyc.org",
+          name: "test",
+          emailVerified: false,
+          realName: "Test User",
+          djName: "DJ Test",
+        },
+      });
+      mockGetSession.mockResolvedValue({ data: session, error: null });
+
+      await expect(requireAuth()).rejects.toThrow("REDIRECT:/login?error=email-not-verified");
+      expect(mockRedirect).toHaveBeenCalledWith("/login?error=email-not-verified");
+    });
   });
 
   describe("checkRole", () => {
