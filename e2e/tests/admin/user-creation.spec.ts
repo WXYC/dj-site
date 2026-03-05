@@ -183,11 +183,8 @@ test.describe("Admin User Creation", () => {
 
     await rosterPage.submitNewAccount();
 
-    // Should show error toast or the form should remain visible (not dismissed)
-    const errorToast = page.locator('[data-sonner-toast][data-type="error"]');
-    const formStillVisible = page.locator('tr:has(button:has-text("Save"))');
-
-    await expect(errorToast.or(formStillVisible)).toBeVisible({ timeout: 10000 });
+    // Should show error toast
+    await rosterPage.expectErrorToast();
   });
 
   test("should validate email format", async ({ page }) => {
