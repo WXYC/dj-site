@@ -547,11 +547,11 @@ export const AccountEntry = ({
                     const result = await (
                       authClient.admin.updateUser as unknown as (args: {
                         userId: string;
-                        password: string;
+                        data: { password: string };
                       }) => Promise<{ error?: { message?: string } | null }>
                     )({
                       userId: targetUserId,
-                      password: tempPassword,
+                      data: { password: tempPassword },
                     });
 
                     if (result.error) {
