@@ -26,25 +26,24 @@ export default function LoginSlotSwitcher({
   const isVerificationFailed = errorParam === "verification-failed";
   const isVerified = searchParams?.get("verified") === "true";
 
-  useEffect(() => {
-    // Only trigger reset flow for password-reset-specific params.
-    // The "token" param is ONLY used by the password reset flow — email
-    // verification is now handled by /auth/verify-email/route.ts which
-    // redirects to /login?verified=true (no raw token in the URL).
-    const hasResetToken = !!searchParams?.get("token");
-    const hasResetError =
-      !!errorParam &&
-      !isEmailNotVerified &&
-      !isVerificationFailed;
+  const hasResetToken = !!searchParams?.get("token");
+  const hasResetError =
+    !!errorParam &&
+    !isEmailNotVerified &&
+    !isVerificationFailed;
+  const hasResetParams = hasResetToken || hasResetError;
 
-    if (hasResetToken || hasResetError) {
+  useEffect(() => {
+    if (hasResetParams) {
       dispatch(applicationSlice.actions.setAuthStage("reset"));
     }
-  }, [dispatch, searchParams, errorParam, isEmailNotVerified, isVerificationFailed]);
+  }, [dispatch, hasResetParams]);
 
   if (isIncomplete) return <>{newuser}</>;
 
-  if (authStage === "forgot" || authStage === "reset") {
+  const effectiveAuthStage = hasResetParams ? "reset" : authStage;
+
+  if (effectiveAuthStage === "forgot" || effectiveAuthStage === "reset") {
     return <>{reset}</>;
   }
 

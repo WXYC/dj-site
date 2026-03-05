@@ -30,8 +30,8 @@ export class OnboardingPage {
     this.djNameInput = page.locator('input[name="djName"]');
     this.passwordInput = page.locator('input[name="password"]');
     this.confirmPasswordInput = page.locator('input[name="confirmPassword"]');
-    this.submitButton = page.locator('button[type="submit"]');
-    this.backButton = page.locator('button:has-text("Login with a different account")');
+    this.submitButton = page.getByRole('button', { name: 'Submit' });
+    this.backButton = page.getByRole('button', { name: 'Login with a different account' });
 
     // Helper text
     this.passwordHelperText = page.locator('text=Must be at least 8 characters');
@@ -118,7 +118,8 @@ export class OnboardingPage {
 
   async isOnOnboardingPage(): Promise<boolean> {
     const url = this.page.url();
-    return url.includes("/newuser") || url.includes("/onboarding");
+    return url.includes("/newuser") || url.includes("/onboarding") ||
+      (url.includes("/login") && url.includes("incomplete=true"));
   }
 
   /**

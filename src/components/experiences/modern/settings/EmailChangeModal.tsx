@@ -71,11 +71,11 @@ export default function EmailChangeModal({
     setIsLoading(true);
 
     try {
-      // First verify the password by attempting to get session
+      // Verify the password by attempting to sign in with email
       // Better Auth's changeEmail requires the user to be authenticated
       // and we verify the password to prevent unauthorized changes
-      const verifyResult = await authClient.signIn.username({
-        username: currentEmail, // Use email as identifier for verification
+      const verifyResult = await authClient.signIn.email({
+        email: currentEmail,
         password,
       });
 

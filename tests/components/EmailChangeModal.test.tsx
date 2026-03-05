@@ -5,13 +5,13 @@ import EmailChangeModal from "@/src/components/experiences/modern/settings/Email
 
 // Mock the auth client
 const mockChangeEmail = vi.fn();
-const mockSignInUsername = vi.fn();
+const mockSignInEmail = vi.fn();
 
 vi.mock("@/lib/features/authentication/client", () => ({
   authClient: {
     changeEmail: (...args: unknown[]) => mockChangeEmail(...args),
     signIn: {
-      username: (...args: unknown[]) => mockSignInUsername(...args),
+      email: (...args: unknown[]) => mockSignInEmail(...args),
     },
   },
 }));
@@ -33,7 +33,7 @@ describe("EmailChangeModal", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockSignInUsername.mockResolvedValue({ data: { user: {} } });
+    mockSignInEmail.mockResolvedValue({ data: { user: {} } });
     mockChangeEmail.mockResolvedValue({ data: { status: true } });
   });
 
@@ -82,7 +82,7 @@ describe("EmailChangeModal", () => {
       await user.click(submitButton);
 
       expect(screen.getByText("Please fill in all fields")).toBeInTheDocument();
-      expect(mockSignInUsername).not.toHaveBeenCalled();
+      expect(mockSignInEmail).not.toHaveBeenCalled();
     });
 
     it("should show error when new email is same as current", async () => {
@@ -104,7 +104,7 @@ describe("EmailChangeModal", () => {
       expect(
         screen.getByText("New email must be different from your current email")
       ).toBeInTheDocument();
-      expect(mockSignInUsername).not.toHaveBeenCalled();
+      expect(mockSignInEmail).not.toHaveBeenCalled();
     });
 
     it("should show error for invalid email format", async () => {
@@ -127,7 +127,7 @@ describe("EmailChangeModal", () => {
       expect(
         screen.getByText("Please enter a valid email address")
       ).toBeInTheDocument();
-      expect(mockSignInUsername).not.toHaveBeenCalled();
+      expect(mockSignInEmail).not.toHaveBeenCalled();
     });
   });
 
@@ -149,15 +149,15 @@ describe("EmailChangeModal", () => {
       await user.click(submitButton);
 
       await waitFor(() => {
-        expect(mockSignInUsername).toHaveBeenCalledWith({
-          username: "current@example.com",
+        expect(mockSignInEmail).toHaveBeenCalledWith({
+          email: "current@example.com",
           password: "correctpassword",
         });
       });
     });
 
     it("should show error when password verification fails", async () => {
-      mockSignInUsername.mockResolvedValue({
+      mockSignInEmail.mockResolvedValue({
         error: { message: "Invalid credentials" },
       });
 
@@ -331,7 +331,7 @@ describe("EmailChangeModal", () => {
   describe("Loading State", () => {
     it("should disable inputs while loading", async () => {
       // Make the API call hang
-      mockSignInUsername.mockImplementation(
+      mockSignInEmail.mockImplementation(
         () => new Promise(() => {}) // Never resolves
       );
 

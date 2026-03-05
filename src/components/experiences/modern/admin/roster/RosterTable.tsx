@@ -121,7 +121,15 @@ export default function RosterTable({ user }: { user: User }) {
         });
 
         if (result.error) {
-          throw new Error(result.error.message || "Failed to create user");
+          throw new Error(result.error.message || result.error.code || "Failed to create user");
+        }
+
+        if (result.data?.user?.id) {
+          // Mark email as verified — admin-created users don't need email verification
+          await authClient.admin.updateUser({
+            userId: result.data.user.id,
+            data: { emailVerified: true },
+          });
         }
 
         // Add user to the organization with the appropriate role

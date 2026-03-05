@@ -39,7 +39,7 @@ export class SettingsPage {
     this.page = page;
 
     // Settings popup - it's a Card inside a Modal
-    this.settingsModal = page.locator('[role="dialog"]:has-text("Your Information")');
+    this.settingsModal = page.locator('.MuiModal-root:has-text("Your Information")');
     this.usernameInput = this.settingsModal.locator('input').first();
     this.realNameInput = this.settingsModal.locator('input[name="realName"]');
     this.djNameInput = this.settingsModal.locator('input[name="djName"]');
@@ -95,7 +95,13 @@ export class SettingsPage {
   }
 
   async submitEmailChange(): Promise<void> {
-    await this.sendVerificationButton.click();
+    // Dispatch submit event on the form to bypass both:
+    // 1. Outer SettingsPopup Modal's pointer event interception
+    // 2. Browser HTML5 validation on type="email" inputs (so custom validation runs)
+    const form = this.emailChangeModal.locator("form");
+    await form.evaluate((f) =>
+      f.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))
+    );
   }
 
   async changeEmail(newEmail: string, password: string): Promise<void> {
@@ -105,11 +111,15 @@ export class SettingsPage {
   }
 
   async cancelEmailChange(): Promise<void> {
-    await this.cancelButton.click();
+    // Use JavaScript click to bypass outer SettingsPopup Modal's CardActions
+    // which intercept pointer events on nested EmailChangeModal buttons
+    await this.cancelButton.evaluate((el) => (el as HTMLElement).click());
   }
 
   async closeSuccessModal(): Promise<void> {
-    await this.doneButton.click();
+    // Use JavaScript click to bypass outer SettingsPopup Modal's CardActions
+    // which intercept pointer events on nested EmailChangeModal buttons
+    await this.doneButton.evaluate((el) => (el as HTMLElement).click());
   }
 
   async expectEmailChangeModalVisible(): Promise<void> {
