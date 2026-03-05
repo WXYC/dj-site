@@ -540,21 +540,16 @@ export const AccountEntry = ({
                   try {
                     const targetUserId = await resolveUserId();
 
-                    // Generate a temporary password
-                    const tempPassword = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+                    // Use the configured onboarding temp password so the admin
+                    // can share the known password with the user
+                    const tempPassword =
+                      process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD || crypto.randomUUID().replace(/-/g, "").slice(0, 16);
 
-                    // Reset password via better-auth admin API
-                    // Password goes at the top level (not inside `data`) because
-                    // better-auth handles it on the account table, not the user table.
-                    // Putting it in `data` would clear other user fields like realName.
-                    const result = await (
-                      authClient.admin.updateUser as unknown as (args: {
-                        userId: string;
-                        password: string;
-                      }) => Promise<{ error?: { message?: string } | null }>
-                    )({
+                    // Use dedicated setUserPassword endpoint which only updates
+                    // the password hash on the account table, without touching user fields
+                    const result = await authClient.admin.setUserPassword({
                       userId: targetUserId,
-                      password: tempPassword,
+                      newPassword: tempPassword,
                     });
 
                     if (result.error) {

@@ -59,7 +59,16 @@ export const useLogin = () => {
         // Sign in successful, session cookie is set
         const dashboardHome = String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog");
         toast.success("Login successful");
-        router.push(dashboardHome);
+
+        // Check if user profile is incomplete (missing realName)
+        // If so, redirect to login with incomplete flag so the server layout
+        // renders the onboarding form instead of the dashboard
+        const user = (result as any).data?.user;
+        if (user && !user.realName) {
+          router.push("/login?incomplete=true");
+        } else {
+          router.push(dashboardHome);
+        }
         router.refresh();
       }
     } catch (err) {

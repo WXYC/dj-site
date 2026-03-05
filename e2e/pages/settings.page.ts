@@ -95,9 +95,13 @@ export class SettingsPage {
   }
 
   async submitEmailChange(): Promise<void> {
-    // Use force:true because the outer SettingsPopup Modal's CardActions
-    // can intercept pointer events on the nested EmailChangeModal buttons
-    await this.sendVerificationButton.click({ force: true });
+    // Dispatch submit event on the form to bypass both:
+    // 1. Outer SettingsPopup Modal's pointer event interception
+    // 2. Browser HTML5 validation on type="email" inputs (so custom validation runs)
+    const form = this.emailChangeModal.locator("form");
+    await form.evaluate((f) =>
+      f.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))
+    );
   }
 
   async changeEmail(newEmail: string, password: string): Promise<void> {
@@ -107,15 +111,15 @@ export class SettingsPage {
   }
 
   async cancelEmailChange(): Promise<void> {
-    // Use force:true because the outer SettingsPopup Modal's CardActions
-    // can intercept pointer events on the nested EmailChangeModal buttons
-    await this.cancelButton.click({ force: true });
+    // Use JavaScript click to bypass outer SettingsPopup Modal's CardActions
+    // which intercept pointer events on nested EmailChangeModal buttons
+    await this.cancelButton.evaluate((el) => (el as HTMLElement).click());
   }
 
   async closeSuccessModal(): Promise<void> {
-    // Use force:true because the outer SettingsPopup Modal's CardActions
-    // can intercept pointer events on the nested EmailChangeModal buttons
-    await this.doneButton.click({ force: true });
+    // Use JavaScript click to bypass outer SettingsPopup Modal's CardActions
+    // which intercept pointer events on nested EmailChangeModal buttons
+    await this.doneButton.evaluate((el) => (el as HTMLElement).click());
   }
 
   async expectEmailChangeModalVisible(): Promise<void> {
