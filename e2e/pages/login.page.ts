@@ -152,10 +152,13 @@ export class LoginPage {
   }
 
   async waitForRedirectToOnboarding(): Promise<void> {
-    // Onboarding might be on a different route
+    // Incomplete users stay on /login where LoginSlotSwitcher renders the
+    // newuser slot, or may be on a dedicated /newuser or /onboarding route
     await this.page.waitForURL((url) => {
       const path = url.pathname;
-      return path.includes("/newuser") || path.includes("/onboarding");
+      const search = url.search;
+      return path.includes("/newuser") || path.includes("/onboarding") ||
+        (path.includes("/login") && search.includes("incomplete=true"));
     }, { timeout: 10000 });
   }
 }

@@ -118,7 +118,8 @@ export class OnboardingPage {
 
   async isOnOnboardingPage(): Promise<boolean> {
     const url = this.page.url();
-    return url.includes("/newuser") || url.includes("/onboarding");
+    return url.includes("/newuser") || url.includes("/onboarding") ||
+      (url.includes("/login") && url.includes("incomplete=true"));
   }
 
   /**

@@ -25,7 +25,7 @@ test.describe("Self-Service Email Change", () => {
     await expect(settingsPage.settingsModal).toBeVisible();
 
     // Email field should be visible
-    const emailLabel = page.getByText("Email");
+    const emailLabel = page.getByText("Email", { exact: true });
     await expect(emailLabel).toBeVisible();
   });
 

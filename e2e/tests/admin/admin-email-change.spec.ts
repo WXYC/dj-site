@@ -167,6 +167,8 @@ test.describe("Admin Email Change - Error Handling", () => {
   });
 
   test("should handle invalid email format gracefully", async ({ page }) => {
+    const originalEmail = await rosterPage.getUserEmail(TEST_USERS.dj1.username);
+
     await rosterPage.startEditEmail(TEST_USERS.dj1.username);
 
     const emailInput = rosterPage.getEmailInput(TEST_USERS.dj1.username);
@@ -194,6 +196,15 @@ test.describe("Admin Email Change - Error Handling", () => {
     const stillEditing = await emailInputStillVisible.isVisible().catch(() => false);
 
     expect(hasError || hasSuccess || stillEditing).toBe(true);
+
+    // Restore original email if it was changed (to avoid corrupting state for other tests)
+    if (hasSuccess) {
+      await page.waitForTimeout(1000);
+      await rosterPage.goto();
+      await rosterPage.waitForTableLoaded();
+      await rosterPage.updateEmailWithConfirm(TEST_USERS.dj1.username, originalEmail);
+      await rosterPage.expectSuccessToast();
+    }
   });
 
   test("should dismiss dialog without making changes when cancelled", async ({ page }) => {
