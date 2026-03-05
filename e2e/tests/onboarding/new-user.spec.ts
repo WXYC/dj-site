@@ -2,6 +2,7 @@ import { test, expect, TEST_USERS } from "../../fixtures/auth.fixture";
 import { LoginPage } from "../../pages/login.page";
 import { DashboardPage } from "../../pages/dashboard.page";
 import { OnboardingPage } from "../../pages/onboarding.page";
+import { RosterPage } from "../../pages/roster.page";
 
 test.describe("New User Onboarding", () => {
   // Onboarding tests do manual logins and must run sequentially
@@ -206,8 +207,6 @@ test.describe("New User Onboarding", () => {
       // Navigate to roster and create a user
       await adminDashboard.gotoAdminRoster();
 
-      // Import RosterPage
-      const { RosterPage } = await import("../../pages/roster.page");
       const rosterPage = new RosterPage(adminPage);
       await rosterPage.waitForTableLoaded();
 
