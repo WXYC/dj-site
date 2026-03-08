@@ -1,4 +1,4 @@
-import { getServerSession, isUserIncomplete } from "@/lib/features/authentication/server-utils";
+import { getServerSession } from "@/lib/features/authentication/server-utils";
 import { redirect } from "next/navigation";
 import WXYCPage from "@/src/Layout/WXYCPage";
 import LoginSlotSwitcher from "./LoginSlotSwitcher";
@@ -22,20 +22,7 @@ export default async function ModernLoginLayout({
   const session = await getServerSession();
 
   if (session?.user?.emailVerified) {
-    // If user is incomplete (missing realName), show onboarding form
-    if (isUserIncomplete(session)) {
-      return (
-        <WXYCPage>
-          <LoginSlotSwitcher
-            normal={normal}
-            newuser={newuser}
-            reset={reset}
-            isIncomplete={true}
-          />
-        </WXYCPage>
-      );
-    }
-    // User is authenticated, verified, and complete — redirect to dashboard
+    // User is authenticated and verified — redirect to dashboard
     redirect(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog"));
   }
   // If authenticated but NOT verified, stay on login to show verification message

@@ -56,13 +56,6 @@ export async function requireAuth(): Promise<BetterAuthSession> {
     redirect("/login?error=email-not-verified");
   }
 
-  // Redirect incomplete users (missing realName) back to login for onboarding.
-  // Only check if realName is explicitly present as a key in the user object
-  // (better-auth includes additional fields when configured).
-  if ("realName" in session.user && isUserIncomplete(session)) {
-    redirect("/login?incomplete=true");
-  }
-
   return session;
 }
 
