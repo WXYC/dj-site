@@ -1,0 +1,97 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - region "Notifications alt+T"
+  - main [ref=e3]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - img [ref=e8]
+        - list [ref=e30]:
+          - link "Card Catalog" [ref=e31] [cursor=pointer]:
+            - /url: /dashboard/catalog
+            - listitem [ref=e32]:
+              - button "Card Catalog" [ref=e33]:
+                - img [ref=e35]
+          - link "Flowsheet" [ref=e38] [cursor=pointer]:
+            - /url: /dashboard/flowsheet
+            - listitem [ref=e39]:
+              - button "Flowsheet" [ref=e40]:
+                - img [ref=e42]
+          - link "Previous Sets" [disabled]:
+            - /url: /dashboard/playlists
+            - listitem:
+              - button "Previous Sets" [disabled]:
+                - generic:
+                  - img
+        - link "Settings" [ref=e48] [cursor=pointer]:
+          - /url: /dashboard/settings
+          - listitem [ref=e49]:
+            - button "Settings" [ref=e50]:
+              - img [ref=e52]
+        - separator [ref=e54]
+        - button [ref=e56] [cursor=pointer]:
+          - img [ref=e57]
+      - main [ref=e59]:
+        - generic [ref=e60]:
+          - heading "Flowsheet" [level=2] [ref=e61]
+          - button "Autoplay is Off" [disabled]:
+            - img
+          - group [ref=e62]:
+            - button "Go Live" [ref=e63] [cursor=pointer]:
+              - img [ref=e64]
+            - button "Click the button at left to go live": You Are Off Air ⬤
+        - generic [ref=e67]:
+          - button "Add a 05:00 PM breakpoint" [disabled]:
+            - img
+          - button "Add a Talkset" [disabled]:
+            - img
+          - generic [ref=e68]:
+            - generic:
+              - img
+            - textbox "Song" [disabled] [ref=e69]
+            - separator [ref=e70]
+            - textbox "Artist" [disabled] [ref=e71]
+            - separator [ref=e72]
+            - textbox "Album" [disabled] [ref=e73]
+            - separator [ref=e74]
+            - textbox "Label" [disabled] [ref=e75]
+            - generic [ref=e76]:
+              - button / [disabled]
+        - generic [ref=e77]:
+          - table:
+            - rowgroup
+      - generic [ref=e90]:
+        - list [ref=e92]:
+          - generic [ref=e93]:
+            - img [ref=e94]
+            - paragraph [ref=e96]: Now Playing
+          - button [ref=e97] [cursor=pointer]:
+            - img [ref=e98]
+          - generic [ref=e100]:
+            - button "Play audio" [ref=e104] [cursor=pointer]:
+              - img [ref=e105]
+            - generic [ref=e108]:
+              - paragraph [ref=e109]: You're Listening To
+              - paragraph [ref=e110]: WXYC Chapel Hill
+            - generic [ref=e111]: OFF AIR
+        - separator [ref=e112]
+        - list [ref=e114]:
+          - generic [ref=e115]:
+            - img [ref=e116]
+            - paragraph [ref=e118]: Mail Bin
+          - paragraph [ref=e121]: An empty record...
+        - separator [ref=e122]
+    - generic [ref=e124]:
+      - generic [ref=e125]: WXYC DJ Site ve2e
+      - group [ref=e126]:
+        - link "Beta Tester Form" [ref=e127] [cursor=pointer]:
+          - /url: https://forms.gle/9q1mGCFtPS7DXQUE9
+        - link "General Feedback" [ref=e128] [cursor=pointer]:
+          - /url: https://forms.gle/VCw43XejNte27Bef7
+        - button "Switch to classic experience" [ref=e129] [cursor=pointer]:
+          - img [ref=e130]
+        - button "Switch to dark mode" [ref=e132] [cursor=pointer]:
+          - img [ref=e133]
+  - alert [ref=e135]
+```
