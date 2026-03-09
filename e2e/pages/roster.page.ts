@@ -61,9 +61,9 @@ export class RosterPage {
     this.newAccountSmCheckbox = this.newAccountRow.locator('input[type="checkbox"]').first();
     this.newAccountMdCheckbox = this.newAccountRow.locator('input[type="checkbox"]').nth(1);
 
-    // Table
-    this.rosterTable = page.locator("table");
-    this.tableRows = page.locator("tbody tr");
+    // Table — scoped to the roster form to avoid matching tables on other pages
+    this.rosterTable = page.locator("form table");
+    this.tableRows = page.locator("form tbody tr");
 
     // States
     this.loadingSpinner = page.locator('[role="progressbar"], .MuiCircularProgress-root');
@@ -77,10 +77,11 @@ export class RosterPage {
   async goto(): Promise<void> {
     await this.page.goto("/dashboard/admin/roster");
     await this.page.waitForLoadState("domcontentloaded");
+    await this.page.waitForURL("**/dashboard/admin/roster**", { timeout: 10000 });
   }
 
   async waitForTableLoaded(): Promise<void> {
-    // Wait for loading spinner to disappear and table rows to appear
+    await this.page.waitForURL("**/dashboard/admin/roster**", { timeout: 10000 });
     await this.loadingSpinner.waitFor({ state: "hidden", timeout: 10000 }).catch(() => {});
     await this.rosterTable.waitFor({ state: "visible", timeout: 10000 });
   }

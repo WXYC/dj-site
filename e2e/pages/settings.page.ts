@@ -77,6 +77,7 @@ export class SettingsPage {
   async goto(): Promise<void> {
     await this.page.goto("/dashboard/settings");
     await this.page.waitForLoadState("domcontentloaded");
+    await this.page.waitForURL("**/dashboard/settings**", { timeout: 10000 });
     await this.settingsModal.waitFor({ state: "visible", timeout: 10000 });
   }
 

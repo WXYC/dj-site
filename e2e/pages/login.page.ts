@@ -87,6 +87,7 @@ export class LoginPage {
   async resetPassword(newPassword: string, confirmPassword: string): Promise<void> {
     await this.newPasswordInput.fill(newPassword);
     await this.confirmPasswordInput.fill(confirmPassword);
+    await expect(this.submitButton).toBeEnabled({ timeout: 5000 });
     await this.submitButton.click();
   }
 
