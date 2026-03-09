@@ -9,7 +9,6 @@ import {
 } from "./conversions";
 import {
   FlowsheetEntry,
-  FlowsheetEntryResponse,
   FlowsheetSubmissionParams,
   FlowsheetSwitchParams,
   FlowsheetUpdateParams,
