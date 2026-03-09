@@ -10,6 +10,7 @@ import {
   isRejectedWithValue,
 } from "@reduxjs/toolkit";
 import { toast } from "sonner";
+import { posthog } from "./posthog";
 import { adminSlice } from "./features/admin/frontend";
 import { applicationApi } from "./features/application/api";
 import { applicationSlice } from "./features/application/frontend";
@@ -75,6 +76,18 @@ export const rtkQueryErrorLogger: Middleware =
         status?: string;
         error?: string;
       };
+
+      const endpointName = (action as any)?.meta?.arg?.endpointName;
+
+      posthog.captureException(
+        new Error(
+          payload?.data?.message || payload?.error || "RTK Query error"
+        ),
+        {
+          endpoint: endpointName,
+          status: payload?.status,
+        }
+      );
 
       const serverMessage = payload?.data?.message;
       if (serverMessage && serverMessage.trim().length > 0) {
