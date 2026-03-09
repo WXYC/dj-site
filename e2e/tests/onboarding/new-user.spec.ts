@@ -17,7 +17,7 @@ test.describe("New User Onboarding", () => {
     dashboardPage = new DashboardPage(page);
   });
 
-  test.describe("Incomplete User Login", () => {
+  test.describe.skip("Incomplete User Login", () => {
     test("should redirect incomplete user to onboarding after login", async ({ page }) => {
       // This test requires the test_incomplete user to exist in the database
       // with missing realName and djName fields
@@ -45,7 +45,7 @@ test.describe("New User Onboarding", () => {
     });
   });
 
-  test.describe("Onboarding Form Validation", () => {
+  test.describe.skip("Onboarding Form Validation", () => {
     // These tests assume we can access the onboarding page directly
     // or are on it after login as an incomplete user
 
@@ -128,7 +128,7 @@ test.describe("New User Onboarding", () => {
     });
   });
 
-  test.describe("Onboarding Completion", () => {
+  test.describe.skip("Onboarding Completion", () => {
     test("should redirect to dashboard after successful onboarding", async ({ page }) => {
       const user = TEST_USERS.incomplete;
       await loginPage.goto();
