@@ -27,6 +27,7 @@ export default function Main({ children }: { children: React.ReactNode }) {
         flexDirection: "column",
         minWidth: 0,
         height: "100dvh",
+        overflow: "hidden",
         gap: 1,
       })}
     >

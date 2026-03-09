@@ -1,10 +1,16 @@
 import WXYCPage from "@/src/Layout/WXYCPage";
 import NowPlaying from "@/src/widgets/NowPlaying";
 import { Box, Card } from "@mui/joy";
+import { Metadata } from "next";
+import { getPageTitle } from "@/lib/utils/page-title";
+
+export const metadata: Metadata = {
+  title: getPageTitle("Listen Live"),
+};
 
 export default function LivePage() {
   return (
-    <WXYCPage title="Listen Live">
+    <WXYCPage>
       <Box
         sx={{
           position: "absolute",

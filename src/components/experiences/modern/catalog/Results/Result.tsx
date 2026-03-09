@@ -48,7 +48,7 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
           entry={album.entry}
           artist={album.artist}
           format={album.format}
-          rotation={album.play_freq}
+          rotation={album.rotation_bin}
         />
       </td>
       <td>
@@ -89,7 +89,7 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
           {album.format}
         </Chip>
       </td>
-      <td>0</td>
+      <td>{album.plays ?? 0}</td>
       <td>
         <Stack direction="row" gap={0.25}>
           <Tooltip variant="outlined" size="sm" title="More information">

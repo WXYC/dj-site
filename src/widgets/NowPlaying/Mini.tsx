@@ -14,7 +14,7 @@ import {
   Stack,
 } from "@mui/joy";
 import { useColorScheme } from "@mui/joy/styles";
-import { useRef, useState } from "react";
+import { MutableRefObject, RefObject } from "react";
 import AlbumArtAndIcons from "./AlbumArtAndIcons";
 import EntryText from "./EntryText";
 import { GradientAudioVisualizer } from "./GradientAudioVisualizer";
@@ -23,34 +23,25 @@ export default function NowPlayingMini({
   entry,
   live,
   onAirDJs,
+  audioRef,
+  isPlaying,
+  onTogglePlay,
+  audioContext,
+  analyserNode,
+  animationFrameRef,
 }: {
   entry?: FlowsheetEntry;
   live: boolean;
   onAirDJs?: OnAirDJResponse[];
+  audioRef: RefObject<HTMLAudioElement>;
+  isPlaying: boolean;
+  onTogglePlay: () => void;
+  audioContext: AudioContext | null;
+  analyserNode: AnalyserNode | null;
+  animationFrameRef: MutableRefObject<number | null>;
 }) {
   const { mode } = useColorScheme();
-  const playRef = useRef<{
-    play: () => void;
-    pause: () => void;
-    readonly isPlaying: boolean;
-  }>(null);
-
-  const [playing, setPlaying] = useState(false); // ← drives the icon
-
-  const toggle = () => {
-    if (!playRef.current) return;
-
-    if (playRef.current.isPlaying) {
-      playRef.current.pause();
-      setPlaying(false);
-    } else {
-      playRef.current.play();
-      setPlaying(true);
-    }
-  };
-
-  const overlayColor =
-    mode === "light" ? "white" : "neutral.800";
+  const overlayColor = mode === "light" ? "white" : "neutral.800";
 
   return (
     <Card
@@ -64,16 +55,19 @@ export default function NowPlayingMini({
       }}
     >
       <GradientAudioVisualizer
-        src="https://audio-mp3.ibiblio.org/wxyc.mp3"
-        ref={playRef}
+        audioRef={audioRef}
+        isPlaying={isPlaying}
+        audioContext={audioContext}
+        analyserNode={analyserNode}
         overlayColor={overlayColor}
+        animationFrameRef={animationFrameRef}
       />
       <CardContent sx={{
         maxWidth: "calc(100px + 1.5rem)"
       }}>
         <AlbumArtAndIcons entry={entry} />
         <IconButton
-          aria-label={playing ? "Pause audio" : "Play audio"}
+          aria-label={isPlaying ? "Pause audio" : "Play audio"}
           size="sm"
           variant="solid"
           color="danger"
@@ -85,9 +79,9 @@ export default function NowPlayingMini({
             bottom: "1.5rem",
             transform: "translateY(50%)",
           }}
-          onClick={toggle}
+          onClick={onTogglePlay}
         >
-          {playing ? <Pause /> : <PlayArrow />}
+          {isPlaying ? <Pause /> : <PlayArrow />}
         </IconButton>
       </CardContent>
       <CardContent sx={{ justifyContent: "space-between", minWidth: 0, flex: 1, overflow: "hidden" }}>

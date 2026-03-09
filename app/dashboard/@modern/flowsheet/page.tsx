@@ -1,11 +1,11 @@
-"use client";
+import { Metadata } from "next";
+import { getPageTitle } from "@/lib/utils/page-title";
+import FlowsheetSearch from "./flowsheet-search";
 
-import FlowsheetSearchbar from "@/src/components/experiences/modern/flowsheet/Search/FlowsheetSearchbar";
+export const metadata: Metadata = {
+  title: getPageTitle("Flowsheet"),
+};
 
 export default function FlowsheetPage() {
-  return (
-    <>
-      <FlowsheetSearchbar />
-    </>
-  );
+  return <FlowsheetSearch />;
 }

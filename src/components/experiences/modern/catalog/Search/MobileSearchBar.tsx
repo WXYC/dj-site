@@ -1,7 +1,7 @@
 "use client";
 
 import { useAppSelector } from "@/lib/hooks";
-import { FilterAlt, SendOutlined, Troubleshoot } from "@mui/icons-material";
+import { Cancel, FilterAlt, Troubleshoot } from "@mui/icons-material";
 import {
   Button,
   ColorPaletteProp,
@@ -51,16 +51,16 @@ export default function MobileSearchBar({
       <IconButton size="sm" variant="outlined" color="neutral" onClick={open}>
         <FilterAlt />
       </IconButton>
-      <IconButton
-        size="sm"
-        variant="solid"
-        color={color ?? "primary"}
-        onClick={() => {
-          console.log("Search!");
-        }}
-      >
-        <SendOutlined />
-      </IconButton>
+      {searchString.length > 0 && (
+        <IconButton
+          size="sm"
+          variant="plain"
+          color={color ?? "primary"}
+          onClick={() => setSearchString("")}
+        >
+          <Cancel />
+        </IconButton>
+      )}
       <Modal open={isOpen} onClose={close}>
         <ModalDialog
           aria-labelledby="filter-modal"

@@ -1,0 +1,495 @@
+body {
+	font-family: Verdana, Geneva, Arial, Helvetica, sans-serif;	
+}
+
+#font-adjuster {
+  background-color: #AAAAAA;
+  margin: 2px;
+  padding: 2px;
+}
+
+#font-adjuster .button {
+  text-align: center;
+  background-color: #fff;
+  font-weight: normal;
+}
+
+#messageArea {
+  margin: 2px;
+  padding: 2px;
+  font-size: 1.1em;
+  text-align: center;
+  background-color: #fff;
+  font-weight: bold;
+}
+
+.redtitle {
+	font-family: Verdana, Geneva, Arial, Helvetica, sans-serif;
+	font-size: 1em;
+	font-weight: bold;
+	color: #FF0000
+}
+
+.title {
+	font-family: Verdana, Geneva, Arial, Helvetica, sans-serif;
+	font-size: 1em;
+	font-weight: bold;
+}
+
+.subtitle {
+	font-family: Verdana, Geneva, Arial, Helvetica, sans-serif;
+	font-size: 0.9em;
+	line-height: 1.33;
+}
+
+.fontHover {
+	color: #CC0000;
+}
+
+.fontSelected {
+	color: #FF0000;
+}
+
+.flowsheetEntryData {
+	font-family: Verdana, Geneva, Arial, Helvetica, sans-serif;
+}
+
+.fontSize7 {
+	font-size: 1.7em;
+}
+.fontSize6 {
+	font-size: 1.5em;
+}
+.fontSize5 {
+	font-size: 1.3em;
+}
+.fontSize4 {
+	font-size: 1.1em;
+}
+.fontSize3 {
+	font-size: 1.0em;
+}
+.fontSize2 {
+	font-size: 0.8em;
+}
+.fontSize1 {
+	font-size: 0.7em;
+}
+
+#flowsheet th {
+	background-color: #AAAAAA;
+	text-align: center;
+	font-weight: bold;
+	line-height: 1.33;
+	color: #FF0000;
+	font-family: Verdana, Geneva, Arial, Helvetica, sans-serif;
+	font-size: 0.8em;
+}
+
+.bigtext {
+	font-family: Verdana, Geneva, Arial, Helvetica, sans-serif;
+	font-size: 1.3em;
+	line-height: 1.50;
+}
+
+.text {
+	font-family: Verdana, Geneva, Arial, Helvetica, sans-serif;
+	font-size: 0.8em;
+	line-height: 1.33;
+}
+
+.smalltext {
+	font-family: Verdana, Geneva, Arial, Helvetica, sans-serif;
+	font-size: 0.7em;
+	line-height: 1.33;
+}
+
+.label {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 0.8em;
+	line-height: 1.33;
+	font-weight: bold;
+}
+
+.redlabel {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 0.8em;
+	line-height: 1.33;
+	font-weight: bold;
+	color: #FF0000;
+}
+
+.littlegreenlabel {
+	font-weight: bold;
+	color: #00FF00;
+}
+
+.breakpoint {
+	font-weight: bold;
+	color: #00FF00;
+}
+
+.talkset {
+	font-weight: bold;
+	color: #DDDD22;
+}
+
+.bigblue {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 1.3em;
+	line-height: 1.50;
+	font-weight: bold;
+	color: #0000FF
+}
+
+.greenlabel {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 1.3em;
+	line-height: 1.50;
+	font-weight: bold;
+	color: #00FF00
+}
+
+.smalllabel {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 0.7em;
+	line-height: 1.33;
+}
+
+.text TD {
+	font-family: Verdana, Geneva, Arial, Helvetica, sans-serif;
+	font-size: 0.8em;
+	line-height: 1.33;
+}
+
+.submenu {
+	font-family: Geneva, Verdana, Arial, Helvetica, sans-serif;
+	font-size: 0.8em;
+}
+
+.submenu TD {
+	font-family: Geneva, Verdana, Arial, Helvetica, sans-serif;
+	font-size: 0.8em;
+	font-weight: bold;
+}
+
+.submenu TD A {
+	font-family: Geneva, Verdana, Arial, Helvetica, sans-serif;
+	font-weight: normal;
+	text-decoration: none;
+	color: #000000;
+}
+
+.submenu TD A:hover {
+	font-family: Geneva, Verdana, Arial, Helvetica, sans-serif;
+	font-weight: normal;
+	text-decoration: underline;
+	color: #000000;
+}
+
+ul {
+	list-style-type: square;
+	padding-top: 0;
+	padding-bottom: 0;
+	border: 0;
+}
+
+ol {
+	padding-top: 0;
+	padding-bottom: 0;
+	border: 0;
+}
+
+li {
+	padding-top: 0;
+	padding-bottom: 0;
+	border: 0;
+}
+
+INPUT {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	color: #000000;
+	font-size: 12px;
+}
+
+INPUT.artist-error {
+	border: 2px solid #FF0000;
+	background-color: #FFF0F0;
+}
+
+.artist-error-message {
+	display: none;
+	color: #FF0000;
+	font-size: 11px;
+	font-weight: bold;
+	margin-top: 4px;
+	padding: 4px 8px;
+	background-color: #FFF0F0;
+	border: 1px solid #FF0000;
+	border-radius: 3px;
+}
+
+SELECT {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	color: #000000;
+	font-size: 12px;
+}
+
+TEXTAREA {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	color: #000000;
+	font-size: 12px;
+}
+
+/* Autocomplete dropdown styles */
+.ac_results {
+	background-color: #FFFFFF;
+	border: 1px solid #999999;
+	overflow: hidden;
+	z-index: 99999;
+	padding: 0;
+	margin: 0;
+}
+
+.ac_results ul {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	width: 100%;
+}
+
+.ac_results li {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 12px;
+	font-weight: normal;
+	padding: 4px 6px;
+	margin: 0;
+	cursor: pointer;
+	border-bottom: 1px solid #EEEEEE;
+}
+
+.ac_results li:last-child {
+	border-bottom: none;
+}
+
+.ac_over {
+	background-color: #DDDDFF;
+}
+
+.ac_odd {
+	background-color: #FFFFFF;
+}
+
+.ac_even {
+	background-color: #F8F8F8;
+}
+
+/* Windows 2000 Dark Theme - Retro Palette */
+html[data-experience="classic"][data-joy-color-scheme="dark"] body,
+html[data-experience="classic"][data-joy-color-scheme="dark"] {
+	background-color: #2D2D2D;
+	color: #E0E0E0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] #font-adjuster {
+	background-color: #5A5A5A;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] #font-adjuster .button {
+	background-color: #3D3D3D;
+	color: #E0E0E0;
+	border: 1px solid #5A5A5A;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] #font-adjuster .button:hover {
+	background-color: #4A4A4A;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] #messageArea {
+	background-color: #3D3D3D;
+	color: #E0E0E0;
+	border: 1px solid #5A5A5A;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .redtitle {
+	color: #FF8080;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .title {
+	color: #E0E0E0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .subtitle {
+	color: #D0D0D0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .fontHover {
+	color: #FF9999;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .fontSelected {
+	color: #FF8080;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .flowsheetEntryData {
+	color: #D0D0D0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] #flowsheet th {
+	background-color: #5A5A5A;
+	color: #FF8080;
+	border-color: #6A6A6A;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .bigtext {
+	color: #E0E0E0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .text {
+	color: #D0D0D0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .smalltext {
+	color: #C0C0C0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .label {
+	color: #E0E0E0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .redlabel {
+	color: #FF8080;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .littlegreenlabel {
+	color: #80FF80;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .breakpoint {
+	color: #80FF80;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .talkset {
+	color: #FFFF80;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .bigblue {
+	color: #80B0FF;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .greenlabel {
+	color: #80FF80;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .smalllabel {
+	color: #C0C0C0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .text TD {
+	color: #D0D0D0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .submenu TD A {
+	color: #E0E0E0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .submenu TD A:hover {
+	color: #FF8080;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] INPUT {
+	background-color: #3D3D3D;
+	color: #E0E0E0;
+	border: 1px solid #5A5A5A;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] INPUT:disabled {
+	background-color: #2D2D2D;
+	color: #808080;
+	border: 1px solid #4A4A4A;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] INPUT.artist-error {
+	border: 2px solid #FF6666;
+	background-color: #4D2D2D;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .artist-error-message {
+	color: #FF8080;
+	background-color: #4D2D2D;
+	border: 1px solid #FF6666;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] SELECT {
+	background-color: #3D3D3D;
+	color: #E0E0E0;
+	border: 1px solid #5A5A5A;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] SELECT:disabled {
+	background-color: #2D2D2D;
+	color: #808080;
+	border: 1px solid #4A4A4A;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] TEXTAREA {
+	background-color: #3D3D3D;
+	color: #E0E0E0;
+	border: 1px solid #5A5A5A;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .ac_results {
+	background-color: #3D3D3D;
+	border: 1px solid #5A5A5A;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .ac_results li {
+	border-bottom: 1px solid #4A4A4A;
+	color: #E0E0E0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .ac_over {
+	background-color: #5A5A5A;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .ac_odd {
+	background-color: #3D3D3D;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .ac_even {
+	background-color: #353535;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] table {
+	border-color: #5A5A5A;
+	background-color: #2D2D2D;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] td,
+html[data-experience="classic"][data-joy-color-scheme="dark"] th {
+	border-color: #5A5A5A;
+}
+
+/* Flowsheet entry row backgrounds */
+html[data-experience="classic"][data-joy-color-scheme="dark"] tr[bgcolor="#F3F3F3"] {
+	background-color: #3D3D3D !important;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] tr[bgcolor="#CCCCCC"] {
+	background-color: #5A5A5A !important;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] tr[bgcolor="#999999"] {
+	background-color: #4A4A4A !important;
+}
+
+/* Table backgrounds */
+html[data-experience="classic"][data-joy-color-scheme="dark"] table[bgcolor="#AAAAAA"] {
+	background-color: #5A5A5A !important;
+}
+
+/* Font color adjustments */
+html[data-experience="classic"][data-joy-color-scheme="dark"] font[color="black"],
+html[data-experience="classic"][data-joy-color-scheme="dark"] .text-override-black {
+	color: #E0E0E0 !important;
+}

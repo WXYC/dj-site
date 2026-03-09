@@ -2,8 +2,15 @@
  * Application Global Styles - Shared across all experiences
  * Experience-specific styles are imported from lib/features/experiences/
  */
+html,
+body {
+    height: 100%;
+    overflow: hidden;
+}
+
 main {
     height: 100vh;
+    overflow: hidden;
 }
 
 /* Import experience-specific styles */

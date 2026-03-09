@@ -27,8 +27,6 @@ export const useLogin = () => {
     authenticationSlice.selectors.allCredentialsVerified
   );
 
-  const { handleLogout } = useLogout();
-
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
@@ -57,7 +55,6 @@ export const useLogin = () => {
         if (errorMessage.trim().length > 0) {
           toast.error(errorMessage);
         }
-        handleLogout();
       } else {
         // Sign in successful, session cookie is set
         const dashboardHome = String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog");
@@ -74,7 +71,6 @@ export const useLogin = () => {
       if (errorMessage.trim().length > 0) {
         toast.error(errorMessage);
       }
-      handleLogout();
     } finally {
       setIsLoading(false);
     }

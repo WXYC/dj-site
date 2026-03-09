@@ -27,7 +27,7 @@ export function convertBetterAuthToAccountResult(
     id: user.id,
     userName: user.username || user.name,
     realName: user.realName || user.name || "No Real Name",
-    djName: user.djName || "No DJ Name",
+    djName: user.djName || undefined,
     authorization: mapRoleToAuthorization(user.role),
     authType: user.emailVerified 
       ? AdminAuthenticationStatus.Confirmed 

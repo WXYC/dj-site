@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     value: JSON.stringify(newState),
   });
 
-  return NextResponse.json(appState ?? defaultApplicationState, {
+  return NextResponse.json(newState, {
     status: 200,
   });
 }

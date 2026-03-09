@@ -3,6 +3,12 @@ import { redirect } from "next/navigation";
 import OnboardingForm from "@/src/components/experiences/modern/login/Forms/OnboardingForm";
 import WXYCPage from "@/src/Layout/WXYCPage";
 import HoldOnQuotes from "@/src/components/experiences/modern/login/Quotes/HoldOn";
+import { Metadata } from "next";
+import { getPageTitle } from "@/lib/utils/page-title";
+
+export const metadata: Metadata = {
+  title: getPageTitle("Onboarding"),
+};
 
 export default async function ModernOnboardingPage() {
   const session = await getServerSession();
@@ -17,7 +23,7 @@ export default async function ModernOnboardingPage() {
     "";
 
   return (
-    <WXYCPage title="Onboarding">
+    <WXYCPage>
       <HoldOnQuotes />
       <OnboardingForm
         username={username}

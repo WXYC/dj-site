@@ -1,13 +1,20 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { DJRequestParams } from "../authentication/types";
 import { backendBaseQuery } from "../backend";
-import { convertDJsOnAir, convertFlowsheetResponse } from "./conversions";
+import {
+  convertDJsOnAir,
+  convertV2Entry,
+  convertV2FlowsheetResponse,
+  extractFlowsheetEntries,
+} from "./conversions";
 import {
   FlowsheetEntry,
   FlowsheetEntryResponse,
   FlowsheetSubmissionParams,
   FlowsheetSwitchParams,
   FlowsheetUpdateParams,
+  FlowsheetV2EntryJSON,
+  FlowsheetV2PaginatedResponseJSON,
   OnAirDJData,
   OnAirDJResponse,
 } from "./types";
@@ -21,8 +28,8 @@ export const flowsheetApi = createApi({
       query: () => ({
         url: "/latest",
       }),
-      transformResponse: (response: FlowsheetEntryResponse) =>
-        convertFlowsheetResponse([response])[0],
+      transformResponse: (response: FlowsheetV2EntryJSON) =>
+        convertV2Entry(response),
       providesTags: ["NowPlaying"],
     }),
     getInfiniteEntries: builder.infiniteQuery<
@@ -40,8 +47,9 @@ export const flowsheetApi = createApi({
           url: `/?page=${pageParam}&limit=20`,
         };
       },
-      transformResponse: (response: FlowsheetEntryResponse[]) =>
-        convertFlowsheetResponse(response),
+      transformResponse: (
+        response: FlowsheetV2PaginatedResponseJSON | FlowsheetV2EntryJSON[]
+      ) => convertV2FlowsheetResponse(extractFlowsheetEntries(response)),
       providesTags: ["Flowsheet"],
     }),
     switchEntries: builder.mutation<undefined, FlowsheetSwitchParams>({

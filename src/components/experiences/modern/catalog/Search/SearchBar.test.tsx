@@ -6,10 +6,11 @@ import {
   componentQueries,
 } from "@/lib/test-utils";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
+import type { ColorPaletteProp } from "@mui/joy";
 
 const setup = createComponentHarnessWithQueries(
   SearchBar,
-  { color: "primary" as const },
+  { color: "primary" as ColorPaletteProp | undefined },
   {
     input: componentQueries.byPlaceholder("Search"),
     label: componentQueries.byText("Search for an album or artist"),

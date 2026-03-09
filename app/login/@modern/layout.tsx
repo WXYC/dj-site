@@ -2,6 +2,12 @@ import { getServerSession } from "@/lib/features/authentication/server-utils";
 import { redirect } from "next/navigation";
 import WXYCPage from "@/src/Layout/WXYCPage";
 import LoginSlotSwitcher from "./LoginSlotSwitcher";
+import { Metadata } from "next";
+import { getPageTitle } from "@/lib/utils/page-title";
+
+export const metadata: Metadata = {
+  title: getPageTitle("Login"),
+};
 
 export default async function ModernLoginLayout({
   normal,
@@ -22,7 +28,7 @@ export default async function ModernLoginLayout({
   // If authenticated but NOT verified, stay on login to show verification message
 
   return (
-    <WXYCPage title="Login">
+    <WXYCPage>
       <LoginSlotSwitcher
         normal={normal}
         newuser={newuser}

@@ -63,8 +63,8 @@ export default function LeftbarLogout({ user }: { user: User }): JSX.Element {
         <IconButton
           type="submit"
           variant="outlined"
-          onMouseOver={() => setLogoutHovered(true)}
-          onMouseOut={() => setLogoutHovered(false)}
+          onMouseEnter={() => setLogoutHovered(true)}
+          onMouseLeave={() => setLogoutHovered(false)}
           loading={loggingOut}
         >
           {logoutHovered ? <LogoutOutlined /> : <PersonOutlined />}

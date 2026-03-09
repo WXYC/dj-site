@@ -122,14 +122,16 @@ export default function SongEntry({
                 minHeight: "48px",
               }}
             >
-              {image && !imageLoading ? (
+              {imageLoading ? (
+                <CircularProgress />
+              ) : image ? (
                 <img
                   src={image}
                   alt="album art"
                   style={{ minWidth: "48px", minHeight: "48px" }}
                 />
               ) : (
-                <CircularProgress />
+                <Album sx={{ fontSize: 28, opacity: 0.4 }} />
               )}
             </AspectRatio>
           </Badge>
@@ -160,13 +162,13 @@ export default function SongEntry({
                     request_flag: entry.request_flag,
                     rotation_id: entry.rotation_id,
                     album_id: entry.album_id,
-                    play_freq: entry.rotation,
+                    rotation_bin: entry.rotation,
                   } as FlowsheetSubmissionParams)
                     .then(() => {
                       dispatch(flowsheetSlice.actions.removeFromQueue(entry.id));
                     })
                     .catch((error) => {
-                      toast.error("Failed to add to flowsheet:", error);
+                      toast.error(`Failed to add to flowsheet: ${error}`);
                     });
                 }}
               >
