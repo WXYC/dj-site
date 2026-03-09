@@ -71,8 +71,7 @@ export class DashboardPage {
   async gotoAdminRoster(): Promise<void> {
     await this.page.goto("/dashboard/admin/roster");
     await this.page.waitForLoadState("domcontentloaded");
-    // Wait for Suspense content to load
-    await this.page.waitForTimeout(500);
+    await this.page.waitForURL("**/dashboard/admin/roster**", { timeout: 10000 });
   }
 
   async navigateToFlowsheet(): Promise<void> {
