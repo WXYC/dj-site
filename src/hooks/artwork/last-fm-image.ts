@@ -22,7 +22,7 @@ export default async function getArtworkFromLastFM({
     const response = await fetch(url);
     
     if (!response.ok) {
-      console.log(`Failed to fetch album art from Last.fm (${response.status})`);
+      console.error(`Failed to fetch album art from Last.fm (${response.status})`);
       return null;
     }
     
@@ -35,8 +35,8 @@ export default async function getArtworkFromLastFM({
     
     // Return the largest image (last in array)
     return images[images.length - 1]?.["#text"] || null;
-  } catch (e) {
-    console.log("Error fetching album art from Last.fm");
+  } catch {
+    console.error("Error fetching album art from Last.fm");
     return null;
   }
 }
@@ -69,7 +69,7 @@ export async function getSongInfoFromLastFM({
     
     const jsonResponse = await response.json();
     return jsonResponse;
-  } catch (e) {
+  } catch {
     toast.error("Error fetching song info from Last.fm");
     return null;
   }

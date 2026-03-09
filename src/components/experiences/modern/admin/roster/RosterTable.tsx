@@ -52,8 +52,8 @@ async function getOrganizationId(): Promise<string | null> {
 export default function RosterTable({ user }: { user: User }) {
   const { data, isLoading, isError, error, refetch } = useAccountListResults();
 
-  const [isCreating, setIsCreating] = useState(false);
-  const [createError, setCreateError] = useState<Error | null>(null);
+  const [, setIsCreating] = useState(false);
+  const [, setCreateError] = useState<Error | null>(null);
 
   const dispatch = useAppDispatch();
   const isAdding = useAppSelector(adminSlice.selectors.getAdding);

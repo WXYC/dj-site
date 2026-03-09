@@ -1,5 +1,3 @@
-import { toast } from "sonner";
-
 export default async function getArtworkFromItunes({
   title,
   artist,
@@ -14,7 +12,7 @@ export default async function getArtworkFromItunes({
     const response = await fetch(url);
     
     if (!response.ok) {
-      console.log(`Failed to fetch album art from iTunes (${response.status})`);
+      console.error(`Failed to fetch album art from iTunes (${response.status})`);
       return null;
     }
     
@@ -26,8 +24,8 @@ export default async function getArtworkFromItunes({
     }
     
     return lowResDefault.replace("100x100", "600x600");
-  } catch (e) {
-    console.log("Error fetching album art from iTunes");
+  } catch {
+    console.error("Error fetching album art from iTunes");
     return null;
   }
 }

@@ -37,8 +37,6 @@ export default function NowPlaying({ mini = false }: NowPlayingWidgetProps) {
 
   const {
     data: latestEntry,
-    isLoading: latestEntryLoading,
-    isError: latestEntryError,
   } = useGetNowPlayingQuery(undefined, {
     pollingInterval: 60000,
   });
@@ -49,8 +47,10 @@ export default function NowPlaying({ mini = false }: NowPlayingWidgetProps) {
     if (!audio || audioContextRef.current) return;
 
     try {
+      /* eslint-disable @typescript-eslint/no-explicit-any -- webkitAudioContext is a non-standard vendor-prefixed API */
       const ctx = new (window.AudioContext ||
         (window as any).webkitAudioContext)();
+      /* eslint-enable @typescript-eslint/no-explicit-any */
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 512;
       
@@ -101,28 +101,32 @@ export default function NowPlaying({ mini = false }: NowPlayingWidgetProps) {
 
   // Cleanup on unmount
   useEffect(() => {
+    const animationFrame = animationFrameRef;
+    const audio = audioRef;
+    const audioContext = audioContextRef;
+    const analyserNode = analyserNodeRef;
+
     return () => {
       // Cancel any animation frames
-      if (animationFrameRef.current !== null) {
-        cancelAnimationFrame(animationFrameRef.current);
+      if (animationFrame.current !== null) {
+        cancelAnimationFrame(animationFrame.current);
       }
 
       // Pause and cleanup audio
-      const audio = audioRef.current;
-      if (audio) {
-        audio.pause();
-        audio.src = "";
+      if (audio.current) {
+        audio.current.pause();
+        audio.current.src = "";
       }
 
       // Close audio context
-      if (audioContextRef.current) {
-        audioContextRef.current.close().catch((error) => {
+      if (audioContext.current) {
+        audioContext.current.close().catch((error) => {
           console.error("Error closing audio context:", error);
         });
-        audioContextRef.current = null;
+        audioContext.current = null;
       }
-      
-      analyserNodeRef.current = null;
+
+      analyserNode.current = null;
     };
   }, []);
 

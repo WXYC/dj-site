@@ -17,6 +17,7 @@ export const rotationApi = createApi({
         response.map(convertToAlbumEntry),
       providesTags: ["Rotation"],
     }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- backend response type not defined
     addRotationEntry: builder.mutation<any, RotationParams>({
       query: (rotation) => ({
         url: "",
@@ -25,6 +26,7 @@ export const rotationApi = createApi({
       }),
       invalidatesTags: ["Rotation"],
     }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- backend response type not defined
     killRotationEntry: builder.mutation<any, KillRotationParams>({
       query: (rotation) => ({
         url: "",
