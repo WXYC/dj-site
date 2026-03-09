@@ -17,10 +17,10 @@ vi.mock("next/navigation", () => ({
 }));
 
 // Mock useDJAccount hook
-const mockHandleSaveData = vi.fn((e: React.FormEvent) => e.preventDefault());
+const mockHandleSaveData = vi.fn(async (e: React.FormEvent) => { e.preventDefault(); });
 vi.mock("@/src/hooks/djHooks", () => ({
   useDJAccount: vi.fn(() => ({
-    info: { id: 1, djName: "Test DJ" },
+    info: { id: "1", dj_name: "Test DJ", real_name: "Test User" },
     loading: false,
     handleSaveData: mockHandleSaveData,
   })),
@@ -49,10 +49,16 @@ vi.mock("@/src/components/experiences/modern/settings/SettingsInput", () => ({
   ),
 }));
 
+// Mock EmailChangeModal
+vi.mock("@/src/components/experiences/modern/settings/EmailChangeModal", () => ({
+  default: () => null,
+}));
+
 // Mock MUI icons
 vi.mock("@mui/icons-material", () => ({
   AccountCircle: () => <span data-testid="account-circle-icon" />,
   AlternateEmail: () => <span data-testid="alternate-email-icon" />,
+  Edit: () => <span data-testid="edit-icon" />,
   Email: () => <span data-testid="email-icon" />,
   TheaterComedy: () => <span data-testid="theater-comedy-icon" />,
 }));
@@ -115,7 +121,7 @@ describe("SettingsPopup", () => {
       renderWithProviders(<SettingsPopup user={testUser} />);
 
       expect(screen.getByText("Email")).toBeInTheDocument();
-      const emailInput = screen.getByTestId("settings-input-email");
+      const emailInput = screen.getByDisplayValue("testdj@wxyc.org");
       expect(emailInput).toBeDisabled();
     });
 
@@ -135,9 +141,7 @@ describe("SettingsPopup", () => {
       expect(screen.getByTestId("settings-input-djName")).toHaveValue(
         "DJ Test"
       );
-      expect(screen.getByTestId("settings-input-email")).toHaveValue(
-        "testdj@wxyc.org"
-      );
+      expect(screen.getByDisplayValue("testdj@wxyc.org")).toBeInTheDocument();
     });
   });
 
@@ -199,7 +203,7 @@ describe("SettingsPopup", () => {
       // Override the mock for this test
       const { useDJAccount } = await import("@/src/hooks/djHooks");
       vi.mocked(useDJAccount).mockReturnValue({
-        info: { id: 1, djName: "Test DJ" },
+        info: { id: "1", dj_name: "Test DJ", real_name: "Test User" },
         loading: true,
         handleSaveData: mockHandleSaveData,
       });

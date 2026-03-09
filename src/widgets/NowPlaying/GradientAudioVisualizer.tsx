@@ -51,7 +51,7 @@ export function GradientAudioVisualizer({
         animationFrameRef.current = null;
         return;
       }
-      
+
       analyserNode.getByteFrequencyData(buffer);
 
       c.fillStyle = "rgba(255, 110, 199,0.08)"; // motion-blur trail
@@ -65,7 +65,7 @@ export function GradientAudioVisualizer({
         c.fillRect(x, canvas.height - h, Math.ceil(barW), h);
         x += barW + 1;
       });
-      
+
       // Schedule next frame
       animationFrameRef.current = requestAnimationFrame(draw);
     };

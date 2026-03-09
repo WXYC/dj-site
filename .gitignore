@@ -12,6 +12,9 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
+/playwright/.cache/
 
 # next.js
 /.next/
@@ -40,5 +43,12 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+
 # personal legacy analysis
 legacy/
+
+# e2e test artifacts
+e2e/.auth
+e2e/.e2e-ports
+e2e/.djsite.log
+e2e/.djsite.pid

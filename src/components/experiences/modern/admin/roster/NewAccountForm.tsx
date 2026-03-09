@@ -95,6 +95,7 @@ export default function NewAccountForm() {
             type="email"
           />
         </td>
+        <td>{/* Capabilities assigned after creation */}</td>
         <td
           style={{
             display: "flex",

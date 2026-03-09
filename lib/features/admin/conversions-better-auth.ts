@@ -29,8 +29,8 @@ export function convertBetterAuthToAccountResult(
     realName: user.realName || user.name || "No Real Name",
     djName: user.djName || undefined,
     authorization: mapRoleToAuthorization(user.role),
-    authType: user.emailVerified 
-      ? AdminAuthenticationStatus.Confirmed 
+    authType: user.emailVerified
+      ? AdminAuthenticationStatus.Confirmed
       : AdminAuthenticationStatus.New,
     email: user.email,
   };
@@ -44,4 +44,3 @@ export function mapBetterAuthRoleToAuthorization(
 ): Authorization {
   return mapRoleToAuthorization(role);
 }
-

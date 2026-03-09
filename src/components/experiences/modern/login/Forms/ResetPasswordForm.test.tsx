@@ -79,7 +79,6 @@ describe("ResetPasswordForm", () => {
     await user.type(passwordInput, "weak");
     await user.type(confirmInput, "weak");
 
-
     expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();
   });
 
