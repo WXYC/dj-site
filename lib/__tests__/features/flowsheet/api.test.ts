@@ -4,7 +4,7 @@ import { describeApi } from "@/lib/test-utils";
 
 describe("flowsheetApi", () => {
   describeApi(flowsheetApi, {
-    queries: ["getNowPlaying", "getEntries", "whoIsLive"],
+    queries: ["getNowPlaying", "getInfiniteEntries", "whoIsLive"],
     mutations: [
       "addToFlowsheet",
       "removeFromFlowsheet",
