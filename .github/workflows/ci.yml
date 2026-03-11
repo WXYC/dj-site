@@ -1,87 +1,178 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
+    branches: [main]
+  push:
     branches: [main]
 
 jobs:
-  lint-and-typecheck:
-    name: Lint & Type Check
+  validate-token:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+          registry-url: 'https://npm.pkg.github.com'
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Validate NPM_TOKEN
+        run: |
+          npm view @wxyc/shared version || {
+            echo ""
+            echo "ERROR: NPM_TOKEN is invalid or expired."
+            echo "The GitHub Personal Access Token used to authenticate with GitHub Packages"
+            echo "has expired. Generate a new token with 'read:packages' scope at:"
+            echo "  https://github.com/settings/tokens"
+            echo "Then update the NPM_TOKEN secret in:"
+            echo "  1. This repo: Settings > Secrets > Actions > NPM_TOKEN"
+            echo "  2. Cloudflare Pages: wxyc-dj project > Settings > Environment variables > NPM_TOKEN"
+            exit 1
+          }
         env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Type check
-        run: npx tsc --noEmit
-
-  unit-tests:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-
-      - name: Install dependencies
-        run: npm ci
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Run unit tests
-        run: npm run test:run
-
-      - name: Upload coverage
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: coverage-report
-          path: coverage/
-          retention-days: 7
 
   build:
-    name: Build
+    needs: validate-token
+    if: always() && (needs.validate-token.result == 'success' || needs.validate-token.result == 'skipped')
     runs-on: ubuntu-latest
-    env:
-      NEXT_PUBLIC_BACKEND_URL: http://localhost:8080
-      NEXT_PUBLIC_BETTER_AUTH_URL: http://localhost:8082/auth
-      NEXT_PUBLIC_DASHBOARD_HOME_PAGE: /dashboard/flowsheet
-      NEXT_PUBLIC_VERSION: ci
-      NEXT_PUBLIC_DEFAULT_EXPERIENCE: modern
-      NEXT_PUBLIC_ENABLED_EXPERIENCES: modern,classic
-      NEXT_PUBLIC_ALLOW_EXPERIENCE_SWITCHING: "true"
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+          registry-url: 'https://npm.pkg.github.com'
 
       - name: Install dependencies
         run: npm ci
         env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Build
-        run: npm run build
+      - name: Build (OpenNext)
+        run: npm run build:opennext
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-next-build
+          path: .open-next/
+          include-hidden-files: true
+
+  test:
+    needs: validate-token
+    if: always() && (needs.validate-token.result == 'success' || needs.validate-token.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+          registry-url: 'https://npm.pkg.github.com'
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Run tests
+        run: npm run test:run
+
+  smoke-test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+          registry-url: 'https://npm.pkg.github.com'
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: open-next-build
+          path: .open-next/
+
+      - name: Validate build artifact structure
+        run: |
+          echo "Checking OpenNext build artifact structure..."
+          missing=0
+          for f in \
+            .open-next/worker.js \
+            .open-next/assets/_worker.js \
+            .open-next/assets/_routes.json \
+            .open-next/assets/BUILD_ID \
+            .open-next/server-functions/default/handler.mjs \
+            .open-next/middleware/handler.mjs; do
+            if [ ! -f "$f" ]; then
+              echo "MISSING: $f"
+              missing=1
+            else
+              echo "OK: $f"
+            fi
+          done
+          if [ ! -d ".open-next/assets/_next/static" ]; then
+            echo "MISSING: .open-next/assets/_next/static/"
+            missing=1
+          else
+            echo "OK: .open-next/assets/_next/static/"
+          fi
+          if [ "$missing" -eq 1 ]; then
+            echo "ERROR: Build artifact is incomplete"
+            exit 1
+          fi
+          echo "Build artifact structure is valid"
+
+      - name: Verify static assets are servable
+        run: |
+          npx wrangler pages dev .open-next/assets \
+            --compatibility-date 2025-10-11 \
+            --compatibility-flags nodejs_compat_v2 \
+            --compatibility-flags global_fetch_strictly_public \
+            --port 8788 &
+          WRANGLER_PID=$!
+          echo "WRANGLER_PID=$WRANGLER_PID" >> $GITHUB_ENV
+
+          for i in $(seq 1 30); do
+            if curl -s -o /dev/null -w '%{http_code}' http://localhost:8788/logo.svg | grep -q '200'; then
+              echo "Static asset server ready after ${i}s"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "ERROR: Static asset server failed to start within 30s"
+              kill $WRANGLER_PID 2>/dev/null
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: Assert static assets return HTTP 200
+        run: |
+          echo "Checking static assets..."
+          curl -sf http://localhost:8788/logo.svg > /dev/null
+          echo "OK: /logo.svg"
+          curl -sf http://localhost:8788/favicon-32x32.png > /dev/null
+          echo "OK: /favicon-32x32.png"
+          echo "Static asset checks passed"
+
+      - name: Tear down wrangler
+        if: always()
+        run: kill $WRANGLER_PID 2>/dev/null
