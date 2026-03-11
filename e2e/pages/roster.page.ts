@@ -61,9 +61,9 @@ export class RosterPage {
     this.newAccountSmCheckbox = this.newAccountRow.locator('input[type="checkbox"]').first();
     this.newAccountMdCheckbox = this.newAccountRow.locator('input[type="checkbox"]').nth(1);
 
-    // Table
-    this.rosterTable = page.locator("table");
-    this.tableRows = page.locator("tbody tr");
+    // Table — scoped to the roster form to avoid matching tables on other pages
+    this.rosterTable = page.locator("form table");
+    this.tableRows = page.locator("form tbody tr");
 
     // States
     this.loadingSpinner = page.locator('[role="progressbar"], .MuiCircularProgress-root');
@@ -77,10 +77,11 @@ export class RosterPage {
   async goto(): Promise<void> {
     await this.page.goto("/dashboard/admin/roster");
     await this.page.waitForLoadState("domcontentloaded");
+    await this.page.waitForURL("**/dashboard/admin/roster**", { timeout: 10000 });
   }
 
   async waitForTableLoaded(): Promise<void> {
-    // Wait for loading spinner to disappear and table rows to appear
+    await this.page.waitForURL("**/dashboard/admin/roster**", { timeout: 10000 });
     await this.loadingSpinner.waitFor({ state: "hidden", timeout: 10000 }).catch(() => {});
     await this.rosterTable.waitFor({ state: "visible", timeout: 10000 });
   }
@@ -117,33 +118,14 @@ export class RosterPage {
   }
 
   async submitNewAccount(): Promise<void> {
-    // Wait for save button to be visible and enabled
     await this.saveButton.waitFor({ state: "visible", timeout: 5000 });
     await expect(this.saveButton).toBeEnabled({ timeout: 5000 });
-    // Small delay to ensure form is ready
-    await this.page.waitForTimeout(500);
-    // Dispatch SubmitEvent on the form - this triggers React's onSubmit handler
-    await this.saveButton.evaluate((btn) => {
-      const form = btn.closest("form");
-      if (form) {
-        const event = new SubmitEvent("submit", {
-          bubbles: true,
-          cancelable: true,
-          submitter: btn,
-        });
-        form.dispatchEvent(event);
-      }
-    });
-    // Wait for submission result - either form closes (success) or error toast appears
+    await this.saveButton.click();
     await Promise.race([
       this.saveButton.waitFor({ state: "hidden", timeout: 15000 }),
       this.errorToast.waitFor({ state: "visible", timeout: 15000 }),
       this.successToast.waitFor({ state: "visible", timeout: 15000 }),
-    ]).catch(() => {
-      // If none of the above happens, continue anyway
-    });
-    // Give the UI time to update
-    await this.page.waitForTimeout(500);
+    ]).catch(() => {});
   }
 
   async createAccount(data: {
