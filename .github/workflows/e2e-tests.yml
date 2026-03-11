@@ -64,7 +64,7 @@ jobs:
       - name: Create Backend .env file
         working-directory: Backend-Service
         run: |
-          cat > .env << 'EOF'
+          cat > .env << 'ENVFILE'
           DB_HOST=localhost
           DB_PORT=5434
           DB_NAME=wxyc_db
@@ -80,7 +80,9 @@ jobs:
           E2E_DB_PORT=5434
           E2E_AUTH_PORT=8084
           E2E_BACKEND_PORT=8085
-          EOF
+          ENVFILE
+          # Strip leading whitespace that YAML indentation adds to heredoc lines
+          sed -i 's/^[[:space:]]*//' .env
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
