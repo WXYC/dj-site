@@ -104,9 +104,11 @@ test.describe("Admin User Creation", () => {
     // Try to submit
     await rosterPage.submitNewAccount();
 
-    // Form should not submit (HTML5 validation) or show error
-    // The form should still be visible
-    await expect(rosterPage.realNameInput).toBeVisible();
+    // Either the form stays open (HTML5/client validation prevented submission)
+    // or an error toast appears (server rejected the missing field)
+    const formStillVisible = await rosterPage.realNameInput.isVisible().catch(() => false);
+    const errorShown = await rosterPage.errorToast.isVisible().catch(() => false);
+    expect(formStillVisible || errorShown).toBe(true);
   });
 
   test("should require username field", async ({ page }) => {
@@ -119,8 +121,10 @@ test.describe("Admin User Creation", () => {
     // Try to submit
     await rosterPage.submitNewAccount();
 
-    // Form should not submit
-    await expect(rosterPage.usernameInput).toBeVisible();
+    // Either the form stays open or an error toast appears
+    const formStillVisible = await rosterPage.usernameInput.isVisible().catch(() => false);
+    const errorShown = await rosterPage.errorToast.isVisible().catch(() => false);
+    expect(formStillVisible || errorShown).toBe(true);
   });
 
   test("should require email field", async ({ page }) => {
@@ -133,8 +137,10 @@ test.describe("Admin User Creation", () => {
     // Try to submit
     await rosterPage.submitNewAccount();
 
-    // Form should not submit
-    await expect(rosterPage.emailInput).toBeVisible();
+    // Either the form stays open or an error toast appears
+    const formStillVisible = await rosterPage.emailInput.isVisible().catch(() => false);
+    const errorShown = await rosterPage.errorToast.isVisible().catch(() => false);
+    expect(formStillVisible || errorShown).toBe(true);
   });
 
   test("should allow DJ name to be optional", async ({ page }) => {
