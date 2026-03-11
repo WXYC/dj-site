@@ -4,7 +4,6 @@ import { authClient } from "@/lib/features/authentication/client";
 import { getAppOrganizationIdClient } from "@/lib/features/authentication/organization-utils";
 import {
   Account,
-  AdminAuthenticationStatus,
   Authorization,
 } from "@/lib/features/admin/types";
 import { Check, Close, DeleteForever, Edit, Language, SyncLock } from "@mui/icons-material";
@@ -528,11 +527,7 @@ export const AccountEntry = ({
               color={"success"}
               variant="solid"
               size="sm"
-              disabled={
-                account.authType != AdminAuthenticationStatus.Confirmed ||
-                isSelf ||
-                isResetting
-              }
+              disabled={isSelf || isResetting}
               loading={isResetting}
               onClick={async () => {
                 if (
@@ -545,18 +540,16 @@ export const AccountEntry = ({
                   try {
                     const targetUserId = await resolveUserId();
 
-                    // Generate a temporary password
-                    const tempPassword = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+                    // Use the configured onboarding temp password so the admin
+                    // can share the known password with the user
+                    const tempPassword =
+                      process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD || crypto.randomUUID().replace(/-/g, "").slice(0, 16);
 
-                    // Reset password via better-auth admin API
-                    const result = await (
-                      authClient.admin.updateUser as unknown as (args: {
-                        userId: string;
-                        password: string;
-                      }) => Promise<{ error?: { message?: string } | null }>
-                    )({
+                    // Use dedicated setUserPassword endpoint which only updates
+                    // the password hash on the account table, without touching user fields
+                    const result = await authClient.admin.setUserPassword({
                       userId: targetUserId,
-                      password: tempPassword,
+                      newPassword: tempPassword,
                     });
 
                     if (result.error) {

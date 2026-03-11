@@ -128,6 +128,23 @@ describe("server-utils", () => {
       await expect(requireAuth()).rejects.toThrow("REDIRECT:/login");
       expect(mockRedirect).toHaveBeenCalledWith("/login");
     });
+
+    it("should redirect to /login when email is not verified", async () => {
+      const session = createTestBetterAuthSession({
+        user: {
+          id: "test-id",
+          email: "test@wxyc.org",
+          name: "test",
+          emailVerified: false,
+          realName: "Test User",
+          djName: "DJ Test",
+        },
+      });
+      mockGetSession.mockResolvedValue({ data: session, error: null });
+
+      await expect(requireAuth()).rejects.toThrow("REDIRECT:/login?error=email-not-verified");
+      expect(mockRedirect).toHaveBeenCalledWith("/login?error=email-not-verified");
+    });
   });
 
   describe("checkRole", () => {

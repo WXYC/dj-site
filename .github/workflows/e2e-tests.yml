@@ -145,6 +145,8 @@ jobs:
       - name: Build dj-site
         working-directory: dj-site
         run: npm run build
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Start dj-site
         working-directory: dj-site
