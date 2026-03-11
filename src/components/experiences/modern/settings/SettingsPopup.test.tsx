@@ -61,6 +61,13 @@ vi.mock("@mui/icons-material", () => ({
   Edit: () => <span data-testid="edit-icon" />,
   Email: () => <span data-testid="email-icon" />,
   TheaterComedy: () => <span data-testid="theater-comedy-icon" />,
+  RecordVoiceOver: () => <span data-testid="record-voice-over-icon" />,
+  VolumeUp: () => <span data-testid="volume-up-icon" />,
+  Schedule: () => <span data-testid="schedule-icon" />,
+  Work: () => <span data-testid="work-icon" />,
+  School: () => <span data-testid="school-icon" />,
+  Notes: () => <span data-testid="notes-icon" />,
+  LocationOn: () => <span data-testid="location-on-icon" />,
 }));
 
 vi.mock("@mui/icons-material/Badge", () => ({
