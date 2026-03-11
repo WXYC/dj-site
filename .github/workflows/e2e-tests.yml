@@ -92,7 +92,10 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          # Build and start E2E services
+          # Build Docker images with NPM_TOKEN for GitHub Packages auth
+          docker compose -f dev_env/docker-compose.yml --env-file .env --profile e2e build --build-arg NPM_TOKEN=$NPM_TOKEN
+
+          # Start E2E services
           docker compose -f dev_env/docker-compose.yml --env-file .env --profile e2e up -d e2e-db
 
           # Wait for database to be ready
