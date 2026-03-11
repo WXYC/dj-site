@@ -37,6 +37,89 @@ import { Rotation } from "@/lib/features/rotation/types";
 import { TEST_ENTITY_IDS, TEST_SEARCH_STRINGS } from "./constants";
 import { TEST_TIMESTAMPS, toDateString, toISOString } from "./time";
 
+/**
+ * Canonical mock users for all test contexts (unit and e2e).
+ * Each entry represents a distinct "profile mode" (role, completeness, etc.).
+ * E2e tests: these must match the seed data in dev_env/seed_db.sql.
+ */
+export const MOCK_USERS = {
+  member: {
+    id: "user-member",
+    username: "test_member",
+    password: "testpassword123",
+    email: "test_member@wxyc.org",
+    role: "member" as const,
+    realName: "Test Member",
+    djName: "Test Member DJ",
+  },
+  dj1: {
+    id: "user-dj1",
+    username: "test_dj1",
+    password: "testpassword123",
+    email: "test_dj1@wxyc.org",
+    role: "dj" as const,
+    realName: "Test DJ 1",
+    djName: "Test dj1",
+  },
+  dj2: {
+    id: "user-dj2",
+    username: "test_dj2",
+    password: "testpassword123",
+    email: "test_dj2@wxyc.org",
+    role: "dj" as const,
+    realName: "Test DJ 2",
+    djName: "Test dj2",
+  },
+  musicDirector: {
+    id: "user-md",
+    username: "test_music_director",
+    password: "testpassword123",
+    email: "test_music_director@wxyc.org",
+    role: "musicDirector" as const,
+    realName: "Test Music Director",
+    djName: "Test MD",
+  },
+  stationManager: {
+    id: "user-sm",
+    username: "test_station_manager",
+    password: "testpassword123",
+    email: "test_station_manager@wxyc.org",
+    role: "stationManager" as const,
+    realName: "Test Station Manager",
+    djName: "Test SM",
+  },
+  incomplete: {
+    id: "user-incomplete",
+    username: "test_incomplete",
+    password: "temppass123",
+    email: "test_incomplete@wxyc.org",
+    role: "dj" as const,
+    realName: "",
+    djName: "",
+  },
+  reset1: {
+    id: "user-reset1",
+    username: "test_reset1",
+    password: "testpassword123",
+    email: "test_reset1@wxyc.org",
+    role: "dj" as const,
+    realName: "Test Reset 1",
+    djName: "Reset DJ 1",
+  },
+  reset2: {
+    id: "user-reset2",
+    username: "test_reset2",
+    password: "testpassword123",
+    email: "test_reset2@wxyc.org",
+    role: "dj" as const,
+    realName: "Test Reset 2",
+    djName: "Reset DJ 2",
+  },
+} as const;
+
+export type MockUserKey = keyof typeof MOCK_USERS;
+export type MockUser = (typeof MOCK_USERS)[MockUserKey];
+
 // Artist fixtures
 export function createTestArtist(overrides: Partial<ArtistEntry> = {}): ArtistEntry {
   return {
@@ -143,7 +226,7 @@ export function createTestAuthenticatedUser(
   return {
     user: createTestUser(overrides.user),
     accessToken: "test-access-token-12345",
-    token: "test-id-token-12345",
+    token: "test-token-12345",
     ...overrides,
   };
 }
@@ -194,8 +277,8 @@ export function createTestVerificationState(
     realName: false,
     djName: false,
     password: false,
-    currentPassword: false,
     confirmPassword: false,
+    currentPassword: false,
     code: false,
     ...overrides,
   };
@@ -278,12 +361,27 @@ export function createTestSessionWithOrgRole(role: WXYCRole): BetterAuthSession 
       emailVerified: true,
       realName: "Test User",
       djName: "DJ Test",
-      role: "user", // Base user role
+      role: "user",
       organization: {
         id: "org-123",
         name: "WXYC",
         role: role,
       },
+    },
+  });
+}
+
+export function createTestSessionWithRole(role: WXYCRole): BetterAuthSession {
+  return createTestBetterAuthSession({
+    user: {
+      id: "test-user-id-123",
+      email: "testdj@wxyc.org",
+      name: "testdj",
+      username: "testdj",
+      emailVerified: true,
+      realName: "Test User",
+      djName: "DJ Test",
+      role: role,
     },
   });
 }
