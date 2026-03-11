@@ -306,6 +306,9 @@ test.describe("Role Change Persistence", () => {
   test.describe.configure({ mode: 'serial' });
 
   test("role change should persist after page refresh", async ({ page }) => {
+    // This test does a full login flow + multiple role changes + page reload,
+    // so it needs more time than the default 15s timeout.
+    test.setTimeout(30000);
     const loginPage = new LoginPage(page);
     const dashboardPage = new DashboardPage(page);
     const rosterPage = new RosterPage(page);
