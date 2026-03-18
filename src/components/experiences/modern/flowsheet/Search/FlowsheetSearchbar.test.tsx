@@ -196,6 +196,31 @@ describe("FlowsheetSearchbar", () => {
       expect(mockResetSearch).not.toHaveBeenCalled();
     });
 
+    it("should not intercept / key when an input is focused", () => {
+      mockLive = true;
+      const store = createTestStore();
+
+      render(
+        <Provider store={store}>
+          <FlowsheetSearchbar />
+        </Provider>
+      );
+
+      const input = screen.getByTestId("input-song");
+      input.focus();
+
+      const event = new KeyboardEvent("keydown", {
+        key: "/",
+        bubbles: true,
+        cancelable: true,
+      });
+      const preventDefaultSpy = vi.spyOn(event, "preventDefault");
+
+      input.dispatchEvent(event);
+
+      expect(preventDefaultSpy).not.toHaveBeenCalled();
+    });
+
     it("should not focus input on / key when not live", async () => {
       mockLive = false;
       const store = createTestStore();

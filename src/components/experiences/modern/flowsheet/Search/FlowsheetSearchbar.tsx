@@ -49,6 +49,8 @@ export default function FlowsheetSearchbar() {
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === "/") {
+        const tag = (e.target as HTMLElement)?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA") return;
         e.preventDefault();
         if (!live) return;
         searchRef.current?.querySelector("input")?.focus();
