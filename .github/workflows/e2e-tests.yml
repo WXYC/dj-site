@@ -90,7 +90,10 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          # Build and start E2E services
+          # Build images with NPM_TOKEN so Dockerfiles can pull @wxyc/shared
+          docker compose -f dev_env/docker-compose.yml --env-file .env --profile e2e build --build-arg NPM_TOKEN="$NPM_TOKEN" e2e-auth e2e-backend
+
+          # Start database
           docker compose -f dev_env/docker-compose.yml --env-file .env --profile e2e up -d e2e-db
 
           # Wait for database to be ready
@@ -100,7 +103,7 @@ jobs:
           # Run database initialization
           docker compose -f dev_env/docker-compose.yml --env-file .env --profile e2e up e2e-db-init
 
-          # Start auth and backend services
+          # Start auth and backend services (images already built)
           docker compose -f dev_env/docker-compose.yml --env-file .env --profile e2e up -d e2e-auth e2e-backend
 
           # Wait for services to be healthy
