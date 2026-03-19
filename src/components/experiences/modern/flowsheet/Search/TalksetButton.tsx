@@ -2,6 +2,7 @@
 
 import { useAddToFlowsheetMutation } from "@/lib/features/flowsheet/api";
 import { useFlowsheetSearch } from "@/src/hooks/flowsheetHooks";
+import { FlowsheetEntryType } from "@wxyc/shared/dtos";
 import { Mic } from "@mui/icons-material";
 import { IconButton, Tooltip } from "@mui/joy";
 
@@ -19,6 +20,7 @@ export default function TalksetButton() {
         onClick={() => {
           addToFlowsheet({
             message: "Talkset",
+            entry_type: FlowsheetEntryType.talkset,
           });
         }}
         disabled={!live}
