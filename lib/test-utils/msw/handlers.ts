@@ -40,4 +40,9 @@ export const handlers = [
   http.get(`${BACKEND_URL}/rotation/`, () => {
     return HttpResponse.json([]);
   }),
+
+  // LML artwork handler (matches any origin since LML URL is configurable)
+  http.post(/\/api\/v1\/discogs\/search/, () => {
+    return HttpResponse.json({ results: [], total: 0, cached: false });
+  }),
 ];
