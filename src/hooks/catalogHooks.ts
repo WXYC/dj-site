@@ -13,11 +13,11 @@ export function formatCatalogSearchQuery(
 ): SearchCatalogQueryParams {
   switch (searchIn) {
     case "Albums":
-      return { artist_name: undefined, album_name: searchString, n };
+      return { artist_name: undefined, album_title: searchString, n };
     case "Artists":
-      return { artist_name: searchString, album_name: undefined, n };
+      return { artist_name: searchString, album_title: undefined, n };
     default:
-      return { artist_name: searchString, album_name: searchString, n };
+      return { artist_name: searchString, album_title: searchString, n };
   }
 }
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
@@ -107,7 +107,7 @@ export const useCatalogResults = () => {
   const [formattedQuery, setFormattedQuery] =
     useState<SearchCatalogQueryParams>({
       artist_name: undefined,
-      album_name: undefined,
+      album_title: undefined,
       n: 10,
     });
   const loadMore = () => dispatch(catalogSlice.actions.loadMore());
@@ -188,7 +188,7 @@ export const useCatalogFlowsheetSearch = () => {
   const { data } = useSearchCatalogQuery(
     {
       artist_name: flowsheetQuery.artist,
-      album_name: flowsheetQuery.album,
+      album_title: flowsheetQuery.album,
       n: 10,
     },
     {

@@ -13,7 +13,7 @@ export type AlbumSearchResultJSON = Omit<AlbumSearchResult, "add_date"> & {
 
 export type SearchCatalogQueryParams = {
   artist_name: string | undefined;
-  album_name: string | undefined;
+  album_title: string | undefined;
   n: number | undefined;
 };
 

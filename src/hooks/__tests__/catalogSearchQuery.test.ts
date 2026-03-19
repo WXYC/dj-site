@@ -8,21 +8,21 @@ describe("catalog search query formatting (Bug 11)", () => {
     const query = formatCatalogSearchQuery("Albums", "test album", 10);
 
     expect(query.artist_name).toBeUndefined();
-    expect(query.album_name).toBe("test album");
+    expect(query.album_title).toBe("test album");
   });
 
-  it("should set album_name to undefined when searching Artists only", () => {
+  it("should set album_title to undefined when searching Artists only", () => {
     const query = formatCatalogSearchQuery("Artists", "test artist", 10);
 
     expect(query.artist_name).toBe("test artist");
-    expect(query.album_name).toBeUndefined();
+    expect(query.album_title).toBeUndefined();
   });
 
   it("should set both fields to the search string when searching Both", () => {
     const query = formatCatalogSearchQuery("All", "search term", 10);
 
     expect(query.artist_name).toBe("search term");
-    expect(query.album_name).toBe("search term");
+    expect(query.album_title).toBe("search term");
   });
 
   it("should never produce the literal string 'undefined'", () => {
@@ -34,7 +34,7 @@ describe("catalog search query formatting (Bug 11)", () => {
 
     for (const query of queries) {
       expect(query.artist_name).not.toBe("undefined");
-      expect(query.album_name).not.toBe("undefined");
+      expect(query.album_title).not.toBe("undefined");
     }
   });
 });
