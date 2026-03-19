@@ -13,7 +13,7 @@ export default function SearchResults() {
   const { data: results, isLoading, error } = useSearchCatalogQuery(
     {
       artist_name: searchString || undefined,
-      album_name: searchString || undefined,
+      album_title: searchString || undefined,
       n: 50,
     },
     {

@@ -8,7 +8,7 @@ export const handlers = [
   http.get(`${BACKEND_URL}/library/`, ({ request }) => {
     const url = new URL(request.url);
     const artistName = url.searchParams.get("artist_name");
-    const albumName = url.searchParams.get("album_name");
+    const albumName = url.searchParams.get("album_title");
 
     // Return empty array by default - tests can override with specific handlers
     return HttpResponse.json([]);
