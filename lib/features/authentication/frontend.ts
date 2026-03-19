@@ -64,11 +64,6 @@ export const authenticationSlice = createAppSlice({
         state.required = [...state.required, ...action.payload];
       }
     ),
-    setRequiredCredentials: create.reducer(
-      (state, action: PayloadAction<(keyof VerifiedData)[]>) => {
-        state.required = action.payload;
-      }
-    ),
     resetModifications: create.reducer((state) => {
       state.modifications = defaultAuthenticationState.modifications;
     }),
