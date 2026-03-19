@@ -51,8 +51,7 @@ export default function LoginSlotSwitcher({
     <>
       {isVerified && (
         <Alert color="success" sx={{ mb: 2 }}>
-          Your email has been verified! Please sign in with the temporary
-          password from your welcome email to complete onboarding.
+          Your email has been verified! Please sign in to complete onboarding.
         </Alert>
       )}
       {isEmailNotVerified && (

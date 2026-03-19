@@ -17,6 +17,7 @@ vi.mock("better-auth/client", () => ({
 
 vi.mock("better-auth/client/plugins", () => ({
   adminClient: vi.fn(() => ({ name: "admin" })),
+  emailOTPClient: vi.fn(() => ({ name: "emailOTP" })),
   usernameClient: vi.fn(() => ({ name: "username" })),
   jwtClient: vi.fn(() => ({ name: "jwt" })),
   organizationClient: vi.fn(() => ({ name: "organization" })),
@@ -42,6 +43,7 @@ describe("server-client", () => {
       expect(capturedConfig).toMatchObject({
         plugins: [
           { name: "admin" },
+          { name: "emailOTP" },
           { name: "username" },
           { name: "jwt" },
           { name: "organization" },
