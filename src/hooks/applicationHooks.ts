@@ -7,7 +7,7 @@ import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useAppDispatch } from "@/lib/hooks";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import getArtworkFromDiscogs from "./artwork/discogs-image";
+import getArtworkFromLml from "./artwork/lml-artwork";
 import getArtworkFromItunes from "./artwork/itunes-image";
 import getArtworkFromLastFM from "./artwork/last-fm-image";
 
@@ -67,7 +67,7 @@ export const useAlbumImages = () => {
   const [url, setUrl] = useState<string>(DEFAULT_URL);
 
   let functions = [
-    getArtworkFromDiscogs,
+    getArtworkFromLml,
     getArtworkFromItunes,
     getArtworkFromLastFM,
   ];

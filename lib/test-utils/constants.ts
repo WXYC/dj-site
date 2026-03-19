@@ -48,3 +48,7 @@ export const TEST_SEARCH_STRINGS = {
 // Backend URL for MSW handlers
 export const TEST_BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
+
+// LML URL for artwork lookups
+export const TEST_LML_URL =
+  process.env.NEXT_PUBLIC_LML_URL || "http://localhost:8000";
