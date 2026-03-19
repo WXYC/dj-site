@@ -1,5 +1,3 @@
-import { vi } from "vitest";
-
 // Fixed timestamps for consistent testing
 export const TEST_TIMESTAMPS = {
   // A fixed "now" for tests: 2024-06-15 14:30:00 UTC
@@ -20,17 +18,6 @@ export function toISOString(date: Date): string {
 // Format a date as YYYY-MM-DD for display
 export function toDateString(date: Date): string {
   return date.toISOString().split("T")[0];
-}
-
-// Mock the current time for tests
-export function mockCurrentTime(date: Date = TEST_TIMESTAMPS.NOW): void {
-  vi.useFakeTimers();
-  vi.setSystemTime(date);
-}
-
-// Restore real timers
-export function restoreRealTime(): void {
-  vi.useRealTimers();
 }
 
 // Create a date offset from TEST_TIMESTAMPS.NOW
