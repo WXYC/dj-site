@@ -97,6 +97,113 @@ export const useLogin = () => {
   };
 };
 
+export const useOTPRequest = () => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  const handleSendOTP = async (email: string) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const result = await authClient.emailOtp.sendVerificationOtp({
+        email,
+        type: "sign-in",
+      });
+
+      if ((result as any).error) {
+        const errorMessage = (result as any).error?.message || "Failed to send login code";
+        throw new Error(errorMessage);
+      }
+
+      toast.success("Login code sent! Check your email.");
+    } catch (err) {
+      const errorMessage = err instanceof Error
+        ? err.message
+        : "Failed to send login code. Please try again.";
+
+      setError(err instanceof Error ? err : new Error(errorMessage));
+      if (errorMessage.trim().length > 0) {
+        toast.error(errorMessage);
+      }
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return { handleSendOTP, isLoading, error };
+};
+
+export const useOTPVerify = () => {
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  const handleVerifyOTP = async (email: string, otp: string) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const result = await authClient.signIn.emailOtp({
+        email,
+        otp,
+      });
+
+      if ((result as any).error) {
+        const err = (result as any).error;
+        const code = err?.code || "";
+
+        const friendlyMessages: Record<string, string> = {
+          OTP_EXPIRED: "That code has expired. Please request a new one.",
+          INVALID_OTP: "Invalid code. Please check and try again.",
+          TOO_MANY_ATTEMPTS: "Too many attempts. Please request a new code.",
+        };
+
+        const errorMessage = friendlyMessages[code] || err?.message || "Verification failed. Please try again.";
+        throw new Error(errorMessage);
+      }
+
+      toast.success("Login successful");
+      const dashboardHome = String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog");
+
+      // Check if user profile is incomplete (missing realName)
+      const user = (result as any).data?.user;
+      if (user && !user.realName) {
+        router.push("/login?incomplete=true");
+      } else {
+        router.push(dashboardHome);
+      }
+      router.refresh();
+    } catch (err) {
+      const errorMessage = err instanceof Error
+        ? err.message
+        : "Verification failed. Please try again.";
+
+      setError(err instanceof Error ? err : new Error(errorMessage));
+      if (errorMessage.trim().length > 0) {
+        toast.error(errorMessage);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendOTP = async (email: string) => {
+    try {
+      await authClient.emailOtp.sendVerificationOtp({
+        email,
+        type: "sign-in",
+      });
+      toast.success("Code resent! Check your email.");
+    } catch {
+      toast.error("Failed to resend code. Please try again.");
+    }
+  };
+
+  return { handleVerifyOTP, handleResendOTP, isLoading, error };
+};
+
 export const useLogout = () => {
   const router = useRouter();
   const dispatch = useAppDispatch();
@@ -203,14 +310,7 @@ export const useNewUser = () => {
     setError(null);
 
     const username = e.currentTarget.username.value;
-    const password = e.currentTarget.password.value;
-    const currentPassword = String(
-      process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD || ""
-    );
-
-    if (!currentPassword) {
-      throw new Error("Missing onboarding temp password configuration.");
-    }
+    const password = e.currentTarget.password?.value;
 
     const params: NewUserCredentials = {
       username,
@@ -255,6 +355,12 @@ export const useNewUser = () => {
       }
 
       if (params.password) {
+        const currentPassword = String(
+          process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD || ""
+        );
+        if (!currentPassword) {
+          throw new Error("Missing onboarding temp password configuration.");
+        }
         const passwordResult = await authClient.changePassword({
           currentPassword,
           newPassword: params.password,
@@ -292,7 +398,7 @@ export const useNewUser = () => {
   }, []);
 
   const addRequiredCredentials = (required: (keyof VerifiedData)[]) =>
-    dispatch(authenticationSlice.actions.addRequiredCredentials(required));
+    dispatch(authenticationSlice.actions.setRequiredCredentials(["username", ...required]));
 
   return {
     handleNewUser,
@@ -345,7 +451,7 @@ export const useResetPassword = () => {
       }
 
       toast.success(result.data?.message || "If this email exists, check for a reset link.");
-      dispatch(applicationSlice.actions.setAuthStage("login"));
+      dispatch(applicationSlice.actions.setAuthStage("otp-email"));
       router.push("/login");
     } catch (err) {
       const errorMessage = err instanceof Error
@@ -391,7 +497,7 @@ export const useResetPassword = () => {
       }
 
       toast.success("Password reset successfully. Please log in.");
-      dispatch(applicationSlice.actions.setAuthStage("login"));
+      dispatch(applicationSlice.actions.setAuthStage("otp-email"));
       router.push("/login");
       router.refresh();
     } catch (err) {

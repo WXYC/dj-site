@@ -23,7 +23,7 @@ export interface RightbarState {
     menu: RightbarMenu;
 }
 
-export type AuthStage = "login" | "forgot" | "reset";
+export type AuthStage = "otp-email" | "otp-verify" | "password" | "forgot" | "reset";
 
 export interface AuthFlowState {
     stage: AuthStage;
