@@ -1,5 +1,4 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
-import { ExperienceId } from "../experiences/types";
 import { ApplicationState } from "./types";
 
 /**

@@ -1,9 +1,8 @@
-import { DragIndicator } from "@mui/icons-material";
-import { IconButton } from "@mui/joy";
-import { DragControls } from "motion/react";
+import type { DragControls } from "motion/react";
 
-export default function DragButton({ controls }: { controls: DragControls }) {
+export default function DragButton(props: { controls: DragControls }) {
   // Dragging disabled for now
+  void props;
   return null;
   
   // Uncomment to re-enable dragging:

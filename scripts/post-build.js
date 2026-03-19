@@ -20,6 +20,7 @@ const workerPath = path.join(assetsDir, '_worker.js');
 
 try {
   fs.writeFileSync(workerPath, workerContent);
+  // eslint-disable-next-line no-console -- build-time script output
   console.log('✓ Created _worker.js for Cloudflare Pages');
 } catch (error) {
   console.error('Failed to create _worker.js:', error);
@@ -48,6 +49,7 @@ const routesPath = path.join(assetsDir, '_routes.json');
 
 try {
   fs.writeFileSync(routesPath, JSON.stringify(routesConfig, null, 2));
+  // eslint-disable-next-line no-console -- build-time script output
   console.log('✓ Created _routes.json for Cloudflare Pages');
 } catch (error) {
   console.error('Failed to create _routes.json:', error);

@@ -125,6 +125,7 @@ export default function SongEntry({
               {imageLoading ? (
                 <CircularProgress />
               ) : image ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={image}
                   alt="album art"

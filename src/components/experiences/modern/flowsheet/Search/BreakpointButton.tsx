@@ -7,7 +7,7 @@ import { Timer } from "@mui/icons-material";
 import { IconButton, Tooltip } from "@mui/joy";
 
 export default function BreakpointButton() {
-  const [addToFlowsheet, _] = useAddToFlowsheetMutation();
+  const [addToFlowsheet] = useAddToFlowsheetMutation();
 
   const { live } = useFlowsheetSearch();
 

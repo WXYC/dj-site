@@ -32,7 +32,7 @@ export default function SettingsPopup({ user }: { user: User }) {
   const [emailModalOpen, setEmailModalOpen] = useState(false);
 
   const modified = useAppSelector(authenticationSlice.selectors.isModified);
-  const { info, loading, handleSaveData } = useDJAccount();
+  const { loading, handleSaveData } = useDJAccount();
 
   return (
     <Modal
