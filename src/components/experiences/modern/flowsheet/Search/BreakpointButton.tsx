@@ -3,6 +3,7 @@
 import { useAddToFlowsheetMutation } from "@/lib/features/flowsheet/api";
 import { useFlowsheetSearch } from "@/src/hooks/flowsheetHooks";
 import { getClosestHour } from "@/src/utilities/closesthour";
+import { FlowsheetEntryType } from "@wxyc/shared/dtos";
 import { Timer } from "@mui/icons-material";
 import { IconButton, Tooltip } from "@mui/joy";
 
@@ -32,6 +33,7 @@ export default function BreakpointButton() {
               hour: "2-digit",
               minute: "2-digit",
             })} Breakpoint`,
+            entry_type: FlowsheetEntryType.breakpoint,
           });
         }}
         disabled={!live}

@@ -15,6 +15,7 @@ import {
   FlowsheetEntry,
 } from "@/lib/features/flowsheet/types";
 import { useAddToFlowsheetMutation, useSwitchEntriesMutation } from "@/lib/features/flowsheet/api";
+import { FlowsheetEntryType } from "@wxyc/shared/dtos";
 
 export default function Main() {
   const { entries, removeFromFlowsheet, updateFlowsheet, loading } =
@@ -55,7 +56,7 @@ export default function Main() {
 
   const handleAddTalkset = async () => {
     try {
-      await addToFlowsheet({ message: "Talkset" }).unwrap();
+      await addToFlowsheet({ message: "Talkset", entry_type: FlowsheetEntryType.talkset }).unwrap();
     } catch (error) {
       console.error("Failed to add talkset:", error);
     }
@@ -71,6 +72,7 @@ export default function Main() {
     try {
       await addToFlowsheet({
         message: `${timeString} Breakpoint`,
+        entry_type: FlowsheetEntryType.breakpoint,
       }).unwrap();
     } catch (error) {
       console.error("Failed to add breakpoint:", error);
