@@ -7,6 +7,7 @@ import type {
   FlowsheetV2TalksetEntry,
   FlowsheetV2BreakpointEntry,
   FlowsheetV2MessageEntry,
+  FlowsheetEntryType,
 } from "@wxyc/shared/dtos";
 import { Rotation } from "../rotation/types";
 
@@ -92,6 +93,7 @@ export type FlowsheetSubmissionParams =
     }
   | {
       message: string;
+      entry_type?: FlowsheetEntryType;
     };
 
 export type FlowsheetEntry =

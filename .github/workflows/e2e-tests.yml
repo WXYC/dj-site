@@ -87,6 +87,8 @@ jobs:
 
       - name: Start backend services with Docker Compose
         working-directory: Backend-Service
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           # Build and start E2E services
           docker compose -f dev_env/docker-compose.yml --env-file .env --profile e2e up -d e2e-db
