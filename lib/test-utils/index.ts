@@ -3,8 +3,8 @@
 // Constants
 export * from "./constants";
 
-// Time utilities
-export * from "./time";
+// Time utilities (includes vitest mock helpers via time.vitest)
+export * from "./time.vitest";
 
 // Fixtures
 export * from "./fixtures";
