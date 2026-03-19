@@ -310,7 +310,14 @@ export const useNewUser = () => {
     setError(null);
 
     const username = e.currentTarget.username.value;
-    const password = e.currentTarget.password?.value;
+    const password = e.currentTarget.password.value;
+    const currentPassword = String(
+      process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD || ""
+    );
+
+    if (!currentPassword) {
+      throw new Error("Missing onboarding temp password configuration.");
+    }
 
     const params: NewUserCredentials = {
       username,
@@ -355,12 +362,6 @@ export const useNewUser = () => {
       }
 
       if (params.password) {
-        const currentPassword = String(
-          process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD || ""
-        );
-        if (!currentPassword) {
-          throw new Error("Missing onboarding temp password configuration.");
-        }
         const passwordResult = await authClient.changePassword({
           currentPassword,
           newPassword: params.password,
@@ -398,7 +399,7 @@ export const useNewUser = () => {
   }, []);
 
   const addRequiredCredentials = (required: (keyof VerifiedData)[]) =>
-    dispatch(authenticationSlice.actions.setRequiredCredentials(["username", ...required]));
+    dispatch(authenticationSlice.actions.addRequiredCredentials(required));
 
   return {
     handleNewUser,
