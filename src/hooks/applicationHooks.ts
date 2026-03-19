@@ -8,6 +8,7 @@ import { useAppDispatch } from "@/lib/hooks";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import getArtworkFromProxy from "./artwork/proxy-image";
+import getArtworkFromLml from "./artwork/lml-artwork";
 import getArtworkFromItunes from "./artwork/itunes-image";
 import getArtworkFromLastFM from "./artwork/last-fm-image";
 
@@ -68,6 +69,7 @@ export const useAlbumImages = () => {
 
   let functions = [
     getArtworkFromProxy,
+    getArtworkFromLml,
     getArtworkFromItunes,
     getArtworkFromLastFM,
   ];
