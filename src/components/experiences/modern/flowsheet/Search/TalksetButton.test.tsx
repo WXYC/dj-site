@@ -36,6 +36,7 @@ describe("TalksetButton", () => {
     fireEvent.click(button);
     expect(mockAddToFlowsheet).toHaveBeenCalledWith({
       message: "Talkset",
+      entry_type: "talkset",
     });
   });
 
