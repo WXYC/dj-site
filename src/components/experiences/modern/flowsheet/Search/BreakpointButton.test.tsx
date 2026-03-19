@@ -41,6 +41,7 @@ describe("BreakpointButton", () => {
     expect(mockAddToFlowsheet).toHaveBeenCalledWith(
       expect.objectContaining({
         message: expect.stringContaining("Breakpoint"),
+        entry_type: "breakpoint",
       })
     );
   });
