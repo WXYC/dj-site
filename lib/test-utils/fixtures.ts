@@ -117,6 +117,42 @@ export const MOCK_USERS = {
     realName: "Test Reset 2",
     djName: "Reset DJ 2",
   },
+  adminReset1: {
+    id: "user-adminreset1",
+    username: "test_adminreset1",
+    password: "testpassword123",
+    email: "test_adminreset1@wxyc.org",
+    role: "dj" as const,
+    realName: "Test Admin Reset 1",
+    djName: "Admin Reset DJ 1",
+  },
+  deletableUser: {
+    id: "user-deletable",
+    username: "test_deletable_user",
+    password: "testpassword123",
+    email: "test_deletable_user@wxyc.org",
+    role: "dj" as const,
+    realName: "Test Deletable User",
+    djName: "Deletable DJ",
+  },
+  promotableUser: {
+    id: "user-promotable",
+    username: "test_promotable_user",
+    password: "testpassword123",
+    email: "test_promotable_user@wxyc.org",
+    role: "member" as const,
+    realName: "Test Promotable User",
+    djName: "Promotable DJ",
+  },
+  demotableSm: {
+    id: "user-demotable-sm",
+    username: "test_demotable_sm",
+    password: "testpassword123",
+    email: "test_demotable_sm@wxyc.org",
+    role: "stationManager" as const,
+    realName: "Test Demotable SM",
+    djName: "Demotable SM DJ",
+  },
 } as const;
 
 export type MockUserKey = keyof typeof MOCK_USERS;
