@@ -29,9 +29,11 @@ global.fetch = mockFetch;
 import {
   getAppOrganizationId,
   getAppOrganizationIdClient,
-  getUserRoleInOrganization,
   getUserRoleInOrganizationClient,
 } from "@/lib/features/authentication/organization-utils";
+import {
+  getUserRoleInOrganization,
+} from "@/lib/features/authentication/organization-utils.server";
 
 describe("organization-utils", () => {
   const originalEnv = process.env;
