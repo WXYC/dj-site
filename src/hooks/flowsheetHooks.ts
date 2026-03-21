@@ -30,6 +30,7 @@ import {
   useCatalogFlowsheetSearch,
   useRotationFlowsheetSearch,
 } from "./catalogHooks";
+import { useLmlLibrarySearch } from "./lml";
 
 export const useShowControl = () => {
   const { loading: userloading, info: userData } = useRegistry();
@@ -138,12 +139,26 @@ export const useFlowsheetSearch = () => {
   const { searchResults: binResults } = useBinResults();
   const { searchResults: catalogResults } = useCatalogFlowsheetSearch();
   const { searchResults: rotationResults } = useRotationFlowsheetSearch();
+  const { results: rawLmlResults } = useLmlLibrarySearch({
+    artist: searchQuery.artist,
+    album: searchQuery.album,
+  });
+
+  // Deduplicate LML results against the other three sources
+  const lmlResults = useMemo(() => {
+    const seen = new Set<number>();
+    for (const r of binResults) seen.add(r.id);
+    for (const r of rotationResults) seen.add(r.id);
+    for (const r of catalogResults) seen.add(r.id);
+    return rawLmlResults.filter((r) => !seen.has(r.id));
+  }, [binResults, rotationResults, catalogResults, rawLmlResults]);
 
   const allSearchResults = useMemo(() => [
     ...binResults,
     ...rotationResults,
     ...catalogResults,
-  ], [binResults, rotationResults, catalogResults]);
+    ...lmlResults,
+  ], [binResults, rotationResults, catalogResults, lmlResults]);
 
   const selectedEntry = useMemo(() => {
     if (selectedIndex === 0) return null;
@@ -441,12 +456,27 @@ export const useFlowsheetSubmit = () => {
     flowsheetSlice.selectors.getSearchQuery
   );
 
+  const { results: rawLmlResults } = useLmlLibrarySearch({
+    artist: flowSheetRawQuery.artist,
+    album: flowSheetRawQuery.album,
+  });
+
+  // Deduplicate LML results against the other three sources
+  const lmlResults = useMemo(() => {
+    const seen = new Set<number>();
+    for (const r of binResults) seen.add(r.id);
+    for (const r of rotationResults) seen.add(r.id);
+    for (const r of catalogResults) seen.add(r.id);
+    return rawLmlResults.filter((r) => !seen.has(r.id));
+  }, [binResults, rotationResults, catalogResults, rawLmlResults]);
+
   // Memoized collection of all search results
   const allSearchResults = useMemo(() => [
     ...binResults,
     ...rotationResults,
     ...catalogResults,
-  ], [binResults, rotationResults, catalogResults]);
+    ...lmlResults,
+  ], [binResults, rotationResults, catalogResults, lmlResults]);
 
   // Memoized selected entry (null if creating new)
   const selectedEntry = useMemo(() => {
@@ -518,6 +548,7 @@ export const useFlowsheetSubmit = () => {
     binResults,
     catalogResults,
     rotationResults,
+    lmlResults,
     selectedResultData,
     selectedEntry,
   };

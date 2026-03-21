@@ -57,6 +57,7 @@ describe("FlowsheetSearchResults", () => {
           binResults={[]}
           catalogResults={[]}
           rotationResults={[]}
+          lmlResults={[]}
         />
       </Provider>
     );
@@ -73,6 +74,7 @@ describe("FlowsheetSearchResults", () => {
           binResults={mockBinResults}
           catalogResults={[]}
           rotationResults={[]}
+          lmlResults={[]}
         />
       </Provider>
     );
@@ -90,6 +92,7 @@ describe("FlowsheetSearchResults", () => {
           binResults={[]}
           catalogResults={mockCatalogResults}
           rotationResults={[]}
+          lmlResults={[]}
         />
       </Provider>
     );
@@ -107,12 +110,34 @@ describe("FlowsheetSearchResults", () => {
           binResults={[]}
           catalogResults={[]}
           rotationResults={mockRotationResults}
+          lmlResults={[]}
         />
       </Provider>
     );
 
     const results = screen.getAllByTestId("backend-results");
     expect(results.some((r) => r.getAttribute("data-label") === "From Rotation")).toBe(true);
+  });
+
+  it("should render backend results for LML library search", () => {
+    const store = createTestStore(true);
+    const mockLmlResults: AlbumEntry[] = [
+      { id: 4, title: "LML Album" } as AlbumEntry,
+    ];
+
+    render(
+      <Provider store={store}>
+        <FlowsheetSearchResults
+          binResults={[]}
+          catalogResults={[]}
+          rotationResults={[]}
+          lmlResults={mockLmlResults}
+        />
+      </Provider>
+    );
+
+    const results = screen.getAllByTestId("backend-results");
+    expect(results.some((r) => r.getAttribute("data-label") === "From Library Search")).toBe(true);
   });
 
   it("should render keyboard shortcut hints", () => {
@@ -124,6 +149,7 @@ describe("FlowsheetSearchResults", () => {
           binResults={[]}
           catalogResults={[]}
           rotationResults={[]}
+          lmlResults={[]}
         />
       </Provider>
     );
@@ -138,6 +164,9 @@ describe("FlowsheetSearchResults", () => {
 
   it("should calculate correct offsets for results", () => {
     const store = createTestStore(true);
+    const mockLmlResults: AlbumEntry[] = [
+      { id: 4, title: "LML Album" } as AlbumEntry,
+    ];
 
     render(
       <Provider store={store}>
@@ -145,6 +174,7 @@ describe("FlowsheetSearchResults", () => {
           binResults={mockBinResults}
           catalogResults={mockCatalogResults}
           rotationResults={mockRotationResults}
+          lmlResults={mockLmlResults}
         />
       </Provider>
     );
@@ -154,5 +184,6 @@ describe("FlowsheetSearchResults", () => {
     expect(results[0]).toHaveAttribute("data-offset", "1"); // bin
     expect(results[1]).toHaveAttribute("data-offset", "2"); // rotation (binResults.length + 1)
     expect(results[2]).toHaveAttribute("data-offset", "3"); // catalog (binResults.length + rotationResults.length + 1)
+    expect(results[3]).toHaveAttribute("data-offset", "4"); // lml (bin + rotation + catalog + 1)
   });
 });
