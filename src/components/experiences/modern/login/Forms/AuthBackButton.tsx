@@ -18,7 +18,7 @@ export default function AuthBackButton({
 
   const handleBack = async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
-    dispatch(applicationSlice.actions.setAuthStage("login"));
+    dispatch(applicationSlice.actions.setAuthStage("otp-email"));
     // Navigate to a clean /login URL first — this clears any stale ?token= or
     // ?error= search params that would otherwise re-trigger the reset flow
     // when the useEffect in LoginSlotSwitcher runs after the re-render.

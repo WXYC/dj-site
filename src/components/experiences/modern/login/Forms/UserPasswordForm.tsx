@@ -48,6 +48,19 @@ export default function UserPasswordForm() {
         valid={verified}
         fullWidth
       />
+      <Typography level="body-sm" sx={{ mt: 2, textAlign: "center" }}>
+        <Link
+          component="button"
+          type="button"
+          onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
+            event.preventDefault();
+            dispatch(applicationSlice.actions.setAuthStage("otp-email"));
+          }}
+          disabled={authenticating}
+        >
+          Sign in with email code instead
+        </Link>
+      </Typography>
     </form>
   );
 }

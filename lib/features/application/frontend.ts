@@ -8,7 +8,7 @@ export const defaultApplicationFrontendState: ApplicationFrontendState = {
     menu: RightbarMenu.BIN,
   },
   authFlow: {
-    stage: "login" as AuthStage,
+    stage: "otp-email" as AuthStage,
   },
 };
 
