@@ -20,7 +20,7 @@ vi.mock("@/lib/features/authentication/server-client", () => ({
   },
 }));
 
-vi.mock("@/lib/features/authentication/organization-utils", () => ({
+vi.mock("@/lib/features/authentication/organization-utils.server", () => ({
   getAppOrganizationId: vi.fn().mockReturnValue(undefined),
   getUserRoleInOrganization: vi.fn().mockResolvedValue(undefined),
 }));
