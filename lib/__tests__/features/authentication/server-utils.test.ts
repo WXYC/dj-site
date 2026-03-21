@@ -27,7 +27,7 @@ vi.mock("@/lib/features/authentication/server-client", () => ({
 // Mock organization utils
 const mockGetUserRoleInOrganization = vi.fn();
 const mockGetAppOrganizationId = vi.fn();
-vi.mock("@/lib/features/authentication/organization-utils", () => ({
+vi.mock("@/lib/features/authentication/organization-utils.server", () => ({
   getUserRoleInOrganization: (userId: string, orgId: string, cookie?: string) =>
     mockGetUserRoleInOrganization(userId, orgId, cookie),
   getAppOrganizationId: () => mockGetAppOrganizationId(),
