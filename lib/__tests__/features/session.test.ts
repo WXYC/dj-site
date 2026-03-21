@@ -34,8 +34,8 @@ vi.mock("@/lib/features/experiences/preferences", () => ({
   parseAppSkinPreference: vi.fn(),
 }));
 
-// Mock organization-utils (used by session.ts for server-side role fetching)
-vi.mock("@/lib/features/authentication/organization-utils", () => ({
+// Mock organization-utils.server (used by session.ts for server-side role fetching)
+vi.mock("@/lib/features/authentication/organization-utils.server", () => ({
   getUserRoleInOrganization: vi.fn(),
   getAppOrganizationId: vi.fn(() => undefined),
 }));
