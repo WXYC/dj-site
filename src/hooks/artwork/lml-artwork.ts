@@ -1,4 +1,4 @@
-import { getLmlBaseUrl } from "./lml-client";
+import { getLmlBaseUrl } from "../lml/lml-client";
 
 export default async function getArtworkFromLml({
   title,

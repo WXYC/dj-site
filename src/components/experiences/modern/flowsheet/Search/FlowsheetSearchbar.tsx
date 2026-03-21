@@ -28,6 +28,7 @@ export default function FlowsheetSearchbar() {
     binResults,
     catalogResults,
     rotationResults,
+    lmlResults,
   } = useFlowsheetSubmit();
 
   const { addToFlowsheet } = useFlowsheet();
@@ -115,7 +116,7 @@ export default function FlowsheetSearchbar() {
         e.preventDefault();
         const nextIndex = Math.min(
           selectedResult + 1,
-          binResults.length + catalogResults.length + rotationResults.length
+          binResults.length + catalogResults.length + rotationResults.length + lmlResults.length
         );
         dispatch(flowsheetSlice.actions.setSelectedResult(nextIndex));
       }
@@ -132,6 +133,7 @@ export default function FlowsheetSearchbar() {
       binResults,
       catalogResults,
       rotationResults,
+      lmlResults,
       selectedResult,
     ]
   );
@@ -160,6 +162,7 @@ export default function FlowsheetSearchbar() {
           binResults={binResults}
           catalogResults={catalogResults}
           rotationResults={rotationResults}
+          lmlResults={lmlResults}
         />
         <Stack direction="row" spacing={0.5}>
           <BreakpointButton />
