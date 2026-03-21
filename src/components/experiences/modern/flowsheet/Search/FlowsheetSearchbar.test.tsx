@@ -13,6 +13,7 @@ let mockCtrlKeyPressed = false;
 let mockBinResults: any[] = [];
 let mockCatalogResults: any[] = [];
 let mockRotationResults: any[] = [];
+let mockLmlResults: any[] = [];
 const mockSetSearchOpen = vi.fn();
 const mockResetSearch = vi.fn();
 const mockHandleSubmit = vi.fn();
@@ -35,6 +36,7 @@ vi.mock("@/src/hooks/flowsheetHooks", () => ({
     binResults: mockBinResults,
     catalogResults: mockCatalogResults,
     rotationResults: mockRotationResults,
+    lmlResults: mockLmlResults,
   })),
 }));
 
@@ -82,6 +84,7 @@ describe("FlowsheetSearchbar", () => {
     mockBinResults = [];
     mockCatalogResults = [];
     mockRotationResults = [];
+    mockLmlResults = [];
   });
 
   afterEach(() => {
