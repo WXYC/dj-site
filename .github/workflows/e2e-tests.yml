@@ -87,7 +87,7 @@ jobs:
           DB_PASSWORD='RadioIsEpic$1100'
           BETTER_AUTH_SECRET=e2e-auth-secret-for-testing-min-32-chars
           BETTER_AUTH_URL=http://localhost:8084/auth
-          BETTER_AUTH_JWKS_URL=http://localhost:8084/auth/.well-known/jwks.json
+          BETTER_AUTH_JWKS_URL=http://localhost:8084/auth/jwks
           BETTER_AUTH_TRUSTED_ORIGINS=http://localhost:3000
           FRONTEND_SOURCE=http://localhost:3000
           DEFAULT_ORG_SLUG=test-org
