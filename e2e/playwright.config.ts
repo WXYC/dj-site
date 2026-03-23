@@ -70,8 +70,8 @@ export default defineConfig({
     },
   ],
 
-  /* 15s per test (3x the ~5s baseline) */
-  timeout: 15000,
+  /* 20s per test — 15s is too tight for CI runners */
+  timeout: 20000,
   expect: {
     /* Aligned with actionTimeout */
     timeout: 10000,
