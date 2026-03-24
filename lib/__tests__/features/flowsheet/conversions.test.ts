@@ -41,6 +41,17 @@ type QuerySubmission = {
 
 describe("flowsheet conversions", () => {
   describe("convertQueryToSubmission", () => {
+    // Type for the actual return shape from convertQueryToSubmission
+    type QuerySubmissionResult = {
+      track_title: string;
+      artist_name: string;
+      album_title: string;
+      record_label: string;
+      request_flag: boolean;
+      album_id?: number;
+      rotation_id?: number;
+    };
+
     it("should convert query to submission params", () => {
       const query = createTestFlowsheetQuery();
       const result = convertQueryToSubmission(query) as QuerySubmission;
