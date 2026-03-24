@@ -123,9 +123,9 @@ export class RosterPage {
     await expect(this.saveButton).toBeEnabled({ timeout: 5000 });
     await this.saveButton.click();
     await Promise.race([
-      this.saveButton.waitFor({ state: "hidden", timeout: 15000 }),
-      this.errorToast.waitFor({ state: "visible", timeout: 15000 }),
-      this.successToast.waitFor({ state: "visible", timeout: 15000 }),
+      this.saveButton.waitFor({ state: "hidden", timeout: 10000 }),
+      this.errorToast.waitFor({ state: "visible", timeout: 10000 }),
+      this.successToast.waitFor({ state: "visible", timeout: 10000 }),
     ]).catch(() => {});
   }
 
