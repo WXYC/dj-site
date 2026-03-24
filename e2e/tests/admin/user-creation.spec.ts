@@ -94,6 +94,54 @@ test.describe("Admin User Creation", () => {
     await rosterPage.expectUserInRoster(username);
   });
 
+  test("should require real name field", async ({ page }) => {
+    await rosterPage.clickAddDj();
+
+    // Fill all fields except realName
+    await rosterPage.usernameInput.fill(generateUsername());
+    await rosterPage.emailInput.fill("test@test.wxyc.org");
+
+    // Try to submit
+    await rosterPage.submitNewAccount();
+
+    // HTML5 validation should prevent submission — form stays open
+    const formStillVisible = await rosterPage.realNameInput.isVisible().catch(() => false);
+    const errorShown = await rosterPage.errorToast.isVisible().catch(() => false);
+    expect(formStillVisible || errorShown).toBe(true);
+  });
+
+  test("should require username field", async ({ page }) => {
+    await rosterPage.clickAddDj();
+
+    // Fill all fields except username
+    await rosterPage.realNameInput.fill("Test User");
+    await rosterPage.emailInput.fill("test@test.wxyc.org");
+
+    // Try to submit
+    await rosterPage.submitNewAccount();
+
+    // HTML5 validation should prevent submission — form stays open
+    const formStillVisible = await rosterPage.usernameInput.isVisible().catch(() => false);
+    const errorShown = await rosterPage.errorToast.isVisible().catch(() => false);
+    expect(formStillVisible || errorShown).toBe(true);
+  });
+
+  test("should require email field", async ({ page }) => {
+    await rosterPage.clickAddDj();
+
+    // Fill all fields except email
+    await rosterPage.realNameInput.fill("Test User");
+    await rosterPage.usernameInput.fill(generateUsername());
+
+    // Try to submit
+    await rosterPage.submitNewAccount();
+
+    // HTML5 validation should prevent submission — form stays open
+    const formStillVisible = await rosterPage.emailInput.isVisible().catch(() => false);
+    const errorShown = await rosterPage.errorToast.isVisible().catch(() => false);
+    expect(formStillVisible || errorShown).toBe(true);
+  });
+
   test("should allow DJ name to be optional", async ({ page }) => {
     const username = generateUsername();
     const email = `${username}@test.wxyc.org`;
@@ -142,6 +190,23 @@ test.describe("Admin User Creation", () => {
 
     // Should show error toast
     await rosterPage.expectErrorToast();
+  });
+
+  test("should validate email format", async ({ page }) => {
+    await rosterPage.clickAddDj();
+
+    await rosterPage.fillNewAccountForm({
+      realName: "Invalid Email User",
+      username: generateUsername(),
+      email: "invalid-email", // Invalid email format
+    });
+
+    await rosterPage.submitNewAccount();
+
+    // HTML5 type="email" validation should prevent submission — form stays open
+    const formStillVisible = await rosterPage.emailInput.isVisible().catch(() => false);
+    const errorShown = await rosterPage.errorToast.isVisible().catch(() => false);
+    expect(formStillVisible || errorShown).toBe(true);
   });
 
   test("should close form when clicking away", async ({ page }) => {
