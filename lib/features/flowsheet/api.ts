@@ -22,6 +22,7 @@ export const flowsheetApi = createApi({
   reducerPath: "flowsheetApi",
   baseQuery: backendBaseQuery("flowsheet"),
   tagTypes: ["NowPlaying", "WhoIsLive", "Flowsheet"],
+  invalidationBehavior: "immediately",
   endpoints: (builder) => ({
     getNowPlaying: builder.query<FlowsheetEntry, void>({
       query: () => ({
