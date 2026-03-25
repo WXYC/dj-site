@@ -83,13 +83,35 @@ export const flowsheetApi = createApi({
         convertDJsOnAir(response),
       providesTags: ["WhoIsLive"],
     }),
-    addToFlowsheet: builder.mutation<any, FlowsheetSubmissionParams>({
+    addToFlowsheet: builder.mutation<
+      FlowsheetV2EntryJSON,
+      FlowsheetSubmissionParams
+    >({
       query: (params) => ({
         url: "/",
         method: "POST",
         body: params,
       }),
       invalidatesTags: ["Flowsheet", "NowPlaying"],
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+        try {
+          const { data: serverEntry } = await queryFulfilled;
+          dispatch(
+            flowsheetApi.util.updateQueryData(
+              "getInfiniteEntries",
+              undefined,
+              (draft) => {
+                if (draft.pages.length > 0) {
+                  const converted = convertV2Entry(serverEntry);
+                  draft.pages[0].unshift(converted);
+                }
+              }
+            )
+          );
+        } catch {
+          // Mutation failed — do not update the cache
+        }
+      },
     }),
     removeFromFlowsheet: builder.mutation<any, number>({
       query: (entry_id) => ({
