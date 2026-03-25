@@ -81,6 +81,7 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
         album_title: entry.album_title || "",
         record_label: entry.record_label || "",
         request_flag: entry.request_flag,
+        segue: (entry as any).segue ?? false,
         album_id: entry.album_id ?? undefined,
         rotation_id: entry.rotation_id ?? undefined,
         rotation: entry.rotation_bin as Rotation,

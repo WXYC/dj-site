@@ -22,7 +22,10 @@ export const loadQueueFromStorage = (): FlowsheetSongEntry[] => {
     if (!stored) return [];
     const parsed = JSON.parse(stored);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isValidQueueEntry);
+    return parsed.filter(isValidQueueEntry).map((entry) => ({
+      ...entry,
+      segue: typeof entry.segue === "boolean" ? entry.segue : false,
+    }));
   } catch (error) {
     console.error("Failed to load queue from localStorage:", error);
     return [];

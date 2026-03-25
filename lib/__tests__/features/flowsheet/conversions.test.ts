@@ -130,7 +130,23 @@ describe("flowsheet conversions", () => {
         expect(result.album_title).toBe(TEST_SEARCH_STRINGS.ALBUM_NAME);
         expect(result.record_label).toBe(TEST_SEARCH_STRINGS.LABEL);
         expect(result.request_flag).toBe(false);
+        expect(result.segue).toBe(false);
         expect(result.album_id).toBe(TEST_ENTITY_IDS.ALBUM.ROCK_ALBUM);
+      });
+
+      it("should convert segue flag when present on track entry", () => {
+        const entry = createTestV2TrackEntry();
+        (entry as any).segue = true;
+        const result = convertV2Entry(entry) as FlowsheetSongEntry;
+
+        expect(result.segue).toBe(true);
+      });
+
+      it("should default segue to false when not present on track entry", () => {
+        const entry = createTestV2TrackEntry();
+        const result = convertV2Entry(entry) as FlowsheetSongEntry;
+
+        expect(result.segue).toBe(false);
       });
 
       it("should default null/undefined track fields to empty strings", () => {
