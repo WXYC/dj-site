@@ -32,6 +32,7 @@ export default function EntryForm({
   const [useArtistForComposer, setUseArtistForComposer] = useState(false);
   const [releaseTitle, setReleaseTitle] = useState("");
   const [labelName, setLabelName] = useState("");
+  const [segueAnswer, setSegueAnswer] = useState<"yes" | "no">("no");
   const [requestAnswer, setRequestAnswer] = useState<"yes" | "no">("no");
 
   const { data: rotationData } = useGetRotationQuery();
@@ -72,6 +73,7 @@ export default function EntryForm({
         track_title: songTitle,
         rotation_id: release.rotation_id,
         request_flag: requestAnswer === "yes",
+        segue: segueAnswer === "yes",
         record_label: labelName || release.label,
         play_freq: release.rotation_bin,
       };
@@ -83,6 +85,7 @@ export default function EntryForm({
         album_title: releaseTitle,
         track_title: songTitle,
         request_flag: requestAnswer === "yes",
+        segue: segueAnswer === "yes",
         record_label: labelName,
       };
     } else {
@@ -91,6 +94,7 @@ export default function EntryForm({
         album_title: releaseTitle,
         track_title: songTitle,
         request_flag: requestAnswer === "yes",
+        segue: segueAnswer === "yes",
         record_label: labelName,
       };
     }
@@ -103,6 +107,7 @@ export default function EntryForm({
       setComposer("");
       setReleaseTitle("");
       setLabelName("");
+      setSegueAnswer("no");
       setRequestAnswer("no");
       setSelectedRotationId(0);
       setRotationType("");
@@ -377,6 +382,29 @@ export default function EntryForm({
                 disabled={!isLive}
               />
               &nbsp;&nbsp;&nbsp;
+            </td>
+          </tr>
+          <tr id="segueRow">
+            <td colSpan={4} className="redlabel" style={{ textAlign: "center" }}>
+              Is this a segue from the previous track?{" "}
+              <input
+                type="radio"
+                name="segueAnswer"
+                value="yes"
+                checked={segueAnswer === "yes"}
+                onChange={() => setSegueAnswer("yes")}
+                disabled={!isLive}
+              />
+              Yes &nbsp;
+              <input
+                type="radio"
+                name="segueAnswer"
+                value="no"
+                checked={segueAnswer === "no"}
+                onChange={() => setSegueAnswer("no")}
+                disabled={!isLive}
+              />
+              No
             </td>
           </tr>
           <tr id="requestSubmitRow">

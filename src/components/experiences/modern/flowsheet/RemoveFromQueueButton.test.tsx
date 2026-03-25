@@ -21,6 +21,7 @@ describe("RemoveFromQueueButton", () => {
     album_title: "Test Album",
     record_label: "Test Label",
     request_flag: false,
+    segue: false,
   };
 
   beforeEach(() => {
@@ -258,6 +259,7 @@ describe("RemoveFromQueueButton", () => {
         album_title: "Full Album",
         record_label: "Full Label",
         request_flag: true,
+        segue: false,
         album_id: 123,
         rotation_id: 456,
         rotation: "H",

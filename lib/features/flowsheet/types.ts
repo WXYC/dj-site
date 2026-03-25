@@ -51,6 +51,7 @@ export type FlowsheetSongBase = {
   album_title: string;
   record_label: string;
   request_flag: boolean;
+  segue: boolean;
   album_id?: number;
   rotation_id?: number;
   rotation?: Rotation;
@@ -81,6 +82,7 @@ export type FlowsheetSubmissionParams =
       track_title: string;
       rotation_id?: number;
       request_flag: boolean;
+      segue?: boolean;
       record_label?: string;
       rotation_bin?: Rotation;
     }
@@ -89,6 +91,7 @@ export type FlowsheetSubmissionParams =
       album_title: string;
       track_title: string;
       request_flag: boolean;
+      segue?: boolean;
       record_label?: string;
     }
   | {

@@ -77,12 +77,14 @@ export default function EntryRow({
   if (isFlowsheetSongEntry(entry)) {
     const rotationIndicator = entry.rotation ? "*" : "";
     const requestIndicator = entry.request_flag ? "*" : "";
+    const segueIndicator = entry.segue ? "\u27F6" : "";
     const hasComposer = false; // BMI composer info not in current type
 
     return (
       <tr style={{ backgroundColor: "#F3F3F3" }} className={`flowsheetEntryData ${fontSizeClass}`}>
         <td align="center">{rotationIndicator}</td>
         <td align="center">{requestIndicator}</td>
+        <td align="center">{segueIndicator}</td>
         <td align="left">{entry.artist_name}</td>
         <td align="left">
           {entry.track_title}

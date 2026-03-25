@@ -123,6 +123,7 @@ describe("SongEntry", () => {
     album_title: "Test Album",
     record_label: "Test Label",
     request_flag: false,
+    segue: false,
     album_id: 42,
     rotation: "H",
     rotation_id: 10,
@@ -372,11 +373,66 @@ describe("SongEntry", () => {
     });
   });
 
+  describe("Segue checkbox", () => {
+    it("should render segue checkbox", () => {
+      render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
+
+      const checkboxes = screen.getAllByRole("checkbox");
+      expect(checkboxes.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it("should reflect segue state", () => {
+      const entryWithSegue = { ...mockEntry, segue: true };
+
+      render(
+        <SongEntry entry={entryWithSegue} playing={false} queue={false} />
+      );
+
+      const checkboxes = screen.getAllByRole("checkbox");
+      // Segue checkbox is the first one
+      expect(checkboxes[0]).toBeChecked();
+    });
+
+    it("should call updateFlowsheet when segue checkbox changes (not in queue)", () => {
+      mockUseShowControl.mockReturnValue({
+        live: true,
+        autoplay: false,
+        currentShow: 100,
+      });
+
+      render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
+
+      const checkboxes = screen.getAllByRole("checkbox");
+      fireEvent.click(checkboxes[0]);
+
+      expect(mockUpdateFlowsheet).toHaveBeenCalledWith({
+        entry_id: 1,
+        data: { segue: true },
+      });
+    });
+
+    it("should dispatch updateQueueEntry when segue checkbox changes (in queue)", () => {
+      mockUseShowControl.mockReturnValue({
+        live: true,
+        autoplay: false,
+        currentShow: 100,
+      });
+
+      render(<SongEntry entry={mockEntry} playing={false} queue={true} />);
+
+      const checkboxes = screen.getAllByRole("checkbox");
+      fireEvent.click(checkboxes[0]);
+
+      expect(mockDispatch).toHaveBeenCalled();
+    });
+  });
+
   describe("Request flag checkbox", () => {
     it("should render request flag checkbox", () => {
       render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
 
-      expect(screen.getByRole("checkbox")).toBeInTheDocument();
+      const checkboxes = screen.getAllByRole("checkbox");
+      expect(checkboxes.length).toBeGreaterThanOrEqual(2);
     });
 
     it("should reflect request_flag state", () => {
@@ -386,7 +442,9 @@ describe("SongEntry", () => {
         <SongEntry entry={entryWithRequest} playing={false} queue={false} />
       );
 
-      expect(screen.getByRole("checkbox")).toBeChecked();
+      const checkboxes = screen.getAllByRole("checkbox");
+      // Request checkbox is the second one
+      expect(checkboxes[1]).toBeChecked();
     });
 
     it("should be disabled when not editable", () => {
@@ -398,7 +456,8 @@ describe("SongEntry", () => {
 
       render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
 
-      expect(screen.getByRole("checkbox")).toBeDisabled();
+      const checkboxes = screen.getAllByRole("checkbox");
+      checkboxes.forEach((cb) => expect(cb).toBeDisabled());
     });
 
     it("should be enabled when editable", () => {
@@ -410,7 +469,8 @@ describe("SongEntry", () => {
 
       render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
 
-      expect(screen.getByRole("checkbox")).not.toBeDisabled();
+      const checkboxes = screen.getAllByRole("checkbox");
+      checkboxes.forEach((cb) => expect(cb).not.toBeDisabled());
     });
 
     it("should call updateFlowsheet when checkbox changes (not in queue)", () => {
@@ -422,8 +482,8 @@ describe("SongEntry", () => {
 
       render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
 
-      const checkbox = screen.getByRole("checkbox");
-      fireEvent.click(checkbox);
+      const checkboxes = screen.getAllByRole("checkbox");
+      fireEvent.click(checkboxes[1]);
 
       expect(mockUpdateFlowsheet).toHaveBeenCalledWith({
         entry_id: 1,
@@ -440,8 +500,8 @@ describe("SongEntry", () => {
 
       render(<SongEntry entry={mockEntry} playing={false} queue={true} />);
 
-      const checkbox = screen.getByRole("checkbox");
-      fireEvent.click(checkbox);
+      const checkboxes = screen.getAllByRole("checkbox");
+      fireEvent.click(checkboxes[1]);
 
       expect(mockDispatch).toHaveBeenCalled();
     });

@@ -64,6 +64,12 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
       expect(result.queueIdCounter).toBe(1);
     });
 
+    it("should add item to queue with segue defaulting to false", () => {
+      const query = createTestFlowsheetQuery();
+      const result = harness().reduce(actions.addToQueue(query));
+      expect(result.queue[0].segue).toBe(false);
+    });
+
     it("should remove item from queue", () => {
       const query = createTestFlowsheetQuery();
       const withItem = harness().reduce(actions.addToQueue(query));
@@ -90,6 +96,17 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
         withItem
       );
       expect(result.queue[0].track_title).toBe("Updated Track Title");
+    });
+
+    it("should update queue entry segue field", () => {
+      const withItem = harness().reduce(actions.addToQueue(createTestFlowsheetQuery()));
+      const entryId = withItem.queue[0].id;
+      expect(withItem.queue[0].segue).toBe(false);
+      const result = harness().reduce(
+        actions.updateQueueEntry({ entry_id: entryId, field: "segue", value: true }),
+        withItem
+      );
+      expect(result.queue[0].segue).toBe(true);
     });
 
     it("should reorder queue", () => {

@@ -15,6 +15,8 @@ import {
   Album,
   InfoOutlined,
   KeyboardArrowDown,
+  LinkRounded,
+  LinkOff,
   MusicNote,
   PhoneDisabled,
   PhoneEnabled,
@@ -160,6 +162,7 @@ export default function SongEntry({
                     album_title: entry.album_title,
                     record_label: entry.record_label,
                     request_flag: entry.request_flag,
+                    segue: entry.segue,
                     rotation_id: entry.rotation_id,
                     album_id: entry.album_id,
                     rotation_bin: entry.rotation,
@@ -226,6 +229,55 @@ export default function SongEntry({
           alignItems={"center"}
           spacing={0.5}
         >
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "40px",
+              height: "40px",
+            }}
+          >
+            <Tooltip
+              variant="outlined"
+              size="sm"
+              title="Does this track segue from the previous?"
+            >
+              <Checkbox
+                size="sm"
+                variant="soft"
+                color={entry.segue ? "primary" : "neutral"}
+                uncheckedIcon={<LinkOff />}
+                checkedIcon={<LinkRounded />}
+                disabled={!editable}
+                sx={{
+                  opacity: entry.segue ? 1 : 0.3,
+                  "& .MuiCheckbox-checkbox": {
+                    background: "transparent",
+                  },
+                }}
+                checked={entry.segue}
+                onChange={(e) => {
+                  if (queue) {
+                    // Update queue entry in Redux state
+                    dispatch(flowsheetSlice.actions.updateQueueEntry({
+                      entry_id: entry.id,
+                      field: 'segue',
+                      value: e.target.checked,
+                    }));
+                  } else {
+                    // Update flowsheet entry via API
+                    updateFlowsheet({
+                      entry_id: entry.id,
+                      data: {
+                        segue: e.target.checked,
+                      },
+                    });
+                  }
+                }}
+              />
+            </Tooltip>
+          </Box>
           <Box
             sx={{
               display: "flex",

@@ -306,6 +306,7 @@ describe("NowPlayingMini", () => {
         album_title: "Test Album",
         record_label: "Test Label",
         request_flag: false,
+        segue: false,
       };
 
       render(<NowPlayingMini {...createDefaultProps({ entry: songEntry })} />);
@@ -322,6 +323,7 @@ describe("NowPlayingMini", () => {
         album_title: "Test Album",
         record_label: "Test Label",
         request_flag: false,
+        segue: false,
       };
 
       render(<NowPlayingMini {...createDefaultProps({ entry: songEntry })} />);

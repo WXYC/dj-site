@@ -221,6 +221,7 @@ export function createTestFlowsheetEntry(
     album_title: TEST_SEARCH_STRINGS.ALBUM_NAME,
     record_label: TEST_SEARCH_STRINGS.LABEL,
     request_flag: false,
+    segue: false,
     album_id: TEST_ENTITY_IDS.ALBUM.ROCK_ALBUM,
     rotation_id: undefined,
     rotation: undefined,

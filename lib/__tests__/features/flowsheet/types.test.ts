@@ -28,6 +28,7 @@ describe("flowsheet types", () => {
         album_title: "Test Album",
         record_label: "Test Label",
         request_flag: false,
+        segue: false,
       };
 
       expect(isFlowsheetSongEntry(songEntry)).toBe(true);
@@ -88,6 +89,7 @@ describe("flowsheet types", () => {
         album_title: "Test Album",
         record_label: "Test Label",
         request_flag: false,
+        segue: false,
       };
 
       expect(isFlowsheetStartShowEntry(songEntry as FlowsheetEntry)).toBe(false);
@@ -165,6 +167,7 @@ describe("flowsheet types", () => {
         album_title: "Test Album",
         record_label: "Test Label",
         request_flag: false,
+        segue: false,
       };
 
       expect(isFlowsheetTalksetEntry(songEntry as FlowsheetEntry)).toBe(false);
@@ -220,6 +223,7 @@ describe("flowsheet types", () => {
         album_title: "Test Album",
         record_label: "Test Label",
         request_flag: false,
+        segue: false,
       };
 
       expect(isFlowsheetBreakpointEntry(songEntry as FlowsheetEntry)).toBe(false);
