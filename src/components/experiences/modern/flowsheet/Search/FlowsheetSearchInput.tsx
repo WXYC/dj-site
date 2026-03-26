@@ -95,7 +95,7 @@ export default function FlowsheetSearchInput({
           }
         }}
         onKeyDown={(e) => {
-          if (isAutoFilled && e.key !== "Tab" && e.key !== "Shift") {
+          if (isAutoFilled && e.key !== "Tab" && e.key !== "Shift" && e.key !== "Enter") {
             e.preventDefault();
             return;
           }
