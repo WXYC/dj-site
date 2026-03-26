@@ -93,7 +93,7 @@ export const flowsheetApi = createApi({
         method: "POST",
         body: params,
       }),
-      invalidatesTags: ["Flowsheet", "NowPlaying"],
+      invalidatesTags: ["NowPlaying"],
       async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
         try {
           const { data: serverEntry } = await queryFulfilled;
