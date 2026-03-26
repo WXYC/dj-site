@@ -169,7 +169,7 @@ describe("FlowsheetSearchInput", () => {
     expect(input).toHaveAttribute("readonly");
   });
 
-  it("should prevent keydown when auto-filled except Tab and Shift", async () => {
+  it("should prevent keydown when auto-filled except Tab, Shift, and Enter", async () => {
     const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
     vi.mocked(useFlowsheetSearch).mockReturnValue({
       getDisplayValue: () => "Auto-filled value",
@@ -186,12 +186,37 @@ describe("FlowsheetSearchInput", () => {
 
     // Regular key should be prevented
     const letterEvent = fireEvent.keyDown(input, { key: 'a' });
+    expect(letterEvent).toBe(false); // preventDefault was called
+
     // Tab should not be prevented
     const tabEvent = fireEvent.keyDown(input, { key: 'Tab' });
+    expect(tabEvent).toBe(true); // default not prevented
+
     // Shift should not be prevented
     const shiftEvent = fireEvent.keyDown(input, { key: 'Shift' });
+    expect(shiftEvent).toBe(true);
 
     expect(input).toHaveAttribute("readonly");
+  });
+
+  it("should not prevent Enter keydown when auto-filled so form submission works", async () => {
+    const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
+    vi.mocked(useFlowsheetSearch).mockReturnValue({
+      getDisplayValue: () => "Auto-filled value",
+      setSearchProperty: mockSetSearchProperty,
+      selectedIndex: 1,
+      selectedEntry: {
+        artist: { name: "Test Artist" },
+      },
+    } as any);
+
+    render(<FlowsheetSearchInput name="artist" />);
+
+    const input = screen.getByRole("textbox");
+
+    // Enter should not be prevented — it must propagate for form submission
+    const enterEvent = fireEvent.keyDown(input, { key: 'Enter' });
+    expect(enterEvent).toBe(true);
   });
 
   it("should not call setSearchProperty when auto-filled", async () => {
