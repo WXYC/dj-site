@@ -53,7 +53,7 @@ export default function FlowsheetSearchInput({
       }}
       onKeyDown={(e) => {
         // Prevent any input when locked
-        if (isAutoFilled && e.key !== 'Tab' && e.key !== 'Shift') {
+        if (isAutoFilled && e.key !== 'Tab' && e.key !== 'Shift' && e.key !== 'Enter') {
           e.preventDefault();
         }
       }}
