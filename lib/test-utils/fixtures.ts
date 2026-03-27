@@ -616,3 +616,24 @@ export function createTestV2MessageEntry(
     ...overrides,
   };
 }
+
+// LML library search fixtures
+import type { LmlLibraryItem } from "@/src/hooks/lml/types";
+
+export function createTestLmlLibraryItem(
+  overrides: Partial<LmlLibraryItem> = {}
+): LmlLibraryItem {
+  return {
+    id: TEST_ENTITY_IDS.ALBUM.ROCK_ALBUM,
+    title: TEST_SEARCH_STRINGS.ALBUM_NAME,
+    artist: TEST_SEARCH_STRINGS.ARTIST_NAME,
+    call_letters: "RO",
+    artist_call_number: 42,
+    release_call_number: 1,
+    genre: "Rock",
+    format: "CD",
+    alternate_artist_name: null,
+    library_url: `http://localhost:8000/api/v1/library/${TEST_ENTITY_IDS.ALBUM.ROCK_ALBUM}`,
+    ...overrides,
+  };
+}

@@ -11,10 +11,12 @@ export default function FlowsheetSearchResults({
   binResults,
   catalogResults,
   rotationResults,
+  lmlResults,
 }: {
   binResults: AlbumEntry[];
   catalogResults: AlbumEntry[];
   rotationResults: AlbumEntry[];
+  lmlResults: AlbumEntry[];
 }) {
   const open = useAppSelector(flowsheetSlice.selectors.getSearchOpen);
 
@@ -80,6 +82,16 @@ export default function FlowsheetSearchResults({
             results={catalogResults}
             offset={binResults.length + rotationResults.length + 1}
             label="From the Card Catalog"
+          />
+          <Divider
+            sx={{
+              visibility: lmlResults.length > 0 ? "inherit" : "hidden",
+            }}
+          />
+          <FlowsheetBackendResults
+            results={lmlResults}
+            offset={binResults.length + rotationResults.length + catalogResults.length + 1}
+            label="From Library Search"
           />
         </Box>
         <Stack
