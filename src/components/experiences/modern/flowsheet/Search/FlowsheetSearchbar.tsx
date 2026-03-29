@@ -83,7 +83,7 @@ export default function FlowsheetSearchbar() {
   const handleFormSubmit = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
-      handleSubmit(e);
+      void handleSubmit(e);
     },
     [handleSubmit]
   );
