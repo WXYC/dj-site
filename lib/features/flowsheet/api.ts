@@ -2,10 +2,15 @@ import { createApi } from "@reduxjs/toolkit/query/react";
 import { DJRequestParams } from "../authentication/types";
 import { backendBaseQuery } from "../backend";
 import {
+  FLOWSHEET_OPTIMISTIC_DJ_PLACEHOLDER,
+  FLOWSHEET_PAGE_SIZE,
+} from "./constants";
+import {
   convertDJsOnAir,
   convertV2Entry,
   convertV2FlowsheetResponse,
   extractFlowsheetEntries,
+  formatOnAirSummary,
 } from "./conversions";
 import {
   buildOptimisticEntry,
@@ -25,6 +30,12 @@ import {
   OnAirDJData,
   OnAirDJResponse,
 } from "./types";
+
+function flowsheetMutationCatch(endpoint: string, err: unknown) {
+  if (process.env.NODE_ENV === "development") {
+    console.warn(`[flowsheet] ${endpoint}`, err);
+  }
+}
 
 export const flowsheetApi = createApi({
   reducerPath: "flowsheetApi",
@@ -47,11 +58,13 @@ export const flowsheetApi = createApi({
       infiniteQueryOptions: {
         initialPageParam: 0,
         getNextPageParam: (lastPage, _allPages, lastPageParam) =>
-          lastPage.length < 20 ? undefined : lastPageParam + 1,
+          lastPage.length < FLOWSHEET_PAGE_SIZE
+            ? undefined
+            : lastPageParam + 1,
       },
       query({ pageParam }) {
         return {
-          url: `/?page=${pageParam}&limit=20`,
+          url: `/?page=${pageParam}&limit=${FLOWSHEET_PAGE_SIZE}`,
         };
       },
       transformResponse: (
@@ -78,12 +91,9 @@ export const flowsheetApi = createApi({
         );
         try {
           await queryFulfilled;
-          dispatch(
-            flowsheetApi.endpoints.getInfiniteEntries.initiate(undefined, {
-              forceRefetch: true,
-            })
-          );
-        } catch {
+          dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
+        } catch (err) {
+          flowsheetMutationCatch("switchEntries", err);
           patchResult.undo();
         }
       },
@@ -103,20 +113,20 @@ export const flowsheetApi = createApi({
             (draft) => {
               if (!draft?.djs) return;
               if (!draft.djs.some((d) => d.id === arg.dj_id)) {
-                draft.djs.push({ id: arg.dj_id, dj_name: "Live" });
-                draft.onAir = draft.djs.map((d) => `DJ ${d.dj_name}`).join(", ");
+                draft.djs.push({
+                  id: arg.dj_id,
+                  dj_name: FLOWSHEET_OPTIMISTIC_DJ_PLACEHOLDER,
+                });
+                draft.onAir = formatOnAirSummary(draft.djs);
               }
             }
           )
         );
         try {
           await queryFulfilled;
-          dispatch(
-            flowsheetApi.endpoints.getInfiniteEntries.initiate(undefined, {
-              forceRefetch: true,
-            })
-          );
-        } catch {
+          dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
+        } catch (err) {
+          flowsheetMutationCatch("joinShow", err);
           patchLive.undo();
         }
       },
@@ -136,21 +146,15 @@ export const flowsheetApi = createApi({
             (draft) => {
               if (!draft?.djs) return;
               draft.djs = draft.djs.filter((d) => d.id !== arg.dj_id);
-              draft.onAir =
-                draft.djs.length > 0
-                  ? draft.djs.map((d) => `DJ ${d.dj_name}`).join(", ")
-                  : "Off Air";
+              draft.onAir = formatOnAirSummary(draft.djs);
             }
           )
         );
         try {
           await queryFulfilled;
-          dispatch(
-            flowsheetApi.endpoints.getInfiniteEntries.initiate(undefined, {
-              forceRefetch: true,
-            })
-          );
-        } catch {
+          dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
+        } catch (err) {
+          flowsheetMutationCatch("leaveShow", err);
           patchLive.undo();
         }
       },
@@ -174,10 +178,13 @@ export const flowsheetApi = createApi({
           convertV2Entry(response),
         invalidatesTags: ["NowPlaying"],
         async onQueryStarted(arg, { dispatch, queryFulfilled, getState }) {
-          const selector = flowsheetApi.endpoints.getInfiniteEntries.select(
-            undefined
-          );
-          const cached = selector(getState() as never);
+          const root = getState() as {
+            flowsheetApi: ReturnType<typeof flowsheetApi.reducer>;
+          };
+          const cached =
+            flowsheetApi.endpoints.getInfiniteEntries.select(undefined)(root);
+          const hadCachedList = cached?.data != null;
+
           let tempId: number | undefined;
           let patchResult: { undo: () => void } | undefined;
 
@@ -200,25 +207,25 @@ export const flowsheetApi = createApi({
 
           try {
             const { data } = await queryFulfilled;
-            dispatch(
-              flowsheetApi.util.updateQueryData(
-                "getInfiniteEntries",
-                undefined,
-                (draft) => {
-                  if (tempId !== undefined) {
-                    replaceEntryIdAllPages(draft, tempId, data);
-                  } else {
-                    insertEntrySortedFirstPage(draft, data);
+            if (hadCachedList) {
+              dispatch(
+                flowsheetApi.util.updateQueryData(
+                  "getInfiniteEntries",
+                  undefined,
+                  (draft) => {
+                    if (tempId !== undefined) {
+                      replaceEntryIdAllPages(draft, tempId, data);
+                    } else {
+                      insertEntrySortedFirstPage(draft, data);
+                    }
                   }
-                }
-              )
-            );
-            dispatch(
-              flowsheetApi.endpoints.getInfiniteEntries.initiate(undefined, {
-                forceRefetch: true,
-              })
-            );
-          } catch {
+                )
+              );
+            } else {
+              dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
+            }
+          } catch (err) {
+            flowsheetMutationCatch("addToFlowsheet", err);
             patchResult?.undo();
           }
         },
@@ -245,12 +252,9 @@ export const flowsheetApi = createApi({
         );
         try {
           await queryFulfilled;
-          dispatch(
-            flowsheetApi.endpoints.getInfiniteEntries.initiate(undefined, {
-              forceRefetch: true,
-            })
-          );
-        } catch {
+          dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
+        } catch (err) {
+          flowsheetMutationCatch("removeFromFlowsheet", err);
           patchResult.undo();
         }
       },
@@ -274,12 +278,9 @@ export const flowsheetApi = createApi({
         );
         try {
           await queryFulfilled;
-          dispatch(
-            flowsheetApi.endpoints.getInfiniteEntries.initiate(undefined, {
-              forceRefetch: true,
-            })
-          );
-        } catch {
+          dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
+        } catch (err) {
+          flowsheetMutationCatch("updateFlowsheet", err);
           patchResult.undo();
         }
       },
