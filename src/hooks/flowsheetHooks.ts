@@ -22,14 +22,38 @@ import {
   isFlowsheetEndShowEntry,
   isFlowsheetStartShowEntry,
 } from "@/lib/features/flowsheet/types";
+import type { RootState } from "@/lib/store";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { useRegistry } from "./authenticationHooks";
 import { useBinResults } from "./binHooks";
 import {
   useCatalogFlowsheetSearch,
   useRotationFlowsheetSearch,
 } from "./catalogHooks";
+
+const FLOWSHEET_MUTATION_ENDPOINTS = new Set([
+  "addToFlowsheet",
+  "removeFromFlowsheet",
+  "updateFlowsheet",
+  "switchEntries",
+  "joinShow",
+  "leaveShow",
+]);
+
+export function selectFlowsheetMutationPending(state: RootState): boolean {
+  const mutations = state.flowsheetApi?.mutations;
+  if (!mutations) return false;
+  return Object.values(mutations).some(
+    (m) =>
+      m &&
+      m.status === "pending" &&
+      typeof m.endpointName === "string" &&
+      FLOWSHEET_MUTATION_ENDPOINTS.has(m.endpointName)
+  );
+}
 
 export const useShowControl = () => {
   const { loading: userloading, info: userData } = useRegistry();
@@ -44,8 +68,7 @@ export const useShowControl = () => {
 
   const {
     data: infiniteData,
-    isLoading: entriesLoading,
-    isSuccess,
+    isSuccess: entriesQuerySuccess,
   } = useGetInfiniteEntriesInfiniteQuery(undefined, {
     skip: !userData || userloading,
     pollingInterval: 60000, // Poll every 60 seconds to keep flowsheet updated
@@ -63,17 +86,20 @@ export const useShowControl = () => {
 
   // Calculate derived state during render - no useState/useEffect needed
   const currentShow = useMemo(() => {
-    return isSuccess && allEntries.length > 0 ? allEntries[0].show_id : -1;
-  }, [allEntries, isSuccess]);
+    return entriesQuerySuccess && allEntries.length > 0
+      ? allEntries[0].show_id
+      : -1;
+  }, [allEntries, entriesQuerySuccess]);
 
   const live = useMemo(() => {
-    if (!isSuccess) return false;
     return (
       liveList?.djs !== undefined &&
       liveList?.djs.length !== 0 &&
       liveList.djs.some((dj) => dj.id === userData?.id)
     );
-  }, [liveList, isSuccess, userData?.id]);
+  }, [liveList, userData?.id]);
+
+  const isSaving = useAppSelector(selectFlowsheetMutationPending);
 
   const [goLiveFunction, goingLiveResult] = useJoinShowMutation();
   const [leaveFunction, leavingResult] = useLeaveShowMutation();
@@ -111,8 +137,8 @@ export const useShowControl = () => {
       loadingLiveList ||
       userloading ||
       goingLiveResult.isLoading ||
-      leavingResult.isLoading ||
-      entriesLoading,
+      leavingResult.isLoading,
+    isSaving,
     currentShow,
     goLive,
     leave,
@@ -120,7 +146,7 @@ export const useShowControl = () => {
 };
 
 export const useFlowsheetSearch = () => {
-  const { live, loading } = useShowControl();
+  const { live, loading, isSaving } = useShowControl();
 
   const dispatch = useAppDispatch();
   const searchOpen = useAppSelector((state) => state.flowsheet.search.open);
@@ -175,6 +201,7 @@ export const useFlowsheetSearch = () => {
   return {
     live,
     loading,
+    isSaving,
     searchOpen,
     setSearchOpen,
     resetSearch,
@@ -213,7 +240,7 @@ export const useFlowsheet = () => {
     );
   }, [infiniteData?.pages]);
 
-  const [addToFlowsheet, addToFlowsheetResult] = useAddToFlowsheetMutation();
+  const [addToFlowsheet] = useAddToFlowsheetMutation();
   const addToFlowsheetCallback = (arg: FlowsheetSubmissionParams) => {
     if (!userData || userData.id === undefined || userloading) {
       return Promise.reject('User not logged in');
@@ -228,49 +255,14 @@ export const useFlowsheet = () => {
     if (!userData || userData.id === undefined || userloading) {
       return;
     }
-    // Optimistic update: remove entry from all pages in the infinite query cache
-    dispatch(
-      flowsheetApi.util.updateQueryData(
-        "getInfiniteEntries",
-        undefined,
-        (draft) => {
-          for (const page of draft.pages) {
-            const index = page.findIndex((item) => item.id === entry);
-            if (index !== -1) {
-              page.splice(index, 1);
-              return;
-            }
-          }
-        }
-      )
-    );
     removeFromFlowsheet(entry);
   };
 
-  const [updateFlowsheetEntry, updateFlowsheetResult] =
-    useUpdateFlowsheetMutation();
+  const [updateFlowsheetEntry] = useUpdateFlowsheetMutation();
   const updateFlowsheet = (updateData: FlowsheetUpdateParams) => {
     if (!userData || userData.id === undefined || userloading) {
       return;
     }
-    // Optimistic update: apply field changes across all pages
-    dispatch(
-      flowsheetApi.util.updateQueryData(
-        "getInfiniteEntries",
-        undefined,
-        (draft) => {
-          for (const page of draft.pages) {
-            const index = page.findIndex(
-              (item) => item.id === updateData.entry_id
-            );
-            if (index !== -1) {
-              Object.assign(page[index], updateData.data);
-              return;
-            }
-          }
-        }
-      )
-    );
     updateFlowsheetEntry(updateData);
   };
 
@@ -281,7 +273,7 @@ export const useFlowsheet = () => {
 
   // Calculate derived state during render instead of useEffect + Redux
   const currentShowEntries = useMemo(() => {
-    if (currentShow === -1 || !live || allEntries.length === 0) return [];
+    if (currentShow === -1 || !live) return [];
     return allEntries.filter(
       (entry) =>
         entry.show_id === currentShow &&
@@ -352,7 +344,7 @@ export const useFlowsheet = () => {
     removeFromFlowsheet: removeFromFlowsheetCallback,
     updateFlowsheet,
     removeFromQueue,
-    loading: isLoading || userloading || !infiniteData,
+    loading: isLoading || userloading,
     isFetching,
     hasNextPage,
     fetchNextPage,
@@ -482,15 +474,31 @@ export const useFlowsheetSubmit = () => {
   }, [selectedResult, selectedEntry, flowSheetRawQuery]);
 
   const handleSubmit = useCallback(
-    (e: any) => {
+    async (e: FormEvent) => {
+      e.preventDefault();
       if (ctrlKeyPressed) {
         addToQueue(selectedResultData);
-      } else {
-        addToFlowsheet(convertQueryToSubmission(selectedResultData));
+        dispatch(flowsheetSlice.actions.resetSearch());
+        return;
       }
-
-      // Close the search bar after submission
-      dispatch(flowsheetSlice.actions.resetSearch());
+      try {
+        await addToFlowsheet(convertQueryToSubmission(selectedResultData));
+        dispatch(flowsheetSlice.actions.resetSearch());
+      } catch (err) {
+        const message =
+          err &&
+          typeof err === "object" &&
+          "data" in err &&
+          err.data &&
+          typeof err.data === "object" &&
+          "message" in err.data &&
+          typeof (err.data as { message: unknown }).message === "string"
+            ? (err.data as { message: string }).message
+            : err instanceof Error
+              ? err.message
+              : "Could not add to flowsheet";
+        toast.error(message);
+      }
     },
     [
       ctrlKeyPressed,
