@@ -2,11 +2,24 @@ import { createApi } from "@reduxjs/toolkit/query/react";
 import { DJRequestParams } from "../authentication/types";
 import { backendBaseQuery } from "../backend";
 import {
+  FLOWSHEET_OPTIMISTIC_DJ_PLACEHOLDER,
+  FLOWSHEET_PAGE_SIZE,
+} from "./constants";
+import {
   convertDJsOnAir,
   convertV2Entry,
   convertV2FlowsheetResponse,
   extractFlowsheetEntries,
+  formatOnAirSummary,
 } from "./conversions";
+import {
+  buildOptimisticEntry,
+  insertEntrySortedFirstPage,
+  patchEntryById,
+  removeEntryById,
+  replaceEntryIdAllPages,
+  swapPlayOrdersForSwitch,
+} from "./infinite-cache";
 import {
   FlowsheetEntry,
   FlowsheetSubmissionParams,
@@ -17,6 +30,12 @@ import {
   OnAirDJData,
   OnAirDJResponse,
 } from "./types";
+
+function flowsheetMutationCatch(endpoint: string, err: unknown) {
+  if (process.env.NODE_ENV === "development") {
+    console.warn(`[flowsheet] ${endpoint}`, err);
+  }
+}
 
 export const flowsheetApi = createApi({
   reducerPath: "flowsheetApi",
@@ -39,11 +58,13 @@ export const flowsheetApi = createApi({
       infiniteQueryOptions: {
         initialPageParam: 0,
         getNextPageParam: (lastPage, _allPages, lastPageParam) =>
-          lastPage.length < 20 ? undefined : lastPageParam + 1,
+          lastPage.length < FLOWSHEET_PAGE_SIZE
+            ? undefined
+            : lastPageParam + 1,
       },
       query({ pageParam }) {
         return {
-          url: `/?page=${pageParam}&limit=20`,
+          url: `/?page=${pageParam}&limit=${FLOWSHEET_PAGE_SIZE}`,
         };
       },
       transformResponse: (
@@ -57,23 +78,86 @@ export const flowsheetApi = createApi({
         method: "PATCH",
         body: params,
       }),
-      invalidatesTags: ["Flowsheet", "NowPlaying"],
+      invalidatesTags: ["NowPlaying"],
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        const patchResult = dispatch(
+          flowsheetApi.util.updateQueryData(
+            "getInfiniteEntries",
+            undefined,
+            (draft) => {
+              swapPlayOrdersForSwitch(draft, arg.entry_id, arg.new_position);
+            }
+          )
+        );
+        try {
+          await queryFulfilled;
+          dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
+        } catch (err) {
+          flowsheetMutationCatch("switchEntries", err);
+          patchResult.undo();
+        }
+      },
     }),
-    joinShow: builder.mutation<any, DJRequestParams>({
+    joinShow: builder.mutation<void, DJRequestParams>({
       query: (params) => ({
         url: "/join",
         method: "POST",
         body: params,
       }),
-      invalidatesTags: ["NowPlaying", "WhoIsLive", "Flowsheet"],
+      invalidatesTags: ["NowPlaying", "WhoIsLive"],
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        const patchLive = dispatch(
+          flowsheetApi.util.updateQueryData(
+            "whoIsLive",
+            undefined,
+            (draft) => {
+              if (!draft?.djs) return;
+              if (!draft.djs.some((d) => d.id === arg.dj_id)) {
+                draft.djs.push({
+                  id: arg.dj_id,
+                  dj_name: FLOWSHEET_OPTIMISTIC_DJ_PLACEHOLDER,
+                });
+                draft.onAir = formatOnAirSummary(draft.djs);
+              }
+            }
+          )
+        );
+        try {
+          await queryFulfilled;
+          dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
+        } catch (err) {
+          flowsheetMutationCatch("joinShow", err);
+          patchLive.undo();
+        }
+      },
     }),
-    leaveShow: builder.mutation<any, DJRequestParams>({
+    leaveShow: builder.mutation<void, DJRequestParams>({
       query: (params) => ({
         url: "/end",
         method: "POST",
         body: params,
       }),
-      invalidatesTags: ["NowPlaying", "WhoIsLive", "Flowsheet"],
+      invalidatesTags: ["NowPlaying", "WhoIsLive"],
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        const patchLive = dispatch(
+          flowsheetApi.util.updateQueryData(
+            "whoIsLive",
+            undefined,
+            (draft) => {
+              if (!draft?.djs) return;
+              draft.djs = draft.djs.filter((d) => d.id !== arg.dj_id);
+              draft.onAir = formatOnAirSummary(draft.djs);
+            }
+          )
+        );
+        try {
+          await queryFulfilled;
+          dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
+        } catch (err) {
+          flowsheetMutationCatch("leaveShow", err);
+          patchLive.undo();
+        }
+      },
     }),
     whoIsLive: builder.query<OnAirDJData, void>({
       query: () => ({
@@ -83,15 +167,71 @@ export const flowsheetApi = createApi({
         convertDJsOnAir(response),
       providesTags: ["WhoIsLive"],
     }),
-    addToFlowsheet: builder.mutation<any, FlowsheetSubmissionParams>({
-      query: (params) => ({
-        url: "/",
-        method: "POST",
-        body: params,
-      }),
-      invalidatesTags: ["Flowsheet", "NowPlaying"],
-    }),
-    removeFromFlowsheet: builder.mutation<any, number>({
+    addToFlowsheet: builder.mutation<FlowsheetEntry, FlowsheetSubmissionParams>(
+      {
+        query: (params) => ({
+          url: "/",
+          method: "POST",
+          body: params,
+        }),
+        transformResponse: (response: FlowsheetV2EntryJSON) =>
+          convertV2Entry(response),
+        invalidatesTags: ["NowPlaying"],
+        async onQueryStarted(arg, { dispatch, queryFulfilled, getState }) {
+          const root = getState() as {
+            flowsheetApi: ReturnType<typeof flowsheetApi.reducer>;
+          };
+          const cached =
+            flowsheetApi.endpoints.getInfiniteEntries.select(undefined)(root);
+          const hadCachedList = cached?.data != null;
+
+          let tempId: number | undefined;
+          let patchResult: { undo: () => void } | undefined;
+
+          if (cached?.data?.pages?.length) {
+            const { entry, tempId: tid } = buildOptimisticEntry(
+              arg,
+              cached.data
+            );
+            tempId = tid;
+            patchResult = dispatch(
+              flowsheetApi.util.updateQueryData(
+                "getInfiniteEntries",
+                undefined,
+                (draft) => {
+                  insertEntrySortedFirstPage(draft, entry);
+                }
+              )
+            );
+          }
+
+          try {
+            const { data } = await queryFulfilled;
+            if (hadCachedList) {
+              dispatch(
+                flowsheetApi.util.updateQueryData(
+                  "getInfiniteEntries",
+                  undefined,
+                  (draft) => {
+                    if (tempId !== undefined) {
+                      replaceEntryIdAllPages(draft, tempId, data);
+                    } else {
+                      insertEntrySortedFirstPage(draft, data);
+                    }
+                  }
+                )
+              );
+            } else {
+              dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
+            }
+          } catch (err) {
+            flowsheetMutationCatch("addToFlowsheet", err);
+            patchResult?.undo();
+          }
+        },
+      }
+    ),
+    removeFromFlowsheet: builder.mutation<void, number>({
       query: (entry_id) => ({
         url: "/",
         method: "DELETE",
@@ -99,15 +239,51 @@ export const flowsheetApi = createApi({
           entry_id,
         },
       }),
-      invalidatesTags: ["Flowsheet", "NowPlaying"],
+      invalidatesTags: ["NowPlaying"],
+      async onQueryStarted(entry_id, { dispatch, queryFulfilled }) {
+        const patchResult = dispatch(
+          flowsheetApi.util.updateQueryData(
+            "getInfiniteEntries",
+            undefined,
+            (draft) => {
+              removeEntryById(draft, entry_id);
+            }
+          )
+        );
+        try {
+          await queryFulfilled;
+          dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
+        } catch (err) {
+          flowsheetMutationCatch("removeFromFlowsheet", err);
+          patchResult.undo();
+        }
+      },
     }),
-    updateFlowsheet: builder.mutation<any, FlowsheetUpdateParams>({
+    updateFlowsheet: builder.mutation<void, FlowsheetUpdateParams>({
       query: (params) => ({
         url: "/",
         method: "PATCH",
         body: params,
       }),
-      invalidatesTags: ["Flowsheet", "NowPlaying"],
+      invalidatesTags: ["NowPlaying"],
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        const patchResult = dispatch(
+          flowsheetApi.util.updateQueryData(
+            "getInfiniteEntries",
+            undefined,
+            (draft) => {
+              patchEntryById(draft, arg.entry_id, arg.data as Partial<FlowsheetEntry>);
+            }
+          )
+        );
+        try {
+          await queryFulfilled;
+          dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
+        } catch (err) {
+          flowsheetMutationCatch("updateFlowsheet", err);
+          patchResult.undo();
+        }
+      },
     }),
   }),
 });

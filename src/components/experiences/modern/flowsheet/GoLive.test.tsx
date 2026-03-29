@@ -13,6 +13,8 @@ vi.mock("@/src/hooks/flowsheetHooks", () => ({
     autoplay: false,
     setAutoPlay: mockSetAutoPlay,
     loading: false,
+    isSaving: false,
+    currentShow: -1,
     goLive: mockGoLive,
     leave: mockLeave,
   })),
@@ -35,6 +37,7 @@ describe("GoLive", () => {
       autoplay: false,
       setAutoPlay: mockSetAutoPlay,
       loading: false,
+      isSaving: false,
       goLive: mockGoLive,
       leave: mockLeave,
       currentShow: 1,
@@ -51,6 +54,7 @@ describe("GoLive", () => {
       autoplay: false,
       setAutoPlay: mockSetAutoPlay,
       loading: false,
+      isSaving: false,
       goLive: mockGoLive,
       leave: mockLeave,
       currentShow: -1,
@@ -72,6 +76,7 @@ describe("GoLive", () => {
       autoplay: false,
       setAutoPlay: mockSetAutoPlay,
       loading: false,
+      isSaving: false,
       goLive: mockGoLive,
       leave: mockLeave,
       currentShow: 1,
@@ -92,6 +97,7 @@ describe("GoLive", () => {
       autoplay: false,
       setAutoPlay: mockSetAutoPlay,
       loading: false,
+      isSaving: false,
       goLive: mockGoLive,
       leave: mockLeave,
       currentShow: 1,
@@ -112,6 +118,7 @@ describe("GoLive", () => {
       autoplay: false,
       setAutoPlay: mockSetAutoPlay,
       loading: false,
+      isSaving: false,
       goLive: mockGoLive,
       leave: mockLeave,
       currentShow: -1,
@@ -130,6 +137,7 @@ describe("GoLive", () => {
       autoplay: false,
       setAutoPlay: mockSetAutoPlay,
       loading: true,
+      isSaving: false,
       goLive: mockGoLive,
       leave: mockLeave,
       currentShow: -1,
@@ -139,5 +147,22 @@ describe("GoLive", () => {
     const buttons = screen.getAllByRole("button");
     // Go live button should be disabled when loading
     expect(buttons[1]).toBeDisabled();
+  });
+
+  it("should show saving indicator when isSaving", async () => {
+    const { useShowControl } = await import("@/src/hooks/flowsheetHooks");
+    vi.mocked(useShowControl).mockReturnValue({
+      live: true,
+      autoplay: false,
+      setAutoPlay: mockSetAutoPlay,
+      loading: false,
+      isSaving: true,
+      goLive: mockGoLive,
+      leave: mockLeave,
+      currentShow: 1,
+    });
+
+    render(<GoLive />);
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
   });
 });
