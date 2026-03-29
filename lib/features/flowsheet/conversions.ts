@@ -1,4 +1,5 @@
 import { Rotation } from "../rotation/types";
+import { OFF_AIR_LABEL } from "./constants";
 import {
   FlowsheetEntry,
   FlowsheetQuery,
@@ -8,6 +9,12 @@ import {
   OnAirDJData,
   OnAirDJResponse,
 } from "./types";
+
+/** Single place for "DJ A, DJ B" on-air string (WhoIsLive + optimistic patches). */
+export function formatOnAirSummary(djs: OnAirDJResponse[]): string {
+  if (!djs.length) return OFF_AIR_LABEL;
+  return djs.map((dj) => `DJ ${dj.dj_name}`).join(", ");
+}
 
 export function convertQueryToSubmission(
   query: FlowsheetQuery
@@ -29,13 +36,13 @@ export function convertDJsOnAir(
   if (!response || response.length === 0) {
     return {
       djs: [],
-      onAir: "Off Air",
+      onAir: OFF_AIR_LABEL,
     };
   }
 
   return {
     djs: response,
-    onAir: response.map((dj) => `DJ ${dj.dj_name}`).join(", "),
+    onAir: formatOnAirSummary(response),
   };
 }
 

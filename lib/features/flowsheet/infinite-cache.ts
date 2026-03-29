@@ -40,6 +40,7 @@ export function buildOptimisticEntry(
   const tempId = nextOptimisticTempId();
   const play_order = maxPlayOrder(draft) + 1;
   const sid = primaryShowId(draft);
+  // Fallback until POST response replaces row (empty cache / unknown show).
   const show_id = sid >= 0 ? sid : 0;
 
   if ("message" in arg) {
