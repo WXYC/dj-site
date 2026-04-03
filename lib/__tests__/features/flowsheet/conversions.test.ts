@@ -261,6 +261,19 @@ describe("flowsheet conversions", () => {
 
         expect(result.show_id).toBe(0);
       });
+
+      it("should throw for unknown entry type", () => {
+        const entry = { ...createTestV2TrackEntry(), entry_type: "unknown_type" } as any;
+        expect(() => convertV2Entry(entry)).toThrow("Unknown entry type: unknown_type");
+      });
+
+      it("should handle timestamp without comma in show entries", () => {
+        const entry = createTestV2ShowStartEntry({ timestamp: "no comma here" });
+        const result = convertV2Entry(entry) as FlowsheetShowBlockEntry;
+
+        expect(result.day).toBe("Unknown");
+        expect(result.time).toBe("Unknown");
+      });
     });
 
     describe("convertV2FlowsheetResponse", () => {
