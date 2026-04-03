@@ -15,6 +15,7 @@ import {
   createTestAlbum,
   createTestArtist,
 } from "@/lib/test-utils";
+import type { AlbumEntry } from "@/lib/features/catalog/types";
 
 // Mock authentication hooks
 const mockUserInfo = {
@@ -25,7 +26,7 @@ const mockUserInfo = {
 
 const mockUseRegistry = vi.fn(() => ({
   loading: false,
-  info: mockUserInfo,
+  info: mockUserInfo as typeof mockUserInfo | null,
 }));
 
 vi.mock("./authenticationHooks", () => ({
@@ -41,10 +42,10 @@ vi.mock("./binHooks", () => ({
 
 // Mock catalog hooks
 const mockUseCatalogFlowsheetSearch = vi.fn(() => ({
-  searchResults: [],
+  searchResults: [] as AlbumEntry[],
 }));
 const mockUseRotationFlowsheetSearch = vi.fn(() => ({
-  searchResults: [],
+  searchResults: [] as AlbumEntry[],
   loading: false,
 }));
 
