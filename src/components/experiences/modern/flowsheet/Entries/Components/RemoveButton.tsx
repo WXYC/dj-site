@@ -29,6 +29,7 @@ export default function RemoveButton({
       <IconButton
         color="neutral"
         size="sm"
+        data-testid={`flowsheet-remove-${entry.id}`}
         onClick={() =>
           queue ? removeFromQueue(entry.id) : removeFromFlowsheet(entry.id)
         }

@@ -41,6 +41,7 @@ export default function GoLive() {
             variant="outlined"
             onClick={() => (live ? leave() : goLive())}
             disabled={loading}
+            data-testid="flowsheet-go-live-button"
           >
             {live ? <PortableWifiOff /> : <WifiTethering />}
           </IconButton>
@@ -59,6 +60,7 @@ export default function GoLive() {
               pointerEvents: "none",
             }}
             loading={loading}
+            data-testid="flowsheet-live-status"
           >
             {live ? "You Are On Air  🔴" : "You Are Off Air  ⬤"}
           </Button>

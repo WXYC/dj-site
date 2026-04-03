@@ -26,6 +26,7 @@ export default function BreakpointButton() {
         size="sm"
         variant="solid"
         color="warning"
+        data-testid="flowsheet-breakpoint-button"
         onClick={() => {
           const now = getClosestHour();
           addToFlowsheet({

@@ -33,6 +33,7 @@ export default function DraggableEntryWrapper({
       dragListener={false}
       dragControls={controls}
       onDragEnd={() => switchEntries(entryRef)}
+      data-testid={`flowsheet-entry-${entryRef.id}`}
       style={{
         ...style,
         background:
