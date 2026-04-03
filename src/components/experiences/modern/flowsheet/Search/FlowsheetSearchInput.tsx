@@ -42,6 +42,7 @@ export default function FlowsheetSearchInput({
     <input
       name={name}
       type="text"
+      data-testid={`flowsheet-search-${name}`}
       placeholder={toTitleCase(name)}
       value={displayValue}
       autoComplete="off"

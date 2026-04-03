@@ -112,6 +112,7 @@ export default function FlowsheetSearchbar() {
             ref={searchRef}
             component="form"
             onSubmit={handleFormSubmit}
+            data-testid="flowsheet-search-form"
             sx={{
               display: "flex",
               justifyContent: "space-between",
@@ -219,6 +220,7 @@ export default function FlowsheetSearchbar() {
                     : "neutral"
                 }
                 disabled={!live}
+                data-testid="flowsheet-search-submit"
                 onClick={() => {
                   if (searchOpen) {
                     searchRef.current?.requestSubmit();

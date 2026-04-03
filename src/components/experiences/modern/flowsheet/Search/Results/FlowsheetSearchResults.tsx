@@ -21,6 +21,7 @@ export default function FlowsheetSearchResults({
   return (
     <Sheet
       variant="outlined"
+      data-testid="flowsheet-search-results"
       sx={{
         visibility: open ? "visible" : "hidden",
         minHeight: "60px",

@@ -26,6 +26,7 @@ export default function FlowsheetBackendResult({
       key={`bin-${index}`}
       direction="row"
       justifyContent="space-between"
+      data-testid={`flowsheet-search-result-${index}`}
       sx={{
         p: 1,
         backgroundColor:

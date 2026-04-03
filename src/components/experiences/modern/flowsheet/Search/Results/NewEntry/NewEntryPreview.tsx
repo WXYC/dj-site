@@ -23,6 +23,7 @@ export default function NewEntryPreview() {
     <Stack
       direction="row"
       justifyContent="space-between"
+      data-testid="flowsheet-new-entry-preview"
       sx={{
         p: 1,
         backgroundColor:

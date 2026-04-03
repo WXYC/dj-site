@@ -17,6 +17,7 @@ export default function TalksetButton() {
         size="sm"
         variant="solid"
         color="danger"
+        data-testid="flowsheet-talkset-button"
         onClick={() => {
           addToFlowsheet({
             message: "Talkset",

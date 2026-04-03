@@ -132,7 +132,7 @@ describe("DraggableEntryWrapper", () => {
         </DraggableEntryWrapper>
       );
 
-      const item = screen.getByTestId("reorder-item");
+      const item = screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`);
       expect(item.tagName.toLowerCase()).toBe("tr");
     });
 
@@ -146,7 +146,7 @@ describe("DraggableEntryWrapper", () => {
         </DraggableEntryWrapper>
       );
 
-      const item = screen.getByTestId("reorder-item");
+      const item = screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`);
       const value = JSON.parse(item.getAttribute("data-value") || "{}");
       expect(value.id).toBe(mockSongEntry.id);
     });
@@ -191,7 +191,7 @@ describe("DraggableEntryWrapper", () => {
 
       // dragListener: false is passed to Reorder.Item
       // This is verified by the component not triggering drags automatically
-      expect(screen.getByTestId("reorder-item")).toBeInTheDocument();
+      expect(screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`)).toBeInTheDocument();
     });
   });
 
@@ -206,7 +206,7 @@ describe("DraggableEntryWrapper", () => {
         </DraggableEntryWrapper>
       );
 
-      const item = screen.getByTestId("reorder-item");
+      const item = screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`);
 
       // Simulate drag end
       const onDragEnd = item.getAttribute("onDragEnd");
@@ -232,7 +232,7 @@ describe("DraggableEntryWrapper", () => {
         </DraggableEntryWrapper>
       );
 
-      const item = screen.getByTestId("reorder-item");
+      const item = screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`);
       // Default variant is "plain", which should use theme.palette[color].plainBg
       expect(item).toBeInTheDocument();
     });
@@ -249,7 +249,7 @@ describe("DraggableEntryWrapper", () => {
         </DraggableEntryWrapper>
       );
 
-      const item = screen.getByTestId("reorder-item");
+      const item = screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`);
       // Should have primary plainBg color
       expect(item.style.background).toBeDefined();
     });
@@ -266,7 +266,7 @@ describe("DraggableEntryWrapper", () => {
         </DraggableEntryWrapper>
       );
 
-      const item = screen.getByTestId("reorder-item");
+      const item = screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`);
       expect(item).toBeInTheDocument();
     });
 
@@ -280,7 +280,7 @@ describe("DraggableEntryWrapper", () => {
         </DraggableEntryWrapper>
       );
 
-      const item = screen.getByTestId("reorder-item");
+      const item = screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`);
       expect(item).toBeInTheDocument();
     });
 
@@ -295,7 +295,7 @@ describe("DraggableEntryWrapper", () => {
         </DraggableEntryWrapper>
       );
 
-      expect(screen.getByTestId("reorder-item")).toBeInTheDocument();
+      expect(screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`)).toBeInTheDocument();
     });
 
     it("should apply danger color", () => {
@@ -309,7 +309,7 @@ describe("DraggableEntryWrapper", () => {
         </DraggableEntryWrapper>
       );
 
-      expect(screen.getByTestId("reorder-item")).toBeInTheDocument();
+      expect(screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`)).toBeInTheDocument();
     });
 
     it("should use backdrop background for non-plain variants", () => {
@@ -324,7 +324,7 @@ describe("DraggableEntryWrapper", () => {
         </DraggableEntryWrapper>
       );
 
-      const item = screen.getByTestId("reorder-item");
+      const item = screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`);
       // For non-plain variants, should use background.backdrop
       expect(item).toBeInTheDocument();
     });
@@ -342,7 +342,7 @@ describe("DraggableEntryWrapper", () => {
         </DraggableEntryWrapper>
       );
 
-      const item = screen.getByTestId("reorder-item");
+      const item = screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`);
       expect(item.style.opacity).toBe("0.5");
     });
 
@@ -357,7 +357,7 @@ describe("DraggableEntryWrapper", () => {
         </DraggableEntryWrapper>
       );
 
-      const item = screen.getByTestId("reorder-item");
+      const item = screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`);
       expect(item.style.marginBottom).toBe("10px");
     });
 
@@ -371,7 +371,7 @@ describe("DraggableEntryWrapper", () => {
         </DraggableEntryWrapper>
       );
 
-      expect(screen.getByTestId("reorder-item")).toBeInTheDocument();
+      expect(screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`)).toBeInTheDocument();
     });
   });
 
@@ -433,7 +433,7 @@ describe("DraggableEntryWrapper", () => {
         </DraggableEntryWrapper>
       );
 
-      const item = screen.getByTestId("reorder-item");
+      const item = screen.getByTestId(`flowsheet-entry-${songEntry.id}`);
       const value = JSON.parse(item.getAttribute("data-value") || "{}");
       expect(value.track_title).toBe("Song Title");
     });
@@ -455,7 +455,7 @@ describe("DraggableEntryWrapper", () => {
         </DraggableEntryWrapper>
       );
 
-      const item = screen.getByTestId("reorder-item");
+      const item = screen.getByTestId(`flowsheet-entry-${messageEntry.id}`);
       const value = JSON.parse(item.getAttribute("data-value") || "{}");
       expect(value.message).toBe("Talkset - DJ Speaking");
     });
@@ -474,7 +474,7 @@ describe("DraggableEntryWrapper", () => {
         </DraggableEntryWrapper>
       );
 
-      expect(screen.getByTestId("reorder-item")).toBeInTheDocument();
+      expect(screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`)).toBeInTheDocument();
     });
 
     it("should handle solid variant", () => {
@@ -488,7 +488,7 @@ describe("DraggableEntryWrapper", () => {
         </DraggableEntryWrapper>
       );
 
-      expect(screen.getByTestId("reorder-item")).toBeInTheDocument();
+      expect(screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`)).toBeInTheDocument();
     });
 
     it("should handle outlined variant", () => {
@@ -502,7 +502,7 @@ describe("DraggableEntryWrapper", () => {
         </DraggableEntryWrapper>
       );
 
-      expect(screen.getByTestId("reorder-item")).toBeInTheDocument();
+      expect(screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`)).toBeInTheDocument();
     });
   });
 
@@ -548,7 +548,7 @@ describe("DraggableEntryWrapper", () => {
       );
 
       // Theme should be accessed via useTheme hook
-      expect(screen.getByTestId("reorder-item")).toBeInTheDocument();
+      expect(screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`)).toBeInTheDocument();
     });
   });
 
@@ -588,7 +588,7 @@ describe("DraggableEntryWrapper", () => {
         </DraggableEntryWrapper>
       );
 
-      const item = screen.getByTestId("reorder-item");
+      const item = screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`);
       expect(item.style.opacity).toBe("0.8");
       expect(item.style.marginTop).toBe("5px");
       expect(item.style.marginBottom).toBe("5px");
