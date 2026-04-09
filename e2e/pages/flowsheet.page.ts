@@ -78,35 +78,39 @@ export class FlowsheetPage {
   }
 
   async waitForEntriesLoaded(): Promise<void> {
-    // Wait for at least one entry to appear, or settle if there are none
-    await this.getAllEntries()
-      .first()
-      .waitFor({ state: "visible", timeout: 15000 })
-      .catch(() => {
-        // No entries yet -- that's fine for an empty flowsheet
-      });
+    // Wait for the Go Live button to be visible (page has rendered)
+    await this.goLiveButton.waitFor({ state: "visible", timeout: 10000 });
+    // Brief pause for RTK Query to settle initial fetches
+    await this.page.waitForTimeout(500);
   }
 
   // --- Go Live / Leave ---
 
   async goLive(): Promise<void> {
+    // Wait for the button to be enabled and not loading
     await expect(this.goLiveButton).toBeEnabled({ timeout: 10000 });
+    await this.page.waitForTimeout(300); // Let prior mutations settle
     await this.goLiveButton.click();
     await expect(this.liveStatus).toContainText("On Air", { timeout: 10000 });
+    // Wait for search inputs to become enabled (live state propagates)
+    await expect(this.songInput).toBeEnabled({ timeout: 5000 });
   }
 
   async leave(): Promise<void> {
     await expect(this.goLiveButton).toBeEnabled({ timeout: 10000 });
+    await this.page.waitForTimeout(300);
     await this.goLiveButton.click();
     await expect(this.liveStatus).toContainText("Off Air", { timeout: 10000 });
   }
 
   async ensureOffAir(): Promise<void> {
-    const statusText = await this.liveStatus
-      .textContent()
-      .catch(() => "Off Air");
-    if (statusText?.includes("On Air")) {
-      await this.leave();
+    try {
+      const statusText = await this.liveStatus.textContent({ timeout: 3000 });
+      if (statusText?.includes("On Air")) {
+        await this.leave();
+      }
+    } catch {
+      // Page may have navigated away or component not visible
     }
   }
 
@@ -126,19 +130,26 @@ export class FlowsheetPage {
     album?: string;
     label?: string;
   }): Promise<void> {
+    // Click and focus the song input to open search (searchOpen = true on focus)
     await this.songInput.click();
     await this.songInput.fill(data.song);
     await this.artistInput.fill(data.artist);
     if (data.album) await this.albumInput.fill(data.album);
     if (data.label) await this.labelInput.fill(data.label);
+    // Ensure Redux state has caught up before submission
+    await this.page.waitForTimeout(100);
   }
 
   async submitViaButton(): Promise<void> {
+    // Click the pink play/submit button.
+    // Its onClick checks searchOpen: if true, calls form.requestSubmit();
+    // if false, just focuses the first input. Search should be open after
+    // fillSearchForm focused the song input.
     await this.submitButton.click();
   }
 
   async submitViaEnter(): Promise<void> {
-    // Press Enter on the song input to submit the form
+    // Press Enter on the song input to trigger the form's onSubmit
     await this.songInput.press("Enter");
   }
 
@@ -152,8 +163,10 @@ export class FlowsheetPage {
     } else {
       await this.submitViaEnter();
     }
-    // Brief pause for the search form to reset before the next add
-    await this.page.waitForTimeout(200);
+    // Wait for the search form to reset (song input clears after resetSearch dispatch).
+    // The handleSubmit in flowsheetHooks awaits addToFlowsheet() before clearing,
+    // so this wait ensures the mutation has completed.
+    await expect(this.songInput).toHaveValue("", { timeout: 10000 });
   }
 
   // --- Entry locators ---
@@ -181,7 +194,9 @@ export class FlowsheetPage {
    */
   async expectEntryWithText(text: string, timeout = 10000): Promise<void> {
     await expect(
-      this.page.locator('[data-testid^="flowsheet-entry-"]', { hasText: text })
+      this.page
+        .locator('[data-testid^="flowsheet-entry-"]', { hasText: text })
+        .first()
     ).toBeVisible({ timeout });
   }
 
@@ -228,6 +243,6 @@ export class FlowsheetPage {
     const input = entry.locator('input[type="text"]').first();
     await input.fill(newValue);
     // Click the page header to trigger ClickAwayListener and save
-    await this.page.locator("h1").first().click();
+    await this.page.locator("h2").first().click();
   }
 }
