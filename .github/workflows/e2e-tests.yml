@@ -96,7 +96,7 @@ jobs:
           E2E_DB_PORT=5434
           E2E_AUTH_PORT=8084
           E2E_BACKEND_PORT=8085
-          COOKIE_SAME_SITE=none
+          COOKIE_SAME_SITE=lax
           NODE_ENV=test
           EOF
 
