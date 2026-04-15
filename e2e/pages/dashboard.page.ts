@@ -131,6 +131,7 @@ export class DashboardPage {
     // Error pages have various headings but consistent body text
     await Promise.race([
       expect(this.page).toHaveURL(/.*\/login.*/, { timeout: 15000 }),
+      this.page.locator('input[name="email"]').waitFor({ state: "visible", timeout: 15000 }),
       this.page.locator('input[name="username"]').waitFor({ state: "visible", timeout: 15000 }),
       this.page.getByText("We couldn't find the resource you were looking for").waitFor({ state: "visible", timeout: 15000 }),
     ]);

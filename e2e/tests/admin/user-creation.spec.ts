@@ -234,7 +234,8 @@ test.describe("New User Can Login", () => {
     await newUserLoginPage.goto();
     await newUserPage.waitForLoadState("networkidle");
 
-    // Verify we're on the login page
+    // Switch to password login and verify we're on the login page
+    await newUserLoginPage.switchToPasswordLogin();
     await expect(newUserPage.locator('input[name="username"]')).toBeVisible({ timeout: 5000 });
 
     await newUserLoginPage.login(username, TEMP_PASSWORD);

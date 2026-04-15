@@ -12,6 +12,7 @@ test.describe("Login Flow", () => {
     loginPage = new LoginPage(page);
     dashboardPage = new DashboardPage(page);
     await loginPage.goto();
+    await loginPage.switchToPasswordLogin();
   });
 
   test("should display login form", async () => {
@@ -103,6 +104,7 @@ test.describe("Login Flow", () => {
 
     // Second user login
     await loginPage.goto();
+    await loginPage.switchToPasswordLogin();
     const user2 = TEST_USERS.dj2;
     await loginPage.login(user2.username, user2.password);
     await loginPage.waitForRedirectToDashboard();
@@ -135,6 +137,7 @@ test.describe("Login Page Navigation", () => {
   test.beforeEach(async ({ page }) => {
     loginPage = new LoginPage(page);
     await loginPage.goto();
+    await loginPage.switchToPasswordLogin();
   });
 
   test("should navigate to forgot password form", async ({ page }) => {

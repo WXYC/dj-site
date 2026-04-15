@@ -160,7 +160,8 @@ test.describe("Password Reset - User Can Login After Reset", () => {
     await userLoginPage.goto();
     await userPage.waitForLoadState("networkidle");
 
-    // Verify we're on the login page
+    // Switch to password login and verify we're on the login page
+    await userLoginPage.switchToPasswordLogin();
     await expect(userPage.locator('input[name="username"]')).toBeVisible({ timeout: 5000 });
 
     await userLoginPage.login(username, TEMP_PASSWORD);
@@ -249,7 +250,8 @@ test.describe("Password Reset for Different User States", () => {
     await userLoginPage.goto();
     await userPage.waitForLoadState("networkidle");
 
-    // Verify we're on the login page
+    // Switch to password login and verify we're on the login page
+    await userLoginPage.switchToPasswordLogin();
     await expect(userPage.locator('input[name="username"]')).toBeVisible({ timeout: 5000 });
 
     await userLoginPage.login(username, TEMP_PASSWORD);

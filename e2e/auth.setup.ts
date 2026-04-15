@@ -20,8 +20,15 @@ async function performLogin(
   statePath: string
 ) {
   await page.goto("/login");
-  await page.waitForSelector('input[name="username"]');
 
+  // The login page defaults to the OTP email form. Switch to password login.
+  const passwordLink = page.getByRole("button", {
+    name: "Sign in with password instead",
+  });
+  await passwordLink.waitFor({ state: "visible", timeout: 15000 });
+  await passwordLink.click();
+
+  await page.waitForSelector('input[name="username"]');
   await page.fill('input[name="username"]', username);
   await page.fill('input[name="password"]', password);
 
