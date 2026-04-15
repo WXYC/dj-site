@@ -3,74 +3,81 @@ import { Page, Locator, expect } from "@playwright/test";
 /**
  * Page Object Model for the Flowsheet (/dashboard/flowsheet)
  *
- * Covers search, entry list, Go Live controls, and inline editing.
- * All flowsheet-specific locators use data-testid attributes from
- * the test/flowsheet-e2e-testids branch.
+ * Locators use the real DOM: headings, placeholders, table rows, and tooltip
+ * labels. Production components stay free of data-testid; unit tests keep
+ * testids in *.test.tsx mocks where helpful.
  */
 export class FlowsheetPage {
   readonly page: Page;
 
-  // Search form
+  /**
+   * Go Live / Leave + status live in one Joy ButtonGroup (first control is
+   * go/leave IconButton; second is read-only status). Scoped this way so we
+   * do not depend on autoplay or other header controls.
+   */
+  private readonly goLiveControlsGroup: Locator;
+
   readonly searchForm: Locator;
   readonly songInput: Locator;
   readonly artistInput: Locator;
   readonly albumInput: Locator;
   readonly labelInput: Locator;
   readonly submitButton: Locator;
+  /** Dropdown sheet when search is open; best located after opening search */
   readonly searchResults: Locator;
   readonly newEntryPreview: Locator;
 
-  // Special entry buttons
   readonly talksetButton: Locator;
   readonly breakpointButton: Locator;
 
-  // Go Live controls
   readonly goLiveButton: Locator;
   readonly liveStatus: Locator;
 
-  // Toast notifications (sonner)
+  /** Second table on the page: queue is first, flowsheet entries second */
+  readonly entriesTable: Locator;
+
   readonly successToast: Locator;
   readonly errorToast: Locator;
 
   constructor(page: Page) {
     this.page = page;
+    this.goLiveControlsGroup = this.page.locator("[class*='ButtonGroup']").filter({
+      has: this.page.getByRole("button", { name: /You Are (On|Off) Air/ }),
+    });
+    this.goLiveButton = this.goLiveControlsGroup.getByRole("button").first();
+    this.liveStatus = this.goLiveControlsGroup.getByRole("button", {
+      name: /You Are (On|Off) Air/,
+    });
 
-    // Search
-    this.searchForm = page.locator('[data-testid="flowsheet-search-form"]');
-    this.songInput = page.locator('[data-testid="flowsheet-search-song"]');
-    this.artistInput = page.locator('[data-testid="flowsheet-search-artist"]');
-    this.albumInput = page.locator('[data-testid="flowsheet-search-album"]');
-    this.labelInput = page.locator('[data-testid="flowsheet-search-label"]');
-    this.submitButton = page.locator('[data-testid="flowsheet-search-submit"]');
-    this.searchResults = page.locator(
-      '[data-testid="flowsheet-search-results"]'
-    );
-    this.newEntryPreview = page.locator(
-      '[data-testid="flowsheet-new-entry-preview"]'
-    );
+    this.searchForm = this.page.locator("form").filter({
+      has: this.page.getByPlaceholder("Song"),
+    });
+    this.songInput = this.page.getByPlaceholder("Song");
+    this.artistInput = this.page.getByPlaceholder("Artist");
+    this.albumInput = this.page.getByPlaceholder("Album");
+    this.labelInput = this.page.getByPlaceholder("Label");
+    this.submitButton = this.searchForm.locator("button").last();
+    this.searchResults = this.page
+      .locator(".MuiSheet-root")
+      .filter({ hasText: /From Your Mail Bin|From Rotation|From the Card Catalog/ });
+    this.newEntryPreview = this.page
+      .locator(".MuiSheet-root")
+      .filter({ hasText: /From Your Mail Bin|From Rotation|From the Card Catalog/ })
+      .locator(".MuiStack-root")
+      .first();
 
-    // Special entries
-    this.talksetButton = page.locator(
-      '[data-testid="flowsheet-talkset-button"]'
-    );
-    this.breakpointButton = page.locator(
-      '[data-testid="flowsheet-breakpoint-button"]'
-    );
+    this.talksetButton = this.page.getByRole("button", { name: "Add a Talkset" });
+    this.breakpointButton = this.page.getByRole("button", {
+      name: /Add a.*breakpoint/i,
+    });
 
-    // Live controls
-    this.goLiveButton = page.locator(
-      '[data-testid="flowsheet-go-live-button"]'
-    );
-    this.liveStatus = page.locator('[data-testid="flowsheet-live-status"]');
+    this.entriesTable = this.page.locator("table").nth(1);
 
-    // Toasts
-    this.successToast = page.locator(
+    this.successToast = this.page.locator(
       '[data-sonner-toast][data-type="success"]'
     );
-    this.errorToast = page.locator('[data-sonner-toast][data-type="error"]');
+    this.errorToast = this.page.locator('[data-sonner-toast][data-type="error"]');
   }
-
-  // --- Navigation ---
 
   async goto(): Promise<void> {
     await this.page.goto("/dashboard/flowsheet");
@@ -78,21 +85,20 @@ export class FlowsheetPage {
   }
 
   async waitForEntriesLoaded(): Promise<void> {
-    // Wait for the Go Live button to be visible (page has rendered)
-    await this.goLiveButton.waitFor({ state: "visible", timeout: 10000 });
-    // Brief pause for RTK Query to settle initial fetches
+    await this.page
+      .getByRole("heading", { level: 2, name: "Flowsheet" })
+      .waitFor({ state: "visible", timeout: 15000 });
+    await expect(this.liveStatus).toBeVisible({ timeout: 15000 });
+    await expect(this.goLiveButton).toBeVisible({ timeout: 15000 });
+    await expect(this.entriesTable).toBeVisible({ timeout: 25000 });
     await this.page.waitForTimeout(500);
   }
 
-  // --- Go Live / Leave ---
-
   async goLive(): Promise<void> {
-    // Wait for the button to be enabled and not loading
     await expect(this.goLiveButton).toBeEnabled({ timeout: 10000 });
-    await this.page.waitForTimeout(300); // Let prior mutations settle
+    await this.page.waitForTimeout(300);
     await this.goLiveButton.click();
     await expect(this.liveStatus).toContainText("On Air", { timeout: 10000 });
-    // Wait for search inputs to become enabled (live state propagates)
     await expect(this.songInput).toBeEnabled({ timeout: 5000 });
   }
 
@@ -122,34 +128,25 @@ export class FlowsheetPage {
     await expect(this.liveStatus).toContainText("Off Air");
   }
 
-  // --- Adding entries ---
-
   async fillSearchForm(data: {
     song: string;
     artist: string;
     album?: string;
     label?: string;
   }): Promise<void> {
-    // Click and focus the song input to open search (searchOpen = true on focus)
     await this.songInput.click();
     await this.songInput.fill(data.song);
     await this.artistInput.fill(data.artist);
     if (data.album) await this.albumInput.fill(data.album);
     if (data.label) await this.labelInput.fill(data.label);
-    // Ensure Redux state has caught up before submission
     await this.page.waitForTimeout(100);
   }
 
   async submitViaButton(): Promise<void> {
-    // Click the pink play/submit button.
-    // Its onClick checks searchOpen: if true, calls form.requestSubmit();
-    // if false, just focuses the first input. Search should be open after
-    // fillSearchForm focused the song input.
     await this.submitButton.click();
   }
 
   async submitViaEnter(): Promise<void> {
-    // Press Enter on the song input to trigger the form's onSubmit
     await this.songInput.press("Enter");
   }
 
@@ -163,55 +160,32 @@ export class FlowsheetPage {
     } else {
       await this.submitViaEnter();
     }
-    // Wait for the search form to reset (song input clears after resetSearch dispatch).
-    // The handleSubmit in flowsheetHooks awaits addToFlowsheet() before clearing,
-    // so this wait ensures the mutation has completed.
     await expect(this.songInput).toHaveValue("", { timeout: 10000 });
   }
 
-  // --- Entry locators ---
-
-  getEntry(id: number): Locator {
-    return this.page.locator(`[data-testid="flowsheet-entry-${id}"]`);
-  }
-
-  getRemoveButton(id: number): Locator {
-    return this.page.locator(`[data-testid="flowsheet-remove-${id}"]`);
+  /**
+   * A row in the flowsheet entries table (not the queue) that contains the text.
+   */
+  getEntryRowContaining(text: string): Locator {
+    return this.getAllEntries().filter({ hasText: text }).first();
   }
 
   getAllEntries(): Locator {
-    return this.page.locator('[data-testid^="flowsheet-entry-"]');
+    return this.entriesTable.locator("tbody tr");
   }
-
-  // --- Entry assertions ---
 
   async expectEntryCount(count: number, timeout = 10000): Promise<void> {
     await expect(this.getAllEntries()).toHaveCount(count, { timeout });
   }
 
-  /**
-   * Assert that at least one entry row contains the given text.
-   */
   async expectEntryWithText(text: string, timeout = 10000): Promise<void> {
-    await expect(
-      this.page
-        .locator('[data-testid^="flowsheet-entry-"]', { hasText: text })
-        .first()
-    ).toBeVisible({ timeout });
+    await expect(this.getEntryRowContaining(text)).toBeVisible({ timeout });
   }
 
-  /**
-   * Count how many entry rows contain the given text.
-   */
   async countEntriesWithText(text: string): Promise<number> {
-    return this.page
-      .locator('[data-testid^="flowsheet-entry-"]', { hasText: text })
-      .count();
+    return this.getAllEntries().filter({ hasText: text }).count();
   }
 
-  /**
-   * Read the visible text content of all entries in DOM order (top to bottom).
-   */
   async getEntryTexts(): Promise<string[]> {
     const entries = this.getAllEntries();
     const count = await entries.count();
@@ -222,27 +196,18 @@ export class FlowsheetPage {
     return texts;
   }
 
-  // --- Inline editing ---
-
   /**
-   * Double-click a text field within an entry row to activate editing,
-   * clear and type a new value, then click away to save.
-   *
-   * The FlowsheetEntryField component shows the field value as a Typography
-   * element; double-clicking it switches to an <input type="text">.
+   * Double-click visible track title text in the matching row, edit, blur to save.
    */
-  async editEntryField(
-    entryId: number,
-    currentValue: string,
-    newValue: string
+  async editEntryRowContaining(
+    currentTitle: string,
+    newTitle: string
   ): Promise<void> {
-    const entry = this.getEntry(entryId);
-    // Double-click the text to activate editing
-    await entry.locator(`text=${currentValue}`).first().dblclick();
-    // The input appears inside the entry row
+    const entry = this.getEntryRowContaining(currentTitle);
+    // Typography appends nbsp; avoid exact match on the full accessible string
+    await entry.getByText(currentTitle, { exact: false }).first().dblclick();
     const input = entry.locator('input[type="text"]').first();
-    await input.fill(newValue);
-    // Click the page header to trigger ClickAwayListener and save
+    await input.fill(newTitle);
     await this.page.locator("h2").first().click();
   }
 }

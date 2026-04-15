@@ -254,25 +254,14 @@ test.describe("Flowsheet Entry Caching", () => {
       const originalTitle = `Editable ${ts}`;
       const modifiedTitle = `Modified ${ts}`;
 
-      // Add a track and capture its server-assigned ID from the POST response
-      const responsePromise = page.waitForResponse(
-        (resp) =>
-          resp.url().includes("/flowsheet") &&
-          resp.request().method() === "POST"
-      );
       await flowsheet.addTrack({
         song: originalTitle,
         artist: "Edit Artist",
         album: "Edit Album",
       });
-      const response = await responsePromise;
-      const newEntry = await response.json();
-      const entryId = newEntry.id;
 
-      // Verify the entry appeared
-      await expect(flowsheet.getEntry(entryId)).toBeVisible();
+      await expect(flowsheet.getEntryRowContaining(originalTitle)).toBeVisible();
 
-      // Set up response listener BEFORE the edit action
       const patchPromise = page.waitForResponse(
         (resp) =>
           resp.url().includes("/flowsheet") &&
@@ -280,19 +269,19 @@ test.describe("Flowsheet Entry Caching", () => {
         { timeout: 10000 }
       );
 
-      // Double-click the track title to edit
-      await flowsheet.editEntryField(entryId, originalTitle, modifiedTitle);
+      await flowsheet.editEntryRowContaining(originalTitle, modifiedTitle);
 
-      // The edit should appear immediately (optimistic cache update)
-      await expect(flowsheet.getEntry(entryId)).toContainText(modifiedTitle);
+      await expect(flowsheet.getEntryRowContaining(modifiedTitle)).toContainText(
+        modifiedTitle
+      );
 
-      // Wait for the PATCH to complete
       await patchPromise;
 
-      // Refresh and verify the edit persisted
       await page.reload();
       await flowsheet.waitForEntriesLoaded();
-      await expect(flowsheet.getEntry(entryId)).toContainText(modifiedTitle);
+      await expect(flowsheet.getEntryRowContaining(modifiedTitle)).toContainText(
+        modifiedTitle
+      );
     });
   });
 
