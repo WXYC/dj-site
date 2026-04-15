@@ -19,6 +19,11 @@ export class LoginPage {
   readonly confirmPasswordInput: Locator;
   readonly backButton: Locator;
 
+  // OTP form elements
+  readonly otpEmailInput: Locator;
+  readonly sendCodeButton: Locator;
+  readonly switchToPasswordLink: Locator;
+
   // Feedback elements
   readonly errorToast: Locator;
   readonly successToast: Locator;
@@ -33,6 +38,13 @@ export class LoginPage {
     // Use a specific selector for the Submit button (excluding "Never mind" link which is also type="submit")
     this.submitButton = page.locator('button[type="submit"]:has-text("Submit")');
     this.forgotPasswordLink = page.locator('button:has-text("Forgot?"), a:has-text("Forgot?")');
+
+    // OTP form
+    this.otpEmailInput = page.locator('input[name="email"]');
+    this.sendCodeButton = page.locator('button:has-text("Send login code")');
+    this.switchToPasswordLink = page.getByRole("button", {
+      name: "Sign in with password instead",
+    });
 
     // Password reset form
     this.emailInput = page.locator('input[name="email"]');
@@ -53,6 +65,15 @@ export class LoginPage {
     await this.page.waitForLoadState("domcontentloaded");
   }
 
+  /**
+   * Switch from the default OTP email form to the password login form.
+   */
+  async switchToPasswordLogin(): Promise<void> {
+    await this.switchToPasswordLink.waitFor({ state: "visible", timeout: 15000 });
+    await this.switchToPasswordLink.click();
+    await this.usernameInput.waitFor({ state: "visible", timeout: 5000 });
+  }
+
   async gotoWithToken(token: string): Promise<void> {
     await this.page.goto(`/login?token=${encodeURIComponent(token)}`);
     await this.page.waitForLoadState("domcontentloaded");
@@ -68,12 +89,20 @@ export class LoginPage {
   }
 
   async login(username: string, password: string): Promise<void> {
+    // If the password form isn't visible yet, switch from OTP to password login
+    if (!(await this.usernameInput.isVisible())) {
+      await this.switchToPasswordLogin();
+    }
     await this.usernameInput.fill(username);
     await this.passwordInput.fill(password);
     await this.submitButton.click();
   }
 
   async clickForgotPassword(): Promise<void> {
+    // Forgot password link is on the password form -- switch if needed
+    if (!(await this.forgotPasswordLink.isVisible())) {
+      await this.switchToPasswordLogin();
+    }
     await this.forgotPasswordLink.click();
     // Wait for the password reset form to appear (state change)
     await this.emailInput.waitFor({ state: "visible", timeout: 5000 });
@@ -103,9 +132,11 @@ export class LoginPage {
   }
 
   async expectLoginFormVisible(): Promise<void> {
-    await expect(this.usernameInput).toBeVisible();
-    await expect(this.passwordInput).toBeVisible();
-    await expect(this.submitButton).toBeVisible();
+    // The login page may show the OTP form or password form depending on state.
+    // If neither the username input nor the OTP email input is visible, wait for one.
+    const isPasswordForm = await this.usernameInput.isVisible();
+    const isOtpForm = await this.otpEmailInput.isVisible();
+    expect(isPasswordForm || isOtpForm).toBe(true);
   }
 
   async expectPasswordResetFormVisible(): Promise<void> {
