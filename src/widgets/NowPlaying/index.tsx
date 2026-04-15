@@ -138,7 +138,7 @@ export default function NowPlaying({ mini = false }: NowPlayingWidgetProps) {
       />
       {mini ? (
         <NowPlayingMini
-          entry={latestEntry}
+          entry={latestEntry ?? undefined}
           live={live}
           onAirDJs={djsOnAirData?.djs}
           audioRef={audioRef}
@@ -150,7 +150,7 @@ export default function NowPlaying({ mini = false }: NowPlayingWidgetProps) {
         />
       ) : (
         <NowPlayingMain
-          entry={latestEntry}
+          entry={latestEntry ?? undefined}
           live={live}
           onAirDJ={onAirDJ}
           loading={djLoading}
