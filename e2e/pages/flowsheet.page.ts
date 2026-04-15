@@ -172,6 +172,14 @@ export class FlowsheetPage {
     // The handleSubmit in flowsheetHooks awaits addToFlowsheet() before clearing,
     // so this wait ensures the mutation has completed.
     await expect(this.songInput).toHaveValue("", { timeout: 10000 });
+    // Wait for RTK Query cache invalidation to trigger a refetch and the new
+    // entry to appear in the DOM. Without this, the test can race ahead before
+    // the entry list re-renders with the new data.
+    await expect(
+      this.page
+        .locator('[data-testid^="flowsheet-entry-"]', { hasText: data.song })
+        .first()
+    ).toBeVisible({ timeout: 10000 });
   }
 
   // --- Entry locators ---
