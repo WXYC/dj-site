@@ -14,7 +14,8 @@ const authDir = path.join(__dirname, "../../.auth");
  * Uses the pre-authenticated DJ session from auth.setup.ts.
  */
 test.describe("Flowsheet Entry Caching", () => {
-  test.use({ storageState: path.join(authDir, "dj.json") });
+  // Use dj2 to avoid session invalidation by auth/logout.spec.ts (which uses dj.json)
+  test.use({ storageState: path.join(authDir, "dj2.json") });
   test.describe.configure({ mode: "serial" });
 
   let flowsheet: FlowsheetPage;
@@ -34,7 +35,7 @@ test.describe("Flowsheet Entry Caching", () => {
   test.afterAll(async ({ browser }) => {
     // Leave the show at the end of the suite
     const context = await browser.newContext({
-      storageState: path.join(authDir, "dj.json"),
+      storageState: path.join(authDir, "dj2.json"),
       baseURL: process.env.E2E_BASE_URL || "http://localhost:3000",
     });
     const page = await context.newPage();
@@ -307,7 +308,7 @@ test.describe("Flowsheet Entry Caching", () => {
     }) => {
       test.slow(); // Multi-context test needs extra time
 
-      const storageState = path.join(authDir, "dj.json");
+      const storageState = path.join(authDir, "dj2.json");
       const baseURL =
         process.env.E2E_BASE_URL || "http://localhost:3000";
 
