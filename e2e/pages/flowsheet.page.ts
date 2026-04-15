@@ -94,6 +94,11 @@ export class FlowsheetPage {
     await expect(this.liveStatus).toContainText("On Air", { timeout: 10000 });
     // Wait for search inputs to become enabled (live state propagates)
     await expect(this.songInput).toBeEnabled({ timeout: 5000 });
+    // Wait for the "started the set" entry to appear — confirms the flowsheet
+    // list query has completed and entries are rendering.
+    await expect(
+      this.page.locator('[data-testid^="flowsheet-entry-"]').first()
+    ).toBeVisible({ timeout: 10000 });
   }
 
   async leave(): Promise<void> {
