@@ -169,6 +169,16 @@ describe("flowsheet types", () => {
 
       expect(isFlowsheetTalksetEntry(songEntry as FlowsheetEntry)).toBe(false);
     });
+
+    it("should return false when message is null", () => {
+      const entry = { ...baseEntry, message: null as unknown as string };
+      expect(isFlowsheetTalksetEntry(entry as FlowsheetEntry)).toBe(false);
+    });
+
+    it("should return false when message is undefined", () => {
+      const entry = { ...baseEntry, message: undefined as unknown as string };
+      expect(isFlowsheetTalksetEntry(entry as FlowsheetEntry)).toBe(false);
+    });
   });
 
   describe("isFlowsheetBreakpointEntry", () => {
@@ -223,6 +233,16 @@ describe("flowsheet types", () => {
       };
 
       expect(isFlowsheetBreakpointEntry(songEntry as FlowsheetEntry)).toBe(false);
+    });
+
+    it("should return false when message is null", () => {
+      const entry = { ...baseEntry, message: null as unknown as string };
+      expect(isFlowsheetBreakpointEntry(entry as FlowsheetEntry)).toBe(false);
+    });
+
+    it("should return false when message is undefined", () => {
+      const entry = { ...baseEntry, message: undefined as unknown as string };
+      expect(isFlowsheetBreakpointEntry(entry as FlowsheetEntry)).toBe(false);
     });
   });
 });
