@@ -17,6 +17,9 @@ test.describe("Flowsheet Entry Caching", () => {
   // Use dj2 to avoid session invalidation by auth/logout.spec.ts (which uses dj.json)
   test.use({ storageState: path.join(authDir, "dj2.json") });
   test.describe.configure({ mode: "serial" });
+  // goLive() reloads the page and waits up to 20s for the flowsheet to render;
+  // the default 20s test timeout doesn't leave room for beforeEach + test body.
+  test.setTimeout(60_000);
 
   let flowsheet: FlowsheetPage;
   let isLive = false;
