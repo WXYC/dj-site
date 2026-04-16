@@ -94,15 +94,15 @@ export class FlowsheetPage {
     await expect(this.liveStatus).toContainText("On Air", { timeout: 10000 });
     // Wait for search inputs to become enabled (live state propagates)
     await expect(this.songInput).toBeEnabled({ timeout: 5000 });
-    // The joinShow mutation invalidates the Flowsheet cache, but the RTK Query
-    // infinite query refetch may not trigger reliably. Reload the page to
-    // guarantee the flowsheet list fetches fresh data including the
-    // "started the set" entry.
+    // The joinShow mutation invalidates the Flowsheet cache, but the infinite
+    // query may still be initializing (it skips until user data loads). Reload
+    // to ensure a clean fetch, then wait for the "started the set" entry text
+    // which confirms the flowsheet list has rendered.
     await this.page.reload();
     await this.page.waitForLoadState("domcontentloaded");
     await expect(
-      this.page.locator('[data-testid^="flowsheet-entry-"]').first()
-    ).toBeVisible({ timeout: 15000 });
+      this.page.getByText("started the set")
+    ).toBeVisible({ timeout: 20000 });
   }
 
   async leave(): Promise<void> {
