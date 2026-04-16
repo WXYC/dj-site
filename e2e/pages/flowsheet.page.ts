@@ -174,23 +174,16 @@ export class FlowsheetPage {
     } else {
       await this.submitViaEnter();
     }
-    // Wait for the search form to reset (song input clears after resetSearch dispatch).
-    // The handleSubmit in flowsheetHooks awaits addToFlowsheet() before clearing,
-    // so this wait ensures the mutation has completed on the server.
+    // Wait for the form to clear — handleSubmit dispatches addToFlowsheet()
+    // then immediately resets the search form, so this confirms the mutation
+    // was initiated (though not necessarily that the response has arrived).
     await expect(this.songInput).toHaveValue("", { timeout: 10000 });
-    // RTK Query's infiniteQuery tag invalidation may not reliably refetch and
-    // re-render. Wait briefly for a cache-driven update, then reload if needed.
-    const entryLocator = this.page
-      .locator('[data-testid^="flowsheet-entry-"]', { hasText: data.song })
-      .first();
-    try {
-      await entryLocator.waitFor({ state: "visible", timeout: 3000 });
-    } catch {
-      // Cache invalidation didn't render the entry — force a reload
-      await this.page.reload();
-      await this.page.waitForLoadState("domcontentloaded");
-      await entryLocator.waitFor({ state: "visible", timeout: 10000 });
-    }
+    // Wait for the POST response to confirm the entry is persisted on the server.
+    // Without this, expectEntryWithText could race ahead of the mutation.
+    await this.page.waitForResponse(
+      (r) => r.url().includes("/flowsheet") && r.request().method() === "POST" && r.status() < 300,
+      { timeout: 10000 }
+    );
   }
 
   // --- Entry locators ---
