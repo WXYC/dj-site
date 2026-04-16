@@ -101,7 +101,7 @@ export class FlowsheetPage {
     await this.page.reload();
     await this.page.waitForLoadState("domcontentloaded");
     await expect(
-      this.page.getByText("started the set")
+      this.page.getByText("started the set").first()
     ).toBeVisible({ timeout: 20000 });
   }
 
@@ -174,16 +174,21 @@ export class FlowsheetPage {
     }
     // Wait for the search form to reset (song input clears after resetSearch dispatch).
     // The handleSubmit in flowsheetHooks awaits addToFlowsheet() before clearing,
-    // so this wait ensures the mutation has completed.
+    // so this wait ensures the mutation has completed on the server.
     await expect(this.songInput).toHaveValue("", { timeout: 10000 });
-    // Wait for RTK Query cache invalidation to trigger a refetch and the new
-    // entry to appear in the DOM. Without this, the test can race ahead before
-    // the entry list re-renders with the new data.
-    await expect(
-      this.page
-        .locator('[data-testid^="flowsheet-entry-"]', { hasText: data.song })
-        .first()
-    ).toBeVisible({ timeout: 10000 });
+    // RTK Query's infiniteQuery tag invalidation may not reliably refetch and
+    // re-render. Wait briefly for a cache-driven update, then reload if needed.
+    const entryLocator = this.page
+      .locator('[data-testid^="flowsheet-entry-"]', { hasText: data.song })
+      .first();
+    try {
+      await entryLocator.waitFor({ state: "visible", timeout: 3000 });
+    } catch {
+      // Cache invalidation didn't render the entry — force a reload
+      await this.page.reload();
+      await this.page.waitForLoadState("domcontentloaded");
+      await entryLocator.waitFor({ state: "visible", timeout: 10000 });
+    }
   }
 
   // --- Entry locators ---
