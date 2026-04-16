@@ -130,7 +130,7 @@ export function isFlowsheetTalksetEntry(
   entry: FlowsheetEntry
 ): entry is FlowsheetMessageEntry {
   return (
-    (entry as FlowsheetMessageEntry).message !== undefined &&
+    (entry as FlowsheetMessageEntry).message != null &&
     (entry as FlowsheetMessageEntry).message.includes("Talkset")
   );
 }
@@ -139,7 +139,7 @@ export function isFlowsheetBreakpointEntry(
   entry: FlowsheetEntry
 ): entry is FlowsheetBreakpointEntry {
   return (
-    (entry as FlowsheetBreakpointEntry).message !== undefined &&
+    (entry as FlowsheetBreakpointEntry).message != null &&
     (entry as FlowsheetBreakpointEntry).message.includes("Breakpoint")
   );
 }
