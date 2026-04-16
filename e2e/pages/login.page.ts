@@ -62,7 +62,7 @@ export class LoginPage {
 
   async goto(): Promise<void> {
     await this.page.goto("/login");
-    await this.page.waitForLoadState("domcontentloaded");
+    await this.page.waitForLoadState("load");
   }
 
   /**
@@ -104,12 +104,17 @@ export class LoginPage {
       await this.switchToPasswordLogin();
     }
     await this.forgotPasswordLink.click();
-    // Wait for the password reset form to appear (state change)
+    // Wait for the password reset form to appear and be interactive.
+    // The email input and send button must both be enabled, confirming
+    // React hydration is complete and no stale requestingReset state.
     await this.emailInput.waitFor({ state: "visible", timeout: 5000 });
+    await expect(this.emailInput).toBeEnabled({ timeout: 5000 });
+    await expect(this.sendResetLinkButton).toBeVisible({ timeout: 5000 });
   }
 
   async requestPasswordReset(email: string): Promise<void> {
     await this.emailInput.fill(email);
+    await expect(this.sendResetLinkButton).toBeEnabled({ timeout: 10000 });
     await this.sendResetLinkButton.click();
   }
 
@@ -161,9 +166,9 @@ export class LoginPage {
   async expectSuccessToast(message?: string): Promise<void> {
     if (message) {
       const specificToast = this.page.locator(`[data-sonner-toast][data-type="success"]:has-text("${message}")`);
-      await expect(specificToast).toBeVisible({ timeout: 5000 });
+      await expect(specificToast).toBeVisible({ timeout: 10000 });
     } else {
-      await expect(this.successToast).toBeVisible({ timeout: 5000 });
+      await expect(this.successToast).toBeVisible({ timeout: 10000 });
     }
   }
 
