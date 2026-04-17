@@ -40,13 +40,13 @@ describe("infinite-cache", () => {
     expect(primaryShowId(draft)).toBe(5);
   });
 
-  it("insertEntrySortedFirstPage keeps descending play_order on page 0", () => {
+  it("insertEntrySortedFirstPage keeps descending id on page 0", () => {
     const draft = {
-      pages: [[song(1, 10, 1), song(2, 8, 1)]],
+      pages: [[song(10, 5, 1), song(8, 10, 1)]],
       pageParams: [0],
     };
-    insertEntrySortedFirstPage(draft, song(99, 12, 1));
-    expect(draft.pages[0].map((e) => e.id)).toEqual([99, 1, 2]);
+    insertEntrySortedFirstPage(draft, song(99, 1, 1));
+    expect(draft.pages[0].map((e) => e.id)).toEqual([99, 10, 8]);
   });
 
   it("insertEntrySortedFirstPage initializes empty cache", () => {

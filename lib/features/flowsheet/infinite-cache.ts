@@ -83,7 +83,7 @@ export function buildOptimisticEntry(
   return { entry, tempId };
 }
 
-/** Insert so `pages[0]` stays sorted by `play_order` descending (highest first). */
+/** Insert so `pages[0]` stays sorted by `id` descending (newest first). */
 export function insertEntrySortedFirstPage(
   draft: InfiniteEntriesDraft,
   entry: FlowsheetEntry
@@ -94,7 +94,7 @@ export function insertEntrySortedFirstPage(
     return;
   }
   const page0 = draft.pages[0];
-  const idx = page0.findIndex((e) => e.play_order < entry.play_order);
+  const idx = page0.findIndex((e) => e.id < entry.id);
   if (idx === -1) {
     page0.push(entry);
   } else {
