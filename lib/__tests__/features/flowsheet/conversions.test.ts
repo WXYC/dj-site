@@ -264,17 +264,17 @@ describe("flowsheet conversions", () => {
     });
 
     describe("convertV2FlowsheetResponse", () => {
-      it("should convert and sort entries by play_order descending", () => {
+      it("should convert and sort entries by id descending", () => {
         const entries = [
-          createTestV2TrackEntry({ id: 1, play_order: 1 }),
-          createTestV2TrackEntry({ id: 3, play_order: 3 }),
-          createTestV2TrackEntry({ id: 2, play_order: 2 }),
+          createTestV2TrackEntry({ id: 1, play_order: 99 }),
+          createTestV2TrackEntry({ id: 3, play_order: 1 }),
+          createTestV2TrackEntry({ id: 2, play_order: 50 }),
         ];
         const result = convertV2FlowsheetResponse(entries);
 
-        expect(result[0].play_order).toBe(3);
-        expect(result[1].play_order).toBe(2);
-        expect(result[2].play_order).toBe(1);
+        expect(result[0].id).toBe(3);
+        expect(result[1].id).toBe(2);
+        expect(result[2].id).toBe(1);
       });
 
       it("should handle empty array", () => {
@@ -293,8 +293,8 @@ describe("flowsheet conversions", () => {
         const result = convertV2FlowsheetResponse(entries);
 
         expect(result).toHaveLength(5);
-        expect(result[0].play_order).toBe(5);
-        expect(result[4].play_order).toBe(1);
+        expect(result[0].id).toBe(5);
+        expect(result[4].id).toBe(1);
       });
     });
 
