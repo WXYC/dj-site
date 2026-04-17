@@ -174,5 +174,5 @@ export function convertV2FlowsheetResponse(
 ): FlowsheetEntry[] {
   return entries
     .map(convertV2Entry)
-    .sort((a, b) => b.play_order - a.play_order);
+    .sort((a, b) => b.id - a.id);
 }
