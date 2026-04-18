@@ -81,6 +81,21 @@ export default function FlowsheetBackendResult({
           >
             {entry.format.includes("vinyl") ? "vinyl" : "cd"}
           </Chip>
+          {entry.on_streaming === false && (
+            <Chip
+              variant="soft"
+              size="sm"
+              sx={{
+                ml: 1,
+                backgroundColor: "#7B2D8E",
+                color: "#fff",
+                fontWeight: "bold",
+                fontSize: "0.6rem",
+              }}
+            >
+              EXCLUSIVE
+            </Chip>
+          )}
         </Typography>
       </Stack>
       <Stack direction="column" sx={{ width: "calc(20%)" }}>
