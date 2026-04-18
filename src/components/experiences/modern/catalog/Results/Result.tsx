@@ -88,6 +88,22 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
         >
           {album.format}
         </Chip>
+        {album.on_streaming === false && (
+          <Chip
+            variant="soft"
+            size="sm"
+            sx={{
+              ml: 0.5,
+              backgroundColor: "#7B2D8E",
+              color: "#fff",
+              fontWeight: "bold",
+              fontSize: "0.65rem",
+              letterSpacing: "0.5px",
+            }}
+          >
+            WXYC EXCLUSIVE
+          </Chip>
+        )}
       </td>
       <td>{album.plays ?? 0}</td>
       <td>

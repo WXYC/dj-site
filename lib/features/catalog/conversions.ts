@@ -33,6 +33,7 @@ export function convertToAlbumEntry(
     plays: (isSearchResult(response) ? response.plays : undefined) ?? 0,
     label: response.label ?? "",
     rotation_id: isSearchResult(response) ? response.rotation_id : undefined,
+    on_streaming: isSearchResult(response) ? response.on_streaming : undefined,
   };
 }
 
