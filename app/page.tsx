@@ -4,12 +4,18 @@ import { Button, Divider, Stack } from "@mui/joy";
 import Link from "next/link";
 import { Metadata } from "next";
 import { getPageTitle } from "@/lib/utils/page-title";
+import { getServerSession } from "@/lib/features/authentication/server-utils";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: getPageTitle("DJ Site"),
 };
 
-export default function HomePage() {
+export default async function HomePage() {
+  const session = await getServerSession();
+  if (session) {
+    redirect("/dashboard");
+  }
   return (
     <WXYCPage>
       <Stack
