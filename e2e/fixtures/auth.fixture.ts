@@ -1,5 +1,5 @@
 import { test as base, expect, Page } from "@playwright/test";
-import { MOCK_USERS, MockUserKey, MockUser } from "@/lib/test-utils/fixtures";
+import { MOCK_USERS, MockUserKey, MockUser } from "../../lib/test-utils/fixtures";
 
 /**
  * Temporary password used for admin-created users.
