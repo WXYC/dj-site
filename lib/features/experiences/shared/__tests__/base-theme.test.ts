@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { baseTheme } from "../base-theme";
+import type { CssVarsThemeOptions, Theme } from "@mui/joy/styles";
+import { baseTheme as _baseTheme } from "../base-theme";
+
+// extendTheme returns Theme, but the type omits 'components' even though
+// it exists at runtime. This intersection restores access for testing.
+type ThemeWithComponents = Theme &
+  Pick<Required<CssVarsThemeOptions>, "components">;
+
+const baseTheme = _baseTheme as ThemeWithComponents;
 
 describe("base-theme", () => {
   describe("cssVarPrefix", () => {

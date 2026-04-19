@@ -1,4 +1,10 @@
 import { describe, it, expect, vi, beforeAll } from "vitest";
+import type { CssVarsThemeOptions, Theme } from "@mui/joy/styles";
+
+// extendTheme returns Theme, but the type omits 'components' even though
+// it exists at runtime. This intersection restores access for testing.
+type ThemeWithComponents = Theme &
+  Pick<Required<CssVarsThemeOptions>, "components">;
 
 // Mock next/font/google before importing the theme
 vi.mock("next/font/google", () => ({
@@ -19,7 +25,9 @@ vi.mock("next/font/local", () => ({
 }));
 
 // Import after mocking
-import { modernTheme } from "../theme";
+import { modernTheme as _modernTheme } from "../theme";
+
+const modernTheme = _modernTheme as ThemeWithComponents;
 
 describe("modern theme", () => {
   describe("cssVarPrefix", () => {
