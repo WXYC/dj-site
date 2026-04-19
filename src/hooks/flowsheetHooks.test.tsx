@@ -1,3 +1,4 @@
+import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import {
@@ -25,7 +26,7 @@ const mockUserInfo = {
 
 const mockUseRegistry = vi.fn(() => ({
   loading: false,
-  info: mockUserInfo,
+  info: mockUserInfo as typeof mockUserInfo | null,
 }));
 
 vi.mock("./authenticationHooks", () => ({
@@ -41,7 +42,7 @@ vi.mock("./binHooks", () => ({
 
 // Mock catalog hooks
 const mockUseCatalogFlowsheetSearch = vi.fn(() => ({
-  searchResults: [],
+  searchResults: [] as ReturnType<typeof createTestAlbum>[],
 }));
 const mockUseRotationFlowsheetSearch = vi.fn(() => ({
   searchResults: [],
@@ -86,8 +87,19 @@ const mockUseGetEntriesQuery = vi.fn(() => ({
   isError: false,
 }));
 
+const mockUseGetInfiniteEntriesInfiniteQuery = vi.fn(() => ({
+  data: { pages: [mockFlowsheetData] },
+  isLoading: false,
+  isSuccess: true,
+  isError: false,
+  isFetching: false,
+  hasNextPage: false,
+  fetchNextPage: vi.fn(),
+}));
+
 vi.mock("@/lib/features/flowsheet/api", () => ({
   useGetEntriesQuery: () => mockUseGetEntriesQuery(),
+  useGetInfiniteEntriesInfiniteQuery: () => mockUseGetInfiniteEntriesInfiniteQuery(),
   useWhoIsLiveQuery: () => mockUseWhoIsLiveQuery(),
   useJoinShowMutation: () => [mockGoLiveFunction, { isLoading: false }],
   useLeaveShowMutation: () => [mockLeaveFunction, { isLoading: false }],
@@ -144,6 +156,15 @@ describe("flowsheetHooks", () => {
       isLoading: false,
       isSuccess: true,
       isError: false,
+    });
+    mockUseGetInfiniteEntriesInfiniteQuery.mockReturnValue({
+      data: { pages: [mockFlowsheetData] },
+      isLoading: false,
+      isSuccess: true,
+      isError: false,
+      isFetching: false,
+      hasNextPage: false,
+      fetchNextPage: vi.fn(),
     });
     mockUseCatalogFlowsheetSearch.mockReturnValue({
       searchResults: [],
@@ -944,7 +965,7 @@ describe("flowsheetHooks", () => {
       });
 
       act(() => {
-        result.current.handleSubmit({});
+        result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent);
       });
 
       expect(mockAddToFlowsheet).toHaveBeenCalled();
@@ -978,7 +999,7 @@ describe("flowsheetHooks", () => {
 
       // Call handleSubmit while ctrl is pressed
       act(() => {
-        result.current.handleSubmit({});
+        result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent);
       });
 
       // addToQueue should have been called instead of addToFlowsheet
@@ -991,7 +1012,6 @@ describe("flowsheetHooks", () => {
         id: 123,
         title: "Album From Search",
         label: "Label From Search",
-        play_freq: "M",
         rotation_id: 456,
         artist: createTestArtist({ name: "Artist From Search" }),
       });
@@ -1033,7 +1053,6 @@ describe("flowsheetHooks", () => {
       expect(result.current.selectedResultData.album).toBe("Album From Search");
       expect(result.current.selectedResultData.label).toBe("Label From Search");
       expect(result.current.selectedResultData.album_id).toBe(123);
-      expect(result.current.selectedResultData.play_freq).toBe("M");
       expect(result.current.selectedResultData.rotation_id).toBe(456);
     });
 
