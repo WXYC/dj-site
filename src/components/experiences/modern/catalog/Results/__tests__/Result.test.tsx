@@ -83,3 +83,47 @@ describe("CatalogResult plays column (Bug 12)", () => {
     expect(playsCell).toBeDefined();
   });
 });
+
+describe("CatalogResult WXYC Exclusive badge", () => {
+  it("should display WXYC EXCLUSIVE chip when on_streaming is false", () => {
+    const album = createTestAlbum({ on_streaming: false });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} />
+        </tbody>
+      </table>
+    );
+
+    expect(screen.getByText("WXYC EXCLUSIVE")).toBeDefined();
+  });
+
+  it("should not display WXYC EXCLUSIVE chip when on_streaming is true", () => {
+    const album = createTestAlbum({ on_streaming: true });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} />
+        </tbody>
+      </table>
+    );
+
+    expect(screen.queryByText("WXYC EXCLUSIVE")).toBeNull();
+  });
+
+  it("should not display WXYC EXCLUSIVE chip when on_streaming is undefined", () => {
+    const album = createTestAlbum({ on_streaming: undefined });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} />
+        </tbody>
+      </table>
+    );
+
+    expect(screen.queryByText("WXYC EXCLUSIVE")).toBeNull();
+  });
+});
