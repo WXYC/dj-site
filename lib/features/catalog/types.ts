@@ -50,7 +50,7 @@ export type AlbumEntry = {
   plays: number | undefined;
   add_date: string | undefined;
   label: string;
-  on_streaming: boolean | undefined;
+  on_streaming?: boolean;
 };
 
 export type ArtistEntry = {
