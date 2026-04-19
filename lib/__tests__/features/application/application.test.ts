@@ -82,8 +82,8 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
       }
     );
 
-    it("should default to login stage", () => {
-      expect(harness().initialState.authFlow.stage).toBe("login");
+    it("should default to otp-email stage", () => {
+      expect(harness().initialState.authFlow.stage).toBe("otp-email");
     });
   });
 

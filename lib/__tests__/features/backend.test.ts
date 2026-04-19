@@ -7,13 +7,13 @@ vi.mock("@/lib/features/authentication/client", () => ({
 
 // We need to mock fetchBaseQuery from Redux Toolkit
 const mockPrepareHeaders = vi.fn();
-const mockFetchBaseQuery = vi.fn((config) => {
+const mockFetchBaseQuery = vi.fn((config: any) => {
   // Store the config so we can test it
-  mockFetchBaseQuery.lastConfig = config;
+  (mockFetchBaseQuery as any).lastConfig = config;
   // Return a mock base query function
   return vi.fn(async () => ({ data: {} }));
 });
-mockFetchBaseQuery.lastConfig = null as any;
+(mockFetchBaseQuery as any).lastConfig = null;
 
 vi.mock("@reduxjs/toolkit/query", () => ({
   fetchBaseQuery: (config: any) => mockFetchBaseQuery(config),
@@ -44,7 +44,7 @@ describe("backend", () => {
       backendBaseQuery("catalog");
 
       expect(mockFetchBaseQuery).toHaveBeenCalled();
-      expect(mockFetchBaseQuery.lastConfig.baseUrl).toBe(
+      expect((mockFetchBaseQuery as any).lastConfig.baseUrl).toBe(
         "https://api.example.com/catalog"
       );
     });
@@ -52,7 +52,7 @@ describe("backend", () => {
     it("should create a base query with different domains", () => {
       backendBaseQuery("flowsheet");
 
-      expect(mockFetchBaseQuery.lastConfig.baseUrl).toBe(
+      expect((mockFetchBaseQuery as any).lastConfig.baseUrl).toBe(
         "https://api.example.com/flowsheet"
       );
     });
@@ -60,7 +60,7 @@ describe("backend", () => {
     it("should handle empty domain", () => {
       backendBaseQuery("");
 
-      expect(mockFetchBaseQuery.lastConfig.baseUrl).toBe(
+      expect((mockFetchBaseQuery as any).lastConfig.baseUrl).toBe(
         "https://api.example.com/"
       );
     });
@@ -69,7 +69,7 @@ describe("backend", () => {
       it("should set Content-Type header to application/json", async () => {
         backendBaseQuery("test");
 
-        const prepareHeaders = mockFetchBaseQuery.lastConfig.prepareHeaders;
+        const prepareHeaders = (mockFetchBaseQuery as any).lastConfig.prepareHeaders;
         expect(prepareHeaders).toBeDefined();
 
         const mockHeaders = new Map<string, string>();
@@ -88,7 +88,7 @@ describe("backend", () => {
       it("should set Authorization header with Bearer token when JWT is available", async () => {
         backendBaseQuery("test");
 
-        const prepareHeaders = mockFetchBaseQuery.lastConfig.prepareHeaders;
+        const prepareHeaders = (mockFetchBaseQuery as any).lastConfig.prepareHeaders;
         const mockHeaders = new Map<string, string>();
         mockHeaders.set = vi.fn();
 
@@ -109,7 +109,7 @@ describe("backend", () => {
       it("should not set Authorization header when JWT is null", async () => {
         backendBaseQuery("test");
 
-        const prepareHeaders = mockFetchBaseQuery.lastConfig.prepareHeaders;
+        const prepareHeaders = (mockFetchBaseQuery as any).lastConfig.prepareHeaders;
         const mockHeaders = new Map<string, string>();
         const setFn = vi.fn();
         mockHeaders.set = setFn;
@@ -129,7 +129,7 @@ describe("backend", () => {
       it("should return the modified headers", async () => {
         backendBaseQuery("test");
 
-        const prepareHeaders = mockFetchBaseQuery.lastConfig.prepareHeaders;
+        const prepareHeaders = (mockFetchBaseQuery as any).lastConfig.prepareHeaders;
         const mockHeaders = new Map<string, string>();
         mockHeaders.set = vi.fn();
 
@@ -143,7 +143,7 @@ describe("backend", () => {
       it("should call getJWTToken to retrieve the token", async () => {
         backendBaseQuery("test");
 
-        const prepareHeaders = mockFetchBaseQuery.lastConfig.prepareHeaders;
+        const prepareHeaders = (mockFetchBaseQuery as any).lastConfig.prepareHeaders;
         const mockHeaders = new Map<string, string>();
         mockHeaders.set = vi.fn();
 
@@ -157,7 +157,7 @@ describe("backend", () => {
       it("should handle getJWTToken returning empty string", async () => {
         backendBaseQuery("test");
 
-        const prepareHeaders = mockFetchBaseQuery.lastConfig.prepareHeaders;
+        const prepareHeaders = (mockFetchBaseQuery as any).lastConfig.prepareHeaders;
         const mockHeaders = new Map<string, string>();
         const setFn = vi.fn();
         mockHeaders.set = setFn;
@@ -177,7 +177,7 @@ describe("backend", () => {
       it("should set Authorization header for truthy non-null token", async () => {
         backendBaseQuery("test");
 
-        const prepareHeaders = mockFetchBaseQuery.lastConfig.prepareHeaders;
+        const prepareHeaders = (mockFetchBaseQuery as any).lastConfig.prepareHeaders;
         const mockHeaders = new Map<string, string>();
         const setFn = vi.fn();
         mockHeaders.set = setFn;
@@ -199,7 +199,7 @@ describe("backend", () => {
 
         backendBaseQuery("api");
 
-        expect(mockFetchBaseQuery.lastConfig.baseUrl).toBe("undefined/api");
+        expect((mockFetchBaseQuery as any).lastConfig.baseUrl).toBe("undefined/api");
       });
 
       it("should work with localhost backend URL", () => {
@@ -207,7 +207,7 @@ describe("backend", () => {
 
         backendBaseQuery("users");
 
-        expect(mockFetchBaseQuery.lastConfig.baseUrl).toBe(
+        expect((mockFetchBaseQuery as any).lastConfig.baseUrl).toBe(
           "http://localhost:3001/users"
         );
       });
@@ -217,7 +217,7 @@ describe("backend", () => {
 
         backendBaseQuery("items");
 
-        expect(mockFetchBaseQuery.lastConfig.baseUrl).toBe(
+        expect((mockFetchBaseQuery as any).lastConfig.baseUrl).toBe(
           "https://api.example.com//items"
         );
       });
