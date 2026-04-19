@@ -1,3 +1,4 @@
+import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import {
@@ -976,7 +977,7 @@ describe("flowsheetHooks", () => {
       });
 
       act(() => {
-        result.current.handleSubmit({});
+        result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent);
       });
 
       expect(mockAddToFlowsheet).toHaveBeenCalled();
@@ -1010,7 +1011,7 @@ describe("flowsheetHooks", () => {
 
       // Call handleSubmit while ctrl is pressed
       act(() => {
-        result.current.handleSubmit({});
+        result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent);
       });
 
       // addToQueue should have been called instead of addToFlowsheet
