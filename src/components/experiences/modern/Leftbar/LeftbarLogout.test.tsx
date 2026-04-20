@@ -5,8 +5,9 @@ import type { User } from "@/lib/features/authentication/types";
 import { Authorization } from "@/lib/features/admin/types";
 
 // Mock the useLogout hook
-const mockHandleLogout = vi.fn(async (e?: React.FormEvent<HTMLFormElement>) => {
+const mockHandleLogout = vi.fn(async (e?: React.FormEvent<HTMLFormElement>): Promise<boolean> => {
   e?.preventDefault();
+  return true;
 });
 vi.mock("@/src/hooks/authenticationHooks", () => ({
   useLogout: vi.fn(() => ({

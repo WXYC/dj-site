@@ -6,7 +6,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import { applicationSlice } from "@/lib/features/application/frontend";
 
 // Mock hooks
-const mockHandleLogout = vi.fn(() => Promise.resolve());
+const mockHandleLogout = vi.fn(() => Promise.resolve(true));
 const mockReplace = vi.fn();
 
 vi.mock("@/src/hooks/authenticationHooks", () => ({
