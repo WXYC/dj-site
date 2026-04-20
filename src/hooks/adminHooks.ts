@@ -4,6 +4,7 @@ import { useAppSelector } from "@/lib/hooks";
 import { convertBetterAuthToAccountResult, BetterAuthUser } from "@/lib/features/admin/conversions-better-auth";
 import { Account } from "@/lib/features/admin/types";
 import { useMemo, useEffect, useState, useCallback } from "react";
+import { throwIfBetterAuthError } from "@/src/utilities/throwIfBetterAuthError";
 
 /**
  * Get the organization ID from environment variable
@@ -49,9 +50,7 @@ export const useAccountListResults = () => {
         },
       });
 
-      if (result.error) {
-        throw new Error(result.error.message || "Failed to fetch users");
-      }
+      throwIfBetterAuthError(result, "Failed to fetch users");
 
       const users = result.data?.users || [];
 

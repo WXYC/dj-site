@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useRegistry } from "./authenticationHooks";
+import { throwIfBetterAuthError } from "@/src/utilities/throwIfBetterAuthError";
 
 export function useDJAccount() {
   const router = useRouter();
@@ -69,9 +70,7 @@ export function useDJAccount() {
             // Use non-admin updateUser (same pattern as onboarding fix)
             const result = await authClient.updateUser(updateData);
 
-            if (result.error) {
-              throw new Error(result.error.message || "Failed to update user");
-            }
+            throwIfBetterAuthError(result, "Failed to update user");
 
             // Update successful
             toast.success("User settings saved.");
