@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { fetchJsonOrNull } from "./fetchJsonOrNull";
 
 export default async function getArtworkFromLastFM({
   title,
@@ -7,38 +8,23 @@ export default async function getArtworkFromLastFM({
   title: string;
   artist: string;
 }) {
-  try {
-    const url =
-      "https://ws.audioscrobbler.com/2.0/?" +
-      "api_key=" +
-      process.env.LAST_FM_KEY +
-      "&method=album.getInfo" +
-      "&album=" +
-      encodeURIComponent(title) +
-      "&artist=" +
-      encodeURIComponent(artist) +
-      "&format=json";
-    
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      console.log(`Failed to fetch album art from Last.fm (${response.status})`);
-      return null;
-    }
-    
-    const jsonResponse = await response.json();
-    
-    const images = jsonResponse?.album?.image;
-    if (!images || !Array.isArray(images) || images.length === 0) {
-      return null;
-    }
-    
-    // Return the largest image (last in array)
-    return images[images.length - 1]?.["#text"] || null;
-  } catch (e) {
-    console.log("Error fetching album art from Last.fm");
+  const url =
+    "https://ws.audioscrobbler.com/2.0/?" +
+    "api_key=" +
+    process.env.LAST_FM_KEY +
+    "&method=album.getInfo" +
+    "&album=" +
+    encodeURIComponent(title) +
+    "&artist=" +
+    encodeURIComponent(artist) +
+    "&format=json";
+
+  const json = await fetchJsonOrNull(url, "Last.fm");
+  const images = json?.album?.image;
+  if (!images || !Array.isArray(images) || images.length === 0) {
     return null;
   }
+  return images[images.length - 1]?.["#text"] || null;
 }
 
 export async function getSongInfoFromLastFM({
@@ -48,29 +34,16 @@ export async function getSongInfoFromLastFM({
   title: string;
   artist: string;
 }) {
-  try {
-    const url =
-      "https://ws.audioscrobbler.com/2.0/?" +
-      "api_key=" +
-      process.env.LAST_FM_KEY +
-      "&method=track.getInfo" +
-      "&track=" +
-      encodeURIComponent(title) +
-      "&artist=" +
-      encodeURIComponent(artist) +
-      "&format=json";
-    
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      toast.error(`Failed to fetch song info from Last.fm (${response.status})`);
-      return null;
-    }
-    
-    const jsonResponse = await response.json();
-    return jsonResponse;
-  } catch (e) {
-    toast.error("Error fetching song info from Last.fm");
-    return null;
-  }
+  const url =
+    "https://ws.audioscrobbler.com/2.0/?" +
+    "api_key=" +
+    process.env.LAST_FM_KEY +
+    "&method=track.getInfo" +
+    "&track=" +
+    encodeURIComponent(title) +
+    "&artist=" +
+    encodeURIComponent(artist) +
+    "&format=json";
+
+  return await fetchJsonOrNull(url, "Last.fm", (msg) => toast.error(msg));
 }
