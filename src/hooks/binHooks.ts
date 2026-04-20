@@ -10,6 +10,7 @@ import { useAppSelector } from "@/lib/hooks";
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
+import { filterBySearchTerms } from "@/src/utilities/filterBySearchTerms";
 
 export const useBin = () => {
   const { loading, info } = useRegistry();
@@ -69,33 +70,11 @@ export const useBinResults = () => {
   const { bin, loading, isSuccess } = useBin();
   const flowsheetQuery = useAppSelector(flowsheetSlice.selectors.getSearchQuery);
 
-  // Calculate search results during render with useMemo instead of useState + useEffect
   const searchResults = useMemo(() => {
-    if (
-      !bin ||
-      loading ||
-      !isSuccess ||
-      flowsheetQuery.album.length + flowsheetQuery.artist.length + flowsheetQuery.label.length <= 3
-    ) {
+    if (!bin || loading || !isSuccess) {
       return [];
     }
-
-    const searchTerms = [flowsheetQuery.album, flowsheetQuery.artist, flowsheetQuery.label].map((term) =>
-      term.toLowerCase()
-    );
-
-    return bin.filter((item) => {
-      const terms = [
-        item.artist?.name.toLowerCase() ?? "",
-        item.title?.toLowerCase() ?? "",
-        item.label?.toLowerCase() ?? "",
-      ];
-
-      return searchTerms.some((searchTerm) => {
-        if (searchTerm.length <= 3) return false;
-        return terms.some((term) => term.includes(searchTerm));
-      });
-    });
+    return filterBySearchTerms(bin, flowsheetQuery);
   }, [bin, loading, isSuccess, flowsheetQuery]);
 
   return {
