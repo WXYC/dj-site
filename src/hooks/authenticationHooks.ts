@@ -19,26 +19,22 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { resetApplication } from "./applicationHooks";
 import { throwIfBetterAuthError } from "@/src/utilities/throwIfBetterAuthError";
+import { useAsyncAction } from "./useAsyncAction";
 
 export const useLogin = () => {
   const router = useRouter();
+  const { execute, isLoading, error } = useAsyncAction();
 
   const verified = useAppSelector(
     authenticationSlice.selectors.allCredentialsVerified
   );
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
-
-  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError(null);
+    return execute(async () => {
+      const username = e.currentTarget.username.value;
+      const password = e.currentTarget.password.value;
 
-    const username = e.currentTarget.username.value;
-    const password = e.currentTarget.password.value;
-
-    try {
       const result = (await authClient.signIn.username({
         username,
         password,
@@ -50,39 +46,20 @@ export const useLogin = () => {
           : typeof result.error === 'string'
             ? result.error
             : (result.error as any)?.message || 'Login failed. Please check your credentials.';
+        throw new Error(errorMessage);
+      }
 
-        setError(result.error instanceof Error ? result.error : new Error(errorMessage));
-        if (errorMessage.trim().length > 0) {
-          toast.error(errorMessage);
-        }
+      const dashboardHome = String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog");
+      toast.success("Login successful");
+
+      const user = (result as any).data?.user;
+      if (user && !user.realName) {
+        router.push("/login?incomplete=true");
       } else {
-        // Sign in successful, session cookie is set
-        const dashboardHome = String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog");
-        toast.success("Login successful");
-
-        // Check if user profile is incomplete (missing realName)
-        // If so, redirect to login with incomplete flag so the server layout
-        // renders the onboarding form instead of the dashboard
-        const user = (result as any).data?.user;
-        if (user && !user.realName) {
-          router.push("/login?incomplete=true");
-        } else {
-          router.push(dashboardHome);
-        }
-        router.refresh();
+        router.push(dashboardHome);
       }
-    } catch (err) {
-      const errorMessage = err instanceof Error
-        ? err.message
-        : 'An unexpected error occurred during login. Please try again.';
-
-      setError(err instanceof Error ? err : new Error(errorMessage));
-      if (errorMessage.trim().length > 0) {
-        toast.error(errorMessage);
-      }
-    } finally {
-      setIsLoading(false);
-    }
+      router.refresh();
+    }, "An unexpected error occurred during login. Please try again.");
   };
 
   const dispatch = useAppDispatch();
@@ -99,14 +76,10 @@ export const useLogin = () => {
 };
 
 export const useOTPRequest = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+  const { execute, isLoading, error } = useAsyncAction();
 
   const handleSendOTP = async (email: string) => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
+    const success = await execute(async () => {
       const result = await authClient.emailOtp.sendVerificationOtp({
         email,
         type: "sign-in",
@@ -115,18 +88,10 @@ export const useOTPRequest = () => {
       throwIfBetterAuthError(result as any, "Failed to send login code");
 
       toast.success("Login code sent! Check your email.");
-    } catch (err) {
-      const errorMessage = err instanceof Error
-        ? err.message
-        : "Failed to send login code. Please try again.";
+    }, "Failed to send login code. Please try again.");
 
-      setError(err instanceof Error ? err : new Error(errorMessage));
-      if (errorMessage.trim().length > 0) {
-        toast.error(errorMessage);
-      }
-      throw err;
-    } finally {
-      setIsLoading(false);
+    if (!success) {
+      throw new Error(error?.message || "Failed to send login code");
     }
   };
 
@@ -135,14 +100,10 @@ export const useOTPRequest = () => {
 
 export const useOTPVerify = () => {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+  const { execute, isLoading, error } = useAsyncAction();
 
-  const handleVerifyOTP = async (email: string, otp: string) => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
+  const handleVerifyOTP = (email: string, otp: string) =>
+    execute(async () => {
       const result = await authClient.signIn.emailOtp({
         email,
         otp,
@@ -165,7 +126,6 @@ export const useOTPVerify = () => {
       toast.success("Login successful");
       const dashboardHome = String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog");
 
-      // Check if user profile is incomplete (missing realName)
       const user = (result as any).data?.user;
       if (user && !user.realName) {
         router.push("/login?incomplete=true");
@@ -173,19 +133,7 @@ export const useOTPVerify = () => {
         router.push(dashboardHome);
       }
       router.refresh();
-    } catch (err) {
-      const errorMessage = err instanceof Error
-        ? err.message
-        : "Verification failed. Please try again.";
-
-      setError(err instanceof Error ? err : new Error(errorMessage));
-      if (errorMessage.trim().length > 0) {
-        toast.error(errorMessage);
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    }, "Verification failed. Please try again.");
 
   const handleResendOTP = async (email: string) => {
     try {
@@ -205,28 +153,15 @@ export const useOTPVerify = () => {
 export const useLogout = () => {
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const [isLoading, setIsLoading] = useState(false);
+  const { execute, isLoading } = useAsyncAction();
 
-  const handleLogout = async (event?: React.FormEvent<HTMLFormElement>) => {
+  const handleLogout = (event?: React.FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
-    setIsLoading(true);
-
-    try {
+    return execute(async () => {
       await authClient.signOut();
       router.refresh();
       resetApplication(dispatch);
-    } catch (error) {
-      const errorMessage = error instanceof Error
-        ? error.message
-        : 'Failed to logout. Please try again.';
-
-      console.error("Logout error:", error);
-      if (errorMessage.trim().length > 0) {
-        toast.error(errorMessage);
-      }
-    } finally {
-      setIsLoading(false);
-    }
+    }, "Failed to logout. Please try again.");
   };
 
   return {
@@ -300,58 +235,48 @@ export const useNewUser = () => {
 
   const { handleLogout } = useLogout();
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
-  const handleNewUser = async (e: React.FormEvent<HTMLFormElement>) => {
+  const { execute, isLoading, error } = useAsyncAction();
+
+  const handleNewUser = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError(null);
+    return execute(async () => {
+      const username = e.currentTarget.username.value;
+      const password = e.currentTarget.password.value;
+      const currentPassword = String(
+        process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD || ""
+      );
 
-    const username = e.currentTarget.username.value;
-    const password = e.currentTarget.password.value;
-    const currentPassword = String(
-      process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD || ""
-    );
+      if (!currentPassword) {
+        throw new Error("Missing onboarding temp password configuration.");
+      }
 
-    if (!currentPassword) {
-      throw new Error("Missing onboarding temp password configuration.");
-    }
+      const params: NewUserCredentials = {
+        username,
+        password,
+      };
 
-    const params: NewUserCredentials = {
-      username,
-      password,
-    };
+      const realNameValue = e.currentTarget.realName?.value || "";
+      const djNameValue = e.currentTarget.djName?.value || "";
 
-    const realNameValue = e.currentTarget.realName?.value || "";
-    const djNameValue = e.currentTarget.djName?.value || "";
+      if (realNameValue) {
+        params.realName = realNameValue;
+      }
+      if (djNameValue) {
+        params.djName = djNameValue;
+      }
 
-    if (realNameValue) {
-      params.realName = realNameValue;
-    }
-    if (djNameValue) {
-      params.djName = djNameValue;
-    }
-
-    try {
-      // Get current session to ensure user is authenticated
       const session = await authClient.getSession();
       if (!session.data?.user?.id) {
         throw new Error("You must be authenticated to update your profile");
       }
 
-      // Update user via better-auth non-admin updateUser (updates current user)
-      // Custom metadata fields (realName, djName) go at the top level, not in a 'data' object
-      // This is different from admin.createUser which uses a 'data' object
       const updateRequest: any = {};
-
-      // Add custom metadata fields at the top level (non-admin updateUser format)
       if (params.realName) {
         updateRequest.realName = params.realName;
       }
       if (params.djName) {
         updateRequest.djName = params.djName;
       }
-      // Update user profile data (non-admin - updates current user)
       const result = await authClient.updateUser(updateRequest);
 
       throwIfBetterAuthError(result, "Failed to update user profile");
@@ -365,24 +290,11 @@ export const useNewUser = () => {
         throwIfBetterAuthError(passwordResult, "Failed to update password");
       }
 
-      // User updated successfully, redirect to dashboard
       const dashboardHome = String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog");
       toast.success("Profile updated successfully");
       router.push(dashboardHome);
       router.refresh();
-    } catch (err) {
-      const errorMessage = err instanceof Error
-        ? err.message
-        : 'Failed to update user profile. Please try again.';
-
-      setError(err instanceof Error ? err : new Error(errorMessage));
-      if (errorMessage.trim().length > 0) {
-        toast.error(errorMessage);
-      }
-      // Don't logout on error - let user see the error message
-    } finally {
-      setIsLoading(false);
-    }
+    }, "Failed to update user profile. Please try again.");
   };
 
   useEffect(() => {
@@ -405,28 +317,19 @@ export const useResetPassword = () => {
   const router = useRouter();
   const dispatch = useAppDispatch();
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
-  const [requestingReset, setRequestingReset] = useState(false);
+  const { execute: executeRequest, isLoading: requestingReset, error: requestError } = useAsyncAction();
+  const { execute: executeReset, isLoading, error: resetError } = useAsyncAction();
 
   const verified = useAppSelector(
     authenticationSlice.selectors.requiredCredentialsVerified
   );
 
-  const handleRequestReset = async (email: string) => {
-    if (!email) {
-      const errorMessage = "Please enter your email address";
-      setError(new Error(errorMessage));
-      if (errorMessage.trim().length > 0) {
-        toast.error(errorMessage);
+  const handleRequestReset = (email: string) =>
+    executeRequest(async () => {
+      if (!email) {
+        throw new Error("Please enter your email address");
       }
-      return;
-    }
 
-    setRequestingReset(true);
-    setError(null);
-
-    try {
       const redirectTo =
         typeof window !== "undefined"
           ? `${window.location.origin}/login`
@@ -442,39 +345,18 @@ export const useResetPassword = () => {
       toast.success(result.data?.message || "If this email exists, check for a reset link.");
       dispatch(applicationSlice.actions.setAuthStage("otp-email"));
       router.push("/login");
-    } catch (err) {
-      const errorMessage = err instanceof Error
-        ? err.message
-        : "Failed to request password reset. Please try again.";
+    }, "Failed to request password reset. Please try again.");
 
-      setError(err instanceof Error ? err : new Error(errorMessage));
-      if (errorMessage.trim().length > 0) {
-        toast.error(errorMessage);
-      }
-    } finally {
-      setRequestingReset(false);
-    }
-  };
-
-  const handleReset = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleReset = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError(null);
+    return executeReset(async () => {
+      const token = e.currentTarget.token?.value;
+      const password = e.currentTarget.password.value;
 
-    const token = e.currentTarget.token?.value;
-    const password = e.currentTarget.password.value;
-
-    if (!token || !password) {
-      const errorMessage = "All fields are required";
-      setError(new Error(errorMessage));
-      if (errorMessage.trim().length > 0) {
-        toast.error(errorMessage);
+      if (!token || !password) {
+        throw new Error("All fields are required");
       }
-      setIsLoading(false);
-      return;
-    }
 
-    try {
       const result = await authClient.resetPassword({
         newPassword: password,
         token,
@@ -486,19 +368,7 @@ export const useResetPassword = () => {
       dispatch(applicationSlice.actions.setAuthStage("otp-email"));
       router.push("/login");
       router.refresh();
-    } catch (err) {
-      const errorMessage = err instanceof Error
-        ? err.message
-        : "Password reset failed. Please try again.";
-
-      setError(err instanceof Error ? err : new Error(errorMessage));
-      if (errorMessage.trim().length > 0) {
-        toast.error(errorMessage);
-      }
-      // Don't logout on error - let user see the error message
-    } finally {
-      setIsLoading(false);
-    }
+    }, "Password reset failed. Please try again.");
   };
 
   return {
@@ -506,6 +376,6 @@ export const useResetPassword = () => {
     handleRequestReset,
     verified,
     requestingReset,
-    error,
+    error: requestError || resetError,
   };
 };
