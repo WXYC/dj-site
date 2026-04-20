@@ -31,56 +31,38 @@ export const useBin = () => {
   };
 };
 
-export const useDeleteFromBin = () => {
+function useBinMutation(
+  useMutation: typeof useAddToBinMutation | typeof useDeleteFromBinMutation,
+  errorMessage: string,
+) {
   const { loading, info } = useRegistry();
+  const [mutate, result] = useMutation();
 
-  const [deleteFromBin, result] = useDeleteFromBinMutation();
-
-  const deleteMethod = useCallback(
+  const action = useCallback(
     (album_id: number) => {
       if (loading || !info) return;
-
-      deleteFromBin({ dj_id: info?.id!, album_id });
+      mutate({ dj_id: info?.id!, album_id });
     },
-    [info, loading]
+    [info, loading, mutate]
   );
 
   useEffect(() => {
     if (result.isError) {
-      toast.error("Failed to remove album from bin");
+      toast.error(errorMessage);
     }
-  }, [result]);
+  }, [result, errorMessage]);
 
-  return {
-    deleteFromBin: deleteMethod,
-    loading: result.isLoading || loading,
-  };
+  return { action, loading: result.isLoading || loading };
+}
+
+export const useDeleteFromBin = () => {
+  const { action, loading } = useBinMutation(useDeleteFromBinMutation, "Failed to remove album from bin");
+  return { deleteFromBin: action, loading };
 };
 
 export const useAddToBin = () => {
-  const { loading, info } = useRegistry();
-
-  const [addToBin, result] = useAddToBinMutation();
-
-  const addMethod = useCallback(
-    (album_id: number) => {
-      if (loading || !info) return;
-
-      addToBin({ dj_id: info?.id!, album_id });
-    },
-    [info, loading]
-  );
-
-  useEffect(() => {
-    if (result.isError) {
-      toast.error("Failed to add album to bin");
-    }
-  }, [result]);
-
-  return {
-    addToBin: addMethod,
-    loading: result.isLoading || loading,
-  };
+  const { action, loading } = useBinMutation(useAddToBinMutation, "Failed to add album to bin");
+  return { addToBin: action, loading };
 };
 
 export const useBinResults = () => {
