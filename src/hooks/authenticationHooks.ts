@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { resetApplication } from "./applicationHooks";
+import { throwIfBetterAuthError } from "@/src/utilities/throwIfBetterAuthError";
 
 export const useLogin = () => {
   const router = useRouter();
@@ -111,10 +112,7 @@ export const useOTPRequest = () => {
         type: "sign-in",
       });
 
-      if ((result as any).error) {
-        const errorMessage = (result as any).error?.message || "Failed to send login code";
-        throw new Error(errorMessage);
-      }
+      throwIfBetterAuthError(result as any, "Failed to send login code");
 
       toast.success("Login code sent! Check your email.");
     } catch (err) {
@@ -356,10 +354,7 @@ export const useNewUser = () => {
       // Update user profile data (non-admin - updates current user)
       const result = await authClient.updateUser(updateRequest);
 
-      if (result.error) {
-        const errorMessage = result.error.message || 'Failed to update user profile';
-        throw new Error(errorMessage);
-      }
+      throwIfBetterAuthError(result, "Failed to update user profile");
 
       if (params.password) {
         const passwordResult = await authClient.changePassword({
@@ -367,11 +362,7 @@ export const useNewUser = () => {
           newPassword: params.password,
         });
 
-        if (passwordResult.error) {
-          const errorMessage =
-            passwordResult.error.message || "Failed to update password";
-          throw new Error(errorMessage);
-        }
+        throwIfBetterAuthError(passwordResult, "Failed to update password");
       }
 
       // User updated successfully, redirect to dashboard
@@ -446,10 +437,7 @@ export const useResetPassword = () => {
         redirectTo,
       });
 
-      if (result.error) {
-        const errorMessage = result.error.message || "Failed to request password reset";
-        throw new Error(errorMessage);
-      }
+      throwIfBetterAuthError(result, "Failed to request password reset");
 
       toast.success(result.data?.message || "If this email exists, check for a reset link.");
       dispatch(applicationSlice.actions.setAuthStage("otp-email"));
@@ -492,10 +480,7 @@ export const useResetPassword = () => {
         token,
       });
 
-      if (result.error) {
-        const errorMessage = result.error.message || "Password reset failed";
-        throw new Error(errorMessage);
-      }
+      throwIfBetterAuthError(result, "Password reset failed");
 
       toast.success("Password reset successfully. Please log in.");
       dispatch(applicationSlice.actions.setAuthStage("otp-email"));
