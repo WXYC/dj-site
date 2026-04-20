@@ -3,6 +3,7 @@
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
 import { useAppDispatch } from "@/lib/hooks";
 import { useResetPassword } from "@/src/hooks/authenticationHooks";
+import { isStrongPassword } from "@/src/utilities/passwordValidation";
 import { Typography } from "@mui/joy";
 import { useEffect, useState } from "react";
 import RequiredBox from "./Fields/RequiredBox";
@@ -41,11 +42,7 @@ export default function ResetPasswordForm({
         }
         validationFunction={(value: string) => {
           setNewPassword(value);
-          return (
-            value.length >= 8 &&
-            !!value.match(/[A-Z]/) &&
-            !!value.match(/[0-9]/)
-          );
+          return isStrongPassword(value);
         }}
         disabled={requestingReset}
       />
