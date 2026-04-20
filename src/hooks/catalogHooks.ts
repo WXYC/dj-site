@@ -26,6 +26,7 @@ import { useGetRotationQuery } from "@/lib/features/rotation/api";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuthentication } from "./authenticationHooks";
+import { filterBySearchTerms } from "@/src/utilities/filterBySearchTerms";
 
 export const useCatalogSearch = () => {
   const dispatch = useAppDispatch();
@@ -219,32 +220,11 @@ export const useRotationFlowsheetSearch = () => {
     skip: authenticating || !authenticated,
   });
 
-  // Calculate search results during render with useMemo instead of useState + useEffect
   const searchResults = useMemo(() => {
-    if (
-      !data ||
-      isLoading ||
-      !isSuccess ||
-      rotationQuery.album.length + rotationQuery.artist.length + rotationQuery.label.length <= 3
-    ) {
+    if (!data || isLoading || !isSuccess) {
       return [];
     }
-
-    const searchTerms = [rotationQuery.album, rotationQuery.artist, rotationQuery.label]
-      .map((term) => term.toLowerCase())
-      .filter((term) => term.length > 3);
-
-    return data.filter((item) => {
-      const terms = [
-        item.artist?.name.toLowerCase() ?? "",
-        item.title?.toLowerCase() ?? "",
-        item.label?.toLowerCase() ?? "",
-      ];
-
-      return searchTerms.some((searchTerm) =>
-        terms.some((term) => term.includes(searchTerm))
-      );
-    });
+    return filterBySearchTerms(data, rotationQuery);
   }, [data, isLoading, isSuccess, rotationQuery]);
 
   return {
