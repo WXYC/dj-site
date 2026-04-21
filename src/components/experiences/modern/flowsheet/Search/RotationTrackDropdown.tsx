@@ -162,72 +162,76 @@ export default function RotationTrackDropdown({
             sx={{
               position: "absolute",
               top: "calc(100% + 4px)",
-              left: 0,
               right: 0,
               zIndex: 8002,
               borderRadius: "md",
               maxHeight: "300px",
+              minWidth: "280px",
+              width: "max-content",
+              maxWidth: "500px",
               overflowY: "auto",
               boxShadow: "0px 8px 24px -4px rgba(0,0,0,0.4)",
               py: 0.5,
             }}
           >
-            {tracks.map((track, index) => (
-              <Box
-                key={`${track.position}-${index}`}
-                data-testid={`rotation-track-option-${index}`}
-                onClick={() => handleSelect(track)}
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  px: 1.5,
-                  py: 0.5,
-                  cursor: "pointer",
-                  backgroundColor:
-                    highlightIndex === index ? "primary.700" : "transparent",
-                  "&:hover": {
-                    backgroundColor: highlightIndex === index ? "primary.700" : "neutral.800",
-                  },
-                }}
-                onMouseEnter={() => setHighlightIndex(index)}
-              >
-                <Typography
-                  level="body-xs"
+            {tracks.map((track, index) => {
+              const cleanArtists = track.artists
+                .map((a) => a.replace(/\s*\(\d+\)\s*$/, ""))
+                .filter((a) => a.length > 0);
+              return (
+                <Box
+                  key={`${track.position}-${index}`}
+                  data-testid={`rotation-track-option-${index}`}
+                  onClick={() => handleSelect(track)}
                   sx={{
-                    opacity: 0.5,
-                    minWidth: "28px",
-                    color: highlightIndex === index ? "neutral.300" : "text.tertiary",
+                    display: "flex",
+                    gap: 1,
+                    px: 1.5,
+                    py: 0.5,
+                    cursor: "pointer",
+                    backgroundColor:
+                      highlightIndex === index ? "primary.700" : "transparent",
+                    "&:hover": {
+                      backgroundColor: highlightIndex === index ? "primary.700" : "neutral.800",
+                    },
                   }}
+                  onMouseEnter={() => setHighlightIndex(index)}
                 >
-                  {track.position}
-                </Typography>
-                <Typography
-                  level="body-sm"
-                  sx={{
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    color: highlightIndex === index ? "white" : "inherit",
-                  }}
-                >
-                  {track.title}
-                </Typography>
-                {track.artists.length > 0 && (
                   <Typography
                     level="body-xs"
                     sx={{
-                      opacity: 0.6,
-                      ml: "auto",
-                      flexShrink: 0,
+                      opacity: 0.5,
+                      minWidth: "28px",
+                      pt: 0.25,
                       color: highlightIndex === index ? "neutral.300" : "text.tertiary",
                     }}
                   >
-                    {track.artists.join(", ")}
+                    {track.position}
                   </Typography>
-                )}
-              </Box>
-            ))}
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography
+                      level="body-sm"
+                      sx={{
+                        color: highlightIndex === index ? "white" : "inherit",
+                      }}
+                    >
+                      {track.title}
+                    </Typography>
+                    {cleanArtists.length > 0 && (
+                      <Typography
+                        level="body-xs"
+                        sx={{
+                          opacity: 0.6,
+                          color: highlightIndex === index ? "neutral.300" : "text.tertiary",
+                        }}
+                      >
+                        {cleanArtists.join(", ")}
+                      </Typography>
+                    )}
+                  </Box>
+                </Box>
+              );
+            })}
             <Box
               data-testid="rotation-track-manual"
               onClick={() => { onManualEntry(); setOpen(false); }}
