@@ -1,10 +1,16 @@
 "use client";
 
 import { Rotation } from "@/lib/features/rotation/types";
-import { RotationStyles } from "@/src/utilities/modern/rotationstyles";
-import { Box, Stack, useTheme } from "@mui/joy";
+import { Box, Stack } from "@mui/joy";
 
 const BINS: Rotation[] = [Rotation.H, Rotation.M, Rotation.L, Rotation.S];
+
+const BIN_COLORS: Record<Rotation, { bg: string; bgSelected: string; bgHover: string; text: string; textSelected: string; border: string }> = {
+  H: { bg: "#fce4ec", bgSelected: "#e53935", bgHover: "#f8bbd0", text: "#b71c1c", textSelected: "#fff", border: "#ef9a9a" },
+  M: { bg: "#fff9c4", bgSelected: "#f9a825", bgHover: "#fff176", text: "#f57f17", textSelected: "#fff", border: "#fdd835" },
+  L: { bg: "#e0f2f1", bgSelected: "#00897b", bgHover: "#b2dfdb", text: "#004d40", textSelected: "#fff", border: "#80cbc4" },
+  S: { bg: "#e8eaf6", bgSelected: "#5c6bc0", bgHover: "#c5cae9", text: "#283593", textSelected: "#fff", border: "#9fa8da" },
+};
 
 export default function RotationBinSelector({
   selectedBin,
@@ -15,8 +21,6 @@ export default function RotationBinSelector({
   onSelectBin: (bin: Rotation) => void;
   disabled: boolean;
 }) {
-  const theme = useTheme();
-
   return (
     <Stack
       direction="row"
@@ -27,7 +31,7 @@ export default function RotationBinSelector({
     >
       {BINS.map((bin) => {
         const isSelected = selectedBin === bin;
-        const color = RotationStyles[bin];
+        const c = BIN_COLORS[bin];
         return (
           <Box
             key={bin}
@@ -49,17 +53,13 @@ export default function RotationBinSelector({
               fontWeight: isSelected ? "bold" : "normal",
               cursor: disabled ? "default" : "pointer",
               transition: "all 0.15s ease",
-              backgroundColor: isSelected
-                ? `var(--joy-palette-${color}-500, ${theme.palette[color][500]})`
-                : `var(--joy-palette-${color}-100, ${theme.palette[color][100]})`,
-              color: isSelected
-                ? `var(--joy-palette-${color}-50, #fff)`
-                : `var(--joy-palette-${color}-700, ${theme.palette[color][700]})`,
+              backgroundColor: isSelected ? c.bgSelected : c.bg,
+              color: isSelected ? c.textSelected : c.text,
+              border: "1px solid",
+              borderColor: isSelected ? "transparent" : c.border,
               opacity: disabled ? 0.5 : 1,
               "&:hover:not(:disabled)": {
-                backgroundColor: isSelected
-                  ? `var(--joy-palette-${color}-600, ${theme.palette[color][600]})`
-                  : `var(--joy-palette-${color}-200, ${theme.palette[color][200]})`,
+                backgroundColor: isSelected ? c.bgSelected : c.bgHover,
               },
             }}
           >
