@@ -8,13 +8,15 @@ import {
   useFlowsheetSubmit,
 } from "@/src/hooks/flowsheetHooks";
 import { useGhostText } from "@/src/hooks/useGhostText";
-import { PlayArrow, QueueMusic, Troubleshoot } from "@mui/icons-material";
+import { Album, PlayArrow, QueueMusic, Troubleshoot } from "@mui/icons-material";
 import { Box, Button, Divider, FormControl, Stack, useTheme } from "@mui/joy";
 import { ClickAwayListener } from "@mui/material";
 import { useCallback, useEffect, useRef } from "react";
 import BreakpointButton from "./BreakpointButton";
 import FlowsheetSearchInput from "./FlowsheetSearchInput";
 import FlowsheetSearchResults from "./Results/FlowsheetSearchResults";
+import RotationEntryFields from "./RotationEntryFields";
+import RotationModeToggle from "./RotationModeToggle";
 import TalksetButton from "./TalksetButton";
 
 export default function FlowsheetSearchbar() {
@@ -37,13 +39,14 @@ export default function FlowsheetSearchbar() {
     flowsheetSlice.selectors.getSelectedResult
   );
 
+  const rotationMode = useAppSelector(flowsheetSlice.selectors.getRotationMode);
+
   const { live, searchOpen, setSearchOpen, resetSearch, searchQuery, setSearchProperty } =
     useFlowsheetSearch();
 
   const confirmedArtist = useAppSelector(
     flowsheetSlice.selectors.getConfirmedArtist
   );
-
   const searchRef = useRef<HTMLFormElement>(null);
   const artistRef = useRef<HTMLInputElement>(null);
   const songRef = useRef<HTMLInputElement>(null);
@@ -112,7 +115,7 @@ export default function FlowsheetSearchbar() {
         if (!live) return;
         artistRef.current?.focus();
       }
-      if (e.key === "ArrowDown" && searchOpen) {
+      if (e.key === "ArrowDown" && searchOpen && !rotationMode) {
         e.preventDefault();
         const nextIndex = Math.min(
           selectedResult + 1,
@@ -120,7 +123,7 @@ export default function FlowsheetSearchbar() {
         );
         dispatch(flowsheetSlice.actions.setSelectedResult(nextIndex));
       }
-      if (e.key === "ArrowUp" && searchOpen) {
+      if (e.key === "ArrowUp" && searchOpen && !rotationMode) {
         e.preventDefault();
         const prevIndex = Math.max(selectedResult - 1, 0);
         dispatch(flowsheetSlice.actions.setSelectedResult(prevIndex));
@@ -130,6 +133,7 @@ export default function FlowsheetSearchbar() {
       live,
       dispatch,
       searchOpen,
+      rotationMode,
       binResults,
       catalogResults,
       rotationResults,
@@ -167,6 +171,7 @@ export default function FlowsheetSearchbar() {
         <Stack direction="row" spacing={0.5}>
           <BreakpointButton />
           <TalksetButton />
+          <RotationModeToggle />
           <Box
             ref={searchRef}
             component="form"
@@ -229,43 +234,49 @@ export default function FlowsheetSearchbar() {
                 },
               }}
             >
-              <Troubleshoot />
+              {rotationMode ? <Album /> : <Troubleshoot />}
             </Box>
-            <FlowsheetSearchInput
-              name={"artist"}
-              inputRef={artistRef}
-              required={selectedResult == 0}
-              disabled={!live}
-              ghostSuffix={artistGhost.ghostSuffix}
-              onAcceptGhost={handleAcceptArtistGhost}
-              onBlur={handleArtistBlur}
-              suppressHydrationWarning
-            />
-            <Divider orientation="vertical" />
-            <FlowsheetSearchInput
-              name={"song"}
-              inputRef={songRef}
-              disabled={!live}
-              required={true}
-              ghostSuffix={songGhost.ghostSuffix}
-              onAcceptGhost={handleAcceptSongGhost}
-              suppressHydrationWarning
-            />
-            <Divider orientation="vertical" />
-            <FlowsheetSearchInput
-              name={"album"}
-              inputRef={albumRef}
-              disabled={!live}
-              required={selectedResult == 0}
-              suppressHydrationWarning
-            />
-            <Divider orientation="vertical" />
-            <FlowsheetSearchInput
-              name={"label"}
-              inputRef={labelRef}
-              disabled={!live}
-              suppressHydrationWarning
-            />
+            {rotationMode ? (
+              <RotationEntryFields disabled={!live} />
+            ) : (
+              <>
+                <FlowsheetSearchInput
+                  name={"artist"}
+                  inputRef={artistRef}
+                  required={selectedResult == 0}
+                  disabled={!live}
+                  ghostSuffix={artistGhost.ghostSuffix}
+                  onAcceptGhost={handleAcceptArtistGhost}
+                  onBlur={handleArtistBlur}
+                  suppressHydrationWarning
+                />
+                <Divider orientation="vertical" />
+                <FlowsheetSearchInput
+                  name={"song"}
+                  inputRef={songRef}
+                  disabled={!live}
+                  required={true}
+                  ghostSuffix={songGhost.ghostSuffix}
+                  onAcceptGhost={handleAcceptSongGhost}
+                  suppressHydrationWarning
+                />
+                <Divider orientation="vertical" />
+                <FlowsheetSearchInput
+                  name={"album"}
+                  inputRef={albumRef}
+                  disabled={!live}
+                  required={selectedResult == 0}
+                  suppressHydrationWarning
+                />
+                <Divider orientation="vertical" />
+                <FlowsheetSearchInput
+                  name={"label"}
+                  inputRef={labelRef}
+                  disabled={!live}
+                  suppressHydrationWarning
+                />
+              </>
+            )}
             <input type="submit" hidden />
             <Box
               component="div"

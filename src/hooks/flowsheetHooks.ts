@@ -467,12 +467,15 @@ export const useFlowsheetSubmit = () => {
   // Memoized calculation of the selected result data
   const selectedResultData = useMemo<FlowsheetQuery>(() => {
     if (selectedResult == 0 || !selectedEntry) {
-      // User is creating a new entry manually
+      // User is creating a new entry manually (or in rotation mode)
       return {
         song: flowSheetRawQuery.song as string,
         artist: flowSheetRawQuery.artist as string,
         album: flowSheetRawQuery.album as string,
         label: flowSheetRawQuery.label as string,
+        album_id: flowSheetRawQuery.album_id,
+        rotation_id: flowSheetRawQuery.rotation_id,
+        rotation_bin: flowSheetRawQuery.rotation_bin,
         request: false,
       };
     } else {

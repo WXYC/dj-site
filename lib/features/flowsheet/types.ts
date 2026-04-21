@@ -13,6 +13,7 @@ import { Rotation } from "../rotation/types";
 
 export type FlowsheetFrontendState = {
   autoplay: boolean;
+  rotationMode: boolean;
   search: {
     open: boolean;
     query: FlowsheetQuery;

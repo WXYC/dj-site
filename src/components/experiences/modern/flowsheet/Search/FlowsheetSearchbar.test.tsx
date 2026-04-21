@@ -70,8 +70,21 @@ vi.mock("./Results/FlowsheetSearchResults", () => ({
   default: () => <div data-testid="search-results">Results</div>,
 }));
 
+vi.mock("./RotationModeToggle", () => ({
+  default: () => <button data-testid="rotation-toggle">Rotation</button>,
+}));
+
+vi.mock("./RotationEntryFields", () => ({
+  default: ({ disabled }: any) => (
+    <div data-testid="rotation-entry-fields" data-disabled={disabled}>
+      Rotation Fields
+    </div>
+  ),
+}));
+
 // Mock MUI icons
 vi.mock("@mui/icons-material", () => ({
+  Album: () => <span data-testid="album-icon" />,
   PlayArrow: () => <span data-testid="play-icon" />,
   QueueMusic: () => <span data-testid="queue-icon" />,
   Troubleshoot: () => <span data-testid="search-icon" />,

@@ -1,10 +1,12 @@
 import { createAppSlice } from "@/lib/createAppSlice";
 import { PayloadAction } from "@reduxjs/toolkit";
 import { FlowsheetEntry, FlowsheetFrontendState, FlowsheetQuery, FlowsheetSearchProperty, FlowsheetSongEntry } from "./types";
+import { Rotation } from "../rotation/types";
 import { clearQueueFromStorage, loadQueueFromStorage, saveQueueToStorage } from "./queue-storage";
 
 export const defaultFlowsheetFrontendState: FlowsheetFrontendState = {
   autoplay: false,
+  rotationMode: false,
   search: {
     open: false,
     query: {
@@ -28,6 +30,22 @@ export const flowsheetSlice = createAppSlice({
   reducers: {
     setAutoplay: (state, action) => {
       state.autoplay = action.payload;
+    },
+    setRotationMode: (state, action: PayloadAction<boolean>) => {
+      state.rotationMode = action.payload;
+      if (!action.payload) {
+        state.search.query.album_id = undefined;
+        state.search.query.rotation_id = undefined;
+        state.search.query.rotation_bin = undefined;
+      }
+    },
+    setRotationMetadata: (
+      state,
+      action: PayloadAction<{ album_id?: number; rotation_id?: number; rotation_bin?: Rotation }>
+    ) => {
+      state.search.query.album_id = action.payload.album_id;
+      state.search.query.rotation_id = action.payload.rotation_id;
+      state.search.query.rotation_bin = action.payload.rotation_bin;
     },
     setSearchOpen: (state, action) => {
       state.search.open = action.payload;
@@ -104,6 +122,7 @@ export const flowsheetSlice = createAppSlice({
   },
   selectors: {
     getAutoplay: (state) => state.autoplay,
+    getRotationMode: (state) => state.rotationMode,
     getSearchOpen: (state) => state.search.open,
     getSearchQuery: (state) => state.search.query,
     getSearchQueryLength: (state) => Object.values(state.search.query).filter((value) => value).length,
