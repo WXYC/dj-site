@@ -17,13 +17,12 @@ vi.mock("@/lib/features/flowsheet/api", () => ({
   useWhoIsLiveQuery: () => mockUseWhoIsLiveQuery(),
 }));
 
-// Mock the useAlbumImages hook
-vi.mock("@/src/hooks/applicationHooks", () => ({
-  useAlbumImages: () => ({
-    setAlbum: vi.fn(),
-    setArtist: vi.fn(),
-    loading: false,
-    url: "https://example.com/album.jpg",
+// Mock the useAlbumArtwork hook
+vi.mock("@/lib/features/metadata/hooks", () => ({
+  useAlbumArtwork: () => ({
+    artworkUrl: "https://example.com/album.jpg",
+    isLoading: false,
+    metadata: null,
   }),
 }));
 

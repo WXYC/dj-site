@@ -6,31 +6,19 @@ import {
   isFlowsheetStartShowEntry,
   isFlowsheetTalksetEntry,
 } from "@/lib/features/flowsheet/types";
-import { useAlbumImages } from "@/src/hooks/applicationHooks";
+import { useAlbumArtwork } from "@/lib/features/metadata/hooks";
 import { Headphones, Logout, Mic, Timer } from "@mui/icons-material";
 import { AspectRatio, Box } from "@mui/joy";
-import { useEffect } from "react";
 
 export default function AlbumArtAndIcons({
   entry,
 }: {
   entry: FlowsheetEntry | undefined;
 }) {
-  const { setAlbum, setArtist, loading, url } = useAlbumImages();
+  const songEntry = entry && isFlowsheetSongEntry(entry) ? entry : undefined;
+  const { artworkUrl, isLoading } = useAlbumArtwork(songEntry?.artist_name, songEntry?.album_title);
 
-  useEffect(() => {
-    if (entry) {
-      if (isFlowsheetSongEntry(entry)) {
-        setAlbum(entry.album_title);
-        setArtist(entry.artist_name);
-      } else {
-        setAlbum(undefined);
-        setArtist(undefined);
-      }
-    }
-  }, [entry, setAlbum, setArtist]);
-
-  if (!entry || loading) {
+  if (!entry || isLoading) {
     return (
       <ImageWrapper>
         <img
@@ -48,8 +36,8 @@ export default function AlbumArtAndIcons({
     return (
       <ImageWrapper>
         <img
-          src={url}
-          srcSet={url}
+          src={artworkUrl}
+          srcSet={artworkUrl}
           loading="lazy"
           alt=""
           style={{ width: "100%", objectPosition: "center" }}
