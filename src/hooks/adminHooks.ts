@@ -57,6 +57,15 @@ export const useAccountListResults = () => {
       // Handle this by parsing the string ourselves as a fallback.
       let responseData = result.data;
       if (typeof responseData === "string") {
+        console.warn("[roster] better-auth SDK returned unparsed JSON string (%d chars), parsing manually", responseData.length);
+        try {
+          JSON.parse(responseData, (_k, v) => v);
+          console.warn("[roster] JSON.parse with trivial reviver succeeded — better-auth secureReviver is the cause");
+        } catch (e) {
+          console.warn("[roster] JSON itself is invalid (%d chars): %s", responseData.length, (e as Error).message);
+          console.warn("[roster] head:", responseData.substring(0, 200));
+          console.warn("[roster] tail:", responseData.substring(responseData.length - 200));
+        }
         responseData = JSON.parse(responseData);
       }
 
