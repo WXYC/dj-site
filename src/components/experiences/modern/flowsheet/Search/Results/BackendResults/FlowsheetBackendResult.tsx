@@ -1,7 +1,6 @@
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { ArtistAvatar } from "@/src/components/experiences/modern/catalog/ArtistAvatar";
 import { useFlowsheetSubmit } from "@/src/hooks/flowsheetHooks";
 import { Chip, ColorPaletteProp, Stack, Typography } from "@mui/joy";
 
@@ -40,13 +39,7 @@ export default function FlowsheetBackendResult({
       onMouseOver={() => setSelected(index)}
       onClick={handleSubmit}
     >
-      <ArtistAvatar
-        artist={entry.artist}
-        format={entry.format}
-        entry={entry.entry}
-        rotation={entry.rotation_bin}
-      />
-      <Stack direction="column" sx={{ width: "calc(20%)" }}>
+      <Stack direction="column" sx={{ flex: 1, minWidth: 0, px: 1 }}>
         <Typography
           level="body-xs"
           sx={{
@@ -63,6 +56,8 @@ export default function FlowsheetBackendResult({
             overflow: "hidden",
             textOverflow: "ellipsis",
             color: selected == index ? "white" : "inherit",
+            fontFamily: "monospace",
+            fontSize: "1rem",
           }}
         >
           {entry.artist.genre} {entry.artist.lettercode}{" "}
@@ -98,7 +93,7 @@ export default function FlowsheetBackendResult({
           )}
         </Typography>
       </Stack>
-      <Stack direction="column" sx={{ width: "calc(20%)" }}>
+      <Stack direction="column" sx={{ flex: 1, minWidth: 0, px: 1 }}>
         <Typography
           level="body-xs"
           sx={{
@@ -121,7 +116,7 @@ export default function FlowsheetBackendResult({
           {entry.artist.name || "Unknown"}
         </Typography>
       </Stack>
-      <Stack direction="column" sx={{ width: "calc(20%)" }}>
+      <Stack direction="column" sx={{ flex: 1, minWidth: 0, px: 1 }}>
         <Typography
           level="body-xs"
           sx={{
@@ -144,7 +139,7 @@ export default function FlowsheetBackendResult({
           {entry.title || "Unknown"}
         </Typography>
       </Stack>
-      <Stack direction="column" sx={{ width: "calc(20%)" }}>
+      <Stack direction="column" sx={{ flex: 1, minWidth: 0, px: 1 }}>
         <Typography
           level="body-xs"
           sx={{

@@ -1,8 +1,7 @@
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useFlowsheetSubmit } from "@/src/hooks/flowsheetHooks";
-import { Box, Stack, Typography } from "@mui/joy";
-import CreateIcon from "@mui/icons-material/Create";
+import { Stack, Typography } from "@mui/joy";
 
 export default function NewEntryPreview() {
   const dispatch = useAppDispatch();
@@ -38,47 +37,7 @@ export default function NewEntryPreview() {
       onMouseOver={() => setSelected(0)}
       onClick={handleSubmit}
     >
-      {/* Icon to indicate new entry */}
-      <Box
-        sx={{
-          width: "3.2rem",
-          flexShrink: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <CreateIcon
-          sx={{
-            fontSize: "2.5rem",
-            color: selected == 0 ? "neutral.200" : "text.secondary",
-          }}
-        />
-      </Box>
-      <Stack direction="column" sx={{ width: "calc(20%)" }}>
-        <Typography
-          level="body-xs"
-          sx={{
-            mb: -0.5,
-            color: selected == 0 ? "neutral.300" : "text.tertiary",
-          }}
-        >
-          SONG
-        </Typography>
-        <Typography
-          sx={{
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            color: selected == 0 ? "white" : "inherit",
-            fontStyle: searchQuery.song ? "normal" : "italic",
-            opacity: searchQuery.song ? 1 : 0.6,
-          }}
-        >
-          {searchQuery.song || "Not specified"}
-        </Typography>
-      </Stack>
-      <Stack direction="column" sx={{ width: "calc(20%)" }}>
+      <Stack direction="column" sx={{ flex: 1, minWidth: 0, px: 1 }}>
         <Typography
           level="body-xs"
           sx={{
@@ -101,7 +60,30 @@ export default function NewEntryPreview() {
           {searchQuery.artist || "Not specified"}
         </Typography>
       </Stack>
-      <Stack direction="column" sx={{ width: "calc(20%)" }}>
+      <Stack direction="column" sx={{ flex: 1, minWidth: 0, px: 1 }}>
+        <Typography
+          level="body-xs"
+          sx={{
+            mb: -0.5,
+            color: selected == 0 ? "neutral.300" : "text.tertiary",
+          }}
+        >
+          SONG
+        </Typography>
+        <Typography
+          sx={{
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            color: selected == 0 ? "white" : "inherit",
+            fontStyle: searchQuery.song ? "normal" : "italic",
+            opacity: searchQuery.song ? 1 : 0.6,
+          }}
+        >
+          {searchQuery.song || "Not specified"}
+        </Typography>
+      </Stack>
+      <Stack direction="column" sx={{ flex: 1, minWidth: 0, px: 1 }}>
         <Typography
           level="body-xs"
           sx={{
@@ -124,7 +106,7 @@ export default function NewEntryPreview() {
           {searchQuery.album || "Not specified"}
         </Typography>
       </Stack>
-      <Stack direction="column" sx={{ width: "calc(20%)" }}>
+      <Stack direction="column" sx={{ flex: 1, minWidth: 0, px: 1 }}>
         <Typography
           level="body-xs"
           sx={{
