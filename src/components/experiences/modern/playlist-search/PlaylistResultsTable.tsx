@@ -1,12 +1,12 @@
 "use client";
 
-import type { PlaylistSearchResult, PlaylistSearchParamsSortEnum } from "@wxyc/shared";
+import type { PlaylistSearchResult, PlaylistSearchParams } from "@wxyc/shared/dtos";
 import { ArrowDownward, ArrowUpward } from "@mui/icons-material";
 import { Box, Link, Table, Typography } from "@mui/joy";
 
 interface PlaylistResultsTableProps {
   results: PlaylistSearchResult[];
-  sortBy: PlaylistSearchParamsSortEnum;
+  sortBy: PlaylistSearchParams["sort"];
   sortOrder: "asc" | "desc";
   onSort: (field: "date" | "artist" | "song" | "dj") => void;
 }
@@ -128,7 +128,7 @@ export default function PlaylistResultsTable({
           <tr key={result.id}>
             <td>
               <Typography level="body-sm" sx={{ color: "text.secondary" }}>
-                {formatDate(result.play_date)}
+                {formatDate(new Date(result.play_date))}
               </Typography>
             </td>
             <td>

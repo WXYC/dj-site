@@ -52,6 +52,7 @@ export type FlowsheetSongBase = {
   album_title: string;
   record_label: string;
   request_flag: boolean;
+  segue?: boolean;
   album_id?: number;
   rotation_id?: number;
   rotation?: Rotation;

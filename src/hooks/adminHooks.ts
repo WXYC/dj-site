@@ -55,23 +55,24 @@ export const useAccountListResults = () => {
       // The better-auth SDK's JSON parser (betterJSONParse with strict: false) can silently
       // return the raw JSON string instead of a parsed object when JSON.parse fails internally.
       // Handle this by parsing the string ourselves as a fallback.
-      let responseData = result.data;
+      let responseData: unknown = result.data;
       if (typeof responseData === "string") {
-        console.warn("[roster] better-auth SDK returned unparsed JSON string (%d chars), parsing manually", responseData.length);
+        console.warn("[roster] better-auth SDK returned unparsed JSON string (%d chars), parsing manually", (responseData as string).length);
         try {
-          JSON.parse(responseData, (_k, v) => v);
+          JSON.parse(responseData as string, (_k, v) => v);
           console.warn("[roster] JSON.parse with trivial reviver succeeded — better-auth secureReviver is the cause");
         } catch (e) {
-          console.warn("[roster] JSON itself is invalid (%d chars): %s", responseData.length, (e as Error).message);
-          console.warn("[roster] head:", responseData.substring(0, 200));
-          console.warn("[roster] tail:", responseData.substring(responseData.length - 200));
+          console.warn("[roster] JSON itself is invalid (%d chars): %s", (responseData as string).length, (e as Error).message);
+          console.warn("[roster] head:", (responseData as string).substring(0, 200));
+          console.warn("[roster] tail:", (responseData as string).substring((responseData as string).length - 200));
         }
-        responseData = JSON.parse(responseData);
+        responseData = JSON.parse(responseData as string);
       }
 
       // Filter out anonymous users (created by the anonymous auth plugin for unauthenticated visitors)
-      const users = (responseData?.users || []).filter(
-        (user: Record<string, unknown>) => !user.isAnonymous
+      const parsed = responseData as { users?: { isAnonymous?: boolean }[] };
+      const users = (parsed?.users || []).filter(
+        (user) => !user.isAnonymous
       );
 
       // Fetch organization members to get accurate roles

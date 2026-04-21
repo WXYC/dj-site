@@ -1,12 +1,9 @@
 import { createAppSlice } from "@/lib/createAppSlice";
 import type { PayloadAction } from "@reduxjs/toolkit";
-import type {
-  PlaylistSearchParamsSortEnum,
-  PlaylistSearchParamsOrderEnum,
-} from "@wxyc/shared";
+import type { PlaylistSearchParams } from "@wxyc/shared/dtos";
 
-type SortField = PlaylistSearchParamsSortEnum;
-type SortOrder = PlaylistSearchParamsOrderEnum;
+type SortField = PlaylistSearchParams["sort"];
+type SortOrder = PlaylistSearchParams["order"];
 type Operator = "AND" | "OR" | "NOT";
 type SearchField = "artist" | "song" | "album" | "label" | "dj" | "date" | "dateRange";
 
