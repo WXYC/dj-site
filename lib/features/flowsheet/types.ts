@@ -17,6 +17,7 @@ export type FlowsheetFrontendState = {
     open: boolean;
     query: FlowsheetQuery;
     selectedResult: number;
+    confirmedArtist: string;
   };
   queue: FlowsheetSongEntry[];
   queueIdCounter: number;
@@ -210,4 +211,15 @@ export type FlowsheetV2PaginatedResponseJSON = {
   limit: number;
   total: number;
   total_pages: number;
+};
+
+export type SuggestTrackResult = {
+  track_title: string;
+  album_title: string | null;
+  record_label: string | null;
+};
+
+export type TrackDetailsResult = {
+  album_title: string | null;
+  record_label: string | null;
 };

@@ -17,6 +17,7 @@ const mockSetSearchOpen = vi.fn();
 const mockResetSearch = vi.fn();
 const mockHandleSubmit = vi.fn();
 const mockAddToFlowsheet = vi.fn();
+const mockSetSearchProperty = vi.fn();
 
 // Mock hooks
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
@@ -28,6 +29,8 @@ vi.mock("@/src/hooks/flowsheetHooks", () => ({
     searchOpen: mockSearchOpen,
     setSearchOpen: mockSetSearchOpen,
     resetSearch: mockResetSearch,
+    searchQuery: { song: "", artist: "", album: "", label: "", request: false },
+    setSearchProperty: mockSetSearchProperty,
   })),
   useFlowsheetSubmit: vi.fn(() => ({
     ctrlKeyPressed: mockCtrlKeyPressed,
@@ -35,6 +38,14 @@ vi.mock("@/src/hooks/flowsheetHooks", () => ({
     binResults: mockBinResults,
     catalogResults: mockCatalogResults,
     rotationResults: mockRotationResults,
+  })),
+}));
+
+vi.mock("@/src/hooks/useGhostText", () => ({
+  useGhostText: vi.fn(() => ({
+    ghostSuffix: "",
+    acceptGhostText: () => null,
+    trackResult: null,
   })),
 }));
 
@@ -124,7 +135,7 @@ describe("FlowsheetSearchbar", () => {
     expect(screen.getByTestId("talkset-button")).toBeInTheDocument();
   });
 
-  it("should render search inputs", () => {
+  it("should render search inputs in Artist | Song | Album | Label order", () => {
     const store = createTestStore();
 
     render(
@@ -133,10 +144,22 @@ describe("FlowsheetSearchbar", () => {
       </Provider>
     );
 
-    expect(screen.getByTestId("input-song")).toBeInTheDocument();
-    expect(screen.getByTestId("input-artist")).toBeInTheDocument();
-    expect(screen.getByTestId("input-album")).toBeInTheDocument();
-    expect(screen.getByTestId("input-label")).toBeInTheDocument();
+    const artist = screen.getByTestId("input-artist");
+    const song = screen.getByTestId("input-song");
+    const album = screen.getByTestId("input-album");
+    const label = screen.getByTestId("input-label");
+
+    expect(artist).toBeInTheDocument();
+    expect(song).toBeInTheDocument();
+    expect(album).toBeInTheDocument();
+    expect(label).toBeInTheDocument();
+
+    // Verify order: artist before song, song before album, album before label
+    const allInputs = screen.getAllByRole("textbox");
+    expect(allInputs[0]).toBe(artist);
+    expect(allInputs[1]).toBe(song);
+    expect(allInputs[2]).toBe(album);
+    expect(allInputs[3]).toBe(label);
   });
 
   it("should render search results container", () => {
@@ -392,6 +415,8 @@ describe("FlowsheetSearchbar", () => {
           searchOpen: true,
           setSearchOpen: mockSetSearchOpen,
           resetSearch: mockResetSearch,
+          searchQuery: { song: "", artist: "", album: "", label: "", request: false },
+          setSearchProperty: mockSetSearchProperty,
         })),
         useFlowsheetSubmit: vi.fn(() => ({
           ctrlKeyPressed: false,
