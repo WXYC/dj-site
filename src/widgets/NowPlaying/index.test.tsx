@@ -82,6 +82,7 @@ describe("NowPlaying", () => {
     album_title: "Test Album",
     record_label: "Test Label",
     request_flag: false,
+    segue: false,
   };
 
   const mockDJsOnAirData: OnAirDJData = {
