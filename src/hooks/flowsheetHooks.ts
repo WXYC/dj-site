@@ -13,14 +13,13 @@ import {
 } from "@/lib/features/flowsheet/api";
 import { convertQueryToSubmission } from "@/lib/features/flowsheet/conversions";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
+import { partitionFlowsheetEntries } from "@/lib/features/flowsheet/partition";
 import {
   FlowsheetEntry,
   FlowsheetQuery,
   FlowsheetSearchProperty,
   FlowsheetSubmissionParams,
   FlowsheetUpdateParams,
-  isFlowsheetEndShowEntry,
-  isFlowsheetStartShowEntry,
 } from "@/lib/features/flowsheet/types";
 import type { RootState } from "@/lib/store";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
@@ -271,36 +270,25 @@ export const useFlowsheet = () => {
 
   const { currentShow, live } = useShowControl();
 
-  // Calculate derived state during render instead of useEffect + Redux
-  const currentShowEntries = useMemo(() => {
-    if (currentShow === -1 || !live) return [];
-    return allEntries.filter(
-      (entry) =>
-        entry.show_id === currentShow &&
-        !isFlowsheetStartShowEntry(entry) &&
-        !isFlowsheetEndShowEntry(entry)
-    );
-  }, [allEntries, currentShow, live]);
+  // Partition entries into current show vs previous shows.
+  // All entries from the current show (including start/end markers) go into
+  // currentShowEntries so that concatenation with lastShowsEntries preserves
+  // strict id-DESC chronological order.
+  const { current: currentShowEntries, previous: lastShowsEntries } = useMemo(
+    () => partitionFlowsheetEntries(allEntries, currentShow, live),
+    [allEntries, currentShow, live]
+  );
 
   const setCurrentShowEntries = (entries: FlowsheetEntry[]) => {
     dispatch(flowsheetSlice.actions.setCurrentShowEntries(entries));
   };
 
-  const lastShowsEntries = useMemo(() => {
-    if (allEntries.length === 0) return [];
-    return live
-      ? allEntries.filter(
-          (entry) =>
-            entry.show_id !== currentShow ||
-            isFlowsheetStartShowEntry(entry) ||
-            isFlowsheetEndShowEntry(entry)
-        )
-      : allEntries;
-  }, [allEntries, live, currentShow]);
-
   const [switchBackendEntries, switchBackendResult] =
     useSwitchEntriesMutation();
 
+  // TODO: newLocation is an index into currentShowEntries but used as an index
+  // into allEntries — these arrays have different lengths and contents. This is
+  // safe only because drag-and-drop is currently disabled in the UI.
   const switchEntries = useCallback(
     async (entry: FlowsheetEntry) => {
       if (!userData?.id || userloading) return;
