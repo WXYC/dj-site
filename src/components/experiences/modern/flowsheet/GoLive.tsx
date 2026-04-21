@@ -47,13 +47,13 @@ export default function GoLive() {
           />
         </Tooltip>
       ) : null}
-      <ButtonGroup>
-        <Tooltip
-          title={loading ? "Loading..." : live ? "Leave" : "Go Live"}
-          placement="top"
-          size="sm"
-          variant="outlined"
-        >
+      <Tooltip
+        title={loading ? "Loading..." : live ? "Click to leave" : "Click to go live"}
+        placement="top"
+        size="sm"
+        variant="outlined"
+      >
+        <ButtonGroup>
           <IconButton
             variant="outlined"
             onClick={() => (live ? leave() : goLive())}
@@ -62,27 +62,18 @@ export default function GoLive() {
           >
             {live ? <PortableWifiOff /> : <WifiTethering />}
           </IconButton>
-        </Tooltip>
-        <Tooltip
-          title={
-            live
-              ? "Click the button at left to leave"
-              : "Click the button at left to go live"
-          }
-        >
           <Button
             variant={live ? "solid" : "outlined"}
             color={live ? "primary" : "neutral"}
-            sx={{
-              pointerEvents: "none",
-            }}
+            onClick={() => (live ? leave() : goLive())}
+            disabled={loading}
             loading={loading}
             data-testid="flowsheet-live-status"
           >
             {live ? "You Are On Air  🔴" : "You Are Off Air  ⬤"}
           </Button>
-        </Tooltip>
-      </ButtonGroup>
+        </ButtonGroup>
+      </Tooltip>
     </Stack>
   );
 }
