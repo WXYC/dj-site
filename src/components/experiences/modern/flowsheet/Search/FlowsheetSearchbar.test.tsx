@@ -84,7 +84,6 @@ vi.mock("./RotationEntryFields", () => ({
 
 // Mock MUI icons
 vi.mock("@mui/icons-material", () => ({
-  Album: () => <span data-testid="album-icon" />,
   PlayArrow: () => <span data-testid="play-icon" />,
   QueueMusic: () => <span data-testid="queue-icon" />,
   Troubleshoot: () => <span data-testid="search-icon" />,
