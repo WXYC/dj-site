@@ -7,6 +7,7 @@ import {
   useFlowsheetSearch,
   useFlowsheetSubmit,
 } from "@/src/hooks/flowsheetHooks";
+import { useGhostText } from "@/src/hooks/useGhostText";
 import { PlayArrow, QueueMusic, Troubleshoot } from "@mui/icons-material";
 import { Box, Button, Divider, FormControl, Stack, useTheme } from "@mui/joy";
 import { ClickAwayListener } from "@mui/material";
@@ -35,8 +36,63 @@ export default function FlowsheetSearchbar() {
     flowsheetSlice.selectors.getSelectedResult
   );
 
-  const { live, searchOpen, setSearchOpen, resetSearch } = useFlowsheetSearch();
+  const { live, searchOpen, setSearchOpen, resetSearch, searchQuery, setSearchProperty } =
+    useFlowsheetSearch();
+
+  const confirmedArtist = useAppSelector(
+    flowsheetSlice.selectors.getConfirmedArtist
+  );
+
   const searchRef = useRef<HTMLFormElement>(null);
+  const artistRef = useRef<HTMLInputElement>(null);
+  const songRef = useRef<HTMLInputElement>(null);
+  const albumRef = useRef<HTMLInputElement>(null);
+  const labelRef = useRef<HTMLInputElement>(null);
+
+  // Ghost text for artist field
+  const artistGhost = useGhostText(
+    "artist",
+    searchQuery.artist as string
+  );
+
+  // Ghost text for song field (filtered by confirmed artist)
+  const songGhost = useGhostText(
+    "song",
+    searchQuery.song as string,
+    confirmedArtist
+  );
+
+  const handleAcceptArtistGhost = useCallback(() => {
+    const fullArtist = artistGhost.acceptGhostText();
+    if (fullArtist) {
+      setSearchProperty("artist", fullArtist);
+      dispatch(flowsheetSlice.actions.setConfirmedArtist(fullArtist));
+      songRef.current?.focus();
+    }
+  }, [artistGhost, setSearchProperty, dispatch]);
+
+  const handleAcceptSongGhost = useCallback(() => {
+    const fullSong = songGhost.acceptGhostText();
+    if (fullSong) {
+      setSearchProperty("song", fullSong);
+      // Auto-fill album and label from the track result
+      if (songGhost.trackResult?.album_title) {
+        setSearchProperty("album", songGhost.trackResult.album_title);
+      }
+      if (songGhost.trackResult?.record_label) {
+        setSearchProperty("label", songGhost.trackResult.record_label);
+      }
+      albumRef.current?.focus();
+    }
+  }, [songGhost, setSearchProperty]);
+
+  // When artist field loses focus, confirm the artist for song suggestions
+  const handleArtistBlur = useCallback(() => {
+    const currentArtist = searchQuery.artist as string;
+    if (currentArtist && currentArtist !== confirmedArtist) {
+      dispatch(flowsheetSlice.actions.setConfirmedArtist(currentArtist));
+    }
+  }, [searchQuery.artist, confirmedArtist, dispatch]);
 
   const handleClose = useCallback(
     (event: any) => {
@@ -53,7 +109,7 @@ export default function FlowsheetSearchbar() {
         if (tag === "INPUT" || tag === "TEXTAREA") return;
         e.preventDefault();
         if (!live) return;
-        searchRef.current?.querySelector("input")?.focus();
+        artistRef.current?.focus();
       }
       if (e.key === "ArrowDown" && searchOpen) {
         e.preventDefault();
@@ -150,7 +206,7 @@ export default function FlowsheetSearchbar() {
               },
             }}
             onClick={() =>
-              live && searchRef.current?.querySelector("input")?.focus()
+              live && artistRef.current?.focus()
             }
             onFocus={() => live && setSearchOpen(true)}
             suppressHydrationWarning
@@ -173,21 +229,29 @@ export default function FlowsheetSearchbar() {
               <Troubleshoot />
             </Box>
             <FlowsheetSearchInput
-              name={"song"}
+              name={"artist"}
+              inputRef={artistRef}
+              required={selectedResult == 0}
               disabled={!live}
-              required={true}
+              ghostSuffix={artistGhost.ghostSuffix}
+              onAcceptGhost={handleAcceptArtistGhost}
+              onBlur={handleArtistBlur}
               suppressHydrationWarning
             />
             <Divider orientation="vertical" />
             <FlowsheetSearchInput
-              name={"artist"}
-              required={selectedResult == 0}
+              name={"song"}
+              inputRef={songRef}
               disabled={!live}
+              required={true}
+              ghostSuffix={songGhost.ghostSuffix}
+              onAcceptGhost={handleAcceptSongGhost}
               suppressHydrationWarning
             />
             <Divider orientation="vertical" />
             <FlowsheetSearchInput
               name={"album"}
+              inputRef={albumRef}
               disabled={!live}
               required={selectedResult == 0}
               suppressHydrationWarning
@@ -195,6 +259,7 @@ export default function FlowsheetSearchbar() {
             <Divider orientation="vertical" />
             <FlowsheetSearchInput
               name={"label"}
+              inputRef={labelRef}
               disabled={!live}
               suppressHydrationWarning
             />
@@ -225,7 +290,7 @@ export default function FlowsheetSearchbar() {
                   if (searchOpen) {
                     searchRef.current?.requestSubmit();
                   } else {
-                    const input = searchRef.current?.querySelector("input");
+                    const input = artistRef.current;
                     if (input) {
                       input.value = "";
                       input.focus();

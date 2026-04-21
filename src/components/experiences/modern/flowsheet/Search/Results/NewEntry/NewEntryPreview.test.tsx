@@ -36,6 +36,7 @@ function createTestStore(
           open: true,
           query: searchQuery,
           selectedResult,
+          confirmedArtist: "",
         },
       },
     },

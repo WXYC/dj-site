@@ -15,6 +15,7 @@ export const defaultFlowsheetFrontendState: FlowsheetFrontendState = {
       request: false,
     },
     selectedResult: 0,
+    confirmedArtist: "",
   },
   queue: [],
   queueIdCounter: 0,
@@ -35,6 +36,10 @@ export const flowsheetSlice = createAppSlice({
       state.search.open = defaultFlowsheetFrontendState.search.open;
       state.search.query = defaultFlowsheetFrontendState.search.query;
       state.search.selectedResult = defaultFlowsheetFrontendState.search.selectedResult;
+      state.search.confirmedArtist = defaultFlowsheetFrontendState.search.confirmedArtist;
+    },
+    setConfirmedArtist: (state, action: PayloadAction<string>) => {
+      state.search.confirmedArtist = action.payload;
     },
     setSearchProperty: (
       state,
@@ -105,5 +110,6 @@ export const flowsheetSlice = createAppSlice({
     getQueue: (state) => state.queue,
     getSelectedResult: (state) => state.search.selectedResult,
     getCurrentShowEntries: (state) => state.currentShowEntries,
+    getConfirmedArtist: (state) => state.search.confirmedArtist,
   },
 });

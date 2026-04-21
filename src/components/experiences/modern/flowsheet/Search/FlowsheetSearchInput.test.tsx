@@ -282,4 +282,91 @@ describe("FlowsheetSearchInput", () => {
     const input = screen.getByRole("textbox");
     expect(input).not.toHaveAttribute("readonly");
   });
+
+  describe("ghost text", () => {
+    async function resetToDefaultMock() {
+      const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
+      vi.mocked(useFlowsheetSearch).mockReturnValue({
+        getDisplayValue: () => "",
+        setSearchProperty: mockSetSearchProperty,
+        selectedIndex: 0,
+        selectedEntry: null,
+      } as any);
+    }
+
+    it("should render ghost text suffix when provided", async () => {
+      await resetToDefaultMock();
+
+      render(
+        <FlowsheetSearchInput name="artist" ghostSuffix="techre" />
+      );
+
+      expect(screen.getByTestId("ghost-text-artist")).toBeInTheDocument();
+      expect(screen.getByTestId("ghost-text-artist")).toHaveTextContent("techre");
+    });
+
+    it("should not render ghost text when suffix is empty", async () => {
+      await resetToDefaultMock();
+
+      render(
+        <FlowsheetSearchInput name="artist" ghostSuffix="" />
+      );
+
+      expect(screen.queryByTestId("ghost-text-artist")).not.toBeInTheDocument();
+    });
+
+    it("should not render ghost text when field is auto-filled", async () => {
+      const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
+      vi.mocked(useFlowsheetSearch).mockReturnValue({
+        getDisplayValue: () => "Auto-filled value",
+        setSearchProperty: mockSetSearchProperty,
+        selectedIndex: 1,
+        selectedEntry: {
+          artist: { name: "Test Artist" },
+        },
+      } as any);
+
+      render(
+        <FlowsheetSearchInput name="artist" ghostSuffix="techre" />
+      );
+
+      expect(screen.queryByTestId("ghost-text-artist")).not.toBeInTheDocument();
+    });
+
+    it("should call onAcceptGhost when Tab pressed with ghost text", async () => {
+      await resetToDefaultMock();
+      const onAcceptGhost = vi.fn();
+
+      render(
+        <FlowsheetSearchInput
+          name="artist"
+          ghostSuffix="techre"
+          onAcceptGhost={onAcceptGhost}
+        />
+      );
+
+      const input = screen.getByRole("textbox");
+      fireEvent.keyDown(input, { key: "Tab" });
+
+      expect(onAcceptGhost).toHaveBeenCalledTimes(1);
+    });
+
+    it("should not call onAcceptGhost when Tab pressed without ghost text", async () => {
+      await resetToDefaultMock();
+      const onAcceptGhost = vi.fn();
+
+      render(
+        <FlowsheetSearchInput
+          name="artist"
+          ghostSuffix=""
+          onAcceptGhost={onAcceptGhost}
+        />
+      );
+
+      const input = screen.getByRole("textbox");
+      fireEvent.keyDown(input, { key: "Tab" });
+
+      expect(onAcceptGhost).not.toHaveBeenCalled();
+    });
+  });
 });

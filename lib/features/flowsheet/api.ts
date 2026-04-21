@@ -29,6 +29,8 @@ import {
   FlowsheetV2PaginatedResponseJSON,
   OnAirDJData,
   OnAirDJResponse,
+  SuggestTrackResult,
+  TrackDetailsResult,
 } from "./types";
 
 function flowsheetMutationCatch(endpoint: string, err: unknown) {
@@ -259,6 +261,31 @@ export const flowsheetApi = createApi({
         }
       },
     }),
+    // Ghost text autocomplete suggestions
+    suggestArtists: builder.query<string[], { q: string; limit?: number }>({
+      query: ({ q, limit }) => ({
+        url: "/suggest/artists",
+        params: { q, limit },
+      }),
+    }),
+    suggestTracks: builder.query<
+      SuggestTrackResult[],
+      { q: string; artist: string; limit?: number }
+    >({
+      query: ({ q, artist, limit }) => ({
+        url: "/suggest/tracks",
+        params: { q, artist, limit },
+      }),
+    }),
+    getTrackDetails: builder.query<
+      TrackDetailsResult | null,
+      { artist: string; track: string }
+    >({
+      query: ({ artist, track }) => ({
+        url: "/suggest/track-details",
+        params: { artist, track },
+      }),
+    }),
     updateFlowsheet: builder.mutation<void, FlowsheetUpdateParams>({
       query: (params) => ({
         url: "/",
@@ -298,4 +325,7 @@ export const {
   useRemoveFromFlowsheetMutation,
   useUpdateFlowsheetMutation,
   useSwitchEntriesMutation,
+  useSuggestArtistsQuery,
+  useSuggestTracksQuery,
+  useGetTrackDetailsQuery,
 } = flowsheetApi;
