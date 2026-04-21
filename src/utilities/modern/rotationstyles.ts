@@ -5,7 +5,7 @@ export const RotationStyles: Record<Rotation, ColorPaletteProp> = {
   H: "primary",
   M: "warning",
   L: "success",
-  S: "warning",
+  S: "neutral",
 };
 
 export const getStyleForRotation = (
