@@ -52,8 +52,16 @@ export const useAccountListResults = () => {
 
       throwIfBetterAuthError(result, "Failed to fetch users");
 
+      // The better-auth SDK's JSON parser (betterJSONParse with strict: false) can silently
+      // return the raw JSON string instead of a parsed object when JSON.parse fails internally.
+      // Handle this by parsing the string ourselves as a fallback.
+      let responseData = result.data;
+      if (typeof responseData === "string") {
+        responseData = JSON.parse(responseData);
+      }
+
       // Filter out anonymous users (created by the anonymous auth plugin for unauthenticated visitors)
-      const users = (result.data?.users || []).filter(
+      const users = (responseData?.users || []).filter(
         (user: Record<string, unknown>) => !user.isAnonymous
       );
 
