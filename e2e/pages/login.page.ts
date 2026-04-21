@@ -138,10 +138,8 @@ export class LoginPage {
 
   async expectLoginFormVisible(): Promise<void> {
     // The login page may show the OTP form or password form depending on state.
-    // If neither the username input nor the OTP email input is visible, wait for one.
-    const isPasswordForm = await this.usernameInput.isVisible();
-    const isOtpForm = await this.otpEmailInput.isVisible();
-    expect(isPasswordForm || isOtpForm).toBe(true);
+    // Wait for either the username input or the OTP email input to appear.
+    await expect(this.usernameInput.or(this.otpEmailInput)).toBeVisible();
   }
 
   async expectPasswordResetFormVisible(): Promise<void> {
