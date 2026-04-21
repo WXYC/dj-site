@@ -118,8 +118,9 @@ describe("backend", () => {
 
         await prepareHeaders(mockHeaders);
 
-        expect(setFn).toHaveBeenCalledTimes(1);
+        expect(setFn).toHaveBeenCalledTimes(2);
         expect(setFn).toHaveBeenCalledWith("Content-Type", "application/json");
+        expect(setFn).toHaveBeenCalledWith("X-Request-Id", expect.any(String));
         expect(setFn).not.toHaveBeenCalledWith(
           "Authorization",
           expect.anything()
@@ -167,7 +168,9 @@ describe("backend", () => {
         await prepareHeaders(mockHeaders);
 
         // Empty string is falsy, so Authorization should not be set
-        expect(setFn).toHaveBeenCalledTimes(1);
+        expect(setFn).toHaveBeenCalledTimes(2);
+        expect(setFn).toHaveBeenCalledWith("Content-Type", "application/json");
+        expect(setFn).toHaveBeenCalledWith("X-Request-Id", expect.any(String));
         expect(setFn).not.toHaveBeenCalledWith(
           "Authorization",
           expect.anything()
