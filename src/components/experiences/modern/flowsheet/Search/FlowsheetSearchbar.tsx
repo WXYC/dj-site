@@ -8,7 +8,7 @@ import {
   useFlowsheetSubmit,
 } from "@/src/hooks/flowsheetHooks";
 import { useGhostText } from "@/src/hooks/useGhostText";
-import { Album, PlayArrow, QueueMusic, Troubleshoot } from "@mui/icons-material";
+import { PlayArrow, QueueMusic, Troubleshoot } from "@mui/icons-material";
 import { Box, Button, Divider, FormControl, Stack, useTheme } from "@mui/joy";
 import { ClickAwayListener } from "@mui/material";
 import { useCallback, useEffect, useRef } from "react";
@@ -234,7 +234,7 @@ export default function FlowsheetSearchbar() {
                 },
               }}
             >
-              {rotationMode ? <Album /> : <Troubleshoot />}
+              {rotationMode ? null : <Troubleshoot />}
             </Box>
             {rotationMode ? (
               <RotationEntryFields disabled={!live} />
