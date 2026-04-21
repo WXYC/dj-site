@@ -38,15 +38,6 @@ export default function Appbar() {
         {isPublic && <LinkButton href="/login">Log In</LinkButton>}
         {!isPublic && (
           <LinkButton
-            href="https://forms.gle/9q1mGCFtPS7DXQUE9"
-            target="_blank"
-            variant="soft"
-          >
-            Beta Tester Form
-          </LinkButton>
-        )}
-        {!isPublic && (
-          <LinkButton
             href="https://forms.gle/VCw43XejNte27Bef7"
             target="_blank"
             variant="soft"
