@@ -8,6 +8,7 @@ import {
   WifiTethering,
 } from "@mui/icons-material";
 import {
+  Box,
   Button,
   ButtonGroup,
   CircularProgress,
@@ -69,8 +70,20 @@ export default function GoLive() {
             disabled={loading}
             loading={loading}
             data-testid="flowsheet-live-status"
+            sx={{ transition: "all 0.25s ease" }}
           >
-            {live ? "You Are On Air  🔴" : "You Are Off Air  ⬤"}
+            {live ? "You Are On Air" : "You Are Off Air"}
+            <Box
+              sx={{
+                width: 10,
+                height: 10,
+                borderRadius: "50%",
+                ml: 1,
+                backgroundColor: live ? "#ef4444" : "neutral.500",
+                boxShadow: live ? "0 0 6px 2px rgba(239, 68, 68, 0.5)" : "none",
+                transition: "all 0.25s ease",
+              }}
+            />
           </Button>
         </ButtonGroup>
       </Tooltip>
