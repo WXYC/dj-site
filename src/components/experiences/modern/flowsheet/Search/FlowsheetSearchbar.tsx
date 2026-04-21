@@ -188,7 +188,7 @@ export default function FlowsheetSearchbar() {
               outlineColor: theme.palette.neutral.outlinedBorder,
               borderRadius: "8px",
               minHeight: "var(--Input-minHeight)",
-              paddingInline: "0.5rem",
+              paddingInline: rotationMode ? "0" : "0.5rem",
               cursor: live ? "text" : "default",
               "& input": {
                 background: "transparent !important",
@@ -219,23 +219,25 @@ export default function FlowsheetSearchbar() {
             onFocus={() => live && setSearchOpen(true)}
             suppressHydrationWarning
           >
-            <Box
-              sx={{
-                marginInlineEnd: "0.5rem",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                minHeight: "min(1.5rem, var(--Input-minHeight))",
-                pointerEvents: "none",
-                "& svg": {
-                  fill: "var(--wxyc-palette-neutral-400) !important",
+            {!rotationMode && (
+              <Box
+                sx={{
+                  marginInlineEnd: "0.5rem",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  minHeight: "min(1.5rem, var(--Input-minHeight))",
                   pointerEvents: "none",
-                },
-              }}
-            >
-              {rotationMode ? null : <Troubleshoot />}
-            </Box>
+                  "& svg": {
+                    fill: "var(--wxyc-palette-neutral-400) !important",
+                    pointerEvents: "none",
+                  },
+                }}
+              >
+                <Troubleshoot />
+              </Box>
+            )}
             {rotationMode ? (
               <RotationEntryFields disabled={!live} />
             ) : (
@@ -282,15 +284,17 @@ export default function FlowsheetSearchbar() {
               component="div"
               className="MuiInput-endDecorator"
               sx={{
-                display: "flex",
+                display: rotationMode && !searchOpen ? "none" : "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                mr: -0.5,
+                mr: rotationMode ? 0.5 : -0.5,
+                gap: 0.5,
               }}
             >
+              {!searchOpen && <Divider orientation="vertical" />}
               <Button
                 size="sm"
-                variant={searchOpen ? "solid" : "outlined"}
+                variant={searchOpen ? "solid" : "plain"}
                 color={
                   searchOpen
                     ? ctrlKeyPressed

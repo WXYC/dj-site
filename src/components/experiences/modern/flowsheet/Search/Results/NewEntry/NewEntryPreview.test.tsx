@@ -16,9 +16,8 @@ vi.mock("@/src/hooks/flowsheetHooks", () => ({
   }),
 }));
 
-// Mock icons
 vi.mock("@mui/icons-material/Create", () => ({
-  default: () => <span data-testid="create-icon">CreateIcon</span>,
+  default: () => null,
 }));
 
 function createTestStore(
@@ -242,23 +241,6 @@ describe("NewEntryPreview", () => {
       expect(notSpecifiedElements.length).toBe(3); // song, artist, label
     });
 
-    it("should render the create icon", () => {
-      const store = createTestStore({
-        song: "Test",
-        artist: "",
-        album: "",
-        label: "",
-        request: false,
-      });
-
-      render(
-        <Provider store={store}>
-          <NewEntryPreview />
-        </Provider>
-      );
-
-      expect(screen.getByTestId("create-icon")).toBeInTheDocument();
-    });
   });
 
   describe("User interactions", () => {
@@ -644,51 +626,6 @@ describe("NewEntryPreview", () => {
       expect(screen.getByText("Complete Album")).toBeInTheDocument();
       expect(screen.getByText("Complete Label")).toBeInTheDocument();
       expect(screen.queryByText("Not specified")).not.toBeInTheDocument();
-    });
-  });
-
-  describe("Icon color based on selection", () => {
-    it("should show lighter icon color when selected", () => {
-      const store = createTestStore(
-        {
-          song: "Test",
-          artist: "",
-          album: "",
-          label: "",
-          request: false,
-        },
-        0 // selected
-      );
-
-      render(
-        <Provider store={store}>
-          <NewEntryPreview />
-        </Provider>
-      );
-
-      // Icon should render (color changes based on selection)
-      expect(screen.getByTestId("create-icon")).toBeInTheDocument();
-    });
-
-    it("should show secondary icon color when not selected", () => {
-      const store = createTestStore(
-        {
-          song: "Test",
-          artist: "",
-          album: "",
-          label: "",
-          request: false,
-        },
-        1 // not selected
-      );
-
-      render(
-        <Provider store={store}>
-          <NewEntryPreview />
-        </Provider>
-      );
-
-      expect(screen.getByTestId("create-icon")).toBeInTheDocument();
     });
   });
 

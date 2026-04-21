@@ -24,10 +24,10 @@ export default function RotationBinSelector({
   return (
     <Stack
       direction="row"
-      spacing={0.5}
       role="radiogroup"
       aria-label="Rotation bin"
-      sx={{ alignItems: "center", px: 0.5 }}
+      spacing={1}
+      sx={{ alignItems: "center", mx: 1 }}
     >
       {BINS.map((bin) => {
         const isSelected = selectedBin === bin;

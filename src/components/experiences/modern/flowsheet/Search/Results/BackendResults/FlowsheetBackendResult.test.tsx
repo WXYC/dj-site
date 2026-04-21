@@ -34,14 +34,7 @@ vi.mock("@/src/hooks/flowsheetHooks", () => ({
   }),
 }));
 
-// Mock child component
-vi.mock("@/src/components/experiences/modern/catalog/ArtistAvatar", () => ({
-  ArtistAvatar: ({ artist, format, entry, rotation }: any) => (
-    <div data-testid="artist-avatar">
-      {artist?.name} - {entry} - {format} - {rotation}
-    </div>
-  ),
-}));
+// ArtistAvatar was removed — CODE column displays catalog info directly
 
 describe("FlowsheetBackendResult", () => {
   const mockEntry: AlbumEntry = {
@@ -70,22 +63,6 @@ describe("FlowsheetBackendResult", () => {
   });
 
   describe("Basic rendering", () => {
-    it("should render ArtistAvatar", () => {
-      render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
-
-      expect(screen.getByTestId("artist-avatar")).toBeInTheDocument();
-    });
-
-    it("should pass correct props to ArtistAvatar", () => {
-      render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
-
-      const avatar = screen.getByTestId("artist-avatar");
-      expect(avatar).toHaveTextContent("Test Artist");
-      expect(avatar).toHaveTextContent("5");
-      expect(avatar).toHaveTextContent("CD");
-      expect(avatar).toHaveTextContent("H");
-    });
-
     it("should render CODE section with genre and lettercode", () => {
       render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
 
@@ -364,23 +341,18 @@ describe("FlowsheetBackendResult", () => {
     });
   });
 
-  describe("Rotation display", () => {
-    it("should pass rotation to ArtistAvatar", () => {
+  describe("CODE column", () => {
+    it("should render code in monospace font", () => {
       render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
 
-      const avatar = screen.getByTestId("artist-avatar");
-      expect(avatar).toHaveTextContent("H");
+      const codeText = screen.getByText(/Rock AB/);
+      expect(codeText).toHaveStyle({ fontFamily: "monospace" });
     });
 
-    it("should handle missing rotation", () => {
-      const entryWithoutRotation: AlbumEntry = {
-        ...mockEntry,
-        rotation_bin: undefined,
-      };
+    it("should render format chip", () => {
+      render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
 
-      render(<FlowsheetBackendResult entry={entryWithoutRotation} index={1} />);
-
-      expect(screen.getByTestId("artist-avatar")).toBeInTheDocument();
+      expect(screen.getByText("cd")).toBeInTheDocument();
     });
   });
 });

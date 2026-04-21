@@ -147,7 +147,7 @@ export default function FlowsheetSearchResults({
 
           <Stack direction="row" alignItems="center" spacing={0.5}>
             <Chip variant="soft" size="sm" color="neutral">
-              <Typography level="body-xs">↵</Typography>
+              <Typography level="body-xs">⏎</Typography>
             </Chip>
             <Typography level="body-xs" sx={{ whiteSpace: "nowrap" }}>
               <Typography color="primary">play</Typography>
@@ -156,7 +156,7 @@ export default function FlowsheetSearchResults({
 
           <Stack direction="row" alignItems="center" spacing={0.5}>
             <Chip variant="soft" size="sm" color="neutral">
-              <Typography level="body-xs">CTRL ↵</Typography>
+              <Typography level="body-xs">CTRL ⏎</Typography>
             </Chip>
             <Typography level="body-xs" sx={{ whiteSpace: "nowrap" }}>
               <Typography color="success">queue</Typography>
