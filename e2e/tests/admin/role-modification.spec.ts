@@ -26,11 +26,8 @@ test.describe("Admin Role Modification", () => {
 
   test.describe("Promotion", () => {
     test("should promote DJ to Music Director", async ({ page }) => {
-      // Use existing seeded user who is already an organization member
-      // test_dj1 is a DJ-level user seeded in the database (test_dj2 might not be visible in roster)
       const username = TEST_USERS.dj1.username;
 
-      // Ensure the user row is visible (in case of scrolling issues)
       const userRow = rosterPage.getUserRow(username);
       await expect(userRow).toBeVisible({ timeout: 5000 });
 
@@ -46,18 +43,17 @@ test.describe("Admin Role Modification", () => {
       // Wait for data refetch
       await page.waitForTimeout(1500);
 
-      // Verify checkbox is now checked
-      const { md } = rosterPage.getRoleCheckboxes(username);
-      await expect(md).toBeChecked({ timeout: 10000 });
+      // Verify role select now shows Music Director
+      await rosterPage.expectUserRole(username, "Music Director");
     });
 
     test.afterEach(async ({ page }) => {
       // Reset test_dj1 back to DJ role if it was promoted
       const username = TEST_USERS.dj1.username;
-      const { md, sm } = rosterPage.getRoleCheckboxes(username);
+      const select = rosterPage.getRoleSelect(username);
+      const currentText = await select.textContent();
 
-      // If MD is checked but SM is not, demote to DJ
-      if (await md.isChecked() && !(await sm.isChecked())) {
+      if (currentText?.includes("Music Director")) {
         rosterPage.acceptConfirmDialog();
         await rosterPage.demoteFromMusicDirector(username);
         await page.waitForTimeout(1000);
@@ -65,10 +61,8 @@ test.describe("Admin Role Modification", () => {
     });
 
     test("should promote Music Director to Station Manager", async ({ page }) => {
-      // Use existing seeded Music Director user
       const username = TEST_USERS.musicDirector.username;
 
-      // Ensure the user row is visible
       const userRow = rosterPage.getUserRow(username);
       await expect(userRow).toBeVisible({ timeout: 5000 });
 
@@ -81,9 +75,8 @@ test.describe("Admin Role Modification", () => {
       // Should show success toast
       await rosterPage.expectSuccessToast("Station Manager");
 
-      // Verify SM checkbox is now checked
-      const { sm } = rosterPage.getRoleCheckboxes(username);
-      await expect(sm).toBeChecked({ timeout: 10000 });
+      // Verify role select now shows Station Manager
+      await rosterPage.expectUserRole(username, "Station Manager");
 
       // Demote back to MD to reset state
       rosterPage.acceptConfirmDialog();
@@ -95,26 +88,22 @@ test.describe("Admin Role Modification", () => {
 
   test.describe("Demotion", () => {
     test("should demote Station Manager to Music Director", async ({ page }) => {
-      // Use existing seeded demotable SM user
       const username = TEST_USERS.demotableSm.username;
 
-      // Ensure the user row is visible
       const userRow = rosterPage.getUserRow(username);
       await expect(userRow).toBeVisible({ timeout: 5000 });
 
       // Accept confirmation dialog
       rosterPage.acceptConfirmDialog();
 
-      // Demote from SM (uncheck SM checkbox)
+      // Demote from SM to MD
       await rosterPage.demoteFromStationManager(username);
 
       // Should show success toast
       await rosterPage.expectSuccessToast("Music Director");
 
-      // Verify SM checkbox is now unchecked
-      const { sm, md } = rosterPage.getRoleCheckboxes(username);
-      await expect(sm).not.toBeChecked({ timeout: 10000 });
-      await expect(md).toBeChecked({ timeout: 10000 });
+      // Verify role select now shows Music Director
+      await rosterPage.expectUserRole(username, "Music Director");
 
       // Promote back to SM to reset state
       rosterPage.acceptConfirmDialog();
@@ -123,17 +112,15 @@ test.describe("Admin Role Modification", () => {
     });
 
     test("should demote Music Director to DJ", async ({ page }) => {
-      // Use test_dj1 user that was promoted to MD in a previous test
-      // First promote test_dj1 to MD, then demote back to DJ
       const username = TEST_USERS.dj1.username;
 
-      // Ensure the user row is visible
       const userRow = rosterPage.getUserRow(username);
       await expect(userRow).toBeVisible({ timeout: 5000 });
 
       // First, ensure the user is MD (promote if needed)
-      const { md } = rosterPage.getRoleCheckboxes(username);
-      if (!(await md.isChecked())) {
+      const select = rosterPage.getRoleSelect(username);
+      const currentText = await select.textContent();
+      if (!currentText?.includes("Music Director")) {
         rosterPage.acceptConfirmDialog();
         await rosterPage.promoteToMusicDirector(username);
         await page.waitForTimeout(1500);
@@ -145,39 +132,36 @@ test.describe("Admin Role Modification", () => {
       // Accept confirmation dialog for demotion
       rosterPage.acceptConfirmDialog();
 
-      // Demote from MD (uncheck MD checkbox)
+      // Demote from MD to DJ
       await rosterPage.demoteFromMusicDirector(username);
 
-      // Should show success toast - use specific text to avoid matching user name
+      // Should show success toast
       await rosterPage.expectSuccessToast("role updated to DJ");
 
-      // Verify MD checkbox is now unchecked
-      const checkboxes = rosterPage.getRoleCheckboxes(username);
-      await expect(checkboxes.md).not.toBeChecked({ timeout: 10000 });
+      // Verify role select now shows DJ
+      await rosterPage.expectUserRole(username, "DJ");
     });
   });
 
   test.describe("Self-Modification Prevention", () => {
-    test("should disable role checkboxes for own account", async ({ page }) => {
+    test("should disable role select for own account", async () => {
       const currentUser = TEST_USERS.stationManager.username;
 
-      // Both checkboxes should be disabled for self
-      await rosterPage.expectRoleCheckboxDisabled(currentUser, "sm");
-      await rosterPage.expectRoleCheckboxDisabled(currentUser, "md");
+      // Role select should be disabled for self
+      await rosterPage.expectRoleSelectDisabled(currentUser);
     });
 
-    test("should not allow admin to demote themselves", async ({ page }) => {
+    test("should show Station Manager as own role", async () => {
       const currentUser = TEST_USERS.stationManager.username;
 
-      // Verify the SM checkbox is checked but disabled
-      const { sm } = rosterPage.getRoleCheckboxes(currentUser);
-      await expect(sm).toBeChecked();
-      await expect(sm).toBeDisabled();
+      // Verify the select shows Station Manager but is disabled
+      await rosterPage.expectUserRole(currentUser, "Station Manager");
+      await rosterPage.expectRoleSelectDisabled(currentUser);
     });
   });
 
   test.describe("Confirmation Dialogs", () => {
-    test("should show confirmation before promoting to Station Manager", async ({ page }) => {
+    test("should show confirmation before changing role to Station Manager", async ({ page }) => {
       const username = generateUsername();
       const email = `${username}@test.wxyc.org`;
 
@@ -197,13 +181,13 @@ test.describe("Admin Role Modification", () => {
         await dialog.dismiss();
       });
 
-      await rosterPage.promoteToStationManager(username);
+      await rosterPage.setUserRole(username, "Station Manager");
 
-      // Verify dialog was shown with promotion message
+      // Verify dialog was shown with role change message
       expect(dialogMessage).toContain("Station Manager");
     });
 
-    test("should show confirmation before demoting from Station Manager", async ({ page }) => {
+    test("should show confirmation before changing role to Music Director", async ({ page }) => {
       const username = generateUsername();
       const email = `${username}@test.wxyc.org`;
 
@@ -223,10 +207,10 @@ test.describe("Admin Role Modification", () => {
         await dialog.dismiss();
       });
 
-      await rosterPage.demoteFromStationManager(username);
+      await rosterPage.setUserRole(username, "Music Director");
 
       // Verify dialog was shown
-      expect(dialogMessage).toContain("Station Manager");
+      expect(dialogMessage).toContain("Music Director");
     });
 
     test("should not change role if confirmation is cancelled", async ({ page }) => {
@@ -246,25 +230,24 @@ test.describe("Admin Role Modification", () => {
       // Dismiss confirmation
       rosterPage.dismissConfirmDialog();
 
-      // Try to promote
-      await rosterPage.promoteToMusicDirector(username);
+      // Try to change role
+      await rosterPage.setUserRole(username, "Music Director");
 
       // Wait a moment
       await page.waitForTimeout(500);
 
-      // MD checkbox should still be unchecked
-      const { md } = rosterPage.getRoleCheckboxes(username);
-      await expect(md).not.toBeChecked();
+      // Role should still show DJ
+      await rosterPage.expectUserRole(username, "DJ");
     });
   });
 
-  test.describe("MD Checkbox Behavior", () => {
-    test("MD checkbox should be disabled when SM is checked", async ({ page }) => {
+  test.describe("Role Select Display", () => {
+    test("should show Station Manager for SM users", async ({ page }) => {
       const username = generateUsername();
       const email = `${username}@test.wxyc.org`;
 
       await rosterPage.createAccount({
-        realName: "MD Disable Test",
+        realName: "SM Display Test",
         username,
         email,
         role: "stationManager",
@@ -273,19 +256,15 @@ test.describe("Admin Role Modification", () => {
       await rosterPage.expectSuccessToast();
       await page.waitForTimeout(1000);
 
-      // For SM users, MD checkbox should be checked but disabled
-      const { md, sm } = rosterPage.getRoleCheckboxes(username);
-      await expect(sm).toBeChecked();
-      await expect(md).toBeChecked(); // MD is implicitly included in SM
-      await expect(md).toBeDisabled(); // Can't uncheck MD while SM is checked
+      await rosterPage.expectUserRole(username, "Station Manager");
     });
 
-    test("MD checkbox should be enabled for non-SM users", async ({ page }) => {
+    test("should show DJ for DJ users", async ({ page }) => {
       const username = generateUsername();
       const email = `${username}@test.wxyc.org`;
 
       await rosterPage.createAccount({
-        realName: "MD Enable Test",
+        realName: "DJ Display Test",
         username,
         email,
         role: "dj",
@@ -294,9 +273,7 @@ test.describe("Admin Role Modification", () => {
       await rosterPage.expectSuccessToast();
       await page.waitForTimeout(1000);
 
-      // For DJ users, MD checkbox should be enabled
-      const { md } = rosterPage.getRoleCheckboxes(username);
-      await expect(md).toBeEnabled();
+      await rosterPage.expectUserRole(username, "DJ");
     });
   });
 });
@@ -323,13 +300,14 @@ test.describe("Role Change Persistence", () => {
     // Use existing seeded user who is already an organization member
     const username = TEST_USERS.dj1.username;
 
-    // Verify user row exists and checkbox is visible
+    // Verify user row exists and role select is visible
     await rosterPage.expectUserInRoster(username);
-    const { md } = rosterPage.getRoleCheckboxes(username);
-    await expect(md).toBeVisible({ timeout: 5000 });
+    const select = rosterPage.getRoleSelect(username);
+    await expect(select).toBeVisible({ timeout: 5000 });
 
     // First ensure the user is a DJ (not MD) - demote if needed
-    if (await md.isChecked()) {
+    const currentText = await select.textContent();
+    if (currentText?.includes("Music Director")) {
       rosterPage.acceptConfirmDialog();
       await rosterPage.demoteFromMusicDirector(username);
       await page.waitForTimeout(1500);
@@ -350,9 +328,8 @@ test.describe("Role Change Persistence", () => {
     await page.reload();
     await rosterPage.waitForTableLoaded();
 
-    // Verify MD checkbox is still checked after refresh
-    const updatedCheckboxes = rosterPage.getRoleCheckboxes(username);
-    await expect(updatedCheckboxes.md).toBeChecked({ timeout: 10000 });
+    // Verify role select still shows Music Director after refresh
+    await rosterPage.expectUserRole(username, "Music Director");
 
     // Clean up: demote back to DJ
     rosterPage.acceptConfirmDialog();
@@ -363,7 +340,7 @@ test.describe("Role Change Persistence", () => {
 });
 
 test.describe("Non-Admin Role Modification Restrictions", () => {
-  test("Music Director cannot see role checkboxes", async ({ page }) => {
+  test("Music Director cannot access roster page", async ({ page }) => {
     const loginPage = new LoginPage(page);
     const dashboardPage = new DashboardPage(page);
 

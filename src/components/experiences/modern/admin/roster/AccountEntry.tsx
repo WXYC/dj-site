@@ -6,13 +6,18 @@ import {
   Account,
   Authorization,
 } from "@/lib/features/admin/types";
+import {
+  AUTHORIZATION_LABELS,
+  authorizationToRole,
+} from "@/lib/features/authentication/types";
 import { Check, Close, DeleteForever, Edit, Language, SyncLock } from "@mui/icons-material";
 import {
-  ButtonGroup,
-  Checkbox,
   Chip,
+  FormControl,
   IconButton,
   Input,
+  Option,
+  Select,
   Stack,
   Tooltip,
 } from "@mui/joy";
@@ -139,6 +144,40 @@ export const AccountEntry = ({
       setIsUpdatingCapabilities(false);
     }
   };
+
+  /**
+   * Change the user's role via the organization membership API
+   */
+  const handleRoleChange = async (newAuth: Authorization) => {
+    if (newAuth === account.authorization) return;
+
+    const newRole = authorizationToRole(newAuth);
+    const label = AUTHORIZATION_LABELS[newAuth];
+
+    if (!confirm(`Are you sure you want to change ${account.realName}'s role to ${label}?`)) {
+      return;
+    }
+
+    setIsPromoting(true);
+    setPromoteError(null);
+    try {
+      const targetUserId = await resolveUserId();
+      await updateOrganizationRole(targetUserId, newRole);
+      toast.success(`${account.realName}'s role updated to ${label}`);
+      if (onAccountChange) {
+        await onAccountChange();
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to update role";
+      setPromoteError(err instanceof Error ? err : new Error(errorMessage));
+      if (errorMessage.trim().length > 0) {
+        toast.error(errorMessage);
+      }
+    } finally {
+      setIsPromoting(false);
+    }
+  };
+
   /**
    * Resolve organization slug to organization ID
    */
@@ -240,159 +279,84 @@ export const AccountEntry = ({
 
   return (
     <tr>
-      <td
-        style={{
-          verticalAlign: "middle",
-          textAlign: "center",
-        }}
-      >
-        <ButtonGroup>
-          <Checkbox
-            color={"success"}
-            sx={{ transform: "translateY(3px)" }}
-            checked={account.authorization == Authorization.SM}
-            disabled={isSelf || isPromoting}
-            onChange={async (e) => {
-              if (e.target.checked) {
-                if (
-                  confirm(
-                    `Are you sure you want to promote ${account.realName}${
-                      account.realName.length > 0 ? "'s" : ""
-                    } account to Station Manager?`
-                  )
-                ) {
-                  setIsPromoting(true);
-                  setPromoteError(null);
-                  try {
-                    const targetUserId = await resolveUserId();
-
-                    // Update organization member role
-                    await updateOrganizationRole(targetUserId, "stationManager");
-
-                    toast.success(`${account.realName} promoted to Station Manager`);
-                    if (onAccountChange) {
-                      await onAccountChange();
-                    }
-                  } catch (err) {
-                    const errorMessage = err instanceof Error ? err.message : "Failed to promote user";
-                    setPromoteError(err instanceof Error ? err : new Error(errorMessage));
-                    if (errorMessage.trim().length > 0) {
-                      toast.error(errorMessage);
-                    }
-                  } finally {
-                    setIsPromoting(false);
-                  }
-                }
-              } else {
-                if (
-                  confirm(
-                    `Are you sure you want to remove ${account.realName}${
-                      account.realName.length > 0 ? "'s" : ""
-                    } access to Station Manager privileges?`
-                  )
-                ) {
-                  setIsPromoting(true);
-                  setPromoteError(null);
-                  try {
-                    const targetUserId = await resolveUserId();
-
-                    // Update organization member role - demote to Music Director
-                    await updateOrganizationRole(targetUserId, "musicDirector");
-
-                    toast.success(`${account.realName} role updated to Music Director`);
-                    if (onAccountChange) {
-                      await onAccountChange();
-                    }
-                  } catch (err) {
-                    const errorMessage = err instanceof Error ? err.message : "Failed to update user role";
-                    setPromoteError(err instanceof Error ? err : new Error(errorMessage));
-                    if (errorMessage.trim().length > 0) {
-                      toast.error(errorMessage);
-                    }
-                  } finally {
-                    setIsPromoting(false);
-                  }
-                }
+      <td style={{ verticalAlign: "middle" }}>
+        <Stack spacing={0.5}>
+          <FormControl size="sm">
+            <Select
+              size="sm"
+              color="success"
+              value={account.authorization}
+              disabled={isSelf || isPromoting}
+              onChange={(_, newValue) => {
+                if (newValue !== null) handleRoleChange(newValue as Authorization);
+              }}
+              slotProps={{ button: { sx: { whiteSpace: "nowrap" } } }}
+            >
+              <Option value={Authorization.NO}>Member</Option>
+              <Option value={Authorization.DJ}>DJ</Option>
+              <Option value={Authorization.MD}>Music Director</Option>
+              <Option value={Authorization.SM}>Station Manager</Option>
+            </Select>
+          </FormControl>
+          <Stack direction="row" spacing={0.5}>
+            <Tooltip
+              title={
+                isSelf
+                  ? "You cannot modify your own capabilities"
+                  : userCapabilities.includes("editor")
+                    ? "Remove editor capability"
+                    : "Grant editor capability (allows website editing)"
               }
-            }}
-          />
-          <Checkbox
-            disabled={
-              isSelf ||
-              account.authorization == Authorization.SM ||
-              isPromoting
-            }
-            color={"success"}
-            sx={{ transform: "translateY(3px)" }}
-            checked={
-              account.authorization == Authorization.SM ||
-              account.authorization == Authorization.MD
-            }
-            onChange={async (e) => {
-              if (e.target.checked) {
-                if (
-                  confirm(
-                    `Are you sure you want to promote ${account.realName}${
-                      account.realName.length > 0 ? "'s" : ""
-                    } account to Music Director?`
-                  )
-                ) {
-                  setIsPromoting(true);
-                  setPromoteError(null);
-                  try {
-                    const targetUserId = await resolveUserId();
-
-                    // Update organization member role
-                    await updateOrganizationRole(targetUserId, "musicDirector");
-
-                    toast.success(`${account.realName} promoted to Music Director`);
-                    if (onAccountChange) {
-                      await onAccountChange();
-                    }
-                  } catch (err) {
-                    const errorMessage = err instanceof Error ? err.message : "Failed to promote user";
-                    setPromoteError(err instanceof Error ? err : new Error(errorMessage));
-                    if (errorMessage.trim().length > 0) {
-                      toast.error(errorMessage);
-                    }
-                  } finally {
-                    setIsPromoting(false);
-                  }
-                }
-              } else {
-                if (
-                  confirm(
-                    `Are you sure you want to remove ${account.realName}${
-                      account.realName.length > 0 ? "'s" : ""
-                    } access to Music Director privileges?`
-                  )
-                ) {
-                  setIsPromoting(true);
-                  setPromoteError(null);
-                  try {
-                    const targetUserId = await resolveUserId();
-
-                    // Update organization member role - demote to DJ
-                    await updateOrganizationRole(targetUserId, "dj");
-
-                    toast.success(`${account.realName} role updated to DJ`);
-                    if (onAccountChange) {
-                      await onAccountChange();
-                    }
-                  } catch (err) {
-                    const errorMessage = err instanceof Error ? err.message : "Failed to update user role";
-                    setPromoteError(err instanceof Error ? err : new Error(errorMessage));
-                    if (errorMessage.trim().length > 0) {
-                      toast.error(errorMessage);
-                    }
-                  } finally {
-                    setIsPromoting(false);
-                  }
-                }
+              arrow
+              placement="top"
+              variant="outlined"
+              size="sm"
+            >
+              <Chip
+                variant={userCapabilities.includes("editor") ? "solid" : "outlined"}
+                color={userCapabilities.includes("editor") ? "success" : "neutral"}
+                size="sm"
+                startDecorator={<Edit sx={{ fontSize: 14 }} />}
+                onClick={() => !isSelf && handleCapabilityToggle("editor")}
+                disabled={isSelf || isUpdatingCapabilities}
+                sx={{
+                  cursor: isSelf ? "not-allowed" : "pointer",
+                  opacity: isUpdatingCapabilities ? 0.5 : 1,
+                }}
+              >
+                Editor
+              </Chip>
+            </Tooltip>
+            <Tooltip
+              title={
+                isSelf
+                  ? "You cannot modify your own capabilities"
+                  : userCapabilities.includes("webmaster")
+                    ? "Remove webmaster capability"
+                    : "Grant webmaster capability (can delegate editor)"
               }
-            }}
-          />
-        </ButtonGroup>
+              arrow
+              placement="top"
+              variant="outlined"
+              size="sm"
+            >
+              <Chip
+                variant={userCapabilities.includes("webmaster") ? "solid" : "outlined"}
+                color={userCapabilities.includes("webmaster") ? "primary" : "neutral"}
+                size="sm"
+                startDecorator={<Language sx={{ fontSize: 14 }} />}
+                onClick={() => !isSelf && handleCapabilityToggle("webmaster")}
+                disabled={isSelf || isUpdatingCapabilities}
+                sx={{
+                  cursor: isSelf ? "not-allowed" : "pointer",
+                  opacity: isUpdatingCapabilities ? 0.5 : 1,
+                }}
+              >
+                Webmaster
+              </Chip>
+            </Tooltip>
+          </Stack>
+        </Stack>
       </td>
       <td>{account.realName}</td>
       <td>{account.userName}</td>
@@ -451,66 +415,6 @@ export const AccountEntry = ({
             )}
           </Stack>
         )}
-      </td>
-      <td>
-        <Stack direction="row" spacing={0.5}>
-          <Tooltip
-            title={
-              isSelf
-                ? "You cannot modify your own capabilities"
-                : userCapabilities.includes("editor")
-                  ? "Remove editor capability"
-                  : "Grant editor capability (allows website editing)"
-            }
-            arrow
-            placement="top"
-            variant="outlined"
-            size="sm"
-          >
-            <Chip
-              variant={userCapabilities.includes("editor") ? "solid" : "outlined"}
-              color={userCapabilities.includes("editor") ? "success" : "neutral"}
-              size="sm"
-              startDecorator={<Edit sx={{ fontSize: 14 }} />}
-              onClick={() => !isSelf && handleCapabilityToggle("editor")}
-              disabled={isSelf || isUpdatingCapabilities}
-              sx={{
-                cursor: isSelf ? "not-allowed" : "pointer",
-                opacity: isUpdatingCapabilities ? 0.5 : 1,
-              }}
-            >
-              Editor
-            </Chip>
-          </Tooltip>
-          <Tooltip
-            title={
-              isSelf
-                ? "You cannot modify your own capabilities"
-                : userCapabilities.includes("webmaster")
-                  ? "Remove webmaster capability"
-                  : "Grant webmaster capability (can delegate editor)"
-            }
-            arrow
-            placement="top"
-            variant="outlined"
-            size="sm"
-          >
-            <Chip
-              variant={userCapabilities.includes("webmaster") ? "solid" : "outlined"}
-              color={userCapabilities.includes("webmaster") ? "primary" : "neutral"}
-              size="sm"
-              startDecorator={<Language sx={{ fontSize: 14 }} />}
-              onClick={() => !isSelf && handleCapabilityToggle("webmaster")}
-              disabled={isSelf || isUpdatingCapabilities}
-              sx={{
-                cursor: isSelf ? "not-allowed" : "pointer",
-                opacity: isUpdatingCapabilities ? 0.5 : 1,
-              }}
-            >
-              Webmaster
-            </Chip>
-          </Tooltip>
-        </Stack>
       </td>
       <td>
         <Stack direction="row" spacing={0.5}>

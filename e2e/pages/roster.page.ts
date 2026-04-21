@@ -21,9 +21,8 @@ export class RosterPage {
   readonly emailInput: Locator;
   readonly saveButton: Locator;
 
-  // Role checkboxes in new account form
-  readonly newAccountSmCheckbox: Locator;
-  readonly newAccountMdCheckbox: Locator;
+  // Role select in new account form
+  readonly newAccountRoleSelect: Locator;
 
   // Table elements
   readonly rosterTable: Locator;
@@ -57,9 +56,8 @@ export class RosterPage {
     // Save button is inside the new account row
     this.saveButton = page.locator('tr:has(button:has-text("Save")) button:has-text("Save")');
 
-    // Role checkboxes in new account form - first and second checkbox in the form row
-    this.newAccountSmCheckbox = this.newAccountRow.locator('input[type="checkbox"]').first();
-    this.newAccountMdCheckbox = this.newAccountRow.locator('input[type="checkbox"]').nth(1);
+    // Role select in new account form — MUI Joy Select renders a button[role="combobox"]
+    this.newAccountRoleSelect = this.newAccountRow.locator('[role="combobox"]').first();
 
     // Table — scoped to the roster form to avoid matching tables on other pages
     this.rosterTable = page.locator("form table");
@@ -108,13 +106,16 @@ export class RosterPage {
       await this.djNameInput.fill(data.djName);
     }
 
-    // Set role via checkboxes
-    if (data.role === "stationManager") {
-      await this.newAccountSmCheckbox.check();
-    } else if (data.role === "musicDirector") {
-      await this.newAccountMdCheckbox.check();
+    // Set role via select dropdown
+    if (data.role) {
+      const roleLabel =
+        data.role === "stationManager" ? "Station Manager"
+        : data.role === "musicDirector" ? "Music Director"
+        : "DJ";
+      await this.newAccountRoleSelect.click();
+      await this.page.getByRole("option", { name: roleLabel }).click();
     }
-    // DJ role is default, no checkbox needed
+    // DJ role is default, no selection needed if not specified
   }
 
   async submitNewAccount(): Promise<void> {
@@ -148,14 +149,45 @@ export class RosterPage {
   }
 
   /**
-   * Get role checkboxes for a user row
+   * Get the role select dropdown for a user row.
+   * MUI Joy Select renders a button[role="combobox"].
    */
-  getRoleCheckboxes(username: string): { sm: Locator; md: Locator } {
+  getRoleSelect(username: string): Locator {
     const row = this.getUserRow(username);
-    return {
-      sm: row.locator('input[type="checkbox"]').first(),
-      md: row.locator('input[type="checkbox"]').nth(1),
-    };
+    return row.locator('[role="combobox"]').first();
+  }
+
+  /**
+   * Set a user's role via the select dropdown.
+   * @param username - The username of the user row
+   * @param roleLabel - Display label: "Member", "DJ", "Music Director", or "Station Manager"
+   */
+  async setUserRole(username: string, roleLabel: string): Promise<void> {
+    const select = this.getRoleSelect(username);
+    await select.waitFor({ state: "visible", timeout: 5000 });
+    await select.click();
+    await this.page.getByRole("option", { name: roleLabel }).click();
+    await this.page.waitForTimeout(1000);
+  }
+
+  /** Wrapper for backward compatibility */
+  async promoteToStationManager(username: string): Promise<void> {
+    await this.setUserRole(username, "Station Manager");
+  }
+
+  /** Wrapper for backward compatibility */
+  async promoteToMusicDirector(username: string): Promise<void> {
+    await this.setUserRole(username, "Music Director");
+  }
+
+  /** Wrapper for backward compatibility */
+  async demoteFromStationManager(username: string): Promise<void> {
+    await this.setUserRole(username, "Music Director");
+  }
+
+  /** Wrapper for backward compatibility */
+  async demoteFromMusicDirector(username: string): Promise<void> {
+    await this.setUserRole(username, "DJ");
   }
 
   /**
@@ -171,38 +203,6 @@ export class RosterPage {
       resetPassword: buttons.first(),
       delete: buttons.last(),
     };
-  }
-
-  async promoteToStationManager(username: string): Promise<void> {
-    const { sm } = this.getRoleCheckboxes(username);
-    // Wait for checkbox to be ready
-    await sm.waitFor({ state: "visible", timeout: 5000 });
-    // Use force click to ensure the checkbox is toggled
-    await sm.click({ force: true });
-    await this.page.waitForTimeout(1000);
-  }
-
-  async promoteToMusicDirector(username: string): Promise<void> {
-    const { md } = this.getRoleCheckboxes(username);
-    // Wait for checkbox to be ready
-    await md.waitFor({ state: "visible", timeout: 5000 });
-    // Use force click to ensure the checkbox is toggled
-    await md.click({ force: true });
-    await this.page.waitForTimeout(1000);
-  }
-
-  async demoteFromStationManager(username: string): Promise<void> {
-    const { sm } = this.getRoleCheckboxes(username);
-    await sm.waitFor({ state: "visible", timeout: 5000 });
-    await sm.click({ force: true });
-    await this.page.waitForTimeout(1000);
-  }
-
-  async demoteFromMusicDirector(username: string): Promise<void> {
-    const { md } = this.getRoleCheckboxes(username);
-    await md.waitFor({ state: "visible", timeout: 5000 });
-    await md.click({ force: true });
-    await this.page.waitForTimeout(1000);
   }
 
   async deleteUser(username: string): Promise<void> {
@@ -317,9 +317,20 @@ export class RosterPage {
     }
   }
 
-  async expectRoleCheckboxDisabled(username: string, role: "sm" | "md"): Promise<void> {
-    const checkboxes = this.getRoleCheckboxes(username);
-    await expect(checkboxes[role]).toBeDisabled();
+  /**
+   * Assert the role select dropdown is disabled for a user (e.g., self-modification prevention)
+   */
+  async expectRoleSelectDisabled(username: string): Promise<void> {
+    const select = this.getRoleSelect(username);
+    await expect(select).toBeDisabled();
+  }
+
+  /**
+   * Assert the role select shows a specific role label for a user
+   */
+  async expectUserRole(username: string, roleLabel: string): Promise<void> {
+    const select = this.getRoleSelect(username);
+    await expect(select).toContainText(roleLabel, { timeout: 10000 });
   }
 
   async expectDeleteButtonDisabled(username: string): Promise<void> {

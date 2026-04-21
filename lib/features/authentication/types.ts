@@ -208,3 +208,24 @@ export function mapRoleToAuthorization(role: WXYCRole | string | undefined): Aut
       return Authorization.NO;
   }
 }
+
+/**
+ * Maps an Authorization enum value to its corresponding WXYCRole string.
+ * This is the reverse of mapRoleToAuthorization.
+ */
+export function authorizationToRole(auth: Authorization): "member" | "dj" | "musicDirector" | "stationManager" {
+  switch (auth) {
+    case Authorization.SM: return "stationManager";
+    case Authorization.MD: return "musicDirector";
+    case Authorization.DJ: return "dj";
+    case Authorization.NO: return "member";
+  }
+}
+
+/** Human-readable labels for each Authorization level, used in UI dropdowns. */
+export const AUTHORIZATION_LABELS: Record<Authorization, string> = {
+  [Authorization.NO]: "Member",
+  [Authorization.DJ]: "DJ",
+  [Authorization.MD]: "Music Director",
+  [Authorization.SM]: "Station Manager",
+};

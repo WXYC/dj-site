@@ -7,14 +7,12 @@ import { User, WXYCRole } from "@/lib/features/authentication/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useAccountListResults } from "@/src/hooks/adminHooks";
 import { Add, GppBad } from "@mui/icons-material";
-import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import {
   Button,
   CircularProgress,
   Sheet,
   Stack,
   Table,
-  Tooltip,
   Typography,
 } from "@mui/joy";
 import { useCallback, useState } from "react";
@@ -230,28 +228,11 @@ export default function RosterTable({ user }: { user: User }) {
         >
           <thead>
             <tr>
-              <th
-                style={{
-                  width: 55,
-                  verticalAlign: "middle",
-                  textAlign: "center",
-                }}
-              >
-                <Tooltip
-                  title="Toggle Admin Status"
-                  arrow={true}
-                  placement="top"
-                  variant="outlined"
-                  size="sm"
-                >
-                  <AdminPanelSettingsIcon />
-                </Tooltip>
-              </th>
+              <th style={{ minWidth: "180px" }}>Permissions</th>
               <th style={{ minWidth: "100px" }}>Name</th>
               <th style={{ minWidth: "100px" }}>Username</th>
               <th style={{ minWidth: "100px" }}>DJ Name</th>
               <th style={{ minWidth: "100px" }}>Email</th>
-              <th style={{ minWidth: "140px" }}>Capabilities</th>
               <th
                 aria-label="last"
                 style={{ width: "var(--Table-lastColumnWidth)" }}
@@ -262,7 +243,7 @@ export default function RosterTable({ user }: { user: User }) {
             {isLoading ? (
               <tr style={{ background: "transparent" }}>
                 <td
-                  colSpan={7}
+                  colSpan={6}
                   style={{ textAlign: "center", paddingTop: "2rem" }}
                 >
                   <CircularProgress color={"success"} />
@@ -271,7 +252,7 @@ export default function RosterTable({ user }: { user: User }) {
             ) : isError ? (
               <tr style={{ background: "transparent" }}>
                 <td
-                  colSpan={7}
+                  colSpan={6}
                   style={{ textAlign: "center", paddingTop: "2rem" }}
                 >
                   <GppBad color="error" sx={{ fontSize: "5rem" }} />
@@ -296,7 +277,7 @@ export default function RosterTable({ user }: { user: User }) {
               <NewAccountForm />
             ) : (
               <tr>
-                <td colSpan={6}></td>
+                <td colSpan={5}></td>
                 <td
                   style={{
                     display: "flex",

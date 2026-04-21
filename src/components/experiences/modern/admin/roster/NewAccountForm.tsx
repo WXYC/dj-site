@@ -4,7 +4,7 @@ import { adminSlice } from "@/lib/features/admin/frontend";
 import { Authorization } from "@/lib/features/admin/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { PersonAdd } from "@mui/icons-material";
-import { Button, ButtonGroup, Checkbox, Input } from "@mui/joy";
+import { Button, FormControl, Input, Option, Select } from "@mui/joy";
 import { ClickAwayListener } from "@mui/material";
 
 export default function NewAccountForm() {
@@ -22,40 +22,23 @@ export default function NewAccountForm() {
       onClickAway={() => dispatch(adminSlice.actions.setAdding(false))}
     >
       <tr>
-        <td
-          style={{
-            verticalAlign: "middle",
-            textAlign: "center",
-          }}
-        >
-          <ButtonGroup>
-            <Checkbox
+        <td style={{ verticalAlign: "middle" }}>
+          <FormControl size="sm">
+            <Select
+              size="sm"
               color="success"
-              onChange={(e) => {
-                if (e.target.checked) {
-                  setAuthorizationOfNewAccount(Authorization.SM);
-                } else {
-                  setAuthorizationOfNewAccount(Authorization.DJ);
-                }
+              value={authorizationOfNewAccount}
+              onChange={(_, newValue) => {
+                if (newValue !== null) setAuthorizationOfNewAccount(newValue as Authorization);
               }}
-              checked={authorizationOfNewAccount == Authorization.SM}
-            />
-            <Checkbox
-              color="success"
-              checked={
-                authorizationOfNewAccount == Authorization.MD ||
-                authorizationOfNewAccount == Authorization.SM
-              }
-              onChange={(e) => {
-                if (e.target.checked) {
-                  setAuthorizationOfNewAccount(Authorization.MD);
-                } else {
-                  setAuthorizationOfNewAccount(Authorization.DJ);
-                }
-              }}
-              disabled={authorizationOfNewAccount == Authorization.SM}
-            />
-          </ButtonGroup>
+              slotProps={{ button: { sx: { whiteSpace: "nowrap" } } }}
+            >
+              <Option value={Authorization.NO}>Member</Option>
+              <Option value={Authorization.DJ}>DJ</Option>
+              <Option value={Authorization.MD}>Music Director</Option>
+              <Option value={Authorization.SM}>Station Manager</Option>
+            </Select>
+          </FormControl>
         </td>
         <td>
           <Input
@@ -95,7 +78,6 @@ export default function NewAccountForm() {
             type="email"
           />
         </td>
-        <td>{/* Capabilities assigned after creation */}</td>
         <td
           style={{
             display: "flex",
