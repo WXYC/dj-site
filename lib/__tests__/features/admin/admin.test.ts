@@ -4,7 +4,33 @@ import {
   defaultAdminFrontendState,
 } from "@/lib/features/admin/frontend";
 import { Authorization } from "@/lib/features/admin/types";
+import {
+  authorizationToRole,
+  AUTHORIZATION_LABELS,
+} from "@/lib/features/authentication/types";
 import { describeSlice } from "@/lib/test-utils";
+
+describe("authorizationToRole", () => {
+  it.each([
+    [Authorization.SM, "stationManager"],
+    [Authorization.MD, "musicDirector"],
+    [Authorization.DJ, "dj"],
+    [Authorization.NO, "member"],
+  ] as const)("should map Authorization.%s to %s", (auth, role) => {
+    expect(authorizationToRole(auth)).toBe(role);
+  });
+});
+
+describe("AUTHORIZATION_LABELS", () => {
+  it.each([
+    [Authorization.NO, "Member"],
+    [Authorization.DJ, "DJ"],
+    [Authorization.MD, "Music Director"],
+    [Authorization.SM, "Station Manager"],
+  ] as const)("should label Authorization.%s as %s", (auth, label) => {
+    expect(AUTHORIZATION_LABELS[auth]).toBe(label);
+  });
+});
 
 describeSlice(adminSlice, defaultAdminFrontendState, ({ harness, actions }) => {
   describe("default state", () => {

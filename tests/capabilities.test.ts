@@ -1,4 +1,8 @@
 import { describe, it, expect } from "vitest";
+import {
+  convertBetterAuthToAccountResult,
+  BetterAuthUser,
+} from "@/lib/features/admin/conversions-better-auth";
 
 /**
  * Phase 3 Tests: DJ-Site Capability Management
@@ -43,26 +47,33 @@ describe("Account capabilities", () => {
   });
 
   describe("BetterAuthUser conversion with capabilities", () => {
-    it("should preserve capabilities from better-auth user", () => {
-      const betterAuthUser = {
+    it("should preserve capabilities through conversion", () => {
+      const user: BetterAuthUser = {
         id: "user-123",
         email: "test@wxyc.org",
         name: "testuser",
-        capabilities: ["editor", "webmaster"] as Capability[],
+        emailVerified: true,
+        role: "dj",
+        capabilities: ["editor", "webmaster"],
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
-
-      expect(betterAuthUser.capabilities).toEqual(["editor", "webmaster"]);
+      const account = convertBetterAuthToAccountResult(user);
+      expect(account.capabilities).toEqual(["editor", "webmaster"]);
     });
 
-    it("should handle undefined capabilities", () => {
-      const betterAuthUser = {
+    it("should default undefined capabilities to empty array", () => {
+      const user: BetterAuthUser = {
         id: "user-123",
         email: "test@wxyc.org",
-        capabilities: undefined as Capability[] | undefined,
+        name: "testuser",
+        emailVerified: true,
+        role: "dj",
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
-
-      const capabilities = betterAuthUser.capabilities ?? [];
-      expect(capabilities).toEqual([]);
+      const account = convertBetterAuthToAccountResult(user);
+      expect(account.capabilities).toEqual([]);
     });
   });
 });

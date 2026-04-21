@@ -15,6 +15,7 @@ export type BetterAuthUser = {
   updatedAt: Date;
   banned?: boolean;
   banReason?: string;
+  capabilities?: string[];
 };
 
 /**
@@ -33,6 +34,7 @@ export function convertBetterAuthToAccountResult(
       ? AdminAuthenticationStatus.Confirmed
       : AdminAuthenticationStatus.New,
     email: user.email,
+    capabilities: user.capabilities ?? [],
   };
 }
 
