@@ -71,10 +71,10 @@ const ANONYMOUS_USER = {
 function createWrapper() {
   const store = makeStore();
   return ({ children }: { children: React.ReactNode }) =>
-    React.createElement(Provider, { store }, children);
+    React.createElement(Provider, { store, children });
 }
 
-function mockListUsersResponse(users: Record<string, unknown>[]) {
+function mockListUsersResponse(users: unknown[]) {
   return {
     data: { users, total: users.length },
     error: null,
@@ -131,7 +131,7 @@ describe("useAccountListResults", () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.data).toHaveLength(2);
-    expect(result.current.data.every((a) => !a.email.includes("@anonymous.wxyc.org"))).toBe(true);
+    expect(result.current.data.every((a) => !a.email?.includes("@anonymous.wxyc.org"))).toBe(true);
   });
 
   it("filters out anonymous users from a stringified response", async () => {

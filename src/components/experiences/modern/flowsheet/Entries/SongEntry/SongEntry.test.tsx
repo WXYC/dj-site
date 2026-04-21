@@ -6,7 +6,7 @@ import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 // Mock hooks
 const mockUseShowControl = vi.fn();
 const mockUseFlowsheet = vi.fn();
-const mockUseAlbumImages = vi.fn();
+const mockUseAlbumArtwork = vi.fn();
 const mockAddToFlowsheet = vi.fn();
 const mockDispatch = vi.fn();
 const mockUpdateFlowsheet = vi.fn();
@@ -16,8 +16,9 @@ vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useFlowsheet: () => mockUseFlowsheet(),
 }));
 
-vi.mock("@/src/hooks/applicationHooks", () => ({
-  useAlbumImages: () => mockUseAlbumImages(),
+vi.mock("@/lib/features/metadata/hooks", () => ({
+  useAlbumArtwork: (artistName?: string, releaseTitle?: string) =>
+    mockUseAlbumArtwork(artistName, releaseTitle),
 }));
 
 vi.mock("@/lib/features/flowsheet/api", () => ({
@@ -141,11 +142,10 @@ describe("SongEntry", () => {
       updateFlowsheet: mockUpdateFlowsheet,
     });
 
-    mockUseAlbumImages.mockReturnValue({
-      url: "/test-album-art.jpg",
-      loading: false,
-      setAlbum: vi.fn(),
-      setArtist: vi.fn(),
+    mockUseAlbumArtwork.mockReturnValue({
+      artworkUrl: "/test-album-art.jpg",
+      isLoading: false,
+      metadata: null,
     });
 
     mockAddToFlowsheet.mockReturnValue(Promise.resolve());
@@ -179,11 +179,10 @@ describe("SongEntry", () => {
     });
 
     it("should show CircularProgress when image is loading", () => {
-      mockUseAlbumImages.mockReturnValue({
-        url: null,
-        loading: true,
-        setAlbum: vi.fn(),
-        setArtist: vi.fn(),
+      mockUseAlbumArtwork.mockReturnValue({
+        artworkUrl: "/img/cassette.png",
+        isLoading: true,
+        metadata: null,
       });
 
       render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
@@ -444,47 +443,6 @@ describe("SongEntry", () => {
       fireEvent.click(checkbox);
 
       expect(mockDispatch).toHaveBeenCalled();
-    });
-  });
-
-  describe("Album images hook integration", () => {
-    it("should call setAlbum and setArtist when entry has album and artist", () => {
-      const mockSetAlbum = vi.fn();
-      const mockSetArtist = vi.fn();
-
-      mockUseAlbumImages.mockReturnValue({
-        url: "/test-album-art.jpg",
-        loading: false,
-        setAlbum: mockSetAlbum,
-        setArtist: mockSetArtist,
-      });
-
-      render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
-
-      expect(mockSetAlbum).toHaveBeenCalledWith("Test Album");
-      expect(mockSetArtist).toHaveBeenCalledWith("Test Artist");
-    });
-
-    it("should NOT call setAlbum/setArtist when album_title is missing", () => {
-      const mockSetAlbum = vi.fn();
-      const mockSetArtist = vi.fn();
-
-      mockUseAlbumImages.mockReturnValue({
-        url: "/test-album-art.jpg",
-        loading: false,
-        setAlbum: mockSetAlbum,
-        setArtist: mockSetArtist,
-      });
-
-      const entryWithoutAlbum = { ...mockEntry, album_title: "" };
-
-      render(
-        <SongEntry entry={entryWithoutAlbum} playing={false} queue={false} />
-      );
-
-      // Should not be called because album_title is falsy
-      expect(mockSetAlbum).not.toHaveBeenCalled();
-      expect(mockSetArtist).not.toHaveBeenCalled();
     });
   });
 

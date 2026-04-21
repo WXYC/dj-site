@@ -8,18 +8,18 @@ import type {
   FlowsheetMessageEntry,
 } from "@/lib/features/flowsheet/types";
 
-// Mock useAlbumImages hook
-const mockSetAlbum = vi.fn();
-const mockSetArtist = vi.fn();
-const mockUseAlbumImages = vi.fn(() => ({
-  setAlbum: mockSetAlbum,
-  setArtist: mockSetArtist,
-  loading: false,
-  url: "https://example.com/album-art.jpg",
-}));
+// Mock useAlbumArtwork hook
+const mockUseAlbumArtwork = vi.fn(
+  (_artistName?: string, _releaseTitle?: string) => ({
+    artworkUrl: "https://example.com/album-art.jpg",
+    isLoading: false,
+    metadata: null,
+  }),
+);
 
-vi.mock("@/src/hooks/applicationHooks", () => ({
-  useAlbumImages: () => mockUseAlbumImages(),
+vi.mock("@/lib/features/metadata/hooks", () => ({
+  useAlbumArtwork: (artistName?: string, releaseTitle?: string) =>
+    mockUseAlbumArtwork(artistName, releaseTitle),
 }));
 
 // Mock MUI components - render children to allow img testing
@@ -53,11 +53,10 @@ describe("AlbumArtAndIcons", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUseAlbumImages.mockReturnValue({
-      setAlbum: mockSetAlbum,
-      setArtist: mockSetArtist,
-      loading: false,
-      url: "https://example.com/album-art.jpg",
+    mockUseAlbumArtwork.mockReturnValue({
+      artworkUrl: "https://example.com/album-art.jpg",
+      isLoading: false,
+      metadata: null,
     });
   });
 
@@ -70,15 +69,19 @@ describe("AlbumArtAndIcons", () => {
       render(<AlbumArtAndIcons entry={undefined} />);
       expect(screen.getByTestId("aspect-ratio")).toBeInTheDocument();
     });
+
+    it("should call useAlbumArtwork with undefined params", () => {
+      render(<AlbumArtAndIcons entry={undefined} />);
+      expect(mockUseAlbumArtwork).toHaveBeenCalledWith(undefined, undefined);
+    });
   });
 
   describe("when loading is true", () => {
     it("should display aspect-ratio wrapper while loading", () => {
-      mockUseAlbumImages.mockReturnValue({
-        setAlbum: mockSetAlbum,
-        setArtist: mockSetArtist,
-        loading: true,
-        url: "https://example.com/album-art.jpg",
+      mockUseAlbumArtwork.mockReturnValue({
+        artworkUrl: "https://example.com/album-art.jpg",
+        isLoading: true,
+        metadata: null,
       });
 
       const songEntry: FlowsheetSongEntry = {
@@ -97,7 +100,7 @@ describe("AlbumArtAndIcons", () => {
   });
 
   describe("when entry is a song entry", () => {
-    it("should call setAlbum and setArtist with entry data", () => {
+    it("should call useAlbumArtwork with artist and album", () => {
       const songEntry: FlowsheetSongEntry = {
         ...baseEntry,
         track_title: "Test Track",
@@ -109,8 +112,7 @@ describe("AlbumArtAndIcons", () => {
 
       render(<AlbumArtAndIcons entry={songEntry} />);
 
-      expect(mockSetAlbum).toHaveBeenCalledWith("Test Album");
-      expect(mockSetArtist).toHaveBeenCalledWith("Test Artist");
+      expect(mockUseAlbumArtwork).toHaveBeenCalledWith("Test Artist", "Test Album");
     });
 
     it("should render aspect-ratio wrapper", () => {
@@ -131,13 +133,6 @@ describe("AlbumArtAndIcons", () => {
 
   describe("when entry is a breakpoint entry", () => {
     it("should display Timer icon", () => {
-      mockUseAlbumImages.mockReturnValue({
-        setAlbum: mockSetAlbum,
-        setArtist: mockSetArtist,
-        loading: false,
-        url: "",
-      });
-
       const breakpointEntry: FlowsheetBreakpointEntry = {
         ...baseEntry,
         message: "Breakpoint: Station ID",
@@ -153,13 +148,6 @@ describe("AlbumArtAndIcons", () => {
 
   describe("when entry is a start show entry", () => {
     it("should display Headphones icon", () => {
-      mockUseAlbumImages.mockReturnValue({
-        setAlbum: mockSetAlbum,
-        setArtist: mockSetArtist,
-        loading: false,
-        url: "",
-      });
-
       const startShowEntry: FlowsheetShowBlockEntry = {
         ...baseEntry,
         dj_name: "DJ Cool",
@@ -176,13 +164,6 @@ describe("AlbumArtAndIcons", () => {
 
   describe("when entry is an end show entry", () => {
     it("should display Logout icon", () => {
-      mockUseAlbumImages.mockReturnValue({
-        setAlbum: mockSetAlbum,
-        setArtist: mockSetArtist,
-        loading: false,
-        url: "",
-      });
-
       const endShowEntry: FlowsheetShowBlockEntry = {
         ...baseEntry,
         dj_name: "DJ Cool",
@@ -199,13 +180,6 @@ describe("AlbumArtAndIcons", () => {
 
   describe("when entry is a talkset entry", () => {
     it("should display Mic icon", () => {
-      mockUseAlbumImages.mockReturnValue({
-        setAlbum: mockSetAlbum,
-        setArtist: mockSetArtist,
-        loading: false,
-        url: "",
-      });
-
       const talksetEntry: FlowsheetMessageEntry = {
         ...baseEntry,
         message: "Talkset",
@@ -219,13 +193,6 @@ describe("AlbumArtAndIcons", () => {
 
   describe("when entry is a generic message entry", () => {
     it("should render aspect ratio wrapper for fallback", () => {
-      mockUseAlbumImages.mockReturnValue({
-        setAlbum: mockSetAlbum,
-        setArtist: mockSetArtist,
-        loading: false,
-        url: "",
-      });
-
       const messageEntry: FlowsheetMessageEntry = {
         ...baseEntry,
         message: "PSA: Community announcement",
@@ -237,15 +204,8 @@ describe("AlbumArtAndIcons", () => {
     });
   });
 
-  describe("when entry changes from song to non-song", () => {
-    it("should clear album and artist", () => {
-      mockUseAlbumImages.mockReturnValue({
-        setAlbum: mockSetAlbum,
-        setArtist: mockSetArtist,
-        loading: false,
-        url: "",
-      });
-
+  describe("when entry is a non-song entry", () => {
+    it("should call useAlbumArtwork with undefined params", () => {
       const messageEntry: FlowsheetMessageEntry = {
         ...baseEntry,
         message: "PSA: Community announcement",
@@ -253,8 +213,7 @@ describe("AlbumArtAndIcons", () => {
 
       render(<AlbumArtAndIcons entry={messageEntry} />);
 
-      expect(mockSetAlbum).toHaveBeenCalledWith(undefined);
-      expect(mockSetArtist).toHaveBeenCalledWith(undefined);
+      expect(mockUseAlbumArtwork).toHaveBeenCalledWith(undefined, undefined);
     });
   });
 });

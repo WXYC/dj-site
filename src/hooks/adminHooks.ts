@@ -62,7 +62,7 @@ export const useAccountListResults = () => {
 
       // Filter out anonymous users (created by the anonymous auth plugin for unauthenticated visitors)
       const users = (responseData?.users || []).filter(
-        (user: Record<string, unknown>) => !user.isAnonymous
+        (user) => !(user as unknown as { isAnonymous?: boolean }).isAnonymous
       );
 
       // Fetch organization members to get accurate roles

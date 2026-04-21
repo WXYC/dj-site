@@ -20,6 +20,7 @@ import { catalogSlice } from "./features/catalog/frontend";
 import { experienceApi } from "./features/experiences/api";
 import { flowsheetApi } from "./features/flowsheet/api";
 import { flowsheetSlice } from "./features/flowsheet/frontend";
+import { metadataApi } from "./features/metadata/api";
 import { rotationApi } from "./features/rotation/api";
 import { rotationSlice } from "./features/rotation/frontend";
 
@@ -33,6 +34,7 @@ const rootReducer = combineSlices(
   binApi,
   flowsheetSlice,
   flowsheetApi,
+  metadataApi,
   rotationSlice,
   rotationApi,
   adminSlice
@@ -51,6 +53,7 @@ export const makeStore = () => {
         .concat(catalogApi.middleware)
         .concat(binApi.middleware)
         .concat(flowsheetApi.middleware)
+        .concat(metadataApi.middleware)
         .concat(rotationApi.middleware);
     },
   });

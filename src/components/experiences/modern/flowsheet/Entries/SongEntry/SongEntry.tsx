@@ -8,7 +8,7 @@ import {
 } from "@/lib/features/flowsheet/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { LinkIconButton } from "@/src/components/shared/General/LinkButton";
-import { useAlbumImages } from "@/src/hooks/applicationHooks";
+import { useAlbumArtwork } from "@/lib/features/metadata/hooks";
 import { useFlowsheet, useShowControl } from "@/src/hooks/flowsheetHooks";
 import { getStyleForRotation } from "@/src/utilities/modern/rotationstyles";
 import {
@@ -31,7 +31,7 @@ import {
   Tooltip,
 } from "@mui/joy";
 import { useDragControls } from "motion/react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import DragButton from "../Components/DragButton";
 import RemoveButton from "../Components/RemoveButton";
 import DraggableEntryWrapper from "../DraggableEntryWrapper";
@@ -60,18 +60,9 @@ export default function SongEntry({
   const { updateFlowsheet } = useFlowsheet();
 
   const {
-    url: image,
-    loading: imageLoading,
-    setAlbum,
-    setArtist,
-  } = useAlbumImages();
-
-  useEffect(() => {
-    if (!entry.album_title || !entry.artist_name) return;
-
-    setAlbum(entry.album_title);
-    setArtist(entry.artist_name);
-  }, [entry.album_title, entry.artist_name, setAlbum, setArtist]);
+    artworkUrl: image,
+    isLoading: imageLoading,
+  } = useAlbumArtwork(entry.artist_name, entry.album_title);
 
   const dispatch = useAppDispatch();
 
@@ -124,14 +115,12 @@ export default function SongEntry({
             >
               {imageLoading ? (
                 <CircularProgress />
-              ) : image ? (
+              ) : (
                 <img
                   src={image}
                   alt="album art"
                   style={{ minWidth: "48px", minHeight: "48px" }}
                 />
-              ) : (
-                <Album sx={{ fontSize: 28, opacity: 0.4 }} />
               )}
             </AspectRatio>
           </Badge>
