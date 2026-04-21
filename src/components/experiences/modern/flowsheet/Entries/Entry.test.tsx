@@ -63,6 +63,7 @@ describe("Entry", () => {
       album_title: "Test Album",
       record_label: "Test Label",
       request_flag: false,
+      segue: false,
     };
 
     it("should render SongEntry for song entries", () => {
@@ -354,6 +355,7 @@ describe("Entry", () => {
       album_title: "Test Album",
       record_label: "Test Label",
       request_flag: false,
+      segue: false,
     };
 
     it("should pass playing=true to SongEntry when playing", () => {

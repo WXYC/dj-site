@@ -310,6 +310,7 @@ describe("NowPlayingMain", () => {
         album_title: "Test Album",
         record_label: "Test Label",
         request_flag: false,
+        segue: false,
       };
 
       render(<NowPlayingMain {...createDefaultProps({ entry: songEntry })} />);
@@ -326,6 +327,7 @@ describe("NowPlayingMain", () => {
         album_title: "Test Album",
         record_label: "Test Label",
         request_flag: false,
+        segue: false,
       };
 
       render(<NowPlayingMain {...createDefaultProps({ entry: songEntry })} />);
