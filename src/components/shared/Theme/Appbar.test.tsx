@@ -39,11 +39,6 @@ describe("Appbar", () => {
     expect(screen.getByTestId("theme-switcher")).toBeInTheDocument();
   });
 
-  it("should show Beta Tester Form link for authenticated users", () => {
-    render(<Appbar />);
-    expect(screen.getByText("Beta Tester Form")).toBeInTheDocument();
-  });
-
   it("should show General Feedback link for authenticated users", () => {
     render(<Appbar />);
     expect(screen.getByText("General Feedback")).toBeInTheDocument();

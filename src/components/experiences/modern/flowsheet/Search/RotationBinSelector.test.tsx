@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { screen, fireEvent } from "@testing-library/react";
+import { renderWithProviders } from "@/lib/test-utils";
 import RotationBinSelector from "./RotationBinSelector";
 import { Rotation } from "@/lib/features/rotation/types";
 
@@ -11,7 +12,7 @@ describe("RotationBinSelector", () => {
   });
 
   it("should render four bin buttons", () => {
-    render(
+    renderWithProviders(
       <RotationBinSelector selectedBin={null} onSelectBin={mockOnSelectBin} disabled={false} />
     );
     expect(screen.getByText("H")).toBeInTheDocument();
@@ -21,7 +22,7 @@ describe("RotationBinSelector", () => {
   });
 
   it("should call onSelectBin when a bin is clicked", () => {
-    render(
+    renderWithProviders(
       <RotationBinSelector selectedBin={null} onSelectBin={mockOnSelectBin} disabled={false} />
     );
     fireEvent.click(screen.getByRole("radio", { name: "H" }));
@@ -29,7 +30,7 @@ describe("RotationBinSelector", () => {
   });
 
   it.each(["H", "M", "L", "S"])("should call onSelectBin with %s", (bin) => {
-    render(
+    renderWithProviders(
       <RotationBinSelector selectedBin={null} onSelectBin={mockOnSelectBin} disabled={false} />
     );
     fireEvent.click(screen.getByRole("radio", { name: bin }));
@@ -37,7 +38,7 @@ describe("RotationBinSelector", () => {
   });
 
   it("should not call onSelectBin when disabled", () => {
-    render(
+    renderWithProviders(
       <RotationBinSelector selectedBin={null} onSelectBin={mockOnSelectBin} disabled={true} />
     );
     // Disabled buttons don't fire click events in the DOM
@@ -47,7 +48,7 @@ describe("RotationBinSelector", () => {
   });
 
   it("should have radiogroup role for accessibility", () => {
-    render(
+    renderWithProviders(
       <RotationBinSelector selectedBin={null} onSelectBin={mockOnSelectBin} disabled={false} />
     );
     expect(screen.getByRole("radiogroup")).toBeInTheDocument();
