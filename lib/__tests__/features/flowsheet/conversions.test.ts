@@ -28,7 +28,7 @@ import type {
 } from "@/lib/features/flowsheet/types";
 import { Rotation } from "@/lib/features/rotation/types";
 
-/** The shape `convertQueryToSubmission` actually returns (the artist_name variant, plus album_id/rotation_id). */
+/** The shape `convertQueryToSubmission` actually returns (the artist_name variant, plus album_id/rotation_id/rotation_bin). */
 type QuerySubmission = {
   track_title: string;
   artist_name: string;
@@ -37,6 +37,7 @@ type QuerySubmission = {
   request_flag: boolean;
   album_id?: number;
   rotation_id?: number;
+  rotation_bin?: string;
 };
 
 describe("flowsheet conversions", () => {
@@ -77,6 +78,12 @@ describe("flowsheet conversions", () => {
       });
       const result = convertQueryToSubmission(query) as QuerySubmission;
       expect(result.rotation_id).toBe(TEST_ENTITY_IDS.ROTATION.HEAVY);
+    });
+
+    it("should include rotation_bin when present", () => {
+      const query = createTestFlowsheetQuery({ rotation_bin: Rotation.H });
+      const result = convertQueryToSubmission(query) as QuerySubmission;
+      expect(result.rotation_bin).toBe("H");
     });
 
     it("should preserve request flag", () => {

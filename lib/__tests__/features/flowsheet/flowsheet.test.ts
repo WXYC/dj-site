@@ -8,6 +8,7 @@ import {
   createTestFlowsheetQuery,
   createTestFlowsheetEntry,
   TEST_SEARCH_STRINGS,
+  TEST_ENTITY_IDS,
 } from "@/lib/test-utils";
 import type { FlowsheetFrontendState, FlowsheetEntry } from "@/lib/features/flowsheet/types";
 
@@ -248,7 +249,86 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
     });
   });
 
+  describe("rotation mode actions", () => {
+    it("should toggle rotation mode on", () => {
+      const result = harness().reduce(actions.setRotationMode(true));
+      expect(result.rotationMode).toBe(true);
+    });
+
+    it("should toggle rotation mode off", () => {
+      const withRotation: FlowsheetFrontendState = {
+        ...harness().initialState,
+        rotationMode: true,
+      };
+      const result = harness().reduce(actions.setRotationMode(false), withRotation);
+      expect(result.rotationMode).toBe(false);
+    });
+
+    it("should clear rotation metadata when toggling off", () => {
+      const withMetadata: FlowsheetFrontendState = {
+        ...harness().initialState,
+        rotationMode: true,
+        search: {
+          ...harness().initialState.search,
+          query: {
+            ...harness().initialState.search.query,
+            album_id: 123,
+            rotation_id: 456,
+            rotation_bin: "H" as const,
+          },
+        },
+      };
+      const result = harness().reduce(actions.setRotationMode(false), withMetadata);
+      expect(result.search.query.album_id).toBeUndefined();
+      expect(result.search.query.rotation_id).toBeUndefined();
+      expect(result.search.query.rotation_bin).toBeUndefined();
+    });
+
+    it("should not clear rotation metadata when toggling on", () => {
+      const result = harness().reduce(actions.setRotationMode(true));
+      expect(result.search.query).toEqual(harness().initialState.search.query);
+    });
+
+    it("should set rotation metadata on query", () => {
+      const result = harness().reduce(
+        actions.setRotationMetadata({
+          album_id: TEST_ENTITY_IDS.ALBUM.ROTATION_ALBUM,
+          rotation_id: TEST_ENTITY_IDS.ROTATION.HEAVY,
+          rotation_bin: "H" as const,
+        })
+      );
+      expect(result.search.query.album_id).toBe(TEST_ENTITY_IDS.ALBUM.ROTATION_ALBUM);
+      expect(result.search.query.rotation_id).toBe(TEST_ENTITY_IDS.ROTATION.HEAVY);
+      expect(result.search.query.rotation_bin).toBe("H");
+    });
+
+    it("should preserve rotation mode across resetSearch", () => {
+      const result = harness().chain(
+        actions.setRotationMode(true),
+        actions.setSearchOpen(true),
+        actions.setSearchProperty({ name: "artist", value: "Test Artist" }),
+        actions.setRotationMetadata({
+          album_id: 123,
+          rotation_id: 456,
+          rotation_bin: "H" as const,
+        }),
+        actions.resetSearch()
+      );
+      expect(result.rotationMode).toBe(true);
+      expect(result.search.open).toBe(false);
+      expect(result.search.query).toEqual(defaultFlowsheetFrontendState.search.query);
+      expect(result.search.selectedResult).toBe(0);
+    });
+  });
+
   describe("selectors", () => {
+    it("should select rotation mode", () => {
+      const { dispatch, select } = harness().withStore();
+      expect(select(flowsheetSlice.selectors.getRotationMode)).toBe(false);
+      dispatch(actions.setRotationMode(true));
+      expect(select(flowsheetSlice.selectors.getRotationMode)).toBe(true);
+    });
+
     it("should select autoplay state", () => {
       const { dispatch, select } = harness().withStore();
       dispatch(actions.setAutoplay(true));

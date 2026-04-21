@@ -33,11 +33,24 @@ export const rotationApi = createApi({
       }),
       invalidatesTags: ["Rotation"],
     }),
+    getRotationTracks: builder.query<RotationTrack[], number>({
+      query: (rotationId) => ({
+        url: `/${rotationId}/tracks`,
+      }),
+    }),
   }),
 });
+
+export type RotationTrack = {
+  position: string;
+  title: string;
+  duration: string | null;
+  artists: string[];
+};
 
 export const {
   useGetRotationQuery,
   useAddRotationEntryMutation,
   useKillRotationEntryMutation,
+  useGetRotationTracksQuery,
 } = rotationApi;

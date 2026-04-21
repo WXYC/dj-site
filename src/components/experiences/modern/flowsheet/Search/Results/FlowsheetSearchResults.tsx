@@ -19,13 +19,14 @@ export default function FlowsheetSearchResults({
   lmlResults: AlbumEntry[];
 }) {
   const open = useAppSelector(flowsheetSlice.selectors.getSearchOpen);
+  const rotationMode = useAppSelector(flowsheetSlice.selectors.getRotationMode);
 
   return (
     <Sheet
       variant="outlined"
       data-testid="flowsheet-search-results"
       sx={{
-        visibility: open ? "visible" : "hidden",
+        visibility: open && !rotationMode ? "visible" : "hidden",
         minHeight: "60px",
         position: "absolute",
         top: -5,
