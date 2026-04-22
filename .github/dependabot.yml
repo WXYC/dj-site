@@ -1,0 +1,33 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      better-auth:
+        patterns:
+          - "better-auth"
+          - "@better-auth/*"
+      wxyc-shared:
+        patterns:
+          - "@wxyc/shared"
+      dev-dependencies:
+        dependency-type: "development"
+        exclude-patterns:
+          - "better-auth"
+          - "@better-auth/*"
+          - "@wxyc/shared"
+      production-dependencies:
+        dependency-type: "production"
+        exclude-patterns:
+          - "better-auth"
+          - "@better-auth/*"
+          - "@wxyc/shared"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
