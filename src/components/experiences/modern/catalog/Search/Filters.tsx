@@ -62,6 +62,10 @@ export const Filters = ({ color }: { color: ColorPaletteProp | undefined }) => {
                 backgroundColor: "#7B2D8E",
                 borderColor: "#7B2D8E",
               },
+              "&.Mui-checked:hover": {
+                backgroundColor: "#6a2479",
+                borderColor: "#6a2479",
+              },
             },
           }}
         />
