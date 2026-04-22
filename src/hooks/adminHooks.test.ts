@@ -1,9 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { renderHook, waitFor, act } from "@testing-library/react";
 import React from "react";
 import { Provider } from "react-redux";
-import { makeStore } from "@/lib/store";
+import { makeStore, AppStore } from "@/lib/store";
 import { MOCK_USERS } from "@/lib/test-utils/fixtures";
+import { adminSlice } from "@/lib/features/admin/frontend";
+import { ROSTER_PAGE_SIZE } from "@/lib/features/admin/types";
 
 // Mock the auth client before importing the hook
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -68,10 +70,13 @@ const ANONYMOUS_USER = {
   capabilities: [],
 };
 
-function createWrapper() {
-  const store = makeStore();
-  return ({ children }: { children: React.ReactNode }) =>
-    React.createElement(Provider, { store, children });
+function createWrapper(store?: AppStore) {
+  const s = store ?? makeStore();
+  return {
+    store: s,
+    wrapper: ({ children }: { children: React.ReactNode }) =>
+      React.createElement(Provider, { store: s, children }),
+  };
 }
 
 function mockListUsersResponse(users: unknown[]) {
@@ -83,15 +88,21 @@ function mockListUsersResponse(users: unknown[]) {
 
 describe("useAccountListResults", () => {
   beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.clearAllMocks();
     delete process.env.NEXT_PUBLIC_APP_ORGANIZATION;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("extracts users from a parsed SDK response", async () => {
     const users = [betterAuthUser(MOCK_USERS.dj1), betterAuthUser(MOCK_USERS.stationManager)];
     vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse(users));
 
-    const { result } = renderHook(() => useAccountListResults(), { wrapper: createWrapper() });
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountListResults(), { wrapper });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.isError).toBe(false);
@@ -103,14 +114,13 @@ describe("useAccountListResults", () => {
 
   it("parses a stringified SDK response (better-auth parser fallback)", async () => {
     const users = [betterAuthUser(MOCK_USERS.dj1)];
-    // Simulate the bug: SDK's betterJSONParse with strict:false returns the raw JSON
-    // string when JSON.parse fails internally, instead of throwing.
     vi.mocked(authClient.admin.listUsers).mockResolvedValue({
       data: JSON.stringify({ users, total: 1 }),
       error: null,
     });
 
-    const { result } = renderHook(() => useAccountListResults(), { wrapper: createWrapper() });
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountListResults(), { wrapper });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.isError).toBe(false);
@@ -118,34 +128,66 @@ describe("useAccountListResults", () => {
     expect(result.current.data[0].email).toBe(MOCK_USERS.dj1.email);
   });
 
-  it("filters out anonymous users", async () => {
-    const users = [
-      betterAuthUser(MOCK_USERS.dj1),
-      ANONYMOUS_USER,
-      betterAuthUser(MOCK_USERS.dj2),
-      { ...ANONYMOUS_USER, id: "anon-2", email: "temp-xyz789@anonymous.wxyc.org" },
-    ];
-    vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse(users));
+  it("passes server-side filter and pagination params to listUsers", async () => {
+    vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse([]));
 
-    const { result } = renderHook(() => useAccountListResults(), { wrapper: createWrapper() });
+    const { wrapper } = createWrapper();
+    renderHook(() => useAccountListResults(), { wrapper });
 
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.data).toHaveLength(2);
-    expect(result.current.data.every((a) => !a.email?.includes("@anonymous.wxyc.org"))).toBe(true);
+    await waitFor(() => expect(authClient.admin.listUsers).toHaveBeenCalled());
+    const query = vi.mocked(authClient.admin.listUsers).mock.calls[0][0].query;
+    expect(query).toMatchObject({
+      limit: ROSTER_PAGE_SIZE,
+      offset: 0,
+      filterField: "isAnonymous",
+      filterValue: "false",
+      filterOperator: "eq",
+    });
+    // No search params when searchString is empty
+    expect(query).not.toHaveProperty("searchValue");
   });
 
-  it("filters out anonymous users from a stringified response", async () => {
-    const users = [betterAuthUser(MOCK_USERS.dj1), ANONYMOUS_USER];
-    vi.mocked(authClient.admin.listUsers).mockResolvedValue({
-      data: JSON.stringify({ users, total: 2 }),
-      error: null,
+  it("passes search params when searchString is set", async () => {
+    vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse([]));
+
+    const { store, wrapper } = createWrapper();
+    renderHook(() => useAccountListResults(), { wrapper });
+
+    // Wait for initial fetch
+    await waitFor(() => expect(authClient.admin.listUsers).toHaveBeenCalledTimes(1));
+
+    // Dispatch search and advance debounce timer
+    act(() => {
+      store.dispatch(adminSlice.actions.setSearchString("Juana"));
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(300);
     });
 
-    const { result } = renderHook(() => useAccountListResults(), { wrapper: createWrapper() });
+    await waitFor(() => expect(authClient.admin.listUsers).toHaveBeenCalledTimes(2));
+    const query = vi.mocked(authClient.admin.listUsers).mock.calls[1][0].query;
+    expect(query).toMatchObject({
+      searchValue: "Juana",
+      searchField: "name",
+      searchOperator: "contains",
+    });
+  });
 
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.data).toHaveLength(1);
-    expect(result.current.data[0].email).toBe(MOCK_USERS.dj1.email);
+  it("computes offset from page", async () => {
+    vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse([]));
+
+    const { store, wrapper } = createWrapper();
+    renderHook(() => useAccountListResults(), { wrapper });
+
+    await waitFor(() => expect(authClient.admin.listUsers).toHaveBeenCalledTimes(1));
+
+    act(() => {
+      store.dispatch(adminSlice.actions.setPage(2));
+    });
+
+    await waitFor(() => expect(authClient.admin.listUsers).toHaveBeenCalledTimes(2));
+    const query = vi.mocked(authClient.admin.listUsers).mock.calls[1][0].query;
+    expect(query.offset).toBe(2 * ROSTER_PAGE_SIZE);
   });
 
   it("sets error state when the SDK returns an error", async () => {
@@ -154,7 +196,8 @@ describe("useAccountListResults", () => {
       error: { message: "Unauthorized", status: 401, statusText: "Unauthorized" },
     });
 
-    const { result } = renderHook(() => useAccountListResults(), { wrapper: createWrapper() });
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountListResults(), { wrapper });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.isError).toBe(true);
@@ -167,7 +210,8 @@ describe("useAccountListResults", () => {
       error: null,
     });
 
-    const { result } = renderHook(() => useAccountListResults(), { wrapper: createWrapper() });
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountListResults(), { wrapper });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.isError).toBe(false);

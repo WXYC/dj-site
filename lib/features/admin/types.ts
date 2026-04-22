@@ -1,8 +1,12 @@
 export { Authorization } from "@wxyc/shared/auth-client/auth";
 import { Authorization } from "@wxyc/shared/auth-client/auth";
 
+export const ROSTER_PAGE_SIZE = 50;
+
 export type AdminFrontendState = {
   searchString: string;
+  page: number;
+  totalAccounts: number;
   adding: boolean;
   formData: {
     authorization: Authorization;

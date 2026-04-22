@@ -23,7 +23,7 @@ export default function AccountSearchForm() {
           color={"success"}
           size="sm"
           sx={{ minWidth: "400px" }}
-          placeholder="Search Roster"
+          placeholder="Search by Name"
           startDecorator={<Troubleshoot />}
           endDecorator={
             searchString.length > 0 && (
