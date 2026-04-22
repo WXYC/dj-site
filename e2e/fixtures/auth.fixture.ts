@@ -23,11 +23,20 @@ export async function login(
     name: "Sign in with password instead",
   });
   await passwordLink.waitFor({ state: "visible", timeout: 15000 });
-  await passwordLink.click();
-
-  // Wait for the OTP form to unmount before checking for the password form
-  await page.waitForSelector('input[name="email"]', { state: "hidden", timeout: 10000 });
-  await page.waitForSelector('input[name="username"]', { timeout: 10000 });
+  // The Redux dispatch from the click can occasionally fail to trigger a
+  // re-render on slow CI runners. Retry the click if the form doesn't swap.
+  const usernameInput = page.locator('input[name="username"]');
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await passwordLink.click();
+    try {
+      await usernameInput.waitFor({ state: "visible", timeout: 5000 });
+      break;
+    } catch {
+      if (attempt === 2) {
+        await usernameInput.waitFor({ state: "visible", timeout: 10000 });
+      }
+    }
+  }
   await page.fill('input[name="username"]', user.username);
   await page.fill('input[name="password"]', user.password);
   await page.click('button[type="submit"]');

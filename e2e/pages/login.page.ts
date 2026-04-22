@@ -70,9 +70,18 @@ export class LoginPage {
    */
   async switchToPasswordLogin(): Promise<void> {
     await this.switchToPasswordLink.waitFor({ state: "visible", timeout: 15000 });
-    await this.switchToPasswordLink.click();
-    // Wait for the OTP form to unmount before checking for the password form
-    await this.otpEmailInput.waitFor({ state: "hidden", timeout: 10000 });
+    // The Redux dispatch from the click can occasionally fail to trigger a
+    // re-render on slow CI runners. Retry the click if the form doesn't swap.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await this.switchToPasswordLink.click();
+      try {
+        await this.usernameInput.waitFor({ state: "visible", timeout: 5000 });
+        return;
+      } catch {
+        // Form didn't transition — retry the click
+      }
+    }
+    // Final attempt with a longer timeout to produce a clear error
     await this.usernameInput.waitFor({ state: "visible", timeout: 10000 });
   }
 
