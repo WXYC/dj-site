@@ -35,6 +35,7 @@ export type BetterAuthSession = {
     banned?: boolean;
     banReason?: string | null;
     banExpires?: Date | null;
+    hasCompletedOnboarding?: boolean;
     displayUsername?: string | null;
     image?: string | null;
     // Organization member data (if using organizationClient)
@@ -104,17 +105,16 @@ export function betterAuthSessionToAuthenticationData(
 
   const username = session.user.username || session.user.name;
 
-  // Check if user is incomplete (missing required fields: realName or djName)
-  const missingAttributes: (keyof VerifiedData)[] = [];
-  if (!session.user.realName || session.user.realName.trim() === "") {
-    missingAttributes.push("realName");
-  }
-  if (!session.user.djName || session.user.djName.trim() === "") {
-    missingAttributes.push("djName");
-  }
-
-  // If user is missing required fields, return IncompleteUser
-  if (missingAttributes.length > 0) {
+  // Check onboarding status using the explicit flag
+  if (!session.user.hasCompletedOnboarding) {
+    // Compute which profile fields are still missing for the onboarding form
+    const missingAttributes: (keyof VerifiedData)[] = [];
+    if (!session.user.realName || session.user.realName.trim() === "") {
+      missingAttributes.push("realName");
+    }
+    if (!session.user.djName || session.user.djName.trim() === "") {
+      missingAttributes.push("djName");
+    }
     return {
       username,
       requiredAttributes: missingAttributes,
@@ -201,17 +201,16 @@ export async function betterAuthSessionToAuthenticationDataAsync(
 
   const username = session.user.username || session.user.name;
 
-  // Check if user is incomplete (missing required fields: realName or djName)
-  const missingAttributes: (keyof VerifiedData)[] = [];
-  if (!session.user.realName || session.user.realName.trim() === "") {
-    missingAttributes.push("realName");
-  }
-  if (!session.user.djName || session.user.djName.trim() === "") {
-    missingAttributes.push("djName");
-  }
-
-  // If user is missing required fields, return IncompleteUser
-  if (missingAttributes.length > 0) {
+  // Check onboarding status using the explicit flag
+  if (!session.user.hasCompletedOnboarding) {
+    // Compute which profile fields are still missing for the onboarding form
+    const missingAttributes: (keyof VerifiedData)[] = [];
+    if (!session.user.realName || session.user.realName.trim() === "") {
+      missingAttributes.push("realName");
+    }
+    if (!session.user.djName || session.user.djName.trim() === "") {
+      missingAttributes.push("djName");
+    }
     return {
       username,
       requiredAttributes: missingAttributes,
