@@ -506,6 +506,42 @@ describe("SongEntry", () => {
     });
   });
 
+  describe("EXCLUSIVE chip", () => {
+    it("should render EXCLUSIVE chip when on_streaming is false", () => {
+      const exclusiveEntry = { ...mockEntry, on_streaming: false };
+
+      render(
+        <SongEntry entry={exclusiveEntry} playing={false} queue={false} />
+      );
+
+      expect(screen.getByText("EXCLUSIVE")).toBeInTheDocument();
+    });
+
+    it("should NOT render EXCLUSIVE chip when on_streaming is true", () => {
+      const streamingEntry = { ...mockEntry, on_streaming: true };
+
+      render(
+        <SongEntry entry={streamingEntry} playing={false} queue={false} />
+      );
+
+      expect(screen.queryByText("EXCLUSIVE")).not.toBeInTheDocument();
+    });
+
+    it("should NOT render EXCLUSIVE chip when on_streaming is undefined", () => {
+      const entryWithoutStreaming = { ...mockEntry, on_streaming: undefined };
+
+      render(
+        <SongEntry
+          entry={entryWithoutStreaming}
+          playing={false}
+          queue={false}
+        />
+      );
+
+      expect(screen.queryByText("EXCLUSIVE")).not.toBeInTheDocument();
+    });
+  });
+
   describe("Rotation badge", () => {
     it("should display rotation badge when rotation is present", () => {
       render(<SongEntry entry={mockEntry} playing={false} queue={false} />);

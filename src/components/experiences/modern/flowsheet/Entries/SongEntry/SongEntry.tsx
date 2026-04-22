@@ -27,6 +27,7 @@ import {
   Badge,
   Box,
   Checkbox,
+  Chip,
   CircularProgress,
   IconButton,
   Stack,
@@ -218,6 +219,21 @@ export default function SongEntry({
           alignItems={"center"}
           spacing={0.5}
         >
+          {entry.on_streaming === false && (
+            <Chip
+              variant="soft"
+              size="sm"
+              sx={{
+                backgroundColor: "#7B2D8E",
+                color: "#fff",
+                fontWeight: "bold",
+                fontSize: "0.6rem",
+                letterSpacing: "0.5px",
+              }}
+            >
+              EXCLUSIVE
+            </Chip>
+          )}
           <Box
             sx={{
               display: "flex",

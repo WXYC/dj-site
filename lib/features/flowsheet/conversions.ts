@@ -92,6 +92,7 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
         album_id: entry.album_id ?? undefined,
         rotation_id: entry.rotation_id ?? undefined,
         rotation: entry.rotation_bin as Rotation,
+        on_streaming: (entry as Record<string, unknown>).on_streaming as boolean | undefined ?? undefined,
       };
 
     case "show_start": {

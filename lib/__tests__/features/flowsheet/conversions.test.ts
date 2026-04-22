@@ -166,6 +166,27 @@ describe("flowsheet conversions", () => {
         expect(result.record_label).toBe("");
       });
 
+      it("should convert on_streaming: false on track entries", () => {
+        const entry = createTestV2TrackEntry({ on_streaming: false } as any);
+        const result = convertV2Entry(entry) as FlowsheetSongEntry;
+
+        expect(result.on_streaming).toBe(false);
+      });
+
+      it("should convert on_streaming: true on track entries", () => {
+        const entry = createTestV2TrackEntry({ on_streaming: true } as any);
+        const result = convertV2Entry(entry) as FlowsheetSongEntry;
+
+        expect(result.on_streaming).toBe(true);
+      });
+
+      it("should default on_streaming to undefined when absent", () => {
+        const entry = createTestV2TrackEntry();
+        const result = convertV2Entry(entry) as FlowsheetSongEntry;
+
+        expect(result.on_streaming).toBeUndefined();
+      });
+
       it("should preserve rotation data on track entries", () => {
         const entry = createTestV2TrackEntry({
           rotation_id: TEST_ENTITY_IDS.ROTATION.HEAVY,
