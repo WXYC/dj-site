@@ -155,10 +155,28 @@ describe("server-utils", () => {
       expect(mockRedirect).toHaveBeenCalledWith("/login?incomplete=true");
     });
 
-    it("should not redirect incomplete users when realName is not in session", async () => {
-      // Simulate a session where better-auth didn't include realName at all
+    it("should redirect when hasCompletedOnboarding is false even with all profile fields filled", async () => {
+      const session = createTestBetterAuthSession({
+        user: {
+          id: "test-id",
+          email: "test@wxyc.org",
+          name: "test",
+          emailVerified: true,
+          realName: "Valid Name",
+          djName: "DJ Test",
+          hasCompletedOnboarding: false,
+        },
+      });
+      mockGetSession.mockResolvedValue({ data: session, error: null });
+
+      await expect(requireAuth()).rejects.toThrow("REDIRECT:/login?incomplete=true");
+      expect(mockRedirect).toHaveBeenCalledWith("/login?incomplete=true");
+    });
+
+    it("should not redirect when hasCompletedOnboarding is not in session", async () => {
+      // Simulate a session where better-auth didn't include hasCompletedOnboarding at all
       const session = createTestBetterAuthSession();
-      delete (session.user as any).realName;
+      delete (session.user as any).hasCompletedOnboarding;
       mockGetSession.mockResolvedValue({ data: session, error: null });
 
       const result = await requireAuth();
@@ -285,7 +303,7 @@ describe("server-utils", () => {
   });
 
   describe("isUserIncomplete", () => {
-    it("should return false for complete user", () => {
+    it("should return false for complete user with hasCompletedOnboarding true", () => {
       const session = createTestBetterAuthSession();
 
       const result = isUserIncomplete(session);
@@ -293,7 +311,7 @@ describe("server-utils", () => {
       expect(result).toBe(false);
     });
 
-    it("should return true when realName is missing", () => {
+    it("should return true when hasCompletedOnboarding is false", () => {
       const session = createTestIncompleteSession(["realName"]);
 
       const result = isUserIncomplete(session);
@@ -301,15 +319,25 @@ describe("server-utils", () => {
       expect(result).toBe(true);
     });
 
-    it("should return true when only djName is missing", () => {
-      const session = createTestIncompleteSession(["djName"]);
+    it("should return true when hasCompletedOnboarding is false even if all fields filled", () => {
+      const session = createTestBetterAuthSession({
+        user: {
+          id: "test-id",
+          email: "test@wxyc.org",
+          name: "test",
+          emailVerified: true,
+          realName: "Valid Name",
+          djName: "DJ Test",
+          hasCompletedOnboarding: false,
+        },
+      });
 
       const result = isUserIncomplete(session);
 
       expect(result).toBe(true);
     });
 
-    it("should return true when realName is empty string", () => {
+    it("should return false when hasCompletedOnboarding is true even if realName is empty", () => {
       const session = createTestBetterAuthSession({
         user: {
           id: "test-id",
@@ -318,29 +346,13 @@ describe("server-utils", () => {
           emailVerified: true,
           realName: "",
           djName: "DJ Test",
+          hasCompletedOnboarding: true,
         },
       });
 
       const result = isUserIncomplete(session);
 
-      expect(result).toBe(true);
-    });
-
-    it("should return true when realName is whitespace only", () => {
-      const session = createTestBetterAuthSession({
-        user: {
-          id: "test-id",
-          email: "test@wxyc.org",
-          name: "test",
-          emailVerified: true,
-          realName: "   ",
-          djName: "DJ Test",
-        },
-      });
-
-      const result = isUserIncomplete(session);
-
-      expect(result).toBe(true);
+      expect(result).toBe(false);
     });
   });
 

@@ -102,7 +102,7 @@ describe("authentication utilities", () => {
       expect((result as any).requiredAttributes).toContain("djName");
     });
 
-    it("should treat empty string realName as incomplete", () => {
+    it("should treat empty string realName as incomplete when hasCompletedOnboarding is false", () => {
       const session = createTestBetterAuthSession({
         user: {
           id: "test-id",
@@ -111,10 +111,45 @@ describe("authentication utilities", () => {
           emailVerified: true,
           realName: "   ",
           djName: "DJ Test",
+          hasCompletedOnboarding: false,
         },
       });
       const result = betterAuthSessionToAuthenticationData(session);
       expect((result as any).requiredAttributes).toContain("realName");
+    });
+
+    it("should return IncompleteUser when hasCompletedOnboarding is false even with all fields present", () => {
+      const session = createTestBetterAuthSession({
+        user: {
+          id: "test-id",
+          email: "test@wxyc.org",
+          name: "testuser",
+          emailVerified: true,
+          realName: "Valid Name",
+          djName: "DJ Test",
+          hasCompletedOnboarding: false,
+        },
+      });
+      const result = betterAuthSessionToAuthenticationData(session);
+      expect((result as any).requiredAttributes).toBeDefined();
+      expect((result as any).requiredAttributes).toEqual([]);
+    });
+
+    it("should return AuthenticatedUser when hasCompletedOnboarding is true even if djName is empty", () => {
+      const session = createTestBetterAuthSession({
+        user: {
+          id: "test-id",
+          email: "test@wxyc.org",
+          name: "testuser",
+          emailVerified: true,
+          realName: "Valid Name",
+          djName: "",
+          hasCompletedOnboarding: true,
+        },
+      });
+      const result = betterAuthSessionToAuthenticationData(session);
+      expect((result as any).user).toBeDefined();
+      expect((result as any).user.realName).toBe("Valid Name");
     });
 
     it("should map stationManager role to SM Authorization", () => {
