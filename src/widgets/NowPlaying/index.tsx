@@ -92,7 +92,10 @@ export default function NowPlaying({ mini = false }: NowPlayingWidgetProps) {
 
     if (isPlaying) {
       audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
     } else {
+      audio.src = AUDIO_SRC;
       audio.play().catch((error) => {
         console.error("Failed to play audio:", error);
       });
@@ -132,7 +135,7 @@ export default function NowPlaying({ mini = false }: NowPlayingWidgetProps) {
         id="now-playing-music"
         crossOrigin="anonymous"
         ref={audioRef}
-        src={AUDIO_SRC}
+        preload="none"
         playsInline
         style={{ display: "none" }}
       />
