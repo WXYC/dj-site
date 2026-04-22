@@ -1,36 +1,48 @@
 "use client";
 
 import { AlbumEntry } from "@/lib/features/catalog/types";
-
+import { AlbumMetadata } from "@/lib/features/metadata/types";
 import { ArtistAvatar } from "@/src/components/experiences/modern/catalog/ArtistAvatar";
 import {
   AspectRatio,
   Box,
-  Button,
   Card,
   CardContent,
   CardOverflow,
+  Chip,
   Divider,
+  Link,
   ModalClose,
   Stack,
   Typography,
 } from "@mui/joy";
-import { useEffect, useState } from "react";
+import LibraryStatus from "./LibraryStatus";
+import StreamingLinks from "./StreamingLinks";
+import Tracklist from "./Tracklist";
 
-export default function AlbumCard({ album }: { album: AlbumEntry }) {
-  const [image, setImage] = useState("");
+interface AlbumCardProps {
+  album: AlbumEntry;
+  artworkUrl: string;
+  metadata: AlbumMetadata | null;
+}
 
+export default function AlbumCard({
+  album,
+  artworkUrl,
+  metadata,
+}: AlbumCardProps) {
   return (
     <Card
       variant="outlined"
       sx={{
         width: "50%",
-        height: 500,
+        maxHeight: "80vh",
+        overflow: "auto",
       }}
     >
       <CardOverflow>
         <AspectRatio ratio="4">
-          <img src={image.length > 0 ? image : "/img/wxyc_dark.jpg"} />
+          <img src={artworkUrl} />
         </AspectRatio>
         <Box
           sx={{
@@ -44,7 +56,7 @@ export default function AlbumCard({ album }: { album: AlbumEntry }) {
             backdropFilter: "blur(0.2rem)",
             pointerEvents: "none",
           }}
-        ></Box>
+        />
         <Box
           sx={{
             position: "absolute",
@@ -56,7 +68,7 @@ export default function AlbumCard({ album }: { album: AlbumEntry }) {
             borderTopLeftRadius: "var(--CardOverflow-radius)",
             bgcolor: "rgba(0,0,0,0.5)",
           }}
-        ></Box>
+        />
         <Box
           sx={{
             position: "absolute",
@@ -98,7 +110,7 @@ export default function AlbumCard({ album }: { album: AlbumEntry }) {
             {album.title}
           </Typography>
         </Box>
-        <ModalClose variant="solid" />;
+        <ModalClose variant="solid" />
       </CardOverflow>
       <CardContent>
         <Stack
@@ -115,7 +127,35 @@ export default function AlbumCard({ album }: { album: AlbumEntry }) {
             &nbsp;&nbsp; • &nbsp;&nbsp; {album?.format ?? ""}
           </Typography>
         </Stack>
-        No Reviews Yet!
+        {metadata && (
+          <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: "wrap", alignItems: "center" }}>
+            {metadata.label && (
+              <Typography level="body-sm">{metadata.label}</Typography>
+            )}
+            {metadata.label && metadata.releaseYear ? (
+              <Typography level="body-sm"> • </Typography>
+            ) : null}
+            {metadata.releaseYear ? (
+              <Typography level="body-sm">{metadata.releaseYear}</Typography>
+            ) : null}
+            {metadata.genres?.map((g) => (
+              <Chip key={g} size="sm" variant="soft">
+                {g}
+              </Chip>
+            ))}
+            {metadata.styles?.map((s) => (
+              <Chip key={s} size="sm" variant="outlined">
+                {s}
+              </Chip>
+            ))}
+          </Stack>
+        )}
+        <LibraryStatus album={album} />
+        <Box sx={{ mt: 1 }}>
+          <StreamingLinks metadata={metadata} />
+        </Box>
+        <Divider sx={{ my: 1 }} />
+        <Tracklist tracklist={metadata?.tracklist} />
       </CardContent>
       <CardOverflow
         variant="soft"
@@ -128,19 +168,36 @@ export default function AlbumCard({ album }: { album: AlbumEntry }) {
         }}
       >
         <Stack direction="row" spacing={1}>
-        <Typography
-          level="body-sm"
-          sx={{ fontWeight: "md", color: "text.secondary" }}
-        >
-          {album.plays ?? 0} plays
-        </Typography>
-        <Divider orientation="vertical" />
-        <Typography
-          level="body-sm"
-          sx={{ fontWeight: "md", color: "text.secondary" }}
-        >
-          Added {!album.add_date ? "Unknown Time" : new Date(album.add_date).toLocaleDateString()}
-        </Typography>
+          <Typography
+            level="body-sm"
+            sx={{ fontWeight: "md", color: "text.secondary" }}
+          >
+            {album.plays ?? 0} plays
+          </Typography>
+          <Divider orientation="vertical" />
+          <Typography
+            level="body-sm"
+            sx={{ fontWeight: "md", color: "text.secondary" }}
+          >
+            Added{" "}
+            {!album.add_date
+              ? "Unknown Time"
+              : new Date(album.add_date).toLocaleDateString()}
+          </Typography>
+          {metadata?.discogsUrl && (
+            <>
+              <Divider orientation="vertical" />
+              <Link
+                href={metadata.discogsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                level="body-sm"
+                sx={{ fontWeight: "md" }}
+              >
+                Discogs
+              </Link>
+            </>
+          )}
         </Stack>
       </CardOverflow>
     </Card>
