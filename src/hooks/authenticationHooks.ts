@@ -53,7 +53,7 @@ export const useLogin = () => {
       toast.success("Login successful");
 
       const user = (result as any).data?.user;
-      if (user && !user.realName) {
+      if (user && !user.hasCompletedOnboarding) {
         router.push("/login?incomplete=true");
       } else {
         router.push(dashboardHome);
@@ -127,7 +127,7 @@ export const useOTPVerify = () => {
       const dashboardHome = String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog");
 
       const user = (result as any).data?.user;
-      if (user && !user.realName) {
+      if (user && !user.hasCompletedOnboarding) {
         router.push("/login?incomplete=true");
       } else {
         router.push(dashboardHome);
@@ -270,7 +270,7 @@ export const useNewUser = () => {
         throw new Error("You must be authenticated to update your profile");
       }
 
-      const updateRequest: any = {};
+      const updateRequest: any = { hasCompletedOnboarding: true };
       if (params.realName) {
         updateRequest.realName = params.realName;
       }

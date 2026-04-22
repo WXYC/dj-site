@@ -360,6 +360,7 @@ export function createTestBetterAuthSession(
       emailVerified: true,
       realName: "Test User",
       djName: "DJ Test",
+      hasCompletedOnboarding: true,
       role: "dj",
       createdAt: new Date("2024-01-01"),
       updatedAt: new Date("2024-01-01"),
@@ -379,6 +380,8 @@ export function createTestIncompleteSession(
   missingFields: ("realName" | "djName")[] = ["realName", "djName"]
 ): BetterAuthSession {
   const session = createTestBetterAuthSession();
+
+  session.user.hasCompletedOnboarding = false;
 
   if (missingFields.includes("realName")) {
     session.user.realName = undefined;

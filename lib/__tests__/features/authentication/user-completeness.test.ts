@@ -24,70 +24,19 @@ import {
 } from "@/lib/test-utils";
 
 describe("isUserIncomplete", () => {
-  it("should return false for complete user", () => {
+  it("should return false for complete user with hasCompletedOnboarding true", () => {
     const session = createTestBetterAuthSession();
 
     expect(isUserIncomplete(session)).toBe(false);
   });
 
-  it("should return true when realName is missing", () => {
+  it("should return true when hasCompletedOnboarding is false", () => {
     const session = createTestIncompleteSession(["realName"]);
 
     expect(isUserIncomplete(session)).toBe(true);
   });
 
-  it("should return true when djName is missing", () => {
-    const session = createTestIncompleteSession(["djName"]);
-
-    expect(isUserIncomplete(session)).toBe(true);
-  });
-
-  it("should return true when realName is empty string", () => {
-    const session = createTestBetterAuthSession({
-      user: {
-        id: "test-id",
-        email: "test@wxyc.org",
-        name: "test",
-        emailVerified: true,
-        realName: "",
-        djName: "DJ Test",
-      },
-    });
-
-    expect(isUserIncomplete(session)).toBe(true);
-  });
-
-  it("should return true when realName is whitespace only", () => {
-    const session = createTestBetterAuthSession({
-      user: {
-        id: "test-id",
-        email: "test@wxyc.org",
-        name: "test",
-        emailVerified: true,
-        realName: "   ",
-        djName: "DJ Test",
-      },
-    });
-
-    expect(isUserIncomplete(session)).toBe(true);
-  });
-
-  it("should return true when djName is whitespace only", () => {
-    const session = createTestBetterAuthSession({
-      user: {
-        id: "test-id",
-        email: "test@wxyc.org",
-        name: "test",
-        emailVerified: true,
-        realName: "Valid Name",
-        djName: "   ",
-      },
-    });
-
-    expect(isUserIncomplete(session)).toBe(true);
-  });
-
-  it("should return false when both names have valid values", () => {
+  it("should return true when hasCompletedOnboarding is false even if all profile fields are filled", () => {
     const session = createTestBetterAuthSession({
       user: {
         id: "test-id",
@@ -96,14 +45,41 @@ describe("isUserIncomplete", () => {
         emailVerified: true,
         realName: "Valid Real Name",
         djName: "Valid DJ Name",
+        hasCompletedOnboarding: false,
+      },
+    });
+
+    expect(isUserIncomplete(session)).toBe(true);
+  });
+
+  it("should return false when hasCompletedOnboarding is true even if realName is empty", () => {
+    const session = createTestBetterAuthSession({
+      user: {
+        id: "test-id",
+        email: "test@wxyc.org",
+        name: "test",
+        emailVerified: true,
+        realName: "",
+        djName: "DJ Test",
+        hasCompletedOnboarding: true,
       },
     });
 
     expect(isUserIncomplete(session)).toBe(false);
   });
 
-  it("should return true when both names are missing", () => {
-    const session = createTestIncompleteSession(["realName", "djName"]);
+  it("should return true when hasCompletedOnboarding is undefined", () => {
+    const session = createTestBetterAuthSession({
+      user: {
+        id: "test-id",
+        email: "test@wxyc.org",
+        name: "test",
+        emailVerified: true,
+        realName: "Valid Name",
+        djName: "DJ Test",
+        hasCompletedOnboarding: undefined,
+      },
+    });
 
     expect(isUserIncomplete(session)).toBe(true);
   });
