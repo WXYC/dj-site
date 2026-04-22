@@ -2,7 +2,7 @@ name: E2E Tests
 
 on:
   push:
-    branches: [main, new-authentication-provider]
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -11,6 +11,10 @@ on:
         description: 'Backend-Service branch/tag to use'
         required: false
         default: 'main'
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   # Frontend configuration

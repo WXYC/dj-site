@@ -2,7 +2,7 @@ name: Cloudflare Deployment Status Monitor
 
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '0 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -13,8 +13,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Check required configuration
+        id: config
+        run: |
+          if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ] || [ -z "${{ vars.CLOUDFLARE_ACCOUNT_ID }}" ]; then
+            echo "::warning::Skipping deployment check — CLOUDFLARE_API_TOKEN secret and/or CLOUDFLARE_ACCOUNT_ID variable not configured in repo settings."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Query Cloudflare API for latest production deployment
         id: query
+        if: steps.config.outputs.configured == 'true'
         run: |
           RESPONSE=$(curl -sf \
             -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
@@ -31,7 +42,7 @@ jobs:
           echo "commit_msg=$COMMIT_MSG" >> "$GITHUB_OUTPUT"
 
       - name: Handle deployment failure
-        if: steps.query.outputs.status == 'failure'
+        if: steps.config.outputs.configured == 'true' && steps.query.outputs.status == 'failure'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEPLOY_ID: ${{ steps.query.outputs.deploy_id }}
@@ -67,7 +78,7 @@ jobs:
           fi
 
       - name: Handle deployment recovery
-        if: steps.query.outputs.status == 'success'
+        if: steps.config.outputs.configured == 'true' && steps.query.outputs.status == 'success'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COMMIT_SHA: ${{ steps.query.outputs.commit_sha }}
