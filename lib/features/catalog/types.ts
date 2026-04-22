@@ -15,6 +15,7 @@ export type SearchCatalogQueryParams = {
   artist_name: string | undefined;
   album_title: string | undefined;
   n: number | undefined;
+  on_streaming?: boolean;
 };
 
 export type AlbumParams = {
@@ -70,6 +71,7 @@ export type CatalogSearchState = {
   query: string;
   in: SearchIn;
   genre: Genre | "All";
+  exclusive: boolean;
   mobileOpen: boolean;
   params: {
     n: number;

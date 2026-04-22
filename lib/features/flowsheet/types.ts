@@ -57,6 +57,7 @@ export type FlowsheetSongBase = {
   album_id?: number;
   rotation_id?: number;
   rotation?: Rotation;
+  on_streaming?: boolean;
 };
 
 export type FlowsheetSongEntry = FlowsheetEntryBase & FlowsheetSongBase;

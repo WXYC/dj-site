@@ -3,6 +3,7 @@
 import { Genre, SearchIn } from "@/lib/features/catalog/types";
 import { useCatalogSearch } from "@/src/hooks/catalogHooks";
 import {
+  Checkbox,
   ColorPaletteProp,
   FormControl,
   FormLabel,
@@ -12,7 +13,7 @@ import {
 import React from "react";
 
 export const Filters = ({ color }: { color: ColorPaletteProp | undefined }) => {
-  const { setSearchIn, setSearchGenre } = useCatalogSearch();
+  const { setSearchIn, setSearchGenre, exclusive, setExclusiveFilter } = useCatalogSearch();
 
   return (
     <React.Fragment>
@@ -49,6 +50,21 @@ export const Filters = ({ color }: { color: ColorPaletteProp | undefined }) => {
           <Option value="Classical">Classical</Option>
           <Option value="Soundtrack">Soundtrack</Option>
         </Select>
+      </FormControl>
+      <FormControl size="sm" sx={{ flex: "none", justifyContent: "flex-end" }}>
+        <Checkbox
+          label="Exclusives Only"
+          checked={exclusive}
+          onChange={(e) => setExclusiveFilter(e.target.checked)}
+          sx={{
+            "& .MuiCheckbox-checkbox": {
+              "&.Mui-checked": {
+                backgroundColor: "#7B2D8E",
+                borderColor: "#7B2D8E",
+              },
+            },
+          }}
+        />
       </FormControl>
     </React.Fragment>
   );

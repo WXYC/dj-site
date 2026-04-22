@@ -6,6 +6,7 @@ export const defaultCatalogFrontendState: CatalogFrontendState = {
     in: "All",
     query: "",
     genre: "All",
+    exclusive: false,
     mobileOpen: false,
     params: {
       n: 10,
@@ -31,6 +32,9 @@ export const catalogSlice = createAppSlice({
     },
     setSearchGenre: (state, action) => {
       state.search.genre = action.payload;
+    },
+    setExclusiveFilter: (state, action) => {
+      state.search.exclusive = action.payload;
     },
     openMobileSearch: (state) => {
       state.search.mobileOpen = true;
@@ -68,6 +72,7 @@ export const catalogSlice = createAppSlice({
     getSearchParams: (state) => state.search.params,
     getSearchIn: (state) => state.search.in,
     getSearchGenre: (state) => state.search.genre,
+    getExclusiveFilter: (state) => state.search.exclusive,
     isMobileSearchOpen: (state) => state.search.mobileOpen,
     getSelected: (state) => state.results.selected,
   },

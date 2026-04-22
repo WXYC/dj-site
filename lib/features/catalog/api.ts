@@ -16,9 +16,9 @@ export const catalogApi = createApi({
   tagTypes: ["Rotation"],
   endpoints: (builder) => ({
     searchCatalog: builder.query<AlbumEntry[], SearchCatalogQueryParams>({
-      query: ({ artist_name, album_title, n }) => ({
+      query: ({ artist_name, album_title, n, on_streaming }) => ({
         url: "/",
-        params: { artist_name, album_title, n },
+        params: { artist_name, album_title, n, on_streaming },
       }),
       transformResponse: (response: AlbumSearchResultJSON[]) =>
         response.map(convertToAlbumEntry),

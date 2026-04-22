@@ -178,6 +178,25 @@ describeSlice(catalogSlice, defaultCatalogFrontendState, ({ harness, actions }) 
     });
   });
 
+  describe("exclusive filter actions", () => {
+    it("should set exclusive filter to true", () => {
+      const result = harness().reduce(actions.setExclusiveFilter(true));
+      expect(result.search.exclusive).toBe(true);
+    });
+
+    it("should set exclusive filter back to false", () => {
+      const result = harness().chain(
+        actions.setExclusiveFilter(true),
+        actions.setExclusiveFilter(false)
+      );
+      expect(result.search.exclusive).toBe(false);
+    });
+
+    it("should default exclusive to false", () => {
+      expect(harness().initialState.search.exclusive).toBe(false);
+    });
+  });
+
   describe("selection actions", () => {
     it("should set selection", () => {
       const result = harness().reduce(actions.setSelection([1, 2, 3]));
@@ -290,6 +309,13 @@ describeSlice(catalogSlice, defaultCatalogFrontendState, ({ harness, actions }) 
       const { dispatch, select } = harness().withStore();
       dispatch(actions.setSearchGenre("Rock"));
       expect(select(catalogSlice.selectors.getSearchGenre)).toBe("Rock");
+    });
+
+    it("should select exclusive filter", () => {
+      const { dispatch, select } = harness().withStore();
+      expect(select(catalogSlice.selectors.getExclusiveFilter)).toBe(false);
+      dispatch(actions.setExclusiveFilter(true));
+      expect(select(catalogSlice.selectors.getExclusiveFilter)).toBe(true);
     });
 
     it("should select mobile search open state", () => {

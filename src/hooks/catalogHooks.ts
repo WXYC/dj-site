@@ -9,16 +9,20 @@ import {
 export function formatCatalogSearchQuery(
   searchIn: SearchIn,
   searchString: string,
-  n: number
+  n: number,
+  exclusive: boolean = false
 ): SearchCatalogQueryParams {
-  switch (searchIn) {
-    case "Albums":
-      return { artist_name: undefined, album_title: searchString, n };
-    case "Artists":
-      return { artist_name: searchString, album_title: undefined, n };
-    default:
-      return { artist_name: searchString, album_title: searchString, n };
-  }
+  const base = (() => {
+    switch (searchIn) {
+      case "Albums":
+        return { artist_name: undefined, album_title: searchString, n };
+      case "Artists":
+        return { artist_name: searchString, album_title: undefined, n };
+      default:
+        return { artist_name: searchString, album_title: searchString, n };
+    }
+  })();
+  return exclusive ? { ...base, on_streaming: false } : base;
 }
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
@@ -45,6 +49,10 @@ export const useCatalogSearch = () => {
     dispatch(catalogSlice.actions.setSelection(ids));
   const clearSelection = () => dispatch(catalogSlice.actions.clearSelection());
   const selected = useAppSelector(catalogSlice.selectors.getSelected);
+
+  const exclusive = useAppSelector(catalogSlice.selectors.getExclusiveFilter);
+  const setExclusiveFilter = (value: boolean) =>
+    dispatch(catalogSlice.actions.setExclusiveFilter(value));
 
   const { n, orderBy, orderDirection } = useAppSelector(
     catalogSlice.selectors.getSearchParams
@@ -82,6 +90,8 @@ export const useCatalogSearch = () => {
     setSelection,
     clearSelection,
     selected,
+    exclusive,
+    setExclusiveFilter,
     n,
   };
 };
@@ -105,6 +115,7 @@ export const useCatalogResults = () => {
   const { authenticating, authenticated } = useAuthentication();
 
   const searchIn = useAppSelector(catalogSlice.selectors.getSearchIn);
+  const exclusive = useAppSelector(catalogSlice.selectors.getExclusiveFilter);
   const [formattedQuery, setFormattedQuery] =
     useState<SearchCatalogQueryParams>({
       artist_name: undefined,
@@ -125,10 +136,10 @@ export const useCatalogResults = () => {
       setTimeout(() => {
         setLoading(true);
         clearSelection();
-        setFormattedQuery(formatCatalogSearchQuery(searchIn, searchString, n));
+        setFormattedQuery(formatCatalogSearchQuery(searchIn, searchString, n, exclusive));
       }, 500)
     );
-  }, [searchIn, searchString, n]);
+  }, [searchIn, searchString, n, exclusive]);
 
   useEffect(() => {
     setReachedEndForQuery(false);
