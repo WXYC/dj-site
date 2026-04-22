@@ -2,14 +2,15 @@
 
 import { authClient } from "@/lib/features/authentication/client";
 import { adminSlice } from "@/lib/features/admin/frontend";
-import { NewAccountParams, Authorization } from "@/lib/features/admin/types";
+import { NewAccountParams, Authorization, ROSTER_PAGE_SIZE } from "@/lib/features/admin/types";
 import { User, WXYCRole } from "@/lib/features/authentication/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useAccountListResults } from "@/src/hooks/adminHooks";
-import { Add, GppBad } from "@mui/icons-material";
+import { Add, GppBad, KeyboardArrowLeft, KeyboardArrowRight } from "@mui/icons-material";
 import {
   Button,
   CircularProgress,
+  IconButton,
   Sheet,
   Stack,
   Table,
@@ -55,6 +56,9 @@ export default function RosterTable({ user }: { user: User }) {
 
   const dispatch = useAppDispatch();
   const isAdding = useAppSelector(adminSlice.selectors.getAdding);
+  const page = useAppSelector(adminSlice.selectors.getPage);
+  const totalAccounts = useAppSelector(adminSlice.selectors.getTotalAccounts);
+  const totalPages = Math.max(1, Math.ceil(totalAccounts / ROSTER_PAGE_SIZE));
   const canCreateUser = user.authority >= Authorization.SM;
 
   const authorizationOfNewAccount = useAppSelector(
@@ -298,6 +302,37 @@ export default function RosterTable({ user }: { user: User }) {
             )}
           </tbody>
         </Table>
+        {!isLoading && totalPages > 1 && (
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{ py: 2, justifyContent: "center", alignItems: "center" }}
+          >
+            <IconButton
+              size="sm"
+              color="success"
+              variant="outlined"
+              disabled={page === 0}
+              onClick={() => dispatch(adminSlice.actions.setPage(page - 1))}
+              aria-label="Previous page"
+            >
+              <KeyboardArrowLeft />
+            </IconButton>
+            <Typography level="body-sm">
+              Page {page + 1} of {totalPages}
+            </Typography>
+            <IconButton
+              size="sm"
+              color="success"
+              variant="outlined"
+              disabled={page >= totalPages - 1}
+              onClick={() => dispatch(adminSlice.actions.setPage(page + 1))}
+              aria-label="Next page"
+            >
+              <KeyboardArrowRight />
+            </IconButton>
+          </Stack>
+        )}
       </form>
     </Sheet>
   );

@@ -3,7 +3,7 @@ import {
   adminSlice,
   defaultAdminFrontendState,
 } from "@/lib/features/admin/frontend";
-import { Authorization } from "@/lib/features/admin/types";
+import { Authorization, ROSTER_PAGE_SIZE } from "@/lib/features/admin/types";
 import {
   authorizationToRole,
   AUTHORIZATION_LABELS,
@@ -45,6 +45,14 @@ describeSlice(adminSlice, defaultAdminFrontendState, ({ harness, actions }) => {
     it("should have formData with DJ authorization", () => {
       expect(harness().initialState.formData.authorization).toBe(Authorization.DJ);
     });
+
+    it("should have page set to 0", () => {
+      expect(harness().initialState.page).toBe(0);
+    });
+
+    it("should have totalAccounts set to 0", () => {
+      expect(harness().initialState.totalAccounts).toBe(0);
+    });
   });
 
   describe("setSearchString action", () => {
@@ -59,6 +67,36 @@ describeSlice(adminSlice, defaultAdminFrontendState, ({ harness, actions }) => {
         actions.setSearchString("")
       );
       expect(result.searchString).toBe("");
+    });
+
+    it("should reset page to 0 when search changes", () => {
+      const result = harness().chain(
+        actions.setPage(3),
+        actions.setSearchString("test")
+      );
+      expect(result.page).toBe(0);
+    });
+  });
+
+  describe("setPage action", () => {
+    it("should set page", () => {
+      const result = harness().reduce(actions.setPage(2));
+      expect(result.page).toBe(2);
+    });
+
+    it("should allow setting page back to 0", () => {
+      const result = harness().chain(
+        actions.setPage(5),
+        actions.setPage(0)
+      );
+      expect(result.page).toBe(0);
+    });
+  });
+
+  describe("setTotalAccounts action", () => {
+    it("should set totalAccounts", () => {
+      const result = harness().reduce(actions.setTotalAccounts(147));
+      expect(result.totalAccounts).toBe(147);
     });
   });
 
@@ -125,6 +163,12 @@ describeSlice(adminSlice, defaultAdminFrontendState, ({ harness, actions }) => {
     });
   });
 
+  describe("ROSTER_PAGE_SIZE constant", () => {
+    it("should be 50", () => {
+      expect(ROSTER_PAGE_SIZE).toBe(50);
+    });
+  });
+
   // Note: Selector tests are skipped because adminSlice and applicationSlice
   // both use name: "application" which causes a conflict in combineSlices.
   describe("selectors", () => {
@@ -143,6 +187,18 @@ describeSlice(adminSlice, defaultAdminFrontendState, ({ harness, actions }) => {
     describe("getFormData", () => {
       it("should be defined", () => {
         expect(adminSlice.selectors.getFormData).toBeDefined();
+      });
+    });
+
+    describe("getPage", () => {
+      it("should be defined", () => {
+        expect(adminSlice.selectors.getPage).toBeDefined();
+      });
+    });
+
+    describe("getTotalAccounts", () => {
+      it("should be defined", () => {
+        expect(adminSlice.selectors.getTotalAccounts).toBeDefined();
       });
     });
   });

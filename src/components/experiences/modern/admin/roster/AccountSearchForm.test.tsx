@@ -8,7 +8,7 @@ describe("AccountSearchForm", () => {
   it("should render search input", () => {
     renderWithProviders(<AccountSearchForm />);
 
-    expect(screen.getByPlaceholderText("Search Roster")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Search by Name")).toBeInTheDocument();
   });
 
   it("should not show clear button when search is empty", () => {
@@ -20,7 +20,7 @@ describe("AccountSearchForm", () => {
   it("should update Redux state when typing", async () => {
     const { user, store } = renderWithProviders(<AccountSearchForm />);
 
-    const input = screen.getByPlaceholderText("Search Roster");
+    const input = screen.getByPlaceholderText("Search by Name");
     await user.type(input, "test search");
 
     expect(adminSlice.selectors.getSearchString(store.getState())).toBe("test search");
@@ -29,7 +29,7 @@ describe("AccountSearchForm", () => {
   it("should show clear button when search has value", async () => {
     const { user } = renderWithProviders(<AccountSearchForm />);
 
-    const input = screen.getByPlaceholderText("Search Roster");
+    const input = screen.getByPlaceholderText("Search by Name");
     await user.type(input, "test");
 
     expect(screen.getByRole("button")).toBeInTheDocument();
@@ -38,7 +38,7 @@ describe("AccountSearchForm", () => {
   it("should clear search when clear button is clicked", async () => {
     const { user, store } = renderWithProviders(<AccountSearchForm />);
 
-    const input = screen.getByPlaceholderText("Search Roster");
+    const input = screen.getByPlaceholderText("Search by Name");
     await user.type(input, "test search");
     expect(adminSlice.selectors.getSearchString(store.getState())).toBe("test search");
 
@@ -51,7 +51,7 @@ describe("AccountSearchForm", () => {
   it("should have success color styling", () => {
     renderWithProviders(<AccountSearchForm />);
 
-    const input = screen.getByPlaceholderText("Search Roster");
+    const input = screen.getByPlaceholderText("Search by Name");
     expect(input.closest(".MuiInput-root")).toHaveClass("MuiInput-colorSuccess");
   });
 });

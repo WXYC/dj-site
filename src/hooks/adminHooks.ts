@@ -1,10 +1,11 @@
 import { authClient } from "@/lib/features/authentication/client";
 import { adminSlice } from "@/lib/features/admin/frontend";
-import { useAppSelector } from "@/lib/hooks";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { convertBetterAuthToAccountResult, BetterAuthUser } from "@/lib/features/admin/conversions-better-auth";
-import { Account } from "@/lib/features/admin/types";
-import { useMemo, useEffect, useState, useCallback } from "react";
+import { Account, ROSTER_PAGE_SIZE } from "@/lib/features/admin/types";
+import { useEffect, useState, useCallback } from "react";
 import { throwIfBetterAuthError } from "@/src/utilities/throwIfBetterAuthError";
+import { useDebouncedValue } from "@/src/hooks/useDebouncedValue";
 
 /**
  * Get the organization ID from environment variable
@@ -34,7 +35,10 @@ export const useAccountListResults = () => {
   const [isError, setIsError] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
+  const dispatch = useAppDispatch();
   const searchString = useAppSelector(adminSlice.selectors.getSearchString);
+  const page = useAppSelector(adminSlice.selectors.getPage);
+  const debouncedSearch = useDebouncedValue(searchString, 300);
 
   const fetchAccounts = useCallback(async () => {
     setIsLoading(true);
@@ -42,13 +46,22 @@ export const useAccountListResults = () => {
     setError(null);
 
     try {
-      // Fetch all users
-      const result = await authClient.admin.listUsers({
-        query: {
-          limit: 1000,
-          offset: 0,
-        },
-      });
+      // Build server-side query with filtering and pagination
+      const query: Record<string, unknown> = {
+        limit: ROSTER_PAGE_SIZE,
+        offset: page * ROSTER_PAGE_SIZE,
+        filterField: "isAnonymous",
+        filterValue: "false",
+        filterOperator: "eq",
+      };
+
+      if (debouncedSearch.length > 0) {
+        query.searchValue = debouncedSearch;
+        query.searchField = "name";
+        query.searchOperator = "contains";
+      }
+
+      const result = await authClient.admin.listUsers({ query });
 
       throwIfBetterAuthError(result, "Failed to fetch users");
 
@@ -69,11 +82,8 @@ export const useAccountListResults = () => {
         responseData = JSON.parse(responseData as string);
       }
 
-      // Filter out anonymous users (created by the anonymous auth plugin for unauthenticated visitors)
-      const parsed = responseData as { users?: { isAnonymous?: boolean }[] };
-      const users = (parsed?.users || []).filter(
-        (user) => !user.isAnonymous
-      );
+      const parsed = responseData as { users?: unknown[]; total?: number };
+      const users = parsed?.users || [];
 
       // Fetch organization members to get accurate roles
       let memberRoleMap = new Map<string, string>();
@@ -105,38 +115,21 @@ export const useAccountListResults = () => {
         return convertBetterAuthToAccountResult(betterAuthUser);
       });
       setAccounts(convertedAccounts);
+      dispatch(adminSlice.actions.setTotalAccounts(parsed?.total ?? 0));
     } catch (err) {
       setIsError(true);
       setError(err instanceof Error ? err : new Error(String(err)));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [debouncedSearch, page, dispatch]);
 
   useEffect(() => {
     fetchAccounts();
   }, [fetchAccounts]);
 
-  const filteredData = useMemo(() => {
-    if (searchString.length > 0) {
-      return (
-        accounts.filter(
-          (account) =>
-            account.userName
-              .toLowerCase()
-              .includes(searchString.toLowerCase()) ||
-            account.realName
-              .toLowerCase()
-              .includes(searchString.toLowerCase()) ||
-            (account.djName?.toLowerCase().includes(searchString.toLowerCase()) ?? false)
-        ) ?? []
-      );
-    }
-    return accounts ?? [];
-  }, [accounts, searchString]);
-
   return {
-    data: filteredData,
+    data: accounts,
     isLoading,
     isError,
     error,
