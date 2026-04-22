@@ -110,11 +110,12 @@ export default function NowPlaying({ mini = false }: NowPlayingWidgetProps) {
         cancelAnimationFrame(animationFrameRef.current);
       }
 
-      // Pause and cleanup audio
+      // Pause and tear down stream connection
       const audio = audioRef.current;
       if (audio) {
         audio.pause();
-        audio.src = "";
+        audio.removeAttribute("src");
+        audio.load();
       }
 
       // Close audio context

@@ -1,22 +1,8 @@
 import { test, expect } from "../../fixtures/auth.fixture";
+import { NowPlayingPage } from "../../pages/now-playing.page";
 import path from "path";
 
 const authDir = path.join(__dirname, "../../.auth");
-const AUDIO_STREAM_URL = "audio-mp3.ibiblio.org";
-
-/** Dispatch a synthetic play event so React flips isPlaying to true. */
-async function simulatePlay(page: import("@playwright/test").Page) {
-  await page.evaluate(() => {
-    document.querySelector("#now-playing-music")?.dispatchEvent(new Event("play"));
-  });
-}
-
-/** Dispatch a synthetic pause event so React flips isPlaying to false. */
-async function simulatePause(page: import("@playwright/test").Page) {
-  await page.evaluate(() => {
-    document.querySelector("#now-playing-music")?.dispatchEvent(new Event("pause"));
-  });
-}
 
 /**
  * NowPlaying Audio Stream E2E Tests
@@ -31,83 +17,58 @@ test.describe("NowPlaying audio stream", () => {
   test.use({ storageState: path.join(authDir, "dj2.json") });
 
   test("should not fetch audio stream on page load", async ({ page }) => {
-    const audioRequests: string[] = [];
-    page.on("request", (req) => {
-      if (req.url().includes(AUDIO_STREAM_URL)) {
-        audioRequests.push(req.url());
-      }
-    });
+    const nowPlaying = new NowPlayingPage(page);
+    const requests = nowPlaying.trackAudioRequests();
 
     await page.goto("/dashboard/flowsheet");
     await page.waitForLoadState("domcontentloaded");
     // Wait long enough for any preload to have started
     await page.waitForTimeout(2000);
 
-    expect(audioRequests).toHaveLength(0);
+    expect(requests).toHaveLength(0);
   });
 
-  test("should have audio element with no src and preload=none", async ({
-    page,
-  }) => {
+  test("should have audio element with no src and preload=none", async ({ page }) => {
+    const nowPlaying = new NowPlayingPage(page);
+
     await page.goto("/dashboard/flowsheet");
     await page.waitForLoadState("domcontentloaded");
 
-    const audio = page.locator("#now-playing-music");
-    await expect(audio).toHaveAttribute("preload", "none");
-    // The audio element should not have a src attribute at all
-    const src = await audio.getAttribute("src");
-    expect(src).toBeNull();
+    await nowPlaying.expectPreloadNone();
+    await nowPlaying.expectNoSrc();
   });
 
   test("should set src on play and remove it on stop", async ({ page }) => {
-    // Block the actual stream so we don't download audio in CI
-    await page.route(`**/${AUDIO_STREAM_URL}/**`, (route) => route.abort());
+    const nowPlaying = new NowPlayingPage(page);
+    await nowPlaying.blockAudioStream();
 
     await page.goto("/dashboard/flowsheet");
     await page.waitForLoadState("domcontentloaded");
 
-    const audio = page.locator("#now-playing-music");
-    const playButton = page.getByRole("button", { name: "Play audio" });
+    await nowPlaying.expectNoSrc();
 
-    // Before play: no src
-    expect(await audio.getAttribute("src")).toBeNull();
+    await nowPlaying.play();
+    await nowPlaying.expectStreamSrc();
 
-    // Click play — src should be set on the audio element
-    await playButton.click();
-    await expect(audio).toHaveAttribute("src", /audio-mp3\.ibiblio\.org/);
-
-    // The actual audio.play() fails because we aborted the route, so
-    // isPlaying never becomes true and the button stays "Play audio".
-    // Dispatch synthetic play/pause events to drive the React state
-    // through the full play → stop cycle.
-    await simulatePlay(page);
-
-    const pauseButton = page.getByRole("button", { name: "Pause audio" });
-    await pauseButton.click();
-    await simulatePause(page);
-    await expect(audio).not.toHaveAttribute("src");
+    await nowPlaying.stop();
+    await nowPlaying.expectNoSrc();
   });
 
   test("should reconnect stream on second play", async ({ page }) => {
-    await page.route(`**/${AUDIO_STREAM_URL}/**`, (route) => route.abort());
+    const nowPlaying = new NowPlayingPage(page);
+    await nowPlaying.blockAudioStream();
 
     await page.goto("/dashboard/flowsheet");
     await page.waitForLoadState("domcontentloaded");
 
-    const audio = page.locator("#now-playing-music");
-
-    // Play → verify src set
-    await page.getByRole("button", { name: "Play audio" }).click();
-    await expect(audio).toHaveAttribute("src", /audio-mp3\.ibiblio\.org/);
-
-    // Stop
-    await simulatePlay(page);
-    await page.getByRole("button", { name: "Pause audio" }).click();
-    await simulatePause(page);
-    await expect(audio).not.toHaveAttribute("src");
+    // Play → stop
+    await nowPlaying.play();
+    await nowPlaying.expectStreamSrc();
+    await nowPlaying.stop();
+    await nowPlaying.expectNoSrc();
 
     // Play again — should reconnect
-    await page.getByRole("button", { name: "Play audio" }).click();
-    await expect(audio).toHaveAttribute("src", /audio-mp3\.ibiblio\.org/);
+    await nowPlaying.play();
+    await nowPlaying.expectStreamSrc();
   });
 });
