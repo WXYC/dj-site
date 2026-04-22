@@ -1,4 +1,4 @@
-import { test, expect, TEST_USERS, getSessionCookies, expireUserSession } from "../../fixtures/auth.fixture";
+import { test, expect, TEST_USERS, getSessionCookies } from "../../fixtures/auth.fixture";
 import { LoginPage } from "../../pages/login.page";
 import { DashboardPage } from "../../pages/dashboard.page";
 

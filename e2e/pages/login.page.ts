@@ -71,7 +71,9 @@ export class LoginPage {
   async switchToPasswordLogin(): Promise<void> {
     await this.switchToPasswordLink.waitFor({ state: "visible", timeout: 15000 });
     await this.switchToPasswordLink.click();
-    await this.usernameInput.waitFor({ state: "visible", timeout: 5000 });
+    // Wait for the OTP form to unmount before checking for the password form
+    await this.otpEmailInput.waitFor({ state: "hidden", timeout: 10000 });
+    await this.usernameInput.waitFor({ state: "visible", timeout: 10000 });
   }
 
   async gotoWithToken(token: string): Promise<void> {

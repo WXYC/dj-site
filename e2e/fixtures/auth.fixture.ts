@@ -25,8 +25,9 @@ export async function login(
   await passwordLink.waitFor({ state: "visible", timeout: 15000 });
   await passwordLink.click();
 
-  // Wait for the password login form to be ready
-  await page.waitForSelector('input[name="username"]');
+  // Wait for the OTP form to unmount before checking for the password form
+  await page.waitForSelector('input[name="email"]', { state: "hidden", timeout: 10000 });
+  await page.waitForSelector('input[name="username"]', { timeout: 10000 });
   await page.fill('input[name="username"]', user.username);
   await page.fill('input[name="password"]', user.password);
   await page.click('button[type="submit"]');
