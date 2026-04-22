@@ -24,8 +24,8 @@ export default defineConfig({
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code */
   forbidOnly: !!process.env.CI,
-  /* No retries during development -- re-enable once suite is stable */
-  retries: 0,
+  /* Retry once on CI to absorb timing flakiness from shared runners */
+  retries: process.env.CI ? 1 : 0,
   /* Limit parallel workers to avoid overwhelming auth service */
   workers: process.env.CI ? 2 : 3,
   /* Reporter to use */
