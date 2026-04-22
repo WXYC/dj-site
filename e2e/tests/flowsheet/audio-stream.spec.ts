@@ -46,7 +46,7 @@ test.describe("NowPlaying audio stream", () => {
   });
 
   test("should set src on play and remove it on stop", async ({ page }) => {
-    // Block the actual stream request so the test doesn't hang downloading audio
+    // Block the actual stream so we don't download audio in CI
     await page.route(`**/${AUDIO_STREAM_URL}/**`, (route) => route.abort());
 
     await page.goto("/dashboard/flowsheet");
@@ -58,15 +58,22 @@ test.describe("NowPlaying audio stream", () => {
     // Before play: no src
     expect(await audio.getAttribute("src")).toBeNull();
 
-    // Click play — src should be set
+    // Click play — src should be set on the audio element
     await playButton.click();
     await expect(audio).toHaveAttribute("src", /audio-mp3\.ibiblio\.org/);
 
-    // Click pause/stop — src should be removed
+    // The actual audio.play() fails because we aborted the route, so
+    // isPlaying never becomes true and the button stays "Play audio".
+    // Manually fire the play event to simulate successful playback so
+    // the React state flips and the button becomes "Pause audio".
+    await page.evaluate(() => {
+      const el = document.querySelector("#now-playing-music");
+      el?.dispatchEvent(new Event("play"));
+    });
+
+    // Now click pause — src should be removed
     const pauseButton = page.getByRole("button", { name: "Pause audio" });
     await pauseButton.click();
-
-    // After stop: src should be cleared
     await expect(audio).not.toHaveAttribute("src");
   });
 
@@ -78,9 +85,15 @@ test.describe("NowPlaying audio stream", () => {
 
     const audio = page.locator("#now-playing-music");
 
-    // Play → stop
+    // Play → verify src set
     await page.getByRole("button", { name: "Play audio" }).click();
     await expect(audio).toHaveAttribute("src", /audio-mp3\.ibiblio\.org/);
+
+    // Simulate successful playback, then stop
+    await page.evaluate(() => {
+      const el = document.querySelector("#now-playing-music");
+      el?.dispatchEvent(new Event("play"));
+    });
     await page.getByRole("button", { name: "Pause audio" }).click();
     await expect(audio).not.toHaveAttribute("src");
 
