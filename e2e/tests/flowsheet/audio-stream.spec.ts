@@ -4,6 +4,20 @@ import path from "path";
 const authDir = path.join(__dirname, "../../.auth");
 const AUDIO_STREAM_URL = "audio-mp3.ibiblio.org";
 
+/** Dispatch a synthetic play event so React flips isPlaying to true. */
+async function simulatePlay(page: import("@playwright/test").Page) {
+  await page.evaluate(() => {
+    document.querySelector("#now-playing-music")?.dispatchEvent(new Event("play"));
+  });
+}
+
+/** Dispatch a synthetic pause event so React flips isPlaying to false. */
+async function simulatePause(page: import("@playwright/test").Page) {
+  await page.evaluate(() => {
+    document.querySelector("#now-playing-music")?.dispatchEvent(new Event("pause"));
+  });
+}
+
 /**
  * NowPlaying Audio Stream E2E Tests
  *
@@ -64,16 +78,13 @@ test.describe("NowPlaying audio stream", () => {
 
     // The actual audio.play() fails because we aborted the route, so
     // isPlaying never becomes true and the button stays "Play audio".
-    // Manually fire the play event to simulate successful playback so
-    // the React state flips and the button becomes "Pause audio".
-    await page.evaluate(() => {
-      const el = document.querySelector("#now-playing-music");
-      el?.dispatchEvent(new Event("play"));
-    });
+    // Dispatch synthetic play/pause events to drive the React state
+    // through the full play → stop cycle.
+    await simulatePlay(page);
 
-    // Now click pause — src should be removed
     const pauseButton = page.getByRole("button", { name: "Pause audio" });
     await pauseButton.click();
+    await simulatePause(page);
     await expect(audio).not.toHaveAttribute("src");
   });
 
@@ -89,12 +100,10 @@ test.describe("NowPlaying audio stream", () => {
     await page.getByRole("button", { name: "Play audio" }).click();
     await expect(audio).toHaveAttribute("src", /audio-mp3\.ibiblio\.org/);
 
-    // Simulate successful playback, then stop
-    await page.evaluate(() => {
-      const el = document.querySelector("#now-playing-music");
-      el?.dispatchEvent(new Event("play"));
-    });
+    // Stop
+    await simulatePlay(page);
     await page.getByRole("button", { name: "Pause audio" }).click();
+    await simulatePause(page);
     await expect(audio).not.toHaveAttribute("src");
 
     // Play again — should reconnect
