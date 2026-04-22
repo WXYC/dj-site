@@ -34,6 +34,8 @@ export function convertToAlbumEntry(
     label: response.label ?? "",
     rotation_id: isSearchResult(response) ? response.rotation_id : undefined,
     on_streaming: isSearchResult(response) ? (response as Record<string, unknown>).on_streaming as boolean | undefined : undefined,
+    date_lost: isSearchResult(response) ? (response as Record<string, unknown>).date_lost as string | undefined : undefined,
+    date_found: isSearchResult(response) ? (response as Record<string, unknown>).date_found as string | undefined : undefined,
   };
 }
 

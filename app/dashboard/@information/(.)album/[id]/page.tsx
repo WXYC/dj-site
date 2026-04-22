@@ -2,6 +2,7 @@
 
 import { useGetInformationQuery } from "@/lib/features/catalog/api";
 import { AlbumEntry } from "@/lib/features/catalog/types";
+import { useAlbumArtwork } from "@/lib/features/metadata/hooks";
 import { Modal } from "@mui/joy";
 import { useParams, useRouter } from "next/navigation";
 import AlbumCard from "../components/AlbumCard";
@@ -13,13 +14,18 @@ export default function AlbumPopup() {
 
   const params = useParams<{ id: string }>();
 
-  const { data, isLoading, isSuccess, isError } = useGetInformationQuery(
+  const { data, isLoading, isError } = useGetInformationQuery(
     {
       album_id: Number(params.id),
     },
     {
       skip: params.id === undefined || params.id === null,
     }
+  );
+
+  const { artworkUrl, metadata } = useAlbumArtwork(
+    data?.artist.name,
+    data?.title,
   );
 
   return (
@@ -38,7 +44,11 @@ export default function AlbumPopup() {
       ) : isError || !data ? (
         <AlbumErrorCard />
       ) : (
-        <AlbumCard album={data as AlbumEntry} />
+        <AlbumCard
+          album={data as AlbumEntry}
+          artworkUrl={artworkUrl}
+          metadata={metadata}
+        />
       )}
     </Modal>
   );

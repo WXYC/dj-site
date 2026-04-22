@@ -51,6 +51,8 @@ export type AlbumEntry = {
   add_date: string | undefined;
   label: string;
   on_streaming?: boolean;
+  date_lost?: string;
+  date_found?: string;
 };
 
 export type ArtistEntry = {

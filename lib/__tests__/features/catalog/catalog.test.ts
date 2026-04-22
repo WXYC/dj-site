@@ -16,7 +16,7 @@ import { Rotation } from "@/lib/features/rotation/types";
 describe("catalogApi", () => {
   describeApi(catalogApi, {
     queries: ["searchCatalog", "getInformation", "getFormats", "getGenres"],
-    mutations: ["addAlbum", "addArtist", "addFormat", "addGenre"],
+    mutations: ["addAlbum", "addArtist", "addFormat", "addGenre", "markMissing", "markFound"],
     reducerPath: "catalogApi",
   });
 });
@@ -75,6 +75,25 @@ describe("convertToAlbumEntry", () => {
         input: createTestAlbumSearchResult({ add_date: "2024-06-08" }),
         assertions: (result) => {
           expect(result.add_date).toBe("2024-06-08");
+        },
+      },
+      {
+        name: "should pass through date_lost and date_found",
+        input: createTestAlbumSearchResult({
+          date_lost: "2025-01-15T00:00:00.000Z",
+          date_found: "2025-02-20T00:00:00.000Z",
+        } as any),
+        assertions: (result) => {
+          expect(result.date_lost).toBe("2025-01-15T00:00:00.000Z");
+          expect(result.date_found).toBe("2025-02-20T00:00:00.000Z");
+        },
+      },
+      {
+        name: "should default date_lost and date_found to undefined",
+        input: createTestAlbumSearchResult(),
+        assertions: (result) => {
+          expect(result.date_lost).toBeUndefined();
+          expect(result.date_found).toBeUndefined();
         },
       },
     ]

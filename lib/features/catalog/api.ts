@@ -13,7 +13,7 @@ import {
 export const catalogApi = createApi({
   reducerPath: "catalogApi",
   baseQuery: backendBaseQuery("library"),
-  tagTypes: ["Rotation"],
+  tagTypes: ["Rotation", "AlbumDetail"],
   endpoints: (builder) => ({
     searchCatalog: builder.query<AlbumEntry[], SearchCatalogQueryParams>({
       query: ({ artist_name, album_title, n }) => ({
@@ -44,6 +44,30 @@ export const catalogApi = createApi({
       }),
       transformResponse: (response: AlbumSearchResultJSON) =>
         convertToAlbumEntry(response),
+      providesTags: (result) =>
+        result ? [{ type: "AlbumDetail", id: result.id }] : [],
+    }),
+    markMissing: builder.mutation<AlbumEntry, { albumId: number }>({
+      query: ({ albumId }) => ({
+        url: `/${albumId}/missing`,
+        method: "PATCH",
+      }),
+      transformResponse: (response: AlbumSearchResultJSON) =>
+        convertToAlbumEntry(response),
+      invalidatesTags: (_result, _error, { albumId }) => [
+        { type: "AlbumDetail", id: albumId },
+      ],
+    }),
+    markFound: builder.mutation<AlbumEntry, { albumId: number }>({
+      query: ({ albumId }) => ({
+        url: `/${albumId}/found`,
+        method: "PATCH",
+      }),
+      transformResponse: (response: AlbumSearchResultJSON) =>
+        convertToAlbumEntry(response),
+      invalidatesTags: (_result, _error, { albumId }) => [
+        { type: "AlbumDetail", id: albumId },
+      ],
     }),
     getFormats: builder.query<any, void>({
       query: () => ({
@@ -81,4 +105,6 @@ export const {
   useAddFormatMutation,
   useGetGenresQuery,
   useAddGenreMutation,
+  useMarkMissingMutation,
+  useMarkFoundMutation,
 } = catalogApi;
