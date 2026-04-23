@@ -84,6 +84,15 @@ export class RosterPage {
     await this.rosterTable.waitFor({ state: "visible", timeout: 10000 });
   }
 
+  /**
+   * Wait for the roster data to settle after a mutation (create, delete, role change, email change).
+   * Combines a short delay for the server round-trip with a table re-render check.
+   */
+  async waitForDataRefresh(): Promise<void> {
+    await this.page.waitForTimeout(1000);
+    await this.waitForTableLoaded();
+  }
+
   async clickAddDj(): Promise<void> {
     // There are two "Add" buttons - use the main one at the top right
     const mainAddButton = this.page.locator('button:has-text("Add DJ")');

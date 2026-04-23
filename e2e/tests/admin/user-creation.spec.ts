@@ -3,6 +3,7 @@ import { DashboardPage } from "../../pages/dashboard.page";
 import { RosterPage } from "../../pages/roster.page";
 import { LoginPage } from "../../pages/login.page";
 import { OnboardingPage } from "../../pages/onboarding.page";
+import { generateUsername, generateEmail } from "../../helpers/test-data";
 import path from "path";
 
 const authDir = path.join(__dirname, "../../.auth");
@@ -13,9 +14,6 @@ test.describe("Admin User Creation", () => {
 
   let dashboardPage: DashboardPage;
   let rosterPage: RosterPage;
-
-  // Generate unique usernames for tests to avoid conflicts
-  const generateUsername = () => `e2e_user_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
   test.beforeEach(async ({ page }) => {
     dashboardPage = new DashboardPage(page);
@@ -39,8 +37,8 @@ test.describe("Admin User Creation", () => {
   });
 
   test("should create user with DJ role", async ({ page }) => {
-    const username = generateUsername();
-    const email = `${username}@test.wxyc.org`;
+    const username = generateUsername("user");
+    const email = generateEmail(username);
 
     await rosterPage.createAccount({
       realName: "E2E Test DJ",
@@ -58,8 +56,8 @@ test.describe("Admin User Creation", () => {
   });
 
   test("should create user with Music Director role", async ({ page }) => {
-    const username = generateUsername();
-    const email = `${username}@test.wxyc.org`;
+    const username = generateUsername("user");
+    const email = generateEmail(username);
 
     await rosterPage.createAccount({
       realName: "E2E Test MD",
@@ -77,8 +75,8 @@ test.describe("Admin User Creation", () => {
   });
 
   test("should create user with Station Manager role", async ({ page }) => {
-    const username = generateUsername();
-    const email = `${username}@test.wxyc.org`;
+    const username = generateUsername("user");
+    const email = generateEmail(username);
 
     await rosterPage.createAccount({
       realName: "E2E Test SM",
@@ -99,7 +97,7 @@ test.describe("Admin User Creation", () => {
     await rosterPage.clickAddDj();
 
     // Fill all fields except realName
-    await rosterPage.usernameInput.fill(generateUsername());
+    await rosterPage.usernameInput.fill(generateUsername("user"));
     await rosterPage.emailInput.fill("test@test.wxyc.org");
 
     // Try to submit
@@ -132,7 +130,7 @@ test.describe("Admin User Creation", () => {
 
     // Fill all fields except email
     await rosterPage.realNameInput.fill("Test User");
-    await rosterPage.usernameInput.fill(generateUsername());
+    await rosterPage.usernameInput.fill(generateUsername("user"));
 
     // Try to submit
     await rosterPage.submitNewAccount();
@@ -144,8 +142,8 @@ test.describe("Admin User Creation", () => {
   });
 
   test("should allow DJ name to be optional", async ({ page }) => {
-    const username = generateUsername();
-    const email = `${username}@test.wxyc.org`;
+    const username = generateUsername("user");
+    const email = generateEmail(username);
 
     await rosterPage.clickAddDj();
 
@@ -183,7 +181,7 @@ test.describe("Admin User Creation", () => {
     // Try to create user with existing email
     await rosterPage.fillNewAccountForm({
       realName: "Duplicate Email User",
-      username: generateUsername(),
+      username: generateUsername("user"),
       email: TEST_USERS.dj1.email, // Existing email
     });
 
@@ -198,7 +196,7 @@ test.describe("Admin User Creation", () => {
 
     await rosterPage.fillNewAccountForm({
       realName: "Invalid Email User",
-      username: generateUsername(),
+      username: generateUsername("user"),
       email: "invalid-email", // Invalid email format
     });
 
@@ -265,8 +263,8 @@ test.describe("New User Can Login", () => {
     const rosterPage = new RosterPage(page);
 
     // Generate unique username
-    const username = `e2e_login_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    const email = `${username}@test.wxyc.org`;
+    const username = generateUsername("login");
+    const email = generateEmail(username);
 
     // Create the user as admin (with complete profile - realName and djName)
     await dashboardPage.gotoAdminRoster();
