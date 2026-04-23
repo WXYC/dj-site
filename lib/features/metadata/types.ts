@@ -1,5 +1,6 @@
 export interface AlbumMetadata {
   discogsReleaseId: number;
+  discogsArtistId: number | null;
   discogsUrl: string;
   artworkUrl: string;
   releaseYear: number;
@@ -13,6 +14,15 @@ export interface AlbumMetadata {
   styles: string[];
   label: string;
   fullReleaseDate: string;
+  artistBio?: string;
+  artistWikipediaUrl?: string;
+}
+
+export interface ArtistMetadata {
+  discogsArtistId: number;
+  bio: string | null;
+  wikipediaUrl: string | null;
+  imageUrl: string | null;
 }
 
 export interface AlbumMetadataQueryParams {

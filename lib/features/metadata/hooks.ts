@@ -1,4 +1,4 @@
-import { useGetAlbumMetadataQuery } from "./api";
+import { useGetAlbumMetadataQuery, useGetArtistMetadataQuery } from "./api";
 
 const DEFAULT_ARTWORK_URL = "/img/cassette.png";
 
@@ -21,5 +21,23 @@ export function useAlbumArtwork(
     artworkUrl: data?.artworkUrl ?? DEFAULT_ARTWORK_URL,
     isLoading: !shouldSkip && isLoading,
     metadata: data ?? null,
+  };
+}
+
+/**
+ * Fetches artist metadata (bio, Wikipedia link) from the Backend-Service metadata proxy.
+ * Skips the query when `discogsArtistId` is falsy.
+ */
+export function useArtistMetadata(discogsArtistId: number | null | undefined) {
+  const shouldSkip = !discogsArtistId;
+
+  const { data, isLoading } = useGetArtistMetadataQuery(
+    { artistId: discogsArtistId! },
+    { skip: shouldSkip },
+  );
+
+  return {
+    artistMetadata: data ?? null,
+    isLoading: !shouldSkip && isLoading,
   };
 }
