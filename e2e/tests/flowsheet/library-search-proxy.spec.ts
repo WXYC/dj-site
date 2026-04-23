@@ -11,26 +11,49 @@ const authDir = path.join(__dirname, "../../.auth");
  * Backend-Service's GET /proxy/library/search instead of calling
  * LML directly. Uses route interception to verify the request
  * shape and auth headers without requiring LML to be running.
+ *
+ * The search form is only visible when the DJ is live, so these
+ * tests use serial mode and go live in the first test.
  */
 test.describe("Library Search Proxy", () => {
-  test.use({ storageState: path.join(authDir, "dj.json") });
+  // Use dj2 to avoid session conflicts with auth tests that use dj.json
+  test.use({ storageState: path.join(authDir, "dj2.json") });
+  test.describe.configure({ mode: "serial" });
+  test.setTimeout(60_000);
 
   let flowsheet: FlowsheetPage;
+  let isLive = false;
 
   test.beforeEach(async ({ page }) => {
     flowsheet = new FlowsheetPage(page);
     await flowsheet.goto();
-    // Wait for the search form to be visible — don't need Go Live or entries
-    await flowsheet.artistInput.waitFor({ state: "visible", timeout: 15000 });
+    await flowsheet.waitForEntriesLoaded();
+    if (!isLive) {
+      await flowsheet.goLive();
+      isLive = true;
+    }
+  });
+
+  test.afterAll(async ({ browser }) => {
+    const context = await browser.newContext({
+      storageState: path.join(authDir, "dj2.json"),
+      baseURL: process.env.E2E_BASE_URL || "http://localhost:3000",
+    });
+    const page = await context.newPage();
+    const fs = new FlowsheetPage(page);
+    await fs.goto();
+    await fs.waitForEntriesLoaded();
+    await fs.ensureOffAir();
+    await context.close();
   });
 
   test("search calls Backend-Service proxy with auth header", async ({
     page,
   }) => {
-    // Set up route interception BEFORE typing to catch the request
+    // Set up route interception BEFORE typing
     const proxyRequestPromise = page.waitForRequest(
       (req) => req.url().includes("/proxy/library/search"),
-      { timeout: 5000 }
+      { timeout: 5000 },
     );
 
     await page.route("**/proxy/library/search**", async (route) => {
@@ -63,7 +86,6 @@ test.describe("Library Search Proxy", () => {
     });
 
     // Type enough to trigger the debounced search (min 3 chars combined)
-    await flowsheet.artistInput.click();
     await flowsheet.artistInput.fill("Stereolab");
     await flowsheet.albumInput.fill("Aluminum");
 
@@ -98,10 +120,9 @@ test.describe("Library Search Proxy", () => {
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ results: [], total: 0, query: null }),
-      })
+      }),
     );
 
-    await flowsheet.artistInput.click();
     await flowsheet.artistInput.fill("Cat Power");
     await flowsheet.albumInput.fill("Moon Pix");
 
