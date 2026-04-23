@@ -10,7 +10,9 @@
  * @param prefix - Short label identifying the test context (e.g. "user", "delete", "role", "email")
  */
 export function generateUsername(prefix = "e2e"): string {
-  return `e2e_${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  // Base-36 timestamp (~8 chars) keeps output shorter (~20 chars total) to
+  // avoid onboarding redirect timeouts observed with longer username formats.
+  return `e2e_${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`;
 }
 
 /**

@@ -194,4 +194,24 @@ export async function revokeUserSessions(sessionCookie: string): Promise<boolean
   }
 }
 
+/**
+ * Mark an admin-created user as having completed onboarding.
+ * Requires Backend-Service to be running with NODE_ENV !== 'production'.
+ */
+export async function confirmUser(userId: string): Promise<boolean> {
+  const baseUrl = await getAuthServiceBaseUrl();
+
+  try {
+    const response = await fetch(`${baseUrl}/auth/test/confirm-user`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+    return response.ok;
+  } catch (error) {
+    console.error("Failed to confirm user:", error);
+    return false;
+  }
+}
+
 export { expect };

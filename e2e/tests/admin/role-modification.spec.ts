@@ -24,15 +24,19 @@ test.describe("Admin Role Modification", () => {
   });
 
   test.describe("Promotion", () => {
-    // Role changes require confirmed (onboarded) users, so we use seeded users.
-    // Serial mode prevents concurrent mutation of shared user state.
-    test.describe.configure({ mode: "serial" });
-
     test("should promote DJ to Music Director", async () => {
-      const username = TEST_USERS.dj1.username;
+      const username = generateUsername("role");
+      const email = generateEmail(username);
 
-      const userRow = rosterPage.getUserRow(username);
-      await expect(userRow).toBeVisible({ timeout: 5000 });
+      await rosterPage.createAccount({
+        realName: "Promote DJ Test",
+        username,
+        email,
+        role: "dj",
+      });
+
+      await rosterPage.expectSuccessToast();
+      await rosterPage.waitForDataRefresh();
 
       // Accept confirmation dialog before clicking
       rosterPage.acceptConfirmDialog();
@@ -50,24 +54,19 @@ test.describe("Admin Role Modification", () => {
       await rosterPage.expectUserRole(username, "Music Director");
     });
 
-    test.afterEach(async () => {
-      // Reset test_dj1 back to DJ role if it was promoted
-      const username = TEST_USERS.dj1.username;
-      const select = rosterPage.getRoleSelect(username);
-      const currentText = await select.textContent();
-
-      if (currentText?.includes("Music Director")) {
-        rosterPage.acceptConfirmDialog();
-        await rosterPage.demoteFromMusicDirector(username);
-        await rosterPage.waitForDataRefresh();
-      }
-    });
-
     test("should promote Music Director to Station Manager", async () => {
-      const username = TEST_USERS.musicDirector.username;
+      const username = generateUsername("role");
+      const email = generateEmail(username);
 
-      const userRow = rosterPage.getUserRow(username);
-      await expect(userRow).toBeVisible({ timeout: 5000 });
+      await rosterPage.createAccount({
+        realName: "Promote MD Test",
+        username,
+        email,
+        role: "musicDirector",
+      });
+
+      await rosterPage.expectSuccessToast();
+      await rosterPage.waitForDataRefresh();
 
       // Accept confirmation dialog
       rosterPage.acceptConfirmDialog();
@@ -80,24 +79,23 @@ test.describe("Admin Role Modification", () => {
 
       // Verify role select now shows Station Manager
       await rosterPage.expectUserRole(username, "Station Manager");
-
-      // Demote back to MD to reset state
-      rosterPage.acceptConfirmDialog();
-      await rosterPage.demoteFromStationManager(username);
-      await rosterPage.waitForDataRefresh();
     });
   });
 
   test.describe("Demotion", () => {
-    // Role changes require confirmed (onboarded) users, so we use seeded users.
-    // Serial mode prevents concurrent mutation of shared user state.
-    test.describe.configure({ mode: "serial" });
-
     test("should demote Station Manager to Music Director", async () => {
-      const username = TEST_USERS.demotableSm.username;
+      const username = generateUsername("role");
+      const email = generateEmail(username);
 
-      const userRow = rosterPage.getUserRow(username);
-      await expect(userRow).toBeVisible({ timeout: 5000 });
+      await rosterPage.createAccount({
+        realName: "Demote SM Test",
+        username,
+        email,
+        role: "stationManager",
+      });
+
+      await rosterPage.expectSuccessToast();
+      await rosterPage.waitForDataRefresh();
 
       // Accept confirmation dialog
       rosterPage.acceptConfirmDialog();
@@ -110,30 +108,21 @@ test.describe("Admin Role Modification", () => {
 
       // Verify role select now shows Music Director
       await rosterPage.expectUserRole(username, "Music Director");
-
-      // Promote back to SM to reset state
-      rosterPage.acceptConfirmDialog();
-      await rosterPage.promoteToStationManager(username);
-      await rosterPage.waitForDataRefresh();
     });
 
-    test("should demote Music Director to DJ", async ({ page }) => {
-      const username = TEST_USERS.dj1.username;
+    test("should demote Music Director to DJ", async () => {
+      const username = generateUsername("role");
+      const email = generateEmail(username);
 
-      const userRow = rosterPage.getUserRow(username);
-      await expect(userRow).toBeVisible({ timeout: 5000 });
+      await rosterPage.createAccount({
+        realName: "Demote MD Test",
+        username,
+        email,
+        role: "musicDirector",
+      });
 
-      // First, ensure the user is MD (promote if needed)
-      const select = rosterPage.getRoleSelect(username);
-      const currentText = await select.textContent();
-      if (!currentText?.includes("Music Director")) {
-        rosterPage.acceptConfirmDialog();
-        await rosterPage.promoteToMusicDirector(username);
-        await rosterPage.waitForDataRefresh();
-        // Dismiss any toasts from the promotion step
-        await page.keyboard.press("Escape");
-        await page.waitForTimeout(500);
-      }
+      await rosterPage.expectSuccessToast();
+      await rosterPage.waitForDataRefresh();
 
       // Accept confirmation dialog for demotion
       rosterPage.acceptConfirmDialog();
@@ -285,11 +274,8 @@ test.describe("Admin Role Modification", () => {
 });
 
 test.describe("Role Change Persistence", () => {
-  // Uses seeded dj1 (confirmed user). Serial to prevent concurrent mutation.
-  test.describe.configure({ mode: "serial" });
-
   test("role change should persist after page refresh", async ({ page }) => {
-    // This test does a full login flow + multiple role changes + page reload,
+    // This test does a full login flow + account creation + role change + page reload,
     // so it needs more time than the default timeout.
     test.setTimeout(30000);
     const loginPage = new LoginPage(page);
@@ -303,24 +289,19 @@ test.describe("Role Change Persistence", () => {
     await dashboardPage.gotoAdminRoster();
     await rosterPage.waitForTableLoaded();
 
-    // Use existing seeded user who is already an organization member
-    const username = TEST_USERS.dj1.username;
+    // Create a temp user as DJ
+    const username = generateUsername("persist");
+    const email = generateEmail(username);
 
-    // Verify user row exists and role select is visible
-    await rosterPage.expectUserInRoster(username);
-    const select = rosterPage.getRoleSelect(username);
-    await expect(select).toBeVisible({ timeout: 5000 });
+    await rosterPage.createAccount({
+      realName: "Persist Test",
+      username,
+      email,
+      role: "dj",
+    });
 
-    // First ensure the user is a DJ (not MD) - demote if needed
-    const currentText = await select.textContent();
-    if (currentText?.includes("Music Director")) {
-      rosterPage.acceptConfirmDialog();
-      await rosterPage.demoteFromMusicDirector(username);
-      await rosterPage.waitForDataRefresh();
-      // Dismiss any toasts
-      await page.keyboard.press("Escape");
-      await page.waitForTimeout(500);
-    }
+    await rosterPage.expectSuccessToast();
+    await rosterPage.waitForDataRefresh();
 
     // Promote to MD
     rosterPage.acceptConfirmDialog();
@@ -336,11 +317,6 @@ test.describe("Role Change Persistence", () => {
 
     // Verify role select still shows Music Director after refresh
     await rosterPage.expectUserRole(username, "Music Director");
-
-    // Clean up: demote back to DJ
-    rosterPage.acceptConfirmDialog();
-    await rosterPage.demoteFromMusicDirector(username);
-    await rosterPage.waitForDataRefresh();
   });
 });
 
