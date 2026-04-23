@@ -30,7 +30,7 @@ export function convertToAlbumEntry(
       ? (response.rotation_bin as Rotation)
       : undefined,
     add_date: isSearchResult(response) ? response.add_date : undefined,
-    plays: (isSearchResult(response) ? response.plays : undefined) ?? 0,
+    plays: isSearchResult(response) ? response.plays : undefined,
     label: response.label ?? "",
     rotation_id: isSearchResult(response) ? response.rotation_id : undefined,
     on_streaming: isSearchResult(response) ? (response as Record<string, unknown>).on_streaming as boolean | undefined : undefined,

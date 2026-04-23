@@ -38,10 +38,18 @@ export default function Results({
           "--Table-headerUnderlineThickness": "1px",
           "--TableRow-hoverBackground": (theme) =>
             theme.vars.palette.background.level1,
-          "& tr > *:last-child": {
+          "& thead tr > *:last-child": {
             position: "sticky",
             right: 0,
             bgcolor: "var(--TableCell-headBackground)",
+          },
+          "& tbody tr > *:last-child": {
+            position: "sticky",
+            right: 0,
+            bgcolor: "var(--joy-palette-background-surface, #fff)",
+          },
+          "& tbody tr:hover > *:last-child": {
+            bgcolor: "var(--TableRow-hoverBackground)",
           },
         }}
       >
@@ -79,7 +87,7 @@ export default function Results({
             <th style={{ width: 220, padding: 12 }}>
               <TableHeader textValue="Title" />
             </th>
-            <th style={{ width: 60, padding: 12 }}>
+            <th style={{ width: 130, padding: 12 }}>
               <TableHeader textValue="Code" />
             </th>
             <th style={{ width: 70, padding: 12 }}>
