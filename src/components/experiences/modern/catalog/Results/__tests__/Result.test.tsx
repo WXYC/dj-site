@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { createTestAlbum } from "@/lib/test-utils";
+import { createTestAlbum, createTestArtist } from "@/lib/test-utils";
 import { renderWithProviders } from "@/lib/test-utils/render";
 
 vi.mock("next/navigation", () => ({
@@ -125,6 +125,61 @@ describe("CatalogResult WXYC Exclusive badge", () => {
     );
 
     expect(screen.queryByText("WXYC EXCLUSIVE")).toBeNull();
+  });
+});
+
+describe("CatalogResult Various Artists display", () => {
+  it("should display 'Various Artists' when album_artist is set", () => {
+    const album = createTestAlbum({
+      artist: createTestArtist({ name: "Autechre", lettercode: "EL", numbercode: 5 }),
+      album_artist: "Autechre",
+      title: "All Tomorrow's Parties",
+    });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} />
+        </tbody>
+      </table>
+    );
+
+    expect(screen.getByText("Various Artists")).toBeDefined();
+  });
+
+  it("should display the album_artist as subtext when set", () => {
+    const album = createTestAlbum({
+      artist: createTestArtist({ name: "Autechre", lettercode: "EL", numbercode: 5 }),
+      album_artist: "Autechre",
+      title: "All Tomorrow's Parties",
+    });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} />
+        </tbody>
+      </table>
+    );
+
+    expect(screen.getByText("Autechre")).toBeDefined();
+  });
+
+  it("should display artist name normally when album_artist is not set", () => {
+    const album = createTestAlbum({
+      artist: createTestArtist({ name: "Stereolab", lettercode: "RO", numbercode: 87 }),
+    });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} />
+        </tbody>
+      </table>
+    );
+
+    expect(screen.getByText("Stereolab")).toBeDefined();
+    expect(screen.queryByText("Various Artists")).toBeNull();
   });
 });
 

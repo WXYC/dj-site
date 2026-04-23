@@ -46,6 +46,7 @@ export type AlbumEntry = {
   entry: number;
   format: Format;
   alternate_artist: string | undefined;
+  album_artist?: string;
   rotation_bin: Rotation | undefined;
   rotation_id: number | undefined;
   plays: number | undefined;

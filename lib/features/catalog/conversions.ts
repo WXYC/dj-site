@@ -26,6 +26,7 @@ export function convertToAlbumEntry(
     entry: response.code_number ?? 0,
     format: (response.format_name as Format) ?? "Unknown",
     alternate_artist: "",
+    album_artist: isSearchResult(response) ? response.album_artist : undefined,
     rotation_bin: isSearchResult(response)
       ? (response.rotation_bin as Rotation)
       : undefined,
