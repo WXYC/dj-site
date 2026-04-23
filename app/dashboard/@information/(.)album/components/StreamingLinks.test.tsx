@@ -8,6 +8,7 @@ function createTestMetadata(
 ): AlbumMetadata {
   return {
     discogsReleaseId: 12345,
+    discogsArtistId: null,
     discogsUrl: "",
     artworkUrl: "https://example.com/art.jpg",
     releaseYear: 2023,
