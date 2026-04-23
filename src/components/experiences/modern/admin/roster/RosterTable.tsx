@@ -139,10 +139,16 @@ export default function RosterTable({ user }: { user: User }) {
           }
         }
 
-        // Add user to the organization with the appropriate role
+        // Add user to the organization with the appropriate role.
+        // This MUST succeed — without org membership the user can't have
+        // their role managed, so treat failure as a fatal error.
         const organizationId = await getOrganizationId();
 
-        if (organizationId && result.data?.user?.id) {
+        if (!organizationId) {
+          throw new Error("Organization not configured. User was created but cannot be managed without an organization.");
+        }
+
+        if (result.data?.user?.id) {
           // Type assertion needed - addMember is provided by organizationClient but not fully typed
           const addMemberResult = await (authClient.organization as typeof authClient.organization & {
             addMember: (params: { userId: string; organizationId: string; role: string }) => Promise<{ error?: { message?: string } }>
@@ -153,12 +159,8 @@ export default function RosterTable({ user }: { user: User }) {
           });
 
           if (addMemberResult.error) {
-            console.error("Failed to add user to organization:", addMemberResult.error);
-            // Don't fail the whole operation, but log the warning
-            toast.warning("User created but could not be added to organization. Role management may not work.");
+            throw new Error(addMemberResult.error.message || "Failed to add user to organization. Role management will not work.");
           }
-        } else if (!organizationId) {
-          console.warn("Organization ID not configured, user created without organization membership");
         }
 
         toast.success(`Account created successfully for ${newAccount.username}`);
