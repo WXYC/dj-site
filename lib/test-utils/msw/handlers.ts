@@ -36,6 +36,11 @@ export const handlers = [
     return HttpResponse.json([]);
   }),
 
+  // Playlist search API handlers
+  http.get(`${BACKEND_URL}/flowsheet/search`, () => {
+    return HttpResponse.json({ results: [], total: 0, page: 0, totalPages: 0 });
+  }),
+
   // Rotation API handlers
   http.get(`${BACKEND_URL}/rotation/`, () => {
     return HttpResponse.json([]);

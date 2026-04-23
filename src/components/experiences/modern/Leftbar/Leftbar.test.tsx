@@ -127,7 +127,7 @@ describe("Leftbar", () => {
     expect(screen.getByTestId("flowsheet-link")).toBeInTheDocument();
   });
 
-  it("should render previous sets link as disabled", async () => {
+  it("should render previous sets link as enabled", async () => {
     const Component = await Leftbar();
     render(Component);
 
@@ -135,7 +135,7 @@ describe("Leftbar", () => {
       "leftbar-link--dashboard-playlists"
     );
     expect(playlistsLink).toBeInTheDocument();
-    expect(playlistsLink).toHaveAttribute("data-disabled", "true");
+    expect(playlistsLink).not.toHaveAttribute("data-disabled", "true");
     expect(screen.getByText("Previous Sets")).toBeInTheDocument();
   });
 

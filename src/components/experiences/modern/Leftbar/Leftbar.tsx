@@ -26,7 +26,6 @@ export default async function Leftbar(): Promise<JSX.Element> {
         <LeftbarLink
           path="/dashboard/playlists"
           title="Previous Sets"
-          disabled={true}
         >
           <StorageIcon />
         </LeftbarLink>
