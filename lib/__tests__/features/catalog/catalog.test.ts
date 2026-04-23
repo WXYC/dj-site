@@ -177,6 +177,30 @@ describe("convertToAlbumEntry", () => {
     ]
   );
 
+  describeConversionWithAssertions(
+    "album_artist (compilation handling)",
+    convertToAlbumEntry,
+    [
+      {
+        name: "should pass through album_artist when present",
+        input: createTestAlbumSearchResult({
+          artist_name: "Autechre",
+          album_artist: "Autechre",
+        }),
+        assertions: (result) => {
+          expect(result.album_artist).toBe("Autechre");
+        },
+      },
+      {
+        name: "should default album_artist to undefined when absent",
+        input: createTestAlbumSearchResult(),
+        assertions: (result) => {
+          expect(result.album_artist).toBeUndefined();
+        },
+      },
+    ]
+  );
+
   describe("bug fixes", () => {
     it("should not set artist.id to the album id", () => {
       const searchResult = createTestAlbumSearchResult({

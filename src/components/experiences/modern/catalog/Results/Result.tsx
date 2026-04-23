@@ -90,9 +90,11 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
               level="body-sm"
               textColor="text.primary"
             >
-              {album.artist.name}
+              {album.album_artist ? "Various Artists" : album.artist.name}
             </Typography>
-            <Typography level="body-sm">{album.alternate_artist}</Typography>
+            <Typography level="body-sm">
+              {album.album_artist ?? album.alternate_artist}
+            </Typography>
           </div>
         </Box>
       </td>
