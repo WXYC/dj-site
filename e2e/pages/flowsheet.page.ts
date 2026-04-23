@@ -90,28 +90,34 @@ export class FlowsheetPage {
     // Wait for the button to be enabled and not loading
     await expect(this.goLiveButton).toBeEnabled({ timeout: 10000 });
     await this.page.waitForTimeout(300); // Let prior mutations settle
-    // Listen for the mutation response BEFORE clicking so we don't miss
-    // a fast reply. Without this, slow CI runners can fail: the optimistic
-    // cache update fires synchronously, but React may not flush the
-    // re-render before Playwright's assertion polls, or the backend may
-    // reject and the optimistic patch rolls back.
-    //
-    // We match any POST to /flowsheet/ (not just /join with status 200)
-    // because the live toggle shares a single button — if a prior serial
-    // test left the DJ live and the whoIsLive query hasn't resolved yet,
-    // the beforeEach status check may misread "Off Air" and call goLive(),
-    // but by the time we click the component's live state may have flipped,
-    // sending POST /end instead of /join. Matching broadly lets the DOM
-    // assertion below be the real verification.
-    const mutationResponse = this.page.waitForResponse(
-      (resp) =>
-        resp.url().includes("/flowsheet/") &&
-        resp.request().method() === "POST",
-      { timeout: 15000 }
+
+    // Re-check status after the settle window. The whoIsLive query may
+    // have resolved since the caller checked, flipping the component's
+    // live state to true. Clicking while live would toggle us OFF air
+    // (the button dispatches leaveShow instead of joinShow).
+    const alreadyLive = (await this.liveStatus.textContent())?.includes(
+      "On Air"
     );
-    await this.goLiveButton.click();
-    await mutationResponse;
-    await expect(this.liveStatus).toContainText("On Air", { timeout: 10000 });
+
+    if (!alreadyLive) {
+      // Listen for the mutation response BEFORE clicking so we don't miss
+      // a fast reply. Without this, slow CI runners can fail: the optimistic
+      // cache update fires synchronously, but React may not flush the
+      // re-render before Playwright's assertion polls, or the backend may
+      // reject and the optimistic patch rolls back.
+      const mutationResponse = this.page.waitForResponse(
+        (resp) =>
+          resp.url().includes("/flowsheet/") &&
+          resp.request().method() === "POST",
+        { timeout: 15000 }
+      );
+      await this.goLiveButton.click();
+      await mutationResponse;
+      await expect(this.liveStatus).toContainText("On Air", {
+        timeout: 10000,
+      });
+    }
+
     // Wait for search inputs to become enabled (live state propagates)
     await expect(this.songInput).toBeEnabled({ timeout: 5000 });
     // Reload and wait for the flowsheet API to respond with data, confirming
