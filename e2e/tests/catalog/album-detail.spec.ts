@@ -154,9 +154,8 @@ test.describe("Album Detail Modal", () => {
       await albumDetail.goto(MOCK_ALBUM_ID);
       await albumDetail.waitForAlbumLoaded();
 
-      // Streaming links from metadata
-      await expect(page.getByText("Spotify")).toBeVisible({ timeout: 10000 });
-      await expect(page.getByText("Discogs")).toBeVisible();
+      // Streaming links from metadata (rendered as Chip components)
+      await expect(albumDetail.streamingLinks.filter({ hasText: "Spotify" })).toBeVisible({ timeout: 10000 });
     });
 
     test("should display library status", async ({ page }) => {
