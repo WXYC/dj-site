@@ -58,29 +58,40 @@ export class NowPlayingPage {
   // --- Playback actions ---
 
   /**
-   * Click play and simulate successful playback.
+   * Click play and wait for the pause button to appear.
    *
-   * In headless Chromium the actual audio.play() fails because there's
-   * no real audio device / the stream is blocked. Dispatching a synthetic
-   * `play` event flips the React isPlaying state so the pause button
-   * appears, matching real-browser behavior.
+   * In headless Chromium the real audio.play() rejects (no audio device)
+   * and the browser may asynchronously fire a "pause" event that races
+   * with React's state update, leaving isPlaying indeterminate. We stub
+   * audio.play() to dispatch a "play" event and resolve immediately,
+   * then wait for React to re-render before returning.
    */
   async play(): Promise<void> {
+    await this.page.evaluate(() => {
+      const audio = document.querySelector("#now-playing-music") as HTMLAudioElement;
+      if (audio) {
+        audio.play = () => {
+          audio.dispatchEvent(new Event("play"));
+          return Promise.resolve();
+        };
+      }
+    });
     await this.playButton.click();
-    await this.simulateAudioEvent("play");
+    await this.pauseButton.waitFor({ state: "visible" });
   }
 
   /**
-   * Click pause and simulate the pause event.
+   * Click pause and wait for the play button to reappear.
    *
-   * audio.pause() on an element that was never truly playing won't fire
-   * a native pause event. The synthetic event keeps the React state in
-   * sync with the DOM.
+   * audio.pause() on an element that was never truly playing may not
+   * fire a native pause event. The synthetic event keeps React in sync,
+   * and the waitFor guard ensures the re-render has completed.
    */
   async stop(): Promise<void> {
     await this.pauseButton.waitFor({ state: "visible" });
     await this.pauseButton.click();
     await this.simulateAudioEvent("pause");
+    await this.playButton.waitFor({ state: "visible" });
   }
 
   // --- Assertions ---
