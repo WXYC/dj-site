@@ -1,6 +1,6 @@
+import { type ResolvedToken } from "@/lib/features/metadata/types";
 import { Link } from "@mui/joy";
 import { type ReactNode } from "react";
-import { parseDiscogsMarkup, type ResolvedToken } from "./discogsMarkup";
 
 function renderToken(token: ResolvedToken, key: number): ReactNode {
   switch (token.type) {
@@ -15,7 +15,7 @@ function renderToken(token: ResolvedToken, key: number): ReactNode {
           target="_blank"
           rel="noopener noreferrer"
         >
-          {token.displayName}
+          {token.display_name}
         </Link>
       );
 
@@ -75,8 +75,7 @@ function renderToken(token: ResolvedToken, key: number): ReactNode {
   }
 }
 
-/** Renders Discogs markup as React elements with links and formatting. */
-export default function DiscogsMarkup({ text }: { text: string }) {
-  const tokens = parseDiscogsMarkup(text);
+/** Renders pre-parsed Discogs markup tokens as React elements. */
+export default function DiscogsMarkup({ tokens }: { tokens: ResolvedToken[] }) {
   return <>{tokens.map((token, i) => renderToken(token, i))}</>;
 }

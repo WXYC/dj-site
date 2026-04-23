@@ -1,7 +1,7 @@
 "use client";
 
 import { AlbumEntry } from "@/lib/features/catalog/types";
-import { AlbumMetadata } from "@/lib/features/metadata/types";
+import { AlbumMetadata, ResolvedToken } from "@/lib/features/metadata/types";
 import {
   Box,
   Card,
@@ -27,6 +27,7 @@ interface AlbumCardProps {
   metadata: AlbumMetadata | null;
   metadataLoading: boolean;
   artistBio: string | null;
+  bioTokens: ResolvedToken[] | null;
   artistWikipediaUrl: string | null;
 }
 
@@ -36,6 +37,7 @@ export default function AlbumCard({
   metadata,
   metadataLoading,
   artistBio,
+  bioTokens,
   artistWikipediaUrl,
 }: AlbumCardProps) {
   const [bioExpanded, setBioExpanded] = useState(false);
@@ -137,7 +139,7 @@ export default function AlbumCard({
                 color: "text.secondary",
               }}
             >
-              <DiscogsMarkup text={artistBio} />
+              {bioTokens ? <DiscogsMarkup tokens={bioTokens} /> : artistBio}
             </Typography>
             {bioOverflows && !bioExpanded && (
               <Link
