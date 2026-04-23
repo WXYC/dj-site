@@ -226,7 +226,7 @@ test.describe("Album Detail Modal", () => {
       await dashboard.waitForPageLoad();
 
       // Type a search term to trigger the catalog search
-      const searchInput = page.getByPlaceholder("Search");
+      const searchInput = page.getByRole("textbox", { name: "Search for an album or artist" });
       await searchInput.fill("Juana Molina");
 
       // Wait for results to load
@@ -249,7 +249,7 @@ test.describe("Album Detail Modal", () => {
       await dashboard.waitForPageLoad();
 
       // Search and open album
-      const searchInput = page.getByPlaceholder("Search");
+      const searchInput = page.getByRole("textbox", { name: "Search for an album or artist" });
       await searchInput.fill("Juana Molina");
       await expect(page.getByText("DOGA")).toBeVisible({ timeout: 10000 });
 
