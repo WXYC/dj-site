@@ -25,7 +25,7 @@ export const ROTATION_STYLES: { [id in Rotation]: ColorPaletteProp } = {
   S: "neutral",
 };
 
-const GENRE_COLORS: { [id in Genre]: ColorPaletteProp } = {
+export const GENRE_COLORS: { [id in Genre]: ColorPaletteProp } = {
   Rock: "primary",
   Blues: "success",
   Electronic: "success",
@@ -38,7 +38,7 @@ const GENRE_COLORS: { [id in Genre]: ColorPaletteProp } = {
   Unknown: "neutral",
 };
 
-const GENRE_VARIANTS: { [id in Genre]: VariantProp } = {
+export const GENRE_VARIANTS: { [id in Genre]: VariantProp } = {
   Rock: "solid",
   Electronic: "solid",
   Hiphop: "soft",

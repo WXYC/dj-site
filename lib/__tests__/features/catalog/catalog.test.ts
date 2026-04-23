@@ -64,10 +64,10 @@ describe("convertToAlbumEntry", () => {
         },
       },
       {
-        name: "should default plays to 0 when undefined",
+        name: "should keep plays undefined when not provided",
         input: createTestAlbumSearchResult({ plays: undefined }),
         assertions: (result) => {
-          expect(result.plays).toBe(0);
+          expect(result.plays).toBeUndefined();
         },
       },
       {
@@ -155,7 +155,7 @@ describe("convertToAlbumEntry", () => {
           expect(result.rotation_bin).toBeUndefined();
           expect(result.rotation_id).toBeUndefined();
           expect(result.add_date).toBeUndefined();
-          expect(result.plays).toBe(0);
+          expect(result.plays).toBeUndefined();
         },
       },
     ]
