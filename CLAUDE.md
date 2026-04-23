@@ -95,7 +95,6 @@ Create `.env.local`:
 ```bash
 NEXT_PUBLIC_BACKEND_URL=http://localhost:8080
 NEXT_PUBLIC_BETTER_AUTH_URL=http://localhost:8082/auth
-NEXT_PUBLIC_LML_URL=http://localhost:8000
 NEXT_PUBLIC_DASHBOARD_HOME_PAGE=/dashboard/flowsheet
 NEXT_PUBLIC_DEFAULT_EXPERIENCE=modern
 NEXT_PUBLIC_ENABLED_EXPERIENCES=modern,classic

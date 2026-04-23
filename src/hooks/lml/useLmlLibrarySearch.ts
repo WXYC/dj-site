@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
-import { getLmlBaseUrl } from "./lml-client";
+import { getLibrarySearchUrl, getAuthHeaders } from "./lml-client";
 import { convertLmlItemToAlbumEntry } from "./lml-conversions";
 import type { LmlLibrarySearchResponse } from "./types";
 
@@ -11,7 +11,8 @@ const MIN_QUERY_LENGTH = 3;
 const RESULT_LIMIT = 10;
 
 /**
- * Debounced hook that searches the LML library API and returns `AlbumEntry[]`.
+ * Debounced hook that searches the library catalog via Backend-Service's
+ * proxy endpoint and returns `AlbumEntry[]`.
  * Designed to be called with the current flowsheet search query fields.
  * Gracefully returns an empty array on any error.
  */
@@ -47,9 +48,10 @@ export function useLmlLibrarySearch({
         if (album) params.set("title", album);
         params.set("limit", String(RESULT_LIMIT));
 
+        const headers = await getAuthHeaders();
         const response = await fetch(
-          `${getLmlBaseUrl()}/api/v1/library/search?${params}`,
-          { signal: controller.signal }
+          `${getLibrarySearchUrl()}?${params}`,
+          { signal: controller.signal, headers }
         );
 
         if (!response.ok) {
