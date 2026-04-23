@@ -20,21 +20,20 @@ test.describe("Library Search Proxy", () => {
   test.beforeEach(async ({ page }) => {
     flowsheet = new FlowsheetPage(page);
     await flowsheet.goto();
-    await flowsheet.waitForEntriesLoaded();
+    // Wait for the search form to be visible — don't need Go Live or entries
+    await flowsheet.artistInput.waitFor({ state: "visible", timeout: 15000 });
   });
 
   test("search calls Backend-Service proxy with auth header", async ({
     page,
   }) => {
-    let capturedUrl: string | undefined;
-    let capturedAuthHeader: string | null | undefined;
+    // Set up route interception BEFORE typing to catch the request
+    const proxyRequestPromise = page.waitForRequest(
+      (req) => req.url().includes("/proxy/library/search"),
+      { timeout: 5000 }
+    );
 
-    // Intercept the proxy request and return a mock response
     await page.route("**/proxy/library/search**", async (route) => {
-      const request = route.request();
-      capturedUrl = request.url();
-      capturedAuthHeader = request.headers()["authorization"];
-
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -63,25 +62,26 @@ test.describe("Library Search Proxy", () => {
       });
     });
 
-    // Type enough to trigger the debounced search
+    // Type enough to trigger the debounced search (min 3 chars combined)
     await flowsheet.artistInput.click();
     await flowsheet.artistInput.fill("Stereolab");
     await flowsheet.albumInput.fill("Aluminum");
 
-    // Wait for the intercepted request
-    await page.waitForTimeout(500); // debounce is 350ms
+    // Wait for the proxy request to fire
+    const request = await proxyRequestPromise;
+    const url = request.url();
+    const authHeader = request.headers()["authorization"];
 
-    expect(capturedUrl).toBeDefined();
-    expect(capturedUrl).toContain("/proxy/library/search");
-    expect(capturedUrl).toContain("artist=Stereolab");
-    expect(capturedUrl).toContain("title=Aluminum");
-    expect(capturedAuthHeader).toMatch(/^Bearer .+/);
+    expect(url).toContain("/proxy/library/search");
+    expect(url).toContain("artist=Stereolab");
+    expect(url).toContain("title=Aluminum");
+    expect(authHeader).toMatch(/^Bearer .+/);
   });
 
   test("search does not call LML directly", async ({ page }) => {
     let lmlDirectCalled = false;
 
-    // Watch for any direct LML calls
+    // Watch for any direct LML calls (port 8000 = LML default)
     page.on("request", (request) => {
       const url = request.url();
       if (
@@ -92,7 +92,7 @@ test.describe("Library Search Proxy", () => {
       }
     });
 
-    // Intercept proxy calls so they don't fail
+    // Intercept proxy calls so they succeed
     await page.route("**/proxy/library/search**", (route) =>
       route.fulfill({
         status: 200,
@@ -105,7 +105,8 @@ test.describe("Library Search Proxy", () => {
     await flowsheet.artistInput.fill("Cat Power");
     await flowsheet.albumInput.fill("Moon Pix");
 
-    await page.waitForTimeout(500);
+    // Wait past debounce (350ms) + network roundtrip margin
+    await page.waitForTimeout(600);
 
     expect(lmlDirectCalled).toBe(false);
   });
