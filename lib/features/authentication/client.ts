@@ -34,6 +34,7 @@ function getBaseURL(): string {
 }
 
 const baseURL = getBaseURL();
+export { baseURL as authBaseURL };
 
 const baseConfig = {
     baseURL,

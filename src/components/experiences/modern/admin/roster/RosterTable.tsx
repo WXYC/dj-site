@@ -1,9 +1,9 @@
 "use client";
 
-import { authClient } from "@/lib/features/authentication/client";
+import { authBaseURL } from "@/lib/features/authentication/client";
 import { adminSlice } from "@/lib/features/admin/frontend";
 import { NewAccountParams, Authorization, ROSTER_PAGE_SIZE } from "@/lib/features/admin/types";
-import { User, WXYCRole } from "@/lib/features/authentication/types";
+import { User, authorizationToRole } from "@/lib/features/authentication/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useAccountListResults } from "@/src/hooks/adminHooks";
 import { Add, GppBad, KeyboardArrowLeft, KeyboardArrowRight } from "@mui/icons-material";
@@ -22,31 +22,6 @@ import { AccountEntry } from "./AccountEntry";
 import AccountSearchForm from "./AccountSearchForm";
 import ExportDJsButton from "./ExportCSV";
 import NewAccountForm from "./NewAccountForm";
-
-/**
- * Helper function to resolve organization slug to ID
- */
-async function getOrganizationId(): Promise<string | null> {
-  const orgSlugOrId = process.env.NEXT_PUBLIC_APP_ORGANIZATION;
-  if (!orgSlugOrId) {
-    console.warn("NEXT_PUBLIC_APP_ORGANIZATION not set");
-    return null;
-  }
-
-  // Try to resolve slug to ID
-  const orgResult = await authClient.organization.getFullOrganization({
-    query: {
-      organizationSlug: orgSlugOrId,
-    },
-  });
-
-  if (orgResult.data?.id) {
-    return orgResult.data.id;
-  }
-
-  // If slug lookup fails, assume it's already an ID
-  return orgSlugOrId;
-}
 
 export default function RosterTable({ user }: { user: User }) {
   const { data, isLoading, isError, error, refetch } = useAccountListResults();
@@ -86,6 +61,11 @@ export default function RosterTable({ user }: { user: User }) {
           throw new Error("Missing onboarding temp password configuration.");
         }
 
+        const organizationSlug = process.env.NEXT_PUBLIC_APP_ORGANIZATION;
+        if (!organizationSlug) {
+          throw new Error("Organization not configured (NEXT_PUBLIC_APP_ORGANIZATION not set).");
+        }
+
         const newAccount: NewAccountParams = {
           realName: formData.get("realName") as string,
           username: formData.get("username") as string,
@@ -97,68 +77,27 @@ export default function RosterTable({ user }: { user: User }) {
           authorization: authorizationOfNewAccount,
         };
 
-        // Map Authorization enum to better-auth role
-        let role: WXYCRole = "member";
-        if (authorizationOfNewAccount === Authorization.SM) {
-          role = "stationManager";
-        } else if (authorizationOfNewAccount === Authorization.MD) {
-          role = "musicDirector";
-        } else if (authorizationOfNewAccount === Authorization.DJ) {
-          role = "dj";
-        }
-        // Better-auth types only include default roles; allow our custom roles.
-        const adminRole = role as unknown as "user" | "admin" | ("user" | "admin")[];
+        const role = authorizationToRole(authorizationOfNewAccount);
 
-        // Create user via better-auth admin API
-        const result = await authClient.admin.createUser({
-          name: newAccount.realName || newAccount.username,
-          email: newAccount.email,
-          password: newAccount.temporaryPassword,
-          role: adminRole,
-          data: {
+        const response = await fetch(`${authBaseURL}/admin/provision-user`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: newAccount.email,
             username: newAccount.username,
+            password: newAccount.temporaryPassword,
+            name: newAccount.realName || newAccount.username,
+            organizationSlug,
+            role,
             realName: newAccount.realName || undefined,
             djName: newAccount.djName || undefined,
-          },
+          }),
         });
 
-        if (result.error) {
-          throw new Error(result.error.message || result.error.code || "Failed to create user");
-        }
-
-        if (result.data?.user?.id) {
-          // Mark email as verified — admin-created users don't need email verification
-          const updateResult = await authClient.admin.updateUser({
-            userId: result.data.user.id,
-            data: { emailVerified: true },
-          });
-
-          if (updateResult.error) {
-            console.error("Failed to mark email as verified:", updateResult.error);
-            toast.warning("User created but email verification status could not be set. The user may need to verify their email.");
-          }
-        }
-
-        // Add user to the organization with the appropriate role
-        const organizationId = await getOrganizationId();
-
-        if (organizationId && result.data?.user?.id) {
-          // Type assertion needed - addMember is provided by organizationClient but not fully typed
-          const addMemberResult = await (authClient.organization as typeof authClient.organization & {
-            addMember: (params: { userId: string; organizationId: string; role: string }) => Promise<{ error?: { message?: string } }>
-          }).addMember({
-            userId: result.data.user.id,
-            organizationId,
-            role,
-          });
-
-          if (addMemberResult.error) {
-            console.error("Failed to add user to organization:", addMemberResult.error);
-            // Don't fail the whole operation, but log the warning
-            toast.warning("User created but could not be added to organization. Role management may not work.");
-          }
-        } else if (!organizationId) {
-          console.warn("Organization ID not configured, user created without organization membership");
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => null);
+          throw new Error(errorData?.message || errorData?.error || `Failed to create user (${response.status})`);
         }
 
         toast.success(`Account created successfully for ${newAccount.username}`);
