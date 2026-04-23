@@ -1,13 +1,24 @@
 "use client";
 
 import { useLazySearchPlaylistsQuery } from "@/lib/features/playlist-search/api";
-import { playlistSearchSlice, SearchRow } from "@/lib/features/playlist-search/frontend";
+import { playlistSearchSlice, SearchRow, SimpleSearchField } from "@/lib/features/playlist-search/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useCallback, useEffect, useRef, useMemo } from "react";
 import type { PlaylistSearchResult } from "@wxyc/shared";
 
 const MIN_QUERY_LENGTH = 2;
 const LIMIT = 50;
+
+/** Field-specific prefixes for backend query parsing. */
+const fieldPrefixes: Record<string, string> = {
+  artist: "artist:",
+  song: "song:",
+  album: "album:",
+  label: "label:",
+  dj: "dj:",
+  date: "date:",
+  dateRange: "dateRange:",
+};
 
 /**
  * Build a query string from advanced search rows.
@@ -21,17 +32,6 @@ function buildAdvancedQuery(rows: SearchRow[]): string {
     if (!row.value.trim()) continue;
 
     let term = row.value.trim();
-
-    // Handle field-specific prefixes for backend parsing
-    const fieldPrefixes: Record<string, string> = {
-      artist: "artist:",
-      song: "song:",
-      album: "album:",
-      label: "label:",
-      dj: "dj:",
-      date: "date:",
-      dateRange: "dateRange:",
-    };
 
     // Format the value based on field type
     if (row.field === "dateRange" && row.valueTo) {
@@ -63,6 +63,7 @@ export function usePlaylistSearch() {
   const mode = useAppSelector(playlistSearchSlice.selectors.getMode);
   const simpleQuery = useAppSelector(playlistSearchSlice.selectors.getSimpleQuery);
   const advancedRows = useAppSelector(playlistSearchSlice.selectors.getAdvancedRows);
+  const searchField = useAppSelector(playlistSearchSlice.selectors.getSearchField);
   const sortBy = useAppSelector(playlistSearchSlice.selectors.getSortBy);
   const sortOrder = useAppSelector(playlistSearchSlice.selectors.getSortOrder);
   const page = useAppSelector(playlistSearchSlice.selectors.getPage);
@@ -70,10 +71,13 @@ export function usePlaylistSearch() {
   // Build the effective query based on mode
   const effectiveQuery = useMemo(() => {
     if (mode === "simple") {
-      return simpleQuery;
+      const q = simpleQuery.trim();
+      if (!q || searchField === "all") return q;
+      const prefix = fieldPrefixes[searchField];
+      return prefix ? `${prefix}${q}` : q;
     }
     return buildAdvancedQuery(advancedRows);
-  }, [mode, simpleQuery, advancedRows]);
+  }, [mode, simpleQuery, searchField, advancedRows]);
 
   // Track pending query to fire after current request completes
   const pendingQueryRef = useRef<string | null>(null);
@@ -159,6 +163,11 @@ export function usePlaylistSearch() {
     [dispatch]
   );
 
+  const setSearchField = useCallback(
+    (field: SimpleSearchField) => dispatch(playlistSearchSlice.actions.setSearchField(field)),
+    [dispatch]
+  );
+
   const addRow = useCallback(
     () => dispatch(playlistSearchSlice.actions.addRow()),
     [dispatch]
@@ -200,6 +209,7 @@ export function usePlaylistSearch() {
     // State
     mode,
     simpleQuery,
+    searchField,
     advancedRows,
     sortBy,
     sortOrder,
@@ -220,6 +230,7 @@ export function usePlaylistSearch() {
     // Actions
     setMode,
     setSimpleQuery,
+    setSearchField,
     addRow,
     removeRow,
     updateRow,

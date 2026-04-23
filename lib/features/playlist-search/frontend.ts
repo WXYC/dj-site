@@ -18,9 +18,12 @@ export type SearchRow = {
 
 export type SearchMode = "simple" | "advanced";
 
+export type SimpleSearchField = "all" | "artist" | "song" | "album" | "label" | "dj";
+
 export type PlaylistSearchState = {
   mode: SearchMode;
   simpleQuery: string;
+  searchField: SimpleSearchField;
   advancedRows: SearchRow[];
   sortBy: SortField;
   sortOrder: SortOrder;
@@ -38,6 +41,7 @@ const createInitialRow = (): SearchRow => ({
 const initialState: PlaylistSearchState = {
   mode: "simple",
   simpleQuery: "",
+  searchField: "all",
   advancedRows: [createInitialRow()],
   sortBy: "date",
   sortOrder: "desc",
@@ -54,6 +58,10 @@ export const playlistSearchSlice = createAppSlice({
     },
     setSimpleQuery: (state, action: PayloadAction<string>) => {
       state.simpleQuery = action.payload;
+      state.page = 0;
+    },
+    setSearchField: (state, action: PayloadAction<SimpleSearchField>) => {
+      state.searchField = action.payload;
       state.page = 0;
     },
     addRow: (state) => {
@@ -92,6 +100,7 @@ export const playlistSearchSlice = createAppSlice({
   selectors: {
     getMode: (state) => state.mode,
     getSimpleQuery: (state) => state.simpleQuery,
+    getSearchField: (state) => state.searchField,
     getAdvancedRows: (state) => state.advancedRows,
     getSortBy: (state) => state.sortBy,
     getSortOrder: (state) => state.sortOrder,
