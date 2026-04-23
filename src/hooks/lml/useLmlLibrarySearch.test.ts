@@ -5,7 +5,13 @@ import { server, createTestLmlLibraryItem } from "@/lib/test-utils";
 import { useLmlLibrarySearch } from "./useLmlLibrarySearch";
 import type { LmlLibrarySearchResponse } from "./types";
 
-const LML_URL = process.env.NEXT_PUBLIC_LML_URL || "http://localhost:8000";
+vi.mock("@/lib/features/authentication/client", () => ({
+  getJWTToken: vi.fn().mockResolvedValue("test-jwt-token"),
+}));
+
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
+const PROXY_SEARCH_URL = `${BACKEND_URL}/proxy/library/search`;
 
 describe("useLmlLibrarySearch", () => {
   beforeEach(() => {
@@ -27,10 +33,10 @@ describe("useLmlLibrarySearch", () => {
     expect(result.current.isLoading).toBe(false);
   });
 
-  it("should send correct query params to LML", async () => {
+  it("should send correct query params to Backend-Service proxy", async () => {
     let capturedUrl: URL | undefined;
     server.use(
-      http.get(`${LML_URL}/api/v1/library/search`, ({ request }) => {
+      http.get(PROXY_SEARCH_URL, ({ request }) => {
         capturedUrl = new URL(request.url);
         return HttpResponse.json({
           results: [],
@@ -52,6 +58,29 @@ describe("useLmlLibrarySearch", () => {
     expect(capturedUrl!.searchParams.get("limit")).toBe("10");
   });
 
+  it("should include Authorization header", async () => {
+    let capturedHeaders: Headers | undefined;
+    server.use(
+      http.get(PROXY_SEARCH_URL, ({ request }) => {
+        capturedHeaders = request.headers;
+        return HttpResponse.json({
+          results: [],
+          total: 0,
+          query: null,
+        } satisfies LmlLibrarySearchResponse);
+      })
+    );
+
+    renderHook(() =>
+      useLmlLibrarySearch({ artist: "Stereolab", album: "Aluminum" })
+    );
+
+    await vi.advanceTimersByTimeAsync(400);
+    await waitFor(() => expect(capturedHeaders).toBeDefined());
+
+    expect(capturedHeaders!.get("Authorization")).toMatch(/^Bearer /);
+  });
+
   it("should convert results to AlbumEntry[]", async () => {
     const lmlItem = createTestLmlLibraryItem({
       id: 99,
@@ -65,7 +94,7 @@ describe("useLmlLibrarySearch", () => {
     });
 
     server.use(
-      http.get(`${LML_URL}/api/v1/library/search`, () => {
+      http.get(PROXY_SEARCH_URL, () => {
         return HttpResponse.json({
           results: [lmlItem],
           total: 1,
@@ -97,7 +126,7 @@ describe("useLmlLibrarySearch", () => {
 
   it("should return empty array on HTTP error", async () => {
     server.use(
-      http.get(`${LML_URL}/api/v1/library/search`, () => {
+      http.get(PROXY_SEARCH_URL, () => {
         return new HttpResponse(null, { status: 500 });
       })
     );
@@ -114,7 +143,7 @@ describe("useLmlLibrarySearch", () => {
 
   it("should return empty array on network error", async () => {
     server.use(
-      http.get(`${LML_URL}/api/v1/library/search`, () => {
+      http.get(PROXY_SEARCH_URL, () => {
         return HttpResponse.error();
       })
     );
@@ -132,7 +161,7 @@ describe("useLmlLibrarySearch", () => {
   it("should debounce requests", async () => {
     let callCount = 0;
     server.use(
-      http.get(`${LML_URL}/api/v1/library/search`, () => {
+      http.get(PROXY_SEARCH_URL, () => {
         callCount++;
         return HttpResponse.json({
           results: [],
