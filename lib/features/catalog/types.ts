@@ -54,6 +54,7 @@ export type AlbumEntry = {
   on_streaming?: boolean;
   date_lost?: string;
   date_found?: string;
+  artwork_url?: string | null;
 };
 
 export type ArtistEntry = {

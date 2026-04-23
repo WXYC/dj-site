@@ -96,6 +96,22 @@ describe("convertToAlbumEntry", () => {
           expect(result.date_found).toBeUndefined();
         },
       },
+      {
+        name: "should pass through artwork_url when present",
+        input: createTestAlbumSearchResult({
+          artwork_url: "https://i.discogs.com/confield.jpg",
+        } as any),
+        assertions: (result) => {
+          expect(result.artwork_url).toBe("https://i.discogs.com/confield.jpg");
+        },
+      },
+      {
+        name: "should default artwork_url to undefined",
+        input: createTestAlbumSearchResult(),
+        assertions: (result) => {
+          expect(result.artwork_url).toBeUndefined();
+        },
+      },
     ]
   );
 
