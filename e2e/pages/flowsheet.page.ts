@@ -169,6 +169,12 @@ export class FlowsheetPage {
     method: "button" | "enter" = "button"
   ): Promise<void> {
     await this.fillSearchForm(data);
+    // Register response listener BEFORE submitting so we don't miss the POST
+    // if it completes while we're waiting for the form to clear.
+    const responsePromise = this.page.waitForResponse(
+      (r) => r.url().includes("/flowsheet") && r.request().method() === "POST" && r.status() < 300,
+      { timeout: 15000 }
+    );
     if (method === "button") {
       await this.submitViaButton();
     } else {
@@ -179,11 +185,7 @@ export class FlowsheetPage {
     // was initiated (though not necessarily that the response has arrived).
     await expect(this.songInput).toHaveValue("", { timeout: 10000 });
     // Wait for the POST response to confirm the entry is persisted on the server.
-    // Without this, expectEntryWithText could race ahead of the mutation.
-    await this.page.waitForResponse(
-      (r) => r.url().includes("/flowsheet") && r.request().method() === "POST" && r.status() < 300,
-      { timeout: 10000 }
-    );
+    await responsePromise;
   }
 
   // --- Entry locators ---
