@@ -118,7 +118,7 @@ jobs:
 
       - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ hashFiles('dj-site/package-lock.json') }}
@@ -133,7 +133,7 @@ jobs:
 
       - name: Cache dj-site build
         id: nextjs-build-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: dj-site/.next
           key: e2e-nextjs-${{ hashFiles('dj-site/package-lock.json') }}-${{ hashFiles('dj-site/next.config.*') }}-${{ hashFiles('dj-site/app/**', 'dj-site/src/**', 'dj-site/lib/**') }}
