@@ -279,14 +279,16 @@ server.use(
 
 ### CI (`.github/workflows/ci.yml`)
 
-Runs on push/PR to `main`:
+Runs on push to `main` (full suite) and on PRs (scoped to changed code):
 1. **Lint & Type Check** -- `npx tsc --noEmit`
-2. **Unit Tests** -- `npm run test:run` (uploads coverage artifact)
+2. **Unit Tests** -- On PRs, uses `vitest --changed origin/main` to only run tests affected by the diff. On `main` pushes, runs all tests.
 3. **Build** -- `npm run build`
+
+PRs that only change non-code files (docs, scripts, etc.) skip CI entirely via path filters.
 
 ### E2E (`.github/workflows/e2e-tests.yml`)
 
-Runs on push/PR to `main`. Spins up Backend-Service with Docker Compose (PostgreSQL + auth + backend), builds dj-site, runs Playwright tests.
+Runs on push to `main` and on PRs that touch app code. Spins up Backend-Service with Docker Compose (PostgreSQL + auth + backend), builds dj-site, runs Playwright tests. PRs that only change unit tests, test utilities, or non-app config skip E2E via path filters.
 
 ### Deployment
 
