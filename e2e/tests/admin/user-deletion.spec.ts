@@ -193,7 +193,7 @@ test.describe("User Deletion Session Invalidation", () => {
     });
 
     await adminRosterPage.expectSuccessToast();
-    await adminRosterPage.waitForDataRefresh();
+    await adminPage.waitForTimeout(1000);
 
     // New user logs in with temp password
     const userOnboarding = new OnboardingPage(userPage);
@@ -212,7 +212,7 @@ test.describe("User Deletion Session Invalidation", () => {
     adminRosterPage.acceptConfirmDialog();
     await adminRosterPage.deleteUser(username);
     await adminRosterPage.expectSuccessToast("deleted");
-    await adminRosterPage.waitForDataRefresh();
+    await adminPage.waitForTimeout(1000);
 
     // User tries to access protected route - should be redirected to login
     await userPage.goto("/dashboard/flowsheet");

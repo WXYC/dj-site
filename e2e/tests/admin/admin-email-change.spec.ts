@@ -1,17 +1,19 @@
 import { test, expect, TEST_USERS } from "../../fixtures/auth.fixture";
 import { RosterPage } from "../../pages/roster.page";
 import { DashboardPage } from "../../pages/dashboard.page";
-import { generateUsername, generateEmail } from "../../helpers/test-data";
 import path from "path";
 
 const authDir = path.join(__dirname, "../../.auth");
 
 test.describe("Admin Email Change", () => {
-  // Use Station Manager auth state (matches other admin specs)
+  // Use Station Manager auth state (faster than loginAs — no per-test login)
   test.use({ storageState: path.join(authDir, "stationManager.json") });
 
   let rosterPage: RosterPage;
   let dashboardPage: DashboardPage;
+
+  // Serial mode: mutation tests change dj2's email
+  test.describe.configure({ mode: "serial" });
 
   test.beforeEach(async ({ page }) => {
     rosterPage = new RosterPage(page);
@@ -86,17 +88,10 @@ test.describe("Admin Email Change", () => {
     expect(dialogMessage).toContain("without verification");
   });
 
-  test("should update email immediately when confirmed", async () => {
-    // Create a temp user so we don't mutate shared seeded users
-    const username = generateUsername("email");
-    const email = generateEmail(username);
-    await rosterPage.createAccount({ realName: "Email Update Test", username, email });
-    await rosterPage.expectSuccessToast();
-    await rosterPage.waitForDataRefresh();
-
+  test("should update email immediately when confirmed", async ({ page }) => {
     const newEmail = `admin_changed_${Date.now()}@wxyc.org`;
 
-    await rosterPage.updateEmailWithConfirm(username, newEmail);
+    await rosterPage.updateEmailWithConfirm(TEST_USERS.dj2.username, newEmail);
 
     // Should show success toast
     await rosterPage.expectSuccessToast(`Email updated to ${newEmail}`);
@@ -106,16 +101,13 @@ test.describe("Admin Email Change", () => {
   });
 
   test("should not require email verification for admin-changed emails", async () => {
-    // Create a temp user so we don't mutate shared seeded users
-    const username = generateUsername("email");
-    const email = generateEmail(username);
-    await rosterPage.createAccount({ realName: "Email Verify Test", username, email });
-    await rosterPage.expectSuccessToast();
-    await rosterPage.waitForDataRefresh();
+    // This test verifies that admin-changed emails don't require verification
+    // by checking that emailVerified: true is set (observable through the user
+    // being able to log in with the new email without verification)
 
     const newEmail = `admin_verified_${Date.now()}@wxyc.org`;
 
-    await rosterPage.updateEmailWithConfirm(username, newEmail);
+    await rosterPage.updateEmailWithConfirm(TEST_USERS.dj2.username, newEmail);
 
     await rosterPage.expectSuccessToast();
 
@@ -172,23 +164,18 @@ test.describe("Admin Email Change - Error Handling", () => {
   });
 
   test("should handle invalid email format gracefully", async ({ page }) => {
-    // Create a temp user so we don't risk corrupting shared seeded user state
-    const username = generateUsername("email");
-    const email = generateEmail(username);
-    await rosterPage.createAccount({ realName: "Invalid Email Test", username, email });
-    await rosterPage.expectSuccessToast();
-    await rosterPage.waitForDataRefresh();
+    const originalEmail = await rosterPage.getUserEmail(TEST_USERS.dj1.username);
 
-    await rosterPage.startEditEmail(username);
+    await rosterPage.startEditEmail(TEST_USERS.dj1.username);
 
-    const emailInput = rosterPage.getEmailInput(username);
+    const emailInput = rosterPage.getEmailInput(TEST_USERS.dj1.username);
     await emailInput.clear();
     await emailInput.fill("not-an-email");
 
     // Set up to accept dialog
     rosterPage.setupAcceptConfirmDialog();
 
-    await rosterPage.confirmEmailChange(username);
+    await rosterPage.confirmEmailChange(TEST_USERS.dj1.username);
 
     // better-auth may not validate email format server-side, so the update
     // could succeed or fail. Accept any of these outcomes:
@@ -199,7 +186,7 @@ test.describe("Admin Email Change - Error Handling", () => {
 
     const errorToast = page.locator('[data-sonner-toast][data-type="error"]');
     const successToast = page.locator('[data-sonner-toast][data-type="success"]');
-    const emailInputStillVisible = rosterPage.getEmailInput(username);
+    const emailInputStillVisible = rosterPage.getEmailInput(TEST_USERS.dj1.username);
 
     const hasError = await errorToast.isVisible().catch(() => false);
     const hasSuccess = await successToast.isVisible().catch(() => false);
@@ -207,7 +194,14 @@ test.describe("Admin Email Change - Error Handling", () => {
 
     expect(hasError || hasSuccess || stillEditing).toBe(true);
 
-    // No restore needed — temp user is disposable
+    // Restore original email if it was changed (to avoid corrupting state for other tests)
+    if (hasSuccess) {
+      await page.waitForTimeout(1000);
+      await rosterPage.goto();
+      await rosterPage.waitForTableLoaded();
+      await rosterPage.updateEmailWithConfirm(TEST_USERS.dj1.username, originalEmail);
+      await rosterPage.expectSuccessToast();
+    }
   });
 
   test("should dismiss dialog without making changes when cancelled", async ({ page }) => {
