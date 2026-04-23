@@ -66,10 +66,11 @@ export class AlbumDetailPage {
     this.tracklist = this.modal.locator("table");
     this.noTracklistMessage = this.modal.locator(':text("No tracklist available")');
 
-    // Footer section (CardOverflow)
-    this.playsCount = this.modal.locator(':text("plays")');
-    this.addedDate = this.modal.locator(':text("Added")');
-    this.discogsLink = this.modal.locator('a:has-text("Discogs")');
+    // Footer section (CardOverflow with variant="soft")
+    const footer = this.modal.locator('[class*="CardOverflow"]');
+    this.playsCount = footer.locator(':text("plays")');
+    this.addedDate = footer.locator(':text("Added")');
+    this.discogsLink = footer.locator('a:has-text("Discogs")');
 
     // Error state
     this.errorCard = this.modal.locator(':text("Ack!")');
