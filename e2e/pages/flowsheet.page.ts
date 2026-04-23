@@ -90,18 +90,27 @@ export class FlowsheetPage {
     // Wait for the button to be enabled and not loading
     await expect(this.goLiveButton).toBeEnabled({ timeout: 10000 });
     await this.page.waitForTimeout(300); // Let prior mutations settle
-    // Listen for the join mutation response BEFORE clicking so we don't
-    // miss a fast reply. Without this, slow CI runners can fail: the
-    // optimistic cache update fires synchronously, but React may not
-    // flush the re-render before Playwright's assertion polls, or the
-    // backend may reject and the optimistic patch rolls back.
-    const joinResponse = this.page.waitForResponse(
+    // Listen for the mutation response BEFORE clicking so we don't miss
+    // a fast reply. Without this, slow CI runners can fail: the optimistic
+    // cache update fires synchronously, but React may not flush the
+    // re-render before Playwright's assertion polls, or the backend may
+    // reject and the optimistic patch rolls back.
+    //
+    // We match any POST to /flowsheet/ (not just /join with status 200)
+    // because the live toggle shares a single button — if a prior serial
+    // test left the DJ live and the whoIsLive query hasn't resolved yet,
+    // the beforeEach status check may misread "Off Air" and call goLive(),
+    // but by the time we click the component's live state may have flipped,
+    // sending POST /end instead of /join. Matching broadly lets the DOM
+    // assertion below be the real verification.
+    const mutationResponse = this.page.waitForResponse(
       (resp) =>
-        resp.url().includes("/flowsheet/join") && resp.status() === 200,
+        resp.url().includes("/flowsheet/") &&
+        resp.request().method() === "POST",
       { timeout: 15000 }
     );
     await this.goLiveButton.click();
-    await joinResponse;
+    await mutationResponse;
     await expect(this.liveStatus).toContainText("On Air", { timeout: 10000 });
     // Wait for search inputs to become enabled (live state propagates)
     await expect(this.songInput).toBeEnabled({ timeout: 5000 });
@@ -121,13 +130,14 @@ export class FlowsheetPage {
   async leave(): Promise<void> {
     await expect(this.goLiveButton).toBeEnabled({ timeout: 10000 });
     await this.page.waitForTimeout(300);
-    const endResponse = this.page.waitForResponse(
+    const mutationResponse = this.page.waitForResponse(
       (resp) =>
-        resp.url().includes("/flowsheet/end") && resp.status() === 200,
+        resp.url().includes("/flowsheet/") &&
+        resp.request().method() === "POST",
       { timeout: 15000 }
     );
     await this.goLiveButton.click();
-    await endResponse;
+    await mutationResponse;
     await expect(this.liveStatus).toContainText("Off Air", { timeout: 10000 });
   }
 
