@@ -140,7 +140,7 @@ export async function requireRole(session: BetterAuthSession, requiredRole: Auth
  * so admins can pre-fill realName/djName without bypassing onboarding.
  */
 export function isUserIncomplete(session: BetterAuthSession): boolean {
-  return !session.user.hasCompletedOnboarding;
+  return session.user.hasCompletedOnboarding === false;
 }
 
 /**

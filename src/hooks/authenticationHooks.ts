@@ -53,7 +53,7 @@ export const useLogin = () => {
       toast.success("Login successful");
 
       const user = (result as any).data?.user;
-      if (user && !user.hasCompletedOnboarding) {
+      if (user && user.hasCompletedOnboarding === false) {
         router.push("/login?incomplete=true");
       } else {
         router.push(dashboardHome);
@@ -127,7 +127,7 @@ export const useOTPVerify = () => {
       const dashboardHome = String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog");
 
       const user = (result as any).data?.user;
-      if (user && !user.hasCompletedOnboarding) {
+      if (user && user.hasCompletedOnboarding === false) {
         router.push("/login?incomplete=true");
       } else {
         router.push(dashboardHome);
