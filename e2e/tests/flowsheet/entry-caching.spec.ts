@@ -53,11 +53,7 @@ test.describe("Flowsheet Entry Caching", () => {
   // 1. Basic add behavior
   // ---------------------------------------------------------------
   test.describe("1. Basic add behavior", () => {
-    // FIXME: RTK Query infiniteQuery tag invalidation refetches fresh data
-    // from the server but does not update the rendered entry list. The entry
-    // is persisted (POST 201) and returned by the API, but the component
-    // keeps rendering stale cached pages. See PR #306.
-    test.fixme("should add entry via submit button click", async ({ page }) => {
+    test("should add entry via submit button click", async ({ page }) => {
       const trackName = `Button Add ${ts}`;
 
       await flowsheet.addTrack(
@@ -68,7 +64,7 @@ test.describe("Flowsheet Entry Caching", () => {
       await flowsheet.expectEntryWithText(trackName);
     });
 
-    test.fixme("should add entry via Enter key", async ({ page }) => {
+    test("should add entry via Enter key", async ({ page }) => {
       const trackName = `Enter Add ${ts}`;
 
       await flowsheet.addTrack(
@@ -84,7 +80,7 @@ test.describe("Flowsheet Entry Caching", () => {
   // 2. Consistency across multiple attempts
   // ---------------------------------------------------------------
   test.describe("2. Consistency", () => {
-    test.fixme("all tracks appear after adding 12 entries", async ({ page }) => {
+    test("all tracks appear after adding 12 entries", async ({ page }) => {
       test.slow(); // This test adds many entries
 
       const trackCount = 12;
@@ -116,7 +112,7 @@ test.describe("Flowsheet Entry Caching", () => {
     // hang after many entries accumulate in the cache. Investigate as a follow-up
     // to PR #306 -- the mutation's onQueryStarted may have a race condition with
     // the infinite query cache when pages.length > 1.
-    test.fixme("quick successive adds maintain order with no duplicates", async ({
+    test("quick successive adds maintain order with no duplicates", async ({
       page,
     }) => {
       test.slow(); // Rapid adds need extra time budget
@@ -172,7 +168,7 @@ test.describe("Flowsheet Entry Caching", () => {
     // submission when POST is delayed. Investigate whether onQueryStarted's
     // buildOptimisticEntry + insertEntrySortedFirstPage actually runs before
     // the route interception delays the network request.
-    test.fixme("entry appears immediately under throttled network", async ({
+    test("entry appears immediately under throttled network", async ({
       page,
     }) => {
       const trackName = `Optimistic ${ts}`;
@@ -225,7 +221,7 @@ test.describe("Flowsheet Entry Caching", () => {
   test.describe("5. Page load timing", () => {
     // TODO: The entries GET delay route may be intercepting the flowsheet POST
     // as well, causing the add mutation to hang. Needs URL pattern refinement.
-    test.fixme("can add track before entry list fully loads", async ({ page }) => {
+    test("can add track before entry list fully loads", async ({ page }) => {
       // Set up a route to delay entries loading BEFORE navigating
       await page.route("**/flowsheet/?page=0**", async (route) => {
         if (route.request().method() === "GET") {
@@ -256,7 +252,7 @@ test.describe("Flowsheet Entry Caching", () => {
   // 6. Edit behavior
   // ---------------------------------------------------------------
   test.describe("6. Edit behavior", () => {
-    test.fixme("edit appears immediately and persists after refresh", async ({
+    test("edit appears immediately and persists after refresh", async ({
       page,
     }) => {
       const originalTitle = `Editable ${ts}`;
@@ -310,7 +306,7 @@ test.describe("Flowsheet Entry Caching", () => {
   test.describe("7. Multiple tabs", () => {
     // TODO: Same add-mutation hang as rapid/slow-network tests. New browser
     // contexts start with empty cache; after 20+ DB entries the mutation hangs.
-    test.fixme("entry added in one tab appears in another after refresh", async ({
+    test("entry added in one tab appears in another after refresh", async ({
       browser,
     }) => {
       test.slow(); // Multi-context test needs extra time
@@ -361,7 +357,7 @@ test.describe("Flowsheet Entry Caching", () => {
   // 8. Live / Go Live interaction
   // ---------------------------------------------------------------
   test.describe("8. Live toggle interaction", () => {
-    test.fixme("can add track immediately after going live", async ({ page }) => {
+    test("can add track immediately after going live", async ({ page }) => {
       // Leave first so we can test the go-live -> add flow
       await flowsheet.leave();
       isLive = false;
