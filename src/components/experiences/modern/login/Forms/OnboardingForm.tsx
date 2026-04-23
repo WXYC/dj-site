@@ -56,7 +56,7 @@ export default function OnboardingForm({
         initialValue={realName}
       />
       <FormControl>
-        <FormLabel>DJ Name</FormLabel>
+        <FormLabel>DJ Name (optional)</FormLabel>
         <Input
           name="djName"
           placeholder="DJ Name"

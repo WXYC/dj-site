@@ -113,9 +113,7 @@ export function betterAuthSessionToAuthenticationData(
     if (!session.user.realName || session.user.realName.trim() === "") {
       missingAttributes.push("realName");
     }
-    if (!session.user.djName || session.user.djName.trim() === "") {
-      missingAttributes.push("djName");
-    }
+    // djName is optional — not included in required attributes
     return {
       username,
       requiredAttributes: missingAttributes,
@@ -210,9 +208,7 @@ export async function betterAuthSessionToAuthenticationDataAsync(
     if (!session.user.realName || session.user.realName.trim() === "") {
       missingAttributes.push("realName");
     }
-    if (!session.user.djName || session.user.djName.trim() === "") {
-      missingAttributes.push("djName");
-    }
+    // djName is optional — not included in required attributes
     return {
       username,
       requiredAttributes: missingAttributes,

@@ -73,7 +73,7 @@ describe("OnboardingForm", () => {
     expect(screen.getByText("Real Name")).toBeInTheDocument();
   });
 
-  it("should render DJ name input", () => {
+  it("should render DJ name input as optional", () => {
     const Wrapper = createWrapper();
     render(
       <Wrapper>
@@ -81,7 +81,7 @@ describe("OnboardingForm", () => {
       </Wrapper>
     );
 
-    expect(screen.getByText("DJ Name")).toBeInTheDocument();
+    expect(screen.getByText("DJ Name (optional)")).toBeInTheDocument();
   });
 
   it("should render password input with requirements", () => {
@@ -150,6 +150,6 @@ describe("OnboardingForm", () => {
 
     // Form should render with provided values
     expect(screen.getByText("Real Name")).toBeInTheDocument();
-    expect(screen.getByText("DJ Name")).toBeInTheDocument();
+    expect(screen.getByText("DJ Name (optional)")).toBeInTheDocument();
   });
 });

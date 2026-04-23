@@ -153,9 +153,7 @@ export function getIncompleteUserAttributes(session: BetterAuthSession): (keyof 
     missingAttributes.push("realName");
   }
 
-  if (!session.user.djName || session.user.djName.trim() === "") {
-    missingAttributes.push("djName");
-  }
+  // djName is optional — not included in required attributes
 
   return missingAttributes;
 }

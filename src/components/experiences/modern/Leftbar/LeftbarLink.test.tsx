@@ -42,19 +42,20 @@ describe("LeftbarLink", () => {
     expect(screen.getByTestId("icon")).toBeInTheDocument();
   });
 
-  it("should be disabled when disabled prop is true", () => {
+  it("should not render as a link when disabled", () => {
     render(
       <LeftbarLink path="/dashboard/catalog" title="Catalog" disabled={true}>
         <span>Icon</span>
       </LeftbarLink>
     );
 
-    const link = screen.getByRole("link");
-    expect(link).toHaveAttribute("aria-disabled", "true");
-    expect(link).toHaveStyle({ pointerEvents: "none" });
+    // When disabled, ListItemButton does not get component: Link, so it renders as a button
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    const button = screen.getByRole("button");
+    expect(button).toHaveAttribute("aria-disabled", "true");
   });
 
-  it("should be enabled when disabled prop is false", () => {
+  it("should render as a link when not disabled", () => {
     render(
       <LeftbarLink path="/dashboard/catalog" title="Catalog" disabled={false}>
         <span>Icon</span>
@@ -62,8 +63,7 @@ describe("LeftbarLink", () => {
     );
 
     const link = screen.getByRole("link");
-    expect(link).toHaveAttribute("aria-disabled", "false");
-    expect(link).toHaveStyle({ pointerEvents: "auto" });
+    expect(link).toHaveAttribute("href", "/dashboard/catalog");
   });
 
   it("should show solid variant when path matches current pathname", async () => {
@@ -76,9 +76,9 @@ describe("LeftbarLink", () => {
       </LeftbarLink>
     );
 
-    // The ListItemButton should have solid variant when path matches
-    const button = screen.getByRole("button");
-    expect(button).toHaveClass("MuiListItemButton-variantSolid");
+    // The ListItemButton renders as a link when not disabled
+    const link = screen.getByRole("link");
+    expect(link).toHaveClass("MuiListItemButton-variantSolid");
   });
 
   it("should show plain variant when path does not match current pathname", async () => {
@@ -91,9 +91,9 @@ describe("LeftbarLink", () => {
       </LeftbarLink>
     );
 
-    // The ListItemButton should have plain variant when path doesn't match
-    const button = screen.getByRole("button");
-    expect(button).toHaveClass("MuiListItemButton-variantPlain");
+    // The ListItemButton renders as a link when not disabled
+    const link = screen.getByRole("link");
+    expect(link).toHaveClass("MuiListItemButton-variantPlain");
   });
 
   it("should render tooltip with title", () => {
@@ -103,7 +103,7 @@ describe("LeftbarLink", () => {
       </LeftbarLink>
     );
 
-    // Tooltip title is not directly visible but is in the DOM
-    expect(screen.getByRole("button")).toBeInTheDocument();
+    // The ListItemButton renders as a link when not disabled
+    expect(screen.getByRole("link")).toBeInTheDocument();
   });
 });
