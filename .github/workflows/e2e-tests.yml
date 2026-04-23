@@ -5,6 +5,18 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    paths:
+      - 'app/**'
+      - 'src/**'
+      - 'lib/features/**'
+      - 'lib/store.ts'
+      - 'lib/hooks.ts'
+      - 'e2e/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'next.config.*'
+      - 'playwright.config.*'
+      - '.github/workflows/e2e-tests.yml'
   workflow_dispatch:
     inputs:
       backend_ref:
