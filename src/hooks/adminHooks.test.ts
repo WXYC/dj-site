@@ -14,10 +14,15 @@ vi.mock("@/lib/features/authentication/client", () => ({
       listUsers: vi.fn(),
     },
     organization: {
-      getFullOrganization: vi.fn(),
       listMembers: vi.fn(),
     },
   },
+}));
+
+// Mock the organization-utils module for resolveOrganizationIdAdmin
+const mockResolveOrganizationIdAdmin = vi.fn();
+vi.mock("@/lib/features/authentication/organization-utils", () => ({
+  resolveOrganizationIdAdmin: (...args: unknown[]) => mockResolveOrganizationIdAdmin(...args),
 }));
 
 import { authClient } from "@/lib/features/authentication/client";
@@ -216,5 +221,44 @@ describe("useAccountListResults", () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.isError).toBe(false);
     expect(result.current.data).toHaveLength(0);
+  });
+
+  it("merges org member roles when resolveOrganizationIdAdmin returns an ID", async () => {
+    const users = [betterAuthUser(MOCK_USERS.dj1, { role: "user" })];
+    vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse(users));
+    mockResolveOrganizationIdAdmin.mockResolvedValue("org-uuid-123");
+    vi.mocked(authClient.organization.listMembers).mockResolvedValue({
+      data: {
+        members: [{ userId: MOCK_USERS.dj1.id, role: "musicDirector" }],
+      },
+      error: null,
+    });
+
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountListResults(), { wrapper });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.data[0].authorization).toBe(Authorization.MD);
+    expect(authClient.organization.listMembers).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: expect.objectContaining({ organizationId: "org-uuid-123" }),
+      })
+    );
+  });
+
+  it("loads accounts without org role overrides when resolveOrganizationIdAdmin returns null", async () => {
+    const users = [betterAuthUser(MOCK_USERS.dj1)];
+    vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse(users));
+    mockResolveOrganizationIdAdmin.mockResolvedValue(null);
+
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountListResults(), { wrapper });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.isError).toBe(false);
+    expect(result.current.data).toHaveLength(1);
+    // Falls back to user-level role
+    expect(result.current.data[0].authorization).toBe(Authorization.DJ);
+    expect(authClient.organization.listMembers).not.toHaveBeenCalled();
   });
 });

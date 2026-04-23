@@ -3,31 +3,10 @@ import { adminSlice } from "@/lib/features/admin/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { convertBetterAuthToAccountResult, BetterAuthUser } from "@/lib/features/admin/conversions-better-auth";
 import { Account, ROSTER_PAGE_SIZE } from "@/lib/features/admin/types";
+import { resolveOrganizationIdAdmin } from "@/lib/features/authentication/organization-utils";
 import { useEffect, useState, useCallback } from "react";
 import { throwIfBetterAuthError } from "@/src/utilities/throwIfBetterAuthError";
 import { useDebouncedValue } from "@/src/hooks/useDebouncedValue";
-
-/**
- * Get the organization ID from environment variable
- */
-async function getOrganizationId(): Promise<string | null> {
-  const orgSlugOrId = process.env.NEXT_PUBLIC_APP_ORGANIZATION;
-  if (!orgSlugOrId) {
-    return null;
-  }
-
-  const orgResult = await authClient.organization.getFullOrganization({
-    query: {
-      organizationSlug: orgSlugOrId,
-    },
-  });
-
-  if (orgResult.data?.id) {
-    return orgResult.data.id;
-  }
-
-  return orgSlugOrId;
-}
 
 export const useAccountListResults = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -87,7 +66,7 @@ export const useAccountListResults = () => {
 
       // Fetch organization members to get accurate roles
       let memberRoleMap = new Map<string, string>();
-      const organizationId = await getOrganizationId();
+      const organizationId = await resolveOrganizationIdAdmin();
 
       if (organizationId) {
         const membersResult = await authClient.organization.listMembers({

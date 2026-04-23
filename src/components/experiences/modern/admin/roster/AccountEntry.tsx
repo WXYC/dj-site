@@ -1,7 +1,7 @@
 "use client";
 
 import { authClient } from "@/lib/features/authentication/client";
-import { getAppOrganizationIdClient } from "@/lib/features/authentication/organization-utils";
+import { resolveOrganizationIdAdmin } from "@/lib/features/authentication/organization-utils";
 import {
   Account,
   Authorization,
@@ -179,29 +179,14 @@ export const AccountEntry = ({
   };
 
   /**
-   * Resolve organization slug to organization ID
+   * Resolve organization slug to organization ID via the admin endpoint.
    */
   const resolveOrganizationId = async (): Promise<string> => {
-    // Use NEXT_PUBLIC_APP_ORGANIZATION directly - inlined at build time by Next.js
-    const orgSlugOrId = process.env.NEXT_PUBLIC_APP_ORGANIZATION || getAppOrganizationIdClient();
-
-    if (!orgSlugOrId) {
-      throw new Error("Organization not configured (NEXT_PUBLIC_APP_ORGANIZATION not set)");
+    const orgId = await resolveOrganizationIdAdmin();
+    if (!orgId) {
+      throw new Error("Organization not configured");
     }
-
-    // Try to resolve slug to ID
-    const orgResult = await authClient.organization.getFullOrganization({
-      query: {
-        organizationSlug: orgSlugOrId,
-      },
-    });
-
-    if (orgResult.data?.id) {
-      return orgResult.data.id;
-    }
-
-    // If slug lookup fails, assume it's already an ID
-    return orgSlugOrId;
+    return orgId;
   };
 
   /**

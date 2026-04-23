@@ -301,6 +301,7 @@ Cloudflare Pages via OpenNext. Build: `npm run build:opennext`. Deploy: `npm run
 - **No ESLint/Prettier config**: No formatter or linter configuration files exist at the project level. Follow existing code style
 - **Strict TypeScript**: `strict: true` in tsconfig
 - **Onboarding completeness**: Tracked via the `hasCompletedOnboarding` boolean on the user record, not by presence of profile fields (`realName`/`djName`). This allows admins to pre-fill profile fields when creating accounts without bypassing onboarding. The `isUserIncomplete()` function in `server-utils.ts` checks this flag; `getIncompleteUserAttributes()` still inspects `realName`/`djName` to determine which form fields to render during onboarding.
+- **Admin org resolution**: Admin pages (roster, role management) resolve the org slug to its UUID via `resolveOrganizationIdAdmin()` in `lib/features/authentication/organization-utils.ts`. This calls `GET /auth/admin/resolve-organization` on Backend-Service instead of the fragile `getFullOrganization` SDK method. The result is cached for the page session.
 
 ## Related Repos
 
