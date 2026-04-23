@@ -129,10 +129,10 @@ describe("bin conversions", () => {
       expect(result.add_date).toBeUndefined();
     });
 
-    it("should default plays to 0", () => {
+    it("should keep plays undefined for bin responses", () => {
       const response = createTestBinResponse();
       const result = convertToAlbumEntry(response);
-      expect(result.plays).toBe(0);
+      expect(result.plays).toBeUndefined();
     });
 
     it("should set rotation_id to undefined", () => {
