@@ -3,6 +3,7 @@ import { DashboardPage } from "../../pages/dashboard.page";
 import { RosterPage } from "../../pages/roster.page";
 import { LoginPage } from "../../pages/login.page";
 import { OnboardingPage } from "../../pages/onboarding.page";
+import { generateUsername, generateEmail } from "../../helpers/test-data";
 import path from "path";
 
 const authDir = path.join(__dirname, "../../.auth");
@@ -13,8 +14,6 @@ test.describe("Admin User Deletion", () => {
 
   let dashboardPage: DashboardPage;
   let rosterPage: RosterPage;
-
-  const generateUsername = () => `e2e_delete_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
   test.beforeEach(async ({ page }) => {
     dashboardPage = new DashboardPage(page);
@@ -27,8 +26,8 @@ test.describe("Admin User Deletion", () => {
 
   test("should delete user when confirm dialog is accepted", async ({ page }) => {
     // First create a user to delete
-    const username = generateUsername();
-    const email = `${username}@test.wxyc.org`;
+    const username = generateUsername("delete");
+    const email = generateEmail(username);
 
     await rosterPage.createAccount({
       realName: "To Be Deleted",
@@ -37,7 +36,7 @@ test.describe("Admin User Deletion", () => {
     });
 
     await rosterPage.expectSuccessToast("Account created");
-    await page.waitForTimeout(1000);
+    await rosterPage.waitForDataRefresh();
     await rosterPage.expectUserInRoster(username);
 
     // Set up dialog handler to accept
@@ -50,17 +49,25 @@ test.describe("Admin User Deletion", () => {
     await rosterPage.expectSuccessToast("deleted");
 
     // Wait for table to refresh
-    await page.waitForTimeout(1000);
+    await rosterPage.waitForDataRefresh();
 
     // User should no longer appear in roster
     await rosterPage.expectUserNotInRoster(username);
   });
 
   test("should not delete user when confirm dialog is cancelled", async ({ page }) => {
-    // Use test_dj2 who should exist in seed data
-    const username = TEST_USERS.dj2.username;
+    // Create a temp user so we don't depend on shared seeded users
+    const username = generateUsername("delete");
+    const email = generateEmail(username);
 
-    // Verify user exists
+    await rosterPage.createAccount({
+      realName: "Cancel Delete Test",
+      username,
+      email,
+    });
+
+    await rosterPage.expectSuccessToast();
+    await rosterPage.waitForDataRefresh();
     await rosterPage.expectUserInRoster(username);
 
     // Set up dialog handler to dismiss
@@ -85,8 +92,18 @@ test.describe("Admin User Deletion", () => {
   });
 
   test("should show confirmation dialog before deletion", async ({ page }) => {
-    // Use test_dj1
-    const username = TEST_USERS.dj1.username;
+    // Create a temp user so we don't depend on shared seeded users
+    const username = generateUsername("delete");
+    const email = generateEmail(username);
+
+    await rosterPage.createAccount({
+      realName: "Dialog Test",
+      username,
+      email,
+    });
+
+    await rosterPage.expectSuccessToast();
+    await rosterPage.waitForDataRefresh();
 
     // Track if dialog was shown
     let dialogShown = false;
@@ -106,8 +123,8 @@ test.describe("Admin User Deletion", () => {
 
   test("should update roster count after deletion", async ({ page }) => {
     // Create a user to delete
-    const username = generateUsername();
-    const email = `${username}@test.wxyc.org`;
+    const username = generateUsername("delete");
+    const email = generateEmail(username);
 
     // Get initial count
     const initialCount = await rosterPage.getUserCount();
@@ -120,7 +137,7 @@ test.describe("Admin User Deletion", () => {
     });
 
     await rosterPage.expectSuccessToast();
-    await page.waitForTimeout(1000);
+    await rosterPage.waitForDataRefresh();
 
     // Count should increase
     const afterCreateCount = await rosterPage.getUserCount();
@@ -131,7 +148,7 @@ test.describe("Admin User Deletion", () => {
     await rosterPage.deleteUser(username);
 
     await rosterPage.expectSuccessToast("deleted");
-    await page.waitForTimeout(1000);
+    await rosterPage.waitForDataRefresh();
 
     // Count should be back to original or less
     const afterDeleteCount = await rosterPage.getUserCount();
@@ -164,8 +181,8 @@ test.describe("User Deletion Session Invalidation", () => {
     await adminDashboard.gotoAdminRoster();
     await adminRosterPage.waitForTableLoaded();
 
-    const username = `session_test_${Date.now()}`;
-    const email = `${username}@test.wxyc.org`;
+    const username = generateUsername("session");
+    const email = generateEmail(username);
 
     await adminRosterPage.createAccount({
       realName: "Session Test User",
@@ -176,7 +193,7 @@ test.describe("User Deletion Session Invalidation", () => {
     });
 
     await adminRosterPage.expectSuccessToast();
-    await adminPage.waitForTimeout(1000);
+    await adminRosterPage.waitForDataRefresh();
 
     // New user logs in with temp password
     const userOnboarding = new OnboardingPage(userPage);
@@ -195,7 +212,7 @@ test.describe("User Deletion Session Invalidation", () => {
     adminRosterPage.acceptConfirmDialog();
     await adminRosterPage.deleteUser(username);
     await adminRosterPage.expectSuccessToast("deleted");
-    await adminPage.waitForTimeout(1000);
+    await adminRosterPage.waitForDataRefresh();
 
     // User tries to access protected route - should be redirected to login
     await userPage.goto("/dashboard/flowsheet");
