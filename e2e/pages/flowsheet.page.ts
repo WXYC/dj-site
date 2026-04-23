@@ -90,7 +90,18 @@ export class FlowsheetPage {
     // Wait for the button to be enabled and not loading
     await expect(this.goLiveButton).toBeEnabled({ timeout: 10000 });
     await this.page.waitForTimeout(300); // Let prior mutations settle
+    // Listen for the join mutation response BEFORE clicking so we don't
+    // miss a fast reply. Without this, slow CI runners can fail: the
+    // optimistic cache update fires synchronously, but React may not
+    // flush the re-render before Playwright's assertion polls, or the
+    // backend may reject and the optimistic patch rolls back.
+    const joinResponse = this.page.waitForResponse(
+      (resp) =>
+        resp.url().includes("/flowsheet/join") && resp.status() === 200,
+      { timeout: 15000 }
+    );
     await this.goLiveButton.click();
+    await joinResponse;
     await expect(this.liveStatus).toContainText("On Air", { timeout: 10000 });
     // Wait for search inputs to become enabled (live state propagates)
     await expect(this.songInput).toBeEnabled({ timeout: 5000 });
@@ -110,7 +121,13 @@ export class FlowsheetPage {
   async leave(): Promise<void> {
     await expect(this.goLiveButton).toBeEnabled({ timeout: 10000 });
     await this.page.waitForTimeout(300);
+    const endResponse = this.page.waitForResponse(
+      (resp) =>
+        resp.url().includes("/flowsheet/end") && resp.status() === 200,
+      { timeout: 15000 }
+    );
     await this.goLiveButton.click();
+    await endResponse;
     await expect(this.liveStatus).toContainText("Off Air", { timeout: 10000 });
   }
 
