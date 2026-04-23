@@ -9,7 +9,6 @@ import Leftbar from "@/src/components/experiences/modern/Leftbar/Leftbar";
 export default function ModernDashboard({
   children,
 }: {
-  information: React.ReactNode;
   children: React.ReactNode;
 }): JSX.Element {
   return (
