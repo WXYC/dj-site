@@ -34,7 +34,7 @@ jobs:
           STATUS=$(echo "$RESPONSE" | jq -r '.result[0].latest_stage.status')
           DEPLOY_ID=$(echo "$RESPONSE" | jq -r '.result[0].id')
           COMMIT_SHA=$(echo "$RESPONSE" | jq -r '.result[0].deployment_trigger.metadata.commit_hash')
-          COMMIT_MSG=$(echo "$RESPONSE" | jq -r '.result[0].deployment_trigger.metadata.commit_message')
+          COMMIT_MSG=$(echo "$RESPONSE" | jq -r '.result[0].deployment_trigger.metadata.commit_message | split("\n")[0]')
 
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
           echo "deploy_id=$DEPLOY_ID" >> "$GITHUB_OUTPUT"
