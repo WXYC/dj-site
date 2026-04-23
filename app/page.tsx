@@ -14,7 +14,9 @@ export const metadata: Metadata = {
 export default async function HomePage() {
   const session = await getServerSession();
   if (session) {
-    redirect("/dashboard");
+    redirect(
+      process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/flowsheet"
+    );
   }
   return (
     <WXYCPage>
