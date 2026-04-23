@@ -185,6 +185,7 @@ export function createTestAlbum(overrides: Partial<AlbumEntry> = {}): AlbumEntry
     add_date: toDateString(TEST_TIMESTAMPS.ONE_WEEK_AGO),
     label: TEST_SEARCH_STRINGS.LABEL,
     on_streaming: undefined,
+    artwork_url: undefined,
     ...overrides,
   };
 }

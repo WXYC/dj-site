@@ -56,17 +56,31 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
         />
       </td>
       <td>
-        <Avatar
-          variant="soft"
-          color={genreColor}
-          sx={{
-            width: 40,
-            height: 40,
-            borderRadius: "sm",
-          }}
-        >
-          <AlbumIcon />
-        </Avatar>
+        {album.artwork_url ? (
+          <Box
+            component="img"
+            src={album.artwork_url}
+            alt={`${album.artist.name} - ${album.title}`}
+            sx={{
+              width: 40,
+              height: 40,
+              borderRadius: "sm",
+              objectFit: "cover",
+            }}
+          />
+        ) : (
+          <Avatar
+            variant="soft"
+            color={genreColor}
+            sx={{
+              width: 40,
+              height: 40,
+              borderRadius: "sm",
+            }}
+          >
+            <AlbumIcon />
+          </Avatar>
+        )}
       </td>
       <td>
         <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>

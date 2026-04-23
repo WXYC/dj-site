@@ -127,3 +127,51 @@ describe("CatalogResult WXYC Exclusive badge", () => {
     expect(screen.queryByText("WXYC EXCLUSIVE")).toBeNull();
   });
 });
+
+describe("CatalogResult album artwork", () => {
+  it("should render album artwork when artwork_url is provided", () => {
+    const album = createTestAlbum({
+      artwork_url: "https://i.discogs.com/confield.jpg",
+    });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} />
+        </tbody>
+      </table>
+    );
+
+    const img = screen.getByAltText(`${album.artist.name} - ${album.title}`);
+    expect(img).toBeDefined();
+    expect(img.getAttribute("src")).toBe("https://i.discogs.com/confield.jpg");
+  });
+
+  it("should fall back to ArtistAvatar when artwork_url is null", () => {
+    const album = createTestAlbum({ artwork_url: null });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} />
+        </tbody>
+      </table>
+    );
+
+    expect(screen.queryByRole("img")).toBeNull();
+  });
+
+  it("should fall back to ArtistAvatar when artwork_url is undefined", () => {
+    const album = createTestAlbum({ artwork_url: undefined });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} />
+        </tbody>
+      </table>
+    );
+
+    expect(screen.queryByRole("img")).toBeNull();
+  });
+});
