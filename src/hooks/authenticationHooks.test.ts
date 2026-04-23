@@ -134,6 +134,36 @@ describe("authenticationHooks", () => {
 
       expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
     });
+
+    it("should redirect to dashboard when hasCompletedOnboarding is undefined (backward compat)", async () => {
+      mockSignInUsername.mockResolvedValue({
+        data: {
+          user: {
+            id: "user-1",
+            realName: "Test User",
+            djName: "DJ Test",
+            // hasCompletedOnboarding not present — backend hasn't been updated yet
+          },
+        },
+      });
+
+      const { useLogin } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
+
+      const form = {
+        preventDefault: vi.fn(),
+        currentTarget: {
+          username: { value: "testdj" },
+          password: { value: "password123" },
+        },
+      } as any;
+
+      await act(async () => {
+        await result.current.handleLogin(form);
+      });
+
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
+    });
   });
 
   describe("useNewUser", () => {

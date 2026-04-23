@@ -68,7 +68,7 @@ describe("isUserIncomplete", () => {
     expect(isUserIncomplete(session)).toBe(false);
   });
 
-  it("should return true when hasCompletedOnboarding is undefined", () => {
+  it("should return false when hasCompletedOnboarding is undefined (backward compat)", () => {
     const session = createTestBetterAuthSession({
       user: {
         id: "test-id",
@@ -81,7 +81,7 @@ describe("isUserIncomplete", () => {
       },
     });
 
-    expect(isUserIncomplete(session)).toBe(true);
+    expect(isUserIncomplete(session)).toBe(false);
   });
 });
 
