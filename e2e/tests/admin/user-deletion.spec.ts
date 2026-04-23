@@ -181,8 +181,8 @@ test.describe("User Deletion Session Invalidation", () => {
     await adminDashboard.gotoAdminRoster();
     await adminRosterPage.waitForTableLoaded();
 
-    const username = `session_test_${Date.now()}`;
-    const email = `${username}@test.wxyc.org`;
+    const username = generateUsername("session");
+    const email = generateEmail(username);
 
     await adminRosterPage.createAccount({
       realName: "Session Test User",
@@ -193,7 +193,7 @@ test.describe("User Deletion Session Invalidation", () => {
     });
 
     await adminRosterPage.expectSuccessToast();
-    await adminPage.waitForTimeout(1000);
+    await adminRosterPage.waitForDataRefresh();
 
     // New user logs in with temp password
     const userOnboarding = new OnboardingPage(userPage);
