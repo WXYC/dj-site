@@ -6,7 +6,7 @@ import { NewAccountParams, Authorization, ROSTER_PAGE_SIZE } from "@/lib/feature
 import { User, authorizationToRole } from "@/lib/features/authentication/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useAccountListResults } from "@/src/hooks/adminHooks";
-import { Add, GppBad, KeyboardArrowLeft, KeyboardArrowRight } from "@mui/icons-material";
+import { Add, GppBad, KeyboardArrowLeft, KeyboardArrowRight, Upload } from "@mui/icons-material";
 import {
   Button,
   CircularProgress,
@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { AccountEntry } from "./AccountEntry";
 import AccountSearchForm from "./AccountSearchForm";
 import ExportDJsButton from "./ExportCSV";
+import ImportCSVModal from "./ImportCSVModal";
 import NewAccountForm from "./NewAccountForm";
 
 export default function RosterTable({ user }: { user: User }) {
@@ -28,6 +29,7 @@ export default function RosterTable({ user }: { user: User }) {
 
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<Error | null>(null);
+  const [importModalOpen, setImportModalOpen] = useState(false);
 
   const dispatch = useAppDispatch();
   const isAdding = useAppSelector(adminSlice.selectors.getAdding);
@@ -146,6 +148,16 @@ export default function RosterTable({ user }: { user: User }) {
           }}
         >
           <ExportDJsButton />
+          <Button
+            variant="outlined"
+            color="success"
+            size="sm"
+            disabled={!canCreateUser}
+            startDecorator={<Upload />}
+            onClick={() => setImportModalOpen(true)}
+          >
+            Import CSV
+          </Button>
           <Button
             variant="solid"
             color={"success"}
@@ -273,6 +285,14 @@ export default function RosterTable({ user }: { user: User }) {
           </Stack>
         )}
       </form>
+      <ImportCSVModal
+        open={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onComplete={() => {
+          setImportModalOpen(false);
+          refetch();
+        }}
+      />
     </Sheet>
   );
 }
