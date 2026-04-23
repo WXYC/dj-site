@@ -28,7 +28,7 @@ export default function AlbumPopup() {
     data?.title,
   );
 
-  const { artistMetadata } = useArtistMetadata(metadata?.discogsArtistId);
+  const { artistMetadata, bioTokens } = useArtistMetadata(metadata?.discogsArtistId);
 
   return (
     <Modal
@@ -52,6 +52,7 @@ export default function AlbumPopup() {
           metadata={metadata}
           metadataLoading={metadataLoading}
           artistBio={artistMetadata?.bio ?? metadata?.artistBio ?? null}
+          bioTokens={bioTokens}
           artistWikipediaUrl={artistMetadata?.wikipediaUrl ?? metadata?.artistWikipediaUrl ?? null}
         />
       )}

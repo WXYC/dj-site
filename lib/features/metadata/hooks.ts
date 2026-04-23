@@ -38,6 +38,7 @@ export function useArtistMetadata(discogsArtistId: number | null | undefined) {
 
   return {
     artistMetadata: data ?? null,
+    bioTokens: data?.bioTokens ?? null,
     isLoading: !shouldSkip && isLoading,
   };
 }
