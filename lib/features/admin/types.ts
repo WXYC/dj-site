@@ -24,6 +24,8 @@ export type Account = {
   email?: string;
   /** Cross-cutting capabilities independent of role hierarchy */
   capabilities?: string[];
+  /** Whether the user has completed the onboarding flow */
+  hasCompletedOnboarding?: boolean;
 };
 
 export type NewAccountParams = {
