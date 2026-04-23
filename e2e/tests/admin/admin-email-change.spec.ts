@@ -1,6 +1,7 @@
 import { test, expect, TEST_USERS } from "../../fixtures/auth.fixture";
 import { RosterPage } from "../../pages/roster.page";
 import { DashboardPage } from "../../pages/dashboard.page";
+import { generateUsername, generateEmail } from "../../helpers/test-data";
 import path from "path";
 
 const authDir = path.join(__dirname, "../../.auth");
@@ -11,9 +12,6 @@ test.describe("Admin Email Change", () => {
 
   let rosterPage: RosterPage;
   let dashboardPage: DashboardPage;
-
-  // Serial mode: mutation tests change dj2's email
-  test.describe.configure({ mode: "serial" });
 
   test.beforeEach(async ({ page }) => {
     rosterPage = new RosterPage(page);
@@ -88,10 +86,23 @@ test.describe("Admin Email Change", () => {
     expect(dialogMessage).toContain("without verification");
   });
 
-  test("should update email immediately when confirmed", async ({ page }) => {
+  test("should update email immediately when confirmed", async () => {
+    // Create a temp user so we don't mutate shared seeded user state
+    const username = generateUsername("email");
+    const originalEmail = generateEmail(username);
+
+    await rosterPage.createAccount({
+      realName: "Email Update Test",
+      username,
+      email: originalEmail,
+    });
+
+    await rosterPage.expectSuccessToast();
+    await rosterPage.waitForDataRefresh();
+
     const newEmail = `admin_changed_${Date.now()}@wxyc.org`;
 
-    await rosterPage.updateEmailWithConfirm(TEST_USERS.dj2.username, newEmail);
+    await rosterPage.updateEmailWithConfirm(username, newEmail);
 
     // Should show success toast
     await rosterPage.expectSuccessToast(`Email updated to ${newEmail}`);
@@ -101,13 +112,25 @@ test.describe("Admin Email Change", () => {
   });
 
   test("should not require email verification for admin-changed emails", async () => {
+    // Create a temp user so we don't mutate shared seeded user state
+    const username = generateUsername("email");
+    const originalEmail = generateEmail(username);
+
+    await rosterPage.createAccount({
+      realName: "Email Verify Test",
+      username,
+      email: originalEmail,
+    });
+
+    await rosterPage.expectSuccessToast();
+    await rosterPage.waitForDataRefresh();
+
     // This test verifies that admin-changed emails don't require verification
     // by checking that emailVerified: true is set (observable through the user
     // being able to log in with the new email without verification)
-
     const newEmail = `admin_verified_${Date.now()}@wxyc.org`;
 
-    await rosterPage.updateEmailWithConfirm(TEST_USERS.dj2.username, newEmail);
+    await rosterPage.updateEmailWithConfirm(username, newEmail);
 
     await rosterPage.expectSuccessToast();
 
