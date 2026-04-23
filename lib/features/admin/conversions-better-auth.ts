@@ -17,6 +17,8 @@ export type BetterAuthUser = {
   banReason?: string;
   /** Cross-cutting capabilities independent of role hierarchy */
   capabilities?: string[];
+  /** Whether the user has completed the onboarding flow */
+  hasCompletedOnboarding?: boolean;
 };
 
 /**
@@ -36,6 +38,7 @@ export function convertBetterAuthToAccountResult(
       : AdminAuthenticationStatus.New,
     email: user.email,
     capabilities: user.capabilities ?? [],
+    hasCompletedOnboarding: user.hasCompletedOnboarding ?? false,
   };
 }
 

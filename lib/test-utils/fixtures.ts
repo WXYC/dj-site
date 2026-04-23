@@ -477,6 +477,7 @@ export function createTestAccountResult(
     authorization: Authorization.DJ,
     authType: AdminAuthenticationStatus.Confirmed,
     email: "test@wxyc.org",
+    hasCompletedOnboarding: true,
     ...overrides,
   };
 }

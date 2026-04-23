@@ -358,7 +358,24 @@ export const AccountEntry = ({
           </Stack>
         </Stack>
       </td>
-      <td>{account.realName}</td>
+      <td>
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          <span>{account.realName}</span>
+          {account.hasCompletedOnboarding === false && (
+            <Tooltip
+              title="Has not completed onboarding"
+              arrow
+              placement="top"
+              variant="outlined"
+              size="sm"
+            >
+              <Chip variant="soft" color="warning" size="sm">
+                New
+              </Chip>
+            </Tooltip>
+          )}
+        </Stack>
+      </td>
       <td>{account.userName}</td>
       <td>
         {account.djName && account.djName.length > 0 && "DJ"} {account.djName ?? ""}
