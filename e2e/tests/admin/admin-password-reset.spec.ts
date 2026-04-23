@@ -3,7 +3,6 @@ import { DashboardPage } from "../../pages/dashboard.page";
 import { RosterPage } from "../../pages/roster.page";
 import { LoginPage } from "../../pages/login.page";
 import { OnboardingPage } from "../../pages/onboarding.page";
-import { generateUsername, generateEmail } from "../../helpers/test-data";
 import path from "path";
 
 const authDir = path.join(__dirname, "../../.auth");
@@ -213,8 +212,8 @@ test.describe("Password Reset for Different User States", () => {
     const rosterPage = new RosterPage(page);
 
     // Create a new user (who will be "New" / unconfirmed) with complete profile
-    const username = generateUsername("unconfirmed");
-    const email = generateEmail(username);
+    const username = `unconfirmed_${Date.now()}`;
+    const email = `${username}@test.wxyc.org`;
 
     await dashboardPage.gotoAdminRoster();
     await rosterPage.waitForTableLoaded();
@@ -228,7 +227,7 @@ test.describe("Password Reset for Different User States", () => {
     });
 
     await rosterPage.expectSuccessToast();
-    await rosterPage.waitForDataRefresh();
+    await page.waitForTimeout(1000);
 
     // Reset password for the new (unconfirmed) user
     // Note: The reset button should work for new users too since they need to set up their account

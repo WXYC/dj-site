@@ -3,7 +3,6 @@ import { LoginPage } from "../../pages/login.page";
 import { DashboardPage } from "../../pages/dashboard.page";
 import { OnboardingPage } from "../../pages/onboarding.page";
 import { RosterPage } from "../../pages/roster.page";
-import { generateUsername, generateEmail } from "../../helpers/test-data";
 
 test.describe("New User Onboarding", () => {
   // Onboarding tests do manual logins and must run sequentially
@@ -211,8 +210,8 @@ test.describe("New User Onboarding", () => {
       const rosterPage = new RosterPage(adminPage);
       await rosterPage.waitForTableLoaded();
 
-      const username = generateUsername("onboard");
-      const email = generateEmail(username);
+      const username = `onboard_${Date.now()}`;
+      const email = `${username}@test.wxyc.org`;
 
       // Create user with complete profile (realName and djName provided by admin).
       // Admin-created users still have hasCompletedOnboarding=false and must
