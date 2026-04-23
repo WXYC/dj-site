@@ -117,6 +117,7 @@ jobs:
           EOF
 
       - name: Cache Playwright browsers
+        id: playwright-cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
@@ -130,9 +131,21 @@ jobs:
           (cd dj-site && npm ci) &
           wait
 
+      - name: Cache dj-site build
+        id: nextjs-build-cache
+        uses: actions/cache@v4
+        with:
+          path: dj-site/.next
+          key: e2e-nextjs-${{ hashFiles('dj-site/package-lock.json') }}-${{ hashFiles('dj-site/next.config.*') }}-${{ hashFiles('dj-site/app/**', 'dj-site/src/**', 'dj-site/lib/**') }}
+          restore-keys: |
+            e2e-nextjs-${{ hashFiles('dj-site/package-lock.json') }}-${{ hashFiles('dj-site/next.config.*') }}-
+            e2e-nextjs-${{ hashFiles('dj-site/package-lock.json') }}-
+
       - name: Build and start services
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NEXTJS_BUILD_CACHE_HIT: ${{ steps.nextjs-build-cache.outputs.cache-hit }}
+          PLAYWRIGHT_CACHE_HIT: ${{ steps.playwright-cache.outputs.cache-hit }}
         run: |
           # Backend track: build -> init-db -> start services -> seed users
           (
@@ -165,16 +178,29 @@ jobs:
           ) &
           PID_BACKEND=$!
 
-          # Frontend track: install Playwright + build dj-site (concurrent)
-          (cd dj-site && npx playwright install --with-deps chromium) &
-          PID_PW=$!
-          (cd dj-site && npm run build) &
-          PID_BUILD=$!
+          # Playwright track: skip install if browser binary is already cached.
+          # On cache hit the binary exists at ~/.cache/ms-playwright. The --with-deps
+          # flag installs system fonts via apt-get (~25s); ubuntu-latest already has
+          # the critical system libraries Chromium needs (libX11, libnss3, etc.).
+          if [ "$PLAYWRIGHT_CACHE_HIT" = "true" ]; then
+            echo "Playwright browser cache hit — skipping install"
+          else
+            (cd dj-site && npx playwright install --with-deps chromium) &
+            PID_PW=$!
+          fi
 
-          # Wait for all tracks -- fail if any fails
+          # dj-site build track: skip if exact cache hit on .next/
+          if [ "$NEXTJS_BUILD_CACHE_HIT" = "true" ]; then
+            echo "dj-site build cache hit — skipping build"
+          else
+            (cd dj-site && npm run build) &
+            PID_BUILD=$!
+          fi
+
+          # Wait for all tracks — fail if any fails
           wait $PID_BACKEND || exit 1
-          wait $PID_PW || exit 1
-          wait $PID_BUILD || exit 1
+          if [ -n "$PID_PW" ]; then wait $PID_PW || exit 1; fi
+          if [ -n "$PID_BUILD" ]; then wait $PID_BUILD || exit 1; fi
 
       - name: Start dj-site
         working-directory: dj-site

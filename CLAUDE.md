@@ -288,7 +288,7 @@ PRs that only change non-code files (docs, scripts, etc.) skip CI entirely via p
 
 ### E2E (`.github/workflows/e2e-tests.yml`)
 
-Runs on push to `main` and on PRs that touch app code. Spins up Backend-Service with Docker Compose (PostgreSQL + auth + backend), builds dj-site, runs Playwright tests. PRs that only change unit tests, test utilities, or non-app config skip E2E via path filters.
+Runs on push to `main` and on PRs that touch app code. Spins up Backend-Service with Docker Compose (PostgreSQL + auth + backend), builds dj-site, runs Playwright tests. PRs that only change unit tests, test utilities, or non-app config skip E2E via path filters. The workflow caches the dj-site `.next/` build output and Playwright browser binaries to reduce setup time. On cache hit, both the Next.js build and Playwright install are skipped entirely. Cache keys include `package-lock.json`, `next.config.*`, and app source files, so dependency or source changes invalidate the cache correctly.
 
 ### Deployment
 
