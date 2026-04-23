@@ -105,9 +105,10 @@ export class AlbumDetailPage {
 
   /**
    * Close the modal by clicking the close button.
+   * Uses JavaScript click to bypass CardContent intercepting pointer events.
    */
   async close(): Promise<void> {
-    await this.closeButton.click();
+    await this.closeButton.evaluate((el) => (el as HTMLElement).click());
     await expect(this.modal).not.toBeVisible({ timeout: 5000 });
   }
 
