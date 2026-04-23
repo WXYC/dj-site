@@ -16,8 +16,10 @@ const authDir = path.join(__dirname, "../../.auth");
  * tests use serial mode and go live in the first test.
  */
 test.describe("Library Search Proxy", () => {
-  // Use dj2 to avoid session conflicts with auth tests that use dj.json
-  test.use({ storageState: path.join(authDir, "dj2.json") });
+  // Use musicDirector to avoid live-state conflicts with entry-caching tests
+  // (which toggle dj2 live/off-air) and session conflicts with auth tests
+  // (which invalidate dj.json).
+  test.use({ storageState: path.join(authDir, "musicDirector.json") });
   test.describe.configure({ mode: "serial" });
   test.setTimeout(60_000);
 
@@ -36,7 +38,7 @@ test.describe("Library Search Proxy", () => {
 
   test.afterAll(async ({ browser }) => {
     const context = await browser.newContext({
-      storageState: path.join(authDir, "dj2.json"),
+      storageState: path.join(authDir, "musicDirector.json"),
       baseURL: process.env.E2E_BASE_URL || "http://localhost:3000",
     });
     const page = await context.newPage();
