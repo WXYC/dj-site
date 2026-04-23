@@ -77,8 +77,13 @@ export default function AlbumCard({
           />
           <Stack sx={{ minWidth: 0, justifyContent: "center" }}>
             <Typography level="title-lg" sx={{ mb: 0.5 }}>
-              {album.artist.name} &bull; {album.title}
+              {album.album_artist ? "Various Artists" : album.artist.name} &bull; {album.title}
             </Typography>
+            {album.album_artist && (
+              <Typography level="body-sm" sx={{ mb: 0.5 }}>
+                {album.album_artist}
+              </Typography>
+            )}
             <Stack
               direction="row"
               spacing={1}
@@ -117,7 +122,7 @@ export default function AlbumCard({
           <>
             <Divider sx={{ my: 1 }} />
             <Typography level="title-sm" sx={{ mb: 0.5 }}>
-              About {album.artist.name}
+              About {album.album_artist ?? album.artist.name}
               {artistWikipediaUrl && (
                 <Link
                   href={artistWikipediaUrl}
