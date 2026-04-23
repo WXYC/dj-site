@@ -5,7 +5,7 @@ import {
   useMarkFoundMutation,
   useMarkMissingMutation,
 } from "@/lib/features/catalog/api";
-import { Button, Chip, Stack } from "@mui/joy";
+import { Chip, Stack } from "@mui/joy";
 
 interface LibraryStatusProps {
   album: AlbumEntry;
@@ -26,14 +26,15 @@ export default function LibraryStatus({ album }: LibraryStatusProps) {
         <Chip color="danger" size="sm">
           Missing since {new Date(album.date_lost!).toLocaleDateString()}
         </Chip>
-        <Button
+        <Chip
           size="sm"
           variant="outlined"
           color="success"
           onClick={() => markFound({ albumId: album.id })}
+          sx={{ cursor: "pointer" }}
         >
           Mark Found
-        </Button>
+        </Chip>
       </Stack>
     );
   }
@@ -43,14 +44,15 @@ export default function LibraryStatus({ album }: LibraryStatusProps) {
       <Chip color="success" size="sm">
         In Library
       </Chip>
-      <Button
+      <Chip
         size="sm"
         variant="outlined"
         color="danger"
         onClick={() => markMissing({ albumId: album.id })}
+        sx={{ cursor: "pointer" }}
       >
         Mark Missing
-      </Button>
+      </Chip>
     </Stack>
   );
 }

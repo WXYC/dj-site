@@ -2,7 +2,7 @@
 
 import { useGetInformationQuery } from "@/lib/features/catalog/api";
 import { AlbumEntry } from "@/lib/features/catalog/types";
-import { useAlbumArtwork } from "@/lib/features/metadata/hooks";
+import { useAlbumArtwork, useArtistMetadata } from "@/lib/features/metadata/hooks";
 import { Modal } from "@mui/joy";
 import { useParams, useRouter } from "next/navigation";
 import AlbumCard from "../components/AlbumCard";
@@ -23,10 +23,12 @@ export default function AlbumPopup() {
     }
   );
 
-  const { artworkUrl, metadata } = useAlbumArtwork(
+  const { artworkUrl, isLoading: metadataLoading, metadata } = useAlbumArtwork(
     data?.artist.name,
     data?.title,
   );
+
+  const { artistMetadata } = useArtistMetadata(metadata?.discogsArtistId);
 
   return (
     <Modal
@@ -48,6 +50,9 @@ export default function AlbumPopup() {
           album={data as AlbumEntry}
           artworkUrl={artworkUrl}
           metadata={metadata}
+          metadataLoading={metadataLoading}
+          artistBio={artistMetadata?.bio ?? metadata?.artistBio ?? null}
+          artistWikipediaUrl={artistMetadata?.wikipediaUrl ?? metadata?.artistWikipediaUrl ?? null}
         />
       )}
     </Modal>
