@@ -22,9 +22,9 @@ vi.mock("@/lib/features/authentication/client", () => ({
   },
 }));
 
-// Mock fetch for organization slug resolution
+// Mock fetch for organization slug resolution (used by server-side tests)
 const mockFetch = vi.fn();
-global.fetch = mockFetch;
+vi.stubGlobal("fetch", mockFetch);
 
 import {
   getAppOrganizationId,
@@ -349,4 +349,5 @@ describe("organization-utils", () => {
       expect(result).toBeUndefined();
     });
   });
+
 });
