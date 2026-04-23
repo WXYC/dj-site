@@ -2,6 +2,7 @@ import { test, expect, TEST_USERS, TEMP_PASSWORD } from "../../fixtures/auth.fix
 import { DashboardPage } from "../../pages/dashboard.page";
 import { RosterPage } from "../../pages/roster.page";
 import { LoginPage } from "../../pages/login.page";
+import { OnboardingPage } from "../../pages/onboarding.page";
 import path from "path";
 
 const authDir = path.join(__dirname, "../../.auth");
@@ -178,12 +179,16 @@ test.describe("User Deletion Session Invalidation", () => {
     await adminPage.waitForTimeout(1000);
 
     // New user logs in with temp password
+    const userOnboarding = new OnboardingPage(userPage);
     await userLoginPage.goto();
     await userPage.waitForLoadState("domcontentloaded");
     await userLoginPage.login(username, TEMP_PASSWORD);
 
-    // User has complete profile, should go to dashboard
-    await userLoginPage.waitForRedirectToDashboard();
+    // Admin-created users have hasCompletedOnboarding=false and must
+    // complete onboarding before reaching the dashboard
+    await userLoginPage.waitForRedirectToOnboarding();
+    await userOnboarding.completePasswordOnlyOnboarding("NewPassword1");
+    await userOnboarding.expectRedirectToDashboard();
     await userDashboard.expectOnDashboard();
 
     // Admin deletes the user

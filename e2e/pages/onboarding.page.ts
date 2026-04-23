@@ -74,6 +74,18 @@ export class OnboardingPage {
     await this.submitForm();
   }
 
+  /**
+   * Complete onboarding for users whose profile is already filled (admin-created).
+   * Only password fields are shown on the form.
+   */
+  async completePasswordOnlyOnboarding(password: string): Promise<void> {
+    await this.passwordInput.waitFor({ state: "visible", timeout: 10000 });
+    await this.passwordInput.fill(password);
+    await this.confirmPasswordInput.fill(password);
+    await expect(this.submitButton).toBeEnabled({ timeout: 5000 });
+    await this.submitButton.click();
+  }
+
   async goBackToLogin(): Promise<void> {
     await this.backButton.click();
     await this.page.waitForURL("**/login**");

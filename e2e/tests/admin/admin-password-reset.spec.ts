@@ -2,6 +2,7 @@ import { test, expect, TEST_USERS, TEMP_PASSWORD } from "../../fixtures/auth.fix
 import { DashboardPage } from "../../pages/dashboard.page";
 import { RosterPage } from "../../pages/roster.page";
 import { LoginPage } from "../../pages/login.page";
+import { OnboardingPage } from "../../pages/onboarding.page";
 import path from "path";
 
 const authDir = path.join(__dirname, "../../.auth");
@@ -245,6 +246,7 @@ test.describe("Password Reset for Different User States", () => {
     await userContext.clearCookies();
 
     const userLoginPage = new LoginPage(userPage);
+    const userOnboarding = new OnboardingPage(userPage);
     const userDashboard = new DashboardPage(userPage);
 
     await userLoginPage.goto();
@@ -256,8 +258,15 @@ test.describe("Password Reset for Different User States", () => {
 
     await userLoginPage.login(username, TEMP_PASSWORD);
 
-    // User has complete profile, should go to dashboard
-    await userLoginPage.waitForRedirectToDashboard();
+    // Admin-created users have hasCompletedOnboarding=false and are
+    // redirected to onboarding to set their own password
+    await userLoginPage.waitForRedirectToOnboarding();
+
+    // Complete onboarding (profile is pre-filled, only password needed)
+    await userOnboarding.completePasswordOnlyOnboarding("NewPassword1");
+
+    // After onboarding, user reaches the dashboard
+    await userOnboarding.expectRedirectToDashboard();
     await userDashboard.expectOnDashboard();
 
     // Cleanup

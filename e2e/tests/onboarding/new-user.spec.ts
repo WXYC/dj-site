@@ -213,13 +213,14 @@ test.describe("New User Onboarding", () => {
       const username = `onboard_${Date.now()}`;
       const email = `${username}@test.wxyc.org`;
 
-      // Create user with complete profile (realName provided, djName defaults to "Anonymous")
-      // Note: Admin-created users are typically "complete" and go directly to dashboard
+      // Create user with complete profile (realName and djName provided by admin).
+      // Admin-created users still have hasCompletedOnboarding=false and must
+      // go through onboarding to set their own password.
       await rosterPage.createAccount({
         realName: "Onboard Test",
         username,
         email,
-        djName: "New DJ", // Provide djName to make user complete
+        djName: "New DJ",
         role: "dj",
       });
 
@@ -230,14 +231,21 @@ test.describe("New User Onboarding", () => {
       const userContext = await browser.newContext({ baseURL });
       const userPage = await userContext.newPage();
       const userLoginPage = new LoginPage(userPage);
+      const userOnboarding = new OnboardingPage(userPage);
       const userDashboard = new DashboardPage(userPage);
 
       await userLoginPage.goto();
       await userPage.waitForLoadState("domcontentloaded");
       await userLoginPage.login(username, TEMP_PASSWORD);
 
-      // User has complete profile (admin provided realName and djName), goes to dashboard
-      await userLoginPage.waitForRedirectToDashboard();
+      // User is redirected to onboarding to set their own password
+      await userLoginPage.waitForRedirectToOnboarding();
+
+      // Profile fields are pre-filled, only password is required
+      await userOnboarding.completePasswordOnlyOnboarding("NewPassword1");
+
+      // After onboarding, user is redirected to dashboard
+      await userOnboarding.expectRedirectToDashboard();
       await userDashboard.expectOnDashboard();
 
       // Cleanup
@@ -249,7 +257,7 @@ test.describe("New User Onboarding", () => {
 
 test.describe("Complete User Bypass", () => {
   test("should not redirect complete user to onboarding", async ({ page }) => {
-    // Complete users (with realName and djName) should go directly to dashboard
+    // Users with hasCompletedOnboarding=true should go directly to dashboard
     const loginPage = new LoginPage(page);
     const dashboardPage = new DashboardPage(page);
 

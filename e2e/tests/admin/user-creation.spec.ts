@@ -2,6 +2,7 @@ import { test, expect, TEST_USERS, TEMP_PASSWORD } from "../../fixtures/auth.fix
 import { DashboardPage } from "../../pages/dashboard.page";
 import { RosterPage } from "../../pages/roster.page";
 import { LoginPage } from "../../pages/login.page";
+import { OnboardingPage } from "../../pages/onboarding.page";
 import path from "path";
 
 const authDir = path.join(__dirname, "../../.auth");
@@ -293,6 +294,7 @@ test.describe("New User Can Login", () => {
     await newUserContext.clearCookies();
 
     const newUserLoginPage = new LoginPage(newUserPage);
+    const newUserOnboarding = new OnboardingPage(newUserPage);
     const newUserDashboard = new DashboardPage(newUserPage);
 
     // Login as the newly created user with the temp password
@@ -305,26 +307,15 @@ test.describe("New User Can Login", () => {
 
     await newUserLoginPage.login(username, TEMP_PASSWORD);
 
-    // Wait for either success (redirect to dashboard/onboarding) or error
-    // Give more time for the auth server to respond
-    await Promise.race([
-      newUserPage.waitForURL((url) => url.pathname.includes("/dashboard") || url.pathname.includes("/onboarding"), { timeout: 15000 }),
-      newUserLoginPage.expectErrorToast().then(() => {
-        throw new Error("Login failed with error toast");
-      }),
-    ]).catch(async (err) => {
-      // Take a screenshot for debugging
-      const url = newUserPage.url();
-      console.log(`Login redirect failed. Current URL: ${url}`);
-      // Check for error toast
-      const errorToast = newUserPage.locator('[data-sonner-toast][data-type="error"]');
-      if (await errorToast.isVisible()) {
-        const errorText = await errorToast.textContent();
-        console.log(`Error toast: ${errorText}`);
-      }
-      throw err;
-    });
+    // Admin-created users have hasCompletedOnboarding=false and are
+    // redirected to onboarding to set their own password
+    await newUserLoginPage.waitForRedirectToOnboarding();
 
+    // Complete onboarding (profile is pre-filled, only password needed)
+    await newUserOnboarding.completePasswordOnlyOnboarding("NewPassword1");
+
+    // After onboarding, user reaches the dashboard
+    await newUserOnboarding.expectRedirectToDashboard();
     await newUserDashboard.expectOnDashboard();
 
     // Cleanup
