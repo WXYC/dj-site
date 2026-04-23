@@ -1,6 +1,41 @@
-import { authClient } from "./client";
+import { authClient, authBaseURL } from "./client";
 import { getAppOrganizationId, getAppOrganizationIdClient } from "./organization-config";
 import { WXYCRole } from "./types";
+
+/**
+ * Module-level cache for the organization ID resolved via the admin endpoint.
+ * The slug-to-ID mapping is stable (WXYC has a single org) so no TTL is needed.
+ * Resets on page reload.
+ */
+let cachedAdminOrgId: string | null = null;
+
+/**
+ * Resolve the configured organization slug to its UUID via the admin endpoint.
+ * Caches the result for the page session. For use in admin contexts only (roster,
+ * role management) — requires the current user to have an admin session.
+ *
+ * @returns The organization UUID, or null if the slug is not configured or resolution fails.
+ */
+export async function resolveOrganizationIdAdmin(): Promise<string | null> {
+  if (cachedAdminOrgId) return cachedAdminOrgId;
+
+  const slug = process.env.NEXT_PUBLIC_APP_ORGANIZATION;
+  if (!slug) return null;
+
+  try {
+    const response = await fetch(
+      `${authBaseURL}/admin/resolve-organization?slug=${encodeURIComponent(slug)}`,
+      { credentials: "include" }
+    );
+
+    if (!response.ok) return null;
+    const data = await response.json();
+    cachedAdminOrgId = data.id;
+    return cachedAdminOrgId;
+  } catch {
+    return null;
+  }
+}
 
 // Re-export for existing consumers
 export { getAppOrganizationId, getAppOrganizationIdClient };
