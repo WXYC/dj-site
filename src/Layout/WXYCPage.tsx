@@ -10,7 +10,7 @@ export default function WXYCPage({
   children: React.ReactNode;
 }) {
   return (
-    <Box sx={{ height: "100%" }} className="ignoreClassic">
+    <Box sx={{ minHeight: "100%" }} className="ignoreClassic">
       <BackgroundBox>
         <Header />
         <Main>{children}</Main>

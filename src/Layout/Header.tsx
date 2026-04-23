@@ -21,12 +21,11 @@ export default function Header() {
     >
       <Box
         sx={{
-          height: "clamp(2rem, 10vw, 7rem)",
+          width: 150,
+          mx: "auto",
         }}
       >
         <Logo />
-      </Box>
-      <Box>
       </Box>
     </Box>
   );

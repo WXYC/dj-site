@@ -9,7 +9,7 @@ import {
 import { useAppDispatch } from "@/lib/hooks";
 import { useNewUser } from "@/src/hooks/authenticationHooks";
 import { isStrongPassword } from "@/src/utilities/passwordValidation";
-import { Typography } from "@mui/joy";
+import { FormControl, FormLabel, Input, Typography } from "@mui/joy";
 import { useEffect, useState } from "react";
 import RequiredBox from "./Fields/RequiredBox";
 import { ValidatedSubmitButton } from "./Fields/ValidatedSubmitButton";
@@ -50,6 +50,14 @@ export default function NewUserForm({
           disabled={authenticating}
         />
       ))}
+      <FormControl>
+        <FormLabel>DJ Name (optional)</FormLabel>
+        <Input
+          name="djName"
+          placeholder="DJ Name"
+          disabled={authenticating}
+        />
+      </FormControl>
       <RequiredBox
         name="password"
         title="New Password"

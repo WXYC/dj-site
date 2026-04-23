@@ -39,7 +39,7 @@ export function BackgroundBox({ children }: { children: ReactNode }) {
         transitionDelay: "calc(var(--Transition-duration) + 0.1s)",
         position: "relative",
         zIndex: 1,
-        height: "100%",
+        minHeight: "100%",
         display: "flex",
         justifyContent: "flex-end",
         backdropFilter: "blur(4px)",

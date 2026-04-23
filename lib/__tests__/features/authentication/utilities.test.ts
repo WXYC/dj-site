@@ -89,17 +89,17 @@ describe("authentication utilities", () => {
       expect((result as any).requiredAttributes).toContain("realName");
     });
 
-    it("should identify incomplete users missing djName", () => {
+    it("should not include djName in required attributes (it is optional)", () => {
       const session = createTestIncompleteSession(["djName"]);
       const result = betterAuthSessionToAuthenticationData(session);
-      expect((result as any).requiredAttributes).toContain("djName");
+      expect((result as any).requiredAttributes).not.toContain("djName");
     });
 
-    it("should identify incomplete users missing both realName and djName", () => {
+    it("should only include realName when both realName and djName are missing", () => {
       const session = createTestIncompleteSession(["realName", "djName"]);
       const result = betterAuthSessionToAuthenticationData(session);
       expect((result as any).requiredAttributes).toContain("realName");
-      expect((result as any).requiredAttributes).toContain("djName");
+      expect((result as any).requiredAttributes).not.toContain("djName");
     });
 
     it("should treat empty string realName as incomplete when hasCompletedOnboarding is false", () => {
