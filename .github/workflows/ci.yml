@@ -5,6 +5,18 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    paths:
+      - 'app/**'
+      - 'src/**'
+      - 'lib/**'
+      - 'tests/**'
+      - 'public/**'
+      - '*.ts'
+      - '*.tsx'
+      - '*.mts'
+      - '*.json'
+      - '*.config.*'
+      - '.github/workflows/ci.yml'
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -51,6 +63,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Fetch base branch for change detection
+        if: github.event_name == 'pull_request'
+        run: git fetch origin main --depth=1
+
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
@@ -63,7 +79,12 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Run unit tests
-        run: npx vitest run --shard=${{ matrix.shard }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            npx vitest run --changed origin/main --shard=${{ matrix.shard }}
+          else
+            npx vitest run --shard=${{ matrix.shard }}
+          fi
 
   build:
     name: Build
