@@ -47,7 +47,7 @@ describe("CatalogResult plays column (Bug 12)", () => {
     expect(playsCell).toBeDefined();
   });
 
-  it("should display 0 when plays is 0", () => {
+  it("should display dash when plays is 0", () => {
     const album = createTestAlbum({ plays: 0 });
 
     renderWithProviders(
@@ -60,12 +60,12 @@ describe("CatalogResult plays column (Bug 12)", () => {
 
     const cells = document.querySelectorAll("td");
     const playsCell = Array.from(cells).find(
-      (cell) => cell.textContent?.trim() === "0"
+      (cell) => cell.textContent?.trim() === "—"
     );
     expect(playsCell).toBeDefined();
   });
 
-  it("should display 0 when plays is undefined", () => {
+  it("should display dash when plays is undefined", () => {
     const album = createTestAlbum({ plays: undefined });
 
     renderWithProviders(
@@ -78,7 +78,7 @@ describe("CatalogResult plays column (Bug 12)", () => {
 
     const cells = document.querySelectorAll("td");
     const playsCell = Array.from(cells).find(
-      (cell) => cell.textContent?.trim() === "0"
+      (cell) => cell.textContent?.trim() === "—"
     );
     expect(playsCell).toBeDefined();
   });
