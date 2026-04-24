@@ -277,7 +277,7 @@ export class RosterPage {
     await this.openEditModal(username);
     const { delete: deleteBtn } = this.getModalActionButtons();
     await deleteBtn.waitFor({ state: "visible", timeout: 5000 });
-    await deleteBtn.click();
+    await deleteBtn.click({ force: true });
   }
 
   async resetUserPassword(username: string): Promise<void> {
@@ -480,7 +480,7 @@ export class RosterPage {
    */
   async confirmEmailChange(username: string): Promise<void> {
     const saveButton = this.getEmailConfirmButton(username);
-    await saveButton.click();
+    await saveButton.click({ force: true });
   }
 
   /**
