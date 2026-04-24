@@ -21,33 +21,23 @@ test.describe("Admin Email Change", () => {
     await rosterPage.waitForTableLoaded();
   });
 
-  test("should display edit button for user emails", async () => {
-    // The dj1 user should have an edit button
-    const editButton = rosterPage.getEmailEditButton(TEST_USERS.dj1.username);
+  test("should display edit button for user", async () => {
+    // The dj1 user should have an edit (settings) button
+    const editButton = rosterPage.getEditButton(TEST_USERS.dj1.username);
     await expect(editButton).toBeVisible();
   });
 
-  test("should not display edit button for own email", async () => {
-    // Station manager should not have edit button for their own email
-    const editButton = rosterPage.getEmailEditButton(TEST_USERS.stationManager.username);
-    await expect(editButton).not.toBeVisible();
-  });
-
-  test("should show inline edit mode when clicking edit button", async () => {
+  test("should show email input in edit modal", async () => {
     await rosterPage.startEditEmail(TEST_USERS.dj1.username);
 
     // Should show input field
     const emailInput = rosterPage.getEmailInput(TEST_USERS.dj1.username);
     await expect(emailInput).toBeVisible();
 
-    // Should show confirm and cancel buttons
-    const confirmButton = rosterPage.getEmailConfirmButton(TEST_USERS.dj1.username);
-    const cancelButton = rosterPage.getEmailCancelButton(TEST_USERS.dj1.username);
-    await expect(confirmButton).toBeVisible();
-    await expect(cancelButton).toBeVisible();
+    await rosterPage.closeEditModal();
   });
 
-  test("should cancel email edit when clicking cancel button", async () => {
+  test("should cancel email edit when closing modal", async () => {
     const originalEmail = await rosterPage.getUserEmail(TEST_USERS.dj1.username);
 
     await rosterPage.startEditEmail(TEST_USERS.dj1.username);
@@ -57,7 +47,7 @@ test.describe("Admin Email Change", () => {
     await emailInput.clear();
     await emailInput.fill("changed@example.com");
 
-    // Cancel
+    // Close modal without saving
     await rosterPage.cancelEmailChange(TEST_USERS.dj1.username);
 
     // Email should be unchanged
@@ -244,10 +234,8 @@ test.describe("Admin Email Change - Error Handling", () => {
     // Wait for dialog to be processed
     await page.waitForTimeout(500);
 
-    // Original email should still be there (edit mode might still be open though)
-    // Cancel to exit edit mode using the page object method (uses JS click
-    // to bypass MUI Chips that intercept pointer events)
-    await rosterPage.cancelEmailChange(TEST_USERS.dj1.username);
+    // Close modal without saving
+    await rosterPage.closeEditModal();
 
     await rosterPage.expectUserEmail(TEST_USERS.dj1.username, originalEmail);
   });

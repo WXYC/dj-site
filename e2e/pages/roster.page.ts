@@ -36,6 +36,10 @@ export class RosterPage {
   readonly successToast: Locator;
   readonly errorToast: Locator;
 
+  // Edit modal
+  readonly editModal: Locator;
+  readonly editModalClose: Locator;
+
   constructor(page: Page) {
     this.page = page;
 
@@ -70,6 +74,10 @@ export class RosterPage {
     // Toasts
     this.successToast = page.locator('[data-sonner-toast][data-type="success"]');
     this.errorToast = page.locator('[data-sonner-toast][data-type="error"]');
+
+    // Edit modal — MUI Joy ModalDialog
+    this.editModal = page.locator('[role="dialog"]');
+    this.editModalClose = this.editModal.locator('button[aria-label="Close"]');
   }
 
   async goto(): Promise<void> {
@@ -157,26 +165,68 @@ export class RosterPage {
     return this.page.locator(`tr:has-text("${username}")`);
   }
 
+  // ---------------------------------------------------------------------------
+  // Edit modal helpers
+  // ---------------------------------------------------------------------------
+
   /**
-   * Get the role select dropdown for a user row.
-   * MUI Joy Select renders a button[role="combobox"].
+   * Get the settings button for a user row (opens the edit modal).
    */
-  getRoleSelect(username: string): Locator {
+  getEditButton(username: string): Locator {
     const row = this.getUserRow(username);
-    return row.locator('[role="combobox"]').first();
+    return row.locator("td").last().locator("button");
   }
 
   /**
-   * Set a user's role via the select dropdown.
-   * @param username - The username of the user row
+   * Open the edit modal for a user.
+   */
+  async openEditModal(username: string): Promise<void> {
+    const editBtn = this.getEditButton(username);
+    await editBtn.waitFor({ state: "visible", timeout: 5000 });
+    await editBtn.click();
+    await this.editModal.waitFor({ state: "visible", timeout: 5000 });
+  }
+
+  /**
+   * Close the edit modal.
+   */
+  async closeEditModal(): Promise<void> {
+    await this.editModalClose.click();
+    await this.editModal.waitFor({ state: "hidden", timeout: 5000 });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Role management (via edit modal)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Get the role select dropdown inside the edit modal.
+   */
+  getModalRoleSelect(): Locator {
+    return this.editModal.locator('[role="combobox"]').first();
+  }
+
+  /**
+   * Get the role select dropdown for a user row (display-only chip).
+   * For backward compatibility with assertion methods.
+   */
+  getRoleSelect(username: string): Locator {
+    return this.getModalRoleSelect();
+  }
+
+  /**
+   * Set a user's role via the edit modal.
+   * @param username - The username of the user
    * @param roleLabel - Display label: "Member", "DJ", "Music Director", or "Station Manager"
    */
   async setUserRole(username: string, roleLabel: string): Promise<void> {
-    const select = this.getRoleSelect(username);
+    await this.openEditModal(username);
+    const select = this.getModalRoleSelect();
     await select.waitFor({ state: "visible", timeout: 5000 });
     await select.click();
     await this.page.getByRole("option", { name: roleLabel }).click();
     await this.page.waitForTimeout(1000);
+    await this.closeEditModal();
   }
 
   /** Wrapper for backward compatibility */
@@ -199,36 +249,40 @@ export class RosterPage {
     await this.setUserRole(username, "DJ");
   }
 
+  // ---------------------------------------------------------------------------
+  // Action buttons (inside edit modal)
+  // ---------------------------------------------------------------------------
+
   /**
-   * Get action buttons for a user row
-   * The buttons are IconButtons in a Stack - reset password is first, delete is last
+   * Get action buttons inside the edit modal.
    */
-  getActionButtons(username: string): { resetPassword: Locator; delete: Locator } {
-    const row = this.getUserRow(username);
-    // The buttons are in the last cell (td) of the row, in a Stack
-    const actionCell = row.locator("td").last();
-    const buttons = actionCell.locator("button");
+  getModalActionButtons(): { resetPassword: Locator; delete: Locator } {
     return {
-      resetPassword: buttons.first(),
-      delete: buttons.last(),
+      resetPassword: this.editModal.locator('button:has-text("Reset Password")'),
+      delete: this.editModal.locator('button:has-text("Delete Account")'),
     };
   }
 
+  /**
+   * Get action buttons for a user row — opens the modal first.
+   * @deprecated Use openEditModal() + getModalActionButtons() directly.
+   */
+  getActionButtons(username: string): { resetPassword: Locator; delete: Locator } {
+    return this.getModalActionButtons();
+  }
+
   async deleteUser(username: string): Promise<void> {
-    const { delete: deleteBtn } = this.getActionButtons(username);
-    // Wait for button to be visible and enabled
+    await this.openEditModal(username);
+    const { delete: deleteBtn } = this.getModalActionButtons();
     await deleteBtn.waitFor({ state: "visible", timeout: 5000 });
-    // Use regular click to properly trigger dialog interception
     await deleteBtn.click();
   }
 
   async resetUserPassword(username: string): Promise<void> {
-    const { resetPassword } = this.getActionButtons(username);
-    // Wait for button to be visible and enabled
+    await this.openEditModal(username);
+    const { resetPassword } = this.getModalActionButtons();
     await resetPassword.waitFor({ state: "visible", timeout: 5000 });
-    // Small delay to ensure button is interactive
     await this.page.waitForTimeout(300);
-    // Use force click to bypass any overlays (like Tooltips)
     await resetPassword.click({ force: true });
   }
 
@@ -327,29 +381,37 @@ export class RosterPage {
   }
 
   /**
-   * Assert the role select dropdown is disabled for a user (e.g., self-modification prevention)
+   * Assert the role select dropdown is disabled for a user (via edit modal)
    */
   async expectRoleSelectDisabled(username: string): Promise<void> {
-    const select = this.getRoleSelect(username);
+    await this.openEditModal(username);
+    const select = this.getModalRoleSelect();
     await expect(select).toBeDisabled();
+    await this.closeEditModal();
   }
 
   /**
-   * Assert the role select shows a specific role label for a user
+   * Assert the role shows a specific label for a user (via the chip in the table row)
    */
   async expectUserRole(username: string, roleLabel: string): Promise<void> {
-    const select = this.getRoleSelect(username);
-    await expect(select).toContainText(roleLabel, { timeout: 10000 });
+    const row = this.getUserRow(username);
+    // The role is displayed as a Chip in the first cell
+    const roleChip = row.locator("td").first().locator(".MuiChip-root").first();
+    await expect(roleChip).toContainText(roleLabel, { timeout: 10000 });
   }
 
   async expectDeleteButtonDisabled(username: string): Promise<void> {
-    const { delete: deleteBtn } = this.getActionButtons(username);
+    await this.openEditModal(username);
+    const { delete: deleteBtn } = this.getModalActionButtons();
     await expect(deleteBtn).toBeDisabled();
+    await this.closeEditModal();
   }
 
   async expectResetPasswordButtonDisabled(username: string): Promise<void> {
-    const { resetPassword } = this.getActionButtons(username);
+    await this.openEditModal(username);
+    const { resetPassword } = this.getModalActionButtons();
     await expect(resetPassword).toBeDisabled();
+    await this.closeEditModal();
   }
 
   async getUserCount(): Promise<number> {
@@ -359,80 +421,72 @@ export class RosterPage {
     return Math.max(0, count - 1);
   }
 
+  // ---------------------------------------------------------------------------
+  // Email editing (via edit modal)
+  // ---------------------------------------------------------------------------
+
   /**
-   * Get the email edit button for a user row
+   * Get the email edit button for a user row.
+   * With the modal refactor, email editing is inside the modal.
+   * This opens the modal and returns the email input.
    */
   getEmailEditButton(username: string): Locator {
-    const row = this.getUserRow(username);
-    // The email cell has a Stack with the email text and an edit button
-    // Find the cell containing the email, then get the button inside it
-    return row.locator("td").nth(4).locator("button");
+    // The "edit" button is now the settings button on the row
+    return this.getEditButton(username);
   }
 
   /**
-   * Get the email input field when editing
+   * Get the email input field inside the edit modal
+   */
+  getModalEmailInput(): Locator {
+    return this.editModal.locator('input[type="email"]');
+  }
+
+  /**
+   * Get the email input field when editing (alias for modal version)
    */
   getEmailInput(username: string): Locator {
-    const row = this.getUserRow(username);
-    return row.locator("td").nth(4).locator("input");
+    return this.getModalEmailInput();
   }
 
   /**
-   * Get the confirm button when editing email
+   * Get the save button for email changes in the modal
    */
   getEmailConfirmButton(username: string): Locator {
-    const row = this.getUserRow(username);
-    // The confirm button is the first button in the email cell (green checkmark)
-    return row.locator("td").nth(4).locator("button").first();
+    return this.editModal.locator('button:has-text("Save")');
   }
 
   /**
-   * Get the cancel button when editing email
-   */
-  getEmailCancelButton(username: string): Locator {
-    const row = this.getUserRow(username);
-    // The cancel button is the second button in the email cell
-    return row.locator("td").nth(4).locator("button").nth(1);
-  }
-
-  /**
-   * Start editing a user's email
+   * Start editing a user's email by opening the modal
    */
   async startEditEmail(username: string): Promise<void> {
-    const editButton = this.getEmailEditButton(username);
-    await editButton.waitFor({ state: "visible", timeout: 5000 });
-    // Use JavaScript click to bypass MUI Chips in adjacent cells that intercept pointer events
-    await editButton.evaluate((el) => (el as HTMLElement).click());
-    // Wait for input to appear
-    await this.getEmailInput(username).waitFor({ state: "visible", timeout: 5000 });
+    await this.openEditModal(username);
+    await this.getModalEmailInput().waitFor({ state: "visible", timeout: 5000 });
   }
 
   /**
-   * Update a user's email (full flow)
+   * Update a user's email (full flow inside modal)
    */
   async updateUserEmail(username: string, newEmail: string): Promise<void> {
     await this.startEditEmail(username);
-    const emailInput = this.getEmailInput(username);
+    const emailInput = this.getModalEmailInput();
     await emailInput.clear();
     await emailInput.fill(newEmail);
   }
 
   /**
-   * Confirm the email change
+   * Confirm the email change (click Save in the modal)
    */
   async confirmEmailChange(username: string): Promise<void> {
-    const confirmButton = this.getEmailConfirmButton(username);
-    // Use JavaScript click to bypass MUI Chips in adjacent cells that intercept pointer events
-    await confirmButton.evaluate((el) => (el as HTMLElement).click());
+    const saveButton = this.getEmailConfirmButton(username);
+    await saveButton.click();
   }
 
   /**
-   * Cancel the email change
+   * Cancel the email change (close the modal without saving)
    */
   async cancelEmailChange(username: string): Promise<void> {
-    const cancelButton = this.getEmailCancelButton(username);
-    // Use JavaScript click to bypass MUI Chips in adjacent cells that intercept pointer events
-    await cancelButton.evaluate((el) => (el as HTMLElement).click());
+    await this.closeEditModal();
   }
 
   /**
@@ -445,14 +499,12 @@ export class RosterPage {
   }
 
   /**
-   * Get the current email displayed for a user
+   * Get the current email displayed for a user from the table row
    */
   async getUserEmail(username: string): Promise<string> {
     const row = this.getUserRow(username);
     const emailCell = row.locator("td").nth(4);
-    // Get the text content, filtering out any button text
-    const emailSpan = emailCell.locator("span").first();
-    return (await emailSpan.textContent()) || "";
+    return ((await emailCell.textContent()) || "").trim();
   }
 
   /**
