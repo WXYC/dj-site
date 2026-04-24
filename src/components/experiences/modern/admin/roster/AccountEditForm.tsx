@@ -389,7 +389,10 @@ export default function AccountEditForm({
           onChange={(_, newValue) => {
             if (newValue !== null) handleRoleChange(newValue as Authorization);
           }}
-          slotProps={{ button: { sx: { whiteSpace: "nowrap" } } }}
+          slotProps={{
+            button: { sx: { whiteSpace: "nowrap" } },
+            listbox: { sx: { zIndex: 10001 } },
+          }}
         >
           <Option value={Authorization.NO}>Member</Option>
           <Option value={Authorization.DJ}>DJ</Option>
