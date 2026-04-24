@@ -27,6 +27,7 @@ type ImportCSVModalProps = {
   open: boolean;
   onClose: () => void;
   onComplete: () => void;
+  organizationSlug: string;
 };
 
 type ModalState = "upload" | "preview" | "importing" | "results";
@@ -52,7 +53,7 @@ function downloadTemplate() {
   URL.revokeObjectURL(url);
 }
 
-export default function ImportCSVModal({ open, onClose, onComplete }: ImportCSVModalProps) {
+export default function ImportCSVModal({ open, onClose, onComplete, organizationSlug }: ImportCSVModalProps) {
   const [state, setState] = useState<ModalState>("upload");
   const [rows, setRows] = useState<CSVImportRow[]>([]);
   const [errors, setErrors] = useState<CSVRowError[]>([]);
@@ -95,7 +96,6 @@ export default function ImportCSVModal({ open, onClose, onComplete }: ImportCSVM
     setImportResults([]);
 
     const tempPassword = String(process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD || "");
-    const organizationSlug = process.env.NEXT_PUBLIC_APP_ORGANIZATION || "";
     const role = authorizationToRole(authorization);
 
     // Filter to only valid rows

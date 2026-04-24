@@ -14,12 +14,14 @@ let cachedAdminOrgId: string | null = null;
  * Caches the result for the page session. For use in admin contexts only (roster,
  * role management) — requires the current user to have an admin session.
  *
+ * @param slugOverride - Explicit slug to use instead of the NEXT_PUBLIC_APP_ORGANIZATION env var.
+ *   Prefer passing this from a server component prop to avoid build-time inlining issues.
  * @returns The organization UUID, or null if the slug is not configured or resolution fails.
  */
-export async function resolveOrganizationIdAdmin(): Promise<string | null> {
+export async function resolveOrganizationIdAdmin(slugOverride?: string): Promise<string | null> {
   if (cachedAdminOrgId) return cachedAdminOrgId;
 
-  const slug = process.env.NEXT_PUBLIC_APP_ORGANIZATION;
+  const slug = slugOverride || process.env.NEXT_PUBLIC_APP_ORGANIZATION;
   if (!slug) return null;
 
   try {
@@ -161,4 +163,9 @@ export function normalizeRole(role: string): string {
   // For any other role string, return the original (mapRoleToAuthorization will handle it)
   // This includes better-auth default roles like "owner", "admin", "user"
   return role;
+}
+
+/** @internal — test-only cache reset */
+export function _resetOrgCacheForTesting() {
+  cachedAdminOrgId = null;
 }

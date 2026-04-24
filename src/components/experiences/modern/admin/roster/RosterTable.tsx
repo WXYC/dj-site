@@ -24,7 +24,7 @@ import ExportDJsButton from "./ExportCSV";
 import ImportCSVModal from "./ImportCSVModal";
 import NewAccountForm from "./NewAccountForm";
 
-export default function RosterTable({ user }: { user: User }) {
+export default function RosterTable({ user, organizationSlug }: { user: User; organizationSlug: string }) {
   const { data, isLoading, isError, error, refetch } = useAccountListResults();
 
   const [isCreating, setIsCreating] = useState(false);
@@ -63,9 +63,8 @@ export default function RosterTable({ user }: { user: User }) {
           throw new Error("Missing onboarding temp password configuration.");
         }
 
-        const organizationSlug = process.env.NEXT_PUBLIC_APP_ORGANIZATION;
         if (!organizationSlug) {
-          throw new Error("Organization not configured (NEXT_PUBLIC_APP_ORGANIZATION not set).");
+          throw new Error("Organization not configured.");
         }
 
         const newAccount: NewAccountParams = {
@@ -225,6 +224,7 @@ export default function RosterTable({ user }: { user: User }) {
                   account={dj}
                   isSelf={dj.userName === user.username}
                   onAccountChange={refetch}
+                  organizationSlug={organizationSlug}
                 />
               ))
             )}
@@ -292,6 +292,7 @@ export default function RosterTable({ user }: { user: User }) {
           setImportModalOpen(false);
           refetch();
         }}
+        organizationSlug={organizationSlug}
       />
     </Sheet>
   );
