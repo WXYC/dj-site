@@ -31,8 +31,14 @@ test.describe("Flowsheet Entry Caching", () => {
     // Check actual page state rather than a module-level flag, which desyncs
     // when Playwright retries the serial suite in a fresh worker while the DJ
     // is still live server-side from the previous attempt.
-    const status = await flowsheet.liveStatus.textContent({ timeout: 10000 }).catch(() => "");
-    if (!status?.includes("On Air")) {
+    // Use toContainText (retrying assertion) instead of textContent (one-shot
+    // read) — the whoIsLive query is skipped until the auth session loads, so
+    // the status element may exist but show stale/empty text initially.
+    const isLive = await expect(flowsheet.liveStatus)
+      .toContainText("On Air", { timeout: 15000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!isLive) {
       await flowsheet.goLive();
     }
   });
