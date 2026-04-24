@@ -313,6 +313,56 @@ describe("flowsheet conversions", () => {
         expect(result.day).toBe("Unknown");
         expect(result.time).toBe("Unknown");
       });
+
+      it("should handle show_start without dj_name by falling back to artist_name", () => {
+        const entry = {
+          ...createTestV2ShowStartEntry(),
+          dj_name: undefined,
+          artist_name: "DJ Houndstooth",
+        } as any;
+        const result = convertV2Entry(entry) as FlowsheetShowBlockEntry;
+
+        expect(result.dj_name).toBe("DJ Houndstooth");
+        expect(result.isStart).toBe(true);
+      });
+
+      it("should handle show_end without dj_name by falling back to artist_name", () => {
+        const entry = {
+          ...createTestV2ShowEndEntry(),
+          dj_name: undefined,
+          artist_name: "DJ Mouseness",
+        } as any;
+        const result = convertV2Entry(entry) as FlowsheetShowBlockEntry;
+
+        expect(result.dj_name).toBe("DJ Mouseness");
+        expect(result.isStart).toBe(false);
+      });
+
+      it("should handle show_start without timestamp by falling back to add_time", () => {
+        const entry = {
+          ...createTestV2ShowStartEntry(),
+          timestamp: undefined,
+          add_time: "2026-04-24T16:03:38.067Z",
+        } as any;
+        const result = convertV2Entry(entry) as FlowsheetShowBlockEntry;
+
+        expect(result.dj_name).toBeTruthy();
+        expect(result.isStart).toBe(true);
+        expect(result.day).not.toBe("Unknown");
+        expect(result.time).not.toBe("Unknown");
+      });
+
+      it("should handle show_start with neither dj_name nor artist_name", () => {
+        const entry = {
+          ...createTestV2ShowStartEntry(),
+          dj_name: undefined,
+          artist_name: undefined,
+        } as any;
+        const result = convertV2Entry(entry) as FlowsheetShowBlockEntry;
+
+        expect(result.dj_name).toBe("");
+        expect(result.isStart).toBe(true);
+      });
     });
 
     describe("convertV2FlowsheetResponse", () => {
