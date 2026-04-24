@@ -277,7 +277,7 @@ export class RosterPage {
     await this.openEditModal(username);
     const { delete: deleteBtn } = this.getModalActionButtons();
     await deleteBtn.waitFor({ state: "visible", timeout: 5000 });
-    await deleteBtn.click({ force: true });
+    await deleteBtn.evaluate((el) => (el as HTMLElement).click());
   }
 
   async resetUserPassword(username: string): Promise<void> {
@@ -285,7 +285,7 @@ export class RosterPage {
     const { resetPassword } = this.getModalActionButtons();
     await resetPassword.waitFor({ state: "visible", timeout: 5000 });
     await this.page.waitForTimeout(300);
-    await resetPassword.click({ force: true });
+    await resetPassword.evaluate((el) => (el as HTMLElement).click());
   }
 
   /**
@@ -480,7 +480,8 @@ export class RosterPage {
    */
   async confirmEmailChange(username: string): Promise<void> {
     const saveButton = this.getEmailConfirmButton(username);
-    await saveButton.click({ force: true });
+    await saveButton.waitFor({ state: "visible", timeout: 5000 });
+    await saveButton.evaluate((el) => (el as HTMLElement).click());
   }
 
   /**
