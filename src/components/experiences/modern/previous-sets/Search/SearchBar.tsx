@@ -2,8 +2,8 @@
 
 import type { SearchField } from "@/lib/features/playlist-search/frontend";
 import { usePlaylistSearch } from "@/src/hooks/playlistSearchHooks";
-import { Add, Cancel, Remove, Troubleshoot, Tune } from "@mui/icons-material";
-import { Box, IconButton, Input, Option, Select, Stack, Tooltip } from "@mui/joy";
+import { Add, Cancel, Remove, Troubleshoot } from "@mui/icons-material";
+import { Box, IconButton, Input, Option, Select, Stack } from "@mui/joy";
 import SortBySelect from "./SortBySelect";
 
 const SEARCH_FIELD_OPTIONS: { value: SearchField; label: string }[] = [
@@ -41,29 +41,15 @@ export default function SearchBar() {
               spacing={1}
               sx={{ alignItems: "center" }}
             >
-              {/* Tune icon (first row) or operator dropdown (subsequent rows) */}
-              {isFirst ? (
-                <Tooltip title="Search previous sets" size="sm">
-                  <IconButton
-                    variant="outlined"
-                    color="primary"
-                    sx={{
-                      aspectRatio: 1,
-                      minWidth: 36,
-                      minHeight: 36,
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Tune />
-                  </IconButton>
-                </Tooltip>
-              ) : (
+              {/* Operator dropdown (subsequent rows only) */}
+              {!isFirst && (
                 <Select
                   value={row.operator}
                   onChange={(_, value) =>
                     value && updateRow(row.id, { operator: value })
                   }
                   size="sm"
+                  color="primary"
                   sx={{ minWidth: 80, flexShrink: 0 }}
                 >
                   {OPERATOR_OPTIONS.map((opt) => (
@@ -73,6 +59,9 @@ export default function SearchBar() {
                   ))}
                 </Select>
               )}
+
+              {/* Sort By dropdown (first row only, before field dropdown) */}
+              {isFirst && <SortBySelect />}
 
               {/* Search field dropdown */}
               <Select
@@ -182,8 +171,6 @@ export default function SearchBar() {
                 </IconButton>
               </Stack>
 
-              {/* Sort By dropdown (first row only) */}
-              {isFirst && <SortBySelect />}
             </Stack>
           );
         })}
