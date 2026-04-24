@@ -1,6 +1,6 @@
 "use client";
 
-import { authClient } from "@/lib/features/authentication/client";
+import { authBaseURL, authClient } from "@/lib/features/authentication/client";
 import { resolveOrganizationIdAdmin } from "@/lib/features/authentication/organization-utils";
 import {
   Account,
@@ -10,7 +10,7 @@ import {
   AUTHORIZATION_LABELS,
   authorizationToRole,
 } from "@/lib/features/authentication/types";
-import { DeleteForever, Edit, Language, SyncLock } from "@mui/icons-material";
+import { DeleteForever, Edit, Language, Send, SyncLock } from "@mui/icons-material";
 import {
   Button,
   Chip,
@@ -57,9 +57,11 @@ export default function AccountEditModal({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdatingCapabilities, setIsUpdatingCapabilities] = useState(false);
   const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [newEmail, setNewEmail] = useState(account.email ?? "");
 
   const userCapabilities = (account.capabilities ?? []) as Capability[];
+  const isIncomplete = account.hasCompletedOnboarding === false;
 
   const resolveUserId = async () => {
     if (account.id) {
@@ -314,6 +316,76 @@ export default function AccountEditModal({
     }
   };
 
+  const handleSendInvite = async () => {
+    if (!account.email) {
+      toast.error("No email address on file.");
+      return;
+    }
+
+    setIsSendingEmail(true);
+    try {
+      const targetUserId = await resolveUserId();
+
+      // Un-verify the email so the verification endpoint will send a new email
+      await authClient.admin.updateUser({
+        userId: targetUserId,
+        data: { emailVerified: false },
+      });
+
+      const response = await fetch(`${authBaseURL}/send-verification-email`, {
+        method: "POST",
+        credentials: "omit",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: account.email,
+          callbackURL: "/login",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to send invite email");
+      }
+
+      toast.success(`Invite email sent to ${account.email}`);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to send invite email";
+      toast.error(errorMessage);
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  const handleSendPasswordReset = async () => {
+    if (!account.email) {
+      toast.error("No email address on file.");
+      return;
+    }
+
+    setIsSendingEmail(true);
+    try {
+      const redirectTo =
+        typeof window !== "undefined"
+          ? `${window.location.origin}/login`
+          : undefined;
+
+      const result = await authClient.requestPasswordReset({
+        email: account.email,
+        redirectTo,
+      });
+
+      if ((result as any).error) {
+        throw new Error((result as any).error.message || "Failed to send password reset");
+      }
+
+      toast.success(`Password reset email sent to ${account.email}`);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to send password reset email";
+      toast.error(errorMessage);
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
   const displayName = account.realName || account.userName;
 
   return (
@@ -446,10 +518,23 @@ export default function AccountEditModal({
 
             <Divider />
 
-            {/* Danger zone */}
+            {/* Account actions */}
             <Stack spacing={1.5}>
               <Typography level="title-sm">Account Actions</Typography>
-              <Stack direction="row" spacing={1}>
+              <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
+                {!isSelf && (
+                  <Button
+                    size="sm"
+                    color="primary"
+                    variant="solid"
+                    startDecorator={<Send />}
+                    disabled={isSendingEmail}
+                    loading={isSendingEmail}
+                    onClick={isIncomplete ? handleSendInvite : handleSendPasswordReset}
+                  >
+                    {isIncomplete ? "Send Invite" : "Send Password Reset"}
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   color="success"
@@ -475,7 +560,7 @@ export default function AccountEditModal({
               </Stack>
               {isSelf && (
                 <Typography level="body-xs">
-                  You cannot reset your own password or delete your own account from here.
+                  You cannot modify your own account from here.
                 </Typography>
               )}
             </Stack>
