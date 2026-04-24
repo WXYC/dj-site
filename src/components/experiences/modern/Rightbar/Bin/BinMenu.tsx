@@ -1,9 +1,9 @@
 "use client";
+import { applicationSlice } from "@/lib/features/application/frontend";
 import { AlbumEntry } from "@/lib/features/catalog/types";
-import { Dropdown, IconButton, Menu, MenuButton } from "@mui/joy";
+import { useAppDispatch } from "@/lib/hooks";
+import { Dropdown, IconButton, Menu, MenuButton, MenuItem } from "@mui/joy";
 
-import { MenuLinkItem } from "@/src/components/shared/General/LinkButton";
-import { useShiftKey } from "@/src/hooks/applicationHooks";
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
 import { MoreVert } from "@mui/icons-material";
 import InfoOutlined from "@mui/icons-material/InfoOutlined";
@@ -13,6 +13,7 @@ import PlayFromBin from "./PlayFromBin";
 
 export default function BinMenu({ entry }: { entry: AlbumEntry }) {
   const { live } = useShowControl();
+  const dispatch = useAppDispatch();
   return (
     <Dropdown>
       <MenuButton
@@ -36,10 +37,13 @@ export default function BinMenu({ entry }: { entry: AlbumEntry }) {
           placement: "bottom-start",
         }}
       >
-        <MenuLinkItem href={`/dashboard/album/${entry.id}`} color="neutral">
+        <MenuItem
+          color="neutral"
+          onClick={() => dispatch(applicationSlice.actions.openPanel({ type: "album-detail", albumId: entry.id }))}
+        >
           <InfoOutlined />
           More Info
-        </MenuLinkItem>
+        </MenuItem>
         {live && <AddToQueueFromBin entry={entry} />}
         {live && <PlayFromBin entry={entry} />}
         <DeleteFromBin album={entry} color="warning" />

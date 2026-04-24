@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { screen, fireEvent } from "@testing-library/react";
+import { renderWithProviders } from "@/lib/test-utils";
 import BinMenu from "./BinMenu";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 
@@ -12,15 +13,6 @@ vi.mock("@/src/hooks/flowsheetHooks", () => ({
 
 vi.mock("@/src/hooks/applicationHooks", () => ({
   useShiftKey: vi.fn(() => false),
-}));
-
-// Mock child components
-vi.mock("@/src/components/shared/General/LinkButton", () => ({
-  MenuLinkItem: ({ children, href }: any) => (
-    <div data-testid="menu-link" data-href={href}>
-      {children}
-    </div>
-  ),
 }));
 
 vi.mock("./AddToQueueFromBin", () => ({
@@ -64,13 +56,13 @@ describe("BinMenu", () => {
   });
 
   it("should render menu button with more icon", () => {
-    render(<BinMenu entry={mockEntry} />);
+    renderWithProviders(<BinMenu entry={mockEntry} />);
 
     expect(screen.getByTestId("more-vert-icon")).toBeInTheDocument();
   });
 
   it("should render dropdown menu button", () => {
-    render(<BinMenu entry={mockEntry} />);
+    renderWithProviders(<BinMenu entry={mockEntry} />);
 
     // The menu button should be in the document
     const button = screen.getByRole("button");
@@ -79,7 +71,7 @@ describe("BinMenu", () => {
   });
 
   it("should toggle menu expanded state when clicked", () => {
-    render(<BinMenu entry={mockEntry} />);
+    renderWithProviders(<BinMenu entry={mockEntry} />);
 
     const button = screen.getByRole("button");
     expect(button).toHaveAttribute("aria-expanded", "false");

@@ -11,7 +11,6 @@ import {
   CircularProgress,
   Divider,
   Link,
-  ModalClose,
   Stack,
   Typography,
 } from "@mui/joy";
@@ -55,12 +54,9 @@ export default function AlbumCard({
     <Card
       variant="outlined"
       sx={{
-        width: "50%",
-        maxHeight: "80vh",
         overflow: "auto",
       }}
     >
-      <ModalClose variant="plain" sx={{ position: "absolute", top: 8, right: 8, zIndex: 1 }} />
       <CardContent>
         <Stack direction="row" spacing={2} sx={{ mb: 1 }}>
           <Box
@@ -68,8 +64,8 @@ export default function AlbumCard({
             src={artworkUrl}
             alt={`${album.title} cover`}
             sx={{
-              width: 200,
-              height: 200,
+              width: { xs: 120, lg: 160 },
+              height: { xs: 120, lg: 160 },
               objectFit: "cover",
               borderRadius: "sm",
               flexShrink: 0,

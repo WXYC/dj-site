@@ -12,10 +12,11 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
 import { Avatar, Stack, Tooltip } from "@mui/joy";
 
+import { applicationSlice } from "@/lib/features/application/frontend";
 import { useCatalogSearch } from "@/src/hooks/catalogHooks";
 import { QueueMusic } from "@mui/icons-material";
 import { useQueue, useShowControl } from "@/src/hooks/flowsheetHooks";
-import { useRouter } from "next/navigation";
+import { useAppDispatch } from "@/lib/hooks";
 import { GENRE_COLORS, GENRE_VARIANTS } from "../ArtistAvatar";
 import AddRemoveBin from "./AddRemoveBin";
 import { convertBinToQueue } from "@/lib/features/bin/conversions";
@@ -24,7 +25,7 @@ import { toast } from "sonner";
 export default function CatalogResult({ album }: { album: AlbumEntry }) {
   const { live } = useShowControl();
   const { addToQueue } = useQueue();
-  const router = useRouter();
+  const dispatch = useAppDispatch();
 
   const { selected, setSelection, orderBy } = useCatalogSearch();
 
@@ -34,7 +35,7 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
   return (
     <tr
       key={album.id}
-      onClick={() => router.push(`/dashboard/album/${album.id}`)}
+      onClick={() => dispatch(applicationSlice.actions.openPanel({ type: "album-detail", albumId: album.id }))}
       style={{ cursor: "pointer" }}
     >
       <td
@@ -156,7 +157,7 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
               variant="plain"
               color="neutral"
               size="sm"
-              onClick={() => router.push(`/dashboard/album/${album.id}`)}
+              onClick={() => dispatch(applicationSlice.actions.openPanel({ type: "album-detail", albumId: album.id }))}
             >
               <InfoOutlinedIcon />
             </IconButton>

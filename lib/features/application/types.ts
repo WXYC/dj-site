@@ -1,3 +1,4 @@
+import { Account } from "../admin/types";
 import { ColorMode, ExperienceId } from "../experiences/types";
 
 export const defaultApplicationState: ApplicationState = {
@@ -20,7 +21,7 @@ export interface ApplicationFrontendState {
 export interface RightbarState {
     mini: boolean;
     sidebarOpen: boolean;
-    menu: RightbarMenu;
+    panel: RightbarPanel;
 }
 
 export type AuthStage = "otp-email" | "otp-verify" | "password" | "forgot" | "reset";
@@ -29,7 +30,8 @@ export interface AuthFlowState {
     stage: AuthStage;
 }
 
-export enum RightbarMenu {
-    BIN,
-    CATALOG_EDITOR
-}
+export type RightbarPanel =
+    | { type: "default" }
+    | { type: "album-detail"; albumId: number }
+    | { type: "settings" }
+    | { type: "account-edit"; account: Account; isSelf: boolean; organizationSlug: string };

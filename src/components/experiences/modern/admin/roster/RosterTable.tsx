@@ -23,6 +23,7 @@ import AccountSearchForm from "./AccountSearchForm";
 import ExportDJsButton from "./ExportCSV";
 import ImportCSVModal from "./ImportCSVModal";
 import NewAccountForm from "./NewAccountForm";
+import { RosterRefetchProvider } from "./RosterRefetchContext";
 
 export default function RosterTable({ user, organizationSlug }: { user: User; organizationSlug: string }) {
   const { data, isLoading, isError, error, refetch } = useAccountListResults();
@@ -137,7 +138,10 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
     [authorizationOfNewAccount, canCreateUser, dispatch, refetch]
   );
 
+  const refetchAsync = useCallback(async () => { refetch(); }, [refetch]);
+
   return (
+    <RosterRefetchProvider refetch={refetchAsync}>
     <Sheet
       sx={{
         width: "100%",
@@ -239,7 +243,6 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
                   key={`roster-entry-${dj.userName}`}
                   account={dj}
                   isSelf={dj.userName === user.username}
-                  onAccountChange={refetch}
                   organizationSlug={organizationSlug}
                 />
               ))
@@ -311,5 +314,6 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
         organizationSlug={organizationSlug}
       />
     </Sheet>
+    </RosterRefetchProvider>
   );
 }

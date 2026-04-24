@@ -14,15 +14,10 @@ import { DeleteForever, Edit, Language, Send, SyncLock } from "@mui/icons-materi
 import {
   Button,
   Chip,
-  DialogContent,
-  DialogTitle,
   Divider,
   FormControl,
   FormLabel,
   Input,
-  Modal,
-  ModalClose,
-  ModalDialog,
   Option,
   Select,
   Stack,
@@ -32,26 +27,21 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 
-const CAPABILITIES = ["editor", "webmaster"] as const;
-type Capability = (typeof CAPABILITIES)[number];
-
-type AccountEditModalProps = {
-  open: boolean;
-  onClose: () => void;
+type AccountEditFormProps = {
   account: Account;
   isSelf: boolean;
+  onClose: () => void;
   onAccountChange?: () => Promise<void>;
   organizationSlug: string;
 };
 
-export default function AccountEditModal({
-  open,
-  onClose,
+export default function AccountEditForm({
   account,
   isSelf,
+  onClose,
   onAccountChange,
   organizationSlug,
-}: AccountEditModalProps) {
+}: AccountEditFormProps) {
   const [isPromoting, setIsPromoting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -60,7 +50,7 @@ export default function AccountEditModal({
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [newEmail, setNewEmail] = useState(account.email ?? "");
 
-  const userCapabilities = (account.capabilities ?? []) as Capability[];
+  const userCapabilities = (account.capabilities ?? []) as ("editor" | "webmaster")[];
   const isIncomplete = account.hasCompletedOnboarding === false;
 
   const resolveUserId = async () => {
@@ -138,7 +128,7 @@ export default function AccountEditModal({
     return result;
   };
 
-  const updateCapabilities = async (newCapabilities: Capability[]) => {
+  const updateCapabilities = async (newCapabilities: ("editor" | "webmaster")[]) => {
     const userId = await resolveUserId();
 
     const result = await (authClient.admin as any).updateUser({
@@ -181,7 +171,7 @@ export default function AccountEditModal({
     }
   };
 
-  const handleCapabilityToggle = async (capability: Capability) => {
+  const handleCapabilityToggle = async (capability: "editor" | "webmaster") => {
     const hasCapability = userCapabilities.includes(capability);
     const newCapabilities = hasCapability
       ? userCapabilities.filter((c) => c !== capability)
@@ -386,187 +376,170 @@ export default function AccountEditModal({
     }
   };
 
-  const displayName = account.realName || account.userName;
-
   return (
-    <Modal open={open} onClose={onClose}>
-      <ModalDialog variant="outlined" sx={{ maxWidth: 480, width: "100%" }}>
-        <ModalClose />
-        <DialogTitle>
-          {displayName}
-          {account.djName && (
-            <Typography level="body-sm" sx={{ ml: 1 }}>
-              DJ {account.djName}
-            </Typography>
+    <Stack spacing={2.5} sx={{ mt: 1 }}>
+      {/* Role */}
+      <FormControl>
+        <FormLabel>Role</FormLabel>
+        <Select
+          size="sm"
+          color="success"
+          value={account.authorization}
+          disabled={isSelf || isPromoting}
+          onChange={(_, newValue) => {
+            if (newValue !== null) handleRoleChange(newValue as Authorization);
+          }}
+          slotProps={{ button: { sx: { whiteSpace: "nowrap" } } }}
+        >
+          <Option value={Authorization.NO}>Member</Option>
+          <Option value={Authorization.DJ}>DJ</Option>
+          <Option value={Authorization.MD}>Music Director</Option>
+          <Option value={Authorization.SM}>Station Manager</Option>
+        </Select>
+        {isSelf && (
+          <Typography level="body-xs" sx={{ mt: 0.5 }}>
+            You cannot change your own role.
+          </Typography>
+        )}
+      </FormControl>
+
+      {/* Capabilities */}
+      <FormControl>
+        <FormLabel>Capabilities</FormLabel>
+        <Stack direction="row" spacing={1}>
+          <Tooltip
+            title={
+              isSelf
+                ? "You cannot modify your own capabilities"
+                : userCapabilities.includes("editor")
+                  ? "Remove editor capability"
+                  : "Grant editor capability (allows website editing)"
+            }
+            arrow
+            placement="top"
+            variant="outlined"
+            size="sm"
+          >
+            <Chip
+              variant={userCapabilities.includes("editor") ? "solid" : "outlined"}
+              color={userCapabilities.includes("editor") ? "success" : "neutral"}
+              size="md"
+              startDecorator={<Edit sx={{ fontSize: 16 }} />}
+              onClick={() => !isSelf && handleCapabilityToggle("editor")}
+              disabled={isSelf || isUpdatingCapabilities}
+              sx={{
+                cursor: isSelf ? "not-allowed" : "pointer",
+                opacity: isUpdatingCapabilities ? 0.5 : 1,
+              }}
+            >
+              Editor
+            </Chip>
+          </Tooltip>
+          <Tooltip
+            title={
+              isSelf
+                ? "You cannot modify your own capabilities"
+                : userCapabilities.includes("webmaster")
+                  ? "Remove webmaster capability"
+                  : "Grant webmaster capability (can delegate editor)"
+            }
+            arrow
+            placement="top"
+            variant="outlined"
+            size="sm"
+          >
+            <Chip
+              variant={userCapabilities.includes("webmaster") ? "solid" : "outlined"}
+              color={userCapabilities.includes("webmaster") ? "primary" : "neutral"}
+              size="md"
+              startDecorator={<Language sx={{ fontSize: 16 }} />}
+              onClick={() => !isSelf && handleCapabilityToggle("webmaster")}
+              disabled={isSelf || isUpdatingCapabilities}
+              sx={{
+                cursor: isSelf ? "not-allowed" : "pointer",
+                opacity: isUpdatingCapabilities ? 0.5 : 1,
+              }}
+            >
+              Webmaster
+            </Chip>
+          </Tooltip>
+        </Stack>
+      </FormControl>
+
+      {/* Email */}
+      <FormControl>
+        <FormLabel>Email</FormLabel>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Input
+            size="sm"
+            type="email"
+            value={newEmail}
+            onChange={(e) => setNewEmail(e.target.value)}
+            disabled={isSelf || isUpdatingEmail}
+            sx={{ flex: 1 }}
+          />
+          {!isSelf && newEmail !== account.email && (
+            <Button
+              size="sm"
+              color="success"
+              variant="solid"
+              loading={isUpdatingEmail}
+              onClick={handleEmailUpdate}
+            >
+              Save
+            </Button>
           )}
-        </DialogTitle>
-        <DialogContent>
-          <Stack spacing={2.5} sx={{ mt: 1 }}>
-            {/* Role */}
-            <FormControl>
-              <FormLabel>Role</FormLabel>
-              <Select
-                size="sm"
-                color="success"
-                value={account.authorization}
-                disabled={isSelf || isPromoting}
-                onChange={(_, newValue) => {
-                  if (newValue !== null) handleRoleChange(newValue as Authorization);
-                }}
-                slotProps={{ button: { sx: { whiteSpace: "nowrap" } } }}
-              >
-                <Option value={Authorization.NO}>Member</Option>
-                <Option value={Authorization.DJ}>DJ</Option>
-                <Option value={Authorization.MD}>Music Director</Option>
-                <Option value={Authorization.SM}>Station Manager</Option>
-              </Select>
-              {isSelf && (
-                <Typography level="body-xs" sx={{ mt: 0.5 }}>
-                  You cannot change your own role.
-                </Typography>
-              )}
-            </FormControl>
+        </Stack>
+      </FormControl>
 
-            {/* Capabilities */}
-            <FormControl>
-              <FormLabel>Capabilities</FormLabel>
-              <Stack direction="row" spacing={1}>
-                <Tooltip
-                  title={
-                    isSelf
-                      ? "You cannot modify your own capabilities"
-                      : userCapabilities.includes("editor")
-                        ? "Remove editor capability"
-                        : "Grant editor capability (allows website editing)"
-                  }
-                  arrow
-                  placement="top"
-                  variant="outlined"
-                  size="sm"
-                >
-                  <Chip
-                    variant={userCapabilities.includes("editor") ? "solid" : "outlined"}
-                    color={userCapabilities.includes("editor") ? "success" : "neutral"}
-                    size="md"
-                    startDecorator={<Edit sx={{ fontSize: 16 }} />}
-                    onClick={() => !isSelf && handleCapabilityToggle("editor")}
-                    disabled={isSelf || isUpdatingCapabilities}
-                    sx={{
-                      cursor: isSelf ? "not-allowed" : "pointer",
-                      opacity: isUpdatingCapabilities ? 0.5 : 1,
-                    }}
-                  >
-                    Editor
-                  </Chip>
-                </Tooltip>
-                <Tooltip
-                  title={
-                    isSelf
-                      ? "You cannot modify your own capabilities"
-                      : userCapabilities.includes("webmaster")
-                        ? "Remove webmaster capability"
-                        : "Grant webmaster capability (can delegate editor)"
-                  }
-                  arrow
-                  placement="top"
-                  variant="outlined"
-                  size="sm"
-                >
-                  <Chip
-                    variant={userCapabilities.includes("webmaster") ? "solid" : "outlined"}
-                    color={userCapabilities.includes("webmaster") ? "primary" : "neutral"}
-                    size="md"
-                    startDecorator={<Language sx={{ fontSize: 16 }} />}
-                    onClick={() => !isSelf && handleCapabilityToggle("webmaster")}
-                    disabled={isSelf || isUpdatingCapabilities}
-                    sx={{
-                      cursor: isSelf ? "not-allowed" : "pointer",
-                      opacity: isUpdatingCapabilities ? 0.5 : 1,
-                    }}
-                  >
-                    Webmaster
-                  </Chip>
-                </Tooltip>
-              </Stack>
-            </FormControl>
+      <Divider />
 
-            {/* Email */}
-            <FormControl>
-              <FormLabel>Email</FormLabel>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Input
-                  size="sm"
-                  type="email"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  disabled={isSelf || isUpdatingEmail}
-                  sx={{ flex: 1 }}
-                />
-                {!isSelf && newEmail !== account.email && (
-                  <Button
-                    size="sm"
-                    color="success"
-                    variant="solid"
-                    loading={isUpdatingEmail}
-                    onClick={handleEmailUpdate}
-                  >
-                    Save
-                  </Button>
-                )}
-              </Stack>
-            </FormControl>
-
-            <Divider />
-
-            {/* Account actions */}
-            <Stack spacing={1.5}>
-              <Typography level="title-sm">Account Actions</Typography>
-              <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
-                {!isSelf && (
-                  <Button
-                    size="sm"
-                    color="primary"
-                    variant="solid"
-                    startDecorator={<Send />}
-                    disabled={isSendingEmail}
-                    loading={isSendingEmail}
-                    onClick={isIncomplete ? handleSendInvite : handleSendPasswordReset}
-                  >
-                    {isIncomplete ? "Send Invite" : "Send Password Reset"}
-                  </Button>
-                )}
-                <Button
-                  size="sm"
-                  color="success"
-                  variant="solid"
-                  startDecorator={<SyncLock />}
-                  disabled={isSelf || isResetting}
-                  loading={isResetting}
-                  onClick={handlePasswordReset}
-                >
-                  Reset Password
-                </Button>
-                <Button
-                  size="sm"
-                  color="danger"
-                  variant="outlined"
-                  startDecorator={<DeleteForever />}
-                  disabled={isSelf || isDeleting}
-                  loading={isDeleting}
-                  onClick={handleDelete}
-                >
-                  Delete Account
-                </Button>
-              </Stack>
-              {isSelf && (
-                <Typography level="body-xs">
-                  You cannot modify your own account from here.
-                </Typography>
-              )}
-            </Stack>
-          </Stack>
-        </DialogContent>
-      </ModalDialog>
-    </Modal>
+      {/* Account actions */}
+      <Stack spacing={1.5}>
+        <Typography level="title-sm">Account Actions</Typography>
+        <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
+          {!isSelf && (
+            <Button
+              size="sm"
+              color="primary"
+              variant="solid"
+              startDecorator={<Send />}
+              disabled={isSendingEmail}
+              loading={isSendingEmail}
+              onClick={isIncomplete ? handleSendInvite : handleSendPasswordReset}
+            >
+              {isIncomplete ? "Send Invite" : "Send Password Reset"}
+            </Button>
+          )}
+          <Button
+            size="sm"
+            color="success"
+            variant="solid"
+            startDecorator={<SyncLock />}
+            disabled={isSelf || isResetting}
+            loading={isResetting}
+            onClick={handlePasswordReset}
+          >
+            Reset Password
+          </Button>
+          <Button
+            size="sm"
+            color="danger"
+            variant="outlined"
+            startDecorator={<DeleteForever />}
+            disabled={isSelf || isDeleting}
+            loading={isDeleting}
+            onClick={handleDelete}
+          >
+            Delete Account
+          </Button>
+        </Stack>
+        {isSelf && (
+          <Typography level="body-xs">
+            You cannot modify your own account from here.
+          </Typography>
+        )}
+      </Stack>
+    </Stack>
   );
 }

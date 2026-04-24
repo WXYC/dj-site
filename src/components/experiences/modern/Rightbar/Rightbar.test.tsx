@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
+import { renderWithProviders, createTestStore } from "@/lib/test-utils";
+import { applicationSlice } from "@/lib/features/application/frontend";
+import { createTestAccountResult } from "@/lib/test-utils";
 import Rightbar from "./Rightbar";
 
 // Mock child components
@@ -21,6 +24,18 @@ vi.mock("./Bin/BinContent", () => ({
   default: () => <div data-testid="bin-content">Bin Content</div>,
 }));
 
+vi.mock("./panels/AlbumDetailPanel", () => ({
+  default: ({ albumId }: { albumId: number }) => <div data-testid="album-detail-panel">Album {albumId}</div>,
+}));
+
+vi.mock("./panels/SettingsPanel", () => ({
+  default: () => <div data-testid="settings-panel">Settings</div>,
+}));
+
+vi.mock("./panels/AccountEditPanel", () => ({
+  default: () => <div data-testid="account-edit-panel">Account Edit</div>,
+}));
+
 // Mock MUI components
 vi.mock("@mui/joy", () => ({
   Box: ({ children, sx }: { children?: React.ReactNode; sx?: any }) => (
@@ -31,7 +46,6 @@ vi.mock("@mui/joy", () => ({
   Divider: () => <hr data-testid="divider" />,
 }));
 
-// Mock NowPlaying widget (although it's not directly used in Rightbar.tsx - checking import path)
 vi.mock("@/src/widgets/NowPlaying", () => ({
   default: () => <div data-testid="now-playing-widget">Widget</div>,
 }));
@@ -41,63 +55,23 @@ describe("Rightbar", () => {
     vi.clearAllMocks();
   });
 
-  it("should render the rightbar mobile close component", () => {
-    render(<Rightbar />);
+  it("should render default content with NowPlaying and Bin", () => {
+    renderWithProviders(<Rightbar />);
 
     expect(screen.getByTestId("rightbar-mobile-close")).toBeInTheDocument();
-  });
-
-  it("should render the rightbar container", () => {
-    render(<Rightbar />);
-
     expect(screen.getByTestId("rightbar-container")).toBeInTheDocument();
-  });
-
-  it("should render now playing content", () => {
-    render(<Rightbar />);
-
     expect(screen.getByTestId("now-playing-content")).toBeInTheDocument();
-  });
-
-  it("should render bin content", () => {
-    render(<Rightbar />);
-
     expect(screen.getByTestId("bin-content")).toBeInTheDocument();
-  });
-
-  it("should render dividers between sections", () => {
-    render(<Rightbar />);
-
-    const dividers = screen.getAllByTestId("divider");
-    expect(dividers.length).toBe(2);
-  });
-
-  it("should render an empty box at the bottom", () => {
-    render(<Rightbar />);
-
-    const box = screen.getByTestId("box");
-    expect(box).toBeInTheDocument();
-  });
-
-  it("should render mobile close before container", () => {
-    render(<Rightbar />);
-
-    const mobileClose = screen.getByTestId("rightbar-mobile-close");
-    const container = screen.getByTestId("rightbar-container");
-
-    // Mobile close should be before container in DOM order
-    expect(mobileClose.compareDocumentPosition(container)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING
-    );
+    expect(screen.getAllByTestId("divider")).toHaveLength(2);
+    expect(screen.getByTestId("box")).toBeInTheDocument();
   });
 
   it("should render components in correct order within container", () => {
-    render(<Rightbar />);
+    renderWithProviders(<Rightbar />);
 
     const container = screen.getByTestId("rightbar-container");
     const children = container.children;
 
-    // Order: NowPlayingContent, Divider, BinContent, Divider, Box
     expect(children[0]).toHaveAttribute("data-testid", "now-playing-content");
     expect(children[1]).toHaveAttribute("data-testid", "divider");
     expect(children[2]).toHaveAttribute("data-testid", "bin-content");
@@ -105,30 +79,46 @@ describe("Rightbar", () => {
     expect(children[4]).toHaveAttribute("data-testid", "box");
   });
 
-  it("should render both mobile close and container", () => {
-    render(<Rightbar />);
+  it("should render album detail panel when panel type is album-detail", () => {
+    const store = createTestStore();
+    store.dispatch(applicationSlice.actions.openPanel({ type: "album-detail", albumId: 42 }));
+    renderWithProviders(<Rightbar />, { store });
 
-    // Should have mobile close and rightbar container
-    expect(screen.getByTestId("rightbar-mobile-close")).toBeInTheDocument();
-    expect(screen.getByTestId("rightbar-container")).toBeInTheDocument();
+    expect(screen.getByTestId("album-detail-panel")).toBeInTheDocument();
+    expect(screen.queryByTestId("now-playing-content")).not.toBeInTheDocument();
   });
 
-  it("should render box with minimum height for spacing", () => {
-    render(<Rightbar />);
+  it("should render settings panel when panel type is settings", () => {
+    const store = createTestStore();
+    store.dispatch(applicationSlice.actions.openPanel({ type: "settings" }));
+    renderWithProviders(<Rightbar />, { store });
 
-    const box = screen.getByTestId("box");
-    expect(box).toHaveStyle({ minHeight: "65px" });
+    expect(screen.getByTestId("settings-panel")).toBeInTheDocument();
+    expect(screen.queryByTestId("now-playing-content")).not.toBeInTheDocument();
   });
 
-  it("should render all expected sections", () => {
-    render(<Rightbar />);
+  it("should render account edit panel when panel type is account-edit", () => {
+    const store = createTestStore();
+    store.dispatch(applicationSlice.actions.openPanel({
+      type: "account-edit",
+      account: createTestAccountResult(),
+      isSelf: false,
+      organizationSlug: "wxyc",
+    }));
+    renderWithProviders(<Rightbar />, { store });
 
-    // Verify all major sections are present
-    expect(screen.getByTestId("rightbar-mobile-close")).toBeInTheDocument();
-    expect(screen.getByTestId("rightbar-container")).toBeInTheDocument();
-    expect(screen.getByTestId("now-playing-content")).toBeInTheDocument();
-    expect(screen.getByTestId("bin-content")).toBeInTheDocument();
-    expect(screen.getAllByTestId("divider")).toHaveLength(2);
-    expect(screen.getByTestId("box")).toBeInTheDocument();
+    expect(screen.getByTestId("account-edit-panel")).toBeInTheDocument();
+    expect(screen.queryByTestId("now-playing-content")).not.toBeInTheDocument();
+  });
+
+  it("should render mobile close before container", () => {
+    renderWithProviders(<Rightbar />);
+
+    const mobileClose = screen.getByTestId("rightbar-mobile-close");
+    const container = screen.getByTestId("rightbar-container");
+
+    expect(mobileClose.compareDocumentPosition(container)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    );
   });
 });

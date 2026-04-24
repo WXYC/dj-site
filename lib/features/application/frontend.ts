@@ -1,11 +1,12 @@
 import { createAppSlice } from "@/lib/createAppSlice";
-import { ApplicationFrontendState, AuthStage, RightbarMenu } from "./types";
+import { ApplicationFrontendState, AuthStage, RightbarPanel } from "./types";
+import { PayloadAction } from "@reduxjs/toolkit";
 
 export const defaultApplicationFrontendState: ApplicationFrontendState = {
   rightbar: {
     mini: false,
     sidebarOpen: false,
-    menu: RightbarMenu.BIN,
+    panel: { type: "default" },
   },
   authFlow: {
     stage: "otp-email" as AuthStage,
@@ -19,9 +20,13 @@ export const applicationSlice = createAppSlice({
     setRightbarMini: (state, action) => {
       state.rightbar.mini = action.payload;
     },
-    setRightbarMenu: (state, action) => {
-      state.rightbar.menu = action.payload;
-      state.rightbar.mini = action.payload === RightbarMenu.CATALOG_EDITOR;
+    openPanel: (state, action: PayloadAction<RightbarPanel>) => {
+      state.rightbar.panel = action.payload;
+      state.rightbar.sidebarOpen = true;
+      state.rightbar.mini = false;
+    },
+    closePanel: (state) => {
+      state.rightbar.panel = { type: "default" };
     },
     closeSidebar: (state) => {
       state.rightbar.sidebarOpen = false;
@@ -36,7 +41,7 @@ export const applicationSlice = createAppSlice({
   },
   selectors: {
     getRightbarMini: (state) => state.rightbar.mini,
-    getRightbarMenu: (state) => state.rightbar.menu,
+    getRightbarPanel: (state) => state.rightbar.panel,
     getAuthStage: (state) => state.authFlow.stage,
   },
 });

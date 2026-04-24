@@ -1,5 +1,6 @@
 "use client";
 
+import { applicationSlice } from "@/lib/features/application/frontend";
 import { useAddToFlowsheetMutation } from "@/lib/features/flowsheet/api";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import {
@@ -7,7 +8,6 @@ import {
   FlowsheetSubmissionParams,
 } from "@/lib/features/flowsheet/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { LinkIconButton } from "@/src/components/shared/General/LinkButton";
 import { useAlbumArtwork } from "@/lib/features/metadata/hooks";
 import { useFlowsheet, useShowControl } from "@/src/hooks/flowsheetHooks";
 import { getStyleForRotation } from "@/src/utilities/modern/rotationstyles";
@@ -332,15 +332,15 @@ export default function SongEntry({
               />
             </Tooltip>
           </Box>
-          <LinkIconButton
+          <IconButton
             color="neutral"
             variant="plain"
             size="sm"
-            href={`/dashboard/album/${entry.album_id}`}
             disabled={!entry?.album_id || entry.album_id < 0}
+            onClick={() => dispatch(applicationSlice.actions.openPanel({ type: "album-detail", albumId: entry.album_id! }))}
           >
             <InfoOutlined />
-          </LinkIconButton>
+          </IconButton>
           {editable && (
             <>
               <RemoveButton queue={queue} entry={entry} />
