@@ -192,7 +192,7 @@ export class RosterPage {
    * Close the edit panel.
    */
   async closeEditModal(): Promise<void> {
-    await this.editPanelClose.evaluate((el) => (el as HTMLElement).click());
+    await this.editPanelClose.click({ force: true });
     // Wait for the panel to return to default content (NowPlaying)
     await this.editPanel.locator('text=Now Playing').waitFor({ state: "visible", timeout: 5000 });
   }
@@ -225,10 +225,10 @@ export class RosterPage {
     await this.openEditModal(username);
     const select = this.getModalRoleSelect();
     await select.waitFor({ state: "visible", timeout: 5000 });
-    await select.evaluate((el) => (el as HTMLElement).click());
+    await select.click({ force: true });
     const option = this.page.getByRole("option", { name: roleLabel });
     await option.waitFor({ state: "visible", timeout: 5000 });
-    await option.evaluate((el) => (el as HTMLElement).click());
+    await option.click({ force: true });
     await this.page.waitForTimeout(1000);
     await this.closeEditModal();
   }
@@ -279,7 +279,7 @@ export class RosterPage {
     await this.openEditModal(username);
     const { delete: deleteBtn } = this.getModalActionButtons();
     await deleteBtn.waitFor({ state: "visible", timeout: 5000 });
-    await deleteBtn.evaluate((el) => (el as HTMLElement).click());
+    await deleteBtn.click({ force: true });
   }
 
   async resetUserPassword(username: string): Promise<void> {
@@ -287,7 +287,7 @@ export class RosterPage {
     const { resetPassword } = this.getModalActionButtons();
     await resetPassword.waitFor({ state: "visible", timeout: 5000 });
     await this.page.waitForTimeout(300);
-    await resetPassword.evaluate((el) => (el as HTMLElement).click());
+    await resetPassword.click({ force: true });
   }
 
   /**
@@ -483,7 +483,7 @@ export class RosterPage {
   async confirmEmailChange(username: string): Promise<void> {
     const saveButton = this.getEmailConfirmButton(username);
     await saveButton.waitFor({ state: "visible", timeout: 5000 });
-    await saveButton.evaluate((el) => (el as HTMLElement).click());
+    await saveButton.click({ force: true });
   }
 
   /**
