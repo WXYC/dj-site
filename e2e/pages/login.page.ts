@@ -67,8 +67,11 @@ export class LoginPage {
 
   /**
    * Switch from the default OTP email form to the password login form.
+   * No-op if the password form is already visible (e.g. when the user's
+   * preferred login method was restored from localStorage).
    */
   async switchToPasswordLogin(): Promise<void> {
+    if (await this.usernameInput.isVisible()) return;
     await this.switchToPasswordLink.waitFor({ state: "visible", timeout: 15000 });
     // The Redux dispatch from the click can occasionally fail to trigger a
     // re-render on slow CI runners. Retry the click if the form doesn't swap.
