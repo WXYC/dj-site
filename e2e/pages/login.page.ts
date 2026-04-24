@@ -71,18 +71,27 @@ export class LoginPage {
    * preferred login method was restored from localStorage).
    */
   async switchToPasswordLogin(): Promise<void> {
-    // Wait for either form to appear — the password form may render directly
-    // if the user's preference was restored from localStorage on hydration.
-    await this.usernameInput.or(this.switchToPasswordLink).waitFor({
-      state: "visible",
-      timeout: 15000,
-    });
-    if (await this.usernameInput.isVisible()) return;
-    await this.switchToPasswordLink.waitFor({ state: "visible", timeout: 15000 });
+    // The password form may appear directly after hydration restores the
+    // user's stored preference from localStorage. Wait briefly for it
+    // before falling back to clicking the switch link.
+    try {
+      await this.usernameInput.waitFor({ state: "visible", timeout: 2000 });
+      return;
+    } catch {
+      // Password form didn't appear — switch from OTP form
+    }
+
     // The Redux dispatch from the click can occasionally fail to trigger a
-    // re-render on slow CI runners. Retry the click if the form doesn't swap.
+    // re-render on slow CI runners, or the element may detach during
+    // hydration. Retry with graceful error handling.
     for (let attempt = 0; attempt < 3; attempt++) {
-      await this.switchToPasswordLink.click();
+      if (await this.usernameInput.isVisible()) return;
+      try {
+        await this.switchToPasswordLink.click({ timeout: 5000 });
+      } catch {
+        // Element may have detached during hydration — retry
+        continue;
+      }
       try {
         await this.usernameInput.waitFor({ state: "visible", timeout: 5000 });
         return;
