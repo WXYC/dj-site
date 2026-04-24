@@ -1,6 +1,5 @@
 import { createAppSlice } from "@/lib/createAppSlice";
-import { getPreferredLoginMethod } from "./login-method-storage";
-import { ApplicationFrontendState, RightbarMenu } from "./types";
+import { ApplicationFrontendState, AuthStage, RightbarMenu } from "./types";
 
 export const defaultApplicationFrontendState: ApplicationFrontendState = {
   rightbar: {
@@ -9,7 +8,7 @@ export const defaultApplicationFrontendState: ApplicationFrontendState = {
     menu: RightbarMenu.BIN,
   },
   authFlow: {
-    stage: getPreferredLoginMethod(),
+    stage: "otp-email" as AuthStage,
   },
 };
 
