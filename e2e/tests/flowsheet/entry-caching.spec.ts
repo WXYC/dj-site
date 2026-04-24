@@ -140,12 +140,11 @@ test.describe("Flowsheet Entry Caching", () => {
       });
       await flowsheet.submitViaEnter();
 
-      // The optimistic entry should appear within ~2s, long before the 5s
-      // network delay resolves. buildOptimisticEntry() inserts a temp row into
-      // the RTK Query cache immediately in onQueryStarted, before awaiting
-      // queryFulfilled.
-      // NOTE: If this flakes in CI (slower hardware), increase timeout to 2500ms.
-      await flowsheet.expectEntryWithText(trackName, 2000);
+      // The optimistic entry should appear well before the 5s network delay
+      // resolves. buildOptimisticEntry() inserts a temp row into the RTK Query
+      // cache immediately in onQueryStarted, before awaiting queryFulfilled.
+      // 3500ms gives CI headroom while staying well under the 5s POST delay.
+      await flowsheet.expectEntryWithText(trackName, 3500);
 
       // Wait for the delayed response to complete and verify the entry is
       // still there (temp ID replaced with server ID, no flicker)
