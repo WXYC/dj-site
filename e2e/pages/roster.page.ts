@@ -36,9 +36,9 @@ export class RosterPage {
   readonly successToast: Locator;
   readonly errorToast: Locator;
 
-  // Edit modal
-  readonly editModal: Locator;
-  readonly editModalClose: Locator;
+  // Edit panel (rightbar)
+  readonly editPanel: Locator;
+  readonly editPanelClose: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -75,9 +75,9 @@ export class RosterPage {
     this.successToast = page.locator('[data-sonner-toast][data-type="success"]');
     this.errorToast = page.locator('[data-sonner-toast][data-type="error"]');
 
-    // Edit modal — MUI Joy ModalDialog
-    this.editModal = page.locator('[role="dialog"]');
-    this.editModalClose = this.editModal.locator('.MuiModalClose-root');
+    // Edit panel — rightbar sidebar panel
+    this.editPanel = page.locator('.SecondSidebar');
+    this.editPanelClose = this.editPanel.locator('button[aria-label="Close panel"]');
   }
 
   async goto(): Promise<void> {
@@ -178,23 +178,23 @@ export class RosterPage {
   }
 
   /**
-   * Open the edit modal for a user.
+   * Open the edit panel for a user in the rightbar.
    */
   async openEditModal(username: string): Promise<void> {
     const editBtn = this.getEditButton(username);
     await editBtn.waitFor({ state: "visible", timeout: 5000 });
     await editBtn.click();
-    await this.editModal.waitFor({ state: "visible", timeout: 5000 });
+    // Wait for the panel content to appear in the rightbar
+    await this.editPanel.locator('text=Role').waitFor({ state: "visible", timeout: 5000 });
   }
 
   /**
-   * Close the edit modal.
+   * Close the edit panel.
    */
   async closeEditModal(): Promise<void> {
-    // Press Escape to close the modal — more reliable than clicking the close
-    // button, which can be intercepted by MUI overlay elements
-    await this.page.keyboard.press("Escape");
-    await this.editModal.waitFor({ state: "hidden", timeout: 5000 });
+    await this.editPanelClose.click();
+    // Wait for the panel to return to default content (NowPlaying)
+    await this.editPanel.locator('text=Now Playing').waitFor({ state: "visible", timeout: 5000 });
   }
 
   // ---------------------------------------------------------------------------
@@ -205,7 +205,7 @@ export class RosterPage {
    * Get the role select dropdown inside the edit modal.
    */
   getModalRoleSelect(): Locator {
-    return this.editModal.locator('[role="combobox"]').first();
+    return this.editPanel.locator('[role="combobox"]').first();
   }
 
   /**
@@ -260,8 +260,8 @@ export class RosterPage {
    */
   getModalActionButtons(): { resetPassword: Locator; delete: Locator } {
     return {
-      resetPassword: this.editModal.locator('button:has-text("Reset Password")'),
-      delete: this.editModal.locator('button:has-text("Delete Account")'),
+      resetPassword: this.editPanel.locator('button:has-text("Reset Password")'),
+      delete: this.editPanel.locator('button:has-text("Delete Account")'),
     };
   }
 
@@ -440,7 +440,7 @@ export class RosterPage {
    * Get the email input field inside the edit modal
    */
   getModalEmailInput(): Locator {
-    return this.editModal.locator('input[type="email"]');
+    return this.editPanel.locator('input[type="email"]');
   }
 
   /**
@@ -454,7 +454,7 @@ export class RosterPage {
    * Get the save button for email changes in the modal
    */
   getEmailConfirmButton(username: string): Locator {
-    return this.editModal.locator('button:has-text("Save")');
+    return this.editPanel.locator('button:has-text("Save")');
   }
 
   /**
