@@ -13,14 +13,15 @@ vi.mock("@/lib/features/authentication/client", () => ({
 
 vi.mock("@/lib/features/authentication/organization-utils", () => ({
   getAppOrganizationIdClient: vi.fn(() => "test-org"),
+  resolveOrganizationIdAdmin: vi.fn(() => Promise.resolve("resolved-org-id")),
 }));
 
-function renderAccountEntry(overrides: Parameters<typeof createTestAccountResult>[0] = {}) {
+function renderAccountEntry(overrides: Parameters<typeof createTestAccountResult>[0] = {}, organizationSlug = "wxyc") {
   const account = createTestAccountResult(overrides);
   return renderWithProviders(
     <table>
       <tbody>
-        <AccountEntry account={account} isSelf={false} />
+        <AccountEntry account={account} isSelf={false} organizationSlug={organizationSlug} />
       </tbody>
     </table>
   );

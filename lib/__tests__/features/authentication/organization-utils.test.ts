@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { http, HttpResponse } from "msw";
+import { server } from "@/lib/test-utils/msw/server";
 
 // Mock server auth client
 const mockListMembers = vi.fn();
@@ -20,6 +22,7 @@ vi.mock("@/lib/features/authentication/client", () => ({
       getFullOrganization: (options: any) => mockGetFullOrganization(options),
     },
   },
+  authBaseURL: "https://api.wxyc.org/auth",
 }));
 
 // Mock fetch for organization slug resolution (used by server-side tests)
@@ -30,6 +33,8 @@ import {
   getAppOrganizationId,
   getAppOrganizationIdClient,
   getUserRoleInOrganizationClient,
+  resolveOrganizationIdAdmin,
+  _resetOrgCacheForTesting,
 } from "@/lib/features/authentication/organization-utils";
 import {
   getUserRoleInOrganization,
@@ -110,6 +115,49 @@ describe("organization-utils", () => {
       const result = getAppOrganizationIdClient();
 
       expect(result).toBeUndefined();
+    });
+  });
+
+  describe("resolveOrganizationIdAdmin", () => {
+    let receivedSlug: string | null = null;
+
+    beforeEach(() => {
+      _resetOrgCacheForTesting();
+      receivedSlug = null;
+      server.use(
+        http.get("https://api.wxyc.org/auth/admin/resolve-organization", ({ request }) => {
+          const url = new URL(request.url);
+          receivedSlug = url.searchParams.get("slug");
+          return HttpResponse.json({ id: `org-for-${receivedSlug}` });
+        })
+      );
+    });
+
+    it("should use slugOverride when provided, ignoring env var", async () => {
+      delete process.env.NEXT_PUBLIC_APP_ORGANIZATION;
+
+      const result = await resolveOrganizationIdAdmin("wxyc");
+
+      expect(result).toBe("org-for-wxyc");
+      expect(receivedSlug).toBe("wxyc");
+    });
+
+    it("should fall back to env var when no slugOverride is provided", async () => {
+      process.env.NEXT_PUBLIC_APP_ORGANIZATION = "wxyc-from-env";
+
+      const result = await resolveOrganizationIdAdmin();
+
+      expect(result).toBe("org-for-wxyc-from-env");
+      expect(receivedSlug).toBe("wxyc-from-env");
+    });
+
+    it("should return null when neither slugOverride nor env var is available", async () => {
+      delete process.env.NEXT_PUBLIC_APP_ORGANIZATION;
+
+      const result = await resolveOrganizationIdAdmin();
+
+      expect(result).toBeNull();
+      expect(receivedSlug).toBeNull();
     });
   });
 

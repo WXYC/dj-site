@@ -45,12 +45,12 @@ describe("ImportCSVModal", () => {
     open: true,
     onClose: vi.fn(),
     onComplete: vi.fn(),
+    organizationSlug: "wxyc",
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubEnv("NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD", "temppass123");
-    vi.stubEnv("NEXT_PUBLIC_APP_ORGANIZATION", "wxyc");
     global.fetch = vi.fn();
   });
 
@@ -204,6 +204,19 @@ describe("ImportCSVModal", () => {
           body: expect.stringContaining("juana@wxyc.org"),
         }),
       );
+    });
+
+    it("should send organizationSlug from prop in the request body", async () => {
+      await renderAndStartImport();
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalled();
+      });
+
+      const body = JSON.parse(
+        (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body
+      );
+      expect(body.organizationSlug).toBe("wxyc");
     });
 
     it("should show results summary after import completes", async () => {

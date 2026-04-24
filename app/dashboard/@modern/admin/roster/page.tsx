@@ -12,14 +12,15 @@ export const metadata: Metadata = {
 export default async function AdminPage() {
   const session = await requireAuth();
   await requireRole(session, Authorization.SM);
-  
+
   const user = await getUserFromSession(session);
-  
+  const organizationSlug = process.env.NEXT_PUBLIC_APP_ORGANIZATION || "";
+
   return (
     <>
       <PageHeader title="DJ Roster" />
       <>
-        <RosterTable user={user} />
+        <RosterTable user={user} organizationSlug={organizationSlug} />
       </>
     </>
   );

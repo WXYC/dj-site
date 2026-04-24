@@ -31,10 +31,12 @@ export const AccountEntry = ({
   account,
   isSelf,
   onAccountChange,
+  organizationSlug,
 }: {
   account: Account;
   isSelf: boolean;
   onAccountChange?: () => Promise<void>;
+  organizationSlug: string;
 }) => {
   const [isPromoting, setIsPromoting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
@@ -182,7 +184,7 @@ export const AccountEntry = ({
    * Resolve organization slug to organization ID via the admin endpoint.
    */
   const resolveOrganizationId = async (): Promise<string> => {
-    const orgId = await resolveOrganizationIdAdmin();
+    const orgId = await resolveOrganizationIdAdmin(organizationSlug);
     if (!orgId) {
       throw new Error("Organization not configured");
     }
