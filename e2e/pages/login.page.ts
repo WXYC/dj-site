@@ -71,6 +71,12 @@ export class LoginPage {
    * preferred login method was restored from localStorage).
    */
   async switchToPasswordLogin(): Promise<void> {
+    // Wait for either form to appear — the password form may render directly
+    // if the user's preference was restored from localStorage on hydration.
+    await this.usernameInput.or(this.switchToPasswordLink).waitFor({
+      state: "visible",
+      timeout: 15000,
+    });
     if (await this.usernameInput.isVisible()) return;
     await this.switchToPasswordLink.waitFor({ state: "visible", timeout: 15000 });
     // The Redux dispatch from the click can occasionally fail to trigger a

@@ -4,7 +4,7 @@ import { applicationSlice } from "@/lib/features/application/frontend";
 import { getPreferredLoginMethod } from "@/lib/features/application/login-method-storage";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import WelcomeQuotes from "@/src/components/experiences/modern/login/Quotes/Welcome";
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import EmailOTPForm from "./EmailOTPForm";
 import OTPCodeForm from "./OTPCodeForm";
 import UserPasswordForm from "./UserPasswordForm";
@@ -15,7 +15,10 @@ export default function LoginFormSwitcher() {
   const [otpEmail, setOtpEmail] = useState("");
   const hasSyncedRef = useRef(false);
 
-  useEffect(() => {
+  // Sync before paint so the correct form renders without a flash.
+  // useLayoutEffect is client-only (this is a "use client" component),
+  // so the SSR warning does not apply.
+  useLayoutEffect(() => {
     if (hasSyncedRef.current) return;
     hasSyncedRef.current = true;
     const preferred = getPreferredLoginMethod();
