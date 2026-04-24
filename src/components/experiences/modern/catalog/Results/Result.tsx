@@ -116,13 +116,6 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
           >
             {album.artist.genre}
           </Chip>
-          <Typography level="body-sm" noWrap>
-            {album.artist.lettercode} {album.artist.numbercode}/{album.entry}
-          </Typography>
-        </Stack>
-      </td>
-      <td>
-        <Stack gap={0.5}>
           <Chip
             variant="soft"
             size="sm"
@@ -145,6 +138,9 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
               WXYC EXCLUSIVE
             </Chip>
           )}
+          <Typography level="body-sm" noWrap>
+            {album.artist.lettercode} {album.artist.numbercode}/{album.entry}
+          </Typography>
         </Stack>
       </td>
       <td>
