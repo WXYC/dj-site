@@ -46,7 +46,7 @@ export default function Results({
           "& tbody tr > *:last-child": {
             position: "sticky",
             right: 0,
-            bgcolor: "var(--joy-palette-background-surface, #fff)",
+            bgcolor: "var(--joy-palette-background-surface)",
           },
           "& tbody tr:hover > *:last-child": {
             bgcolor: "var(--TableRow-hoverBackground)",
@@ -81,19 +81,16 @@ export default function Results({
               />
             </th>
             <th style={{ width: 50, padding: 12 }}></th>
-            <th style={{ width: 220, padding: 12 }}>
+            <th style={{ width: 180, padding: 12 }}>
               <TableHeader textValue="Artist" />
             </th>
-            <th style={{ width: 220, padding: 12 }}>
+            <th style={{ width: 180, padding: 12 }}>
               <TableHeader textValue="Title" />
             </th>
-            <th style={{ width: 130, padding: 12 }}>
+            <th style={{ width: 280, padding: 12 }}>
               <TableHeader textValue="Code" />
             </th>
-            <th style={{ width: 70, padding: 12 }}>
-              <TableHeader textValue="Format" />
-            </th>
-            <th style={{ width: 60, padding: 12 }}>
+            <th style={{ width: 80, padding: 12 }}>
               <TableHeader textValue="Plays" />
             </th>
             <th style={{ width: 120, padding: 12 }}></th>
@@ -103,7 +100,7 @@ export default function Results({
           {loading ? (
             <tr style={{ background: "transparent" }}>
               <td
-                colSpan={8}
+                colSpan={7}
                 style={{
                   textAlign: "center",
                   paddingTop: "3rem",
@@ -121,7 +118,7 @@ export default function Results({
 
           {!loading && !reachedEndForQuery && (
             <tr>
-              <td colSpan={8} style={{ textAlign: "center" }}>
+              <td colSpan={7} style={{ textAlign: "center" }}>
                 <Button
                   variant="solid"
                   color="primary"
