@@ -185,14 +185,14 @@ export class RosterPage {
     await editBtn.waitFor({ state: "visible", timeout: 5000 });
     await editBtn.click();
     // Wait for the panel content to appear in the rightbar
-    await this.editPanel.locator('text=Role').waitFor({ state: "visible", timeout: 5000 });
+    await this.editPanel.locator('[role="combobox"]').first().waitFor({ state: "visible", timeout: 5000 });
   }
 
   /**
    * Close the edit panel.
    */
   async closeEditModal(): Promise<void> {
-    await this.editPanelClose.click();
+    await this.editPanelClose.evaluate((el) => (el as HTMLElement).click());
     // Wait for the panel to return to default content (NowPlaying)
     await this.editPanel.locator('text=Now Playing').waitFor({ state: "visible", timeout: 5000 });
   }
@@ -225,8 +225,10 @@ export class RosterPage {
     await this.openEditModal(username);
     const select = this.getModalRoleSelect();
     await select.waitFor({ state: "visible", timeout: 5000 });
-    await select.click();
-    await this.page.getByRole("option", { name: roleLabel }).click();
+    await select.evaluate((el) => (el as HTMLElement).click());
+    const option = this.page.getByRole("option", { name: roleLabel });
+    await option.waitFor({ state: "visible", timeout: 5000 });
+    await option.evaluate((el) => (el as HTMLElement).click());
     await this.page.waitForTimeout(1000);
     await this.closeEditModal();
   }
