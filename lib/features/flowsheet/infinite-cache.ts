@@ -83,7 +83,22 @@ export function buildOptimisticEntry(
   return { entry, tempId };
 }
 
-/** Insert so `pages[0]` stays sorted by `play_order` descending (newest first). */
+/**
+ * Sort comparator for FlowsheetEntry: newest-first (descending).
+ * Uses `id` as the global sort key since it's monotonically increasing across
+ * all shows, unlike `play_order` which resets per show. Optimistic temp entries
+ * (negative IDs from `nextOptimisticTempId`) always sort before real entries
+ * since they represent the most recent additions.
+ */
+export function compareEntriesNewestFirst(a: FlowsheetEntry, b: FlowsheetEntry): number {
+  const aTemp = a.id < 0;
+  const bTemp = b.id < 0;
+  if (aTemp !== bTemp) return aTemp ? -1 : 1;
+  if (aTemp) return a.id - b.id; // more negative = newer (larger Date.now())
+  return b.id - a.id;
+}
+
+/** Insert so `pages[0]` stays sorted by id descending (newest first). */
 export function insertEntrySortedFirstPage(
   draft: InfiniteEntriesDraft,
   entry: FlowsheetEntry
@@ -94,7 +109,7 @@ export function insertEntrySortedFirstPage(
     return;
   }
   const page0 = draft.pages[0];
-  const idx = page0.findIndex((e) => e.play_order < entry.play_order);
+  const idx = page0.findIndex((e) => compareEntriesNewestFirst(entry, e) < 0);
   if (idx === -1) {
     page0.push(entry);
   } else {

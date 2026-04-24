@@ -366,9 +366,7 @@ describe("flowsheet conversions", () => {
     });
 
     describe("convertV2FlowsheetResponse", () => {
-      it("should convert and sort entries by play_order descending", () => {
-        // Input unsorted: [id=1/po=99, id=3/po=1, id=2/po=50]
-        // After play_order DESC: [id=1 (po=99), id=2 (po=50), id=3 (po=1)]
+      it("should convert and sort entries by id descending", () => {
         const entries = [
           createTestV2TrackEntry({ id: 1, play_order: 99 }),
           createTestV2TrackEntry({ id: 3, play_order: 1 }),
@@ -376,9 +374,7 @@ describe("flowsheet conversions", () => {
         ];
         const result = convertV2FlowsheetResponse(entries);
 
-        expect(result[0].id).toBe(1);
-        expect(result[1].id).toBe(2);
-        expect(result[2].id).toBe(3);
+        expect(result.map((e) => e.id)).toEqual([3, 2, 1]);
       });
 
       it("should handle empty array", () => {
@@ -386,7 +382,7 @@ describe("flowsheet conversions", () => {
         expect(result).toEqual([]);
       });
 
-      it("should handle mixed entry types sorted by play_order descending", () => {
+      it("should handle mixed entry types sorted by id descending", () => {
         const entries = [
           createTestV2ShowStartEntry({ id: 1, play_order: 1 }),
           createTestV2TrackEntry({ id: 2, play_order: 2 }),
@@ -399,6 +395,21 @@ describe("flowsheet conversions", () => {
         expect(result).toHaveLength(5);
         expect(result[0].id).toBe(5);
         expect(result[4].id).toBe(1);
+      });
+
+      it("should sort correctly across shows where play_order resets", () => {
+        // Current show: ids 100-102, play_orders 1-3
+        // Previous show: ids 90-92, play_orders 10-12
+        // play_order DESC would wrongly put 92 (po=12) before 102 (po=3)
+        const entries = [
+          createTestV2TrackEntry({ id: 102, play_order: 3 }),
+          createTestV2TrackEntry({ id: 92, play_order: 12 }),
+          createTestV2TrackEntry({ id: 101, play_order: 2 }),
+          createTestV2TrackEntry({ id: 91, play_order: 11 }),
+        ];
+        const result = convertV2FlowsheetResponse(entries);
+
+        expect(result.map((e) => e.id)).toEqual([102, 101, 92, 91]);
       });
     });
 

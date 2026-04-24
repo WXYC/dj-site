@@ -13,6 +13,7 @@ import {
 } from "@/lib/features/flowsheet/api";
 import { convertQueryToSubmission } from "@/lib/features/flowsheet/conversions";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
+import { compareEntriesNewestFirst } from "@/lib/features/flowsheet/infinite-cache";
 import { partitionFlowsheetEntries } from "@/lib/features/flowsheet/partition";
 import {
   FlowsheetEntry,
@@ -79,9 +80,7 @@ export const useShowControl = () => {
     if (!infiniteData?.pages) return [];
     const map = new Map<number, FlowsheetEntry>();
     infiniteData.pages.flat().forEach((entry) => map.set(entry.id, entry));
-    return Array.from(map.values()).sort(
-      (a, b) => b.play_order - a.play_order
-    );
+    return Array.from(map.values()).sort(compareEntriesNewestFirst);
   }, [infiniteData?.pages]);
 
   // Calculate derived state during render - no useState/useEffect needed
@@ -249,9 +248,7 @@ export const useFlowsheet = () => {
     if (!infiniteData?.pages) return [];
     const map = new Map<number, FlowsheetEntry>();
     infiniteData.pages.flat().forEach((entry) => map.set(entry.id, entry));
-    return Array.from(map.values()).sort(
-      (a, b) => b.play_order - a.play_order
-    );
+    return Array.from(map.values()).sort(compareEntriesNewestFirst);
   }, [infiniteData?.pages]);
 
   const [addToFlowsheet] = useAddToFlowsheetMutation();
