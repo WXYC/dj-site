@@ -77,7 +77,7 @@ export class RosterPage {
 
     // Edit modal — MUI Joy ModalDialog
     this.editModal = page.locator('[role="dialog"]');
-    this.editModalClose = this.editModal.locator('button[aria-label="Close"]');
+    this.editModalClose = this.editModal.locator('.MuiModalClose-root');
   }
 
   async goto(): Promise<void> {
@@ -362,21 +362,20 @@ export class RosterPage {
 
   async expectSuccessToast(message?: string): Promise<void> {
     if (message) {
-      // Wait for a toast containing the specific message
       const specificToast = this.page.locator(`[data-sonner-toast][data-type="success"]:has-text("${message}")`);
       await expect(specificToast).toBeVisible({ timeout: 10000 });
     } else {
-      await expect(this.successToast).toBeVisible({ timeout: 10000 });
+      // Use .first() to avoid strict mode violations when multiple success toasts are visible
+      await expect(this.successToast.first()).toBeVisible({ timeout: 10000 });
     }
   }
 
   async expectErrorToast(message?: string): Promise<void> {
     if (message) {
-      // Wait for a toast containing the specific message
       const specificToast = this.page.locator(`[data-sonner-toast][data-type="error"]:has-text("${message}")`);
       await expect(specificToast).toBeVisible({ timeout: 10000 });
     } else {
-      await expect(this.errorToast).toBeVisible({ timeout: 10000 });
+      await expect(this.errorToast.first()).toBeVisible({ timeout: 10000 });
     }
   }
 
