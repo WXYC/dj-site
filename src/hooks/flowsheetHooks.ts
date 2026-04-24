@@ -80,7 +80,7 @@ export const useShowControl = () => {
     const map = new Map<number, FlowsheetEntry>();
     infiniteData.pages.flat().forEach((entry) => map.set(entry.id, entry));
     return Array.from(map.values()).sort(
-      (a, b) => b.id - a.id
+      (a, b) => b.play_order - a.play_order
     );
   }, [infiniteData?.pages]);
 
@@ -250,7 +250,7 @@ export const useFlowsheet = () => {
     const map = new Map<number, FlowsheetEntry>();
     infiniteData.pages.flat().forEach((entry) => map.set(entry.id, entry));
     return Array.from(map.values()).sort(
-      (a, b) => b.id - a.id
+      (a, b) => b.play_order - a.play_order
     );
   }, [infiniteData?.pages]);
 
