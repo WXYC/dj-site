@@ -5,7 +5,8 @@ import type { PlaylistSearchParams } from "@wxyc/shared/dtos";
 type SortField = PlaylistSearchParams["sort"];
 type SortOrder = PlaylistSearchParams["order"];
 type Operator = "AND" | "OR" | "NOT";
-type SearchField = "artist" | "song" | "album" | "label" | "dj" | "date" | "dateRange";
+
+export type SearchField = "all" | "artist" | "song" | "album" | "label" | "dj" | "date" | "dateRange";
 
 export type SearchRow = {
   id: string;
@@ -16,15 +17,8 @@ export type SearchRow = {
   exact: boolean;   // Exact phrase match
 };
 
-export type SearchMode = "simple" | "advanced";
-
-export type SimpleSearchField = "all" | "artist" | "song" | "album" | "label" | "dj";
-
 export type PlaylistSearchState = {
-  mode: SearchMode;
-  simpleQuery: string;
-  searchField: SimpleSearchField;
-  advancedRows: SearchRow[];
+  rows: SearchRow[];
   sortBy: SortField;
   sortOrder: SortOrder;
   page: number;
@@ -33,16 +27,13 @@ export type PlaylistSearchState = {
 const createInitialRow = (): SearchRow => ({
   id: crypto.randomUUID(),
   operator: "AND",
-  field: "artist",
+  field: "all",
   value: "",
   exact: false,
 });
 
 const initialState: PlaylistSearchState = {
-  mode: "simple",
-  simpleQuery: "",
-  searchField: "all",
-  advancedRows: [createInitialRow()],
+  rows: [createInitialRow()],
   sortBy: "date",
   sortOrder: "desc",
   page: 0,
@@ -52,29 +43,20 @@ export const playlistSearchSlice = createAppSlice({
   name: "playlistSearch",
   initialState,
   reducers: {
-    setMode: (state, action: PayloadAction<SearchMode>) => {
-      state.mode = action.payload;
-      state.page = 0;
-    },
-    setSimpleQuery: (state, action: PayloadAction<string>) => {
-      state.simpleQuery = action.payload;
-      state.page = 0;
-    },
-    setSearchField: (state, action: PayloadAction<SimpleSearchField>) => {
-      state.searchField = action.payload;
-      state.page = 0;
-    },
     addRow: (state) => {
-      state.advancedRows.push(createInitialRow());
+      state.rows.push({
+        ...createInitialRow(),
+        field: "artist",
+      });
     },
     removeRow: (state, action: PayloadAction<string>) => {
-      if (state.advancedRows.length > 1) {
-        state.advancedRows = state.advancedRows.filter(r => r.id !== action.payload);
+      if (state.rows.length > 1) {
+        state.rows = state.rows.filter(r => r.id !== action.payload);
         state.page = 0;
       }
     },
     updateRow: (state, action: PayloadAction<{ id: string; updates: Partial<SearchRow> }>) => {
-      const row = state.advancedRows.find(r => r.id === action.payload.id);
+      const row = state.rows.find(r => r.id === action.payload.id);
       if (row) {
         Object.assign(row, action.payload.updates);
         state.page = 0;
@@ -98,10 +80,7 @@ export const playlistSearchSlice = createAppSlice({
     reset: () => initialState,
   },
   selectors: {
-    getMode: (state) => state.mode,
-    getSimpleQuery: (state) => state.simpleQuery,
-    getSearchField: (state) => state.searchField,
-    getAdvancedRows: (state) => state.advancedRows,
+    getRows: (state) => state.rows,
     getSortBy: (state) => state.sortBy,
     getSortOrder: (state) => state.sortOrder,
     getPage: (state) => state.page,
