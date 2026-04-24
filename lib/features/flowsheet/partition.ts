@@ -6,7 +6,7 @@ export interface PartitionedEntries {
 }
 
 /**
- * Partitions a sorted (id DESC) list of flowsheet entries into
+ * Partitions a sorted (play_order DESC) list of flowsheet entries into
  * "current show" and "previous shows" buckets.
  *
  * When live: current = ALL entries with show_id === currentShow
@@ -16,8 +16,8 @@ export interface PartitionedEntries {
  * previous is the full list.
  *
  * Invariant: [...current, ...previous] preserves the original
- * id-DESC ordering because all current-show entries have higher
- * IDs than any previous-show entries.
+ * play_order-DESC ordering because all current-show entries have higher
+ * play_orders than any previous-show entries.
  */
 export function partitionFlowsheetEntries(
   allEntries: FlowsheetEntry[],

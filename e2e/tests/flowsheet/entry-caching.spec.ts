@@ -110,10 +110,7 @@ test.describe("Flowsheet Entry Caching", () => {
   // 3. Rapid input
   // ---------------------------------------------------------------
   test.describe("3. Rapid input", () => {
-    // FIXME: addToFlowsheet mutations hang after many entries accumulate in
-    // the cache. The mutation's onQueryStarted may have a race condition with
-    // the infinite query cache when pages.length > 1.
-    test.fixme("quick successive adds maintain order with no duplicates", async ({
+    test("quick successive adds maintain order with no duplicates", async ({
       page,
     }) => {
       test.slow(); // Rapid adds need extra time budget
@@ -165,11 +162,7 @@ test.describe("Flowsheet Entry Caching", () => {
   // 4. Slow network conditions (optimistic update)
   // ---------------------------------------------------------------
   test.describe("4. Slow network", () => {
-    // FIXME: Optimistic entry does not appear in entry list within 2s of
-    // submission when POST is delayed. Investigate whether onQueryStarted's
-    // buildOptimisticEntry + insertEntrySortedFirstPage actually runs before
-    // the route interception delays the network request.
-    test.fixme("entry appears immediately under throttled network", async ({
+    test("entry appears immediately under throttled network", async ({
       page,
     }) => {
       const trackName = `Optimistic ${ts}`;
@@ -220,11 +213,14 @@ test.describe("Flowsheet Entry Caching", () => {
   // 5. Page load timing
   // ---------------------------------------------------------------
   test.describe("5. Page load timing", () => {
-    // FIXME: The entries GET delay route may be intercepting the flowsheet POST
-    // as well, causing the add mutation to hang. Needs URL pattern refinement.
-    test.fixme("can add track before entry list fully loads", async ({ page }) => {
+    test("can add track before entry list fully loads", async ({ page }) => {
+      // URL predicate that matches only the page-0 entries GET, not POSTs
+      const isPage0 = (url: URL) =>
+        url.pathname.endsWith("/flowsheet/") &&
+        url.searchParams.get("page") === "0";
+
       // Set up a route to delay entries loading BEFORE navigating
-      await page.route("**/flowsheet/?page=0**", async (route) => {
+      await page.route(isPage0, async (route) => {
         if (route.request().method() === "GET") {
           await new Promise((r) => setTimeout(r, 4000));
           await route.continue();
@@ -244,7 +240,7 @@ test.describe("Flowsheet Entry Caching", () => {
       await flowsheet.addTrack({ song: trackName, artist: "Eager Artist" });
 
       // After the delayed entries load completes, the track should be visible
-      await page.unroute("**/flowsheet/?page=0**");
+      await page.unroute(isPage0);
       await flowsheet.expectEntryWithText(trackName, 15000);
     });
   });
@@ -305,9 +301,7 @@ test.describe("Flowsheet Entry Caching", () => {
   // 7. Multiple tabs
   // ---------------------------------------------------------------
   test.describe("7. Multiple tabs", () => {
-    // FIXME: Same add-mutation hang as rapid/slow-network tests. New browser
-    // contexts start with empty cache; after 20+ DB entries the mutation hangs.
-    test.fixme("entry added in one tab appears in another after refresh", async ({
+    test("entry added in one tab appears in another after refresh", async ({
       browser,
     }) => {
       test.slow(); // Multi-context test needs extra time

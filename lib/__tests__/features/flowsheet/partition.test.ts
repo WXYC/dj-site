@@ -94,7 +94,7 @@ describe("partitionFlowsheetEntries", () => {
 
   it("preserves chronological order across show boundaries", () => {
     // Simulates: DJ A plays show, ends, DJ B starts new show, ends.
-    // IDs are strictly increasing over time. Entries sorted id DESC.
+    // play_orders are strictly increasing over time. Entries sorted play_order DESC.
     const entries: FlowsheetEntry[] = [
       showMarker(110, CURRENT_SHOW, false), // B ended the set
       song(109, CURRENT_SHOW),              // B played a track
@@ -113,10 +113,10 @@ describe("partitionFlowsheetEntries", () => {
     // Previous show has all A entries
     expect(result.previous.map((e) => e.id)).toEqual([106, 105, 104, 103]);
 
-    // Concatenation preserves strict id DESC order
+    // Concatenation preserves strict play_order DESC order
     const concatenated = [...result.current, ...result.previous];
     for (let i = 0; i < concatenated.length - 1; i++) {
-      expect(concatenated[i].id).toBeGreaterThan(concatenated[i + 1].id);
+      expect(concatenated[i].play_order).toBeGreaterThan(concatenated[i + 1].play_order);
     }
   });
 

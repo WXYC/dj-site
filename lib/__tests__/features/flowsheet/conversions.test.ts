@@ -316,7 +316,9 @@ describe("flowsheet conversions", () => {
     });
 
     describe("convertV2FlowsheetResponse", () => {
-      it("should convert and sort entries by id descending", () => {
+      it("should convert and sort entries by play_order descending", () => {
+        // Input unsorted: [id=1/po=99, id=3/po=1, id=2/po=50]
+        // After play_order DESC: [id=1 (po=99), id=2 (po=50), id=3 (po=1)]
         const entries = [
           createTestV2TrackEntry({ id: 1, play_order: 99 }),
           createTestV2TrackEntry({ id: 3, play_order: 1 }),
@@ -324,9 +326,9 @@ describe("flowsheet conversions", () => {
         ];
         const result = convertV2FlowsheetResponse(entries);
 
-        expect(result[0].id).toBe(3);
+        expect(result[0].id).toBe(1);
         expect(result[1].id).toBe(2);
-        expect(result[2].id).toBe(1);
+        expect(result[2].id).toBe(3);
       });
 
       it("should handle empty array", () => {
@@ -334,7 +336,7 @@ describe("flowsheet conversions", () => {
         expect(result).toEqual([]);
       });
 
-      it("should handle mixed entry types", () => {
+      it("should handle mixed entry types sorted by play_order descending", () => {
         const entries = [
           createTestV2ShowStartEntry({ id: 1, play_order: 1 }),
           createTestV2TrackEntry({ id: 2, play_order: 2 }),

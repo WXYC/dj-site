@@ -40,13 +40,27 @@ describe("infinite-cache", () => {
     expect(primaryShowId(draft)).toBe(5);
   });
 
-  it("insertEntrySortedFirstPage keeps descending id on page 0", () => {
+  it("insertEntrySortedFirstPage keeps descending play_order on page 0", () => {
+    // id order (10, 8, 99) differs from play_order order (20, 15, 10)
+    // to prove the sort key is play_order, not id
     const draft = {
-      pages: [[song(10, 5, 1), song(8, 10, 1)]],
+      pages: [[song(10, 20, 1), song(8, 10, 1)]],
       pageParams: [0],
     };
-    insertEntrySortedFirstPage(draft, song(99, 1, 1));
-    expect(draft.pages[0].map((e) => e.id)).toEqual([99, 10, 8]);
+    insertEntrySortedFirstPage(draft, song(99, 15, 1));
+    expect(draft.pages[0].map((e) => e.play_order)).toEqual([20, 15, 10]);
+    expect(draft.pages[0].map((e) => e.id)).toEqual([10, 99, 8]);
+  });
+
+  it("insertEntrySortedFirstPage positions optimistic entry (negative id) at top by play_order", () => {
+    const draft = {
+      pages: [[song(50, 10, 1), song(49, 9, 1)]],
+      pageParams: [0],
+    };
+    // Optimistic entry: very negative id, but play_order = 11 (maxPlayOrder + 1)
+    insertEntrySortedFirstPage(draft, song(-1719148800000, 11, 1));
+    expect(draft.pages[0].map((e) => e.play_order)).toEqual([11, 10, 9]);
+    expect(draft.pages[0][0].id).toBe(-1719148800000);
   });
 
   it("insertEntrySortedFirstPage initializes empty cache", () => {
@@ -65,14 +79,29 @@ describe("infinite-cache", () => {
     expect(draft.pages[1]).toHaveLength(0);
   });
 
-  it("replaceEntryIdAllPages swaps temp id for server entry", () => {
+  it("replaceEntryIdAllPages maintains play_order sort after replacement", () => {
+    // Temp entry at the END — simulates where id-based sorting would place
+    // an optimistic entry with a very negative id
     const draft = {
-      pages: [[song(-1, 10, 1)]],
+      pages: [[song(50, 10, 1), song(49, 9, 1), song(-1719148800000, 11, 1)]],
       pageParams: [0],
     };
-    const server = song(42, 10, 1);
-    replaceEntryIdAllPages(draft, -1, server);
-    expect(draft.pages[0][0].id).toBe(42);
+    const server = song(51, 11, 1);
+    replaceEntryIdAllPages(draft, -1719148800000, server);
+    // Server entry should be re-sorted to position 0 (highest play_order)
+    expect(draft.pages[0].map((e) => e.id)).toEqual([51, 50, 49]);
+    expect(draft.pages[0].map((e) => e.play_order)).toEqual([11, 10, 9]);
+  });
+
+  it("replaceEntryIdAllPages inserts when temp entry is not found", () => {
+    const draft = {
+      pages: [[song(50, 10, 1), song(49, 9, 1)]],
+      pageParams: [0],
+    };
+    const server = song(51, 11, 1);
+    replaceEntryIdAllPages(draft, -999, server);
+    expect(draft.pages[0].map((e) => e.play_order)).toEqual([11, 10, 9]);
+    expect(draft.pages[0][0].id).toBe(51);
   });
 
   it("swapPlayOrdersForSwitch swaps play_order between two entries", () => {
