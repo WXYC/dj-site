@@ -31,7 +31,7 @@ test.describe("Flowsheet Entry Caching", () => {
     // Check actual page state rather than a module-level flag, which desyncs
     // when Playwright retries the serial suite in a fresh worker while the DJ
     // is still live server-side from the previous attempt.
-    const status = await flowsheet.liveStatus.textContent({ timeout: 3000 }).catch(() => "");
+    const status = await flowsheet.liveStatus.textContent({ timeout: 10000 }).catch(() => "");
     if (!status?.includes("On Air")) {
       await flowsheet.goLive();
     }
