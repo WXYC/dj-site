@@ -26,18 +26,15 @@ describe("ThemedLayout", () => {
   });
 
   describe("type exports", () => {
-    it("should export DashboardLayoutProps type", () => {
-      // Type checking at compile time - this test verifies the type is exported
+    it("should export DashboardLayoutProps type (deprecated alias)", () => {
       const props: DashboardLayoutProps = {
         classic: <div>Classic</div>,
         modern: <div>Modern</div>,
-        information: <div>Information</div>,
       };
       expect(props).toBeDefined();
     });
 
-    it("should export LoginLayoutProps type", () => {
-      // Type checking at compile time
+    it("should export LoginLayoutProps type (deprecated alias)", () => {
       const props: LoginLayoutProps = {
         classic: <div>Classic</div>,
         modern: <div>Modern</div>,
@@ -46,18 +43,11 @@ describe("ThemedLayout", () => {
     });
 
     it("should export ThemedLayoutProps type", () => {
-      // Type checking at compile time - union type
-      const dashboardProps: ThemedLayoutProps = {
-        classic: <div>Classic</div>,
-        modern: <div>Modern</div>,
-        information: <div>Information</div>,
-      };
-      const loginProps: ThemedLayoutProps = {
+      const props: ThemedLayoutProps = {
         classic: <div>Classic</div>,
         modern: <div>Modern</div>,
       };
-      expect(dashboardProps).toBeDefined();
-      expect(loginProps).toBeDefined();
+      expect(props).toBeDefined();
     });
   });
 
@@ -103,21 +93,6 @@ describe("ThemedLayout", () => {
       });
     });
 
-    it("should render information slot when provided with dashboard props", async () => {
-      const dashboardProps: DashboardLayoutProps = {
-        classic: <div data-testid="classic-content">Classic</div>,
-        modern: <div data-testid="modern-content">Modern</div>,
-        information: <div data-testid="information-slot">Information</div>,
-      };
-
-      const Component = await ThemedLayout(dashboardProps);
-
-      render(Component);
-
-      await waitFor(() => {
-        expect(screen.getByTestId("information-slot")).toBeInTheDocument();
-      });
-    });
   });
 
   describe("modern experience", () => {
@@ -162,24 +137,9 @@ describe("ThemedLayout", () => {
       });
     });
 
-    it("should render information slot when provided with dashboard props", async () => {
-      const dashboardProps: DashboardLayoutProps = {
-        classic: <div data-testid="classic-content">Classic</div>,
-        modern: <div data-testid="modern-content">Modern</div>,
-        information: <div data-testid="information-slot">Information</div>,
-      };
-
-      const Component = await ThemedLayout(dashboardProps);
-
-      render(Component);
-
-      await waitFor(() => {
-        expect(screen.getByTestId("information-slot")).toBeInTheDocument();
-      });
-    });
   });
 
-  describe("login layout (no information slot)", () => {
+  describe("login layout", () => {
     beforeEach(() => {
       mockCreateServerSideProps.mockResolvedValue({
         application: {
@@ -208,22 +168,6 @@ describe("ThemedLayout", () => {
       });
     });
 
-    it("should not render information when using login props", async () => {
-      const loginProps: LoginLayoutProps = {
-        classic: <div data-testid="classic-login">Classic Login</div>,
-        modern: <div data-testid="modern-login">Modern Login</div>,
-      };
-
-      const Component = await ThemedLayout(loginProps);
-
-      render(Component);
-
-      // Information slot should not exist (null in the output)
-      await waitFor(() => {
-        expect(screen.getByTestId("modern-login")).toBeInTheDocument();
-      });
-      // No crash means information was handled correctly as null
-    });
   });
 
   describe("fallback behavior", () => {

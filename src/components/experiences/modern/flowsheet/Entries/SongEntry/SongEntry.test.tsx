@@ -96,17 +96,7 @@ vi.mock("./FlowsheetEntryField", () => ({
   ),
 }));
 
-vi.mock("@/src/components/shared/General/LinkButton", () => ({
-  LinkIconButton: ({ href, disabled, children }: any) => (
-    <a
-      data-testid="link-icon-button"
-      href={href}
-      data-disabled={disabled}
-    >
-      {children}
-    </a>
-  ),
-}));
+// LinkButton mock removed — SongEntry now uses a standard IconButton with dispatch instead of LinkIconButton
 
 vi.mock("sonner", () => ({
   toast: {
@@ -192,34 +182,42 @@ describe("SongEntry", () => {
       expect(screen.getByRole("progressbar")).toBeInTheDocument();
     });
 
-    it("should render link button to album page", () => {
+    it("should render info button for album detail", () => {
       render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
 
-      const link = screen.getByTestId("link-icon-button");
-      expect(link).toHaveAttribute("href", "/dashboard/album/42");
-      expect(link).toHaveAttribute("data-disabled", "false");
+      const buttons = screen.getAllByRole("button");
+      const infoButton = buttons.find(
+        (btn) => !btn.hasAttribute("disabled") && btn.querySelector('[data-testid="InfoOutlinedIcon"]')
+      );
+      expect(infoButton).toBeDefined();
     });
 
-    it("should disable link button when album_id is missing", () => {
+    it("should disable info button when album_id is missing", () => {
       const entryWithoutAlbumId = { ...mockEntry, album_id: undefined };
 
       render(
         <SongEntry entry={entryWithoutAlbumId} playing={false} queue={false} />
       );
 
-      const link = screen.getByTestId("link-icon-button");
-      expect(link).toHaveAttribute("data-disabled", "true");
+      const buttons = screen.getAllByRole("button");
+      const infoButton = buttons.find(
+        (btn) => btn.querySelector('[data-testid="InfoOutlinedIcon"]')
+      );
+      expect(infoButton).toBeDisabled();
     });
 
-    it("should disable link button when album_id is negative", () => {
+    it("should disable info button when album_id is negative", () => {
       const entryWithNegativeId = { ...mockEntry, album_id: -1 };
 
       render(
         <SongEntry entry={entryWithNegativeId} playing={false} queue={false} />
       );
 
-      const link = screen.getByTestId("link-icon-button");
-      expect(link).toHaveAttribute("data-disabled", "true");
+      const buttons = screen.getAllByRole("button");
+      const infoButton = buttons.find(
+        (btn) => btn.querySelector('[data-testid="InfoOutlinedIcon"]')
+      );
+      expect(infoButton).toBeDisabled();
     });
   });
 

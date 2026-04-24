@@ -2,7 +2,6 @@ import { Authorization } from "@/lib/features/admin/types";
 import { requireAuth, getUserFromSession } from "@/lib/features/authentication/server-utils";
 import { EditCalendar, ManageAccounts } from "@mui/icons-material";
 import AlbumIcon from "@mui/icons-material/Album";
-import SettingsIcon from "@mui/icons-material/Settings";
 import StorageIcon from "@mui/icons-material/Storage";
 import Divider from "@mui/joy/Divider";
 import List from "@mui/joy/List";
@@ -10,6 +9,7 @@ import FlowsheetLink from "./FlowsheetLink";
 import LeftbarContainer from "./LeftbarContainer";
 import LeftbarLink from "./LeftbarLink";
 import LeftbarLogout from "./LeftbarLogout";
+import LeftbarSettingsButton from "./LeftbarSettingsButton";
 
 export default async function Leftbar(): Promise<JSX.Element> {
   // user is guaranteed to be defined here because requireAuth will redirect to login if not authenticated
@@ -49,9 +49,7 @@ export default async function Leftbar(): Promise<JSX.Element> {
           </>
         )}
       </List>
-      <LeftbarLink path="/dashboard/settings" title="Settings">
-        <SettingsIcon />
-      </LeftbarLink>
+      <LeftbarSettingsButton />
       <Divider />
       <LeftbarLogout user={user} />
     </LeftbarContainer>

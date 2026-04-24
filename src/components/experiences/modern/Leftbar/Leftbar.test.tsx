@@ -62,6 +62,15 @@ vi.mock("./FlowsheetLink", () => ({
   default: () => <div data-testid="flowsheet-link">Flowsheet</div>,
 }));
 
+vi.mock("./LeftbarSettingsButton", () => ({
+  default: () => (
+    <div data-testid="leftbar-settings-button">
+      <span data-testid="link-title">Settings</span>
+      <svg data-testid="settings-icon" />
+    </div>
+  ),
+}));
+
 vi.mock("./LeftbarLogout", () => ({
   default: ({ user }: { user: User }) => (
     <div data-testid="leftbar-logout">{user.username}</div>
@@ -139,14 +148,12 @@ describe("Leftbar", () => {
     expect(screen.getByText("Previous Sets")).toBeInTheDocument();
   });
 
-  it("should render settings link", async () => {
+  it("should render settings button", async () => {
     const Component = await Leftbar();
     render(Component);
 
-    const settingsLink = screen.getByTestId(
-      "leftbar-link--dashboard-settings"
-    );
-    expect(settingsLink).toBeInTheDocument();
+    const settingsButton = screen.getByTestId("leftbar-settings-button");
+    expect(settingsButton).toBeInTheDocument();
     expect(screen.getByText("Settings")).toBeInTheDocument();
   });
 

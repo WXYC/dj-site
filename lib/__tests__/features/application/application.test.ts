@@ -3,8 +3,9 @@ import {
   applicationSlice,
   defaultApplicationFrontendState,
 } from "@/lib/features/application/frontend";
-import { RightbarMenu } from "@/lib/features/application/types";
+import { RightbarPanel } from "@/lib/features/application/types";
 import { describeSlice } from "@/lib/test-utils";
+import { createTestAccountResult } from "@/lib/test-utils";
 
 describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, actions }) => {
   describe("default state", () => {
@@ -16,8 +17,8 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
       expect(harness().initialState.rightbar.sidebarOpen).toBe(false);
     });
 
-    it("should have menu set to BIN", () => {
-      expect(harness().initialState.rightbar.menu).toBe(RightbarMenu.BIN);
+    it("should have panel set to default", () => {
+      expect(harness().initialState.rightbar.panel).toEqual({ type: "default" });
     });
   });
 
@@ -28,14 +29,63 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
     });
   });
 
-  describe("setRightbarMenu action", () => {
-    it.each([
-      [RightbarMenu.BIN, false],
-      [RightbarMenu.CATALOG_EDITOR, true],
-    ] as const)("should set menu to %s and mini to %s", (menu, expectedMini) => {
-      const result = harness().reduce(actions.setRightbarMenu(menu));
-      expect(result.rightbar.menu).toBe(menu);
-      expect(result.rightbar.mini).toBe(expectedMini);
+  describe("openPanel action", () => {
+    it("should set the panel state", () => {
+      const panel: RightbarPanel = { type: "album-detail", albumId: 42 };
+      const result = harness().reduce(actions.openPanel(panel));
+      expect(result.rightbar.panel).toEqual(panel);
+    });
+
+    it("should auto-open the sidebar on mobile", () => {
+      const result = harness().reduce(actions.openPanel({ type: "settings" }));
+      expect(result.rightbar.sidebarOpen).toBe(true);
+    });
+
+    it("should un-mini the rightbar", () => {
+      const withMini = {
+        ...harness().initialState,
+        rightbar: { ...harness().initialState.rightbar, mini: true },
+      };
+      const result = harness().reduce(actions.openPanel({ type: "settings" }), withMini);
+      expect(result.rightbar.mini).toBe(false);
+    });
+
+    it("should overwrite the previous panel when switching", () => {
+      const result = harness().chain(
+        actions.openPanel({ type: "album-detail", albumId: 1 }),
+        actions.openPanel({ type: "album-detail", albumId: 2 }),
+      );
+      expect(result.rightbar.panel).toEqual({ type: "album-detail", albumId: 2 });
+    });
+
+    it("should carry account data for account-edit panel", () => {
+      const account = createTestAccountResult();
+      const panel: RightbarPanel = {
+        type: "account-edit",
+        account,
+        isSelf: false,
+        organizationSlug: "wxyc",
+      };
+      const result = harness().reduce(actions.openPanel(panel));
+      expect(result.rightbar.panel).toEqual(panel);
+    });
+  });
+
+  describe("closePanel action", () => {
+    it("should reset panel to default", () => {
+      const result = harness().chain(
+        actions.openPanel({ type: "album-detail", albumId: 42 }),
+        actions.closePanel(),
+      );
+      expect(result.rightbar.panel).toEqual({ type: "default" });
+    });
+
+    it("should preserve sidebarOpen state", () => {
+      const result = harness().chain(
+        actions.openPanel({ type: "settings" }),
+        actions.closePanel(),
+      );
+      expect(result.rightbar.sidebarOpen).toBe(true);
     });
   });
 
@@ -92,7 +142,7 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
       const result = harness().chain(
         actions.setRightbarMini(true),
         actions.toggleSidebar(),
-        actions.setRightbarMenu(RightbarMenu.CATALOG_EDITOR),
+        actions.openPanel({ type: "album-detail", albumId: 42 }),
         actions.setAuthStage("forgot"),
         actions.reset()
       );
@@ -110,9 +160,9 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
       });
     });
 
-    describe("getRightbarMenu", () => {
+    describe("getRightbarPanel", () => {
       it("should be defined", () => {
-        expect(applicationSlice.selectors.getRightbarMenu).toBeDefined();
+        expect(applicationSlice.selectors.getRightbarPanel).toBeDefined();
       });
     });
 
