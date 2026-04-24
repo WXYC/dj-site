@@ -44,12 +44,12 @@ export const flowsheetApi = createApi({
   baseQuery: backendBaseQuery("flowsheet"),
   tagTypes: ["NowPlaying", "WhoIsLive", "Flowsheet"],
   endpoints: (builder) => ({
-    getNowPlaying: builder.query<FlowsheetEntry, void>({
+    getNowPlaying: builder.query<FlowsheetEntry | null, void>({
       query: () => ({
         url: "/latest",
       }),
-      transformResponse: (response: FlowsheetV2EntryJSON) =>
-        convertV2Entry(response),
+      transformResponse: (response: FlowsheetV2EntryJSON | null) =>
+        response ? convertV2Entry(response) : null,
       providesTags: ["NowPlaying"],
     }),
     getInfiniteEntries: builder.infiniteQuery<
