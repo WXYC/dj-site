@@ -1,6 +1,7 @@
 "use client";
 
 import { applicationSlice } from "@/lib/features/application/frontend";
+import { savePreferredLoginMethod } from "@/lib/features/application/login-method-storage";
 import { useAppDispatch } from "@/lib/hooks";
 import { useOTPRequest } from "@/src/hooks/authenticationHooks";
 import { Button, FormControl, FormLabel, Input, Link, Typography } from "@mui/joy";
@@ -29,6 +30,7 @@ export default function EmailOTPForm({
 
   const handleSwitchToPassword = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
+    savePreferredLoginMethod("password");
     dispatch(applicationSlice.actions.setAuthStage("password"));
   };
 
