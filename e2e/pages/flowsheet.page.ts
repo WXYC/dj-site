@@ -74,11 +74,13 @@ export class FlowsheetPage {
   // --- Navigation ---
 
   async goto(): Promise<void> {
-    // Listen for the initial entries GET BEFORE navigating so we don't miss
-    // it — same pattern as the response wait in goLive() below.
+    // Listen for the page-0 entries GET BEFORE navigating so we don't miss
+    // it. Filter on "page=" to avoid resolving on whoIsLive or getNowPlaying
+    // responses that share the /flowsheet/ prefix.
     this.entriesResponsePromise = this.page.waitForResponse(
       (resp) =>
         resp.url().includes("/flowsheet/") &&
+        resp.url().includes("page=") &&
         resp.request().method() === "GET" &&
         resp.status() === 200,
       { timeout: 30000 }
