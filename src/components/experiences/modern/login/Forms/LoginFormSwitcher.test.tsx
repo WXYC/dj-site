@@ -12,7 +12,15 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
+vi.mock("@/lib/features/application/login-method-storage", () => ({
+  getPreferredLoginMethod: () => mockPreferredMethod,
+  savePreferredLoginMethod: vi.fn(),
+}));
+
+let mockPreferredMethod: AuthStage = "otp-email";
+
 const renderWithAuthStage = (stage: AuthStage) => {
+  mockPreferredMethod = stage;
   const store = createTestStore();
   store.dispatch(applicationSlice.actions.setAuthStage(stage));
   return renderWithProviders(<LoginFormSwitcher />, { store });
@@ -20,6 +28,7 @@ const renderWithAuthStage = (stage: AuthStage) => {
 
 describe("LoginFormSwitcher", () => {
   it("should render email OTP form by default", () => {
+    mockPreferredMethod = "otp-email";
     renderWithProviders(<LoginFormSwitcher />);
 
     expect(screen.getByRole("button", { name: "Send login code" })).toBeInTheDocument();
