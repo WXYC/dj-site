@@ -9,6 +9,7 @@ import { Page, Locator, expect } from "@playwright/test";
  */
 export class FlowsheetPage {
   readonly page: Page;
+  private entriesResponsePromise: Promise<unknown> | null = null;
 
   // Search form
   readonly searchForm: Locator;
@@ -73,6 +74,15 @@ export class FlowsheetPage {
   // --- Navigation ---
 
   async goto(): Promise<void> {
+    // Listen for the initial entries GET BEFORE navigating so we don't miss
+    // it — same pattern as the response wait in goLive() below.
+    this.entriesResponsePromise = this.page.waitForResponse(
+      (resp) =>
+        resp.url().includes("/flowsheet/") &&
+        resp.request().method() === "GET" &&
+        resp.status() === 200,
+      { timeout: 30000 }
+    );
     await this.page.goto("/dashboard/flowsheet");
     await this.page.waitForLoadState("domcontentloaded");
   }
@@ -80,8 +90,12 @@ export class FlowsheetPage {
   async waitForEntriesLoaded(): Promise<void> {
     // Wait for the Go Live button to be visible (page has rendered)
     await this.goLiveButton.waitFor({ state: "visible", timeout: 10000 });
-    // Brief pause for RTK Query to settle initial fetches
-    await this.page.waitForTimeout(500);
+    // Wait for the getInfiniteEntries response captured before navigation.
+    // This guarantees the RTK Query cache is populated before tests submit.
+    if (this.entriesResponsePromise) {
+      await this.entriesResponsePromise;
+      this.entriesResponsePromise = null;
+    }
   }
 
   // --- Go Live / Leave ---

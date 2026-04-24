@@ -185,11 +185,12 @@ export const flowsheetApi = createApi({
           };
           const cached =
             flowsheetApi.endpoints.getInfiniteEntries.select(undefined)(root);
-          const hadCachedList = cached?.data != null;
 
           let tempId: number | undefined;
           let patchResult: { undo: () => void } | undefined;
 
+          // Optimistic entry only when the cache already has pages —
+          // buildOptimisticEntry needs existing data for play_order and show_id.
           if (cached?.data?.pages?.length) {
             const { entry, tempId: tid } = buildOptimisticEntry(
               arg,
@@ -209,23 +210,22 @@ export const flowsheetApi = createApi({
 
           try {
             const { data } = await queryFulfilled;
-            if (hadCachedList) {
-              dispatch(
-                flowsheetApi.util.updateQueryData(
-                  "getInfiniteEntries",
-                  undefined,
-                  (draft) => {
-                    if (tempId !== undefined) {
-                      replaceEntryIdAllPages(draft, tempId, data);
-                    } else {
-                      insertEntrySortedFirstPage(draft, data);
-                    }
+            // Always insert the server response directly. When the cache is
+            // uninitialized, updateQueryData is a no-op and the in-flight
+            // initial GET will return with the new entry included.
+            dispatch(
+              flowsheetApi.util.updateQueryData(
+                "getInfiniteEntries",
+                undefined,
+                (draft) => {
+                  if (tempId !== undefined) {
+                    replaceEntryIdAllPages(draft, tempId, data);
+                  } else {
+                    insertEntrySortedFirstPage(draft, data);
                   }
-                )
-              );
-            } else {
-              dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
-            }
+                }
+              )
+            );
           } catch (err) {
             flowsheetMutationCatch("addToFlowsheet", err);
             patchResult?.undo();
