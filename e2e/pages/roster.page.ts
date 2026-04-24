@@ -191,8 +191,9 @@ export class RosterPage {
    * Close the edit modal.
    */
   async closeEditModal(): Promise<void> {
-    // Use force click to bypass MUI overlay elements that intercept pointer events
-    await this.editModalClose.click({ force: true });
+    // Press Escape to close the modal — more reliable than clicking the close
+    // button, which can be intercepted by MUI overlay elements
+    await this.page.keyboard.press("Escape");
     await this.editModal.waitFor({ state: "hidden", timeout: 5000 });
   }
 
