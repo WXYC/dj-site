@@ -1,6 +1,7 @@
 "use client";
 
 import { applicationSlice } from "@/lib/features/application/frontend";
+import { savePreferredLoginMethod } from "@/lib/features/application/login-method-storage";
 import { useAppDispatch } from "@/lib/hooks";
 import { useLogin } from "@/src/hooks/authenticationHooks";
 import { Link, Typography } from "@mui/joy";
@@ -54,6 +55,7 @@ export default function UserPasswordForm() {
           type="button"
           onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
             event.preventDefault();
+            savePreferredLoginMethod("otp-email");
             dispatch(applicationSlice.actions.setAuthStage("otp-email"));
           }}
           disabled={authenticating}
