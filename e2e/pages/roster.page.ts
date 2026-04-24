@@ -225,14 +225,7 @@ export class RosterPage {
     await this.openEditModal(username);
     const select = this.getModalRoleSelect();
     await select.waitFor({ state: "visible", timeout: 5000 });
-    // Focus the select and use keyboard to open and navigate
-    await select.focus();
-    // Open the select dropdown via Enter/Space
-    await this.page.keyboard.press("Enter");
-    // Wait for the listbox popup to appear
-    const listbox = this.page.getByRole("listbox");
-    await listbox.waitFor({ state: "visible", timeout: 5000 });
-    // Click the option in the portal popup (outside the panel, no interception)
+    await select.click({ force: true });
     await this.page.getByRole("option", { name: roleLabel }).click();
     await this.page.waitForTimeout(1000);
     await this.closeEditModal();
