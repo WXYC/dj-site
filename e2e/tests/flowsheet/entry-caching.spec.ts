@@ -137,6 +137,7 @@ test.describe("Flowsheet Entry Caching", () => {
       await flowsheet.fillSearchForm({
         song: trackName,
         artist: "Optimistic Artist",
+        album: "Optimistic Album",
       });
       await flowsheet.submitViaEnter();
 
@@ -190,7 +191,7 @@ test.describe("Flowsheet Entry Caching", () => {
       await expect(flowsheet.songInput).toBeEnabled({ timeout: 10000 });
 
       const trackName = `Eager ${ts}`;
-      await flowsheet.addTrack({ song: trackName, artist: "Eager Artist" });
+      await flowsheet.addTrack({ song: trackName, artist: "Eager Artist", album: "Eager Album" });
 
       // After the delayed entries load completes, the track should be visible
       await page.unroute(isPage0);
@@ -284,7 +285,7 @@ test.describe("Flowsheet Entry Caching", () => {
 
         // Add a track in tab 1
         const trackName = `Cross Tab ${ts}`;
-        await fs1.addTrack({ song: trackName, artist: "Cross Tab Artist" });
+        await fs1.addTrack({ song: trackName, artist: "Cross Tab Artist", album: "Cross Tab Album" });
 
         // Tab 1 should show it immediately
         await fs1.expectEntryWithText(trackName);
@@ -344,7 +345,7 @@ test.describe("Flowsheet Entry Caching", () => {
       // Fire adds using Enter key (bypasses searchOpen check in button onClick)
       for (const name of trackNames) {
         await flowsheet.addTrack(
-          { song: name, artist: "Rapid Artist" },
+          { song: name, artist: "Rapid Artist", album: "Rapid Album" },
           "enter"
         );
       }
