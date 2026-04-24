@@ -116,13 +116,7 @@ test.describe("Flowsheet Entry Caching", () => {
   // 4. Slow network conditions (optimistic update)
   // ---------------------------------------------------------------
   test.describe("4. Slow network", () => {
-    // FIXME(#433): The optimistic entry never appears in the DOM under a
-    // delayed POST. The onQueryStarted callback may not fire if the infinite
-    // query cache hasn't populated by the time the mutation runs — the
-    // waitForEntriesLoaded() page object method only checks for the Go Live
-    // button, not the actual query data. Needs investigation into the RTK
-    // Query lifecycle ordering in CI.
-    test.fixme("entry appears immediately under throttled network", async ({
+    test("entry appears immediately under throttled network", async ({
       page,
     }) => {
       const trackName = `Optimistic ${ts}`;
@@ -172,11 +166,7 @@ test.describe("Flowsheet Entry Caching", () => {
   // 5. Page load timing
   // ---------------------------------------------------------------
   test.describe("5. Page load timing", () => {
-    // FIXME(#433): The addTrack mutation never resolves when submitting
-    // before entries finish loading. The entries cache is empty so the
-    // mutation falls through to invalidateTags, but the refetch may
-    // conflict with the still-delayed initial GET. Needs investigation.
-    test.fixme("can add track before entry list fully loads", async ({ page }) => {
+    test("can add track before entry list fully loads", async ({ page }) => {
       // URL predicate that matches only the page-0 entries GET, not POSTs
       const isPage0 = (url: URL) =>
         url.pathname.endsWith("/flowsheet/") &&
@@ -264,10 +254,7 @@ test.describe("Flowsheet Entry Caching", () => {
   // 7. Multiple tabs
   // ---------------------------------------------------------------
   test.describe("7. Multiple tabs", () => {
-    // FIXME(#433): Same mutation-resolution issue as tests 4/5/9 — the
-    // addTrack call hangs after 20+ DB entries. New browser contexts start
-    // with empty caches that must be populated before the mutation fires.
-    test.fixme("entry added in one tab appears in another after refresh", async ({
+    test("entry added in one tab appears in another after refresh", async ({
       browser,
     }) => {
       test.slow(); // Multi-context test needs extra time
@@ -342,11 +329,7 @@ test.describe("Flowsheet Entry Caching", () => {
   // 9. Rapid input (last — does not block other tests if it fails)
   // ---------------------------------------------------------------
   test.describe("9. Rapid input", () => {
-    // FIXME(#433): After 14+ cached entries, the first addTrack in this loop
-    // times out waiting for the form to clear. The sort-order fix (#444)
-    // corrected optimistic entry positioning but this test has a separate
-    // mutation-resolution issue — the POST appears to never complete in CI.
-    test.fixme("quick successive adds maintain order with no duplicates", async ({
+    test("quick successive adds maintain order with no duplicates", async ({
       page,
     }) => {
       test.slow(); // Rapid adds need extra time budget
