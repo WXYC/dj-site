@@ -1,6 +1,6 @@
 "use client";
 
-import { authBaseURL } from "@/lib/features/authentication/client";
+import { authBaseURL, authClient } from "@/lib/features/authentication/client";
 import { adminSlice } from "@/lib/features/admin/frontend";
 import { NewAccountParams, Authorization, ROSTER_PAGE_SIZE } from "@/lib/features/admin/types";
 import { User, authorizationToRole } from "@/lib/features/authentication/types";
@@ -102,6 +102,22 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
         }
 
         toast.success(`Account created successfully for ${newAccount.username}`);
+
+        // Send invite email (verification magic link) to the new user
+        try {
+          await fetch(`${authBaseURL}/send-verification-email`, {
+            method: "POST",
+            credentials: "omit",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: newAccount.email,
+              callbackURL: "/login",
+            }),
+          });
+          toast.success(`Invite email sent to ${newAccount.email}`);
+        } catch {
+          toast.warning("Account created but invite email could not be sent.");
+        }
 
         dispatch(adminSlice.actions.setAdding(false));
         dispatch(adminSlice.actions.reset());
