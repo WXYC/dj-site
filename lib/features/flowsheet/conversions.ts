@@ -96,10 +96,13 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
       };
 
     case "show_start": {
-      const { day, time } = parseTimestamp(entry.timestamp);
+      const { day, time } =
+        entry.timestamp !== undefined
+          ? parseTimestamp(entry.timestamp)
+          : formatAddTime(entry.add_time);
       return {
         ...base,
-        dj_name: entry.dj_name,
+        dj_name: entry.dj_name ?? (entry as any).artist_name ?? "",
         isStart: true,
         day,
         time,
@@ -107,10 +110,13 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
     }
 
     case "show_end": {
-      const { day, time } = parseTimestamp(entry.timestamp);
+      const { day, time } =
+        entry.timestamp !== undefined
+          ? parseTimestamp(entry.timestamp)
+          : formatAddTime(entry.add_time);
       return {
         ...base,
-        dj_name: entry.dj_name,
+        dj_name: entry.dj_name ?? (entry as any).artist_name ?? "",
         isStart: false,
         day,
         time,
