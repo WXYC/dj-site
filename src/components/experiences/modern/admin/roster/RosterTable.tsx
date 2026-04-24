@@ -128,7 +128,7 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
         height: "100%",
         overflow: "auto",
         bgcolor: "transparent",
-        "--Table-lastColumnWidth": "120px",
+        "--Table-lastColumnWidth": "60px",
       }}
     >
       <Stack
@@ -182,7 +182,7 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
         >
           <thead>
             <tr>
-              <th style={{ minWidth: "180px" }}>Permissions</th>
+              <th style={{ minWidth: "120px" }}>Role</th>
               <th style={{ minWidth: "100px" }}>Name</th>
               <th style={{ minWidth: "100px" }}>Username</th>
               <th style={{ minWidth: "100px" }}>DJ Name</th>
