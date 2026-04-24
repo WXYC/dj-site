@@ -1,99 +1,193 @@
 "use client";
 
+import type { SearchField } from "@/lib/features/playlist-search/frontend";
 import { usePlaylistSearch } from "@/src/hooks/playlistSearchHooks";
-import PlaylistAdvancedSearch from "@/src/components/experiences/modern/playlist-search/PlaylistAdvancedSearch";
-import { Cancel, Troubleshoot, Tune } from "@mui/icons-material";
-import { Box, FormControl, FormLabel, IconButton, Input, Tooltip } from "@mui/joy";
-import Filters from "./Filters";
+import { Add, Cancel, Remove, Troubleshoot, Tune } from "@mui/icons-material";
+import { Box, IconButton, Input, Option, Select, Stack, Tooltip } from "@mui/joy";
+import SortBySelect from "./SortBySelect";
+
+const SEARCH_FIELD_OPTIONS: { value: SearchField; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "artist", label: "Artist" },
+  { value: "song", label: "Song" },
+  { value: "album", label: "Album" },
+  { value: "label", label: "Label" },
+  { value: "dj", label: "DJ" },
+  { value: "date", label: "Date" },
+  { value: "dateRange", label: "Date Range" },
+];
+
+const OPERATOR_OPTIONS = [
+  { value: "AND" as const, label: "AND" },
+  { value: "OR" as const, label: "OR" },
+  { value: "NOT" as const, label: "NOT" },
+];
 
 export default function SearchBar() {
-  const {
-    mode,
-    setMode,
-    simpleQuery,
-    setSimpleQuery,
-    advancedRows,
-    addRow,
-    removeRow,
-    updateRow,
-    isLoading,
-  } = usePlaylistSearch();
-
-  const isAdvanced = mode === "advanced";
+  const { rows, addRow, removeRow, updateRow } = usePlaylistSearch();
 
   return (
-    <Box sx={{ py: 2 }}>
-      <Box
-        sx={{
-          borderRadius: "sm",
-          display: { xs: "none", sm: "flex" },
-          flexWrap: "wrap",
-          gap: 1.5,
-          "& > *": {
-            minWidth: { xs: "180px", md: "200px" },
-          },
-        }}
-      >
-        {!isAdvanced && (
-          <FormControl
-            sx={{ flex: 1, flexBasis: { xs: "100%", lg: "50%" } }}
-            size="sm"
-          >
-            <FormLabel>Search previous sets</FormLabel>
-            <Input
-              color="primary"
-              placeholder="Search"
-              startDecorator={<Troubleshoot />}
-              endDecorator={
-                simpleQuery !== "" ? (
-                  <IconButton
-                    variant="plain"
-                    color="primary"
-                    onClick={() => setSimpleQuery("")}
-                  >
-                    <Cancel />
-                  </IconButton>
-                ) : undefined
-              }
-              value={simpleQuery}
-              onChange={(e) => setSimpleQuery(e.target.value)}
-            />
-          </FormControl>
-        )}
+    <Box sx={{ py: 2, display: { xs: "none", sm: "block" } }}>
+      <Stack spacing={1}>
+        {rows.map((row, index) => {
+          const isFirst = index === 0;
+          const isDateField = row.field === "date";
+          const isDateRangeField = row.field === "dateRange";
 
-        {!isAdvanced && <Filters />}
-
-        <FormControl
-          size="sm"
-          sx={{ flex: "none", justifyContent: "flex-end" }}
-        >
-          <Tooltip
-            title={isAdvanced ? "Simple Search" : "Advanced Search"}
-            placement="top"
-            size="sm"
-          >
-            <IconButton
-              variant={isAdvanced ? "solid" : "outlined"}
-              color="primary"
-              onClick={() => setMode(isAdvanced ? "simple" : "advanced")}
+          return (
+            <Stack
+              key={row.id}
+              direction="row"
+              spacing={1}
+              sx={{ alignItems: "center" }}
             >
-              <Tune />
-            </IconButton>
-          </Tooltip>
-        </FormControl>
-      </Box>
+              {/* Tune icon (first row) or operator dropdown (subsequent rows) */}
+              {isFirst ? (
+                <Tooltip title="Search previous sets" size="sm">
+                  <IconButton
+                    variant="outlined"
+                    color="primary"
+                    sx={{
+                      aspectRatio: 1,
+                      minWidth: 36,
+                      minHeight: 36,
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Tune />
+                  </IconButton>
+                </Tooltip>
+              ) : (
+                <Select
+                  value={row.operator}
+                  onChange={(_, value) =>
+                    value && updateRow(row.id, { operator: value })
+                  }
+                  size="sm"
+                  sx={{ minWidth: 80, flexShrink: 0 }}
+                >
+                  {OPERATOR_OPTIONS.map((opt) => (
+                    <Option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </Option>
+                  ))}
+                </Select>
+              )}
 
-      {isAdvanced && (
-        <Box sx={{ mt: 2 }}>
-          <PlaylistAdvancedSearch
-            rows={advancedRows}
-            onAddRow={addRow}
-            onRemoveRow={removeRow}
-            onUpdateRow={updateRow}
-            isLoading={isLoading}
-          />
-        </Box>
-      )}
+              {/* Search field dropdown */}
+              <Select
+                value={row.field}
+                onChange={(_, value) =>
+                  value &&
+                  updateRow(row.id, {
+                    field: value,
+                    value: "",
+                    valueTo: undefined,
+                  })
+                }
+                size="sm"
+                color="primary"
+                slotProps={{ button: { sx: { whiteSpace: "nowrap" } } }}
+                sx={{ minWidth: 100, flexShrink: 0 }}
+              >
+                {SEARCH_FIELD_OPTIONS.map((opt) => (
+                  <Option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </Option>
+                ))}
+              </Select>
+
+              {/* Input field(s) */}
+              {isDateField ? (
+                <Input
+                  type="date"
+                  value={row.value}
+                  onChange={(e) => updateRow(row.id, { value: e.target.value })}
+                  size="sm"
+                  color="primary"
+                  sx={{ flex: 1, minWidth: 150 }}
+                />
+              ) : isDateRangeField ? (
+                <>
+                  <Input
+                    type="date"
+                    value={row.value}
+                    onChange={(e) =>
+                      updateRow(row.id, { value: e.target.value })
+                    }
+                    size="sm"
+                    color="primary"
+                    sx={{ flex: 1, minWidth: 140 }}
+                    placeholder="From"
+                  />
+                  <Input
+                    type="date"
+                    value={row.valueTo || ""}
+                    onChange={(e) =>
+                      updateRow(row.id, { valueTo: e.target.value })
+                    }
+                    size="sm"
+                    color="primary"
+                    sx={{ flex: 1, minWidth: 140 }}
+                    placeholder="To"
+                  />
+                </>
+              ) : (
+                <Input
+                  color="primary"
+                  placeholder="Search previous sets"
+                  startDecorator={isFirst ? <Troubleshoot /> : undefined}
+                  endDecorator={
+                    row.value !== "" ? (
+                      <IconButton
+                        variant="plain"
+                        color="primary"
+                        size="sm"
+                        onClick={() => updateRow(row.id, { value: "" })}
+                      >
+                        <Cancel />
+                      </IconButton>
+                    ) : undefined
+                  }
+                  value={row.value}
+                  onChange={(e) =>
+                    updateRow(row.id, { value: e.target.value })
+                  }
+                  size="sm"
+                  sx={{ flex: 1 }}
+                />
+              )}
+
+              {/* -/+ row controls */}
+              <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
+                {rows.length > 1 && (
+                  <IconButton
+                    size="sm"
+                    variant="outlined"
+                    color="danger"
+                    onClick={() => removeRow(row.id)}
+                    sx={{ aspectRatio: 1 }}
+                  >
+                    <Remove />
+                  </IconButton>
+                )}
+                <IconButton
+                  size="sm"
+                  variant="outlined"
+                  color="primary"
+                  onClick={addRow}
+                  sx={{ aspectRatio: 1 }}
+                >
+                  <Add />
+                </IconButton>
+              </Stack>
+
+              {/* Sort By dropdown (first row only) */}
+              {isFirst && <SortBySelect />}
+            </Stack>
+          );
+        })}
+      </Stack>
     </Box>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useLazySearchPlaylistsQuery } from "@/lib/features/playlist-search/api";
-import { playlistSearchSlice, SearchRow, SimpleSearchField } from "@/lib/features/playlist-search/frontend";
+import { playlistSearchSlice, SearchRow } from "@/lib/features/playlist-search/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useCallback, useEffect, useRef, useMemo } from "react";
 import type { PlaylistSearchResult } from "@wxyc/shared";
@@ -21,10 +21,11 @@ const fieldPrefixes: Record<string, string> = {
 };
 
 /**
- * Build a query string from advanced search rows.
+ * Build a query string from search rows.
  * Supports AND, OR, NOT operators and exact phrase matching.
+ * The "all" field has no prefix — it's a plain text search.
  */
-function buildAdvancedQuery(rows: SearchRow[]): string {
+function buildQuery(rows: SearchRow[]): string {
   const parts: string[] = [];
 
   for (let i = 0; i < rows.length; i++) {
@@ -43,7 +44,7 @@ function buildAdvancedQuery(rows: SearchRow[]): string {
       term = `"${term}"`;
     }
 
-    const fieldPrefix = fieldPrefixes[row.field] || "";
+    const fieldPrefix = row.field === "all" ? "" : (fieldPrefixes[row.field] || "");
     const fullTerm = `${fieldPrefix}${term}`;
 
     // First row doesn't have an operator prefix
@@ -60,24 +61,12 @@ function buildAdvancedQuery(rows: SearchRow[]): string {
 export function usePlaylistSearch() {
   const dispatch = useAppDispatch();
 
-  const mode = useAppSelector(playlistSearchSlice.selectors.getMode);
-  const simpleQuery = useAppSelector(playlistSearchSlice.selectors.getSimpleQuery);
-  const advancedRows = useAppSelector(playlistSearchSlice.selectors.getAdvancedRows);
-  const searchField = useAppSelector(playlistSearchSlice.selectors.getSearchField);
+  const rows = useAppSelector(playlistSearchSlice.selectors.getRows);
   const sortBy = useAppSelector(playlistSearchSlice.selectors.getSortBy);
   const sortOrder = useAppSelector(playlistSearchSlice.selectors.getSortOrder);
   const page = useAppSelector(playlistSearchSlice.selectors.getPage);
 
-  // Build the effective query based on mode
-  const effectiveQuery = useMemo(() => {
-    if (mode === "simple") {
-      const q = simpleQuery.trim();
-      if (!q || searchField === "all") return q;
-      const prefix = fieldPrefixes[searchField];
-      return prefix ? `${prefix}${q}` : q;
-    }
-    return buildAdvancedQuery(advancedRows);
-  }, [mode, simpleQuery, searchField, advancedRows]);
+  const effectiveQuery = useMemo(() => buildQuery(rows), [rows]);
 
   // Track pending query to fire after current request completes
   const pendingQueryRef = useRef<string | null>(null);
@@ -92,7 +81,7 @@ export function usePlaylistSearch() {
   const accumulatedResultsRef = useRef<PlaylistSearchResult[]>([]);
   const lastQueryForAccumulationRef = useRef<string>("");
 
-  const [trigger, { data, isLoading, isFetching, isError }] = useLazySearchPlaylistsQuery();
+  const [trigger, { data, isFetching, isError }] = useLazySearchPlaylistsQuery();
 
   // Reset accumulated results when query or sort changes
   useEffect(() => {
@@ -153,21 +142,6 @@ export function usePlaylistSearch() {
   }, [isFetching, page, sortBy, sortOrder, trigger]);
 
   // Actions
-  const setMode = useCallback(
-    (newMode: "simple" | "advanced") => dispatch(playlistSearchSlice.actions.setMode(newMode)),
-    [dispatch]
-  );
-
-  const setSimpleQuery = useCallback(
-    (q: string) => dispatch(playlistSearchSlice.actions.setSimpleQuery(q)),
-    [dispatch]
-  );
-
-  const setSearchField = useCallback(
-    (field: SimpleSearchField) => dispatch(playlistSearchSlice.actions.setSearchField(field)),
-    [dispatch]
-  );
-
   const addRow = useCallback(
     () => dispatch(playlistSearchSlice.actions.addRow()),
     [dispatch]
@@ -207,10 +181,7 @@ export function usePlaylistSearch() {
 
   return {
     // State
-    mode,
-    simpleQuery,
-    searchField,
-    advancedRows,
+    rows,
     sortBy,
     sortOrder,
     page,
@@ -228,9 +199,6 @@ export function usePlaylistSearch() {
     isError,
 
     // Actions
-    setMode,
-    setSimpleQuery,
-    setSearchField,
     addRow,
     removeRow,
     updateRow,

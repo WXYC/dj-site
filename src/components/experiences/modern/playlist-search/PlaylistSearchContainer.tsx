@@ -1,22 +1,13 @@
 "use client";
 
 import { usePlaylistSearch } from "@/src/hooks/playlistSearchHooks";
-import { Box, Tab, TabList, TabPanel, Tabs, Typography } from "@mui/joy";
-import PlaylistAdvancedSearch from "./PlaylistAdvancedSearch";
+import { Box, Typography } from "@mui/joy";
 import PlaylistResultsTable from "./PlaylistResultsTable";
-import PlaylistSearchBar from "./PlaylistSearchBar";
 import PlaylistInfiniteScroll from "./PlaylistInfiniteScroll";
+import SearchBar from "@/src/components/experiences/modern/previous-sets/Search/SearchBar";
 
 export default function PlaylistSearchContainer() {
   const {
-    mode,
-    setMode,
-    simpleQuery,
-    setSimpleQuery,
-    advancedRows,
-    addRow,
-    removeRow,
-    updateRow,
     sortBy,
     sortOrder,
     handleSort,
@@ -39,32 +30,7 @@ export default function PlaylistSearchContainer() {
         and quotes for exact phrases.
       </Typography>
 
-      <Tabs
-        value={mode === "simple" ? 0 : 1}
-        onChange={(_, value) => setMode(value === 0 ? "simple" : "advanced")}
-        sx={{ mb: 2 }}
-      >
-        <TabList>
-          <Tab>Simple Search</Tab>
-          <Tab>Advanced Search</Tab>
-        </TabList>
-        <TabPanel value={0} sx={{ p: 0, pt: 2 }}>
-          <PlaylistSearchBar
-            query={simpleQuery}
-            onQueryChange={setSimpleQuery}
-            isLoading={isLoading}
-          />
-        </TabPanel>
-        <TabPanel value={1} sx={{ p: 0, pt: 2 }}>
-          <PlaylistAdvancedSearch
-            rows={advancedRows}
-            onAddRow={addRow}
-            onRemoveRow={removeRow}
-            onUpdateRow={updateRow}
-            isLoading={isLoading}
-          />
-        </TabPanel>
-      </Tabs>
+      <SearchBar />
 
       {effectiveQuery.length >= 2 && (
         <Box sx={{ mt: 2 }}>
