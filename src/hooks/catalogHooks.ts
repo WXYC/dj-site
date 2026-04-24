@@ -117,11 +117,9 @@ export const useCatalogResults = () => {
   const searchIn = useAppSelector(catalogSlice.selectors.getSearchIn);
   const exclusive = useAppSelector(catalogSlice.selectors.getExclusiveFilter);
   const [formattedQuery, setFormattedQuery] =
-    useState<SearchCatalogQueryParams>({
-      artist_name: undefined,
-      album_title: undefined,
-      n: 10,
-    });
+    useState<SearchCatalogQueryParams>(() =>
+      formatCatalogSearchQuery(searchIn, searchString, n, exclusive)
+    );
   const loadMore = () => dispatch(catalogSlice.actions.loadMore());
 
   const [loading, setLoading] = useState(false);
