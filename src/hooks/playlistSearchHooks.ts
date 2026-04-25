@@ -70,7 +70,9 @@ export function usePlaylistSearch() {
 
   // Track pending query to fire after current request completes
   const pendingQueryRef = useRef<string | null>(null);
-  const lastFiredQueryRef = useRef<string>("");
+  // null sentinel = "never fired" — distinguishes initial mount from a
+  // user-cleared empty query so the on-mount empty-q request still goes out.
+  const lastFiredQueryRef = useRef<string | null>(null);
   const lastFiredParamsRef = useRef<{ page: number; sortBy: string; sortOrder: string }>({
     page: 0,
     sortBy: "date",
@@ -108,7 +110,12 @@ export function usePlaylistSearch() {
 
   // Fire search when query changes (response-based throttling)
   useEffect(() => {
-    if (effectiveQuery.length < MIN_QUERY_LENGTH) {
+    // Empty query is the "show recent tracks" default. Single-character
+    // partials still get debounced — wait for at least MIN_QUERY_LENGTH
+    // chars before issuing a substring match.
+    const isPartialQuery =
+      effectiveQuery.length > 0 && effectiveQuery.length < MIN_QUERY_LENGTH;
+    if (isPartialQuery) {
       pendingQueryRef.current = null;
       return;
     }
