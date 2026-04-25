@@ -225,9 +225,11 @@ export class RosterPage {
     await this.openEditModal(username);
     const select = this.getModalRoleSelect();
     await select.waitFor({ state: "visible", timeout: 5000 });
-    await select.click({ force: true });
+    await select.click();
     await this.page.getByRole("option", { name: roleLabel }).click();
-    await this.page.waitForTimeout(1000);
+    // Wait for the async role change to complete (confirm dialog + API call)
+    // before closing the panel. The success toast indicates completion.
+    await this.successToast.first().waitFor({ state: "visible", timeout: 10000 });
     await this.closeEditModal();
   }
 
