@@ -2,14 +2,12 @@
 
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { useRosterRefetch } from "../../admin/roster/RosterRefetchContext";
 import AccountEditForm from "../../admin/roster/AccountEditForm";
 import RightbarPanelContainer from "../RightbarPanelContainer";
 
 export default function AccountEditPanel() {
   const dispatch = useAppDispatch();
   const panel = useAppSelector(applicationSlice.selectors.getRightbarPanel);
-  const rosterRefetch = useRosterRefetch();
 
   if (panel.type !== "account-edit") return null;
 
@@ -27,7 +25,6 @@ export default function AccountEditPanel() {
         account={account}
         isSelf={isSelf}
         onClose={handleClose}
-        onAccountChange={rosterRefetch ?? undefined}
         organizationSlug={organizationSlug}
       />
     </RightbarPanelContainer>

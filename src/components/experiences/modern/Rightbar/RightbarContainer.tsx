@@ -21,7 +21,7 @@ export default function RightbarContainer({
         borderLeft: "1px solid",
         borderColor: "divider",
         transition: "transform 0.4s, width 0.4s",
-        zIndex: 9999,
+        zIndex: { xs: 9999, md: "auto" },
         height: "100dvh",
         top: 0,
         flexShrink: 0,

@@ -1,5 +1,6 @@
 "use client";
 
+import { invalidateRoster } from "@/lib/features/admin/roster-events";
 import { authBaseURL, authClient } from "@/lib/features/authentication/client";
 import { resolveOrganizationIdAdmin } from "@/lib/features/authentication/organization-utils";
 import {
@@ -31,7 +32,6 @@ type AccountEditFormProps = {
   account: Account;
   isSelf: boolean;
   onClose: () => void;
-  onAccountChange?: () => Promise<void>;
   organizationSlug: string;
 };
 
@@ -39,7 +39,6 @@ export default function AccountEditForm({
   account,
   isSelf,
   onClose,
-  onAccountChange,
   organizationSlug,
 }: AccountEditFormProps) {
   const [isPromoting, setIsPromoting] = useState(false);
@@ -158,9 +157,7 @@ export default function AccountEditForm({
       const targetUserId = await resolveUserId();
       await updateOrganizationRole(targetUserId, newRole);
       toast.success(`${account.realName}'s role updated to ${label}`);
-      if (onAccountChange) {
-        await onAccountChange();
-      }
+      invalidateRoster();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to update role";
       if (errorMessage.trim().length > 0) {
@@ -190,9 +187,7 @@ export default function AccountEditForm({
       toast.success(
         `${capability} capability ${hasCapability ? "removed from" : "granted to"} ${account.realName}`
       );
-      if (onAccountChange) {
-        await onAccountChange();
-      }
+      invalidateRoster();
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to update capabilities";
@@ -229,9 +224,7 @@ export default function AccountEditForm({
       }
 
       toast.success(`Email updated to ${newEmail}`);
-      if (onAccountChange) {
-        await onAccountChange();
-      }
+      invalidateRoster();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to update email";
       toast.error(errorMessage);
@@ -293,9 +286,7 @@ export default function AccountEditForm({
 
       toast.success(`${account.realName}'s account deleted successfully`);
       onClose();
-      if (onAccountChange) {
-        await onAccountChange();
-      }
+      invalidateRoster();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to delete account";
       if (errorMessage.trim().length > 0) {

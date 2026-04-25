@@ -16,14 +16,14 @@ import {
   Table,
   Typography,
 } from "@mui/joy";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { onRosterInvalidated } from "@/lib/features/admin/roster-events";
 import { AccountEntry } from "./AccountEntry";
 import AccountSearchForm from "./AccountSearchForm";
 import ExportDJsButton from "./ExportCSV";
 import ImportCSVModal from "./ImportCSVModal";
 import NewAccountForm from "./NewAccountForm";
-import { RosterRefetchProvider } from "./RosterRefetchContext";
 
 export default function RosterTable({ user, organizationSlug }: { user: User; organizationSlug: string }) {
   const { data, isLoading, isError, error, refetch } = useAccountListResults();
@@ -38,6 +38,8 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
   const totalAccounts = useAppSelector(adminSlice.selectors.getTotalAccounts);
   const totalPages = Math.max(1, Math.ceil(totalAccounts / ROSTER_PAGE_SIZE));
   const canCreateUser = user.authority >= Authorization.SM;
+
+  useEffect(() => onRosterInvalidated(refetch), [refetch]);
 
   const authorizationOfNewAccount = useAppSelector(
     adminSlice.selectors.getFormData
@@ -138,10 +140,7 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
     [authorizationOfNewAccount, canCreateUser, dispatch, refetch]
   );
 
-  const refetchAsync = useCallback(async () => { refetch(); }, [refetch]);
-
   return (
-    <RosterRefetchProvider refetch={refetchAsync}>
     <Sheet
       sx={{
         width: "100%",
@@ -314,6 +313,5 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
         organizationSlug={organizationSlug}
       />
     </Sheet>
-    </RosterRefetchProvider>
   );
 }
