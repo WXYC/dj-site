@@ -101,23 +101,7 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
           throw new Error(errorData?.message || errorData?.error || `Failed to create user (${response.status})`);
         }
 
-        toast.success(`Account created successfully for ${newAccount.username}`);
-
-        // Send invite email (verification magic link) to the new user
-        try {
-          await fetch(`${authBaseURL}/send-verification-email`, {
-            method: "POST",
-            credentials: "omit",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              email: newAccount.email,
-              callbackURL: "/login",
-            }),
-          });
-          toast.success(`Invite email sent to ${newAccount.email}`);
-        } catch {
-          toast.warning("Account created but invite email could not be sent.");
-        }
+        toast.success(`Account created for ${newAccount.username} — setup email sent to ${newAccount.email}`);
 
         dispatch(adminSlice.actions.setAdding(false));
         dispatch(adminSlice.actions.reset());
