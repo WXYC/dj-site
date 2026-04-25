@@ -7,16 +7,17 @@ import { playlistSearchSlice } from "@/lib/features/playlist-search/frontend";
 
 const mockTrigger = vi.fn();
 const mockQueryState = {
-  data: undefined as unknown,
+  data: undefined as
+    | { results: { id: number }[]; total: number; nextCursor?: string }
+    | undefined,
   isFetching: false,
   isError: false,
 };
 
 vi.mock("@/lib/features/playlist-search/api", async () => {
-  const actual =
-    await vi.importActual<typeof import("@/lib/features/playlist-search/api")>(
-      "@/lib/features/playlist-search/api"
-    );
+  const actual = await vi.importActual<
+    typeof import("@/lib/features/playlist-search/api")
+  >("@/lib/features/playlist-search/api");
   return {
     ...actual,
     useLazySearchPlaylistsQuery: () =>
@@ -53,7 +54,7 @@ describe("usePlaylistSearch", () => {
 
       await waitFor(() => expect(mockTrigger).toHaveBeenCalled());
       expect(mockTrigger).toHaveBeenCalledWith(
-        expect.objectContaining({ q: "", page: 0 })
+        expect.objectContaining({ q: "", cursor: undefined }),
       );
     });
 
@@ -72,13 +73,13 @@ describe("usePlaylistSearch", () => {
           playlistSearchSlice.actions.updateRow({
             id: rowId,
             updates: { value: "autechre" },
-          })
+          }),
         );
       });
       await waitFor(() =>
         expect(mockTrigger).toHaveBeenCalledWith(
-          expect.objectContaining({ q: "autechre" })
-        )
+          expect.objectContaining({ q: "autechre" }),
+        ),
       );
 
       // User clears it
@@ -87,7 +88,7 @@ describe("usePlaylistSearch", () => {
           playlistSearchSlice.actions.updateRow({
             id: rowId,
             updates: { value: "" },
-          })
+          }),
         );
       });
       await waitFor(() => {
@@ -112,7 +113,7 @@ describe("usePlaylistSearch", () => {
           playlistSearchSlice.actions.updateRow({
             id: rowId,
             updates: { value: "a" },
-          })
+          }),
         );
       });
 
@@ -134,15 +135,118 @@ describe("usePlaylistSearch", () => {
           playlistSearchSlice.actions.updateRow({
             id: rowId,
             updates: { value: "au" },
-          })
+          }),
         );
       });
 
       await waitFor(() =>
         expect(mockTrigger).toHaveBeenCalledWith(
-          expect.objectContaining({ q: "au" })
-        )
+          expect.objectContaining({ q: "au" }),
+        ),
       );
+    });
+  });
+
+  describe("cursor pagination", () => {
+    it("hasMore is true when the response includes a nextCursor", async () => {
+      const { wrapper } = createWrapper();
+      mockQueryState.data = {
+        results: [],
+        total: 1000,
+        nextCursor: "2024-06-15T14:30:00.000Z_42",
+      };
+
+      const { result } = renderHook(() => usePlaylistSearch(), { wrapper });
+
+      await waitFor(() => expect(result.current.hasMore).toBe(true));
+    });
+
+    it("hasMore is false when the response has no nextCursor", async () => {
+      const { wrapper } = createWrapper();
+      mockQueryState.data = { results: [], total: 5 };
+
+      const { result } = renderHook(() => usePlaylistSearch(), { wrapper });
+
+      await waitFor(() => expect(result.current.hasMore).toBe(false));
+    });
+
+    it("loadNextPage advances the cursor to nextCursor and re-fires", async () => {
+      const { store, wrapper } = createWrapper();
+      mockQueryState.data = {
+        results: [{ id: 1 }],
+        total: 1000,
+        nextCursor: "2024-06-15T14:30:00.000Z_42",
+      };
+
+      const { result } = renderHook(() => usePlaylistSearch(), { wrapper });
+
+      await waitFor(() => expect(mockTrigger).toHaveBeenCalledTimes(1));
+
+      act(() => {
+        result.current.loadNextPage();
+      });
+
+      await waitFor(() => expect(mockTrigger).toHaveBeenCalledTimes(2));
+      expect(mockTrigger.mock.calls[1][0]).toEqual(
+        expect.objectContaining({ cursor: "2024-06-15T14:30:00.000Z_42" }),
+      );
+      expect(store.getState().playlistSearch.cursor).toBe(
+        "2024-06-15T14:30:00.000Z_42",
+      );
+    });
+
+    it("loadNextPage is a no-op when no nextCursor is available", async () => {
+      const { wrapper } = createWrapper();
+      mockQueryState.data = { results: [{ id: 1 }], total: 1 };
+
+      const { result } = renderHook(() => usePlaylistSearch(), { wrapper });
+
+      await waitFor(() => expect(mockTrigger).toHaveBeenCalledTimes(1));
+
+      act(() => {
+        result.current.loadNextPage();
+      });
+
+      // Wait long enough for any spurious effect to fire
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(mockTrigger).toHaveBeenCalledTimes(1);
+    });
+
+    it("editing a row resets the cursor and refetches from the start", async () => {
+      const { store, wrapper } = createWrapper();
+      const rowId = store.getState().playlistSearch.rows[0].id;
+
+      // Simulate having paged once already
+      act(() => {
+        store.dispatch(
+          playlistSearchSlice.actions.advanceCursor(
+            "2024-06-15T14:30:00.000Z_42",
+          ),
+        );
+      });
+
+      renderHook(() => usePlaylistSearch(), { wrapper });
+
+      await waitFor(() => expect(mockTrigger).toHaveBeenCalledTimes(1));
+      expect(mockTrigger.mock.calls[0][0]).toEqual(
+        expect.objectContaining({ cursor: "2024-06-15T14:30:00.000Z_42" }),
+      );
+
+      // User edits the search → cursor resets
+      act(() => {
+        store.dispatch(
+          playlistSearchSlice.actions.updateRow({
+            id: rowId,
+            updates: { value: "autechre" },
+          }),
+        );
+      });
+
+      await waitFor(() => expect(mockTrigger).toHaveBeenCalledTimes(2));
+      expect(mockTrigger.mock.calls[1][0]).toEqual(
+        expect.objectContaining({ q: "autechre", cursor: undefined }),
+      );
+      expect(store.getState().playlistSearch.cursor).toBeNull();
     });
   });
 });
