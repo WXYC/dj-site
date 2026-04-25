@@ -3,7 +3,7 @@
 import { ReactNode } from "react";
 import { Authorization } from "@/lib/features/admin/types";
 import { authClient } from "@/lib/features/authentication/client";
-import { mapRoleToAuthorization } from "@/lib/features/authentication/types";
+import { roleToAuthorization } from "@/lib/features/authentication/types";
 
 // ============================================================================
 // Types
@@ -57,7 +57,7 @@ export function AuthorizedView({
 
   // Get user's authorization level
   const userRole = (session.data.user as any).role as string | undefined;
-  const userAuthority = mapRoleToAuthorization(userRole);
+  const userAuthority = roleToAuthorization(userRole);
 
   // Check if user has required role
   if (userAuthority < requiredRole) {

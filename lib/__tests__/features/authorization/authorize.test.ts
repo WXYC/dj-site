@@ -118,14 +118,14 @@ describe("authorize", () => {
       
       expect(result.ok).toBe(true);
       const success = result as AuthorizeSuccess<Authorization.DJ>;
-      // "admin" role maps to Authorization.SM via mapRoleToAuthorization
+      // "admin" role maps to Authorization.SM via roleToAuthorization
       expect(success.session.user.authority).toBe(Authorization.SM);
     });
   });
 
   describe("role hierarchy", () => {
     const testCases = [
-      // "admin" maps to SM via mapRoleToAuthorization
+      // "admin" maps to SM via roleToAuthorization
       { userRole: "admin", requiredRole: Authorization.SM, expectSuccess: true },
       { userRole: "admin", requiredRole: Authorization.MD, expectSuccess: true },
       { userRole: "admin", requiredRole: Authorization.DJ, expectSuccess: true },

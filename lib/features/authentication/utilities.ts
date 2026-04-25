@@ -5,7 +5,7 @@ import {
   AuthenticatedUser,
   BetterAuthJwtPayload,
   IncompleteUser,
-  mapRoleToAuthorization,
+  roleToAuthorization,
   User,
   VerifiedData
 } from "./types";
@@ -76,7 +76,7 @@ export function toUserFromBetterAuthJWT(token: string): User {
     id: decodedToken.id || decodedToken.sub,
     username: decodedToken.email.split("@")[0] || decodedToken.id || "", // Fallback if username not in token
     email: decodedToken.email,
-    authority: mapRoleToAuthorization(decodedToken.role),
+    authority: roleToAuthorization(decodedToken.role),
   };
 }
 
@@ -101,7 +101,7 @@ export function betterAuthSessionToAuthenticationData(
   const roleToMap = organizationRole || metadataRole || customRole || userRole;
 
   const token = session.session?.token;
-  const authority = mapRoleToAuthorization(roleToMap);
+  const authority = roleToAuthorization(roleToMap);
 
   const username = session.user.username || session.user.name;
 
@@ -196,7 +196,7 @@ export async function betterAuthSessionToAuthenticationDataAsync(
   }
 
   const token = session.session?.token;
-  const authority = mapRoleToAuthorization(roleToMap);
+  const authority = roleToAuthorization(roleToMap);
 
   const username = session.user.username || session.user.name;
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { serverAuthClient } from "@/lib/features/authentication/server-client";
 import { Authorization } from "@/lib/features/admin/types";
-import { mapRoleToAuthorization } from "@/lib/features/authentication/types";
+import { roleToAuthorization } from "@/lib/features/authentication/types";
 import { BetterAuthSession } from "@/lib/features/authentication/utilities";
 
 // ============================================================================
@@ -127,7 +127,7 @@ export async function authorize<R extends Authorization>(
 
   // Get user's authority from their role
   const userRole = (session.user as any).role as string | undefined;
-  const userAuthority = mapRoleToAuthorization(userRole);
+  const userAuthority = roleToAuthorization(userRole);
 
   // Check if user has required role
   if (userAuthority < options.role) {

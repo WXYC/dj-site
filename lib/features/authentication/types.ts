@@ -1,6 +1,14 @@
 import { JwtPayload } from "jwt-decode";
 import { Authorization } from "../admin/types";
 
+export {
+  type WXYCRole,
+  roleToAuthorization,
+  authorizationToRole,
+  AUTHORIZATION_LABELS,
+} from "@wxyc/shared/auth-client/auth";
+import type { WXYCRole } from "@wxyc/shared/auth-client/auth";
+
 export type AuthenticationState = {
   verifications: Verification<VerifiedData>;
   modifications: Verification<ModifiableData>;
@@ -124,9 +132,6 @@ export interface BetterAuthJwtPayload extends JwtPayload {
   aud?: string;        // Audience
 }
 
-// Better-auth role type
-export type WXYCRole = "member" | "dj" | "musicDirector" | "stationManager";
-
 export type DJRegistryParams = {
   username: string;
   real_name: string | undefined;
@@ -176,70 +181,3 @@ export type BackendAccountModification = {
   real_name: string | undefined;
 };
 
-/**
- * Maps a better-auth role string to the Authorization enum
- *
- * Handles the following role types:
- * - WXYC custom roles: "member", "dj", "musicDirector", "stationManager"
- * - Role variations: "station_manager", "music_director" (with underscores)
- * - Better-auth default roles: "member", "user" (map to NO access)
- * - Owner/admin roles: If better-auth uses "owner" or "admin", they may need custom handling
- *
- * Role hierarchy: SM (Station Manager) > MD (Music Director) > DJ > NO (No access)
- *
- * @param role - The role string from better-auth (WXYCRole or any string)
- * @returns The corresponding Authorization enum value
- */
-export function mapRoleToAuthorization(role: WXYCRole | string | undefined): Authorization {
-  if (!role) {
-    return Authorization.NO;
-  }
-
-  // Normalize role string (case-insensitive, handle underscores)
-  const normalizedRole = role.toLowerCase().trim();
-
-  switch (normalizedRole) {
-    case "stationmanager":
-    case "station_manager":
-      return Authorization.SM;
-    case "musicdirector":
-    case "music_director":
-    case "music-director":
-      return Authorization.MD;
-    case "dj":
-      return Authorization.DJ;
-    case "member":
-    case "user":  // Base user role maps to member (NO access)
-      return Authorization.NO;
-    // Better-auth default roles that might be used
-    case "owner":
-    case "admin":
-      // Owners/admins typically have full access, map to station manager
-      // Adjust this mapping based on your business logic
-      return Authorization.SM;
-    default:
-      // Unknown roles default to NO access
-      return Authorization.NO;
-  }
-}
-
-/**
- * Maps an Authorization enum value to its corresponding WXYCRole string.
- * This is the reverse of mapRoleToAuthorization.
- */
-export function authorizationToRole(auth: Authorization): "member" | "dj" | "musicDirector" | "stationManager" {
-  switch (auth) {
-    case Authorization.SM: return "stationManager";
-    case Authorization.MD: return "musicDirector";
-    case Authorization.DJ: return "dj";
-    case Authorization.NO: return "member";
-  }
-}
-
-/** Human-readable labels for each Authorization level, used in UI dropdowns. */
-export const AUTHORIZATION_LABELS: Record<Authorization, string> = {
-  [Authorization.NO]: "Member",
-  [Authorization.DJ]: "DJ",
-  [Authorization.MD]: "Music Director",
-  [Authorization.SM]: "Station Manager",
-};

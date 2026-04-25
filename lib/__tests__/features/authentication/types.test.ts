@@ -3,10 +3,8 @@ import {
   isAuthenticated,
   isIncomplete,
   isPasswordReset,
-  mapRoleToAuthorization,
   djAttributeTitles,
 } from "@/lib/features/authentication/types";
-import { Authorization } from "@/lib/features/admin/types";
 import type {
   AuthenticationData,
   AuthenticatedUser,
@@ -120,84 +118,6 @@ describe("authentication types", () => {
     it("should return false for 'Not Authenticated' message", () => {
       const data: AuthenticationData = { message: "Not Authenticated" };
       expect(isPasswordReset(data)).toBe(false);
-    });
-  });
-
-  describe("mapRoleToAuthorization", () => {
-    describe("station manager roles", () => {
-      it.each([
-        ["stationManager", Authorization.SM],
-        ["stationmanager", Authorization.SM],
-        ["station_manager", Authorization.SM],
-        ["STATIONMANAGER", Authorization.SM],
-        ["  stationManager  ", Authorization.SM],
-      ])('should map "%s" to SM', (role, expected) => {
-        expect(mapRoleToAuthorization(role)).toBe(expected);
-      });
-    });
-
-    describe("music director roles", () => {
-      it.each([
-        ["musicDirector", Authorization.MD],
-        ["musicdirector", Authorization.MD],
-        ["music_director", Authorization.MD],
-        ["music-director", Authorization.MD],
-        ["MUSICDIRECTOR", Authorization.MD],
-      ])('should map "%s" to MD', (role, expected) => {
-        expect(mapRoleToAuthorization(role)).toBe(expected);
-      });
-    });
-
-    describe("DJ roles", () => {
-      it.each([
-        ["dj", Authorization.DJ],
-        ["DJ", Authorization.DJ],
-        ["Dj", Authorization.DJ],
-        ["  dj  ", Authorization.DJ],
-      ])('should map "%s" to DJ', (role, expected) => {
-        expect(mapRoleToAuthorization(role)).toBe(expected);
-      });
-    });
-
-    describe("member/no access roles", () => {
-      it.each([
-        ["member", Authorization.NO],
-        ["Member", Authorization.NO],
-        ["MEMBER", Authorization.NO],
-        ["user", Authorization.NO],
-        ["User", Authorization.NO],
-      ])('should map "%s" to NO', (role, expected) => {
-        expect(mapRoleToAuthorization(role)).toBe(expected);
-      });
-    });
-
-    describe("admin roles", () => {
-      it.each([
-        ["owner", Authorization.SM],
-        ["Owner", Authorization.SM],
-        ["admin", Authorization.SM],
-        ["Admin", Authorization.SM],
-      ])('should map "%s" to SM (full access)', (role, expected) => {
-        expect(mapRoleToAuthorization(role)).toBe(expected);
-      });
-    });
-
-    describe("edge cases", () => {
-      it("should return NO for undefined role", () => {
-        expect(mapRoleToAuthorization(undefined)).toBe(Authorization.NO);
-      });
-
-      it("should return NO for empty string", () => {
-        expect(mapRoleToAuthorization("")).toBe(Authorization.NO);
-      });
-
-      it("should return NO for unknown role", () => {
-        expect(mapRoleToAuthorization("unknown_role")).toBe(Authorization.NO);
-      });
-
-      it("should return NO for whitespace-only string", () => {
-        expect(mapRoleToAuthorization("   ")).toBe(Authorization.NO);
-      });
     });
   });
 

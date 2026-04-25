@@ -1,5 +1,5 @@
 import { Account, AdminAuthenticationStatus, Authorization } from "./types";
-import { mapRoleToAuthorization } from "../authentication/types";
+import { roleToAuthorization } from "../authentication/types";
 
 // Better-auth user type (from admin API)
 export type BetterAuthUser = {
@@ -32,7 +32,7 @@ export function convertBetterAuthToAccountResult(
     userName: user.username || user.name,
     realName: user.realName || user.name || "No Real Name",
     djName: user.djName || undefined,
-    authorization: mapRoleToAuthorization(user.role),
+    authorization: roleToAuthorization(user.role),
     authType: user.emailVerified
       ? AdminAuthenticationStatus.Confirmed
       : AdminAuthenticationStatus.New,
@@ -48,6 +48,6 @@ export function convertBetterAuthToAccountResult(
 export function mapBetterAuthRoleToAuthorization(
   role: "member" | "dj" | "musicDirector" | "stationManager"
 ): Authorization {
-  return mapRoleToAuthorization(role);
+  return roleToAuthorization(role);
 }
 
