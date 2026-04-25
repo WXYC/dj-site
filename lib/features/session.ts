@@ -4,7 +4,7 @@ import "server-only";
 import { defaultApplicationState } from "./application/types";
 import { defaultAuthenticationData, betterAuthSessionToAuthenticationData, BetterAuthSessionResponse, BetterAuthSession } from "./authentication/utilities";
 import { getUserRoleInOrganization, getAppOrganizationId } from "./authentication/organization-utils.server";
-import { mapRoleToAuthorization, isAuthenticated, AuthenticatedUser } from "./authentication/types";
+import { roleToAuthorization, isAuthenticated, AuthenticatedUser } from "./authentication/types";
 import { SiteProps } from "./types";
 import { serverAuthClient } from "./authentication/server-client";
 import { parseAppSkinPreference } from "./experiences/preferences";
@@ -86,7 +86,7 @@ export const createServerSideProps = cache(async (): Promise<SiteProps> => {
 
           if (orgRole !== undefined) {
             // Create authentication data with the fetched organization role
-            const authority = mapRoleToAuthorization(orgRole);
+            const authority = roleToAuthorization(orgRole);
             const authData = betterAuthSessionToAuthenticationData(normalizedSession);
 
             // If we have an authenticated user, update the authority with the organization role

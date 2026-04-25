@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { serverAuthClient } from "./server-client";
 import { BetterAuthSessionResponse, BetterAuthSession } from "./utilities";
 import { Authorization } from "../admin/types";
-import { mapRoleToAuthorization, VerifiedData } from "./types";
+import { roleToAuthorization, VerifiedData } from "./types";
 import { getUserRoleInOrganization, getAppOrganizationId } from "./organization-utils.server";
 
 /**
@@ -85,7 +85,7 @@ async function getUserAuthority(session: BetterAuthSession, cookieHeader?: strin
 
       if (orgRole !== undefined) {
         // Successfully fetched role from organization
-        return mapRoleToAuthorization(orgRole);
+        return roleToAuthorization(orgRole);
       }
       // If user is not a member, continue to fallback logic (will return NO access)
     } catch (error) {
@@ -104,7 +104,7 @@ async function getUserAuthority(session: BetterAuthSession, cookieHeader?: strin
   const customRole = (session.user as any).customRole;
   const roleToMap = organizationRole || metadataRole || customRole || userRole;
 
-  const authority = mapRoleToAuthorization(roleToMap);
+  const authority = roleToAuthorization(roleToMap);
 
   return authority;
 }

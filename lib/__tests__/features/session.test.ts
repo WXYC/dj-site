@@ -50,7 +50,7 @@ vi.mock("@/lib/features/authentication/utilities", () => ({
 
 // Mock authentication types (used by session.ts)
 vi.mock("@/lib/features/authentication/types", () => ({
-  mapRoleToAuthorization: vi.fn(),
+  roleToAuthorization: vi.fn(),
   isAuthenticated: vi.fn(() => false),
 }));
 

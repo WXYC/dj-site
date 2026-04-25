@@ -139,7 +139,7 @@ export async function getUserRoleInOrganizationClient(
  * Handles variations in role naming (e.g., "musicDirector" vs "music_director" vs "music-director")
  *
  * Note: This function only normalizes the format, not the role value itself.
- * The actual role mapping (e.g., "owner"/"admin" to "stationManager") is handled by mapRoleToAuthorization()
+ * The actual role mapping (e.g., "owner"/"admin" to "stationManager") is handled by roleToAuthorization()
  *
  * @param role - The role string from better-auth
  * @returns Normalized role string that matches WXYCRole format (camelCase for multi-word roles)
@@ -160,7 +160,7 @@ export function normalizeRole(role: string): string {
     return normalized;
   }
 
-  // For any other role string, return the original (mapRoleToAuthorization will handle it)
+  // For any other role string, return the original (roleToAuthorization will handle it)
   // This includes better-auth default roles like "owner", "admin", "user"
   return role;
 }
