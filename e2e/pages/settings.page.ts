@@ -1,13 +1,13 @@
 import { Page, Locator, expect } from "@playwright/test";
 
 /**
- * Page Object Model for the Settings Popup/Modal
+ * Page Object Model for the Settings Panel (rightbar sidebar)
  */
 export class SettingsPage {
   readonly page: Page;
 
-  // Settings popup elements
-  readonly settingsModal: Locator;
+  // Settings panel elements (in the rightbar)
+  readonly settingsPanel: Locator;
   readonly usernameInput: Locator;
   readonly realNameInput: Locator;
   readonly djNameInput: Locator;
@@ -15,7 +15,7 @@ export class SettingsPage {
   readonly emailChangeButton: Locator;
   readonly saveButton: Locator;
 
-  // Email Change Modal elements
+  // Email Change Modal elements (still a real modal)
   readonly emailChangeModal: Locator;
   readonly currentEmailInput: Locator;
   readonly newEmailInput: Locator;
@@ -38,18 +38,21 @@ export class SettingsPage {
   constructor(page: Page) {
     this.page = page;
 
-    // Settings popup - it's a Card inside a Modal
-    this.settingsModal = page.locator('.MuiModal-root:has-text("Your Information")');
-    this.usernameInput = this.settingsModal.locator('input').first();
-    this.realNameInput = this.settingsModal.locator('input[name="realName"]');
-    this.djNameInput = this.settingsModal.locator('input[name="djName"]');
-    this.emailInput = this.settingsModal.locator('input').filter({ hasText: /@/ }).first();
-    this.emailChangeButton = this.settingsModal.locator('button:has(svg)').filter({
+    // Settings panel — in the rightbar sidebar
+    this.settingsPanel = page.locator('.SecondSidebar');
+    this.usernameInput = this.settingsPanel.locator('input').first();
+    this.realNameInput = this.settingsPanel.locator('input[name="realName"]');
+    this.djNameInput = this.settingsPanel.locator('input[name="djName"]');
+    this.emailInput = this.settingsPanel.locator('input').filter({ hasText: /@/ }).first();
+    this.emailChangeButton = this.settingsPanel.locator('button:has(svg)').filter({
       has: page.locator('[data-testid="EditIcon"]'),
     });
-    this.saveButton = this.settingsModal.locator('button:has-text("Save")');
+    this.saveButton = this.settingsPanel.locator('button:has-text("Save")');
 
-    // Email Change Modal - nested modal
+    // Keep backward compat — settingsModal points to the panel
+    (this as any).settingsModal = this.settingsPanel;
+
+    // Email Change Modal - still a real modal dialog
     this.emailChangeModal = page.locator('[role="dialog"]:has-text("Change Email Address")');
     this.currentEmailInput = this.emailChangeModal.locator('input').first();
     this.newEmailInput = this.emailChangeModal.getByPlaceholder("Enter your new email");
@@ -75,18 +78,24 @@ export class SettingsPage {
   }
 
   async goto(): Promise<void> {
-    await this.page.goto("/dashboard/settings");
-    await this.page.waitForLoadState("domcontentloaded");
-    await this.page.waitForURL("**/dashboard/settings**", { timeout: 10000 });
-    await this.settingsModal.waitFor({ state: "visible", timeout: 10000 });
+    // Ensure we're on a dashboard page
+    const url = this.page.url();
+    if (!url.includes("/dashboard")) {
+      await this.page.goto("/dashboard/flowsheet");
+      await this.page.waitForLoadState("networkidle");
+    }
+    // Click the Settings button in the leftbar (icon-only, identified by aria-label)
+    const settingsButton = this.page.locator('[aria-label="Settings"]');
+    await settingsButton.waitFor({ state: "visible", timeout: 10000 });
+    await settingsButton.click({ force: true });
+    // Wait for the settings panel content to appear in the rightbar
+    await this.settingsPanel.locator('text=Identity').waitFor({ state: "visible", timeout: 10000 });
   }
 
   async openEmailChangeModal(): Promise<void> {
-    // Find the edit button next to the email field
-    // It's an IconButton with an Edit icon
-    const emailRow = this.settingsModal.locator('label:has-text("Email")').locator("..");
+    const emailRow = this.settingsPanel.locator('label:has-text("Email")').locator("..");
     const editButton = emailRow.locator("button");
-    await editButton.click();
+    await editButton.click({ force: true });
     await this.emailChangeModal.waitFor({ state: "visible", timeout: 5000 });
   }
 
@@ -96,9 +105,6 @@ export class SettingsPage {
   }
 
   async submitEmailChange(): Promise<void> {
-    // Dispatch submit event on the form to bypass both:
-    // 1. Outer SettingsPopup Modal's pointer event interception
-    // 2. Browser HTML5 validation on type="email" inputs (so custom validation runs)
     const form = this.emailChangeModal.locator("form");
     await form.evaluate((f) =>
       f.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))
@@ -112,14 +118,10 @@ export class SettingsPage {
   }
 
   async cancelEmailChange(): Promise<void> {
-    // Use JavaScript click to bypass outer SettingsPopup Modal's CardActions
-    // which intercept pointer events on nested EmailChangeModal buttons
     await this.cancelButton.evaluate((el) => (el as HTMLElement).click());
   }
 
   async closeSuccessModal(): Promise<void> {
-    // Use JavaScript click to bypass outer SettingsPopup Modal's CardActions
-    // which intercept pointer events on nested EmailChangeModal buttons
     await this.doneButton.evaluate((el) => (el as HTMLElement).click());
   }
 
@@ -168,7 +170,6 @@ export class SettingsPage {
   }
 
   async expectNewEmailDisplayed(email: string): Promise<void> {
-    // In success state, the new email is displayed as text
     const emailText = this.emailChangeModal.getByText(email, { exact: true });
     await expect(emailText).toBeVisible();
   }

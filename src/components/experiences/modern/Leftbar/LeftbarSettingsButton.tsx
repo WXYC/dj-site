@@ -22,6 +22,7 @@ export default function LeftbarSettingsButton() {
         <ListItemButton
           variant={isActive ? "solid" : "plain"}
           onClick={() => dispatch(applicationSlice.actions.openPanel({ type: "settings" }))}
+          aria-label="Settings"
         >
           <Badge
             anchorOrigin={{
