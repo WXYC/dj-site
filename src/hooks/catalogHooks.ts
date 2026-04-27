@@ -28,7 +28,7 @@ import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
 import { useGetRotationQuery } from "@/lib/features/rotation/api";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuthentication } from "./authenticationHooks";
 import { filterBySearchTerms } from "@/src/utilities/filterBySearchTerms";
 
@@ -122,53 +122,51 @@ export const useCatalogResults = () => {
     );
   const loadMore = () => dispatch(catalogSlice.actions.loadMore());
 
-  const [loading, setLoading] = useState(false);
+  const [debouncing, setDebouncing] = useState(false);
   const [reachedEndForQuery, setReachedEndForQuery] = useState(false);
-  const [queryTimeout, setQueryTimeout] = useState<
-    NodeJS.Timeout | undefined
-  >();
 
+  const isFirstRender = useRef(true);
   useEffect(() => {
-    clearTimeout(queryTimeout);
-    setQueryTimeout(
-      setTimeout(() => {
-        setLoading(true);
-        clearSelection();
-        setFormattedQuery(formatCatalogSearchQuery(searchIn, searchString, n, exclusive));
-      }, 500)
-    );
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    setDebouncing(true);
+    const timer = setTimeout(() => {
+      clearSelection();
+      setFormattedQuery(
+        formatCatalogSearchQuery(searchIn, searchString, n, exclusive)
+      );
+      setDebouncing(false);
+    }, 500);
+    return () => clearTimeout(timer);
   }, [searchIn, searchString, n, exclusive]);
 
   useEffect(() => {
     setReachedEndForQuery(false);
   }, [searchIn, searchString]);
 
-  const { data, isLoading, isSuccess, isError } = useSearchCatalogQuery(
-    formattedQuery,
-    {
-      skip:
-        authenticating ||
-        !authenticated ||
-        searchString.length < MIN_SEARCH_LENGTH,
-    }
-  );
+  const { data, isFetching } = useSearchCatalogQuery(formattedQuery, {
+    skip:
+      authenticating ||
+      !authenticated ||
+      searchString.length < MIN_SEARCH_LENGTH,
+  });
 
-  // Calculate loading state during render - simpler than separate useEffect
   const combinedLoading = useMemo(() => {
-    return isLoading || loading;
-  }, [isLoading, loading]);
+    if (searchString.length < MIN_SEARCH_LENGTH) return false;
+    return debouncing || isFetching;
+  }, [debouncing, isFetching, searchString.length]);
 
   const [lastData, setLastData] = useState(0);
   useEffect(() => {
-    if (isSuccess || isError) {
-      setLoading(false);
-    }
-    if (data?.length === lastData) {
+    if (data === undefined) return;
+    if (data.length === lastData) {
       setReachedEndForQuery(true);
     } else {
-      setLastData(data?.length ?? 0);
+      setLastData(data.length);
     }
-  }, [data, isSuccess, isError, lastData]);
+  }, [data, lastData]);
 
   return {
     data,
