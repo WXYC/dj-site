@@ -2,6 +2,7 @@ import { createApi } from "@reduxjs/toolkit/query/react";
 import { DJRequestParams } from "../authentication/types";
 import { backendBaseQuery } from "../backend";
 import {
+  FLOWSHEET_METADATA_REFETCH_DELAY_MS,
   FLOWSHEET_OPTIMISTIC_DJ_PLACEHOLDER,
   FLOWSHEET_PAGE_SIZE,
 } from "./constants";
@@ -37,6 +38,22 @@ function flowsheetMutationCatch(endpoint: string, err: unknown) {
   if (process.env.NODE_ENV === "development") {
     console.warn(`[flowsheet] ${endpoint}`, err);
   }
+}
+
+/**
+ * Schedule a deferred Flowsheet-tag invalidation so the row picks up backend's
+ * async LML enrichment (artwork, streaming URLs, artist bio) without waiting
+ * for the next 60s polling cycle. Extracted for testability — see
+ * `addToFlowsheet.deferred-refetch.test.ts`.
+ *
+ * Returns the timer handle so callers (or tests) can cancel it if needed.
+ */
+export function scheduleDeferredFlowsheetRefetch(
+  dispatch: (action: ReturnType<typeof flowsheetApi.util.invalidateTags>) => void
+): ReturnType<typeof setTimeout> {
+  return setTimeout(() => {
+    dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
+  }, FLOWSHEET_METADATA_REFETCH_DELAY_MS);
 }
 
 export const flowsheetApi = createApi({
@@ -226,6 +243,7 @@ export const flowsheetApi = createApi({
                 }
               )
             );
+            scheduleDeferredFlowsheetRefetch(dispatch);
           } catch (err) {
             flowsheetMutationCatch("addToFlowsheet", err);
             patchResult?.undo();
