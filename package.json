@@ -46,23 +46,23 @@
     "webcrypt-session": "^0.5.1"
   },
   "devDependencies": {
-    "@playwright/test": "^1.52.0",
+    "@playwright/test": "^1.59.1",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.5.0",
     "@testing-library/react": "^16.0.0",
     "@testing-library/user-event": "^14.5.0",
-    "@types/node": "^20.19.30",
+    "@types/node": "^25.6.0",
     "@types/react": "18.2.37",
     "@types/react-dom": "^18.2.18",
-    "@vitejs/plugin-react": "^5.1.2",
-    "@vitest/coverage-v8": "^4.0.18",
+    "@vitejs/plugin-react": "^6.0.1",
+    "@vitest/coverage-v8": "^4.1.5",
     "@vitest/ui": "^4.0.18",
-    "esbuild": "^0.27.3",
-    "jsdom": "^25.0.0",
-    "msw": "^2.4.0",
-    "typescript": "^5.3.3",
+    "esbuild": "^0.28.0",
+    "jsdom": "^29.1.1",
+    "msw": "^2.14.2",
+    "typescript": "^6.0.3",
     "vitest": "^4.0.18",
-    "wrangler": "^4.42.2"
+    "wrangler": "^4.87.0"
   },
   "optionalDependencies": {
     "@ast-grep/napi-darwin-arm64": "^0.35.0",
