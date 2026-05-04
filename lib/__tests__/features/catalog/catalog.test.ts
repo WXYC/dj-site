@@ -15,7 +15,7 @@ import { Rotation } from "@/lib/features/rotation/types";
 
 describe("catalogApi", () => {
   describeApi(catalogApi, {
-    queries: ["searchCatalog", "getInformation", "getFormats", "getGenres"],
+    queries: ["searchCatalog", "getInformation", "getFormats", "getGenres", "peekArtistCode"],
     mutations: ["addAlbum", "addArtist", "addFormat", "addGenre", "markMissing", "markFound"],
     reducerPath: "catalogApi",
   });
