@@ -1,0 +1,22 @@
+name: Charset Corpus Drift
+
+# Bump-or-freeze procedure: see WXYC/wxyc-shared README "Drift guard CI".
+
+on:
+  pull_request:
+    paths:
+      - "tests/fixtures/charset-torture.json.sha256"
+      - ".github/workflows/charset-corpus-drift.yml"
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 8 * * 1"
+
+jobs:
+  drift:
+    uses: WXYC/wxyc-shared/.github/workflows/check-charset-corpus-drift.yml@main
+    with:
+      pinned-sha256: 75a3395bb10894480dba95bf5b7f379f5056645098d6a1bf9e94416709e5214a
+      package-version: "0.10.0"
+    secrets:
+      npm-token: ${{ secrets.GITHUB_TOKEN }}
