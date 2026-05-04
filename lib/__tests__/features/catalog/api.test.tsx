@@ -19,7 +19,7 @@ vi.mock("@/lib/features/authentication/client", () => ({
 
 describe("catalogApi", () => {
   describeApi(catalogApi, {
-    queries: ["searchCatalog", "getInformation", "getFormats", "getGenres"],
+    queries: ["searchCatalog", "getInformation", "getFormats", "getGenres", "peekArtistCode"],
     mutations: ["addAlbum", "addArtist", "addFormat", "addGenre"],
     reducerPath: "catalogApi",
   });

@@ -31,6 +31,11 @@ test.describe("Role-Based Access Control", () => {
       await dashboardPage.expectRedirectedToDefaultDashboard();
     });
 
+    test("should be redirected from admin catalog page", async ({ page }) => {
+      await dashboardPage.gotoAdminCatalog();
+      await dashboardPage.expectRedirectedToDefaultDashboard();
+    });
+
     test("should not see admin navigation link", async ({ page }) => {
       await dashboardPage.waitForPageLoad();
       // Admin roster link should not be visible for DJ users
@@ -60,6 +65,11 @@ test.describe("Role-Based Access Control", () => {
       // MD should also be redirected (roster requires SM)
       await dashboardPage.expectRedirectedToDefaultDashboard();
     });
+
+    test("should be redirected from admin catalog page", async ({ page }) => {
+      await dashboardPage.gotoAdminCatalog();
+      await dashboardPage.expectRedirectedToDefaultDashboard();
+    });
   });
 
   test.describe("Station Manager Access", () => {
@@ -83,6 +93,11 @@ test.describe("Role-Based Access Control", () => {
       await dashboardPage.gotoAdminRoster();
       // SM should have full access
       await dashboardPage.expectOnAdminRoster();
+    });
+
+    test("should access admin catalog page", async ({ page }) => {
+      await dashboardPage.gotoAdminCatalog();
+      await dashboardPage.expectOnAdminCatalog();
     });
 
     test("should see DJ Roster page header", async ({ page }) => {
@@ -109,6 +124,11 @@ test.describe("Role-Based Access Control", () => {
     test("should be redirected from admin pages", async ({ page }) => {
       await dashboardPage.gotoAdminRoster();
       // Member should be redirected to default dashboard
+      await dashboardPage.expectRedirectedToDefaultDashboard();
+    });
+
+    test("should be redirected from admin catalog page", async ({ page }) => {
+      await dashboardPage.gotoAdminCatalog();
       await dashboardPage.expectRedirectedToDefaultDashboard();
     });
 

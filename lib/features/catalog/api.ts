@@ -2,11 +2,17 @@ import { createApi } from "@reduxjs/toolkit/query/react";
 import { backendBaseQuery } from "../backend";
 import { convertToAlbumEntry } from "./conversions";
 import {
+  AddAlbumRequestBody,
+  AddArtistRequestBody,
+  AddFormatRequestBody,
+  AddGenreRequestBody,
   AlbumEntry,
-  AlbumParams,
   AlbumSearchResultJSON,
   AlbumRequestParams,
-  ArtistParams,
+  LibraryFormatRow,
+  LibraryGenreRow,
+  PeekArtistCodeQuery,
+  PeekArtistCodeResponse,
   SearchCatalogQueryParams,
 } from "./types";
 
@@ -23,18 +29,27 @@ export const catalogApi = createApi({
       transformResponse: (response: AlbumSearchResultJSON[]) =>
         response.map(convertToAlbumEntry),
     }),
-    addAlbum: builder.mutation<any, AlbumParams>({
-      query: (album) => ({
+    addAlbum: builder.mutation<{ id: number } & Record<string, unknown>, AddAlbumRequestBody>({
+      query: (body) => ({
         url: "/",
         method: "POST",
-        body: album,
+        body,
       }),
     }),
-    addArtist: builder.mutation<any, ArtistParams>({
-      query: (artist) => ({
+    addArtist: builder.mutation<
+      { id: number; code_number?: number; genre_id?: number } & Record<string, unknown>,
+      AddArtistRequestBody
+    >({
+      query: (body) => ({
         url: "/artists",
         method: "POST",
-        body: artist,
+        body,
+      }),
+    }),
+    peekArtistCode: builder.query<PeekArtistCodeResponse, PeekArtistCodeQuery>({
+      query: ({ code_letters, genre_id }) => ({
+        url: "/artists/peek-code",
+        params: { code_letters, genre_id },
       }),
     }),
     getInformation: builder.query<AlbumEntry, AlbumRequestParams>({
@@ -69,28 +84,28 @@ export const catalogApi = createApi({
         { type: "AlbumDetail", id: albumId },
       ],
     }),
-    getFormats: builder.query<any, void>({
+    getFormats: builder.query<LibraryFormatRow[], void>({
       query: () => ({
         url: "/formats",
       }),
     }),
-    addFormat: builder.mutation<any, string>({
-      query: (format) => ({
+    addFormat: builder.mutation<LibraryFormatRow, AddFormatRequestBody>({
+      query: (body) => ({
         url: "/formats",
         method: "POST",
-        body: format,
+        body,
       }),
     }),
-    getGenres: builder.query<any, void>({
+    getGenres: builder.query<LibraryGenreRow[], void>({
       query: () => ({
         url: "/genres",
       }),
     }),
-    addGenre: builder.mutation<any, string>({
-      query: (genre) => ({
+    addGenre: builder.mutation<LibraryGenreRow, AddGenreRequestBody>({
+      query: (body) => ({
         url: "/genres",
         method: "POST",
-        body: genre,
+        body,
       }),
     }),
   }),
@@ -100,6 +115,7 @@ export const {
   useSearchCatalogQuery,
   useAddAlbumMutation,
   useAddArtistMutation,
+  useLazyPeekArtistCodeQuery,
   useGetInformationQuery,
   useGetFormatsQuery,
   useAddFormatMutation,
