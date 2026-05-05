@@ -4,8 +4,8 @@
     "version": 1,
     "schema": {
       "input": "Raw UTF-8 string the storage layer must round-trip losslessly.",
-      "expected_storage": "Canonical (mojibake-fixed) form. Equals input for non-mojibake categories.",
-      "expected_match_form": "Output of to_match_form(expected_storage). NFKD + strip combining marks + lowercase + Greek sigma fold + trim. Null when WX-2 has not formalized the rule for this script.",
+      "expected_storage": "Output of to_storage_form(input). ftfy-style mojibake repair, then NFC normalization, then ASCII whitespace trim. Equals input for clean NFC input; differs for mojibake (repaired) and NFD (re-NFC'd). Two byte forms of the same visual string canonicalize to one.",
+      "expected_match_form": "Output of to_match_form(expected_storage). NFKC + Unicode default-caseless casefold + strip combining marks + WXYC fold registry (sigma, ligatures) + strip Cf format chars except U+200D ZWJ + collapse internal whitespace + trim. Null when WX-2 has not formalized the rule for this script.",
       "expected_ascii_form": "Output of to_ascii_form(expected_storage). Lowercase ASCII transliteration. Null for scripts without a defined transliteration in v1.",
       "notes": "Why this entry exists; which encoding incident or hazard category it pins."
     },
@@ -279,23 +279,23 @@
       {
         "input": "Hello\u200EWorld",
         "expected_storage": "Hello\u200EWorld",
-        "expected_match_form": null,
+        "expected_match_form": "helloworld",
         "expected_ascii_form": "helloworld",
-        "notes": "U+200E LEFT-TO-RIGHT MARK embedded in ASCII. LRM is category Cf (Format), NOT M (Mark) — it is NOT stripped by NFKD + is_mark filter. Match-form behavior is undefined in v1 (WX-2 must decide whether to strip Cf characters)."
+        "notes": "U+200E LEFT-TO-RIGHT MARK embedded in ASCII. LRM is category Cf (Format), NOT M (Mark) — survives NFKD + is_mark filter. Match-form strips it (WX-2 charter: strip all Cf except U+200D ZWJ); storage preserves it for round-trip fidelity."
       },
       {
         "input": "Hello\u200FWorld",
         "expected_storage": "Hello\u200FWorld",
-        "expected_match_form": null,
+        "expected_match_form": "helloworld",
         "expected_ascii_form": "helloworld",
-        "notes": "U+200F RIGHT-TO-LEFT MARK. Same Cf-not-stripped hazard as LRM. Invisible character that survives most pipelines and corrupts visual rendering later."
+        "notes": "U+200F RIGHT-TO-LEFT MARK. Same Cf-not-stripped hazard as LRM; same charter resolution — match-form strips, storage preserves."
       },
       {
         "input": "\u202EReversed\u202C",
         "expected_storage": "\u202EReversed\u202C",
-        "expected_match_form": null,
+        "expected_match_form": "reversed",
         "expected_ascii_form": "reversed",
-        "notes": "U+202E RIGHT-TO-LEFT OVERRIDE + U+202C POP DIRECTIONAL FORMATTING. Spoofing-attack vector; must round-trip but should ideally be flagged on storage (out of scope for WX-1)."
+        "notes": "U+202E RIGHT-TO-LEFT OVERRIDE + U+202C POP DIRECTIONAL FORMATTING. Spoofing-attack vector — both are Cf, both stripped from match-form; storage preserves the bytes (write-boundary defense is WX-3 scope, not WX-1 corpus scope)."
       }
     ],
     "zwj": [
@@ -327,28 +327,28 @@
         "expected_storage": "café",
         "expected_match_form": "cafe",
         "expected_ascii_form": "cafe",
-        "notes": "NFC form: U+0063 U+0061 U+0066 U+00E9. Storage MUST preserve as-is (no silent re-normalization). Match-form folds to bare ASCII via NFKD + strip combining."
+        "notes": "NFC form: U+0063 U+0061 U+0066 U+00E9. Already canonical; storage form is a no-op. Match-form folds to bare ASCII via NFKC + casefold + strip combining."
       },
       {
         "input": "cafe\u0301",
-        "expected_storage": "cafe\u0301",
+        "expected_storage": "café",
         "expected_match_form": "cafe",
         "expected_ascii_form": "cafe",
-        "notes": "NFD form of café: U+0063 U+0061 U+0066 U+0065 U+0301. Visually identical to the NFC entry above; bytes differ. Both must round-trip; both must produce the same match form."
+        "notes": "NFD form of café (U+0063 U+0061 U+0066 U+0065 U+0301) — three codepoints, four bytes after NFC. Storage form NFC-normalizes to the precomposed form so two byte-distinct submissions of the same visual string canonicalize to one row at the catalog. Match form collides with the NFC entry above."
       },
       {
         "input": "ñ",
         "expected_storage": "ñ",
         "expected_match_form": "n",
         "expected_ascii_form": "n",
-        "notes": "NFC form: U+00F1. Single precomposed Spanish ñ."
+        "notes": "NFC form: U+00F1. Single precomposed Spanish ñ; storage form is a no-op."
       },
       {
         "input": "n\u0303",
-        "expected_storage": "n\u0303",
+        "expected_storage": "ñ",
         "expected_match_form": "n",
         "expected_ascii_form": "n",
-        "notes": "NFD form of ñ: U+006E + U+0303. Bytes differ from NFC entry; match form must collide."
+        "notes": "NFD form of ñ (U+006E + U+0303). Storage form NFC-normalizes to the precomposed U+00F1 — same canonicalization rule as café-NFD above. Match form collides with both NFC and NFD ñ entries."
       }
     ],
     "mojibake_known": [
