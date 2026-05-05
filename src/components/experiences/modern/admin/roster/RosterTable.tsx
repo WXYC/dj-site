@@ -19,6 +19,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { onRosterInvalidated } from "@/lib/features/admin/roster-events";
+import { getUsernameError } from "@/src/utilities/usernameValidation";
 import { AccountEntry } from "./AccountEntry";
 import AccountSearchForm from "./AccountSearchForm";
 import ExportDJsButton from "./ExportCSV";
@@ -80,6 +81,11 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
           temporaryPassword: tempPassword,
           authorization: authorizationOfNewAccount,
         };
+
+        const usernameError = getUsernameError(newAccount.username);
+        if (usernameError) {
+          throw new Error(usernameError);
+        }
 
         const role = authorizationToRole(authorizationOfNewAccount);
 
