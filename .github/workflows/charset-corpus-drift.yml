@@ -16,7 +16,7 @@ jobs:
   drift:
     uses: WXYC/wxyc-shared/.github/workflows/check-charset-corpus-drift.yml@main
     with:
-      pinned-sha256: 75a3395bb10894480dba95bf5b7f379f5056645098d6a1bf9e94416709e5214a
-      package-version: "0.10.0"
+      pinned-sha256: 41a18c5c0a92d129ec4b575827b6874196bfb7591e4bdf237a918a5da2de7b66
+      package-version: "0.12.0"
     secrets:
       npm-token: ${{ secrets.GITHUB_TOKEN }}
