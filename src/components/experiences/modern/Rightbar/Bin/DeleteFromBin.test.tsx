@@ -15,7 +15,7 @@ vi.mock("@/src/hooks/binHooks", () => ({
 
 // Mock MUI icons
 vi.mock("@mui/icons-material", () => ({
-  DeleteOutline: () => <span data-testid="delete-icon" />,
+  DeleteOutlined: () => <span data-testid="delete-icon" />,
 }));
 
 // Wrapper component to provide Menu context

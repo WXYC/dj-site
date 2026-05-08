@@ -10,7 +10,7 @@ import CardOverflow from "@mui/joy/CardOverflow";
 import Divider from "@mui/joy/Divider";
 import IconButton from "@mui/joy/IconButton";
 import Typography from "@mui/joy/Typography";
-import { MutableRefObject, RefObject } from "react";
+import { RefObject } from "react";
 import AlbumArtAndIcons from "./AlbumArtAndIcons";
 import EntryText from "./EntryText";
 import { GradientAudioVisualizer } from "./GradientAudioVisualizer";
@@ -35,12 +35,12 @@ export default function NowPlayingMain({
   loading?: boolean;
   width?: number;
   height?: number;
-  audioRef: RefObject<HTMLAudioElement>;
+  audioRef: RefObject<HTMLAudioElement | null>;
   isPlaying: boolean;
   onTogglePlay: () => void;
   audioContext: AudioContext | null;
   analyserNode: AnalyserNode | null;
-  animationFrameRef: MutableRefObject<number | null>;
+  animationFrameRef: RefObject<number | null>;
 }) {
   return (
     <Card

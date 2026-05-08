@@ -28,7 +28,7 @@ function createMockAudioRef(element?: Partial<HTMLAudioElement>) {
 }
 
 function createMockAnimationFrameRef() {
-  return { current: null } as React.MutableRefObject<number | null>;
+  return { current: null } as React.RefObject<number | null>;
 }
 
 describe("GradientAudioVisualizer", () => {

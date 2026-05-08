@@ -2,7 +2,7 @@
 
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import { useDeleteFromBin } from "@/src/hooks/binHooks";
-import { DeleteOutline } from "@mui/icons-material";
+import { DeleteOutlined } from "@mui/icons-material";
 import { MenuItem, MenuItemProps } from "@mui/joy";
 
 export default function DeleteFromBin({
@@ -13,7 +13,7 @@ export default function DeleteFromBin({
 
   return (
     <MenuItem onClick={() => deleteFromBin(album.id)} {...props}>
-      <DeleteOutline />
+      <DeleteOutlined />
       {`Remove ${album.title} from Bin`}
     </MenuItem>
   );
