@@ -15,12 +15,18 @@ updates:
           - "@wxyc/shared"
       dev-dependencies:
         dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
         exclude-patterns:
           - "better-auth"
           - "@better-auth/*"
           - "@wxyc/shared"
       production-dependencies:
         dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
         exclude-patterns:
           - "better-auth"
           - "@better-auth/*"
