@@ -71,12 +71,12 @@ jobs:
 
     steps:
       - name: Checkout dj-site
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           path: dj-site
 
       - name: Checkout Backend-Service
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: ${{ github.repository_owner }}/Backend-Service
           ref: ${{ github.event.inputs.backend_ref || 'main' }}
