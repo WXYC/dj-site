@@ -1,15 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen } from "@testing-library/react";
-import {
-  renderWithProviders,
-  createTestStore,
-} from "@/lib/test-utils/render";
+import { renderWithProviders } from "@/lib/test-utils/render";
 import { createTestAlbum, createTestArtist } from "@/lib/test-utils";
-import { catalogSlice } from "@/lib/features/catalog/frontend";
 
 const mockSearchCatalogQuery = vi.fn();
 const mockReplace = vi.fn();
-const mockSearchParams = new URLSearchParams("");
+let mockSearchParams = new URLSearchParams("");
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: mockReplace }),
@@ -32,16 +28,8 @@ import SearchResults from "../SearchResults";
 beforeEach(() => {
   mockSearchCatalogQuery.mockReset();
   mockReplace.mockReset();
-  Array.from(mockSearchParams.keys()).forEach((k) =>
-    mockSearchParams.delete(k)
-  );
+  mockSearchParams = new URLSearchParams("");
 });
-
-function storeWithExclusive() {
-  const store = createTestStore();
-  store.dispatch(catalogSlice.actions.setExclusiveFilter(true));
-  return store;
-}
 
 describe("Classic catalog SearchResults — Exclusive filter", () => {
   it("does NOT fire the search when neither query nor exclusive filter is set", () => {
@@ -55,7 +43,8 @@ describe("Classic catalog SearchResults — Exclusive filter", () => {
     expect(options?.skip).toBe(true);
   });
 
-  it("fires the search with on_streaming=false when exclusive filter is on (no query)", () => {
+  it("fires the search with on_streaming=false when ?exclusive=true is in the URL (no query)", () => {
+    mockSearchParams = new URLSearchParams("exclusive=true");
     const album = createTestAlbum({
       artist: createTestArtist({
         name: "Stereolab",
@@ -70,23 +59,24 @@ describe("Classic catalog SearchResults — Exclusive filter", () => {
       isLoading: false,
       error: undefined,
     });
-    renderWithProviders(<SearchResults />, { store: storeWithExclusive() });
+    renderWithProviders(<SearchResults />);
     const [params, options] = mockSearchCatalogQuery.mock.calls.at(-1) ?? [];
     expect(params).toMatchObject({ on_streaming: false });
     expect(options?.skip).toBe(false);
   });
 
-  it("renders the Exclusive filter chip when the filter is on", () => {
+  it("renders the Exclusive filter chip when ?exclusive=true is in the URL", () => {
+    mockSearchParams = new URLSearchParams("exclusive=true");
     mockSearchCatalogQuery.mockReturnValue({
       data: [],
       isLoading: false,
       error: undefined,
     });
-    renderWithProviders(<SearchResults />, { store: storeWithExclusive() });
+    renderWithProviders(<SearchResults />);
     expect(screen.getByTestId("classic-filter-chip-exclusive")).toBeDefined();
   });
 
-  it("does NOT render the Exclusive filter chip when the filter is off", () => {
+  it("does NOT render the Exclusive filter chip when ?exclusive is absent", () => {
     mockSearchCatalogQuery.mockReturnValue({
       data: [],
       isLoading: false,
@@ -98,31 +88,14 @@ describe("Classic catalog SearchResults — Exclusive filter", () => {
     ).toBeNull();
   });
 
-  it("clicking the chip dismiss clears the exclusive filter", async () => {
-    mockSearchCatalogQuery.mockReturnValue({
-      data: [],
-      isLoading: false,
-      error: undefined,
-    });
-    const store = storeWithExclusive();
-    const { user } = renderWithProviders(<SearchResults />, { store });
-    await user.click(
-      screen.getByRole("button", { name: /remove exclusive filter/i })
-    );
-    expect(
-      catalogSlice.selectors.getExclusiveFilter(store.getState())
-    ).toBe(false);
-  });
-
   it("clicking the chip dismiss strips ?exclusive=true from the URL", async () => {
+    mockSearchParams = new URLSearchParams("exclusive=true");
     mockSearchCatalogQuery.mockReturnValue({
       data: [],
       isLoading: false,
       error: undefined,
     });
-    mockSearchParams.set("exclusive", "true");
-    const store = storeWithExclusive();
-    const { user } = renderWithProviders(<SearchResults />, { store });
+    const { user } = renderWithProviders(<SearchResults />);
     await user.click(
       screen.getByRole("button", { name: /remove exclusive filter/i })
     );
@@ -133,15 +106,13 @@ describe("Classic catalog SearchResults — Exclusive filter", () => {
   });
 
   it("chip dismiss preserves other params (e.g. searchString)", async () => {
+    mockSearchParams = new URLSearchParams("exclusive=true&searchString=polvo");
     mockSearchCatalogQuery.mockReturnValue({
       data: [],
       isLoading: false,
       error: undefined,
     });
-    mockSearchParams.set("exclusive", "true");
-    mockSearchParams.set("searchString", "polvo");
-    const store = storeWithExclusive();
-    const { user } = renderWithProviders(<SearchResults />, { store });
+    const { user } = renderWithProviders(<SearchResults />);
     await user.click(
       screen.getByRole("button", { name: /remove exclusive filter/i })
     );

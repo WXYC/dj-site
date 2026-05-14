@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/lib/test-utils/render";
-import { catalogSlice } from "@/lib/features/catalog/frontend";
 
 const mockPush = vi.fn();
 let mockSearchParams = new URLSearchParams("");
@@ -25,51 +24,17 @@ describe("Classic catalog SearchForm — Browse Exclusive Albums", () => {
     ).toBeDefined();
   });
 
-  it("clicking the button sets the exclusive filter and navigates to ?exclusive=true", async () => {
-    mockPush.mockClear();
-    const { user, store } = renderWithProviders(<SearchForm />);
-    const button = screen.getByRole("button", {
-      name: /browse exclusive albums/i,
-    });
-    await user.click(button);
-    expect(
-      catalogSlice.selectors.getExclusiveFilter(store.getState())
-    ).toBe(true);
-    expect(mockPush).toHaveBeenCalledWith(
-      "/dashboard/catalog?exclusive=true"
-    );
-  });
-
-  it("clears the search query when entering exclusive-browse mode", async () => {
-    const { user, store } = renderWithProviders(<SearchForm />);
-    store.dispatch(catalogSlice.actions.setSearchQuery("polvo"));
+  it("clicking the button navigates to ?exclusive=true", async () => {
+    const { user } = renderWithProviders(<SearchForm />);
     await user.click(
       screen.getByRole("button", { name: /browse exclusive albums/i })
     );
-    expect(
-      catalogSlice.selectors.getSearchQuery(store.getState())
-    ).toBe("");
+    expect(mockPush).toHaveBeenCalledWith("/dashboard/catalog?exclusive=true");
   });
 
-  it("rehydrates the Exclusive filter from ?exclusive=true on mount", () => {
+  it("preserves ?exclusive=true on submit when the URL already carries it", async () => {
     mockSearchParams = new URLSearchParams("exclusive=true");
-    const { store } = renderWithProviders(<SearchForm />);
-    expect(
-      catalogSlice.selectors.getExclusiveFilter(store.getState())
-    ).toBe(true);
-  });
-
-  it("does NOT touch the Exclusive filter when ?exclusive is absent", () => {
-    const { store } = renderWithProviders(<SearchForm />);
-    expect(
-      catalogSlice.selectors.getExclusiveFilter(store.getState())
-    ).toBe(false);
-  });
-
-  it("preserves ?exclusive=true on submit when the Exclusive filter is on", async () => {
-    mockPush.mockClear();
-    const { user, store } = renderWithProviders(<SearchForm />);
-    store.dispatch(catalogSlice.actions.setExclusiveFilter(true));
+    const { user } = renderWithProviders(<SearchForm />);
     const input = screen.getByRole("textbox");
     await user.type(input, "polvo");
     const submit = screen.getByRole("button", {
@@ -82,8 +47,7 @@ describe("Classic catalog SearchForm — Browse Exclusive Albums", () => {
     expect(pushedUrl).toContain("exclusive=true");
   });
 
-  it("omits exclusive=true on submit when the Exclusive filter is off", async () => {
-    mockPush.mockClear();
+  it("omits exclusive=true on submit when the URL does not carry it", async () => {
     const { user } = renderWithProviders(<SearchForm />);
     const input = screen.getByRole("textbox");
     await user.type(input, "polvo");
@@ -94,5 +58,12 @@ describe("Classic catalog SearchForm — Browse Exclusive Albums", () => {
     const pushedUrl = mockPush.mock.calls[0][0] as string;
     expect(pushedUrl).toContain("searchString=polvo");
     expect(pushedUrl).not.toContain("exclusive=true");
+  });
+
+  it("seeds the input from ?searchString= on mount", () => {
+    mockSearchParams = new URLSearchParams("searchString=polvo");
+    renderWithProviders(<SearchForm />);
+    const input = screen.getByRole("textbox") as HTMLInputElement;
+    expect(input.defaultValue).toBe("polvo");
   });
 });
