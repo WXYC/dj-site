@@ -12,11 +12,19 @@ on:
   schedule:
     - cron: "17 8 * * 1"
 
+# Workflow-level GITHUB_TOKEN scope. The reusable workflow runs
+# `npm pack @wxyc/shared` against npm.pkg.github.com using the token
+# forwarded as `npm-token`, which needs packages:read.
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   drift:
-    uses: WXYC/wxyc-shared/.github/workflows/check-charset-corpus-drift.yml@main
+    uses: WXYC/wxyc-shared/.github/workflows/check-charset-corpus-drift.yml@gha/v1
     with:
       pinned-sha256: 75a3395bb10894480dba95bf5b7f379f5056645098d6a1bf9e94416709e5214a
       package-version: "0.10.0"
+      wxyc-shared-ref: gha/v1
     secrets:
       npm-token: ${{ secrets.GITHUB_TOKEN }}
