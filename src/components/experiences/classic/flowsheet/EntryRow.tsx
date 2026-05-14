@@ -9,7 +9,9 @@ import {
   isFlowsheetEndShowEntry,
 } from "@/lib/features/flowsheet/types";
 import { Capsule, capsulesForSongEntry } from "./Capsule";
+import { formatShortDate, formatShortTime } from "./marker-format";
 import "@/src/styles/classic/segue.css";
+import "@/src/styles/classic/markers.css";
 
 export default function EntryRow({
   entry,
@@ -44,8 +46,8 @@ export default function EntryRow({
   // (indicators + 4 data) and the row's trailing 3 columns stay empty.
   if (isFlowsheetTalksetEntry(entry)) {
     return (
-      <tr style={{ backgroundColor: "#BBBBBB" }} className={`flowsheetEntryData ${fontSizeClass}`}>
-        <td colSpan={5} align="center" className="redlabel">
+      <tr className={`flowsheetEntryData classic-marker-talkset ${fontSizeClass}`}>
+        <td colSpan={5} align="center">
           talkset
         </td>
         <td colSpan={3}>&nbsp;</td>
@@ -55,9 +57,9 @@ export default function EntryRow({
 
   if (isFlowsheetBreakpointEntry(entry)) {
     return (
-      <tr style={{ backgroundColor: "#444444" }} className={`flowsheetEntryData ${fontSizeClass}`}>
-        <td colSpan={5} align="left" className="littlegreenlabel">
-          {entry.message}
+      <tr className={`flowsheetEntryData classic-marker-breakpoint ${fontSizeClass}`}>
+        <td colSpan={5} align="center">
+          {formatShortTime(entry.time)} breakpoint
         </td>
         <td colSpan={3}>&nbsp;</td>
       </tr>
@@ -66,9 +68,10 @@ export default function EntryRow({
 
   if (isFlowsheetStartShowEntry(entry)) {
     return (
-      <tr style={{ backgroundColor: "#444444" }} className={`flowsheetEntryData ${fontSizeClass}`}>
-        <td colSpan={5} align="left" className="littlegreenlabel">
-          Start: {entry.dj_name}
+      <tr className={`flowsheetEntryData classic-marker-breakpoint ${fontSizeClass}`}>
+        <td colSpan={5} align="center">
+          Start of show — {entry.dj_name} @ {formatShortDate(entry.day)}{" "}
+          {formatShortTime(entry.time)}
         </td>
         <td colSpan={3}>&nbsp;</td>
       </tr>
@@ -77,9 +80,10 @@ export default function EntryRow({
 
   if (isFlowsheetEndShowEntry(entry)) {
     return (
-      <tr style={{ backgroundColor: "#444444" }} className={`flowsheetEntryData ${fontSizeClass}`}>
-        <td colSpan={5} align="left" className="littlegreenlabel">
-          End: {entry.dj_name}
+      <tr className={`flowsheetEntryData classic-marker-breakpoint ${fontSizeClass}`}>
+        <td colSpan={5} align="center">
+          End of show — {entry.dj_name} @ {formatShortDate(entry.day)}{" "}
+          {formatShortTime(entry.time)}
         </td>
         <td colSpan={3}>&nbsp;</td>
       </tr>
