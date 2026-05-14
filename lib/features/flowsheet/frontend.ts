@@ -65,6 +65,25 @@ export const flowsheetSlice = createAppSlice({
     ) => {
       state.search.query[action.payload.name] = action.payload.value;
     },
+    /**
+     * Copy a selected search result's fields into the live search query and
+     * deselect it, so the user can edit one field without losing the others.
+     */
+    freezeSelectionToQuery: (
+      state,
+      action: PayloadAction<{
+        artist: string;
+        album: string;
+        label: string;
+        album_id?: number;
+      }>
+    ) => {
+      state.search.query.artist = action.payload.artist;
+      state.search.query.album = action.payload.album;
+      state.search.query.label = action.payload.label;
+      state.search.query.album_id = action.payload.album_id;
+      state.search.selectedResult = 0;
+    },
     toggleRequest: (state) => {
       state.search.query.request = !state.search.query.request;
     },
