@@ -35,8 +35,3 @@
 .classic-previous-sets-table tbody tr:nth-child(even) {
   background-color: #F8F8F8;
 }
-
-.classic-previous-sets-empty {
-  font-style: italic;
-  color: #666;
-}

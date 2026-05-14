@@ -60,8 +60,11 @@ describe("Classic Previous Sets ResultTable", () => {
     expect(container.querySelector("tr.classic-segue")).toBeNull();
   });
 
-  it("renders an empty-state message when results is empty", () => {
+  it("renders an empty <tbody> when results is empty (caller gates rendering)", () => {
+    // ResultTable does not own the empty-state message — its sole caller,
+    // PreviousSetsContainer, surfaces "No results found" copy and gates
+    // <ResultTable> on results.length > 0. Mirrors Modern's flow.
     const { container } = renderWithProviders(<ResultTable results={[]} />);
-    expect(container.textContent).toMatch(/no results/i);
+    expect(container.querySelectorAll("tbody tr").length).toBe(0);
   });
 });

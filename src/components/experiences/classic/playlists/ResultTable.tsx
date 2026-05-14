@@ -6,22 +6,15 @@ import "@/src/styles/classic/previous-sets.css";
 // 5-col previous-sets layout mirroring tubafrenzy's `mostRecentEntries.jsp`
 // + `public/flowsheetRadioShowDisplayPublic.jsp`:
 // Indicators · Artist · Song · Release · Label.
+//
+// Callers must gate on results.length > 0 — the table doesn't render its
+// own empty state. PreviousSetsContainer surfaces "No results found" copy
+// above the table, mirroring Modern's PlaylistSearchContainer.
 export default function ResultTable({
   results,
 }: {
   results: PreviousSetsResult[];
 }) {
-  if (results.length === 0) {
-    return (
-      <div
-        className="classic-previous-sets-empty text"
-        style={{ textAlign: "center", padding: "1em" }}
-      >
-        No results found.
-      </div>
-    );
-  }
-
   return (
     <table
       className="classic-previous-sets-table"
