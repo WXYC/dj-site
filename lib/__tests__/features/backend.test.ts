@@ -366,6 +366,113 @@ describe("backend", () => {
           baseQuery({ url: "/42/tracks" }, fakeApi, fakeExtra)
         ).resolves.toEqual(expect.objectContaining({ data: undefined }));
       });
+
+      // Mutations must keep surfacing the error loudly. Soft-handling a POST
+      // would mean "Add to flowsheet" / "Add album" / "Add to bin" silently
+      // no-op if the backend route is missing — strictly worse UX than the
+      // confusing toast. The soft-handle is only meant for list-shaped GET
+      // reads.
+      it.each(["POST", "PATCH", "DELETE", "PUT"])(
+        "passes PARSING_ERROR through (loud) on %s mutations",
+        async (method) => {
+          mockInnerBaseQuery.mockResolvedValueOnce({
+            error: {
+              status: "PARSING_ERROR",
+              originalStatus: 404,
+              data: "<!DOCTYPE html>",
+              error: "SyntaxError",
+            },
+            meta: { request: {} as Request, response: {} as Response },
+          });
+
+          const baseQuery = backendBaseQuery("flowsheet");
+          const result = await baseQuery(
+            { url: "/", method, body: { foo: "bar" } },
+            fakeApi,
+            fakeExtra
+          );
+
+          expect((result as { error?: unknown }).error).toEqual(
+            expect.objectContaining({ status: "PARSING_ERROR" })
+          );
+          expect((result as { data?: unknown }).data).toBeUndefined();
+          // No log noise either — caller (or rtkQueryErrorLogger) owns surfacing.
+          expect(warnSpy).not.toHaveBeenCalled();
+          expect(mockCaptureException).not.toHaveBeenCalled();
+        }
+      );
+
+      // Escape hatch for a GET that wants loud failure anyway.
+      it("respects extraOptions.surfaceNonJsonAsError as a per-endpoint opt-out", async () => {
+        mockInnerBaseQuery.mockResolvedValueOnce({
+          error: {
+            status: "PARSING_ERROR",
+            originalStatus: 404,
+            data: "<!DOCTYPE html>",
+            error: "SyntaxError",
+          },
+          meta: { request: {} as Request, response: {} as Response },
+        });
+
+        const baseQuery = backendBaseQuery("library/rotation");
+        const result = await baseQuery(
+          { url: "/42/tracks" },
+          fakeApi,
+          { surfaceNonJsonAsError: true }
+        );
+
+        expect((result as { error?: unknown }).error).toEqual(
+          expect.objectContaining({ status: "PARSING_ERROR" })
+        );
+        expect((result as { data?: unknown }).data).toBeUndefined();
+        expect(warnSpy).not.toHaveBeenCalled();
+        expect(mockCaptureException).not.toHaveBeenCalled();
+      });
+
+      // Explicit `method: "GET"` (vs. the implicit-GET default) also gets the
+      // soft-handle. Defends against a future refactor that starts setting
+      // method explicitly on read queries.
+      it("soft-handles explicit method: GET the same as implicit-GET", async () => {
+        mockInnerBaseQuery.mockResolvedValueOnce({
+          error: {
+            status: "PARSING_ERROR",
+            originalStatus: 404,
+            data: "<!DOCTYPE html>",
+            error: "SyntaxError",
+          },
+          meta: { request: {} as Request, response: {} as Response },
+        });
+
+        const baseQuery = backendBaseQuery("library/rotation");
+        const result = await baseQuery(
+          { url: "/42/tracks", method: "GET" },
+          fakeApi,
+          fakeExtra
+        );
+
+        expect((result as { data?: unknown }).data).toBeUndefined();
+        expect((result as { error?: unknown }).error).toBeUndefined();
+      });
+
+      // String-form args (most concise GET shape RTK Query accepts) goes
+      // through the GET branch too.
+      it("soft-handles string-form args (RTK Query's GET shorthand)", async () => {
+        mockInnerBaseQuery.mockResolvedValueOnce({
+          error: {
+            status: "PARSING_ERROR",
+            originalStatus: 404,
+            data: "<!DOCTYPE html>",
+            error: "SyntaxError",
+          },
+          meta: { request: {} as Request, response: {} as Response },
+        });
+
+        const baseQuery = backendBaseQuery("library/rotation");
+        const result = await baseQuery("/42/tracks", fakeApi, fakeExtra);
+
+        expect((result as { data?: unknown }).data).toBeUndefined();
+        expect((result as { error?: unknown }).error).toBeUndefined();
+      });
     });
   });
 });
