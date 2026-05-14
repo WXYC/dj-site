@@ -13,6 +13,12 @@ function renderRow(props: {
   index?: number;
   totalEntries?: number;
   nextIsSong?: boolean;
+  isDragging?: boolean;
+  isDragOver?: boolean;
+  onDragStart?: (entryId: number) => void;
+  onDragOver?: (entryId: number) => void;
+  onDrop?: (entryId: number) => void;
+  onDragEnd?: () => void;
 }) {
   return renderWithProviders(
     <table>
@@ -24,9 +30,13 @@ function renderRow(props: {
           fontSize={3}
           onEdit={() => {}}
           onDelete={() => {}}
-          onMoveUp={() => {}}
-          onMoveDown={() => {}}
           nextIsSong={props.nextIsSong}
+          isDragging={props.isDragging}
+          isDragOver={props.isDragOver}
+          onDragStart={props.onDragStart}
+          onDragOver={props.onDragOver}
+          onDrop={props.onDrop}
+          onDragEnd={props.onDragEnd}
         />
       </tbody>
     </table>
@@ -92,12 +102,108 @@ describe("Classic EntryRow capsule indicators", () => {
     expect(order).toEqual([0, 1, 2]);
   });
 
-  it("renders the indicators inside a single leftmost <td> cell", () => {
+  it("renders the indicators inside the second <td> cell (after the grip handle)", () => {
     const entry = createTestFlowsheetEntry({ request_flag: true });
+    const { container } = renderRow({ entry });
+    const indicatorsCell = container.querySelector("tr > td:nth-child(2)");
+    expect(indicatorsCell).not.toBeNull();
+    expect(indicatorsCell!.querySelector(".classic-capsule")).not.toBeNull();
+  });
+});
+
+describe("Classic EntryRow grip handle (drag-to-reorder)", () => {
+  it("renders a grip handle on song rows with aria-label", () => {
+    const entry = createTestFlowsheetEntry();
+    const { container } = renderRow({ entry });
+    const handle = container.querySelector(".grip-handle");
+    expect(handle).not.toBeNull();
+    expect(handle!.getAttribute("aria-label")).toBe("Drag to reorder");
+  });
+
+  it("places the grip handle inside the first <td> cell", () => {
+    const entry = createTestFlowsheetEntry();
     const { container } = renderRow({ entry });
     const firstCell = container.querySelector("tr > td:first-child");
     expect(firstCell).not.toBeNull();
-    expect(firstCell!.querySelector(".classic-capsule")).not.toBeNull();
+    expect(firstCell!.classList.contains("grip-cell")).toBe(true);
+    expect(firstCell!.querySelector(".grip-handle")).not.toBeNull();
+  });
+
+  it("marks song rows as draggable", () => {
+    const entry = createTestFlowsheetEntry();
+    const { container } = renderRow({ entry });
+    const row = container.querySelector("tr.flowsheetEntryData");
+    expect(row!.getAttribute("draggable")).toBe("true");
+  });
+
+  it("renders a grip handle on talkset rows and marks them draggable", () => {
+    const entry: FlowsheetEntry = {
+      id: 10,
+      show_id: 1,
+      play_order: 1,
+      message: "Talkset - station ID",
+    };
+    const { container } = renderRow({ entry });
+    expect(container.querySelector(".grip-handle")).not.toBeNull();
+    const row = container.querySelector("tr.classic-marker-talkset");
+    expect(row!.getAttribute("draggable")).toBe("true");
+  });
+
+  it("does NOT render a grip handle on breakpoint rows and they are not draggable", () => {
+    const entry: FlowsheetEntry = {
+      id: 11,
+      show_id: 1,
+      play_order: 2,
+      message: "Breakpoint - 5:00 PM",
+      day: "11/14/2023",
+      time: "5:00:00 PM",
+    };
+    const { container } = renderRow({ entry });
+    expect(container.querySelector(".grip-handle")).toBeNull();
+    const row = container.querySelector("tr.classic-marker-breakpoint");
+    expect(row!.getAttribute("draggable")).not.toBe("true");
+  });
+
+  it("does NOT render a grip handle on start-of-show rows", () => {
+    const entry: FlowsheetEntry = {
+      id: 12,
+      show_id: 1,
+      play_order: 0,
+      dj_name: "DJ Cool",
+      isStart: true,
+      day: "11/14/2023",
+      time: "5:00:00 PM",
+    };
+    const { container } = renderRow({ entry });
+    expect(container.querySelector(".grip-handle")).toBeNull();
+    const row = container.querySelector("tr.classic-marker-breakpoint");
+    expect(row!.getAttribute("draggable")).not.toBe("true");
+  });
+
+  it("does NOT render a grip handle on end-of-show rows", () => {
+    const entry: FlowsheetEntry = {
+      id: 13,
+      show_id: 1,
+      play_order: 99,
+      dj_name: "DJ Cool",
+      isStart: false,
+      day: "11/14/2023",
+      time: "5:00:00 PM",
+    };
+    const { container } = renderRow({ entry });
+    expect(container.querySelector(".grip-handle")).toBeNull();
+  });
+
+  it("does NOT render the legacy move up arrow on song rows", () => {
+    const entry = createTestFlowsheetEntry();
+    const { container } = renderRow({ entry });
+    expect(container.querySelector('img[src*="blue_up.gif"]')).toBeNull();
+  });
+
+  it("does NOT render the legacy move down arrow on song rows", () => {
+    const entry = createTestFlowsheetEntry();
+    const { container } = renderRow({ entry });
+    expect(container.querySelector('img[src*="blue_down.gif"]')).toBeNull();
   });
 });
 
@@ -140,9 +246,9 @@ describe("Classic EntryRow markers", () => {
       message: "Talkset - station ID",
     };
 
-    it("renders the lowercase word 'talkset' centered", () => {
+    it("renders the lowercase word 'talkset' centered (in the second cell after grip)", () => {
       const { container } = renderRow({ entry: talksetEntry });
-      const cell = container.querySelector("tr > td:first-child");
+      const cell = container.querySelector("tr > td:nth-child(2)");
       expect(cell).not.toBeNull();
       expect(cell!.textContent).toBe("talkset");
       expect(cell!.getAttribute("align")).toBe("center");
@@ -173,14 +279,14 @@ describe("Classic EntryRow markers", () => {
 
     it("renders '{h:mm a} breakpoint' (no seconds, lowercase suffix)", () => {
       const { container } = renderRow({ entry: breakpointEntry });
-      const cell = container.querySelector("tr > td:first-child");
+      const cell = container.querySelector("tr > td:nth-child(2)");
       expect(cell).not.toBeNull();
       expect(cell!.textContent).toBe("5:00 PM breakpoint");
     });
 
     it("renders content centered", () => {
       const { container } = renderRow({ entry: breakpointEntry });
-      const cell = container.querySelector("tr > td:first-child");
+      const cell = container.querySelector("tr > td:nth-child(2)");
       expect(cell!.getAttribute("align")).toBe("center");
     });
 
@@ -209,7 +315,7 @@ describe("Classic EntryRow markers", () => {
 
     it("renders 'Start of show — {dj_name} @ {M/d/yy} {h:mm a}'", () => {
       const { container } = renderRow({ entry: startEntry });
-      const cell = container.querySelector("tr > td:first-child");
+      const cell = container.querySelector("tr > td:nth-child(2)");
       expect(cell!.textContent).toBe(
         "Start of show — DJ Cool @ 11/14/23 5:13 PM"
       );
@@ -235,7 +341,7 @@ describe("Classic EntryRow markers", () => {
 
     it("renders 'End of show — {dj_name} @ {M/d/yy} {h:mm a}'", () => {
       const { container } = renderRow({ entry: endEntry });
-      const cell = container.querySelector("tr > td:first-child");
+      const cell = container.querySelector("tr > td:nth-child(2)");
       expect(cell!.textContent).toBe(
         "End of show — DJ Cool @ 11/14/23 5:13 PM"
       );
@@ -266,7 +372,7 @@ describe("Classic EntryRow markers", () => {
           time,
         },
       });
-      const cell = container.querySelector("tr > td:first-child");
+      const cell = container.querySelector("tr > td:nth-child(2)");
       expect(cell!.textContent).toBe(`Start of show — DJ Test @ ${expected}`);
     }
   );
@@ -283,7 +389,7 @@ describe("Classic EntryRow markers", () => {
         time: "Unknown",
       },
     });
-    const cell = container.querySelector("tr > td:first-child");
+    const cell = container.querySelector("tr > td:nth-child(2)");
     expect(cell!.textContent).toBe(
       "Start of show — DJ Test @ Unknown Unknown"
     );

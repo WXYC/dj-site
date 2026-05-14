@@ -12,6 +12,43 @@ import { Capsule, capsulesForSongEntry } from "./Capsule";
 import { formatShortDate, formatShortTime } from "./marker-format";
 import "@/src/styles/classic/segue.css";
 import "@/src/styles/classic/markers.css";
+import "@/src/styles/classic/drag.css";
+
+type Props = {
+  entry: FlowsheetEntry;
+  index: number;
+  totalEntries: number;
+  onEdit: (entryId: number) => void;
+  onDelete: (entryId: number) => void;
+  fontSize: number;
+  /** True if the next row in the table is also a song row.
+   *  Used to suppress the segue indicator when the next row is a talkset,
+   *  breakpoint, or show-block — those render full-width and would leave the
+   *  red bracket dangling. EntryTable computes and passes this. */
+  nextIsSong?: boolean;
+  /** True while this row is the source of an active drag. */
+  isDragging?: boolean;
+  /** True while a drag-over event is hovering this row (drop target preview). */
+  isDragOver?: boolean;
+  onDragStart?: (entryId: number) => void;
+  onDragOver?: (entryId: number) => void;
+  onDrop?: (entryId: number) => void;
+  onDragEnd?: () => void;
+};
+
+function GripCell() {
+  return (
+    <td className="grip-cell">
+      <span className="grip-handle" aria-label="Drag to reorder">
+        {"⠇"}
+      </span>
+    </td>
+  );
+}
+
+function EmptyGripCell() {
+  return <td className="grip-cell">&nbsp;</td>;
+}
 
 export default function EntryRow({
   entry,
@@ -19,73 +56,98 @@ export default function EntryRow({
   totalEntries,
   onEdit,
   onDelete,
-  onMoveUp,
-  onMoveDown,
   fontSize,
   nextIsSong,
-}: {
-  entry: FlowsheetEntry;
-  index: number;
-  totalEntries: number;
-  onEdit: (entryId: number) => void;
-  onDelete: (entryId: number) => void;
-  onMoveUp: (entryId: number) => void;
-  onMoveDown: (entryId: number) => void;
-  fontSize: number;
-  /** True if the next row in the table is also a song row.
-   *  Used to suppress the segue indicator when the next row is a talkset,
-   *  breakpoint, or show-block — those render full-width and would leave the
-   *  red bracket dangling. EntryTable computes and passes this. */
-  nextIsSong?: boolean;
-}) {
+  isDragging,
+  isDragOver,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+}: Props) {
+  // Suppress unused-var warnings for props kept for API parity; the indices
+  // are still relevant to other features (e.g. show-block guards).
+  void index;
+  void totalEntries;
   const fontSizeClass = `fontSize${fontSize}`;
 
-  // Markers (talkset / breakpoint / start / end of show) span the full table.
-  // Column count after capsule consolidation: 1 (indicators) + 4 (artist/song/release/label)
-  // + 2 (move up/down) + 1 (edit/delete) = 8 columns. Header text spans the first 5
-  // (indicators + 4 data) and the row's trailing 3 columns stay empty.
+  // Marker rows (talkset / breakpoint / start / end of show) span 5 of the 7
+  // post-PR8 columns: grip + indicators + artist + song + release + label + edit.
+  // The marker's content cell colspans the 5 middle data columns; the trailing
+  // edit/delete column gets an empty cell.
+
+  const dragClass = [
+    isDragging ? "dragging" : "",
+    isDragOver ? "drag-over" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   if (isFlowsheetTalksetEntry(entry)) {
     return (
-      <tr className={`flowsheetEntryData classic-marker-talkset ${fontSizeClass}`}>
+      <tr
+        className={`flowsheetEntryData classic-marker-talkset ${fontSizeClass} ${dragClass}`.trim()}
+        draggable={true}
+        onDragStart={() => onDragStart?.(entry.id)}
+        onDragOver={(e) => {
+          e.preventDefault();
+          onDragOver?.(entry.id);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          onDrop?.(entry.id);
+        }}
+        onDragEnd={() => onDragEnd?.()}
+      >
+        <GripCell />
         <td colSpan={5} align="center">
           talkset
         </td>
-        <td colSpan={3}>&nbsp;</td>
+        <td>&nbsp;</td>
       </tr>
     );
   }
 
   if (isFlowsheetBreakpointEntry(entry)) {
     return (
-      <tr className={`flowsheetEntryData classic-marker-breakpoint ${fontSizeClass}`}>
+      <tr
+        className={`flowsheetEntryData classic-marker-breakpoint ${fontSizeClass}`.trim()}
+      >
+        <EmptyGripCell />
         <td colSpan={5} align="center">
           {formatShortTime(entry.time)} breakpoint
         </td>
-        <td colSpan={3}>&nbsp;</td>
+        <td>&nbsp;</td>
       </tr>
     );
   }
 
   if (isFlowsheetStartShowEntry(entry)) {
     return (
-      <tr className={`flowsheetEntryData classic-marker-breakpoint ${fontSizeClass}`}>
+      <tr
+        className={`flowsheetEntryData classic-marker-breakpoint ${fontSizeClass}`.trim()}
+      >
+        <EmptyGripCell />
         <td colSpan={5} align="center">
           Start of show — {entry.dj_name} @ {formatShortDate(entry.day)}{" "}
           {formatShortTime(entry.time)}
         </td>
-        <td colSpan={3}>&nbsp;</td>
+        <td>&nbsp;</td>
       </tr>
     );
   }
 
   if (isFlowsheetEndShowEntry(entry)) {
     return (
-      <tr className={`flowsheetEntryData classic-marker-breakpoint ${fontSizeClass}`}>
+      <tr
+        className={`flowsheetEntryData classic-marker-breakpoint ${fontSizeClass}`.trim()}
+      >
+        <EmptyGripCell />
         <td colSpan={5} align="center">
           End of show — {entry.dj_name} @ {formatShortDate(entry.day)}{" "}
           {formatShortTime(entry.time)}
         </td>
-        <td colSpan={3}>&nbsp;</td>
+        <td>&nbsp;</td>
       </tr>
     );
   }
@@ -103,6 +165,8 @@ export default function EntryRow({
       "flowsheetEntryData",
       fontSizeClass,
       showSegueBracket ? "classic-segue" : "",
+      isDragging ? "dragging" : "",
+      isDragOver ? "drag-over" : "",
     ]
       .filter(Boolean)
       .join(" ");
@@ -113,7 +177,19 @@ export default function EntryRow({
         style={{ backgroundColor: "#F3F3F3" }}
         className={trClassName}
         data-segue={dataSegue}
+        draggable={true}
+        onDragStart={() => onDragStart?.(entry.id)}
+        onDragOver={(e) => {
+          e.preventDefault();
+          onDragOver?.(entry.id);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          onDrop?.(entry.id);
+        }}
+        onDragEnd={() => onDragEnd?.()}
       >
+        <GripCell />
         <td align="center">
           {capsules.map((c) => (
             <Capsule key={c.variant} variant={c.variant} label={c.label} />
@@ -132,46 +208,6 @@ export default function EntryRow({
         </td>
         <td align="left">{entry.album_title || ""}</td>
         <td align="left">{entry.record_label || ""}</td>
-        <td align="center" className="text">
-          {index > 0 && index < totalEntries - 1 ? (
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                onMoveUp(entry.id);
-              }}
-            >
-              <img
-                src="/img/classic/blue_up.gif"
-                title="Move this entry up"
-                alt="Move this entry up"
-                style={{ border: 0 }}
-              />
-            </a>
-          ) : (
-            <>&nbsp;</>
-          )}
-        </td>
-        <td align="center" className="text">
-          {index < totalEntries - 2 ? (
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                onMoveDown(entry.id);
-              }}
-            >
-              <img
-                src="/img/classic/blue_down.gif"
-                title="Move this entry down"
-                alt="Move this entry down"
-                style={{ border: 0 }}
-              />
-            </a>
-          ) : (
-            <>&nbsp;</>
-          )}
-        </td>
         <td align="center" className="text">
           <a
             href="#"
