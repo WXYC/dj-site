@@ -16,8 +16,6 @@ import "@/src/styles/classic/drag.css";
 
 type Props = {
   entry: FlowsheetEntry;
-  index: number;
-  totalEntries: number;
   onEdit: (entryId: number) => void;
   onDelete: (entryId: number) => void;
   fontSize: number;
@@ -52,8 +50,6 @@ function EmptyGripCell() {
 
 export default function EntryRow({
   entry,
-  index,
-  totalEntries,
   onEdit,
   onDelete,
   fontSize,
@@ -65,10 +61,6 @@ export default function EntryRow({
   onDrop,
   onDragEnd,
 }: Props) {
-  // Suppress unused-var warnings for props kept for API parity; the indices
-  // are still relevant to other features (e.g. show-block guards).
-  void index;
-  void totalEntries;
   const fontSizeClass = `fontSize${fontSize}`;
 
   // Marker rows (talkset / breakpoint / start / end of show) span 5 of the 7
