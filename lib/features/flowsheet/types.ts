@@ -31,6 +31,7 @@ export type FlowsheetQuery = {
   album: string;
   label: string;
   request: boolean;
+  segue?: boolean;
   album_id?: number;
   rotation_bin?: Rotation;
   rotation_id?: number;
@@ -38,7 +39,7 @@ export type FlowsheetQuery = {
 
 export type FlowsheetSearchProperty = keyof Omit<
   FlowsheetQuery,
-  "request" | "album_id" | "rotation_bin" | "rotation_id"
+  "request" | "segue" | "album_id" | "rotation_bin" | "rotation_id"
 >;
 
 export type FlowsheetEntryBase = {
@@ -85,6 +86,7 @@ export type FlowsheetSubmissionParams =
       track_title: string;
       rotation_id?: number;
       request_flag: boolean;
+      segue?: boolean;
       record_label?: string;
       rotation_bin?: Rotation;
     }
@@ -93,6 +95,7 @@ export type FlowsheetSubmissionParams =
       album_title: string;
       track_title: string;
       request_flag: boolean;
+      segue?: boolean;
       record_label?: string;
     }
   | {
