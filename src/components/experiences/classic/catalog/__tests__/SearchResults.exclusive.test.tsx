@@ -8,9 +8,11 @@ import { createTestAlbum, createTestArtist } from "@/lib/test-utils";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
 
 const mockSearchCatalogQuery = vi.fn();
+const mockReplace = vi.fn();
 const mockSearchParams = new URLSearchParams("");
 
 vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: mockReplace }),
   useSearchParams: () => mockSearchParams,
 }));
 
@@ -29,6 +31,7 @@ import SearchResults from "../SearchResults";
 
 beforeEach(() => {
   mockSearchCatalogQuery.mockReset();
+  mockReplace.mockReset();
   Array.from(mockSearchParams.keys()).forEach((k) =>
     mockSearchParams.delete(k)
   );
@@ -109,5 +112,41 @@ describe("Classic catalog SearchResults — Exclusive filter", () => {
     expect(
       catalogSlice.selectors.getExclusiveFilter(store.getState())
     ).toBe(false);
+  });
+
+  it("clicking the chip dismiss strips ?exclusive=true from the URL", async () => {
+    mockSearchCatalogQuery.mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: undefined,
+    });
+    mockSearchParams.set("exclusive", "true");
+    const store = storeWithExclusive();
+    const { user } = renderWithProviders(<SearchResults />, { store });
+    await user.click(
+      screen.getByRole("button", { name: /remove exclusive filter/i })
+    );
+    expect(mockReplace).toHaveBeenCalledTimes(1);
+    const replacedUrl = mockReplace.mock.calls[0][0] as string;
+    expect(replacedUrl).not.toContain("exclusive=true");
+    expect(replacedUrl).toBe("/dashboard/catalog");
+  });
+
+  it("chip dismiss preserves other params (e.g. searchString)", async () => {
+    mockSearchCatalogQuery.mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: undefined,
+    });
+    mockSearchParams.set("exclusive", "true");
+    mockSearchParams.set("searchString", "polvo");
+    const store = storeWithExclusive();
+    const { user } = renderWithProviders(<SearchResults />, { store });
+    await user.click(
+      screen.getByRole("button", { name: /remove exclusive filter/i })
+    );
+    const replacedUrl = mockReplace.mock.calls[0][0] as string;
+    expect(replacedUrl).toContain("searchString=polvo");
+    expect(replacedUrl).not.toContain("exclusive=true");
   });
 });

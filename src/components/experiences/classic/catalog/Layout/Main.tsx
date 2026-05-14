@@ -1,6 +1,7 @@
 "use client";
 
 import "@/src/styles/classic/wxyc.css";
+import "@/src/styles/classic/filter-chip.css";
 import Navigation from "../../Navigation";
 
 export default function Main({

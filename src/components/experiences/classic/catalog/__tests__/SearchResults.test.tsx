@@ -6,6 +6,7 @@ import { renderWithProviders } from "@/lib/test-utils/render";
 const mockSearchCatalogQuery = vi.fn();
 
 vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: vi.fn() }),
   useSearchParams: () => new URLSearchParams("searchString=test"),
 }));
 
