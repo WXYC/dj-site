@@ -2,16 +2,31 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import FlowsheetSearchInput from "./FlowsheetSearchInput";
 
-// Mock hooks
 const mockSetSearchProperty = vi.fn();
+const mockDispatch = vi.fn();
 
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useFlowsheetSearch: vi.fn(() => ({
-    getDisplayValue: (name: string) => "",
+    getDisplayValue: (_name: string) => "",
     setSearchProperty: mockSetSearchProperty,
     selectedIndex: 0,
     selectedEntry: null,
   })),
+}));
+
+vi.mock("@/lib/hooks", () => ({
+  useAppDispatch: () => mockDispatch,
+}));
+
+vi.mock("@/lib/features/flowsheet/frontend", () => ({
+  flowsheetSlice: {
+    actions: {
+      freezeSelectionToQuery: vi.fn((payload) => ({
+        type: "freezeSelectionToQuery",
+        payload,
+      })),
+    },
+  },
 }));
 
 vi.mock("@/src/utilities/stringutilities", () => ({
@@ -40,15 +55,15 @@ describe("FlowsheetSearchInput", () => {
     render(<FlowsheetSearchInput name="artist" />);
 
     const input = screen.getByRole("textbox");
-    fireEvent.change(input, { target: { value: "Test Artist" } });
+    fireEvent.change(input, { target: { value: "Juana Molina" } });
 
-    expect(mockSetSearchProperty).toHaveBeenCalledWith("artist", "Test Artist");
+    expect(mockSetSearchProperty).toHaveBeenCalledWith("artist", "Juana Molina");
   });
 
   it("should display value from getDisplayValue", async () => {
     const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
     vi.mocked(useFlowsheetSearch).mockReturnValue({
-      getDisplayValue: () => "Existing Value",
+      getDisplayValue: () => "DOGA",
       setSearchProperty: mockSetSearchProperty,
       selectedIndex: 0,
       selectedEntry: null,
@@ -57,41 +72,7 @@ describe("FlowsheetSearchInput", () => {
     render(<FlowsheetSearchInput name="album" />);
 
     const input = screen.getByRole("textbox");
-    expect(input).toHaveValue("Existing Value");
-  });
-
-  it("should be readonly when field is auto-filled", async () => {
-    const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
-    vi.mocked(useFlowsheetSearch).mockReturnValue({
-      getDisplayValue: () => "Auto-filled value",
-      setSearchProperty: mockSetSearchProperty,
-      selectedIndex: 1,
-      selectedEntry: {
-        artist: { name: "Test Artist" },
-      },
-    } as any);
-
-    render(<FlowsheetSearchInput name="artist" />);
-
-    const input = screen.getByRole("textbox");
-    expect(input).toHaveAttribute("readonly");
-  });
-
-  it("should not be readonly for song field even when selected", async () => {
-    const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
-    vi.mocked(useFlowsheetSearch).mockReturnValue({
-      getDisplayValue: () => "Song title",
-      setSearchProperty: mockSetSearchProperty,
-      selectedIndex: 1,
-      selectedEntry: {
-        title: "Test Album",
-      },
-    } as any);
-
-    render(<FlowsheetSearchInput name="song" />);
-
-    const input = screen.getByRole("textbox");
-    expect(input).not.toHaveAttribute("readonly");
+    expect(input).toHaveValue("DOGA");
   });
 
   it("should stop click propagation", () => {
@@ -135,177 +116,74 @@ describe("FlowsheetSearchInput", () => {
     expect(input).toHaveAttribute("data-custom", "value");
   });
 
-  it("should be readonly when album field is auto-filled", async () => {
-    const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
-    vi.mocked(useFlowsheetSearch).mockReturnValue({
-      getDisplayValue: () => "Auto-filled Album",
-      setSearchProperty: mockSetSearchProperty,
-      selectedIndex: 1,
-      selectedEntry: {
-        title: "Test Album Title",
-      },
-    } as any);
+  describe("editing an auto-filled field", () => {
+    async function selectResult() {
+      const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
+      vi.mocked(useFlowsheetSearch).mockReturnValue({
+        getDisplayValue: (name: string) => {
+          switch (name) {
+            case "artist":
+              return "Juana Molina";
+            case "album":
+              return "DOGA";
+            case "label":
+              return "Sonamos";
+            default:
+              return "";
+          }
+        },
+        setSearchProperty: mockSetSearchProperty,
+        selectedIndex: 1,
+        selectedEntry: {
+          id: 42,
+          artist: { name: "Juana Molina" },
+          title: "DOGA",
+          label: "Sonamos",
+        },
+      } as any);
+    }
 
-    render(<FlowsheetSearchInput name="album" />);
+    it("should not be readonly so the user can edit on click", async () => {
+      await selectResult();
 
-    const input = screen.getByRole("textbox");
-    expect(input).toHaveAttribute("readonly");
-  });
+      render(<FlowsheetSearchInput name="artist" />);
 
-  it("should be readonly when label field is auto-filled", async () => {
-    const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
-    vi.mocked(useFlowsheetSearch).mockReturnValue({
-      getDisplayValue: () => "Auto-filled Label",
-      setSearchProperty: mockSetSearchProperty,
-      selectedIndex: 1,
-      selectedEntry: {
-        label: "Test Label",
-      },
-    } as any);
+      const input = screen.getByRole("textbox");
+      expect(input).not.toHaveAttribute("readonly");
+    });
 
-    render(<FlowsheetSearchInput name="label" />);
+    it("should freeze the selected entry's fields into the query before applying the edit", async () => {
+      await selectResult();
+      const { flowsheetSlice } = await import(
+        "@/lib/features/flowsheet/frontend"
+      );
 
-    const input = screen.getByRole("textbox");
-    expect(input).toHaveAttribute("readonly");
-  });
+      render(<FlowsheetSearchInput name="artist" />);
 
-  it("should prevent keydown when auto-filled except Tab, Shift, and Enter", async () => {
-    const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
-    vi.mocked(useFlowsheetSearch).mockReturnValue({
-      getDisplayValue: () => "Auto-filled value",
-      setSearchProperty: mockSetSearchProperty,
-      selectedIndex: 1,
-      selectedEntry: {
-        artist: { name: "Test Artist" },
-      },
-    } as any);
+      const input = screen.getByRole("textbox");
+      fireEvent.change(input, { target: { value: "Juana M" } });
 
-    render(<FlowsheetSearchInput name="artist" />);
+      expect(flowsheetSlice.actions.freezeSelectionToQuery).toHaveBeenCalledWith({
+        artist: "Juana Molina",
+        album: "DOGA",
+        label: "Sonamos",
+        album_id: 42,
+      });
+      expect(mockSetSearchProperty).toHaveBeenCalledWith("artist", "Juana M");
+    });
 
-    const input = screen.getByRole("textbox");
+    it("should not block keystrokes when auto-filled", async () => {
+      await selectResult();
 
-    // Regular key should be prevented
-    const letterEvent = fireEvent.keyDown(input, { key: 'a' });
-    expect(letterEvent).toBe(false); // preventDefault was called
+      render(<FlowsheetSearchInput name="artist" />);
 
-    // Tab should not be prevented
-    const tabEvent = fireEvent.keyDown(input, { key: 'Tab' });
-    expect(tabEvent).toBe(true); // default not prevented
+      const input = screen.getByRole("textbox");
 
-    // Shift should not be prevented
-    const shiftEvent = fireEvent.keyDown(input, { key: 'Shift' });
-    expect(shiftEvent).toBe(true);
-
-    expect(input).toHaveAttribute("readonly");
-  });
-
-  it("should not prevent Enter keydown when auto-filled so form submission works", async () => {
-    const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
-    vi.mocked(useFlowsheetSearch).mockReturnValue({
-      getDisplayValue: () => "Auto-filled value",
-      setSearchProperty: mockSetSearchProperty,
-      selectedIndex: 1,
-      selectedEntry: {
-        artist: { name: "Test Artist" },
-      },
-    } as any);
-
-    render(<FlowsheetSearchInput name="artist" />);
-
-    const input = screen.getByRole("textbox");
-
-    // Enter should not be prevented — it must propagate for form submission
-    const enterEvent = fireEvent.keyDown(input, { key: 'Enter' });
-    expect(enterEvent).toBe(true);
-  });
-
-  it("should not call setSearchProperty when auto-filled", async () => {
-    const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
-    vi.mocked(useFlowsheetSearch).mockReturnValue({
-      getDisplayValue: () => "Auto-filled value",
-      setSearchProperty: mockSetSearchProperty,
-      selectedIndex: 1,
-      selectedEntry: {
-        artist: { name: "Test Artist" },
-      },
-    } as any);
-
-    render(<FlowsheetSearchInput name="artist" />);
-
-    const input = screen.getByRole("textbox");
-    fireEvent.change(input, { target: { value: "New Value" } });
-
-    // Should not be called because field is auto-filled
-    expect(mockSetSearchProperty).not.toHaveBeenCalled();
-  });
-
-  it("should apply auto-fill styles when field is auto-filled", async () => {
-    const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
-    vi.mocked(useFlowsheetSearch).mockReturnValue({
-      getDisplayValue: () => "Auto-filled value",
-      setSearchProperty: mockSetSearchProperty,
-      selectedIndex: 1,
-      selectedEntry: {
-        artist: { name: "Test Artist" },
-      },
-    } as any);
-
-    render(<FlowsheetSearchInput name="artist" />);
-
-    const input = screen.getByRole("textbox");
-    expect(input).toHaveStyle({ cursor: "not-allowed", opacity: "0.6" });
-  });
-
-  it("should not be readonly when selectedEntry has no value for field", async () => {
-    const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
-    vi.mocked(useFlowsheetSearch).mockReturnValue({
-      getDisplayValue: () => "",
-      setSearchProperty: mockSetSearchProperty,
-      selectedIndex: 1,
-      selectedEntry: {
-        // No artist name
-        artist: null,
-      },
-    } as any);
-
-    render(<FlowsheetSearchInput name="artist" />);
-
-    const input = screen.getByRole("textbox");
-    expect(input).not.toHaveAttribute("readonly");
-  });
-
-  it("should not be readonly when album field has no title", async () => {
-    const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
-    vi.mocked(useFlowsheetSearch).mockReturnValue({
-      getDisplayValue: () => "",
-      setSearchProperty: mockSetSearchProperty,
-      selectedIndex: 1,
-      selectedEntry: {
-        title: "", // empty title
-      },
-    } as any);
-
-    render(<FlowsheetSearchInput name="album" />);
-
-    const input = screen.getByRole("textbox");
-    expect(input).not.toHaveAttribute("readonly");
-  });
-
-  it("should not be readonly when label field has no label", async () => {
-    const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
-    vi.mocked(useFlowsheetSearch).mockReturnValue({
-      getDisplayValue: () => "",
-      setSearchProperty: mockSetSearchProperty,
-      selectedIndex: 1,
-      selectedEntry: {
-        label: null,
-      },
-    } as any);
-
-    render(<FlowsheetSearchInput name="label" />);
-
-    const input = screen.getByRole("textbox");
-    expect(input).not.toHaveAttribute("readonly");
+      // None of these should be prevented now — typing thaws the selection.
+      expect(fireEvent.keyDown(input, { key: "a" })).toBe(true);
+      expect(fireEvent.keyDown(input, { key: "Backspace" })).toBe(true);
+      expect(fireEvent.keyDown(input, { key: "Enter" })).toBe(true);
+    });
   });
 
   describe("ghost text", () => {
@@ -343,11 +221,11 @@ describe("FlowsheetSearchInput", () => {
     it("should not render ghost text when field is auto-filled", async () => {
       const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
       vi.mocked(useFlowsheetSearch).mockReturnValue({
-        getDisplayValue: () => "Auto-filled value",
+        getDisplayValue: () => "Juana Molina",
         setSearchProperty: mockSetSearchProperty,
         selectedIndex: 1,
         selectedEntry: {
-          artist: { name: "Test Artist" },
+          artist: { name: "Juana Molina" },
         },
       } as any);
 
