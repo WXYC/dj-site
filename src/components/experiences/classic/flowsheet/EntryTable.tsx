@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { FlowsheetEntry } from "@/lib/features/flowsheet/types";
+import {
+  FlowsheetEntry,
+  isFlowsheetSongEntry,
+} from "@/lib/features/flowsheet/types";
 import EntryRow from "./EntryRow";
 
 export default function EntryTable({
@@ -43,19 +46,25 @@ export default function EntryTable({
         </thead>
         <tbody>
           {entries.length > 0 ? (
-            entries.map((entry, index) => (
-              <EntryRow
-                key={entry.id}
-                entry={entry}
-                index={index}
-                totalEntries={entries.length}
-                fontSize={fontSize}
-                onEdit={onEdit}
-                onDelete={onDelete}
-                onMoveUp={onMoveUp}
-                onMoveDown={onMoveDown}
-              />
-            ))
+            entries.map((entry, index) => {
+              const nextEntry = entries[index + 1];
+              const nextIsSong =
+                nextEntry !== undefined && isFlowsheetSongEntry(nextEntry);
+              return (
+                <EntryRow
+                  key={entry.id}
+                  entry={entry}
+                  index={index}
+                  totalEntries={entries.length}
+                  fontSize={fontSize}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                  onMoveUp={onMoveUp}
+                  onMoveDown={onMoveDown}
+                  nextIsSong={nextIsSong}
+                />
+              );
+            })
           ) : (
             <tr>
               <td align="center" className="text" colSpan={8}>
@@ -91,19 +100,25 @@ export default function EntryTable({
         </tbody>
         {showPrevious && (
           <tbody id="previousEntries" className="flowsheetEntryData">
-            {previousEntries.map((entry, index) => (
-              <EntryRow
-                key={entry.id}
-                entry={entry}
-                index={index}
-                totalEntries={previousEntries.length}
-                fontSize={fontSize}
-                onEdit={onEdit}
-                onDelete={onDelete}
-                onMoveUp={onMoveUp}
-                onMoveDown={onMoveDown}
-              />
-            ))}
+            {previousEntries.map((entry, index) => {
+              const nextEntry = previousEntries[index + 1];
+              const nextIsSong =
+                nextEntry !== undefined && isFlowsheetSongEntry(nextEntry);
+              return (
+                <EntryRow
+                  key={entry.id}
+                  entry={entry}
+                  index={index}
+                  totalEntries={previousEntries.length}
+                  fontSize={fontSize}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                  onMoveUp={onMoveUp}
+                  onMoveDown={onMoveDown}
+                  nextIsSong={nextIsSong}
+                />
+              );
+            })}
           </tbody>
         )}
       </table>

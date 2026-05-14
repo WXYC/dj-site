@@ -33,6 +33,7 @@ export default function EntryForm({
   const [releaseTitle, setReleaseTitle] = useState("");
   const [labelName, setLabelName] = useState("");
   const [requestAnswer, setRequestAnswer] = useState<"yes" | "no">("no");
+  const [segue, setSegue] = useState(false);
 
   const { data: rotationData } = useGetRotationQuery();
 
@@ -72,6 +73,7 @@ export default function EntryForm({
         track_title: songTitle,
         rotation_id: release.rotation_id,
         request_flag: requestAnswer === "yes",
+        segue,
         record_label: labelName || release.label,
         play_freq: release.rotation_bin,
       };
@@ -83,6 +85,7 @@ export default function EntryForm({
         album_title: releaseTitle,
         track_title: songTitle,
         request_flag: requestAnswer === "yes",
+        segue,
         record_label: labelName,
       };
     } else {
@@ -91,6 +94,7 @@ export default function EntryForm({
         album_title: releaseTitle,
         track_title: songTitle,
         request_flag: requestAnswer === "yes",
+        segue,
         record_label: labelName,
       };
     }
@@ -104,6 +108,7 @@ export default function EntryForm({
       setReleaseTitle("");
       setLabelName("");
       setRequestAnswer("no");
+      setSegue(false);
       setSelectedRotationId(0);
       setRotationType("");
       dispatch(flowsheetSlice.actions.resetSearch());
@@ -400,6 +405,17 @@ export default function EntryForm({
                 disabled={!isLive}
               />
               No &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+              <label>
+                <input
+                  type="checkbox"
+                  name="segueAnswer"
+                  checked={segue}
+                  onChange={(e) => setSegue(e.target.checked)}
+                  disabled={!isLive}
+                />{" "}
+                Segue
+              </label>
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
               <input
                 type="submit"
                 id="submitButton"
