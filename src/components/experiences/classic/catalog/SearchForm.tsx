@@ -92,6 +92,24 @@ export default function SearchForm() {
               </tr>
               <tr>
                 <td align="center">
+                  <button
+                    type="button"
+                    className="classic-browse-exclusive"
+                    onClick={() => {
+                      dispatch(catalogSlice.actions.setSearchQuery(""));
+                      dispatch(catalogSlice.actions.setExclusiveFilter(true));
+                      if (inputRef.current) {
+                        inputRef.current.value = "";
+                      }
+                      router.push(`/dashboard/catalog?exclusive=true`);
+                    }}
+                  >
+                    Browse Exclusive Albums
+                  </button>
+                </td>
+              </tr>
+              <tr>
+                <td align="center">
                   <span className="text">56,000+ total releases in this database.</span>
                 </td>
               </tr>
