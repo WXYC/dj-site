@@ -241,6 +241,10 @@ describe("backend", () => {
     });
 
     describe("non-JSON response handling (#519)", () => {
+      // Tests mock the inner fetchBaseQuery directly, so the real { request,
+      // response } meta objects don't exist. `meta: undefined` is the honest
+      // representation — the wrapper only passes meta through; it never reads
+      // .request or .response.
       const fakeApi = {} as any;
       const fakeExtra = {} as any;
       let warnSpy: ReturnType<typeof vi.spyOn>;
@@ -265,7 +269,7 @@ describe("backend", () => {
             data: "<!DOCTYPE html><html><body>Not Found</body></html>",
             error: "SyntaxError: JSON Parse error: Unrecognized token '<'",
           },
-          meta: { request: {} as Request, response: {} as Response },
+          meta: undefined,
         });
 
         const baseQuery = backendBaseQuery("library/rotation");
@@ -290,7 +294,7 @@ describe("backend", () => {
             data: "<!DOCTYPE html>",
             error: "SyntaxError: ...",
           },
-          meta: { request: {} as Request, response: {} as Response },
+          meta: undefined,
         });
 
         const baseQuery = backendBaseQuery("library/rotation");
@@ -314,7 +318,7 @@ describe("backend", () => {
         };
         mockInnerBaseQuery.mockResolvedValueOnce({
           error: jsonError,
-          meta: { request: {} as Request, response: {} as Response },
+          meta: undefined,
         });
 
         const baseQuery = backendBaseQuery("library/rotation");
@@ -333,7 +337,7 @@ describe("backend", () => {
       it("passes through successful responses unchanged", async () => {
         const success = {
           data: [{ position: "A1", title: "la paradoja", duration: null, artists: ["Juana Molina"] }],
-          meta: { request: {} as Request, response: {} as Response },
+          meta: undefined,
         };
         mockInnerBaseQuery.mockResolvedValueOnce(success);
 
@@ -358,7 +362,7 @@ describe("backend", () => {
             data: "<html>Bad Gateway</html>",
             error: "SyntaxError",
           },
-          meta: { request: {} as Request, response: {} as Response },
+          meta: undefined,
         });
 
         const baseQuery = backendBaseQuery("library/rotation");
@@ -382,7 +386,7 @@ describe("backend", () => {
               data: "<!DOCTYPE html>",
               error: "SyntaxError",
             },
-            meta: { request: {} as Request, response: {} as Response },
+            meta: undefined,
           });
 
           const baseQuery = backendBaseQuery("flowsheet");
@@ -411,7 +415,7 @@ describe("backend", () => {
             data: "<!DOCTYPE html>",
             error: "SyntaxError",
           },
-          meta: { request: {} as Request, response: {} as Response },
+          meta: undefined,
         });
 
         const baseQuery = backendBaseQuery("library/rotation");
@@ -440,7 +444,7 @@ describe("backend", () => {
             data: "<!DOCTYPE html>",
             error: "SyntaxError",
           },
-          meta: { request: {} as Request, response: {} as Response },
+          meta: undefined,
         });
 
         const baseQuery = backendBaseQuery("library/rotation");
@@ -464,7 +468,7 @@ describe("backend", () => {
             data: "<!DOCTYPE html>",
             error: "SyntaxError",
           },
-          meta: { request: {} as Request, response: {} as Response },
+          meta: undefined,
         });
 
         const baseQuery = backendBaseQuery("library/rotation");
