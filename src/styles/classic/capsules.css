@@ -29,8 +29,5 @@
   background-color: #7B2D8E;
 }
 
-html[data-experience="classic"][data-joy-color-scheme="dark"] .classic-capsule {
-  /* Capsule backgrounds are saturated enough to stay legible in dark mode;
-     no overrides needed today. Keep this selector so future dark-mode tuning
-     has an obvious anchor. */
-}
+/* Capsule backgrounds are saturated enough to stay legible in Classic's
+   dark color scheme; no dark-mode overrides needed today. */
