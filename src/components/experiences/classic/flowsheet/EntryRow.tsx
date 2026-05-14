@@ -8,6 +8,7 @@ import {
   isFlowsheetStartShowEntry,
   isFlowsheetEndShowEntry,
 } from "@/lib/features/flowsheet/types";
+import { Capsule, capsulesForSongEntry } from "./Capsule";
 
 export default function EntryRow({
   entry,
@@ -30,10 +31,14 @@ export default function EntryRow({
 }) {
   const fontSizeClass = `fontSize${fontSize}`;
 
+  // Markers (talkset / breakpoint / start / end of show) span the full table.
+  // Column count after capsule consolidation: 1 (indicators) + 4 (artist/song/release/label)
+  // + 2 (move up/down) + 1 (edit/delete) = 8 columns. Header text spans the first 5
+  // (indicators + 4 data) and the row's trailing 3 columns stay empty.
   if (isFlowsheetTalksetEntry(entry)) {
     return (
       <tr style={{ backgroundColor: "#BBBBBB" }} className={`flowsheetEntryData ${fontSizeClass}`}>
-        <td colSpan={6} align="center" className="redlabel">
+        <td colSpan={5} align="center" className="redlabel">
           talkset
         </td>
         <td colSpan={3}>&nbsp;</td>
@@ -44,7 +49,7 @@ export default function EntryRow({
   if (isFlowsheetBreakpointEntry(entry)) {
     return (
       <tr style={{ backgroundColor: "#444444" }} className={`flowsheetEntryData ${fontSizeClass}`}>
-        <td colSpan={6} align="left" className="littlegreenlabel">
+        <td colSpan={5} align="left" className="littlegreenlabel">
           {entry.message}
         </td>
         <td colSpan={3}>&nbsp;</td>
@@ -55,7 +60,7 @@ export default function EntryRow({
   if (isFlowsheetStartShowEntry(entry)) {
     return (
       <tr style={{ backgroundColor: "#444444" }} className={`flowsheetEntryData ${fontSizeClass}`}>
-        <td colSpan={6} align="left" className="littlegreenlabel">
+        <td colSpan={5} align="left" className="littlegreenlabel">
           Start: {entry.dj_name}
         </td>
         <td colSpan={3}>&nbsp;</td>
@@ -66,7 +71,7 @@ export default function EntryRow({
   if (isFlowsheetEndShowEntry(entry)) {
     return (
       <tr style={{ backgroundColor: "#444444" }} className={`flowsheetEntryData ${fontSizeClass}`}>
-        <td colSpan={6} align="left" className="littlegreenlabel">
+        <td colSpan={5} align="left" className="littlegreenlabel">
           End: {entry.dj_name}
         </td>
         <td colSpan={3}>&nbsp;</td>
@@ -75,14 +80,16 @@ export default function EntryRow({
   }
 
   if (isFlowsheetSongEntry(entry)) {
-    const rotationIndicator = entry.rotation ? "*" : "";
-    const requestIndicator = entry.request_flag ? "*" : "";
     const hasComposer = false; // BMI composer info not in current type
+    const capsules = capsulesForSongEntry(entry);
 
     return (
       <tr style={{ backgroundColor: "#F3F3F3" }} className={`flowsheetEntryData ${fontSizeClass}`}>
-        <td align="center">{rotationIndicator}</td>
-        <td align="center">{requestIndicator}</td>
+        <td align="center">
+          {capsules.map((c) => (
+            <Capsule key={c.variant} variant={c.variant} label={c.label} />
+          ))}
+        </td>
         <td align="left">{entry.artist_name}</td>
         <td align="left">
           {entry.track_title}
