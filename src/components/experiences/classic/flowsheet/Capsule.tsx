@@ -1,4 +1,3 @@
-import type { Rotation } from "@/lib/features/rotation/types";
 import type { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 import "@/src/styles/classic/capsules.css";
 
@@ -30,7 +29,7 @@ export function capsulesForSongEntry(entry: FlowsheetSongEntry): CapsuleSpec[] {
   if (entry.rotation) {
     out.push({
       variant: "rotation",
-      label: `ROTATION ${entry.rotation as Rotation}`,
+      label: `ROTATION ${entry.rotation}`,
     });
   }
   if (entry.on_streaming === false) {
