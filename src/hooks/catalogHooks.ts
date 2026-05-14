@@ -229,12 +229,16 @@ export function useCatalogQueryResults() {
     });
   }, [data]);
 
-  // Fire the search when params change. Skip partial single-character queries.
+  // Fire the search when params change. Suppress while any row holds a single-
+  // character partial — typing "a" into a field shouldn't fire a query before
+  // the user finishes the word. Empty rows don't count as partial.
   useEffect(() => {
     if (!ready) return;
-    const isPartial =
-      effectiveQuery.length > 0 && effectiveQuery.length < MIN_QUERY_LENGTH;
-    if (isPartial) {
+    const hasPartialRow = rows.some((r) => {
+      const v = r.value.trim();
+      return v.length > 0 && v.length < MIN_QUERY_LENGTH;
+    });
+    if (hasPartialRow) {
       pendingQueryRef.current = null;
       return;
     }
@@ -249,7 +253,7 @@ export function useCatalogQueryResults() {
       pendingQueryRef.current = null;
       trigger(params);
     }
-  }, [params, ready, effectiveQuery, isFetching, trigger]);
+  }, [params, ready, rows, isFetching, trigger]);
 
   // Drain pending query once the in-flight request finishes.
   useEffect(() => {
