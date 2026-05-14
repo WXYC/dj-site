@@ -124,6 +124,43 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
         );
         expect(result.search.query.album_id).toBeUndefined();
       });
+
+      it("should round-trip rotation_id and rotation_bin", () => {
+        const result = harness().reduce(
+          actions.freezeSelectionToQuery({
+            artist: "Juana Molina",
+            album: "DOGA",
+            label: "Sonamos",
+            album_id: 42,
+            rotation_id: 99,
+            rotation_bin: "H",
+          })
+        );
+        expect(result.search.query.rotation_id).toBe(99);
+        expect(result.search.query.rotation_bin).toBe("H");
+      });
+
+      it("should clear rotation_id and rotation_bin when not provided", () => {
+        const seeded = harness().reduce(
+          actions.freezeSelectionToQuery({
+            artist: "Stereolab",
+            album: "Aluminum Tunes",
+            label: "Duophonic",
+            rotation_id: 5,
+            rotation_bin: "M",
+          })
+        );
+        const result = harness().reduce(
+          actions.freezeSelectionToQuery({
+            artist: "Cat Power",
+            album: "Moon Pix",
+            label: "Matador Records",
+          }),
+          seeded
+        );
+        expect(result.search.query.rotation_id).toBeUndefined();
+        expect(result.search.query.rotation_bin).toBeUndefined();
+      });
     });
   });
 

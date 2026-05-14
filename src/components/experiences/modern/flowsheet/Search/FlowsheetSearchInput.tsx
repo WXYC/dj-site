@@ -57,6 +57,8 @@ export default function FlowsheetSearchInput({
         album: selectedEntry.title ?? "",
         label: selectedEntry.label ?? "",
         album_id: selectedEntry.id ?? undefined,
+        rotation_id: selectedEntry.rotation_id ?? undefined,
+        rotation_bin: selectedEntry.rotation_bin ?? undefined,
       })
     );
   };
