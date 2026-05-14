@@ -1,0 +1,40 @@
+/* Classic catalog filter chip — shown when the Exclusive filter is active. */
+
+.classic-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+  justify-content: center;
+  padding: 0.5em 0;
+}
+
+.classic-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 2px 4px 2px 8px;
+  border-radius: 12px;
+  font-family: Verdana, Geneva, Arial, Helvetica, sans-serif;
+  font-size: 0.75em;
+  font-weight: bold;
+  color: #FFFFFF;
+  line-height: 1.4;
+}
+
+.classic-filter-chip--exclusive {
+  background-color: #7B2D8E;
+}
+
+.classic-filter-chip__dismiss {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font-size: 1.2em;
+  line-height: 1;
+  padding: 0 4px;
+  cursor: pointer;
+}
+
+.classic-filter-chip__dismiss:hover {
+  opacity: 0.75;
+}

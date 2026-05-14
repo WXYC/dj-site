@@ -2,33 +2,59 @@
 
 import { useSearchParams } from "next/navigation";
 import { useSearchCatalogQuery } from "@/lib/features/catalog/api";
-import { useAppSelector } from "@/lib/hooks";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
 import { Capsule } from "@/src/components/experiences/classic/flowsheet/Capsule";
+import "@/src/styles/classic/filter-chip.css";
 
 export default function SearchResults() {
+  const dispatch = useAppDispatch();
   const searchParams = useSearchParams();
   const searchQuery = useAppSelector(catalogSlice.selectors.getSearchQuery);
+  const exclusive = useAppSelector(catalogSlice.selectors.getExclusiveFilter);
   const searchString = searchParams.get("searchString") || searchQuery;
+  const hasQuery = !!searchString && searchString.trim().length > 0;
+  // Either a free-text query OR the Exclusive filter constitutes a search.
+  // Skip only when neither is active so we don't fire empty requests.
+  const skip = !hasQuery && !exclusive;
 
   const { data: results, isLoading, error } = useSearchCatalogQuery(
     {
-      artist_name: searchString || undefined,
-      album_title: searchString || undefined,
+      artist_name: hasQuery ? searchString : undefined,
+      album_title: hasQuery ? searchString : undefined,
       n: 50,
+      on_streaming: exclusive ? false : undefined,
     },
-    {
-      skip: !searchString || searchString.trim().length === 0,
-    }
+    { skip }
   );
 
-  if (!searchString || searchString.trim().length === 0) {
+  if (skip) {
     return null;
   }
+
+  const filterChips = exclusive ? (
+    <div className="classic-filter-chips">
+      <span
+        className="classic-filter-chip classic-filter-chip--exclusive"
+        data-testid="classic-filter-chip-exclusive"
+      >
+        <span className="classic-filter-chip__label">Exclusive</span>
+        <button
+          type="button"
+          className="classic-filter-chip__dismiss"
+          aria-label="Remove Exclusive filter"
+          onClick={() => dispatch(catalogSlice.actions.setExclusiveFilter(false))}
+        >
+          &times;
+        </button>
+      </span>
+    </div>
+  ) : null;
 
   if (isLoading) {
     return (
       <div style={{ textAlign: "center" }} className="text">
+        {filterChips}
         <p>Loading search results...</p>
       </div>
     );
@@ -37,21 +63,27 @@ export default function SearchResults() {
   if (error) {
     return (
       <div style={{ textAlign: "center" }} className="text">
+        {filterChips}
         <p>Error loading search results. Please try again.</p>
       </div>
     );
   }
 
   if (!results || results.length === 0) {
+    const emptyContext = hasQuery
+      ? `No results found for "${searchString}"`
+      : "No exclusive albums found";
     return (
       <div style={{ textAlign: "center" }} className="text">
-        <p>No results found for &quot;{searchString}&quot;</p>
+        {filterChips}
+        <p>{emptyContext}</p>
       </div>
     );
   }
 
   return (
     <div style={{ textAlign: "center" }}>
+      {filterChips}
       <table
         cellPadding={4}
         cellSpacing={2}
