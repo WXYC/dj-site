@@ -65,14 +65,18 @@ const logNonJsonResponse = (
   error: FetchBaseQueryError & { originalStatus?: number; data?: unknown }
 ) => {
   const url = typeof args === "string" ? args : args.url;
+  const params = typeof args === "string" ? undefined : args.params;
   const message = `[backendBaseQuery] non-JSON response from ${domain}/${url} (HTTP ${error.originalStatus ?? "?"}); soft-failing.`;
-  // eslint-disable-next-line no-console
-  console.warn(message, { sample: typeof error.data === "string" ? error.data.slice(0, 200) : error.data });
+  console.warn(message, {
+    sample: typeof error.data === "string" ? error.data.slice(0, 200) : error.data,
+    params,
+  });
   // PostHog is the project's wired error sink (see lib/store.ts).
   try {
     posthog.captureException(new Error(message), {
       domain,
       url,
+      params,
       originalStatus: error.originalStatus,
     });
   } catch {
@@ -81,14 +85,47 @@ const logNonJsonResponse = (
 };
 
 /**
+ * RTK Query passes `extraOptions` through from each endpoint definition. We
+ * use it as the opt-OUT knob for the non-JSON soft-handle path: a GET endpoint
+ * that *requires* loud failure on PARSING_ERROR can set
+ * `extraOptions: { surfaceNonJsonAsError: true }` in its `builder.query(...)`
+ * definition. Default behavior (soft-handle) is the right policy for the
+ * common case — list-shaped queries hitting a not-yet-shipped backend route
+ * should fall through to their empty-state branch, not nuke the UI with a
+ * toast.
+ */
+type BackendExtraOptions = {
+  surfaceNonJsonAsError?: boolean;
+};
+
+/**
+ * fetchBaseQuery treats a string `args` as `GET <url>`; an object `args` with
+ * no `method` defaults to GET too. Only when `method` is explicitly set to
+ * something else is the request a mutation. Lower-casing first defends against
+ * an accidental `Method: 'post'` typo.
+ */
+const isGetRequest = (args: string | FetchArgs): boolean => {
+  if (typeof args === "string") return true;
+  const method = args.method;
+  if (method === undefined) return true;
+  return method.toUpperCase() === "GET";
+};
+
+/**
  * Backend base query for RTK Query APIs.
  *
  * Wraps `fetchBaseQuery` with two extras:
  * 1. Adds the JWT bearer token and a request id (in `prepareHeaders`).
- * 2. Soft-handles non-JSON responses (most notably Express's HTML 404s):
- *    the query resolves with `{ data: undefined }` instead of throwing the
- *    cryptic `Unrecognized token '<'` JSON-parse error up to the global
- *    error toast. See WXYC/dj-site#519.
+ * 2. Soft-handles non-JSON responses (most notably Express's HTML 404s)
+ *    **for GET requests by default**: the query resolves with
+ *    `{ data: undefined }` instead of throwing the cryptic
+ *    `Unrecognized token '<'` JSON-parse error up to the global error toast.
+ *    See WXYC/dj-site#519.
+ *
+ * Mutations (POST/PATCH/DELETE/PUT) **never** get the soft-handle treatment —
+ * a silently-"succeeding" `addToFlowsheet` or `addAlbum` is a worse UX than a
+ * confusing toast. A GET endpoint that wants the loud behavior anyway can
+ * opt out per-endpoint via `extraOptions: { surfaceNonJsonAsError: true }`.
  */
 export const backendBaseQuery = (domain: string): BackendBaseQuery => {
   const inner = innerBaseQuery(domain);
@@ -97,8 +134,11 @@ export const backendBaseQuery = (domain: string): BackendBaseQuery => {
     const result = await inner(args, api, extraOptions);
 
     if (result.error && isNonJsonParsingError(result.error)) {
-      logNonJsonResponse(domain, args, result.error);
-      return { data: undefined, meta: result.meta };
+      const optOut = (extraOptions as BackendExtraOptions | undefined)?.surfaceNonJsonAsError === true;
+      if (isGetRequest(args) && !optOut) {
+        logNonJsonResponse(domain, args, result.error);
+        return { data: undefined, meta: result.meta };
+      }
     }
 
     return result;
