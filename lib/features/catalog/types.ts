@@ -66,29 +66,49 @@ export type ArtistEntry = {
   id: number | undefined;
 };
 
-export type CatalogFrontendState = {
-  search: CatalogSearchState;
-  results: CatalogResultsState;
+// --- Query-builder state ---
+
+export type CatalogSearchField = "all" | "artist" | "album" | "label";
+export type CatalogSearchOperator = "AND" | "OR" | "NOT";
+export type CatalogSortBy = "artist" | "album" | "plays" | "date";
+export type CatalogSortOrder = "asc" | "desc";
+
+export type CatalogSearchRow = {
+  id: string; // uuid for stable React keys
+  operator: CatalogSearchOperator; // first row's operator is hidden by the UI but stored as 'AND'
+  field: CatalogSearchField;
+  value: string;
+  exact: boolean; // mirrored from quoted-value input
+};
+
+export type CatalogFilters = {
+  onStreaming: boolean | undefined; // undefined = no filter
+  genre: Genre | "All"; // 'All' = no filter
+  format: Format | "All"; // 'All' = no filter
 };
 
 export type CatalogSearchState = {
-  query: string;
-  in: SearchIn;
-  genre: Genre | "All";
-  exclusive: boolean;
-  mobileOpen: boolean;
-  params: {
-    n: number;
-    orderBy?: string;
-    orderDirection?: "asc" | "desc";
-  };
-};
-
-export type CatalogResultsState = {
+  rows: CatalogSearchRow[];
+  sortBy: CatalogSortBy;
+  sortOrder: CatalogSortOrder;
+  page: number;
+  filters: CatalogFilters;
   selected: number[];
+  mobileOpen: boolean;
 };
 
-export type SearchIn = "Artists" | "Albums" | "All";
+// --- Request envelope for /library/query ---
+
+export type LibraryQueryParams = {
+  q?: string;
+  page?: number;
+  limit?: number;
+  sort?: CatalogSortBy;
+  order?: CatalogSortOrder;
+  on_streaming?: boolean;
+  genre?: string;
+  format?: string;
+};
 
 export type Format = "Vinyl" | "CD" | "Unknown";
 

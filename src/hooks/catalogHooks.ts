@@ -1,196 +1,303 @@
-import { useSearchCatalogQuery } from "@/lib/features/catalog/api";
+"use client";
+
+import {
+  useLazySearchLibraryQueryQuery,
+  useSearchCatalogQuery,
+} from "@/lib/features/catalog/api";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
 import {
-  Genre,
-  SearchCatalogQueryParams,
-  SearchIn,
+  AlbumEntry,
+  CatalogFilters,
+  CatalogSearchField,
+  CatalogSearchRow,
+  CatalogSortBy,
+  CatalogSortOrder,
+  LibraryQueryParams,
 } from "@/lib/features/catalog/types";
-
-export function formatCatalogSearchQuery(
-  searchIn: SearchIn,
-  searchString: string,
-  n: number,
-  exclusive: boolean = false
-): SearchCatalogQueryParams {
-  const base = (() => {
-    switch (searchIn) {
-      case "Albums":
-        return { artist_name: undefined, album_title: searchString, n };
-      case "Artists":
-        return { artist_name: searchString, album_title: undefined, n };
-      default:
-        return { artist_name: searchString, album_title: searchString, n };
-    }
-  })();
-  return exclusive ? { ...base, on_streaming: false } : base;
-}
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
-import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
 import { useGetRotationQuery } from "@/lib/features/rotation/api";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useAuthentication } from "./authenticationHooks";
 import { filterBySearchTerms } from "@/src/utilities/filterBySearchTerms";
 
-export const useCatalogSearch = () => {
+const MIN_QUERY_LENGTH = 2;
+const PAGE_LIMIT = 50;
+
+/** UI-side field-prefix map (mirrors the backend's CATALOG_PARSER_CONFIG). */
+const CATALOG_FIELD_PREFIXES: Record<CatalogSearchField, string | null> = {
+  all: null,
+  artist: "artist:",
+  album: "album:",
+  label: "label:",
+};
+
+/**
+ * Render the query-builder rows back to the query string that the backend
+ * parser will reparse. Field-agnostic except for the prefix map. Mirrors the
+ * playlist-search hook's `buildQuery` so the two surfaces stay structurally
+ * similar without prematurely sharing code.
+ */
+export function buildCatalogQuery(rows: CatalogSearchRow[]): string {
+  const parts: string[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row.value.trim()) continue;
+    const value = row.exact ? `"${row.value.trim()}"` : row.value.trim();
+    const prefix = CATALOG_FIELD_PREFIXES[row.field] ?? "";
+    const fullTerm = `${prefix}${value}`;
+    parts.push(i === 0 ? fullTerm : `${row.operator} ${fullTerm}`);
+  }
+  return parts.join(" ");
+}
+
+/**
+ * Map UI state to the request shape. `'All'` enum sentinels become
+ * `undefined` so they're omitted from the URL.
+ */
+export function toLibraryQueryParams(
+  rows: CatalogSearchRow[],
+  filters: CatalogFilters,
+  page: number,
+  sortBy: CatalogSortBy,
+  sortOrder: CatalogSortOrder,
+): LibraryQueryParams {
+  const q = buildCatalogQuery(rows);
+  return {
+    q: q || undefined,
+    page,
+    limit: PAGE_LIMIT,
+    sort: sortBy,
+    order: sortOrder,
+    on_streaming: filters.onStreaming,
+    genre: filters.genre === "All" ? undefined : filters.genre,
+    format: filters.format === "All" ? undefined : filters.format,
+  };
+}
+
+/**
+ * UI-state hook for the catalog query builder. Returns only slice state and
+ * dispatch helpers — no data fetching. Component callers that also need data
+ * should call {@link useCatalogQueryResults}.
+ */
+export function useCatalogQuerySearch() {
   const dispatch = useAppDispatch();
-  const searchString = useAppSelector(catalogSlice.selectors.getSearchQuery);
-  const setSearchString = (query: string) =>
-    dispatch(catalogSlice.actions.setSearchQuery(query));
-  const setSearchIn = (inWhat: SearchIn) =>
-    dispatch(catalogSlice.actions.setSearchIn(inWhat));
-  const setSearchGenre = (genre: Genre | "All") =>
-    dispatch(catalogSlice.actions.setSearchGenre(genre));
-  const addSelection = (id: number) =>
-    dispatch(catalogSlice.actions.addSelection(id));
-  const removeSelection = (id: number) =>
-    dispatch(catalogSlice.actions.removeSelection(id));
-  const setSelection = (ids: number[]) =>
-    dispatch(catalogSlice.actions.setSelection(ids));
-  const clearSelection = () => dispatch(catalogSlice.actions.clearSelection());
+
+  const rows = useAppSelector(catalogSlice.selectors.getRows);
+  const sortBy = useAppSelector(catalogSlice.selectors.getSortBy);
+  const sortOrder = useAppSelector(catalogSlice.selectors.getSortOrder);
+  const filters = useAppSelector(catalogSlice.selectors.getFilters);
   const selected = useAppSelector(catalogSlice.selectors.getSelected);
 
-  const exclusive = useAppSelector(catalogSlice.selectors.getExclusiveFilter);
-  const setExclusiveFilter = (value: boolean) =>
-    dispatch(catalogSlice.actions.setExclusiveFilter(value));
-
-  const { n, orderBy, orderDirection } = useAppSelector(
-    catalogSlice.selectors.getSearchParams
+  const addRow = useCallback(
+    () => dispatch(catalogSlice.actions.addRow()),
+    [dispatch],
+  );
+  const removeRow = useCallback(
+    (id: string) => dispatch(catalogSlice.actions.removeRow(id)),
+    [dispatch],
+  );
+  const updateRow = useCallback(
+    (id: string, updates: Partial<CatalogSearchRow>) =>
+      dispatch(catalogSlice.actions.updateRow({ id, updates })),
+    [dispatch],
   );
 
-  const handleRequestSort = useCallback(
-    (value: string) => {
-      dispatch(
-        catalogSlice.actions.setSearchParams({
-          orderBy: value,
-          orderDirection:
-            orderBy === value
-              ? orderDirection === "asc"
-                ? "desc"
-                : "asc"
-              : orderDirection,
-        })
-      );
-    },
-    [orderBy, orderDirection]
+  const setSort = useCallback(
+    (next: { sortBy: CatalogSortBy; sortOrder: CatalogSortOrder }) =>
+      dispatch(catalogSlice.actions.setSort(next)),
+    [dispatch],
   );
+  const setFilter = useCallback(
+    (next: Partial<CatalogFilters>) =>
+      dispatch(catalogSlice.actions.setFilter(next)),
+    [dispatch],
+  );
+
+  const setSelection = useCallback(
+    (ids: number[]) => dispatch(catalogSlice.actions.setSelection(ids)),
+    [dispatch],
+  );
+  const addSelection = useCallback(
+    (id: number) => dispatch(catalogSlice.actions.addSelection(id)),
+    [dispatch],
+  );
+  const removeSelection = useCallback(
+    (id: number) => dispatch(catalogSlice.actions.removeSelection(id)),
+    [dispatch],
+  );
+  const clearSelection = useCallback(
+    () => dispatch(catalogSlice.actions.clearSelection()),
+    [dispatch],
+  );
+
+  const openMobileSearch = useCallback(
+    () => dispatch(catalogSlice.actions.openMobileSearch()),
+    [dispatch],
+  );
+  const closeMobileSearch = useCallback(
+    () => dispatch(catalogSlice.actions.closeMobileSearch()),
+    [dispatch],
+  );
+
+  const reset = useCallback(
+    () => dispatch(catalogSlice.actions.reset()),
+    [dispatch],
+  );
+
+  const effectiveQuery = useMemo(() => buildCatalogQuery(rows), [rows]);
+  const hasActiveQuery =
+    effectiveQuery.length > 0 ||
+    filters.onStreaming !== undefined ||
+    filters.genre !== "All" ||
+    filters.format !== "All";
 
   return {
-    searchString,
-    setSearchString,
-    setSearchIn,
-    setSearchGenre,
-    orderBy,
-    orderDirection,
-    handleRequestSort,
-    dispatch,
-    catalogSlice,
-    addSelection,
-    removeSelection,
-    setSelection,
-    clearSelection,
+    rows,
+    sortBy,
+    sortOrder,
+    filters,
     selected,
-    exclusive,
-    setExclusiveFilter,
-    n,
-  };
-};
-
-export const useCatalogResults = () => {
-  const MIN_SEARCH_LENGTH = 2;
-
-  const {
-    searchString,
-    setSearchString,
-    setSearchIn,
-    setSearchGenre,
-    dispatch,
-    catalogSlice,
+    effectiveQuery,
+    hasActiveQuery,
+    addRow,
+    removeRow,
+    updateRow,
+    setSort,
+    setFilter,
+    setSelection,
     addSelection,
     removeSelection,
     clearSelection,
-    n,
-  } = useCatalogSearch();
+    openMobileSearch,
+    closeMobileSearch,
+    reset,
+    dispatch,
+    catalogSlice,
+  };
+}
+
+/**
+ * Data-fetching hook for the catalog query builder. Reads slice state from
+ * {@link useCatalogQuerySearch}, fires `/library/query`, and accumulates
+ * pages for infinite scroll. Response-based throttling mirrors
+ * `usePlaylistSearch` — at most one in-flight request, the next-query queues.
+ */
+export function useCatalogQueryResults() {
+  const { rows, sortBy, sortOrder, filters, effectiveQuery } =
+    useCatalogQuerySearch();
+  const dispatch = useAppDispatch();
+  const page = useAppSelector(catalogSlice.selectors.getPage);
 
   const { authenticating, authenticated } = useAuthentication();
+  const ready = !authenticating && authenticated;
 
-  const searchIn = useAppSelector(catalogSlice.selectors.getSearchIn);
-  const exclusive = useAppSelector(catalogSlice.selectors.getExclusiveFilter);
-  const [formattedQuery, setFormattedQuery] =
-    useState<SearchCatalogQueryParams>(() =>
-      formatCatalogSearchQuery(searchIn, searchString, n, exclusive)
-    );
-  const loadMore = () => dispatch(catalogSlice.actions.loadMore());
+  const params = useMemo(
+    () => toLibraryQueryParams(rows, filters, page, sortBy, sortOrder),
+    [rows, filters, page, sortBy, sortOrder],
+  );
 
-  const [debouncing, setDebouncing] = useState(false);
-  const [reachedEndForQuery, setReachedEndForQuery] = useState(false);
+  const pendingQueryRef = useRef<LibraryQueryParams | null>(null);
+  // null sentinel — distinguish "never fired" from "fired with empty q"
+  const lastFiredRef = useRef<string | null>(null);
 
-  const isFirstRender = useRef(true);
+  const accumulatedRef = useRef<AlbumEntry[]>([]);
+  const lastAccumulatedKeyRef = useRef<string>("");
+
+  const [trigger, { data, isFetching, isError }] =
+    useLazySearchLibraryQueryQuery();
+
+  // Reset accumulated rows when the query or sort changes (any param except page).
   useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
+    const key = `${effectiveQuery}|${sortBy}|${sortOrder}|${filters.onStreaming}|${filters.genre}|${filters.format}`;
+    if (key !== lastAccumulatedKeyRef.current) {
+      accumulatedRef.current = [];
+      lastAccumulatedKeyRef.current = key;
+    }
+  }, [effectiveQuery, sortBy, sortOrder, filters]);
+
+  // Append the latest page (or replace, for page 0) into the accumulator.
+  useEffect(() => {
+    if (!data?.results) return;
+    if (data.page === 0) {
+      accumulatedRef.current = data.results;
+    } else {
+      const seen = new Set(accumulatedRef.current.map((r) => r.id));
+      accumulatedRef.current = [
+        ...accumulatedRef.current,
+        ...data.results.filter((r) => !seen.has(r.id)),
+      ];
+    }
+  }, [data]);
+
+  // Fire the search when params change. Skip partial single-character queries.
+  useEffect(() => {
+    if (!ready) return;
+    const isPartial =
+      effectiveQuery.length > 0 && effectiveQuery.length < MIN_QUERY_LENGTH;
+    if (isPartial) {
+      pendingQueryRef.current = null;
       return;
     }
-    setDebouncing(true);
-    const timer = setTimeout(() => {
-      clearSelection();
-      setFormattedQuery(
-        formatCatalogSearchQuery(searchIn, searchString, n, exclusive)
-      );
-      setDebouncing(false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [searchIn, searchString, n, exclusive]);
 
-  useEffect(() => {
-    setReachedEndForQuery(false);
-  }, [searchIn, searchString]);
-
-  const { data, isFetching } = useSearchCatalogQuery(formattedQuery, {
-    skip:
-      authenticating ||
-      !authenticated ||
-      searchString.length < MIN_SEARCH_LENGTH,
-  });
-
-  const combinedLoading = useMemo(() => {
-    if (searchString.length < MIN_SEARCH_LENGTH) return false;
-    return debouncing || isFetching;
-  }, [debouncing, isFetching, searchString.length]);
-
-  const [lastData, setLastData] = useState(0);
-  useEffect(() => {
-    if (data === undefined) return;
-    if (data.length === lastData) {
-      setReachedEndForQuery(true);
-    } else {
-      setLastData(data.length);
+    const fingerprint = JSON.stringify(params);
+    if (isFetching) {
+      pendingQueryRef.current = params;
+      return;
     }
-  }, [data, lastData]);
+    if (fingerprint !== lastFiredRef.current) {
+      lastFiredRef.current = fingerprint;
+      pendingQueryRef.current = null;
+      trigger(params);
+    }
+  }, [params, ready, effectiveQuery, isFetching, trigger]);
+
+  // Drain pending query once the in-flight request finishes.
+  useEffect(() => {
+    if (isFetching) return;
+    const pending = pendingQueryRef.current;
+    if (!pending) return;
+    const fingerprint = JSON.stringify(pending);
+    if (fingerprint === lastFiredRef.current) {
+      pendingQueryRef.current = null;
+      return;
+    }
+    lastFiredRef.current = fingerprint;
+    pendingQueryRef.current = null;
+    trigger(pending);
+  }, [isFetching, trigger]);
+
+  const loadNextPage = useCallback(() => {
+    if (!data) return;
+    if (data.page + 1 >= data.totalPages) return;
+    dispatch(catalogSlice.actions.nextPage());
+  }, [data, dispatch]);
+
+  const hasMore = data ? data.page + 1 < data.totalPages : false;
 
   return {
-    data,
-    loading: combinedLoading,
-    searchString,
-    setSearchString,
-    setSearchIn,
-    setSearchGenre,
-    addSelection,
-    removeSelection,
-    loadMore,
-    reachedEndForQuery,
-    dispatch,
-    catalogSlice,
+    results: accumulatedRef.current,
+    total: data?.total ?? 0,
+    hasMore,
+    isLoading: isFetching,
+    isError,
+    loadNextPage,
   };
-};
+}
+
+// ---------------------------------------------------------------------------
+// Flowsheet-autofill hooks — unchanged from the pre-query-builder shape.
+// They read from flowsheetSlice and hit the preserved /library/ endpoint via
+// catalogApi.searchCatalog. Don't migrate them to /library/query — they don't
+// need filters, pagination, or query parsing.
+// ---------------------------------------------------------------------------
 
 export const useCatalogFlowsheetSearch = () => {
-  const MIN_SEARCH_LENGTH = 2;
+  const FLOWSHEET_MIN_SEARCH_LENGTH = 2;
 
   const { authenticating, authenticated } = useAuthentication();
-
   const flowsheetQuery = useAppSelector(
-    flowsheetSlice.selectors.getSearchQuery
+    flowsheetSlice.selectors.getSearchQuery,
   );
 
   const { data } = useSearchCatalogQuery(
@@ -204,39 +311,37 @@ export const useCatalogFlowsheetSearch = () => {
         authenticating ||
         !authenticated ||
         flowsheetQuery.artist.length + flowsheetQuery.album.length <=
-          MIN_SEARCH_LENGTH,
-    }
+          FLOWSHEET_MIN_SEARCH_LENGTH,
+    },
   );
 
   return {
     searchResults:
       flowsheetQuery.artist.length + flowsheetQuery.album.length >
-      MIN_SEARCH_LENGTH
+      FLOWSHEET_MIN_SEARCH_LENGTH
         ? data ?? []
         : [],
   };
 };
 
 export const useRotationFlowsheetSearch = () => {
-  const MIN_SEARCH_LENGTH = 2;
+  const FLOWSHEET_MIN_SEARCH_LENGTH = 2;
 
   const { authenticating, authenticated } = useAuthentication();
-
   const rotationQuery = useAppSelector(flowsheetSlice.selectors.getSearchQuery);
   const { data, isLoading, isSuccess } = useGetRotationQuery(undefined, {
     skip: authenticating || !authenticated,
   });
 
   const searchResults = useMemo(() => {
-    if (!data || isLoading || !isSuccess) {
-      return [];
-    }
+    if (!data || isLoading || !isSuccess) return [];
     return filterBySearchTerms(data, rotationQuery);
   }, [data, isLoading, isSuccess, rotationQuery]);
 
   return {
     searchResults:
-      rotationQuery.artist.length + rotationQuery.album.length > MIN_SEARCH_LENGTH
+      rotationQuery.artist.length + rotationQuery.album.length >
+      FLOWSHEET_MIN_SEARCH_LENGTH
         ? searchResults
         : [],
     loading: isLoading,

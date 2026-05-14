@@ -1,26 +1,15 @@
 "use client";
 
-import { useCatalogSearch } from "@/src/hooks/catalogHooks";
-import { Cancel, Troubleshoot } from "@mui/icons-material";
-import {
-    Box,
-    ColorPaletteProp,
-    FormControl,
-    FormLabel,
-    IconButton,
-    Input
-} from "@mui/joy";
+import { Box, ColorPaletteProp } from "@mui/joy";
 import { Filters } from "./Filters";
+import QueryBuilder from "./QueryBuilder";
 
 export default function SearchBar({
   color,
 }: {
   color: ColorPaletteProp | undefined;
 }) {
-  const { searchString, setSearchString } = useCatalogSearch();
-
   return (
-    <>
     <Box
       className="SearchAndFilters-tabletUp"
       sx={{
@@ -30,45 +19,26 @@ export default function SearchBar({
           xs: "none",
           sm: "flex",
         },
-        flexWrap: "wrap",
+        flexDirection: "column",
         gap: 1.5,
-        "& > *": {
-          minWidth: {
-            xs: "180px",
-            md: "200px",
-          },
-        },
       }}
     >
-      <FormControl
-        sx={{ flex: 1, flexBasis: { xs: "100%", lg: "50%" } }}
-        size="sm"
+      <QueryBuilder />
+      <Box
+        sx={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 1.5,
+          "& > *": {
+            minWidth: {
+              xs: "180px",
+              md: "200px",
+            },
+          },
+        }}
       >
-        <FormLabel>Search for an album or artist</FormLabel>
-        <Input
-          color={color ?? "neutral"}
-          placeholder="Search"
-          startDecorator={<Troubleshoot />}
-          endDecorator={
-            searchString != "" ? (
-              <IconButton
-                variant="plain"
-                color={color ?? "primary"}
-                onClick={() => setSearchString("")}
-              >
-                <Cancel />
-              </IconButton>
-            ) : (
-              <></>
-            )
-          }
-          value={searchString}
-          onChange={(e) => setSearchString(e.target.value)}
-        />
-      </FormControl>
-
-      <Filters color={color} />
+        <Filters color={color} />
+      </Box>
     </Box>
-    </>
   );
 }

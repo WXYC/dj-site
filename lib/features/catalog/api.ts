@@ -7,8 +7,23 @@ import {
   AlbumSearchResultJSON,
   AlbumRequestParams,
   ArtistParams,
+  LibraryQueryParams,
   SearchCatalogQueryParams,
 } from "./types";
+
+type LibraryQueryResponseJSON = {
+  results: AlbumSearchResultJSON[];
+  total: number;
+  page: number;
+  totalPages: number;
+};
+
+export type LibraryQueryResult = {
+  results: AlbumEntry[];
+  total: number;
+  page: number;
+  totalPages: number;
+};
 
 export const catalogApi = createApi({
   reducerPath: "catalogApi",
@@ -22,6 +37,18 @@ export const catalogApi = createApi({
       }),
       transformResponse: (response: AlbumSearchResultJSON[]) =>
         response.map(convertToAlbumEntry),
+    }),
+    searchLibraryQuery: builder.query<LibraryQueryResult, LibraryQueryParams>({
+      query: (params) => ({
+        url: "/query",
+        params,
+      }),
+      transformResponse: (response: LibraryQueryResponseJSON): LibraryQueryResult => ({
+        results: response.results.map(convertToAlbumEntry),
+        total: response.total,
+        page: response.page,
+        totalPages: response.totalPages,
+      }),
     }),
     addAlbum: builder.mutation<any, AlbumParams>({
       query: (album) => ({
@@ -98,6 +125,8 @@ export const catalogApi = createApi({
 
 export const {
   useSearchCatalogQuery,
+  useLazySearchLibraryQueryQuery,
+  useSearchLibraryQueryQuery,
   useAddAlbumMutation,
   useAddArtistMutation,
   useGetInformationQuery,

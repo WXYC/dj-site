@@ -7,7 +7,10 @@ import { ChangeEvent } from "react";
 
 import { Table } from "@mui/joy";
 
-import { useCatalogResults, useCatalogSearch } from "@/src/hooks/catalogHooks";
+import {
+  useCatalogQueryResults,
+  useCatalogQuerySearch,
+} from "@/src/hooks/catalogHooks";
 import { ColorPaletteProp } from "@mui/joy";
 import CatalogResult from "./Result";
 import ResultsContainer from "./ResultsContainer";
@@ -18,14 +21,14 @@ export default function Results({
 }: {
   color: ColorPaletteProp | undefined;
 }) {
-  const { selected, setSelection } = useCatalogSearch();
+  const { selected, setSelection } = useCatalogQuerySearch();
 
   const {
-    data: releaseList,
-    loading,
-    loadMore,
-    reachedEndForQuery,
-  } = useCatalogResults();
+    results: releaseList,
+    isLoading: loading,
+    hasMore,
+    loadNextPage,
+  } = useCatalogQueryResults();
   return (
     <ResultsContainer>
       <Table
@@ -116,7 +119,7 @@ export default function Results({
             ))
           )}
 
-          {!loading && !reachedEndForQuery && (
+          {!loading && hasMore && (
             <tr>
               <td colSpan={7} style={{ textAlign: "center" }}>
                 <Button
@@ -126,7 +129,7 @@ export default function Results({
                   sx={{
                     marginRight: "1rem",
                   }}
-                  onClick={loadMore}
+                  onClick={loadNextPage}
                 >
                   Load more
                 </Button>

@@ -19,10 +19,10 @@ vi.mock("@/src/hooks/flowsheetHooks", () => ({
 }));
 
 vi.mock("@/src/hooks/catalogHooks", () => ({
-  useCatalogSearch: () => ({
+  useCatalogQuerySearch: () => ({
     selected: [],
     setSelection: vi.fn(),
-    orderBy: "title",
+    sortBy: "album",
   }),
 }));
 

@@ -13,7 +13,7 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { Avatar, Stack, Tooltip } from "@mui/joy";
 
 import { applicationSlice } from "@/lib/features/application/frontend";
-import { useCatalogSearch } from "@/src/hooks/catalogHooks";
+import { useCatalogQuerySearch } from "@/src/hooks/catalogHooks";
 import { QueueMusic } from "@mui/icons-material";
 import { useQueue, useShowControl } from "@/src/hooks/flowsheetHooks";
 import { useAppDispatch } from "@/lib/hooks";
@@ -27,7 +27,7 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
   const { addToQueue } = useQueue();
   const dispatch = useAppDispatch();
 
-  const { selected, setSelection, orderBy } = useCatalogSearch();
+  const { selected, setSelection, sortBy } = useCatalogQuerySearch();
 
   const genreColor = GENRE_COLORS[(album.artist.genre as Genre) ?? "Unknown"] ?? "neutral";
   const genreVariant = GENRE_VARIANTS[(album.artist.genre as Genre) ?? "Unknown"] ?? "soft";
@@ -87,7 +87,7 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
         <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
           <div>
             <Typography
-              fontWeight={orderBy == "Artist" ? "bold" : "normal"}
+              fontWeight={sortBy === "artist" ? "bold" : "normal"}
               level="body-sm"
               textColor="text.primary"
             >
@@ -101,7 +101,7 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
       </td>
       <td>
         <Typography
-          fontWeight={orderBy == "Album" ? "bold" : "normal"}
+          fontWeight={sortBy === "album" ? "bold" : "normal"}
           level="body-sm"
           textColor="text.primary"
         >
