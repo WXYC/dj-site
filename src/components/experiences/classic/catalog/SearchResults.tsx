@@ -2,18 +2,14 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSearchCatalogQuery } from "@/lib/features/catalog/api";
-import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { catalogSlice } from "@/lib/features/catalog/frontend";
 import { Capsule } from "@/src/components/experiences/classic/flowsheet/Capsule";
 
 export default function SearchResults() {
-  const dispatch = useAppDispatch();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const searchQuery = useAppSelector(catalogSlice.selectors.getSearchQuery);
-  const exclusive = useAppSelector(catalogSlice.selectors.getExclusiveFilter);
-  const searchString = searchParams.get("searchString") || searchQuery;
-  const hasQuery = !!searchString && searchString.trim().length > 0;
+  const searchString = searchParams.get("searchString") || "";
+  const exclusive = searchParams.get("exclusive") === "true";
+  const hasQuery = searchString.trim().length > 0;
   // Either a free-text query OR the Exclusive filter constitutes a search.
   // Skip only when neither is active so we don't fire empty requests.
   const skip = !hasQuery && !exclusive;
@@ -44,10 +40,6 @@ export default function SearchResults() {
           className="classic-filter-chip__dismiss"
           aria-label="Remove Exclusive filter"
           onClick={() => {
-            dispatch(catalogSlice.actions.setExclusiveFilter(false));
-            // Keep URL and slice in agreement: strip `?exclusive=true` so a
-            // reload after dismiss doesn't re-apply the filter via SearchForm's
-            // rehydration effect.
             const params = new URLSearchParams(
               Array.from(searchParams.entries())
             );

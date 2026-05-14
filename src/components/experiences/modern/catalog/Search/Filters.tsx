@@ -1,7 +1,7 @@
 "use client";
 
-import { Genre, SearchIn } from "@/lib/features/catalog/types";
-import { useCatalogSearch } from "@/src/hooks/catalogHooks";
+import { Format, Genre } from "@/lib/features/catalog/types";
+import { useCatalogQuerySearch } from "@/src/hooks/catalogHooks";
 import {
   Checkbox,
   ColorPaletteProp,
@@ -12,50 +12,65 @@ import {
 } from "@mui/joy";
 import React from "react";
 
+const GENRE_OPTIONS: (Genre | "All")[] = [
+  "All",
+  "Rock",
+  "Hiphop",
+  "Electronic",
+  "Jazz",
+  "Classical",
+  "Reggae",
+  "Soundtracks",
+];
+
+const FORMAT_OPTIONS: (Format | "All")[] = ["All", "CD", "Vinyl"];
+
 export const Filters = ({ color }: { color: ColorPaletteProp | undefined }) => {
-  const { setSearchIn, setSearchGenre, exclusive, setExclusiveFilter } = useCatalogSearch();
+  const { filters, setFilter } = useCatalogQuerySearch();
 
   return (
     <React.Fragment>
       <FormControl size="sm" sx={{ flex: 1 }}>
-        <FormLabel>Search In</FormLabel>
-        <Select
-          color={color || "neutral"}
-          placeholder="All"
-          slotProps={{ button: { sx: { whiteSpace: "nowrap" } } }}
-          onChange={(e, newValue) =>
-            setSearchIn((newValue as SearchIn) || "All")
-          }
-        >
-          <Option value="All">All</Option>
-          <Option value="Albums">Albums</Option>
-          <Option value="Artists">Artists</Option>
-        </Select>
-      </FormControl>
-      <FormControl size="sm" sx={{ flex: 1 }}>
         <FormLabel>Genre</FormLabel>
         <Select
           color={color || "neutral"}
-          placeholder="All"
+          value={filters.genre}
           slotProps={{ button: { sx: { whiteSpace: "nowrap" } } }}
-          onChange={(e, newValue) =>
-            setSearchGenre((newValue as Genre) || "All")
+          onChange={(_, newValue) =>
+            setFilter({ genre: (newValue as Genre | "All") ?? "All" })
           }
         >
-          <Option value="All">All</Option>
-          <Option value="Hiphop">Hiphop</Option>
-          <Option value="Rock">Rock</Option>
-          <Option value="Electronic">Electronic</Option>
-          <Option value="Jazz">Jazz</Option>
-          <Option value="Classical">Classical</Option>
-          <Option value="Soundtrack">Soundtrack</Option>
+          {GENRE_OPTIONS.map((g) => (
+            <Option key={g} value={g}>
+              {g}
+            </Option>
+          ))}
+        </Select>
+      </FormControl>
+      <FormControl size="sm" sx={{ flex: 1 }}>
+        <FormLabel>Format</FormLabel>
+        <Select
+          color={color || "neutral"}
+          value={filters.format}
+          slotProps={{ button: { sx: { whiteSpace: "nowrap" } } }}
+          onChange={(_, newValue) =>
+            setFilter({ format: (newValue as Format | "All") ?? "All" })
+          }
+        >
+          {FORMAT_OPTIONS.map((f) => (
+            <Option key={f} value={f}>
+              {f}
+            </Option>
+          ))}
         </Select>
       </FormControl>
       <FormControl size="sm" sx={{ flex: "none", justifyContent: "flex-end" }}>
         <Checkbox
           label="Exclusives Only"
-          checked={exclusive}
-          onChange={(e) => setExclusiveFilter(e.target.checked)}
+          checked={filters.onStreaming === false}
+          onChange={(e) =>
+            setFilter({ onStreaming: e.target.checked ? false : undefined })
+          }
           sx={{
             "& .MuiCheckbox-checkbox": {
               "&.Mui-checked": {

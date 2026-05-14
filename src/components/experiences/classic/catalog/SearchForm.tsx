@@ -2,30 +2,13 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useRef } from "react";
-import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { catalogSlice } from "@/lib/features/catalog/frontend";
 
 export default function SearchForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const dispatch = useAppDispatch();
-  const searchQuery = useAppSelector(catalogSlice.selectors.getSearchQuery);
-  const exclusive = useAppSelector(catalogSlice.selectors.getExclusiveFilter);
+  const searchQuery = searchParams.get("searchString") || "";
+  const exclusive = searchParams.get("exclusive") === "true";
   const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const query = searchParams.get("searchString") || "";
-    if (query) {
-      dispatch(catalogSlice.actions.setSearchQuery(query));
-    }
-    // Rehydrate the Exclusive filter from the URL so reload / direct nav to
-    // /dashboard/catalog?exclusive=true keeps the filter applied. We
-    // explicitly only flip to ON here — we don't toggle off on absence,
-    // since the user may have set the filter via the in-page chip.
-    if (searchParams.get("exclusive") === "true") {
-      dispatch(catalogSlice.actions.setExclusiveFilter(true));
-    }
-  }, [searchParams, dispatch]);
 
   useEffect(() => {
     if (inputRef.current) {
@@ -40,7 +23,6 @@ export default function SearchForm() {
     const params = new URLSearchParams();
 
     if (searchString && searchString.trim()) {
-      dispatch(catalogSlice.actions.setSearchQuery(searchString.trim()));
       params.set("searchString", searchString.trim());
     }
     // Preserve the Exclusive filter in the URL so the active state survives
@@ -97,7 +79,6 @@ export default function SearchForm() {
                     type="reset"
                     value="Clear Box"
                     onClick={() => {
-                      dispatch(catalogSlice.actions.setSearchQuery(""));
                       if (inputRef.current) {
                         inputRef.current.value = "";
                       }
@@ -110,8 +91,6 @@ export default function SearchForm() {
                   <button
                     type="button"
                     onClick={() => {
-                      dispatch(catalogSlice.actions.setSearchQuery(""));
-                      dispatch(catalogSlice.actions.setExclusiveFilter(true));
                       if (inputRef.current) {
                         inputRef.current.value = "";
                       }

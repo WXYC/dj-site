@@ -1,7 +1,7 @@
 "use client";
 
 import Logo from "@/src/components/shared/Branding/Logo";
-import { useCatalogSearch } from "@/src/hooks/catalogHooks";
+import { useCatalogQuerySearch } from "@/src/hooks/catalogHooks";
 import { DoubleArrow } from "@mui/icons-material";
 import { Box, Button, Sheet, Table, Typography } from "@mui/joy";
 import { useRef } from "react";
@@ -13,7 +13,7 @@ export default function ResultsContainer({
 }: {
   children: React.ReactNode;
 }) {
-  const { searchString, selected, clearSelection } = useCatalogSearch();
+  const { hasActiveQuery, selected, clearSelection } = useCatalogQuerySearch();
   const { addToBin, loading } = useAddToBin();
   const tableRef = useRef<HTMLTableElement>(null);
 
@@ -45,7 +45,7 @@ export default function ResultsContainer({
         width: "100%",
         borderRadius: "md",
         flex: 1,
-        overflow: searchString.length > 0 ? "auto" : "hidden",
+        overflow: hasActiveQuery ? "auto" : "hidden",
         minHeight: 0,
       }}
     >
@@ -57,9 +57,9 @@ export default function ResultsContainer({
           width: "100%",
           height: "100%",
           zIndex: 999,
-          backdropFilter: searchString.length > 0 ? "blur(0)" : "blur(1rem)",
+          backdropFilter: hasActiveQuery ? "blur(0)" : "blur(1rem)",
           borderRadius: "lg",
-          pointerEvents: searchString.length > 0 ? "none" : "auto",
+          pointerEvents: hasActiveQuery ? "none" : "auto",
           transition: "backdrop-filter 0.2s",
           display: "flex",
           flexDirection: "column",
@@ -70,7 +70,7 @@ export default function ResultsContainer({
         <Box
           sx={{
             height: "80%",
-            opacity: searchString.length > 0 ? 0 : 1,
+            opacity: hasActiveQuery ? 0 : 1,
             transition: "opacity 0.2s",
             pb: 2,
           }}
@@ -81,7 +81,7 @@ export default function ResultsContainer({
             level="body-lg"
             sx={{ textAlign: "center" }}
           >
-            Start typing in the search bar above to explore the library!
+            Build a query above to explore the library, or just pick a sort to browse the catalog.
           </Typography>
         </Box>
       </Box>

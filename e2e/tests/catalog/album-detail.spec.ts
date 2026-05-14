@@ -84,11 +84,16 @@ async function interceptAlbumApis(page: import("@playwright/test").Page): Promis
     });
   });
 
-  await page.route("**/library/?**", async (route) => {
+  await page.route("**/library/query**", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(MOCK_CATALOG_RESULTS),
+      body: JSON.stringify({
+        results: MOCK_CATALOG_RESULTS,
+        total: MOCK_CATALOG_RESULTS.length,
+        page: 0,
+        totalPages: 1,
+      }),
     });
   });
 }
@@ -102,7 +107,7 @@ async function openAlbumViaCatalog(
   await dashboard.gotoCatalog();
   await dashboard.waitForPageLoad();
 
-  const searchInput = page.getByRole("textbox", { name: "Search for an album or artist" });
+  const searchInput = page.getByPlaceholder("Search the catalog").first();
   await searchInput.fill("Juana Molina");
   await expect(page.getByText("DOGA")).toBeVisible({ timeout: 10000 });
 

@@ -222,183 +222,197 @@ describe("convertToAlbumEntry", () => {
 });
 
 describeSlice(catalogSlice, defaultCatalogFrontendState, ({ harness, actions }) => {
-  describe("mobile search actions", () => {
-    it("should open mobile search", () => {
-      const result = harness().reduce(actions.openMobileSearch());
-      expect(result.search.mobileOpen).toBe(true);
+  describe("default state", () => {
+    it("starts with a single blank all-field row", () => {
+      const state = harness().initialState;
+      expect(state.rows).toHaveLength(1);
+      expect(state.rows[0]).toMatchObject({
+        operator: "AND",
+        field: "all",
+        value: "",
+        exact: false,
+      });
     });
 
-    it("should close mobile search", () => {
-      const result = harness().chain(
-        actions.openMobileSearch(),
-        actions.closeMobileSearch()
-      );
-      expect(result.search.mobileOpen).toBe(false);
-    });
-  });
-
-  describe("exclusive filter actions", () => {
-    it("should set exclusive filter to true", () => {
-      const result = harness().reduce(actions.setExclusiveFilter(true));
-      expect(result.search.exclusive).toBe(true);
+    it("defaults sort to album asc", () => {
+      const state = harness().initialState;
+      expect(state.sortBy).toBe("album");
+      expect(state.sortOrder).toBe("asc");
     });
 
-    it("should set exclusive filter back to false", () => {
-      const result = harness().chain(
-        actions.setExclusiveFilter(true),
-        actions.setExclusiveFilter(false)
-      );
-      expect(result.search.exclusive).toBe(false);
+    it("defaults page to 0", () => {
+      expect(harness().initialState.page).toBe(0);
     });
 
-    it("should default exclusive to false", () => {
-      expect(harness().initialState.search.exclusive).toBe(false);
+    it("defaults filters to 'All' / undefined", () => {
+      expect(harness().initialState.filters).toEqual({
+        onStreaming: undefined,
+        genre: "All",
+        format: "All",
+      });
     });
   });
 
-  describe("selection actions", () => {
-    it("should set selection", () => {
+  describe("row CRUD", () => {
+    it("addRow appends an artist-field row", () => {
+      const result = harness().reduce(actions.addRow());
+      expect(result.rows).toHaveLength(2);
+      expect(result.rows[1].field).toBe("artist");
+    });
+
+    it("addRow resets page to 0", () => {
+      const result = harness().chain(actions.nextPage(), actions.addRow());
+      expect(result.page).toBe(0);
+    });
+
+    it("removeRow drops a row by id", () => {
+      const initial = harness().initialState;
+      const firstId = initial.rows[0].id;
+      const result = harness().chain(
+        actions.addRow(),
+        actions.removeRow(firstId)
+      );
+      expect(result.rows).toHaveLength(1);
+      expect(result.rows.some((r) => r.id === firstId)).toBe(false);
+    });
+
+    it("removeRow refuses to delete the last remaining row", () => {
+      const initial = harness().initialState;
+      const result = harness().reduce(actions.removeRow(initial.rows[0].id));
+      expect(result.rows).toHaveLength(1);
+    });
+
+    it("updateRow applies partial updates", () => {
+      const initial = harness().initialState;
+      const id = initial.rows[0].id;
+      const result = harness().reduce(
+        actions.updateRow({ id, updates: { field: "artist", value: "Stereolab" } })
+      );
+      expect(result.rows[0].field).toBe("artist");
+      expect(result.rows[0].value).toBe("Stereolab");
+    });
+
+    it("updateRow resets page to 0", () => {
+      const initial = harness().initialState;
+      const id = initial.rows[0].id;
+      const result = harness().chain(
+        actions.nextPage(),
+        actions.updateRow({ id, updates: { value: "x" } })
+      );
+      expect(result.page).toBe(0);
+    });
+  });
+
+  describe("sort", () => {
+    it("setSort updates sortBy and sortOrder together", () => {
+      const result = harness().reduce(
+        actions.setSort({ sortBy: "plays", sortOrder: "desc" })
+      );
+      expect(result.sortBy).toBe("plays");
+      expect(result.sortOrder).toBe("desc");
+    });
+
+    it("setSort resets page to 0", () => {
+      const result = harness().chain(
+        actions.nextPage(),
+        actions.setSort({ sortBy: "artist", sortOrder: "asc" })
+      );
+      expect(result.page).toBe(0);
+    });
+  });
+
+  describe("filters", () => {
+    it.each([
+      [{ onStreaming: false as boolean | undefined }, "onStreaming", false],
+      [{ genre: "Rock" } as const, "genre", "Rock"],
+      [{ format: "CD" } as const, "format", "CD"],
+    ])("setFilter updates %s", (patch, key, expected) => {
+      const result = harness().reduce(actions.setFilter(patch));
+      expect((result.filters as Record<string, unknown>)[key as string]).toBe(expected);
+    });
+
+    it("setFilter merges with existing filters", () => {
+      const result = harness().chain(
+        actions.setFilter({ genre: "Rock" }),
+        actions.setFilter({ format: "Vinyl" })
+      );
+      expect(result.filters.genre).toBe("Rock");
+      expect(result.filters.format).toBe("Vinyl");
+    });
+
+    it("setFilter resets page to 0", () => {
+      const result = harness().chain(
+        actions.nextPage(),
+        actions.setFilter({ genre: "Rock" })
+      );
+      expect(result.page).toBe(0);
+    });
+  });
+
+  describe("pagination", () => {
+    it("nextPage increments page", () => {
+      const result = harness().chain(actions.nextPage(), actions.nextPage());
+      expect(result.page).toBe(2);
+    });
+  });
+
+  describe("selection", () => {
+    it("setSelection replaces selection", () => {
       const result = harness().reduce(actions.setSelection([1, 2, 3]));
-      expect(result.results.selected).toEqual([1, 2, 3]);
+      expect(result.selected).toEqual([1, 2, 3]);
     });
 
-    it("should add to selection", () => {
+    it("addSelection pushes onto selection", () => {
       const result = harness().chain(
         actions.setSelection([1, 2]),
         actions.addSelection(3)
       );
-      expect(result.results.selected).toEqual([1, 2, 3]);
+      expect(result.selected).toEqual([1, 2, 3]);
     });
 
-    it("should remove from selection", () => {
+    it("removeSelection filters by id", () => {
       const result = harness().chain(
         actions.setSelection([1, 2, 3]),
         actions.removeSelection(2)
       );
-      expect(result.results.selected).toEqual([1, 3]);
+      expect(result.selected).toEqual([1, 3]);
     });
 
-    it("should clear selection", () => {
+    it("clearSelection empties the array", () => {
       const result = harness().chain(
         actions.setSelection([1, 2, 3]),
         actions.clearSelection()
       );
-      expect(result.results.selected).toEqual([]);
-    });
-
-    it("should handle removing non-existent item", () => {
-      const result = harness().chain(
-        actions.setSelection([1, 2]),
-        actions.removeSelection(99)
-      );
-      expect(result.results.selected).toEqual([1, 2]);
+      expect(result.selected).toEqual([]);
     });
   });
 
-  describe("loadMore action", () => {
-    it("should increment n by 10", () => {
-      expect(harness().initialState.search.params.n).toBe(10);
-      const result = harness().reduce(actions.loadMore());
-      expect(result.search.params.n).toBe(20);
+  describe("mobile search", () => {
+    it("openMobileSearch flips the flag", () => {
+      const result = harness().reduce(actions.openMobileSearch());
+      expect(result.mobileOpen).toBe(true);
     });
 
-    it("should increment n multiple times", () => {
+    it("closeMobileSearch flips it back", () => {
       const result = harness().chain(
-        actions.loadMore(),
-        actions.loadMore(),
-        actions.loadMore()
-      );
-      expect(result.search.params.n).toBe(40);
-    });
-  });
-
-  describe("setSearchParams action", () => {
-    it.each([
-      ["orderBy", { orderBy: "artist" }, "artist"],
-      ["orderDirection", { orderDirection: "desc" }, "desc"],
-      ["n", { n: 50 }, 50],
-    ] as const)("should update %s", (_, params, expected) => {
-      const result = harness().reduce(actions.setSearchParams(params));
-      const key = Object.keys(params)[0] as keyof typeof params;
-      expect(result.search.params[key]).toBe(expected);
-    });
-
-    it("should merge with existing params", () => {
-      const result = harness().chain(
-        actions.setSearchParams({ orderBy: "artist" }),
-        actions.setSearchParams({ orderDirection: "desc" })
-      );
-      expect(result.search.params.orderBy).toBe("artist");
-      expect(result.search.params.orderDirection).toBe("desc");
-    });
-  });
-
-  describe("setSearchQuery action", () => {
-    it("should reset n to 10 when setting query", () => {
-      const result = harness().chain(
-        actions.loadMore(),
-        actions.setSearchQuery("new search")
-      );
-      expect(result.search.params.n).toBe(10);
-      expect(result.search.query).toBe("new search");
-    });
-  });
-
-  describe("selectors", () => {
-    it("should select search query", () => {
-      const { dispatch, select } = harness().withStore();
-      dispatch(actions.setSearchQuery("test query"));
-      expect(select(catalogSlice.selectors.getSearchQuery)).toBe("test query");
-    });
-
-    it("should select search params", () => {
-      const { dispatch, select } = harness().withStore();
-      dispatch(actions.setSearchParams({ orderBy: "artist" }));
-      const params = select(catalogSlice.selectors.getSearchParams);
-      expect(params.orderBy).toBe("artist");
-    });
-
-    it("should select search in", () => {
-      const { dispatch, select } = harness().withStore();
-      dispatch(actions.setSearchIn("Artists"));
-      expect(select(catalogSlice.selectors.getSearchIn)).toBe("Artists");
-    });
-
-    it("should select search genre", () => {
-      const { dispatch, select } = harness().withStore();
-      dispatch(actions.setSearchGenre("Rock"));
-      expect(select(catalogSlice.selectors.getSearchGenre)).toBe("Rock");
-    });
-
-    it("should select exclusive filter", () => {
-      const { dispatch, select } = harness().withStore();
-      expect(select(catalogSlice.selectors.getExclusiveFilter)).toBe(false);
-      dispatch(actions.setExclusiveFilter(true));
-      expect(select(catalogSlice.selectors.getExclusiveFilter)).toBe(true);
-    });
-
-    it("should select mobile search open state", () => {
-      const { dispatch, select } = harness().withStore();
-      expect(select(catalogSlice.selectors.isMobileSearchOpen)).toBe(false);
-      dispatch(actions.openMobileSearch());
-      expect(select(catalogSlice.selectors.isMobileSearchOpen)).toBe(true);
-    });
-
-    it("should select selection", () => {
-      const { dispatch, select } = harness().withStore();
-      dispatch(actions.setSelection([1, 2, 3]));
-      expect(select(catalogSlice.selectors.getSelected)).toEqual([1, 2, 3]);
-    });
-  });
-
-  describe("reset action", () => {
-    it("should reset to default state", () => {
-      const result = harness().chain(
-        actions.setSearchQuery("test"),
-        actions.setSearchIn("Artists"),
         actions.openMobileSearch(),
-        actions.setSelection([1, 2]),
-        actions.loadMore(),
+        actions.closeMobileSearch()
+      );
+      expect(result.mobileOpen).toBe(false);
+    });
+  });
+
+  describe("reset", () => {
+    it("returns to default state", () => {
+      const initial = harness().initialState;
+      const id = initial.rows[0].id;
+      const result = harness().chain(
+        actions.updateRow({ id, updates: { value: "Cat Power" } }),
+        actions.setSort({ sortBy: "plays", sortOrder: "desc" }),
+        actions.setFilter({ genre: "Rock" }),
+        actions.nextPage(),
+        actions.setSelection([1, 2, 3]),
+        actions.openMobileSearch(),
         actions.reset()
       );
       expect(result).toEqual(defaultCatalogFrontendState);
