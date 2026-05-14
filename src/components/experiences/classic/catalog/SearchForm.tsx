@@ -10,6 +10,7 @@ export default function SearchForm() {
   const searchParams = useSearchParams();
   const dispatch = useAppDispatch();
   const searchQuery = useAppSelector(catalogSlice.selectors.getSearchQuery);
+  const exclusive = useAppSelector(catalogSlice.selectors.getExclusiveFilter);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -36,13 +37,20 @@ export default function SearchForm() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const searchString = formData.get("searchString") as string;
-    
+    const params = new URLSearchParams();
+
     if (searchString && searchString.trim()) {
       dispatch(catalogSlice.actions.setSearchQuery(searchString.trim()));
-      router.push(`/dashboard/catalog?searchString=${encodeURIComponent(searchString.trim())}`);
-    } else {
-      router.push(`/dashboard/catalog`);
+      params.set("searchString", searchString.trim());
     }
+    // Preserve the Exclusive filter in the URL so the active state survives
+    // submitting a free-text query while the chip is on.
+    if (exclusive) {
+      params.set("exclusive", "true");
+    }
+
+    const qs = params.toString();
+    router.push(qs ? `/dashboard/catalog?${qs}` : `/dashboard/catalog`);
   };
 
   return (
@@ -101,7 +109,6 @@ export default function SearchForm() {
                 <td align="center">
                   <button
                     type="button"
-                    className="classic-browse-exclusive"
                     onClick={() => {
                       dispatch(catalogSlice.actions.setSearchQuery(""));
                       dispatch(catalogSlice.actions.setExclusiveFilter(true));

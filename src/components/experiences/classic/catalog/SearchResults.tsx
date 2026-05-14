@@ -1,14 +1,14 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSearchCatalogQuery } from "@/lib/features/catalog/api";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
 import { Capsule } from "@/src/components/experiences/classic/flowsheet/Capsule";
-import "@/src/styles/classic/filter-chip.css";
 
 export default function SearchResults() {
   const dispatch = useAppDispatch();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const searchQuery = useAppSelector(catalogSlice.selectors.getSearchQuery);
   const exclusive = useAppSelector(catalogSlice.selectors.getExclusiveFilter);
@@ -43,7 +43,20 @@ export default function SearchResults() {
           type="button"
           className="classic-filter-chip__dismiss"
           aria-label="Remove Exclusive filter"
-          onClick={() => dispatch(catalogSlice.actions.setExclusiveFilter(false))}
+          onClick={() => {
+            dispatch(catalogSlice.actions.setExclusiveFilter(false));
+            // Keep URL and slice in agreement: strip `?exclusive=true` so a
+            // reload after dismiss doesn't re-apply the filter via SearchForm's
+            // rehydration effect.
+            const params = new URLSearchParams(
+              Array.from(searchParams.entries())
+            );
+            params.delete("exclusive");
+            const qs = params.toString();
+            router.replace(
+              qs ? `/dashboard/catalog?${qs}` : `/dashboard/catalog`
+            );
+          }}
         >
           &times;
         </button>
