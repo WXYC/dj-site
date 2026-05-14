@@ -4,7 +4,6 @@ import { usePlaylistSearch } from "@/src/hooks/playlistSearchHooks";
 import SearchForm from "./SearchForm";
 import ResultTable from "./ResultTable";
 import InfiniteScroll from "./InfiniteScroll";
-import type { PreviousSetsResult } from "./ResultRow";
 import "@/src/styles/classic/previous-sets.css";
 
 // Top-level Classic "Previous Sets" surface. Mirrors tubafrenzy's
@@ -74,7 +73,10 @@ export default function PreviousSetsContainer() {
               isLoading={isLoading}
               onLoadMore={loadNextPage}
             >
-              <ResultTable results={results as PreviousSetsResult[]} />
+              {/* PreviousSetsResult only adds optional fields on top of
+                  PlaylistSearchResult, so the wider hook return type is
+                  structurally assignable to the narrower table prop. */}
+              <ResultTable results={results} />
             </InfiniteScroll>
           )}
         </>
