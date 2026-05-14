@@ -1,15 +1,21 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/lib/test-utils/render";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
 
 const mockPush = vi.fn();
+let mockSearchParams = new URLSearchParams("");
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockPush }),
-  useSearchParams: () => new URLSearchParams(""),
+  useSearchParams: () => mockSearchParams,
 }));
 
 import SearchForm from "../SearchForm";
+
+beforeEach(() => {
+  mockPush.mockClear();
+  mockSearchParams = new URLSearchParams("");
+});
 
 describe("Classic catalog SearchForm — Browse Exclusive Albums", () => {
   it("renders a 'Browse Exclusive Albums' button", () => {
@@ -43,5 +49,20 @@ describe("Classic catalog SearchForm — Browse Exclusive Albums", () => {
     expect(
       catalogSlice.selectors.getSearchQuery(store.getState())
     ).toBe("");
+  });
+
+  it("rehydrates the Exclusive filter from ?exclusive=true on mount", () => {
+    mockSearchParams = new URLSearchParams("exclusive=true");
+    const { store } = renderWithProviders(<SearchForm />);
+    expect(
+      catalogSlice.selectors.getExclusiveFilter(store.getState())
+    ).toBe(true);
+  });
+
+  it("does NOT touch the Exclusive filter when ?exclusive is absent", () => {
+    const { store } = renderWithProviders(<SearchForm />);
+    expect(
+      catalogSlice.selectors.getExclusiveFilter(store.getState())
+    ).toBe(false);
   });
 });

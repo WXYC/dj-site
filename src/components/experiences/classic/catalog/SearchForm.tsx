@@ -17,6 +17,13 @@ export default function SearchForm() {
     if (query) {
       dispatch(catalogSlice.actions.setSearchQuery(query));
     }
+    // Rehydrate the Exclusive filter from the URL so reload / direct nav to
+    // /dashboard/catalog?exclusive=true keeps the filter applied. We
+    // explicitly only flip to ON here — we don't toggle off on absence,
+    // since the user may have set the filter via the in-page chip.
+    if (searchParams.get("exclusive") === "true") {
+      dispatch(catalogSlice.actions.setExclusiveFilter(true));
+    }
   }, [searchParams, dispatch]);
 
   useEffect(() => {
