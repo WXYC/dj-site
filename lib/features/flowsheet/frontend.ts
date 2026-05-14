@@ -76,12 +76,16 @@ export const flowsheetSlice = createAppSlice({
         album: string;
         label: string;
         album_id?: number;
+        rotation_id?: number;
+        rotation_bin?: Rotation;
       }>
     ) => {
       state.search.query.artist = action.payload.artist;
       state.search.query.album = action.payload.album;
       state.search.query.label = action.payload.label;
       state.search.query.album_id = action.payload.album_id;
+      state.search.query.rotation_id = action.payload.rotation_id;
+      state.search.query.rotation_bin = action.payload.rotation_bin;
       state.search.selectedResult = 0;
     },
     toggleRequest: (state) => {

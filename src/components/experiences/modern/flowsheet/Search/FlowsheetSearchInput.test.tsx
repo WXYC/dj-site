@@ -168,8 +168,48 @@ describe("FlowsheetSearchInput", () => {
         album: "DOGA",
         label: "Sonamos",
         album_id: 42,
+        rotation_id: undefined,
+        rotation_bin: undefined,
       });
       expect(mockSetSearchProperty).toHaveBeenCalledWith("artist", "Juana M");
+    });
+
+    it("should preserve rotation_id and rotation_bin from a rotation/bin selection", async () => {
+      const { useFlowsheetSearch } = await import(
+        "@/src/hooks/flowsheetHooks"
+      );
+      vi.mocked(useFlowsheetSearch).mockReturnValue({
+        getDisplayValue: (name: string) =>
+          name === "artist" ? "Juana Molina" : "",
+        setSearchProperty: mockSetSearchProperty,
+        selectedIndex: 1,
+        selectedEntry: {
+          id: 42,
+          artist: { name: "Juana Molina" },
+          title: "DOGA",
+          label: "Sonamos",
+          rotation_id: 7,
+          rotation_bin: "H",
+        },
+      } as any);
+      const { flowsheetSlice } = await import(
+        "@/lib/features/flowsheet/frontend"
+      );
+
+      render(<FlowsheetSearchInput name="artist" />);
+
+      fireEvent.change(screen.getByRole("textbox"), {
+        target: { value: "Juana M" },
+      });
+
+      expect(flowsheetSlice.actions.freezeSelectionToQuery).toHaveBeenCalledWith({
+        artist: "Juana Molina",
+        album: "DOGA",
+        label: "Sonamos",
+        album_id: 42,
+        rotation_id: 7,
+        rotation_bin: "H",
+      });
     });
 
     it("should not block keystrokes when auto-filled", async () => {
