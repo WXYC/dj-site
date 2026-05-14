@@ -41,7 +41,7 @@ export default function InfiniteScroll({
   }, [hasMore, isLoading, onLoadMore]);
 
   return (
-    <div className="classic-previous-sets-scroll">
+    <div>
       {children}
       <div ref={sentinelRef} style={{ height: 1, width: "100%" }} />
       {isLoading && (

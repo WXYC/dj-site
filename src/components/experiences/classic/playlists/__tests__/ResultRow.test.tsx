@@ -17,13 +17,13 @@ const baseResult: PreviousSetsResult = {
 
 function renderRow(props: {
   result?: Partial<PreviousSetsResult>;
-  nextIsTrack?: boolean;
+  nextIsSong?: boolean;
 }) {
   const result = { ...baseResult, ...props.result };
   return renderWithProviders(
     <table>
       <tbody>
-        <ResultRow result={result} nextIsTrack={props.nextIsTrack ?? false} />
+        <ResultRow result={result} nextIsSong={props.nextIsSong ?? false} />
       </tbody>
     </table>
   );
@@ -81,20 +81,20 @@ describe("Classic Previous Sets ResultRow", () => {
     expect(capsules[2].textContent).toBe("EXCLUSIVE");
   });
 
-  it("renders the segue indicator when segue=true and the next row is a track", () => {
+  it("renders the segue indicator when segue=true and the next row is a song", () => {
     const { container } = renderRow({
       result: { segue: true },
-      nextIsTrack: true,
+      nextIsSong: true,
     });
     const row = container.querySelector("tr.classic-segue");
     expect(row).not.toBeNull();
     expect(row!.getAttribute("data-segue")).toBe("true");
   });
 
-  it("does NOT render the segue indicator when the next row is not a track", () => {
+  it("does NOT render the segue indicator when the next row is not a song", () => {
     const { container } = renderRow({
       result: { segue: true },
-      nextIsTrack: false,
+      nextIsSong: false,
     });
     expect(container.querySelector("tr.classic-segue")).toBeNull();
   });
@@ -102,7 +102,7 @@ describe("Classic Previous Sets ResultRow", () => {
   it("does NOT render the segue indicator when segue is undefined", () => {
     const { container } = renderRow({
       result: { segue: undefined },
-      nextIsTrack: true,
+      nextIsSong: true,
     });
     expect(container.querySelector("tr.classic-segue")).toBeNull();
   });

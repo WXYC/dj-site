@@ -16,7 +16,6 @@ export default function SearchForm() {
       <input
         type="text"
         autoCorrect="off"
-        id="searchInput"
         name="searchString"
         value={row?.value ?? ""}
         onChange={(e) => row && updateRow(row.id, { value: e.target.value })}

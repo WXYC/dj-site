@@ -44,7 +44,7 @@ export default function ResultTable({
           <ResultRow
             key={result.id}
             result={result}
-            nextIsTrack={index < results.length - 1}
+            nextIsSong={index < results.length - 1}
           />
         ))}
       </tbody>
