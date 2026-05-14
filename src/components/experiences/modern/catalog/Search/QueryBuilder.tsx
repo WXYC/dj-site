@@ -23,7 +23,9 @@ export default function QueryBuilder() {
   const { rows, addRow, removeRow, updateRow } = useCatalogQuerySearch();
 
   return (
-    <Box sx={{ py: 1, display: { xs: "none", sm: "block" } }}>
+    // Responsive show/hide is the caller's responsibility — SearchBar hides
+    // this on xs (the mobile modal renders it back in instead).
+    <Box sx={{ py: 1 }}>
       <Stack spacing={1}>
         {rows.map((row, index) => {
           const isFirst = index === 0;
