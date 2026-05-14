@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useSearchCatalogQuery } from "@/lib/features/catalog/api";
 import { useAppSelector } from "@/lib/hooks";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
+import { Capsule } from "@/src/components/experiences/classic/flowsheet/Capsule";
 
 export default function SearchResults() {
   const searchParams = useSearchParams();
@@ -69,7 +70,15 @@ export default function SearchResults() {
           {results.map((result) => (
             <tr key={result.id} className="text">
               <td align="left">{result.album_artist ? "Various Artists" : result.artist.name}</td>
-              <td align="left">{result.title}</td>
+              <td align="left">
+                {result.title}
+                {result.on_streaming === false && (
+                  <>
+                    {" "}
+                    <Capsule variant="exclusive" label="EXCLUSIVE" />
+                  </>
+                )}
+              </td>
               <td align="left">{result.format}</td>
               <td align="left">
                 {result.artist.lettercode} {result.entry}
