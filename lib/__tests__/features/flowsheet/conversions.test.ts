@@ -35,6 +35,7 @@ type QuerySubmission = {
   album_title: string;
   record_label?: string;
   request_flag: boolean;
+  segue?: boolean;
   album_id?: number;
   rotation_id?: number;
   rotation_bin?: string;
@@ -91,6 +92,19 @@ describe("flowsheet conversions", () => {
       const result = convertQueryToSubmission(query) as QuerySubmission;
       expect(result.request_flag).toBe(true);
     });
+
+    it.each([
+      { input: true, expected: true },
+      { input: false, expected: false },
+      { input: undefined, expected: undefined },
+    ])(
+      "should preserve segue=$input from the query",
+      ({ input, expected }) => {
+        const query = createTestFlowsheetQuery({ segue: input });
+        const result = convertQueryToSubmission(query) as QuerySubmission;
+        expect(result.segue).toBe(expected);
+      }
+    );
   });
 
   describe("convertDJsOnAir", () => {
@@ -185,6 +199,25 @@ describe("flowsheet conversions", () => {
         const result = convertV2Entry(entry) as FlowsheetSongEntry;
 
         expect(result.on_streaming).toBeUndefined();
+      });
+
+      it.each([
+        { wire: true, expected: true },
+        { wire: false, expected: false },
+      ])(
+        "should preserve segue=$wire on track entries",
+        ({ wire, expected }) => {
+          const entry = createTestV2TrackEntry({ segue: wire } as any);
+          const result = convertV2Entry(entry) as FlowsheetSongEntry;
+          expect(result.segue).toBe(expected);
+        }
+      );
+
+      it("should default segue to undefined when absent on track entries", () => {
+        const entry = createTestV2TrackEntry();
+        const result = convertV2Entry(entry) as FlowsheetSongEntry;
+
+        expect(result.segue).toBeUndefined();
       });
 
       it("should preserve rotation data on track entries", () => {

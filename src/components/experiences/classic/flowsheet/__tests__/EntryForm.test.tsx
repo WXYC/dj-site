@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, fireEvent, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { renderWithProviders } from "@/lib/test-utils/render";
 import EntryForm from "../EntryForm";
 
@@ -38,62 +38,59 @@ beforeEach(() => {
   addToFlowsheetMock.mockReturnValue({ unwrap: () => Promise.resolve({}) });
 });
 
-function getSegueCheckbox(): HTMLInputElement {
-  // The Segue checkbox uses name="segueAnswer" (matching tubafrenzy).
+/**
+ * The Classic form is a port of the tubafrenzy JSP layout: every form control
+ * has a `name=` but most inputs (artist textbox, release-type radios) sit next
+ * to plain-text labels in adjacent `<td>` cells rather than associated `<label
+ * htmlFor>` elements, so RTL's accessible-name lookups (`getByRole("textbox",
+ * { name })`, `getByRole("radio", { name })`) cannot find them. We use the
+ * named-control helper below for those inputs. The Segue checkbox itself is
+ * wrapped in a `<label>` and is queried via `getByRole("checkbox", { name })`.
+ */
+function getNamedInput(name: string): HTMLInputElement {
   const el = document.querySelector(
-    'input[type="checkbox"][name="segueAnswer"]'
-  );
-  if (!el) throw new Error("Segue checkbox not found");
-  return el as HTMLInputElement;
-}
-
-function selectOtherRelease() {
-  const radio = document.querySelector(
-    'input[type="radio"][value="otherRelease"]'
-  ) as HTMLInputElement | null;
-  if (!radio) throw new Error("Other release radio not found");
-  fireEvent.click(radio);
-}
-
-function setText(name: string, value: string) {
-  const input = document.querySelector(
     `input[name="${name}"]`
   ) as HTMLInputElement | null;
-  if (!input) throw new Error(`Input ${name} not found`);
-  fireEvent.change(input, { target: { value } });
+  if (!el) throw new Error(`Input name="${name}" not found`);
+  return el;
 }
 
 describe("Classic EntryForm segue checkbox", () => {
   it("renders a Segue checkbox, unchecked by default", () => {
     renderWithProviders(<EntryForm />);
-    const segueCheckbox = getSegueCheckbox();
-    expect(segueCheckbox.type).toBe("checkbox");
+    const segueCheckbox = screen.getByRole("checkbox", {
+      name: /segue/i,
+    }) as HTMLInputElement;
     expect(segueCheckbox.checked).toBe(false);
-    // Label text "Segue" should appear in the document.
-    expect(screen.getByText(/^segue$/i)).toBeDefined();
   });
 
-  it("toggles segue state when the checkbox is clicked", () => {
-    renderWithProviders(<EntryForm />);
-    const segueCheckbox = getSegueCheckbox();
-    fireEvent.click(segueCheckbox);
+  it("toggles segue state when the checkbox is clicked", async () => {
+    const { user } = renderWithProviders(<EntryForm />);
+    const segueCheckbox = screen.getByRole("checkbox", {
+      name: /segue/i,
+    }) as HTMLInputElement;
+    await user.click(segueCheckbox);
     expect(segueCheckbox.checked).toBe(true);
-    fireEvent.click(segueCheckbox);
+    await user.click(segueCheckbox);
     expect(segueCheckbox.checked).toBe(false);
   });
 
   it("submits segue=true in the addToFlowsheet payload when the checkbox is checked", async () => {
-    renderWithProviders(<EntryForm />);
+    const { user } = renderWithProviders(<EntryForm />);
 
-    selectOtherRelease();
-    setText("artistName", "Juana Molina");
-    setText("songTitle", "la paradoja");
-    fireEvent.click(getSegueCheckbox());
-
-    const submit = document.querySelector(
-      'input[type="submit"]'
+    // Switch to the "Other" release type so the artist textbox renders.
+    const otherRadio = document.querySelector(
+      'input[name="releaseType"][value="otherRelease"]'
     ) as HTMLInputElement;
-    fireEvent.click(submit);
+    await user.click(otherRadio);
+
+    await user.type(getNamedInput("artistName"), "Juana Molina");
+    await user.type(getNamedInput("songTitle"), "la paradoja");
+    await user.click(screen.getByRole("checkbox", { name: /segue/i }));
+
+    await user.click(
+      screen.getByRole("button", { name: /add this song to the flowsheet/i })
+    );
 
     await waitFor(() => {
       expect(addToFlowsheetMock).toHaveBeenCalledTimes(1);
@@ -105,16 +102,19 @@ describe("Classic EntryForm segue checkbox", () => {
   });
 
   it("submits segue=false when the checkbox is unchecked", async () => {
-    renderWithProviders(<EntryForm />);
+    const { user } = renderWithProviders(<EntryForm />);
 
-    selectOtherRelease();
-    setText("artistName", "Jessica Pratt");
-    setText("songTitle", "Back, Baby");
-
-    const submit = document.querySelector(
-      'input[type="submit"]'
+    const otherRadio = document.querySelector(
+      'input[name="releaseType"][value="otherRelease"]'
     ) as HTMLInputElement;
-    fireEvent.click(submit);
+    await user.click(otherRadio);
+
+    await user.type(getNamedInput("artistName"), "Jessica Pratt");
+    await user.type(getNamedInput("songTitle"), "Back, Baby");
+
+    await user.click(
+      screen.getByRole("button", { name: /add this song to the flowsheet/i })
+    );
 
     await waitFor(() => {
       expect(addToFlowsheetMock).toHaveBeenCalledTimes(1);

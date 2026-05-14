@@ -177,4 +177,53 @@ describe("infinite-cache", () => {
     expect(entry.play_order).toBe(11);
     expect("track_title" in entry && entry.track_title).toBe("X");
   });
+
+  it("buildOptimisticEntry carries `segue` through the freeform (no album_id) branch", () => {
+    const draft = { pages: [[song(1, 10, 7)]], pageParams: [0] };
+    const { entry } = buildOptimisticEntry(
+      {
+        track_title: "la paradoja",
+        artist_name: "Juana Molina",
+        album_title: "DOGA",
+        request_flag: false,
+        segue: true,
+      },
+      draft
+    );
+    expect("segue" in entry && entry.segue).toBe(true);
+  });
+
+  it("buildOptimisticEntry carries `segue` through the album_id (rotation/catalog) branch", () => {
+    const draft = { pages: [[song(1, 10, 7)]], pageParams: [0] };
+    const { entry } = buildOptimisticEntry(
+      {
+        album_id: 42,
+        track_title: "la paradoja",
+        request_flag: false,
+        segue: true,
+      },
+      draft
+    );
+    expect("segue" in entry && entry.segue).toBe(true);
+  });
+
+  it("buildOptimisticEntry leaves `segue` undefined when not provided", () => {
+    const draft = { pages: [[song(1, 10, 7)]], pageParams: [0] };
+    const { entry: freeform } = buildOptimisticEntry(
+      {
+        track_title: "X",
+        artist_name: "Y",
+        album_title: "Z",
+        request_flag: false,
+      },
+      draft
+    );
+    expect("segue" in freeform && freeform.segue).toBeUndefined();
+
+    const { entry: catalog } = buildOptimisticEntry(
+      { album_id: 1, track_title: "X", request_flag: false },
+      draft
+    );
+    expect("segue" in catalog && catalog.segue).toBeUndefined();
+  });
 });
