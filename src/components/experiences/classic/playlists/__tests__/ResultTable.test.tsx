@@ -44,7 +44,7 @@ describe("Classic Previous Sets ResultTable", () => {
     expect(bodyRows.length).toBe(2);
   });
 
-  it("renders the segue indicator on the first row when the next row is also a track", () => {
+  it("renders the segue indicator on the first row when the next row is also a song", () => {
     const { container } = renderWithProviders(<ResultTable results={results} />);
     const segueRows = container.querySelectorAll("tr.classic-segue");
     expect(segueRows.length).toBe(1);

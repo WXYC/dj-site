@@ -21,7 +21,11 @@ export default function PreviousSetsContainer() {
     effectiveQuery,
   } = usePlaylistSearch();
 
-  const hasQuery = effectiveQuery.trim().length >= 2;
+  // Gate the results section on the same min-query threshold the hook uses
+  // (MIN_QUERY_LENGTH = 2) so this matches Modern's container and avoids
+  // surfacing the "Searching..." / "No results" copy for sub-threshold
+  // partial inputs.
+  const hasQuery = effectiveQuery.length >= 2;
 
   return (
     <div className="classic-previous-sets">
@@ -39,12 +43,16 @@ export default function PreviousSetsContainer() {
       <SearchForm />
 
       {hasQuery && (
-        <div className="classic-previous-sets-results">
+        <>
+          {/* Loading-text gating mirrors Modern's PlaylistSearchContainer:
+              while a request is in flight, always show "Searching..." rather
+              than stale "Found N results" / "No results found" copy that
+              would flash mid-query. */}
           <p
             className="text"
             style={{ textAlign: "center", padding: "0.5em" }}
           >
-            {isLoading && results.length === 0
+            {isLoading
               ? "Searching..."
               : total > 0
               ? `Found ${total.toLocaleString()} results`
@@ -69,7 +77,7 @@ export default function PreviousSetsContainer() {
               <ResultTable results={results as PreviousSetsResult[]} />
             </InfiniteScroll>
           )}
-        </div>
+        </>
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-import type { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
+import type { Rotation } from "@/lib/features/rotation/types";
 import "@/src/styles/classic/capsules.css";
 
 export type CapsuleVariant = "request" | "rotation" | "exclusive";
@@ -19,9 +19,18 @@ export function Capsule({
 
 type CapsuleSpec = { variant: CapsuleVariant; label: string };
 
+// Minimal shape needed to compute capsules — kept structural so flowsheet
+// song entries and playlist-archive search results (and any future row
+// type that carries the same flags) can share `capsulesForSongEntry`.
+export type Capsulable = {
+  request_flag?: boolean;
+  rotation?: Rotation | null;
+  on_streaming?: boolean;
+};
+
 // Capsules render in priority order: REQUEST → ROTATION → EXCLUSIVE.
 // Mirrors tubafrenzy's `flowsheetRadioShowModify.jsp` capsule ordering.
-export function capsulesForSongEntry(entry: FlowsheetSongEntry): CapsuleSpec[] {
+export function capsulesForSongEntry(entry: Capsulable): CapsuleSpec[] {
   const out: CapsuleSpec[] = [];
   if (entry.request_flag) {
     out.push({ variant: "request", label: "REQUEST" });
