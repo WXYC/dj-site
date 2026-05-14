@@ -17,7 +17,7 @@ import {
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useGetRotationQuery } from "@/lib/features/rotation/api";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuthentication } from "./authenticationHooks";
 import { filterBySearchTerms } from "@/src/utilities/filterBySearchTerms";
 
@@ -201,7 +201,10 @@ export function useCatalogQueryResults() {
   // null sentinel — distinguish "never fired" from "fired with empty q"
   const lastFiredRef = useRef<string | null>(null);
 
-  const accumulatedRef = useRef<AlbumEntry[]>([]);
+  // Accumulated results held in state so a new page or a query-reset triggers
+  // a re-render. A ref-based store wouldn't — the Results component reads
+  // straight from this hook, and React only re-renders on state changes.
+  const [accumulated, setAccumulated] = useState<AlbumEntry[]>([]);
   const lastAccumulatedKeyRef = useRef<string>("");
 
   const [trigger, { data, isFetching, isError }] =
@@ -211,23 +214,19 @@ export function useCatalogQueryResults() {
   useEffect(() => {
     const key = `${effectiveQuery}|${sortBy}|${sortOrder}|${filters.onStreaming}|${filters.genre}|${filters.format}`;
     if (key !== lastAccumulatedKeyRef.current) {
-      accumulatedRef.current = [];
       lastAccumulatedKeyRef.current = key;
+      setAccumulated([]);
     }
   }, [effectiveQuery, sortBy, sortOrder, filters]);
 
   // Append the latest page (or replace, for page 0) into the accumulator.
   useEffect(() => {
     if (!data?.results) return;
-    if (data.page === 0) {
-      accumulatedRef.current = data.results;
-    } else {
-      const seen = new Set(accumulatedRef.current.map((r) => r.id));
-      accumulatedRef.current = [
-        ...accumulatedRef.current,
-        ...data.results.filter((r) => !seen.has(r.id)),
-      ];
-    }
+    setAccumulated((prev) => {
+      if (data.page === 0) return data.results;
+      const seen = new Set(prev.map((r) => r.id));
+      return [...prev, ...data.results.filter((r) => !seen.has(r.id))];
+    });
   }, [data]);
 
   // Fire the search when params change. Skip partial single-character queries.
@@ -276,7 +275,7 @@ export function useCatalogQueryResults() {
   const hasMore = data ? data.page + 1 < data.totalPages : false;
 
   return {
-    results: accumulatedRef.current,
+    results: accumulated,
     total: data?.total ?? 0,
     hasMore,
     isLoading: isFetching,
