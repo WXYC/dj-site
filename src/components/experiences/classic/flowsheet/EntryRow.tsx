@@ -1,5 +1,6 @@
 "use client";
 
+import type { DragEvent as ReactDragEvent } from "react";
 import {
   FlowsheetEntry,
   isFlowsheetSongEntry,
@@ -75,23 +76,41 @@ export default function EntryRow({
     .filter(Boolean)
     .join(" ");
 
+  // A row is only draggable when the parent wires up reorder handlers. The
+  // previous-show <tbody> in EntryTable renders rows without these, so they
+  // render with an empty grip cell and no drag affordance — the visual matches
+  // the read-only intent.
+  const isDraggable = Boolean(onDragStart);
+  const dragHandlers = isDraggable
+    ? {
+        onDragStart: () => onDragStart?.(entry.id),
+        onDragOver: (e: ReactDragEvent) => {
+          e.preventDefault();
+          onDragOver?.(entry.id);
+        },
+        onDrop: (e: ReactDragEvent) => {
+          e.preventDefault();
+          onDrop?.(entry.id);
+        },
+        onDragEnd: () => onDragEnd?.(),
+      }
+    : {};
+
   if (isFlowsheetTalksetEntry(entry)) {
     return (
       <tr
-        className={`flowsheetEntryData classic-marker-talkset ${fontSizeClass} ${dragClass}`.trim()}
-        draggable={true}
-        onDragStart={() => onDragStart?.(entry.id)}
-        onDragOver={(e) => {
-          e.preventDefault();
-          onDragOver?.(entry.id);
-        }}
-        onDrop={(e) => {
-          e.preventDefault();
-          onDrop?.(entry.id);
-        }}
-        onDragEnd={() => onDragEnd?.()}
+        className={[
+          "flowsheetEntryData",
+          "classic-marker-talkset",
+          fontSizeClass,
+          dragClass,
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        draggable={isDraggable}
+        {...dragHandlers}
       >
-        <GripCell />
+        {isDraggable ? <GripCell /> : <EmptyGripCell />}
         <td colSpan={5} align="center">
           talkset
         </td>
@@ -157,8 +176,7 @@ export default function EntryRow({
       "flowsheetEntryData",
       fontSizeClass,
       showSegueBracket ? "classic-segue" : "",
-      isDragging ? "dragging" : "",
-      isDragOver ? "drag-over" : "",
+      dragClass,
     ]
       .filter(Boolean)
       .join(" ");
@@ -169,19 +187,10 @@ export default function EntryRow({
         style={{ backgroundColor: "#F3F3F3" }}
         className={trClassName}
         data-segue={dataSegue}
-        draggable={true}
-        onDragStart={() => onDragStart?.(entry.id)}
-        onDragOver={(e) => {
-          e.preventDefault();
-          onDragOver?.(entry.id);
-        }}
-        onDrop={(e) => {
-          e.preventDefault();
-          onDrop?.(entry.id);
-        }}
-        onDragEnd={() => onDragEnd?.()}
+        draggable={isDraggable}
+        {...dragHandlers}
       >
-        <GripCell />
+        {isDraggable ? <GripCell /> : <EmptyGripCell />}
         <td align="center">
           {capsules.map((c) => (
             <Capsule key={c.variant} variant={c.variant} label={c.label} />

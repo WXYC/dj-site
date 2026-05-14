@@ -8,16 +8,21 @@ import EntryRow from "../EntryRow";
 
 // renderInTable wraps EntryRow in a <table><tbody> so the row's <td> elements
 // are mounted in a valid layout context (RTL otherwise warns).
+// renderRow defaults `onDragStart` to a no-op so the "live" rendering context
+// (where the parent always wires drag handlers) is the default. Tests that
+// want the read-only previous-show context can pass `dragHandlers: false`.
 function renderRow(props: {
   entry: FlowsheetEntry;
   nextIsSong?: boolean;
   isDragging?: boolean;
   isDragOver?: boolean;
+  dragHandlers?: boolean;
   onDragStart?: (entryId: number) => void;
   onDragOver?: (entryId: number) => void;
   onDrop?: (entryId: number) => void;
   onDragEnd?: () => void;
 }) {
+  const dragHandlersEnabled = props.dragHandlers !== false;
   return renderWithProviders(
     <table>
       <tbody>
@@ -29,7 +34,9 @@ function renderRow(props: {
           nextIsSong={props.nextIsSong}
           isDragging={props.isDragging}
           isDragOver={props.isDragOver}
-          onDragStart={props.onDragStart}
+          onDragStart={
+            dragHandlersEnabled ? props.onDragStart ?? (() => {}) : undefined
+          }
           onDragOver={props.onDragOver}
           onDrop={props.onDrop}
           onDragEnd={props.onDragEnd}
@@ -200,6 +207,37 @@ describe("Classic EntryRow grip handle (drag-to-reorder)", () => {
     const entry = createTestFlowsheetEntry();
     const { container } = renderRow({ entry });
     expect(container.querySelector('img[src*="blue_down.gif"]')).toBeNull();
+  });
+});
+
+describe("Classic EntryRow read-only context (no drag handlers wired)", () => {
+  it("does NOT mark a song row draggable when onDragStart is undefined", () => {
+    const entry = createTestFlowsheetEntry();
+    const { container } = renderRow({ entry, dragHandlers: false });
+    const row = container.querySelector("tr.flowsheetEntryData");
+    expect(row!.getAttribute("draggable")).not.toBe("true");
+  });
+
+  it("renders an empty grip cell (not the grip handle) on a song row when onDragStart is undefined", () => {
+    const entry = createTestFlowsheetEntry();
+    const { container } = renderRow({ entry, dragHandlers: false });
+    const firstCell = container.querySelector("tr > td:first-child");
+    expect(firstCell).not.toBeNull();
+    expect(firstCell!.classList.contains("grip-cell")).toBe(true);
+    expect(firstCell!.querySelector(".grip-handle")).toBeNull();
+  });
+
+  it("does NOT mark a talkset row draggable when onDragStart is undefined", () => {
+    const entry: FlowsheetEntry = {
+      id: 20,
+      show_id: 1,
+      play_order: 1,
+      message: "Talkset - station ID",
+    };
+    const { container } = renderRow({ entry, dragHandlers: false });
+    const row = container.querySelector("tr.classic-marker-talkset");
+    expect(row!.getAttribute("draggable")).not.toBe("true");
+    expect(container.querySelector(".grip-handle")).toBeNull();
   });
 });
 
