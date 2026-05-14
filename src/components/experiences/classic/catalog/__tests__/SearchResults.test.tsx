@@ -54,3 +54,56 @@ describe("Classic SearchResults Various Artists display", () => {
     expect(screen.queryByText("Various Artists")).toBeNull();
   });
 });
+
+describe("Classic SearchResults EXCLUSIVE capsule", () => {
+  it("should render the EXCLUSIVE capsule on rows where on_streaming === false", () => {
+    const album = createTestAlbum({
+      artist: createTestArtist({ name: "Chuquimamani-Condori", lettercode: "EL", numbercode: 12 }),
+      title: "Edits",
+      on_streaming: false,
+    });
+    mockSearchCatalogQuery.mockReturnValue({
+      data: [album],
+      isLoading: false,
+      error: undefined,
+    });
+
+    renderWithProviders(<SearchResults />);
+
+    expect(screen.getByText("EXCLUSIVE")).toBeDefined();
+  });
+
+  it("should NOT render the EXCLUSIVE capsule on rows where on_streaming === true", () => {
+    const album = createTestAlbum({
+      artist: createTestArtist({ name: "Juana Molina", lettercode: "RO", numbercode: 34 }),
+      title: "DOGA",
+      on_streaming: true,
+    });
+    mockSearchCatalogQuery.mockReturnValue({
+      data: [album],
+      isLoading: false,
+      error: undefined,
+    });
+
+    renderWithProviders(<SearchResults />);
+
+    expect(screen.queryByText("EXCLUSIVE")).toBeNull();
+  });
+
+  it("should NOT render the EXCLUSIVE capsule on rows where on_streaming === undefined (unknown != off-streaming)", () => {
+    const album = createTestAlbum({
+      artist: createTestArtist({ name: "Jessica Pratt", lettercode: "RO", numbercode: 55 }),
+      title: "On Your Own Love Again",
+      // on_streaming intentionally undefined — createTestAlbum's default
+    });
+    mockSearchCatalogQuery.mockReturnValue({
+      data: [album],
+      isLoading: false,
+      error: undefined,
+    });
+
+    renderWithProviders(<SearchResults />);
+
+    expect(screen.queryByText("EXCLUSIVE")).toBeNull();
+  });
+});
