@@ -63,6 +63,7 @@ export function buildOptimisticEntry(
       album_title: "",
       record_label: arg.record_label ?? "",
       request_flag: arg.request_flag,
+      segue: arg.segue,
       album_id: arg.album_id,
       rotation_id: arg.rotation_id,
       rotation: arg.rotation_bin,
@@ -79,6 +80,7 @@ export function buildOptimisticEntry(
     album_title: arg.album_title,
     record_label: arg.record_label ?? "",
     request_flag: arg.request_flag,
+    segue: arg.segue,
   };
   return { entry, tempId };
 }

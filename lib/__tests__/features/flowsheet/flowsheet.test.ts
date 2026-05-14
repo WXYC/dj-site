@@ -98,6 +98,19 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
       expect(result.queueIdCounter).toBe(1);
     });
 
+    it.each([
+      { input: true, expected: true },
+      { input: false, expected: false },
+      { input: undefined, expected: undefined },
+    ])(
+      "should carry segue=$input from the query onto the queue entry",
+      ({ input, expected }) => {
+        const query = createTestFlowsheetQuery({ segue: input });
+        const result = harness().reduce(actions.addToQueue(query));
+        expect(result.queue[0].segue).toBe(expected);
+      }
+    );
+
     it("should assign incrementing IDs to queue items", () => {
       const result = harness().chain(
         actions.addToQueue(createTestFlowsheetQuery({ song: "Track 1" })),
