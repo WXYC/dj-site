@@ -5,15 +5,29 @@ vi.mock("@/lib/features/authentication/client", () => ({
   getJWTToken: vi.fn(),
 }));
 
-// We need to mock fetchBaseQuery from Redux Toolkit
-const mockPrepareHeaders = vi.fn();
-const mockFetchBaseQuery = vi.fn((config: any) => {
-  // Store the config so we can test it
-  (mockFetchBaseQuery as any).lastConfig = config;
-  // Return a mock base query function
-  return vi.fn(async () => ({ data: {} }));
+// PostHog is invoked by the non-JSON branch — mock it so tests don't depend on the
+// browser SDK booting in jsdom. `vi.hoisted` ensures the mock fn exists when the
+// (hoisted) `vi.mock` factory runs.
+const { mockCaptureException } = vi.hoisted(() => ({
+  mockCaptureException: vi.fn(),
+}));
+vi.mock("@/lib/posthog", () => ({
+  posthog: { captureException: mockCaptureException },
+}));
+
+// We need to mock fetchBaseQuery from Redux Toolkit. The mock returns a function
+// whose behaviour individual tests can override via `mockInnerBaseQuery`.
+const { mockInnerBaseQuery, mockFetchBaseQuery } = vi.hoisted(() => {
+  // Type as `any` for ergonomic per-test overrides — the wrapped query's real
+  // signature is checked in `backend.ts` itself.
+  const inner = vi.fn<(...args: any[]) => Promise<any>>(async () => ({ data: {} }));
+  const factory = vi.fn((config: any) => {
+    (factory as any).lastConfig = config;
+    return inner;
+  });
+  (factory as any).lastConfig = null;
+  return { mockInnerBaseQuery: inner, mockFetchBaseQuery: factory };
 });
-(mockFetchBaseQuery as any).lastConfig = null;
 
 vi.mock("@reduxjs/toolkit/query", () => ({
   fetchBaseQuery: (config: any) => mockFetchBaseQuery(config),
@@ -223,6 +237,134 @@ describe("backend", () => {
         expect((mockFetchBaseQuery as any).lastConfig.baseUrl).toBe(
           "https://api.example.com//items"
         );
+      });
+    });
+
+    describe("non-JSON response handling (#519)", () => {
+      const fakeApi = {} as any;
+      const fakeExtra = {} as any;
+      let warnSpy: ReturnType<typeof vi.spyOn>;
+
+      beforeEach(() => {
+        mockInnerBaseQuery.mockReset();
+        mockCaptureException.mockReset();
+        warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      });
+
+      afterEach(() => {
+        warnSpy.mockRestore();
+      });
+
+      it("returns { data: undefined } when the backend returns HTML 404", async () => {
+        // Simulate what fetchBaseQuery emits when responseHandler='json' chokes
+        // on `<!DOCTYPE html>…` from Express's default 404.
+        mockInnerBaseQuery.mockResolvedValueOnce({
+          error: {
+            status: "PARSING_ERROR",
+            originalStatus: 404,
+            data: "<!DOCTYPE html><html><body>Not Found</body></html>",
+            error: "SyntaxError: JSON Parse error: Unrecognized token '<'",
+          },
+          meta: { request: {} as Request, response: {} as Response },
+        });
+
+        const baseQuery = backendBaseQuery("library/rotation");
+        const result = await baseQuery(
+          { url: "/42/tracks" },
+          fakeApi,
+          fakeExtra
+        );
+
+        expect(result).toEqual(
+          expect.objectContaining({ data: undefined })
+        );
+        // Should NOT propagate the error — that's what produced the global toast.
+        expect((result as { error?: unknown }).error).toBeUndefined();
+      });
+
+      it("logs the non-JSON response to console + PostHog (no toast)", async () => {
+        mockInnerBaseQuery.mockResolvedValueOnce({
+          error: {
+            status: "PARSING_ERROR",
+            originalStatus: 404,
+            data: "<!DOCTYPE html>",
+            error: "SyntaxError: ...",
+          },
+          meta: { request: {} as Request, response: {} as Response },
+        });
+
+        const baseQuery = backendBaseQuery("library/rotation");
+        await baseQuery({ url: "/42/tracks" }, fakeApi, fakeExtra);
+
+        expect(warnSpy).toHaveBeenCalled();
+        expect(mockCaptureException).toHaveBeenCalledTimes(1);
+        const capturedError = mockCaptureException.mock.calls[0][0] as Error;
+        expect(capturedError).toBeInstanceOf(Error);
+        expect(capturedError.message).toContain("library/rotation");
+        expect(capturedError.message).toContain("/42/tracks");
+      });
+
+      it("does not swallow structured JSON 4xx errors", async () => {
+        // Backend returned a proper JSON-encoded error — RTK Query treats this
+        // as an HTTP error (status: 404 with parsed JSON body). Keep that
+        // surfacing through; only PARSING_ERROR is soft-handled.
+        const jsonError = {
+          status: 404,
+          data: { message: "rotation not found" },
+        };
+        mockInnerBaseQuery.mockResolvedValueOnce({
+          error: jsonError,
+          meta: { request: {} as Request, response: {} as Response },
+        });
+
+        const baseQuery = backendBaseQuery("library/rotation");
+        const result = await baseQuery(
+          { url: "/42/tracks" },
+          fakeApi,
+          fakeExtra
+        );
+
+        expect((result as { error: unknown }).error).toEqual(jsonError);
+        expect((result as { data?: unknown }).data).toBeUndefined();
+        expect(mockCaptureException).not.toHaveBeenCalled();
+        expect(warnSpy).not.toHaveBeenCalled();
+      });
+
+      it("passes through successful responses unchanged", async () => {
+        const success = {
+          data: [{ position: "A1", title: "la paradoja", duration: null, artists: ["Juana Molina"] }],
+          meta: { request: {} as Request, response: {} as Response },
+        };
+        mockInnerBaseQuery.mockResolvedValueOnce(success);
+
+        const baseQuery = backendBaseQuery("library/rotation");
+        const result = await baseQuery(
+          { url: "/42/tracks" },
+          fakeApi,
+          fakeExtra
+        );
+
+        expect(result).toBe(success);
+      });
+
+      it("does not throw if PostHog capture fails (defensive)", async () => {
+        mockCaptureException.mockImplementationOnce(() => {
+          throw new Error("posthog not initialized");
+        });
+        mockInnerBaseQuery.mockResolvedValueOnce({
+          error: {
+            status: "PARSING_ERROR",
+            originalStatus: 502,
+            data: "<html>Bad Gateway</html>",
+            error: "SyntaxError",
+          },
+          meta: { request: {} as Request, response: {} as Response },
+        });
+
+        const baseQuery = backendBaseQuery("library/rotation");
+        await expect(
+          baseQuery({ url: "/42/tracks" }, fakeApi, fakeExtra)
+        ).resolves.toEqual(expect.objectContaining({ data: undefined }));
       });
     });
   });
