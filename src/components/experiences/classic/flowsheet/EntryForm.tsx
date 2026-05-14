@@ -121,6 +121,10 @@ export default function EntryForm({
         rotation_bin: release.rotation_bin,
       };
     } else {
+      // libraryRelease + otherRelease both fall through to the free-text
+      // submission path. Plumbing a real `library_album_id` for the Library
+      // case is tracked separately (the catalog-search picker lives in the
+      // Modern theme); the Classic port preserves prior behavior here.
       submissionData = {
         artist_name: artistName,
         album_title: releaseTitle,
@@ -143,36 +147,34 @@ export default function EntryForm({
   };
 
   return (
-    <>
-      <div style={{ textAlign: "center", marginBottom: "8px" }}>
-        <span className="label">Add a </span>
-        <select
-          name="addEntryType"
-          value={entryType}
-          onChange={(e) => setEntryType(e.target.value as EntryType)}
-          disabled={!isLive}
-        >
-          <option value="track">Track</option>
-          <option value="talkset">Talkset</option>
-          <option value="breakpoint">Breakpoint</option>
-        </select>
-        {entryType !== "track" && (
-          <>
-            &nbsp;
-            <button
-              type="button"
-              onClick={() => handleSubmit()}
-              disabled={!isLive || isLoading || !canSubmit}
-            >
-              Add
-            </button>
-          </>
-        )}
-      </div>
+    <form name="flowsheetEntry" method="POST" onSubmit={handleSubmit}>
+      <fieldset disabled={!isLive}>
+        <div style={{ textAlign: "center", marginBottom: "8px" }}>
+          <span className="label">Add a </span>
+          <select
+            name="addEntryType"
+            value={entryType}
+            onChange={(e) => setEntryType(e.target.value as EntryType)}
+            disabled={!isLive}
+          >
+            <option value="track">Track</option>
+            <option value="talkset">Talkset</option>
+            <option value="breakpoint">Breakpoint</option>
+          </select>
+          {entryType !== "track" && (
+            <>
+              &nbsp;
+              <input
+                type="submit"
+                value="Add"
+                disabled={!isLive || isLoading || !canSubmit}
+              />
+            </>
+          )}
+        </div>
 
-      {entryType === "track" && (
-        <form name="flowsheetEntry" method="POST" onSubmit={handleSubmit}>
-          <fieldset disabled={!isLive}>
+        {entryType === "track" && (
+          <>
             <div style={{ textAlign: "center", margin: "8px 0" }}>
               <span className="label">From </span>
               <select
@@ -200,7 +202,7 @@ export default function EntryForm({
                     }}
                     disabled={!isLive}
                   >
-                    <option value=""></option>
+                    <option value="">-- choose bin --</option>
                     <option value="heavy">Heavy</option>
                     <option value="medium">Medium</option>
                     <option value="light">Light</option>
@@ -328,7 +330,6 @@ export default function EntryForm({
                       name="songTitle"
                       value={songTitle}
                       onChange={(e) => setSongTitle(e.target.value)}
-                      required
                       disabled={!isLive}
                     />
                   </td>
@@ -435,9 +436,9 @@ export default function EntryForm({
                 </tr>
               </tbody>
             </table>
-          </fieldset>
-        </form>
-      )}
-    </>
+          </>
+        )}
+      </fieldset>
+    </form>
   );
 }
