@@ -28,8 +28,7 @@ export default function EntryTable({
       <table cellPadding={4} cellSpacing={2} border={0} style={{ width: "100%" }}>
         <thead>
           <tr>
-            <th>Playlist</th>
-            <th>Req.</th>
+            <th>Indicators</th>
             <th style={{ width: "25%" }}>Artist</th>
             <th>Song</th>
             <th>Release</th>
@@ -59,7 +58,7 @@ export default function EntryTable({
             ))
           ) : (
             <tr>
-              <td align="center" className="text" colSpan={9}>
+              <td align="center" className="text" colSpan={8}>
                 There are currently no entries on this flowsheet.
               </td>
             </tr>
@@ -69,12 +68,12 @@ export default function EntryTable({
       <table cellPadding={4} cellSpacing={2} border={0} style={{ width: "100%" }}>
         <tbody>
           <tr style={{ backgroundColor: "#FFFFFF" }}>
-            <td colSpan={6} align="center" className="redlabel">
+            <td colSpan={5} align="center" className="redlabel">
               &nbsp;
             </td>
           </tr>
           <tr style={{ backgroundColor: "#FFFFFF" }}>
-            <td colSpan={6} align="center" className="redlabel">
+            <td colSpan={5} align="center" className="redlabel">
               <a
                 href="#"
                 onClick={(e) => {
