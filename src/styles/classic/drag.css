@@ -1,0 +1,32 @@
+/* Grip handle for drag-to-reorder. Ported from tubafrenzy
+ * webapps/playlists/src/main/webapp/css/flowsheet.css (commit 018b32a8). */
+
+.grip-cell {
+  width: 24px;
+  text-align: center;
+  padding: 0 4px;
+}
+
+.grip-handle {
+  cursor: grab;
+  font-size: 1.2em;
+  color: #888;
+  user-select: none;
+}
+
+.grip-handle:hover {
+  color: #444;
+}
+
+.grip-handle:active {
+  cursor: grabbing;
+}
+
+.flowsheetEntryData.dragging {
+  opacity: 0.4;
+}
+
+.flowsheetEntryData.drag-over {
+  outline: 2px solid #cc0000;
+  outline-offset: -2px;
+}

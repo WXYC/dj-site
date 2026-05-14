@@ -13,34 +13,53 @@ export default function EntryTable({
   fontSize,
   onEdit,
   onDelete,
-  onMoveUp,
-  onMoveDown,
+  onReorder,
 }: {
   entries: FlowsheetEntry[];
   previousEntries: FlowsheetEntry[];
   fontSize: number;
   onEdit: (entryId: number) => void;
   onDelete: (entryId: number) => void;
-  onMoveUp: (entryId: number) => void;
-  onMoveDown: (entryId: number) => void;
+  /** Fired when a row is dropped onto another row. The implementation should
+   *  swap the two entries' play_order values (or otherwise reorder). */
+  onReorder: (sourceId: number, targetId: number) => void;
 }) {
   const [showPrevious, setShowPrevious] = useState(false);
+  const [draggingId, setDraggingId] = useState<number | null>(null);
+  const [dragOverId, setDragOverId] = useState<number | null>(null);
+
+  const handleDragStart = (entryId: number) => {
+    setDraggingId(entryId);
+  };
+
+  const handleDragOver = (entryId: number) => {
+    setDragOverId(entryId);
+  };
+
+  const handleDrop = (entryId: number) => {
+    if (draggingId !== null && draggingId !== entryId) {
+      onReorder(draggingId, entryId);
+    }
+    setDraggingId(null);
+    setDragOverId(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggingId(null);
+    setDragOverId(null);
+  };
 
   return (
     <div id="flowsheet">
       <table cellPadding={4} cellSpacing={2} border={0} style={{ width: "100%" }}>
         <thead>
           <tr>
+            <th></th>
             <th>Indicators</th>
             <th style={{ width: "25%" }}>Artist</th>
             <th>Song</th>
             <th>Release</th>
             <th>Label</th>
-            <th colSpan={2}>
-              Move Up
-              <br />
-              or Down?
-            </th>
             <th>Edit/Delete</th>
           </tr>
         </thead>
@@ -59,15 +78,19 @@ export default function EntryTable({
                   fontSize={fontSize}
                   onEdit={onEdit}
                   onDelete={onDelete}
-                  onMoveUp={onMoveUp}
-                  onMoveDown={onMoveDown}
                   nextIsSong={nextIsSong}
+                  isDragging={draggingId === entry.id}
+                  isDragOver={dragOverId === entry.id}
+                  onDragStart={handleDragStart}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                  onDragEnd={handleDragEnd}
                 />
               );
             })
           ) : (
             <tr>
-              <td align="center" className="text" colSpan={8}>
+              <td align="center" className="text" colSpan={7}>
                 There are currently no entries on this flowsheet.
               </td>
             </tr>
@@ -90,10 +113,8 @@ export default function EntryTable({
                   setShowPrevious(!showPrevious);
                 }}
               >
-                {showPrevious
-                  ? "Hide"
-                  : "Show"}{" "}
-                /Hide the flowsheet from the previous show below...
+                {showPrevious ? "Hide" : "Show"} /Hide the flowsheet from the
+                previous show below...
               </a>
             </td>
           </tr>
@@ -113,8 +134,6 @@ export default function EntryTable({
                   fontSize={fontSize}
                   onEdit={onEdit}
                   onDelete={onDelete}
-                  onMoveUp={onMoveUp}
-                  onMoveDown={onMoveDown}
                   nextIsSong={nextIsSong}
                 />
               );

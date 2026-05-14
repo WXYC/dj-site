@@ -90,35 +90,16 @@ export default function Main() {
     }
   };
 
-  const handleMoveUp = async (entryId: number) => {
-    const index = currentShowEntries.findIndex((e) => e.id === entryId);
-    if (index > 0) {
-      const entry = currentShowEntries[index];
-      const prevEntry = currentShowEntries[index - 1];
-      try {
-        await switchEntries({
-          entry_id: entry.id,
-          new_position: prevEntry.play_order,
-        }).unwrap();
-      } catch (error) {
-        console.error("Failed to move entry up:", error);
-      }
-    }
-  };
-
-  const handleMoveDown = async (entryId: number) => {
-    const index = currentShowEntries.findIndex((e) => e.id === entryId);
-    if (index < currentShowEntries.length - 1) {
-      const entry = currentShowEntries[index];
-      const nextEntry = currentShowEntries[index + 1];
-      try {
-        await switchEntries({
-          entry_id: entry.id,
-          new_position: nextEntry.play_order,
-        }).unwrap();
-      } catch (error) {
-        console.error("Failed to move entry down:", error);
-      }
+  const handleReorder = async (sourceId: number, targetId: number) => {
+    const target = currentShowEntries.find((e) => e.id === targetId);
+    if (!target || !("play_order" in target)) return;
+    try {
+      await switchEntries({
+        entry_id: sourceId,
+        new_position: target.play_order,
+      }).unwrap();
+    } catch (error) {
+      console.error("Failed to reorder entries:", error);
     }
   };
 
@@ -192,8 +173,7 @@ export default function Main() {
           fontSize={fontSize}
           onEdit={handleEdit}
           onDelete={handleDelete}
-          onMoveUp={handleMoveUp}
-          onMoveDown={handleMoveDown}
+          onReorder={handleReorder}
         />
       </div>
     </div>
