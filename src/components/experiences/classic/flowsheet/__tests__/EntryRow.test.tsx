@@ -12,6 +12,7 @@ function renderRow(props: {
   entry: FlowsheetEntry;
   index?: number;
   totalEntries?: number;
+  nextIsSong?: boolean;
 }) {
   return renderWithProviders(
     <table>
@@ -25,6 +26,7 @@ function renderRow(props: {
           onDelete={() => {}}
           onMoveUp={() => {}}
           onMoveDown={() => {}}
+          nextIsSong={props.nextIsSong}
         />
       </tbody>
     </table>
@@ -96,5 +98,35 @@ describe("Classic EntryRow capsule indicators", () => {
     const firstCell = container.querySelector("tr > td:first-child");
     expect(firstCell).not.toBeNull();
     expect(firstCell!.querySelector(".classic-capsule")).not.toBeNull();
+  });
+});
+
+describe("Classic EntryRow segue indicator", () => {
+  it("renders the .classic-segue class on a segue song row when the next row is also a song", () => {
+    const entry = createTestFlowsheetEntry({ segue: true });
+    const { container } = renderRow({ entry, nextIsSong: true });
+    const row = container.querySelector("tr.classic-segue");
+    expect(row).not.toBeNull();
+    // The row also exposes data-segue="true" so CSS can target it.
+    expect(row!.getAttribute("data-segue")).toBe("true");
+  });
+
+  it("does NOT render the segue indicator when the next row is not a song row", () => {
+    const entry = createTestFlowsheetEntry({ segue: true });
+    const { container } = renderRow({ entry, nextIsSong: false });
+    const row = container.querySelector("tr.classic-segue");
+    expect(row).toBeNull();
+  });
+
+  it("does NOT render the segue indicator when segue is false", () => {
+    const entry = createTestFlowsheetEntry({ segue: false });
+    const { container } = renderRow({ entry, nextIsSong: true });
+    expect(container.querySelector("tr.classic-segue")).toBeNull();
+  });
+
+  it("does NOT render the segue indicator when segue is undefined", () => {
+    const entry = createTestFlowsheetEntry({ segue: undefined });
+    const { container } = renderRow({ entry, nextIsSong: true });
+    expect(container.querySelector("tr.classic-segue")).toBeNull();
   });
 });

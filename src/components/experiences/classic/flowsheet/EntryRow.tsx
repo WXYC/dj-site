@@ -9,6 +9,7 @@ import {
   isFlowsheetEndShowEntry,
 } from "@/lib/features/flowsheet/types";
 import { Capsule, capsulesForSongEntry } from "./Capsule";
+import "@/src/styles/classic/segue.css";
 
 export default function EntryRow({
   entry,
@@ -19,6 +20,7 @@ export default function EntryRow({
   onMoveUp,
   onMoveDown,
   fontSize,
+  nextIsSong,
 }: {
   entry: FlowsheetEntry;
   index: number;
@@ -28,6 +30,11 @@ export default function EntryRow({
   onMoveUp: (entryId: number) => void;
   onMoveDown: (entryId: number) => void;
   fontSize: number;
+  /** True if the next row in the table is also a song row.
+   *  Used to suppress the segue indicator when the next row is a talkset,
+   *  breakpoint, or show-block — those render full-width and would leave the
+   *  red bracket dangling. EntryTable computes and passes this. */
+  nextIsSong?: boolean;
 }) {
   const fontSizeClass = `fontSize${fontSize}`;
 
@@ -82,9 +89,27 @@ export default function EntryRow({
   if (isFlowsheetSongEntry(entry)) {
     const hasComposer = false; // BMI composer info not in current type
     const capsules = capsulesForSongEntry(entry);
+    // Segue indicator: render only when the row's `segue` flag is true AND the
+    // next row in the table is also a song row. Tubafrenzy expresses the same
+    // guard via `:has(+ tr.entry-row)`; Classic does it in JSX because the
+    // adjacent non-song rows (talkset / breakpoint / start / end of show) are
+    // structurally distinct.
+    const showSegueBracket = entry.segue === true && nextIsSong === true;
+    const trClassName = [
+      "flowsheetEntryData",
+      fontSizeClass,
+      showSegueBracket ? "classic-segue" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    const dataSegue = showSegueBracket ? "true" : undefined;
 
     return (
-      <tr style={{ backgroundColor: "#F3F3F3" }} className={`flowsheetEntryData ${fontSizeClass}`}>
+      <tr
+        style={{ backgroundColor: "#F3F3F3" }}
+        className={trClassName}
+        data-segue={dataSegue}
+      >
         <td align="center">
           {capsules.map((c) => (
             <Capsule key={c.variant} variant={c.variant} label={c.label} />

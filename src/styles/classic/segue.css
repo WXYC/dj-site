@@ -1,0 +1,37 @@
+/* Segue indicator for Classic flowsheet rows.
+   Ported from tubafrenzy's segue-styles.css (commits 20823f75, e0ea0a97, fbea79bc).
+   A song row with segue=true segues OUT of the row above it, so the visual
+   bracket (red left border + circled up-arrow) renders at the TOP of the segue
+   row connecting it to the prior row.
+   Suppression when the next row is not a song row (talkset / breakpoint /
+   show-block) is handled in EntryTable by only passing the .classic-segue
+   class when the next row is also a song row — Classic's other row variants
+   render as full-width markers and would leave the bracket dangling. */
+
+.classic-segue > td:first-child {
+  position: relative;
+  border-top: 3px solid #CC0000;
+  border-left: 3px solid #CC0000;
+}
+
+.classic-segue > td:not(:first-child) {
+  border-top: 3px solid #CC0000;
+}
+
+.classic-segue > td:first-child::before {
+  content: "\2191";
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translate(-50%, -50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #CC0000;
+  background: #fff;
+  color: #CC0000;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+  z-index: 1;
+}
