@@ -23,13 +23,13 @@
     "test:e2e:debug": "playwright test --config=e2e/playwright.config.ts --debug"
   },
   "dependencies": {
-    "@atlaskit/pragmatic-drag-and-drop": "^1.7.2",
+    "@atlaskit/pragmatic-drag-and-drop": "^1.8.1",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@mui/icons-material": "^6.4.0",
     "@mui/joy": "^5.0.0-beta.51",
     "@mui/material": "^6.4.0",
-    "@opennextjs/cloudflare": "^1.10.1",
+    "@opennextjs/cloudflare": "^1.19.10",
     "@reduxjs/toolkit": "^2.2.0",
     "@uidotdev/usehooks": "^2.4.1",
     "@wxyc/shared": "^1.4.0",
@@ -37,9 +37,9 @@
     "cookie": "^1.0.2",
     "jose": "^6.2.3",
     "jwt-decode": "^4.0.0",
-    "motion": "^12.16.0",
+    "motion": "^12.38.0",
     "next": "^16.1.1",
-    "posthog-js": "^1.355.0",
+    "posthog-js": "^1.373.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-fast-marquee": "^1.6.5",
@@ -68,11 +68,11 @@
     "wrangler": "^4.90.1"
   },
   "optionalDependencies": {
-    "@ast-grep/napi-darwin-arm64": "^0.35.0",
-    "@ast-grep/napi-darwin-x64": "^0.35.0",
-    "@ast-grep/napi-linux-arm64-gnu": "^0.35.0",
-    "@ast-grep/napi-linux-x64-gnu": "^0.35.0",
-    "@ast-grep/napi-win32-arm64-msvc": "^0.35.0",
-    "@ast-grep/napi-win32-x64-msvc": "^0.35.0"
+    "@ast-grep/napi-darwin-arm64": "^0.42.2",
+    "@ast-grep/napi-darwin-x64": "^0.42.2",
+    "@ast-grep/napi-linux-arm64-gnu": "^0.42.2",
+    "@ast-grep/napi-linux-x64-gnu": "^0.42.2",
+    "@ast-grep/napi-win32-arm64-msvc": "^0.42.2",
+    "@ast-grep/napi-win32-x64-msvc": "^0.42.2"
   }
 }
