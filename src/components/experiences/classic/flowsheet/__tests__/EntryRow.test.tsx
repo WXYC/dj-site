@@ -10,8 +10,6 @@ import EntryRow from "../EntryRow";
 // are mounted in a valid layout context (RTL otherwise warns).
 function renderRow(props: {
   entry: FlowsheetEntry;
-  index?: number;
-  totalEntries?: number;
   nextIsSong?: boolean;
   isDragging?: boolean;
   isDragOver?: boolean;
@@ -25,8 +23,6 @@ function renderRow(props: {
       <tbody>
         <EntryRow
           entry={props.entry}
-          index={props.index ?? 1}
-          totalEntries={props.totalEntries ?? 3}
           fontSize={3}
           onEdit={() => {}}
           onDelete={() => {}}

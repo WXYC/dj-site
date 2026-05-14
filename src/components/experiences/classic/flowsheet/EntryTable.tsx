@@ -73,8 +73,6 @@ export default function EntryTable({
                 <EntryRow
                   key={entry.id}
                   entry={entry}
-                  index={index}
-                  totalEntries={entries.length}
                   fontSize={fontSize}
                   onEdit={onEdit}
                   onDelete={onDelete}
@@ -129,8 +127,6 @@ export default function EntryTable({
                 <EntryRow
                   key={entry.id}
                   entry={entry}
-                  index={index}
-                  totalEntries={previousEntries.length}
                   fontSize={fontSize}
                   onEdit={onEdit}
                   onDelete={onDelete}
