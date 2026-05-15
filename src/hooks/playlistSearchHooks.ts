@@ -6,7 +6,7 @@ import {
   SearchRow,
 } from "@/lib/features/playlist-search/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { useCallback, useEffect, useRef, useMemo } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import type { PlaylistSearchResult } from "@wxyc/shared";
 
 const MIN_QUERY_LENGTH = 2;
@@ -87,8 +87,14 @@ export function usePlaylistSearch() {
     sortOrder: "desc",
   });
 
-  // Accumulated results for infinite scroll
-  const accumulatedResultsRef = useRef<PlaylistSearchResult[]>([]);
+  // Accumulated results for infinite scroll. Held in state — not a ref —
+  // so the data-arrival effect re-renders the consumer once the new page
+  // lands. The earlier ref-based implementation (issue #540) silently
+  // mutated after render and never projected back into the DOM, so the
+  // page surfaced "Found N results" copy with an empty table beneath.
+  const [accumulatedResults, setAccumulatedResults] = useState<
+    PlaylistSearchResult[]
+  >([]);
   const lastQueryForAccumulationRef = useRef<string>("");
 
   const [trigger, { data, isFetching, isError }] =
@@ -98,7 +104,7 @@ export function usePlaylistSearch() {
   useEffect(() => {
     const currentParams = `${effectiveQuery}-${sortBy}-${sortOrder}`;
     if (currentParams !== lastQueryForAccumulationRef.current) {
-      accumulatedResultsRef.current = [];
+      setAccumulatedResults([]);
       lastQueryForAccumulationRef.current = currentParams;
     }
   }, [effectiveQuery, sortBy, sortOrder]);
@@ -109,16 +115,13 @@ export function usePlaylistSearch() {
   useEffect(() => {
     if (data?.results) {
       if (cursor === null) {
-        accumulatedResultsRef.current = data.results;
+        setAccumulatedResults(data.results);
       } else {
-        const existingIds = new Set(
-          accumulatedResultsRef.current.map((r) => r.id),
-        );
-        const newResults = data.results.filter((r) => !existingIds.has(r.id));
-        accumulatedResultsRef.current = [
-          ...accumulatedResultsRef.current,
-          ...newResults,
-        ];
+        setAccumulatedResults((prev) => {
+          const existingIds = new Set(prev.map((r) => r.id));
+          const newResults = data.results.filter((r) => !existingIds.has(r.id));
+          return [...prev, ...newResults];
+        });
       }
     }
   }, [data, cursor]);
@@ -212,7 +215,7 @@ export function usePlaylistSearch() {
   }, [dispatch, data?.nextCursor]);
 
   const reset = useCallback(() => {
-    accumulatedResultsRef.current = [];
+    setAccumulatedResults([]);
     lastQueryForAccumulationRef.current = "";
     dispatch(playlistSearchSlice.actions.reset());
   }, [dispatch]);
@@ -228,7 +231,7 @@ export function usePlaylistSearch() {
     effectiveQuery,
 
     // Results
-    results: accumulatedResultsRef.current,
+    results: accumulatedResults,
     total: data?.total ?? 0,
     hasMore,
 
