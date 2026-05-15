@@ -143,8 +143,12 @@ jobs:
         uses: actions/cache@v5
         with:
           path: dj-site/.next
-          key: e2e-nextjs-${{ hashFiles('dj-site/package-lock.json') }}-${{ hashFiles('dj-site/next.config.*') }}-${{ hashFiles('dj-site/app/**', 'dj-site/src/**', 'dj-site/lib/**') }}
+          # Workflow file hash is included because the env block (NEXT_PUBLIC_*)
+          # is inlined into the Next.js build; flipping a flag without invalidating
+          # the cache would silently serve a stale build.
+          key: e2e-nextjs-${{ hashFiles('dj-site/package-lock.json') }}-${{ hashFiles('dj-site/next.config.*') }}-${{ hashFiles('dj-site/.github/workflows/e2e-tests.yml') }}-${{ hashFiles('dj-site/app/**', 'dj-site/src/**', 'dj-site/lib/**') }}
           restore-keys: |
+            e2e-nextjs-${{ hashFiles('dj-site/package-lock.json') }}-${{ hashFiles('dj-site/next.config.*') }}-${{ hashFiles('dj-site/.github/workflows/e2e-tests.yml') }}-
             e2e-nextjs-${{ hashFiles('dj-site/package-lock.json') }}-${{ hashFiles('dj-site/next.config.*') }}-
             e2e-nextjs-${{ hashFiles('dj-site/package-lock.json') }}-
 
