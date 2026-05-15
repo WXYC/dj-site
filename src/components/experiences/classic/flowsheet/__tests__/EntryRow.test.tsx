@@ -1,9 +1,12 @@
-import { describe, it, expect } from "vitest";
-import { screen } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { fireEvent, screen } from "@testing-library/react";
 import { renderWithProviders } from "@/lib/test-utils/render";
 import { createTestFlowsheetEntry } from "@/lib/test-utils";
 import { Rotation } from "@/lib/features/rotation/types";
-import type { FlowsheetEntry } from "@/lib/features/flowsheet/types";
+import type {
+  FlowsheetEntry,
+  UpdateRequestBody,
+} from "@/lib/features/flowsheet/types";
 import EntryRow from "../EntryRow";
 
 // renderInTable wraps EntryRow in a <table><tbody> so the row's <td> elements
@@ -17,6 +20,8 @@ function renderRow(props: {
   isDragging?: boolean;
   isDragOver?: boolean;
   dragHandlers?: boolean;
+  onUpdate?: (entryId: number, data: UpdateRequestBody) => void;
+  onDelete?: (entryId: number) => void;
   onDragStart?: (entryId: number) => void;
   onDragOver?: (entryId: number) => void;
   onDrop?: (entryId: number) => void;
@@ -29,8 +34,8 @@ function renderRow(props: {
         <EntryRow
           entry={props.entry}
           fontSize={3}
-          onEdit={() => {}}
-          onDelete={() => {}}
+          onUpdate={props.onUpdate ?? (() => {})}
+          onDelete={props.onDelete ?? (() => {})}
           nextIsSong={props.nextIsSong}
           isDragging={props.isDragging}
           isDragOver={props.isDragOver}
@@ -427,5 +432,214 @@ describe("Classic EntryRow markers", () => {
     expect(cell!.textContent).toBe(
       "Start of show — DJ Test @ Unknown Unknown"
     );
+  });
+});
+
+describe("Classic EntryRow action menu + inline edit (song rows)", () => {
+  const baseEntry = () =>
+    createTestFlowsheetEntry({
+      id: 99,
+      artist_name: "Juana Molina",
+      track_title: "la paradoja",
+      album_title: "DOGA",
+      record_label: "Sonamos",
+      request_flag: false,
+    });
+
+  it("renders an action-menu trigger (⋯) on a song row instead of legacy Edit/Delete links", () => {
+    const { container } = renderRow({ entry: baseEntry() });
+    const trigger = screen.getByRole("button", { name: /actions/i });
+    expect(trigger.textContent).toBe("⋯");
+    // No standalone <a>Edit</a> or <a>Delete</a> on the row — those are gone.
+    // Edit and Delete now live inside the dropdown menu (.action-dropdown).
+    const standaloneEditLink = Array.from(container.querySelectorAll("a")).find(
+      (a) => a.textContent === "Edit" && !a.classList.contains("action-item")
+    );
+    const standaloneDeleteLink = Array.from(
+      container.querySelectorAll("a")
+    ).find(
+      (a) => a.textContent === "Delete" && !a.classList.contains("action-item")
+    );
+    expect(standaloneEditLink).toBeUndefined();
+    expect(standaloneDeleteLink).toBeUndefined();
+    // The menu starts closed.
+    expect(container.querySelector(".action-menu.open")).toBeNull();
+  });
+
+  it("opens the dropdown on trigger click and shows Edit + Delete items", () => {
+    renderRow({ entry: baseEntry() });
+    fireEvent.click(screen.getByRole("button", { name: /actions/i }));
+    expect(screen.getByText("Edit")).toBeDefined();
+    expect(screen.getByText("Delete")).toBeDefined();
+  });
+
+  it("transitions cells to inputs when Edit is clicked", () => {
+    const { container } = renderRow({ entry: baseEntry() });
+    fireEvent.click(screen.getByRole("button", { name: /actions/i }));
+    fireEvent.click(screen.getByText("Edit"));
+
+    const artist = container.querySelector(
+      'input[name="artist_name"]'
+    ) as HTMLInputElement | null;
+    const track = container.querySelector(
+      'input[name="track_title"]'
+    ) as HTMLInputElement | null;
+    const album = container.querySelector(
+      'input[name="album_title"]'
+    ) as HTMLInputElement | null;
+    const label = container.querySelector(
+      'input[name="record_label"]'
+    ) as HTMLInputElement | null;
+    expect(artist?.value).toBe("Juana Molina");
+    expect(track?.value).toBe("la paradoja");
+    expect(album?.value).toBe("DOGA");
+    expect(label?.value).toBe("Sonamos");
+  });
+
+  it("shows a request checkbox in edit mode, pre-checked when request_flag is true", () => {
+    const { container } = renderRow({
+      entry: createTestFlowsheetEntry({ request_flag: true }),
+    });
+    fireEvent.click(screen.getByRole("button", { name: /actions/i }));
+    fireEvent.click(screen.getByText("Edit"));
+    const checkbox = container.querySelector(
+      'input[type="checkbox"][name="request_flag"]'
+    ) as HTMLInputElement | null;
+    expect(checkbox).not.toBeNull();
+    expect(checkbox!.checked).toBe(true);
+  });
+
+  it("shows an unchecked request checkbox when request_flag is false", () => {
+    const { container } = renderRow({ entry: baseEntry() });
+    fireEvent.click(screen.getByRole("button", { name: /actions/i }));
+    fireEvent.click(screen.getByText("Edit"));
+    const checkbox = container.querySelector(
+      'input[type="checkbox"][name="request_flag"]'
+    ) as HTMLInputElement | null;
+    expect(checkbox!.checked).toBe(false);
+  });
+
+  it("disables drag on the row while editing", () => {
+    const { container } = renderRow({ entry: baseEntry() });
+    expect(
+      container.querySelector("tr.flowsheetEntryData")!.getAttribute("draggable")
+    ).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: /actions/i }));
+    fireEvent.click(screen.getByText("Edit"));
+    expect(
+      container.querySelector("tr.flowsheetEntryData")!.getAttribute("draggable")
+    ).toBe("false");
+  });
+
+  it("fires onUpdate with the edited values on Save", () => {
+    const onUpdate = vi.fn();
+    const { container } = renderRow({ entry: baseEntry(), onUpdate });
+    fireEvent.click(screen.getByRole("button", { name: /actions/i }));
+    fireEvent.click(screen.getByText("Edit"));
+
+    const artist = container.querySelector(
+      'input[name="artist_name"]'
+    ) as HTMLInputElement;
+    const track = container.querySelector(
+      'input[name="track_title"]'
+    ) as HTMLInputElement;
+    const requestCheckbox = container.querySelector(
+      'input[type="checkbox"][name="request_flag"]'
+    ) as HTMLInputElement;
+
+    fireEvent.change(artist, { target: { value: "Juana M." } });
+    fireEvent.change(track, { target: { value: "la paradoja (live)" } });
+    fireEvent.click(requestCheckbox);
+
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    expect(onUpdate).toHaveBeenCalledTimes(1);
+    expect(onUpdate).toHaveBeenCalledWith(99, {
+      artist_name: "Juana M.",
+      track_title: "la paradoja (live)",
+      album_title: "DOGA",
+      record_label: "Sonamos",
+      request_flag: true,
+    });
+  });
+
+  it("exits edit mode after Save", () => {
+    const { container } = renderRow({ entry: baseEntry() });
+    fireEvent.click(screen.getByRole("button", { name: /actions/i }));
+    fireEvent.click(screen.getByText("Edit"));
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    expect(container.querySelector('input[name="artist_name"]')).toBeNull();
+    expect(screen.getByRole("button", { name: /actions/i })).toBeDefined();
+  });
+
+  it("does NOT fire onUpdate when Save is clicked with an empty track_title", () => {
+    const onUpdate = vi.fn();
+    const { container } = renderRow({ entry: baseEntry(), onUpdate });
+    fireEvent.click(screen.getByRole("button", { name: /actions/i }));
+    fireEvent.click(screen.getByText("Edit"));
+
+    const track = container.querySelector(
+      'input[name="track_title"]'
+    ) as HTMLInputElement;
+    fireEvent.change(track, { target: { value: "   " } });
+
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    expect(onUpdate).not.toHaveBeenCalled();
+    // Row remains in edit mode so the user can fix it.
+    expect(container.querySelector('input[name="track_title"]')).not.toBeNull();
+  });
+
+  it("restores original values and exits edit mode on Cancel", () => {
+    const onUpdate = vi.fn();
+    const { container } = renderRow({ entry: baseEntry(), onUpdate });
+    fireEvent.click(screen.getByRole("button", { name: /actions/i }));
+    fireEvent.click(screen.getByText("Edit"));
+
+    const artist = container.querySelector(
+      'input[name="artist_name"]'
+    ) as HTMLInputElement;
+    fireEvent.change(artist, { target: { value: "Mangled" } });
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
+
+    expect(onUpdate).not.toHaveBeenCalled();
+    expect(container.querySelector('input[name="artist_name"]')).toBeNull();
+    // Original text is visible again.
+    expect(screen.getByText("Juana Molina")).toBeDefined();
+  });
+
+  it("fires onDelete when Delete is clicked in the menu", () => {
+    const onDelete = vi.fn();
+    renderRow({ entry: baseEntry(), onDelete });
+    fireEvent.click(screen.getByRole("button", { name: /actions/i }));
+    fireEvent.click(screen.getByText("Delete"));
+    expect(onDelete).toHaveBeenCalledWith(99);
+  });
+
+  it("does NOT render the action menu on talkset rows", () => {
+    const entry: FlowsheetEntry = {
+      id: 30,
+      show_id: 1,
+      play_order: 1,
+      message: "Talkset - station ID",
+    };
+    renderRow({ entry });
+    expect(
+      screen.queryByRole("button", { name: /actions/i })
+    ).toBeNull();
+  });
+
+  it("does NOT render the action menu on breakpoint rows", () => {
+    const entry: FlowsheetEntry = {
+      id: 31,
+      show_id: 1,
+      play_order: 2,
+      message: "Breakpoint - 5:00 PM",
+      day: "11/14/2023",
+      time: "5:00:00 PM",
+    };
+    renderRow({ entry });
+    expect(
+      screen.queryByRole("button", { name: /actions/i })
+    ).toBeNull();
   });
 });
