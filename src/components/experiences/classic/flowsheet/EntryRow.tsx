@@ -1,6 +1,6 @@
 "use client";
 
-import type { DragEvent as ReactDragEvent } from "react";
+import { useState, type DragEvent as ReactDragEvent } from "react";
 import {
   FlowsheetEntry,
   isFlowsheetSongEntry,
@@ -8,16 +8,19 @@ import {
   isFlowsheetBreakpointEntry,
   isFlowsheetStartShowEntry,
   isFlowsheetEndShowEntry,
+  UpdateRequestBody,
 } from "@/lib/features/flowsheet/types";
 import { Capsule, capsulesForSongEntry } from "./Capsule";
+import EntryActionMenu from "./EntryActionMenu";
 import { formatShortDate, formatShortTime } from "./marker-format";
 import "@/src/styles/classic/segue.css";
 import "@/src/styles/classic/markers.css";
 import "@/src/styles/classic/drag.css";
+import "@/src/styles/classic/actions.css";
 
 type Props = {
   entry: FlowsheetEntry;
-  onEdit: (entryId: number) => void;
+  onUpdate: (entryId: number, data: UpdateRequestBody) => void;
   onDelete: (entryId: number) => void;
   fontSize: number;
   /** True if the next row in the table is also a song row.
@@ -49,9 +52,17 @@ function EmptyGripCell() {
   return <td className="grip-cell">&nbsp;</td>;
 }
 
+type EditDraft = {
+  artist_name: string;
+  track_title: string;
+  album_title: string;
+  record_label: string;
+  request_flag: boolean;
+};
+
 export default function EntryRow({
   entry,
-  onEdit,
+  onUpdate,
   onDelete,
   fontSize,
   nextIsSong,
@@ -63,6 +74,34 @@ export default function EntryRow({
   onDragEnd,
 }: Props) {
   const fontSizeClass = `fontSize${fontSize}`;
+  const [draft, setDraft] = useState<EditDraft | null>(null);
+  const isEditing = draft !== null;
+
+  const beginEdit = () => {
+    if (!isFlowsheetSongEntry(entry)) return;
+    setDraft({
+      artist_name: entry.artist_name ?? "",
+      track_title: entry.track_title ?? "",
+      album_title: entry.album_title ?? "",
+      record_label: entry.record_label ?? "",
+      request_flag: entry.request_flag ?? false,
+    });
+  };
+
+  const cancelEdit = () => setDraft(null);
+
+  const saveEdit = () => {
+    if (!draft) return;
+    if (!draft.track_title.trim()) return;
+    onUpdate(entry.id, {
+      artist_name: draft.artist_name,
+      track_title: draft.track_title,
+      album_title: draft.album_title,
+      record_label: draft.record_label,
+      request_flag: draft.request_flag,
+    });
+    setDraft(null);
+  };
 
   // Marker rows (talkset / breakpoint / start / end of show) span 5 of the 7
   // post-PR8 columns: grip + indicators + artist + song + release + label + edit.
@@ -72,15 +111,16 @@ export default function EntryRow({
   const dragClass = [
     isDragging ? "dragging" : "",
     isDragOver ? "drag-over" : "",
+    isEditing ? "editing" : "",
   ]
     .filter(Boolean)
     .join(" ");
 
-  // A row is only draggable when the parent wires up reorder handlers. The
-  // previous-show <tbody> in EntryTable renders rows without these, so they
-  // render with an empty grip cell and no drag affordance — the visual matches
-  // the read-only intent.
-  const isDraggable = Boolean(onDragStart);
+  // A row is only draggable when the parent wires up reorder handlers AND we're
+  // not in edit mode. The previous-show <tbody> in EntryTable renders rows
+  // without these, so they render with an empty grip cell and no drag
+  // affordance — the visual matches the read-only intent.
+  const isDraggable = Boolean(onDragStart) && !isEditing;
   const dragHandlers = isDraggable
     ? {
         onDragStart: () => onDragStart?.(entry.id),
@@ -164,7 +204,6 @@ export default function EntryRow({
   }
 
   if (isFlowsheetSongEntry(entry)) {
-    const hasComposer = false; // BMI composer info not in current type
     const capsules = capsulesForSongEntry(entry);
     // Segue indicator: render only when the row's `segue` flag is true AND the
     // next row in the table is also a song row. Tubafrenzy expresses the same
@@ -192,43 +231,110 @@ export default function EntryRow({
       >
         {isDraggable ? <GripCell /> : <EmptyGripCell />}
         <td align="center">
-          {capsules.map((c) => (
-            <Capsule key={c.variant} variant={c.variant} label={c.label} />
-          ))}
-        </td>
-        <td align="left">{entry.artist_name}</td>
-        <td align="left">
-          {entry.track_title}
-          {hasComposer && (
-            <img
-              src="/img/classic/musicnote.gif"
-              height={25}
-              alt="Composer"
+          {isEditing ? (
+            <input
+              type="checkbox"
+              name="request_flag"
+              checked={draft!.request_flag}
+              onChange={(e) =>
+                setDraft({ ...draft!, request_flag: e.target.checked })
+              }
             />
+          ) : (
+            capsules.map((c) => (
+              <Capsule key={c.variant} variant={c.variant} label={c.label} />
+            ))
           )}
         </td>
-        <td align="left">{entry.album_title || ""}</td>
-        <td align="left">{entry.record_label || ""}</td>
-        <td align="center" className="text">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              onEdit(entry.id);
-            }}
-          >
-            Edit
-          </a>
-          &nbsp;&nbsp;
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              onDelete(entry.id);
-            }}
-          >
-            Delete
-          </a>
+        <td align="left">
+          {isEditing ? (
+            <input
+              type="text"
+              name="artist_name"
+              className="inline-edit"
+              value={draft!.artist_name}
+              onChange={(e) =>
+                setDraft({ ...draft!, artist_name: e.target.value })
+              }
+            />
+          ) : (
+            entry.artist_name
+          )}
+        </td>
+        <td align="left">
+          {isEditing ? (
+            <input
+              type="text"
+              name="track_title"
+              className="inline-edit"
+              value={draft!.track_title}
+              onChange={(e) =>
+                setDraft({ ...draft!, track_title: e.target.value })
+              }
+            />
+          ) : (
+            entry.track_title
+          )}
+        </td>
+        <td align="left">
+          {isEditing ? (
+            <input
+              type="text"
+              name="album_title"
+              className="inline-edit"
+              value={draft!.album_title}
+              onChange={(e) =>
+                setDraft({ ...draft!, album_title: e.target.value })
+              }
+            />
+          ) : (
+            entry.album_title || ""
+          )}
+        </td>
+        <td align="left">
+          {isEditing ? (
+            <input
+              type="text"
+              name="record_label"
+              className="inline-edit"
+              value={draft!.record_label}
+              onChange={(e) =>
+                setDraft({ ...draft!, record_label: e.target.value })
+              }
+            />
+          ) : (
+            entry.record_label || ""
+          )}
+        </td>
+        <td align="center" className="action-cell">
+          {isEditing ? (
+            <>
+              <button
+                type="button"
+                className="action-save"
+                aria-label="Save"
+                title="Save"
+                onClick={saveEdit}
+              >
+                {"✅"}
+              </button>{" "}
+              <button
+                type="button"
+                className="action-cancel"
+                aria-label="Cancel"
+                title="Cancel"
+                onClick={cancelEdit}
+              >
+                {"🚫"}
+              </button>
+            </>
+          ) : (
+            <EntryActionMenu
+              entryId={entry.id}
+              onEdit={beginEdit}
+              onDelete={onDelete}
+            />
+          )}
         </td>
       </tr>
     );

@@ -34,7 +34,7 @@ function setup(opts?: { entries?: FlowsheetEntry[]; onReorder?: (sourceId: numbe
       entries={entries}
       previousEntries={[]}
       fontSize={3}
-      onEdit={() => {}}
+      onUpdate={() => {}}
       onDelete={() => {}}
       onReorder={onReorder}
     />
@@ -65,6 +65,13 @@ describe("Classic EntryTable header", () => {
     const { container } = setup();
     const firstTh = container.querySelector("thead th:first-child");
     expect(firstTh!.textContent).toBe("");
+  });
+
+  it("renders an empty trailing column header (no 'Edit/Delete' label)", () => {
+    const { container } = setup();
+    const headers = Array.from(container.querySelectorAll("thead th"));
+    const lastTh = headers[headers.length - 1];
+    expect(lastTh.textContent).toBe("");
   });
 });
 

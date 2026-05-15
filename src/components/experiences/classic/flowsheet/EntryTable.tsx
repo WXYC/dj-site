@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   FlowsheetEntry,
   isFlowsheetSongEntry,
+  UpdateRequestBody,
 } from "@/lib/features/flowsheet/types";
 import EntryRow from "./EntryRow";
 
@@ -11,14 +12,14 @@ export default function EntryTable({
   entries,
   previousEntries,
   fontSize,
-  onEdit,
+  onUpdate,
   onDelete,
   onReorder,
 }: {
   entries: FlowsheetEntry[];
   previousEntries: FlowsheetEntry[];
   fontSize: number;
-  onEdit: (entryId: number) => void;
+  onUpdate: (entryId: number, data: UpdateRequestBody) => void;
   onDelete: (entryId: number) => void;
   /** Fired when a row is dropped onto another row. The implementation should
    *  swap the two entries' play_order values (or otherwise reorder). */
@@ -60,7 +61,7 @@ export default function EntryTable({
             <th>Song</th>
             <th>Release</th>
             <th>Label</th>
-            <th>Edit/Delete</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -74,7 +75,7 @@ export default function EntryTable({
                   key={entry.id}
                   entry={entry}
                   fontSize={fontSize}
-                  onEdit={onEdit}
+                  onUpdate={onUpdate}
                   onDelete={onDelete}
                   nextIsSong={nextIsSong}
                   isDragging={draggingId === entry.id}
@@ -128,7 +129,7 @@ export default function EntryTable({
                   key={entry.id}
                   entry={entry}
                   fontSize={fontSize}
-                  onEdit={onEdit}
+                  onUpdate={onUpdate}
                   onDelete={onDelete}
                   nextIsSong={nextIsSong}
                 />

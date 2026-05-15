@@ -13,6 +13,7 @@ import StartShow from "../StartShow";
 import {
   isFlowsheetStartShowEntry,
   FlowsheetEntry,
+  UpdateRequestBody,
 } from "@/lib/features/flowsheet/types";
 import { useAddToFlowsheetMutation, useSwitchEntriesMutation } from "@/lib/features/flowsheet/api";
 import { FlowsheetEntryType } from "@wxyc/shared/dtos";
@@ -79,9 +80,8 @@ export default function Main() {
     }
   };
 
-  const handleEdit = (entryId: number) => {
-    // Navigate to edit page or open modal
-    window.location.href = `/dashboard/flowsheet/${entryId}`;
+  const handleUpdate = (entryId: number, data: UpdateRequestBody) => {
+    updateFlowsheet({ entry_id: entryId, data });
   };
 
   const handleDelete = (entryId: number) => {
@@ -171,7 +171,7 @@ export default function Main() {
           entries={currentShowEntries}
           previousEntries={previousEntries}
           fontSize={fontSize}
-          onEdit={handleEdit}
+          onUpdate={handleUpdate}
           onDelete={handleDelete}
           onReorder={handleReorder}
         />
