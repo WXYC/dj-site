@@ -1,3 +1,5 @@
+import "@/src/styles/classic/login.css";
+
 export default function Main({
   title,
   children,
@@ -6,18 +8,17 @@ export default function Main({
   children: React.ReactNode;
 }) {
   return (
-    <table cellPadding={10}>
-      <tbody>
-        <tr>
-          <td align="center" valign="top">
-            <span className="title">{title}</span>
-            <br />
-          </td>
-        </tr>
-        <tr>
-          <td align="center">{children}</td>
-        </tr>
-      </tbody>
-    </table>
+    <div className="signon-card">
+      <table className="signon-table">
+        <thead>
+          <tr className="signon-header">
+            <th colSpan={2}>
+              <span className="title">{title}</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>{children}</tbody>
+      </table>
+    </div>
   );
 }
