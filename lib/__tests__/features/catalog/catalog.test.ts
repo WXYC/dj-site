@@ -112,6 +112,38 @@ describe("convertToAlbumEntry", () => {
           expect(result.artwork_url).toBeUndefined();
         },
       },
+      {
+        name: "should pass through matched_via hints when present",
+        input: createTestAlbumSearchResult({
+          matched_via: [
+            { source: "cta", title: "In a Sentimental Mood", confidence: 1.0 },
+            {
+              source: "discogs_master",
+              title: "In a Sentimental Mood",
+              position: "A1",
+              confidence: 0.92,
+            },
+          ],
+        }),
+        assertions: (result) => {
+          expect(result.matched_via).toEqual([
+            { source: "cta", title: "In a Sentimental Mood", confidence: 1.0 },
+            {
+              source: "discogs_master",
+              title: "In a Sentimental Mood",
+              position: "A1",
+              confidence: 0.92,
+            },
+          ]);
+        },
+      },
+      {
+        name: "should default matched_via to undefined when absent",
+        input: createTestAlbumSearchResult(),
+        assertions: (result) => {
+          expect(result.matched_via).toBeUndefined();
+        },
+      },
     ]
   );
 

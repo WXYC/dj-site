@@ -38,6 +38,7 @@ export function convertToAlbumEntry(
     date_lost: isSearchResult(response) ? (response as Record<string, unknown>).date_lost as string | undefined : undefined,
     date_found: isSearchResult(response) ? (response as Record<string, unknown>).date_found as string | undefined : undefined,
     artwork_url: isSearchResult(response) ? (response as Record<string, unknown>).artwork_url as string | null | undefined : undefined,
+    matched_via: isSearchResult(response) ? response.matched_via : undefined,
   };
 }
 
