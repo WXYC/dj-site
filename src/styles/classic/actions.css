@@ -49,6 +49,14 @@
   text-decoration: none;
   white-space: nowrap;
   font-size: 13px;
+  /* Reset <button> defaults so the items render as the same plain rows the
+     tubafrenzy <a>-styled items did. */
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
 }
 .action-item:hover {
   background: #f0f0f0;

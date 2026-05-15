@@ -15,23 +15,28 @@ export default function EntryActionMenu({ entryId, onEdit, onDelete }: Props) {
 
   useEffect(() => {
     if (!open) return;
-    const handleClickOutside = (e: MouseEvent) => {
+    const handlePointerDown = (e: PointerEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   }, [open]);
 
-  const handleEdit = (e: React.MouseEvent) => {
-    e.preventDefault();
+  const handleEdit = () => {
     setOpen(false);
     onEdit(entryId);
   };
 
-  const handleDelete = (e: React.MouseEvent) => {
-    e.preventDefault();
+  const handleDelete = () => {
     setOpen(false);
     onDelete(entryId);
   };
@@ -42,23 +47,32 @@ export default function EntryActionMenu({ entryId, onEdit, onDelete }: Props) {
         type="button"
         className="action-trigger"
         aria-label="Actions"
+        aria-haspopup="menu"
+        aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
         {"⋯"}
       </button>
-      <div className="action-dropdown" role="menu">
-        <a href="#" className="action-item" onClick={handleEdit} role="menuitem">
-          Edit
-        </a>
-        <a
-          href="#"
-          className="action-item action-delete"
-          onClick={handleDelete}
-          role="menuitem"
-        >
-          Delete
-        </a>
-      </div>
+      {open && (
+        <div className="action-dropdown" role="menu">
+          <button
+            type="button"
+            className="action-item"
+            onClick={handleEdit}
+            role="menuitem"
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            className="action-item action-delete"
+            onClick={handleDelete}
+            role="menuitem"
+          >
+            Delete
+          </button>
+        </div>
+      )}
     </div>
   );
 }

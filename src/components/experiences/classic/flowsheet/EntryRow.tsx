@@ -92,15 +92,30 @@ export default function EntryRow({
 
   const saveEdit = () => {
     if (!draft) return;
-    if (!draft.track_title.trim()) return;
+    const trimmed = {
+      artist_name: draft.artist_name.trim(),
+      track_title: draft.track_title.trim(),
+      album_title: draft.album_title.trim(),
+      record_label: draft.record_label.trim(),
+    };
+    if (!trimmed.track_title) return;
     onUpdate(entry.id, {
-      artist_name: draft.artist_name,
-      track_title: draft.track_title,
-      album_title: draft.album_title,
-      record_label: draft.record_label,
+      ...trimmed,
       request_flag: draft.request_flag,
     });
     setDraft(null);
+  };
+
+  // Enter saves, Escape cancels — standard inline-edit keyboard ergonomics.
+  // Without this, the inputs are mouse-only once Tab leaves them.
+  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      saveEdit();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      cancelEdit();
+    }
   };
 
   // Marker rows (talkset / breakpoint / start / end of show) span 5 of the 7
@@ -231,13 +246,14 @@ export default function EntryRow({
       >
         {isDraggable ? <GripCell /> : <EmptyGripCell />}
         <td align="center">
-          {isEditing ? (
+          {draft ? (
             <input
               type="checkbox"
               name="request_flag"
-              checked={draft!.request_flag}
+              aria-label="Listener request"
+              checked={draft.request_flag}
               onChange={(e) =>
-                setDraft({ ...draft!, request_flag: e.target.checked })
+                setDraft({ ...draft, request_flag: e.target.checked })
               }
             />
           ) : (
@@ -247,67 +263,71 @@ export default function EntryRow({
           )}
         </td>
         <td align="left">
-          {isEditing ? (
+          {draft ? (
             <input
               type="text"
               name="artist_name"
               className="inline-edit"
-              value={draft!.artist_name}
+              value={draft.artist_name}
               onChange={(e) =>
-                setDraft({ ...draft!, artist_name: e.target.value })
+                setDraft({ ...draft, artist_name: e.target.value })
               }
+              onKeyDown={handleEditKeyDown}
             />
           ) : (
             entry.artist_name
           )}
         </td>
         <td align="left">
-          {isEditing ? (
+          {draft ? (
             <input
               type="text"
               name="track_title"
               className="inline-edit"
-              value={draft!.track_title}
+              value={draft.track_title}
               onChange={(e) =>
-                setDraft({ ...draft!, track_title: e.target.value })
+                setDraft({ ...draft, track_title: e.target.value })
               }
+              onKeyDown={handleEditKeyDown}
             />
           ) : (
             entry.track_title
           )}
         </td>
         <td align="left">
-          {isEditing ? (
+          {draft ? (
             <input
               type="text"
               name="album_title"
               className="inline-edit"
-              value={draft!.album_title}
+              value={draft.album_title}
               onChange={(e) =>
-                setDraft({ ...draft!, album_title: e.target.value })
+                setDraft({ ...draft, album_title: e.target.value })
               }
+              onKeyDown={handleEditKeyDown}
             />
           ) : (
             entry.album_title || ""
           )}
         </td>
         <td align="left">
-          {isEditing ? (
+          {draft ? (
             <input
               type="text"
               name="record_label"
               className="inline-edit"
-              value={draft!.record_label}
+              value={draft.record_label}
               onChange={(e) =>
-                setDraft({ ...draft!, record_label: e.target.value })
+                setDraft({ ...draft, record_label: e.target.value })
               }
+              onKeyDown={handleEditKeyDown}
             />
           ) : (
             entry.record_label || ""
           )}
         </td>
         <td align="center" className="action-cell">
-          {isEditing ? (
+          {draft ? (
             <>
               <button
                 type="button"
