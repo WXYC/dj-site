@@ -3,11 +3,14 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useRef } from "react";
 
+import { isCatalogTrackSearchUiEnabled } from "@/lib/features/catalog/flags";
+
 export default function SearchForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get("searchString") || "";
   const exclusive = searchParams.get("exclusive") === "true";
+  const trackSearchUiEnabled = isCatalogTrackSearchUiEnabled();
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -152,10 +155,22 @@ export default function SearchForm() {
           characters. <b>Example:</b>{" "}
           <a href="/dashboard/catalog?searchString=elect*">elect*</a>.
         </p>
-        <p>
-          Coming later: searchable song/track names, tags, DJ-generated tags
-          comments.
-        </p>
+        {trackSearchUiEnabled ? (
+          <p>
+            Track lookups: search a track title to find the album that contains
+            it — including compilation and various-artists releases.{" "}
+            <b>Example:</b>{" "}
+            <a href="/dashboard/catalog?searchString=vi+scose+poise">
+              vi scose poise
+            </a>{" "}
+            → Confield by Autechre.
+          </p>
+        ) : (
+          <p>
+            Coming later: searchable song/track names, tags, DJ-generated tags
+            comments.
+          </p>
+        )}
         <p>
           Please email any feedback or suggestions to Tim Ross [tubacity AT
           gmail DOT com].
