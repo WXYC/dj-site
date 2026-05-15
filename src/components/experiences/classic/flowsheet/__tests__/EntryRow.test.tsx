@@ -615,6 +615,97 @@ describe("Classic EntryRow action menu + inline edit (song rows)", () => {
     expect(onDelete).toHaveBeenCalledWith(99);
   });
 
+  it("closes the dropdown when Edit is clicked AND enters edit mode", () => {
+    const { container } = renderRow({ entry: baseEntry() });
+    fireEvent.click(screen.getByRole("button", { name: /actions/i }));
+    expect(container.querySelector(".action-dropdown")).not.toBeNull();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Edit" }));
+    // Menu closed
+    expect(container.querySelector(".action-dropdown")).toBeNull();
+    // Row in edit mode
+    expect(container.querySelector('input[name="track_title"]')).not.toBeNull();
+  });
+
+  it("saves on Enter pressed in any edit input", () => {
+    const onUpdate = vi.fn();
+    const { container } = renderRow({ entry: baseEntry(), onUpdate });
+    fireEvent.click(screen.getByRole("button", { name: /actions/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Edit" }));
+    const track = container.querySelector(
+      'input[name="track_title"]'
+    ) as HTMLInputElement;
+    fireEvent.change(track, { target: { value: "Edited via Enter" } });
+    fireEvent.keyDown(track, { key: "Enter" });
+    expect(onUpdate).toHaveBeenCalledTimes(1);
+    expect(onUpdate).toHaveBeenCalledWith(
+      99,
+      expect.objectContaining({ track_title: "Edited via Enter" })
+    );
+    expect(container.querySelector('input[name="track_title"]')).toBeNull();
+  });
+
+  it("cancels on Escape pressed in any edit input", () => {
+    const onUpdate = vi.fn();
+    const { container } = renderRow({ entry: baseEntry(), onUpdate });
+    fireEvent.click(screen.getByRole("button", { name: /actions/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Edit" }));
+    const artist = container.querySelector(
+      'input[name="artist_name"]'
+    ) as HTMLInputElement;
+    fireEvent.change(artist, { target: { value: "MANGLED" } });
+    fireEvent.keyDown(artist, { key: "Escape" });
+    expect(onUpdate).not.toHaveBeenCalled();
+    expect(container.querySelector('input[name="artist_name"]')).toBeNull();
+    expect(screen.getByText("Juana Molina")).toBeDefined();
+  });
+
+  it("trims whitespace from edited string fields before calling onUpdate", () => {
+    const onUpdate = vi.fn();
+    const { container } = renderRow({ entry: baseEntry(), onUpdate });
+    fireEvent.click(screen.getByRole("button", { name: /actions/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Edit" }));
+    fireEvent.change(
+      container.querySelector('input[name="artist_name"]') as HTMLInputElement,
+      { target: { value: "  Juana M.  " } }
+    );
+    fireEvent.change(
+      container.querySelector('input[name="track_title"]') as HTMLInputElement,
+      { target: { value: "\tla paradoja\n" } }
+    );
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    expect(onUpdate).toHaveBeenCalledWith(99, {
+      artist_name: "Juana M.",
+      track_title: "la paradoja",
+      album_title: "DOGA",
+      record_label: "Sonamos",
+      request_flag: false,
+    });
+  });
+
+  it("does NOT fire onUpdate when track_title is only whitespace", () => {
+    const onUpdate = vi.fn();
+    const { container } = renderRow({ entry: baseEntry(), onUpdate });
+    fireEvent.click(screen.getByRole("button", { name: /actions/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Edit" }));
+    fireEvent.change(
+      container.querySelector('input[name="track_title"]') as HTMLInputElement,
+      { target: { value: "   \t  " } }
+    );
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+
+  it("labels the request checkbox so screen readers can announce it", () => {
+    const { container } = renderRow({ entry: baseEntry() });
+    fireEvent.click(screen.getByRole("button", { name: /actions/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Edit" }));
+    const checkbox = container.querySelector(
+      'input[type="checkbox"][name="request_flag"]'
+    ) as HTMLInputElement | null;
+    expect(checkbox).not.toBeNull();
+    expect(checkbox!.getAttribute("aria-label")).toBe("Listener request");
+  });
+
   it("does NOT render the action menu on talkset rows", () => {
     const entry: FlowsheetEntry = {
       id: 30,
