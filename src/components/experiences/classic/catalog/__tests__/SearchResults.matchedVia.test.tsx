@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { screen } from "@testing-library/react";
 import { createTestAlbum, createTestArtist } from "@/lib/test-utils";
 import { renderWithProviders } from "@/lib/test-utils/render";
@@ -124,5 +124,33 @@ describe("Classic SearchResults matched_via chip", () => {
     const more = screen.getByText("+1 more");
     expect(more.getAttribute("tabindex")).toBe("0");
     expect(more.getAttribute("title")).toContain("Track Four");
+  });
+
+  describe("CATALOG_TRACK_SEARCH_UI_ENABLED flag", () => {
+    const FLAG_KEY = "NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED";
+
+    afterEach(() => {
+      process.env[FLAG_KEY] = "true";
+    });
+
+    it.each(["false", "0", undefined])(
+      "renders no matched-track chips when the flag is %s, even with hints present",
+      (value) => {
+        if (value === undefined) {
+          delete process.env[FLAG_KEY];
+        } else {
+          process.env[FLAG_KEY] = value;
+        }
+        renderWithMatchedVia([
+          {
+            source: "cta",
+            title: "In a Sentimental Mood",
+            artist_credit: "Duke Ellington & John Coltrane",
+            confidence: 1.0,
+          },
+        ]);
+        expect(screen.queryByText(/matched on track/i)).toBeNull();
+      }
+    );
   });
 });

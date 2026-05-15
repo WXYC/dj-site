@@ -91,7 +91,8 @@ The backend must be running locally. See README.md for full setup options.
 
 ### Environment Variables
 
-Create `.env.local`:
+Copy `.env.example` to `.env.local`. Defaults:
+
 ```bash
 NEXT_PUBLIC_BACKEND_URL=http://localhost:8080
 NEXT_PUBLIC_BETTER_AUTH_URL=http://localhost:8082/auth
@@ -99,7 +100,12 @@ NEXT_PUBLIC_DASHBOARD_HOME_PAGE=/dashboard/flowsheet
 NEXT_PUBLIC_DEFAULT_EXPERIENCE=modern
 NEXT_PUBLIC_ENABLED_EXPERIENCES=modern,classic
 NEXT_PUBLIC_ALLOW_EXPERIENCE_SWITCHING=true
+NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED=false
 ```
+
+**Feature flags**:
+
+- `NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED` — gates the `matched_via` track-match chip rendering in catalog search results (both classic and modern experiences). Defaults to OFF; set to `"true"` or `"1"` to enable. Helper: `isCatalogTrackSearchUiEnabled()` in `lib/features/catalog/flags.ts`. Flip on after Backend-Service is serving `matched_via` in prod. See WXYC/dj-site#498.
 
 ### Test Credentials (local dev)
 
