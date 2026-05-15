@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
-import { useRegistry } from "@/src/hooks/authenticationHooks";
 import { OpenHelp } from "@/src/utils/helpScreen";
 
 export default function ActionsBar({
@@ -16,7 +15,6 @@ export default function ActionsBar({
 }) {
   const router = useRouter();
   const { live, leave } = useShowControl();
-  const { info: userData } = useRegistry();
 
   const formatHour = (hour?: number) => {
     if (!hour) return "";
@@ -28,7 +26,11 @@ export default function ActionsBar({
     return `${displayHours}:${minutes.toString().padStart(2, "0")} ${ampm}`;
   };
 
-  const handleLogout = () => {
+  // Atomic show-end + session-end. Ports tubafrenzy's EndShowServlet flow:
+  // signoff the radio show and invalidate the session in one click, replacing
+  // the prior two-step "Sign Out When Finished!" + "Log Out" pair.
+  const endShow = () => {
+    leave();
     router.push("/login?loginAction=endSession");
   };
 
@@ -56,8 +58,8 @@ export default function ActionsBar({
             </a>
             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
             {live ? (
-              <a href="#" onClick={(e) => { e.preventDefault(); leave(); }}>
-                Sign Out When Finished!
+              <a href="#" onClick={(e) => { e.preventDefault(); endShow(); }}>
+                End Show
               </a>
             ) : (
               <span>Not currently live</span>
@@ -71,10 +73,6 @@ export default function ActionsBar({
               }}
             >
               Help
-            </a>
-            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-            <a href="#" onClick={(e) => { e.preventDefault(); handleLogout(); }}>
-              Log Out
             </a>
           </td>
         </tr>
