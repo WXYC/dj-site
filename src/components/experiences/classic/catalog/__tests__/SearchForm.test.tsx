@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/lib/test-utils/render";
 
@@ -66,4 +66,59 @@ describe("Classic catalog SearchForm — Browse Exclusive Albums", () => {
     const input = screen.getByRole("textbox") as HTMLInputElement;
     expect(input.defaultValue).toBe("polvo");
   });
+});
+
+describe("Classic catalog SearchForm — track-search help text", () => {
+  afterEach(() => {
+    process.env.NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED = "true";
+  });
+
+  describe("when CATALOG_TRACK_SEARCH_UI_ENABLED is on", () => {
+    it("omits the 'Coming later' line", () => {
+      renderWithProviders(<SearchForm />);
+      expect(screen.queryByText(/Coming later/i)).toBeNull();
+    });
+
+    it("renders a track-search worked example with a clickable hyperlink", () => {
+      renderWithProviders(<SearchForm />);
+      const link = screen.getByRole("link", { name: /vi scose poise/i });
+      expect(link.getAttribute("href")).toBe(
+        "/dashboard/catalog?searchString=vi+scose+poise"
+      );
+      expect(link.textContent).toMatch(/vi scose poise/i);
+    });
+
+    it("mentions both compilation and general track lookup", () => {
+      renderWithProviders(<SearchForm />);
+      const notes = screen.getByText(/Confield by Autechre/i);
+      const text = notes.textContent ?? "";
+      expect(text).toMatch(/track/i);
+      expect(text).toMatch(/compilation|various[- ]artists/i);
+    });
+  });
+
+  describe.each(["false", "0", undefined] as const)(
+    "when CATALOG_TRACK_SEARCH_UI_ENABLED is %s",
+    (value) => {
+      beforeEach(() => {
+        if (value === undefined) {
+          delete process.env.NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED;
+        } else {
+          process.env.NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED = value;
+        }
+      });
+
+      it("retains the legacy 'Coming later' line", () => {
+        renderWithProviders(<SearchForm />);
+        expect(screen.getByText(/Coming later/i)).toBeDefined();
+      });
+
+      it("does not render the new track-search example", () => {
+        renderWithProviders(<SearchForm />);
+        expect(
+          screen.queryByRole("link", { name: /vi scose poise/i })
+        ).toBeNull();
+      });
+    }
+  );
 });
