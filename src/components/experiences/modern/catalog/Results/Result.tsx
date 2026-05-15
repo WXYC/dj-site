@@ -19,6 +19,7 @@ import { useQueue, useShowControl } from "@/src/hooks/flowsheetHooks";
 import { useAppDispatch } from "@/lib/hooks";
 import { GENRE_COLORS, GENRE_VARIANTS } from "../ArtistAvatar";
 import AddRemoveBin from "./AddRemoveBin";
+import { MatchedTrackChips } from "./MatchedTrackChips";
 import { convertBinToQueue } from "@/lib/features/bin/conversions";
 import { toast } from "sonner";
 
@@ -107,6 +108,7 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
         >
           {album.title}
         </Typography>
+        <MatchedTrackChips matched_via={album.matched_via} />
       </td>
       <td>
         <Stack direction="row" gap={0.75} alignItems="center" flexWrap="nowrap">
