@@ -1,8 +1,3 @@
-/**
- * Classic login signon card — port of tubafrenzy showLogin.jsp redesign
- * (tubafrenzy commit 83a1ebe7). Centered card with a dark header banner.
- */
-
 .signon-card {
   max-width: 500px;
   margin: 0 auto;

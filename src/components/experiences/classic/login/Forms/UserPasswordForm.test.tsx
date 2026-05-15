@@ -99,7 +99,7 @@ describe("UserPasswordForm", () => {
     expect(tables.length).toBeGreaterThan(0);
   });
 
-  it("should NOT render a Reset button (tubafrenzy parity, commit 83a1ebe7)", () => {
+  it("should NOT render a Reset button", () => {
     renderWithProviders(<UserPasswordForm />);
     expect(
       screen.queryByRole("button", { name: /reset/i })
