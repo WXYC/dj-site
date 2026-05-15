@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSearchCatalogQuery } from "@/lib/features/catalog/api";
 import { Capsule } from "@/src/components/experiences/classic/flowsheet/Capsule";
+import { MatchedTrackChips } from "./MatchedTrackChips";
 
 export default function SearchResults() {
   const router = useRouter();
@@ -115,6 +116,7 @@ export default function SearchResults() {
                     <Capsule variant="exclusive" label="EXCLUSIVE" />
                   </>
                 )}
+                <MatchedTrackChips matched_via={result.matched_via} />
               </td>
               <td align="left">{result.format}</td>
               <td align="left">
