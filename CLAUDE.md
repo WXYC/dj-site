@@ -105,7 +105,7 @@ NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED=false
 
 **Feature flags**:
 
-- `NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED` — gates the `matched_via` track-match chip rendering in catalog search results (both classic and modern experiences). Defaults to OFF; set to `"true"` or `"1"` to enable. Helper: `isCatalogTrackSearchUiEnabled()` in `lib/features/catalog/flags.ts`. Flip on after Backend-Service is serving `matched_via` in prod. See WXYC/dj-site#498.
+- `NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED` — gates the track-search UI surfaces in catalog search: the `matched_via` track-match chip rendering in result rows (both classic and modern experiences) and the classic `SearchForm` help-text refresh (worked track-lookup example replacing the legacy "Coming later" line). Defaults to OFF; set to `"true"` or `"1"` to enable. Helper: `isCatalogTrackSearchUiEnabled()` in `lib/features/catalog/flags.ts`. Flip on after Backend-Service is serving `matched_via` in prod. See WXYC/dj-site#497 and WXYC/dj-site#498.
 
 ### Test Credentials (local dev)
 
