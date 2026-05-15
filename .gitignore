@@ -47,6 +47,16 @@ next-env.d.ts
 # personal legacy analysis
 legacy/
 
+# personal planning docs (kept locally; canonical plans live in WXYC/wiki)
+/plans/
+
+# local agent + tooling state
+/.claude/
+/.wrangler/
+
+# local env backups
+.env*.bak
+
 # e2e test artifacts
 e2e/.auth
 e2e/.e2e-ports
