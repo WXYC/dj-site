@@ -7,6 +7,10 @@ beforeAll(() => server.listen({ onUnhandledRequest: "bypass" }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
+// Default catalog-track-search UI flag on in tests so chip-rendering specs pass.
+// Specs that exercise the disabled state override per-test.
+process.env.NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED = "true";
+
 // Mock localStorage
 const localStorageMock = {
   getItem: vi.fn(() => null),

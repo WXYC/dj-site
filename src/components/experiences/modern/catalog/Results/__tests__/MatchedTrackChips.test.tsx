@@ -1,8 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/lib/test-utils/render";
 import type { TrackMatchHint } from "@/lib/features/catalog/types";
 import { MatchedTrackChips } from "../MatchedTrackChips";
+
+const FLAG_KEY = "NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED";
 
 function renderChips(matched_via: TrackMatchHint[] | undefined) {
   renderWithProviders(<MatchedTrackChips matched_via={matched_via} />);
@@ -103,5 +105,34 @@ describe("Modern MatchedTrackChips", () => {
     expect(more).not.toBeNull();
     expect(more?.getAttribute("tabindex")).toBe("0");
     expect(more?.getAttribute("aria-label")).toContain("Track Four");
+  });
+
+  describe("CATALOG_TRACK_SEARCH_UI_ENABLED flag", () => {
+    afterEach(() => {
+      process.env[FLAG_KEY] = "true";
+    });
+
+    it.each(["false", "0", undefined])(
+      "renders nothing when the flag is %s, even with hints present",
+      (value) => {
+        if (value === undefined) {
+          delete process.env[FLAG_KEY];
+        } else {
+          process.env[FLAG_KEY] = value;
+        }
+        const { container } = renderWithProviders(
+          <MatchedTrackChips
+            matched_via={[
+              {
+                source: "cta",
+                title: "In a Sentimental Mood",
+                confidence: 1.0,
+              },
+            ]}
+          />
+        );
+        expect(container.firstChild).toBeNull();
+      }
+    );
   });
 });

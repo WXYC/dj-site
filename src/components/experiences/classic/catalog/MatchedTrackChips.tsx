@@ -1,3 +1,4 @@
+import { isCatalogTrackSearchUiEnabled } from "@/lib/features/catalog/flags";
 import type { TrackMatchHint } from "@/lib/features/catalog/types";
 import "@/src/styles/classic/capsules.css";
 
@@ -8,6 +9,9 @@ export function MatchedTrackChips({
 }: {
   matched_via: TrackMatchHint[] | undefined;
 }) {
+  if (!isCatalogTrackSearchUiEnabled()) {
+    return null;
+  }
   if (!matched_via || matched_via.length === 0) {
     return null;
   }

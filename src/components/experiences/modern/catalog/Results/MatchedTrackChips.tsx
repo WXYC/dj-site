@@ -4,6 +4,7 @@ import Chip from "@mui/joy/Chip";
 import Stack from "@mui/joy/Stack";
 import Tooltip from "@mui/joy/Tooltip";
 
+import { isCatalogTrackSearchUiEnabled } from "@/lib/features/catalog/flags";
 import type { TrackMatchHint } from "@/lib/features/catalog/types";
 
 const VISIBLE_LIMIT = 3;
@@ -20,6 +21,9 @@ export function MatchedTrackChips({
 }: {
   matched_via: TrackMatchHint[] | undefined;
 }) {
+  if (!isCatalogTrackSearchUiEnabled()) {
+    return null;
+  }
   if (!matched_via || matched_via.length === 0) {
     return null;
   }
