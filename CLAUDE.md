@@ -101,6 +101,11 @@ NEXT_PUBLIC_DEFAULT_EXPERIENCE=modern
 NEXT_PUBLIC_ENABLED_EXPERIENCES=modern,classic
 NEXT_PUBLIC_ALLOW_EXPERIENCE_SWITCHING=true
 NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED=false
+
+# Optional, server-only — override target for the /auth/:path* rewrite in
+# containerized deployments where NEXT_PUBLIC_BETTER_AUTH_URL is reachable
+# from the browser but not from inside the dj-site server.
+# AUTH_REWRITE_URL=http://auth:8082/auth
 ```
 
 **Feature flags**:
