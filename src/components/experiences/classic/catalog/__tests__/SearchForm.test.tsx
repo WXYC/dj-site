@@ -74,6 +74,10 @@ describe("Classic catalog SearchForm — track-search help text", () => {
   });
 
   describe("when CATALOG_TRACK_SEARCH_UI_ENABLED is on", () => {
+    beforeEach(() => {
+      process.env.NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED = "true";
+    });
+
     it("omits the 'Coming later' line", () => {
       renderWithProviders(<SearchForm />);
       expect(screen.queryByText(/Coming later/i)).toBeNull();
