@@ -1,7 +1,9 @@
-import type { AlbumSearchResult } from "@wxyc/shared/dtos";
+import type { AlbumSearchResult, TrackMatchHint } from "@wxyc/shared/dtos";
+import { TrackMatchSource } from "@wxyc/shared/dtos";
 import { Rotation } from "../rotation/types";
 
-export type { AlbumSearchResult };
+export type { AlbumSearchResult, TrackMatchHint };
+export { TrackMatchSource };
 
 /**
  * JSON boundary adapter for AlbumSearchResult.
@@ -56,6 +58,7 @@ export type AlbumEntry = {
   date_lost?: string;
   date_found?: string;
   artwork_url?: string | null;
+  matched_via?: TrackMatchHint[];
 };
 
 export type ArtistEntry = {
