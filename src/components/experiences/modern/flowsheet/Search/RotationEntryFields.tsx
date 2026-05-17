@@ -127,17 +127,6 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
           suppressHydrationWarning
         />
       )}
-      {selectedRelease && (
-        <>
-          <Divider orientation="vertical" />
-          <FlowsheetSearchInput
-            name="artist"
-            disabled={disabled}
-            required
-            suppressHydrationWarning
-          />
-        </>
-      )}
     </>
   );
 }
