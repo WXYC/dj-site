@@ -92,25 +92,23 @@ describe("RotationEntryFields", () => {
     mockTracksLoading = false;
   });
 
-  it("does not render the artist input before a release is selected", () => {
+  it("never renders an artist input — rotation mode has no override UI", () => {
     renderWithProviders(<RotationEntryFields disabled={false} />);
+    expect(
+      screen.queryByTestId("flowsheet-search-artist")
+    ).not.toBeInTheDocument();
+
+    selectBinAndRelease();
+
     expect(
       screen.queryByTestId("flowsheet-search-artist")
     ).not.toBeInTheDocument();
   });
 
-  it("renders an editable artist input once a release is selected", () => {
-    renderWithProviders(<RotationEntryFields disabled={false} />);
-    selectBinAndRelease();
-
-    const artistInput = screen.getByTestId("flowsheet-search-artist");
-    expect(artistInput).toBeInTheDocument();
-    expect(artistInput).not.toHaveAttribute("readonly");
-  });
-
-  it("seeds the artist input with the release's primary artist", () => {
-    // Assert against the *real* action creator so the test catches drift if
-    // the slice ever renames the action or reshapes the payload.
+  it("seeds the artist into the search query on release selection", () => {
+    // The artist is no longer rendered as an input, but the value still has
+    // to flow into Redux so form submission carries the release's primary
+    // artist. Assert against the real action creator to catch slice drift.
     const { store } = renderWithProviders(
       <RotationEntryFields disabled={false} />
     );
@@ -124,29 +122,5 @@ describe("RotationEntryFields", () => {
         value: "OOIOO",
       })
     );
-  });
-
-  it("lets the DJ override the seeded artist (split release case)", () => {
-    renderWithProviders(<RotationEntryFields disabled={false} />);
-    selectBinAndRelease();
-
-    const artistInput = screen.getByTestId("flowsheet-search-artist");
-    fireEvent.change(artistInput, { target: { value: "Lightning Bolt" } });
-
-    expect(setSearchPropertyMock).toHaveBeenCalledWith(
-      "artist",
-      "Lightning Bolt"
-    );
-  });
-
-  it("propagates the disabled prop to the artist input", () => {
-    const { rerender } = renderWithProviders(
-      <RotationEntryFields disabled={false} />
-    );
-    selectBinAndRelease();
-    expect(screen.getByTestId("flowsheet-search-artist")).not.toBeDisabled();
-
-    rerender(<RotationEntryFields disabled={true} />);
-    expect(screen.getByTestId("flowsheet-search-artist")).toBeDisabled();
   });
 });
