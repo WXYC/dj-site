@@ -83,6 +83,11 @@ const selectBinAndRelease = () => {
   );
 };
 
+const selectTrack = (index: number) => {
+  fireEvent.click(screen.getByTestId("rotation-track-trigger"));
+  fireEvent.click(screen.getByTestId(`rotation-track-option-${index}`));
+};
+
 describe("RotationEntryFields", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -122,5 +127,99 @@ describe("RotationEntryFields", () => {
         value: "OOIOO",
       })
     );
+  });
+
+  describe("track-selection artist auto-fill", () => {
+    // When a DJ picks a track from the dropdown, we override the artist that
+    // handleSelectRelease seeded iff the per-track Discogs credits (surfaced
+    // by BS#944) carry artist names. This covers V/A and split releases
+    // without any new UI. For normal releases BS falls back to
+    // [release.artist] so the value is identical to what handleSelectRelease
+    // already set; the override is functionally a no-op.
+    //
+    // Test invariant: spy on `store.dispatch` *before* any clicks. react-redux's
+    // useDispatch captures the dispatch reference at mount time, so spying
+    // after a click won't intercept later dispatches from the captured ref.
+    const artistValues = (
+      dispatchSpy: { mock: { calls: unknown[][] } }
+    ): string[] =>
+      dispatchSpy.mock.calls
+        .map(
+          (call) =>
+            call[0] as ReturnType<typeof flowsheetSlice.actions.setSearchProperty>
+        )
+        .filter(
+          (action) =>
+            action?.type === flowsheetSlice.actions.setSearchProperty.type &&
+            action.payload.name === "artist"
+        )
+        .map((action) => action.payload.value);
+
+    it("does not change artist when track has no per-track credits", () => {
+      mockTracksData = [
+        { position: "A1", title: "la paradoja", duration: null, artists: [] },
+      ];
+
+      const { store } = renderWithProviders(
+        <RotationEntryFields disabled={false} />
+      );
+      const dispatchSpy = vi.spyOn(store, "dispatch");
+      selectBinAndRelease();
+      selectTrack(0);
+
+      // Release select dispatches artist=OOIOO; track select with empty
+      // credits must not dispatch any further artist value.
+      expect(artistValues(dispatchSpy)).toEqual(["OOIOO"]);
+    });
+
+    it("sets artist to track's single per-track credit on V/A releases", () => {
+      mockTracksData = [
+        {
+          position: "A1",
+          title: "Smoke Signal",
+          duration: null,
+          artists: ["Skull Mitten"],
+        },
+      ];
+
+      const { store } = renderWithProviders(
+        <RotationEntryFields disabled={false} />
+      );
+      const dispatchSpy = vi.spyOn(store, "dispatch");
+      selectBinAndRelease();
+      selectTrack(0);
+
+      expect(dispatchSpy).toHaveBeenCalledWith(
+        flowsheetSlice.actions.setSearchProperty({
+          name: "artist",
+          value: "Skull Mitten",
+        })
+      );
+    });
+
+    it("joins multi-credit tracks with ', '", () => {
+      mockTracksData = [
+        {
+          position: "A1",
+          title: "Drum Circle",
+          duration: null,
+          artists: ["Skull Mitten", "Various Drummers"],
+        },
+      ];
+
+      const { store } = renderWithProviders(
+        <RotationEntryFields disabled={false} />
+      );
+      const dispatchSpy = vi.spyOn(store, "dispatch");
+      selectBinAndRelease();
+      selectTrack(0);
+
+      expect(dispatchSpy).toHaveBeenCalledWith(
+        flowsheetSlice.actions.setSearchProperty({
+          name: "artist",
+          value: "Skull Mitten, Various Drummers",
+        })
+      );
+    });
   });
 });
