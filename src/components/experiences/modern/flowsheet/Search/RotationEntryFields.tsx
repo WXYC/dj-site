@@ -82,6 +82,21 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
       setSelectedTrack(track);
       setManualEntry(false);
       dispatch(flowsheetSlice.actions.setSearchProperty({ name: "song", value: track.title }));
+      // Auto-fill artist from per-track Discogs credits (surfaced by BS#944)
+      // for V/A and split releases. For normal releases BS falls back to
+      // [release.artist] so this just re-sets the value already seeded by
+      // handleSelectRelease. When credits are empty (Discogs has no per-track
+      // data) leave the release-level artist in place; mis-credited cases fall
+      // through to manual-entry mode (the existing escape hatch).
+      // Join separator mirrors buildArtistCredit in apps/backend/controllers/proxy.controller.ts.
+      if (track.artists.length > 0) {
+        dispatch(
+          flowsheetSlice.actions.setSearchProperty({
+            name: "artist",
+            value: track.artists.join(", "),
+          })
+        );
+      }
     },
     [dispatch]
   );
