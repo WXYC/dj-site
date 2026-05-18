@@ -53,4 +53,5 @@ export const {
   useAddRotationEntryMutation,
   useKillRotationEntryMutation,
   useGetRotationTracksQuery,
+  usePrefetch: useRotationPrefetch,
 } = rotationApi;

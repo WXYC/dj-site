@@ -34,6 +34,11 @@ vi.mock("@/src/hooks/flowsheetHooks", () => ({
   }),
 }));
 
+const mockPrefetchTracks = vi.fn();
+vi.mock("@/lib/features/metadata/api", () => ({
+  useMetadataPrefetch: () => mockPrefetchTracks,
+}));
+
 // ArtistAvatar was removed — CODE column displays catalog info directly
 
 describe("FlowsheetBackendResult", () => {

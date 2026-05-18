@@ -19,6 +19,14 @@ vi.mock("./NewEntry/NewEntryPreview", () => ({
   default: () => <div data-testid="new-entry-preview">New Entry</div>,
 }));
 
+// LibraryTrackPicker hits the proxy `/library/:id/tracks` endpoint via
+// metadataApi; we don't want this test to wire that into the store.
+vi.mock("../LibraryTrackPicker", () => ({
+  __esModule: true,
+  default: () => <div data-testid="library-track-picker" />,
+  useLibraryTrackPicker: () => ({ show: false, isLoading: false, tracks: [] }),
+}));
+
 function createTestStore(searchOpen = false) {
   return configureStore({
     reducer: {

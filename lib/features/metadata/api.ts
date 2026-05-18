@@ -1,6 +1,11 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { backendBaseQuery } from "../backend";
-import { AlbumMetadata, AlbumMetadataQueryParams, ArtistMetadata } from "./types";
+import {
+  AlbumMetadata,
+  AlbumMetadataQueryParams,
+  ArtistMetadata,
+  LibraryTracksResponse,
+} from "./types";
 
 export const metadataApi = createApi({
   reducerPath: "metadataApi",
@@ -18,7 +23,18 @@ export const metadataApi = createApi({
         params: { artistId },
       }),
     }),
+    getLibraryTracks: builder.query<LibraryTracksResponse, number>({
+      query: (libraryId) => ({
+        url: `/library/${libraryId}/tracks`,
+      }),
+    }),
   }),
 });
 
-export const { useGetAlbumMetadataQuery, useGetArtistMetadataQuery } = metadataApi;
+export const {
+  useGetAlbumMetadataQuery,
+  useGetArtistMetadataQuery,
+  useGetLibraryTracksQuery,
+  useLazyGetLibraryTracksQuery,
+  usePrefetch: useMetadataPrefetch,
+} = metadataApi;

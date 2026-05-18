@@ -35,6 +35,13 @@ export type FlowsheetQuery = {
   album_id?: number;
   rotation_bin?: Rotation;
   rotation_id?: number;
+  /**
+   * Discogs `release_track.position` for the picked track (e.g. "A1", "B3",
+   * "1-12"). Free-form vinyl side / multi-disc string — TEXT not INT. Stays
+   * undefined when the DJ types track title as free text instead of picking
+   * from the tracklist dropdown.
+   */
+  track_position?: string;
 };
 
 export type FlowsheetSearchProperty = keyof Omit<
@@ -84,6 +91,7 @@ export type FlowsheetSubmissionParams =
   | {
       album_id: number;
       track_title: string;
+      track_position?: string;
       rotation_id?: number;
       request_flag: boolean;
       segue?: boolean;
@@ -94,6 +102,7 @@ export type FlowsheetSubmissionParams =
       artist_name: string;
       album_title: string;
       track_title: string;
+      track_position?: string;
       request_flag: boolean;
       segue?: boolean;
       record_label?: string;

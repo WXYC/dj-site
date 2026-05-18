@@ -37,6 +37,7 @@ export const flowsheetSlice = createAppSlice({
         state.search.query.album_id = undefined;
         state.search.query.rotation_id = undefined;
         state.search.query.rotation_bin = undefined;
+        state.search.query.track_position = undefined;
       }
     },
     setRotationMetadata: (
@@ -66,6 +67,14 @@ export const flowsheetSlice = createAppSlice({
       state.search.query[action.payload.name] = action.payload.value;
     },
     /**
+     * Set the picked track's Discogs `release_track.position` (e.g. "A1"). Pass
+     * `undefined` to clear — used when the DJ falls back to free-text entry or
+     * picks a different release.
+     */
+    setTrackPosition: (state, action: PayloadAction<string | undefined>) => {
+      state.search.query.track_position = action.payload;
+    },
+    /**
      * Copy a selected search result's fields into the live search query and
      * deselect it, so the user can edit one field without losing the others.
      */
@@ -86,6 +95,7 @@ export const flowsheetSlice = createAppSlice({
       state.search.query.album_id = action.payload.album_id;
       state.search.query.rotation_id = action.payload.rotation_id;
       state.search.query.rotation_bin = action.payload.rotation_bin;
+      state.search.query.track_position = undefined;
       state.search.selectedResult = 0;
     },
     toggleRequest: (state) => {
