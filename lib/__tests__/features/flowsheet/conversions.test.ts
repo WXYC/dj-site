@@ -105,6 +105,25 @@ describe("flowsheet conversions", () => {
         expect(result.segue).toBe(expected);
       }
     );
+
+    it("should forward track_position when picked from a tracklist", () => {
+      const query = createTestFlowsheetQuery({
+        album_id: 4242,
+        track_position: "A1",
+      });
+      const result = convertQueryToSubmission(query) as QuerySubmission & {
+        track_position?: string | null;
+      };
+      expect(result.track_position).toBe("A1");
+    });
+
+    it("should omit track_position when none was picked", () => {
+      const query = createTestFlowsheetQuery({ album_id: 4242 });
+      const result = convertQueryToSubmission(query) as QuerySubmission & {
+        track_position?: string | null;
+      };
+      expect(result.track_position).toBeUndefined();
+    });
   });
 
   describe("convertDJsOnAir", () => {

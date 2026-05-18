@@ -3,15 +3,20 @@
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { Rotation } from "@/lib/features/rotation/types";
-import { RotationTrack, useGetRotationQuery, useGetRotationTracksQuery } from "@/lib/features/rotation/api";
+import {
+  RotationTrack,
+  useGetRotationQuery,
+  useGetRotationTracksQuery,
+  useRotationPrefetch,
+} from "@/lib/features/rotation/api";
 import { useAppDispatch } from "@/lib/hooks";
 import { useFlowsheetSearch } from "@/src/hooks/flowsheetHooks";
 import { Divider } from "@mui/joy";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import FlowsheetSearchInput from "./FlowsheetSearchInput";
 import RotationBinSelector from "./RotationBinSelector";
 import RotationReleaseDropdown from "./RotationReleaseDropdown";
-import RotationTrackDropdown from "./RotationTrackDropdown";
+import TrackPickerDropdown from "./TrackPickerDropdown";
 
 export default function RotationEntryFields({ disabled }: { disabled: boolean }) {
   const dispatch = useAppDispatch();
@@ -34,6 +39,19 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
     if (!rotationData || !selectedBin) return [];
     return rotationData.filter((r) => r.rotation_bin === selectedBin);
   }, [rotationData, selectedBin]);
+
+  // Warm the tracklist cache for every release in the picked bin so the picker
+  // is instantaneous — tubafrenzy renders rotation track titles inline and DJs
+  // are used to seeing them with no perceptible delay. One bin is bounded
+  // (~30 releases) and LML's 3-tier cache absorbs the per-release LML fetches.
+  const prefetchRotationTracks = useRotationPrefetch("getRotationTracks");
+  useEffect(() => {
+    for (const release of filteredReleases) {
+      if (release.rotation_id) {
+        prefetchRotationTracks(release.rotation_id);
+      }
+    }
+  }, [filteredReleases, prefetchRotationTracks]);
 
   const handleSelectBin = useCallback(
     (bin: Rotation) => {
@@ -126,7 +144,7 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
       />
       <Divider orientation="vertical" />
       {showTrackDropdown ? (
-        <RotationTrackDropdown
+        <TrackPickerDropdown
           tracks={tracks ?? []}
           isLoading={tracksLoading}
           selectedTrack={selectedTrack}

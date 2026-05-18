@@ -29,6 +29,9 @@ export function convertQueryToSubmission(
     album_id: query.album_id,
     rotation_id: query.rotation_id,
     rotation_bin: query.rotation_bin,
+    ...(query.track_position !== undefined && {
+      track_position: query.track_position,
+    }),
   };
 }
 

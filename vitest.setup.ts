@@ -11,6 +11,11 @@ afterAll(() => server.close());
 // Specs that exercise the disabled state override per-test.
 process.env.NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED = "true";
 
+// Pin backend URL for RTK Query base queries that read process.env directly
+// (matches TEST_BACKEND_URL default in test-utils/constants.ts).
+process.env.NEXT_PUBLIC_BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
+
 // Mock localStorage
 const localStorageMock = {
   getItem: vi.fn(() => null),
