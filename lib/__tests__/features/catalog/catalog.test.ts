@@ -187,7 +187,10 @@ describe("convertToAlbumEntry", () => {
         name: "should default optional bin fields",
         input: {} as any,
         assertions: (result) => {
-          expect(result.id).toBe(0);
+          // id is derived from content when album_id is missing; an empty input
+          // still gets a stable non-positive synthesized id (see dj-site#564).
+          expect(typeof result.id).toBe("number");
+          expect(result.id).toBeLessThanOrEqual(0);
           expect(result.title).toBe("");
           expect(result.artist.name).toBe("");
           expect(result.artist.lettercode).toBe("");
@@ -240,6 +243,78 @@ describe("convertToAlbumEntry", () => {
       });
       const result = convertToAlbumEntry(searchResult);
       expect(result.artist.id).toBeUndefined();
+    });
+
+    // dj-site#564 — BS proxy returns id: null for unlinked rotation/LML rows.
+    // Two such rows used to map to AlbumEntry.id = null and collide on React keys
+    // (RotationReleaseDropdown.tsx:166 etc.). Conversion must produce distinct,
+    // stable, non-null ids so consumers can keep using `key={entry.id}`.
+    describe("null id fallback (dj-site#564)", () => {
+      it("substitutes a non-null id when search result id is null", () => {
+        const result = convertToAlbumEntry(
+          createTestAlbumSearchResult({ id: null as unknown as number })
+        );
+        expect(result.id).not.toBeNull();
+        expect(typeof result.id).toBe("number");
+      });
+
+      it("substitutes a non-null id when bin response album_id is null", () => {
+        const result = convertToAlbumEntry(
+          createTestBinResponse({ album_id: null as unknown as number })
+        );
+        expect(result.id).not.toBeNull();
+        expect(typeof result.id).toBe("number");
+      });
+
+      it("produces distinct ids for two null-id rows with different content", () => {
+        const a = convertToAlbumEntry(
+          createTestAlbumSearchResult({
+            id: null as unknown as number,
+            artist_name: "Juana Molina",
+            album_title: "DOGA",
+            label: "Sonamos",
+          })
+        );
+        const b = convertToAlbumEntry(
+          createTestAlbumSearchResult({
+            id: null as unknown as number,
+            artist_name: "Cat Power",
+            album_title: "Moon Pix",
+            label: "Matador Records",
+          })
+        );
+        expect(a.id).not.toBe(b.id);
+      });
+
+      it("produces a stable id across re-conversions of the same input", () => {
+        const input = createTestAlbumSearchResult({
+          id: null as unknown as number,
+          artist_name: "Jessica Pratt",
+          album_title: "On Your Own Love Again",
+          label: "Drag City",
+        });
+        const a = convertToAlbumEntry(input);
+        const b = convertToAlbumEntry(input);
+        expect(a.id).toBe(b.id);
+      });
+
+      it("preserves real positive ids untouched", () => {
+        const result = convertToAlbumEntry(
+          createTestAlbumSearchResult({ id: 12345 })
+        );
+        expect(result.id).toBe(12345);
+      });
+
+      it("does not let the fallback collide with real positive album ids", () => {
+        const fallback = convertToAlbumEntry(
+          createTestAlbumSearchResult({
+            id: null as unknown as number,
+            artist_name: "Stereolab",
+            album_title: "Aluminum Tunes",
+          })
+        );
+        expect(fallback.id).toBeLessThanOrEqual(0);
+      });
     });
   });
 

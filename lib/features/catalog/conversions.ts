@@ -8,10 +8,39 @@ function isSearchResult(
   return "id" in response && response.id !== undefined;
 }
 
+// Stable synthetic id for rows whose canonical id is null/missing. The BS
+// catalog proxy returns `id: null` for LML-only and unlinked-rotation rows
+// (see dj-site#564 + Backend-Service#689); without this, multiple such rows in
+// the same list collapse to a single React key. The hash is deterministic
+// across renders and negated so it can't collide with real positive album ids.
+function synthesizeAlbumId(
+  response: AlbumSearchResultJSON | BinLibraryDetails
+): number {
+  const key = [
+    response.artist_name ?? "",
+    response.album_title ?? "",
+    response.label ?? "",
+    response.code_letters ?? "",
+    response.code_artist_number ?? "",
+    response.code_number ?? "",
+  ].join("|");
+  let hash = 5381;
+  for (let i = 0; i < key.length; i++) {
+    hash = ((hash << 5) + hash + key.charCodeAt(i)) | 0;
+  }
+  return -(Math.abs(hash) || 1);
+}
+
 export function convertToAlbumEntry(
   response: AlbumSearchResultJSON | BinLibraryDetails
 ): AlbumEntry {
-  const id = isSearchResult(response) ? response.id : (response.album_id ?? 0);
+  const rawId = isSearchResult(response)
+    ? response.id
+    : (response as BinLibraryDetails).album_id;
+  const id =
+    typeof rawId === "number" && Number.isFinite(rawId) && rawId > 0
+      ? rawId
+      : synthesizeAlbumId(response);
 
   return {
     id,
