@@ -5,6 +5,7 @@ import FlowsheetSkeletonLoader from "@/src/components/experiences/modern/flowshe
 import { useFlowsheet } from "@/src/hooks/flowsheetHooks";
 import { Table, useColorScheme } from "@mui/joy";
 import { Reorder } from "motion/react";
+import { useEffect, useState } from "react";
 
 export default function FlowsheetEntries() {
   const { mode } = useColorScheme();
@@ -14,7 +15,18 @@ export default function FlowsheetEntries() {
     entries: { current, setCurrentShowEntries, previous },
   } = useFlowsheet();
 
-  if (loading) {
+  // Pin SSR to the skeleton: `loading` derives from RTK Query + persisted
+  // auth state that diverges between the server's first render (no session,
+  // no query has fired) and the client's hydration (persisted Redux session
+  // already populated). Without this guard the SSR returns <Stack> (skeleton)
+  // while the client hydrates <Table>, tripping React's hydration check.
+  // See WXYC/dj-site#562.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted || loading) {
     return <FlowsheetSkeletonLoader count={10} />;
   }
 
