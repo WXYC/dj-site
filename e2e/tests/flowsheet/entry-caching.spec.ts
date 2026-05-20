@@ -17,6 +17,12 @@ test.describe("Flowsheet Entry Caching", () => {
   // Use dj2 to avoid session invalidation by auth/logout.spec.ts (which uses dj.json)
   test.use({ storageState: path.join(authDir, "dj2.json") });
   test.describe.configure({ mode: "serial" });
+  // Interim retry-2 from #570 fix-list item 3. Even with the response-first
+  // assertion shape (fix #1, this PR), some POSTs take >30s in CI for reasons
+  // not yet root-caused — likely parallel-worker contention or browser
+  // event-loop saturation, no Playwright trace in hand yet. Remove this once
+  // the followup investigation closes (filed separately).
+  test.describe.configure({ retries: 2 });
   // goLive() reloads the page and waits up to 20s for the flowsheet to render;
   // the default 20s test timeout doesn't leave room for beforeEach + test body.
   test.setTimeout(60_000);
