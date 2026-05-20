@@ -246,7 +246,12 @@ jobs:
 
       - name: Run E2E tests
         working-directory: dj-site
-        run: npm run test:e2e -- --shard=${{ matrix.shard }}/${{ strategy.job-total }} --max-failures=1 --reporter=html --reporter=github
+        # --max-failures kept at the original 10 (per-shard). Dropping to 1
+        # caused single flaky specs (e.g., entry-caching, tracked in #572) to
+        # tank an otherwise-green shard before retries had a chance. Sharding
+        # already gives early signal — if one shard hits its 10-failure cap,
+        # the others surface independently.
+        run: npm run test:e2e -- --shard=${{ matrix.shard }}/${{ strategy.job-total }} --max-failures=10 --reporter=html --reporter=github
 
       - name: Show service logs on failure
         if: failure()
