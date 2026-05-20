@@ -45,8 +45,9 @@ export default defineConfig({
     /* Retain trace + video for every failed attempt, not just the retry.
      * When the original attempt fails differently than the retry (timeout
      * on first run, hang on second), we need both traces to discriminate
-     * between hypotheses. Cost is bounded because retries=1 and only
-     * failures retain. See #572. */
+     * between hypotheses. Only failed attempts retain artifacts, so cost
+     * scales with failure count (and per-spec retry overrides like
+     * entry-caching's retries=2). See #572. */
     trace: "retain-on-failure",
     /* Capture screenshot on failure */
     screenshot: "only-on-failure",
