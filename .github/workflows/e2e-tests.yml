@@ -246,28 +246,15 @@ jobs:
 
       - name: Run E2E tests
         working-directory: dj-site
-        # PRs skip the known-flaky entry-caching describe block (tracked in
-        # #572). Pushes to main still run the full suite, so coverage is
-        # preserved at merge time. --max-failures kept at 10 per shard: with
-        # sharding, a stuck shard hits its cap on its own, so dropping to 1
-        # just tanked otherwise-green shards (see prior commit on this PR).
-        #
-        # Note: --grep-invert's value contains a space ("Flowsheet Entry
-        # Caching"), so it has to be appended as a single array element —
-        # ${VAR:+"$VAR"} does NOT preserve the quoting through expansion and
-        # word-splits the value into three positional args, which Playwright
-        # then misreads as test-path filters (silently skipping nothing).
+        # --max-failures kept at 10 per shard: with sharding, a stuck shard
+        # hits its cap on its own, so dropping to 1 tanks otherwise-green
+        # shards (see prior commit on #574).
         run: |
-          args=(
-            "--shard=${{ matrix.shard }}/${{ strategy.job-total }}"
-            "--max-failures=10"
-            "--reporter=html"
+          npm run test:e2e -- \
+            "--shard=${{ matrix.shard }}/${{ strategy.job-total }}" \
+            "--max-failures=10" \
+            "--reporter=html" \
             "--reporter=github"
-          )
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            args+=("--grep-invert=Flowsheet Entry Caching")
-          fi
-          npm run test:e2e -- "${args[@]}"
 
       - name: Show service logs on failure
         if: failure()
