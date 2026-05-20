@@ -26,8 +26,12 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   /* Retry once on CI to absorb timing flakiness from shared runners */
   retries: process.env.CI ? 1 : 0,
-  /* Limit parallel workers to avoid overwhelming auth service */
-  workers: process.env.CI ? 2 : 3,
+  /* In CI, run with a single worker to eliminate inter-spec contention on
+   * the shared backend. With workers=2, two specs pummeling /flowsheet
+   * simultaneously made individual POSTs exceed 30s (#572 hypothesis 1).
+   * The shard matrix in e2e-tests.yml (#574) still gives 4x parallelism at
+   * the job level, so total CI wall clock stays under 3 min. */
+  workers: process.env.CI ? 1 : 3,
   /* Reporter to use */
   reporter: process.env.CI
     ? [
