@@ -121,7 +121,23 @@ jobs:
           E2E_BACKEND_PORT=8085
           COOKIE_SAME_SITE=lax
           NODE_ENV=test
+          # Mirror target: localhost mock that returns 200 to every POST,
+          # short-circuiting the 15.5s exponential-backoff retry storm that
+          # the default (https://www.wxyc.info, currently cert-expired) would
+          # produce. Mock is started in the next workflow step. See #567.
+          TUBAFRENZY_URL=http://localhost:9091
+          MIRROR_API_KEY=e2e-mirror-noop-key
           EOF
+
+      - name: Start mock tubafrenzy mirror
+        working-directory: dj-site
+        run: |
+          node e2e/scripts/mock-tubafrenzy.mjs > /tmp/mock-tubafrenzy.log 2>&1 &
+          echo $! > /tmp/mock-tubafrenzy.pid
+          # Wait for the mock to bind before any later step expects it to
+          # answer. ~50ms in practice; cap at 5s as a safety net.
+          timeout 5 bash -c 'until curl -sf -X POST -H "Content-Type: application/json" --data "{}" http://localhost:9091/ >/dev/null; do sleep 0.1; done'
+          echo "Mock tubafrenzy ready"
 
       - name: Cache Playwright browsers
         id: playwright-cache
@@ -238,6 +254,9 @@ jobs:
           echo ""
           echo "=== Frontend Logs ==="
           cat /tmp/frontend.log 2>/dev/null || echo "No frontend log"
+          echo ""
+          echo "=== Mock Tubafrenzy Logs ==="
+          cat /tmp/mock-tubafrenzy.log 2>/dev/null || echo "No mock-tubafrenzy log"
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v7
@@ -261,3 +280,4 @@ jobs:
           kill $(cat /tmp/frontend.pid 2>/dev/null) 2>/dev/null || true
           kill $(cat /tmp/auth.pid 2>/dev/null) 2>/dev/null || true
           kill $(cat /tmp/backend.pid 2>/dev/null) 2>/dev/null || true
+          kill $(cat /tmp/mock-tubafrenzy.pid 2>/dev/null) 2>/dev/null || true
