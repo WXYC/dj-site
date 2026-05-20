@@ -50,33 +50,11 @@ export default function Main() {
     };
   }, [currentShowEntries, userData]);
 
-  const workingHour = useMemo(() => {
-    // Calculate working hour from current time
-    return Date.now();
-  }, []);
-
   const handleAddTalkset = async () => {
     try {
       await addToFlowsheet({ message: "Talkset", entry_type: FlowsheetEntryType.talkset }).unwrap();
     } catch (error) {
       console.error("Failed to add talkset:", error);
-    }
-  };
-
-  const handleAddBreakpoint = async () => {
-    const now = new Date();
-    const hour = now.getHours();
-    const minutes = now.getMinutes();
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const displayHour = hour % 12 || 12;
-    const timeString = `${displayHour}:${minutes.toString().padStart(2, "0")} ${ampm}`;
-    try {
-      await addToFlowsheet({
-        message: `${timeString} Breakpoint`,
-        entry_type: FlowsheetEntryType.breakpoint,
-      }).unwrap();
-    } catch (error) {
-      console.error("Failed to add breakpoint:", error);
     }
   };
 
@@ -125,11 +103,7 @@ export default function Main() {
   return (
     <div style={{ width: "100%", margin: "0 auto" }}>
       <Navigation />
-      <ActionsBar
-        onAddTalkset={handleAddTalkset}
-        onAddBreakpoint={handleAddBreakpoint}
-        workingHour={workingHour}
-      />
+      <ActionsBar onAddTalkset={handleAddTalkset} />
       <hr />
       <EntryForm onSuccess={() => {}} isLive={live} />
       <hr />
