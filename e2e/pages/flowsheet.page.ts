@@ -219,10 +219,14 @@ export class FlowsheetPage {
   ): Promise<void> {
     await this.fillSearchForm(data);
     // Register response listener BEFORE submitting so we don't miss the POST
-    // if it completes while we're waiting for the form to clear.
+    // if it completes while we're waiting for the form to clear. Timeout is
+    // generous (30s) because parallel-worker contention on the shared E2E
+    // backend can stretch a single POST end-to-end well past 15s — the
+    // previous 15s value was the masked failure mode that the form-clear
+    // race used to hide (see #570 diagnosis).
     const responsePromise = this.page.waitForResponse(
       (r) => r.url().includes("/flowsheet") && r.request().method() === "POST" && r.status() < 300,
-      { timeout: 15000 }
+      { timeout: 30000 }
     );
     if (method === "button") {
       await this.submitViaButton();
