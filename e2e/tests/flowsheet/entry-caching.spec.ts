@@ -154,12 +154,17 @@ test.describe("Flowsheet Entry Caching", () => {
       await flowsheet.expectEntryWithText(trackName, 3500);
 
       // Wait for the delayed response to complete and verify the entry is
-      // still there (temp ID replaced with server ID, no flicker)
+      // still there (temp ID replaced with server ID, no flicker). The route
+      // handler holds the POST for 5s before continuing, so only ~5s of this
+      // budget covers the actual backend leg. Under parallel-worker contention
+      // (#572 hypothesis 1) that leg has been observed taking >5s, which blew
+      // the original 10s budget. 20s gives the backend leg the same headroom
+      // addTrack uses (#571).
       await page.waitForResponse(
         (resp) =>
           resp.url().includes("/flowsheet") &&
           resp.request().method() === "POST",
-        { timeout: 10000 }
+        { timeout: 20000 }
       );
       await flowsheet.expectEntryWithText(trackName);
 
