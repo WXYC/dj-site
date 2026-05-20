@@ -57,9 +57,14 @@ permissions:
 
 jobs:
   e2e:
-    name: E2E Tests
+    name: E2E Tests (shard ${{ matrix.shard }}/${{ strategy.job-total }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
 
     services:
       postgres:
@@ -241,7 +246,7 @@ jobs:
 
       - name: Run E2E tests
         working-directory: dj-site
-        run: npm run test:e2e -- --max-failures=10 --reporter=html --reporter=github
+        run: npm run test:e2e -- --shard=${{ matrix.shard }}/${{ strategy.job-total }} --max-failures=1 --reporter=html --reporter=github
 
       - name: Show service logs on failure
         if: failure()
@@ -262,7 +267,7 @@ jobs:
         uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: playwright-report
+          name: playwright-report-shard-${{ matrix.shard }}
           path: dj-site/playwright-report/
           retention-days: 30
 
@@ -270,7 +275,7 @@ jobs:
         uses: actions/upload-artifact@v7
         if: failure()
         with:
-          name: test-results
+          name: test-results-shard-${{ matrix.shard }}
           path: dj-site/test-results/
           retention-days: 7
 
@@ -281,3 +286,21 @@ jobs:
           kill $(cat /tmp/auth.pid 2>/dev/null) 2>/dev/null || true
           kill $(cat /tmp/backend.pid 2>/dev/null) 2>/dev/null || true
           kill $(cat /tmp/mock-tubafrenzy.pid 2>/dev/null) 2>/dev/null || true
+
+  # Single stable check for branch protection. With the matrix above, individual
+  # shard jobs are named "E2E Tests (shard N/M)" — that name shifts if we ever
+  # change the shard count. This aggregator stays "E2E Tests" so the required-
+  # status-check rule doesn't need touching.
+  e2e-all:
+    name: E2E Tests
+    needs: e2e
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify all shards passed
+        run: |
+          if [ "${{ needs.e2e.result }}" != "success" ]; then
+            echo "One or more E2E shards failed: ${{ needs.e2e.result }}"
+            exit 1
+          fi
+          echo "All E2E shards passed"
