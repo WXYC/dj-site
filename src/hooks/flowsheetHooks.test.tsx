@@ -54,6 +54,12 @@ vi.mock("./catalogHooks", () => ({
   useRotationFlowsheetSearch: () => mockUseRotationFlowsheetSearch(),
 }));
 
+// Mock LML hooks (#563 — useLmlLibrarySearch now wraps lmlApi RTK Query, which
+// isn't in the createHookWrapper store these tests use).
+vi.mock("./lml", () => ({
+  useLmlLibrarySearch: () => ({ results: [], isLoading: false }),
+}));
+
 // Mock flowsheet API hooks
 const mockGoLiveFunction = vi.fn();
 const mockLeaveFunction = vi.fn();

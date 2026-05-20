@@ -21,6 +21,7 @@ import { catalogSlice } from "./features/catalog/frontend";
 import { experienceApi } from "./features/experiences/api";
 import { flowsheetApi } from "./features/flowsheet/api";
 import { flowsheetSlice } from "./features/flowsheet/frontend";
+import { lmlApi } from "./features/lml/api";
 import { metadataApi } from "./features/metadata/api";
 import { playlistSearchApi } from "./features/playlist-search/api";
 import { playlistSearchSlice } from "./features/playlist-search/frontend";
@@ -37,6 +38,7 @@ const rootReducer = combineSlices(
   binApi,
   flowsheetSlice,
   flowsheetApi,
+  lmlApi,
   metadataApi,
   playlistSearchSlice,
   playlistSearchApi,
@@ -58,6 +60,7 @@ export const makeStore = () => {
         .concat(catalogApi.middleware)
         .concat(binApi.middleware)
         .concat(flowsheetApi.middleware)
+        .concat(lmlApi.middleware)
         .concat(metadataApi.middleware)
         .concat(playlistSearchApi.middleware)
         .concat(rotationApi.middleware);

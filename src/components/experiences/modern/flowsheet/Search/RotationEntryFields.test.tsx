@@ -84,8 +84,8 @@ const selectBinAndRelease = () => {
 };
 
 const selectTrack = (index: number) => {
-  fireEvent.click(screen.getByTestId("rotation-track-trigger"));
-  fireEvent.click(screen.getByTestId(`rotation-track-option-${index}`));
+  fireEvent.click(screen.getByTestId("track-picker-trigger"));
+  fireEvent.click(screen.getByTestId(`track-picker-option-${index}`));
 };
 
 describe("RotationEntryFields", () => {
