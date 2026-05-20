@@ -6,25 +6,11 @@ import { OpenHelp } from "@/src/utils/helpScreen";
 
 export default function ActionsBar({
   onAddTalkset,
-  onAddBreakpoint,
-  workingHour,
 }: {
   onAddTalkset: () => void;
-  onAddBreakpoint: () => void;
-  workingHour?: number;
 }) {
   const router = useRouter();
   const { live, leave } = useShowControl();
-
-  const formatHour = (hour?: number) => {
-    if (!hour) return "";
-    const date = new Date(hour);
-    const hours = date.getHours();
-    const minutes = date.getMinutes();
-    const ampm = hours >= 12 ? "PM" : "AM";
-    const displayHours = hours % 12 || 12;
-    return `${displayHours}:${minutes.toString().padStart(2, "0")} ${ampm}`;
-  };
 
   // Atomic show-end + session-end. Ports tubafrenzy's EndShowServlet flow:
   // signoff the radio show and invalidate the session in one click, replacing
@@ -41,16 +27,6 @@ export default function ActionsBar({
           <td className="label" align="center">
             <a href="#" onClick={(e) => { e.preventDefault(); onAddTalkset(); }}>
               Add a Talkset!
-            </a>
-            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                onAddBreakpoint();
-              }}
-            >
-              Add a {formatHour(workingHour)} Breakpoint
             </a>
             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
             <a href="/live" target="_blank">
