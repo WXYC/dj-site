@@ -3,60 +3,42 @@
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { useAppDispatch } from "@/lib/hooks";
 import { useCanEditCatalog } from "@/src/hooks/catalogHooks";
-import { Edit, LibraryMusic, PersonAdd } from "@mui/icons-material";
-import { Button, Dropdown, Menu, MenuButton, MenuItem } from "@mui/joy";
+import { Edit } from "@mui/icons-material";
+import { Button } from "@mui/joy";
+import { useEffect, useState } from "react";
 
 export default function CatalogEditMenu() {
   const dispatch = useAppDispatch();
   const canEdit = useCanEditCatalog();
+  const [mounted, setMounted] = useState(false);
 
-  if (!canEdit) {
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Auth and Joy Button markup are resolved on the client; defer until mounted
+  // so SSR and the first hydration pass both render null (see Welcome.tsx).
+  if (!mounted || !canEdit) {
     return null;
   }
 
   return (
-    <Dropdown>
-      <MenuButton
-        slots={{ root: Button }}
-        slotProps={{
-          root: {
-            variant: "outlined",
-            color: "success",
-            size: "sm",
-            startDecorator: <Edit />,
-            "data-testid": "catalog-edit-button",
-            "aria-label": "Edit catalog",
-          },
-        }}
-      >
-        Edit
-      </MenuButton>
-      <Menu sx={{ zIndex: 1100 }} placement="bottom-end">
-        <MenuItem
-          onClick={() =>
-            dispatch(
-              applicationSlice.actions.openPanel({
-                type: "admin-catalog-add-album",
-              })
-            )
-          }
-        >
-          <LibraryMusic />
-          Add album
-        </MenuItem>
-        <MenuItem
-          onClick={() =>
-            dispatch(
-              applicationSlice.actions.openPanel({
-                type: "admin-catalog-add-artist",
-              })
-            )
-          }
-        >
-          <PersonAdd />
-          Add artist
-        </MenuItem>
-      </Menu>
-    </Dropdown>
+    <Button
+      variant="outlined"
+      color="success"
+      size="sm"
+      startDecorator={<Edit />}
+      data-testid="catalog-edit-button"
+      aria-label="Add to catalog"
+      onClick={() =>
+        dispatch(
+          applicationSlice.actions.openPanel({
+            type: "admin-catalog-add-entry",
+          })
+        )
+      }
+    >
+      Edit
+    </Button>
   );
 }

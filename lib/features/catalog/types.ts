@@ -55,6 +55,23 @@ export type PeekArtistCodeResponse = {
   next_code_number: number;
 };
 
+export type ArtistInGenreOption = {
+  id: number;
+  artist_name: string;
+  code_letters: string;
+  code_number: number;
+};
+
+export type SearchArtistsInGenreParams = {
+  genre_id: number;
+  q: string;
+  limit?: number;
+};
+
+export type SearchArtistsInGenreResponse = {
+  artists: ArtistInGenreOption[];
+};
+
 export type LibraryFormatRow = {
   id: number;
   format_name: string;
@@ -177,23 +194,4 @@ export type Genre =
 
 export type SearchIn = "Artists" | "Albums" | "All";
 
-/** Keys tracked for "Create artist" (Redux, same pattern as login `authenticationSlice`). */
-export type AdminCreateArtistFieldKey =
-  | "codeLetters"
-  | "codeNumber"
-  | "newArtistName"
-  | "genreSelected";
-
-export type AdminCreateArtistVerifications = Record<
-  AdminCreateArtistFieldKey,
-  boolean
->;
-
-export type AdminCreateArtistFormState = {
-  verifications: AdminCreateArtistVerifications;
-  required: AdminCreateArtistFieldKey[];
-};
-
-export type CatalogFrontendState = CatalogSearchState & {
-  adminCreateArtist: AdminCreateArtistFormState;
-};
+export type CatalogFrontendState = CatalogSearchState;

@@ -9,8 +9,7 @@ import NowPlayingContent from "./NowPlayingContent";
 import RightbarContainer from "./RightbarContainer";
 import RightbarMobileClose from "./RightbarMobileClose";
 import AccountEditPanel from "./panels/AccountEditPanel";
-import AdminAddAlbumPanel from "../admin/catalog/panels/AdminAddAlbumPanel";
-import AdminAddArtistPanel from "../admin/catalog/panels/AdminAddArtistPanel";
+import AdminAddCatalogEntryPanel from "../admin/catalog/panels/AdminAddCatalogEntryPanel";
 import AlbumDetailPanel from "./panels/AlbumDetailPanel";
 import SettingsPanel from "./panels/SettingsPanel";
 
@@ -34,10 +33,8 @@ function RightbarPanelRouter({ panel }: { panel: Exclude<RightbarPanel, { type: 
       return <SettingsPanel />;
     case "account-edit":
       return <AccountEditPanel />;
-    case "admin-catalog-add-album":
-      return <AdminAddAlbumPanel />;
-    case "admin-catalog-add-artist":
-      return <AdminAddArtistPanel />;
+    case "admin-catalog-add-entry":
+      return <AdminAddCatalogEntryPanel />;
   }
 }
 

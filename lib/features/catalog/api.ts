@@ -14,6 +14,8 @@ import {
   LibraryQueryParams,
   PeekArtistCodeQuery,
   PeekArtistCodeResponse,
+  SearchArtistsInGenreParams,
+  SearchArtistsInGenreResponse,
   SearchCatalogQueryParams,
 } from "./types";
 
@@ -84,6 +86,15 @@ export const catalogApi = createApi({
         params: { code_letters, genre_id },
       }),
     }),
+    searchArtistsInGenre: builder.query<
+      SearchArtistsInGenreResponse,
+      SearchArtistsInGenreParams
+    >({
+      query: ({ genre_id, q, limit }) => ({
+        url: "/artists/search",
+        params: { genre_id, q, limit },
+      }),
+    }),
     getInformation: builder.query<AlbumEntry, AlbumRequestParams>({
       query: ({ album_id }) => ({
         url: "/info",
@@ -150,6 +161,7 @@ export const {
   useAddAlbumMutation,
   useAddArtistMutation,
   useLazyPeekArtistCodeQuery,
+  useLazySearchArtistsInGenreQuery,
   useGetInformationQuery,
   useGetFormatsQuery,
   useAddFormatMutation,

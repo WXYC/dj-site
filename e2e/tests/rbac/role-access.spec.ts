@@ -67,14 +67,13 @@ test.describe("Role-Based Access Control", () => {
       await dashboardPage.expectOnCatalog();
     });
 
-    test("should see catalog Edit control and open add album panel", async ({
+    test("should see catalog Edit control and open add entry panel", async ({
       page,
     }) => {
       await dashboardPage.gotoCatalog();
       await dashboardPage.expectCatalogEditVisible();
       await dashboardPage.catalogEditButton.click();
-      await page.getByRole("menuitem", { name: "Add album" }).click();
-      await expect(page.getByText("Add album", { exact: true })).toBeVisible({
+      await expect(page.getByText("Add to catalog", { exact: true })).toBeVisible({
         timeout: 10000,
       });
     });

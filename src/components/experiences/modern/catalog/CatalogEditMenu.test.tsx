@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import CatalogEditMenu from "./CatalogEditMenu";
 
@@ -19,9 +19,11 @@ describe("CatalogEditMenu", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders Edit button when user can edit catalog", () => {
+  it("renders Edit button when user can edit catalog", async () => {
     vi.mocked(useCanEditCatalog).mockReturnValue(true);
     render(<CatalogEditMenu />);
-    expect(screen.getByTestId("catalog-edit-button")).toHaveTextContent("Edit");
+    await waitFor(() => {
+      expect(screen.getByTestId("catalog-edit-button")).toHaveTextContent("Edit");
+    });
   });
 });

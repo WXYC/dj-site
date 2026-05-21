@@ -1,24 +1,12 @@
 import { createAppSlice } from "@/lib/createAppSlice";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import type {
-  AdminCreateArtistFieldKey,
-  AdminCreateArtistFormState,
   CatalogFilters,
   CatalogFrontendState,
   CatalogSearchRow,
   CatalogSortBy,
   CatalogSortOrder,
 } from "./types";
-
-export const defaultAdminCreateArtistFormState: AdminCreateArtistFormState = {
-  verifications: {
-    codeLetters: false,
-    codeNumber: false,
-    newArtistName: false,
-    genreSelected: false,
-  },
-  required: ["codeLetters", "codeNumber", "newArtistName", "genreSelected"],
-};
 
 const createInitialRow = (): CatalogSearchRow => ({
   id: crypto.randomUUID(),
@@ -36,7 +24,6 @@ export const defaultCatalogFrontendState: CatalogFrontendState = {
   filters: { onStreaming: undefined, genre: "All", format: "All" },
   selected: [],
   mobileOpen: false,
-  adminCreateArtist: defaultAdminCreateArtistFormState,
 };
 
 export const catalogSlice = createAppSlice({
@@ -97,20 +84,6 @@ export const catalogSlice = createAppSlice({
       state.mobileOpen = false;
     },
     reset: () => defaultCatalogFrontendState,
-
-    verifyAdminCreateArtist: (
-      state,
-      action: PayloadAction<{ key: AdminCreateArtistFieldKey; value: boolean }>
-    ) => {
-      state.adminCreateArtist.verifications[action.payload.key] =
-        action.payload.value;
-    },
-    resetAdminCreateArtist: (state) => {
-      state.adminCreateArtist = {
-        verifications: { ...defaultAdminCreateArtistFormState.verifications },
-        required: [...defaultAdminCreateArtistFormState.required],
-      };
-    },
   },
   selectors: {
     getRows: (state) => state.rows,
@@ -120,13 +93,5 @@ export const catalogSlice = createAppSlice({
     getFilters: (state) => state.filters,
     getSelected: (state) => state.selected,
     isMobileSearchOpen: (state) => state.mobileOpen,
-    getAdminCreateArtistVerification: (
-      state,
-      key: AdminCreateArtistFieldKey
-    ) => state.adminCreateArtist.verifications[key],
-    adminCreateArtistFormComplete: (state) =>
-      state.adminCreateArtist.required.every(
-        (k) => state.adminCreateArtist.verifications[k]
-      ),
   },
 });
