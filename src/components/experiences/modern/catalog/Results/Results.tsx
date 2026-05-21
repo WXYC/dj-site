@@ -11,8 +11,8 @@ import { Table } from "@mui/joy";
 import {
   useAdminCatalogResults,
   useAdminCatalogSearch,
-  useCatalogResults,
-  useCatalogSearch,
+  useCatalogQueryResults,
+  useCatalogQuerySearch,
 } from "@/src/hooks/catalogHooks";
 import { ColorPaletteProp } from "@mui/joy";
 import CatalogResult from "./Result";
@@ -24,14 +24,14 @@ function CatalogResultsTable({
 }: {
   color: ColorPaletteProp | undefined;
 }) {
-  const { selected, setSelection } = useCatalogSearch();
-  const {
-    data: releaseList,
-    loading,
-    loadMore,
-    reachedEndForQuery,
-  } = useCatalogResults();
+  const { selected, setSelection } = useCatalogQuerySearch();
 
+  const {
+    results: releaseList,
+    isLoading: loading,
+    hasMore,
+    loadNextPage,
+  } = useCatalogQueryResults();
   return (
     <ResultsContainer scope="catalog">
       <Table
@@ -124,7 +124,7 @@ function CatalogResultsTable({
             ))
           )}
 
-          {!loading && !reachedEndForQuery && (
+          {!loading && hasMore && (
             <tr>
               <td colSpan={7} style={{ textAlign: "center" }}>
                 <Button
@@ -134,7 +134,7 @@ function CatalogResultsTable({
                   sx={{
                     marginRight: "1rem",
                   }}
-                  onClick={loadMore}
+                  onClick={loadNextPage}
                 >
                   Load more
                 </Button>

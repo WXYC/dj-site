@@ -91,7 +91,8 @@ The backend must be running locally. See README.md for full setup options.
 
 ### Environment Variables
 
-Create `.env.local`:
+Copy `.env.example` to `.env.local`. Defaults:
+
 ```bash
 NEXT_PUBLIC_BACKEND_URL=http://localhost:8080
 NEXT_PUBLIC_BETTER_AUTH_URL=http://localhost:8082/auth
@@ -99,7 +100,17 @@ NEXT_PUBLIC_DASHBOARD_HOME_PAGE=/dashboard/flowsheet
 NEXT_PUBLIC_DEFAULT_EXPERIENCE=modern
 NEXT_PUBLIC_ENABLED_EXPERIENCES=modern,classic
 NEXT_PUBLIC_ALLOW_EXPERIENCE_SWITCHING=true
+NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED=false
+
+# Optional, server-only — override target for the /auth/:path* rewrite in
+# containerized deployments where NEXT_PUBLIC_BETTER_AUTH_URL is reachable
+# from the browser but not from inside the dj-site server.
+# AUTH_REWRITE_URL=http://auth:8082/auth
 ```
+
+**Feature flags**:
+
+- `NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED` — gates the track-search UI surfaces in catalog search: the `matched_via` track-match chip rendering in result rows (both classic and modern experiences) and the classic `SearchForm` help-text refresh (worked track-lookup example replacing the legacy "Coming later" line). Defaults to OFF; set to `"true"` or `"1"` to enable. Helper: `isCatalogTrackSearchUiEnabled()` in `lib/features/catalog/flags.ts`. Flip on after Backend-Service is serving `matched_via` in prod. See WXYC/dj-site#497 and WXYC/dj-site#498.
 
 ### Test Credentials (local dev)
 
@@ -293,6 +304,21 @@ Runs on push to `main` and on PRs that touch app code. Spins up Backend-Service 
 ### Deployment
 
 Cloudflare Pages via OpenNext. Build: `npm run build:opennext`. Deploy: `npm run deploy` (Wrangler).
+
+### CI pin maintenance
+
+Two classes of pin in `.github/workflows/*.yml` exist for supply-chain reasons (mirrors WXYC/request-o-matic#124's free-tier hardening; see WXYC/wiki#67 for the org-wide rollout). They will bit-rot and need occasional bumps:
+
+- **Workflow-level `permissions:`** scoped to the minimum each workflow needs:
+  - `ci.yml`, `e2e-tests.yml`: `contents: read` (no GITHUB_TOKEN writes; Cloudflare deploy is owned by the Cloudflare Pages GitHub App, not this workflow).
+  - `charset-corpus-drift.yml`: `contents: read` plus `packages: read` (the reusable workflow pulls `@wxyc/shared` from `npm.pkg.github.com`).
+  - `cloudflare-deploy-status.yml`: `issues: write` only — it doesn't `actions/checkout` (just hits the Cloudflare API and creates / updates a GitHub issue), so it doesn't need `contents: read`. Don't add `contents: read` defensively; the minimal grant is the point.
+  Failure mode is silent — a job that needs a missing scope (e.g. `pull-requests: write`) fails its API call but the workflow stays green. When adding a step that needs to comment on PRs, push tags, mint releases, etc., explicitly grant the scope at the **job** level (or widen the workflow-level floor only if every job in the file needs it).
+- **Reusable-workflow refs pinned to `@gha/v1`**, not `@main` — `WXYC/wxyc-shared/.github/workflows/check-charset-corpus-drift.yml@gha/v1` (in `charset-corpus-drift.yml`). The publishing repo treats `gha/v1` as a moving major tag — re-pointed forward on non-breaking changes, frozen on breaking changes (which get a fresh `gha/v2`). Don't downgrade to `@main`; if a `gha/v2` migration arrives, follow the procedure at the top of `WXYC/wxyc-shared/CLAUDE.md` "Tag Stability Policy".
+
+Run `actionlint .github/workflows/*.yml` locally before pushing workflow changes; it validates `permissions:` syntax, action-version pins, and shell-script blocks (via shellcheck), and catches the silent-mistake class of errors above before CI does.
+
+Item 4 of #124 (Railway CLI pin) does not apply — dj-site deploys to Cloudflare Pages.
 
 ## Code Conventions
 

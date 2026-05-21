@@ -37,6 +37,7 @@ export const flowsheetSlice = createAppSlice({
         state.search.query.album_id = undefined;
         state.search.query.rotation_id = undefined;
         state.search.query.rotation_bin = undefined;
+        state.search.query.track_position = undefined;
       }
     },
     setRotationMetadata: (
@@ -65,6 +66,38 @@ export const flowsheetSlice = createAppSlice({
     ) => {
       state.search.query[action.payload.name] = action.payload.value;
     },
+    /**
+     * Set the picked track's Discogs `release_track.position` (e.g. "A1"). Pass
+     * `undefined` to clear — used when the DJ falls back to free-text entry or
+     * picks a different release.
+     */
+    setTrackPosition: (state, action: PayloadAction<string | undefined>) => {
+      state.search.query.track_position = action.payload;
+    },
+    /**
+     * Copy a selected search result's fields into the live search query and
+     * deselect it, so the user can edit one field without losing the others.
+     */
+    freezeSelectionToQuery: (
+      state,
+      action: PayloadAction<{
+        artist: string;
+        album: string;
+        label: string;
+        album_id?: number;
+        rotation_id?: number;
+        rotation_bin?: Rotation;
+      }>
+    ) => {
+      state.search.query.artist = action.payload.artist;
+      state.search.query.album = action.payload.album;
+      state.search.query.label = action.payload.label;
+      state.search.query.album_id = action.payload.album_id;
+      state.search.query.rotation_id = action.payload.rotation_id;
+      state.search.query.rotation_bin = action.payload.rotation_bin;
+      state.search.query.track_position = undefined;
+      state.search.selectedResult = 0;
+    },
     toggleRequest: (state) => {
       state.search.query.request = !state.search.query.request;
     },
@@ -79,6 +112,7 @@ export const flowsheetSlice = createAppSlice({
         album_title: action.payload.album,
         record_label: action.payload.label,
         request_flag: action.payload.request,
+        segue: action.payload.segue,
         rotation: action.payload.rotation_bin,
         rotation_id: action.payload.rotation_id,
         album_id: action.payload.album_id,

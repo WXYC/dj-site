@@ -1,5 +1,13 @@
 /** @type {import('next').NextConfig} */
-const authBaseURL = process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "https://api.wxyc.org/auth";
+// AUTH_REWRITE_URL is the server-only override the `/auth/:path*` rewrite proxies to.
+// Set it when the auth service is reachable from the host but not at the public URL from
+// inside the dj-site server (e.g. docker compose, where the host's localhost is the
+// container itself). NEXT_PUBLIC_BETTER_AUTH_URL stays the browser-facing URL and is
+// the fallback for environments without a split (e.g. Cloudflare Pages production).
+const authRewriteURL =
+  process.env.AUTH_REWRITE_URL ||
+  process.env.NEXT_PUBLIC_BETTER_AUTH_URL ||
+  "https://api.wxyc.org/auth";
 
 const nextConfig = {
   reactStrictMode: false,
@@ -25,7 +33,7 @@ const nextConfig = {
     return [
       {
         source: "/auth/:path*",
-        destination: `${authBaseURL}/:path*`,
+        destination: `${authRewriteURL}/:path*`,
       },
     ];
   },

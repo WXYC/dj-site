@@ -1,20 +1,35 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
-import { getLibrarySearchUrl, getAuthHeaders } from "./lml-client";
-import { convertLmlItemToAlbumEntry } from "./lml-conversions";
-import type { LmlLibrarySearchResponse } from "./types";
+import { useSearchLibraryQuery } from "@/lib/features/lml/api";
 
 const DEBOUNCE_MS = 350;
 const MIN_QUERY_LENGTH = 3;
 const RESULT_LIMIT = 10;
 
+interface DebouncedArgs {
+  artist: string;
+  album: string;
+}
+
 /**
  * Debounced hook that searches the library catalog via Backend-Service's
  * proxy endpoint and returns `AlbumEntry[]`.
- * Designed to be called with the current flowsheet search query fields.
- * Gracefully returns an empty array on any error.
+ *
+ * Thin wrapper around `lmlApi.useSearchLibraryQuery` (RTK Query). Multiple
+ * subscribers with the same `{artist, album}` args share one in-flight
+ * request and one cache entry — see WXYC/dj-site#563 for the per-subscriber
+ * fetch storm this replaces. Auth bearer + `X-Request-Id` and the non-JSON
+ * soft-handle for HTML 404s (#519) come from `backendBaseQuery`.
+ *
+ * Behavior preserved from the previous raw-`fetch` implementation:
+ *   - 350 ms debounce on input (including the first emission — `debounced`
+ *     starts `null` so RTK Query stays skipped until the timer fires)
+ *   - skip until artist.length + album.length >= 3
+ *   - empty array on any error response (HTTP 4xx/5xx or network)
+ *   - `isLoading` is true from the moment a valid query is typed until the
+ *     debounce fires AND the resulting fetch resolves
  */
 export function useLmlLibrarySearch({
   artist,
@@ -23,61 +38,37 @@ export function useLmlLibrarySearch({
   artist: string;
   album: string;
 }): { results: AlbumEntry[]; isLoading: boolean } {
-  const [results, setResults] = useState<AlbumEntry[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const [debounced, setDebounced] = useState<DebouncedArgs | null>(null);
 
   useEffect(() => {
-    const combinedLength = artist.length + album.length;
-    if (combinedLength < MIN_QUERY_LENGTH) {
-      setResults([]);
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
-
-    const timer = setTimeout(async () => {
-      abortControllerRef.current?.abort();
-      const controller = new AbortController();
-      abortControllerRef.current = controller;
-
-      try {
-        const params = new URLSearchParams();
-        if (artist) params.set("artist", artist);
-        if (album) params.set("title", album);
-        params.set("limit", String(RESULT_LIMIT));
-
-        const headers = await getAuthHeaders();
-        const response = await fetch(
-          `${getLibrarySearchUrl()}?${params}`,
-          { signal: controller.signal, headers }
-        );
-
-        if (!response.ok) {
-          setResults([]);
-          setIsLoading(false);
-          return;
-        }
-
-        const data: LmlLibrarySearchResponse = await response.json();
-        setResults(data.results.map(convertLmlItemToAlbumEntry));
-      } catch (e) {
-        if ((e as Error).name !== "AbortError") {
-          setResults([]);
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setIsLoading(false);
-        }
-      }
-    }, DEBOUNCE_MS);
-
-    return () => {
-      clearTimeout(timer);
-      abortControllerRef.current?.abort();
-    };
+    const timer = setTimeout(
+      () => setDebounced({ artist, album }),
+      DEBOUNCE_MS
+    );
+    return () => clearTimeout(timer);
   }, [artist, album]);
 
-  return { results, isLoading };
+  const currentLength = artist.length + album.length;
+  const hasValidQuery = currentLength >= MIN_QUERY_LENGTH;
+  const debouncedLength = debounced
+    ? debounced.artist.length + debounced.album.length
+    : 0;
+  const skip = !debounced || debouncedLength < MIN_QUERY_LENGTH;
+  const pendingDebounce =
+    hasValidQuery &&
+    (debounced === null ||
+      debounced.artist !== artist ||
+      debounced.album !== album);
+
+  const { data, isFetching } = useSearchLibraryQuery(
+    debounced
+      ? { artist: debounced.artist, title: debounced.album, limit: RESULT_LIMIT }
+      : { artist: "", title: "", limit: RESULT_LIMIT },
+    { skip }
+  );
+
+  return {
+    results: skip ? [] : data ?? [],
+    isLoading: hasValidQuery && (pendingDebounce || isFetching),
+  };
 }

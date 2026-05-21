@@ -1,0 +1,443 @@
+{
+  "meta": {
+    "description": "Canonical UTF-8 torture-corpus for cross-repo round-trip testing. Each entry exercises one realistic encoding hazard. Round-trip tests assert read(write(input)) == input. Normalization tests (WX-2) assert the *_form fields. Mojibake-fix tests assert to_storage_form(input) == expected_storage.",
+    "version": 1,
+    "schema": {
+      "input": "Raw UTF-8 string the storage layer must round-trip losslessly.",
+      "expected_storage": "Canonical (mojibake-fixed) form. Equals input for non-mojibake categories.",
+      "expected_match_form": "Output of to_match_form(expected_storage). NFKD + strip combining marks + lowercase + Greek sigma fold + trim. Null when WX-2 has not formalized the rule for this script.",
+      "expected_ascii_form": "Output of to_ascii_form(expected_storage). Lowercase ASCII transliteration. Null for scripts without a defined transliteration in v1.",
+      "notes": "Why this entry exists; which encoding incident or hazard category it pins."
+    },
+    "sources": [
+      "WXYC/docs#6 (Mojibake Cleanup epic) — V012 round-trippable fix-pairs and V013 lossy rows",
+      "WXYC/library-metadata-lookup#168 — Greek sigma fold incident",
+      "Real WXYC artist names from src/test-utils/wxyc-example-data.json where applicable"
+    ]
+  },
+  "categories": {
+    "greek": [
+      {
+        "input": "ς",
+        "expected_storage": "ς",
+        "expected_match_form": "σ",
+        "expected_ascii_form": "s",
+        "notes": "U+03C2 Greek lowercase final-form sigma. LML#168 sigma fold target — ς and σ are positional variants of the same letter and must collapse to σ in the match form."
+      },
+      {
+        "input": "σ",
+        "expected_storage": "σ",
+        "expected_match_form": "σ",
+        "expected_ascii_form": "s",
+        "notes": "U+03C3 Greek lowercase medial-form sigma. The canonical bucket that ς folds into."
+      },
+      {
+        "input": "Σ",
+        "expected_storage": "Σ",
+        "expected_match_form": "σ",
+        "expected_ascii_form": "s",
+        "notes": "U+03A3 Greek capital sigma. Lowercases to medial σ via default Unicode case mapping (no Greek-locale awareness in Rust char::to_lowercase)."
+      },
+      {
+        "input": "Στελλάς",
+        "expected_storage": "Στελλάς",
+        "expected_match_form": "στελλασ",
+        "expected_ascii_form": "stellas",
+        "notes": "Greek word ending in final-form sigma ς. Pinned acceptance: must hash to the same match-form bucket as Στελλάσ (medial-form ending). LML#168 canonical example."
+      },
+      {
+        "input": "Στελλάσ",
+        "expected_storage": "Στελλάσ",
+        "expected_match_form": "στελλασ",
+        "expected_ascii_form": "stellas",
+        "notes": "Same Greek word ending in medial-form sigma. Match-form must equal the final-form variant above."
+      },
+      {
+        "input": "μ-Ziq",
+        "expected_storage": "μ-Ziq",
+        "expected_match_form": "μ-ziq",
+        "expected_ascii_form": "m-ziq",
+        "notes": "Real WXYC artist (Mike Paradinas / Planet Mu). Mixed Greek lowercase letter + ASCII; exercises mid-string non-Latin probing."
+      },
+      {
+        "input": "Ω",
+        "expected_storage": "Ω",
+        "expected_match_form": "ω",
+        "expected_ascii_form": "o",
+        "notes": "U+03A9 Greek capital omega. Single-character probe; case-mapping path."
+      },
+      {
+        "input": "Σtella",
+        "expected_storage": "Σtella",
+        "expected_match_form": "σtella",
+        "expected_ascii_form": "stella",
+        "notes": "Capital sigma followed by Latin letters — exercises mixed-script storage and is the input form for the mojibake_known Î£tella → Σtella fix-pair."
+      }
+    ],
+    "cyrillic": [
+      {
+        "input": "Кино",
+        "expected_storage": "Кино",
+        "expected_match_form": "кино",
+        "expected_ascii_form": "kino",
+        "notes": "Soviet rock band Kino — real WXYC repertoire. Cyrillic lowercase round-trip and basic transliteration."
+      },
+      {
+        "input": "Молчат Дома",
+        "expected_storage": "Молчат Дома",
+        "expected_match_form": "молчат дома",
+        "expected_ascii_form": "molchat doma",
+        "notes": "Molchat Doma — real WXYC artist (Belarusian post-punk). Multi-word Cyrillic with whitespace."
+      },
+      {
+        "input": "Ё",
+        "expected_storage": "Ё",
+        "expected_match_form": "ё",
+        "expected_ascii_form": "yo",
+        "notes": "U+0401 Cyrillic capital Yo — case-mapping path; transliteration that is not 1:1."
+      },
+      {
+        "input": "ы",
+        "expected_storage": "ы",
+        "expected_match_form": "ы",
+        "expected_ascii_form": "y",
+        "notes": "U+044B Cyrillic small yeru — single-char probe; no obvious Latin equivalent."
+      },
+      {
+        "input": "Аукцыон",
+        "expected_storage": "Аукцыон",
+        "expected_match_form": "аукцыон",
+        "expected_ascii_form": "auktsyon",
+        "notes": "AukcYon (Auktsyon) — real Russian art-rock band on WXYC rotation."
+      }
+    ],
+    "cjk": [
+      {
+        "input": "武満徹",
+        "expected_storage": "武満徹",
+        "expected_match_form": "武満徹",
+        "expected_ascii_form": null,
+        "notes": "Toru Takemitsu — Japanese composer in WXYC classical/electronic repertoire. 3-byte UTF-8; no case mapping. ASCII transliteration is non-trivial (kanji readings depend on context); v1 does not commit."
+      },
+      {
+        "input": "坂本龍一",
+        "expected_storage": "坂本龍一",
+        "expected_match_form": "坂本龍一",
+        "expected_ascii_form": null,
+        "notes": "Ryuichi Sakamoto — well-known WXYC artist. 4-character kanji string; tests multi-codepoint CJK passthrough."
+      },
+      {
+        "input": "繭",
+        "expected_storage": "繭",
+        "expected_match_form": "繭",
+        "expected_ascii_form": null,
+        "notes": "Single CJK ideograph (V012 fix-pair coverage). 3-byte UTF-8 probe."
+      },
+      {
+        "input": "米",
+        "expected_storage": "米",
+        "expected_match_form": "米",
+        "expected_ascii_form": null,
+        "notes": "Single CJK ideograph (V012 fix-pair coverage). 3-byte UTF-8 probe."
+      },
+      {
+        "input": "士",
+        "expected_storage": "士",
+        "expected_match_form": "士",
+        "expected_ascii_form": null,
+        "notes": "Single CJK ideograph (V012 fix-pair coverage). 3-byte UTF-8 probe."
+      }
+    ],
+    "arabic": [
+      {
+        "input": "حمزة نمرة",
+        "expected_storage": "حمزة نمرة",
+        "expected_match_form": "حمزة نمرة",
+        "expected_ascii_form": null,
+        "notes": "Hamza Namira — Egyptian singer-songwriter. RTL multi-word Arabic; V012 fix-pair coverage. Transliteration not committed in v1."
+      },
+      {
+        "input": "د",
+        "expected_storage": "د",
+        "expected_match_form": "د",
+        "expected_ascii_form": null,
+        "notes": "Single Arabic letter dal. RTL single-char probe (V012)."
+      },
+      {
+        "input": "فيروز",
+        "expected_storage": "فيروز",
+        "expected_match_form": "فيروز",
+        "expected_ascii_form": null,
+        "notes": "Fairouz — Lebanese vocalist, real WXYC repertoire. Multi-letter Arabic, RTL."
+      }
+    ],
+    "hebrew": [
+      {
+        "input": "שירז טל",
+        "expected_storage": "שירז טל",
+        "expected_match_form": "שירז טל",
+        "expected_ascii_form": null,
+        "notes": "Shiraz Tal — RTL multi-word Hebrew; tests bidi rendering and storage round-trip."
+      },
+      {
+        "input": "ש",
+        "expected_storage": "ש",
+        "expected_match_form": "ש",
+        "expected_ascii_form": null,
+        "notes": "Single Hebrew letter shin — RTL single-char probe."
+      }
+    ],
+    "emoji": [
+      {
+        "input": "👋",
+        "expected_storage": "👋",
+        "expected_match_form": "👋",
+        "expected_ascii_form": null,
+        "notes": "U+1F44B waving hand — 4-byte UTF-8 (supplementary plane). Catches storage layers truncating to BMP."
+      },
+      {
+        "input": "🎵",
+        "expected_storage": "🎵",
+        "expected_match_form": "🎵",
+        "expected_ascii_form": null,
+        "notes": "U+1F3B5 musical note — 4-byte UTF-8 probe."
+      },
+      {
+        "input": "🎸",
+        "expected_storage": "🎸",
+        "expected_match_form": "🎸",
+        "expected_ascii_form": null,
+        "notes": "U+1F3B8 guitar — 4-byte UTF-8 probe."
+      },
+      {
+        "input": "Stereolab 🎸",
+        "expected_storage": "Stereolab 🎸",
+        "expected_match_form": "stereolab 🎸",
+        "expected_ascii_form": "stereolab",
+        "notes": "Mixed ASCII + emoji — common DJ-comment pattern; tests 4-byte UTF-8 surviving alongside ASCII case-folding."
+      }
+    ],
+    "latin_extended": [
+      {
+        "input": "Łukasz",
+        "expected_storage": "Łukasz",
+        "expected_match_form": "łukasz",
+        "expected_ascii_form": "lukasz",
+        "notes": "Polish ł — does NOT decompose under NFKD (it has no combining-mark equivalent). Survives as-is through normalize_artist_name; transliteration to 'l' is a separate ascii_form rule."
+      },
+      {
+        "input": "Björk",
+        "expected_storage": "Björk",
+        "expected_match_form": "bjork",
+        "expected_ascii_form": "bjork",
+        "notes": "Real WXYC artist. ö (U+00F6) decomposes to o + combining diaeresis under NFKD."
+      },
+      {
+        "input": "Hermanos Gutiérrez",
+        "expected_storage": "Hermanos Gutiérrez",
+        "expected_match_form": "hermanos gutierrez",
+        "expected_ascii_form": "hermanos gutierrez",
+        "notes": "Canonical WXYC artist. Spanish é (U+00E9) NFKD path."
+      },
+      {
+        "input": "Csillagrablók",
+        "expected_storage": "Csillagrablók",
+        "expected_match_form": "csillagrablok",
+        "expected_ascii_form": "csillagrablok",
+        "notes": "Canonical WXYC artist (Hungarian). ó (U+00F3) NFKD path."
+      },
+      {
+        "input": "Nilüfer Yanya",
+        "expected_storage": "Nilüfer Yanya",
+        "expected_match_form": "nilufer yanya",
+        "expected_ascii_form": "nilufer yanya",
+        "notes": "Canonical WXYC artist. Turkish ü (U+00FC) NFKD path."
+      },
+      {
+        "input": "Édith Piaf",
+        "expected_storage": "Édith Piaf",
+        "expected_match_form": "edith piaf",
+        "expected_ascii_form": "edith piaf",
+        "notes": "Capital É (U+00C9) — NFKD decompose + lowercase. The Édith vs Edith equivalence-class case from WXYC/docs#6 P3."
+      },
+      {
+        "input": "Aşıq Altay",
+        "expected_storage": "Aşıq Altay",
+        "expected_match_form": "asıq altay",
+        "expected_ascii_form": "asiq altay",
+        "notes": "Canonical WXYC artist. Multi-diacritic Turkish: ş (decomposes) + ı (does NOT decompose under NFKD, dotless-i). Match form keeps ı; ascii_form transliterates."
+      },
+      {
+        "input": "Sigur Rós",
+        "expected_storage": "Sigur Rós",
+        "expected_match_form": "sigur ros",
+        "expected_ascii_form": "sigur ros",
+        "notes": "Real WXYC artist (Icelandic). ó (U+00F3) NFKD path."
+      }
+    ],
+    "bidi_marks": [
+      {
+        "input": "Hello\u200EWorld",
+        "expected_storage": "Hello\u200EWorld",
+        "expected_match_form": null,
+        "expected_ascii_form": "helloworld",
+        "notes": "U+200E LEFT-TO-RIGHT MARK embedded in ASCII. LRM is category Cf (Format), NOT M (Mark) — it is NOT stripped by NFKD + is_mark filter. Match-form behavior is undefined in v1 (WX-2 must decide whether to strip Cf characters)."
+      },
+      {
+        "input": "Hello\u200FWorld",
+        "expected_storage": "Hello\u200FWorld",
+        "expected_match_form": null,
+        "expected_ascii_form": "helloworld",
+        "notes": "U+200F RIGHT-TO-LEFT MARK. Same Cf-not-stripped hazard as LRM. Invisible character that survives most pipelines and corrupts visual rendering later."
+      },
+      {
+        "input": "\u202EReversed\u202C",
+        "expected_storage": "\u202EReversed\u202C",
+        "expected_match_form": null,
+        "expected_ascii_form": "reversed",
+        "notes": "U+202E RIGHT-TO-LEFT OVERRIDE + U+202C POP DIRECTIONAL FORMATTING. Spoofing-attack vector; must round-trip but should ideally be flagged on storage (out of scope for WX-1)."
+      }
+    ],
+    "zwj": [
+      {
+        "input": "👨‍👩‍👧‍👦",
+        "expected_storage": "👨‍👩‍👧‍👦",
+        "expected_match_form": "👨‍👩‍👧‍👦",
+        "expected_ascii_form": null,
+        "notes": "Family-of-four ZWJ sequence (man + ZWJ + woman + ZWJ + girl + ZWJ + boy). 7 codepoints, 25 UTF-8 bytes. Tests storage layers that count graphemes vs codepoints vs bytes."
+      },
+      {
+        "input": "🇺🇸",
+        "expected_storage": "🇺🇸",
+        "expected_match_form": "🇺🇸",
+        "expected_ascii_form": null,
+        "notes": "Regional indicator pair (U+1F1FA + U+1F1F8) rendered as 🇺🇸 flag. Two supplementary-plane codepoints that visually combine."
+      },
+      {
+        "input": "👨‍🎤",
+        "expected_storage": "👨‍🎤",
+        "expected_match_form": "👨‍🎤",
+        "expected_ascii_form": null,
+        "notes": "Singer ZWJ sequence (man + ZWJ + microphone). Music-relevant; tests mid-emoji-sequence ZWJ U+200D survival."
+      }
+    ],
+    "normalization": [
+      {
+        "input": "café",
+        "expected_storage": "café",
+        "expected_match_form": "cafe",
+        "expected_ascii_form": "cafe",
+        "notes": "NFC form: U+0063 U+0061 U+0066 U+00E9. Storage MUST preserve as-is (no silent re-normalization). Match-form folds to bare ASCII via NFKD + strip combining."
+      },
+      {
+        "input": "cafe\u0301",
+        "expected_storage": "cafe\u0301",
+        "expected_match_form": "cafe",
+        "expected_ascii_form": "cafe",
+        "notes": "NFD form of café: U+0063 U+0061 U+0066 U+0065 U+0301. Visually identical to the NFC entry above; bytes differ. Both must round-trip; both must produce the same match form."
+      },
+      {
+        "input": "ñ",
+        "expected_storage": "ñ",
+        "expected_match_form": "n",
+        "expected_ascii_form": "n",
+        "notes": "NFC form: U+00F1. Single precomposed Spanish ñ."
+      },
+      {
+        "input": "n\u0303",
+        "expected_storage": "n\u0303",
+        "expected_match_form": "n",
+        "expected_ascii_form": "n",
+        "notes": "NFD form of ñ: U+006E + U+0303. Bytes differ from NFC entry; match form must collide."
+      }
+    ],
+    "mojibake_known": [
+      {
+        "input": "Î£tella",
+        "expected_storage": "Σtella",
+        "expected_match_form": "σtella",
+        "expected_ascii_form": "stella",
+        "notes": "UTF-8 capital sigma 0xCE 0xA3 misread as Latin-1 → Î (0xCE) + £ (0xA3). V012 round-trippable fix-pair. WX-2's to_storage_form must reverse this."
+      },
+      {
+        "input": "Ã©",
+        "expected_storage": "é",
+        "expected_match_form": "e",
+        "expected_ascii_form": "e",
+        "notes": "UTF-8 é (0xC3 0xA9) misread as Latin-1 → Ã (0xC3) + © (0xA9). The single most common Latin-1-as-UTF-8 mojibake pattern."
+      },
+      {
+        "input": "Ã±",
+        "expected_storage": "ñ",
+        "expected_match_form": "n",
+        "expected_ascii_form": "n",
+        "notes": "UTF-8 ñ (0xC3 0xB1) misread as Latin-1 → Ã (0xC3) + ± (0xB1). V012 fix-pair."
+      },
+      {
+        "input": "Ã¶",
+        "expected_storage": "ö",
+        "expected_match_form": "o",
+        "expected_ascii_form": "o",
+        "notes": "UTF-8 ö (0xC3 0xB6) misread as Latin-1 → Ã (0xC3) + ¶ (0xB6). V012 fix-pair."
+      },
+      {
+        "input": "Ã¼",
+        "expected_storage": "ü",
+        "expected_match_form": "u",
+        "expected_ascii_form": "u",
+        "notes": "UTF-8 ü (0xC3 0xBC) misread as Latin-1 → Ã (0xC3) + ¼ (0xBC). V012 fix-pair."
+      },
+      {
+        "input": "â€™",
+        "expected_storage": "’",
+        "expected_match_form": "’",
+        "expected_ascii_form": "'",
+        "notes": "UTF-8 right single quote U+2019 (0xE2 0x80 0x99) misread as Windows-1252 → â (0xE2) + € (0x80) + ™ (0x99). The smart-quote mojibake. V013 lossy territory."
+      }
+    ],
+    "quoting": [
+      {
+        "input": "O'Brien",
+        "expected_storage": "O'Brien",
+        "expected_match_form": "o'brien",
+        "expected_ascii_form": "o'brien",
+        "notes": "ASCII apostrophe U+0027 — exercises SQL string quoting; charset bugs often co-occur with quoting bugs."
+      },
+      {
+        "input": "\"slash\"",
+        "expected_storage": "\"slash\"",
+        "expected_match_form": "\"slash\"",
+        "expected_ascii_form": "\"slash\"",
+        "notes": "ASCII double-quote U+0022 — JSON / CSV / SQL escape boundary."
+      },
+      {
+        "input": "back\\slash",
+        "expected_storage": "back\\slash",
+        "expected_match_form": "back\\slash",
+        "expected_ascii_form": "back\\slash",
+        "notes": "ASCII backslash U+005C — JSON / SQL / shell escape boundary."
+      },
+      {
+        "input": "semi;col",
+        "expected_storage": "semi;col",
+        "expected_match_form": "semi;col",
+        "expected_ascii_form": "semi;col",
+        "notes": "ASCII semicolon — SQL statement terminator hazard."
+      },
+      {
+        "input": "null\u0000byte",
+        "expected_storage": "null\u0000byte",
+        "expected_match_form": null,
+        "expected_ascii_form": null,
+        "notes": "Embedded NUL byte (U+0000). SQLite TEXT permits, PostgreSQL TEXT does NOT (server raises 22021). Match/ascii forms undefined — WX-2 may reject or strip."
+      },
+      {
+        "input": "tab\there",
+        "expected_storage": "tab\there",
+        "expected_match_form": "tab\there",
+        "expected_ascii_form": "tab\there",
+        "notes": "Embedded TAB (U+0009). TSV / CSV column-boundary hazard; many readers split on tab silently."
+      }
+    ]
+  }
+}

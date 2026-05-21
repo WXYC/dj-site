@@ -42,3 +42,17 @@ export interface AlbumMetadataQueryParams {
   releaseTitle: string;
   trackTitle?: string;
 }
+
+export interface LibraryTrack {
+  position: string;
+  title: string;
+  artist_credit: string;
+  duration_ms: number | null;
+}
+
+export interface LibraryTracksResponse {
+  library_id: number;
+  discogs_release_id: number | null;
+  source: "discogs" | null;
+  tracks: LibraryTrack[];
+}

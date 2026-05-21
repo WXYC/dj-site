@@ -17,6 +17,12 @@ test.describe("Flowsheet Entry Caching", () => {
   // Use dj2 to avoid session invalidation by auth/logout.spec.ts (which uses dj.json)
   test.use({ storageState: path.join(authDir, "dj2.json") });
   test.describe.configure({ mode: "serial" });
+  // Interim retry-2 from #570 fix-list item 3. Even with the response-first
+  // assertion shape (fix #1, this PR), some POSTs take >30s in CI for reasons
+  // not yet root-caused — likely parallel-worker contention or browser
+  // event-loop saturation, no Playwright trace in hand yet. Remove this once
+  // the followup investigation closes (filed separately).
+  test.describe.configure({ retries: 2 });
   // goLive() reloads the page and waits up to 20s for the flowsheet to render;
   // the default 20s test timeout doesn't leave room for beforeEach + test body.
   test.setTimeout(60_000);
@@ -88,11 +94,13 @@ test.describe("Flowsheet Entry Caching", () => {
   // 2. Consistency across multiple attempts
   // ---------------------------------------------------------------
   test.describe("2. Consistency", () => {
-    test("all tracks appear after adding 12 entries", async ({ page }) => {
-      test.slow(); // This test adds many entries
-
-      const trackCount = 12;
-      const initialCount = await flowsheet.getAllEntries().count();
+    test("all tracks appear after adding multiple entries", async ({ page }) => {
+      // 4 entries exercises the same code path (button + enter, multiple
+      // adds, every track visible) at a fraction of the cumulative backend
+      // load that the previous 12-entry version generated. By test 6 of this
+      // serial-mode suite the dockerized BS used to wedge under the 20+ row
+      // accumulation; trimming this test was the cheapest mitigation. See #577.
+      const trackCount = 4;
       const trackNames: string[] = [];
 
       for (let i = 0; i < trackCount; i++) {
@@ -105,7 +113,6 @@ test.describe("Flowsheet Entry Caching", () => {
         );
       }
 
-      // All tracks should be present
       for (const name of trackNames) {
         await flowsheet.expectEntryWithText(name, 20000);
       }

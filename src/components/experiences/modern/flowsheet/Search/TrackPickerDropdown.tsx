@@ -1,12 +1,24 @@
 "use client";
 
-import { RotationTrack } from "@/lib/features/rotation/api";
 import { KeyboardArrowDown } from "@mui/icons-material";
 import { Box, CircularProgress, Sheet, Typography } from "@mui/joy";
 import { ClickAwayListener } from "@mui/material";
 import { useCallback, useRef, useState } from "react";
 
-export default function RotationTrackDropdown({
+/**
+ * Minimal shape a track must expose to be rendered by this dropdown. Both the
+ * rotation picker (`RotationTrack`, `library/rotation/:id/tracks`) and the
+ * library picker (`LibraryTrack`, `proxy/library/:id/tracks`) project to this
+ * via thin adapters at the call site — the two BS wire contracts are
+ * intentionally distinct, so the unification happens here at the UI layer.
+ */
+export interface TrackPickerEntry {
+  position: string;
+  title: string;
+  artists: string[];
+}
+
+export default function TrackPickerDropdown<T extends TrackPickerEntry>({
   tracks,
   isLoading,
   selectedTrack,
@@ -14,10 +26,10 @@ export default function RotationTrackDropdown({
   onManualEntry,
   disabled,
 }: {
-  tracks: RotationTrack[];
+  tracks: T[];
   isLoading: boolean;
-  selectedTrack: RotationTrack | null;
-  onSelectTrack: (track: RotationTrack) => void;
+  selectedTrack: T | null;
+  onSelectTrack: (track: T) => void;
   onManualEntry: () => void;
   disabled: boolean;
 }) {
@@ -33,7 +45,7 @@ export default function RotationTrackDropdown({
   }, [disabled, isLoading]);
 
   const handleSelect = useCallback(
-    (track: RotationTrack) => {
+    (track: T) => {
       onSelectTrack(track);
       setOpen(false);
     },
@@ -95,7 +107,7 @@ export default function RotationTrackDropdown({
         <Box
           ref={triggerRef}
           tabIndex={disabled ? -1 : 0}
-          data-testid="rotation-track-trigger"
+          data-testid="track-picker-trigger"
           onClick={handleToggle}
           sx={{
             display: "flex",
@@ -158,7 +170,7 @@ export default function RotationTrackDropdown({
         {open && (
           <Sheet
             variant="outlined"
-            data-testid="rotation-track-panel"
+            data-testid="track-picker-panel"
             sx={{
               position: "absolute",
               top: "calc(100% + 4px)",
@@ -181,7 +193,7 @@ export default function RotationTrackDropdown({
               return (
                 <Box
                   key={`${track.position}-${index}`}
-                  data-testid={`rotation-track-option-${index}`}
+                  data-testid={`track-picker-option-${index}`}
                   onClick={() => handleSelect(track)}
                   sx={{
                     display: "flex",
@@ -233,7 +245,7 @@ export default function RotationTrackDropdown({
               );
             })}
             <Box
-              data-testid="rotation-track-manual"
+              data-testid="track-picker-manual"
               onClick={() => { onManualEntry(); setOpen(false); }}
               sx={{
                 display: "flex",

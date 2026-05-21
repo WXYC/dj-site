@@ -1,0 +1,54 @@
+.signon-card {
+  max-width: 500px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.signon-table {
+  border-collapse: collapse;
+  width: 100%;
+  border: 1px solid #ddd;
+  font-size: 0.9em;
+  line-height: 1.4;
+}
+
+.signon-table .signon-header th {
+  background: #444;
+  color: #fff;
+  padding: 8px;
+  text-align: center;
+}
+
+.signon-table .signon-header .title {
+  color: #fff;
+}
+
+.signon-table tbody td {
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+  vertical-align: middle;
+}
+
+.signon-table tbody tr:nth-child(even) td {
+  background-color: #f9f9f9;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"]
+  .signon-table tbody tr:nth-child(even) td {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .signon-table {
+  border-color: #555;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"]
+  .signon-table tbody td {
+  border-bottom-color: #444;
+}
+
+.signon-submit-row td {
+  text-align: center;
+  padding: 12px;
+  background: none !important;
+}

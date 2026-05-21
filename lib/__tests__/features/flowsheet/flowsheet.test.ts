@@ -82,6 +82,86 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
       const result = harness().reduce(actions.setSelectedResult(3));
       expect(result.search.selectedResult).toBe(3);
     });
+
+    describe("freezeSelectionToQuery", () => {
+      it("should copy the selected entry's fields into the query and deselect", () => {
+        const result = harness().chain(
+          actions.setSearchProperty({ name: "song", value: "la paradoja" }),
+          actions.setSelectedResult(2),
+          actions.freezeSelectionToQuery({
+            artist: "Juana Molina",
+            album: "DOGA",
+            label: "Sonamos",
+            album_id: 42,
+          })
+        );
+
+        expect(result.search.query.artist).toBe("Juana Molina");
+        expect(result.search.query.album).toBe("DOGA");
+        expect(result.search.query.label).toBe("Sonamos");
+        expect(result.search.query.album_id).toBe(42);
+        expect(result.search.selectedResult).toBe(0);
+        // Unrelated fields are not touched
+        expect(result.search.query.song).toBe("la paradoja");
+      });
+
+      it("should clear album_id when not provided", () => {
+        const seeded = harness().reduce(
+          actions.freezeSelectionToQuery({
+            artist: "Stereolab",
+            album: "Aluminum Tunes",
+            label: "Duophonic",
+            album_id: 7,
+          })
+        );
+        const result = harness().reduce(
+          actions.freezeSelectionToQuery({
+            artist: "Cat Power",
+            album: "Moon Pix",
+            label: "Matador Records",
+          }),
+          seeded
+        );
+        expect(result.search.query.album_id).toBeUndefined();
+      });
+
+      it("should round-trip rotation_id and rotation_bin", () => {
+        const result = harness().reduce(
+          actions.freezeSelectionToQuery({
+            artist: "Juana Molina",
+            album: "DOGA",
+            label: "Sonamos",
+            album_id: 42,
+            rotation_id: 99,
+            rotation_bin: "H",
+          })
+        );
+        expect(result.search.query.rotation_id).toBe(99);
+        expect(result.search.query.rotation_bin).toBe("H");
+      });
+
+      it("should clear rotation_id and rotation_bin when not provided", () => {
+        const seeded = harness().reduce(
+          actions.freezeSelectionToQuery({
+            artist: "Stereolab",
+            album: "Aluminum Tunes",
+            label: "Duophonic",
+            rotation_id: 5,
+            rotation_bin: "M",
+          })
+        );
+        const result = harness().reduce(
+          actions.freezeSelectionToQuery({
+            artist: "Cat Power",
+            album: "Moon Pix",
+            label: "Matador Records",
+          }),
+          seeded
+        );
+        expect(result.search.query.rotation_id).toBeUndefined();
+        expect(result.search.query.rotation_bin).toBeUndefined();
+      });
+    });
   });
 
   describe("queue actions", () => {
@@ -97,6 +177,19 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
       expect(result.queue[0].show_id).toBe(-1);
       expect(result.queueIdCounter).toBe(1);
     });
+
+    it.each([
+      { input: true, expected: true },
+      { input: false, expected: false },
+      { input: undefined, expected: undefined },
+    ])(
+      "should carry segue=$input from the query onto the queue entry",
+      ({ input, expected }) => {
+        const query = createTestFlowsheetQuery({ segue: input });
+        const result = harness().reduce(actions.addToQueue(query));
+        expect(result.queue[0].segue).toBe(expected);
+      }
+    );
 
     it("should assign incrementing IDs to queue items", () => {
       const result = harness().chain(

@@ -25,9 +25,13 @@ export function convertQueryToSubmission(
     album_title: query.album,
     record_label: query.label,
     request_flag: query.request,
+    segue: query.segue,
     album_id: query.album_id,
     rotation_id: query.rotation_id,
     rotation_bin: query.rotation_bin,
+    ...(query.track_position !== undefined && {
+      track_position: query.track_position,
+    }),
   };
 }
 
@@ -89,6 +93,7 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
         album_title: entry.album_title || "",
         record_label: entry.record_label || "",
         request_flag: entry.request_flag,
+        segue: entry.segue ?? undefined,
         album_id: entry.album_id ?? undefined,
         rotation_id: entry.rotation_id ?? undefined,
         rotation: entry.rotation_bin as Rotation,

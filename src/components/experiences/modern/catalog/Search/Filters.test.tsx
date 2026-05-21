@@ -12,49 +12,39 @@ const setup = createComponentHarnessWithQueries(
   Filters,
   { color: "primary" as ColorPaletteProp | undefined },
   {
-    exclusiveCheckbox: componentQueries.byRole("checkbox", { name: "Exclusives Only" }),
+    exclusiveCheckbox: componentQueries.byRole("checkbox", {
+      name: "Exclusives Only",
+    }),
   }
 );
 
 describe("Filters", () => {
-  it("should render the Exclusives Only checkbox", () => {
+  it("renders the Exclusives Only checkbox", () => {
     const { exclusiveCheckbox } = setup();
-
     expect(exclusiveCheckbox()).toBeInTheDocument();
   });
 
-  it("should default exclusive checkbox to unchecked", () => {
-    const { exclusiveCheckbox } = setup();
-
+  it("defaults Exclusives Only to unchecked (onStreaming = undefined)", () => {
+    const { exclusiveCheckbox, getState } = setup();
     expect(exclusiveCheckbox()).not.toBeChecked();
+    expect(catalogSlice.selectors.getFilters(getState()).onStreaming).toBeUndefined();
   });
 
-  it("should toggle exclusive filter when checkbox is clicked", async () => {
+  it("toggles onStreaming filter when Exclusives Only is clicked", async () => {
     const { exclusiveCheckbox, user, getState } = setup();
-
-    expect(catalogSlice.selectors.getExclusiveFilter(getState())).toBe(false);
-
     await user.click(exclusiveCheckbox());
-
     expect(exclusiveCheckbox()).toBeChecked();
-    expect(catalogSlice.selectors.getExclusiveFilter(getState())).toBe(true);
-  });
-
-  it("should uncheck exclusive filter when clicked again", async () => {
-    const { exclusiveCheckbox, user, getState } = setup();
-
-    await user.click(exclusiveCheckbox());
-    expect(catalogSlice.selectors.getExclusiveFilter(getState())).toBe(true);
+    expect(catalogSlice.selectors.getFilters(getState()).onStreaming).toBe(false);
 
     await user.click(exclusiveCheckbox());
     expect(exclusiveCheckbox()).not.toBeChecked();
-    expect(catalogSlice.selectors.getExclusiveFilter(getState())).toBe(false);
+    expect(catalogSlice.selectors.getFilters(getState()).onStreaming).toBeUndefined();
   });
 
-  it("should render Search In and Genre selects", () => {
+  it("renders Genre and Format selects (no Search In)", () => {
     setup();
-
-    expect(screen.getByText("Search In")).toBeInTheDocument();
     expect(screen.getByText("Genre")).toBeInTheDocument();
+    expect(screen.getByText("Format")).toBeInTheDocument();
+    expect(screen.queryByText("Search In")).not.toBeInTheDocument();
   });
 });

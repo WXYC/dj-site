@@ -1,5 +1,6 @@
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
+import { useMetadataPrefetch } from "@/lib/features/metadata/api";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useFlowsheetSubmit } from "@/src/hooks/flowsheetHooks";
 import { Chip, ColorPaletteProp, Stack, Typography } from "@mui/joy";
@@ -20,6 +21,12 @@ export default function FlowsheetBackendResult({
   const { ctrlKeyPressed: submittingToQueue, handleSubmit } =
     useFlowsheetSubmit();
 
+  // Warm the tracklist cache so the picker is instantaneous once the result is
+  // highlighted (LML's 3-tier cache + BS's 10-minute LRU absorb the actual
+  // request). Same pattern as rotation prefetch, but per-row instead of
+  // per-bin since search results are heterogeneous.
+  const prefetchTracks = useMetadataPrefetch("getLibraryTracks");
+
   return (
     <Stack
       key={`bin-${index}`}
@@ -36,7 +43,10 @@ export default function FlowsheetBackendResult({
             : "transparent",
         cursor: "pointer",
       }}
-      onMouseOver={() => setSelected(index)}
+      onMouseOver={() => {
+        setSelected(index);
+        if (entry.id) prefetchTracks(entry.id);
+      }}
       onClick={handleSubmit}
     >
       <Stack direction="column" sx={{ flex: 1, minWidth: 0, px: 1 }}>

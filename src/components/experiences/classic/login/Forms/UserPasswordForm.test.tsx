@@ -96,8 +96,22 @@ describe("UserPasswordForm", () => {
   it("should render within a table structure", () => {
     renderWithProviders(<UserPasswordForm />);
     const tables = document.querySelectorAll("table");
-    // Main component has nested tables from Main layout and RequiredBox fields
     expect(tables.length).toBeGreaterThan(0);
+  });
+
+  it("should NOT render a Reset button", () => {
+    renderWithProviders(<UserPasswordForm />);
+    expect(
+      screen.queryByRole("button", { name: /reset/i })
+    ).not.toBeInTheDocument();
+    const resetInput = document.querySelector('input[type="reset"]');
+    expect(resetInput).toBeNull();
+  });
+
+  it("should render inside a signon-card wrapper", () => {
+    renderWithProviders(<UserPasswordForm />);
+    const card = document.querySelector(".signon-card");
+    expect(card).toBeInTheDocument();
   });
 
   it("should wrap content in Main layout component with title", () => {

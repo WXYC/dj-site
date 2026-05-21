@@ -473,6 +473,7 @@ export const useFlowsheetSubmit = () => {
         album_id: flowSheetRawQuery.album_id,
         rotation_id: flowSheetRawQuery.rotation_id,
         rotation_bin: flowSheetRawQuery.rotation_bin,
+        track_position: flowSheetRawQuery.track_position,
         request: false,
       };
     } else {
@@ -486,6 +487,7 @@ export const useFlowsheetSubmit = () => {
         album_id: selectedEntry.id ?? undefined,
         rotation_bin: selectedEntry.rotation_bin ?? undefined,
         rotation_id: selectedEntry.rotation_id ?? undefined,
+        track_position: flowSheetRawQuery.track_position,
         request: false,
       };
     }

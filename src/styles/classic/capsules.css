@@ -1,0 +1,63 @@
+/* Tubafrenzy parity: REQUEST / ROTATION X / EXCLUSIVE capsule badges.
+   Colors mirror tubafrenzy's wxyc.css: #CC0000 (request), #555 (rotation), #7B2D8E (exclusive). */
+
+.classic-capsule {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-family: Verdana, Geneva, Arial, Helvetica, sans-serif;
+  font-size: 0.7em;
+  font-weight: bold;
+  color: #FFFFFF;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.classic-capsule + .classic-capsule {
+  margin-left: 4px;
+}
+
+.classic-capsule--request {
+  background-color: #CC0000;
+}
+
+.classic-capsule--rotation {
+  background-color: #555555;
+}
+
+.classic-capsule--exclusive {
+  background-color: #7B2D8E;
+}
+
+/* Capsule backgrounds are saturated enough to stay legible in Classic's
+   dark color scheme; no dark-mode overrides needed today. */
+
+.classic-matched-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.classic-matched-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-family: Verdana, Geneva, Arial, Helvetica, sans-serif;
+  font-size: 0.7em;
+  font-weight: bold;
+  color: #FFFFFF;
+  background-color: #2E5E8B;
+  white-space: nowrap;
+  line-height: 1.4;
+  cursor: default;
+}
+
+.classic-matched-chip:focus {
+  outline: 2px solid #FFCC00;
+  outline-offset: 1px;
+}
+
+.classic-matched-chip--more {
+  background-color: #4A4A4A;
+}

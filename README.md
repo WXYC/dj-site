@@ -55,8 +55,16 @@ Create a `.env.local` file in the project root with the following variables:
 # Backend API URL (required)
 NEXT_PUBLIC_BACKEND_URL=http://localhost:8080
 
-# Better Auth service URL (required for authentication)
+# Better Auth service URL (required for authentication) — browser-facing
 NEXT_PUBLIC_BETTER_AUTH_URL=http://localhost:8082/auth
+
+# Optional: server-side override for the /auth/:path* rewrite destination. Set
+# this when the auth service is reachable from the host at NEXT_PUBLIC_BETTER_AUTH_URL
+# but not from inside the dj-site server process (e.g. docker compose, where
+# localhost inside the container is the container itself). Falls back to
+# NEXT_PUBLIC_BETTER_AUTH_URL when unset, so production (Cloudflare Pages) needs
+# no change.
+# AUTH_REWRITE_URL=http://auth:8082/auth
 
 # Default page after login
 NEXT_PUBLIC_DASHBOARD_HOME_PAGE=/dashboard/flowsheet
@@ -72,7 +80,8 @@ NEXT_PUBLIC_ALLOW_EXPERIENCE_SWITCHING=true
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `NEXT_PUBLIC_BACKEND_URL` | Yes | Backend API base URL |
-| `NEXT_PUBLIC_BETTER_AUTH_URL` | Yes | Auth service URL (must end with `/auth`) |
+| `NEXT_PUBLIC_BETTER_AUTH_URL` | Yes | Auth service URL (must end with `/auth`); used by the browser and as the fallback rewrite target |
+| `AUTH_REWRITE_URL` | No | Server-only override for the `/auth/:path*` rewrite destination; defaults to `NEXT_PUBLIC_BETTER_AUTH_URL`. Set in containerized deploys where the browser URL isn't reachable from the dj-site server |
 | `NEXT_PUBLIC_DASHBOARD_HOME_PAGE` | No | Redirect path after login |
 | `NEXT_PUBLIC_DEFAULT_EXPERIENCE` | No | Default UI theme (`modern` or `classic`) |
 | `NEXT_PUBLIC_ENABLED_EXPERIENCES` | No | Comma-separated list of available themes |

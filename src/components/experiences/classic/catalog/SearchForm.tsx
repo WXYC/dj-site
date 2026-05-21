@@ -2,22 +2,16 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useRef } from "react";
-import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { catalogSlice } from "@/lib/features/catalog/frontend";
+
+import { isCatalogTrackSearchUiEnabled } from "@/lib/features/catalog/flags";
 
 export default function SearchForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const dispatch = useAppDispatch();
-  const searchQuery = useAppSelector(catalogSlice.selectors.getSearchQuery);
+  const searchQuery = searchParams.get("searchString") || "";
+  const exclusive = searchParams.get("exclusive") === "true";
+  const trackSearchUiEnabled = isCatalogTrackSearchUiEnabled();
   const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const query = searchParams.get("searchString") || "";
-    if (query) {
-      dispatch(catalogSlice.actions.setSearchQuery(query));
-    }
-  }, [searchParams, dispatch]);
 
   useEffect(() => {
     if (inputRef.current) {
@@ -29,13 +23,19 @@ export default function SearchForm() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const searchString = formData.get("searchString") as string;
-    
+    const params = new URLSearchParams();
+
     if (searchString && searchString.trim()) {
-      dispatch(catalogSlice.actions.setSearchQuery(searchString.trim()));
-      router.push(`/dashboard/catalog?searchString=${encodeURIComponent(searchString.trim())}`);
-    } else {
-      router.push(`/dashboard/catalog`);
+      params.set("searchString", searchString.trim());
     }
+    // Preserve the Exclusive filter in the URL so the active state survives
+    // submitting a free-text query while the chip is on.
+    if (exclusive) {
+      params.set("exclusive", "true");
+    }
+
+    const qs = params.toString();
+    router.push(qs ? `/dashboard/catalog?${qs}` : `/dashboard/catalog`);
   };
 
   return (
@@ -82,12 +82,26 @@ export default function SearchForm() {
                     type="reset"
                     value="Clear Box"
                     onClick={() => {
-                      dispatch(catalogSlice.actions.setSearchQuery(""));
                       if (inputRef.current) {
                         inputRef.current.value = "";
                       }
                     }}
                   />
+                </td>
+              </tr>
+              <tr>
+                <td align="center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (inputRef.current) {
+                        inputRef.current.value = "";
+                      }
+                      router.push(`/dashboard/catalog?exclusive=true`);
+                    }}
+                  >
+                    Browse Exclusive Albums
+                  </button>
                 </td>
               </tr>
               <tr>
@@ -141,10 +155,22 @@ export default function SearchForm() {
           characters. <b>Example:</b>{" "}
           <a href="/dashboard/catalog?searchString=elect*">elect*</a>.
         </p>
-        <p>
-          Coming later: searchable song/track names, tags, DJ-generated tags
-          comments.
-        </p>
+        {trackSearchUiEnabled ? (
+          <p>
+            Track lookups: search a track title to find the album that contains
+            it — including compilation and various-artists releases.{" "}
+            <b>Example:</b>{" "}
+            <a href="/dashboard/catalog?searchString=vi+scose+poise">
+              vi scose poise
+            </a>{" "}
+            → Confield by Autechre.
+          </p>
+        ) : (
+          <p>
+            Coming later: searchable song/track names, tags, DJ-generated tags
+            comments.
+          </p>
+        )}
         <p>
           Please email any feedback or suggestions to Tim Ross [tubacity AT
           gmail DOT com].

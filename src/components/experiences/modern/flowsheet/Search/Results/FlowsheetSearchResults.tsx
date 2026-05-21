@@ -2,10 +2,14 @@
 
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
-import { useAppSelector } from "@/lib/hooks";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { Box, Chip, Divider, Sheet, Stack, Typography } from "@mui/joy";
+import { useEffect, useMemo, useState } from "react";
 import FlowsheetBackendResults from "./BackendResults/FlowsheetBackendResults";
 import NewEntryPreview from "./NewEntry/NewEntryPreview";
+import LibraryTrackPicker, {
+  useLibraryTrackPicker,
+} from "../LibraryTrackPicker";
 
 export default function FlowsheetSearchResults({
   binResults,
@@ -18,8 +22,43 @@ export default function FlowsheetSearchResults({
   rotationResults: AlbumEntry[];
   lmlResults: AlbumEntry[];
 }) {
+  const dispatch = useAppDispatch();
   const open = useAppSelector(flowsheetSlice.selectors.getSearchOpen);
   const rotationMode = useAppSelector(flowsheetSlice.selectors.getRotationMode);
+  const selectedResult = useAppSelector(
+    flowsheetSlice.selectors.getSelectedResult
+  );
+
+  // Resolve the highlighted result to a release id so the picker knows what to
+  // fetch. Index 0 is the "new entry" preview (free-text only — no release to
+  // pick tracks from). Indices 1+ map into the concatenated result lists in
+  // the same order they're rendered above (bin → rotation → catalog → lml).
+  const allResults = useMemo(
+    () => [...binResults, ...rotationResults, ...catalogResults, ...lmlResults],
+    [binResults, rotationResults, catalogResults, lmlResults]
+  );
+  const highlightedResult: AlbumEntry | null =
+    selectedResult > 0 ? allResults[selectedResult - 1] ?? null : null;
+
+  const [manualOverride, setManualOverride] = useState<number | null>(null);
+  // Reset the "Not listed — enter manually" opt-out when the DJ navigates to a
+  // different result.
+  useEffect(() => {
+    if (
+      manualOverride !== null &&
+      highlightedResult?.id !== manualOverride
+    ) {
+      setManualOverride(null);
+    }
+  }, [highlightedResult?.id, manualOverride]);
+
+  const picker = useLibraryTrackPicker(
+    highlightedResult && highlightedResult.id !== manualOverride
+      ? highlightedResult.id
+      : null
+  );
+
+  const showPickerRow = !!highlightedResult && !rotationMode;
 
   return (
     <Sheet
@@ -96,6 +135,55 @@ export default function FlowsheetSearchResults({
             label="From Library Search"
           />
         </Box>
+        {showPickerRow && (
+          <>
+            <Divider />
+            <Stack
+              direction="row"
+              alignItems="center"
+              spacing={1}
+              data-testid="flowsheet-search-track-picker-row"
+              sx={{ flexShrink: 0, minHeight: "40px", p: 1 }}
+            >
+              <Typography
+                level="body-xs"
+                sx={{
+                  color: "text.tertiary",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  minWidth: "fit-content",
+                }}
+              >
+                Track
+              </Typography>
+              {picker.show ? (
+                <LibraryTrackPicker
+                  tracks={picker.tracks}
+                  isLoading={picker.isLoading}
+                  disabled={false}
+                  onManualEntry={() => {
+                    if (highlightedResult)
+                      setManualOverride(highlightedResult.id);
+                    dispatch(
+                      flowsheetSlice.actions.setSearchProperty({
+                        name: "song",
+                        value: "",
+                      })
+                    );
+                  }}
+                />
+              ) : picker.isLoading ? (
+                <Typography level="body-xs" sx={{ opacity: 0.5 }}>
+                  Loading tracks…
+                </Typography>
+              ) : (
+                <Typography level="body-xs" sx={{ opacity: 0.5 }}>
+                  No tracklist on file — type the song title above.
+                </Typography>
+              )}
+            </Stack>
+          </>
+        )}
         <Stack
           direction="row"
           justifyContent="flex-end"

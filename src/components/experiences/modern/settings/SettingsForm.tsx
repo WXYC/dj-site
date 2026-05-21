@@ -95,7 +95,7 @@ export default function SettingsForm({ user }: SettingsFormProps) {
           name="namePronunciation"
           backendValue={user.namePronunciation}
           endDecorator={<VolumeUp />}
-          placeholder="e.g., JAY-kub"
+          placeholder="e.g., AL-oh-ISH-əs"
         />
       </FormControl>
 

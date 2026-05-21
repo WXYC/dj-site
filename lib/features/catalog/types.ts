@@ -1,7 +1,9 @@
-import type { AlbumSearchResult } from "@wxyc/shared/dtos";
+import type { AlbumSearchResult, TrackMatchHint } from "@wxyc/shared/dtos";
+import { TrackMatchSource } from "@wxyc/shared/dtos";
 import { Rotation } from "../rotation/types";
 
-export type { AlbumSearchResult };
+export type { AlbumSearchResult, TrackMatchHint };
+export { TrackMatchSource };
 
 /**
  * JSON boundary adapter for AlbumSearchResult.
@@ -104,6 +106,7 @@ export type AlbumEntry = {
   date_lost?: string;
   date_found?: string;
   artwork_url?: string | null;
+  matched_via?: TrackMatchHint[];
 };
 
 export type ArtistEntry = {
@@ -113,6 +116,84 @@ export type ArtistEntry = {
   genre: Genre;
   id: number | undefined;
 };
+
+// --- Query-builder state ---
+
+export type CatalogSearchField = "all" | "artist" | "album" | "label";
+export type CatalogSearchOperator = "AND" | "OR" | "NOT";
+export type CatalogSortBy = "artist" | "album" | "plays" | "date";
+export type CatalogSortOrder = "asc" | "desc";
+
+export type CatalogSearchRow = {
+  id: string; // uuid for stable React keys
+  operator: CatalogSearchOperator; // first row's operator is hidden by the UI but stored as 'AND'
+  field: CatalogSearchField;
+  value: string;
+  exact: boolean; // mirrored from quoted-value input
+};
+
+export type CatalogFilters = {
+  onStreaming: boolean | undefined; // undefined = no filter
+  genre: Genre | "All"; // 'All' = no filter
+  format: Format | "All"; // 'All' = no filter
+};
+
+export type CatalogSearchState = {
+  rows: CatalogSearchRow[];
+  sortBy: CatalogSortBy;
+  sortOrder: CatalogSortOrder;
+  page: number;
+  filters: CatalogFilters;
+  selected: number[];
+  mobileOpen: boolean;
+};
+
+// --- Request envelope for /library/query ---
+
+export type LibraryQueryParams = {
+  q?: string;
+  page?: number;
+  limit?: number;
+  sort?: CatalogSortBy;
+  order?: CatalogSortOrder;
+  on_streaming?: boolean;
+  genre?: string;
+  format?: string;
+};
+
+export type Format = "Vinyl" | "CD" | "Unknown";
+
+export type Genre =
+  | "Blues"
+  | "Rock"
+  | "Electronic"
+  | "Hiphop"
+  | "Jazz"
+  | "Classical"
+  | "Reggae"
+  | "Soundtracks"
+  | "OCS"
+  | "Unknown";
+
+/** Legacy single-string search for admin catalog (isolated from query builder). */
+export type LegacyCatalogSearchState = {
+  query: string;
+  in: SearchIn;
+  genre: Genre | "All";
+  exclusive: boolean;
+  mobileOpen: boolean;
+  params: {
+    n: number;
+    orderBy?: string;
+    orderDirection?: "asc" | "desc";
+  };
+};
+
+export type CatalogResultsState = {
+  selected: number[];
+};
+
+export type SearchIn = "Artists" | "Albums" | "All";
 
 /** Keys tracked for "Create artist" (Redux, same pattern as login `authenticationSlice`). */
 export type AdminCreateArtistFieldKey =
@@ -133,46 +214,11 @@ export type AdminCreateArtistFormState = {
 
 /** Isolated search/results for `/dashboard/admin/catalog` (does not clobber Card Catalog). */
 export type AdminCatalogUIState = {
-  search: CatalogSearchState;
+  search: LegacyCatalogSearchState;
   results: CatalogResultsState;
 };
 
-export type CatalogFrontendState = {
-  search: CatalogSearchState;
-  results: CatalogResultsState;
+export type CatalogFrontendState = CatalogSearchState & {
   adminCatalog: AdminCatalogUIState;
   adminCreateArtist: AdminCreateArtistFormState;
 };
-
-export type CatalogSearchState = {
-  query: string;
-  in: SearchIn;
-  genre: Genre | "All";
-  exclusive: boolean;
-  mobileOpen: boolean;
-  params: {
-    n: number;
-    orderBy?: string;
-    orderDirection?: "asc" | "desc";
-  };
-};
-
-export type CatalogResultsState = {
-  selected: number[];
-};
-
-export type SearchIn = "Artists" | "Albums" | "All";
-
-export type Format = "Vinyl" | "CD" | "Unknown";
-
-export type Genre =
-  | "Blues"
-  | "Rock"
-  | "Electronic"
-  | "Hiphop"
-  | "Jazz"
-  | "Classical"
-  | "Reggae"
-  | "Soundtracks"
-  | "OCS"
-  | "Unknown";

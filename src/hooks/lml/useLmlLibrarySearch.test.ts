@@ -1,7 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
+import { Provider } from "react-redux";
 import { http, HttpResponse } from "msw";
-import { server, createTestLmlLibraryItem } from "@/lib/test-utils";
+import React from "react";
+import {
+  server,
+  createTestLmlLibraryItem,
+  createTestStore,
+  TEST_BACKEND_URL,
+} from "@/lib/test-utils";
+import type { AppStore } from "@/lib/store";
 import { useLmlLibrarySearch } from "./useLmlLibrarySearch";
 import type { LmlLibrarySearchResponse } from "./types";
 
@@ -9,9 +17,13 @@ vi.mock("@/lib/features/authentication/client", () => ({
   getJWTToken: vi.fn().mockResolvedValue("test-jwt-token"),
 }));
 
-const BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
-const PROXY_SEARCH_URL = `${BACKEND_URL}/proxy/library/search`;
+const PROXY_SEARCH_URL = `${TEST_BACKEND_URL}/proxy/library/search`;
+
+function withStore(store: AppStore = createTestStore()) {
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return React.createElement(Provider, { store, children });
+  };
+}
 
 describe("useLmlLibrarySearch", () => {
   beforeEach(() => {
@@ -23,8 +35,9 @@ describe("useLmlLibrarySearch", () => {
   });
 
   it("should return empty array when query is too short", async () => {
-    const { result } = renderHook(() =>
-      useLmlLibrarySearch({ artist: "a", album: "" })
+    const { result } = renderHook(
+      () => useLmlLibrarySearch({ artist: "a", album: "" }),
+      { wrapper: withStore() }
     );
 
     await vi.advanceTimersByTimeAsync(400);
@@ -46,8 +59,9 @@ describe("useLmlLibrarySearch", () => {
       })
     );
 
-    renderHook(() =>
-      useLmlLibrarySearch({ artist: "Juana Molina", album: "DOGA" })
+    renderHook(
+      () => useLmlLibrarySearch({ artist: "Juana Molina", album: "DOGA" }),
+      { wrapper: withStore() }
     );
 
     await vi.advanceTimersByTimeAsync(400);
@@ -71,8 +85,9 @@ describe("useLmlLibrarySearch", () => {
       })
     );
 
-    renderHook(() =>
-      useLmlLibrarySearch({ artist: "Stereolab", album: "Aluminum" })
+    renderHook(
+      () => useLmlLibrarySearch({ artist: "Stereolab", album: "Aluminum" }),
+      { wrapper: withStore() }
     );
 
     await vi.advanceTimersByTimeAsync(400);
@@ -103,8 +118,9 @@ describe("useLmlLibrarySearch", () => {
       })
     );
 
-    const { result } = renderHook(() =>
-      useLmlLibrarySearch({ artist: "Cat Power", album: "Moon" })
+    const { result } = renderHook(
+      () => useLmlLibrarySearch({ artist: "Cat Power", album: "Moon" }),
+      { wrapper: withStore() }
     );
 
     await vi.advanceTimersByTimeAsync(400);
@@ -131,8 +147,9 @@ describe("useLmlLibrarySearch", () => {
       })
     );
 
-    const { result } = renderHook(() =>
-      useLmlLibrarySearch({ artist: "Stereolab", album: "Aluminum" })
+    const { result } = renderHook(
+      () => useLmlLibrarySearch({ artist: "Stereolab", album: "Aluminum" }),
+      { wrapper: withStore() }
     );
 
     await vi.advanceTimersByTimeAsync(400);
@@ -148,8 +165,9 @@ describe("useLmlLibrarySearch", () => {
       })
     );
 
-    const { result } = renderHook(() =>
-      useLmlLibrarySearch({ artist: "Anne Gillis", album: "Eyry" })
+    const { result } = renderHook(
+      () => useLmlLibrarySearch({ artist: "Anne Gillis", album: "Eyry" }),
+      { wrapper: withStore() }
     );
 
     await vi.advanceTimersByTimeAsync(400);
@@ -173,7 +191,10 @@ describe("useLmlLibrarySearch", () => {
 
     const { rerender } = renderHook(
       ({ artist, album }) => useLmlLibrarySearch({ artist, album }),
-      { initialProps: { artist: "Jua", album: "" } }
+      {
+        initialProps: { artist: "Jua", album: "" },
+        wrapper: withStore(),
+      }
     );
 
     // Change query before debounce fires
@@ -182,11 +203,71 @@ describe("useLmlLibrarySearch", () => {
     await vi.advanceTimersByTimeAsync(100);
     rerender({ artist: "Juana", album: "" });
 
-    // Wait for debounce
+    // Wait for debounce + fetch
     await vi.advanceTimersByTimeAsync(400);
     await waitFor(() => expect(callCount).toBeGreaterThan(0));
 
     // Only one request should have been made
     expect(callCount).toBe(1);
+  });
+
+  it("dedupes parallel subscribers on identical args (the #563 fix)", async () => {
+    // Two subscribers in the SAME store mount the hook with the same args.
+    // RTK Query should share one in-flight request and one cache entry; the
+    // pre-#563 raw-fetch model fired one per subscriber.
+    let callCount = 0;
+    server.use(
+      http.get(PROXY_SEARCH_URL, () => {
+        callCount++;
+        return HttpResponse.json({
+          results: [],
+          total: 0,
+          query: null,
+        } satisfies LmlLibrarySearchResponse);
+      })
+    );
+
+    const store = createTestStore();
+    renderHook(
+      () => useLmlLibrarySearch({ artist: "Stereolab", album: "Aluminum" }),
+      { wrapper: withStore(store) }
+    );
+    renderHook(
+      () => useLmlLibrarySearch({ artist: "Stereolab", album: "Aluminum" }),
+      { wrapper: withStore(store) }
+    );
+    renderHook(
+      () => useLmlLibrarySearch({ artist: "Stereolab", album: "Aluminum" }),
+      { wrapper: withStore(store) }
+    );
+
+    await vi.advanceTimersByTimeAsync(400);
+    await waitFor(() => expect(callCount).toBeGreaterThan(0));
+
+    expect(callCount).toBe(1);
+  });
+
+  it("isLoading is true while debounce is pending for a valid query", async () => {
+    server.use(
+      http.get(PROXY_SEARCH_URL, () =>
+        HttpResponse.json({
+          results: [],
+          total: 0,
+          query: null,
+        } satisfies LmlLibrarySearchResponse)
+      )
+    );
+
+    const { result } = renderHook(
+      () => useLmlLibrarySearch({ artist: "Stere", album: "" }),
+      { wrapper: withStore() }
+    );
+
+    // Before debounce settles, isLoading should be true (valid query, but
+    // debouncedArgs not yet updated).
+    expect(result.current.isLoading).toBe(true);
+
+    await vi.advanceTimersByTimeAsync(400);
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
   });
 });

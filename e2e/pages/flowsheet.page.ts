@@ -219,22 +219,32 @@ export class FlowsheetPage {
   ): Promise<void> {
     await this.fillSearchForm(data);
     // Register response listener BEFORE submitting so we don't miss the POST
-    // if it completes while we're waiting for the form to clear.
+    // if it completes while we're waiting for the form to clear. Timeout is
+    // generous (30s) because parallel-worker contention on the shared E2E
+    // backend can stretch a single POST end-to-end well past 15s — the
+    // previous 15s value was the masked failure mode that the form-clear
+    // race used to hide (see #570 diagnosis).
     const responsePromise = this.page.waitForResponse(
       (r) => r.url().includes("/flowsheet") && r.request().method() === "POST" && r.status() < 300,
-      { timeout: 15000 }
+      { timeout: 30000 }
     );
     if (method === "button") {
       await this.submitViaButton();
     } else {
       await this.submitViaEnter();
     }
-    // Wait for the form to clear — handleSubmit dispatches addToFlowsheet()
-    // then immediately resets the search form, so this confirms the mutation
-    // was initiated (though not necessarily that the response has arrived).
-    await expect(this.songInput).toHaveValue("", { timeout: 10000 });
-    // Wait for the POST response to confirm the entry is persisted on the server.
+    // Wait for the server's response FIRST — that's the structural signal that
+    // the mutation completed end-to-end. THEN assert the form cleared with a
+    // short follow-up timeout: handleSubmit awaits addToFlowsheet, dispatches
+    // resetSearch on success ([flowsheetHooks.ts:494-520]), and the input
+    // value re-reads from Redux state — all synchronous after the response.
+    // 2s is plenty for React's commit + DOM update.
+    //
+    // The previous shape raced the form-clear (10s timeout) against the
+    // response itself, which is non-deterministic when the server is slow.
+    // See WXYC/dj-site#570.
     await responsePromise;
+    await expect(this.songInput).toHaveValue("", { timeout: 2000 });
   }
 
   // --- Entry locators ---

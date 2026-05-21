@@ -14,6 +14,10 @@ export const handlers = [
     return HttpResponse.json([]);
   }),
 
+  http.get(`${BACKEND_URL}/library/query`, () => {
+    return HttpResponse.json({ results: [], total: 0, page: 0, totalPages: 0 });
+  }),
+
   http.get(`${BACKEND_URL}/library/info`, () => {
     return HttpResponse.json({});
   }),

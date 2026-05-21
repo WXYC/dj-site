@@ -19,9 +19,26 @@ vi.mock("@/lib/features/authentication/client", () => ({
 
 describe("catalogApi", () => {
   describeApi(catalogApi, {
-    queries: ["searchCatalog", "getInformation", "getFormats", "getGenres", "peekArtistCode"],
+    queries: [
+      "searchCatalog",
+      "searchLibraryQuery",
+      "getInformation",
+      "getFormats",
+      "getGenres",
+      "peekArtistCode",
+    ],
     mutations: ["addAlbum", "addArtist", "addFormat", "addGenre"],
     reducerPath: "catalogApi",
+  });
+
+  describe("searchLibraryQuery endpoint", () => {
+    it("is defined", () => {
+      expect(catalogApi.endpoints.searchLibraryQuery).toBeDefined();
+    });
+
+    it("exposes initiate", () => {
+      expect(typeof catalogApi.endpoints.searchLibraryQuery.initiate).toBe("function");
+    });
   });
 
   describe("exported hooks", () => {

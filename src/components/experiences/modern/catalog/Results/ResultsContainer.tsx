@@ -3,7 +3,7 @@
 import Logo from "@/src/components/shared/Branding/Logo";
 import {
   useAdminCatalogSearch,
-  useCatalogSearch,
+  useCatalogQuerySearch,
 } from "@/src/hooks/catalogHooks";
 import { DoubleArrow } from "@mui/icons-material";
 import { Box, Button, ColorPaletteProp, Sheet, Typography } from "@mui/joy";
@@ -13,18 +13,20 @@ import { toast } from "sonner";
 
 function CatalogResultsContainerInner({
   children,
-  searchString,
+  hasActiveQuery,
   selected,
   clearSelection,
   showBinBulk,
   color = "primary",
+  emptyHint = "Build a query above to explore the library, or just pick a sort to browse the catalog.",
 }: {
   children: React.ReactNode;
-  searchString: string;
+  hasActiveQuery: boolean;
   selected: number[];
   clearSelection: () => void;
   showBinBulk: boolean;
   color?: ColorPaletteProp;
+  emptyHint?: string;
 }) {
   const { addToBin, loading } = useAddToBin();
   const tableRef = useRef<HTMLTableElement>(null);
@@ -61,7 +63,7 @@ function CatalogResultsContainerInner({
         width: "100%",
         borderRadius: "md",
         flex: 1,
-        overflow: searchString.length > 0 ? "auto" : "hidden",
+        overflow: hasActiveQuery ? "auto" : "hidden",
         minHeight: 0,
         position: "relative",
       }}
@@ -74,9 +76,9 @@ function CatalogResultsContainerInner({
           width: "100%",
           height: "100%",
           zIndex: 999,
-          backdropFilter: searchString.length > 0 ? "blur(0)" : "blur(1rem)",
+          backdropFilter: hasActiveQuery ? "blur(0)" : "blur(1rem)",
           borderRadius: "lg",
-          pointerEvents: searchString.length > 0 ? "none" : "auto",
+          pointerEvents: hasActiveQuery ? "none" : "auto",
           transition: "backdrop-filter 0.2s",
           display: "flex",
           flexDirection: "column",
@@ -87,7 +89,7 @@ function CatalogResultsContainerInner({
         <Box
           sx={{
             height: "80%",
-            opacity: searchString.length > 0 ? 0 : 1,
+            opacity: hasActiveQuery ? 0 : 1,
             transition: "opacity 0.2s",
             pb: 2,
           }}
@@ -98,7 +100,7 @@ function CatalogResultsContainerInner({
             level="body-lg"
             sx={{ textAlign: "center" }}
           >
-            Start typing in the search bar above to explore the library!
+            {emptyHint}
           </Typography>
         </Box>
       </Box>
@@ -139,10 +141,10 @@ function CatalogResultsContainer({
 }: {
   children: React.ReactNode;
 }) {
-  const { searchString, selected, clearSelection } = useCatalogSearch();
+  const { hasActiveQuery, selected, clearSelection } = useCatalogQuerySearch();
   return (
     <CatalogResultsContainerInner
-      searchString={searchString}
+      hasActiveQuery={hasActiveQuery}
       selected={selected}
       clearSelection={clearSelection}
       showBinBulk
@@ -160,13 +162,15 @@ function AdminResultsContainer({
   color?: ColorPaletteProp;
 }) {
   const { searchString, selected, clearSelection } = useAdminCatalogSearch();
+  const hasActiveQuery = searchString.length > 0;
   return (
     <CatalogResultsContainerInner
-      searchString={searchString}
+      hasActiveQuery={hasActiveQuery}
       selected={selected}
       clearSelection={clearSelection}
       showBinBulk={false}
       color={color ?? "success"}
+      emptyHint="Start typing in the search bar above to explore the library!"
     >
       {children}
     </CatalogResultsContainerInner>

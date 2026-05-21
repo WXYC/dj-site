@@ -1,6 +1,8 @@
 "use client";
 
+import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { FlowsheetSearchProperty } from "@/lib/features/flowsheet/types";
+import { useAppDispatch } from "@/lib/hooks";
 import { useFlowsheetSearch } from "@/src/hooks/flowsheetHooks";
 import { toTitleCase } from "@/src/utilities/stringutilities";
 import { InputHTMLAttributes, Ref } from "react";
@@ -25,10 +27,11 @@ export default function FlowsheetSearchInput({
 }: FlowsheetSearchInputProps) {
   const { getDisplayValue, setSearchProperty, selectedIndex, selectedEntry } =
     useFlowsheetSearch();
+  const dispatch = useAppDispatch();
 
   const displayValue = getDisplayValue(name);
 
-  // Check if field is auto-filled from the selected entry
+  // Whether this field's value is currently sourced from a selected result.
   let isAutoFilled = false;
   if (selectedIndex > 0 && name !== "song" && selectedEntry) {
     switch (name) {
@@ -43,6 +46,22 @@ export default function FlowsheetSearchInput({
         break;
     }
   }
+
+  // Freeze the selected entry's fields into the live query and deselect, so
+  // editing one field doesn't blank out the others that came from the result.
+  const thawSelection = () => {
+    if (!selectedEntry) return;
+    dispatch(
+      flowsheetSlice.actions.freezeSelectionToQuery({
+        artist: selectedEntry.artist?.name ?? "",
+        album: selectedEntry.title ?? "",
+        label: selectedEntry.label ?? "",
+        album_id: selectedEntry.id ?? undefined,
+        rotation_id: selectedEntry.rotation_id ?? undefined,
+        rotation_bin: selectedEntry.rotation_bin ?? undefined,
+      })
+    );
+  };
 
   const hasGhost = !isAutoFilled && Boolean(ghostSuffix);
 
@@ -90,15 +109,12 @@ export default function FlowsheetSearchInput({
         value={displayValue}
         autoComplete="off"
         onChange={(e) => {
-          if (!isAutoFilled) {
-            setSearchProperty(name, e.target.value);
+          if (isAutoFilled) {
+            thawSelection();
           }
+          setSearchProperty(name, e.target.value);
         }}
         onKeyDown={(e) => {
-          if (isAutoFilled && e.key !== "Tab" && e.key !== "Shift" && e.key !== "Enter") {
-            e.preventDefault();
-            return;
-          }
           // Accept ghost text on Tab
           if (e.key === "Tab" && hasGhost && onAcceptGhost) {
             e.preventDefault();
@@ -106,17 +122,9 @@ export default function FlowsheetSearchInput({
           }
         }}
         onClick={(e) => e.stopPropagation()}
-        readOnly={isAutoFilled}
         disabled={Boolean(props.disabled)}
         {...props}
-        style={{
-          ...externalStyle,
-          cursor: isAutoFilled ? "not-allowed" : externalStyle?.cursor,
-          opacity: isAutoFilled ? 0.6 : externalStyle?.opacity,
-          backgroundColor: isAutoFilled
-            ? "rgba(0, 0, 0, 0.05)"
-            : externalStyle?.backgroundColor,
-        }}
+        style={externalStyle}
       />
     </div>
   );

@@ -42,12 +42,16 @@ export default defineConfig({
   /* Shared settings for all projects */
   use: {
     baseURL: process.env.E2E_BASE_URL || "http://localhost:3000",
-    /* Collect trace when retrying the failed test */
-    trace: "on-first-retry",
+    /* Retain trace + video for every failed attempt, not just the retry.
+     * When the original attempt fails differently than the retry (timeout
+     * on first run, hang on second), we need both traces to discriminate
+     * between hypotheses. Only failed attempts retain artifacts, so cost
+     * scales with failure count (and per-spec retry overrides like
+     * entry-caching's retries=2). See #572. */
+    trace: "retain-on-failure",
     /* Capture screenshot on failure */
     screenshot: "only-on-failure",
-    /* Record video on first retry */
-    video: "on-first-retry",
+    video: "retain-on-failure",
     /* Maximum time each action such as click() can take */
     actionTimeout: 10000,
   },

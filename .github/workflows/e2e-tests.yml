@@ -37,6 +37,7 @@ env:
   NEXT_PUBLIC_DEFAULT_EXPERIENCE: modern
   NEXT_PUBLIC_ENABLED_EXPERIENCES: modern,classic
   NEXT_PUBLIC_ALLOW_EXPERIENCE_SWITCHING: "true"
+  NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED: "true"
   NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD: temppass123
   NEXT_PUBLIC_APP_ORGANIZATION: test-org
   SESSION_SECRET: e2e-secret-for-testing
@@ -48,11 +49,22 @@ env:
   E2E_AUTH_PORT: 8084
   E2E_BACKEND_PORT: 8085
 
+# Workflow-level GITHUB_TOKEN scope. No job in this file pushes code,
+# comments on PRs, or creates releases; all writes to external services
+# use their own non-GITHUB_TOKEN secrets. contents:read is the safe floor.
+permissions:
+  contents: read
+
 jobs:
   e2e:
-    name: E2E Tests
+    name: E2E Tests (shard ${{ matrix.shard }}/${{ strategy.job-total }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
 
     services:
       postgres:
@@ -71,12 +83,12 @@ jobs:
 
     steps:
       - name: Checkout dj-site
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           path: dj-site
 
       - name: Checkout Backend-Service
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: ${{ github.repository_owner }}/Backend-Service
           ref: ${{ github.event.inputs.backend_ref || 'main' }}
@@ -84,9 +96,9 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: "24"
           cache: "npm"
           cache-dependency-path: |
             dj-site/package-lock.json
@@ -114,11 +126,27 @@ jobs:
           E2E_BACKEND_PORT=8085
           COOKIE_SAME_SITE=lax
           NODE_ENV=test
+          # Mirror target: localhost mock that returns 200 to every POST,
+          # short-circuiting the 15.5s exponential-backoff retry storm that
+          # the default (https://www.wxyc.info, currently cert-expired) would
+          # produce. Mock is started in the next workflow step. See #567.
+          TUBAFRENZY_URL=http://localhost:9091
+          MIRROR_API_KEY=e2e-mirror-noop-key
           EOF
+
+      - name: Start mock tubafrenzy mirror
+        working-directory: dj-site
+        run: |
+          node e2e/scripts/mock-tubafrenzy.mjs > /tmp/mock-tubafrenzy.log 2>&1 &
+          echo $! > /tmp/mock-tubafrenzy.pid
+          # Wait for the mock to bind before any later step expects it to
+          # answer. ~50ms in practice; cap at 5s as a safety net.
+          timeout 5 bash -c 'until curl -sf -X POST -H "Content-Type: application/json" --data "{}" http://localhost:9091/ >/dev/null; do sleep 0.1; done'
+          echo "Mock tubafrenzy ready"
 
       - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ hashFiles('dj-site/package-lock.json') }}
@@ -133,11 +161,15 @@ jobs:
 
       - name: Cache dj-site build
         id: nextjs-build-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: dj-site/.next
-          key: e2e-nextjs-${{ hashFiles('dj-site/package-lock.json') }}-${{ hashFiles('dj-site/next.config.*') }}-${{ hashFiles('dj-site/app/**', 'dj-site/src/**', 'dj-site/lib/**') }}
+          # Workflow file hash is included because the env block (NEXT_PUBLIC_*)
+          # is inlined into the Next.js build; flipping a flag without invalidating
+          # the cache would silently serve a stale build.
+          key: e2e-nextjs-${{ hashFiles('dj-site/package-lock.json') }}-${{ hashFiles('dj-site/next.config.*') }}-${{ hashFiles('dj-site/.github/workflows/e2e-tests.yml') }}-${{ hashFiles('dj-site/app/**', 'dj-site/src/**', 'dj-site/lib/**') }}
           restore-keys: |
+            e2e-nextjs-${{ hashFiles('dj-site/package-lock.json') }}-${{ hashFiles('dj-site/next.config.*') }}-${{ hashFiles('dj-site/.github/workflows/e2e-tests.yml') }}-
             e2e-nextjs-${{ hashFiles('dj-site/package-lock.json') }}-${{ hashFiles('dj-site/next.config.*') }}-
             e2e-nextjs-${{ hashFiles('dj-site/package-lock.json') }}-
 
@@ -214,7 +246,15 @@ jobs:
 
       - name: Run E2E tests
         working-directory: dj-site
-        run: npm run test:e2e -- --max-failures=10 --reporter=html --reporter=github
+        # --max-failures kept at 10 per shard: with sharding, a stuck shard
+        # hits its cap on its own, so dropping to 1 tanks otherwise-green
+        # shards (see prior commit on #574).
+        run: |
+          npm run test:e2e -- \
+            "--shard=${{ matrix.shard }}/${{ strategy.job-total }}" \
+            "--max-failures=10" \
+            "--reporter=html" \
+            "--reporter=github"
 
       - name: Show service logs on failure
         if: failure()
@@ -227,20 +267,23 @@ jobs:
           echo ""
           echo "=== Frontend Logs ==="
           cat /tmp/frontend.log 2>/dev/null || echo "No frontend log"
+          echo ""
+          echo "=== Mock Tubafrenzy Logs ==="
+          cat /tmp/mock-tubafrenzy.log 2>/dev/null || echo "No mock-tubafrenzy log"
 
       - name: Upload Playwright report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: playwright-report
+          name: playwright-report-shard-${{ matrix.shard }}
           path: dj-site/playwright-report/
           retention-days: 30
 
       - name: Upload test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: failure()
         with:
-          name: test-results
+          name: test-results-shard-${{ matrix.shard }}
           path: dj-site/test-results/
           retention-days: 7
 
@@ -250,3 +293,22 @@ jobs:
           kill $(cat /tmp/frontend.pid 2>/dev/null) 2>/dev/null || true
           kill $(cat /tmp/auth.pid 2>/dev/null) 2>/dev/null || true
           kill $(cat /tmp/backend.pid 2>/dev/null) 2>/dev/null || true
+          kill $(cat /tmp/mock-tubafrenzy.pid 2>/dev/null) 2>/dev/null || true
+
+  # Single stable check for branch protection. With the matrix above, individual
+  # shard jobs are named "E2E Tests (shard N/M)" — that name shifts if we ever
+  # change the shard count. This aggregator stays "E2E Tests" so the required-
+  # status-check rule doesn't need touching.
+  e2e-all:
+    name: E2E Tests
+    needs: e2e
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify all shards passed
+        run: |
+          if [ "${{ needs.e2e.result }}" != "success" ]; then
+            echo "One or more E2E shards failed: ${{ needs.e2e.result }}"
+            exit 1
+          fi
+          echo "All E2E shards passed"

@@ -2,7 +2,6 @@
 
 import {
   useAdminCatalogSearch,
-  useCatalogSearch,
 } from "@/src/hooks/catalogHooks";
 import { Cancel, Troubleshoot } from "@mui/icons-material";
 import {
@@ -14,6 +13,7 @@ import {
   Input,
 } from "@mui/joy";
 import { Filters } from "./Filters";
+import QueryBuilder from "./QueryBuilder";
 
 function SearchBarInner({
   color,
@@ -85,14 +85,37 @@ function CatalogSearchBar({
 }: {
   color: ColorPaletteProp | undefined;
 }) {
-  const { searchString, setSearchString } = useCatalogSearch();
   return (
-    <SearchBarInner
-      color={color}
-      searchString={searchString}
-      setSearchString={setSearchString}
-      filterScope="catalog"
-    />
+    <Box
+      className="SearchAndFilters-tabletUp"
+      sx={{
+        borderRadius: "sm",
+        py: 2,
+        display: {
+          xs: "none",
+          sm: "flex",
+        },
+        flexDirection: "column",
+        gap: 1.5,
+      }}
+    >
+      <QueryBuilder />
+      <Box
+        sx={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 1.5,
+          "& > *": {
+            minWidth: {
+              xs: "180px",
+              md: "200px",
+            },
+          },
+        }}
+      >
+        <Filters color={color} scope="catalog" />
+      </Box>
+    </Box>
   );
 }
 

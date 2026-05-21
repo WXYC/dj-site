@@ -54,6 +54,12 @@ vi.mock("./catalogHooks", () => ({
   useRotationFlowsheetSearch: () => mockUseRotationFlowsheetSearch(),
 }));
 
+// Mock LML hooks (#563 — useLmlLibrarySearch now wraps lmlApi RTK Query, which
+// isn't in the createHookWrapper store these tests use).
+vi.mock("./lml", () => ({
+  useLmlLibrarySearch: () => ({ results: [], isLoading: false }),
+}));
+
 // Mock flowsheet API hooks
 const mockGoLiveFunction = vi.fn();
 const mockLeaveFunction = vi.fn();
@@ -1054,6 +1060,114 @@ describe("flowsheetHooks", () => {
       expect(result.current.selectedResultData.label).toBe("Label From Search");
       expect(result.current.selectedResultData.album_id).toBe(123);
       expect(result.current.selectedResultData.rotation_id).toBe(456);
+    });
+
+    it("should forward track_position from flowSheetRawQuery into selectedResultData", () => {
+      // When the picker dispatches setTrackPosition, it writes to
+      // flowsheet.search.query.track_position. The selectedResultData memo
+      // must forward that field so convertQueryToSubmission emits it on the
+      // outbound POST. Without this, picker selections silently lose
+      // track_position before reaching the wire (regression-guard for #502).
+      const mockAlbum = createTestAlbum({ id: 555, title: "DOGA" });
+
+      mockUseCatalogFlowsheetSearch.mockReturnValue({
+        searchResults: [mockAlbum],
+      });
+
+      const customWrapper = createHookWrapper(
+        { flowsheet: flowsheetSlice },
+        {
+          flowsheet: {
+            ...flowsheetSlice.getInitialState(),
+            search: {
+              ...flowsheetSlice.getInitialState().search,
+              selectedResult: 1,
+              query: {
+                song: "la paradoja",
+                artist: "Juana Molina",
+                album: "DOGA",
+                label: "Sonamos",
+                request: false,
+                track_position: "A1",
+              },
+            },
+          },
+        }
+      );
+
+      const { result } = renderHook(() => useFlowsheetSubmit(), {
+        wrapper: customWrapper,
+      });
+
+      expect(result.current.selectedResultData.track_position).toBe("A1");
+    });
+
+    it("should leave track_position undefined when no track was picked", () => {
+      const mockAlbum = createTestAlbum({ id: 556, title: "Edits" });
+
+      mockUseCatalogFlowsheetSearch.mockReturnValue({
+        searchResults: [mockAlbum],
+      });
+
+      const customWrapper = createHookWrapper(
+        { flowsheet: flowsheetSlice },
+        {
+          flowsheet: {
+            ...flowsheetSlice.getInitialState(),
+            search: {
+              ...flowsheetSlice.getInitialState().search,
+              selectedResult: 1,
+              query: {
+                song: "Call Your Name",
+                artist: "Chuquimamani-Condori",
+                album: "Edits",
+                label: "self-released",
+                request: false,
+              },
+            },
+          },
+        }
+      );
+
+      const { result } = renderHook(() => useFlowsheetSubmit(), {
+        wrapper: customWrapper,
+      });
+
+      expect(result.current.selectedResultData.track_position).toBeUndefined();
+    });
+
+    it("should forward track_position from flowSheetRawQuery in the manual-entry branch (selectedResult == 0)", () => {
+      // Manual-entry branch of the selectedResultData memo: when no result is
+      // highlighted (selectedResult === 0), the DJ is typing free-form. The
+      // picker doesn't fire here, but the field is still forwarded
+      // defensively — and the fix touches both arms of the memo, so both
+      // arms need coverage to prevent a future regression in either branch.
+      const customWrapper = createHookWrapper(
+        { flowsheet: flowsheetSlice },
+        {
+          flowsheet: {
+            ...flowsheetSlice.getInitialState(),
+            search: {
+              ...flowsheetSlice.getInitialState().search,
+              selectedResult: 0,
+              query: {
+                song: "la paradoja",
+                artist: "Juana Molina",
+                album: "DOGA",
+                label: "Sonamos",
+                request: false,
+                track_position: "A1",
+              },
+            },
+          },
+        }
+      );
+
+      const { result } = renderHook(() => useFlowsheetSubmit(), {
+        wrapper: customWrapper,
+      });
+
+      expect(result.current.selectedResultData.track_position).toBe("A1");
     });
 
     it("should use fallback values from flowSheetRawQuery when selectedEntry has missing values", () => {
