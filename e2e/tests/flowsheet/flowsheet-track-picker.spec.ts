@@ -56,10 +56,32 @@ test.describe("Flowsheet Track Picker", () => {
     await context.close();
   });
 
+  // URL predicate for the legacy /library/ catalog endpoint (NOT the
+  // /proxy/library/* LML proxy). Used to suppress card-catalog results so
+  // the LML mock row reliably lands at a known index.
+  const isCatalogSearch = (url: URL) =>
+    url.pathname.endsWith("/library/") &&
+    !url.pathname.includes("/proxy/");
+
   test("picks a tracklisted release and submits track_title + track_position", async ({
     page,
   }) => {
     const LIBRARY_ID = 12345;
+
+    // Suppress card-catalog results so only the LML mock populates the
+    // result list (otherwise a seeded backend could shift the positional
+    // index of the picker target row).
+    await page.route(isCatalogSearch, async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify([]),
+        });
+      } else {
+        await route.fallback();
+      }
+    });
 
     // Mock library search → one Juana Molina release.
     await page.route("**/proxy/library/search**", async (route) => {
@@ -213,6 +235,19 @@ test.describe("Flowsheet Track Picker", () => {
     page,
   }) => {
     const LIBRARY_ID = 54321;
+
+    // Suppress card-catalog results (see comment on the previous test).
+    await page.route(isCatalogSearch, async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify([]),
+        });
+      } else {
+        await route.fallback();
+      }
+    });
 
     await page.route("**/proxy/library/search**", async (route) => {
       await route.fulfill({
