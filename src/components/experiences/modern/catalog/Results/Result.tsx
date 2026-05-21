@@ -7,13 +7,16 @@ import Chip from "@mui/joy/Chip";
 import IconButton from "@mui/joy/IconButton";
 import Typography from "@mui/joy/Typography";
 
-import { Album as AlbumIcon } from "@mui/icons-material";
+import { Album as AlbumIcon, Settings } from "@mui/icons-material";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
 import { Avatar, Stack, Tooltip } from "@mui/joy";
 
 import { applicationSlice } from "@/lib/features/application/frontend";
-import { useCatalogQuerySearch } from "@/src/hooks/catalogHooks";
+import {
+  useCanEditCatalog,
+  useCatalogQuerySearch,
+} from "@/src/hooks/catalogHooks";
 import { QueueMusic } from "@mui/icons-material";
 import { useQueue, useShowControl } from "@/src/hooks/flowsheetHooks";
 import { useAppDispatch } from "@/lib/hooks";
@@ -27,18 +30,23 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
   const { live } = useShowControl();
   const { addToQueue } = useQueue();
   const dispatch = useAppDispatch();
+  const canEditCatalog = useCanEditCatalog();
 
   const { selected, setSelection, sortBy } = useCatalogQuerySearch();
+
+  const openDetail = () =>
+    dispatch(
+      applicationSlice.actions.openPanel({
+        type: "album-detail",
+        albumId: album.id,
+      })
+    );
 
   const genreColor = GENRE_COLORS[(album.artist.genre as Genre) ?? "Unknown"] ?? "neutral";
   const genreVariant = GENRE_VARIANTS[(album.artist.genre as Genre) ?? "Unknown"] ?? "soft";
 
   return (
-    <tr
-      key={album.id}
-      onClick={() => dispatch(applicationSlice.actions.openPanel({ type: "album-detail", albumId: album.id }))}
-      style={{ cursor: "pointer" }}
-    >
+    <tr key={album.id} onClick={openDetail} style={{ cursor: "pointer" }}>
       <td
         style={{ textAlign: "center" }}
         onClick={(e) => e.stopPropagation()}
@@ -159,11 +167,24 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
               variant="plain"
               color="neutral"
               size="sm"
-              onClick={() => dispatch(applicationSlice.actions.openPanel({ type: "album-detail", albumId: album.id }))}
+              onClick={openDetail}
             >
               <InfoOutlinedIcon />
             </IconButton>
           </Tooltip>
+          {canEditCatalog && (
+            <Tooltip variant="outlined" size="sm" title="Settings">
+              <IconButton
+                aria-label="Open album settings in sidebar"
+                variant="solid"
+                color="success"
+                size="sm"
+                onClick={openDetail}
+              >
+                <Settings />
+              </IconButton>
+            </Tooltip>
+          )}
           {live && (
             <Tooltip title="Add to Queue" variant="outlined" size="sm">
               <IconButton

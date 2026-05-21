@@ -25,15 +25,22 @@ test.describe("Role-Based Access Control", () => {
       await dashboardPage.expectOnCatalog();
     });
 
+    test("should not see catalog Edit control", async ({ page }) => {
+      await dashboardPage.gotoCatalog();
+      await dashboardPage.expectCatalogEditHidden();
+    });
+
     test("should be redirected from admin roster page", async ({ page }) => {
       await dashboardPage.gotoAdminRoster();
       // DJ should be redirected to default dashboard page (insufficient permissions)
       await dashboardPage.expectRedirectedToDefaultDashboard();
     });
 
-    test("should be redirected from admin catalog page", async ({ page }) => {
-      await dashboardPage.gotoAdminCatalog();
-      await dashboardPage.expectRedirectedToDefaultDashboard();
+    test("legacy admin catalog URL redirects to Card Catalog", async ({
+      page,
+    }) => {
+      await dashboardPage.gotoLegacyAdminCatalog();
+      await dashboardPage.expectRedirectedToCatalog();
     });
 
     test("should not see admin navigation link", async ({ page }) => {
@@ -60,15 +67,29 @@ test.describe("Role-Based Access Control", () => {
       await dashboardPage.expectOnCatalog();
     });
 
+    test("should see catalog Edit control and open add album panel", async ({
+      page,
+    }) => {
+      await dashboardPage.gotoCatalog();
+      await dashboardPage.expectCatalogEditVisible();
+      await dashboardPage.catalogEditButton.click();
+      await page.getByRole("menuitem", { name: "Add album" }).click();
+      await expect(page.getByText("Add album", { exact: true })).toBeVisible({
+        timeout: 10000,
+      });
+    });
+
     test("should be redirected from admin roster page", async ({ page }) => {
       await dashboardPage.gotoAdminRoster();
       // MD should also be redirected (roster requires SM)
       await dashboardPage.expectRedirectedToDefaultDashboard();
     });
 
-    test("should be redirected from admin catalog page", async ({ page }) => {
-      await dashboardPage.gotoAdminCatalog();
-      await dashboardPage.expectRedirectedToDefaultDashboard();
+    test("legacy admin catalog URL redirects to Card Catalog", async ({
+      page,
+    }) => {
+      await dashboardPage.gotoLegacyAdminCatalog();
+      await dashboardPage.expectRedirectedToCatalog();
     });
   });
 
@@ -89,15 +110,22 @@ test.describe("Role-Based Access Control", () => {
       await dashboardPage.expectOnCatalog();
     });
 
+    test("should see catalog Edit control", async ({ page }) => {
+      await dashboardPage.gotoCatalog();
+      await dashboardPage.expectCatalogEditVisible();
+    });
+
     test("should access admin roster page", async ({ page }) => {
       await dashboardPage.gotoAdminRoster();
       // SM should have full access
       await dashboardPage.expectOnAdminRoster();
     });
 
-    test("should access admin catalog page", async ({ page }) => {
-      await dashboardPage.gotoAdminCatalog();
-      await dashboardPage.expectOnAdminCatalog();
+    test("legacy admin catalog URL redirects to Card Catalog", async ({
+      page,
+    }) => {
+      await dashboardPage.gotoLegacyAdminCatalog();
+      await dashboardPage.expectRedirectedToCatalog();
     });
 
     test("should see DJ Roster page header", async ({ page }) => {
@@ -127,14 +155,17 @@ test.describe("Role-Based Access Control", () => {
       await dashboardPage.expectRedirectedToDefaultDashboard();
     });
 
-    test("should be redirected from admin catalog page", async ({ page }) => {
-      await dashboardPage.gotoAdminCatalog();
-      await dashboardPage.expectRedirectedToDefaultDashboard();
+    test("legacy admin catalog URL redirects to Card Catalog", async ({
+      page,
+    }) => {
+      await dashboardPage.gotoLegacyAdminCatalog();
+      await dashboardPage.expectRedirectedToCatalog();
     });
 
     test("should access catalog page (read only)", async ({ page }) => {
       await dashboardPage.gotoCatalog();
       await dashboardPage.expectOnCatalog();
+      await dashboardPage.expectCatalogEditHidden();
     });
   });
 

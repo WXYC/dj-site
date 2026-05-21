@@ -526,19 +526,6 @@ describeSlice(catalogSlice, defaultCatalogFrontendState, ({ harness, actions }) 
     });
   });
 
-  describe("admin catalog search subtree", () => {
-    it("should not mutate main catalog search when updating admin catalog", () => {
-      const initial = harness().initialState;
-      const id = initial.rows[0].id;
-      const result = harness().chain(
-        actions.updateRow({ id, updates: { value: "main only" } }),
-        actions.setAdminCatalogSearchQuery("admin only")
-      );
-      expect(result.rows[0].value).toBe("main only");
-      expect(result.adminCatalog.search.query).toBe("admin only");
-    });
-  });
-
   describe("admin create artist form (Redux validation)", () => {
     it("should default create-artist verifications to false", () => {
       const { select } = harness().withStore();

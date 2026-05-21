@@ -175,24 +175,6 @@ export type Genre =
   | "OCS"
   | "Unknown";
 
-/** Legacy single-string search for admin catalog (isolated from query builder). */
-export type LegacyCatalogSearchState = {
-  query: string;
-  in: SearchIn;
-  genre: Genre | "All";
-  exclusive: boolean;
-  mobileOpen: boolean;
-  params: {
-    n: number;
-    orderBy?: string;
-    orderDirection?: "asc" | "desc";
-  };
-};
-
-export type CatalogResultsState = {
-  selected: number[];
-};
-
 export type SearchIn = "Artists" | "Albums" | "All";
 
 /** Keys tracked for "Create artist" (Redux, same pattern as login `authenticationSlice`). */
@@ -212,13 +194,6 @@ export type AdminCreateArtistFormState = {
   required: AdminCreateArtistFieldKey[];
 };
 
-/** Isolated search/results for `/dashboard/admin/catalog` (does not clobber Card Catalog). */
-export type AdminCatalogUIState = {
-  search: LegacyCatalogSearchState;
-  results: CatalogResultsState;
-};
-
 export type CatalogFrontendState = CatalogSearchState & {
-  adminCatalog: AdminCatalogUIState;
   adminCreateArtist: AdminCreateArtistFormState;
 };

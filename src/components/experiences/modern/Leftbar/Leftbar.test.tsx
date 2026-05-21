@@ -195,13 +195,13 @@ describe("Leftbar", () => {
     const Component = await Leftbar();
     render(Component);
 
-    // MD users should see admin links
+    // MD users should see admin links (roster + schedule; catalog admin merged into Card Catalog)
     expect(
       screen.getByTestId("leftbar-link--dashboard-admin-roster")
     ).toBeInTheDocument();
     expect(
-      screen.getByTestId("leftbar-link--dashboard-admin-catalog")
-    ).toBeInTheDocument();
+      screen.queryByTestId("leftbar-link--dashboard-admin-catalog")
+    ).not.toBeInTheDocument();
     expect(
       screen.getByTestId("leftbar-link--dashboard-admin-schedule")
     ).toBeInTheDocument();
@@ -219,13 +219,13 @@ describe("Leftbar", () => {
     const Component = await Leftbar();
     render(Component);
 
-    // SM users should see admin links
+    // SM users should see admin links (catalog admin merged into Card Catalog)
     expect(
       screen.getByTestId("leftbar-link--dashboard-admin-roster")
     ).toBeInTheDocument();
     expect(
-      screen.getByTestId("leftbar-link--dashboard-admin-catalog")
-    ).toBeInTheDocument();
+      screen.queryByTestId("leftbar-link--dashboard-admin-catalog")
+    ).not.toBeInTheDocument();
   });
 
   it("should disable roster link for MD authority (below SM)", async () => {
@@ -244,10 +244,6 @@ describe("Leftbar", () => {
       "leftbar-link--dashboard-admin-roster"
     );
     expect(rosterLink).toHaveAttribute("data-disabled", "true");
-    const catalogLink = screen.getByTestId(
-      "leftbar-link--dashboard-admin-catalog"
-    );
-    expect(catalogLink).toHaveAttribute("data-disabled", "true");
   });
 
   it("should enable roster link for SM authority", async () => {
@@ -266,10 +262,6 @@ describe("Leftbar", () => {
       "leftbar-link--dashboard-admin-roster"
     );
     expect(rosterLink).toHaveAttribute("data-disabled", "false");
-    const catalogLink = screen.getByTestId(
-      "leftbar-link--dashboard-admin-catalog"
-    );
-    expect(catalogLink).toHaveAttribute("data-disabled", "false");
   });
 
   it("should always disable schedule link", async () => {
@@ -347,21 +339,6 @@ describe("Leftbar", () => {
     render(Component);
 
     expect(screen.getByTestId("manage-accounts-icon")).toBeInTheDocument();
-  });
-
-  it("should render library add icon for catalog admin link when visible", async () => {
-    const { getUserFromSession } = await import(
-      "@/lib/features/authentication/server-utils"
-    );
-    vi.mocked(getUserFromSession).mockResolvedValue({
-      ...mockUser,
-      authority: Authorization.SM,
-    });
-
-    const Component = await Leftbar();
-    render(Component);
-
-    expect(screen.getByTestId("library-add-icon")).toBeInTheDocument();
   });
 
   it("should render edit calendar icon for schedule link when visible", async () => {

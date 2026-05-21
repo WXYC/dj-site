@@ -8,7 +8,6 @@ import type {
   CatalogSearchRow,
   CatalogSortBy,
   CatalogSortOrder,
-  LegacyCatalogSearchState,
 } from "./types";
 
 export const defaultAdminCreateArtistFormState: AdminCreateArtistFormState = {
@@ -29,21 +28,6 @@ const createInitialRow = (): CatalogSearchRow => ({
   exact: false,
 });
 
-function createInitialLegacySearchState(): LegacyCatalogSearchState {
-  return {
-    in: "All",
-    query: "",
-    genre: "All",
-    exclusive: false,
-    mobileOpen: false,
-    params: {
-      n: 10,
-      orderBy: "title",
-      orderDirection: "asc",
-    },
-  };
-}
-
 export const defaultCatalogFrontendState: CatalogFrontendState = {
   rows: [createInitialRow()],
   sortBy: "album",
@@ -52,12 +36,6 @@ export const defaultCatalogFrontendState: CatalogFrontendState = {
   filters: { onStreaming: undefined, genre: "All", format: "All" },
   selected: [],
   mobileOpen: false,
-  adminCatalog: {
-    search: createInitialLegacySearchState(),
-    results: {
-      selected: [],
-    },
-  },
   adminCreateArtist: defaultAdminCreateArtistFormState,
 };
 
@@ -120,48 +98,6 @@ export const catalogSlice = createAppSlice({
     },
     reset: () => defaultCatalogFrontendState,
 
-    setAdminCatalogSearchQuery: (state, action) => {
-      state.adminCatalog.search.query = action.payload;
-      state.adminCatalog.search.params.n = 10;
-    },
-    setAdminCatalogSearchIn: (state, action) => {
-      state.adminCatalog.search.in = action.payload;
-    },
-    setAdminCatalogSearchGenre: (state, action) => {
-      state.adminCatalog.search.genre = action.payload;
-    },
-    setAdminCatalogExclusiveFilter: (state, action) => {
-      state.adminCatalog.search.exclusive = action.payload;
-    },
-    openAdminCatalogMobileSearch: (state) => {
-      state.adminCatalog.search.mobileOpen = true;
-    },
-    closeAdminCatalogMobileSearch: (state) => {
-      state.adminCatalog.search.mobileOpen = false;
-    },
-    setAdminCatalogSelection: (state, action) => {
-      state.adminCatalog.results.selected = action.payload;
-    },
-    addAdminCatalogSelection: (state, action) => {
-      state.adminCatalog.results.selected.push(action.payload);
-    },
-    removeAdminCatalogSelection: (state, action) => {
-      state.adminCatalog.results.selected =
-        state.adminCatalog.results.selected.filter((id) => id !== action.payload);
-    },
-    clearAdminCatalogSelection: (state) => {
-      state.adminCatalog.results.selected = [];
-    },
-    adminCatalogLoadMore: (state) => {
-      state.adminCatalog.search.params.n += 10;
-    },
-    setAdminCatalogSearchParams: (state, action) => {
-      state.adminCatalog.search.params = {
-        ...state.adminCatalog.search.params,
-        ...action.payload,
-      };
-    },
-
     verifyAdminCreateArtist: (
       state,
       action: PayloadAction<{ key: AdminCreateArtistFieldKey; value: boolean }>
@@ -192,15 +128,5 @@ export const catalogSlice = createAppSlice({
       state.adminCreateArtist.required.every(
         (k) => state.adminCreateArtist.verifications[k]
       ),
-
-    getAdminCatalogSearchQuery: (state) => state.adminCatalog.search.query,
-    getAdminCatalogSearchParams: (state) => state.adminCatalog.search.params,
-    getAdminCatalogSearchIn: (state) => state.adminCatalog.search.in,
-    getAdminCatalogSearchGenre: (state) => state.adminCatalog.search.genre,
-    getAdminCatalogExclusiveFilter: (state) =>
-      state.adminCatalog.search.exclusive,
-    isAdminCatalogMobileSearchOpen: (state) =>
-      state.adminCatalog.search.mobileOpen,
-    getAdminCatalogSelected: (state) => state.adminCatalog.results.selected,
   },
 });

@@ -4,6 +4,7 @@ import {
   useLazySearchLibraryQueryQuery,
   useSearchCatalogQuery,
 } from "@/lib/features/catalog/api";
+import { Authorization } from "@/lib/features/admin/types";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
 import {
   AlbumEntry,
@@ -12,30 +13,9 @@ import {
   CatalogSearchRow,
   CatalogSortBy,
   CatalogSortOrder,
-  Genre,
   LibraryQueryParams,
-  SearchCatalogQueryParams,
-  SearchIn,
 } from "@/lib/features/catalog/types";
-
-export function formatCatalogSearchQuery(
-  searchIn: SearchIn,
-  searchString: string,
-  n: number,
-  exclusive: boolean = false
-): SearchCatalogQueryParams {
-  const base = (() => {
-    switch (searchIn) {
-      case "Albums":
-        return { artist_name: undefined, album_title: searchString, n };
-      case "Artists":
-        return { artist_name: searchString, album_title: undefined, n };
-      default:
-        return { artist_name: searchString, album_title: searchString, n };
-    }
-  })();
-  return exclusive ? { ...base, on_streaming: false } : base;
-}
+import { isAuthenticated } from "@/lib/features/authentication/types";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useGetRotationQuery } from "@/lib/features/rotation/api";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
@@ -199,75 +179,13 @@ export function useCatalogQuerySearch() {
   };
 }
 
-/** Card Catalog + admin page use separate Redux subtrees (`adminCatalog`). */
-export const useAdminCatalogSearch = () => {
-  const dispatch = useAppDispatch();
-  const searchString = useAppSelector(
-    catalogSlice.selectors.getAdminCatalogSearchQuery
-  );
-  const setSearchString = (query: string) =>
-    dispatch(catalogSlice.actions.setAdminCatalogSearchQuery(query));
-  const setSearchIn = (inWhat: SearchIn) =>
-    dispatch(catalogSlice.actions.setAdminCatalogSearchIn(inWhat));
-  const setSearchGenre = (genre: Genre | "All") =>
-    dispatch(catalogSlice.actions.setAdminCatalogSearchGenre(genre));
-  const addSelection = (id: number) =>
-    dispatch(catalogSlice.actions.addAdminCatalogSelection(id));
-  const removeSelection = (id: number) =>
-    dispatch(catalogSlice.actions.removeAdminCatalogSelection(id));
-  const setSelection = (ids: number[]) =>
-    dispatch(catalogSlice.actions.setAdminCatalogSelection(ids));
-  const clearSelection = () =>
-    dispatch(catalogSlice.actions.clearAdminCatalogSelection());
-  const selected = useAppSelector(catalogSlice.selectors.getAdminCatalogSelected);
-
-  const exclusive = useAppSelector(
-    catalogSlice.selectors.getAdminCatalogExclusiveFilter
-  );
-  const setExclusiveFilter = (value: boolean) =>
-    dispatch(catalogSlice.actions.setAdminCatalogExclusiveFilter(value));
-
-  const { n, orderBy, orderDirection } = useAppSelector(
-    catalogSlice.selectors.getAdminCatalogSearchParams
-  );
-
-  const handleRequestSort = useCallback(
-    (value: string) => {
-      dispatch(
-        catalogSlice.actions.setAdminCatalogSearchParams({
-          orderBy: value,
-          orderDirection:
-            orderBy === value
-              ? orderDirection === "asc"
-                ? "desc"
-                : "asc"
-              : orderDirection,
-        })
-      );
-    },
-    [orderBy, orderDirection, dispatch]
-  );
-
-  return {
-    searchString,
-    setSearchString,
-    setSearchIn,
-    setSearchGenre,
-    orderBy,
-    orderDirection,
-    handleRequestSort,
-    dispatch,
-    catalogSlice,
-    addSelection,
-    removeSelection,
-    setSelection,
-    clearSelection,
-    selected,
-    exclusive,
-    setExclusiveFilter,
-    n,
-  };
-};
+export function useCanEditCatalog(): boolean {
+  const { data, authenticating } = useAuthentication();
+  if (authenticating || !isAuthenticated(data) || !data.user) {
+    return false;
+  }
+  return data.user.authority >= Authorization.MD;
+}
 
 /**
  * Data-fetching hook for the catalog query builder. Reads slice state from
@@ -386,96 +304,6 @@ export function useCatalogQueryResults() {
 // catalogApi.searchCatalog. Don't migrate them to /library/query — they don't
 // need filters, pagination, or query parsing.
 // ---------------------------------------------------------------------------
-
-export const useAdminCatalogResults = () => {
-  const MIN_SEARCH_LENGTH = 2;
-
-  const {
-    searchString,
-    setSearchString,
-    setSearchIn,
-    setSearchGenre,
-    dispatch,
-    catalogSlice,
-    addSelection,
-    removeSelection,
-    clearSelection,
-    n,
-  } = useAdminCatalogSearch();
-
-  const { authenticating, authenticated } = useAuthentication();
-
-  const searchIn = useAppSelector(catalogSlice.selectors.getAdminCatalogSearchIn);
-  const exclusive = useAppSelector(
-    catalogSlice.selectors.getAdminCatalogExclusiveFilter
-  );
-  const [formattedQuery, setFormattedQuery] =
-    useState<SearchCatalogQueryParams>(() =>
-      formatCatalogSearchQuery(searchIn, searchString, n, exclusive)
-    );
-  const loadMore = () => dispatch(catalogSlice.actions.adminCatalogLoadMore());
-
-  const [debouncing, setDebouncing] = useState(false);
-  const [reachedEndForQuery, setReachedEndForQuery] = useState(false);
-
-  const isFirstRender = useRef(true);
-  useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-    setDebouncing(true);
-    const timer = setTimeout(() => {
-      clearSelection();
-      setFormattedQuery(
-        formatCatalogSearchQuery(searchIn, searchString, n, exclusive)
-      );
-      setDebouncing(false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [searchIn, searchString, n, exclusive]);
-
-  useEffect(() => {
-    setReachedEndForQuery(false);
-  }, [searchIn, searchString]);
-
-  const { data, isFetching } = useSearchCatalogQuery(formattedQuery, {
-    skip:
-      authenticating ||
-      !authenticated ||
-      searchString.length < MIN_SEARCH_LENGTH,
-  });
-
-  const combinedLoading = useMemo(() => {
-    if (searchString.length < MIN_SEARCH_LENGTH) return false;
-    return debouncing || isFetching;
-  }, [debouncing, isFetching, searchString.length]);
-
-  const [lastData, setLastData] = useState(0);
-  useEffect(() => {
-    if (data === undefined) return;
-    if (data.length === lastData) {
-      setReachedEndForQuery(true);
-    } else {
-      setLastData(data.length);
-    }
-  }, [data, lastData]);
-
-  return {
-    data,
-    loading: combinedLoading,
-    searchString,
-    setSearchString,
-    setSearchIn,
-    setSearchGenre,
-    addSelection,
-    removeSelection,
-    loadMore,
-    reachedEndForQuery,
-    dispatch,
-    catalogSlice,
-  };
-};
 
 export const useCatalogFlowsheetSearch = () => {
   const FLOWSHEET_MIN_SEARCH_LENGTH = 2;
