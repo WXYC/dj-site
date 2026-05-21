@@ -220,6 +220,22 @@ describe("flowsheet conversions", () => {
         expect(result.on_streaming).toBeUndefined();
       });
 
+      it("should pass artwork_url through on track entries", () => {
+        const entry = createTestV2TrackEntry({
+          artwork_url: "https://example.com/cover.jpg",
+        } as any);
+        const result = convertV2Entry(entry) as FlowsheetSongEntry;
+
+        expect(result.artwork_url).toBe("https://example.com/cover.jpg");
+      });
+
+      it("should default artwork_url to undefined when absent", () => {
+        const entry = createTestV2TrackEntry();
+        const result = convertV2Entry(entry) as FlowsheetSongEntry;
+
+        expect(result.artwork_url).toBeUndefined();
+      });
+
       it.each([
         { wire: true, expected: true },
         { wire: false, expected: false },

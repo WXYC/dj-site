@@ -6,24 +6,22 @@ import {
   isFlowsheetStartShowEntry,
   isFlowsheetTalksetEntry,
 } from "@/lib/features/flowsheet/types";
-import { useAlbumArtwork } from "@/lib/features/metadata/hooks";
 import { Headphones, Logout, Mic, Timer } from "@mui/icons-material";
 import { AspectRatio, Box } from "@mui/joy";
+
+const DEFAULT_ARTWORK_URL = "/img/cassette.png";
 
 export default function AlbumArtAndIcons({
   entry,
 }: {
   entry: FlowsheetEntry | undefined;
 }) {
-  const songEntry = entry && isFlowsheetSongEntry(entry) ? entry : undefined;
-  const { artworkUrl, isLoading } = useAlbumArtwork(songEntry?.artist_name, songEntry?.album_title);
-
-  if (!entry || isLoading) {
+  if (!entry) {
     return (
       <ImageWrapper>
         <img
-          src="/img/cassette.png"
-          srcSet="/img/cassette.png"
+          src={DEFAULT_ARTWORK_URL}
+          srcSet={DEFAULT_ARTWORK_URL}
           loading="lazy"
           alt=""
           style={{ width: "100%", objectPosition: "center" }}
@@ -33,6 +31,7 @@ export default function AlbumArtAndIcons({
   }
 
   if (isFlowsheetSongEntry(entry)) {
+    const artworkUrl = entry.artwork_url ?? DEFAULT_ARTWORK_URL;
     return (
       <ImageWrapper>
         <img
@@ -81,8 +80,8 @@ export default function AlbumArtAndIcons({
   return (
     <ImageWrapper>
       <img
-        src="/img/cassette.png"
-        srcSet="/img/cassette.png"
+        src={DEFAULT_ARTWORK_URL}
+        srcSet={DEFAULT_ARTWORK_URL}
         loading="lazy"
         alt=""
       />

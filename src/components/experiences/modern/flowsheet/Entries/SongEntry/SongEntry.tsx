@@ -8,7 +8,6 @@ import {
   FlowsheetSubmissionParams,
 } from "@/lib/features/flowsheet/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { useAlbumArtwork } from "@/lib/features/metadata/hooks";
 import { useFlowsheet, useShowControl } from "@/src/hooks/flowsheetHooks";
 import { getStyleForRotation } from "@/src/utilities/modern/rotationstyles";
 import {
@@ -28,7 +27,6 @@ import {
   Box,
   Checkbox,
   Chip,
-  CircularProgress,
   IconButton,
   Stack,
   Tooltip,
@@ -62,10 +60,7 @@ export default function SongEntry({
 
   const { updateFlowsheet } = useFlowsheet();
 
-  const {
-    artworkUrl: image,
-    isLoading: imageLoading,
-  } = useAlbumArtwork(entry.artist_name, entry.album_title);
+  const image = entry.artwork_url ?? "/img/cassette.png";
 
   const dispatch = useAppDispatch();
 
@@ -116,15 +111,11 @@ export default function SongEntry({
                 minHeight: "48px",
               }}
             >
-              {imageLoading ? (
-                <CircularProgress />
-              ) : (
-                <img
-                  src={image}
-                  alt="album art"
-                  style={{ minWidth: "48px", minHeight: "48px" }}
-                />
-              )}
+              <img
+                src={image}
+                alt="album art"
+                style={{ minWidth: "48px", minHeight: "48px" }}
+              />
             </AspectRatio>
           </Badge>
           {canClose && queue && (
