@@ -49,12 +49,17 @@ export const catalogApi = createApi({
         url: "/query",
         params,
       }),
-      transformResponse: (response: LibraryQueryResponseJSON): LibraryQueryResult => ({
-        results: response.results.map(convertToAlbumEntry),
-        total: response.total,
-        page: response.page,
-        totalPages: response.totalPages,
-      }),
+      transformResponse: (
+        response: LibraryQueryResponseJSON | null,
+      ): LibraryQueryResult =>
+        response?.results
+          ? {
+              results: response.results.map(convertToAlbumEntry),
+              total: response.total ?? 0,
+              page: response.page ?? 0,
+              totalPages: response.totalPages ?? 0,
+            }
+          : { results: [], total: 0, page: 0, totalPages: 0 },
     }),
     addAlbum: builder.mutation<{ id: number } & Record<string, unknown>, AddAlbumRequestBody>({
       query: (body) => ({
