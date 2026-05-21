@@ -114,9 +114,34 @@ export type ArtistEntry = {
   id: number | undefined;
 };
 
+/** Keys tracked for "Create artist" (Redux, same pattern as login `authenticationSlice`). */
+export type AdminCreateArtistFieldKey =
+  | "codeLetters"
+  | "codeNumber"
+  | "newArtistName"
+  | "genreSelected";
+
+export type AdminCreateArtistVerifications = Record<
+  AdminCreateArtistFieldKey,
+  boolean
+>;
+
+export type AdminCreateArtistFormState = {
+  verifications: AdminCreateArtistVerifications;
+  required: AdminCreateArtistFieldKey[];
+};
+
+/** Isolated search/results for `/dashboard/admin/catalog` (does not clobber Card Catalog). */
+export type AdminCatalogUIState = {
+  search: CatalogSearchState;
+  results: CatalogResultsState;
+};
+
 export type CatalogFrontendState = {
   search: CatalogSearchState;
   results: CatalogResultsState;
+  adminCatalog: AdminCatalogUIState;
+  adminCreateArtist: AdminCreateArtistFormState;
 };
 
 export type CatalogSearchState = {

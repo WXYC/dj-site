@@ -41,7 +41,7 @@ export default async function Leftbar(): Promise<JSX.Element> {
             </LeftbarLink>
             <LeftbarLink
               path="/dashboard/admin/catalog"
-              title="Add to catalog"
+              title="Catalog admin"
               disabled={user.authority < Authorization.SM}
             >
               <LibraryAdd />

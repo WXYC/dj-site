@@ -1,7 +1,10 @@
 "use client";
 
 import { Genre, SearchIn } from "@/lib/features/catalog/types";
-import { useCatalogSearch } from "@/src/hooks/catalogHooks";
+import {
+  useAdminCatalogSearch,
+  useCatalogSearch,
+} from "@/src/hooks/catalogHooks";
 import {
   Checkbox,
   ColorPaletteProp,
@@ -12,8 +15,13 @@ import {
 } from "@mui/joy";
 import React from "react";
 
-export const Filters = ({ color }: { color: ColorPaletteProp | undefined }) => {
-  const { setSearchIn, setSearchGenre, exclusive, setExclusiveFilter } = useCatalogSearch();
+function CatalogFiltersInner({
+  color,
+}: {
+  color: ColorPaletteProp | undefined;
+}) {
+  const { setSearchIn, setSearchGenre, exclusive, setExclusiveFilter } =
+    useCatalogSearch();
 
   return (
     <React.Fragment>
@@ -23,7 +31,7 @@ export const Filters = ({ color }: { color: ColorPaletteProp | undefined }) => {
           color={color || "neutral"}
           placeholder="All"
           slotProps={{ button: { sx: { whiteSpace: "nowrap" } } }}
-          onChange={(e, newValue) =>
+          onChange={(_e, newValue) =>
             setSearchIn((newValue as SearchIn) || "All")
           }
         >
@@ -38,7 +46,7 @@ export const Filters = ({ color }: { color: ColorPaletteProp | undefined }) => {
           color={color || "neutral"}
           placeholder="All"
           slotProps={{ button: { sx: { whiteSpace: "nowrap" } } }}
-          onChange={(e, newValue) =>
+          onChange={(_e, newValue) =>
             setSearchGenre((newValue as Genre) || "All")
           }
         >
@@ -72,4 +80,84 @@ export const Filters = ({ color }: { color: ColorPaletteProp | undefined }) => {
       </FormControl>
     </React.Fragment>
   );
+}
+
+function AdminCatalogFiltersInner({
+  color,
+}: {
+  color: ColorPaletteProp | undefined;
+}) {
+  const { setSearchIn, setSearchGenre, exclusive, setExclusiveFilter } =
+    useAdminCatalogSearch();
+
+  return (
+    <React.Fragment>
+      <FormControl size="sm" sx={{ flex: 1 }}>
+        <FormLabel>Search In</FormLabel>
+        <Select
+          color={color || "neutral"}
+          placeholder="All"
+          slotProps={{ button: { sx: { whiteSpace: "nowrap" } } }}
+          onChange={(_e, newValue) =>
+            setSearchIn((newValue as SearchIn) || "All")
+          }
+        >
+          <Option value="All">All</Option>
+          <Option value="Albums">Albums</Option>
+          <Option value="Artists">Artists</Option>
+        </Select>
+      </FormControl>
+      <FormControl size="sm" sx={{ flex: 1 }}>
+        <FormLabel>Genre</FormLabel>
+        <Select
+          color={color || "neutral"}
+          placeholder="All"
+          slotProps={{ button: { sx: { whiteSpace: "nowrap" } } }}
+          onChange={(_e, newValue) =>
+            setSearchGenre((newValue as Genre) || "All")
+          }
+        >
+          <Option value="All">All</Option>
+          <Option value="Hiphop">Hiphop</Option>
+          <Option value="Rock">Rock</Option>
+          <Option value="Electronic">Electronic</Option>
+          <Option value="Jazz">Jazz</Option>
+          <Option value="Classical">Classical</Option>
+          <Option value="Soundtrack">Soundtrack</Option>
+        </Select>
+      </FormControl>
+      <FormControl size="sm" sx={{ flex: "none", justifyContent: "flex-end" }}>
+        <Checkbox
+          label="Exclusives Only"
+          checked={exclusive}
+          onChange={(e) => setExclusiveFilter(e.target.checked)}
+          sx={{
+            "& .MuiCheckbox-checkbox": {
+              "&.Mui-checked": {
+                backgroundColor: "#7B2D8E",
+                borderColor: "#7B2D8E",
+              },
+              "&.Mui-checked:hover": {
+                backgroundColor: "#6a2479",
+                borderColor: "#6a2479",
+              },
+            },
+          }}
+        />
+      </FormControl>
+    </React.Fragment>
+  );
+}
+
+export const Filters = ({
+  color,
+  scope = "catalog",
+}: {
+  color: ColorPaletteProp | undefined;
+  scope?: "catalog" | "admin";
+}) => {
+  if (scope === "admin") {
+    return <AdminCatalogFiltersInner color={color} />;
+  }
+  return <CatalogFiltersInner color={color} />;
 };

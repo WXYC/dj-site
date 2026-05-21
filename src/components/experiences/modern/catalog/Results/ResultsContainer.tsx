@@ -1,19 +1,31 @@
 "use client";
 
 import Logo from "@/src/components/shared/Branding/Logo";
-import { useCatalogSearch } from "@/src/hooks/catalogHooks";
+import {
+  useAdminCatalogSearch,
+  useCatalogSearch,
+} from "@/src/hooks/catalogHooks";
 import { DoubleArrow } from "@mui/icons-material";
-import { Box, Button, Sheet, Table, Typography } from "@mui/joy";
+import { Box, Button, ColorPaletteProp, Sheet, Typography } from "@mui/joy";
 import { useRef } from "react";
 import { useAddToBin } from "@/src/hooks/binHooks";
 import { toast } from "sonner";
 
-export default function ResultsContainer({
+function CatalogResultsContainerInner({
   children,
+  searchString,
+  selected,
+  clearSelection,
+  showBinBulk,
+  color = "primary",
 }: {
   children: React.ReactNode;
+  searchString: string;
+  selected: number[];
+  clearSelection: () => void;
+  showBinBulk: boolean;
+  color?: ColorPaletteProp;
 }) {
-  const { searchString, selected, clearSelection } = useCatalogSearch();
   const { addToBin, loading } = useAddToBin();
   const tableRef = useRef<HTMLTableElement>(null);
 
@@ -26,12 +38,16 @@ export default function ResultsContainer({
 
     const failures = results.filter((r) => r.status === "rejected");
     if (failures.length > 0) {
-      toast.error(`Failed to add ${failures.length} album${failures.length > 1 ? "s" : ""} to bin`);
+      toast.error(
+        `Failed to add ${failures.length} album${failures.length > 1 ? "s" : ""} to bin`
+      );
     }
 
     const successes = results.length - failures.length;
     if (successes > 0) {
-      toast.success(`Added ${successes} album${successes > 1 ? "s" : ""} to bin`);
+      toast.success(
+        `Added ${successes} album${successes > 1 ? "s" : ""} to bin`
+      );
     }
 
     clearSelection();
@@ -47,6 +63,7 @@ export default function ResultsContainer({
         flex: 1,
         overflow: searchString.length > 0 ? "auto" : "hidden",
         minHeight: 0,
+        position: "relative",
       }}
     >
       <Box
@@ -75,9 +92,9 @@ export default function ResultsContainer({
             pb: 2,
           }}
         >
-          <Logo color="primary" />
+          <Logo color={color} />
           <Typography
-            color="primary"
+            color={color}
             level="body-lg"
             sx={{ textAlign: "center" }}
           >
@@ -85,8 +102,8 @@ export default function ResultsContainer({
           </Typography>
         </Box>
       </Box>
-        {children}
-      {selected.length > 0 && (
+      {children}
+      {showBinBulk && selected.length > 0 && (
         <Box
           sx={{
             position: "sticky",
@@ -115,4 +132,60 @@ export default function ResultsContainer({
       )}
     </Sheet>
   );
+}
+
+function CatalogResultsContainer({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const { searchString, selected, clearSelection } = useCatalogSearch();
+  return (
+    <CatalogResultsContainerInner
+      searchString={searchString}
+      selected={selected}
+      clearSelection={clearSelection}
+      showBinBulk
+    >
+      {children}
+    </CatalogResultsContainerInner>
+  );
+}
+
+function AdminResultsContainer({
+  children,
+  color,
+}: {
+  children: React.ReactNode;
+  color?: ColorPaletteProp;
+}) {
+  const { searchString, selected, clearSelection } = useAdminCatalogSearch();
+  return (
+    <CatalogResultsContainerInner
+      searchString={searchString}
+      selected={selected}
+      clearSelection={clearSelection}
+      showBinBulk={false}
+      color={color ?? "success"}
+    >
+      {children}
+    </CatalogResultsContainerInner>
+  );
+}
+
+export default function ResultsContainer({
+  children,
+  scope = "catalog",
+  color,
+}: {
+  children: React.ReactNode;
+  scope?: "catalog" | "admin";
+  color?: ColorPaletteProp;
+}) {
+  if (scope === "admin") {
+    return (
+      <AdminResultsContainer color={color}>{children}</AdminResultsContainer>
+    );
+  }
+  return <CatalogResultsContainer>{children}</CatalogResultsContainer>;
 }

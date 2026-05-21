@@ -399,9 +399,64 @@ describeSlice(catalogSlice, defaultCatalogFrontendState, ({ harness, actions }) 
         actions.openMobileSearch(),
         actions.setSelection([1, 2]),
         actions.loadMore(),
+        actions.setAdminCatalogSearchQuery("admin-q"),
+        actions.addAdminCatalogSelection(9),
         actions.reset()
       );
       expect(result).toEqual(defaultCatalogFrontendState);
+    });
+  });
+
+  describe("admin catalog search subtree", () => {
+    it("should not mutate main catalog search when updating admin catalog", () => {
+      const result = harness().chain(
+        actions.setSearchQuery("main only"),
+        actions.setAdminCatalogSearchQuery("admin only")
+      );
+      expect(result.search.query).toBe("main only");
+      expect(result.adminCatalog.search.query).toBe("admin only");
+    });
+  });
+
+  describe("admin create artist form (Redux validation)", () => {
+    it("should default create-artist verifications to false", () => {
+      const { select } = harness().withStore();
+      expect(select(catalogSlice.selectors.adminCreateArtistFormComplete)).toBe(
+        false
+      );
+      expect(
+        select((state) =>
+          catalogSlice.selectors.getAdminCreateArtistVerification(
+            state,
+            "codeLetters"
+          )
+        )
+      ).toBe(false);
+    });
+
+    it("should report complete when all required fields are verified", () => {
+      const { dispatch, select } = harness().withStore();
+      dispatch(actions.verifyAdminCreateArtist({ key: "codeLetters", value: true }));
+      dispatch(actions.verifyAdminCreateArtist({ key: "codeNumber", value: true }));
+      dispatch(
+        actions.verifyAdminCreateArtist({ key: "newArtistName", value: true })
+      );
+      dispatch(
+        actions.verifyAdminCreateArtist({ key: "genreSelected", value: true })
+      );
+      expect(select(catalogSlice.selectors.adminCreateArtistFormComplete)).toBe(
+        true
+      );
+    });
+
+    it("should reset admin create artist without clearing catalog search", () => {
+      const result = harness().chain(
+        actions.setSearchQuery("keep me"),
+        actions.verifyAdminCreateArtist({ key: "codeLetters", value: true }),
+        actions.resetAdminCreateArtist()
+      );
+      expect(result.search.query).toBe("keep me");
+      expect(result.adminCreateArtist.verifications.codeLetters).toBe(false);
     });
   });
 });

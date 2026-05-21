@@ -34,4 +34,6 @@ export type RightbarPanel =
     | { type: "default" }
     | { type: "album-detail"; albumId: number }
     | { type: "settings" }
-    | { type: "account-edit"; account: Account; isSelf: boolean; organizationSlug: string };
+    | { type: "account-edit"; account: Account; isSelf: boolean; organizationSlug: string }
+    | { type: "admin-catalog-add-album" }
+    | { type: "admin-catalog-add-artist" };
