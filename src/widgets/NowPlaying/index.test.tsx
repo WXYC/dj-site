@@ -17,15 +17,6 @@ vi.mock("@/lib/features/flowsheet/api", () => ({
   useWhoIsLiveQuery: () => mockUseWhoIsLiveQuery(),
 }));
 
-// Mock the useAlbumArtwork hook
-vi.mock("@/lib/features/metadata/hooks", () => ({
-  useAlbumArtwork: () => ({
-    artworkUrl: "https://example.com/album.jpg",
-    isLoading: false,
-    metadata: null,
-  }),
-}));
-
 // Mock NowPlayingMain component
 vi.mock("./Main", () => ({
   default: ({

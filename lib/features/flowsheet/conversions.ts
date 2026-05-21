@@ -98,6 +98,7 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
         rotation_id: entry.rotation_id ?? undefined,
         rotation: entry.rotation_bin as Rotation,
         on_streaming: entry.on_streaming ?? undefined,
+        artwork_url: entry.artwork_url ?? undefined,
       };
 
     case "show_start": {

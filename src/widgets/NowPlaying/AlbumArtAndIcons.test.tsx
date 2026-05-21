@@ -8,20 +8,6 @@ import type {
   FlowsheetMessageEntry,
 } from "@/lib/features/flowsheet/types";
 
-// Mock useAlbumArtwork hook
-const mockUseAlbumArtwork = vi.fn(
-  (_artistName?: string, _releaseTitle?: string) => ({
-    artworkUrl: "https://example.com/album-art.jpg",
-    isLoading: false,
-    metadata: null,
-  }),
-);
-
-vi.mock("@/lib/features/metadata/hooks", () => ({
-  useAlbumArtwork: (artistName?: string, releaseTitle?: string) =>
-    mockUseAlbumArtwork(artistName, releaseTitle),
-}));
-
 // Mock MUI components - render children to allow img testing
 vi.mock("@mui/joy", () => ({
   AspectRatio: ({ children, ...props }: any) => (
@@ -53,11 +39,6 @@ describe("AlbumArtAndIcons", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUseAlbumArtwork.mockReturnValue({
-      artworkUrl: "https://example.com/album-art.jpg",
-      isLoading: false,
-      metadata: null,
-    });
   });
 
   describe("when entry is undefined", () => {
@@ -70,38 +51,33 @@ describe("AlbumArtAndIcons", () => {
       expect(screen.getByTestId("aspect-ratio")).toBeInTheDocument();
     });
 
-    it("should call useAlbumArtwork with undefined params", () => {
-      render(<AlbumArtAndIcons entry={undefined} />);
-      expect(mockUseAlbumArtwork).toHaveBeenCalledWith(undefined, undefined);
-    });
-  });
-
-  describe("when loading is true", () => {
-    it("should display aspect-ratio wrapper while loading", () => {
-      mockUseAlbumArtwork.mockReturnValue({
-        artworkUrl: "https://example.com/album-art.jpg",
-        isLoading: true,
-        metadata: null,
-      });
-
-      const songEntry: FlowsheetSongEntry = {
-        ...baseEntry,
-        track_title: "Test Track",
-        artist_name: "Test Artist",
-        album_title: "Test Album",
-        record_label: "Test Label",
-        request_flag: false,
-        segue: false,
-      };
-
-      render(<AlbumArtAndIcons entry={songEntry} />);
-
-      expect(screen.getByTestId("aspect-ratio")).toBeInTheDocument();
+    it("should render the default cassette image", () => {
+      const { container } = render(<AlbumArtAndIcons entry={undefined} />);
+      const img = container.querySelector("img");
+      expect(img).toHaveAttribute("src", "/img/cassette.png");
     });
   });
 
   describe("when entry is a song entry", () => {
-    it("should call useAlbumArtwork with artist and album", () => {
+    it("should render the artwork from entry.artwork_url", () => {
+      const songEntry: FlowsheetSongEntry = {
+        ...baseEntry,
+        track_title: "Test Track",
+        artist_name: "Test Artist",
+        album_title: "Test Album",
+        record_label: "Test Label",
+        request_flag: false,
+        segue: false,
+        artwork_url: "https://example.com/album-art.jpg",
+      };
+
+      const { container } = render(<AlbumArtAndIcons entry={songEntry} />);
+
+      const img = container.querySelector("img");
+      expect(img).toHaveAttribute("src", "https://example.com/album-art.jpg");
+    });
+
+    it("should fall back to the default cassette image when artwork_url is missing", () => {
       const songEntry: FlowsheetSongEntry = {
         ...baseEntry,
         track_title: "Test Track",
@@ -112,9 +88,10 @@ describe("AlbumArtAndIcons", () => {
         segue: false,
       };
 
-      render(<AlbumArtAndIcons entry={songEntry} />);
+      const { container } = render(<AlbumArtAndIcons entry={songEntry} />);
 
-      expect(mockUseAlbumArtwork).toHaveBeenCalledWith("Test Artist", "Test Album");
+      const img = container.querySelector("img");
+      expect(img).toHaveAttribute("src", "/img/cassette.png");
     });
 
     it("should render aspect-ratio wrapper", () => {
@@ -126,6 +103,7 @@ describe("AlbumArtAndIcons", () => {
         record_label: "Test Label",
         request_flag: false,
         segue: false,
+        artwork_url: "https://example.com/album-art.jpg",
       };
 
       render(<AlbumArtAndIcons entry={songEntry} />);
@@ -207,16 +185,4 @@ describe("AlbumArtAndIcons", () => {
     });
   });
 
-  describe("when entry is a non-song entry", () => {
-    it("should call useAlbumArtwork with undefined params", () => {
-      const messageEntry: FlowsheetMessageEntry = {
-        ...baseEntry,
-        message: "PSA: Community announcement",
-      };
-
-      render(<AlbumArtAndIcons entry={messageEntry} />);
-
-      expect(mockUseAlbumArtwork).toHaveBeenCalledWith(undefined, undefined);
-    });
-  });
 });
