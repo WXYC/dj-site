@@ -41,7 +41,7 @@ export default function Results({
           sx={{ px: 2, py: 1.5, color: "text.secondary" }}
         >
           {loading
-            ? "Searching…"
+            ? "Searching..."
             : hasResults
             ? `Found ${total.toLocaleString()} result${total === 1 ? "" : "s"}`
             : "No results found"}
