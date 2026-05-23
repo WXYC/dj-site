@@ -50,9 +50,15 @@ let mockTracksLoading = false;
 vi.mock("@/lib/features/rotation/api", async () => {
   // Keep rotationApi intact — lib/store.ts consumes it for the real store
   // that renderWithProviders wires up. Override only the two query hooks
-  // the component reads. Returning a minimal {data, isLoading} subset (vs.
-  // the full UseQueryHookResult) is fine because the component never reads
-  // refetch / fulfilledTimeStamp / etc.
+  // the component reads. Returning a minimal {data, isLoading, isFetching}
+  // subset is fine because the component never reads refetch /
+  // fulfilledTimeStamp / etc.
+  //
+  // Surface `isFetching` from the same source as `isLoading` — the component
+  // reads `isFetching` to keep the picker visible across refetches (BS#589),
+  // but at this tier we only have one "loading" knob to drive. Refetch-on-
+  // arg-change behavior is exercised in RotationEntryFields.refetch.test.tsx
+  // with MSW + real RTK Query.
   const actual = await vi.importActual<typeof import("@/lib/features/rotation/api")>(
     "@/lib/features/rotation/api"
   );
@@ -62,6 +68,7 @@ vi.mock("@/lib/features/rotation/api", async () => {
     useGetRotationTracksQuery: () => ({
       data: mockTracksData,
       isLoading: mockTracksLoading,
+      isFetching: mockTracksLoading,
     }),
   };
 });

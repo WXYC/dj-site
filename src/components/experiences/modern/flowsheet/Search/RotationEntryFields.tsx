@@ -7,12 +7,11 @@ import {
   RotationTrack,
   useGetRotationQuery,
   useGetRotationTracksQuery,
-  useRotationPrefetch,
 } from "@/lib/features/rotation/api";
 import { useAppDispatch } from "@/lib/hooks";
 import { useFlowsheetSearch } from "@/src/hooks/flowsheetHooks";
 import { Divider } from "@mui/joy";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import FlowsheetSearchInput from "./FlowsheetSearchInput";
 import RotationBinSelector from "./RotationBinSelector";
 import RotationReleaseDropdown from "./RotationReleaseDropdown";
@@ -29,29 +28,26 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
 
   const { data: rotationData } = useGetRotationQuery();
 
-  // Fetch tracks when a release is selected (uses its rotation_id)
-  const { data: tracks, isLoading: tracksLoading } = useGetRotationTracksQuery(
+  // Fetch tracks when a release is selected (uses its rotation_id). Aliased
+  // `isFetching` to `tracksLoading` so the gate below reads as intent ("is a
+  // request in flight that should keep the picker visible") regardless of
+  // whether it's the first call or a refetch over stale cache.
+  //
+  // `refetchOnMountOrArgChange: true` forces a re-query on every release
+  // pick rather than trusting the RTK Query cache. The cache may hold
+  // `200 + []` from a swallowed LML timeout (BS `resolveRotationDiscogsReleaseViaLml`
+  // returns null on AbortError → controller emits `[]`); without forcing
+  // refetch the picker silently falls through to the free-text input
+  // (WXYC/dj-site#589).
+  const { data: tracks, isFetching: tracksLoading } = useGetRotationTracksQuery(
     selectedRelease?.rotation_id ?? 0,
-    { skip: !selectedRelease?.rotation_id }
+    { skip: !selectedRelease?.rotation_id, refetchOnMountOrArgChange: true }
   );
 
   const filteredReleases = useMemo(() => {
     if (!rotationData || !selectedBin) return [];
     return rotationData.filter((r) => r.rotation_bin === selectedBin);
   }, [rotationData, selectedBin]);
-
-  // Warm the tracklist cache for every release in the picked bin so the picker
-  // is instantaneous — tubafrenzy renders rotation track titles inline and DJs
-  // are used to seeing them with no perceptible delay. One bin is bounded
-  // (~30 releases) and LML's 3-tier cache absorbs the per-release LML fetches.
-  const prefetchRotationTracks = useRotationPrefetch("getRotationTracks");
-  useEffect(() => {
-    for (const release of filteredReleases) {
-      if (release.rotation_id) {
-        prefetchRotationTracks(release.rotation_id);
-      }
-    }
-  }, [filteredReleases, prefetchRotationTracks]);
 
   const handleSelectBin = useCallback(
     (bin: Rotation) => {
