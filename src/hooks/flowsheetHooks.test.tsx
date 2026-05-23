@@ -1039,6 +1039,63 @@ describe("flowsheetHooks", () => {
       // The dispatch should have been called with the queue action
     });
 
+    it("treats Meta (Cmd) keydown the same as Control", () => {
+      const { result } = renderHook(() => useFlowsheetSubmit(), {
+        wrapper: createWrapper(),
+      });
+
+      act(() => {
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Meta" }));
+      });
+      expect(result.current.ctrlKeyPressed).toBe(true);
+
+      act(() => {
+        document.dispatchEvent(new KeyboardEvent("keyup", { key: "Meta" }));
+      });
+      expect(result.current.ctrlKeyPressed).toBe(false);
+    });
+
+    it("routes submission to queue even when the keydown state hasn't been observed yet", () => {
+      // Preload a song title so the song-title guard doesn't short-circuit
+      // before the queue branch is reached.
+      const wrapper = createHookWrapper(
+        { flowsheet: flowsheetSlice },
+        {
+          flowsheet: {
+            ...flowsheetSlice.getInitialState(),
+            search: {
+              ...flowsheetSlice.getInitialState().search,
+              query: {
+                ...flowsheetSlice.getInitialState().search.query,
+                song: "la paradoja",
+                artist: "Juana Molina",
+                album: "DOGA",
+              },
+            },
+          },
+        }
+      );
+
+      const { result } = renderHook(() => useFlowsheetSubmit(), { wrapper });
+
+      // Dispatch keydown synchronously (no act wrap), then immediately submit.
+      // This simulates the real-world race where the user presses Ctrl+Enter
+      // fast enough that React hasn't committed the setCtrlKeyPressed update
+      // before the form's implicit submit fires.
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Control" }));
+
+      act(() => {
+        result.current.handleSubmit({
+          preventDefault: vi.fn(),
+        } as unknown as React.FormEvent);
+      });
+
+      // If the modifier were read from React state, the stale closure would
+      // see ctrlKeyPressed === false and call addToFlowsheet. Reading from
+      // the ref avoids that race.
+      expect(mockAddToFlowsheet).not.toHaveBeenCalled();
+    });
+
     it("should include selectedEntry values in selectedResultData when selectedResult > 0", () => {
       // Mock search results with an album entry
       const mockAlbum = createTestAlbum({

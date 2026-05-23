@@ -25,7 +25,7 @@ import {
 import type { RootState } from "@/lib/store";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import type { FormEvent } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useRegistry } from "./authenticationHooks";
 import { useBinResults } from "./binHooks";
@@ -402,6 +402,13 @@ export const useQueue = () => {
 };
 
 export const useFlowsheetSubmit = () => {
+  // Track modifier state with a ref so handleSubmit reads the current value
+  // synchronously. useState alone races with the form's implicit submit:
+  // pressing Ctrl then Enter quickly fires the submit before React commits
+  // the setState, so the closure reads stale `false` and the entry lands in
+  // the flowsheet instead of the queue. The state mirror is kept for UI
+  // (button color / icon) feedback.
+  const queueModifierRef = useRef(false);
   const [ctrlKeyPressed, setCtrlKeyPressed] = useState(false);
 
   const { addToQueue } = useQueue();
@@ -409,14 +416,15 @@ export const useFlowsheetSubmit = () => {
   const dispatch = useAppDispatch();
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.key === "Control") {
-      e.preventDefault();
+    if (e.key === "Control" || e.key === "Meta") {
+      queueModifierRef.current = true;
       setCtrlKeyPressed(true);
     }
   }, []);
 
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
-    if (e.key === "Control") {
+    if (e.key === "Control" || e.key === "Meta") {
+      queueModifierRef.current = false;
       setCtrlKeyPressed(false);
     }
   }, []);
@@ -503,7 +511,7 @@ export const useFlowsheetSubmit = () => {
         toast.error("Song title is required");
         return;
       }
-      if (ctrlKeyPressed) {
+      if (queueModifierRef.current) {
         addToQueue(selectedResultData);
         dispatch(flowsheetSlice.actions.resetSearch());
         return;
@@ -528,7 +536,6 @@ export const useFlowsheetSubmit = () => {
       }
     },
     [
-      ctrlKeyPressed,
       addToFlowsheet,
       addToQueue,
       selectedResultData,
