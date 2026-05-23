@@ -27,6 +27,7 @@ export default function Results({
     results: releaseList,
     total,
     isLoading: loading,
+    isError,
     hasMore,
     loadNextPage,
   } = useCatalogQueryResults();
@@ -42,6 +43,8 @@ export default function Results({
         >
           {loading
             ? "Searching..."
+            : isError
+            ? "Search failed. Please try again."
             : hasResults
             ? `Found ${total.toLocaleString()} result${total === 1 ? "" : "s"}`
             : "No results found"}

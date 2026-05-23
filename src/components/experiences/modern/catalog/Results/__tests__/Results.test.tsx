@@ -35,6 +35,7 @@ const hookState = {
     results: [] as ReturnType<typeof createTestAlbum>[],
     total: 0,
     isLoading: false,
+    isError: false,
     hasMore: false,
     loadNextPage: vi.fn(),
   },
@@ -50,17 +51,20 @@ import Results from "../Results";
 function setHookState(overrides: {
   hasActiveQuery?: boolean;
   isLoading?: boolean;
+  isError?: boolean;
   results?: ReturnType<typeof createTestAlbum>[];
   total?: number;
 }) {
   hookState.search.hasActiveQuery = overrides.hasActiveQuery ?? false;
   hookState.results.isLoading = overrides.isLoading ?? false;
+  hookState.results.isError = overrides.isError ?? false;
   hookState.results.results = overrides.results ?? [];
   hookState.results.total = overrides.total ?? 0;
 }
 
 describe("Catalog Results status line", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     setHookState({});
   });
 
@@ -102,6 +106,19 @@ describe("Catalog Results status line", () => {
     setHookState({ hasActiveQuery: true, isLoading: false, results: [], total: 0 });
     renderWithProviders(<Results color="primary" />);
     expect(screen.getByText("No results found")).toBeDefined();
+  });
+
+  it("renders an error message when the query errors", () => {
+    setHookState({
+      hasActiveQuery: true,
+      isLoading: false,
+      isError: true,
+      results: [],
+      total: 0,
+    });
+    renderWithProviders(<Results color="primary" />);
+    expect(screen.getByText("Search failed. Please try again.")).toBeDefined();
+    expect(screen.queryByText("No results found")).toBeNull();
   });
 
   it("renders no status line at all when there is no active query", () => {
