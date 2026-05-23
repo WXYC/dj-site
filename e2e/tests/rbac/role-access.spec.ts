@@ -127,7 +127,7 @@ test.describe("Role-Based Access Control", () => {
       // App may redirect to login or show 404/error page for unauthenticated users
       await Promise.race([
         page.waitForURL("**/login**", { timeout: 10000 }),
-        page.locator('input[name="email"]').waitFor({ state: "visible", timeout: 10000 }),
+        page.locator('input[name="identifier"]').waitFor({ state: "visible", timeout: 10000 }),
         page.locator('input[name="username"]').waitFor({ state: "visible", timeout: 10000 }),
         page.getByText("We couldn't find the resource you were looking for").waitFor({ state: "visible", timeout: 10000 }),
       ]);
@@ -154,7 +154,7 @@ test.describe("Role-Based Access Control", () => {
     test("should allow access to login page", async ({ page }) => {
       await page.goto("/login");
       // The default login form is the OTP email form
-      await page.waitForSelector('input[name="email"]');
+      await page.waitForSelector('input[name="identifier"]');
       expect(page.url()).toContain("/login");
     });
   });
