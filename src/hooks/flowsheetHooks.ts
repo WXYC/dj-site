@@ -496,6 +496,13 @@ export const useFlowsheetSubmit = () => {
   const handleSubmit = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
+      // Guard required fields here because clicking a search result row
+      // bypasses the form's HTML5 `required` validation (the row's onClick
+      // calls handleSubmit directly instead of submitting the form).
+      if (!(selectedResultData.song ?? "").trim()) {
+        toast.error("Song title is required");
+        return;
+      }
       if (ctrlKeyPressed) {
         addToQueue(selectedResultData);
         dispatch(flowsheetSlice.actions.resetSearch());
