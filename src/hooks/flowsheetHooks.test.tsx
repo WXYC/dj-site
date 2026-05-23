@@ -141,6 +141,14 @@ vi.mock("@/lib/features/flowsheet/conversions", () => ({
   })),
 }));
 
+const mockToastError = vi.fn();
+vi.mock("sonner", () => ({
+  toast: {
+    success: vi.fn(),
+    error: (...args: unknown[]) => mockToastError(...args),
+  },
+}));
+
 const createWrapper = () =>
   createHookWrapper({ flowsheet: flowsheetSlice, catalog: catalogSlice });
 
@@ -966,8 +974,27 @@ describe("flowsheetHooks", () => {
     });
 
     it("should call handleSubmit and add to flowsheet when ctrl is not pressed", () => {
+      // Preload a song title — handleSubmit now requires it (covers the
+      // row-click bypass of the form's HTML5 validation; see the
+      // "song-title validation" describe block below).
+      const wrapper = createHookWrapper(
+        { flowsheet: flowsheetSlice },
+        {
+          flowsheet: {
+            ...flowsheetSlice.getInitialState(),
+            search: {
+              ...flowsheetSlice.getInitialState().search,
+              query: {
+                ...flowsheetSlice.getInitialState().search.query,
+                song: "la paradoja",
+              },
+            },
+          },
+        }
+      );
+
       const { result } = renderHook(() => useFlowsheetSubmit(), {
-        wrapper: createWrapper(),
+        wrapper,
       });
 
       act(() => {
@@ -1213,6 +1240,91 @@ describe("flowsheetHooks", () => {
       expect(result.current.selectedResultData.artist).toBe("Fallback Artist");
       expect(result.current.selectedResultData.album).toBe("Fallback Album");
       expect(result.current.selectedResultData.label).toBe("Fallback Label");
+    });
+
+    describe("handleSubmit song-title validation", () => {
+      // Catalog/LML result rows wire `onClick={handleSubmit}` (see
+      // FlowsheetBackendResult.tsx), which sidesteps the form's HTML5
+      // `required` on the song input. handleSubmit must reject empty
+      // song titles on every submission path.
+      const mkPreloaded = (song: string) => ({
+        flowsheet: {
+          ...flowsheetSlice.getInitialState(),
+          search: {
+            ...flowsheetSlice.getInitialState().search,
+            selectedResult: 0,
+            query: {
+              song,
+              artist: "Juana Molina",
+              album: "DOGA",
+              label: "Sonamos",
+              request: false,
+            },
+          },
+        },
+      });
+
+      it("rejects submission when song is empty and does not call addToFlowsheet", async () => {
+        const wrapper = createHookWrapper(
+          { flowsheet: flowsheetSlice },
+          mkPreloaded("")
+        );
+
+        const { result } = renderHook(() => useFlowsheetSubmit(), {
+          wrapper,
+        });
+
+        await act(async () => {
+          await result.current.handleSubmit({
+            preventDefault: vi.fn(),
+          } as unknown as React.FormEvent);
+        });
+
+        expect(mockAddToFlowsheet).not.toHaveBeenCalled();
+        expect(mockToastError).toHaveBeenCalledWith(
+          expect.stringMatching(/song title is required/i)
+        );
+      });
+
+      it("rejects submission when song is whitespace-only", async () => {
+        const wrapper = createHookWrapper(
+          { flowsheet: flowsheetSlice },
+          mkPreloaded("   ")
+        );
+
+        const { result } = renderHook(() => useFlowsheetSubmit(), {
+          wrapper,
+        });
+
+        await act(async () => {
+          await result.current.handleSubmit({
+            preventDefault: vi.fn(),
+          } as unknown as React.FormEvent);
+        });
+
+        expect(mockAddToFlowsheet).not.toHaveBeenCalled();
+        expect(mockToastError).toHaveBeenCalled();
+      });
+
+      it("submits normally when song is present", async () => {
+        const wrapper = createHookWrapper(
+          { flowsheet: flowsheetSlice },
+          mkPreloaded("la paradoja")
+        );
+
+        const { result } = renderHook(() => useFlowsheetSubmit(), {
+          wrapper,
+        });
+
+        await act(async () => {
+          await result.current.handleSubmit({
+            preventDefault: vi.fn(),
+          } as unknown as React.FormEvent);
+        });
+
+        expect(mockAddToFlowsheet).toHaveBeenCalledTimes(1);
+        expect(mockToastError).not.toHaveBeenCalled();
+      });
     });
 
     it("should return selectedEntry when selectedResult > 0 and results exist", () => {
