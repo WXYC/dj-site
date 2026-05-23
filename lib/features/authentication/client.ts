@@ -2,6 +2,7 @@
 
 import { createAuthClient } from "better-auth/react"
 import { adminClient, emailOTPClient, usernameClient, jwtClient, organizationClient } from "better-auth/client/plugins"
+import { isValidEmail } from "@wxyc/shared/validation"
 
 // Client-side only - contains React hooks
 // This file should only be imported in client components
@@ -104,4 +105,29 @@ export function clearTokenCache(): void {
   cachedToken = null;
   cacheExpiry = 0;
   inflight = null;
+}
+
+/**
+ * Resolve a login identifier (username or email) to an email address.
+ * Returns the email when the username matches a user; returns the
+ * identifier unchanged when it already contains '@'; returns null when
+ * a username has no match. Rate-limited by the auth server.
+ */
+export async function lookupEmailByIdentifier(identifier: string): Promise<string | null> {
+  if (isValidEmail(identifier)) {
+    return identifier;
+  }
+
+  const response = await fetch(`${baseURL}/wxyc/lookup-email`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ identifier }),
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const data = (await response.json()) as { email?: string | null };
+  return data.email ?? null;
 }

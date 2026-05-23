@@ -13,11 +13,11 @@ vi.mock("next/navigation", () => ({
 describe("EmailOTPForm", () => {
   const defaultProps = { onCodeSent: vi.fn() };
 
-  it("should render email input", () => {
+  it("should render identifier input", () => {
     renderWithProviders(<EmailOTPForm {...defaultProps} />);
 
-    expect(screen.getByText("Email")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("you@example.com")).toBeInTheDocument();
+    expect(screen.getByText("Username or email")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Username or email")).toBeInTheDocument();
   });
 
   it("should render submit button", () => {
@@ -32,10 +32,10 @@ describe("EmailOTPForm", () => {
     expect(screen.getByRole("button", { name: "Send login code" })).toBeDisabled();
   });
 
-  it("should enable submit button when email is entered", async () => {
+  it("should enable submit button when identifier is entered", async () => {
     const { user } = renderWithProviders(<EmailOTPForm {...defaultProps} />);
 
-    await user.type(screen.getByPlaceholderText("you@example.com"), "dj@wxyc.org");
+    await user.type(screen.getByPlaceholderText("Username or email"), "jbromberg");
 
     expect(screen.getByRole("button", { name: "Send login code" })).not.toBeDisabled();
   });
