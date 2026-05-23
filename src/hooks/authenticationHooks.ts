@@ -1,7 +1,8 @@
 "use client";
 
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
-import { authClient } from "@/lib/features/authentication/client";
+import { authClient, lookupEmailByIdentifier } from "@/lib/features/authentication/client";
+import { isValidEmail } from "@wxyc/shared/validation";
 import {
   AuthenticatedUser,
   AuthenticationData,
@@ -32,13 +33,12 @@ export const useLogin = () => {
   const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     return execute(async () => {
-      const username = e.currentTarget.username.value;
+      const identifier = e.currentTarget.username.value;
       const password = e.currentTarget.password.value;
 
-      const result = (await authClient.signIn.username({
-        username,
-        password,
-      })) as { error?: unknown };
+      const result = isValidEmail(identifier)
+        ? ((await authClient.signIn.email({ email: identifier, password })) as { error?: unknown })
+        : ((await authClient.signIn.username({ username: identifier, password })) as { error?: unknown });
 
       if (result.error) {
         const errorMessage = result.error instanceof Error
@@ -78,21 +78,28 @@ export const useLogin = () => {
 export const useOTPRequest = () => {
   const { execute, isLoading, error } = useAsyncAction();
 
-  const handleSendOTP = async (email: string) => {
-    const success = await execute(async () => {
-      const result = await authClient.emailOtp.sendVerificationOtp({
+  const handleSendOTP = async (identifier: string): Promise<{ email: string }> => {
+    const result = await execute(async () => {
+      const email = await lookupEmailByIdentifier(identifier);
+      if (!email) {
+        throw new Error("No account matches that username or email.");
+      }
+
+      const sendResult = await authClient.emailOtp.sendVerificationOtp({
         email,
         type: "sign-in",
       });
 
-      throwIfBetterAuthError(result as any, "Failed to send login code");
+      throwIfBetterAuthError(sendResult as any, "Failed to send login code");
 
       toast.success("Login code sent! Check your email.");
+      return { email };
     }, "Failed to send login code. Please try again.");
 
-    if (!success) {
-      throw new Error(error?.message || "Failed to send login code");
+    if (!result) {
+      throw new Error("Failed to send login code");
     }
+    return result;
   };
 
   return { handleSendOTP, isLoading, error };

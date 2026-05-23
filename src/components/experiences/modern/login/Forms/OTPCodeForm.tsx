@@ -6,10 +6,12 @@ import { useState } from "react";
 
 export default function OTPCodeForm({
   email,
-  onChangeEmail,
+  displayTarget,
+  onChangeIdentifier,
 }: {
   email: string;
-  onChangeEmail: () => void;
+  displayTarget: string;
+  onChangeIdentifier: () => void;
 }) {
   const { handleVerifyOTP, handleResendOTP, isLoading } = useOTPVerify();
   const [otp, setOtp] = useState("");
@@ -27,7 +29,7 @@ export default function OTPCodeForm({
   return (
     <form onSubmit={handleSubmit} method="post">
       <Typography level="body-sm" sx={{ mb: 2 }}>
-        Code sent to <strong>{email}</strong>
+        Code sent to <strong>{displayTarget}</strong>
       </Typography>
       <FormControl required>
         <FormLabel>Login code</FormLabel>
@@ -63,10 +65,10 @@ export default function OTPCodeForm({
         <Link
           component="button"
           type="button"
-          onClick={onChangeEmail}
+          onClick={onChangeIdentifier}
           disabled={isLoading}
         >
-          Try a different email
+          Try a different account
         </Link>
       </Typography>
     </form>

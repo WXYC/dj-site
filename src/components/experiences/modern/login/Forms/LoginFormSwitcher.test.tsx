@@ -49,7 +49,7 @@ describe("LoginFormSwitcher", () => {
   it("should render password form for password stage", () => {
     renderWithAuthStage("password");
 
-    expect(screen.getByText("Username")).toBeInTheDocument();
+    expect(screen.getByText("Username or email")).toBeInTheDocument();
     expect(screen.getByText("Password")).toBeInTheDocument();
   });
 });

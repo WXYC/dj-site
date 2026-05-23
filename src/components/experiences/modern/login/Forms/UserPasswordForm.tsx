@@ -21,8 +21,8 @@ export default function UserPasswordForm() {
     <form onSubmit={handleLogin} method="post">
       <RequiredBox
         name="username"
-        title="Username"
-        placeholder="Username"
+        title="Username or email"
+        placeholder="Username or email"
         type="text"
         disabled={authenticating}
       />
