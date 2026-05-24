@@ -60,9 +60,6 @@ function mockRotationListAndTracks(handler: TracksHandler): {
 } {
   const callCounts = new Map<number, number>();
   server.use(
-    // backendBaseQuery("library/rotation") + url="" resolves to
-    // `${TEST_BACKEND_URL}/library/rotation`. Match the trailing-slashed and
-    // unslashed forms both to be robust to fetchBaseQuery's URL joining.
     http.get(`${TEST_BACKEND_URL}/library/rotation`, () =>
       HttpResponse.json([ooioo, jessicaPratt])
     ),
@@ -158,12 +155,10 @@ describe("RotationEntryFields — refetch on release pick (#589)", () => {
 
     selectBin();
     await selectRelease(ooioo.id);
-    // First pick: empty response, dropdown should not render.
     await waitFor(() =>
       expect(screen.queryByTestId("track-picker-trigger")).not.toBeInTheDocument()
     );
 
-    // Switch away and back. Each arg change triggers a refetch.
     await selectRelease(jessicaPratt.id);
     await selectRelease(ooioo.id);
 

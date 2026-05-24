@@ -28,17 +28,13 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
 
   const { data: rotationData } = useGetRotationQuery();
 
-  // Fetch tracks when a release is selected (uses its rotation_id). Aliased
-  // `isFetching` to `tracksLoading` so the gate below reads as intent ("is a
-  // request in flight that should keep the picker visible") regardless of
-  // whether it's the first call or a refetch over stale cache.
-  //
-  // `refetchOnMountOrArgChange: true` forces a re-query on every release
-  // pick rather than trusting the RTK Query cache. The cache may hold
-  // `200 + []` from a swallowed LML timeout (BS `resolveRotationDiscogsReleaseViaLml`
-  // returns null on AbortError → controller emits `[]`); without forcing
-  // refetch the picker silently falls through to the free-text input
-  // (WXYC/dj-site#589).
+  // `refetchOnMountOrArgChange` forces a re-query on every release pick
+  // rather than trusting the RTK Query cache: the cache may hold `200 + []`
+  // from a swallowed LML timeout (BS `resolveRotationDiscogsReleaseViaLml`
+  // returns null on AbortError → controller emits `[]`), and without the
+  // forced refetch the picker silently falls through to the free-text input
+  // (WXYC/dj-site#589). Reading `isFetching` rather than `isLoading` keeps
+  // the dropdown visible during refetches over that stale-empty cache.
   const { data: tracks, isFetching: tracksLoading } = useGetRotationTracksQuery(
     selectedRelease?.rotation_id ?? 0,
     { skip: !selectedRelease?.rotation_id, refetchOnMountOrArgChange: true }
