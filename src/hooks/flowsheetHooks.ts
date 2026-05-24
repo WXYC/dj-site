@@ -402,12 +402,10 @@ export const useQueue = () => {
 };
 
 export const useFlowsheetSubmit = () => {
-  // Track modifier state with a ref so handleSubmit reads the current value
-  // synchronously. useState alone races with the form's implicit submit:
-  // pressing Ctrl then Enter quickly fires the submit before React commits
-  // the setState, so the closure reads stale `false` and the entry lands in
-  // the flowsheet instead of the queue. The state mirror is kept for UI
-  // (button color / icon) feedback.
+  // Ref drives the submit-path decision (synchronous read); the state mirror
+  // drives the button color/icon. Without the ref, a fast Ctrl+Enter races
+  // the form's implicit submit and lands the entry in the flowsheet because
+  // React hasn't committed setCtrlKeyPressed by the time handleSubmit fires.
   const queueModifierRef = useRef(false);
   const [ctrlKeyPressed, setCtrlKeyPressed] = useState(false);
 

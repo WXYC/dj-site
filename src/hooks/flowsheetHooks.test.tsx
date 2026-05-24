@@ -1055,9 +1055,10 @@ describe("flowsheetHooks", () => {
       expect(result.current.ctrlKeyPressed).toBe(false);
     });
 
+    // Dispatching keydown without an act() wrap leaves the React state
+    // uncommitted before handleSubmit fires — the same race the production
+    // form's implicit submit exposes when Ctrl+Enter is pressed quickly.
     it("routes submission to queue even when the keydown state hasn't been observed yet", () => {
-      // Preload a song title so the song-title guard doesn't short-circuit
-      // before the queue branch is reached.
       const wrapper = createHookWrapper(
         { flowsheet: flowsheetSlice },
         {
@@ -1078,10 +1079,6 @@ describe("flowsheetHooks", () => {
 
       const { result } = renderHook(() => useFlowsheetSubmit(), { wrapper });
 
-      // Dispatch keydown synchronously (no act wrap), then immediately submit.
-      // This simulates the real-world race where the user presses Ctrl+Enter
-      // fast enough that React hasn't committed the setCtrlKeyPressed update
-      // before the form's implicit submit fires.
       document.dispatchEvent(new KeyboardEvent("keydown", { key: "Control" }));
 
       act(() => {
@@ -1090,9 +1087,6 @@ describe("flowsheetHooks", () => {
         } as unknown as React.FormEvent);
       });
 
-      // If the modifier were read from React state, the stale closure would
-      // see ctrlKeyPressed === false and call addToFlowsheet. Reading from
-      // the ref avoids that race.
       expect(mockAddToFlowsheet).not.toHaveBeenCalled();
     });
 
