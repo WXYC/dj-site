@@ -155,6 +155,30 @@ describe("useCatalogQueryResults", () => {
     expect(triggerCalls[0].q).toBe("artist:Stereolab");
   });
 
+  it("dedupes duplicate album ids within a single page response", async () => {
+    const store = makeStore();
+    const duplicate = createTestAlbum({ id: 7000 });
+    nextLazyResult = {
+      data: {
+        results: [duplicate, duplicate, createTestAlbum({ id: 2 })],
+        total: 2,
+        page: 0,
+        totalPages: 1,
+      },
+      isFetching: false,
+      isError: false,
+    };
+
+    const { result } = renderHook(() => useCatalogQueryResults(), {
+      wrapper: Wrapper({ store }),
+    });
+
+    await waitFor(() => {
+      expect(result.current.results).toHaveLength(2);
+    });
+    expect(result.current.results.map((r) => r.id)).toEqual([7000, 2]);
+  });
+
   it("accumulates additional pages when data is returned, deduping by id", async () => {
     const store = makeStore();
     const pageZero = [createTestAlbum({ id: 1 }), createTestAlbum({ id: 2 })];

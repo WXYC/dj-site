@@ -22,9 +22,22 @@ import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuthentication } from "./authenticationHooks";
 import { filterBySearchTerms } from "@/src/utilities/filterBySearchTerms";
+import { mergeAlbumIntoSearchResult } from "@/lib/features/catalog/patchSearchResult";
 
 const MIN_QUERY_LENGTH = 2;
 const PAGE_LIMIT = 50;
+
+/** Keep first occurrence per album id (backend may return duplicates in one page). */
+export function dedupeAlbumEntriesById(entries: AlbumEntry[]): AlbumEntry[] {
+  const seen = new Set<number>();
+  const out: AlbumEntry[] = [];
+  for (const entry of entries) {
+    if (seen.has(entry.id)) continue;
+    seen.add(entry.id);
+    out.push(entry);
+  }
+  return out;
+}
 
 /** UI-side field-prefix map (mirrors the backend's CATALOG_PARSER_CONFIG). */
 const CATALOG_FIELD_PREFIXES: Record<CatalogSearchField, string | null> = {
@@ -216,6 +229,9 @@ export function useCatalogQueryResults() {
   // straight from this hook, and React only re-renders on state changes.
   const [accumulated, setAccumulated] = useState<AlbumEntry[]>([]);
   const lastAccumulatedKeyRef = useRef<string>("");
+  const lastPatchedSearchResult = useAppSelector(
+    catalogSlice.selectors.getLastPatchedSearchResult,
+  );
 
   const [trigger, { data, isFetching, isError }] =
     useLazySearchLibraryQueryQuery();
@@ -229,13 +245,29 @@ export function useCatalogQueryResults() {
     }
   }, [effectiveQuery, sortBy, sortOrder, filters]);
 
+  // Keep paginated in-memory results in sync after a catalog edit save.
+  useEffect(() => {
+    if (!lastPatchedSearchResult) return;
+    setAccumulated((prev) => {
+      const index = prev.findIndex(
+        (row) => row.id === lastPatchedSearchResult.id,
+      );
+      if (index === -1) return prev;
+      const next = [...prev];
+      next[index] = mergeAlbumIntoSearchResult(
+        prev[index],
+        lastPatchedSearchResult,
+      );
+      return next;
+    });
+  }, [lastPatchedSearchResult]);
+
   // Append the latest page (or replace, for page 0) into the accumulator.
   useEffect(() => {
     if (!data?.results) return;
     setAccumulated((prev) => {
-      if (data.page === 0) return data.results;
-      const seen = new Set(prev.map((r) => r.id));
-      return [...prev, ...data.results.filter((r) => !seen.has(r.id))];
+      const base = data.page === 0 ? [] : prev;
+      return dedupeAlbumEntriesById([...base, ...data.results]);
     });
   }, [data]);
 

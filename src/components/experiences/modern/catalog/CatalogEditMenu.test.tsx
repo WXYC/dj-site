@@ -19,11 +19,11 @@ describe("CatalogEditMenu", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders Edit button when user can edit catalog", async () => {
+  it("renders Add button when user can edit catalog", async () => {
     vi.mocked(useCanEditCatalog).mockReturnValue(true);
     render(<CatalogEditMenu />);
     await waitFor(() => {
-      expect(screen.getByTestId("catalog-edit-button")).toHaveTextContent("Edit");
+      expect(screen.getByTestId("catalog-add-button")).toHaveTextContent("Add");
     });
   });
 });

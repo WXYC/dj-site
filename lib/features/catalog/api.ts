@@ -1,6 +1,7 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { backendBaseQuery } from "../backend";
 import { convertToAlbumEntry } from "./conversions";
+import { patchCatalogSearchCaches } from "./patchSearchCaches";
 import {
   AddAlbumRequestBody,
   AddArtistRequestBody,
@@ -17,6 +18,7 @@ import {
   SearchArtistsInGenreParams,
   SearchArtistsInGenreResponse,
   SearchCatalogQueryParams,
+  UpdateAlbumRequestBody,
 } from "./types";
 
 type LibraryQueryResponseJSON = {
@@ -70,6 +72,26 @@ export const catalogApi = createApi({
         body,
       }),
     }),
+    updateAlbum: builder.mutation<AlbumEntry, { albumId: number; body: UpdateAlbumRequestBody }>({
+      query: ({ albumId, body }) => ({
+        url: `/${albumId}`,
+        method: "PATCH",
+        body,
+      }),
+      transformResponse: (response: AlbumSearchResultJSON) =>
+        convertToAlbumEntry(response),
+      invalidatesTags: (_result, _error, { albumId }) => [
+        { type: "AlbumDetail", id: albumId },
+      ],
+      async onQueryStarted(_arg, { dispatch, queryFulfilled, getState }) {
+        try {
+          const { data: updated } = await queryFulfilled;
+          patchCatalogSearchCaches(dispatch, getState, updated);
+        } catch {
+          // Leave caches untouched when save fails.
+        }
+      },
+    }),
     addArtist: builder.mutation<
       { id: number; code_number?: number; genre_id?: number } & Record<string, unknown>,
       AddArtistRequestBody
@@ -94,6 +116,10 @@ export const catalogApi = createApi({
         url: "/artists/search",
         params: { genre_id, q, limit },
       }),
+      transformResponse: (
+        response: SearchArtistsInGenreResponse | null,
+      ): SearchArtistsInGenreResponse =>
+        response?.artists ? response : { artists: [] },
     }),
     getInformation: builder.query<AlbumEntry, AlbumRequestParams>({
       query: ({ album_id }) => ({
@@ -159,6 +185,7 @@ export const {
   useLazySearchLibraryQueryQuery,
   useSearchLibraryQueryQuery,
   useAddAlbumMutation,
+  useUpdateAlbumMutation,
   useAddArtistMutation,
   useLazyPeekArtistCodeQuery,
   useLazySearchArtistsInGenreQuery,

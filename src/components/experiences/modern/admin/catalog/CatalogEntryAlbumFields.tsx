@@ -1,9 +1,14 @@
 "use client";
 
-import { Button, FormControl, FormLabel, Input, Stack } from "@mui/joy";
+import type { LibraryFormatRow } from "@/lib/features/catalog/types";
+import { Button, FormControl, FormLabel, Input, Option, Select, Stack } from "@mui/joy";
 
 type CatalogEntryAlbumFieldsProps = {
   disabled: boolean;
+  formatId: string;
+  onFormatIdChange: (value: string) => void;
+  formats: LibraryFormatRow[] | undefined;
+  formatsLoading?: boolean;
   albumTitle: string;
   onAlbumTitleChange: (v: string) => void;
   label: string;
@@ -15,10 +20,16 @@ type CatalogEntryAlbumFieldsProps = {
   onAddAlbum: () => void;
   adding: boolean;
   canAdd: boolean;
+  submitLabel?: string;
+  submittingLabel?: string;
 };
 
 export default function CatalogEntryAlbumFields({
   disabled,
+  formatId,
+  onFormatIdChange,
+  formats,
+  formatsLoading,
   albumTitle,
   onAlbumTitleChange,
   label,
@@ -30,9 +41,27 @@ export default function CatalogEntryAlbumFields({
   onAddAlbum,
   adding,
   canAdd,
+  submitLabel = "Add album to catalog",
+  submittingLabel,
 }: CatalogEntryAlbumFieldsProps) {
   return (
     <Stack spacing={2} sx={{ opacity: disabled ? 0.5 : 1, pointerEvents: disabled ? "none" : "auto" }}>
+      <FormControl required>
+        <FormLabel>Format</FormLabel>
+        <Select
+          placeholder="Choose format"
+          value={formatId}
+          onChange={(_, v) => onFormatIdChange(v as string)}
+          disabled={disabled || formatsLoading}
+        >
+          <Option value="">Choose format</Option>
+          {formats?.map((f) => (
+            <Option key={f.id} value={String(f.id)}>
+              {f.format_name}
+            </Option>
+          ))}
+        </Select>
+      </FormControl>
       <FormControl required>
         <FormLabel>Album title</FormLabel>
         <Input
@@ -74,7 +103,7 @@ export default function CatalogEntryAlbumFields({
         color="primary"
         disabled={disabled || !canAdd || adding}
       >
-        Add album to catalog
+        {adding && submittingLabel ? submittingLabel : submitLabel}
       </Button>
     </Stack>
   );

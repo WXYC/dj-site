@@ -1,6 +1,7 @@
 import { createAppSlice } from "@/lib/createAppSlice";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import type {
+  AlbumEntry,
   CatalogFilters,
   CatalogFrontendState,
   CatalogSearchRow,
@@ -24,6 +25,7 @@ export const defaultCatalogFrontendState: CatalogFrontendState = {
   filters: { onStreaming: undefined, genre: "All", format: "All" },
   selected: [],
   mobileOpen: false,
+  lastPatchedSearchResult: null,
 };
 
 export const catalogSlice = createAppSlice({
@@ -83,6 +85,9 @@ export const catalogSlice = createAppSlice({
     closeMobileSearch: (state) => {
       state.mobileOpen = false;
     },
+    patchSearchResult: (state, action: PayloadAction<AlbumEntry>) => {
+      state.lastPatchedSearchResult = action.payload;
+    },
     reset: () => defaultCatalogFrontendState,
   },
   selectors: {
@@ -93,5 +98,6 @@ export const catalogSlice = createAppSlice({
     getFilters: (state) => state.filters,
     getSelected: (state) => state.selected,
     isMobileSearchOpen: (state) => state.mobileOpen,
+    getLastPatchedSearchResult: (state) => state.lastPatchedSearchResult,
   },
 });

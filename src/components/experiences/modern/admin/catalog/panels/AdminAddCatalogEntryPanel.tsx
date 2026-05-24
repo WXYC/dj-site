@@ -164,50 +164,32 @@ export default function AdminAddCatalogEntryPanel() {
   return (
     <RightbarPanelContainer
       title="Add to catalog"
-      subtitle="Genre, artist, then album"
+      subtitle="Genre and artist, then album"
       startDecorator={startDecorator}
       onClose={handleClose}
     >
       <Stack spacing={2}>
         <Typography level="body-sm" sx={{ color: "text.secondary" }}>
-          Choose genre and format, then find or create an artist. Album fields
-          unlock after the artist exists in that genre.
+          Choose a genre, then find or create an artist. Album fields (including
+          format) unlock after the artist exists in that genre.
         </Typography>
 
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-          <FormControl sx={{ flex: 1 }} required>
-            <FormLabel>Genre</FormLabel>
-            <Select
-              placeholder="Choose genre"
-              value={form.genreId}
-              onChange={(_, v) => form.setGenreId(v as string)}
-              disabled={genresLoading}
-            >
-              <Option value="">Choose genre</Option>
-              {genres?.map((g) => (
-                <Option key={g.id} value={String(g.id)}>
-                  {g.genre_name}
-                </Option>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl sx={{ flex: 1 }} required>
-            <FormLabel>Format</FormLabel>
-            <Select
-              placeholder="Choose format"
-              value={form.formatId}
-              onChange={(_, v) => form.setFormatId(v as string)}
-              disabled={formatsLoading}
-            >
-              <Option value="">Choose format</Option>
-              {formats?.map((f) => (
-                <Option key={f.id} value={String(f.id)}>
-                  {f.format_name}
-                </Option>
-              ))}
-            </Select>
-          </FormControl>
-        </Stack>
+        <FormControl required>
+          <FormLabel>Genre</FormLabel>
+          <Select
+            placeholder="Choose genre"
+            value={form.genreId}
+            onChange={(_, v) => form.setGenreId(v as string)}
+            disabled={genresLoading}
+          >
+            <Option value="">Choose genre</Option>
+            {genres?.map((g) => (
+              <Option key={g.id} value={String(g.id)}>
+                {g.genre_name}
+              </Option>
+            ))}
+          </Select>
+        </FormControl>
 
         <CatalogEntryArtistAutocomplete
           genreIdNum={form.genreIdNum}
@@ -240,6 +222,10 @@ export default function AdminAddCatalogEntryPanel() {
 
         <CatalogEntryAlbumFields
           disabled={!form.albumSectionUnlocked}
+          formatId={form.formatId}
+          onFormatIdChange={form.setFormatId}
+          formats={formats}
+          formatsLoading={formatsLoading}
           albumTitle={form.albumTitle}
           onAlbumTitleChange={form.setAlbumTitle}
           label={form.label}

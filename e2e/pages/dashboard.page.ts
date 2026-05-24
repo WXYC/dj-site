@@ -33,7 +33,7 @@ export class DashboardPage {
     this.catalogLink = page.locator('a[href="/dashboard/catalog"]');
     this.adminLink = page.locator('a[href*="/dashboard/admin"]');
     this.rosterLink = page.locator('a[href="/dashboard/admin/roster"]');
-    this.catalogEditButton = page.getByTestId("catalog-edit-button");
+    this.catalogEditButton = page.getByTestId("catalog-add-button");
 
     // Log out button is in a form in the sidebar - it's an IconButton with type="submit"
     // Select specifically the submit button inside a form (the logout button)

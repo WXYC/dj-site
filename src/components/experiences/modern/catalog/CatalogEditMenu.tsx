@@ -3,7 +3,7 @@
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { useAppDispatch } from "@/lib/hooks";
 import { useCanEditCatalog } from "@/src/hooks/catalogHooks";
-import { Edit } from "@mui/icons-material";
+import { Add } from "@mui/icons-material";
 import { Button } from "@mui/joy";
 import { useEffect, useState } from "react";
 
@@ -27,8 +27,8 @@ export default function CatalogEditMenu() {
       variant="outlined"
       color="success"
       size="sm"
-      startDecorator={<Edit />}
-      data-testid="catalog-edit-button"
+      startDecorator={<Add />}
+      data-testid="catalog-add-button"
       aria-label="Add to catalog"
       onClick={() =>
         dispatch(
@@ -38,7 +38,7 @@ export default function CatalogEditMenu() {
         )
       }
     >
-      Edit
+      Add
     </Button>
   );
 }

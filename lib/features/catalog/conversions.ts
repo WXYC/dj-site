@@ -50,24 +50,40 @@ export function convertToAlbumEntry(
       lettercode: response.code_letters ?? "",
       numbercode: response.code_artist_number ?? 0,
       genre: (response.genre_name as Genre) ?? "Unknown",
-      id: undefined,
+      id: isSearchResult(response)
+        ? ((response as Record<string, unknown>).artist_id as number | undefined)
+        : undefined,
     },
     entry: response.code_number ?? 0,
     format: (response.format_name as Format) ?? "Unknown",
-    alternate_artist: "",
+    alternate_artist: isSearchResult(response)
+      ? ((response as Record<string, unknown>).alternate_artist_name as string | undefined) ?? ""
+      : "",
     album_artist: isSearchResult(response) ? response.album_artist : undefined,
     rotation_bin: isSearchResult(response)
       ? (response.rotation_bin as Rotation)
       : undefined,
     add_date: isSearchResult(response) ? response.add_date : undefined,
     plays: isSearchResult(response) ? response.plays : undefined,
-    label: response.label ?? "",
+    label: response.label ?? (response as { record_label?: string }).record_label ?? "",
     rotation_id: isSearchResult(response) ? response.rotation_id : undefined,
     on_streaming: isSearchResult(response) ? (response as Record<string, unknown>).on_streaming as boolean | undefined : undefined,
     date_lost: isSearchResult(response) ? (response as Record<string, unknown>).date_lost as string | undefined : undefined,
     date_found: isSearchResult(response) ? (response as Record<string, unknown>).date_found as string | undefined : undefined,
     artwork_url: isSearchResult(response) ? (response as Record<string, unknown>).artwork_url as string | null | undefined : undefined,
     matched_via: isSearchResult(response) ? response.matched_via : undefined,
+    artist_id: isSearchResult(response)
+      ? (response as Record<string, unknown>).artist_id as number | undefined
+      : undefined,
+    genre_id: isSearchResult(response)
+      ? (response as Record<string, unknown>).genre_id as number | undefined
+      : undefined,
+    format_id: isSearchResult(response)
+      ? (response as Record<string, unknown>).format_id as number | undefined
+      : undefined,
+    disc_quantity: isSearchResult(response)
+      ? (response as Record<string, unknown>).disc_quantity as number | undefined
+      : undefined,
   };
 }
 

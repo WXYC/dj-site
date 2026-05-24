@@ -35,6 +35,17 @@ export type AddAlbumRequestBody = {
   label_id?: number;
 };
 
+export type UpdateAlbumRequestBody = {
+  album_title: string;
+  label: string;
+  genre_id: number;
+  format_id: number;
+  artist_id: number;
+  alternate_artist_name?: string;
+  disc_quantity?: number;
+  label_id?: number;
+};
+
 /**
  * POST /library/artists
  */
@@ -124,6 +135,11 @@ export type AlbumEntry = {
   date_found?: string;
   artwork_url?: string | null;
   matched_via?: TrackMatchHint[];
+  /** Present on `/library/info` responses for catalog edit. */
+  artist_id?: number;
+  genre_id?: number;
+  format_id?: number;
+  disc_quantity?: number;
 };
 
 export type ArtistEntry = {
@@ -194,4 +210,7 @@ export type Genre =
 
 export type SearchIn = "Artists" | "Albums" | "All";
 
-export type CatalogFrontendState = CatalogSearchState;
+export type CatalogFrontendState = CatalogSearchState & {
+  /** Latest album saved from catalog edit; drives in-memory search list refresh. */
+  lastPatchedSearchResult: AlbumEntry | null;
+};

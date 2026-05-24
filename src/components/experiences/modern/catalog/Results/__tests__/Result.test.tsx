@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { createTestAlbum, createTestArtist } from "@/lib/test-utils";
 import { renderWithProviders } from "@/lib/test-utils/render";
 
@@ -24,7 +24,17 @@ vi.mock("@/src/hooks/catalogHooks", () => ({
     setSelection: vi.fn(),
     sortBy: "album",
   }),
+  useCanEditCatalog: vi.fn(() => false),
 }));
+
+vi.mock("@/src/hooks/binHooks", () => ({
+  useBin: vi.fn(() => ({ bin: [], loading: false, isSuccess: true, isError: false })),
+  useAddToBin: vi.fn(() => ({ addToBin: vi.fn(), loading: false })),
+  useDeleteFromBin: vi.fn(() => ({ deleteFromBin: vi.fn(), loading: false })),
+}));
+
+import { useCanEditCatalog } from "@/src/hooks/catalogHooks";
+import { useBin } from "@/src/hooks/binHooks";
 
 import CatalogResult from "../Result";
 
@@ -228,5 +238,76 @@ describe("CatalogResult album artwork", () => {
     );
 
     expect(screen.queryByRole("img")).toBeNull();
+  });
+});
+
+function renderCatalogRow(album = createTestAlbum({ id: 7000 })) {
+  return renderWithProviders(
+    <table>
+      <tbody>
+        <CatalogResult album={album} />
+      </tbody>
+    </table>,
+  );
+}
+
+describe("CatalogResult context menu", () => {
+  beforeEach(() => {
+    vi.mocked(useCanEditCatalog).mockReturnValue(false);
+    vi.mocked(useBin).mockReturnValue({
+      bin: [],
+      loading: false,
+      isSuccess: true,
+      isError: false,
+    });
+  });
+
+  it("opens a custom menu on right-click with core actions", () => {
+    renderCatalogRow();
+    const row = document.querySelector("tbody tr");
+    expect(row).not.toBeNull();
+    fireEvent.contextMenu(row!);
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    expect(screen.getByText("More information")).toBeInTheDocument();
+    expect(screen.getByText("Add to mail bin")).toBeInTheDocument();
+  });
+
+  it("shows Remove from mail bin when the album is already in the bin", () => {
+    const album = createTestAlbum({ id: 7001, title: "In Bin Album" });
+    vi.mocked(useBin).mockReturnValue({
+      bin: [album],
+      loading: false,
+      isSuccess: true,
+      isError: false,
+    });
+    renderCatalogRow(album);
+    fireEvent.contextMenu(document.querySelector("tbody tr")!);
+    expect(screen.getByText("Remove from mail bin")).toBeInTheDocument();
+    expect(screen.queryByText("Add to mail bin")).toBeNull();
+  });
+
+  it("shows Edit catalog entry only when the user can edit the catalog", () => {
+    vi.mocked(useCanEditCatalog).mockReturnValue(true);
+    renderCatalogRow();
+    fireEvent.contextMenu(document.querySelector("tbody tr")!);
+    expect(screen.getByText("Edit catalog entry")).toBeInTheDocument();
+
+    vi.mocked(useCanEditCatalog).mockReturnValue(false);
+    renderCatalogRow(createTestAlbum({ id: 7002 }));
+    fireEvent.contextMenu(document.querySelectorAll("tbody tr")[1]!);
+    const menus = screen.getAllByRole("menu");
+    const lastMenu = menus[menus.length - 1];
+    expect(lastMenu).not.toHaveTextContent("Edit catalog entry");
+  });
+
+  it("opens album detail from the context menu", () => {
+    const album = createTestAlbum({ id: 4242 });
+    const { store } = renderCatalogRow(album);
+    fireEvent.contextMenu(document.querySelector("tbody tr")!);
+    fireEvent.click(screen.getByText("More information"));
+    expect(store.getState().application.rightbar.panel).toEqual({
+      type: "album-detail",
+      albumId: 4242,
+    });
   });
 });

@@ -8,9 +8,23 @@ import {
   defaultLettersFromName,
   toExistingOption,
 } from "./catalogEntryArtistOptions";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 export type CatalogEntryArtistMode = "idle" | "existing" | "new" | "created";
+
+export type CatalogEntryHydrateParams = {
+  genreId: number;
+  formatId: number;
+  artistId: number;
+  artistName: string;
+  codeLetters: string;
+  codeArtistNumber: number;
+  albumTitle: string;
+  label: string;
+  alternateArtist?: string;
+  discQuantity?: number;
+  albumEntry?: number;
+};
 
 export function useCatalogEntryForm() {
   const [genreId, setGenreId] = useState("");
@@ -47,6 +61,34 @@ export function useCatalogEntryForm() {
     setGenreId(next);
     resetArtist();
   };
+
+  const setGenreIdOnly = (next: string) => {
+    setGenreId(next);
+  };
+
+  const hydrateFromExistingEntry = useCallback((detail: CatalogEntryHydrateParams) => {
+    setGenreId(String(detail.genreId));
+    setFormatId(String(detail.formatId));
+    setAlbumTitle(detail.albumTitle);
+    setLabel(detail.label);
+    setAlternateArtist(detail.alternateArtist?.trim() ?? "");
+    setDiscQuantity(String(detail.discQuantity ?? 1));
+    setPreviewAlbumId(null);
+
+    const option = toExistingOption({
+      id: detail.artistId,
+      artist_name: detail.artistName,
+      code_letters: detail.codeLetters,
+      code_number: detail.codeArtistNumber,
+    });
+    setArtistOption(option);
+    setArtistInputValue(detail.artistName);
+    setArtistMode("existing");
+    setArtistId(detail.artistId);
+    setCodeLetters(detail.codeLetters);
+    setCodeNumber(String(detail.codeArtistNumber));
+    setAlphabeticalName("");
+  }, []);
 
   const selectExistingArtist = (artist: {
     id: number;
@@ -121,6 +163,13 @@ export function useCatalogEntryForm() {
     formatIdNum,
   ]);
 
+  const canSaveAlbum = useMemo(() => {
+    if (artistId === null) return false;
+    const title = albumTitle.trim();
+    const lab = label.trim();
+    return title.length > 0 && lab.length > 0 && formatIdNum !== null && genreIdNum !== null;
+  }, [artistId, albumTitle, label, formatIdNum, genreIdNum]);
+
   return {
     genreId,
     setGenreId: onGenreChange,
@@ -156,9 +205,12 @@ export function useCatalogEntryForm() {
     newArtistName,
     canCreateArtist,
     canAddAlbum,
+    canSaveAlbum,
     selectExistingArtist,
     selectNewArtist,
     markArtistCreated,
     resetArtist,
+    setGenreIdOnly,
+    hydrateFromExistingEntry,
   };
 }
