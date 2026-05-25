@@ -11,12 +11,12 @@ import { Album as AlbumIcon } from "@mui/icons-material";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
-import { Avatar, Stack, Tooltip } from "@mui/joy";
+import { Avatar, Badge, Stack, Tooltip } from "@mui/joy";
 
 import { useCatalogQuerySearch } from "@/src/hooks/catalogHooks";
 import { QueueMusic } from "@mui/icons-material";
 import { useQueue, useShowControl } from "@/src/hooks/flowsheetHooks";
-import { GENRE_COLORS, GENRE_VARIANTS } from "../ArtistAvatar";
+import { GENRE_COLORS, GENRE_VARIANTS, ROTATION_STYLES } from "../ArtistAvatar";
 import AddRemoveBin from "./AddRemoveBin";
 import CatalogResultContextMenu, {
   useCatalogResultContextMenu,
@@ -30,13 +30,40 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
   const { live } = useShowControl();
   const { addToQueue } = useQueue();
   const actions = useCatalogResultActions(album);
-  const { openDetail, openEdit, canEditCatalog } = actions;
+  const { openDetail, openEdit, canEditCatalog, activeRotationBin } = actions;
+  const displayRotationBin = activeRotationBin ?? album.rotation_bin;
   const contextMenu = useCatalogResultContextMenu();
 
   const { selected, setSelection, sortBy } = useCatalogQuerySearch();
 
   const genreColor = GENRE_COLORS[(album.artist.genre as Genre) ?? "Unknown"] ?? "neutral";
   const genreVariant = GENRE_VARIANTS[(album.artist.genre as Genre) ?? "Unknown"] ?? "soft";
+
+  const albumArt = album.artwork_url ? (
+    <Box
+      component="img"
+      src={album.artwork_url}
+      alt={`${album.artist.name} - ${album.title}`}
+      sx={{
+        width: 40,
+        height: 40,
+        borderRadius: "sm",
+        objectFit: "cover",
+      }}
+    />
+  ) : (
+    <Avatar
+      variant="soft"
+      color={genreColor}
+      sx={{
+        width: 40,
+        height: 40,
+        borderRadius: "sm",
+      }}
+    >
+      <AlbumIcon />
+    </Avatar>
+  );
 
   return (
     <>
@@ -65,30 +92,22 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
           />
         </td>
         <td>
-          {album.artwork_url ? (
-            <Box
-              component="img"
-              src={album.artwork_url}
-              alt={`${album.artist.name} - ${album.title}`}
-              sx={{
-                width: 40,
-                height: 40,
-                borderRadius: "sm",
-                objectFit: "cover",
-              }}
-            />
-          ) : (
-            <Avatar
-              variant="soft"
-              color={genreColor}
-              sx={{
-                width: 40,
-                height: 40,
-                borderRadius: "sm",
-              }}
+          {displayRotationBin ? (
+            <Tooltip
+              variant="outlined"
+              size="sm"
+              title={`${displayRotationBin} rotation`}
             >
-              <AlbumIcon />
-            </Avatar>
+              <Badge
+                badgeContent={displayRotationBin}
+                color={ROTATION_STYLES[displayRotationBin] ?? "neutral"}
+                size="sm"
+              >
+                {albumArt}
+              </Badge>
+            </Tooltip>
+          ) : (
+            albumArt
           )}
         </td>
         <td>

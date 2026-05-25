@@ -2,13 +2,19 @@
 
 import {
   Archive,
+  Check,
   EditOutlined,
   InfoOutlined,
   Unarchive,
 } from "@mui/icons-material";
 import { ClickAwayListener } from "@mui/material";
 import Popper from "@mui/material/Popper";
-import { MenuItem, MenuList } from "@mui/joy";
+import { ListDivider, ListSubheader, MenuItem, MenuList } from "@mui/joy";
+import type { Rotation } from "@/lib/features/rotation/types";
+import {
+  ROTATION_BINS,
+  ROTATION_BIN_LABELS,
+} from "@/src/utilities/modern/rotationBinColors";
 import type { VirtualElement } from "@popperjs/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
@@ -73,6 +79,10 @@ export default function CatalogResultContextMenu({
 }) {
   const {
     canEditCatalog,
+    canMarkRotation,
+    activeRotationBin,
+    rotationLoading,
+    setRotationBin,
     inBin,
     binLoading,
     openDetail,
@@ -99,6 +109,11 @@ export default function CatalogResultContextMenu({
 
   const run = (fn: () => void) => {
     fn();
+    onClose();
+  };
+
+  const runRotation = async (bin: Rotation | null) => {
+    await setRotationBin(bin);
     onClose();
   };
 
@@ -140,6 +155,36 @@ export default function CatalogResultContextMenu({
             <MenuItem color="success" onClick={() => run(openEdit)}>
               <EditOutlined />
               Edit catalog entry
+            </MenuItem>
+          )}
+          {canMarkRotation && <ListDivider />}
+          {canMarkRotation && (
+            <ListSubheader sticky={false} sx={{ color: "text.tertiary" }}>
+              Rotation
+            </ListSubheader>
+          )}
+          {canMarkRotation &&
+            ROTATION_BINS.map((bin) => {
+              const isActive = activeRotationBin === bin;
+              return (
+                <MenuItem
+                  key={bin}
+                  color="neutral"
+                  disabled={rotationLoading}
+                  onClick={() => runRotation(isActive ? null : bin)}
+                >
+                  {isActive ? <Check /> : null}
+                  {ROTATION_BIN_LABELS[bin]} ({bin})
+                </MenuItem>
+              );
+            })}
+          {canMarkRotation && activeRotationBin && (
+            <MenuItem
+              color="warning"
+              disabled={rotationLoading}
+              onClick={() => runRotation(null)}
+            >
+              Remove from rotation
             </MenuItem>
           )}
         </MenuList>

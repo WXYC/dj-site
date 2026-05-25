@@ -1,10 +1,28 @@
 import type { AlbumEntry } from "./types";
 
+/** Partial row emitted by {@link patchCatalogSearchRotation} (rotation-only). */
+export function isRotationSearchPatch(updated: AlbumEntry): boolean {
+  return (
+    updated.title === "" &&
+    updated.label === "" &&
+    updated.entry === 0 &&
+    updated.artist.name === ""
+  );
+}
+
 /** Merge a saved album into a catalog search row, keeping query-only fields. */
 export function mergeAlbumIntoSearchResult(
   existing: AlbumEntry,
   updated: AlbumEntry,
 ): AlbumEntry {
+  if (isRotationSearchPatch(updated)) {
+    return {
+      ...existing,
+      rotation_bin: updated.rotation_bin,
+      rotation_id: updated.rotation_id,
+    };
+  }
+
   return {
     ...existing,
     ...updated,

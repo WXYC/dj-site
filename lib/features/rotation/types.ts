@@ -12,7 +12,7 @@ export type RotationFrontendState = {
 };
 
 export type RotationParams = {
-  album_id: string;
+  album_id: number;
   rotation_bin: Rotation;
 };
 

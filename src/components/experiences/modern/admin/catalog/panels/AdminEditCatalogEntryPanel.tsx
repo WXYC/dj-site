@@ -7,8 +7,12 @@ import {
   useUpdateAlbumMutation,
 } from "@/lib/features/catalog/api";
 import { applicationSlice } from "@/lib/features/application/frontend";
+import { catalogSlice } from "@/lib/features/catalog/frontend";
 import type { UpdateAlbumRequestBody } from "@/lib/features/catalog/types";
 import { useAppDispatch } from "@/lib/hooks";
+import type { Rotation } from "@/lib/features/rotation/types";
+import { useCatalogRotationMarking } from "@/src/hooks/useCatalogRotationMarking";
+import CatalogRotationBinPicker from "../CatalogRotationBinPicker";
 import RightbarPanelContainer from "../../../Rightbar/RightbarPanelContainer";
 import AdminCatalogCodePreview from "../AdminCatalogCodePreview";
 import CatalogEntryAlbumFields from "../CatalogEntryAlbumFields";
@@ -48,10 +52,17 @@ export default function AdminEditCatalogEntryPanel({
 
   const form = useCatalogEntryForm();
   const hydratedRef = useRef(false);
+  const rotation = useCatalogRotationMarking(albumId);
 
   useEffect(() => {
     hydratedRef.current = false;
   }, [albumId]);
+
+  useEffect(() => {
+    return () => {
+      dispatch(catalogSlice.actions.clearAlbumRotation(albumId));
+    };
+  }, [albumId, dispatch]);
 
   useEffect(() => {
     if (!album || !genres || !formats || hydratedRef.current) return;
@@ -94,6 +105,18 @@ export default function AdminEditCatalogEntryPanel({
     return formats?.find((f) => f.id === form.formatIdNum)?.format_name ?? null;
   }, [form.formatIdNum, formats]);
 
+  const handleRotationSelect = async (bin: Rotation | null) => {
+    rotation.setSelectedBin(bin);
+    const ok = await rotation.applyRotation(bin);
+    if (ok) {
+      toast.success(
+        bin ? `Marked for ${bin} rotation.` : "Removed from rotation.",
+      );
+    } else {
+      toast.error("Could not update rotation.");
+    }
+  };
+
   const onSaveAlbum = async () => {
     if (
       form.genreIdNum === null ||
@@ -122,7 +145,12 @@ export default function AdminEditCatalogEntryPanel({
       }
 
       await updateAlbum({ albumId, body }).unwrap();
-      toast.success("Catalog entry updated.");
+      const rotationOk = await rotation.applyRotation();
+      if (!rotationOk) {
+        toast.error("Catalog entry saved, but rotation could not be updated.");
+      } else {
+        toast.success("Catalog entry updated.");
+      }
     } catch (err: unknown) {
       const e = err as { data?: { message?: string } };
       toast.error(e?.data?.message || "Could not update catalog entry.");
@@ -136,6 +164,7 @@ export default function AdminEditCatalogEntryPanel({
       artistNumber={form.codeNumber || null}
       albumEntry={album?.entry ?? "?"}
       formatLabel={formatDisplay}
+      rotation={rotation.selectedBin ?? undefined}
     />
   );
 
@@ -222,6 +251,12 @@ export default function AdminEditCatalogEntryPanel({
           canAdd={form.canSaveAlbum}
           submitLabel="Save changes"
           submittingLabel="Saving…"
+        />
+
+        <CatalogRotationBinPicker
+          selectedBin={rotation.selectedBin}
+          onSelectBin={handleRotationSelect}
+          disabled={rotation.loading || saving}
         />
       </Stack>
     </RightbarPanelContainer>

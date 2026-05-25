@@ -2,6 +2,7 @@ import { createAppSlice } from "@/lib/createAppSlice";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import type {
   AlbumEntry,
+  CatalogAlbumRotation,
   CatalogFilters,
   CatalogFrontendState,
   CatalogSearchRow,
@@ -26,6 +27,7 @@ export const defaultCatalogFrontendState: CatalogFrontendState = {
   selected: [],
   mobileOpen: false,
   lastPatchedSearchResult: null,
+  rotationByAlbumId: {},
 };
 
 export const catalogSlice = createAppSlice({
@@ -88,6 +90,16 @@ export const catalogSlice = createAppSlice({
     patchSearchResult: (state, action: PayloadAction<AlbumEntry>) => {
       state.lastPatchedSearchResult = action.payload;
     },
+    setAlbumRotation: (
+      state,
+      action: PayloadAction<{ albumId: number } & CatalogAlbumRotation>,
+    ) => {
+      const { albumId, rotation_bin, rotation_id } = action.payload;
+      state.rotationByAlbumId[albumId] = { rotation_bin, rotation_id };
+    },
+    clearAlbumRotation: (state, action: PayloadAction<number>) => {
+      delete state.rotationByAlbumId[action.payload];
+    },
     reset: () => defaultCatalogFrontendState,
   },
   selectors: {
@@ -99,5 +111,7 @@ export const catalogSlice = createAppSlice({
     getSelected: (state) => state.selected,
     isMobileSearchOpen: (state) => state.mobileOpen,
     getLastPatchedSearchResult: (state) => state.lastPatchedSearchResult,
+    getAlbumRotation: (state, albumId: number) =>
+      state.rotationByAlbumId[albumId],
   },
 });

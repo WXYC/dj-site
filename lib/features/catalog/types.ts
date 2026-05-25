@@ -210,7 +210,15 @@ export type Genre =
 
 export type SearchIn = "Artists" | "Albums" | "All";
 
+/** Shared rotation UI state for a library album (search row, edit panel, context menu). */
+export type CatalogAlbumRotation = {
+  rotation_bin: Rotation | undefined;
+  rotation_id: number | undefined;
+};
+
 export type CatalogFrontendState = CatalogSearchState & {
   /** Latest album saved from catalog edit; drives in-memory search list refresh. */
   lastPatchedSearchResult: AlbumEntry | null;
+  /** Per-album rotation after apply or hydrate; ties rightbar and catalog results together. */
+  rotationByAlbumId: Record<number, CatalogAlbumRotation>;
 };

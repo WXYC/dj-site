@@ -33,10 +33,37 @@ vi.mock("@/src/hooks/binHooks", () => ({
   useDeleteFromBin: vi.fn(() => ({ deleteFromBin: vi.fn(), loading: false })),
 }));
 
+const mockApplyRotation = vi.fn(async () => true);
+
+function defaultRotationMarkingMock() {
+  return {
+    canMark: true,
+    selectedBin: null,
+    setSelectedBin: vi.fn(),
+    activeBin: null,
+    activeRotationId: undefined,
+    loading: false,
+    applyRotation: mockApplyRotation,
+    hydrated: true,
+  };
+}
+
+vi.mock("@/src/hooks/useCatalogRotationMarking", () => ({
+  isRealLibraryAlbumId: (id: number) => id > 0,
+  useCatalogRotationMarking: vi.fn(defaultRotationMarkingMock),
+}));
+
 import { useCanEditCatalog } from "@/src/hooks/catalogHooks";
 import { useBin } from "@/src/hooks/binHooks";
+import { useCatalogRotationMarking } from "@/src/hooks/useCatalogRotationMarking";
 
 import CatalogResult from "../Result";
+
+afterEach(() => {
+  vi.mocked(useCatalogRotationMarking).mockImplementation(
+    defaultRotationMarkingMock,
+  );
+});
 
 describe("CatalogResult plays column (Bug 12)", () => {
   it("should display the actual play count, not hardcoded 0", () => {
@@ -239,6 +266,87 @@ describe("CatalogResult album artwork", () => {
 
     expect(screen.queryByRole("img")).toBeNull();
   });
+
+  it("shows rotation bin badge on artwork when album is in rotation", () => {
+    const album = createTestAlbum({
+      rotation_bin: "M",
+      artwork_url: "https://i.discogs.com/confield.jpg",
+    });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} />
+        </tbody>
+      </table>,
+    );
+
+    expect(screen.getByText("M")).toBeInTheDocument();
+  });
+
+  it("prefers redux-backed activeBin over stale album.rotation_bin on the badge", () => {
+    vi.mocked(useCatalogRotationMarking).mockReturnValue({
+      canMark: true,
+      selectedBin: "S",
+      setSelectedBin: vi.fn(),
+      activeBin: "S",
+      activeRotationId: 12,
+      loading: false,
+      applyRotation: mockApplyRotation,
+      hydrated: true,
+    });
+
+    const album = createTestAlbum({
+      rotation_bin: "M",
+      artwork_url: "https://i.discogs.com/confield.jpg",
+    });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} />
+        </tbody>
+      </table>,
+    );
+
+    expect(screen.getByText("S")).toBeInTheDocument();
+    expect(screen.queryByText("M")).toBeNull();
+  });
+
+  it("shows rotation bin badge on album icon when there is no artwork", () => {
+    const album = createTestAlbum({
+      rotation_bin: "H",
+      artwork_url: undefined,
+    });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} />
+        </tbody>
+      </table>,
+    );
+
+    expect(screen.getByText("H")).toBeInTheDocument();
+    expect(screen.queryByRole("img")).toBeNull();
+  });
+
+  it("does not show rotation badge when album is not in rotation", () => {
+    const album = createTestAlbum({ rotation_bin: undefined });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} />
+        </tbody>
+      </table>,
+    );
+
+    expect(screen.queryByText("H")).toBeNull();
+    expect(screen.queryByText("M")).toBeNull();
+    expect(screen.queryByText("L")).toBeNull();
+    expect(screen.queryByText("S")).toBeNull();
+  });
 });
 
 function renderCatalogRow(album = createTestAlbum({ id: 7000 })) {
@@ -260,6 +368,10 @@ describe("CatalogResult context menu", () => {
       isSuccess: true,
       isError: false,
     });
+    mockApplyRotation.mockClear();
+    vi.mocked(useCatalogRotationMarking).mockImplementation(
+      defaultRotationMarkingMock,
+    );
   });
 
   it("opens a custom menu on right-click with core actions", () => {
@@ -309,5 +421,27 @@ describe("CatalogResult context menu", () => {
       type: "album-detail",
       albumId: 4242,
     });
+  });
+
+  it("shows rotation options for catalog editors", () => {
+    vi.mocked(useCanEditCatalog).mockReturnValue(true);
+    renderCatalogRow();
+    fireEvent.contextMenu(document.querySelector("tbody tr")!);
+    expect(screen.getByText("Heavy (H)")).toBeInTheDocument();
+    expect(screen.getByText("Medium (M)")).toBeInTheDocument();
+  });
+
+  it("does not show rotation options without catalog edit permission", () => {
+    renderCatalogRow();
+    fireEvent.contextMenu(document.querySelector("tbody tr")!);
+    expect(screen.queryByText("Heavy (H)")).toBeNull();
+  });
+
+  it("marks rotation from the context menu", async () => {
+    vi.mocked(useCanEditCatalog).mockReturnValue(true);
+    renderCatalogRow(createTestAlbum({ id: 8000 }));
+    fireEvent.contextMenu(document.querySelector("tbody tr")!);
+    fireEvent.click(screen.getByText("Medium (M)"));
+    expect(mockApplyRotation).toHaveBeenCalledWith("M");
   });
 });

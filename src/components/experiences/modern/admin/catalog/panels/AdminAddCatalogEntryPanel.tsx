@@ -28,7 +28,10 @@ import {
   Stack,
   Typography,
 } from "@mui/joy";
-import { useMemo } from "react";
+import { useCatalogRotationMarking } from "@/src/hooks/useCatalogRotationMarking";
+import type { Rotation } from "@/lib/features/rotation/types";
+import CatalogRotationBinPicker from "../CatalogRotationBinPicker";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 export default function AdminAddCatalogEntryPanel() {
@@ -42,6 +45,10 @@ export default function AdminAddCatalogEntryPanel() {
   const [peekTrigger] = useLazyPeekArtistCodeQuery();
 
   const form = useCatalogEntryForm();
+  const [pendingRotationBin, setPendingRotationBin] = useState<Rotation | null>(
+    null,
+  );
+  const rotation = useCatalogRotationMarking(form.previewAlbumId);
 
   const { data: previewEntry } = useGetInformationQuery(
     { album_id: form.previewAlbumId! },
@@ -143,11 +150,37 @@ export default function AdminAddCatalogEntryPanel() {
       const aid = (inserted as { id?: number }).id;
       if (typeof aid === "number") {
         form.setPreviewAlbumId(aid);
+        if (pendingRotationBin !== null) {
+          const rotationOk = await rotation.applyRotation(pendingRotationBin, aid);
+          if (!rotationOk) {
+            toast.error("Album saved, but rotation could not be updated.");
+          }
+        }
+        setPendingRotationBin(null);
         toast.success("Album added to the catalog.");
       }
     } catch (err: unknown) {
       const e = err as { data?: { message?: string } };
       toast.error(e?.data?.message || "Could not add album.");
+    }
+  };
+
+  const previewRotationBin =
+    form.previewAlbumId !== null ? rotation.selectedBin : pendingRotationBin;
+
+  const handleRotationSelect = async (bin: Rotation | null) => {
+    if (form.previewAlbumId !== null) {
+      rotation.setSelectedBin(bin);
+      const ok = await rotation.applyRotation(bin, form.previewAlbumId);
+      if (ok) {
+        toast.success(
+          bin ? `Marked for ${bin} rotation.` : "Removed from rotation.",
+        );
+      } else {
+        toast.error("Could not update rotation.");
+      }
+    } else {
+      setPendingRotationBin(bin);
     }
   };
 
@@ -158,6 +191,7 @@ export default function AdminAddCatalogEntryPanel() {
       artistNumber={form.codeNumber || null}
       albumEntry="?"
       formatLabel={formatDisplay}
+      rotation={previewRotationBin ?? undefined}
     />
   );
 
@@ -238,6 +272,18 @@ export default function AdminAddCatalogEntryPanel() {
           adding={addingAlbum}
           canAdd={form.canAddAlbum}
         />
+
+        <CatalogRotationBinPicker
+          selectedBin={previewRotationBin}
+          onSelectBin={handleRotationSelect}
+          disabled={!form.albumSectionUnlocked || rotation.loading}
+        />
+        {!form.previewAlbumId && (
+          <Typography level="body-xs" sx={{ color: "text.secondary", mt: -0.5 }}>
+            Rotation is applied when you add the album, or immediately after the
+            album is saved if you change bins above.
+          </Typography>
+        )}
 
         {previewEntry && form.previewAlbumId !== null && (
           <>

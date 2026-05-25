@@ -2,8 +2,13 @@
 
 import { applicationSlice } from "@/lib/features/application/frontend";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
+import type { Rotation } from "@/lib/features/rotation/types";
 import { useAppDispatch } from "@/lib/hooks";
 import { useCanEditCatalog } from "@/src/hooks/catalogHooks";
+import {
+  isRealLibraryAlbumId,
+  useCatalogRotationMarking,
+} from "@/src/hooks/useCatalogRotationMarking";
 import { useAddToBin, useBin, useDeleteFromBin } from "@/src/hooks/binHooks";
 import { useCallback, useMemo } from "react";
 
@@ -13,6 +18,10 @@ export function useCatalogResultActions(album: AlbumEntry) {
   const { bin, loading: binQueryLoading } = useBin();
   const { addToBin, loading: addToBinLoading } = useAddToBin();
   const { deleteFromBin, loading: removeFromBinLoading } = useDeleteFromBin();
+
+  const rotation = useCatalogRotationMarking(
+    isRealLibraryAlbumId(album.id) ? album.id : null,
+  );
 
   const inBin = useMemo(
     () => (bin ?? []).some((item) => item.id === album.id),
@@ -48,8 +57,21 @@ export function useCatalogResultActions(album: AlbumEntry) {
     }
   }, [album.id, addToBin, binLoading, deleteFromBin, inBin]);
 
+  const setRotationBin = useCallback(
+    async (bin: Rotation | null) => {
+      if (!canEditCatalog || !rotation.canMark || rotation.loading) return false;
+      const target = rotation.activeBin === bin ? null : bin;
+      return rotation.applyRotation(target);
+    },
+    [canEditCatalog, rotation],
+  );
+
   return {
     canEditCatalog,
+    canMarkRotation: canEditCatalog && rotation.canMark,
+    activeRotationBin: rotation.activeBin,
+    rotationLoading: rotation.loading,
+    setRotationBin,
     inBin,
     binLoading,
     openDetail,
