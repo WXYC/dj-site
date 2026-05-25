@@ -20,9 +20,9 @@ const row = (overrides: Partial<CatalogSearchRow>): CatalogSearchRow => ({
 });
 
 const defaultFilters: CatalogFilters = {
-  onStreaming: undefined,
-  genre: "All",
-  format: "All",
+  genres: [],
+  formats: [],
+  tags: [],
 };
 
 describe("dedupeAlbumEntriesById", () => {
@@ -89,7 +89,7 @@ describe("toLibraryQueryParams", () => {
   it("threads slice state into the request params", () => {
     const params = toLibraryQueryParams(
       [row({ field: "artist", value: "Stereolab" })],
-      { ...defaultFilters, genre: "Rock", onStreaming: false },
+      { ...defaultFilters, genres: ["Rock", "Jazz"], tags: ["exclusives"] },
       2,
       "plays",
       "desc"
@@ -100,8 +100,8 @@ describe("toLibraryQueryParams", () => {
       sort: "plays",
       order: "desc",
       on_streaming: false,
-      genre: "Rock",
-      format: undefined,
+      genres: "Rock,Jazz",
+      formats: undefined,
     });
     expect(params.limit).toBeGreaterThan(0);
   });
@@ -117,7 +117,7 @@ describe("toLibraryQueryParams", () => {
     expect(params.q).toBeUndefined();
   });
 
-  it("maps 'All' filter sentinels to undefined", () => {
+  it("omits empty genre and format arrays from params", () => {
     const params = toLibraryQueryParams(
       [row({})],
       defaultFilters,
@@ -125,8 +125,22 @@ describe("toLibraryQueryParams", () => {
       "album",
       "asc"
     );
-    expect(params.genre).toBeUndefined();
-    expect(params.format).toBeUndefined();
+    expect(params.genres).toBeUndefined();
+    expect(params.formats).toBeUndefined();
     expect(params.on_streaming).toBeUndefined();
+    expect(params.genres).toBeUndefined();
+    expect(params.formats).toBeUndefined();
+  });
+
+  it("emits comma-separated genres and formats", () => {
+    const params = toLibraryQueryParams(
+      [row({})],
+      { ...defaultFilters, genres: ["Rock"], formats: ["cd", "Vinyl"] },
+      0,
+      "album",
+      "asc"
+    );
+    expect(params.genres).toBe("Rock");
+    expect(params.formats).toBe("cd,Vinyl");
   });
 });

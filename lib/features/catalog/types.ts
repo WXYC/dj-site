@@ -166,9 +166,9 @@ export type CatalogSearchRow = {
 };
 
 export type CatalogFilters = {
-  onStreaming: boolean | undefined; // undefined = no filter
-  genre: Genre | "All"; // 'All' = no filter
-  format: Format | "All"; // 'All' = no filter
+  genres: string[]; // empty = no genre filter
+  formats: string[]; // empty = no format filter
+  tags: string[]; // empty = no tag filter; v1: "exclusives" → on_streaming false
 };
 
 export type CatalogSearchState = {
@@ -190,8 +190,8 @@ export type LibraryQueryParams = {
   sort?: CatalogSortBy;
   order?: CatalogSortOrder;
   on_streaming?: boolean;
-  genre?: string;
-  format?: string;
+  genres?: string;
+  formats?: string;
 };
 
 export type Format = "Vinyl" | "CD" | "Unknown";

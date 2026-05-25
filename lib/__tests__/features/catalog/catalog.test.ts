@@ -351,11 +351,11 @@ describeSlice(catalogSlice, defaultCatalogFrontendState, ({ harness, actions }) 
       expect(harness().initialState.page).toBe(0);
     });
 
-    it("defaults filters to 'All' / undefined", () => {
+    it("defaults filters to empty arrays", () => {
       expect(harness().initialState.filters).toEqual({
-        onStreaming: undefined,
-        genre: "All",
-        format: "All",
+        genres: [],
+        formats: [],
+        tags: [],
       });
     });
   });
@@ -430,27 +430,27 @@ describeSlice(catalogSlice, defaultCatalogFrontendState, ({ harness, actions }) 
 
   describe("filters", () => {
     it.each([
-      [{ onStreaming: false as boolean | undefined }, "onStreaming", false],
-      [{ genre: "Rock" } as const, "genre", "Rock"],
-      [{ format: "CD" } as const, "format", "CD"],
+      [{ tags: ["exclusives"] } as const, "tags", ["exclusives"]],
+      [{ genres: ["Rock"] } as const, "genres", ["Rock"]],
+      [{ formats: ["cd"] } as const, "formats", ["cd"]],
     ])("setFilter updates %s", (patch, key, expected) => {
       const result = harness().reduce(actions.setFilter(patch));
-      expect((result.filters as Record<string, unknown>)[key as string]).toBe(expected);
+      expect((result.filters as Record<string, unknown>)[key as string]).toEqual(expected);
     });
 
     it("setFilter merges with existing filters", () => {
       const result = harness().chain(
-        actions.setFilter({ genre: "Rock" }),
-        actions.setFilter({ format: "Vinyl" })
+        actions.setFilter({ genres: ["Rock"] }),
+        actions.setFilter({ formats: ["Vinyl"] })
       );
-      expect(result.filters.genre).toBe("Rock");
-      expect(result.filters.format).toBe("Vinyl");
+      expect(result.filters.genres).toEqual(["Rock"]);
+      expect(result.filters.formats).toEqual(["Vinyl"]);
     });
 
     it("setFilter resets page to 0", () => {
       const result = harness().chain(
         actions.nextPage(),
-        actions.setFilter({ genre: "Rock" })
+        actions.setFilter({ genres: ["Rock"] })
       );
       expect(result.page).toBe(0);
     });
@@ -516,7 +516,7 @@ describeSlice(catalogSlice, defaultCatalogFrontendState, ({ harness, actions }) 
       const result = harness().chain(
         actions.updateRow({ id, updates: { value: "Cat Power" } }),
         actions.setSort({ sortBy: "plays", sortOrder: "desc" }),
-        actions.setFilter({ genre: "Rock" }),
+        actions.setFilter({ genres: ["Rock"] }),
         actions.nextPage(),
         actions.setSelection([1, 2, 3]),
         actions.openMobileSearch(),

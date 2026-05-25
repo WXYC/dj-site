@@ -1,15 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import QueryBuilder from "./QueryBuilder";
 import { createComponentHarnessWithQueries } from "@/lib/test-utils";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
 
-const firstInput = (): HTMLElement | null =>
-  screen.queryAllByPlaceholderText("Search the catalog")[0] ?? null;
-const firstAddButton = (): HTMLElement | null =>
-  screen.queryAllByRole("button", { name: "Add row" })[0] ?? null;
+const firstInput = (): HTMLElement =>
+  screen.getByTestId("catalog-search-input");
+const firstAddButton = (): HTMLElement =>
+  screen.getByTestId("catalog-search-add-row");
 const firstRemoveButton = (): HTMLElement | null =>
-  screen.queryAllByRole("button", { name: "Remove row" })[0] ?? null;
+  screen.queryByRole("button", { name: "Remove row" });
 
 const setup = createComponentHarnessWithQueries(QueryBuilder, {}, {
   firstInput,
@@ -17,28 +17,34 @@ const setup = createComponentHarnessWithQueries(QueryBuilder, {}, {
   firstRemoveButton,
 });
 
-const countInputs = () =>
-  screen.queryAllByPlaceholderText("Search the catalog").length;
-
 describe("QueryBuilder", () => {
-  it("renders a single input on first mount", () => {
+  it("renders a single primary input on first mount", () => {
     setup();
-    expect(countInputs()).toBe(1);
+    expect(screen.getByTestId("catalog-search-input")).toBeInTheDocument();
+    expect(screen.getAllByRole("textbox")).toHaveLength(1);
   });
 
   it("clicking Add row appends a new row", async () => {
     const { firstAddButton, user } = setup();
-    const button = firstAddButton();
-    expect(button).not.toBeNull();
-    await user.click(button!);
-    expect(countInputs()).toBe(2);
+    await user.click(firstAddButton());
+    expect(screen.getAllByRole("textbox")).toHaveLength(2);
+  });
+
+  it("changing field does not clear row text", async () => {
+    const { firstInput, user, getState, store } = setup();
+    await user.type(firstInput(), "Stereolab");
+    const rowId = catalogSlice.selectors.getRows(getState())[0].id;
+    store.dispatch(
+      catalogSlice.actions.updateRow({ id: rowId, updates: { field: "artist" } }),
+    );
+    const rows = catalogSlice.selectors.getRows(getState());
+    expect(rows[0].value).toBe("Stereolab");
+    expect(rows[0].field).toBe("artist");
   });
 
   it("typing into a row updates the slice", async () => {
     const { firstInput, user, getState } = setup();
-    const input = firstInput();
-    expect(input).not.toBeNull();
-    await user.type(input!, "Stereolab");
+    await user.type(firstInput(), "Stereolab");
     const rows = catalogSlice.selectors.getRows(getState());
     expect(rows[0].value).toBe("Stereolab");
   });

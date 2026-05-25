@@ -47,34 +47,27 @@ test.describe("Catalog query builder", () => {
     await dashboard.gotoCatalog();
     await dashboard.waitForPageLoad();
 
-    // Row 0 layout: [SortBy combobox] [Field combobox] [Input] [+/-]
-    // The first combobox is SortBy (renders sort-asc/sort-desc options like
-    // "Artist (A-Z)"). The second combobox is the field selector — that's
-    // the one whose options are "All / Artist / Album / Label".
-    const firstRowCombos = page.getByRole("combobox");
-    await firstRowCombos.nth(1).click();
-    await page.getByRole("option", { name: "Artist", exact: true }).click();
+    const fieldSelect = page.getByTestId("catalog-search-field");
+    await fieldSelect.click();
+    await page.getByRole("option", { name: "ARTISTS", exact: true }).click();
 
-    const firstInput = page.getByPlaceholder("Search the catalog").first();
+    const firstInput = page.getByTestId("catalog-search-input");
     await firstInput.fill("Juana Molina");
 
     await expect.poll(() => queryHits).toBeGreaterThan(0);
 
-    // Add a second row, set its field to Label and value to Sonamos.
-    await page.getByRole("button", { name: "Add row" }).click();
+    await page.getByTestId("catalog-search-add-row").click();
 
-    const secondInput = page.getByPlaceholder("Search the catalog").nth(1);
-    // After the operator combobox, row 1's second combobox is the field.
-    // The simplest way to disambiguate: find combobox by its current text.
-    const row1FieldCombo = page.getByRole("combobox").filter({ hasText: "Artist" }).last();
+    const textboxes = page.getByRole("textbox");
+    const secondInput = textboxes.nth(1);
+    const row1FieldCombo = page.getByRole("combobox").filter({ hasText: "ARTISTS" }).last();
     await row1FieldCombo.click();
-    await page.getByRole("option", { name: "Label", exact: true }).click();
+    await page.getByRole("option", { name: "LABELS", exact: true }).click();
     await secondInput.fill("Sonamos");
 
     await expect(page.getByText("DOGA")).toBeVisible({ timeout: 10000 });
     await expect(page.getByText("Juana Molina")).toBeVisible();
 
-    // The final issued q should carry both terms joined with AND.
     await expect.poll(() => lastQ ?? "").toMatch(/artist:Juana Molina/);
     await expect.poll(() => lastQ ?? "").toMatch(/AND/);
     await expect.poll(() => lastQ ?? "").toMatch(/label:Sonamos/);

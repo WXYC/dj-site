@@ -10,8 +10,11 @@ import type {
   CatalogSortOrder,
 } from "./types";
 
-const createInitialRow = (): CatalogSearchRow => ({
-  id: crypto.randomUUID(),
+/** Stable id for the primary row so SSR and client hydration agree on React keys. */
+export const CATALOG_PRIMARY_ROW_ID = "catalog-search-primary";
+
+const createInitialRow = (id?: string): CatalogSearchRow => ({
+  id: id ?? crypto.randomUUID(),
   operator: "AND",
   field: "all",
   value: "",
@@ -19,11 +22,11 @@ const createInitialRow = (): CatalogSearchRow => ({
 });
 
 export const defaultCatalogFrontendState: CatalogFrontendState = {
-  rows: [createInitialRow()],
+  rows: [createInitialRow(CATALOG_PRIMARY_ROW_ID)],
   sortBy: "album",
   sortOrder: "asc",
   page: 0,
-  filters: { onStreaming: undefined, genre: "All", format: "All" },
+  filters: { genres: [], formats: [], tags: [] },
   selected: [],
   mobileOpen: false,
   lastPatchedSearchResult: null,

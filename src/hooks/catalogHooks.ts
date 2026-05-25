@@ -23,6 +23,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuthentication } from "./authenticationHooks";
 import { filterBySearchTerms } from "@/src/utilities/filterBySearchTerms";
 import { mergeAlbumIntoSearchResult } from "@/lib/features/catalog/patchSearchResult";
+import { catalogTagsToOnStreaming } from "@/src/components/experiences/modern/catalog/Search/catalogTagFilters";
 
 const MIN_QUERY_LENGTH = 2;
 const PAGE_LIMIT = 50;
@@ -67,8 +68,7 @@ export function buildCatalogQuery(rows: CatalogSearchRow[]): string {
 }
 
 /**
- * Map UI state to the request shape. `'All'` enum sentinels become
- * `undefined` so they're omitted from the URL.
+ * Map UI state to the request shape. Empty genre/format arrays are omitted.
  */
 export function toLibraryQueryParams(
   rows: CatalogSearchRow[],
@@ -84,9 +84,11 @@ export function toLibraryQueryParams(
     limit: PAGE_LIMIT,
     sort: sortBy,
     order: sortOrder,
-    on_streaming: filters.onStreaming,
-    genre: filters.genre === "All" ? undefined : filters.genre,
-    format: filters.format === "All" ? undefined : filters.format,
+    on_streaming: catalogTagsToOnStreaming(filters.tags),
+    genres:
+      filters.genres.length > 0 ? filters.genres.join(",") : undefined,
+    formats:
+      filters.formats.length > 0 ? filters.formats.join(",") : undefined,
   };
 }
 
@@ -163,9 +165,9 @@ export function useCatalogQuerySearch() {
   const effectiveQuery = useMemo(() => buildCatalogQuery(rows), [rows]);
   const hasActiveQuery =
     effectiveQuery.length > 0 ||
-    filters.onStreaming !== undefined ||
-    filters.genre !== "All" ||
-    filters.format !== "All";
+    filters.genres.length > 0 ||
+    filters.formats.length > 0 ||
+    filters.tags.length > 0;
 
   return {
     rows,
@@ -238,7 +240,7 @@ export function useCatalogQueryResults() {
 
   // Reset accumulated rows when the query or sort changes (any param except page).
   useEffect(() => {
-    const key = `${effectiveQuery}|${sortBy}|${sortOrder}|${filters.onStreaming}|${filters.genre}|${filters.format}`;
+    const key = `${effectiveQuery}|${sortBy}|${sortOrder}|${filters.tags.join(",")}|${filters.genres.join(",")}|${filters.formats.join(",")}`;
     if (key !== lastAccumulatedKeyRef.current) {
       lastAccumulatedKeyRef.current = key;
       setAccumulated([]);

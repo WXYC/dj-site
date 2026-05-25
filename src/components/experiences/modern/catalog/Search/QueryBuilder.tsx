@@ -1,16 +1,37 @@
 "use client";
 
-import type { CatalogSearchField } from "@/lib/features/catalog/types";
+import type { CatalogSearchField, CatalogSearchRow } from "@/lib/features/catalog/types";
 import { useCatalogQuerySearch } from "@/src/hooks/catalogHooks";
 import { Add, Cancel, Remove, Troubleshoot } from "@mui/icons-material";
-import { Box, IconButton, Input, Option, Select, Stack } from "@mui/joy";
-import SortBySelect from "./SortBySelect";
+import {
+  Box,
+  ColorPaletteProp,
+  Divider,
+  IconButton,
+  Option,
+  Select,
+  Sheet,
+  Typography,
+} from "@mui/joy";
+import { Filters } from "./Filters";
+import {
+  catalogFieldSelectButtonSx,
+  catalogFieldSelectSx,
+  catalogInFieldClusterSx,
+  catalogInLabelSx,
+  catalogSearchBoxSx,
+  catalogSearchFiltersGutterSx,
+  catalogSearchIconSx,
+  catalogSearchRowSx,
+  catalogSearchRowsSx,
+  SEARCH_ADVANCED_ROW_HEIGHT_REM,
+} from "./catalogSearchBoxStyles";
 
 const FIELD_OPTIONS: { value: CatalogSearchField; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "artist", label: "Artist" },
-  { value: "album", label: "Album" },
-  { value: "label", label: "Label" },
+  { value: "artist", label: "Artists" },
+  { value: "album", label: "Albums" },
+  { value: "label", label: "Labels" },
 ];
 
 const OPERATOR_OPTIONS = [
@@ -19,122 +40,253 @@ const OPERATOR_OPTIONS = [
   { value: "NOT" as const, label: "NOT" },
 ];
 
-export default function QueryBuilder() {
-  const { rows, addRow, removeRow, updateRow } = useCatalogQuerySearch();
+function handleValueChange(
+  row: CatalogSearchRow,
+  next: string,
+  updateRow: (id: string, updates: Partial<CatalogSearchRow>) => void,
+) {
+  const exact =
+    next.startsWith('"') && next.endsWith('"') && next.length >= 2;
+  updateRow(row.id, {
+    value: exact ? next.slice(1, -1) : next,
+    exact,
+  });
+}
+
+function CatalogSearchInFieldCluster({
+  rowId,
+  testId,
+}: {
+  rowId: string;
+  testId?: string;
+}) {
+  const { rows, updateRow } = useCatalogQuerySearch();
+  const field =
+    rows.find((r) => r.id === rowId)?.field ?? ("all" as CatalogSearchField);
 
   return (
-    // Responsive show/hide is the caller's responsibility — SearchBar hides
-    // this on xs (the mobile modal renders it back in instead).
-    <Box sx={{ py: 1 }}>
-      <Stack spacing={1}>
-        {rows.map((row, index) => {
-          const isFirst = index === 0;
-          return (
-            <Stack
-              key={row.id}
-              direction="row"
-              spacing={1}
-              sx={{ alignItems: "center" }}
-            >
-              {!isFirst && (
-                <Select
-                  value={row.operator}
-                  onChange={(_, value) =>
-                    value && updateRow(row.id, { operator: value })
-                  }
-                  size="sm"
-                  color="primary"
-                  sx={{ minWidth: 80, flexShrink: 0 }}
-                >
-                  {OPERATOR_OPTIONS.map((opt) => (
-                    <Option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </Option>
-                  ))}
-                </Select>
-              )}
+    <Box
+      sx={catalogInFieldClusterSx}
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      <Typography component="span" level="body-xs" sx={catalogInLabelSx}>
+        in
+      </Typography>
+      <Select
+        data-testid={testId}
+        value={field}
+        variant="plain"
+        color="neutral"
+        onChange={(_event, newValue) => {
+          if (newValue == null) return;
+          updateRow(rowId, { field: newValue as CatalogSearchField });
+        }}
+        slotProps={{
+          button: { sx: catalogFieldSelectButtonSx },
+          indicator: { sx: { fontSize: "0.75rem", opacity: 0.65 } },
+          listbox: {
+            onClick: (e) => e.stopPropagation(),
+          },
+        }}
+        sx={catalogFieldSelectSx}
+      >
+        {FIELD_OPTIONS.map((opt) => (
+          <Option
+            key={opt.value}
+            value={opt.value}
+            sx={{
+              fontSize: "var(--joy-fontSize-xs)",
+              letterSpacing: "0.04em",
+            }}
+          >
+            {opt.label}
+          </Option>
+        ))}
+      </Select>
+    </Box>
+  );
+}
 
-              {isFirst && <SortBySelect />}
+function CatalogSearchRowSegment({
+  row,
+  isFirst,
+  showAdd,
+  showRemove,
+  onAdd,
+  onRemove,
+  updateRow,
+}: {
+  row: CatalogSearchRow;
+  isFirst: boolean;
+  showAdd: boolean;
+  showRemove: boolean;
+  onAdd: () => void;
+  onRemove: () => void;
+  updateRow: (id: string, updates: Partial<CatalogSearchRow>) => void;
+}) {
+  const hasValue = row.value !== "";
 
-              <Select
-                value={row.field}
-                onChange={(_, value) =>
-                  value &&
-                  updateRow(row.id, {
-                    field: value,
-                    value: "",
-                  })
-                }
-                size="sm"
-                color="primary"
-                slotProps={{ button: { sx: { whiteSpace: "nowrap" } } }}
-                sx={{ minWidth: 100, flexShrink: 0 }}
-              >
-                {FIELD_OPTIONS.map((opt) => (
-                  <Option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </Option>
-                ))}
-              </Select>
+  return (
+    <Box sx={catalogSearchRowSx}>
+      <Box
+        sx={{
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          minWidth: 0,
+          gap: 0.5,
+        }}
+      >
+        {!isFirst && (
+          <Select
+            value={row.operator}
+            onChange={(_, value) =>
+              value && updateRow(row.id, { operator: value })
+            }
+            size="sm"
+            variant="plain"
+            color="primary"
+            sx={{ minWidth: 72, flexShrink: 0 }}
+            slotProps={{
+              button: { onMouseDown: (e) => e.stopPropagation() },
+              listbox: { onClick: (e) => e.stopPropagation() },
+            }}
+          >
+            {OPERATOR_OPTIONS.map((opt) => (
+              <Option key={opt.value} value={opt.value}>
+                {opt.label}
+              </Option>
+            ))}
+          </Select>
+        )}
 
-              <Input
-                color="primary"
-                placeholder="Search the catalog"
-                startDecorator={isFirst ? <Troubleshoot /> : undefined}
-                endDecorator={
-                  row.value !== "" ? (
-                    <IconButton
-                      variant="plain"
-                      color="primary"
-                      size="sm"
-                      onClick={() => updateRow(row.id, { value: "" })}
-                    >
-                      <Cancel />
-                    </IconButton>
-                  ) : undefined
-                }
-                value={row.value}
-                onChange={(e) => {
-                  // Quoted input toggles the row's exact-match flag. The
-                  // service-side parser will still see the quotes if the user
-                  // typed them, but tracking `exact` on the row lets the UI
-                  // surface it (and lets buildCatalogQuery re-quote on submit).
-                  const next = e.target.value;
-                  const exact = next.startsWith('"') && next.endsWith('"') && next.length >= 2;
-                  updateRow(row.id, { value: exact ? next.slice(1, -1) : next, exact });
-                }}
-                size="sm"
-                sx={{ flex: 1 }}
-              />
+        {isFirst && (
+          <Box sx={catalogSearchIconSx}>
+            <Troubleshoot sx={{ fontSize: "1.25rem" }} />
+          </Box>
+        )}
 
-              <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
-                {rows.length > 1 && (
-                  <IconButton
-                    size="sm"
-                    variant="outlined"
-                    color="danger"
-                    onClick={() => removeRow(row.id)}
-                    sx={{ aspectRatio: 1 }}
-                    aria-label="Remove row"
-                  >
-                    <Remove />
-                  </IconButton>
-                )}
-                <IconButton
-                  size="sm"
-                  variant="outlined"
-                  color="primary"
-                  onClick={addRow}
-                  sx={{ aspectRatio: 1 }}
-                  aria-label="Add row"
-                >
-                  <Add />
-                </IconButton>
-              </Stack>
-            </Stack>
-          );
-        })}
-      </Stack>
+        <input
+          data-testid={isFirst ? "catalog-search-input" : undefined}
+          type="text"
+          placeholder={isFirst ? "Search the catalog" : undefined}
+          value={row.value}
+          autoComplete="off"
+          onChange={(e) => handleValueChange(row, e.target.value, updateRow)}
+          onClick={(e) => e.stopPropagation()}
+        />
+
+        {hasValue && (
+          <IconButton
+            variant="plain"
+            color="neutral"
+            size="sm"
+            aria-label="Clear search"
+            sx={{ "--IconButton-size": "1.75rem" }}
+            onClick={() => updateRow(row.id, { value: "", exact: false })}
+          >
+            <Cancel fontSize="small" />
+          </IconButton>
+        )}
+      </Box>
+
+      <CatalogSearchInFieldCluster
+        rowId={row.id}
+        testId={isFirst ? "catalog-search-field" : undefined}
+      />
+
+      {isFirst && showAdd && (
+        <IconButton
+          data-testid="catalog-search-add-row"
+          size="sm"
+          variant="plain"
+          color="primary"
+          aria-label="Add row"
+          sx={{ "--IconButton-size": "1.75rem" }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onAdd();
+          }}
+        >
+          <Add sx={{ fontSize: "1.125rem" }} />
+        </IconButton>
+      )}
+
+      {!isFirst && showRemove && (
+        <IconButton
+          size="sm"
+          variant="plain"
+          color="danger"
+          aria-label="Remove row"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+        >
+          <Remove fontSize="small" />
+        </IconButton>
+      )}
+    </Box>
+  );
+}
+
+export type QueryBuilderProps = {
+  color?: ColorPaletteProp;
+};
+
+export default function QueryBuilder({ color = "primary" }: QueryBuilderProps) {
+  const { rows, addRow, removeRow, updateRow } = useCatalogQuerySearch();
+
+  const multiRow = rows.length > 1;
+  const searchRowsSizeSx = multiRow
+    ? {
+        minHeight: `${rows.length * SEARCH_ADVANCED_ROW_HEIGHT_REM}rem`,
+        paddingBlock: "0.375rem",
+        transition:
+          "min-height 0.25s ease-in-out, padding-block 0.25s ease-in-out",
+      }
+    : {
+        minHeight: "unset",
+        paddingBlock: "0.25rem",
+      };
+
+  return (
+    <Box sx={{ py: 0.5, flexShrink: 0, minWidth: 0 }}>
+      <Sheet
+        variant="outlined"
+        data-testid="catalog-search-box"
+        sx={{
+          ...catalogSearchBoxSx,
+        }}
+        suppressHydrationWarning
+      >
+        <Box sx={{ ...catalogSearchRowsSx, ...searchRowsSizeSx }}>
+          {rows.map((row, index) => {
+            const isFirst = index === 0;
+            return (
+              <Box key={row.id}>
+                {index > 0 && <Divider sx={{ my: 0.25 }} />}
+                <CatalogSearchRowSegment
+                  row={row}
+                  isFirst={isFirst}
+                  showAdd={isFirst}
+                  showRemove={!isFirst}
+                  onAdd={addRow}
+                  onRemove={() => removeRow(row.id)}
+                  updateRow={updateRow}
+                />
+              </Box>
+            );
+          })}
+        </Box>
+        <Divider sx={{ my: 0.25 }} />
+        <Box sx={catalogSearchFiltersGutterSx}>
+          <Filters />
+        </Box>
+      </Sheet>
     </Box>
   );
 }

@@ -52,6 +52,7 @@ export default function ResultsContainer({
         overflow: hasActiveQuery ? "auto" : "hidden",
         minHeight: 0,
         position: "relative",
+        transition: "flex 0.25s ease-in-out, min-height 0.25s ease-in-out",
       }}
     >
       <Box
@@ -86,8 +87,7 @@ export default function ResultsContainer({
             level="body-lg"
             sx={{ textAlign: "center" }}
           >
-            Build a query above to explore the library, or just pick a sort to
-            browse the catalog.
+            Search or select a genre, format, or tag to browse the catalog.
           </Typography>
         </Box>
       </Box>
