@@ -168,7 +168,7 @@ export type CatalogSearchRow = {
 export type CatalogFilters = {
   genres: string[]; // empty = no genre filter
   formats: string[]; // empty = no format filter
-  tags: string[]; // empty = no tag filter; v1: "exclusives" → on_streaming false
+  tags: string[]; // empty = no tag filter; "exclusives" → on_streaming false; "missing" → missing=true
 };
 
 export type CatalogSearchState = {
@@ -179,6 +179,8 @@ export type CatalogSearchState = {
   filters: CatalogFilters;
   selected: number[];
   mobileOpen: boolean;
+  /** User chose to browse the full catalog (empty query) without typing a search. */
+  browseEngaged: boolean;
 };
 
 // --- Request envelope for /library/query ---
@@ -190,6 +192,7 @@ export type LibraryQueryParams = {
   sort?: CatalogSortBy;
   order?: CatalogSortOrder;
   on_streaming?: boolean;
+  missing?: boolean;
   genres?: string;
   formats?: string;
 };

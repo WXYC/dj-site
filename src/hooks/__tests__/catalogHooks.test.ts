@@ -100,10 +100,23 @@ describe("toLibraryQueryParams", () => {
       sort: "plays",
       order: "desc",
       on_streaming: false,
+      missing: undefined,
       genres: "Rock,Jazz",
       formats: undefined,
     });
     expect(params.limit).toBeGreaterThan(0);
+  });
+
+  it("maps missing tag to missing=true", () => {
+    const params = toLibraryQueryParams(
+      [row({})],
+      { ...defaultFilters, tags: ["missing"] },
+      0,
+      "album",
+      "asc"
+    );
+    expect(params.missing).toBe(true);
+    expect(params.on_streaming).toBeUndefined();
   });
 
   it("omits empty q when all rows are blank", () => {

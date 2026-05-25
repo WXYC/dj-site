@@ -412,6 +412,20 @@ describe("CatalogResult context menu", () => {
     expect(lastMenu).not.toHaveTextContent("Edit catalog entry");
   });
 
+  it("opens album detail in edit mode from the edit catalog entry control", () => {
+    vi.mocked(useCanEditCatalog).mockReturnValue(true);
+    const album = createTestAlbum({ id: 5150 });
+    const { store } = renderCatalogRow(album);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit catalog entry in sidebar" }),
+    );
+    expect(store.getState().application.rightbar.panel).toEqual({
+      type: "album-detail",
+      albumId: 5150,
+      mode: "edit",
+    });
+  });
+
   it("opens album detail from the context menu", () => {
     const album = createTestAlbum({ id: 4242 });
     const { store } = renderCatalogRow(album);

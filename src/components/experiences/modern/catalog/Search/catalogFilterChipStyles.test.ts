@@ -42,5 +42,14 @@ describe("catalogFilterChipStyles", () => {
       bgcolor: "#7B2D8E",
       color: "#fff",
     });
+    expect(props.color).toBeUndefined();
+  });
+
+  it("styles missing tag as neutral outlined (not exclusives purple)", () => {
+    expect(getTagFilterChipProps("missing")).toEqual({
+      color: "neutral",
+      variant: "outlined",
+    });
+    expect(getTagFilterChipProps("missing").sx).toBeUndefined();
   });
 });

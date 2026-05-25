@@ -23,7 +23,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuthentication } from "./authenticationHooks";
 import { filterBySearchTerms } from "@/src/utilities/filterBySearchTerms";
 import { mergeAlbumIntoSearchResult } from "@/lib/features/catalog/patchSearchResult";
-import { catalogTagsToOnStreaming } from "@/src/components/experiences/modern/catalog/Search/catalogTagFilters";
+import { catalogTagsToQueryFlags } from "@/src/components/experiences/modern/catalog/Search/catalogTagFilters";
 
 const MIN_QUERY_LENGTH = 2;
 const PAGE_LIMIT = 50;
@@ -78,13 +78,15 @@ export function toLibraryQueryParams(
   sortOrder: CatalogSortOrder,
 ): LibraryQueryParams {
   const q = buildCatalogQuery(rows);
+  const tagFlags = catalogTagsToQueryFlags(filters.tags);
   return {
     q: q || undefined,
     page,
     limit: PAGE_LIMIT,
     sort: sortBy,
     order: sortOrder,
-    on_streaming: catalogTagsToOnStreaming(filters.tags),
+    on_streaming: tagFlags.on_streaming,
+    missing: tagFlags.missing,
     genres:
       filters.genres.length > 0 ? filters.genres.join(",") : undefined,
     formats:
@@ -104,6 +106,7 @@ export function useCatalogQuerySearch() {
   const sortBy = useAppSelector(catalogSlice.selectors.getSortBy);
   const sortOrder = useAppSelector(catalogSlice.selectors.getSortOrder);
   const filters = useAppSelector(catalogSlice.selectors.getFilters);
+  const browseEngaged = useAppSelector(catalogSlice.selectors.getBrowseEngaged);
   const selected = useAppSelector(catalogSlice.selectors.getSelected);
 
   const addRow = useCallback(
@@ -157,26 +160,35 @@ export function useCatalogQuerySearch() {
     [dispatch],
   );
 
+  const engageBrowse = useCallback(
+    () => dispatch(catalogSlice.actions.engageBrowse()),
+    [dispatch],
+  );
+
   const reset = useCallback(
     () => dispatch(catalogSlice.actions.reset()),
     [dispatch],
   );
 
   const effectiveQuery = useMemo(() => buildCatalogQuery(rows), [rows]);
-  const hasActiveQuery =
+  const hasFilterOrSearch =
     effectiveQuery.length > 0 ||
     filters.genres.length > 0 ||
     filters.formats.length > 0 ||
     filters.tags.length > 0;
+  const hasActiveQuery = browseEngaged || hasFilterOrSearch;
 
   return {
     rows,
     sortBy,
     sortOrder,
     filters,
+    browseEngaged,
     selected,
     effectiveQuery,
     hasActiveQuery,
+    hasFilterOrSearch,
+    engageBrowse,
     addRow,
     removeRow,
     updateRow,
@@ -209,7 +221,7 @@ export function useCanEditCatalog(): boolean {
  * `usePlaylistSearch` — at most one in-flight request, the next-query queues.
  */
 export function useCatalogQueryResults() {
-  const { rows, sortBy, sortOrder, filters, effectiveQuery } =
+  const { rows, sortBy, sortOrder, filters, effectiveQuery, hasActiveQuery } =
     useCatalogQuerySearch();
   const dispatch = useAppDispatch();
   const page = useAppSelector(catalogSlice.selectors.getPage);
@@ -237,6 +249,15 @@ export function useCatalogQueryResults() {
 
   const [trigger, { data, isFetching, isError }] =
     useLazySearchLibraryQueryQuery();
+
+  // Clear in-memory results when the user has not engaged browse/search/filters.
+  useEffect(() => {
+    if (!hasActiveQuery) {
+      setAccumulated([]);
+      lastFiredRef.current = null;
+      pendingQueryRef.current = null;
+    }
+  }, [hasActiveQuery]);
 
   // Reset accumulated rows when the query or sort changes (any param except page).
   useEffect(() => {
@@ -277,7 +298,7 @@ export function useCatalogQueryResults() {
   // character partial — typing "a" into a field shouldn't fire a query before
   // the user finishes the word. Empty rows don't count as partial.
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || !hasActiveQuery) return;
     const hasPartialRow = rows.some((r) => {
       const v = r.value.trim();
       return v.length > 0 && v.length < MIN_QUERY_LENGTH;
@@ -297,7 +318,7 @@ export function useCatalogQueryResults() {
       pendingQueryRef.current = null;
       trigger(params);
     }
-  }, [params, ready, rows, isFetching, trigger]);
+  }, [params, ready, rows, isFetching, trigger, hasActiveQuery]);
 
   // Drain pending query once the in-flight request finishes.
   useEffect(() => {

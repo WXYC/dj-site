@@ -29,6 +29,7 @@ export const defaultCatalogFrontendState: CatalogFrontendState = {
   filters: { genres: [], formats: [], tags: [] },
   selected: [],
   mobileOpen: false,
+  browseEngaged: false,
   lastPatchedSearchResult: null,
   rotationByAlbumId: {},
 };
@@ -90,6 +91,10 @@ export const catalogSlice = createAppSlice({
     closeMobileSearch: (state) => {
       state.mobileOpen = false;
     },
+    engageBrowse: (state) => {
+      state.browseEngaged = true;
+      state.page = 0;
+    },
     patchSearchResult: (state, action: PayloadAction<AlbumEntry>) => {
       state.lastPatchedSearchResult = action.payload;
     },
@@ -113,6 +118,7 @@ export const catalogSlice = createAppSlice({
     getFilters: (state) => state.filters,
     getSelected: (state) => state.selected,
     isMobileSearchOpen: (state) => state.mobileOpen,
+    getBrowseEngaged: (state) => state.browseEngaged,
     getLastPatchedSearchResult: (state) => state.lastPatchedSearchResult,
     getAlbumRotation: (state, albumId: number) =>
       state.rotationByAlbumId[albumId],

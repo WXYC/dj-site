@@ -358,6 +358,21 @@ describeSlice(catalogSlice, defaultCatalogFrontendState, ({ harness, actions }) 
         tags: [],
       });
     });
+
+    it("defaults browseEngaged to false", () => {
+      expect(harness().initialState.browseEngaged).toBe(false);
+    });
+  });
+
+  describe("engageBrowse", () => {
+    it("sets browseEngaged and resets page", () => {
+      const result = harness().chain(
+        actions.nextPage(),
+        actions.engageBrowse(),
+      );
+      expect(result.browseEngaged).toBe(true);
+      expect(result.page).toBe(0);
+    });
   });
 
   describe("row CRUD", () => {

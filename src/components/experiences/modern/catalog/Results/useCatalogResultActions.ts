@@ -42,8 +42,9 @@ export function useCatalogResultActions(album: AlbumEntry) {
   const openEdit = useCallback(() => {
     dispatch(
       applicationSlice.actions.openPanel({
-        type: "admin-catalog-edit-entry",
+        type: "album-detail",
         albumId: album.id,
+        mode: "edit",
       }),
     );
   }, [dispatch, album.id]);

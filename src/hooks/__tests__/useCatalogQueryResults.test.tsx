@@ -80,10 +80,22 @@ describe("useCatalogQueryResults", () => {
     nextLazyResult = { data: undefined, isFetching: false, isError: false };
   });
 
-  it("fires the query immediately on mount when default state is empty", () => {
+  it("does not fire on mount until browse or filters/search intent", () => {
     const store = makeStore();
     renderHook(() => useCatalogQueryResults(), { wrapper: Wrapper({ store }) });
-    expect(triggerCalls.length).toBe(1);
+    expect(triggerCalls).toHaveLength(0);
+  });
+
+  it("fires when browse is engaged with an empty query", () => {
+    const store = makeStore();
+    const { rerender } = renderHook(() => useCatalogQueryResults(), {
+      wrapper: Wrapper({ store }),
+    });
+    act(() => {
+      store.dispatch(catalogSlice.actions.engageBrowse());
+    });
+    rerender();
+    expect(triggerCalls).toHaveLength(1);
     expect(triggerCalls[0].q).toBeUndefined();
   });
 

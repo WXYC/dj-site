@@ -17,6 +17,7 @@ import { useCatalogQuerySearch } from "@/src/hooks/catalogHooks";
 import { QueueMusic } from "@mui/icons-material";
 import { useQueue, useShowControl } from "@/src/hooks/flowsheetHooks";
 import { GENRE_COLORS, GENRE_VARIANTS, ROTATION_STYLES } from "../ArtistAvatar";
+import { EXCLUSIVES_PURPLE } from "../Search/catalogFilterStyles";
 import AddRemoveBin from "./AddRemoveBin";
 import CatalogResultContextMenu, {
   useCatalogResultContextMenu,
@@ -157,7 +158,7 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
                 variant="soft"
                 size="sm"
                 sx={{
-                  backgroundColor: "#7B2D8E",
+                  bgcolor: EXCLUSIVES_PURPLE,
                   color: "#fff",
                   fontWeight: "bold",
                   fontSize: "0.65rem",

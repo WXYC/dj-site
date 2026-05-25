@@ -60,7 +60,8 @@ export function CatalogFilterAutocomplete({
         renderTagsProp ??
         ((tags, getTagProps) =>
           tags.map((item, index) => {
-            const { key, ...tagProps } = getTagProps({ index });
+            const { key, color: _tagColor, sx: tagSx, ...tagProps } =
+              getTagProps({ index });
             const chipStyle = getTagChipProps?.(item) ?? {
               color: "neutral" as const,
               variant: "soft" as const,
@@ -68,12 +69,17 @@ export function CatalogFilterAutocomplete({
             return (
               <Chip
                 key={key}
+                {...tagProps}
                 variant={chipStyle.variant ?? "soft"}
-                color={chipStyle.color}
+                {...(chipStyle.color ? { color: chipStyle.color } : {})}
                 size="sm"
                 endDecorator={<Close sx={{ fontSize: "0.875rem" }} />}
-                sx={{ minWidth: 0, ...catalogFilterTagFontSx, ...chipStyle.sx }}
-                {...tagProps}
+                sx={{
+                  minWidth: 0,
+                  ...catalogFilterTagFontSx,
+                  ...(typeof tagSx === "object" && tagSx !== null ? tagSx : {}),
+                  ...chipStyle.sx,
+                }}
               >
                 {item}
               </Chip>

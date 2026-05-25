@@ -10,7 +10,6 @@ import RightbarContainer from "./RightbarContainer";
 import RightbarMobileClose from "./RightbarMobileClose";
 import AccountEditPanel from "./panels/AccountEditPanel";
 import AdminAddCatalogEntryPanel from "../admin/catalog/panels/AdminAddCatalogEntryPanel";
-import AdminEditCatalogEntryPanel from "../admin/catalog/panels/AdminEditCatalogEntryPanel";
 import AlbumDetailPanel from "./panels/AlbumDetailPanel";
 import SettingsPanel from "./panels/SettingsPanel";
 
@@ -36,8 +35,6 @@ function RightbarPanelRouter({ panel }: { panel: Exclude<RightbarPanel, { type: 
       return <AccountEditPanel />;
     case "admin-catalog-add-entry":
       return <AdminAddCatalogEntryPanel />;
-    case "admin-catalog-edit-entry":
-      return <AdminEditCatalogEntryPanel albumId={panel.albumId} />;
   }
 }
 

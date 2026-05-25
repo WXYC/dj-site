@@ -19,7 +19,26 @@ export type AdminCatalogCodePreviewProps = {
   formatLabel: string | null;
   /** Optional rotation badge (usually omitted in admin draft). */
   rotation?: string | null;
+  /** Compact size for artwork overlay; default full size for add/edit cards. */
+  size?: "md" | "sm";
 };
+
+const SIZE_STYLES = {
+  md: {
+    outer: "4rem",
+    inner: "1.5rem",
+    innerFont: "0.75rem",
+    text: "0.65rem",
+    textWidth: 10,
+  },
+  sm: {
+    outer: "2.5rem",
+    inner: "1rem",
+    innerFont: "0.55rem",
+    text: "0.5rem",
+    textWidth: 8,
+  },
+} as const;
 
 function asGenreKey(name: string | null): Genre {
   if (!name || !name.trim()) return "Unknown";
@@ -56,7 +75,9 @@ export default function AdminCatalogCodePreview({
   albumEntry,
   formatLabel,
   rotation = null,
+  size = "md",
 }: AdminCatalogCodePreviewProps) {
+  const s = SIZE_STYLES[size];
   const genreKey = asGenreKey(genreName);
   const color_choice = GENRE_COLORS[genreKey] ?? "neutral";
   const variant_choice = GENRE_VARIANTS[genreKey] ?? "soft";
@@ -93,11 +114,11 @@ export default function AdminCatalogCodePreview({
         variant={variant_choice}
         color={color_choice}
         sx={{
-          width: "4rem",
-          height: "4rem",
+          width: s.outer,
+          height: s.outer,
         }}
       >
-        <Stack direction="row" spacing={0.2} sx={{ ml: -0.1 }}>
+        <Stack direction="row" spacing={size === "sm" ? 0.1 : 0.2} sx={{ ml: -0.1 }}>
           <Stack
             direction="column"
             sx={{
@@ -108,8 +129,8 @@ export default function AdminCatalogCodePreview({
               level="body-xs"
               sx={{
                 color: "text.primary",
-                width: 10,
-                fontSize: "0.65rem",
+                width: s.textWidth,
+                fontSize: s.text,
                 ml: -0.1,
               }}
             >
@@ -119,7 +140,7 @@ export default function AdminCatalogCodePreview({
           <Stack direction="column" sx={{ textAlign: "center" }}>
             <Typography
               level="body-xs"
-              sx={{ color: "text.primary", fontSize: "0.65rem" }}
+              sx={{ color: "text.primary", fontSize: s.text }}
             >
               {num}
             </Typography>
@@ -127,17 +148,17 @@ export default function AdminCatalogCodePreview({
               variant={variant_choice === "solid" ? "soft" : "solid"}
               color={fmt === "CD" ? "primary" : "warning"}
               sx={{
-                width: "1.5rem",
-                height: "1.5rem",
+                width: s.inner,
+                height: s.inner,
                 m: 0,
-                fontSize: "0.75rem",
+                fontSize: s.innerFont,
               }}
             >
               {letters}
             </Avatar>
             <Typography
               level="body-xs"
-              sx={{ color: "text.primary", fontSize: "0.65rem" }}
+              sx={{ color: "text.primary", fontSize: s.text }}
             >
               {entry}
             </Typography>
@@ -145,7 +166,7 @@ export default function AdminCatalogCodePreview({
           <Stack
             direction="column"
             sx={{
-              width: 10,
+              width: s.textWidth,
               textAlign: "center",
               justifyContent: "center",
             }}
@@ -154,7 +175,7 @@ export default function AdminCatalogCodePreview({
               level="body-xs"
               sx={{
                 color: "text.primary",
-                fontSize: "0.65rem",
+                fontSize: s.text,
               }}
             >
               {fmtAbbr}

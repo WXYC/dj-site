@@ -71,6 +71,9 @@ export function getTagFilterChipProps(tagId: string): CatalogFilterTagChipProps 
       },
     };
   }
+  if (tagId === "missing") {
+    return { color: "neutral", variant: "outlined" };
+  }
   return { color: "neutral", variant: "soft" };
 }
 

@@ -80,6 +80,15 @@ describe("Filters", () => {
     ]);
   });
 
+  it("selects missing via tag autocomplete", async () => {
+    const { tagInput, user, getState } = setup();
+    await user.click(tagInput());
+    await user.click(await screen.findByRole("option", { name: "missing" }));
+    expect(catalogSlice.selectors.getFilters(getState()).tags).toEqual([
+      "missing",
+    ]);
+  });
+
   it("shows genre and format autocomplete placeholders when empty", () => {
     const { genreInput, formatInput } = setup();
     expect(genreInput()).toHaveAttribute("placeholder", "All genres...");

@@ -14,7 +14,8 @@ export default function ResultsContainer({
   children: React.ReactNode;
   color?: ColorPaletteProp;
 }) {
-  const { hasActiveQuery, selected, clearSelection } = useCatalogQuerySearch();
+  const { hasActiveQuery, engageBrowse, selected, clearSelection } =
+    useCatalogQuerySearch();
   const { addToBin, loading } = useAddToBin();
 
   const handleAddSelectedToBin = async () => {
@@ -76,19 +77,41 @@ export default function ResultsContainer({
         <Box
           sx={{
             height: "80%",
+            width: "100%",
             opacity: hasActiveQuery ? 0 : 1,
             transition: "opacity 0.2s",
-            pb: 2,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "stretch",
+            py: 1,
           }}
         >
-          <Logo color={color} />
+          <Box sx={{ flex: 1, minHeight: 0, width: "100%" }}>
+            <Logo color={color} />
+          </Box>
           <Typography
             color={color}
             level="body-lg"
-            sx={{ textAlign: "center" }}
+            sx={{ textAlign: "center", mb: 1.5 }}
           >
             Search or select a genre, format, or tag to browse the catalog.
           </Typography>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              width: "100%",
+            }}
+          >
+            <Button
+              variant="solid"
+              color={color}
+              size="sm"
+              onClick={engageBrowse}
+            >
+              Enter catalog
+            </Button>
+          </Box>
         </Box>
       </Box>
       {children}
