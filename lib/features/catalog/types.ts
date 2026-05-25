@@ -175,7 +175,6 @@ export type CatalogSearchState = {
   rows: CatalogSearchRow[];
   sortBy: CatalogSortBy;
   sortOrder: CatalogSortOrder;
-  page: number;
   filters: CatalogFilters;
   selected: number[];
   mobileOpen: boolean;

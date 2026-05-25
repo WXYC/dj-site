@@ -1,9 +1,11 @@
 "use client";
 
 import {
-  useLazySearchLibraryQueryQuery,
   useSearchCatalogQuery,
+  useSearchLibraryQueryInfiniteQuery,
+  type CatalogInfiniteQueryArg,
 } from "@/lib/features/catalog/api";
+import { CATALOG_QUERY_PAGE_LIMIT } from "@/lib/features/catalog/constants";
 import { Authorization } from "@/lib/features/admin/types";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
 import {
@@ -19,14 +21,12 @@ import { isAuthenticated } from "@/lib/features/authentication/types";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useGetRotationQuery } from "@/lib/features/rotation/api";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { useAuthentication } from "./authenticationHooks";
 import { filterBySearchTerms } from "@/src/utilities/filterBySearchTerms";
-import { mergeAlbumIntoSearchResult } from "@/lib/features/catalog/patchSearchResult";
 import { catalogTagsToQueryFlags } from "@/src/components/experiences/modern/catalog/Search/catalogTagFilters";
 
 const MIN_QUERY_LENGTH = 2;
-const PAGE_LIMIT = 50;
 
 /** Keep first occurrence per album id (backend may return duplicates in one page). */
 export function dedupeAlbumEntriesById(entries: AlbumEntry[]): AlbumEntry[] {
@@ -82,7 +82,7 @@ export function toLibraryQueryParams(
   return {
     q: q || undefined,
     page,
-    limit: PAGE_LIMIT,
+    limit: CATALOG_QUERY_PAGE_LIMIT,
     sort: sortBy,
     order: sortOrder,
     on_streaming: tagFlags.on_streaming,
@@ -92,6 +92,23 @@ export function toLibraryQueryParams(
     formats:
       filters.formats.length > 0 ? filters.formats.join(",") : undefined,
   };
+}
+
+/** Build infinite-query args (page/limit are supplied by RTK `pageParam`). */
+export function toCatalogInfiniteQueryArg(
+  rows: CatalogSearchRow[],
+  filters: CatalogFilters,
+  sortBy: CatalogSortBy,
+  sortOrder: CatalogSortOrder,
+): CatalogInfiniteQueryArg {
+  const { page: _page, limit: _limit, ...rest } = toLibraryQueryParams(
+    rows,
+    filters,
+    0,
+    sortBy,
+    sortOrder,
+  );
+  return rest;
 }
 
 /**
@@ -215,141 +232,61 @@ export function useCanEditCatalog(): boolean {
 }
 
 /**
- * Data-fetching hook for the catalog query builder. Reads slice state from
- * {@link useCatalogQuerySearch}, fires `/library/query`, and accumulates
- * pages for infinite scroll. Response-based throttling mirrors
- * `usePlaylistSearch` — at most one in-flight request, the next-query queues.
+ * Data-fetching hook for the catalog query builder. Uses RTK infinite query
+ * on `/library/query` (same pattern as flowsheet `getInfiniteEntries`).
  */
 export function useCatalogQueryResults() {
-  const { rows, sortBy, sortOrder, filters, effectiveQuery, hasActiveQuery } =
+  const { rows, sortBy, sortOrder, filters, hasActiveQuery } =
     useCatalogQuerySearch();
-  const dispatch = useAppDispatch();
-  const page = useAppSelector(catalogSlice.selectors.getPage);
 
   const { authenticating, authenticated } = useAuthentication();
   const ready = !authenticating && authenticated;
 
-  const params = useMemo(
-    () => toLibraryQueryParams(rows, filters, page, sortBy, sortOrder),
-    [rows, filters, page, sortBy, sortOrder],
+  const hasPartialRow = useMemo(
+    () =>
+      rows.some((r) => {
+        const v = r.value.trim();
+        return v.length > 0 && v.length < MIN_QUERY_LENGTH;
+      }),
+    [rows],
   );
 
-  const pendingQueryRef = useRef<LibraryQueryParams | null>(null);
-  // null sentinel — distinguish "never fired" from "fired with empty q"
-  const lastFiredRef = useRef<string | null>(null);
-
-  // Accumulated results held in state so a new page or a query-reset triggers
-  // a re-render. A ref-based store wouldn't — the Results component reads
-  // straight from this hook, and React only re-renders on state changes.
-  const [accumulated, setAccumulated] = useState<AlbumEntry[]>([]);
-  const lastAccumulatedKeyRef = useRef<string>("");
-  const lastPatchedSearchResult = useAppSelector(
-    catalogSlice.selectors.getLastPatchedSearchResult,
+  const queryArg = useMemo(
+    () => toCatalogInfiniteQueryArg(rows, filters, sortBy, sortOrder),
+    [rows, filters, sortBy, sortOrder],
   );
 
-  const [trigger, { data, isFetching, isError }] =
-    useLazySearchLibraryQueryQuery();
+  const queryEnabled = ready && hasActiveQuery && !hasPartialRow;
 
-  // Clear in-memory results when the user has not engaged browse/search/filters.
-  useEffect(() => {
-    if (!hasActiveQuery) {
-      setAccumulated([]);
-      lastFiredRef.current = null;
-      pendingQueryRef.current = null;
-    }
-  }, [hasActiveQuery]);
+  const {
+    data,
+    isFetching,
+    isError,
+    hasNextPage,
+    fetchNextPage,
+  } = useSearchLibraryQueryInfiniteQuery(queryArg, {
+    skip: !queryEnabled,
+  });
 
-  // Reset accumulated rows when the query or sort changes (any param except page).
-  useEffect(() => {
-    const key = `${effectiveQuery}|${sortBy}|${sortOrder}|${filters.tags.join(",")}|${filters.genres.join(",")}|${filters.formats.join(",")}`;
-    if (key !== lastAccumulatedKeyRef.current) {
-      lastAccumulatedKeyRef.current = key;
-      setAccumulated([]);
-    }
-  }, [effectiveQuery, sortBy, sortOrder, filters]);
+  const results = useMemo(() => {
+    if (!data?.pages?.length) return [];
+    return dedupeAlbumEntriesById(
+      data.pages.flatMap((page) => page.results),
+    );
+  }, [data?.pages]);
 
-  // Keep paginated in-memory results in sync after a catalog edit save.
-  useEffect(() => {
-    if (!lastPatchedSearchResult) return;
-    setAccumulated((prev) => {
-      const index = prev.findIndex(
-        (row) => row.id === lastPatchedSearchResult.id,
-      );
-      if (index === -1) return prev;
-      const next = [...prev];
-      next[index] = mergeAlbumIntoSearchResult(
-        prev[index],
-        lastPatchedSearchResult,
-      );
-      return next;
-    });
-  }, [lastPatchedSearchResult]);
-
-  // Append the latest page (or replace, for page 0) into the accumulator.
-  useEffect(() => {
-    if (!data?.results) return;
-    setAccumulated((prev) => {
-      const base = data.page === 0 ? [] : prev;
-      return dedupeAlbumEntriesById([...base, ...data.results]);
-    });
-  }, [data]);
-
-  // Fire the search when params change. Suppress while any row holds a single-
-  // character partial — typing "a" into a field shouldn't fire a query before
-  // the user finishes the word. Empty rows don't count as partial.
-  useEffect(() => {
-    if (!ready || !hasActiveQuery) return;
-    const hasPartialRow = rows.some((r) => {
-      const v = r.value.trim();
-      return v.length > 0 && v.length < MIN_QUERY_LENGTH;
-    });
-    if (hasPartialRow) {
-      pendingQueryRef.current = null;
-      return;
-    }
-
-    const fingerprint = JSON.stringify(params);
-    if (isFetching) {
-      pendingQueryRef.current = params;
-      return;
-    }
-    if (fingerprint !== lastFiredRef.current) {
-      lastFiredRef.current = fingerprint;
-      pendingQueryRef.current = null;
-      trigger(params);
-    }
-  }, [params, ready, rows, isFetching, trigger, hasActiveQuery]);
-
-  // Drain pending query once the in-flight request finishes.
-  useEffect(() => {
-    if (isFetching) return;
-    const pending = pendingQueryRef.current;
-    if (!pending) return;
-    const fingerprint = JSON.stringify(pending);
-    if (fingerprint === lastFiredRef.current) {
-      pendingQueryRef.current = null;
-      return;
-    }
-    lastFiredRef.current = fingerprint;
-    pendingQueryRef.current = null;
-    trigger(pending);
-  }, [isFetching, trigger]);
-
-  const loadNextPage = useCallback(() => {
-    if (!data) return;
-    if (data.page + 1 >= data.totalPages) return;
-    dispatch(catalogSlice.actions.nextPage());
-  }, [data, dispatch]);
-
-  const hasMore = data ? data.page + 1 < data.totalPages : false;
+  const total = data?.pages?.[0]?.total ?? 0;
+  const isLoadingInitial = isFetching && !data?.pages?.length;
+  const isFetchingMore = isFetching && (data?.pages?.length ?? 0) > 0;
 
   return {
-    results: accumulated,
-    total: data?.total ?? 0,
-    hasMore,
-    isLoading: isFetching,
+    results,
+    total,
+    hasNextPage: hasNextPage ?? false,
+    isLoadingInitial,
+    isFetchingMore,
     isError,
-    loadNextPage,
+    fetchNextPage,
   };
 }
 

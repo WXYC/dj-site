@@ -5,15 +5,16 @@ import { useCatalogQuerySearch } from "@/src/hooks/catalogHooks";
 import { DoubleArrow } from "@mui/icons-material";
 import { Box, Button, ColorPaletteProp, Sheet, Typography } from "@mui/joy";
 import { useAddToBin } from "@/src/hooks/binHooks";
+import { forwardRef } from "react";
 import { toast } from "sonner";
 
-export default function ResultsContainer({
-  children,
-  color = "primary",
-}: {
-  children: React.ReactNode;
-  color?: ColorPaletteProp;
-}) {
+const ResultsContainer = forwardRef<
+  HTMLDivElement,
+  {
+    children: React.ReactNode;
+    color?: ColorPaletteProp;
+  }
+>(function ResultsContainer({ children, color = "primary" }, ref) {
   const { hasActiveQuery, engageBrowse, selected, clearSelection } =
     useCatalogQuerySearch();
   const { addToBin, loading } = useAddToBin();
@@ -44,6 +45,7 @@ export default function ResultsContainer({
 
   return (
     <Sheet
+      ref={ref}
       id="OrderTableContainer"
       variant="outlined"
       sx={{
@@ -144,4 +146,6 @@ export default function ResultsContainer({
       )}
     </Sheet>
   );
-}
+});
+
+export default ResultsContainer;

@@ -347,10 +347,6 @@ describeSlice(catalogSlice, defaultCatalogFrontendState, ({ harness, actions }) 
       expect(state.sortOrder).toBe("asc");
     });
 
-    it("defaults page to 0", () => {
-      expect(harness().initialState.page).toBe(0);
-    });
-
     it("defaults filters to empty arrays", () => {
       expect(harness().initialState.filters).toEqual({
         genres: [],
@@ -365,13 +361,9 @@ describeSlice(catalogSlice, defaultCatalogFrontendState, ({ harness, actions }) 
   });
 
   describe("engageBrowse", () => {
-    it("sets browseEngaged and resets page", () => {
-      const result = harness().chain(
-        actions.nextPage(),
-        actions.engageBrowse(),
-      );
+    it("sets browseEngaged", () => {
+      const result = harness().reduce(actions.engageBrowse());
       expect(result.browseEngaged).toBe(true);
-      expect(result.page).toBe(0);
     });
   });
 
@@ -380,11 +372,6 @@ describeSlice(catalogSlice, defaultCatalogFrontendState, ({ harness, actions }) 
       const result = harness().reduce(actions.addRow());
       expect(result.rows).toHaveLength(2);
       expect(result.rows[1].field).toBe("artist");
-    });
-
-    it("addRow resets page to 0", () => {
-      const result = harness().chain(actions.nextPage(), actions.addRow());
-      expect(result.page).toBe(0);
     });
 
     it("removeRow drops a row by id", () => {
@@ -414,15 +401,6 @@ describeSlice(catalogSlice, defaultCatalogFrontendState, ({ harness, actions }) 
       expect(result.rows[0].value).toBe("Stereolab");
     });
 
-    it("updateRow resets page to 0", () => {
-      const initial = harness().initialState;
-      const id = initial.rows[0].id;
-      const result = harness().chain(
-        actions.nextPage(),
-        actions.updateRow({ id, updates: { value: "x" } })
-      );
-      expect(result.page).toBe(0);
-    });
   });
 
   describe("sort", () => {
@@ -434,13 +412,6 @@ describeSlice(catalogSlice, defaultCatalogFrontendState, ({ harness, actions }) 
       expect(result.sortOrder).toBe("desc");
     });
 
-    it("setSort resets page to 0", () => {
-      const result = harness().chain(
-        actions.nextPage(),
-        actions.setSort({ sortBy: "artist", sortOrder: "asc" })
-      );
-      expect(result.page).toBe(0);
-    });
   });
 
   describe("filters", () => {
@@ -462,20 +433,6 @@ describeSlice(catalogSlice, defaultCatalogFrontendState, ({ harness, actions }) 
       expect(result.filters.formats).toEqual(["Vinyl"]);
     });
 
-    it("setFilter resets page to 0", () => {
-      const result = harness().chain(
-        actions.nextPage(),
-        actions.setFilter({ genres: ["Rock"] })
-      );
-      expect(result.page).toBe(0);
-    });
-  });
-
-  describe("pagination", () => {
-    it("nextPage increments page", () => {
-      const result = harness().chain(actions.nextPage(), actions.nextPage());
-      expect(result.page).toBe(2);
-    });
   });
 
   describe("selection", () => {
@@ -532,7 +489,6 @@ describeSlice(catalogSlice, defaultCatalogFrontendState, ({ harness, actions }) 
         actions.updateRow({ id, updates: { value: "Cat Power" } }),
         actions.setSort({ sortBy: "plays", sortOrder: "desc" }),
         actions.setFilter({ genres: ["Rock"] }),
-        actions.nextPage(),
         actions.setSelection([1, 2, 3]),
         actions.openMobileSearch(),
         actions.reset()

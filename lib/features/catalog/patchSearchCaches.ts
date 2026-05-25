@@ -1,7 +1,7 @@
 import type { AppDispatch, RootState } from "@/lib/store";
 import type { Rotation } from "@/lib/features/rotation/types";
 import { catalogSlice } from "./frontend";
-import { catalogApi } from "./api";
+import { catalogApi, type LibraryQueryResult } from "./api";
 import type { AlbumEntry } from "./types";
 import { mergeAlbumIntoSearchResult } from "./patchSearchResult";
 
@@ -9,6 +9,17 @@ export type CatalogSearchRotationPatch = {
   rotation_bin: Rotation | undefined;
   rotation_id: number | undefined;
 };
+
+function patchInfiniteSearchDraft(
+  draft: { pages: LibraryQueryResult[] },
+  patchRow: (row: AlbumEntry) => void,
+) {
+  for (const page of draft.pages) {
+    for (const row of page.results) {
+      patchRow(row);
+    }
+  }
+}
 
 /** Patch rotation fields on every cached search row for this album id. */
 export function patchCatalogSearchRotation(
@@ -32,12 +43,17 @@ export function patchCatalogSearchRotation(
 
   for (const args of cachedArgs) {
     dispatch(
-      catalogApi.util.updateQueryData("searchLibraryQuery", args, (draft) => {
-        const index = draft.results.findIndex((row) => row.id === albumId);
-        if (index === -1) return;
-        draft.results[index].rotation_bin = rotation.rotation_bin;
-        draft.results[index].rotation_id = rotation.rotation_id;
-      }),
+      catalogApi.util.updateQueryData(
+        "searchLibraryQuery",
+        args,
+        (draft) => {
+          patchInfiniteSearchDraft(draft, (row) => {
+            if (row.id !== albumId) return;
+            row.rotation_bin = rotation.rotation_bin;
+            row.rotation_id = rotation.rotation_id;
+          });
+        },
+      ),
     );
   }
 
@@ -68,14 +84,16 @@ export function patchCatalogSearchCaches(
 
   for (const args of cachedArgs) {
     dispatch(
-      catalogApi.util.updateQueryData("searchLibraryQuery", args, (draft) => {
-        const index = draft.results.findIndex((row) => row.id === updated.id);
-        if (index === -1) return;
-        draft.results[index] = mergeAlbumIntoSearchResult(
-          draft.results[index],
-          updated,
-        );
-      }),
+      catalogApi.util.updateQueryData(
+        "searchLibraryQuery",
+        args,
+        (draft) => {
+          patchInfiniteSearchDraft(draft, (row) => {
+            if (row.id !== updated.id) return;
+            Object.assign(row, mergeAlbumIntoSearchResult(row, updated));
+          });
+        },
+      ),
     );
   }
 

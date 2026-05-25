@@ -6,19 +6,24 @@ import { CssVarsProvider } from "@mui/joy/styles";
 import { makeStore } from "@/lib/store";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
 import { createTestAlbum } from "@/lib/test-utils";
-import type { LibraryQueryParams } from "@/lib/features/catalog/types";
+import type { CatalogInfiniteQueryArg } from "@/lib/features/catalog/api";
 
-type LazyResult = {
-  data: unknown;
+type InfiniteQueryResult = {
+  data: { pages: Array<{ results: ReturnType<typeof createTestAlbum>[]; total: number; page: number; totalPages: number }> } | undefined;
   isFetching: boolean;
   isError: boolean;
+  hasNextPage: boolean;
+  fetchNextPage: ReturnType<typeof vi.fn>;
 };
 
-const triggerCalls: LibraryQueryParams[] = [];
-let nextLazyResult: LazyResult = {
+let infiniteQueryEnabled = false;
+let lastQueryArg: CatalogInfiniteQueryArg | undefined;
+let nextInfiniteResult: InfiniteQueryResult = {
   data: undefined,
   isFetching: false,
   isError: false,
+  hasNextPage: false,
+  fetchNextPage: vi.fn(),
 };
 
 vi.mock("@/lib/features/catalog/api", () => ({
@@ -33,11 +38,22 @@ vi.mock("@/lib/features/catalog/api", () => ({
     endpoints: {},
     util: { resetApiState: () => ({ type: "noop" }) },
   },
-  useLazySearchLibraryQueryQuery: () => {
-    const trigger = (params: LibraryQueryParams) => {
-      triggerCalls.push(params);
-    };
-    return [trigger, nextLazyResult];
+  useSearchLibraryQueryInfiniteQuery: (
+    queryArg: CatalogInfiniteQueryArg,
+    options?: { skip?: boolean },
+  ) => {
+    lastQueryArg = queryArg;
+    if (options?.skip) {
+      return {
+        data: undefined,
+        isFetching: false,
+        isError: false,
+        hasNextPage: false,
+        fetchNextPage: vi.fn(),
+      };
+    }
+    infiniteQueryEnabled = true;
+    return nextInfiniteResult;
   },
   useSearchCatalogQuery: () => ({
     data: undefined,
@@ -76,17 +92,24 @@ function setRowValue(store: ReturnType<typeof makeStore>, value: string) {
 
 describe("useCatalogQueryResults", () => {
   beforeEach(() => {
-    triggerCalls.length = 0;
-    nextLazyResult = { data: undefined, isFetching: false, isError: false };
+    infiniteQueryEnabled = false;
+    lastQueryArg = undefined;
+    nextInfiniteResult = {
+      data: undefined,
+      isFetching: false,
+      isError: false,
+      hasNextPage: false,
+      fetchNextPage: vi.fn(),
+    };
   });
 
-  it("does not fire on mount until browse or filters/search intent", () => {
+  it("skips the infinite query until browse or filters/search intent", () => {
     const store = makeStore();
     renderHook(() => useCatalogQueryResults(), { wrapper: Wrapper({ store }) });
-    expect(triggerCalls).toHaveLength(0);
+    expect(infiniteQueryEnabled).toBe(false);
   });
 
-  it("fires when browse is engaged with an empty query", () => {
+  it("enables the query when browse is engaged with an empty query", () => {
     const store = makeStore();
     const { rerender } = renderHook(() => useCatalogQueryResults(), {
       wrapper: Wrapper({ store }),
@@ -95,8 +118,8 @@ describe("useCatalogQueryResults", () => {
       store.dispatch(catalogSlice.actions.engageBrowse());
     });
     rerender();
-    expect(triggerCalls).toHaveLength(1);
-    expect(triggerCalls[0].q).toBeUndefined();
+    expect(infiniteQueryEnabled).toBe(true);
+    expect(lastQueryArg?.q).toBeUndefined();
   });
 
   it("skips single-character partial queries", () => {
@@ -105,81 +128,51 @@ describe("useCatalogQueryResults", () => {
       wrapper: Wrapper({ store }),
     });
 
-    triggerCalls.length = 0;
     act(() => {
+      store.dispatch(catalogSlice.actions.engageBrowse());
       setRowValue(store, "a");
     });
     rerender();
-    expect(triggerCalls).toHaveLength(0);
+    expect(infiniteQueryEnabled).toBe(false);
   });
 
-  it("fires once when the query stabilizes at >= 2 chars", () => {
+  it("enables the query when the query stabilizes at >= 2 chars", () => {
     const store = makeStore();
     const { rerender } = renderHook(() => useCatalogQueryResults(), {
       wrapper: Wrapper({ store }),
     });
 
-    triggerCalls.length = 0;
     act(() => {
       setRowValue(store, "Stereolab");
     });
     rerender();
-    expect(triggerCalls).toHaveLength(1);
-    expect(triggerCalls[0].q).toBe("artist:Stereolab");
+    expect(infiniteQueryEnabled).toBe(true);
+    expect(lastQueryArg?.q).toBe("artist:Stereolab");
   });
 
-  it("dedupes consecutive renders with the same params", () => {
-    const store = makeStore();
-    const { rerender } = renderHook(() => useCatalogQueryResults(), {
-      wrapper: Wrapper({ store }),
-    });
-
-    triggerCalls.length = 0;
-    act(() => {
-      setRowValue(store, "Stereolab");
-    });
-    rerender();
-    rerender();
-    rerender();
-    expect(triggerCalls).toHaveLength(1);
-  });
-
-  it("queues the latest params while a fetch is in flight, drains when it finishes", () => {
-    const store = makeStore();
-    nextLazyResult = { data: undefined, isFetching: true, isError: false };
-
-    const { rerender } = renderHook(() => useCatalogQueryResults(), {
-      wrapper: Wrapper({ store }),
-    });
-
-    triggerCalls.length = 0;
-    act(() => {
-      setRowValue(store, "Stereolab");
-    });
-    rerender();
-    // In-flight: trigger should not be called again
-    expect(triggerCalls).toHaveLength(0);
-
-    // Flip to !isFetching and re-render — pending should drain.
-    nextLazyResult = { data: undefined, isFetching: false, isError: false };
-    rerender();
-    expect(triggerCalls).toHaveLength(1);
-    expect(triggerCalls[0].q).toBe("artist:Stereolab");
-  });
-
-  it("dedupes duplicate album ids within a single page response", async () => {
+  it("dedupes duplicate album ids across flattened pages", async () => {
     const store = makeStore();
     const duplicate = createTestAlbum({ id: 7000 });
-    nextLazyResult = {
+    nextInfiniteResult = {
       data: {
-        results: [duplicate, duplicate, createTestAlbum({ id: 2 })],
-        total: 2,
-        page: 0,
-        totalPages: 1,
+        pages: [
+          {
+            results: [duplicate, duplicate, createTestAlbum({ id: 2 })],
+            total: 2,
+            page: 0,
+            totalPages: 1,
+          },
+        ],
       },
       isFetching: false,
       isError: false,
+      hasNextPage: false,
+      fetchNextPage: vi.fn(),
     };
+
+    act(() => {
+      store.dispatch(catalogSlice.actions.engageBrowse());
+    });
 
     const { result } = renderHook(() => useCatalogQueryResults(), {
       wrapper: Wrapper({ store }),
@@ -191,14 +184,22 @@ describe("useCatalogQueryResults", () => {
     expect(result.current.results.map((r) => r.id)).toEqual([7000, 2]);
   });
 
-  it("accumulates additional pages when data is returned, deduping by id", async () => {
+  it("flattens multiple pages and exposes hasNextPage", async () => {
     const store = makeStore();
     const pageZero = [createTestAlbum({ id: 1 }), createTestAlbum({ id: 2 })];
-    nextLazyResult = {
-      data: { results: pageZero, total: 4, page: 0, totalPages: 2 },
+    nextInfiniteResult = {
+      data: {
+        pages: [{ results: pageZero, total: 4, page: 0, totalPages: 2 }],
+      },
       isFetching: false,
       isError: false,
+      hasNextPage: true,
+      fetchNextPage: vi.fn(),
     };
+
+    act(() => {
+      store.dispatch(catalogSlice.actions.engageBrowse());
+    });
 
     const { result } = renderHook(() => useCatalogQueryResults(), {
       wrapper: Wrapper({ store }),
@@ -207,41 +208,63 @@ describe("useCatalogQueryResults", () => {
     await waitFor(() => {
       expect(result.current.results).toHaveLength(2);
     });
-    expect(result.current.results.map((r) => r.id)).toEqual([1, 2]);
-    expect(result.current.hasMore).toBe(true);
+    expect(result.current.hasNextPage).toBe(true);
+    expect(result.current.isLoadingInitial).toBe(false);
+    expect(result.current.isFetchingMore).toBe(false);
   });
 
-  it("resets the accumulator when the query changes", async () => {
+  it("sets isLoadingInitial while fetching with no pages yet", () => {
     const store = makeStore();
-    nextLazyResult = {
-      data: {
-        results: [createTestAlbum({ id: 1 })],
-        total: 1,
-        page: 0,
-        totalPages: 1,
-      },
-      isFetching: false,
+    nextInfiniteResult = {
+      data: undefined,
+      isFetching: true,
       isError: false,
+      hasNextPage: false,
+      fetchNextPage: vi.fn(),
     };
 
-    const { result, rerender } = renderHook(() => useCatalogQueryResults(), {
+    act(() => {
+      store.dispatch(catalogSlice.actions.engageBrowse());
+    });
+
+    const { result } = renderHook(() => useCatalogQueryResults(), {
+      wrapper: Wrapper({ store }),
+    });
+
+    expect(result.current.isLoadingInitial).toBe(true);
+    expect(result.current.isFetchingMore).toBe(false);
+  });
+
+  it("sets isFetchingMore while fetching with existing pages", async () => {
+    const store = makeStore();
+    nextInfiniteResult = {
+      data: {
+        pages: [
+          {
+            results: [createTestAlbum({ id: 1 })],
+            total: 2,
+            page: 0,
+            totalPages: 2,
+          },
+        ],
+      },
+      isFetching: true,
+      isError: false,
+      hasNextPage: true,
+      fetchNextPage: vi.fn(),
+    };
+
+    act(() => {
+      store.dispatch(catalogSlice.actions.engageBrowse());
+    });
+
+    const { result } = renderHook(() => useCatalogQueryResults(), {
       wrapper: Wrapper({ store }),
     });
 
     await waitFor(() => {
-      expect(result.current.results).toHaveLength(1);
+      expect(result.current.isFetchingMore).toBe(true);
     });
-
-    // Change the query (which mutates the accumulation key). Accumulator clears.
-    act(() => {
-      setRowValue(store, "Cat Power");
-    });
-    rerender();
-    await waitFor(() => {
-      // After reset and before the new page lands (still the page-0 data above
-      // for a different key), accumulator is at least empty briefly.
-      // We assert the *final* state: the next data drop replaces, not appends.
-      expect(result.current.results.length).toBeLessThanOrEqual(1);
-    });
+    expect(result.current.isLoadingInitial).toBe(false);
   });
 });

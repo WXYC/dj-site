@@ -25,7 +25,6 @@ export const defaultCatalogFrontendState: CatalogFrontendState = {
   rows: [createInitialRow(CATALOG_PRIMARY_ROW_ID)],
   sortBy: "album",
   sortOrder: "asc",
-  page: 0,
   filters: { genres: [], formats: [], tags: [] },
   selected: [],
   mobileOpen: false,
@@ -40,12 +39,10 @@ export const catalogSlice = createAppSlice({
   reducers: {
     addRow: (state) => {
       state.rows.push({ ...createInitialRow(), field: "artist" });
-      state.page = 0;
     },
     removeRow: (state, action: PayloadAction<string>) => {
       if (state.rows.length > 1) {
         state.rows = state.rows.filter((r) => r.id !== action.payload);
-        state.page = 0;
       }
     },
     updateRow: (
@@ -55,7 +52,6 @@ export const catalogSlice = createAppSlice({
       const row = state.rows.find((r) => r.id === action.payload.id);
       if (row) {
         Object.assign(row, action.payload.updates);
-        state.page = 0;
       }
     },
     setSort: (
@@ -64,14 +60,9 @@ export const catalogSlice = createAppSlice({
     ) => {
       state.sortBy = action.payload.sortBy;
       state.sortOrder = action.payload.sortOrder;
-      state.page = 0;
     },
     setFilter: (state, action: PayloadAction<Partial<CatalogFilters>>) => {
       state.filters = { ...state.filters, ...action.payload };
-      state.page = 0;
-    },
-    nextPage: (state) => {
-      state.page += 1;
     },
     setSelection: (state, action: PayloadAction<number[]>) => {
       state.selected = action.payload;
@@ -93,7 +84,6 @@ export const catalogSlice = createAppSlice({
     },
     engageBrowse: (state) => {
       state.browseEngaged = true;
-      state.page = 0;
     },
     patchSearchResult: (state, action: PayloadAction<AlbumEntry>) => {
       state.lastPatchedSearchResult = action.payload;
@@ -114,7 +104,6 @@ export const catalogSlice = createAppSlice({
     getRows: (state) => state.rows,
     getSortBy: (state) => state.sortBy,
     getSortOrder: (state) => state.sortOrder,
-    getPage: (state) => state.page,
     getFilters: (state) => state.filters,
     getSelected: (state) => state.selected,
     isMobileSearchOpen: (state) => state.mobileOpen,

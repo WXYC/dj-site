@@ -11,7 +11,7 @@ describe("patchCatalogSearchRotation", () => {
 
   it("updates rotation fields on cached search rows", () => {
     const dispatch = vi.fn();
-    const queryArgs = { page: 0, limit: 25 };
+    const queryArgs = { q: "artist:Test" };
     const album = createTestAlbum({ id: 900 });
 
     vi.spyOn(catalogApi.util, "selectCachedArgsForQuery").mockReturnValue([
@@ -22,14 +22,18 @@ describe("patchCatalogSearchRotation", () => {
       (_endpoint, args, updater) => {
         expect(args).toEqual(queryArgs);
         const draft = {
-          results: [album],
-          total: 1,
-          page: 0,
-          totalPages: 1,
+          pages: [
+            {
+              results: [album],
+              total: 1,
+              page: 0,
+              totalPages: 1,
+            },
+          ],
         };
         updater(draft);
-        expect(draft.results[0].rotation_bin).toBe("H");
-        expect(draft.results[0].rotation_id).toBe(12);
+        expect(draft.pages[0].results[0].rotation_bin).toBe("H");
+        expect(draft.pages[0].results[0].rotation_id).toBe(12);
         return { type: "catalogApi/updateQueryData" } as never;
       },
     );
