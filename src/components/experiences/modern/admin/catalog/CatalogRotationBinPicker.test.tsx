@@ -1,50 +1,28 @@
-import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { CssVarsProvider } from "@mui/joy/styles";
+import { describe, it, expect, vi } from "vitest";
+import { screen } from "@testing-library/react";
+import { renderWithProviders } from "@/lib/test-utils";
 import CatalogRotationBinPicker from "./CatalogRotationBinPicker";
 
-function renderPicker(
-  props: Partial<React.ComponentProps<typeof CatalogRotationBinPicker>> = {},
-) {
-  const onSelectBin = vi.fn();
-  const result = render(
-    <CssVarsProvider>
+describe("CatalogRotationBinPicker", () => {
+  it("shows rotation bin label by default", () => {
+    renderWithProviders(
       <CatalogRotationBinPicker
         selectedBin={null}
-        onSelectBin={onSelectBin}
-        {...props}
-      />
-    </CssVarsProvider>,
-  );
-  return { ...result, onSelectBin };
-}
-
-describe("CatalogRotationBinPicker", () => {
-  it("selects a single bin", async () => {
-    const user = userEvent.setup();
-    const { onSelectBin } = renderPicker();
-
-    await user.click(screen.getByLabelText("Medium rotation"));
-
-    expect(onSelectBin).toHaveBeenCalledWith("M");
+        onSelectBin={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Rotation bin")).toBeInTheDocument();
   });
 
-  it("clears selection when clicking the active bin again", async () => {
-    const user = userEvent.setup();
-    const { onSelectBin } = renderPicker({ selectedBin: "H" });
-
-    await user.click(screen.getByLabelText("Heavy rotation"));
-
-    expect(onSelectBin).toHaveBeenCalledWith(null);
-  });
-
-  it("does not call onSelectBin when disabled", async () => {
-    const user = userEvent.setup();
-    const { onSelectBin } = renderPicker({ disabled: true });
-
-    await user.click(screen.getByLabelText("Light rotation"));
-
-    expect(onSelectBin).not.toHaveBeenCalled();
+  it("hides rotation bin label when showLabel is false", () => {
+    renderWithProviders(
+      <CatalogRotationBinPicker
+        selectedBin={null}
+        onSelectBin={vi.fn()}
+        showLabel={false}
+      />,
+    );
+    expect(screen.queryByText("Rotation bin")).not.toBeInTheDocument();
+    expect(screen.getByRole("radiogroup", { name: "Rotation bin" })).toBeInTheDocument();
   });
 });

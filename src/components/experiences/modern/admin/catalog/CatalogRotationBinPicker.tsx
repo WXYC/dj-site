@@ -13,11 +13,13 @@ export default function CatalogRotationBinPicker({
   onSelectBin,
   disabled = false,
   size = "md",
+  showLabel = true,
 }: {
   selectedBin: Rotation | null;
   onSelectBin: (bin: Rotation | null) => void;
   disabled?: boolean;
   size?: "sm" | "md";
+  showLabel?: boolean;
 }) {
   const { mode } = useColorScheme();
   const colors = getRotationBinColors(mode);
@@ -28,10 +30,12 @@ export default function CatalogRotationBinPicker({
   };
 
   return (
-    <Stack spacing={0.75}>
-      <Typography level="body-xs" sx={{ color: "text.secondary" }}>
-        Rotation bin
-      </Typography>
+    <Stack spacing={showLabel ? 0.75 : 0}>
+      {showLabel ? (
+        <Typography level="body-xs" sx={{ color: "text.secondary" }}>
+          Rotation bin
+        </Typography>
+      ) : null}
       <Stack
         direction="row"
         role="radiogroup"

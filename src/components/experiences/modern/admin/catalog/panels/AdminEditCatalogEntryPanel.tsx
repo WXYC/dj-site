@@ -14,13 +14,15 @@ import type { Rotation } from "@/lib/features/rotation/types";
 import { useCatalogRotationMarking } from "@/src/hooks/useCatalogRotationMarking";
 import CatalogRotationBinPicker from "../CatalogRotationBinPicker";
 import RightbarPanelContainer from "../../../Rightbar/RightbarPanelContainer";
+import RightbarFormSectionCard from "../../../Rightbar/RightbarFormSectionCard";
+import { rightbarFormCardsStackSx } from "../../../Rightbar/rightbarFormCardStyles";
 import AdminCatalogCodePreview from "../AdminCatalogCodePreview";
 import CatalogEntryAlbumFields from "../CatalogEntryAlbumFields";
 import CatalogEntryArtistAutocomplete from "../CatalogEntryArtistAutocomplete";
 import { useCatalogEntryForm } from "../useCatalogEntryForm";
 import {
+  Box,
   CircularProgress,
-  Divider,
   FormControl,
   FormLabel,
   Option,
@@ -157,23 +159,14 @@ export default function AdminEditCatalogEntryPanel({
     }
   };
 
-  const startDecorator = (
-    <AdminCatalogCodePreview
-      genreName={genreDisplay}
-      codeLetters={form.codeLetters}
-      artistNumber={form.codeNumber || null}
-      albumEntry={album?.entry ?? "?"}
-      formatLabel={formatDisplay}
-      rotation={rotation.selectedBin ?? undefined}
-    />
-  );
-
   if (albumLoading || genresLoading || formatsLoading) {
     return (
       <RightbarPanelContainer title="Edit catalog entry" onClose={handleClose}>
-        <Stack alignItems="center" sx={{ py: 4 }}>
-          <CircularProgress />
-        </Stack>
+        <RightbarFormSectionCard title="Loading" interactive={false}>
+          <Stack alignItems="center" sx={{ py: 3 }}>
+            <CircularProgress size="sm" />
+          </Stack>
+        </RightbarFormSectionCard>
       </RightbarPanelContainer>
     );
   }
@@ -181,9 +174,11 @@ export default function AdminEditCatalogEntryPanel({
   if (albumError || !album) {
     return (
       <RightbarPanelContainer title="Edit catalog entry" onClose={handleClose}>
-        <Typography level="body-sm" color="danger">
-          Could not load this catalog entry.
-        </Typography>
+        <RightbarFormSectionCard title="Error" interactive={false}>
+          <Typography level="body-sm" color="danger">
+            Could not load this catalog entry.
+          </Typography>
+        </RightbarFormSectionCard>
       </RightbarPanelContainer>
     );
   }
@@ -192,72 +187,100 @@ export default function AdminEditCatalogEntryPanel({
     <RightbarPanelContainer
       title="Edit catalog entry"
       subtitle={`${album.artist.name} — ${album.title}`}
-      startDecorator={startDecorator}
       onClose={handleClose}
     >
-      <Stack spacing={2}>
-        <Typography level="body-sm" sx={{ color: "text.secondary" }}>
-          Update genre and artist for this library entry, then album details
-          (including format). The catalog code (entry number) stays the same.
-        </Typography>
+      <Stack sx={rightbarFormCardsStackSx}>
+        <RightbarFormSectionCard
+          title="Library code"
+          description="Catalog encoding for this entry (entry number is fixed on save)."
+          data-testid="catalog-edit-library-code-card"
+          interactive={false}
+        >
+          <Box sx={{ display: "flex", justifyContent: "center", py: 0.5 }}>
+            <AdminCatalogCodePreview
+              genreName={genreDisplay}
+              codeLetters={form.codeLetters}
+              artistNumber={form.codeNumber || null}
+              albumEntry={album.entry ?? "?"}
+              formatLabel={formatDisplay}
+              rotation={rotation.selectedBin ?? undefined}
+            />
+          </Box>
+        </RightbarFormSectionCard>
 
-        <FormControl required>
-          <FormLabel>Genre</FormLabel>
-          <Select
-            placeholder="Choose genre"
-            value={form.genreId}
-            onChange={(_, v) => form.setGenreId(v as string)}
-            disabled={genresLoading}
-          >
-            <Option value="">Choose genre</Option>
-            {genres?.map((g) => (
-              <Option key={g.id} value={String(g.id)}>
-                {g.genre_name}
-              </Option>
-            ))}
-          </Select>
-        </FormControl>
+        <RightbarFormSectionCard
+          title="Artist"
+          description="Update genre and artist for this library entry."
+          data-testid="catalog-edit-artist-card"
+        >
+          <FormControl required size="sm">
+            <FormLabel>Genre</FormLabel>
+            <Select
+              size="sm"
+              placeholder="Choose genre"
+              value={form.genreId}
+              onChange={(_, v) => form.setGenreId(v as string)}
+              disabled={genresLoading}
+            >
+              <Option value="">Choose genre</Option>
+              {genres?.map((g) => (
+                <Option key={g.id} value={String(g.id)}>
+                  {g.genre_name}
+                </Option>
+              ))}
+            </Select>
+          </FormControl>
 
-        <CatalogEntryArtistAutocomplete
-          genreIdNum={form.genreIdNum}
-          inputValue={form.artistInputValue}
-          onInputChange={form.setArtistInputValue}
-          value={form.artistOption}
-          onSelectExisting={form.selectExistingArtist}
-          onSelectNew={form.selectNewArtist}
-          onClear={form.resetArtist}
-          allowCreateArtist={false}
-        />
+          <CatalogEntryArtistAutocomplete
+            genreIdNum={form.genreIdNum}
+            inputValue={form.artistInputValue}
+            onInputChange={form.setArtistInputValue}
+            value={form.artistOption}
+            onSelectExisting={form.selectExistingArtist}
+            onSelectNew={form.selectNewArtist}
+            onClear={form.resetArtist}
+            allowCreateArtist={false}
+          />
+        </RightbarFormSectionCard>
 
-        <Divider />
-        <Typography level="title-sm">Album</Typography>
+        <RightbarFormSectionCard
+          title="Album"
+          description="Album details including format and label."
+          data-testid="catalog-edit-album-card"
+        >
+          <CatalogEntryAlbumFields
+            disabled={!form.albumSectionUnlocked}
+            formatId={form.formatId}
+            onFormatIdChange={form.setFormatId}
+            formats={formats}
+            formatsLoading={formatsLoading}
+            albumTitle={form.albumTitle}
+            onAlbumTitleChange={form.setAlbumTitle}
+            label={form.label}
+            onLabelChange={form.setLabel}
+            alternateArtist={form.alternateArtist}
+            onAlternateArtistChange={form.setAlternateArtist}
+            discQuantity={form.discQuantity}
+            onDiscQuantityChange={form.setDiscQuantity}
+            onAddAlbum={onSaveAlbum}
+            adding={saving}
+            canAdd={form.canSaveAlbum}
+            submitLabel="Save changes"
+            submittingLabel="Saving…"
+          />
+        </RightbarFormSectionCard>
 
-        <CatalogEntryAlbumFields
-          disabled={!form.albumSectionUnlocked}
-          formatId={form.formatId}
-          onFormatIdChange={form.setFormatId}
-          formats={formats}
-          formatsLoading={formatsLoading}
-          albumTitle={form.albumTitle}
-          onAlbumTitleChange={form.setAlbumTitle}
-          label={form.label}
-          onLabelChange={form.setLabel}
-          alternateArtist={form.alternateArtist}
-          onAlternateArtistChange={form.setAlternateArtist}
-          discQuantity={form.discQuantity}
-          onDiscQuantityChange={form.setDiscQuantity}
-          onAddAlbum={onSaveAlbum}
-          adding={saving}
-          canAdd={form.canSaveAlbum}
-          submitLabel="Save changes"
-          submittingLabel="Saving…"
-        />
-
-        <CatalogRotationBinPicker
-          selectedBin={rotation.selectedBin}
-          onSelectBin={handleRotationSelect}
-          disabled={rotation.loading || saving}
-        />
+        <RightbarFormSectionCard
+          title="Rotation"
+          data-testid="catalog-edit-rotation-card"
+        >
+          <CatalogRotationBinPicker
+            selectedBin={rotation.selectedBin}
+            onSelectBin={handleRotationSelect}
+            disabled={rotation.loading || saving}
+            showLabel={false}
+          />
+        </RightbarFormSectionCard>
       </Stack>
     </RightbarPanelContainer>
   );

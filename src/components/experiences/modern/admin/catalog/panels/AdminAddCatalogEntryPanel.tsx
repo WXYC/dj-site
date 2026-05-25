@@ -13,21 +13,15 @@ import type { AddAlbumRequestBody } from "@/lib/features/catalog/types";
 import { parseRequiredPositiveInt } from "@/lib/features/catalog/adminCreateArtistValidation";
 import { useAppDispatch } from "@/lib/hooks";
 import RightbarPanelContainer from "../../../Rightbar/RightbarPanelContainer";
+import RightbarFormSectionCard from "../../../Rightbar/RightbarFormSectionCard";
+import { rightbarFormCardsStackSx } from "../../../Rightbar/rightbarFormCardStyles";
 import AdminCatalogCodePreview from "../AdminCatalogCodePreview";
 import CatalogEntryPreview from "../CatalogEntryPreview";
 import CatalogEntryAlbumFields from "../CatalogEntryAlbumFields";
 import CatalogEntryArtistAutocomplete from "../CatalogEntryArtistAutocomplete";
 import CatalogEntryNewArtistFields from "../CatalogEntryNewArtistFields";
 import { useCatalogEntryForm } from "../useCatalogEntryForm";
-import {
-  Divider,
-  FormControl,
-  FormLabel,
-  Option,
-  Select,
-  Stack,
-  Typography,
-} from "@mui/joy";
+import { Box, FormControl, FormLabel, Option, Select, Stack, Typography } from "@mui/joy";
 import { useCatalogRotationMarking } from "@/src/hooks/useCatalogRotationMarking";
 import type { Rotation } from "@/lib/features/rotation/types";
 import CatalogRotationBinPicker from "../CatalogRotationBinPicker";
@@ -52,7 +46,7 @@ export default function AdminAddCatalogEntryPanel() {
 
   const { data: previewEntry } = useGetInformationQuery(
     { album_id: form.previewAlbumId! },
-    { skip: form.previewAlbumId === null }
+    { skip: form.previewAlbumId === null },
   );
 
   const genreDisplay = useMemo(() => {
@@ -112,7 +106,7 @@ export default function AdminAddCatalogEntryPanel() {
       if (e?.status === 409 && e?.data?.artist?.artist_id) {
         form.markArtistCreated(e.data.artist.artist_id);
         toast.info(
-          "That artist code already exists — using the existing artist record."
+          "That artist code already exists — using the existing artist record.",
         );
         return;
       }
@@ -184,114 +178,136 @@ export default function AdminAddCatalogEntryPanel() {
     }
   };
 
-  const startDecorator = (
-    <AdminCatalogCodePreview
-      genreName={genreDisplay}
-      codeLetters={form.codeLetters}
-      artistNumber={form.codeNumber || null}
-      albumEntry="?"
-      formatLabel={formatDisplay}
-      rotation={previewRotationBin ?? undefined}
-    />
-  );
-
   return (
     <RightbarPanelContainer
       title="Add to catalog"
       subtitle="Genre and artist, then album"
-      startDecorator={startDecorator}
       onClose={handleClose}
     >
-      <Stack spacing={2}>
-        <Typography level="body-sm" sx={{ color: "text.secondary" }}>
-          Choose a genre, then find or create an artist. Album fields (including
-          format) unlock after the artist exists in that genre.
-        </Typography>
+      <Stack sx={rightbarFormCardsStackSx}>
+        <RightbarFormSectionCard
+          title="Library code"
+          description="Live preview of the catalog encoding as you fill the form."
+          data-testid="catalog-add-library-code-card"
+          interactive={false}
+        >
+          <Box sx={{ display: "flex", justifyContent: "center", py: 0.5 }}>
+            <AdminCatalogCodePreview
+              genreName={genreDisplay}
+              codeLetters={form.codeLetters}
+              artistNumber={form.codeNumber || null}
+              albumEntry="?"
+              formatLabel={formatDisplay}
+              rotation={previewRotationBin ?? undefined}
+            />
+          </Box>
+        </RightbarFormSectionCard>
 
-        <FormControl required>
-          <FormLabel>Genre</FormLabel>
-          <Select
-            placeholder="Choose genre"
-            value={form.genreId}
-            onChange={(_, v) => form.setGenreId(v as string)}
-            disabled={genresLoading}
-          >
-            <Option value="">Choose genre</Option>
-            {genres?.map((g) => (
-              <Option key={g.id} value={String(g.id)}>
-                {g.genre_name}
-              </Option>
-            ))}
-          </Select>
-        </FormControl>
+        <RightbarFormSectionCard
+          title="Artist"
+          description="Choose a genre, then find or create an artist. Album fields unlock after the artist exists in that genre."
+          data-testid="catalog-add-artist-card"
+        >
+          <FormControl required size="sm">
+            <FormLabel>Genre</FormLabel>
+            <Select
+              size="sm"
+              placeholder="Choose genre"
+              value={form.genreId}
+              onChange={(_, v) => form.setGenreId(v as string)}
+              disabled={genresLoading}
+            >
+              <Option value="">Choose genre</Option>
+              {genres?.map((g) => (
+                <Option key={g.id} value={String(g.id)}>
+                  {g.genre_name}
+                </Option>
+              ))}
+            </Select>
+          </FormControl>
 
-        <CatalogEntryArtistAutocomplete
-          genreIdNum={form.genreIdNum}
-          inputValue={form.artistInputValue}
-          onInputChange={form.setArtistInputValue}
-          value={form.artistOption}
-          onSelectExisting={form.selectExistingArtist}
-          onSelectNew={form.selectNewArtist}
-          onClear={form.resetArtist}
-        />
-
-        {form.showNewArtistFields && (
-          <CatalogEntryNewArtistFields
-            codeLetters={form.codeLetters}
-            onCodeLettersChange={form.setCodeLetters}
-            codeNumber={form.codeNumber}
-            onCodeNumberChange={form.setCodeNumber}
-            alphabeticalName={form.alphabeticalName}
-            onAlphabeticalNameChange={form.setAlphabeticalName}
-            onSuggestNext={onSuggestArtistCode}
-            onCreateArtist={onCreateArtist}
-            creating={addingArtist}
-            canCreate={form.canCreateArtist}
-            locked={form.codeFieldsLocked}
+          <CatalogEntryArtistAutocomplete
+            genreIdNum={form.genreIdNum}
+            inputValue={form.artistInputValue}
+            onInputChange={form.setArtistInputValue}
+            value={form.artistOption}
+            onSelectExisting={form.selectExistingArtist}
+            onSelectNew={form.selectNewArtist}
+            onClear={form.resetArtist}
           />
-        )}
 
-        <Divider />
-        <Typography level="title-sm">Album</Typography>
+          {form.showNewArtistFields ? (
+            <CatalogEntryNewArtistFields
+              codeLetters={form.codeLetters}
+              onCodeLettersChange={form.setCodeLetters}
+              codeNumber={form.codeNumber}
+              onCodeNumberChange={form.setCodeNumber}
+              alphabeticalName={form.alphabeticalName}
+              onAlphabeticalNameChange={form.setAlphabeticalName}
+              onSuggestNext={onSuggestArtistCode}
+              onCreateArtist={onCreateArtist}
+              creating={addingArtist}
+              canCreate={form.canCreateArtist}
+              locked={form.codeFieldsLocked}
+            />
+          ) : null}
+        </RightbarFormSectionCard>
 
-        <CatalogEntryAlbumFields
+        <RightbarFormSectionCard
+          title="Album"
+          description="Format, title, label, and other album metadata."
           disabled={!form.albumSectionUnlocked}
-          formatId={form.formatId}
-          onFormatIdChange={form.setFormatId}
-          formats={formats}
-          formatsLoading={formatsLoading}
-          albumTitle={form.albumTitle}
-          onAlbumTitleChange={form.setAlbumTitle}
-          label={form.label}
-          onLabelChange={form.setLabel}
-          alternateArtist={form.alternateArtist}
-          onAlternateArtistChange={form.setAlternateArtist}
-          discQuantity={form.discQuantity}
-          onDiscQuantityChange={form.setDiscQuantity}
-          onAddAlbum={onAddAlbum}
-          adding={addingAlbum}
-          canAdd={form.canAddAlbum}
-        />
+          data-testid="catalog-add-album-card"
+        >
+          <CatalogEntryAlbumFields
+            disabled={!form.albumSectionUnlocked}
+            formatId={form.formatId}
+            onFormatIdChange={form.setFormatId}
+            formats={formats}
+            formatsLoading={formatsLoading}
+            albumTitle={form.albumTitle}
+            onAlbumTitleChange={form.setAlbumTitle}
+            label={form.label}
+            onLabelChange={form.setLabel}
+            alternateArtist={form.alternateArtist}
+            onAlternateArtistChange={form.setAlternateArtist}
+            discQuantity={form.discQuantity}
+            onDiscQuantityChange={form.setDiscQuantity}
+            onAddAlbum={onAddAlbum}
+            adding={addingAlbum}
+            canAdd={form.canAddAlbum}
+          />
+        </RightbarFormSectionCard>
 
-        <CatalogRotationBinPicker
-          selectedBin={previewRotationBin}
-          onSelectBin={handleRotationSelect}
-          disabled={!form.albumSectionUnlocked || rotation.loading}
-        />
-        {!form.previewAlbumId && (
-          <Typography level="body-xs" sx={{ color: "text.secondary", mt: -0.5 }}>
-            Rotation is applied when you add the album, or immediately after the
-            album is saved if you change bins above.
-          </Typography>
-        )}
+        <RightbarFormSectionCard
+          title="Rotation"
+          disabled={!form.albumSectionUnlocked}
+          data-testid="catalog-add-rotation-card"
+        >
+          <CatalogRotationBinPicker
+            selectedBin={previewRotationBin}
+            onSelectBin={handleRotationSelect}
+            disabled={!form.albumSectionUnlocked || rotation.loading}
+            showLabel={false}
+          />
+          {!form.previewAlbumId ? (
+            <Typography level="body-xs" sx={{ color: "text.tertiary" }}>
+              Rotation is applied when you add the album, or immediately after the
+              album is saved if you change bins above.
+            </Typography>
+          ) : null}
+        </RightbarFormSectionCard>
 
-        {previewEntry && form.previewAlbumId !== null && (
-          <>
-            <Divider />
-            <Typography level="title-sm">Saved — library encoding</Typography>
+        {previewEntry && form.previewAlbumId !== null ? (
+          <RightbarFormSectionCard
+            title="Saved — library encoding"
+            description="Entry as it appears in the catalog after save."
+            data-testid="catalog-add-saved-card"
+            interactive={false}
+          >
             <CatalogEntryPreview entry={previewEntry} />
-          </>
-        )}
+          </RightbarFormSectionCard>
+        ) : null}
       </Stack>
     </RightbarPanelContainer>
   );
