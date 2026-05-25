@@ -210,7 +210,7 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
               <Tooltip variant="outlined" size="sm" title="Edit catalog entry">
                 <IconButton
                   aria-label="Edit catalog entry in sidebar"
-                  variant="outlined"
+                  variant="plain"
                   color="success"
                   size="sm"
                   onClick={openEdit}
