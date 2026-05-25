@@ -63,6 +63,9 @@ export const catalogSlice = createAppSlice({
     },
     setFilter: (state, action: PayloadAction<Partial<CatalogFilters>>) => {
       state.filters = { ...state.filters, ...action.payload };
+      if (action.payload.tags !== undefined) {
+        state.rotationByAlbumId = {};
+      }
     },
     setSelection: (state, action: PayloadAction<number[]>) => {
       state.selected = action.payload;

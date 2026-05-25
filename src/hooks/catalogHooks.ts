@@ -24,7 +24,11 @@ import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useCallback, useMemo } from "react";
 import { useAuthentication } from "./authenticationHooks";
 import { filterBySearchTerms } from "@/src/utilities/filterBySearchTerms";
-import { catalogTagsToQueryFlags } from "@/src/components/experiences/modern/catalog/Search/catalogTagFilters";
+import {
+  catalogTagsToQueryFlags,
+  catalogTagsToRotationBins,
+} from "@/src/components/experiences/modern/catalog/Search/catalogTagFilters";
+import type { Rotation } from "@/lib/features/rotation/types";
 
 const MIN_QUERY_LENGTH = 2;
 
@@ -272,12 +276,22 @@ export function useCatalogQueryResults() {
     skip: !queryEnabled,
   });
 
+  const rotationFilterBins = useMemo(
+    () => catalogTagsToRotationBins(filters.tags),
+    [filters.tags],
+  );
+
   const results = useMemo(() => {
     if (!data?.pages?.length) return [];
-    return dedupeAlbumEntriesById(
+    const flat = dedupeAlbumEntriesById(
       data.pages.flatMap((page) => page.results),
     );
-  }, [data?.pages]);
+    if (rotationFilterBins.length === 0) return flat;
+    const allowed = new Set(rotationFilterBins);
+    return flat.filter(
+      (row) => row.rotation_bin != null && allowed.has(row.rotation_bin),
+    );
+  }, [data?.pages, rotationFilterBins]);
 
   const total = data?.pages?.[0]?.total ?? 0;
   const isLoadingInitial = isFetching && !data?.pages?.length;

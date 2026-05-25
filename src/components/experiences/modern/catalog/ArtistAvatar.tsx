@@ -18,7 +18,7 @@ interface ArtistAvatarProps {
   format?: Format;
 }
 
-/** Joy palette colors for rotation badges and catalog tag chips (H/M/L/S/N). */
+/** Joy palette colors for rotation badges and catalog tag chips (H/M/L/S). */
 export const ROTATION_STYLES: { [id in Rotation]: ColorPaletteProp } = {
   H: "primary",
   M: "warning",

@@ -31,8 +31,7 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
   const { live } = useShowControl();
   const { addToQueue } = useQueue();
   const actions = useCatalogResultActions(album);
-  const { openDetail, openEdit, canEditCatalog, activeRotationBin } = actions;
-  const displayRotationBin = activeRotationBin ?? album.rotation_bin;
+  const { openDetail, openEdit, canEditCatalog, displayRotationBin } = actions;
   const contextMenu = useCatalogResultContextMenu();
 
   const { selected, setSelection, sortBy } = useCatalogQuerySearch();

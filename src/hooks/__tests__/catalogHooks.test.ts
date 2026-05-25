@@ -35,6 +35,7 @@ describe("dedupeAlbumEntriesById", () => {
     expect(deduped[0].album_title).toBe("First");
     expect(deduped[1].id).toBe(2);
   });
+
 });
 
 describe("buildCatalogQuery", () => {

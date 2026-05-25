@@ -1,5 +1,6 @@
 "use client";
 
+import { catalogApi } from "@/lib/features/catalog/api";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
 import { patchCatalogSearchRotation } from "@/lib/features/catalog/patchSearchCaches";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
@@ -135,6 +136,16 @@ export function useCatalogRotationMarking(albumId: number | null) {
             typeof created?.id === "number" ? created.id : undefined;
         }
 
+        let albumHint: AlbumEntry | undefined;
+        const infoResult = await dispatch(
+          catalogApi.endpoints.getInformation.initiate({
+            album_id: resolvedAlbumId,
+          }),
+        );
+        if (infoResult.data) {
+          albumHint = infoResult.data;
+        }
+
         patchCatalogSearchRotation(
           dispatch,
           store.getState,
@@ -143,6 +154,7 @@ export function useCatalogRotationMarking(albumId: number | null) {
             rotation_bin: desired ?? undefined,
             rotation_id: newRotationId,
           },
+          albumHint,
         );
 
         return true;

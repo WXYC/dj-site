@@ -284,35 +284,6 @@ describe("CatalogResult album artwork", () => {
     expect(screen.getByText("M")).toBeInTheDocument();
   });
 
-  it("prefers redux-backed activeBin over stale album.rotation_bin on the badge", () => {
-    vi.mocked(useCatalogRotationMarking).mockReturnValue({
-      canMark: true,
-      selectedBin: "S",
-      setSelectedBin: vi.fn(),
-      activeBin: "S",
-      activeRotationId: 12,
-      loading: false,
-      applyRotation: mockApplyRotation,
-      hydrated: true,
-    });
-
-    const album = createTestAlbum({
-      rotation_bin: "M",
-      artwork_url: "https://i.discogs.com/confield.jpg",
-    });
-
-    renderWithProviders(
-      <table>
-        <tbody>
-          <CatalogResult album={album} />
-        </tbody>
-      </table>,
-    );
-
-    expect(screen.getByText("S")).toBeInTheDocument();
-    expect(screen.queryByText("M")).toBeNull();
-  });
-
   it("shows rotation bin badge on album icon when there is no artwork", () => {
     const album = createTestAlbum({
       rotation_bin: "H",

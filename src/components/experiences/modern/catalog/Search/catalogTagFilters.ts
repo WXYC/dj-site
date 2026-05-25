@@ -7,7 +7,7 @@ export const CATALOG_STATUS_TAG_OPTIONS = ["exclusives", "missing"] as const;
 export type CatalogStatusTagId = (typeof CATALOG_STATUS_TAG_OPTIONS)[number];
 
 /** Rotation bin codes stored in `filters.tags` alongside status tags. */
-export const CATALOG_ROTATION_TAG_BINS = ["H", "M", "L", "S", "N"] as const;
+export const CATALOG_ROTATION_TAG_BINS = ["H", "M", "L", "S"] as const;
 
 export type CatalogRotationTagBin = (typeof CATALOG_ROTATION_TAG_BINS)[number];
 

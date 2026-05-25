@@ -80,7 +80,7 @@ export default function CatalogResultContextMenu({
   const {
     canEditCatalog,
     canMarkRotation,
-    activeRotationBin,
+    displayRotationBin,
     rotationLoading,
     setRotationBin,
     inBin,
@@ -165,7 +165,7 @@ export default function CatalogResultContextMenu({
           )}
           {canMarkRotation &&
             ROTATION_BINS.map((bin) => {
-              const isActive = activeRotationBin === bin;
+              const isActive = displayRotationBin === bin;
               return (
                 <MenuItem
                   key={bin}
@@ -178,7 +178,7 @@ export default function CatalogResultContextMenu({
                 </MenuItem>
               );
             })}
-          {canMarkRotation && activeRotationBin && (
+          {canMarkRotation && displayRotationBin && (
             <MenuItem
               color="warning"
               disabled={rotationLoading}

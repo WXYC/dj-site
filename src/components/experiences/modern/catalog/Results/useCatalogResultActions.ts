@@ -67,10 +67,14 @@ export function useCatalogResultActions(album: AlbumEntry) {
     [canEditCatalog, rotation],
   );
 
+  /** Search/API row first; Redux holds optimistic updates after marking. */
+  const displayRotationBin = album.rotation_bin ?? rotation.activeBin;
+
   return {
     canEditCatalog,
     canMarkRotation: canEditCatalog && rotation.canMark,
     activeRotationBin: rotation.activeBin,
+    displayRotationBin,
     rotationLoading: rotation.loading,
     setRotationBin,
     inBin,

@@ -29,4 +29,5 @@ describe("findActiveRotationForAlbum", () => {
 
     expect(findActiveRotationForAlbum(list, 100)).toBeNull();
   });
+
 });

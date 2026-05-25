@@ -34,4 +34,21 @@ describe("catalogSlice rotation state", () => {
 
     expect(state.rotationByAlbumId[42]).toBeUndefined();
   });
+
+  it("setFilter clears rotationByAlbumId when tags change", () => {
+    let state = catalogSlice.reducer(
+      defaultCatalogFrontendState,
+      catalogSlice.actions.setAlbumRotation({
+        albumId: 42,
+        rotation_bin: "M",
+        rotation_id: 99,
+      }),
+    );
+    state = catalogSlice.reducer(
+      state,
+      catalogSlice.actions.setFilter({ tags: ["H"] }),
+    );
+    expect(state.rotationByAlbumId).toEqual({});
+    expect(state.filters.tags).toEqual(["H"]);
+  });
 });

@@ -168,7 +168,7 @@ export type CatalogSearchRow = {
 export type CatalogFilters = {
   genres: string[]; // empty = no genre filter
   formats: string[]; // empty = no format filter
-  tags: string[]; // status: exclusives, missing; rotation bins: H, M, L, S, N
+  tags: string[]; // status: exclusives, missing; rotation bins: H, M, L, S
 };
 
 export type CatalogSearchState = {
@@ -194,7 +194,7 @@ export type LibraryQueryParams = {
   missing?: boolean;
   genres?: string;
   formats?: string;
-  /** Comma-separated active rotation bins (H, M, L, S, N). */
+  /** Comma-separated active rotation bins (H, M, L, S). */
   rotation_bins?: string;
 };
 

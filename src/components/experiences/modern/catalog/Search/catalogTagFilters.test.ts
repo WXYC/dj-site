@@ -50,7 +50,7 @@ describe("catalogTagsToQueryFlags", () => {
 describe("getCatalogTagLabel", () => {
   it("labels rotation bins for the autocomplete", () => {
     expect(getCatalogTagLabel("H")).toBe("Heavy Rotation");
-    expect(getCatalogTagLabel("N")).toBe("New Rotation");
+    expect(getCatalogTagLabel("S")).toBe("Singles Rotation");
   });
 
   it("passes through status tag ids", () => {
