@@ -2,12 +2,14 @@ import type { Genre } from "@/lib/features/catalog/types";
 import type { ColorPaletteProp, VariantProp } from "@mui/joy";
 import type { SxProps } from "@mui/joy/styles/types";
 
-import { GENRE_COLORS, GENRE_VARIANTS } from "../ArtistAvatar";
+import { GENRE_COLORS, GENRE_VARIANTS, ROTATION_STYLES } from "../ArtistAvatar";
+import type { Rotation } from "@/lib/features/rotation/types";
 import {
   EXCLUSIVES_PURPLE,
   EXCLUSIVES_PURPLE_HOVER,
   filterControlFontSx,
 } from "./catalogFilterStyles";
+import { isCatalogRotationTag } from "./catalogTagFilters";
 
 const GENRE_KEYS: Genre[] = [
   "Rock",
@@ -73,6 +75,12 @@ export function getTagFilterChipProps(tagId: string): CatalogFilterTagChipProps 
   }
   if (tagId === "missing") {
     return { color: "neutral", variant: "outlined" };
+  }
+  if (isCatalogRotationTag(tagId)) {
+    return {
+      color: ROTATION_STYLES[tagId as Rotation] ?? "neutral",
+      variant: "soft",
+    };
   }
   return { color: "neutral", variant: "soft" };
 }

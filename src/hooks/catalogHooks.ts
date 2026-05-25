@@ -87,6 +87,10 @@ export function toLibraryQueryParams(
     order: sortOrder,
     on_streaming: tagFlags.on_streaming,
     missing: tagFlags.missing,
+    rotation_bins:
+      tagFlags.rotation_bins && tagFlags.rotation_bins.length > 0
+        ? tagFlags.rotation_bins.join(",")
+        : undefined,
     genres:
       filters.genres.length > 0 ? filters.genres.join(",") : undefined,
     formats:

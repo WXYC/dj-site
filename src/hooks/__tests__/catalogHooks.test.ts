@@ -119,6 +119,17 @@ describe("toLibraryQueryParams", () => {
     expect(params.on_streaming).toBeUndefined();
   });
 
+  it("maps rotation tags to comma-separated rotation_bins", () => {
+    const params = toLibraryQueryParams(
+      [row({})],
+      { ...defaultFilters, tags: ["H", "M"] },
+      0,
+      "album",
+      "asc"
+    );
+    expect(params.rotation_bins).toBe("H,M");
+  });
+
   it("omits empty q when all rows are blank", () => {
     const params = toLibraryQueryParams(
       [row({})],

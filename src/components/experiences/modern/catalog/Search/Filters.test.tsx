@@ -89,6 +89,15 @@ describe("Filters", () => {
     ]);
   });
 
+  it("selects heavy rotation via tag autocomplete", async () => {
+    const { tagInput, user, getState } = setup();
+    await user.click(tagInput());
+    await user.click(
+      await screen.findByRole("option", { name: "Heavy Rotation" }),
+    );
+    expect(catalogSlice.selectors.getFilters(getState()).tags).toEqual(["H"]);
+  });
+
   it("shows genre and format autocomplete placeholders when empty", () => {
     const { genreInput, formatInput } = setup();
     expect(genreInput()).toHaveAttribute("placeholder", "All genres...");

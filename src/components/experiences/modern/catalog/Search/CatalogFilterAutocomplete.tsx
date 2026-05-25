@@ -1,11 +1,13 @@
 "use client";
 
 import Close from "@mui/icons-material/Close";
-import Autocomplete from "@mui/joy/Autocomplete";
+import Autocomplete, {
+  type AutocompleteRenderGetTagProps,
+} from "@mui/joy/Autocomplete";
+import AutocompleteOption from "@mui/joy/AutocompleteOption";
 import Chip from "@mui/joy/Chip";
 import Skeleton from "@mui/joy/Skeleton";
-import type { AutocompleteRenderGetTagProps } from "@mui/joy/Autocomplete";
-import type { ReactNode } from "react";
+import type { Key, ReactNode } from "react";
 
 import { catalogFilterAutocompleteSx } from "./catalogFilterStyles";
 import {
@@ -21,6 +23,7 @@ type CatalogFilterAutocompleteProps = {
   ariaLabel: string;
   isLoading: boolean;
   getTagChipProps?: (item: string) => CatalogFilterTagChipProps;
+  getOptionLabel?: (option: string) => string;
   renderTags?: (
     tags: string[],
     getTagProps: AutocompleteRenderGetTagProps,
@@ -35,6 +38,7 @@ export function CatalogFilterAutocomplete({
   ariaLabel,
   isLoading,
   getTagChipProps,
+  getOptionLabel = (option) => option,
   renderTags: renderTagsProp,
 }: CatalogFilterAutocompleteProps) {
   if (isLoading) {
@@ -53,9 +57,31 @@ export function CatalogFilterAutocomplete({
       loading={isLoading}
       aria-label={ariaLabel}
       limitTags={3}
-      getOptionLabel={(option) => option}
+      getOptionLabel={getOptionLabel}
       isOptionEqualToValue={(a, b) => a === b}
       onChange={(_, newValue) => onChange(newValue ?? [])}
+      renderOption={
+        getTagChipProps
+          ? (props, option) => {
+              const chipStyle = getTagChipProps(option);
+              const { key, ...optionProps } = props as typeof props & {
+                key: Key;
+              };
+              return (
+                <AutocompleteOption key={key} {...optionProps}>
+                  <Chip
+                    size="sm"
+                    variant={chipStyle.variant ?? "soft"}
+                    {...(chipStyle.color ? { color: chipStyle.color } : {})}
+                    sx={chipStyle.sx}
+                  >
+                    {getOptionLabel(option)}
+                  </Chip>
+                </AutocompleteOption>
+              );
+            }
+          : undefined
+      }
       renderTags={
         renderTagsProp ??
         ((tags, getTagProps) =>
@@ -81,7 +107,7 @@ export function CatalogFilterAutocomplete({
                   ...chipStyle.sx,
                 }}
               >
-                {item}
+                {getOptionLabel(item)}
               </Chip>
             );
           }))

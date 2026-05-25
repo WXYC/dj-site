@@ -168,7 +168,7 @@ export type CatalogSearchRow = {
 export type CatalogFilters = {
   genres: string[]; // empty = no genre filter
   formats: string[]; // empty = no format filter
-  tags: string[]; // empty = no tag filter; "exclusives" → on_streaming false; "missing" → missing=true
+  tags: string[]; // status: exclusives, missing; rotation bins: H, M, L, S, N
 };
 
 export type CatalogSearchState = {
@@ -194,6 +194,8 @@ export type LibraryQueryParams = {
   missing?: boolean;
   genres?: string;
   formats?: string;
+  /** Comma-separated active rotation bins (H, M, L, S, N). */
+  rotation_bins?: string;
 };
 
 export type Format = "Vinyl" | "CD" | "Unknown";

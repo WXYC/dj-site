@@ -3,7 +3,10 @@
 import { useCatalogQuerySearch } from "@/src/hooks/catalogHooks";
 
 import { CatalogFilterAutocomplete } from "./CatalogFilterAutocomplete";
-import { CATALOG_TAG_FILTER_OPTIONS } from "./catalogTagFilters";
+import {
+  CATALOG_TAG_FILTER_OPTIONS,
+  getCatalogTagLabel,
+} from "./catalogTagFilters";
 import { getTagFilterChipProps } from "./catalogFilterChipStyles";
 
 export function TagFilterAutocomplete() {
@@ -18,6 +21,7 @@ export function TagFilterAutocomplete() {
       ariaLabel="Tag"
       isLoading={false}
       getTagChipProps={getTagFilterChipProps}
+      getOptionLabel={getCatalogTagLabel}
     />
   );
 }
