@@ -21,6 +21,8 @@ import { catalogSlice } from "./features/catalog/frontend";
 import { experienceApi } from "./features/experiences/api";
 import { flowsheetApi } from "./features/flowsheet/api";
 import { flowsheetSlice } from "./features/flowsheet/frontend";
+import { liveUpdatesListenerMiddleware } from "./features/flowsheet/live-updates-listener";
+import { liveUpdatesSlice } from "./features/flowsheet/live-updates-slice";
 import { lmlApi } from "./features/lml/api";
 import { metadataApi } from "./features/metadata/api";
 import { playlistSearchApi } from "./features/playlist-search/api";
@@ -38,6 +40,7 @@ const rootReducer = combineSlices(
   binApi,
   flowsheetSlice,
   flowsheetApi,
+  liveUpdatesSlice,
   lmlApi,
   metadataApi,
   playlistSearchSlice,
@@ -54,6 +57,9 @@ export const makeStore = () => {
     reducer: rootReducer,
     middleware: (getDefaultMiddleware) => {
       return getDefaultMiddleware()
+        // Listener must come first so it observes RTK Query dispatches before the
+        // API middlewares process them. .prepend() is only legal before .concat().
+        .prepend(liveUpdatesListenerMiddleware.middleware)
         .concat(rtkQueryErrorLogger)
         .concat(applicationApi.middleware)
         .concat(experienceApi.middleware)

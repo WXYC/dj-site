@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
+import { renderWithProviders as render } from "@/lib/test-utils";
 import NowPlaying from "./index";
 import type {
   FlowsheetSongEntry,
@@ -11,11 +12,17 @@ import type {
 const mockUseWhoIsLiveQuery = vi.fn();
 const mockUseGetNowPlayingQuery = vi.fn();
 
-vi.mock("@/lib/features/flowsheet/api", () => ({
-  useGetNowPlayingQuery: (arg: any, options: any) =>
-    mockUseGetNowPlayingQuery(arg, options),
-  useWhoIsLiveQuery: () => mockUseWhoIsLiveQuery(),
-}));
+vi.mock("@/lib/features/flowsheet/api", async (importOriginal) => {
+  const actual = await importOriginal<
+    typeof import("@/lib/features/flowsheet/api")
+  >();
+  return {
+    ...actual,
+    useGetNowPlayingQuery: (arg: unknown, options: unknown) =>
+      mockUseGetNowPlayingQuery(arg, options),
+    useWhoIsLiveQuery: () => mockUseWhoIsLiveQuery(),
+  };
+});
 
 // Mock NowPlayingMain component
 vi.mock("./Main", () => ({

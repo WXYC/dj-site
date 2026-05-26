@@ -1,4 +1,5 @@
 import WXYCPage from "@/src/Layout/WXYCPage";
+import SSESubscription from "@/src/components/shared/SSESubscription";
 import NowPlaying from "@/src/widgets/NowPlaying";
 import { Box, Card } from "@mui/joy";
 import { Metadata } from "next";
@@ -11,6 +12,7 @@ export const metadata: Metadata = {
 export default function LivePage() {
   return (
     <WXYCPage>
+      <SSESubscription surface="live" />
       <Box
         sx={{
           position: "absolute",
