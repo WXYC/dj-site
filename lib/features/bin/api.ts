@@ -33,8 +33,40 @@ export const binApi = createApi({
       }),
       invalidatesTags: ["Bin"],
     }),
+    clearBin: builder.mutation<null, DJBinQuery>({
+      async queryFn({ dj_id }, _api, _extraOptions, baseQuery) {
+        const listResult = await baseQuery({
+          url: `/?dj_id=${dj_id}`,
+        });
+        if (listResult.error) {
+          return { error: listResult.error };
+        }
+
+        const entries = (listResult.data ?? []) as BinLibraryDetails[];
+        for (const entry of entries) {
+          if (entry.album_id === undefined) {
+            continue;
+          }
+          const delResult = await baseQuery({
+            url: `/?dj_id=${dj_id}&album_id=${entry.album_id}`,
+            method: "DELETE",
+          });
+          if (delResult.error) {
+            return { error: delResult.error };
+          }
+        }
+
+        // RTK Query rejects `{ data: undefined }` (serializes to `{}`).
+        return { data: null };
+      },
+      invalidatesTags: ["Bin"],
+    }),
   }),
 });
 
-export const { useGetBinQuery, useDeleteFromBinMutation, useAddToBinMutation } =
-  binApi;
+export const {
+  useGetBinQuery,
+  useDeleteFromBinMutation,
+  useAddToBinMutation,
+  useClearBinMutation,
+} = binApi;

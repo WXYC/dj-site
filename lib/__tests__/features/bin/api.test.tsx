@@ -86,6 +86,17 @@ describe("binApi", () => {
     });
   });
 
+  describe("clearBin endpoint", () => {
+    it("should have clearBin endpoint defined", () => {
+      expect(binApi.endpoints.clearBin).toBeDefined();
+    });
+
+    it("should have initiate method for clearBin", () => {
+      expect(binApi.endpoints.clearBin.initiate).toBeDefined();
+      expect(typeof binApi.endpoints.clearBin.initiate).toBe("function");
+    });
+  });
+
   describe("API reducer", () => {
     it("should have a reducer function", () => {
       expect(binApi.reducer).toBeDefined();

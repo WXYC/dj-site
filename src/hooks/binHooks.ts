@@ -1,5 +1,6 @@
 import {
   useAddToBinMutation,
+  useClearBinMutation,
   useDeleteFromBinMutation,
   useGetBinQuery,
 } from "@/lib/features/bin/api";
@@ -64,6 +65,69 @@ export const useDeleteFromBin = () => {
 export const useAddToBin = () => {
   const { action, loading } = useBinMutation(useAddToBinMutation, "Failed to add album to bin");
   return { addToBin: action, loading };
+};
+
+export const BIN_CLEAR_CONFIRM_THRESHOLD = 4;
+
+export const useClearMailBin = () => {
+  const { loading: registryLoading, info } = useRegistry();
+  const { bin, loading: binLoading } = useBin();
+  const [clearBin, { isLoading: clearing }] = useClearBinMutation();
+
+  const count = bin?.length ?? 0;
+  const isEmpty = count === 0;
+
+  const runClear = useCallback(async () => {
+    if (!info || isEmpty || clearing) return;
+
+    try {
+      await clearBin({ dj_id: info.id }).unwrap();
+      toast.success(
+        count === 1
+          ? "Removed 1 item from your mail bin."
+          : `Removed ${count} items from your mail bin.`,
+      );
+    } catch {
+      toast.error("Failed to clear mail bin.");
+    }
+  }, [clearBin, clearing, count, info, isEmpty]);
+
+  const requestClear = useCallback(() => {
+    if (!info || isEmpty || clearing || registryLoading || binLoading) return;
+
+    if (count > BIN_CLEAR_CONFIRM_THRESHOLD) {
+      toast.warning(`Remove all ${count} items from your mail bin?`, {
+        action: {
+          label: "Clear bin",
+          onClick: () => {
+            void runClear();
+          },
+        },
+        cancel: {
+          label: "Cancel",
+        },
+        duration: 10_000,
+      });
+      return;
+    }
+
+    void runClear();
+  }, [
+    binLoading,
+    clearing,
+    count,
+    info,
+    isEmpty,
+    registryLoading,
+    runClear,
+  ]);
+
+  return {
+    requestClear,
+    /** Mutation in flight only — not registry/bin query loading (avoids SSR hydration class mismatch on Joy Button). */
+    clearing,
+    disabled: isEmpty || binLoading || registryLoading || clearing,
+  };
 };
 
 export const useBinResults = () => {

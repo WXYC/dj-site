@@ -20,17 +20,30 @@ vi.mock("../RightBarContentContainer", () => ({
   default: ({
     label,
     startDecorator,
+    endDecorator,
     children,
   }: {
     label: string;
     startDecorator: React.ReactNode;
+    endDecorator?: React.ReactNode;
     children: React.ReactNode;
   }) => (
     <div data-testid="content-container">
       <span data-testid="container-label">{label}</span>
       <span data-testid="start-decorator">{startDecorator}</span>
+      {endDecorator ? (
+        <span data-testid="end-decorator">{endDecorator}</span>
+      ) : null}
       {children}
     </div>
+  ),
+}));
+
+vi.mock("./ClearMailBinButton", () => ({
+  default: () => (
+    <button type="button" data-testid="mail-bin-clear-button">
+      Clear
+    </button>
   ),
 }));
 
@@ -165,6 +178,13 @@ describe("BinContent", () => {
     render(<BinContent />);
 
     expect(screen.getByTestId("inbox-icon")).toBeInTheDocument();
+  });
+
+  it("should render clear button in end decorator beside Mail Bin title", () => {
+    render(<BinContent />);
+
+    expect(screen.getByTestId("end-decorator")).toBeInTheDocument();
+    expect(screen.getByTestId("mail-bin-clear-button")).toBeInTheDocument();
   });
 
   it("should render skeleton when loading", () => {

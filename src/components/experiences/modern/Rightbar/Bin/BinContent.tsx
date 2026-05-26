@@ -5,6 +5,7 @@ import { Inbox } from "@mui/icons-material";
 import { Card, Divider, Skeleton, Typography } from "@mui/joy";
 import RightBarContentContainer from "../RightBarContentContainer";
 import BinEntry from "./BinEntry";
+import ClearMailBinButton from "./ClearMailBinButton";
 import { useGetRightbarQuery } from "@/lib/features/application/api";
 
 export default function BinContent() {
@@ -18,6 +19,7 @@ export default function BinContent() {
       <RightBarContentContainer
         label="Mail Bin"
         startDecorator={<Inbox sx={{ mt: 0.3, mr: 1 }} />}
+        endDecorator={<ClearMailBinButton />}
       >
         <Skeleton
           variant="rectangular"
@@ -37,6 +39,7 @@ export default function BinContent() {
     <RightBarContentContainer
       label="Mail Bin"
       startDecorator={<Inbox sx={{ mt: 0.3, mr: 1 }} />}
+      endDecorator={<ClearMailBinButton />}
     >
       <Card
         variant="outlined"

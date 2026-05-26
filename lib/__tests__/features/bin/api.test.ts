@@ -5,7 +5,7 @@ import { describeApi } from "@/lib/test-utils";
 describe("binApi", () => {
   describeApi(binApi, {
     queries: ["getBin"],
-    mutations: ["deleteFromBin", "addToBin"],
+    mutations: ["deleteFromBin", "addToBin", "clearBin"],
     reducerPath: "binApi",
   });
 });
