@@ -26,9 +26,9 @@ type ArtistOptionRenderProps = HTMLAttributes<HTMLLIElement> & { key?: Key };
 
 function renderArtistOption(
   props: ArtistOptionRenderProps,
-  option: ArtistAutocompleteOption
+  option: ArtistAutocompleteOption,
 ) {
-  const { key, ...optionProps } = props;
+  const { key, color: _color, ...optionProps } = props;
   if (option.type === "create") {
     return (
       <AutocompleteOption key={key} {...optionProps} color="primary" variant="soft">
@@ -140,9 +140,15 @@ export default function CatalogEntryArtistAutocomplete({
                 (o) => o.type === "existing"
               )
         }
-        getOptionLabel={getArtistOptionLabel}
+        getOptionLabel={(option) =>
+          typeof option === "string" ? option : getArtistOptionLabel(option)
+        }
         getOptionKey={(option) =>
-          option.type === "existing" ? option.id : `create-${option.inputValue}`
+          typeof option === "string"
+            ? `free-${option}`
+            : option.type === "existing"
+              ? option.id
+              : `create-${option.inputValue}`
         }
         noOptionsText={noOptionsText}
         renderOption={renderArtistOption}

@@ -86,8 +86,7 @@ export function CatalogFilterAutocomplete({
         renderTagsProp ??
         ((tags, getTagProps) =>
           tags.map((item, index) => {
-            const { key, color: _tagColor, sx: tagSx, ...tagProps } =
-              getTagProps({ index });
+            const { key, ...tagProps } = getTagProps({ index });
             const chipStyle = getTagChipProps?.(item) ?? {
               color: "neutral" as const,
               variant: "soft" as const,
@@ -103,7 +102,6 @@ export function CatalogFilterAutocomplete({
                 sx={{
                   minWidth: 0,
                   ...catalogFilterTagFontSx,
-                  ...(typeof tagSx === "object" && tagSx !== null ? tagSx : {}),
                   ...chipStyle.sx,
                 }}
               >

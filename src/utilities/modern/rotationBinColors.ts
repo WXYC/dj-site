@@ -16,7 +16,6 @@ export const ROTATION_BIN_LABELS: Record<Rotation, string> = {
   M: "Medium",
   L: "Light",
   S: "Singles",
-  N: "New",
 };
 
 export const LIGHT_ROTATION_BIN_COLORS: Record<Rotation, RotationBinColorSet> = {
@@ -52,14 +51,6 @@ export const LIGHT_ROTATION_BIN_COLORS: Record<Rotation, RotationBinColorSet> = 
     textSelected: "#fff",
     border: "#9fa8da",
   },
-  N: {
-    bg: "#f3e5f5",
-    bgSelected: "#8e24aa",
-    bgHover: "#e1bee7",
-    text: "#6a1b9a",
-    textSelected: "#fff",
-    border: "#ce93d8",
-  },
 };
 
 export const DARK_ROTATION_BIN_COLORS: Record<Rotation, RotationBinColorSet> = {
@@ -94,14 +85,6 @@ export const DARK_ROTATION_BIN_COLORS: Record<Rotation, RotationBinColorSet> = {
     text: "#9fa8da",
     textSelected: "#fff",
     border: "#4a5090",
-  },
-  N: {
-    bg: "#3a1a42",
-    bgSelected: "#8e24aa",
-    bgHover: "#4a2054",
-    text: "#ce93d8",
-    textSelected: "#fff",
-    border: "#6a3080",
   },
 };
 

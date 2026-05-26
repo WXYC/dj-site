@@ -1,9 +1,21 @@
-import type { AlbumSearchResult, TrackMatchHint } from "@wxyc/shared/dtos";
-import { TrackMatchSource } from "@wxyc/shared/dtos";
+import type { AlbumSearchResult } from "@wxyc/shared/dtos";
 import { Rotation } from "../rotation/types";
 
-export type { AlbumSearchResult, TrackMatchHint };
-export { TrackMatchSource };
+export type { AlbumSearchResult };
+
+/** Track-level match hints returned by catalog track search (not yet in @wxyc/shared). */
+export type TrackMatchHint = {
+  source: string;
+  title: string;
+  confidence?: number;
+  position?: string;
+  artist_credit?: string;
+};
+
+export const TrackMatchSource = {
+  cta: "cta",
+  discogs_master: "discogs_master",
+} as const;
 
 /**
  * JSON boundary adapter for AlbumSearchResult.
@@ -11,6 +23,7 @@ export { TrackMatchSource };
  */
 export type AlbumSearchResultJSON = Omit<AlbumSearchResult, "add_date"> & {
   add_date: string;
+  matched_via?: TrackMatchHint[];
 };
 
 export type SearchCatalogQueryParams = {

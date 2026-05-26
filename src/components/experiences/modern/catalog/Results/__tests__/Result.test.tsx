@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { createTestAlbum, createTestArtist } from "@/lib/test-utils";
 import { renderWithProviders } from "@/lib/test-utils/render";

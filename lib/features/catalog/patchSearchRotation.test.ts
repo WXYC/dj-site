@@ -68,7 +68,9 @@ describe("patchCatalogSearchRotation", () => {
     ]);
 
     vi.spyOn(catalogApi.endpoints.getInformation, "select").mockReturnValue(
-      () => () => undefined,
+      (() => () => undefined) as unknown as ReturnType<
+        typeof catalogApi.endpoints.getInformation.select
+      >,
     );
 
     vi.spyOn(catalogApi.util, "updateQueryData").mockImplementation(

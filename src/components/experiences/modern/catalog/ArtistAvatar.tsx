@@ -24,7 +24,6 @@ export const ROTATION_STYLES: { [id in Rotation]: ColorPaletteProp } = {
   M: "warning",
   L: "success",
   S: "neutral",
-  N: "neutral",
 };
 
 export const GENRE_COLORS: { [id in Genre]: ColorPaletteProp } = {

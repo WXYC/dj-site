@@ -27,12 +27,12 @@ const defaultFilters: CatalogFilters = {
 
 describe("dedupeAlbumEntriesById", () => {
   it("keeps the first row for each album id", () => {
-    const first = createTestAlbum({ id: 7000, album_title: "First" });
-    const second = createTestAlbum({ id: 7000, album_title: "Second" });
+    const first = createTestAlbum({ id: 7000, title: "First" });
+    const second = createTestAlbum({ id: 7000, title: "Second" });
     const other = createTestAlbum({ id: 2 });
     const deduped = dedupeAlbumEntriesById([first, second, other]);
     expect(deduped).toHaveLength(2);
-    expect(deduped[0].album_title).toBe("First");
+    expect(deduped[0].title).toBe("First");
     expect(deduped[1].id).toBe(2);
   });
 

@@ -117,11 +117,19 @@ function resolveAlbumEntryForRotationPatch(
   return {
     id: albumId,
     title: "",
-    artist: { name: "", lettercode: "", numbercode: 0, genre: "Unknown" },
+    artist: {
+      name: "",
+      lettercode: "",
+      numbercode: 0,
+      genre: "Unknown",
+      id: undefined,
+    },
     entry: 0,
     format: "Unknown",
     alternate_artist: "",
     label: "",
+    plays: undefined,
+    add_date: undefined,
     rotation_bin: rotation.rotation_bin,
     rotation_id: rotation.rotation_id,
   };

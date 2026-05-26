@@ -416,10 +416,12 @@ describeSlice(catalogSlice, defaultCatalogFrontendState, ({ harness, actions }) 
 
   describe("filters", () => {
     it.each([
-      [{ tags: ["exclusives"] } as const, "tags", ["exclusives"]],
-      [{ genres: ["Rock"] } as const, "genres", ["Rock"]],
-      [{ formats: ["cd"] } as const, "formats", ["cd"]],
-    ])("setFilter updates %s", (patch, key, expected) => {
+      [{ tags: ["exclusives"] }, "tags", ["exclusives"]],
+      [{ genres: ["Rock"] }, "genres", ["Rock"]],
+      [{ formats: ["cd"] }, "formats", ["cd"]],
+    ] as const satisfies ReadonlyArray<
+      [Partial<import("@/lib/features/catalog/types").CatalogFilters>, string, string[]]
+    >)("setFilter updates %s", (patch, key, expected) => {
       const result = harness().reduce(actions.setFilter(patch));
       expect((result.filters as Record<string, unknown>)[key as string]).toEqual(expected);
     });

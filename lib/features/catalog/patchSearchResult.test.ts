@@ -11,7 +11,7 @@ describe("mergeAlbumIntoSearchResult", () => {
       label: "Old Label",
       entry: 3,
       plays: 12,
-      matched_via: [{ source: "track", field: "album", value: "Old Title" }],
+      matched_via: [{ source: "track", title: "Old Title" }],
       artwork_url: "https://example.com/art.jpg",
       rotation_id: 99,
     });
@@ -49,7 +49,13 @@ describe("mergeAlbumIntoSearchResult", () => {
       title: "",
       label: "",
       entry: 0,
-      artist: { name: "", lettercode: "", numbercode: 0, genre: "Unknown" },
+      artist: {
+        name: "",
+        lettercode: "",
+        numbercode: 0,
+        genre: "Unknown",
+        id: undefined,
+      },
       rotation_bin: "H",
       rotation_id: 99,
     };
@@ -72,7 +78,13 @@ describe("mergeAlbumIntoSearchResult", () => {
       title: "",
       label: "",
       entry: 0,
-      artist: { name: "", lettercode: "", numbercode: 0, genre: "Unknown" },
+      artist: {
+        name: "",
+        lettercode: "",
+        numbercode: 0,
+        genre: "Unknown",
+        id: undefined,
+      },
       rotation_bin: undefined,
       rotation_id: undefined,
     };

@@ -1,4 +1,5 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
+import type { RootState } from "@/lib/store";
 import { backendBaseQuery } from "../backend";
 import { CATALOG_QUERY_PAGE_LIMIT } from "./constants";
 import { convertToAlbumEntry } from "./conversions";
@@ -115,7 +116,7 @@ export const catalogApi = createApi({
       async onQueryStarted(_arg, { dispatch, queryFulfilled, getState }) {
         try {
           const { data: updated } = await queryFulfilled;
-          patchCatalogSearchCaches(dispatch, getState, updated);
+          patchCatalogSearchCaches(dispatch, getState as () => RootState, updated);
         } catch {
           // Leave caches untouched when save fails.
         }

@@ -36,10 +36,6 @@ function contextMenuVirtualAnchor(top: number, left: number): VirtualElement {
         y: top,
         width: 0,
         height: 0,
-        top,
-        left,
-        right: left,
-        bottom: top,
       }),
   };
 }

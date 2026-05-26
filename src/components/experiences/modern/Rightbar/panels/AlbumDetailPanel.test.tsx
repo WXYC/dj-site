@@ -24,7 +24,7 @@ const mockAlbum = createTestAlbum({
     lettercode: "TA",
     numbercode: 3,
   }),
-  format: "cd",
+  format: "CD",
 });
 
 let albumQueryState = {

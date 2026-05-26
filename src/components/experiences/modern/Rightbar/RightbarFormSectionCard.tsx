@@ -1,6 +1,7 @@
 "use client";
 
 import { Card, CardContent, Stack, Typography } from "@mui/joy";
+import type { SxProps } from "@mui/joy/styles/types";
 import type { ReactNode } from "react";
 
 import {
@@ -31,13 +32,13 @@ export default function RightbarFormSectionCard({
     <Card
       variant="outlined"
       data-testid={dataTestId}
-      sx={{
-        ...rightbarFormCardSx,
-        ...(interactive ? rightbarFormCardInteractiveSx : {}),
-        ...(disabled
-          ? { opacity: 0.55, pointerEvents: "none" as const }
-          : {}),
-      }}
+      sx={
+        [
+          rightbarFormCardSx,
+          interactive ? rightbarFormCardInteractiveSx : {},
+          disabled ? { opacity: 0.55, pointerEvents: "none" } : {},
+        ] as SxProps
+      }
     >
       <CardContent>
         <Typography level="title-sm">{title}</Typography>
