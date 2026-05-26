@@ -101,4 +101,12 @@ export class AlbumDetailPage {
     const hasNoTracklist = await this.noTracklistMessage.isVisible().catch(() => false);
     expect(hasTracklist || hasNoTracklist).toBe(true);
   }
+
+  async openEditTab(tab: "artist" | "album" | "rotation"): Promise<void> {
+    await this.page.getByTestId(`catalog-edit-tab-${tab}`).click();
+  }
+
+  async clickAddWizardNext(): Promise<void> {
+    await this.page.getByTestId("catalog-add-wizard-next").click();
+  }
 }

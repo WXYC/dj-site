@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/lib/test-utils";
 import CatalogAlbumAddForm from "@/src/components/experiences/modern/catalog/CatalogAlbumAddForm";
 
@@ -44,6 +45,15 @@ vi.mock("@/src/hooks/useCatalogRotationMarking", () => ({
   }),
 }));
 
+vi.mock("@/src/hooks/useCatalogAlbumNavigation", () => ({
+  useCatalogAlbumNavigation: () => ({
+    closeAlbum: vi.fn(),
+    openAlbum: vi.fn(),
+    openAlbumEdit: vi.fn(),
+    openAlbumAdd: vi.fn(),
+  }),
+}));
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: vi.fn(),
@@ -57,12 +67,27 @@ describe("CatalogAlbumAddForm", () => {
     vi.clearAllMocks();
   });
 
-  it("renders section cards for library code, artist, album, and rotation", () => {
+  it("renders wizard with artist step and code strip", () => {
     renderWithProviders(<CatalogAlbumAddForm />);
 
-    expect(screen.getByTestId("catalog-add-library-code-card")).toBeInTheDocument();
+    expect(screen.getByTestId("catalog-add-modal")).toBeInTheDocument();
+    expect(screen.getByTestId("catalog-add-code-strip")).toBeInTheDocument();
+    expect(screen.getByTestId("catalog-add-wizard-steps")).toBeInTheDocument();
     expect(screen.getByTestId("catalog-add-artist-card")).toBeInTheDocument();
-    expect(screen.getByTestId("catalog-add-album-card")).toBeInTheDocument();
-    expect(screen.getByTestId("catalog-add-rotation-card")).toBeInTheDocument();
+    expect(screen.getByTestId("catalog-add-wizard-next")).toBeDisabled();
+  });
+
+  it("keeps Next disabled until an artist is selected or created", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<CatalogAlbumAddForm />);
+
+    expect(screen.getByTestId("catalog-add-wizard-panel-artist")).toBeInTheDocument();
+    expect(screen.queryByTestId("catalog-add-wizard-panel-album")).not.toBeInTheDocument();
+
+    const genreSelect = screen.getByRole("combobox", { name: /genre/i });
+    await user.click(genreSelect);
+    await user.click(screen.getByRole("option", { name: "Rock" }));
+
+    expect(screen.getByTestId("catalog-add-wizard-next")).toBeDisabled();
   });
 });

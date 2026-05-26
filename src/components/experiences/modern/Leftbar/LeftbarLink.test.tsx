@@ -76,9 +76,10 @@ describe("LeftbarLink", () => {
       </LeftbarLink>
     );
 
-    // The ListItemButton renders as a link when not disabled
     const link = screen.getByRole("link");
-    expect(link).toHaveClass("MuiListItemButton-variantSolid");
+    expect(link.querySelector(".MuiListItemButton-root")).toHaveClass(
+      "MuiListItemButton-variantSolid",
+    );
   });
 
   it("should show plain variant when path does not match current pathname", async () => {
@@ -91,9 +92,10 @@ describe("LeftbarLink", () => {
       </LeftbarLink>
     );
 
-    // The ListItemButton renders as a link when not disabled
     const link = screen.getByRole("link");
-    expect(link).toHaveClass("MuiListItemButton-variantPlain");
+    expect(link.querySelector(".MuiListItemButton-root")).toHaveClass(
+      "MuiListItemButton-variantPlain",
+    );
   });
 
   it("should render tooltip with title", () => {

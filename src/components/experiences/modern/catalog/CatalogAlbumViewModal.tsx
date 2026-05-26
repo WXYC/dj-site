@@ -56,7 +56,7 @@ export default function CatalogAlbumViewModal() {
     ) : null;
 
   return (
-    <CatalogEntryModalShell variant="view" headerActions={headerActions}>
+    <CatalogEntryModalShell variant="view" size="view" headerActions={headerActions}>
       <AlbumDetailContent infoRequest={infoRequest} />
     </CatalogEntryModalShell>
   );

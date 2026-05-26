@@ -4,15 +4,19 @@ import { useCatalogAlbumNavigation } from "@/src/hooks/useCatalogAlbumNavigation
 import ContentCopy from "@mui/icons-material/ContentCopy";
 import {
   Box,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   IconButton,
   Modal,
   ModalClose,
+  ModalDialog,
   Stack,
   Tooltip,
-  Typography,
 } from "@mui/joy";
 import { ReactNode, useCallback } from "react";
 import { toast } from "sonner";
+import { CATALOG_MODAL_Z_INDEX } from "./form/catalogModalLayers";
 
 export type CatalogEntryModalVariant = "view" | "edit" | "add";
 
@@ -28,12 +32,18 @@ const TITLES: Record<CatalogEntryModalVariant, string> = {
   add: "Add catalog entry",
 };
 
+/** Space for absolutely positioned ModalClose (top-right). */
+const HEADER_CLOSE_INSET = "2.75rem";
+
 type CatalogEntryModalShellProps = {
   variant: CatalogEntryModalVariant;
   children: ReactNode;
   headerActions?: ReactNode;
   showCopyLink?: boolean;
   closeAriaLabel?: string;
+  footer?: ReactNode;
+  aboveBody?: ReactNode;
+  size?: "view" | "form";
 };
 
 export default function CatalogEntryModalShell({
@@ -42,8 +52,12 @@ export default function CatalogEntryModalShell({
   headerActions,
   showCopyLink = variant !== "add",
   closeAriaLabel,
+  footer,
+  aboveBody,
+  size,
 }: CatalogEntryModalShellProps) {
   const { closeAlbum } = useCatalogAlbumNavigation();
+  const dialogSize = size ?? (variant === "view" ? "view" : "form");
 
   const handleClose = useCallback(() => {
     closeAlbum();
@@ -55,58 +69,123 @@ export default function CatalogEntryModalShell({
     toast.success("Permalink copied");
   }, []);
 
+  const titleId = `${TEST_IDS[variant]}-title`;
+
   return (
     <Modal
       open
       onClose={handleClose}
-      data-testid={TEST_IDS[variant]}
       sx={{
-        zIndex: 90000,
+        zIndex: CATALOG_MODAL_Z_INDEX,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
       }}
     >
-      <Box
+      <ModalDialog
+        variant="outlined"
+        aria-labelledby={titleId}
+        data-testid={TEST_IDS[variant]}
+        layout="center"
         sx={{
-          maxHeight: "min(90dvh, 900px)",
-          overflow: "auto",
-          width: "min(100%, 520px)",
+          width: dialogSize === "form" ? "min(100%, 600px)" : "min(100%, 520px)",
+          maxHeight: "min(90dvh, 720px)",
           mx: 1,
+          borderRadius: "md",
+          bgcolor: "background.surface",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          p: 0,
         }}
       >
-        <Stack
-          direction="row"
-          alignItems="center"
-          justifyContent="space-between"
-          sx={{ mb: 1, px: 0.5 }}
+        <Box
+          sx={{
+            position: "relative",
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+            minHeight: 0,
+            overflow: "hidden",
+          }}
         >
-          <Typography level="title-md" data-testid={`${TEST_IDS[variant]}-title`}>
-            {TITLES[variant]}
-          </Typography>
-          <Stack direction="row" spacing={0.5} alignItems="center">
-            {showCopyLink ? (
-              <Tooltip title="Copy permalink" variant="outlined" size="sm">
-                <IconButton
-                  size="sm"
-                  variant="plain"
-                  color="neutral"
-                  aria-label="Copy permalink"
-                  onClick={handleCopyPermalink}
-                  data-testid="album-detail-copy-link"
-                >
-                  <ContentCopy fontSize="small" />
-                </IconButton>
-              </Tooltip>
+          <ModalClose
+            aria-label={closeAriaLabel ?? `Close ${TITLES[variant].toLowerCase()}`}
+            sx={{
+              position: "absolute",
+              top: 12,
+              right: 12,
+              zIndex: 2,
+            }}
+          />
+
+          <Stack
+            direction="row"
+            alignItems="flex-start"
+            justifyContent="space-between"
+            spacing={1}
+            sx={{
+              px: 2,
+              pt: 2,
+              pb: aboveBody ? 1 : 0,
+              flexShrink: 0,
+              pr: HEADER_CLOSE_INSET,
+            }}
+          >
+            <DialogTitle id={titleId} sx={{ p: 0, flex: 1, minWidth: 0 }}>
+              {TITLES[variant]}
+            </DialogTitle>
+            {showCopyLink || headerActions ? (
+              <Stack
+                direction="row"
+                spacing={0.5}
+                alignItems="center"
+                sx={{ flexShrink: 0 }}
+              >
+                {showCopyLink ? (
+                  <Tooltip title="Copy permalink" variant="outlined" size="sm">
+                    <IconButton
+                      size="sm"
+                      variant="plain"
+                      color="neutral"
+                      aria-label="Copy permalink"
+                      onClick={handleCopyPermalink}
+                      data-testid="album-detail-copy-link"
+                    >
+                      <ContentCopy fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                ) : null}
+                {headerActions}
+              </Stack>
             ) : null}
-            {headerActions}
-            <ModalClose
-              aria-label={closeAriaLabel ?? `Close ${TITLES[variant].toLowerCase()}`}
-            />
           </Stack>
-        </Stack>
-        {children}
-      </Box>
+
+          {aboveBody ? (
+            <Stack sx={{ px: 2, pb: 1, flexShrink: 0, pr: HEADER_CLOSE_INSET }}>
+              {aboveBody}
+            </Stack>
+          ) : null}
+
+          <DialogContent
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflow: "auto",
+              px: 2,
+              py: 1,
+            }}
+          >
+            {children}
+          </DialogContent>
+
+          {footer ? (
+            <DialogActions sx={{ px: 2, py: 1.5, flexShrink: 0 }}>
+              {footer}
+            </DialogActions>
+          ) : null}
+        </Box>
+      </ModalDialog>
     </Modal>
   );
 }

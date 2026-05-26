@@ -1,6 +1,7 @@
 "use client";
 
 import { useLazySearchArtistsInGenreQuery } from "@/lib/features/catalog/api";
+import { catalogModalAutocompleteSlotProps } from "@/src/components/experiences/modern/catalog/form/catalogModalLayers";
 import Add from "@mui/icons-material/Add";
 import Autocomplete from "@mui/joy/Autocomplete";
 import AutocompleteOption from "@mui/joy/AutocompleteOption";
@@ -185,12 +186,7 @@ export default function CatalogEntryArtistAutocomplete({
             "aria-label": "Artist name",
             autoComplete: "new-password",
           },
-          listbox: {
-            sx: {
-              py: 0.5,
-              "--ListItem-paddingX": "12px",
-            },
-          },
+          ...catalogModalAutocompleteSlotProps,
         }}
       />
       <FormHelperText>

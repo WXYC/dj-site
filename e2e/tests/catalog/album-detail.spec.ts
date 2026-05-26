@@ -237,6 +237,8 @@ test.describe("Album Detail Panel", () => {
       await page.goto("/dashboard/catalog/new");
       await albumDetail.waitForModal();
       await expect(page.getByTestId("catalog-add-modal")).toBeVisible();
+      await expect(page.getByTestId("catalog-add-code-strip")).toBeVisible();
+      await expect(page.getByTestId("catalog-add-wizard-steps")).toBeVisible();
       await expect(page.getByTestId("catalog-add-artist-card")).toBeVisible();
     });
 
@@ -245,6 +247,10 @@ test.describe("Album Detail Panel", () => {
       await page.goto(`/dashboard/catalog/album/${MOCK_LIBRARY_CODE}/edit`);
       await albumDetail.waitForModal();
       await expect(page.getByTestId("catalog-edit-modal")).toBeVisible();
+      await expect(page.getByTestId("catalog-edit-context-header")).toBeVisible();
+      await expect(page.getByTestId("catalog-edit-save-button")).toBeVisible();
+      await albumDetail.openEditTab("album");
+      await expect(page.getByTestId("catalog-edit-tab-album")).toBeVisible();
     });
     test("should open modal when navigating to library code URL", async ({ page }) => {
       await interceptAlbumApis(page);

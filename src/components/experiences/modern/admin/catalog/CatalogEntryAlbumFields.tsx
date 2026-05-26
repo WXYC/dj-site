@@ -1,6 +1,7 @@
 "use client";
 
 import type { LibraryFormatRow } from "@/lib/features/catalog/types";
+import { catalogModalSelectSlotProps } from "@/src/components/experiences/modern/catalog/form/catalogModalLayers";
 import { Button, FormControl, FormLabel, Input, Option, Select, Stack } from "@mui/joy";
 
 type CatalogEntryAlbumFieldsProps = {
@@ -22,6 +23,7 @@ type CatalogEntryAlbumFieldsProps = {
   canAdd: boolean;
   submitLabel?: string;
   submittingLabel?: string;
+  hideSubmitButton?: boolean;
 };
 
 export default function CatalogEntryAlbumFields({
@@ -43,6 +45,7 @@ export default function CatalogEntryAlbumFields({
   canAdd,
   submitLabel = "Add album to catalog",
   submittingLabel,
+  hideSubmitButton = false,
 }: CatalogEntryAlbumFieldsProps) {
   return (
     <Stack spacing={2} sx={{ opacity: disabled ? 0.5 : 1, pointerEvents: disabled ? "none" : "auto" }}>
@@ -53,6 +56,7 @@ export default function CatalogEntryAlbumFields({
           value={formatId}
           onChange={(_, v) => onFormatIdChange(v as string)}
           disabled={disabled || formatsLoading}
+          slotProps={catalogModalSelectSlotProps}
         >
           <Option value="">Choose format</Option>
           {formats?.map((f) => (
@@ -96,15 +100,18 @@ export default function CatalogEntryAlbumFields({
           disabled={disabled}
         />
       </FormControl>
-      <Button
-        loading={adding}
-        onClick={onAddAlbum}
-        variant="solid"
-        color="primary"
-        disabled={disabled || !canAdd || adding}
-      >
-        {adding && submittingLabel ? submittingLabel : submitLabel}
-      </Button>
+      {hideSubmitButton ? null : (
+        <Button
+          loading={adding}
+          onClick={onAddAlbum}
+          variant="solid"
+          color="primary"
+          disabled={disabled || !canAdd || adding}
+          data-testid="catalog-album-fields-submit"
+        >
+          {adding && submittingLabel ? submittingLabel : submitLabel}
+        </Button>
+      )}
     </Stack>
   );
 }

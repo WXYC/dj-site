@@ -124,6 +124,8 @@ Catalog view/edit/add use Joy modals mounted from `CatalogPathModals` in `app/da
 
 `:id` is a library-code slug or numeric `album_id` (`lib/features/catalog/libraryCode.ts`). Navigation: `useCatalogAlbumNavigation`. Catalog rows open view on **double-click**; the info button and context menu use single-click. Close modals with `router.back()`.
 
+Add/edit modals use `ModalDialog` via `CatalogEntryModalShell` (pinned header/footer, scrollable body only). **Add** is a stepped wizard (`CatalogEntryFormWizard`); **edit** uses tabs (`CatalogEntryFormTabs`) with a compact `CatalogEditContextHeader` instead of the full view `AlbumCard`. Form sections live under `src/components/experiences/modern/catalog/form/` — not `RightbarFormSectionCard` stacks.
+
 ### Test Credentials (local dev)
 
 Usernames: `test_member`, `test_dj1`, `test_dj2`, `test_music_director`, `test_station_manager`
