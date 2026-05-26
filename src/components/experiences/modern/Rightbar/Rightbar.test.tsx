@@ -24,10 +24,6 @@ vi.mock("./Bin/BinContent", () => ({
   default: () => <div data-testid="bin-content">Bin Content</div>,
 }));
 
-vi.mock("./panels/AlbumDetailPanel", () => ({
-  default: ({ albumId }: { albumId: number }) => <div data-testid="album-detail-panel">Album {albumId}</div>,
-}));
-
 vi.mock("./panels/SettingsPanel", () => ({
   default: () => <div data-testid="settings-panel">Settings</div>,
 }));
@@ -77,15 +73,6 @@ describe("Rightbar", () => {
     expect(children[2]).toHaveAttribute("data-testid", "bin-content");
     expect(children[3]).toHaveAttribute("data-testid", "divider");
     expect(children[4]).toHaveAttribute("data-testid", "box");
-  });
-
-  it("should render album detail panel when panel type is album-detail", () => {
-    const store = createTestStore();
-    store.dispatch(applicationSlice.actions.openPanel({ type: "album-detail", albumId: 42 }));
-    renderWithProviders(<Rightbar />, { store });
-
-    expect(screen.getByTestId("album-detail-panel")).toBeInTheDocument();
-    expect(screen.queryByTestId("now-playing-content")).not.toBeInTheDocument();
   });
 
   it("should render settings panel when panel type is settings", () => {

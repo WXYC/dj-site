@@ -1,6 +1,5 @@
 "use client";
 
-import { applicationSlice } from "@/lib/features/application/frontend";
 import { useAddToFlowsheetMutation } from "@/lib/features/flowsheet/api";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import {
@@ -9,6 +8,7 @@ import {
 } from "@/lib/features/flowsheet/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useAlbumArtwork } from "@/lib/features/metadata/hooks";
+import { useCatalogAlbumNavigation } from "@/src/hooks/useCatalogAlbumNavigation";
 import { useFlowsheet, useShowControl } from "@/src/hooks/flowsheetHooks";
 import { getStyleForRotation } from "@/src/utilities/modern/rotationstyles";
 import {
@@ -68,6 +68,7 @@ export default function SongEntry({
   } = useAlbumArtwork(entry.artist_name, entry.album_title);
 
   const dispatch = useAppDispatch();
+  const { openAlbum } = useCatalogAlbumNavigation();
 
   const handleMouseEnter = () => {
     if (queue && live) {
@@ -337,7 +338,7 @@ export default function SongEntry({
             variant="plain"
             size="sm"
             disabled={!entry?.album_id || entry.album_id < 0}
-            onClick={() => dispatch(applicationSlice.actions.openPanel({ type: "album-detail", albumId: entry.album_id! }))}
+            onClick={() => openAlbum(entry.album_id!)}
           >
             <InfoOutlined />
           </IconButton>

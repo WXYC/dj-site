@@ -69,7 +69,7 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
     <>
       <tr
         key={album.id}
-        onClick={openDetail}
+        onDoubleClick={openDetail}
         onContextMenu={contextMenu.onContextMenu}
         style={{ cursor: "pointer" }}
       >

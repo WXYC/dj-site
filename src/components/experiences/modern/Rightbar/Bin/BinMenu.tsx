@@ -1,7 +1,6 @@
 "use client";
-import { applicationSlice } from "@/lib/features/application/frontend";
 import { AlbumEntry } from "@/lib/features/catalog/types";
-import { useAppDispatch } from "@/lib/hooks";
+import { useCatalogAlbumNavigation } from "@/src/hooks/useCatalogAlbumNavigation";
 import { Dropdown, IconButton, Menu, MenuButton, MenuItem } from "@mui/joy";
 
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
@@ -13,7 +12,7 @@ import PlayFromBin from "./PlayFromBin";
 
 export default function BinMenu({ entry }: { entry: AlbumEntry }) {
   const { live } = useShowControl();
-  const dispatch = useAppDispatch();
+  const { openAlbum } = useCatalogAlbumNavigation();
   return (
     <Dropdown>
       <MenuButton
@@ -39,7 +38,7 @@ export default function BinMenu({ entry }: { entry: AlbumEntry }) {
       >
         <MenuItem
           color="neutral"
-          onClick={() => dispatch(applicationSlice.actions.openPanel({ type: "album-detail", albumId: entry.id }))}
+          onClick={() => openAlbum(entry)}
         >
           <InfoOutlined />
           More Info

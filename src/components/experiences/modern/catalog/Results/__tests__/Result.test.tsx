@@ -3,8 +3,15 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { createTestAlbum, createTestArtist } from "@/lib/test-utils";
 import { renderWithProviders } from "@/lib/test-utils/render";
 
+const mockRouterPush = vi.fn();
+
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  useRouter: () => ({
+    push: mockRouterPush,
+    replace: vi.fn(),
+    back: vi.fn(),
+    refresh: vi.fn(),
+  }),
   usePathname: () => "/dashboard/catalog",
 }));
 
@@ -57,6 +64,10 @@ import { useCanEditCatalog } from "@/src/hooks/catalogHooks";
 import { useBin } from "@/src/hooks/binHooks";
 import { useCatalogRotationMarking } from "@/src/hooks/useCatalogRotationMarking";
 
+import {
+  albumPermalinkSegment,
+  catalogAlbumEditPath,
+} from "@/lib/features/catalog/libraryCode";
 import CatalogResult from "../Result";
 
 afterEach(() => {
@@ -332,6 +343,7 @@ function renderCatalogRow(album = createTestAlbum({ id: 7000 })) {
 
 describe("CatalogResult context menu", () => {
   beforeEach(() => {
+    mockRouterPush.mockClear();
     vi.mocked(useCanEditCatalog).mockReturnValue(false);
     vi.mocked(useBin).mockReturnValue({
       bin: [],
@@ -398,26 +410,38 @@ describe("CatalogResult context menu", () => {
   it("opens album detail in edit mode from the edit catalog entry control", () => {
     vi.mocked(useCanEditCatalog).mockReturnValue(true);
     const album = createTestAlbum({ id: 5150 });
-    const { store } = renderCatalogRow(album);
+    renderCatalogRow(album);
     fireEvent.click(
       screen.getByRole("button", { name: "Edit catalog entry in sidebar" }),
     );
-    expect(store.getState().application.rightbar.panel).toEqual({
-      type: "album-detail",
-      albumId: 5150,
-      mode: "edit",
-    });
+    expect(mockRouterPush).toHaveBeenCalledWith(
+      catalogAlbumEditPath(album),
+      { scroll: false },
+    );
+  });
+
+  it("opens album detail on double-click only, not single click", () => {
+    const album = createTestAlbum({ id: 8001 });
+    renderCatalogRow(album);
+    const row = document.querySelector("tbody tr")!;
+    fireEvent.click(row);
+    expect(mockRouterPush).not.toHaveBeenCalled();
+    fireEvent.doubleClick(row);
+    expect(mockRouterPush).toHaveBeenCalledWith(
+      `/dashboard/catalog/album/${albumPermalinkSegment(album)}`,
+      { scroll: false },
+    );
   });
 
   it("opens album detail from the context menu", () => {
     const album = createTestAlbum({ id: 4242 });
-    const { store } = renderCatalogRow(album);
+    renderCatalogRow(album);
     fireEvent.contextMenu(document.querySelector("tbody tr")!);
     fireEvent.click(screen.getByText("More information"));
-    expect(store.getState().application.rightbar.panel).toEqual({
-      type: "album-detail",
-      albumId: 4242,
-    });
+    expect(mockRouterPush).toHaveBeenCalledWith(
+      `/dashboard/catalog/album/${albumPermalinkSegment(album)}`,
+      { scroll: false },
+    );
   });
 
   it("shows rotation options for catalog editors", () => {

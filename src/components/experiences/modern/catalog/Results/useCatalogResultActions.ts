@@ -1,10 +1,9 @@
 "use client";
 
-import { applicationSlice } from "@/lib/features/application/frontend";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 import type { Rotation } from "@/lib/features/rotation/types";
-import { useAppDispatch } from "@/lib/hooks";
 import { useCanEditCatalog } from "@/src/hooks/catalogHooks";
+import { useCatalogAlbumNavigation } from "@/src/hooks/useCatalogAlbumNavigation";
 import {
   isRealLibraryAlbumId,
   useCatalogRotationMarking,
@@ -13,7 +12,7 @@ import { useAddToBin, useBin, useDeleteFromBin } from "@/src/hooks/binHooks";
 import { useCallback, useMemo } from "react";
 
 export function useCatalogResultActions(album: AlbumEntry) {
-  const dispatch = useAppDispatch();
+  const { openAlbum, openAlbumEdit } = useCatalogAlbumNavigation();
   const canEditCatalog = useCanEditCatalog();
   const { bin, loading: binQueryLoading } = useBin();
   const { addToBin, loading: addToBinLoading } = useAddToBin();
@@ -31,23 +30,12 @@ export function useCatalogResultActions(album: AlbumEntry) {
   const binLoading = binQueryLoading || addToBinLoading || removeFromBinLoading;
 
   const openDetail = useCallback(() => {
-    dispatch(
-      applicationSlice.actions.openPanel({
-        type: "album-detail",
-        albumId: album.id,
-      }),
-    );
-  }, [dispatch, album.id]);
+    openAlbum(album);
+  }, [album, openAlbum]);
 
   const openEdit = useCallback(() => {
-    dispatch(
-      applicationSlice.actions.openPanel({
-        type: "album-detail",
-        albumId: album.id,
-        mode: "edit",
-      }),
-    );
-  }, [dispatch, album.id]);
+    openAlbumEdit(album);
+  }, [album, openAlbumEdit]);
 
   const toggleBin = useCallback(() => {
     if (binLoading) return;

@@ -30,11 +30,7 @@ export interface AuthFlowState {
     stage: AuthStage;
 }
 
-export type AlbumDetailPanelMode = "view" | "edit";
-
 export type RightbarPanel =
     | { type: "default" }
-    | { type: "album-detail"; albumId: number; mode?: AlbumDetailPanelMode }
     | { type: "settings" }
-    | { type: "account-edit"; account: Account; isSelf: boolean; organizationSlug: string }
-    | { type: "admin-catalog-add-entry" };
+    | { type: "account-edit"; account: Account; isSelf: boolean; organizationSlug: string };

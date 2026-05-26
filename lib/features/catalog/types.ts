@@ -120,9 +120,9 @@ export type AddGenreRequestBody = {
   description: string;
 };
 
-export type AlbumRequestParams = {
-  album_id: number;
-};
+export type AlbumRequestParams =
+  | { album_id: number }
+  | { library_code: string };
 
 /** @deprecated use AddAlbumRequestBody */
 export type AlbumParams = AddAlbumRequestBody;

@@ -24,12 +24,14 @@ type CatalogEntryEditSectionsProps = {
   albumId: number;
   album: AlbumEntry;
   onCodePreviewChange?: (preview: AdminCatalogCodePreviewProps) => void;
+  onSaveSuccess?: () => void;
 };
 
 export default function CatalogEntryEditSections({
   albumId,
   album,
   onCodePreviewChange,
+  onSaveSuccess,
 }: CatalogEntryEditSectionsProps) {
   const dispatch = useAppDispatch();
   const { data: genres, isLoading: genresLoading } = useGetGenresQuery();
@@ -159,6 +161,7 @@ export default function CatalogEntryEditSections({
         toast.error("Catalog entry saved, but rotation could not be updated.");
       } else {
         toast.success("Catalog entry updated.");
+        onSaveSuccess?.();
       }
     } catch (err: unknown) {
       const e = err as { data?: { message?: string } };

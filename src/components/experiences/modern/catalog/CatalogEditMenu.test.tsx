@@ -6,8 +6,12 @@ vi.mock("@/src/hooks/catalogHooks", () => ({
   useCanEditCatalog: vi.fn(),
 }));
 
-vi.mock("@/lib/hooks", () => ({
-  useAppDispatch: () => vi.fn(),
+const mockOpenAlbumAdd = vi.fn();
+
+vi.mock("@/src/hooks/useCatalogAlbumNavigation", () => ({
+  useCatalogAlbumNavigation: () => ({
+    openAlbumAdd: mockOpenAlbumAdd,
+  }),
 }));
 
 import { useCanEditCatalog } from "@/src/hooks/catalogHooks";

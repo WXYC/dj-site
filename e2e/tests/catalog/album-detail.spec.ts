@@ -45,12 +45,18 @@ const MOCK_METADATA_RESPONSE = {
  * Set up route interception for catalog and metadata APIs.
  * Ensures tests are deterministic regardless of backend seed data.
  */
+const MOCK_LIBRARY_CODE = "rock-RO-42-1";
+
 async function interceptAlbumApis(page: import("@playwright/test").Page): Promise<void> {
   await page.route("**/library/info**", async (route) => {
     const url = new URL(route.request().url());
     const albumId = url.searchParams.get("album_id");
+    const libraryCode = url.searchParams.get("library_code");
 
-    if (albumId === String(MOCK_ALBUM_ID)) {
+    if (
+      albumId === String(MOCK_ALBUM_ID) ||
+      libraryCode === MOCK_LIBRARY_CODE
+    ) {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -111,8 +117,8 @@ async function openAlbumViaCatalog(
   await searchInput.fill("Juana Molina");
   await expect(page.getByText("DOGA")).toBeVisible({ timeout: 10000 });
 
-  const infoButton = page.locator('button[aria-label="More information"]').first();
-  await infoButton.click();
+  const row = page.locator("tbody tr").filter({ hasText: "DOGA" }).first();
+  await row.dblclick();
 
   await albumDetail.waitForModal();
   await albumDetail.waitForAlbumLoaded();
@@ -157,7 +163,7 @@ test.describe("Album Detail Panel", () => {
       await interceptAlbumApis(page);
       await openAlbumViaCatalog(page, dashboard, albumDetail);
 
-      await expect(page.locator(".SecondSidebar table")).toBeVisible({ timeout: 10000 });
+      await expect(albumDetail.tracklist).toBeVisible({ timeout: 10000 });
       await expect(page.getByText("la paradoja")).toBeVisible();
       await expect(page.getByText("el desconfiado")).toBeVisible();
       await expect(page.getByText("vaca")).toBeVisible();
@@ -207,7 +213,7 @@ test.describe("Album Detail Panel", () => {
   });
 
   test.describe("Catalog Integration", () => {
-    test("should open album detail when clicking info icon on catalog result", async ({ page }) => {
+    test("should open album detail when double-clicking a catalog result row", async ({ page }) => {
       await interceptAlbumApis(page);
       await openAlbumViaCatalog(page, dashboard, albumDetail);
 
@@ -222,6 +228,37 @@ test.describe("Album Detail Panel", () => {
       await albumDetail.close();
 
       await dashboard.expectOnCatalog();
+    });
+  });
+
+  test.describe("Permalink URL", () => {
+    test("should open add modal at /dashboard/catalog/new", async ({ page }) => {
+      await interceptAlbumApis(page);
+      await page.goto("/dashboard/catalog/new");
+      await albumDetail.waitForModal();
+      await expect(page.getByTestId("catalog-add-modal")).toBeVisible();
+      await expect(page.getByTestId("catalog-add-artist-card")).toBeVisible();
+    });
+
+    test("should open edit modal at library code edit URL", async ({ page }) => {
+      await interceptAlbumApis(page);
+      await page.goto(`/dashboard/catalog/album/${MOCK_LIBRARY_CODE}/edit`);
+      await albumDetail.waitForModal();
+      await expect(page.getByTestId("catalog-edit-modal")).toBeVisible();
+    });
+    test("should open modal when navigating to library code URL", async ({ page }) => {
+      await interceptAlbumApis(page);
+      await albumDetail.goto(MOCK_LIBRARY_CODE);
+      await albumDetail.waitForModal();
+      await albumDetail.expectAlbumTitle("Juana Molina");
+      await albumDetail.expectAlbumTitle("DOGA");
+    });
+
+    test("should open modal when navigating to numeric album id URL", async ({ page }) => {
+      await interceptAlbumApis(page);
+      await albumDetail.goto(MOCK_ALBUM_ID);
+      await albumDetail.waitForModal();
+      await albumDetail.expectAlbumTitle("DOGA");
     });
   });
 });

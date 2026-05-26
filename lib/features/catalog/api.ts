@@ -152,9 +152,12 @@ export const catalogApi = createApi({
         response?.artists ? response : { artists: [] },
     }),
     getInformation: builder.query<AlbumEntry, AlbumRequestParams>({
-      query: ({ album_id }) => ({
+      query: (params) => ({
         url: "/info",
-        params: { album_id },
+        params:
+          "album_id" in params
+            ? { album_id: params.album_id }
+            : { library_code: params.library_code },
       }),
       transformResponse: (response: AlbumSearchResultJSON) =>
         convertToAlbumEntry(response),

@@ -1,6 +1,5 @@
 import { createAppSlice } from "@/lib/createAppSlice";
 import {
-  AlbumDetailPanelMode,
   ApplicationFrontendState,
   AuthStage,
   RightbarPanel,
@@ -29,12 +28,6 @@ export const applicationSlice = createAppSlice({
       state.rightbar.panel = action.payload;
       state.rightbar.sidebarOpen = true;
       state.rightbar.mini = false;
-    },
-    setAlbumDetailMode: (state, action: PayloadAction<AlbumDetailPanelMode>) => {
-      const panel = state.rightbar.panel;
-      if (panel.type === "album-detail") {
-        panel.mode = action.payload;
-      }
     },
     closePanel: (state) => {
       state.rightbar.panel = { type: "default" };

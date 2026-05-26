@@ -1,10 +1,18 @@
 import { requireAuth } from "@/lib/features/authentication/server-utils";
 import ThemedLayout, { DashboardLayoutProps } from "@/src/ThemedLayout";
+import { ReactNode } from "react";
 
-const Layout = async (props: DashboardLayoutProps): Promise<JSX.Element> => {
-  // Require authentication for all dashboard routes
+export type DashboardRootLayoutProps = DashboardLayoutProps & {
+  information?: ReactNode;
+};
+
+const Layout = async ({
+  modern,
+  classic,
+  information,
+}: DashboardRootLayoutProps): Promise<JSX.Element> => {
   await requireAuth();
-  return ThemedLayout(props);
+  return ThemedLayout({ modern, classic, information });
 };
 
 export default Layout;

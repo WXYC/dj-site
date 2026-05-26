@@ -9,8 +9,6 @@ import NowPlayingContent from "./NowPlayingContent";
 import RightbarContainer from "./RightbarContainer";
 import RightbarMobileClose from "./RightbarMobileClose";
 import AccountEditPanel from "./panels/AccountEditPanel";
-import AdminAddCatalogEntryPanel from "../admin/catalog/panels/AdminAddCatalogEntryPanel";
-import AlbumDetailPanel from "./panels/AlbumDetailPanel";
 import SettingsPanel from "./panels/SettingsPanel";
 
 function DefaultRightbarContent() {
@@ -27,14 +25,10 @@ function DefaultRightbarContent() {
 
 function RightbarPanelRouter({ panel }: { panel: Exclude<RightbarPanel, { type: "default" }> }) {
   switch (panel.type) {
-    case "album-detail":
-      return <AlbumDetailPanel albumId={panel.albumId} />;
     case "settings":
       return <SettingsPanel />;
     case "account-edit":
       return <AccountEditPanel />;
-    case "admin-catalog-add-entry":
-      return <AdminAddCatalogEntryPanel />;
   }
 }
 

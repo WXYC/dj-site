@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/lib/test-utils";
-import AdminAddCatalogEntryPanel from "./AdminAddCatalogEntryPanel";
+import CatalogAlbumAddForm from "@/src/components/experiences/modern/catalog/CatalogAlbumAddForm";
 
 const mockGenres = [{ id: 1, genre_name: "Rock" }];
 const mockFormats = [
@@ -44,34 +44,25 @@ vi.mock("@/src/hooks/useCatalogRotationMarking", () => ({
   }),
 }));
 
-describe("AdminAddCatalogEntryPanel", () => {
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    back: vi.fn(),
+  }),
+}));
+
+describe("CatalogAlbumAddForm", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it("renders section cards for library code, artist, album, and rotation", () => {
-    renderWithProviders(<AdminAddCatalogEntryPanel />);
+    renderWithProviders(<CatalogAlbumAddForm />);
 
-    expect(screen.getByText("Add to catalog")).toBeInTheDocument();
     expect(screen.getByTestId("catalog-add-library-code-card")).toBeInTheDocument();
     expect(screen.getByTestId("catalog-add-artist-card")).toBeInTheDocument();
     expect(screen.getByTestId("catalog-add-album-card")).toBeInTheDocument();
     expect(screen.getByTestId("catalog-add-rotation-card")).toBeInTheDocument();
-
-    expect(
-      screen.getByTestId("catalog-add-library-code-card").querySelector(
-        ".MuiTypography-title-sm",
-      ),
-    ).toHaveTextContent("Library code");
-
-    const cards = document.querySelectorAll(".MuiCard-root");
-    expect(cards.length).toBeGreaterThanOrEqual(4);
-  });
-
-  it("places code preview inside the library code card", () => {
-    renderWithProviders(<AdminAddCatalogEntryPanel />);
-
-    const libraryCard = screen.getByTestId("catalog-add-library-code-card");
-    expect(libraryCard.textContent).toContain("&&");
   });
 });

@@ -30,12 +30,6 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
   });
 
   describe("openPanel action", () => {
-    it("should set the panel state", () => {
-      const panel: RightbarPanel = { type: "album-detail", albumId: 42 };
-      const result = harness().reduce(actions.openPanel(panel));
-      expect(result.rightbar.panel).toEqual(panel);
-    });
-
     it("should auto-open the sidebar on mobile", () => {
       const result = harness().reduce(actions.openPanel({ type: "settings" }));
       expect(result.rightbar.sidebarOpen).toBe(true);
@@ -48,14 +42,6 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
       };
       const result = harness().reduce(actions.openPanel({ type: "settings" }), withMini);
       expect(result.rightbar.mini).toBe(false);
-    });
-
-    it("should overwrite the previous panel when switching", () => {
-      const result = harness().chain(
-        actions.openPanel({ type: "album-detail", albumId: 1 }),
-        actions.openPanel({ type: "album-detail", albumId: 2 }),
-      );
-      expect(result.rightbar.panel).toEqual({ type: "album-detail", albumId: 2 });
     });
 
     it("should carry account data for account-edit panel", () => {
@@ -71,32 +57,10 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
     });
   });
 
-  describe("setAlbumDetailMode action", () => {
-    it("should set mode on album-detail panel", () => {
-      const result = harness().chain(
-        actions.openPanel({ type: "album-detail", albumId: 42, mode: "edit" }),
-        actions.setAlbumDetailMode("view"),
-      );
-      expect(result.rightbar.panel).toEqual({
-        type: "album-detail",
-        albumId: 42,
-        mode: "view",
-      });
-    });
-
-    it("should no-op when panel is not album-detail", () => {
-      const result = harness().chain(
-        actions.openPanel({ type: "settings" }),
-        actions.setAlbumDetailMode("edit"),
-      );
-      expect(result.rightbar.panel).toEqual({ type: "settings" });
-    });
-  });
-
   describe("closePanel action", () => {
     it("should reset panel to default", () => {
       const result = harness().chain(
-        actions.openPanel({ type: "album-detail", albumId: 42 }),
+        actions.openPanel({ type: "settings" }),
         actions.closePanel(),
       );
       expect(result.rightbar.panel).toEqual({ type: "default" });
@@ -164,7 +128,7 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
       const result = harness().chain(
         actions.setRightbarMini(true),
         actions.toggleSidebar(),
-        actions.openPanel({ type: "album-detail", albumId: 42 }),
+        actions.openPanel({ type: "settings" }),
         actions.setAuthStage("forgot"),
         actions.reset()
       );
