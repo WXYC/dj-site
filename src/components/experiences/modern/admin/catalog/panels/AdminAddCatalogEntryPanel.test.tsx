@@ -67,22 +67,24 @@ describe("CatalogAlbumAddForm", () => {
     vi.clearAllMocks();
   });
 
-  it("renders wizard with artist step and code strip", () => {
+  it("renders a single outlined form card with wizard, code row, and CardActions", () => {
     renderWithProviders(<CatalogAlbumAddForm />);
 
     expect(screen.getByTestId("catalog-add-modal")).toBeInTheDocument();
+    expect(screen.getByTestId("catalog-entry-form-card")).toBeInTheDocument();
     expect(screen.getByTestId("catalog-add-code-strip")).toBeInTheDocument();
     expect(screen.getByTestId("catalog-add-wizard-steps")).toBeInTheDocument();
     expect(screen.getByTestId("catalog-add-artist-card")).toBeInTheDocument();
     expect(screen.getByTestId("catalog-add-wizard-next")).toBeDisabled();
+    expect(screen.getByTestId("catalog-add-wizard-next").closest(".MuiCardActions-root")).toBeTruthy();
   });
 
   it("keeps Next disabled until an artist is selected or created", async () => {
     const user = userEvent.setup();
     renderWithProviders(<CatalogAlbumAddForm />);
 
-    expect(screen.getByTestId("catalog-add-wizard-panel-artist")).toBeInTheDocument();
-    expect(screen.queryByTestId("catalog-add-wizard-panel-album")).not.toBeInTheDocument();
+    expect(screen.getByTestId("catalog-form-step-layer-artist")).toBeVisible();
+    expect(screen.getByTestId("catalog-form-step-layer-album")).not.toBeVisible();
 
     const genreSelect = screen.getByRole("combobox", { name: /genre/i });
     await user.click(genreSelect);

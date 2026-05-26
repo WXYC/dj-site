@@ -2,8 +2,9 @@
 
 import CatalogRotationBinPicker from "@/src/components/experiences/modern/admin/catalog/CatalogRotationBinPicker";
 import type { Rotation } from "@/lib/features/rotation/types";
-import { Typography } from "@mui/joy";
-import CatalogFormSection from "../CatalogFormSection";
+import { Box, Typography } from "@mui/joy";
+import CatalogFormFieldGroup from "../CatalogFormFieldGroup";
+import { catalogFormFullWidthSx } from "../catalogFormLayout";
 
 type CatalogEntryRotationSectionProps = {
   selectedBin: Rotation | null;
@@ -21,18 +22,20 @@ export default function CatalogEntryRotationSection({
   "data-testid": dataTestId = "catalog-form-rotation-section",
 }: CatalogEntryRotationSectionProps) {
   return (
-    <CatalogFormSection title="Rotation" data-testid={dataTestId}>
-      <CatalogRotationBinPicker
-        selectedBin={selectedBin}
-        onSelectBin={onSelectBin}
-        disabled={disabled}
-        showLabel={false}
-      />
-      {helperText ? (
-        <Typography level="body-xs" sx={{ color: "text.tertiary" }}>
-          {helperText}
-        </Typography>
-      ) : null}
-    </CatalogFormSection>
+    <CatalogFormFieldGroup data-testid={dataTestId}>
+      <Box sx={catalogFormFullWidthSx}>
+        <CatalogRotationBinPicker
+          selectedBin={selectedBin}
+          onSelectBin={onSelectBin}
+          disabled={disabled}
+          showLabel={false}
+        />
+        {helperText ? (
+          <Typography level="body-xs" sx={{ color: "text.tertiary" }}>
+            {helperText}
+          </Typography>
+        ) : null}
+      </Box>
+    </CatalogFormFieldGroup>
   );
 }

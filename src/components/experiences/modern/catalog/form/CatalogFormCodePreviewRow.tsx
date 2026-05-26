@@ -5,28 +5,23 @@ import AdminCatalogCodePreview, {
 } from "@/src/components/experiences/modern/admin/catalog/AdminCatalogCodePreview";
 import { Stack, Typography } from "@mui/joy";
 
-type CatalogFormCodeStripProps = AdminCatalogCodePreviewProps & {
+type CatalogFormCodePreviewRowProps = AdminCatalogCodePreviewProps & {
   summary?: string | null;
   "data-testid"?: string;
 };
 
-export default function CatalogFormCodeStrip({
+export default function CatalogFormCodePreviewRow({
   summary,
   "data-testid": dataTestId = "catalog-form-code-strip",
   ...previewProps
-}: CatalogFormCodeStripProps) {
+}: CatalogFormCodePreviewRowProps) {
   return (
     <Stack
       direction="row"
       alignItems="center"
       spacing={2}
       data-testid={dataTestId}
-      sx={{
-        py: 1,
-        px: 1.5,
-        borderRadius: "sm",
-        bgcolor: "background.level1",
-      }}
+      sx={{ py: 0.5 }}
     >
       <AdminCatalogCodePreview size="sm" {...previewProps} />
       {summary ? (

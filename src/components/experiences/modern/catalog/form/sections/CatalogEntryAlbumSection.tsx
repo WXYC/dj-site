@@ -2,7 +2,9 @@
 
 import type { LibraryFormatRow } from "@/lib/features/catalog/types";
 import CatalogEntryAlbumFields from "@/src/components/experiences/modern/admin/catalog/CatalogEntryAlbumFields";
-import CatalogFormSection from "../CatalogFormSection";
+import CatalogFormFieldGroup from "../CatalogFormFieldGroup";
+import { catalogFormFullWidthSx } from "../catalogFormLayout";
+import { Box } from "@mui/joy";
 
 type CatalogEntryAlbumSectionProps = {
   disabled: boolean;
@@ -24,26 +26,26 @@ type CatalogEntryAlbumSectionProps = {
   submitLabel?: string;
   submittingLabel?: string;
   hideSubmitButton?: boolean;
-  description?: string;
+  pairAlternateAndDisc?: boolean;
   "data-testid"?: string;
 };
 
 export default function CatalogEntryAlbumSection({
-  description = "Format, title, label, and other album metadata.",
+  pairAlternateAndDisc = false,
   "data-testid": dataTestId = "catalog-form-album-section",
   hideSubmitButton = false,
+  disabled,
   ...fieldsProps
 }: CatalogEntryAlbumSectionProps) {
   return (
-    <CatalogFormSection
-      title="Album"
-      description={description}
-      data-testid={dataTestId}
-    >
-      <CatalogEntryAlbumFields
-        {...fieldsProps}
-        hideSubmitButton={hideSubmitButton}
-      />
-    </CatalogFormSection>
+    <CatalogFormFieldGroup data-testid={dataTestId} disabled={disabled}>
+      <Box sx={catalogFormFullWidthSx}>
+        <CatalogEntryAlbumFields
+          {...fieldsProps}
+          hideSubmitButton={hideSubmitButton}
+          pairAlternateAndDisc={pairAlternateAndDisc}
+        />
+      </Box>
+    </CatalogFormFieldGroup>
   );
 }

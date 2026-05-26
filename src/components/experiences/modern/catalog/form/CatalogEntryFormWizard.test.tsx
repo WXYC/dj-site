@@ -4,7 +4,7 @@ import { renderWithProviders } from "@/lib/test-utils";
 import CatalogEntryFormWizard from "./CatalogEntryFormWizard";
 
 describe("CatalogEntryFormWizard", () => {
-  it("renders only the active step panel", () => {
+  it("shows only the active step layer while mounting all steps for stable height", () => {
     renderWithProviders(
       <CatalogEntryFormWizard
         step="artist"
@@ -14,8 +14,8 @@ describe("CatalogEntryFormWizard", () => {
       />,
     );
 
-    expect(screen.getByTestId("artist-only")).toBeInTheDocument();
-    expect(screen.queryByTestId("album-only")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("rotation-only")).not.toBeInTheDocument();
+    expect(screen.getByTestId("artist-only")).toBeVisible();
+    expect(screen.getByTestId("album-only")).not.toBeVisible();
+    expect(screen.getByTestId("rotation-only")).not.toBeVisible();
   });
 });

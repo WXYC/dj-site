@@ -2,7 +2,8 @@
 
 import type { LibraryFormatRow } from "@/lib/features/catalog/types";
 import { catalogModalSelectSlotProps } from "@/src/components/experiences/modern/catalog/form/catalogModalLayers";
-import { Button, FormControl, FormLabel, Input, Option, Select, Stack } from "@mui/joy";
+import { catalogFormAlternateDiscRowSx } from "@/src/components/experiences/modern/catalog/form/catalogFormLayout";
+import { Box, Button, FormControl, FormLabel, Input, Option, Select, Stack } from "@mui/joy";
 
 type CatalogEntryAlbumFieldsProps = {
   disabled: boolean;
@@ -24,6 +25,8 @@ type CatalogEntryAlbumFieldsProps = {
   submitLabel?: string;
   submittingLabel?: string;
   hideSubmitButton?: boolean;
+  /** Alternate artist 3/4 width beside disc quantity 1/4. */
+  pairAlternateAndDisc?: boolean;
 };
 
 export default function CatalogEntryAlbumFields({
@@ -46,7 +49,32 @@ export default function CatalogEntryAlbumFields({
   submitLabel = "Add album to catalog",
   submittingLabel,
   hideSubmitButton = false,
+  pairAlternateAndDisc = false,
 }: CatalogEntryAlbumFieldsProps) {
+  const alternateArtistControl = (
+    <FormControl sx={{ minWidth: 0 }}>
+      <FormLabel>Alternate artist display (optional)</FormLabel>
+      <Input
+        value={alternateArtist}
+        onChange={(e) => onAlternateArtistChange(e.target.value)}
+        disabled={disabled}
+      />
+    </FormControl>
+  );
+
+  const discQuantityControl = (
+    <FormControl sx={{ minWidth: 0 }}>
+      <FormLabel>Disc quantity</FormLabel>
+      <Input
+        type="number"
+        slotProps={{ input: { min: 1 } }}
+        value={discQuantity}
+        onChange={(e) => onDiscQuantityChange(e.target.value)}
+        disabled={disabled}
+      />
+    </FormControl>
+  );
+
   return (
     <Stack spacing={2} sx={{ opacity: disabled ? 0.5 : 1, pointerEvents: disabled ? "none" : "auto" }}>
       <FormControl required>
@@ -82,24 +110,17 @@ export default function CatalogEntryAlbumFields({
           disabled={disabled}
         />
       </FormControl>
-      <FormControl>
-        <FormLabel>Alternate artist display (optional)</FormLabel>
-        <Input
-          value={alternateArtist}
-          onChange={(e) => onAlternateArtistChange(e.target.value)}
-          disabled={disabled}
-        />
-      </FormControl>
-      <FormControl>
-        <FormLabel>Disc quantity</FormLabel>
-        <Input
-          type="number"
-          slotProps={{ input: { min: 1 } }}
-          value={discQuantity}
-          onChange={(e) => onDiscQuantityChange(e.target.value)}
-          disabled={disabled}
-        />
-      </FormControl>
+      {pairAlternateAndDisc ? (
+        <Box sx={catalogFormAlternateDiscRowSx}>
+          {alternateArtistControl}
+          {discQuantityControl}
+        </Box>
+      ) : (
+        <>
+          {alternateArtistControl}
+          {discQuantityControl}
+        </>
+      )}
       {hideSubmitButton ? null : (
         <Button
           loading={adding}

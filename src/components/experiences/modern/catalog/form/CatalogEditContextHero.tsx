@@ -6,17 +6,17 @@ import AdminCatalogCodePreview, {
 } from "@/src/components/experiences/modern/admin/catalog/AdminCatalogCodePreview";
 import { Box, Stack, Typography } from "@mui/joy";
 
-type CatalogEditContextHeaderProps = {
+type CatalogEditContextHeroProps = {
   album: AlbumEntry;
   artworkUrl: string;
   codePreview: AdminCatalogCodePreviewProps;
 };
 
-export default function CatalogEditContextHeader({
+export default function CatalogEditContextHero({
   album,
   artworkUrl,
   codePreview,
-}: CatalogEditContextHeaderProps) {
+}: CatalogEditContextHeroProps) {
   const displayArtist = album.album_artist ? "Various Artists" : album.artist.name;
 
   return (
@@ -25,7 +25,6 @@ export default function CatalogEditContextHeader({
       spacing={1.5}
       alignItems="center"
       data-testid="catalog-edit-context-header"
-      sx={{ py: 0.5 }}
     >
       <Box
         data-testid="catalog-edit-context-artwork"
