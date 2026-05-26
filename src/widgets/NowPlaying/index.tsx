@@ -4,9 +4,8 @@ import {
   useGetNowPlayingQuery,
   useWhoIsLiveQuery,
 } from "@/lib/features/flowsheet/api";
-import { liveUpdatesSlice } from "@/lib/features/flowsheet/live-updates-slice";
-import { useAppSelector } from "@/lib/hooks";
 import { useEffect, useRef, useState } from "react";
+import { useFlowsheetPollingInterval } from "@/src/hooks/useSSEConnection";
 import NowPlayingMain from "./Main";
 import NowPlayingMini from "./Mini";
 
@@ -37,13 +36,7 @@ export default function NowPlaying({ mini = false }: NowPlayingWidgetProps) {
   const onAirDJ = djsOnAirData?.onAir;
   const live = onAirDJ !== undefined && onAirDJ !== "Off Air" && !djError;
 
-  const sseConnected = useAppSelector(
-    liveUpdatesSlice.selectors.selectLiveUpdatesIsConnected
-  );
-  // TODO: if a second useGetNowPlayingQuery consumer appears, hoist this
-  //       SSE-aware polling-interval branch into a useNowPlaying() hook
-  //       paralleling useShowControl/useFlowsheet.
-  const nowPlayingPollingInterval = sseConnected ? 300000 : 60000;
+  const nowPlayingPollingInterval = useFlowsheetPollingInterval();
 
   const {
     data: latestEntry,

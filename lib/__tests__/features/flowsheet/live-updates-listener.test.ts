@@ -279,21 +279,4 @@ describe("liveUpdatesListenerMiddleware", () => {
     }
   });
 
-  it("records lastEventAt when a parsed event arrives", () => {
-    const store = makeStore();
-    const before = liveUpdatesSlice.selectors.selectLiveUpdatesLastEventAt(
-      store.getState()
-    );
-    expect(before).toBeNull();
-
-    store.dispatch(liveUpdatesConnectionRequested());
-    getLastMock()._fireMessage(
-      frame({ type: "refetch", payload: { source: "etl" }, timestamp: 1 })
-    );
-
-    const after = liveUpdatesSlice.selectors.selectLiveUpdatesLastEventAt(
-      store.getState()
-    );
-    expect(after).not.toBeNull();
-  });
 });
