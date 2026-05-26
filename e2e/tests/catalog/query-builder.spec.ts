@@ -72,8 +72,11 @@ test.describe("Catalog query builder", () => {
     await labelsOption.click();
     await secondInput.fill("Sonamos");
 
-    await expect(page.getByText("DOGA")).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText("Juana Molina")).toBeVisible();
+    const resultRow = page
+      .locator("#OrderTableContainer tbody tr")
+      .filter({ hasText: "DOGA" });
+    await expect(resultRow).toBeVisible({ timeout: 10000 });
+    await expect(resultRow.getByText("Juana Molina", { exact: true })).toBeVisible();
 
     await expect.poll(() => lastQ ?? "").toMatch(/artist:Juana Molina/);
     await expect.poll(() => lastQ ?? "").toMatch(/AND/);
