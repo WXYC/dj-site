@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
+import { isCompilationArtistName } from "@/lib/features/catalog/is-compilation-artist";
 import { useSearchLibraryQuery } from "@/lib/features/lml/api";
 
 const DEBOUNCE_MS = 350;
@@ -48,12 +49,15 @@ export function useLmlLibrarySearch({
     return () => clearTimeout(timer);
   }, [artist, album]);
 
+  const isCompilationQuery = isCompilationArtistName(artist);
+  const debouncedIsCompilation = isCompilationArtistName(debounced?.artist);
   const currentLength = artist.length + album.length;
-  const hasValidQuery = currentLength >= MIN_QUERY_LENGTH;
+  const hasValidQuery = currentLength >= MIN_QUERY_LENGTH && !isCompilationQuery;
   const debouncedLength = debounced
     ? debounced.artist.length + debounced.album.length
     : 0;
-  const skip = !debounced || debouncedLength < MIN_QUERY_LENGTH;
+  const skip =
+    !debounced || debouncedLength < MIN_QUERY_LENGTH || debouncedIsCompilation;
   const pendingDebounce =
     hasValidQuery &&
     (debounced === null ||
