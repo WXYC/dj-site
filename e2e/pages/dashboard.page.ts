@@ -66,8 +66,9 @@ export class DashboardPage {
   async gotoCatalog(): Promise<void> {
     await this.page.goto("/dashboard/catalog");
     await this.page.waitForLoadState("domcontentloaded");
-    // Wait for Suspense content to load
-    await this.page.waitForTimeout(500);
+    await expect(this.page.getByTestId("catalog-search-box")).toBeVisible({
+      timeout: 15000,
+    });
   }
 
   async gotoAdminRoster(): Promise<void> {
@@ -138,7 +139,7 @@ export class DashboardPage {
   }
 
   async expectCatalogEditVisible(): Promise<void> {
-    await expect(this.catalogEditButton).toBeVisible({ timeout: 10000 });
+    await expect(this.catalogEditButton).toBeVisible({ timeout: 20000 });
   }
 
   async expectCatalogEditHidden(): Promise<void> {

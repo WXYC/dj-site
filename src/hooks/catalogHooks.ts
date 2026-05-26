@@ -233,10 +233,13 @@ export function useCatalogQuerySearch() {
 
 export function useCanEditCatalog(): boolean {
   const { data, authenticating } = useAuthentication();
-  if (authenticating || !isAuthenticated(data) || !data.user) {
+  if (isAuthenticated(data) && data.user) {
+    return data.user.authority >= Authorization.MD;
+  }
+  if (authenticating) {
     return false;
   }
-  return data.user.authority >= Authorization.MD;
+  return false;
 }
 
 /**

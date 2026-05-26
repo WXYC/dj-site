@@ -49,7 +49,9 @@ test.describe("Catalog query builder", () => {
 
     const fieldSelect = page.getByTestId("catalog-search-field");
     await fieldSelect.click();
-    await page.getByRole("option", { name: "ARTISTS", exact: true }).click();
+    const artistsOption = page.getByRole("option", { name: "Artists", exact: true });
+    await artistsOption.waitFor({ state: "visible", timeout: 10000 });
+    await artistsOption.click();
 
     const firstInput = page.getByTestId("catalog-search-input");
     await firstInput.fill("Juana Molina");
@@ -60,9 +62,14 @@ test.describe("Catalog query builder", () => {
 
     const textboxes = page.getByRole("textbox");
     const secondInput = textboxes.nth(1);
-    const row1FieldCombo = page.getByRole("combobox").filter({ hasText: "ARTISTS" }).last();
+    const row1FieldCombo = page
+      .getByRole("combobox")
+      .filter({ hasText: "Artists" })
+      .last();
     await row1FieldCombo.click();
-    await page.getByRole("option", { name: "LABELS", exact: true }).click();
+    const labelsOption = page.getByRole("option", { name: "Labels", exact: true });
+    await labelsOption.waitFor({ state: "visible", timeout: 10000 });
+    await labelsOption.click();
     await secondInput.fill("Sonamos");
 
     await expect(page.getByText("DOGA")).toBeVisible({ timeout: 10000 });
