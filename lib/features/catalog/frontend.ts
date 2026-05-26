@@ -5,6 +5,7 @@ import type {
   CatalogAlbumRotation,
   CatalogFilters,
   CatalogFrontendState,
+  CatalogResultContextMenuState,
   CatalogSearchRow,
   CatalogSortBy,
   CatalogSortOrder,
@@ -31,6 +32,7 @@ export const defaultCatalogFrontendState: CatalogFrontendState = {
   browseEngaged: false,
   lastPatchedSearchResult: null,
   rotationByAlbumId: {},
+  resultContextMenu: null,
 };
 
 export const catalogSlice = createAppSlice({
@@ -101,6 +103,15 @@ export const catalogSlice = createAppSlice({
     clearAlbumRotation: (state, action: PayloadAction<number>) => {
       delete state.rotationByAlbumId[action.payload];
     },
+    openResultContextMenu: (
+      state,
+      action: PayloadAction<CatalogResultContextMenuState>,
+    ) => {
+      state.resultContextMenu = action.payload;
+    },
+    closeResultContextMenu: (state) => {
+      state.resultContextMenu = null;
+    },
     reset: () => defaultCatalogFrontendState,
   },
   selectors: {
@@ -114,5 +125,6 @@ export const catalogSlice = createAppSlice({
     getLastPatchedSearchResult: (state) => state.lastPatchedSearchResult,
     getAlbumRotation: (state, albumId: number) =>
       state.rotationByAlbumId[albumId],
+    getResultContextMenu: (state) => state.resultContextMenu,
   },
 });

@@ -374,13 +374,25 @@ describe("CatalogResult context menu", () => {
     renderCatalogRow();
     fireEvent.contextMenu(document.querySelector("tbody tr")!);
     expect(screen.getByText("Edit catalog entry")).toBeInTheDocument();
+  });
 
-    vi.mocked(useCanEditCatalog).mockReturnValue(false);
-    renderCatalogRow(createTestAlbum({ id: 7002 }));
-    fireEvent.contextMenu(document.querySelectorAll("tbody tr")[1]!);
-    const menus = screen.getAllByRole("menu");
-    const lastMenu = menus[menus.length - 1];
-    expect(lastMenu).not.toHaveTextContent("Edit catalog entry");
+  it("replaces the open menu when right-clicking another row", () => {
+    const { store } = renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={createTestAlbum({ id: 7001 })} />
+          <CatalogResult album={createTestAlbum({ id: 7002 })} />
+        </tbody>
+      </table>,
+    );
+    const rows = document.querySelectorAll("tbody tr");
+    fireEvent.contextMenu(rows[0]!);
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    expect(store.getState().catalog.resultContextMenu?.albumId).toBe(7001);
+
+    fireEvent.contextMenu(rows[1]!);
+    expect(screen.getAllByRole("menu")).toHaveLength(1);
+    expect(store.getState().catalog.resultContextMenu?.albumId).toBe(7002);
   });
 
   it("opens album detail in edit mode from the edit catalog entry control", () => {

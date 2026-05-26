@@ -19,12 +19,19 @@ import {
   catalogFieldSelectSx,
   catalogInFieldClusterSx,
   catalogInLabelSx,
+  catalogSearchActionSlotSx,
   catalogSearchBoxSx,
   catalogSearchFiltersGutterSx,
+  catalogSearchIconLeadingSlotSx,
   catalogSearchIconSx,
+  catalogSearchInputSlotSx,
+  catalogSearchLeadingSlotSx,
+  catalogSearchOperatorSelectButtonSx,
+  catalogSearchOperatorColWidth,
+  catalogSearchRowColumnsSx,
+  catalogSearchRowRevealSx,
   catalogSearchRowSx,
-  catalogSearchRowsSx,
-  SEARCH_ADVANCED_ROW_HEIGHT_REM,
+  catalogSearchRowsAnimatedSx,
 } from "./catalogSearchBoxStyles";
 
 const FIELD_OPTIONS: { value: CatalogSearchField; label: string }[] = [
@@ -111,6 +118,7 @@ function CatalogSearchInFieldCluster({
 function CatalogSearchRowSegment({
   row,
   isFirst,
+  multiRow,
   showAdd,
   showRemove,
   onAdd,
@@ -119,6 +127,7 @@ function CatalogSearchRowSegment({
 }: {
   row: CatalogSearchRow;
   isFirst: boolean;
+  multiRow: boolean;
   showAdd: boolean;
   showRemove: boolean;
   onAdd: () => void;
@@ -126,19 +135,16 @@ function CatalogSearchRowSegment({
   updateRow: (id: string, updates: Partial<CatalogSearchRow>) => void;
 }) {
   const hasValue = row.value !== "";
+  const operatorCol = catalogSearchOperatorColWidth(multiRow);
 
   return (
-    <Box sx={catalogSearchRowSx}>
+    <Box sx={{ ...catalogSearchRowSx, ...catalogSearchRowColumnsSx(operatorCol) }}>
       <Box
-        sx={{
-          flex: 1,
-          display: "flex",
-          alignItems: "center",
-          minWidth: 0,
-          gap: 0.5,
-        }}
+        sx={
+          isFirst ? catalogSearchIconLeadingSlotSx : catalogSearchLeadingSlotSx
+        }
       >
-        {!isFirst && (
+        {!isFirst ? (
           <Select
             value={row.operator}
             onChange={(_, value) =>
@@ -147,7 +153,7 @@ function CatalogSearchRowSegment({
             size="sm"
             variant="plain"
             color="primary"
-            sx={{ minWidth: 72, flexShrink: 0 }}
+            sx={{ width: "100%", minWidth: 0 }}
             slotProps={{
               button: { onMouseDown: (e) => e.stopPropagation() },
               listbox: { onClick: (e) => e.stopPropagation() },
@@ -159,14 +165,14 @@ function CatalogSearchRowSegment({
               </Option>
             ))}
           </Select>
-        )}
-
-        {isFirst && (
+        ) : (
           <Box sx={catalogSearchIconSx}>
             <Troubleshoot sx={{ fontSize: "1.25rem" }} />
           </Box>
         )}
+      </Box>
 
+      <Box sx={catalogSearchInputSlotSx}>
         <input
           data-testid={isFirst ? "catalog-search-input" : undefined}
           type="text"
@@ -183,7 +189,7 @@ function CatalogSearchRowSegment({
             color="neutral"
             size="sm"
             aria-label="Clear search"
-            sx={{ "--IconButton-size": "1.75rem" }}
+            sx={{ "--IconButton-size": "1.75rem", flexShrink: 0 }}
             onClick={() => updateRow(row.id, { value: "", exact: false })}
           >
             <Cancel fontSize="small" />
@@ -196,39 +202,42 @@ function CatalogSearchRowSegment({
         testId={isFirst ? "catalog-search-field" : undefined}
       />
 
-      {isFirst && showAdd && (
-        <IconButton
-          data-testid="catalog-search-add-row"
-          size="sm"
-          variant="plain"
-          color="primary"
-          aria-label="Add row"
-          sx={{ "--IconButton-size": "1.75rem" }}
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
-            onAdd();
-          }}
-        >
-          <Add sx={{ fontSize: "1.125rem" }} />
-        </IconButton>
-      )}
+      <Box sx={catalogSearchActionSlotSx}>
+        {isFirst && showAdd && (
+          <IconButton
+            data-testid="catalog-search-add-row"
+            size="sm"
+            variant="plain"
+            color="primary"
+            aria-label="Add row"
+            sx={{ "--IconButton-size": "1.75rem" }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onAdd();
+            }}
+          >
+            <Add sx={{ fontSize: "1.125rem" }} />
+          </IconButton>
+        )}
 
-      {!isFirst && showRemove && (
-        <IconButton
-          size="sm"
-          variant="plain"
-          color="danger"
-          aria-label="Remove row"
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove();
-          }}
-        >
-          <Remove fontSize="small" />
-        </IconButton>
-      )}
+        {!isFirst && showRemove && (
+          <IconButton
+            size="sm"
+            variant="plain"
+            color="danger"
+            aria-label="Remove row"
+            sx={{ "--IconButton-size": "1.75rem" }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove();
+            }}
+          >
+            <Remove fontSize="small" />
+          </IconButton>
+        )}
+      </Box>
     </Box>
   );
 }
@@ -241,17 +250,6 @@ export default function QueryBuilder({ color = "primary" }: QueryBuilderProps) {
   const { rows, addRow, removeRow, updateRow } = useCatalogQuerySearch();
 
   const multiRow = rows.length > 1;
-  const searchRowsSizeSx = multiRow
-    ? {
-        minHeight: `${rows.length * SEARCH_ADVANCED_ROW_HEIGHT_REM}rem`,
-        paddingBlock: "0.375rem",
-        transition:
-          "min-height 0.25s ease-in-out, padding-block 0.25s ease-in-out",
-      }
-    : {
-        minHeight: "unset",
-        paddingBlock: "0.25rem",
-      };
 
   return (
     <Box sx={{ py: 0.5, flexShrink: 0, minWidth: 0 }}>
@@ -263,15 +261,19 @@ export default function QueryBuilder({ color = "primary" }: QueryBuilderProps) {
         }}
         suppressHydrationWarning
       >
-        <Box sx={{ ...catalogSearchRowsSx, ...searchRowsSizeSx }}>
+        <Box sx={catalogSearchRowsAnimatedSx(rows.length)}>
           {rows.map((row, index) => {
             const isFirst = index === 0;
             return (
-              <Box key={row.id}>
+              <Box
+                key={row.id}
+                sx={index > 0 ? catalogSearchRowRevealSx : undefined}
+              >
                 {index > 0 && <Divider sx={{ my: 0.25 }} />}
                 <CatalogSearchRowSegment
                   row={row}
                   isFirst={isFirst}
+                  multiRow={multiRow}
                   showAdd={isFirst}
                   showRemove={!isFirst}
                   onAdd={addRow}

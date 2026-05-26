@@ -15,8 +15,10 @@ import {
   ROTATION_BINS,
   ROTATION_BIN_LABELS,
 } from "@/src/utilities/modern/rotationBinColors";
+import { catalogSlice } from "@/lib/features/catalog/frontend";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import type { VirtualElement } from "@popperjs/core";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import type { CatalogResultActions } from "./useCatalogResultActions";
 
@@ -42,25 +44,36 @@ function contextMenuVirtualAnchor(top: number, left: number): VirtualElement {
   };
 }
 
-export function useCatalogResultContextMenu() {
-  const [anchorPosition, setAnchorPosition] =
-    useState<ContextMenuAnchor | null>(null);
+export function useCatalogResultContextMenu(albumId: number) {
+  const dispatch = useAppDispatch();
+  const menu = useAppSelector(catalogSlice.selectors.getResultContextMenu);
+  const isOpen = menu?.albumId === albumId;
 
-  const onContextMenu = useCallback((event: React.MouseEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    setAnchorPosition({
-      top: event.clientY,
-      left: event.clientX,
-    });
-  }, []);
+  const onContextMenu = useCallback(
+    (event: React.MouseEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      dispatch(
+        catalogSlice.actions.openResultContextMenu({
+          albumId,
+          top: event.clientY,
+          left: event.clientX,
+        }),
+      );
+    },
+    [albumId, dispatch],
+  );
 
   const onClose = useCallback(() => {
-    setAnchorPosition(null);
-  }, []);
+    dispatch(catalogSlice.actions.closeResultContextMenu());
+  }, [dispatch]);
+
+  const anchorPosition: ContextMenuAnchor | null = isOpen
+    ? { top: menu.top, left: menu.left }
+    : null;
 
   return {
-    open: anchorPosition !== null,
+    open: isOpen,
     anchorPosition,
     onContextMenu,
     onClose,

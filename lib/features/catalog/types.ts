@@ -220,9 +220,18 @@ export type CatalogAlbumRotation = {
   rotation_id: number | undefined;
 };
 
+/** Open catalog result row context menu (at most one globally). */
+export type CatalogResultContextMenuState = {
+  albumId: number;
+  top: number;
+  left: number;
+};
+
 export type CatalogFrontendState = CatalogSearchState & {
   /** Latest album saved from catalog edit; drives in-memory search list refresh. */
   lastPatchedSearchResult: AlbumEntry | null;
   /** Per-album rotation after apply or hydrate; ties rightbar and catalog results together. */
   rotationByAlbumId: Record<number, CatalogAlbumRotation>;
+  /** Which search result row owns the open context menu, if any. */
+  resultContextMenu: CatalogResultContextMenuState | null;
 };
