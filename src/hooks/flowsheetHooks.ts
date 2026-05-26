@@ -14,6 +14,7 @@ import {
 import { convertQueryToSubmission } from "@/lib/features/flowsheet/conversions";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { compareEntriesNewestFirst } from "@/lib/features/flowsheet/infinite-cache";
+import { liveUpdatesSlice } from "@/lib/features/flowsheet/live-updates-slice";
 import { partitionFlowsheetEntries } from "@/lib/features/flowsheet/partition";
 import {
   FlowsheetEntry,
@@ -58,6 +59,14 @@ export function selectFlowsheetMutationPending(state: RootState): boolean {
 
 export const useShowControl = () => {
   const { loading: userloading, info: userData } = useRegistry();
+  const sseConnected = useAppSelector(
+    liveUpdatesSlice.selectors.selectLiveUpdatesIsConnected
+  );
+  // Slow getInfiniteEntries polling to a 5-min safety poll when SSE is
+  // actively connected. RTK Query takes the MIN pollingInterval across
+  // subscribers, so `useFlowsheet` must adopt the same branch — see the
+  // matching read inside that hook.
+  const flowsheetPollingInterval = sseConnected ? 300000 : 60000;
 
   const {
     data: liveList,
@@ -72,7 +81,7 @@ export const useShowControl = () => {
     isSuccess: entriesQuerySuccess,
   } = useGetInfiniteEntriesInfiniteQuery(undefined, {
     skip: !userData || userloading,
-    pollingInterval: 60000, // Poll every 60 seconds to keep flowsheet updated
+    pollingInterval: flowsheetPollingInterval,
   });
 
   // Flatten all pages into a single sorted array
@@ -229,6 +238,12 @@ export const useFlowsheetSearch = () => {
 export const useFlowsheet = () => {
   const { loading: userloading, info: userData } = useRegistry();
   const dispatch = useAppDispatch();
+  const sseConnected = useAppSelector(
+    liveUpdatesSlice.selectors.selectLiveUpdatesIsConnected
+  );
+  // Mirror `useShowControl` — RTK Query uses the MIN pollingInterval across
+  // active subscribers, so both must branch on `sseConnected` or 60s wins.
+  const flowsheetPollingInterval = sseConnected ? 300000 : 60000;
 
   const {
     data: infiniteData,
@@ -240,7 +255,7 @@ export const useFlowsheet = () => {
     fetchNextPage,
   } = useGetInfiniteEntriesInfiniteQuery(undefined, {
     skip: !userData || userloading,
-    pollingInterval: 60000, // Poll every 60 seconds to keep flowsheet updated
+    pollingInterval: flowsheetPollingInterval,
   });
 
   // Flatten all pages into a single deduplicated, sorted array

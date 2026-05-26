@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { afterAll, afterEach, beforeAll, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, vi } from "vitest";
 import { server } from "@/lib/test-utils/msw/server";
 
 // Default the backend URL so that any module reading
@@ -71,3 +71,51 @@ global.IntersectionObserver = class IntersectionObserver {
     return [];
   }
 } as unknown as typeof IntersectionObserver;
+
+// Mock EventSource (jsdom doesn't ship one). The live-updates listener
+// middleware would throw `ReferenceError: EventSource is not defined` the
+// moment a test caused it to instantiate one. Test assertions should use the
+// static readyState constants — `EventSource.CONNECTING` etc — not magic
+// numbers, so the intent reads cleanly.
+class MockEventSource implements Partial<EventSource> {
+  static CONNECTING = 0 as const;
+  static OPEN = 1 as const;
+  static CLOSED = 2 as const;
+  readyState: 0 | 1 | 2 = 0;
+  url: string;
+  onopen: ((this: EventSource, ev: Event) => unknown) | null = null;
+  onmessage: ((this: EventSource, ev: MessageEvent) => unknown) | null = null;
+  onerror: ((this: EventSource, ev: Event) => unknown) | null = null;
+  constructor(url: string) {
+    this.url = url;
+    MockEventSource._instances.push(this);
+  }
+  close() {
+    this.readyState = 2;
+  }
+  // Test helpers (not part of the EventSource spec):
+  static _instances: MockEventSource[] = [];
+  static _last(): MockEventSource | undefined {
+    return this._instances[this._instances.length - 1];
+  }
+  _fireOpen() {
+    this.readyState = 1;
+    this.onopen?.call(this as never, new Event("open"));
+  }
+  _fireMessage(data: string) {
+    this.onmessage?.call(
+      this as never,
+      new MessageEvent("message", { data })
+    );
+  }
+  _fireError(readyState: 0 | 2) {
+    this.readyState = readyState;
+    this.onerror?.call(this as never, new Event("error"));
+  }
+}
+vi.stubGlobal("EventSource", MockEventSource);
+beforeEach(() => {
+  MockEventSource._instances = [];
+});
+
+export { MockEventSource };

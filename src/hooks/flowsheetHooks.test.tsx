@@ -10,6 +10,7 @@ import {
 } from "./flowsheetHooks";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
+import { liveUpdatesSlice } from "@/lib/features/flowsheet/live-updates-slice";
 import {
   createHookWrapper,
   createTestFlowsheetEntry,
@@ -150,7 +151,11 @@ vi.mock("sonner", () => ({
 }));
 
 const createWrapper = () =>
-  createHookWrapper({ flowsheet: flowsheetSlice, catalog: catalogSlice });
+  createHookWrapper({
+    flowsheet: flowsheetSlice,
+    catalog: catalogSlice,
+    liveUpdates: liveUpdatesSlice,
+  });
 
 describe("flowsheetHooks", () => {
   beforeEach(() => {
@@ -978,7 +983,7 @@ describe("flowsheetHooks", () => {
       // row-click bypass of the form's HTML5 validation; see the
       // "song-title validation" describe block below).
       const wrapper = createHookWrapper(
-        { flowsheet: flowsheetSlice },
+        { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
         {
           flowsheet: {
             ...flowsheetSlice.getInitialState(),
@@ -1060,7 +1065,7 @@ describe("flowsheetHooks", () => {
     // form's implicit submit exposes when Ctrl+Enter is pressed quickly.
     it("routes submission to queue even when the keydown state hasn't been observed yet", () => {
       const wrapper = createHookWrapper(
-        { flowsheet: flowsheetSlice },
+        { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
         {
           flowsheet: {
             ...flowsheetSlice.getInitialState(),
@@ -1106,7 +1111,7 @@ describe("flowsheetHooks", () => {
 
       // Create wrapper with preloaded state where selectedResult > 0
       const customWrapper = createHookWrapper(
-        { flowsheet: flowsheetSlice },
+        { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
         {
           flowsheet: {
             ...flowsheetSlice.getInitialState(),
@@ -1153,7 +1158,7 @@ describe("flowsheetHooks", () => {
       });
 
       const customWrapper = createHookWrapper(
-        { flowsheet: flowsheetSlice },
+        { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
         {
           flowsheet: {
             ...flowsheetSlice.getInitialState(),
@@ -1188,7 +1193,7 @@ describe("flowsheetHooks", () => {
       });
 
       const customWrapper = createHookWrapper(
-        { flowsheet: flowsheetSlice },
+        { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
         {
           flowsheet: {
             ...flowsheetSlice.getInitialState(),
@@ -1221,7 +1226,7 @@ describe("flowsheetHooks", () => {
       // defensively — and the fix touches both arms of the memo, so both
       // arms need coverage to prevent a future regression in either branch.
       const customWrapper = createHookWrapper(
-        { flowsheet: flowsheetSlice },
+        { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
         {
           flowsheet: {
             ...flowsheetSlice.getInitialState(),
@@ -1264,7 +1269,7 @@ describe("flowsheetHooks", () => {
       // When selectedEntry exists but has no artist/title/label,
       // it should fall back to the user's entered values
       const customWrapper = createHookWrapper(
-        { flowsheet: flowsheetSlice },
+        { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
         {
           flowsheet: {
             ...flowsheetSlice.getInitialState(),
@@ -1317,7 +1322,7 @@ describe("flowsheetHooks", () => {
 
       it("rejects submission when song is empty and does not call addToFlowsheet", async () => {
         const wrapper = createHookWrapper(
-          { flowsheet: flowsheetSlice },
+        { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
           mkPreloaded("")
         );
 
@@ -1339,7 +1344,7 @@ describe("flowsheetHooks", () => {
 
       it("rejects submission when song is whitespace-only", async () => {
         const wrapper = createHookWrapper(
-          { flowsheet: flowsheetSlice },
+        { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
           mkPreloaded("   ")
         );
 
@@ -1359,7 +1364,7 @@ describe("flowsheetHooks", () => {
 
       it("submits normally when song is present", async () => {
         const wrapper = createHookWrapper(
-          { flowsheet: flowsheetSlice },
+        { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
           mkPreloaded("la paradoja")
         );
 
@@ -1392,7 +1397,7 @@ describe("flowsheetHooks", () => {
       });
 
       const customWrapper = createHookWrapper(
-        { flowsheet: flowsheetSlice },
+        { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
         {
           flowsheet: {
             ...flowsheetSlice.getInitialState(),
