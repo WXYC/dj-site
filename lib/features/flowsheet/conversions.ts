@@ -10,10 +10,9 @@ import {
   OnAirDJResponse,
 } from "./types";
 
-/** Single place for "DJ A, DJ B" on-air string (WhoIsLive + optimistic patches). */
 export function formatOnAirSummary(djs: OnAirDJResponse[]): string {
   if (!djs.length) return OFF_AIR_LABEL;
-  return djs.map((dj) => `DJ ${dj.dj_name}`).join(", ");
+  return djs.map((dj) => dj.dj_name).join(", ");
 }
 
 export function convertQueryToSubmission(

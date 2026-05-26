@@ -144,7 +144,7 @@ describe("flowsheet conversions", () => {
       const result = convertDJsOnAir(response);
 
       expect(result.djs).toHaveLength(1);
-      expect(result.onAir).toBe("DJ Cool DJ");
+      expect(result.onAir).toBe("Cool DJ");
     });
 
     it("should format multiple DJs on air", () => {
@@ -155,7 +155,7 @@ describe("flowsheet conversions", () => {
       const result = convertDJsOnAir(response);
 
       expect(result.djs).toHaveLength(2);
-      expect(result.onAir).toBe("DJ First DJ, DJ Second DJ");
+      expect(result.onAir).toBe("First DJ, Second DJ");
     });
 
     it("should preserve original DJ response objects", () => {

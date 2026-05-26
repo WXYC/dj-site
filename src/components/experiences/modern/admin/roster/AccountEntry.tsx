@@ -88,7 +88,7 @@ export const AccountEntry = ({
       </td>
       <td>{account.userName}</td>
       <td>
-        {account.djName && account.djName.length > 0 && "DJ"} {account.djName ?? ""}
+        {account.djName ?? ""}
       </td>
       <td>{account.email}</td>
       <td>

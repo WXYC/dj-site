@@ -258,8 +258,8 @@ describe("NowPlayingMini", () => {
         { id: "2", dj_name: "DJ Hot" },
       ];
       render(<NowPlayingMini {...createDefaultProps({ live: true, onAirDJs: djs })} />);
-      expect(screen.getByText("DJ DJ Cool")).toBeInTheDocument();
-      expect(screen.getByText("DJ DJ Hot")).toBeInTheDocument();
+      expect(screen.getByText("DJ Cool")).toBeInTheDocument();
+      expect(screen.getByText("DJ Hot")).toBeInTheDocument();
     });
 
     it("should render Chip component for each DJ", () => {

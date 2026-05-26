@@ -46,7 +46,7 @@ export default function LeftbarLogout({ user }: { user: User }): JSX.Element {
                 </Box>
               )}
               {user?.djName && (
-                <Typography level="body-lg">DJ {user.djName}</Typography>
+                <Typography level="body-lg">{user.djName}</Typography>
               )}
             </Stack>
           )}
