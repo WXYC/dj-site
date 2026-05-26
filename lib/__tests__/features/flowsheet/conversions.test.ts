@@ -140,22 +140,22 @@ describe("flowsheet conversions", () => {
     });
 
     it("should format single DJ on air", () => {
-      const response = [createTestOnAirDJResponse({ dj_name: "Cool DJ" })];
+      const response = [createTestOnAirDJResponse({ dj_name: "Turncoat" })];
       const result = convertDJsOnAir(response);
 
       expect(result.djs).toHaveLength(1);
-      expect(result.onAir).toBe("Cool DJ");
+      expect(result.onAir).toBe("Turncoat");
     });
 
     it("should format multiple DJs on air", () => {
       const response = [
-        createTestOnAirDJResponse({ id: "1", dj_name: "First DJ" }),
-        createTestOnAirDJResponse({ id: "2", dj_name: "Second DJ" }),
+        createTestOnAirDJResponse({ id: "1", dj_name: "Turncoat" }),
+        createTestOnAirDJResponse({ id: "2", dj_name: "desire path" }),
       ];
       const result = convertDJsOnAir(response);
 
       expect(result.djs).toHaveLength(2);
-      expect(result.onAir).toBe("First DJ, Second DJ");
+      expect(result.onAir).toBe("Turncoat, desire path");
     });
 
     it("should preserve original DJ response objects", () => {
