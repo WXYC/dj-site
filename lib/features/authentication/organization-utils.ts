@@ -1,6 +1,7 @@
-import { authClient, authBaseURL } from "./client";
+import { jwtDecode } from "jwt-decode";
+import { authClient, authBaseURL, getJWTToken } from "./client";
 import { getAppOrganizationId, getAppOrganizationIdClient } from "./organization-config";
-import { WXYCRole } from "./types";
+import { BetterAuthJwtPayload, WXYCRole } from "./types";
 
 /**
  * Module-level cache for the organization ID resolved via the admin endpoint.
@@ -78,6 +79,27 @@ async function resolveOrganizationIdClient(
 }
 
 /**
+ * Read the current user's organization role from a better-auth JWT.
+ * JWTs include member role for all authenticated users; organization.listMembers
+ * is restricted to admins and returns nothing useful for DJs and music directors.
+ */
+export function organizationRoleFromJwtToken(
+  token: string,
+  userId: string
+): WXYCRole | undefined {
+  try {
+    const decoded = jwtDecode<BetterAuthJwtPayload>(token);
+    const tokenUserId = decoded.id || decoded.sub;
+    if (!tokenUserId || tokenUserId !== userId || !decoded.role) {
+      return undefined;
+    }
+    return normalizeRole(decoded.role) as WXYCRole;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Client-side: Get user's role in a specific organization
  * @param userId - The user ID to look up
  * @param organizationSlugOrId - The organization slug (e.g., "wxyc") or ID
@@ -88,6 +110,14 @@ export async function getUserRoleInOrganizationClient(
   organizationSlugOrId: string
 ): Promise<WXYCRole | undefined> {
   try {
+    const jwtToken = await getJWTToken();
+    if (jwtToken) {
+      const jwtRole = organizationRoleFromJwtToken(jwtToken, userId);
+      if (jwtRole) {
+        return jwtRole;
+      }
+    }
+
     // Resolve slug to ID if needed
     const organizationId = await resolveOrganizationIdClient(organizationSlugOrId);
 
