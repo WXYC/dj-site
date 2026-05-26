@@ -139,7 +139,16 @@ export class DashboardPage {
   }
 
   async expectCatalogEditVisible(): Promise<void> {
-    await expect(this.catalogEditButton).toBeVisible({ timeout: 20000 });
+    await this.page
+      .waitForResponse(
+        (response) =>
+          response.url().includes("/auth/token") && response.status() === 200,
+        { timeout: 15000 }
+      )
+      .catch(() => {
+        // Role may already be resolved from session; still assert the control.
+      });
+    await expect(this.catalogEditButton).toBeVisible({ timeout: 15000 });
   }
 
   async expectCatalogEditHidden(): Promise<void> {

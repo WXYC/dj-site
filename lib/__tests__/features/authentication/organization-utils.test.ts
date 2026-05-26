@@ -34,6 +34,7 @@ vi.stubGlobal("fetch", mockFetch);
 import {
   getAppOrganizationId,
   getAppOrganizationIdClient,
+  fetchOrganizationRoleForUserClient,
   getUserRoleInOrganizationClient,
   organizationRoleFromJwtToken,
   resolveOrganizationIdAdmin,
@@ -325,6 +326,20 @@ describe("organization-utils", () => {
       const token = `header.${payload}.sig`;
 
       expect(organizationRoleFromJwtToken(token, "user-123")).toBeUndefined();
+    });
+  });
+
+  describe("fetchOrganizationRoleForUserClient", () => {
+    it("should return role from JWT without an organization slug", async () => {
+      const payload = Buffer.from(
+        JSON.stringify({ sub: "user-123", role: "musicDirector" })
+      ).toString("base64url");
+      mockGetJWTToken.mockResolvedValue(`header.${payload}.sig`);
+
+      const result = await fetchOrganizationRoleForUserClient("user-123");
+
+      expect(result).toBe("musicDirector");
+      expect(mockClientListMembers).not.toHaveBeenCalled();
     });
   });
 

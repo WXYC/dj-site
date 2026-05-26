@@ -17,11 +17,13 @@ import {
   CatalogSortOrder,
   LibraryQueryParams,
 } from "@/lib/features/catalog/types";
-import { isAuthenticated } from "@/lib/features/authentication/types";
+import { authClient, getJWTToken } from "@/lib/features/authentication/client";
+import { organizationRoleFromJwtToken } from "@/lib/features/authentication/organization-utils";
+import { isAuthenticated, roleToAuthorization } from "@/lib/features/authentication/types";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useGetRotationQuery } from "@/lib/features/rotation/api";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuthentication } from "./authenticationHooks";
 import { filterBySearchTerms } from "@/src/utilities/filterBySearchTerms";
 import {
@@ -232,12 +234,42 @@ export function useCatalogQuerySearch() {
 }
 
 export function useCanEditCatalog(): boolean {
-  const { data, authenticating } = useAuthentication();
+  const { data: session } = authClient.useSession();
+  const { data } = useAuthentication();
+  const [jwtAllowsEdit, setJwtAllowsEdit] = useState(false);
+
+  const userId =
+    session?.user?.id ??
+    (isAuthenticated(data) ? data.user?.id : undefined);
+
+  useEffect(() => {
+    if (!userId) {
+      setJwtAllowsEdit(false);
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const token = await getJWTToken();
+      if (cancelled || !token) {
+        return;
+      }
+      const role = organizationRoleFromJwtToken(token, userId);
+      if (!cancelled && role) {
+        setJwtAllowsEdit(roleToAuthorization(role) >= Authorization.MD);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  if (jwtAllowsEdit) {
+    return true;
+  }
   if (isAuthenticated(data) && data.user) {
     return data.user.authority >= Authorization.MD;
-  }
-  if (authenticating) {
-    return false;
   }
   return false;
 }

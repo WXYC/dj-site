@@ -100,6 +100,30 @@ export function organizationRoleFromJwtToken(
 }
 
 /**
+ * Resolve the current user's organization role on the client.
+ * Prefers the JWT (available to every authenticated member); falls back to
+ * organization.listMembers when a slug/id is provided (admin-only in practice).
+ */
+export async function fetchOrganizationRoleForUserClient(
+  userId: string,
+  organizationSlugOrId?: string
+): Promise<WXYCRole | undefined> {
+  const jwtToken = await getJWTToken();
+  if (jwtToken) {
+    const jwtRole = organizationRoleFromJwtToken(jwtToken, userId);
+    if (jwtRole) {
+      return jwtRole;
+    }
+  }
+
+  if (!organizationSlugOrId) {
+    return undefined;
+  }
+
+  return getUserRoleInOrganizationClient(userId, organizationSlugOrId);
+}
+
+/**
  * Client-side: Get user's role in a specific organization
  * @param userId - The user ID to look up
  * @param organizationSlugOrId - The organization slug (e.g., "wxyc") or ID
