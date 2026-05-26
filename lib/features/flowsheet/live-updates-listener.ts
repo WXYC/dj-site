@@ -49,8 +49,15 @@ let pendingInvalidateTags: Set<FlowsheetTag> = new Set();
 
 function isLiveFsEvent(value: unknown): value is LiveFsEvent {
   if (typeof value !== "object" || value === null) return false;
-  const v = value as { type?: unknown };
-  return v.type === "update" || v.type === "refetch";
+  const v = value as { type?: unknown; payload?: unknown };
+  if (typeof v.payload !== "object" || v.payload === null) return false;
+  if (v.type === "update") {
+    // Require a numeric id so `payload.id === undefined` can't sneak through
+    // and match `nowPlayingData?.id === undefined` (which is `true` whenever
+    // no row is now-playing, corrupting the cache via empty Object.assign).
+    return typeof (v.payload as { id?: unknown }).id === "number";
+  }
+  return v.type === "refetch";
 }
 
 function clearDebouncedInvalidate(): void {

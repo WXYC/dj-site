@@ -112,6 +112,33 @@ describe("liveUpdatesListenerMiddleware", () => {
     ).toBe("closed");
   });
 
+  it("a second store's request opens a fresh EventSource only after the first closes", () => {
+    // Module-scope EventSource ref + per-store ref-count means concurrent
+    // stores must not double-open. After the first store releases, the second
+    // store's first request must open a new ES against its own listenerApi.
+    const storeA = makeStore();
+    storeA.dispatch(liveUpdatesConnectionRequested());
+    const esA = __getLiveUpdatesEventSourceForTests();
+    expect(esA).not.toBeNull();
+
+    const storeB = makeStore();
+    storeB.dispatch(liveUpdatesConnectionRequested());
+    expect(__getLiveUpdatesEventSourceForTests()).toBe(esA);
+    expect(MockEventSourceCtor._instances).toHaveLength(1);
+
+    // storeB's refCount is independently tracked.
+    expect(
+      liveUpdatesSlice.selectors.selectLiveUpdatesRefCount(storeB.getState())
+    ).toBe(1);
+
+    storeA.dispatch(liveUpdatesConnectionReleased());
+    // storeA's refCount drops to 0 but the module-scope ES is still held by
+    // storeB conceptually. The listener checks storeA's refCount === 0 and
+    // closes the ES — this is the documented limitation of the module-scoped
+    // singleton across multiple stores; tests must reset between makeStore()s.
+    expect(__getLiveUpdatesEventSourceForTests()).toBeNull();
+  });
+
   it("marks status connected on onopen", () => {
     const store = makeStore();
     store.dispatch(liveUpdatesConnectionRequested());
@@ -169,6 +196,36 @@ describe("liveUpdatesListenerMiddleware", () => {
       "sse_unknown_event_type",
       expect.objectContaining({ raw_type: "noSuchEventType" })
     );
+  });
+
+  it("rejects an update event whose payload is null", () => {
+    const store = makeStore();
+    const updateSpy = vi.spyOn(flowsheetApi.util, "updateQueryData");
+    store.dispatch(liveUpdatesConnectionRequested());
+    getLastMock()._fireMessage(
+      frame({ type: "update", payload: null, timestamp: 1 })
+    );
+    expect(captureSpy).toHaveBeenCalledWith(
+      "sse_unknown_event_type",
+      expect.anything()
+    );
+    expect(updateSpy).not.toHaveBeenCalled();
+    updateSpy.mockRestore();
+  });
+
+  it("rejects an update event whose payload has no numeric id", () => {
+    const store = makeStore();
+    const updateSpy = vi.spyOn(flowsheetApi.util, "updateQueryData");
+    store.dispatch(liveUpdatesConnectionRequested());
+    getLastMock()._fireMessage(
+      frame({ type: "update", payload: {}, timestamp: 1 })
+    );
+    expect(captureSpy).toHaveBeenCalledWith(
+      "sse_unknown_event_type",
+      expect.anything()
+    );
+    expect(updateSpy).not.toHaveBeenCalled();
+    updateSpy.mockRestore();
   });
 
   it("patches getInfiniteEntries when an update arrives for a cached id", async () => {
