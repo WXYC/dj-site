@@ -3,6 +3,7 @@
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { Rotation } from "@/lib/features/rotation/types";
+import { normalizeTrackArtists } from "@/lib/features/rotation/normalize-track-artists";
 import {
   RotationTrack,
   useGetRotationQuery,
@@ -91,19 +92,23 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
     (track: RotationTrack) => {
       setSelectedTrack(track);
       setManualEntry(false);
-      dispatch(flowsheetSlice.actions.setSearchProperty({ name: "song", value: track.title }));
+      dispatch(flowsheetSlice.actions.setSearchProperty({ name: "song", value: track.title ?? "" }));
       // Auto-fill artist from per-track Discogs credits (surfaced by BS#944)
       // for V/A and split releases. For normal releases BS falls back to
       // [release.artist] so this just re-sets the value already seeded by
-      // handleSelectRelease. When credits are empty (Discogs has no per-track
-      // data) leave the release-level artist in place; mis-credited cases fall
-      // through to manual-entry mode (the existing escape hatch).
-      // Join separator mirrors buildArtistCredit in apps/backend/controllers/proxy.controller.ts.
-      if (track.artists.length > 0) {
+      // handleSelectRelease. `normalizeTrackArtists` strips the Discogs `(N)`
+      // disambig and dedupes — see its header for the LML cache duplication
+      // root cause. When credits are empty (Discogs has no per-track data, or
+      // every entry was malformed) leave the release-level artist in place;
+      // mis-credited cases fall through to manual-entry mode (the existing
+      // escape hatch). Join separator mirrors buildArtistCredit in
+      // apps/backend/controllers/proxy.controller.ts.
+      const credits = normalizeTrackArtists(track.artists);
+      if (credits.length > 0) {
         dispatch(
           flowsheetSlice.actions.setSearchProperty({
             name: "artist",
-            value: track.artists.join(", "),
+            value: credits.join(", "),
           })
         );
       }
