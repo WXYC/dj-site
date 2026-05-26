@@ -228,5 +228,77 @@ describe("RotationEntryFields", () => {
         })
       );
     });
+
+    it("dedupes doubled per-track credits before writing to the artist field", () => {
+      // Reproduces the on-air-DJ report from 2026-05-25: V/A track artists
+      // arrive as ["Warrior", "Warrior"] (Discogs multi-role on a single
+      // person + on-disk LML cache duplicates) and used to land in the Redux
+      // artist field as "Warrior, Warrior". After normalization the field
+      // gets a single "Warrior".
+      mockTracksData = [
+        {
+          position: "A2",
+          title: "Warrior",
+          duration: null,
+          artists: ["Warrior", "Warrior"],
+        },
+      ];
+
+      const { store } = renderWithProviders(
+        <RotationEntryFields disabled={false} />
+      );
+      const dispatchSpy = vi.spyOn(store, "dispatch");
+      selectBinAndRelease();
+      selectTrack(0);
+
+      expect(artistValues(dispatchSpy)).toEqual(["OOIOO", "Warrior"]);
+    });
+
+    it("strips Discogs (N) disambig before writing to the artist field", () => {
+      // Prod LML serves disambig suffixes verbatim — "M.I.A. (2)" appears in
+      // the top-20 dup tuples (4× releases). Stripping in the dropdown display
+      // only (the prior behavior) left the suffix in the form field on submit.
+      mockTracksData = [
+        {
+          position: "A1",
+          title: "Galang",
+          duration: null,
+          artists: ["M.I.A. (2)"],
+        },
+      ];
+
+      const { store } = renderWithProviders(
+        <RotationEntryFields disabled={false} />
+      );
+      const dispatchSpy = vi.spyOn(store, "dispatch");
+      selectBinAndRelease();
+      selectTrack(0);
+
+      expect(artistValues(dispatchSpy)).toEqual(["OOIOO", "M.I.A."]);
+    });
+
+    it("falls back to the release-level artist when every per-track credit is malformed", () => {
+      // A partial-write LML cache row could surface [null, ""] as artists.
+      // normalizeTrackArtists returns [] for that shape; the auto-fill must
+      // be a no-op so the release-level artist (seeded by handleSelectRelease)
+      // stays in the field rather than being clobbered with an empty string.
+      mockTracksData = [
+        {
+          position: "A1",
+          title: "Ghost Track",
+          duration: null,
+          artists: [null as unknown as string, ""],
+        },
+      ];
+
+      const { store } = renderWithProviders(
+        <RotationEntryFields disabled={false} />
+      );
+      const dispatchSpy = vi.spyOn(store, "dispatch");
+      selectBinAndRelease();
+      selectTrack(0);
+
+      expect(artistValues(dispatchSpy)).toEqual(["OOIOO"]);
+    });
   });
 });

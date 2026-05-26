@@ -1,5 +1,6 @@
 "use client";
 
+import { normalizeTrackArtists } from "@/lib/features/rotation/normalize-track-artists";
 import { KeyboardArrowDown } from "@mui/icons-material";
 import { Box, CircularProgress, Sheet, Typography } from "@mui/joy";
 import { ClickAwayListener } from "@mui/material";
@@ -187,9 +188,7 @@ export default function TrackPickerDropdown<T extends TrackPickerEntry>({
             }}
           >
             {tracks.map((track, index) => {
-              const cleanArtists = track.artists
-                .map((a) => a.replace(/\s*\(\d+\)\s*$/, ""))
-                .filter((a) => a.length > 0);
+              const cleanArtists = normalizeTrackArtists(track.artists);
               return (
                 <Box
                   key={`${track.position}-${index}`}
