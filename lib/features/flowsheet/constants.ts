@@ -20,3 +20,17 @@ export const OFF_AIR_LABEL = "Off Air";
  * and WXYC/Backend-Service#628.
  */
 export const FLOWSHEET_METADATA_REFETCH_DELAY_MS = 2000;
+
+/**
+ * Default poll cadence for `getInfiniteEntries` and `getNowPlaying` when SSE
+ * is not delivering live updates. Matches the long-standing pre-SSE default.
+ */
+export const FLOWSHEET_POLL_FAST_MS = 60_000;
+
+/**
+ * Slow safety-poll cadence used while the live-updates SSE connection is
+ * active. Covers gaps caused by events that never fire (e.g. a row whose LML
+ * enrichment never completes); the 5-minute window keeps the surface usable
+ * without re-loading every page each minute.
+ */
+export const FLOWSHEET_POLL_SLOW_MS = 5 * 60_000;

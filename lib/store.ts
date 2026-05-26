@@ -10,7 +10,7 @@ import {
   isRejectedWithValue,
 } from "@reduxjs/toolkit";
 import { toast } from "sonner";
-import { posthog } from "./posthog";
+import { safeCaptureException } from "./posthog";
 import { adminSlice } from "./features/admin/frontend";
 import { applicationApi } from "./features/application/api";
 import { applicationSlice } from "./features/application/frontend";
@@ -57,8 +57,6 @@ export const makeStore = () => {
     reducer: rootReducer,
     middleware: (getDefaultMiddleware) => {
       return getDefaultMiddleware()
-        // Listener must come first so it observes RTK Query dispatches before the
-        // API middlewares process them. .prepend() is only legal before .concat().
         .prepend(liveUpdatesListenerMiddleware.middleware)
         .concat(rtkQueryErrorLogger)
         .concat(applicationApi.middleware)
@@ -96,7 +94,7 @@ export const rtkQueryErrorLogger: Middleware =
 
       const endpointName = (action as any)?.meta?.arg?.endpointName;
 
-      posthog.captureException(
+      safeCaptureException(
         new Error(
           payload?.data?.message || payload?.error || "RTK Query error"
         ),

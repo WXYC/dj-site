@@ -1,6 +1,6 @@
 import { createListenerMiddleware } from "@reduxjs/toolkit";
 import type { TypedStartListening } from "@reduxjs/toolkit";
-import { posthog } from "@/lib/posthog";
+import { safeCapture, safeCaptureException } from "@/lib/posthog";
 import type { AppDispatch, RootState } from "@/lib/store";
 import { flowsheetApi } from "./api";
 import { patchEntryById } from "./infinite-cache";
@@ -8,13 +8,26 @@ import {
   liveUpdatesConnectionReleased,
   liveUpdatesConnectionRequested,
   liveUpdatesConnectionStateChanged,
-  liveUpdatesLastEventAtUpdated,
   liveUpdatesSlice,
+  type LiveUpdatesConnectionStatus,
 } from "./live-updates-slice";
 import type { FlowsheetEntry } from "./types";
 
 const LIVE_FS_TOPIC = "live-fs-topic";
 const REFETCH_DEBOUNCE_MS = 500;
+
+type FlowsheetTag = "Flowsheet" | "NowPlaying";
+
+const SSE_EVENTS = {
+  CONNECTED: "sse_connected",
+  RECONNECTING: "sse_reconnecting",
+  DISCONNECTED: "sse_disconnected",
+  UNKNOWN_EVENT_TYPE: "sse_unknown_event_type",
+  UNKNOWN_EVENT_ID: "sse_unknown_event_id",
+  PARSE_FAILURE: "sse_parse_failure",
+  DISPATCH_FAILURE: "sse_dispatch_failure",
+  CONNECTION_ERROR: "sse_connection_error",
+} as const;
 
 type LiveFsUpdateEvent = {
   type: "update";
@@ -32,7 +45,7 @@ type LiveFsEvent = LiveFsUpdateEvent | LiveFsRefetchEvent;
 
 let eventSource: EventSource | null = null;
 let debouncedInvalidateTimer: ReturnType<typeof setTimeout> | null = null;
-let pendingInvalidateTags: Set<"Flowsheet" | "NowPlaying"> = new Set();
+let pendingInvalidateTags: Set<FlowsheetTag> = new Set();
 
 function isLiveFsEvent(value: unknown): value is LiveFsEvent {
   if (typeof value !== "object" || value === null) return false;
@@ -40,28 +53,29 @@ function isLiveFsEvent(value: unknown): value is LiveFsEvent {
   return v.type === "update" || v.type === "refetch";
 }
 
-function safeCaptureException(err: unknown, context: Record<string, unknown>) {
-  try {
-    posthog.captureException(
-      err instanceof Error ? err : new Error(String(err)),
-      context
-    );
-  } catch {
-    // PostHog may not be initialized (tests, SSR); never let telemetry crash the dispatch path.
+function clearDebouncedInvalidate(): void {
+  if (debouncedInvalidateTimer !== null) {
+    clearTimeout(debouncedInvalidateTimer);
+    debouncedInvalidateTimer = null;
   }
+  pendingInvalidateTags = new Set();
 }
 
-function safeCapture(event: string, props: Record<string, unknown>) {
-  try {
-    posthog.capture(event, props);
-  } catch {
-    // See safeCaptureException — telemetry is best-effort.
-  }
+function setConnectionStatusIfChanged(
+  listenerApi: { dispatch: AppDispatch; getState: () => RootState },
+  next: LiveUpdatesConnectionStatus
+): boolean {
+  const current = liveUpdatesSlice.selectors.selectLiveUpdatesConnectionStatus(
+    listenerApi.getState()
+  );
+  if (current === next) return false;
+  listenerApi.dispatch(liveUpdatesConnectionStateChanged(next));
+  return true;
 }
 
 function scheduleDebouncedInvalidate(
   dispatch: AppDispatch,
-  tags: Array<"Flowsheet" | "NowPlaying">
+  tags: FlowsheetTag[]
 ) {
   for (const t of tags) pendingInvalidateTags.add(t);
   if (debouncedInvalidateTimer !== null) {
@@ -120,7 +134,7 @@ function routeUpdateEvent(
       }
     } catch (err) {
       safeCaptureException(err, {
-        context: "sse_dispatch_failure",
+        context: SSE_EVENTS.DISPATCH_FAILURE,
         event_type: "update",
         payload_id: payload.id,
       });
@@ -128,10 +142,9 @@ function routeUpdateEvent(
     return;
   }
 
-  // Unknown id — schedule debounced invalidate.
   const currentShowId =
     (infiniteData?.pages ?? []).find((p) => p.length > 0)?.[0]?.show_id ?? null;
-  safeCapture("sse_unknown_event_id", {
+  safeCapture(SSE_EVENTS.UNKNOWN_EVENT_ID, {
     surface: "listener",
     event_type: "update",
     payload_id: payload.id,
@@ -159,21 +172,22 @@ startListening({
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
     const url = `${backendUrl}/events/stream?topics=${LIVE_FS_TOPIC}`;
 
-    listenerApi.dispatch(liveUpdatesConnectionStateChanged("connecting"));
+    setConnectionStatusIfChanged(listenerApi, "connecting");
 
     let es: EventSource;
     try {
       es = new EventSource(url);
     } catch (err) {
-      safeCaptureException(err, { context: "sse_connection_error", url });
-      listenerApi.dispatch(liveUpdatesConnectionStateChanged("closed"));
+      safeCaptureException(err, { context: SSE_EVENTS.CONNECTION_ERROR, url });
+      setConnectionStatusIfChanged(listenerApi, "closed");
       return;
     }
     eventSource = es;
 
     es.onopen = () => {
-      listenerApi.dispatch(liveUpdatesConnectionStateChanged("connected"));
-      safeCapture("sse_connected", { topic: LIVE_FS_TOPIC });
+      if (setConnectionStatusIfChanged(listenerApi, "connected")) {
+        safeCapture(SSE_EVENTS.CONNECTED, { topic: LIVE_FS_TOPIC });
+      }
     };
 
     es.onerror = () => {
@@ -181,14 +195,16 @@ startListening({
       // 0 = CONNECTING (browser is retrying transparently);
       // 2 = CLOSED (permanently closed).
       if (es.readyState === EventSource.CONNECTING) {
-        listenerApi.dispatch(liveUpdatesConnectionStateChanged("reconnecting"));
-        safeCapture("sse_reconnecting", { topic: LIVE_FS_TOPIC });
+        if (setConnectionStatusIfChanged(listenerApi, "reconnecting")) {
+          safeCapture(SSE_EVENTS.RECONNECTING, { topic: LIVE_FS_TOPIC });
+        }
       } else if (es.readyState === EventSource.CLOSED) {
-        listenerApi.dispatch(liveUpdatesConnectionStateChanged("closed"));
-        safeCapture("sse_disconnected", {
-          topic: LIVE_FS_TOPIC,
-          reason: "permanent",
-        });
+        if (setConnectionStatusIfChanged(listenerApi, "closed")) {
+          safeCapture(SSE_EVENTS.DISCONNECTED, {
+            topic: LIVE_FS_TOPIC,
+            reason: "permanent",
+          });
+        }
       }
     };
 
@@ -198,7 +214,7 @@ startListening({
         parsed = JSON.parse(msgEvent.data as string);
       } catch (err) {
         safeCaptureException(err, {
-          context: "sse_parse_failure",
+          context: SSE_EVENTS.PARSE_FAILURE,
           raw_sample:
             typeof msgEvent.data === "string"
               ? msgEvent.data.slice(0, 200)
@@ -207,7 +223,7 @@ startListening({
         return;
       }
       if (!isLiveFsEvent(parsed)) {
-        safeCapture("sse_unknown_event_type", {
+        safeCapture(SSE_EVENTS.UNKNOWN_EVENT_TYPE, {
           topic: LIVE_FS_TOPIC,
           raw_type:
             typeof parsed === "object" && parsed !== null
@@ -216,7 +232,6 @@ startListening({
         });
         return;
       }
-      listenerApi.dispatch(liveUpdatesLastEventAtUpdated(Date.now()));
 
       if (parsed.type === "refetch") {
         scheduleDebouncedInvalidate(listenerApi.dispatch, [
@@ -226,7 +241,6 @@ startListening({
         return;
       }
 
-      // parsed.type === "update"
       routeUpdateEvent(listenerApi.dispatch, listenerApi.getState, parsed.payload);
     };
   },
@@ -241,7 +255,8 @@ startListening({
     if (refCount !== 0 || eventSource === null) return;
     eventSource.close();
     eventSource = null;
-    listenerApi.dispatch(liveUpdatesConnectionStateChanged("closed"));
+    clearDebouncedInvalidate();
+    setConnectionStatusIfChanged(listenerApi, "closed");
   },
 });
 
@@ -255,11 +270,7 @@ export function __resetLiveUpdatesEventSourceForTests(): void {
     }
   }
   eventSource = null;
-  if (debouncedInvalidateTimer !== null) {
-    clearTimeout(debouncedInvalidateTimer);
-    debouncedInvalidateTimer = null;
-  }
-  pendingInvalidateTags = new Set();
+  clearDebouncedInvalidate();
 }
 
 /** Test-only accessor for the live EventSource reference. */
