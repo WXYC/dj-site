@@ -1,17 +1,11 @@
 import { Client } from "pg";
 
 /**
- * Fire a Postgres NOTIFY from a Playwright test.
- *
- * The Backend-Service SSE pipeline subscribes to LISTEN 'cdc' and broadcasts
- * matching events to connected EventSource clients. Tests use this to skip
- * the LML enrichment chain (unreachable in CI) and exercise just the
- * CDC -> broadcast -> SSE -> DOM segment.
- *
- * Reads DB connection details from environment variables — `scripts/e2e-local.sh`
- * and `.github/workflows/e2e-tests.yml` both export DB_HOST/PORT/NAME/USERNAME/
- * PASSWORD. Throws if any are missing so misconfigured CI surfaces loudly
- * instead of silently connecting to the wrong place.
+ * Fire a Postgres NOTIFY from a Playwright test, so tests can bypass the
+ * LML enrichment chain and exercise just the CDC → broadcast → SSE → DOM
+ * segment. Connection env vars are exported by scripts/e2e-local.sh and the
+ * E2E workflow — throws on missing config so misconfigured CI surfaces
+ * loudly rather than silently connecting to the wrong place.
  */
 function getDbConfig() {
   const required = ["DB_HOST", "DB_PORT", "DB_NAME", "DB_USERNAME", "DB_PASSWORD"] as const;

@@ -32,11 +32,7 @@ describe("sse-flags", () => {
       ["TRUE", false], // case-sensitive on purpose
       ["yes", false],
     ])("returns %j for NEXT_PUBLIC_FLOWSHEET_SSE_DASHBOARD_ENABLED=%j", (value, expected) => {
-      if (value === undefined) {
-        vi.stubEnv("NEXT_PUBLIC_FLOWSHEET_SSE_DASHBOARD_ENABLED", "");
-      } else {
-        vi.stubEnv("NEXT_PUBLIC_FLOWSHEET_SSE_DASHBOARD_ENABLED", value);
-      }
+      vi.stubEnv("NEXT_PUBLIC_FLOWSHEET_SSE_DASHBOARD_ENABLED", value ?? "");
       expect(isFlowsheetSSEDashboardEnabled()).toBe(expected);
     });
   });
@@ -52,11 +48,7 @@ describe("sse-flags", () => {
       ["TRUE", false],
       ["yes", false],
     ])("returns %j for NEXT_PUBLIC_FLOWSHEET_SSE_LIVE_VIEW_ENABLED=%j", (value, expected) => {
-      if (value === undefined) {
-        vi.stubEnv("NEXT_PUBLIC_FLOWSHEET_SSE_LIVE_VIEW_ENABLED", "");
-      } else {
-        vi.stubEnv("NEXT_PUBLIC_FLOWSHEET_SSE_LIVE_VIEW_ENABLED", value);
-      }
+      vi.stubEnv("NEXT_PUBLIC_FLOWSHEET_SSE_LIVE_VIEW_ENABLED", value ?? "");
       expect(isFlowsheetSSELiveViewEnabled()).toBe(expected);
     });
   });
