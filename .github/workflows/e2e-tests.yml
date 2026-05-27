@@ -250,10 +250,11 @@ jobs:
           # NEXT_PUBLIC_BETTER_AUTH_URL is inlined at build time to an unreachable
           # loopback address, simulating the Docker scenario where the container's
           # `localhost` is the container itself. AUTH_REWRITE_URL is set at runtime
-          # to the real auth and is what the test asserts gets picked up. Writes
-          # to `.next-broken-auth/` via NEXT_DIST_DIR_SUFFIX in next.config.mjs so
-          # the primary `.next/` cache survives. Runs in parallel with the primary
-          # build; not cached separately to keep cache-key logic simple.
+          # on the second `npm run start` (in the Start dj-site step) and is what
+          # the test asserts gets picked up. Writes to `.next-broken-auth/` via
+          # NEXT_DIST_DIR_SUFFIX in next.config.mjs so the primary `.next/` cache
+          # survives. Runs in parallel with the primary build; not cached
+          # separately to keep cache-key logic simple.
           (cd dj-site && \
             NEXT_PUBLIC_BETTER_AUTH_URL=http://127.0.0.99:9999/auth \
             NEXT_DIST_DIR_SUFFIX=broken-auth \
@@ -279,8 +280,14 @@ jobs:
           # Second dj-site instance for the server-session-via-docker test
           # (built earlier with NEXT_PUBLIC_BETTER_AUTH_URL pointing at an
           # unreachable host). NEXT_DIST_DIR_SUFFIX=broken-auth selects the
-          # `.next-broken-auth/` build at runtime.
-          PORT=3001 NEXT_DIST_DIR_SUFFIX=broken-auth npm run start \
+          # `.next-broken-auth/` build at runtime. AUTH_REWRITE_URL points at
+          # the real auth so it wins over the unreachable build-inlined
+          # NEXT_PUBLIC_BETTER_AUTH_URL in both getBaseURL() and the /auth
+          # rewrite — the precedence the test asserts.
+          PORT=3001 \
+            NEXT_DIST_DIR_SUFFIX=broken-auth \
+            AUTH_REWRITE_URL=http://localhost:8084/auth \
+            npm run start \
             > /tmp/frontend-broken-auth.log 2>&1 &
           echo $! > /tmp/frontend-broken-auth.pid
           echo "Waiting for second frontend..."
