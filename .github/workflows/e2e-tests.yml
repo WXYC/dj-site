@@ -246,6 +246,11 @@ jobs:
             PID_BUILD=$!
           fi
 
+          # Wait for parallel tracks — fail if any fails
+          wait $PID_BACKEND || exit 1
+          if [ -n "$PID_PW" ]; then wait $PID_PW || exit 1; fi
+          if [ -n "$PID_BUILD" ]; then wait $PID_BUILD || exit 1; fi
+
           # Second dj-site build for e2e/tests/auth/server-session-via-docker.spec.ts.
           # NEXT_PUBLIC_BETTER_AUTH_URL is inlined at build time to an unreachable
           # loopback address, simulating the Docker scenario where the container's
@@ -253,19 +258,16 @@ jobs:
           # on the second `npm run start` (in the Start dj-site step) and is what
           # the test asserts gets picked up. Writes to `.next-broken-auth/` via
           # NEXT_DIST_DIR_SUFFIX in next.config.mjs so the primary `.next/` cache
-          # survives. Runs in parallel with the primary build; not cached
+          # survives. Runs AFTER the primary build, not in parallel: both builds
+          # bootstrap OpenNext (initOpenNextCloudflareForDev in next.config.mjs)
+          # against a shared workerd SQLite cache and both trigger Next's
+          # tsconfig.json typegen rewrite — running them concurrently races on
+          # those shared files and crashes with SQLITE_BUSY. Not cached
           # separately to keep cache-key logic simple.
           (cd dj-site && \
             NEXT_PUBLIC_BETTER_AUTH_URL=http://127.0.0.99:9999/auth \
             NEXT_DIST_DIR_SUFFIX=broken-auth \
-            npm run build) &
-          PID_BUILD_BROKEN=$!
-
-          # Wait for all tracks — fail if any fails
-          wait $PID_BACKEND || exit 1
-          if [ -n "$PID_PW" ]; then wait $PID_PW || exit 1; fi
-          if [ -n "$PID_BUILD" ]; then wait $PID_BUILD || exit 1; fi
-          wait $PID_BUILD_BROKEN || exit 1
+            npm run build) || exit 1
 
       - name: Start dj-site
         working-directory: dj-site

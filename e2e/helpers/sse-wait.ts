@@ -14,8 +14,7 @@ export function getSSEIndicator(page: Page): Locator {
 /**
  * Block until the indicator's `data-status` matches `status`. Use in
  * dashboard tests where firing `pgNotify` before the handshake completes
- * would lose the message (LISTEN/NOTIFY has no replay), or to observe a
- * `connected → reconnecting → connected` transition under network blips.
+ * would lose the message (LISTEN/NOTIFY has no replay).
  */
 export async function waitForSSEStatus(
   page: Page,
