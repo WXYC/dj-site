@@ -1,23 +1,9 @@
 /**
  * Typed payload builders for `pg_notify('cdc', <json>)` from E2E tests.
- *
- * Mirrors `@wxyc/database`'s `CdcEvent` shape
- * (Backend-Service/shared/database/src/cdc-listener.ts). Backend-Service's
- * `setupMetadataBroadcast` (apps/backend/services/metadata-broadcast/...)
- * filters NOTIFY payloads on:
- *
- *   event.table  === 'flowsheet'
- *   event.action === 'UPDATE'
- *   event.data.metadata_status ∈ TERMINAL_STATUSES
- *   typeof event.data.id === 'number'
- *
- * Anything matching is rebroadcast verbatim as a `liveFs:update` SSE event,
- * which dj-site's listener middleware uses to patch the RTK Query cache.
- *
- * The `data` field is the full flowsheet row — payload shape == row shape.
- * BS-2 is the contract this fixture pins: the broadcast carries the entire
- * row, not just `{id, metadata_status}`. Tests assert that observable fields
- * (e.g., `artwork_url`) render in the DOM after the NOTIFY.
+ * Mirrors `CdcEvent` from `@wxyc/database`. Backend-Service's
+ * `setupMetadataBroadcast` filters on `table === 'flowsheet'`,
+ * `action === 'UPDATE'`, terminal `data.metadata_status`, and numeric
+ * `data.id`; matching payloads are rebroadcast verbatim as `liveFs:update`.
  */
 
 export type TerminalMetadataStatus =
@@ -27,15 +13,16 @@ export type TerminalMetadataStatus =
 
 export type CdcAction = "INSERT" | "UPDATE" | "DELETE";
 
+/**
+ * Mirrors `CdcEvent.data` from `@wxyc/database` — open shape because the
+ * CDC pipeline carries the full DB row, not just the fields BS's
+ * `filterMetadataUpdate` requires. `id` is required because the dj-site
+ * listener routes by it; `metadata_status` because BS's filter rejects
+ * anything without a terminal value.
+ */
 export type CdcFlowsheetRow = {
   id: number;
   metadata_status?: TerminalMetadataStatus;
-  artwork_url?: string;
-  release_year?: number;
-  album_title?: string;
-  artist_name?: string;
-  track_title?: string;
-  record_label?: string;
   [key: string]: unknown;
 };
 

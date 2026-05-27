@@ -1,32 +1,16 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "@/lib/test-utils";
 import SSESubscription from "./SSESubscription";
 
 /**
- * Tier 1 — Test #4 (consumer half): assert the component-level flag gate
- * actually short-circuits when the surface flag is off.
+ * Gate test for the SSE feature flags. Asserts the component short-circuits
+ * `useSSEConnection` when its surface flag is off — observed via
+ * `liveUpdates.refCount` (1 on connect-requested, 0 otherwise).
  *
- * Strategy: `useSSEConnection` dispatches `liveUpdatesConnectionRequested`
- * on mount, which bumps `liveUpdates.refCount` from 0 to 1. So if the gate
- * works, an off-flag mount leaves refCount at 0; an on-flag mount lands it
- * at 1. This catches the "someone removed the gate" regression at the
- * SSESubscription seam — the next layer down (the listener middleware
- * actually opening an EventSource) is covered separately by
- * `live-updates-listener.test.ts`.
- *
- * NEXT_PUBLIC_* env vars are inlined at Next.js build time, but vitest
- * doesn't run a Next.js build, so `vi.stubEnv` works at runtime here. In
- * production CI, the flag-off-stays-off equivalent is provided by tests #1–3
- * running against a flag-ON build (any regression where SSE silently fires
- * with the flag off would surface as duplicate handshake requests in test #4
- * of #661 once that lands, and as a connection-count step change in PostHog
- * during the #663 staged rollout).
+ * NEXT_PUBLIC_* is inlined at Next.js build time, but vitest reads
+ * `process.env` at runtime so `vi.stubEnv` works here.
  */
 describe("<SSESubscription>", () => {
-  beforeEach(() => {
-    vi.unstubAllEnvs();
-  });
-
   afterEach(() => {
     vi.unstubAllEnvs();
   });
