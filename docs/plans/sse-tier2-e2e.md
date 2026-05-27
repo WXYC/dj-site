@@ -45,20 +45,13 @@ Why this is robust: RTK Query's `pollingInterval` ticks from subscribe-time, not
 - The 90s waits are intentional and called out in the spec's docstring + the issue. The whole file is ~3 min; not worth splitting fast/slow buckets for two specs.
 - `page.on("request")` survives navigations within the same `page`, but each scenario uses a fresh `test()` (and therefore a fresh page), so we don't need to worry about cross-scenario leakage.
 
-## Test 2 — `e2e/tests/sse/reconnect.spec.ts`
+## Test 2 — reconnect (dropped: covered at the unit layer)
 
-One test, ~10s wall time.
+An E2E `reconnect.spec.ts` was prototyped that drove `page.context().setOffline(true)` and asserted the indicator transitions `connected → reconnecting → connected`. It was dropped: in headless Chromium, `setOffline(true)` does not reliably fire `onerror` on an *already-open, idle* EventSource within a bounded window (the socket stays in `OPEN` until the browser next attempts I/O), so the `reconnecting` transition never showed up and the test hung/failed non-deterministically.
 
-1. Authed `dj2.json`. Navigate to `/dashboard/flowsheet`. `ensureLive()` from `FlowsheetPage`.
-2. `waitForSSEConnected`.
-3. `page.context().setOffline(true)`. Native `EventSource` detects the dropped connection, fires `onerror` with `readyState=EventSource.CONNECTING`, listener dispatches `liveUpdatesConnectionStateChanged("reconnecting")`.
-4. Assert `data-status=reconnecting` within 10s.
-5. `page.context().setOffline(false)`. EventSource auto-retries, succeeds, `onopen` -> `"connected"`.
-6. Assert `data-status=connected` within 10s.
+The `connected → reconnecting → connected` state machine is already pinned deterministically at the unit layer in `lib/__tests__/features/flowsheet/live-updates-listener.test.ts` ("marks status connected on onopen", "maps onerror with readyState CONNECTING to 'reconnecting'", "maps onerror with readyState CLOSED to 'closed'"), which is exactly where `docs/live-updates-sse.md` (testing section) says reconnect belongs — driving it through the browser/MSW "would be awkward". The E2E spec added no coverage the unit suite lacks, only a flaky browser-offline dependency, so it was removed rather than stabilised.
 
-Why `setOffline` over `page.route(..., route.abort())`: the existing long-lived EventSource connection is held open by the browser's network stack — `page.route` only intercepts *new* requests, so it can't kill the live socket. `setOffline` actively tears the stack down, which is what we need to exercise the reconnect path. Cost: the entire browser context is offline, so the dashboard's polling requests will also fail during the blackout. That's fine — the indicator is purely Redux-driven and doesn't need network to re-render.
-
-Deferred: the issue's bullet (c) — "a `pg_notify` issued during the blackout window arrives via the 5-min safety poll" — is impractical in an E2E test (5 min wait). The cache-patch path for in-cache rows is already pinned by Tier 1 test #1; the safety-poll path will be covered by Tier 3 (#662) via the explicit refetch event. Note this deferral in the spec's docstring so a future reviewer knows it's intentional.
+Deferred (unchanged): the issue's bullet (c) — "a `pg_notify` issued during the blackout window arrives via the 5-min safety poll" — is impractical in an E2E test (5 min wait). The cache-patch path for in-cache rows is already pinned by Tier 1 test #1; the safety-poll path will be covered by Tier 3 (#662) via the explicit refetch event.
 
 ## Test 3 — `e2e/tests/auth/server-session-via-docker.spec.ts`
 
@@ -149,7 +142,7 @@ const nextConfig = {
 };
 ```
 
-Then the second build is `NEXT_DIST_DIR_SUFFIX=broken-auth NEXT_PUBLIC_BETTER_AUTH_URL=http://127.0.0.99:9999/auth … npm run build`, and the second start is `NEXT_DIST_DIR_SUFFIX=broken-auth PORT=3002 AUTH_REWRITE_URL=… npm run start`. The suffix is a build-time-only signal; nothing in app code reads it. Total wall-time impact: ~0 on the critical path since the second build runs in parallel with the primary.
+Then the second build is `NEXT_DIST_DIR_SUFFIX=broken-auth NEXT_PUBLIC_BETTER_AUTH_URL=http://127.0.0.99:9999/auth … npm run build`, and the second start is `NEXT_DIST_DIR_SUFFIX=broken-auth PORT=3002 AUTH_REWRITE_URL=… npm run start`. The suffix is a build-time-only signal; nothing in app code reads it. The second build runs **sequentially after** the primary build, not in parallel: both invoke `initOpenNextCloudflareForDev()` from `next.config.mjs` (which bootstraps a `workerd` instance over a shared SQLite cache) and both trigger Next's `tsconfig.json` typegen rewrite, so concurrent builds race on those shared files and crash with `SQLITE_BUSY`. Wall-time cost on the critical path is therefore one extra `next build` (~30-60s).
 
 CI cache: `.github/workflows/e2e-tests.yml`'s `.next/` cache currently keys on package-lock + source files. The second build (`.next-broken-auth/`) would need its own cache entry — but it's a near-identical build, so simplest is to NOT cache it (savings on cache logic, ~30s rebuild cost on every run). The trade-off (no second-build cache vs. cache-key complexity) is logged in CLAUDE.md under E2E-only dependencies so future maintainers can revisit if E2E run frequency increases.
 
@@ -167,9 +160,9 @@ No webServer changes — both dj-site instances are started by the bash script b
 
 1. **Polling-rate test flake from clock jitter.** Mitigated by: (a) the SLOW cadence (300s) is way outside the 90s window, so count=0 isn't a boundary case; (b) the FAST cadence (60s) gives ~1.5 polls in 90s, so count≥1 has slack. If RTK Query introduces an initial-fetch jitter or a startup delay, the assertions still hold because they're inequality-based with comfortable margins.
 
-2. **`setOffline` masking the reconnect indicator path.** If MUI Joy or React Strict Mode does something during offline that re-renders and clobbers the data-status attribute, the assertion would fail spuriously. Mitigated by: `selectLiveUpdatesConnectionStatus` is a plain Redux selector with no network dependency, and the indicator component has no other state. Should be stable.
+2. **~~`setOffline` masking the reconnect indicator path.~~** Resolved by dropping the E2E reconnect spec entirely — see "Test 2" above. The risk it described (offline-driven re-render clobbering `data-status`) was the lesser problem; the real blocker was that `setOffline` doesn't deterministically fire `onerror` on an idle open EventSource, so the test couldn't pass reliably. Reconnect is covered at the unit layer instead.
 
-3. **Second-build flake or cache miss.** A clean `.next-broken-auth/` build on every CI run adds 30-60s. Acceptable. If it turns out to be flaky (e.g., port conflicts on a busy runner), fall back to a Dockerfile-based second instance — more setup, more accurate to the original Docker bug surface.
+3. **Second-build flake or cache miss.** A clean `.next-broken-auth/` build on every CI run adds 30-60s. Acceptable. It runs **sequentially after** the primary build (not in parallel): both builds bootstrap OpenNext against a shared workerd SQLite cache and both rewrite the shared `tsconfig.json` during Next typegen, so running them concurrently races and crashes with `SQLITE_BUSY`. If sequential builds turn out to be flaky (e.g., port conflicts on a busy runner), fall back to a Dockerfile-based second instance — more setup, more accurate to the original Docker bug surface.
 
 4. **Spec-described "auth at service-name address" not literally reproduced.** The simulated `NEXT_PUBLIC_BETTER_AUTH_URL=http://127.0.0.99:9999/auth` is equivalent in failure mode but not literally Docker networking. The docstring in the test file will make this explicit so future readers don't think the test bypasses the bug. The alternative (full Docker compose for dj-site) is heavier infrastructure for the same regression coverage; deferred unless review demands it.
 
@@ -178,18 +171,19 @@ No webServer changes — both dj-site instances are started by the bash script b
 ## Files
 
 - `e2e/tests/sse/polling-rate.spec.ts` (new)
-- `e2e/tests/sse/reconnect.spec.ts` (new)
 - `e2e/tests/auth/server-session-via-docker.spec.ts` (new)
 - `lib/features/authentication/server-client.ts` (modify — AUTH_REWRITE_URL precedence; already applied from stash)
-- `scripts/e2e-local.sh` (modify — second build + second start)
+- `scripts/e2e-local.sh` (modify — second build + second start, sequential)
 - `.github/workflows/e2e-tests.yml` (modify — same as e2e-local.sh)
 - `CLAUDE.md` (modify — note the second dj-site instance under "E2E Testing")
 
-No `NetworkBlocker` page object — `page.context().setOffline()` and `page.route()` are clear enough at the call sites, no abstraction win.
+Reconnect (`e2e/tests/sse/reconnect.spec.ts`) was prototyped but dropped — see "Test 2" above; reconnect is covered at the unit layer.
+
+No `NetworkBlocker` page object — `page.route()` is clear enough at the call site, no abstraction win.
 
 ## Acceptance criteria
 
-- All three new tests pass against `./scripts/e2e-local.sh`.
+- Both new E2E tests pass against `./scripts/e2e-local.sh`.
 - E2E CI workflow passes on the PR.
 - `npx tsc --noEmit` clean.
 - `npm run test:run` no regressions.

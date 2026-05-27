@@ -103,10 +103,11 @@ export NEXT_PUBLIC_APP_ORGANIZATION=test-org
 export NEXT_PUBLIC_FLOWSHEET_SSE_DASHBOARD_ENABLED=true
 export NEXT_PUBLIC_FLOWSHEET_SSE_LIVE_VIEW_ENABLED=true
 
-echo "==> Building dj-site (primary + broken-auth in parallel)..."
+echo "==> Building dj-site (primary)..."
 # Primary build -> .next/
-npm run build > /tmp/e2e-build-primary.log 2>&1 &
-PID_BUILD_PRIMARY=$!
+if ! npm run build > /tmp/e2e-build-primary.log 2>&1; then
+  echo "Primary build failed:"; tail -50 /tmp/e2e-build-primary.log; exit 1
+fi
 
 # Second build for e2e/tests/auth/server-session-via-docker.spec.ts.
 # NEXT_PUBLIC_BETTER_AUTH_URL is inlined at build time to an unreachable
@@ -116,16 +117,16 @@ PID_BUILD_PRIMARY=$!
 # rewrite and SSR session lookup — that precedence is exactly what the test
 # asserts. Writes to `.next-broken-auth/` (via NEXT_DIST_DIR_SUFFIX in
 # next.config.mjs) so the primary `.next/` build cache survives.
-NEXT_PUBLIC_BETTER_AUTH_URL=http://127.0.0.99:9999/auth \
-NEXT_DIST_DIR_SUFFIX=broken-auth \
-npm run build > /tmp/e2e-build-broken-auth.log 2>&1 &
-PID_BUILD_BROKEN=$!
-
-# Wait for both; surface the failing log on error.
-if ! wait $PID_BUILD_PRIMARY; then
-  echo "Primary build failed:"; tail -50 /tmp/e2e-build-primary.log; exit 1
-fi
-if ! wait $PID_BUILD_BROKEN; then
+#
+# Runs AFTER the primary build, not in parallel: both builds bootstrap
+# OpenNext (initOpenNextCloudflareForDev in next.config.mjs) against a shared
+# workerd SQLite cache and both trigger Next's tsconfig.json typegen rewrite —
+# running them concurrently races on those shared files and crashes with
+# SQLITE_BUSY.
+echo "==> Building dj-site (broken-auth)..."
+if ! NEXT_PUBLIC_BETTER_AUTH_URL=http://127.0.0.99:9999/auth \
+     NEXT_DIST_DIR_SUFFIX=broken-auth \
+     npm run build > /tmp/e2e-build-broken-auth.log 2>&1; then
   echo "Broken-auth build failed:"; tail -50 /tmp/e2e-build-broken-auth.log; exit 1
 fi
 

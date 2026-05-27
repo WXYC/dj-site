@@ -90,12 +90,16 @@ test.describe("SSE Tier 2 — polling rate", () => {
 });
 
 /**
- * Wait for the page to settle (initial flowsheet GETs landed), then count
- * matching GET requests for `windowMs`. Returns the post-settle count.
+ * Count matching `/flowsheet/*` GET requests over a `windowMs` window.
+ *
+ * Callers gate on `waitForEntriesLoaded()` (initial `/?page=` + `/latest`
+ * GETs already landed) plus an SSE-status assertion before calling this, so
+ * the page is settled by the time the window opens. We deliberately do NOT
+ * `waitForLoadState("networkidle")`: an open SSE EventSource keeps a request
+ * in flight indefinitely, so the page never reaches `networkidle` in the
+ * connected scenario and the wait would hang until the test timeout.
  */
 async function countFlowsheetPolls(page: Page, windowMs: number): Promise<number> {
-  await page.waitForLoadState("networkidle");
-
   let count = 0;
   const onRequest = (req: import("@playwright/test").Request) => {
     if (req.method() !== "GET") return;
