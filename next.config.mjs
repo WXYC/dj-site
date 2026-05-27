@@ -9,11 +9,13 @@ const authRewriteURL =
   process.env.NEXT_PUBLIC_BETTER_AUTH_URL ||
   "https://api.wxyc.org/auth";
 
-// E2E-only second-build variant: when NEXT_BUILD_VARIANT=broken-auth, writes
-// to a separate build dir so the primary `.next/` cache survives. Used by
-// the server-session-via-docker E2E test to exercise the AUTH_REWRITE_URL
-// precedence path against an intentionally-unreachable NEXT_PUBLIC_BETTER_AUTH_URL.
-const distDir = process.env.NEXT_BUILD_VARIANT === "broken-auth" ? ".next-broken-auth" : ".next";
+// `NEXT_DIST_DIR_SUFFIX` lets parallel builds (different NEXT_PUBLIC_* values
+// in particular) coexist by writing to `.next-<suffix>/` instead of the
+// default `.next/`. No application semantics — set by scripts that need a
+// second build alongside the primary one.
+const distDir = process.env.NEXT_DIST_DIR_SUFFIX
+  ? `.next-${process.env.NEXT_DIST_DIR_SUFFIX}`
+  : ".next";
 
 const nextConfig = {
   reactStrictMode: false,
