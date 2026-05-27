@@ -87,55 +87,57 @@ timeout 60 bash -c "until curl -sf http://localhost:$BACKEND_PORT/healthcheck; d
 echo "==> Seeding E2E test users..."
 npm run setup:e2e-users
 
-echo "==> Building dj-site..."
 cd "$DJSITE_DIR"
-NEXT_PUBLIC_BACKEND_URL=http://localhost:$BACKEND_PORT \
-NEXT_PUBLIC_BETTER_AUTH_URL=http://localhost:$AUTH_PORT/auth \
-NEXT_PUBLIC_DASHBOARD_HOME_PAGE=/dashboard/flowsheet \
-NEXT_PUBLIC_VERSION=e2e \
-NEXT_PUBLIC_DEFAULT_EXPERIENCE=modern \
-NEXT_PUBLIC_ENABLED_EXPERIENCES=modern,classic \
-NEXT_PUBLIC_ALLOW_EXPERIENCE_SWITCHING=true \
-NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD=temppass123 \
-NEXT_PUBLIC_APP_ORGANIZATION=test-org \
-NEXT_PUBLIC_FLOWSHEET_SSE_DASHBOARD_ENABLED=true \
-NEXT_PUBLIC_FLOWSHEET_SSE_LIVE_VIEW_ENABLED=true \
-npm run build
+
+# Shared NEXT_PUBLIC_* config for dj-site builds. Per-build overrides go on
+# the invocation line so they win against the export here.
+export NEXT_PUBLIC_BACKEND_URL=http://localhost:$BACKEND_PORT
+export NEXT_PUBLIC_BETTER_AUTH_URL=http://localhost:$AUTH_PORT/auth
+export NEXT_PUBLIC_DASHBOARD_HOME_PAGE=/dashboard/flowsheet
+export NEXT_PUBLIC_VERSION=e2e
+export NEXT_PUBLIC_DEFAULT_EXPERIENCE=modern
+export NEXT_PUBLIC_ENABLED_EXPERIENCES=modern,classic
+export NEXT_PUBLIC_ALLOW_EXPERIENCE_SWITCHING=true
+export NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD=temppass123
+export NEXT_PUBLIC_APP_ORGANIZATION=test-org
+export NEXT_PUBLIC_FLOWSHEET_SSE_DASHBOARD_ENABLED=true
+export NEXT_PUBLIC_FLOWSHEET_SSE_LIVE_VIEW_ENABLED=true
+
+echo "==> Building dj-site (primary + broken-auth in parallel)..."
+# Primary build -> .next/
+npm run build > /tmp/e2e-build-primary.log 2>&1 &
+PID_BUILD_PRIMARY=$!
+
+# Second build for e2e/tests/auth/server-session-via-docker.spec.ts.
+# NEXT_PUBLIC_BETTER_AUTH_URL is inlined at build time to an unreachable
+# loopback address, simulating the Docker scenario where the container's
+# `localhost` is the container itself. AUTH_REWRITE_URL (already exported)
+# takes precedence at runtime in both the /auth rewrite and SSR session
+# lookup — that precedence is exactly what the test asserts. Writes to
+# `.next-broken-auth/` (via NEXT_DIST_DIR_SUFFIX in next.config.mjs) so the
+# primary `.next/` build cache survives.
+NEXT_PUBLIC_BETTER_AUTH_URL=http://127.0.0.99:9999/auth \
+NEXT_DIST_DIR_SUFFIX=broken-auth \
+npm run build > /tmp/e2e-build-broken-auth.log 2>&1 &
+PID_BUILD_BROKEN=$!
+
+# Wait for both; surface the failing log on error.
+if ! wait $PID_BUILD_PRIMARY; then
+  echo "Primary build failed:"; tail -50 /tmp/e2e-build-primary.log; exit 1
+fi
+if ! wait $PID_BUILD_BROKEN; then
+  echo "Broken-auth build failed:"; tail -50 /tmp/e2e-build-broken-auth.log; exit 1
+fi
 
 echo "==> Starting dj-site on :$FRONTEND_PORT..."
 PORT=$FRONTEND_PORT npm run start > /tmp/e2e-frontend.log 2>&1 &
 echo $! > /tmp/e2e-frontend.pid
-echo "Waiting for frontend..."
 timeout 60 bash -c "until curl -sf http://localhost:$FRONTEND_PORT; do sleep 2; done"
 
-# Second dj-site build for e2e/tests/auth/server-session-via-docker.spec.ts.
-# NEXT_PUBLIC_BETTER_AUTH_URL is inlined at build time to an unreachable
-# loopback address, simulating the Docker scenario where the container's
-# `localhost` is the container itself. AUTH_REWRITE_URL (exported earlier)
-# takes precedence at runtime in both the /auth rewrite and SSR session
-# lookup — that precedence is exactly what the test asserts. Writes to
-# `.next-broken-auth/` (via NEXT_BUILD_VARIANT switch in next.config.mjs)
-# so the primary `.next/` build cache survives.
-echo "==> Building second dj-site for server-session test..."
-NEXT_PUBLIC_BACKEND_URL=http://localhost:$BACKEND_PORT \
-NEXT_PUBLIC_BETTER_AUTH_URL=http://127.0.0.99:9999/auth \
-NEXT_PUBLIC_DASHBOARD_HOME_PAGE=/dashboard/flowsheet \
-NEXT_PUBLIC_VERSION=e2e-broken-public-auth \
-NEXT_PUBLIC_DEFAULT_EXPERIENCE=modern \
-NEXT_PUBLIC_ENABLED_EXPERIENCES=modern,classic \
-NEXT_PUBLIC_ALLOW_EXPERIENCE_SWITCHING=true \
-NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD=temppass123 \
-NEXT_PUBLIC_APP_ORGANIZATION=test-org \
-NEXT_PUBLIC_FLOWSHEET_SSE_DASHBOARD_ENABLED=true \
-NEXT_PUBLIC_FLOWSHEET_SSE_LIVE_VIEW_ENABLED=true \
-NEXT_BUILD_VARIANT=broken-auth \
-npm run build
-
 echo "==> Starting second dj-site on :$SECOND_FRONTEND_PORT..."
-PORT=$SECOND_FRONTEND_PORT NEXT_BUILD_VARIANT=broken-auth npm run start \
+PORT=$SECOND_FRONTEND_PORT NEXT_DIST_DIR_SUFFIX=broken-auth npm run start \
   > /tmp/e2e-frontend-broken-auth.log 2>&1 &
 echo $! > /tmp/e2e-frontend-broken-auth.pid
-echo "Waiting for second frontend..."
 timeout 60 bash -c "until curl -sf http://localhost:$SECOND_FRONTEND_PORT; do sleep 2; done"
 
 echo "==> Running E2E tests..."

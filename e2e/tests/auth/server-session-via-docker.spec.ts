@@ -13,7 +13,7 @@ const DJ_STORAGE = path.join(authDir, "dj2.json");
  * (because the container's `localhost` is the container itself, not the
  * host), `getServerSession()` silently returns null and SSR-only routes
  * redirect to `/login`. Fix adds `AUTH_REWRITE_URL` as a higher-precedence
- * server-only override, matching the rewrite path in next.config.mjs:7-10.
+ * server-only override, matching the rewrite path in next.config.mjs.
  *
  * Test strategy: rather than spinning up an actual Docker stack, we simulate
  * the bug surface by running a SECOND dj-site instance built with

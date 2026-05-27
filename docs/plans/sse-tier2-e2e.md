@@ -136,10 +136,12 @@ DJSITE_BUILD_DIR=.next-broken-auth \
 npm run build  # see note below
 ```
 
-The catch: `npm run build` writes to `.next/` by default. Verified Next 16 does NOT honor a `NEXT_DIST_DIR` env var, and `next build` has no `--config` flag — the config file is always loaded from cwd. Cleanest path: add a single conditional to `next.config.mjs`:
+The catch: `npm run build` writes to `.next/` by default. Verified Next 16 does NOT honor a `NEXT_DIST_DIR` env var, and `next build` has no `--config` flag — the config file is always loaded from cwd. Cleanest path: add a single generic conditional to `next.config.mjs` (no E2E semantics in the config — just a parallel-build directory suffix):
 
 ```js
-const distDir = process.env.NEXT_BUILD_VARIANT === "broken-auth" ? ".next-broken-auth" : ".next";
+const distDir = process.env.NEXT_DIST_DIR_SUFFIX
+  ? `.next-${process.env.NEXT_DIST_DIR_SUFFIX}`
+  : ".next";
 // ...
 const nextConfig = {
   // ...existing fields,
@@ -147,7 +149,7 @@ const nextConfig = {
 };
 ```
 
-Then the second build is `NEXT_BUILD_VARIANT=broken-auth NEXT_PUBLIC_BETTER_AUTH_URL=http://127.0.0.99:9999/auth … npm run build`, and the second start is `NEXT_BUILD_VARIANT=broken-auth PORT=3002 AUTH_REWRITE_URL=… npm run start`. The variant flag is a build-time-only signal; nothing in app code reads it. Total wall-time impact: +30–60s for the second build.
+Then the second build is `NEXT_DIST_DIR_SUFFIX=broken-auth NEXT_PUBLIC_BETTER_AUTH_URL=http://127.0.0.99:9999/auth … npm run build`, and the second start is `NEXT_DIST_DIR_SUFFIX=broken-auth PORT=3002 AUTH_REWRITE_URL=… npm run start`. The suffix is a build-time-only signal; nothing in app code reads it. Total wall-time impact: ~0 on the critical path since the second build runs in parallel with the primary.
 
 CI cache: `.github/workflows/e2e-tests.yml`'s `.next/` cache currently keys on package-lock + source files. The second build (`.next-broken-auth/`) would need its own cache entry — but it's a near-identical build, so simplest is to NOT cache it (savings on cache logic, ~30s rebuild cost on every run). The trade-off (no second-build cache vs. cache-key complexity) is logged in CLAUDE.md under E2E-only dependencies so future maintainers can revisit if E2E run frequency increases.
 
