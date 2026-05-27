@@ -128,7 +128,7 @@ jobs:
           BETTER_AUTH_SECRET=e2e-auth-secret-for-testing-min-32-chars
           BETTER_AUTH_URL=http://localhost:8084/auth
           BETTER_AUTH_JWKS_URL=http://localhost:8084/auth/jwks
-          BETTER_AUTH_TRUSTED_ORIGINS=http://localhost:3000
+          BETTER_AUTH_TRUSTED_ORIGINS=http://localhost:3000,http://localhost:3001
           FRONTEND_SOURCE=http://localhost:3000
           DEFAULT_ORG_SLUG=test-org
           DEFAULT_ORG_NAME='Test Organization'
@@ -246,10 +246,25 @@ jobs:
             PID_BUILD=$!
           fi
 
+          # Second dj-site build for e2e/tests/auth/server-session-via-docker.spec.ts.
+          # NEXT_PUBLIC_BETTER_AUTH_URL is inlined at build time to an unreachable
+          # loopback address, simulating the Docker scenario where the container's
+          # `localhost` is the container itself. AUTH_REWRITE_URL is set at runtime
+          # to the real auth and is what the test asserts gets picked up. Writes
+          # to `.next-broken-auth/` via NEXT_BUILD_VARIANT in next.config.mjs so
+          # the primary `.next/` cache survives. Runs in parallel with the primary
+          # build; not cached separately to keep cache-key logic simple.
+          (cd dj-site && \
+            NEXT_PUBLIC_BETTER_AUTH_URL=http://127.0.0.99:9999/auth \
+            NEXT_BUILD_VARIANT=broken-auth \
+            npm run build) &
+          PID_BUILD_BROKEN=$!
+
           # Wait for all tracks — fail if any fails
           wait $PID_BACKEND || exit 1
           if [ -n "$PID_PW" ]; then wait $PID_PW || exit 1; fi
           if [ -n "$PID_BUILD" ]; then wait $PID_BUILD || exit 1; fi
+          wait $PID_BUILD_BROKEN || exit 1
 
       - name: Start dj-site
         working-directory: dj-site
@@ -261,8 +276,20 @@ jobs:
           echo "Waiting for frontend..."
           timeout 60 bash -c 'until curl -sf http://localhost:3000; do sleep 2; done'
 
+          # Second dj-site instance for the server-session-via-docker test
+          # (built earlier with NEXT_PUBLIC_BETTER_AUTH_URL pointing at an
+          # unreachable host). NEXT_BUILD_VARIANT=broken-auth selects the
+          # `.next-broken-auth/` build at runtime.
+          PORT=3001 NEXT_BUILD_VARIANT=broken-auth npm run start \
+            > /tmp/frontend-broken-auth.log 2>&1 &
+          echo $! > /tmp/frontend-broken-auth.pid
+          echo "Waiting for second frontend..."
+          timeout 60 bash -c 'until curl -sf http://localhost:3001; do sleep 2; done'
+
       - name: Run E2E tests
         working-directory: dj-site
+        env:
+          SECOND_FRONTEND_PORT: "3001"
         # --max-failures kept at 10 per shard: with sharding, a stuck shard
         # hits its cap on its own, so dropping to 1 tanks otherwise-green
         # shards (see prior commit on #574).
@@ -284,6 +311,9 @@ jobs:
           echo ""
           echo "=== Frontend Logs ==="
           cat /tmp/frontend.log 2>/dev/null || echo "No frontend log"
+          echo ""
+          echo "=== Frontend (broken-auth) Logs ==="
+          cat /tmp/frontend-broken-auth.log 2>/dev/null || echo "No frontend-broken-auth log"
           echo ""
           echo "=== Mock Tubafrenzy Logs ==="
           cat /tmp/mock-tubafrenzy.log 2>/dev/null || echo "No mock-tubafrenzy log"
@@ -308,6 +338,7 @@ jobs:
         if: always()
         run: |
           kill $(cat /tmp/frontend.pid 2>/dev/null) 2>/dev/null || true
+          kill $(cat /tmp/frontend-broken-auth.pid 2>/dev/null) 2>/dev/null || true
           kill $(cat /tmp/auth.pid 2>/dev/null) 2>/dev/null || true
           kill $(cat /tmp/backend.pid 2>/dev/null) 2>/dev/null || true
           kill $(cat /tmp/mock-tubafrenzy.pid 2>/dev/null) 2>/dev/null || true
