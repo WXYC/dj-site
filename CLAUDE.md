@@ -305,6 +305,10 @@ Runs on push to `main` and on PRs that touch app code. Spins up Backend-Service 
 
 The Tier 1 SSE round-trip tests under `e2e/tests/sse/` issue `pg_notify('cdc', <json>)` directly against the E2E Postgres to bypass the LML enrichment chain (unreachable in CI). For that they need a Node Postgres client, so `pg` and `@types/pg` are pinned in `devDependencies`. They're only imported from `e2e/helpers/pg-notify.ts` — nothing in app code uses them and they don't ship in the Next.js bundle. Both `scripts/e2e-local.sh` and the E2E workflow export `DB_HOST`/`DB_PORT`/`DB_NAME`/`DB_USERNAME`/`DB_PASSWORD` so the helper can connect without per-test config.
 
+#### Second dj-site instance (server-session-via-docker test)
+
+`e2e/tests/auth/server-session-via-docker.spec.ts` (Tier 2) regression-tests the `AUTH_REWRITE_URL` precedence in `lib/features/authentication/server-client.ts:getBaseURL()`. The bug only manifests when `NEXT_PUBLIC_BETTER_AUTH_URL` is unreachable from inside the dj-site server process, so the test needs a second dj-site build with `NEXT_PUBLIC_BETTER_AUTH_URL=http://127.0.0.99:9999/auth` (loopback, nothing listens) and runtime `AUTH_REWRITE_URL` pointing at the real auth. Both `scripts/e2e-local.sh` and the E2E workflow build this second instance via `NEXT_BUILD_VARIANT=broken-auth npm run build` (writes to `.next-broken-auth/` via the `distDir` switch in `next.config.mjs`) and start it on `$SECOND_FRONTEND_PORT` (3002 local, 3001 in CI). The test reads `SECOND_FRONTEND_PORT` from env; if unset, the test self-skips so direct `npx playwright test` invocations against the primary instance don't fail. The second build is intentionally not cached separately — the cache-key complexity isn't worth saving ~30s on a build that runs in parallel with the primary build. Revisit if E2E run frequency increases enough to make the trade-off worth it.
+
 ### Deployment
 
 Cloudflare Pages via OpenNext. Build: `npm run build:opennext`. Deploy: `npm run deploy` (Wrangler).

@@ -25,10 +25,12 @@ DB_PORT="${E2E_DB_PORT:-5436}"
 AUTH_PORT=8084
 BACKEND_PORT=8085
 FRONTEND_PORT="${E2E_FRONTEND_PORT:-3001}"
+SECOND_FRONTEND_PORT="${E2E_SECOND_FRONTEND_PORT:-3002}"
 
 cleanup() {
   echo "Cleaning up..."
   kill "$(cat /tmp/e2e-frontend.pid 2>/dev/null)" 2>/dev/null || true
+  kill "$(cat /tmp/e2e-frontend-broken-auth.pid 2>/dev/null)" 2>/dev/null || true
   kill "$(cat /tmp/e2e-auth.pid 2>/dev/null)" 2>/dev/null || true
   kill "$(cat /tmp/e2e-backend.pid 2>/dev/null)" 2>/dev/null || true
   E2E_DB_PORT=$DB_PORT docker compose -f "$DJSITE_DIR/docker-compose.e2e.yml" down -v 2>/dev/null || true
@@ -47,7 +49,7 @@ export DB_PASSWORD='RadioIsEpic$1100'
 export BETTER_AUTH_SECRET=e2e-auth-secret-for-testing-min-32-chars
 export BETTER_AUTH_URL="http://localhost:$AUTH_PORT/auth"
 export BETTER_AUTH_JWKS_URL="http://localhost:$AUTH_PORT/auth/jwks"
-export BETTER_AUTH_TRUSTED_ORIGINS="http://localhost:$FRONTEND_PORT"
+export BETTER_AUTH_TRUSTED_ORIGINS="http://localhost:$FRONTEND_PORT,http://localhost:$SECOND_FRONTEND_PORT"
 export FRONTEND_SOURCE="http://localhost:$FRONTEND_PORT"
 export DEFAULT_ORG_SLUG=test-org
 export DEFAULT_ORG_NAME='Test Organization'
@@ -106,6 +108,37 @@ echo $! > /tmp/e2e-frontend.pid
 echo "Waiting for frontend..."
 timeout 60 bash -c "until curl -sf http://localhost:$FRONTEND_PORT; do sleep 2; done"
 
+# Second dj-site build for e2e/tests/auth/server-session-via-docker.spec.ts.
+# NEXT_PUBLIC_BETTER_AUTH_URL is inlined at build time to an unreachable
+# loopback address, simulating the Docker scenario where the container's
+# `localhost` is the container itself. AUTH_REWRITE_URL (exported earlier)
+# takes precedence at runtime in both the /auth rewrite and SSR session
+# lookup — that precedence is exactly what the test asserts. Writes to
+# `.next-broken-auth/` (via NEXT_BUILD_VARIANT switch in next.config.mjs)
+# so the primary `.next/` build cache survives.
+echo "==> Building second dj-site for server-session test..."
+NEXT_PUBLIC_BACKEND_URL=http://localhost:$BACKEND_PORT \
+NEXT_PUBLIC_BETTER_AUTH_URL=http://127.0.0.99:9999/auth \
+NEXT_PUBLIC_DASHBOARD_HOME_PAGE=/dashboard/flowsheet \
+NEXT_PUBLIC_VERSION=e2e-broken-public-auth \
+NEXT_PUBLIC_DEFAULT_EXPERIENCE=modern \
+NEXT_PUBLIC_ENABLED_EXPERIENCES=modern,classic \
+NEXT_PUBLIC_ALLOW_EXPERIENCE_SWITCHING=true \
+NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD=temppass123 \
+NEXT_PUBLIC_APP_ORGANIZATION=test-org \
+NEXT_PUBLIC_FLOWSHEET_SSE_DASHBOARD_ENABLED=true \
+NEXT_PUBLIC_FLOWSHEET_SSE_LIVE_VIEW_ENABLED=true \
+NEXT_BUILD_VARIANT=broken-auth \
+npm run build
+
+echo "==> Starting second dj-site on :$SECOND_FRONTEND_PORT..."
+PORT=$SECOND_FRONTEND_PORT NEXT_BUILD_VARIANT=broken-auth npm run start \
+  > /tmp/e2e-frontend-broken-auth.log 2>&1 &
+echo $! > /tmp/e2e-frontend-broken-auth.pid
+echo "Waiting for second frontend..."
+timeout 60 bash -c "until curl -sf http://localhost:$SECOND_FRONTEND_PORT; do sleep 2; done"
+
 echo "==> Running E2E tests..."
 E2E_BASE_URL=http://localhost:$FRONTEND_PORT \
+SECOND_FRONTEND_PORT=$SECOND_FRONTEND_PORT \
 npx playwright test --config=e2e/playwright.config.ts "$@"

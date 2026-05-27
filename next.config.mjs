@@ -9,9 +9,16 @@ const authRewriteURL =
   process.env.NEXT_PUBLIC_BETTER_AUTH_URL ||
   "https://api.wxyc.org/auth";
 
+// E2E-only second-build variant: when NEXT_BUILD_VARIANT=broken-auth, writes
+// to a separate build dir so the primary `.next/` cache survives. Used by
+// the server-session-via-docker E2E test to exercise the AUTH_REWRITE_URL
+// precedence path against an intentionally-unreachable NEXT_PUBLIC_BETTER_AUTH_URL.
+const distDir = process.env.NEXT_BUILD_VARIANT === "broken-auth" ? ".next-broken-auth" : ".next";
+
 const nextConfig = {
   reactStrictMode: false,
   productionBrowserSourceMaps: true,
+  distDir,
   // Explicitly set workspace root to silence lockfile warning
   outputFileTracingRoot: import.meta.dirname,
   // Required for OpenNext Cloudflare
