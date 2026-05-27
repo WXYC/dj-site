@@ -53,6 +53,12 @@ export DEFAULT_ORG_SLUG=test-org
 export DEFAULT_ORG_NAME='Test Organization'
 export APP_ORGANIZATION_ID=test-org-id-0000000000000000001
 export NODE_ENV=test
+# CDC LISTEN is currently gated on CDC_SECRET in Backend-Service's
+# setupCdcWebSocket() — and setupMetadataBroadcast() depends on the LISTEN
+# being active to deliver pg_notify('cdc', ...) events to its handler.
+# Without this, the SSE Tier 1 tests' NOTIFYs are silently dropped. Tracked
+# as a Backend-Service follow-up to split LISTEN startup from CDC_SECRET.
+export CDC_SECRET=e2e-cdc-secret-not-used-by-tests
 
 echo "==> Building Backend-Service..."
 cd "$BACKEND_DIR"
@@ -90,6 +96,8 @@ NEXT_PUBLIC_ENABLED_EXPERIENCES=modern,classic \
 NEXT_PUBLIC_ALLOW_EXPERIENCE_SWITCHING=true \
 NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD=temppass123 \
 NEXT_PUBLIC_APP_ORGANIZATION=test-org \
+NEXT_PUBLIC_FLOWSHEET_SSE_DASHBOARD_ENABLED=true \
+NEXT_PUBLIC_FLOWSHEET_SSE_LIVE_VIEW_ENABLED=true \
 npm run build
 
 echo "==> Starting dj-site on :$FRONTEND_PORT..."
