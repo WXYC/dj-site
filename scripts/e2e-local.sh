@@ -111,11 +111,11 @@ PID_BUILD_PRIMARY=$!
 # Second build for e2e/tests/auth/server-session-via-docker.spec.ts.
 # NEXT_PUBLIC_BETTER_AUTH_URL is inlined at build time to an unreachable
 # loopback address, simulating the Docker scenario where the container's
-# `localhost` is the container itself. AUTH_REWRITE_URL (already exported)
-# takes precedence at runtime in both the /auth rewrite and SSR session
-# lookup — that precedence is exactly what the test asserts. Writes to
-# `.next-broken-auth/` (via NEXT_DIST_DIR_SUFFIX in next.config.mjs) so the
-# primary `.next/` build cache survives.
+# `localhost` is the container itself. AUTH_REWRITE_URL is set at runtime on
+# the second `npm run start` (below) and takes precedence in both the /auth
+# rewrite and SSR session lookup — that precedence is exactly what the test
+# asserts. Writes to `.next-broken-auth/` (via NEXT_DIST_DIR_SUFFIX in
+# next.config.mjs) so the primary `.next/` build cache survives.
 NEXT_PUBLIC_BETTER_AUTH_URL=http://127.0.0.99:9999/auth \
 NEXT_DIST_DIR_SUFFIX=broken-auth \
 npm run build > /tmp/e2e-build-broken-auth.log 2>&1 &
@@ -135,7 +135,13 @@ echo $! > /tmp/e2e-frontend.pid
 timeout 60 bash -c "until curl -sf http://localhost:$FRONTEND_PORT; do sleep 2; done"
 
 echo "==> Starting second dj-site on :$SECOND_FRONTEND_PORT..."
-PORT=$SECOND_FRONTEND_PORT NEXT_DIST_DIR_SUFFIX=broken-auth npm run start \
+# AUTH_REWRITE_URL points at the real auth so it wins over the unreachable
+# build-inlined NEXT_PUBLIC_BETTER_AUTH_URL in both getBaseURL() and the
+# /auth rewrite — the precedence server-session-via-docker.spec.ts asserts.
+PORT=$SECOND_FRONTEND_PORT \
+NEXT_DIST_DIR_SUFFIX=broken-auth \
+AUTH_REWRITE_URL=http://localhost:$AUTH_PORT/auth \
+npm run start \
   > /tmp/e2e-frontend-broken-auth.log 2>&1 &
 echo $! > /tmp/e2e-frontend-broken-auth.pid
 timeout 60 bash -c "until curl -sf http://localhost:$SECOND_FRONTEND_PORT; do sleep 2; done"
