@@ -29,11 +29,13 @@ export async function pgNotify(channel: string, payload: object): Promise<void> 
   const client = new Client(getDbConfig());
   await client.connect();
   try {
-    // NOTIFY's payload must be a SQL literal — parameter binding is not
-    // allowed. JSON.stringify never produces backslash-escaped single quotes,
-    // so SQL single-quote doubling is sufficient.
+    // NOTIFY accepts neither parameter binding for the channel nor parameter
+    // binding for the payload. `escapeIdentifier` is the only safe path for
+    // the channel name; single-quote doubling is sufficient for the JSON
+    // payload (JSON.stringify never emits backslash-escaped single quotes).
+    const quotedChannel = client.escapeIdentifier(channel);
     const literal = JSON.stringify(payload).replace(/'/g, "''");
-    await client.query(`NOTIFY ${channel}, '${literal}'`);
+    await client.query(`NOTIFY ${quotedChannel}, '${literal}'`);
   } finally {
     await client.end();
   }
