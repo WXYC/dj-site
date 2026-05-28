@@ -1,24 +1,24 @@
 "use client";
 
 import { useLazySearchArtistsInGenreQuery } from "@/lib/features/catalog/api";
-import { catalogModalAutocompleteSlotProps } from "@/src/components/experiences/modern/catalog/form/catalogModalLayers";
-import Add from "@mui/icons-material/Add";
 import Autocomplete from "@mui/joy/Autocomplete";
 import AutocompleteOption from "@mui/joy/AutocompleteOption";
+import Box from "@mui/joy/Box";
 import FormControl from "@mui/joy/FormControl";
 import FormLabel from "@mui/joy/FormLabel";
 import FormHelperText from "@mui/joy/FormHelperText";
 import ListItemContent from "@mui/joy/ListItemContent";
-import ListItemDecorator from "@mui/joy/ListItemDecorator";
 import Typography from "@mui/joy/Typography";
 import type { HTMLAttributes, Key } from "react";
 import {
-  type ArtistAutocompleteOption,
+  type ArtistAutocompleteExisting,
   filterArtistAutocompleteOptions,
   getArtistOptionLabel,
+  resolveArtistInputCommit,
   toExistingOption,
 } from "./catalogEntryArtistOptions";
-import { useEffect, useMemo, useState } from "react";
+import type { CatalogEntryArtistMode } from "./useCatalogEntryForm";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 const MIN_SEARCH_LENGTH = 2;
 const DEBOUNCE_MS = 300;
@@ -27,19 +27,9 @@ type ArtistOptionRenderProps = HTMLAttributes<HTMLLIElement> & { key?: Key };
 
 function renderArtistOption(
   props: ArtistOptionRenderProps,
-  option: ArtistAutocompleteOption,
+  option: ArtistAutocompleteExisting,
 ) {
   const { key, color: _color, ...optionProps } = props;
-  if (option.type === "create") {
-    return (
-      <AutocompleteOption key={key} {...optionProps} color="primary" variant="soft">
-        <ListItemDecorator sx={{ minInlineSize: 24 }}>
-          <Add fontSize="small" />
-        </ListItemDecorator>
-        <ListItemContent>{getArtistOptionLabel(option)}</ListItemContent>
-      </AutocompleteOption>
-    );
-  }
   return (
     <AutocompleteOption key={key} {...optionProps}>
       <ListItemContent
@@ -51,7 +41,11 @@ function renderArtistOption(
         }}
       >
         <span>{option.artist_name}</span>
-        <Typography level="body-xs" textColor="neutral.500" sx={{ flexShrink: 0 }}>
+        <Typography
+          level="body-xs"
+          textColor="neutral.500"
+          sx={{ flexShrink: 0 }}
+        >
           {option.code_letters} {option.code_number}
         </Typography>
       </ListItemContent>
@@ -59,12 +53,43 @@ function renderArtistOption(
   );
 }
 
+function applyCommitResult(
+  result: ReturnType<typeof resolveArtistInputCommit>,
+  handlers: {
+    onClear: () => void;
+    onSelectExisting: (artist: {
+      id: number;
+      artist_name: string;
+      code_letters: string;
+      code_number: number;
+    }) => void;
+    onSelectNew: (name: string) => void;
+  },
+) {
+  switch (result.kind) {
+    case "clear":
+      handlers.onClear();
+      break;
+    case "existing":
+      handlers.onSelectExisting(result.artist);
+      break;
+    case "new":
+      handlers.onSelectNew(result.name);
+      break;
+    case "noop":
+      break;
+  }
+}
+
 type CatalogEntryArtistAutocompleteProps = {
   genreIdNum: number | null;
   disabled?: boolean;
+  artistMode: CatalogEntryArtistMode;
   inputValue: string;
   onInputChange: (value: string) => void;
-  value: ArtistAutocompleteOption | null;
+  value: ArtistAutocompleteExisting | null;
+  codeLetters: string;
+  codeNumber: string;
   onSelectExisting: (artist: {
     id: number;
     artist_name: string;
@@ -79,9 +104,12 @@ type CatalogEntryArtistAutocompleteProps = {
 export default function CatalogEntryArtistAutocomplete({
   genreIdNum,
   disabled,
+  artistMode,
   inputValue,
   onInputChange,
   value,
+  codeLetters,
+  codeNumber,
   onSelectExisting,
   onSelectNew,
   onClear,
@@ -92,7 +120,10 @@ export default function CatalogEntryArtistAutocomplete({
   const [debouncedQ, setDebouncedQ] = useState("");
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQ(inputValue.trim()), DEBOUNCE_MS);
+    const timer = setTimeout(
+      () => setDebouncedQ(inputValue.trim()),
+      DEBOUNCE_MS,
+    );
     return () => clearTimeout(timer);
   }, [inputValue]);
 
@@ -103,9 +134,19 @@ export default function CatalogEntryArtistAutocomplete({
     searchTrigger({ genre_id: genreIdNum, q: debouncedQ, limit: 10 });
   }, [genreIdNum, debouncedQ, searchTrigger]);
 
-  const baseOptions = useMemo((): ArtistAutocompleteOption[] => {
+  const baseOptions = useMemo((): ArtistAutocompleteExisting[] => {
     return (data?.artists ?? []).map(toExistingOption);
   }, [data?.artists]);
+
+  const commitInput = useCallback(
+    (raw: string) => {
+      applyCommitResult(
+        resolveArtistInputCommit(raw, baseOptions, allowCreateArtist),
+        { onClear, onSelectExisting, onSelectNew },
+      );
+    },
+    [baseOptions, allowCreateArtist, onClear, onSelectExisting, onSelectNew],
+  );
 
   const genreReady = genreIdNum !== null;
   const queryReady = debouncedQ.length >= MIN_SEARCH_LENGTH;
@@ -115,84 +156,126 @@ export default function CatalogEntryArtistAutocomplete({
       ? "Type at least 2 characters to search"
       : isFetching
         ? "Searching…"
-        : "No matching artists — use Add to create a new one";
+        : allowCreateArtist
+          ? "No matching artists — press Enter or click away to add new"
+          : "No matching artists in this genre";
+
+  const autocompleteColor =
+    artistMode === "existing" || artistMode === "created"
+      ? "success"
+      : artistMode === "new"
+        ? "primary"
+        : undefined;
+
+  const statusSuffix = useMemo(() => {
+    if (artistMode === "existing" || artistMode === "created") {
+      const letters = codeLetters.trim();
+      const num = codeNumber.trim();
+      if (!letters && !num) return null;
+      return (
+        <Typography
+          level="body-xs"
+          textColor="neutral.500"
+          sx={{ flexShrink: 0 }}
+        >
+          {letters} {num}
+        </Typography>
+      );
+    }
+    if (artistMode === "new") {
+      return (
+        <Typography
+          level="body-xs"
+          textColor="primary.500"
+          sx={{ flexShrink: 0 }}
+        >
+          NEW
+        </Typography>
+      );
+    }
+    return null;
+  }, [artistMode, codeLetters, codeNumber]);
 
   return (
     <FormControl required disabled={!genreReady || disabled}>
       <FormLabel>Artist</FormLabel>
-      <Autocomplete
-        freeSolo
-        selectOnFocus
-        clearOnBlur
-        handleHomeEndKeys
-        disabled={!genreReady || disabled}
-        placeholder={
-          genreReady ? "Search or add an artist" : "Choose a genre first"
-        }
-        options={baseOptions}
-        loading={isFetching}
-        inputValue={inputValue}
-        onInputChange={(_e, newValue) => onInputChange(newValue)}
-        value={value}
-        filterOptions={(options, params) =>
-          allowCreateArtist
-            ? filterArtistAutocompleteOptions(options, params)
-            : filterArtistAutocompleteOptions(options, params).filter(
-                (o) => o.type === "existing"
-              )
-        }
-        getOptionLabel={(option) =>
-          typeof option === "string" ? option : getArtistOptionLabel(option)
-        }
-        getOptionKey={(option) =>
-          typeof option === "string"
-            ? `free-${option}`
-            : option.type === "existing"
-              ? option.id
-              : `create-${option.inputValue}`
-        }
-        noOptionsText={noOptionsText}
-        renderOption={renderArtistOption}
-        isOptionEqualToValue={(a, b) => {
-          if (a.type !== b.type) return false;
-          if (a.type === "create" && b.type === "create") {
-            return a.inputValue === b.inputValue;
+      <Box sx={{ position: "relative", width: "100%" }}>
+        <Autocomplete
+          freeSolo
+          selectOnFocus
+          clearOnBlur={false}
+          handleHomeEndKeys
+          disabled={!genreReady || disabled}
+          placeholder={
+            genreReady ? "Search or add an artist" : "Choose a genre first"
           }
-          if (a.type === "existing" && b.type === "existing") {
-            return a.id === b.id;
+          options={baseOptions}
+          loading={isFetching}
+          inputValue={inputValue}
+          onInputChange={(_e, newValue) => onInputChange(newValue)}
+          value={value}
+          {...(autocompleteColor ? { color: autocompleteColor } : {})}
+          filterOptions={filterArtistAutocompleteOptions}
+          getOptionLabel={(option) =>
+            typeof option === "string" ? option : getArtistOptionLabel(option)
           }
-          return false;
-        }}
-        onChange={(_e, newValue) => {
-          if (!newValue) {
-            onClear();
-            return;
+          getOptionKey={(option) =>
+            typeof option === "string" ? `free-${option}` : option.id
           }
-          if (typeof newValue === "string") {
-            if (!allowCreateArtist) return;
-            const name = newValue.trim();
-            if (name) onSelectNew(name);
-            return;
-          }
-          if (newValue.type === "create") {
-            if (!allowCreateArtist) return;
-            onSelectNew(newValue.inputValue.trim());
-            return;
-          }
-          onSelectExisting(newValue);
-        }}
-        slotProps={{
-          input: {
-            "aria-label": "Artist name",
-            autoComplete: "new-password",
-          },
-          ...catalogModalAutocompleteSlotProps,
-        }}
-      />
+          noOptionsText={noOptionsText}
+          renderOption={renderArtistOption}
+          isOptionEqualToValue={(a, b) => a.id === b.id}
+          onChange={(_e, newValue) => {
+            if (!newValue) {
+              onClear();
+              return;
+            }
+            if (typeof newValue === "string") {
+              commitInput(newValue);
+              return;
+            }
+            onSelectExisting(newValue);
+          }}
+          slotProps={{
+            input: {
+              "aria-label": "Artist name",
+              autoComplete: "new-password",
+              onBlur: () => commitInput(inputValue),
+              ...(statusSuffix
+                ? { sx: { "--Input-paddingInlineEnd": "4.5rem" } }
+                : {}),
+            },
+            listbox: {
+              sx: {
+                py: 0.5,
+                "--ListItem-paddingX": "12px",
+              },
+            },
+          }}
+        />
+        {statusSuffix ? (
+          <Box
+            aria-hidden
+            sx={{
+              position: "absolute",
+              top: 0,
+              bottom: 0,
+              right: 36,
+              display: "flex",
+              alignItems: "center",
+              pointerEvents: "none",
+            }}
+          >
+            {statusSuffix}
+          </Box>
+        ) : null}
+      </Box>
       <FormHelperText>
         {!genreReady
           ? "Select a genre to search artists in that section."
-          : "Matches artists already in this genre; pick Add to create a new code."}
+          : allowCreateArtist
+            ? "Pick a match from the list, or finish typing and press Enter to add a new artist code."
+            : "Search for an artist already in this genre."}
       </FormHelperText>
     </FormControl>
   );

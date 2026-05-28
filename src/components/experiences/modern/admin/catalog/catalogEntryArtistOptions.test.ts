@@ -1,44 +1,58 @@
 import { describe, expect, it } from "vitest";
 import {
-  appendCreatableArtistOption,
   defaultLettersFromName,
+  findExactArtistMatch,
   getArtistOptionLabel,
+  resolveArtistInputCommit,
   toExistingOption,
 } from "./catalogEntryArtistOptions";
 
 describe("catalogEntryArtistOptions", () => {
-  it("appends Add option when input is not an exact match", () => {
-    const options = [
-      toExistingOption({
+  const radiohead = toExistingOption({
+    id: 1,
+    artist_name: "Radiohead",
+    code_letters: "RA",
+    code_number: 5,
+  });
+
+  it("labels existing option with artist name", () => {
+    expect(getArtistOptionLabel(radiohead)).toBe("Radiohead");
+  });
+
+  it("finds exact artist match case-insensitively", () => {
+    expect(findExactArtistMatch([radiohead], "radiohead")).toEqual(radiohead);
+    expect(findExactArtistMatch([radiohead], "New Band")).toBeNull();
+  });
+
+  it("resolveArtistInputCommit returns existing for exact match", () => {
+    expect(resolveArtistInputCommit("Radiohead", [radiohead], true)).toEqual({
+      kind: "existing",
+      artist: {
         id: 1,
         artist_name: "Radiohead",
         code_letters: "RA",
         code_number: 5,
-      }),
-    ];
-    const filtered = appendCreatableArtistOption(options, "New Band");
-    expect(filtered.some((o) => o.type === "create")).toBe(true);
-    const create = filtered.find((o) => o.type === "create");
-    expect(create).toMatchObject({ type: "create", inputValue: "New Band" });
+      },
+    });
   });
 
-  it("does not append Add option for exact name match", () => {
-    const options = [
-      toExistingOption({
-        id: 1,
-        artist_name: "Radiohead",
-        code_letters: "RA",
-        code_number: 5,
-      }),
-    ];
-    const filtered = appendCreatableArtistOption(options, "radiohead");
-    expect(filtered.some((o) => o.type === "create")).toBe(false);
+  it("resolveArtistInputCommit returns new when no match and create allowed", () => {
+    expect(resolveArtistInputCommit("New Band", [radiohead], true)).toEqual({
+      kind: "new",
+      name: "New Band",
+    });
   });
 
-  it("labels create option with quoted name", () => {
-    expect(
-      getArtistOptionLabel({ type: "create", inputValue: "My Band" })
-    ).toBe('Add "My Band"');
+  it("resolveArtistInputCommit returns noop when no match and create disallowed", () => {
+    expect(resolveArtistInputCommit("New Band", [radiohead], false)).toEqual({
+      kind: "noop",
+    });
+  });
+
+  it("resolveArtistInputCommit clears empty input", () => {
+    expect(resolveArtistInputCommit("  ", [radiohead], true)).toEqual({
+      kind: "clear",
+    });
   });
 
   it("derives default code letters from artist name", () => {

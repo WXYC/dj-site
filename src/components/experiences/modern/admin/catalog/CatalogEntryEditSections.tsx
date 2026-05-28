@@ -6,46 +6,38 @@ import {
   useUpdateAlbumMutation,
 } from "@/lib/features/catalog/api";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
-import type { AlbumEntry, UpdateAlbumRequestBody } from "@/lib/features/catalog/types";
+import type {
+  AlbumEntry,
+  UpdateAlbumRequestBody,
+} from "@/lib/features/catalog/types";
 import { useAppDispatch } from "@/lib/hooks";
 import type { Rotation } from "@/lib/features/rotation/types";
 import { useCatalogRotationMarking } from "@/src/hooks/useCatalogRotationMarking";
-import CatalogEntryFormCard from "@/src/components/experiences/modern/catalog/form/CatalogEntryFormCard";
-import CatalogEditContextHero from "@/src/components/experiences/modern/catalog/form/CatalogEditContextHero";
-import CatalogFormStepStage from "@/src/components/experiences/modern/catalog/form/CatalogFormStepStage";
-import {
-  CatalogEditTabNav,
-  type CatalogEditTab,
-} from "@/src/components/experiences/modern/catalog/form/CatalogEntryFormTabs";
-import CatalogEntryArtistSection from "@/src/components/experiences/modern/catalog/form/sections/CatalogEntryArtistSection";
-import CatalogEntryAlbumSection from "@/src/components/experiences/modern/catalog/form/sections/CatalogEntryAlbumSection";
-import CatalogEntryRotationSection from "@/src/components/experiences/modern/catalog/form/sections/CatalogEntryRotationSection";
-import { catalogFormFieldGroupsStackSx } from "@/src/components/experiences/modern/catalog/form/catalogFormLayout";
-import type { AdminCatalogCodePreviewProps } from "./AdminCatalogCodePreview";
+import RightbarFormSectionCard from "../../Rightbar/RightbarFormSectionCard";
+import CatalogRotationBinPicker from "./CatalogRotationBinPicker";
+import CatalogEntryAlbumFields from "./CatalogEntryAlbumFields";
+import CatalogEntryArtistAutocomplete from "./CatalogEntryArtistAutocomplete";
 import { useCatalogEntryForm } from "./useCatalogEntryForm";
-import Edit from "@mui/icons-material/Edit";
-import { Box, Button, Stack, Tabs } from "@mui/joy";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { AdminCatalogCodePreviewProps } from "./AdminCatalogCodePreview";
+import { FormControl, FormLabel, Option, Select, Stack } from "@mui/joy";
+import { useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 
 type CatalogEntryEditSectionsProps = {
   albumId: number;
   album: AlbumEntry;
-  artworkUrl: string;
-  onSaveSuccess?: () => void;
+  onCodePreviewChange?: (preview: AdminCatalogCodePreviewProps) => void;
 };
 
 export default function CatalogEntryEditSections({
   albumId,
   album,
-  artworkUrl,
-  onSaveSuccess,
+  onCodePreviewChange,
 }: CatalogEntryEditSectionsProps) {
   const dispatch = useAppDispatch();
   const { data: genres, isLoading: genresLoading } = useGetGenresQuery();
   const { data: formats, isLoading: formatsLoading } = useGetFormatsQuery();
   const [updateAlbum, { isLoading: saving }] = useUpdateAlbumMutation();
-  const [activeTab, setActiveTab] = useState<CatalogEditTab>("album");
 
   const form = useCatalogEntryForm();
   const hydratedRef = useRef(false);
@@ -72,7 +64,11 @@ export default function CatalogEntryEditSections({
       formats.find((f) => f.format_name === album.format)?.id;
     const artistId = album.artist_id ?? album.artist.id;
 
-    if (genreId === undefined || formatId === undefined || artistId === undefined) {
+    if (
+      genreId === undefined ||
+      formatId === undefined ||
+      artistId === undefined
+    ) {
       return;
     }
 
@@ -121,6 +117,10 @@ export default function CatalogEntryEditSections({
     ],
   );
 
+  useEffect(() => {
+    onCodePreviewChange?.(codePreview);
+  }, [codePreview, onCodePreviewChange]);
+
   const handleRotationSelect = async (bin: Rotation | null) => {
     rotation.setSelectedBin(bin);
     const ok = await rotation.applyRotation(bin);
@@ -133,7 +133,7 @@ export default function CatalogEntryEditSections({
     }
   };
 
-  const onSaveAlbum = useCallback(async () => {
+  const onSaveAlbum = async () => {
     if (
       form.genreIdNum === null ||
       form.formatIdNum === null ||
@@ -166,116 +166,99 @@ export default function CatalogEntryEditSections({
         toast.error("Catalog entry saved, but rotation could not be updated.");
       } else {
         toast.success("Catalog entry updated.");
-        onSaveSuccess?.();
       }
     } catch (err: unknown) {
       const e = err as { data?: { message?: string } };
       toast.error(e?.data?.message || "Could not update catalog entry.");
     }
-  }, [
-    albumId,
-    form,
-    onSaveSuccess,
-    rotation,
-    updateAlbum,
-  ]);
+  };
 
   if (genresLoading || formatsLoading) {
-    return <Stack sx={{ py: 2 }} data-testid="catalog-edit-loading" />;
+    return (
+      <RightbarFormSectionCard title="Loading edit form" interactive={false}>
+        <Stack sx={{ py: 2 }} />
+      </RightbarFormSectionCard>
+    );
   }
 
-  const fieldGroups = (
-    <Box sx={catalogFormFieldGroupsStackSx}>
-      <CatalogFormStepStage
-        activeStep={activeTab}
-        steps={{
-          artist: (
-            <div data-testid="catalog-edit-tab-artist">
-              <CatalogEntryArtistSection
-                form={form}
-                genres={genres}
-                genresLoading={genresLoading}
-                allowCreateArtist={false}
-                data-testid="catalog-edit-artist-card"
-              />
-            </div>
-          ),
-          album: (
-            <div data-testid="catalog-edit-tab-album">
-              <CatalogEntryAlbumSection
-                disabled={!form.albumSectionUnlocked}
-                formatId={form.formatId}
-                onFormatIdChange={form.setFormatId}
-                formats={formats}
-                formatsLoading={formatsLoading}
-                albumTitle={form.albumTitle}
-                onAlbumTitleChange={form.setAlbumTitle}
-                label={form.label}
-                onLabelChange={form.setLabel}
-                alternateArtist={form.alternateArtist}
-                onAlternateArtistChange={form.setAlternateArtist}
-                discQuantity={form.discQuantity}
-                onDiscQuantityChange={form.setDiscQuantity}
-                onAddAlbum={onSaveAlbum}
-                adding={saving}
-                canAdd={form.canSaveAlbum}
-                hideSubmitButton
-                pairAlternateAndDisc
-                data-testid="catalog-edit-album-card"
-              />
-            </div>
-          ),
-          rotation: (
-            <div data-testid="catalog-edit-tab-rotation">
-              <CatalogEntryRotationSection
-                selectedBin={rotation.selectedBin}
-                onSelectBin={handleRotationSelect}
-                disabled={rotation.loading || saving}
-                data-testid="catalog-edit-rotation-card"
-              />
-            </div>
-          ),
-        }}
-      />
-    </Box>
-  );
-
   return (
-    <CatalogEntryFormCard
-      title="Edit catalog entry"
-      titleDecorator={<Edit />}
-      headerExtra={
-        <CatalogEditContextHero
-          album={album}
-          artworkUrl={artworkUrl}
-          codePreview={codePreview}
+    <>
+      <RightbarFormSectionCard
+        title="Artist"
+        description="Update genre and artist for this library entry."
+        data-testid="catalog-edit-artist-card"
+      >
+        <FormControl required size="sm">
+          <FormLabel>Genre</FormLabel>
+          <Select
+            size="sm"
+            placeholder="Choose genre"
+            value={form.genreId}
+            onChange={(_, v) => form.setGenreId(v as string)}
+            disabled={genresLoading}
+          >
+            <Option value="">Choose genre</Option>
+            {genres?.map((g) => (
+              <Option key={g.id} value={String(g.id)}>
+                {g.genre_name}
+              </Option>
+            ))}
+          </Select>
+        </FormControl>
+
+        <CatalogEntryArtistAutocomplete
+          genreIdNum={form.genreIdNum}
+          artistMode={form.artistMode}
+          inputValue={form.artistInputValue}
+          onInputChange={form.handleArtistInputChange}
+          value={form.artistOption}
+          codeLetters={form.codeLetters}
+          codeNumber={form.codeNumber}
+          onSelectExisting={form.selectExistingArtist}
+          onSelectNew={form.selectNewArtist}
+          onClear={form.resetArtist}
+          allowCreateArtist={false}
         />
-      }
-      navigation={
-        <Tabs
-          value={activeTab}
-          onChange={(_, value) => setActiveTab(value as CatalogEditTab)}
-          sx={{ width: "100%" }}
-        >
-          <CatalogEditTabNav activeTab={activeTab} />
-        </Tabs>
-      }
-      actions={
-        <Button
-          variant="solid"
-          color="primary"
-          loading={saving}
-          disabled={!form.canSaveAlbum || saving}
-          onClick={() => {
-            void onSaveAlbum();
-          }}
-          data-testid="catalog-edit-save-button"
-        >
-          {saving ? "Saving…" : "Save changes"}
-        </Button>
-      }
-    >
-      {fieldGroups}
-    </CatalogEntryFormCard>
+      </RightbarFormSectionCard>
+
+      <RightbarFormSectionCard
+        title="Album"
+        description="Album details including format and label."
+        data-testid="catalog-edit-album-card"
+      >
+        <CatalogEntryAlbumFields
+          disabled={!form.albumSectionUnlocked}
+          formatId={form.formatId}
+          onFormatIdChange={form.setFormatId}
+          formats={formats}
+          formatsLoading={formatsLoading}
+          albumTitle={form.albumTitle}
+          onAlbumTitleChange={form.setAlbumTitle}
+          label={form.label}
+          onLabelChange={form.setLabel}
+          alternateArtist={form.alternateArtist}
+          onAlternateArtistChange={form.setAlternateArtist}
+          discQuantity={form.discQuantity}
+          onDiscQuantityChange={form.setDiscQuantity}
+          onAddAlbum={onSaveAlbum}
+          adding={saving}
+          canAdd={form.canSaveAlbum}
+          submitLabel="Save changes"
+          submittingLabel="Saving…"
+        />
+      </RightbarFormSectionCard>
+
+      <RightbarFormSectionCard
+        title="Rotation"
+        data-testid="catalog-edit-rotation-card"
+      >
+        <CatalogRotationBinPicker
+          selectedBin={rotation.selectedBin}
+          onSelectBin={handleRotationSelect}
+          disabled={rotation.loading || saving}
+          showLabel={false}
+        />
+      </RightbarFormSectionCard>
+    </>
   );
 }

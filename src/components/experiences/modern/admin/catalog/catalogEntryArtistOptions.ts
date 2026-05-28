@@ -5,59 +5,86 @@ export type ArtistAutocompleteExisting = ArtistInGenreOption & {
   type: "existing";
 };
 
-export type ArtistAutocompleteCreate = {
-  type: "create";
-  inputValue: string;
-};
+/** @deprecated Use ArtistAutocompleteExisting — kept as alias for form state. */
+export type ArtistAutocompleteOption = ArtistAutocompleteExisting;
 
-export type ArtistAutocompleteOption =
-  | ArtistAutocompleteExisting
-  | ArtistAutocompleteCreate;
-
-const filter = createFilterOptions<ArtistAutocompleteOption>();
+const filter = createFilterOptions<ArtistAutocompleteExisting>();
 
 export function toExistingOption(
-  artist: ArtistInGenreOption
+  artist: ArtistInGenreOption,
 ): ArtistAutocompleteExisting {
   return { type: "existing", ...artist };
 }
 
-export function getArtistOptionLabel(option: ArtistAutocompleteOption): string {
-  if (option.type === "create") {
-    return `Add "${option.inputValue}"`;
-  }
+export function getArtistOptionLabel(
+  option: ArtistAutocompleteExisting,
+): string {
   return option.artist_name;
 }
 
-/** Appends a creatable row when the typed name is not an exact catalog match. */
-export function appendCreatableArtistOption(
-  options: ArtistAutocompleteOption[],
-  inputValue: string
-): ArtistAutocompleteOption[] {
-  const input = inputValue.trim();
-  if (input === "") {
-    return options;
-  }
-  const hasExact = options.some(
-    (o) =>
-      o.type === "existing" &&
-      o.artist_name.toLowerCase() === input.toLowerCase()
-  );
-  if (!hasExact) {
-    return [...options, { type: "create", inputValue: input }];
-  }
-  return options;
-}
-
 export function filterArtistAutocompleteOptions(
-  options: ArtistAutocompleteOption[],
-  params: { inputValue: string }
-): ArtistAutocompleteOption[] {
-  const filtered = filter(options, {
+  options: ArtistAutocompleteExisting[],
+  params: { inputValue: string },
+): ArtistAutocompleteExisting[] {
+  return filter(options, {
     ...params,
     getOptionLabel: getArtistOptionLabel,
   });
-  return appendCreatableArtistOption(filtered, params.inputValue);
+}
+
+export function findExactArtistMatch(
+  options: ArtistAutocompleteExisting[],
+  inputValue: string,
+): ArtistAutocompleteExisting | null {
+  const trimmed = inputValue.trim();
+  if (!trimmed) return null;
+  return (
+    options.find(
+      (o) => o.artist_name.toLowerCase() === trimmed.toLowerCase(),
+    ) ?? null
+  );
+}
+
+export type CommitArtistInputResult =
+  | { kind: "clear" }
+  | { kind: "noop" }
+  | {
+      kind: "existing";
+      artist: {
+        id: number;
+        artist_name: string;
+        code_letters: string;
+        code_number: number;
+      };
+    }
+  | { kind: "new"; name: string };
+
+export function resolveArtistInputCommit(
+  inputValue: string,
+  options: ArtistAutocompleteExisting[],
+  allowCreateArtist: boolean,
+): CommitArtistInputResult {
+  const trimmed = inputValue.trim();
+  if (!trimmed) return { kind: "clear" };
+
+  const exact = findExactArtistMatch(options, trimmed);
+  if (exact) {
+    return {
+      kind: "existing",
+      artist: {
+        id: exact.id,
+        artist_name: exact.artist_name,
+        code_letters: exact.code_letters,
+        code_number: exact.code_number,
+      },
+    };
+  }
+
+  if (allowCreateArtist) {
+    return { kind: "new", name: trimmed };
+  }
+
+  return { kind: "noop" };
 }
 
 export function defaultLettersFromName(name: string): string {
