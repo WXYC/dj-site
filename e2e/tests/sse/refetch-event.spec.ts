@@ -8,24 +8,14 @@ import { ensureOffAirInFreshContext } from "../../helpers/flowsheet-cleanup";
 const authDir = path.join(__dirname, "..", "..", ".auth");
 const DJ_STORAGE = path.join(authDir, "dj2.json");
 
+// Matches both invalidate targets the receiver fires (Flowsheet -> /?page=,
+// NowPlaying -> /latest). Mirrors the regex in polling-rate.spec.ts.
+const FLOWSHEET_REFETCH_RE = /\/flowsheet\/(latest\b|\?page=)/;
+
 /**
- * Tier 3 SSE refetch event — pins the cross-repo refetch path.
- *
- * Flow:
- *   POST /internal/flowsheet-sync-notify (X-Internal-Key)
- *     -> BS serverEventsMgr.broadcast(liveFs, { type: 'refetch', ... })
- *       -> dj-site listener middleware: scheduleDebouncedInvalidate(
- *            ['Flowsheet', 'NowPlaying']) after 500ms
- *         -> RTK Query re-fires GET /flowsheet/* for active subscribers.
- *
- * Polling is in slow mode (60s) while SSE is connected, so any GET
- * /flowsheet/* arriving within 5s of the trigger is attributable to the
- * refetch broadcast — there's no other plausible cause.
- *
- * Serial mode: encodes the same dj2.json constraint that the Tier 1 and
- * Tier 2 specs document (dj.json is invalidated by auth/logout.spec.ts).
- * Single test today, but a future second test in this file would race
- * `ensureOffAir` across parallel workers without this.
+ * Serial mode: dj2.json is the only authed storage state available
+ * (dj.json is invalidated by auth/logout.spec.ts), so a parallel sibling
+ * test in this file would race the afterAll ensureOffAir.
  */
 test.describe("SSE Tier 3 — refetch event", () => {
   test.use({ storageState: DJ_STORAGE });
@@ -45,7 +35,7 @@ test.describe("SSE Tier 3 — refetch event", () => {
 
     const refetchResp = page.waitForResponse(
       (resp) =>
-        /\/flowsheet\/?(\?|$)/.test(resp.url()) &&
+        FLOWSHEET_REFETCH_RE.test(resp.url()) &&
         resp.request().method() === "GET" &&
         resp.status() === 200,
       { timeout: 5_000 }
