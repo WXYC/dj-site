@@ -10,6 +10,7 @@ import {
 } from "./flowsheetHooks";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
+import { liveUpdatesSlice } from "@/lib/features/flowsheet/live-updates-slice";
 import {
   createHookWrapper,
   createTestFlowsheetEntry,
@@ -141,8 +142,20 @@ vi.mock("@/lib/features/flowsheet/conversions", () => ({
   })),
 }));
 
+const mockToastError = vi.fn();
+vi.mock("sonner", () => ({
+  toast: {
+    success: vi.fn(),
+    error: (...args: unknown[]) => mockToastError(...args),
+  },
+}));
+
 const createWrapper = () =>
-  createHookWrapper({ flowsheet: flowsheetSlice, catalog: catalogSlice });
+  createHookWrapper({
+    flowsheet: flowsheetSlice,
+    catalog: catalogSlice,
+    liveUpdates: liveUpdatesSlice,
+  });
 
 describe("flowsheetHooks", () => {
   beforeEach(() => {
@@ -966,8 +979,27 @@ describe("flowsheetHooks", () => {
     });
 
     it("should call handleSubmit and add to flowsheet when ctrl is not pressed", () => {
+      // Preload a song title — handleSubmit now requires it (covers the
+      // row-click bypass of the form's HTML5 validation; see the
+      // "song-title validation" describe block below).
+      const wrapper = createHookWrapper(
+        { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
+        {
+          flowsheet: {
+            ...flowsheetSlice.getInitialState(),
+            search: {
+              ...flowsheetSlice.getInitialState().search,
+              query: {
+                ...flowsheetSlice.getInitialState().search.query,
+                song: "la paradoja",
+              },
+            },
+          },
+        }
+      );
+
       const { result } = renderHook(() => useFlowsheetSubmit(), {
-        wrapper: createWrapper(),
+        wrapper,
       });
 
       act(() => {
@@ -1012,6 +1044,57 @@ describe("flowsheetHooks", () => {
       // The dispatch should have been called with the queue action
     });
 
+    it("treats Meta (Cmd) keydown the same as Control", () => {
+      const { result } = renderHook(() => useFlowsheetSubmit(), {
+        wrapper: createWrapper(),
+      });
+
+      act(() => {
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Meta" }));
+      });
+      expect(result.current.ctrlKeyPressed).toBe(true);
+
+      act(() => {
+        document.dispatchEvent(new KeyboardEvent("keyup", { key: "Meta" }));
+      });
+      expect(result.current.ctrlKeyPressed).toBe(false);
+    });
+
+    // Dispatching keydown without an act() wrap leaves the React state
+    // uncommitted before handleSubmit fires — the same race the production
+    // form's implicit submit exposes when Ctrl+Enter is pressed quickly.
+    it("routes submission to queue even when the keydown state hasn't been observed yet", () => {
+      const wrapper = createHookWrapper(
+        { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
+        {
+          flowsheet: {
+            ...flowsheetSlice.getInitialState(),
+            search: {
+              ...flowsheetSlice.getInitialState().search,
+              query: {
+                ...flowsheetSlice.getInitialState().search.query,
+                song: "la paradoja",
+                artist: "Juana Molina",
+                album: "DOGA",
+              },
+            },
+          },
+        }
+      );
+
+      const { result } = renderHook(() => useFlowsheetSubmit(), { wrapper });
+
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Control" }));
+
+      act(() => {
+        result.current.handleSubmit({
+          preventDefault: vi.fn(),
+        } as unknown as React.FormEvent);
+      });
+
+      expect(mockAddToFlowsheet).not.toHaveBeenCalled();
+    });
+
     it("should include selectedEntry values in selectedResultData when selectedResult > 0", () => {
       // Mock search results with an album entry
       const mockAlbum = createTestAlbum({
@@ -1028,7 +1111,7 @@ describe("flowsheetHooks", () => {
 
       // Create wrapper with preloaded state where selectedResult > 0
       const customWrapper = createHookWrapper(
-        { flowsheet: flowsheetSlice },
+        { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
         {
           flowsheet: {
             ...flowsheetSlice.getInitialState(),
@@ -1075,7 +1158,7 @@ describe("flowsheetHooks", () => {
       });
 
       const customWrapper = createHookWrapper(
-        { flowsheet: flowsheetSlice },
+        { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
         {
           flowsheet: {
             ...flowsheetSlice.getInitialState(),
@@ -1110,7 +1193,7 @@ describe("flowsheetHooks", () => {
       });
 
       const customWrapper = createHookWrapper(
-        { flowsheet: flowsheetSlice },
+        { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
         {
           flowsheet: {
             ...flowsheetSlice.getInitialState(),
@@ -1143,7 +1226,7 @@ describe("flowsheetHooks", () => {
       // defensively — and the fix touches both arms of the memo, so both
       // arms need coverage to prevent a future regression in either branch.
       const customWrapper = createHookWrapper(
-        { flowsheet: flowsheetSlice },
+        { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
         {
           flowsheet: {
             ...flowsheetSlice.getInitialState(),
@@ -1186,7 +1269,7 @@ describe("flowsheetHooks", () => {
       // When selectedEntry exists but has no artist/title/label,
       // it should fall back to the user's entered values
       const customWrapper = createHookWrapper(
-        { flowsheet: flowsheetSlice },
+        { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
         {
           flowsheet: {
             ...flowsheetSlice.getInitialState(),
@@ -1215,6 +1298,91 @@ describe("flowsheetHooks", () => {
       expect(result.current.selectedResultData.label).toBe("Fallback Label");
     });
 
+    describe("handleSubmit song-title validation", () => {
+      // Catalog/LML result rows wire `onClick={handleSubmit}` (see
+      // FlowsheetBackendResult.tsx), which sidesteps the form's HTML5
+      // `required` on the song input. handleSubmit must reject empty
+      // song titles on every submission path.
+      const mkPreloaded = (song: string) => ({
+        flowsheet: {
+          ...flowsheetSlice.getInitialState(),
+          search: {
+            ...flowsheetSlice.getInitialState().search,
+            selectedResult: 0,
+            query: {
+              song,
+              artist: "Juana Molina",
+              album: "DOGA",
+              label: "Sonamos",
+              request: false,
+            },
+          },
+        },
+      });
+
+      it("rejects submission when song is empty and does not call addToFlowsheet", async () => {
+        const wrapper = createHookWrapper(
+        { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
+          mkPreloaded("")
+        );
+
+        const { result } = renderHook(() => useFlowsheetSubmit(), {
+          wrapper,
+        });
+
+        await act(async () => {
+          await result.current.handleSubmit({
+            preventDefault: vi.fn(),
+          } as unknown as React.FormEvent);
+        });
+
+        expect(mockAddToFlowsheet).not.toHaveBeenCalled();
+        expect(mockToastError).toHaveBeenCalledWith(
+          expect.stringMatching(/song title is required/i)
+        );
+      });
+
+      it("rejects submission when song is whitespace-only", async () => {
+        const wrapper = createHookWrapper(
+        { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
+          mkPreloaded("   ")
+        );
+
+        const { result } = renderHook(() => useFlowsheetSubmit(), {
+          wrapper,
+        });
+
+        await act(async () => {
+          await result.current.handleSubmit({
+            preventDefault: vi.fn(),
+          } as unknown as React.FormEvent);
+        });
+
+        expect(mockAddToFlowsheet).not.toHaveBeenCalled();
+        expect(mockToastError).toHaveBeenCalled();
+      });
+
+      it("submits normally when song is present", async () => {
+        const wrapper = createHookWrapper(
+        { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
+          mkPreloaded("la paradoja")
+        );
+
+        const { result } = renderHook(() => useFlowsheetSubmit(), {
+          wrapper,
+        });
+
+        await act(async () => {
+          await result.current.handleSubmit({
+            preventDefault: vi.fn(),
+          } as unknown as React.FormEvent);
+        });
+
+        expect(mockAddToFlowsheet).toHaveBeenCalledTimes(1);
+        expect(mockToastError).not.toHaveBeenCalled();
+      });
+    });
+
     it("should return selectedEntry when selectedResult > 0 and results exist", () => {
       // Mock search results
       const mockAlbum = createTestAlbum({
@@ -1229,7 +1397,7 @@ describe("flowsheetHooks", () => {
       });
 
       const customWrapper = createHookWrapper(
-        { flowsheet: flowsheetSlice },
+        { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
         {
           flowsheet: {
             ...flowsheetSlice.getInitialState(),

@@ -254,33 +254,33 @@ describe("NowPlayingMini", () => {
   describe("DJs display", () => {
     it("should display DJ chips when onAirDJs is provided", () => {
       const djs: OnAirDJResponse[] = [
-        { id: "1", dj_name: "DJ Cool" },
-        { id: "2", dj_name: "DJ Hot" },
+        { id: "1", dj_name: "Turncoat" },
+        { id: "2", dj_name: "desire path" },
       ];
       render(<NowPlayingMini {...createDefaultProps({ live: true, onAirDJs: djs })} />);
-      expect(screen.getByText("DJ DJ Cool")).toBeInTheDocument();
-      expect(screen.getByText("DJ DJ Hot")).toBeInTheDocument();
+      expect(screen.getByText("Turncoat")).toBeInTheDocument();
+      expect(screen.getByText("desire path")).toBeInTheDocument();
     });
 
     it("should render Chip component for each DJ", () => {
       const djs: OnAirDJResponse[] = [
-        { id: "1", dj_name: "DJ Cool" },
-        { id: "2", dj_name: "DJ Hot" },
+        { id: "1", dj_name: "Turncoat" },
+        { id: "2", dj_name: "desire path" },
       ];
       render(<NowPlayingMini {...createDefaultProps({ live: true, onAirDJs: djs })} />);
       expect(screen.getAllByTestId("chip").length).toBe(2);
     });
 
     it("should render Headset icon in each DJ chip", () => {
-      const djs: OnAirDJResponse[] = [{ id: "1", dj_name: "DJ Cool" }];
+      const djs: OnAirDJResponse[] = [{ id: "1", dj_name: "Turncoat" }];
       render(<NowPlayingMini {...createDefaultProps({ live: true, onAirDJs: djs })} />);
       expect(screen.getByTestId("headset-icon")).toBeInTheDocument();
     });
 
     it("should render multiple Headset icons for multiple DJs", () => {
       const djs: OnAirDJResponse[] = [
-        { id: "1", dj_name: "DJ Cool" },
-        { id: "2", dj_name: "DJ Hot" },
+        { id: "1", dj_name: "Turncoat" },
+        { id: "2", dj_name: "desire path" },
       ];
       render(<NowPlayingMini {...createDefaultProps({ live: true, onAirDJs: djs })} />);
       expect(screen.getAllByTestId("headset-icon").length).toBe(2);
@@ -395,7 +395,7 @@ describe("NowPlayingMini", () => {
     });
 
     it("should render Stack for DJ chips with row direction", () => {
-      const djs: OnAirDJResponse[] = [{ id: "1", dj_name: "DJ Cool" }];
+      const djs: OnAirDJResponse[] = [{ id: "1", dj_name: "Turncoat" }];
       render(<NowPlayingMini {...createDefaultProps({ live: true, onAirDJs: djs })} />);
       const stacks = screen.getAllByTestId("stack");
       const rowStack = stacks.find(

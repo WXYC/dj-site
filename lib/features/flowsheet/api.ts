@@ -5,6 +5,7 @@ import {
   FLOWSHEET_OPTIMISTIC_DJ_PLACEHOLDER,
   FLOWSHEET_PAGE_SIZE,
 } from "./constants";
+import { scheduleDeferredFlowsheetRefetch } from "./deferred-refetch";
 import {
   convertDJsOnAir,
   convertV2Entry,
@@ -226,6 +227,7 @@ export const flowsheetApi = createApi({
                 }
               )
             );
+            scheduleDeferredFlowsheetRefetch(dispatch, data.id);
           } catch (err) {
             flowsheetMutationCatch("addToFlowsheet", err);
             patchResult?.undo();

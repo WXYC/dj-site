@@ -7,20 +7,18 @@ import {
   FlowsheetSubmissionParams,
 } from "@/lib/features/flowsheet/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { useAlbumArtwork } from "@/lib/features/metadata/hooks";
-import { useCatalogAlbumNavigation } from "@/src/hooks/useCatalogAlbumNavigation";
 import { useFlowsheet, useShowControl } from "@/src/hooks/flowsheetHooks";
+import { useCatalogAlbumNavigation } from "@/src/hooks/useCatalogAlbumNavigation";
 import { getStyleForRotation } from "@/src/utilities/modern/rotationstyles";
 import {
   Album,
   InfoOutlined,
-  KeyboardArrowDown,
-  LinkRounded,
   LinkOff,
+  LinkRounded,
   MusicNote,
   PhoneDisabled,
   PhoneEnabled,
-  PlayArrow,
+  PlayArrow
 } from "@mui/icons-material";
 import {
   AspectRatio,
@@ -28,18 +26,17 @@ import {
   Box,
   Checkbox,
   Chip,
-  CircularProgress,
   IconButton,
   Stack,
   Tooltip,
 } from "@mui/joy";
 import { useDragControls } from "motion/react";
 import { useState } from "react";
+import { toast } from "sonner";
 import DragButton from "../Components/DragButton";
 import RemoveButton from "../Components/RemoveButton";
 import DraggableEntryWrapper from "../DraggableEntryWrapper";
 import FlowsheetEntryField from "./FlowsheetEntryField";
-import { toast } from "sonner";
 
 export default function SongEntry({
   playing,
@@ -62,10 +59,7 @@ export default function SongEntry({
 
   const { updateFlowsheet } = useFlowsheet();
 
-  const {
-    artworkUrl: image,
-    isLoading: imageLoading,
-  } = useAlbumArtwork(entry.artist_name, entry.album_title);
+  const image = entry.artwork_url ?? "/img/cassette.png";
 
   const dispatch = useAppDispatch();
   const { openAlbum } = useCatalogAlbumNavigation();
@@ -117,15 +111,11 @@ export default function SongEntry({
                 minHeight: "48px",
               }}
             >
-              {imageLoading ? (
-                <CircularProgress />
-              ) : (
-                <img
-                  src={image}
-                  alt="album art"
-                  style={{ minWidth: "48px", minHeight: "48px" }}
-                />
-              )}
+              <img
+                src={image}
+                alt="album art"
+                style={{ minWidth: "48px", minHeight: "48px" }}
+              />
             </AspectRatio>
           </Badge>
           {canClose && queue && (

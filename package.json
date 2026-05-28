@@ -55,6 +55,7 @@
     "@testing-library/react": "^16.0.0",
     "@testing-library/user-event": "^14.5.0",
     "@types/node": "^20.19.30",
+    "@types/pg": "^8.11.10",
     "@types/react": "18.2.37",
     "@types/react-dom": "^18.2.18",
     "@vitejs/plugin-react": "^5.1.2",
@@ -63,6 +64,7 @@
     "esbuild": "^0.28.0",
     "jsdom": "^25.0.0",
     "msw": "^2.14.6",
+    "pg": "^8.13.1",
     "typescript": "^5.3.3",
     "vitest": "^4.0.18",
     "wrangler": "^4.90.1"

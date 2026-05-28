@@ -2,6 +2,8 @@ import FlowsheetSkeletonLoader from "@/src/components/experiences/modern/flowshe
 import GoLive from "@/src/components/experiences/modern/flowsheet/GoLive";
 import InfiniteScroller from "@/src/components/experiences/modern/flowsheet/InfiniteScroller";
 import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
+import SSEConnectionIndicator from "@/src/components/shared/SSEConnectionIndicator";
+import SSESubscription from "@/src/components/shared/SSESubscription";
 import { Divider } from "@mui/joy";
 import { Suspense } from "react";
 
@@ -18,7 +20,9 @@ export default function FlowsheetPage({
 }: FlowsheetPageProps) {
   return (
     <>
+      <SSESubscription surface="dashboard" />
       <PageHeader title="Flowsheet">
+        <SSEConnectionIndicator />
         <GoLive />
       </PageHeader>
       <>

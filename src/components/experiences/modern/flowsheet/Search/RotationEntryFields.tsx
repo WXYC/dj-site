@@ -3,16 +3,16 @@
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { Rotation } from "@/lib/features/rotation/types";
+import { normalizeTrackArtists } from "@/lib/features/rotation/normalize-track-artists";
 import {
   RotationTrack,
   useGetRotationQuery,
   useGetRotationTracksQuery,
-  useRotationPrefetch,
 } from "@/lib/features/rotation/api";
 import { useAppDispatch } from "@/lib/hooks";
 import { useFlowsheetSearch } from "@/src/hooks/flowsheetHooks";
 import { Divider } from "@mui/joy";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import FlowsheetSearchInput from "./FlowsheetSearchInput";
 import RotationBinSelector from "./RotationBinSelector";
 import RotationReleaseDropdown from "./RotationReleaseDropdown";
@@ -29,29 +29,22 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
 
   const { data: rotationData } = useGetRotationQuery();
 
-  // Fetch tracks when a release is selected (uses its rotation_id)
-  const { data: tracks, isLoading: tracksLoading } = useGetRotationTracksQuery(
+  // `refetchOnMountOrArgChange` forces a re-query on every release pick
+  // rather than trusting the RTK Query cache: the cache may hold `200 + []`
+  // from a swallowed LML timeout (BS `resolveRotationDiscogsReleaseViaLml`
+  // returns null on AbortError → controller emits `[]`), and without the
+  // forced refetch the picker silently falls through to the free-text input
+  // (WXYC/dj-site#589). Reading `isFetching` rather than `isLoading` keeps
+  // the dropdown visible during refetches over that stale-empty cache.
+  const { data: tracks, isFetching: tracksLoading } = useGetRotationTracksQuery(
     selectedRelease?.rotation_id ?? 0,
-    { skip: !selectedRelease?.rotation_id }
+    { skip: !selectedRelease?.rotation_id, refetchOnMountOrArgChange: true }
   );
 
   const filteredReleases = useMemo(() => {
     if (!rotationData || !selectedBin) return [];
     return rotationData.filter((r) => r.rotation_bin === selectedBin);
   }, [rotationData, selectedBin]);
-
-  // Warm the tracklist cache for every release in the picked bin so the picker
-  // is instantaneous — tubafrenzy renders rotation track titles inline and DJs
-  // are used to seeing them with no perceptible delay. One bin is bounded
-  // (~30 releases) and LML's 3-tier cache absorbs the per-release LML fetches.
-  const prefetchRotationTracks = useRotationPrefetch("getRotationTracks");
-  useEffect(() => {
-    for (const release of filteredReleases) {
-      if (release.rotation_id) {
-        prefetchRotationTracks(release.rotation_id);
-      }
-    }
-  }, [filteredReleases, prefetchRotationTracks]);
 
   const handleSelectBin = useCallback(
     (bin: Rotation) => {
@@ -99,19 +92,23 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
     (track: RotationTrack) => {
       setSelectedTrack(track);
       setManualEntry(false);
-      dispatch(flowsheetSlice.actions.setSearchProperty({ name: "song", value: track.title }));
+      dispatch(flowsheetSlice.actions.setSearchProperty({ name: "song", value: track.title ?? "" }));
       // Auto-fill artist from per-track Discogs credits (surfaced by BS#944)
       // for V/A and split releases. For normal releases BS falls back to
       // [release.artist] so this just re-sets the value already seeded by
-      // handleSelectRelease. When credits are empty (Discogs has no per-track
-      // data) leave the release-level artist in place; mis-credited cases fall
-      // through to manual-entry mode (the existing escape hatch).
-      // Join separator mirrors buildArtistCredit in apps/backend/controllers/proxy.controller.ts.
-      if (track.artists.length > 0) {
+      // handleSelectRelease. `normalizeTrackArtists` strips the Discogs `(N)`
+      // disambig and dedupes — see its header for the LML cache duplication
+      // root cause. When credits are empty (Discogs has no per-track data, or
+      // every entry was malformed) leave the release-level artist in place;
+      // mis-credited cases fall through to manual-entry mode (the existing
+      // escape hatch). Join separator mirrors buildArtistCredit in
+      // apps/backend/controllers/proxy.controller.ts.
+      const credits = normalizeTrackArtists(track.artists);
+      if (credits.length > 0) {
         dispatch(
           flowsheetSlice.actions.setSearchProperty({
             name: "artist",
-            value: track.artists.join(", "),
+            value: credits.join(", "),
           })
         );
       }

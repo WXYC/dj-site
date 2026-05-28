@@ -5,6 +5,7 @@ import {
   useWhoIsLiveQuery,
 } from "@/lib/features/flowsheet/api";
 import { useEffect, useRef, useState } from "react";
+import { useFlowsheetPollingInterval } from "@/src/hooks/useSSEConnection";
 import NowPlayingMain from "./Main";
 import NowPlayingMini from "./Mini";
 
@@ -35,12 +36,14 @@ export default function NowPlaying({ mini = false }: NowPlayingWidgetProps) {
   const onAirDJ = djsOnAirData?.onAir;
   const live = onAirDJ !== undefined && onAirDJ !== "Off Air" && !djError;
 
+  const nowPlayingPollingInterval = useFlowsheetPollingInterval();
+
   const {
     data: latestEntry,
     isLoading: latestEntryLoading,
     isError: latestEntryError,
   } = useGetNowPlayingQuery(undefined, {
-    pollingInterval: 60000,
+    pollingInterval: nowPlayingPollingInterval,
   });
 
   // Initialize AudioContext and AnalyserNode once

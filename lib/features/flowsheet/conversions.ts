@@ -10,10 +10,9 @@ import {
   OnAirDJResponse,
 } from "./types";
 
-/** Single place for "DJ A, DJ B" on-air string (WhoIsLive + optimistic patches). */
 export function formatOnAirSummary(djs: OnAirDJResponse[]): string {
   if (!djs.length) return OFF_AIR_LABEL;
-  return djs.map((dj) => `DJ ${dj.dj_name}`).join(", ");
+  return djs.map((dj) => dj.dj_name).join(", ");
 }
 
 export function convertQueryToSubmission(
@@ -98,6 +97,7 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
         rotation_id: entry.rotation_id ?? undefined,
         rotation: entry.rotation_bin as Rotation,
         on_streaming: entry.on_streaming ?? undefined,
+        artwork_url: entry.artwork_url ?? undefined,
       };
 
     case "show_start": {

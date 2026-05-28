@@ -89,7 +89,7 @@ export default function NowPlayingMini({
         <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: "wrap" }}>
           {onAirDJs?.map((dj) => (
             <Chip key={dj.dj_name} variant="soft" startDecorator={<Headset />}>
-              DJ {dj.dj_name}
+              {dj.dj_name}
             </Chip>
           ))}
         </Stack>

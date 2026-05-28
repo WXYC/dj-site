@@ -174,6 +174,20 @@ export class FlowsheetPage {
     }
   }
 
+  /**
+   * Fast happy-path version of `goLive` for tests that don't care whether
+   * the DJ was already On Air. Mirrors `ensureOffAir`.
+   */
+  async ensureLive(): Promise<void> {
+    try {
+      const statusText = await this.liveStatus.textContent({ timeout: 3000 });
+      if (statusText?.includes("On Air")) return;
+    } catch {
+      // Status element not rendered yet — fall through to goLive
+    }
+    await this.goLive();
+  }
+
   async expectLive(): Promise<void> {
     await expect(this.liveStatus).toContainText("On Air");
   }

@@ -18,7 +18,7 @@ export default function AccountEditPanel() {
   return (
     <RightbarPanelContainer
       title={displayName}
-      subtitle={account.djName ? `DJ ${account.djName}` : undefined}
+      subtitle={account.djName || undefined}
       onClose={handleClose}
     >
       <AccountEditForm

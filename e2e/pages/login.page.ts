@@ -40,7 +40,7 @@ export class LoginPage {
     this.forgotPasswordLink = page.locator('button:has-text("Forgot?"), a:has-text("Forgot?")');
 
     // OTP form
-    this.otpEmailInput = page.locator('input[name="email"]');
+    this.otpEmailInput = page.locator('input[name="identifier"]');
     this.sendCodeButton = page.locator('button:has-text("Send login code")');
     this.switchToPasswordLink = page.getByRole("button", {
       name: "Sign in with password instead",
@@ -167,7 +167,7 @@ export class LoginPage {
 
   async expectLoginFormVisible(): Promise<void> {
     // The login page may show the OTP form or password form depending on state.
-    // Wait for either the username input or the OTP email input to appear.
+    // Wait for either form's identifier input to appear.
     await expect(this.usernameInput.or(this.otpEmailInput)).toBeVisible();
   }
 

@@ -10,18 +10,18 @@ import { useState } from "react";
 export default function EmailOTPForm({
   onCodeSent,
 }: {
-  onCodeSent: (email: string) => void;
+  onCodeSent: (state: { identifier: string; email: string }) => void;
 }) {
   const dispatch = useAppDispatch();
   const { handleSendOTP, isLoading } = useOTPRequest();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const trimmedEmail = email.trim();
+    const trimmedIdentifier = identifier.trim();
     try {
-      await handleSendOTP(trimmedEmail);
-      onCodeSent(trimmedEmail);
+      const { email } = await handleSendOTP(trimmedIdentifier);
+      onCodeSent({ identifier: trimmedIdentifier, email });
       dispatch(applicationSlice.actions.setAuthStage("otp-verify"));
     } catch {
       // Error already handled in hook
@@ -37,23 +37,24 @@ export default function EmailOTPForm({
   return (
     <form onSubmit={handleSubmit} method="post">
       <FormControl required>
-        <FormLabel>Email</FormLabel>
+        <FormLabel>Username or email</FormLabel>
         <Input
-          name="email"
-          type="email"
-          placeholder="you@example.com"
-          value={email}
+          name="identifier"
+          type="text"
+          placeholder="Username or email"
+          value={identifier}
           disabled={isLoading}
-          onChange={(event) => setEmail(event.target.value)}
+          onChange={(event) => setIdentifier(event.target.value)}
+          slotProps={{ input: { autoCapitalize: "none", autoCorrect: "off" } }}
         />
       </FormControl>
       <Typography level="body-xs" sx={{ mt: 1 }}>
-        We&apos;ll send a 6-digit code to your email.
+        We&apos;ll send a 6-digit code to your registered email.
       </Typography>
       <Button
         type="submit"
         loading={isLoading}
-        disabled={isLoading || !email.trim()}
+        disabled={isLoading || !identifier.trim()}
         sx={{ mt: 2 }}
         fullWidth
       >
