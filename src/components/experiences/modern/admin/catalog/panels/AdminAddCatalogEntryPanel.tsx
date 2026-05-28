@@ -21,7 +21,15 @@ import CatalogEntryAlbumFields from "../CatalogEntryAlbumFields";
 import CatalogEntryArtistAutocomplete from "../CatalogEntryArtistAutocomplete";
 import CatalogEntryNewArtistFields from "../CatalogEntryNewArtistFields";
 import { useCatalogEntryForm } from "../useCatalogEntryForm";
-import { Box, FormControl, FormLabel, Option, Select, Stack, Typography } from "@mui/joy";
+import {
+  Box,
+  FormControl,
+  FormLabel,
+  Option,
+  Select,
+  Stack,
+  Typography,
+} from "@mui/joy";
 import { useCatalogRotationMarking } from "@/src/hooks/useCatalogRotationMarking";
 import type { Rotation } from "@/lib/features/rotation/types";
 import CatalogRotationBinPicker from "../CatalogRotationBinPicker";
@@ -145,7 +153,10 @@ export default function AdminAddCatalogEntryPanel() {
       if (typeof aid === "number") {
         form.setPreviewAlbumId(aid);
         if (pendingRotationBin !== null) {
-          const rotationOk = await rotation.applyRotation(pendingRotationBin, aid);
+          const rotationOk = await rotation.applyRotation(
+            pendingRotationBin,
+            aid,
+          );
           if (!rotationOk) {
             toast.error("Album saved, but rotation could not be updated.");
           }
@@ -295,8 +306,8 @@ export default function AdminAddCatalogEntryPanel() {
           />
           {!form.previewAlbumId ? (
             <Typography level="body-xs" sx={{ color: "text.tertiary" }}>
-              Rotation is applied when you add the album, or immediately after the
-              album is saved if you change bins above.
+              Rotation is applied when you add the album, or immediately after
+              the album is saved if you change bins above.
             </Typography>
           ) : null}
         </RightbarFormSectionCard>

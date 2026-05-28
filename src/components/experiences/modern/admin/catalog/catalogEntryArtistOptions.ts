@@ -11,18 +11,20 @@ export type ArtistAutocompleteOption = ArtistAutocompleteExisting;
 const filter = createFilterOptions<ArtistAutocompleteExisting>();
 
 export function toExistingOption(
-  artist: ArtistInGenreOption
+  artist: ArtistInGenreOption,
 ): ArtistAutocompleteExisting {
   return { type: "existing", ...artist };
 }
 
-export function getArtistOptionLabel(option: ArtistAutocompleteExisting): string {
+export function getArtistOptionLabel(
+  option: ArtistAutocompleteExisting,
+): string {
   return option.artist_name;
 }
 
 export function filterArtistAutocompleteOptions(
   options: ArtistAutocompleteExisting[],
-  params: { inputValue: string }
+  params: { inputValue: string },
 ): ArtistAutocompleteExisting[] {
   return filter(options, {
     ...params,
@@ -32,13 +34,13 @@ export function filterArtistAutocompleteOptions(
 
 export function findExactArtistMatch(
   options: ArtistAutocompleteExisting[],
-  inputValue: string
+  inputValue: string,
 ): ArtistAutocompleteExisting | null {
   const trimmed = inputValue.trim();
   if (!trimmed) return null;
   return (
     options.find(
-      (o) => o.artist_name.toLowerCase() === trimmed.toLowerCase()
+      (o) => o.artist_name.toLowerCase() === trimmed.toLowerCase(),
     ) ?? null
   );
 }
@@ -60,7 +62,7 @@ export type CommitArtistInputResult =
 export function resolveArtistInputCommit(
   inputValue: string,
   options: ArtistAutocompleteExisting[],
-  allowCreateArtist: boolean
+  allowCreateArtist: boolean,
 ): CommitArtistInputResult {
   const trimmed = inputValue.trim();
   if (!trimmed) return { kind: "clear" };

@@ -25,9 +25,7 @@ describe("catalogEntryArtistOptions", () => {
   });
 
   it("resolveArtistInputCommit returns existing for exact match", () => {
-    expect(
-      resolveArtistInputCommit("Radiohead", [radiohead], true)
-    ).toEqual({
+    expect(resolveArtistInputCommit("Radiohead", [radiohead], true)).toEqual({
       kind: "existing",
       artist: {
         id: 1,

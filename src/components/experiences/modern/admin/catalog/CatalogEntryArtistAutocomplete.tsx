@@ -29,7 +29,7 @@ function renderArtistOption(
   props: ArtistOptionRenderProps,
   option: ArtistAutocompleteExisting,
 ) {
-  const { key, ...optionProps } = props;
+  const { key, color: _color, ...optionProps } = props;
   return (
     <AutocompleteOption key={key} {...optionProps}>
       <ListItemContent
@@ -41,7 +41,11 @@ function renderArtistOption(
         }}
       >
         <span>{option.artist_name}</span>
-        <Typography level="body-xs" textColor="neutral.500" sx={{ flexShrink: 0 }}>
+        <Typography
+          level="body-xs"
+          textColor="neutral.500"
+          sx={{ flexShrink: 0 }}
+        >
           {option.code_letters} {option.code_number}
         </Typography>
       </ListItemContent>
@@ -60,7 +64,7 @@ function applyCommitResult(
       code_number: number;
     }) => void;
     onSelectNew: (name: string) => void;
-  }
+  },
 ) {
   switch (result.kind) {
     case "clear":
@@ -116,7 +120,10 @@ export default function CatalogEntryArtistAutocomplete({
   const [debouncedQ, setDebouncedQ] = useState("");
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQ(inputValue.trim()), DEBOUNCE_MS);
+    const timer = setTimeout(
+      () => setDebouncedQ(inputValue.trim()),
+      DEBOUNCE_MS,
+    );
     return () => clearTimeout(timer);
   }, [inputValue]);
 
@@ -135,10 +142,10 @@ export default function CatalogEntryArtistAutocomplete({
     (raw: string) => {
       applyCommitResult(
         resolveArtistInputCommit(raw, baseOptions, allowCreateArtist),
-        { onClear, onSelectExisting, onSelectNew }
+        { onClear, onSelectExisting, onSelectNew },
       );
     },
-    [baseOptions, allowCreateArtist, onClear, onSelectExisting, onSelectNew]
+    [baseOptions, allowCreateArtist, onClear, onSelectExisting, onSelectNew],
   );
 
   const genreReady = genreIdNum !== null;
@@ -166,14 +173,22 @@ export default function CatalogEntryArtistAutocomplete({
       const num = codeNumber.trim();
       if (!letters && !num) return null;
       return (
-        <Typography level="body-xs" textColor="neutral.500" sx={{ flexShrink: 0 }}>
+        <Typography
+          level="body-xs"
+          textColor="neutral.500"
+          sx={{ flexShrink: 0 }}
+        >
           {letters} {num}
         </Typography>
       );
     }
     if (artistMode === "new") {
       return (
-        <Typography level="body-xs" textColor="primary.500" sx={{ flexShrink: 0 }}>
+        <Typography
+          level="body-xs"
+          textColor="primary.500"
+          sx={{ flexShrink: 0 }}
+        >
           NEW
         </Typography>
       );
@@ -185,75 +200,75 @@ export default function CatalogEntryArtistAutocomplete({
     <FormControl required disabled={!genreReady || disabled}>
       <FormLabel>Artist</FormLabel>
       <Box sx={{ position: "relative", width: "100%" }}>
-      <Autocomplete
-        freeSolo
-        selectOnFocus
-        clearOnBlur={false}
-        handleHomeEndKeys
-        disabled={!genreReady || disabled}
-        placeholder={
-          genreReady ? "Search or add an artist" : "Choose a genre first"
-        }
-        options={baseOptions}
-        loading={isFetching}
-        inputValue={inputValue}
-        onInputChange={(_e, newValue) => onInputChange(newValue)}
-        value={value}
-        {...(autocompleteColor ? { color: autocompleteColor } : {})}
-        filterOptions={filterArtistAutocompleteOptions}
-        getOptionLabel={(option) =>
-          typeof option === "string" ? option : getArtistOptionLabel(option)
-        }
-        getOptionKey={(option) =>
-          typeof option === "string" ? `free-${option}` : option.id
-        }
-        noOptionsText={noOptionsText}
-        renderOption={renderArtistOption}
-        isOptionEqualToValue={(a, b) => a.id === b.id}
-        onChange={(_e, newValue) => {
-          if (!newValue) {
-            onClear();
-            return;
+        <Autocomplete
+          freeSolo
+          selectOnFocus
+          clearOnBlur={false}
+          handleHomeEndKeys
+          disabled={!genreReady || disabled}
+          placeholder={
+            genreReady ? "Search or add an artist" : "Choose a genre first"
           }
-          if (typeof newValue === "string") {
-            commitInput(newValue);
-            return;
+          options={baseOptions}
+          loading={isFetching}
+          inputValue={inputValue}
+          onInputChange={(_e, newValue) => onInputChange(newValue)}
+          value={value}
+          {...(autocompleteColor ? { color: autocompleteColor } : {})}
+          filterOptions={filterArtistAutocompleteOptions}
+          getOptionLabel={(option) =>
+            typeof option === "string" ? option : getArtistOptionLabel(option)
           }
-          onSelectExisting(newValue);
-        }}
-        slotProps={{
-          input: {
-            "aria-label": "Artist name",
-            autoComplete: "new-password",
-            onBlur: () => commitInput(inputValue),
-            ...(statusSuffix
-              ? { sx: { "--Input-paddingInlineEnd": "4.5rem" } }
-              : {}),
-          },
-          listbox: {
-            sx: {
-              py: 0.5,
-              "--ListItem-paddingX": "12px",
-            },
-          },
-        }}
-      />
-      {statusSuffix ? (
-        <Box
-          aria-hidden
-          sx={{
-            position: "absolute",
-            top: 0,
-            bottom: 0,
-            right: 36,
-            display: "flex",
-            alignItems: "center",
-            pointerEvents: "none",
+          getOptionKey={(option) =>
+            typeof option === "string" ? `free-${option}` : option.id
+          }
+          noOptionsText={noOptionsText}
+          renderOption={renderArtistOption}
+          isOptionEqualToValue={(a, b) => a.id === b.id}
+          onChange={(_e, newValue) => {
+            if (!newValue) {
+              onClear();
+              return;
+            }
+            if (typeof newValue === "string") {
+              commitInput(newValue);
+              return;
+            }
+            onSelectExisting(newValue);
           }}
-        >
-          {statusSuffix}
-        </Box>
-      ) : null}
+          slotProps={{
+            input: {
+              "aria-label": "Artist name",
+              autoComplete: "new-password",
+              onBlur: () => commitInput(inputValue),
+              ...(statusSuffix
+                ? { sx: { "--Input-paddingInlineEnd": "4.5rem" } }
+                : {}),
+            },
+            listbox: {
+              sx: {
+                py: 0.5,
+                "--ListItem-paddingX": "12px",
+              },
+            },
+          }}
+        />
+        {statusSuffix ? (
+          <Box
+            aria-hidden
+            sx={{
+              position: "absolute",
+              top: 0,
+              bottom: 0,
+              right: 36,
+              display: "flex",
+              alignItems: "center",
+              pointerEvents: "none",
+            }}
+          >
+            {statusSuffix}
+          </Box>
+        ) : null}
       </Box>
       <FormHelperText>
         {!genreReady

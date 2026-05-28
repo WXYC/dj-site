@@ -6,7 +6,10 @@ import {
   useUpdateAlbumMutation,
 } from "@/lib/features/catalog/api";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
-import type { AlbumEntry, UpdateAlbumRequestBody } from "@/lib/features/catalog/types";
+import type {
+  AlbumEntry,
+  UpdateAlbumRequestBody,
+} from "@/lib/features/catalog/types";
 import { useAppDispatch } from "@/lib/hooks";
 import type { Rotation } from "@/lib/features/rotation/types";
 import { useCatalogRotationMarking } from "@/src/hooks/useCatalogRotationMarking";
@@ -61,7 +64,11 @@ export default function CatalogEntryEditSections({
       formats.find((f) => f.format_name === album.format)?.id;
     const artistId = album.artist_id ?? album.artist.id;
 
-    if (genreId === undefined || formatId === undefined || artistId === undefined) {
+    if (
+      genreId === undefined ||
+      formatId === undefined ||
+      artistId === undefined
+    ) {
       return;
     }
 

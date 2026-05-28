@@ -1,8 +1,6 @@
 "use client";
 
-import {
-  parseRequiredPositiveInt,
-} from "@/lib/features/catalog/adminCreateArtistValidation";
+import { parseRequiredPositiveInt } from "@/lib/features/catalog/adminCreateArtistValidation";
 import type { ArtistAutocompleteExisting } from "./catalogEntryArtistOptions";
 import {
   defaultLettersFromName,
@@ -78,30 +76,33 @@ export function useCatalogEntryForm() {
     setGenreId(next);
   };
 
-  const hydrateFromExistingEntry = useCallback((detail: CatalogEntryHydrateParams) => {
-    setGenreId(String(detail.genreId));
-    setFormatId(String(detail.formatId));
-    setAlbumTitle(detail.albumTitle);
-    setLabel(detail.label);
-    setAlternateArtist(detail.alternateArtist?.trim() ?? "");
-    setDiscQuantity(String(detail.discQuantity ?? 1));
-    setPreviewAlbumId(null);
+  const hydrateFromExistingEntry = useCallback(
+    (detail: CatalogEntryHydrateParams) => {
+      setGenreId(String(detail.genreId));
+      setFormatId(String(detail.formatId));
+      setAlbumTitle(detail.albumTitle);
+      setLabel(detail.label);
+      setAlternateArtist(detail.alternateArtist?.trim() ?? "");
+      setDiscQuantity(String(detail.discQuantity ?? 1));
+      setPreviewAlbumId(null);
 
-    const option = toExistingOption({
-      id: detail.artistId,
-      artist_name: detail.artistName,
-      code_letters: detail.codeLetters,
-      code_number: detail.codeArtistNumber,
-    });
-    setArtistOption(option);
-    setArtistInputValue(detail.artistName);
-    setCommittedArtistName(detail.artistName);
-    setArtistMode("existing");
-    setArtistId(detail.artistId);
-    setCodeLetters(detail.codeLetters);
-    setCodeNumber(String(detail.codeArtistNumber));
-    setAlphabeticalName("");
-  }, []);
+      const option = toExistingOption({
+        id: detail.artistId,
+        artist_name: detail.artistName,
+        code_letters: detail.codeLetters,
+        code_number: detail.codeArtistNumber,
+      });
+      setArtistOption(option);
+      setArtistInputValue(detail.artistName);
+      setCommittedArtistName(detail.artistName);
+      setArtistMode("existing");
+      setArtistId(detail.artistId);
+      setCodeLetters(detail.codeLetters);
+      setCodeNumber(String(detail.codeArtistNumber));
+      setAlphabeticalName("");
+    },
+    [],
+  );
 
   const selectExistingArtist = (artist: {
     id: number;
@@ -164,7 +165,8 @@ export function useCatalogEntryForm() {
 
   const showNewArtistFields = artistMode === "new";
 
-  const codeFieldsLocked = artistMode === "existing" || artistMode === "created";
+  const codeFieldsLocked =
+    artistMode === "existing" || artistMode === "created";
 
   const newArtistName = useMemo(() => {
     if (artistMode === "new" || artistMode === "created") {
@@ -188,19 +190,18 @@ export function useCatalogEntryForm() {
     const title = albumTitle.trim();
     const lab = label.trim();
     return title.length > 0 && lab.length > 0 && formatIdNum !== null;
-  }, [
-    albumSectionUnlocked,
-    artistId,
-    albumTitle,
-    label,
-    formatIdNum,
-  ]);
+  }, [albumSectionUnlocked, artistId, albumTitle, label, formatIdNum]);
 
   const canSaveAlbum = useMemo(() => {
     if (artistId === null) return false;
     const title = albumTitle.trim();
     const lab = label.trim();
-    return title.length > 0 && lab.length > 0 && formatIdNum !== null && genreIdNum !== null;
+    return (
+      title.length > 0 &&
+      lab.length > 0 &&
+      formatIdNum !== null &&
+      genreIdNum !== null
+    );
   }, [artistId, albumTitle, label, formatIdNum, genreIdNum]);
 
   return {
