@@ -301,6 +301,10 @@ PRs that only change non-code files (docs, scripts, etc.) skip CI entirely via p
 
 Runs on push to `main` and on PRs that touch app code. Spins up Backend-Service with Docker Compose (PostgreSQL + auth + backend), builds dj-site, runs Playwright tests. PRs that only change unit tests, test utilities, or non-app config skip E2E via path filters. The workflow caches the dj-site `.next/` build output and Playwright browser binaries to reduce setup time. On cache hit, both the Next.js build and Playwright install are skipped entirely. Cache keys include `package-lock.json`, `next.config.*`, and app source files, so dependency or source changes invalidate the cache correctly.
 
+#### E2E-only dependencies
+
+The Tier 1 SSE round-trip tests under `e2e/tests/sse/` issue `pg_notify('cdc', <json>)` directly against the E2E Postgres to bypass the LML enrichment chain (unreachable in CI). For that they need a Node Postgres client, so `pg` and `@types/pg` are pinned in `devDependencies`. They're only imported from `e2e/helpers/pg-notify.ts` — nothing in app code uses them and they don't ship in the Next.js bundle. Both `scripts/e2e-local.sh` and the E2E workflow export `DB_HOST`/`DB_PORT`/`DB_NAME`/`DB_USERNAME`/`DB_PASSWORD` so the helper can connect without per-test config.
+
 ### Deployment
 
 Cloudflare Pages via OpenNext. Build: `npm run build:opennext`. Deploy: `npm run deploy` (Wrangler).

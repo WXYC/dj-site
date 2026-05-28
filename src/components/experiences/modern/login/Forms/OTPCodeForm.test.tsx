@@ -13,13 +13,27 @@ vi.mock("next/navigation", () => ({
 describe("OTPCodeForm", () => {
   const defaultProps = {
     email: "dj@wxyc.org",
-    onChangeEmail: vi.fn(),
+    displayTarget: "dj@wxyc.org",
+    onChangeIdentifier: vi.fn(),
   };
 
-  it("should display the email address", () => {
+  it("should display the displayTarget verbatim", () => {
     renderWithProviders(<OTPCodeForm {...defaultProps} />);
 
     expect(screen.getByText("dj@wxyc.org")).toBeInTheDocument();
+  });
+
+  it("should not leak the resolved email when displayTarget is a placeholder", () => {
+    renderWithProviders(
+      <OTPCodeForm
+        email="jbromberg@wxyc.org"
+        displayTarget="your registered email"
+        onChangeIdentifier={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByText("jbromberg@wxyc.org")).not.toBeInTheDocument();
+    expect(screen.getByText("your registered email")).toBeInTheDocument();
   });
 
   it("should render code input", () => {
@@ -57,11 +71,11 @@ describe("OTPCodeForm", () => {
     expect(screen.getByPlaceholderText("000000")).toHaveValue("123");
   });
 
-  it("should render resend and change email links", () => {
+  it("should render resend and change-account links", () => {
     renderWithProviders(<OTPCodeForm {...defaultProps} />);
 
     expect(screen.getByRole("button", { name: "Resend code" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Try a different email" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Try a different account" })).toBeInTheDocument();
   });
 
   it("should render as a form with post method", () => {

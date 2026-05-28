@@ -6,22 +6,23 @@ import { toast } from "sonner";
  *
  * The provided async function should throw on failure; useAsyncAction
  * catches the error, extracts a message, sets error state, and shows
- * a toast. Returns `true` on success, `false` on failure.
+ * a toast. Returns the function's resolved value on success, or
+ * `undefined` on failure — letting callers plumb a value through
+ * without closing over mutable state.
  */
 export function useAsyncAction() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
   const execute = useCallback(
-    async (
-      fn: () => Promise<void>,
+    async <T>(
+      fn: () => Promise<T>,
       fallbackMessage = "An unexpected error occurred",
-    ): Promise<boolean> => {
+    ): Promise<T | undefined> => {
       setIsLoading(true);
       setError(null);
       try {
-        await fn();
-        return true;
+        return await fn();
       } catch (err) {
         const message =
           err instanceof Error ? err.message : fallbackMessage;
@@ -31,7 +32,7 @@ export function useAsyncAction() {
         if (message.trim().length > 0) {
           toast.error(message);
         }
-        return false;
+        return undefined;
       } finally {
         setIsLoading(false);
       }

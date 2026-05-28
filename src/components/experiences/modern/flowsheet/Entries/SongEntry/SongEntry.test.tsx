@@ -6,7 +6,6 @@ import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 // Mock hooks
 const mockUseShowControl = vi.fn();
 const mockUseFlowsheet = vi.fn();
-const mockUseAlbumArtwork = vi.fn();
 const mockAddToFlowsheet = vi.fn();
 const mockDispatch = vi.fn();
 const mockUpdateFlowsheet = vi.fn();
@@ -14,11 +13,6 @@ const mockUpdateFlowsheet = vi.fn();
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useShowControl: () => mockUseShowControl(),
   useFlowsheet: () => mockUseFlowsheet(),
-}));
-
-vi.mock("@/lib/features/metadata/hooks", () => ({
-  useAlbumArtwork: (artistName?: string, releaseTitle?: string) =>
-    mockUseAlbumArtwork(artistName, releaseTitle),
 }));
 
 vi.mock("@/lib/features/flowsheet/api", () => ({
@@ -118,6 +112,7 @@ describe("SongEntry", () => {
     album_id: 42,
     rotation: "H",
     rotation_id: 10,
+    artwork_url: "/test-album-art.jpg",
   };
 
   beforeEach(() => {
@@ -131,12 +126,6 @@ describe("SongEntry", () => {
 
     mockUseFlowsheet.mockReturnValue({
       updateFlowsheet: mockUpdateFlowsheet,
-    });
-
-    mockUseAlbumArtwork.mockReturnValue({
-      artworkUrl: "/test-album-art.jpg",
-      isLoading: false,
-      metadata: null,
     });
 
     mockAddToFlowsheet.mockReturnValue(Promise.resolve());
@@ -161,7 +150,7 @@ describe("SongEntry", () => {
       expect(screen.getByText("Test Label")).toBeInTheDocument();
     });
 
-    it("should render album art image when available and not loading", () => {
+    it("should render album art image from entry.artwork_url", () => {
       render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
 
       const image = screen.getByRole("img");
@@ -169,17 +158,15 @@ describe("SongEntry", () => {
       expect(image).toHaveAttribute("alt", "album art");
     });
 
-    it("should show CircularProgress when image is loading", () => {
-      mockUseAlbumArtwork.mockReturnValue({
-        artworkUrl: "/img/cassette.png",
-        isLoading: true,
-        metadata: null,
-      });
+    it("should fall back to the default cassette image when entry.artwork_url is missing", () => {
+      const entryWithoutArtwork = { ...mockEntry, artwork_url: undefined };
 
-      render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
+      render(
+        <SongEntry entry={entryWithoutArtwork} playing={false} queue={false} />
+      );
 
-      // When loading, should show CircularProgress (MUI component renders with role="progressbar")
-      expect(screen.getByRole("progressbar")).toBeInTheDocument();
+      const image = screen.getByRole("img");
+      expect(image).toHaveAttribute("src", "/img/cassette.png");
     });
 
     it("should render info button for album detail", () => {

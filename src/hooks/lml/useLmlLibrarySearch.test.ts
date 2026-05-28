@@ -247,6 +247,64 @@ describe("useLmlLibrarySearch", () => {
     expect(callCount).toBe(1);
   });
 
+  describe("compilation-indicator short-circuit", () => {
+    it.each([
+      ["Various Artists", "In-Correcto 15-25"],
+      ["various artists", "Some Album"],
+      ["V/A", "Some Album"],
+      ["v.a.", "Some Album"],
+      ["Soundtrack", "Movie Title"],
+    ])(
+      "fires zero network calls for artist=%s album=%s",
+      async (artist, album) => {
+        let callCount = 0;
+        server.use(
+          http.get(PROXY_SEARCH_URL, () => {
+            callCount++;
+            return HttpResponse.json({
+              results: [],
+              total: 0,
+              query: null,
+            } satisfies LmlLibrarySearchResponse);
+          })
+        );
+
+        const { result } = renderHook(
+          () => useLmlLibrarySearch({ artist, album }),
+          { wrapper: withStore() }
+        );
+
+        await vi.advanceTimersByTimeAsync(400);
+
+        expect(callCount).toBe(0);
+        expect(result.current.results).toEqual([]);
+        expect(result.current.isLoading).toBe(false);
+      }
+    );
+
+    it("non-compilation artist still fires the network call", async () => {
+      let callCount = 0;
+      server.use(
+        http.get(PROXY_SEARCH_URL, () => {
+          callCount++;
+          return HttpResponse.json({
+            results: [],
+            total: 0,
+            query: null,
+          } satisfies LmlLibrarySearchResponse);
+        })
+      );
+
+      renderHook(
+        () => useLmlLibrarySearch({ artist: "Juana Molina", album: "DOGA" }),
+        { wrapper: withStore() }
+      );
+
+      await vi.advanceTimersByTimeAsync(400);
+      await waitFor(() => expect(callCount).toBe(1));
+    });
+  });
+
   it("isLoading is true while debounce is pending for a valid query", async () => {
     server.use(
       http.get(PROXY_SEARCH_URL, () =>

@@ -38,6 +38,8 @@ env:
   NEXT_PUBLIC_ENABLED_EXPERIENCES: modern,classic
   NEXT_PUBLIC_ALLOW_EXPERIENCE_SWITCHING: "true"
   NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED: "true"
+  NEXT_PUBLIC_FLOWSHEET_SSE_DASHBOARD_ENABLED: "true"
+  NEXT_PUBLIC_FLOWSHEET_SSE_LIVE_VIEW_ENABLED: "true"
   NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD: temppass123
   NEXT_PUBLIC_APP_ORGANIZATION: test-org
   SESSION_SECRET: e2e-secret-for-testing
@@ -48,6 +50,16 @@ env:
   E2E_DB_PORT: 5434
   E2E_AUTH_PORT: 8084
   E2E_BACKEND_PORT: 8085
+  # Postgres connection for the SSE E2E suite (e2e/helpers/pg-notify.ts).
+  # Mirrors scripts/e2e-local.sh's exports and the postgres service config
+  # above. Backend-Service's own .env (sourced inside the Backend track)
+  # takes precedence in that subshell, so this only affects steps that
+  # need direct DB access from the test runner.
+  DB_HOST: localhost
+  DB_PORT: "5434"
+  DB_NAME: wxyc_db
+  DB_USERNAME: wxyc_admin
+  DB_PASSWORD: 'RadioIsEpic$1100'
 
 # Workflow-level GITHUB_TOKEN scope. No job in this file pushes code,
 # comments on PRs, or creates releases; all writes to external services
@@ -132,6 +144,11 @@ jobs:
           # produce. Mock is started in the next workflow step. See #567.
           TUBAFRENZY_URL=http://localhost:9091
           MIRROR_API_KEY=e2e-mirror-noop-key
+          # CDC LISTEN is gated on CDC_SECRET in setupCdcWebSocket(). The
+          # SSE Tier 1 metadata-broadcast handler (setupMetadataBroadcast)
+          # registers on the same LISTEN — so without this, pg_notify is
+          # silently dropped. Tracked as a Backend-Service follow-up.
+          CDC_SECRET=e2e-cdc-secret-not-used-by-tests
           EOF
 
       - name: Start mock tubafrenzy mirror

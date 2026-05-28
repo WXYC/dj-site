@@ -4,6 +4,7 @@ import {
   useSuggestArtistsQuery,
   useSuggestTracksQuery,
 } from "@/lib/features/flowsheet/api";
+import { isCompilationArtistName } from "@/lib/features/catalog/is-compilation-artist";
 import { SuggestTrackResult } from "@/lib/features/flowsheet/types";
 import { useMemo } from "react";
 import { useDebouncedValue } from "./useDebouncedValue";
@@ -33,10 +34,12 @@ export function useGhostText(
 ): GhostTextResult {
   const debouncedValue = useDebouncedValue(currentValue, DEBOUNCE_MS);
   const shouldQuery = debouncedValue.length >= MIN_PREFIX_LENGTH;
+  const skipForCompilation =
+    field === "artist" && isCompilationArtistName(debouncedValue);
 
   const artistQuery = useSuggestArtistsQuery(
     { q: debouncedValue, limit: 1 },
-    { skip: field !== "artist" || !shouldQuery }
+    { skip: field !== "artist" || !shouldQuery || skipForCompilation }
   );
 
   const trackQuery = useSuggestTracksQuery(

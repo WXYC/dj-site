@@ -13,9 +13,16 @@ const mockTrackQuery = {
     | undefined,
 };
 
+const { useSuggestArtistsQueryMock, useSuggestTracksQueryMock } = vi.hoisted(
+  () => ({
+    useSuggestArtistsQueryMock: vi.fn(),
+    useSuggestTracksQueryMock: vi.fn(),
+  })
+);
+
 vi.mock("@/lib/features/flowsheet/api", () => ({
-  useSuggestArtistsQuery: vi.fn(() => mockArtistQuery),
-  useSuggestTracksQuery: vi.fn(() => mockTrackQuery),
+  useSuggestArtistsQuery: useSuggestArtistsQueryMock,
+  useSuggestTracksQuery: useSuggestTracksQueryMock,
 }));
 
 // Mock debounce to return value immediately in tests
@@ -29,6 +36,10 @@ describe("useGhostText", () => {
   beforeEach(() => {
     mockArtistQuery.data = undefined;
     mockTrackQuery.data = undefined;
+    useSuggestArtistsQueryMock.mockReset();
+    useSuggestTracksQueryMock.mockReset();
+    useSuggestArtistsQueryMock.mockImplementation(() => mockArtistQuery);
+    useSuggestTracksQueryMock.mockImplementation(() => mockTrackQuery);
   });
 
   describe("artist field", () => {
@@ -100,6 +111,38 @@ describe("useGhostText", () => {
 
       expect(result.current.ghostSuffix).toBe("techre");
       expect(result.current.acceptGhostText()).toBe("Autechre");
+    });
+  });
+
+  describe("compilation-indicator short-circuit", () => {
+    it.each([
+      "Various Artists",
+      "various artists",
+      "V/A",
+      "v.a.",
+      "Soundtrack",
+      "Compilation",
+    ])("passes skip=true for artist field with %s", (value) => {
+      renderHook(() => useGhostText("artist", value));
+
+      const lastCall = useSuggestArtistsQueryMock.mock.calls.at(-1);
+      expect(lastCall?.[1]).toMatchObject({ skip: true });
+    });
+
+    it("does not skip for the song field even when the value contains 'various'", () => {
+      renderHook(() => useGhostText("song", "Various Versions", "Autechre"));
+
+      // The song-field gate already skips the artist-suggest hook (field !==
+      // "artist"), so we verify the track-suggest hook didn't get skipped.
+      const lastCall = useSuggestTracksQueryMock.mock.calls.at(-1);
+      expect(lastCall?.[1]).toMatchObject({ skip: false });
+    });
+
+    it("passes skip=false for legitimate artist names", () => {
+      renderHook(() => useGhostText("artist", "Stereolab"));
+
+      const lastCall = useSuggestArtistsQueryMock.mock.calls.at(-1);
+      expect(lastCall?.[1]).toMatchObject({ skip: false });
     });
   });
 

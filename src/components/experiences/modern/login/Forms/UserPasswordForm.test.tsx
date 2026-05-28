@@ -12,10 +12,10 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("UserPasswordForm", () => {
-  it("should render username and password fields", () => {
+  it("should render identifier and password fields", () => {
     renderWithProviders(<UserPasswordForm />);
 
-    expect(screen.getByText("Username")).toBeInTheDocument();
+    expect(screen.getByText("Username or email")).toBeInTheDocument();
     expect(screen.getByText("Password")).toBeInTheDocument();
   });
 
@@ -40,7 +40,7 @@ describe("UserPasswordForm", () => {
   it("should enable submit button when both fields have values", async () => {
     const { user } = renderWithProviders(<UserPasswordForm />);
 
-    const usernameInput = screen.getByPlaceholderText("Username");
+    const usernameInput = screen.getByPlaceholderText("Username or email");
     const passwordInput = screen.getByPlaceholderText("Enter your password");
 
     await user.type(usernameInput, "testuser");
@@ -52,7 +52,7 @@ describe("UserPasswordForm", () => {
   it("should keep submit button disabled with only username", async () => {
     const { user } = renderWithProviders(<UserPasswordForm />);
 
-    const usernameInput = screen.getByPlaceholderText("Username");
+    const usernameInput = screen.getByPlaceholderText("Username or email");
     await user.type(usernameInput, "testuser");
 
     expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();

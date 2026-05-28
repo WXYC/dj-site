@@ -28,7 +28,10 @@ const mockUpdateUser = vi.fn();
 const mockChangePassword = vi.fn();
 const mockGetSession = vi.fn();
 const mockSignInUsername = vi.fn();
+const mockSignInEmail = vi.fn();
 const mockSignInEmailOtp = vi.fn();
+const mockSendVerificationOtp = vi.fn();
+const mockLookupEmailByIdentifier = vi.fn();
 vi.mock("@/lib/features/authentication/client", () => ({
   authClient: {
     updateUser: (...args: any[]) => mockUpdateUser(...args),
@@ -36,10 +39,15 @@ vi.mock("@/lib/features/authentication/client", () => ({
     getSession: (...args: any[]) => mockGetSession(...args),
     signIn: {
       username: (...args: any[]) => mockSignInUsername(...args),
+      email: (...args: any[]) => mockSignInEmail(...args),
       emailOtp: (...args: any[]) => mockSignInEmailOtp(...args),
+    },
+    emailOtp: {
+      sendVerificationOtp: (...args: any[]) => mockSendVerificationOtp(...args),
     },
     signOut: vi.fn(),
   },
+  lookupEmailByIdentifier: (...args: any[]) => mockLookupEmailByIdentifier(...args),
 }));
 
 // Mock throwIfBetterAuthError
@@ -163,6 +171,108 @@ describe("authenticationHooks", () => {
       });
 
       expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
+    });
+
+    it("routes to signIn.username when the identifier has no @", async () => {
+      mockSignInUsername.mockResolvedValue({ data: { user: { id: "user-1" } } });
+
+      const { useLogin } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
+
+      const form = {
+        preventDefault: vi.fn(),
+        currentTarget: {
+          username: { value: "jbromberg" },
+          password: { value: "password123" },
+        },
+      } as any;
+
+      await act(async () => {
+        await result.current.handleLogin(form);
+      });
+
+      expect(mockSignInUsername).toHaveBeenCalledWith({
+        username: "jbromberg",
+        password: "password123",
+      });
+      expect(mockSignInEmail).not.toHaveBeenCalled();
+    });
+
+    it("routes to signIn.email when the identifier contains @", async () => {
+      mockSignInEmail.mockResolvedValue({ data: { user: { id: "user-1" } } });
+
+      const { useLogin } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
+
+      const form = {
+        preventDefault: vi.fn(),
+        currentTarget: {
+          username: { value: "jbromberg@wxyc.org" },
+          password: { value: "password123" },
+        },
+      } as any;
+
+      await act(async () => {
+        await result.current.handleLogin(form);
+      });
+
+      expect(mockSignInEmail).toHaveBeenCalledWith({
+        email: "jbromberg@wxyc.org",
+        password: "password123",
+      });
+      expect(mockSignInUsername).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("useOTPRequest", () => {
+    it("resolves a username via lookup before calling sendVerificationOtp", async () => {
+      mockLookupEmailByIdentifier.mockResolvedValue("jbromberg@wxyc.org");
+      mockSendVerificationOtp.mockResolvedValue({ data: {} });
+
+      const { useOTPRequest } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useOTPRequest(), { wrapper: createWrapper() });
+
+      let returned: { email: string } | undefined;
+      await act(async () => {
+        returned = await result.current.handleSendOTP("jbromberg");
+      });
+
+      expect(mockLookupEmailByIdentifier).toHaveBeenCalledWith("jbromberg");
+      expect(mockSendVerificationOtp).toHaveBeenCalledWith({
+        email: "jbromberg@wxyc.org",
+        type: "sign-in",
+      });
+      expect(returned).toEqual({ email: "jbromberg@wxyc.org" });
+    });
+
+    it("passes an email identifier through to sendVerificationOtp unchanged", async () => {
+      mockLookupEmailByIdentifier.mockResolvedValue("dj@wxyc.org");
+      mockSendVerificationOtp.mockResolvedValue({ data: {} });
+
+      const { useOTPRequest } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useOTPRequest(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        await result.current.handleSendOTP("dj@wxyc.org");
+      });
+
+      expect(mockSendVerificationOtp).toHaveBeenCalledWith({
+        email: "dj@wxyc.org",
+        type: "sign-in",
+      });
+    });
+
+    it("throws when the lookup returns null", async () => {
+      mockLookupEmailByIdentifier.mockResolvedValue(null);
+
+      const { useOTPRequest } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useOTPRequest(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        await expect(result.current.handleSendOTP("nobody")).rejects.toThrow();
+      });
+
+      expect(mockSendVerificationOtp).not.toHaveBeenCalled();
     });
   });
 

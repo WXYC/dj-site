@@ -8,6 +8,7 @@ import {
 import { CATALOG_QUERY_PAGE_LIMIT } from "@/lib/features/catalog/constants";
 import { Authorization } from "@/lib/features/admin/types";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
+import { isCompilationArtistName } from "@/lib/features/catalog/is-compilation-artist";
 import {
   AlbumEntry,
   CatalogFilters,
@@ -358,6 +359,8 @@ export const useCatalogFlowsheetSearch = () => {
     flowsheetSlice.selectors.getSearchQuery,
   );
 
+  const isCompilationQuery = isCompilationArtistName(flowsheetQuery.artist);
+
   const { data } = useSearchCatalogQuery(
     {
       artist_name: flowsheetQuery.artist,
@@ -368,6 +371,7 @@ export const useCatalogFlowsheetSearch = () => {
       skip:
         authenticating ||
         !authenticated ||
+        isCompilationQuery ||
         flowsheetQuery.artist.length + flowsheetQuery.album.length <=
           FLOWSHEET_MIN_SEARCH_LENGTH,
     },
@@ -391,10 +395,12 @@ export const useRotationFlowsheetSearch = () => {
     skip: authenticating || !authenticated,
   });
 
+  const isCompilationQuery = isCompilationArtistName(rotationQuery.artist);
+
   const searchResults = useMemo(() => {
-    if (!data || isLoading || !isSuccess) return [];
+    if (!data || isLoading || !isSuccess || isCompilationQuery) return [];
     return filterBySearchTerms(data, rotationQuery);
-  }, [data, isLoading, isSuccess, rotationQuery]);
+  }, [data, isLoading, isSuccess, rotationQuery, isCompilationQuery]);
 
   return {
     searchResults:

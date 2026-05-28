@@ -14,6 +14,7 @@ import {
 import { convertQueryToSubmission } from "@/lib/features/flowsheet/conversions";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { compareEntriesNewestFirst } from "@/lib/features/flowsheet/infinite-cache";
+import { useFlowsheetPollingInterval } from "./useSSEConnection";
 import { partitionFlowsheetEntries } from "@/lib/features/flowsheet/partition";
 import {
   FlowsheetEntry,
@@ -25,7 +26,7 @@ import {
 import type { RootState } from "@/lib/store";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import type { FormEvent } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useRegistry } from "./authenticationHooks";
 import { useBinResults } from "./binHooks";
@@ -58,6 +59,7 @@ export function selectFlowsheetMutationPending(state: RootState): boolean {
 
 export const useShowControl = () => {
   const { loading: userloading, info: userData } = useRegistry();
+  const flowsheetPollingInterval = useFlowsheetPollingInterval();
 
   const {
     data: liveList,
@@ -72,7 +74,7 @@ export const useShowControl = () => {
     isSuccess: entriesQuerySuccess,
   } = useGetInfiniteEntriesInfiniteQuery(undefined, {
     skip: !userData || userloading,
-    pollingInterval: 60000, // Poll every 60 seconds to keep flowsheet updated
+    pollingInterval: flowsheetPollingInterval,
   });
 
   // Flatten all pages into a single sorted array
@@ -229,6 +231,7 @@ export const useFlowsheetSearch = () => {
 export const useFlowsheet = () => {
   const { loading: userloading, info: userData } = useRegistry();
   const dispatch = useAppDispatch();
+  const flowsheetPollingInterval = useFlowsheetPollingInterval();
 
   const {
     data: infiniteData,
@@ -240,7 +243,7 @@ export const useFlowsheet = () => {
     fetchNextPage,
   } = useGetInfiniteEntriesInfiniteQuery(undefined, {
     skip: !userData || userloading,
-    pollingInterval: 60000, // Poll every 60 seconds to keep flowsheet updated
+    pollingInterval: flowsheetPollingInterval,
   });
 
   // Flatten all pages into a single deduplicated, sorted array
@@ -402,6 +405,11 @@ export const useQueue = () => {
 };
 
 export const useFlowsheetSubmit = () => {
+  // Ref drives the submit-path decision (synchronous read); the state mirror
+  // drives the button color/icon. Without the ref, a fast Ctrl+Enter races
+  // the form's implicit submit and lands the entry in the flowsheet because
+  // React hasn't committed setCtrlKeyPressed by the time handleSubmit fires.
+  const queueModifierRef = useRef(false);
   const [ctrlKeyPressed, setCtrlKeyPressed] = useState(false);
 
   const { addToQueue } = useQueue();
@@ -409,14 +417,15 @@ export const useFlowsheetSubmit = () => {
   const dispatch = useAppDispatch();
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.key === "Control") {
-      e.preventDefault();
+    if (e.key === "Control" || e.key === "Meta") {
+      queueModifierRef.current = true;
       setCtrlKeyPressed(true);
     }
   }, []);
 
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
-    if (e.key === "Control") {
+    if (e.key === "Control" || e.key === "Meta") {
+      queueModifierRef.current = false;
       setCtrlKeyPressed(false);
     }
   }, []);
@@ -496,7 +505,14 @@ export const useFlowsheetSubmit = () => {
   const handleSubmit = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
-      if (ctrlKeyPressed) {
+      // Guard required fields here because clicking a search result row
+      // bypasses the form's HTML5 `required` validation (the row's onClick
+      // calls handleSubmit directly instead of submitting the form).
+      if (!(selectedResultData.song ?? "").trim()) {
+        toast.error("Song title is required");
+        return;
+      }
+      if (queueModifierRef.current) {
         addToQueue(selectedResultData);
         dispatch(flowsheetSlice.actions.resetSearch());
         return;
@@ -521,7 +537,6 @@ export const useFlowsheetSubmit = () => {
       }
     },
     [
-      ctrlKeyPressed,
       addToFlowsheet,
       addToQueue,
       selectedResultData,

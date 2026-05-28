@@ -140,22 +140,22 @@ describe("flowsheet conversions", () => {
     });
 
     it("should format single DJ on air", () => {
-      const response = [createTestOnAirDJResponse({ dj_name: "Cool DJ" })];
+      const response = [createTestOnAirDJResponse({ dj_name: "Turncoat" })];
       const result = convertDJsOnAir(response);
 
       expect(result.djs).toHaveLength(1);
-      expect(result.onAir).toBe("DJ Cool DJ");
+      expect(result.onAir).toBe("Turncoat");
     });
 
     it("should format multiple DJs on air", () => {
       const response = [
-        createTestOnAirDJResponse({ id: "1", dj_name: "First DJ" }),
-        createTestOnAirDJResponse({ id: "2", dj_name: "Second DJ" }),
+        createTestOnAirDJResponse({ id: "1", dj_name: "Turncoat" }),
+        createTestOnAirDJResponse({ id: "2", dj_name: "desire path" }),
       ];
       const result = convertDJsOnAir(response);
 
       expect(result.djs).toHaveLength(2);
-      expect(result.onAir).toBe("DJ First DJ, DJ Second DJ");
+      expect(result.onAir).toBe("Turncoat, desire path");
     });
 
     it("should preserve original DJ response objects", () => {
@@ -218,6 +218,22 @@ describe("flowsheet conversions", () => {
         const result = convertV2Entry(entry) as FlowsheetSongEntry;
 
         expect(result.on_streaming).toBeUndefined();
+      });
+
+      it("should pass artwork_url through on track entries", () => {
+        const entry = createTestV2TrackEntry({
+          artwork_url: "https://example.com/cover.jpg",
+        } as any);
+        const result = convertV2Entry(entry) as FlowsheetSongEntry;
+
+        expect(result.artwork_url).toBe("https://example.com/cover.jpg");
+      });
+
+      it("should default artwork_url to undefined when absent", () => {
+        const entry = createTestV2TrackEntry();
+        const result = convertV2Entry(entry) as FlowsheetSongEntry;
+
+        expect(result.artwork_url).toBeUndefined();
       });
 
       it.each([
