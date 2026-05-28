@@ -228,9 +228,12 @@ export default function AdminAddCatalogEntryPanel() {
 
           <CatalogEntryArtistAutocomplete
             genreIdNum={form.genreIdNum}
+            artistMode={form.artistMode}
             inputValue={form.artistInputValue}
-            onInputChange={form.setArtistInputValue}
+            onInputChange={form.handleArtistInputChange}
             value={form.artistOption}
+            codeLetters={form.codeLetters}
+            codeNumber={form.codeNumber}
             onSelectExisting={form.selectExistingArtist}
             onSelectNew={form.selectNewArtist}
             onClear={form.resetArtist}
