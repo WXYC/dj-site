@@ -149,6 +149,9 @@ jobs:
           # registers on the same LISTEN — so without this, pg_notify is
           # silently dropped. Tracked as a Backend-Service follow-up.
           CDC_SECRET=e2e-cdc-secret-not-used-by-tests
+          # Tier 3 refetch test triggers liveFs:refetch by posting to
+          # POST /internal/flowsheet-sync-notify with X-Internal-Key.
+          ETL_NOTIFY_KEY=e2e-etl-notify-key
           EOF
 
       - name: Start mock tubafrenzy mirror
@@ -299,6 +302,9 @@ jobs:
         working-directory: dj-site
         env:
           SECOND_FRONTEND_PORT: "3001"
+          # Tier 3 refetch test posts directly to BS's internal route.
+          E2E_BACKEND_URL: "http://localhost:8085"
+          ETL_NOTIFY_KEY: "e2e-etl-notify-key"
         # --max-failures kept at 10 per shard: with sharding, a stuck shard
         # hits its cap on its own, so dropping to 1 tanks otherwise-green
         # shards (see prior commit on #574).
