@@ -61,6 +61,12 @@ export NODE_ENV=test
 # Without this, the SSE Tier 1 tests' NOTIFYs are silently dropped. Tracked
 # as a Backend-Service follow-up to split LISTEN startup from CDC_SECRET.
 export CDC_SECRET=e2e-cdc-secret-not-used-by-tests
+# Backend-Service's POST /internal/flowsheet-sync-notify is gated on
+# ETL_NOTIFY_KEY. The Tier 3 refetch test posts with this same value to
+# trigger a liveFs:refetch broadcast without going through the real ETL.
+# E2E_BACKEND_URL tells the helper where BS listens.
+export ETL_NOTIFY_KEY=e2e-etl-notify-key
+export E2E_BACKEND_URL=http://localhost:$BACKEND_PORT
 
 echo "==> Building Backend-Service..."
 cd "$BACKEND_DIR"
