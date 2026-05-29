@@ -337,5 +337,82 @@ describe("authenticationHooks", () => {
         hasCompletedOnboarding: true,
       });
     });
+
+    it("calls changePassword before updateUser so a failed password change leaves hasCompletedOnboarding untouched", async () => {
+      mockGetSession.mockResolvedValue({
+        data: { user: { id: "user-1" } },
+      });
+
+      const callOrder: string[] = [];
+      mockChangePassword.mockImplementation(async () => {
+        callOrder.push("changePassword");
+        return { data: {} };
+      });
+      mockUpdateUser.mockImplementation(async () => {
+        callOrder.push("updateUser");
+        return { data: {} };
+      });
+
+      const { useNewUser } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useNewUser(), { wrapper: createWrapper() });
+
+      const form = {
+        preventDefault: vi.fn(),
+        currentTarget: {
+          username: { value: "testdj" },
+          password: { value: "NewPassword1" },
+          realName: { value: "Real Name" },
+          djName: { value: "DJ Name" },
+        },
+      } as any;
+
+      await act(async () => {
+        await result.current.handleNewUser(form);
+      });
+
+      expect(callOrder).toEqual(["changePassword", "updateUser"]);
+      expect(mockChangePassword).toHaveBeenCalledWith({
+        currentPassword: "temp123",
+        newPassword: "NewPassword1",
+      });
+    });
+
+    it("does not call updateUser when changePassword rejects, so hasCompletedOnboarding stays false", async () => {
+      mockGetSession.mockResolvedValue({
+        data: { user: { id: "user-1" } },
+      });
+      mockChangePassword.mockResolvedValue({
+        data: null,
+        error: { message: "Current password is incorrect" },
+      });
+
+      const { throwIfBetterAuthError } = await import("@/src/utilities/throwIfBetterAuthError");
+      (throwIfBetterAuthError as any).mockImplementation((res: any, msg: string) => {
+        if (res?.error) {
+          throw new Error(msg);
+        }
+      });
+
+      const { useNewUser } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useNewUser(), { wrapper: createWrapper() });
+
+      const form = {
+        preventDefault: vi.fn(),
+        currentTarget: {
+          username: { value: "testdj" },
+          password: { value: "NewPassword1" },
+          realName: { value: "Real Name" },
+          djName: { value: "DJ Name" },
+        },
+      } as any;
+
+      await act(async () => {
+        await result.current.handleNewUser(form);
+      });
+
+      expect(mockChangePassword).toHaveBeenCalled();
+      expect(mockUpdateUser).not.toHaveBeenCalled();
+      expect(mockPush).not.toHaveBeenCalled();
+    });
   });
 });
