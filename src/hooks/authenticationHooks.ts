@@ -277,6 +277,21 @@ export const useNewUser = () => {
         throw new Error("You must be authenticated to update your profile");
       }
 
+      // Change the password BEFORE flipping hasCompletedOnboarding. If we
+      // flip the flag first and then changePassword fails, the account ends
+      // up flagged complete but still protected only by the publicly-known
+      // NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD — and requireAuth() will no
+      // longer redirect the user back through onboarding to recover. See
+      // WXYC/dj-site#598.
+      if (params.password) {
+        const passwordResult = await authClient.changePassword({
+          currentPassword,
+          newPassword: params.password,
+        });
+
+        throwIfBetterAuthError(passwordResult, "Failed to update password");
+      }
+
       const updateRequest: any = { hasCompletedOnboarding: true };
       if (params.realName) {
         updateRequest.realName = params.realName;
@@ -287,15 +302,6 @@ export const useNewUser = () => {
       const result = await authClient.updateUser(updateRequest);
 
       throwIfBetterAuthError(result, "Failed to update user profile");
-
-      if (params.password) {
-        const passwordResult = await authClient.changePassword({
-          currentPassword,
-          newPassword: params.password,
-        });
-
-        throwIfBetterAuthError(passwordResult, "Failed to update password");
-      }
 
       const dashboardHome = String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog");
       toast.success("Profile updated successfully");
