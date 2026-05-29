@@ -36,8 +36,7 @@ export const useLogin = () => {
       const identifier = e.currentTarget.username.value;
       const password = e.currentTarget.password.value;
 
-      // Defensive: drop any cached bearer from a previous session before this
-      // user's authority is established (WXYC/dj-site#596).
+      // Drop any prior session's cached bearer before establishing this one (WXYC/dj-site#596).
       clearTokenCache();
 
       const result = isValidEmail(identifier)
@@ -115,8 +114,7 @@ export const useOTPVerify = () => {
 
   const handleVerifyOTP = (email: string, otp: string) =>
     execute(async () => {
-      // Defensive: drop any cached bearer from a previous session before this
-      // user's authority is established (WXYC/dj-site#596).
+      // Drop any prior session's cached bearer before establishing this one (WXYC/dj-site#596).
       clearTokenCache();
 
       const result = await authClient.signIn.emailOtp({
