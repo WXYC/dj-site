@@ -198,6 +198,19 @@ describe("liveUpdatesListenerMiddleware", () => {
     );
   });
 
+  it.each(["connection-established", "subscription"])(
+    "silently drops the %s handshake frame",
+    (handshakeType) => {
+      const store = makeStore();
+      store.dispatch(liveUpdatesConnectionRequested());
+      getLastMock()._fireMessage(frame({ type: handshakeType }));
+      expect(captureSpy).not.toHaveBeenCalledWith(
+        "sse_unknown_event_type",
+        expect.anything()
+      );
+    }
+  );
+
   it("rejects an update event whose payload is null", () => {
     const store = makeStore();
     const updateSpy = vi.spyOn(flowsheetApi.util, "updateQueryData");
