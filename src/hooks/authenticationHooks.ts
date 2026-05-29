@@ -1,7 +1,7 @@
 "use client";
 
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
-import { authClient, lookupEmailByIdentifier } from "@/lib/features/authentication/client";
+import { authClient, clearTokenCache, lookupEmailByIdentifier } from "@/lib/features/authentication/client";
 import { isValidEmail } from "@wxyc/shared/validation";
 import {
   AuthenticatedUser,
@@ -35,6 +35,10 @@ export const useLogin = () => {
     return execute(async () => {
       const identifier = e.currentTarget.username.value;
       const password = e.currentTarget.password.value;
+
+      // Defensive: drop any cached bearer from a previous session before this
+      // user's authority is established (WXYC/dj-site#596).
+      clearTokenCache();
 
       const result = isValidEmail(identifier)
         ? ((await authClient.signIn.email({ email: identifier, password })) as { error?: unknown })
@@ -111,6 +115,10 @@ export const useOTPVerify = () => {
 
   const handleVerifyOTP = (email: string, otp: string) =>
     execute(async () => {
+      // Defensive: drop any cached bearer from a previous session before this
+      // user's authority is established (WXYC/dj-site#596).
+      clearTokenCache();
+
       const result = await authClient.signIn.emailOtp({
         email,
         otp,
@@ -165,6 +173,10 @@ export const useLogout = () => {
   const handleLogout = (event?: React.FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
     return execute(async () => {
+      // Invalidate the cached bearer synchronously so the next caller — including
+      // any in-flight code paths that race ahead of signOut — cannot reuse the
+      // departing user's JWT (cache TTL is 4 minutes; see WXYC/dj-site#596).
+      clearTokenCache();
       await authClient.signOut();
       router.refresh();
       resetApplication(dispatch);
