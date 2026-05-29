@@ -204,10 +204,8 @@ describe("liveUpdatesListenerMiddleware", () => {
       const store = makeStore();
       store.dispatch(liveUpdatesConnectionRequested());
       getLastMock()._fireMessage(frame({ type: handshakeType }));
-      expect(captureSpy).not.toHaveBeenCalledWith(
-        "sse_unknown_event_type",
-        expect.anything()
-      );
+      expect(captureSpy).not.toHaveBeenCalled();
+      expect(captureExceptionSpy).not.toHaveBeenCalled();
     }
   );
 
