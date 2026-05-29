@@ -421,8 +421,6 @@ describe("authenticationHooks", () => {
 
   describe("useLogout (WXYC/dj-site#596)", () => {
     it("clears the JWT token cache before calling signOut", async () => {
-      mockSignOut.mockResolvedValue(undefined);
-
       const callOrder: string[] = [];
       mockClearTokenCache.mockImplementation(() => {
         callOrder.push("clearTokenCache");
@@ -446,8 +444,6 @@ describe("authenticationHooks", () => {
     });
 
     it("clears the JWT token cache even when no form event is supplied", async () => {
-      mockSignOut.mockResolvedValue(undefined);
-
       const { useLogout } = await import("./authenticationHooks");
       const { result } = renderHook(() => useLogout(), { wrapper: createWrapper() });
 
@@ -461,10 +457,6 @@ describe("authenticationHooks", () => {
 
   describe("useLogin (WXYC/dj-site#596 defensive)", () => {
     it("clears the JWT token cache before signing in", async () => {
-      mockSignInUsername.mockResolvedValue({
-        data: { user: { id: "user-1", hasCompletedOnboarding: true } },
-      });
-
       const callOrder: string[] = [];
       mockClearTokenCache.mockImplementation(() => {
         callOrder.push("clearTokenCache");
