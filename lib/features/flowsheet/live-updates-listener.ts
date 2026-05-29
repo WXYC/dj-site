@@ -16,10 +16,8 @@ import type { FlowsheetEntry } from "./types";
 const LIVE_FS_TOPIC = "live-fs-topic";
 const REFETCH_DEBOUNCE_MS = 500;
 
-// Backend emits these as the first two `data:` lines on every new SSE
-// subscription. They don't carry payload any client needs to act on, so
-// silently drop them to keep `sse_unknown_event_type` as a real
-// contract-drift signal rather than per-connection noise. See WXYC/dj-site#673.
+// Drop benign SSE handshake frames so `sse_unknown_event_type` stays a
+// contract-drift signal, not per-connection noise. See WXYC/dj-site#673.
 const BENIGN_HANDSHAKE_TYPES = new Set<string>([
   "connection-established",
   "subscription",
