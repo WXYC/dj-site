@@ -37,7 +37,6 @@ describe("initPostHog", () => {
       capture_pageview: false,
       capture_pageleave: true,
       capture_exceptions: true,
-      person_profiles: "always",
     });
   });
 

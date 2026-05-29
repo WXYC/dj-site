@@ -15,10 +15,6 @@ export function initPostHog() {
     capture_pageview: false,
     capture_pageleave: true,
     capture_exceptions: true,
-    // Capture events from anonymous visitors too (logged-out landing, /login,
-    // /live). Without this, the project-level "Identified only" default
-    // silently drops every capture call until posthog.identify() runs.
-    person_profiles: "always",
   });
 }
 
