@@ -350,24 +350,24 @@ describe("liveUpdatesListenerMiddleware", () => {
   describe("reconnect refetch (issue #682)", () => {
     it("does not schedule an invalidate on the first onopen (initial connect)", () => {
       vi.useFakeTimers();
+      const invalidateSpy = vi.spyOn(flowsheetApi.util, "invalidateTags");
       try {
         const store = makeStore();
-        const invalidateSpy = vi.spyOn(flowsheetApi.util, "invalidateTags");
         store.dispatch(liveUpdatesConnectionRequested());
         getLastMock()._fireOpen();
         vi.advanceTimersByTime(600);
         expect(invalidateSpy).not.toHaveBeenCalled();
-        invalidateSpy.mockRestore();
       } finally {
+        invalidateSpy.mockRestore();
         vi.useRealTimers();
       }
     });
 
     it("schedules a Flowsheet + NowPlaying invalidate on the second onopen (browser reconnect after transient drop)", () => {
       vi.useFakeTimers();
+      const invalidateSpy = vi.spyOn(flowsheetApi.util, "invalidateTags");
       try {
         const store = makeStore();
-        const invalidateSpy = vi.spyOn(flowsheetApi.util, "invalidateTags");
         store.dispatch(liveUpdatesConnectionRequested());
         // First open — initial connect.
         getLastMock()._fireOpen();
@@ -381,17 +381,17 @@ describe("liveUpdatesListenerMiddleware", () => {
         expect(invalidateSpy).toHaveBeenCalledWith(
           expect.arrayContaining(["Flowsheet", "NowPlaying"])
         );
-        invalidateSpy.mockRestore();
       } finally {
+        invalidateSpy.mockRestore();
         vi.useRealTimers();
       }
     });
 
     it("coalesces a reconnect-driven refetch with a coincident refetch envelope into one invalidate", () => {
       vi.useFakeTimers();
+      const invalidateSpy = vi.spyOn(flowsheetApi.util, "invalidateTags");
       try {
         const store = makeStore();
-        const invalidateSpy = vi.spyOn(flowsheetApi.util, "invalidateTags");
         store.dispatch(liveUpdatesConnectionRequested());
         getLastMock()._fireOpen();
         getLastMock()._fireError(MockEventSourceCtor.CONNECTING);
@@ -401,17 +401,17 @@ describe("liveUpdatesListenerMiddleware", () => {
         );
         vi.advanceTimersByTime(600);
         expect(invalidateSpy).toHaveBeenCalledTimes(1);
-        invalidateSpy.mockRestore();
       } finally {
+        invalidateSpy.mockRestore();
         vi.useRealTimers();
       }
     });
 
     it("resets the reconnect-detect flag on connectionReleased so a fresh subscriber's first onopen is not treated as a reconnect", () => {
       vi.useFakeTimers();
+      const invalidateSpy = vi.spyOn(flowsheetApi.util, "invalidateTags");
       try {
         const store = makeStore();
-        const invalidateSpy = vi.spyOn(flowsheetApi.util, "invalidateTags");
 
         // First subscriber: connect, fully release.
         store.dispatch(liveUpdatesConnectionRequested());
@@ -419,13 +419,18 @@ describe("liveUpdatesListenerMiddleware", () => {
         store.dispatch(liveUpdatesConnectionReleased());
 
         // Fresh subscriber after full teardown — first onopen should be
-        // treated as an initial connect, not a reconnect.
+        // treated as an initial connect, not a reconnect. Asserting that a
+        // second EventSource was actually constructed guards against a
+        // regression that would suppress the re-open path (in which case
+        // getLastMock() returns the original ES and _fireOpen() reads a
+        // correctly-reset flag for the wrong reason).
         store.dispatch(liveUpdatesConnectionRequested());
+        expect(MockEventSourceCtor._instances).toHaveLength(2);
         getLastMock()._fireOpen();
         vi.advanceTimersByTime(600);
         expect(invalidateSpy).not.toHaveBeenCalled();
-        invalidateSpy.mockRestore();
       } finally {
+        invalidateSpy.mockRestore();
         vi.useRealTimers();
       }
     });
