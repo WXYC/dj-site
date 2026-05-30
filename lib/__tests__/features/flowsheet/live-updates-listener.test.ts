@@ -3,6 +3,7 @@ import { http, HttpResponse } from "msw";
 
 import { flowsheetApi } from "@/lib/features/flowsheet/api";
 import {
+  __getHasEverConnectedForTests,
   __getLiveUpdatesEventSourceForTests,
   __resetLiveUpdatesEventSourceForTests,
 } from "@/lib/features/flowsheet/live-updates-listener";
@@ -432,6 +433,40 @@ describe("liveUpdatesListenerMiddleware", () => {
       } finally {
         invalidateSpy.mockRestore();
         vi.useRealTimers();
+      }
+    });
+
+    it("__getHasEverConnectedForTests follows the request → open → release lifecycle", () => {
+      const store = makeStore();
+      expect(__getHasEverConnectedForTests()).toBe(false);
+      store.dispatch(liveUpdatesConnectionRequested());
+      expect(__getHasEverConnectedForTests()).toBe(false);
+      getLastMock()._fireOpen();
+      expect(__getHasEverConnectedForTests()).toBe(true);
+      store.dispatch(liveUpdatesConnectionReleased());
+      expect(__getHasEverConnectedForTests()).toBe(false);
+    });
+
+    it("does not set hasEverConnected when the onopen handler's status read throws (pins commit 7b56287 ordering invariant)", () => {
+      const store = makeStore();
+      store.dispatch(liveUpdatesConnectionRequested());
+      // Spy AFTER the requested-effect's initial "connecting" status set, so
+      // the next call into the selector is the one inside onopen.
+      const selectorSpy = vi
+        .spyOn(liveUpdatesSlice.selectors, "selectLiveUpdatesConnectionStatus")
+        .mockImplementationOnce(() => {
+          throw new Error("simulated status dispatch failure");
+        });
+      try {
+        expect(() => getLastMock()._fireOpen()).toThrow(
+          "simulated status dispatch failure"
+        );
+        // If a future refactor moves `hasEverConnected = true` back above the
+        // status dispatch, this assertion flips to true and the test fails —
+        // which is the regression we want.
+        expect(__getHasEverConnectedForTests()).toBe(false);
+      } finally {
+        selectorSpy.mockRestore();
       }
     });
   });
