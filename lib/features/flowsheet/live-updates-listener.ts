@@ -53,6 +53,13 @@ type LiveFsEvent = LiveFsUpdateEvent | LiveFsRefetchEvent;
 let eventSource: EventSource | null = null;
 let debouncedInvalidateTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingInvalidateTags: Set<FlowsheetTag> = new Set();
+// Tracks whether the current EventSource has ever fired onopen. The browser
+// fires onopen again after a transparent reconnect; if hasEverConnected was
+// already true when onopen fires, anything the backend pushed during the
+// blackout window is missing from local cache, so we schedule an explicit
+// refetch to repair it. Reset on connectionReleased so a fresh subscriber's
+// first open is treated as an initial connect, not a reconnect. See #682.
+let hasEverConnected = false;
 
 function isLiveFsEvent(value: unknown): value is LiveFsEvent {
   if (typeof value !== "object" || value === null) return false;
@@ -199,8 +206,16 @@ startListening({
     eventSource = es;
 
     es.onopen = () => {
+      const isReconnect = hasEverConnected;
+      hasEverConnected = true;
       if (setConnectionStatusIfChanged(listenerApi, "connected")) {
         safeCapture(SSE_EVENTS.CONNECTED, { topic: LIVE_FS_TOPIC });
+      }
+      if (isReconnect) {
+        scheduleDebouncedInvalidate(listenerApi.dispatch, [
+          "Flowsheet",
+          "NowPlaying",
+        ]);
       }
     };
 
@@ -273,6 +288,7 @@ startListening({
     if (refCount !== 0 || eventSource === null) return;
     eventSource.close();
     eventSource = null;
+    hasEverConnected = false;
     clearDebouncedInvalidate();
     setConnectionStatusIfChanged(listenerApi, "closed");
   },
@@ -288,6 +304,7 @@ export function __resetLiveUpdatesEventSourceForTests(): void {
     }
   }
   eventSource = null;
+  hasEverConnected = false;
   clearDebouncedInvalidate();
 }
 
