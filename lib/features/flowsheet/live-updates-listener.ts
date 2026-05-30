@@ -207,7 +207,6 @@ startListening({
 
     es.onopen = () => {
       const isReconnect = hasEverConnected;
-      hasEverConnected = true;
       if (setConnectionStatusIfChanged(listenerApi, "connected")) {
         safeCapture(SSE_EVENTS.CONNECTED, { topic: LIVE_FS_TOPIC });
       }
@@ -217,6 +216,10 @@ startListening({
           "NowPlaying",
         ]);
       }
+      // Set last so a throwing dispatch above leaves the flag false and the
+      // next onopen is treated as the first observable connect, not a
+      // reconnect.
+      hasEverConnected = true;
     };
 
     es.onerror = () => {
