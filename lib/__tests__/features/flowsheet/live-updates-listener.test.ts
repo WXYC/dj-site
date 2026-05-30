@@ -347,4 +347,88 @@ describe("liveUpdatesListenerMiddleware", () => {
     }
   });
 
+  describe("reconnect refetch (issue #682)", () => {
+    it("does not schedule an invalidate on the first onopen (initial connect)", () => {
+      vi.useFakeTimers();
+      try {
+        const store = makeStore();
+        const invalidateSpy = vi.spyOn(flowsheetApi.util, "invalidateTags");
+        store.dispatch(liveUpdatesConnectionRequested());
+        getLastMock()._fireOpen();
+        vi.advanceTimersByTime(600);
+        expect(invalidateSpy).not.toHaveBeenCalled();
+        invalidateSpy.mockRestore();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("schedules a Flowsheet + NowPlaying invalidate on the second onopen (browser reconnect after transient drop)", () => {
+      vi.useFakeTimers();
+      try {
+        const store = makeStore();
+        const invalidateSpy = vi.spyOn(flowsheetApi.util, "invalidateTags");
+        store.dispatch(liveUpdatesConnectionRequested());
+        // First open — initial connect.
+        getLastMock()._fireOpen();
+        // Browser sees a transient drop and is retrying transparently.
+        getLastMock()._fireError(MockEventSourceCtor.CONNECTING);
+        // Browser-initiated retry succeeds — onopen fires again.
+        getLastMock()._fireOpen();
+        expect(invalidateSpy).not.toHaveBeenCalled();
+        vi.advanceTimersByTime(600);
+        expect(invalidateSpy).toHaveBeenCalledTimes(1);
+        expect(invalidateSpy).toHaveBeenCalledWith(
+          expect.arrayContaining(["Flowsheet", "NowPlaying"])
+        );
+        invalidateSpy.mockRestore();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("coalesces a reconnect-driven refetch with a coincident refetch envelope into one invalidate", () => {
+      vi.useFakeTimers();
+      try {
+        const store = makeStore();
+        const invalidateSpy = vi.spyOn(flowsheetApi.util, "invalidateTags");
+        store.dispatch(liveUpdatesConnectionRequested());
+        getLastMock()._fireOpen();
+        getLastMock()._fireError(MockEventSourceCtor.CONNECTING);
+        getLastMock()._fireOpen();
+        getLastMock()._fireMessage(
+          frame({ type: "refetch", payload: { source: "etl" }, timestamp: 1 })
+        );
+        vi.advanceTimersByTime(600);
+        expect(invalidateSpy).toHaveBeenCalledTimes(1);
+        invalidateSpy.mockRestore();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("resets the reconnect-detect flag on connectionReleased so a fresh subscriber's first onopen is not treated as a reconnect", () => {
+      vi.useFakeTimers();
+      try {
+        const store = makeStore();
+        const invalidateSpy = vi.spyOn(flowsheetApi.util, "invalidateTags");
+
+        // First subscriber: connect, fully release.
+        store.dispatch(liveUpdatesConnectionRequested());
+        getLastMock()._fireOpen();
+        store.dispatch(liveUpdatesConnectionReleased());
+
+        // Fresh subscriber after full teardown — first onopen should be
+        // treated as an initial connect, not a reconnect.
+        store.dispatch(liveUpdatesConnectionRequested());
+        getLastMock()._fireOpen();
+        vi.advanceTimersByTime(600);
+        expect(invalidateSpy).not.toHaveBeenCalled();
+        invalidateSpy.mockRestore();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
 });
