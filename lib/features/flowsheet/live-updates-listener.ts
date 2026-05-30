@@ -315,3 +315,11 @@ export function __resetLiveUpdatesEventSourceForTests(): void {
 export function __getLiveUpdatesEventSourceForTests(): EventSource | null {
   return eventSource;
 }
+
+/** Test-only accessor for the reconnect-detect flag. Lets tests pin the
+ * ordering invariant that `hasEverConnected` is assigned only after the
+ * status-dispatch path in `onopen` completes, so a throwing dispatch can't
+ * leave the flag sticky-true. See #682, #685. */
+export function __getHasEverConnectedForTests(): boolean {
+  return hasEverConnected;
+}
