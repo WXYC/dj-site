@@ -23,7 +23,7 @@ const BENIGN_HANDSHAKE_TYPES = new Set<string>([
   "subscription",
 ]);
 
-type FlowsheetTag = "Flowsheet" | "NowPlaying";
+type FlowsheetTag = "Flowsheet" | "NowPlaying" | "WhoIsLive";
 
 const SSE_EVENTS = {
   CONNECTED: "sse_connected",
@@ -214,6 +214,7 @@ startListening({
         scheduleDebouncedInvalidate(listenerApi.dispatch, [
           "Flowsheet",
           "NowPlaying",
+          "WhoIsLive",
         ]);
       }
       // Set last so a throwing dispatch above leaves the flag false and the
@@ -273,6 +274,7 @@ startListening({
         scheduleDebouncedInvalidate(listenerApi.dispatch, [
           "Flowsheet",
           "NowPlaying",
+          "WhoIsLive",
         ]);
         return;
       }

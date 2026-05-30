@@ -363,7 +363,7 @@ describe("liveUpdatesListenerMiddleware", () => {
       }
     });
 
-    it("schedules a Flowsheet + NowPlaying invalidate on the second onopen (browser reconnect after transient drop)", () => {
+    it("schedules a Flowsheet + NowPlaying + WhoIsLive invalidate on the second onopen (browser reconnect after transient drop)", () => {
       vi.useFakeTimers();
       const invalidateSpy = vi.spyOn(flowsheetApi.util, "invalidateTags");
       try {
@@ -379,7 +379,26 @@ describe("liveUpdatesListenerMiddleware", () => {
         vi.advanceTimersByTime(600);
         expect(invalidateSpy).toHaveBeenCalledTimes(1);
         expect(invalidateSpy).toHaveBeenCalledWith(
-          expect.arrayContaining(["Flowsheet", "NowPlaying"])
+          expect.arrayContaining(["Flowsheet", "NowPlaying", "WhoIsLive"])
+        );
+      } finally {
+        invalidateSpy.mockRestore();
+        vi.useRealTimers();
+      }
+    });
+
+    it("the refetch envelope also invalidates Flowsheet + NowPlaying + WhoIsLive so DJ join/leave during the ETL window doesn't lag the on-air indicator", () => {
+      vi.useFakeTimers();
+      const invalidateSpy = vi.spyOn(flowsheetApi.util, "invalidateTags");
+      try {
+        const store = makeStore();
+        store.dispatch(liveUpdatesConnectionRequested());
+        getLastMock()._fireMessage(
+          frame({ type: "refetch", payload: { source: "etl" }, timestamp: 1 })
+        );
+        vi.advanceTimersByTime(600);
+        expect(invalidateSpy).toHaveBeenCalledWith(
+          expect.arrayContaining(["Flowsheet", "NowPlaying", "WhoIsLive"])
         );
       } finally {
         invalidateSpy.mockRestore();
