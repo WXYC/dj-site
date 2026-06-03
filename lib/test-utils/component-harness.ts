@@ -1,4 +1,4 @@
-import React from "react";
+import { createElement, type ComponentType, type ReactNode } from "react";
 import { screen } from "@testing-library/react";
 import type { RenderResult } from "@testing-library/react";
 import type userEvent from "@testing-library/user-event";
@@ -39,12 +39,12 @@ export interface ComponentHarnessResult extends RenderResult {
  * });
  */
 export function createComponentHarness<P extends object>(
-  Component: React.ComponentType<P>,
+  Component: ComponentType<P>,
   defaultProps: P
 ) {
   return function setup(propsOverride?: Partial<P>): ComponentHarnessResult {
     const props = { ...defaultProps, ...propsOverride } as P;
-    const result = renderWithProviders(React.createElement(Component, props));
+    const result = renderWithProviders(createElement(Component, props));
 
     return {
       ...result,
@@ -80,13 +80,13 @@ export function createComponentHarnessWithQueries<
   P extends object,
   Q extends Record<string, () => HTMLElement | null>
 >(
-  Component: React.ComponentType<P>,
+  Component: ComponentType<P>,
   defaultProps: P,
   queries: Q
 ): (propsOverride?: Partial<P>) => ComponentHarnessResult & Q {
   return function setup(propsOverride?: Partial<P>) {
     const props = { ...defaultProps, ...propsOverride } as P;
-    const result = renderWithProviders(React.createElement(Component, props));
+    const result = renderWithProviders(createElement(Component, props));
 
     return {
       ...result,
@@ -126,7 +126,7 @@ export const componentQueries = {
  * ]);
  */
 export function testPropVariants<P extends object>(
-  Component: React.ComponentType<P>,
+  Component: ComponentType<P>,
   defaultProps: P,
   variants: Partial<P>[],
   assertion: (result: ComponentHarnessResult) => void = () => {}
@@ -171,8 +171,8 @@ export function createHookWrapper<S extends Record<string, Slice>>(
     preloadedState,
   });
 
-  return function Wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(Provider, { store, children });
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return createElement(Provider, { store, children });
   };
 }
 

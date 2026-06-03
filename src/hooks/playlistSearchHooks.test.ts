@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
-import React from "react";
+import { createElement, type ReactNode } from "react";
 import { Provider } from "react-redux";
 import { makeStore, AppStore } from "@/lib/store";
 import { playlistSearchSlice } from "@/lib/features/playlist-search/frontend";
@@ -33,8 +33,8 @@ function createWrapper(store?: AppStore) {
   const s = store ?? makeStore();
   return {
     store: s,
-    wrapper: ({ children }: { children: React.ReactNode }) =>
-      React.createElement(Provider, { store: s, children }),
+    wrapper: ({ children }: { children: ReactNode }) =>
+      createElement(Provider, { store: s, children }),
   };
 }
 

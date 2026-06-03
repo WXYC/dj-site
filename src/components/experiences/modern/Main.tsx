@@ -1,8 +1,8 @@
 "use client";
 import { Box } from "@mui/joy";
-import React from "react";
+import type { ReactNode } from "react";
 
-export default function Main({ children }: { children: React.ReactNode }) {
+export default function Main({ children }: { children: ReactNode }) {
   return (
     <Box
       component="main"

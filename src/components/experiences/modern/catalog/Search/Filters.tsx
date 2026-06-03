@@ -10,7 +10,7 @@ import {
   Option,
   Select,
 } from "@mui/joy";
-import React from "react";
+import { Fragment } from "react";
 
 const GENRE_OPTIONS: (Genre | "All")[] = [
   "All",
@@ -29,7 +29,7 @@ export const Filters = ({ color }: { color: ColorPaletteProp | undefined }) => {
   const { filters, setFilter } = useCatalogQuerySearch();
 
   return (
-    <React.Fragment>
+    <Fragment>
       <FormControl size="sm" sx={{ flex: 1 }}>
         <FormLabel>Genre</FormLabel>
         <Select
@@ -85,6 +85,6 @@ export const Filters = ({ color }: { color: ColorPaletteProp | undefined }) => {
           }}
         />
       </FormControl>
-    </React.Fragment>
+    </Fragment>
   );
 };

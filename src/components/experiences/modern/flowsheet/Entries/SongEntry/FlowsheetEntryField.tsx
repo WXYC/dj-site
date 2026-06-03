@@ -5,7 +5,7 @@ import { useFlowsheet, useShowControl } from "@/src/hooks/flowsheetHooks";
 import { toTitleCase } from "@/src/utilities/stringutilities";
 import { Typography, TypographyProps } from "@mui/joy";
 import { ClickAwayListener } from "@mui/material";
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useAppDispatch } from "@/lib/hooks";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 
@@ -40,7 +40,7 @@ export default function FlowsheetEntryField({
   const { updateFlowsheet } = useFlowsheet();
 
   const saveAndClose = useCallback(
-    (e: MouseEvent | TouchEvent | React.FormEvent<HTMLFormElement>) => {
+    (e: MouseEvent | TouchEvent | FormEvent<HTMLFormElement>) => {
       e.preventDefault();
       setEditing(false);
 
