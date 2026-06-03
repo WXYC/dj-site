@@ -358,6 +358,20 @@ describe("catalog conversions", () => {
         const result = convertToAlbumEntry(catalogSearchRow);
         expect(result.label).toBe("Drag City");
       });
+
+      // BinLibraryDetails has `label` (not `record_label`) per
+      // `@wxyc/shared/api.yaml:1505-1525`. The new fallback chain
+      // (`record_label` → `label` → `""`) MUST still reach the
+      // BinLibraryDetails `label` field: `"record_label" in response` is
+      // FALSE for a real bin row → undefined → falls through to
+      // `response.label` → "self-released". Pins the bin path so a future
+      // tightening (e.g. dropping the `?? response.label` arm or reordering
+      // the union) can't silently regress bin-detail label rendering.
+      it("still reads label on the BinLibraryDetails wire shape (no record_label key)", () => {
+        expect("record_label" in binDetails).toBe(false);
+        const result = convertToAlbumEntry(binDetails);
+        expect(result.label).toBe("self-released");
+      });
     });
 
     describe("end-to-end: rotation pick → mutation submission", () => {
