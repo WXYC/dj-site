@@ -56,13 +56,25 @@ export function convertToAlbumEntry(
     format: (response.format_name as Format) ?? "Unknown",
     alternate_artist: "",
     album_artist: isSearchResult(response) ? response.album_artist : undefined,
-    rotation_bin: isSearchResult(response)
-      ? (response.rotation_bin as Rotation)
-      : undefined,
+    // `rotation_bin` and `rotation_id` are populated by BS's `getRotationFromDB`
+    // query independently of the `library` LEFT JOIN (see
+    // Backend-Service/apps/backend/services/library.service.ts: `rotation.id AS
+    // rotation_id`, `rotation.rotation_bin AS rotation_bin`), so they survive
+    // for rotation rows whose `album_id` doesn't link to a library row. Reading
+    // them through `isSearchResult` (which gates on `id`, i.e. `library.id`)
+    // dropped them for library-unlinked rotation rows — dj-site#691. Other
+    // library-bound fields below (`add_date`, `plays`, `on_streaming`,
+    // `date_lost`, `date_found`, `artwork_url`, `matched_via`, `album_artist`)
+    // legitimately stay gated: they ARE null on unlinked rotation rows.
+    rotation_bin: ((response as Record<string, unknown>).rotation_bin as
+      | Rotation
+      | undefined),
     add_date: isSearchResult(response) ? response.add_date : undefined,
     plays: isSearchResult(response) ? response.plays : undefined,
     label: response.label ?? "",
-    rotation_id: isSearchResult(response) ? response.rotation_id : undefined,
+    rotation_id: (response as Record<string, unknown>).rotation_id as
+      | number
+      | undefined,
     on_streaming: isSearchResult(response) ? (response as Record<string, unknown>).on_streaming as boolean | undefined : undefined,
     date_lost: isSearchResult(response) ? (response as Record<string, unknown>).date_lost as string | undefined : undefined,
     date_found: isSearchResult(response) ? (response as Record<string, unknown>).date_found as string | undefined : undefined,

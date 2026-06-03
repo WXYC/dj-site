@@ -316,6 +316,130 @@ describe("convertToAlbumEntry", () => {
         expect(fallback.id).toBeLessThanOrEqual(0);
       });
     });
+
+    // dj-site#691 — BS `getRotationFromDB` LEFT JOINs library, so rotation
+    // rows whose album_id is not in the library catalog return with
+    // `library.id AS id` NULL while `rotation.id AS rotation_id` is
+    // independently populated. When the row arrives at the client with no
+    // `id` key (Express / JSON omits, or the value is `undefined`), the
+    // `isSearchResult` discriminator returns false and the
+    // `rotation_id: isSearchResult(response) ? response.rotation_id :
+    // undefined` ternary at conversions.ts:65 drops `rotation_id`.
+    // Downstream the picker (`RotationEntryFields.tsx`) dispatches
+    // `setRotationMetadata({ rotation_id: undefined })` and iOS/dj-site
+    // lose the rotation linkage needed for artwork/streaming. The fix:
+    // `rotation_id` is populated by the BS query independently of the
+    // library join, so read it ungated by `isSearchResult`.
+    describe("rotation_id propagation for library-unlinked rotation rows (dj-site#691)", () => {
+      it("preserves rotation_id when the response has no id field (unlinked rotation row)", () => {
+        // Reproduces the BS rotation-row shape: `rotation_id` populated,
+        // `id` absent (library LEFT JOIN missed). Cast through `unknown`
+        // because the openapi-derived `AlbumSearchResultJSON` types `id`
+        // as required, but the wire shape from BS includes null/missing
+        // here per `getRotationFromDB`.
+        const unlinkedRotationRow = {
+          rotation_id: 42,
+          rotation_bin: "S",
+          album_title: "Yenbett",
+          artist_name: "Noura Mint Seymali",
+          code_letters: "NM",
+          code_artist_number: 0,
+          code_number: 0,
+          format_name: "CD",
+          genre_name: "Unknown",
+          label: "",
+          add_date: "2026-01-01T00:00:00.000Z",
+        } as unknown as Parameters<typeof convertToAlbumEntry>[0];
+        const result = convertToAlbumEntry(unlinkedRotationRow);
+        expect(result.rotation_id).toBe(42);
+        expect(result.rotation_bin).toBe(Rotation.S);
+      });
+
+      it("preserves rotation_id when id is explicitly null on a search-result-shaped row", () => {
+        const result = convertToAlbumEntry(
+          createTestAlbumSearchResult({
+            id: null as unknown as number,
+            rotation_id: 7,
+          })
+        );
+        expect(result.rotation_id).toBe(7);
+      });
+
+      it("leaves rotation_id undefined when the response itself omits it", () => {
+        const result = convertToAlbumEntry(
+          createTestAlbumSearchResult({
+            id: null as unknown as number,
+            rotation_id: undefined,
+          })
+        );
+        expect(result.rotation_id).toBeUndefined();
+      });
+
+      // End-to-end through the picker chain: BS rotation response →
+      // convertToAlbumEntry → setRotationMetadata reducer →
+      // convertQueryToSubmission. Asserts the rotation_id survives every step
+      // for a library-unlinked rotation row, matching dj-site#691's AC.
+      it("propagates rotation_id end-to-end (conversion → slice → submission)", async () => {
+        const { flowsheetSlice, defaultFlowsheetFrontendState } = await import(
+          "@/lib/features/flowsheet/frontend"
+        );
+        const { convertQueryToSubmission } = await import(
+          "@/lib/features/flowsheet/conversions"
+        );
+
+        const unlinkedRotationRow = {
+          rotation_id: 99,
+          rotation_bin: "H",
+          album_title: "Yenbett",
+          artist_name: "Noura Mint Seymali",
+          label: "Glitterbeat",
+          code_letters: "NM",
+          code_artist_number: 0,
+          code_number: 0,
+          format_name: "CD",
+          genre_name: "Unknown",
+        } as unknown as Parameters<typeof convertToAlbumEntry>[0];
+
+        const albumEntry = convertToAlbumEntry(unlinkedRotationRow);
+
+        let state = defaultFlowsheetFrontendState;
+        state = flowsheetSlice.reducer(
+          state,
+          flowsheetSlice.actions.setRotationMetadata({
+            album_id: albumEntry.id,
+            rotation_id: albumEntry.rotation_id,
+            rotation_bin: albumEntry.rotation_bin,
+          })
+        );
+        // The selected release also seeds artist / album / label via
+        // setSearchProperty in the real picker; replicate the bits that the
+        // submission reads.
+        state = flowsheetSlice.reducer(
+          state,
+          flowsheetSlice.actions.setSearchProperty({
+            name: "artist",
+            value: albumEntry.artist.name,
+          })
+        );
+        state = flowsheetSlice.reducer(
+          state,
+          flowsheetSlice.actions.setSearchProperty({
+            name: "album",
+            value: albumEntry.title,
+          })
+        );
+
+        // Cast to access the runtime fields not exposed on
+        // FlowsheetSubmissionParams' type (mirrors the pattern in
+        // flowsheet/conversions.test.ts).
+        const submission = convertQueryToSubmission(state.search.query) as {
+          rotation_id?: number;
+          rotation_bin?: string;
+        };
+        expect(submission.rotation_id).toBe(99);
+        expect(submission.rotation_bin).toBe(Rotation.H);
+      });
+    });
   });
 
   it.each([
