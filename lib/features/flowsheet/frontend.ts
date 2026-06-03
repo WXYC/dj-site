@@ -4,6 +4,32 @@ import { FlowsheetEntry, FlowsheetFrontendState, FlowsheetQuery, FlowsheetSearch
 import { Rotation } from "../rotation/types";
 import { clearQueueFromStorage, loadQueueFromStorage, saveQueueToStorage } from "./queue-storage";
 
+// Drop the catalog-anchored trio (album_id, rotation_id, rotation) from a
+// would-be queue entry when album_id isn't a real positive library.id.
+// SongEntry's "Play Now" handler (src/components/experiences/modern/flowsheet/
+// Entries/SongEntry/SongEntry.tsx) reads entry.album_id directly and bypasses
+// convertQueryToSubmission, so without sanitization here a synthesized
+// negative id from synthesizeAlbumId (library-unlinked rotation/catalog rows)
+// rides the wire and trips BS's `album_id != null` branch → TypeError 500 —
+// same shape PR #702 gated for the form-submit path. (dj-site#703)
+function withSanitizedAlbumLinkage<
+  T extends {
+    album_id?: number;
+    rotation_id?: number;
+    rotation?: Rotation;
+  }
+>(entry: T): T {
+  if (typeof entry.album_id === "number" && entry.album_id > 0) {
+    return entry;
+  }
+  return {
+    ...entry,
+    album_id: undefined,
+    rotation_id: undefined,
+    rotation: undefined,
+  };
+}
+
 export const defaultFlowsheetFrontendState: FlowsheetFrontendState = {
   autoplay: false,
   rotationMode: false,
@@ -103,20 +129,22 @@ export const flowsheetSlice = createAppSlice({
     },
     addToQueue: (state, action: PayloadAction<FlowsheetQuery>) => {
       const newId = state.queueIdCounter;
-      state.queue.push({
-        id: newId,
-        play_order: state.queue.length,
-        show_id: -1,
-        track_title: action.payload.song,
-        artist_name: action.payload.artist,
-        album_title: action.payload.album,
-        record_label: action.payload.label,
-        request_flag: action.payload.request,
-        segue: action.payload.segue,
-        rotation: action.payload.rotation_bin,
-        rotation_id: action.payload.rotation_id,
-        album_id: action.payload.album_id,
-      });
+      state.queue.push(
+        withSanitizedAlbumLinkage({
+          id: newId,
+          play_order: state.queue.length,
+          show_id: -1,
+          track_title: action.payload.song,
+          artist_name: action.payload.artist,
+          album_title: action.payload.album,
+          record_label: action.payload.label,
+          request_flag: action.payload.request,
+          segue: action.payload.segue,
+          rotation: action.payload.rotation_bin,
+          rotation_id: action.payload.rotation_id,
+          album_id: action.payload.album_id,
+        })
+      );
       state.queueIdCounter += 1;
       saveQueueToStorage(state.queue);
     },
@@ -130,7 +158,7 @@ export const flowsheetSlice = createAppSlice({
       clearQueueFromStorage();
     },
     loadQueue: (state) => {
-      state.queue = loadQueueFromStorage();
+      state.queue = loadQueueFromStorage().map(withSanitizedAlbumLinkage);
       // Set counter to max ID + 1 to avoid duplicates
       const maxId = state.queue.reduce((max, entry) => Math.max(max, entry.id), -1);
       state.queueIdCounter = maxId + 1;
