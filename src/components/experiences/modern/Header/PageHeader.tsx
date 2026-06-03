@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import PageData from "@/src/Layout/PageData";
 import { Box, Typography } from "@mui/joy";
 

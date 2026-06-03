@@ -101,7 +101,7 @@ import NowPlayingMini from "./Mini";
 function createDefaultProps(overrides: Record<string, any> = {}) {
   return {
     live: false as boolean,
-    audioRef: { current: null } as React.RefObject<HTMLAudioElement>,
+    audioRef: { current: null } as React.RefObject<HTMLAudioElement | null>,
     isPlaying: false,
     onTogglePlay: vi.fn(),
     audioContext: null as AudioContext | null,

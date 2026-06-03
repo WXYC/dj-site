@@ -3,7 +3,7 @@ import { MutableRefObject, RefObject, useEffect, useRef } from "react";
 import { Box } from "@mui/joy";
 
 export type GradientAudioVisualizerProps = {
-  audioRef: RefObject<HTMLAudioElement>;
+  audioRef: RefObject<HTMLAudioElement | null>;
   isPlaying: boolean;
   audioContext: AudioContext | null;
   analyserNode: AnalyserNode | null;

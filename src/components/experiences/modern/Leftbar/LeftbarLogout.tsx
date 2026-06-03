@@ -3,7 +3,7 @@ import { useLogout } from "@/src/hooks/authenticationHooks";
 import { User } from "@/lib/features/authentication/types";
 import { LogoutOutlined, PersonOutlined } from "@mui/icons-material";
 import { Box, IconButton, Stack, Tooltip, Typography } from "@mui/joy";
-import { useState } from "react";
+import { useState, type JSX } from "react";
 
 export default function LeftbarLogout({ user }: { user: User }): JSX.Element {
   const [logoutHovered, setLogoutHovered] = useState(false);
