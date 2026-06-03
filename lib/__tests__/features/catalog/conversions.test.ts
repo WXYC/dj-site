@@ -7,6 +7,7 @@ import {
 } from "@/lib/features/flowsheet/frontend";
 import { Rotation } from "@/lib/features/rotation/types";
 import type { AlbumSearchResultJSON } from "@/lib/features/catalog/types";
+import type { BinLibraryDetails } from "@wxyc/shared/dtos";
 
 // Library-linked rotation row: the LEFT JOIN to `library` populates `id`.
 // Shape mirrors `getRotationFromDB`'s SELECT (Backend-Service
@@ -27,17 +28,20 @@ const linkedRow: AlbumSearchResultJSON = {
   plays: 7,
 };
 
-// Library-unlinked rotation row: rotation row whose album_id doesn't link to
-// a library row (e.g. "Yenbett" by Noura Mint Seymali — in rotation but not
-// in the WXYC library catalog). The BS query COALESCEs artist/album/label
-// from rotation's denormalized snapshot, but `library.id` is null.
+// Library-unlinked rotation row: `album_id` doesn't link to a library row
+// (e.g. "Yenbett" by Noura Mint Seymali). The BS query COALESCEs artist/album/
+// label from the rotation snapshot, but `library.id` is null.
 //
-// We exercise two wire shapes — `id: null` (what postgres-js / Drizzle
-// produce from a LEFT JOIN miss; see BS `library.rotation.test.ts`) and
-// `id: undefined` (what a future OpenAPI decoder, JSON-omitted field, or
-// upstream code that coerces null → undefined would produce). Both must
-// preserve rotation_id; only the latter is broken by the current
-// `id !== undefined` discriminator.
+// Three wire shapes are reachable in practice:
+//   * `id: null` — postgres-js / Drizzle LEFT JOIN miss (current BS behavior).
+//                  The `id !== undefined` discriminator returns TRUE here
+//                  (`null !== undefined`), so rotation fields ALREADY survived
+//                  pre-fix. Kept as a current-behavior baseline.
+//   * `id: undefined` — what a future OpenAPI decoder, a client-side
+//                       `?? undefined`, or a manual coercion would produce.
+//                       This is the path the fix repairs.
+//   * `id` key omitted — what JSON omission (the field absent from the wire
+//                        body) would produce. The fix also repairs this.
 const unlinkedRowBase = {
   add_date: "2026-05-15T00:00:00.000Z",
   album_title: "Yenbett",
@@ -60,6 +64,24 @@ const unlinkedRowUndefinedId = {
   ...unlinkedRowBase,
   id: undefined as unknown as number,
 } as AlbumSearchResultJSON;
+const unlinkedRowOmittedId = unlinkedRowBase as unknown as AlbumSearchResultJSON;
+
+// Real `BinLibraryDetails` shape per `@wxyc/shared/api.yaml:1505-1525` — 9
+// fields, no `id`, no rotation fields, no `add_date`, no `plays`. This is the
+// branch that exercises the `isSearchResult` gating for the library-bound
+// fields (`add_date`, `plays`) and verifies the rotation fields stay
+// undefined when the response doesn't declare them.
+const binDetails: BinLibraryDetails = {
+  album_id: 1234,
+  album_title: "Edits",
+  artist_name: "Chuquimamani-Condori",
+  label: "self-released",
+  code_letters: "QC",
+  code_artist_number: 0,
+  code_number: 0,
+  format_name: "CD",
+  genre_name: "Electronic",
+};
 
 describe("catalog conversions", () => {
   describe("convertToAlbumEntry", () => {
@@ -86,36 +108,20 @@ describe("catalog conversions", () => {
       });
     });
 
-    describe("library-unlinked rotation rows (regression for #691)", () => {
-      it("preserves rotation_id when id is null (postgres-js LEFT JOIN miss)", () => {
-        // BS returns library.id as null for rotation rows whose album_id
-        // doesn't join to a library row. The picker still needs rotation_id
-        // to populate the flowsheet entry so iOS can resolve rotation-derived
-        // artwork.
+    // These id:null assertions pass on BOTH pre-fix and post-fix code —
+    // `null !== undefined` is TRUE, so `isSearchResult` returned TRUE and
+    // rotation fields already survived. Kept as a current-behavior baseline
+    // (so a future tightening like `response.id != null` would surface here),
+    // NOT as a pin for the #691 fix. See the `id:undefined or omitted` block
+    // below for the actual regression coverage.
+    describe("library-unlinked rotation rows with id:null (current behavior baseline)", () => {
+      it("preserves rotation_id", () => {
         const result = convertToAlbumEntry(unlinkedRowNullId);
         expect(result.rotation_id).toBe(5042);
       });
 
-      it("preserves rotation_id when id is undefined", () => {
-        // The discriminator `"id" in response && response.id !== undefined`
-        // returns false for the undefined-id shape, taking the BinLibraryDetails
-        // branch even for what is structurally an unlinked rotation row.
-        // rotation_id must survive regardless — it's populated by the rotation
-        // table, independently of the library LEFT JOIN, on every row.
-        const result = convertToAlbumEntry(unlinkedRowUndefinedId);
-        expect(result.rotation_id).toBe(5042);
-      });
-
-      it("preserves rotation_bin when id is null", () => {
-        // rotation_bin is a rotation-table column (line 313 of BS
-        // getRotationFromDB), populated independently of the library LEFT
-        // JOIN. Same defect class as rotation_id.
+      it("preserves rotation_bin", () => {
         const result = convertToAlbumEntry(unlinkedRowNullId);
-        expect(result.rotation_bin).toBe(Rotation.S);
-      });
-
-      it("preserves rotation_bin when id is undefined", () => {
-        const result = convertToAlbumEntry(unlinkedRowUndefinedId);
         expect(result.rotation_bin).toBe(Rotation.S);
       });
 
@@ -130,23 +136,96 @@ describe("catalog conversions", () => {
       });
 
       it("synthesizes a stable negative id for the missing library row", () => {
-        const result = convertToAlbumEntry(unlinkedRowNullId);
-        expect(result.id).toBeLessThan(0);
-        // The synthetic id must be stable across calls so React keys don't
-        // churn between renders.
-        const second = convertToAlbumEntry(unlinkedRowNullId);
-        expect(result.id).toBe(second.id);
+        // Two DISTINCT object references with equivalent payloads — pins the
+        // cross-call stability React keys depend on (which a same-reference
+        // call wouldn't catch; the function is pure on properties).
+        const first = convertToAlbumEntry(unlinkedRowNullId);
+        const second = convertToAlbumEntry({
+          ...unlinkedRowBase,
+          id: null as unknown as number,
+        } as AlbumSearchResultJSON);
+        expect(first.id).toBeLessThan(0);
+        expect(first.id).toBe(second.id);
       });
 
-      it("leaves library-bound metadata undefined (add_date, plays)", () => {
-        // These ARE legitimately gated on the library link: the BS query
-        // sources them from `library.add_date` and `library.plays`, which
-        // are null for unlinked rows.
-        const result = convertToAlbumEntry({
-          ...unlinkedRowNullId,
-          add_date: undefined as unknown as string,
-          plays: undefined,
-        });
+      it("synthesizes DIFFERENT ids for different snapshots", () => {
+        // Partial collision-freedom pin: two rows with different snapshot
+        // fields must hash to different negative ids. (True collision-freedom
+        // over arbitrary inputs is not testable; this guards the common case
+        // and would catch a regression that, say, hashed only `artist_name`.)
+        // Known collision risk: two unlinked rotation rows with IDENTICAL
+        // snapshot fields but different rotation_ids would still collide —
+        // tracked as a follow-up; see comment on `synthesizeAlbumId`.
+        const yenbett = convertToAlbumEntry(unlinkedRowNullId);
+        const otherUnlinked = convertToAlbumEntry({
+          ...unlinkedRowBase,
+          album_title: "DOGA",
+          artist_name: "Juana Molina",
+          label: "Sonamos",
+          id: null as unknown as number,
+        } as AlbumSearchResultJSON);
+        expect(yenbett.id).not.toBe(otherUnlinked.id);
+      });
+    });
+
+    // These are the actual #691 regression pins — both assertions FAIL on the
+    // pre-fix code (revert lib/features/catalog/conversions.ts and rerun to
+    // verify). The pre-fix discriminator `id !== undefined` evaluates FALSE
+    // for `id: undefined` and FALSE for an omitted key, taking the
+    // BinLibraryDetails branch and dropping `rotation_id` / `rotation_bin`.
+    describe("library-unlinked rotation rows with id:undefined or omitted (regression for #691)", () => {
+      it("preserves rotation_id when id is undefined", () => {
+        const result = convertToAlbumEntry(unlinkedRowUndefinedId);
+        expect(result.rotation_id).toBe(5042);
+      });
+
+      it("preserves rotation_id when id key is omitted", () => {
+        // JSON omission is the most common upstream coercion mode — the
+        // `id` field is simply absent from the response body. `"id" in
+        // response` is FALSE; pre-fix isSearchResult false; pre-fix code
+        // dropped rotation_id.
+        const result = convertToAlbumEntry(unlinkedRowOmittedId);
+        expect("id" in unlinkedRowOmittedId).toBe(false);
+        expect(result.rotation_id).toBe(5042);
+      });
+
+      it("preserves rotation_bin when id is undefined", () => {
+        const result = convertToAlbumEntry(unlinkedRowUndefinedId);
+        expect(result.rotation_bin).toBe(Rotation.S);
+      });
+
+      it("preserves rotation_bin when id key is omitted", () => {
+        const result = convertToAlbumEntry(unlinkedRowOmittedId);
+        expect(result.rotation_bin).toBe(Rotation.S);
+      });
+    });
+
+    // These tests exercise the actual `BinLibraryDetails` branch (no `id`,
+    // no `rotation_*`, no `add_date`, no `plays`). They pin the
+    // `isSearchResult` gating audit promised in the commit body: removing
+    // any of the `isSearchResult ? ... : undefined` gates on add_date / plays
+    // would surface a `TS2339: Property 'add_date' does not exist on type
+    // 'BinLibraryDetails'` error here, OR — if the gate were replaced with
+    // a runtime `in` check that silently returned undefined — these
+    // assertions would still hold for these fields. The substantive pin is
+    // that the rotation fields stay undefined for a real BinLibraryDetails,
+    // which the `in`-operator check enforces correctly.
+    describe("BinLibraryDetails responses (DJ bin browse, no rotation context)", () => {
+      it("preserves album_id, title, artist", () => {
+        const result = convertToAlbumEntry(binDetails);
+        expect(result.id).toBe(1234);
+        expect(result.title).toBe("Edits");
+        expect(result.artist.name).toBe("Chuquimamani-Condori");
+      });
+
+      it("leaves rotation fields undefined (not declared on BinLibraryDetails)", () => {
+        const result = convertToAlbumEntry(binDetails);
+        expect(result.rotation_id).toBeUndefined();
+        expect(result.rotation_bin).toBeUndefined();
+      });
+
+      it("leaves library-bound metadata undefined (add_date, plays not on BinLibraryDetails)", () => {
+        const result = convertToAlbumEntry(binDetails);
         expect(result.add_date).toBeUndefined();
         expect(result.plays).toBeUndefined();
       });
@@ -156,13 +235,40 @@ describe("catalog conversions", () => {
       // Asserts the chain the picker uses (per the #691 forensics):
       //   useGetRotationQuery (rotationApi.transformResponse)
       //     → convertToAlbumEntry
-      //     → RotationEntryFields dispatches setRotationMetadata({ rotation_id })
-      //     → state.search.query.rotation_id
+      //     → RotationEntryFields dispatches setRotationMetadata({ album_id, rotation_id, rotation_bin })
+      //     → state.search.query
       //     → convertQueryToSubmission
       //     → wire payload
-      // Bug #691 broke the second step; this asserts the field survives all
-      // four for a library-unlinked rotation row.
-      it("carries rotation_id from a library-unlinked row through to the wire payload", () => {
+      it("carries album_id + rotation_id from a library-LINKED row through to the wire payload", () => {
+        const albumEntry = convertToAlbumEntry(linkedRow);
+        expect(albumEntry.id).toBe(1001);
+        expect(albumEntry.rotation_id).toBe(5001);
+
+        const state = flowsheetSlice.reducer(
+          defaultFlowsheetFrontendState,
+          flowsheetSlice.actions.setRotationMetadata({
+            album_id: albumEntry.id,
+            rotation_id: albumEntry.rotation_id,
+            rotation_bin: albumEntry.rotation_bin,
+          })
+        );
+        expect(state.search.query.album_id).toBe(1001);
+        expect(state.search.query.rotation_id).toBe(5001);
+
+        const submission = convertQueryToSubmission(state.search.query) as {
+          album_id?: number;
+          rotation_id?: number;
+          rotation_bin?: Rotation;
+        };
+        // Pin both legs — earlier coverage asserted only rotation_id, which
+        // would silently pass if a regression dropped album_id from the
+        // submission (or routed it through a non-album union branch).
+        expect(submission.album_id).toBe(1001);
+        expect(submission.rotation_id).toBe(5001);
+        expect(submission.rotation_bin).toBe(Rotation.H);
+      });
+
+      it("carries rotation_id from a library-UNLINKED row through to the wire payload", () => {
         const albumEntry = convertToAlbumEntry(unlinkedRowUndefinedId);
         expect(albumEntry.rotation_id).toBe(5042);
 
@@ -176,12 +282,26 @@ describe("catalog conversions", () => {
         );
         expect(state.search.query.rotation_id).toBe(5042);
 
-        const submission = convertQueryToSubmission(state.search.query);
-        // The submission union exposes `rotation_id` only in the album_id
-        // branch; assert via index access to avoid a type-narrowed dead end.
-        expect((submission as { rotation_id?: number }).rotation_id).toBe(
-          5042
-        );
+        const submission = convertQueryToSubmission(state.search.query) as {
+          album_id?: number;
+          rotation_id?: number;
+        };
+        expect(submission.rotation_id).toBe(5042);
+
+        // KNOWN ISSUE (not introduced by #691; tracked separately): the
+        // submission also carries the negative synthetic album_id from
+        // `synthesizeAlbumId`. Backend-Service `flowsheet.controller.ts`
+        // takes the `body.album_id != null` branch for any negative number,
+        // calls `getAlbumFromDB(-X)` (returns undefined), then throws
+        // TypeError on `albumInfo.record_label = ...`. The fix in this PR
+        // restores rotation_id propagation through the conversion layer; the
+        // end-to-end picker flow for library-unlinked rotation rows requires
+        // a follow-up to either (a) strip negative ids in
+        // `convertQueryToSubmission`, or (b) coerce to null when the id is
+        // synthetic. Asserted here as the current observed behavior so the
+        // test fails loudly if either layer changes without a coordinated
+        // update.
+        expect(submission.album_id).toBeLessThan(0);
       });
     });
   });
