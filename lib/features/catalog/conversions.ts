@@ -56,13 +56,25 @@ export function convertToAlbumEntry(
     format: (response.format_name as Format) ?? "Unknown",
     alternate_artist: "",
     album_artist: isSearchResult(response) ? response.album_artist : undefined,
-    rotation_bin: isSearchResult(response)
-      ? (response.rotation_bin as Rotation)
-      : undefined,
+    // `rotation_bin` and `rotation_id` come from the `rotation` table on the BS
+    // /library/rotation read path (see `getRotationFromDB` in
+    // Backend-Service/apps/backend/services/library.service.ts:310,313).
+    // They're populated on every rotation row independently of the LEFT JOIN
+    // to `library`, so they must NOT be gated on `isSearchResult` (which keys
+    // on `library.id` being present). Without this, library-unlinked rotation
+    // rows lose their rotation linkage in the picker — see dj-site#691, the
+    // Yenbett / Noura Mint Seymali symptom (2026-06-02). `BinLibraryDetails`
+    // legitimately lacks these fields, so we narrow with an `in`-operator
+    // check rather than the union discriminator.
+    rotation_bin:
+      "rotation_bin" in response
+        ? (response.rotation_bin as Rotation | undefined)
+        : undefined,
     add_date: isSearchResult(response) ? response.add_date : undefined,
     plays: isSearchResult(response) ? response.plays : undefined,
     label: response.label ?? "",
-    rotation_id: isSearchResult(response) ? response.rotation_id : undefined,
+    rotation_id:
+      "rotation_id" in response ? response.rotation_id : undefined,
     on_streaming: isSearchResult(response) ? (response as Record<string, unknown>).on_streaming as boolean | undefined : undefined,
     date_lost: isSearchResult(response) ? (response as Record<string, unknown>).date_lost as string | undefined : undefined,
     date_found: isSearchResult(response) ? (response as Record<string, unknown>).date_found as string | undefined : undefined,
