@@ -4,9 +4,6 @@ name: Charset Corpus Drift
 
 on:
   pull_request:
-    paths:
-      - "tests/fixtures/charset-torture.json.sha256"
-      - ".github/workflows/charset-corpus-drift.yml"
   push:
     branches: [main]
   schedule:
@@ -20,7 +17,30 @@ permissions:
   packages: read
 
 jobs:
+  # See ci.yml for the rationale on the changes-job pattern (issue #731).
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      corpus: ${{ steps.filter.outputs.corpus }}
+    steps:
+      - name: Checkout
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v6
+
+      - name: Filter
+        if: github.event_name == 'pull_request'
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            corpus:
+              - 'tests/fixtures/charset-torture.json.sha256'
+              - '.github/workflows/charset-corpus-drift.yml'
+
   drift:
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.corpus == 'true'
     uses: WXYC/wxyc-shared/.github/workflows/check-charset-corpus-drift.yml@gha/v1
     with:
       pinned-sha256: 75a3395bb10894480dba95bf5b7f379f5056645098d6a1bf9e94416709e5214a
