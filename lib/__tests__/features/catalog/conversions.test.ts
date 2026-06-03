@@ -168,21 +168,46 @@ describe("catalog conversions", () => {
         expect(yenbett.id).not.toBe(differentArtistAlbumLabel.id);
       });
 
-      it("synthesizes DIFFERENT ids when only code_letters / code_number differ", () => {
-        // Hash inputs include `code_letters`, `code_artist_number`, and
-        // `code_number` — same album/artist/label across two unlinked rows
-        // with different catalog codes must still hash distinctly. Real WXYC
-        // case: a multi-format reissue (CD vs LP) of the same release where
-        // the rotation snapshot carries different code_number values.
-        const yenbett = convertToAlbumEntry(unlinkedRowNullId);
-        const yenbettDifferentCodes = convertToAlbumEntry({
+      // Per-field collision pins for synthesizeAlbumId. The hash inputs
+      // are 6 fields (artist|album|label|letters|artist_num|num). A single
+      // combined "all code_* differ at once" assertion would still pass if
+      // a regression dropped any one of those fields from the hash key —
+      // the remaining 5 inputs would still produce distinct hashes. Pin
+      // each input individually by holding all others equal to
+      // `unlinkedRowBase` (which has empty strings / zeros for code_*),
+      // varying exactly one.
+      it("synthesizes DIFFERENT ids when only code_letters differ", () => {
+        const a = convertToAlbumEntry(unlinkedRowNullId);
+        const b = convertToAlbumEntry({
           ...unlinkedRowBase,
-          code_letters: "B",
+          code_letters: "Z",
+          id: null as unknown as number,
+        } as AlbumSearchResultJSON);
+        expect(a.id).not.toBe(b.id);
+      });
+
+      it("synthesizes DIFFERENT ids when only code_artist_number differs", () => {
+        const a = convertToAlbumEntry(unlinkedRowNullId);
+        const b = convertToAlbumEntry({
+          ...unlinkedRowBase,
           code_artist_number: 7,
+          id: null as unknown as number,
+        } as AlbumSearchResultJSON);
+        expect(a.id).not.toBe(b.id);
+      });
+
+      it("synthesizes DIFFERENT ids when only code_number differs", () => {
+        // Real WXYC case: a multi-format reissue (CD vs LP) of the same
+        // release where the rotation snapshot carries different
+        // code_number values but identical artist / album / label / letters
+        // / code_artist_number.
+        const a = convertToAlbumEntry(unlinkedRowNullId);
+        const b = convertToAlbumEntry({
+          ...unlinkedRowBase,
           code_number: 99,
           id: null as unknown as number,
         } as AlbumSearchResultJSON);
-        expect(yenbett.id).not.toBe(yenbettDifferentCodes.id);
+        expect(a.id).not.toBe(b.id);
       });
     });
 
