@@ -73,16 +73,24 @@ describe("flowsheet conversions", () => {
       expect(result.album_id).toBe(123);
     });
 
-    it("should include rotation_id when present", () => {
+    // rotation_id and rotation_bin only ride on the wire alongside a positive
+    // `album_id` — they're optional fields on BS's `FlowsheetCreateSongFromCatalog`
+    // variant, which itself requires `album_id`. See the chokepoint guard in
+    // `convertQueryToSubmission` for the dj-site#701 context.
+    it("should include rotation_id when paired with a positive album_id", () => {
       const query = createTestFlowsheetQuery({
+        album_id: 1001,
         rotation_id: TEST_ENTITY_IDS.ROTATION.HEAVY,
       });
       const result = convertQueryToSubmission(query) as QuerySubmission;
       expect(result.rotation_id).toBe(TEST_ENTITY_IDS.ROTATION.HEAVY);
     });
 
-    it("should include rotation_bin when present", () => {
-      const query = createTestFlowsheetQuery({ rotation_bin: Rotation.H });
+    it("should include rotation_bin when paired with a positive album_id", () => {
+      const query = createTestFlowsheetQuery({
+        album_id: 1001,
+        rotation_bin: Rotation.H,
+      });
       const result = convertQueryToSubmission(query) as QuerySubmission;
       expect(result.rotation_bin).toBe("H");
     });
@@ -123,6 +131,69 @@ describe("flowsheet conversions", () => {
         track_position?: string | null;
       };
       expect(result.track_position).toBeUndefined();
+    });
+
+    // The Modern rotation picker can dispatch a synthesized negative album_id
+    // into `state.search.query` when the picked rotation row is library-
+    // unlinked (`synthesizeAlbumId` in catalog/conversions.ts hashes the
+    // denormalized snapshot into a stable negative int for React keys). BS
+    // takes the `album_id != null` branch on negative numbers, calls
+    // `getAlbumFromDB(-X)` → undefined → throws TypeError. Gate the wire
+    // payload at the chokepoint so picker / queue / future-caller leaks all
+    // route through the freeform variant for unlinked rows. (dj-site#701,
+    // sibling shape #608. Classic-side equivalent shipped in PR #699.)
+    describe("synthesized negative album_id", () => {
+      it("omits album_id, rotation_id, rotation_bin when album_id is negative", () => {
+        const query = createTestFlowsheetQuery({
+          album_id: -987654321,
+          rotation_id: TEST_ENTITY_IDS.ROTATION.HEAVY,
+          rotation_bin: Rotation.H,
+        });
+        const result = convertQueryToSubmission(query) as QuerySubmission;
+        expect(result.album_id).toBeUndefined();
+        expect(result.rotation_id).toBeUndefined();
+        expect(result.rotation_bin).toBeUndefined();
+      });
+
+      it("preserves freeform fields when falling back from a negative album_id", () => {
+        const query = createTestFlowsheetQuery({
+          album_id: -987654321,
+          rotation_id: TEST_ENTITY_IDS.ROTATION.HEAVY,
+          rotation_bin: Rotation.H,
+        });
+        const result = convertQueryToSubmission(query) as QuerySubmission;
+        expect(result.artist_name).toBe(TEST_SEARCH_STRINGS.ARTIST_NAME);
+        expect(result.album_title).toBe(TEST_SEARCH_STRINGS.ALBUM_NAME);
+        expect(result.track_title).toBe(TEST_SEARCH_STRINGS.TRACK_TITLE);
+        expect(result.record_label).toBe(TEST_SEARCH_STRINGS.LABEL);
+      });
+
+      it("preserves album_id + rotation_id + rotation_bin when album_id is positive", () => {
+        const query = createTestFlowsheetQuery({
+          album_id: 1001,
+          rotation_id: 5001,
+          rotation_bin: Rotation.H,
+        });
+        const result = convertQueryToSubmission(query) as QuerySubmission;
+        expect(result.album_id).toBe(1001);
+        expect(result.rotation_id).toBe(5001);
+        expect(result.rotation_bin).toBe("H");
+      });
+
+      // Zero is not a legitimate album_id (PG serial starts at 1), but the
+      // sign check below is the load-bearing one; pin zero too so a future
+      // fix can't quietly switch the guard to `!= 0` and drift the boundary.
+      it("omits album_id when album_id is zero", () => {
+        const query = createTestFlowsheetQuery({
+          album_id: 0,
+          rotation_id: 5001,
+          rotation_bin: Rotation.H,
+        });
+        const result = convertQueryToSubmission(query) as QuerySubmission;
+        expect(result.album_id).toBeUndefined();
+        expect(result.rotation_id).toBeUndefined();
+        expect(result.rotation_bin).toBeUndefined();
+      });
     });
   });
 

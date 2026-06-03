@@ -311,7 +311,7 @@ describe("catalog conversions", () => {
         expect(submission.rotation_bin).toBe(Rotation.H);
       });
 
-      it("carries rotation metadata from a library-UNLINKED (id:undefined) row through to the wire payload", () => {
+      it("drops album_id + rotation linkage on the wire for a library-UNLINKED (id:undefined) row", () => {
         const albumEntry = convertToAlbumEntry(unlinkedRowUndefinedId);
         expect(albumEntry.rotation_id).toBe(5042);
         expect(albumEntry.rotation_bin).toBe(Rotation.S);
@@ -324,12 +324,12 @@ describe("catalog conversions", () => {
             rotation_bin: albumEntry.rotation_bin,
           })
         );
-        // Pin chain identity at every stage — a regression that substituted
-        // a different value (e.g. a sentinel -1, a hash from query fields
-        // rather than the album entry) would still satisfy the looser
-        // sign-only `album_id < 0` check below but would be a different
-        // leak than #608 documents.
+        // The synthesized id and the rotation metadata both still live in
+        // Redux state — they're load-bearing for the picker UI (React keys,
+        // displaying the bin badge on the selected row). Only the wire
+        // payload is gated.
         expect(state.search.query.album_id).toBe(albumEntry.id);
+        expect(state.search.query.album_id).toBeLessThan(0);
         expect(state.search.query.rotation_id).toBe(5042);
         expect(state.search.query.rotation_bin).toBe(Rotation.S);
 
@@ -338,24 +338,21 @@ describe("catalog conversions", () => {
           rotation_id?: number;
           rotation_bin?: Rotation;
         };
-        expect(submission.album_id).toBe(albumEntry.id);
-        expect(submission.rotation_id).toBe(5042);
-        expect(submission.rotation_bin).toBe(Rotation.S);
-
-        // Tracked in dj-site#608: synthetic negative album_id from
-        // `synthesizeAlbumId` (used as a stable React key for unlinked rows)
-        // leaks through `setRotationMetadata` and `convertQueryToSubmission`
-        // to the wire. BS `flowsheet.controller.ts` takes the
-        // `body.album_id != null` branch for negative numbers, calls
-        // `getAlbumFromDB(-X)` → undefined → throws TypeError on
-        // `albumInfo.record_label = ...`. This PR restores the conversion-
-        // layer propagation only; the wire leak is the separate follow-up.
-        // Pinned here so any fix in either layer (strip in submission;
-        // coerce to null when synthetic) updates the assertion deliberately.
-        expect(submission.album_id).toBeLessThan(0);
+        // dj-site#701 fix: `convertQueryToSubmission` gates the catalog
+        // variant on `album_id > 0`. Synthesized negative ids fall through
+        // to the freeform variant — BS used to take `albumId != null` on
+        // negative numbers and TypeError; now the unlinked-row submit just
+        // loses rotation linkage on the wire (recoverable when BS-side
+        // schema work lets `rotation_id` ride without `album_id`).
+        // Freeform `artist_name` / `album_title` come from sibling
+        // `setSearchProperty` dispatches in the live picker, not from
+        // `setRotationMetadata`; out of scope for this e2e.
+        expect(submission.album_id).toBeUndefined();
+        expect(submission.rotation_id).toBeUndefined();
+        expect(submission.rotation_bin).toBeUndefined();
       });
 
-      it("carries rotation metadata from a library-UNLINKED (id omitted) row through to the wire payload", () => {
+      it("drops album_id + rotation linkage on the wire for a library-UNLINKED (id omitted) row", () => {
         // Sibling coverage for the omitted-key wire shape — JSON omission
         // is the most common upstream coercion mode. Both id-absence shapes
         // (id:undefined and id-omitted) take the FALSE branch of
@@ -378,6 +375,7 @@ describe("catalog conversions", () => {
           })
         );
         expect(state.search.query.album_id).toBe(albumEntry.id);
+        expect(state.search.query.album_id).toBeLessThan(0);
         expect(state.search.query.rotation_id).toBe(5042);
         expect(state.search.query.rotation_bin).toBe(Rotation.S);
 
@@ -386,12 +384,10 @@ describe("catalog conversions", () => {
           rotation_id?: number;
           rotation_bin?: Rotation;
         };
-        expect(submission.album_id).toBe(albumEntry.id);
-        expect(submission.rotation_id).toBe(5042);
-        expect(submission.rotation_bin).toBe(Rotation.S);
-        // Canary for dj-site#608 wire leak; see explanatory comment on the
-        // sibling id:undefined e2e test above.
-        expect(submission.album_id).toBeLessThan(0);
+        // See sibling id:undefined e2e for the dj-site#701 gate rationale.
+        expect(submission.album_id).toBeUndefined();
+        expect(submission.rotation_id).toBeUndefined();
+        expect(submission.rotation_bin).toBeUndefined();
       });
     });
   });
