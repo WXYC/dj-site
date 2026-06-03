@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import InfiniteScroller from "./InfiniteScroller";
-import React from "react";
 
 const mockFetchNextPage = vi.fn();
 const mockUseFlowsheet = vi.fn();

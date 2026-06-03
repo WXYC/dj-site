@@ -4,7 +4,7 @@ import { Provider } from "react-redux";
 import { configureStore } from "@reduxjs/toolkit";
 import SettingsInput from "./SettingsInput";
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
-import React from "react";
+import type { ReactNode } from "react";
 
 function createTestStore() {
   return configureStore({
@@ -16,7 +16,7 @@ function createTestStore() {
 
 function createWrapper() {
   const store = createTestStore();
-  return { Wrapper: function Wrapper({ children }: { children: React.ReactNode }) {
+  return { Wrapper: function Wrapper({ children }: { children: ReactNode }) {
     return <Provider store={store}>{children}</Provider>;
   }, store };
 }

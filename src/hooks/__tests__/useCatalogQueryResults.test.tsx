@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import React, { type PropsWithChildren } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { Provider } from "react-redux";
 import { CssVarsProvider } from "@mui/joy/styles";
 import { makeStore } from "@/lib/store";
@@ -58,7 +58,7 @@ function Wrapper({
   store,
 }: {
   store: ReturnType<typeof makeStore>;
-}): (props: PropsWithChildren) => React.ReactElement {
+}): (props: PropsWithChildren) => ReactElement {
   return ({ children }) => (
     <Provider store={store}>
       <CssVarsProvider>{children}</CssVarsProvider>

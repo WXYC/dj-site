@@ -5,7 +5,7 @@ import { GlobalStyles } from "@mui/joy";
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
 import { useServerInsertedHTML } from "next/navigation";
-import React from "react";
+import { useState, type PropsWithChildren } from "react";
 import { useActiveExperience } from "@/lib/features/experiences/hooks";
 import { useThemePreferenceSync } from "@/src/hooks/themePreferenceHooks";
 import modernTheme from "@/lib/features/experiences/modern/theme";
@@ -14,11 +14,11 @@ import classicTheme from "@/lib/features/experiences/classic/theme";
 // This implementation is from emotion-js
 // https://github.com/emotion-js/emotion/issues/2928#issuecomment-1319747902
 export default function ThemeRegistry(
-  props: React.PropsWithChildren<{ options?: any }>
+  props: PropsWithChildren<{ options?: any }>
 ) {
   const { options, children } = props;
 
-  const [{ cache, flush }] = React.useState(() => {
+  const [{ cache, flush }] = useState(() => {
     const cache = createCache(options);
     cache.compat = true;
     const prevInsert = cache.insert;

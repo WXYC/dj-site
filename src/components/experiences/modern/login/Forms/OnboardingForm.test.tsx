@@ -4,7 +4,7 @@ import { Provider } from "react-redux";
 import { configureStore } from "@reduxjs/toolkit";
 import OnboardingForm from "./OnboardingForm";
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
-import React from "react";
+import type { ReactNode } from "react";
 
 // Mock authentication hooks
 const mockHandleNewUser = vi.fn((e) => e.preventDefault());
@@ -29,7 +29,7 @@ function createTestStore() {
 
 function createWrapper() {
   const store = createTestStore();
-  return function Wrapper({ children }: { children: React.ReactNode }) {
+  return function Wrapper({ children }: { children: ReactNode }) {
     return <Provider store={store}>{children}</Provider>;
   };
 }

@@ -1,5 +1,5 @@
 import { Box } from "@mui/joy";
-import React from "react";
+import type { JSX, ReactNode } from "react";
 import Main from "@/src/components/experiences/modern/Main";
 import Rightbar from "@/src/components/experiences/modern/Rightbar/Rightbar";
 import MobileHeader from "@/src/components/experiences/modern/Header/MobileHeader";
@@ -9,8 +9,8 @@ import Leftbar from "@/src/components/experiences/modern/Leftbar/Leftbar";
 export default function ModernDashboard({
   children,
 }: {
-  children: React.ReactNode;
-}): React.JSX.Element {
+  children: ReactNode;
+}): JSX.Element {
   return (
     <Box sx={{ display: "flex", height: "100dvh", overflow: "hidden" }}>
       <MobileHeader />

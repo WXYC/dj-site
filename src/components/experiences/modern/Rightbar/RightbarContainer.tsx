@@ -1,10 +1,10 @@
 import { Sheet } from "@mui/joy";
-import React from "react";
+import type { ReactNode } from "react";
 
 export default function RightbarContainer({
   children,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <Sheet
