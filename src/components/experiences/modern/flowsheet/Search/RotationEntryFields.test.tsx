@@ -351,5 +351,30 @@ describe("RotationEntryFields", () => {
 
       expect(screen.getByTestId("track-picker-trigger")).toBeInTheDocument();
     });
+
+    it("dims the displays when the parent goes disabled mid-flow", () => {
+      // Real flow: DJ picks a release while live, then the show ends and the
+      // searchbar flips `disabled={!live}`. Each display field reads its own
+      // `disabled` prop and fades to opacity 0.5; assert all three so a future
+      // refactor of the dim path can't silently drop one.
+      const { rerender } = renderWithProviders(
+        <RotationEntryFields disabled={false} />
+      );
+      selectBinAndRelease();
+
+      for (const name of ["artist", "album", "label"] as const) {
+        expect(
+          screen.getByTestId(`rotation-entry-display-${name}`)
+        ).toHaveStyle({ opacity: "1" });
+      }
+
+      rerender(<RotationEntryFields disabled={true} />);
+
+      for (const name of ["artist", "album", "label"] as const) {
+        expect(
+          screen.getByTestId(`rotation-entry-display-${name}`)
+        ).toHaveStyle({ opacity: "0.5" });
+      }
+    });
   });
 });
