@@ -23,27 +23,27 @@
     "test:e2e:debug": "playwright test --config=e2e/playwright.config.ts --debug"
   },
   "dependencies": {
-    "@atlaskit/pragmatic-drag-and-drop": "^1.7.2",
+    "@atlaskit/pragmatic-drag-and-drop": "^1.8.1",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@mui/icons-material": "^6.4.0",
     "@mui/joy": "^5.0.0-beta.51",
     "@mui/material": "^6.4.0",
-    "@opennextjs/cloudflare": "^1.10.1",
-    "@reduxjs/toolkit": "^2.2.0",
+    "@opennextjs/cloudflare": "^1.19.11",
+    "@reduxjs/toolkit": "^2.12.0",
     "@uidotdev/usehooks": "^2.4.1",
     "@wxyc/shared": "^1.4.0",
     "better-auth": "^1.6.13",
     "cookie": "^1.0.2",
     "jose": "^6.2.3",
     "jwt-decode": "^4.0.0",
-    "motion": "^12.16.0",
+    "motion": "^12.40.0",
     "next": "^16.1.1",
-    "posthog-js": "^1.355.0",
+    "posthog-js": "^1.379.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-fast-marquee": "^1.6.5",
-    "react-redux": "^9.1.0",
+    "react-redux": "^9.3.0",
     "server-only": "^0.0.1",
     "sonner": "^1.7.2",
     "webcrypt-session": "^0.5.1"
@@ -70,11 +70,11 @@
     "wrangler": "^4.95.0"
   },
   "optionalDependencies": {
-    "@ast-grep/napi-darwin-arm64": "^0.35.0",
-    "@ast-grep/napi-darwin-x64": "^0.35.0",
-    "@ast-grep/napi-linux-arm64-gnu": "^0.35.0",
-    "@ast-grep/napi-linux-x64-gnu": "^0.35.0",
-    "@ast-grep/napi-win32-arm64-msvc": "^0.35.0",
-    "@ast-grep/napi-win32-x64-msvc": "^0.35.0"
+    "@ast-grep/napi-darwin-arm64": "^0.43.0",
+    "@ast-grep/napi-darwin-x64": "^0.43.0",
+    "@ast-grep/napi-linux-arm64-gnu": "^0.43.0",
+    "@ast-grep/napi-linux-x64-gnu": "^0.43.0",
+    "@ast-grep/napi-win32-arm64-msvc": "^0.43.0",
+    "@ast-grep/napi-win32-x64-msvc": "^0.43.0"
   }
 }
