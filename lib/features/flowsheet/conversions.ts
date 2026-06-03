@@ -20,7 +20,13 @@ export function convertQueryToSubmission(
 ): FlowsheetSubmissionParams {
   // BS's `FlowsheetCreateSongFromCatalog` variant requires a positive
   // `album_id` (a real `library.id`); the rotation-linkage fields
-  // (`rotation_id`, `rotation_bin`) only land on the wire when paired with it.
+  // (`rotation_id`, `rotation_bin`) and the Discogs tracklist position
+  // (`track_position`) only land on the wire when paired with it.
+  // `track_position` is a `release_track.position` reference into a specific
+  // Discogs release — orphaning it on the freeform variant produces a
+  // position string ("A1") with no album to position into, so reducers that
+  // overwrite `album_id` but leave a stale `track_position` (e.g.
+  // `setRotationMetadata`) must not leak it to the wire.
   // The Modern rotation picker and the bin → queue path can both write a
   // synthesized negative `album_id` for library-unlinked rotation rows
   // (`synthesizeAlbumId` in `lib/features/catalog/conversions.ts`); on
@@ -42,9 +48,9 @@ export function convertQueryToSubmission(
       album_id: query.album_id,
       rotation_id: query.rotation_id,
       rotation_bin: query.rotation_bin,
-    }),
-    ...(query.track_position !== undefined && {
-      track_position: query.track_position,
+      ...(query.track_position !== undefined && {
+        track_position: query.track_position,
+      }),
     }),
   };
 }
