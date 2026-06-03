@@ -194,6 +194,64 @@ describe("flowsheet conversions", () => {
         expect(result.rotation_id).toBeUndefined();
         expect(result.rotation_bin).toBeUndefined();
       });
+
+      // Orthogonal: rotation_id / rotation_bin set without album_id. No
+      // dispatcher currently produces this (rotation picker writes the trio
+      // together; setRotationMode clears all three), but pinning the case
+      // catches a future regression that decouples rotation pass-through
+      // from the album_id gate (e.g. moving rotation_id outside the
+      // hasLinkedAlbum spread).
+      it("omits rotation_id and rotation_bin when album_id is undefined", () => {
+        const query = createTestFlowsheetQuery({
+          album_id: undefined,
+          rotation_id: 5001,
+          rotation_bin: Rotation.H,
+        });
+        const result = convertQueryToSubmission(query) as QuerySubmission;
+        expect(result.album_id).toBeUndefined();
+        expect(result.rotation_id).toBeUndefined();
+        expect(result.rotation_bin).toBeUndefined();
+      });
+
+      // `track_position` is a `release_track.position` reference (e.g. "A1")
+      // into a specific Discogs release — it must ride with album_id or it
+      // points at nothing. setRotationMetadata overwrites album_id without
+      // touching track_position, so a stale "A1" from a prior linked-album
+      // pick could orphan onto the freeform variant; gate it together with
+      // the catalog trio at the chokepoint.
+      it("omits track_position when album_id is negative", () => {
+        const query = createTestFlowsheetQuery({
+          album_id: -987654321,
+          track_position: "A1",
+        });
+        const result = convertQueryToSubmission(query) as QuerySubmission & {
+          track_position?: string;
+        };
+        expect(result.track_position).toBeUndefined();
+      });
+
+      it("omits track_position when album_id is undefined", () => {
+        const query = createTestFlowsheetQuery({
+          album_id: undefined,
+          track_position: "A1",
+        });
+        const result = convertQueryToSubmission(query) as QuerySubmission & {
+          track_position?: string;
+        };
+        expect(result.track_position).toBeUndefined();
+      });
+
+      it("preserves track_position when paired with a positive album_id", () => {
+        const query = createTestFlowsheetQuery({
+          album_id: 1001,
+          track_position: "A1",
+        });
+        const result = convertQueryToSubmission(query) as QuerySubmission & {
+          track_position?: string;
+        };
+        expect(result.album_id).toBe(1001);
+        expect(result.track_position).toBe("A1");
+      });
     });
   });
 
