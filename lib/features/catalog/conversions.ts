@@ -94,7 +94,21 @@ export function convertToAlbumEntry(
         : undefined,
     add_date: isSearchResult(response) ? response.add_date : undefined,
     plays: isSearchResult(response) ? response.plays : undefined,
-    label: response.label ?? "",
+    // BS `/library/rotation` returns rows shaped by the `Rotation` schema
+    // (`@wxyc/shared/api.yaml:1364`), where the label field is `record_label`
+    // (BS aliases `COALESCE(library.label, rotation.record_label) AS
+    // record_label` in `getRotationFromDB`). The rotation API mistypes the
+    // response as `AlbumSearchResultJSON[]` (whose label field is `label`),
+    // so the `Rotation` shape sneaks through the union here. The catalog
+    // search and bin-details shapes legitimately carry `label`. See
+    // dj-site#709 — without the `record_label` arm, rotation rows resolved
+    // to `""` and the empty string was POSTed back to BS on submission.
+    label:
+      ("record_label" in response
+        ? (response as { record_label?: string | null }).record_label
+        : undefined) ??
+      response.label ??
+      "",
     rotation_id:
       "rotation_id" in response ? response.rotation_id : undefined,
     on_streaming: isSearchResult(response) ? (response as Record<string, unknown>).on_streaming as boolean | undefined : undefined,

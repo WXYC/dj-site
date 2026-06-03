@@ -90,6 +90,67 @@ const binDetails: BinLibraryDetails = {
   genre_name: "Electronic",
 };
 
+// Real BS `/library/rotation` wire shape per the `Rotation` schema in
+// `@wxyc/shared/api.yaml:1364` and `getRotationFromDB` in Backend-Service
+// `apps/backend/services/library.service.ts:280-335`. The label field on the
+// wire is `record_label` (BS aliases `COALESCE(library.label, rotation.record_label)
+// AS record_label`), NOT `label`. dj-site#709: the rotation API was mistyping
+// these rows as `AlbumSearchResultJSON[]` whose label field is `label`, so
+// `convertToAlbumEntry` read `undefined` and coalesced to `""` on every
+// rotation row — the empty string then flowed into `state.search.query.label`
+// and was POSTed to BS as empty. Fixtures cover the populated, null, and
+// omitted shapes the wire actually emits.
+const rotationWireRowSonamos = {
+  id: 1001,
+  add_date: "2026-05-01T00:00:00.000Z",
+  album_title: "DOGA",
+  artist_name: "Juana Molina",
+  code_letters: "RO",
+  code_number: 42,
+  code_artist_number: 14,
+  format_name: "CD",
+  genre_name: "Rock",
+  record_label: "Sonamos",
+  rotation_id: 5001,
+  rotation_bin: "H",
+  plays: 7,
+} as unknown as AlbumSearchResultJSON;
+
+const rotationWireRowNullLabel = {
+  id: 1002,
+  add_date: "2026-05-02T00:00:00.000Z",
+  album_title: "Sometimes Forever",
+  artist_name: "Soccer Mommy",
+  code_letters: "SO",
+  code_number: 7,
+  code_artist_number: 12,
+  format_name: "CD",
+  genre_name: "Rock",
+  record_label: null,
+  rotation_id: 5002,
+  rotation_bin: "M",
+  plays: 3,
+} as unknown as AlbumSearchResultJSON;
+
+// Catalog search responses (`AlbumSearchResultJSON`) carry the label under
+// `label`, not `record_label`. Regression guard so the wire-shape fallback
+// doesn't break the catalog search path.
+const catalogSearchRow: AlbumSearchResultJSON = {
+  id: 2001,
+  add_date: "2026-05-10T00:00:00.000Z",
+  album_title: "Quarantine the Past",
+  artist_name: "Pavement",
+  code_letters: "PA",
+  code_number: 18,
+  code_artist_number: 9,
+  format_name: "Vinyl",
+  genre_name: "Rock",
+  label: "Drag City",
+  rotation_id: undefined,
+  rotation_bin: undefined,
+  plays: 11,
+};
+
 describe("catalog conversions", () => {
   describe("convertToAlbumEntry", () => {
     describe("library-linked rotation rows", () => {
@@ -271,6 +332,31 @@ describe("catalog conversions", () => {
         const result = convertToAlbumEntry(binDetails);
         expect(result.add_date).toBeUndefined();
         expect(result.plays).toBeUndefined();
+      });
+    });
+
+    // dj-site#709 regression pins. BS `/library/rotation` returns rows shaped
+    // by the contract `Rotation` schema where the label field is
+    // `record_label`. The rotation API was mistyping responses as
+    // `AlbumSearchResultJSON[]` whose label field is `label`, so the
+    // conversion read `undefined` and coalesced to `""` on every rotation
+    // row — the empty string then flowed into `state.search.query.label`
+    // and was POSTed to BS as empty. Fix: read `record_label` first, fall
+    // back to `label` (catalog search shape), then `""`.
+    describe("rotation wire shape carries record_label (dj-site#709)", () => {
+      it("reads record_label when present (rotation wire shape)", () => {
+        const result = convertToAlbumEntry(rotationWireRowSonamos);
+        expect(result.label).toBe("Sonamos");
+      });
+
+      it("falls through to empty string when record_label is null", () => {
+        const result = convertToAlbumEntry(rotationWireRowNullLabel);
+        expect(result.label).toBe("");
+      });
+
+      it("still reads label on the catalog search wire shape (regression guard)", () => {
+        const result = convertToAlbumEntry(catalogSearchRow);
+        expect(result.label).toBe("Drag City");
       });
     });
 
