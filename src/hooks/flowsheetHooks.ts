@@ -111,12 +111,21 @@ export const useShowControl = () => {
     dispatch(flowsheetSlice.actions.setAutoplay(autoplay));
   };
 
-  const goLive = () => {
+  const goLive = (djNameOverride?: string) => {
     if (!userData || userData.id === undefined || userloading) {
       return;
     }
-    // Tag invalidation from the mutation handles refetching
-    goLiveFunction({ dj_id: userData.id });
+    // Tag invalidation from the mutation handles refetching.
+    // Only include `dj_name_override` when the caller actually wants to
+    // override; the backend treats empty/whitespace as absent, but the
+    // hook keeps the wire-shape clean either way.
+    const payload: { dj_id: string; dj_name_override?: string } = {
+      dj_id: userData.id,
+    };
+    if (djNameOverride !== undefined) {
+      payload.dj_name_override = djNameOverride;
+    }
+    goLiveFunction(payload);
   };
 
   const leave = () => {

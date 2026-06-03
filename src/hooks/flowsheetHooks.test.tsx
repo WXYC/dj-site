@@ -269,6 +269,47 @@ describe("flowsheetHooks", () => {
       });
     });
 
+    it("should pass dj_name_override when goLive is called with an override", () => {
+      const { result } = renderHook(() => useShowControl(), {
+        wrapper: createWrapper(),
+      });
+
+      act(() => {
+        result.current.goLive("Aubrey Hearst");
+      });
+
+      expect(mockGoLiveFunction).toHaveBeenCalledWith({
+        dj_id: "test-user-1",
+        dj_name_override: "Aubrey Hearst",
+      });
+    });
+
+    it("should omit dj_name_override when goLive is called without one", () => {
+      const { result } = renderHook(() => useShowControl(), {
+        wrapper: createWrapper(),
+      });
+
+      act(() => {
+        result.current.goLive();
+      });
+
+      const args = mockGoLiveFunction.mock.calls[0][0];
+      expect(args).not.toHaveProperty("dj_name_override");
+    });
+
+    it("should omit dj_name_override when goLive is called with undefined", () => {
+      const { result } = renderHook(() => useShowControl(), {
+        wrapper: createWrapper(),
+      });
+
+      act(() => {
+        result.current.goLive(undefined);
+      });
+
+      const args = mockGoLiveFunction.mock.calls[0][0];
+      expect(args).not.toHaveProperty("dj_name_override");
+    });
+
     it("should call leaveFunction when leave is called", () => {
       const { result } = renderHook(() => useShowControl(), {
         wrapper: createWrapper(),

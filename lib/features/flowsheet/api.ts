@@ -1,5 +1,5 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
-import { DJRequestParams } from "../authentication/types";
+import { DJRequestParams, JoinShowParams } from "../authentication/types";
 import { backendBaseQuery } from "../backend";
 import {
   FLOWSHEET_OPTIMISTIC_DJ_PLACEHOLDER,
@@ -101,7 +101,7 @@ export const flowsheetApi = createApi({
         }
       },
     }),
-    joinShow: builder.mutation<void, DJRequestParams>({
+    joinShow: builder.mutation<void, JoinShowParams>({
       query: (params) => ({
         url: "/join",
         method: "POST",

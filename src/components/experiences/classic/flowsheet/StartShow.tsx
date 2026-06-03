@@ -3,16 +3,27 @@
 import "@/src/styles/classic/wxyc.css";
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
 import { useRegistry } from "@/src/hooks/authenticationHooks";
-import { FormEvent } from "react";
+import { FormEvent, useState } from "react";
 import { OpenHelp } from "@/src/utils/helpScreen";
 
 export default function StartShow() {
   const { goLive } = useShowControl();
   const { info: userData } = useRegistry();
+  // Editable per-show override for the DJ's public handle. Initialized to
+  // the registry's `dj_name` so the user sees their current value and can
+  // type over it. See #694 + BS#1295.
+  const initialDjHandle = userData?.dj_name ?? "";
+  const [djHandle, setDjHandle] = useState(initialDjHandle);
 
   const handleStartShow = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    goLive();
+    // Pass the override only when the user-typed value is non-empty after
+    // trimming AND differs from the initial registry value. Otherwise let
+    // the backend fall back to `auth_user.dj_name` as it always has.
+    const trimmed = djHandle.trim();
+    const override =
+      trimmed.length > 0 && trimmed !== initialDjHandle ? trimmed : undefined;
+    goLive(override);
   };
 
   // Format current time for display in disabled dropdown
@@ -138,14 +149,9 @@ export default function StartShow() {
                   <input
                     type="text"
                     name="djHandle"
-                    value={userData?.dj_name || ""}
+                    value={djHandle}
+                    onChange={(e) => setDjHandle(e.target.value)}
                     placeholder="(optional)"
-                    disabled
-                    style={{
-                      backgroundColor: "#f0f0f0",
-                      color: "#666",
-                      cursor: "not-allowed",
-                    }}
                   />
                   &nbsp;(optional)
                 </td>
