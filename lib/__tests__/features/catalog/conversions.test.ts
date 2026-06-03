@@ -67,7 +67,8 @@ const unlinkedRowUndefinedId = {
 // Cloned (not aliased) so a later test mutating this fixture wouldn't
 // silently corrupt `unlinkedRowBase` and the two spread-derived fixtures
 // above. The `expect("id" in unlinkedRowOmittedId).toBe(false)` assertion in
-// the omitted-key tests is load-bearing — keeping the clone isolates it.
+// the omitted-key rotation_id test is load-bearing — keeping the clone
+// isolates it.
 const unlinkedRowOmittedId = {
   ...unlinkedRowBase,
 } as unknown as AlbumSearchResultJSON;
@@ -330,11 +331,15 @@ describe("catalog conversions", () => {
       });
 
       it("carries rotation metadata from a library-UNLINKED (id omitted) row through to the wire payload", () => {
-        // Sibling coverage for the omitted-key wire shape — the JSON-
-        // omission upstream coercion mode. Same chain as the id:undefined
-        // variant; the two id-absence shapes flow through different
-        // `isSearchResult` branches in `convertToAlbumEntry`, so both need
-        // wire-chain coverage.
+        // Sibling coverage for the omitted-key wire shape — JSON omission
+        // is the most common upstream coercion mode. Both id-absence shapes
+        // (id:undefined and id-omitted) take the FALSE branch of
+        // `isSearchResult` and the same `synthesizeAlbumId` path; the only
+        // observable difference is whether `"id" in response` short-circuits
+        // inside the discriminator. Structurally symmetric to the
+        // id:undefined sibling above so a regression that diverged only one
+        // path (e.g., a future reducer that special-cased absent keys)
+        // would surface here, not pass silently.
         const albumEntry = convertToAlbumEntry(unlinkedRowOmittedId);
         expect(albumEntry.rotation_id).toBe(5042);
         expect(albumEntry.rotation_bin).toBe(Rotation.S);
@@ -347,6 +352,9 @@ describe("catalog conversions", () => {
             rotation_bin: albumEntry.rotation_bin,
           })
         );
+        expect(state.search.query.album_id).toBe(albumEntry.id);
+        expect(state.search.query.rotation_id).toBe(5042);
+        expect(state.search.query.rotation_bin).toBe(Rotation.S);
 
         const submission = convertQueryToSubmission(state.search.query) as {
           album_id?: number;
@@ -356,7 +364,9 @@ describe("catalog conversions", () => {
         expect(submission.album_id).toBe(albumEntry.id);
         expect(submission.rotation_id).toBe(5042);
         expect(submission.rotation_bin).toBe(Rotation.S);
-        expect(submission.album_id).toBeLessThan(0); // see dj-site#608
+        // Canary for dj-site#608 wire leak; see explanatory comment on the
+        // sibling id:undefined e2e test above.
+        expect(submission.album_id).toBeLessThan(0);
       });
     });
   });
