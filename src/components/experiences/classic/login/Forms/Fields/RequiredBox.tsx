@@ -3,7 +3,7 @@
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
 import { VerifiedData } from "@/lib/features/authentication/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type JSX } from "react";
 
 export default function RequiredBox({
   name,

@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import ThemedLayout, { LoginLayoutProps } from "@/src/ThemedLayout";
 
 const Layout = async (props: LoginLayoutProps): Promise<JSX.Element> =>

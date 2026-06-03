@@ -1,4 +1,5 @@
 "use client";
+import type { JSX } from "react";
 import { Badge, ListItem, ListItemButton, Tooltip } from "@mui/joy";
 import Link from "next/link";
 import { usePathname } from "next/navigation";

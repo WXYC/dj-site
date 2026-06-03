@@ -1,5 +1,6 @@
 "use client";
 
+import type { JSX } from "react";
 import Logo from "@/src/components/shared/Branding/Logo";
 import Box from "@mui/joy/Box";
 import GlobalStyles from "@mui/joy/GlobalStyles";

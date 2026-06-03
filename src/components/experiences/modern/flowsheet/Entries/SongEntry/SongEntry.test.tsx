@@ -619,8 +619,8 @@ describe("SongEntry", () => {
 
       render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
 
-      const wrapper = screen.getByTestId("draggable-wrapper");
-      expect(wrapper).toHaveStyle({ marginBottom: "initial" });
+      const wrapper = screen.getByTestId("draggable-wrapper") as HTMLElement;
+      expect(wrapper.style.marginBottom).toBe("initial");
     });
   });
 

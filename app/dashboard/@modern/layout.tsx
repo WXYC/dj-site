@@ -10,7 +10,7 @@ export default function ModernDashboard({
   children,
 }: {
   children: React.ReactNode;
-}): JSX.Element {
+}): React.JSX.Element {
   return (
     <Box sx={{ display: "flex", height: "100dvh", overflow: "hidden" }}>
       <MobileHeader />

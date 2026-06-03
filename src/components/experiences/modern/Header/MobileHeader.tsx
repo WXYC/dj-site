@@ -1,5 +1,6 @@
 "use client";
 
+import type { JSX } from "react";
 import Logo from "@/src/components/shared/Branding/Logo";
 import DragHandleIcon from "@mui/icons-material/DragHandle";
 import Box from "@mui/joy/Box";

@@ -23,7 +23,7 @@ describe("Header", () => {
   it("should have border style of 0 on the image", () => {
     render(<Header />);
     const logo = screen.getByAltText("WXYC logo");
-    expect(logo).toHaveStyle({ border: "0" });
+    expect(logo).toHaveStyle({ borderWidth: "0" });
   });
 
   it("should have cellPadding on the table", () => {

@@ -9,23 +9,20 @@ vi.mock("next/head", () => ({
 
 describe("PageData", () => {
   it("should render title with site prefix", () => {
-    const { container } = render(<PageData title="Test Page" />);
+    render(<PageData title="Test Page" />);
 
-    const title = container.querySelector("title");
-    expect(title?.textContent).toBe("WXYC | Test Page");
+    expect(document.title).toBe("WXYC | Test Page");
   });
 
   it("should render different titles", () => {
-    const { container } = render(<PageData title="Dashboard" />);
+    render(<PageData title="Dashboard" />);
 
-    const title = container.querySelector("title");
-    expect(title?.textContent).toBe("WXYC | Dashboard");
+    expect(document.title).toBe("WXYC | Dashboard");
   });
 
   it("should include WXYC prefix", () => {
-    const { container } = render(<PageData title="Login" />);
+    render(<PageData title="Login" />);
 
-    const title = container.querySelector("title");
-    expect(title?.textContent).toContain("WXYC");
+    expect(document.title).toContain("WXYC");
   });
 });

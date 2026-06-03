@@ -35,7 +35,7 @@ export default function NowPlayingMain({
   loading?: boolean;
   width?: number;
   height?: number;
-  audioRef: RefObject<HTMLAudioElement>;
+  audioRef: RefObject<HTMLAudioElement | null>;
   isPlaying: boolean;
   onTogglePlay: () => void;
   audioContext: AudioContext | null;

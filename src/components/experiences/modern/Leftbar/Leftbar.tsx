@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { Authorization } from "@/lib/features/admin/types";
 import { requireAuth, getUserFromSession } from "@/lib/features/authentication/server-utils";
 import { EditCalendar, ManageAccounts } from "@mui/icons-material";

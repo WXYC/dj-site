@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { requireAuth } from "@/lib/features/authentication/server-utils";
 import ThemedLayout, { LoginLayoutProps } from "@/src/ThemedLayout";
 
