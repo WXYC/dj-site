@@ -119,6 +119,67 @@ describe("Classic StartShow — Public DJ Handle override (#694)", () => {
     submitForm();
     expect(goLiveMock).toHaveBeenCalledWith(undefined);
   });
+
+  it("reflects userData.dj_name when the registry resolves after mount", () => {
+    // First render: registry still loading, dj_name unknown.
+    userInfoMock = null;
+    const { rerender } = renderWithProviders(<StartShow />);
+    expect(getNamedInput("djHandle").value).toBe("");
+
+    // Registry resolves with the user's dj_name. Re-render with the same
+    // component instance — the input value should now reflect the resolved
+    // dj_name, not the empty string captured at initial mount.
+    userInfoMock = {
+      id: "test-user-1",
+      real_name: "Maura Partrick",
+      dj_name: "Anonymous",
+    };
+    rerender(<StartShow />);
+    expect(getNamedInput("djHandle").value).toBe("Anonymous");
+  });
+
+  it("stops syncing from the registry once the user types into the field", () => {
+    const { rerender } = renderWithProviders(<StartShow />);
+    const input = getNamedInput("djHandle");
+    // User types over the prefilled value.
+    fireEvent.change(input, { target: { value: "Aubrey Hearst" } });
+
+    // Registry refetches and lands a different dj_name. The user's typed
+    // value should win — we do not clobber their in-progress edit.
+    userInfoMock = {
+      id: "test-user-1",
+      real_name: "Maura Partrick",
+      dj_name: "SomethingElse",
+    };
+    rerender(<StartShow />);
+    expect(getNamedInput("djHandle").value).toBe("Aubrey Hearst");
+  });
+
+  it("submits no override when the registry refetches to match the user-typed value", () => {
+    // Mount with one dj_name…
+    userInfoMock = {
+      id: "test-user-1",
+      real_name: "Maura Partrick",
+      dj_name: "OldName",
+    };
+    const { rerender } = renderWithProviders(<StartShow />);
+    const input = getNamedInput("djHandle");
+    // User types a different value.
+    fireEvent.change(input, { target: { value: "NewName" } });
+
+    // Registry refetches to the same value the user typed (e.g. a parallel
+    // tab updated it). At submit time the comparison should see equality
+    // and omit the override — not send a redundant override that captures
+    // the initial-mount value.
+    userInfoMock = {
+      id: "test-user-1",
+      real_name: "Maura Partrick",
+      dj_name: "NewName",
+    };
+    rerender(<StartShow />);
+    submitForm();
+    expect(goLiveMock).toHaveBeenCalledWith(undefined);
+  });
 });
 
 describe("Classic StartShow — out-of-scope fields stay disabled (#694)", () => {
