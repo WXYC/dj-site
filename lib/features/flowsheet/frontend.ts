@@ -73,6 +73,10 @@ export const flowsheetSlice = createAppSlice({
       state.search.query.album_id = action.payload.album_id;
       state.search.query.rotation_id = action.payload.rotation_id;
       state.search.query.rotation_bin = action.payload.rotation_bin;
+      // track_position references a release_track row on the previous
+      // album_id; orphan it on the new album and it points at the wrong
+      // release. Symmetric to setRotationMode(false). (dj-site#704)
+      state.search.query.track_position = undefined;
     },
     setSearchOpen: (state, action) => {
       state.search.open = action.payload;
@@ -174,7 +178,15 @@ export const flowsheetSlice = createAppSlice({
       state.queue = action.payload;
       saveQueueToStorage(state.queue);
     },
-    setSelectedResult: (state, action) => {
+    setSelectedResult: (state, action: PayloadAction<number>) => {
+      // Each search result is a distinct release; navigating between results
+      // moves the album_id anchor, so any previously picked track_position
+      // (e.g. "A1") would orphan onto the new release. Idempotent re-selection
+      // (e.g. mouseover on the already-highlighted row) preserves a freshly
+      // picked position. (dj-site#704)
+      if (state.search.selectedResult !== action.payload) {
+        state.search.query.track_position = undefined;
+      }
       state.search.selectedResult = action.payload;
     },
     setCurrentShowEntries: (state, action: PayloadAction<FlowsheetEntry[]>) => {

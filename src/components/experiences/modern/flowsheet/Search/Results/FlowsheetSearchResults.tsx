@@ -52,13 +52,21 @@ export default function FlowsheetSearchResults({
     }
   }, [highlightedResult?.id, manualOverride]);
 
-  const picker = useLibraryTrackPicker(
-    highlightedResult && highlightedResult.id !== manualOverride
+  // A library-unlinked rotation/catalog row carries a synthesized negative
+  // id from synthesizeAlbumId — there's no real release to pick tracks from,
+  // and #702's chokepoint drops track_position anyway. Skip the picker entirely
+  // for those rows instead of letting the DJ pick something we'll silently
+  // discard. (dj-site#704)
+  const pickerAlbumId =
+    highlightedResult &&
+    highlightedResult.id > 0 &&
+    highlightedResult.id !== manualOverride
       ? highlightedResult.id
-      : null
-  );
+      : null;
+  const picker = useLibraryTrackPicker(pickerAlbumId);
 
-  const showPickerRow = !!highlightedResult && !rotationMode;
+  const showPickerRow =
+    !!highlightedResult && highlightedResult.id > 0 && !rotationMode;
 
   return (
     <Sheet
@@ -170,6 +178,10 @@ export default function FlowsheetSearchResults({
                         value: "",
                       })
                     );
+                    // The DJ is opting out of the tracklist — any previously
+                    // picked position would otherwise ride through paired with
+                    // the highlighted album_id. (dj-site#704)
+                    dispatch(flowsheetSlice.actions.setTrackPosition(undefined));
                   }}
                 />
               ) : picker.isLoading ? (

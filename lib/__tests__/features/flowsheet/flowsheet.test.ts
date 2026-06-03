@@ -83,6 +83,31 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
       expect(result.search.selectedResult).toBe(3);
     });
 
+    // Arrow-key navigation between search results moves to a different
+    // album_id (each result is a distinct release). track_position picked on
+    // the previous result would orphan onto the new release if not cleared.
+    // Re-selecting the SAME index (e.g. on mouseover) must preserve a freshly
+    // picked position. (dj-site#704)
+    describe("setSelectedResult track_position hygiene", () => {
+      it("clears track_position when the selected result index changes", () => {
+        const result = harness().chain(
+          actions.setSelectedResult(2),
+          actions.setTrackPosition("A1"),
+          actions.setSelectedResult(3)
+        );
+        expect(result.search.query.track_position).toBeUndefined();
+      });
+
+      it("preserves track_position when the selected result index is unchanged", () => {
+        const result = harness().chain(
+          actions.setSelectedResult(2),
+          actions.setTrackPosition("A1"),
+          actions.setSelectedResult(2)
+        );
+        expect(result.search.query.track_position).toBe("A1");
+      });
+    });
+
     describe("freezeSelectionToQuery", () => {
       it("should copy the selected entry's fields into the query and deselect", () => {
         const result = harness().chain(
@@ -507,6 +532,22 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
       expect(result.search.query.album_id).toBe(TEST_ENTITY_IDS.ALBUM.ROTATION_ALBUM);
       expect(result.search.query.rotation_id).toBe(TEST_ENTITY_IDS.ROTATION.HEAVY);
       expect(result.search.query.rotation_bin).toBe("H");
+    });
+
+    // track_position is anchored to a specific album_id (it's a Discogs
+    // release_track.position reference). Any reducer that overwrites album_id
+    // must clear track_position or it orphans onto the wrong release.
+    // (dj-site#704)
+    it("setRotationMetadata clears track_position when album_id changes", () => {
+      const result = harness().chain(
+        actions.setTrackPosition("A1"),
+        actions.setRotationMetadata({
+          album_id: TEST_ENTITY_IDS.ALBUM.ROTATION_ALBUM,
+          rotation_id: TEST_ENTITY_IDS.ROTATION.HEAVY,
+          rotation_bin: "H" as const,
+        })
+      );
+      expect(result.search.query.track_position).toBeUndefined();
     });
 
     it("should preserve rotation mode across resetSearch", () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import FlowsheetSearchResults from "./FlowsheetSearchResults";
 import { Provider } from "react-redux";
 import { configureStore } from "@reduxjs/toolkit";
@@ -20,22 +20,45 @@ vi.mock("./NewEntry/NewEntryPreview", () => ({
 }));
 
 // LibraryTrackPicker hits the proxy `/library/:id/tracks` endpoint via
-// metadataApi; we don't want this test to wire that into the store.
+// metadataApi; we don't want this test to wire that into the store. The
+// default stub returns `show: true` so the picker row is rendered when its
+// other guards pass — individual tests override useLibraryTrackPicker as
+// needed.
+const libraryTrackPickerSpy = vi.fn();
 vi.mock("../LibraryTrackPicker", () => ({
   __esModule: true,
-  default: () => <div data-testid="library-track-picker" />,
-  useLibraryTrackPicker: () => ({ show: false, isLoading: false, tracks: [] }),
+  default: (props: any) => {
+    libraryTrackPickerSpy(props);
+    return (
+      <button
+        data-testid="library-track-picker-manual"
+        onClick={() => props.onManualEntry?.()}
+      >
+        Not listed
+      </button>
+    );
+  },
+  useLibraryTrackPicker: () => ({ show: true, isLoading: false, tracks: [] }),
 }));
 
-function createTestStore(searchOpen = false) {
+function createTestStore(
+  searchOpen = false,
+  overrides: Partial<ReturnType<typeof flowsheetSlice.getInitialState>> = {}
+) {
+  const initial = flowsheetSlice.getInitialState();
   return configureStore({
     reducer: {
       flowsheet: flowsheetSlice.reducer,
     },
     preloadedState: {
       flowsheet: {
-        ...flowsheetSlice.getInitialState(),
-        searchOpen,
+        ...initial,
+        ...overrides,
+        search: {
+          ...initial.search,
+          ...(overrides.search ?? {}),
+          open: searchOpen,
+        },
       },
     },
   });
@@ -168,6 +191,107 @@ describe("FlowsheetSearchResults", () => {
     expect(screen.getByText("next entry")).toBeInTheDocument();
     expect(screen.getByText("play")).toBeInTheDocument();
     expect(screen.getByText("queue")).toBeInTheDocument();
+  });
+
+  // dj-site#704: a library-unlinked rotation row carries a synthesized
+  // negative AlbumEntry.id (from synthesizeAlbumId). The picker over such a
+  // row would let the DJ pick "A1" via setTrackPosition, which #702's
+  // chokepoint then silently drops on submit (no positive album_id to anchor
+  // it). Hide the picker entirely instead — the freeform variant has no
+  // track_position field anyway.
+  describe("LibraryTrackPicker visibility over unlinked rotation rows", () => {
+    it("hides the picker row when the highlighted result has a synthesized negative id", () => {
+      const store = createTestStore(true, {
+        search: {
+          open: true,
+          query: flowsheetSlice.getInitialState().search.query,
+          selectedResult: 1,
+          confirmedArtist: "",
+        },
+      });
+      const unlinkedRotationResult: AlbumEntry[] = [
+        { id: -987654, title: "Unlinked Rotation Row" } as AlbumEntry,
+      ];
+
+      render(
+        <Provider store={store}>
+          <FlowsheetSearchResults
+            binResults={unlinkedRotationResult}
+            catalogResults={[]}
+            rotationResults={[]}
+            lmlResults={[]}
+          />
+        </Provider>
+      );
+
+      expect(
+        screen.queryByTestId("flowsheet-search-track-picker-row")
+      ).not.toBeInTheDocument();
+    });
+
+    it("shows the picker row when the highlighted result has a positive library.id", () => {
+      const store = createTestStore(true, {
+        search: {
+          open: true,
+          query: flowsheetSlice.getInitialState().search.query,
+          selectedResult: 1,
+          confirmedArtist: "",
+        },
+      });
+      const linkedResult: AlbumEntry[] = [
+        { id: 1234, title: "Linked Library Row" } as AlbumEntry,
+      ];
+
+      render(
+        <Provider store={store}>
+          <FlowsheetSearchResults
+            binResults={linkedResult}
+            catalogResults={[]}
+            rotationResults={[]}
+            lmlResults={[]}
+          />
+        </Provider>
+      );
+
+      expect(
+        screen.getByTestId("flowsheet-search-track-picker-row")
+      ).toBeInTheDocument();
+    });
+  });
+
+  // dj-site#704: clicking "Not listed" must clear any track_position the DJ
+  // previously picked, otherwise a stale "A1" rides through on submit
+  // pointing at an album the DJ no longer intends.
+  it("clears track_position in Redux when the manual-entry button is clicked", () => {
+    const store = createTestStore(true, {
+      search: {
+        open: true,
+        query: {
+          ...flowsheetSlice.getInitialState().search.query,
+          track_position: "A1",
+        },
+        selectedResult: 1,
+        confirmedArtist: "",
+      },
+    });
+    const linkedResult: AlbumEntry[] = [
+      { id: 1234, title: "Linked Library Row" } as AlbumEntry,
+    ];
+
+    render(
+      <Provider store={store}>
+        <FlowsheetSearchResults
+          binResults={linkedResult}
+          catalogResults={[]}
+          rotationResults={[]}
+          lmlResults={[]}
+        />
+      </Provider>
+    );
+
+    fireEvent.click(screen.getByTestId("library-track-picker-manual"));
+
+    expect(store.getState().flowsheet.search.query.track_position).toBeUndefined();
   });
 
   it("should calculate correct offsets for results", () => {
