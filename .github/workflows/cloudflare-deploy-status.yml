@@ -41,13 +41,60 @@ jobs:
           echo "commit_sha=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
           echo "commit_msg=$COMMIT_MSG" >> "$GITHUB_OUTPUT"
 
+      - name: Probe production URL for runtime health
+        id: probe
+        if: steps.config.outputs.configured == 'true'
+        run: |
+          # Cloudflare reports `success` when the BUILD succeeded, not when the
+          # worker actually serves traffic. The 2026-06-03 outage shipped a build
+          # that compiled fine but 500'd on every request. Add a runtime smoke
+          # check: GET / and treat 5xx (or unexpected non-2xx/3xx outside of the
+          # auth-gated 401/403) as a deployment failure. Use --write-out to
+          # surface the code without -f, which would crash the step on 4xx/5xx.
+          HTTP_CODE=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 https://dj.wxyc.org/ || true)
+
+          if [ -z "$HTTP_CODE" ]; then
+            HTTP_CODE="000"
+          fi
+
+          # Healthy: 2xx, 3xx, or auth-gated 401/403 (those surface on real
+          # user traffic, not on an unauthenticated curl from a runner).
+          # Unhealthy: anything else, including 5xx and curl connection
+          # failures (000).
+          case "$HTTP_CODE" in
+            2*|3*|401|403)
+              HEALTHY="true"
+              ;;
+            *)
+              HEALTHY="false"
+              ;;
+          esac
+
+          echo "http_code=$HTTP_CODE" >> "$GITHUB_OUTPUT"
+          echo "healthy=$HEALTHY" >> "$GITHUB_OUTPUT"
+
+      - name: Determine deployment health
+        id: health
+        if: steps.config.outputs.configured == 'true'
+        env:
+          CF_STATUS: ${{ steps.query.outputs.status }}
+          RUNTIME_HEALTHY: ${{ steps.probe.outputs.healthy }}
+        run: |
+          if [ "$CF_STATUS" = "failure" ] || [ "$RUNTIME_HEALTHY" != "true" ]; then
+            echo "unhealthy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "unhealthy=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Handle deployment failure
-        if: steps.config.outputs.configured == 'true' && steps.query.outputs.status == 'failure'
+        if: steps.config.outputs.configured == 'true' && steps.health.outputs.unhealthy == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEPLOY_ID: ${{ steps.query.outputs.deploy_id }}
           COMMIT_SHA: ${{ steps.query.outputs.commit_sha }}
           COMMIT_MSG: ${{ steps.query.outputs.commit_msg }}
+          CF_STATUS: ${{ steps.query.outputs.status }}
+          HTTP_CODE: ${{ steps.probe.outputs.http_code }}
         run: |
           EXISTING_ISSUE=$(gh issue list \
             --repo "$GITHUB_REPOSITORY" \
@@ -57,18 +104,22 @@ jobs:
             --json number \
             --jq '.[0].number // empty')
 
-          BODY="The latest production deployment to Cloudflare Pages failed.
+          BODY="The latest production deployment to Cloudflare Pages is unhealthy.
 
+          - **Cloudflare build status:** ${CF_STATUS}
+          - **Runtime smoke check (GET https://dj.wxyc.org/):** HTTP ${HTTP_CODE}
           - **Commit:** ${COMMIT_SHA} (${COMMIT_MSG})
           - **Deployment ID:** ${DEPLOY_ID}
           - **Dashboard:** https://dash.cloudflare.com/${{ vars.CLOUDFLARE_ACCOUNT_ID }}/pages/view/wxyc-dj/${DEPLOY_ID}
+
+          A build status of \`failure\` indicates the deploy never landed. An HTTP 5xx (or other non-2xx/3xx outside 401/403) on \`/\` indicates the worker is serving traffic but failing at runtime — see https://github.com/WXYC/dj-site/issues/715 for the canonical example of a runtime-only failure that the build-only monitor missed.
 
           This issue was automatically created by the deployment status monitor."
 
           if [ -z "$EXISTING_ISSUE" ]; then
             gh issue create \
               --repo "$GITHUB_REPOSITORY" \
-              --title "Cloudflare Pages production deployment failed" \
+              --title "Cloudflare Pages production deployment unhealthy" \
               --label "cloudflare-deploy-failure" \
               --body "$BODY"
           else
@@ -78,10 +129,11 @@ jobs:
           fi
 
       - name: Handle deployment recovery
-        if: steps.config.outputs.configured == 'true' && steps.query.outputs.status == 'success'
+        if: steps.config.outputs.configured == 'true' && steps.health.outputs.unhealthy == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COMMIT_SHA: ${{ steps.query.outputs.commit_sha }}
+          HTTP_CODE: ${{ steps.probe.outputs.http_code }}
         run: |
           EXISTING_ISSUE=$(gh issue list \
             --repo "$GITHUB_REPOSITORY" \
@@ -94,7 +146,7 @@ jobs:
           if [ -n "$EXISTING_ISSUE" ]; then
             gh issue comment "$EXISTING_ISSUE" \
               --repo "$GITHUB_REPOSITORY" \
-              --body "Production deployment recovered. Commit: ${COMMIT_SHA}"
+              --body "Production deployment recovered. Commit: ${COMMIT_SHA}. Runtime smoke check: HTTP ${HTTP_CODE}."
             gh issue close "$EXISTING_ISSUE" \
               --repo "$GITHUB_REPOSITORY"
           fi
