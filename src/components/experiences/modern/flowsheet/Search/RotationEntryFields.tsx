@@ -11,12 +11,56 @@ import {
 } from "@/lib/features/rotation/api";
 import { useAppDispatch } from "@/lib/hooks";
 import { useFlowsheetSearch } from "@/src/hooks/flowsheetHooks";
-import { Divider } from "@mui/joy";
+import { Box, Divider, Typography } from "@mui/joy";
 import { useCallback, useMemo, useState } from "react";
 import FlowsheetSearchInput from "./FlowsheetSearchInput";
 import RotationBinSelector from "./RotationBinSelector";
 import RotationReleaseDropdown from "./RotationReleaseDropdown";
 import TrackPickerDropdown from "./TrackPickerDropdown";
+
+// Read-only display field used to surface the artist / album / label values
+// that `handleSelectRelease` writes into Redux. Rotation mode never mounts the
+// `<FlowsheetSearchInput>` fields the non-rotation surface uses, so without
+// these the populated values had no UI surface and DJs reported "can't edit
+// anything" after picking a release (WXYC/dj-site#710). Editability is a
+// separate follow-up.
+function RotationEntryDisplayField({
+  name,
+  value,
+  disabled,
+}: {
+  name: "artist" | "album" | "label";
+  value: string;
+  disabled: boolean;
+}) {
+  const label = name === "artist" ? "Artist" : name === "album" ? "Album" : "Label";
+  return (
+    <Box
+      data-testid={`rotation-entry-display-${name}`}
+      sx={{
+        display: "flex",
+        flex: 1,
+        minWidth: 0,
+        alignItems: "center",
+        px: 1,
+        minHeight: "2rem",
+        opacity: disabled ? 0.5 : 1,
+      }}
+    >
+      <Typography
+        level="body-sm"
+        sx={{
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          opacity: value ? 1 : 0.5,
+        }}
+      >
+        {value || label}
+      </Typography>
+    </Box>
+  );
+}
 
 export default function RotationEntryFields({ disabled }: { disabled: boolean }) {
   const dispatch = useAppDispatch();
@@ -139,6 +183,28 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
         onSelectRelease={handleSelectRelease}
         disabled={disabled || !selectedBin}
       />
+      {selectedRelease && (
+        <>
+          <Divider orientation="vertical" />
+          <RotationEntryDisplayField
+            name="artist"
+            value={selectedRelease.artist.name}
+            disabled={disabled}
+          />
+          <Divider orientation="vertical" />
+          <RotationEntryDisplayField
+            name="album"
+            value={selectedRelease.title}
+            disabled={disabled}
+          />
+          <Divider orientation="vertical" />
+          <RotationEntryDisplayField
+            name="label"
+            value={selectedRelease.label}
+            disabled={disabled}
+          />
+        </>
+      )}
       <Divider orientation="vertical" />
       {showTrackDropdown ? (
         <TrackPickerDropdown

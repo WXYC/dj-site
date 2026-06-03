@@ -301,4 +301,55 @@ describe("RotationEntryFields", () => {
       expect(artistValues(dispatchSpy)).toEqual(["OOIOO"]);
     });
   });
+
+  describe("read-only artist/album/label display after release pick (WXYC/dj-site#710)", () => {
+    // Rotation mode does not mount the artist/album/label `<input>` fields the
+    // non-rotation surface uses; the DJ used to see no UI surface for those
+    // values even though `handleSelectRelease` had populated them in Redux.
+    // The display elements below give the DJ visibility (and confirm the
+    // label autopop from sibling #709 is actually landing). Editability is a
+    // separate follow-up.
+
+    it("does not render the read-only displays before a release is picked", () => {
+      renderWithProviders(<RotationEntryFields disabled={false} />);
+
+      expect(
+        screen.queryByTestId("rotation-entry-display-artist")
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId("rotation-entry-display-album")
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId("rotation-entry-display-label")
+      ).not.toBeInTheDocument();
+    });
+
+    it("surfaces the picked release's artist, album, and label as read-only", () => {
+      renderWithProviders(<RotationEntryFields disabled={false} />);
+
+      selectBinAndRelease();
+
+      const artist = screen.getByTestId("rotation-entry-display-artist");
+      const album = screen.getByTestId("rotation-entry-display-album");
+      const label = screen.getByTestId("rotation-entry-display-label");
+
+      expect(artist).toHaveTextContent("OOIOO");
+      expect(album).toHaveTextContent("OOIOO / Lightning Bolt Split");
+      expect(label).toHaveTextContent("Load Records");
+    });
+
+    it("keeps the track picker mounted after a release is picked", () => {
+      // Regression guard: the displays sit between release-dropdown and the
+      // track picker/song input. Verify the track surface still renders so a
+      // refactor of the layout doesn't accidentally hide it.
+      mockTracksData = [
+        { position: "A1", title: "la paradoja", duration: null, artists: [] },
+      ];
+
+      renderWithProviders(<RotationEntryFields disabled={false} />);
+      selectBinAndRelease();
+
+      expect(screen.getByTestId("track-picker-trigger")).toBeInTheDocument();
+    });
+  });
 });
