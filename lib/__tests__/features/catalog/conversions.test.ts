@@ -64,7 +64,13 @@ const unlinkedRowUndefinedId = {
   ...unlinkedRowBase,
   id: undefined as unknown as number,
 } as AlbumSearchResultJSON;
-const unlinkedRowOmittedId = unlinkedRowBase as unknown as AlbumSearchResultJSON;
+// Cloned (not aliased) so a later test mutating this fixture wouldn't
+// silently corrupt `unlinkedRowBase` and the two spread-derived fixtures
+// above. The `expect("id" in unlinkedRowOmittedId).toBe(false)` assertion in
+// the omitted-key tests is load-bearing — keeping the clone isolates it.
+const unlinkedRowOmittedId = {
+  ...unlinkedRowBase,
+} as unknown as AlbumSearchResultJSON;
 
 // Real `BinLibraryDetails` shape per `@wxyc/shared/api.yaml:1505-1525` — 9
 // fields, no `id`, no rotation fields, no `add_date`, no `plays`. This is the
@@ -148,23 +154,34 @@ describe("catalog conversions", () => {
         expect(first.id).toBe(second.id);
       });
 
-      it("synthesizes DIFFERENT ids for different snapshots", () => {
-        // Partial collision-freedom pin: two rows with different snapshot
-        // fields must hash to different negative ids. (True collision-freedom
-        // over arbitrary inputs is not testable; this guards the common case
-        // and would catch a regression that, say, hashed only `artist_name`.)
-        // Known collision risk: two unlinked rotation rows with IDENTICAL
-        // snapshot fields but different rotation_ids would still collide —
-        // tracked as a follow-up; see comment on `synthesizeAlbumId`.
+      it("synthesizes DIFFERENT ids when artist/album/label differ", () => {
+        // Catches a regression that drops any of those three from the hash.
         const yenbett = convertToAlbumEntry(unlinkedRowNullId);
-        const otherUnlinked = convertToAlbumEntry({
+        const differentArtistAlbumLabel = convertToAlbumEntry({
           ...unlinkedRowBase,
           album_title: "DOGA",
           artist_name: "Juana Molina",
           label: "Sonamos",
           id: null as unknown as number,
         } as AlbumSearchResultJSON);
-        expect(yenbett.id).not.toBe(otherUnlinked.id);
+        expect(yenbett.id).not.toBe(differentArtistAlbumLabel.id);
+      });
+
+      it("synthesizes DIFFERENT ids when only code_letters / code_number differ", () => {
+        // Hash inputs include `code_letters`, `code_artist_number`, and
+        // `code_number` — same album/artist/label across two unlinked rows
+        // with different catalog codes must still hash distinctly. Real WXYC
+        // case: a multi-format reissue (CD vs LP) of the same release where
+        // the rotation snapshot carries different code_number values.
+        const yenbett = convertToAlbumEntry(unlinkedRowNullId);
+        const yenbettDifferentCodes = convertToAlbumEntry({
+          ...unlinkedRowBase,
+          code_letters: "B",
+          code_artist_number: 7,
+          code_number: 99,
+          id: null as unknown as number,
+        } as AlbumSearchResultJSON);
+        expect(yenbett.id).not.toBe(yenbettDifferentCodes.id);
       });
     });
 
@@ -268,9 +285,10 @@ describe("catalog conversions", () => {
         expect(submission.rotation_bin).toBe(Rotation.H);
       });
 
-      it("carries rotation_id from a library-UNLINKED row through to the wire payload", () => {
+      it("carries rotation metadata from a library-UNLINKED (id:undefined) row through to the wire payload", () => {
         const albumEntry = convertToAlbumEntry(unlinkedRowUndefinedId);
         expect(albumEntry.rotation_id).toBe(5042);
+        expect(albumEntry.rotation_bin).toBe(Rotation.S);
 
         const state = flowsheetSlice.reducer(
           defaultFlowsheetFrontendState,
@@ -280,28 +298,65 @@ describe("catalog conversions", () => {
             rotation_bin: albumEntry.rotation_bin,
           })
         );
+        // Pin chain identity at every stage — a regression that substituted
+        // a different value (e.g. a sentinel -1, a hash from query fields
+        // rather than the album entry) would still satisfy the looser
+        // sign-only `album_id < 0` check below but would be a different
+        // leak than #608 documents.
+        expect(state.search.query.album_id).toBe(albumEntry.id);
         expect(state.search.query.rotation_id).toBe(5042);
+        expect(state.search.query.rotation_bin).toBe(Rotation.S);
 
         const submission = convertQueryToSubmission(state.search.query) as {
           album_id?: number;
           rotation_id?: number;
+          rotation_bin?: Rotation;
         };
+        expect(submission.album_id).toBe(albumEntry.id);
         expect(submission.rotation_id).toBe(5042);
+        expect(submission.rotation_bin).toBe(Rotation.S);
 
-        // KNOWN ISSUE (not introduced by #691; tracked separately): the
-        // submission also carries the negative synthetic album_id from
-        // `synthesizeAlbumId`. Backend-Service `flowsheet.controller.ts`
-        // takes the `body.album_id != null` branch for any negative number,
-        // calls `getAlbumFromDB(-X)` (returns undefined), then throws
-        // TypeError on `albumInfo.record_label = ...`. The fix in this PR
-        // restores rotation_id propagation through the conversion layer; the
-        // end-to-end picker flow for library-unlinked rotation rows requires
-        // a follow-up to either (a) strip negative ids in
-        // `convertQueryToSubmission`, or (b) coerce to null when the id is
-        // synthetic. Asserted here as the current observed behavior so the
-        // test fails loudly if either layer changes without a coordinated
-        // update.
+        // Tracked in dj-site#608: synthetic negative album_id from
+        // `synthesizeAlbumId` (used as a stable React key for unlinked rows)
+        // leaks through `setRotationMetadata` and `convertQueryToSubmission`
+        // to the wire. BS `flowsheet.controller.ts` takes the
+        // `body.album_id != null` branch for negative numbers, calls
+        // `getAlbumFromDB(-X)` → undefined → throws TypeError on
+        // `albumInfo.record_label = ...`. This PR restores the conversion-
+        // layer propagation only; the wire leak is the separate follow-up.
+        // Pinned here so any fix in either layer (strip in submission;
+        // coerce to null when synthetic) updates the assertion deliberately.
         expect(submission.album_id).toBeLessThan(0);
+      });
+
+      it("carries rotation metadata from a library-UNLINKED (id omitted) row through to the wire payload", () => {
+        // Sibling coverage for the omitted-key wire shape — the JSON-
+        // omission upstream coercion mode. Same chain as the id:undefined
+        // variant; the two id-absence shapes flow through different
+        // `isSearchResult` branches in `convertToAlbumEntry`, so both need
+        // wire-chain coverage.
+        const albumEntry = convertToAlbumEntry(unlinkedRowOmittedId);
+        expect(albumEntry.rotation_id).toBe(5042);
+        expect(albumEntry.rotation_bin).toBe(Rotation.S);
+
+        const state = flowsheetSlice.reducer(
+          defaultFlowsheetFrontendState,
+          flowsheetSlice.actions.setRotationMetadata({
+            album_id: albumEntry.id,
+            rotation_id: albumEntry.rotation_id,
+            rotation_bin: albumEntry.rotation_bin,
+          })
+        );
+
+        const submission = convertQueryToSubmission(state.search.query) as {
+          album_id?: number;
+          rotation_id?: number;
+          rotation_bin?: Rotation;
+        };
+        expect(submission.album_id).toBe(albumEntry.id);
+        expect(submission.rotation_id).toBe(5042);
+        expect(submission.rotation_bin).toBe(Rotation.S);
+        expect(submission.album_id).toBeLessThan(0); // see dj-site#608
       });
     });
   });

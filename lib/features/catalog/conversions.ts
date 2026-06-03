@@ -15,11 +15,11 @@ function isSearchResult(
 // across renders and negated so it can't collide with real positive album ids.
 //
 // Known follow-ups (out of scope for #691):
-//   1. Hash inputs are (artist|album|label|letters|artist_num|num) — two
-//      unlinked rotation rows with identical denormalized snapshots but
-//      different rotation_ids collide on the same React key.
-//   2. The synthetic id is intended for client-side rendering only, but
-//      currently propagates through `setRotationMetadata` →
+//   1. dj-site#626 — hash inputs are (artist|album|label|letters|artist_num|
+//      num); two unlinked rotation rows with identical denormalized snapshots
+//      but different rotation_ids collide on the same React key.
+//   2. dj-site#608 — the synthetic id is intended for client-side rendering
+//      only, but currently propagates through `setRotationMetadata` →
 //      `convertQueryToSubmission` to the wire. BS takes the `album_id != null`
 //      branch on negative numbers and throws TypeError. The unlinked-row e2e
 //      test in `__tests__/features/catalog/conversions.test.ts` pins the
