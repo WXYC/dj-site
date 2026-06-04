@@ -148,20 +148,6 @@ export type DJRequestParams = {
   dj_id: string; // User ID from better-auth (string)
 };
 
-// Local field shim: BS#1320 (closes BS#1295) added `dj_name_override` to
-// POST /flowsheet/join. The shared OpenAPI contract in @wxyc/shared/api.yaml
-// has not been updated yet — remove this type and switch the joinShow
-// mutation back to DJRequestParams once @wxyc/shared publishes the field.
-export type JoinShowParams = DJRequestParams & {
-  /**
-   * Optional per-show override for the DJ's public handle. When present and
-   * non-empty, the backend uses this value (instead of `auth_user.dj_name`)
-   * for the show_start marker text + `flowsheet.dj_name` column +
-   * `shows.legacy_dj_name` column. Co-host /join ignores it.
-   */
-  dj_name_override?: string;
-};
-
 export type DJInfoResponse = {
   id: number;
   add_date: string;
