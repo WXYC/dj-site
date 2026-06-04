@@ -118,6 +118,32 @@ jobs:
             npx vitest run --shard=${{ matrix.shard }}
           fi
 
+  # Umbrella over the unit-test matrix. Branch protection cannot require the
+  # per-shard names ("Unit Tests (1/3)" etc.) because when the matrix is
+  # `if:`-gated off, GitHub posts a single status with the literal
+  # `${{ matrix.shard }}` placeholder instead of expanding to one status per
+  # shard. Required-status-checks then sees the expected names as missing and
+  # blocks the PR forever. This umbrella posts a stable name ("Unit Tests")
+  # regardless of whether the matrix expands, and accepts `skipped` as
+  # success so workflow-only PRs can satisfy it.
+  unit-tests:
+    name: Unit Tests
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify all shards passed
+        run: |
+          case "${{ needs.test.result }}" in
+            success|skipped)
+              echo "Unit test matrix result: ${{ needs.test.result }}"
+              ;;
+            *)
+              echo "One or more unit-test shards failed: ${{ needs.test.result }}"
+              exit 1
+              ;;
+          esac
+
   build:
     name: Build
     needs: changes
