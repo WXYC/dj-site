@@ -78,7 +78,7 @@ export default function RotationReleaseDropdown({
   return (
     <ClickAwayListener onClickAway={() => setOpen(false)}>
       <Box
-        sx={{ position: "relative", flex: 1, display: "flex", alignItems: "center" }}
+        sx={{ position: "relative", flex: 1, minWidth: 0, display: "flex", alignItems: "center" }}
         onKeyDown={handleKeyDown}
       >
         <Box
