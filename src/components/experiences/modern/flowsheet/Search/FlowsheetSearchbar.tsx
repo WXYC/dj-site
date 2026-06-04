@@ -182,6 +182,7 @@ export default function FlowsheetSearchbar() {
               justifyContent: "space-between",
               flexDirection: "row",
               flexGrow: 1,
+              minWidth: 0,
               zIndex: 8001,
               background: "transparent",
               outline: "1px solid",
