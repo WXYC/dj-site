@@ -59,7 +59,7 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.1.2",
-    "@vitest/coverage-v8": "^4.1.7",
+    "@vitest/coverage-v8": "^4.1.8",
     "@vitest/ui": "^4.0.18",
     "esbuild": "^0.28.0",
     "jsdom": "^29.1.1",
