@@ -1,5 +1,9 @@
 name: Cloudflare Deployment Status Monitor
 
+# Hourly monitor: queries the Cloudflare API for the latest production
+# deployment, probes the live URL for runtime health, and opens/closes an
+# issue labeled `cloudflare-deploy-failure` when the two disagree.
+
 on:
   schedule:
     - cron: '0 * * * *'
