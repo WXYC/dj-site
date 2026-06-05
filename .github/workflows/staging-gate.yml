@@ -1,0 +1,281 @@
+name: staging-gate
+
+# Staging gate for dj-site CF Pages promotion. Runs on every merge to
+# `main`: waits for the CF Pages preview build, probes the preview URL
+# for runtime health, and on pass fast-forwards `prod` to the merged
+# SHA. CF Pages's existing prod deploy (configured to watch `prod`)
+# fires from `push: prod`.
+#
+# Helpers live alongside this workflow at scripts/staging-gate/ (not
+# scripts/) so the gate's blast radius is obvious from one directory
+# listing. Each helper has bats tests in scripts/__tests__/staging-gate/.
+#
+# Design notes:
+#   - CF Pages does NOT emit `repository_dispatch` on preview deploy
+#     success, so we poll the CF API in wait-for-cf-preview.sh rather
+#     than wait for a dispatch (the bs-lml-gate pattern).
+#   - concurrency.cancel-in-progress is false because a cancelled
+#     mid-push would leave the prod ref in an indeterminate state.
+#   - The prod push uses a repo-scoped fine-grained PAT (PROD_PUSH_PAT),
+#     not GITHUB_TOKEN, so the audit log shows the promoter bot and so
+#     the workflow's own GITHUB_TOKEN can stay at contents:read.
+#   - No canary suite here — BS+LML health is already gated by
+#     bs-lml-gate (per BS/LML staging deploy) and the wxyc-canary Lambda
+#     (every 5 min). Adding a third probe on every dj-site main push
+#     would be redundant. The preview-URL probe IS the runtime smoke.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      skip_gate:
+        description: 'Bypass CF preview wait + URL probe (still posts audit comment).'
+        type: boolean
+        default: false
+      justification:
+        # `required: true` would force a justification on every
+        # workflow_dispatch (including normal re-runs where it's
+        # ignored), so we keep this as `required: false` and let
+        # log-bypass.sh enforce non-emptiness when skip_gate=true.
+        description: 'Required when skip_gate=true; ignored otherwise. Audited (markdown is escaped).'
+        type: string
+        required: false
+      target_sha:
+        description: 'Override SHA to promote (defaults to the workflow ref HEAD). Must already be on main.'
+        type: string
+        required: false
+
+permissions:
+  contents: read
+  issues: write   # for the bypass audit comment
+
+concurrency:
+  group: dj-site-gate
+  cancel-in-progress: false
+
+env:
+  BYPASS_TRACKER_REPO: ${{ github.repository }}
+  # Set in the repo as a *variable* (not secret). Created once by the
+  # operator setup checklist in README — points at the long-lived pinned
+  # "gate bypasses" tracker issue.
+  BYPASS_TRACKER_ISSUE: ${{ vars.GATE_BYPASS_ISSUE_NUMBER }}
+
+jobs:
+  gate:
+    runs-on: [self-hosted, e2e-runner]
+    timeout-minutes: 30
+    steps:
+      - name: Checkout dj-site (for helper scripts)
+        uses: actions/checkout@v6
+        with:
+          # Only need the helpers; fetch-depth: 1 keeps the runner clean.
+          fetch-depth: 1
+
+      - name: Resolve target_sha + current prod SHA
+        id: shas
+        # Both values pass through env to avoid shell-quoting hazards if
+        # github.event.after or inputs.target_sha ever contains exotic
+        # bytes (push:main can never inject — GitHub validates SHAs —
+        # but inputs.target_sha is operator-controlled).
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_TARGET_SHA: ${{ inputs.target_sha }}
+          EVENT_AFTER: ${{ github.event.after }}
+          DEFAULT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          target="${INPUT_TARGET_SHA:-${EVENT_AFTER:-$DEFAULT_SHA}}"
+          if ! [[ "$target" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::target_sha is not a 40-char hex SHA: '$target'"
+            exit 1
+          fi
+          echo "target_sha=$target" >>"$GITHUB_OUTPUT"
+
+          # Current prod ref; 404 means seed (no `prod` branch yet).
+          # `gh api` exits non-zero on 404, so route through `|| rc=$?`
+          # and grep stderr for the explicit 404 marker.
+          err_file=$(mktemp)
+          if body=$(gh api "repos/${GITHUB_REPOSITORY}/git/refs/heads/prod" 2>"$err_file"); then
+            prod=$(echo "$body" | jq -r '.object.sha')
+          elif grep -q 'HTTP 404' "$err_file"; then
+            prod=""
+          else
+            echo "::error::gh api failed unexpectedly:"
+            cat "$err_file" >&2
+            rm -f "$err_file"
+            exit 1
+          fi
+          rm -f "$err_file"
+          echo "prod_sha=$prod" >>"$GITHUB_OUTPUT"
+          echo "Target: $target"
+          echo "Prod:   ${prod:-<seed>}"
+
+      - name: Early-exit if prod already matches target (nothing to promote)
+        id: noop
+        env:
+          TARGET: ${{ steps.shas.outputs.target_sha }}
+          PROD: ${{ steps.shas.outputs.prod_sha }}
+        run: |
+          if [[ "$TARGET" == "$PROD" ]]; then
+            echo "noop=true" >>"$GITHUB_OUTPUT"
+            echo "prod already at $TARGET; nothing to do."
+          else
+            echo "noop=false" >>"$GITHUB_OUTPUT"
+          fi
+
+      - name: Wait for CF Pages preview deployment
+        id: cf
+        if: steps.noop.outputs.noop != 'true' && inputs.skip_gate != true
+        env:
+          CF_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_PROJECT: wxyc-dj
+          TARGET_SHA: ${{ steps.shas.outputs.target_sha }}
+          # 10 min default already; explicit here so a future operator
+          # tuning the poll budget knows where to look.
+          POLL_TIMEOUT_SECS: '600'
+          POLL_INTERVAL_SECS: '10'
+        run: ./scripts/staging-gate/wait-for-cf-preview.sh
+
+      - name: Probe preview URL for runtime health
+        if: steps.noop.outputs.noop != 'true' && inputs.skip_gate != true
+        env:
+          # The URL came from wait-for-cf-preview's output; hoist through
+          # env even though CF-issued URLs are trustworthy, to keep the
+          # injection-defense pattern consistent across the workflow.
+          PREVIEW_URL: ${{ steps.cf.outputs.preview_url }}
+        run: |
+          set -uo pipefail
+          # The 2026-06-03 outage shipped a build that CF reported as
+          # `success` but whose worker 500'd on every request. Re-probe
+          # the live URL before promoting. 3 attempts × 5s = 15s budget
+          # absorbs the small window between CF's success-report and
+          # worker readiness without burning a full minute.
+          last=""
+          for attempt in 1 2 3; do
+            last="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 "$PREVIEW_URL/" || echo 000)"
+            case "$last" in
+              # 401/403 are healthy for an unauthenticated curl against
+              # a route the worker auth-gates — matches the convention
+              # in cloudflare-deploy-status.yml.
+              2*|3*|401|403)
+                echo "Preview URL $PREVIEW_URL healthy ($last) on attempt $attempt"
+                exit 0
+                ;;
+              *)
+                echo "Attempt $attempt: $last (retrying in 5s)"
+                ;;
+            esac
+            sleep 5
+          done
+          echo "::error::Preview URL $PREVIEW_URL unhealthy after 3 attempts (last: $last)"
+          exit 1
+
+      # Bypass audit MUST run before any prod push. The push step below
+      # gates on `success() &&` (load-bearing — see below): if log-bypass
+      # exits non-zero, success() goes false and the push skips. The noop
+      # guard prevents misleading "promoted" audit entries when prod is
+      # already at target.
+      - name: Audit bypass to tracker issue (before any prod push)
+        id: audit
+        if: inputs.skip_gate == true && steps.noop.outputs.noop != 'true'
+        env:
+          BYPASS_REPO: ${{ env.BYPASS_TRACKER_REPO }}
+          BYPASS_ISSUE_NUMBER: ${{ env.BYPASS_TRACKER_ISSUE }}
+          BYPASS_ACTOR: ${{ github.actor }}
+          BYPASS_JUSTIFICATION: ${{ inputs.justification }}
+          BYPASS_DJ_SITE_SHA: ${{ steps.shas.outputs.target_sha }}
+          BYPASS_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./scripts/staging-gate/log-bypass.sh
+
+      # `success() &&` is explicit here (and load-bearing): it ensures
+      # that if ANY prior step failed — CF wait, URL probe, audit — the
+      # prod push is skipped. Do not remove without first replacing it
+      # with an equivalent guard, or the gate will silently bypass.
+      - name: Push dj-site prod
+        id: push
+        if: success() && steps.noop.outputs.noop != 'true'
+        env:
+          PUSH_REPO: ${{ github.repository }}
+          PUSH_TARGET_SHA: ${{ steps.shas.outputs.target_sha }}
+          PUSH_CURRENT_SHA: ${{ steps.shas.outputs.prod_sha }}
+          PUSH_PAT: ${{ secrets.PROD_PUSH_PAT }}
+        run: ./scripts/staging-gate/push-prod.sh
+
+      - name: Job summary
+        if: always()
+        env:
+          PUSH_OUTCOME: ${{ steps.push.outcome }}
+          # did_push is "true" when push-prod actually called the
+          # refs API, "false" when it short-circuited at
+          # target==current, and empty when the step didn't run.
+          DID_PUSH: ${{ steps.push.outputs.did_push }}
+          # Audit outcome distinguishes "audit ran and succeeded"
+          # (footer reference is valid) from "audit was skipped"
+          # (no comment posted — footer would lie).
+          AUDIT_OUTCOME: ${{ steps.audit.outcome }}
+          NOOP: ${{ steps.noop.outputs.noop }}
+          SKIP_GATE: ${{ inputs.skip_gate }}
+          TARGET: ${{ steps.shas.outputs.target_sha }}
+          PROD: ${{ steps.shas.outputs.prod_sha }}
+          PREVIEW_URL: ${{ steps.cf.outputs.preview_url }}
+        run: |
+          render_outcome() {
+            # $1 = step outcome (success|failure|skipped|cancelled|"")
+            # $2 = did_push output (true|false|"")
+            # $3 = "true" iff noop early-exit fired
+            case "$1" in
+              success)
+                if [[ "$2" == "false" ]]; then
+                  echo "unchanged (already at target)"
+                else
+                  echo "advanced"
+                fi
+                ;;
+              failure)   echo ":warning: **push failed**" ;;
+              skipped)
+                if [[ "$3" == "true" ]]; then
+                  echo "unchanged (prod already at target)"
+                else
+                  echo "skipped (prior step failed)"
+                fi
+                ;;
+              cancelled) echo ":octagonal_sign: cancelled mid-push" ;;
+              "")        echo "not reached" ;;
+              *)         echo "$1" ;;
+            esac
+          }
+          {
+            echo "## dj-site staging-gate run"
+            echo ""
+            echo "| Old prod | New prod | Preview | Outcome |"
+            echo "| --- | --- | --- | --- |"
+            preview_cell="${PREVIEW_URL:-n/a}"
+            echo "| \`${PROD:0:12}${PROD:+ }${PROD:-<seed>}\` | \`${TARGET:0:12}\` | ${preview_cell} | $(render_outcome "$PUSH_OUTCOME" "$DID_PUSH" "$NOOP") |"
+            echo ""
+            # Possible-split detection: emit_output is fail-loud in
+            # push-prod.sh, so a successful gh PATCH followed by a
+            # failed $GITHUB_OUTPUT write produces step
+            # outcome=failure with did_push="" — the ref may or may
+            # not have moved. We can't tell from the step output, so
+            # we flag and point at the runbook. Most push failures
+            # will be before the API call (so no split), but the
+            # runbook check is cheap.
+            if [[ ( "$PUSH_OUTCOME" == "failure" || "$PUSH_OUTCOME" == "cancelled" ) && "$DID_PUSH" != "true" ]]; then
+              echo ":warning: **Possible ambiguous push outcome**: push step ended in \`$PUSH_OUTCOME\`; the API PATCH may have landed before the bad-state outcome. Check \`prod\` HEAD against \`${TARGET:0:12}\` directly via the GitHub API. If advanced, treat as a successful promotion and check CF Pages deploy status."
+              echo ""
+            fi
+            # Only print the bypass footer if the audit step actually
+            # ran and succeeded — otherwise it would point at a tracker
+            # comment that doesn't exist (e.g., noop + skip_gate=true
+            # skips the audit step, so no comment was posted).
+            if [[ "$SKIP_GATE" == "true" && "$AUDIT_OUTCOME" == "success" ]]; then
+              echo "**Bypass:** gate skipped per workflow_dispatch input. Justification logged at ${BYPASS_TRACKER_REPO}#${BYPASS_TRACKER_ISSUE}."
+            elif [[ "$SKIP_GATE" == "true" && "$NOOP" == "true" ]]; then
+              echo "**Bypass requested but suppressed:** prod already at target; nothing to promote. No audit comment posted."
+            elif [[ "$SKIP_GATE" == "true" ]]; then
+              echo "**Bypass requested but blocked:** audit step did not succeed (\`$AUDIT_OUTCOME\`); prod was not advanced."
+            fi
+          } >>"$GITHUB_STEP_SUMMARY"

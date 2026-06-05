@@ -1,0 +1,9 @@
+# actionlint config for dj-site workflows.
+#
+# self-hosted-runner.labels lists custom labels we register on org-level
+# self-hosted runners. Without this, actionlint flags `runs-on:
+# [self-hosted, e2e-runner]` as an unknown label (used by
+# .github/workflows/staging-gate.yml).
+self-hosted-runner:
+  labels:
+    - e2e-runner
