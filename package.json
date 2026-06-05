@@ -20,7 +20,8 @@
     "test:e2e": "playwright test --config=e2e/playwright.config.ts",
     "test:e2e:ui": "playwright test --config=e2e/playwright.config.ts --ui",
     "test:e2e:headed": "playwright test --config=e2e/playwright.config.ts --headed",
-    "test:e2e:debug": "playwright test --config=e2e/playwright.config.ts --debug"
+    "test:e2e:debug": "playwright test --config=e2e/playwright.config.ts --debug",
+    "test:staging-gate": "bats scripts/__tests__/staging-gate/*.test.sh"
   },
   "dependencies": {
     "@atlaskit/pragmatic-drag-and-drop": "^1.7.2",
@@ -61,6 +62,7 @@
     "@vitejs/plugin-react": "^5.1.2",
     "@vitest/coverage-v8": "^4.1.7",
     "@vitest/ui": "^4.0.18",
+    "bats": "^1.11.0",
     "esbuild": "^0.28.0",
     "jsdom": "^29.1.1",
     "msw": "^2.14.6",
