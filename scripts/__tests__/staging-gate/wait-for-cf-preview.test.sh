@@ -178,6 +178,27 @@ JSON_EOF
     ! grep -q '^preview_url=' "$GITHUB_OUTPUT"
 }
 
+@test "exits 1 on 'failed' status alias (CF uses both 'failure' and 'failed')" {
+    install_fake_curl "$(make_response "$TARGET_SHA_FIXTURE" failed "" deploy-3a)"
+    run "$SCRIPT_PATH"
+    [ "$status" -eq 1 ]
+    ! grep -q '^preview_url=' "$GITHUB_OUTPUT"
+}
+
+@test "exits 1 on 'canceled' status (CF cancellation, US spelling)" {
+    install_fake_curl "$(make_response "$TARGET_SHA_FIXTURE" canceled "" deploy-3b)"
+    run "$SCRIPT_PATH"
+    [ "$status" -eq 1 ]
+    ! grep -q '^preview_url=' "$GITHUB_OUTPUT"
+}
+
+@test "exits 1 on 'cancelled' status (CF cancellation, UK spelling)" {
+    install_fake_curl "$(make_response "$TARGET_SHA_FIXTURE" cancelled "" deploy-3c)"
+    run "$SCRIPT_PATH"
+    [ "$status" -eq 1 ]
+    ! grep -q '^preview_url=' "$GITHUB_OUTPUT"
+}
+
 @test "exits 1 on timeout when matching deployment never appears" {
     # Response always contains a deployment for a DIFFERENT SHA — our
     # target is never present, so the script should poll until timeout.
@@ -256,4 +277,41 @@ JSON_EOF
     grep -q "api.cloudflare.com" "$CURL_CALL_LOG"
     grep -q "pages/projects/wxyc-dj/deployments" "$CURL_CALL_LOG"
     grep -q "env=preview" "$CURL_CALL_LOG"
+}
+
+@test "picks the latest deployment (sort_by created_on) when CF returns multiple matches for the SHA" {
+    # CF may return >1 deployment for the same commit (e.g. a re-trigger
+    # via the dashboard). The script must pick the LATEST attempt, not
+    # whichever the API returns first. Construct a response with two
+    # matches: the first listed is an older failure, the second is the
+    # newer success. A naive `head -n 1 after select` would pick the
+    # failure; the sort_by(.created_on)|reverse|.[0] in the script must
+    # pick the success instead.
+    response=$(cat <<JSON_EOF
+{
+  "result": [
+    {
+      "id": "older-failure",
+      "url": "",
+      "created_on": "2026-06-05T00:00:00Z",
+      "latest_stage": { "status": "failure" },
+      "deployment_trigger": { "metadata": { "commit_hash": "$TARGET_SHA_FIXTURE" } }
+    },
+    {
+      "id": "newer-success",
+      "url": "https://newer.wxyc-dj.pages.dev",
+      "created_on": "2026-06-05T01:00:00Z",
+      "latest_stage": { "status": "success" },
+      "deployment_trigger": { "metadata": { "commit_hash": "$TARGET_SHA_FIXTURE" } }
+    }
+  ],
+  "success": true
+}
+JSON_EOF
+)
+    install_fake_curl "$response"
+    run "$SCRIPT_PATH"
+    [ "$status" -eq 0 ]
+    grep -q '^preview_url=https://newer.wxyc-dj.pages.dev$' "$GITHUB_OUTPUT"
+    grep -q '^deployment_id=newer-success$' "$GITHUB_OUTPUT"
 }
