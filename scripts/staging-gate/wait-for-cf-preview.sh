@@ -96,11 +96,17 @@ while (( SECONDS < TIMEOUT_SECS )); do
         continue
     fi
 
-    # Find the deployment for TARGET. jq returns the first match.
-    # If no match, match_status is empty string.
-    match_json="$(jq -c --arg sha "$TARGET" \
-        '.result[] | select(.deployment_trigger.metadata.commit_hash == $sha)' \
-        <<<"$body" 2>/dev/null | head -n 1)"
+    # Find the latest deployment matching TARGET. Sort by `created_on` so
+    # that if CF reordered the result array (rare but observed in their
+    # API during high-load windows), we still pick the most recent
+    # attempt for the SHA — not whichever one happens to come first.
+    # Pattern lifted from .github/workflows/pr-preview-smoke.yml's wait
+    # step, which has been live since 2026-06-03.
+    match_json="$(jq -c --arg sha "$TARGET" '
+        .result
+        | map(select(.deployment_trigger.metadata.commit_hash == $sha))
+        | sort_by(.created_on) | reverse | .[0] // empty
+    ' <<<"$body" 2>/dev/null)"
 
     if [[ -z "$match_json" ]]; then
         last_status="no-match-yet"
@@ -123,8 +129,12 @@ while (( SECONDS < TIMEOUT_SECS )); do
             emit_output deployment_id "$match_id"
             exit 0
             ;;
-        failure)
-            echo "wait-for-cf-preview: deployment ${match_id} for ${TARGET} reported failure — not promoting" >&2
+        # CF Pages emits all four spellings across endpoints (`failure`
+        # appears in some payloads, `failed` in others; same for the
+        # cancellation pair). Treat all as terminal-fail so a typo in
+        # the CF API doesn't silently unblock the promotion.
+        failure|failed|canceled|cancelled)
+            echo "wait-for-cf-preview: deployment ${match_id} for ${TARGET} reported ${match_status} — not promoting" >&2
             echo "wait-for-cf-preview: CF Pages dashboard: https://dash.cloudflare.com/${ACCOUNT_ID}/pages/view/${PROJECT}/${match_id}" >&2
             exit 1
             ;;
