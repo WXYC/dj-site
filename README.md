@@ -58,7 +58,7 @@ gh api -X PATCH repos/WXYC/dj-site/git/refs/heads/prod -f sha=<prior-sha> -F for
 The `force=true` flag is required because the rollback target is an ancestor of the current `prod` HEAD; the API otherwise refuses non-fast-forward updates.
 
 ### Tests
-Run `npm run test:staging-gate` to execute the bats suite for the helper scripts. The workflow YAML is checked by `actionlint` (see `.github/actionlint.yaml` for the custom `e2e-runner` self-hosted runner label).
+Run `npm run test:staging-gate` to execute the bats suite for the helper scripts. The workflow YAML is `actionlint`-clean against the config in `.github/actionlint.yaml` (which declares the custom `e2e-runner` self-hosted runner label so `runs-on: [self-hosted, e2e-runner]` doesn't trip the linter); run `actionlint .github/workflows/staging-gate.yml` locally before pushing changes to the workflow. Not currently wired into CI.
 
 ## API Integration
 The revised catalog leverages services defined in `api-service.js`, which utilizes the popular Axios library to communicate with an AWS API Gateway. This integration allows seamless communication between the front-end application and the API endpoints, enabling data retrieval and manipulation.
