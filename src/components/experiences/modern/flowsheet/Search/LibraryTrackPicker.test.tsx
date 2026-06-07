@@ -108,7 +108,7 @@ describe("LibraryTrackPicker", () => {
     );
 
     // Open dropdown via trigger
-    await user.click(screen.getByTestId("track-picker-trigger"));
+    await user.click(screen.getByTestId("track-picker-combobox"));
     await user.click(screen.getByTestId("track-picker-option-0"));
 
     const state = store.getState();
@@ -153,7 +153,7 @@ describe("LibraryTrackPicker", () => {
       }
     );
 
-    await user.click(screen.getByTestId("track-picker-trigger"));
+    await user.click(screen.getByTestId("track-picker-combobox"));
     fireEvent.click(screen.getByTestId("track-picker-manual"));
 
     expect(manualFired).toBe(true);
