@@ -20,7 +20,10 @@ export interface TrackPickerEntry {
 }
 
 function formatTrack(track: TrackPickerEntry): string {
-  return track.position ? `${track.position} ${track.title}` : track.title;
+  // Title only at rest — the position is structural metadata (vinyl side,
+  // disc number) the DJ already knows from the panel; it would read as part
+  // of the track title in the closed combobox ("3 El Barm" ≠ a track title).
+  return track.title;
 }
 
 function matchesQuery(track: TrackPickerEntry, query: string): boolean {

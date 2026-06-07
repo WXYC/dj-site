@@ -39,7 +39,7 @@ describe("TrackPickerDropdown — combobox (#745)", () => {
     expect(input.value).toBe("");
   });
 
-  it("shows the selected track as 'position title' when the panel is closed", () => {
+  it("shows the selected track title only when the panel is closed (position stays in the panel)", () => {
     render(
       <TrackPickerDropdown
         tracks={tracks}
@@ -50,7 +50,7 @@ describe("TrackPickerDropdown — combobox (#745)", () => {
         disabled={false}
       />
     );
-    expect(getCombobox().value).toBe("A1 Percolator");
+    expect(getCombobox().value).toBe("Percolator");
   });
 
   it("opens the panel on focus", () => {
@@ -194,7 +194,7 @@ describe("TrackPickerDropdown — combobox (#745)", () => {
     expect(
       screen.queryByTestId("track-picker-panel")
     ).not.toBeInTheDocument();
-    expect(getCombobox().value).toBe("A2 Cybele's Reverie");
+    expect(getCombobox().value).toBe("Cybele's Reverie");
   });
 
   it("always shows the 'Not listed — enter manually' option, even when the filter eliminates every track", () => {
