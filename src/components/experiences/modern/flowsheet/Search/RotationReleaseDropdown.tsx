@@ -57,14 +57,11 @@ export default function RotationReleaseDropdown({
     // again, so a non-idempotent reset would wipe the DJ's in-progress filter
     // mid-edit (typed "ste", clicked to reposition caret, panel resets to
     // showing every release).
-    setOpen((wasOpen) => {
-      if (!wasOpen) {
-        setQuery("");
-        setHighlightIndex(0);
-      }
-      return true;
-    });
-  }, [disabled]);
+    if (open) return;
+    setOpen(true);
+    setQuery("");
+    setHighlightIndex(0);
+  }, [disabled, open]);
 
   const closePanel = useCallback(() => {
     setOpen(false);
