@@ -2,9 +2,9 @@
 
 import { normalizeTrackArtists } from "@/lib/features/rotation/normalize-track-artists";
 import { KeyboardArrowDown } from "@mui/icons-material";
-import { Box, CircularProgress, Sheet, Typography } from "@mui/joy";
+import { Box, CircularProgress, Input, Sheet, Typography } from "@mui/joy";
 import { ClickAwayListener } from "@mui/material";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 /**
  * Minimal shape a track must expose to be rendered by this dropdown. Both the
@@ -17,6 +17,18 @@ export interface TrackPickerEntry {
   position: string;
   title: string;
   artists: string[];
+}
+
+function formatTrack(track: TrackPickerEntry): string {
+  return track.position ? `${track.position} ${track.title}` : track.title;
+}
+
+function matchesQuery(track: TrackPickerEntry, query: string): boolean {
+  if (!query) return true;
+  const q = query.toLowerCase();
+  if (track.title.toLowerCase().includes(q)) return true;
+  if (track.position.toLowerCase().includes(q)) return true;
+  return track.artists.some((a) => a.toLowerCase().includes(q));
 }
 
 export default function TrackPickerDropdown<T extends TrackPickerEntry>({
@@ -35,138 +47,173 @@ export default function TrackPickerDropdown<T extends TrackPickerEntry>({
   disabled: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const [highlightIndex, setHighlightIndex] = useState(-1);
-  const triggerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleToggle = useCallback(() => {
-    if (!disabled && !isLoading) {
-      setOpen((prev) => !prev);
-      setHighlightIndex(-1);
-    }
-  }, [disabled, isLoading]);
+  const visibleTracks = useMemo(() => {
+    if (!query) return tracks;
+    return tracks.filter((t) => matchesQuery(t, query));
+  }, [tracks, query]);
+
+  // While the panel is open the input mirrors the live filter query. While
+  // closed it mirrors the parent-owned selection so the trigger reads
+  // "A1 Track Title" at rest. Matches the rotation-picker pattern (#745).
+  const displayValue = open
+    ? query
+    : selectedTrack
+      ? formatTrack(selectedTrack)
+      : "";
+
+  const placeholder = isLoading
+    ? "Loading tracks..."
+    : tracks.length === 0
+      ? "Song Title"
+      : "Select Track...";
+
+  const inputDisabled = disabled || isLoading;
+
+  const openPanel = useCallback(() => {
+    if (inputDisabled) return;
+    setOpen(true);
+    setQuery("");
+    setHighlightIndex(0);
+  }, [inputDisabled]);
+
+  const closePanel = useCallback(() => {
+    setOpen(false);
+    setQuery("");
+    setHighlightIndex(-1);
+  }, []);
 
   const handleSelect = useCallback(
     (track: T) => {
       onSelectTrack(track);
-      setOpen(false);
+      closePanel();
     },
-    [onSelectTrack]
+    [onSelectTrack, closePanel]
   );
+
+  const handleManual = useCallback(() => {
+    onManualEntry();
+    closePanel();
+  }, [onManualEntry, closePanel]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (!open) {
-        if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
+        if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          setOpen(true);
-          setHighlightIndex(0);
+          openPanel();
         }
         return;
       }
-
-      // Total items = tracks + "Not listed" option
-      const totalItems = tracks.length + 1;
-
+      // Total navigable items = visible tracks + "Not listed" manual option.
+      const totalItems = visibleTracks.length + 1;
       switch (e.key) {
         case "ArrowDown":
           e.preventDefault();
-          e.stopPropagation();
           setHighlightIndex((prev) => Math.min(prev + 1, totalItems - 1));
           break;
         case "ArrowUp":
           e.preventDefault();
-          e.stopPropagation();
           setHighlightIndex((prev) => Math.max(prev - 1, 0));
           break;
         case "Enter":
           e.preventDefault();
-          e.stopPropagation();
-          if (highlightIndex === tracks.length) {
-            // "Not listed" option
-            onManualEntry();
-            setOpen(false);
-          } else if (highlightIndex >= 0 && highlightIndex < tracks.length) {
-            handleSelect(tracks[highlightIndex]);
+          if (highlightIndex === visibleTracks.length) {
+            handleManual();
+          } else if (
+            highlightIndex >= 0 &&
+            highlightIndex < visibleTracks.length
+          ) {
+            handleSelect(visibleTracks[highlightIndex]);
           }
           break;
         case "Escape":
           e.preventDefault();
-          setOpen(false);
-          triggerRef.current?.focus();
+          closePanel();
+          inputRef.current?.blur();
           break;
       }
     },
-    [open, tracks, highlightIndex, handleSelect, onManualEntry]
+    [
+      open,
+      openPanel,
+      closePanel,
+      visibleTracks,
+      highlightIndex,
+      handleSelect,
+      handleManual,
+    ]
   );
 
   return (
-    <ClickAwayListener onClickAway={() => setOpen(false)}>
+    <ClickAwayListener onClickAway={closePanel}>
       <Box
-        sx={{ position: "relative", flex: 1, minWidth: 0, display: "flex", alignItems: "center" }}
-        onKeyDown={handleKeyDown}
+        sx={{
+          position: "relative",
+          flex: 1,
+          minWidth: 0,
+          display: "flex",
+          alignItems: "center",
+        }}
       >
-        <Box
-          ref={triggerRef}
-          tabIndex={disabled ? -1 : 0}
-          data-testid="track-picker-trigger"
-          onClick={handleToggle}
+        <Input
+          size="sm"
+          fullWidth
+          variant="plain"
+          disabled={inputDisabled}
+          placeholder={placeholder}
+          value={displayValue}
+          onFocus={openPanel}
+          // Clicking an already-focused input doesn't refire onFocus; an
+          // idempotent reopen on click handles that case.
+          onClick={openPanel}
+          onChange={(e) => {
+            if (!open) openPanel();
+            setQuery(e.target.value);
+            setHighlightIndex(0);
+          }}
+          onKeyDown={handleKeyDown}
+          startDecorator={
+            isLoading ? (
+              <CircularProgress
+                size="sm"
+                sx={{ "--CircularProgress-size": "14px" }}
+              />
+            ) : undefined
+          }
+          endDecorator={
+            tracks.length > 0 || isLoading ? (
+              <KeyboardArrowDown
+                sx={{
+                  fontSize: "1rem",
+                  transition: "transform 0.2s",
+                  transform: open ? "rotate(180deg)" : "none",
+                  opacity: inputDisabled ? 0.4 : 0.7,
+                }}
+              />
+            ) : undefined
+          }
+          // Sit flat inside the parent search row's square frame — no border,
+          // no radius, no background tint. Matches RotationReleaseDropdown.
           sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flex: 1,
-            px: 1,
-            minHeight: "2rem",
-            cursor: disabled ? "default" : "pointer",
-            opacity: disabled ? 0.5 : 1,
-            overflow: "hidden",
-            "&:focus-visible": {
-              outline: "2px solid var(--joy-palette-primary-400)",
-              outlineOffset: "-2px",
-              borderRadius: "4px",
+            borderRadius: 0,
+            backgroundColor: "transparent",
+            "--Input-focusedThickness": "0px",
+            "&:hover": { backgroundColor: "transparent" },
+            "&.Mui-focused": { backgroundColor: "transparent" },
+          }}
+          slotProps={{
+            input: {
+              ref: inputRef,
+              "data-testid": "track-picker-combobox",
+              autoComplete: "off",
+              spellCheck: false,
             },
           }}
-        >
-          {isLoading ? (
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <CircularProgress size="sm" sx={{ "--CircularProgress-size": "14px" }} />
-              <Typography level="body-sm" sx={{ opacity: 0.5 }}>
-                Loading tracks...
-              </Typography>
-            </Box>
-          ) : selectedTrack ? (
-            <Typography
-              level="body-sm"
-              sx={{
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              {selectedTrack.position && (
-                <Typography component="span" sx={{ opacity: 0.6, mr: 0.5 }}>
-                  {selectedTrack.position}
-                </Typography>
-              )}
-              {selectedTrack.title}
-            </Typography>
-          ) : (
-            <Typography level="body-sm" sx={{ opacity: 0.5 }}>
-              {tracks.length > 0 ? "Select Track..." : "Song Title"}
-            </Typography>
-          )}
-          {tracks.length > 0 && (
-            <KeyboardArrowDown
-              sx={{
-                fontSize: "1rem",
-                ml: 0.5,
-                flexShrink: 0,
-                transition: "transform 0.2s",
-                transform: open ? "rotate(180deg)" : "none",
-              }}
-            />
-          )}
-        </Box>
+        />
 
         {open && (
           <Sheet
@@ -187,12 +234,20 @@ export default function TrackPickerDropdown<T extends TrackPickerEntry>({
               py: 0.5,
             }}
           >
-            {tracks.map((track, index) => {
+            {visibleTracks.map((track, index) => {
+              // Stable testid keyed off the ORIGINAL tracks-array index so
+              // tests can find a row by its catalog position regardless of
+              // which subset survives the current filter.
+              const originalIndex = tracks.indexOf(track);
               const cleanArtists = normalizeTrackArtists(track.artists);
               return (
                 <Box
-                  key={`${track.position}-${index}`}
-                  data-testid={`track-picker-option-${index}`}
+                  key={`${track.position}-${originalIndex}`}
+                  data-testid={`track-picker-option-${originalIndex}`}
+                  // `onMouseDown` preventDefault keeps focus on the input so
+                  // the ClickAway / blur path doesn't close the panel before
+                  // the option's `onClick` selection handler runs.
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleSelect(track)}
                   sx={{
                     display: "flex",
@@ -203,7 +258,10 @@ export default function TrackPickerDropdown<T extends TrackPickerEntry>({
                     backgroundColor:
                       highlightIndex === index ? "primary.700" : "transparent",
                     "&:hover": {
-                      backgroundColor: highlightIndex === index ? "primary.700" : "neutral.800",
+                      backgroundColor:
+                        highlightIndex === index
+                          ? "primary.700"
+                          : "neutral.800",
                     },
                   }}
                   onMouseEnter={() => setHighlightIndex(index)}
@@ -214,7 +272,10 @@ export default function TrackPickerDropdown<T extends TrackPickerEntry>({
                       opacity: 0.5,
                       minWidth: "28px",
                       pt: 0.25,
-                      color: highlightIndex === index ? "neutral.300" : "text.tertiary",
+                      color:
+                        highlightIndex === index
+                          ? "neutral.300"
+                          : "text.tertiary",
                     }}
                   >
                     {track.position}
@@ -233,7 +294,10 @@ export default function TrackPickerDropdown<T extends TrackPickerEntry>({
                         level="body-xs"
                         sx={{
                           opacity: 0.6,
-                          color: highlightIndex === index ? "neutral.300" : "text.tertiary",
+                          color:
+                            highlightIndex === index
+                              ? "neutral.300"
+                              : "text.tertiary",
                         }}
                       >
                         {cleanArtists.join(", ")}
@@ -245,7 +309,8 @@ export default function TrackPickerDropdown<T extends TrackPickerEntry>({
             })}
             <Box
               data-testid="track-picker-manual"
-              onClick={() => { onManualEntry(); setOpen(false); }}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={handleManual}
               sx={{
                 display: "flex",
                 alignItems: "center",
@@ -256,19 +321,27 @@ export default function TrackPickerDropdown<T extends TrackPickerEntry>({
                 borderColor: "divider",
                 mt: 0.5,
                 backgroundColor:
-                  highlightIndex === tracks.length ? "primary.700" : "transparent",
+                  highlightIndex === visibleTracks.length
+                    ? "primary.700"
+                    : "transparent",
                 "&:hover": {
-                  backgroundColor: highlightIndex === tracks.length ? "primary.700" : "neutral.800",
+                  backgroundColor:
+                    highlightIndex === visibleTracks.length
+                      ? "primary.700"
+                      : "neutral.800",
                 },
               }}
-              onMouseEnter={() => setHighlightIndex(tracks.length)}
+              onMouseEnter={() => setHighlightIndex(visibleTracks.length)}
             >
               <Typography
                 level="body-sm"
                 sx={{
                   fontStyle: "italic",
                   opacity: 0.7,
-                  color: highlightIndex === tracks.length ? "white" : "inherit",
+                  color:
+                    highlightIndex === visibleTracks.length
+                      ? "white"
+                      : "inherit",
                 }}
               >
                 Not listed — enter manually

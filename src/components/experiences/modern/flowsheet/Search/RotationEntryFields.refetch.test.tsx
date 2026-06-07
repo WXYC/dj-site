@@ -111,7 +111,7 @@ describe("RotationEntryFields — refetch on release pick (#589)", () => {
       expect(trackRequestsFor(ROTATION_ID_OOIOO)).toBeGreaterThanOrEqual(1)
     );
     await waitFor(() =>
-      expect(screen.getByTestId("track-picker-trigger")).toBeInTheDocument()
+      expect(screen.getByTestId("track-picker-combobox")).toBeInTheDocument()
     );
   });
 
@@ -156,14 +156,14 @@ describe("RotationEntryFields — refetch on release pick (#589)", () => {
     selectBin();
     await selectRelease(ooioo.id);
     await waitFor(() =>
-      expect(screen.queryByTestId("track-picker-trigger")).not.toBeInTheDocument()
+      expect(screen.queryByTestId("track-picker-combobox")).not.toBeInTheDocument()
     );
 
     await selectRelease(jessicaPratt.id);
     await selectRelease(ooioo.id);
 
     await waitFor(() =>
-      expect(screen.getByTestId("track-picker-trigger")).toBeInTheDocument()
+      expect(screen.getByTestId("track-picker-combobox")).toBeInTheDocument()
     );
   });
 });

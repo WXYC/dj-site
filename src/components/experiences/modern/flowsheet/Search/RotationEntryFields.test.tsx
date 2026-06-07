@@ -91,7 +91,7 @@ const selectBinAndRelease = () => {
 };
 
 const selectTrack = (index: number) => {
-  fireEvent.click(screen.getByTestId("track-picker-trigger"));
+  fireEvent.click(screen.getByTestId("track-picker-combobox"));
   fireEvent.click(screen.getByTestId(`track-picker-option-${index}`));
 };
 
