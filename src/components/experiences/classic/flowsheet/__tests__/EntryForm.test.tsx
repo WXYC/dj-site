@@ -284,6 +284,43 @@ describe("Classic EntryForm — Bin dropdown (replaces H/M/L/S radios)", () => {
     // can announce something meaningful for the unselected state.
     expect(placeholder.textContent?.trim().length).toBeGreaterThan(0);
   });
+
+  // WXYC/dj-site#745 — DJs need releases sorted A→Z by artist so the native
+  // <select> type-ahead lands them in the right neighborhood.
+  it("sorts heavy-rotation releases alphabetically by artist", async () => {
+    rotationDataMock = [
+      createTestRotationAlbum(Rotation.H, {
+        id: 7001,
+        rotation_id: 7001,
+        title: "Mirror Mirror",
+        artist: createTestArtist({ name: "Stereolab" }),
+      }),
+      createTestRotationAlbum(Rotation.H, {
+        id: 7002,
+        rotation_id: 7002,
+        title: "Confield",
+        artist: createTestArtist({ name: "Autechre" }),
+      }),
+      createTestRotationAlbum(Rotation.H, {
+        id: 7003,
+        rotation_id: 7003,
+        title: "Moon Pix",
+        artist: createTestArtist({ name: "Cat Power" }),
+      }),
+    ];
+    const { user } = renderWithProviders(<EntryForm />);
+    await user.selectOptions(getNamedSelect("rotationType"), "heavy");
+    const heavy = getNamedSelect("heavyRelease");
+    // First option is the "Choose one..." placeholder; release names follow.
+    const releaseNames = Array.from(heavy.options)
+      .slice(1)
+      .map((o) => o.textContent?.trim() ?? "");
+    expect(releaseNames).toEqual([
+      "Autechre - Confield",
+      "Cat Power - Moon Pix",
+      "Stereolab - Mirror Mirror",
+    ]);
+  });
 });
 
 describe("Classic EntryForm — Rotation submission payload", () => {
