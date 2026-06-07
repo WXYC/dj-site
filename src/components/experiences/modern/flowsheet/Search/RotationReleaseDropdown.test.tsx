@@ -364,5 +364,41 @@ describe("RotationReleaseDropdown — combobox (#745)", () => {
         3
       );
     });
+
+    it("does not clear the live filter when the input is clicked while the panel is already open", () => {
+      // Regression: clicking inside an already-focused input fires `onClick`
+      // again. The trigger's `onClick={openPanel}` must be idempotent so the
+      // DJ's in-progress filter doesn't get wiped when they reposition the
+      // caret mid-edit.
+      render(
+        <RotationReleaseDropdown
+          releases={releases}
+          selectedRelease={null}
+          onSelectRelease={mockOnSelectRelease}
+          disabled={false}
+        />
+      );
+      const input = getCombobox();
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value: "ste" } });
+      // Filter is applied: Stereolab visible, others hidden.
+      expect(
+        screen.queryByTestId("rotation-release-option-3")
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByTestId("rotation-release-option-1")
+      ).not.toBeInTheDocument();
+
+      // Click the (already-focused, already-open) input — must NOT reset the
+      // query.
+      fireEvent.click(input);
+      expect(input.value).toBe("ste");
+      expect(
+        screen.queryByTestId("rotation-release-option-3")
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByTestId("rotation-release-option-1")
+      ).not.toBeInTheDocument();
+    });
   });
 });

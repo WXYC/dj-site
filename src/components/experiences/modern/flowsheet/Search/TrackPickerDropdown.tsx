@@ -78,9 +78,17 @@ export default function TrackPickerDropdown<T extends TrackPickerEntry>({
 
   const openPanel = useCallback(() => {
     if (inputDisabled) return;
-    setOpen(true);
-    setQuery("");
-    setHighlightIndex(0);
+    // Idempotent: if the panel is already open, do not stomp on the live
+    // filter state. Clicking inside an already-focused input fires `onClick`
+    // again, so a non-idempotent reset would wipe the DJ's in-progress filter
+    // mid-edit. Matches RotationReleaseDropdown (#745).
+    setOpen((wasOpen) => {
+      if (!wasOpen) {
+        setQuery("");
+        setHighlightIndex(0);
+      }
+      return true;
+    });
   }, [inputDisabled]);
 
   const closePanel = useCallback(() => {
