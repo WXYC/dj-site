@@ -295,4 +295,40 @@ describe("TrackPickerDropdown — combobox (#745)", () => {
     fireEvent.focus(getCombobox());
     expect(screen.getAllByTestId(/^track-picker-option-/)).toHaveLength(3);
   });
+
+  it("does not clear the live filter when the input is clicked while the panel is already open", () => {
+    // Regression: clicking inside an already-focused input fires `onClick`
+    // again. The trigger's `onClick={openPanel}` must be idempotent so the
+    // DJ's in-progress filter doesn't get wiped when they reposition the
+    // caret mid-edit.
+    render(
+      <TrackPickerDropdown
+        tracks={tracks}
+        isLoading={false}
+        selectedTrack={null}
+        onSelectTrack={onSelectTrack}
+        onManualEntry={onManualEntry}
+        disabled={false}
+      />
+    );
+    const input = getCombobox();
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "perc" } });
+    expect(
+      screen.queryByTestId("track-picker-option-0")
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("track-picker-option-1")
+    ).not.toBeInTheDocument();
+
+    // Click the (already-focused, already-open) input — must NOT reset query.
+    fireEvent.click(input);
+    expect(input.value).toBe("perc");
+    expect(
+      screen.queryByTestId("track-picker-option-0")
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("track-picker-option-1")
+    ).not.toBeInTheDocument();
+  });
 });
