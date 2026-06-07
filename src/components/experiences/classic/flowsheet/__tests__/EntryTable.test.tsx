@@ -144,6 +144,7 @@ describe("Classic EntryTable drag-to-reorder", () => {
     const breakpoint: FlowsheetEntry = {
       id: 200,
       show_id: 1,
+      add_time: 0,
       play_order: 1,
       message: "Breakpoint - 5:00 PM",
       day: "11/14/2023",

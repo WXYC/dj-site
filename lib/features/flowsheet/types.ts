@@ -53,6 +53,15 @@ export type FlowsheetEntryBase = {
   id: number;
   play_order: number;
   show_id: number;
+  /**
+   * Epoch ms the entry was added. Primary sort key for newest-first ordering —
+   * `id` is a sequence-allocated number that can run non-monotonically with
+   * chronology (e.g. legacy-sync backfill, retried inserts), and `play_order`
+   * resets per show. `add_time` is the only authoritatively chronological
+   * signal in scope on the client. Set to `Date.now()` on optimistic temps.
+   * See WXYC/dj-site#746.
+   */
+  add_time: number;
 };
 
 export type FlowsheetSongBase = {

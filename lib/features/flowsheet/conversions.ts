@@ -1,5 +1,6 @@
 import { Rotation } from "../rotation/types";
 import { OFF_AIR_LABEL } from "./constants";
+import { compareEntriesNewestFirst } from "./infinite-cache";
 import {
   FlowsheetEntry,
   FlowsheetQuery,
@@ -97,11 +98,18 @@ function formatAddTime(isoString: string): { day: string; time: string } {
   return { day, time: `${h}:${m}:${s} ${ampm}` };
 }
 
+function parseAddTimeMs(addTime: string | undefined): number {
+  if (!addTime) return 0;
+  const ms = Date.parse(addTime);
+  return Number.isNaN(ms) ? 0 : ms;
+}
+
 export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
   const base = {
     id: entry.id,
     play_order: entry.play_order,
     show_id: entry.show_id ?? 0,
+    add_time: parseAddTimeMs(entry.add_time),
   };
 
   switch (entry.entry_type) {
@@ -206,7 +214,5 @@ export function extractFlowsheetEntries(
 export function convertV2FlowsheetResponse(
   entries: FlowsheetV2EntryJSON[]
 ): FlowsheetEntry[] {
-  return entries
-    .map(convertV2Entry)
-    .sort((a, b) => b.id - a.id);
+  return entries.map(convertV2Entry).sort(compareEntriesNewestFirst);
 }

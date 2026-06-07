@@ -148,6 +148,7 @@ describe("Classic EntryRow grip handle (drag-to-reorder)", () => {
     const entry: FlowsheetEntry = {
       id: 10,
       show_id: 1,
+      add_time: 0,
       play_order: 1,
       message: "Talkset - station ID",
     };
@@ -161,6 +162,7 @@ describe("Classic EntryRow grip handle (drag-to-reorder)", () => {
     const entry: FlowsheetEntry = {
       id: 11,
       show_id: 1,
+      add_time: 0,
       play_order: 2,
       message: "Breakpoint - 5:00 PM",
       day: "11/14/2023",
@@ -176,6 +178,7 @@ describe("Classic EntryRow grip handle (drag-to-reorder)", () => {
     const entry: FlowsheetEntry = {
       id: 12,
       show_id: 1,
+      add_time: 0,
       play_order: 0,
       dj_name: "DJ Cool",
       isStart: true,
@@ -192,6 +195,7 @@ describe("Classic EntryRow grip handle (drag-to-reorder)", () => {
     const entry: FlowsheetEntry = {
       id: 13,
       show_id: 1,
+      add_time: 0,
       play_order: 99,
       dj_name: "DJ Cool",
       isStart: false,
@@ -236,6 +240,7 @@ describe("Classic EntryRow read-only context (no drag handlers wired)", () => {
     const entry: FlowsheetEntry = {
       id: 20,
       show_id: 1,
+      add_time: 0,
       play_order: 1,
       message: "Talkset - station ID",
     };
@@ -281,6 +286,7 @@ describe("Classic EntryRow markers", () => {
     const talksetEntry = {
       id: 1,
       show_id: 1,
+      add_time: 0,
       play_order: 1,
       message: "Talkset - station ID",
     };
@@ -310,6 +316,7 @@ describe("Classic EntryRow markers", () => {
     const breakpointEntry = {
       id: 2,
       show_id: 1,
+      add_time: 0,
       play_order: 2,
       message: "Breakpoint - 5:00 PM",
       day: "11/14/2023",
@@ -345,6 +352,7 @@ describe("Classic EntryRow markers", () => {
     const startEntry = {
       id: 3,
       show_id: 1,
+      add_time: 0,
       play_order: 3,
       dj_name: "DJ Cool",
       isStart: true,
@@ -371,6 +379,7 @@ describe("Classic EntryRow markers", () => {
     const endEntry = {
       id: 4,
       show_id: 1,
+      add_time: 0,
       play_order: 4,
       dj_name: "DJ Cool",
       isStart: false,
@@ -404,6 +413,7 @@ describe("Classic EntryRow markers", () => {
         entry: {
           id: 5,
           show_id: 1,
+          add_time: 0,
           play_order: 5,
           dj_name: "DJ Test",
           isStart: true,
@@ -421,6 +431,7 @@ describe("Classic EntryRow markers", () => {
       entry: {
         id: 6,
         show_id: 1,
+        add_time: 0,
         play_order: 6,
         dj_name: "DJ Test",
         isStart: true,
@@ -710,6 +721,7 @@ describe("Classic EntryRow action menu + inline edit (song rows)", () => {
     const entry: FlowsheetEntry = {
       id: 30,
       show_id: 1,
+      add_time: 0,
       play_order: 1,
       message: "Talkset - station ID",
     };
@@ -723,6 +735,7 @@ describe("Classic EntryRow action menu + inline edit (song rows)", () => {
     const entry: FlowsheetEntry = {
       id: 31,
       show_id: 1,
+      add_time: 0,
       play_order: 2,
       message: "Breakpoint - 5:00 PM",
       day: "11/14/2023",
