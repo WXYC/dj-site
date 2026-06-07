@@ -124,6 +124,7 @@ export default function RotationReleaseDropdown({
         <Input
           size="sm"
           fullWidth
+          variant="plain"
           disabled={disabled}
           placeholder="Select Release..."
           value={displayValue}
@@ -148,6 +149,16 @@ export default function RotationReleaseDropdown({
               }}
             />
           }
+          // Sit flat inside the parent search row's square frame — no border,
+          // no radius, no background tint. The trigger should read as part of
+          // the row's chrome, not as a nested control.
+          sx={{
+            borderRadius: 0,
+            backgroundColor: "transparent",
+            "--Input-focusedThickness": "0px",
+            "&:hover": { backgroundColor: "transparent" },
+            "&.Mui-focused": { backgroundColor: "transparent" },
+          }}
           slotProps={{
             input: {
               ref: inputRef,
