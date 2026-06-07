@@ -80,8 +80,8 @@ function mockRotationListAndTracks(handler: TracksHandler): {
 const selectBin = () => fireEvent.click(screen.getByRole("radio", { name: "H" }));
 
 const selectRelease = async (releaseId: number) => {
-  const trigger = await screen.findByTestId("rotation-release-trigger");
-  fireEvent.click(trigger);
+  const trigger = await screen.findByTestId("rotation-release-combobox");
+  fireEvent.focus(trigger);
   fireEvent.click(
     await screen.findByTestId(`rotation-release-option-${releaseId}`)
   );

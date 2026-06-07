@@ -7,6 +7,10 @@ import { Box, Input, Sheet, Typography } from "@mui/joy";
 import { ClickAwayListener } from "@mui/material";
 import { useCallback, useMemo, useRef, useState } from "react";
 
+function formatRelease(release: AlbumEntry): string {
+  return `${release.artist.name} — ${release.title}`;
+}
+
 function matchesQuery(release: AlbumEntry, query: string): boolean {
   if (!query) return true;
   const q = query.toLowerCase();
@@ -28,65 +32,67 @@ export default function RotationReleaseDropdown({
   disabled: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [highlightIndex, setHighlightIndex] = useState(-1);
   const [query, setQuery] = useState("");
-  const triggerRef = useRef<HTMLDivElement>(null);
+  const [highlightIndex, setHighlightIndex] = useState(-1);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const visibleReleases = useMemo(() => {
     const sorted = sortRotationReleases(releases);
     return query ? sorted.filter((r) => matchesQuery(r, query)) : sorted;
   }, [releases, query]);
 
-  const handleToggle = useCallback(() => {
-    if (!disabled) {
-      setOpen((prev) => {
-        const next = !prev;
-        // Reset filter every time the dropdown reopens so the DJ doesn't see
-        // stale results from a prior pick.
-        if (next) setQuery("");
-        return next;
-      });
-      setHighlightIndex(-1);
-    }
+  // While the panel is open the input mirrors the live filter query (which
+  // starts empty so the DJ can see every release). While closed it mirrors
+  // the parent-owned selection so the picker reads "Artist — Title" at rest.
+  const displayValue = open
+    ? query
+    : selectedRelease
+      ? formatRelease(selectedRelease)
+      : "";
+
+  const openPanel = useCallback(() => {
+    if (disabled) return;
+    setOpen(true);
+    setQuery("");
+    setHighlightIndex(0);
   }, [disabled]);
+
+  const closePanel = useCallback(() => {
+    setOpen(false);
+    setQuery("");
+    setHighlightIndex(-1);
+  }, []);
 
   const handleSelect = useCallback(
     (release: AlbumEntry) => {
       onSelectRelease(release);
-      setOpen(false);
-      setQuery("");
+      closePanel();
     },
-    [onSelectRelease]
+    [onSelectRelease, closePanel]
   );
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (!open) {
-        if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
+        if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          setOpen(true);
-          setQuery("");
-          setHighlightIndex(0);
+          openPanel();
         }
         return;
       }
-
       switch (e.key) {
         case "ArrowDown":
           e.preventDefault();
-          e.stopPropagation();
           setHighlightIndex((prev) =>
             Math.min(prev + 1, visibleReleases.length - 1)
           );
           break;
         case "ArrowUp":
           e.preventDefault();
-          e.stopPropagation();
           setHighlightIndex((prev) => Math.max(prev - 1, 0));
           break;
         case "Enter":
           e.preventDefault();
-          e.stopPropagation();
           if (
             highlightIndex >= 0 &&
             highlightIndex < visibleReleases.length
@@ -96,75 +102,61 @@ export default function RotationReleaseDropdown({
           break;
         case "Escape":
           e.preventDefault();
-          setOpen(false);
-          triggerRef.current?.focus();
+          closePanel();
+          inputRef.current?.blur();
           break;
       }
     },
-    [open, visibleReleases, highlightIndex, handleSelect]
+    [open, openPanel, closePanel, visibleReleases, highlightIndex, handleSelect]
   );
 
   return (
-    <ClickAwayListener onClickAway={() => setOpen(false)}>
+    <ClickAwayListener onClickAway={closePanel}>
       <Box
-        sx={{ position: "relative", flex: 1, minWidth: 0, display: "flex", alignItems: "center" }}
-        onKeyDown={handleKeyDown}
+        sx={{
+          position: "relative",
+          flex: 1,
+          minWidth: 0,
+          display: "flex",
+          alignItems: "center",
+        }}
       >
-        <Box
-          ref={triggerRef}
-          tabIndex={disabled ? -1 : 0}
-          data-testid="rotation-release-trigger"
-          onClick={handleToggle}
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flex: 1,
-            px: 1,
-            minHeight: "2rem",
-            cursor: disabled ? "default" : "pointer",
-            opacity: disabled ? 0.5 : 1,
-            overflow: "hidden",
-            "&:focus-visible": {
-              outline: "2px solid var(--joy-palette-primary-400)",
-              outlineOffset: "-2px",
-              borderRadius: "4px",
+        <Input
+          size="sm"
+          fullWidth
+          disabled={disabled}
+          placeholder="Select Release..."
+          value={displayValue}
+          onFocus={openPanel}
+          // Clicking an already-focused input doesn't refire onFocus; an
+          // idempotent reopen on click handles that case (and is a no-op if
+          // the panel is already open).
+          onClick={openPanel}
+          onChange={(e) => {
+            if (!open) openPanel();
+            setQuery(e.target.value);
+            setHighlightIndex(0);
+          }}
+          onKeyDown={handleKeyDown}
+          endDecorator={
+            <KeyboardArrowDown
+              sx={{
+                fontSize: "1rem",
+                transition: "transform 0.2s",
+                transform: open ? "rotate(180deg)" : "none",
+                opacity: disabled ? 0.4 : 0.7,
+              }}
+            />
+          }
+          slotProps={{
+            input: {
+              ref: inputRef,
+              "data-testid": "rotation-release-combobox",
+              autoComplete: "off",
+              spellCheck: false,
             },
           }}
-        >
-          {selectedRelease ? (
-            <Typography
-              level="body-sm"
-              sx={{
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              <Typography component="span" sx={{ fontWeight: "bold" }}>
-                {selectedRelease.artist.name}
-              </Typography>
-              {" \u2014 "}
-              {selectedRelease.title}
-            </Typography>
-          ) : (
-            <Typography
-              level="body-sm"
-              sx={{ opacity: 0.5 }}
-            >
-              Select Release...
-            </Typography>
-          )}
-          <KeyboardArrowDown
-            sx={{
-              fontSize: "1rem",
-              ml: 0.5,
-              flexShrink: 0,
-              transition: "transform 0.2s",
-              transform: open ? "rotate(180deg)" : "none",
-            }}
-          />
-        </Box>
+        />
 
         {open && (
           <Sheet
@@ -183,23 +175,6 @@ export default function RotationReleaseDropdown({
               py: 0.5,
             }}
           >
-            <Box sx={{ px: 1, pb: 0.5 }}>
-              <Input
-                size="sm"
-                autoFocus
-                placeholder="Search artist or album..."
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setHighlightIndex(0);
-                }}
-                slotProps={{
-                  input: {
-                    "data-testid": "rotation-release-search",
-                  },
-                }}
-              />
-            </Box>
             {releases.length === 0 ? (
               <Box sx={{ p: 2, textAlign: "center" }}>
                 <Typography level="body-sm" sx={{ opacity: 0.6 }}>
@@ -217,6 +192,10 @@ export default function RotationReleaseDropdown({
                 <Box
                   key={release.id}
                   data-testid={`rotation-release-option-${release.id}`}
+                  // `onMouseDown` preventDefault keeps focus on the input so
+                  // the ClickAway / blur path doesn't close the panel before
+                  // the option's `onClick` selection handler runs.
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleSelect(release)}
                   sx={{
                     display: "flex",
@@ -232,7 +211,9 @@ export default function RotationReleaseDropdown({
                           : "transparent",
                     "&:hover": {
                       backgroundColor:
-                        highlightIndex === index ? "primary.700" : "neutral.800",
+                        highlightIndex === index
+                          ? "primary.700"
+                          : "neutral.800",
                     },
                   }}
                   onMouseEnter={() => setHighlightIndex(index)}
@@ -246,20 +227,20 @@ export default function RotationReleaseDropdown({
                       color: highlightIndex === index ? "white" : "inherit",
                     }}
                   >
-                    <Typography
-                      component="span"
-                      sx={{ fontWeight: "bold" }}
-                    >
+                    <Typography component="span" sx={{ fontWeight: "bold" }}>
                       {release.artist.name}
                     </Typography>
-                    {" \u2014 "}
+                    {" — "}
                     {release.title}
                   </Typography>
                   <Typography
                     level="body-xs"
                     sx={{
                       opacity: 0.6,
-                      color: highlightIndex === index ? "neutral.300" : "text.tertiary",
+                      color:
+                        highlightIndex === index
+                          ? "neutral.300"
+                          : "text.tertiary",
                     }}
                   >
                     {release.label}
