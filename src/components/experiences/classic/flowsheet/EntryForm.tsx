@@ -5,6 +5,7 @@ import { useAppDispatch } from "@/lib/hooks";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useAddToFlowsheetMutation } from "@/lib/features/flowsheet/api";
 import { useGetRotationQuery } from "@/lib/features/rotation/api";
+import { sortRotationReleases } from "@/lib/features/rotation/sort";
 import { Rotation } from "@/lib/features/rotation/types";
 import { FlowsheetEntryType } from "@wxyc/shared/dtos";
 
@@ -51,10 +52,20 @@ export default function EntryForm({
 
   const { data: rotationData } = useGetRotationQuery();
 
-  const heavyReleases = rotationData?.filter((r) => r.rotation_bin === Rotation.H) || [];
-  const mediumReleases = rotationData?.filter((r) => r.rotation_bin === Rotation.M) || [];
-  const lightReleases = rotationData?.filter((r) => r.rotation_bin === Rotation.L) || [];
-  const singlesReleases = rotationData?.filter((r) => r.rotation_bin === Rotation.S) || [];
+  // Sorted A→Z by artist (ties broken by album title) so the native <select>
+  // type-ahead lands the DJ in the right neighborhood. WXYC/dj-site#745.
+  const heavyReleases = sortRotationReleases(
+    rotationData?.filter((r) => r.rotation_bin === Rotation.H) || []
+  );
+  const mediumReleases = sortRotationReleases(
+    rotationData?.filter((r) => r.rotation_bin === Rotation.M) || []
+  );
+  const lightReleases = sortRotationReleases(
+    rotationData?.filter((r) => r.rotation_bin === Rotation.L) || []
+  );
+  const singlesReleases = sortRotationReleases(
+    rotationData?.filter((r) => r.rotation_bin === Rotation.S) || []
+  );
 
   useEffect(() => {
     if (useArtistForComposer) {

@@ -1,10 +1,20 @@
 "use client";
 
 import { AlbumEntry } from "@/lib/features/catalog/types";
+import { sortRotationReleases } from "@/lib/features/rotation/sort";
 import { KeyboardArrowDown } from "@mui/icons-material";
-import { Box, Sheet, Typography } from "@mui/joy";
+import { Box, Input, Sheet, Typography } from "@mui/joy";
 import { ClickAwayListener } from "@mui/material";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+
+function matchesQuery(release: AlbumEntry, query: string): boolean {
+  if (!query) return true;
+  const q = query.toLowerCase();
+  return (
+    release.artist.name.toLowerCase().includes(q) ||
+    release.title.toLowerCase().includes(q)
+  );
+}
 
 export default function RotationReleaseDropdown({
   releases,
@@ -19,11 +29,23 @@ export default function RotationReleaseDropdown({
 }) {
   const [open, setOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(-1);
+  const [query, setQuery] = useState("");
   const triggerRef = useRef<HTMLDivElement>(null);
+
+  const visibleReleases = useMemo(() => {
+    const sorted = sortRotationReleases(releases);
+    return query ? sorted.filter((r) => matchesQuery(r, query)) : sorted;
+  }, [releases, query]);
 
   const handleToggle = useCallback(() => {
     if (!disabled) {
-      setOpen((prev) => !prev);
+      setOpen((prev) => {
+        const next = !prev;
+        // Reset filter every time the dropdown reopens so the DJ doesn't see
+        // stale results from a prior pick.
+        if (next) setQuery("");
+        return next;
+      });
       setHighlightIndex(-1);
     }
   }, [disabled]);
@@ -32,6 +54,7 @@ export default function RotationReleaseDropdown({
     (release: AlbumEntry) => {
       onSelectRelease(release);
       setOpen(false);
+      setQuery("");
     },
     [onSelectRelease]
   );
@@ -42,6 +65,7 @@ export default function RotationReleaseDropdown({
         if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
           e.preventDefault();
           setOpen(true);
+          setQuery("");
           setHighlightIndex(0);
         }
         return;
@@ -51,7 +75,9 @@ export default function RotationReleaseDropdown({
         case "ArrowDown":
           e.preventDefault();
           e.stopPropagation();
-          setHighlightIndex((prev) => Math.min(prev + 1, releases.length - 1));
+          setHighlightIndex((prev) =>
+            Math.min(prev + 1, visibleReleases.length - 1)
+          );
           break;
         case "ArrowUp":
           e.preventDefault();
@@ -61,8 +87,11 @@ export default function RotationReleaseDropdown({
         case "Enter":
           e.preventDefault();
           e.stopPropagation();
-          if (highlightIndex >= 0 && highlightIndex < releases.length) {
-            handleSelect(releases[highlightIndex]);
+          if (
+            highlightIndex >= 0 &&
+            highlightIndex < visibleReleases.length
+          ) {
+            handleSelect(visibleReleases[highlightIndex]);
           }
           break;
         case "Escape":
@@ -72,7 +101,7 @@ export default function RotationReleaseDropdown({
           break;
       }
     },
-    [open, releases, highlightIndex, handleSelect]
+    [open, visibleReleases, highlightIndex, handleSelect]
   );
 
   return (
@@ -154,14 +183,37 @@ export default function RotationReleaseDropdown({
               py: 0.5,
             }}
           >
+            <Box sx={{ px: 1, pb: 0.5 }}>
+              <Input
+                size="sm"
+                autoFocus
+                placeholder="Search artist or album..."
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setHighlightIndex(0);
+                }}
+                slotProps={{
+                  input: {
+                    "data-testid": "rotation-release-search",
+                  },
+                }}
+              />
+            </Box>
             {releases.length === 0 ? (
               <Box sx={{ p: 2, textAlign: "center" }}>
                 <Typography level="body-sm" sx={{ opacity: 0.6 }}>
                   No releases in this bin
                 </Typography>
               </Box>
+            ) : visibleReleases.length === 0 ? (
+              <Box sx={{ p: 2, textAlign: "center" }}>
+                <Typography level="body-sm" sx={{ opacity: 0.6 }}>
+                  No releases match &ldquo;{query}&rdquo;
+                </Typography>
+              </Box>
             ) : (
-              releases.map((release, index) => (
+              visibleReleases.map((release, index) => (
                 <Box
                   key={release.id}
                   data-testid={`rotation-release-option-${release.id}`}

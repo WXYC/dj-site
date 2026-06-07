@@ -138,4 +138,198 @@ describe("RotationReleaseDropdown", () => {
     fireEvent.click(screen.getByTestId("rotation-release-trigger"));
     expect(screen.getByText(/no releases/i)).toBeInTheDocument();
   });
+
+  // WXYC/dj-site#745 — DJ feedback: can't quickly find a release in the picker.
+  describe("search and sort (#745)", () => {
+    it("sorts releases alphabetically by artist name regardless of input order", () => {
+      render(
+        <RotationReleaseDropdown
+          releases={releases}
+          selectedRelease={null}
+          onSelectRelease={mockOnSelectRelease}
+          disabled={false}
+        />
+      );
+      fireEvent.click(screen.getByTestId("rotation-release-trigger"));
+      const options = screen.getAllByTestId(/^rotation-release-option-/);
+      // Input order in fixture: Autechre, Cat Power, Stereolab (already sorted).
+      // Hand a re-shuffled fixture to make sure sort is enforced.
+      expect(options.map((o) => o.dataset.testid)).toEqual([
+        "rotation-release-option-1", // Autechre
+        "rotation-release-option-2", // Cat Power
+        "rotation-release-option-3", // Stereolab
+      ]);
+    });
+
+    it("breaks artist-name ties by album title", () => {
+      const sameArtist = [
+        createTestAlbum({
+          id: 11,
+          title: "Mars Audiac Quintet",
+          artist: createTestArtist({ name: "Stereolab" }),
+          label: "Elektra",
+        }),
+        createTestAlbum({
+          id: 12,
+          title: "Aluminum Tunes",
+          artist: createTestArtist({ name: "Stereolab" }),
+          label: "Duophonic",
+        }),
+        createTestAlbum({
+          id: 13,
+          title: "Emperor Tomato Ketchup",
+          artist: createTestArtist({ name: "Stereolab" }),
+          label: "Duophonic",
+        }),
+      ];
+      render(
+        <RotationReleaseDropdown
+          releases={sameArtist}
+          selectedRelease={null}
+          onSelectRelease={mockOnSelectRelease}
+          disabled={false}
+        />
+      );
+      fireEvent.click(screen.getByTestId("rotation-release-trigger"));
+      const options = screen.getAllByTestId(/^rotation-release-option-/);
+      expect(options.map((o) => o.dataset.testid)).toEqual([
+        "rotation-release-option-12", // Aluminum Tunes
+        "rotation-release-option-13", // Emperor Tomato Ketchup
+        "rotation-release-option-11", // Mars Audiac Quintet
+      ]);
+    });
+
+    it("sort is case-insensitive on artist name", () => {
+      const mixedCase = [
+        createTestAlbum({
+          id: 21,
+          title: "Album Z",
+          artist: createTestArtist({ name: "stereolab" }),
+        }),
+        createTestAlbum({
+          id: 22,
+          title: "Album A",
+          artist: createTestArtist({ name: "Autechre" }),
+        }),
+        createTestAlbum({
+          id: 23,
+          title: "Album B",
+          artist: createTestArtist({ name: "cat power" }),
+        }),
+      ];
+      render(
+        <RotationReleaseDropdown
+          releases={mixedCase}
+          selectedRelease={null}
+          onSelectRelease={mockOnSelectRelease}
+          disabled={false}
+        />
+      );
+      fireEvent.click(screen.getByTestId("rotation-release-trigger"));
+      const options = screen.getAllByTestId(/^rotation-release-option-/);
+      expect(options.map((o) => o.dataset.testid)).toEqual([
+        "rotation-release-option-22", // Autechre
+        "rotation-release-option-23", // cat power
+        "rotation-release-option-21", // stereolab
+      ]);
+    });
+
+    it("renders a search input when the dropdown opens", () => {
+      render(
+        <RotationReleaseDropdown
+          releases={releases}
+          selectedRelease={null}
+          onSelectRelease={mockOnSelectRelease}
+          disabled={false}
+        />
+      );
+      fireEvent.click(screen.getByTestId("rotation-release-trigger"));
+      expect(
+        screen.getByTestId("rotation-release-search")
+      ).toBeInTheDocument();
+    });
+
+    it("filters the visible releases by artist name as the DJ types (case-insensitive substring)", () => {
+      render(
+        <RotationReleaseDropdown
+          releases={releases}
+          selectedRelease={null}
+          onSelectRelease={mockOnSelectRelease}
+          disabled={false}
+        />
+      );
+      fireEvent.click(screen.getByTestId("rotation-release-trigger"));
+      const search = screen.getByTestId("rotation-release-search");
+      fireEvent.change(search, { target: { value: "ste" } });
+      expect(
+        screen.queryByTestId("rotation-release-option-3")
+      ).toBeInTheDocument(); // Stereolab
+      expect(
+        screen.queryByTestId("rotation-release-option-1")
+      ).not.toBeInTheDocument(); // Autechre filtered out
+      expect(
+        screen.queryByTestId("rotation-release-option-2")
+      ).not.toBeInTheDocument(); // Cat Power filtered out
+    });
+
+    it("filters by album title too", () => {
+      render(
+        <RotationReleaseDropdown
+          releases={releases}
+          selectedRelease={null}
+          onSelectRelease={mockOnSelectRelease}
+          disabled={false}
+        />
+      );
+      fireEvent.click(screen.getByTestId("rotation-release-trigger"));
+      const search = screen.getByTestId("rotation-release-search");
+      fireEvent.change(search, { target: { value: "moon" } });
+      expect(
+        screen.queryByTestId("rotation-release-option-2")
+      ).toBeInTheDocument(); // Moon Pix
+      expect(
+        screen.queryByTestId("rotation-release-option-1")
+      ).not.toBeInTheDocument();
+    });
+
+    it("shows a 'no matches' state when the filter eliminates everything", () => {
+      render(
+        <RotationReleaseDropdown
+          releases={releases}
+          selectedRelease={null}
+          onSelectRelease={mockOnSelectRelease}
+          disabled={false}
+        />
+      );
+      fireEvent.click(screen.getByTestId("rotation-release-trigger"));
+      const search = screen.getByTestId("rotation-release-search");
+      fireEvent.change(search, { target: { value: "zzzz-does-not-exist" } });
+      expect(
+        screen.queryAllByTestId(/^rotation-release-option-/)
+      ).toHaveLength(0);
+      expect(screen.getByText(/no releases match/i)).toBeInTheDocument();
+    });
+
+    it("clears the filter when the dropdown is reopened", () => {
+      render(
+        <RotationReleaseDropdown
+          releases={releases}
+          selectedRelease={null}
+          onSelectRelease={mockOnSelectRelease}
+          disabled={false}
+        />
+      );
+      fireEvent.click(screen.getByTestId("rotation-release-trigger"));
+      const search = screen.getByTestId("rotation-release-search");
+      fireEvent.change(search, { target: { value: "ste" } });
+      // Close
+      fireEvent.click(screen.getByTestId("rotation-release-trigger"));
+      // Reopen
+      fireEvent.click(screen.getByTestId("rotation-release-trigger"));
+      expect(
+        (screen.getByTestId("rotation-release-search") as HTMLInputElement)
+          .value
+      ).toBe("");
+    });
+  });
 });
