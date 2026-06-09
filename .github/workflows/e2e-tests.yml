@@ -52,8 +52,11 @@ env:
 # Workflow-level GITHUB_TOKEN scope. No job in this file pushes code,
 # comments on PRs, or creates releases; all writes to external services
 # use their own non-GITHUB_TOKEN secrets. contents:read is the safe floor.
+# packages:read is required to install Backend-Service@main, which pulls
+# @wxyc/shared from npm.pkg.github.com during npm ci (see charset-corpus-drift.yml).
 permissions:
   contents: read
+  packages: read
 
 jobs:
   # See ci.yml for the rationale on the changes-job pattern (issue #731).
@@ -193,11 +196,17 @@ jobs:
 
       - name: Install dependencies
         env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # Backend-Service@main resolves @wxyc/shared from GitHub Packages.
+          # GITHUB_TOKEN + packages:read satisfies Backend-Service/.npmrc;
+          # the org NPM_TOKEN secret lacks read:packages on fork/PR runs.
+          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           (cd Backend-Service && npm ci) &
+          PID_BS=$!
           (cd dj-site && npm ci) &
-          wait
+          PID_DJ=$!
+          wait $PID_BS || exit 1
+          wait $PID_DJ || exit 1
 
       - name: Cache dj-site build
         id: nextjs-build-cache
@@ -215,7 +224,7 @@ jobs:
 
       - name: Build and start services
         env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NEXTJS_BUILD_CACHE_HIT: ${{ steps.nextjs-build-cache.outputs.cache-hit }}
           PLAYWRIGHT_CACHE_HIT: ${{ steps.playwright-cache.outputs.cache-hit }}
         run: |
