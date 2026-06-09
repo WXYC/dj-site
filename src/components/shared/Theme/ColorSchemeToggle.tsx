@@ -1,5 +1,6 @@
 "use client";
 
+import type { JSX } from "react";
 import { DarkModeRounded, LightModeRounded } from "@mui/icons-material";
 import { Tooltip } from "@mui/joy";
 import IconButton from "@mui/joy/IconButton";

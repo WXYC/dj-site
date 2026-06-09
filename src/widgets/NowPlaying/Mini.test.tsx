@@ -7,7 +7,7 @@ import type {
   FlowsheetMessageEntry,
   OnAirDJResponse,
 } from "@/lib/features/flowsheet/types";
-import React from "react";
+import type { MutableRefObject, RefObject } from "react";
 
 // Mock child components
 vi.mock("./AlbumArtAndIcons", () => ({
@@ -101,12 +101,12 @@ import NowPlayingMini from "./Mini";
 function createDefaultProps(overrides: Record<string, any> = {}) {
   return {
     live: false as boolean,
-    audioRef: { current: null } as React.RefObject<HTMLAudioElement>,
+    audioRef: { current: null } as RefObject<HTMLAudioElement | null>,
     isPlaying: false,
     onTogglePlay: vi.fn(),
     audioContext: null as AudioContext | null,
     analyserNode: null as AnalyserNode | null,
-    animationFrameRef: { current: null } as React.MutableRefObject<number | null>,
+    animationFrameRef: { current: null } as MutableRefObject<number | null>,
     ...overrides,
   };
 }

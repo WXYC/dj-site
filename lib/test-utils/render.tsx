@@ -1,4 +1,3 @@
-import React from "react";
 import type { RenderOptions, RenderResult } from "@testing-library/react";
 import { render as rtlRender } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";

@@ -13,6 +13,11 @@ updates:
       wxyc-shared:
         patterns:
           - "@wxyc/shared"
+      runtime-adapter:
+        patterns:
+          - "next"
+          - "@opennextjs/cloudflare"
+          - "wrangler"
       dev-dependencies:
         dependency-type: "development"
         update-types:
@@ -22,6 +27,9 @@ updates:
           - "better-auth"
           - "@better-auth/*"
           - "@wxyc/shared"
+          - "next"
+          - "@opennextjs/cloudflare"
+          - "wrangler"
       production-dependencies:
         dependency-type: "production"
         update-types:
@@ -31,6 +39,9 @@ updates:
           - "better-auth"
           - "@better-auth/*"
           - "@wxyc/shared"
+          - "next"
+          - "@opennextjs/cloudflare"
+          - "wrangler"
 
   - package-ecosystem: "github-actions"
     directory: "/"

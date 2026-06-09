@@ -1,0 +1,195 @@
+name: PR Preview Smoke Check
+
+# Hard-blocks merge if the Cloudflare Pages preview deployment for a PR's head
+# commit returns 5xx on `/`. Backstop for the 2026-06-03 outage where a
+# Dependabot prod-deps bump (next + @opennextjs/cloudflare) compiled and
+# uploaded cleanly but the worker failed at boot — the preview URL was already
+# returning 500 before merge, and nothing in CI was checking it.
+#
+# See https://github.com/WXYC/dj-site/issues/719 for the design discussion and
+# https://github.com/WXYC/dj-site/issues/715 for the original outage.
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: pr-preview-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+# We need pull-requests:write to post the failure comment via `gh pr comment`.
+# contents:read is the safe floor; the job does not push code or modify the
+# repo state otherwise.
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  smoke:
+    name: Preview URL smoke check
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Check required configuration
+        id: config
+        env:
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.event.pull_request.base.repo.full_name }}
+          HAS_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+          HAS_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID != '' }}
+        run: |
+          # Real forks can never access repo secrets — soft-skip those so we
+          # don't block external contributors on infra they don't own. For
+          # same-repo PRs (including Dependabot, which runs from a same-repo
+          # branch but in its own secret context), missing secrets must hard
+          # fail so the silent-pass path that masked the 2026-06-04 outage
+          # (issue #740) can't recur. Dependabot secrets live separately under
+          # Settings → Secrets and variables → Dependabot.
+          if [ "$HEAD_REPO" != "$BASE_REPO" ]; then
+            echo "::warning::Skipping preview smoke — PR head is in fork ${HEAD_REPO}, which cannot access repo secrets."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$HAS_TOKEN" != "true" ] || [ "$HAS_ACCOUNT_ID" != "true" ]; then
+            echo "::error::Same-repo PR but CLOUDFLARE_API_TOKEN secret and/or CLOUDFLARE_ACCOUNT_ID variable is missing in this workflow's secret context. For Dependabot PRs, add CLOUDFLARE_API_TOKEN under Settings → Secrets and variables → Dependabot (separate from Actions). See issue #740."
+            exit 1
+          fi
+
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for Cloudflare Pages preview deployment
+        id: wait
+        if: steps.config.outputs.configured == 'true'
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          # Poll the Pages deployments endpoint for a preview whose
+          # deployment_trigger.metadata.commit_hash matches HEAD_SHA. Cap total
+          # wait at ~10 minutes (40 attempts * 15s sleep). Terminal failure
+          # states (failure, canceled) short-circuit; "success" wins; anything
+          # else (initializing, queued, building, deploying) keeps polling.
+          MAX_ATTEMPTS=40
+          SLEEP_SECONDS=15
+          attempt=0
+          deploy_id=""
+          deploy_url=""
+          status=""
+
+          while [ "$attempt" -lt "$MAX_ATTEMPTS" ]; do
+            attempt=$((attempt + 1))
+            echo "Attempt ${attempt}/${MAX_ATTEMPTS} — searching for preview deployment for ${HEAD_SHA}"
+
+            RESPONSE=$(curl -sf \
+              -H "Authorization: Bearer ${CF_API_TOKEN}" \
+              "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/wxyc-dj/deployments?env=preview&per_page=25") || {
+                echo "::warning::Cloudflare API request failed on attempt ${attempt}; retrying"
+                sleep "$SLEEP_SECONDS"
+                continue
+              }
+
+            MATCH=$(echo "$RESPONSE" | jq -r --arg sha "$HEAD_SHA" '
+              .result
+              | map(select(.deployment_trigger.metadata.commit_hash == $sha))
+              | sort_by(.created_on) | reverse | .[0] // empty
+            ')
+
+            if [ -z "$MATCH" ]; then
+              echo "No preview deployment yet for ${HEAD_SHA}; sleeping ${SLEEP_SECONDS}s"
+              sleep "$SLEEP_SECONDS"
+              continue
+            fi
+
+            deploy_id=$(echo "$MATCH" | jq -r '.id')
+            deploy_url=$(echo "$MATCH" | jq -r '.url')
+            status=$(echo "$MATCH" | jq -r '.latest_stage.status')
+            stage=$(echo "$MATCH" | jq -r '.latest_stage.name')
+
+            echo "Found deployment ${deploy_id} — stage=${stage} status=${status} url=${deploy_url}"
+
+            case "$status" in
+              success)
+                echo "deploy_id=${deploy_id}" >> "$GITHUB_OUTPUT"
+                echo "deploy_url=${deploy_url}" >> "$GITHUB_OUTPUT"
+                echo "outcome=ready" >> "$GITHUB_OUTPUT"
+                exit 0
+                ;;
+              failure|failed|canceled|cancelled)
+                echo "deploy_id=${deploy_id}" >> "$GITHUB_OUTPUT"
+                echo "deploy_url=${deploy_url}" >> "$GITHUB_OUTPUT"
+                echo "outcome=build_failed" >> "$GITHUB_OUTPUT"
+                echo "build_stage=${stage}" >> "$GITHUB_OUTPUT"
+                echo "build_status=${status}" >> "$GITHUB_OUTPUT"
+                echo "::error::Cloudflare Pages preview build reached terminal state ${stage}/${status} for deployment ${deploy_id}"
+                exit 1
+                ;;
+              *)
+                echo "Deployment ${deploy_id} not ready yet (stage=${stage} status=${status}); sleeping ${SLEEP_SECONDS}s"
+                sleep "$SLEEP_SECONDS"
+                ;;
+            esac
+          done
+
+          echo "outcome=timeout" >> "$GITHUB_OUTPUT"
+          echo "::error::Timed out after ${MAX_ATTEMPTS} attempts waiting for a Cloudflare Pages preview deployment for commit ${HEAD_SHA}"
+          exit 1
+
+      - name: Smoke-test preview URL
+        id: smoke
+        if: steps.config.outputs.configured == 'true' && steps.wait.outputs.outcome == 'ready'
+        env:
+          DEPLOY_URL: ${{ steps.wait.outputs.deploy_url }}
+        run: |
+          PROBE_URL="${DEPLOY_URL%/}/"
+          echo "Probing ${PROBE_URL}"
+
+          HTTP_CODE=$(curl -sS -o /dev/null -w '%{http_code}\n' --max-time 30 "$PROBE_URL" || echo "000")
+          echo "Preview ${PROBE_URL} returned HTTP ${HTTP_CODE}"
+          echo "http_code=${HTTP_CODE}" >> "$GITHUB_OUTPUT"
+
+          # 2xx and 3xx are success. 401/403 are expected for auth-gated routes
+          # — `/` may redirect through middleware; treat them as success too.
+          # Any 5xx is the failure mode we are guarding against. Any other 4xx
+          # or a network failure (000) is unexpected enough to flag.
+          case "$HTTP_CODE" in
+            2*|3*|401|403)
+              echo "Preview URL is healthy."
+              ;;
+            5*)
+              echo "::error::Preview URL returned ${HTTP_CODE} — likely worker boot failure. Blocking merge."
+              exit 1
+              ;;
+            *)
+              echo "::error::Preview URL returned unexpected status ${HTTP_CODE}. Blocking merge."
+              exit 1
+              ;;
+          esac
+
+      - name: Comment on PR with failure detail
+        if: failure() && steps.config.outputs.configured == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          DEPLOY_ID: ${{ steps.wait.outputs.deploy_id }}
+          DEPLOY_URL: ${{ steps.wait.outputs.deploy_url }}
+          WAIT_OUTCOME: ${{ steps.wait.outputs.outcome }}
+          BUILD_STAGE: ${{ steps.wait.outputs.build_stage }}
+          BUILD_STATUS: ${{ steps.wait.outputs.build_status }}
+          HTTP_CODE: ${{ steps.smoke.outputs.http_code }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ "$WAIT_OUTCOME" = "timeout" ]; then
+            BODY="Preview smoke check failed: timed out waiting for a Cloudflare Pages preview deployment for commit ${HEAD_SHA} after ~10 minutes. The Pages build either did not start or did not surface to the API. See the workflow run for details: ${RUN_URL}"
+          elif [ "$WAIT_OUTCOME" = "build_failed" ]; then
+            BODY="Preview smoke check failed: Cloudflare Pages preview build reached terminal state \`${BUILD_STAGE}/${BUILD_STATUS}\` for deployment \`${DEPLOY_ID}\` (${DEPLOY_URL}). Dashboard: https://dash.cloudflare.com/${ACCOUNT_ID}/pages/view/wxyc-dj/${DEPLOY_ID} — workflow run: ${RUN_URL}"
+          else
+            BODY="Preview smoke check failed: ${DEPLOY_URL}/ returned HTTP \`${HTTP_CODE}\` for deployment \`${DEPLOY_ID}\`. A 5xx response usually means the Cloudflare worker failed at boot — see the Cloudflare deployment logs (Dashboard: https://dash.cloudflare.com/${ACCOUNT_ID}/pages/view/wxyc-dj/${DEPLOY_ID}) and the workflow run: ${RUN_URL}. Merging is blocked until the preview URL returns a non-5xx response."
+          fi
+
+          gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$BODY"

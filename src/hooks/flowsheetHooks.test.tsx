@@ -1,4 +1,4 @@
-import React from "react";
+import type { FormEvent } from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import {
@@ -267,6 +267,47 @@ describe("flowsheetHooks", () => {
       expect(mockGoLiveFunction).toHaveBeenCalledWith({
         dj_id: "test-user-1",
       });
+    });
+
+    it("should pass dj_name_override when goLive is called with an override", () => {
+      const { result } = renderHook(() => useShowControl(), {
+        wrapper: createWrapper(),
+      });
+
+      act(() => {
+        result.current.goLive("Aubrey Hearst");
+      });
+
+      expect(mockGoLiveFunction).toHaveBeenCalledWith({
+        dj_id: "test-user-1",
+        dj_name_override: "Aubrey Hearst",
+      });
+    });
+
+    it("should omit dj_name_override when goLive is called without one", () => {
+      const { result } = renderHook(() => useShowControl(), {
+        wrapper: createWrapper(),
+      });
+
+      act(() => {
+        result.current.goLive();
+      });
+
+      const args = mockGoLiveFunction.mock.calls[0][0];
+      expect(args).not.toHaveProperty("dj_name_override");
+    });
+
+    it("should omit dj_name_override when goLive is called with undefined", () => {
+      const { result } = renderHook(() => useShowControl(), {
+        wrapper: createWrapper(),
+      });
+
+      act(() => {
+        result.current.goLive(undefined);
+      });
+
+      const args = mockGoLiveFunction.mock.calls[0][0];
+      expect(args).not.toHaveProperty("dj_name_override");
     });
 
     it("should call leaveFunction when leave is called", () => {
@@ -1003,7 +1044,7 @@ describe("flowsheetHooks", () => {
       });
 
       act(() => {
-        result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent);
+        result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as FormEvent);
       });
 
       expect(mockAddToFlowsheet).toHaveBeenCalled();
@@ -1037,7 +1078,7 @@ describe("flowsheetHooks", () => {
 
       // Call handleSubmit while ctrl is pressed
       act(() => {
-        result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent);
+        result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as FormEvent);
       });
 
       // addToQueue should have been called instead of addToFlowsheet
@@ -1089,7 +1130,7 @@ describe("flowsheetHooks", () => {
       act(() => {
         result.current.handleSubmit({
           preventDefault: vi.fn(),
-        } as unknown as React.FormEvent);
+        } as unknown as FormEvent);
       });
 
       expect(mockAddToFlowsheet).not.toHaveBeenCalled();
@@ -1333,7 +1374,7 @@ describe("flowsheetHooks", () => {
         await act(async () => {
           await result.current.handleSubmit({
             preventDefault: vi.fn(),
-          } as unknown as React.FormEvent);
+          } as unknown as FormEvent);
         });
 
         expect(mockAddToFlowsheet).not.toHaveBeenCalled();
@@ -1355,7 +1396,7 @@ describe("flowsheetHooks", () => {
         await act(async () => {
           await result.current.handleSubmit({
             preventDefault: vi.fn(),
-          } as unknown as React.FormEvent);
+          } as unknown as FormEvent);
         });
 
         expect(mockAddToFlowsheet).not.toHaveBeenCalled();
@@ -1375,7 +1416,7 @@ describe("flowsheetHooks", () => {
         await act(async () => {
           await result.current.handleSubmit({
             preventDefault: vi.fn(),
-          } as unknown as React.FormEvent);
+          } as unknown as FormEvent);
         });
 
         expect(mockAddToFlowsheet).toHaveBeenCalledTimes(1);

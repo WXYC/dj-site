@@ -24,14 +24,18 @@ const releases = [
   }),
 ];
 
-describe("RotationReleaseDropdown", () => {
+function getCombobox(): HTMLInputElement {
+  return screen.getByTestId("rotation-release-combobox") as HTMLInputElement;
+}
+
+describe("RotationReleaseDropdown — combobox (#745)", () => {
   const mockOnSelectRelease = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("should render the trigger with placeholder text when no release is selected", () => {
+  it("renders the trigger as an editable combobox with placeholder text when nothing is selected", () => {
     render(
       <RotationReleaseDropdown
         releases={releases}
@@ -40,10 +44,13 @@ describe("RotationReleaseDropdown", () => {
         disabled={false}
       />
     );
-    expect(screen.getByText("Select Release...")).toBeInTheDocument();
+    const input = getCombobox();
+    expect(input.tagName).toBe("INPUT");
+    expect(input.placeholder).toMatch(/select release/i);
+    expect(input.value).toBe("");
   });
 
-  it("should show selected release in trigger when one is selected", () => {
+  it("shows the selected release as 'Artist — Title' in the trigger when the panel is closed", () => {
     render(
       <RotationReleaseDropdown
         releases={releases}
@@ -52,11 +59,10 @@ describe("RotationReleaseDropdown", () => {
         disabled={false}
       />
     );
-    expect(screen.getByText(/Autechre/)).toBeInTheDocument();
-    expect(screen.getByText(/Confield/)).toBeInTheDocument();
+    expect(getCombobox().value).toBe("Autechre — Confield");
   });
 
-  it("should open dropdown panel when trigger is clicked", () => {
+  it("opens the panel when the combobox is focused", () => {
     render(
       <RotationReleaseDropdown
         releases={releases}
@@ -65,11 +71,11 @@ describe("RotationReleaseDropdown", () => {
         disabled={false}
       />
     );
-    fireEvent.click(screen.getByTestId("rotation-release-trigger"));
+    fireEvent.focus(getCombobox());
     expect(screen.getByTestId("rotation-release-panel")).toBeInTheDocument();
   });
 
-  it("should show all releases in the dropdown panel", () => {
+  it("opens the panel when the combobox is clicked even if already focused", () => {
     render(
       <RotationReleaseDropdown
         releases={releases}
@@ -78,13 +84,26 @@ describe("RotationReleaseDropdown", () => {
         disabled={false}
       />
     );
-    fireEvent.click(screen.getByTestId("rotation-release-trigger"));
+    fireEvent.click(getCombobox());
+    expect(screen.getByTestId("rotation-release-panel")).toBeInTheDocument();
+  });
+
+  it("shows all releases in the dropdown panel when nothing has been typed", () => {
+    render(
+      <RotationReleaseDropdown
+        releases={releases}
+        selectedRelease={null}
+        onSelectRelease={mockOnSelectRelease}
+        disabled={false}
+      />
+    );
+    fireEvent.focus(getCombobox());
     expect(screen.getByText(/Autechre/)).toBeInTheDocument();
     expect(screen.getByText(/Cat Power/)).toBeInTheDocument();
     expect(screen.getByText(/Stereolab/)).toBeInTheDocument();
   });
 
-  it("should call onSelectRelease when a release is clicked", () => {
+  it("calls onSelectRelease when an option is clicked", () => {
     render(
       <RotationReleaseDropdown
         releases={releases}
@@ -93,13 +112,13 @@ describe("RotationReleaseDropdown", () => {
         disabled={false}
       />
     );
-    fireEvent.click(screen.getByTestId("rotation-release-trigger"));
+    fireEvent.focus(getCombobox());
     fireEvent.click(screen.getByTestId("rotation-release-option-1"));
     expect(mockOnSelectRelease).toHaveBeenCalledWith(releases[0]);
   });
 
-  it("should close dropdown after selecting a release", () => {
-    render(
+  it("closes the panel and reflects the selection in the input after picking", () => {
+    const { rerender } = render(
       <RotationReleaseDropdown
         releases={releases}
         selectedRelease={null}
@@ -107,13 +126,24 @@ describe("RotationReleaseDropdown", () => {
         disabled={false}
       />
     );
-    fireEvent.click(screen.getByTestId("rotation-release-trigger"));
-    expect(screen.getByTestId("rotation-release-panel")).toBeInTheDocument();
-    fireEvent.click(screen.getByTestId("rotation-release-option-1"));
-    expect(screen.queryByTestId("rotation-release-panel")).not.toBeInTheDocument();
+    fireEvent.focus(getCombobox());
+    fireEvent.click(screen.getByTestId("rotation-release-option-3"));
+    // Parent owns the selectedRelease state — simulate the controlled rerender.
+    rerender(
+      <RotationReleaseDropdown
+        releases={releases}
+        selectedRelease={releases[2]}
+        onSelectRelease={mockOnSelectRelease}
+        disabled={false}
+      />
+    );
+    expect(
+      screen.queryByTestId("rotation-release-panel")
+    ).not.toBeInTheDocument();
+    expect(getCombobox().value).toBe("Stereolab — Aluminum Tunes");
   });
 
-  it("should not open when disabled", () => {
+  it("disables the combobox when disabled prop is true", () => {
     render(
       <RotationReleaseDropdown
         releases={releases}
@@ -122,11 +152,15 @@ describe("RotationReleaseDropdown", () => {
         disabled={true}
       />
     );
-    fireEvent.click(screen.getByTestId("rotation-release-trigger"));
-    expect(screen.queryByTestId("rotation-release-panel")).not.toBeInTheDocument();
+    const input = getCombobox();
+    expect(input.disabled).toBe(true);
+    fireEvent.click(input);
+    expect(
+      screen.queryByTestId("rotation-release-panel")
+    ).not.toBeInTheDocument();
   });
 
-  it("should show empty state when no releases provided", () => {
+  it("shows empty state when no releases provided", () => {
     render(
       <RotationReleaseDropdown
         releases={[]}
@@ -135,7 +169,236 @@ describe("RotationReleaseDropdown", () => {
         disabled={false}
       />
     );
-    fireEvent.click(screen.getByTestId("rotation-release-trigger"));
+    fireEvent.focus(getCombobox());
     expect(screen.getByText(/no releases/i)).toBeInTheDocument();
+  });
+
+  describe("search and sort", () => {
+    it("sorts releases alphabetically by artist name regardless of input order", () => {
+      render(
+        <RotationReleaseDropdown
+          releases={releases}
+          selectedRelease={null}
+          onSelectRelease={mockOnSelectRelease}
+          disabled={false}
+        />
+      );
+      fireEvent.focus(getCombobox());
+      const options = screen.getAllByTestId(/^rotation-release-option-/);
+      expect(options.map((o) => o.dataset.testid)).toEqual([
+        "rotation-release-option-1", // Autechre
+        "rotation-release-option-2", // Cat Power
+        "rotation-release-option-3", // Stereolab
+      ]);
+    });
+
+    it("breaks artist-name ties by album title", () => {
+      const sameArtist = [
+        createTestAlbum({
+          id: 11,
+          title: "Mars Audiac Quintet",
+          artist: createTestArtist({ name: "Stereolab" }),
+          label: "Elektra",
+        }),
+        createTestAlbum({
+          id: 12,
+          title: "Aluminum Tunes",
+          artist: createTestArtist({ name: "Stereolab" }),
+          label: "Duophonic",
+        }),
+        createTestAlbum({
+          id: 13,
+          title: "Emperor Tomato Ketchup",
+          artist: createTestArtist({ name: "Stereolab" }),
+          label: "Duophonic",
+        }),
+      ];
+      render(
+        <RotationReleaseDropdown
+          releases={sameArtist}
+          selectedRelease={null}
+          onSelectRelease={mockOnSelectRelease}
+          disabled={false}
+        />
+      );
+      fireEvent.focus(getCombobox());
+      const options = screen.getAllByTestId(/^rotation-release-option-/);
+      expect(options.map((o) => o.dataset.testid)).toEqual([
+        "rotation-release-option-12", // Aluminum Tunes
+        "rotation-release-option-13", // Emperor Tomato Ketchup
+        "rotation-release-option-11", // Mars Audiac Quintet
+      ]);
+    });
+
+    it("sort is case-insensitive on artist name", () => {
+      const mixedCase = [
+        createTestAlbum({
+          id: 21,
+          title: "Album Z",
+          artist: createTestArtist({ name: "stereolab" }),
+        }),
+        createTestAlbum({
+          id: 22,
+          title: "Album A",
+          artist: createTestArtist({ name: "Autechre" }),
+        }),
+        createTestAlbum({
+          id: 23,
+          title: "Album B",
+          artist: createTestArtist({ name: "cat power" }),
+        }),
+      ];
+      render(
+        <RotationReleaseDropdown
+          releases={mixedCase}
+          selectedRelease={null}
+          onSelectRelease={mockOnSelectRelease}
+          disabled={false}
+        />
+      );
+      fireEvent.focus(getCombobox());
+      const options = screen.getAllByTestId(/^rotation-release-option-/);
+      expect(options.map((o) => o.dataset.testid)).toEqual([
+        "rotation-release-option-22", // Autechre
+        "rotation-release-option-23", // cat power
+        "rotation-release-option-21", // stereolab
+      ]);
+    });
+
+    it("filters the visible releases by artist name as the DJ types (case-insensitive substring)", () => {
+      render(
+        <RotationReleaseDropdown
+          releases={releases}
+          selectedRelease={null}
+          onSelectRelease={mockOnSelectRelease}
+          disabled={false}
+        />
+      );
+      const input = getCombobox();
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value: "ste" } });
+      expect(
+        screen.queryByTestId("rotation-release-option-3")
+      ).toBeInTheDocument(); // Stereolab
+      expect(
+        screen.queryByTestId("rotation-release-option-1")
+      ).not.toBeInTheDocument(); // Autechre filtered out
+      expect(
+        screen.queryByTestId("rotation-release-option-2")
+      ).not.toBeInTheDocument(); // Cat Power filtered out
+    });
+
+    it("filters by album title too", () => {
+      render(
+        <RotationReleaseDropdown
+          releases={releases}
+          selectedRelease={null}
+          onSelectRelease={mockOnSelectRelease}
+          disabled={false}
+        />
+      );
+      const input = getCombobox();
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value: "moon" } });
+      expect(
+        screen.queryByTestId("rotation-release-option-2")
+      ).toBeInTheDocument(); // Moon Pix
+      expect(
+        screen.queryByTestId("rotation-release-option-1")
+      ).not.toBeInTheDocument();
+    });
+
+    it("shows a 'no matches' state when the filter eliminates everything", () => {
+      render(
+        <RotationReleaseDropdown
+          releases={releases}
+          selectedRelease={null}
+          onSelectRelease={mockOnSelectRelease}
+          disabled={false}
+        />
+      );
+      const input = getCombobox();
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value: "zzzz-does-not-exist" } });
+      expect(
+        screen.queryAllByTestId(/^rotation-release-option-/)
+      ).toHaveLength(0);
+      expect(screen.getByText(/no releases match/i)).toBeInTheDocument();
+    });
+
+    it("re-shows all releases when the user clears the filter", () => {
+      render(
+        <RotationReleaseDropdown
+          releases={releases}
+          selectedRelease={null}
+          onSelectRelease={mockOnSelectRelease}
+          disabled={false}
+        />
+      );
+      const input = getCombobox();
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value: "ste" } });
+      fireEvent.change(input, { target: { value: "" } });
+      expect(
+        screen.queryAllByTestId(/^rotation-release-option-/)
+      ).toHaveLength(3);
+    });
+
+    it("starts a fresh filter on each focus rather than keeping the selected release's text as a filter", () => {
+      // Without resetting, the selected release's formatted text (e.g.
+      // "Autechre — Confield") would be applied as a substring filter on next
+      // focus and hide every other release.
+      render(
+        <RotationReleaseDropdown
+          releases={releases}
+          selectedRelease={releases[0]}
+          onSelectRelease={mockOnSelectRelease}
+          disabled={false}
+        />
+      );
+      const input = getCombobox();
+      fireEvent.focus(input);
+      // All three should be visible because the panel-open state filter is the
+      // empty query, not the selected release's formatted display value.
+      expect(screen.getAllByTestId(/^rotation-release-option-/)).toHaveLength(
+        3
+      );
+    });
+
+    it("does not clear the live filter when the input is clicked while the panel is already open", () => {
+      // Regression: clicking inside an already-focused input fires `onClick`
+      // again. The trigger's `onClick={openPanel}` must be idempotent so the
+      // DJ's in-progress filter doesn't get wiped when they reposition the
+      // caret mid-edit.
+      render(
+        <RotationReleaseDropdown
+          releases={releases}
+          selectedRelease={null}
+          onSelectRelease={mockOnSelectRelease}
+          disabled={false}
+        />
+      );
+      const input = getCombobox();
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value: "ste" } });
+      // Filter is applied: Stereolab visible, others hidden.
+      expect(
+        screen.queryByTestId("rotation-release-option-3")
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByTestId("rotation-release-option-1")
+      ).not.toBeInTheDocument();
+
+      // Click the (already-focused, already-open) input — must NOT reset the
+      // query.
+      fireEvent.click(input);
+      expect(input.value).toBe("ste");
+      expect(
+        screen.queryByTestId("rotation-release-option-3")
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByTestId("rotation-release-option-1")
+      ).not.toBeInTheDocument();
+    });
   });
 });

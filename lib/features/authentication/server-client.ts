@@ -4,11 +4,17 @@ import { adminClient, emailOTPClient, usernameClient, jwtClient, organizationCli
 // Server-side only - no React dependencies
 // This file can be safely imported in middleware, server components, and API routes
 
-// NEXT_PUBLIC_ variables are available at build time in Next.js
 function getBaseURL(): string {
-  // Server-side: access process.env directly
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "https://api.wxyc.org/auth";
+  // AUTH_REWRITE_URL is a server-only override for setups where the auth
+  // service is reachable from the host (NEXT_PUBLIC_BETTER_AUTH_URL) but not
+  // from inside the dj-site server (e.g. docker compose, where the host's
+  // localhost is the container itself). Precedence must match the
+  // /auth/:path* rewrite in next.config.mjs.
+  return (
+    process.env.AUTH_REWRITE_URL ||
+    process.env.NEXT_PUBLIC_BETTER_AUTH_URL ||
+    "https://api.wxyc.org/auth"
+  );
 }
 
 const baseURL = getBaseURL();

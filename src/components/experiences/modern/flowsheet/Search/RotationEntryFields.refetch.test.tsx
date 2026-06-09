@@ -80,8 +80,8 @@ function mockRotationListAndTracks(handler: TracksHandler): {
 const selectBin = () => fireEvent.click(screen.getByRole("radio", { name: "H" }));
 
 const selectRelease = async (releaseId: number) => {
-  const trigger = await screen.findByTestId("rotation-release-trigger");
-  fireEvent.click(trigger);
+  const trigger = await screen.findByTestId("rotation-release-combobox");
+  fireEvent.focus(trigger);
   fireEvent.click(
     await screen.findByTestId(`rotation-release-option-${releaseId}`)
   );
@@ -111,7 +111,7 @@ describe("RotationEntryFields — refetch on release pick (#589)", () => {
       expect(trackRequestsFor(ROTATION_ID_OOIOO)).toBeGreaterThanOrEqual(1)
     );
     await waitFor(() =>
-      expect(screen.getByTestId("track-picker-trigger")).toBeInTheDocument()
+      expect(screen.getByTestId("track-picker-combobox")).toBeInTheDocument()
     );
   });
 
@@ -156,14 +156,14 @@ describe("RotationEntryFields — refetch on release pick (#589)", () => {
     selectBin();
     await selectRelease(ooioo.id);
     await waitFor(() =>
-      expect(screen.queryByTestId("track-picker-trigger")).not.toBeInTheDocument()
+      expect(screen.queryByTestId("track-picker-combobox")).not.toBeInTheDocument()
     );
 
     await selectRelease(jessicaPratt.id);
     await selectRelease(ooioo.id);
 
     await waitFor(() =>
-      expect(screen.getByTestId("track-picker-trigger")).toBeInTheDocument()
+      expect(screen.getByTestId("track-picker-combobox")).toBeInTheDocument()
     );
   });
 });

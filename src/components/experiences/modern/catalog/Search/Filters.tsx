@@ -4,7 +4,6 @@ import {
   useGetFormatsQuery,
   useGetGenresQuery,
 } from "@/lib/features/catalog/api";
-import { useCatalogQuerySearch } from "@/src/hooks/catalogHooks";
 import { Box, Divider } from "@mui/joy";
 
 import { CatalogFilterSection } from "./CatalogFilterSection";

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import React from "react";
+import { createElement, type ReactNode } from "react";
 import { Provider } from "react-redux";
 import { configureStore } from "@reduxjs/toolkit";
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
@@ -32,6 +32,8 @@ const mockSignInEmail = vi.fn();
 const mockSignInEmailOtp = vi.fn();
 const mockSendVerificationOtp = vi.fn();
 const mockLookupEmailByIdentifier = vi.fn();
+const mockSignOut = vi.fn();
+const mockClearTokenCache = vi.fn();
 vi.mock("@/lib/features/authentication/client", () => ({
   authClient: {
     updateUser: (...args: any[]) => mockUpdateUser(...args),
@@ -45,8 +47,9 @@ vi.mock("@/lib/features/authentication/client", () => ({
     emailOtp: {
       sendVerificationOtp: (...args: any[]) => mockSendVerificationOtp(...args),
     },
-    signOut: vi.fn(),
+    signOut: (...args: any[]) => mockSignOut(...args),
   },
+  clearTokenCache: (...args: any[]) => mockClearTokenCache(...args),
   lookupEmailByIdentifier: (...args: any[]) => mockLookupEmailByIdentifier(...args),
 }));
 
@@ -70,8 +73,8 @@ function createTestStore() {
 
 function createWrapper() {
   const store = createTestStore();
-  return function Wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(Provider, { store, children });
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return createElement(Provider, { store, children });
   };
 }
 
@@ -336,6 +339,173 @@ describe("authenticationHooks", () => {
       expect(mockUpdateUser).toHaveBeenCalledWith({
         hasCompletedOnboarding: true,
       });
+    });
+
+    it("calls changePassword before updateUser so a failed password change leaves hasCompletedOnboarding untouched", async () => {
+      mockGetSession.mockResolvedValue({
+        data: { user: { id: "user-1" } },
+      });
+
+      const callOrder: string[] = [];
+      mockChangePassword.mockImplementation(async () => {
+        callOrder.push("changePassword");
+        return { data: {} };
+      });
+      mockUpdateUser.mockImplementation(async () => {
+        callOrder.push("updateUser");
+        return { data: {} };
+      });
+
+      const { useNewUser } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useNewUser(), { wrapper: createWrapper() });
+
+      const form = {
+        preventDefault: vi.fn(),
+        currentTarget: {
+          username: { value: "testdj" },
+          password: { value: "NewPassword1" },
+          realName: { value: "Real Name" },
+          djName: { value: "DJ Name" },
+        },
+      } as any;
+
+      await act(async () => {
+        await result.current.handleNewUser(form);
+      });
+
+      expect(callOrder).toEqual(["changePassword", "updateUser"]);
+      expect(mockChangePassword).toHaveBeenCalledWith({
+        currentPassword: "temp123",
+        newPassword: "NewPassword1",
+      });
+    });
+
+    it("does not call updateUser when changePassword rejects, so hasCompletedOnboarding stays false", async () => {
+      mockGetSession.mockResolvedValue({
+        data: { user: { id: "user-1" } },
+      });
+      mockChangePassword.mockResolvedValue({
+        data: null,
+        error: { message: "Current password is incorrect" },
+      });
+
+      const { throwIfBetterAuthError } = await import("@/src/utilities/throwIfBetterAuthError");
+      (throwIfBetterAuthError as any).mockImplementation((res: any, msg: string) => {
+        if (res?.error) {
+          throw new Error(msg);
+        }
+      });
+
+      const { useNewUser } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useNewUser(), { wrapper: createWrapper() });
+
+      const form = {
+        preventDefault: vi.fn(),
+        currentTarget: {
+          username: { value: "testdj" },
+          password: { value: "NewPassword1" },
+          realName: { value: "Real Name" },
+          djName: { value: "DJ Name" },
+        },
+      } as any;
+
+      await act(async () => {
+        await result.current.handleNewUser(form);
+      });
+
+      expect(mockChangePassword).toHaveBeenCalled();
+      expect(mockUpdateUser).not.toHaveBeenCalled();
+      expect(mockPush).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("useLogout (WXYC/dj-site#596)", () => {
+    it("clears the JWT token cache before calling signOut", async () => {
+      const callOrder: string[] = [];
+      mockClearTokenCache.mockImplementation(() => {
+        callOrder.push("clearTokenCache");
+      });
+      mockSignOut.mockImplementation(async () => {
+        callOrder.push("signOut");
+      });
+
+      const { useLogout } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useLogout(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        await result.current.handleLogout();
+      });
+
+      expect(mockClearTokenCache).toHaveBeenCalledTimes(1);
+      expect(mockSignOut).toHaveBeenCalledTimes(1);
+      // Cache must be cleared synchronously *before* signOut is awaited so any
+      // racing call to getJWTToken() can't pull the departing user's bearer.
+      expect(callOrder).toEqual(["clearTokenCache", "signOut"]);
+    });
+
+    it("clears the JWT token cache even when no form event is supplied", async () => {
+      const { useLogout } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useLogout(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        await result.current.handleLogout();
+      });
+
+      expect(mockClearTokenCache).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("useLogin (WXYC/dj-site#596 defensive)", () => {
+    it("clears the JWT token cache before signing in", async () => {
+      const callOrder: string[] = [];
+      mockClearTokenCache.mockImplementation(() => {
+        callOrder.push("clearTokenCache");
+      });
+      mockSignInUsername.mockImplementation(async () => {
+        callOrder.push("signInUsername");
+        return { data: { user: { id: "user-1", hasCompletedOnboarding: true } } };
+      });
+
+      const { useLogin } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
+
+      const form = {
+        preventDefault: vi.fn(),
+        currentTarget: {
+          username: { value: "jbromberg" },
+          password: { value: "password123" },
+        },
+      } as any;
+
+      await act(async () => {
+        await result.current.handleLogin(form);
+      });
+
+      expect(mockClearTokenCache).toHaveBeenCalledTimes(1);
+      expect(callOrder).toEqual(["clearTokenCache", "signInUsername"]);
+    });
+  });
+
+  describe("useOTPVerify (WXYC/dj-site#596 defensive)", () => {
+    it("clears the JWT token cache before verifying the OTP", async () => {
+      const callOrder: string[] = [];
+      mockClearTokenCache.mockImplementation(() => {
+        callOrder.push("clearTokenCache");
+      });
+      mockSignInEmailOtp.mockImplementation(async () => {
+        callOrder.push("signInEmailOtp");
+        return { data: { user: { id: "user-1", hasCompletedOnboarding: true } } };
+      });
+
+      const { useOTPVerify } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useOTPVerify(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        await result.current.handleVerifyOTP("dj@wxyc.org", "123456");
+      });
+
+      expect(mockClearTokenCache).toHaveBeenCalledTimes(1);
+      expect(callOrder).toEqual(["clearTokenCache", "signInEmailOtp"]);
     });
   });
 });

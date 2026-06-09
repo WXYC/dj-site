@@ -3,16 +3,46 @@
 import "@/src/styles/classic/wxyc.css";
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
 import { useRegistry } from "@/src/hooks/authenticationHooks";
-import { FormEvent } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { OpenHelp } from "@/src/utils/helpScreen";
 
 export default function StartShow() {
   const { goLive } = useShowControl();
   const { info: userData } = useRegistry();
+  // Editable per-show override for the DJ's public handle. Initialized to
+  // the registry's `dj_name` so the user sees their current value and can
+  // type over it. See #694 + BS#1295.
+  //
+  // `useRegistry()` is async: the first render is typically `info: null`
+  // and `userData?.dj_name` lands on a later render. `useState`'s
+  // initializer only runs once, so we sync the editable state to the
+  // registry value via `useEffect` until the user types into the field.
+  // After the user edits, their in-progress value wins even if the
+  // registry refetches.
+  const registryDjHandle = userData?.dj_name ?? "";
+  const [djHandle, setDjHandle] = useState(registryDjHandle);
+  const [userEditedDjHandle, setUserEditedDjHandle] = useState(false);
+
+  useEffect(() => {
+    if (!userEditedDjHandle) {
+      setDjHandle(registryDjHandle);
+    }
+  }, [registryDjHandle, userEditedDjHandle]);
 
   const handleStartShow = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    goLive();
+    // Pass the override only when the user-typed value is non-empty after
+    // trimming AND differs from the *current* registry value (read at
+    // submit time, not captured at mount). This keeps the comparison
+    // stable against a mid-form registry refetch: if the registry value
+    // matches what the user typed at submit time, no override fires.
+    const currentRegistryValue = (userData?.dj_name ?? "").trim();
+    const trimmed = djHandle.trim();
+    const override =
+      trimmed.length > 0 && trimmed !== currentRegistryValue
+        ? trimmed
+        : undefined;
+    goLive(override);
   };
 
   // Format current time for display in disabled dropdown
@@ -138,14 +168,12 @@ export default function StartShow() {
                   <input
                     type="text"
                     name="djHandle"
-                    value={userData?.dj_name || ""}
-                    placeholder="(optional)"
-                    disabled
-                    style={{
-                      backgroundColor: "#f0f0f0",
-                      color: "#666",
-                      cursor: "not-allowed",
+                    value={djHandle}
+                    onChange={(e) => {
+                      setUserEditedDjHandle(true);
+                      setDjHandle(e.target.value);
                     }}
+                    placeholder="(optional)"
                   />
                   &nbsp;(optional)
                 </td>

@@ -5,6 +5,7 @@ import { useAppDispatch } from "@/lib/hooks";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useAddToFlowsheetMutation } from "@/lib/features/flowsheet/api";
 import { useGetRotationQuery } from "@/lib/features/rotation/api";
+import { sortRotationReleases } from "@/lib/features/rotation/sort";
 import { Rotation } from "@/lib/features/rotation/types";
 import { FlowsheetEntryType } from "@wxyc/shared/dtos";
 
@@ -34,6 +35,11 @@ export default function EntryForm({
   const [entryType, setEntryType] = useState<EntryType>("track");
   const [releaseType, setReleaseType] = useState<ReleaseType>("rotationRelease");
   const [rotationType, setRotationType] = useState<RotationType | "">("");
+  // Holds the picked release's `rotation_id` (rotation row PK), NOT its album
+  // id. `release.id` can be a synthesized negative for library-unlinked
+  // rotation rows (see `synthesizeAlbumId` in catalog/conversions.ts); keying
+  // on `rotation_id` keeps the picker working regardless of library-link
+  // state (dj-site#698). 0 means nothing selected.
   const [selectedRotationId, setSelectedRotationId] = useState<number>(0);
   const [artistName, setArtistName] = useState("");
   const [songTitle, setSongTitle] = useState("");
@@ -46,10 +52,20 @@ export default function EntryForm({
 
   const { data: rotationData } = useGetRotationQuery();
 
-  const heavyReleases = rotationData?.filter((r) => r.rotation_bin === Rotation.H) || [];
-  const mediumReleases = rotationData?.filter((r) => r.rotation_bin === Rotation.M) || [];
-  const lightReleases = rotationData?.filter((r) => r.rotation_bin === Rotation.L) || [];
-  const singlesReleases = rotationData?.filter((r) => r.rotation_bin === Rotation.S) || [];
+  // Sorted A→Z by artist (ties broken by album title) so the native <select>
+  // type-ahead lands the DJ in the right neighborhood. WXYC/dj-site#745.
+  const heavyReleases = sortRotationReleases(
+    rotationData?.filter((r) => r.rotation_bin === Rotation.H) || []
+  );
+  const mediumReleases = sortRotationReleases(
+    rotationData?.filter((r) => r.rotation_bin === Rotation.M) || []
+  );
+  const lightReleases = sortRotationReleases(
+    rotationData?.filter((r) => r.rotation_bin === Rotation.L) || []
+  );
+  const singlesReleases = sortRotationReleases(
+    rotationData?.filter((r) => r.rotation_bin === Rotation.S) || []
+  );
 
   useEffect(() => {
     if (useArtistForComposer) {
@@ -57,10 +73,10 @@ export default function EntryForm({
     }
   }, [useArtistForComposer, artistName]);
 
-  const handleRotationSelect = (type: RotationType, releaseId: number) => {
+  const handleRotationSelect = (type: RotationType, rotationId: number) => {
     setRotationType(type);
-    setSelectedRotationId(releaseId);
-    const release = rotationData?.find((r) => r.id === releaseId);
+    setSelectedRotationId(rotationId);
+    const release = rotationData?.find((r) => r.rotation_id === rotationId);
     if (release) {
       setArtistName(release.artist.name);
       setReleaseTitle(release.title);
@@ -109,17 +125,39 @@ export default function EntryForm({
         entry_type: FlowsheetEntryType.breakpoint,
       };
     } else if (releaseType === "rotationRelease" && selectedRotationId > 0) {
-      const release = rotationData?.find((r) => r.id === selectedRotationId);
+      const release = rotationData?.find(
+        (r) => r.rotation_id === selectedRotationId
+      );
       if (!release) return;
-      submissionData = {
-        album_id: release.id,
-        track_title: songTitle,
-        rotation_id: release.rotation_id,
-        request_flag: requestFlag,
-        segue,
-        record_label: labelName || release.label,
-        rotation_bin: release.rotation_bin,
-      };
+      // Library-unlinked rotation rows have a synthesized negative
+      // `release.id` (see `synthesizeAlbumId` in catalog/conversions.ts).
+      // BS's POST /flowsheet rotation variant
+      // (`FlowsheetCreateSongFromCatalog`) requires a real positive
+      // `album_id`, so we fall back to the freeform variant for unlinked
+      // rows. This trades the rotation linkage (sibling: dj-site#691) for
+      // a non-error submit; recovering the linkage requires BS to accept
+      // `rotation_id` without `album_id` (Option C, BS-side schema work).
+      // Aligned with sibling dj-site#608's fix shape.
+      if (typeof release.id === "number" && release.id > 0) {
+        submissionData = {
+          album_id: release.id,
+          track_title: songTitle,
+          rotation_id: release.rotation_id,
+          request_flag: requestFlag,
+          segue,
+          record_label: labelName || release.label,
+          rotation_bin: release.rotation_bin,
+        };
+      } else {
+        submissionData = {
+          artist_name: release.artist.name,
+          album_title: release.title,
+          track_title: songTitle,
+          request_flag: requestFlag,
+          segue,
+          record_label: labelName || release.label,
+        };
+      }
     } else {
       // libraryRelease + otherRelease both fall through to the free-text
       // submission path. Plumbing a real `library_album_id` for the Library
@@ -227,7 +265,10 @@ export default function EntryForm({
                         Rotation ------------------
                       </option>
                       {heavyReleases.map((release) => (
-                        <option key={release.id} value={release.id}>
+                        <option
+                          key={release.rotation_id}
+                          value={release.rotation_id}
+                        >
                           {release.artist.name} - {release.title}
                         </option>
                       ))}
@@ -247,7 +288,10 @@ export default function EntryForm({
                         Rotation -----------------
                       </option>
                       {mediumReleases.map((release) => (
-                        <option key={release.id} value={release.id}>
+                        <option
+                          key={release.rotation_id}
+                          value={release.rotation_id}
+                        >
                           {release.artist.name} - {release.title}
                         </option>
                       ))}
@@ -267,7 +311,10 @@ export default function EntryForm({
                         Rotation ------------------
                       </option>
                       {lightReleases.map((release) => (
-                        <option key={release.id} value={release.id}>
+                        <option
+                          key={release.rotation_id}
+                          value={release.rotation_id}
+                        >
                           {release.artist.name} - {release.title}
                         </option>
                       ))}
@@ -290,7 +337,10 @@ export default function EntryForm({
                         Rotation ----------------
                       </option>
                       {singlesReleases.map((release) => (
-                        <option key={release.id} value={release.id}>
+                        <option
+                          key={release.rotation_id}
+                          value={release.rotation_id}
+                        >
                           {release.artist.name} - {release.title}
                         </option>
                       ))}

@@ -9,9 +9,18 @@ const authRewriteURL =
   process.env.NEXT_PUBLIC_BETTER_AUTH_URL ||
   "https://api.wxyc.org/auth";
 
+// `NEXT_DIST_DIR_SUFFIX` lets parallel builds (different NEXT_PUBLIC_* values
+// in particular) coexist by writing to `.next-<suffix>/` instead of the
+// default `.next/`. No application semantics — set by scripts that need a
+// second build alongside the primary one.
+const distDir = process.env.NEXT_DIST_DIR_SUFFIX
+  ? `.next-${process.env.NEXT_DIST_DIR_SUFFIX}`
+  : ".next";
+
 const nextConfig = {
   reactStrictMode: false,
   productionBrowserSourceMaps: true,
+  distDir,
   // Explicitly set workspace root to silence lockfile warning
   outputFileTracingRoot: import.meta.dirname,
   // Required for OpenNext Cloudflare

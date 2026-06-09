@@ -83,6 +83,31 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
       expect(result.search.selectedResult).toBe(3);
     });
 
+    // Arrow-key navigation between search results moves to a different
+    // album_id (each result is a distinct release). track_position picked on
+    // the previous result would orphan onto the new release if not cleared.
+    // Re-selecting the SAME index (e.g. on mouseover) must preserve a freshly
+    // picked position. (dj-site#704)
+    describe("setSelectedResult track_position hygiene", () => {
+      it("clears track_position when the selected result index changes", () => {
+        const result = harness().chain(
+          actions.setSelectedResult(2),
+          actions.setTrackPosition("A1"),
+          actions.setSelectedResult(3)
+        );
+        expect(result.search.query.track_position).toBeUndefined();
+      });
+
+      it("preserves track_position when the selected result index is unchanged", () => {
+        const result = harness().chain(
+          actions.setSelectedResult(2),
+          actions.setTrackPosition("A1"),
+          actions.setSelectedResult(2)
+        );
+        expect(result.search.query.track_position).toBe("A1");
+      });
+    });
+
     describe("freezeSelectionToQuery", () => {
       it("should copy the selected entry's fields into the query and deselect", () => {
         const result = harness().chain(
@@ -207,6 +232,84 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
       expect(mockedSaveQueue).toHaveBeenCalled();
     });
 
+    describe("addToQueue album-linkage sanitization (dj-site#703)", () => {
+      // The Modern rotation picker + bin/catalog deposit paths can feed
+      // addToQueue with a synthesized negative album_id (from
+      // synthesizeAlbumId, for library-unlinked rows). SongEntry's "Play Now"
+      // bypasses convertQueryToSubmission and would forward the negative id to
+      // BS — same 500 PR #702 fixed for the form-submit path. Sanitize at the
+      // reducer so the queue never holds a synthesized id, mirroring the
+      // chokepoint logic in convertQueryToSubmission.
+      it("strips album_id, rotation_id, and rotation when album_id is a synthesized negative hash", () => {
+        const query = createTestFlowsheetQuery({
+          album_id: -123456,
+          rotation_id: 7,
+          rotation_bin: "H",
+        });
+        const result = harness().reduce(actions.addToQueue(query));
+        expect(result.queue[0].album_id).toBeUndefined();
+        expect(result.queue[0].rotation_id).toBeUndefined();
+        expect(result.queue[0].rotation).toBeUndefined();
+      });
+
+      it("strips the catalog-anchored trio when album_id is zero", () => {
+        const query = createTestFlowsheetQuery({
+          album_id: 0,
+          rotation_id: 7,
+          rotation_bin: "H",
+        });
+        const result = harness().reduce(actions.addToQueue(query));
+        expect(result.queue[0].album_id).toBeUndefined();
+        expect(result.queue[0].rotation_id).toBeUndefined();
+        expect(result.queue[0].rotation).toBeUndefined();
+      });
+
+      it("strips orphaned rotation linkage when album_id is undefined", () => {
+        const query = createTestFlowsheetQuery({
+          album_id: undefined,
+          rotation_id: 7,
+          rotation_bin: "H",
+        });
+        const result = harness().reduce(actions.addToQueue(query));
+        expect(result.queue[0].album_id).toBeUndefined();
+        expect(result.queue[0].rotation_id).toBeUndefined();
+        expect(result.queue[0].rotation).toBeUndefined();
+      });
+
+      it("preserves the catalog-anchored trio when album_id is a positive library.id", () => {
+        const query = createTestFlowsheetQuery({
+          album_id: 1001,
+          rotation_id: 7,
+          rotation_bin: "H",
+        });
+        const result = harness().reduce(actions.addToQueue(query));
+        expect(result.queue[0].album_id).toBe(1001);
+        expect(result.queue[0].rotation_id).toBe(7);
+        expect(result.queue[0].rotation).toBe("H");
+      });
+
+      it("preserves freeform fields (song/artist/album/label/segue/request) regardless of album_id", () => {
+        const query = createTestFlowsheetQuery({
+          song: "Track Title",
+          artist: "Artist Name",
+          album: "Album Title",
+          label: "Record Label",
+          segue: true,
+          request: true,
+          album_id: -1,
+          rotation_id: 7,
+          rotation_bin: "H",
+        });
+        const result = harness().reduce(actions.addToQueue(query));
+        expect(result.queue[0].track_title).toBe("Track Title");
+        expect(result.queue[0].artist_name).toBe("Artist Name");
+        expect(result.queue[0].album_title).toBe("Album Title");
+        expect(result.queue[0].record_label).toBe("Record Label");
+        expect(result.queue[0].segue).toBe(true);
+        expect(result.queue[0].request_flag).toBe(true);
+      });
+    });
+
     it("should remove item from queue", () => {
       const query = createTestFlowsheetQuery();
       const withItem = harness().reduce(actions.addToQueue(query));
@@ -262,6 +365,42 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
       const result = harness().reduce(actions.loadQueue());
       expect(result.queue).toEqual([]);
       expect(result.queueIdCounter).toBe(0);
+    });
+
+    describe("loadQueue album-linkage sanitization (dj-site#703)", () => {
+      // Queues persisted to localStorage before #703 shipped may contain rows
+      // with synthesized negative album_id. Sanitize on load so a stale
+      // poisoned queue can't leak a negative album_id via SongEntry "Play Now"
+      // after the user reloads the page.
+      it("sanitizes poisoned localStorage entries with negative album_id", () => {
+        const poisoned = createTestFlowsheetEntry({
+          id: 1,
+          album_id: -42,
+          rotation_id: 7,
+          rotation: "H",
+        });
+        mockedLoadQueue.mockReturnValueOnce([poisoned]);
+
+        const result = harness().reduce(actions.loadQueue());
+        expect(result.queue[0].album_id).toBeUndefined();
+        expect(result.queue[0].rotation_id).toBeUndefined();
+        expect(result.queue[0].rotation).toBeUndefined();
+      });
+
+      it("preserves linkage for library-linked entries on load", () => {
+        const linked = createTestFlowsheetEntry({
+          id: 1,
+          album_id: 1001,
+          rotation_id: 7,
+          rotation: "H",
+        });
+        mockedLoadQueue.mockReturnValueOnce([linked]);
+
+        const result = harness().reduce(actions.loadQueue());
+        expect(result.queue[0].album_id).toBe(1001);
+        expect(result.queue[0].rotation_id).toBe(7);
+        expect(result.queue[0].rotation).toBe("H");
+      });
     });
 
     it("should update queue entry field", () => {
@@ -393,6 +532,22 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
       expect(result.search.query.album_id).toBe(TEST_ENTITY_IDS.ALBUM.ROTATION_ALBUM);
       expect(result.search.query.rotation_id).toBe(TEST_ENTITY_IDS.ROTATION.HEAVY);
       expect(result.search.query.rotation_bin).toBe("H");
+    });
+
+    // track_position is anchored to a specific album_id (it's a Discogs
+    // release_track.position reference). Any reducer that overwrites album_id
+    // must clear track_position or it orphans onto the wrong release.
+    // (dj-site#704)
+    it("setRotationMetadata clears track_position when album_id changes", () => {
+      const result = harness().chain(
+        actions.setTrackPosition("A1"),
+        actions.setRotationMetadata({
+          album_id: TEST_ENTITY_IDS.ALBUM.ROTATION_ALBUM,
+          rotation_id: TEST_ENTITY_IDS.ROTATION.HEAVY,
+          rotation_bin: "H" as const,
+        })
+      );
+      expect(result.search.query.track_position).toBeUndefined();
     });
 
     it("should preserve rotation mode across resetSearch", () => {

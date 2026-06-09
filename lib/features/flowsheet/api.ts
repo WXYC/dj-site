@@ -101,7 +101,10 @@ export const flowsheetApi = createApi({
         }
       },
     }),
-    joinShow: builder.mutation<void, DJRequestParams>({
+    joinShow: builder.mutation<
+      void,
+      DJRequestParams & { dj_name_override?: string }
+    >({
       query: (params) => ({
         url: "/join",
         method: "POST",

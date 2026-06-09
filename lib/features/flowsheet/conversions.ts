@@ -18,6 +18,25 @@ export function formatOnAirSummary(djs: OnAirDJResponse[]): string {
 export function convertQueryToSubmission(
   query: FlowsheetQuery
 ): FlowsheetSubmissionParams {
+  // BS's `FlowsheetCreateSongFromCatalog` variant requires a positive
+  // `album_id` (a real `library.id`); the rotation-linkage fields
+  // (`rotation_id`, `rotation_bin`) and the Discogs tracklist position
+  // (`track_position`) only land on the wire when paired with it.
+  // `track_position` is a `release_track.position` reference into a specific
+  // Discogs release — orphaning it on the freeform variant produces a
+  // position string ("A1") with no album to position into, so reducers that
+  // overwrite `album_id` but leave a stale `track_position` (e.g.
+  // `setRotationMetadata`) must not leak it to the wire.
+  // The Modern rotation picker and the bin → queue path can both write a
+  // synthesized negative `album_id` for library-unlinked rotation rows
+  // (`synthesizeAlbumId` in `lib/features/catalog/conversions.ts`); on
+  // negative numbers BS takes the `album_id != null` branch, calls
+  // `getAlbumFromDB(-X)` → undefined → throws TypeError. Gate here so any
+  // caller that lands a non-positive `album_id` falls back to the freeform
+  // variant — at the cost of the rotation linkage, until BS-side schema work
+  // lands. Matches the Classic-side shape from PR #699. (dj-site#701)
+  const hasLinkedAlbum =
+    typeof query.album_id === "number" && query.album_id > 0;
   return {
     track_title: query.song,
     artist_name: query.artist,
@@ -25,11 +44,13 @@ export function convertQueryToSubmission(
     record_label: query.label,
     request_flag: query.request,
     segue: query.segue,
-    album_id: query.album_id,
-    rotation_id: query.rotation_id,
-    rotation_bin: query.rotation_bin,
-    ...(query.track_position !== undefined && {
-      track_position: query.track_position,
+    ...(hasLinkedAlbum && {
+      album_id: query.album_id,
+      rotation_id: query.rotation_id,
+      rotation_bin: query.rotation_bin,
+      ...(query.track_position !== undefined && {
+        track_position: query.track_position,
+      }),
     }),
   };
 }

@@ -25,10 +25,12 @@ DB_PORT="${E2E_DB_PORT:-5436}"
 AUTH_PORT=8084
 BACKEND_PORT=8085
 FRONTEND_PORT="${E2E_FRONTEND_PORT:-3001}"
+SECOND_FRONTEND_PORT="${E2E_SECOND_FRONTEND_PORT:-3002}"
 
 cleanup() {
   echo "Cleaning up..."
   kill "$(cat /tmp/e2e-frontend.pid 2>/dev/null)" 2>/dev/null || true
+  kill "$(cat /tmp/e2e-frontend-broken-auth.pid 2>/dev/null)" 2>/dev/null || true
   kill "$(cat /tmp/e2e-auth.pid 2>/dev/null)" 2>/dev/null || true
   kill "$(cat /tmp/e2e-backend.pid 2>/dev/null)" 2>/dev/null || true
   E2E_DB_PORT=$DB_PORT docker compose -f "$DJSITE_DIR/docker-compose.e2e.yml" down -v 2>/dev/null || true
@@ -47,7 +49,7 @@ export DB_PASSWORD='RadioIsEpic$1100'
 export BETTER_AUTH_SECRET=e2e-auth-secret-for-testing-min-32-chars
 export BETTER_AUTH_URL="http://localhost:$AUTH_PORT/auth"
 export BETTER_AUTH_JWKS_URL="http://localhost:$AUTH_PORT/auth/jwks"
-export BETTER_AUTH_TRUSTED_ORIGINS="http://localhost:$FRONTEND_PORT"
+export BETTER_AUTH_TRUSTED_ORIGINS="http://localhost:$FRONTEND_PORT,http://localhost:$SECOND_FRONTEND_PORT"
 export FRONTEND_SOURCE="http://localhost:$FRONTEND_PORT"
 export DEFAULT_ORG_SLUG=test-org
 export DEFAULT_ORG_NAME='Test Organization'
@@ -59,6 +61,12 @@ export NODE_ENV=test
 # Without this, the SSE Tier 1 tests' NOTIFYs are silently dropped. Tracked
 # as a Backend-Service follow-up to split LISTEN startup from CDC_SECRET.
 export CDC_SECRET=e2e-cdc-secret-not-used-by-tests
+# Backend-Service's POST /internal/flowsheet-sync-notify is gated on
+# ETL_NOTIFY_KEY. The Tier 3 refetch test posts with this same value to
+# trigger a liveFs:refetch broadcast without going through the real ETL.
+# E2E_BACKEND_URL tells the helper where BS listens.
+export ETL_NOTIFY_KEY=e2e-etl-notify-key
+export E2E_BACKEND_URL=http://localhost:$BACKEND_PORT
 
 echo "==> Building Backend-Service..."
 cd "$BACKEND_DIR"
@@ -85,27 +93,67 @@ timeout 60 bash -c "until curl -sf http://localhost:$BACKEND_PORT/healthcheck; d
 echo "==> Seeding E2E test users..."
 npm run setup:e2e-users
 
-echo "==> Building dj-site..."
 cd "$DJSITE_DIR"
-NEXT_PUBLIC_BACKEND_URL=http://localhost:$BACKEND_PORT \
-NEXT_PUBLIC_BETTER_AUTH_URL=http://localhost:$AUTH_PORT/auth \
-NEXT_PUBLIC_DASHBOARD_HOME_PAGE=/dashboard/flowsheet \
-NEXT_PUBLIC_VERSION=e2e \
-NEXT_PUBLIC_DEFAULT_EXPERIENCE=modern \
-NEXT_PUBLIC_ENABLED_EXPERIENCES=modern,classic \
-NEXT_PUBLIC_ALLOW_EXPERIENCE_SWITCHING=true \
-NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD=temppass123 \
-NEXT_PUBLIC_APP_ORGANIZATION=test-org \
-NEXT_PUBLIC_FLOWSHEET_SSE_DASHBOARD_ENABLED=true \
-NEXT_PUBLIC_FLOWSHEET_SSE_LIVE_VIEW_ENABLED=true \
-npm run build
+
+# Shared NEXT_PUBLIC_* config for dj-site builds. Per-build overrides go on
+# the invocation line so they win against the export here.
+export NEXT_PUBLIC_BACKEND_URL=http://localhost:$BACKEND_PORT
+export NEXT_PUBLIC_BETTER_AUTH_URL=http://localhost:$AUTH_PORT/auth
+export NEXT_PUBLIC_DASHBOARD_HOME_PAGE=/dashboard/flowsheet
+export NEXT_PUBLIC_VERSION=e2e
+export NEXT_PUBLIC_DEFAULT_EXPERIENCE=modern
+export NEXT_PUBLIC_ENABLED_EXPERIENCES=modern,classic
+export NEXT_PUBLIC_ALLOW_EXPERIENCE_SWITCHING=true
+export NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD=temppass123
+export NEXT_PUBLIC_APP_ORGANIZATION=test-org
+export NEXT_PUBLIC_FLOWSHEET_SSE_DASHBOARD_ENABLED=true
+export NEXT_PUBLIC_FLOWSHEET_SSE_LIVE_VIEW_ENABLED=true
+
+echo "==> Building dj-site (primary)..."
+# Primary build -> .next/
+if ! npm run build > /tmp/e2e-build-primary.log 2>&1; then
+  echo "Primary build failed:"; tail -50 /tmp/e2e-build-primary.log; exit 1
+fi
+
+# Second build for e2e/tests/auth/server-session-via-docker.spec.ts.
+# NEXT_PUBLIC_BETTER_AUTH_URL is inlined at build time to an unreachable
+# loopback address, simulating the Docker scenario where the container's
+# `localhost` is the container itself. AUTH_REWRITE_URL is set at runtime on
+# the second `npm run start` (below) and takes precedence in both the /auth
+# rewrite and SSR session lookup — that precedence is exactly what the test
+# asserts. Writes to `.next-broken-auth/` (via NEXT_DIST_DIR_SUFFIX in
+# next.config.mjs) so the primary `.next/` build cache survives.
+#
+# Runs AFTER the primary build, not in parallel: both builds bootstrap
+# OpenNext (initOpenNextCloudflareForDev in next.config.mjs) against a shared
+# workerd SQLite cache and both trigger Next's tsconfig.json typegen rewrite —
+# running them concurrently races on those shared files and crashes with
+# SQLITE_BUSY.
+echo "==> Building dj-site (broken-auth)..."
+if ! NEXT_PUBLIC_BETTER_AUTH_URL=http://127.0.0.99:9999/auth \
+     NEXT_DIST_DIR_SUFFIX=broken-auth \
+     npm run build > /tmp/e2e-build-broken-auth.log 2>&1; then
+  echo "Broken-auth build failed:"; tail -50 /tmp/e2e-build-broken-auth.log; exit 1
+fi
 
 echo "==> Starting dj-site on :$FRONTEND_PORT..."
 PORT=$FRONTEND_PORT npm run start > /tmp/e2e-frontend.log 2>&1 &
 echo $! > /tmp/e2e-frontend.pid
-echo "Waiting for frontend..."
 timeout 60 bash -c "until curl -sf http://localhost:$FRONTEND_PORT; do sleep 2; done"
+
+echo "==> Starting second dj-site on :$SECOND_FRONTEND_PORT..."
+# AUTH_REWRITE_URL points at the real auth so it wins over the unreachable
+# build-inlined NEXT_PUBLIC_BETTER_AUTH_URL in both getBaseURL() and the
+# /auth rewrite — the precedence server-session-via-docker.spec.ts asserts.
+PORT=$SECOND_FRONTEND_PORT \
+NEXT_DIST_DIR_SUFFIX=broken-auth \
+AUTH_REWRITE_URL=http://localhost:$AUTH_PORT/auth \
+npm run start \
+  > /tmp/e2e-frontend-broken-auth.log 2>&1 &
+echo $! > /tmp/e2e-frontend-broken-auth.pid
+timeout 60 bash -c "until curl -sf http://localhost:$SECOND_FRONTEND_PORT; do sleep 2; done"
 
 echo "==> Running E2E tests..."
 E2E_BASE_URL=http://localhost:$FRONTEND_PORT \
+SECOND_FRONTEND_PORT=$SECOND_FRONTEND_PORT \
 npx playwright test --config=e2e/playwright.config.ts "$@"

@@ -1,7 +1,7 @@
 "use client";
 
 import { IconButton, Tooltip } from "@mui/joy";
-import React from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
 
 import { useRouter } from "next/navigation";
 
@@ -30,7 +30,7 @@ export default function ThemeSwitcher() {
   const { mode } = useColorScheme();
   const { persistPreference } = useThemePreferenceActions();
 
-  const handleSwitch = async (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleSwitch = async (e: ReactMouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     const newExperience = experience === "classic" ? "modern" : "classic";
     const nextMode = mode === "light" || mode === "dark" ? mode : "light";

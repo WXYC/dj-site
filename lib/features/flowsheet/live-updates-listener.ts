@@ -16,7 +16,14 @@ import type { FlowsheetEntry } from "./types";
 const LIVE_FS_TOPIC = "live-fs-topic";
 const REFETCH_DEBOUNCE_MS = 500;
 
-type FlowsheetTag = "Flowsheet" | "NowPlaying";
+// Drop benign SSE handshake frames so `sse_unknown_event_type` stays a
+// contract-drift signal, not per-connection noise. See WXYC/dj-site#673.
+const BENIGN_HANDSHAKE_TYPES = new Set<string>([
+  "connection-established",
+  "subscription",
+]);
+
+type FlowsheetTag = "Flowsheet" | "NowPlaying" | "WhoIsLive";
 
 const SSE_EVENTS = {
   CONNECTED: "sse_connected",
@@ -46,6 +53,13 @@ type LiveFsEvent = LiveFsUpdateEvent | LiveFsRefetchEvent;
 let eventSource: EventSource | null = null;
 let debouncedInvalidateTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingInvalidateTags: Set<FlowsheetTag> = new Set();
+// Tracks whether the current EventSource has ever fired onopen. The browser
+// fires onopen again after a transparent reconnect; if hasEverConnected was
+// already true when onopen fires, anything the backend pushed during the
+// blackout window is missing from local cache, so we schedule an explicit
+// refetch to repair it. Reset on connectionReleased so a fresh subscriber's
+// first open is treated as an initial connect, not a reconnect. See #682.
+let hasEverConnected = false;
 
 function isLiveFsEvent(value: unknown): value is LiveFsEvent {
   if (typeof value !== "object" || value === null) return false;
@@ -192,9 +206,21 @@ startListening({
     eventSource = es;
 
     es.onopen = () => {
+      const isReconnect = hasEverConnected;
       if (setConnectionStatusIfChanged(listenerApi, "connected")) {
         safeCapture(SSE_EVENTS.CONNECTED, { topic: LIVE_FS_TOPIC });
       }
+      if (isReconnect) {
+        scheduleDebouncedInvalidate(listenerApi.dispatch, [
+          "Flowsheet",
+          "NowPlaying",
+          "WhoIsLive",
+        ]);
+      }
+      // Set last so a throwing dispatch above leaves the flag false and the
+      // next onopen is treated as the first observable connect, not a
+      // reconnect.
+      hasEverConnected = true;
     };
 
     es.onerror = () => {
@@ -229,13 +255,17 @@ startListening({
         });
         return;
       }
+      const rawType =
+        typeof parsed === "object" && parsed !== null
+          ? (parsed as { type?: unknown }).type
+          : null;
+      if (typeof rawType === "string" && BENIGN_HANDSHAKE_TYPES.has(rawType)) {
+        return;
+      }
       if (!isLiveFsEvent(parsed)) {
         safeCapture(SSE_EVENTS.UNKNOWN_EVENT_TYPE, {
           topic: LIVE_FS_TOPIC,
-          raw_type:
-            typeof parsed === "object" && parsed !== null
-              ? (parsed as { type?: unknown }).type
-              : null,
+          raw_type: rawType,
         });
         return;
       }
@@ -244,6 +274,7 @@ startListening({
         scheduleDebouncedInvalidate(listenerApi.dispatch, [
           "Flowsheet",
           "NowPlaying",
+          "WhoIsLive",
         ]);
         return;
       }
@@ -262,6 +293,7 @@ startListening({
     if (refCount !== 0 || eventSource === null) return;
     eventSource.close();
     eventSource = null;
+    hasEverConnected = false;
     clearDebouncedInvalidate();
     setConnectionStatusIfChanged(listenerApi, "closed");
   },
@@ -277,10 +309,19 @@ export function __resetLiveUpdatesEventSourceForTests(): void {
     }
   }
   eventSource = null;
+  hasEverConnected = false;
   clearDebouncedInvalidate();
 }
 
 /** Test-only accessor for the live EventSource reference. */
 export function __getLiveUpdatesEventSourceForTests(): EventSource | null {
   return eventSource;
+}
+
+/** Test-only accessor for the reconnect-detect flag. Lets tests pin the
+ * ordering invariant that `hasEverConnected` is assigned only after the
+ * status-dispatch path in `onopen` completes, so a throwing dispatch can't
+ * leave the flag sticky-true. See #682, #685. */
+export function __getHasEverConnectedForTests(): boolean {
+  return hasEverConnected;
 }

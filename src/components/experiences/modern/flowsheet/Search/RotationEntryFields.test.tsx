@@ -84,14 +84,14 @@ const lightningBoltOoioo = createTestAlbum({
 
 const selectBinAndRelease = () => {
   fireEvent.click(screen.getByRole("radio", { name: "H" }));
-  fireEvent.click(screen.getByTestId("rotation-release-trigger"));
+  fireEvent.focus(screen.getByTestId("rotation-release-combobox"));
   fireEvent.click(
     screen.getByTestId(`rotation-release-option-${lightningBoltOoioo.id}`)
   );
 };
 
 const selectTrack = (index: number) => {
-  fireEvent.click(screen.getByTestId("track-picker-trigger"));
+  fireEvent.click(screen.getByTestId("track-picker-combobox"));
   fireEvent.click(screen.getByTestId(`track-picker-option-${index}`));
 };
 

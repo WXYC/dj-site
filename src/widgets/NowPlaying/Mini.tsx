@@ -33,7 +33,7 @@ export default function NowPlayingMini({
   entry?: FlowsheetEntry;
   live: boolean;
   onAirDJs?: OnAirDJResponse[];
-  audioRef: RefObject<HTMLAudioElement>;
+  audioRef: RefObject<HTMLAudioElement | null>;
   isPlaying: boolean;
   onTogglePlay: () => void;
   audioContext: AudioContext | null;

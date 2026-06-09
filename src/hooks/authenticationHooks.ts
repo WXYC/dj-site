@@ -1,7 +1,7 @@
 "use client";
 
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
-import { authClient, lookupEmailByIdentifier } from "@/lib/features/authentication/client";
+import { authClient, clearTokenCache, lookupEmailByIdentifier } from "@/lib/features/authentication/client";
 import { isValidEmail } from "@wxyc/shared/validation";
 import {
   AuthenticatedUser,
@@ -35,6 +35,9 @@ export const useLogin = () => {
     return execute(async () => {
       const identifier = e.currentTarget.username.value;
       const password = e.currentTarget.password.value;
+
+      // Drop any prior session's cached bearer before establishing this one (WXYC/dj-site#596).
+      clearTokenCache();
 
       const result = isValidEmail(identifier)
         ? ((await authClient.signIn.email({ email: identifier, password })) as { error?: unknown })
@@ -111,6 +114,9 @@ export const useOTPVerify = () => {
 
   const handleVerifyOTP = (email: string, otp: string) =>
     execute(async () => {
+      // Drop any prior session's cached bearer before establishing this one (WXYC/dj-site#596).
+      clearTokenCache();
+
       const result = await authClient.signIn.emailOtp({
         email,
         otp,
@@ -165,6 +171,10 @@ export const useLogout = () => {
   const handleLogout = (event?: React.FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
     return execute(async () => {
+      // Invalidate the cached bearer synchronously so the next caller — including
+      // any in-flight code paths that race ahead of signOut — cannot reuse the
+      // departing user's JWT (cache TTL is 4 minutes; see WXYC/dj-site#596).
+      clearTokenCache();
       await authClient.signOut();
       router.refresh();
       resetApplication(dispatch);
@@ -277,6 +287,21 @@ export const useNewUser = () => {
         throw new Error("You must be authenticated to update your profile");
       }
 
+      // Change the password BEFORE flipping hasCompletedOnboarding. If we
+      // flip the flag first and then changePassword fails, the account ends
+      // up flagged complete but still protected only by the publicly-known
+      // NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD — and requireAuth() will no
+      // longer redirect the user back through onboarding to recover. See
+      // WXYC/dj-site#598.
+      if (params.password) {
+        const passwordResult = await authClient.changePassword({
+          currentPassword,
+          newPassword: params.password,
+        });
+
+        throwIfBetterAuthError(passwordResult, "Failed to update password");
+      }
+
       const updateRequest: any = { hasCompletedOnboarding: true };
       if (params.realName) {
         updateRequest.realName = params.realName;
@@ -287,15 +312,6 @@ export const useNewUser = () => {
       const result = await authClient.updateUser(updateRequest);
 
       throwIfBetterAuthError(result, "Failed to update user profile");
-
-      if (params.password) {
-        const passwordResult = await authClient.changePassword({
-          currentPassword,
-          newPassword: params.password,
-        });
-
-        throwIfBetterAuthError(passwordResult, "Failed to update password");
-      }
 
       const dashboardHome = String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog");
       toast.success("Profile updated successfully");

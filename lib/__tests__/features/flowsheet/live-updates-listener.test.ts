@@ -3,6 +3,7 @@ import { http, HttpResponse } from "msw";
 
 import { flowsheetApi } from "@/lib/features/flowsheet/api";
 import {
+  __getHasEverConnectedForTests,
   __getLiveUpdatesEventSourceForTests,
   __resetLiveUpdatesEventSourceForTests,
 } from "@/lib/features/flowsheet/live-updates-listener";
@@ -198,6 +199,17 @@ describe("liveUpdatesListenerMiddleware", () => {
     );
   });
 
+  it.each(["connection-established", "subscription"])(
+    "silently drops the %s handshake frame",
+    (handshakeType) => {
+      const store = makeStore();
+      store.dispatch(liveUpdatesConnectionRequested());
+      getLastMock()._fireMessage(frame({ type: handshakeType }));
+      expect(captureSpy).not.toHaveBeenCalled();
+      expect(captureExceptionSpy).not.toHaveBeenCalled();
+    }
+  );
+
   it("rejects an update event whose payload is null", () => {
     const store = makeStore();
     const updateSpy = vi.spyOn(flowsheetApi.util, "updateQueryData");
@@ -334,6 +346,148 @@ describe("liveUpdatesListenerMiddleware", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  describe("reconnect refetch (issue #682)", () => {
+    it("does not schedule an invalidate on the first onopen (initial connect)", () => {
+      vi.useFakeTimers();
+      const invalidateSpy = vi.spyOn(flowsheetApi.util, "invalidateTags");
+      try {
+        const store = makeStore();
+        store.dispatch(liveUpdatesConnectionRequested());
+        getLastMock()._fireOpen();
+        vi.advanceTimersByTime(600);
+        expect(invalidateSpy).not.toHaveBeenCalled();
+      } finally {
+        invalidateSpy.mockRestore();
+        vi.useRealTimers();
+      }
+    });
+
+    it("schedules a Flowsheet + NowPlaying + WhoIsLive invalidate on the second onopen (browser reconnect after transient drop)", () => {
+      vi.useFakeTimers();
+      const invalidateSpy = vi.spyOn(flowsheetApi.util, "invalidateTags");
+      try {
+        const store = makeStore();
+        store.dispatch(liveUpdatesConnectionRequested());
+        // First open — initial connect.
+        getLastMock()._fireOpen();
+        // Browser sees a transient drop and is retrying transparently.
+        getLastMock()._fireError(MockEventSourceCtor.CONNECTING);
+        // Browser-initiated retry succeeds — onopen fires again.
+        getLastMock()._fireOpen();
+        expect(invalidateSpy).not.toHaveBeenCalled();
+        vi.advanceTimersByTime(600);
+        expect(invalidateSpy).toHaveBeenCalledTimes(1);
+        expect(invalidateSpy).toHaveBeenCalledWith(
+          expect.arrayContaining(["Flowsheet", "NowPlaying", "WhoIsLive"])
+        );
+      } finally {
+        invalidateSpy.mockRestore();
+        vi.useRealTimers();
+      }
+    });
+
+    it("the refetch envelope also invalidates Flowsheet + NowPlaying + WhoIsLive so DJ join/leave during the ETL window doesn't lag the on-air indicator", () => {
+      vi.useFakeTimers();
+      const invalidateSpy = vi.spyOn(flowsheetApi.util, "invalidateTags");
+      try {
+        const store = makeStore();
+        store.dispatch(liveUpdatesConnectionRequested());
+        getLastMock()._fireMessage(
+          frame({ type: "refetch", payload: { source: "etl" }, timestamp: 1 })
+        );
+        vi.advanceTimersByTime(600);
+        expect(invalidateSpy).toHaveBeenCalledWith(
+          expect.arrayContaining(["Flowsheet", "NowPlaying", "WhoIsLive"])
+        );
+      } finally {
+        invalidateSpy.mockRestore();
+        vi.useRealTimers();
+      }
+    });
+
+    it("coalesces a reconnect-driven refetch with a coincident refetch envelope into one invalidate", () => {
+      vi.useFakeTimers();
+      const invalidateSpy = vi.spyOn(flowsheetApi.util, "invalidateTags");
+      try {
+        const store = makeStore();
+        store.dispatch(liveUpdatesConnectionRequested());
+        getLastMock()._fireOpen();
+        getLastMock()._fireError(MockEventSourceCtor.CONNECTING);
+        getLastMock()._fireOpen();
+        getLastMock()._fireMessage(
+          frame({ type: "refetch", payload: { source: "etl" }, timestamp: 1 })
+        );
+        vi.advanceTimersByTime(600);
+        expect(invalidateSpy).toHaveBeenCalledTimes(1);
+      } finally {
+        invalidateSpy.mockRestore();
+        vi.useRealTimers();
+      }
+    });
+
+    it("resets the reconnect-detect flag on connectionReleased so a fresh subscriber's first onopen is not treated as a reconnect", () => {
+      vi.useFakeTimers();
+      const invalidateSpy = vi.spyOn(flowsheetApi.util, "invalidateTags");
+      try {
+        const store = makeStore();
+
+        // First subscriber: connect, fully release.
+        store.dispatch(liveUpdatesConnectionRequested());
+        getLastMock()._fireOpen();
+        store.dispatch(liveUpdatesConnectionReleased());
+
+        // Fresh subscriber after full teardown — first onopen should be
+        // treated as an initial connect, not a reconnect. Asserting that a
+        // second EventSource was actually constructed guards against a
+        // regression that would suppress the re-open path (in which case
+        // getLastMock() returns the original ES and _fireOpen() reads a
+        // correctly-reset flag for the wrong reason).
+        store.dispatch(liveUpdatesConnectionRequested());
+        expect(MockEventSourceCtor._instances).toHaveLength(2);
+        getLastMock()._fireOpen();
+        vi.advanceTimersByTime(600);
+        expect(invalidateSpy).not.toHaveBeenCalled();
+      } finally {
+        invalidateSpy.mockRestore();
+        vi.useRealTimers();
+      }
+    });
+
+    it("__getHasEverConnectedForTests follows the request → open → release lifecycle", () => {
+      const store = makeStore();
+      expect(__getHasEverConnectedForTests()).toBe(false);
+      store.dispatch(liveUpdatesConnectionRequested());
+      expect(__getHasEverConnectedForTests()).toBe(false);
+      getLastMock()._fireOpen();
+      expect(__getHasEverConnectedForTests()).toBe(true);
+      store.dispatch(liveUpdatesConnectionReleased());
+      expect(__getHasEverConnectedForTests()).toBe(false);
+    });
+
+    it("does not set hasEverConnected when the onopen handler's status read throws (pins commit 7b56287 ordering invariant)", () => {
+      const store = makeStore();
+      store.dispatch(liveUpdatesConnectionRequested());
+      // Spy AFTER the requested-effect's initial "connecting" status set, so
+      // the next call into the selector is the one inside onopen.
+      const selectorSpy = vi
+        .spyOn(liveUpdatesSlice.selectors, "selectLiveUpdatesConnectionStatus")
+        .mockImplementationOnce(() => {
+          throw new Error("simulated status dispatch failure");
+        });
+      try {
+        expect(() => getLastMock()._fireOpen()).toThrow(
+          "simulated status dispatch failure"
+        );
+        // If a future refactor moves `hasEverConnected = true` back above the
+        // status dispatch, this assertion flips to true and the test fails —
+        // which is the regression we want.
+        expect(__getHasEverConnectedForTests()).toBe(false);
+      } finally {
+        selectorSpy.mockRestore();
+      }
+    });
   });
 
 });

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { http, HttpResponse } from "msw";
-import React from "react";
+import { createElement, type ReactNode } from "react";
 import {
   server,
   createTestLmlLibraryItem,
@@ -20,8 +20,8 @@ vi.mock("@/lib/features/authentication/client", () => ({
 const PROXY_SEARCH_URL = `${TEST_BACKEND_URL}/proxy/library/search`;
 
 function withStore(store: AppStore = createTestStore()) {
-  return function Wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(Provider, { store, children });
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return createElement(Provider, { store, children });
   };
 }
 

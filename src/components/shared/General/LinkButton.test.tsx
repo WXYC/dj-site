@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { LinkButton, LinkIconButton, MenuLinkItem } from "./LinkButton";
 import { Menu } from "@mui/joy";
-import React from "react";
+import type { ReactNode } from "react";
 
 // Mock next/navigation
 const mockPush = vi.fn();
@@ -97,7 +97,7 @@ describe("LinkButton components", () => {
   });
 
   describe("MenuLinkItem", () => {
-    const MenuWrapper = ({ children }: { children: React.ReactNode }) => (
+    const MenuWrapper = ({ children }: { children: ReactNode }) => (
       <Menu open={true} anchorEl={document.createElement("div")}>
         {children}
       </Menu>

@@ -5,18 +5,6 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-    paths:
-      - 'app/**'
-      - 'src/**'
-      - 'lib/features/**'
-      - 'lib/store.ts'
-      - 'lib/hooks.ts'
-      - 'e2e/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'next.config.*'
-      - 'playwright.config.*'
-      - '.github/workflows/e2e-tests.yml'
   workflow_dispatch:
     inputs:
       backend_ref:
@@ -68,8 +56,40 @@ permissions:
   contents: read
 
 jobs:
+  # See ci.yml for the rationale on the changes-job pattern (issue #731).
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      app_source: ${{ steps.filter.outputs.app_source }}
+    steps:
+      - name: Checkout
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v6
+
+      - name: Filter
+        if: github.event_name == 'pull_request'
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            app_source:
+              - 'app/**'
+              - 'src/**'
+              - 'lib/features/**'
+              - 'lib/store.ts'
+              - 'lib/hooks.ts'
+              - 'e2e/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'next.config.*'
+              - 'playwright.config.*'
+              - '.github/workflows/e2e-tests.yml'
+
   e2e:
     name: E2E Tests (shard ${{ matrix.shard }}/${{ strategy.job-total }})
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.app_source == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -128,7 +148,7 @@ jobs:
           BETTER_AUTH_SECRET=e2e-auth-secret-for-testing-min-32-chars
           BETTER_AUTH_URL=http://localhost:8084/auth
           BETTER_AUTH_JWKS_URL=http://localhost:8084/auth/jwks
-          BETTER_AUTH_TRUSTED_ORIGINS=http://localhost:3000
+          BETTER_AUTH_TRUSTED_ORIGINS=http://localhost:3000,http://localhost:3001
           FRONTEND_SOURCE=http://localhost:3000
           DEFAULT_ORG_SLUG=test-org
           DEFAULT_ORG_NAME='Test Organization'
@@ -149,6 +169,9 @@ jobs:
           # registers on the same LISTEN — so without this, pg_notify is
           # silently dropped. Tracked as a Backend-Service follow-up.
           CDC_SECRET=e2e-cdc-secret-not-used-by-tests
+          # Tier 3 refetch test triggers liveFs:refetch by posting to
+          # POST /internal/flowsheet-sync-notify with X-Internal-Key.
+          ETL_NOTIFY_KEY=e2e-etl-notify-key
           EOF
 
       - name: Start mock tubafrenzy mirror
@@ -246,10 +269,28 @@ jobs:
             PID_BUILD=$!
           fi
 
-          # Wait for all tracks — fail if any fails
+          # Wait for parallel tracks — fail if any fails
           wait $PID_BACKEND || exit 1
           if [ -n "$PID_PW" ]; then wait $PID_PW || exit 1; fi
           if [ -n "$PID_BUILD" ]; then wait $PID_BUILD || exit 1; fi
+
+          # Second dj-site build for e2e/tests/auth/server-session-via-docker.spec.ts.
+          # NEXT_PUBLIC_BETTER_AUTH_URL is inlined at build time to an unreachable
+          # loopback address, simulating the Docker scenario where the container's
+          # `localhost` is the container itself. AUTH_REWRITE_URL is set at runtime
+          # on the second `npm run start` (in the Start dj-site step) and is what
+          # the test asserts gets picked up. Writes to `.next-broken-auth/` via
+          # NEXT_DIST_DIR_SUFFIX in next.config.mjs so the primary `.next/` cache
+          # survives. Runs AFTER the primary build, not in parallel: both builds
+          # bootstrap OpenNext (initOpenNextCloudflareForDev in next.config.mjs)
+          # against a shared workerd SQLite cache and both trigger Next's
+          # tsconfig.json typegen rewrite — running them concurrently races on
+          # those shared files and crashes with SQLITE_BUSY. Not cached
+          # separately to keep cache-key logic simple.
+          (cd dj-site && \
+            NEXT_PUBLIC_BETTER_AUTH_URL=http://127.0.0.99:9999/auth \
+            NEXT_DIST_DIR_SUFFIX=broken-auth \
+            npm run build) || exit 1
 
       - name: Start dj-site
         working-directory: dj-site
@@ -261,8 +302,29 @@ jobs:
           echo "Waiting for frontend..."
           timeout 60 bash -c 'until curl -sf http://localhost:3000; do sleep 2; done'
 
+          # Second dj-site instance for the server-session-via-docker test
+          # (built earlier with NEXT_PUBLIC_BETTER_AUTH_URL pointing at an
+          # unreachable host). NEXT_DIST_DIR_SUFFIX=broken-auth selects the
+          # `.next-broken-auth/` build at runtime. AUTH_REWRITE_URL points at
+          # the real auth so it wins over the unreachable build-inlined
+          # NEXT_PUBLIC_BETTER_AUTH_URL in both getBaseURL() and the /auth
+          # rewrite — the precedence the test asserts.
+          PORT=3001 \
+            NEXT_DIST_DIR_SUFFIX=broken-auth \
+            AUTH_REWRITE_URL=http://localhost:8084/auth \
+            npm run start \
+            > /tmp/frontend-broken-auth.log 2>&1 &
+          echo $! > /tmp/frontend-broken-auth.pid
+          echo "Waiting for second frontend..."
+          timeout 60 bash -c 'until curl -sf http://localhost:3001; do sleep 2; done'
+
       - name: Run E2E tests
         working-directory: dj-site
+        env:
+          SECOND_FRONTEND_PORT: "3001"
+          # Tier 3 refetch test posts directly to BS's internal route.
+          E2E_BACKEND_URL: "http://localhost:8085"
+          ETL_NOTIFY_KEY: "e2e-etl-notify-key"
         # --max-failures kept at 10 per shard: with sharding, a stuck shard
         # hits its cap on its own, so dropping to 1 tanks otherwise-green
         # shards (see prior commit on #574).
@@ -284,6 +346,9 @@ jobs:
           echo ""
           echo "=== Frontend Logs ==="
           cat /tmp/frontend.log 2>/dev/null || echo "No frontend log"
+          echo ""
+          echo "=== Frontend (broken-auth) Logs ==="
+          cat /tmp/frontend-broken-auth.log 2>/dev/null || echo "No frontend-broken-auth log"
           echo ""
           echo "=== Mock Tubafrenzy Logs ==="
           cat /tmp/mock-tubafrenzy.log 2>/dev/null || echo "No mock-tubafrenzy log"
@@ -308,6 +373,7 @@ jobs:
         if: always()
         run: |
           kill $(cat /tmp/frontend.pid 2>/dev/null) 2>/dev/null || true
+          kill $(cat /tmp/frontend-broken-auth.pid 2>/dev/null) 2>/dev/null || true
           kill $(cat /tmp/auth.pid 2>/dev/null) 2>/dev/null || true
           kill $(cat /tmp/backend.pid 2>/dev/null) 2>/dev/null || true
           kill $(cat /tmp/mock-tubafrenzy.pid 2>/dev/null) 2>/dev/null || true
@@ -316,6 +382,11 @@ jobs:
   # shard jobs are named "E2E Tests (shard N/M)" — that name shifts if we ever
   # change the shard count. This aggregator stays "E2E Tests" so the required-
   # status-check rule doesn't need touching.
+  #
+  # `skipped` is treated as success because the e2e matrix is gated by the
+  # `changes` job's path filter (issue #731). On a PR that doesn't touch app
+  # source, the matrix skips and we should pass — not fail — so workflow-only
+  # PRs can satisfy the required check.
   e2e-all:
     name: E2E Tests
     needs: e2e
@@ -324,8 +395,12 @@ jobs:
     steps:
       - name: Verify all shards passed
         run: |
-          if [ "${{ needs.e2e.result }}" != "success" ]; then
-            echo "One or more E2E shards failed: ${{ needs.e2e.result }}"
-            exit 1
-          fi
-          echo "All E2E shards passed"
+          case "${{ needs.e2e.result }}" in
+            success|skipped)
+              echo "E2E matrix result: ${{ needs.e2e.result }}"
+              ;;
+            *)
+              echo "One or more E2E shards failed: ${{ needs.e2e.result }}"
+              exit 1
+              ;;
+          esac

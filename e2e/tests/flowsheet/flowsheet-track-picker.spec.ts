@@ -194,8 +194,10 @@ test.describe("Flowsheet Track Picker", () => {
       page.locator('[data-testid="flowsheet-search-track-picker-row"]')
     ).toBeVisible({ timeout: 5_000 });
 
-    // Once the tracklist resolves with tracks.length > 0, the trigger renders.
-    const pickerTrigger = page.locator('[data-testid="track-picker-trigger"]');
+    // Once the tracklist resolves with tracks.length > 0, the combobox renders.
+    const pickerTrigger = page.locator(
+      '[data-testid="track-picker-combobox"]'
+    );
     await expect(pickerTrigger).toBeVisible({ timeout: 10_000 });
 
     // Open the dropdown and pick the first track.
@@ -328,13 +330,13 @@ test.describe("Flowsheet Track Picker", () => {
     await expect(resultRow).toBeVisible({ timeout: 10_000 });
     await resultRow.hover();
 
-    // Picker row visible, but the trigger never renders — the fallback
+    // Picker row visible, but the combobox never renders — the fallback
     // message replaces it.
     await expect(
       page.locator('[data-testid="flowsheet-search-track-picker-row"]')
     ).toBeVisible({ timeout: 5_000 });
     await expect(
-      page.locator('[data-testid="track-picker-trigger"]')
+      page.locator('[data-testid="track-picker-combobox"]')
     ).toHaveCount(0);
     await expect(
       page.getByText("No tracklist on file — type the song title above.")

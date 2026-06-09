@@ -1,4 +1,5 @@
 import { Client } from "pg";
+import { requireEnv } from "./env";
 
 /**
  * Fire a Postgres NOTIFY from a Playwright test, so tests can bypass the
@@ -8,20 +9,19 @@ import { Client } from "pg";
  * loudly rather than silently connecting to the wrong place.
  */
 function getDbConfig() {
-  const required = ["DB_HOST", "DB_PORT", "DB_NAME", "DB_USERNAME", "DB_PASSWORD"] as const;
-  const missing = required.filter((k) => !process.env[k]);
-  if (missing.length > 0) {
-    throw new Error(
-      `pg-notify: missing required env vars: ${missing.join(", ")}. ` +
-        `Ensure scripts/e2e-local.sh (or the CI workflow) exports DB_* before running Playwright.`
-    );
-  }
+  const env = requireEnv("pg-notify", [
+    "DB_HOST",
+    "DB_PORT",
+    "DB_NAME",
+    "DB_USERNAME",
+    "DB_PASSWORD",
+  ]);
   return {
-    host: process.env.DB_HOST,
-    port: Number(process.env.DB_PORT),
-    database: process.env.DB_NAME,
-    user: process.env.DB_USERNAME,
-    password: process.env.DB_PASSWORD,
+    host: env.DB_HOST,
+    port: Number(env.DB_PORT),
+    database: env.DB_NAME,
+    user: env.DB_USERNAME,
+    password: env.DB_PASSWORD,
   };
 }
 

@@ -284,9 +284,61 @@ describe("Classic EntryForm — Bin dropdown (replaces H/M/L/S radios)", () => {
     // can announce something meaningful for the unselected state.
     expect(placeholder.textContent?.trim().length).toBeGreaterThan(0);
   });
+
+  // WXYC/dj-site#745 — DJs need releases sorted A→Z by artist so the native
+  // <select> type-ahead lands them in the right neighborhood.
+  it("sorts heavy-rotation releases alphabetically by artist", async () => {
+    rotationDataMock = [
+      createTestRotationAlbum(Rotation.H, {
+        id: 7001,
+        rotation_id: 7001,
+        title: "Mirror Mirror",
+        artist: createTestArtist({ name: "Stereolab" }),
+      }),
+      createTestRotationAlbum(Rotation.H, {
+        id: 7002,
+        rotation_id: 7002,
+        title: "Confield",
+        artist: createTestArtist({ name: "Autechre" }),
+      }),
+      createTestRotationAlbum(Rotation.H, {
+        id: 7003,
+        rotation_id: 7003,
+        title: "Moon Pix",
+        artist: createTestArtist({ name: "Cat Power" }),
+      }),
+    ];
+    const { user } = renderWithProviders(<EntryForm />);
+    await user.selectOptions(getNamedSelect("rotationType"), "heavy");
+    const heavy = getNamedSelect("heavyRelease");
+    // First option is the "Choose one..." placeholder; release names follow.
+    const releaseNames = Array.from(heavy.options)
+      .slice(1)
+      .map((o) => o.textContent?.trim() ?? "");
+    expect(releaseNames).toEqual([
+      "Autechre - Confield",
+      "Cat Power - Moon Pix",
+      "Stereolab - Mirror Mirror",
+    ]);
+  });
 });
 
 describe("Classic EntryForm — Rotation submission payload", () => {
+  // Select a release by its visible text rather than its `value=` attribute
+  // so the test stays decoupled from whether the picker keys on `id` or
+  // `rotation_id` (see #698: pre-fix used `id`, post-fix uses `rotation_id`).
+  async function selectByText(
+    user: ReturnType<typeof renderWithProviders>["user"],
+    select: HTMLSelectElement,
+    textContains: string
+  ): Promise<void> {
+    const option = Array.from(select.options).find((o) =>
+      o.text.includes(textContains)
+    );
+    if (!option) throw new Error(`No option text contains: ${textContains}`);
+    await user.selectOptions(select, option);
+  }
+
   it("submits a rotation entry with album_id, rotation_id, and rotation_bin", async () => {
     rotationDataMock = [
       createTestRotationAlbum(Rotation.H, {
@@ -304,7 +356,7 @@ describe("Classic EntryForm — Rotation submission payload", () => {
     const { user } = renderWithProviders(<EntryForm />);
     // Default state is Track + Rotation. Pick Heavy, then the release.
     await user.selectOptions(getNamedSelect("rotationType"), "heavy");
-    await user.selectOptions(getNamedSelect("heavyRelease"), "5101");
+    await selectByText(user, getNamedSelect("heavyRelease"), "Aluminum Tunes");
     await user.type(getNamedInput("songTitle"), "Tone Burst");
     await user.click(screen.getByRole("button", { name: /^add$/i }));
 
@@ -320,6 +372,81 @@ describe("Classic EntryForm — Rotation submission payload", () => {
     // Pin the absence of the legacy field name so a future rename doesn't
     // silently regress to `play_freq`.
     expect("play_freq" in payload).toBe(false);
+  });
+
+  // Regression: #698 — library-unlinked rotation rows are returned by BS with
+  // `id: null` and round-tripped through `convertToAlbumEntry` as a synthesized
+  // *negative* `id` (deterministic hash, see `synthesizeAlbumId` in
+  // `lib/features/catalog/conversions.ts`). The Classic picker's submit-enable
+  // gate used to require `selectedRotationId > 0`, so picking such a row left
+  // the ADD button greyed out forever (reported by bill burton 2026-06-02 on
+  // the rotation album "Setting"). The wire payload also must not carry a
+  // negative `album_id` (sibling: dj-site#608).
+  it("enables ADD for a library-unlinked rotation row (synthesized negative id)", async () => {
+    rotationDataMock = [
+      createTestRotationAlbum(Rotation.H, {
+        id: -987654321, // synthesized — what convertToAlbumEntry produces for id:null
+        rotation_id: 7331,
+        title: "Setting",
+        label: "Paradise of Bachelors",
+        artist: createTestArtist({
+          name: "Setting",
+          lettercode: "SE",
+          numbercode: 1,
+        }),
+      }),
+    ];
+    const { user } = renderWithProviders(<EntryForm />);
+    await user.selectOptions(getNamedSelect("rotationType"), "heavy");
+    await selectByText(user, getNamedSelect("heavyRelease"), "Setting");
+    await user.type(getNamedInput("songTitle"), "Charcoal Bow");
+
+    const submit = screen.getByRole("button", {
+      name: /^add$/i,
+    }) as HTMLButtonElement;
+    // Pre-fix this stayed `true` forever; the button never went grey → black.
+    expect(submit.disabled).toBe(false);
+  });
+
+  it("submits a library-unlinked rotation row as freeform (no negative album_id, no rotation linkage on the wire)", async () => {
+    // BS's POST /flowsheet rotation variant requires a real positive
+    // `album_id`, so unlinked rows fall back to the freeform variant.
+    // Losing the rotation linkage on the wire is a known cost — recovering
+    // it requires BS-side schema work (Option C). The non-goal here is
+    // sending a negative `album_id` (sibling: dj-site#608).
+    rotationDataMock = [
+      createTestRotationAlbum(Rotation.H, {
+        id: -987654321,
+        rotation_id: 7331,
+        title: "Setting",
+        label: "Paradise of Bachelors",
+        artist: createTestArtist({
+          name: "Setting",
+          lettercode: "SE",
+          numbercode: 1,
+        }),
+      }),
+    ];
+    const { user } = renderWithProviders(<EntryForm />);
+    await user.selectOptions(getNamedSelect("rotationType"), "heavy");
+    await selectByText(user, getNamedSelect("heavyRelease"), "Setting");
+    await user.type(getNamedInput("songTitle"), "Charcoal Bow");
+    await user.click(screen.getByRole("button", { name: /^add$/i }));
+
+    await waitFor(() => {
+      expect(addToFlowsheetMock).toHaveBeenCalledTimes(1);
+    });
+    const payload = addToFlowsheetMock.mock.calls[0][0];
+    expect(payload.track_title).toBe("Charcoal Bow");
+    // Freeform variant carries the denormalized artist/album/label
+    // snapshot from the rotation row so BS can persist the entry.
+    expect(payload.artist_name).toBe("Setting");
+    expect(payload.album_title).toBe("Setting");
+    expect(payload.record_label).toBe("Paradise of Bachelors");
+    // No negative album_id on the wire — never the synthesized id.
+    if ("album_id" in payload && payload.album_id !== undefined) {
+      expect(payload.album_id).toBeGreaterThan(0);
+    }
   });
 });
 

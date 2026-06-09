@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { ArtistEntry, Format, Genre } from "@/lib/features/catalog/types";
 import { Rotation } from "@/lib/features/rotation/types";
 import {

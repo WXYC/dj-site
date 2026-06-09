@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { Box, CircularProgress, Modal } from "@mui/joy";
 
 export const LoadingPage = (): JSX.Element => {

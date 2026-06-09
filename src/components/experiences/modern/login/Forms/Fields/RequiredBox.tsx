@@ -6,7 +6,7 @@ import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import FormControl from "@mui/joy/FormControl";
 import FormLabel from "@mui/joy/FormLabel";
 import Input from "@mui/joy/Input";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type JSX } from "react";
 
 export default function RequiredBox({
   name,

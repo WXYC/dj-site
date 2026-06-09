@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { renderHook } from "@testing-library/react";
-import React from "react";
+import { createElement, type ReactNode } from "react";
 import { Provider } from "react-redux";
 import {
   liveUpdatesConnectionRequested,
@@ -19,8 +19,8 @@ function makeWrapper() {
     return realDispatch(action);
   }) as typeof store.dispatch;
 
-  function Wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(Provider, { store, children });
+  function Wrapper({ children }: { children: ReactNode }) {
+    return createElement(Provider, { store, children });
   }
   return { store, dispatched, Wrapper };
 }

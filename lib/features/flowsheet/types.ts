@@ -107,6 +107,13 @@ export type FlowsheetSubmissionParams =
       request_flag: boolean;
       segue?: boolean;
       record_label?: string;
+      // BS#1308 / @wxyc/shared 1.9.0 added rotation_id to
+      // FlowsheetCreateSongFreeform so library-unlinked rotation rows
+      // preserve rotation linkage on the wire (and the iOS V2 reader's
+      // rotation-artwork path can resolve them). Mirrors the canonical
+      // type; consumers in bin/conversions.ts forward it when album_id
+      // can't be sent.
+      rotation_id?: number;
     }
   | {
       message: string;
