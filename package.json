@@ -30,7 +30,7 @@
     "@mui/icons-material": "^6.4.0",
     "@mui/joy": "^5.0.0-beta.51",
     "@mui/material": "^6.4.0",
-    "@opennextjs/cloudflare": "^1.10.1",
+    "@opennextjs/cloudflare": "^1.19.11",
     "@reduxjs/toolkit": "^2.2.0",
     "@uidotdev/usehooks": "^2.4.1",
     "@wxyc/shared": "^1.11.0",
@@ -69,7 +69,7 @@
     "pg": "^8.13.1",
     "typescript": "^5.3.3",
     "vitest": "^4.0.18",
-    "wrangler": "^4.95.0"
+    "wrangler": "^4.98.0"
   },
   "optionalDependencies": {
     "@ast-grep/napi-darwin-arm64": "^0.35.0",
