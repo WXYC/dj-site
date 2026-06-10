@@ -52,6 +52,7 @@ describe("MessageEntry", () => {
     id: 1,
     play_order: 0,
     show_id: 100,
+    add_time: 0,
     message: "Test message",
   };
 
@@ -59,6 +60,7 @@ describe("MessageEntry", () => {
     id: 2,
     play_order: 0,
     show_id: 100,
+    add_time: 0,
     dj_name: "DJ Test",
     day: "Monday",
     time: "10:00 PM",
@@ -69,6 +71,7 @@ describe("MessageEntry", () => {
     id: 3,
     play_order: 10,
     show_id: 100,
+    add_time: 0,
     dj_name: "DJ Test",
     day: "Monday",
     time: "12:00 AM",

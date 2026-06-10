@@ -14,12 +14,14 @@ import {
 function song(
   id: number,
   play_order: number,
-  show_id: number
+  show_id: number,
+  add_time: number = 0
 ): FlowsheetSongEntry {
   return {
     id,
     play_order,
     show_id,
+    add_time,
     track_title: `t${id}`,
     artist_name: "a",
     album_title: "al",
@@ -69,6 +71,34 @@ describe("compareEntriesNewestFirst", () => {
 
   it("should return 0 for entries with the same id", () => {
     expect(compareEntriesNewestFirst(song(5, 1, 1), song(5, 1, 1))).toBe(0);
+  });
+
+  // WXYC/dj-site#746 — preserve chronological ordering when the server's id
+  // sequence runs out of order with chronology (legacy-sync backfill, retried
+  // inserts, concurrent inserts).
+  it("should prefer add_time over id when the two disagree", () => {
+    const earlierLargerId = song(102, 1, 1, 1_000);
+    const laterSmallerId = song(101, 2, 1, 2_000);
+    const entries = [earlierLargerId, laterSmallerId];
+    entries.sort(compareEntriesNewestFirst);
+    expect(entries.map((e) => e.id)).toEqual([101, 102]);
+  });
+
+  it("should fall back to id ordering when add_times tie", () => {
+    const entries = [song(5, 1, 1, 1_000), song(10, 2, 1, 1_000)];
+    entries.sort(compareEntriesNewestFirst);
+    expect(entries.map((e) => e.id)).toEqual([10, 5]);
+  });
+
+  it("should sort an optimistic temp newer than a server row added moments later", () => {
+    // Real-world race: an optimistic temp is inserted, then a refetch lands
+    // a recently-added row whose add_time is BEFORE the optimistic add. The
+    // temp should still surface above it.
+    const tempLater = song(-1, 1, 1, 2_000);
+    const realEarlier = song(500, 1, 1, 1_500);
+    const entries = [realEarlier, tempLater];
+    entries.sort(compareEntriesNewestFirst);
+    expect(entries[0].id).toBe(-1);
   });
 });
 

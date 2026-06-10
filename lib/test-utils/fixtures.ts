@@ -218,6 +218,7 @@ export function createTestFlowsheetEntry(
     id: TEST_ENTITY_IDS.FLOWSHEET.ENTRY_1,
     play_order: 1,
     show_id: TEST_ENTITY_IDS.SHOW.CURRENT_SHOW,
+    add_time: TEST_TIMESTAMPS.NOW.getTime(),
     track_title: TEST_SEARCH_STRINGS.TRACK_TITLE,
     artist_name: TEST_SEARCH_STRINGS.ARTIST_NAME,
     album_title: TEST_SEARCH_STRINGS.ALBUM_NAME,

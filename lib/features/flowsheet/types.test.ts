@@ -9,7 +9,7 @@ import {
   FlowsheetEntry,
 } from "./types";
 
-const base = { id: 1, play_order: 1, show_id: 1 };
+const base = { id: 1, play_order: 1, show_id: 1, add_time: 0 };
 
 const songEntry: FlowsheetEntry = {
   ...base,

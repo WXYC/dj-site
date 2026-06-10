@@ -80,6 +80,7 @@ describe("DraggableEntryWrapper", () => {
     id: 1,
     play_order: 0,
     show_id: 100,
+    add_time: 0,
     track_title: "Test Track",
     artist_name: "Test Artist",
     album_title: "Test Album",
@@ -92,6 +93,7 @@ describe("DraggableEntryWrapper", () => {
     id: 2,
     play_order: 1,
     show_id: 100,
+    add_time: 0,
     message: "Test Message",
   };
 
@@ -418,6 +420,7 @@ describe("DraggableEntryWrapper", () => {
         id: 10,
         play_order: 5,
         show_id: 200,
+        add_time: 0,
         track_title: "Song Title",
         artist_name: "Artist Name",
         album_title: "Album Title",
@@ -445,6 +448,7 @@ describe("DraggableEntryWrapper", () => {
         id: 20,
         play_order: 10,
         show_id: 200,
+        add_time: 0,
         message: "Talkset - DJ Speaking",
       };
 
