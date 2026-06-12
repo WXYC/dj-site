@@ -8,6 +8,7 @@ vi.mock("next/navigation", () => ({
     push: vi.fn(),
     refresh: vi.fn(),
   }),
+  useSearchParams: () => new URLSearchParams(""),
 }));
 
 describe("OTPCodeForm", () => {
