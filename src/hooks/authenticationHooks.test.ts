@@ -237,6 +237,9 @@ describe("authenticationHooks", () => {
         `https://api.wxyc.org/auth/oauth2/authorize?${search}`
       );
       expect(mockPush).not.toHaveBeenCalledWith("/dashboard/flowsheet");
+      // OIDC branch leaves the SPA — refresh is a wasted RSC fetch
+      // against a route the user is no longer on. Pin it.
+      expect(mockRefresh).not.toHaveBeenCalled();
     });
 
     it("falls back to the dashboard when only one of client_id / response_type is present", async () => {
@@ -265,6 +268,9 @@ describe("authenticationHooks", () => {
       });
 
       expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
+      // Dashboard branch stays inside the SPA — refresh is the existing
+      // post-sign-in behavior the OIDC branch deliberately skips.
+      expect(mockRefresh).toHaveBeenCalled();
     });
 
     it("routes to signIn.email when the identifier contains @", async () => {
@@ -595,6 +601,7 @@ describe("authenticationHooks", () => {
       expect(mockPush).toHaveBeenCalledWith(
         `https://api.wxyc.org/auth/oauth2/authorize?${search}`
       );
+      expect(mockRefresh).not.toHaveBeenCalled();
     });
   });
 });
