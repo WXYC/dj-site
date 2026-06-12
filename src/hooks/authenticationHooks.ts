@@ -1,7 +1,7 @@
 "use client";
 
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
-import { authClient, clearTokenCache, lookupEmailByIdentifier } from "@/lib/features/authentication/client";
+import { authBaseURL, authClient, clearTokenCache, lookupEmailByIdentifier } from "@/lib/features/authentication/client";
 import {
   interpretTokenPoll,
   pollDeviceToken,
@@ -21,11 +21,12 @@ import { betterAuthSessionToAuthenticationData, betterAuthSessionToAuthenticatio
 import { Authorization } from "@/lib/features/admin/types";
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { resetApplication } from "./applicationHooks";
 import { throwIfBetterAuthError } from "@/src/utilities/throwIfBetterAuthError";
+import { getOidcRedirectTarget } from "@/src/utilities/oidcRedirectTarget";
 import { useAsyncAction } from "./useAsyncAction";
 import { safeCapture } from "@/lib/posthog";
 
@@ -119,6 +120,7 @@ async function redirectAfterAuth(
   router: { push: (href: string) => void; refresh: () => void },
   user: { id?: string; hasCompletedOnboarding?: boolean } | undefined,
   method: LoginMethod,
+  oidcTarget?: string,
 ): Promise<void> {
   const dashboardHome = String(
     process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog",
@@ -129,7 +131,7 @@ async function redirectAfterAuth(
 
   safeCapture(LOGIN_EVENTS.POST_LOGIN_REDIRECT, {
     method,
-    destination: incomplete ? "incomplete" : "dashboard",
+    destination: incomplete ? "incomplete" : oidcTarget ? "oidc" : "dashboard",
     has_completed_onboarding: user?.hasCompletedOnboarding ?? null,
     user_id: user?.id ?? null,
     session_confirmed: sessionConfirmed,
@@ -140,12 +142,25 @@ async function redirectAfterAuth(
     return;
   }
 
+  if (!incomplete && oidcTarget) {
+    // Hand off to the authorize endpoint with a full document navigation.
+    // In production `authBaseURL` is the same-origin `/auth` proxy (a
+    // next.config rewrite, not an app route), so `router.push` would treat
+    // this as an internal soft navigation and fire a background RSC fetch
+    // that hits `/oauth2/authorize` — burning the one-time OIDC code before
+    // the user ever leaves the page. `window.location.assign` leaves the
+    // SPA cleanly, so `router.refresh()` is moot.
+    window.location.assign(oidcTarget);
+    return;
+  }
+
   router.push(incomplete ? "/login?incomplete=true" : dashboardHome);
   router.refresh();
 }
 
 export const useLogin = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { execute, isLoading, error } = useAsyncAction();
 
   const verified = useAppSelector(
@@ -177,7 +192,14 @@ export const useLogin = () => {
       toast.success("Login successful");
 
       const user = (result as any).data?.user;
-      await redirectAfterAuth(router, user, "password");
+      // If we got here as part of an OIDC authorize bounce, resume the
+      // round-trip by handing off to `${authBase}/oauth2/authorize?<original-query>`
+      // instead of the dashboard. See `getOidcRedirectTarget` for the contract.
+      const oidcTarget = getOidcRedirectTarget(
+        new URLSearchParams(searchParams?.toString() ?? ""),
+        authBaseURL,
+      );
+      await redirectAfterAuth(router, user, "password", oidcTarget ?? undefined);
     }, "An unexpected error occurred during login. Please try again.");
   };
 
@@ -226,6 +248,7 @@ export const useOTPRequest = () => {
 
 export const useOTPVerify = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { execute, isLoading, error } = useAsyncAction();
 
   const handleVerifyOTP = (email: string, otp: string) =>
@@ -255,7 +278,13 @@ export const useOTPVerify = () => {
       toast.success("Login successful");
 
       const user = (result as any).data?.user;
-      await redirectAfterAuth(router, user, "otp");
+      // Mirror useLogin's OIDC resume contract — both credential entry
+      // points feed the same authorize round-trip.
+      const oidcTarget = getOidcRedirectTarget(
+        new URLSearchParams(searchParams?.toString() ?? ""),
+        authBaseURL,
+      );
+      await redirectAfterAuth(router, user, "otp", oidcTarget ?? undefined);
     }, "Verification failed. Please try again.");
 
   const handleResendOTP = async (email: string) => {
