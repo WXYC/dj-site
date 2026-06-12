@@ -60,16 +60,25 @@ export const useLogin = () => {
       const user = (result as any).data?.user;
       if (user && user.hasCompletedOnboarding === false) {
         router.push("/login?incomplete=true");
-      } else {
-        // If we got here as part of an OIDC authorize bounce, resume the round-trip
-        // by sending the user back to `${authBase}/oauth2/authorize?<original-query>`
-        // instead of the dashboard. See `getOidcRedirectTarget` for the contract.
-        const oidcTarget = getOidcRedirectTarget(
-          new URLSearchParams(searchParams?.toString() ?? ""),
-          authBaseURL
-        );
-        router.push(oidcTarget ?? dashboardHome);
+        router.refresh();
+        return;
       }
+      // If we got here as part of an OIDC authorize bounce, resume the
+      // round-trip by sending the user back to
+      // `${authBase}/oauth2/authorize?<original-query>` instead of the
+      // dashboard. See `getOidcRedirectTarget` for the contract.
+      const oidcTarget = getOidcRedirectTarget(
+        searchParams ?? new URLSearchParams(),
+        authBaseURL
+      );
+      if (oidcTarget) {
+        // Leaving the SPA (either same-origin proxy → MPA, or hard cross-
+        // origin). `router.refresh()` would issue an RSC fetch against a
+        // route the user is no longer staying on; skip it.
+        router.push(oidcTarget);
+        return;
+      }
+      router.push(dashboardHome);
       router.refresh();
     }, "An unexpected error occurred during login. Please try again.");
   };
@@ -152,15 +161,20 @@ export const useOTPVerify = () => {
       const user = (result as any).data?.user;
       if (user && user.hasCompletedOnboarding === false) {
         router.push("/login?incomplete=true");
-      } else {
-        // Mirror useLogin's OIDC resume contract — both credential entry
-        // points feed the same authorize round-trip.
-        const oidcTarget = getOidcRedirectTarget(
-          new URLSearchParams(searchParams?.toString() ?? ""),
-          authBaseURL
-        );
-        router.push(oidcTarget ?? dashboardHome);
+        router.refresh();
+        return;
       }
+      // Mirror useLogin's OIDC resume contract — both credential entry
+      // points feed the same authorize round-trip.
+      const oidcTarget = getOidcRedirectTarget(
+        searchParams ?? new URLSearchParams(),
+        authBaseURL
+      );
+      if (oidcTarget) {
+        router.push(oidcTarget);
+        return;
+      }
+      router.push(dashboardHome);
       router.refresh();
     }, "Verification failed. Please try again.");
 

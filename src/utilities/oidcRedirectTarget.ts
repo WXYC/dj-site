@@ -1,3 +1,5 @@
+import type { ReadonlyURLSearchParams } from "next/navigation";
+
 /**
  * If `params` look like the search-param tail of an OIDC authorize bounce,
  * return the URL we should redirect to on successful sign-in so the OIDC
@@ -18,9 +20,14 @@
  * `incomplete`). `response_type=token` (the OAuth implicit flow) is not
  * supported by `oidcProvider`, so we treat anything other than `code` as
  * a non-OIDC visit.
+ *
+ * Param type is `URLSearchParams | ReadonlyURLSearchParams` so the call
+ * site can hand the value from `useSearchParams()` straight in without
+ * round-tripping through a string clone. The helper only calls `.get()`
+ * and `.toString()`, both of which exist on the readonly type.
  */
 export function getOidcRedirectTarget(
-  params: URLSearchParams,
+  params: URLSearchParams | ReadonlyURLSearchParams,
   authBaseUrl: string
 ): string | null {
   const clientId = params.get("client_id");
@@ -28,7 +35,5 @@ export function getOidcRedirectTarget(
   if (!clientId || responseType !== "code") {
     return null;
   }
-
-  const base = authBaseUrl.replace(/\/+$/, "");
-  return `${base}/oauth2/authorize?${params.toString()}`;
+  return `${authBaseUrl}/oauth2/authorize?${params.toString()}`;
 }
