@@ -196,7 +196,7 @@ export const useLogin = () => {
       // round-trip by handing off to `${authBase}/oauth2/authorize?<original-query>`
       // instead of the dashboard. See `getOidcRedirectTarget` for the contract.
       const oidcTarget = getOidcRedirectTarget(
-        new URLSearchParams(searchParams?.toString() ?? ""),
+        searchParams ?? new URLSearchParams(),
         authBaseURL,
       );
       await redirectAfterAuth(router, user, "password", oidcTarget ?? undefined);
@@ -281,7 +281,7 @@ export const useOTPVerify = () => {
       // Mirror useLogin's OIDC resume contract — both credential entry
       // points feed the same authorize round-trip.
       const oidcTarget = getOidcRedirectTarget(
-        new URLSearchParams(searchParams?.toString() ?? ""),
+        searchParams ?? new URLSearchParams(),
         authBaseURL,
       );
       await redirectAfterAuth(router, user, "otp", oidcTarget ?? undefined);

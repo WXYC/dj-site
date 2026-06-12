@@ -1,6 +1,14 @@
 import { describe, it, expect } from "vitest";
 import { getOidcRedirectTarget } from "./oidcRedirectTarget";
 
+// At runtime `authBaseURL` (exported from `lib/features/authentication/client`)
+// is derived from `window.location.origin + "/auth"` on the client and
+// `process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "https://api.wxyc.org/auth"`
+// on the server — see `lib/features/authentication/client.ts:getBaseURL()`.
+// The helper itself doesn't care which value it receives; these tests pin
+// the concatenation behavior with a representative string. The actual hook
+// integration tests in `authenticationHooks.test.ts` exercise the call
+// with whatever value the mock for that module returns.
 const AUTH_BASE = "https://api.wxyc.org/auth";
 
 describe("getOidcRedirectTarget", () => {
@@ -54,21 +62,27 @@ describe("getOidcRedirectTarget", () => {
     expect(getOidcRedirectTarget(params, AUTH_BASE)).toBeNull();
   });
 
-  it("returns null for an unrelated /login visit with no OIDC params", () => {
+  it("returns null when only unrelated params are present", () => {
+    // e.g. `/login?incomplete=true` (the existing onboarding redirect) — no
+    // OIDC signals, so the helper must not pull the user away from the
+    // dashboard fallback. Tested as one of several disjoint param families
+    // (`token`, `error`, `verified`, `incomplete`) the existing /login flow
+    // uses.
     const params = new URLSearchParams("incomplete=true");
     expect(getOidcRedirectTarget(params, AUTH_BASE)).toBeNull();
   });
 
-  it("strips a trailing slash on the auth base URL before appending /oauth2/authorize", () => {
-    // Operators routinely paste `https://api.wxyc.org/auth/` with a trailing
-    // slash. A doubled slash (`/auth//oauth2/authorize`) silently breaks the
-    // round-trip on some proxies. Normalize at the boundary.
-    const params = new URLSearchParams(
+  it("accepts a ReadonlyURLSearchParams-shaped argument (from next/navigation)", () => {
+    // `useSearchParams()` returns a `ReadonlyURLSearchParams`, which extends
+    // `URLSearchParams` and exposes `.get` / `.toString`. Helper must accept
+    // that shape so the call site doesn't have to round-trip through the
+    // `URLSearchParams` constructor (which would also be a defensive clone
+    // not needed here — the helper never mutates the input).
+    const params: Pick<URLSearchParams, "get" | "toString"> = new URLSearchParams(
       "client_id=flowsheet&response_type=code"
     );
-
-    expect(getOidcRedirectTarget(params, "https://api.wxyc.org/auth/")).toBe(
-      `https://api.wxyc.org/auth/oauth2/authorize?${params.toString()}`
+    expect(getOidcRedirectTarget(params as URLSearchParams, AUTH_BASE)).toBe(
+      `${AUTH_BASE}/oauth2/authorize?${(params as URLSearchParams).toString()}`
     );
   });
 });
