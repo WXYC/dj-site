@@ -8,11 +8,13 @@ import { authenticationSlice } from "@/lib/features/authentication/frontend";
 // Mock next/navigation
 const mockPush = vi.fn();
 const mockRefresh = vi.fn();
+const mockSearchParams = vi.fn<() => URLSearchParams>(() => new URLSearchParams(""));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: mockPush,
     refresh: mockRefresh,
   }),
+  useSearchParams: () => mockSearchParams(),
 }));
 
 // Mock sonner
@@ -49,6 +51,7 @@ vi.mock("@/lib/features/authentication/client", () => ({
     },
     signOut: (...args: any[]) => mockSignOut(...args),
   },
+  authBaseURL: "https://api.wxyc.org/auth",
   clearTokenCache: (...args: any[]) => mockClearTokenCache(...args),
   lookupEmailByIdentifier: (...args: any[]) => mockLookupEmailByIdentifier(...args),
 }));
@@ -81,6 +84,7 @@ function createWrapper() {
 describe("authenticationHooks", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSearchParams.mockReturnValue(new URLSearchParams(""));
     process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD = "temp123";
     process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE = "/dashboard/flowsheet";
   });
@@ -199,6 +203,68 @@ describe("authenticationHooks", () => {
         password: "password123",
       });
       expect(mockSignInEmail).not.toHaveBeenCalled();
+    });
+
+    it("redirects to the OIDC authorize URL when the login page receives OIDC params", async () => {
+      // Resume contract: when `/login` is hit with `client_id` + `response_type=code`,
+      // sign-in is being delegated from `${authBase}/oauth2/authorize`. On success we
+      // must redirect back to `${authBase}/oauth2/authorize?<same-query-string>` so the
+      // Better Auth `oidcProvider` plugin sees the now-established session cookie,
+      // issues the code, and bounces to the registered client redirect URI.
+      const search =
+        "client_id=flowsheet&response_type=code&redirect_uri=https%3A%2F%2Fflowsheet.wxyc.org%2Fauth%2Fcallback&state=xyz&code_challenge=abc&code_challenge_method=S256";
+      mockSearchParams.mockReturnValue(new URLSearchParams(search));
+      mockSignInUsername.mockResolvedValue({
+        data: { user: { id: "user-1", hasCompletedOnboarding: true } },
+      });
+
+      const { useLogin } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
+
+      const form = {
+        preventDefault: vi.fn(),
+        currentTarget: {
+          username: { value: "jbromberg" },
+          password: { value: "password123" },
+        },
+      } as any;
+
+      await act(async () => {
+        await result.current.handleLogin(form);
+      });
+
+      expect(mockPush).toHaveBeenCalledWith(
+        `https://api.wxyc.org/auth/oauth2/authorize?${search}`
+      );
+      expect(mockPush).not.toHaveBeenCalledWith("/dashboard/flowsheet");
+    });
+
+    it("falls back to the dashboard when only one of client_id / response_type is present", async () => {
+      // Stray `client_id` (e.g. a stale link or someone exploring the URL) must
+      // not pull the user away from the dashboard — both signals are required.
+      mockSearchParams.mockReturnValue(
+        new URLSearchParams("client_id=flowsheet")
+      );
+      mockSignInUsername.mockResolvedValue({
+        data: { user: { id: "user-1", hasCompletedOnboarding: true } },
+      });
+
+      const { useLogin } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
+
+      const form = {
+        preventDefault: vi.fn(),
+        currentTarget: {
+          username: { value: "jbromberg" },
+          password: { value: "password123" },
+        },
+      } as any;
+
+      await act(async () => {
+        await result.current.handleLogin(form);
+      });
+
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
     });
 
     it("routes to signIn.email when the identifier contains @", async () => {
@@ -506,6 +572,29 @@ describe("authenticationHooks", () => {
 
       expect(mockClearTokenCache).toHaveBeenCalledTimes(1);
       expect(callOrder).toEqual(["clearTokenCache", "signInEmailOtp"]);
+    });
+
+    it("redirects to the OIDC authorize URL when the login page receives OIDC params", async () => {
+      // Same resume contract as `useLogin` — the OIDC bounce path doesn't care
+      // which credential type the user picked; both `signIn.username/email` and
+      // `signIn.emailOtp` are entry points into the same authorize round-trip.
+      const search =
+        "client_id=flowsheet&response_type=code&redirect_uri=https%3A%2F%2Fflowsheet.wxyc.org%2Fauth%2Fcallback&state=xyz";
+      mockSearchParams.mockReturnValue(new URLSearchParams(search));
+      mockSignInEmailOtp.mockResolvedValue({
+        data: { user: { id: "user-1", hasCompletedOnboarding: true } },
+      });
+
+      const { useOTPVerify } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useOTPVerify(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        await result.current.handleVerifyOTP("dj@wxyc.org", "123456");
+      });
+
+      expect(mockPush).toHaveBeenCalledWith(
+        `https://api.wxyc.org/auth/oauth2/authorize?${search}`
+      );
     });
   });
 });
