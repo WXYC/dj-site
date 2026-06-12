@@ -35,5 +35,10 @@ export function getOidcRedirectTarget(
   if (!clientId || responseType !== "code") {
     return null;
   }
-  return `${authBaseUrl}/oauth2/authorize?${params.toString()}`;
+  // `getBaseURL()` in `lib/features/authentication/client.ts` does not
+  // strip trailing slashes from `NEXT_PUBLIC_BETTER_AUTH_URL`. Defend at
+  // the boundary so an operator who pastes `https://api.wxyc.org/auth/`
+  // doesn't produce `auth//oauth2/authorize`. Cheap and local.
+  const base = authBaseUrl.replace(/\/+$/, "");
+  return `${base}/oauth2/authorize?${params.toString()}`;
 }

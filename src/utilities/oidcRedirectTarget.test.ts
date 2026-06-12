@@ -72,17 +72,20 @@ describe("getOidcRedirectTarget", () => {
     expect(getOidcRedirectTarget(params, AUTH_BASE)).toBeNull();
   });
 
-  it("accepts a ReadonlyURLSearchParams-shaped argument (from next/navigation)", () => {
-    // `useSearchParams()` returns a `ReadonlyURLSearchParams`, which extends
-    // `URLSearchParams` and exposes `.get` / `.toString`. Helper must accept
-    // that shape so the call site doesn't have to round-trip through the
-    // `URLSearchParams` constructor (which would also be a defensive clone
-    // not needed here — the helper never mutates the input).
-    const params: Pick<URLSearchParams, "get" | "toString"> = new URLSearchParams(
-      "client_id=flowsheet&response_type=code"
+  it("strips a trailing slash on the auth base URL", () => {
+    // `getBaseURL()` in `lib/features/authentication/client.ts` passes
+    // `NEXT_PUBLIC_BETTER_AUTH_URL` through untouched, so a trailing slash
+    // from `.env` survives into `authBaseURL`. Defend here.
+    const params = new URLSearchParams("client_id=flowsheet&response_type=code");
+    expect(getOidcRedirectTarget(params, "https://api.wxyc.org/auth/")).toBe(
+      `https://api.wxyc.org/auth/oauth2/authorize?${params.toString()}`
     );
-    expect(getOidcRedirectTarget(params as URLSearchParams, AUTH_BASE)).toBe(
-      `${AUTH_BASE}/oauth2/authorize?${(params as URLSearchParams).toString()}`
+  });
+
+  it("strips multiple trailing slashes", () => {
+    const params = new URLSearchParams("client_id=flowsheet&response_type=code");
+    expect(getOidcRedirectTarget(params, "https://api.wxyc.org/auth///")).toBe(
+      `https://api.wxyc.org/auth/oauth2/authorize?${params.toString()}`
     );
   });
 });
