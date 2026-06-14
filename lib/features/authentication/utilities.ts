@@ -162,24 +162,22 @@ export async function betterAuthSessionToAuthenticationDataAsync(
 
   let roleToMap: string | undefined;
 
-  // Try to get role from APP_ORGANIZATION first
-  // Use client-safe function that checks NEXT_PUBLIC_APP_ORGANIZATION first, then server-side APP_ORGANIZATION
   const organizationId = typeof window !== "undefined"
     ? getAppOrganizationIdClient()
     : getAppOrganizationId();
 
-  if (organizationId && typeof window !== "undefined") {
+  if (typeof window !== "undefined") {
     try {
-      // Client-side only: dynamically import to avoid server-side import issues
-      // The client function uses authClient which is marked "use client" and can't be imported on server
-      const { getUserRoleInOrganizationClient } = await import("./organization-utils");
-      const orgRole = await getUserRoleInOrganizationClient(session.user.id, organizationId);
+      const { fetchOrganizationRoleForUserClient } = await import("./organization-utils");
+      const orgRole = await fetchOrganizationRoleForUserClient(
+        session.user.id,
+        organizationId
+      );
 
       if (orgRole !== undefined) {
         roleToMap = orgRole;
       }
     } catch (error) {
-      // If organization query fails, fall back to session-based role extraction
       console.warn("Failed to fetch organization role, falling back to session data:", error);
     }
   }

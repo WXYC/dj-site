@@ -44,10 +44,10 @@ const innerBaseQuery = (domain: string): BackendBaseQuery =>
  * resulting `SyntaxError: Unrecognized token '<'` bubbles up as a useless
  * global toast (see WXYC/dj-site#519).
  *
- * Returning `{ data: undefined }` here makes the calling query succeed with no
- * data. List-shaped queries (e.g. `getRotationTracks`) can fall through their
- * existing empty-state branch; object-shaped queries see `undefined` and can
- * gate UI off `data`. Structured JSON 4xx responses are *not* affected — they
+ * Returning `{ data: null }` here makes the calling query succeed with no
+ * payload. RTK Query rejects `{ data: undefined }` (it becomes `{}` and
+ * triggers "neither error nor result"). Callers should treat null/undefined
+ * data as empty. Structured JSON 4xx responses are *not* affected — they
  * still flow through `validateStatus` and surface as normal errors.
  */
 const isNonJsonParsingError = (
@@ -118,7 +118,7 @@ const isGetRequest = (args: string | FetchArgs): boolean => {
  * 1. Adds the JWT bearer token and a request id (in `prepareHeaders`).
  * 2. Soft-handles non-JSON responses (most notably Express's HTML 404s)
  *    **for GET requests by default**: the query resolves with
- *    `{ data: undefined }` instead of throwing the cryptic
+ *    `{ data: null }` instead of throwing the cryptic
  *    `Unrecognized token '<'` JSON-parse error up to the global error toast.
  *    See WXYC/dj-site#519.
  *
@@ -137,7 +137,7 @@ export const backendBaseQuery = (domain: string): BackendBaseQuery => {
       const optOut = (extraOptions as BackendExtraOptions | undefined)?.surfaceNonJsonAsError === true;
       if (isGetRequest(args) && !optOut) {
         logNonJsonResponse(domain, args, result.error);
-        return { data: undefined, meta: result.meta };
+        return { data: null, meta: result.meta };
       }
     }
 
