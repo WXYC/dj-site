@@ -54,7 +54,7 @@ export default async function RootLayout({ children }: Props) {
               <div id="root" style={{ height: "100%", overflow: "hidden" }}>
                 <main>
                   {children}
-                  <AppbarWrapper />
+                  <AppbarWrapper experience={serverSideProps.application.experience} />
                 </main>
               </div>
             </body>

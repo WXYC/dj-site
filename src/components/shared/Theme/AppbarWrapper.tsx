@@ -1,31 +1,31 @@
 "use client";
 
 import { useGetActiveExperienceQuery } from "@/lib/features/experiences/api";
-import { useEffect, useState } from "react";
+import { ExperienceId } from "@/lib/features/experiences/types";
 import Appbar from "./Appbar";
 import AppbarClassic from "./AppbarClassic";
 
-export default function AppbarWrapper() {
+interface AppbarWrapperProps {
+  /**
+   * Server-resolved experience, threaded down from RootLayout. Seeding the
+   * first render from this prop (rather than reading `data-experience` in an
+   * effect) keeps SSR and client hydration in agreement, so classic users no
+   * longer see a modern→classic appbar flash on first paint.
+   */
+  experience: ExperienceId;
+}
+
+export default function AppbarWrapper({ experience }: AppbarWrapperProps) {
   const { data: experienceFromApi } = useGetActiveExperienceQuery();
-  const [experienceFromDOM, setExperienceFromDOM] = useState<string | null>(null);
 
-  // Read from data-experience attribute on HTML element (set by server)
-  useEffect(() => {
-    if (typeof document !== "undefined") {
-      const htmlElement = document.documentElement;
-      const dataExperience = htmlElement.getAttribute("data-experience");
-      if (dataExperience) {
-        setExperienceFromDOM(dataExperience);
-      }
-    }
-  }, []);
+  // The live API value wins once loaded (so a runtime experience switch is
+  // reflected without a reload); until then the server-resolved prop drives
+  // the render synchronously.
+  const activeExperience = experienceFromApi || experience;
 
-  // Use API data if available, otherwise fall back to DOM attribute
-  const activeExperience = experienceFromApi || experienceFromDOM || "modern";
-  
   if (activeExperience === "classic") {
     return <AppbarClassic />;
   }
-  
+
   return <Appbar />;
 }
