@@ -34,7 +34,7 @@
     "@reduxjs/toolkit": "^2.12.0",
     "@uidotdev/usehooks": "^2.4.1",
     "@wxyc/shared": "^1.11.0",
-    "better-auth": "^1.6.13",
+    "better-auth": "^1.6.20",
     "cookie": "^1.0.2",
     "jose": "^6.2.3",
     "jwt-decode": "^4.0.0",
