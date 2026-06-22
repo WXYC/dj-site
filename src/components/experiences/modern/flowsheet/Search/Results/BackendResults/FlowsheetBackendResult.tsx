@@ -70,8 +70,8 @@ export default function FlowsheetBackendResult({
             fontSize: "1rem",
           }}
         >
-          {entry.artist.genre} {entry.artist.lettercode}{" "}
-          {entry.artist.numbercode}/{entry.entry}
+          {entry.artist?.genre} {entry.artist?.lettercode}{" "}
+          {entry.artist?.numbercode}/{entry.entry}
           <Chip
             variant="soft"
             size="sm"
@@ -119,11 +119,11 @@ export default function FlowsheetBackendResult({
             overflow: "hidden",
             textOverflow: "ellipsis",
             color: selected == index ? "white" : "inherit",
-            fontStyle: entry.artist.name ? "normal" : "italic",
-            opacity: entry.artist.name ? 1 : 0.6,
+            fontStyle: entry.artist?.name ? "normal" : "italic",
+            opacity: entry.artist?.name ? 1 : 0.6,
           }}
         >
-          {entry.artist.name || "Unknown"}
+          {entry.artist?.name || "Unknown"}
         </Typography>
       </Stack>
       <Stack direction="column" sx={{ flex: 1, minWidth: 0, px: 1 }}>

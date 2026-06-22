@@ -240,6 +240,26 @@ describe("FlowsheetBackendResult", () => {
     });
   });
 
+  // Regression: a result row can arrive with a null `artist` (LML / catalog
+  // proxy rows where the artist object wasn't populated). The CODE and ARTIST
+  // columns dereferenced `entry.artist.genre` / `entry.artist.name` with no
+  // guard, so one such row threw mid-render and app/global-error white-screened
+  // the whole site as the DJ typed. (dj-site flowsheet entry crash, 2026-06-21)
+  describe("Null artist (regression)", () => {
+    it("does not throw and shows 'Unknown' when artist is null", () => {
+      const entryWithNullArtist = {
+        ...mockEntry,
+        artist: null,
+      } as unknown as AlbumEntry;
+
+      expect(() =>
+        render(<FlowsheetBackendResult entry={entryWithNullArtist} index={1} />)
+      ).not.toThrow();
+
+      expect(screen.getByText("Unknown")).toBeInTheDocument();
+    });
+  });
+
   describe("Different index values", () => {
     it("should work with index 0", () => {
       render(<FlowsheetBackendResult entry={mockEntry} index={0} />);

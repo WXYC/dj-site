@@ -21,7 +21,7 @@ export function filterBySearchTerms(items: AlbumEntry[], query: SearchQuery): Al
 
   return items.filter((item) => {
     const fields = [
-      item.artist?.name.toLowerCase() ?? "",
+      item.artist?.name?.toLowerCase() ?? "",
       item.title?.toLowerCase() ?? "",
       item.label?.toLowerCase() ?? "",
     ];
