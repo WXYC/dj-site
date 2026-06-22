@@ -104,6 +104,37 @@ describe("RotationEntryFields", () => {
     mockTracksLoading = false;
   });
 
+  // Regression: a library-unlinked rotation release can arrive with no `artist`
+  // object. handleSelectRelease seeded the search query with
+  // `release.artist.name`, throwing on select. The dropdown render guard lets
+  // the option appear; this guards the seed so it falls back to an empty artist
+  // instead of crashing. Same null-artist class as the sibling guards.
+  it("selects a null-artist release without throwing and seeds an empty artist", () => {
+    const nullArtistRelease = {
+      ...createTestAlbum({
+        id: 8,
+        title: "Untitled",
+        rotation_id: 43,
+        rotation_bin: "H",
+      }),
+      artist: null,
+    } as unknown as ReturnType<typeof createTestAlbum>;
+    mockRotationData = [nullArtistRelease];
+
+    const { store } = renderWithProviders(<RotationEntryFields disabled={false} />);
+    const dispatchSpy = vi.spyOn(store, "dispatch");
+
+    expect(() => {
+      fireEvent.click(screen.getByRole("radio", { name: "H" }));
+      fireEvent.focus(screen.getByTestId("rotation-release-combobox"));
+      fireEvent.click(screen.getByTestId("rotation-release-option-8"));
+    }).not.toThrow();
+
+    expect(dispatchSpy).toHaveBeenCalledWith(
+      flowsheetSlice.actions.setSearchProperty({ name: "artist", value: "" })
+    );
+  });
+
   it("never renders an artist input — rotation mode has no override UI", () => {
     renderWithProviders(<RotationEntryFields disabled={false} />);
     expect(
