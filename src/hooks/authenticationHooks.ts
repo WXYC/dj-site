@@ -1,7 +1,7 @@
 "use client";
 
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
-import { authClient, clearTokenCache, lookupEmailByIdentifier } from "@/lib/features/authentication/client";
+import { authBaseURL, authClient, clearTokenCache, lookupEmailByIdentifier } from "@/lib/features/authentication/client";
 import { isValidEmail } from "@wxyc/shared/validation";
 import {
   AuthenticatedUser,
@@ -15,15 +15,17 @@ import { betterAuthSessionToAuthenticationData, betterAuthSessionToAuthenticatio
 import { Authorization } from "@/lib/features/admin/types";
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { resetApplication } from "./applicationHooks";
 import { throwIfBetterAuthError } from "@/src/utilities/throwIfBetterAuthError";
+import { getOidcRedirectTarget } from "@/src/utilities/oidcRedirectTarget";
 import { useAsyncAction } from "./useAsyncAction";
 
 export const useLogin = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { execute, isLoading, error } = useAsyncAction();
 
   const verified = useAppSelector(
@@ -58,9 +60,25 @@ export const useLogin = () => {
       const user = (result as any).data?.user;
       if (user && user.hasCompletedOnboarding === false) {
         router.push("/login?incomplete=true");
-      } else {
-        router.push(dashboardHome);
+        router.refresh();
+        return;
       }
+      // If we got here as part of an OIDC authorize bounce, resume the
+      // round-trip by sending the user back to
+      // `${authBase}/oauth2/authorize?<original-query>` instead of the
+      // dashboard. See `getOidcRedirectTarget` for the contract.
+      const oidcTarget = getOidcRedirectTarget(
+        searchParams ?? new URLSearchParams(),
+        authBaseURL
+      );
+      if (oidcTarget) {
+        // Leaving the SPA (either same-origin proxy → MPA, or hard cross-
+        // origin). `router.refresh()` would issue an RSC fetch against a
+        // route the user is no longer staying on; skip it.
+        router.push(oidcTarget);
+        return;
+      }
+      router.push(dashboardHome);
       router.refresh();
     }, "An unexpected error occurred during login. Please try again.");
   };
@@ -110,6 +128,7 @@ export const useOTPRequest = () => {
 
 export const useOTPVerify = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { execute, isLoading, error } = useAsyncAction();
 
   const handleVerifyOTP = (email: string, otp: string) =>
@@ -142,9 +161,20 @@ export const useOTPVerify = () => {
       const user = (result as any).data?.user;
       if (user && user.hasCompletedOnboarding === false) {
         router.push("/login?incomplete=true");
-      } else {
-        router.push(dashboardHome);
+        router.refresh();
+        return;
       }
+      // Mirror useLogin's OIDC resume contract — both credential entry
+      // points feed the same authorize round-trip.
+      const oidcTarget = getOidcRedirectTarget(
+        searchParams ?? new URLSearchParams(),
+        authBaseURL
+      );
+      if (oidcTarget) {
+        router.push(oidcTarget);
+        return;
+      }
+      router.push(dashboardHome);
       router.refresh();
     }, "Verification failed. Please try again.");
 
