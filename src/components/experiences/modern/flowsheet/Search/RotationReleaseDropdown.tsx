@@ -8,14 +8,14 @@ import { ClickAwayListener } from "@mui/material";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 function formatRelease(release: AlbumEntry): string {
-  return `${release.artist.name} — ${release.title}`;
+  return `${release.artist?.name ?? ""} — ${release.title}`;
 }
 
 function matchesQuery(release: AlbumEntry, query: string): boolean {
   if (!query) return true;
   const q = query.toLowerCase();
   return (
-    release.artist.name.toLowerCase().includes(q) ||
+    (release.artist?.name ?? "").toLowerCase().includes(q) ||
     release.title.toLowerCase().includes(q)
   );
 }
@@ -245,7 +245,7 @@ export default function RotationReleaseDropdown({
                     }}
                   >
                     <Typography component="span" sx={{ fontWeight: "bold" }}>
-                      {release.artist.name}
+                      {release.artist?.name}
                     </Typography>
                     {" — "}
                     {release.title}

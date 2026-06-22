@@ -74,7 +74,7 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
       setManualEntry(false);
       setSearchOpen(true);
       dispatch(flowsheetSlice.actions.setSearchProperty({ name: "song", value: "" }));
-      dispatch(flowsheetSlice.actions.setSearchProperty({ name: "artist", value: release.artist.name }));
+      dispatch(flowsheetSlice.actions.setSearchProperty({ name: "artist", value: release.artist?.name ?? "" }));
       dispatch(flowsheetSlice.actions.setSearchProperty({ name: "album", value: release.title }));
       dispatch(flowsheetSlice.actions.setSearchProperty({ name: "label", value: release.label }));
       dispatch(

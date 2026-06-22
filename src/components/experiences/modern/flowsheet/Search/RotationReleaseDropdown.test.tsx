@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import RotationReleaseDropdown from "./RotationReleaseDropdown";
 import { createTestAlbum, createTestArtist } from "@/lib/test-utils";
+import type { AlbumEntry } from "@/lib/features/catalog/types";
 
 const releases = [
   createTestAlbum({
@@ -400,5 +401,51 @@ describe("RotationReleaseDropdown — combobox (#745)", () => {
         screen.queryByTestId("rotation-release-option-1")
       ).not.toBeInTheDocument();
     });
+  });
+});
+
+// Regression: a library-unlinked rotation release can arrive with no `artist`
+// object. formatRelease (the combobox value), matchesQuery (the type-ahead
+// filter), and the option render all dereferenced `release.artist.name`
+// unguarded — any one throws mid-render and bubbles to app/global-error,
+// white-screening the page. Same null-artist class as the FlowsheetBackendResult
+// and filterBySearchTerms guards.
+describe("RotationReleaseDropdown — null artist (regression)", () => {
+  const onSelect = vi.fn();
+  beforeEach(() => vi.clearAllMocks());
+
+  const nullArtist = {
+    ...createTestAlbum({ id: 9, title: "Untitled" }),
+    artist: null,
+  } as unknown as AlbumEntry;
+
+  it("renders a selected null-artist release in the trigger without throwing", () => {
+    expect(() =>
+      render(
+        <RotationReleaseDropdown
+          releases={[]}
+          selectedRelease={nullArtist}
+          onSelectRelease={onSelect}
+          disabled={false}
+        />
+      )
+    ).not.toThrow();
+    expect(getCombobox().value).toBe(" — Untitled");
+  });
+
+  it("opens the panel and filters a null-artist release without throwing", () => {
+    render(
+      <RotationReleaseDropdown
+        releases={[nullArtist]}
+        selectedRelease={null}
+        onSelectRelease={onSelect}
+        disabled={false}
+      />
+    );
+    expect(() => {
+      fireEvent.focus(getCombobox()); // renders the option (was: release.artist.name)
+      fireEvent.change(getCombobox(), { target: { value: "unt" } }); // matchesQuery
+    }).not.toThrow();
+    expect(screen.getByTestId("rotation-release-panel")).toBeInTheDocument();
   });
 });
