@@ -108,3 +108,39 @@ describe("Classic SearchResults EXCLUSIVE capsule", () => {
     expect(screen.queryByText("EXCLUSIVE")).toBeNull();
   });
 });
+
+// Regression: a library-unlinked / LML-proxy catalog row can arrive with no
+// `artist` object. The Artist column (`result.artist.name`) and the Library
+// Code column (`result.artist.lettercode`) dereferenced it unguarded, so one
+// such row threw mid-render and the only error boundary (app/global-error)
+// white-screened the whole page. Same null-artist class guarded for the Modern
+// experience in #778 (search results). Pair the null-artist row with a normal
+// one so the table renders a realistic multi-row list.
+describe("Classic SearchResults — null artist (regression)", () => {
+  it("does not throw and shows a fallback when a result row has a null artist", () => {
+    const nullArtistRow = {
+      ...createTestAlbum({ id: 9001, title: "Untitled" }),
+      artist: null,
+    } as unknown as ReturnType<typeof createTestAlbum>;
+    const goodRow = createTestAlbum({
+      id: 9002,
+      title: "DOGA",
+      artist: createTestArtist({
+        name: "Juana Molina",
+        lettercode: "RO",
+        numbercode: 34,
+      }),
+    });
+    mockSearchCatalogQuery.mockReturnValue({
+      data: [nullArtistRow, goodRow],
+      isLoading: false,
+      error: undefined,
+    });
+
+    expect(() => renderWithProviders(<SearchResults />)).not.toThrow();
+    // The normal row still renders its artist; the null-artist row shows the
+    // "Unknown" fallback instead of crashing.
+    expect(screen.getByText("Juana Molina")).toBeDefined();
+    expect(screen.getByText("Unknown")).toBeDefined();
+  });
+});

@@ -450,6 +450,86 @@ describe("Classic EntryForm — Rotation submission payload", () => {
   });
 });
 
+// Regression: a library-unlinked rotation row can arrive with no `artist`
+// object. The bin option list (`{release.artist.name} - {release.title}`), the
+// select handler (`setArtistName(release.artist.name)`), and the freeform
+// submission payload (`artist_name: release.artist.name`) all dereferenced it
+// unguarded — any one throws mid-render/handler and app/global-error
+// white-screens the page. Same null-artist class guarded for the Modern
+// experience in #779/#780 (rotation entry/release path). `sortRotationReleases`
+// (the comparator) was already guarded in #780; this exercises the components'
+// own derefs.
+describe("Classic EntryForm — null artist (regression)", () => {
+  async function selectByText(
+    user: ReturnType<typeof renderWithProviders>["user"],
+    select: HTMLSelectElement,
+    textContains: string
+  ): Promise<void> {
+    const option = Array.from(select.options).find((o) =>
+      o.text.includes(textContains)
+    );
+    if (!option) throw new Error(`No option text contains: ${textContains}`);
+    await user.selectOptions(select, option);
+  }
+
+  // Pair the null-artist release with a normal one so the bin list runs through
+  // `sortRotationReleases` (Array.sort skips the comparator for a 0/1-element
+  // list — the #780 lesson) and the option .map() renders both. The null-artist
+  // row carries a synthesized *negative* `id` (library-unlinked) and a positive
+  // `rotation_id`, so it's selectable and takes the freeform submit branch.
+  function rotationWithNullArtistRow(): ReturnType<
+    typeof createTestRotationAlbum
+  >[] {
+    return [
+      {
+        ...createTestRotationAlbum(Rotation.H, {
+          id: -55,
+          rotation_id: 8101,
+          title: "Untitled",
+          label: "self-released",
+        }),
+        artist: null,
+      } as unknown as ReturnType<typeof createTestRotationAlbum>,
+      createTestRotationAlbum(Rotation.H, {
+        id: 8002,
+        rotation_id: 8002,
+        title: "Confield",
+        artist: createTestArtist({ name: "Autechre" }),
+      }),
+    ];
+  }
+
+  it("renders a bin containing a null-artist release without throwing", async () => {
+    rotationDataMock = rotationWithNullArtistRow();
+    const { user } = renderWithProviders(<EntryForm />);
+    await user.selectOptions(getNamedSelect("rotationType"), "heavy");
+    const heavy = getNamedSelect("heavyRelease");
+    const texts = Array.from(heavy.options).map((o) => o.textContent ?? "");
+    // The normal release renders with its artist; the null-artist row renders
+    // with an empty artist instead of crashing.
+    expect(texts.some((t) => t.includes("Autechre - Confield"))).toBe(true);
+    expect(texts.some((t) => t.includes("- Untitled"))).toBe(true);
+  });
+
+  it("seeds an empty artist and submits freeform when a null-artist release is selected", async () => {
+    rotationDataMock = rotationWithNullArtistRow();
+    const { user } = renderWithProviders(<EntryForm />);
+    await user.selectOptions(getNamedSelect("rotationType"), "heavy");
+    await selectByText(user, getNamedSelect("heavyRelease"), "Untitled");
+    await user.type(getNamedInput("songTitle"), "Charcoal Bow");
+    await user.click(screen.getByRole("button", { name: /^add$/i }));
+
+    await waitFor(() => {
+      expect(addToFlowsheetMock).toHaveBeenCalledTimes(1);
+    });
+    const payload = addToFlowsheetMock.mock.calls[0][0];
+    expect(payload.track_title).toBe("Charcoal Bow");
+    // Unlinked row (negative id) → freeform variant; null artist coalesces to "".
+    expect(payload.artist_name).toBe("");
+    expect(payload.album_title).toBe("Untitled");
+  });
+});
+
 describe("Classic EntryForm — Breakpoint message format", () => {
   it("formats the breakpoint message as 'H:MM AM/PM Breakpoint'", async () => {
     // mockCurrentTime() can't be used here because it installs fake timers,

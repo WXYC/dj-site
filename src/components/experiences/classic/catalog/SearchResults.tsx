@@ -107,7 +107,7 @@ export default function SearchResults() {
         <tbody>
           {results.map((result) => (
             <tr key={result.id} className="text">
-              <td align="left">{result.album_artist ? "Various Artists" : result.artist.name}</td>
+              <td align="left">{result.album_artist ? "Various Artists" : (result.artist?.name || "Unknown")}</td>
               <td align="left">
                 {result.title}
                 {result.on_streaming === false && (
@@ -120,7 +120,7 @@ export default function SearchResults() {
               </td>
               <td align="left">{result.format}</td>
               <td align="left">
-                {result.artist.lettercode} {result.entry}
+                {result.artist?.lettercode} {result.entry}
               </td>
             </tr>
           ))}
