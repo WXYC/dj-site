@@ -101,19 +101,20 @@ test.describe("Flowsheet artist search — crash smoke", () => {
       // debounced catalog/LML/rotation/bin/suggest searches fire on every
       // intermediate state ("t", "th", "the", "the ", "the o", "the o'", …).
       await expect(flowsheet.artistInput).toBeEnabled({ timeout: 10_000 });
-      // Arm a wait for the search response the LAST keystroke triggers, so the
-      // conversion + result render a crash would happen in has actually run
-      // before we assert — a fixed timeout can assert before the render lands.
-      // `.catch` so a short query that fires no search doesn't fail the wait.
-      const searchSettled = page
-        .waitForResponse((r) => /\/(library|suggest)\b/.test(r.url()), {
-          timeout: 6_000,
-        })
-        .catch(() => undefined);
       await flowsheet.artistInput.click();
       await flowsheet.artistInput.pressSequentially(artist, { delay: 80 });
-      await searchSettled;
-      await page.waitForTimeout(400); // let React commit the post-response render
+
+      // Settle the crash window after the last keystroke: the longest debounce
+      // (LML, 350 ms) + its search round-trip against the local E2E backend +
+      // the React commit. A white-screen, once mounted, persists — global-error
+      // replaces the document and only reset() clears it — so a generous fixed
+      // wait reliably surfaces any crash that lands in this window, and the
+      // assertions below also auto-retry up to the 10 s expect timeout. (A
+      // response-keyed wait was rejected: the search URLs overlap page-load
+      // traffic like /library/rotation and the early /suggest prefix calls, so
+      // it resolved on the wrong request; and the bin/rotation filter crash
+      // path is client-side, with no response to await.)
+      await page.waitForTimeout(1_500);
 
       // 1) Primary: the error boundary must never have replaced the page — a
       //    render throw mounts global-error.tsx's own document root.
