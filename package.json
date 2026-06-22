@@ -30,7 +30,7 @@
     "@mui/icons-material": "^6.4.0",
     "@mui/joy": "^5.0.0-beta.51",
     "@mui/material": "^6.4.0",
-    "@opennextjs/cloudflare": "^1.10.1",
+    "@opennextjs/cloudflare": "^1.19.11",
     "@reduxjs/toolkit": "^2.12.0",
     "@uidotdev/usehooks": "^2.4.1",
     "@wxyc/shared": "^1.11.0",
