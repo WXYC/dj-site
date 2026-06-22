@@ -22,15 +22,21 @@ const authDir = path.join(__dirname, "../../.auth");
  * error boundary never appears, the search UI stays mounted and interactive,
  * and no null/undefined dereference reaches the console.
  *
- * Caveat: this is a smoke test, not a deterministic reproduction. The original
- * crash is data-dependent (the triggering row must exist in the backend the DJ
- * was hitting), and dj-site's result conversions coerce missing fields, so this
- * can't *force* the failure. It pins the live path so a regression on these
- * inputs — the ones a real DJ hit — is caught in CI.
+ * Scope + caveat: this is a smoke test of the NORMAL (non-rotation) artist
+ * field — the path the DJ reported — not a deterministic reproduction. The
+ * original crash is data-dependent (the triggering row must exist in the
+ * backend the DJ was hitting) and dj-site's result conversions coerce missing
+ * fields, so this can't *force* the failure. The rotation-mode null-artist
+ * guards that ship alongside it are covered by their own unit tests
+ * (RotationReleaseDropdown / RotationEntryFields / sortRotationReleases). This
+ * pins the live normal-entry path so a regression on these inputs — the ones a
+ * real DJ hit — is caught in CI.
  *
  * The search form is live-only, so this mirrors library-search-proxy.spec.ts:
- * serial mode, go live once, ensure off-air in afterAll, and the musicDirector
- * session (kept off dj/dj2, which auth and entry-caching specs own).
+ * serial mode, ensure-live per test, ensure off-air in afterAll, and the
+ * musicDirector session (kept off dj/dj2, which auth and entry-caching specs
+ * own). ensureLive (not a once-only goLive) self-heals if a sibling spec
+ * sharing the musicDirector session flipped it off-air between tests.
  */
 test.describe("Flowsheet artist search — crash smoke", () => {
   test.use({ storageState: path.join(authDir, "musicDirector.json") });
@@ -38,16 +44,14 @@ test.describe("Flowsheet artist search — crash smoke", () => {
   test.setTimeout(60_000);
 
   let flowsheet: FlowsheetPage;
-  let isLive = false;
 
   test.beforeEach(async ({ page }) => {
     flowsheet = new FlowsheetPage(page);
     await flowsheet.goto();
     await flowsheet.waitForEntriesLoaded();
-    if (!isLive) {
-      await flowsheet.goLive();
-      isLive = true;
-    }
+    // ensureLive (not a once-only goLive flag): self-heals if a sibling spec
+    // sharing the musicDirector session flipped it off-air between tests.
+    await flowsheet.ensureLive();
   });
 
   test.afterAll(async ({ browser }) => {
@@ -83,9 +87,10 @@ test.describe("Flowsheet artist search — crash smoke", () => {
         name: "Something went wrong",
       });
 
-      // Capture the crash-class signal even if the boundary swallows the throw:
-      // React logs boundary-caught errors to console.error in prod builds, and
-      // any genuinely uncaught throw lands as a pageerror.
+      // Best-effort secondary crash signal — a console.error or uncaught
+      // pageerror during the type. The primary guarantee is the boundary
+      // assertion below; a prod build may not surface a boundary-caught throw
+      // here, so this only ever adds signal, never removes it.
       const errors: string[] = [];
       page.on("console", (msg) => {
         if (msg.type() === "error") errors.push(msg.text());
@@ -96,19 +101,29 @@ test.describe("Flowsheet artist search — crash smoke", () => {
       // debounced catalog/LML/rotation/bin/suggest searches fire on every
       // intermediate state ("t", "th", "the", "the ", "the o", "the o'", …).
       await expect(flowsheet.artistInput).toBeEnabled({ timeout: 10_000 });
+      // Arm a wait for the search response the LAST keystroke triggers, so the
+      // conversion + result render a crash would happen in has actually run
+      // before we assert — a fixed timeout can assert before the render lands.
+      // `.catch` so a short query that fires no search doesn't fail the wait.
+      const searchSettled = page
+        .waitForResponse((r) => /\/(library|suggest)\b/.test(r.url()), {
+          timeout: 6_000,
+        })
+        .catch(() => undefined);
       await flowsheet.artistInput.click();
       await flowsheet.artistInput.pressSequentially(artist, { delay: 80 });
+      await searchSettled;
+      await page.waitForTimeout(400); // let React commit the post-response render
 
-      // Let the longest debounce (LML, 350 ms) plus its search and re-render
-      // settle, leaving a beat for any intermediate-state throw to surface.
-      await page.waitForTimeout(800);
-
-      // 1) The error boundary must never have replaced the page.
+      // 1) Primary: the error boundary must never have replaced the page — a
+      //    render throw mounts global-error.tsx's own document root.
       await expect(crashBoundary).toHaveCount(0);
-      // 2) The search input is still mounted and holds exactly what we typed —
-      //    proof the React tree didn't unmount into the boundary mid-type.
+      // 2) The search input is still mounted and interactive — proof the React
+      //    tree didn't unmount into the boundary mid-type. (We don't assert the
+      //    exact value: against the live backend a matched result can auto-fill
+      //    the field, so the typed string isn't guaranteed to survive.)
       await expect(flowsheet.artistInput).toBeVisible();
-      await expect(flowsheet.artistInput).toHaveValue(artist);
+      await expect(flowsheet.artistInput).toBeEnabled();
 
       // 3) No null/undefined dereference — the specific crash class — reached
       //    the console or window during the type.
