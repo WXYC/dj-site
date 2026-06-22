@@ -74,6 +74,7 @@ describe("NowPlaying", () => {
     id: 1,
     play_order: 1,
     show_id: 1,
+    add_time: 0,
     track_title: "Test Track",
     artist_name: "Test Artist",
     album_title: "Test Album",

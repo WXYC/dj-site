@@ -42,12 +42,18 @@ export function buildOptimisticEntry(
   const sid = primaryShowId(draft);
   // Fallback until POST response replaces row (empty cache / unknown show).
   const show_id = sid >= 0 ? sid : 0;
+  // Stand-in for the server's INSERT timestamp until the POST response
+  // replaces the row. Within a single client this is monotonic, so back-to-
+  // back optimistic temps sort newest-first in the same way as real rows.
+  // See WXYC/dj-site#746.
+  const add_time = Date.now();
 
   if ("message" in arg) {
     const entry: FlowsheetMessageEntry = {
       id: tempId,
       play_order,
       show_id,
+      add_time,
       message: arg.message,
     };
     return { entry, tempId };
@@ -58,6 +64,7 @@ export function buildOptimisticEntry(
       id: tempId,
       play_order,
       show_id,
+      add_time,
       track_title: arg.track_title,
       artist_name: "",
       album_title: "",
@@ -75,6 +82,7 @@ export function buildOptimisticEntry(
     id: tempId,
     play_order,
     show_id,
+    add_time,
     track_title: arg.track_title,
     artist_name: arg.artist_name,
     album_title: arg.album_title,
@@ -87,12 +95,20 @@ export function buildOptimisticEntry(
 
 /**
  * Sort comparator for FlowsheetEntry: newest-first (descending).
- * Uses `id` as the global sort key since it's monotonically increasing across
- * all shows, unlike `play_order` which resets per show. Optimistic temp entries
- * (negative IDs from `nextOptimisticTempId`) always sort before real entries
- * since they represent the most recent additions.
+ *
+ * Primary key is `add_time` — server INSERT timestamp (epoch ms), or
+ * `Date.now()` snapshot on optimistic temps. `add_time` is the authoritative
+ * chronological signal: `id` is a sequence value that can run out of order
+ * with chronology (legacy-sync backfill, retried inserts, concurrent
+ * inserts), and `play_order` resets per show. See WXYC/dj-site#746.
+ *
+ * `id` is the tiebreaker for entries that share an add_time (server clock
+ * collisions, missing-add_time legacy rows that parse to 0). Among ties,
+ * optimistic temps (negative ids from `nextOptimisticTempId`) sort newest
+ * because more-negative = later `Date.now()`.
  */
 export function compareEntriesNewestFirst(a: FlowsheetEntry, b: FlowsheetEntry): number {
+  if (a.add_time !== b.add_time) return b.add_time - a.add_time;
   const aTemp = a.id < 0;
   const bTemp = b.id < 0;
   if (aTemp !== bTemp) return aTemp ? -1 : 1;
