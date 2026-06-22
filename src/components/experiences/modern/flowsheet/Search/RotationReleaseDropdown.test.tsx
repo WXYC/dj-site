@@ -419,6 +419,17 @@ describe("RotationReleaseDropdown — null artist (regression)", () => {
     artist: null,
   } as unknown as AlbumEntry;
 
+  // A real bin holds more than one release, so the panel runs the list through
+  // `sortRotationReleases` — whose comparator dereferences `artist.name`.
+  // `Array.sort` skips the comparator for a 0/1-element array, so a single
+  // null-artist release would dodge that crash path; pair it with a normal
+  // release to exercise the sort.
+  const goodRelease = createTestAlbum({
+    id: 1,
+    title: "Confield",
+    artist: createTestArtist({ name: "Autechre" }),
+  });
+
   it("renders a selected null-artist release in the trigger without throwing", () => {
     expect(() =>
       render(
@@ -433,17 +444,17 @@ describe("RotationReleaseDropdown — null artist (regression)", () => {
     expect(getCombobox().value).toBe(" — Untitled");
   });
 
-  it("opens the panel and filters a null-artist release without throwing", () => {
+  it("opens, sorts, and filters a list containing a null-artist release without throwing", () => {
     render(
       <RotationReleaseDropdown
-        releases={[nullArtist]}
+        releases={[goodRelease, nullArtist]}
         selectedRelease={null}
         onSelectRelease={onSelect}
         disabled={false}
       />
     );
     expect(() => {
-      fireEvent.focus(getCombobox()); // renders the option (was: release.artist.name)
+      fireEvent.focus(getCombobox()); // sortRotationReleases comparator + option render
       fireEvent.change(getCombobox(), { target: { value: "unt" } }); // matchesQuery
     }).not.toThrow();
     expect(screen.getByTestId("rotation-release-panel")).toBeInTheDocument();

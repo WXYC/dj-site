@@ -245,7 +245,7 @@ export default function RotationReleaseDropdown({
                     }}
                   >
                     <Typography component="span" sx={{ fontWeight: "bold" }}>
-                      {release.artist?.name}
+                      {release.artist?.name ?? ""}
                     </Typography>
                     {" — "}
                     {release.title}
