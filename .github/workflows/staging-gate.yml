@@ -67,7 +67,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout dj-site (for helper scripts)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # Only need the helpers; fetch-depth: 1 keeps the runner clean.
           fetch-depth: 1

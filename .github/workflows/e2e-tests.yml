@@ -65,7 +65,7 @@ jobs:
     steps:
       - name: Checkout
         if: github.event_name == 'pull_request'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Filter
         if: github.event_name == 'pull_request'
@@ -115,12 +115,12 @@ jobs:
 
     steps:
       - name: Checkout dj-site
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: dj-site
 
       - name: Checkout Backend-Service
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/Backend-Service
           ref: ${{ github.event.inputs.backend_ref || 'main' }}
