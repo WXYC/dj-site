@@ -78,7 +78,7 @@ export default function EntryForm({
     setSelectedRotationId(rotationId);
     const release = rotationData?.find((r) => r.rotation_id === rotationId);
     if (release) {
-      setArtistName(release.artist.name);
+      setArtistName(release.artist?.name ?? "");
       setReleaseTitle(release.title);
       setLabelName(release.label);
     }
@@ -150,7 +150,7 @@ export default function EntryForm({
         };
       } else {
         submissionData = {
-          artist_name: release.artist.name,
+          artist_name: release.artist?.name ?? "",
           album_title: release.title,
           track_title: songTitle,
           request_flag: requestFlag,
@@ -269,7 +269,7 @@ export default function EntryForm({
                           key={release.rotation_id}
                           value={release.rotation_id}
                         >
-                          {release.artist.name} - {release.title}
+                          {release.artist?.name ?? ""} - {release.title}
                         </option>
                       ))}
                     </select>
@@ -292,7 +292,7 @@ export default function EntryForm({
                           key={release.rotation_id}
                           value={release.rotation_id}
                         >
-                          {release.artist.name} - {release.title}
+                          {release.artist?.name ?? ""} - {release.title}
                         </option>
                       ))}
                     </select>
@@ -315,7 +315,7 @@ export default function EntryForm({
                           key={release.rotation_id}
                           value={release.rotation_id}
                         >
-                          {release.artist.name} - {release.title}
+                          {release.artist?.name ?? ""} - {release.title}
                         </option>
                       ))}
                     </select>
@@ -341,7 +341,7 @@ export default function EntryForm({
                           key={release.rotation_id}
                           value={release.rotation_id}
                         >
-                          {release.artist.name} - {release.title}
+                          {release.artist?.name ?? ""} - {release.title}
                         </option>
                       ))}
                     </select>
