@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { sortRotationReleases } from "@/lib/features/rotation/sort";
 import { createTestAlbum, createTestArtist } from "@/lib/test-utils";
+import type { AlbumEntry } from "@/lib/features/catalog/types";
 
 describe("sortRotationReleases", () => {
   it("sorts alphabetically by artist name", () => {
@@ -106,5 +107,27 @@ describe("sortRotationReleases", () => {
     ];
     const sorted = sortRotationReleases(releases);
     expect(sorted[0].artist.name).toBe("Emilie Levienaise-Farrouch");
+  });
+
+  // Regression: a library-unlinked rotation row can arrive with a null `artist`
+  // object. The comparator runs on every RotationReleaseDropdown render
+  // (visibleReleases memo), so an unguarded `a.artist.name` threw and
+  // white-screened the page via app/global-error. A 0/1-element list dodges the
+  // comparator, so this list has two entries to force it. (dj-site#779)
+  it("does not throw when a release has a null artist, sorting it as empty", () => {
+    const releases = [
+      createTestAlbum({
+        id: 1,
+        title: "Confield",
+        artist: createTestArtist({ name: "Autechre" }),
+      }),
+      {
+        ...createTestAlbum({ id: 2, title: "Untitled" }),
+        artist: null,
+      } as unknown as AlbumEntry,
+    ];
+    expect(() => sortRotationReleases(releases)).not.toThrow();
+    // The null artist coalesces to "" and sorts ahead of "Autechre".
+    expect(sortRotationReleases(releases).map((r) => r.id)).toEqual([2, 1]);
   });
 });

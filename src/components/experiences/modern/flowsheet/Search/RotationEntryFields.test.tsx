@@ -119,7 +119,9 @@ describe("RotationEntryFields", () => {
       }),
       artist: null,
     } as unknown as ReturnType<typeof createTestAlbum>;
-    mockRotationData = [nullArtistRelease];
+    // Pair it with a normal release in the same bin so the dropdown's
+    // sortRotationReleases comparator actually runs over the null-artist row.
+    mockRotationData = [lightningBoltOoioo, nullArtistRelease];
 
     const { store } = renderWithProviders(<RotationEntryFields disabled={false} />);
     const dispatchSpy = vi.spyOn(store, "dispatch");

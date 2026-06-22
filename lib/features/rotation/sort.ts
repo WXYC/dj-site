@@ -12,9 +12,14 @@ import type { AlbumEntry } from "../catalog/types";
  */
 export function sortRotationReleases(releases: AlbumEntry[]): AlbumEntry[] {
   return [...releases].sort((a, b) => {
-    const artistCmp = a.artist.name.localeCompare(b.artist.name, undefined, {
-      sensitivity: "base",
-    });
+    // `artist` can be absent on library-unlinked rotation rows; coalesce to ""
+    // so the comparator never dereferences null (same guard class as the
+    // RotationReleaseDropdown / RotationEntryFields fixes).
+    const artistCmp = (a.artist?.name ?? "").localeCompare(
+      b.artist?.name ?? "",
+      undefined,
+      { sensitivity: "base" }
+    );
     if (artistCmp !== 0) return artistCmp;
     return a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
   });
