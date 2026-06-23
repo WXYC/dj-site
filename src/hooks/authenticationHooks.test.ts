@@ -23,6 +23,14 @@ vi.mock("sonner", () => ({
   },
 }));
 
+// Mock PostHog telemetry — assert the login_post_redirect event without
+// initialising PostHog. safeCapture already swallows in SSR/tests, but mocking
+// it lets us inspect the emitted event + props.
+const mockSafeCapture = vi.fn();
+vi.mock("@/lib/posthog", () => ({
+  safeCapture: (...args: any[]) => mockSafeCapture(...args),
+}));
+
 // Mock authClient
 const mockUpdateUser = vi.fn();
 const mockChangePassword = vi.fn();
@@ -114,6 +122,12 @@ describe("authenticationHooks", () => {
       });
 
       expect(mockPush).toHaveBeenCalledWith("/login?incomplete=true");
+      expect(mockSafeCapture).toHaveBeenCalledWith("login_post_redirect", {
+        method: "password",
+        destination: "incomplete",
+        has_completed_onboarding: false,
+        user_id: "user-1",
+      });
     });
 
     it("should redirect to dashboard when hasCompletedOnboarding is true", async () => {
@@ -144,6 +158,12 @@ describe("authenticationHooks", () => {
       });
 
       expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
+      expect(mockSafeCapture).toHaveBeenCalledWith("login_post_redirect", {
+        method: "password",
+        destination: "dashboard",
+        has_completed_onboarding: true,
+        user_id: "user-1",
+      });
     });
 
     it("should redirect to dashboard when hasCompletedOnboarding is undefined (backward compat)", async () => {
@@ -174,6 +194,12 @@ describe("authenticationHooks", () => {
       });
 
       expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
+      expect(mockSafeCapture).toHaveBeenCalledWith("login_post_redirect", {
+        method: "password",
+        destination: "dashboard",
+        has_completed_onboarding: null,
+        user_id: "user-1",
+      });
     });
 
     it("routes to signIn.username when the identifier has no @", async () => {
@@ -279,6 +305,34 @@ describe("authenticationHooks", () => {
     });
   });
 
+  describe("useOTPVerify", () => {
+    it("redirects to incomplete and captures the OTP redirect when hasCompletedOnboarding is false", async () => {
+      mockSignInEmailOtp.mockResolvedValue({
+        data: {
+          user: {
+            id: "user-1",
+            hasCompletedOnboarding: false,
+          },
+        },
+      });
+
+      const { useOTPVerify } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useOTPVerify(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        await result.current.handleVerifyOTP("dj@wxyc.org", "123456");
+      });
+
+      expect(mockPush).toHaveBeenCalledWith("/login?incomplete=true");
+      expect(mockSafeCapture).toHaveBeenCalledWith("login_post_redirect", {
+        method: "otp",
+        destination: "incomplete",
+        has_completed_onboarding: false,
+        user_id: "user-1",
+      });
+    });
+  });
+
   describe("useNewUser", () => {
     it("should include hasCompletedOnboarding: true in updateUser call", async () => {
       mockGetSession.mockResolvedValue({
@@ -308,6 +362,39 @@ describe("authenticationHooks", () => {
         hasCompletedOnboarding: true,
         realName: "Real Name",
         djName: "DJ Name",
+      });
+    });
+
+    it("redirects to the dashboard and captures the onboarding redirect on success", async () => {
+      mockGetSession.mockResolvedValue({
+        data: { user: { id: "user-1" } },
+      });
+      mockUpdateUser.mockResolvedValue({ data: {} });
+      mockChangePassword.mockResolvedValue({ data: {} });
+
+      const { useNewUser } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useNewUser(), { wrapper: createWrapper() });
+
+      const form = {
+        preventDefault: vi.fn(),
+        currentTarget: {
+          username: { value: "testdj" },
+          password: { value: "NewPassword1" },
+          realName: { value: "Real Name" },
+          djName: { value: "DJ Name" },
+        },
+      } as any;
+
+      await act(async () => {
+        await result.current.handleNewUser(form);
+      });
+
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
+      expect(mockSafeCapture).toHaveBeenCalledWith("login_post_redirect", {
+        method: "onboarding",
+        destination: "dashboard",
+        has_completed_onboarding: true,
+        user_id: "user-1",
       });
     });
 

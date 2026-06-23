@@ -21,6 +21,47 @@ import { toast } from "sonner";
 import { resetApplication } from "./applicationHooks";
 import { throwIfBetterAuthError } from "@/src/utilities/throwIfBetterAuthError";
 import { useAsyncAction } from "./useAsyncAction";
+import { safeCapture } from "@/lib/posthog";
+
+/** Observable login/onboarding events (distinct from auth-client errors). */
+const LOGIN_EVENTS = {
+  /** A login/verification/onboarding succeeded; records where the user was sent. */
+  POST_LOGIN_REDIRECT: "login_post_redirect",
+} as const;
+
+type LoginMethod = "password" | "otp" | "onboarding";
+
+/**
+ * Send a freshly-authenticated user to the right place and record the choice.
+ *
+ * Emits one `login_post_redirect` event with a `destination` discriminator so a
+ * PostHog breakdown shows the share of successful logins bounced to the
+ * incomplete screen vs. the dashboard. Captures the RAW onboarding flag
+ * (incl. null when absent) so a complete DJ misrouted because the flag came
+ * back undefined is distinguishable from a genuinely-incomplete account.
+ *
+ * Redirect targets are byte-identical to the prior inline branch.
+ */
+function redirectAfterAuth(
+  router: { push: (href: string) => void; refresh: () => void },
+  user: { id?: string; hasCompletedOnboarding?: boolean } | undefined,
+  method: LoginMethod,
+): void {
+  const dashboardHome = String(
+    process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog",
+  );
+  const incomplete = user?.hasCompletedOnboarding === false;
+
+  safeCapture(LOGIN_EVENTS.POST_LOGIN_REDIRECT, {
+    method,
+    destination: incomplete ? "incomplete" : "dashboard",
+    has_completed_onboarding: user?.hasCompletedOnboarding ?? null,
+    user_id: user?.id ?? null,
+  });
+
+  router.push(incomplete ? "/login?incomplete=true" : dashboardHome);
+  router.refresh();
+}
 
 export const useLogin = () => {
   const router = useRouter();
@@ -52,16 +93,10 @@ export const useLogin = () => {
         throw new Error(errorMessage);
       }
 
-      const dashboardHome = String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog");
       toast.success("Login successful");
 
       const user = (result as any).data?.user;
-      if (user && user.hasCompletedOnboarding === false) {
-        router.push("/login?incomplete=true");
-      } else {
-        router.push(dashboardHome);
-      }
-      router.refresh();
+      redirectAfterAuth(router, user, "password");
     }, "An unexpected error occurred during login. Please try again.");
   };
 
@@ -137,15 +172,9 @@ export const useOTPVerify = () => {
       }
 
       toast.success("Login successful");
-      const dashboardHome = String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog");
 
       const user = (result as any).data?.user;
-      if (user && user.hasCompletedOnboarding === false) {
-        router.push("/login?incomplete=true");
-      } else {
-        router.push(dashboardHome);
-      }
-      router.refresh();
+      redirectAfterAuth(router, user, "otp");
     }, "Verification failed. Please try again.");
 
   const handleResendOTP = async (email: string) => {
@@ -313,10 +342,12 @@ export const useNewUser = () => {
 
       throwIfBetterAuthError(result, "Failed to update user profile");
 
-      const dashboardHome = String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog");
       toast.success("Profile updated successfully");
-      router.push(dashboardHome);
-      router.refresh();
+      redirectAfterAuth(
+        router,
+        { id: session.data.user.id, hasCompletedOnboarding: true },
+        "onboarding",
+      );
     }, "Failed to update user profile. Please try again.");
   };
 
