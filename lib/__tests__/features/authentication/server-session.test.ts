@@ -150,7 +150,7 @@ describe("requireAuth", () => {
   it("should redirect to /login when not authenticated", async () => {
     mockGetSession.mockResolvedValue({ data: null, error: null });
 
-    await expect(requireAuth()).rejects.toThrow("REDIRECT:/login");
-    expect(mockRedirect).toHaveBeenCalledWith("/login");
+    await expect(requireAuth()).rejects.toThrow("REDIRECT:/login?bounced=no-session");
+    expect(mockRedirect).toHaveBeenCalledWith("/login?bounced=no-session");
   });
 });

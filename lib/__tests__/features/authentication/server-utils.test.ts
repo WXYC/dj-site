@@ -126,8 +126,8 @@ describe("server-utils", () => {
     it("should redirect to /login when not authenticated", async () => {
       mockGetSession.mockResolvedValue({ data: null, error: null });
 
-      await expect(requireAuth()).rejects.toThrow("REDIRECT:/login");
-      expect(mockRedirect).toHaveBeenCalledWith("/login");
+      await expect(requireAuth()).rejects.toThrow("REDIRECT:/login?bounced=no-session");
+      expect(mockRedirect).toHaveBeenCalledWith("/login?bounced=no-session");
     });
 
     it("should redirect to /login when email is not verified", async () => {
@@ -143,16 +143,16 @@ describe("server-utils", () => {
       });
       mockGetSession.mockResolvedValue({ data: session, error: null });
 
-      await expect(requireAuth()).rejects.toThrow("REDIRECT:/login?error=email-not-verified");
-      expect(mockRedirect).toHaveBeenCalledWith("/login?error=email-not-verified");
+      await expect(requireAuth()).rejects.toThrow("REDIRECT:/login?error=email-not-verified&bounced=email-not-verified");
+      expect(mockRedirect).toHaveBeenCalledWith("/login?error=email-not-verified&bounced=email-not-verified");
     });
 
     it("should redirect to /login?incomplete=true when user is incomplete", async () => {
       const session = createTestIncompleteSession(["realName"]);
       mockGetSession.mockResolvedValue({ data: session, error: null });
 
-      await expect(requireAuth()).rejects.toThrow("REDIRECT:/login?incomplete=true");
-      expect(mockRedirect).toHaveBeenCalledWith("/login?incomplete=true");
+      await expect(requireAuth()).rejects.toThrow("REDIRECT:/login?incomplete=true&bounced=incomplete");
+      expect(mockRedirect).toHaveBeenCalledWith("/login?incomplete=true&bounced=incomplete");
     });
 
     it("should redirect when hasCompletedOnboarding is false even with all profile fields filled", async () => {
@@ -169,8 +169,8 @@ describe("server-utils", () => {
       });
       mockGetSession.mockResolvedValue({ data: session, error: null });
 
-      await expect(requireAuth()).rejects.toThrow("REDIRECT:/login?incomplete=true");
-      expect(mockRedirect).toHaveBeenCalledWith("/login?incomplete=true");
+      await expect(requireAuth()).rejects.toThrow("REDIRECT:/login?incomplete=true&bounced=incomplete");
+      expect(mockRedirect).toHaveBeenCalledWith("/login?incomplete=true&bounced=incomplete");
     });
 
     it("should not redirect when hasCompletedOnboarding is not in session", async () => {

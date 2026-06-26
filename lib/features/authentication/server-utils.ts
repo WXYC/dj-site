@@ -48,19 +48,24 @@ export async function getServerSession(): Promise<BetterAuthSession | null> {
  */
 export async function requireAuth(): Promise<BetterAuthSession> {
   const session = await getServerSession();
+  // Each exit carries a server-only `bounced` param so the client can emit a
+  // `login_server_bounce` PostHog event. This records the server's VERDICT,
+  // which is distinct from the client's post-login redirect INTENT
+  // (`login_post_redirect`): a DJ can be told "login successful" client-side
+  // and still get bounced here when the session cookie isn't valid server-side.
   if (!session) {
-    redirect("/login");
+    redirect("/login?bounced=no-session");
   }
 
   if (!session.user.emailVerified) {
-    redirect("/login?error=email-not-verified");
+    redirect("/login?error=email-not-verified&bounced=email-not-verified");
   }
 
   // Redirect incomplete users back to login for onboarding.
   // Only check if hasCompletedOnboarding is explicitly present as a key in the user object
   // (better-auth includes additional fields when configured).
   if ("hasCompletedOnboarding" in session.user && isUserIncomplete(session)) {
-    redirect("/login?incomplete=true");
+    redirect("/login?incomplete=true&bounced=incomplete");
   }
 
   return session;
