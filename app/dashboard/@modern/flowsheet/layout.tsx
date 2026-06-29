@@ -1,3 +1,4 @@
+import AutoDJBanner from "@/src/components/experiences/modern/autoDJ/AutoDJBanner";
 import FlowsheetSkeletonLoader from "@/src/components/experiences/modern/flowsheet/FlowsheetSkeletonLoader";
 import GoLive from "@/src/components/experiences/modern/flowsheet/GoLive";
 import InfiniteScroller from "@/src/components/experiences/modern/flowsheet/InfiniteScroller";
@@ -21,6 +22,7 @@ export default function FlowsheetPage({
   return (
     <>
       <SSESubscription surface="dashboard" />
+      <AutoDJBanner />
       <PageHeader title="Flowsheet">
         <SSEConnectionIndicator />
         <GoLive />

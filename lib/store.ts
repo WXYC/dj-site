@@ -15,6 +15,7 @@ import { adminSlice } from "./features/admin/frontend";
 import { applicationApi } from "./features/application/api";
 import { applicationSlice } from "./features/application/frontend";
 import { authenticationSlice } from "./features/authentication/frontend";
+import { autoDJApi } from "./features/autoDJ/api";
 import { binApi } from "./features/bin/api";
 import { catalogApi } from "./features/catalog/api";
 import { catalogSlice } from "./features/catalog/frontend";
@@ -34,6 +35,7 @@ const rootReducer = combineSlices(
   authenticationSlice,
   applicationSlice,
   applicationApi,
+  autoDJApi,
   experienceApi,
   catalogSlice,
   catalogApi,
@@ -60,6 +62,7 @@ export const makeStore = () => {
         .prepend(liveUpdatesListenerMiddleware.middleware)
         .concat(rtkQueryErrorLogger)
         .concat(applicationApi.middleware)
+        .concat(autoDJApi.middleware)
         .concat(experienceApi.middleware)
         .concat(catalogApi.middleware)
         .concat(binApi.middleware)
