@@ -38,9 +38,9 @@
     "cookie": "^1.0.2",
     "jose": "^6.2.3",
     "jwt-decode": "^4.0.0",
-    "motion": "^12.40.0",
+    "motion": "^12.42.0",
     "next": "^16.1.1",
-    "posthog-js": "^1.386.0",
+    "posthog-js": "^1.395.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-fast-marquee": "^1.6.5",
@@ -72,11 +72,11 @@
     "wrangler": "^4.103.0"
   },
   "optionalDependencies": {
-    "@ast-grep/napi-darwin-arm64": "^0.43.0",
-    "@ast-grep/napi-darwin-x64": "^0.43.0",
-    "@ast-grep/napi-linux-arm64-gnu": "^0.43.0",
-    "@ast-grep/napi-linux-x64-gnu": "^0.43.0",
-    "@ast-grep/napi-win32-arm64-msvc": "^0.43.0",
-    "@ast-grep/napi-win32-x64-msvc": "^0.43.0"
+    "@ast-grep/napi-darwin-arm64": "^0.44.0",
+    "@ast-grep/napi-darwin-x64": "^0.44.0",
+    "@ast-grep/napi-linux-arm64-gnu": "^0.44.0",
+    "@ast-grep/napi-linux-x64-gnu": "^0.44.0",
+    "@ast-grep/napi-win32-arm64-msvc": "^0.44.0",
+    "@ast-grep/napi-win32-x64-msvc": "^0.44.0"
   }
 }
