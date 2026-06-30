@@ -69,6 +69,31 @@ describe("AlbumCard Various Artists display", () => {
     expect(screen.queryByText("Various Artists")).not.toBeInTheDocument();
   });
 
+  it("renders library code overlay on artwork when codePreview is provided", () => {
+    const album = createTestAlbum({
+      artist: createTestArtist({ name: "Stereolab", lettercode: "RO", numbercode: 87 }),
+      title: "Aluminum Tunes",
+    });
+
+    renderWithProviders(
+      <AlbumCard
+        album={album}
+        {...defaultProps}
+        codePreview={{
+          genreName: "Rock",
+          codeLetters: "RO",
+          artistNumber: 87,
+          albumEntry: 1,
+          formatLabel: "cd",
+        }}
+      />,
+    );
+
+    const wrapper = screen.getByTestId("album-artwork-with-code");
+    expect(wrapper).toBeInTheDocument();
+    expect(screen.getByTestId("album-artwork-code-overlay")).toBeInTheDocument();
+  });
+
   it("should use album_artist for 'About' section heading when set", () => {
     const album = createTestAlbum({
       artist: createTestArtist({ name: "Autechre", lettercode: "EL", numbercode: 5 }),
