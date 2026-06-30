@@ -221,14 +221,27 @@ export default function FlowsheetSearchbar() {
 
   return (
     <ClickAwayListener onClickAway={handleClose}>
-      <FormControl size="sm" sx={{ minWidth: 0 }}>
+      <FormControl
+        size="sm"
+        sx={{
+          // No flex-grow: inside MainContent's 100dvh column this control
+          // must never absorb leftover viewport height (see the regression
+          // test in FlowsheetSearchbar.test.tsx).
+          position: "relative",
+          width: "100%",
+          minWidth: 0,
+          flexShrink: 0,
+          alignSelf: "flex-start",
+          gap: 0,
+        }}
+      >
         <FlowsheetSearchResults
           binResults={binResults}
           catalogResults={catalogResults}
           rotationResults={rotationResults}
           lmlResults={lmlResults}
         />
-        <Stack direction="row" spacing={0.5}>
+        <Stack direction="row" spacing={0.5} alignItems="center">
           <BreakpointButton />
           <TalksetButton />
           <RotationModeToggle />
@@ -248,7 +261,8 @@ export default function FlowsheetSearchbar() {
               outline: "1px solid",
               outlineColor: theme.palette.neutral.outlinedBorder,
               borderRadius: "8px",
-              minHeight: "var(--Input-minHeight)",
+              alignItems: "center",
+              minHeight: "2rem",
               paddingInline: rotationMode ? "0" : "0.5rem",
               cursor: live ? "text" : "default",
               "& input": {
@@ -259,7 +273,8 @@ export default function FlowsheetSearchbar() {
                 minWidth: "0 !important",
                 px: 1,
                 flex: 1,
-                minHeight: "2rem",
+                minHeight: 0,
+                height: "1.5rem",
                 cursor: live ? "text" : "default",
               },
               "&:hover": {
@@ -288,7 +303,7 @@ export default function FlowsheetSearchbar() {
                   flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "center",
-                  minHeight: "min(1.5rem, var(--Input-minHeight))",
+                  minHeight: 0,
                   pointerEvents: "none",
                   "& svg": {
                     fill: "var(--wxyc-palette-neutral-400) !important",
