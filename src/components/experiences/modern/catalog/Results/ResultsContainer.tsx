@@ -3,19 +3,21 @@
 import Logo from "@/src/components/shared/Branding/Logo";
 import { useCatalogQuerySearch } from "@/src/hooks/catalogHooks";
 import { DoubleArrow } from "@mui/icons-material";
-import { Box, Button, Sheet, Table, Typography } from "@mui/joy";
-import { useRef } from "react";
+import { Box, Button, ColorPaletteProp, Sheet, Typography } from "@mui/joy";
 import { useAddToBin } from "@/src/hooks/binHooks";
+import { forwardRef } from "react";
 import { toast } from "sonner";
 
-export default function ResultsContainer({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const { hasActiveQuery, selected, clearSelection } = useCatalogQuerySearch();
+const ResultsContainer = forwardRef<
+  HTMLDivElement,
+  {
+    children: React.ReactNode;
+    color?: ColorPaletteProp;
+  }
+>(function ResultsContainer({ children, color = "primary" }, ref) {
+  const { hasActiveQuery, engageBrowse, selected, clearSelection } =
+    useCatalogQuerySearch();
   const { addToBin, loading } = useAddToBin();
-  const tableRef = useRef<HTMLTableElement>(null);
 
   const handleAddSelectedToBin = async () => {
     if (selected.length === 0) return;
@@ -26,12 +28,16 @@ export default function ResultsContainer({
 
     const failures = results.filter((r) => r.status === "rejected");
     if (failures.length > 0) {
-      toast.error(`Failed to add ${failures.length} album${failures.length > 1 ? "s" : ""} to bin`);
+      toast.error(
+        `Failed to add ${failures.length} album${failures.length > 1 ? "s" : ""} to bin`
+      );
     }
 
     const successes = results.length - failures.length;
     if (successes > 0) {
-      toast.success(`Added ${successes} album${successes > 1 ? "s" : ""} to bin`);
+      toast.success(
+        `Added ${successes} album${successes > 1 ? "s" : ""} to bin`
+      );
     }
 
     clearSelection();
@@ -39,6 +45,7 @@ export default function ResultsContainer({
 
   return (
     <Sheet
+      ref={ref}
       id="OrderTableContainer"
       variant="outlined"
       sx={{
@@ -47,6 +54,8 @@ export default function ResultsContainer({
         flex: 1,
         overflow: hasActiveQuery ? "auto" : "hidden",
         minHeight: 0,
+        position: "relative",
+        transition: "flex 0.25s ease-in-out, min-height 0.25s ease-in-out",
       }}
     >
       <Box
@@ -70,22 +79,44 @@ export default function ResultsContainer({
         <Box
           sx={{
             height: "80%",
+            width: "100%",
             opacity: hasActiveQuery ? 0 : 1,
             transition: "opacity 0.2s",
-            pb: 2,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "stretch",
+            py: 1,
           }}
         >
-          <Logo color="primary" />
+          <Box sx={{ flex: 1, minHeight: 0, width: "100%" }}>
+            <Logo color={color} />
+          </Box>
           <Typography
-            color="primary"
+            color={color}
             level="body-lg"
-            sx={{ textAlign: "center" }}
+            sx={{ textAlign: "center", mb: 1.5 }}
           >
-            Build a query above to explore the library, or just pick a sort to browse the catalog.
+            Search or select a genre, format, or tag to browse the catalog.
           </Typography>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              width: "100%",
+            }}
+          >
+            <Button
+              variant="solid"
+              color={color}
+              size="sm"
+              onClick={engageBrowse}
+            >
+              Enter catalog
+            </Button>
+          </Box>
         </Box>
       </Box>
-        {children}
+      {children}
       {selected.length > 0 && (
         <Box
           sx={{
@@ -115,4 +146,6 @@ export default function ResultsContainer({
       )}
     </Sheet>
   );
-}
+});
+
+export default ResultsContainer;
