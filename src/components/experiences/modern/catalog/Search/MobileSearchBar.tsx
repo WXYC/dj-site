@@ -1,19 +1,20 @@
 "use client";
 
+import { catalogSlice } from "@/lib/features/catalog/frontend";
 import { useAppSelector } from "@/lib/hooks";
 import { useCatalogQuerySearch } from "@/src/hooks/catalogHooks";
-import { FilterAlt } from "@mui/icons-material";
+import { Troubleshoot } from "@mui/icons-material";
 import {
+  Box,
   Button,
   ColorPaletteProp,
-  IconButton,
   Modal,
   ModalClose,
   ModalDialog,
   Sheet,
+  Typography,
 } from "@mui/joy";
-import { catalogSlice } from "@/lib/features/catalog/frontend";
-import { Filters } from "./Filters";
+import { catalogFiltersActive } from "./Filters";
 import QueryBuilder from "./QueryBuilder";
 
 export default function MobileSearchBar({
@@ -21,8 +22,13 @@ export default function MobileSearchBar({
 }: {
   color: ColorPaletteProp | undefined;
 }) {
-  const { openMobileSearch, closeMobileSearch } = useCatalogQuerySearch();
+  const { openMobileSearch, closeMobileSearch, filters, effectiveQuery } =
+    useCatalogQuerySearch();
   const isOpen = useAppSelector(catalogSlice.selectors.isMobileSearchOpen);
+  const filtersActive = catalogFiltersActive(filters);
+  const preview =
+    effectiveQuery.trim() ||
+    (filtersActive ? "Filters active" : "Search the catalog");
 
   return (
     <Sheet
@@ -34,30 +40,29 @@ export default function MobileSearchBar({
           sm: "none",
         },
         my: 1,
-        gap: 1,
       }}
     >
       <Button
         size="sm"
         variant="outlined"
         color={color ?? "primary"}
-        sx={{ flexGrow: 1 }}
+        sx={{
+          flexGrow: 1,
+          justifyContent: "flex-start",
+          gap: 1,
+          fontWeight: "normal",
+          color: effectiveQuery.trim() ? "text.primary" : "text.tertiary",
+        }}
         onClick={openMobileSearch}
+        startDecorator={<Troubleshoot />}
       >
-        Build a catalog query
+        <Typography level="body-sm" noWrap sx={{ flex: 1, textAlign: "left" }}>
+          {preview}
+        </Typography>
       </Button>
-      <IconButton
-        size="sm"
-        variant="outlined"
-        color="neutral"
-        onClick={openMobileSearch}
-        aria-label="Open filters"
-      >
-        <FilterAlt />
-      </IconButton>
       <Modal open={isOpen} onClose={closeMobileSearch}>
         <ModalDialog
-          aria-labelledby="filter-modal"
+          aria-labelledby="catalog-search-modal"
           layout="fullscreen"
           sx={{
             paddingTop: "7rem",
@@ -65,14 +70,15 @@ export default function MobileSearchBar({
         >
           <ModalClose
             variant="soft"
-            color="primary"
+            color={color ?? "primary"}
             sx={{ marginTop: "var(--Header-height)" }}
           />
           <Sheet sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <QueryBuilder />
-            <Filters color={color} />
+            <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+              <QueryBuilder color={color} />
+            </Box>
             <Button color={color ?? "primary"} onClick={closeMobileSearch}>
-              Submit
+              Done
             </Button>
           </Sheet>
         </ModalDialog>
