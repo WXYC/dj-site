@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { buildCatalogQuery, toLibraryQueryParams } from "../catalogHooks";
+import {
+  buildCatalogQuery,
+  dedupeAlbumEntriesById,
+  toLibraryQueryParams,
+} from "../catalogHooks";
+import { createTestAlbum } from "@/lib/test-utils";
 import type {
   CatalogFilters,
   CatalogSearchRow,
@@ -15,10 +20,23 @@ const row = (overrides: Partial<CatalogSearchRow>): CatalogSearchRow => ({
 });
 
 const defaultFilters: CatalogFilters = {
-  onStreaming: undefined,
-  genre: "All",
-  format: "All",
+  genres: [],
+  formats: [],
+  tags: [],
 };
+
+describe("dedupeAlbumEntriesById", () => {
+  it("keeps the first row for each album id", () => {
+    const first = createTestAlbum({ id: 7000, title: "First" });
+    const second = createTestAlbum({ id: 7000, title: "Second" });
+    const other = createTestAlbum({ id: 2 });
+    const deduped = dedupeAlbumEntriesById([first, second, other]);
+    expect(deduped).toHaveLength(2);
+    expect(deduped[0].title).toBe("First");
+    expect(deduped[1].id).toBe(2);
+  });
+
+});
 
 describe("buildCatalogQuery", () => {
   it("returns empty string for one empty row", () => {
@@ -72,7 +90,7 @@ describe("toLibraryQueryParams", () => {
   it("threads slice state into the request params", () => {
     const params = toLibraryQueryParams(
       [row({ field: "artist", value: "Stereolab" })],
-      { ...defaultFilters, genre: "Rock", onStreaming: false },
+      { ...defaultFilters, genres: ["Rock", "Jazz"], tags: ["exclusives"] },
       2,
       "plays",
       "desc"
@@ -83,10 +101,34 @@ describe("toLibraryQueryParams", () => {
       sort: "plays",
       order: "desc",
       on_streaming: false,
-      genre: "Rock",
-      format: undefined,
+      missing: undefined,
+      genres: "Rock,Jazz",
+      formats: undefined,
     });
     expect(params.limit).toBeGreaterThan(0);
+  });
+
+  it("maps missing tag to missing=true", () => {
+    const params = toLibraryQueryParams(
+      [row({})],
+      { ...defaultFilters, tags: ["missing"] },
+      0,
+      "album",
+      "asc"
+    );
+    expect(params.missing).toBe(true);
+    expect(params.on_streaming).toBeUndefined();
+  });
+
+  it("maps rotation tags to comma-separated rotation_bins", () => {
+    const params = toLibraryQueryParams(
+      [row({})],
+      { ...defaultFilters, tags: ["H", "M"] },
+      0,
+      "album",
+      "asc"
+    );
+    expect(params.rotation_bins).toBe("H,M");
   });
 
   it("omits empty q when all rows are blank", () => {
@@ -100,7 +142,7 @@ describe("toLibraryQueryParams", () => {
     expect(params.q).toBeUndefined();
   });
 
-  it("maps 'All' filter sentinels to undefined", () => {
+  it("omits empty genre and format arrays from params", () => {
     const params = toLibraryQueryParams(
       [row({})],
       defaultFilters,
@@ -108,8 +150,22 @@ describe("toLibraryQueryParams", () => {
       "album",
       "asc"
     );
-    expect(params.genre).toBeUndefined();
-    expect(params.format).toBeUndefined();
+    expect(params.genres).toBeUndefined();
+    expect(params.formats).toBeUndefined();
     expect(params.on_streaming).toBeUndefined();
+    expect(params.genres).toBeUndefined();
+    expect(params.formats).toBeUndefined();
+  });
+
+  it("emits comma-separated genres and formats", () => {
+    const params = toLibraryQueryParams(
+      [row({})],
+      { ...defaultFilters, genres: ["Rock"], formats: ["cd", "Vinyl"] },
+      0,
+      "album",
+      "asc"
+    );
+    expect(params.genres).toBe("Rock");
+    expect(params.formats).toBe("cd,Vinyl");
   });
 });
