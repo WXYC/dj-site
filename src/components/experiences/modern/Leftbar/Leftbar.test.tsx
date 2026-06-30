@@ -103,6 +103,7 @@ vi.mock("@mui/icons-material/Storage", () => ({
 
 vi.mock("@mui/icons-material", () => ({
   EditCalendar: () => <svg data-testid="edit-calendar-icon" />,
+  LibraryAdd: () => <svg data-testid="library-add-icon" />,
   ManageAccounts: () => <svg data-testid="manage-accounts-icon" />,
 }));
 
@@ -175,6 +176,9 @@ describe("Leftbar", () => {
       screen.queryByTestId("leftbar-link--dashboard-admin-roster")
     ).not.toBeInTheDocument();
     expect(
+      screen.queryByTestId("leftbar-link--dashboard-admin-catalog")
+    ).not.toBeInTheDocument();
+    expect(
       screen.queryByTestId("leftbar-link--dashboard-admin-schedule")
     ).not.toBeInTheDocument();
   });
@@ -191,10 +195,13 @@ describe("Leftbar", () => {
     const Component = await Leftbar();
     render(Component);
 
-    // MD users should see admin links
+    // MD users should see admin links (roster + schedule; catalog admin merged into Card Catalog)
     expect(
       screen.getByTestId("leftbar-link--dashboard-admin-roster")
     ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("leftbar-link--dashboard-admin-catalog")
+    ).not.toBeInTheDocument();
     expect(
       screen.getByTestId("leftbar-link--dashboard-admin-schedule")
     ).toBeInTheDocument();
@@ -212,10 +219,13 @@ describe("Leftbar", () => {
     const Component = await Leftbar();
     render(Component);
 
-    // SM users should see admin links
+    // SM users should see admin links (catalog admin merged into Card Catalog)
     expect(
       screen.getByTestId("leftbar-link--dashboard-admin-roster")
     ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("leftbar-link--dashboard-admin-catalog")
+    ).not.toBeInTheDocument();
   });
 
   it("should disable roster link for MD authority (below SM)", async () => {
