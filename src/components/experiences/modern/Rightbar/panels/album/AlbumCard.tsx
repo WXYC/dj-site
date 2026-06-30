@@ -15,6 +15,8 @@ import {
   Typography,
 } from "@mui/joy";
 import { useRef, useState, useEffect } from "react";
+import type { AdminCatalogCodePreviewProps } from "@/src/components/experiences/modern/admin/catalog/AdminCatalogCodePreview";
+import AlbumArtworkWithCodeOverlay from "./AlbumArtworkWithCodeOverlay";
 import DiscogsMarkup from "./DiscogsMarkupRenderer";
 import LibraryStatus from "./LibraryStatus";
 import StreamingLinks from "./StreamingLinks";
@@ -28,6 +30,8 @@ interface AlbumCardProps {
   artistBio: string | null;
   bioTokens: ResolvedToken[] | null;
   artistWikipediaUrl: string | null;
+  /** Library code badge on artwork bottom-right when set. */
+  codePreview?: AdminCatalogCodePreviewProps | null;
 }
 
 export default function AlbumCard({
@@ -38,6 +42,7 @@ export default function AlbumCard({
   artistBio,
   bioTokens,
   artistWikipediaUrl,
+  codePreview = null,
 }: AlbumCardProps) {
   const [bioExpanded, setBioExpanded] = useState(false);
   const [bioOverflows, setBioOverflows] = useState(false);
@@ -59,17 +64,10 @@ export default function AlbumCard({
     >
       <CardContent>
         <Stack direction="row" spacing={2} sx={{ mb: 1 }}>
-          <Box
-            component="img"
-            src={artworkUrl}
+          <AlbumArtworkWithCodeOverlay
+            artworkUrl={artworkUrl}
             alt={`${album.title} cover`}
-            sx={{
-              width: { xs: 120, lg: 160 },
-              height: { xs: 120, lg: 160 },
-              objectFit: "cover",
-              borderRadius: "sm",
-              flexShrink: 0,
-            }}
+            codePreview={codePreview}
           />
           <Stack sx={{ minWidth: 0, justifyContent: "center" }}>
             <Typography level="title-lg" sx={{ mb: 0.5 }}>

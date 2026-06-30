@@ -259,7 +259,7 @@ describe("backend", () => {
         warnSpy.mockRestore();
       });
 
-      it("returns { data: undefined } when the backend returns HTML 404", async () => {
+      it("returns { data: null } when the backend returns HTML 404", async () => {
         // Simulate what fetchBaseQuery emits when responseHandler='json' chokes
         // on `<!DOCTYPE html>…` from Express's default 404.
         mockInnerBaseQuery.mockResolvedValueOnce({
@@ -280,7 +280,7 @@ describe("backend", () => {
         );
 
         expect(result).toEqual(
-          expect.objectContaining({ data: undefined })
+          expect.objectContaining({ data: null })
         );
         // Should NOT propagate the error — that's what produced the global toast.
         expect((result as { error?: unknown }).error).toBeUndefined();
@@ -368,7 +368,7 @@ describe("backend", () => {
         const baseQuery = backendBaseQuery("library/rotation");
         await expect(
           baseQuery({ url: "/42/tracks" }, fakeApi, fakeExtra)
-        ).resolves.toEqual(expect.objectContaining({ data: undefined }));
+        ).resolves.toEqual(expect.objectContaining({ data: null }));
       });
 
       // Mutations must keep surfacing the error loudly. Soft-handling a POST
@@ -454,7 +454,7 @@ describe("backend", () => {
           fakeExtra
         );
 
-        expect((result as { data?: unknown }).data).toBeUndefined();
+        expect((result as { data?: unknown }).data).toBeNull();
         expect((result as { error?: unknown }).error).toBeUndefined();
       });
 
@@ -474,7 +474,7 @@ describe("backend", () => {
         const baseQuery = backendBaseQuery("library/rotation");
         const result = await baseQuery("/42/tracks", fakeApi, fakeExtra);
 
-        expect((result as { data?: unknown }).data).toBeUndefined();
+        expect((result as { data?: unknown }).data).toBeNull();
         expect((result as { error?: unknown }).error).toBeUndefined();
       });
     });
