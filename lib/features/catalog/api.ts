@@ -171,6 +171,14 @@ export const catalogApi = createApi({
       invalidatesTags: (_result, _error, { albumId }) => [
         { type: "AlbumDetail", id: albumId },
       ],
+      async onQueryStarted(_arg, { dispatch, queryFulfilled, getState }) {
+        try {
+          const { data: updated } = await queryFulfilled;
+          patchCatalogSearchCaches(dispatch, getState as () => RootState, updated);
+        } catch {
+          // Leave caches untouched when mark-missing fails.
+        }
+      },
     }),
     markFound: builder.mutation<AlbumEntry, { albumId: number }>({
       query: ({ albumId }) => ({
@@ -182,6 +190,14 @@ export const catalogApi = createApi({
       invalidatesTags: (_result, _error, { albumId }) => [
         { type: "AlbumDetail", id: albumId },
       ],
+      async onQueryStarted(_arg, { dispatch, queryFulfilled, getState }) {
+        try {
+          const { data: updated } = await queryFulfilled;
+          patchCatalogSearchCaches(dispatch, getState as () => RootState, updated);
+        } catch {
+          // Leave caches untouched when mark-found fails.
+        }
+      },
     }),
     getFormats: builder.query<LibraryFormatRow[], void>({
       query: () => ({
