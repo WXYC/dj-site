@@ -1,6 +1,23 @@
 import { serverAuthClient } from "./server-client";
-import { normalizeRole } from "./organization-utils";
+import { normalizeRole, organizationRoleFromJwtToken } from "./organization-utils";
 import { WXYCRole } from "./types";
+
+async function fetchAuthJwtToken(cookieHeader?: string): Promise<string | null> {
+  const baseURL = process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "http://localhost:8082/auth";
+  try {
+    const response = await fetch(`${baseURL}/token`, {
+      method: "GET",
+      headers: cookieHeader ? { cookie: cookieHeader } : {},
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const data = await response.json();
+    return typeof data.token === "string" ? data.token : null;
+  } catch {
+    return null;
+  }
+}
 
 // Re-export client-safe functions for convenience
 export { getAppOrganizationId, getAppOrganizationIdClient } from "./organization-utils";
@@ -69,6 +86,16 @@ export async function getUserRoleInOrganization(
   cookieHeader?: string
 ): Promise<WXYCRole | undefined> {
   try {
+    if (cookieHeader) {
+      const jwtToken = await fetchAuthJwtToken(cookieHeader);
+      if (jwtToken) {
+        const jwtRole = organizationRoleFromJwtToken(jwtToken, userId);
+        if (jwtRole) {
+          return jwtRole;
+        }
+      }
+    }
+
     // Resolve slug to ID if needed
     const organizationId = await resolveOrganizationId(organizationSlugOrId, cookieHeader);
     
