@@ -1,15 +1,30 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import SearchBar from "./SearchBar";
 import { createComponentHarnessWithQueries } from "@/lib/test-utils";
 import type { ColorPaletteProp } from "@mui/joy";
 
+vi.mock("@/lib/features/catalog/api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/features/catalog/api")>();
+  return {
+    ...actual,
+    useGetGenresQuery: vi.fn(() => ({
+      data: [{ id: 1, genre_name: "Rock" }],
+      isLoading: false,
+    })),
+    useGetFormatsQuery: vi.fn(() => ({
+      data: [{ id: 1, format_name: "cd" }],
+      isLoading: false,
+    })),
+  };
+});
+
 const setup = createComponentHarnessWithQueries(
   SearchBar,
   { color: "primary" as ColorPaletteProp | undefined },
   {
-    input: () => screen.getByPlaceholderText("Search the catalog"),
-  }
+    input: () => screen.getByTestId("catalog-search-input"),
+  },
 );
 
 describe("SearchBar", () => {
@@ -18,14 +33,9 @@ describe("SearchBar", () => {
     expect(input()).toBeInTheDocument();
   });
 
-  it("renders the Genre and Format filter selects", () => {
+  it("renders filters in the attached gutter", () => {
     setup();
-    expect(screen.getByText("Genre")).toBeInTheDocument();
-    expect(screen.getByText("Format")).toBeInTheDocument();
-  });
-
-  it("renders the Exclusives Only checkbox", () => {
-    setup();
-    expect(screen.getByLabelText("Exclusives Only")).toBeInTheDocument();
+    expect(screen.getByTestId("catalog-search-filters")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Tag" })).toBeInTheDocument();
   });
 });

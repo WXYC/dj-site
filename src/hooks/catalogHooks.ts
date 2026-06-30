@@ -1,9 +1,11 @@
 "use client";
 
 import {
-  useLazySearchLibraryQueryQuery,
   useSearchCatalogQuery,
+  useSearchLibraryQueryInfiniteQuery,
+  type CatalogInfiniteQueryArg,
 } from "@/lib/features/catalog/api";
+import { CATALOG_QUERY_PAGE_LIMIT } from "@/lib/features/catalog/constants";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
 import { isCompilationArtistName } from "@/lib/features/catalog/is-compilation-artist";
 import {
@@ -18,12 +20,28 @@ import {
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useGetRotationQuery } from "@/lib/features/rotation/api";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuthentication } from "./authenticationHooks";
 import { filterBySearchTerms } from "@/src/utilities/filterBySearchTerms";
+import {
+  catalogTagsToQueryFlags,
+  catalogTagsToRotationBins,
+} from "@/src/components/experiences/modern/catalog/Search/catalogTagFilters";
+import type { Rotation } from "@/lib/features/rotation/types";
 
 const MIN_QUERY_LENGTH = 2;
-const PAGE_LIMIT = 50;
+
+/** Keep first occurrence per album id (backend may return duplicates in one page). */
+export function dedupeAlbumEntriesById(entries: AlbumEntry[]): AlbumEntry[] {
+  const seen = new Set<number>();
+  const out: AlbumEntry[] = [];
+  for (const entry of entries) {
+    if (seen.has(entry.id)) continue;
+    seen.add(entry.id);
+    out.push(entry);
+  }
+  return out;
+}
 
 /** UI-side field-prefix map (mirrors the backend's CATALOG_PARSER_CONFIG). */
 const CATALOG_FIELD_PREFIXES: Record<CatalogSearchField, string | null> = {
@@ -39,12 +57,26 @@ const CATALOG_FIELD_PREFIXES: Record<CatalogSearchField, string | null> = {
  * playlist-search hook's `buildQuery` so the two surfaces stay structurally
  * similar without prematurely sharing code.
  */
+/** Strip surrounding quotes when building API query from exact-mode input. */
+function queryTermInnerValue(value: string): string {
+  const trimmed = value.trim();
+  if (
+    trimmed.startsWith('"') &&
+    trimmed.endsWith('"') &&
+    trimmed.length >= 2
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
 export function buildCatalogQuery(rows: CatalogSearchRow[]): string {
   const parts: string[] = [];
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     if (!row.value.trim()) continue;
-    const value = row.exact ? `"${row.value.trim()}"` : row.value.trim();
+    const inner = queryTermInnerValue(row.value);
+    const value = row.exact ? `"${inner}"` : inner;
     const prefix = CATALOG_FIELD_PREFIXES[row.field] ?? "";
     const fullTerm = `${prefix}${value}`;
     parts.push(i === 0 ? fullTerm : `${row.operator} ${fullTerm}`);
@@ -53,8 +85,7 @@ export function buildCatalogQuery(rows: CatalogSearchRow[]): string {
 }
 
 /**
- * Map UI state to the request shape. `'All'` enum sentinels become
- * `undefined` so they're omitted from the URL.
+ * Map UI state to the request shape. Empty genre/format arrays are omitted.
  */
 export function toLibraryQueryParams(
   rows: CatalogSearchRow[],
@@ -64,16 +95,41 @@ export function toLibraryQueryParams(
   sortOrder: CatalogSortOrder,
 ): LibraryQueryParams {
   const q = buildCatalogQuery(rows);
+  const tagFlags = catalogTagsToQueryFlags(filters.tags);
   return {
     q: q || undefined,
     page,
-    limit: PAGE_LIMIT,
+    limit: CATALOG_QUERY_PAGE_LIMIT,
     sort: sortBy,
     order: sortOrder,
-    on_streaming: filters.onStreaming,
-    genre: filters.genre === "All" ? undefined : filters.genre,
-    format: filters.format === "All" ? undefined : filters.format,
+    on_streaming: tagFlags.on_streaming,
+    missing: tagFlags.missing,
+    rotation_bins:
+      tagFlags.rotation_bins && tagFlags.rotation_bins.length > 0
+        ? tagFlags.rotation_bins.join(",")
+        : undefined,
+    genres:
+      filters.genres.length > 0 ? filters.genres.join(",") : undefined,
+    formats:
+      filters.formats.length > 0 ? filters.formats.join(",") : undefined,
   };
+}
+
+/** Build infinite-query args (page/limit are supplied by RTK `pageParam`). */
+export function toCatalogInfiniteQueryArg(
+  rows: CatalogSearchRow[],
+  filters: CatalogFilters,
+  sortBy: CatalogSortBy,
+  sortOrder: CatalogSortOrder,
+): CatalogInfiniteQueryArg {
+  const { page: _page, limit: _limit, ...rest } = toLibraryQueryParams(
+    rows,
+    filters,
+    0,
+    sortBy,
+    sortOrder,
+  );
+  return rest;
 }
 
 /**
@@ -88,6 +144,7 @@ export function useCatalogQuerySearch() {
   const sortBy = useAppSelector(catalogSlice.selectors.getSortBy);
   const sortOrder = useAppSelector(catalogSlice.selectors.getSortOrder);
   const filters = useAppSelector(catalogSlice.selectors.getFilters);
+  const browseEngaged = useAppSelector(catalogSlice.selectors.getBrowseEngaged);
   const selected = useAppSelector(catalogSlice.selectors.getSelected);
 
   const addRow = useCallback(
@@ -141,26 +198,35 @@ export function useCatalogQuerySearch() {
     [dispatch],
   );
 
+  const engageBrowse = useCallback(
+    () => dispatch(catalogSlice.actions.engageBrowse()),
+    [dispatch],
+  );
+
   const reset = useCallback(
     () => dispatch(catalogSlice.actions.reset()),
     [dispatch],
   );
 
   const effectiveQuery = useMemo(() => buildCatalogQuery(rows), [rows]);
-  const hasActiveQuery =
+  const hasFilterOrSearch =
     effectiveQuery.length > 0 ||
-    filters.onStreaming !== undefined ||
-    filters.genre !== "All" ||
-    filters.format !== "All";
+    filters.genres.length > 0 ||
+    filters.formats.length > 0 ||
+    filters.tags.length > 0;
+  const hasActiveQuery = browseEngaged || hasFilterOrSearch;
 
   return {
     rows,
     sortBy,
     sortOrder,
     filters,
+    browseEngaged,
     selected,
     effectiveQuery,
     hasActiveQuery,
+    hasFilterOrSearch,
+    engageBrowse,
     addRow,
     removeRow,
     updateRow,
@@ -179,113 +245,71 @@ export function useCatalogQuerySearch() {
 }
 
 /**
- * Data-fetching hook for the catalog query builder. Reads slice state from
- * {@link useCatalogQuerySearch}, fires `/library/query`, and accumulates
- * pages for infinite scroll. Response-based throttling mirrors
- * `usePlaylistSearch` — at most one in-flight request, the next-query queues.
+ * Data-fetching hook for the catalog query builder. Uses RTK infinite query
+ * on `/library/query` (same pattern as flowsheet `getInfiniteEntries`).
  */
 export function useCatalogQueryResults() {
-  const { rows, sortBy, sortOrder, filters, effectiveQuery } =
+  const { rows, sortBy, sortOrder, filters, hasActiveQuery } =
     useCatalogQuerySearch();
-  const dispatch = useAppDispatch();
-  const page = useAppSelector(catalogSlice.selectors.getPage);
 
   const { authenticating, authenticated } = useAuthentication();
   const ready = !authenticating && authenticated;
 
-  const params = useMemo(
-    () => toLibraryQueryParams(rows, filters, page, sortBy, sortOrder),
-    [rows, filters, page, sortBy, sortOrder],
+  const hasPartialRow = useMemo(
+    () =>
+      rows.some((r) => {
+        const v = r.value.trim();
+        return v.length > 0 && v.length < MIN_QUERY_LENGTH;
+      }),
+    [rows],
   );
 
-  const pendingQueryRef = useRef<LibraryQueryParams | null>(null);
-  // null sentinel — distinguish "never fired" from "fired with empty q"
-  const lastFiredRef = useRef<string | null>(null);
+  const queryArg = useMemo(
+    () => toCatalogInfiniteQueryArg(rows, filters, sortBy, sortOrder),
+    [rows, filters, sortBy, sortOrder],
+  );
 
-  // Accumulated results held in state so a new page or a query-reset triggers
-  // a re-render. A ref-based store wouldn't — the Results component reads
-  // straight from this hook, and React only re-renders on state changes.
-  const [accumulated, setAccumulated] = useState<AlbumEntry[]>([]);
-  const lastAccumulatedKeyRef = useRef<string>("");
+  const queryEnabled = ready && hasActiveQuery && !hasPartialRow;
 
-  const [trigger, { data, isFetching, isError }] =
-    useLazySearchLibraryQueryQuery();
+  const {
+    data,
+    isFetching,
+    isError,
+    hasNextPage,
+    fetchNextPage,
+  } = useSearchLibraryQueryInfiniteQuery(queryArg, {
+    skip: !queryEnabled,
+  });
 
-  // Reset accumulated rows when the query or sort changes (any param except page).
-  useEffect(() => {
-    const key = `${effectiveQuery}|${sortBy}|${sortOrder}|${filters.onStreaming}|${filters.genre}|${filters.format}`;
-    if (key !== lastAccumulatedKeyRef.current) {
-      lastAccumulatedKeyRef.current = key;
-      setAccumulated([]);
-    }
-  }, [effectiveQuery, sortBy, sortOrder, filters]);
+  const rotationFilterBins = useMemo(
+    () => catalogTagsToRotationBins(filters.tags),
+    [filters.tags],
+  );
 
-  // Append the latest page (or replace, for page 0) into the accumulator.
-  useEffect(() => {
-    if (!data?.results) return;
-    setAccumulated((prev) => {
-      if (data.page === 0) return data.results;
-      const seen = new Set(prev.map((r) => r.id));
-      return [...prev, ...data.results.filter((r) => !seen.has(r.id))];
-    });
-  }, [data]);
+  const results = useMemo(() => {
+    if (!data?.pages?.length) return [];
+    const flat = dedupeAlbumEntriesById(
+      data.pages.flatMap((page) => page.results),
+    );
+    if (rotationFilterBins.length === 0) return flat;
+    const allowed = new Set(rotationFilterBins);
+    return flat.filter(
+      (row) => row.rotation_bin != null && allowed.has(row.rotation_bin),
+    );
+  }, [data?.pages, rotationFilterBins]);
 
-  // Fire the search when params change. Suppress while any row holds a single-
-  // character partial — typing "a" into a field shouldn't fire a query before
-  // the user finishes the word. Empty rows don't count as partial.
-  useEffect(() => {
-    if (!ready) return;
-    const hasPartialRow = rows.some((r) => {
-      const v = r.value.trim();
-      return v.length > 0 && v.length < MIN_QUERY_LENGTH;
-    });
-    if (hasPartialRow) {
-      pendingQueryRef.current = null;
-      return;
-    }
-
-    const fingerprint = JSON.stringify(params);
-    if (isFetching) {
-      pendingQueryRef.current = params;
-      return;
-    }
-    if (fingerprint !== lastFiredRef.current) {
-      lastFiredRef.current = fingerprint;
-      pendingQueryRef.current = null;
-      trigger(params);
-    }
-  }, [params, ready, rows, isFetching, trigger]);
-
-  // Drain pending query once the in-flight request finishes.
-  useEffect(() => {
-    if (isFetching) return;
-    const pending = pendingQueryRef.current;
-    if (!pending) return;
-    const fingerprint = JSON.stringify(pending);
-    if (fingerprint === lastFiredRef.current) {
-      pendingQueryRef.current = null;
-      return;
-    }
-    lastFiredRef.current = fingerprint;
-    pendingQueryRef.current = null;
-    trigger(pending);
-  }, [isFetching, trigger]);
-
-  const loadNextPage = useCallback(() => {
-    if (!data) return;
-    if (data.page + 1 >= data.totalPages) return;
-    dispatch(catalogSlice.actions.nextPage());
-  }, [data, dispatch]);
-
-  const hasMore = data ? data.page + 1 < data.totalPages : false;
+  const total = data?.pages?.[0]?.total ?? 0;
+  const isLoadingInitial = isFetching && !data?.pages?.length;
+  const isFetchingMore = isFetching && (data?.pages?.length ?? 0) > 0;
 
   return {
-    results: accumulated,
-    total: data?.total ?? 0,
-    hasMore,
-    isLoading: isFetching,
+    results,
+    total,
+    hasNextPage: hasNextPage ?? false,
+    isLoadingInitial,
+    isFetchingMore,
     isError,
-    loadNextPage,
+    fetchNextPage,
   };
 }
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { Box, ColorPaletteProp } from "@mui/joy";
-import { Filters } from "./Filters";
 import QueryBuilder from "./QueryBuilder";
 
 export default function SearchBar({
@@ -14,31 +13,16 @@ export default function SearchBar({
       className="SearchAndFilters-tabletUp"
       sx={{
         borderRadius: "sm",
-        py: 2,
+        py: 1,
         display: {
           xs: "none",
-          sm: "flex",
+          sm: "block",
         },
-        flexDirection: "column",
-        gap: 1.5,
+        flexShrink: 0,
+        minWidth: 0,
       }}
     >
-      <QueryBuilder />
-      <Box
-        sx={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 1.5,
-          "& > *": {
-            minWidth: {
-              xs: "180px",
-              md: "200px",
-            },
-          },
-        }}
-      >
-        <Filters color={color} />
-      </Box>
+      <QueryBuilder color={color} />
     </Box>
   );
 }
