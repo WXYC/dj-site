@@ -11,6 +11,7 @@ export class DashboardPage {
   readonly catalogLink: Locator;
   readonly adminLink: Locator;
   readonly rosterLink: Locator;
+  readonly catalogEditButton: Locator;
   readonly logoutForm: Locator;
   readonly logoutButton: Locator;
 
@@ -32,6 +33,7 @@ export class DashboardPage {
     this.catalogLink = page.locator('a[href="/dashboard/catalog"]');
     this.adminLink = page.locator('a[href*="/dashboard/admin"]');
     this.rosterLink = page.locator('a[href="/dashboard/admin/roster"]');
+    this.catalogEditButton = page.getByTestId("catalog-add-button");
 
     // Log out button is in a form in the sidebar - it's an IconButton with type="submit"
     // Select specifically the submit button inside a form (the logout button)
@@ -64,13 +66,20 @@ export class DashboardPage {
   async gotoCatalog(): Promise<void> {
     await this.page.goto("/dashboard/catalog");
     await this.page.waitForLoadState("domcontentloaded");
-    // Wait for Suspense content to load
-    await this.page.waitForTimeout(500);
+    await expect(this.page.getByTestId("catalog-search-box")).toBeVisible({
+      timeout: 15000,
+    });
   }
 
   async gotoAdminRoster(): Promise<void> {
     await this.page.goto("/dashboard/admin/roster");
     await this.page.waitForLoadState("domcontentloaded");
+  }
+
+  async gotoLegacyAdminCatalog(): Promise<void> {
+    await this.page.goto("/dashboard/admin/catalog");
+    await this.page.waitForLoadState("domcontentloaded");
+    await this.page.waitForTimeout(500);
   }
 
   async navigateToFlowsheet(): Promise<void> {
@@ -123,6 +132,27 @@ export class DashboardPage {
 
   async expectOnAdminRoster(): Promise<void> {
     await expect(this.page).toHaveURL(/.*\/dashboard\/admin\/roster.*/);
+  }
+
+  async expectRedirectedToCatalog(): Promise<void> {
+    await expect(this.page).toHaveURL(/.*\/dashboard\/catalog.*/);
+  }
+
+  async expectCatalogEditVisible(): Promise<void> {
+    await this.page
+      .waitForResponse(
+        (response) =>
+          response.url().includes("/auth/token") && response.status() === 200,
+        { timeout: 15000 }
+      )
+      .catch(() => {
+        // Role may already be resolved from session; still assert the control.
+      });
+    await expect(this.catalogEditButton).toBeVisible({ timeout: 15000 });
+  }
+
+  async expectCatalogEditHidden(): Promise<void> {
+    await expect(this.catalogEditButton).not.toBeVisible({ timeout: 5000 });
   }
 
   async expectRedirectedToLogin(): Promise<void> {

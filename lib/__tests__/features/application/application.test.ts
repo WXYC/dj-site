@@ -71,6 +71,28 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
     });
   });
 
+  describe("setAlbumDetailMode action", () => {
+    it("should set mode on album-detail panel", () => {
+      const result = harness().chain(
+        actions.openPanel({ type: "album-detail", albumId: 42, mode: "edit" }),
+        actions.setAlbumDetailMode("view"),
+      );
+      expect(result.rightbar.panel).toEqual({
+        type: "album-detail",
+        albumId: 42,
+        mode: "view",
+      });
+    });
+
+    it("should no-op when panel is not album-detail", () => {
+      const result = harness().chain(
+        actions.openPanel({ type: "settings" }),
+        actions.setAlbumDetailMode("edit"),
+      );
+      expect(result.rightbar.panel).toEqual({ type: "settings" });
+    });
+  });
+
   describe("closePanel action", () => {
     it("should reset panel to default", () => {
       const result = harness().chain(
