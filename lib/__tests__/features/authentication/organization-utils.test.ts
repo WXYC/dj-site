@@ -15,6 +15,7 @@ vi.mock("@/lib/features/authentication/server-client", () => ({
 // Mock auth client (client-side)
 const mockClientListMembers = vi.fn();
 const mockGetFullOrganization = vi.fn();
+const mockGetJWTToken = vi.fn();
 vi.mock("@/lib/features/authentication/client", () => ({
   authClient: {
     organization: {
@@ -23,6 +24,7 @@ vi.mock("@/lib/features/authentication/client", () => ({
     },
   },
   authBaseURL: "https://api.wxyc.org/auth",
+  getJWTToken: () => mockGetJWTToken(),
 }));
 
 // Mock fetch for organization slug resolution (used by server-side tests)
@@ -32,7 +34,9 @@ vi.stubGlobal("fetch", mockFetch);
 import {
   getAppOrganizationId,
   getAppOrganizationIdClient,
+  fetchOrganizationRoleForUserClient,
   getUserRoleInOrganizationClient,
+  organizationRoleFromJwtToken,
   resolveOrganizationIdAdmin,
   _resetOrgCacheForTesting,
 } from "@/lib/features/authentication/organization-utils";
@@ -164,11 +168,35 @@ describe("organization-utils", () => {
   describe("getUserRoleInOrganization", () => {
     beforeEach(() => {
       process.env.NEXT_PUBLIC_BETTER_AUTH_URL = "https://api.wxyc.org/auth";
-      // Mock successful organization slug resolution
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ id: "resolved-org-id" }),
+      mockFetch.mockImplementation((input: RequestInfo) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url.includes("/token")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ token: null }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ id: "resolved-org-id" }),
+        });
       });
+    });
+
+    it("should return role from JWT without calling listMembers", async () => {
+      const payload = Buffer.from(
+        JSON.stringify({ sub: "user-123", role: "musicDirector" })
+      ).toString("base64url");
+      server.use(
+        http.get("https://api.wxyc.org/auth/token", () =>
+          HttpResponse.json({ token: `header.${payload}.sig` })
+        )
+      );
+
+      const result = await getUserRoleInOrganization("user-123", "wxyc", "cookie");
+
+      expect(result).toBe("musicDirector");
+      expect(mockListMembers).not.toHaveBeenCalled();
     });
 
     it("should return user role when member exists", async () => {
@@ -281,12 +309,60 @@ describe("organization-utils", () => {
     });
   });
 
+  describe("organizationRoleFromJwtToken", () => {
+    it("returns normalized role when JWT matches user", () => {
+      const payload = Buffer.from(
+        JSON.stringify({ sub: "user-123", role: "musicDirector" })
+      ).toString("base64url");
+      const token = `header.${payload}.sig`;
+
+      expect(organizationRoleFromJwtToken(token, "user-123")).toBe("musicDirector");
+    });
+
+    it("returns undefined when JWT user id does not match", () => {
+      const payload = Buffer.from(
+        JSON.stringify({ sub: "other-user", role: "musicDirector" })
+      ).toString("base64url");
+      const token = `header.${payload}.sig`;
+
+      expect(organizationRoleFromJwtToken(token, "user-123")).toBeUndefined();
+    });
+  });
+
+  describe("fetchOrganizationRoleForUserClient", () => {
+    it("should return role from JWT without an organization slug", async () => {
+      const payload = Buffer.from(
+        JSON.stringify({ sub: "user-123", role: "musicDirector" })
+      ).toString("base64url");
+      mockGetJWTToken.mockResolvedValue(`header.${payload}.sig`);
+
+      const result = await fetchOrganizationRoleForUserClient("user-123");
+
+      expect(result).toBe("musicDirector");
+      expect(mockClientListMembers).not.toHaveBeenCalled();
+    });
+  });
+
   describe("getUserRoleInOrganizationClient", () => {
     beforeEach(() => {
+      mockGetJWTToken.mockResolvedValue(null);
       mockGetFullOrganization.mockResolvedValue({
         data: { id: "resolved-org-id" },
         error: null,
       });
+    });
+
+    it("should return role from JWT without calling listMembers", async () => {
+      const payload = Buffer.from(
+        JSON.stringify({ sub: "user-123", role: "musicDirector" })
+      ).toString("base64url");
+      mockGetJWTToken.mockResolvedValue(`header.${payload}.sig`);
+
+      const result = await getUserRoleInOrganizationClient("user-123", "wxyc");
+
+      expect(result).toBe("musicDirector");
+      expect(mockClientListMembers).not.toHaveBeenCalled();
+      expect(mockGetFullOrganization).not.toHaveBeenCalled();
     });
 
     it("should return user role when member exists", async () => {
