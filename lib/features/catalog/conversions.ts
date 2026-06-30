@@ -72,11 +72,15 @@ export function convertToAlbumEntry(
       lettercode: response.code_letters ?? "",
       numbercode: response.code_artist_number ?? 0,
       genre: (response.genre_name as Genre) ?? "Unknown",
-      id: undefined,
+      id: isSearchResult(response)
+        ? ((response as Record<string, unknown>).artist_id as number | undefined)
+        : undefined,
     },
     entry: response.code_number ?? 0,
     format: (response.format_name as Format) ?? "Unknown",
-    alternate_artist: "",
+    alternate_artist: isSearchResult(response)
+      ? ((response as Record<string, unknown>).alternate_artist_name as string | undefined) ?? ""
+      : "",
     album_artist: isSearchResult(response) ? response.album_artist : undefined,
     // `rotation_bin` and `rotation_id` come from the `rotation` table on the BS
     // /library/rotation read path (see `getRotationFromDB` in
@@ -116,6 +120,18 @@ export function convertToAlbumEntry(
     date_found: isSearchResult(response) ? (response as Record<string, unknown>).date_found as string | undefined : undefined,
     artwork_url: isSearchResult(response) ? (response as Record<string, unknown>).artwork_url as string | null | undefined : undefined,
     matched_via: isSearchResult(response) ? response.matched_via : undefined,
+    artist_id: isSearchResult(response)
+      ? (response as Record<string, unknown>).artist_id as number | undefined
+      : undefined,
+    genre_id: isSearchResult(response)
+      ? (response as Record<string, unknown>).genre_id as number | undefined
+      : undefined,
+    format_id: isSearchResult(response)
+      ? (response as Record<string, unknown>).format_id as number | undefined
+      : undefined,
+    disc_quantity: isSearchResult(response)
+      ? (response as Record<string, unknown>).disc_quantity as number | undefined
+      : undefined,
   };
 }
 
