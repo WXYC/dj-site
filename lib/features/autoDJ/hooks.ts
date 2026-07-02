@@ -7,7 +7,7 @@
  */
 import { useGetAutoDJStatusQuery } from "./api";
 import { isAutoDJStatusEnabled } from "./flags";
-import type { AutoDJStatus } from "./types";
+import type { AutoDJStatus } from "@wxyc/shared/auto-dj";
 
 const POLL_INTERVAL_MS = 10_000;
 
