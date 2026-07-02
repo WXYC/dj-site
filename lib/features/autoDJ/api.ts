@@ -17,7 +17,7 @@ import {
 } from "@reduxjs/toolkit/query/react";
 import { getJWTToken } from "../authentication/client";
 import { getOrchestratorUrl } from "./flags";
-import type { AutoDJStatus } from "./types";
+import type { AutoDJStatus } from "@wxyc/shared/auto-dj";
 
 const rawBaseQuery = fetchBaseQuery({
   baseUrl: `${getOrchestratorUrl() ?? ""}/api/auto-dj`,
