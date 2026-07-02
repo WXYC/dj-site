@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import AutoDJBanner from "./AutoDJBanner";
 import { useAutoDJStatus } from "@/lib/features/autoDJ/hooks";
-import type { AutoDJStatus } from "@/lib/features/autoDJ/types";
+import type { AutoDJStatus } from "@wxyc/shared/auto-dj";
 
 vi.mock("@/lib/features/autoDJ/hooks", () => ({ useAutoDJStatus: vi.fn() }));
 const mockStatus = vi.mocked(useAutoDJStatus);
