@@ -165,7 +165,7 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Cache Next.js build
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: .next/cache
           key: nextjs-${{ hashFiles('package-lock.json') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
