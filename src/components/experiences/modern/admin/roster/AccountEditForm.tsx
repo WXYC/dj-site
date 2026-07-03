@@ -47,9 +47,19 @@ export default function AccountEditForm({
   const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [newEmail, setNewEmail] = useState(account.email ?? "");
+  const [isUpdatingName, setIsUpdatingName] = useState(false);
+  const [newRealName, setNewRealName] = useState(account.realName ?? "");
+  const [newDjName, setNewDjName] = useState(account.djName ?? "");
 
   const userCapabilities = (account.capabilities ?? []) as ("editor" | "webmaster")[];
   const isIncomplete = account.hasCompletedOnboarding !== true;
+
+  const trimmedRealName = newRealName.trim();
+  const trimmedDjName = newDjName.trim();
+  // realName is the roster display name, so it can be changed but never cleared
+  const realNameChanged =
+    trimmedRealName.length > 0 && trimmedRealName !== account.realName;
+  const djNameChanged = trimmedDjName !== (account.djName ?? "");
 
   const resolveUserId = async () => {
     if (account.id) {
@@ -193,6 +203,31 @@ export default function AccountEditForm({
       toast.error(errorMessage);
     } finally {
       setIsUpdatingCapabilities(false);
+    }
+  };
+
+  const handleNameUpdate = async (field: "realName" | "djName", value: string) => {
+    setIsUpdatingName(true);
+    try {
+      const targetUserId = await resolveUserId();
+
+      const result = await (authClient.admin as any).updateUser({
+        userId: targetUserId,
+        data: { [field]: value },
+      });
+
+      if (result.error) {
+        throw new Error(result.error.message || "Failed to update name");
+      }
+
+      const label = field === "realName" ? "Real name" : "DJ name";
+      toast.success(value ? `${label} updated to ${value}` : `${label} cleared`);
+      invalidateRoster();
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to update name";
+      toast.error(errorMessage);
+    } finally {
+      setIsUpdatingName(false);
     }
   };
 
@@ -383,6 +418,56 @@ export default function AccountEditForm({
               Webmaster
             </Chip>
           </Tooltip>
+        </Stack>
+      </FormControl>
+
+      {/* Real Name */}
+      <FormControl>
+        <FormLabel>Real Name</FormLabel>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Input
+            size="sm"
+            value={newRealName}
+            onChange={(e) => setNewRealName(e.target.value)}
+            disabled={isSelf || isUpdatingName}
+            sx={{ flex: 1 }}
+          />
+          {!isSelf && realNameChanged && (
+            <Button
+              size="sm"
+              color="success"
+              variant="solid"
+              loading={isUpdatingName}
+              onClick={() => handleNameUpdate("realName", trimmedRealName)}
+            >
+              Save
+            </Button>
+          )}
+        </Stack>
+      </FormControl>
+
+      {/* DJ Name */}
+      <FormControl>
+        <FormLabel>DJ Name</FormLabel>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Input
+            size="sm"
+            value={newDjName}
+            onChange={(e) => setNewDjName(e.target.value)}
+            disabled={isSelf || isUpdatingName}
+            sx={{ flex: 1 }}
+          />
+          {!isSelf && djNameChanged && (
+            <Button
+              size="sm"
+              color="success"
+              variant="solid"
+              loading={isUpdatingName}
+              onClick={() => handleNameUpdate("djName", trimmedDjName)}
+            >
+              Save
+            </Button>
+          )}
         </Stack>
       </FormControl>
 
