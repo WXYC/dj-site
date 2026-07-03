@@ -50,6 +50,10 @@ export default function AccountEditForm({
   const [isUpdatingName, setIsUpdatingName] = useState(false);
   const [newRealName, setNewRealName] = useState(account.realName ?? "");
   const [newDjName, setNewDjName] = useState(account.djName ?? "");
+  // Last-saved baselines: `account` is a snapshot from when the panel opened,
+  // so after a successful save we compare against these instead.
+  const [savedRealName, setSavedRealName] = useState(account.realName ?? "");
+  const [savedDjName, setSavedDjName] = useState(account.djName ?? "");
 
   const userCapabilities = (account.capabilities ?? []) as ("editor" | "webmaster")[];
   const isIncomplete = account.hasCompletedOnboarding !== true;
@@ -58,8 +62,8 @@ export default function AccountEditForm({
   const trimmedDjName = newDjName.trim();
   // realName is the roster display name, so it can be changed but never cleared
   const realNameChanged =
-    trimmedRealName.length > 0 && trimmedRealName !== account.realName;
-  const djNameChanged = trimmedDjName !== (account.djName ?? "");
+    trimmedRealName.length > 0 && trimmedRealName !== savedRealName;
+  const djNameChanged = trimmedDjName !== savedDjName;
 
   const resolveUserId = async () => {
     if (account.id) {
@@ -211,13 +215,21 @@ export default function AccountEditForm({
     try {
       const targetUserId = await resolveUserId();
 
-      const result = await (authClient.admin as any).updateUser({
+      const result = await authClient.admin.updateUser({
         userId: targetUserId,
         data: { [field]: value },
       });
 
       if (result.error) {
         throw new Error(result.error.message || "Failed to update name");
+      }
+
+      if (field === "realName") {
+        setSavedRealName(value);
+        setNewRealName(value);
+      } else {
+        setSavedDjName(value);
+        setNewDjName(value);
       }
 
       const label = field === "realName" ? "Real name" : "DJ name";

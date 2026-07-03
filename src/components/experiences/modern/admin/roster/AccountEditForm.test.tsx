@@ -163,6 +163,31 @@ describe("AccountEditForm name editing", () => {
     });
   });
 
+  it("should hide the Save button after a successful save", async () => {
+    const { user } = renderForm();
+
+    const input = screen.getByLabelText("Real Name");
+    await user.clear(input);
+    await user.type(input, "Jessica Pratt");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    });
+    expect(input).toHaveValue("Jessica Pratt");
+  });
+
+  it("should hide the Save button after clearing the DJ name and saving", async () => {
+    const { user } = renderForm();
+
+    await user.clear(screen.getByLabelText("DJ Name"));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    });
+  });
+
   it("should disable name inputs when editing your own account", () => {
     renderForm({}, true);
 
