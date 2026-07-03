@@ -281,6 +281,8 @@ export class RosterPage {
     await this.openEditModal(username);
     const { sendPasswordReset } = this.getModalActionButtons();
     await sendPasswordReset.waitFor({ state: "visible", timeout: 10000 });
+    await this.waitForToastsToClear();
+    await this.page.waitForTimeout(300);
     await sendPasswordReset.click({ force: true });
   }
 
@@ -289,10 +291,21 @@ export class RosterPage {
     await this.sendPasswordResetEmail(username);
   }
 
+  /**
+   * Wait for lingering toasts to auto-dismiss. The action buttons sit at the
+   * bottom of the edit panel where sonner toasts stack, and force-clicks
+   * bypass Playwright's overlay checks — a toast covering a button swallows
+   * the click silently.
+   */
+  async waitForToastsToClear(): Promise<void> {
+    await expect(this.page.locator("[data-sonner-toast]")).toHaveCount(0, { timeout: 15000 });
+  }
+
   async deleteUser(username: string): Promise<void> {
     await this.openEditModal(username);
     const { delete: deleteBtn } = this.getModalActionButtons();
     await deleteBtn.waitFor({ state: "visible", timeout: 5000 });
+    await this.waitForToastsToClear();
     await deleteBtn.click({ force: true });
   }
 
