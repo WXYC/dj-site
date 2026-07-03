@@ -22,6 +22,9 @@ export default function AccountEditPanel() {
       onClose={handleClose}
     >
       <AccountEditForm
+        // Remount when the target account changes so field state seeded from
+        // `account` (names, email) never leaks across accounts.
+        key={account.id ?? account.userName}
         account={account}
         isSelf={isSelf}
         onClose={handleClose}

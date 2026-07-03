@@ -507,6 +507,7 @@ export class RosterPage {
   async confirmEmailChange(username: string): Promise<void> {
     const saveButton = this.getEmailConfirmButton(username);
     await saveButton.waitFor({ state: "visible", timeout: 5000 });
+    await this.waitForToastsToClear();
     await saveButton.click({ force: true });
   }
 
