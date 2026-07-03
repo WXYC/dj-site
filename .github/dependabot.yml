@@ -42,6 +42,17 @@ updates:
           - "next"
           - "@opennextjs/cloudflare"
           - "wrangler"
+    ignore:
+      # The Cloudflare Pages Git build compiles the worker with a pinned wrangler
+      # 3.114.17, which miscompiles @opennextjs/cloudflare >= 1.19 into a boot 500
+      # (opennextjs/opennextjs-cloudflare#1286; confirmed again on dj-site PR #790).
+      # The known-good adapter is 1.14.x, and 1.14.x cannot build next >= 16.2
+      # (loadManifest prefetch-hints crash), so hold both until deploys migrate to
+      # Direct Upload with the project's wrangler 4.x. Then drop these ignores.
+      - dependency-name: "@opennextjs/cloudflare"
+        versions: [">=1.15.0"]
+      - dependency-name: "next"
+        versions: [">=16.2.0"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
