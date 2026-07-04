@@ -5,6 +5,8 @@ import FlowsheetSearchbar from "./FlowsheetSearchbar";
 import { Provider } from "react-redux";
 import { configureStore } from "@reduxjs/toolkit";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
+import { useGhostText } from "@/src/hooks/useGhostText";
+import { useFlowsheetSearch } from "@/src/hooks/flowsheetHooks";
 
 // Mock hook return values that can be changed per test
 let mockLive = false;
@@ -578,6 +580,87 @@ describe("FlowsheetSearchbar", () => {
       );
 
       removeEventListenerSpy.mockRestore();
+    });
+  });
+
+  describe("album/label autopopulate from track suggestion", () => {
+    const trackResult = {
+      track_title: "Technopolis",
+      album_title: "Solid State Survivor",
+      record_label: "Alfa",
+    };
+    const songGhostWithTrack = {
+      ghostSuffix: "polis",
+      acceptGhostText: () => "Technopolis",
+      trackResult,
+    };
+    const emptyGhost = {
+      ghostSuffix: "",
+      acceptGhostText: () => null,
+      trackResult: null,
+    };
+
+    // Make the song-field ghost surface a confident track suggestion; the
+    // artist-field ghost stays empty.
+    const mockSongGhost = () =>
+      vi
+        .mocked(useGhostText)
+        .mockImplementation((field) =>
+          field === "song" ? songGhostWithTrack : emptyGhost
+        );
+
+    afterEach(() => {
+      // Restore the file-default ghost (no suggestion) for later suites.
+      vi.mocked(useGhostText).mockImplementation(() => emptyGhost);
+    });
+
+    it("fills empty album and label from the confident suggestion without Tab", () => {
+      mockSongGhost();
+      const store = createTestStore();
+
+      render(
+        <Provider store={store}>
+          <FlowsheetSearchbar />
+        </Provider>
+      );
+
+      expect(mockSetSearchProperty).toHaveBeenCalledWith(
+        "album",
+        "Solid State Survivor"
+      );
+      expect(mockSetSearchProperty).toHaveBeenCalledWith("label", "Alfa");
+    });
+
+    it("does not overwrite an album the DJ has already typed", () => {
+      mockSongGhost();
+      vi.mocked(useFlowsheetSearch).mockReturnValueOnce({
+        live: mockLive,
+        searchOpen: mockSearchOpen,
+        setSearchOpen: mockSetSearchOpen,
+        resetSearch: mockResetSearch,
+        searchQuery: {
+          song: "Techno",
+          artist: "Yellow Magic Orchestra",
+          album: "My Own Album",
+          label: "",
+          request: false,
+        },
+        setSearchProperty: mockSetSearchProperty,
+      } as unknown as ReturnType<typeof useFlowsheetSearch>);
+      const store = createTestStore();
+
+      render(
+        <Provider store={store}>
+          <FlowsheetSearchbar />
+        </Provider>
+      );
+
+      expect(mockSetSearchProperty).not.toHaveBeenCalledWith(
+        "album",
+        "Solid State Survivor"
+      );
+      // The label was still empty, so it auto-fills.
+      expect(mockSetSearchProperty).toHaveBeenCalledWith("label", "Alfa");
     });
   });
 });
