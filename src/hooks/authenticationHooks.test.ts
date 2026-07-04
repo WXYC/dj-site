@@ -695,6 +695,34 @@ describe("authenticationHooks", () => {
       );
       vi.useRealTimers();
     });
+
+    it("treats a rejected read as a failed attempt and keeps polling", async () => {
+      vi.useFakeTimers();
+      mockSignInUsername.mockResolvedValue({
+        data: { user: { id: "user-1", hasCompletedOnboarding: true } },
+      });
+      // A rejected read must be swallowed (no unhandled rejection) and retried,
+      // not abort the gate.
+      mockGetSession
+        .mockRejectedValueOnce(new Error("network blip"))
+        .mockResolvedValue({ data: { user: { id: "user-1" } } });
+
+      const { useLogin } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        const pending = result.current.handleLogin(passwordForm);
+        await vi.runAllTimersAsync();
+        await pending;
+      });
+
+      expect(mockGetSession).toHaveBeenCalledTimes(2);
+      expect(mockSafeCapture).toHaveBeenCalledWith(
+        "login_post_redirect",
+        expect.objectContaining({ session_confirmed: true }),
+      );
+      vi.useRealTimers();
+    });
   });
 
   describe("useLogin (WXYC/dj-site#596 defensive)", () => {
