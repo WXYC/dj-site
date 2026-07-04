@@ -61,18 +61,20 @@ const SESSION_CONFIRM_TIMEOUT_MS = 2000;
  */
 async function confirmSessionVisible(): Promise<boolean> {
   for (let attempt = 1; attempt <= SESSION_CONFIRM_ATTEMPTS; attempt++) {
-    try {
-      const session = await Promise.race([
-        authClient.getSession({ query: { disableCookieCache: true } }),
-        new Promise<null>((resolve) =>
-          setTimeout(() => resolve(null), SESSION_CONFIRM_TIMEOUT_MS),
-        ),
-      ]);
-      if ((session as { data?: { user?: unknown } } | null)?.data?.user) {
-        return true;
-      }
-    } catch {
-      // Transient fetch/parse failure — fall through and retry.
+    // `.catch` sits on the read itself, not around the race: if a read the
+    // timeout already beat rejects late, that rejection must resolve to null
+    // here rather than surface as an unhandled promise rejection. A transient
+    // failure and an empty session are treated the same — retry.
+    const session = await Promise.race([
+      authClient
+        .getSession({ query: { disableCookieCache: true } })
+        .catch(() => null),
+      new Promise<null>((resolve) =>
+        setTimeout(() => resolve(null), SESSION_CONFIRM_TIMEOUT_MS),
+      ),
+    ]);
+    if ((session as { data?: { user?: unknown } } | null)?.data?.user) {
+      return true;
     }
 
     if (attempt < SESSION_CONFIRM_ATTEMPTS) {
