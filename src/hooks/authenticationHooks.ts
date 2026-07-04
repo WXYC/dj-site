@@ -44,20 +44,30 @@ type LoginMethod = "password" | "otp" | "onboarding";
  */
 const SESSION_CONFIRM_ATTEMPTS = 5;
 const SESSION_CONFIRM_DELAY_MS = 150;
+// Cap on a single confirming read. better-auth's fetch has no default timeout,
+// so without this a stalled connection would hang the `await` forever, pinning
+// the login button's spinner and stranding the DJ — the exact outcome the
+// docstring promises can't happen. A timed-out read counts as "not yet
+// visible", so the loop stays bounded (worst case ~5 x (timeout + delay)).
+const SESSION_CONFIRM_TIMEOUT_MS = 2000;
 
 /**
  * Poll better-auth until it acknowledges the current session, forcing a fresh
  * server read each time (`disableCookieCache`) so we observe the real verdict
  * rather than a stale client snapshot. Resolves `true` as soon as a user is
  * seen, or `false` once attempts are exhausted — the caller navigates either
- * way so a persistent failure never strands the DJ on the login screen.
+ * way so a persistent failure never strands the DJ on the login screen. Each
+ * read is time-boxed so a hung request can't defeat that guarantee.
  */
 async function confirmSessionVisible(): Promise<boolean> {
   for (let attempt = 1; attempt <= SESSION_CONFIRM_ATTEMPTS; attempt++) {
     try {
-      const session = await authClient.getSession({
-        query: { disableCookieCache: true },
-      });
+      const session = await Promise.race([
+        authClient.getSession({ query: { disableCookieCache: true } }),
+        new Promise<null>((resolve) =>
+          setTimeout(() => resolve(null), SESSION_CONFIRM_TIMEOUT_MS),
+        ),
+      ]);
       if ((session as { data?: { user?: unknown } } | null)?.data?.user) {
         return true;
       }
@@ -260,7 +270,10 @@ export const useLogout = () => {
       // the dashboard's requireAuth() redirect us would route a deliberate logout
       // through /login?bounced=no-session, firing a false-positive
       // login_server_bounce event and showing the DJ an error-looking URL.
-      router.push("/login");
+      // replace() (not push()) so the now-unauthorized dashboard isn't left in
+      // history, and so it collapses with callers like AuthBackButton that
+      // already replace() to /login before awaiting logout.
+      router.replace("/login");
       router.refresh();
     }, "Failed to logout. Please try again.");
   };

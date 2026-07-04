@@ -7,10 +7,12 @@ import { authenticationSlice } from "@/lib/features/authentication/frontend";
 
 // Mock next/navigation
 const mockPush = vi.fn();
+const mockReplace = vi.fn();
 const mockRefresh = vi.fn();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: mockPush,
+    replace: mockReplace,
     refresh: mockRefresh,
   }),
 }));
@@ -562,11 +564,14 @@ describe("authenticationHooks", () => {
 
       // A deliberate logout must land on /login itself — NOT lean on the
       // dashboard's requireAuth() to redirect to /login?bounced=no-session,
-      // which would fire a false-positive login_server_bounce event.
-      expect(mockPush).toHaveBeenCalledWith("/login");
-      expect(mockPush).not.toHaveBeenCalledWith(
+      // which would fire a false-positive login_server_bounce event. Uses
+      // replace() so the unauthorized dashboard isn't left in history and so it
+      // collapses with callers (e.g. AuthBackButton) that already replace().
+      expect(mockReplace).toHaveBeenCalledWith("/login");
+      expect(mockReplace).not.toHaveBeenCalledWith(
         expect.stringContaining("bounced"),
       );
+      expect(mockPush).not.toHaveBeenCalled();
     });
   });
 
@@ -655,6 +660,34 @@ describe("authenticationHooks", () => {
 
       // Never strand the user: still navigate, but record that the server never
       // acknowledged the session so we can watch this in PostHog.
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
+      expect(mockSafeCapture).toHaveBeenCalledWith(
+        "login_post_redirect",
+        expect.objectContaining({ session_confirmed: false }),
+      );
+      vi.useRealTimers();
+    });
+
+    it("does not hang when getSession stalls: the per-attempt timeout bounds the loop and it still navigates", async () => {
+      vi.useFakeTimers();
+      mockSignInUsername.mockResolvedValue({
+        data: { user: { id: "user-1", hasCompletedOnboarding: true } },
+      });
+      // getSession never settles — only the per-attempt timeout can end each
+      // attempt. Without the timeout the await would hang forever.
+      mockGetSession.mockReturnValue(new Promise(() => {}));
+
+      const { useLogin } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        const pending = result.current.handleLogin(passwordForm);
+        await vi.runAllTimersAsync();
+        await pending;
+      });
+
+      // Bounded, not infinite: the loop exhausts its timed-out attempts and
+      // navigates anyway rather than leaving the DJ on a spinning button.
       expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
       expect(mockSafeCapture).toHaveBeenCalledWith(
         "login_post_redirect",
