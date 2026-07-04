@@ -32,31 +32,81 @@ const LOGIN_EVENTS = {
 type LoginMethod = "password" | "otp" | "onboarding";
 
 /**
+ * How hard we try to confirm the freshly-established session is visible
+ * server-side before navigating into a `requireAuth()`-gated route. The client
+ * sign-in resolves as soon as the auth response (incl. Set-Cookie) is in hand,
+ * but the very next server component render occasionally can't see a valid
+ * session yet, so `requireAuth()` bounces the DJ straight back to
+ * `/login?bounced=no-session` (WXYC/dj-site login no-session race — 61% of all
+ * server bounces in the first month of `login_server_bounce` telemetry). The
+ * backend has no read replica or session cache, so a single confirming read
+ * that succeeds proves the next server render will resolve the session too.
+ */
+const SESSION_CONFIRM_ATTEMPTS = 5;
+const SESSION_CONFIRM_DELAY_MS = 150;
+
+/**
+ * Poll better-auth until it acknowledges the current session, forcing a fresh
+ * server read each time (`disableCookieCache`) so we observe the real verdict
+ * rather than a stale client snapshot. Resolves `true` as soon as a user is
+ * seen, or `false` once attempts are exhausted — the caller navigates either
+ * way so a persistent failure never strands the DJ on the login screen.
+ */
+async function confirmSessionVisible(): Promise<boolean> {
+  for (let attempt = 1; attempt <= SESSION_CONFIRM_ATTEMPTS; attempt++) {
+    try {
+      const session = await authClient.getSession({
+        query: { disableCookieCache: true },
+      });
+      if ((session as { data?: { user?: unknown } } | null)?.data?.user) {
+        return true;
+      }
+    } catch {
+      // Transient fetch/parse failure — fall through and retry.
+    }
+
+    if (attempt < SESSION_CONFIRM_ATTEMPTS) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, SESSION_CONFIRM_DELAY_MS),
+      );
+    }
+  }
+  return false;
+}
+
+/**
  * Send a freshly-authenticated user to the right place and record the choice.
+ *
+ * Waits for the server to acknowledge the new session (`confirmSessionVisible`)
+ * before navigating, closing the no-session race where a client-side "login
+ * successful" is immediately undone by a server-side `requireAuth()` bounce.
  *
  * Emits one `login_post_redirect` event with a `destination` discriminator so a
  * PostHog breakdown shows the share of successful logins bounced to the
  * incomplete screen vs. the dashboard. Captures the RAW onboarding flag
  * (incl. null when absent) so a complete DJ misrouted because the flag came
- * back undefined is distinguishable from a genuinely-incomplete account.
- *
- * Redirect targets are byte-identical to the prior inline branch.
+ * back undefined is distinguishable from a genuinely-incomplete account, plus
+ * `session_confirmed` so a residual race (server never acknowledged the
+ * session) stays visible in telemetry instead of looking fixed.
  */
-function redirectAfterAuth(
+async function redirectAfterAuth(
   router: { push: (href: string) => void; refresh: () => void },
   user: { id?: string; hasCompletedOnboarding?: boolean } | undefined,
   method: LoginMethod,
-): void {
+): Promise<void> {
   const dashboardHome = String(
     process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog",
   );
   const incomplete = user?.hasCompletedOnboarding === false;
+
+  const sessionConfirmed = await confirmSessionVisible();
 
   safeCapture(LOGIN_EVENTS.POST_LOGIN_REDIRECT, {
     method,
     destination: incomplete ? "incomplete" : "dashboard",
     has_completed_onboarding: user?.hasCompletedOnboarding ?? null,
     user_id: user?.id ?? null,
+    session_confirmed: sessionConfirmed,
   });
 
   router.push(incomplete ? "/login?incomplete=true" : dashboardHome);
@@ -96,7 +146,7 @@ export const useLogin = () => {
       toast.success("Login successful");
 
       const user = (result as any).data?.user;
-      redirectAfterAuth(router, user, "password");
+      await redirectAfterAuth(router, user, "password");
     }, "An unexpected error occurred during login. Please try again.");
   };
 
@@ -174,7 +224,7 @@ export const useOTPVerify = () => {
       toast.success("Login successful");
 
       const user = (result as any).data?.user;
-      redirectAfterAuth(router, user, "otp");
+      await redirectAfterAuth(router, user, "otp");
     }, "Verification failed. Please try again.");
 
   const handleResendOTP = async (email: string) => {
@@ -205,8 +255,13 @@ export const useLogout = () => {
       // departing user's JWT (cache TTL is 4 minutes; see WXYC/dj-site#596).
       clearTokenCache();
       await authClient.signOut();
-      router.refresh();
       resetApplication(dispatch);
+      // Navigate to a clean /login ourselves. Leaning on router.refresh() to let
+      // the dashboard's requireAuth() redirect us would route a deliberate logout
+      // through /login?bounced=no-session, firing a false-positive
+      // login_server_bounce event and showing the DJ an error-looking URL.
+      router.push("/login");
+      router.refresh();
     }, "Failed to logout. Please try again.");
   };
 
@@ -343,7 +398,7 @@ export const useNewUser = () => {
       throwIfBetterAuthError(result, "Failed to update user profile");
 
       toast.success("Profile updated successfully");
-      redirectAfterAuth(
+      await redirectAfterAuth(
         router,
         { id: session.data.user.id, hasCompletedOnboarding: true },
         "onboarding",
