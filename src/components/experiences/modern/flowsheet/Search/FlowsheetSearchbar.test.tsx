@@ -610,8 +610,26 @@ describe("FlowsheetSearchbar", () => {
         );
 
     afterEach(() => {
-      // Restore the file-default ghost (no suggestion) for later suites.
+      // Restore the file-default hooks (no suggestion, empty query) for later
+      // suites — tests here drive both via mockImplementation.
       vi.mocked(useGhostText).mockImplementation(() => emptyGhost);
+      vi.mocked(useFlowsheetSearch).mockImplementation(
+        () =>
+          ({
+            live: mockLive,
+            searchOpen: mockSearchOpen,
+            setSearchOpen: mockSetSearchOpen,
+            resetSearch: mockResetSearch,
+            searchQuery: {
+              song: "",
+              artist: "",
+              album: "",
+              label: "",
+              request: false,
+            },
+            setSearchProperty: mockSetSearchProperty,
+          }) as unknown as ReturnType<typeof useFlowsheetSearch>
+      );
     });
 
     it("fills empty album and label from the confident suggestion without Tab", () => {
@@ -661,6 +679,101 @@ describe("FlowsheetSearchbar", () => {
       );
       // The label was still empty, so it auto-fills.
       expect(mockSetSearchProperty).toHaveBeenCalledWith("label", "Alfa");
+    });
+
+    it("clears its auto-fill memory on reset so a later manual album survives", () => {
+      // A confident song suggestion whose album we vary across renders.
+      let trackAlbum = "Solid State Survivor";
+      // Mutable search state so we can drive artist/song/album across rerenders.
+      let searchState = {
+        live: mockLive,
+        searchOpen: mockSearchOpen,
+        setSearchOpen: mockSetSearchOpen,
+        resetSearch: mockResetSearch,
+        searchQuery: {
+          song: "Techno",
+          artist: "Yellow Magic Orchestra",
+          album: "",
+          label: "",
+          request: false,
+        },
+        setSearchProperty: mockSetSearchProperty,
+      };
+      vi.mocked(useFlowsheetSearch).mockImplementation(
+        () => searchState as unknown as ReturnType<typeof useFlowsheetSearch>
+      );
+      // The song ghost only carries a track while a song is being typed, which
+      // mirrors useGhostText returning null once the song field is empty.
+      vi.mocked(useGhostText).mockImplementation((field) =>
+        field === "song" && searchState.searchQuery.song
+          ? {
+              ghostSuffix: "",
+              acceptGhostText: () => "Technopolis",
+              trackResult: {
+                track_title: "Technopolis",
+                album_title: trackAlbum,
+                record_label: "Alfa",
+              },
+            }
+          : emptyGhost
+      );
+
+      const store = createTestStore();
+      const { rerender } = render(
+        <Provider store={store}>
+          <FlowsheetSearchbar />
+        </Provider>
+      );
+
+      // Phase 1: the empty album auto-fills from the suggestion.
+      expect(mockSetSearchProperty).toHaveBeenCalledWith(
+        "album",
+        "Solid State Survivor"
+      );
+
+      // Phase 2: the search resets (artist + song cleared) — the auto-fill
+      // memory must be forgotten here.
+      searchState = {
+        ...searchState,
+        searchQuery: {
+          song: "",
+          artist: "",
+          album: "",
+          label: "",
+          request: false,
+        },
+      };
+      rerender(
+        <Provider store={store}>
+          <FlowsheetSearchbar />
+        </Provider>
+      );
+
+      // Phase 3: a new entry where the DJ hand-types the same album string the
+      // previous entry auto-filled, while a *different* suggestion is active.
+      // The manual value must survive — the stale ref must not overwrite it.
+      mockSetSearchProperty.mockClear();
+      trackAlbum = "Naughty Boys";
+      searchState = {
+        ...searchState,
+        searchQuery: {
+          song: "Ki",
+          artist: "Yellow Magic Orchestra",
+          album: "Solid State Survivor",
+          label: "",
+          request: false,
+        },
+      };
+      rerender(
+        <Provider store={store}>
+          <FlowsheetSearchbar />
+        </Provider>
+      );
+
+      expect(mockSetSearchProperty).not.toHaveBeenCalledWith(
+        "album",
+        "Naughty Boys"
+      );
     });
   });
 });
