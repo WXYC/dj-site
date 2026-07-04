@@ -53,6 +53,12 @@ export default function FlowsheetSearchbar() {
   const albumRef = useRef<HTMLInputElement>(null);
   const labelRef = useRef<HTMLInputElement>(null);
 
+  // Remember the album/label we auto-filled from a track suggestion so we can
+  // keep them in sync as the song narrows, without ever clobbering a value the
+  // DJ typed themselves.
+  const autoFilledAlbumRef = useRef<string | null>(null);
+  const autoFilledLabelRef = useRef<string | null>(null);
+
   // Ghost text for artist field
   const artistGhost = useGhostText(
     "artist",
@@ -97,6 +103,42 @@ export default function FlowsheetSearchbar() {
       dispatch(flowsheetSlice.actions.setConfirmedArtist(currentArtist));
     }
   }, [searchQuery.artist, confirmedArtist, dispatch]);
+
+  // Auto-populate album + label from the confident track suggestion as the song
+  // narrows to a match — without requiring the DJ to press Tab. A field is only
+  // (re)filled while it is empty or still holds the value we last auto-filled,
+  // so a manually typed album/label is never overwritten.
+  useEffect(() => {
+    const track = songGhost.trackResult;
+    if (!track) return;
+
+    const album = (searchQuery.album as string) ?? "";
+    if (
+      track.album_title &&
+      (album === "" || album === autoFilledAlbumRef.current)
+    ) {
+      if (album !== track.album_title) {
+        setSearchProperty("album", track.album_title);
+      }
+      autoFilledAlbumRef.current = track.album_title;
+    }
+
+    const label = (searchQuery.label as string) ?? "";
+    if (
+      track.record_label &&
+      (label === "" || label === autoFilledLabelRef.current)
+    ) {
+      if (label !== track.record_label) {
+        setSearchProperty("label", track.record_label);
+      }
+      autoFilledLabelRef.current = track.record_label;
+    }
+  }, [
+    songGhost.trackResult,
+    searchQuery.album,
+    searchQuery.label,
+    setSearchProperty,
+  ]);
 
   const handleClose = useCallback(
     (event: any) => {
