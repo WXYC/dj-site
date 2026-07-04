@@ -140,6 +140,18 @@ export default function FlowsheetSearchbar() {
     setSearchProperty,
   ]);
 
+  // Forget what we auto-filled once the search resets (a new entry begins), so
+  // the auto-fill memory can't outlive its session and later overwrite an
+  // album/label the DJ types by hand. resetSearch clears artist + song, so an
+  // empty artist-and-song is the reset signal shared by every reset path (the
+  // ClickAway close here and the post-submit resets in useFlowsheetSubmit).
+  useEffect(() => {
+    if (!searchQuery.artist && !searchQuery.song) {
+      autoFilledAlbumRef.current = null;
+      autoFilledLabelRef.current = null;
+    }
+  }, [searchQuery.artist, searchQuery.song]);
+
   const handleClose = useCallback(
     (event: any) => {
       resetSearch();
