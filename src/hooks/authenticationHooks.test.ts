@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { Provider } from "react-redux";
@@ -97,6 +97,13 @@ describe("authenticationHooks", () => {
     // check, so redirectAfterAuth's confirm-before-navigate gate passes without
     // any retry delay. Individual tests override this to exercise the race.
     mockGetSession.mockResolvedValue({ data: { user: { id: "user-1" } } });
+  });
+
+  // Safety net: several tests opt into fake timers and restore real timers as
+  // their last line. If one of those assertions throws first, this guarantees
+  // fake timers can't leak into and hang the following tests.
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe("useLogin", () => {
@@ -642,7 +649,7 @@ describe("authenticationHooks", () => {
       vi.useRealTimers();
     });
 
-    it("navigates anyway when the session never confirms, tagging session_confirmed:false so the bounce stays observable", async () => {
+    it("refreshes instead of pushing into a known bounce when the session never confirms, tagging session_confirmed:false", async () => {
       vi.useFakeTimers();
       mockSignInUsername.mockResolvedValue({
         data: { user: { id: "user-1", hasCompletedOnboarding: true } },
@@ -658,9 +665,11 @@ describe("authenticationHooks", () => {
         await pending;
       });
 
-      // Never strand the user: still navigate, but record that the server never
-      // acknowledged the session so we can watch this in PostHog.
-      expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
+      // Don't push into a dashboard nav we already know will bounce (and falsely
+      // trip the session-ended notice). Refresh and let the /login layout be the
+      // authority; still record the miss so it stays observable in PostHog.
+      expect(mockRefresh).toHaveBeenCalled();
+      expect(mockPush).not.toHaveBeenCalledWith("/dashboard/flowsheet");
       expect(mockSafeCapture).toHaveBeenCalledWith(
         "login_post_redirect",
         expect.objectContaining({ session_confirmed: false }),
@@ -668,7 +677,7 @@ describe("authenticationHooks", () => {
       vi.useRealTimers();
     });
 
-    it("does not hang when getSession stalls: the per-attempt timeout bounds the loop and it still navigates", async () => {
+    it("does not hang when getSession stalls: the per-attempt timeout bounds the loop and it still resolves", async () => {
       vi.useFakeTimers();
       mockSignInUsername.mockResolvedValue({
         data: { user: { id: "user-1", hasCompletedOnboarding: true } },
@@ -686,9 +695,10 @@ describe("authenticationHooks", () => {
         await pending;
       });
 
-      // Bounded, not infinite: the loop exhausts its timed-out attempts and
-      // navigates anyway rather than leaving the DJ on a spinning button.
-      expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
+      // Bounded, not infinite: the loop exhausts its timed-out attempts and the
+      // handler resolves (refreshing, not spinning) rather than hanging forever.
+      expect(mockRefresh).toHaveBeenCalled();
+      expect(mockPush).not.toHaveBeenCalledWith("/dashboard/flowsheet");
       expect(mockSafeCapture).toHaveBeenCalledWith(
         "login_post_redirect",
         expect.objectContaining({ session_confirmed: false }),

@@ -66,6 +66,22 @@ describe("SessionEndedNotice", () => {
     expect(mockToastInfo).toHaveBeenCalledTimes(1);
   });
 
+  it("does not re-toast when the param clears and returns to no-session within one mount", () => {
+    // This forces the effect to actually re-run (reason changes each render), so
+    // the pass genuinely depends on the `shown` ref guard — not merely on the
+    // [reason] dependency being unchanged. Deleting the guard would toast twice.
+    searchParamsMock.mockReturnValue(new URLSearchParams("bounced=no-session"));
+    const { rerender } = renderWithProviders(<SessionEndedNotice />);
+
+    searchParamsMock.mockReturnValue(new URLSearchParams(""));
+    rerender(<SessionEndedNotice />);
+
+    searchParamsMock.mockReturnValue(new URLSearchParams("bounced=no-session"));
+    rerender(<SessionEndedNotice />);
+
+    expect(mockToastInfo).toHaveBeenCalledTimes(1);
+  });
+
   it("renders nothing", () => {
     searchParamsMock.mockReturnValue(new URLSearchParams("bounced=no-session"));
 

@@ -100,6 +100,14 @@ async function confirmSessionVisible(): Promise<boolean> {
  * back undefined is distinguishable from a genuinely-incomplete account, plus
  * `session_confirmed` so a residual race (server never acknowledged the
  * session) stays visible in telemetry instead of looking fixed.
+ *
+ * When the confirm gate fails for a dashboard-bound login, we `refresh()`
+ * rather than `push()` into a redirect we already know will bounce: pushing to
+ * the dashboard would only hit `/login?bounced=no-session`, which then trips the
+ * `SessionEndedNotice` toast — a "your session has ended" message contradicting
+ * the "Login successful" the DJ just saw. A refresh lets the `/login` layout be
+ * the authority: it forwards to the dashboard if the session became visible, or
+ * re-shows the form to retry if not. Never strands the DJ either way.
  */
 async function redirectAfterAuth(
   router: { push: (href: string) => void; refresh: () => void },
@@ -120,6 +128,11 @@ async function redirectAfterAuth(
     user_id: user?.id ?? null,
     session_confirmed: sessionConfirmed,
   });
+
+  if (!incomplete && !sessionConfirmed) {
+    router.refresh();
+    return;
+  }
 
   router.push(incomplete ? "/login?incomplete=true" : dashboardHome);
   router.refresh();
