@@ -91,6 +91,10 @@ describe("authenticationHooks", () => {
     vi.clearAllMocks();
     process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD = "temp123";
     process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE = "/dashboard/flowsheet";
+    // Default: the server can see the freshly-established session on the first
+    // check, so redirectAfterAuth's confirm-before-navigate gate passes without
+    // any retry delay. Individual tests override this to exercise the race.
+    mockGetSession.mockResolvedValue({ data: { user: { id: "user-1" } } });
   });
 
   describe("useLogin", () => {
@@ -127,6 +131,7 @@ describe("authenticationHooks", () => {
         destination: "incomplete",
         has_completed_onboarding: false,
         user_id: "user-1",
+        session_confirmed: true,
       });
     });
 
@@ -163,6 +168,7 @@ describe("authenticationHooks", () => {
         destination: "dashboard",
         has_completed_onboarding: true,
         user_id: "user-1",
+        session_confirmed: true,
       });
     });
 
@@ -199,6 +205,7 @@ describe("authenticationHooks", () => {
         destination: "dashboard",
         has_completed_onboarding: null,
         user_id: "user-1",
+        session_confirmed: true,
       });
     });
 
@@ -329,6 +336,7 @@ describe("authenticationHooks", () => {
         destination: "incomplete",
         has_completed_onboarding: false,
         user_id: "user-1",
+        session_confirmed: true,
       });
     });
   });
@@ -395,6 +403,7 @@ describe("authenticationHooks", () => {
         destination: "dashboard",
         has_completed_onboarding: true,
         user_id: "user-1",
+        session_confirmed: true,
       });
     });
 
@@ -539,6 +548,119 @@ describe("authenticationHooks", () => {
       });
 
       expect(mockClearTokenCache).toHaveBeenCalledTimes(1);
+    });
+
+    it("navigates explicitly to a clean /login after signing out, instead of routing through the requireAuth no-session bounce", async () => {
+      mockSignOut.mockResolvedValue(undefined);
+
+      const { useLogout } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useLogout(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        await result.current.handleLogout();
+      });
+
+      // A deliberate logout must land on /login itself — NOT lean on the
+      // dashboard's requireAuth() to redirect to /login?bounced=no-session,
+      // which would fire a false-positive login_server_bounce event.
+      expect(mockPush).toHaveBeenCalledWith("/login");
+      expect(mockPush).not.toHaveBeenCalledWith(
+        expect.stringContaining("bounced"),
+      );
+    });
+  });
+
+  describe("session confirm-before-navigate gate (login no-session race)", () => {
+    const passwordForm = {
+      preventDefault: vi.fn(),
+      currentTarget: {
+        username: { value: "jbromberg" },
+        password: { value: "password123" },
+      },
+    } as any;
+
+    it("confirms the session is visible server-side before navigating after login", async () => {
+      const callOrder: string[] = [];
+      mockSignInUsername.mockImplementation(async () => {
+        callOrder.push("signIn");
+        return { data: { user: { id: "user-1", hasCompletedOnboarding: true } } };
+      });
+      mockGetSession.mockImplementation(async () => {
+        callOrder.push("getSession");
+        return { data: { user: { id: "user-1" } } };
+      });
+      mockPush.mockImplementation(() => {
+        callOrder.push("push");
+      });
+
+      const { useLogin } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        await result.current.handleLogin(passwordForm);
+      });
+
+      // Force a fresh read (bypass better-auth's cookie cache) so we observe the
+      // real server verdict, not a stale client snapshot.
+      expect(mockGetSession).toHaveBeenCalledWith({
+        query: { disableCookieCache: true },
+      });
+      // The gate must run BETWEEN sign-in and navigation.
+      expect(callOrder).toEqual(["signIn", "getSession", "push"]);
+    });
+
+    it("retries until the session becomes visible, then navigates with session_confirmed:true", async () => {
+      vi.useFakeTimers();
+      mockSignInUsername.mockResolvedValue({
+        data: { user: { id: "user-1", hasCompletedOnboarding: true } },
+      });
+      // First read races (no session yet), second read sees it.
+      mockGetSession
+        .mockResolvedValueOnce({ data: null })
+        .mockResolvedValue({ data: { user: { id: "user-1" } } });
+
+      const { useLogin } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        const pending = result.current.handleLogin(passwordForm);
+        await vi.runAllTimersAsync();
+        await pending;
+      });
+
+      expect(mockGetSession).toHaveBeenCalledTimes(2);
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
+      expect(mockSafeCapture).toHaveBeenCalledWith(
+        "login_post_redirect",
+        expect.objectContaining({ session_confirmed: true }),
+      );
+      vi.useRealTimers();
+    });
+
+    it("navigates anyway when the session never confirms, tagging session_confirmed:false so the bounce stays observable", async () => {
+      vi.useFakeTimers();
+      mockSignInUsername.mockResolvedValue({
+        data: { user: { id: "user-1", hasCompletedOnboarding: true } },
+      });
+      mockGetSession.mockResolvedValue({ data: null });
+
+      const { useLogin } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        const pending = result.current.handleLogin(passwordForm);
+        await vi.runAllTimersAsync();
+        await pending;
+      });
+
+      // Never strand the user: still navigate, but record that the server never
+      // acknowledged the session so we can watch this in PostHog.
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
+      expect(mockSafeCapture).toHaveBeenCalledWith(
+        "login_post_redirect",
+        expect.objectContaining({ session_confirmed: false }),
+      );
+      vi.useRealTimers();
     });
   });
 
