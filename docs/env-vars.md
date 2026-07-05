@@ -21,6 +21,17 @@ NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED=false
 # AUTH_REWRITE_URL=http://auth:8082/auth
 ```
 
+## Build-time env in CI/CD
+
+`NEXT_PUBLIC_*` values are **inlined at build time** and shipped in the client bundle. Since deploys moved to GitHub Actions Direct Upload ([#810](https://github.com/WXYC/dj-site/issues/810)), the production/preview values live as **GitHub repo variables** (they used to be the Cloudflare Pages dashboard "build settings"; the Git build is gone). They are public (already in the browser bundle), so they are repo *variables*, not secrets.
+
+- **Production** (`deploy-production` job) reads `vars.NEXT_PUBLIC_*`.
+- **Preview** (`preview` job) reads `vars.PREVIEW_NEXT_PUBLIC_*`.
+
+Repo variables (not GitHub *Environments*) are used deliberately: Dependabot-triggered runs can read repo variables but not environment-scoped ones, and the preview job must work on Dependabot PRs. Both deploy jobs set these at the **job level** to override `ci.yml`'s workflow-level localhost placeholders (which exist for the test/typecheck/build jobs). `scripts/deploy/check-build-env.sh` hard-fails a deploy if `NEXT_PUBLIC_BACKEND_URL`, `NEXT_PUBLIC_BETTER_AUTH_URL`, or `NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD` is empty (or, for the URLs, localhost) — the three with no safe in-code default: the URLs break every client API call, and the onboarding temp password makes the new-DJ first-login flow throw (`handleNewUser` in `src/hooks/authenticationHooks.ts`) and admin roster provisioning fall back to an empty password. See [`ci-cd.md`](ci-cd.md) and [`deploy-cutover-runbook.md`](deploy-cutover-runbook.md).
+
+Runtime (server-only) settings like `AUTH_REWRITE_URL` are **not** build-time; they are Cloudflare Pages project settings and are unaffected by Direct Upload.
+
 ## Feature flags
 
 - `NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED` — gates the track-search UI surfaces in catalog search: the `matched_via` track-match chip rendering in result rows (both classic and modern experiences) and the classic `SearchForm` help-text refresh (worked track-lookup example replacing the legacy "Coming later" line). Defaults to OFF; set to `"true"` or `"1"` to enable. Helper: `isCatalogTrackSearchUiEnabled()` in `lib/features/catalog/flags.ts`. Flip on after Backend-Service is serving `matched_via` in prod. See WXYC/dj-site#497 and WXYC/dj-site#498.
