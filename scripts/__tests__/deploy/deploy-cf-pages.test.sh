@@ -179,6 +179,40 @@ WRANGLER_EOF
     grep -q '^deployment_url=https://deadbeef.wxyc-dj.pages.dev$' "$GITHUB_OUTPUT"
 }
 
+@test "falls back to node_modules/.bin/wrangler when wrangler is not on PATH" {
+    # No fake wrangler in FAKE_BIN; instead plant one where npm ci would put
+    # it, relative to the working directory. Sandbox PATH to core system dirs
+    # so neither the FAKE_BIN stub nor any globally installed wrangler can
+    # satisfy the lookup — this is the GitHub Actions case, where a workflow
+    # step invokes the script directly and node_modules/.bin is not on PATH
+    # (npm only prepends it inside npm scripts).
+    local project_dir="$TEST_TEMP_DIR/project"
+    mkdir -p "$project_dir/node_modules/.bin"
+    cat >"$project_dir/node_modules/.bin/wrangler" <<WRANGLER_EOF
+#!/usr/bin/env bash
+{ printf '%s\n' "\$*"; } >>"$WRANGLER_CALL_LOG"
+echo "✨ Deployment complete! Take a peek over at https://local123.wxyc-dj.pages.dev"
+exit 0
+WRANGLER_EOF
+    chmod +x "$project_dir/node_modules/.bin/wrangler"
+
+    cd "$project_dir"
+    PATH="/usr/bin:/bin" run "$SCRIPT_PATH"
+    [ "$status" -eq 0 ]
+    grep -q 'pages deploy' "$WRANGLER_CALL_LOG"
+    grep -q '^deployment_url=https://local123.wxyc-dj.pages.dev$' "$GITHUB_OUTPUT"
+}
+
+@test "exits 2 with a clear error when wrangler is neither on PATH nor in node_modules/.bin" {
+    local project_dir="$TEST_TEMP_DIR/empty-project"
+    mkdir -p "$project_dir"
+    cd "$project_dir"
+    PATH="/usr/bin:/bin" run "$SCRIPT_PATH"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"node_modules/.bin"* ]]
+    ! grep -q '^deployment_url=' "$GITHUB_OUTPUT"
+}
+
 @test "does NOT leak CLOUDFLARE_API_TOKEN to stdout/stderr" {
     install_fake_wrangler
     export CLOUDFLARE_API_TOKEN='cf_secret_token_xxxxxxxxxxxxxxxxxxxx'

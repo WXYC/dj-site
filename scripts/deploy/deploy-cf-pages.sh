@@ -30,7 +30,8 @@
 #   1 — wrangler failed, OR no *.pages.dev URL could be extracted
 #   2 — usage error (missing/invalid required input)
 #
-# Requires: wrangler, bash 4+.
+# Requires: bash 4+, and wrangler on PATH or in ./node_modules/.bin (the
+# repo devDependency — present after `npm ci`).
 
 set -uo pipefail
 
@@ -55,6 +56,20 @@ fi
 if ! [[ "$COMMIT_HASH" =~ ^[0-9a-f]{40}$ ]]; then
     echo "deploy-cf-pages: COMMIT_HASH is not a 40-char hex sha: '$COMMIT_HASH'" >&2
     exit 2
+fi
+
+# wrangler is a devDependency: npm prepends node_modules/.bin to PATH inside
+# npm scripts, but a workflow step invoking this script directly gets no such
+# treatment. Fall back to the repo-local binary so the deploy always uses the
+# pinned wrangler 4.x (using a Pages-pinned wrangler 3.x is the boot-500 this
+# pipeline exists to avoid).
+if ! command -v wrangler >/dev/null 2>&1; then
+    if [[ -x "node_modules/.bin/wrangler" ]]; then
+        PATH="$PWD/node_modules/.bin:$PATH"
+    else
+        echo "deploy-cf-pages: wrangler not found on PATH or in node_modules/.bin — run npm ci first" >&2
+        exit 2
+    fi
 fi
 
 emit_output() {
