@@ -22,7 +22,7 @@ Read the relevant topic doc before doing work in that area.
 - **No formatter / linter config.** Follow existing code style.
 - **Test fixtures use real WXYC catalog data**, not mainstream acts. Defaults: `createTestArtist({ name: "Stereolab", … })`, `createTestAlbum({ title: "DOGA", artist: createTestArtist({ name: "Juana Molina", … }), label: "Sonamos", … })`, `createTestFlowsheetQuery({ artist: "Jessica Pratt", album: "On Your Own Love Again", … })`. Full preference list in `docs/test-fixtures.md`.
 - **Always render through `renderWithProviders`** for component tests (never bare RTL `render`); use the slice / API / component / conversion harnesses from `@/lib/test-utils` instead of ad-hoc test scaffolds.
-- **Branches.** Push to `main` triggers CI + (on success) Cloudflare Pages deploy via the Cloudflare GitHub App. No `prod` branch.
+- **Branches.** Push to `main` triggers CI; on success the `deploy-production` job in `ci.yml` builds (`build:opennext`) and Direct-Uploads to the `wxyc-dj` Cloudflare Pages project via `wrangler pages deploy` (`scripts/deploy/deploy-cf-pages.sh`). PRs get a per-commit preview deploy from the `preview` job. No `prod` branch; no Cloudflare GitHub App Git build (removed in #810 — its pinned wrangler 3.x boot-500'd OpenNext ≥ 1.19).
 
 ## Related Repos
 

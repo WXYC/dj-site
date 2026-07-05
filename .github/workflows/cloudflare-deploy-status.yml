@@ -9,7 +9,12 @@ on:
     - cron: '0 * * * *'
   workflow_dispatch:
 
+# contents:read is required now that the job checks out the repo to run
+# scripts/deploy/cf-latest-production-deployment.sh (it previously hit the
+# CF API inline and needed no checkout); issues:write opens/closes the
+# deploy-failure issue.
 permissions:
+  contents: read
   issues: write
 
 jobs:
@@ -17,6 +22,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
       - name: Check required configuration
         id: config
         run: |
@@ -30,20 +38,16 @@ jobs:
       - name: Query Cloudflare API for latest production deployment
         id: query
         if: steps.config.outputs.configured == 'true'
-        run: |
-          RESPONSE=$(curl -sf \
-            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
-            "https://api.cloudflare.com/client/v4/accounts/${{ vars.CLOUDFLARE_ACCOUNT_ID }}/pages/projects/wxyc-dj/deployments?env=production&per_page=1")
-
-          STATUS=$(echo "$RESPONSE" | jq -r '.result[0].latest_stage.status')
-          DEPLOY_ID=$(echo "$RESPONSE" | jq -r '.result[0].id')
-          COMMIT_SHA=$(echo "$RESPONSE" | jq -r '.result[0].deployment_trigger.metadata.commit_hash')
-          COMMIT_MSG=$(echo "$RESPONSE" | jq -r '.result[0].deployment_trigger.metadata.commit_message | split("\n")[0]')
-
-          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
-          echo "deploy_id=$DEPLOY_ID" >> "$GITHUB_OUTPUT"
-          echo "commit_sha=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
-          echo "commit_msg=$COMMIT_MSG" >> "$GITHUB_OUTPUT"
+        # Emits status/deploy_id/commit_sha/commit_msg to $GITHUB_OUTPUT. The
+        # commit-message extraction is null-safe: Direct-Upload (`ad_hoc`)
+        # deployments can have a null commit_message, and the old inline
+        # `... | split("\n")` crashed jq under the runner's `bash -e`,
+        # breaking this monitor after the #810 cutover.
+        env:
+          CF_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_PROJECT: wxyc-dj
+        run: ./scripts/deploy/cf-latest-production-deployment.sh
 
       - name: Probe production URL for runtime health
         id: probe

@@ -13,52 +13,14 @@ The WXYC Card Catalog, Revised is a React-based revision of the original WXYC ca
 - Mail Bin: a digital mail bin is available on every account, so DJs can add to the flowsheet directly from their bin without having to type during their sets.
 
 ## Deployment
-Production is on Cloudflare Pages (`wxyc-dj` project). The CF Pages project is configured to deploy from the `prod` branch; merges to `main` build a preview deploy first and are then promoted to `prod` by the staging-gate workflow (see below).
+Production and PR previews are built in GitHub Actions and pushed to the `wxyc-dj` Cloudflare Pages project via **Direct Upload** (`wrangler pages deploy`, using the repo's wrangler 4.x). This replaced the Cloudflare Pages Git-build integration, whose pinned wrangler 3.x miscompiled `@opennextjs/cloudflare >= 1.19` into a boot-500 ([WXYC/dj-site#810](https://github.com/WXYC/dj-site/issues/810)).
 
-## Staging gate (dj-site)
-The staging gate inserts a CF Pages preview-deploy + runtime-probe step between merge-to-`main` and the Cloudflare Pages production deploy. Lives at `.github/workflows/staging-gate.yml`, with helpers in `scripts/staging-gate/` and bats tests in `scripts/__tests__/staging-gate/`. Part of [WXYC/wiki#80](https://github.com/WXYC/wiki/issues/80); mirrors the BS+LML coordinator workflow at [WXYC/wxyc-shared/.github/workflows/bs-lml-gate.yml](https://github.com/WXYC/wxyc-shared/blob/main/.github/workflows/bs-lml-gate.yml).
+- **Production** — the `deploy-production` job in `.github/workflows/ci.yml` runs on pushes to `main`, gated on the rest of CI passing. It builds with `npm run build:opennext` and deploys via `scripts/deploy/deploy-cf-pages.sh` (`--branch main`) in its own `cancel-in-progress: false` concurrency group so a queued push can't cancel a mid-flight upload.
+- **PR previews** — the single `preview` job in `ci.yml` builds and Direct-Uploads a per-PR preview deployment, then probes its URL and blocks merge on a 5xx (the required "Preview URL smoke check"). Fork PRs soft-skip (no repo secrets); same-repo PRs missing config hard-fail (see #740).
+- **Build-time env** — `NEXT_PUBLIC_*` values are inlined at build time and live as repo variables (production: `NEXT_PUBLIC_*`; preview: `PREVIEW_NEXT_PUBLIC_*`). `scripts/deploy/check-build-env.sh` hard-fails a deploy if a required build var is empty or points at localhost. See [`docs/env-vars.md`](docs/env-vars.md).
+- **Monitoring** — `.github/workflows/cloudflare-deploy-status.yml` polls the CF API hourly and probes `dj.wxyc.org` for runtime health.
 
-Flow per merge to `main`:
-
-```
-PR merged to main
-  -> CF Pages preview build for the main branch (existing, unchanged)
-  -> staging-gate polls Cloudflare API for the preview deploy
-  -> probes the preview URL for runtime health
-  -> on pass, fast-forwards the `prod` branch to <main-sha>
-  -> existing CF Pages prod deploy (configured to watch `prod`) fires
-```
-
-### Operator setup (one-shot)
-The workflow + scripts + tests ship in this repo, but the gate cannot promote until an operator completes these six steps. Failure to complete them is detected at runtime (missing repo vars / secrets cause the gate to surface a clear failure rather than silently bypass).
-
-1. **Seed the `prod` branch** at the current `main` HEAD: `gh api -X POST repos/WXYC/dj-site/git/refs -f ref=refs/heads/prod -f sha=<main-sha>` (or `git push origin <main-sha>:prod` from a clean local clone).
-2. **Flip CF Pages production branch** from `main` to `prod`. Path: Cloudflare dashboard → Workers & Pages → `wxyc-dj` → Settings → Builds & deployments → Production branch → change from `main` to `prod`. Leave the preview branch list set to include `main` (or `*` if it already is) so the gate has a preview to wait on.
-3. **Create the bypass tracker issue.** Open a long-lived "Gate bypasses" issue in this repo, label it appropriately, and pin it. Note the issue number.
-4. **Set repo variables.**
-   - `CLOUDFLARE_ACCOUNT_ID` — already set for the existing `cloudflare-deploy-status.yml` monitor; verify.
-   - `GATE_BYPASS_ISSUE_NUMBER` — integer from step 3.
-5. **Set repo secrets.**
-   - `CLOUDFLARE_API_TOKEN` — already set for the existing monitor; verify (needs `Account: Cloudflare Pages: Read` minimum).
-   - `PROD_PUSH_PAT` — new. Fine-grained PAT with `Contents: write` permission scoped to `refs/heads/prod` of `WXYC/dj-site` only (a per-ref PAT minimizes blast radius if it leaks).
-6. **Branch-protect `prod`.** Repository settings → Branches → add ruleset for `prod`: linear history, restrict push access to the `PROD_PUSH_PAT` identity (or whatever bot account holds the PAT). Operator pushes for rollback are still allowed because they use the same PAT (or a manual `gh api PATCH` from an authorized account).
-
-The in-flight bypass and rollback procedures live in [WXYC/wiki#81](https://github.com/WXYC/wiki/issues/81) (Phase 6 runbook).
-
-### Bypass
-Manual `workflow_dispatch` with `skip_gate=true` and a non-empty `justification` skips the CF wait + URL probe but still posts an audit comment to the tracker issue before advancing `prod`. If the audit POST fails, the workflow exits before pushing `prod` (no silent bypasses). The bypass path is intended for cases where the gate itself is broken (e.g., CF API outage) and an out-of-band verified SHA needs to ship.
-
-### Rollback
-Roll `prod` back to a prior SHA via the GitHub refs API; CF Pages picks up the change and rebuilds the prior version in ~2 min.
-
-```
-gh api -X PATCH repos/WXYC/dj-site/git/refs/heads/prod -f sha=<prior-sha> -F force=true
-```
-
-The `force=true` flag is required because the rollback target is an ancestor of the current `prod` HEAD; the API otherwise refuses non-fast-forward updates.
-
-### Tests
-Run `npm run test:staging-gate` to execute the bats suite for the helper scripts. The workflow YAML is `actionlint`-clean against the config in `.github/actionlint.yaml` (which declares the custom `e2e-runner` self-hosted runner label so `runs-on: [self-hosted, e2e-runner]` doesn't trip the linter); run `actionlint .github/workflows/staging-gate.yml` locally before pushing changes to the workflow. Not currently wired into CI.
+Deploy-helper scripts live in `scripts/deploy/`, each with a bats suite in `scripts/__tests__/deploy/`; run `npm run test:scripts`. See [`docs/ci-cd.md`](docs/ci-cd.md) and the cutover procedure in [`docs/deploy-cutover-runbook.md`](docs/deploy-cutover-runbook.md).
 
 ## API Integration
 The revised catalog leverages services defined in `api-service.js`, which utilizes the popular Axios library to communicate with an AWS API Gateway. This integration allows seamless communication between the front-end application and the API endpoints, enabling data retrieval and manipulation.

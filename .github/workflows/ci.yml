@@ -6,10 +6,20 @@ on:
   pull_request:
     branches: [main]
 
+# cancel-in-progress only for PRs: superseded PR runs are safe to cancel to
+# save compute, but a `main` push run carries the production Direct-Upload
+# deploy (deploy-production job) — cancelling that mid-upload would confuse
+# deploy history. On main, rapid pushes queue instead (cancel-in-progress
+# false), so a deploy always runs to completion. See WXYC/dj-site#810.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Localhost placeholders so the test/typecheck/build jobs compile without a
+# backend. The deploy jobs (deploy-production, preview) OVERRIDE every
+# NEXT_PUBLIC_* at the job level from repo variables — otherwise Next would
+# inline these localhost values into a shipped bundle. check-build-env.sh
+# guards the two URL vars against exactly that leak.
 env:
   NEXT_PUBLIC_BACKEND_URL: http://localhost:8080
   NEXT_PUBLIC_BETTER_AUTH_URL: http://localhost:8082/auth
@@ -53,6 +63,7 @@ jobs:
               - 'lib/**'
               - 'tests/**'
               - 'public/**'
+              - 'scripts/**'
               - '*.ts'
               - '*.tsx'
               - '*.mts'
@@ -175,3 +186,260 @@ jobs:
         run: npm run build
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # Bats suites for scripts/deploy/*.sh (hermetic — fake curl/wrangler on
+  # PATH, no network). Gated like the other jobs so it also runs on `main`
+  # pushes; deploy-production `needs:` it so a script regression can't ship.
+  script-tests:
+    name: Script Tests
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.app_source == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Run script tests
+        run: npm run test:scripts
+
+  # Production Direct-Upload deploy. Replaces the Cloudflare Pages Git-build
+  # integration (whose pinned wrangler 3.x boot-500'd @opennextjs/cloudflare
+  # >= 1.19 — WXYC/dj-site#810). Gated on full CI success. Own concurrency
+  # group with cancel-in-progress:false so a queued main run never cancels a
+  # mid-flight upload.
+  deploy-production:
+    name: Deploy Production
+    needs: [changes, typecheck, unit-tests, build, script-tests]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    # Override the workflow-level localhost placeholders with the real
+    # production build-time values (repo variables). NEXT_PUBLIC_* are inlined
+    # into the client bundle at build time.
+    env:
+      NEXT_PUBLIC_BACKEND_URL: ${{ vars.NEXT_PUBLIC_BACKEND_URL }}
+      NEXT_PUBLIC_BETTER_AUTH_URL: ${{ vars.NEXT_PUBLIC_BETTER_AUTH_URL }}
+      NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD: ${{ vars.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD }}
+      NEXT_PUBLIC_DASHBOARD_HOME_PAGE: ${{ vars.NEXT_PUBLIC_DASHBOARD_HOME_PAGE }}
+      NEXT_PUBLIC_DEFAULT_EXPERIENCE: ${{ vars.NEXT_PUBLIC_DEFAULT_EXPERIENCE }}
+      NEXT_PUBLIC_ENABLED_EXPERIENCES: ${{ vars.NEXT_PUBLIC_ENABLED_EXPERIENCES }}
+      NEXT_PUBLIC_ALLOW_EXPERIENCE_SWITCHING: ${{ vars.NEXT_PUBLIC_ALLOW_EXPERIENCE_SWITCHING }}
+      NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED: ${{ vars.NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED }}
+      NEXT_PUBLIC_FLOWSHEET_SSE_DASHBOARD_ENABLED: ${{ vars.NEXT_PUBLIC_FLOWSHEET_SSE_DASHBOARD_ENABLED }}
+      NEXT_PUBLIC_FLOWSHEET_SSE_LIVE_VIEW_ENABLED: ${{ vars.NEXT_PUBLIC_FLOWSHEET_SSE_LIVE_VIEW_ENABLED }}
+      NEXT_PUBLIC_ORCHESTRATOR_URL: ${{ vars.NEXT_PUBLIC_ORCHESTRATOR_URL }}
+      NEXT_PUBLIC_POSTHOG_KEY: ${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}
+      NEXT_PUBLIC_POSTHOG_HOST: ${{ vars.NEXT_PUBLIC_POSTHOG_HOST }}
+      NEXT_PUBLIC_VERSION: ${{ github.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Verify build env
+        run: ./scripts/deploy/check-build-env.sh NEXT_PUBLIC_BACKEND_URL NEXT_PUBLIC_BETTER_AUTH_URL NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Cache Next.js build
+        uses: actions/cache@v6
+        with:
+          path: .next/cache
+          key: nextjs-${{ hashFiles('package-lock.json') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
+          restore-keys: nextjs-${{ hashFiles('package-lock.json') }}-
+
+      - name: Build (OpenNext)
+        run: npm run build:opennext
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Deploy to Cloudflare Pages (production)
+        run: ./scripts/deploy/deploy-cf-pages.sh
+        env:
+          CF_PROJECT: wxyc-dj
+          BRANCH: main
+          COMMIT_HASH: ${{ github.sha }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
+  # Per-PR preview: build -> Direct-Upload a preview deployment -> probe it.
+  # ONE job (not a deploy job + a needs-linked smoke job): a needs-skip on a
+  # failed deploy would report the required "Preview URL smoke check" as a
+  # (skipped) success — the #740 silent-pass. As one job, any failure (build,
+  # wrangler, or a 5xx probe) fails the required check. Replaces the deleted
+  # pr-preview-smoke.yml; the job name is preserved so branch protection still
+  # matches. Fork PRs soft-skip (no secrets); same-repo missing config hard
+  # fails (see #740). Every step after config-check is gated on configured.
+  preview:
+    name: Preview URL smoke check
+    needs: [changes, typecheck, unit-tests, build]
+    if: github.event_name == 'pull_request' && needs.changes.outputs.app_source == 'true'
+    runs-on: ubuntu-latest
+    # Job-level permissions REPLACE the workflow floor, so contents:read is
+    # restated (actions/checkout needs it); pull-requests:write posts the
+    # failure comment.
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      NEXT_PUBLIC_BACKEND_URL: ${{ vars.PREVIEW_NEXT_PUBLIC_BACKEND_URL }}
+      NEXT_PUBLIC_BETTER_AUTH_URL: ${{ vars.PREVIEW_NEXT_PUBLIC_BETTER_AUTH_URL }}
+      NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD: ${{ vars.PREVIEW_NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD }}
+      NEXT_PUBLIC_DASHBOARD_HOME_PAGE: ${{ vars.PREVIEW_NEXT_PUBLIC_DASHBOARD_HOME_PAGE }}
+      NEXT_PUBLIC_DEFAULT_EXPERIENCE: ${{ vars.PREVIEW_NEXT_PUBLIC_DEFAULT_EXPERIENCE }}
+      NEXT_PUBLIC_ENABLED_EXPERIENCES: ${{ vars.PREVIEW_NEXT_PUBLIC_ENABLED_EXPERIENCES }}
+      NEXT_PUBLIC_ALLOW_EXPERIENCE_SWITCHING: ${{ vars.PREVIEW_NEXT_PUBLIC_ALLOW_EXPERIENCE_SWITCHING }}
+      NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED: ${{ vars.PREVIEW_NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED }}
+      NEXT_PUBLIC_FLOWSHEET_SSE_DASHBOARD_ENABLED: ${{ vars.PREVIEW_NEXT_PUBLIC_FLOWSHEET_SSE_DASHBOARD_ENABLED }}
+      NEXT_PUBLIC_FLOWSHEET_SSE_LIVE_VIEW_ENABLED: ${{ vars.PREVIEW_NEXT_PUBLIC_FLOWSHEET_SSE_LIVE_VIEW_ENABLED }}
+      NEXT_PUBLIC_ORCHESTRATOR_URL: ${{ vars.PREVIEW_NEXT_PUBLIC_ORCHESTRATOR_URL }}
+      NEXT_PUBLIC_POSTHOG_KEY: ${{ vars.PREVIEW_NEXT_PUBLIC_POSTHOG_KEY }}
+      NEXT_PUBLIC_POSTHOG_HOST: ${{ vars.PREVIEW_NEXT_PUBLIC_POSTHOG_HOST }}
+      NEXT_PUBLIC_VERSION: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Check required configuration
+        id: config
+        env:
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.event.pull_request.base.repo.full_name }}
+          HAS_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+          HAS_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID != '' }}
+        run: |
+          # Real forks can never access repo secrets — soft-skip those so we
+          # don't block external contributors on infra they don't own. For
+          # same-repo PRs (including Dependabot, which runs from a same-repo
+          # branch but in its own secret context), missing secrets must hard
+          # fail so the silent-pass path that masked the 2026-06-04 outage
+          # (issue #740) can't recur. Dependabot secrets live separately under
+          # Settings → Secrets and variables → Dependabot.
+          if [ "$HEAD_REPO" != "$BASE_REPO" ]; then
+            echo "::warning::Skipping preview — PR head is in fork ${HEAD_REPO}, which cannot access repo secrets."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$HAS_TOKEN" != "true" ] || [ "$HAS_ACCOUNT_ID" != "true" ]; then
+            echo "::error::Same-repo PR but CLOUDFLARE_API_TOKEN secret and/or CLOUDFLARE_ACCOUNT_ID variable is missing in this workflow's secret context. For Dependabot PRs, add CLOUDFLARE_API_TOKEN under Settings → Secrets and variables → Dependabot (separate from Actions). See issue #740."
+            exit 1
+          fi
+
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        if: steps.config.outputs.configured == 'true'
+        uses: actions/checkout@v7
+
+      - name: Verify build env
+        if: steps.config.outputs.configured == 'true'
+        run: ./scripts/deploy/check-build-env.sh NEXT_PUBLIC_BACKEND_URL NEXT_PUBLIC_BETTER_AUTH_URL NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD
+
+      - name: Set up Node.js
+        if: steps.config.outputs.configured == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies
+        if: steps.config.outputs.configured == 'true'
+        run: npm ci
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Cache Next.js build
+        if: steps.config.outputs.configured == 'true'
+        uses: actions/cache@v6
+        with:
+          path: .next/cache
+          key: nextjs-${{ hashFiles('package-lock.json') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
+          restore-keys: nextjs-${{ hashFiles('package-lock.json') }}-
+
+      - name: Build (OpenNext)
+        if: steps.config.outputs.configured == 'true'
+        run: npm run build:opennext
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Deploy preview to Cloudflare Pages
+        id: deploy
+        if: steps.config.outputs.configured == 'true'
+        run: ./scripts/deploy/deploy-cf-pages.sh
+        env:
+          CF_PROJECT: wxyc-dj
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          COMMIT_HASH: ${{ github.event.pull_request.head.sha }}
+          COMMIT_MESSAGE: "preview ${{ github.event.pull_request.head.sha }}"
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Smoke-test preview URL
+        id: smoke
+        if: steps.config.outputs.configured == 'true'
+        env:
+          DEPLOY_URL: ${{ steps.deploy.outputs.deployment_url }}
+        run: |
+          PROBE_URL="${DEPLOY_URL%/}/"
+          echo "Probing ${PROBE_URL}"
+
+          HTTP_CODE=$(curl -sS -o /dev/null -w '%{http_code}\n' --max-time 30 "$PROBE_URL" || echo "000")
+          echo "Preview ${PROBE_URL} returned HTTP ${HTTP_CODE}"
+          echo "http_code=${HTTP_CODE}" >> "$GITHUB_OUTPUT"
+
+          # 2xx and 3xx are success. 401/403 are expected for auth-gated routes
+          # — `/` may redirect through middleware; treat them as success too.
+          # Any 5xx is the failure mode we are guarding against. Any other 4xx
+          # or a network failure (000) is unexpected enough to flag.
+          case "$HTTP_CODE" in
+            2*|3*|401|403)
+              echo "Preview URL is healthy."
+              ;;
+            5*)
+              echo "::error::Preview URL returned ${HTTP_CODE} — likely worker boot failure. Blocking merge."
+              exit 1
+              ;;
+            *)
+              echo "::error::Preview URL returned unexpected status ${HTTP_CODE}. Blocking merge."
+              exit 1
+              ;;
+          esac
+
+      - name: Comment on PR with failure detail
+        if: failure() && steps.config.outputs.configured == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          DEPLOY_URL: ${{ steps.deploy.outputs.deployment_url }}
+          DEPLOY_OUTCOME: ${{ steps.deploy.outcome }}
+          HTTP_CODE: ${{ steps.smoke.outputs.http_code }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "$DEPLOY_OUTCOME" != "success" ]; then
+            BODY="Preview smoke check failed: the CI preview build/deploy for commit ${HEAD_SHA} did not complete (build error or \`wrangler pages deploy\` failure). See the workflow run for details: ${RUN_URL}. Merging is blocked until the preview builds and boots cleanly."
+          else
+            BODY="Preview smoke check failed: ${DEPLOY_URL}/ returned HTTP \`${HTTP_CODE}\`. A 5xx response usually means the Cloudflare worker failed at boot — see the workflow run: ${RUN_URL}. Merging is blocked until the preview URL returns a non-5xx response."
+          fi
+
+          gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$BODY"
