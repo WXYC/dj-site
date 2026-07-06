@@ -793,6 +793,78 @@ describe("SongEntry", () => {
       // The handleMouseEnter logic only sets canClose when queue && live
     });
   });
+
+  describe("Column order (tubafrenzy parity)", () => {
+    // Point jsdom's matchMedia at the xl breakpoint (the vitest setup's
+    // global mock always matches false, i.e. sub-xl).
+    const originalMatchMedia = window.matchMedia;
+    const setXl = (isXl: boolean) => {
+      window.matchMedia = ((query: string) => ({
+        matches: isXl && query === "(min-width: 1536px)",
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      })) as typeof window.matchMedia;
+    };
+    afterEach(() => {
+      window.matchMedia = originalMatchMedia;
+    });
+
+    const renderedFieldOrder = () =>
+      Array.from(
+        screen
+          .getByTestId("draggable-wrapper")
+          .querySelectorAll('[data-testid^="field-"]')
+      ).map((el) => el.getAttribute("data-testid"));
+
+    it("reads artist, song, album, label in that order at xl", () => {
+      setXl(true);
+      render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
+
+      expect(renderedFieldOrder()).toEqual([
+        "field-artist_name",
+        "field-track_title",
+        "field-album_title",
+        "field-record_label",
+      ]);
+    });
+
+    it("keeps the refactor's two-line stacked cells below xl", () => {
+      setXl(false);
+      render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
+
+      // Sub-xl keeps the two-line playlist-cell design (title over artist,
+      // album over label) — tubafrenzy column order applies to the xl
+      // full-column layout only.
+      expect(renderedFieldOrder()).toEqual([
+        "field-track_title",
+        "field-artist_name",
+        "field-album_title",
+        "field-record_label",
+      ]);
+    });
+
+    it("does not stack fields at xl and gives each field cell a single column", () => {
+      setXl(true);
+      render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
+
+      const cells = Array.from(
+        screen.getByTestId("draggable-wrapper").querySelectorAll("td")
+      );
+      cells.forEach((td) => {
+        expect(
+          td.querySelectorAll('[data-testid^="field-"]').length
+        ).toBeLessThanOrEqual(1);
+        if (td.querySelector('[data-testid^="field-"]')) {
+          expect(td.colSpan).toBe(1);
+        }
+      });
+    });
+  });
 });
 
 describe("SongEntry two-line row structure", () => {
@@ -861,17 +933,17 @@ describe("SongEntry two-line row structure", () => {
       .getByTestId("draggable-wrapper")
       .querySelectorAll(":scope > td");
 
-    // Title cell (index 1): the title only — the artist has its own column.
-    expect(
-      cells[1].querySelector('[data-testid="field-track_title"]')
-    ).not.toBeNull();
+    // Standalone artist column leads (index 1) — tubafrenzy order, see #820.
     expect(
       cells[1].querySelector('[data-testid="field-artist_name"]')
-    ).toBeNull();
-    // Standalone artist column (index 2).
+    ).not.toBeNull();
+    // Title cell (index 2): the title only — the artist has its own column.
+    expect(
+      cells[2].querySelector('[data-testid="field-track_title"]')
+    ).not.toBeNull();
     expect(
       cells[2].querySelector('[data-testid="field-artist_name"]')
-    ).not.toBeNull();
+    ).toBeNull();
     // Album cell (index 3): the album only.
     expect(
       cells[3].querySelector('[data-testid="field-album_title"]')

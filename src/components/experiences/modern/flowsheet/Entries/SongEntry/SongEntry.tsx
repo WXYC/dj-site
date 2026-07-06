@@ -121,6 +121,26 @@ const SongEntry = memo(function SongEntry({
           )}
         </Stack>
       </td>
+      {/* Tubafrenzy reading order (Artist – Song – Album – Label, see #820):
+          above xl the artist leads as its own column. */}
+      {isXl && (
+        <td
+          className="col-artist"
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
+          <FlowsheetEntryField
+            label="artist"
+            name={"artist_name"}
+            entry={entry}
+            playing={playing}
+            queue={queue}
+            editable={editable}
+            level="body-sm"
+            textColor={entryFieldTextColor("artist", playing)}
+          />
+        </td>
+      )}
       <td onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
         <FlowsheetEntryField
           label="song"
@@ -149,24 +169,6 @@ const SongEntry = memo(function SongEntry({
           </Box>
         )}
       </td>
-      {isXl && (
-        <td
-          className="col-artist"
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-        >
-          <FlowsheetEntryField
-            label="artist"
-            name={"artist_name"}
-            entry={entry}
-            playing={playing}
-            queue={queue}
-            editable={editable}
-            level="body-sm"
-            textColor={entryFieldTextColor("artist", playing)}
-          />
-        </td>
-      )}
       <td onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
         <FlowsheetEntryField
           label="album"
