@@ -105,15 +105,16 @@ export const FLOWSHEET_TABLE_SX: SxProps = {
 };
 
 // Column sizing only (rendered inside a visibility-collapsed thead): art+drag
-// | title | artist | album | label | status+actions. Every row type must
+// | artist | title | album | label | status+actions (tubafrenzy reading
+// order, artist before song — see #820). Every row type must
 // render exactly these 6 column units (4 below xl, where the artist and
 // label columns collapse) or fixed-layout sizing silently degrades.
 export function FlowsheetColumnSizingRow() {
   return (
     <tr>
       <td style={{ width: "60px" }}></td>
-      <td></td>
       <td className="col-artist"></td>
+      <td></td>
       <td></td>
       <td className="col-label"></td>
       <td style={{ width: "150px" }}></td>

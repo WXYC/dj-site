@@ -391,6 +391,24 @@ describe("MessageEntry", () => {
       const wrapper = screen.getByTestId("draggable-wrapper");
       expect(wrapper).toHaveStyle({ height: "40px" });
     });
+
+    it("should span the data columns so message rows match song rows", () => {
+      render(
+        <MessageEntry entry={mockMessageEntry} color="neutral" variant="soft">
+          Content
+        </MessageEntry>
+      );
+
+      // Song rows are art + 2 stacked data cells + actions below xl (jsdom
+      // matches false), so the whole marker row must also total 4 column
+      // units. At xl both grow in lock-step to 6 (see the colSpan comment in
+      // MessageEntry.tsx).
+      const cells = Array.from(
+        screen.getByTestId("draggable-wrapper").querySelectorAll("td")
+      );
+      const totalColumns = cells.reduce((sum, td) => sum + td.colSpan, 0);
+      expect(totalColumns).toBe(4);
+    });
   });
 
   describe("Edge cases", () => {
