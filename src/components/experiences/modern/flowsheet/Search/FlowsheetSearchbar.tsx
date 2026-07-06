@@ -221,7 +221,7 @@ export default function FlowsheetSearchbar() {
 
   return (
     <ClickAwayListener onClickAway={handleClose}>
-      <FormControl size="sm" sx={{ flex: 1, minWidth: 0 }}>
+      <FormControl size="sm" sx={{ minWidth: 0 }}>
         <FlowsheetSearchResults
           binResults={binResults}
           catalogResults={catalogResults}

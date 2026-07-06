@@ -128,6 +128,25 @@ describe("FlowsheetSearchbar", () => {
     expect(container.querySelector("form")).toBeInTheDocument();
   });
 
+  it("should not stretch to fill the page column (regression: giant gap above the flowsheet)", () => {
+    const store = createTestStore();
+
+    const { container } = render(
+      <Provider store={store}>
+        <FlowsheetSearchbar />
+      </Provider>
+    );
+
+    // MainContent is a column flex pinned to 100dvh; flex-grow on the
+    // searchbar's FormControl absorbs all leftover vertical space and pushes
+    // the entry tables to the bottom of the viewport.
+    const formControl = container.querySelector(
+      ".MuiFormControl-root"
+    ) as HTMLElement;
+    expect(formControl).toBeInTheDocument();
+    expect(getComputedStyle(formControl).flexGrow).not.toBe("1");
+  });
+
   it("should render BreakpointButton", () => {
     const store = createTestStore();
 
