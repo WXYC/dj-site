@@ -30,7 +30,7 @@
     "@mui/icons-material": "^6.4.0",
     "@mui/joy": "^5.0.0-beta.51",
     "@mui/material": "^6.4.0",
-    "@opennextjs/cloudflare": "^1.10.1",
+    "@opennextjs/cloudflare": "^1.14.10",
     "@reduxjs/toolkit": "^2.12.0",
     "@uidotdev/usehooks": "^2.4.1",
     "@wxyc/shared": "^1.17.1",
@@ -39,7 +39,7 @@
     "jose": "^6.2.3",
     "jwt-decode": "^4.0.0",
     "motion": "^12.42.0",
-    "next": "^16.1.1",
+    "next": "^16.1.7",
     "posthog-js": "^1.395.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -69,7 +69,7 @@
     "pg": "^8.22.0",
     "typescript": "^6.0.3",
     "vitest": "^4.0.18",
-    "wrangler": "^4.106.0"
+    "wrangler": "^4.107.0"
   },
   "optionalDependencies": {
     "@ast-grep/napi-darwin-arm64": "^0.44.0",
