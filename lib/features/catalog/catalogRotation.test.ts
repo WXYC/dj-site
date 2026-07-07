@@ -35,7 +35,7 @@ describe("catalogSlice rotation state", () => {
     expect(state.rotationByAlbumId[42]).toBeUndefined();
   });
 
-  it("setFilter clears rotationByAlbumId when tags change", () => {
+  it("setFilter preserves rotationByAlbumId when filters change", () => {
     let state = catalogSlice.reducer(
       defaultCatalogFrontendState,
       catalogSlice.actions.setAlbumRotation({
@@ -46,9 +46,12 @@ describe("catalogSlice rotation state", () => {
     );
     state = catalogSlice.reducer(
       state,
-      catalogSlice.actions.setFilter({ tags: ["H"] }),
+      catalogSlice.actions.setFilter({ onStreaming: false }),
     );
-    expect(state.rotationByAlbumId).toEqual({});
-    expect(state.filters.tags).toEqual(["H"]);
+    expect(state.rotationByAlbumId[42]).toEqual({
+      rotation_bin: "M",
+      rotation_id: 99,
+    });
+    expect(state.filters.onStreaming).toBe(false);
   });
 });

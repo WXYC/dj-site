@@ -11,7 +11,7 @@ describe("mergeAlbumIntoSearchResult", () => {
       label: "Old Label",
       entry: 3,
       plays: 12,
-      matched_via: [{ source: "track", title: "Old Title" }],
+      matched_via: [{ source: "library_identity", title: "Old Title" }],
       artwork_url: "https://example.com/art.jpg",
       rotation_id: 99,
     });
@@ -43,11 +43,13 @@ describe("mergeAlbumIntoSearchResult", () => {
       date_lost: "2024-01-01",
       date_found: undefined,
     });
-    const updated = createTestAlbum({
-      id: 42,
+    const updated = {
+      ...createTestAlbum({
+        id: 42,
+        date_found: "2024-02-01",
+      }),
       date_lost: null,
-      date_found: "2024-02-01",
-    });
+    } as AlbumEntry;
 
     const merged = mergeAlbumIntoSearchResult(existing, updated);
 
