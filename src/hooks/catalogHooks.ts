@@ -67,6 +67,9 @@ function queryTermInnerValue(value: string): string {
   ) {
     return trimmed.slice(1, -1);
   }
+  if (trimmed.includes('"')) {
+    return "";
+  }
   return trimmed;
 }
 
@@ -76,6 +79,7 @@ export function buildCatalogQuery(rows: CatalogSearchRow[]): string {
     const row = rows[i];
     if (!row.value.trim()) continue;
     const inner = queryTermInnerValue(row.value);
+    if (!inner) continue;
     const value = row.exact ? `"${inner}"` : inner;
     const prefix = CATALOG_FIELD_PREFIXES[row.field] ?? "";
     const fullTerm = `${prefix}${value}`;
@@ -298,14 +302,38 @@ export function useCatalogQueryResults() {
     );
   }, [data?.pages, rotationFilterBins]);
 
-  const total = data?.pages?.[0]?.total ?? 0;
+  const hasRotationClientFilter = rotationFilterBins.length > 0;
+  const rtkHasNextPage = hasNextPage ?? false;
+
+  useEffect(() => {
+    if (!queryEnabled || !hasRotationClientFilter) return;
+    if (isFetching || !rtkHasNextPage) return;
+    if (results.length > 0) return;
+    void fetchNextPage();
+  }, [
+    queryEnabled,
+    hasRotationClientFilter,
+    isFetching,
+    rtkHasNextPage,
+    results.length,
+    fetchNextPage,
+  ]);
+
+  const total = useMemo(() => {
+    if (hasRotationClientFilter) return results.length;
+    return data?.pages?.[0]?.total ?? 0;
+  }, [hasRotationClientFilter, results.length, data?.pages]);
+
   const isLoadingInitial = isFetching && !data?.pages?.length;
   const isFetchingMore = isFetching && (data?.pages?.length ?? 0) > 0;
+  const effectiveHasNextPage = hasRotationClientFilter
+    ? rtkHasNextPage && (results.length > 0 || isFetching)
+    : rtkHasNextPage;
 
   return {
     results,
     total,
-    hasNextPage: hasNextPage ?? false,
+    hasNextPage: effectiveHasNextPage,
     isLoadingInitial,
     isFetchingMore,
     isError,
