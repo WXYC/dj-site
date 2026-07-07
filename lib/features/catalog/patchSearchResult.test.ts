@@ -37,6 +37,24 @@ describe("mergeAlbumIntoSearchResult", () => {
     expect(merged.rotation_id).toBe(99);
   });
 
+  it("clears date_lost and date_found when mutation returns null", () => {
+    const existing = createTestAlbum({
+      id: 42,
+      date_lost: "2024-01-01",
+      date_found: undefined,
+    });
+    const updated = createTestAlbum({
+      id: 42,
+      date_lost: null,
+      date_found: "2024-02-01",
+    });
+
+    const merged = mergeAlbumIntoSearchResult(existing, updated);
+
+    expect(merged.date_lost).toBeNull();
+    expect(merged.date_found).toBe("2024-02-01");
+  });
+
   it("merges albums with empty title fields from LML-only rows", () => {
     const existing = createTestAlbum({
       id: 42,

@@ -25,14 +25,12 @@ function findAlbumInSearchDraft(
   return undefined;
 }
 
-function patchInfiniteSearchDraft(
+function setInfiniteDraftTotal(
   draft: { pages: LibraryQueryResult[] },
-  patchRow: (row: AlbumEntry) => void,
-) {
+  total: number,
+): void {
   for (const page of draft.pages) {
-    for (const row of page.results) {
-      patchRow(row);
-    }
+    page.total = total;
   }
 }
 
@@ -40,17 +38,20 @@ function removeAlbumFromInfiniteDraft(
   draft: { pages: LibraryQueryResult[] },
   albumId: number,
 ): boolean {
-  let removedCount = 0;
+  let removed = false;
   for (const page of draft.pages) {
     const index = page.results.findIndex((r) => r.id === albumId);
     if (index === -1) continue;
     page.results.splice(index, 1);
-    removedCount += 1;
+    removed = true;
   }
-  if (removedCount > 0 && draft.pages[0]) {
-    draft.pages[0].total = Math.max(0, draft.pages[0].total - removedCount);
+  if (removed && draft.pages[0]) {
+    setInfiniteDraftTotal(
+      draft,
+      Math.max(0, draft.pages[0].total - 1),
+    );
   }
-  return removedCount > 0;
+  return removed;
 }
 
 function sortKeyForAlbum(
@@ -110,7 +111,7 @@ function insertAlbumIntoInfiniteDraft(
     }
   }
   page.results.splice(insertAt, 0, album);
-  page.total += 1;
+  setInfiniteDraftTotal(draft, page.total + 1);
 }
 
 function hasUsableAlbumData(album: AlbumEntry): boolean {
@@ -259,10 +260,16 @@ export function patchCatalogSearchCaches(
         "searchLibraryQueryInfinite",
         args,
         (draft) => {
-          patchInfiniteSearchDraft(draft, (row) => {
-            if (row.id !== updated.id) return;
-            Object.assign(row, mergeAlbumIntoSearchResult(row, updated));
-          });
+          const existing = findAlbumInSearchDraft(draft, updated.id);
+          if (!existing) return;
+
+          const merged = mergeAlbumIntoSearchResult(existing, updated);
+          if (!albumMatchesCatalogQueryArg(merged, args)) {
+            removeAlbumFromInfiniteDraft(draft, updated.id);
+            return;
+          }
+
+          Object.assign(existing, merged);
         },
       ),
     );
