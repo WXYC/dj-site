@@ -196,9 +196,10 @@ jobs:
 
       - name: Install dependencies
         env:
-          # Backend-Service@main resolves @wxyc/shared from GitHub Packages.
-          # GITHUB_TOKEN + packages:read satisfies Backend-Service/.npmrc;
-          # the org NPM_TOKEN secret lacks read:packages on fork/PR runs.
+          # GITHUB_TOKEN + packages:read installs @wxyc/shared from GitHub
+          # Packages on same-repo workflows. Fork-originated PRs cannot access
+          # repo secrets at all — this swap does not change that; it matches
+          # charset-corpus-drift.yml for in-repo PR/push runs.
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           (cd Backend-Service && npm ci) &

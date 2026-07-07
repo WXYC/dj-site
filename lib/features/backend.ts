@@ -44,11 +44,15 @@ const innerBaseQuery = (domain: string): BackendBaseQuery =>
  * resulting `SyntaxError: Unrecognized token '<'` bubbles up as a useless
  * global toast (see WXYC/dj-site#519).
  *
- * Returning `{ data: null }` here makes the calling query succeed with no
- * payload. RTK Query rejects `{ data: undefined }` (it becomes `{}` and
- * triggers "neither error nor result"). Callers should treat null/undefined
- * data as empty. Structured JSON 4xx responses are *not* affected — they
- * still flow through `validateStatus` and surface as normal errors.
+ * Returning `{ data: null }` here makes the calling query succeed with an
+ * empty payload instead of surfacing PARSING_ERROR as a global toast (#519).
+ * We use `null` (not `undefined`) so hook consumers can treat a completed
+ * soft-fail with nullish checks (`?? []`, `!data`) without conflating it
+ * with RTK's in-flight `undefined`. Avoid strict `data === undefined`
+ * guards on GET results — they miss soft-failed `null` (#606). Endpoints
+ * whose `transformResponse` assumes a parsed body must still guard nullish
+ * input. Structured JSON 4xx responses are *not* affected — they still
+ * flow through `validateStatus` and surface as normal errors.
  */
 const isNonJsonParsingError = (
   error: FetchBaseQueryError
@@ -118,9 +122,10 @@ const isGetRequest = (args: string | FetchArgs): boolean => {
  * 1. Adds the JWT bearer token and a request id (in `prepareHeaders`).
  * 2. Soft-handles non-JSON responses (most notably Express's HTML 404s)
  *    **for GET requests by default**: the query resolves with
- *    `{ data: null }` instead of throwing the cryptic
+ *    `{ data: null }` (hook `data` may be `null` even when the endpoint
+ *    type is `T | undefined`) instead of throwing the cryptic
  *    `Unrecognized token '<'` JSON-parse error up to the global error toast.
- *    See WXYC/dj-site#519.
+ *    See WXYC/dj-site#519 and #606.
  *
  * Mutations (POST/PATCH/DELETE/PUT) **never** get the soft-handle treatment —
  * a silently-"succeeding" `addToFlowsheet` or `addAlbum` is a worse UX than a
