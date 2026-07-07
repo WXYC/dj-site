@@ -1,21 +1,9 @@
-import type { AlbumSearchResult } from "@wxyc/shared/dtos";
+import type { AlbumSearchResult, TrackMatchHint } from "@wxyc/shared/dtos";
+import { TrackMatchSource } from "@wxyc/shared/dtos";
 import { Rotation } from "../rotation/types";
 
-export type { AlbumSearchResult };
-
-/** Track-level match hints returned by catalog track search (not yet in @wxyc/shared). */
-export type TrackMatchHint = {
-  source: string;
-  title: string;
-  confidence?: number;
-  position?: string;
-  artist_credit?: string;
-};
-
-export const TrackMatchSource = {
-  cta: "cta",
-  discogs_master: "discogs_master",
-} as const;
+export type { AlbumSearchResult, TrackMatchHint };
+export { TrackMatchSource };
 
 /**
  * JSON boundary adapter for AlbumSearchResult.
@@ -120,15 +108,26 @@ export type AddGenreRequestBody = {
   description: string;
 };
 
+export type AlbumParams = {
+  album_title: string;
+  artist_name: string | undefined;
+  artist_id: string | undefined;
+  label: string;
+  genre_id: string;
+  format_id: string;
+  disc_quantity: number | undefined;
+  alternate_artist_name: string | undefined;
+};
+
 export type AlbumRequestParams = {
   album_id: number;
 };
 
-/** @deprecated use AddAlbumRequestBody */
-export type AlbumParams = AddAlbumRequestBody;
-
-/** @deprecated use AddArtistRequestBody */
-export type ArtistParams = AddArtistRequestBody;
+export type ArtistParams = {
+  artist_name: string;
+  code_letters: string;
+  genre_id: string;
+};
 
 export type AlbumEntry = {
   id: number;
@@ -179,20 +178,19 @@ export type CatalogSearchRow = {
 };
 
 export type CatalogFilters = {
-  genres: string[]; // empty = no genre filter
-  formats: string[]; // empty = no format filter
-  tags: string[]; // status: exclusives, missing; rotation bins: H, M, L, S
+  onStreaming: boolean | undefined; // undefined = no filter
+  genre: Genre | "All"; // 'All' = no filter
+  format: Format | "All"; // 'All' = no filter
 };
 
 export type CatalogSearchState = {
   rows: CatalogSearchRow[];
   sortBy: CatalogSortBy;
   sortOrder: CatalogSortOrder;
+  page: number;
   filters: CatalogFilters;
   selected: number[];
   mobileOpen: boolean;
-  /** User chose to browse the full catalog (empty query) without typing a search. */
-  browseEngaged: boolean;
 };
 
 // --- Request envelope for /library/query ---
@@ -204,6 +202,8 @@ export type LibraryQueryParams = {
   sort?: CatalogSortBy;
   order?: CatalogSortOrder;
   on_streaming?: boolean;
+  genre?: string;
+  format?: string;
   missing?: boolean;
   genres?: string;
   formats?: string;
@@ -224,27 +224,3 @@ export type Genre =
   | "Soundtracks"
   | "OCS"
   | "Unknown";
-
-export type SearchIn = "Artists" | "Albums" | "All";
-
-/** Shared rotation UI state for a library album (search row, edit panel, context menu). */
-export type CatalogAlbumRotation = {
-  rotation_bin: Rotation | undefined;
-  rotation_id: number | undefined;
-};
-
-/** Open catalog result row context menu (at most one globally). */
-export type CatalogResultContextMenuState = {
-  albumId: number;
-  top: number;
-  left: number;
-};
-
-export type CatalogFrontendState = CatalogSearchState & {
-  /** Latest album saved from catalog edit; drives in-memory search list refresh. */
-  lastPatchedSearchResult: AlbumEntry | null;
-  /** Per-album rotation after apply or hydrate; ties rightbar and catalog results together. */
-  rotationByAlbumId: Record<number, CatalogAlbumRotation>;
-  /** Which search result row owns the open context menu, if any. */
-  resultContextMenu: CatalogResultContextMenuState | null;
-};
