@@ -84,6 +84,11 @@ describe("buildCatalogQuery", () => {
     ]);
     expect(result).toBe("artist:Stereolab AND label:Drag City");
   });
+
+  it("drops rows whose inner term is empty after quote stripping", () => {
+    expect(buildCatalogQuery([row({ value: '""', exact: true })])).toBe("");
+    expect(buildCatalogQuery([row({ value: '"', exact: true })])).toBe("");
+  });
 });
 
 describe("toLibraryQueryParams", () => {

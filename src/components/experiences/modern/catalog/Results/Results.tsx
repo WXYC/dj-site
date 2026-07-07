@@ -25,10 +25,14 @@ export default function Results({
 
   const {
     results: releaseList,
-    isLoading: loading,
-    hasMore,
-    loadNextPage,
+    isLoadingInitial,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingMore,
   } = useCatalogQueryResults();
+  const loading = isLoadingInitial;
+  const hasMore = hasNextPage;
+  const loadNextPage = fetchNextPage;
   return (
     <ResultsContainer>
       <Table
@@ -126,6 +130,7 @@ export default function Results({
                   variant="solid"
                   color="primary"
                   size="lg"
+                  loading={isFetchingMore}
                   sx={{
                     marginRight: "1rem",
                   }}

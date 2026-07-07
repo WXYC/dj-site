@@ -267,4 +267,87 @@ describe("useCatalogQueryResults", () => {
     });
     expect(result.current.isLoadingInitial).toBe(false);
   });
+
+  it("uses filtered result count and auto-fetches when rotation filter empties a page", async () => {
+    const store = makeStore();
+    const fetchNextPage = vi.fn();
+    nextInfiniteResult = {
+      data: {
+        pages: [
+          {
+            results: [
+              createTestAlbum({ id: 1, rotation_bin: "M" }),
+              createTestAlbum({ id: 2, rotation_bin: undefined }),
+            ],
+            total: 100,
+            page: 0,
+            totalPages: 5,
+          },
+        ],
+      },
+      isFetching: false,
+      isError: false,
+      hasNextPage: true,
+      fetchNextPage,
+    };
+
+    act(() => {
+      store.dispatch(catalogSlice.actions.engageBrowse());
+      store.dispatch(
+        catalogSlice.actions.setFilter({ tags: ["H"] }),
+      );
+    });
+
+    const { result } = renderHook(() => useCatalogQueryResults(), {
+      wrapper: Wrapper({ store }),
+    });
+
+    await waitFor(() => {
+      expect(result.current.results).toHaveLength(0);
+      expect(fetchNextPage).toHaveBeenCalled();
+    });
+    expect(result.current.total).toBe(0);
+    expect(result.current.hasNextPage).toBe(false);
+  });
+
+  it("keeps only rotation rows matching selected bins", async () => {
+    const store = makeStore();
+    nextInfiniteResult = {
+      data: {
+        pages: [
+          {
+            results: [
+              createTestAlbum({ id: 1, rotation_bin: "H" }),
+              createTestAlbum({ id: 2, rotation_bin: "M" }),
+            ],
+            total: 2,
+            page: 0,
+            totalPages: 1,
+          },
+        ],
+      },
+      isFetching: false,
+      isError: false,
+      hasNextPage: false,
+      fetchNextPage: vi.fn(),
+    };
+
+    act(() => {
+      store.dispatch(catalogSlice.actions.engageBrowse());
+      store.dispatch(
+        catalogSlice.actions.setFilter({ tags: ["H"] }),
+      );
+    });
+
+    const { result } = renderHook(() => useCatalogQueryResults(), {
+      wrapper: Wrapper({ store }),
+    });
+
+    await waitFor(() => {
+      expect(result.current.results).toHaveLength(1);
+    });
+    expect(result.current.results[0].id).toBe(1);
+    expect(result.current.total).toBe(1);
+    expect(result.current.hasNextPage).toBe(false);
+  });
 });

@@ -53,8 +53,9 @@ describe("getCatalogTagLabel", () => {
     expect(getCatalogTagLabel("S")).toBe("Singles Rotation");
   });
 
-  it("passes through status tag ids", () => {
-    expect(getCatalogTagLabel("exclusives")).toBe("exclusives");
+  it("title-cases status tags for the autocomplete", () => {
+    expect(getCatalogTagLabel("exclusives")).toBe("Exclusives");
+    expect(getCatalogTagLabel("missing")).toBe("Missing");
   });
 });
 

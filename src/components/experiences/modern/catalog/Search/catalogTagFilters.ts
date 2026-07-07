@@ -25,7 +25,8 @@ export function isCatalogRotationTag(tagId: string): tagId is CatalogRotationTag
 }
 
 export function getCatalogTagLabel(tagId: string): string {
-  if (tagId === "exclusives" || tagId === "missing") return tagId;
+  if (tagId === "exclusives") return "Exclusives";
+  if (tagId === "missing") return "Missing";
   if (isCatalogRotationTag(tagId)) {
     return `${ROTATION_BIN_LABELS[tagId]} Rotation`;
   }
