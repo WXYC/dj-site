@@ -15,8 +15,24 @@ import { Rotation } from "@/lib/features/rotation/types";
 
 describe("catalogApi", () => {
   describeApi(catalogApi, {
-    queries: ["searchCatalog", "getInformation", "getFormats", "getGenres", "peekArtistCode"],
-    mutations: ["addAlbum", "addArtist", "addFormat", "addGenre", "markMissing", "markFound"],
+    queries: [
+      "searchCatalog",
+      "searchLibraryQuery",
+      "getInformation",
+      "getFormats",
+      "getGenres",
+      "peekArtistCode",
+      "searchArtistsInGenre",
+    ],
+    mutations: [
+      "addAlbum",
+      "addArtist",
+      "addFormat",
+      "addGenre",
+      "updateAlbum",
+      "markMissing",
+      "markFound",
+    ],
     reducerPath: "catalogApi",
   });
 });
