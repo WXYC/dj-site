@@ -78,6 +78,22 @@ async function resolveOrganizationIdClient(
   }
 }
 
+/** Whether a normalized role string is a known WXYC org role we trust from JWT claims. */
+export function isRecognizedOrganizationRole(role: string): boolean {
+  switch (normalizeRole(role)) {
+    case "member":
+    case "dj":
+    case "musicDirector":
+    case "stationManager":
+    case "owner":
+    case "admin":
+    case "user":
+      return true;
+    default:
+      return false;
+  }
+}
+
 /**
  * Read the current user's organization role from a better-auth JWT.
  * JWTs include member role for all authenticated users; organization.listMembers
@@ -89,8 +105,14 @@ export function organizationRoleFromJwtToken(
 ): WXYCRole | undefined {
   try {
     const decoded = jwtDecode<BetterAuthJwtPayload>(token);
+    if (typeof decoded.exp === "number" && decoded.exp * 1000 <= Date.now()) {
+      return undefined;
+    }
     const tokenUserId = decoded.id || decoded.sub;
     if (!tokenUserId || tokenUserId !== userId || !decoded.role) {
+      return undefined;
+    }
+    if (!isRecognizedOrganizationRole(decoded.role)) {
       return undefined;
     }
     return normalizeRole(decoded.role) as WXYCRole;

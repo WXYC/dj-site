@@ -199,6 +199,28 @@ describe("organization-utils", () => {
       expect(mockListMembers).not.toHaveBeenCalled();
     });
 
+    it("falls through to listMembers when JWT role is unrecognized", async () => {
+      const payload = Buffer.from(
+        JSON.stringify({ sub: "user-123", role: "superuser" })
+      ).toString("base64url");
+      server.use(
+        http.get("https://api.wxyc.org/auth/token", () =>
+          HttpResponse.json({ token: `header.${payload}.sig` })
+        )
+      );
+      mockListMembers.mockResolvedValue({
+        data: {
+          members: [{ userId: "user-123", role: "dj" }],
+        },
+        error: null,
+      });
+
+      const result = await getUserRoleInOrganization("user-123", "wxyc", "cookie");
+
+      expect(result).toBe("dj");
+      expect(mockListMembers).toHaveBeenCalled();
+    });
+
     it("should return user role when member exists", async () => {
       mockListMembers.mockResolvedValue({
         data: {
@@ -322,6 +344,28 @@ describe("organization-utils", () => {
     it("returns undefined when JWT user id does not match", () => {
       const payload = Buffer.from(
         JSON.stringify({ sub: "other-user", role: "musicDirector" })
+      ).toString("base64url");
+      const token = `header.${payload}.sig`;
+
+      expect(organizationRoleFromJwtToken(token, "user-123")).toBeUndefined();
+    });
+
+    it("returns undefined for expired JWTs", () => {
+      const payload = Buffer.from(
+        JSON.stringify({
+          sub: "user-123",
+          role: "musicDirector",
+          exp: Math.floor(Date.now() / 1000) - 60,
+        })
+      ).toString("base64url");
+      const token = `header.${payload}.sig`;
+
+      expect(organizationRoleFromJwtToken(token, "user-123")).toBeUndefined();
+    });
+
+    it("returns undefined for unrecognized JWT roles", () => {
+      const payload = Buffer.from(
+        JSON.stringify({ sub: "user-123", role: "superuser" })
       ).toString("base64url");
       const token = `header.${payload}.sig`;
 

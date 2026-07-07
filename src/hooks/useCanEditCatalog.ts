@@ -11,28 +11,39 @@ export function useCanEditCatalog(): boolean {
   const { data: session } = authClient.useSession();
   const { data } = useAuthentication();
   const [jwtAllowsEdit, setJwtAllowsEdit] = useState(false);
+  const [jwtUserId, setJwtUserId] = useState<string | undefined>();
 
   const userId =
     session?.user?.id ??
     (isAuthenticated(data) ? data.user?.id : undefined);
 
-  useEffect(() => {
-    setJwtAllowsEdit(false);
+  // Render-time gate: ignore JWT edit state until it is resolved for userId.
+  const jwtEditAllowed =
+    userId != null && userId === jwtUserId ? jwtAllowsEdit : false;
 
+  useEffect(() => {
     if (!userId) {
+      setJwtUserId(undefined);
+      setJwtAllowsEdit(false);
       return;
     }
 
     let cancelled = false;
     void (async () => {
       const token = await getJWTToken();
-      if (cancelled || !token) {
+      if (cancelled) {
+        return;
+      }
+      if (!token) {
+        setJwtUserId(userId);
+        setJwtAllowsEdit(false);
         return;
       }
       const role = organizationRoleFromJwtToken(token, userId);
-      if (!cancelled && role) {
-        setJwtAllowsEdit(roleToAuthorization(role) >= Authorization.MD);
-      }
+      setJwtUserId(userId);
+      setJwtAllowsEdit(
+        role ? roleToAuthorization(role) >= Authorization.MD : false,
+      );
     })();
 
     return () => {
@@ -40,7 +51,7 @@ export function useCanEditCatalog(): boolean {
     };
   }, [userId]);
 
-  if (jwtAllowsEdit) {
+  if (jwtEditAllowed) {
     return true;
   }
   if (isAuthenticated(data) && data.user) {
