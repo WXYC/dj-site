@@ -2,7 +2,6 @@ import { describe, it, expect, vi } from "vitest";
 import {
   catalogApi,
   useSearchCatalogQuery,
-  useSearchLibraryQueryInfiniteQuery,
   useAddAlbumMutation,
   useAddArtistMutation,
   useGetInformationQuery,
@@ -23,7 +22,6 @@ describe("catalogApi", () => {
     queries: [
       "searchCatalog",
       "searchLibraryQuery",
-      "searchLibraryQueryInfinite",
       "getInformation",
       "getFormats",
       "getGenres",
@@ -43,17 +41,6 @@ describe("catalogApi", () => {
       expect(
         typeof catalogApi.endpoints.searchLibraryQuery.initiate,
       ).toBe("function");
-    });
-  });
-
-  describe("searchLibraryQueryInfinite endpoint", () => {
-    it("is defined", () => {
-      expect(catalogApi.endpoints.searchLibraryQueryInfinite).toBeDefined();
-    });
-
-    it("exports useSearchLibraryQueryInfiniteQuery hook", () => {
-      expect(useSearchLibraryQueryInfiniteQuery).toBeDefined();
-      expect(typeof useSearchLibraryQueryInfiniteQuery).toBe("function");
     });
   });
 

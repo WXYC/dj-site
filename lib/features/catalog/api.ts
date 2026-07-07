@@ -1,6 +1,5 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { backendBaseQuery } from "../backend";
-import { CATALOG_QUERY_PAGE_LIMIT } from "./constants";
 import { convertToAlbumEntry } from "./conversions";
 import {
   AddAlbumRequestBody,
@@ -35,12 +34,6 @@ export type LibraryQueryResult = {
   totalPages: number;
 };
 
-/** Args for infinite catalog search — `page` and `limit` come from `pageParam` / constant. */
-export type CatalogInfiniteQueryArg = Omit<
-  LibraryQueryParams,
-  "page" | "limit"
->;
-
 function transformLibraryQueryResponse(
   response: LibraryQueryResponseJSON | null,
 ): LibraryQueryResult {
@@ -74,32 +67,6 @@ export const catalogApi = createApi({
       }),
       transformResponse: (response: LibraryQueryResponseJSON | null) =>
         transformLibraryQueryResponse(response),
-    }),
-    searchLibraryQueryInfinite: builder.infiniteQuery<
-      LibraryQueryResult,
-      CatalogInfiniteQueryArg,
-      number
-    >({
-      infiniteQueryOptions: {
-        initialPageParam: 0,
-        getNextPageParam: (lastPage, _allPages, lastPageParam) =>
-          lastPage.page + 1 >= lastPage.totalPages
-            ? undefined
-            : lastPageParam + 1,
-      },
-      query({ pageParam, queryArg }) {
-        return {
-          url: "/query",
-          params: {
-            ...queryArg,
-            page: pageParam,
-            limit: CATALOG_QUERY_PAGE_LIMIT,
-          },
-        };
-      },
-      transformResponse: (
-        response: LibraryQueryResponseJSON | null,
-      ): LibraryQueryResult => transformLibraryQueryResponse(response),
     }),
     addAlbum: builder.mutation<{ id: number } & Record<string, unknown>, AddAlbumRequestBody>({
       query: (body) => ({
@@ -212,7 +179,6 @@ export const {
   useSearchCatalogQuery,
   useLazySearchLibraryQueryQuery,
   useSearchLibraryQueryQuery,
-  useSearchLibraryQueryInfiniteQuery,
   useAddAlbumMutation,
   useUpdateAlbumMutation,
   useAddArtistMutation,
