@@ -15,9 +15,10 @@ NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED=false
 # /api/auto-dj/status and reflects auto-DJ state (greyscale + banner).
 # NEXT_PUBLIC_ORCHESTRATOR_URL=http://localhost:8090
 
-# Optional, server-only — override target for the /auth/:path* rewrite in
-# containerized deployments where NEXT_PUBLIC_BETTER_AUTH_URL is reachable
-# from the browser but not from inside the dj-site server.
+# Optional, server-only — override target for the /auth/* proxy route handler
+# (app/auth/[...path]/route.ts) in containerized deployments where
+# NEXT_PUBLIC_BETTER_AUTH_URL is reachable from the browser but not from inside
+# the dj-site server.
 # AUTH_REWRITE_URL=http://auth:8082/auth
 ```
 

@@ -425,6 +425,36 @@ jobs:
               ;;
           esac
 
+      - name: Set-Cookie fold regression check (edge)
+        id: setcookie
+        if: steps.config.outputs.configured == 'true'
+        env:
+          DEPLOY_URL: ${{ steps.deploy.outputs.deployment_url }}
+        run: |
+          BASE="${DEPLOY_URL%/}"
+          # POST /auth/sign-out clears three cookies (session_token,
+          # session_data, dont_remember). On the OpenNext/Cloudflare runtime a
+          # config rewrite folds multiple Set-Cookie response headers into one
+          # (opennextjs-cloudflare#501), keeping only the last; the
+          # app/auth/[...path]/route.ts proxy re-emits each individually to
+          # avoid that. Assert all three survive at the real Cloudflare edge —
+          # the only automated guard against the fold regressing (unit tests and
+          # Playwright E2E both run on Node/undici, which never folds). sign-out
+          # emits the deletions unconditionally, so this creates no session/user.
+          HDRS=$(curl -sS -D - -o /dev/null --max-time 30 -X POST \
+            -H 'content-type: application/json' \
+            -H 'origin: https://dj.wxyc.org' \
+            "${BASE}/auth/sign-out" || true)
+          STATUS=$(printf '%s' "$HDRS" | head -1 | tr -d '\r')
+          COUNT=$(printf '%s' "$HDRS" | grep -ic '^set-cookie:')
+          echo "sign-out at ${BASE}: ${STATUS}; ${COUNT} Set-Cookie header(s)"
+          echo "setcookie_count=${COUNT}" >> "$GITHUB_OUTPUT"
+          if [ "$COUNT" -lt 2 ]; then
+            echo "::error::/auth/sign-out returned ${COUNT} Set-Cookie header(s), expected 3 — multiple Set-Cookie headers are being folded into one (opennextjs-cloudflare#501). See app/auth/[...path]/route.ts."
+            exit 1
+          fi
+          echo "Set-Cookie fold guard passed (${COUNT} headers)."
+
       - name: Comment on PR with failure detail
         if: failure() && steps.config.outputs.configured == 'true'
         env:
@@ -434,10 +464,13 @@ jobs:
           DEPLOY_URL: ${{ steps.deploy.outputs.deployment_url }}
           DEPLOY_OUTCOME: ${{ steps.deploy.outcome }}
           HTTP_CODE: ${{ steps.smoke.outputs.http_code }}
+          SETCOOKIE_COUNT: ${{ steps.setcookie.outputs.setcookie_count }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           if [ "$DEPLOY_OUTCOME" != "success" ]; then
             BODY="Preview smoke check failed: the CI preview build/deploy for commit ${HEAD_SHA} did not complete (build error or \`wrangler pages deploy\` failure). See the workflow run for details: ${RUN_URL}. Merging is blocked until the preview builds and boots cleanly."
+          elif printf '%s' "$HTTP_CODE" | grep -qE '^(2|3|401|403)'; then
+            BODY="Preview fold check failed: \`POST /auth/sign-out\` at ${DEPLOY_URL} returned \`${SETCOOKIE_COUNT}\` Set-Cookie header(s), expected 3. Multiple Set-Cookie headers are being folded into one (opennextjs-cloudflare#501) — the regression \`app/auth/[...path]/route.ts\` fixes. See the workflow run: ${RUN_URL}."
           else
             BODY="Preview smoke check failed: ${DEPLOY_URL}/ returned HTTP \`${HTTP_CODE}\`. A 5xx response usually means the Cloudflare worker failed at boot — see the workflow run: ${RUN_URL}. Merging is blocked until the preview URL returns a non-5xx response."
           fi

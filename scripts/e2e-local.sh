@@ -120,8 +120,8 @@ fi
 # loopback address, simulating the Docker scenario where the container's
 # `localhost` is the container itself. AUTH_REWRITE_URL is set at runtime on
 # the second `npm run start` (below) and takes precedence in both the /auth
-# rewrite and SSR session lookup — that precedence is exactly what the test
-# asserts. Writes to `.next-broken-auth/` (via NEXT_DIST_DIR_SUFFIX in
+# route handler and SSR session lookup — that precedence is exactly what the
+# test asserts. Writes to `.next-broken-auth/` (via NEXT_DIST_DIR_SUFFIX in
 # next.config.mjs) so the primary `.next/` build cache survives.
 #
 # Runs AFTER the primary build, not in parallel: both builds bootstrap
@@ -144,7 +144,7 @@ timeout 60 bash -c "until curl -sf http://localhost:$FRONTEND_PORT; do sleep 2; 
 echo "==> Starting second dj-site on :$SECOND_FRONTEND_PORT..."
 # AUTH_REWRITE_URL points at the real auth so it wins over the unreachable
 # build-inlined NEXT_PUBLIC_BETTER_AUTH_URL in both getBaseURL() and the
-# /auth rewrite — the precedence server-session-via-docker.spec.ts asserts.
+# /auth route handler — the precedence server-session-via-docker.spec.ts asserts.
 PORT=$SECOND_FRONTEND_PORT \
 NEXT_DIST_DIR_SUFFIX=broken-auth \
 AUTH_REWRITE_URL=http://localhost:$AUTH_PORT/auth \
