@@ -43,13 +43,11 @@ describe("mergeAlbumIntoSearchResult", () => {
       date_lost: "2024-01-01",
       date_found: undefined,
     });
-    const updated = {
-      ...createTestAlbum({
-        id: 42,
-        date_found: "2024-02-01",
-      }),
+    const updated = createTestAlbum({
+      id: 42,
       date_lost: null,
-    } as AlbumEntry;
+      date_found: "2024-02-01",
+    });
 
     const merged = mergeAlbumIntoSearchResult(existing, updated);
 
