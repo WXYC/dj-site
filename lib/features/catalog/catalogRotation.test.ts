@@ -35,7 +35,7 @@ describe("catalogSlice rotation state", () => {
     expect(state.rotationByAlbumId[42]).toBeUndefined();
   });
 
-  it("setFilter preserves rotationByAlbumId when filters change", () => {
+  it("setFilter preserves rotationByAlbumId when non-tag filters change", () => {
     let state = catalogSlice.reducer(
       defaultCatalogFrontendState,
       catalogSlice.actions.setAlbumRotation({
@@ -46,12 +46,29 @@ describe("catalogSlice rotation state", () => {
     );
     state = catalogSlice.reducer(
       state,
-      catalogSlice.actions.setFilter({ onStreaming: false }),
+      catalogSlice.actions.setFilter({ genres: ["Rock"] }),
     );
     expect(state.rotationByAlbumId[42]).toEqual({
       rotation_bin: "M",
       rotation_id: 99,
     });
-    expect(state.filters.onStreaming).toBe(false);
+    expect(state.filters.genres).toEqual(["Rock"]);
+  });
+
+  it("setFilter clears rotationByAlbumId when tags change", () => {
+    let state = catalogSlice.reducer(
+      defaultCatalogFrontendState,
+      catalogSlice.actions.setAlbumRotation({
+        albumId: 42,
+        rotation_bin: "M",
+        rotation_id: 99,
+      }),
+    );
+    state = catalogSlice.reducer(
+      state,
+      catalogSlice.actions.setFilter({ tags: ["H"] }),
+    );
+    expect(state.rotationByAlbumId).toEqual({});
+    expect(state.filters.tags).toEqual(["H"]);
   });
 });
