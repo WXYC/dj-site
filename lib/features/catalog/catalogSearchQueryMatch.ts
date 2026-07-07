@@ -37,9 +37,6 @@ export function albumMatchesCatalogQueryArg(
       return false;
     }
   }
-  if (args.on_streaming === true && album.on_streaming !== true) {
-    return false;
-  }
   if (args.on_streaming === false && album.on_streaming !== false) {
     return false;
   }
