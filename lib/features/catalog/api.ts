@@ -67,7 +67,15 @@ export const catalogApi = createApi({
       transformResponse: (response: AlbumSearchResultJSON[]) =>
         response.map(convertToAlbumEntry),
     }),
-    searchLibraryQuery: builder.infiniteQuery<
+    searchLibraryQuery: builder.query<LibraryQueryResult, LibraryQueryParams>({
+      query: (params) => ({
+        url: "/query",
+        params,
+      }),
+      transformResponse: (response: LibraryQueryResponseJSON | null) =>
+        transformLibraryQueryResponse(response),
+    }),
+    searchLibraryQueryInfinite: builder.infiniteQuery<
       LibraryQueryResult,
       CatalogInfiniteQueryArg,
       number
@@ -202,6 +210,8 @@ export const catalogApi = createApi({
 
 export const {
   useSearchCatalogQuery,
+  useLazySearchLibraryQueryQuery,
+  useSearchLibraryQueryQuery,
   useSearchLibraryQueryInfiniteQuery,
   useAddAlbumMutation,
   useUpdateAlbumMutation,
