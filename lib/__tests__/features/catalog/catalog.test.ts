@@ -347,16 +347,23 @@ describeSlice(catalogSlice, defaultCatalogFrontendState, ({ harness, actions }) 
       expect(state.sortOrder).toBe("asc");
     });
 
-    it("defaults page to 0", () => {
-      expect(harness().initialState.page).toBe(0);
+    it("defaults filters to empty arrays", () => {
+      expect(harness().initialState.filters).toEqual({
+        genres: [],
+        formats: [],
+        tags: [],
+      });
     });
 
-    it("defaults filters to 'All' / undefined", () => {
-      expect(harness().initialState.filters).toEqual({
-        onStreaming: undefined,
-        genre: "All",
-        format: "All",
-      });
+    it("defaults browseEngaged to false", () => {
+      expect(harness().initialState.browseEngaged).toBe(false);
+    });
+  });
+
+  describe("engageBrowse", () => {
+    it("sets browseEngaged", () => {
+      const result = harness().reduce(actions.engageBrowse());
+      expect(result.browseEngaged).toBe(true);
     });
   });
 
@@ -365,11 +372,6 @@ describeSlice(catalogSlice, defaultCatalogFrontendState, ({ harness, actions }) 
       const result = harness().reduce(actions.addRow());
       expect(result.rows).toHaveLength(2);
       expect(result.rows[1].field).toBe("artist");
-    });
-
-    it("addRow resets page to 0", () => {
-      const result = harness().chain(actions.nextPage(), actions.addRow());
-      expect(result.page).toBe(0);
     });
 
     it("removeRow drops a row by id", () => {
@@ -399,15 +401,6 @@ describeSlice(catalogSlice, defaultCatalogFrontendState, ({ harness, actions }) 
       expect(result.rows[0].value).toBe("Stereolab");
     });
 
-    it("updateRow resets page to 0", () => {
-      const initial = harness().initialState;
-      const id = initial.rows[0].id;
-      const result = harness().chain(
-        actions.nextPage(),
-        actions.updateRow({ id, updates: { value: "x" } })
-      );
-      expect(result.page).toBe(0);
-    });
   });
 
   describe("sort", () => {
@@ -419,48 +412,29 @@ describeSlice(catalogSlice, defaultCatalogFrontendState, ({ harness, actions }) 
       expect(result.sortOrder).toBe("desc");
     });
 
-    it("setSort resets page to 0", () => {
-      const result = harness().chain(
-        actions.nextPage(),
-        actions.setSort({ sortBy: "artist", sortOrder: "asc" })
-      );
-      expect(result.page).toBe(0);
-    });
   });
 
   describe("filters", () => {
     it.each([
-      [{ onStreaming: false as boolean | undefined }, "onStreaming", false],
-      [{ genre: "Rock" } as const, "genre", "Rock"],
-      [{ format: "CD" } as const, "format", "CD"],
-    ])("setFilter updates %s", (patch, key, expected) => {
+      [{ tags: ["exclusives"] }, "tags", ["exclusives"]],
+      [{ genres: ["Rock"] }, "genres", ["Rock"]],
+      [{ formats: ["cd"] }, "formats", ["cd"]],
+    ] as const satisfies ReadonlyArray<
+      [Partial<import("@/lib/features/catalog/types").CatalogFilters>, string, string[]]
+    >)("setFilter updates %s", (patch, key, expected) => {
       const result = harness().reduce(actions.setFilter(patch));
-      expect((result.filters as Record<string, unknown>)[key as string]).toBe(expected);
+      expect((result.filters as Record<string, unknown>)[key as string]).toEqual(expected);
     });
 
     it("setFilter merges with existing filters", () => {
       const result = harness().chain(
-        actions.setFilter({ genre: "Rock" }),
-        actions.setFilter({ format: "Vinyl" })
+        actions.setFilter({ genres: ["Rock"] }),
+        actions.setFilter({ formats: ["Vinyl"] })
       );
-      expect(result.filters.genre).toBe("Rock");
-      expect(result.filters.format).toBe("Vinyl");
+      expect(result.filters.genres).toEqual(["Rock"]);
+      expect(result.filters.formats).toEqual(["Vinyl"]);
     });
 
-    it("setFilter resets page to 0", () => {
-      const result = harness().chain(
-        actions.nextPage(),
-        actions.setFilter({ genre: "Rock" })
-      );
-      expect(result.page).toBe(0);
-    });
-  });
-
-  describe("pagination", () => {
-    it("nextPage increments page", () => {
-      const result = harness().chain(actions.nextPage(), actions.nextPage());
-      expect(result.page).toBe(2);
-    });
   });
 
   describe("selection", () => {
@@ -516,8 +490,7 @@ describeSlice(catalogSlice, defaultCatalogFrontendState, ({ harness, actions }) 
       const result = harness().chain(
         actions.updateRow({ id, updates: { value: "Cat Power" } }),
         actions.setSort({ sortBy: "plays", sortOrder: "desc" }),
-        actions.setFilter({ genre: "Rock" }),
-        actions.nextPage(),
+        actions.setFilter({ genres: ["Rock"] }),
         actions.setSelection([1, 2, 3]),
         actions.openMobileSearch(),
         actions.reset()
@@ -525,4 +498,5 @@ describeSlice(catalogSlice, defaultCatalogFrontendState, ({ harness, actions }) 
       expect(result).toEqual(defaultCatalogFrontendState);
     });
   });
+
 });
