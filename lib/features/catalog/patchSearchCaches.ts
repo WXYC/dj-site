@@ -144,10 +144,10 @@ function resolveAlbumEntryForRotationPatch(
 
   const cachedArgs = catalogApi.util.selectCachedArgsForQuery(
     getState(),
-    "searchLibraryQuery",
+    "searchLibraryQueryInfinite",
   );
   for (const args of cachedArgs) {
-    const data = catalogApi.endpoints.searchLibraryQuery.select(args)(
+    const data = catalogApi.endpoints.searchLibraryQueryInfinite.select(args)(
       getState(),
     )?.data;
     if (!data?.pages) continue;
@@ -214,13 +214,13 @@ export function patchCatalogSearchRotation(
 
   const cachedArgs = catalogApi.util.selectCachedArgsForQuery(
     getState(),
-    "searchLibraryQuery",
+    "searchLibraryQueryInfinite",
   );
 
   for (const args of cachedArgs) {
     dispatch(
       catalogApi.util.updateQueryData(
-        "searchLibraryQuery",
+        "searchLibraryQueryInfinite",
         args,
         (draft) => {
           if (!album) {
@@ -250,13 +250,13 @@ export function patchCatalogSearchCaches(
 ): void {
   const cachedArgs = catalogApi.util.selectCachedArgsForQuery(
     getState(),
-    "searchLibraryQuery",
+    "searchLibraryQueryInfinite",
   );
 
   for (const args of cachedArgs) {
     dispatch(
       catalogApi.util.updateQueryData(
-        "searchLibraryQuery",
+        "searchLibraryQueryInfinite",
         args,
         (draft) => {
           patchInfiniteSearchDraft(draft, (row) => {
