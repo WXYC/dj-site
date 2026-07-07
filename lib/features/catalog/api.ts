@@ -1,6 +1,9 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
+import type { RootState } from "@/lib/store";
 import { backendBaseQuery } from "../backend";
+import { CATALOG_QUERY_PAGE_LIMIT } from "./constants";
 import { convertToAlbumEntry } from "./conversions";
+import { patchCatalogSearchCaches } from "./patchSearchCaches";
 import {
   AddAlbumRequestBody,
   AddArtistRequestBody,
@@ -33,6 +36,12 @@ export type LibraryQueryResult = {
   page: number;
   totalPages: number;
 };
+
+/** Args for infinite catalog search — `page` and `limit` come from `pageParam` / constant. */
+export type CatalogInfiniteQueryArg = Omit<
+  LibraryQueryParams,
+  "page" | "limit"
+>;
 
 function transformLibraryQueryResponse(
   response: LibraryQueryResponseJSON | null,
@@ -68,6 +77,32 @@ export const catalogApi = createApi({
       transformResponse: (response: LibraryQueryResponseJSON | null) =>
         transformLibraryQueryResponse(response),
     }),
+    searchLibraryQueryInfinite: builder.infiniteQuery<
+      LibraryQueryResult,
+      CatalogInfiniteQueryArg,
+      number
+    >({
+      infiniteQueryOptions: {
+        initialPageParam: 0,
+        getNextPageParam: (lastPage, _allPages, lastPageParam) =>
+          lastPage.page + 1 >= lastPage.totalPages
+            ? undefined
+            : lastPageParam + 1,
+      },
+      query({ pageParam, queryArg }) {
+        return {
+          url: "/query",
+          params: {
+            ...queryArg,
+            page: pageParam,
+            limit: CATALOG_QUERY_PAGE_LIMIT,
+          },
+        };
+      },
+      transformResponse: (
+        response: LibraryQueryResponseJSON | null,
+      ): LibraryQueryResult => transformLibraryQueryResponse(response),
+    }),
     addAlbum: builder.mutation<{ id: number } & Record<string, unknown>, AddAlbumRequestBody>({
       query: (body) => ({
         url: "/",
@@ -86,6 +121,14 @@ export const catalogApi = createApi({
       invalidatesTags: (_result, _error, { albumId }) => [
         { type: "AlbumDetail", id: albumId },
       ],
+      async onQueryStarted(_arg, { dispatch, queryFulfilled, getState }) {
+        try {
+          const { data: updated } = await queryFulfilled;
+          patchCatalogSearchCaches(dispatch, getState as () => RootState, updated);
+        } catch {
+          // Leave caches untouched when save fails.
+        }
+      },
     }),
     addArtist: builder.mutation<
       { id: number; code_number?: number; genre_id?: number } & Record<string, unknown>,
@@ -195,6 +238,7 @@ export const {
   useSearchCatalogQuery,
   useLazySearchLibraryQueryQuery,
   useSearchLibraryQueryQuery,
+  useSearchLibraryQueryInfiniteInfiniteQuery,
   useAddAlbumMutation,
   useUpdateAlbumMutation,
   useAddArtistMutation,
@@ -208,3 +252,6 @@ export const {
   useMarkMissingMutation,
   useMarkFoundMutation,
 } = catalogApi;
+
+/** RTK names infinite-query hooks `use{EndpointName}InfiniteQuery`. */
+export { useSearchLibraryQueryInfiniteInfiniteQuery as useSearchLibraryQueryInfiniteQuery };
