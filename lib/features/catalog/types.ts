@@ -143,8 +143,8 @@ export type AlbumEntry = {
   add_date: string | undefined;
   label: string;
   on_streaming?: boolean;
-  date_lost?: string;
-  date_found?: string;
+  date_lost?: string | null;
+  date_found?: string | null;
   artwork_url?: string | null;
   matched_via?: TrackMatchHint[];
   /** Present on `/library/info` responses for catalog edit. */

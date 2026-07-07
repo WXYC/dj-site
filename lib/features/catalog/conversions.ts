@@ -116,8 +116,8 @@ export function convertToAlbumEntry(
     rotation_id:
       "rotation_id" in response ? response.rotation_id : undefined,
     on_streaming: isSearchResult(response) ? (response as Record<string, unknown>).on_streaming as boolean | undefined : undefined,
-    date_lost: isSearchResult(response) ? (response as Record<string, unknown>).date_lost as string | undefined : undefined,
-    date_found: isSearchResult(response) ? (response as Record<string, unknown>).date_found as string | undefined : undefined,
+    date_lost: isSearchResult(response) ? (response as Record<string, unknown>).date_lost as string | null | undefined : undefined,
+    date_found: isSearchResult(response) ? (response as Record<string, unknown>).date_found as string | null | undefined : undefined,
     artwork_url: isSearchResult(response) ? (response as Record<string, unknown>).artwork_url as string | null | undefined : undefined,
     matched_via: isSearchResult(response) ? response.matched_via : undefined,
     artist_id: isSearchResult(response)
