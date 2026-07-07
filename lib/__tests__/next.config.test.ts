@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 vi.mock("@opennextjs/cloudflare", () => ({
   initOpenNextCloudflareForDev: vi.fn(),
@@ -10,51 +10,61 @@ async function loadConfig() {
   return mod.default;
 }
 
-describe("next.config rewrites", () => {
-  const originalEnv = process.env;
+type Rewrite = { source?: string };
+type RewritesResult =
+  | Rewrite[]
+  | { beforeFiles?: Rewrite[]; afterFiles?: Rewrite[]; fallback?: Rewrite[] };
 
-  beforeEach(() => {
-    process.env = { ...originalEnv };
-    delete process.env.AUTH_REWRITE_URL;
-    delete process.env.NEXT_PUBLIC_BETTER_AUTH_URL;
+// rewrites() may return the array form OR the object form
+// ({ beforeFiles, afterFiles, fallback }); flatten both so a re-added `/auth`
+// rewrite can't hide in a phase bucket.
+function hasAuthRewrite(rewrites: RewritesResult | undefined): boolean {
+  const list: Rewrite[] = Array.isArray(rewrites)
+    ? rewrites
+    : [
+        ...(rewrites?.beforeFiles ?? []),
+        ...(rewrites?.afterFiles ?? []),
+        ...(rewrites?.fallback ?? []),
+      ];
+  return list.some(
+    (r) => typeof r?.source === "string" && r.source.startsWith("/auth"),
+  );
+}
+
+describe("next.config", () => {
+  // Regression guard: `/auth/*` must be proxied by app/auth/[...path]/route.ts,
+  // NOT by a config rewrite. On OpenNext/Cloudflare a rewrite folds multiple
+  // Set-Cookie response headers into one (opennextjs-cloudflare#501), which
+  // breaks better-auth sign-out and re-login. Env resolution for the auth
+  // service base URL is covered in app/auth/[...path]/__tests__/route.test.ts.
+  it("does not define an /auth rewrite", async () => {
+    const config = (await loadConfig()) as {
+      rewrites?: () => Promise<RewritesResult>;
+    };
+    const rewrites = config.rewrites ? await config.rewrites() : undefined;
+    expect(hasAuthRewrite(rewrites)).toBe(false);
   });
 
-  afterEach(() => {
-    process.env = originalEnv;
+  it("detects a re-added /auth rewrite in the array form", () => {
+    expect(hasAuthRewrite([{ source: "/auth/:path*" }])).toBe(true);
   });
 
-  it("targets AUTH_REWRITE_URL when set, overriding NEXT_PUBLIC_BETTER_AUTH_URL", async () => {
-    process.env.AUTH_REWRITE_URL = "http://auth:8082/auth";
-    process.env.NEXT_PUBLIC_BETTER_AUTH_URL = "http://localhost:8082/auth";
-
-    const config = await loadConfig();
-    const rewrites = await config.rewrites();
-
-    expect(rewrites).toContainEqual({
-      source: "/auth/:path*",
-      destination: "http://auth:8082/auth/:path*",
-    });
+  it("detects a re-added /auth rewrite hidden in any object-form phase bucket", () => {
+    expect(hasAuthRewrite({ beforeFiles: [{ source: "/auth/:path*" }] })).toBe(
+      true,
+    );
+    expect(hasAuthRewrite({ afterFiles: [{ source: "/auth/:path*" }] })).toBe(
+      true,
+    );
+    expect(hasAuthRewrite({ fallback: [{ source: "/auth/:path*" }] })).toBe(
+      true,
+    );
   });
 
-  it("falls back to NEXT_PUBLIC_BETTER_AUTH_URL when AUTH_REWRITE_URL is unset", async () => {
-    process.env.NEXT_PUBLIC_BETTER_AUTH_URL = "http://localhost:8082/auth";
-
-    const config = await loadConfig();
-    const rewrites = await config.rewrites();
-
-    expect(rewrites).toContainEqual({
-      source: "/auth/:path*",
-      destination: "http://localhost:8082/auth/:path*",
-    });
-  });
-
-  it("falls back to the production default when neither env var is set", async () => {
-    const config = await loadConfig();
-    const rewrites = await config.rewrites();
-
-    expect(rewrites).toContainEqual({
-      source: "/auth/:path*",
-      destination: "https://api.wxyc.org/auth/:path*",
-    });
+  it("ignores non-/auth rewrites in both forms", () => {
+    expect(hasAuthRewrite([{ source: "/api/:path*" }])).toBe(false);
+    expect(hasAuthRewrite({ beforeFiles: [{ source: "/api/:path*" }] })).toBe(
+      false,
+    );
   });
 });

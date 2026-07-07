@@ -308,7 +308,7 @@ jobs:
           # `.next-broken-auth/` build at runtime. AUTH_REWRITE_URL points at
           # the real auth so it wins over the unreachable build-inlined
           # NEXT_PUBLIC_BETTER_AUTH_URL in both getBaseURL() and the /auth
-          # rewrite — the precedence the test asserts.
+          # route handler — the precedence the test asserts.
           PORT=3001 \
             NEXT_DIST_DIR_SUFFIX=broken-auth \
             AUTH_REWRITE_URL=http://localhost:8084/auth \
