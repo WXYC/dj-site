@@ -1,9 +1,7 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
-import type { RootState } from "@/lib/store";
 import { backendBaseQuery } from "../backend";
 import { CATALOG_QUERY_PAGE_LIMIT } from "./constants";
 import { convertToAlbumEntry } from "./conversions";
-import { patchCatalogSearchCaches } from "./patchSearchCaches";
 import {
   AddAlbumRequestBody,
   AddArtistRequestBody,
@@ -113,14 +111,6 @@ export const catalogApi = createApi({
       invalidatesTags: (_result, _error, { albumId }) => [
         { type: "AlbumDetail", id: albumId },
       ],
-      async onQueryStarted(_arg, { dispatch, queryFulfilled, getState }) {
-        try {
-          const { data: updated } = await queryFulfilled;
-          patchCatalogSearchCaches(dispatch, getState as () => RootState, updated);
-        } catch {
-          // Leave caches untouched when save fails.
-        }
-      },
     }),
     addArtist: builder.mutation<
       { id: number; code_number?: number; genre_id?: number } & Record<string, unknown>,
