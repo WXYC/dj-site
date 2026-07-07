@@ -3,6 +3,7 @@ import { patchCatalogSearchCaches } from "./patchSearchCaches";
 import { catalogApi } from "./api";
 import { catalogSlice } from "./frontend";
 import { createTestAlbum } from "@/lib/test-utils";
+import type { AlbumEntry } from "./types";
 
 describe("patchCatalogSearchCaches", () => {
   afterEach(() => {
@@ -17,11 +18,13 @@ describe("patchCatalogSearchCaches", () => {
       date_lost: "2024-01-01",
       date_found: undefined,
     });
-    const updated = createTestAlbum({
-      id: 42,
+    const updated = {
+      ...createTestAlbum({
+        id: 42,
+        date_found: "2024-02-01",
+      }),
       date_lost: null,
-      date_found: "2024-02-01",
-    });
+    } as AlbumEntry;
 
     vi.spyOn(catalogApi.util, "selectCachedArgsForQuery").mockReturnValue([
       queryArgs,
