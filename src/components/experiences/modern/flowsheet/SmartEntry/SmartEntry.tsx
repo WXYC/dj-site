@@ -222,9 +222,13 @@ export default function SmartEntry() {
         style={{ zIndex: 1300 }}
       >
         <ClickAwayListener
-          onClickAway={() =>
-            dispatch(flowsheetSlice.actions.setSearchOpen(false))
-          }
+          onClickAway={(event) => {
+            // Ignore clicks inside the composer shell — otherwise the very
+            // click that refocuses the composer (and reopens the panel) is
+            // caught by the just-mounted listener as a click-away, closing it.
+            if (anchorEl && anchorEl.contains(event.target as Node)) return;
+            dispatch(flowsheetSlice.actions.setSearchOpen(false));
+          }}
         >
           <Sheet
             variant="outlined"
