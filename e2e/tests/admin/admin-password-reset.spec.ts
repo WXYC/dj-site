@@ -47,9 +47,12 @@ test.describe("Password Reset - User Can Login After Reset", () => {
   test("opens the reset form instead of the dashboard when another account is signed in", async ({
     page,
   }) => {
+    const dashboardPage = new DashboardPage(page);
     const rosterPage = new RosterPage(page);
     const targetUser = TEST_USERS.adminReset1;
 
+    await dashboardPage.gotoAdminRoster();
+    await rosterPage.waitForTableLoaded();
     await rosterPage.sendPasswordResetEmail(targetUser.username);
     await rosterPage.expectSuccessToast("Password reset email sent");
 

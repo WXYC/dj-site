@@ -201,7 +201,6 @@ test.describe("New User Onboarding", () => {
       const user = TEST_USERS.incomplete;
       const loginPage = new LoginPage(page);
       const onboardingPage = new OnboardingPage(page);
-      const dashboardPage = new DashboardPage(page);
 
       await loginPage.goto();
       await loginPage.login(user.username, user.password);
@@ -215,7 +214,7 @@ test.describe("New User Onboarding", () => {
         djName: "Session DJ",
       });
 
-      await dashboardPage.expectOnDashboard();
+      await onboardingPage.expectRedirectToDashboard();
     });
   });
 
