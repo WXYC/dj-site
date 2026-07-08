@@ -66,8 +66,14 @@ dead code deleted the phase it's orphaned; testids unique; mobile submit proven.
   confirmed (alignment + colours); review polish applied — commit buttons moved
   into the composer row, focus ring added, "Start typing…" placeholder, and
   "from" accepted as an album connector.
-- [ ] **P4** — Results panel (sentence rows, album art, pills, selected match).
-- [ ] **P5** — Ghost text + locking + suppression.
+- [x] **P4** — Results panel: sentence rows, card-catalog album art, metadata
+  pills, promoted selected match, keyboard nav, Popper that reads as a
+  continuation of the composer with a continuous active outline. Review polish
+  applied (selection visibility, Ctrl+Enter queue + success ring, connected
+  panel, refocus reopens results).
+- [x] **P5** — Ghost text (artist/song/album via override) accepted with Right
+  Arrow/End, field locking as search constraints, Escape rung-1 dismissal.
+  Chained song→album ghost deferred.
 - [ ] **P6** — Filters, rotation scope, track picking (un-skip track-picker).
 - [ ] **P7** — Responsive + e2e hardening (mobile submit).
 - [ ] **P8** — Cleanup + audit (delete sandbox, retire stagedRelease, docs).
