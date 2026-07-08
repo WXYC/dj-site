@@ -183,7 +183,7 @@ export default function SmartEntry() {
               alignItems: "flex-start",
               gap: 0.5,
               px: 0.75,
-              pt: 0.5,
+              py: 0.5,
             }}
           >
             <SmartComposer
