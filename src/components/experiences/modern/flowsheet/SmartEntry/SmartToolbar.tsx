@@ -19,10 +19,13 @@ export default function SmartToolbar() {
       spacing={1}
       sx={{
         px: 1,
-        py: 0.5,
+        pt: 0.5,
+        // A little extra on the bottom so the results panel (which drops from
+        // the shell's bottom edge) doesn't crowd the buttons/filters.
+        pb: 1,
         // No forced minHeight — the dark section takes the natural height of
-        // its content (the ~32px buttons) plus this small padding. A forced
-        // height is what made the row too tall and left a gutter.
+        // its content (the ~32px buttons) plus this padding. A forced height is
+        // what made the row too tall and left a gutter.
         flexWrap: "wrap",
         alignContent: "center",
         rowGap: 0.5,
