@@ -7,7 +7,7 @@ import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import type { SelectedMatch } from "@/lib/features/flowsheet/types";
 import { useAppDispatch, useAppSelector, useAppStore } from "@/lib/hooks";
 import { useDebouncedValue } from "@/src/hooks/useDebouncedValue";
-import { useFlowsheetSubmit } from "@/src/hooks/flowsheetHooks";
+import { useFlowsheetSubmit, useQueue } from "@/src/hooks/flowsheetHooks";
 import { parseSmartEntry } from "./parser/parseSmartEntry";
 import type { FieldSpan, ParseResult } from "./parser/types";
 import { buildPendingQuery, selectedMatchApplies } from "./buildPendingQuery";
@@ -82,6 +82,7 @@ export function useFlowsheetSmartEntry() {
     flowsheetSlice.selectors.getSelectedResult
   );
   const { handleSubmit, ctrlKeyPressed } = useFlowsheetSubmit();
+  const { addToQueue } = useQueue();
 
   // Immediate parse for rendering the mirror/highlights.
   const parse = useMemo(
@@ -161,25 +162,42 @@ export function useFlowsheetSmartEntry() {
 
   /**
    * Commit the pending entry. Flushes the parse, reads the fresh store (never a
-   * stale selector closure), merges the selected match, and hands off to
-   * `useFlowsheetSubmit` (which owns the queue-modifier race guard, toasts, and
-   * `resetSearch`). Local state clears only when a submission actually proceeds
-   * (a missing song title is rejected by handleSubmit with a toast).
+   * stale selector closure), and merges the selected match. `toQueue` routes to
+   * the local queue (the explicit Queue button / touch path); otherwise it
+   * hands off to `useFlowsheetSubmit` (which also queues when Ctrl/⌘ is held,
+   * and owns the toasts + resetSearch). A missing song title is rejected with a
+   * toast via handleSubmit and does not clear the composer.
    */
-  const submit = useCallback(
-    (e: SyntheticEvent) => {
+  const commit = useCallback(
+    (e: SyntheticEvent, toQueue: boolean) => {
       flush();
       const s = store.getState();
       const merged = buildPendingQuery(
         flowsheetSlice.selectors.getSearchQuery(s),
         flowsheetSlice.selectors.getSelectedMatch(s)
       );
-      void handleSubmit(e as never, merged);
-      if (merged.song.trim() !== "") {
-        localDispatch({ type: "RESET" });
+      if (merged.song.trim() === "") {
+        void handleSubmit(e as never, merged); // toasts "Song title is required"
+        return;
       }
+      if (toQueue) {
+        addToQueue(merged);
+        dispatch(flowsheetSlice.actions.resetSearch());
+      } else {
+        void handleSubmit(e as never, merged);
+      }
+      localDispatch({ type: "RESET" });
     },
-    [flush, store, handleSubmit]
+    [flush, store, handleSubmit, addToQueue, dispatch]
+  );
+
+  const submit = useCallback(
+    (e: SyntheticEvent) => commit(e, false),
+    [commit]
+  );
+  const submitToQueue = useCallback(
+    (e: SyntheticEvent) => commit(e, true),
+    [commit]
   );
 
   /**
@@ -221,6 +239,7 @@ export function useFlowsheetSmartEntry() {
     ctrlKeyPressed,
     onRawChange,
     submit,
+    submitToQueue,
     reset,
     flush,
     selectMatch,
