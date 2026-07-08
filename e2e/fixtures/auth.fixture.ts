@@ -151,16 +151,22 @@ async function getAuthServiceBaseUrl(): Promise<string> {
 export async function getVerificationToken(identifier: string): Promise<{ token: string; expiresAt: string } | null> {
   const baseUrl = await getAuthServiceBaseUrl();
 
-  try {
-    const response = await fetch(`${baseUrl}/auth/test/verification-token?identifier=${encodeURIComponent(identifier)}`);
-    if (!response.ok) {
-      return null;
+  // Provision + requestPasswordReset may commit slightly after the UI toast.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const response = await fetch(
+        `${baseUrl}/auth/test/verification-token?identifier=${encodeURIComponent(identifier)}`
+      );
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch (error) {
+      console.error("Failed to fetch verification token:", error);
     }
-    return await response.json();
-  } catch (error) {
-    console.error("Failed to fetch verification token:", error);
-    return null;
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
+
+  return null;
 }
 
 /**
@@ -177,7 +183,25 @@ export async function completeOnboardingWithInviteToken(
   }
 
   await page.goto(`/onboarding?token=${encodeURIComponent(tokenData.token)}`);
+  await page.waitForURL(/\/onboarding/, { timeout: 15000 });
   await page.locator('input[name="password"]').waitFor({ state: "visible", timeout: 10000 });
+
+  const realNameInput = page.locator('input[name="realName"]');
+  if (await realNameInput.isVisible()) {
+    const existingRealName = await realNameInput.inputValue();
+    if (!existingRealName.trim()) {
+      await realNameInput.fill("E2E Test User");
+    }
+  }
+
+  const djNameInput = page.locator('input[name="djName"]');
+  if (await djNameInput.isVisible()) {
+    const existingDjName = await djNameInput.inputValue();
+    if (!existingDjName.trim()) {
+      await djNameInput.fill("E2E DJ");
+    }
+  }
+
   await page.fill('input[name="password"]', password);
   await page.fill('input[name="confirmPassword"]', password);
   await page.getByRole("button", { name: "Submit" }).click();
@@ -193,9 +217,11 @@ export async function completeOnboardingWithInviteToken(
  * Parse the admin-initiated password reset toast (random per-user password).
  */
 export async function getAdminResetPasswordFromToast(page: Page): Promise<string> {
-  const toast = page.locator('[data-sonner-toast][data-type="success"]');
-  await expect(toast).toBeVisible({ timeout: 10000 });
-  const text = (await toast.textContent()) ?? "";
+  const toast = page
+    .locator('[data-sonner-toast][data-type="success"]')
+    .filter({ hasText: /Temporary password:/ });
+  await expect(toast.first()).toBeVisible({ timeout: 10000 });
+  const text = (await toast.first().textContent()) ?? "";
   const match = text.match(/Temporary password:\s*(\S+)/);
   if (!match?.[1]) {
     throw new Error(`Could not parse temporary password from toast: ${text}`);
