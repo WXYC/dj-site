@@ -6,10 +6,12 @@ export default function FlowsheetBackendResults({
   results,
   offset,
   label,
+  onStage,
 }: {
   results: AlbumEntry[];
   offset: number;
   label: string;
+  onStage?: (entry: AlbumEntry) => void;
 }) {
   return (
     <>
@@ -33,6 +35,7 @@ export default function FlowsheetBackendResults({
             key={`${label.replace(" ", "-")}-${index}`}
             entry={entry}
             index={index + offset}
+            onStage={onStage}
           />
         ))}
       </Stack>

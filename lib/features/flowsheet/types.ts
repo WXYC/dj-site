@@ -11,6 +11,17 @@ import type {
 } from "@wxyc/shared/dtos";
 import { Rotation } from "../rotation/types";
 
+export type FlowsheetSearchScope = "all" | "rotation";
+
+export type StagedRelease = {
+  album_id?: number;
+  rotation_id?: number;
+  rotation_bin?: Rotation;
+  artist: string;
+  album: string;
+  label: string;
+};
+
 export type FlowsheetFrontendState = {
   autoplay: boolean;
   rotationMode: boolean;
@@ -19,6 +30,8 @@ export type FlowsheetFrontendState = {
     query: FlowsheetQuery;
     selectedResult: number;
     confirmedArtist: string;
+    scope: FlowsheetSearchScope;
+    stagedRelease: StagedRelease | null;
   };
   queue: FlowsheetSongEntry[];
   queueIdCounter: number;

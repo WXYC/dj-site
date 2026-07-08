@@ -61,6 +61,38 @@ vi.mock("./lml", () => ({
   useLmlLibrarySearch: () => ({ results: [], isLoading: false }),
 }));
 
+// Mock FlowsheetSearchProvider (results source for search/submit hooks)
+const mockProviderBinResults: ReturnType<typeof createTestAlbum>[] = [];
+const mockProviderRotationResults: ReturnType<typeof createTestAlbum>[] = [];
+const mockProviderCatalogResults: ReturnType<typeof createTestAlbum>[] = [];
+const mockProviderLmlResults: ReturnType<typeof createTestAlbum>[] = [];
+
+vi.mock(
+  "@/src/components/experiences/modern/flowsheet/Search/FlowsheetSearchProvider",
+  () => ({
+    useFlowsheetResults: () => ({
+      binResults: mockProviderBinResults,
+      rotationResults: mockProviderRotationResults,
+      catalogResults: mockProviderCatalogResults,
+      lmlResults: mockProviderLmlResults,
+    }),
+    useFlowsheetResultsLoading: () => ({
+      binFetching: false,
+      rotationFetching: false,
+      catalogFetching: false,
+      lmlFetching: false,
+    }),
+    useFlowsheetAllResults: () => [
+      ...mockProviderBinResults,
+      ...mockProviderRotationResults,
+      ...mockProviderCatalogResults,
+      ...mockProviderLmlResults,
+    ],
+    FlowsheetSearchProvider: ({ children }: { children: React.ReactNode }) =>
+      children,
+  })
+);
+
 // Mock flowsheet API hooks
 const mockGoLiveFunction = vi.fn();
 const mockLeaveFunction = vi.fn();
@@ -142,12 +174,16 @@ vi.mock("@/lib/features/flowsheet/conversions", () => ({
   })),
 }));
 
+const mockToast = vi.fn();
 const mockToastError = vi.fn();
 vi.mock("sonner", () => ({
-  toast: {
-    success: vi.fn(),
-    error: (...args: unknown[]) => mockToastError(...args),
-  },
+  toast: Object.assign(
+    (...args: unknown[]) => mockToast(...args),
+    {
+      success: vi.fn(),
+      error: (...args: unknown[]) => mockToastError(...args),
+    }
+  ),
 }));
 
 const createWrapper = () =>
@@ -192,6 +228,10 @@ describe("flowsheetHooks", () => {
       searchResults: [],
       loading: false,
     });
+    mockProviderBinResults.length = 0;
+    mockProviderRotationResults.length = 0;
+    mockProviderCatalogResults.length = 0;
+    mockProviderLmlResults.length = 0;
     // Clear localStorage
     if (typeof window !== "undefined") {
       window.localStorage.clear();
@@ -1146,9 +1186,7 @@ describe("flowsheetHooks", () => {
         artist: createTestArtist({ name: "Artist From Search" }),
       });
 
-      mockUseCatalogFlowsheetSearch.mockReturnValue({
-        searchResults: [mockAlbum],
-      });
+      mockProviderCatalogResults.push(mockAlbum);
 
       // Create wrapper with preloaded state where selectedResult > 0
       const customWrapper = createHookWrapper(
@@ -1194,9 +1232,7 @@ describe("flowsheetHooks", () => {
       // track_position before reaching the wire (regression-guard for #502).
       const mockAlbum = createTestAlbum({ id: 555, title: "DOGA" });
 
-      mockUseCatalogFlowsheetSearch.mockReturnValue({
-        searchResults: [mockAlbum],
-      });
+      mockProviderCatalogResults.push(mockAlbum);
 
       const customWrapper = createHookWrapper(
         { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
@@ -1229,9 +1265,7 @@ describe("flowsheetHooks", () => {
     it("should leave track_position undefined when no track was picked", () => {
       const mockAlbum = createTestAlbum({ id: 556, title: "Edits" });
 
-      mockUseCatalogFlowsheetSearch.mockReturnValue({
-        searchResults: [mockAlbum],
-      });
+      mockProviderCatalogResults.push(mockAlbum);
 
       const customWrapper = createHookWrapper(
         { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
@@ -1303,9 +1337,7 @@ describe("flowsheetHooks", () => {
         artist: null as any, // no artist
       });
 
-      mockUseCatalogFlowsheetSearch.mockReturnValue({
-        searchResults: [mockAlbum],
-      });
+      mockProviderCatalogResults.push(mockAlbum);
 
       // When selectedEntry exists but has no artist/title/label,
       // it should fall back to the user's entered values
@@ -1433,9 +1465,7 @@ describe("flowsheetHooks", () => {
         artist: createTestArtist({ name: "Selected Artist" }),
       });
 
-      mockUseCatalogFlowsheetSearch.mockReturnValue({
-        searchResults: [mockAlbum],
-      });
+      mockProviderCatalogResults.push(mockAlbum);
 
       const customWrapper = createHookWrapper(
         { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },

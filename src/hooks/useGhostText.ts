@@ -9,7 +9,7 @@ import { SuggestTrackResult } from "@/lib/features/flowsheet/types";
 import { useMemo } from "react";
 import { useDebouncedValue } from "./useDebouncedValue";
 
-const DEBOUNCE_MS = 150;
+const DEBOUNCE_MS = 200;
 const MIN_PREFIX_LENGTH = 2;
 
 export type GhostTextResult = {

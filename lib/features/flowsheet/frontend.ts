@@ -1,6 +1,14 @@
 import { createAppSlice } from "@/lib/createAppSlice";
 import { PayloadAction } from "@reduxjs/toolkit";
-import { FlowsheetEntry, FlowsheetFrontendState, FlowsheetQuery, FlowsheetSearchProperty, FlowsheetSongEntry } from "./types";
+import {
+  FlowsheetEntry,
+  FlowsheetFrontendState,
+  FlowsheetQuery,
+  FlowsheetSearchProperty,
+  FlowsheetSearchScope,
+  FlowsheetSongEntry,
+  StagedRelease,
+} from "./types";
 import { Rotation } from "../rotation/types";
 import { clearQueueFromStorage, loadQueueFromStorage, saveQueueToStorage } from "./queue-storage";
 
@@ -44,6 +52,8 @@ export const defaultFlowsheetFrontendState: FlowsheetFrontendState = {
     },
     selectedResult: 0,
     confirmedArtist: "",
+    scope: "all",
+    stagedRelease: null,
   },
   queue: [],
   queueIdCounter: 0,
@@ -59,12 +69,54 @@ export const flowsheetSlice = createAppSlice({
     },
     setRotationMode: (state, action: PayloadAction<boolean>) => {
       state.rotationMode = action.payload;
+      state.search.scope = action.payload ? "rotation" : "all";
       if (!action.payload) {
         state.search.query.album_id = undefined;
         state.search.query.rotation_id = undefined;
         state.search.query.rotation_bin = undefined;
         state.search.query.track_position = undefined;
       }
+    },
+    setSearchScope: (state, action: PayloadAction<FlowsheetSearchScope>) => {
+      state.search.scope = action.payload;
+      state.rotationMode = action.payload === "rotation";
+      if (action.payload === "all") {
+        state.search.query.album_id = undefined;
+        state.search.query.rotation_id = undefined;
+        state.search.query.rotation_bin = undefined;
+        state.search.query.track_position = undefined;
+      }
+    },
+    stageRelease: (state, action: PayloadAction<StagedRelease>) => {
+      state.search.stagedRelease = action.payload;
+      state.search.query.artist = action.payload.artist;
+      state.search.query.album = action.payload.album;
+      state.search.query.label = action.payload.label;
+      state.search.query.album_id = action.payload.album_id;
+      state.search.query.rotation_id = action.payload.rotation_id;
+      state.search.query.rotation_bin = action.payload.rotation_bin;
+      state.search.query.track_position = undefined;
+      state.search.selectedResult = 0;
+      state.search.open = false;
+    },
+    unstageRelease: (state) => {
+      state.search.stagedRelease = null;
+      state.search.query.track_position = undefined;
+    },
+    restoreDraft: (state, action: PayloadAction<FlowsheetQuery>) => {
+      state.search.query = { ...action.payload };
+      state.search.open = true;
+      state.search.selectedResult = 0;
+      state.search.stagedRelease = action.payload.album_id
+        ? {
+            album_id: action.payload.album_id,
+            rotation_id: action.payload.rotation_id,
+            rotation_bin: action.payload.rotation_bin,
+            artist: action.payload.artist,
+            album: action.payload.album,
+            label: action.payload.label,
+          }
+        : null;
     },
     setRotationMetadata: (
       state,
@@ -86,6 +138,7 @@ export const flowsheetSlice = createAppSlice({
       state.search.query = defaultFlowsheetFrontendState.search.query;
       state.search.selectedResult = defaultFlowsheetFrontendState.search.selectedResult;
       state.search.confirmedArtist = defaultFlowsheetFrontendState.search.confirmedArtist;
+      state.search.stagedRelease = defaultFlowsheetFrontendState.search.stagedRelease;
     },
     setConfirmedArtist: (state, action: PayloadAction<string>) => {
       state.search.confirmedArtist = action.payload;
@@ -204,5 +257,7 @@ export const flowsheetSlice = createAppSlice({
     getSelectedResult: (state) => state.search.selectedResult,
     getCurrentShowEntries: (state) => state.currentShowEntries,
     getConfirmedArtist: (state) => state.search.confirmedArtist,
+    getSearchScope: (state) => state.search.scope,
+    getStagedRelease: (state) => state.search.stagedRelease,
   },
 });

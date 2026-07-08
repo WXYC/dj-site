@@ -358,7 +358,7 @@ export const useCatalogFlowsheetSearch = () => {
 
   const isCompilationQuery = isCompilationArtistName(flowsheetQuery.artist);
 
-  const { data } = useSearchCatalogQuery(
+  const { data, isFetching } = useSearchCatalogQuery(
     {
       artist_name: flowsheetQuery.artist,
       album_title: flowsheetQuery.album,
@@ -380,6 +380,7 @@ export const useCatalogFlowsheetSearch = () => {
       FLOWSHEET_MIN_SEARCH_LENGTH
         ? data ?? []
         : [],
+    isFetching,
   };
 };
 
@@ -405,6 +406,6 @@ export const useRotationFlowsheetSearch = () => {
       FLOWSHEET_MIN_SEARCH_LENGTH
         ? searchResults
         : [],
-    loading: isLoading,
+    isFetching: isLoading,
   };
 };

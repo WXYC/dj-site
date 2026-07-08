@@ -43,6 +43,8 @@ lib/
     catalog/                  # Card catalog search
     experiences/              # Theme system (classic/modern registry, preferences)
     flowsheet/                # Flowsheet entries, queue, search, pagination
+                              # Modern search UI: `src/components/experiences/modern/flowsheet/Search/`
+                              # (FlowsheetSearchProvider, FlowsheetSearchSegment, FlowsheetResultsListbox)
     rotation/                 # Rotation tracking
   store.ts                    # Redux store (combineSlices, RTK Query middleware)
   hooks.ts                    # Typed Redux hooks (useAppDispatch, useAppSelector, useAppStore)

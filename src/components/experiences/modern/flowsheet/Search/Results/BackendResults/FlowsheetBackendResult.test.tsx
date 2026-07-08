@@ -34,6 +34,8 @@ vi.mock("@/src/hooks/flowsheetHooks", () => ({
   }),
 }));
 
+const mockOnStage = vi.fn();
+
 const mockPrefetchTracks = vi.fn();
 vi.mock("@/lib/features/metadata/api", () => ({
   useMetadataPrefetch: () => mockPrefetchTracks,
@@ -172,13 +174,20 @@ describe("FlowsheetBackendResult", () => {
       expect(mockDispatch).toHaveBeenCalled();
     });
 
-    it("should call handleSubmit on click", () => {
-      render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
+    it("should call onStage on click", () => {
+      const onStage = vi.fn();
+      render(
+        <FlowsheetBackendResult
+          entry={mockEntry}
+          index={1}
+          onStage={onStage}
+        />
+      );
 
       const resultRow = screen.getByText("Test Artist").closest('[class*="MuiStack-root"]');
       fireEvent.click(resultRow!);
 
-      expect(mockHandleSubmit).toHaveBeenCalled();
+      expect(onStage).toHaveBeenCalledWith(mockEntry);
     });
   });
 

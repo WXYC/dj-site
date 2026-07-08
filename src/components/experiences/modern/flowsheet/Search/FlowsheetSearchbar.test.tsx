@@ -60,26 +60,47 @@ vi.mock("./TalksetButton", () => ({
   default: () => <button data-testid="talkset-button">Talkset</button>,
 }));
 
-vi.mock("./FlowsheetSearchInput", () => ({
-  default: ({ name, disabled }: any) => (
+vi.mock("./FlowsheetSearchSegment", () => ({
+  default: ({ name, disabled }: { name: string; disabled?: boolean }) => (
     <input data-testid={`input-${name}`} name={name} disabled={disabled} />
   ),
 }));
 
-vi.mock("./Results/FlowsheetSearchResults", () => ({
+vi.mock("./Results/FlowsheetResultsListbox", () => ({
   default: () => <div data-testid="search-results">Results</div>,
 }));
 
-vi.mock("./RotationModeToggle", () => ({
-  default: () => <button data-testid="rotation-toggle">Rotation</button>,
+vi.mock("./ScopeControl", () => ({
+  default: () => <button data-testid="scope-control">Scope</button>,
 }));
 
-vi.mock("./RotationEntryFields", () => ({
-  default: ({ disabled }: any) => (
-    <div data-testid="rotation-entry-fields" data-disabled={disabled}>
-      Rotation Fields
-    </div>
-  ),
+vi.mock("./FlowsheetSearchProvider", () => ({
+  useFlowsheetAllResults: () => [
+    ...mockBinResults,
+    ...mockRotationResults,
+    ...mockCatalogResults,
+    ...mockLmlResults,
+  ],
+  useFlowsheetResults: () => ({
+    binResults: mockBinResults,
+    rotationResults: mockRotationResults,
+    catalogResults: mockCatalogResults,
+    lmlResults: mockLmlResults,
+  }),
+  useFlowsheetResultsLoading: () => ({
+    binFetching: false,
+    rotationFetching: false,
+    catalogFetching: false,
+    lmlFetching: false,
+  }),
+}));
+
+vi.mock("./MobileFlowsheetEntry", () => ({
+  default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
+vi.mock("./TrackCombobox", () => ({
+  default: () => <input data-testid="input-song" name="song" />,
 }));
 
 // Mock MUI icons
@@ -123,7 +144,7 @@ describe("FlowsheetSearchbar", () => {
       </Provider>
     );
 
-    expect(container.querySelector("form")).toBeInTheDocument();
+    expect(container.querySelector('[data-testid="flowsheet-search-form"]')).toBeInTheDocument();
   });
 
   it("should render BreakpointButton", () => {
@@ -276,28 +297,7 @@ describe("FlowsheetSearchbar", () => {
     });
 
     it("should handle ArrowDown key to increment selected result", () => {
-      // Provide mock results so the max index is > 0
-      mockCatalogResults = [{ id: "1" }, { id: "2" }];
-      mockSearchOpen = true;
-
-      const store = createTestStore();
-
-      render(
-        <Provider store={store}>
-          <FlowsheetSearchbar />
-        </Provider>
-      );
-
-      fireEvent.keyDown(document, { key: "ArrowDown" });
-
-      // Should dispatch setSelectedResult action
-      const state = store.getState();
-      expect(state.flowsheet.search.selectedResult).toBe(1);
-    });
-
-    it("should handle ArrowUp key to decrement selected result", () => {
-      // Provide mock results so there are valid indices
-      mockCatalogResults = [{ id: "1" }, { id: "2" }, { id: "3" }];
+      mockCatalogResults = [{ id: 1 }, { id: 2 }] as typeof mockCatalogResults;
       mockSearchOpen = true;
 
       const store = createTestStore({
@@ -305,6 +305,34 @@ describe("FlowsheetSearchbar", () => {
           ...flowsheetSlice.getInitialState(),
           search: {
             ...flowsheetSlice.getInitialState().search,
+            open: true,
+          },
+        },
+      });
+
+      render(
+        <Provider store={store}>
+          <FlowsheetSearchbar />
+        </Provider>
+      );
+
+      const form = screen.getByTestId("flowsheet-search-form");
+      fireEvent.keyDown(form, { key: "ArrowDown" });
+
+      const state = store.getState();
+      expect(state.flowsheet.search.selectedResult).toBe(1);
+    });
+
+    it("should handle ArrowUp key to decrement selected result", () => {
+      mockCatalogResults = [{ id: 1 }, { id: 2 }, { id: 3 }] as typeof mockCatalogResults;
+      mockSearchOpen = true;
+
+      const store = createTestStore({
+        flowsheet: {
+          ...flowsheetSlice.getInitialState(),
+          search: {
+            ...flowsheetSlice.getInitialState().search,
+            open: true,
             selectedResult: 2,
           },
         },
@@ -316,18 +344,23 @@ describe("FlowsheetSearchbar", () => {
         </Provider>
       );
 
-      fireEvent.keyDown(document, { key: "ArrowUp" });
+      const form = screen.getByTestId("flowsheet-search-form");
+      fireEvent.keyDown(form, { key: "ArrowUp" });
 
       const state = store.getState();
       expect(state.flowsheet.search.selectedResult).toBe(1);
     });
 
-    it("should not go below 0 on ArrowUp", () => {
+    it("should wrap to end on ArrowUp from index 0", () => {
+      mockCatalogResults = [{ id: 1 }, { id: 2 }] as typeof mockCatalogResults;
+      mockSearchOpen = true;
+
       const store = createTestStore({
         flowsheet: {
           ...flowsheetSlice.getInitialState(),
           search: {
             ...flowsheetSlice.getInitialState().search,
+            open: true,
             selectedResult: 0,
           },
         },
@@ -339,15 +372,16 @@ describe("FlowsheetSearchbar", () => {
         </Provider>
       );
 
-      fireEvent.keyDown(document, { key: "ArrowUp" });
+      const form = screen.getByTestId("flowsheet-search-form");
+      fireEvent.keyDown(form, { key: "ArrowUp" });
 
       const state = store.getState();
-      expect(state.flowsheet.search.selectedResult).toBe(0);
+      expect(state.flowsheet.search.selectedResult).toBe(2);
     });
   });
 
   describe("click away behavior", () => {
-    it("should reset search on click away", async () => {
+    it("should not reset search on click away (draft preserved)", async () => {
       const store = createTestStore();
 
       render(
@@ -357,11 +391,10 @@ describe("FlowsheetSearchbar", () => {
         </Provider>
       );
 
-      // Click outside the search bar
       const outside = screen.getByTestId("outside");
       await userEvent.click(outside);
 
-      expect(mockResetSearch).toHaveBeenCalled();
+      expect(mockResetSearch).not.toHaveBeenCalled();
     });
   });
 
@@ -375,7 +408,7 @@ describe("FlowsheetSearchbar", () => {
         </Provider>
       );
 
-      const form = container.querySelector("form")!;
+      const form = screen.getByTestId("flowsheet-search-form");
       fireEvent.submit(form);
 
       expect(mockHandleSubmit).toHaveBeenCalled();
@@ -401,7 +434,7 @@ describe("FlowsheetSearchbar", () => {
   });
 
   describe("button states", () => {
-    it("should show / when search is closed", () => {
+    it("should show Play label on submit button", () => {
       mockSearchOpen = false;
       const store = createTestStore();
 
@@ -411,9 +444,7 @@ describe("FlowsheetSearchbar", () => {
         </Provider>
       );
 
-      const buttons = screen.getAllByRole("button");
-      const submitButton = buttons.find((btn) => btn.textContent === "/");
-      expect(submitButton).toBeInTheDocument();
+      expect(screen.getByTestId("flowsheet-search-submit")).toHaveTextContent("Play");
     });
 
     it("should show play icon when search is open and ctrl not pressed", () => {
@@ -465,9 +496,7 @@ describe("FlowsheetSearchbar", () => {
         </Provider>
       );
 
-      const buttons = screen.getAllByRole("button");
-      const submitButton = buttons.find((btn) => btn.textContent === "/");
-      expect(submitButton).toBeDisabled();
+      expect(screen.getByTestId("flowsheet-search-submit")).toBeDisabled();
     });
   });
 

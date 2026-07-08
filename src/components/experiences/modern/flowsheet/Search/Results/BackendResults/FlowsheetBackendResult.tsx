@@ -2,15 +2,17 @@ import { AlbumEntry } from "@/lib/features/catalog/types";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useMetadataPrefetch } from "@/lib/features/metadata/api";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { useFlowsheetSubmit } from "@/src/hooks/flowsheetHooks";
 import { Chip, ColorPaletteProp, Stack, Typography } from "@mui/joy";
+import { useCallback } from "react";
 
 export default function FlowsheetBackendResult({
   entry,
   index,
+  onStage,
 }: {
   entry: AlbumEntry;
   index: number;
+  onStage?: (entry: AlbumEntry) => void;
 }) {
   const selected = useAppSelector(flowsheetSlice.selectors.getSelectedResult);
 
@@ -18,43 +20,43 @@ export default function FlowsheetBackendResult({
   const setSelected = (index: number) =>
     dispatch(flowsheetSlice.actions.setSelectedResult(index));
 
-  const { ctrlKeyPressed: submittingToQueue, handleSubmit } =
-    useFlowsheetSubmit();
-
-  // Warm the tracklist cache so the picker is instantaneous once the result is
-  // highlighted (LML's 3-tier cache + BS's 10-minute LRU absorb the actual
-  // request). Same pattern as rotation prefetch, but per-row instead of
-  // per-bin since search results are heterogeneous.
   const prefetchTracks = useMetadataPrefetch("getLibraryTracks");
+
+  const scrollRef = useCallback((el: HTMLElement | null) => {
+    if (selected === index && el?.scrollIntoView) {
+      el.scrollIntoView({ block: "nearest" });
+    }
+  }, [selected, index]);
 
   return (
     <Stack
+      ref={scrollRef}
       key={`bin-${index}`}
       direction="row"
       justifyContent="space-between"
+      role="option"
+      id={`flowsheet-option-${index}`}
+      aria-selected={selected === index}
       data-testid={`flowsheet-search-result-${index}`}
       sx={{
         p: 1,
         backgroundColor:
-          selected == index
-            ? submittingToQueue
-              ? "success.700"
-              : "primary.700"
-            : "transparent",
+          selected === index ? "primary.softBg" : "transparent",
         cursor: "pointer",
+        "&:hover": { bgcolor: "background.level1" },
       }}
-      onMouseOver={() => {
+      onMouseEnter={() => {
         setSelected(index);
         if (entry.id) prefetchTracks(entry.id);
       }}
-      onClick={handleSubmit}
+      onClick={() => onStage?.(entry)}
     >
       <Stack direction="column" sx={{ flex: 1, minWidth: 0, px: 1 }}>
         <Typography
           level="body-xs"
           sx={{
             mb: -0.5,
-            color: selected == index ? "neutral.300" : "text.tertiary",
+            color: selected === index ? "primary.300" : "text.tertiary",
           }}
         >
           CODE
@@ -65,7 +67,6 @@ export default function FlowsheetBackendResult({
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
-            color: selected == index ? "white" : "inherit",
             fontFamily: "monospace",
             fontSize: "1rem",
           }}
@@ -80,9 +81,7 @@ export default function FlowsheetBackendResult({
                 ? "primary"
                 : "info") as ColorPaletteProp
             }
-            sx={{
-              ml: 2,
-            }}
+            sx={{ ml: 2 }}
           >
             {entry.format.includes("vinyl") ? "vinyl" : "cd"}
           </Chip>
@@ -104,13 +103,7 @@ export default function FlowsheetBackendResult({
         </Typography>
       </Stack>
       <Stack direction="column" sx={{ flex: 1, minWidth: 0, px: 1 }}>
-        <Typography
-          level="body-xs"
-          sx={{
-            mb: -0.5,
-            color: selected == index ? "neutral.300" : "text.tertiary",
-          }}
-        >
+        <Typography level="body-xs" sx={{ mb: -0.5, color: "text.tertiary" }}>
           ARTIST
         </Typography>
         <Typography
@@ -118,7 +111,6 @@ export default function FlowsheetBackendResult({
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
-            color: selected == index ? "white" : "inherit",
             fontStyle: entry.artist?.name ? "normal" : "italic",
             opacity: entry.artist?.name ? 1 : 0.6,
           }}
@@ -127,13 +119,7 @@ export default function FlowsheetBackendResult({
         </Typography>
       </Stack>
       <Stack direction="column" sx={{ flex: 1, minWidth: 0, px: 1 }}>
-        <Typography
-          level="body-xs"
-          sx={{
-            mb: -0.5,
-            color: selected == index ? "neutral.300" : "text.tertiary",
-          }}
-        >
+        <Typography level="body-xs" sx={{ mb: -0.5, color: "text.tertiary" }}>
           ALBUM
         </Typography>
         <Typography
@@ -141,7 +127,6 @@ export default function FlowsheetBackendResult({
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
-            color: selected == index ? "white" : "inherit",
             fontStyle: entry.title ? "normal" : "italic",
             opacity: entry.title ? 1 : 0.6,
           }}
@@ -150,13 +135,7 @@ export default function FlowsheetBackendResult({
         </Typography>
       </Stack>
       <Stack direction="column" sx={{ flex: 1, minWidth: 0, px: 1 }}>
-        <Typography
-          level="body-xs"
-          sx={{
-            mb: -0.5,
-            color: selected == index ? "neutral.300" : "text.tertiary",
-          }}
-        >
+        <Typography level="body-xs" sx={{ mb: -0.5, color: "text.tertiary" }}>
           LABEL
         </Typography>
         <Typography
@@ -164,7 +143,6 @@ export default function FlowsheetBackendResult({
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
-            color: selected == index ? "white" : "inherit",
             fontStyle: entry.label ? "normal" : "italic",
             opacity: entry.label ? 1 : 0.6,
           }}
