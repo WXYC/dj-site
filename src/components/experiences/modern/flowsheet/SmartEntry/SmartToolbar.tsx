@@ -4,12 +4,13 @@ import { Box, Divider, Stack } from "@mui/joy";
 import BreakpointButton from "../Search/BreakpointButton";
 import TalksetButton from "../Search/TalksetButton";
 import ScopeControl from "../Search/ScopeControl";
+import SmartFilters from "./SmartFilters";
 
 /**
  * The composer's secondary control row: breakpoint / talkset / scope on the
- * left, with room for the result filters (added in a later phase) on the right.
- * The Queue / Play commit buttons live up in the composer row, next to the
- * sentence they commit. Controls wrap on narrow widths.
+ * left, then the result filters (genre / format / rotation). The Queue / Play
+ * commit buttons live up in the composer row, next to the sentence they commit.
+ * Controls wrap on narrow widths.
  */
 export default function SmartToolbar({ disabled = false }: { disabled?: boolean }) {
   return (
@@ -35,7 +36,11 @@ export default function SmartToolbar({ disabled = false }: { disabled?: boolean 
 
       <ScopeControl disabled={disabled} />
 
-      <Box sx={{ flex: 1, minWidth: 8 }} />
+      <Divider orientation="vertical" sx={{ alignSelf: "stretch" }} />
+
+      <Box sx={{ flex: 1, minWidth: 160 }}>
+        <SmartFilters />
+      </Box>
     </Stack>
   );
 }
