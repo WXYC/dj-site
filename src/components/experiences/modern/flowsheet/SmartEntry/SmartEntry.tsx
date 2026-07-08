@@ -1,6 +1,6 @@
 "use client";
 
-import { PlayArrow, QueueMusic } from "@mui/icons-material";
+import { Close, PlayArrow, QueueMusic } from "@mui/icons-material";
 import {
   Box,
   Divider,
@@ -63,6 +63,9 @@ export default function SmartEntry() {
   const [focused, setFocused] = useState(false);
 
   const flatCount = search.flat.length;
+  // Composing an entry (has text) swaps the action cluster from the entry
+  // markers (breakpoint/talkset) to the commit + clear buttons.
+  const isComposing = entry.raw.trim() !== "";
 
   // The active outline colour: success while Ctrl/⌘ is held (next commit
   // queues), otherwise primary. Applied per-side to the shell and the panel so
@@ -213,40 +216,63 @@ export default function SmartEntry() {
               alignItems="center"
               sx={{ alignSelf: "center", flexShrink: 0, pr: 0.25 }}
             >
-              {/* Entry-scoped actions: the plain breakpoint/talkset sit left of
-                  the emphasized queue/play so all four share one row. */}
-              <BreakpointButton />
-              <TalksetButton />
+              {isComposing ? (
+                // Composing an entry → the commit actions (+ a clear button).
+                // Breakpoint/talkset are hidden; they don't apply mid-entry.
+                <>
+                  <Tooltip title="Clear (Esc)" size="sm">
+                    <IconButton
+                      type="button"
+                      variant="plain"
+                      color="neutral"
+                      size="sm"
+                      aria-label="Clear entry"
+                      onClick={() => {
+                        entry.reset();
+                        inputRef.current?.focus();
+                      }}
+                    >
+                      <Close />
+                    </IconButton>
+                  </Tooltip>
 
-              <Divider orientation="vertical" sx={{ mx: 0.25, my: 0.5 }} />
+                  <Divider orientation="vertical" sx={{ mx: 0.25, my: 0.5 }} />
 
-              <Tooltip title="Add to queue (Ctrl+Enter)" size="sm">
-                <IconButton
-                  type="button"
-                  variant="soft"
-                  color="success"
-                  size="sm"
-                  aria-label="Add to queue"
-                  disabled={!live}
-                  onClick={(e) => entry.submitToQueue(e)}
-                >
-                  <QueueMusic />
-                </IconButton>
-              </Tooltip>
+                  <Tooltip title="Add to queue (Ctrl+Enter)" size="sm">
+                    <IconButton
+                      type="button"
+                      variant="soft"
+                      color="success"
+                      size="sm"
+                      aria-label="Add to queue"
+                      disabled={!live}
+                      onClick={(e) => entry.submitToQueue(e)}
+                    >
+                      <QueueMusic />
+                    </IconButton>
+                  </Tooltip>
 
-              <Tooltip title="Play now (Enter)" size="sm">
-                <IconButton
-                  type="button"
-                  variant="solid"
-                  color="primary"
-                  size="sm"
-                  aria-label="Play now"
-                  disabled={!live}
-                  onClick={() => formRef.current?.requestSubmit()}
-                >
-                  <PlayArrow />
-                </IconButton>
-              </Tooltip>
+                  <Tooltip title="Play now (Enter)" size="sm">
+                    <IconButton
+                      type="button"
+                      variant="solid"
+                      color="primary"
+                      size="sm"
+                      aria-label="Play now"
+                      disabled={!live}
+                      onClick={() => formRef.current?.requestSubmit()}
+                    >
+                      <PlayArrow />
+                    </IconButton>
+                  </Tooltip>
+                </>
+              ) : (
+                // Idle → the entry-marker buttons; nothing to commit yet.
+                <>
+                  <BreakpointButton />
+                  <TalksetButton />
+                </>
+              )}
             </Stack>
           </Box>
 
