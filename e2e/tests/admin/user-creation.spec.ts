@@ -294,7 +294,7 @@ test.describe("New User Can Login", () => {
     const newPassword = "NewPassword1";
 
     // Complete onboarding via invite email token
-    await completeOnboardingWithInviteToken(newUserPage, email, newPassword, username);
+    await completeOnboardingWithInviteToken(newUserPage, email, newPassword);
 
     await newUserDashboard.expectOnDashboard();
 

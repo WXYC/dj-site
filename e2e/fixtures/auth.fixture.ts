@@ -1,5 +1,4 @@
 import { test as base, expect, Page } from "@playwright/test";
-import { LoginPage } from "../pages/login.page";
 import { MOCK_USERS, MockUserKey, MockUser } from "../../lib/test-utils/fixtures";
 
 /** Re-export shared mock users for e2e convenience. */
@@ -176,8 +175,7 @@ export async function getVerificationToken(identifier: string): Promise<{ token:
 export async function completeOnboardingWithInviteToken(
   page: Page,
   email: string,
-  password: string,
-  username?: string
+  password: string
 ): Promise<void> {
   const tokenData = await getVerificationToken(email);
   if (!tokenData?.token) {
@@ -210,23 +208,9 @@ export async function completeOnboardingWithInviteToken(
     timeout: 10000,
   });
   await page.getByRole("button", { name: "Submit" }).click();
-  // Token onboarding auto-signs-in when better-auth already has a session;
-  // otherwise the user lands on login to sign in with their new password.
-  await page.waitForURL(
-    (url) => url.pathname.includes("/dashboard") || url.pathname.includes("/login"),
-    { timeout: 15000 }
-  );
-
-  if (!page.url().includes("/dashboard") && username) {
-    const loginPage = new LoginPage(page);
-    if (!page.url().includes("/login")) {
-      await loginPage.goto();
-    }
-    await page.waitForLoadState("domcontentloaded");
-    await loginPage.switchToPasswordLogin();
-    await loginPage.login(username, password);
-    await loginPage.waitForRedirectToDashboard();
-  }
+  await page.waitForURL((url) => url.pathname.includes("/dashboard"), {
+    timeout: 20000,
+  });
 }
 
 /**

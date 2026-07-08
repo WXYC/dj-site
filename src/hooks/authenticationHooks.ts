@@ -169,8 +169,14 @@ export const useLogin = () => {
 
       toast.success("Login successful");
 
-      const session = await authClient.getSession();
-      const user = session.data?.user ?? (result as { data?: { user?: { id?: string; hasCompletedOnboarding?: boolean } } }).data?.user;
+      const signInUser = (result as { data?: { user?: { id?: string; hasCompletedOnboarding?: boolean } } }).data?.user;
+      let user = signInUser;
+      if (signInUser?.hasCompletedOnboarding !== true) {
+        const session = await authClient.getSession();
+        if (session.data?.user) {
+          user = { ...signInUser, ...session.data.user };
+        }
+      }
       await redirectAfterAuth(router, user, "password");
     }, "An unexpected error occurred during login. Please try again.");
   };
@@ -410,19 +416,35 @@ export const useNewUser = () => {
         throw new Error(message);
       }
 
-      const session = await authClient.getSession();
-      if (session.data?.user?.id) {
-        toast.success("Account setup complete. Welcome!");
-        await redirectAfterAuth(
-          router,
-          { id: session.data.user.id, hasCompletedOnboarding: true },
-          "onboarding",
+      const payload = (await response.json()) as {
+        userId?: string;
+        email?: string;
+        username?: string;
+      };
+
+      clearTokenCache();
+
+      const signInEmail = payload.email?.trim();
+      const signInUsername = payload.username?.trim();
+      const signInResult = signInEmail
+        ? await authClient.signIn.email({ email: signInEmail, password })
+        : signInUsername
+          ? await authClient.signIn.username({ username: signInUsername, password })
+          : { error: new Error("missing sign-in identifier") };
+
+      if ((signInResult as { error?: unknown }).error) {
+        throw new Error(
+          "Account setup succeeded but sign-in failed. Please sign in with your new password."
         );
-      } else {
-        toast.success("Account setup complete. Please sign in.");
-        router.push("/login");
-        router.refresh();
       }
+
+      const session = await authClient.getSession();
+      toast.success("Account setup complete. Welcome!");
+      await redirectAfterAuth(
+        router,
+        session.data?.user ?? { id: payload.userId, hasCompletedOnboarding: true },
+        "onboarding",
+      );
     }, "Failed to complete onboarding. Please try again.");
   };
 

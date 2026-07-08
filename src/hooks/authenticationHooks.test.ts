@@ -100,7 +100,12 @@ describe("authenticationHooks", () => {
     process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE = "/dashboard/flowsheet";
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ status: true, userId: "user-1" }),
+      json: async () => ({
+        status: true,
+        userId: "user-1",
+        email: "dj@example.com",
+        username: "testdj",
+      }),
     } as Response);
     // Default: the server can see the freshly-established session on the first
     // check, so redirectAfterAuth's confirm-before-navigate gate passes without
@@ -359,11 +364,14 @@ describe("authenticationHooks", () => {
   });
 
   describe("useNewUser", () => {
-    it("posts to complete-onboarding with setup token and profile fields", async () => {
+    it("posts to complete-onboarding then signs in and redirects to dashboard", async () => {
       mockSearchParamsGet.mockImplementation((key: string) =>
         key === "token" ? "setup-token-abc" : null
       );
-      mockGetSession.mockResolvedValue({ data: null });
+      mockSignInEmail.mockResolvedValue({ data: { user: { id: "user-1" } } });
+      mockGetSession.mockResolvedValue({
+        data: { user: { id: "user-1", hasCompletedOnboarding: true } },
+      });
 
       const { useNewUser } = await import("./authenticationHooks");
       const { result } = renderHook(() => useNewUser(), { wrapper: createWrapper() });
@@ -394,16 +402,30 @@ describe("authenticationHooks", () => {
           }),
         })
       );
-      expect(mockPush).toHaveBeenCalledWith("/login");
+      expect(mockClearTokenCache).toHaveBeenCalled();
+      expect(mockSignInEmail).toHaveBeenCalledWith({
+        email: "dj@example.com",
+        password: "NewPassword1",
+      });
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
     });
 
-    it("redirects to the dashboard when session exists after onboarding", async () => {
+    it("falls back to username sign-in when email is absent", async () => {
       mockSearchParamsGet.mockImplementation((key: string) =>
         key === "token" ? "setup-token-abc" : null
       );
-      mockGetSession
-        .mockResolvedValueOnce({ data: { user: { id: "user-1" } } })
-        .mockResolvedValueOnce({ data: { user: { id: "user-1" } } });
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          status: true,
+          userId: "user-1",
+          username: "testdj",
+        }),
+      } as Response);
+      mockSignInUsername.mockResolvedValue({ data: { user: { id: "user-1" } } });
+      mockGetSession.mockResolvedValue({
+        data: { user: { id: "user-1", hasCompletedOnboarding: true } },
+      });
 
       const { useNewUser } = await import("./authenticationHooks");
       const { result } = renderHook(() => useNewUser(), { wrapper: createWrapper() });
@@ -411,10 +433,7 @@ describe("authenticationHooks", () => {
       const form = {
         preventDefault: vi.fn(),
         currentTarget: {
-          username: { value: "testdj" },
           password: { value: "NewPassword1" },
-          realName: { value: "Real Name" },
-          djName: { value: "DJ Name" },
         },
       } as any;
 
@@ -422,14 +441,11 @@ describe("authenticationHooks", () => {
         await result.current.handleNewUser(form);
       });
 
-      expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
-      expect(mockSafeCapture).toHaveBeenCalledWith("login_post_redirect", {
-        method: "onboarding",
-        destination: "dashboard",
-        has_completed_onboarding: true,
-        user_id: "user-1",
-        session_confirmed: true,
+      expect(mockSignInUsername).toHaveBeenCalledWith({
+        username: "testdj",
+        password: "NewPassword1",
       });
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
     });
 
     it("rejects onboarding without a setup token", async () => {

@@ -234,7 +234,7 @@ test.describe("New User Onboarding", () => {
 
       const chosenPassword = "NewPassword1";
 
-      await completeOnboardingWithInviteToken(userPage, email, chosenPassword, username);
+      await completeOnboardingWithInviteToken(userPage, email, chosenPassword);
       await userDashboard.expectOnDashboard();
 
       // Cleanup

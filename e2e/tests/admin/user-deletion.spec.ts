@@ -197,7 +197,7 @@ test.describe("User Deletion Session Invalidation", () => {
     const chosenPassword = "NewPassword1";
 
     // New user completes invite onboarding, then signs in if needed
-    await completeOnboardingWithInviteToken(userPage, email, chosenPassword, username);
+    await completeOnboardingWithInviteToken(userPage, email, chosenPassword);
     await userDashboard.expectOnDashboard();
 
     // Admin deletes the user
