@@ -318,7 +318,7 @@ export default function FlowsheetSearchbar() {
                 registerFlusher={registerFlusher}
               />
               <Button
-                type="submit"
+                type="button"
                 size="sm"
                 variant="solid"
                 color={ctrlKeyPressed ? "success" : "primary"}
@@ -332,6 +332,7 @@ export default function FlowsheetSearchbar() {
                   )
                 }
                 sx={flowsheetSubmitButtonSx}
+                onClick={() => searchRef.current?.requestSubmit()}
               >
                 {ctrlKeyPressed ? "Queue" : "Play"}
               </Button>
