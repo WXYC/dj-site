@@ -10,7 +10,8 @@ import {
   Tooltip,
   Typography,
 } from "@mui/joy";
-import { ClickAwayListener, Grow, Popper, useMediaQuery } from "@mui/material";
+import { ClickAwayListener, Popper, useMediaQuery } from "@mui/material";
+import { Transition } from "react-transition-group";
 import type { Modifier } from "@popperjs/core";
 import { useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
@@ -59,6 +60,7 @@ export default function SmartEntry() {
 
   const formRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [focused, setFocused] = useState(false);
 
@@ -296,12 +298,30 @@ export default function SmartEntry() {
         style={{ zIndex: 1300 }}
       >
         {({ TransitionProps }) => (
-          <Grow
+          <Transition
             {...TransitionProps}
+            nodeRef={panelRef}
+            appear
             timeout={prefersReducedMotion ? 0 : 180}
-            style={{ transformOrigin: "top center" }}
           >
-            <Box>
+            {(status) => (
+            <Box
+              ref={panelRef}
+              // CSS-only enter/exit — MUI Material transitions (Grow) crash
+              // here because the app provides a Joy theme with no
+              // theme.transitions. Scale + fade from the top edge.
+              sx={{
+                transformOrigin: "top center",
+                transition: prefersReducedMotion
+                  ? "none"
+                  : "opacity 180ms ease, transform 180ms cubic-bezier(0.4, 0, 0.2, 1)",
+                opacity: status === "entering" || status === "entered" ? 1 : 0,
+                transform:
+                  status === "entering" || status === "entered"
+                    ? "scaleY(1)"
+                    : "scaleY(0.97)",
+              }}
+            >
               <ClickAwayListener
                 onClickAway={(event) => {
                   // Ignore clicks inside the composer shell — otherwise the very
@@ -353,7 +373,8 @@ export default function SmartEntry() {
                 </Sheet>
               </ClickAwayListener>
             </Box>
-          </Grow>
+            )}
+          </Transition>
         )}
       </Popper>
     </>
