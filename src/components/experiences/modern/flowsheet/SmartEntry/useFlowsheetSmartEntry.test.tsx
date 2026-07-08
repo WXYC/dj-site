@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { act, fireEvent, screen } from "@testing-library/react";
-import { renderWithProviders } from "@/lib/test-utils";
+import {
+  renderWithProviders,
+  createTestAlbum,
+  createTestArtist,
+} from "@/lib/test-utils";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useFlowsheetSmartEntry } from "./useFlowsheetSmartEntry";
 
@@ -181,6 +185,81 @@ describe("useFlowsheetSmartEntry", () => {
       });
       type("Percolator by Jua"); // any edit clears the memo
       expect(api.dismissedGhost).toBeNull();
+    });
+  });
+
+  describe("result fill + autofill undo", () => {
+    const match = createTestAlbum({
+      id: 4201,
+      title: "Dots and Loops",
+      label: "Duophonic",
+      artist: createTestArtist({ name: "Stereolab" }),
+    });
+
+    it("selectMatch fills the sentence, keeping the user's song", () => {
+      renderHost();
+      type("Percolator by Ste");
+      act(() => vi.advanceTimersByTime(250));
+
+      act(() => {
+        api.selectMatch(match);
+      });
+
+      expect(api.raw).toBe(
+        "Percolator by Stereolab on Dots and Loops via Duophonic"
+      );
+      expect(api.locks.artist).toBe("Stereolab");
+      expect(api.locks.album).toBe("Dots and Loops");
+    });
+
+    it("one Backspace undoes a result fill", () => {
+      renderHost();
+      type("Percolator by Ste");
+      act(() => vi.advanceTimersByTime(250));
+      act(() => {
+        api.selectMatch(match);
+      });
+
+      let undone = false;
+      act(() => {
+        undone = api.undoAutofill();
+      });
+      expect(undone).toBe(true);
+      expect(api.raw).toBe("Percolator by Ste");
+    });
+
+    it("one Backspace undoes a ghost accept", () => {
+      renderHost();
+      type("by Ju");
+      act(() => {
+        api.acceptGhost("ana Molina", "artist", "Juana Molina");
+      });
+      expect(api.raw).toBe("by Juana Molina");
+
+      act(() => {
+        expect(api.undoAutofill()).toBe(true);
+      });
+      expect(api.raw).toBe("by Ju");
+    });
+
+    it("undoAutofill is a no-op when there was no autofill", () => {
+      renderHost();
+      type("Percolator");
+      act(() => {
+        expect(api.undoAutofill()).toBe(false);
+      });
+    });
+
+    it("a normal edit commits the autofill so undo no longer applies", () => {
+      renderHost();
+      type("by Ju");
+      act(() => {
+        api.acceptGhost("ana Molina", "artist", "Juana Molina");
+      });
+      type("by Juana Molina!"); // ordinary edit
+      act(() => {
+        expect(api.undoAutofill()).toBe(false);
+      });
     });
   });
 

@@ -17,6 +17,12 @@ export type SmartEntryState = {
   suppressedTriggers: number[];
   locks: Partial<Record<SmartField, string>>;
   dismissedGhost: { field: SmartField; prefix: string } | null;
+  /**
+   * The raw text just before the last autofill (ghost accept / result fill),
+   * so a single Backspace can undo it in one step instead of deleting the
+   * filled remainder character by character. Cleared by any ordinary edit.
+   */
+  autofillUndo: string | null;
 };
 
 export const initialSmartEntryState: SmartEntryState = {
@@ -24,6 +30,7 @@ export const initialSmartEntryState: SmartEntryState = {
   suppressedTriggers: [],
   locks: {},
   dismissedGhost: null,
+  autofillUndo: null,
 };
 
 export type SmartEntryAction =
@@ -31,6 +38,16 @@ export type SmartEntryAction =
   | { type: "SET_RAW"; raw: string }
   /** Accept ghost text: replace raw and lock the field to `value`. */
   | { type: "ACCEPT_GHOST"; raw: string; field: SmartField; value: string }
+  /** Fill the sentence from a selected result: replace raw, lock the filled
+   *  fields, suppress trigger words inside the filled values. */
+  | {
+      type: "FILL_FIELDS";
+      raw: string;
+      locks: Partial<Record<SmartField, string>>;
+      suppress: number[];
+    }
+  /** Undo the last autofill in one step (Backspace right after a fill). */
+  | { type: "UNDO_AUTOFILL" }
   /** Lock a field to a committed value without changing raw (e.g. suggestion). */
   | { type: "LOCK_FIELD"; field: SmartField; value: string }
   /** Escape rung 1: dismiss the current ghost for (field, prefix). */
@@ -84,6 +101,7 @@ export function smartEntryReducer(
         suppressedTriggers,
         locks: pruneLocks(state.locks, parse),
         dismissedGhost: null, // any edit reopens ghost consideration
+        autofillUndo: null, // an ordinary edit commits the last autofill
       };
     }
 
@@ -106,6 +124,43 @@ export function smartEntryReducer(
         suppressedTriggers,
         locks: { ...state.locks, [action.field]: action.value },
         dismissedGhost: null,
+        autofillUndo: state.raw, // one Backspace undoes the accept
+      };
+    }
+
+    case "FILL_FIELDS": {
+      const remapped = remapSuppressedTriggers(
+        state.raw,
+        action.raw,
+        state.suppressedTriggers
+      );
+      const suppressedTriggers = Array.from(
+        new Set([...remapped, ...action.suppress])
+      );
+      return {
+        raw: action.raw,
+        suppressedTriggers,
+        locks: { ...state.locks, ...action.locks },
+        dismissedGhost: null,
+        autofillUndo: state.raw, // one Backspace undoes the fill
+      };
+    }
+
+    case "UNDO_AUTOFILL": {
+      if (state.autofillUndo === null) return state;
+      const raw = state.autofillUndo;
+      const suppressedTriggers = remapSuppressedTriggers(
+        state.raw,
+        raw,
+        state.suppressedTriggers
+      );
+      const parse = parseSmartEntry(raw, { suppressedTriggers });
+      return {
+        raw,
+        suppressedTriggers,
+        locks: pruneLocks(state.locks, parse),
+        dismissedGhost: null,
+        autofillUndo: null,
       };
     }
 

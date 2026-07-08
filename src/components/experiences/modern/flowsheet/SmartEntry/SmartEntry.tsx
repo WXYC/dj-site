@@ -192,6 +192,7 @@ export default function SmartEntry() {
                 const full = ghost.acceptGhostText();
                 if (full) entry.acceptGhost(ghost.ghostSuffix, activeField, full);
               }}
+              onBackspaceAtEnd={entry.undoAutofill}
               onFocus={() => {
                 setFocused(true);
                 // Refocusing after a click-away should bring the results back

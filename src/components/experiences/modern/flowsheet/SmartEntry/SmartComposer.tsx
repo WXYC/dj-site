@@ -21,6 +21,7 @@ export default function SmartComposer({
   onChange,
   onKeyDown,
   onAcceptGhost,
+  onBackspaceAtEnd,
   onFocus,
   onBlur,
   inputRef,
@@ -35,6 +36,9 @@ export default function SmartComposer({
   onChange: (value: string) => void;
   onKeyDown?: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
   onAcceptGhost?: () => void;
+  /** Backspace with the caret at the end and no selection; return true to
+   *  consume it (e.g. undoing an autofill in one step). */
+  onBackspaceAtEnd?: () => boolean;
   onFocus?: () => void;
   onBlur?: () => void;
   inputRef?: Ref<HTMLTextAreaElement>;
@@ -79,21 +83,29 @@ export default function SmartComposer({
           // Accept ghost text on Right Arrow / End when the caret is at the end
           // of the input and a ghost is showing; otherwise let the keys behave
           // natively (caret movement) and bubble to the parent handler.
+          const el = e.currentTarget;
+          const caretAtEnd =
+            el.selectionStart === el.value.length &&
+            el.selectionEnd === el.value.length;
+
           if (
             (e.key === "ArrowRight" || e.key === "End") &&
             ghostSuffix &&
-            onAcceptGhost
+            onAcceptGhost &&
+            caretAtEnd
           ) {
-            const el = e.currentTarget;
-            const atEnd =
-              el.selectionStart === el.value.length &&
-              el.selectionEnd === el.value.length;
-            if (atEnd) {
-              e.preventDefault();
-              onAcceptGhost();
-              return;
-            }
+            e.preventDefault();
+            onAcceptGhost();
+            return;
           }
+
+          // Backspace right after an autofill undoes the whole fill in one step
+          // (no holding it through a long name).
+          if (e.key === "Backspace" && caretAtEnd && onBackspaceAtEnd?.()) {
+            e.preventDefault();
+            return;
+          }
+
           onKeyDown?.(e);
         }}
         onFocus={onFocus}

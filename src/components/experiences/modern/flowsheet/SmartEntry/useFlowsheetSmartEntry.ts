@@ -11,6 +11,7 @@ import { useFlowsheetSubmit, useQueue } from "@/src/hooks/flowsheetHooks";
 import { parseSmartEntry } from "./parser/parseSmartEntry";
 import type { FieldSpan, ParseResult, SmartField } from "./parser/types";
 import { activeFieldAtEnd } from "./activeField";
+import { buildFilledSentence } from "./buildFilledSentence";
 import { buildPendingQuery, selectedMatchApplies } from "./buildPendingQuery";
 import {
   hasActiveTrigger,
@@ -174,16 +175,53 @@ export function useFlowsheetSmartEntry() {
     dispatch(flowsheetSlice.actions.resetSearch());
   }, [dispatch]);
 
-  /** Commit a catalog/rotation result as the selected match (P4 results wire). */
+  /**
+   * Commit a catalog/rotation result: fill the composer sentence with the
+   * result's artist/album/label (keeping the user's song), lock those fields as
+   * constraints, and record the selected match for the submission linkage. A
+   * single Backspace undoes the fill.
+   */
   const selectMatch = useCallback(
     (entry: AlbumEntry) => {
+      const song =
+        parseSmartEntry(state.raw, {
+          suppressedTriggers: state.suppressedTriggers,
+        }).fields.song ?? "";
+      const filled = buildFilledSentence(song, {
+        artist: entry.artist?.name,
+        album: entry.title,
+        label: entry.label,
+      });
+      localDispatch({
+        type: "FILL_FIELDS",
+        raw: filled.raw,
+        locks: filled.locks,
+        suppress: filled.suppress,
+      });
       dispatch(
         flowsheetSlice.actions.setSelectedMatch(albumEntryToSelectedMatch(entry))
       );
       dispatch(flowsheetSlice.actions.setSelectedResult(0));
+      const parsed = parseSmartEntry(filled.raw, {
+        suppressedTriggers: filled.suppress,
+      });
+      dispatch(flowsheetSlice.actions.setParsedFields(fullParsedFields(parsed)));
     },
-    [dispatch]
+    [state.raw, state.suppressedTriggers, dispatch]
   );
+
+  /** Undo the last autofill (ghost accept / result fill) in one step. Returns
+   *  true when there was something to undo (caller should preventDefault). */
+  const undoAutofill = useCallback(() => {
+    if (state.autofillUndo === null) return false;
+    const restored = state.autofillUndo;
+    localDispatch({ type: "UNDO_AUTOFILL" });
+    const parsed = parseSmartEntry(restored, {
+      suppressedTriggers: state.suppressedTriggers,
+    });
+    dispatch(flowsheetSlice.actions.setParsedFields(fullParsedFields(parsed)));
+    return true;
+  }, [state.autofillUndo, state.suppressedTriggers, dispatch]);
 
   const clearMatch = useCallback(() => {
     dispatch(flowsheetSlice.actions.clearSelectedMatch());
@@ -310,6 +348,7 @@ export function useFlowsheetSmartEntry() {
     setHighlight,
     acceptGhost,
     dismissGhost,
+    undoAutofill,
     handleEscape,
   };
 }
