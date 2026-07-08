@@ -17,6 +17,7 @@ import type { KeyboardEvent } from "react";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
+import { useGhostText, type GhostTextField } from "@/src/hooks/useGhostText";
 import SmartComposer from "./SmartComposer";
 import SmartResults from "./SmartResults";
 import SmartToolbar from "./SmartToolbar";
@@ -69,6 +70,27 @@ export default function SmartEntry() {
     ? `${activePalette}.500`
     : "neutral.outlinedBorder";
 
+  // Ghost text for the field the caret is at the end of. Album has no suggest
+  // endpoint — feed the top result's title as the override; label gets none.
+  const activeField = entry.activeField;
+  const activeValue = entry.fields[activeField] ?? "";
+  const effectiveArtist =
+    entry.locks.artist ?? search.selectedMatch?.artist ?? entry.fields.artist ?? "";
+  const albumOverride =
+    activeField === "album" ? search.flat[0]?.title ?? undefined : undefined;
+  const ghostField: GhostTextField =
+    activeField === "label" ? "album" : activeField;
+  const ghost = useGhostText(
+    ghostField,
+    activeValue,
+    effectiveArtist,
+    albumOverride
+  );
+  const ghostDismissed =
+    entry.dismissedGhost?.field === activeField &&
+    entry.dismissedGhost?.prefix === activeValue;
+  const ghostSuffix = focused && !ghostDismissed ? ghost.ghostSuffix : "";
+
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     switch (e.key) {
       case "ArrowDown":
@@ -97,6 +119,12 @@ export default function SmartEntry() {
         }
         return;
       case "Escape":
+        // Rung 1: a visible ghost is dismissed first.
+        if (ghostSuffix) {
+          entry.dismissGhost(activeField, activeValue);
+          e.preventDefault();
+          return;
+        }
         if (entry.handleEscape()) e.preventDefault();
         return;
     }
@@ -157,8 +185,13 @@ export default function SmartEntry() {
               raw={entry.raw}
               spans={entry.spans}
               pendingTrigger={entry.pendingTrigger}
+              ghostSuffix={ghostSuffix}
               onChange={entry.onRawChange}
               onKeyDown={onKeyDown}
+              onAcceptGhost={() => {
+                const full = ghost.acceptGhostText();
+                if (full) entry.acceptGhost(ghost.ghostSuffix, activeField, full);
+              }}
               onFocus={() => {
                 setFocused(true);
                 // Refocusing after a click-away should bring the results back

@@ -12,6 +12,8 @@ import { useDebouncedValue } from "./useDebouncedValue";
 const DEBOUNCE_MS = 200;
 const MIN_PREFIX_LENGTH = 2;
 
+export type GhostTextField = "artist" | "song" | "album";
+
 export type GhostTextResult = {
   /** The untyped suffix to display as grey ghost text (e.g., "techre" when user typed "Au") */
   ghostSuffix: string;
@@ -22,15 +24,21 @@ export type GhostTextResult = {
 };
 
 /**
- * Provides ghost text autocomplete for artist or song fields.
+ * Provides ghost text autocomplete for the artist, song, or album field.
  *
- * For `artist`: suggests from the library catalog.
- * For `song`: suggests from flowsheet history, filtered by confirmedArtist.
+ * - `artist`: suggests from the library catalog (`suggestArtists`).
+ * - `song`: suggests from flowsheet history, filtered by `confirmedArtist`.
+ * - `album`: has no suggest endpoint — pass `suggestionOverride` (e.g. the top
+ *   catalog result's title) to drive it through the same prefix-verify path.
+ *
+ * `suggestionOverride`, when provided for any field, wins over the internal
+ * queries (used for album, and available as an escape hatch).
  */
 export function useGhostText(
-  field: "artist" | "song",
+  field: GhostTextField,
   currentValue: string,
-  confirmedArtist?: string
+  confirmedArtist?: string,
+  suggestionOverride?: string
 ): GhostTextResult {
   const debouncedValue = useDebouncedValue(currentValue, DEBOUNCE_MS);
   const shouldQuery = debouncedValue.length >= MIN_PREFIX_LENGTH;
@@ -39,19 +47,33 @@ export function useGhostText(
 
   const artistQuery = useSuggestArtistsQuery(
     { q: debouncedValue, limit: 1 },
-    { skip: field !== "artist" || !shouldQuery || skipForCompilation }
+    {
+      skip:
+        field !== "artist" ||
+        !shouldQuery ||
+        skipForCompilation ||
+        Boolean(suggestionOverride),
+    }
   );
 
   const trackQuery = useSuggestTracksQuery(
     { q: debouncedValue, artist: confirmedArtist || "", limit: 1 },
-    { skip: field !== "song" || !shouldQuery || !confirmedArtist }
+    {
+      skip:
+        field !== "song" ||
+        !shouldQuery ||
+        !confirmedArtist ||
+        Boolean(suggestionOverride),
+    }
   );
 
   return useMemo(() => {
     let suggestion: string | null = null;
     let trackResult: SuggestTrackResult | null = null;
 
-    if (field === "artist" && artistQuery.data?.length) {
+    if (suggestionOverride) {
+      suggestion = suggestionOverride;
+    } else if (field === "artist" && artistQuery.data?.length) {
       suggestion = artistQuery.data[0];
     } else if (field === "song" && trackQuery.data?.length) {
       trackResult = trackQuery.data[0];
@@ -59,10 +81,12 @@ export function useGhostText(
     }
 
     // Verify the suggestion starts with what the user typed (case-insensitive)
+    // and offers something beyond it.
     if (
       !suggestion ||
       !currentValue ||
-      !suggestion.toLowerCase().startsWith(currentValue.toLowerCase())
+      !suggestion.toLowerCase().startsWith(currentValue.toLowerCase()) ||
+      suggestion.length <= currentValue.length
     ) {
       return {
         ghostSuffix: "",
@@ -78,5 +102,11 @@ export function useGhostText(
       acceptGhostText: () => suggestion,
       trackResult,
     };
-  }, [field, currentValue, artistQuery.data, trackQuery.data]);
+  }, [
+    field,
+    currentValue,
+    suggestionOverride,
+    artistQuery.data,
+    trackQuery.data,
+  ]);
 }

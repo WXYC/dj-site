@@ -20,6 +20,7 @@ export default function SmartComposer({
   ghostSuffix = "",
   onChange,
   onKeyDown,
+  onAcceptGhost,
   onFocus,
   onBlur,
   inputRef,
@@ -33,6 +34,7 @@ export default function SmartComposer({
   ghostSuffix?: string;
   onChange: (value: string) => void;
   onKeyDown?: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
+  onAcceptGhost?: () => void;
   onFocus?: () => void;
   onBlur?: () => void;
   inputRef?: Ref<HTMLTextAreaElement>;
@@ -73,7 +75,27 @@ export default function SmartComposer({
         onChange={(e) =>
           onChange((e.target as HTMLTextAreaElement).value.replace(/\n/g, ""))
         }
-        onKeyDown={onKeyDown}
+        onKeyDown={(e) => {
+          // Accept ghost text on Right Arrow / End when the caret is at the end
+          // of the input and a ghost is showing; otherwise let the keys behave
+          // natively (caret movement) and bubble to the parent handler.
+          if (
+            (e.key === "ArrowRight" || e.key === "End") &&
+            ghostSuffix &&
+            onAcceptGhost
+          ) {
+            const el = e.currentTarget;
+            const atEnd =
+              el.selectionStart === el.value.length &&
+              el.selectionEnd === el.value.length;
+            if (atEnd) {
+              e.preventDefault();
+              onAcceptGhost();
+              return;
+            }
+          }
+          onKeyDown?.(e);
+        }}
         onFocus={onFocus}
         onBlur={onBlur}
         sx={(theme) => ({

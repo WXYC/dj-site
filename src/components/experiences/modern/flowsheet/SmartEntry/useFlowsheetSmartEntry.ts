@@ -9,7 +9,8 @@ import { useAppDispatch, useAppSelector, useAppStore } from "@/lib/hooks";
 import { useDebouncedValue } from "@/src/hooks/useDebouncedValue";
 import { useFlowsheetSubmit, useQueue } from "@/src/hooks/flowsheetHooks";
 import { parseSmartEntry } from "./parser/parseSmartEntry";
-import type { FieldSpan, ParseResult } from "./parser/types";
+import type { FieldSpan, ParseResult, SmartField } from "./parser/types";
+import { activeFieldAtEnd } from "./activeField";
 import { buildPendingQuery, selectedMatchApplies } from "./buildPendingQuery";
 import {
   hasActiveTrigger,
@@ -196,6 +197,30 @@ export function useFlowsheetSmartEntry() {
     [dispatch]
   );
 
+  /** The field the ghost is offered for (caret assumed at end of input). */
+  const activeField = useMemo(() => activeFieldAtEnd(parse), [parse]);
+
+  /**
+   * Accept ghost text: append its suffix, lock the completed field as a search
+   * constraint, and flush the parse immediately so results narrow at once.
+   */
+  const acceptGhost = useCallback(
+    (suffix: string, field: SmartField, fullValue: string) => {
+      const raw = state.raw + suffix;
+      localDispatch({ type: "ACCEPT_GHOST", raw, field, value: fullValue });
+      const parsed = parseSmartEntry(raw, {
+        suppressedTriggers: state.suppressedTriggers,
+      });
+      dispatch(flowsheetSlice.actions.setParsedFields(fullParsedFields(parsed)));
+    },
+    [state.raw, state.suppressedTriggers, dispatch]
+  );
+
+  /** Escape rung 1: suppress the current ghost for (field, prefix). */
+  const dismissGhost = useCallback((field: SmartField, prefix: string) => {
+    localDispatch({ type: "DISMISS_GHOST", field, prefix });
+  }, []);
+
   /**
    * Commit the pending entry. Flushes the parse, reads the fresh store (never a
    * stale selector closure), and merges the selected match. `toQueue` routes to
@@ -270,6 +295,8 @@ export function useFlowsheetSmartEntry() {
     pendingTrigger: parse.pendingTrigger,
     locks: state.locks,
     suppressedTriggers: state.suppressedTriggers,
+    dismissedGhost: state.dismissedGhost,
+    activeField,
     selectedMatch,
     selectedResult,
     ctrlKeyPressed,
@@ -281,6 +308,8 @@ export function useFlowsheetSmartEntry() {
     selectMatch,
     clearMatch,
     setHighlight,
+    acceptGhost,
+    dismissGhost,
     handleEscape,
   };
 }

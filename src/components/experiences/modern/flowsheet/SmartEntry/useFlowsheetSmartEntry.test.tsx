@@ -148,6 +148,42 @@ describe("useFlowsheetSmartEntry", () => {
     });
   });
 
+  describe("ghost text", () => {
+    it("acceptGhost appends the suffix, locks the field, and narrows results", () => {
+      const { store } = renderHost();
+      type("Percolator by Ju");
+      act(() => vi.advanceTimersByTime(250));
+
+      act(() => {
+        api.acceptGhost("ana Molina", "artist", "Juana Molina");
+      });
+
+      expect(api.raw).toBe("Percolator by Juana Molina");
+      expect(api.locks.artist).toBe("Juana Molina");
+      act(() => vi.advanceTimersByTime(250));
+      expect(query(store).artist).toBe("Juana Molina");
+    });
+
+    it("dismissGhost records the dismissed field and prefix", () => {
+      renderHost();
+      type("Percolator by Ju");
+      act(() => {
+        api.dismissGhost("artist", "Ju");
+      });
+      expect(api.dismissedGhost).toEqual({ field: "artist", prefix: "Ju" });
+    });
+
+    it("editing after a dismiss reopens ghost consideration", () => {
+      renderHost();
+      type("Percolator by Ju");
+      act(() => {
+        api.dismissGhost("artist", "Ju");
+      });
+      type("Percolator by Jua"); // any edit clears the memo
+      expect(api.dismissedGhost).toBeNull();
+    });
+  });
+
   describe("submit", () => {
     it("flushes and hands the merged pending query to handleSubmit", () => {
       renderHost();
