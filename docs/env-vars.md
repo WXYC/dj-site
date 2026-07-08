@@ -20,6 +20,11 @@ NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED=false
 # NEXT_PUBLIC_BETTER_AUTH_URL is reachable from the browser but not from inside
 # the dj-site server.
 # AUTH_REWRITE_URL=http://auth:8082/auth
+
+# Optional — OAuth 2.0 Device Authorization Grant (RFC 8628) client_id for the
+# QR shared-computer sign-in. Sent to /auth/device/code and /auth/device/token.
+# Defaults to "dj-site" when unset.
+# NEXT_PUBLIC_DEVICE_AUTH_CLIENT_ID=dj-site
 ```
 
 ## Build-time env in CI/CD
