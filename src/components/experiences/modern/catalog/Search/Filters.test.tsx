@@ -74,7 +74,7 @@ describe("Filters", () => {
   it("selects exclusives via tag autocomplete", async () => {
     const { tagInput, user, getState } = setup();
     await user.click(tagInput());
-    await user.click(await screen.findByRole("option", { name: "exclusives" }));
+    await user.click(await screen.findByRole("option", { name: "Exclusives" }));
     expect(catalogSlice.selectors.getFilters(getState()).tags).toEqual([
       "exclusives",
     ]);
@@ -83,7 +83,7 @@ describe("Filters", () => {
   it("selects missing via tag autocomplete", async () => {
     const { tagInput, user, getState } = setup();
     await user.click(tagInput());
-    await user.click(await screen.findByRole("option", { name: "missing" }));
+    await user.click(await screen.findByRole("option", { name: "Missing" }));
     expect(catalogSlice.selectors.getFilters(getState()).tags).toEqual([
       "missing",
     ]);
