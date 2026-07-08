@@ -159,7 +159,12 @@ export default function SmartEntry() {
               pendingTrigger={entry.pendingTrigger}
               onChange={entry.onRawChange}
               onKeyDown={onKeyDown}
-              onFocus={() => setFocused(true)}
+              onFocus={() => {
+                setFocused(true);
+                // Refocusing after a click-away should bring the results back
+                // (the draft sentence is still there until committed/cleared).
+                dispatch(flowsheetSlice.actions.setSearchOpen(true));
+              }}
               onBlur={() => setFocused(false)}
               inputRef={inputRef}
               disabled={!live}
@@ -171,7 +176,7 @@ export default function SmartEntry() {
               spacing={0.75}
               sx={{ alignSelf: "center", flexShrink: 0, pr: 0.25 }}
             >
-              <Tooltip title="Add to queue" size="sm">
+              <Tooltip title="Add to queue (Ctrl+Enter)" size="sm">
                 <IconButton
                   type="button"
                   variant="soft"
@@ -223,14 +228,15 @@ export default function SmartEntry() {
         >
           <Sheet
             variant="outlined"
-            sx={{
+            sx={(theme) => ({
               // Square top + no top border → continues the shell's squared
-              // bottom; keep the bottom corners rounded. The side/bottom border
-              // colour tracks the shell's active outline.
+              // bottom; round the bottom corners to match the search box top.
+              // (Corner-specific radius props don't map theme tokens, so use
+              // the resolved radius var.)
               borderTopLeftRadius: 0,
               borderTopRightRadius: 0,
-              borderBottomLeftRadius: "md",
-              borderBottomRightRadius: "md",
+              borderBottomLeftRadius: theme.vars.radius.md,
+              borderBottomRightRadius: theme.vars.radius.md,
               borderTop: "none",
               borderColor: activeBorder,
               transition: "border-color 0.15s",
@@ -240,7 +246,7 @@ export default function SmartEntry() {
               overflow: "hidden",
               display: "flex",
               flexDirection: "column",
-            }}
+            })}
           >
             <SmartResults
               selectedMatch={search.selectedMatch}
