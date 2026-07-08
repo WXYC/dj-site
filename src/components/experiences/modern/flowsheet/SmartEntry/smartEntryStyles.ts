@@ -30,7 +30,7 @@ export const smartEntryTextMetricsSx = {
   // the `sm` token maps through Joy's cssVarPrefix. Both must resolve
   // identically on the two layers or the highlights drift off the caret.
   fontFamily: "inherit",
-  fontSize: "sm",
+  fontSize: "md",
   fontWeight: 500,
   lineHeight: 1.7,
   letterSpacing: "0",
