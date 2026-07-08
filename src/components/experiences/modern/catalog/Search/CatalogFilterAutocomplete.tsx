@@ -31,6 +31,8 @@ type CatalogFilterAutocompleteProps = {
   ) => ReactNode;
   /** Extra sx for the popup listbox (e.g. a raised z-index over an overlay). */
   listboxSx?: SxProps;
+  /** Extra sx for the autocomplete root (e.g. a taller --Input-minHeight). */
+  rootSx?: SxProps;
 };
 
 export function CatalogFilterAutocomplete({
@@ -44,6 +46,7 @@ export function CatalogFilterAutocomplete({
   getOptionLabel = (option) => option,
   renderTags: renderTagsProp,
   listboxSx,
+  rootSx,
 }: CatalogFilterAutocompleteProps) {
   if (isLoading) {
     return <Skeleton variant="rectangular" width="100%" height={28} sx={{ borderRadius: "sm" }} />;
@@ -125,7 +128,10 @@ export function CatalogFilterAutocomplete({
           ],
         },
       }}
-      sx={catalogFilterAutocompleteSx}
+      sx={[
+        catalogFilterAutocompleteSx,
+        ...(Array.isArray(rootSx) ? rootSx : [rootSx]),
+      ]}
     />
   );
 }

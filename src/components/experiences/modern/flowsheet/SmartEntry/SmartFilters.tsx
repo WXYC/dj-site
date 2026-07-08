@@ -25,6 +25,10 @@ import {
 // above it (tooltips are 1500, so stay under those).
 const FILTER_LISTBOX_SX = { zIndex: 1400 };
 
+// A taller input than the catalog default so the chips aren't vertically
+// compressed (and the controls stay tappable on touch).
+const FILTER_ROOT_SX = { "--Input-minHeight": "2rem" };
+
 /**
  * The flowsheet result filters — genre / format / rotation-bin — rendered in
  * the composer toolbar. Reuses the card catalog's controlled autocomplete and
@@ -68,6 +72,7 @@ export default function SmartFilters() {
           isLoading={genresLoading}
           getTagChipProps={getGenreFilterChipProps}
           listboxSx={FILTER_LISTBOX_SX}
+          rootSx={FILTER_ROOT_SX}
         />
       </CatalogFilterSection>
 
@@ -87,6 +92,7 @@ export default function SmartFilters() {
           isLoading={formatsLoading}
           getTagChipProps={getFormatFilterChipProps}
           listboxSx={FILTER_LISTBOX_SX}
+          rootSx={FILTER_ROOT_SX}
         />
       </CatalogFilterSection>
 
@@ -110,6 +116,7 @@ export default function SmartFilters() {
           getTagChipProps={getTagFilterChipProps}
           getOptionLabel={getCatalogTagLabel}
           listboxSx={FILTER_LISTBOX_SX}
+          rootSx={FILTER_ROOT_SX}
         />
       </CatalogFilterSection>
     </Box>
