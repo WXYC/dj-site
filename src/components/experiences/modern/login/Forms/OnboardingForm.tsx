@@ -71,8 +71,8 @@ export default function OnboardingForm({
         disabled={authenticating}
         helper={
           <Typography level="body-xs">
-            Must be at least 8 characters, with at least 1 number and 1 capital
-            letter
+            Choose the password you will use to sign in. Must be at least 8
+            characters, with at least 1 number and 1 capital letter.
           </Typography>
         }
         validationFunction={(value: string) => {

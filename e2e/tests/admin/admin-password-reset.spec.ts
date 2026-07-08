@@ -1,4 +1,4 @@
-import { test, expect, TEST_USERS, TEMP_PASSWORD } from "../../fixtures/auth.fixture";
+import { test, expect, TEST_USERS, completeOnboardingWithInviteToken, getAdminResetPasswordFromToast } from "../../fixtures/auth.fixture";
 import { DashboardPage } from "../../pages/dashboard.page";
 import { RosterPage } from "../../pages/roster.page";
 import { LoginPage } from "../../pages/login.page";
@@ -158,7 +158,9 @@ test.describe("Password Reset - User Can Login After Reset", () => {
     const userLoginPage = new LoginPage(userPage);
     const userDashboard = new DashboardPage(userPage);
 
-    // Login with the temp password (admin-set passwords use the same temp password)
+    const adminResetPassword = await getAdminResetPasswordFromToast(page);
+
+    // Login with the admin-generated temporary password
     await userLoginPage.goto();
     await userPage.waitForLoadState("networkidle");
 
@@ -166,7 +168,7 @@ test.describe("Password Reset - User Can Login After Reset", () => {
     await userLoginPage.switchToPasswordLogin();
     await expect(userPage.locator('input[name="username"]')).toBeVisible({ timeout: 5000 });
 
-    await userLoginPage.login(username, TEMP_PASSWORD);
+    await userLoginPage.login(username, adminResetPassword);
 
     // User has complete profile (seeded with realName and djName), should go to dashboard
     await userLoginPage.waitForRedirectToDashboard();
@@ -250,6 +252,8 @@ test.describe("Password Reset for Different User States", () => {
     const userOnboarding = new OnboardingPage(userPage);
     const userDashboard = new DashboardPage(userPage);
 
+    const adminResetPassword = await getAdminResetPasswordFromToast(page);
+
     await userLoginPage.goto();
     await userPage.waitForLoadState("networkidle");
 
@@ -257,7 +261,7 @@ test.describe("Password Reset for Different User States", () => {
     await userLoginPage.switchToPasswordLogin();
     await expect(userPage.locator('input[name="username"]')).toBeVisible({ timeout: 5000 });
 
-    await userLoginPage.login(username, TEMP_PASSWORD);
+    await userLoginPage.login(username, adminResetPassword);
 
     // Admin-created users have hasCompletedOnboarding=false and are
     // redirected to onboarding to set their own password

@@ -1,13 +1,12 @@
 "use client";
 
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
-import { authClient, clearTokenCache, lookupEmailByIdentifier } from "@/lib/features/authentication/client";
+import { authClient, authBaseURL, clearTokenCache, lookupEmailByIdentifier } from "@/lib/features/authentication/client";
 import { isValidEmail } from "@wxyc/shared/validation";
 import {
   AuthenticatedUser,
   AuthenticationData,
   isAuthenticated,
-  NewUserCredentials,
   ResetPasswordRequest,
   VerifiedData,
 } from "@/lib/features/authentication/types";
@@ -15,7 +14,7 @@ import { betterAuthSessionToAuthenticationData, betterAuthSessionToAuthenticatio
 import { Authorization } from "@/lib/features/admin/types";
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { resetApplication } from "./applicationHooks";
@@ -357,81 +356,76 @@ export const useRegistry = () => {
 
 export const useNewUser = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const dispatch = useAppDispatch();
   const verified = useAppSelector(
     authenticationSlice.selectors.requiredCredentialsVerified
   );
-
-  const { handleLogout } = useLogout();
 
   const { execute, isLoading, error } = useAsyncAction();
 
   const handleNewUser = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     return execute(async () => {
-      const username = e.currentTarget.username.value;
       const password = e.currentTarget.password.value;
-      const currentPassword = String(
-        process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD || ""
-      );
+      const setupToken = searchParams?.get("token")?.trim() || undefined;
 
-      if (!currentPassword) {
-        throw new Error("Missing onboarding temp password configuration.");
+      if (!password) {
+        throw new Error("Please choose a password");
       }
-
-      const params: NewUserCredentials = {
-        username,
-        password,
-      };
 
       const realNameValue = e.currentTarget.realName?.value || "";
       const djNameValue = e.currentTarget.djName?.value || "";
 
-      if (realNameValue) {
-        params.realName = realNameValue;
+      const body: Record<string, string> = { newPassword: password };
+      if (setupToken) {
+        body.token = setupToken;
       }
-      if (djNameValue) {
-        params.djName = djNameValue;
+      if (realNameValue.trim()) {
+        body.realName = realNameValue.trim();
+      }
+      if (djNameValue.trim()) {
+        body.djName = djNameValue.trim();
+      }
+
+      if (!setupToken) {
+        const session = await authClient.getSession();
+        if (!session.data?.user?.id) {
+          throw new Error(
+            "Your setup link is invalid or expired. Ask your station manager to resend the invite."
+          );
+        }
+      }
+
+      const response = await fetch(`${authBaseURL}/wxyc/complete-onboarding`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        const message =
+          errorData?.error ||
+          errorData?.message ||
+          "Failed to complete onboarding";
+        throw new Error(message);
       }
 
       const session = await authClient.getSession();
-      if (!session.data?.user?.id) {
-        throw new Error("You must be authenticated to update your profile");
+      toast.success("Account setup complete. Please sign in.");
+      if (session.data?.user?.id) {
+        await redirectAfterAuth(
+          router,
+          { id: session.data.user.id, hasCompletedOnboarding: true },
+          "onboarding",
+        );
+      } else {
+        router.push("/login");
+        router.refresh();
       }
-
-      // Change the password BEFORE flipping hasCompletedOnboarding. If we
-      // flip the flag first and then changePassword fails, the account ends
-      // up flagged complete but still protected only by the publicly-known
-      // NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD — and requireAuth() will no
-      // longer redirect the user back through onboarding to recover. See
-      // WXYC/dj-site#598.
-      if (params.password) {
-        const passwordResult = await authClient.changePassword({
-          currentPassword,
-          newPassword: params.password,
-        });
-
-        throwIfBetterAuthError(passwordResult, "Failed to update password");
-      }
-
-      const updateRequest: any = { hasCompletedOnboarding: true };
-      if (params.realName) {
-        updateRequest.realName = params.realName;
-      }
-      if (params.djName) {
-        updateRequest.djName = params.djName;
-      }
-      const result = await authClient.updateUser(updateRequest);
-
-      throwIfBetterAuthError(result, "Failed to update user profile");
-
-      toast.success("Profile updated successfully");
-      await redirectAfterAuth(
-        router,
-        { id: session.data.user.id, hasCompletedOnboarding: true },
-        "onboarding",
-      );
-    }, "Failed to update user profile. Please try again.");
+    }, "Failed to complete onboarding. Please try again.");
   };
 
   useEffect(() => {

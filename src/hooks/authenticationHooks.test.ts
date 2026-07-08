@@ -9,11 +9,15 @@ import { authenticationSlice } from "@/lib/features/authentication/frontend";
 const mockPush = vi.fn();
 const mockReplace = vi.fn();
 const mockRefresh = vi.fn();
+const mockSearchParamsGet = vi.fn();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: mockPush,
     replace: mockReplace,
     refresh: mockRefresh,
+  }),
+  useSearchParams: () => ({
+    get: (...args: any[]) => mockSearchParamsGet(...args),
   }),
 }));
 
@@ -45,6 +49,7 @@ const mockLookupEmailByIdentifier = vi.fn();
 const mockSignOut = vi.fn();
 const mockClearTokenCache = vi.fn();
 vi.mock("@/lib/features/authentication/client", () => ({
+  authBaseURL: "http://localhost:8082/auth",
   authClient: {
     updateUser: (...args: any[]) => mockUpdateUser(...args),
     changePassword: (...args: any[]) => mockChangePassword(...args),
@@ -91,8 +96,12 @@ function createWrapper() {
 describe("authenticationHooks", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD = "temp123";
+    mockSearchParamsGet.mockReturnValue(null);
     process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE = "/dashboard/flowsheet";
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: true, userId: "user-1" }),
+    } as Response);
     // Default: the server can see the freshly-established session on the first
     // check, so redirectAfterAuth's confirm-before-navigate gate passes without
     // any retry delay. Individual tests override this to exercise the race.
@@ -351,12 +360,11 @@ describe("authenticationHooks", () => {
   });
 
   describe("useNewUser", () => {
-    it("should include hasCompletedOnboarding: true in updateUser call", async () => {
-      mockGetSession.mockResolvedValue({
-        data: { user: { id: "user-1" } },
-      });
-      mockUpdateUser.mockResolvedValue({ data: {} });
-      mockChangePassword.mockResolvedValue({ data: {} });
+    it("posts to complete-onboarding with setup token and profile fields", async () => {
+      mockSearchParamsGet.mockImplementation((key: string) =>
+        key === "token" ? "setup-token-abc" : null
+      );
+      mockGetSession.mockResolvedValue({ data: null });
 
       const { useNewUser } = await import("./authenticationHooks");
       const { result } = renderHook(() => useNewUser(), { wrapper: createWrapper() });
@@ -375,19 +383,25 @@ describe("authenticationHooks", () => {
         await result.current.handleNewUser(form);
       });
 
-      expect(mockUpdateUser).toHaveBeenCalledWith({
-        hasCompletedOnboarding: true,
-        realName: "Real Name",
-        djName: "DJ Name",
-      });
+      expect(global.fetch).toHaveBeenCalledWith(
+        "http://localhost:8082/auth/wxyc/complete-onboarding",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            newPassword: "NewPassword1",
+            token: "setup-token-abc",
+            realName: "Real Name",
+            djName: "DJ Name",
+          }),
+        })
+      );
+      expect(mockPush).toHaveBeenCalledWith("/login");
     });
 
-    it("redirects to the dashboard and captures the onboarding redirect on success", async () => {
-      mockGetSession.mockResolvedValue({
-        data: { user: { id: "user-1" } },
-      });
-      mockUpdateUser.mockResolvedValue({ data: {} });
-      mockChangePassword.mockResolvedValue({ data: {} });
+    it("redirects to the dashboard when session exists after onboarding", async () => {
+      mockGetSession
+        .mockResolvedValueOnce({ data: { user: { id: "user-1" } } })
+        .mockResolvedValueOnce({ data: { user: { id: "user-1" } } });
 
       const { useNewUser } = await import("./authenticationHooks");
       const { result } = renderHook(() => useNewUser(), { wrapper: createWrapper() });
@@ -416,24 +430,19 @@ describe("authenticationHooks", () => {
       });
     });
 
-    it("should set hasCompletedOnboarding even when profile fields are already filled", async () => {
+    it("uses session fallback when no setup token is present", async () => {
       mockGetSession.mockResolvedValue({
         data: { user: { id: "user-1" } },
       });
-      mockUpdateUser.mockResolvedValue({ data: {} });
-      mockChangePassword.mockResolvedValue({ data: {} });
 
       const { useNewUser } = await import("./authenticationHooks");
       const { result } = renderHook(() => useNewUser(), { wrapper: createWrapper() });
 
-      // Simulate form where realName/djName inputs don't exist (admin pre-filled them)
       const form = {
         preventDefault: vi.fn(),
         currentTarget: {
           username: { value: "testdj" },
           password: { value: "NewPassword1" },
-          realName: undefined,
-          djName: undefined,
         },
       } as any;
 
@@ -441,25 +450,20 @@ describe("authenticationHooks", () => {
         await result.current.handleNewUser(form);
       });
 
-      expect(mockUpdateUser).toHaveBeenCalledWith({
-        hasCompletedOnboarding: true,
-      });
+      expect(global.fetch).toHaveBeenCalledWith(
+        "http://localhost:8082/auth/wxyc/complete-onboarding",
+        expect.objectContaining({
+          body: JSON.stringify({ newPassword: "NewPassword1" }),
+        })
+      );
     });
 
-    it("calls changePassword before updateUser so a failed password change leaves hasCompletedOnboarding untouched", async () => {
-      mockGetSession.mockResolvedValue({
-        data: { user: { id: "user-1" } },
-      });
-
-      const callOrder: string[] = [];
-      mockChangePassword.mockImplementation(async () => {
-        callOrder.push("changePassword");
-        return { data: {} };
-      });
-      mockUpdateUser.mockImplementation(async () => {
-        callOrder.push("updateUser");
-        return { data: {} };
-      });
+    it("does not navigate when complete-onboarding fails", async () => {
+      mockGetSession.mockResolvedValue({ data: { user: { id: "user-1" } } });
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        json: async () => ({ error: "Invalid or expired setup token" }),
+      } as Response);
 
       const { useNewUser } = await import("./authenticationHooks");
       const { result } = renderHook(() => useNewUser(), { wrapper: createWrapper() });
@@ -469,8 +473,6 @@ describe("authenticationHooks", () => {
         currentTarget: {
           username: { value: "testdj" },
           password: { value: "NewPassword1" },
-          realName: { value: "Real Name" },
-          djName: { value: "DJ Name" },
         },
       } as any;
 
@@ -478,48 +480,6 @@ describe("authenticationHooks", () => {
         await result.current.handleNewUser(form);
       });
 
-      expect(callOrder).toEqual(["changePassword", "updateUser"]);
-      expect(mockChangePassword).toHaveBeenCalledWith({
-        currentPassword: "temp123",
-        newPassword: "NewPassword1",
-      });
-    });
-
-    it("does not call updateUser when changePassword rejects, so hasCompletedOnboarding stays false", async () => {
-      mockGetSession.mockResolvedValue({
-        data: { user: { id: "user-1" } },
-      });
-      mockChangePassword.mockResolvedValue({
-        data: null,
-        error: { message: "Current password is incorrect" },
-      });
-
-      const { throwIfBetterAuthError } = await import("@/src/utilities/throwIfBetterAuthError");
-      (throwIfBetterAuthError as any).mockImplementation((res: any, msg: string) => {
-        if (res?.error) {
-          throw new Error(msg);
-        }
-      });
-
-      const { useNewUser } = await import("./authenticationHooks");
-      const { result } = renderHook(() => useNewUser(), { wrapper: createWrapper() });
-
-      const form = {
-        preventDefault: vi.fn(),
-        currentTarget: {
-          username: { value: "testdj" },
-          password: { value: "NewPassword1" },
-          realName: { value: "Real Name" },
-          djName: { value: "DJ Name" },
-        },
-      } as any;
-
-      await act(async () => {
-        await result.current.handleNewUser(form);
-      });
-
-      expect(mockChangePassword).toHaveBeenCalled();
-      expect(mockUpdateUser).not.toHaveBeenCalled();
       expect(mockPush).not.toHaveBeenCalled();
     });
   });

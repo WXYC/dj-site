@@ -50,7 +50,6 @@ describe("ImportCSVModal", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubEnv("NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD", "temppass123");
     global.fetch = vi.fn();
   });
 

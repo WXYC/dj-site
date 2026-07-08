@@ -95,7 +95,6 @@ export default function ImportCSVModal({ open, onClose, onComplete, organization
     setImportProgress(0);
     setImportResults([]);
 
-    const tempPassword = String(process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD || "");
     const role = authorizationToRole(authorization);
 
     // Filter to only valid rows
@@ -113,7 +112,6 @@ export default function ImportCSVModal({ open, onClose, onComplete, organization
           body: JSON.stringify({
             email: row.email,
             username: row.username,
-            password: tempPassword,
             name: row.name,
             organizationSlug,
             role,

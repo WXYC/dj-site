@@ -190,8 +190,7 @@ test.describe("New User Onboarding", () => {
 
   test.describe("Onboarding for Admin-Created Users", () => {
     test("should handle onboarding for newly created accounts", async ({ browser }) => {
-      // Import TEMP_PASSWORD for this test
-      const { TEMP_PASSWORD } = await import("../../fixtures/auth.fixture");
+      const { completeOnboardingWithInviteToken } = await import("../../fixtures/auth.fixture");
       const baseURL = process.env.E2E_BASE_URL || "http://localhost:3000";
 
       // Admin creates a new user
@@ -235,18 +234,13 @@ test.describe("New User Onboarding", () => {
       const userOnboarding = new OnboardingPage(userPage);
       const userDashboard = new DashboardPage(userPage);
 
+      const chosenPassword = "NewPassword1";
+
+      await completeOnboardingWithInviteToken(userPage, email, chosenPassword);
       await userLoginPage.goto();
       await userPage.waitForLoadState("domcontentloaded");
-      await userLoginPage.login(username, TEMP_PASSWORD);
-
-      // User is redirected to onboarding to set their own password
-      await userLoginPage.waitForRedirectToOnboarding();
-
-      // Profile fields are pre-filled, only password is required
-      await userOnboarding.completePasswordOnlyOnboarding("NewPassword1");
-
-      // After onboarding, user is redirected to dashboard
-      await userOnboarding.expectRedirectToDashboard();
+      await userLoginPage.switchToPasswordLogin();
+      await userLoginPage.login(username, chosenPassword);
       await userDashboard.expectOnDashboard();
 
       // Cleanup

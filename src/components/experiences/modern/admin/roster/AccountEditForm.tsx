@@ -242,8 +242,7 @@ export default function AccountEditForm({
     try {
       const targetUserId = await resolveUserId();
 
-      const tempPassword =
-        process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD || crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+      const tempPassword = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
 
       const result = await authClient.admin.setUserPassword({
         userId: targetUserId,
@@ -346,7 +345,7 @@ export default function AccountEditForm({
     try {
       const redirectTo =
         typeof window !== "undefined"
-          ? `${window.location.origin}/login`
+          ? `${window.location.origin}${isIncomplete ? "/onboarding" : "/login"}`
           : undefined;
 
       const result = await authClient.requestPasswordReset({
