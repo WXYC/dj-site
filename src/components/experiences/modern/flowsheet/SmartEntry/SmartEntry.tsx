@@ -57,8 +57,17 @@ export default function SmartEntry() {
   const formRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const [focused, setFocused] = useState(false);
 
   const flatCount = search.flat.length;
+
+  // The active outline colour: success while Ctrl/⌘ is held (next commit
+  // queues), otherwise primary. Applied per-side to the shell and the panel so
+  // the outline reads as one continuous shape around both.
+  const activePalette = entry.ctrlKeyPressed ? "success" : "primary";
+  const activeBorder = focused
+    ? `${activePalette}.500`
+    : "neutral.outlinedBorder";
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     switch (e.key) {
@@ -109,26 +118,19 @@ export default function SmartEntry() {
           borderRadius: "md",
           overflow: "hidden",
           bgcolor: "background.level1",
-          transition: "border-color 0.15s, box-shadow 0.15s",
+          borderColor: activeBorder,
+          transition: "border-color 0.15s",
           "@media (prefers-reduced-motion: reduce)": { transition: "none" },
-          // Square the bottom while the panel is open so the two read as one
-          // continuous element the results drop out of.
+          // While the panel is open, square the bottom and hide the border line
+          // between the shell and the panel so the active outline flows down
+          // into the results box as one continuous shape.
           ...(panelOpen
-            ? { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }
+            ? {
+                borderBottomLeftRadius: 0,
+                borderBottomRightRadius: 0,
+                borderBottomColor: "transparent",
+              }
             : {}),
-          // While Ctrl/⌘ is held the next commit goes to the queue — signal it
-          // with a success-coloured focus ring instead of the usual primary.
-          "&:focus-within": {
-            borderColor: entry.ctrlKeyPressed
-              ? "success.outlinedBorder"
-              : "primary.outlinedBorder",
-            boxShadow: (theme) =>
-              `0 0 0 2px ${
-                entry.ctrlKeyPressed
-                  ? theme.vars.palette.success.softBg
-                  : theme.vars.palette.primary.softBg
-              }`,
-          },
         }}
       >
         <form ref={formRef} onSubmit={(e) => entry.submit(e)}>
@@ -157,6 +159,8 @@ export default function SmartEntry() {
               pendingTrigger={entry.pendingTrigger}
               onChange={entry.onRawChange}
               onKeyDown={onKeyDown}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
               inputRef={inputRef}
               disabled={!live}
               expanded={panelOpen}
@@ -207,9 +211,9 @@ export default function SmartEntry() {
         open={panelOpen}
         anchorEl={anchorEl}
         placement="bottom-start"
-        // Overlap the shell's 1px bottom border so the panel reads as a
-        // continuation of the composer rather than a detached box.
-        modifiers={[sameWidth, { name: "offset", options: { offset: [0, -1] } }]}
+        // Sit flush below the shell (which hides its bottom border) so the two
+        // read as one continuous outlined shape.
+        modifiers={[sameWidth, { name: "offset", options: { offset: [0, 0] } }]}
         style={{ zIndex: 1300 }}
       >
         <ClickAwayListener
@@ -220,13 +224,17 @@ export default function SmartEntry() {
           <Sheet
             variant="outlined"
             sx={{
-              // Square top + no top border → merges into the shell's squared
-              // bottom; keep the bottom corners rounded.
+              // Square top + no top border → continues the shell's squared
+              // bottom; keep the bottom corners rounded. The side/bottom border
+              // colour tracks the shell's active outline.
               borderTopLeftRadius: 0,
               borderTopRightRadius: 0,
               borderBottomLeftRadius: "md",
               borderBottomRightRadius: "md",
               borderTop: "none",
+              borderColor: activeBorder,
+              transition: "border-color 0.15s",
+              "@media (prefers-reduced-motion: reduce)": { transition: "none" },
               boxShadow: "lg",
               maxHeight: "min(70vh, 460px)",
               overflow: "hidden",

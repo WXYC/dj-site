@@ -20,6 +20,8 @@ export default function SmartComposer({
   ghostSuffix = "",
   onChange,
   onKeyDown,
+  onFocus,
+  onBlur,
   inputRef,
   disabled = false,
   expanded = false,
@@ -31,6 +33,8 @@ export default function SmartComposer({
   ghostSuffix?: string;
   onChange: (value: string) => void;
   onKeyDown?: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
   inputRef?: Ref<HTMLTextAreaElement>;
   disabled?: boolean;
   expanded?: boolean;
@@ -70,6 +74,8 @@ export default function SmartComposer({
           onChange((e.target as HTMLTextAreaElement).value.replace(/\n/g, ""))
         }
         onKeyDown={onKeyDown}
+        onFocus={onFocus}
+        onBlur={onBlur}
         sx={(theme) => ({
           ...smartEntryBoxSx,
           ...smartEntryTextMetricsSx,
