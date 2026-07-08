@@ -43,6 +43,17 @@ test.describe("flowsheet keyboard entry", () => {
     await context.close();
   });
 
+  test("renders exactly one composer (no duplicate-testid regression)", async ({
+    page,
+  }) => {
+    // v1's mobile modal rendered a second copy of the entry inputs, producing
+    // duplicate testids that broke strict locators. v2 is a single responsive
+    // component — assert the key nodes are unique.
+    for (const id of ["flowsheet-smart-entry", "flowsheet-composer"]) {
+      await expect(page.locator(`[data-testid="${id}"]`)).toHaveCount(1);
+    }
+  });
+
   test("keyboard-only entry path", async ({ page }) => {
     // The v2 composer is one continuous input — type the whole sentence, then
     // Enter to commit (no Tab between fields).
