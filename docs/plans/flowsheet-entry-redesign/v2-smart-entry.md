@@ -74,7 +74,18 @@ dead code deleted the phase it's orphaned; testids unique; mobile submit proven.
 - [x] **P5** — Ghost text (artist/song/album via override) accepted with Right
   Arrow/End, field locking as search constraints, Escape rung-1 dismissal.
   Chained song→album ghost deferred.
-- [ ] **P6** — Filters, rotation scope, track picking (un-skip track-picker).
+- [x] **P6** — Album-first search parity (/library/query), genre/format/rotation
+  filters, and track picking off the selected match (sets track_position;
+  track-picker e2e rewritten + un-skipped). The rotation-scope browse cascade
+  was dropped by decision — the rotation-bin filter covers it, so the
+  All/Rotation toggle was removed. Extensive composer/results/toolbar review
+  polish applied.
+  - **P8 cleanup note:** ScopeControl and RotationBrowse (and the old v1 results
+    tree: FlowsheetResultsListbox, BackendResults, NewEntryRow, matchHighlight)
+    are now orphaned by the v2 SmartResults + the scope-toggle removal; delete
+    them in P8 (and reassess the slice `scope`/`setSearchScope`/rotation-metadata
+    reducers). #589/#944: v2 track picking uses SelectedMatchTracks (own #589
+    refetch guard); normalizeTrackArtists is no longer on the live path.
   - **First task — album-first search parity.** Album-first input (`from
     <album>`) returns no results because the flowsheet's catalog source uses the
     old artist-centric `/library/` endpoint (`useSearchCatalogQuery`), while the
