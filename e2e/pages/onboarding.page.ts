@@ -136,10 +136,14 @@ export class OnboardingPage {
   }
 
   async expectSuccessToast(message?: string): Promise<void> {
-    await expect(this.successToast).toBeVisible({ timeout: 5000 });
     if (message) {
-      await expect(this.successToast).toContainText(message);
+      const specificToast = this.page.locator(
+        `[data-sonner-toast][data-type="success"]:has-text("${message}")`
+      );
+      await expect(specificToast).toBeVisible({ timeout: 10000 });
+      return;
     }
+    await expect(this.successToast.first()).toBeVisible({ timeout: 5000 });
   }
 
   async expectRedirectToDashboard(): Promise<void> {

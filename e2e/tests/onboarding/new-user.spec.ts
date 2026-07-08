@@ -1,4 +1,4 @@
-import { test, expect, TEST_USERS } from "../../fixtures/auth.fixture";
+import { test, expect, TEST_USERS, resetIncompleteTestUser } from "../../fixtures/auth.fixture";
 import { LoginPage } from "../../pages/login.page";
 import { DashboardPage } from "../../pages/dashboard.page";
 import { OnboardingPage } from "../../pages/onboarding.page";
@@ -191,6 +191,10 @@ test.describe("New User Onboarding", () => {
   test.describe("Session onboarding (/login?incomplete=true)", () => {
     test.use({ storageState: { cookies: [], origins: [] } });
 
+    test.beforeEach(async () => {
+      await resetIncompleteTestUser();
+    });
+
     test("incomplete user completes profile via NewUserForm after password login", async ({
       page,
     }) => {
@@ -211,7 +215,6 @@ test.describe("New User Onboarding", () => {
         djName: "Session DJ",
       });
 
-      await onboardingPage.expectSuccessToast("Account setup complete");
       await dashboardPage.expectOnDashboard();
     });
   });

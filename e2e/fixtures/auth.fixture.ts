@@ -214,6 +214,27 @@ export async function completeOnboardingWithInviteToken(
 }
 
 /**
+ * Reset the seeded test_incomplete user (session onboarding E2E).
+ * Requires Backend-Service with NODE_ENV development or test.
+ */
+export async function resetIncompleteTestUser(
+  userId = "test-incomplete-id-0000000000001"
+): Promise<void> {
+  const baseUrl = await getAuthServiceBaseUrl();
+  const response = await fetch(`${baseUrl}/auth/test/reset-incomplete-user`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId }),
+  });
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(
+      `Failed to reset incomplete test user (${response.status}): ${body}`
+    );
+  }
+}
+
+/**
  * Revoke all sessions for a user via better-auth's revoke-sessions endpoint.
  * Requires an active session cookie (admin-level access).
  *
