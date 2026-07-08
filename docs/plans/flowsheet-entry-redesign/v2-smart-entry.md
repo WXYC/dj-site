@@ -96,7 +96,15 @@ dead code deleted the phase it's orphaned; testids unique; mobile submit proven.
     `useCatalogFlowsheetSearch` to build a `q` (`artist:"…" AND album:"…"`) and
     call `searchLibraryQuery`, extracting `data.results`; update its tests;
     verify album-first results against the backend.
-- [ ] **P7** — Responsive + e2e hardening (mobile submit).
-- [ ] **P8** — Cleanup + audit (delete sandbox, retire stagedRelease, docs).
+- [x] **P7** — Responsive layout (verified on narrow viewports), the action-
+  cluster declutter (idle: break/talkset; composing: clear/queue/play), and the
+  e2e hardening: FlowsheetPage + all specs migrated to the composer, track-picker
+  un-skipped, duplicate-testid guard.
+- [~] **P8** — Cleanup: deleted the orphaned v1 tree (ScopeControl, RotationBrowse,
+  TrackPickerDropdown, old FlowsheetResultsListbox/BackendResults/NewEntryRow/
+  matchHighlight, flowsheetSearchBarStyles, normalizeTrackArtists) + the
+  DesignSandboxModal; removed the dead slice machinery (scope/staged/confirmed/
+  freeze). Remaining: comment trim (ongoing), axe pass, screenshot matrix.
+  Possible follow-up: catalog-style animations (Jackson may request).
 
 Full plan detail: `~/.claude/plans/you-are-planning-an-glittery-comet.md`.
