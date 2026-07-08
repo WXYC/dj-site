@@ -58,10 +58,12 @@ dead code deleted the phase it's orphaned; testids unique; mobile submit proven.
 - [x] **P1** — Port #589/#944 coverage onto live `RotationBrowse` +
   `normalizeTrackArtists` unit test; delete the orphaned v0 component tree
   (17 files).
-- [ ] **P2** — Parser (`SmartEntry/parser/*`) + `buildPendingQuery` + slice
-  groundwork (`setParsedFields`, `selectedMatch`, `search.filters`; retire dead
-  `rotationMode` reducers). Pure/unit-testable, no UI.
+- [x] **P2** — Parser (`SmartEntry/parser/*`) + `buildPendingQuery` + slice
+  groundwork (`setParsedFields`, `selectedMatch`, `search.filters`; retired dead
+  `rotationMode` reducers). 51 pure unit tests; full suite green (3338).
 - [ ] **P3** — Composer + toolbar + submit; swap the mount; delete old bar.
+  *(Visual phase — needs the dev server + Backend-Service running for the
+  mandatory screenshot verification of the textarea + mirror composer.)*
 - [ ] **P4** — Results panel (sentence rows, album art, pills, selected match).
 - [ ] **P5** — Ghost text + locking + suppression.
 - [ ] **P6** — Filters, rotation scope, track picking (un-skip track-picker).
