@@ -260,6 +260,20 @@ export function useFlowsheetSmartEntry() {
     return true;
   }, [state.autofillUndo, state.suppressedTriggers, dispatch]);
 
+  /**
+   * The ✕ on the selected match: if the fill is still fresh, undo it (reverts
+   * the composer to the typed text and clears the match, same as Backspace);
+   * otherwise just clear the match (the DJ has since edited the sentence, so
+   * their text stands).
+   */
+  const removeMatch = useCallback(() => {
+    if (state.autofillUndo?.kind === "fill") {
+      undoAutofill();
+    } else {
+      dispatch(flowsheetSlice.actions.clearSelectedMatch());
+    }
+  }, [state.autofillUndo, undoAutofill, dispatch]);
+
   const clearMatch = useCallback(() => {
     dispatch(flowsheetSlice.actions.clearSelectedMatch());
   }, [dispatch]);
@@ -383,6 +397,7 @@ export function useFlowsheetSmartEntry() {
     selectMatch,
     pickTrack,
     clearMatch,
+    removeMatch,
     setHighlight,
     acceptGhost,
     dismissGhost,

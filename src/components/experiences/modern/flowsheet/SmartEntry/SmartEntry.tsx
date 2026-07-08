@@ -304,7 +304,7 @@ export default function SmartEntry() {
               highlightIndex={entry.selectedResult}
               onSelect={entry.selectMatch}
               onHover={entry.setHighlight}
-              onRemoveMatch={entry.clearMatch}
+              onRemoveMatch={entry.removeMatch}
               onPickTrack={entry.pickTrack}
               emptyHint={
                 <Typography level="body-sm" sx={{ color: "text.tertiary" }}>

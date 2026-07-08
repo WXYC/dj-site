@@ -235,6 +235,50 @@ describe("useFlowsheetSmartEntry", () => {
       ).toBeNull();
     });
 
+    it("removeMatch (the x) reverts a fresh fill and clears the match", () => {
+      const { store } = renderHost();
+      type("Percolator by Ste");
+      act(() => vi.advanceTimersByTime(250));
+      act(() => {
+        api.selectMatch(match);
+      });
+      expect(api.raw).toContain("Stereolab");
+
+      act(() => {
+        api.removeMatch();
+      });
+      expect(api.raw).toBe("Percolator by Ste");
+      expect(
+        flowsheetSlice.selectors.getSelectedMatch(store.getState())
+      ).toBeNull();
+    });
+
+    it("removeMatch just clears the match once the sentence was edited", () => {
+      const { store } = renderHost();
+      type("Percolator by Ste");
+      act(() => vi.advanceTimersByTime(250));
+      act(() => {
+        api.selectMatch(match);
+      });
+      // Edit the label after the fill (artist/album still match, so the match
+      // stays selected) — this spends the one-shot undo.
+      const edited = `${api.raw} Reissue`;
+      type(edited);
+      act(() => vi.advanceTimersByTime(250));
+      expect(
+        flowsheetSlice.selectors.getSelectedMatch(store.getState())
+      ).not.toBeNull();
+
+      act(() => {
+        api.removeMatch();
+      });
+      // The sentence stands (the DJ's edits), only the match is cleared.
+      expect(api.raw).toBe(edited);
+      expect(
+        flowsheetSlice.selectors.getSelectedMatch(store.getState())
+      ).toBeNull();
+    });
+
     it("one Backspace undoes a ghost accept", () => {
       renderHost();
       type("by Ju");
