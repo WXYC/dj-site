@@ -43,7 +43,9 @@ vi.mock("../LibraryTrackPicker", () => ({
 
 function createTestStore(
   searchOpen = false,
-  overrides: Partial<ReturnType<typeof flowsheetSlice.getInitialState>> = {}
+  overrides: Partial<ReturnType<typeof flowsheetSlice.getInitialState>> & {
+    search?: Partial<ReturnType<typeof flowsheetSlice.getInitialState>["search"]>;
+  } = {}
 ) {
   const initial = flowsheetSlice.getInitialState();
   return configureStore({

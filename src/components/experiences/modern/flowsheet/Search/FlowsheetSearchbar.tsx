@@ -51,8 +51,8 @@ export default function FlowsheetSearchbar() {
 
   const allResults = useFlowsheetAllResults();
 
-  const searchRef = useRef<HTMLFormElement>(null);
-  const shellRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLFormElement | null>(null);
+  const shellRef = useRef<HTMLElement | null>(null);
   const artistRef = useRef<HTMLInputElement>(null);
   const songRef = useRef<HTMLInputElement>(null);
   const albumRef = useRef<HTMLInputElement>(null);
@@ -205,9 +205,10 @@ export default function FlowsheetSearchbar() {
         <ScopeControl disabled={!live} />
         <Sheet
           ref={(el) => {
-            shellRef.current = el;
-            (searchRef as React.MutableRefObject<HTMLFormElement | null>).current =
-              el as unknown as HTMLFormElement;
+            if (el instanceof HTMLFormElement) {
+              searchRef.current = el;
+              shellRef.current = el;
+            }
           }}
           component="form"
           onSubmit={handleFormSubmit}

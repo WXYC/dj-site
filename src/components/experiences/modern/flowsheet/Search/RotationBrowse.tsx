@@ -185,7 +185,7 @@ export default function RotationBrowse({ disabled }: { disabled?: boolean }) {
             selectedTrack={selectedTrack}
             onSelectTrack={handleSelectTrack}
             onManualEntry={handleManualEntry}
-            disabled={disabled}
+            disabled={disabled ?? false}
           />
         </>
       )}

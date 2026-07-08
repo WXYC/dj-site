@@ -8,13 +8,16 @@ import {
   Box,
   Chip,
   Divider,
+  Dropdown,
   IconButton,
-  Popover,
+  Menu,
+  MenuButton,
   Sheet,
   Stack,
   Typography,
 } from "@mui/joy";
 import { ClickAwayListener, Popper } from "@mui/material";
+import type { Modifier } from "@popperjs/core";
 import { useCallback, useMemo, useState } from "react";
 import {
   useFlowsheetAllResults,
@@ -31,16 +34,19 @@ import { capResultGroups } from "./capResultGroups";
 import NewEntryRow from "./NewEntryRow";
 import RotationBrowse from "../RotationBrowse";
 
-const sameWidth = {
+const sameWidth: Modifier<"sameWidth", object> = {
   name: "sameWidth",
   enabled: true,
-  phase: "beforeWrite" as const,
+  phase: "beforeWrite",
   requires: ["computeStyles"],
-  fn: ({ state }: { state: { styles: { popper: { width: string } }; rects: { reference: { width: number } } } }) => {
+  fn: ({ state }) => {
     state.styles.popper.width = `${state.rects.reference.width}px`;
   },
-  effect: ({ state }: { state: { elements: { popper: HTMLElement; reference: HTMLElement } } }) => {
-    state.elements.popper.style.width = `${state.elements.reference.offsetWidth}px`;
+  effect: ({ state }) => {
+    const reference = state.elements.reference;
+    if (reference instanceof HTMLElement) {
+      state.elements.popper.style.width = `${reference.offsetWidth}px`;
+    }
   },
 };
 
@@ -155,28 +161,37 @@ export default function FlowsheetResultsListbox({
             )}
           </Box>
           <Stack direction="row" sx={flowsheetListboxFooterSx}>
-            <IconButton
-              size="sm"
-              variant="plain"
-              aria-label="Keyboard shortcuts"
-              data-testid="flowsheet-shortcut-legend"
-              onClick={() => setLegendOpen((v) => !v)}
+            <Dropdown
+              open={legendOpen}
+              onOpenChange={(_, isOpen) => setLegendOpen(isOpen)}
             >
-              <HelpOutline fontSize="small" />
-            </IconButton>
-            <Popover open={legendOpen} onClose={() => setLegendOpen(false)} placement="top-end">
-              <Sheet variant="outlined" sx={{ p: 1.5, maxWidth: 320 }}>
-                <Stack spacing={0.5}>
-                  <ShortcutRow keys="Tab" desc="next field" />
-                  <ShortcutRow keys="⇧Tab" desc="previous field" />
-                  <ShortcutRow keys="→" desc="accept suggestion" />
-                  <ShortcutRow keys="↓ ↑" desc="navigate results" />
-                  <ShortcutRow keys="⏎" desc="stage / submit" />
-                  <ShortcutRow keys="⌃⏎" desc="queue" />
-                  <ShortcutRow keys="Esc" desc="close / unstage / clear" />
-                </Stack>
-              </Sheet>
-            </Popover>
+              <MenuButton
+                slots={{ root: IconButton }}
+                slotProps={{
+                  root: {
+                    size: "sm",
+                    variant: "plain",
+                    "aria-label": "Keyboard shortcuts",
+                    "data-testid": "flowsheet-shortcut-legend",
+                  },
+                }}
+              >
+                <HelpOutline fontSize="small" />
+              </MenuButton>
+              <Menu placement="top-end" size="sm">
+                <Sheet variant="outlined" sx={{ p: 1.5, maxWidth: 320 }}>
+                  <Stack spacing={0.5}>
+                    <ShortcutRow keys="Tab" desc="next field" />
+                    <ShortcutRow keys="⇧Tab" desc="previous field" />
+                    <ShortcutRow keys="→" desc="accept suggestion" />
+                    <ShortcutRow keys="↓ ↑" desc="navigate results" />
+                    <ShortcutRow keys="⏎" desc="stage / submit" />
+                    <ShortcutRow keys="⌃⏎" desc="queue" />
+                    <ShortcutRow keys="Esc" desc="close / unstage / clear" />
+                  </Stack>
+                </Sheet>
+              </Menu>
+            </Dropdown>
           </Stack>
         </Sheet>
       </ClickAwayListener>

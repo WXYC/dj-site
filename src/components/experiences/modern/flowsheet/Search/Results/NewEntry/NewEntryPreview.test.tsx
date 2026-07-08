@@ -32,10 +32,10 @@ function createTestStore(
       flowsheet: {
         ...flowsheetSlice.getInitialState(),
         search: {
+          ...flowsheetSlice.getInitialState().search,
           open: true,
           query: searchQuery,
           selectedResult,
-          confirmedArtist: "",
         },
       },
     },
