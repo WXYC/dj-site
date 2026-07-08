@@ -241,7 +241,7 @@ export default function SmartEntry() {
 
           <Divider />
 
-          <SmartToolbar disabled={!live} />
+          <SmartToolbar />
         </form>
       </Sheet>
 
