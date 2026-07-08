@@ -10,7 +10,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/joy";
-import { ClickAwayListener, Popper } from "@mui/material";
+import { ClickAwayListener, Grow, Popper, useMediaQuery } from "@mui/material";
 import type { Modifier } from "@popperjs/core";
 import { useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
@@ -66,6 +66,9 @@ export default function SmartEntry() {
   // Composing an entry (has text) swaps the action cluster from the entry
   // markers (breakpoint/talkset) to the commit + clear buttons.
   const isComposing = entry.raw.trim() !== "";
+  const prefersReducedMotion = useMediaQuery(
+    "(prefers-reduced-motion: reduce)"
+  );
 
   // The active outline colour: success while Ctrl/⌘ is held (next commit
   // queues), otherwise primary. Applied per-side to the shell and the panel so
@@ -286,60 +289,72 @@ export default function SmartEntry() {
         open={panelOpen}
         anchorEl={anchorEl}
         placement="bottom-start"
+        transition
         // Sit flush below the shell (which hides its bottom border) so the two
         // read as one continuous outlined shape.
         modifiers={[sameWidth, { name: "offset", options: { offset: [0, 0] } }]}
         style={{ zIndex: 1300 }}
       >
-        <ClickAwayListener
-          onClickAway={(event) => {
-            // Ignore clicks inside the composer shell — otherwise the very
-            // click that refocuses the composer (and reopens the panel) is
-            // caught by the just-mounted listener as a click-away, closing it.
-            if (anchorEl && anchorEl.contains(event.target as Node)) return;
-            dispatch(flowsheetSlice.actions.setSearchOpen(false));
-          }}
-        >
-          <Sheet
-            variant="outlined"
-            sx={(theme) => ({
-              // Square top + no top border → continues the shell's squared
-              // bottom; round the bottom corners to match the search box top.
-              // (Corner-specific radius props don't map theme tokens, so use
-              // the resolved radius var.)
-              borderTopLeftRadius: 0,
-              borderTopRightRadius: 0,
-              borderBottomLeftRadius: theme.vars.radius.md,
-              borderBottomRightRadius: theme.vars.radius.md,
-              borderTop: "none",
-              borderColor: activeBorder,
-              transition: "border-color 0.15s",
-              "@media (prefers-reduced-motion: reduce)": { transition: "none" },
-              boxShadow: "lg",
-              maxHeight: "min(70vh, 460px)",
-              overflow: "hidden",
-              display: "flex",
-              flexDirection: "column",
-            })}
+        {({ TransitionProps }) => (
+          <Grow
+            {...TransitionProps}
+            timeout={prefersReducedMotion ? 0 : 180}
+            style={{ transformOrigin: "top center" }}
           >
-            <SmartResults
-              selectedMatch={search.selectedMatch}
-              groups={search.groups}
-              fieldOrder={entry.fieldOrder}
-              query={searchQuery}
-              highlightIndex={entry.selectedResult}
-              onSelect={entry.selectMatch}
-              onHover={entry.setHighlight}
-              onRemoveMatch={entry.removeMatch}
-              onPickTrack={entry.pickTrack}
-              emptyHint={
-                <Typography level="body-sm" sx={{ color: "text.tertiary" }}>
-                  No matches — press Enter to log it as typed.
-                </Typography>
-              }
-            />
-          </Sheet>
-        </ClickAwayListener>
+            <Box>
+              <ClickAwayListener
+                onClickAway={(event) => {
+                  // Ignore clicks inside the composer shell — otherwise the very
+                  // click that refocuses the composer (and reopens the panel) is
+                  // caught by the just-mounted listener as a click-away.
+                  if (anchorEl && anchorEl.contains(event.target as Node)) return;
+                  dispatch(flowsheetSlice.actions.setSearchOpen(false));
+                }}
+              >
+                <Sheet
+                  variant="outlined"
+                  sx={(theme) => ({
+                    // Square top + no top border continues the shell's squared
+                    // bottom; round the bottom to match the search box top.
+                    // (Corner radius props don't map theme tokens — use the var.)
+                    borderTopLeftRadius: 0,
+                    borderTopRightRadius: 0,
+                    borderBottomLeftRadius: theme.vars.radius.md,
+                    borderBottomRightRadius: theme.vars.radius.md,
+                    borderTop: "none",
+                    borderColor: activeBorder,
+                    transition: "border-color 0.15s",
+                    "@media (prefers-reduced-motion: reduce)": {
+                      transition: "none",
+                    },
+                    boxShadow: "lg",
+                    maxHeight: "min(70vh, 460px)",
+                    overflow: "hidden",
+                    display: "flex",
+                    flexDirection: "column",
+                  })}
+                >
+                  <SmartResults
+                    selectedMatch={search.selectedMatch}
+                    groups={search.groups}
+                    fieldOrder={entry.fieldOrder}
+                    query={searchQuery}
+                    highlightIndex={entry.selectedResult}
+                    onSelect={entry.selectMatch}
+                    onHover={entry.setHighlight}
+                    onRemoveMatch={entry.removeMatch}
+                    onPickTrack={entry.pickTrack}
+                    emptyHint={
+                      <Typography level="body-sm" sx={{ color: "text.tertiary" }}>
+                        No matches — press Enter to log it as typed.
+                      </Typography>
+                    }
+                  />
+                </Sheet>
+              </ClickAwayListener>
+            </Box>
+          </Grow>
+        )}
       </Popper>
     </>
   );
