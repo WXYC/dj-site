@@ -30,6 +30,33 @@ const LOGIN_EVENTS = {
 
 type LoginMethod = "password" | "otp" | "onboarding";
 
+async function signInAfterOnboarding(
+  password: string,
+  identifiers: { email?: string; username?: string }
+): Promise<void> {
+  const signInUsername = identifiers.username?.trim();
+  const signInEmail = identifiers.email?.trim();
+
+  const attempts: Array<() => Promise<{ error?: unknown }>> = [];
+  if (signInUsername) {
+    attempts.push(() => authClient.signIn.username({ username: signInUsername, password }));
+  }
+  if (signInEmail) {
+    attempts.push(() => authClient.signIn.email({ email: signInEmail, password }));
+  }
+
+  for (const attempt of attempts) {
+    const result = await attempt();
+    if (!(result as { error?: unknown }).error) {
+      return;
+    }
+  }
+
+  throw new Error(
+    "Account setup succeeded but sign-in failed. Please sign in with your new password."
+  );
+}
+
 /**
  * How hard we try to confirm the freshly-established session is visible
  * server-side before navigating into a `requireAuth()`-gated route. The client
@@ -420,29 +447,35 @@ export const useNewUser = () => {
         userId?: string;
         email?: string;
         username?: string;
+        sessionEstablished?: boolean;
       };
 
       clearTokenCache();
 
-      const signInEmail = payload.email?.trim();
-      const signInUsername = payload.username?.trim();
-      const signInResult = signInEmail
-        ? await authClient.signIn.email({ email: signInEmail, password })
-        : signInUsername
-          ? await authClient.signIn.username({ username: signInUsername, password })
-          : { error: new Error("missing sign-in identifier") };
+      let session = await authClient.getSession({
+        query: { disableCookieCache: true },
+      });
 
-      if ((signInResult as { error?: unknown }).error) {
+      if (!session.data?.user?.id) {
+        await signInAfterOnboarding(password, {
+          email: payload.email,
+          username: payload.username,
+        });
+        session = await authClient.getSession({
+          query: { disableCookieCache: true },
+        });
+      }
+
+      if (!session.data?.user?.id) {
         throw new Error(
           "Account setup succeeded but sign-in failed. Please sign in with your new password."
         );
       }
 
-      const session = await authClient.getSession();
       toast.success("Account setup complete. Welcome!");
       await redirectAfterAuth(
         router,
-        session.data?.user ?? { id: payload.userId, hasCompletedOnboarding: true },
+        { ...session.data.user, hasCompletedOnboarding: true },
         "onboarding",
       );
     }, "Failed to complete onboarding. Please try again.");

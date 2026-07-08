@@ -368,10 +368,10 @@ describe("authenticationHooks", () => {
       mockSearchParamsGet.mockImplementation((key: string) =>
         key === "token" ? "setup-token-abc" : null
       );
-      mockSignInEmail.mockResolvedValue({ data: { user: { id: "user-1" } } });
-      mockGetSession.mockResolvedValue({
-        data: { user: { id: "user-1", hasCompletedOnboarding: true } },
-      });
+      mockSignInUsername.mockResolvedValue({ data: { user: { id: "user-1" } } });
+      mockGetSession
+        .mockResolvedValueOnce({ data: null })
+        .mockResolvedValueOnce({ data: { user: { id: "user-1", hasCompletedOnboarding: true } } });
 
       const { useNewUser } = await import("./authenticationHooks");
       const { result } = renderHook(() => useNewUser(), { wrapper: createWrapper() });
@@ -403,10 +403,48 @@ describe("authenticationHooks", () => {
         })
       );
       expect(mockClearTokenCache).toHaveBeenCalled();
-      expect(mockSignInEmail).toHaveBeenCalledWith({
-        email: "dj@example.com",
+      expect(mockSignInUsername).toHaveBeenCalledWith({
+        username: "testdj",
         password: "NewPassword1",
       });
+      expect(mockSignInEmail).not.toHaveBeenCalled();
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
+    });
+
+    it("skips client sign-in when the server already established a session", async () => {
+      mockSearchParamsGet.mockImplementation((key: string) =>
+        key === "token" ? "setup-token-abc" : null
+      );
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          status: true,
+          userId: "user-1",
+          email: "dj@example.com",
+          username: "testdj",
+          sessionEstablished: true,
+        }),
+      } as Response);
+      mockGetSession.mockResolvedValue({
+        data: { user: { id: "user-1", hasCompletedOnboarding: true } },
+      });
+
+      const { useNewUser } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useNewUser(), { wrapper: createWrapper() });
+
+      const form = {
+        preventDefault: vi.fn(),
+        currentTarget: {
+          password: { value: "NewPassword1" },
+        },
+      } as any;
+
+      await act(async () => {
+        await result.current.handleNewUser(form);
+      });
+
+      expect(mockSignInUsername).not.toHaveBeenCalled();
+      expect(mockSignInEmail).not.toHaveBeenCalled();
       expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
     });
 
@@ -423,9 +461,9 @@ describe("authenticationHooks", () => {
         }),
       } as Response);
       mockSignInUsername.mockResolvedValue({ data: { user: { id: "user-1" } } });
-      mockGetSession.mockResolvedValue({
-        data: { user: { id: "user-1", hasCompletedOnboarding: true } },
-      });
+      mockGetSession
+        .mockResolvedValueOnce({ data: null })
+        .mockResolvedValueOnce({ data: { user: { id: "user-1", hasCompletedOnboarding: true } } });
 
       const { useNewUser } = await import("./authenticationHooks");
       const { result } = renderHook(() => useNewUser(), { wrapper: createWrapper() });
