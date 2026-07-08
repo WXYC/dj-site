@@ -89,8 +89,11 @@ export default function SmartComposer({
           caretColor: theme.vars.palette.text.primary,
           overflow: "hidden",
           "&::placeholder": { color: theme.vars.palette.text.tertiary, opacity: 1 },
+          // Translucent selection: the highlight sits on the (transparent-text)
+          // textarea in front of the mirror, so an opaque colour would hide the
+          // coloured text behind it. Alpha lets the mirror text show through.
           "&::selection": {
-            background: theme.vars.palette.primary.softBg,
+            background: `rgba(${theme.vars.palette.primary.mainChannel} / 0.32)`,
           },
         })}
       />

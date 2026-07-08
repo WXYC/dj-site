@@ -74,7 +74,13 @@ export default function SmartEntry() {
       case "Enter":
         if (e.shiftKey) return;
         e.preventDefault();
-        if (entry.selectedResult > 0 && entry.selectedResult <= flatCount) {
+        if (e.ctrlKey || e.metaKey) {
+          // Ctrl/⌘+Enter always commits to the queue (overrides highlight).
+          entry.submitToQueue(e);
+        } else if (
+          entry.selectedResult > 0 &&
+          entry.selectedResult <= flatCount
+        ) {
           // Promote the highlighted result instead of committing.
           entry.selectMatch(search.flat[entry.selectedResult - 1]);
         } else {
@@ -105,10 +111,23 @@ export default function SmartEntry() {
           bgcolor: "background.level1",
           transition: "border-color 0.15s, box-shadow 0.15s",
           "@media (prefers-reduced-motion: reduce)": { transition: "none" },
+          // Square the bottom while the panel is open so the two read as one
+          // continuous element the results drop out of.
+          ...(panelOpen
+            ? { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }
+            : {}),
+          // While Ctrl/⌘ is held the next commit goes to the queue — signal it
+          // with a success-coloured focus ring instead of the usual primary.
           "&:focus-within": {
-            borderColor: "primary.outlinedBorder",
+            borderColor: entry.ctrlKeyPressed
+              ? "success.outlinedBorder"
+              : "primary.outlinedBorder",
             boxShadow: (theme) =>
-              `0 0 0 2px ${theme.vars.palette.primary.softBg}`,
+              `0 0 0 2px ${
+                entry.ctrlKeyPressed
+                  ? theme.vars.palette.success.softBg
+                  : theme.vars.palette.primary.softBg
+              }`,
           },
         }}
       >
@@ -188,7 +207,9 @@ export default function SmartEntry() {
         open={panelOpen}
         anchorEl={anchorEl}
         placement="bottom-start"
-        modifiers={[sameWidth, { name: "offset", options: { offset: [0, 4] } }]}
+        // Overlap the shell's 1px bottom border so the panel reads as a
+        // continuation of the composer rather than a detached box.
+        modifiers={[sameWidth, { name: "offset", options: { offset: [0, -1] } }]}
         style={{ zIndex: 1300 }}
       >
         <ClickAwayListener
@@ -199,7 +220,13 @@ export default function SmartEntry() {
           <Sheet
             variant="outlined"
             sx={{
-              borderRadius: "md",
+              // Square top + no top border → merges into the shell's squared
+              // bottom; keep the bottom corners rounded.
+              borderTopLeftRadius: 0,
+              borderTopRightRadius: 0,
+              borderBottomLeftRadius: "md",
+              borderBottomRightRadius: "md",
+              borderTop: "none",
               boxShadow: "lg",
               maxHeight: "min(70vh, 460px)",
               overflow: "hidden",
