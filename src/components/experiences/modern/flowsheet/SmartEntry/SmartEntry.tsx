@@ -220,7 +220,7 @@ export default function SmartEntry() {
                 // Composing an entry → the commit actions (+ a clear button).
                 // Breakpoint/talkset are hidden; they don't apply mid-entry.
                 <>
-                  <Tooltip title="Clear (Esc)" size="sm">
+                  <Tooltip title="Clear entry" size="sm">
                     <IconButton
                       type="button"
                       variant="plain"
