@@ -188,6 +188,34 @@ test.describe("New User Onboarding", () => {
     });
   });
 
+  test.describe("Session onboarding (/login?incomplete=true)", () => {
+    test.use({ storageState: { cookies: [], origins: [] } });
+
+    test("incomplete user completes profile via NewUserForm after password login", async ({
+      page,
+    }) => {
+      const user = TEST_USERS.incomplete;
+      const loginPage = new LoginPage(page);
+      const onboardingPage = new OnboardingPage(page);
+      const dashboardPage = new DashboardPage(page);
+
+      await loginPage.goto();
+      await loginPage.login(user.username, user.password);
+      await loginPage.waitForRedirectToOnboarding();
+
+      expect(await onboardingPage.isOnOnboardingPage()).toBe(true);
+      await onboardingPage.waitForSessionOnboardingForm();
+
+      await onboardingPage.completeSessionOnboarding({
+        realName: "Session Onboard User",
+        djName: "Session DJ",
+      });
+
+      await onboardingPage.expectSuccessToast("Account setup complete");
+      await dashboardPage.expectOnDashboard();
+    });
+  });
+
   test.describe("Onboarding for Admin-Created Users", () => {
     test("should handle onboarding for newly created accounts", async ({ browser }) => {
       const { completeOnboardingWithInviteToken } = await import("../../fixtures/auth.fixture");

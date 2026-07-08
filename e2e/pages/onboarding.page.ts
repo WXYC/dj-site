@@ -86,6 +86,28 @@ export class OnboardingPage {
     await this.submitButton.click();
   }
 
+  /**
+   * Session onboarding at /login?incomplete=true (NewUserForm).
+   * The user is already signed in; only profile fields are collected.
+   */
+  async waitForSessionOnboardingForm(): Promise<void> {
+    await this.realNameInput.waitFor({ state: "visible", timeout: 10000 });
+    await expect(this.passwordInput).not.toBeVisible();
+    await expect(this.confirmPasswordInput).not.toBeVisible();
+  }
+
+  async completeSessionOnboarding(data: {
+    realName: string;
+    djName?: string;
+  }): Promise<void> {
+    await this.realNameInput.fill(data.realName);
+    if (data.djName) {
+      await this.djNameInput.fill(data.djName);
+    }
+    await expect(this.submitButton).toBeEnabled({ timeout: 10000 });
+    await this.submitForm();
+  }
+
   async goBackToLogin(): Promise<void> {
     await this.backButton.click();
     await this.page.waitForURL("**/login**");
