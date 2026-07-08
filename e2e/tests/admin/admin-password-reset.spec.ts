@@ -44,6 +44,29 @@ test.describe("Admin Password Reset", () => {
 test.describe("Password Reset - User Can Login After Reset", () => {
   test.use({ storageState: path.join(authDir, "stationManager.json") });
 
+  test("opens the reset form instead of the dashboard when another account is signed in", async ({
+    page,
+  }) => {
+    const rosterPage = new RosterPage(page);
+    const targetUser = TEST_USERS.adminReset1;
+
+    await rosterPage.sendPasswordResetEmail(targetUser.username);
+    await rosterPage.expectSuccessToast("Password reset email sent");
+
+    const tokenData = await getVerificationToken(targetUser.email);
+    if (!tokenData?.token) {
+      throw new Error(`No reset token found for ${targetUser.email}`);
+    }
+
+    await page.goto(`/login?token=${encodeURIComponent(tokenData.token)}`);
+
+    await expect(page).not.toHaveURL(/\/dashboard/);
+    await expect(page.locator('input[name="password"]')).toBeVisible({
+      timeout: 15000,
+    });
+    await expect(page.locator('input[name="confirmPassword"]')).toBeVisible();
+  });
+
   test("user should be able to set a new password from the emailed reset link", async ({
     page,
     browser,
