@@ -24,7 +24,7 @@ export default function BreakpointButton() {
     >
       <IconButton
         size="sm"
-        variant="plain"
+        variant="solid"
         color="warning"
         data-testid="flowsheet-breakpoint-button"
         onClick={() => {

@@ -11,17 +11,6 @@ import type {
 } from "@wxyc/shared/dtos";
 import { Rotation } from "../rotation/types";
 
-export type FlowsheetSearchScope = "all" | "rotation";
-
-export type StagedRelease = {
-  album_id?: number;
-  rotation_id?: number;
-  rotation_bin?: Rotation;
-  artist: string;
-  album: string;
-  label: string;
-};
-
 /**
  * A serializable snapshot of a catalog/rotation result the DJ selected in the
  * smart-entry composer. It carries the linkage the submission needs plus the
@@ -65,9 +54,6 @@ export type FlowsheetFrontendState = {
     open: boolean;
     query: FlowsheetQuery;
     selectedResult: number;
-    confirmedArtist: string;
-    scope: FlowsheetSearchScope;
-    stagedRelease: StagedRelease | null;
     selectedMatch: SelectedMatch | null;
     filters: FlowsheetSearchFilters;
   };

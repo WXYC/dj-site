@@ -7,10 +7,8 @@ import {
   FlowsheetSearchFilterDimension,
   FlowsheetSearchFilters,
   FlowsheetSearchProperty,
-  FlowsheetSearchScope,
   FlowsheetSongEntry,
   SelectedMatch,
-  StagedRelease,
 } from "./types";
 import { Rotation } from "../rotation/types";
 import { clearQueueFromStorage, loadQueueFromStorage, saveQueueToStorage } from "./queue-storage";
@@ -59,9 +57,6 @@ export const defaultFlowsheetFrontendState: FlowsheetFrontendState = {
       request: false,
     },
     selectedResult: 0,
-    confirmedArtist: "",
-    scope: "all",
-    stagedRelease: null,
     selectedMatch: null,
     filters: defaultFlowsheetSearchFilters,
   },
@@ -77,59 +72,10 @@ export const flowsheetSlice = createAppSlice({
     setAutoplay: (state, action) => {
       state.autoplay = action.payload;
     },
-    setSearchScope: (state, action: PayloadAction<FlowsheetSearchScope>) => {
-      state.search.scope = action.payload;
-      if (action.payload === "all") {
-        // Leaving rotation scope drops the rotation linkage so a stale
-        // album_id/rotation_id/track_position can't ride a later submission.
-        state.search.query.album_id = undefined;
-        state.search.query.rotation_id = undefined;
-        state.search.query.rotation_bin = undefined;
-        state.search.query.track_position = undefined;
-      }
-    },
-    stageRelease: (state, action: PayloadAction<StagedRelease>) => {
-      state.search.stagedRelease = action.payload;
-      state.search.query.artist = action.payload.artist;
-      state.search.query.album = action.payload.album;
-      state.search.query.label = action.payload.label;
-      state.search.query.album_id = action.payload.album_id;
-      state.search.query.rotation_id = action.payload.rotation_id;
-      state.search.query.rotation_bin = action.payload.rotation_bin;
-      state.search.query.track_position = undefined;
-      state.search.selectedResult = 0;
-      state.search.open = false;
-    },
-    unstageRelease: (state) => {
-      state.search.stagedRelease = null;
-      state.search.query.track_position = undefined;
-    },
     restoreDraft: (state, action: PayloadAction<FlowsheetQuery>) => {
       state.search.query = { ...action.payload };
       state.search.open = true;
       state.search.selectedResult = 0;
-      state.search.stagedRelease = action.payload.album_id
-        ? {
-            album_id: action.payload.album_id,
-            rotation_id: action.payload.rotation_id,
-            rotation_bin: action.payload.rotation_bin,
-            artist: action.payload.artist,
-            album: action.payload.album,
-            label: action.payload.label,
-          }
-        : null;
-    },
-    setRotationMetadata: (
-      state,
-      action: PayloadAction<{ album_id?: number; rotation_id?: number; rotation_bin?: Rotation }>
-    ) => {
-      state.search.query.album_id = action.payload.album_id;
-      state.search.query.rotation_id = action.payload.rotation_id;
-      state.search.query.rotation_bin = action.payload.rotation_bin;
-      // track_position references a release_track row on the previous
-      // album_id; orphan it on the new album and it points at the wrong
-      // release. Symmetric to setSearchScope("all"). (dj-site#704)
-      state.search.query.track_position = undefined;
     },
     setSearchOpen: (state, action) => {
       state.search.open = action.payload;
@@ -138,13 +84,8 @@ export const flowsheetSlice = createAppSlice({
       state.search.open = defaultFlowsheetFrontendState.search.open;
       state.search.query = defaultFlowsheetFrontendState.search.query;
       state.search.selectedResult = defaultFlowsheetFrontendState.search.selectedResult;
-      state.search.confirmedArtist = defaultFlowsheetFrontendState.search.confirmedArtist;
-      state.search.stagedRelease = defaultFlowsheetFrontendState.search.stagedRelease;
       state.search.selectedMatch = defaultFlowsheetFrontendState.search.selectedMatch;
       state.search.filters = defaultFlowsheetFrontendState.search.filters;
-    },
-    setConfirmedArtist: (state, action: PayloadAction<string>) => {
-      state.search.confirmedArtist = action.payload;
     },
     setSearchProperty: (
       state,
@@ -215,30 +156,6 @@ export const flowsheetSlice = createAppSlice({
      */
     setTrackPosition: (state, action: PayloadAction<string | undefined>) => {
       state.search.query.track_position = action.payload;
-    },
-    /**
-     * Copy a selected search result's fields into the live search query and
-     * deselect it, so the user can edit one field without losing the others.
-     */
-    freezeSelectionToQuery: (
-      state,
-      action: PayloadAction<{
-        artist: string;
-        album: string;
-        label: string;
-        album_id?: number;
-        rotation_id?: number;
-        rotation_bin?: Rotation;
-      }>
-    ) => {
-      state.search.query.artist = action.payload.artist;
-      state.search.query.album = action.payload.album;
-      state.search.query.label = action.payload.label;
-      state.search.query.album_id = action.payload.album_id;
-      state.search.query.rotation_id = action.payload.rotation_id;
-      state.search.query.rotation_bin = action.payload.rotation_bin;
-      state.search.query.track_position = undefined;
-      state.search.selectedResult = 0;
     },
     toggleRequest: (state) => {
       state.search.query.request = !state.search.query.request;
@@ -314,9 +231,6 @@ export const flowsheetSlice = createAppSlice({
     getQueue: (state) => state.queue,
     getSelectedResult: (state) => state.search.selectedResult,
     getCurrentShowEntries: (state) => state.currentShowEntries,
-    getConfirmedArtist: (state) => state.search.confirmedArtist,
-    getSearchScope: (state) => state.search.scope,
-    getStagedRelease: (state) => state.search.stagedRelease,
     getSelectedMatch: (state) => state.search.selectedMatch,
     getSearchFilters: (state) => state.search.filters,
   },

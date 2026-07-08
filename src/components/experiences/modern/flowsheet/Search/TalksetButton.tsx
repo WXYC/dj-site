@@ -15,7 +15,7 @@ export default function TalksetButton() {
     <Tooltip placement="top" size="sm" title="Add a Talkset" variant="outlined">
       <IconButton
         size="sm"
-        variant="plain"
+        variant="solid"
         color="danger"
         data-testid="flowsheet-talkset-button"
         onClick={() => {

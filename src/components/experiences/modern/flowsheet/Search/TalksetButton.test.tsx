@@ -46,10 +46,10 @@ describe("TalksetButton", () => {
   });
 });
 
-describe("TalksetButton plain variant", () => {
-  it("should have plain variant", () => {
+describe("TalksetButton solid variant", () => {
+  it("should have solid variant", () => {
     render(<TalksetButton />);
     const button = screen.getByRole("button");
-    expect(button).toHaveClass("MuiIconButton-variantPlain");
+    expect(button).toHaveClass("MuiIconButton-variantSolid");
   });
 });
