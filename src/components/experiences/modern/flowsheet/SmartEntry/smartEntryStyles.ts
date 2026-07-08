@@ -25,8 +25,12 @@ export const SMART_ENTRY_FIELD_COLOR: Record<
  * caret. Tokens are differentiated by background/colour only, never weight.
  */
 export const smartEntryTextMetricsSx = {
-  fontFamily: "var(--joy-fontFamily-body)",
-  fontSize: "var(--joy-fontSize-sm)",
+  // `inherit` (not a raw var) so the textarea — which otherwise uses the UA
+  // form-control font — matches the mirror's inherited body font exactly; and
+  // the `sm` token maps through Joy's cssVarPrefix. Both must resolve
+  // identically on the two layers or the highlights drift off the caret.
+  fontFamily: "inherit",
+  fontSize: "sm",
   fontWeight: 500,
   lineHeight: 1.7,
   letterSpacing: "0",
@@ -57,16 +61,15 @@ export function smartEntryTokenSx(
   }
   return {
     color: `${color}.softColor`,
-    bgcolor: `${color}.softBg`,
+    // A locked constraint reads a touch firmer than a passive detection. Both
+    // use Joy palette tokens (prefix-safe) rather than raw CSS vars — the app
+    // sets cssVarPrefix "wxyc", so hardcoded --joy-* vars never resolve.
+    bgcolor: locked ? `${color}.softActiveBg` : `${color}.softBg`,
     borderRadius: "4px",
     // Tiny horizontal padding compensated by negative margin → net-zero glyph
     // advance, so the pill decorates without shifting the caret.
     px: "3px",
     mx: "-3px",
-    // A locked constraint reads slightly firmer than a passive detection.
-    boxShadow: locked
-      ? `inset 0 0 0 1px var(--joy-palette-${color}-outlinedBorder)`
-      : "none",
   };
 }
 

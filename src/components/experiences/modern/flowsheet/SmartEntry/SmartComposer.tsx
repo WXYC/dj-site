@@ -70,7 +70,7 @@ export default function SmartComposer({
           onChange((e.target as HTMLTextAreaElement).value.replace(/\n/g, ""))
         }
         onKeyDown={onKeyDown}
-        sx={{
+        sx={(theme) => ({
           ...smartEntryBoxSx,
           ...smartEntryTextMetricsSx,
           position: "absolute",
@@ -83,14 +83,16 @@ export default function SmartComposer({
           background: "transparent",
           color: "transparent",
           // Keep the caret visible even though the text itself is transparent
-          // (the mirror renders the visible, coloured text underneath).
-          caretColor: "var(--joy-palette-text-primary, currentColor)",
+          // (the mirror renders the visible, coloured text underneath). Use the
+          // theme var — the app's cssVarPrefix is "wxyc", so a hardcoded
+          // --joy-* var never resolves and the caret falls back to transparent.
+          caretColor: theme.vars.palette.text.primary,
           overflow: "hidden",
-          "&::placeholder": { color: "text.tertiary", opacity: 1 },
+          "&::placeholder": { color: theme.vars.palette.text.tertiary, opacity: 1 },
           "&::selection": {
-            background: "var(--joy-palette-primary-softBg)",
+            background: theme.vars.palette.primary.softBg,
           },
-        }}
+        })}
       />
     </Box>
   );
