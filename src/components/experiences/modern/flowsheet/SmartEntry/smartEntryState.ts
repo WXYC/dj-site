@@ -1,4 +1,4 @@
-import { parseSmartEntry } from "./parser/parseSmartEntry";
+import { findTriggerOffsets, parseSmartEntry } from "./parser/parseSmartEntry";
 import { remapSuppressedTriggers } from "./parser/remapOffsets";
 import type { FieldSpan, ParseResult, SmartField } from "./parser/types";
 
@@ -88,11 +88,19 @@ export function smartEntryReducer(
     }
 
     case "ACCEPT_GHOST": {
-      const suppressedTriggers = remapSuppressedTriggers(
+      const remapped = remapSuppressedTriggers(
         state.raw,
         action.raw,
         state.suppressedTriggers
       );
+      // Auto-escape any trigger word that landed inside the accepted value
+      // (e.g. "With" in an album title) so it stays literal and the locked
+      // field isn't cut in two. The value sits at the end of raw.
+      const valueStart = action.raw.length - action.value.length;
+      const intraValue = findTriggerOffsets(action.raw).filter(
+        (offset) => offset >= valueStart
+      );
+      const suppressedTriggers = Array.from(new Set([...remapped, ...intraValue]));
       return {
         raw: action.raw,
         suppressedTriggers,

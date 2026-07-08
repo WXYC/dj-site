@@ -39,6 +39,11 @@ type Candidate = {
   field: SmartField;
 };
 
+/** All standalone trigger-word start offsets in `text` (ignores suppression). */
+export function findTriggerOffsets(text: string): number[] {
+  return [...text.matchAll(TRIGGER_RE)].map((m) => m.index ?? 0);
+}
+
 const isWhitespace = (ch: string): boolean => /\s/.test(ch);
 
 /** Trim leading/trailing whitespace from a raw slice, returning value offsets. */

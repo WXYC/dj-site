@@ -5,6 +5,7 @@ import {
   hasActiveTrigger,
   type SmartEntryState,
 } from "./smartEntryState";
+import { parseSmartEntry } from "./parser/parseSmartEntry";
 
 const state = (overrides: Partial<SmartEntryState> = {}): SmartEntryState => ({
   ...initialSmartEntryState,
@@ -91,6 +92,40 @@ describe("smartEntryReducer", () => {
       });
       expect(next.raw).toBe("by Juana Molina");
       expect(next.locks.artist).toBe("Juana Molina");
+    });
+
+    it("auto-escapes a trigger word inside the accepted value", () => {
+      // Accepting an album that contains "With" must keep the album whole — the
+      // inner "with" is suppressed so it isn't read as a label trigger.
+      const raw = "Song on Songs With Strangers";
+      const start = state({ raw: "Song on Songs Wi" });
+      const next = smartEntryReducer(start, {
+        type: "ACCEPT_GHOST",
+        raw,
+        field: "album",
+        value: "Songs With Strangers",
+      });
+      const withOffset = raw.indexOf("With");
+      expect(next.suppressedTriggers).toContain(withOffset);
+      // And the parse keeps the album intact.
+      const parse = parseSmartEntry(next.raw, {
+        suppressedTriggers: next.suppressedTriggers,
+      });
+      expect(parse.fields.album).toBe("Songs With Strangers");
+      expect(parse.fields.label).toBeUndefined();
+    });
+
+    it("does not suppress the field's own leading trigger", () => {
+      const raw = "Song on Songs With Strangers";
+      const start = state({ raw: "Song on Songs Wi" });
+      const next = smartEntryReducer(start, {
+        type: "ACCEPT_GHOST",
+        raw,
+        field: "album",
+        value: "Songs With Strangers",
+      });
+      // "on" (the album trigger) precedes the value and must stay active.
+      expect(next.suppressedTriggers).not.toContain(raw.indexOf("on"));
     });
   });
 
