@@ -15,7 +15,7 @@ export default function TalksetButton() {
     <Tooltip placement="top" size="sm" title="Add a Talkset" variant="outlined">
       <IconButton
         size="sm"
-        variant="solid"
+        variant="plain"
         color="danger"
         data-testid="flowsheet-talkset-button"
         onClick={() => {
@@ -25,9 +25,6 @@ export default function TalksetButton() {
           });
         }}
         disabled={!live}
-        sx = {{
-            zIndex: 8001,
-        }}
       >
         <Mic />
       </IconButton>

@@ -24,7 +24,7 @@ export default function BreakpointButton() {
     >
       <IconButton
         size="sm"
-        variant="solid"
+        variant="plain"
         color="warning"
         data-testid="flowsheet-breakpoint-button"
         onClick={() => {
@@ -38,9 +38,6 @@ export default function BreakpointButton() {
           });
         }}
         disabled={!live}
-        sx = {{
-            zIndex: 8001,
-        }}
       >
         <Timer />
       </IconButton>

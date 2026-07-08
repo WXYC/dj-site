@@ -18,6 +18,8 @@ import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
 import { useGhostText, type GhostTextField } from "@/src/hooks/useGhostText";
+import BreakpointButton from "../Search/BreakpointButton";
+import TalksetButton from "../Search/TalksetButton";
 import SmartComposer from "./SmartComposer";
 import SmartResults from "./SmartResults";
 import SmartToolbar from "./SmartToolbar";
@@ -207,9 +209,17 @@ export default function SmartEntry() {
 
             <Stack
               direction="row"
-              spacing={0.75}
+              spacing={0.5}
+              alignItems="center"
               sx={{ alignSelf: "center", flexShrink: 0, pr: 0.25 }}
             >
+              {/* Entry-scoped actions: the plain breakpoint/talkset sit left of
+                  the emphasized queue/play so all four share one row. */}
+              <BreakpointButton />
+              <TalksetButton />
+
+              <Divider orientation="vertical" sx={{ mx: 0.25, my: 0.5 }} />
+
               <Tooltip title="Add to queue (Ctrl+Enter)" size="sm">
                 <IconButton
                   type="button"

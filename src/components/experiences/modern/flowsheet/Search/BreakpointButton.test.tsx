@@ -52,10 +52,10 @@ describe("BreakpointButton", () => {
   });
 });
 
-describe("BreakpointButton solid variant", () => {
-  it("should have solid variant", () => {
+describe("BreakpointButton plain variant", () => {
+  it("should have plain variant", () => {
     render(<BreakpointButton />);
     const button = screen.getByRole("button");
-    expect(button).toHaveClass("MuiIconButton-variantSolid");
+    expect(button).toHaveClass("MuiIconButton-variantPlain");
   });
 });
