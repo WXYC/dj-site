@@ -84,7 +84,7 @@ export default function SmartResultRow({
         ...toneSx(tone),
       }}
     >
-      <AlbumArtThumb entry={entry} selected={promoted} />
+      <AlbumArtThumb entry={entry} />
       <Box sx={{ minWidth: 0, flex: 1 }}>
         <SentenceText
           entry={entry}
