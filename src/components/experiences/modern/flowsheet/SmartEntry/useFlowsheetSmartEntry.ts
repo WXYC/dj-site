@@ -311,12 +311,11 @@ export function useFlowsheetSmartEntry() {
   }, []);
 
   /**
-   * Commit the pending entry. Flushes the parse, reads the fresh store (never a
-   * stale selector closure), and merges the selected match. `toQueue` routes to
-   * the local queue (the explicit Queue button / touch path); otherwise it
-   * hands off to `useFlowsheetSubmit` (which also queues when Ctrl/⌘ is held,
-   * and owns the toasts + resetSearch). A missing song title is rejected with a
-   * toast via handleSubmit and does not clear the composer.
+   * Commit the pending entry: flush the parse, read the fresh store (never a
+   * stale selector closure), merge the selected match, then either queue it
+   * (`toQueue`, the Queue button / touch path) or hand off to useFlowsheetSubmit
+   * (which also queues on Ctrl/⌘, and owns the toasts + resetSearch). A missing
+   * song is rejected via handleSubmit and leaves the composer intact.
    */
   const commit = useCallback(
     (e: SyntheticEvent, toQueue: boolean) => {

@@ -3,26 +3,17 @@ import { remapSuppressedTriggers } from "./parser/remapOffsets";
 import type { FieldSpan, ParseResult, SmartField } from "./parser/types";
 
 /**
- * Local, keystroke-latency state the smart-entry composer owns (kept out of
- * Redux so per-keystroke edits don't churn the slice or its protected tests):
- *
- *  - `raw` — the exact text the DJ is editing (single source of truth).
- *  - `suppressedTriggers` — start offsets of trigger words escaped to literal.
- *  - `locks` — field → the accepted value that locked it as a hard constraint.
- *  - `dismissedGhost` — a (field, prefix) whose ghost the DJ dismissed with
- *    Escape, so it doesn't immediately reappear until they type more.
+ * Local, keystroke-latency state the composer owns, kept out of Redux so
+ * per-keystroke edits don't churn the slice: the raw text, escaped-to-literal
+ * trigger offsets, field locks (accepted values that became hard constraints),
+ * the Escape-dismissed ghost, and a one-step autofill-undo snapshot (`kind`
+ * lets undoing a result fill also clear the selected match).
  */
 export type SmartEntryState = {
   raw: string;
   suppressedTriggers: number[];
   locks: Partial<Record<SmartField, string>>;
   dismissedGhost: { field: SmartField; prefix: string } | null;
-  /**
-   * The raw text just before the last autofill (ghost accept / result fill),
-   * so a single Backspace can undo it in one step instead of deleting the
-   * filled remainder character by character. `kind` lets the undo also clear a
-   * selected match when it reverts a result fill. Cleared by any ordinary edit.
-   */
   autofillUndo: { raw: string; kind: "ghost" | "fill" } | null;
 };
 
@@ -115,9 +106,8 @@ export function smartEntryReducer(
         action.raw,
         state.suppressedTriggers
       );
-      // Auto-escape any trigger word that landed inside the accepted value
-      // (e.g. "With" in an album title) so it stays literal and the locked
-      // field isn't cut in two. The value sits at the end of raw.
+      // Escape trigger words inside the accepted value (e.g. "With" in an
+      // album title) so the locked field isn't cut in two.
       const valueStart = action.raw.length - action.value.length;
       const intraValue = findTriggerOffsets(action.raw).filter(
         (offset) => offset >= valueStart
