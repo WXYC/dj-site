@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useReducer } from "react";
 import type { SyntheticEvent } from "react";
-import type { AlbumEntry } from "@/lib/features/catalog/types";
+import type { AlbumEntry, Format, Genre } from "@/lib/features/catalog/types";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import type { SelectedMatch } from "@/lib/features/flowsheet/types";
 import { useAppDispatch, useAppSelector, useAppStore } from "@/lib/hooks";
@@ -31,6 +31,34 @@ function fullParsedFields(parse: ParseResult): {
     artist: parse.fields.artist ?? "",
     album: parse.fields.album ?? "",
     label: parse.fields.label ?? "",
+  };
+}
+
+/** Rebuild a display AlbumEntry from a stored SelectedMatch (for the promoted
+ * "Selected match" row). Inverse of albumEntryToSelectedMatch. */
+export function selectedMatchToEntry(match: SelectedMatch): AlbumEntry {
+  return {
+    id: match.id,
+    title: match.album,
+    artist: {
+      id: 0,
+      name: match.artist,
+      lettercode: match.lettercode ?? "",
+      numbercode: match.numbercode ?? 0,
+      // Runtime values originate from a real AlbumEntry, so the narrow types
+      // hold; the fallbacks only cover a missing optional field for display.
+      genre: (match.genre ?? "") as Genre,
+    },
+    entry: match.entry ?? 0,
+    format: (match.format ?? "Unknown") as Format,
+    alternate_artist: undefined,
+    rotation_bin: match.rotation_bin,
+    rotation_id: match.rotation_id,
+    plays: undefined,
+    add_date: undefined,
+    label: match.label,
+    on_streaming: match.on_streaming,
+    artwork_url: match.artwork_url,
   };
 }
 
@@ -160,6 +188,14 @@ export function useFlowsheetSmartEntry() {
     dispatch(flowsheetSlice.actions.clearSelectedMatch());
   }, [dispatch]);
 
+  /** Set the keyboard-highlighted result index (0 = none highlighted). */
+  const setHighlight = useCallback(
+    (index: number) => {
+      dispatch(flowsheetSlice.actions.setSelectedResult(index));
+    },
+    [dispatch]
+  );
+
   /**
    * Commit the pending entry. Flushes the parse, reads the fresh store (never a
    * stale selector closure), and merges the selected match. `toQueue` routes to
@@ -244,6 +280,7 @@ export function useFlowsheetSmartEntry() {
     flush,
     selectMatch,
     clearMatch,
+    setHighlight,
     handleEscape,
   };
 }
