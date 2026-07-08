@@ -19,13 +19,13 @@ export default function SmartToolbar() {
       spacing={1}
       sx={{
         px: 1,
-        py: 1,
-        minHeight: 52,
+        py: 0.5,
+        // No forced minHeight — the dark section takes the natural height of
+        // its content (the ~32px buttons) plus this small padding. A forced
+        // height is what made the row too tall and left a gutter.
         flexWrap: "wrap",
-        // Center the row(s) vertically — without this a wrap container leaves a
-        // gutter above and pushes the controls to the bottom.
         alignContent: "center",
-        rowGap: 1,
+        rowGap: 0.5,
         bgcolor: "background.surface",
       }}
     >
