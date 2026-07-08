@@ -169,7 +169,8 @@ export const useLogin = () => {
 
       toast.success("Login successful");
 
-      const user = (result as any).data?.user;
+      const session = await authClient.getSession();
+      const user = session.data?.user ?? (result as { data?: { user?: { id?: string; hasCompletedOnboarding?: boolean } } }).data?.user;
       await redirectAfterAuth(router, user, "password");
     }, "An unexpected error occurred during login. Please try again.");
   };

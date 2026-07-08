@@ -230,19 +230,11 @@ test.describe("New User Onboarding", () => {
       // New user logs in with temp password
       const userContext = await browser.newContext({ baseURL });
       const userPage = await userContext.newPage();
-      const userLoginPage = new LoginPage(userPage);
-      const userOnboarding = new OnboardingPage(userPage);
       const userDashboard = new DashboardPage(userPage);
 
       const chosenPassword = "NewPassword1";
 
-      await completeOnboardingWithInviteToken(userPage, email, chosenPassword);
-      if (!userPage.url().includes("/dashboard")) {
-        await userLoginPage.goto();
-        await userPage.waitForLoadState("domcontentloaded");
-        await userLoginPage.switchToPasswordLogin();
-        await userLoginPage.login(username, chosenPassword);
-      }
+      await completeOnboardingWithInviteToken(userPage, email, chosenPassword, username);
       await userDashboard.expectOnDashboard();
 
       // Cleanup

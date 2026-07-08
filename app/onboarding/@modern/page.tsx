@@ -1,6 +1,7 @@
 import { getServerSession } from "@/lib/features/authentication/server-utils";
 import { redirect } from "next/navigation";
 import OnboardingForm from "@/src/components/experiences/modern/login/Forms/OnboardingForm";
+import OnboardingInviteSessionGuard from "@/src/components/experiences/modern/login/OnboardingInviteSessionGuard";
 import WXYCPage from "@/src/Layout/WXYCPage";
 import HoldOnQuotes from "@/src/components/experiences/modern/login/Quotes/HoldOn";
 import { Metadata } from "next";
@@ -23,11 +24,20 @@ export default async function ModernOnboardingPage({ searchParams }: OnboardingP
     redirect("/login");
   }
 
-  const username =
-    session?.user.username ||
-    session?.user.name ||
-    session?.user.email?.split("@")[0] ||
-    "";
+  const username = token
+    ? ""
+    : session?.user.username ||
+      session?.user.name ||
+      session?.user.email?.split("@")[0] ||
+      "";
+
+  const onboardingForm = (
+    <OnboardingForm
+      username={username}
+      realName={token ? undefined : session?.user.realName || undefined}
+      djName={token ? undefined : session?.user.djName || undefined}
+    />
+  );
 
   return (
     <WXYCPage>
@@ -37,11 +47,13 @@ export default async function ModernOnboardingPage({ searchParams }: OnboardingP
           This setup link is invalid or expired. Ask your station manager to resend the invite.
         </Alert>
       )}
-      <OnboardingForm
-        username={username}
-        realName={session?.user.realName || undefined}
-        djName={session?.user.djName || undefined}
-      />
+      {token ? (
+        <OnboardingInviteSessionGuard inviteToken={token}>
+          {onboardingForm}
+        </OnboardingInviteSessionGuard>
+      ) : (
+        onboardingForm
+      )}
     </WXYCPage>
   );
 }

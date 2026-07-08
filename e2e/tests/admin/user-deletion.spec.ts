@@ -169,7 +169,6 @@ test.describe("User Deletion Session Invalidation", () => {
     const adminLoginPage = new LoginPage(adminPage);
     const adminRosterPage = new RosterPage(adminPage);
     const adminDashboard = new DashboardPage(adminPage);
-    const userLoginPage = new LoginPage(userPage);
     const userDashboard = new DashboardPage(userPage);
 
     // Login as admin
@@ -198,13 +197,7 @@ test.describe("User Deletion Session Invalidation", () => {
     const chosenPassword = "NewPassword1";
 
     // New user completes invite onboarding, then signs in if needed
-    await completeOnboardingWithInviteToken(userPage, email, chosenPassword);
-    if (!userPage.url().includes("/dashboard")) {
-      await userLoginPage.goto();
-      await userPage.waitForLoadState("domcontentloaded");
-      await userLoginPage.switchToPasswordLogin();
-      await userLoginPage.login(username, chosenPassword);
-    }
+    await completeOnboardingWithInviteToken(userPage, email, chosenPassword, username);
     await userDashboard.expectOnDashboard();
 
     // Admin deletes the user

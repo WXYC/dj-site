@@ -1,8 +1,6 @@
 import { test, expect, TEST_USERS, completeOnboardingWithInviteToken } from "../../fixtures/auth.fixture";
 import { DashboardPage } from "../../pages/dashboard.page";
 import { RosterPage } from "../../pages/roster.page";
-import { LoginPage } from "../../pages/login.page";
-import { OnboardingPage } from "../../pages/onboarding.page";
 import { generateUsername, generateEmail } from "../../helpers/test-data";
 import path from "path";
 
@@ -291,23 +289,12 @@ test.describe("New User Can Login", () => {
     // Clear any cookies that might have been set
     await newUserContext.clearCookies();
 
-    const newUserLoginPage = new LoginPage(newUserPage);
-    const newUserOnboarding = new OnboardingPage(newUserPage);
     const newUserDashboard = new DashboardPage(newUserPage);
 
     const newPassword = "NewPassword1";
 
     // Complete onboarding via invite email token
-    await completeOnboardingWithInviteToken(newUserPage, email, newPassword);
-
-    // Sign in with the password chosen during onboarding (skip if already signed in)
-    if (!newUserPage.url().includes("/dashboard")) {
-      await newUserLoginPage.goto();
-      await newUserPage.waitForLoadState("networkidle");
-      await newUserLoginPage.switchToPasswordLogin();
-      await expect(newUserPage.locator('input[name="username"]')).toBeVisible({ timeout: 5000 });
-      await newUserLoginPage.login(username, newPassword);
-    }
+    await completeOnboardingWithInviteToken(newUserPage, email, newPassword, username);
 
     await newUserDashboard.expectOnDashboard();
 

@@ -1,4 +1,5 @@
 import { test as base, expect, Page } from "@playwright/test";
+import { LoginPage } from "../pages/login.page";
 import { MOCK_USERS, MockUserKey, MockUser } from "../../lib/test-utils/fixtures";
 
 /** Re-export shared mock users for e2e convenience. */
@@ -175,7 +176,8 @@ export async function getVerificationToken(identifier: string): Promise<{ token:
 export async function completeOnboardingWithInviteToken(
   page: Page,
   email: string,
-  password: string
+  password: string,
+  username?: string
 ): Promise<void> {
   const tokenData = await getVerificationToken(email);
   if (!tokenData?.token) {
@@ -184,7 +186,7 @@ export async function completeOnboardingWithInviteToken(
 
   await page.goto(`/onboarding?token=${encodeURIComponent(tokenData.token)}`);
   await page.waitForURL(/\/onboarding/, { timeout: 15000 });
-  await page.locator('input[name="password"]').waitFor({ state: "visible", timeout: 10000 });
+  await page.locator('input[name="password"]').waitFor({ state: "visible", timeout: 20000 });
 
   const realNameInput = page.locator('input[name="realName"]');
   if (await realNameInput.isVisible()) {
@@ -214,6 +216,17 @@ export async function completeOnboardingWithInviteToken(
     (url) => url.pathname.includes("/dashboard") || url.pathname.includes("/login"),
     { timeout: 15000 }
   );
+
+  if (!page.url().includes("/dashboard") && username) {
+    const loginPage = new LoginPage(page);
+    if (!page.url().includes("/login")) {
+      await loginPage.goto();
+    }
+    await page.waitForLoadState("domcontentloaded");
+    await loginPage.switchToPasswordLogin();
+    await loginPage.login(username, password);
+    await loginPage.waitForRedirectToDashboard();
+  }
 }
 
 /**
