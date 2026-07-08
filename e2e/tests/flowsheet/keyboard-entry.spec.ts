@@ -11,9 +11,8 @@ import path from "path";
  * This uses the shared auth fixture + musicDirector session and goes live so
  * the inputs are enabled.
  *
- * NOTE (v2): this drives the current segmented artist/song bar (Tab moves
- * between fields). The v2 smart-entry composer is a single continuous input;
- * this spec is rewritten against the new Page Object in the composer phase.
+ * Drives the v2 smart-entry composer (a single continuous input): type the
+ * whole sentence, then Enter to commit.
  */
 const authDir = path.join(__dirname, "../../.auth");
 
@@ -45,15 +44,14 @@ test.describe("flowsheet keyboard entry", () => {
   });
 
   test("keyboard-only entry path", async ({ page }) => {
-    // Focus the artist field, type, then Tab to the song field — the segmented
-    // bar relies on native DOM focus order between the four inputs.
-    await flowsheet.artistInput.click();
-    await flowsheet.artistInput.fill("Stereolab");
-    await page.keyboard.press("Tab");
-    await expect(flowsheet.songInput).toBeFocused();
-    await flowsheet.songInput.fill("Percolator");
+    // The v2 composer is one continuous input — type the whole sentence, then
+    // Enter to commit (no Tab between fields).
+    await flowsheet.composer.click();
+    await flowsheet.composer.pressSequentially("Percolator by Stereolab", {
+      delay: 20,
+    });
 
-    // Enter submits the form → play. Wait for the POST and the form clearing.
+    // Enter commits → play. Wait for the POST and the composer clearing.
     const responsePromise = page.waitForResponse(
       (r) =>
         r.url().includes("/flowsheet") &&
@@ -61,8 +59,8 @@ test.describe("flowsheet keyboard entry", () => {
         r.status() < 300,
       { timeout: 30000 }
     );
-    await flowsheet.songInput.press("Enter");
+    await flowsheet.composer.press("Enter");
     await responsePromise;
-    await expect(flowsheet.songInput).toHaveValue("", { timeout: 2000 });
+    await expect(flowsheet.composer).toHaveValue("", { timeout: 2000 });
   });
 });

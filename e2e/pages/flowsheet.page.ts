@@ -11,15 +11,11 @@ export class FlowsheetPage {
   readonly page: Page;
   private entriesResponsePromise: Promise<unknown> | null = null;
 
-  // Search form
+  // Smart-entry composer (v2)
   readonly searchForm: Locator;
-  readonly songInput: Locator;
-  readonly artistInput: Locator;
-  readonly albumInput: Locator;
-  readonly labelInput: Locator;
+  readonly composer: Locator;
   readonly submitButton: Locator;
   readonly searchResults: Locator;
-  readonly newEntryPreview: Locator;
 
   // Special entry buttons
   readonly talksetButton: Locator;
@@ -36,18 +32,12 @@ export class FlowsheetPage {
   constructor(page: Page) {
     this.page = page;
 
-    // Search
-    this.searchForm = page.locator('[data-testid="flowsheet-search-form"]');
-    this.songInput = page.locator('[data-testid="flowsheet-search-song"]');
-    this.artistInput = page.locator('[data-testid="flowsheet-search-artist"]');
-    this.albumInput = page.locator('[data-testid="flowsheet-search-album"]');
-    this.labelInput = page.locator('[data-testid="flowsheet-search-label"]');
-    this.submitButton = page.locator('[data-testid="flowsheet-search-submit"]');
+    // Smart-entry composer (v2): a single continuous input.
+    this.searchForm = page.locator('[data-testid="flowsheet-smart-entry"]');
+    this.composer = page.locator('[data-testid="flowsheet-composer"]');
+    this.submitButton = page.getByRole("button", { name: "Play now" });
     this.searchResults = page.locator(
       '[data-testid="flowsheet-search-results"]'
-    );
-    this.newEntryPreview = page.locator(
-      '[data-testid="flowsheet-new-entry-preview"]'
     );
 
     // Special entries
@@ -135,7 +125,7 @@ export class FlowsheetPage {
     }
 
     // Wait for search inputs to become enabled (live state propagates)
-    await expect(this.songInput).toBeEnabled({ timeout: 5000 });
+    await expect(this.composer).toBeEnabled({ timeout: 5000 });
     // Reload and wait for the flowsheet API to respond with data, confirming
     // the entry list will render. The infinite query skips until the session
     // rehydrates, so we wait for the actual network response.
@@ -146,7 +136,7 @@ export class FlowsheetPage {
     await this.page.reload();
     await responsePromise;
     // Wait for the page to be fully interactive after reload
-    await expect(this.songInput).toBeEnabled({ timeout: 10000 });
+    await expect(this.composer).toBeEnabled({ timeout: 10000 });
   }
 
   async leave(): Promise<void> {
@@ -198,33 +188,46 @@ export class FlowsheetPage {
 
   // --- Adding entries ---
 
+  /**
+   * Compose a smart-entry sentence from the four fields and type it into the
+   * single composer: "Song by Artist on Album via Label" (omitting empties).
+   */
+  buildSentence(data: {
+    song: string;
+    artist: string;
+    album?: string;
+    label?: string;
+  }): string {
+    return [
+      data.song,
+      data.artist && `by ${data.artist}`,
+      data.album && `on ${data.album}`,
+      data.label && `via ${data.label}`,
+    ]
+      .filter(Boolean)
+      .join(" ");
+  }
+
   async fillSearchForm(data: {
     song: string;
     artist: string;
     album?: string;
     label?: string;
   }): Promise<void> {
-    // Click and focus the song input to open search (searchOpen = true on focus)
-    await this.songInput.click();
-    await this.songInput.fill(data.song);
-    await this.artistInput.fill(data.artist);
-    if (data.album) await this.albumInput.fill(data.album);
-    if (data.label) await this.labelInput.fill(data.label);
-    // Ensure Redux state has caught up before submission
-    await this.page.waitForTimeout(100);
+    await this.composer.click(); // focus opens the search
+    await this.composer.fill(this.buildSentence(data));
+    // Let the parse + debounced Redux sync catch up before submission.
+    await this.page.waitForTimeout(300);
   }
 
   async submitViaButton(): Promise<void> {
-    // Click the pink play/submit button.
-    // Its onClick checks searchOpen: if true, calls form.requestSubmit();
-    // if false, just focuses the first input. Search should be open after
-    // fillSearchForm focused the song input.
+    // Click the Play button (requestSubmit → form onSubmit → play).
     await this.submitButton.click();
   }
 
   async submitViaEnter(): Promise<void> {
-    // Press Enter on the song input to trigger the form's onSubmit
-    await this.songInput.press("Enter");
+    // Enter in the composer commits (play) when no result is highlighted.
+    await this.composer.press("Enter");
   }
 
   async addTrack(
@@ -258,7 +261,8 @@ export class FlowsheetPage {
     // response itself, which is non-deterministic when the server is slow.
     // See WXYC/dj-site#570.
     await responsePromise;
-    await expect(this.songInput).toHaveValue("", { timeout: 2000 });
+    // The composer clears on a successful submit (the completion signal).
+    await expect(this.composer).toHaveValue("", { timeout: 2000 });
   }
 
   // --- Entry locators ---
