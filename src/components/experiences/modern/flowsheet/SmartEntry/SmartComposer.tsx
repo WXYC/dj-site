@@ -23,7 +23,7 @@ export default function SmartComposer({
   inputRef,
   disabled = false,
   expanded = false,
-  placeholder = "Log a track…  (e.g. Percolator by Stereolab on Dots and Loops)",
+  placeholder = "Start typing…",
 }: {
   raw: string;
   spans: FieldSpan[];

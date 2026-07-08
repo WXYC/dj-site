@@ -1,6 +1,7 @@
 "use client";
 
-import { Box, Divider, Sheet } from "@mui/joy";
+import { PlayArrow, QueueMusic } from "@mui/icons-material";
+import { Box, Divider, IconButton, Sheet, Stack, Tooltip } from "@mui/joy";
 import { useRef } from "react";
 import type { KeyboardEvent } from "react";
 import { useAppSelector } from "@/lib/hooks";
@@ -13,8 +14,9 @@ import { useFlowsheetSmartEntry } from "./useFlowsheetSmartEntry";
 /**
  * The v2 flowsheet smart-entry component: a single continuous composer that
  * parses natural-language / semicolon input into a pending entry, over the
- * existing four-source search. Slots into the flowsheet page in place of the
- * old segmented bar (results panel + ghost text land in later phases).
+ * existing four-source search. The Queue / Play commit buttons sit in the
+ * composer row, next to the sentence they commit. Slots into the flowsheet page
+ * in place of the old segmented bar (results panel + ghost text land later).
  */
 export default function SmartEntry() {
   const entry = useFlowsheetSmartEntry();
@@ -46,6 +48,13 @@ export default function SmartEntry() {
         borderRadius: "md",
         overflow: "hidden",
         bgcolor: "background.level1",
+        transition: "border-color 0.15s, box-shadow 0.15s",
+        "@media (prefers-reduced-motion: reduce)": { transition: "none" },
+        "&:focus-within": {
+          borderColor: "primary.outlinedBorder",
+          boxShadow: (theme) =>
+            `0 0 0 2px ${theme.vars.palette.primary.softBg}`,
+        },
       }}
     >
       <form ref={formRef} onSubmit={(e) => entry.submit(e)}>
@@ -63,6 +72,7 @@ export default function SmartEntry() {
           sx={{
             display: "flex",
             alignItems: "flex-start",
+            gap: 0.5,
             px: 0.75,
             pt: 0.5,
           }}
@@ -77,15 +87,45 @@ export default function SmartEntry() {
             disabled={!live}
             expanded={searchOpen}
           />
+
+          <Stack
+            direction="row"
+            spacing={0.75}
+            sx={{ alignSelf: "center", flexShrink: 0, pr: 0.25 }}
+          >
+            <Tooltip title="Add to queue" size="sm">
+              <IconButton
+                type="button"
+                variant="soft"
+                color="success"
+                size="sm"
+                aria-label="Add to queue"
+                disabled={!live}
+                onClick={(e) => entry.submitToQueue(e)}
+              >
+                <QueueMusic />
+              </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Play now (Enter)" size="sm">
+              <IconButton
+                type="button"
+                variant="solid"
+                color="primary"
+                size="sm"
+                aria-label="Play now"
+                disabled={!live}
+                onClick={() => formRef.current?.requestSubmit()}
+              >
+                <PlayArrow />
+              </IconButton>
+            </Tooltip>
+          </Stack>
         </Box>
 
         <Divider />
 
-        <SmartToolbar
-          disabled={!live}
-          onPlay={() => formRef.current?.requestSubmit()}
-          onQueue={(e) => entry.submitToQueue(e)}
-        />
+        <SmartToolbar disabled={!live} />
       </form>
     </Sheet>
   );

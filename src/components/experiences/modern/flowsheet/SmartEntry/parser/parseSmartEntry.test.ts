@@ -67,6 +67,16 @@ describe("parseSmartEntry — trigger mode", () => {
     });
   });
 
+  it("maps 'from' to album", () => {
+    const r = parseSmartEntry("Percolator by Stereolab from Dots and Loops");
+    expect(r.fields).toEqual({
+      song: "Percolator",
+      artist: "Stereolab",
+      album: "Dots and Loops",
+    });
+    expect(r.fieldOrder).toEqual<SmartField[]>(["song", "artist", "album"]);
+  });
+
   it("first assignment wins — a repeated trigger is literal text", () => {
     const r = parseSmartEntry("Track by Alpha by Beta");
     expect(r.fields).toEqual({ song: "Track", artist: "Alpha by Beta" });

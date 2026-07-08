@@ -9,13 +9,14 @@ import type {
 /**
  * Trigger words → the field the text after them fills. `off` marks a track
  * title (rarely needed — leading text is the song by default); `by` the artist;
- * `on`/`in` the album; `via`/`with` the label.
+ * `on`/`in`/`from` the album; `via`/`with` the label.
  */
 const TRIGGERS: Readonly<Record<string, SmartField>> = {
   off: "song",
   by: "artist",
   on: "album",
   in: "album",
+  from: "album",
   via: "label",
   with: "label",
 };
@@ -30,7 +31,7 @@ const DEFAULT_ORDER: readonly SmartField[] = ["song", "artist", "album", "label"
  * is mid-typing "only", and stops a just-typed trailing "by" (no space yet)
  * from flickering into a trigger before the DJ commits the word.
  */
-const TRIGGER_RE = /(?<=^|\s)(off|by|on|in|via|with)(?=\s)/gi;
+const TRIGGER_RE = /(?<=^|\s)(off|by|on|in|from|via|with)(?=\s)/gi;
 
 type Candidate = {
   start: number;

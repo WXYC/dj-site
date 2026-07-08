@@ -1,26 +1,17 @@
 "use client";
 
-import { PlayArrow, QueueMusic } from "@mui/icons-material";
-import { Box, Divider, IconButton, Stack, Tooltip } from "@mui/joy";
-import type { MouseEvent } from "react";
+import { Box, Divider, Stack } from "@mui/joy";
 import BreakpointButton from "../Search/BreakpointButton";
 import TalksetButton from "../Search/TalksetButton";
 import ScopeControl from "../Search/ScopeControl";
 
 /**
- * The composer's action row: breakpoint / talkset / scope controls on the left,
- * and the Queue / Play commit buttons on the right (the click + touch commit
- * path; keyboard uses Enter / Ctrl+Enter). Buttons wrap on narrow widths.
+ * The composer's secondary control row: breakpoint / talkset / scope on the
+ * left, with room for the result filters (added in a later phase) on the right.
+ * The Queue / Play commit buttons live up in the composer row, next to the
+ * sentence they commit. Controls wrap on narrow widths.
  */
-export default function SmartToolbar({
-  disabled = false,
-  onPlay,
-  onQueue,
-}: {
-  disabled?: boolean;
-  onPlay: () => void;
-  onQueue: (e: MouseEvent<HTMLButtonElement>) => void;
-}) {
+export default function SmartToolbar({ disabled = false }: { disabled?: boolean }) {
   return (
     <Stack
       direction="row"
@@ -45,36 +36,6 @@ export default function SmartToolbar({
       <ScopeControl disabled={disabled} />
 
       <Box sx={{ flex: 1, minWidth: 8 }} />
-
-      <Stack direction="row" spacing={0.75} alignItems="center">
-        <Tooltip title="Add to queue" size="sm">
-          <IconButton
-            type="button"
-            variant="soft"
-            color="success"
-            size="sm"
-            aria-label="Add to queue"
-            disabled={disabled}
-            onClick={onQueue}
-          >
-            <QueueMusic />
-          </IconButton>
-        </Tooltip>
-
-        <Tooltip title="Play now (Enter)" size="sm">
-          <IconButton
-            type="button"
-            variant="solid"
-            color="primary"
-            size="sm"
-            aria-label="Play now"
-            disabled={disabled}
-            onClick={onPlay}
-          >
-            <PlayArrow />
-          </IconButton>
-        </Tooltip>
-      </Stack>
     </Stack>
   );
 }
