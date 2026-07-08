@@ -21,6 +21,10 @@ import {
   getCatalogTagLabel,
 } from "../../catalog/Search/catalogTagFilters";
 
+// The results panel Popper sits at z-index 1300; the filter dropdowns must open
+// above it (tooltips are 1500, so stay under those).
+const FILTER_LISTBOX_SX = { zIndex: 1400 };
+
 /**
  * The flowsheet result filters — genre / format / rotation-bin — rendered in
  * the composer toolbar. Reuses the card catalog's controlled autocomplete and
@@ -63,6 +67,7 @@ export default function SmartFilters() {
           ariaLabel="Genre"
           isLoading={genresLoading}
           getTagChipProps={getGenreFilterChipProps}
+          listboxSx={FILTER_LISTBOX_SX}
         />
       </CatalogFilterSection>
 
@@ -81,6 +86,7 @@ export default function SmartFilters() {
           ariaLabel="Format"
           isLoading={formatsLoading}
           getTagChipProps={getFormatFilterChipProps}
+          listboxSx={FILTER_LISTBOX_SX}
         />
       </CatalogFilterSection>
 
@@ -103,6 +109,7 @@ export default function SmartFilters() {
           isLoading={false}
           getTagChipProps={getTagFilterChipProps}
           getOptionLabel={getCatalogTagLabel}
+          listboxSx={FILTER_LISTBOX_SX}
         />
       </CatalogFilterSection>
     </Box>
