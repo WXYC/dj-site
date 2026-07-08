@@ -190,14 +190,13 @@ describe("authenticationHooks", () => {
       });
     });
 
-    it("should redirect to dashboard when hasCompletedOnboarding is undefined (backward compat)", async () => {
+    it("should redirect to incomplete when hasCompletedOnboarding is undefined", async () => {
       mockSignInUsername.mockResolvedValue({
         data: {
           user: {
             id: "user-1",
             realName: "Test User",
             djName: "DJ Test",
-            // hasCompletedOnboarding not present — backend hasn't been updated yet
           },
         },
       });
@@ -217,10 +216,10 @@ describe("authenticationHooks", () => {
         await result.current.handleLogin(form);
       });
 
-      expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
+      expect(mockPush).toHaveBeenCalledWith("/login?incomplete=true");
       expect(mockSafeCapture).toHaveBeenCalledWith("login_post_redirect", {
         method: "password",
-        destination: "dashboard",
+        destination: "incomplete",
         has_completed_onboarding: null,
         user_id: "user-1",
         session_confirmed: true,
@@ -399,6 +398,9 @@ describe("authenticationHooks", () => {
     });
 
     it("redirects to the dashboard when session exists after onboarding", async () => {
+      mockSearchParamsGet.mockImplementation((key: string) =>
+        key === "token" ? "setup-token-abc" : null
+      );
       mockGetSession
         .mockResolvedValueOnce({ data: { user: { id: "user-1" } } })
         .mockResolvedValueOnce({ data: { user: { id: "user-1" } } });
@@ -430,10 +432,8 @@ describe("authenticationHooks", () => {
       });
     });
 
-    it("uses session fallback when no setup token is present", async () => {
-      mockGetSession.mockResolvedValue({
-        data: { user: { id: "user-1" } },
-      });
+    it("rejects onboarding without a setup token", async () => {
+      mockSearchParamsGet.mockReturnValue(null);
 
       const { useNewUser } = await import("./authenticationHooks");
       const { result } = renderHook(() => useNewUser(), { wrapper: createWrapper() });
@@ -450,12 +450,8 @@ describe("authenticationHooks", () => {
         await result.current.handleNewUser(form);
       });
 
-      expect(global.fetch).toHaveBeenCalledWith(
-        "http://localhost:8082/auth/wxyc/complete-onboarding",
-        expect.objectContaining({
-          body: JSON.stringify({ newPassword: "NewPassword1" }),
-        })
-      );
+      expect(global.fetch).not.toHaveBeenCalled();
+      expect(mockPush).not.toHaveBeenCalled();
     });
 
     it("does not navigate when complete-onboarding fails", async () => {

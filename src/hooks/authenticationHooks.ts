@@ -116,7 +116,7 @@ async function redirectAfterAuth(
   const dashboardHome = String(
     process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog",
   );
-  const incomplete = user?.hasCompletedOnboarding === false;
+  const incomplete = user?.hasCompletedOnboarding !== true;
 
   const sessionConfirmed = await confirmSessionVisible();
 
@@ -368,7 +368,12 @@ export const useNewUser = () => {
     e.preventDefault();
     return execute(async () => {
       const password = e.currentTarget.password.value;
-      const setupToken = searchParams?.get("token")?.trim() || undefined;
+      const setupToken = searchParams?.get("token")?.trim();
+      if (!setupToken) {
+        throw new Error(
+          "Your setup link is invalid or expired. Ask your station manager to resend the invite."
+        );
+      }
 
       if (!password) {
         throw new Error("Please choose a password");
@@ -377,24 +382,15 @@ export const useNewUser = () => {
       const realNameValue = e.currentTarget.realName?.value || "";
       const djNameValue = e.currentTarget.djName?.value || "";
 
-      const body: Record<string, string> = { newPassword: password };
-      if (setupToken) {
-        body.token = setupToken;
-      }
+      const body: Record<string, string> = {
+        newPassword: password,
+        token: setupToken,
+      };
       if (realNameValue.trim()) {
         body.realName = realNameValue.trim();
       }
       if (djNameValue.trim()) {
         body.djName = djNameValue.trim();
-      }
-
-      if (!setupToken) {
-        const session = await authClient.getSession();
-        if (!session.data?.user?.id) {
-          throw new Error(
-            "Your setup link is invalid or expired. Ask your station manager to resend the invite."
-          );
-        }
       }
 
       const response = await fetch(`${authBaseURL}/wxyc/complete-onboarding`, {
