@@ -40,6 +40,7 @@ export default function ComposerMirror({
         // In-flow: the mirror's wrapped height drives the composer height; the
         // textarea is absolutely positioned to fill it (see SmartComposer).
         position: "relative",
+        zIndex: 0,
         minHeight: "1.7em",
         pointerEvents: "none",
         color: "text.primary",

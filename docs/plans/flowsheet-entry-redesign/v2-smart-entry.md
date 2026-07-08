@@ -61,9 +61,11 @@ dead code deleted the phase it's orphaned; testids unique; mobile submit proven.
 - [x] **P2** — Parser (`SmartEntry/parser/*`) + `buildPendingQuery` + slice
   groundwork (`setParsedFields`, `selectedMatch`, `search.filters`; retired dead
   `rotationMode` reducers). 51 pure unit tests; full suite green (3338).
-- [ ] **P3** — Composer + toolbar + submit; swap the mount; delete old bar.
-  *(Visual phase — needs the dev server + Backend-Service running for the
-  mandatory screenshot verification of the textarea + mirror composer.)*
+- [x] **P3** — Composer (textarea + mirror), toolbar, submit; swapped the mount;
+  deleted the old entry components (results tree kept for P4 rework). Visually
+  confirmed (alignment + colours); review polish applied — commit buttons moved
+  into the composer row, focus ring added, "Start typing…" placeholder, and
+  "from" accepted as an album connector.
 - [ ] **P4** — Results panel (sentence rows, album art, pills, selected match).
 - [ ] **P5** — Ghost text + locking + suppression.
 - [ ] **P6** — Filters, rotation scope, track picking (un-skip track-picker).

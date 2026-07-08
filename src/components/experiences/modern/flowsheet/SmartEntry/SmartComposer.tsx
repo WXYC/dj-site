@@ -75,13 +75,16 @@ export default function SmartComposer({
           ...smartEntryTextMetricsSx,
           position: "absolute",
           inset: 0,
+          zIndex: 1,
           width: "100%",
           height: "100%",
           resize: "none",
           outline: "none",
           background: "transparent",
           color: "transparent",
-          caretColor: "var(--joy-palette-text-primary)",
+          // Keep the caret visible even though the text itself is transparent
+          // (the mirror renders the visible, coloured text underneath).
+          caretColor: "var(--joy-palette-text-primary, currentColor)",
           overflow: "hidden",
           "&::placeholder": { color: "text.tertiary", opacity: 1 },
           "&::selection": {
