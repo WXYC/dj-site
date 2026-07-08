@@ -69,6 +69,7 @@ export default function SmartComposer({
         disabled={disabled}
         placeholder={placeholder}
         aria-label="Flowsheet entry"
+        data-testid="flowsheet-composer"
         role="combobox"
         aria-expanded={expanded}
         aria-autocomplete="list"

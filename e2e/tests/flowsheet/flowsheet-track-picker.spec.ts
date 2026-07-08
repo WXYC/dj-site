@@ -5,36 +5,23 @@ import path from "path";
 const authDir = path.join(__dirname, "../../.auth");
 
 /**
- * Flowsheet Track Picker E2E Tests
+ * Flowsheet Track Picker E2E (v2 smart entry)
  *
- * Two end-to-end paths through the picker that PR #561 / WXYC/dj-site#501
- * introduced:
+ * The track_title + track_position contract from PR #561 / WXYC/dj-site#501,
+ * driven through the v2 smart composer instead of the old segmented bar:
  *
- *  1. Happy path: DJ picks a release with a Discogs tracklist → picker renders
- *     → DJ picks a track → submission carries both `track_title` (legacy
- *     compat) and `track_position` (Discogs `release_track.position`).
- *  2. Free-text fallback: DJ picks a release with no Discogs identity /
- *     empty tracklist → picker collapses to "type the song title above" →
- *     submission carries `track_title` but no `track_position`.
+ *  1. Happy path: type artist/album, click the matching result (fills the
+ *     sentence), the tracklist affordance appears under the "Selected match",
+ *     pick a track → the submission carries track_title + track_position +
+ *     album_id.
+ *  2. Free-text fallback: a release with no Discogs tracklist shows no track
+ *     picker; the DJ's typed song is submitted with no track_position.
  *
- * Mocks the LML proxy endpoints (`/proxy/library/search`,
- * `/proxy/library/:id/tracks`) and the flowsheet POST so the spec doesn't
- * depend on LML being running or on specific catalog data being seeded.
- *
- * Uses musicDirector to avoid live-state conflicts with entry-caching tests
- * (which toggle dj2 live/off-air) and session conflicts with auth tests
- * (which invalidate dj.json) — same pattern as library-search-proxy.spec.ts.
+ * Mocks the LML proxy search + tracklist, suppresses the /library/query catalog
+ * search (so the LML row is the only result), and captures the flowsheet POST.
+ * musicDirector session (kept off dj/dj2) as in library-search-proxy.spec.ts.
  */
-// TODO(v2 smart-entry, track-picking phase): the v1 redesign (commit 7a11e72b)
-// replaced the hover-a-result → tracklist-picker-row interaction (PR #561 /
-// #501) that these specs drive with a staged-release TrackCombobox, so the
-// track-picker-* testids these tests target now only exist on dead code
-// (Results/FlowsheetSearchResults.tsx). The v2 smart-entry composer
-// reintroduces track picking via the selected-match tracklist ghost/affordance;
-// rewrite these two paths against the new flow + Page Object then. Skipped
-// (not deleted) so the intended track_title + track_position contract stays
-// documented and un-skips deliberately when the feature returns.
-test.describe.skip("Flowsheet Track Picker", () => {
+test.describe("Flowsheet Track Picker", () => {
   test.use({ storageState: path.join(authDir, "musicDirector.json") });
   test.describe.configure({ mode: "serial" });
   test.setTimeout(60_000);
@@ -65,104 +52,42 @@ test.describe.skip("Flowsheet Track Picker", () => {
     await context.close();
   });
 
-  // URL predicate for the legacy /library/ catalog endpoint (NOT the
-  // /proxy/library/* LML proxy). Used to suppress card-catalog results so
-  // the LML mock row reliably lands at a known index.
-  const isCatalogSearch = (url: URL) =>
-    url.pathname.endsWith("/library/") &&
-    !url.pathname.includes("/proxy/");
+  const composer = (page: import("@playwright/test").Page) =>
+    page.locator('[data-testid="flowsheet-composer"]');
 
-  test("picks a tracklisted release and submits track_title + track_position", async ({
-    page,
-  }) => {
-    const LIBRARY_ID = 12345;
+  // Suppress the /library/query catalog search so only the mocked LML row lands.
+  const suppressCatalogQuery = (page: import("@playwright/test").Page) =>
+    page.route("**/library/query**", async (route) =>
+      route.request().method() === "GET"
+        ? route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({ results: [], total: 0, page: 0, totalPages: 0 }),
+          })
+        : route.fallback()
+    );
 
-    // Suppress card-catalog results so only the LML mock populates the
-    // result list (otherwise a seeded backend could shift the positional
-    // index of the picker target row).
-    await page.route(isCatalogSearch, async (route) => {
-      if (route.request().method() === "GET") {
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify([]),
-        });
-      } else {
-        await route.fallback();
-      }
-    });
-
-    // Mock library search → one Juana Molina release.
-    await page.route("**/proxy/library/search**", async (route) => {
-      await route.fulfill({
+  const mockLmlRelease = (
+    page: import("@playwright/test").Page,
+    release: Record<string, unknown>
+  ) =>
+    page.route("**/proxy/library/search**", async (route) =>
+      route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
-          results: [
-            {
-              id: LIBRARY_ID,
-              title: "DOGA",
-              artist: "Juana Molina",
-              call_letters: "RO",
-              artist_call_number: 42,
-              release_call_number: 1,
-              genre: "Rock",
-              format: "CD",
-              alternate_artist_name: null,
-              label: "Sonamos",
-              on_streaming: true,
-              call_number: "Rock CD RO 42/1",
-              library_url: `http://www.wxyc.info/wxycdb/libraryRelease?id=${LIBRARY_ID}`,
-            },
-          ],
-          total: 1,
-          query: "Juana Molina",
-        }),
-      });
-    });
+        body: JSON.stringify({ results: [release], total: 1, query: "" }),
+      })
+    );
 
-    // Mock tracklist → 3 tracks from the Discogs identity.
-    await page.route(`**/proxy/library/${LIBRARY_ID}/tracks`, async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          library_id: LIBRARY_ID,
-          discogs_release_id: 9876543,
-          source: "discogs",
-          tracks: [
-            {
-              position: "A1",
-              title: "la paradoja",
-              artist_credit: "Juana Molina",
-              duration_ms: 245000,
-            },
-            {
-              position: "A2",
-              title: "vibora",
-              artist_credit: "Juana Molina",
-              duration_ms: 198000,
-            },
-            {
-              position: "B1",
-              title: "doga",
-              artist_credit: "Juana Molina",
-              duration_ms: 312000,
-            },
-          ],
-        }),
-      });
-    });
-
-    // Capture the flowsheet POST so we can assert the submission shape.
-    let postBody: Record<string, unknown> | null = null;
+  const capturePost = async (page: import("@playwright/test").Page) => {
+    const captured: { body: Record<string, unknown> | null } = { body: null };
     await page.route("**/flowsheet/", async (route) => {
       const req = route.request();
       if (req.method() === "POST") {
         try {
-          postBody = req.postDataJSON();
+          captured.body = req.postDataJSON();
         } catch {
-          postBody = null;
+          captured.body = null;
         }
         await route.fulfill({
           status: 200,
@@ -172,10 +97,10 @@ test.describe.skip("Flowsheet Track Picker", () => {
             entry_type: "track",
             play_order: 1,
             show_id: 1,
-            track_title: postBody?.track_title ?? "",
-            artist_name: postBody?.artist_name ?? "",
-            album_title: postBody?.album_title ?? "",
-            record_label: postBody?.record_label ?? "",
+            track_title: captured.body?.track_title ?? "",
+            artist_name: captured.body?.artist_name ?? "",
+            album_title: captured.body?.album_title ?? "",
+            record_label: captured.body?.record_label ?? "",
             request_flag: false,
           }),
         });
@@ -183,43 +108,64 @@ test.describe.skip("Flowsheet Track Picker", () => {
         await route.fallback();
       }
     });
+    return captured;
+  };
 
-    // Open search and type enough to trigger the debounced library search.
-    await flowsheet.songInput.click();
-    await flowsheet.artistInput.fill("Juana Molina");
-    await flowsheet.albumInput.fill("DOGA");
+  test("picks a tracklisted release and submits track_title + track_position", async ({
+    page,
+  }) => {
+    const LIBRARY_ID = 12345;
 
-    // The result row appears at index 1 (index 0 = NewEntryPreview) once the
-    // mocked search response lands.
-    const resultRow = page.locator('[data-testid="flowsheet-search-result-1"]');
-    await expect(resultRow).toBeVisible({ timeout: 10_000 });
-
-    // Hovering highlights the row (setSelectedResult) and prefetches the
-    // tracklist — both signals the picker reads.
-    await resultRow.hover();
-
-    // Picker row appears below the result list once a release is highlighted.
-    await expect(
-      page.locator('[data-testid="flowsheet-search-track-picker-row"]')
-    ).toBeVisible({ timeout: 5_000 });
-
-    // Once the tracklist resolves with tracks.length > 0, the combobox renders.
-    const pickerTrigger = page.locator(
-      '[data-testid="track-picker-combobox"]'
+    await suppressCatalogQuery(page);
+    await mockLmlRelease(page, {
+      id: LIBRARY_ID,
+      title: "DOGA",
+      artist: "Juana Molina",
+      call_letters: "RO",
+      artist_call_number: 42,
+      release_call_number: 1,
+      genre: "Rock",
+      format: "CD",
+      alternate_artist_name: null,
+      label: "Sonamos",
+      on_streaming: true,
+      call_number: "Rock CD RO 42/1",
+      library_url: `http://www.wxyc.info/wxycdb/libraryRelease?id=${LIBRARY_ID}`,
+    });
+    await page.route(`**/proxy/library/${LIBRARY_ID}/tracks`, async (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          library_id: LIBRARY_ID,
+          discogs_release_id: 9876543,
+          source: "discogs",
+          tracks: [
+            { position: "A1", title: "la paradoja", artist_credit: "Juana Molina", duration_ms: 245000 },
+            { position: "A2", title: "vibora", artist_credit: "Juana Molina", duration_ms: 198000 },
+          ],
+        }),
+      })
     );
-    await expect(pickerTrigger).toBeVisible({ timeout: 10_000 });
+    const captured = await capturePost(page);
 
-    // Open the dropdown and pick the first track.
-    await pickerTrigger.click();
-    await expect(
-      page.locator('[data-testid="track-picker-panel"]')
-    ).toBeVisible();
-    await page.locator('[data-testid="track-picker-option-0"]').click();
+    await composer(page).click();
+    await composer(page).fill("by Juana Molina on DOGA");
 
-    // Picked track title is mirrored into the song input via Redux.
-    await expect(flowsheet.songInput).toHaveValue("la paradoja");
+    // The matching release shows in the results; click it to fill the sentence.
+    const resultRow = page
+      .locator('[data-testid^="flowsheet-search-result-"]', { hasText: "DOGA" })
+      .first();
+    await expect(resultRow).toBeVisible({ timeout: 10_000 });
+    await resultRow.click();
 
-    // Submit through the form's onSubmit (Enter on song input).
+    // The tracklist affordance appears under the promoted match; pick a track.
+    const trackA1 = page.locator('[data-testid="flowsheet-track-option-A1"]');
+    await expect(trackA1).toBeVisible({ timeout: 10_000 });
+    await trackA1.click();
+
+    await expect(composer(page)).toHaveValue(/la paradoja/);
+
     const postResponse = page.waitForResponse(
       (r) =>
         r.url().includes("/flowsheet") &&
@@ -227,13 +173,11 @@ test.describe.skip("Flowsheet Track Picker", () => {
         r.status() < 300,
       { timeout: 15_000 }
     );
-    await flowsheet.songInput.press("Enter");
+    await composer(page).press("Enter");
     await postResponse;
 
-    // Both legacy compat field and new track_position are present, and the
-    // highlighted release's id is forwarded as album_id.
-    expect(postBody).not.toBeNull();
-    expect(postBody).toMatchObject({
+    expect(captured.body).not.toBeNull();
+    expect(captured.body).toMatchObject({
       track_title: "la paradoja",
       track_position: "A1",
       album_id: LIBRARY_ID,
@@ -242,55 +186,29 @@ test.describe.skip("Flowsheet Track Picker", () => {
     });
   });
 
-  test("falls back to free-text song input when the release has no tracklist", async ({
+  test("submits a typed song with no track_position when the release has no tracklist", async ({
     page,
   }) => {
     const LIBRARY_ID = 54321;
 
-    // Suppress card-catalog results (see comment on the previous test).
-    await page.route(isCatalogSearch, async (route) => {
-      if (route.request().method() === "GET") {
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify([]),
-        });
-      } else {
-        await route.fallback();
-      }
+    await suppressCatalogQuery(page);
+    await mockLmlRelease(page, {
+      id: LIBRARY_ID,
+      title: "Edits",
+      artist: "Chuquimamani-Condori",
+      call_letters: "EL",
+      artist_call_number: 15,
+      release_call_number: 1,
+      genre: "Electronic",
+      format: "CD",
+      alternate_artist_name: null,
+      label: "self-released",
+      on_streaming: true,
+      call_number: "Electronic CD EL 15/1",
+      library_url: `http://www.wxyc.info/wxycdb/libraryRelease?id=${LIBRARY_ID}`,
     });
-
-    await page.route("**/proxy/library/search**", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          results: [
-            {
-              id: LIBRARY_ID,
-              title: "Edits",
-              artist: "Chuquimamani-Condori",
-              call_letters: "EL",
-              artist_call_number: 15,
-              release_call_number: 1,
-              genre: "Electronic",
-              format: "CD",
-              alternate_artist_name: null,
-              label: "self-released",
-              on_streaming: true,
-              call_number: "Electronic CD EL 15/1",
-              library_url: `http://www.wxyc.info/wxycdb/libraryRelease?id=${LIBRARY_ID}`,
-            },
-          ],
-          total: 1,
-          query: "Chuquimamani-Condori",
-        }),
-      });
-    });
-
-    // No Discogs identity — picker should collapse to the free-text message.
-    await page.route(`**/proxy/library/${LIBRARY_ID}/tracks`, async (route) => {
-      await route.fulfill({
+    await page.route(`**/proxy/library/${LIBRARY_ID}/tracks`, async (route) =>
+      route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
@@ -299,60 +217,24 @@ test.describe.skip("Flowsheet Track Picker", () => {
           source: null,
           tracks: [],
         }),
-      });
-    });
+      })
+    );
+    const captured = await capturePost(page);
 
-    let postBody: Record<string, unknown> | null = null;
-    await page.route("**/flowsheet/", async (route) => {
-      const req = route.request();
-      if (req.method() === "POST") {
-        try {
-          postBody = req.postDataJSON();
-        } catch {
-          postBody = null;
-        }
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({
-            id: 99998,
-            entry_type: "track",
-            play_order: 1,
-            show_id: 1,
-            track_title: postBody?.track_title ?? "",
-            artist_name: postBody?.artist_name ?? "",
-            album_title: postBody?.album_title ?? "",
-            record_label: postBody?.record_label ?? "",
-            request_flag: false,
-          }),
-        });
-      } else {
-        await route.fallback();
-      }
-    });
+    // Type the song up front — with no tracklist the DJ authors it.
+    await composer(page).click();
+    await composer(page).fill("Call Your Name by Chuquimamani-Condori on Edits");
 
-    await flowsheet.songInput.click();
-    await flowsheet.artistInput.fill("Chuquimamani-Condori");
-    await flowsheet.albumInput.fill("Edits");
-
-    const resultRow = page.locator('[data-testid="flowsheet-search-result-1"]');
+    const resultRow = page
+      .locator('[data-testid^="flowsheet-search-result-"]', { hasText: "Edits" })
+      .first();
     await expect(resultRow).toBeVisible({ timeout: 10_000 });
-    await resultRow.hover();
+    await resultRow.click();
 
-    // Picker row visible, but the combobox never renders — the fallback
-    // message replaces it.
+    // No Discogs tracklist → no track picker.
     await expect(
-      page.locator('[data-testid="flowsheet-search-track-picker-row"]')
-    ).toBeVisible({ timeout: 5_000 });
-    await expect(
-      page.locator('[data-testid="track-picker-combobox"]')
+      page.locator('[data-testid="flowsheet-track-picker"]')
     ).toHaveCount(0);
-    await expect(
-      page.getByText("No tracklist on file — type the song title above.")
-    ).toBeVisible();
-
-    // DJ types into the free-text song input as instructed.
-    await flowsheet.songInput.fill("Call Your Name");
 
     const postResponse = page.waitForResponse(
       (r) =>
@@ -361,17 +243,16 @@ test.describe.skip("Flowsheet Track Picker", () => {
         r.status() < 300,
       { timeout: 15_000 }
     );
-    await flowsheet.songInput.press("Enter");
+    await composer(page).press("Enter");
     await postResponse;
 
-    expect(postBody).not.toBeNull();
-    expect(postBody).toMatchObject({
+    expect(captured.body).not.toBeNull();
+    expect(captured.body).toMatchObject({
       track_title: "Call Your Name",
       album_id: LIBRARY_ID,
       artist_name: "Chuquimamani-Condori",
       album_title: "Edits",
     });
-    // No track was picked → no Discogs position was forwarded.
-    expect(postBody).not.toHaveProperty("track_position");
+    expect(captured.body).not.toHaveProperty("track_position");
   });
 });
