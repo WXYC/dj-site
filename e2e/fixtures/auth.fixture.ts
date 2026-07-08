@@ -214,22 +214,6 @@ export async function completeOnboardingWithInviteToken(
 }
 
 /**
- * Parse the admin-initiated password reset toast (random per-user password).
- */
-export async function getAdminResetPasswordFromToast(page: Page): Promise<string> {
-  const toast = page
-    .locator('[data-sonner-toast][data-type="success"]')
-    .filter({ hasText: /Temporary password:/ });
-  await expect(toast.first()).toBeVisible({ timeout: 10000 });
-  const text = (await toast.first().textContent()) ?? "";
-  const match = text.match(/Temporary password:\s*(\S+)/);
-  if (!match?.[1]) {
-    throw new Error(`Could not parse temporary password from toast: ${text}`);
-  }
-  return match[1];
-}
-
-/**
  * Revoke all sessions for a user via better-auth's revoke-sessions endpoint.
  * Requires an active session cookie (admin-level access).
  *
