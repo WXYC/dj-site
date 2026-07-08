@@ -511,10 +511,12 @@ export function createTestBinResponse(
 
 // On-air DJ fixtures
 export function createTestOnAirDJResponse(
-  overrides: { id?: string; dj_name?: string } = {}
+  overrides: { id?: string | null; dj_name?: string } = {}
 ) {
   return {
-    id: overrides.id ?? "1",
+    // `?? "1"` would clobber an explicit null (a legacy DJ, BS#1547); default
+    // only when the caller omitted id entirely.
+    id: overrides.id === undefined ? "1" : overrides.id,
     dj_name: overrides.dj_name ?? "Test DJ",
   };
 }
