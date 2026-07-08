@@ -237,10 +237,12 @@ test.describe("New User Onboarding", () => {
       const chosenPassword = "NewPassword1";
 
       await completeOnboardingWithInviteToken(userPage, email, chosenPassword);
-      await userLoginPage.goto();
-      await userPage.waitForLoadState("domcontentloaded");
-      await userLoginPage.switchToPasswordLogin();
-      await userLoginPage.login(username, chosenPassword);
+      if (!userPage.url().includes("/dashboard")) {
+        await userLoginPage.goto();
+        await userPage.waitForLoadState("domcontentloaded");
+        await userLoginPage.switchToPasswordLogin();
+        await userLoginPage.login(username, chosenPassword);
+      }
       await userDashboard.expectOnDashboard();
 
       // Cleanup

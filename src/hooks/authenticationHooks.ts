@@ -414,14 +414,15 @@ export const useNewUser = () => {
       }
 
       const session = await authClient.getSession();
-      toast.success("Account setup complete. Please sign in.");
       if (session.data?.user?.id) {
+        toast.success("Account setup complete. Welcome!");
         await redirectAfterAuth(
           router,
           { id: session.data.user.id, hasCompletedOnboarding: true },
           "onboarding",
         );
       } else {
+        toast.success("Account setup complete. Please sign in.");
         router.push("/login");
         router.refresh();
       }

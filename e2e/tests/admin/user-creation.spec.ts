@@ -300,12 +300,14 @@ test.describe("New User Can Login", () => {
     // Complete onboarding via invite email token
     await completeOnboardingWithInviteToken(newUserPage, email, newPassword);
 
-    // Sign in with the password chosen during onboarding
-    await newUserLoginPage.goto();
-    await newUserPage.waitForLoadState("networkidle");
-    await newUserLoginPage.switchToPasswordLogin();
-    await expect(newUserPage.locator('input[name="username"]')).toBeVisible({ timeout: 5000 });
-    await newUserLoginPage.login(username, newPassword);
+    // Sign in with the password chosen during onboarding (skip if already signed in)
+    if (!newUserPage.url().includes("/dashboard")) {
+      await newUserLoginPage.goto();
+      await newUserPage.waitForLoadState("networkidle");
+      await newUserLoginPage.switchToPasswordLogin();
+      await expect(newUserPage.locator('input[name="username"]')).toBeVisible({ timeout: 5000 });
+      await newUserLoginPage.login(username, newPassword);
+    }
 
     await newUserDashboard.expectOnDashboard();
 

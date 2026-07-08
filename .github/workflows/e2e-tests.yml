@@ -121,11 +121,29 @@ jobs:
         with:
           path: dj-site
 
+      - name: Resolve Backend-Service ref
+        id: backend-ref
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REF="${{ github.event.inputs.backend_ref }}"
+          if [ -z "$REF" ] && [ "${{ github.event_name }}" = "pull_request" ]; then
+            REF="${{ github.head_ref }}"
+          fi
+          REF="${REF:-main}"
+          if gh api "repos/${{ github.repository_owner }}/Backend-Service/git/ref/heads/${REF}" >/dev/null 2>&1; then
+            echo "ref=${REF}" >> "$GITHUB_OUTPUT"
+            echo "Using Backend-Service ref: ${REF}"
+          else
+            echo "ref=main" >> "$GITHUB_OUTPUT"
+            echo "Backend-Service ref ${REF} not found; falling back to main"
+          fi
+
       - name: Checkout Backend-Service
         uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/Backend-Service
-          ref: ${{ github.event.inputs.backend_ref || 'main' }}
+          ref: ${{ steps.backend-ref.outputs.ref }}
           path: Backend-Service
           token: ${{ secrets.GITHUB_TOKEN }}
 
