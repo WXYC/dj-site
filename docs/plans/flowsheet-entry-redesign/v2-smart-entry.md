@@ -75,6 +75,16 @@ dead code deleted the phase it's orphaned; testids unique; mobile submit proven.
   Arrow/End, field locking as search constraints, Escape rung-1 dismissal.
   Chained song→album ghost deferred.
 - [ ] **P6** — Filters, rotation scope, track picking (un-skip track-picker).
+  - **First task — album-first search parity.** Album-first input (`from
+    <album>`) returns no results because the flowsheet's catalog source uses the
+    old artist-centric `/library/` endpoint (`useSearchCatalogQuery`), while the
+    card catalog uses `/library/query` (`searchLibraryQuery`) with `album:"…"`
+    syntax and searches album/artist/label symmetrically. The frontend already
+    issues album-only queries correctly (LML `?title=…`, catalog `album_title`,
+    bin/rotation term filter) — the gap is the endpoint. Fix: switch
+    `useCatalogFlowsheetSearch` to build a `q` (`artist:"…" AND album:"…"`) and
+    call `searchLibraryQuery`, extracting `data.results`; update its tests;
+    verify album-first results against the backend.
 - [ ] **P7** — Responsive + e2e hardening (mobile submit).
 - [ ] **P8** — Cleanup + audit (delete sandbox, retire stagedRelease, docs).
 
