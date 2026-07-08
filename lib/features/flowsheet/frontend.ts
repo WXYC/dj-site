@@ -4,9 +4,12 @@ import {
   FlowsheetEntry,
   FlowsheetFrontendState,
   FlowsheetQuery,
+  FlowsheetSearchFilterDimension,
+  FlowsheetSearchFilters,
   FlowsheetSearchProperty,
   FlowsheetSearchScope,
   FlowsheetSongEntry,
+  SelectedMatch,
   StagedRelease,
 } from "./types";
 import { Rotation } from "../rotation/types";
@@ -38,9 +41,14 @@ function withSanitizedAlbumLinkage<
   };
 }
 
+export const defaultFlowsheetSearchFilters: FlowsheetSearchFilters = {
+  genres: [],
+  formats: [],
+  rotationTags: [],
+};
+
 export const defaultFlowsheetFrontendState: FlowsheetFrontendState = {
   autoplay: false,
-  rotationMode: false,
   search: {
     open: false,
     query: {
@@ -54,6 +62,8 @@ export const defaultFlowsheetFrontendState: FlowsheetFrontendState = {
     confirmedArtist: "",
     scope: "all",
     stagedRelease: null,
+    selectedMatch: null,
+    filters: defaultFlowsheetSearchFilters,
   },
   queue: [],
   queueIdCounter: 0,
@@ -67,20 +77,11 @@ export const flowsheetSlice = createAppSlice({
     setAutoplay: (state, action) => {
       state.autoplay = action.payload;
     },
-    setRotationMode: (state, action: PayloadAction<boolean>) => {
-      state.rotationMode = action.payload;
-      state.search.scope = action.payload ? "rotation" : "all";
-      if (!action.payload) {
-        state.search.query.album_id = undefined;
-        state.search.query.rotation_id = undefined;
-        state.search.query.rotation_bin = undefined;
-        state.search.query.track_position = undefined;
-      }
-    },
     setSearchScope: (state, action: PayloadAction<FlowsheetSearchScope>) => {
       state.search.scope = action.payload;
-      state.rotationMode = action.payload === "rotation";
       if (action.payload === "all") {
+        // Leaving rotation scope drops the rotation linkage so a stale
+        // album_id/rotation_id/track_position can't ride a later submission.
         state.search.query.album_id = undefined;
         state.search.query.rotation_id = undefined;
         state.search.query.rotation_bin = undefined;
@@ -127,7 +128,7 @@ export const flowsheetSlice = createAppSlice({
       state.search.query.rotation_bin = action.payload.rotation_bin;
       // track_position references a release_track row on the previous
       // album_id; orphan it on the new album and it points at the wrong
-      // release. Symmetric to setRotationMode(false). (dj-site#704)
+      // release. Symmetric to setSearchScope("all"). (dj-site#704)
       state.search.query.track_position = undefined;
     },
     setSearchOpen: (state, action) => {
@@ -139,6 +140,8 @@ export const flowsheetSlice = createAppSlice({
       state.search.selectedResult = defaultFlowsheetFrontendState.search.selectedResult;
       state.search.confirmedArtist = defaultFlowsheetFrontendState.search.confirmedArtist;
       state.search.stagedRelease = defaultFlowsheetFrontendState.search.stagedRelease;
+      state.search.selectedMatch = defaultFlowsheetFrontendState.search.selectedMatch;
+      state.search.filters = defaultFlowsheetFrontendState.search.filters;
     },
     setConfirmedArtist: (state, action: PayloadAction<string>) => {
       state.search.confirmedArtist = action.payload;
@@ -148,6 +151,62 @@ export const flowsheetSlice = createAppSlice({
       action: PayloadAction<{ name: FlowsheetSearchProperty; value: string }>
     ) => {
       state.search.query[action.payload.name] = action.payload.value;
+    },
+    /**
+     * Replace all four user-authored text fields at once. The smart-entry
+     * composer parses its raw input into song/artist/album/label and writes
+     * them here in a single dispatch, so the existing bin/rotation/catalog/LML
+     * search sources — which all read `search.query` — keep working unchanged.
+     * Rotation/album linkage fields are left untouched.
+     */
+    setParsedFields: (
+      state,
+      action: PayloadAction<{
+        song: string;
+        artist: string;
+        album: string;
+        label: string;
+      }>
+    ) => {
+      state.search.query.song = action.payload.song;
+      state.search.query.artist = action.payload.artist;
+      state.search.query.album = action.payload.album;
+      state.search.query.label = action.payload.label;
+    },
+    /**
+     * Record the catalog/rotation result the DJ selected. This does NOT write
+     * the result's artist/album/label into the query — that merge is derived
+     * (see `buildPendingQuery`) so the DJ's typed text is never clobbered.
+     * Changing the selection moves the album anchor, so any picked
+     * `track_position` is cleared (symmetric to `setSelectedResult`, #704).
+     */
+    setSelectedMatch: (state, action: PayloadAction<SelectedMatch>) => {
+      state.search.selectedMatch = action.payload;
+      state.search.query.track_position = undefined;
+    },
+    clearSelectedMatch: (state) => {
+      state.search.selectedMatch = null;
+      state.search.query.track_position = undefined;
+    },
+    setSearchFilters: (
+      state,
+      action: PayloadAction<FlowsheetSearchFilters>
+    ) => {
+      state.search.filters = action.payload;
+    },
+    toggleSearchFilter: (
+      state,
+      action: PayloadAction<{
+        dimension: FlowsheetSearchFilterDimension;
+        value: string;
+      }>
+    ) => {
+      const { dimension, value } = action.payload;
+      const current = state.search.filters[dimension] as string[];
+      const next = current.includes(value)
+        ? current.filter((v) => v !== value)
+        : [...current, value];
+      state.search.filters[dimension] = next as never;
     },
     /**
      * Set the picked track's Discogs `release_track.position` (e.g. "A1"). Pass
@@ -249,7 +308,6 @@ export const flowsheetSlice = createAppSlice({
   },
   selectors: {
     getAutoplay: (state) => state.autoplay,
-    getRotationMode: (state) => state.rotationMode,
     getSearchOpen: (state) => state.search.open,
     getSearchQuery: (state) => state.search.query,
     getSearchQueryLength: (state) => Object.values(state.search.query).filter((value) => value).length,
@@ -259,5 +317,7 @@ export const flowsheetSlice = createAppSlice({
     getConfirmedArtist: (state) => state.search.confirmedArtist,
     getSearchScope: (state) => state.search.scope,
     getStagedRelease: (state) => state.search.stagedRelease,
+    getSelectedMatch: (state) => state.search.selectedMatch,
+    getSearchFilters: (state) => state.search.filters,
   },
 });

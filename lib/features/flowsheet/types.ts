@@ -22,9 +22,45 @@ export type StagedRelease = {
   label: string;
 };
 
+/**
+ * A serializable snapshot of a catalog/rotation result the DJ selected in the
+ * smart-entry composer. It carries the linkage the submission needs plus the
+ * display metadata the "Selected match" row shows (format, artwork, catalog
+ * code). Unlike the old `stageRelease` path it does NOT overwrite the typed
+ * artist/album/label in the query — the merge into the effective entry is
+ * derived (see `buildPendingQuery`), preserving the distinction between what
+ * the DJ typed and what the result supplies.
+ */
+export type SelectedMatch = {
+  /** AlbumEntry.id — may be a synthesized negative id for unlinked rows. */
+  id: number;
+  /** Real library id, present only when the row is linked (id > 0). */
+  album_id?: number;
+  rotation_id?: number;
+  rotation_bin?: Rotation;
+  artist: string;
+  album: string;
+  label: string;
+  format?: string;
+  on_streaming?: boolean;
+  artwork_url?: string | null;
+  lettercode?: string;
+  numbercode?: number;
+  genre?: string;
+  entry?: number;
+};
+
+/** Flowsheet-owned result filters (independent of the catalog slice). */
+export type FlowsheetSearchFilters = {
+  genres: string[];
+  formats: string[];
+  rotationTags: Rotation[];
+};
+
+export type FlowsheetSearchFilterDimension = keyof FlowsheetSearchFilters;
+
 export type FlowsheetFrontendState = {
   autoplay: boolean;
-  rotationMode: boolean;
   search: {
     open: boolean;
     query: FlowsheetQuery;
@@ -32,6 +68,8 @@ export type FlowsheetFrontendState = {
     confirmedArtist: string;
     scope: FlowsheetSearchScope;
     stagedRelease: StagedRelease | null;
+    selectedMatch: SelectedMatch | null;
+    filters: FlowsheetSearchFilters;
   };
   queue: FlowsheetSongEntry[];
   queueIdCounter: number;
