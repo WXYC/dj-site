@@ -1,17 +1,68 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../../fixtures/auth.fixture";
+import { FlowsheetPage } from "../../pages/flowsheet.page";
+import path from "path";
+
+/**
+ * Keyboard-only entry path through the flowsheet search bar.
+ *
+ * The v1 version of this spec imported `test` from `@playwright/test` directly
+ * and never set a `storageState`, so it redirected to /login and timed out on
+ * the search inputs — it never actually exercised the keyboard path in CI.
+ * This uses the shared auth fixture + musicDirector session and goes live so
+ * the inputs are enabled.
+ *
+ * NOTE (v2): this drives the current segmented artist/song bar (Tab moves
+ * between fields). The v2 smart-entry composer is a single continuous input;
+ * this spec is rewritten against the new Page Object in the composer phase.
+ */
+const authDir = path.join(__dirname, "../../.auth");
 
 test.describe("flowsheet keyboard entry", () => {
-  test.skip(!process.env.E2E_BASE_URL, "requires running app");
+  test.use({ storageState: path.join(authDir, "musicDirector.json") });
+  test.describe.configure({ mode: "serial" });
+  test.setTimeout(60_000);
+
+  let flowsheet: FlowsheetPage;
+
+  test.beforeEach(async ({ page }) => {
+    flowsheet = new FlowsheetPage(page);
+    await flowsheet.goto();
+    await flowsheet.waitForEntriesLoaded();
+    await flowsheet.ensureLive();
+  });
+
+  test.afterAll(async ({ browser }) => {
+    const context = await browser.newContext({
+      storageState: path.join(authDir, "musicDirector.json"),
+      baseURL: process.env.E2E_BASE_URL || "http://localhost:3000",
+    });
+    const page = await context.newPage();
+    const fs = new FlowsheetPage(page);
+    await fs.goto();
+    await fs.waitForEntriesLoaded();
+    await fs.ensureOffAir();
+    await context.close();
+  });
 
   test("keyboard-only entry path", async ({ page }) => {
-    await page.goto("/dashboard/flowsheet");
-    const artist = page.getByTestId("flowsheet-search-artist");
-    await artist.focus();
-    await artist.fill("Test Artist");
+    // Focus the artist field, type, then Tab to the song field — the segmented
+    // bar relies on native DOM focus order between the four inputs.
+    await flowsheet.artistInput.click();
+    await flowsheet.artistInput.fill("Stereolab");
     await page.keyboard.press("Tab");
-    const song = page.getByTestId("flowsheet-search-song");
-    await expect(song).toBeFocused();
-    await song.fill("Test Song");
-    await page.keyboard.press("Enter");
+    await expect(flowsheet.songInput).toBeFocused();
+    await flowsheet.songInput.fill("Percolator");
+
+    // Enter submits the form → play. Wait for the POST and the form clearing.
+    const responsePromise = page.waitForResponse(
+      (r) =>
+        r.url().includes("/flowsheet") &&
+        r.request().method() === "POST" &&
+        r.status() < 300,
+      { timeout: 30000 }
+    );
+    await flowsheet.songInput.press("Enter");
+    await responsePromise;
+    await expect(flowsheet.songInput).toHaveValue("", { timeout: 2000 });
   });
 });

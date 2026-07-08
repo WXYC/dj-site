@@ -25,7 +25,16 @@ const authDir = path.join(__dirname, "../../.auth");
  * (which toggle dj2 live/off-air) and session conflicts with auth tests
  * (which invalidate dj.json) — same pattern as library-search-proxy.spec.ts.
  */
-test.describe("Flowsheet Track Picker", () => {
+// TODO(v2 smart-entry, track-picking phase): the v1 redesign (commit 7a11e72b)
+// replaced the hover-a-result → tracklist-picker-row interaction (PR #561 /
+// #501) that these specs drive with a staged-release TrackCombobox, so the
+// track-picker-* testids these tests target now only exist on dead code
+// (Results/FlowsheetSearchResults.tsx). The v2 smart-entry composer
+// reintroduces track picking via the selected-match tracklist ghost/affordance;
+// rewrite these two paths against the new flow + Page Object then. Skipped
+// (not deleted) so the intended track_title + track_position contract stays
+// documented and un-skips deliberately when the feature returns.
+test.describe.skip("Flowsheet Track Picker", () => {
   test.use({ storageState: path.join(authDir, "musicDirector.json") });
   test.describe.configure({ mode: "serial" });
   test.setTimeout(60_000);
