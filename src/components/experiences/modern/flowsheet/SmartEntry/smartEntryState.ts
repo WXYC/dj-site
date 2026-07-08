@@ -20,9 +20,10 @@ export type SmartEntryState = {
   /**
    * The raw text just before the last autofill (ghost accept / result fill),
    * so a single Backspace can undo it in one step instead of deleting the
-   * filled remainder character by character. Cleared by any ordinary edit.
+   * filled remainder character by character. `kind` lets the undo also clear a
+   * selected match when it reverts a result fill. Cleared by any ordinary edit.
    */
-  autofillUndo: string | null;
+  autofillUndo: { raw: string; kind: "ghost" | "fill" } | null;
 };
 
 export const initialSmartEntryState: SmartEntryState = {
@@ -124,7 +125,7 @@ export function smartEntryReducer(
         suppressedTriggers,
         locks: { ...state.locks, [action.field]: action.value },
         dismissedGhost: null,
-        autofillUndo: state.raw, // one Backspace undoes the accept
+        autofillUndo: { raw: state.raw, kind: "ghost" }, // undo the accept
       };
     }
 
@@ -142,13 +143,13 @@ export function smartEntryReducer(
         suppressedTriggers,
         locks: { ...state.locks, ...action.locks },
         dismissedGhost: null,
-        autofillUndo: state.raw, // one Backspace undoes the fill
+        autofillUndo: { raw: state.raw, kind: "fill" }, // undo the fill
       };
     }
 
     case "UNDO_AUTOFILL": {
       if (state.autofillUndo === null) return state;
-      const raw = state.autofillUndo;
+      const raw = state.autofillUndo.raw;
       const suppressedTriggers = remapSuppressedTriggers(
         state.raw,
         raw,

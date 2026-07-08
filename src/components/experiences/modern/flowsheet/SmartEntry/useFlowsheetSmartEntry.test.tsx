@@ -212,13 +212,16 @@ describe("useFlowsheetSmartEntry", () => {
       expect(api.locks.album).toBe("Dots and Loops");
     });
 
-    it("one Backspace undoes a result fill", () => {
-      renderHost();
+    it("one Backspace undoes a result fill and clears the selected match", () => {
+      const { store } = renderHost();
       type("Percolator by Ste");
       act(() => vi.advanceTimersByTime(250));
       act(() => {
         api.selectMatch(match);
       });
+      expect(
+        flowsheetSlice.selectors.getSelectedMatch(store.getState())
+      ).not.toBeNull();
 
       let undone = false;
       act(() => {
@@ -226,6 +229,10 @@ describe("useFlowsheetSmartEntry", () => {
       });
       expect(undone).toBe(true);
       expect(api.raw).toBe("Percolator by Ste");
+      // Undoing the fill removes the selection, same as the ✕.
+      expect(
+        flowsheetSlice.selectors.getSelectedMatch(store.getState())
+      ).toBeNull();
     });
 
     it("one Backspace undoes a ghost accept", () => {

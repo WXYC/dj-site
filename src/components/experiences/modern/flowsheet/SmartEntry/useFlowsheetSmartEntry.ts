@@ -211,11 +211,16 @@ export function useFlowsheetSmartEntry() {
   );
 
   /** Undo the last autofill (ghost accept / result fill) in one step. Returns
-   *  true when there was something to undo (caller should preventDefault). */
+   *  true when there was something to undo (caller should preventDefault).
+   *  Undoing a result fill also clears the selected match — the same as
+   *  removing it with the ✕. */
   const undoAutofill = useCallback(() => {
     if (state.autofillUndo === null) return false;
-    const restored = state.autofillUndo;
+    const { raw: restored, kind } = state.autofillUndo;
     localDispatch({ type: "UNDO_AUTOFILL" });
+    if (kind === "fill") {
+      dispatch(flowsheetSlice.actions.clearSelectedMatch());
+    }
     const parsed = parseSmartEntry(restored, {
       suppressedTriggers: state.suppressedTriggers,
     });

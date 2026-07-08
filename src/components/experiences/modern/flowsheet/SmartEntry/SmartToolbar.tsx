@@ -22,6 +22,9 @@ export default function SmartToolbar() {
         py: 1,
         minHeight: 52,
         flexWrap: "wrap",
+        // Center the row(s) vertically — without this a wrap container leaves a
+        // gutter above and pushes the controls to the bottom.
+        alignContent: "center",
         rowGap: 1,
         bgcolor: "background.surface",
       }}
