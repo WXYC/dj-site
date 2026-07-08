@@ -197,6 +197,7 @@ export function useFlowsheetSmartEntry() {
         raw: filled.raw,
         locks: filled.locks,
         suppress: filled.suppress,
+        undoKind: "fill",
       });
       dispatch(
         flowsheetSlice.actions.setSelectedMatch(albumEntryToSelectedMatch(entry))
@@ -208,6 +209,37 @@ export function useFlowsheetSmartEntry() {
       dispatch(flowsheetSlice.actions.setParsedFields(fullParsedFields(parsed)));
     },
     [state.raw, state.suppressedTriggers, dispatch]
+  );
+
+  /**
+   * Pick a specific track off the selected (linked) release: set the song to
+   * the track title and record its Discogs `track_position` for the submission.
+   * The artist/album/label from the current match stay in place.
+   */
+  const pickTrack = useCallback(
+    (title: string, position: string) => {
+      const match = flowsheetSlice.selectors.getSelectedMatch(
+        store.getState()
+      );
+      if (!match) return;
+      const filled = buildFilledSentence(title, {
+        artist: match.artist,
+        album: match.album,
+        label: match.label,
+      });
+      localDispatch({
+        type: "FILL_FIELDS",
+        raw: filled.raw,
+        locks: filled.locks,
+        suppress: filled.suppress,
+      });
+      dispatch(flowsheetSlice.actions.setTrackPosition(position));
+      const parsed = parseSmartEntry(filled.raw, {
+        suppressedTriggers: filled.suppress,
+      });
+      dispatch(flowsheetSlice.actions.setParsedFields(fullParsedFields(parsed)));
+    },
+    [store, dispatch]
   );
 
   /** Undo the last autofill (ghost accept / result fill) in one step. Returns
@@ -349,6 +381,7 @@ export function useFlowsheetSmartEntry() {
     reset,
     flush,
     selectMatch,
+    pickTrack,
     clearMatch,
     setHighlight,
     acceptGhost,

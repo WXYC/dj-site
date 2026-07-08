@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 import type { FlowsheetQuery, SelectedMatch } from "@/lib/features/flowsheet/types";
 import type { SmartResultGroup } from "./deriveSmartResults";
+import SelectedMatchTracks from "./SelectedMatchTracks";
 import SmartResultRow from "./SmartResultRow";
 import { selectedMatchToEntry } from "./useFlowsheetSmartEntry";
 import type { SmartField } from "./parser/types";
@@ -44,6 +45,7 @@ export default function SmartResults({
   onSelect,
   onHover,
   onRemoveMatch,
+  onPickTrack,
   emptyHint,
 }: {
   selectedMatch: SelectedMatch | null;
@@ -54,6 +56,7 @@ export default function SmartResults({
   onSelect: (entry: AlbumEntry) => void;
   onHover: (index: number) => void;
   onRemoveMatch: () => void;
+  onPickTrack: (title: string, position: string) => void;
   emptyHint?: ReactNode;
 }) {
   const hasResults = groups.length > 0;
@@ -103,6 +106,15 @@ export default function SmartResults({
               <Close />
             </IconButton>
           </Stack>
+
+          {selectedMatch.album_id && selectedMatch.album_id > 0 ? (
+            <SelectedMatchTracks
+              albumId={selectedMatch.album_id}
+              currentPosition={query.track_position}
+              onPick={onPickTrack}
+            />
+          ) : null}
+
           {hasResults ? <Divider sx={{ my: 0.75 }} /> : null}
         </Box>
       ) : null}

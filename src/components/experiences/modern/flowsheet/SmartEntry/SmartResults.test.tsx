@@ -28,6 +28,7 @@ const baseProps = {
   onSelect: vi.fn(),
   onHover: vi.fn(),
   onRemoveMatch: vi.fn(),
+  onPickTrack: vi.fn(),
 };
 
 describe("SmartResults", () => {

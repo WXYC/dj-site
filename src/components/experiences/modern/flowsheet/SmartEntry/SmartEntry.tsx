@@ -305,6 +305,7 @@ export default function SmartEntry() {
               onSelect={entry.selectMatch}
               onHover={entry.setHighlight}
               onRemoveMatch={entry.clearMatch}
+              onPickTrack={entry.pickTrack}
               emptyHint={
                 <Typography level="body-sm" sx={{ color: "text.tertiary" }}>
                   No matches — press Enter to log it as typed.

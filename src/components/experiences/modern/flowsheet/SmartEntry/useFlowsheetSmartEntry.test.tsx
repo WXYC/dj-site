@@ -257,6 +257,30 @@ describe("useFlowsheetSmartEntry", () => {
       });
     });
 
+    it("pickTrack sets the song to the track title and records track_position", () => {
+      const { store } = renderHost();
+      act(() => {
+        store.dispatch(
+          flowsheetSlice.actions.setSelectedMatch({
+            id: 4201,
+            album_id: 4201,
+            artist: "Stereolab",
+            album: "Dots and Loops",
+            label: "Duophonic",
+          })
+        );
+      });
+
+      act(() => {
+        api.pickTrack("Percolator", "A1");
+      });
+
+      expect(api.raw).toBe(
+        "Percolator by Stereolab on Dots and Loops via Duophonic"
+      );
+      expect(query(store).track_position).toBe("A1");
+    });
+
     it("a normal edit commits the autofill so undo no longer applies", () => {
       renderHost();
       type("by Ju");

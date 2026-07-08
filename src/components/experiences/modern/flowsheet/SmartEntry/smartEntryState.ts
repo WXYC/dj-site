@@ -40,12 +40,15 @@ export type SmartEntryAction =
   /** Accept ghost text: replace raw and lock the field to `value`. */
   | { type: "ACCEPT_GHOST"; raw: string; field: SmartField; value: string }
   /** Fill the sentence from a selected result: replace raw, lock the filled
-   *  fields, suppress trigger words inside the filled values. */
+   *  fields, suppress trigger words inside the filled values. `undoKind: "fill"`
+   *  arms the one-Backspace undo (which also clears the match); omit it for an
+   *  explicit re-song like picking a track, where Backspace should be normal. */
   | {
       type: "FILL_FIELDS";
       raw: string;
       locks: Partial<Record<SmartField, string>>;
       suppress: number[];
+      undoKind?: "fill";
     }
   /** Undo the last autofill in one step (Backspace right after a fill). */
   | { type: "UNDO_AUTOFILL" }
@@ -143,7 +146,9 @@ export function smartEntryReducer(
         suppressedTriggers,
         locks: { ...state.locks, ...action.locks },
         dismissedGhost: null,
-        autofillUndo: { raw: state.raw, kind: "fill" }, // undo the fill
+        autofillUndo: action.undoKind
+          ? { raw: state.raw, kind: action.undoKind }
+          : null,
       };
     }
 
