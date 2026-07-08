@@ -364,22 +364,18 @@ describe("authenticationHooks", () => {
   });
 
   describe("useNewUser", () => {
-    it("posts to complete-onboarding then signs in and redirects to dashboard", async () => {
+    it("invite mode: posts token + password, signs in via authClient, redirects to dashboard", async () => {
       mockSearchParamsGet.mockImplementation((key: string) =>
         key === "token" ? "setup-token-abc" : null
       );
-      mockSignInUsername.mockResolvedValue({ data: { user: { id: "user-1" } } });
-      mockGetSession
-        .mockResolvedValueOnce({ data: null })
-        .mockResolvedValueOnce({ data: { user: { id: "user-1", hasCompletedOnboarding: true } } });
+      mockSignInEmail.mockResolvedValue({ data: { user: { id: "user-1" } } });
 
       const { useNewUser } = await import("./authenticationHooks");
-      const { result } = renderHook(() => useNewUser(), { wrapper: createWrapper() });
+      const { result } = renderHook(() => useNewUser("invite"), { wrapper: createWrapper() });
 
       const form = {
         preventDefault: vi.fn(),
         currentTarget: {
-          username: { value: "testdj" },
           password: { value: "NewPassword1" },
           realName: { value: "Real Name" },
           djName: { value: "DJ Name" },
@@ -395,47 +391,38 @@ describe("authenticationHooks", () => {
         expect.objectContaining({
           method: "POST",
           body: JSON.stringify({
-            newPassword: "NewPassword1",
-            token: "setup-token-abc",
             realName: "Real Name",
             djName: "DJ Name",
+            token: "setup-token-abc",
+            newPassword: "NewPassword1",
           }),
         })
       );
       expect(mockClearTokenCache).toHaveBeenCalled();
-      expect(mockSignInUsername).toHaveBeenCalledWith({
-        username: "testdj",
+      expect(mockSignInEmail).toHaveBeenCalledWith({
+        email: "dj@example.com",
         password: "NewPassword1",
       });
-      expect(mockSignInEmail).not.toHaveBeenCalled();
       expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
     });
 
-    it("skips client sign-in when the server already established a session", async () => {
+    it("invite mode: surfaces the sign-in error and does not navigate when sign-in fails", async () => {
       mockSearchParamsGet.mockImplementation((key: string) =>
         key === "token" ? "setup-token-abc" : null
       );
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          status: true,
-          userId: "user-1",
-          email: "dj@example.com",
-          username: "testdj",
-          sessionEstablished: true,
-        }),
-      } as Response);
-      mockGetSession.mockResolvedValue({
-        data: { user: { id: "user-1", hasCompletedOnboarding: true } },
+      mockSignInEmail.mockResolvedValue({
+        error: { message: "Email not verified" },
       });
 
       const { useNewUser } = await import("./authenticationHooks");
-      const { result } = renderHook(() => useNewUser(), { wrapper: createWrapper() });
+      const { result } = renderHook(() => useNewUser("invite"), { wrapper: createWrapper() });
 
       const form = {
         preventDefault: vi.fn(),
         currentTarget: {
           password: { value: "NewPassword1" },
+          realName: { value: "Real Name" },
+          djName: { value: "" },
         },
       } as any;
 
@@ -443,60 +430,23 @@ describe("authenticationHooks", () => {
         await result.current.handleNewUser(form);
       });
 
-      expect(mockSignInUsername).not.toHaveBeenCalled();
-      expect(mockSignInEmail).not.toHaveBeenCalled();
-      expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
+      expect(mockPush).not.toHaveBeenCalled();
+      const { toast } = await import("sonner");
+      expect(toast.error).toHaveBeenCalledWith("Email not verified");
     });
 
-    it("falls back to username sign-in when email is absent", async () => {
-      mockSearchParamsGet.mockImplementation((key: string) =>
-        key === "token" ? "setup-token-abc" : null
-      );
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          status: true,
-          userId: "user-1",
-          username: "testdj",
-        }),
-      } as Response);
-      mockSignInUsername.mockResolvedValue({ data: { user: { id: "user-1" } } });
-      mockGetSession
-        .mockResolvedValueOnce({ data: null })
-        .mockResolvedValueOnce({ data: { user: { id: "user-1", hasCompletedOnboarding: true } } });
-
-      const { useNewUser } = await import("./authenticationHooks");
-      const { result } = renderHook(() => useNewUser(), { wrapper: createWrapper() });
-
-      const form = {
-        preventDefault: vi.fn(),
-        currentTarget: {
-          password: { value: "NewPassword1" },
-        },
-      } as any;
-
-      await act(async () => {
-        await result.current.handleNewUser(form);
-      });
-
-      expect(mockSignInUsername).toHaveBeenCalledWith({
-        username: "testdj",
-        password: "NewPassword1",
-      });
-      expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
-    });
-
-    it("rejects onboarding without a setup token", async () => {
+    it("invite mode: rejects onboarding without a setup token", async () => {
       mockSearchParamsGet.mockReturnValue(null);
 
       const { useNewUser } = await import("./authenticationHooks");
-      const { result } = renderHook(() => useNewUser(), { wrapper: createWrapper() });
+      const { result } = renderHook(() => useNewUser("invite"), { wrapper: createWrapper() });
 
       const form = {
         preventDefault: vi.fn(),
         currentTarget: {
-          username: { value: "testdj" },
           password: { value: "NewPassword1" },
+          realName: { value: "Real Name" },
+          djName: { value: "" },
         },
       } as any;
 
@@ -508,21 +458,15 @@ describe("authenticationHooks", () => {
       expect(mockPush).not.toHaveBeenCalled();
     });
 
-    it("does not navigate when complete-onboarding fails", async () => {
-      mockGetSession.mockResolvedValue({ data: { user: { id: "user-1" } } });
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: false,
-        json: async () => ({ error: "Invalid or expired setup token" }),
-      } as Response);
-
+    it("session mode: posts profile fields only and redirects without signing in", async () => {
       const { useNewUser } = await import("./authenticationHooks");
-      const { result } = renderHook(() => useNewUser(), { wrapper: createWrapper() });
+      const { result } = renderHook(() => useNewUser("session"), { wrapper: createWrapper() });
 
       const form = {
         preventDefault: vi.fn(),
         currentTarget: {
-          username: { value: "testdj" },
-          password: { value: "NewPassword1" },
+          realName: { value: "Real Name" },
+          djName: { value: "DJ Name" },
         },
       } as any;
 
@@ -530,7 +474,50 @@ describe("authenticationHooks", () => {
         await result.current.handleNewUser(form);
       });
 
+      expect(global.fetch).toHaveBeenCalledWith(
+        "http://localhost:8082/auth/wxyc/complete-onboarding",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            realName: "Real Name",
+            djName: "DJ Name",
+          }),
+        })
+      );
+      expect(mockSignInEmail).not.toHaveBeenCalled();
+      expect(mockSignInUsername).not.toHaveBeenCalled();
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
+    });
+
+    it("does not navigate when complete-onboarding fails", async () => {
+      mockSearchParamsGet.mockImplementation((key: string) =>
+        key === "token" ? "setup-token-abc" : null
+      );
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        json: async () => ({ error: "Invalid or expired setup token" }),
+      } as Response);
+
+      const { useNewUser } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useNewUser("invite"), { wrapper: createWrapper() });
+
+      const form = {
+        preventDefault: vi.fn(),
+        currentTarget: {
+          password: { value: "NewPassword1" },
+          realName: { value: "Real Name" },
+          djName: { value: "" },
+        },
+      } as any;
+
+      await act(async () => {
+        await result.current.handleNewUser(form);
+      });
+
+      expect(mockSignInEmail).not.toHaveBeenCalled();
       expect(mockPush).not.toHaveBeenCalled();
+      const { toast } = await import("sonner");
+      expect(toast.error).toHaveBeenCalledWith("Invalid or expired setup token");
     });
   });
 

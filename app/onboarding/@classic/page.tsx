@@ -1,4 +1,3 @@
-import { getServerSession } from "@/lib/features/authentication/server-utils";
 import { redirect } from "next/navigation";
 import Header from "@/src/components/experiences/classic/login/Layout/Header";
 import OnboardingForm from "@/src/components/experiences/modern/login/Forms/OnboardingForm";
@@ -8,27 +7,17 @@ type ClassicOnboardingPageProps = {
   searchParams: Promise<{ token?: string; error?: string }>;
 };
 
+/**
+ * Invite-token onboarding (classic experience). Requires ?token= from the
+ * invite email; signed-in incomplete users complete onboarding at
+ * /login?incomplete=true instead.
+ */
 export default async function ClassicOnboardingPage({ searchParams }: ClassicOnboardingPageProps) {
-  const { token } = await searchParams;
-  const session = await getServerSession();
-  if (!session && !token) {
+  const { token, error } = await searchParams;
+
+  if (!token && !error) {
     redirect("/login");
   }
-
-  const username = token
-    ? ""
-    : session?.user.username ||
-      session?.user.name ||
-      session?.user.email?.split("@")[0] ||
-      "";
-
-  const onboardingForm = (
-    <OnboardingForm
-      username={username}
-      realName={token ? undefined : session?.user.realName || undefined}
-      djName={token ? undefined : session?.user.djName || undefined}
-    />
-  );
 
   return (
     <div
@@ -42,12 +31,13 @@ export default async function ClassicOnboardingPage({ searchParams }: ClassicOnb
       }}
     >
       <Header />
-      {token ? (
+      {error && (
+        <p>This setup link is invalid or expired. Ask your station manager to resend the invite.</p>
+      )}
+      {token && (
         <OnboardingInviteSessionGuard inviteToken={token}>
-          {onboardingForm}
+          <OnboardingForm />
         </OnboardingInviteSessionGuard>
-      ) : (
-        onboardingForm
       )}
       <footer>
         <p>Copyright &copy; {new Date().getFullYear()} WXYC Chapel Hill</p>

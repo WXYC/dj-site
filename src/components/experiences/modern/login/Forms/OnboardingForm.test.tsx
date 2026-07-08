@@ -5,7 +5,6 @@ import { configureStore } from "@reduxjs/toolkit";
 import OnboardingForm from "./OnboardingForm";
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
 import type { ReactNode } from "react";
-import { useSearchParams } from "next/navigation";
 
 // Mock authentication hooks
 const mockHandleNewUser = vi.fn((e) => e.preventDefault());
@@ -48,30 +47,18 @@ describe("OnboardingForm", () => {
     const Wrapper = createWrapper();
     const { container } = render(
       <Wrapper>
-        <OnboardingForm username="testuser" />
+        <OnboardingForm />
       </Wrapper>
     );
 
     expect(container.querySelector("form")).toBeInTheDocument();
   });
 
-  it("should render hidden username input with provided value", () => {
-    const Wrapper = createWrapper();
-    render(
-      <Wrapper>
-        <OnboardingForm username="testuser" />
-      </Wrapper>
-    );
-
-    const hiddenInput = document.querySelector('input[name="username"]');
-    expect(hiddenInput).toHaveValue("testuser");
-  });
-
   it("should render real name input", () => {
     const Wrapper = createWrapper();
     render(
       <Wrapper>
-        <OnboardingForm username="testuser" />
+        <OnboardingForm />
       </Wrapper>
     );
 
@@ -82,7 +69,7 @@ describe("OnboardingForm", () => {
     const Wrapper = createWrapper();
     render(
       <Wrapper>
-        <OnboardingForm username="testuser" />
+        <OnboardingForm />
       </Wrapper>
     );
 
@@ -93,7 +80,7 @@ describe("OnboardingForm", () => {
     const Wrapper = createWrapper();
     render(
       <Wrapper>
-        <OnboardingForm username="testuser" />
+        <OnboardingForm />
       </Wrapper>
     );
 
@@ -107,7 +94,7 @@ describe("OnboardingForm", () => {
     const Wrapper = createWrapper();
     render(
       <Wrapper>
-        <OnboardingForm username="testuser" />
+        <OnboardingForm />
       </Wrapper>
     );
 
@@ -118,7 +105,7 @@ describe("OnboardingForm", () => {
     const Wrapper = createWrapper();
     render(
       <Wrapper>
-        <OnboardingForm username="testuser" />
+        <OnboardingForm />
       </Wrapper>
     );
 
@@ -129,27 +116,7 @@ describe("OnboardingForm", () => {
     const Wrapper = createWrapper();
     render(
       <Wrapper>
-        <OnboardingForm username="testuser" />
-      </Wrapper>
-    );
-
-    expect(mockAddRequiredCredentials).toHaveBeenCalledWith([
-      "username",
-      "realName",
-      "password",
-      "confirmPassword",
-    ]);
-  });
-
-  it("should omit username from required credentials when invite token is present", () => {
-    vi.mocked(useSearchParams).mockReturnValue(
-      new URLSearchParams("token=invite-token") as ReturnType<typeof useSearchParams>
-    );
-
-    const Wrapper = createWrapper();
-    render(
-      <Wrapper>
-        <OnboardingForm username="" />
+        <OnboardingForm />
       </Wrapper>
     );
 
@@ -164,11 +131,7 @@ describe("OnboardingForm", () => {
     const Wrapper = createWrapper();
     render(
       <Wrapper>
-        <OnboardingForm
-          username="testuser"
-          realName="John Doe"
-          djName="DJ John"
-        />
+        <OnboardingForm realName="John Doe" djName="DJ John" />
       </Wrapper>
     );
 

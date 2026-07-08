@@ -1,4 +1,3 @@
-import { getServerSession } from "@/lib/features/authentication/server-utils";
 import { redirect } from "next/navigation";
 import OnboardingForm from "@/src/components/experiences/modern/login/Forms/OnboardingForm";
 import OnboardingInviteSessionGuard from "@/src/components/experiences/modern/login/OnboardingInviteSessionGuard";
@@ -16,28 +15,18 @@ type OnboardingPageProps = {
   searchParams: Promise<{ token?: string; error?: string }>;
 };
 
+/**
+ * Invite-token onboarding. Requires ?token= from the invite email; signed-in
+ * incomplete users complete onboarding at /login?incomplete=true instead.
+ * better-auth redirects here with ?error=INVALID_TOKEN (and no token) when
+ * the link is expired.
+ */
 export default async function ModernOnboardingPage({ searchParams }: OnboardingPageProps) {
   const { token, error } = await searchParams;
-  const session = await getServerSession();
 
-  if (!session && !token) {
+  if (!token && !error) {
     redirect("/login");
   }
-
-  const username = token
-    ? ""
-    : session?.user.username ||
-      session?.user.name ||
-      session?.user.email?.split("@")[0] ||
-      "";
-
-  const onboardingForm = (
-    <OnboardingForm
-      username={username}
-      realName={token ? undefined : session?.user.realName || undefined}
-      djName={token ? undefined : session?.user.djName || undefined}
-    />
-  );
 
   return (
     <WXYCPage>
@@ -47,12 +36,10 @@ export default async function ModernOnboardingPage({ searchParams }: OnboardingP
           This setup link is invalid or expired. Ask your station manager to resend the invite.
         </Alert>
       )}
-      {token ? (
+      {token && (
         <OnboardingInviteSessionGuard inviteToken={token}>
-          {onboardingForm}
+          <OnboardingForm />
         </OnboardingInviteSessionGuard>
-      ) : (
-        onboardingForm
       )}
     </WXYCPage>
   );

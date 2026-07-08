@@ -6,49 +6,38 @@ import { useAppDispatch } from "@/lib/hooks";
 import { useNewUser } from "@/src/hooks/authenticationHooks";
 import { isStrongPassword } from "@/src/utilities/passwordValidation";
 import { FormControl, FormLabel, Input, Typography } from "@mui/joy";
-import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import RequiredBox from "./Fields/RequiredBox";
 import { ValidatedSubmitButton } from "./Fields/ValidatedSubmitButton";
 
 type OnboardingFormProps = {
-  username: string;
   realName?: string;
   djName?: string;
 };
 
-export default function OnboardingForm({
-  username,
-  realName,
-  djName,
-}: OnboardingFormProps) {
+/**
+ * Invite-token onboarding at /onboarding?token=…. The DJ confirms their name
+ * and chooses the password they will sign in with; the token authenticates
+ * the request, so no session is needed.
+ */
+export default function OnboardingForm({ realName, djName }: OnboardingFormProps) {
   const [newPassword, setNewPassword] = useState("");
-  const searchParams = useSearchParams();
-  const setupToken = searchParams?.get("token")?.trim() ?? "";
   const { handleNewUser, verified, authenticating, addRequiredCredentials } =
-    useNewUser();
+    useNewUser("invite");
 
   const dispatch = useAppDispatch();
 
   useEffect(() => {
-    const required: (keyof VerifiedData)[] = setupToken
-      ? ["realName", "password", "confirmPassword"]
-      : ["username", "realName", "password", "confirmPassword"];
+    const required: (keyof VerifiedData)[] = [
+      "realName",
+      "password",
+      "confirmPassword",
+    ];
     addRequiredCredentials(required);
-  }, [addRequiredCredentials, setupToken]);
-
-  useEffect(() => {
-    dispatch(
-      authenticationSlice.actions.verify({
-        key: "username",
-        value: setupToken.length > 0 || username.length > 0,
-      })
-    );
-  }, [username, setupToken, dispatch]);
+  }, [addRequiredCredentials]);
 
   return (
     <form onSubmit={handleNewUser} method="put">
-      <input type="hidden" name="username" value={username} />
       <RequiredBox
         name="realName"
         title="Real Name"

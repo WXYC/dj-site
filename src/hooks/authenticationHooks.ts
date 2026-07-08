@@ -30,33 +30,6 @@ const LOGIN_EVENTS = {
 
 type LoginMethod = "password" | "otp" | "onboarding";
 
-async function signInAfterOnboarding(
-  password: string,
-  identifiers: { email?: string; username?: string }
-): Promise<void> {
-  const signInUsername = identifiers.username?.trim();
-  const signInEmail = identifiers.email?.trim();
-
-  const attempts: Array<() => Promise<{ error?: unknown }>> = [];
-  if (signInUsername) {
-    attempts.push(() => authClient.signIn.username({ username: signInUsername, password }));
-  }
-  if (signInEmail) {
-    attempts.push(() => authClient.signIn.email({ email: signInEmail, password }));
-  }
-
-  for (const attempt of attempts) {
-    const result = await attempt();
-    if (!(result as { error?: unknown }).error) {
-      return;
-    }
-  }
-
-  throw new Error(
-    "Account setup succeeded but sign-in failed. Please sign in with your new password."
-  );
-}
-
 /**
  * How hard we try to confirm the freshly-established session is visible
  * server-side before navigating into a `requireAuth()`-gated route. The client
@@ -388,7 +361,16 @@ export const useRegistry = () => {
   };
 };
 
-export const useNewUser = () => {
+/**
+ * Onboarding completion.
+ *
+ * - `"invite"` (OnboardingForm at /onboarding?token=…): sends the setup token
+ *   and chosen password to complete-onboarding, then signs in through the
+ *   regular authClient path — the same one normal login uses.
+ * - `"session"` (NewUserForm at /login?incomplete=true): the user is already
+ *   signed in, so only profile fields are sent; no token, no password change.
+ */
+export const useNewUser = (mode: "invite" | "session") => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const dispatch = useAppDispatch();
@@ -401,30 +383,31 @@ export const useNewUser = () => {
   const handleNewUser = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     return execute(async () => {
-      const password = e.currentTarget.password.value;
-      const setupToken = searchParams?.get("token")?.trim();
-      if (!setupToken) {
-        throw new Error(
-          "Your setup link is invalid or expired. Ask your station manager to resend the invite."
-        );
+      const realNameValue = e.currentTarget.realName?.value?.trim() || "";
+      const djNameValue = e.currentTarget.djName?.value?.trim() || "";
+      const password: string =
+        mode === "invite" ? e.currentTarget.password.value : "";
+
+      const body: Record<string, string> = {};
+      if (realNameValue) {
+        body.realName = realNameValue;
+      }
+      if (djNameValue) {
+        body.djName = djNameValue;
       }
 
-      if (!password) {
-        throw new Error("Please choose a password");
-      }
-
-      const realNameValue = e.currentTarget.realName?.value || "";
-      const djNameValue = e.currentTarget.djName?.value || "";
-
-      const body: Record<string, string> = {
-        newPassword: password,
-        token: setupToken,
-      };
-      if (realNameValue.trim()) {
-        body.realName = realNameValue.trim();
-      }
-      if (djNameValue.trim()) {
-        body.djName = djNameValue.trim();
+      if (mode === "invite") {
+        const setupToken = searchParams?.get("token")?.trim();
+        if (!setupToken) {
+          throw new Error(
+            "Your setup link is invalid or expired. Ask your station manager to resend the invite."
+          );
+        }
+        if (!password) {
+          throw new Error("Please choose a password");
+        }
+        body.token = setupToken;
+        body.newPassword = password;
       }
 
       const response = await fetch(`${authBaseURL}/wxyc/complete-onboarding`, {
@@ -447,35 +430,27 @@ export const useNewUser = () => {
         userId?: string;
         email?: string;
         username?: string;
-        sessionEstablished?: boolean;
       };
 
       clearTokenCache();
 
-      let session = await authClient.getSession({
-        query: { disableCookieCache: true },
-      });
-
-      if (!session.data?.user?.id) {
-        await signInAfterOnboarding(password, {
-          email: payload.email,
-          username: payload.username,
+      if (mode === "invite") {
+        const signInResult = await authClient.signIn.email({
+          email: payload.email ?? "",
+          password,
         });
-        session = await authClient.getSession({
-          query: { disableCookieCache: true },
-        });
-      }
-
-      if (!session.data?.user?.id) {
-        throw new Error(
-          "Account setup succeeded but sign-in failed. Please sign in with your new password."
-        );
+        if (signInResult.error) {
+          throw new Error(
+            signInResult.error.message ||
+              "Account setup succeeded but sign-in failed. Please sign in with your new password."
+          );
+        }
       }
 
       toast.success("Account setup complete. Welcome!");
       await redirectAfterAuth(
         router,
-        { ...session.data.user, hasCompletedOnboarding: true },
+        { id: payload.userId, hasCompletedOnboarding: true },
         "onboarding",
       );
     }, "Failed to complete onboarding. Please try again.");
@@ -485,8 +460,10 @@ export const useNewUser = () => {
     dispatch(authenticationSlice.actions.reset());
   }, []);
 
+  // Replace (not append to) the required list: the slice default includes
+  // username/password for the login form, which these forms don't render.
   const addRequiredCredentials = (required: (keyof VerifiedData)[]) =>
-    dispatch(authenticationSlice.actions.addRequiredCredentials(required));
+    dispatch(authenticationSlice.actions.setRequiredCredentials(required));
 
   return {
     handleNewUser,
