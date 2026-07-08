@@ -41,9 +41,8 @@ export default function FlowsheetBackendResult({
       sx={{
         p: 1,
         backgroundColor:
-          selected === index ? "primary.softBg" : "transparent",
+          selected === index ? "primary.700" : "transparent",
         cursor: "pointer",
-        "&:hover": { bgcolor: "background.level1" },
       }}
       onMouseEnter={() => {
         setSelected(index);
@@ -56,7 +55,7 @@ export default function FlowsheetBackendResult({
           level="body-xs"
           sx={{
             mb: -0.5,
-            color: selected === index ? "primary.300" : "text.tertiary",
+            color: selected === index ? "neutral.300" : "text.tertiary",
           }}
         >
           CODE
@@ -67,6 +66,7 @@ export default function FlowsheetBackendResult({
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
+            color: selected === index ? "white" : "inherit",
             fontFamily: "monospace",
             fontSize: "1rem",
           }}
@@ -103,7 +103,13 @@ export default function FlowsheetBackendResult({
         </Typography>
       </Stack>
       <Stack direction="column" sx={{ flex: 1, minWidth: 0, px: 1 }}>
-        <Typography level="body-xs" sx={{ mb: -0.5, color: "text.tertiary" }}>
+        <Typography
+          level="body-xs"
+          sx={{
+            mb: -0.5,
+            color: selected === index ? "neutral.300" : "text.tertiary",
+          }}
+        >
           ARTIST
         </Typography>
         <Typography
@@ -111,6 +117,7 @@ export default function FlowsheetBackendResult({
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
+            color: selected === index ? "white" : "inherit",
             fontStyle: entry.artist?.name ? "normal" : "italic",
             opacity: entry.artist?.name ? 1 : 0.6,
           }}
@@ -119,7 +126,13 @@ export default function FlowsheetBackendResult({
         </Typography>
       </Stack>
       <Stack direction="column" sx={{ flex: 1, minWidth: 0, px: 1 }}>
-        <Typography level="body-xs" sx={{ mb: -0.5, color: "text.tertiary" }}>
+        <Typography
+          level="body-xs"
+          sx={{
+            mb: -0.5,
+            color: selected === index ? "neutral.300" : "text.tertiary",
+          }}
+        >
           ALBUM
         </Typography>
         <Typography
@@ -127,6 +140,7 @@ export default function FlowsheetBackendResult({
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
+            color: selected === index ? "white" : "inherit",
             fontStyle: entry.title ? "normal" : "italic",
             opacity: entry.title ? 1 : 0.6,
           }}
@@ -135,7 +149,13 @@ export default function FlowsheetBackendResult({
         </Typography>
       </Stack>
       <Stack direction="column" sx={{ flex: 1, minWidth: 0, px: 1 }}>
-        <Typography level="body-xs" sx={{ mb: -0.5, color: "text.tertiary" }}>
+        <Typography
+          level="body-xs"
+          sx={{
+            mb: -0.5,
+            color: selected === index ? "neutral.300" : "text.tertiary",
+          }}
+        >
           LABEL
         </Typography>
         <Typography
@@ -143,6 +163,7 @@ export default function FlowsheetBackendResult({
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
+            color: selected === index ? "white" : "inherit",
             fontStyle: entry.label ? "normal" : "italic",
             opacity: entry.label ? 1 : 0.6,
           }}

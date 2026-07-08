@@ -2,8 +2,14 @@
 
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { Add } from "@mui/icons-material";
 import { Stack, Typography } from "@mui/joy";
+
+const FIELDS = [
+  { key: "artist", label: "ARTIST" },
+  { key: "song", label: "SONG" },
+  { key: "album", label: "ALBUM" },
+  { key: "label", label: "LABEL" },
+] as const;
 
 export default function NewEntryRow() {
   const dispatch = useAppDispatch();
@@ -17,15 +23,10 @@ export default function NewEntryRow() {
 
   if (!hasQuery) return null;
 
-  const summary = [searchQuery.artist, searchQuery.song, searchQuery.album]
-    .filter(Boolean)
-    .join(" — ");
-
   return (
     <Stack
       direction="row"
-      alignItems="center"
-      spacing={1}
+      justifyContent="space-between"
       data-testid="flowsheet-new-entry-preview"
       role="option"
       id="flowsheet-option-0"
@@ -33,17 +34,40 @@ export default function NewEntryRow() {
       sx={{
         p: 1,
         cursor: "pointer",
-        bgcolor: selected === 0 ? "primary.softBg" : "transparent",
-        "&:hover": { bgcolor: "background.level1" },
+        backgroundColor: selected === 0 ? "primary.700" : "transparent",
       }}
       onMouseEnter={() =>
         dispatch(flowsheetSlice.actions.setSelectedResult(0))
       }
     >
-      <Add fontSize="small" />
-      <Typography level="body-sm" noWrap sx={{ flex: 1 }}>
-        New entry: {summary || "…"}
-      </Typography>
+      {FIELDS.map(({ key, label }) => {
+        const value = searchQuery[key] as string;
+        return (
+          <Stack key={key} direction="column" sx={{ flex: 1, minWidth: 0, px: 1 }}>
+            <Typography
+              level="body-xs"
+              sx={{
+                mb: -0.5,
+                color: selected === 0 ? "neutral.300" : "text.tertiary",
+              }}
+            >
+              {label}
+            </Typography>
+            <Typography
+              sx={{
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                color: selected === 0 ? "white" : "inherit",
+                fontStyle: value ? "normal" : "italic",
+                opacity: value ? 1 : 0.6,
+              }}
+            >
+              {value || "Not specified"}
+            </Typography>
+          </Stack>
+        );
+      })}
     </Stack>
   );
 }

@@ -1,70 +1,41 @@
 import type { SxProps } from "@mui/joy/styles/types";
 
-/** Bar shell height: micro-label + value row. */
-export const FLOWSHEET_BAR_HEIGHT_REM = 3;
-
 export const flowsheetSearchShellSx: SxProps = {
   display: "flex",
-  flexDirection: "column",
+  flexDirection: "row",
+  alignItems: "center",
   flexGrow: 1,
   minWidth: 0,
   borderRadius: "8px",
-  bgcolor: "background.surface",
+  background: "transparent",
   border: "1px solid",
   borderColor: "neutral.outlinedBorder",
-  minHeight: `${FLOWSHEET_BAR_HEIGHT_REM}rem`,
+  minHeight: "var(--Input-minHeight)",
+  paddingInline: "0.5rem",
   transition: "border-color 0.15s, box-shadow 0.15s",
   "&:hover": {
     borderColor: "neutral.700",
   },
   "&:focus-within": {
     borderColor: "primary.400",
-    boxShadow: "0 0 0 2px",
-    boxShadowColor: "primary.100",
+    boxShadow: "0 0 0 1px var(--joy-palette-primary-400)",
   },
 };
 
 export const flowsheetSegmentGridSx: SxProps = {
-  display: "grid",
-  gridTemplateColumns: {
-    xs: "1fr",
-    sm: "repeat(2, minmax(0, 1fr))",
-    md: "minmax(0,1.2fr) minmax(0,1.2fr) minmax(0,1fr) minmax(0,0.8fr) auto",
-  },
+  display: "flex",
+  flexDirection: "row",
   alignItems: "stretch",
   flex: 1,
   minWidth: 0,
 };
 
 export const flowsheetSegmentSx: SxProps = {
+  position: "relative",
   display: "flex",
-  flexDirection: "column",
-  justifyContent: "center",
-  px: 1.5,
-  py: 1,
+  alignItems: "center",
+  flex: 1,
   minWidth: 0,
-  borderRight: "1px solid",
-  borderColor: "divider",
-  "&:last-of-type": { borderRight: "none" },
-  "&[data-focused='true']": {
-    bgcolor: "background.level1",
-  },
-  "&[data-dimmed='true']": {
-    opacity: 0.65,
-  },
-  "&[data-autofilled='true']": {
-    bgcolor: "primary.softBg",
-  },
-};
-
-export const flowsheetSegmentLabelSx: SxProps = {
-  fontSize: "0.65rem",
-  textTransform: "uppercase",
-  letterSpacing: "0.05em",
-  color: "text.tertiary",
-  lineHeight: 1,
-  mb: 0.25,
-  userSelect: "none",
 };
 
 export const flowsheetSegmentInputSx: SxProps = {
@@ -73,19 +44,19 @@ export const flowsheetSegmentInputSx: SxProps = {
   border: "none",
   fontFamily: "inherit",
   fontSize: "var(--joy-fontSize-sm)",
-  lineHeight: 1.25,
   minWidth: 0,
   width: "100%",
-  p: 0,
+  flex: 1,
+  px: 1,
+  minHeight: "2rem",
   color: "text.primary",
 };
 
 export const flowsheetSubmitButtonSx: SxProps = {
-  minHeight: "2rem",
-  minWidth: "4.5rem",
+  minHeight: "22px",
+  maxWidth: "22px !important",
+  borderRadius: "0.3rem",
   alignSelf: "center",
-  mx: 0.5,
-  borderRadius: "sm",
 };
 
 export const flowsheetUtilityButtonSx: SxProps = {
@@ -95,7 +66,7 @@ export const flowsheetUtilityButtonSx: SxProps = {
 
 export const flowsheetListboxSx: SxProps = {
   borderRadius: "md",
-  boxShadow: "lg",
+  boxShadow: "0px 34px 24px -9px rgba(0,0,0,0.5)",
   maxHeight: "min(70vh, 480px)",
   overflow: "hidden",
   display: "flex",
@@ -112,7 +83,7 @@ export const flowsheetListboxFooterSx: SxProps = {
   borderTop: "1px solid",
   borderColor: "divider",
   px: 1,
-  py: 0.5,
+  py: 0.25,
   display: "flex",
   justifyContent: "flex-end",
 };

@@ -57,7 +57,8 @@ export default function TrackCombobox({
     <Autocomplete
       freeSolo
       disabled={disabled}
-      placeholder="Track title"
+      variant="plain"
+      placeholder="Song"
       options={tracks}
       loading={isFetching}
       value={selected}
@@ -110,7 +111,18 @@ export default function TrackCombobox({
           {option.position ? ` (${option.position})` : ""}
         </AutocompleteOption>
       )}
-      sx={{ flex: 1, minWidth: 0, "--Input-minHeight": "1.5rem" }}
+      sx={{
+        flex: 1,
+        minWidth: 0,
+        "--Input-minHeight": "2rem",
+        "--Input-radius": "0",
+        "--Input-paddingInline": "0.5rem",
+        "--Input-focusedThickness": "0",
+        background: "transparent",
+        boxShadow: "none",
+        fontSize: "var(--joy-fontSize-sm)",
+        "&:hover": { background: "transparent" },
+      }}
     />
   );
 }

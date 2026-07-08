@@ -434,7 +434,7 @@ describe("FlowsheetSearchbar", () => {
   });
 
   describe("button states", () => {
-    it("should show Play label on submit button", () => {
+    it("should show / hint on submit button when search is closed", () => {
       mockSearchOpen = false;
       const store = createTestStore();
 
@@ -444,7 +444,7 @@ describe("FlowsheetSearchbar", () => {
         </Provider>
       );
 
-      expect(screen.getByTestId("flowsheet-search-submit")).toHaveTextContent("Play");
+      expect(screen.getByTestId("flowsheet-search-submit")).toHaveTextContent("/");
     });
 
     it("should show play icon when search is open and ctrl not pressed", () => {

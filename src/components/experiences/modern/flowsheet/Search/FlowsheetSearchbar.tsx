@@ -10,8 +10,8 @@ import {
 import { useDocumentKeydown } from "@/src/hooks/useDocumentKeydown";
 import { useGhostText } from "@/src/hooks/useGhostText";
 import { PlayArrow, QueueMusic, Troubleshoot } from "@mui/icons-material";
-import { Box, Button, FormControl, Sheet, Stack } from "@mui/joy";
-import { useCallback, useRef, useState } from "react";
+import { Box, Button, Divider, FormControl, Sheet, Stack } from "@mui/joy";
+import { useCallback, useRef } from "react";
 import BreakpointButton from "./BreakpointButton";
 import FlowsheetSearchSegment from "./FlowsheetSearchSegment";
 import {
@@ -25,6 +25,7 @@ import TrackCombobox from "./TrackCombobox";
 import {
   flowsheetSearchShellSx,
   flowsheetSegmentGridSx,
+  flowsheetSegmentSx,
   flowsheetSubmitButtonSx,
 } from "./flowsheetSearchBarStyles";
 
@@ -58,7 +59,6 @@ export default function FlowsheetSearchbar() {
   const albumRef = useRef<HTMLInputElement>(null);
   const labelRef = useRef<HTMLInputElement>(null);
   const flushersRef = useRef<(() => void)[]>([]);
-  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const registerFlusher = useCallback((flush: () => void) => {
     if (!flushersRef.current.includes(flush)) {
@@ -72,8 +72,6 @@ export default function FlowsheetSearchbar() {
     searchQuery.song as string,
     confirmedArtist
   );
-
-  const singleCandidateGhost = (suffix: string) => Boolean(suffix);
 
   const handleAcceptArtistGhost = useCallback(() => {
     const fullArtist = artistGhost.acceptGhostText();
@@ -101,7 +99,6 @@ export default function FlowsheetSearchbar() {
     if (currentArtist && currentArtist !== confirmedArtist) {
       dispatch(flowsheetSlice.actions.setConfirmedArtist(currentArtist));
     }
-    setFocusedField(null);
   }, [searchQuery.artist, confirmedArtist, dispatch]);
 
   const stageRelease = useCallback(
@@ -221,124 +218,127 @@ export default function FlowsheetSearchbar() {
             cursor: live ? "text" : "default",
             "&:focus-within": {
               borderColor: ctrlKeyPressed ? "success.400" : "primary.400",
-              boxShadow: "0 0 0 2px",
-              boxShadowColor: ctrlKeyPressed ? "success.100" : "primary.100",
+              boxShadow: ctrlKeyPressed
+                ? "0 0 0 1px var(--joy-palette-success-400)"
+                : "0 0 0 1px var(--joy-palette-primary-400)",
             },
           }}
           suppressHydrationWarning
         >
-          <Stack
-            direction="row"
-            sx={{ flex: 1, minWidth: 0, alignItems: "stretch" }}
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              marginInlineEnd: "0.5rem",
+              color: "text.tertiary",
+              pointerEvents: "none",
+              "& svg": { fill: "var(--wxyc-palette-neutral-400)" },
+            }}
           >
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                px: 1,
-                color: "text.tertiary",
-                pointerEvents: "none",
+            <Troubleshoot />
+          </Box>
+          <Box sx={flowsheetSegmentGridSx}>
+            <FlowsheetSearchSegment
+              name="artist"
+              label="Artist"
+              inputRef={artistRef}
+              required={selectedResult === 0}
+              disabled={!live}
+              ghostSuffix={artistGhost.ghostSuffix}
+              onAcceptGhost={handleAcceptArtistGhost}
+              onBlur={handleArtistBlur}
+              searchOpen={searchOpen}
+              selectedResult={selectedResult}
+              registerFlusher={registerFlusher}
+            />
+            <Divider orientation="vertical" />
+            {stagedRelease && stagedRelease.album_id && stagedRelease.album_id > 0 ? (
+              <Box sx={flowsheetSegmentSx}>
+                <TrackCombobox
+                  albumId={stagedRelease.album_id}
+                  disabled={!live}
+                  inputRef={songRef}
+                />
+              </Box>
+            ) : (
+              <FlowsheetSearchSegment
+                name="song"
+                label="Song"
+                inputRef={songRef}
+                disabled={!live}
+                required
+                ghostSuffix={songGhost.ghostSuffix}
+                onAcceptGhost={handleAcceptSongGhost}
+                searchOpen={searchOpen}
+                selectedResult={selectedResult}
+                registerFlusher={registerFlusher}
+              />
+            )}
+            <Divider orientation="vertical" />
+            <FlowsheetSearchSegment
+              name="album"
+              label="Album"
+              inputRef={albumRef}
+              disabled={!live}
+              required={selectedResult === 0}
+              searchOpen={searchOpen}
+              selectedResult={selectedResult}
+              registerFlusher={registerFlusher}
+            />
+            <Divider orientation="vertical" />
+            <FlowsheetSearchSegment
+              name="label"
+              label="Label"
+              inputRef={labelRef}
+              disabled={!live}
+              searchOpen={searchOpen}
+              selectedResult={selectedResult}
+              registerFlusher={registerFlusher}
+            />
+          </Box>
+          <input type="submit" hidden />
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 0.5,
+              mr: -0.5,
+            }}
+          >
+            {!searchOpen && <Divider orientation="vertical" />}
+            <Button
+              type="button"
+              size="sm"
+              variant={searchOpen ? "solid" : "plain"}
+              color={
+                searchOpen
+                  ? ctrlKeyPressed
+                    ? "success"
+                    : "primary"
+                  : "neutral"
+              }
+              disabled={!live}
+              data-testid="flowsheet-search-submit"
+              sx={flowsheetSubmitButtonSx}
+              onClick={() => {
+                if (searchOpen) {
+                  searchRef.current?.requestSubmit();
+                } else {
+                  artistRef.current?.focus();
+                }
               }}
             >
-              <Troubleshoot />
-            </Box>
-            <Box sx={flowsheetSegmentGridSx}>
-              <FlowsheetSearchSegment
-                name="artist"
-                label="Artist"
-                inputRef={artistRef}
-                required={selectedResult === 0}
-                disabled={!live}
-                ghostSuffix={
-                  singleCandidateGhost(artistGhost.ghostSuffix)
-                    ? artistGhost.ghostSuffix
-                    : ""
-                }
-                onAcceptGhost={handleAcceptArtistGhost}
-                onBlur={handleArtistBlur}
-                onFocus={() => setFocusedField("artist")}
-                isFocused={focusedField === "artist"}
-                isDimmed={focusedField !== null && focusedField !== "artist"}
-                searchOpen={searchOpen}
-                selectedResult={selectedResult}
-                registerFlusher={registerFlusher}
-              />
-              {stagedRelease && stagedRelease.album_id && stagedRelease.album_id > 0 ? (
-                <Box sx={{ display: "flex", alignItems: "center", px: 1, minWidth: 0 }}>
-                  <TrackCombobox
-                    albumId={stagedRelease.album_id}
-                    disabled={!live}
-                    inputRef={songRef}
-                  />
-                </Box>
+              {searchOpen ? (
+                ctrlKeyPressed ? (
+                  <QueueMusic fontSize="small" />
+                ) : (
+                  <PlayArrow fontSize="small" />
+                )
               ) : (
-                <FlowsheetSearchSegment
-                  name="song"
-                  label="Song"
-                  inputRef={songRef}
-                  disabled={!live}
-                  required
-                  ghostSuffix={
-                    singleCandidateGhost(songGhost.ghostSuffix)
-                      ? songGhost.ghostSuffix
-                      : ""
-                  }
-                  onAcceptGhost={handleAcceptSongGhost}
-                  onFocus={() => setFocusedField("song")}
-                  isFocused={focusedField === "song"}
-                  isDimmed={focusedField !== null && focusedField !== "song"}
-                  searchOpen={searchOpen}
-                  selectedResult={selectedResult}
-                  registerFlusher={registerFlusher}
-                />
+                "/"
               )}
-              <FlowsheetSearchSegment
-                name="album"
-                label="Album"
-                inputRef={albumRef}
-                disabled={!live}
-                required={selectedResult === 0}
-                onFocus={() => setFocusedField("album")}
-                isFocused={focusedField === "album"}
-                isDimmed={focusedField !== null && focusedField !== "album"}
-                searchOpen={searchOpen}
-                selectedResult={selectedResult}
-                registerFlusher={registerFlusher}
-              />
-              <FlowsheetSearchSegment
-                name="label"
-                label="Label"
-                inputRef={labelRef}
-                disabled={!live}
-                onFocus={() => setFocusedField("label")}
-                isFocused={focusedField === "label"}
-                isDimmed={focusedField !== null && focusedField !== "label"}
-                searchOpen={searchOpen}
-                selectedResult={selectedResult}
-                registerFlusher={registerFlusher}
-              />
-              <Button
-                type="button"
-                size="sm"
-                variant="solid"
-                color={ctrlKeyPressed ? "success" : "primary"}
-                disabled={!live}
-                data-testid="flowsheet-search-submit"
-                startDecorator={
-                  ctrlKeyPressed ? (
-                    <QueueMusic fontSize="small" />
-                  ) : (
-                    <PlayArrow fontSize="small" />
-                  )
-                }
-                sx={flowsheetSubmitButtonSx}
-                onClick={() => searchRef.current?.requestSubmit()}
-              >
-                {ctrlKeyPressed ? "Queue" : "Play"}
-              </Button>
-            </Box>
-          </Stack>
-          <input type="submit" hidden />
+            </Button>
+          </Box>
         </Sheet>
       </Stack>
     </FormControl>
