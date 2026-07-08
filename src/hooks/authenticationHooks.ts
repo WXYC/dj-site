@@ -2,6 +2,12 @@
 
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
 import { authClient, clearTokenCache, lookupEmailByIdentifier } from "@/lib/features/authentication/client";
+import {
+  interpretTokenPoll,
+  pollDeviceToken,
+  requestDeviceCode,
+  type PollOutcome,
+} from "@/lib/features/authentication/device-auth";
 import { isValidEmail } from "@wxyc/shared/validation";
 import {
   AuthenticatedUser,
@@ -16,7 +22,7 @@ import { Authorization } from "@/lib/features/admin/types";
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { resetApplication } from "./applicationHooks";
 import { throwIfBetterAuthError } from "@/src/utilities/throwIfBetterAuthError";
@@ -29,7 +35,7 @@ const LOGIN_EVENTS = {
   POST_LOGIN_REDIRECT: "login_post_redirect",
 } as const;
 
-type LoginMethod = "password" | "otp" | "onboarding";
+type LoginMethod = "password" | "otp" | "onboarding" | "qr";
 
 /**
  * How hard we try to confirm the freshly-established session is visible
@@ -265,6 +271,136 @@ export const useOTPVerify = () => {
   };
 
   return { handleVerifyOTP, handleResendOTP, isLoading, error };
+};
+
+/** UI-facing lifecycle state of the QR device-authorization flow. */
+export type DeviceAuthorizationStatus =
+  | "loading"
+  | "waiting"
+  | "expired"
+  | "denied"
+  | "error";
+
+/**
+ * Drive the RFC 8628 QR sign-in flow for the shared control-room browser.
+ *
+ * On mount (and on {@link restart}) it POSTs `/auth/device/code`, surfaces the
+ * `user_code` + `verification_uri_complete` for the QR, then polls
+ * `/auth/device/token` at the server-returned interval until the DJ approves
+ * on their phone or the code reaches a terminal state.
+ */
+export const useDeviceAuthorization = () => {
+  const router = useRouter();
+  const [status, setStatus] = useState<DeviceAuthorizationStatus>("loading");
+  const [userCode, setUserCode] = useState<string | undefined>(undefined);
+  const [verificationUriComplete, setVerificationUriComplete] = useState<
+    string | undefined
+  >(undefined);
+  const [restartNonce, setRestartNonce] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const clientId =
+      process.env.NEXT_PUBLIC_DEVICE_AUTH_CLIENT_ID || "dj-site";
+
+    // Reset to a clean slate so a restart visibly returns to "loading".
+    setStatus("loading");
+    setUserCode(undefined);
+    setVerificationUriComplete(undefined);
+
+    (async () => {
+      let code;
+      try {
+        code = await requestDeviceCode(clientId);
+      } catch {
+        if (!cancelled) setStatus("error");
+        return;
+      }
+      if (cancelled) return;
+
+      setUserCode(code.user_code);
+      setVerificationUriComplete(code.verification_uri_complete);
+      setStatus("waiting");
+
+      // Fall back to the RFC 8628 default (5s) if the server omits or garbles
+      // `interval`: a NaN/0 here would make `setTimeout(poll, …)` fire at 0ms
+      // and flood the token endpoint.
+      let intervalMs =
+        (Number.isFinite(code.interval) && code.interval > 0
+          ? code.interval
+          : 5) * 1000;
+
+      const schedule = () => {
+        timer = setTimeout(poll, intervalMs);
+      };
+
+      const poll = async () => {
+        let outcome: PollOutcome;
+        try {
+          const { status: httpStatus, body } = await pollDeviceToken(
+            code.device_code,
+            clientId,
+          );
+          outcome = interpretTokenPoll(httpStatus, body);
+        } catch {
+          outcome = { kind: "error", code: "network" };
+        }
+        if (cancelled) return;
+
+        if (outcome.kind === "pending") {
+          schedule();
+        } else if (outcome.kind === "slow_down") {
+          intervalMs += 5000;
+          schedule();
+        } else if (outcome.kind === "success") {
+          // The successful poll set the session cookie; drop any stale cached
+          // bearer (WXYC/dj-site#596), then read the user back off the session.
+          clearTokenCache();
+          let user:
+            | { id?: string; hasCompletedOnboarding?: boolean }
+            | undefined;
+          try {
+            const session = (await authClient.getSession()) as {
+              data?: { user?: { id?: string; hasCompletedOnboarding?: boolean } };
+            };
+            user = session?.data?.user;
+          } catch {
+            // Auth already succeeded (the poll set the session cookie); if the
+            // user read fails, still navigate. redirectAfterAuth's confirm gate
+            // and the destination's own requireAuth resolve the session
+            // server-side — never strand the DJ on a frozen QR after sign-in.
+            user = undefined;
+          }
+          if (cancelled) return;
+          await redirectAfterAuth(router, user, "qr");
+        } else if (outcome.kind === "expired") {
+          setStatus("expired");
+        } else if (outcome.kind === "denied") {
+          setStatus("denied");
+        } else {
+          toast.error("Something went wrong signing in. Please try again.");
+          setStatus("error");
+        }
+      };
+
+      schedule();
+    })();
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+    // Intentionally keyed only on `restartNonce`: the flow must start exactly
+    // once per mount and once per restart(). `router` is deliberately omitted —
+    // its identity is not guaranteed stable, and re-running this effect (which
+    // requests a fresh device code) whenever the router changes would restart
+    // the QR flow mid-poll.
+  }, [restartNonce]);
+
+  const restart = useCallback(() => setRestartNonce((n) => n + 1), []);
+
+  return { userCode, verificationUriComplete, status, restart };
 };
 
 export const useLogout = () => {

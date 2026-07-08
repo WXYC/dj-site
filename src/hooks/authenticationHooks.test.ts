@@ -73,6 +73,32 @@ vi.mock("./applicationHooks", () => ({
   resetApplication: vi.fn(),
 }));
 
+// Mock only the device-auth fetch wrappers; keep the real interpretTokenPoll so
+// the hook's branching is exercised against the genuine state machine.
+const mockRequestDeviceCode = vi.fn();
+const mockPollDeviceToken = vi.fn();
+vi.mock("@/lib/features/authentication/device-auth", async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import("@/lib/features/authentication/device-auth")
+    >();
+  return {
+    ...actual,
+    requestDeviceCode: (...args: any[]) => mockRequestDeviceCode(...args),
+    pollDeviceToken: (...args: any[]) => mockPollDeviceToken(...args),
+  };
+});
+
+const DEVICE_CODE_RESPONSE = {
+  device_code: "dev_123",
+  user_code: "WDPL-XK9R",
+  verification_uri: "https://dj.wxyc.org/auth/device",
+  verification_uri_complete:
+    "https://dj.wxyc.org/auth/device?user_code=WDPL-XK9R",
+  expires_in: 300,
+  interval: 5,
+};
+
 function createTestStore() {
   return configureStore({
     reducer: {
@@ -786,6 +812,322 @@ describe("authenticationHooks", () => {
 
       expect(mockClearTokenCache).toHaveBeenCalledTimes(1);
       expect(callOrder).toEqual(["clearTokenCache", "signInEmailOtp"]);
+    });
+  });
+
+  describe("useDeviceAuthorization", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      mockRequestDeviceCode.mockResolvedValue(DEVICE_CODE_RESPONSE);
+      mockPollDeviceToken.mockResolvedValue({
+        status: 400,
+        body: {
+          error: "authorization_pending",
+          error_description: "Authorization pending",
+        },
+      });
+    });
+
+    afterEach(() => {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    });
+
+    it("requests a device code on mount and exposes the user_code + verification URI", async () => {
+      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useDeviceAuthorization(), {
+        wrapper: createWrapper(),
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(mockRequestDeviceCode).toHaveBeenCalledWith("dj-site");
+      expect(result.current.userCode).toBe("WDPL-XK9R");
+      expect(result.current.verificationUriComplete).toBe(
+        DEVICE_CODE_RESPONSE.verification_uri_complete,
+      );
+      expect(result.current.status).toBe("waiting");
+    });
+
+    it("polls /device/token at the server interval while pending", async () => {
+      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      renderHook(() => useDeviceAuthorization(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(mockPollDeviceToken).not.toHaveBeenCalled();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(mockPollDeviceToken).toHaveBeenCalledTimes(1);
+      expect(mockPollDeviceToken).toHaveBeenCalledWith("dev_123", "dj-site");
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(mockPollDeviceToken).toHaveBeenCalledTimes(2);
+    });
+
+    it("increases the polling interval after a slow_down", async () => {
+      mockPollDeviceToken
+        .mockResolvedValueOnce({
+          status: 400,
+          body: { error: "slow_down", error_description: "Slow down" },
+        })
+        .mockResolvedValue({
+          status: 400,
+          body: {
+            error: "authorization_pending",
+            error_description: "Authorization pending",
+          },
+        });
+
+      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      renderHook(() => useDeviceAuthorization(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      // First poll fires at the 5s server interval and returns slow_down.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(mockPollDeviceToken).toHaveBeenCalledTimes(1);
+
+      // 5s is no longer enough — the interval was bumped to 10s.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(mockPollDeviceToken).toHaveBeenCalledTimes(1);
+
+      // 10s after the slow_down, the next poll fires.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(mockPollDeviceToken).toHaveBeenCalledTimes(2);
+    });
+
+    const SUCCESS_POLL = {
+      status: 200,
+      body: {
+        access_token: "sess_abc",
+        token_type: "Bearer",
+        expires_in: 43200,
+        scope: "",
+      },
+    };
+
+    it("on success, derives the user via getSession and routes a complete DJ to the dashboard", async () => {
+      mockPollDeviceToken.mockResolvedValue(SUCCESS_POLL);
+      mockGetSession.mockResolvedValue({
+        data: { user: { id: "dj-1", hasCompletedOnboarding: true } },
+      });
+
+      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      renderHook(() => useDeviceAuthorization(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+
+      expect(mockClearTokenCache).toHaveBeenCalled();
+      expect(mockGetSession).toHaveBeenCalled();
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
+      expect(mockSafeCapture).toHaveBeenCalledWith("login_post_redirect", {
+        method: "qr",
+        destination: "dashboard",
+        has_completed_onboarding: true,
+        user_id: "dj-1",
+        session_confirmed: true,
+      });
+    });
+
+    it("on success, routes an incomplete DJ to the onboarding screen", async () => {
+      mockPollDeviceToken.mockResolvedValue(SUCCESS_POLL);
+      mockGetSession.mockResolvedValue({
+        data: { user: { id: "dj-2", hasCompletedOnboarding: false } },
+      });
+
+      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      renderHook(() => useDeviceAuthorization(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+
+      expect(mockPush).toHaveBeenCalledWith("/login?incomplete=true");
+    });
+
+    it.each([
+      { httpStatus: 400, code: "expired_token", expected: "expired" },
+      { httpStatus: 400, code: "access_denied", expected: "denied" },
+      { httpStatus: 500, code: "server_error", expected: "error" },
+    ])(
+      "surfaces the '$expected' status on a terminal $code poll",
+      async ({ httpStatus, code, expected }) => {
+        mockPollDeviceToken.mockResolvedValue({
+          status: httpStatus,
+          body: { error: code, error_description: "terminal" },
+        });
+
+        const { useDeviceAuthorization } = await import("./authenticationHooks");
+        const { result } = renderHook(() => useDeviceAuthorization(), {
+          wrapper: createWrapper(),
+        });
+
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(0);
+        });
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(5000);
+        });
+
+        expect(result.current.status).toBe(expected);
+
+        // A terminal state stops the loop — no further polls.
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(30000);
+        });
+        expect(mockPollDeviceToken).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    it("stops polling after unmount", async () => {
+      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      const { unmount } = renderHook(() => useDeviceAuthorization(), {
+        wrapper: createWrapper(),
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      unmount();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(30000);
+      });
+
+      expect(mockPollDeviceToken).not.toHaveBeenCalled();
+    });
+
+    it("restart fetches a fresh device code and resumes from 'loading'", async () => {
+      mockPollDeviceToken.mockResolvedValue({
+        status: 400,
+        body: { error: "expired_token", error_description: "expired" },
+      });
+
+      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useDeviceAuthorization(), {
+        wrapper: createWrapper(),
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(result.current.status).toBe("expired");
+      expect(mockRequestDeviceCode).toHaveBeenCalledTimes(1);
+
+      mockPollDeviceToken.mockResolvedValue({
+        status: 400,
+        body: {
+          error: "authorization_pending",
+          error_description: "Authorization pending",
+        },
+      });
+
+      await act(async () => {
+        result.current.restart();
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(mockRequestDeviceCode).toHaveBeenCalledTimes(2);
+      expect(result.current.status).toBe("waiting");
+    });
+
+    it("still navigates when the post-success getSession read rejects, instead of stalling", async () => {
+      mockPollDeviceToken.mockResolvedValue(SUCCESS_POLL);
+      // Both the hook's own user read and confirmSessionVisible's read reject.
+      mockGetSession.mockRejectedValue(new Error("network"));
+
+      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useDeviceAuthorization(), {
+        wrapper: createWrapper(),
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      // Fire the success poll, then drain redirectAfterAuth's confirm-gate
+      // retries (which also see the rejecting getSession).
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(20000);
+      });
+
+      // Auth already succeeded (the poll set the cookie); the flow must not
+      // freeze on "waiting". With no readable user and an unconfirmable
+      // session, redirectAfterAuth falls back to refresh() rather than
+      // stranding the DJ.
+      expect(mockClearTokenCache).toHaveBeenCalled();
+      expect(mockRefresh).toHaveBeenCalled();
+    });
+
+    it("defaults to a 5s poll interval when the server omits `interval`", async () => {
+      // A missing `interval` must not become NaN and make setTimeout fire at
+      // 0ms, flooding the token endpoint.
+      mockRequestDeviceCode.mockResolvedValue({
+        ...DEVICE_CODE_RESPONSE,
+        interval: undefined,
+      });
+
+      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      renderHook(() => useDeviceAuthorization(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      // No busy-loop: nothing polls before the 5s default elapses.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(4999);
+      });
+      expect(mockPollDeviceToken).not.toHaveBeenCalled();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1);
+      });
+      expect(mockPollDeviceToken).toHaveBeenCalledTimes(1);
+    });
+
+    it("surfaces the 'error' status when a poll throws (network failure)", async () => {
+      mockPollDeviceToken.mockRejectedValue(new Error("network down"));
+
+      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useDeviceAuthorization(), {
+        wrapper: createWrapper(),
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+
+      expect(result.current.status).toBe("error");
     });
   });
 });
