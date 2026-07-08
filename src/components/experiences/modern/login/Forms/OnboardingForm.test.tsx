@@ -5,10 +5,15 @@ import { configureStore } from "@reduxjs/toolkit";
 import OnboardingForm from "./OnboardingForm";
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
 import type { ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
 
 // Mock authentication hooks
 const mockHandleNewUser = vi.fn((e) => e.preventDefault());
 const mockAddRequiredCredentials = vi.fn();
+
+vi.mock("next/navigation", () => ({
+  useSearchParams: vi.fn(() => new URLSearchParams()),
+}));
 
 vi.mock("@/src/hooks/authenticationHooks", () => ({
   useNewUser: vi.fn(() => ({
@@ -130,6 +135,25 @@ describe("OnboardingForm", () => {
 
     expect(mockAddRequiredCredentials).toHaveBeenCalledWith([
       "username",
+      "realName",
+      "password",
+      "confirmPassword",
+    ]);
+  });
+
+  it("should omit username from required credentials when invite token is present", () => {
+    vi.mocked(useSearchParams).mockReturnValue(
+      new URLSearchParams("token=invite-token") as ReturnType<typeof useSearchParams>
+    );
+
+    const Wrapper = createWrapper();
+    render(
+      <Wrapper>
+        <OnboardingForm username="" />
+      </Wrapper>
+    );
+
+    expect(mockAddRequiredCredentials).toHaveBeenCalledWith([
       "realName",
       "password",
       "confirmPassword",

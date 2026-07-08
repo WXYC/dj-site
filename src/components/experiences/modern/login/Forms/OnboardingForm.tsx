@@ -6,6 +6,7 @@ import { useAppDispatch } from "@/lib/hooks";
 import { useNewUser } from "@/src/hooks/authenticationHooks";
 import { isStrongPassword } from "@/src/utilities/passwordValidation";
 import { FormControl, FormLabel, Input, Typography } from "@mui/joy";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import RequiredBox from "./Fields/RequiredBox";
 import { ValidatedSubmitButton } from "./Fields/ValidatedSubmitButton";
@@ -22,28 +23,28 @@ export default function OnboardingForm({
   djName,
 }: OnboardingFormProps) {
   const [newPassword, setNewPassword] = useState("");
+  const searchParams = useSearchParams();
+  const setupToken = searchParams?.get("token")?.trim() ?? "";
   const { handleNewUser, verified, authenticating, addRequiredCredentials } =
     useNewUser();
 
   const dispatch = useAppDispatch();
 
   useEffect(() => {
-    addRequiredCredentials([
-      "username",
-      "realName",
-      "password",
-      "confirmPassword",
-    ]);
-  }, [addRequiredCredentials]);
+    const required: (keyof VerifiedData)[] = setupToken
+      ? ["realName", "password", "confirmPassword"]
+      : ["username", "realName", "password", "confirmPassword"];
+    addRequiredCredentials(required);
+  }, [addRequiredCredentials, setupToken]);
 
   useEffect(() => {
     dispatch(
       authenticationSlice.actions.verify({
         key: "username",
-        value: username.length > 0,
+        value: setupToken.length > 0 || username.length > 0,
       })
     );
-  }, [username]);
+  }, [username, setupToken, dispatch]);
 
   return (
     <form onSubmit={handleNewUser} method="put">

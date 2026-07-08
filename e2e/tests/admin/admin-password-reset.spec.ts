@@ -1,4 +1,4 @@
-import { test, expect, TEST_USERS, completeOnboardingWithInviteToken, getAdminResetPasswordFromToast } from "../../fixtures/auth.fixture";
+import { test, expect, TEST_USERS, completeOnboardingWithInviteToken, getAdminResetPasswordFromToast, getVerificationToken } from "../../fixtures/auth.fixture";
 import { DashboardPage } from "../../pages/dashboard.page";
 import { RosterPage } from "../../pages/roster.page";
 import { LoginPage } from "../../pages/login.page";
@@ -266,6 +266,12 @@ test.describe("Password Reset for Different User States", () => {
     // Admin-created users have hasCompletedOnboarding=false and are
     // redirected to onboarding to set their own password
     await userLoginPage.waitForRedirectToOnboarding();
+
+    const tokenData = await getVerificationToken(email);
+    if (!tokenData?.token) {
+      throw new Error(`No setup token found for ${email}`);
+    }
+    await userPage.goto(`/onboarding?token=${encodeURIComponent(tokenData.token)}`);
 
     // Complete onboarding (profile is pre-filled, only password needed)
     await userOnboarding.completePasswordOnlyOnboarding("NewPassword1");

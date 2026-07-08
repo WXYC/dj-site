@@ -204,6 +204,9 @@ export async function completeOnboardingWithInviteToken(
 
   await page.fill('input[name="password"]', password);
   await page.fill('input[name="confirmPassword"]', password);
+  await expect(page.getByRole("button", { name: "Submit" })).toBeEnabled({
+    timeout: 10000,
+  });
   await page.getByRole("button", { name: "Submit" }).click();
   // Token onboarding auto-signs-in when better-auth already has a session;
   // otherwise the user lands on login to sign in with their new password.
