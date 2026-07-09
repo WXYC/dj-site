@@ -37,7 +37,7 @@ export default function Entry({
         entryRef={entry}
         startDecorator={<Headphones sx={{ mb: -0.5, mr: 0.5 }} />}
         endDecorator={<DateTimeStack day={entry.day} time={entry.time} />}
-        color={"neutral"}
+        color={"success"}
         variant="soft"
         disableEditing={true}
       >
@@ -59,7 +59,7 @@ export default function Entry({
         entryRef={entry}
         startDecorator={<Logout sx={{ mb: -0.5, mr: 0.5 }} />}
         endDecorator={<DateTimeStack day={entry.day} time={entry.time} />}
-        color={"neutral"}
+        color={"success"}
         variant="soft"
         disableEditing={true}
       >
@@ -80,7 +80,7 @@ export default function Entry({
       <MessageEntry
         entryRef={entry}
         startDecorator={<Mic sx={{ mb: -0.5, mr: 0.5 }} />}
-        color={"neutral"}
+        color={"danger"}
         variant="soft"
       >
         <Stack direction="row" spacing={0.5}>
@@ -97,7 +97,7 @@ export default function Entry({
       <MessageEntry
         entryRef={entry}
         startDecorator={<Timer sx={{ mb: -0.5, mr: 0.5 }} />}
-        color={"neutral"}
+        color={"warning"}
         variant="soft"
       >
         <Stack direction="row" spacing={0.5}>
@@ -112,7 +112,7 @@ export default function Entry({
   return (
     <MessageEntry
       entryRef={entry}
-      color={"neutral"}
+      color={"warning"}
       variant="soft"
       startDecorator={<Notifications sx={{ mb: -0.5, mr: 0.5 }} />}
     >

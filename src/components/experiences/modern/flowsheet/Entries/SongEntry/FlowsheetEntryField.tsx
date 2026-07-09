@@ -3,7 +3,7 @@
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 import { useFlowsheet, useShowControl } from "@/src/hooks/flowsheetHooks";
 import { toTitleCase } from "@/src/utilities/stringutilities";
-import { Typography, TypographyProps } from "@mui/joy";
+import { Tooltip, Typography, TypographyProps } from "@mui/joy";
 import { ClickAwayListener } from "@mui/material";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useAppDispatch } from "@/lib/hooks";
@@ -107,24 +107,33 @@ export default function FlowsheetEntryField({
       </form>
     </ClickAwayListener>
   ) : (
-    <Typography
-      {...props}
+    // A real Tooltip (not the native title attr, which browsers surface
+    // unreliably) so truncated values are always recoverable on hover.
+    <Tooltip
       title={String(entry[name])}
-      sx={{
-        ...props.sx,
-        whiteSpace: "nowrap",
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-        cursor: "text",
-        minWidth: "10px",
-        opacity: String(entry[name]).length > 0 ? 1 : 0.5,
-      }}
-      onDoubleClick={() => setEditing(editable && live)}
+      variant="outlined"
+      size="sm"
+      placement="top-start"
+      enterDelay={400}
     >
-      {String(entry[name]).length > 0
-        ? String(entry[name])
-        : `${toTitleCase(label)} Unspecified`}
-      &nbsp;
-    </Typography>
+      <Typography
+        {...props}
+        sx={{
+          ...props.sx,
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          cursor: "text",
+          minWidth: "10px",
+          opacity: String(entry[name]).length > 0 ? 1 : 0.5,
+        }}
+        onDoubleClick={() => setEditing(editable && live)}
+      >
+        {String(entry[name]).length > 0
+          ? String(entry[name])
+          : `${toTitleCase(label)} Unspecified`}
+        &nbsp;
+      </Typography>
+    </Tooltip>
   );
 }

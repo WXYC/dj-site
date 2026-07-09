@@ -12,6 +12,7 @@ export default function DraggableEntryWrapper({
   variant,
   color,
   style,
+  className,
 }: {
   children: React.ReactNode;
   entryRef: FlowsheetEntry;
@@ -19,12 +20,27 @@ export default function DraggableEntryWrapper({
   variant?: VariantProp;
   color?: ColorPaletteProp;
   style?: MotionProps["style"];
+  className?: string;
 }) {
   const theme = useTheme();
 
   const {
     entries: { switchEntries },
   } = useFlowsheet();
+
+  // Visual-level classes let the page styles target playing vs. ordinary
+  // rows (hover fill, always-visible actions) without prop drilling.
+  const rowClass =
+    [
+      variant === "solid"
+        ? "row-playing"
+        : (variant ?? "plain") === "plain"
+          ? "row-plain"
+          : undefined,
+      className,
+    ]
+      .filter(Boolean)
+      .join(" ") || undefined;
 
   return (
     <Reorder.Item
@@ -34,16 +50,21 @@ export default function DraggableEntryWrapper({
       dragControls={controls}
       onDragEnd={() => switchEntries(entryRef)}
       data-testid={`flowsheet-entry-${entryRef.id}`}
+      className={rowClass}
       style={{
         ...style,
         // The row color is painted by the cells (via --row-bg) so they can
         // carry rounded corners; a tr background would bleed square.
+        // Ordinary play rows sit nearly flush with the page; hover supplies
+        // the lift (see page table styles).
         ["--row-bg" as string]:
           variant === "solid"
             ? theme.palette[color ?? "neutral"].solidBg
             : variant === "soft"
               ? theme.palette[color ?? "neutral"].softBg
-              : theme.palette.background.level1,
+              : "rgba(255, 255, 255, 0.015)",
+        ["--row-accent" as string]:
+          theme.palette[color ?? "neutral"].solidBg,
         background: "transparent",
       }}
     >

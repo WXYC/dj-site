@@ -37,9 +37,25 @@ export default function FlowsheetEntries() {
         borderCollapse: "separate",
         borderSpacing: "0 4px",
         "--TableCell-paddingX": "12px",
-        "& tbody tr": { transition: "filter 120ms" },
-        "& tbody tr:hover": { filter: "brightness(1.08)" },
-        "& tbody tr > td": { backgroundColor: "var(--row-bg, transparent)" },
+        "& tbody tr > td": {
+          backgroundColor: "var(--row-bg, transparent)",
+          transition: "background-color 120ms",
+        },
+        // Ordinary play rows sit nearly flush and lift on hover; colored
+        // rows (playing, markers) just brighten slightly.
+        "& tbody tr.row-plain:hover > td": {
+          backgroundColor: (theme) => theme.vars.palette.background.level1,
+        },
+        "& tbody tr:not(.row-plain):hover": { filter: "brightness(1.05)" },
+        // The current play lifts off the log for depth and keeps its
+        // controls available without hover.
+        "& tbody tr.row-playing > td": {
+          boxShadow: "0 6px 12px -4px rgba(0, 0, 0, 0.35)",
+          // Keep only the downward shadow: side bleed draws seams between
+          // the row's cells.
+          clipPath: "inset(0 0 -12px 0)",
+        },
+        "& tbody tr.row-playing .row-actions > *": { opacity: 1 },
         "& tbody tr > td:first-of-type": {
           borderTopLeftRadius: "8px",
           borderBottomLeftRadius: "8px",

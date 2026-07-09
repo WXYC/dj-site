@@ -22,18 +22,28 @@ export default function Queue() {
     // Reordering disabled
   }, []);
 
+  // An empty queue renders nothing — the bare table shell reads as a
+  // stray grey bar above the entries.
+  if (!isMounted || queue.length === 0) {
+    return null;
+  }
+
   return (
     <Table
       borderAxis="none"
-      variant="soft"
       sx={{
         // Match the entries table's soft rounded-row treatment.
         borderCollapse: "separate",
         borderSpacing: "0 4px",
         "--TableCell-paddingX": "12px",
-        "& tbody tr": { transition: "filter 120ms" },
-        "& tbody tr:hover": { filter: "brightness(1.08)" },
-        "& tbody tr > td": { backgroundColor: "var(--row-bg, transparent)" },
+        "& tbody tr > td": {
+          backgroundColor: "var(--row-bg, transparent)",
+          transition: "background-color 120ms",
+        },
+        "& tbody tr.row-plain:hover > td": {
+          backgroundColor: (theme) => theme.vars.palette.background.level1,
+        },
+        "& tbody tr:not(.row-plain):hover": { filter: "brightness(1.05)" },
         "& tbody tr > td:first-of-type": {
           borderTopLeftRadius: "8px",
           borderBottomLeftRadius: "8px",
