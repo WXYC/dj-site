@@ -24,7 +24,11 @@ export interface RightbarState {
     panel: RightbarPanel;
 }
 
-export type AuthStage = "otp-email" | "otp-verify" | "password" | "forgot" | "reset";
+// Adding a stage here does NOT make it a persistable login preference:
+// `login-method-storage.ts`'s `PreferredLoginMethod` uses an explicit
+// `Extract<AuthStage, ...>` allow-list, so state-only stages (`otp-verify`,
+// `forgot`, `reset`) stay out of what gets written to localStorage.
+export type AuthStage = "otp-email" | "otp-verify" | "password" | "forgot" | "reset" | "qr";
 
 export interface AuthFlowState {
     stage: AuthStage;

@@ -18,6 +18,23 @@ vi.mock("@/lib/features/application/login-method-storage", () => ({
   savePreferredLoginMethod: vi.fn(),
 }));
 
+// Stub only the device-auth hook (which would otherwise fetch a device code on
+// mount); the other stages keep the real useLogin/useOTPRequest hooks.
+vi.mock("@/src/hooks/authenticationHooks", async (importOriginal) => {
+  const actual = await importOriginal<
+    typeof import("@/src/hooks/authenticationHooks")
+  >();
+  return {
+    ...actual,
+    useDeviceAuthorization: () => ({
+      status: "waiting" as const,
+      userCode: "WDPL-XK9R",
+      verificationUriComplete: "https://dj.wxyc.org/device?user_code=WDPL-XK9R",
+      restart: vi.fn(),
+    }),
+  };
+});
+
 let mockPreferredMethod: AuthStage = "otp-email";
 
 const renderWithAuthStage = (stage: AuthStage) => {
@@ -52,5 +69,11 @@ describe("LoginFormSwitcher", () => {
 
     expect(screen.getByText("Username or email")).toBeInTheDocument();
     expect(screen.getByText("Password")).toBeInTheDocument();
+  });
+
+  it("should render the QR form for qr stage", () => {
+    renderWithAuthStage("qr");
+
+    expect(screen.getByText("Scan to sign in")).toBeInTheDocument();
   });
 });

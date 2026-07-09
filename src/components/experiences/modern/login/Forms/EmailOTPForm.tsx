@@ -1,6 +1,7 @@
 "use client";
 
 import { applicationSlice } from "@/lib/features/application/frontend";
+import { isQrLoginEnabled } from "@/lib/features/authentication/flags";
 import { savePreferredLoginMethod } from "@/lib/features/application/login-method-storage";
 import { useAppDispatch } from "@/lib/hooks";
 import { useOTPRequest } from "@/src/hooks/authenticationHooks";
@@ -32,6 +33,12 @@ export default function EmailOTPForm({
     event.preventDefault();
     savePreferredLoginMethod("password");
     dispatch(applicationSlice.actions.setAuthStage("password"));
+  };
+
+  const handleSwitchToQr = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    savePreferredLoginMethod("qr");
+    dispatch(applicationSlice.actions.setAuthStage("qr"));
   };
 
   return (
@@ -70,6 +77,18 @@ export default function EmailOTPForm({
           Sign in with password instead
         </Link>
       </Typography>
+      {isQrLoginEnabled() && (
+        <Typography level="body-sm" sx={{ mt: 1, textAlign: "center" }}>
+          <Link
+            component="button"
+            type="button"
+            onClick={handleSwitchToQr}
+            disabled={isLoading}
+          >
+            Sign in with a QR code
+          </Link>
+        </Typography>
+      )}
     </form>
   );
 }
