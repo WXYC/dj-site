@@ -3,7 +3,6 @@
 import { AlbumEntry, Genre } from "@/lib/features/catalog/types";
 import Box from "@mui/joy/Box";
 import Checkbox from "@mui/joy/Checkbox";
-import Chip from "@mui/joy/Chip";
 import IconButton from "@mui/joy/IconButton";
 import Typography from "@mui/joy/Typography";
 
@@ -17,9 +16,10 @@ import { useCatalogQuerySearch } from "@/src/hooks/catalogHooks";
 import { QueueMusic } from "@mui/icons-material";
 import { useQueue, useShowControl } from "@/src/hooks/flowsheetHooks";
 import { useAppDispatch } from "@/lib/hooks";
-import { GENRE_COLORS, GENRE_VARIANTS } from "../ArtistAvatar";
+import { GENRE_COLORS } from "../ArtistAvatar";
 import AddRemoveBin from "./AddRemoveBin";
 import { MatchedTrackChips } from "./MatchedTrackChips";
+import { ReleaseChips } from "./ReleaseChips";
 import { convertBinToQueue } from "@/lib/features/bin/conversions";
 import { toast } from "sonner";
 
@@ -31,7 +31,16 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
   const { selected, setSelection, sortBy } = useCatalogQuerySearch();
 
   const genreColor = GENRE_COLORS[(album.artist.genre as Genre) ?? "Unknown"] ?? "neutral";
-  const genreVariant = GENRE_VARIANTS[(album.artist.genre as Genre) ?? "Unknown"] ?? "soft";
+
+  // Clamp instead of ellipsizing a single line; full text stays recoverable
+  // via the title attribute.
+  const lineClampSx = {
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
+    overflow: "hidden",
+    overflowWrap: "anywhere",
+  } as const;
 
   return (
     <tr
@@ -91,10 +100,16 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
               fontWeight={sortBy === "artist" ? "bold" : "normal"}
               level="body-sm"
               textColor="text.primary"
+              title={album.album_artist ? "Various Artists" : album.artist.name}
+              sx={lineClampSx}
             >
               {album.album_artist ? "Various Artists" : album.artist.name}
             </Typography>
-            <Typography level="body-sm">
+            <Typography
+              level="body-sm"
+              title={album.album_artist ?? album.alternate_artist}
+              sx={lineClampSx}
+            >
               {album.album_artist ?? album.alternate_artist}
             </Typography>
           </div>
@@ -105,46 +120,25 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
           fontWeight={sortBy === "album" ? "bold" : "normal"}
           level="body-sm"
           textColor="text.primary"
+          title={album.title}
+          sx={lineClampSx}
         >
           {album.title}
         </Typography>
+        <ReleaseChips
+          genre={album.artist.genre}
+          format={album.format}
+          onStreaming={album.on_streaming}
+        />
         <MatchedTrackChips matched_via={album.matched_via} />
       </td>
       <td>
-        <Stack direction="row" gap={0.75} alignItems="center" flexWrap="nowrap">
-          <Chip
-            variant={genreVariant}
-            color={genreColor}
-            size="sm"
-          >
-            {album.artist.genre}
-          </Chip>
-          <Chip
-            variant="soft"
-            size="sm"
-            color={album.format.includes("Vinyl") ? "primary" : "warning"}
-          >
-            {album.format}
-          </Chip>
-          {album.on_streaming === false && (
-            <Chip
-              variant="soft"
-              size="sm"
-              sx={{
-                backgroundColor: "#7B2D8E",
-                color: "#fff",
-                fontWeight: "bold",
-                fontSize: "0.65rem",
-                letterSpacing: "0.5px",
-              }}
-            >
-              WXYC EXCLUSIVE
-            </Chip>
-          )}
-          <Typography level="body-sm" noWrap>
-            {album.artist.lettercode} {album.artist.numbercode}/{album.entry}
-          </Typography>
-        </Stack>
+        <Typography
+          level="body-sm"
+          sx={{ fontFamily: "code", whiteSpace: "nowrap" }}
+        >
+          {album.artist.lettercode} {album.artist.numbercode}/{album.entry}
+        </Typography>
       </td>
       <td>
         <Typography level="body-sm">
