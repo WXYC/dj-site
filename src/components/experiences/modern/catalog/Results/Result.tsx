@@ -6,10 +6,9 @@ import Checkbox from "@mui/joy/Checkbox";
 import IconButton from "@mui/joy/IconButton";
 import Typography from "@mui/joy/Typography";
 
-import { Album as AlbumIcon } from "@mui/icons-material";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
-import { Avatar, Stack, Tooltip } from "@mui/joy";
+import { Stack, Tooltip } from "@mui/joy";
 
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { useCatalogQuerySearch } from "@/src/hooks/catalogHooks";
@@ -31,6 +30,10 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
   const { selected, setSelection, sortBy } = useCatalogQuerySearch();
 
   const genreColor = GENRE_COLORS[(album.artist.genre as Genre) ?? "Unknown"] ?? "neutral";
+  const isSelected = selected.includes(album.id);
+
+  const artistDisplay = album.album_artist ? "Various Artists" : album.artist.name;
+  const artistDetail = album.album_artist ?? album.alternate_artist;
 
   // Clamp instead of ellipsizing a single line; full text stays recoverable
   // via the title attribute.
@@ -45,6 +48,7 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
   return (
     <tr
       key={album.id}
+      className={isSelected ? "row-selected" : undefined}
       onClick={() => dispatch(applicationSlice.actions.openPanel({ type: "album-detail", albumId: album.id }))}
       style={{ cursor: "pointer" }}
     >
@@ -53,8 +57,8 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
         onClick={(e) => e.stopPropagation()}
       >
         <Checkbox
-          checked={selected.includes(album.id)}
-          color={selected.includes(album.id) ? "primary" : undefined}
+          checked={isSelected}
+          color={isSelected ? "primary" : undefined}
           onChange={(event) => {
             setSelection(
               event.target.checked
@@ -73,80 +77,130 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
             src={album.artwork_url}
             alt={`${album.artist.name} - ${album.title}`}
             sx={{
-              width: 40,
-              height: 40,
+              width: 48,
+              height: 48,
               borderRadius: "sm",
               objectFit: "cover",
             }}
           />
         ) : (
-          <Avatar
-            variant="soft"
-            color={genreColor}
+          <Box
+            aria-hidden
             sx={{
-              width: 40,
-              height: 40,
+              width: 48,
+              height: 48,
               borderRadius: "sm",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: (theme) =>
+                `linear-gradient(135deg, ${theme.vars.palette[genreColor][400]}, ${theme.vars.palette[genreColor][700]})`,
             }}
           >
-            <AlbumIcon />
-          </Avatar>
+            <Typography
+              level="title-sm"
+              sx={{
+                color: "#fff",
+                opacity: 0.9,
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+              }}
+            >
+              {album.artist.lettercode}
+            </Typography>
+          </Box>
         )}
       </td>
       <td>
-        <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-          <div>
-            <Typography
-              fontWeight={sortBy === "artist" ? "bold" : "normal"}
-              level="body-sm"
-              textColor="text.primary"
-              title={album.album_artist ? "Various Artists" : album.artist.name}
-              sx={lineClampSx}
-            >
-              {album.album_artist ? "Various Artists" : album.artist.name}
-            </Typography>
-            <Typography
-              level="body-sm"
-              title={album.album_artist ?? album.alternate_artist}
-              sx={lineClampSx}
-            >
-              {album.album_artist ?? album.alternate_artist}
-            </Typography>
-          </div>
-        </Box>
-      </td>
-      <td>
         <Typography
-          fontWeight={sortBy === "album" ? "bold" : "normal"}
-          level="body-sm"
+          level="title-sm"
+          fontWeight={sortBy === "album" ? "lg" : "md"}
           textColor="text.primary"
           title={album.title}
           sx={lineClampSx}
         >
           {album.title}
         </Typography>
+        <Stack
+          direction="row"
+          gap={0.75}
+          alignItems="center"
+          sx={{ marginTop: 0.25, minWidth: 0 }}
+        >
+          <Typography
+            level="body-sm"
+            fontWeight={sortBy === "artist" ? "bold" : "md"}
+            textColor="text.secondary"
+            noWrap
+            title={artistDisplay}
+            sx={{ flexShrink: 1, minWidth: 0 }}
+          >
+            {artistDisplay}
+          </Typography>
+          {artistDetail && (
+            <>
+              <Typography level="body-sm" textColor="text.tertiary" sx={{ flexShrink: 0 }}>
+                ·
+              </Typography>
+              <Typography
+                level="body-sm"
+                textColor="text.tertiary"
+                noWrap
+                title={artistDetail}
+                sx={{ flexShrink: 1, minWidth: 0 }}
+              >
+                {artistDetail}
+              </Typography>
+            </>
+          )}
+        </Stack>
+        <MatchedTrackChips matched_via={album.matched_via} />
+      </td>
+      <td>
         <ReleaseChips
           genre={album.artist.genre}
           format={album.format}
+          rotation={album.rotation_bin}
           onStreaming={album.on_streaming}
         />
-        <MatchedTrackChips matched_via={album.matched_via} />
       </td>
       <td>
         <Typography
           level="body-sm"
+          textColor="text.secondary"
           sx={{ fontFamily: "code", whiteSpace: "nowrap" }}
         >
           {album.artist.lettercode} {album.artist.numbercode}/{album.entry}
         </Typography>
       </td>
       <td>
-        <Typography level="body-sm">
+        <Typography
+          level="body-sm"
+          textColor={
+            album.plays != null && album.plays > 0
+              ? "text.secondary"
+              : "text.tertiary"
+          }
+        >
           {album.plays != null && album.plays > 0 ? album.plays : "—"}
         </Typography>
       </td>
-      <td onClick={(e) => e.stopPropagation()}>
-        <Stack direction="row" gap={0.25}>
+      <td style={{ position: "relative" }}>
+        <Stack
+          direction="row"
+          gap={0.25}
+          className="row-actions"
+          onClick={(e) => e.stopPropagation()}
+          sx={{
+            position: "absolute",
+            right: 8,
+            top: "50%",
+            transform: "translateY(-50%)",
+            borderRadius: "sm",
+            pl: 3,
+            pr: 0.5,
+          }}
+        >
           <Tooltip variant="outlined" size="sm" title="More information">
             <IconButton
               aria-label="More information"

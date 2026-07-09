@@ -28,7 +28,7 @@ vi.mock("@/src/hooks/catalogHooks", () => ({
 
 import CatalogResult from "../Result";
 
-describe("CatalogResult plays column (Bug 12)", () => {
+describe("CatalogResult plays metadata (Bug 12)", () => {
   it("should display the actual play count, not hardcoded 0", () => {
     const album = createTestAlbum({ plays: 42 });
 
@@ -40,11 +40,7 @@ describe("CatalogResult plays column (Bug 12)", () => {
       </table>
     );
 
-    const cells = document.querySelectorAll("td");
-    const playsCell = Array.from(cells).find(
-      (cell) => cell.textContent?.trim() === "42"
-    );
-    expect(playsCell).toBeDefined();
+    expect(screen.getByText("42")).toBeDefined();
   });
 
   it("should display dash when plays is 0", () => {
@@ -58,11 +54,7 @@ describe("CatalogResult plays column (Bug 12)", () => {
       </table>
     );
 
-    const cells = document.querySelectorAll("td");
-    const playsCell = Array.from(cells).find(
-      (cell) => cell.textContent?.trim() === "—"
-    );
-    expect(playsCell).toBeDefined();
+    expect(screen.getByText("—")).toBeDefined();
   });
 
   it("should display dash when plays is undefined", () => {
@@ -76,11 +68,7 @@ describe("CatalogResult plays column (Bug 12)", () => {
       </table>
     );
 
-    const cells = document.querySelectorAll("td");
-    const playsCell = Array.from(cells).find(
-      (cell) => cell.textContent?.trim() === "—"
-    );
-    expect(playsCell).toBeDefined();
+    expect(screen.getByText("—")).toBeDefined();
   });
 });
 
@@ -189,7 +177,7 @@ describe("CatalogResult call number column", () => {
     entry: 4,
   });
 
-  it("should render the call number in its own cell with no chips", () => {
+  it("should render the call number in its own aligned cell with no chips", () => {
     renderWithProviders(
       <table>
         <tbody>
@@ -198,10 +186,8 @@ describe("CatalogResult call number column", () => {
       </table>
     );
 
-    const callCell = Array.from(document.querySelectorAll("td")).find((cell) =>
-      cell.textContent?.includes("RO 87/4")
-    );
-    expect(callCell).toBeDefined();
+    const callCell = screen.getByText("RO 87/4").closest("td");
+    expect(callCell).not.toBeNull();
     expect(callCell!.textContent?.trim()).toBe("RO 87/4");
     expect(callCell!.querySelectorAll(".MuiChip-root")).toHaveLength(0);
   });
@@ -219,7 +205,7 @@ describe("CatalogResult call number column", () => {
     expect(getComputedStyle(callNumber).whiteSpace).toBe("nowrap");
   });
 
-  it("should render genre and format chips inside the title cell", () => {
+  it("should render genre and format chips in their own aligned cell", () => {
     renderWithProviders(
       <table>
         <tbody>
@@ -228,12 +214,11 @@ describe("CatalogResult call number column", () => {
       </table>
     );
 
-    const titleCell = Array.from(document.querySelectorAll("td")).find((cell) =>
-      cell.textContent?.includes(album.title)
-    );
-    expect(titleCell).toBeDefined();
-    expect(titleCell!.textContent).toContain(album.artist.genre);
-    expect(titleCell!.textContent).toContain(album.format);
+    const chipsCell = screen.getByText(album.artist.genre).closest("td");
+    expect(chipsCell).not.toBeNull();
+    expect(chipsCell!.textContent).toContain(album.format);
+    // Chips column, not mixed into the release identity
+    expect(chipsCell!.textContent).not.toContain(album.title);
   });
 });
 
