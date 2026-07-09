@@ -105,9 +105,8 @@ export function betterAuthSessionToAuthenticationData(
 
   const username = session.user.username || session.user.name;
 
-  // Check onboarding status using the explicit flag.
-  // Use strict === false so that undefined (field absent from backend) is treated as complete.
-  if (session.user.hasCompletedOnboarding === false) {
+  // Treat undefined/absent as incomplete (`!== true`), matching server-utils.
+  if (session.user.hasCompletedOnboarding !== true) {
     // Compute which profile fields are still missing for the onboarding form
     const missingAttributes: (keyof VerifiedData)[] = [];
     if (!session.user.realName || session.user.realName.trim() === "") {
@@ -198,9 +197,8 @@ export async function betterAuthSessionToAuthenticationDataAsync(
 
   const username = session.user.username || session.user.name;
 
-  // Check onboarding status using the explicit flag.
-  // Use strict === false so that undefined (field absent from backend) is treated as complete.
-  if (session.user.hasCompletedOnboarding === false) {
+  // Treat undefined/absent as incomplete (`!== true`), matching server-utils.
+  if (session.user.hasCompletedOnboarding !== true) {
     // Compute which profile fields are still missing for the onboarding form
     const missingAttributes: (keyof VerifiedData)[] = [];
     if (!session.user.realName || session.user.realName.trim() === "") {

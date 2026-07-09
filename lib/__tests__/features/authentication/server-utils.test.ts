@@ -173,16 +173,13 @@ describe("server-utils", () => {
       expect(mockRedirect).toHaveBeenCalledWith("/login?incomplete=true&bounced=incomplete");
     });
 
-    it("should not redirect when hasCompletedOnboarding is not in session", async () => {
-      // Simulate a session where better-auth didn't include hasCompletedOnboarding at all
+    it("should redirect when hasCompletedOnboarding is not in session", async () => {
       const session = createTestBetterAuthSession();
       delete (session.user as any).hasCompletedOnboarding;
       mockGetSession.mockResolvedValue({ data: session, error: null });
 
-      const result = await requireAuth();
-
-      expect(result.user.id).toBe(session.user.id);
-      expect(mockRedirect).not.toHaveBeenCalled();
+      await expect(requireAuth()).rejects.toThrow("REDIRECT:/login?incomplete=true&bounced=incomplete");
+      expect(mockRedirect).toHaveBeenCalledWith("/login?incomplete=true&bounced=incomplete");
     });
   });
 

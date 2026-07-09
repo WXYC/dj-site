@@ -1,8 +1,6 @@
-import { test, expect, TEST_USERS, TEMP_PASSWORD } from "../../fixtures/auth.fixture";
+import { test, expect, TEST_USERS, completeOnboardingWithInviteToken } from "../../fixtures/auth.fixture";
 import { DashboardPage } from "../../pages/dashboard.page";
 import { RosterPage } from "../../pages/roster.page";
-import { LoginPage } from "../../pages/login.page";
-import { OnboardingPage } from "../../pages/onboarding.page";
 import { generateUsername, generateEmail } from "../../helpers/test-data";
 import path from "path";
 
@@ -258,7 +256,7 @@ test.describe("Non-Admin User Creation Restrictions", () => {
 test.describe("New User Can Login", () => {
   test.use({ storageState: path.join(authDir, "stationManager.json") });
 
-  test("newly created user should be able to login with temporary password", async ({ page, browser }) => {
+  test("newly created user can complete invite onboarding and sign in", async ({ page, browser }) => {
     const dashboardPage = new DashboardPage(page);
     const rosterPage = new RosterPage(page);
 
@@ -291,29 +289,13 @@ test.describe("New User Can Login", () => {
     // Clear any cookies that might have been set
     await newUserContext.clearCookies();
 
-    const newUserLoginPage = new LoginPage(newUserPage);
-    const newUserOnboarding = new OnboardingPage(newUserPage);
     const newUserDashboard = new DashboardPage(newUserPage);
 
-    // Login as the newly created user with the temp password
-    await newUserLoginPage.goto();
-    await newUserPage.waitForLoadState("networkidle");
+    const newPassword = "NewPassword1";
 
-    // Switch to password login and verify we're on the login page
-    await newUserLoginPage.switchToPasswordLogin();
-    await expect(newUserPage.locator('input[name="username"]')).toBeVisible({ timeout: 5000 });
+    // Complete onboarding via invite email token
+    await completeOnboardingWithInviteToken(newUserPage, email, newPassword);
 
-    await newUserLoginPage.login(username, TEMP_PASSWORD);
-
-    // Admin-created users have hasCompletedOnboarding=false and are
-    // redirected to onboarding to set their own password
-    await newUserLoginPage.waitForRedirectToOnboarding();
-
-    // Complete onboarding (profile is pre-filled, only password needed)
-    await newUserOnboarding.completePasswordOnlyOnboarding("NewPassword1");
-
-    // After onboarding, user reaches the dashboard
-    await newUserOnboarding.expectRedirectToDashboard();
     await newUserDashboard.expectOnDashboard();
 
     // Cleanup

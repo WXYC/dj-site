@@ -8,13 +8,12 @@ Why the sequence matters: the migration PR adds a `preview` job under the preser
 
 - [ ] **P0. Confirm the `wxyc-dj` Pages "production branch" is `main`.** Dashboard → Workers & Pages → `wxyc-dj` → Settings → Builds & deployments. Direct Upload publishes to *production* only when `deploy-cf-pages.sh --branch main` matches the project's configured production branch. If it is set to `prod` (a never-completed earlier plan), `--branch main` would publish a *preview* and leave `dj.wxyc.org` silently stale while the CI job reports success. Also confirm `Type Check` / `Unit Tests` / `Build` remain **required** status checks in branch protection — the "a skipped preview is safe" property depends on those independently blocking merge.
 - [ ] **P1. Upgrade the `CLOUDFLARE_API_TOKEN` scope.** It was minted for reads (monitor/smoke). Direct Upload needs **Account → Cloudflare Pages → Edit**. Update the token value in **both** secret contexts: Settings → Secrets and variables → *Actions*, and → *Dependabot*. (Blocks every `wrangler pages deploy`, including the migration PR's own preview.)
-- [ ] **P2. Populate build-time repo variables** (Settings → Secrets and variables → Actions → Variables) matching the current Cloudflare dashboard build settings. (The dashboard stores those values encrypted — the Pages API redacts them — so parity values were recovered from the literals inlined in the live production/preview client bundles.) Production set (`NEXT_PUBLIC_*`) and preview set (`PREVIEW_NEXT_PUBLIC_*`). At minimum the three guarded vars in each set must be real values (non-localhost for the URLs), or `check-build-env.sh` fails the deploy:
+- [ ] **P2. Populate build-time repo variables** (Settings → Secrets and variables → Actions → Variables) matching the current Cloudflare dashboard build settings. (The dashboard stores those values encrypted — the Pages API redacts them — so parity values were recovered from the literals inlined in the live production/preview client bundles.) Production set (`NEXT_PUBLIC_*`) and preview set (`PREVIEW_NEXT_PUBLIC_*`). At minimum the two guarded URL vars in each set must be real values (non-localhost), or `check-build-env.sh` fails the deploy:
 
   | Variable (production) | Variable (preview) | Guarded? |
   |---|---|---|
   | `NEXT_PUBLIC_BACKEND_URL` | `PREVIEW_NEXT_PUBLIC_BACKEND_URL` | ✅ hard-fail if empty/localhost |
   | `NEXT_PUBLIC_BETTER_AUTH_URL` | `PREVIEW_NEXT_PUBLIC_BETTER_AUTH_URL` | ✅ hard-fail if empty/localhost |
-  | `NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD` | `PREVIEW_NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD` | ✅ hard-fail if empty (new-DJ onboarding login throws without it; admin roster provisioning breaks silently) |
   | `NEXT_PUBLIC_DASHBOARD_HOME_PAGE` | `PREVIEW_NEXT_PUBLIC_DASHBOARD_HOME_PAGE` | no (in-code default) |
   | `NEXT_PUBLIC_DEFAULT_EXPERIENCE` | `PREVIEW_NEXT_PUBLIC_DEFAULT_EXPERIENCE` | no |
   | `NEXT_PUBLIC_ENABLED_EXPERIENCES` | `PREVIEW_NEXT_PUBLIC_ENABLED_EXPERIENCES` | no |
@@ -30,6 +29,10 @@ Why the sequence matters: the migration PR adds a `preview` job under the preser
   Intentionally **not** migrated from the old dashboard build settings: `NEXT_PUBLIC_APP_ORGANIZATION` (its client-side reads use a `globalThis.process?.env` pattern the bundler never inlines, so the browser never saw the dashboard value; server-side reads keep working from the Pages project's runtime env, which persists across the migration), `NEXT_PUBLIC_SENTRY_DSN` (no Sentry references left in the codebase), `AUTH_REWRITE_URL` and `NPM_TOKEN` (runtime/Git-build concerns, not CI build inputs). Note the `/auth/*` proxy lives in `app/auth/[...path]/route.ts` (a Route Handler, not a `next.config.mjs` rewrite) and resolves its target per-request as `AUTH_REWRITE_URL || NEXT_PUBLIC_BETTER_AUTH_URL || https://api.wxyc.org/auth` — `AUTH_REWRITE_URL` is read from the worker's runtime env, `NEXT_PUBLIC_BETTER_AUTH_URL` is build-inlined. CI builds don't set `AUTH_REWRITE_URL`, so the proxy resolves from the build-inlined `NEXT_PUBLIC_BETTER_AUTH_URL`; to point production at a different target without a rebuild, set `AUTH_REWRITE_URL` in the Pages project's runtime env.
 
 ## Cutover — after prerequisites, in order
+
+### Invite-token onboarding (#827) — merge gate
+
+**Do not merge dj-site #827 to `main` until [Backend-Service #1558](https://github.com/WXYC/Backend-Service/pull/1558) is deployed to production.** The frontend calls `POST /auth/wxyc/complete-onboarding` and password-less `POST /auth/admin/provision-user`; those endpoints exist only on the Backend-Service branch until that PR ships. Deploy Backend-Service first, then merge and deploy dj-site. E2E on the PR branch already pairs with the matching Backend-Service ref via `.github/workflows/e2e-tests.yml`.
 
 With P0–P2 done, the migration PR's own `preview` check deploys a preview of the PR and probes it — that **is** the first proof previews work.
 

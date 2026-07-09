@@ -131,3 +131,52 @@ export async function lookupEmailByIdentifier(identifier: string): Promise<strin
   const data = (await response.json()) as { email?: string | null };
   return data.email ?? null;
 }
+
+export type CompleteOnboardingRequest = {
+  token?: string;
+  newPassword?: string;
+  realName?: string;
+  djName?: string;
+};
+
+export type CompleteOnboardingResponse = {
+  status: true;
+  userId: string;
+  email: string;
+  username?: string;
+};
+
+type CompleteOnboardingErrorPayload = {
+  error?: string;
+  message?: string;
+};
+
+/**
+ * Complete onboarding for an admin-provisioned DJ (invite token or session).
+ */
+export async function completeOnboarding(
+  body: CompleteOnboardingRequest
+): Promise<CompleteOnboardingResponse> {
+  const response = await fetch(`${baseURL}/wxyc/complete-onboarding`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  const payload = (await response.json().catch(() => null)) as
+    | CompleteOnboardingResponse
+    | CompleteOnboardingErrorPayload
+    | null;
+
+  if (!response.ok) {
+    const errorPayload = payload as CompleteOnboardingErrorPayload | null;
+    const message =
+      errorPayload?.error ||
+      errorPayload?.message ||
+      "Failed to complete onboarding";
+    throw new Error(message);
+  }
+
+  return payload as CompleteOnboardingResponse;
+}

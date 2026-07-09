@@ -1,19 +1,23 @@
-import { getServerSession } from "@/lib/features/authentication/server-utils";
 import { redirect } from "next/navigation";
 import Header from "@/src/components/experiences/classic/login/Layout/Header";
 import OnboardingForm from "@/src/components/experiences/modern/login/Forms/OnboardingForm";
+import AuthLinkSessionGuard from "@/src/components/experiences/modern/login/AuthLinkSessionGuard";
 
-export default async function ClassicOnboardingPage() {
-  const session = await getServerSession();
-  if (!session) {
+type ClassicOnboardingPageProps = {
+  searchParams: Promise<{ token?: string; error?: string }>;
+};
+
+/**
+ * Invite-token onboarding (classic experience). Requires ?token= from the
+ * invite email; signed-in incomplete users complete onboarding at
+ * /login?incomplete=true instead.
+ */
+export default async function ClassicOnboardingPage({ searchParams }: ClassicOnboardingPageProps) {
+  const { token, error } = await searchParams;
+
+  if (!token && !error) {
     redirect("/login");
   }
-
-  const username =
-    session.user.username ||
-    session.user.name ||
-    session.user.email?.split("@")[0] ||
-    "";
 
   return (
     <div
@@ -27,11 +31,17 @@ export default async function ClassicOnboardingPage() {
       }}
     >
       <Header />
-      <OnboardingForm
-        username={username}
-        realName={session.user.realName || undefined}
-        djName={session.user.djName || undefined}
-      />
+      {error && (
+        <p>This setup link is invalid or expired. Ask your station manager to resend the invite.</p>
+      )}
+      {token && !error && (
+        <AuthLinkSessionGuard
+          linkToken={token}
+          loadingMessage="Preparing your account setup…"
+        >
+          <OnboardingForm />
+        </AuthLinkSessionGuard>
+      )}
       <footer>
         <p>Copyright &copy; {new Date().getFullYear()} WXYC Chapel Hill</p>
       </footer>

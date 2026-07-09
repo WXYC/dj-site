@@ -46,6 +46,7 @@ const mockSendVerificationOtp = vi.fn();
 const mockLookupEmailByIdentifier = vi.fn();
 const mockSignOut = vi.fn();
 const mockClearTokenCache = vi.fn();
+const mockCompleteOnboarding = vi.fn();
 vi.mock("@/lib/features/authentication/client", () => ({
   authClient: {
     updateUser: (...args: any[]) => mockUpdateUser(...args),
@@ -68,6 +69,7 @@ vi.mock("@/lib/features/authentication/client", () => ({
   authBaseURL: `${window.location.origin}/auth`,
   clearTokenCache: (...args: any[]) => mockClearTokenCache(...args),
   lookupEmailByIdentifier: (...args: any[]) => mockLookupEmailByIdentifier(...args),
+  completeOnboarding: (...args: any[]) => mockCompleteOnboarding(...args),
 }));
 
 // Mock throwIfBetterAuthError
@@ -145,8 +147,13 @@ describe("authenticationHooks", () => {
       },
     });
     mockSearchParams.mockReturnValue(new URLSearchParams(""));
-    process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD = "temp123";
     process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE = "/dashboard/flowsheet";
+    mockCompleteOnboarding.mockResolvedValue({
+      status: true,
+      userId: "user-1",
+      email: "dj@example.com",
+      username: "testdj",
+    });
     // Default: the server can see the freshly-established session on the first
     // check, so redirectAfterAuth's confirm-before-navigate gate passes without
     // any retry delay. Individual tests override this to exercise the race.
@@ -242,14 +249,13 @@ describe("authenticationHooks", () => {
       });
     });
 
-    it("should redirect to dashboard when hasCompletedOnboarding is undefined (backward compat)", async () => {
+    it("should redirect to incomplete when hasCompletedOnboarding is undefined", async () => {
       mockSignInUsername.mockResolvedValue({
         data: {
           user: {
             id: "user-1",
             realName: "Test User",
             djName: "DJ Test",
-            // hasCompletedOnboarding not present — backend hasn't been updated yet
           },
         },
       });
@@ -269,10 +275,10 @@ describe("authenticationHooks", () => {
         await result.current.handleLogin(form);
       });
 
-      expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
+      expect(mockPush).toHaveBeenCalledWith("/login?incomplete=true");
       expect(mockSafeCapture).toHaveBeenCalledWith("login_post_redirect", {
         method: "password",
-        destination: "dashboard",
+        destination: "incomplete",
         has_completed_onboarding: null,
         user_id: "user-1",
         session_confirmed: true,
@@ -482,20 +488,18 @@ describe("authenticationHooks", () => {
   });
 
   describe("useNewUser", () => {
-    it("should include hasCompletedOnboarding: true in updateUser call", async () => {
-      mockGetSession.mockResolvedValue({
-        data: { user: { id: "user-1" } },
-      });
-      mockUpdateUser.mockResolvedValue({ data: {} });
-      mockChangePassword.mockResolvedValue({ data: {} });
+    it("invite mode: posts token + password, signs in via authClient, redirects to dashboard", async () => {
+      mockSearchParams.mockReturnValue(
+        new URLSearchParams("token=setup-token-abc"),
+      );
+      mockSignInEmail.mockResolvedValue({ data: { user: { id: "user-1" } } });
 
       const { useNewUser } = await import("./authenticationHooks");
-      const { result } = renderHook(() => useNewUser(), { wrapper: createWrapper() });
+      const { result } = renderHook(() => useNewUser("invite"), { wrapper: createWrapper() });
 
       const form = {
         preventDefault: vi.fn(),
         currentTarget: {
-          username: { value: "testdj" },
           password: { value: "NewPassword1" },
           realName: { value: "Real Name" },
           djName: { value: "DJ Name" },
@@ -506,102 +510,114 @@ describe("authenticationHooks", () => {
         await result.current.handleNewUser(form);
       });
 
-      expect(mockUpdateUser).toHaveBeenCalledWith({
-        hasCompletedOnboarding: true,
+      expect(mockCompleteOnboarding).toHaveBeenCalledWith({
+        realName: "Real Name",
+        djName: "DJ Name",
+        token: "setup-token-abc",
+        newPassword: "NewPassword1",
+      });
+      expect(mockClearTokenCache).toHaveBeenCalled();
+      expect(mockSignInEmail).toHaveBeenCalledWith({
+        email: "dj@example.com",
+        password: "NewPassword1",
+      });
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
+    });
+
+    it("invite mode: routes to login when sign-in fails after onboarding succeeds", async () => {
+      mockSearchParams.mockReturnValue(
+        new URLSearchParams("token=setup-token-abc"),
+      );
+      mockSignInEmail.mockResolvedValue({
+        error: { message: "Email not verified" },
+      });
+
+      const { useNewUser } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useNewUser("invite"), { wrapper: createWrapper() });
+
+      const form = {
+        preventDefault: vi.fn(),
+        currentTarget: {
+          password: { value: "NewPassword1" },
+          realName: { value: "Real Name" },
+          djName: { value: "" },
+        },
+      } as any;
+
+      await act(async () => {
+        await result.current.handleNewUser(form);
+      });
+
+      expect(mockPush).toHaveBeenCalledWith("/login");
+      const { toast } = await import("sonner");
+      expect(toast.success).toHaveBeenCalledWith(
+        "Account setup complete. Please sign in with your new password."
+      );
+    });
+
+    it("invite mode: rejects onboarding without a setup token", async () => {
+      mockSearchParams.mockReturnValue(new URLSearchParams(""));
+
+      const { useNewUser } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useNewUser("invite"), { wrapper: createWrapper() });
+
+      const form = {
+        preventDefault: vi.fn(),
+        currentTarget: {
+          password: { value: "NewPassword1" },
+          realName: { value: "Real Name" },
+          djName: { value: "" },
+        },
+      } as any;
+
+      await act(async () => {
+        await result.current.handleNewUser(form);
+      });
+
+      expect(mockCompleteOnboarding).not.toHaveBeenCalled();
+      expect(mockPush).not.toHaveBeenCalled();
+    });
+
+    it("session mode: posts profile fields only and redirects without signing in", async () => {
+      const { useNewUser } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useNewUser("session"), { wrapper: createWrapper() });
+
+      const form = {
+        preventDefault: vi.fn(),
+        currentTarget: {
+          realName: { value: "Real Name" },
+          djName: { value: "DJ Name" },
+        },
+      } as any;
+
+      await act(async () => {
+        await result.current.handleNewUser(form);
+      });
+
+      expect(mockCompleteOnboarding).toHaveBeenCalledWith({
         realName: "Real Name",
         djName: "DJ Name",
       });
-    });
-
-    it("redirects to the dashboard and captures the onboarding redirect on success", async () => {
-      mockGetSession.mockResolvedValue({
-        data: { user: { id: "user-1" } },
-      });
-      mockUpdateUser.mockResolvedValue({ data: {} });
-      mockChangePassword.mockResolvedValue({ data: {} });
-
-      const { useNewUser } = await import("./authenticationHooks");
-      const { result } = renderHook(() => useNewUser(), { wrapper: createWrapper() });
-
-      const form = {
-        preventDefault: vi.fn(),
-        currentTarget: {
-          username: { value: "testdj" },
-          password: { value: "NewPassword1" },
-          realName: { value: "Real Name" },
-          djName: { value: "DJ Name" },
-        },
-      } as any;
-
-      await act(async () => {
-        await result.current.handleNewUser(form);
-      });
-
+      expect(mockSignInEmail).not.toHaveBeenCalled();
+      expect(mockSignInUsername).not.toHaveBeenCalled();
       expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
-      expect(mockSafeCapture).toHaveBeenCalledWith("login_post_redirect", {
-        method: "onboarding",
-        destination: "dashboard",
-        has_completed_onboarding: true,
-        user_id: "user-1",
-        session_confirmed: true,
-      });
     });
 
-    it("should set hasCompletedOnboarding even when profile fields are already filled", async () => {
-      mockGetSession.mockResolvedValue({
-        data: { user: { id: "user-1" } },
-      });
-      mockUpdateUser.mockResolvedValue({ data: {} });
-      mockChangePassword.mockResolvedValue({ data: {} });
+    it("does not navigate when complete-onboarding fails", async () => {
+      mockSearchParams.mockReturnValue(
+        new URLSearchParams("token=setup-token-abc"),
+      );
+      mockCompleteOnboarding.mockRejectedValue(new Error("Invalid or expired setup token"));
 
       const { useNewUser } = await import("./authenticationHooks");
-      const { result } = renderHook(() => useNewUser(), { wrapper: createWrapper() });
-
-      // Simulate form where realName/djName inputs don't exist (admin pre-filled them)
-      const form = {
-        preventDefault: vi.fn(),
-        currentTarget: {
-          username: { value: "testdj" },
-          password: { value: "NewPassword1" },
-          realName: undefined,
-          djName: undefined,
-        },
-      } as any;
-
-      await act(async () => {
-        await result.current.handleNewUser(form);
-      });
-
-      expect(mockUpdateUser).toHaveBeenCalledWith({
-        hasCompletedOnboarding: true,
-      });
-    });
-
-    it("calls changePassword before updateUser so a failed password change leaves hasCompletedOnboarding untouched", async () => {
-      mockGetSession.mockResolvedValue({
-        data: { user: { id: "user-1" } },
-      });
-
-      const callOrder: string[] = [];
-      mockChangePassword.mockImplementation(async () => {
-        callOrder.push("changePassword");
-        return { data: {} };
-      });
-      mockUpdateUser.mockImplementation(async () => {
-        callOrder.push("updateUser");
-        return { data: {} };
-      });
-
-      const { useNewUser } = await import("./authenticationHooks");
-      const { result } = renderHook(() => useNewUser(), { wrapper: createWrapper() });
+      const { result } = renderHook(() => useNewUser("invite"), { wrapper: createWrapper() });
 
       const form = {
         preventDefault: vi.fn(),
         currentTarget: {
-          username: { value: "testdj" },
           password: { value: "NewPassword1" },
           realName: { value: "Real Name" },
-          djName: { value: "DJ Name" },
+          djName: { value: "" },
         },
       } as any;
 
@@ -609,49 +625,10 @@ describe("authenticationHooks", () => {
         await result.current.handleNewUser(form);
       });
 
-      expect(callOrder).toEqual(["changePassword", "updateUser"]);
-      expect(mockChangePassword).toHaveBeenCalledWith({
-        currentPassword: "temp123",
-        newPassword: "NewPassword1",
-      });
-    });
-
-    it("does not call updateUser when changePassword rejects, so hasCompletedOnboarding stays false", async () => {
-      mockGetSession.mockResolvedValue({
-        data: { user: { id: "user-1" } },
-      });
-      mockChangePassword.mockResolvedValue({
-        data: null,
-        error: { message: "Current password is incorrect" },
-      });
-
-      const { throwIfBetterAuthError } = await import("@/src/utilities/throwIfBetterAuthError");
-      (throwIfBetterAuthError as any).mockImplementation((res: any, msg: string) => {
-        if (res?.error) {
-          throw new Error(msg);
-        }
-      });
-
-      const { useNewUser } = await import("./authenticationHooks");
-      const { result } = renderHook(() => useNewUser(), { wrapper: createWrapper() });
-
-      const form = {
-        preventDefault: vi.fn(),
-        currentTarget: {
-          username: { value: "testdj" },
-          password: { value: "NewPassword1" },
-          realName: { value: "Real Name" },
-          djName: { value: "DJ Name" },
-        },
-      } as any;
-
-      await act(async () => {
-        await result.current.handleNewUser(form);
-      });
-
-      expect(mockChangePassword).toHaveBeenCalled();
-      expect(mockUpdateUser).not.toHaveBeenCalled();
+      expect(mockSignInEmail).not.toHaveBeenCalled();
       expect(mockPush).not.toHaveBeenCalled();
+      const { toast } = await import("sonner");
+      expect(toast.error).toHaveBeenCalledWith("Invalid or expired setup token");
     });
   });
 

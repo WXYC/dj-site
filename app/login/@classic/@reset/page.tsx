@@ -3,6 +3,7 @@
 import { PasswordResetUser } from "@/lib/features/authentication/types";
 import RequestPasswordResetForm from "@/src/components/experiences/modern/login/Forms/RequestPasswordResetForm";
 import ResetPasswordForm from "@/src/components/experiences/modern/login/Forms/ResetPasswordForm";
+import AuthLinkSessionGuard from "@/src/components/experiences/modern/login/AuthLinkSessionGuard";
 import { Alert } from "@mui/joy";
 import { useSearchParams } from "next/navigation";
 
@@ -27,7 +28,12 @@ export default function ClassicPasswordResetPage() {
     <>
       <Alert color={error ? "danger" : "neutral"}>{confirmationMessage}</Alert>
       {token ? (
-        <ResetPasswordForm {...resetData} />
+        <AuthLinkSessionGuard
+          linkToken={token}
+          loadingMessage="Preparing password reset…"
+        >
+          <ResetPasswordForm {...resetData} />
+        </AuthLinkSessionGuard>
       ) : (
         <RequestPasswordResetForm />
       )}

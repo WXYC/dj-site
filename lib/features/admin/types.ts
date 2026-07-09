@@ -34,7 +34,6 @@ export type NewAccountParams = {
   realName?: string;
   djName?: string;
   authorization: Authorization;
-  temporaryPassword: string;
 };
 
 export type PromotionParams = {

@@ -4,6 +4,7 @@ import { PasswordResetUser } from "@/lib/features/authentication/types";
 import AuthBackButton from "@/src/components/experiences/modern/login/Forms/AuthBackButton";
 import RequestPasswordResetForm from "@/src/components/experiences/modern/login/Forms/RequestPasswordResetForm";
 import ResetPasswordForm from "@/src/components/experiences/modern/login/Forms/ResetPasswordForm";
+import AuthLinkSessionGuard from "@/src/components/experiences/modern/login/AuthLinkSessionGuard";
 import ForgotQuotes from "@/src/components/experiences/modern/login/Quotes/Forgot";
 import { Alert } from "@mui/joy";
 import { useSearchParams } from "next/navigation";
@@ -25,6 +26,17 @@ export default function PasswordResetPage() {
     confirmationMessage,
   };
 
+  const resetForm = token ? (
+    <AuthLinkSessionGuard
+      linkToken={token}
+      loadingMessage="Preparing password reset…"
+    >
+      <ResetPasswordForm {...resetData} />
+    </AuthLinkSessionGuard>
+  ) : (
+    <RequestPasswordResetForm />
+  );
+
   return (
     <>
       <AuthBackButton text="Never mind, I remembered" />
@@ -32,11 +44,7 @@ export default function PasswordResetPage() {
       
       <Alert color={error ? "danger" : "neutral"}>{resetData.confirmationMessage}</Alert>
 
-      {token ? (
-        <ResetPasswordForm {...resetData} />
-      ) : (
-        <RequestPasswordResetForm />
-      )}
+      {resetForm}
     </>
   );
 }

@@ -260,19 +260,33 @@ export class RosterPage {
   /**
    * Get action buttons inside the edit modal.
    */
-  getModalActionButtons(): { resetPassword: Locator; delete: Locator } {
+  getModalActionButtons(): { sendPasswordReset: Locator; delete: Locator } {
     return {
-      resetPassword: this.editPanel.locator('button:has-text("Reset Password")'),
+      sendPasswordReset: this.editPanel.locator(
+        'button:has-text("Send Password Reset"), button:has-text("Send Invite")'
+      ),
       delete: this.editPanel.locator('button:has-text("Delete Account")'),
     };
   }
 
   /**
-   * Get action buttons for a user row — opens the modal first.
-   * @deprecated Use openEditModal() + getModalActionButtons() directly.
+   * @deprecated Use getModalActionButtons().sendPasswordReset
    */
   getActionButtons(username: string): { resetPassword: Locator; delete: Locator } {
-    return this.getModalActionButtons();
+    const buttons = this.getModalActionButtons();
+    return { resetPassword: buttons.sendPasswordReset, delete: buttons.delete };
+  }
+
+  async sendPasswordResetEmail(username: string): Promise<void> {
+    await this.openEditModal(username);
+    const { sendPasswordReset } = this.getModalActionButtons();
+    await sendPasswordReset.waitFor({ state: "visible", timeout: 10000 });
+    await sendPasswordReset.click({ force: true });
+  }
+
+  /** @deprecated Use sendPasswordResetEmail */
+  async resetUserPassword(username: string): Promise<void> {
+    await this.sendPasswordResetEmail(username);
   }
 
   async deleteUser(username: string): Promise<void> {
@@ -280,14 +294,6 @@ export class RosterPage {
     const { delete: deleteBtn } = this.getModalActionButtons();
     await deleteBtn.waitFor({ state: "visible", timeout: 5000 });
     await deleteBtn.click({ force: true });
-  }
-
-  async resetUserPassword(username: string): Promise<void> {
-    await this.openEditModal(username);
-    const { resetPassword } = this.getModalActionButtons();
-    await resetPassword.waitFor({ state: "visible", timeout: 5000 });
-    await this.page.waitForTimeout(300);
-    await resetPassword.click({ force: true });
   }
 
   /**
@@ -410,11 +416,16 @@ export class RosterPage {
     await this.closeEditModal();
   }
 
-  async expectResetPasswordButtonDisabled(username: string): Promise<void> {
+  async expectSendPasswordResetButtonHidden(username: string): Promise<void> {
     await this.openEditModal(username);
-    const { resetPassword } = this.getModalActionButtons();
-    await expect(resetPassword).toBeDisabled();
+    const { sendPasswordReset } = this.getModalActionButtons();
+    await expect(sendPasswordReset).not.toBeVisible();
     await this.closeEditModal();
+  }
+
+  /** @deprecated Admin self-edit hides the send-reset action instead of disabling it */
+  async expectResetPasswordButtonDisabled(username: string): Promise<void> {
+    await this.expectSendPasswordResetButtonHidden(username);
   }
 
   async getUserCount(): Promise<number> {
