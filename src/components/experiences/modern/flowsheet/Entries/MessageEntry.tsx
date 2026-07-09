@@ -73,6 +73,7 @@ export default function MessageEntry({
           height: "30px",
           borderRadius: "md",
         }}
+        colSpan={4}
       >
         {children}
       </Box>

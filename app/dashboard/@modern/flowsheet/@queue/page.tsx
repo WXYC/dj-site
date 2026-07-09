@@ -2,13 +2,12 @@
 
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import SongEntry from "@/src/components/experiences/modern/flowsheet/Entries/SongEntry/SongEntry";
-import { Table, useColorScheme } from "@mui/joy";
+import { Table } from "@mui/joy";
 import { Reorder } from "motion/react";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useCallback, useEffect, useState } from "react";
 
 export default function Queue() {
-  const { mode } = useColorScheme();
   const queue = useAppSelector((state) => state.flowsheet.queue);
   const dispatch = useAppDispatch();
   const [isMounted, setIsMounted] = useState(false);
@@ -24,17 +23,55 @@ export default function Queue() {
   }, []);
 
   return (
-    <Table borderAxis={mode == "dark" ? "x" : "x"} variant="soft">
+    <Table
+      borderAxis="none"
+      variant="soft"
+      sx={{
+        // Match the entries table's soft rounded-row treatment.
+        borderCollapse: "separate",
+        borderSpacing: "0 4px",
+        "--TableCell-paddingX": "12px",
+        "& tbody tr": { transition: "filter 120ms" },
+        "& tbody tr:hover": { filter: "brightness(1.08)" },
+        "& tbody tr > td": { backgroundColor: "var(--row-bg, transparent)" },
+        "& tbody tr > td:first-of-type": {
+          borderTopLeftRadius: "8px",
+          borderBottomLeftRadius: "8px",
+        },
+        "& tbody tr > td:last-of-type": {
+          borderTopRightRadius: "8px",
+          borderBottomRightRadius: "8px",
+        },
+        "@media (hover: hover)": {
+          "& tbody tr .row-actions > :not(.row-actions-persist)": {
+            opacity: 0,
+            transition: "opacity 120ms",
+          },
+          "& tbody tr:hover .row-actions > *, & tbody tr:focus-within .row-actions > *":
+            {
+              opacity: 1,
+            },
+          "& tbody tr:hover .row-actions, & tbody tr:focus-within .row-actions":
+            {
+              background:
+                "linear-gradient(to right, transparent, var(--row-bg) 18px)",
+            },
+        },
+      }}
+    >
       <thead
         style={{
           visibility: "collapse",
         }}
       >
-        {/* Column sizing only — must match the entries table's 3-cell grid. */}
+        {/* Column sizing only — must match the entries table's 6-column grid. */}
         <tr>
           <td style={{ width: "60px" }}></td>
           <td></td>
-          <td style={{ width: "140px" }}></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td style={{ width: "150px" }}></td>
         </tr>
       </thead>
       <Reorder.Group

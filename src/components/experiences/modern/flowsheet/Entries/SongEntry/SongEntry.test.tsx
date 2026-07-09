@@ -431,7 +431,7 @@ describe("SongEntry", () => {
       expect(checkboxes[1]).toBeChecked();
     });
 
-    it("should be disabled when not editable", () => {
+    it("should not render checkboxes when not editable", () => {
       mockUseShowControl.mockReturnValue({
         live: false,
         autoplay: false,
@@ -440,8 +440,8 @@ describe("SongEntry", () => {
 
       render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
 
-      const checkboxes = screen.getAllByRole("checkbox");
-      checkboxes.forEach((cb) => expect(cb).toBeDisabled());
+      // Read-only rows surface state via chips (REQ/SEGUE), not controls
+      expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
     });
 
     it("should be enabled when editable", () => {
@@ -820,29 +820,30 @@ describe("SongEntry two-line row structure", () => {
     });
   });
 
-  it("renders exactly 3 cells to match the collapsed thead grid", () => {
+  it("renders exactly 6 cells to match the collapsed thead grid", () => {
     render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
 
     const row = screen.getByTestId("draggable-wrapper");
-    expect(row.querySelectorAll(":scope > td")).toHaveLength(3);
+    expect(row.querySelectorAll(":scope > td")).toHaveLength(6);
   });
 
-  it("keeps all four editable fields inside the middle cell", () => {
+  it("gives each editable field its own column cell", () => {
     render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
 
-    const middleCell = screen
+    const cells = screen
       .getByTestId("draggable-wrapper")
-      .querySelectorAll(":scope > td")[1];
-    for (const field of [
+      .querySelectorAll(":scope > td");
+    const fieldOrder = [
       "track_title",
       "artist_name",
       "album_title",
       "record_label",
-    ]) {
+    ];
+    fieldOrder.forEach((field, index) => {
       expect(
-        middleCell.contains(screen.getByTestId(`field-${field}`))
+        cells[index + 1].contains(screen.getByTestId(`field-${field}`))
       ).toBe(true);
-    }
+    });
   });
 
   it("shows the rotation chip on the title line", () => {

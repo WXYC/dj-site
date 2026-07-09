@@ -26,7 +26,6 @@ import {
   IconButton,
   Stack,
   Tooltip,
-  Typography,
 } from "@mui/joy";
 import { useDragControls } from "motion/react";
 import { useState } from "react";
@@ -35,6 +34,14 @@ import RemoveButton from "../Components/RemoveButton";
 import DraggableEntryWrapper from "../DraggableEntryWrapper";
 import FlowsheetEntryField from "./FlowsheetEntryField";
 import { toast } from "sonner";
+
+// Caption-scale status pills, matching the catalog table's chip language.
+const STATUS_CHIP_SX = {
+  fontSize: "0.65rem",
+  fontWeight: 500,
+  "--Chip-minHeight": "16px",
+  "--Chip-paddingInline": "6px",
+} as const;
 
 export default function SongEntry({
   playing,
@@ -150,120 +157,113 @@ export default function SongEntry({
         </Stack>
       </td>
       <td onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
-        <Stack sx={{ minWidth: 0 }} justifyContent="center">
-          <Stack direction="row" alignItems="center" gap={1} sx={{ minWidth: 0 }}>
-            <FlowsheetEntryField
-              label="song"
-              name={"track_title"}
-              entry={entry}
-              playing={playing}
-              queue={queue}
-              editable={editable}
-              level="title-sm"
-              textColor={entryFieldTextColor("song", playing)}
-              sx={{ flex: "1 1 auto", minWidth: 0 }}
-            />
-            <Stack
-              direction="row"
-              gap={0.5}
-              alignItems="center"
-              sx={{ flexShrink: 0 }}
-            >
-              {entry.rotation && (
-                <Chip
-                  size="sm"
-                  variant="solid"
-                  color={getStyleForRotation(entry.rotation)}
-                  aria-label={`Rotation ${entry.rotation}`}
-                >
-                  {entry.rotation}
-                </Chip>
-              )}
-              {entry.on_streaming === false && (
-                <Chip
-                  variant="soft"
-                  size="sm"
-                  sx={{
-                    backgroundColor: "#7B2D8E",
-                    color: "#fff",
-                    fontWeight: "bold",
-                    fontSize: "0.6rem",
-                    letterSpacing: "0.5px",
-                  }}
-                >
-                  EXCLUSIVE
-                </Chip>
-              )}
-              {entry.request_flag && !editable && (
-                <Chip size="sm" variant="soft" color="warning">
-                  REQ
-                </Chip>
-              )}
-            </Stack>
-          </Stack>
-          <Stack
-            direction="row"
-            alignItems="baseline"
-            gap={0.75}
-            sx={{ minWidth: 0 }}
-          >
-            <FlowsheetEntryField
-              label="artist"
-              name={"artist_name"}
-              entry={entry}
-              playing={playing}
-              queue={queue}
-              editable={editable}
-              level="body-xs"
-              textColor={entryFieldTextColor("artist", playing)}
-              sx={{ flexShrink: 1, minWidth: 0 }}
-            />
-            <Typography
-              level="body-xs"
-              textColor={playing ? "common.white" : "text.tertiary"}
-              sx={{ flexShrink: 0 }}
-            >
-              ·
-            </Typography>
-            <FlowsheetEntryField
-              label="album"
-              name={"album_title"}
-              entry={entry}
-              playing={playing}
-              queue={queue}
-              editable={editable}
-              level="body-xs"
-              textColor={entryFieldTextColor("album", playing)}
-              sx={{ flexShrink: 1, minWidth: 0 }}
-            />
-            <Typography
-              level="body-xs"
-              textColor={playing ? "common.white" : "text.tertiary"}
-              sx={{ flexShrink: 0 }}
-            >
-              ·
-            </Typography>
-            <FlowsheetEntryField
-              label="label"
-              name={"record_label"}
-              entry={entry}
-              playing={playing}
-              queue={queue}
-              editable={editable}
-              level="body-xs"
-              textColor={entryFieldTextColor("label", playing)}
-              sx={{ flexShrink: 1, minWidth: 0 }}
-            />
-          </Stack>
-        </Stack>
+        <FlowsheetEntryField
+          label="song"
+          name={"track_title"}
+          entry={entry}
+          playing={playing}
+          queue={queue}
+          editable={editable}
+          level="title-sm"
+          textColor={entryFieldTextColor("song", playing)}
+        />
       </td>
       <td onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+        <FlowsheetEntryField
+          label="artist"
+          name={"artist_name"}
+          entry={entry}
+          playing={playing}
+          queue={queue}
+          editable={editable}
+          level="body-sm"
+          textColor={entryFieldTextColor("artist", playing)}
+        />
+      </td>
+      <td onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+        <FlowsheetEntryField
+          label="album"
+          name={"album_title"}
+          entry={entry}
+          playing={playing}
+          queue={queue}
+          editable={editable}
+          level="body-sm"
+          textColor={entryFieldTextColor("album", playing)}
+        />
+      </td>
+      <td onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+        <FlowsheetEntryField
+          label="label"
+          name={"record_label"}
+          entry={entry}
+          playing={playing}
+          queue={queue}
+          editable={editable}
+          level="body-sm"
+          textColor={entryFieldTextColor("label", playing)}
+        />
+      </td>
+      <td
+        style={{ position: "relative" }}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
+        <Stack direction="row" gap={0.75} alignItems="center" flexWrap="wrap">
+          {entry.rotation && (
+            <Chip
+              size="sm"
+              variant="solid"
+              color={getStyleForRotation(entry.rotation)}
+              aria-label={`Rotation ${entry.rotation}`}
+              sx={STATUS_CHIP_SX}
+            >
+              {entry.rotation}
+            </Chip>
+          )}
+          {entry.on_streaming === false && (
+            <Chip
+              variant="soft"
+              size="sm"
+              sx={{
+                ...STATUS_CHIP_SX,
+                backgroundColor: "#7B2D8E",
+                color: "#fff",
+                letterSpacing: "0.5px",
+              }}
+            >
+              EXCLUSIVE
+            </Chip>
+          )}
+          {entry.request_flag && !editable && (
+            <Chip size="sm" variant="soft" color="warning" sx={STATUS_CHIP_SX}>
+              REQ
+            </Chip>
+          )}
+          {entry.segue && !editable && (
+            <Chip size="sm" variant="soft" color="neutral" sx={STATUS_CHIP_SX}>
+              SEGUE
+            </Chip>
+          )}
+        </Stack>
         <Stack
           direction="row"
           justifyContent={"flex-end"}
           alignItems={"center"}
           spacing={0.5}
+          className="row-actions"
+          sx={{
+            position: "absolute",
+            right: 8,
+            top: "50%",
+            transform: "translateY(-50%)",
+            borderRadius: "sm",
+            pl: 3,
+            pr: 0.5,
+          }}
         >
+          {editable && (
+          <>
           <Tooltip
             variant="outlined"
             size="sm"
@@ -273,9 +273,9 @@ export default function SongEntry({
               size="sm"
               variant="soft"
               color={entry.segue ? "primary" : "neutral"}
+              className={entry.segue ? "row-actions-persist" : undefined}
               uncheckedIcon={<LinkOff />}
               checkedIcon={<LinkRounded />}
-              disabled={!editable}
               slotProps={{
                 input: { "aria-label": "Segue from previous track" },
               }}
@@ -315,9 +315,9 @@ export default function SongEntry({
               size="sm"
               variant="soft"
               color={entry.request_flag ? "warning" : "neutral"}
+              className={entry.request_flag ? "row-actions-persist" : undefined}
               uncheckedIcon={<PhoneDisabled />}
               checkedIcon={<PhoneEnabled />}
-              disabled={!editable}
               slotProps={{
                 input: { "aria-label": "Requested track" },
               }}
@@ -348,6 +348,8 @@ export default function SongEntry({
               }}
             />
           </Tooltip>
+          </>
+          )}
           <IconButton
             color="neutral"
             variant="plain"
