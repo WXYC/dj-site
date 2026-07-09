@@ -18,11 +18,11 @@ import {
  * can't be exercised by the single-page component/hook specs, so it lives here.
  *
  * Context B reuses a saved `storageState` (no interactive login) and talks to
- * the auth service directly, cross-origin — dj-site does NOT proxy `/auth/*`
- * (see `next.config.mjs`), and the session cookie is `domain=localhost`
- * (port-agnostic), so it attaches to the auth-service port regardless of which
- * frontend port minted it. We use `dj2.json`, not `dj.json` (the logout specs
- * invalidate `dj.json` server-side — see `e2e/tests/auth/logout.spec.ts`).
+ * the auth service directly, cross-origin — the session cookie is
+ * `domain=localhost` (port-agnostic), so it attaches to the auth-service port
+ * regardless of which frontend port minted it. We use `dj2.json`, not
+ * `dj.json` (the logout specs invalidate `dj.json` server-side — see
+ * `e2e/tests/auth/logout.spec.ts`).
  *
  * Requires the build-time flag `NEXT_PUBLIC_QR_LOGIN_ENABLED` (set in
  * `e2e-tests.yml` and `scripts/e2e-local.sh`); without it the entry link never
@@ -39,33 +39,71 @@ const DJ_STORAGE = path.join(authDir, "dj2.json");
 const MEMBER_STORAGE = path.join(authDir, "member.json");
 
 /**
- * Open Context A: an unauthenticated shared browser, switch it to QR sign-in,
- * and return the freshly-minted `user_code` (captured from the
- * `POST /auth/device/code` response, which lands before the code renders).
+ * The shared browser reaches the dashboard only after a poll interval (≥5s) +
+ * the post-sign-in `confirmSessionVisible` reads, and a `slow_down` backoff can
+ * add another interval — so give the redirect a generous ceiling (well under
+ * the 60s per-test budget).
  */
-async function openSharedBrowserQr(browser: Browser): Promise<{
-  context: Awaited<ReturnType<Browser["newContext"]>>;
-  loginPage: LoginPage;
-  userCode: string;
-}> {
+const DASHBOARD_REDIRECT_TIMEOUT_MS = 45_000;
+
+/**
+ * Drive Context A — an unauthenticated shared browser — to the QR waiting
+ * state, then run `body` with its {@link LoginPage} and the freshly-minted
+ * `user_code` (captured from the `POST /auth/device/code` response, which
+ * lands before the code renders). Owns the context lifecycle: the context is
+ * always closed, even if `startQrLogin` or `body` throws.
+ */
+async function withSharedBrowserQr(
+  browser: Browser,
+  body: (ctx: { loginPage: LoginPage; userCode: string }) => Promise<void>,
+): Promise<void> {
   const context = await browser.newContext({ baseURL: BASE_URL });
-  const page = await context.newPage();
-  const loginPage = new LoginPage(page);
+  try {
+    const page = await context.newPage();
+    const loginPage = new LoginPage(page);
+    const codeResponse = page.waitForResponse(
+      (r) =>
+        /\/device\/code\b/.test(r.url()) &&
+        r.request().method() === "POST" &&
+        r.status() === 200,
+      { timeout: 20_000 },
+    );
+    // Pre-attach a no-op rejection handler: if a later step throws before we
+    // await this, the `finally` closing the context rejects it — without this
+    // that would surface as an unhandled rejection.
+    void codeResponse.catch(() => {});
 
-  const codeResponse = page.waitForResponse(
-    (r) =>
-      /\/device\/code\b/.test(r.url()) &&
-      r.request().method() === "POST" &&
-      r.status() === 200,
-    { timeout: 20000 }
-  );
+    await loginPage.goto();
+    await loginPage.startQrLogin();
 
-  await loginPage.goto();
-  await loginPage.startQrLogin();
+    const parsed = (await (await codeResponse).json()) as { user_code?: string };
+    expect(typeof parsed.user_code).toBe("string");
+    await body({ loginPage, userCode: parsed.user_code as string });
+  } finally {
+    await context.close();
+  }
+}
 
-  const body = (await (await codeResponse).json()) as { user_code?: string };
-  expect(typeof body.user_code).toBe("string");
-  return { context, loginPage, userCode: body.user_code as string };
+/** A DJ (dj2.json) claims + approves the code on a separate "phone" context. */
+async function djApprovesOnPhone(browser: Browser, userCode: string): Promise<void> {
+  const phone = await browser.newContext({ storageState: DJ_STORAGE });
+  try {
+    expect((await claimDeviceCode(phone.request, userCode)).status()).toBe(200);
+    expect((await approveDeviceCode(phone.request, userCode)).status()).toBe(200);
+  } finally {
+    await phone.close();
+  }
+}
+
+/** A DJ (dj2.json) claims + denies the code on a separate "phone" context. */
+async function djDeniesOnPhone(browser: Browser, userCode: string): Promise<void> {
+  const phone = await browser.newContext({ storageState: DJ_STORAGE });
+  try {
+    expect((await claimDeviceCode(phone.request, userCode)).status()).toBe(200);
+    expect((await denyDeviceCode(phone.request, userCode)).status()).toBe(200);
+  } finally {
+    await phone.close();
+  }
 }
 
 test.describe("QR sign-in (RFC 8628 device authorization)", () => {
@@ -74,7 +112,7 @@ test.describe("QR sign-in (RFC 8628 device authorization)", () => {
   test.describe.configure({ mode: "serial" });
 
   test.beforeEach(() => {
-    // Golden path pays a poll interval (>=5s) + the post-sign-in session-confirm
+    // Golden path pays a poll interval (≥5s) + the post-sign-in session-confirm
     // reads before navigating — well over the 20s default on a loaded CI runner.
     test.setTimeout(60_000);
   });
@@ -82,53 +120,34 @@ test.describe("QR sign-in (RFC 8628 device authorization)", () => {
   test("golden path: a DJ approving on their phone signs the shared browser in", async ({
     browser,
   }) => {
-    const { context, loginPage, userCode } = await openSharedBrowserQr(browser);
-    try {
+    await withSharedBrowserQr(browser, async ({ loginPage, userCode }) => {
       await expect(loginPage.qrScanHeading).toBeVisible();
 
-      const phone = await browser.newContext({ storageState: DJ_STORAGE });
-      try {
-        expect((await claimDeviceCode(phone.request, userCode)).status()).toBe(200);
-        expect((await approveDeviceCode(phone.request, userCode)).status()).toBe(200);
-      } finally {
-        await phone.close();
-      }
+      await djApprovesOnPhone(browser, userCode);
 
       // The shared browser's next 200 poll confirms the session, then navigates.
-      await loginPage.waitForRedirectToDashboard(30000);
-    } finally {
-      await context.close();
-    }
+      await loginPage.waitForRedirectToDashboard(DASHBOARD_REDIRECT_TIMEOUT_MS);
+    });
   });
 
   test("deny path: a DJ denying on their phone surfaces the denied state with a password fallback", async ({
     browser,
   }) => {
-    const { context, loginPage, userCode } = await openSharedBrowserQr(browser);
-    try {
-      const phone = await browser.newContext({ storageState: DJ_STORAGE });
-      try {
-        expect((await claimDeviceCode(phone.request, userCode)).status()).toBe(200);
-        expect((await denyDeviceCode(phone.request, userCode)).status()).toBe(200);
-      } finally {
-        await phone.close();
-      }
+    await withSharedBrowserQr(browser, async ({ loginPage, userCode }) => {
+      await djDeniesOnPhone(browser, userCode);
 
       // `/device/deny` flips the row to a terminal `denied`, so the browser's
       // next poll returns `access_denied` and QRCodeForm shows the denied state.
-      await expect(loginPage.qrDeniedHeading).toBeVisible({ timeout: 30000 });
+      await expect(loginPage.qrDeniedHeading).toBeVisible({ timeout: 30_000 });
       await expect(loginPage.qrPasswordFallbackLink).toBeVisible();
       expect(loginPage.page.url()).toContain("/login");
-    } finally {
-      await context.close();
-    }
+    });
   });
 
   test("a non-DJ approval is rejected phone-side and cannot sign the shared browser in; a DJ can still approve the same code", async ({
     browser,
   }) => {
-    const { context, loginPage, userCode } = await openSharedBrowserQr(browser);
-    try {
+    await withSharedBrowserQr(browser, async ({ loginPage, userCode }) => {
       // Phone 1 — a `member` (authenticated, no DJ role). The claim succeeds,
       // but Backend-Service's role gate rejects the approve with a 403
       // `access_denied` *before* flipping the row, and un-claims it so a real DJ
@@ -146,29 +165,23 @@ test.describe("QR sign-in (RFC 8628 device authorization)", () => {
         await memberPhone.close();
       }
 
-      // The browser is unaffected: its next poll still returns
-      // `authorization_pending` (not `access_denied`), so it stays in the
-      // waiting state on /login rather than the denied state.
+      // The browser is unaffected: its next poll returns a non-terminal "keep
+      // waiting" state, NOT `access_denied`, so it stays on /login in the
+      // waiting state. Accept both `authorization_pending` and `slow_down` —
+      // the plugin returns `slow_down` for any poll landing <5s after the prior
+      // (the client polls on a 5s timer), so pinning the exact code would flake.
       const poll = await loginPage.page.waitForResponse(
         (r) => /\/device\/token\b/.test(r.url()) && r.request().method() === "POST",
-        { timeout: 15000 }
+        { timeout: 20_000 },
       );
-      expect((await poll.json())?.error).toBe("authorization_pending");
+      expect(["authorization_pending", "slow_down"]).toContain((await poll.json())?.error);
       await expect(loginPage.qrDeniedHeading).toBeHidden();
       expect(loginPage.page.url()).toContain("/login");
 
       // Phone 2 — a DJ approves the same still-live code; the browser signs in.
-      const djPhone = await browser.newContext({ storageState: DJ_STORAGE });
-      try {
-        expect((await claimDeviceCode(djPhone.request, userCode)).status()).toBe(200);
-        expect((await approveDeviceCode(djPhone.request, userCode)).status()).toBe(200);
-      } finally {
-        await djPhone.close();
-      }
+      await djApprovesOnPhone(browser, userCode);
 
-      await loginPage.waitForRedirectToDashboard(30000);
-    } finally {
-      await context.close();
-    }
+      await loginPage.waitForRedirectToDashboard(DASHBOARD_REDIRECT_TIMEOUT_MS);
+    });
   });
 });
