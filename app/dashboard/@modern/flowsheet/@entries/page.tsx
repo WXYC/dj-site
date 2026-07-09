@@ -3,13 +3,11 @@
 import Entry from "@/src/components/experiences/modern/flowsheet/Entries/Entry";
 import FlowsheetSkeletonLoader from "@/src/components/experiences/modern/flowsheet/FlowsheetSkeletonLoader";
 import { useFlowsheet } from "@/src/hooks/flowsheetHooks";
-import { Table, useColorScheme } from "@mui/joy";
+import { Table } from "@mui/joy";
 import { Reorder } from "motion/react";
 import { useEffect, useState } from "react";
 
 export default function FlowsheetEntries() {
-  const { mode } = useColorScheme();
-
   const {
     loading,
     entries: { current, setCurrentShowEntries, previous },
@@ -31,19 +29,64 @@ export default function FlowsheetEntries() {
   }
 
   return (
-    <Table borderAxis={mode == "dark" ? "none" : "x"}>
+    <Table
+      borderAxis="none"
+      sx={{
+        // Broadcast-log softening: separated rounded rows on lifted
+        // surfaces instead of hard gridlines over pure black.
+        borderCollapse: "separate",
+        borderSpacing: "0 4px",
+        "--TableCell-paddingX": "12px",
+        "& tbody tr": { transition: "filter 120ms" },
+        "& tbody tr:hover": { filter: "brightness(1.08)" },
+        "& tbody tr > td": { backgroundColor: "var(--row-bg, transparent)" },
+        "& tbody tr > td:first-of-type": {
+          borderTopLeftRadius: "8px",
+          borderBottomLeftRadius: "8px",
+        },
+        "& tbody tr > td:last-of-type": {
+          borderTopRightRadius: "8px",
+          borderBottomRightRadius: "8px",
+        },
+        // Controls stay quieter than the music identity: revealed on row
+        // hover/focus on pointer devices, always visible on touch. A control
+        // marked row-actions-persist (e.g. an activated request phone) stays
+        // visible without hover.
+        "@media (hover: hover)": {
+          "& tbody tr .row-actions > :not(.row-actions-persist)": {
+            opacity: 0,
+            transition: "opacity 120ms",
+          },
+          "& tbody tr:hover .row-actions > *, & tbody tr:focus-within .row-actions > *":
+            {
+              opacity: 1,
+            },
+          // Legibility backdrop appears only while revealed, so the status
+          // chips underneath stay visible at rest.
+          "& tbody tr:hover .row-actions, & tbody tr:focus-within .row-actions":
+            {
+              background:
+                "linear-gradient(to right, transparent, var(--row-bg) 18px)",
+            },
+        },
+      }}
+    >
       <thead
         style={{
           visibility: "collapse",
         }}
       >
-        {/* Column sizing only (thead is collapsed): art+drag | song info | actions.
-            Every row type must render exactly these 3 cells or fixed-layout
-            sizing silently degrades. */}
+        {/* Column sizing only (thead is collapsed): art+drag | title |
+            artist | album | label | status+actions. Every row type must
+            render exactly these 6 column units or fixed-layout sizing
+            silently degrades. */}
         <tr>
           <td style={{ width: "60px" }}></td>
           <td></td>
-          <td style={{ width: "140px" }}></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td style={{ width: "150px" }}></td>
         </tr>
       </thead>
       <Reorder.Group

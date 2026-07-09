@@ -36,12 +36,15 @@ export default function DraggableEntryWrapper({
       data-testid={`flowsheet-entry-${entryRef.id}`}
       style={{
         ...style,
-        background:
-          (variant ?? "plain") == "plain"
-            ? theme.palette?.[color ?? "neutral"]?.[
-                `${variant ?? "plain"}Bg` as keyof typeof theme.palette.primary
-              ]
-            : theme.palette.background.backdrop,
+        // The row color is painted by the cells (via --row-bg) so they can
+        // carry rounded corners; a tr background would bleed square.
+        ["--row-bg" as string]:
+          variant === "solid"
+            ? theme.palette[color ?? "neutral"].solidBg
+            : variant === "soft"
+              ? theme.palette[color ?? "neutral"].softBg
+              : theme.palette.background.level1,
+        background: "transparent",
       }}
     >
         {children}
