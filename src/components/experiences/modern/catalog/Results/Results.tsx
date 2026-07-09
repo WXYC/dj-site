@@ -133,7 +133,7 @@ export default function Results({
               <TableHeader textValue="Artist" />
             </th>
             <th scope="col" style={{ width: 180, padding: 12 }}></th>
-            <th scope="col" style={{ width: 90, padding: 12 }}>
+            <th scope="col" style={{ width: 110, padding: 12 }}>
               <TableHeader textValue="Call #" />
             </th>
             <th scope="col" aria-sort={ariaSort("plays")} style={{ width: 70, padding: 12 }}>
