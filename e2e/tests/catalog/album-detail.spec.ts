@@ -113,8 +113,15 @@ async function openAlbumViaCatalog(
   // (mounted-but-hidden) mobile card list below the sm breakpoint.
   await expect(page.getByText("DOGA").first()).toBeVisible({ timeout: 10000 });
 
-  const infoButton = page.locator('button[aria-label="More information"]').first();
-  await infoButton.click();
+  // The desktop row actions are hover-revealed, so hover the row before
+  // clicking its "More information" icon. Scope to the desktop table row
+  // (the mobile card list is not a <tr>).
+  const resultRow = page
+    .locator("#OrderTableContainer tbody tr")
+    .filter({ hasText: "DOGA" })
+    .first();
+  await resultRow.hover();
+  await resultRow.locator('button[aria-label="More information"]').click();
 
   await albumDetail.waitForModal();
   await albumDetail.waitForAlbumLoaded();
