@@ -52,6 +52,39 @@ function extractSetCookieHeaders(headers: Headers): string[] {
   return raw.split(/,\s*(?=[A-Za-z0-9_.-]+=)/).map((s) => s.trim());
 }
 
+/**
+ * Constrain a caller-supplied `callbackURL` to a safe, same-origin *relative*
+ * path. Absolute URLs, protocol-relative `//host`, and backslash-escaped
+ * `/\host` values (which browsers may treat as `//host`) are rejected in
+ * favour of `fallback`. As a second layer the value is normalised through the
+ * URL parser and its resolved origin is confirmed to match the request origin,
+ * catching tab / encoded-slash tricks the parser rewrites to `//host` (#597).
+ */
+function safeCallbackPath(
+  raw: string | null,
+  requestUrl: string,
+  fallback: string,
+): string {
+  if (!raw) return fallback;
+
+  // Primary guard: a root-relative path that is neither protocol-relative
+  // (`//`) nor backslash-escaped (`/\`).
+  if (!raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) {
+    return fallback;
+  }
+
+  // Belt-and-suspenders: resolve against the request origin, confirm the
+  // result did not escape it, then keep only path + query + hash.
+  try {
+    const requestOrigin = new URL(requestUrl).origin;
+    const resolved = new URL(raw, requestUrl);
+    if (resolved.origin !== requestOrigin) return fallback;
+    return resolved.pathname + resolved.search + resolved.hash;
+  } catch {
+    return fallback;
+  }
+}
+
 // Explicitly handle HEAD so email-client link previews get a cheap 200
 // without consuming the token or triggering verification.
 export function HEAD() {
@@ -61,9 +94,13 @@ export function HEAD() {
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const token = searchParams.get("token");
-  // The callbackURL arrives as a relative path (e.g. "/onboarding") because
-  // the backend rewrites only the host, leaving query params untouched.
-  const callbackURL = searchParams.get("callbackURL");
+  // Constrain callbackURL to a same-origin relative path. It normally arrives
+  // as a relative path (e.g. "/onboarding") because the backend rewrites only
+  // the host, but nothing guarantees that — an absolute or protocol-relative
+  // value would override the origin in the redirect below, turning this route
+  // into an open redirect that also leaks the session cookie off-site (#597).
+  const rawCallbackURL = searchParams.get("callbackURL");
+  const callbackURL = safeCallbackPath(rawCallbackURL, request.url, "/onboarding");
 
   if (!token) {
     const dest = new URL("/login?error=missing-verification-token", request.url);
@@ -78,7 +115,9 @@ export async function GET(request: NextRequest) {
   // Set-Cookie) instead of following the redirect blindly.
   const backendURL = new URL(`${backendBaseURL}/verify-email`);
   backendURL.searchParams.set("token", token);
-  if (callbackURL) {
+  if (rawCallbackURL) {
+    // Forward the sanitised value (a rejected callback becomes the fallback),
+    // never the attacker-supplied raw one.
     backendURL.searchParams.set("callbackURL", callbackURL);
   }
 
@@ -136,7 +175,7 @@ export async function GET(request: NextRequest) {
     // callbackURL is a relative path like "/onboarding", resolved against the
     // frontend origin by the URL constructor.
     const destination = hasSessionCookies
-      ? new URL(callbackURL || "/onboarding", request.url)
+      ? new URL(callbackURL, request.url)
       : new URL("/login?verified=true", request.url);
 
     const response = NextResponse.redirect(destination);
