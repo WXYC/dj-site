@@ -109,7 +109,9 @@ async function openAlbumViaCatalog(
 
   const searchInput = page.getByPlaceholder("Search the catalog").first();
   await searchInput.fill("Juana Molina");
-  await expect(page.getByText("DOGA")).toBeVisible({ timeout: 10000 });
+  // .first(): the album title renders in both the desktop table and the
+  // (mounted-but-hidden) mobile card list below the sm breakpoint.
+  await expect(page.getByText("DOGA").first()).toBeVisible({ timeout: 10000 });
 
   const infoButton = page.locator('button[aria-label="More information"]').first();
   await infoButton.click();
