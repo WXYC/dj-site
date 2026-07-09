@@ -53,7 +53,14 @@ export default function Results({
           display: { xs: "none", sm: "table" },
           // Album/Artist have a floor here; below this the container's
           // overflow:auto becomes a horizontal scroll rather than crushing.
-          minWidth: 900,
+          // Lower below xl since Artist collapses into the Album column.
+          minWidth: { xs: 760, xl: 900 },
+          // Below xl the Artist gets its own column; at and below the xl
+          // breakpoint it collapses (the artist stacks under the album title
+          // in the Album column instead) to fit narrower laptops.
+          "& .col-artist": {
+            display: { xs: "none", xl: "table-cell" },
+          },
           "--TableCell-headBackground": (theme) =>
             theme.vars.palette.background.level1,
           "--Table-headerUnderlineThickness": "1px",
@@ -140,10 +147,25 @@ export default function Results({
             {/* Album and Artist carry no width: with table-layout fixed they
                 split the leftover space, so they grow to fill wide screens
                 while the metadata columns stay compact on the right. */}
-            <th scope="col" aria-sort={ariaSort("album")} style={{ padding: 12 }}>
+            <th
+              scope="col"
+              aria-sort={ariaSort("album") ?? ariaSort("artist")}
+              style={{ padding: 12 }}
+            >
               <TableHeader textValue="Album" />
+              {/* Below xl the Artist sort lives here, since the artist is
+                  stacked into this column. */}
+              <Box component="span" sx={{ display: { xs: "inline", xl: "none" } }}>
+                <span style={{ margin: "0 6px", opacity: 0.4 }}>/</span>
+                <TableHeader textValue="Artist" />
+              </Box>
             </th>
-            <th scope="col" aria-sort={ariaSort("artist")} style={{ padding: 12 }}>
+            <th
+              className="col-artist"
+              scope="col"
+              aria-sort={ariaSort("artist")}
+              style={{ padding: 12 }}
+            >
               <TableHeader textValue="Artist" />
             </th>
             <th scope="col" style={{ width: 140, padding: 12 }}></th>

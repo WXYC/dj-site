@@ -121,9 +121,27 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
         >
           {album.title}
         </Typography>
+        {/* Below xl the artist stacks under the album title in this single
+            column; at xl it moves out to its own Artist column instead. */}
+        <Box sx={{ display: { xs: "block", xl: "none" } }}>
+          <Typography
+            level="body-sm"
+            fontWeight={sortBy === "artist" ? "bold" : "md"}
+            textColor="text.secondary"
+            noWrap
+            title={artistDisplay}
+          >
+            {artistDisplay}
+          </Typography>
+          {artistDetail && (
+            <Typography level="body-xs" textColor="text.tertiary" noWrap title={artistDetail}>
+              {artistDetail}
+            </Typography>
+          )}
+        </Box>
         <MatchedTrackChips matched_via={album.matched_via} />
       </td>
-      <td>
+      <td className="col-artist">
         <Typography
           level="body-sm"
           fontWeight={sortBy === "artist" ? "bold" : "md"}

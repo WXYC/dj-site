@@ -132,7 +132,8 @@ describe("CatalogResult Various Artists display", () => {
       </table>
     );
 
-    expect(screen.getByText("Various Artists")).toBeDefined();
+    // Rendered in both the stacked (< xl) and separate-column (xl) layouts.
+    expect(screen.getAllByText("Various Artists").length).toBeGreaterThan(0);
   });
 
   it("should display the album_artist as subtext when set", () => {
@@ -150,7 +151,7 @@ describe("CatalogResult Various Artists display", () => {
       </table>
     );
 
-    expect(screen.getByText("Autechre")).toBeDefined();
+    expect(screen.getAllByText("Autechre").length).toBeGreaterThan(0);
   });
 
   it("should display artist name normally when album_artist is not set", () => {
@@ -166,7 +167,7 @@ describe("CatalogResult Various Artists display", () => {
       </table>
     );
 
-    expect(screen.getByText("Stereolab")).toBeDefined();
+    expect(screen.getAllByText("Stereolab").length).toBeGreaterThan(0);
     expect(screen.queryByText("Various Artists")).toBeNull();
   });
 });
@@ -237,7 +238,7 @@ describe("CatalogResult text clamping", () => {
       </table>
     );
 
-    expect(screen.getByText("Chuquimamani-Condori").getAttribute("title")).toBe(
+    expect(screen.getAllByText("Chuquimamani-Condori")[0].getAttribute("title")).toBe(
       "Chuquimamani-Condori"
     );
     expect(screen.getByText("DJ E").getAttribute("title")).toBe("DJ E");
