@@ -49,44 +49,46 @@ export default function Results({
         sx={{
           // Below this the container's overflow:auto takes over as a
           // horizontal scroll; columns never get crushed.
-          minWidth: 760,
+          minWidth: 700,
           "--TableCell-headBackground": (theme) =>
             theme.vars.palette.background.level1,
           "--Table-headerUnderlineThickness": "1px",
           "--TableRow-hoverBackground": (theme) =>
             theme.vars.palette.background.level1,
-          "& thead tr > *:last-child": {
-            position: "sticky",
-            right: 0,
-            bgcolor: "var(--TableCell-headBackground)",
-            borderLeft: "1px solid",
-            borderLeftColor: (theme) => theme.vars.palette.divider,
+          // Media-list rows: taller than a data grid, everything vertically
+          // centered on the artwork.
+          "& tbody tr > td": {
+            height: "68px",
+            verticalAlign: "middle",
           },
-          // Opaque background is load-bearing: the theme's cssVarPrefix is
-          // "wxyc", so a hardcoded --joy-* var resolves to nothing and the
-          // pinned cell turns transparent over the columns it covers.
-          "& tbody tr > *:last-child": {
-            position: "sticky",
-            right: 0,
-            bgcolor: (theme) => theme.vars.palette.background.surface,
-            borderLeft: "1px solid",
-            borderLeftColor: (theme) => theme.vars.palette.divider,
+          // Selected rows read as intentional: subtle fill + left accent rail.
+          "& tbody tr.row-selected > td": {
+            bgcolor: (theme) => theme.vars.palette.background.level1,
           },
-          "& tbody tr:hover > *:last-child": {
-            bgcolor: "var(--TableRow-hoverBackground)",
+          "& tbody tr.row-selected > td:first-of-type": {
+            boxShadow: (theme) =>
+              `inset 2px 0 0 ${theme.vars.palette.primary[500]}`,
           },
-          // Text cells top-align so artist, title, call # and plays share a
-          // first-line baseline even when a cell grows a second line; the
-          // checkbox, artwork and actions cells stay vertically centered.
-          "& tbody td": {
-            verticalAlign: "top",
-            paddingTop: "12px",
-            paddingBottom: "12px",
+          // Actions are a right-edge overlay, not a reserved column: no dead
+          // space when hidden. Revealed on row hover/focus on pointer
+          // devices; always visible on touch. The hover-bg backdrop keeps
+          // them legible over the stats they cover.
+          "& tbody tr .row-actions": {
+            background:
+              "linear-gradient(to right, transparent, var(--TableRow-hoverBackground) 18px)",
           },
-          "& tbody td:nth-of-type(1), & tbody td:nth-of-type(2), & tbody td:last-child":
-            {
-              verticalAlign: "middle",
+          "@media (hover: hover)": {
+            "& tbody tr .row-actions": {
+              opacity: 0,
+              pointerEvents: "none",
+              transition: "opacity 120ms",
             },
+            "& tbody tr:hover .row-actions, & tbody tr:focus-within .row-actions":
+              {
+                opacity: 1,
+                pointerEvents: "auto",
+              },
+          },
         }}
       >
         <thead>
@@ -116,22 +118,28 @@ export default function Results({
                 sx={{ verticalAlign: "text-bottom" }}
               />
             </th>
-            <th scope="col" style={{ width: 56, padding: 12 }}></th>
-            {/* Artist and Title carry no width: with tableLayout fixed they
-                split the remaining space, so nothing truncates invisibly. */}
-            <th scope="col" aria-sort={ariaSort("artist")} style={{ padding: 12 }}>
+            <th scope="col" style={{ width: 64, padding: 12 }}></th>
+            {/* Fixed-width metadata columns keep call #s, chips and plays
+                vertically aligned; the trailing width-less filler column
+                absorbs all leftover space so the content stays packed left
+                instead of spreading across the table. */}
+            <th
+              scope="col"
+              aria-sort={ariaSort("album") ?? ariaSort("artist")}
+              style={{ width: 300, padding: 12 }}
+            >
+              <TableHeader textValue="Title" />
+              <span style={{ margin: "0 6px", opacity: 0.4 }}>/</span>
               <TableHeader textValue="Artist" />
             </th>
-            <th scope="col" aria-sort={ariaSort("album")} style={{ padding: 12 }}>
-              <TableHeader textValue="Title" />
-            </th>
-            <th scope="col" style={{ width: 110, padding: 12 }}>
+            <th scope="col" style={{ width: 180, padding: 12 }}></th>
+            <th scope="col" style={{ width: 90, padding: 12 }}>
               <TableHeader textValue="Call #" />
             </th>
-            <th scope="col" aria-sort={ariaSort("plays")} style={{ width: 72, padding: 12 }}>
+            <th scope="col" aria-sort={ariaSort("plays")} style={{ width: 70, padding: 12 }}>
               <TableHeader textValue="Plays" />
             </th>
-            <th scope="col" style={{ width: 120, padding: 12 }}></th>
+            <th scope="col" style={{ padding: 12 }}></th>
           </tr>
         </thead>
         <tbody>

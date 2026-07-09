@@ -27,13 +27,29 @@ describe("ReleaseChips", () => {
     expect(screen.queryByText("WXYC EXCLUSIVE")).toBeNull();
   });
 
-  it("should wrap chips instead of forcing one line", () => {
+  it("should collapse past three pills into a +N overflow chip", () => {
     renderWithProviders(
-      <ReleaseChips genre="Jazz" format="Vinyl" onStreaming={false} />
+      <ReleaseChips genre="Jazz" format="Vinyl" rotation="H" onStreaming={false} />
     );
 
-    const stack = screen.getByText("Jazz").closest(".MuiStack-root");
-    expect(stack).not.toBeNull();
-    expect(getComputedStyle(stack!).flexWrap).toBe("wrap");
+    // format is lowest priority: folded into the overflow chip
+    expect(screen.getByText("Jazz")).toBeDefined();
+    expect(screen.getByText("H")).toBeDefined();
+    expect(screen.getByText("WXYC EXCLUSIVE")).toBeDefined();
+    expect(screen.queryByText("Vinyl")).toBeNull();
+    expect(screen.getByText("+1")).toBeDefined();
+  });
+
+  it("should render the rotation pill only when a rotation is provided", () => {
+    const { unmount } = renderWithProviders(
+      <ReleaseChips genre="Jazz" format="Vinyl" rotation="H" onStreaming={undefined} />
+    );
+    expect(screen.getByText("H")).toBeDefined();
+    unmount();
+
+    renderWithProviders(
+      <ReleaseChips genre="Jazz" format="Vinyl" onStreaming={undefined} />
+    );
+    expect(screen.queryByText("H")).toBeNull();
   });
 });
