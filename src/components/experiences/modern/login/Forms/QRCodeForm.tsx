@@ -112,6 +112,7 @@ export default function QRCodeForm() {
               </Typography>
               <Typography
                 level="h3"
+                data-testid="device-user-code"
                 sx={{ fontFamily: "monospace", letterSpacing: "0.2em", mt: 0.5 }}
               >
                 {userCode}

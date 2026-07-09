@@ -24,6 +24,14 @@ export class LoginPage {
   readonly sendCodeButton: Locator;
   readonly switchToPasswordLink: Locator;
 
+  // QR (RFC 8628 device-authorization) sign-in elements. Present only when the
+  // build sets NEXT_PUBLIC_QR_LOGIN_ENABLED (see e2e-tests.yml / e2e-local.sh).
+  readonly qrLoginLink: Locator;
+  readonly qrScanHeading: Locator;
+  readonly qrUserCode: Locator;
+  readonly qrDeniedHeading: Locator;
+  readonly qrPasswordFallbackLink: Locator;
+
   // Feedback elements
   readonly errorToast: Locator;
   readonly successToast: Locator;
@@ -44,6 +52,21 @@ export class LoginPage {
     this.sendCodeButton = page.locator('button:has-text("Send login code")');
     this.switchToPasswordLink = page.getByRole("button", {
       name: "Sign in with password instead",
+    });
+
+    // QR sign-in. The entry link renders on both the password and OTP-email
+    // forms; /login defaults to the OTP-email form, so it's reachable straight
+    // after goto(). QRCodeForm's waiting state exposes the user code via a
+    // data-testid; the denied state and always-present password fallback are
+    // matched by their visible copy.
+    this.qrLoginLink = page.getByRole("button", {
+      name: "Sign in with a QR code",
+    });
+    this.qrScanHeading = page.getByText("Scan to sign in");
+    this.qrUserCode = page.getByTestId("device-user-code");
+    this.qrDeniedHeading = page.getByText("Sign-in was declined");
+    this.qrPasswordFallbackLink = page.getByRole("button", {
+      name: "Use a password instead",
     });
 
     // Password reset form
@@ -101,6 +124,36 @@ export class LoginPage {
     }
     // Final attempt with a longer timeout to produce a clear error
     await this.usernameInput.waitFor({ state: "visible", timeout: 10000 });
+  }
+
+  /**
+   * From the default (OTP-email) login form, switch to the QR sign-in method
+   * and wait for the waiting state (QR + user code) to render.
+   *
+   * Clicking the entry link dispatches a Redux `setAuthStage("qr")`; on slow CI
+   * runners that dispatch can occasionally miss a re-render, so retry the click
+   * until the user-code element appears. Once the QR form mounts, the entry link
+   * detaches — guard each retry on the link still being visible so we never
+   * click into the void.
+   */
+  async startQrLogin(): Promise<void> {
+    await this.qrLoginLink.waitFor({ state: "visible", timeout: 15000 });
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (await this.qrUserCode.isVisible()) return;
+      if (await this.qrLoginLink.isVisible()) {
+        await this.qrLoginLink.click().catch(() => {
+          // Element may detach mid-hydration — the waitFor below retries.
+        });
+      }
+      try {
+        await this.qrUserCode.waitFor({ state: "visible", timeout: 8000 });
+        return;
+      } catch {
+        // Stage didn't transition — retry the click.
+      }
+    }
+    // Final attempt with a longer timeout to produce a clear failure message.
+    await this.qrUserCode.waitFor({ state: "visible", timeout: 8000 });
   }
 
   async gotoWithToken(token: string): Promise<void> {
@@ -211,8 +264,8 @@ export class LoginPage {
     return this.page.url().includes("/login");
   }
 
-  async waitForRedirectToDashboard(): Promise<void> {
-    await this.page.waitForURL("**/dashboard/**", { timeout: 10000 });
+  async waitForRedirectToDashboard(timeoutMs = 10000): Promise<void> {
+    await this.page.waitForURL("**/dashboard/**", { timeout: timeoutMs });
   }
 
   async waitForRedirectToOnboarding(): Promise<void> {

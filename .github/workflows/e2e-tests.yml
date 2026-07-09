@@ -28,6 +28,12 @@ env:
   NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED: "true"
   NEXT_PUBLIC_FLOWSHEET_SSE_DASHBOARD_ENABLED: "true"
   NEXT_PUBLIC_FLOWSHEET_SSE_LIVE_VIEW_ENABLED: "true"
+  # Build-time gate for the RFC 8628 QR sign-in method. Inlined into the
+  # dj-site build, so it must be present here (the build-cache key hashes this
+  # workflow file, so flipping it auto-invalidates the stale .next/ cache).
+  # Required by e2e/tests/auth/qr-signin.spec.ts — without it the "Sign in with
+  # a QR code" entry link never renders and the spec can't reach the QR stage.
+  NEXT_PUBLIC_QR_LOGIN_ENABLED: "true"
   NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD: temppass123
   NEXT_PUBLIC_APP_ORGANIZATION: test-org
   SESSION_SECRET: e2e-secret-for-testing

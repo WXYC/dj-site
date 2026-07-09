@@ -108,6 +108,10 @@ export NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD=temppass123
 export NEXT_PUBLIC_APP_ORGANIZATION=test-org
 export NEXT_PUBLIC_FLOWSHEET_SSE_DASHBOARD_ENABLED=true
 export NEXT_PUBLIC_FLOWSHEET_SSE_LIVE_VIEW_ENABLED=true
+# Build-time gate for the RFC 8628 QR sign-in method — must be exported before
+# the primary build below or the "Sign in with a QR code" entry link won't
+# render and e2e/tests/auth/qr-signin.spec.ts can't reach the QR stage.
+export NEXT_PUBLIC_QR_LOGIN_ENABLED=true
 
 echo "==> Building dj-site (primary)..."
 # Primary build -> .next/
