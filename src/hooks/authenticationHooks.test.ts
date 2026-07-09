@@ -61,7 +61,11 @@ vi.mock("@/lib/features/authentication/client", () => ({
     },
     signOut: (...args: any[]) => mockSignOut(...args),
   },
-  authBaseURL: "https://api.wxyc.org/auth",
+  // On the client, getBaseURL() returns the same-origin `/auth` proxy (see
+  // client.ts) — NOT the cross-origin api.wxyc.org URL. Mock the value the
+  // hooks actually see in the browser so the OIDC redirect target is the
+  // same-origin path that router.push would have mishandled.
+  authBaseURL: `${window.location.origin}/auth`,
   clearTokenCache: (...args: any[]) => mockClearTokenCache(...args),
   lookupEmailByIdentifier: (...args: any[]) => mockLookupEmailByIdentifier(...args),
 }));
@@ -117,9 +121,29 @@ function createWrapper() {
   };
 }
 
+// The OIDC resume branch leaves the SPA via window.location.assign (a full
+// document navigation). jsdom's location.assign is non-configurable, so we
+// swap in a plain fake location that forwards the real origin/href and spies
+// on assign, then restore it after each test.
+const realLocation = window.location;
+const mockLocationAssign = vi.fn();
+
 describe("authenticationHooks", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockLocationAssign.mockClear();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: {
+        origin: realLocation.origin,
+        href: realLocation.href,
+        pathname: realLocation.pathname,
+        search: realLocation.search,
+        assign: mockLocationAssign,
+        replace: vi.fn(),
+        reload: vi.fn(),
+      },
+    });
     mockSearchParams.mockReturnValue(new URLSearchParams(""));
     process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD = "temp123";
     process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE = "/dashboard/flowsheet";
@@ -134,6 +158,13 @@ describe("authenticationHooks", () => {
   // fake timers can't leak into and hang the following tests.
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  afterEach(() => {
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: realLocation,
+    });
   });
 
   describe("useLogin", () => {
@@ -301,12 +332,14 @@ describe("authenticationHooks", () => {
         await result.current.handleLogin(form);
       });
 
-      expect(mockPush).toHaveBeenCalledWith(
-        `https://api.wxyc.org/auth/oauth2/authorize?${search}`
+      expect(mockLocationAssign).toHaveBeenCalledWith(
+        `${window.location.origin}/auth/oauth2/authorize?${search}`
       );
-      expect(mockPush).not.toHaveBeenCalledWith("/dashboard/flowsheet");
-      // OIDC branch leaves the SPA — refresh is a wasted RSC fetch
-      // against a route the user is no longer on. Pin it.
+      // OIDC resume is a hard document navigation out of the SPA: the App
+      // Router must NOT be touched — a same-origin router.push would soft-
+      // navigate and fire a code-consuming RSC fetch — and refresh would be
+      // a wasted fetch against a route the user is leaving.
+      expect(mockPush).not.toHaveBeenCalled();
       expect(mockRefresh).not.toHaveBeenCalled();
     });
 
@@ -904,9 +937,13 @@ describe("authenticationHooks", () => {
         await result.current.handleVerifyOTP("dj@wxyc.org", "123456");
       });
 
-      expect(mockPush).toHaveBeenCalledWith(
-        `https://api.wxyc.org/auth/oauth2/authorize?${search}`
+      expect(mockLocationAssign).toHaveBeenCalledWith(
+        `${window.location.origin}/auth/oauth2/authorize?${search}`
       );
+      // Hard nav here too: no App Router push (guards against a missing
+      // `return` falling through to router.push(dashboardHome)) and no
+      // refresh.
+      expect(mockPush).not.toHaveBeenCalled();
       expect(mockRefresh).not.toHaveBeenCalled();
     });
   });
