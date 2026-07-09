@@ -37,18 +37,13 @@ export default function FlowsheetEntries() {
           visibility: "collapse",
         }}
       >
+        {/* Column sizing only (thead is collapsed): art+drag | song info | actions.
+            Every row type must render exactly these 3 cells or fixed-layout
+            sizing silently degrades. */}
         <tr>
-          <td
-            style={{
-              width: "60px",
-            }}
-          ></td>
+          <td style={{ width: "60px" }}></td>
           <td></td>
-          <td></td>
-          <td></td>
-          <td></td>
-          <td></td>
-          <td></td>
+          <td style={{ width: "140px" }}></td>
         </tr>
       </thead>
       <Reorder.Group

@@ -790,3 +790,101 @@ describe("SongEntry", () => {
     });
   });
 });
+
+describe("SongEntry two-line row structure", () => {
+  const mockEntry: FlowsheetSongEntry = {
+    id: 1,
+    play_order: 0,
+    show_id: 100,
+    track_title: "On Your Own Love Again",
+    artist_name: "Jessica Pratt",
+    album_title: "On Your Own Love Again",
+    record_label: "Drag City",
+    request_flag: false,
+    segue: false,
+    album_id: 42,
+    rotation: "H",
+    rotation_id: 10,
+    artwork_url: "/test-album-art.jpg",
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseShowControl.mockReturnValue({
+      live: true,
+      autoplay: false,
+      currentShow: 100,
+    });
+    mockUseFlowsheet.mockReturnValue({
+      updateFlowsheet: mockUpdateFlowsheet,
+    });
+  });
+
+  it("renders exactly 3 cells to match the collapsed thead grid", () => {
+    render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
+
+    const row = screen.getByTestId("draggable-wrapper");
+    expect(row.querySelectorAll(":scope > td")).toHaveLength(3);
+  });
+
+  it("keeps all four editable fields inside the middle cell", () => {
+    render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
+
+    const middleCell = screen
+      .getByTestId("draggable-wrapper")
+      .querySelectorAll(":scope > td")[1];
+    for (const field of [
+      "track_title",
+      "artist_name",
+      "album_title",
+      "record_label",
+    ]) {
+      expect(
+        middleCell.contains(screen.getByTestId(`field-${field}`))
+      ).toBe(true);
+    }
+  });
+
+  it("shows the rotation chip on the title line", () => {
+    render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
+    expect(screen.getByText("H")).toBeDefined();
+  });
+
+  it("omits the rotation chip when the entry has no rotation", () => {
+    render(
+      <SongEntry
+        entry={{ ...mockEntry, rotation: undefined }}
+        playing={false}
+        queue={false}
+      />
+    );
+    expect(screen.queryByText("H")).toBeNull();
+  });
+
+  it("shows a read-only REQ chip on requested entries from previous shows", () => {
+    mockUseShowControl.mockReturnValue({
+      live: true,
+      autoplay: false,
+      currentShow: 200, // entry.show_id 100 => not editable
+    });
+    render(
+      <SongEntry
+        entry={{ ...mockEntry, request_flag: true }}
+        playing={false}
+        queue={false}
+      />
+    );
+    expect(screen.getByText("REQ")).toBeDefined();
+  });
+
+  it("does not show the REQ chip when the row is editable", () => {
+    render(
+      <SongEntry
+        entry={{ ...mockEntry, request_flag: true }}
+        playing={false}
+        queue={false}
+      />
+    );
+    expect(screen.queryByText("REQ")).toBeNull();
+  });
+});

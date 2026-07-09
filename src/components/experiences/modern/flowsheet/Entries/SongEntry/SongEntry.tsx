@@ -10,26 +10,23 @@ import {
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useFlowsheet, useShowControl } from "@/src/hooks/flowsheetHooks";
 import { getStyleForRotation } from "@/src/utilities/modern/rotationstyles";
+import { entryFieldTextColor } from "@/src/utilities/modern/entryFieldColors";
 import {
-  Album,
   InfoOutlined,
-  KeyboardArrowDown,
   LinkRounded,
   LinkOff,
-  MusicNote,
   PhoneDisabled,
   PhoneEnabled,
   PlayArrow,
 } from "@mui/icons-material";
 import {
   AspectRatio,
-  Badge,
-  Box,
   Checkbox,
   Chip,
   IconButton,
   Stack,
   Tooltip,
+  Typography,
 } from "@mui/joy";
 import { useDragControls } from "motion/react";
 import { useState } from "react";
@@ -93,31 +90,21 @@ export default function SongEntry({
       >
         <Stack direction="row" sx={{ position: "relative" }}>
           {editable && <DragButton controls={controls} />}
-          <Badge
-            size="sm"
-            badgeContent={entry.rotation ?? null}
-            color={entry.rotation && getStyleForRotation(entry.rotation)}
-            anchorOrigin={{
-              vertical: "top",
-              horizontal: "left",
+          <AspectRatio
+            ratio={1}
+            sx={{
+              flexBasis: "calc(60px - 12px)",
+              borderRadius: "9px",
+              minWidth: "48px",
+              minHeight: "48px",
             }}
           >
-            <AspectRatio
-              ratio={1}
-              sx={{
-                flexBasis: "calc(60px - 12px)",
-                borderRadius: "9px",
-                minWidth: "48px",
-                minHeight: "48px",
-              }}
-            >
-              <img
-                src={image}
-                alt="album art"
-                style={{ minWidth: "48px", minHeight: "48px" }}
-              />
-            </AspectRatio>
-          </Badge>
+            <img
+              src={image}
+              alt="album art"
+              style={{ minWidth: "48px", minHeight: "48px" }}
+            />
+          </AspectRatio>
           {canClose && queue && (
             <Tooltip
               title="Play this song now (add to flowsheet)"
@@ -162,46 +149,113 @@ export default function SongEntry({
           )}
         </Stack>
       </td>
-      <td colSpan={2} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
-        <FlowsheetEntryField
-          label="album"
-          name={"album_title"}
-          entry={entry}
-          playing={playing}
-          queue={queue}
-          editable={editable}
-        />
-        <FlowsheetEntryField
-          label="artist"
-          name={"artist_name"}
-          entry={entry}
-          playing={playing}
-          queue={queue}
-          editable={editable}
-          level="body-xs"
-        />
-      </td>
-      <td colSpan={2} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
-        <FlowsheetEntryField
-          label="song"
-          name={"track_title"}
-          entry={entry}
-          playing={playing}
-          queue={queue}
-          editable={editable}
-          startDecorator={<MusicNote />}
-        />
-      </td>
-      <td colSpan={2} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
-        <FlowsheetEntryField
-          label="label"
-          name={"record_label"}
-          entry={entry}
-          playing={playing}
-          queue={queue}
-          editable={editable}
-          startDecorator={<Album />}
-        />
+      <td onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+        <Stack sx={{ minWidth: 0 }} justifyContent="center">
+          <Stack direction="row" alignItems="center" gap={1} sx={{ minWidth: 0 }}>
+            <FlowsheetEntryField
+              label="song"
+              name={"track_title"}
+              entry={entry}
+              playing={playing}
+              queue={queue}
+              editable={editable}
+              level="title-sm"
+              textColor={entryFieldTextColor("song", playing)}
+              sx={{ flex: "1 1 auto", minWidth: 0 }}
+            />
+            <Stack
+              direction="row"
+              gap={0.5}
+              alignItems="center"
+              sx={{ flexShrink: 0 }}
+            >
+              {entry.rotation && (
+                <Chip
+                  size="sm"
+                  variant="solid"
+                  color={getStyleForRotation(entry.rotation)}
+                  aria-label={`Rotation ${entry.rotation}`}
+                >
+                  {entry.rotation}
+                </Chip>
+              )}
+              {entry.on_streaming === false && (
+                <Chip
+                  variant="soft"
+                  size="sm"
+                  sx={{
+                    backgroundColor: "#7B2D8E",
+                    color: "#fff",
+                    fontWeight: "bold",
+                    fontSize: "0.6rem",
+                    letterSpacing: "0.5px",
+                  }}
+                >
+                  EXCLUSIVE
+                </Chip>
+              )}
+              {entry.request_flag && !editable && (
+                <Chip size="sm" variant="soft" color="warning">
+                  REQ
+                </Chip>
+              )}
+            </Stack>
+          </Stack>
+          <Stack
+            direction="row"
+            alignItems="baseline"
+            gap={0.75}
+            sx={{ minWidth: 0 }}
+          >
+            <FlowsheetEntryField
+              label="artist"
+              name={"artist_name"}
+              entry={entry}
+              playing={playing}
+              queue={queue}
+              editable={editable}
+              level="body-xs"
+              textColor={entryFieldTextColor("artist", playing)}
+              sx={{ flexShrink: 1, minWidth: 0 }}
+            />
+            <Typography
+              level="body-xs"
+              textColor={playing ? "common.white" : "text.tertiary"}
+              sx={{ flexShrink: 0 }}
+            >
+              ·
+            </Typography>
+            <FlowsheetEntryField
+              label="album"
+              name={"album_title"}
+              entry={entry}
+              playing={playing}
+              queue={queue}
+              editable={editable}
+              level="body-xs"
+              textColor={entryFieldTextColor("album", playing)}
+              sx={{ flexShrink: 1, minWidth: 0 }}
+            />
+            <Typography
+              level="body-xs"
+              textColor={playing ? "common.white" : "text.tertiary"}
+              sx={{ flexShrink: 0 }}
+            >
+              ·
+            </Typography>
+            <FlowsheetEntryField
+              label="label"
+              name={"record_label"}
+              entry={entry}
+              playing={playing}
+              queue={queue}
+              editable={editable}
+              level="body-xs"
+              textColor={entryFieldTextColor("label", playing)}
+              sx={{ flexShrink: 1, minWidth: 0 }}
+            />
+          </Stack>
+        </Stack>
       </td>
       <td onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
         <Stack
@@ -210,119 +264,90 @@ export default function SongEntry({
           alignItems={"center"}
           spacing={0.5}
         >
-          {entry.on_streaming === false && (
-            <Chip
+          <Tooltip
+            variant="outlined"
+            size="sm"
+            title="Does this track segue from the previous?"
+          >
+            <Checkbox
+              size="sm"
               variant="soft"
-              size="sm"
-              sx={{
-                backgroundColor: "#7B2D8E",
-                color: "#fff",
-                fontWeight: "bold",
-                fontSize: "0.6rem",
-                letterSpacing: "0.5px",
+              color={entry.segue ? "primary" : "neutral"}
+              uncheckedIcon={<LinkOff />}
+              checkedIcon={<LinkRounded />}
+              disabled={!editable}
+              slotProps={{
+                input: { "aria-label": "Segue from previous track" },
               }}
-            >
-              EXCLUSIVE
-            </Chip>
-          )}
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: "40px",
-              height: "40px",
-            }}
+              sx={{
+                opacity: entry.segue ? 1 : 0.3,
+                "& .MuiCheckbox-checkbox": {
+                  background: "transparent",
+                },
+              }}
+              checked={entry.segue}
+              onChange={(e) => {
+                if (queue) {
+                  // Update queue entry in Redux state
+                  dispatch(flowsheetSlice.actions.updateQueueEntry({
+                    entry_id: entry.id,
+                    field: 'segue',
+                    value: e.target.checked,
+                  }));
+                } else {
+                  // Update flowsheet entry via API
+                  updateFlowsheet({
+                    entry_id: entry.id,
+                    data: {
+                      segue: e.target.checked,
+                    },
+                  });
+                }
+              }}
+            />
+          </Tooltip>
+          <Tooltip
+            variant="outlined"
+            size="sm"
+            title="Was this song a request?"
           >
-            <Tooltip
-              variant="outlined"
+            <Checkbox
               size="sm"
-              title="Does this track segue from the previous?"
-            >
-              <Checkbox
-                size="sm"
-                variant="soft"
-                color={entry.segue ? "primary" : "neutral"}
-                uncheckedIcon={<LinkOff />}
-                checkedIcon={<LinkRounded />}
-                disabled={!editable}
-                sx={{
-                  opacity: entry.segue ? 1 : 0.3,
-                  "& .MuiCheckbox-checkbox": {
-                    background: "transparent",
-                  },
-                }}
-                checked={entry.segue}
-                onChange={(e) => {
-                  if (queue) {
-                    // Update queue entry in Redux state
-                    dispatch(flowsheetSlice.actions.updateQueueEntry({
-                      entry_id: entry.id,
-                      field: 'segue',
-                      value: e.target.checked,
-                    }));
-                  } else {
-                    // Update flowsheet entry via API
-                    updateFlowsheet({
-                      entry_id: entry.id,
-                      data: {
-                        segue: e.target.checked,
-                      },
-                    });
-                  }
-                }}
-              />
-            </Tooltip>
-          </Box>
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: "40px",
-              height: "40px",
-            }}
-          >
-            <Tooltip
-              variant="outlined"
-              size="sm"
-              title="Was this song a request?"
-            >
-              <Checkbox
-                size="sm"
-                variant="soft"
-                color={entry.request_flag ? "warning" : "neutral"}
-                uncheckedIcon={<PhoneDisabled />}
-                checkedIcon={<PhoneEnabled />}
-                disabled={!editable}
-                sx={{
-                  opacity: entry.request_flag ? 1 : 0.3,
-                  "& .MuiCheckbox-checkbox": {
-                    background: "transparent",
-                  },
-                }}
-                checked={entry.request_flag}
-                onChange={(e) => {
-                  if (queue) {
-                    // Update queue entry in Redux state
-                    dispatch(flowsheetSlice.actions.updateQueueEntry({
-                      entry_id: entry.id,
-                      field: 'request_flag',
-                      value: e.target.checked,
-                    }));
-                  } else {
-                    // Update flowsheet entry via API
-                    updateFlowsheet({
-                      entry_id: entry.id,
-                      data: {
-                        request_flag: e.target.checked,
-                      },
-                    });
-                  }
-                }}
-              />
-            </Tooltip>
-          </Box>
+              variant="soft"
+              color={entry.request_flag ? "warning" : "neutral"}
+              uncheckedIcon={<PhoneDisabled />}
+              checkedIcon={<PhoneEnabled />}
+              disabled={!editable}
+              slotProps={{
+                input: { "aria-label": "Requested track" },
+              }}
+              sx={{
+                opacity: entry.request_flag ? 1 : 0.3,
+                "& .MuiCheckbox-checkbox": {
+                  background: "transparent",
+                },
+              }}
+              checked={entry.request_flag}
+              onChange={(e) => {
+                if (queue) {
+                  // Update queue entry in Redux state
+                  dispatch(flowsheetSlice.actions.updateQueueEntry({
+                    entry_id: entry.id,
+                    field: 'request_flag',
+                    value: e.target.checked,
+                  }));
+                } else {
+                  // Update flowsheet entry via API
+                  updateFlowsheet({
+                    entry_id: entry.id,
+                    data: {
+                      request_flag: e.target.checked,
+                    },
+                  });
+                }
+              }}
+            />
+          </Tooltip>
           <IconButton
             color="neutral"
             variant="plain"
@@ -332,12 +357,7 @@ export default function SongEntry({
           >
             <InfoOutlined />
           </IconButton>
-          {editable && (
-            <>
-              <RemoveButton queue={queue} entry={entry} />
-              <DragButton controls={controls} />
-            </>
-          )}
+          {editable && <RemoveButton queue={queue} entry={entry} />}
         </Stack>
       </td>
     </DraggableEntryWrapper>

@@ -66,7 +66,12 @@ export default function FlowsheetEntryField({
 
   return editing ? (
     <ClickAwayListener onClickAway={saveAndClose}>
-      <form onSubmit={saveAndClose}>
+      {/* The form must hold the field's flex slot while editing or the
+          two-line row layout collapses around it. */}
+      <form
+        onSubmit={saveAndClose}
+        style={{ minWidth: 0, flex: "1 1 auto", display: "block" }}
+      >
         <Typography
           {...props}
           textColor={playing ? "primary.lightChannel" : "neutral.700"}
@@ -104,6 +109,7 @@ export default function FlowsheetEntryField({
   ) : (
     <Typography
       {...props}
+      title={String(entry[name])}
       sx={{
         ...props.sx,
         whiteSpace: "nowrap",
