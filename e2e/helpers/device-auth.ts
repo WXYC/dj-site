@@ -24,10 +24,13 @@ import type {
  */
 
 /**
- * Resolve the auth-service base URL (no trailing `/auth`) for the direct,
- * cross-origin device-flow calls. dj-site does NOT proxy `/auth/*` (see
- * `next.config.mjs`), so the phone must target the auth service directly rather
- * than the dj-site origin. Mirrors `getAuthServiceBaseUrl()` in
+ * Resolve the auth-service base URL (no trailing `/auth`) for the phone's
+ * device-flow calls. The phone targets the auth service (`:8084`) directly
+ * rather than dj-site's same-origin `/auth` proxy (`app/auth/[...path]/route.ts`,
+ * which the browser side uses): hitting the auth service directly is the
+ * simplest reliable target and doesn't depend on the dj-site origin, and the
+ * `dj2.json`/`member.json` session cookie is `domain=localhost` (port-agnostic)
+ * so it attaches regardless of port. Mirrors `getAuthServiceBaseUrl()` in
  * `e2e/fixtures/auth.fixture.ts`.
  */
 export function authServiceBaseUrl(): string {
