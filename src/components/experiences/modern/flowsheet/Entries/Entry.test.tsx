@@ -137,12 +137,12 @@ describe("Entry", () => {
       );
     });
 
-    it("should have neutral color and soft variant", () => {
+    it("should have success color and soft variant", () => {
       render(<Entry entry={mockStartShowEntry} playing={false} />);
 
       expect(screen.getByTestId("message-entry")).toHaveAttribute(
         "data-color",
-        "neutral"
+        "success"
       );
       expect(screen.getByTestId("message-entry")).toHaveAttribute(
         "data-variant",
@@ -231,12 +231,12 @@ describe("Entry", () => {
       expect(screen.getByText("Talkset - Station ID")).toBeInTheDocument();
     });
 
-    it("should have neutral color and soft variant", () => {
+    it("should have danger color and soft variant", () => {
       render(<Entry entry={mockTalksetEntry} playing={false} />);
 
       expect(screen.getByTestId("message-entry")).toHaveAttribute(
         "data-color",
-        "neutral"
+        "danger"
       );
       expect(screen.getByTestId("message-entry")).toHaveAttribute(
         "data-variant",
@@ -283,12 +283,12 @@ describe("Entry", () => {
       expect(screen.getByText("Breakpoint - Hour Mark")).toBeInTheDocument();
     });
 
-    it("should have neutral color and soft variant", () => {
+    it("should have warning color and soft variant", () => {
       render(<Entry entry={mockBreakpointEntry} playing={false} />);
 
       expect(screen.getByTestId("message-entry")).toHaveAttribute(
         "data-color",
-        "neutral"
+        "warning"
       );
       expect(screen.getByTestId("message-entry")).toHaveAttribute(
         "data-variant",
@@ -324,12 +324,12 @@ describe("Entry", () => {
       expect(screen.getByText("Generic notification message")).toBeInTheDocument();
     });
 
-    it("should have neutral color and soft variant", () => {
+    it("should have warning color and soft variant", () => {
       render(<Entry entry={mockGenericMessageEntry} playing={false} />);
 
       expect(screen.getByTestId("message-entry")).toHaveAttribute(
         "data-color",
-        "neutral"
+        "warning"
       );
       expect(screen.getByTestId("message-entry")).toHaveAttribute(
         "data-variant",

@@ -48,6 +48,7 @@ export default function MessageEntry({
       entryRef={entryRef}
       variant={variant}
       color={color}
+      className="row-marker"
       style={{
         height: "40px",
         borderRadius: "md",
