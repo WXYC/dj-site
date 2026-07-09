@@ -1,5 +1,7 @@
-import { getServerSession, isUserIncomplete } from "@/lib/features/authentication/server-utils";
-import { redirect } from "next/navigation";
+import {
+  getServerSession,
+  isUserIncomplete,
+} from "@/lib/features/authentication/server-utils";
 import WXYCPage from "@/src/Layout/WXYCPage";
 import LoginSlotSwitcher from "./LoginSlotSwitcher";
 import { Metadata } from "next";
@@ -21,25 +23,26 @@ export default async function ModernLoginLayout({
   // Check if user is already authenticated and email-verified
   const session = await getServerSession();
 
-  if (session?.user?.emailVerified) {
-    // If user is incomplete (missing realName), show onboarding form
-    if (isUserIncomplete(session)) {
-      return (
-        <WXYCPage>
-          <LoginSlotSwitcher
-            normal={normal}
-            newuser={newuser}
-            reset={reset}
-            isIncomplete={true}
-          />
-        </WXYCPage>
-      );
-    }
-    // User is authenticated, verified, and complete — redirect to dashboard
-    redirect(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog"));
+  // Incomplete (verified but missing realName): show the onboarding form.
+  if (session?.user?.emailVerified && isUserIncomplete(session)) {
+    return (
+      <WXYCPage>
+        <LoginSlotSwitcher
+          normal={normal}
+          newuser={newuser}
+          reset={reset}
+          isIncomplete={true}
+        />
+      </WXYCPage>
+    );
   }
-  // If authenticated but NOT verified, stay on login to show verification message
 
+  // A signed-in, verified, onboarding-complete user is redirected by the
+  // @normal slot page (a server component that CAN read searchParams), not
+  // here: a layout cannot see searchParams, so redirecting to the dashboard
+  // here dropped OIDC authorize params and abandoned the "Sign in with WXYC"
+  // round-trip (#762). Unverified users fall through to the login form to see
+  // the verification message.
   return (
     <WXYCPage>
       <LoginSlotSwitcher
