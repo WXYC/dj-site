@@ -1,4 +1,4 @@
-import { test, expect, TEST_USERS, TEMP_PASSWORD } from "../../fixtures/auth.fixture";
+import { test, expect, TEST_USERS, completeOnboardingWithInviteToken } from "../../fixtures/auth.fixture";
 import { DashboardPage } from "../../pages/dashboard.page";
 import { RosterPage } from "../../pages/roster.page";
 import { LoginPage } from "../../pages/login.page";
@@ -169,7 +169,6 @@ test.describe("User Deletion Session Invalidation", () => {
     const adminLoginPage = new LoginPage(adminPage);
     const adminRosterPage = new RosterPage(adminPage);
     const adminDashboard = new DashboardPage(adminPage);
-    const userLoginPage = new LoginPage(userPage);
     const userDashboard = new DashboardPage(userPage);
 
     // Login as admin
@@ -195,17 +194,10 @@ test.describe("User Deletion Session Invalidation", () => {
     await adminRosterPage.expectSuccessToast();
     await adminRosterPage.waitForDataRefresh();
 
-    // New user logs in with temp password
-    const userOnboarding = new OnboardingPage(userPage);
-    await userLoginPage.goto();
-    await userPage.waitForLoadState("domcontentloaded");
-    await userLoginPage.login(username, TEMP_PASSWORD);
+    const chosenPassword = "NewPassword1";
 
-    // Admin-created users have hasCompletedOnboarding=false and must
-    // complete onboarding before reaching the dashboard
-    await userLoginPage.waitForRedirectToOnboarding();
-    await userOnboarding.completePasswordOnlyOnboarding("NewPassword1");
-    await userOnboarding.expectRedirectToDashboard();
+    // New user completes invite onboarding, then signs in if needed
+    await completeOnboardingWithInviteToken(userPage, email, chosenPassword);
     await userDashboard.expectOnDashboard();
 
     // Admin deletes the user

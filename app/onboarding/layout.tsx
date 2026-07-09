@@ -1,9 +1,8 @@
 import type { JSX } from "react";
-import { requireAuth } from "@/lib/features/authentication/server-utils";
 import ThemedLayout, { LoginLayoutProps } from "@/src/ThemedLayout";
 
+/** Slot pages gate access (session or invite ?token=); do not requireAuth here. */
 const Layout = async (props: LoginLayoutProps): Promise<JSX.Element> => {
-  await requireAuth();
   return ThemedLayout(props);
 };
 

@@ -36,6 +36,7 @@ type ImportResult = {
   row: CSVImportRow;
   success: boolean;
   error?: string;
+  emailSent?: boolean;
 };
 
 const CSV_TEMPLATE = "Name,Username,DJ Name,Email\n";
@@ -95,7 +96,6 @@ export default function ImportCSVModal({ open, onClose, onComplete, organization
     setImportProgress(0);
     setImportResults([]);
 
-    const tempPassword = String(process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD || "");
     const role = authorizationToRole(authorization);
 
     // Filter to only valid rows
@@ -113,7 +113,6 @@ export default function ImportCSVModal({ open, onClose, onComplete, organization
           body: JSON.stringify({
             email: row.email,
             username: row.username,
-            password: tempPassword,
             name: row.name,
             organizationSlug,
             role,
@@ -122,12 +121,30 @@ export default function ImportCSVModal({ open, onClose, onComplete, organization
           }),
         });
 
+        const provisionResult = (await response.json().catch(() => null)) as {
+          emailSent?: boolean;
+          emailError?: string;
+          message?: string;
+          error?: string;
+        } | null;
+
         if (!response.ok) {
-          const errorData = await response.json().catch(() => null);
-          throw new Error(errorData?.message || errorData?.error || `Failed (${response.status})`);
+          throw new Error(
+            provisionResult?.message ||
+              provisionResult?.error ||
+              `Failed (${response.status})`
+          );
         }
 
-        results.push({ row, success: true });
+        results.push({
+          row,
+          success: true,
+          emailSent: provisionResult?.emailSent,
+          error:
+            provisionResult?.emailSent === false
+              ? provisionResult.emailError || "Setup email failed to send"
+              : undefined,
+        });
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to create account";
         results.push({ row, success: false, error: errorMessage });
@@ -140,8 +157,15 @@ export default function ImportCSVModal({ open, onClose, onComplete, organization
     setState("results");
 
     const successCount = results.filter((r) => r.success).length;
+    const emailFailures = results.filter((r) => r.success && r.emailSent === false);
     if (successCount === validRows.length) {
-      toast.success(`Created ${successCount} account${successCount !== 1 ? "s" : ""}`);
+      if (emailFailures.length > 0) {
+        toast.warning(
+          `Created ${successCount} account${successCount !== 1 ? "s" : ""}, but ${emailFailures.length} setup email${emailFailures.length !== 1 ? "s" : ""} failed to send — resend from the roster.`
+        );
+      } else {
+        toast.success(`Created ${successCount} account${successCount !== 1 ? "s" : ""}`);
+      }
     } else {
       toast.error(`Created ${successCount} of ${validRows.length} accounts — some failed`);
     }

@@ -2,7 +2,7 @@
 
 import { authBaseURL, authClient } from "@/lib/features/authentication/client";
 import { adminSlice } from "@/lib/features/admin/frontend";
-import { NewAccountParams, Authorization, ROSTER_PAGE_SIZE } from "@/lib/features/admin/types";
+import { Authorization, ROSTER_PAGE_SIZE } from "@/lib/features/admin/types";
 import { User, authorizationToRole } from "@/lib/features/authentication/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useAccountListResults } from "@/src/hooks/adminHooks";
@@ -58,26 +58,17 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
 
         const formData = new FormData(e.currentTarget);
 
-        const tempPassword = String(
-          process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD || ""
-        );
-
-        if (!tempPassword) {
-          throw new Error("Missing onboarding temp password configuration.");
-        }
-
         if (!organizationSlug) {
           throw new Error("Organization not configured.");
         }
 
-        const newAccount: NewAccountParams = {
+        const newAccount = {
           realName: formData.get("realName") as string,
           username: formData.get("username") as string,
           djName: formData.get("djName")
             ? (formData.get("djName") as string)
             : "Anonymous",
           email: formData.get("email") as string,
-          temporaryPassword: tempPassword,
           authorization: authorizationOfNewAccount,
         };
 
@@ -90,7 +81,6 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
           body: JSON.stringify({
             email: newAccount.email,
             username: newAccount.username,
-            password: newAccount.temporaryPassword,
             name: newAccount.realName || newAccount.username,
             organizationSlug,
             role,
@@ -99,12 +89,30 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
           }),
         });
 
+        const provisionResult = (await response.json().catch(() => null)) as {
+          emailSent?: boolean;
+          emailError?: string;
+          message?: string;
+          error?: string;
+        } | null;
+
         if (!response.ok) {
-          const errorData = await response.json().catch(() => null);
-          throw new Error(errorData?.message || errorData?.error || `Failed to create user (${response.status})`);
+          throw new Error(
+            provisionResult?.message ||
+              provisionResult?.error ||
+              `Failed to create user (${response.status})`
+          );
         }
 
-        toast.success(`Account created for ${newAccount.username} — setup email sent to ${newAccount.email}`);
+        if (provisionResult?.emailSent === false) {
+          toast.warning(
+            `Account created for ${newAccount.username}, but the setup email failed to send${
+              provisionResult.emailError ? `: ${provisionResult.emailError}` : ""
+            }. Resend the invite from the roster.`
+          );
+        } else {
+          toast.success(`Account created for ${newAccount.username} — setup email sent to ${newAccount.email}`);
+        }
 
         dispatch(adminSlice.actions.setAdding(false));
         dispatch(adminSlice.actions.reset());

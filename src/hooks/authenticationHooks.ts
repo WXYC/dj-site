@@ -1,7 +1,7 @@
 "use client";
 
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
-import { authBaseURL, authClient, clearTokenCache, lookupEmailByIdentifier } from "@/lib/features/authentication/client";
+import { authBaseURL, authClient, clearTokenCache, completeOnboarding, lookupEmailByIdentifier } from "@/lib/features/authentication/client";
 import {
   interpretTokenPoll,
   pollDeviceToken,
@@ -13,7 +13,6 @@ import {
   AuthenticatedUser,
   AuthenticationData,
   isAuthenticated,
-  NewUserCredentials,
   ResetPasswordRequest,
   VerifiedData,
 } from "@/lib/features/authentication/types";
@@ -125,7 +124,7 @@ async function redirectAfterAuth(
   const dashboardHome = String(
     process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog",
   );
-  const incomplete = user?.hasCompletedOnboarding === false;
+  const incomplete = user?.hasCompletedOnboarding !== true;
 
   const sessionConfirmed = await confirmSessionVisible();
 
@@ -191,7 +190,14 @@ export const useLogin = () => {
 
       toast.success("Login successful");
 
-      const user = (result as any).data?.user;
+      const signInUser = (result as { data?: { user?: { id?: string; hasCompletedOnboarding?: boolean } } }).data?.user;
+      let user = signInUser;
+      if (signInUser?.hasCompletedOnboarding !== true) {
+        const session = await authClient.getSession();
+        if (session.data?.user) {
+          user = { ...signInUser, ...session.data.user };
+        }
+      }
       // If we got here as part of an OIDC authorize bounce, resume the
       // round-trip by handing off to `${authBase}/oauth2/authorize?<original-query>`
       // instead of the dashboard. See `getOidcRedirectTarget` for the contract.
@@ -277,7 +283,14 @@ export const useOTPVerify = () => {
 
       toast.success("Login successful");
 
-      const user = (result as any).data?.user;
+      const signInUser = (result as { data?: { user?: { id?: string; hasCompletedOnboarding?: boolean } } }).data?.user;
+      let user = signInUser;
+      if (signInUser?.hasCompletedOnboarding !== true) {
+        const session = await authClient.getSession();
+        if (session.data?.user) {
+          user = { ...signInUser, ...session.data.user };
+        }
+      }
       // Mirror useLogin's OIDC resume contract — both credential entry
       // points feed the same authorize round-trip.
       const oidcTarget = getOidcRedirectTarget(
@@ -520,91 +533,88 @@ export const useRegistry = () => {
   };
 };
 
-export const useNewUser = () => {
+/**
+ * Onboarding completion.
+ *
+ * - `"invite"` (OnboardingForm at /onboarding?token=…): sends the setup token
+ *   and chosen password to complete-onboarding, then signs in through the
+ *   regular authClient path — the same one normal login uses.
+ * - `"session"` (NewUserForm at /login?incomplete=true): the user is already
+ *   signed in, so only profile fields are sent; no token, no password change.
+ */
+export const useNewUser = (mode: "invite" | "session") => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const dispatch = useAppDispatch();
   const verified = useAppSelector(
     authenticationSlice.selectors.requiredCredentialsVerified
   );
-
-  const { handleLogout } = useLogout();
 
   const { execute, isLoading, error } = useAsyncAction();
 
   const handleNewUser = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     return execute(async () => {
-      const username = e.currentTarget.username.value;
-      const password = e.currentTarget.password.value;
-      const currentPassword = String(
-        process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD || ""
-      );
+      const realNameValue = e.currentTarget.realName?.value?.trim() || "";
+      const djNameValue = e.currentTarget.djName?.value?.trim() || "";
+      const password: string =
+        mode === "invite" ? e.currentTarget.password.value : "";
 
-      if (!currentPassword) {
-        throw new Error("Missing onboarding temp password configuration.");
-      }
-
-      const params: NewUserCredentials = {
-        username,
-        password,
-      };
-
-      const realNameValue = e.currentTarget.realName?.value || "";
-      const djNameValue = e.currentTarget.djName?.value || "";
-
+      const body: Record<string, string> = {};
       if (realNameValue) {
-        params.realName = realNameValue;
+        body.realName = realNameValue;
       }
       if (djNameValue) {
-        params.djName = djNameValue;
+        body.djName = djNameValue;
       }
 
-      const session = await authClient.getSession();
-      if (!session.data?.user?.id) {
-        throw new Error("You must be authenticated to update your profile");
+      if (mode === "invite") {
+        const setupToken = searchParams?.get("token")?.trim();
+        if (!setupToken) {
+          throw new Error(
+            "Your setup link is invalid or expired. Ask your station manager to resend the invite."
+          );
+        }
+        if (!password) {
+          throw new Error("Please choose a password");
+        }
+        body.token = setupToken;
+        body.newPassword = password;
       }
 
-      // Change the password BEFORE flipping hasCompletedOnboarding. If we
-      // flip the flag first and then changePassword fails, the account ends
-      // up flagged complete but still protected only by the publicly-known
-      // NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD — and requireAuth() will no
-      // longer redirect the user back through onboarding to recover. See
-      // WXYC/dj-site#598.
-      if (params.password) {
-        const passwordResult = await authClient.changePassword({
-          currentPassword,
-          newPassword: params.password,
+      const response = await completeOnboarding(body);
+
+      clearTokenCache();
+
+      if (mode === "invite") {
+        const signInResult = await authClient.signIn.email({
+          email: response.email ?? "",
+          password,
         });
-
-        throwIfBetterAuthError(passwordResult, "Failed to update password");
+        if (signInResult.error) {
+          toast.success("Account setup complete. Please sign in with your new password.");
+          router.push("/login");
+          return;
+        }
       }
 
-      const updateRequest: any = { hasCompletedOnboarding: true };
-      if (params.realName) {
-        updateRequest.realName = params.realName;
-      }
-      if (params.djName) {
-        updateRequest.djName = params.djName;
-      }
-      const result = await authClient.updateUser(updateRequest);
-
-      throwIfBetterAuthError(result, "Failed to update user profile");
-
-      toast.success("Profile updated successfully");
+      toast.success("Account setup complete. Welcome!");
       await redirectAfterAuth(
         router,
-        { id: session.data.user.id, hasCompletedOnboarding: true },
+        { id: response.userId, hasCompletedOnboarding: true },
         "onboarding",
       );
-    }, "Failed to update user profile. Please try again.");
+    }, "Failed to complete onboarding. Please try again.");
   };
 
   useEffect(() => {
     dispatch(authenticationSlice.actions.reset());
   }, []);
 
+  // Replace (not append to) the required list: the slice default includes
+  // username/password for the login form, which these forms don't render.
   const addRequiredCredentials = (required: (keyof VerifiedData)[]) =>
-    dispatch(authenticationSlice.actions.addRequiredCredentials(required));
+    dispatch(authenticationSlice.actions.setRequiredCredentials(required));
 
   return {
     handleNewUser,

@@ -1,4 +1,4 @@
-import { test, expect, TEST_USERS } from "../../fixtures/auth.fixture";
+import { test, expect, TEST_USERS, resetIncompleteTestUser } from "../../fixtures/auth.fixture";
 import { LoginPage } from "../../pages/login.page";
 import { DashboardPage } from "../../pages/dashboard.page";
 import { OnboardingPage } from "../../pages/onboarding.page";
@@ -188,10 +188,39 @@ test.describe("New User Onboarding", () => {
     });
   });
 
+  test.describe("Session onboarding (/login?incomplete=true)", () => {
+    test.use({ storageState: { cookies: [], origins: [] } });
+
+    test.beforeEach(async () => {
+      await resetIncompleteTestUser();
+    });
+
+    test("incomplete user completes profile via NewUserForm after password login", async ({
+      page,
+    }) => {
+      const user = TEST_USERS.incomplete;
+      const loginPage = new LoginPage(page);
+      const onboardingPage = new OnboardingPage(page);
+
+      await loginPage.goto();
+      await loginPage.login(user.username, user.password);
+      await loginPage.waitForRedirectToOnboarding();
+
+      expect(await onboardingPage.isOnOnboardingPage()).toBe(true);
+      await onboardingPage.waitForSessionOnboardingForm();
+
+      await onboardingPage.completeSessionOnboarding({
+        realName: "Session Onboard User",
+        djName: "Session DJ",
+      });
+
+      await onboardingPage.expectRedirectToDashboard();
+    });
+  });
+
   test.describe("Onboarding for Admin-Created Users", () => {
     test("should handle onboarding for newly created accounts", async ({ browser }) => {
-      // Import TEMP_PASSWORD for this test
-      const { TEMP_PASSWORD } = await import("../../fixtures/auth.fixture");
+      const { completeOnboardingWithInviteToken } = await import("../../fixtures/auth.fixture");
       const baseURL = process.env.E2E_BASE_URL || "http://localhost:3000";
 
       // Admin creates a new user
@@ -231,22 +260,11 @@ test.describe("New User Onboarding", () => {
       // New user logs in with temp password
       const userContext = await browser.newContext({ baseURL });
       const userPage = await userContext.newPage();
-      const userLoginPage = new LoginPage(userPage);
-      const userOnboarding = new OnboardingPage(userPage);
       const userDashboard = new DashboardPage(userPage);
 
-      await userLoginPage.goto();
-      await userPage.waitForLoadState("domcontentloaded");
-      await userLoginPage.login(username, TEMP_PASSWORD);
+      const chosenPassword = "NewPassword1";
 
-      // User is redirected to onboarding to set their own password
-      await userLoginPage.waitForRedirectToOnboarding();
-
-      // Profile fields are pre-filled, only password is required
-      await userOnboarding.completePasswordOnlyOnboarding("NewPassword1");
-
-      // After onboarding, user is redirected to dashboard
-      await userOnboarding.expectRedirectToDashboard();
+      await completeOnboardingWithInviteToken(userPage, email, chosenPassword);
       await userDashboard.expectOnDashboard();
 
       // Cleanup

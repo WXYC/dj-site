@@ -39,13 +39,16 @@ export default function LoginSlotSwitcher({
     }
   }, [dispatch, hasResetParams]);
 
-  if (isIncomplete) return <>{newuser}</>;
-
   const effectiveAuthStage = hasResetParams ? "reset" : authStage;
 
+  // Password-reset / invite links with ?token= must win over the incomplete-user
+  // onboarding slot — otherwise a signed-in incomplete DJ on a shared machine
+  // would see NewUserForm instead of the reset form for someone else's link.
   if (effectiveAuthStage === "forgot" || effectiveAuthStage === "reset") {
     return <>{reset}</>;
   }
+
+  if (isIncomplete) return <>{newuser}</>;
 
   return (
     <>

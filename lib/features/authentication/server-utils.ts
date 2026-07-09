@@ -61,10 +61,8 @@ export async function requireAuth(): Promise<BetterAuthSession> {
     redirect("/login?error=email-not-verified&bounced=email-not-verified");
   }
 
-  // Redirect incomplete users back to login for onboarding.
-  // Only check if hasCompletedOnboarding is explicitly present as a key in the user object
-  // (better-auth includes additional fields when configured).
-  if ("hasCompletedOnboarding" in session.user && isUserIncomplete(session)) {
+  // Incomplete until explicitly marked complete.
+  if (isUserIncomplete(session)) {
     redirect("/login?incomplete=true&bounced=incomplete");
   }
 
@@ -145,7 +143,7 @@ export async function requireRole(session: BetterAuthSession, requiredRole: Auth
  * so admins can pre-fill realName/djName without bypassing onboarding.
  */
 export function isUserIncomplete(session: BetterAuthSession): boolean {
-  return session.user.hasCompletedOnboarding === false;
+  return session.user.hasCompletedOnboarding !== true;
 }
 
 /**

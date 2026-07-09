@@ -71,6 +71,13 @@ export const authenticationSlice = createAppSlice({
         state.required = [...state.required, ...action.payload];
       }
     ),
+    /** Replace the required list outright — for forms that don't render the
+     * default username/password fields and must not inherit them. */
+    setRequiredCredentials: create.reducer(
+      (state, action: PayloadAction<(keyof VerifiedData)[]>) => {
+        state.required = action.payload;
+      }
+    ),
     resetModifications: create.reducer((state) => {
       state.modifications = defaultAuthenticationState.modifications;
     }),

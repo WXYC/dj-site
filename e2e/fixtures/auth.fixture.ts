@@ -1,12 +1,6 @@
 import { test as base, expect, Page } from "@playwright/test";
 import { MOCK_USERS, MockUserKey, MockUser } from "../../lib/test-utils/fixtures";
 
-/**
- * Temporary password used for admin-created users.
- * Must match NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD in .env.local.
- */
-export const TEMP_PASSWORD = process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD || "temppass123";
-
 /** Re-export shared mock users for e2e convenience. */
 export const TEST_USERS = MOCK_USERS;
 export type TestUserKey = MockUserKey;
@@ -157,15 +151,86 @@ async function getAuthServiceBaseUrl(): Promise<string> {
 export async function getVerificationToken(identifier: string): Promise<{ token: string; expiresAt: string } | null> {
   const baseUrl = await getAuthServiceBaseUrl();
 
-  try {
-    const response = await fetch(`${baseUrl}/auth/test/verification-token?identifier=${encodeURIComponent(identifier)}`);
-    if (!response.ok) {
-      return null;
+  // Provision + requestPasswordReset may commit slightly after the UI toast.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const response = await fetch(
+        `${baseUrl}/auth/test/verification-token?identifier=${encodeURIComponent(identifier)}`
+      );
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch (error) {
+      console.error("Failed to fetch verification token:", error);
     }
-    return await response.json();
-  } catch (error) {
-    console.error("Failed to fetch verification token:", error);
-    return null;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+
+  return null;
+}
+
+/**
+ * Complete new-DJ onboarding via the invite setup token (primary provisioning flow).
+ */
+export async function completeOnboardingWithInviteToken(
+  page: Page,
+  email: string,
+  password: string
+): Promise<void> {
+  const tokenData = await getVerificationToken(email);
+  if (!tokenData?.token) {
+    throw new Error(`No setup token found for ${email}`);
+  }
+
+  await page.goto(`/onboarding?token=${encodeURIComponent(tokenData.token)}`);
+  await page.waitForURL(/\/onboarding/, { timeout: 15000 });
+  await page.locator('input[name="password"]').waitFor({ state: "visible", timeout: 20000 });
+
+  const realNameInput = page.locator('input[name="realName"]');
+  if (await realNameInput.isVisible()) {
+    const existingRealName = await realNameInput.inputValue();
+    if (!existingRealName.trim()) {
+      await realNameInput.fill("E2E Test User");
+    }
+  }
+
+  const djNameInput = page.locator('input[name="djName"]');
+  if (await djNameInput.isVisible()) {
+    const existingDjName = await djNameInput.inputValue();
+    if (!existingDjName.trim()) {
+      await djNameInput.fill("E2E DJ");
+    }
+  }
+
+  await page.fill('input[name="password"]', password);
+  await page.fill('input[name="confirmPassword"]', password);
+  await expect(page.getByRole("button", { name: "Submit" })).toBeEnabled({
+    timeout: 10000,
+  });
+  await page.getByRole("button", { name: "Submit" }).click();
+  await page.waitForURL((url) => url.pathname.includes("/dashboard"), {
+    timeout: 20000,
+  });
+}
+
+/**
+ * Reset the seeded test_incomplete user (session onboarding E2E).
+ * Requires Backend-Service with NODE_ENV development or test.
+ */
+export async function resetIncompleteTestUser(
+  userId = "test-incomplete-id-0000000000001"
+): Promise<void> {
+  const baseUrl = await getAuthServiceBaseUrl();
+  const response = await fetch(`${baseUrl}/auth/test/reset-incomplete-user`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId }),
+  });
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(
+      `Failed to reset incomplete test user (${response.status}): ${body}`
+    );
   }
 }
 

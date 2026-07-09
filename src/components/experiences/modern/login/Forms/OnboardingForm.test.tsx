@@ -10,6 +10,10 @@ import type { ReactNode } from "react";
 const mockHandleNewUser = vi.fn((e) => e.preventDefault());
 const mockAddRequiredCredentials = vi.fn();
 
+vi.mock("next/navigation", () => ({
+  useSearchParams: vi.fn(() => new URLSearchParams()),
+}));
+
 vi.mock("@/src/hooks/authenticationHooks", () => ({
   useNewUser: vi.fn(() => ({
     handleNewUser: mockHandleNewUser,
@@ -43,30 +47,18 @@ describe("OnboardingForm", () => {
     const Wrapper = createWrapper();
     const { container } = render(
       <Wrapper>
-        <OnboardingForm username="testuser" />
+        <OnboardingForm />
       </Wrapper>
     );
 
     expect(container.querySelector("form")).toBeInTheDocument();
   });
 
-  it("should render hidden username input with provided value", () => {
-    const Wrapper = createWrapper();
-    render(
-      <Wrapper>
-        <OnboardingForm username="testuser" />
-      </Wrapper>
-    );
-
-    const hiddenInput = document.querySelector('input[name="username"]');
-    expect(hiddenInput).toHaveValue("testuser");
-  });
-
   it("should render real name input", () => {
     const Wrapper = createWrapper();
     render(
       <Wrapper>
-        <OnboardingForm username="testuser" />
+        <OnboardingForm />
       </Wrapper>
     );
 
@@ -77,7 +69,7 @@ describe("OnboardingForm", () => {
     const Wrapper = createWrapper();
     render(
       <Wrapper>
-        <OnboardingForm username="testuser" />
+        <OnboardingForm />
       </Wrapper>
     );
 
@@ -88,7 +80,7 @@ describe("OnboardingForm", () => {
     const Wrapper = createWrapper();
     render(
       <Wrapper>
-        <OnboardingForm username="testuser" />
+        <OnboardingForm />
       </Wrapper>
     );
 
@@ -102,7 +94,7 @@ describe("OnboardingForm", () => {
     const Wrapper = createWrapper();
     render(
       <Wrapper>
-        <OnboardingForm username="testuser" />
+        <OnboardingForm />
       </Wrapper>
     );
 
@@ -113,7 +105,7 @@ describe("OnboardingForm", () => {
     const Wrapper = createWrapper();
     render(
       <Wrapper>
-        <OnboardingForm username="testuser" />
+        <OnboardingForm />
       </Wrapper>
     );
 
@@ -124,12 +116,11 @@ describe("OnboardingForm", () => {
     const Wrapper = createWrapper();
     render(
       <Wrapper>
-        <OnboardingForm username="testuser" />
+        <OnboardingForm />
       </Wrapper>
     );
 
     expect(mockAddRequiredCredentials).toHaveBeenCalledWith([
-      "username",
       "realName",
       "password",
       "confirmPassword",
@@ -140,11 +131,7 @@ describe("OnboardingForm", () => {
     const Wrapper = createWrapper();
     render(
       <Wrapper>
-        <OnboardingForm
-          username="testuser"
-          realName="John Doe"
-          djName="DJ John"
-        />
+        <OnboardingForm realName="John Doe" djName="DJ John" />
       </Wrapper>
     );
 

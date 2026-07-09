@@ -11,7 +11,7 @@ import {
   AUTHORIZATION_LABELS,
   authorizationToRole,
 } from "@/lib/features/authentication/types";
-import { DeleteForever, Edit, Language, Send, SyncLock } from "@mui/icons-material";
+import { DeleteForever, Edit, Language, Send } from "@mui/icons-material";
 import {
   Button,
   Chip,
@@ -42,7 +42,6 @@ export default function AccountEditForm({
   organizationSlug,
 }: AccountEditFormProps) {
   const [isPromoting, setIsPromoting] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdatingCapabilities, setIsUpdatingCapabilities] = useState(false);
   const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
@@ -50,7 +49,7 @@ export default function AccountEditForm({
   const [newEmail, setNewEmail] = useState(account.email ?? "");
 
   const userCapabilities = (account.capabilities ?? []) as ("editor" | "webmaster")[];
-  const isIncomplete = account.hasCompletedOnboarding === false;
+  const isIncomplete = account.hasCompletedOnboarding !== true;
 
   const resolveUserId = async () => {
     if (account.id) {
@@ -233,40 +232,6 @@ export default function AccountEditForm({
     }
   };
 
-  const handlePasswordReset = async () => {
-    if (!confirm("Are you sure you want to reset this user's password?")) {
-      return;
-    }
-
-    setIsResetting(true);
-    try {
-      const targetUserId = await resolveUserId();
-
-      const tempPassword =
-        process.env.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD || crypto.randomUUID().replace(/-/g, "").slice(0, 16);
-
-      const result = await authClient.admin.setUserPassword({
-        userId: targetUserId,
-        newPassword: tempPassword,
-      });
-
-      if (result.error) {
-        throw new Error(result.error.message || "Failed to reset password");
-      }
-
-      toast.success(`Password reset successfully. Temporary password: ${tempPassword}`, {
-        duration: 10000,
-      });
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to reset password";
-      if (errorMessage.trim().length > 0) {
-        toast.error(errorMessage);
-      }
-    } finally {
-      setIsResetting(false);
-    }
-  };
-
   const handleDelete = async () => {
     if (!confirm(`Are you sure you want to delete ${account.realName}'s account?`)) {
       return;
@@ -297,45 +262,6 @@ export default function AccountEditForm({
     }
   };
 
-  const handleSendInvite = async () => {
-    if (!account.email) {
-      toast.error("No email address on file.");
-      return;
-    }
-
-    setIsSendingEmail(true);
-    try {
-      const targetUserId = await resolveUserId();
-
-      // Un-verify the email so the verification endpoint will send a new email
-      await authClient.admin.updateUser({
-        userId: targetUserId,
-        data: { emailVerified: false },
-      });
-
-      const response = await fetch(`${authBaseURL}/send-verification-email`, {
-        method: "POST",
-        credentials: "omit",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: account.email,
-          callbackURL: "/login",
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to send invite email");
-      }
-
-      toast.success(`Invite email sent to ${account.email}`);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to send invite email";
-      toast.error(errorMessage);
-    } finally {
-      setIsSendingEmail(false);
-    }
-  };
-
   const handleSendPasswordReset = async () => {
     if (!account.email) {
       toast.error("No email address on file.");
@@ -346,7 +272,7 @@ export default function AccountEditForm({
     try {
       const redirectTo =
         typeof window !== "undefined"
-          ? `${window.location.origin}/login`
+          ? `${window.location.origin}${isIncomplete ? "/onboarding" : "/login"}`
           : undefined;
 
       const result = await authClient.requestPasswordReset({
@@ -500,22 +426,11 @@ export default function AccountEditForm({
               startDecorator={<Send />}
               disabled={isSendingEmail}
               loading={isSendingEmail}
-              onClick={isIncomplete ? handleSendInvite : handleSendPasswordReset}
+              onClick={handleSendPasswordReset}
             >
               {isIncomplete ? "Send Invite" : "Send Password Reset"}
             </Button>
           )}
-          <Button
-            size="sm"
-            color="success"
-            variant="solid"
-            startDecorator={<SyncLock />}
-            disabled={isSelf || isResetting}
-            loading={isResetting}
-            onClick={handlePasswordReset}
-          >
-            Reset Password
-          </Button>
           <Button
             size="sm"
             color="danger"

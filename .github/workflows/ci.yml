@@ -232,7 +232,6 @@ jobs:
     env:
       NEXT_PUBLIC_BACKEND_URL: ${{ vars.NEXT_PUBLIC_BACKEND_URL }}
       NEXT_PUBLIC_BETTER_AUTH_URL: ${{ vars.NEXT_PUBLIC_BETTER_AUTH_URL }}
-      NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD: ${{ vars.NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD }}
       NEXT_PUBLIC_DASHBOARD_HOME_PAGE: ${{ vars.NEXT_PUBLIC_DASHBOARD_HOME_PAGE }}
       NEXT_PUBLIC_DEFAULT_EXPERIENCE: ${{ vars.NEXT_PUBLIC_DEFAULT_EXPERIENCE }}
       NEXT_PUBLIC_ENABLED_EXPERIENCES: ${{ vars.NEXT_PUBLIC_ENABLED_EXPERIENCES }}
@@ -249,7 +248,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Verify build env
-        run: ./scripts/deploy/check-build-env.sh NEXT_PUBLIC_BACKEND_URL NEXT_PUBLIC_BETTER_AUTH_URL NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD
+        run: ./scripts/deploy/check-build-env.sh NEXT_PUBLIC_BACKEND_URL NEXT_PUBLIC_BETTER_AUTH_URL
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -306,7 +305,6 @@ jobs:
     env:
       NEXT_PUBLIC_BACKEND_URL: ${{ vars.PREVIEW_NEXT_PUBLIC_BACKEND_URL }}
       NEXT_PUBLIC_BETTER_AUTH_URL: ${{ vars.PREVIEW_NEXT_PUBLIC_BETTER_AUTH_URL }}
-      NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD: ${{ vars.PREVIEW_NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD }}
       NEXT_PUBLIC_DASHBOARD_HOME_PAGE: ${{ vars.PREVIEW_NEXT_PUBLIC_DASHBOARD_HOME_PAGE }}
       NEXT_PUBLIC_DEFAULT_EXPERIENCE: ${{ vars.PREVIEW_NEXT_PUBLIC_DEFAULT_EXPERIENCE }}
       NEXT_PUBLIC_ENABLED_EXPERIENCES: ${{ vars.PREVIEW_NEXT_PUBLIC_ENABLED_EXPERIENCES }}
@@ -353,7 +351,7 @@ jobs:
 
       - name: Verify build env
         if: steps.config.outputs.configured == 'true'
-        run: ./scripts/deploy/check-build-env.sh NEXT_PUBLIC_BACKEND_URL NEXT_PUBLIC_BETTER_AUTH_URL NEXT_PUBLIC_ONBOARDING_TEMP_PASSWORD
+        run: ./scripts/deploy/check-build-env.sh NEXT_PUBLIC_BACKEND_URL NEXT_PUBLIC_BETTER_AUTH_URL
 
       - name: Set up Node.js
         if: steps.config.outputs.configured == 'true'

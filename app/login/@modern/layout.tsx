@@ -6,6 +6,7 @@ import WXYCPage from "@/src/Layout/WXYCPage";
 import LoginSlotSwitcher from "./LoginSlotSwitcher";
 import { Metadata } from "next";
 import { getPageTitle } from "@/lib/utils/page-title";
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: getPageTitle("Login"),
@@ -20,19 +21,20 @@ export default async function ModernLoginLayout({
   newuser: React.ReactNode;
   reset: React.ReactNode;
 }) {
-  // Check if user is already authenticated and email-verified
   const session = await getServerSession();
 
   // Incomplete (verified but missing realName): show the onboarding form.
   if (session?.user?.emailVerified && isUserIncomplete(session)) {
     return (
       <WXYCPage>
-        <LoginSlotSwitcher
-          normal={normal}
-          newuser={newuser}
-          reset={reset}
-          isIncomplete={true}
-        />
+        <Suspense fallback={null}>
+          <LoginSlotSwitcher
+            normal={normal}
+            newuser={newuser}
+            reset={reset}
+            isIncomplete={true}
+          />
+        </Suspense>
       </WXYCPage>
     );
   }
@@ -45,12 +47,14 @@ export default async function ModernLoginLayout({
   // the verification message.
   return (
     <WXYCPage>
-      <LoginSlotSwitcher
-        normal={normal}
-        newuser={newuser}
-        reset={reset}
-        isIncomplete={false}
-      />
+      <Suspense fallback={null}>
+        <LoginSlotSwitcher
+          normal={normal}
+          newuser={newuser}
+          reset={reset}
+          isIncomplete={false}
+        />
+      </Suspense>
     </WXYCPage>
   );
 }

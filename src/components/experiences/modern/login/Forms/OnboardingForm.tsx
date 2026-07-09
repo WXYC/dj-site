@@ -11,43 +11,33 @@ import RequiredBox from "./Fields/RequiredBox";
 import { ValidatedSubmitButton } from "./Fields/ValidatedSubmitButton";
 
 type OnboardingFormProps = {
-  username: string;
   realName?: string;
   djName?: string;
 };
 
-export default function OnboardingForm({
-  username,
-  realName,
-  djName,
-}: OnboardingFormProps) {
+/**
+ * Invite-token onboarding at /onboarding?token=…. The DJ confirms their name
+ * and chooses the password they will sign in with; the token authenticates
+ * the request, so no session is needed.
+ */
+export default function OnboardingForm({ realName, djName }: OnboardingFormProps) {
   const [newPassword, setNewPassword] = useState("");
   const { handleNewUser, verified, authenticating, addRequiredCredentials } =
-    useNewUser();
+    useNewUser("invite");
 
   const dispatch = useAppDispatch();
 
   useEffect(() => {
-    addRequiredCredentials([
-      "username",
+    const required: (keyof VerifiedData)[] = [
       "realName",
       "password",
       "confirmPassword",
-    ]);
+    ];
+    addRequiredCredentials(required);
   }, [addRequiredCredentials]);
-
-  useEffect(() => {
-    dispatch(
-      authenticationSlice.actions.verify({
-        key: "username",
-        value: username.length > 0,
-      })
-    );
-  }, [username]);
 
   return (
     <form onSubmit={handleNewUser} method="put">
-      <input type="hidden" name="username" value={username} />
       <RequiredBox
         name="realName"
         title="Real Name"
@@ -71,8 +61,8 @@ export default function OnboardingForm({
         disabled={authenticating}
         helper={
           <Typography level="body-xs">
-            Must be at least 8 characters, with at least 1 number and 1 capital
-            letter
+            Choose the password you will use to sign in. Must be at least 8
+            characters, with at least 1 number and 1 capital letter.
           </Typography>
         }
         validationFunction={(value: string) => {
