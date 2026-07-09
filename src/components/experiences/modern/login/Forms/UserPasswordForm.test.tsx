@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { screen } from "@testing-library/react";
 import UserPasswordForm from "./UserPasswordForm";
 import { renderWithProviders } from "@/lib/test-utils";
+import { applicationSlice } from "@/lib/features/application/frontend";
 
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
@@ -11,6 +12,8 @@ vi.mock("next/navigation", () => ({
   }),
   useSearchParams: () => new URLSearchParams(""),
 }));
+
+const QR_FLAG_KEY = "NEXT_PUBLIC_QR_LOGIN_ENABLED";
 
 describe("UserPasswordForm", () => {
   it("should render identifier and password fields", () => {
@@ -72,5 +75,33 @@ describe("UserPasswordForm", () => {
 
     const form = container.querySelector("form");
     expect(form).toHaveAttribute("method", "post");
+  });
+
+  describe("QR entry link (flag-gated)", () => {
+    afterEach(() => {
+      delete process.env[QR_FLAG_KEY];
+    });
+
+    it("is hidden when the QR flag is off", () => {
+      delete process.env[QR_FLAG_KEY];
+      renderWithProviders(<UserPasswordForm />);
+
+      expect(
+        screen.queryByRole("button", { name: "Sign in with a QR code" })
+      ).not.toBeInTheDocument();
+    });
+
+    it("switches to the qr stage when the flag is on", async () => {
+      process.env[QR_FLAG_KEY] = "true";
+      const { user, store } = renderWithProviders(<UserPasswordForm />);
+
+      await user.click(
+        screen.getByRole("button", { name: "Sign in with a QR code" })
+      );
+
+      expect(applicationSlice.selectors.getAuthStage(store.getState())).toBe(
+        "qr"
+      );
+    });
   });
 });

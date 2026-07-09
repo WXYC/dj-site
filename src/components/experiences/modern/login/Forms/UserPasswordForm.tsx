@@ -1,6 +1,7 @@
 "use client";
 
 import { applicationSlice } from "@/lib/features/application/frontend";
+import { isQrLoginEnabled } from "@/lib/features/authentication/flags";
 import { savePreferredLoginMethod } from "@/lib/features/application/login-method-storage";
 import { useAppDispatch } from "@/lib/hooks";
 import { useLogin } from "@/src/hooks/authenticationHooks";
@@ -63,6 +64,22 @@ export default function UserPasswordForm() {
           Sign in with email code instead
         </Link>
       </Typography>
+      {isQrLoginEnabled() && (
+        <Typography level="body-sm" sx={{ mt: 1, textAlign: "center" }}>
+          <Link
+            component="button"
+            type="button"
+            onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
+              event.preventDefault();
+              savePreferredLoginMethod("qr");
+              dispatch(applicationSlice.actions.setAuthStage("qr"));
+            }}
+            disabled={authenticating}
+          >
+            Sign in with a QR code
+          </Link>
+        </Typography>
+      )}
     </form>
   );
 }
