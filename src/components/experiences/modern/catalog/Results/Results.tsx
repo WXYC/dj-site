@@ -5,7 +5,7 @@ import Checkbox from "@mui/joy/Checkbox";
 import CircularProgress from "@mui/joy/CircularProgress";
 import { ChangeEvent } from "react";
 
-import { Table } from "@mui/joy";
+import { Box, Table } from "@mui/joy";
 
 import {
   useCatalogQueryResults,
@@ -13,6 +13,7 @@ import {
 } from "@/src/hooks/catalogHooks";
 import { ColorPaletteProp } from "@mui/joy";
 import CatalogResult from "./Result";
+import CatalogMobileResult from "./MobileResult";
 import ResultsContainer from "./ResultsContainer";
 import TableHeader from "./TableHeader";
 
@@ -47,9 +48,12 @@ export default function Results({
         stickyHeader
         hoverRow
         sx={{
-          // Below this the container's overflow:auto takes over as a
-          // horizontal scroll; columns never get crushed.
-          minWidth: 700,
+          // The table is the desktop layout only; below `sm` the stacked
+          // mobile card list takes over (see below).
+          display: { xs: "none", sm: "table" },
+          // Album/Artist have a floor here; below this the container's
+          // overflow:auto becomes a horizontal scroll rather than crushing.
+          minWidth: 900,
           "--TableCell-headBackground": (theme) =>
             theme.vars.palette.background.level1,
           "--Table-headerUnderlineThickness": "1px",
@@ -119,34 +123,32 @@ export default function Results({
               />
             </th>
             <th scope="col" style={{ width: 64, padding: 12 }}></th>
-            {/* Fixed-width metadata columns keep call #s, chips and plays
-                vertically aligned; the trailing width-less filler column
-                absorbs all leftover space so the content stays packed left
-                instead of spreading across the table. */}
-            <th
-              scope="col"
-              aria-sort={ariaSort("album") ?? ariaSort("artist")}
-              style={{ width: 300, padding: 12 }}
-            >
-              <TableHeader textValue="Title" />
-              <span style={{ margin: "0 6px", opacity: 0.4 }}>/</span>
+            {/* Album and Artist carry no width: with table-layout fixed they
+                split the leftover space, so they grow to fill wide screens
+                while the metadata columns stay compact on the right. */}
+            <th scope="col" aria-sort={ariaSort("album")} style={{ padding: 12 }}>
+              <TableHeader textValue="Album" />
+            </th>
+            <th scope="col" aria-sort={ariaSort("artist")} style={{ padding: 12 }}>
               <TableHeader textValue="Artist" />
             </th>
-            <th scope="col" style={{ width: 180, padding: 12 }}></th>
-            <th scope="col" style={{ width: 110, padding: 12 }}>
+            <th scope="col" style={{ width: 140, padding: 12 }}></th>
+            <th scope="col" style={{ width: 100, padding: 12 }}>
               <TableHeader textValue="Call #" />
             </th>
-            <th scope="col" aria-sort={ariaSort("plays")} style={{ width: 70, padding: 12 }}>
+            <th scope="col" aria-sort={ariaSort("plays")} style={{ width: 60, padding: 12 }}>
               <TableHeader textValue="Plays" />
             </th>
-            <th scope="col" style={{ padding: 12 }}></th>
+            <th scope="col" style={{ width: 160, padding: 12 }}>
+              <TableHeader textValue="Label" />
+            </th>
           </tr>
         </thead>
         <tbody>
           {loading ? (
             <tr style={{ background: "transparent" }}>
               <td
-                colSpan={7}
+                colSpan={8}
                 style={{
                   textAlign: "center",
                   paddingTop: "3rem",
@@ -164,7 +166,7 @@ export default function Results({
 
           {!loading && hasMore && (
             <tr>
-              <td colSpan={7} style={{ textAlign: "center" }}>
+              <td colSpan={8} style={{ textAlign: "center" }}>
                 <Button
                   variant="solid"
                   color="primary"
@@ -182,6 +184,39 @@ export default function Results({
           )}
         </tbody>
       </Table>
+
+      {/* Mobile: the table is hidden below `sm`; results render as a
+          vertical list of stacked cards (Apple-Music-style) instead. */}
+      <Box
+        sx={{
+          display: { xs: "flex", sm: "none" },
+          flexDirection: "column",
+          gap: 1,
+          p: 1,
+        }}
+      >
+        {loading ? (
+          <Box sx={{ display: "flex", justifyContent: "center", pt: "3rem" }}>
+            <CircularProgress color="primary" size="md" />
+          </Box>
+        ) : (
+          releaseList?.map((album) => (
+            <CatalogMobileResult album={album} key={`mobile-result-${album.id}`} />
+          ))
+        )}
+        {!loading && hasMore && (
+          <Button
+            variant="solid"
+            color="primary"
+            size="lg"
+            loading={isFetchingMore}
+            onClick={loadNextPage}
+            sx={{ alignSelf: "center", mt: 1 }}
+          >
+            Load more
+          </Button>
+        )}
+      </Box>
     </ResultsContainer>
   );
 }

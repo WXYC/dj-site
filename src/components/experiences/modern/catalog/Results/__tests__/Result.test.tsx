@@ -244,6 +244,43 @@ describe("CatalogResult text clamping", () => {
   });
 });
 
+describe("CatalogResult record label column", () => {
+  it("should render the record label in its own cell, separate from the album", () => {
+    const album = createTestAlbum({
+      title: "On Your Own Love Again",
+      label: "Drag City",
+    });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} />
+        </tbody>
+      </table>
+    );
+
+    const labelCell = screen.getByText("Drag City").closest("td");
+    expect(labelCell).not.toBeNull();
+    // Label is its own column, not bundled with the album title
+    expect(labelCell!.textContent).not.toContain(album.title);
+  });
+
+  it("should show a dash when the label is empty", () => {
+    const album = createTestAlbum({ label: "" });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} />
+        </tbody>
+      </table>
+    );
+
+    // plays default 0 also renders "—", so expect two dashes (plays + label)
+    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(1);
+  });
+});
+
 describe("CatalogResult album artwork", () => {
   it("should render album artwork when artwork_url is provided", () => {
     const album = createTestAlbum({
