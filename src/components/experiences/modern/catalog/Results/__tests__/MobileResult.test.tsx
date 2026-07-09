@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { fireEvent, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { createTestAlbum, createTestArtist } from "@/lib/test-utils";
 import { renderWithProviders } from "@/lib/test-utils/render";
 
@@ -16,15 +16,6 @@ vi.mock("next/link", () => ({
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useShowControl: () => ({ live: false }),
   useQueue: () => ({ addToQueue: vi.fn() }),
-}));
-
-const setSelection = vi.fn();
-vi.mock("@/src/hooks/catalogHooks", () => ({
-  useCatalogQuerySearch: () => ({
-    selected: [],
-    setSelection,
-    sortBy: "album",
-  }),
 }));
 
 import CatalogMobileResult from "../MobileResult";
@@ -65,11 +56,9 @@ describe("CatalogMobileResult", () => {
     expect(meta.textContent?.trim()).toBe("RO 87/4");
   });
 
-  it("toggles selection via the checkbox without opening the detail panel", () => {
+  it("does not render a selection checkbox on mobile", () => {
     renderWithProviders(<CatalogMobileResult album={album} />);
-    const checkbox = screen.getByRole("checkbox");
-    fireEvent.click(checkbox);
-    expect(setSelection).toHaveBeenCalledWith([album.id]);
+    expect(screen.queryByRole("checkbox")).toBeNull();
   });
 
   it("shows the WXYC EXCLUSIVE chip when not on streaming", () => {

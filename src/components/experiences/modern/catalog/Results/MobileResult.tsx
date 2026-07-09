@@ -2,7 +2,6 @@
 
 import { AlbumEntry, Genre } from "@/lib/features/catalog/types";
 import Box from "@mui/joy/Box";
-import Checkbox from "@mui/joy/Checkbox";
 import IconButton from "@mui/joy/IconButton";
 import Sheet from "@mui/joy/Sheet";
 import Stack from "@mui/joy/Stack";
@@ -12,7 +11,6 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { QueueMusic } from "@mui/icons-material";
 
 import { applicationSlice } from "@/lib/features/application/frontend";
-import { useCatalogQuerySearch } from "@/src/hooks/catalogHooks";
 import { useQueue, useShowControl } from "@/src/hooks/flowsheetHooks";
 import { useAppDispatch } from "@/lib/hooks";
 import { convertBinToQueue } from "@/lib/features/bin/conversions";
@@ -24,16 +22,13 @@ import { toast } from "sonner";
 
 // Below the `sm` breakpoint the desktop table is hidden and the results
 // render as this Apple-Music-style stacked card instead: artwork on the
-// left, everything else stacked vertically, actions trailing.
+// left, everything else stacked vertically, actions in the top-right corner.
 export default function CatalogMobileResult({ album }: { album: AlbumEntry }) {
   const { live } = useShowControl();
   const { addToQueue } = useQueue();
   const dispatch = useAppDispatch();
 
-  const { selected, setSelection } = useCatalogQuerySearch();
-
   const genreColor = GENRE_COLORS[(album.artist.genre as Genre) ?? "Unknown"] ?? "neutral";
-  const isSelected = selected.includes(album.id);
 
   const artistDisplay = album.album_artist ? "Various Artists" : album.artist.name;
 
@@ -42,8 +37,8 @@ export default function CatalogMobileResult({ album }: { album: AlbumEntry }) {
 
   // The actions sit in the top-right corner, so only the top text lines
   // (title, artist) need to reserve room for them; everything below runs
-  // full width. Three icons when live, two otherwise.
-  const actionClearance = live ? "108px" : "76px";
+  // full width. Three compact icons when live, two otherwise.
+  const actionClearance = live ? "92px" : "62px";
 
   const meta = [
     `${album.artist.lettercode} ${album.artist.numbercode}/${album.entry}`,
@@ -64,23 +59,10 @@ export default function CatalogMobileResult({ album }: { album: AlbumEntry }) {
         gap: 1.5,
         p: 1.25,
         borderRadius: "md",
-        bgcolor: isSelected ? "background.level2" : "background.level1",
+        bgcolor: "background.level1",
         cursor: "pointer",
       }}
     >
-      <Checkbox
-        checked={isSelected}
-        color={isSelected ? "primary" : undefined}
-        onClick={(e) => e.stopPropagation()}
-        onChange={(event) => {
-          setSelection(
-            event.target.checked
-              ? [...selected, album.id]
-              : selected.filter((item) => item !== album.id)
-          );
-        }}
-        sx={{ flexShrink: 0 }}
-      />
       {album.artwork_url ? (
         <Box
           component="img"
@@ -132,29 +114,44 @@ export default function CatalogMobileResult({ album }: { album: AlbumEntry }) {
           {artistDisplay}
         </Typography>
         <MatchedTrackChips matched_via={album.matched_via} />
-        <ReleaseChips
-          genre={album.artist.genre}
-          format={album.format}
-          rotation={album.rotation_bin}
-          onStreaming={album.on_streaming}
-        />
-        <Typography level="body-xs" textColor="text.tertiary" noWrap sx={{ mt: 0.25 }}>
-          {meta}
-        </Typography>
+        {/* Pills share the metadata line with the call number / plays /
+            label to keep the card compact. */}
+        <Stack
+          direction="row"
+          alignItems="center"
+          gap={0.75}
+          flexWrap="wrap"
+          sx={{ mt: 0.25 }}
+        >
+          <ReleaseChips
+            genre={album.artist.genre}
+            format={album.format}
+            rotation={album.rotation_bin}
+            onStreaming={album.on_streaming}
+          />
+          <Typography level="body-xs" textColor="text.tertiary">
+            {meta}
+          </Typography>
+        </Stack>
       </Stack>
 
       <Stack
         direction="row"
         gap={0.25}
         alignItems="center"
-        sx={{ position: "absolute", top: 6, right: 6 }}
+        sx={{
+          position: "absolute",
+          top: 6,
+          right: 6,
+          "--IconButton-size": "28px",
+          "--Icon-fontSize": "18px",
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         <IconButton
           aria-label="More information"
           variant="plain"
           color="neutral"
-          size="sm"
           onClick={openDetail}
         >
           <InfoOutlinedIcon />
@@ -164,7 +161,6 @@ export default function CatalogMobileResult({ album }: { album: AlbumEntry }) {
             aria-label="Add to Queue"
             variant="plain"
             color="neutral"
-            size="sm"
             onClick={() => {
               addToQueue(convertBinToQueue(album));
               toast.success(`Added ${album.title} to queue`);
