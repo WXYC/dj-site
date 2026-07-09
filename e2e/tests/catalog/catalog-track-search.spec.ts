@@ -78,7 +78,7 @@ test.describe("Catalog track search — matched_via chip rendering", () => {
     const searchInput = page.getByPlaceholder("Search the catalog").first();
     await searchInput.fill("vi scose poise");
 
-    await expect(page.getByText("Confield")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Confield").first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByText("Autechre").first()).toBeVisible();
 
     await expect(
@@ -99,7 +99,7 @@ test.describe("Catalog track search — matched_via chip rendering", () => {
     await searchInput.fill(COMP_TRACK_TITLE);
 
     await expect(
-      page.getByText(wxycExampleSearchResults.variousArtistsComp.album_title),
+      page.getByText(wxycExampleSearchResults.variousArtistsComp.album_title).first(),
     ).toBeVisible({ timeout: 10000 });
     await expect(page.getByText("Various Artists").first()).toBeVisible();
 
