@@ -131,9 +131,8 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
             level="body-sm"
             fontWeight={sortBy === "artist" ? "bold" : "md"}
             textColor="text.secondary"
-            noWrap
             title={artistDisplay}
-            sx={{ flexShrink: 1, minWidth: 0 }}
+            sx={{ ...lineClampSx, flexShrink: 1, minWidth: 0 }}
           >
             {artistDisplay}
           </Typography>
@@ -145,9 +144,8 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
               <Typography
                 level="body-sm"
                 textColor="text.tertiary"
-                noWrap
                 title={artistDetail}
-                sx={{ flexShrink: 1, minWidth: 0 }}
+                sx={{ ...lineClampSx, flexShrink: 1, minWidth: 0 }}
               >
                 {artistDetail}
               </Typography>

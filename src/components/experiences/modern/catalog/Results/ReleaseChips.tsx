@@ -129,7 +129,7 @@ export function ReleaseChips({
       direction="row"
       gap={0.75}
       alignItems="center"
-      sx={{ flexShrink: 0 }}
+      flexWrap="wrap"
       onClick={(e) => e.stopPropagation()}
     >
       {visible.map((item) => item.node)}
