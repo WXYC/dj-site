@@ -30,18 +30,11 @@ export default function Queue() {
           visibility: "collapse",
         }}
       >
+        {/* Column sizing only — must match the entries table's 3-cell grid. */}
         <tr>
-          <td
-            style={{
-              width: "60px",
-            }}
-          ></td>
+          <td style={{ width: "60px" }}></td>
           <td></td>
-          <td></td>
-          <td></td>
-          <td></td>
-          <td></td>
-          <td></td>
+          <td style={{ width: "140px" }}></td>
         </tr>
       </thead>
       <Reorder.Group
