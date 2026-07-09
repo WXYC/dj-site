@@ -91,13 +91,33 @@ describe("/auth/verify-email open-redirect protection (#597)", () => {
     expect(location.pathname).toBe("/onboarding");
   });
 
-  it("rejects an encoded-slash callbackURL that normalises to off-origin", async () => {
+  // A tab-prefixed protocol-relative value passes the primary string guard
+  // (it starts with "/", and the second char is a tab, not another "/") but the
+  // WHATWG URL parser strips the tab and normalises it to "//evil.example", so
+  // ONLY the belt-and-suspenders origin re-check can reject it. This isolates
+  // that second layer: if it were removed, this test — and only this test —
+  // would go red.
+  it("rejects a tab-obscured protocol-relative callbackURL (origin-check layer)", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue(backendSessionResponse());
 
+    const response = await invoke("/\t//evil.example");
+    const location = new URL(response.headers.get("location")!);
+
+    expect(location.origin).toBe(FRONTEND_ORIGIN);
+    expect(location.pathname).toBe("/onboarding");
+  });
+
+  it("keeps an encoded-slash callbackURL same-origin without decoding it to //", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(backendSessionResponse());
+
+    // "/%2F%2Fevil.example" stays same-origin: the parser keeps %2F encoded in
+    // the path rather than treating it as a "//" authority separator, so it is
+    // a legitimate (if odd) same-origin path — never an off-origin redirect.
     const response = await invoke("/%2F%2Fevil.example");
     const location = new URL(response.headers.get("location")!);
 
     expect(location.origin).toBe(FRONTEND_ORIGIN);
+    expect(location.pathname).toBe("/%2F%2Fevil.example");
   });
 
   it("honors a legitimate same-origin relative callbackURL", async () => {
@@ -141,6 +161,30 @@ describe("/auth/verify-email open-redirect protection (#597)", () => {
 
     const forwarded = String(fetchMock.mock.calls[0][0]);
     expect(forwarded).not.toContain("evil.example");
+  });
+
+  it("forwards the sanitised callbackURL upstream on the safe path", async () => {
+    const fetchMock = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValue(backendSessionResponse());
+
+    await invoke("/dashboard/flowsheet");
+
+    const forwarded = new URL(String(fetchMock.mock.calls[0][0]));
+    // The sanitised (not raw) value is what reaches the backend — guards against
+    // a regression that forwards rawCallbackURL or the fallback instead.
+    expect(forwarded.searchParams.get("callbackURL")).toBe("/dashboard/flowsheet");
+  });
+
+  it("forwards the fallback upstream when an unsafe callbackURL is supplied", async () => {
+    const fetchMock = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValue(backendSessionResponse());
+
+    await invoke("https://evil.example/dj-signin");
+
+    const forwarded = new URL(String(fetchMock.mock.calls[0][0]));
+    expect(forwarded.searchParams.get("callbackURL")).toBe("/onboarding");
   });
 
   it("ignores callbackURL entirely on the no-session branch", async () => {
