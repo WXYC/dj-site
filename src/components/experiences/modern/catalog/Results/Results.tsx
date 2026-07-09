@@ -73,10 +73,24 @@ export default function Results({
             boxShadow: (theme) =>
               `inset 2px 0 0 ${theme.vars.palette.primary[500]}`,
           },
-          // Actions are a right-edge overlay, not a reserved column: no dead
-          // space when hidden. Revealed on row hover/focus on pointer
-          // devices; always visible on touch. The hover-bg backdrop keeps
-          // them legible over the stats they cover.
+          // The actions live in a zero-width cell pinned (sticky) to the
+          // scroll container's right edge, so they stay at the visible edge
+          // no matter the horizontal scroll — no reserved column, no dead
+          // space, and no need to scroll right to reach them.
+          "& tbody tr > td.actions-cell": {
+            position: "sticky",
+            right: 0,
+            zIndex: 3,
+            width: 0,
+            minWidth: 0,
+            maxWidth: 0,
+            padding: 0,
+            overflow: "visible",
+            background: "transparent",
+          },
+          // Actions are revealed on row hover/focus on pointer devices;
+          // always visible on touch. The hover-bg backdrop keeps them
+          // legible over the stats they cover.
           "& tbody tr .row-actions": {
             background:
               "linear-gradient(to right, transparent, var(--TableRow-hoverBackground) 18px)",
@@ -142,13 +156,15 @@ export default function Results({
             <th scope="col" style={{ width: 160, padding: 12 }}>
               <TableHeader textValue="Label" />
             </th>
+            {/* Zero-width column hosting the sticky hover-actions overlay. */}
+            <th aria-hidden style={{ width: 0, padding: 0 }}></th>
           </tr>
         </thead>
         <tbody>
           {loading ? (
             <tr style={{ background: "transparent" }}>
               <td
-                colSpan={8}
+                colSpan={9}
                 style={{
                   textAlign: "center",
                   paddingTop: "3rem",
@@ -166,7 +182,7 @@ export default function Results({
 
           {!loading && hasMore && (
             <tr>
-              <td colSpan={8} style={{ textAlign: "center" }}>
+              <td colSpan={9} style={{ textAlign: "center" }}>
                 <Button
                   variant="solid"
                   color="primary"
