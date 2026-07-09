@@ -11,7 +11,7 @@ import { Link } from "@mui/joy";
 
 const SORT_FIELDS: Record<string, CatalogSortBy> = {
   Artist: "artist",
-  Title: "album",
+  Album: "album",
   Plays: "plays",
 };
 

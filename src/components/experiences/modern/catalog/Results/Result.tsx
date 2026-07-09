@@ -121,38 +121,28 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
         >
           {album.title}
         </Typography>
-        <Stack
-          direction="row"
-          gap={0.75}
-          alignItems="center"
-          sx={{ marginTop: 0.25, minWidth: 0 }}
-        >
-          <Typography
-            level="body-sm"
-            fontWeight={sortBy === "artist" ? "bold" : "md"}
-            textColor="text.secondary"
-            title={artistDisplay}
-            sx={{ ...lineClampSx, flexShrink: 1, minWidth: 0 }}
-          >
-            {artistDisplay}
-          </Typography>
-          {artistDetail && (
-            <>
-              <Typography level="body-sm" textColor="text.tertiary" sx={{ flexShrink: 0 }}>
-                ·
-              </Typography>
-              <Typography
-                level="body-sm"
-                textColor="text.tertiary"
-                title={artistDetail}
-                sx={{ ...lineClampSx, flexShrink: 1, minWidth: 0 }}
-              >
-                {artistDetail}
-              </Typography>
-            </>
-          )}
-        </Stack>
         <MatchedTrackChips matched_via={album.matched_via} />
+      </td>
+      <td>
+        <Typography
+          level="body-sm"
+          fontWeight={sortBy === "artist" ? "bold" : "md"}
+          textColor="text.secondary"
+          title={artistDisplay}
+          sx={lineClampSx}
+        >
+          {artistDisplay}
+        </Typography>
+        {artistDetail && (
+          <Typography
+            level="body-xs"
+            textColor="text.tertiary"
+            title={artistDetail}
+            sx={lineClampSx}
+          >
+            {artistDetail}
+          </Typography>
+        )}
       </td>
       <td>
         <ReleaseChips
@@ -184,6 +174,14 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
         </Typography>
       </td>
       <td style={{ position: "relative" }}>
+        <Typography
+          level="body-sm"
+          textColor="text.tertiary"
+          title={album.label}
+          sx={lineClampSx}
+        >
+          {album.label || "—"}
+        </Typography>
         <Stack
           direction="row"
           gap={0.25}
