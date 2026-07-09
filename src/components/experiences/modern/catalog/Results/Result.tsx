@@ -173,7 +173,7 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
           {album.plays != null && album.plays > 0 ? album.plays : "—"}
         </Typography>
       </td>
-      <td style={{ position: "relative" }}>
+      <td>
         <Typography
           level="body-sm"
           textColor="text.tertiary"
@@ -182,6 +182,11 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
         >
           {album.label || "—"}
         </Typography>
+      </td>
+      {/* Zero-width sticky cell pinned to the scroll container's right edge,
+          so the hover actions always sit at the visible edge regardless of
+          horizontal scroll. */}
+      <td className="actions-cell">
         <Stack
           direction="row"
           gap={0.25}
