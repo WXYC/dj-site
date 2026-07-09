@@ -40,6 +40,11 @@ export default function CatalogMobileResult({ album }: { album: AlbumEntry }) {
   const openDetail = () =>
     dispatch(applicationSlice.actions.openPanel({ type: "album-detail", albumId: album.id }));
 
+  // The actions sit in the top-right corner, so only the top text lines
+  // (title, artist) need to reserve room for them; everything below runs
+  // full width. Three icons when live, two otherwise.
+  const actionClearance = live ? "108px" : "76px";
+
   const meta = [
     `${album.artist.lettercode} ${album.artist.numbercode}/${album.entry}`,
     album.plays != null && album.plays > 0 ? `${album.plays} plays` : null,
@@ -53,6 +58,7 @@ export default function CatalogMobileResult({ album }: { album: AlbumEntry }) {
       variant="soft"
       onClick={openDetail}
       sx={{
+        position: "relative",
         display: "flex",
         alignItems: "center",
         gap: 1.5,
@@ -107,10 +113,22 @@ export default function CatalogMobileResult({ album }: { album: AlbumEntry }) {
       )}
 
       <Stack sx={{ flex: 1, minWidth: 0 }} gap={0.25}>
-        <Typography level="title-sm" textColor="text.primary" noWrap title={album.title}>
+        <Typography
+          level="title-sm"
+          textColor="text.primary"
+          noWrap
+          title={album.title}
+          sx={{ pr: actionClearance }}
+        >
           {album.title}
         </Typography>
-        <Typography level="body-sm" textColor="text.secondary" noWrap title={artistDisplay}>
+        <Typography
+          level="body-sm"
+          textColor="text.secondary"
+          noWrap
+          title={artistDisplay}
+          sx={{ pr: actionClearance }}
+        >
           {artistDisplay}
         </Typography>
         <MatchedTrackChips matched_via={album.matched_via} />
@@ -129,7 +147,7 @@ export default function CatalogMobileResult({ album }: { album: AlbumEntry }) {
         direction="row"
         gap={0.25}
         alignItems="center"
-        sx={{ flexShrink: 0 }}
+        sx={{ position: "absolute", top: 6, right: 6 }}
         onClick={(e) => e.stopPropagation()}
       >
         <IconButton
