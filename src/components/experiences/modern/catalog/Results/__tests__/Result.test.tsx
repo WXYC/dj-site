@@ -183,6 +183,82 @@ describe("CatalogResult Various Artists display", () => {
   });
 });
 
+describe("CatalogResult call number column", () => {
+  const album = createTestAlbum({
+    artist: createTestArtist({ name: "Stereolab", lettercode: "RO", numbercode: 87 }),
+    entry: 4,
+  });
+
+  it("should render the call number in its own cell with no chips", () => {
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} />
+        </tbody>
+      </table>
+    );
+
+    const callCell = Array.from(document.querySelectorAll("td")).find((cell) =>
+      cell.textContent?.includes("RO 87/4")
+    );
+    expect(callCell).toBeDefined();
+    expect(callCell!.textContent?.trim()).toBe("RO 87/4");
+    expect(callCell!.querySelectorAll(".MuiChip-root")).toHaveLength(0);
+  });
+
+  it("should never wrap the call number", () => {
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} />
+        </tbody>
+      </table>
+    );
+
+    const callNumber = screen.getByText("RO 87/4");
+    expect(getComputedStyle(callNumber).whiteSpace).toBe("nowrap");
+  });
+
+  it("should render genre and format chips inside the title cell", () => {
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} />
+        </tbody>
+      </table>
+    );
+
+    const titleCell = Array.from(document.querySelectorAll("td")).find((cell) =>
+      cell.textContent?.includes(album.title)
+    );
+    expect(titleCell).toBeDefined();
+    expect(titleCell!.textContent).toContain(album.artist.genre);
+    expect(titleCell!.textContent).toContain(album.format);
+  });
+});
+
+describe("CatalogResult text clamping", () => {
+  it("should expose full artist and title text via the title attribute", () => {
+    const album = createTestAlbum({
+      artist: createTestArtist({ name: "Chuquimamani-Condori", lettercode: "EL", numbercode: 12 }),
+      title: "DJ E",
+    });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} />
+        </tbody>
+      </table>
+    );
+
+    expect(screen.getByText("Chuquimamani-Condori").getAttribute("title")).toBe(
+      "Chuquimamani-Condori"
+    );
+    expect(screen.getByText("DJ E").getAttribute("title")).toBe("DJ E");
+  });
+});
+
 describe("CatalogResult album artwork", () => {
   it("should render album artwork when artwork_url is provided", () => {
     const album = createTestAlbum({
