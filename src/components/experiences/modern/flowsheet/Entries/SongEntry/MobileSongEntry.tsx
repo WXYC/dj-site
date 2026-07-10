@@ -23,6 +23,7 @@ import {
 } from "@mui/joy";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import RemoveButton from "../Components/RemoveButton";
 import FlowsheetEntryField from "./FlowsheetEntryField";
 import SongEntryControls from "./SongEntryControls";
 import SongEntryStatusChips from "./SongEntryStatusChips";
@@ -230,17 +231,17 @@ export default function MobileSongEntry({
       </Box>
       </Box>
 
-      {/* Bottom: the control tray as a horizontal bar. */}
+      {/* Bottom: the control tray as a centered horizontal bar. */}
       <Stack
         direction="row"
         alignItems="center"
-        justifyContent="flex-end"
-        gap={0.5}
+        justifyContent="center"
+        gap={1.25}
         sx={{
-          alignSelf: "flex-end",
+          alignSelf: "center",
           "--IconButton-size": "32px",
           borderRadius: "xl",
-          px: 0.75,
+          px: 1.5,
           py: 0.25,
           bgcolor: playing ? "rgba(255,255,255,0.12)" : "background.level1",
           color: playing ? "common.white" : "text.secondary",
@@ -273,7 +274,12 @@ export default function MobileSongEntry({
           </>
         ) : (
           <>
-            <SongEntryControls entry={entry} queue={queue} editable={editable} />
+            <SongEntryControls
+              entry={entry}
+              queue={queue}
+              editable={editable}
+              showRemove={false}
+            />
             {editable && (
               <Tooltip title="Edit fields" variant="outlined" size="sm">
                 <IconButton
@@ -287,6 +293,8 @@ export default function MobileSongEntry({
                 </IconButton>
               </Tooltip>
             )}
+            {/* Delete last, at the end of the bar. */}
+            {editable && <RemoveButton queue={queue} entry={entry} />}
           </>
         )}
       </Stack>
