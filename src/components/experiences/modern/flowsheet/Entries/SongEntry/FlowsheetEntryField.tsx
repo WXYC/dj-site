@@ -25,6 +25,7 @@ export default function FlowsheetEntryField({
   playing,
   editable,
   revealEditOn = "hover",
+  editLayout = "fill",
   ...props
 }: {
   entry: FlowsheetSongEntry;
@@ -36,6 +37,9 @@ export default function FlowsheetEntryField({
   // "hover" (desktop): the pencil is hidden until the field is hovered.
   // "always" (mobile/touch): keep it dimmed-visible as the edit affordance.
   revealEditOn?: "hover" | "always";
+  // "fill" (desktop columns): the value stretches so the pencil sits at the
+  // cell's right edge. "inline" (mobile): the pencil hugs the value instead.
+  editLayout?: "fill" | "inline";
 } & Omit<TypographyProps, "whiteSpace" | "overflow" | "textOverflow">) {
   const { live } = useShowControl();
   const dispatch = useAppDispatch();
@@ -181,7 +185,7 @@ export default function FlowsheetEntryField({
           {...props}
           sx={{
             ...props.sx,
-            flex: "1 1 auto",
+            flex: editLayout === "inline" ? "0 1 auto" : "1 1 auto",
             minWidth: 0,
             whiteSpace: "nowrap",
             overflow: "hidden",

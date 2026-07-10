@@ -10,7 +10,7 @@ import { useAppDispatch } from "@/lib/hooks";
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
 import { entryFieldTextColor } from "@/src/utilities/modern/entryFieldColors";
 import { PlayArrow } from "@mui/icons-material";
-import { AspectRatio, Box, Button, Divider, Sheet, Stack } from "@mui/joy";
+import { AspectRatio, Box, Button, Sheet, Stack } from "@mui/joy";
 import { toast } from "sonner";
 import FlowsheetEntryField from "./FlowsheetEntryField";
 import SongEntryControls from "./SongEntryControls";
@@ -58,12 +58,21 @@ export default function MobileSongEntry({
       .catch((error) => toast.error(`Failed to add to flowsheet: ${error}`));
   };
 
+  const fieldProps = {
+    entry,
+    playing,
+    queue,
+    editable,
+    revealEditOn: "always" as const,
+    editLayout: "inline" as const,
+  };
+
   return (
     <Sheet
       variant="soft"
       sx={{
         borderRadius: "md",
-        p: 1.5,
+        p: 1.25,
         bgcolor,
         display: "flex",
         flexDirection: "column",
@@ -71,81 +80,80 @@ export default function MobileSongEntry({
         boxShadow: playing ? "0 6px 12px -4px rgba(0,0,0,0.35)" : "none",
       }}
     >
-      {/* Album art on top, with the queue "play now" affordance overlaid. */}
-      <Box sx={{ position: "relative", alignSelf: "flex-start" }}>
-        <AspectRatio ratio={1} sx={{ width: 72, borderRadius: "9px" }}>
-          <img src={image} alt="album art" />
-        </AspectRatio>
-        {queue && live && (
-          <Button
-            size="sm"
-            variant="solid"
-            color="primary"
-            startDecorator={<PlayArrow />}
-            onClick={playNow}
-            sx={{ position: "absolute", inset: 0, m: "auto", height: "fit-content", width: "fit-content" }}
+      {/* Album art on the left, values stacked next to it. */}
+      <Box sx={{ display: "flex", gap: 1.25, alignItems: "flex-start" }}>
+        <Box sx={{ position: "relative", flexShrink: 0 }}>
+          <AspectRatio ratio={1} sx={{ width: 64, borderRadius: "9px" }}>
+            <img src={image} alt="album art" />
+          </AspectRatio>
+          {queue && live && (
+            <Button
+              size="sm"
+              variant="solid"
+              color="primary"
+              startDecorator={<PlayArrow />}
+              onClick={playNow}
+              sx={{
+                position: "absolute",
+                inset: 0,
+                m: "auto",
+                height: "fit-content",
+                width: "fit-content",
+              }}
+            >
+              Play
+            </Button>
+          )}
+        </Box>
+
+        <Stack sx={{ flex: 1, minWidth: 0 }}>
+          <FlowsheetEntryField
+            {...fieldProps}
+            label="song"
+            name="track_title"
+            level="title-sm"
+            textColor={entryFieldTextColor("song", playing)}
+          />
+          <FlowsheetEntryField
+            {...fieldProps}
+            label="artist"
+            name="artist_name"
+            level="body-sm"
+            textColor={entryFieldTextColor("artist", playing)}
+          />
+          <FlowsheetEntryField
+            {...fieldProps}
+            label="album"
+            name="album_title"
+            level="body-sm"
+            textColor={entryFieldTextColor("album", playing)}
+          />
+          <FlowsheetEntryField
+            {...fieldProps}
+            label="label"
+            name="record_label"
+            level="body-sm"
+            textColor={entryFieldTextColor("label", playing)}
+          />
+          <Stack
+            direction="row"
+            gap={0.75}
+            alignItems="center"
+            flexWrap="wrap"
+            sx={{ mt: 0.5 }}
           >
-            Play
-          </Button>
-        )}
+            <SongEntryStatusChips entry={entry} editable={editable} />
+          </Stack>
+        </Stack>
       </Box>
 
-      {/* Stacked fields, each carrying its own edit pencil at the right. */}
-      <Stack sx={{ minWidth: 0 }}>
-        <FlowsheetEntryField
-          label="song"
-          name="track_title"
-          entry={entry}
-          playing={playing}
-          queue={queue}
-          editable={editable}
-          level="title-sm"
-          textColor={entryFieldTextColor("song", playing)}
-          revealEditOn="always"
-        />
-        <FlowsheetEntryField
-          label="artist"
-          name="artist_name"
-          entry={entry}
-          playing={playing}
-          queue={queue}
-          editable={editable}
-          level="body-sm"
-          textColor={entryFieldTextColor("artist", playing)}
-          revealEditOn="always"
-        />
-        <FlowsheetEntryField
-          label="album"
-          name="album_title"
-          entry={entry}
-          playing={playing}
-          queue={queue}
-          editable={editable}
-          level="body-sm"
-          textColor={entryFieldTextColor("album", playing)}
-          revealEditOn="always"
-        />
-        <FlowsheetEntryField
-          label="label"
-          name="record_label"
-          entry={entry}
-          playing={playing}
-          queue={queue}
-          editable={editable}
-          level="body-sm"
-          textColor={entryFieldTextColor("label", playing)}
-          revealEditOn="always"
-        />
-      </Stack>
-
-      <Stack direction="row" gap={0.75} alignItems="center" flexWrap="wrap">
-        <SongEntryStatusChips entry={entry} editable={editable} />
-      </Stack>
-
-      <Divider />
-
       {/* Utility controls along the bottom. */}
-      <Stack direction="row" gap={0.5} alignItems="center" justifyContent="flex-end">
+      <Stack
+        direction="row"
+        gap={0.5}
+        alignItems="center"
+        justifyContent="flex-end"
+      >
         <SongEntryControls entry={entry} queue={queue} editable={editable} />
       </Stack>
     </Sheet>
