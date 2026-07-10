@@ -24,6 +24,7 @@ export default function FlowsheetEntryField({
   queue,
   playing,
   editable,
+  revealEditOn = "hover",
   ...props
 }: {
   entry: FlowsheetSongEntry;
@@ -32,6 +33,9 @@ export default function FlowsheetEntryField({
   queue: boolean;
   playing: boolean;
   editable: boolean;
+  // "hover" (desktop): the pencil is hidden until the field is hovered.
+  // "always" (mobile/touch): keep it dimmed-visible as the edit affordance.
+  revealEditOn?: "hover" | "always";
 } & Omit<TypographyProps, "whiteSpace" | "overflow" | "textOverflow">) {
   const { live } = useShowControl();
   const dispatch = useAppDispatch();
@@ -145,19 +149,22 @@ export default function FlowsheetEntryField({
         alignItems: "center",
         gap: 0.5,
         minWidth: 0,
-        // A dimmed pencil reveals on hover to signal the field is editable;
-        // always visible (dimmed) on touch devices that can't hover.
+        // A dimmed pencil signals the field is editable. Always visible
+        // (dimmed) on touch devices that can't hover; on hover devices it
+        // reveals on hover unless the caller forces it always-on.
         ...(canEdit && {
           "& .field-edit-btn": { opacity: 0.45 },
-          "@media (hover: hover)": {
-            "& .field-edit-btn": {
-              opacity: 0,
-              transition: "opacity 120ms",
+          ...(revealEditOn === "hover" && {
+            "@media (hover: hover)": {
+              "& .field-edit-btn": {
+                opacity: 0,
+                transition: "opacity 120ms",
+              },
+              "&:hover .field-edit-btn, &:focus-within .field-edit-btn": {
+                opacity: 0.45,
+              },
             },
-            "&:hover .field-edit-btn, &:focus-within .field-edit-btn": {
-              opacity: 0.45,
-            },
-          },
+          }),
         }),
       }}
     >

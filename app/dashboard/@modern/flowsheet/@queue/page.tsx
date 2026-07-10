@@ -2,7 +2,8 @@
 
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import SongEntry from "@/src/components/experiences/modern/flowsheet/Entries/SongEntry/SongEntry";
-import { Table } from "@mui/joy";
+import MobileSongEntry from "@/src/components/experiences/modern/flowsheet/Entries/SongEntry/MobileSongEntry";
+import { Box, Table } from "@mui/joy";
 import { Reorder } from "motion/react";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useCallback, useEffect, useState } from "react";
@@ -29,9 +30,12 @@ export default function Queue() {
   }
 
   return (
+    <>
     <Table
       borderAxis="none"
       sx={{
+        // Desktop only; below `sm` the stacked mobile card list takes over.
+        display: { xs: "none", sm: "table" },
         // Match the entries table's soft rounded-row treatment.
         borderCollapse: "separate",
         borderSpacing: "0 4px",
@@ -100,5 +104,18 @@ export default function Queue() {
         ))}
       </Reorder.Group>
     </Table>
+
+    {/* Mobile: stacked cards instead of the table. */}
+    <Box sx={{ display: { xs: "flex", sm: "none" }, flexDirection: "column", gap: 1 }}>
+      {queue.toReversed().map((entry) => (
+        <MobileSongEntry
+          key={`queue-mobile-${entry.id}`}
+          entry={entry}
+          playing={false}
+          queue={true}
+        />
+      ))}
+    </Box>
+    </>
   );
 }
