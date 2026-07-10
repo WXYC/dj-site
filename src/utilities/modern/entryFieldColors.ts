@@ -1,27 +1,16 @@
-import { ColorPaletteProp } from "@mui/joy";
-
-// Mirrors SMART_ENTRY_FIELD_COLOR on feat/flowsheet-entry-redesign
-// (SmartEntry/smartEntryStyles.ts). Key names match its SmartField union so
-// that branch can re-export from here once either lands.
 export type EntryFieldName = "song" | "artist" | "album" | "label";
 
-export const ENTRY_FIELD_COLOR: Record<
-  EntryFieldName,
-  ColorPaletteProp | "plain"
-> = {
-  song: "plain",
-  artist: "primary",
-  album: "success",
-  label: "warning",
-};
-
-// Playing rows render on a solid primary background, so tints invert to
-// keep contrast.
+// The song title anchors the row in the primary text color; the remaining
+// fields (artist, album, label) read as a dimmed form of it — one clean
+// hierarchy rather than a per-field color rainbow.
 export function entryFieldTextColor(
   field: EntryFieldName,
   playing: boolean
 ): string {
-  if (playing) return "common.white";
-  const color = ENTRY_FIELD_COLOR[field];
-  return color === "plain" ? "text.primary" : `${color}.plainColor`;
+  const isTitle = field === "song";
+  if (playing) {
+    // Solid-primary row: bright white title, dimmed white for the rest.
+    return isTitle ? "common.white" : "rgba(255, 255, 255, 0.72)";
+  }
+  return isTitle ? "text.primary" : "text.secondary";
 }

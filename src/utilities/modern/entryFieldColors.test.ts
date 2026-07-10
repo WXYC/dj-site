@@ -1,29 +1,23 @@
 import { describe, expect, it } from "vitest";
-import {
-  ENTRY_FIELD_COLOR,
-  EntryFieldName,
-  entryFieldTextColor,
-} from "./entryFieldColors";
+import { EntryFieldName, entryFieldTextColor } from "./entryFieldColors";
 
-const FIELDS: EntryFieldName[] = ["song", "artist", "album", "label"];
+const METADATA: EntryFieldName[] = ["artist", "album", "label"];
 
 describe("entryFieldColors", () => {
-  it("defines a color for every entry field", () => {
-    for (const field of FIELDS) {
-      expect(ENTRY_FIELD_COLOR[field]).toBeDefined();
-    }
-  });
-
-  it("inverts every tint to white on the solid playing row", () => {
-    for (const field of FIELDS) {
-      expect(entryFieldTextColor(field, true)).toBe("common.white");
-    }
-  });
-
-  it("tints fields by palette and leaves the song plain", () => {
+  it("gives the song title the primary text color", () => {
     expect(entryFieldTextColor("song", false)).toBe("text.primary");
-    expect(entryFieldTextColor("artist", false)).toBe("primary.plainColor");
-    expect(entryFieldTextColor("album", false)).toBe("success.plainColor");
-    expect(entryFieldTextColor("label", false)).toBe("warning.plainColor");
+  });
+
+  it("dims the metadata fields to one secondary level", () => {
+    for (const field of METADATA) {
+      expect(entryFieldTextColor(field, false)).toBe("text.secondary");
+    }
+  });
+
+  it("keeps the title bright and metadata dimmed on the playing row", () => {
+    expect(entryFieldTextColor("song", true)).toBe("common.white");
+    for (const field of METADATA) {
+      expect(entryFieldTextColor(field, true)).toBe("rgba(255, 255, 255, 0.72)");
+    }
   });
 });
