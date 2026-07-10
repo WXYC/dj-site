@@ -76,7 +76,11 @@ test.describe("Catalog query builder", () => {
       .locator("#OrderTableContainer tbody tr")
       .filter({ hasText: "DOGA" });
     await expect(resultRow).toBeVisible({ timeout: 10000 });
-    await expect(resultRow.getByText("Juana Molina", { exact: true })).toBeVisible();
+    // .first(): within a desktop row the artist renders twice — stacked in
+    // the Album column below xl, and in its own Artist column at xl.
+    await expect(
+      resultRow.getByText("Juana Molina", { exact: true }).first(),
+    ).toBeVisible();
 
     await expect.poll(() => lastQ ?? "").toMatch(/artist:Juana Molina/);
     await expect.poll(() => lastQ ?? "").toMatch(/AND/);
