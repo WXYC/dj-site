@@ -67,6 +67,10 @@ export default function SongEntryControls({
               slotProps={{ input: { "aria-label": "Segue from previous track" } }}
               sx={{
                 opacity: entry.segue ? 1 : 0.3,
+                // Match the icon buttons' footprint (32px) and glyph size so
+                // the toggles don't read as smaller/compressed next to them.
+                "--Checkbox-size": "1.25rem",
+                p: "6px",
                 "& .MuiCheckbox-checkbox": { background: "transparent" },
               }}
               checked={entry.segue}
@@ -84,6 +88,8 @@ export default function SongEntryControls({
               slotProps={{ input: { "aria-label": "Requested track" } }}
               sx={{
                 opacity: entry.request_flag ? 1 : 0.3,
+                "--Checkbox-size": "1.25rem",
+                p: "6px",
                 "& .MuiCheckbox-checkbox": { background: "transparent" },
               }}
               checked={entry.request_flag}
