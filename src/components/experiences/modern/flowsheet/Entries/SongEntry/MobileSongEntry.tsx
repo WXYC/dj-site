@@ -7,19 +7,48 @@ import {
   FlowsheetSubmissionParams,
 } from "@/lib/features/flowsheet/types";
 import { useAppDispatch } from "@/lib/hooks";
-import { useShowControl } from "@/src/hooks/flowsheetHooks";
+import { useFlowsheet, useShowControl } from "@/src/hooks/flowsheetHooks";
 import { entryFieldTextColor } from "@/src/utilities/modern/entryFieldColors";
-import { PlayArrow } from "@mui/icons-material";
-import { AspectRatio, Box, Button, Sheet, Stack } from "@mui/joy";
+import { CheckRounded, CloseRounded, EditOutlined, PlayArrow } from "@mui/icons-material";
+import {
+  AspectRatio,
+  Box,
+  Button,
+  IconButton,
+  Input,
+  Sheet,
+  Stack,
+  Tooltip,
+  Typography,
+} from "@mui/joy";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import FlowsheetEntryField from "./FlowsheetEntryField";
 import SongEntryControls from "./SongEntryControls";
 import SongEntryStatusChips from "./SongEntryStatusChips";
 
-// Below the `sm` breakpoint the desktop entries table is hidden and each song
-// renders as this stacked card instead: album art on top, the fields stacked
-// (each with its own edit pencil), status chips, then the utility controls
-// along the bottom.
+type EditableName =
+  | "track_title"
+  | "artist_name"
+  | "album_title"
+  | "record_label";
+
+const FIELDS: {
+  name: EditableName;
+  key: "song" | "artist" | "album" | "label";
+  label: string;
+  editLabel: string;
+  level: "title-sm" | "body-sm";
+}[] = [
+  { name: "track_title", key: "song", label: "song", editLabel: "Title", level: "title-sm" },
+  { name: "artist_name", key: "artist", label: "artist", editLabel: "Artist", level: "body-sm" },
+  { name: "album_title", key: "album", label: "album", editLabel: "Album", level: "body-sm" },
+  { name: "record_label", key: "label", label: "label", editLabel: "Label", level: "body-sm" },
+];
+
+// Below the `sm` breakpoint the entries table is hidden and each song renders
+// as this "now playing"-style card: album art at left, values stacked in the
+// middle, and a compact vertical control column at the right.
 export default function MobileSongEntry({
   playing,
   queue,
@@ -31,6 +60,7 @@ export default function MobileSongEntry({
 }) {
   const { live, currentShow } = useShowControl();
   const [addToFlowsheet] = useAddToFlowsheetMutation();
+  const { updateFlowsheet } = useFlowsheet();
   const dispatch = useAppDispatch();
 
   const editable = queue || (live && entry.show_id == currentShow);
@@ -41,6 +71,50 @@ export default function MobileSongEntry({
     : queue
       ? "success.softBg"
       : "background.level1";
+
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<Record<EditableName, string>>({
+    track_title: entry.track_title,
+    artist_name: entry.artist_name,
+    album_title: entry.album_title,
+    record_label: entry.record_label,
+  });
+
+  // Keep the draft in sync with the entry whenever we're not editing.
+  useEffect(() => {
+    if (!editing) {
+      setDraft({
+        track_title: entry.track_title,
+        artist_name: entry.artist_name,
+        album_title: entry.album_title,
+        record_label: entry.record_label,
+      });
+    }
+  }, [
+    entry.track_title,
+    entry.artist_name,
+    entry.album_title,
+    entry.record_label,
+    editing,
+  ]);
+
+  const saveAll = () => {
+    if (queue) {
+      FIELDS.forEach((f) =>
+        dispatch(
+          flowsheetSlice.actions.updateQueueEntry({
+            entry_id: entry.id,
+            field: f.name,
+            value: draft[f.name],
+          })
+        )
+      );
+    } else {
+      // One call carries all four fields.
+      updateFlowsheet({ entry_id: entry.id, data: { ...draft } });
+    }
+    setEditing(false);
+  };
 
   const playNow = () => {
     addToFlowsheet({
@@ -58,15 +132,6 @@ export default function MobileSongEntry({
       .catch((error) => toast.error(`Failed to add to flowsheet: ${error}`));
   };
 
-  const fieldProps = {
-    entry,
-    playing,
-    queue,
-    editable,
-    revealEditOn: "always" as const,
-    editLayout: "inline" as const,
-  };
-
   return (
     <Sheet
       variant="soft"
@@ -75,86 +140,138 @@ export default function MobileSongEntry({
         p: 1.25,
         bgcolor,
         display: "flex",
-        flexDirection: "column",
-        gap: 1,
+        alignItems: "center",
+        gap: 1.25,
         boxShadow: playing ? "0 6px 12px -4px rgba(0,0,0,0.35)" : "none",
       }}
     >
-      {/* Album art on the left, values stacked next to it. */}
-      <Box sx={{ display: "flex", gap: 1.25, alignItems: "flex-start" }}>
-        <Box sx={{ position: "relative", flexShrink: 0 }}>
-          <AspectRatio ratio={1} sx={{ width: 64, borderRadius: "9px" }}>
-            <img src={image} alt="album art" />
-          </AspectRatio>
-          {queue && live && (
-            <Button
-              size="sm"
-              variant="solid"
-              color="primary"
-              startDecorator={<PlayArrow />}
-              onClick={playNow}
-              sx={{
-                position: "absolute",
-                inset: 0,
-                m: "auto",
-                height: "fit-content",
-                width: "fit-content",
-              }}
-            >
-              Play
-            </Button>
-          )}
-        </Box>
-
-        <Stack sx={{ flex: 1, minWidth: 0 }}>
-          <FlowsheetEntryField
-            {...fieldProps}
-            label="song"
-            name="track_title"
-            level="title-sm"
-            textColor={entryFieldTextColor("song", playing)}
-          />
-          <FlowsheetEntryField
-            {...fieldProps}
-            label="artist"
-            name="artist_name"
-            level="body-sm"
-            textColor={entryFieldTextColor("artist", playing)}
-          />
-          <FlowsheetEntryField
-            {...fieldProps}
-            label="album"
-            name="album_title"
-            level="body-sm"
-            textColor={entryFieldTextColor("album", playing)}
-          />
-          <FlowsheetEntryField
-            {...fieldProps}
-            label="label"
-            name="record_label"
-            level="body-sm"
-            textColor={entryFieldTextColor("label", playing)}
-          />
-          <Stack
-            direction="row"
-            gap={0.75}
-            alignItems="center"
-            flexWrap="wrap"
-            sx={{ mt: 0.5 }}
+      {/* Album art on the left, vertically centered. */}
+      <Box sx={{ position: "relative", flexShrink: 0 }}>
+        <AspectRatio ratio={1} sx={{ width: 64, borderRadius: "9px" }}>
+          <img src={image} alt="album art" />
+        </AspectRatio>
+        {queue && live && (
+          <Button
+            size="sm"
+            variant="solid"
+            color="primary"
+            startDecorator={<PlayArrow />}
+            onClick={playNow}
+            sx={{
+              position: "absolute",
+              inset: 0,
+              m: "auto",
+              height: "fit-content",
+              width: "fit-content",
+            }}
           >
-            <SongEntryStatusChips entry={entry} editable={editable} />
-          </Stack>
-        </Stack>
+            Play
+          </Button>
+        )}
       </Box>
 
-      {/* Utility controls along the bottom. */}
+      {/* Values (or, while editing, pre-filled inputs) stacked in the middle. */}
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        {editing ? (
+          <Stack gap={0.5}>
+            {FIELDS.map((f) => (
+              <Input
+                key={f.name}
+                size="sm"
+                variant="outlined"
+                value={draft[f.name]}
+                onChange={(e) =>
+                  setDraft((d) => ({ ...d, [f.name]: e.target.value }))
+                }
+                startDecorator={
+                  <Typography
+                    level="body-xs"
+                    textColor="text.tertiary"
+                    sx={{ minWidth: 42 }}
+                  >
+                    {f.editLabel}
+                  </Typography>
+                }
+              />
+            ))}
+          </Stack>
+        ) : (
+          <Stack sx={{ minWidth: 0 }}>
+            {FIELDS.map((f) => (
+              <FlowsheetEntryField
+                key={f.name}
+                label={f.label}
+                name={f.name}
+                entry={entry}
+                playing={playing}
+                queue={queue}
+                editable={false}
+                level={f.level}
+                textColor={entryFieldTextColor(f.key, playing)}
+              />
+            ))}
+            <Stack
+              direction="row"
+              gap={0.75}
+              alignItems="center"
+              flexWrap="wrap"
+              sx={{ mt: 0.5 }}
+            >
+              <SongEntryStatusChips entry={entry} editable={editable} />
+            </Stack>
+          </Stack>
+        )}
+      </Box>
+
+      {/* Compact vertical control column at the right. */}
       <Stack
-        direction="row"
-        gap={0.5}
         alignItems="center"
-        justifyContent="flex-end"
+        gap={0.25}
+        sx={{ flexShrink: 0, "--IconButton-size": "30px" }}
       >
-        <SongEntryControls entry={entry} queue={queue} editable={editable} />
+        {editing ? (
+          <>
+            <Tooltip title="Save" variant="outlined" size="sm">
+              <IconButton
+                size="sm"
+                variant="plain"
+                color="primary"
+                aria-label="Save entry"
+                onClick={saveAll}
+              >
+                <CheckRounded />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Cancel" variant="outlined" size="sm">
+              <IconButton
+                size="sm"
+                variant="plain"
+                color="neutral"
+                aria-label="Cancel editing"
+                onClick={() => setEditing(false)}
+              >
+                <CloseRounded />
+              </IconButton>
+            </Tooltip>
+          </>
+        ) : (
+          <>
+            <SongEntryControls entry={entry} queue={queue} editable={editable} />
+            {editable && (
+              <Tooltip title="Edit fields" variant="outlined" size="sm">
+                <IconButton
+                  size="sm"
+                  variant="plain"
+                  color="neutral"
+                  aria-label="Edit entry"
+                  onClick={() => setEditing(true)}
+                >
+                  <EditOutlined />
+                </IconButton>
+              </Tooltip>
+            )}
+          </>
+        )}
       </Stack>
     </Sheet>
   );
