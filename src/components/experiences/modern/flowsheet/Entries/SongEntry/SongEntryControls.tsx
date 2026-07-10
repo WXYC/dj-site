@@ -23,10 +23,13 @@ export default function SongEntryControls({
   entry,
   queue,
   editable,
+  showRemove = true,
 }: {
   entry: FlowsheetSongEntry;
   queue: boolean;
   editable: boolean;
+  // Mobile places remove at the end of the bar itself, so it can opt out here.
+  showRemove?: boolean;
 }) {
   const dispatch = useAppDispatch();
   const { updateFlowsheet } = useFlowsheet();
@@ -106,7 +109,7 @@ export default function SongEntryControls({
       >
         <InfoOutlined />
       </IconButton>
-      {editable && <RemoveButton queue={queue} entry={entry} />}
+      {editable && showRemove && <RemoveButton queue={queue} entry={entry} />}
     </>
   );
 }
