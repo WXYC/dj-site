@@ -106,7 +106,7 @@ export default function Queue() {
     </Table>
 
     {/* Mobile: stacked cards instead of the table. */}
-    <Box sx={{ display: { xs: "flex", sm: "none" }, flexDirection: "column", gap: 1 }}>
+    <Box sx={{ display: { xs: "flex", sm: "none" }, flexDirection: "column", gap: 1.5 }}>
       {queue.toReversed().map((entry) => (
         <MobileSongEntry
           key={`queue-mobile-${entry.id}`}
