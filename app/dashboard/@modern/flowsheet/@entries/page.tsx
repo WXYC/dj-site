@@ -1,9 +1,10 @@
 "use client";
 
 import Entry from "@/src/components/experiences/modern/flowsheet/Entries/Entry";
+import MobileEntry from "@/src/components/experiences/modern/flowsheet/Entries/MobileEntry";
 import FlowsheetSkeletonLoader from "@/src/components/experiences/modern/flowsheet/FlowsheetSkeletonLoader";
 import { useFlowsheet } from "@/src/hooks/flowsheetHooks";
-import { Table } from "@mui/joy";
+import { Box, Table } from "@mui/joy";
 import { Reorder } from "motion/react";
 import { useEffect, useState } from "react";
 
@@ -29,9 +30,12 @@ export default function FlowsheetEntries() {
   }
 
   return (
+    <>
     <Table
       borderAxis="none"
       sx={{
+        // Desktop only; below `sm` the stacked mobile card list takes over.
+        display: { xs: "none", sm: "table" },
         // Broadcast-log softening: separated rounded rows on lifted
         // surfaces instead of hard gridlines over pure black.
         borderCollapse: "separate",
@@ -123,5 +127,26 @@ export default function FlowsheetEntries() {
         ))}
       </Reorder.Group>
     </Table>
+
+    {/* Mobile: stacked cards instead of the table. */}
+    <Box
+      sx={{
+        display: { xs: "flex", sm: "none" },
+        flexDirection: "column",
+        gap: 1,
+      }}
+    >
+      {current.map((entry, index) => (
+        <MobileEntry key={entry.id} entry={entry} playing={index == 0} />
+      ))}
+      {previous.map((entry, index) => (
+        <MobileEntry
+          key={entry.id}
+          entry={entry}
+          playing={index == 0 && current.length == 0}
+        />
+      ))}
+    </Box>
+    </>
   );
 }
