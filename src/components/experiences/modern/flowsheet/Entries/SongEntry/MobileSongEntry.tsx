@@ -140,8 +140,8 @@ export default function MobileSongEntry({
         p: 1.5,
         bgcolor,
         display: "flex",
-        alignItems: "center",
-        gap: 1.5,
+        flexDirection: "column",
+        gap: 1.25,
         border: playing ? "none" : "1px solid",
         borderColor: "background.level2",
         // A soft elevation so the card floats off the page like a media card.
@@ -150,7 +150,8 @@ export default function MobileSongEntry({
           : "0 4px 12px -4px rgba(0,0,0,0.3)",
       }}
     >
-      {/* Album art on the left, vertically centered. */}
+      {/* Top: album art on the left, values stacked next to it. */}
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
       <Box sx={{ position: "relative", flexShrink: 0 }}>
         <AspectRatio ratio={1} sx={{ width: 68, borderRadius: "12px" }}>
           <img src={image} alt="album art" />
@@ -227,16 +228,20 @@ export default function MobileSongEntry({
           </Stack>
         )}
       </Box>
+      </Box>
 
-      {/* Compact vertical control tray at the right. */}
+      {/* Bottom: the control tray as a horizontal bar. */}
       <Stack
+        direction="row"
         alignItems="center"
+        justifyContent="flex-end"
         gap={0.5}
         sx={{
-          flexShrink: 0,
+          alignSelf: "flex-end",
           "--IconButton-size": "32px",
           borderRadius: "xl",
-          p: 0.5,
+          px: 0.75,
+          py: 0.25,
           bgcolor: playing ? "rgba(255,255,255,0.12)" : "background.level1",
           color: playing ? "common.white" : "text.secondary",
         }}
