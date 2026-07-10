@@ -101,12 +101,13 @@ export default function MobileEntry({
       variant="soft"
       color={color}
       sx={{
-        borderRadius: "md",
-        px: 1.5,
-        py: 1,
+        borderRadius: "xl",
+        px: 1.75,
+        py: 1.25,
         display: "flex",
         alignItems: "center",
         gap: 1,
+        boxShadow: "0 4px 12px -4px rgba(0,0,0,0.3)",
       }}
     >
       <Box sx={{ display: "flex", color: `${color}.plainColor`, flexShrink: 0 }}>

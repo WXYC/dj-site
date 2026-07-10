@@ -70,7 +70,7 @@ export default function MobileSongEntry({
     ? "primary.solidBg"
     : queue
       ? "success.softBg"
-      : "background.level1";
+      : "background.surface";
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Record<EditableName, string>>({
@@ -136,18 +136,23 @@ export default function MobileSongEntry({
     <Sheet
       variant="soft"
       sx={{
-        borderRadius: "md",
-        p: 1.25,
+        borderRadius: "xl",
+        p: 1.5,
         bgcolor,
         display: "flex",
         alignItems: "center",
-        gap: 1.25,
-        boxShadow: playing ? "0 6px 12px -4px rgba(0,0,0,0.35)" : "none",
+        gap: 1.5,
+        border: playing ? "none" : "1px solid",
+        borderColor: "background.level2",
+        // A soft elevation so the card floats off the page like a media card.
+        boxShadow: playing
+          ? "0 10px 24px -8px rgba(0,0,0,0.5)"
+          : "0 4px 12px -4px rgba(0,0,0,0.3)",
       }}
     >
       {/* Album art on the left, vertically centered. */}
       <Box sx={{ position: "relative", flexShrink: 0 }}>
-        <AspectRatio ratio={1} sx={{ width: 64, borderRadius: "9px" }}>
+        <AspectRatio ratio={1} sx={{ width: 68, borderRadius: "12px" }}>
           <img src={image} alt="album art" />
         </AspectRatio>
         {queue && live && (
@@ -223,11 +228,18 @@ export default function MobileSongEntry({
         )}
       </Box>
 
-      {/* Compact vertical control column at the right. */}
+      {/* Compact vertical control tray at the right. */}
       <Stack
         alignItems="center"
-        gap={0.25}
-        sx={{ flexShrink: 0, "--IconButton-size": "30px" }}
+        gap={0.5}
+        sx={{
+          flexShrink: 0,
+          "--IconButton-size": "32px",
+          borderRadius: "xl",
+          p: 0.5,
+          bgcolor: playing ? "rgba(255,255,255,0.12)" : "background.level1",
+          color: playing ? "common.white" : "text.secondary",
+        }}
       >
         {editing ? (
           <>

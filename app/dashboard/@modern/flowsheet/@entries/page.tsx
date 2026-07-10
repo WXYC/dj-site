@@ -133,7 +133,7 @@ export default function FlowsheetEntries() {
       sx={{
         display: { xs: "flex", sm: "none" },
         flexDirection: "column",
-        gap: 1,
+        gap: 1.5,
       }}
     >
       {current.map((entry, index) => (
