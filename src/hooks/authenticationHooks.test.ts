@@ -380,6 +380,66 @@ describe("authenticationHooks", () => {
       expect(mockRefresh).toHaveBeenCalled();
     });
 
+    it("preserves the OIDC authorize query through the onboarding detour when hasCompletedOnboarding is false (#836 Bug A)", async () => {
+      // An invited DJ who follows a "Sign in with WXYC" bounce before finishing
+      // onboarding must not lose the authorize query. Keep it in the /login URL
+      // so useNewUser can resume the round-trip on completion — do NOT drop it
+      // (old behavior: /login?incomplete=true) or mint a code prematurely.
+      const search =
+        "client_id=flowsheet&response_type=code&redirect_uri=https%3A%2F%2Fflowsheet.wxyc.org%2Fauth%2Fcallback&state=xyz&code_challenge=abc&code_challenge_method=S256";
+      mockSearchParams.mockReturnValue(new URLSearchParams(search));
+      mockSignInUsername.mockResolvedValue({
+        data: { user: { id: "user-1", hasCompletedOnboarding: false } },
+      });
+
+      const { useLogin } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
+
+      const form = {
+        preventDefault: vi.fn(),
+        currentTarget: {
+          username: { value: "jbromberg" },
+          password: { value: "password123" },
+        },
+      } as any;
+
+      await act(async () => {
+        await result.current.handleLogin(form);
+      });
+
+      expect(mockPush).toHaveBeenCalledWith(`/login?${search}`);
+      expect(mockLocationAssign).not.toHaveBeenCalled();
+    });
+
+    it("does not delegate an absent-flag user into authorize; keeps the query for onboarding (#836 Bug B)", async () => {
+      // Sign-in omits hasCompletedOnboarding entirely. An absent flag must be
+      // treated as incomplete when an authorize bounce is live: no code is
+      // minted for an un-onboarded account, and the query is preserved so
+      // onboarding can resume it.
+      const search = "client_id=flowsheet&response_type=code&state=xyz";
+      mockSearchParams.mockReturnValue(new URLSearchParams(search));
+      mockSignInUsername.mockResolvedValue({ data: { user: { id: "user-1" } } });
+      mockGetSession.mockResolvedValue({ data: { user: { id: "user-1" } } });
+
+      const { useLogin } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
+
+      const form = {
+        preventDefault: vi.fn(),
+        currentTarget: {
+          username: { value: "jbromberg" },
+          password: { value: "password123" },
+        },
+      } as any;
+
+      await act(async () => {
+        await result.current.handleLogin(form);
+      });
+
+      expect(mockLocationAssign).not.toHaveBeenCalled();
+      expect(mockPush).toHaveBeenCalledWith(`/login?${search}`);
+    });
+
     it("routes to signIn.email when the identifier contains @", async () => {
       mockSignInEmail.mockResolvedValue({ data: { user: { id: "user-1" } } });
 
@@ -484,6 +544,27 @@ describe("authenticationHooks", () => {
         user_id: "user-1",
         session_confirmed: true,
       });
+    });
+
+    it("preserves the OIDC authorize query through the onboarding detour when hasCompletedOnboarding is false (#836 Bug A)", async () => {
+      // Parity with useLogin: both credential entry points feed the same
+      // authorize round-trip, so both must keep the query across onboarding.
+      const search =
+        "client_id=flowsheet&response_type=code&redirect_uri=https%3A%2F%2Fflowsheet.wxyc.org%2Fauth%2Fcallback&state=xyz&code_challenge=abc&code_challenge_method=S256";
+      mockSearchParams.mockReturnValue(new URLSearchParams(search));
+      mockSignInEmailOtp.mockResolvedValue({
+        data: { user: { id: "user-1", hasCompletedOnboarding: false } },
+      });
+
+      const { useOTPVerify } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useOTPVerify(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        await result.current.handleVerifyOTP("dj@wxyc.org", "123456");
+      });
+
+      expect(mockPush).toHaveBeenCalledWith(`/login?${search}`);
+      expect(mockLocationAssign).not.toHaveBeenCalled();
     });
   });
 
@@ -601,6 +682,35 @@ describe("authenticationHooks", () => {
       expect(mockSignInEmail).not.toHaveBeenCalled();
       expect(mockSignInUsername).not.toHaveBeenCalled();
       expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
+    });
+
+    it("session mode: resumes the OIDC authorize round-trip after onboarding when the login URL carries authorize params (#836 Bug A)", async () => {
+      // The incomplete-user detour preserved the authorize query in the /login
+      // URL (see useLogin/useOTPVerify tests). On completion we hand off to
+      // authorize with a hard navigation instead of stranding at the dashboard.
+      const search =
+        "client_id=flowsheet&response_type=code&redirect_uri=https%3A%2F%2Fflowsheet.wxyc.org%2Fauth%2Fcallback&state=xyz&code_challenge=abc&code_challenge_method=S256";
+      mockSearchParams.mockReturnValue(new URLSearchParams(search));
+
+      const { useNewUser } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useNewUser("session"), { wrapper: createWrapper() });
+
+      const form = {
+        preventDefault: vi.fn(),
+        currentTarget: {
+          realName: { value: "Real Name" },
+          djName: { value: "DJ Name" },
+        },
+      } as any;
+
+      await act(async () => {
+        await result.current.handleNewUser(form);
+      });
+
+      expect(mockLocationAssign).toHaveBeenCalledWith(
+        `${window.location.origin}/auth/oauth2/authorize?${search}`
+      );
+      expect(mockPush).not.toHaveBeenCalledWith("/dashboard/flowsheet");
     });
 
     it("does not navigate when complete-onboarding fails", async () => {

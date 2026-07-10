@@ -20,7 +20,7 @@ import { betterAuthSessionToAuthenticationData, betterAuthSessionToAuthenticatio
 import { Authorization } from "@/lib/features/admin/types";
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, type ReadonlyURLSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { resetApplication } from "./applicationHooks";
@@ -119,12 +119,19 @@ async function redirectAfterAuth(
   router: { push: (href: string) => void; refresh: () => void },
   user: { id?: string; hasCompletedOnboarding?: boolean } | undefined,
   method: LoginMethod,
-  oidcTarget?: string,
+  oidcParams?: URLSearchParams | ReadonlyURLSearchParams,
 ): Promise<void> {
   const dashboardHome = String(
     process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog",
   );
   const incomplete = user?.hasCompletedOnboarding !== true;
+  // Resolve a live OIDC authorize bounce (`client_id` + `response_type=code`)
+  // to its resume target, or null. Computed here — not at the call site — so
+  // every credential entry point (useLogin/useOTPVerify/useNewUser) shares one
+  // definition of what a bounce is and how it's resumed (#836).
+  const oidcTarget = oidcParams
+    ? getOidcRedirectTarget(oidcParams, authBaseURL)
+    : null;
 
   const sessionConfirmed = await confirmSessionVisible();
 
@@ -153,7 +160,19 @@ async function redirectAfterAuth(
     return;
   }
 
-  router.push(incomplete ? "/login?incomplete=true" : dashboardHome);
+  if (incomplete) {
+    // Preserve a live authorize bounce verbatim across the onboarding detour
+    // (#836 Bug A): the invited DJ lands on the onboarding form still carrying
+    // the authorize query, so useNewUser can resume the round-trip on
+    // completion instead of stranding at the dashboard. The onboarding form
+    // renders off session state (`isUserIncomplete`), so we don't need the
+    // non-load-bearing `incomplete=true` marker when we have real params to
+    // keep. An absent onboarding flag with a live bounce lands here too — it is
+    // routed to onboarding rather than delegated a code (#836 Bug B).
+    router.push(oidcTarget ? `/login?${oidcParams!.toString()}` : "/login?incomplete=true");
+  } else {
+    router.push(dashboardHome);
+  }
   router.refresh();
 }
 
@@ -198,14 +217,11 @@ export const useLogin = () => {
           user = { ...signInUser, ...session.data.user };
         }
       }
-      // If we got here as part of an OIDC authorize bounce, resume the
-      // round-trip by handing off to `${authBase}/oauth2/authorize?<original-query>`
-      // instead of the dashboard. See `getOidcRedirectTarget` for the contract.
-      const oidcTarget = getOidcRedirectTarget(
-        searchParams ?? new URLSearchParams(),
-        authBaseURL,
-      );
-      await redirectAfterAuth(router, user, "password", oidcTarget ?? undefined);
+      // If we got here as part of an OIDC authorize bounce, redirectAfterAuth
+      // resumes the round-trip from these params (handing off to
+      // `${authBase}/oauth2/authorize?<original-query>` on completion, or
+      // preserving them across the onboarding detour). See `getOidcRedirectTarget`.
+      await redirectAfterAuth(router, user, "password", searchParams ?? undefined);
     }, "An unexpected error occurred during login. Please try again.");
   };
 
@@ -293,11 +309,7 @@ export const useOTPVerify = () => {
       }
       // Mirror useLogin's OIDC resume contract — both credential entry
       // points feed the same authorize round-trip.
-      const oidcTarget = getOidcRedirectTarget(
-        searchParams ?? new URLSearchParams(),
-        authBaseURL,
-      );
-      await redirectAfterAuth(router, user, "otp", oidcTarget ?? undefined);
+      await redirectAfterAuth(router, user, "otp", searchParams ?? undefined);
     }, "Verification failed. Please try again.");
 
   const handleResendOTP = async (email: string) => {
@@ -599,10 +611,15 @@ export const useNewUser = (mode: "invite" | "session") => {
       }
 
       toast.success("Account setup complete. Welcome!");
+      // Resume a live OIDC authorize round-trip that was preserved in the
+      // /login URL across the onboarding detour (#836). For the invite flow the
+      // URL carries only the setup `token` (no authorize params), so this is a
+      // no-op and the DJ lands on the dashboard as before.
       await redirectAfterAuth(
         router,
         { id: response.userId, hasCompletedOnboarding: true },
         "onboarding",
+        searchParams ?? undefined,
       );
     }, "Failed to complete onboarding. Please try again.");
   };
