@@ -1304,6 +1304,34 @@ describe("authenticationHooks", () => {
       // stranding the DJ.
       expect(mockClearTokenCache).toHaveBeenCalled();
       expect(mockRefresh).toHaveBeenCalled();
+      // refresh() is a SHARED outcome — it fires on every redirectAfterAuth
+      // branch — so it does not distinguish "deferred to the server" from the
+      // #849 misroute. The differentiator is the push DESTINATION: an
+      // unreadable user is unknown, not onboarding-incomplete, and must never
+      // be dumped on the new-user form.
+      expect(mockPush).not.toHaveBeenCalledWith("/login?incomplete=true");
+    });
+
+    it("does not treat an unreadable user as onboarding-incomplete when the getSession read resolves without a user (#849)", async () => {
+      mockPollDeviceToken.mockResolvedValue(SUCCESS_POLL);
+      // The poll set the session cookie, but the follow-up read comes back
+      // empty (no user). That is "unknown onboarding status", not "incomplete"
+      // — the DJ must not be routed to the new-user onboarding form.
+      mockGetSession.mockResolvedValue({ data: { user: undefined } });
+
+      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      renderHook(() => useDeviceAuthorization(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(20000);
+      });
+
+      expect(mockClearTokenCache).toHaveBeenCalled();
+      expect(mockRefresh).toHaveBeenCalled();
+      expect(mockPush).not.toHaveBeenCalledWith("/login?incomplete=true");
     });
 
     it("defaults to a 5s poll interval when the server omits `interval`", async () => {

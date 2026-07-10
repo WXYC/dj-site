@@ -124,7 +124,13 @@ async function redirectAfterAuth(
   const dashboardHome = String(
     process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog",
   );
-  const incomplete = user?.hasCompletedOnboarding !== true;
+  // "incomplete" means we affirmatively KNOW onboarding isn't done: a present
+  // user whose flag is false or absent (the latter is the #836 Bug B case). An
+  // absent user OBJECT is unknown, not incomplete — the post-auth read failed
+  // (e.g. the QR flow's getSession hiccup), so defer to the server's
+  // requireAuth to resolve the real onboarding status rather than forcing the
+  // onboarding form on a DJ who just authenticated successfully (#849).
+  const incomplete = !!user && user.hasCompletedOnboarding !== true;
   // Resolve a live OIDC authorize bounce (`client_id` + `response_type=code`)
   // to its resume target, or null. Computed here — not at the call site — so
   // every credential entry point (useLogin/useOTPVerify/useNewUser) shares one
