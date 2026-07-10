@@ -204,19 +204,60 @@ export default function MobileSongEntry({
           </Stack>
         ) : (
           <Stack sx={{ minWidth: 0 }}>
-            {FIELDS.map((f) => (
-              <FlowsheetEntryField
-                key={f.name}
-                label={f.label}
-                name={f.name}
-                entry={entry}
-                playing={playing}
-                queue={queue}
-                editable={false}
-                level={f.level}
-                textColor={entryFieldTextColor(f.key, playing)}
-              />
-            ))}
+            <FlowsheetEntryField
+              label="song"
+              name="track_title"
+              entry={entry}
+              playing={playing}
+              queue={queue}
+              editable={false}
+              level="title-sm"
+              textColor={entryFieldTextColor("song", playing)}
+            />
+            {/* Artist and album share one line to lengthen the row. */}
+            <Box sx={{ display: "flex", alignItems: "baseline", gap: 0.75, minWidth: 0 }}>
+              <Box sx={{ flex: "0 1 auto", minWidth: 0 }}>
+                <FlowsheetEntryField
+                  label="artist"
+                  name="artist_name"
+                  entry={entry}
+                  playing={playing}
+                  queue={queue}
+                  editable={false}
+                  level="body-sm"
+                  textColor={entryFieldTextColor("artist", playing)}
+                />
+              </Box>
+              <Typography
+                level="body-sm"
+                textColor={playing ? "rgba(255,255,255,0.72)" : "text.tertiary"}
+                sx={{ flexShrink: 0 }}
+              >
+                ·
+              </Typography>
+              <Box sx={{ flex: "0 1 auto", minWidth: 0 }}>
+                <FlowsheetEntryField
+                  label="album"
+                  name="album_title"
+                  entry={entry}
+                  playing={playing}
+                  queue={queue}
+                  editable={false}
+                  level="body-sm"
+                  textColor={entryFieldTextColor("album", playing)}
+                />
+              </Box>
+            </Box>
+            <FlowsheetEntryField
+              label="label"
+              name="record_label"
+              entry={entry}
+              playing={playing}
+              queue={queue}
+              editable={false}
+              level="body-sm"
+              textColor={entryFieldTextColor("label", playing)}
+            />
             <Stack
               direction="row"
               gap={0.75}
