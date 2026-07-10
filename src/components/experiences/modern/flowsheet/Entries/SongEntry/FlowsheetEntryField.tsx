@@ -3,11 +3,19 @@
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 import { useFlowsheet, useShowControl } from "@/src/hooks/flowsheetHooks";
 import { toTitleCase } from "@/src/utilities/stringutilities";
-import { Tooltip, Typography, TypographyProps } from "@mui/joy";
+import { Box, IconButton, Tooltip, Typography, TypographyProps } from "@mui/joy";
+import { CheckRounded, EditOutlined } from "@mui/icons-material";
 import { ClickAwayListener } from "@mui/material";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useAppDispatch } from "@/lib/hooks";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
+
+// A compact edit/save affordance tucked at the end of the field.
+const FIELD_ACTION_SX = {
+  flexShrink: 0,
+  "--IconButton-size": "20px",
+  "--Icon-fontSize": "15px",
+} as const;
 
 export default function FlowsheetEntryField({
   entry,
@@ -30,6 +38,8 @@ export default function FlowsheetEntryField({
 
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(String(entry[name]));
+
+  const canEdit = editable && live;
 
   useEffect(() => {
     if (!editing) {
@@ -67,16 +77,24 @@ export default function FlowsheetEntryField({
   return editing ? (
     <ClickAwayListener onClickAway={saveAndClose}>
       {/* The form must hold the field's flex slot while editing or the
-          two-line row layout collapses around it. */}
+          row layout collapses around it. */}
       <form
         onSubmit={saveAndClose}
-        style={{ minWidth: 0, flex: "1 1 auto", display: "block" }}
+        style={{
+          minWidth: 0,
+          flex: "1 1 auto",
+          display: "flex",
+          alignItems: "center",
+          gap: "4px",
+        }}
       >
         <Typography
           {...props}
           textColor={playing ? "primary.lightChannel" : "neutral.700"}
           sx={{
             ...props.sx,
+            flex: "1 1 auto",
+            minWidth: 0,
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -86,6 +104,7 @@ export default function FlowsheetEntryField({
           <input
             type="text"
             autoComplete="off"
+            autoFocus
             style={{
               color: "inherit",
               fontFamily: "inherit",
@@ -104,36 +123,88 @@ export default function FlowsheetEntryField({
             value={value}
           />
         </Typography>
+        {/* Clicking the check submits the field (same as Enter / click-away). */}
+        <Tooltip title="Save" variant="outlined" size="sm">
+          <IconButton
+            type="submit"
+            size="sm"
+            variant="plain"
+            color="primary"
+            aria-label={`Save ${label}`}
+            sx={FIELD_ACTION_SX}
+          >
+            <CheckRounded />
+          </IconButton>
+        </Tooltip>
       </form>
     </ClickAwayListener>
   ) : (
-    // A real Tooltip (not the native title attr, which browsers surface
-    // unreliably) so truncated values are always recoverable on hover.
-    <Tooltip
-      title={String(entry[name])}
-      variant="outlined"
-      size="sm"
-      placement="top-start"
-      enterDelay={400}
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 0.5,
+        minWidth: 0,
+        // A dimmed pencil reveals on hover to signal the field is editable;
+        // always visible (dimmed) on touch devices that can't hover.
+        ...(canEdit && {
+          "& .field-edit-btn": { opacity: 0.45 },
+          "@media (hover: hover)": {
+            "& .field-edit-btn": {
+              opacity: 0,
+              transition: "opacity 120ms",
+            },
+            "&:hover .field-edit-btn, &:focus-within .field-edit-btn": {
+              opacity: 0.45,
+            },
+          },
+        }),
+      }}
     >
-      <Typography
-        {...props}
-        sx={{
-          ...props.sx,
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          cursor: "text",
-          minWidth: "10px",
-          opacity: String(entry[name]).length > 0 ? 1 : 0.5,
-        }}
-        onDoubleClick={() => setEditing(editable && live)}
+      {/* A real Tooltip (not the native title attr, which browsers surface
+          unreliably) so truncated values are always recoverable on hover. */}
+      <Tooltip
+        title={String(entry[name])}
+        variant="outlined"
+        size="sm"
+        placement="top-start"
+        enterDelay={400}
       >
-        {String(entry[name]).length > 0
-          ? String(entry[name])
-          : `${toTitleCase(label)} Unspecified`}
-        &nbsp;
-      </Typography>
-    </Tooltip>
+        <Typography
+          {...props}
+          sx={{
+            ...props.sx,
+            flex: "1 1 auto",
+            minWidth: 0,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            cursor: canEdit ? "text" : "default",
+            opacity: String(entry[name]).length > 0 ? 1 : 0.5,
+          }}
+          onDoubleClick={() => setEditing(canEdit)}
+        >
+          {String(entry[name]).length > 0
+            ? String(entry[name])
+            : `${toTitleCase(label)} Unspecified`}
+          &nbsp;
+        </Typography>
+      </Tooltip>
+      {canEdit && (
+        <Tooltip title={`Edit ${label}`} variant="outlined" size="sm">
+          <IconButton
+            className="field-edit-btn"
+            size="sm"
+            variant="plain"
+            color="neutral"
+            aria-label={`Edit ${label}`}
+            onClick={() => setEditing(true)}
+            sx={FIELD_ACTION_SX}
+          >
+            <EditOutlined />
+          </IconButton>
+        </Tooltip>
+      )}
+    </Box>
   );
 }
