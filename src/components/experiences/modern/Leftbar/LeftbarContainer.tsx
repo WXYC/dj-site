@@ -18,7 +18,7 @@ export default function LeftbarContainer({
     <Sheet
       className="FirstSidebar"
       variant="soft"
-      color={path.includes("admin") ? "success" : "primary"}
+      color={path.includes("admin") ? "sidebarAdmin" : "sidebar"}
       invertedColors
       sx={{
         position: {
@@ -54,7 +54,7 @@ export default function LeftbarContainer({
         }}
       />
       <Box>
-        <Logo color={path.includes("admin") ? "success" : "primary"} />
+        <Logo color={path.includes("admin") ? "sidebarAdmin" : "sidebar"} />
       </Box>
       {children}
     </Sheet>
