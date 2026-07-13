@@ -24,14 +24,21 @@ export default function BinEntryActions({
       onContextMenu={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
-      {actions.map(({ id, label, Icon, color, run }) => (
-        <Tooltip key={id} title={label} variant="outlined" size="sm">
+      {actions.map(({ id, label, Icon, color, run, shiftRemoves }) => (
+        <Tooltip
+          key={id}
+          title={
+            shiftRemoves ? `${label} (Shift: also remove from bin)` : label
+          }
+          variant="outlined"
+          size="sm"
+        >
           <IconButton
             aria-label={label}
             variant="plain"
             color={color}
             size="sm"
-            onClick={run}
+            onClick={(e) => run({ shiftKey: e.shiftKey })}
           >
             <Icon fontSize="small" />
           </IconButton>

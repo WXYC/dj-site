@@ -9,6 +9,7 @@ const mockUseGetRightbarQuery = vi.fn();
 
 vi.mock("@/src/hooks/binHooks", () => ({
   useBin: () => mockUseBin(),
+  useDeleteFromBin: () => ({ deleteFromBin: vi.fn() }),
 }));
 
 vi.mock("@/lib/features/application/api", () => ({
@@ -17,6 +18,9 @@ vi.mock("@/lib/features/application/api", () => ({
 
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useShowControl: () => ({ live: false }),
+  // Hoisted once here (not per row) so the rows can stay hook-free.
+  useQueue: () => ({ addToQueue: vi.fn() }),
+  useFlowsheet: () => ({ addToFlowsheet: vi.fn(() => Promise.resolve()) }),
 }));
 
 // Mock child components

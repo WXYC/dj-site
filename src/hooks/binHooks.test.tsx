@@ -65,7 +65,7 @@ describe("useClearBin", () => {
     expect(toastError).not.toHaveBeenCalled();
   });
 
-  it("toasts once when any delete fails, after attempting them all", async () => {
+  it("toasts once when any delete fails, naming the album, after attempting them all", async () => {
     failIds.add(2);
     const { result } = renderHook(() => useClearBin());
 
@@ -76,7 +76,21 @@ describe("useClearBin", () => {
     expect(deleteTrigger).toHaveBeenCalledTimes(3); // allSettled: others still fire
     expect(toastError).toHaveBeenCalledTimes(1);
     expect(toastError).toHaveBeenCalledWith(
-      "Failed to clear some albums from the bin"
+      "Couldn't remove Album 2 from the bin"
+    );
+  });
+
+  it("summarizes overflow when more than three deletes fail", async () => {
+    setBin([entry(1), entry(2), entry(3), entry(4), entry(5)]);
+    [1, 2, 3, 4, 5].forEach((id) => failIds.add(id));
+    const { result } = renderHook(() => useClearBin());
+
+    await act(async () => {
+      await result.current.clearBin();
+    });
+
+    expect(toastError).toHaveBeenCalledWith(
+      "Couldn't remove Album 1, Album 2, Album 3 and 2 more from the bin"
     );
   });
 

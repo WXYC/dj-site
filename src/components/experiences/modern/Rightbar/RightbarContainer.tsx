@@ -27,8 +27,11 @@ export default function RightbarContainer({
         flexShrink: 0,
         display: "flex",
         flexDirection: "column",
-        // Let the column scroll when its content (Now Playing + a tall Mail Bin)
-        // exceeds the viewport, instead of clipping the overflow off-screen.
+        // Pin the trailing spacer to the bottom of the sidebar when the
+        // content is shorter than the viewport…
+        justifyContent: "space-between",
+        // …and let the column scroll when its content (Now Playing + a tall
+        // Mail Bin) exceeds it, instead of clipping the overflow off-screen.
         overflowY: "auto",
         minHeight: 0,
         gap: 1,

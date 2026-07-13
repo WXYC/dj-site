@@ -1,25 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { screen, fireEvent } from "@testing-library/react";
+import { renderWithProviders } from "@/lib/test-utils";
 import BinEntryContextMenu from "./BinEntryContextMenu";
 import type { BinEntryAction } from "./useBinEntryActions";
 
-vi.mock("@mui/joy", () => ({
-  MenuList: ({ children }: any) => <ul data-testid="menu-list">{children}</ul>,
-  MenuItem: ({ children, onClick }: any) => (
-    <li role="menuitem" onClick={onClick}>
-      {children}
-    </li>
-  ),
-  ListItemDecorator: ({ children }: any) => <>{children}</>,
-}));
-vi.mock("@mui/material/Popper", () => ({
-  default: ({ children, open }: any) => (open ? <div>{children}</div> : null),
-}));
-vi.mock("@mui/material/ClickAwayListener", () => ({
-  default: ({ children }: any) => <>{children}</>,
-}));
-
-const Icon = () => <span>icon</span>;
+const Icon = ({ fontSize }: { fontSize?: string }) => <span>icon</span>;
 
 describe("BinEntryContextMenu", () => {
   const actions: BinEntryAction[] = [
@@ -28,15 +13,15 @@ describe("BinEntryContextMenu", () => {
   ];
 
   it("renders nothing when there is no anchor", () => {
-    render(
+    renderWithProviders(
       <BinEntryContextMenu actions={actions} anchor={null} onClose={vi.fn()} />
     );
 
-    expect(screen.queryByTestId("menu-list")).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem")).not.toBeInTheDocument();
   });
 
   it("renders a menu item per action when anchored", () => {
-    render(
+    renderWithProviders(
       <BinEntryContextMenu
         actions={actions}
         anchor={{ top: 20, left: 10 }}
@@ -51,7 +36,7 @@ describe("BinEntryContextMenu", () => {
   it("runs the action and closes the menu on click", () => {
     const onClose = vi.fn();
     const run = vi.fn();
-    render(
+    renderWithProviders(
       <BinEntryContextMenu
         actions={[{ id: "info", label: "More information", Icon, color: "neutral", run }]}
         anchor={{ top: 0, left: 0 }}
@@ -61,6 +46,73 @@ describe("BinEntryContextMenu", () => {
 
     fireEvent.click(screen.getByText("More information"));
     expect(run).toHaveBeenCalledTimes(1);
+    expect(run).toHaveBeenCalledWith({ shiftKey: false });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes on Escape like the Joy Dropdown it replaced", () => {
+    const onClose = vi.fn();
+    renderWithProviders(
+      <BinEntryContextMenu
+        actions={actions}
+        anchor={{ top: 0, left: 0 }}
+        onClose={onClose}
+      />
+    );
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the Shift hint only on Shift-removable actions", () => {
+    renderWithProviders(
+      <BinEntryContextMenu
+        actions={[
+          {
+            id: "queue",
+            label: "Add to Queue",
+            Icon,
+            color: "success",
+            run: vi.fn(),
+            shiftRemoves: true,
+          },
+          {
+            id: "remove",
+            label: "Remove from Bin",
+            Icon,
+            color: "warning",
+            run: vi.fn(),
+          },
+        ]}
+        anchor={{ top: 0, left: 0 }}
+        onClose={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("+ Shift")).toBeInTheDocument();
+    expect(screen.getByText("to remove from bin")).toBeInTheDocument();
+  });
+
+  it("passes the click's Shift state through to the action", () => {
+    const run = vi.fn();
+    renderWithProviders(
+      <BinEntryContextMenu
+        actions={[
+          {
+            id: "play",
+            label: "Play Now",
+            Icon,
+            color: "primary",
+            run,
+            shiftRemoves: true,
+          },
+        ]}
+        anchor={{ top: 0, left: 0 }}
+        onClose={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByText("Play Now"), { shiftKey: true });
+    expect(run).toHaveBeenCalledWith({ shiftKey: true });
   });
 });
