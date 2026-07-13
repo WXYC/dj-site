@@ -102,8 +102,30 @@ modern; the legacy 2-part `modern-<mode>` still parses and self-heals to 3-part)
 
 ## Known follow-ups
 - No-reload theme swap (needs manual :root var application or Joy var-injection work).
-- e2e picker spec; Backend-Service appSkin validation confirmation.
+- e2e picker spec.
+- ~~Backend-Service appSkin validation confirmation~~ — verified 2026-07-13: `appSkin`
+  is an unvalidated `varchar(255)` (`shared/database/src/schema.ts`,
+  `auth.definition.ts`), so the 3-part grammar is accepted as-is.
 - Dead `Format`-key normalizer `formatNameToFormatKey` removed (superseded by `formatTone`).
+- Flowsheet playing-row text (`entryFieldColors.ts` white literals) and the idle-row
+  wash (`DraggableEntryWrapper` rgba) still sit outside the token system — needs a
+  dedicated token pair before a theme can tune them.
+
+## Review fixes (2026-07-13 code-review pass)
+- Stacks dark scheme now sets `warning: STONE` (was falling through to Joy stock amber).
+- `RotationBinSelector` migrated to `theme.vars.palette.rotation.*` (was still carrying
+  its own Stacks-only hex tables — never rethemed).
+- Cross-device sync (`useThemePreferenceSync`) reloads on a themeId mismatch too, not
+  just experience; `ThemeSwitcher` hard-reloads (router.refresh can't repaint Joy vars).
+- `persistPreference` reports failures via toast and returns cookie-write success;
+  reloads are skipped when the cookie didn't persist (prevents a stale-repaint loop).
+- Dead Layer-B exports removed (`STATUS_TONES`, `ACTION_TONES`, `LIBRARY_TONES`, `tone()`);
+  `genreTone()` added and used by Result/MobileResult/ReleaseChips.
+- ThemePicker click-outside now uses the house `ClickAwayListener`; the no-op optimistic
+  `setThemeId` before reload was dropped and the "instant swap" doc comments corrected.
+- Entry-type presentation (icon/tone/copy) unified in `Entries/entryPresentation.ts`
+  during the rebase onto the updated `feat/flowsheet-entry-rows`; mobile end-show marker
+  no longer contradicts its container tone.
 
 ## Decisions / notes
 

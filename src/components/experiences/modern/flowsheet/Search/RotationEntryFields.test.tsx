@@ -8,6 +8,25 @@ import {
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import RotationEntryFields from "./RotationEntryFields";
 
+// Mock fonts before importing the modern theme (pulled in for the rotation palette).
+vi.mock("next/font/google", () => ({
+  Kanit: () => ({ style: { fontFamily: "Kanit, sans-serif" } }),
+}));
+vi.mock("next/font/local", () => ({
+  default: () => ({ style: { fontFamily: "Minbus, sans-serif" } }),
+}));
+
+import { CssVarsProvider } from "@mui/joy/styles";
+import type { ReactElement } from "react";
+import modernTheme from "@/lib/features/experiences/modern/theme";
+
+// The bin colors come from the custom `rotation` palette slot, which only
+// resolves under the modern theme (see LeftbarContainer.test for the pattern).
+const inModernTheme = (ui: ReactElement) => (
+  <CssVarsProvider theme={modernTheme}>{ui}</CssVarsProvider>
+);
+
+
 // `useFlowsheetSearch` fans out into many RTK Query hooks (live show control,
 // bin search, catalog search, rotation search, LML). Mocking it isolates
 // RotationEntryFields at the unit-test tier — without it the test would need
@@ -123,7 +142,7 @@ describe("RotationEntryFields", () => {
     // sortRotationReleases comparator actually runs over the null-artist row.
     mockRotationData = [lightningBoltOoioo, nullArtistRelease];
 
-    const { store } = renderWithProviders(<RotationEntryFields disabled={false} />);
+    const { store } = renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
     const dispatchSpy = vi.spyOn(store, "dispatch");
 
     expect(() => {
@@ -138,7 +157,7 @@ describe("RotationEntryFields", () => {
   });
 
   it("never renders an artist input — rotation mode has no override UI", () => {
-    renderWithProviders(<RotationEntryFields disabled={false} />);
+    renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
     expect(
       screen.queryByTestId("flowsheet-search-artist")
     ).not.toBeInTheDocument();
@@ -154,9 +173,7 @@ describe("RotationEntryFields", () => {
     // The artist is no longer rendered as an input, but the value still has
     // to flow into Redux so form submission carries the release's primary
     // artist. Assert against the real action creator to catch slice drift.
-    const { store } = renderWithProviders(
-      <RotationEntryFields disabled={false} />
-    );
+    const { store } = renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
     const dispatchSpy = vi.spyOn(store, "dispatch");
 
     selectBinAndRelease();
@@ -200,9 +217,7 @@ describe("RotationEntryFields", () => {
         { position: "A1", title: "la paradoja", duration: null, artists: [] },
       ];
 
-      const { store } = renderWithProviders(
-        <RotationEntryFields disabled={false} />
-      );
+      const { store } = renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
       const dispatchSpy = vi.spyOn(store, "dispatch");
       selectBinAndRelease();
       selectTrack(0);
@@ -222,9 +237,7 @@ describe("RotationEntryFields", () => {
         },
       ];
 
-      const { store } = renderWithProviders(
-        <RotationEntryFields disabled={false} />
-      );
+      const { store } = renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
       const dispatchSpy = vi.spyOn(store, "dispatch");
       selectBinAndRelease();
       selectTrack(0);
@@ -247,9 +260,7 @@ describe("RotationEntryFields", () => {
         },
       ];
 
-      const { store } = renderWithProviders(
-        <RotationEntryFields disabled={false} />
-      );
+      const { store } = renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
       const dispatchSpy = vi.spyOn(store, "dispatch");
       selectBinAndRelease();
       selectTrack(0);
@@ -277,9 +288,7 @@ describe("RotationEntryFields", () => {
         },
       ];
 
-      const { store } = renderWithProviders(
-        <RotationEntryFields disabled={false} />
-      );
+      const { store } = renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
       const dispatchSpy = vi.spyOn(store, "dispatch");
       selectBinAndRelease();
       selectTrack(0);
@@ -300,9 +309,7 @@ describe("RotationEntryFields", () => {
         },
       ];
 
-      const { store } = renderWithProviders(
-        <RotationEntryFields disabled={false} />
-      );
+      const { store } = renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
       const dispatchSpy = vi.spyOn(store, "dispatch");
       selectBinAndRelease();
       selectTrack(0);
@@ -324,9 +331,7 @@ describe("RotationEntryFields", () => {
         },
       ];
 
-      const { store } = renderWithProviders(
-        <RotationEntryFields disabled={false} />
-      );
+      const { store } = renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
       const dispatchSpy = vi.spyOn(store, "dispatch");
       selectBinAndRelease();
       selectTrack(0);

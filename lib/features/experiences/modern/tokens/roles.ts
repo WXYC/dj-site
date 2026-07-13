@@ -23,11 +23,6 @@ export interface FormatTone {
   variant: VariantProp;
 }
 
-/** Spread helper: `<Chip {...tone(GENRE_TONES[g])} />`. */
-export function tone<T extends { color: string; variant: VariantProp }>(t: T): T {
-  return t;
-}
-
 // --- Genre badges (was GENRE_COLORS/GENRE_VARIANTS in ArtistAvatar) ---
 export const GENRE_TONES: Record<Genre, Tone> = {
   Rock: { color: "primary", variant: "solid" },
@@ -41,6 +36,15 @@ export const GENRE_TONES: Record<Genre, Tone> = {
   OCS: { color: "success", variant: "soft" },
   Unknown: { color: "neutral", variant: "soft" },
 };
+
+/**
+ * Resolve any genre value (possibly missing or not a known `Genre`) to its
+ * tone. Mirrors `formatTone` so callers never index GENRE_TONES with an
+ * unvalidated string.
+ */
+export function genreTone(genre: string | null | undefined): Tone {
+  return GENRE_TONES[(genre ?? "Unknown") as Genre] ?? GENRE_TONES.Unknown;
+}
 
 // --- Format badges (dedicated hues; replaces the 4 inconsistent CD/vinyl rules) ---
 export const FORMAT_TONES: Record<Format, FormatTone> = {
@@ -69,23 +73,6 @@ export const ROTATION_TONES: Record<Rotation, Tone> = {
   S: { color: "neutral", variant: "solid" },
 };
 
-// --- Play / queue / live status ---
-export type StatusRole =
-  | "playing"
-  | "queued"
-  | "idle"
-  | "live"
-  | "request"
-  | "segue";
-export const STATUS_TONES: Record<StatusRole, Tone> = {
-  playing: { color: "primary", variant: "solid" },
-  queued: { color: "success", variant: "solid" },
-  idle: { color: "neutral", variant: "soft" },
-  live: { color: "danger", variant: "solid" },
-  request: { color: "warning", variant: "solid" },
-  segue: { color: "primary", variant: "solid" },
-};
-
 // --- Flowsheet message entries ---
 export type EntryRole =
   | "startShow"
@@ -99,22 +86,6 @@ export const ENTRY_TONES: Record<EntryRole, Tone> = {
   talkset: { color: "danger", variant: "soft" },
   breakpoint: { color: "warning", variant: "soft" },
   generic: { color: "warning", variant: "soft" },
-};
-
-// --- Library membership ---
-export const LIBRARY_TONES = {
-  in: { color: "success", variant: "soft" } as Tone,
-  out: { color: "danger", variant: "soft" } as Tone,
-};
-
-// --- Bin / catalog actions ---
-export type ActionRole = "play" | "queue" | "delete" | "cta";
-export const ACTION_TONES: Record<ActionRole, Tone> = {
-  play: { color: "primary", variant: "solid" },
-  queue: { color: "success", variant: "solid" },
-  delete: { color: "danger", variant: "plain" },
-  // Generic primary call-to-action (replaces "success as generic CTA" in admin).
-  cta: { color: "success", variant: "solid" },
 };
 
 // --- Admin roster ---

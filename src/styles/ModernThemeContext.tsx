@@ -15,7 +15,14 @@ import {
 interface ModernThemeContextValue {
   /** The active modern theme id (always a resolved, known id). */
   themeId: string;
-  /** Switch the active modern theme. Instant (client-side theme swap). */
+  /**
+   * Update the context's theme id (keeps consumers like the preference-sync
+   * hook consistent). NOTE: this does NOT repaint the page — Joy's
+   * CssVarsProvider doesn't regenerate its injected :root vars when the theme
+   * object changes at runtime, so an actual theme change persists the
+   * preference and reloads (see ThemePicker). A true no-reload swap is a
+   * known follow-up.
+   */
   setThemeId: (id: string) => void;
 }
 
