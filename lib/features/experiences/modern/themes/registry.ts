@@ -1,4 +1,4 @@
-import { solarizedTheme, wxycRoseTheme } from "./definitions";
+import { paperRetroTheme, solarizedTheme, wxycRoseTheme } from "./definitions";
 import type { ModernThemeId, ThemeDefinition } from "./types";
 
 /**
@@ -16,10 +16,11 @@ export const DEFAULT_MODERN_THEME_ID = "default";
 export const MODERN_THEMES: Record<ModernThemeId, ThemeDefinition> = {
   [wxycRoseTheme.id]: wxycRoseTheme,
   [solarizedTheme.id]: solarizedTheme,
+  [paperRetroTheme.id]: paperRetroTheme,
 };
 
 /** Ordered list for the picker (default first). */
-export const MODERN_THEME_LIST: ThemeDefinition[] = [wxycRoseTheme, solarizedTheme];
+export const MODERN_THEME_LIST: ThemeDefinition[] = [wxycRoseTheme, solarizedTheme, paperRetroTheme];
 
 export const THEME_ID_PATTERN = /^[a-z0-9]+$/;
 

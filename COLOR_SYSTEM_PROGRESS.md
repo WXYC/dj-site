@@ -83,6 +83,15 @@ soft amber primary, yellow vinyl, sky CD, true-neutral scaffolding. Added option
 per-scheme `background` slot (body/surface/popup/border → Joy `background.*` +
 divider). Picker swatches now primary/success/vinyl/CD.
 
+## Themes
+- **WXYC Rose** (`default`) — flagship; rose primary, muted teal/stone/fuchsia.
+- **Solarized** (`solarized`) — cool indigo/teal (formerly "Ocean").
+- **Paper Retro** (`paper`) — vintage switchboard: warm cream paper + rustic brown
+  scaffolding (primary/sidebar), striking bakelite green (success) / brick red (danger,
+  on-air) / mustard (warning), tube-amber vinyl vs. cool petrol-denim CD. Warm taupe
+  neutral; light bg is warm paper (`#e9ddc8`/`#f7efe0`), dark bg warm bakelite
+  brown-black (`#211a12`). Dark mode lightens brown/green scales so the sidebar reads.
+
 ## Known follow-ups
 - No-reload theme swap (needs manual :root var application or Joy var-injection work).
 - e2e picker spec; Backend-Service appSkin validation confirmation.
