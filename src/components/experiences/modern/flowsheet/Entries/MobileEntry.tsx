@@ -24,8 +24,9 @@ import RemoveButton from "./Components/RemoveButton";
 import MobileSongEntry from "./SongEntry/MobileSongEntry";
 
 // Mobile counterpart of Entry.tsx: dispatches an entry to its stacked-card
-// renderer below the `sm` breakpoint.
-export default function MobileEntry({
+// renderer below the `sm` breakpoint. Not memoized (see Entry — entries
+// mutate in place).
+function MobileEntry({
   entry,
   playing,
 }: {
@@ -123,3 +124,5 @@ export default function MobileEntry({
     </Sheet>
   );
 }
+
+export default MobileEntry;

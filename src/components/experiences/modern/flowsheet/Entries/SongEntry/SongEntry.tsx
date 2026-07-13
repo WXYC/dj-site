@@ -20,7 +20,9 @@ import SongEntryControls from "./SongEntryControls";
 import SongEntryStatusChips from "./SongEntryStatusChips";
 import { toast } from "sonner";
 
-export default function SongEntry({
+// Not memoized: the flowsheet updates entry objects in place (e.g. request /
+// segue toggles), so a shallow prop check would leave the row stale.
+function SongEntry({
   playing,
   queue,
   entry,
@@ -208,3 +210,5 @@ export default function SongEntry({
     </DraggableEntryWrapper>
   );
 }
+
+export default SongEntry;

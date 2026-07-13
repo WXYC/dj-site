@@ -3,10 +3,14 @@
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import SongEntry from "@/src/components/experiences/modern/flowsheet/Entries/SongEntry/SongEntry";
 import MobileSongEntry from "@/src/components/experiences/modern/flowsheet/Entries/SongEntry/MobileSongEntry";
+import { useMediaQuery } from "@/src/hooks/useMediaQuery";
 import { Box, Table } from "@mui/joy";
 import { Reorder } from "motion/react";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useCallback, useEffect, useState } from "react";
+
+// Below `sm` the queue renders as stacked cards; only one layout mounts.
+const MOBILE_QUERY = "(max-width: 599.95px)";
 
 export default function Queue() {
   const queue = useAppSelector((state) => state.flowsheet.queue);
@@ -17,6 +21,8 @@ export default function Queue() {
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  const isMobile = useMediaQuery(MOBILE_QUERY);
 
   // Handler for reordering queue items - Disabled for now
   const handleReorder = useCallback((newOrder: typeof queue) => {
@@ -29,13 +35,27 @@ export default function Queue() {
     return null;
   }
 
+  const reversed = queue.toReversed();
+
+  if (isMobile) {
+    return (
+      <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+        {reversed.map((entry) => (
+          <MobileSongEntry
+            key={`queue-mobile-${entry.id}`}
+            entry={entry}
+            playing={false}
+            queue={true}
+          />
+        ))}
+      </Box>
+    );
+  }
+
   return (
-    <>
     <Table
       borderAxis="none"
       sx={{
-        // Desktop only; below `sm` the stacked mobile card list takes over.
-        display: { xs: "none", sm: "table" },
         // Match the entries table's soft rounded-row treatment.
         borderCollapse: "separate",
         borderSpacing: "0 4px",
@@ -89,12 +109,12 @@ export default function Queue() {
         </tr>
       </thead>
       <Reorder.Group
-        values={isMounted ? queue.toReversed() : []}
+        values={reversed}
         axis="y"
         onReorder={handleReorder}
         as="tbody"
       >
-        {isMounted && queue.toReversed().map((entry) => (
+        {reversed.map((entry) => (
           <SongEntry
             key={`queue-${entry.id}`}
             entry={entry}
@@ -104,18 +124,5 @@ export default function Queue() {
         ))}
       </Reorder.Group>
     </Table>
-
-    {/* Mobile: stacked cards instead of the table. */}
-    <Box sx={{ display: { xs: "flex", sm: "none" }, flexDirection: "column", gap: 1.5 }}>
-      {queue.toReversed().map((entry) => (
-        <MobileSongEntry
-          key={`queue-mobile-${entry.id}`}
-          entry={entry}
-          playing={false}
-          queue={true}
-        />
-      ))}
-    </Box>
-    </>
   );
 }
