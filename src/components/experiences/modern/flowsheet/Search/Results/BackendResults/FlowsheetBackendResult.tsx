@@ -3,6 +3,7 @@ import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useMetadataPrefetch } from "@/lib/features/metadata/api";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useFlowsheetSubmit } from "@/src/hooks/flowsheetHooks";
+import { WXYC_EXCLUSIVE_PURPLE } from "@/src/utilities/modern/brandColors";
 import { Chip, ColorPaletteProp, Stack, Typography } from "@mui/joy";
 
 export default function FlowsheetBackendResult({
@@ -92,7 +93,7 @@ export default function FlowsheetBackendResult({
               size="sm"
               sx={{
                 ml: 1,
-                backgroundColor: "#7B2D8E",
+                backgroundColor: WXYC_EXCLUSIVE_PURPLE,
                 color: "#fff",
                 fontWeight: "bold",
                 fontSize: "0.6rem",

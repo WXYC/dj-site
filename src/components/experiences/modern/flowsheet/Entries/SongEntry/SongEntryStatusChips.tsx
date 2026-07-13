@@ -1,6 +1,7 @@
 "use client";
 
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
+import { WXYC_EXCLUSIVE_PURPLE } from "@/src/utilities/modern/brandColors";
 import { getStyleForRotation } from "@/src/utilities/modern/rotationstyles";
 import { Chip } from "@mui/joy";
 
@@ -41,7 +42,7 @@ export default function SongEntryStatusChips({
           size="sm"
           sx={{
             ...STATUS_CHIP_SX,
-            backgroundColor: "#7B2D8E",
+            backgroundColor: WXYC_EXCLUSIVE_PURPLE,
             color: "#fff",
             letterSpacing: "0.5px",
           }}
