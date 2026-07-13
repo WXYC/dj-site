@@ -5,13 +5,14 @@ import { Inbox } from "@mui/icons-material";
 import { Card, Divider, Skeleton, Typography } from "@mui/joy";
 import RightBarContentContainer from "../RightBarContentContainer";
 import BinEntry from "./BinEntry";
-import { useGetRightbarQuery } from "@/lib/features/application/api";
+import ClearBinButton from "./ClearBinButton";
+
+// Safety cap so a very large bin scrolls internally instead of dominating the
+// rightbar column; short bins size to their content and waste no space.
+const BIN_MAX_HEIGHT = 500;
 
 export default function BinContent() {
-  const { data: max  } = useGetRightbarQuery();
   const { bin, isError, loading } = useBin();
-
-  const height = max ? 500 : 335;
 
   if (loading) {
     return (
@@ -22,9 +23,8 @@ export default function BinContent() {
         <Skeleton
           variant="rectangular"
           sx={{
-            overflowY: "scroll",
             width: { xs: "100%", sm: 300, lg: 400 },
-            height: height,
+            height: 335,
             borderRadius:
               "max((8px - 1px) - 1rem, min(1rem / 2, (8px - 1px) / 2))",
           }}
@@ -33,30 +33,31 @@ export default function BinContent() {
     );
   }
 
+  const hasEntries = !!bin && bin.length > 0 && !isError;
+
   return (
     <RightBarContentContainer
       label="Mail Bin"
       startDecorator={<Inbox sx={{ mt: 0.3, mr: 1 }} />}
+      endDecorator={hasEntries ? <ClearBinButton count={bin.length} /> : undefined}
     >
       <Card
         variant="outlined"
         sx={{
-          overflowY: "scroll",
+          overflowY: "auto",
           width: { xs: "100%", sm: 300, lg: 400 },
-          height: height,
+          maxHeight: BIN_MAX_HEIGHT,
         }}
       >
-        {!bin || bin.length <= 0 || isError ? (
+        {!hasEntries ? (
           <div>
             <Typography level="body-md">An empty record...</Typography>
           </div>
         ) : (
           bin.map((entry, index) => (
-            <div key={`bin-${entry.id}-${index}`}>
-              <BinEntry key={`bin-entry-${entry.id}`} entry={entry} />
-              {index < bin.length - 1 && (
-                <Divider key={`bin-divider-${entry.id}`} />
-              )}
+            <div key={`bin-${entry.id}`}>
+              <BinEntry entry={entry} />
+              {index < bin.length - 1 && <Divider />}
             </div>
           ))
         )}

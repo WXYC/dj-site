@@ -18,12 +18,6 @@ vi.mock("./BinMenu", () => ({
   ),
 }));
 
-vi.mock("./ScrollOnHoverText", () => ({
-  default: ({ children }: any) => (
-    <span data-testid="scroll-text">{children}</span>
-  ),
-}));
-
 describe("BinEntry", () => {
   const mockEntry: AlbumEntry = {
     id: 1,
@@ -54,7 +48,7 @@ describe("BinEntry", () => {
   it("should render album title", () => {
     render(<BinEntry entry={mockEntry} />);
 
-    // May appear in multiple places (scroll text and bin menu mock)
+    // May appear in multiple places (title line and bin menu mock)
     expect(screen.getAllByText("Test Album").length).toBeGreaterThan(0);
   });
 
@@ -70,9 +64,10 @@ describe("BinEntry", () => {
     expect(screen.getByTestId("artist-avatar")).toHaveTextContent("Test Artist - 5");
   });
 
-  it("should render ScrollOnHoverText components", () => {
+  it("should expose full title and artist as native tooltips", () => {
     render(<BinEntry entry={mockEntry} />);
 
-    expect(screen.getAllByTestId("scroll-text").length).toBe(2);
+    expect(screen.getByTitle("Test Album")).toBeInTheDocument();
+    expect(screen.getByTitle("Test Artist")).toBeInTheDocument();
   });
 });
