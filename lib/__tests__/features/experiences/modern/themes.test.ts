@@ -51,6 +51,8 @@ describe("modern theme registry", () => {
     expect(resolveModernThemeId("does-not-exist")).toBe(DEFAULT_MODERN_THEME_ID);
     expect(resolveModernThemeId("Has-Dashes")).toBe(DEFAULT_MODERN_THEME_ID);
     expect(resolveModernThemeId(undefined)).toBe(DEFAULT_MODERN_THEME_ID);
+    // A retired id (e.g. an old theme name) is unrecognized → default.
+    expect(resolveModernThemeId("solarized")).toBe(DEFAULT_MODERN_THEME_ID);
     expect(isModernThemeId("nope")).toBe(false);
   });
 

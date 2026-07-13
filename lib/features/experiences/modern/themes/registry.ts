@@ -12,7 +12,7 @@ import type { ModernThemeId, ThemeDefinition } from "./types";
  * parser can validate theme ids cheaply. `getModernTheme` lives in `./index`.
  */
 
-export const DEFAULT_MODERN_THEME_ID = "default";
+export const DEFAULT_MODERN_THEME_ID = "stacks";
 
 /**
  * All registered modern themes. Adding a theme = import its definition and add it
@@ -44,8 +44,10 @@ export function isModernThemeId(value: unknown): value is ModernThemeId {
 }
 
 /**
- * Coerce an arbitrary value to a known theme id, falling back to the default.
- * Unknown ids degrade rather than throw so older/newer clients interoperate.
+ * Coerce an arbitrary value to a known theme id: a registered id passes through,
+ * anything unrecognized degrades to the default. Never throws, so a preference
+ * naming a theme that no longer exists still resolves to a real theme (and the
+ * preference parser flags it to be re-saved).
  */
 export function resolveModernThemeId(value: unknown): ModernThemeId {
   return isModernThemeId(value) ? value : DEFAULT_MODERN_THEME_ID;

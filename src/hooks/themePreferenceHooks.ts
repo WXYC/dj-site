@@ -5,6 +5,7 @@ import { ApplicationState } from "@/lib/features/application/types";
 import {
   APP_SKIN_STORAGE_KEY,
   AppSkinPreference,
+  ParsedAppSkin,
   getPreferenceFromAppState,
   isAppSkinPreference,
   parseAppSkinPreference,
@@ -91,51 +92,39 @@ export function useThemePreferenceSync() {
     if (hasSyncedRef.current || !mode) return;
 
     const sync = async () => {
-      const appSkinParsed = parseAppSkinPreference((session?.user as any)?.appSkin);
-      const localPreference = readLocalPreference();
+      // Resolve a preference from the first available source, in priority order.
+      let parsed: ParsedAppSkin | null =
+        parseAppSkinPreference((session?.user as any)?.appSkin) ??
+        parseAppSkinPreference(readLocalPreference());
 
-      let resolvedPreference: AppSkinPreference | null = null;
-
-      if (appSkinParsed) {
-        resolvedPreference = toAppSkinPreference(
-          appSkinParsed.experience,
-          appSkinParsed.colorMode,
-          appSkinParsed.themeId
-        );
-      } else if (localPreference) {
-        resolvedPreference = localPreference;
-      }
-
-      if (!resolvedPreference) {
+      if (!parsed) {
         const appState = await fetchAppState();
-        resolvedPreference = getPreferenceFromAppState(appState) ?? null;
+        parsed = parseAppSkinPreference(getPreferenceFromAppState(appState));
       }
 
-      if (!resolvedPreference) {
-        hasSyncedRef.current = true;
-        return;
-      }
-
-      const parsed = parseAppSkinPreference(resolvedPreference);
       if (!parsed) {
         hasSyncedRef.current = true;
         return;
       }
 
-      const nextMode = parsed.colorMode;
-      if (mode !== nextMode) {
-        setMode(nextMode);
+      if (mode !== parsed.colorMode) {
+        setMode(parsed.colorMode);
       }
 
       if (parsed.experience === "modern") {
         setThemeId(parsed.themeId);
       }
 
-      await persistPreference(resolvedPreference, { updateUser: false });
+      // Self-heal: persist the canonical form everywhere, and push it to the
+      // backend user record only when the stored value drifted (legacy 2-part
+      // form, or a renamed/unknown theme id) so it stops coming back stale.
+      await persistPreference(parsed.canonical, {
+        updateUser: parsed.needsRewrite,
+      });
 
       const shouldRefresh =
         typeof window !== "undefined" &&
-        resolvedPreference.startsWith("classic") !==
+        parsed.canonical.startsWith("classic") !==
           document.documentElement.dataset.experience?.startsWith("classic");
 
       if (shouldRefresh) {

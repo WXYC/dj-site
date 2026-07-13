@@ -21,11 +21,12 @@ const rot = (
   text: string, textSelected: string, border: string
 ): RotationBinTokens => ({ bg, bgHover, bgSelected, text, textSelected, border });
 
-// Theme labels are music/radio references; the `id`s below stay fixed for
-// preference back-compat (they're persisted in cookies/accounts).
+// Theme labels are music/radio references; ids are meaningful slugs. A preference
+// naming an unknown id safely resolves to the default (`stacks`) and is re-saved,
+// so ids can change freely as themes come and go — no migration table needed.
 
 // ===========================================================================
-// The Stacks (id "default") — the flagship. Warm record-library rose: rose
+// The Stacks (id "stacks") — the flagship. Warm record-library rose: rose
 // primary, muted teal / stone / fuchsia accents, warm greige neutral.
 // ===========================================================================
 const ROSE: PaletteScale = { 50: "#fff1f2", 100: "#ffe4e6", 200: "#fecdd3", 300: "#fda4af", 400: "#fb7185", 500: "#f43f5e", 600: "#e11d48", 700: "#be123c", 800: "#9f1239", 900: "#881337" };
@@ -63,7 +64,7 @@ const ROSE_ROT_DARK = {
 };
 
 export const theStacksTheme: ThemeDefinition = {
-  id: "default",
+  id: "stacks",
   label: "The Stacks",
   description: "The signature WXYC look — warm library rose with muted teal and stone.",
   schemes: {
@@ -100,7 +101,7 @@ export const theStacksTheme: ThemeDefinition = {
 };
 
 // ===========================================================================
-// Blue Note (id "solarized") — the cool indigo/teal palette, like the late shift.
+// Blue Note (id "bluenote") — the cool indigo/teal palette, like the late shift.
 // ===========================================================================
 const INDIGO: PaletteScale = { 50: "#eef2ff", 100: "#e0e7ff", 200: "#c7d2fe", 300: "#a5b4fc", 400: "#818cf8", 500: "#6366f1", 600: "#4f46e5", 700: "#4338ca", 800: "#3730a3", 900: "#312e81" };
 const OCEAN_TEAL: PaletteScale = { 50: "#f0fdfa", 100: "#ccfbf1", 200: "#99f6e4", 300: "#5eead4", 400: "#2dd4bf", 500: "#14b8a6", 600: "#0d9488", 700: "#0f766e", 800: "#115e59", 900: "#134e4a" };
@@ -127,7 +128,7 @@ const OCEAN_ROT_DARK = {
 };
 
 export const blueNoteTheme: ThemeDefinition = {
-  id: "solarized",
+  id: "bluenote",
   label: "Blue Note",
   description: "Cool indigo and teal, like the late shift after midnight.",
   schemes: {
@@ -165,7 +166,7 @@ export const blueNoteTheme: ThemeDefinition = {
 };
 
 // ===========================================================================
-// Shellac (id "paper") — old shellac 78s and an antique switchboard: warm cream
+// Shellac (id "shellac") — old shellac 78s and an antique switchboard: warm cream
 // paper, rustic brown scaffolding, and the striking bakelite reds/greens of patch
 // cables. Muted and a touch "plasticky" (warm, slightly hazy) rather than bright.
 // ===========================================================================
@@ -205,7 +206,7 @@ const PAPER_ROT_DARK = {
 };
 
 export const shellacTheme: ThemeDefinition = {
-  id: "paper",
+  id: "shellac",
   label: "Shellac",
   description: "Old shellac 78s — cream paper, rustic browns, bakelite red and green.",
   schemes: {

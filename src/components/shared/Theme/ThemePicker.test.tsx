@@ -15,7 +15,7 @@ vi.mock("@/src/hooks/themePreferenceHooks", () => ({
 }));
 
 vi.mock("@/src/styles/ModernThemeContext", () => ({
-  useModernTheme: () => ({ themeId: "default", setThemeId }),
+  useModernTheme: () => ({ themeId: "stacks", setThemeId }),
 }));
 
 // jsdom cannot navigate; stub reload so selecting a theme doesn't error.
@@ -51,10 +51,10 @@ describe("ThemePicker", () => {
     await user.click(screen.getByRole("button", { name: /choose color theme/i }));
     await user.click(screen.getByRole("menuitemradio", { name: /Blue Note/i }));
 
-    expect(setThemeId).toHaveBeenCalledWith("solarized");
+    expect(setThemeId).toHaveBeenCalledWith("bluenote");
     // mode defaults to light in the test CssVarsProvider
     expect(persistPreference).toHaveBeenCalledWith(
-      "modern-solarized-light",
+      "modern-bluenote-light",
       { updateUser: true }
     );
     expect(reload).toHaveBeenCalled();
