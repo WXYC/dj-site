@@ -61,6 +61,31 @@ export const useDeleteFromBin = () => {
   return { deleteFromBin: action, loading };
 };
 
+/**
+ * Bulk-clears the bin by firing a delete for every current entry. There is no
+ * bulk endpoint on the backend yet, so this loops the single-item mutation;
+ * RTK Query coalesces the resulting `["Bin"]` invalidations into one refetch.
+ */
+export const useClearBin = () => {
+  const { loading: registryLoading, info } = useRegistry();
+  const { bin } = useBin();
+  const [deleteFromBin, result] = useDeleteFromBinMutation();
+
+  const clearBin = useCallback(async () => {
+    if (registryLoading || !info || !bin || bin.length === 0) return;
+    const outcomes = await Promise.allSettled(
+      bin.map((entry) =>
+        deleteFromBin({ dj_id: info.id!, album_id: entry.id }).unwrap()
+      )
+    );
+    if (outcomes.some((outcome) => outcome.status === "rejected")) {
+      toast.error("Failed to clear some albums from the bin");
+    }
+  }, [registryLoading, info, bin, deleteFromBin]);
+
+  return { clearBin, loading: result.isLoading || registryLoading };
+};
+
 export const useAddToBin = () => {
   const { action, loading } = useBinMutation(useAddToBinMutation, "Failed to add album to bin");
   return { addToBin: action, loading };
