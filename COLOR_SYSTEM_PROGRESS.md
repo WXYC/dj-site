@@ -58,9 +58,25 @@ picker. Classic experience stays untouched and strippable.
       chips → ADMIN_TONES; `ImportCSVModal` `--joy-*`→`--wxyc-*`; deleted stale
       `components/Theme/ThemeSwitcher.tsx`, `rotationstyles.ts` (+test); trimmed dead color
       tables from `rotationBinColors.ts` (kept bin labels). tsc clean, 166 admin/util tests pass.
-- [~] 9. Verify pass — vitest + tsc + login/picker/classic screenshots done. PENDING (needs
-      user, auth couldn't be scripted): authenticated visual QA of catalog/flowsheet/sidebar/admin
-      across themes×modes; e2e picker spec; Backend-Service `appSkin` field validation check.
+- [~] 9. Verify pass — full vitest suite green + tsc clean. Visual QA is the user's (they
+      drive the dev server; do NOT screenshot). PENDING: user visual QA of
+      catalog/flowsheet/sidebar/admin across themes×modes; e2e picker spec; Backend-Service
+      `appSkin` field validation check (arbitrary string / 3-part value acceptance).
+
+## Post-review fixes
+- **Format crash**: `Format` is a cast string (backend sends "cd"/"LP"/…); direct
+  `FORMAT_TONES[format]` threw. Added `formatTone()` (normalizes + always returns a valid
+  tone); routed all format lookups through it; hardened `ROTATION_TONES[...]` with `?.`.
+- **Picker didn't render** in the ButtonGroup on @mui/joy beta.52 → controlled Menu + plain
+  IconButton trigger (ButtonGroup clones children with data-*-child a Dropdown swallows).
+- **Theme swap didn't repaint**: Joy's CssVarsProvider doesn't regenerate injected :root vars
+  on runtime theme change (nor does router.refresh re-mount it). Picker now persists then
+  `window.location.reload()` (verified cookie-driven SSR path). Live no-reload swap = follow-up.
+
+## Known follow-ups
+- No-reload theme swap (needs manual :root var application or Joy var-injection work).
+- e2e picker spec; Backend-Service appSkin validation confirmation.
+- Dead `Format`-key normalizer `formatNameToFormatKey` removed (superseded by `formatTone`).
 
 ## Decisions / notes
 
