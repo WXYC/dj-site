@@ -26,37 +26,11 @@ type ThemeWithComponents = Theme &
 // Import after mocking
 import { classicTheme as _classicTheme } from "@/lib/features/experiences/classic/theme";
 import { modernTheme as _modernTheme } from "@/lib/features/experiences/modern/theme";
-import { baseTheme as _baseTheme } from "@/lib/features/experiences/shared/base-theme";
 
 const classicTheme = _classicTheme as ThemeWithComponents;
 const modernTheme = _modernTheme as ThemeWithComponents;
-const baseTheme = _baseTheme as ThemeWithComponents;
 
 describe("experience themes", () => {
-  describe("baseTheme", () => {
-    it("should have wxyc as css variable prefix", () => {
-      expect(baseTheme.cssVarPrefix).toBe("wxyc");
-    });
-
-    it("should have JoyTooltip component overrides", () => {
-      expect(baseTheme.components?.JoyTooltip).toBeDefined();
-    });
-
-    it("should set tooltip zIndex to 10000", () => {
-      expect(
-        baseTheme.components?.JoyTooltip?.styleOverrides?.root
-      ).toBeDefined();
-      const rootOverrides = baseTheme.components?.JoyTooltip?.styleOverrides
-        ?.root as { zIndex: number };
-      expect(rootOverrides.zIndex).toBe(10000);
-    });
-
-    it("should be a valid MUI Joy theme object", () => {
-      expect(baseTheme).toHaveProperty("cssVarPrefix");
-      expect(baseTheme).toHaveProperty("components");
-    });
-  });
-
   describe("classicTheme", () => {
     it("should have wxyc as css variable prefix", () => {
       expect(classicTheme.cssVarPrefix).toBe("wxyc");
@@ -298,22 +272,15 @@ describe("experience themes", () => {
 
   describe("theme consistency", () => {
     it("should have consistent cssVarPrefix across all themes", () => {
-      expect(baseTheme.cssVarPrefix).toBe(classicTheme.cssVarPrefix);
       expect(classicTheme.cssVarPrefix).toBe(modernTheme.cssVarPrefix);
     });
 
     it("should have JoyTooltip overrides in all themes", () => {
-      expect(baseTheme.components?.JoyTooltip).toBeDefined();
       expect(classicTheme.components?.JoyTooltip).toBeDefined();
       expect(modernTheme.components?.JoyTooltip).toBeDefined();
     });
 
     it("should have consistent tooltip zIndex across all themes", () => {
-      const baseZIndex = (
-        baseTheme.components?.JoyTooltip?.styleOverrides?.root as {
-          zIndex: number;
-        }
-      ).zIndex;
       const classicZIndex = (
         classicTheme.components?.JoyTooltip?.styleOverrides?.root as {
           zIndex: number;
@@ -325,7 +292,6 @@ describe("experience themes", () => {
         }
       ).zIndex;
 
-      expect(baseZIndex).toBe(10000);
       expect(classicZIndex).toBe(10000);
       expect(modernZIndex).toBe(10000);
     });
