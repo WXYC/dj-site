@@ -2,7 +2,7 @@ import type { JSX } from "react";
 import { ArtistEntry, Format, Genre } from "@/lib/features/catalog/types";
 import { Rotation } from "@/lib/features/rotation/types";
 import {
-  FORMAT_TONES,
+  formatTone,
   GENRE_TONES,
   ROTATION_TONES,
 } from "@/lib/features/experiences/modern/tokens/roles";
@@ -22,7 +22,7 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
     GENRE_TONES.Unknown;
   const color_choice = genreTone.color;
   const variant_choice = genreTone.variant;
-  const formatColor = FORMAT_TONES[props.format ?? "Unknown"].color;
+  const formatColor = formatTone(props.format).color;
 
   return (
     <Tooltip
@@ -36,7 +36,7 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
     >
       <Badge
         badgeContent={props.rotation ?? null}
-        color={props.rotation && ROTATION_TONES[props.rotation].color}
+        color={props.rotation ? ROTATION_TONES[props.rotation]?.color : undefined}
         size="sm"
       >
         <Avatar

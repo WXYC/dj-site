@@ -3,7 +3,7 @@ import type { VariantProp } from "@mui/joy";
 import type { SxProps } from "@mui/joy/styles/types";
 
 import {
-  FORMAT_TONES,
+  formatTone,
   GENRE_TONES,
   ROTATION_TONES,
   type FormatTone,
@@ -43,14 +43,6 @@ export type CatalogFilterTagChipProps = {
   sx?: SxProps;
 };
 
-/** Map an API format name to the `Format` union used for tone lookup. */
-export function formatNameToFormatKey(name: string): Format {
-  const n = name.toLowerCase();
-  if (n.includes("vinyl")) return "Vinyl";
-  if (n.includes("cd")) return "CD";
-  return "Unknown";
-}
-
 /** Matches catalog result genre chips (`Result.tsx`). */
 export function getGenreFilterChipProps(genreName: string): CatalogFilterTagChipProps {
   const key = genreNameToGenreKey(genreName);
@@ -59,7 +51,7 @@ export function getGenreFilterChipProps(genreName: string): CatalogFilterTagChip
 
 /** Matches catalog result format chips — dedicated vinyl/CD hues. */
 export function getFormatFilterChipProps(formatName: string): CatalogFilterTagChipProps {
-  return FORMAT_TONES[formatNameToFormatKey(formatName)];
+  return formatTone(formatName);
 }
 
 /** Tag filter chips (v1: exclusives uses WXYC exclusive purple). */
