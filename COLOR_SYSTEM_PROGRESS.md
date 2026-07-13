@@ -26,7 +26,11 @@ picker. Classic experience stays untouched and strippable.
       preferences API route + `api.ts` response; `session.ts` applies themeId from appSkin;
       `buildPreference(exp, mode, themeId?)`. Split pure `themes/registry.ts` (no next/font)
       so server/parser code validates ids cheaply. tsc clean, 212 tests pass.
-- [ ] 3. Server-driven ThemeRegistry + ModernThemeContext (fix classic theme selector)
+- [x] **3. Server-driven ThemeRegistry + ModernThemeContext** — `ModernThemeContext.tsx`
+      (themeId seeded from server prop, no flash); ThemeRegistry takes `experience`/`themeId`
+      props from `app/layout.tsx` instead of the dead redux selector; classic now correctly
+      gets `classicTheme`. Sync hook reconciles themeId. Verified via screenshots: default(rose),
+      ocean(indigo) swap propagates to logo+links, dark mode, classic legacy page unaffected.
 - [ ] 4. Theme picker UI (Appbar dropdown)
 - [ ] 5. Catalog migration (genre/format/exclusive + prefix-bug fixes)
 - [ ] 6. Flowsheet + widgets migration (entries, SmartEntry, GoLive, NowPlaying, bins, rotation)

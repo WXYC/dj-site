@@ -11,6 +11,7 @@ import {
   toAppSkinPreference,
 } from "@/lib/features/experiences/preferences";
 import { useSetExperiencePreferenceMutation } from "@/lib/features/experiences/api";
+import { useModernTheme } from "@/src/styles/ModernThemeContext";
 import { useColorScheme } from "@mui/joy/styles";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef } from "react";
@@ -82,6 +83,7 @@ export function useThemePreferenceSync() {
   const router = useRouter();
   const { data: session } = authClient.useSession();
   const { mode, setMode } = useColorScheme();
+  const { setThemeId } = useModernTheme();
   const { persistPreference } = useThemePreferenceActions();
   const hasSyncedRef = useRef(false);
 
@@ -125,6 +127,10 @@ export function useThemePreferenceSync() {
         setMode(nextMode);
       }
 
+      if (parsed.experience === "modern") {
+        setThemeId(parsed.themeId);
+      }
+
       await persistPreference(resolvedPreference, { updateUser: false });
 
       const shouldRefresh =
@@ -140,7 +146,7 @@ export function useThemePreferenceSync() {
     };
 
     sync();
-  }, [mode, persistPreference, router, (session?.user as any)?.appSkin, setMode]);
+  }, [mode, persistPreference, router, (session?.user as any)?.appSkin, setMode, setThemeId]);
 }
 
 export function buildPreference(
