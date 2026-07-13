@@ -49,7 +49,7 @@ export default function AccountEditForm({
   const [newEmail, setNewEmail] = useState(account.email ?? "");
 
   const userCapabilities = (account.capabilities ?? []) as ("editor" | "webmaster")[];
-  const isIncomplete = account.hasCompletedOnboarding === false;
+  const isIncomplete = account.hasCompletedOnboarding !== true;
 
   const resolveUserId = async () => {
     if (account.id) {

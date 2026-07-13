@@ -1,4 +1,4 @@
-import { test, expect, TEST_USERS, completeOnboardingWithInviteToken, getVerificationToken } from "../../fixtures/auth.fixture";
+import { test, expect, TEST_USERS, completeOnboardingWithInviteToken, getVerificationToken, login } from "../../fixtures/auth.fixture";
 import { DashboardPage } from "../../pages/dashboard.page";
 import { RosterPage } from "../../pages/roster.page";
 import { LoginPage } from "../../pages/login.page";
@@ -42,15 +42,20 @@ test.describe("Admin Password Reset", () => {
 });
 
 test.describe("Password Reset - User Can Login After Reset", () => {
-  test.use({ storageState: path.join(authDir, "stationManager.json") });
-
   test("opens the reset form instead of the dashboard when another account is signed in", async ({
-    page,
+    browser,
   }) => {
+    const baseURL = process.env.E2E_BASE_URL || "http://localhost:3000";
+    // Use a one-off login so AuthLinkSessionGuard's signOut does not revoke the
+    // shared stationManager session that later tests load from storageState.
+    const context = await browser.newContext({ baseURL, storageState: undefined });
+    const page = await context.newPage();
+
     const dashboardPage = new DashboardPage(page);
     const rosterPage = new RosterPage(page);
     const targetUser = TEST_USERS.adminReset1;
 
+    await login(page, TEST_USERS.stationManager);
     await dashboardPage.gotoAdminRoster();
     await rosterPage.waitForTableLoaded();
     await rosterPage.sendPasswordResetEmail(targetUser.username);
@@ -58,6 +63,7 @@ test.describe("Password Reset - User Can Login After Reset", () => {
 
     const tokenData = await getVerificationToken(targetUser.email);
     if (!tokenData?.token) {
+      await context.close();
       throw new Error(`No reset token found for ${targetUser.email}`);
     }
 
@@ -68,47 +74,53 @@ test.describe("Password Reset - User Can Login After Reset", () => {
       timeout: 15000,
     });
     await expect(page.locator('input[name="confirmPassword"]')).toBeVisible();
+
+    await context.close();
   });
 
-  test("user should be able to set a new password from the emailed reset link", async ({
-    page,
-    browser,
-  }) => {
-    const dashboardPage = new DashboardPage(page);
-    const rosterPage = new RosterPage(page);
-    const targetUser = TEST_USERS.adminReset1;
-    const newPassword = `NewPassword${Date.now()}`;
+  test.describe(() => {
+    test.use({ storageState: path.join(authDir, "stationManager.json") });
 
-    await dashboardPage.gotoAdminRoster();
-    await rosterPage.waitForTableLoaded();
-    await rosterPage.sendPasswordResetEmail(targetUser.username);
-    await rosterPage.expectSuccessToast("Password reset email sent");
+    test("user should be able to set a new password from the emailed reset link", async ({
+      page,
+      browser,
+    }) => {
+      const dashboardPage = new DashboardPage(page);
+      const rosterPage = new RosterPage(page);
+      const targetUser = TEST_USERS.adminReset1;
+      const newPassword = `NewPassword${Date.now()}`;
 
-    const tokenData = await getVerificationToken(targetUser.email);
-    if (!tokenData?.token) {
-      throw new Error(`No reset token found for ${targetUser.email}`);
-    }
+      await dashboardPage.gotoAdminRoster();
+      await rosterPage.waitForTableLoaded();
+      await rosterPage.sendPasswordResetEmail(targetUser.username);
+      await rosterPage.expectSuccessToast("Password reset email sent");
 
-    const baseURL = process.env.E2E_BASE_URL || "http://localhost:3000";
-    const userContext = await browser.newContext({ baseURL, storageState: undefined });
-    const userPage = await userContext.newPage();
-    await userContext.clearCookies();
+      const tokenData = await getVerificationToken(targetUser.email);
+      if (!tokenData?.token) {
+        throw new Error(`No reset token found for ${targetUser.email}`);
+      }
 
-    const userLoginPage = new LoginPage(userPage);
-    const userDashboard = new DashboardPage(userPage);
+      const baseURL = process.env.E2E_BASE_URL || "http://localhost:3000";
+      const userContext = await browser.newContext({ baseURL, storageState: undefined });
+      const userPage = await userContext.newPage();
+      await userContext.clearCookies();
 
-    await userLoginPage.gotoWithToken(tokenData.token);
-    await userLoginPage.resetPassword(newPassword, newPassword);
-    await userLoginPage.expectSuccessToast();
+      const userLoginPage = new LoginPage(userPage);
+      const userDashboard = new DashboardPage(userPage);
 
-    await userLoginPage.goto();
-    await userPage.waitForLoadState("networkidle");
-    await userLoginPage.switchToPasswordLogin();
-    await userLoginPage.login(targetUser.username, newPassword);
-    await userLoginPage.waitForRedirectToDashboard();
-    await userDashboard.expectOnDashboard();
+      await userLoginPage.gotoWithToken(tokenData.token);
+      await userLoginPage.resetPassword(newPassword, newPassword);
+      await userLoginPage.expectSuccessToast();
 
-    await userContext.close();
+      await userLoginPage.goto();
+      await userPage.waitForLoadState("networkidle");
+      await userLoginPage.switchToPasswordLogin();
+      await userLoginPage.login(targetUser.username, newPassword);
+      await userLoginPage.waitForRedirectToDashboard();
+      await userDashboard.expectOnDashboard();
+
+      await userContext.close();
+    });
   });
 });
 

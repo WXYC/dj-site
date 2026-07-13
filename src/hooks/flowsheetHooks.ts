@@ -247,14 +247,19 @@ export const useFlowsheet = () => {
   }, [infiniteData?.pages]);
 
   const [addToFlowsheet] = useAddToFlowsheetMutation();
-  const addToFlowsheetCallback = (arg: FlowsheetSubmissionParams) => {
-    if (!userData || userData.id === undefined || userloading) {
-      return Promise.reject('User not logged in');
-    }
+  // Stable identity so consumers (e.g. the Mail Bin's per-row action memos)
+  // can hold it in dependency arrays without recomputing every render.
+  const addToFlowsheetCallback = useCallback(
+    (arg: FlowsheetSubmissionParams) => {
+      if (!userData || userData.id === undefined || userloading) {
+        return Promise.reject('User not logged in');
+      }
 
-    // Tag invalidation from the mutation handles refetching
-    return addToFlowsheet(arg).unwrap();
-  };
+      // Tag invalidation from the mutation handles refetching
+      return addToFlowsheet(arg).unwrap();
+    },
+    [addToFlowsheet, userData, userloading]
+  );
 
   const [removeFromFlowsheet, _] = useRemoveFromFlowsheetMutation();
   const removeFromFlowsheetCallback = (entry: number) => {

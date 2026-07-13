@@ -40,5 +40,12 @@ export const catalogFilterAutocompleteSx = {
   "--Input-minHeight": "1.375rem",
 } as const;
 
-export const EXCLUSIVES_PURPLE = "#7B2D8E";
-export const EXCLUSIVES_PURPLE_HOVER = "#6a2479";
+/**
+ * WXYC "exclusive" brand accent. Resolves to the active theme's `exclusive`
+ * palette slot (see lib/features/experiences/modern/themes); the hex fallbacks
+ * keep the color sane if the vars are ever missing (e.g. classic).
+ */
+export const EXCLUSIVES_PURPLE =
+  "var(--wxyc-palette-exclusive-solidBg, #7B2D8E)";
+export const EXCLUSIVES_PURPLE_HOVER =
+  "var(--wxyc-palette-exclusive-solidHoverBg, #6a2479)";

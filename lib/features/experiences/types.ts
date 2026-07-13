@@ -38,6 +38,8 @@ export interface ExperienceConfig {
     hasLeftbar: boolean;
     hasMobileHeader: boolean;
     supportsThemeToggle: boolean;
+    /** Whether the modern color-theme gallery picker is available. */
+    supportsThemePicker: boolean;
   };
 }
 

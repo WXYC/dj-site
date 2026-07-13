@@ -62,6 +62,14 @@ export async function requireAuth(): Promise<BetterAuthSession> {
   }
 
   // Incomplete until explicitly marked complete.
+  //
+  // This redirect intentionally carries no OIDC authorize params, and doing so
+  // does not strand a "Sign in with WXYC" round-trip (#836 AC2): an authorize
+  // bounce targets `/login` directly, whose only incomplete-user render paths
+  // are the login layout (`app/login/@modern/layout.tsx`, session-mode
+  // onboarding) and the invite page (`app/onboarding/**`) — neither gates
+  // through `requireAuth()`. So a pending authorize resume target never reaches
+  // this code path; the client preserves it in the `/login` URL instead.
   if (isUserIncomplete(session)) {
     redirect("/login?incomplete=true&bounced=incomplete");
   }

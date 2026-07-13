@@ -8,6 +8,7 @@ import { isValidEmail } from "@wxyc/shared/validation";
 import { useLayoutEffect, useRef, useState } from "react";
 import EmailOTPForm from "./EmailOTPForm";
 import OTPCodeForm from "./OTPCodeForm";
+import QRCodeForm from "./QRCodeForm";
 import UserPasswordForm from "./UserPasswordForm";
 
 export default function LoginFormSwitcher() {
@@ -38,6 +39,15 @@ export default function LoginFormSwitcher() {
         displayTarget={displayTarget}
         onChangeIdentifier={() => dispatch(applicationSlice.actions.setAuthStage("otp-email"))}
       />
+    );
+  }
+
+  if (authStage === "qr") {
+    return (
+      <>
+        <WelcomeQuotes />
+        <QRCodeForm />
+      </>
     );
   }
 

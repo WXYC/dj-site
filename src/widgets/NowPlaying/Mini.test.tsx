@@ -152,33 +152,17 @@ describe("NowPlayingMini", () => {
     });
   });
 
-  describe("color scheme", () => {
-    it("should pass white overlay color in light mode", () => {
-      mockMode.mockReturnValue("light");
-      render(<NowPlayingMini {...createDefaultProps()} />);
-      expect(screen.getByTestId("gradient-visualizer")).toHaveAttribute(
-        "data-overlay-color",
-        "white"
-      );
-    });
-
-    it("should pass neutral.800 overlay color in dark mode", () => {
-      mockMode.mockReturnValue("dark");
-      render(<NowPlayingMini {...createDefaultProps()} />);
-      expect(screen.getByTestId("gradient-visualizer")).toHaveAttribute(
-        "data-overlay-color",
-        "neutral.800"
-      );
-    });
-
-    it("should pass neutral.800 overlay color when mode is undefined", () => {
-      mockMode.mockReturnValue(undefined);
-      render(<NowPlayingMini {...createDefaultProps()} />);
-      // When mode is undefined, it's not "light", so it goes to else branch
-      expect(screen.getByTestId("gradient-visualizer")).toHaveAttribute(
-        "data-overlay-color",
-        "neutral.800"
-      );
+  describe("overlay color", () => {
+    it("masks the visualizer with the themed surface in every mode", () => {
+      for (const mode of ["light", "dark", undefined] as const) {
+        mockMode.mockReturnValue(mode);
+        const { unmount } = render(<NowPlayingMini {...createDefaultProps()} />);
+        expect(screen.getByTestId("gradient-visualizer")).toHaveAttribute(
+          "data-overlay-color",
+          "background.surface"
+        );
+        unmount();
+      }
     });
   });
 

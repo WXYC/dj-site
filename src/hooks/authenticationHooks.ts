@@ -1,7 +1,13 @@
 "use client";
 
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
-import { authClient, authBaseURL, clearTokenCache, lookupEmailByIdentifier } from "@/lib/features/authentication/client";
+import { authBaseURL, authClient, clearTokenCache, completeOnboarding, lookupEmailByIdentifier } from "@/lib/features/authentication/client";
+import {
+  interpretTokenPoll,
+  pollDeviceToken,
+  requestDeviceCode,
+  type PollOutcome,
+} from "@/lib/features/authentication/device-auth";
 import { isValidEmail } from "@wxyc/shared/validation";
 import {
   AuthenticatedUser,
@@ -14,11 +20,12 @@ import { betterAuthSessionToAuthenticationData, betterAuthSessionToAuthenticatio
 import { Authorization } from "@/lib/features/admin/types";
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams, type ReadonlyURLSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { resetApplication } from "./applicationHooks";
 import { throwIfBetterAuthError } from "@/src/utilities/throwIfBetterAuthError";
+import { getOidcRedirectTarget } from "@/src/utilities/oidcRedirectTarget";
 import { useAsyncAction } from "./useAsyncAction";
 import { safeCapture } from "@/lib/posthog";
 
@@ -28,7 +35,7 @@ const LOGIN_EVENTS = {
   POST_LOGIN_REDIRECT: "login_post_redirect",
 } as const;
 
-type LoginMethod = "password" | "otp" | "onboarding";
+type LoginMethod = "password" | "otp" | "onboarding" | "qr";
 
 /**
  * How hard we try to confirm the freshly-established session is visible
@@ -112,17 +119,31 @@ async function redirectAfterAuth(
   router: { push: (href: string) => void; refresh: () => void },
   user: { id?: string; hasCompletedOnboarding?: boolean } | undefined,
   method: LoginMethod,
+  oidcParams?: URLSearchParams | ReadonlyURLSearchParams,
 ): Promise<void> {
   const dashboardHome = String(
     process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog",
   );
-  const incomplete = user?.hasCompletedOnboarding !== true;
+  // "incomplete" means we affirmatively KNOW onboarding isn't done: a present
+  // user whose flag is false or absent (the latter is the #836 Bug B case). An
+  // absent user OBJECT is unknown, not incomplete — the post-auth read failed
+  // (e.g. the QR flow's getSession hiccup), so defer to the server's
+  // requireAuth to resolve the real onboarding status rather than forcing the
+  // onboarding form on a DJ who just authenticated successfully (#849).
+  const incomplete = !!user && user.hasCompletedOnboarding !== true;
+  // Resolve a live OIDC authorize bounce (`client_id` + `response_type=code`)
+  // to its resume target, or null. Computed here — not at the call site — so
+  // every credential entry point (useLogin/useOTPVerify/useNewUser) shares one
+  // definition of what a bounce is and how it's resumed (#836).
+  const oidcTarget = oidcParams
+    ? getOidcRedirectTarget(oidcParams, authBaseURL)
+    : null;
 
   const sessionConfirmed = await confirmSessionVisible();
 
   safeCapture(LOGIN_EVENTS.POST_LOGIN_REDIRECT, {
     method,
-    destination: incomplete ? "incomplete" : "dashboard",
+    destination: incomplete ? "incomplete" : oidcTarget ? "oidc" : "dashboard",
     has_completed_onboarding: user?.hasCompletedOnboarding ?? null,
     user_id: user?.id ?? null,
     session_confirmed: sessionConfirmed,
@@ -133,12 +154,37 @@ async function redirectAfterAuth(
     return;
   }
 
-  router.push(incomplete ? "/login?incomplete=true" : dashboardHome);
+  if (!incomplete && oidcTarget) {
+    // Hand off to the authorize endpoint with a full document navigation.
+    // In production `authBaseURL` is the same-origin `/auth` proxy (a
+    // next.config rewrite, not an app route), so `router.push` would treat
+    // this as an internal soft navigation and fire a background RSC fetch
+    // that hits `/oauth2/authorize` — burning the one-time OIDC code before
+    // the user ever leaves the page. `window.location.assign` leaves the
+    // SPA cleanly, so `router.refresh()` is moot.
+    window.location.assign(oidcTarget);
+    return;
+  }
+
+  if (incomplete) {
+    // Preserve a live authorize bounce verbatim across the onboarding detour
+    // (#836 Bug A): the invited DJ lands on the onboarding form still carrying
+    // the authorize query, so useNewUser can resume the round-trip on
+    // completion instead of stranding at the dashboard. The onboarding form
+    // renders off session state (`isUserIncomplete`), so we don't need the
+    // non-load-bearing `incomplete=true` marker when we have real params to
+    // keep. An absent onboarding flag with a live bounce lands here too — it is
+    // routed to onboarding rather than delegated a code (#836 Bug B).
+    router.push(oidcTarget ? `/login?${oidcParams!.toString()}` : "/login?incomplete=true");
+  } else {
+    router.push(dashboardHome);
+  }
   router.refresh();
 }
 
 export const useLogin = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { execute, isLoading, error } = useAsyncAction();
 
   const verified = useAppSelector(
@@ -177,7 +223,11 @@ export const useLogin = () => {
           user = { ...signInUser, ...session.data.user };
         }
       }
-      await redirectAfterAuth(router, user, "password");
+      // If we got here as part of an OIDC authorize bounce, redirectAfterAuth
+      // resumes the round-trip from these params (handing off to
+      // `${authBase}/oauth2/authorize?<original-query>` on completion, or
+      // preserving them across the onboarding detour). See `getOidcRedirectTarget`.
+      await redirectAfterAuth(router, user, "password", searchParams ?? undefined);
     }, "An unexpected error occurred during login. Please try again.");
   };
 
@@ -226,6 +276,7 @@ export const useOTPRequest = () => {
 
 export const useOTPVerify = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { execute, isLoading, error } = useAsyncAction();
 
   const handleVerifyOTP = (email: string, otp: string) =>
@@ -254,8 +305,17 @@ export const useOTPVerify = () => {
 
       toast.success("Login successful");
 
-      const user = (result as any).data?.user;
-      await redirectAfterAuth(router, user, "otp");
+      const signInUser = (result as { data?: { user?: { id?: string; hasCompletedOnboarding?: boolean } } }).data?.user;
+      let user = signInUser;
+      if (signInUser?.hasCompletedOnboarding !== true) {
+        const session = await authClient.getSession();
+        if (session.data?.user) {
+          user = { ...signInUser, ...session.data.user };
+        }
+      }
+      // Mirror useLogin's OIDC resume contract — both credential entry
+      // points feed the same authorize round-trip.
+      await redirectAfterAuth(router, user, "otp", searchParams ?? undefined);
     }, "Verification failed. Please try again.");
 
   const handleResendOTP = async (email: string) => {
@@ -271,6 +331,136 @@ export const useOTPVerify = () => {
   };
 
   return { handleVerifyOTP, handleResendOTP, isLoading, error };
+};
+
+/** UI-facing lifecycle state of the QR device-authorization flow. */
+export type DeviceAuthorizationStatus =
+  | "loading"
+  | "waiting"
+  | "expired"
+  | "denied"
+  | "error";
+
+/**
+ * Drive the RFC 8628 QR sign-in flow for the shared control-room browser.
+ *
+ * On mount (and on {@link restart}) it POSTs `/auth/device/code`, surfaces the
+ * `user_code` + `verification_uri_complete` for the QR, then polls
+ * `/auth/device/token` at the server-returned interval until the DJ approves
+ * on their phone or the code reaches a terminal state.
+ */
+export const useDeviceAuthorization = () => {
+  const router = useRouter();
+  const [status, setStatus] = useState<DeviceAuthorizationStatus>("loading");
+  const [userCode, setUserCode] = useState<string | undefined>(undefined);
+  const [verificationUriComplete, setVerificationUriComplete] = useState<
+    string | undefined
+  >(undefined);
+  const [restartNonce, setRestartNonce] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const clientId =
+      process.env.NEXT_PUBLIC_DEVICE_AUTH_CLIENT_ID || "dj-site";
+
+    // Reset to a clean slate so a restart visibly returns to "loading".
+    setStatus("loading");
+    setUserCode(undefined);
+    setVerificationUriComplete(undefined);
+
+    (async () => {
+      let code;
+      try {
+        code = await requestDeviceCode(clientId);
+      } catch {
+        if (!cancelled) setStatus("error");
+        return;
+      }
+      if (cancelled) return;
+
+      setUserCode(code.user_code);
+      setVerificationUriComplete(code.verification_uri_complete);
+      setStatus("waiting");
+
+      // Fall back to the RFC 8628 default (5s) if the server omits or garbles
+      // `interval`: a NaN/0 here would make `setTimeout(poll, …)` fire at 0ms
+      // and flood the token endpoint.
+      let intervalMs =
+        (Number.isFinite(code.interval) && code.interval > 0
+          ? code.interval
+          : 5) * 1000;
+
+      const schedule = () => {
+        timer = setTimeout(poll, intervalMs);
+      };
+
+      const poll = async () => {
+        let outcome: PollOutcome;
+        try {
+          const { status: httpStatus, body } = await pollDeviceToken(
+            code.device_code,
+            clientId,
+          );
+          outcome = interpretTokenPoll(httpStatus, body);
+        } catch {
+          outcome = { kind: "error", code: "network" };
+        }
+        if (cancelled) return;
+
+        if (outcome.kind === "pending") {
+          schedule();
+        } else if (outcome.kind === "slow_down") {
+          intervalMs += 5000;
+          schedule();
+        } else if (outcome.kind === "success") {
+          // The successful poll set the session cookie; drop any stale cached
+          // bearer (WXYC/dj-site#596), then read the user back off the session.
+          clearTokenCache();
+          let user:
+            | { id?: string; hasCompletedOnboarding?: boolean }
+            | undefined;
+          try {
+            const session = (await authClient.getSession()) as {
+              data?: { user?: { id?: string; hasCompletedOnboarding?: boolean } };
+            };
+            user = session?.data?.user;
+          } catch {
+            // Auth already succeeded (the poll set the session cookie); if the
+            // user read fails, still navigate. redirectAfterAuth's confirm gate
+            // and the destination's own requireAuth resolve the session
+            // server-side — never strand the DJ on a frozen QR after sign-in.
+            user = undefined;
+          }
+          if (cancelled) return;
+          await redirectAfterAuth(router, user, "qr");
+        } else if (outcome.kind === "expired") {
+          setStatus("expired");
+        } else if (outcome.kind === "denied") {
+          setStatus("denied");
+        } else {
+          toast.error("Something went wrong signing in. Please try again.");
+          setStatus("error");
+        }
+      };
+
+      schedule();
+    })();
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+    // Intentionally keyed only on `restartNonce`: the flow must start exactly
+    // once per mount and once per restart(). `router` is deliberately omitted —
+    // its identity is not guaranteed stable, and re-running this effect (which
+    // requests a fresh device code) whenever the router changes would restart
+    // the QR flow mid-poll.
+  }, [restartNonce]);
+
+  const restart = useCallback(() => setRestartNonce((n) => n + 1), []);
+
+  return { userCode, verificationUriComplete, status, restart };
 };
 
 export const useLogout = () => {
@@ -410,48 +600,32 @@ export const useNewUser = (mode: "invite" | "session") => {
         body.newPassword = password;
       }
 
-      const response = await fetch(`${authBaseURL}/wxyc/complete-onboarding`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        const message =
-          errorData?.error ||
-          errorData?.message ||
-          "Failed to complete onboarding";
-        throw new Error(message);
-      }
-
-      const payload = (await response.json()) as {
-        userId?: string;
-        email?: string;
-        username?: string;
-      };
+      const response = await completeOnboarding(body);
 
       clearTokenCache();
 
       if (mode === "invite") {
         const signInResult = await authClient.signIn.email({
-          email: payload.email ?? "",
+          email: response.email ?? "",
           password,
         });
         if (signInResult.error) {
-          throw new Error(
-            signInResult.error.message ||
-              "Account setup succeeded but sign-in failed. Please sign in with your new password."
-          );
+          toast.success("Account setup complete. Please sign in with your new password.");
+          router.push("/login");
+          return;
         }
       }
 
       toast.success("Account setup complete. Welcome!");
+      // Resume a live OIDC authorize round-trip that was preserved in the
+      // /login URL across the onboarding detour (#836). For the invite flow the
+      // URL carries only the setup `token` (no authorize params), so this is a
+      // no-op and the DJ lands on the dashboard as before.
       await redirectAfterAuth(
         router,
-        { id: payload.userId, hasCompletedOnboarding: true },
+        { id: response.userId, hasCompletedOnboarding: true },
         "onboarding",
+        searchParams ?? undefined,
       );
     }, "Failed to complete onboarding. Please try again.");
   };

@@ -8,6 +8,7 @@ import {
   AUTHORIZATION_LABELS,
 } from "@/lib/features/authentication/types";
 import { useAppDispatch } from "@/lib/hooks";
+import { ADMIN_TONES } from "@/lib/features/experiences/modern/tokens/roles";
 import { Edit, Language, Settings } from "@mui/icons-material";
 import {
   Chip,
@@ -35,19 +36,14 @@ export const AccountEntry = ({
     <tr>
       <td style={{ verticalAlign: "middle" }}>
         <Stack spacing={0.5}>
-          <Chip
-            size="sm"
-            variant="soft"
-            color="success"
-          >
+          <Chip size="sm" {...ADMIN_TONES.role}>
             {AUTHORIZATION_LABELS[account.authorization]}
           </Chip>
           {userCapabilities.length > 0 && (
             <Stack direction="row" spacing={0.5}>
               {userCapabilities.includes("editor") && (
                 <Chip
-                  variant="solid"
-                  color="success"
+                  {...ADMIN_TONES.editor}
                   size="sm"
                   startDecorator={<Edit sx={{ fontSize: 14 }} />}
                 >
@@ -56,8 +52,7 @@ export const AccountEntry = ({
               )}
               {userCapabilities.includes("webmaster") && (
                 <Chip
-                  variant="solid"
-                  color="primary"
+                  {...ADMIN_TONES.webmaster}
                   size="sm"
                   startDecorator={<Language sx={{ fontSize: 14 }} />}
                 >
@@ -79,7 +74,7 @@ export const AccountEntry = ({
               variant="outlined"
               size="sm"
             >
-              <Chip variant="soft" color="warning" size="sm">
+              <Chip {...ADMIN_TONES.newDj} size="sm">
                 New
               </Chip>
             </Tooltip>

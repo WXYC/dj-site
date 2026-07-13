@@ -9,16 +9,14 @@ import { authenticationSlice } from "@/lib/features/authentication/frontend";
 const mockPush = vi.fn();
 const mockReplace = vi.fn();
 const mockRefresh = vi.fn();
-const mockSearchParamsGet = vi.fn();
+const mockSearchParams = vi.fn<() => URLSearchParams>(() => new URLSearchParams(""));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: mockPush,
     replace: mockReplace,
     refresh: mockRefresh,
   }),
-  useSearchParams: () => ({
-    get: (...args: any[]) => mockSearchParamsGet(...args),
-  }),
+  useSearchParams: () => mockSearchParams(),
 }));
 
 // Mock sonner
@@ -48,8 +46,8 @@ const mockSendVerificationOtp = vi.fn();
 const mockLookupEmailByIdentifier = vi.fn();
 const mockSignOut = vi.fn();
 const mockClearTokenCache = vi.fn();
+const mockCompleteOnboarding = vi.fn();
 vi.mock("@/lib/features/authentication/client", () => ({
-  authBaseURL: "http://localhost:8082/auth",
   authClient: {
     updateUser: (...args: any[]) => mockUpdateUser(...args),
     changePassword: (...args: any[]) => mockChangePassword(...args),
@@ -64,8 +62,14 @@ vi.mock("@/lib/features/authentication/client", () => ({
     },
     signOut: (...args: any[]) => mockSignOut(...args),
   },
+  // On the client, getBaseURL() returns the same-origin `/auth` proxy (see
+  // client.ts) — NOT the cross-origin api.wxyc.org URL. Mock the value the
+  // hooks actually see in the browser so the OIDC redirect target is the
+  // same-origin path that router.push would have mishandled.
+  authBaseURL: `${window.location.origin}/auth`,
   clearTokenCache: (...args: any[]) => mockClearTokenCache(...args),
   lookupEmailByIdentifier: (...args: any[]) => mockLookupEmailByIdentifier(...args),
+  completeOnboarding: (...args: any[]) => mockCompleteOnboarding(...args),
 }));
 
 // Mock throwIfBetterAuthError
@@ -77,6 +81,32 @@ vi.mock("@/src/utilities/throwIfBetterAuthError", () => ({
 vi.mock("./applicationHooks", () => ({
   resetApplication: vi.fn(),
 }));
+
+// Mock only the device-auth fetch wrappers; keep the real interpretTokenPoll so
+// the hook's branching is exercised against the genuine state machine.
+const mockRequestDeviceCode = vi.fn();
+const mockPollDeviceToken = vi.fn();
+vi.mock("@/lib/features/authentication/device-auth", async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import("@/lib/features/authentication/device-auth")
+    >();
+  return {
+    ...actual,
+    requestDeviceCode: (...args: any[]) => mockRequestDeviceCode(...args),
+    pollDeviceToken: (...args: any[]) => mockPollDeviceToken(...args),
+  };
+});
+
+const DEVICE_CODE_RESPONSE = {
+  device_code: "dev_123",
+  user_code: "WDPL-XK9R",
+  verification_uri: "https://dj.wxyc.org/auth/device",
+  verification_uri_complete:
+    "https://dj.wxyc.org/auth/device?user_code=WDPL-XK9R",
+  expires_in: 300,
+  interval: 5,
+};
 
 function createTestStore() {
   return configureStore({
@@ -93,20 +123,37 @@ function createWrapper() {
   };
 }
 
+// The OIDC resume branch leaves the SPA via window.location.assign (a full
+// document navigation). jsdom's location.assign is non-configurable, so we
+// swap in a plain fake location that forwards the real origin/href and spies
+// on assign, then restore it after each test.
+const realLocation = window.location;
+const mockLocationAssign = vi.fn();
+
 describe("authenticationHooks", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockSearchParamsGet.mockReturnValue(null);
+    mockLocationAssign.mockClear();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: {
+        origin: realLocation.origin,
+        href: realLocation.href,
+        pathname: realLocation.pathname,
+        search: realLocation.search,
+        assign: mockLocationAssign,
+        replace: vi.fn(),
+        reload: vi.fn(),
+      },
+    });
+    mockSearchParams.mockReturnValue(new URLSearchParams(""));
     process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE = "/dashboard/flowsheet";
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        status: true,
-        userId: "user-1",
-        email: "dj@example.com",
-        username: "testdj",
-      }),
-    } as Response);
+    mockCompleteOnboarding.mockResolvedValue({
+      status: true,
+      userId: "user-1",
+      email: "dj@example.com",
+      username: "testdj",
+    });
     // Default: the server can see the freshly-established session on the first
     // check, so redirectAfterAuth's confirm-before-navigate gate passes without
     // any retry delay. Individual tests override this to exercise the race.
@@ -118,6 +165,13 @@ describe("authenticationHooks", () => {
   // fake timers can't leak into and hang the following tests.
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  afterEach(() => {
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: realLocation,
+    });
   });
 
   describe("useLogin", () => {
@@ -256,6 +310,136 @@ describe("authenticationHooks", () => {
       expect(mockSignInEmail).not.toHaveBeenCalled();
     });
 
+    it("redirects to the OIDC authorize URL when the login page receives OIDC params", async () => {
+      // Resume contract: when `/login` is hit with `client_id` + `response_type=code`,
+      // sign-in is being delegated from `${authBase}/oauth2/authorize`. On success we
+      // must redirect back to `${authBase}/oauth2/authorize?<same-query-string>` so the
+      // Better Auth `oidcProvider` plugin sees the now-established session cookie,
+      // issues the code, and bounces to the registered client redirect URI.
+      const search =
+        "client_id=flowsheet&response_type=code&redirect_uri=https%3A%2F%2Fflowsheet.wxyc.org%2Fauth%2Fcallback&state=xyz&code_challenge=abc&code_challenge_method=S256";
+      mockSearchParams.mockReturnValue(new URLSearchParams(search));
+      mockSignInUsername.mockResolvedValue({
+        data: { user: { id: "user-1", hasCompletedOnboarding: true } },
+      });
+
+      const { useLogin } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
+
+      const form = {
+        preventDefault: vi.fn(),
+        currentTarget: {
+          username: { value: "jbromberg" },
+          password: { value: "password123" },
+        },
+      } as any;
+
+      await act(async () => {
+        await result.current.handleLogin(form);
+      });
+
+      expect(mockLocationAssign).toHaveBeenCalledWith(
+        `${window.location.origin}/auth/oauth2/authorize?${search}`
+      );
+      // OIDC resume is a hard document navigation out of the SPA: the App
+      // Router must NOT be touched — a same-origin router.push would soft-
+      // navigate and fire a code-consuming RSC fetch — and refresh would be
+      // a wasted fetch against a route the user is leaving.
+      expect(mockPush).not.toHaveBeenCalled();
+      expect(mockRefresh).not.toHaveBeenCalled();
+    });
+
+    it("falls back to the dashboard when only one of client_id / response_type is present", async () => {
+      // Stray `client_id` (e.g. a stale link or someone exploring the URL) must
+      // not pull the user away from the dashboard — both signals are required.
+      mockSearchParams.mockReturnValue(
+        new URLSearchParams("client_id=flowsheet")
+      );
+      mockSignInUsername.mockResolvedValue({
+        data: { user: { id: "user-1", hasCompletedOnboarding: true } },
+      });
+
+      const { useLogin } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
+
+      const form = {
+        preventDefault: vi.fn(),
+        currentTarget: {
+          username: { value: "jbromberg" },
+          password: { value: "password123" },
+        },
+      } as any;
+
+      await act(async () => {
+        await result.current.handleLogin(form);
+      });
+
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
+      // Dashboard branch stays inside the SPA — refresh is the existing
+      // post-sign-in behavior the OIDC branch deliberately skips.
+      expect(mockRefresh).toHaveBeenCalled();
+    });
+
+    it("preserves the OIDC authorize query through the onboarding detour when hasCompletedOnboarding is false (#836 Bug A)", async () => {
+      // An invited DJ who follows a "Sign in with WXYC" bounce before finishing
+      // onboarding must not lose the authorize query. Keep it in the /login URL
+      // so useNewUser can resume the round-trip on completion — do NOT drop it
+      // (old behavior: /login?incomplete=true) or mint a code prematurely.
+      const search =
+        "client_id=flowsheet&response_type=code&redirect_uri=https%3A%2F%2Fflowsheet.wxyc.org%2Fauth%2Fcallback&state=xyz&code_challenge=abc&code_challenge_method=S256";
+      mockSearchParams.mockReturnValue(new URLSearchParams(search));
+      mockSignInUsername.mockResolvedValue({
+        data: { user: { id: "user-1", hasCompletedOnboarding: false } },
+      });
+
+      const { useLogin } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
+
+      const form = {
+        preventDefault: vi.fn(),
+        currentTarget: {
+          username: { value: "jbromberg" },
+          password: { value: "password123" },
+        },
+      } as any;
+
+      await act(async () => {
+        await result.current.handleLogin(form);
+      });
+
+      expect(mockPush).toHaveBeenCalledWith(`/login?${search}`);
+      expect(mockLocationAssign).not.toHaveBeenCalled();
+    });
+
+    it("does not delegate an absent-flag user into authorize; keeps the query for onboarding (#836 Bug B)", async () => {
+      // Sign-in omits hasCompletedOnboarding entirely. An absent flag must be
+      // treated as incomplete when an authorize bounce is live: no code is
+      // minted for an un-onboarded account, and the query is preserved so
+      // onboarding can resume it.
+      const search = "client_id=flowsheet&response_type=code&state=xyz";
+      mockSearchParams.mockReturnValue(new URLSearchParams(search));
+      mockSignInUsername.mockResolvedValue({ data: { user: { id: "user-1" } } });
+      mockGetSession.mockResolvedValue({ data: { user: { id: "user-1" } } });
+
+      const { useLogin } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
+
+      const form = {
+        preventDefault: vi.fn(),
+        currentTarget: {
+          username: { value: "jbromberg" },
+          password: { value: "password123" },
+        },
+      } as any;
+
+      await act(async () => {
+        await result.current.handleLogin(form);
+      });
+
+      expect(mockLocationAssign).not.toHaveBeenCalled();
+      expect(mockPush).toHaveBeenCalledWith(`/login?${search}`);
+    });
+
     it("routes to signIn.email when the identifier contains @", async () => {
       mockSignInEmail.mockResolvedValue({ data: { user: { id: "user-1" } } });
 
@@ -361,12 +545,33 @@ describe("authenticationHooks", () => {
         session_confirmed: true,
       });
     });
+
+    it("preserves the OIDC authorize query through the onboarding detour when hasCompletedOnboarding is false (#836 Bug A)", async () => {
+      // Parity with useLogin: both credential entry points feed the same
+      // authorize round-trip, so both must keep the query across onboarding.
+      const search =
+        "client_id=flowsheet&response_type=code&redirect_uri=https%3A%2F%2Fflowsheet.wxyc.org%2Fauth%2Fcallback&state=xyz&code_challenge=abc&code_challenge_method=S256";
+      mockSearchParams.mockReturnValue(new URLSearchParams(search));
+      mockSignInEmailOtp.mockResolvedValue({
+        data: { user: { id: "user-1", hasCompletedOnboarding: false } },
+      });
+
+      const { useOTPVerify } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useOTPVerify(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        await result.current.handleVerifyOTP("dj@wxyc.org", "123456");
+      });
+
+      expect(mockPush).toHaveBeenCalledWith(`/login?${search}`);
+      expect(mockLocationAssign).not.toHaveBeenCalled();
+    });
   });
 
   describe("useNewUser", () => {
     it("invite mode: posts token + password, signs in via authClient, redirects to dashboard", async () => {
-      mockSearchParamsGet.mockImplementation((key: string) =>
-        key === "token" ? "setup-token-abc" : null
+      mockSearchParams.mockReturnValue(
+        new URLSearchParams("token=setup-token-abc"),
       );
       mockSignInEmail.mockResolvedValue({ data: { user: { id: "user-1" } } });
 
@@ -386,18 +591,12 @@ describe("authenticationHooks", () => {
         await result.current.handleNewUser(form);
       });
 
-      expect(global.fetch).toHaveBeenCalledWith(
-        "http://localhost:8082/auth/wxyc/complete-onboarding",
-        expect.objectContaining({
-          method: "POST",
-          body: JSON.stringify({
-            realName: "Real Name",
-            djName: "DJ Name",
-            token: "setup-token-abc",
-            newPassword: "NewPassword1",
-          }),
-        })
-      );
+      expect(mockCompleteOnboarding).toHaveBeenCalledWith({
+        realName: "Real Name",
+        djName: "DJ Name",
+        token: "setup-token-abc",
+        newPassword: "NewPassword1",
+      });
       expect(mockClearTokenCache).toHaveBeenCalled();
       expect(mockSignInEmail).toHaveBeenCalledWith({
         email: "dj@example.com",
@@ -406,9 +605,9 @@ describe("authenticationHooks", () => {
       expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
     });
 
-    it("invite mode: surfaces the sign-in error and does not navigate when sign-in fails", async () => {
-      mockSearchParamsGet.mockImplementation((key: string) =>
-        key === "token" ? "setup-token-abc" : null
+    it("invite mode: routes to login when sign-in fails after onboarding succeeds", async () => {
+      mockSearchParams.mockReturnValue(
+        new URLSearchParams("token=setup-token-abc"),
       );
       mockSignInEmail.mockResolvedValue({
         error: { message: "Email not verified" },
@@ -430,13 +629,15 @@ describe("authenticationHooks", () => {
         await result.current.handleNewUser(form);
       });
 
-      expect(mockPush).not.toHaveBeenCalled();
+      expect(mockPush).toHaveBeenCalledWith("/login");
       const { toast } = await import("sonner");
-      expect(toast.error).toHaveBeenCalledWith("Email not verified");
+      expect(toast.success).toHaveBeenCalledWith(
+        "Account setup complete. Please sign in with your new password."
+      );
     });
 
     it("invite mode: rejects onboarding without a setup token", async () => {
-      mockSearchParamsGet.mockReturnValue(null);
+      mockSearchParams.mockReturnValue(new URLSearchParams(""));
 
       const { useNewUser } = await import("./authenticationHooks");
       const { result } = renderHook(() => useNewUser("invite"), { wrapper: createWrapper() });
@@ -454,7 +655,7 @@ describe("authenticationHooks", () => {
         await result.current.handleNewUser(form);
       });
 
-      expect(global.fetch).not.toHaveBeenCalled();
+      expect(mockCompleteOnboarding).not.toHaveBeenCalled();
       expect(mockPush).not.toHaveBeenCalled();
     });
 
@@ -474,29 +675,49 @@ describe("authenticationHooks", () => {
         await result.current.handleNewUser(form);
       });
 
-      expect(global.fetch).toHaveBeenCalledWith(
-        "http://localhost:8082/auth/wxyc/complete-onboarding",
-        expect.objectContaining({
-          method: "POST",
-          body: JSON.stringify({
-            realName: "Real Name",
-            djName: "DJ Name",
-          }),
-        })
-      );
+      expect(mockCompleteOnboarding).toHaveBeenCalledWith({
+        realName: "Real Name",
+        djName: "DJ Name",
+      });
       expect(mockSignInEmail).not.toHaveBeenCalled();
       expect(mockSignInUsername).not.toHaveBeenCalled();
       expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
     });
 
-    it("does not navigate when complete-onboarding fails", async () => {
-      mockSearchParamsGet.mockImplementation((key: string) =>
-        key === "token" ? "setup-token-abc" : null
+    it("session mode: resumes the OIDC authorize round-trip after onboarding when the login URL carries authorize params (#836 Bug A)", async () => {
+      // The incomplete-user detour preserved the authorize query in the /login
+      // URL (see useLogin/useOTPVerify tests). On completion we hand off to
+      // authorize with a hard navigation instead of stranding at the dashboard.
+      const search =
+        "client_id=flowsheet&response_type=code&redirect_uri=https%3A%2F%2Fflowsheet.wxyc.org%2Fauth%2Fcallback&state=xyz&code_challenge=abc&code_challenge_method=S256";
+      mockSearchParams.mockReturnValue(new URLSearchParams(search));
+
+      const { useNewUser } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useNewUser("session"), { wrapper: createWrapper() });
+
+      const form = {
+        preventDefault: vi.fn(),
+        currentTarget: {
+          realName: { value: "Real Name" },
+          djName: { value: "DJ Name" },
+        },
+      } as any;
+
+      await act(async () => {
+        await result.current.handleNewUser(form);
+      });
+
+      expect(mockLocationAssign).toHaveBeenCalledWith(
+        `${window.location.origin}/auth/oauth2/authorize?${search}`
       );
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: false,
-        json: async () => ({ error: "Invalid or expired setup token" }),
-      } as Response);
+      expect(mockPush).not.toHaveBeenCalledWith("/dashboard/flowsheet");
+    });
+
+    it("does not navigate when complete-onboarding fails", async () => {
+      mockSearchParams.mockReturnValue(
+        new URLSearchParams("token=setup-token-abc"),
+      );
+      mockCompleteOnboarding.mockRejectedValue(new Error("Invalid or expired setup token"));
 
       const { useNewUser } = await import("./authenticationHooks");
       const { result } = renderHook(() => useNewUser("invite"), { wrapper: createWrapper() });
@@ -783,6 +1004,378 @@ describe("authenticationHooks", () => {
 
       expect(mockClearTokenCache).toHaveBeenCalledTimes(1);
       expect(callOrder).toEqual(["clearTokenCache", "signInEmailOtp"]);
+    });
+
+    it("redirects to the OIDC authorize URL when the login page receives OIDC params", async () => {
+      // Same resume contract as `useLogin` — the OIDC bounce path doesn't care
+      // which credential type the user picked; both `signIn.username/email` and
+      // `signIn.emailOtp` are entry points into the same authorize round-trip.
+      const search =
+        "client_id=flowsheet&response_type=code&redirect_uri=https%3A%2F%2Fflowsheet.wxyc.org%2Fauth%2Fcallback&state=xyz";
+      mockSearchParams.mockReturnValue(new URLSearchParams(search));
+      mockSignInEmailOtp.mockResolvedValue({
+        data: { user: { id: "user-1", hasCompletedOnboarding: true } },
+      });
+
+      const { useOTPVerify } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useOTPVerify(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        await result.current.handleVerifyOTP("dj@wxyc.org", "123456");
+      });
+
+      expect(mockLocationAssign).toHaveBeenCalledWith(
+        `${window.location.origin}/auth/oauth2/authorize?${search}`
+      );
+      // Hard nav here too: no App Router push (guards against a missing
+      // `return` falling through to router.push(dashboardHome)) and no
+      // refresh.
+      expect(mockPush).not.toHaveBeenCalled();
+      expect(mockRefresh).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("useDeviceAuthorization", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      mockRequestDeviceCode.mockResolvedValue(DEVICE_CODE_RESPONSE);
+      mockPollDeviceToken.mockResolvedValue({
+        status: 400,
+        body: {
+          error: "authorization_pending",
+          error_description: "Authorization pending",
+        },
+      });
+    });
+
+    afterEach(() => {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    });
+
+    it("requests a device code on mount and exposes the user_code + verification URI", async () => {
+      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useDeviceAuthorization(), {
+        wrapper: createWrapper(),
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(mockRequestDeviceCode).toHaveBeenCalledWith("dj-site");
+      expect(result.current.userCode).toBe("WDPL-XK9R");
+      expect(result.current.verificationUriComplete).toBe(
+        DEVICE_CODE_RESPONSE.verification_uri_complete,
+      );
+      expect(result.current.status).toBe("waiting");
+    });
+
+    it("polls /device/token at the server interval while pending", async () => {
+      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      renderHook(() => useDeviceAuthorization(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(mockPollDeviceToken).not.toHaveBeenCalled();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(mockPollDeviceToken).toHaveBeenCalledTimes(1);
+      expect(mockPollDeviceToken).toHaveBeenCalledWith("dev_123", "dj-site");
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(mockPollDeviceToken).toHaveBeenCalledTimes(2);
+    });
+
+    it("increases the polling interval after a slow_down", async () => {
+      mockPollDeviceToken
+        .mockResolvedValueOnce({
+          status: 400,
+          body: { error: "slow_down", error_description: "Slow down" },
+        })
+        .mockResolvedValue({
+          status: 400,
+          body: {
+            error: "authorization_pending",
+            error_description: "Authorization pending",
+          },
+        });
+
+      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      renderHook(() => useDeviceAuthorization(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      // First poll fires at the 5s server interval and returns slow_down.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(mockPollDeviceToken).toHaveBeenCalledTimes(1);
+
+      // 5s is no longer enough — the interval was bumped to 10s.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(mockPollDeviceToken).toHaveBeenCalledTimes(1);
+
+      // 10s after the slow_down, the next poll fires.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(mockPollDeviceToken).toHaveBeenCalledTimes(2);
+    });
+
+    const SUCCESS_POLL = {
+      status: 200,
+      body: {
+        access_token: "sess_abc",
+        token_type: "Bearer",
+        expires_in: 43200,
+        scope: "",
+      },
+    };
+
+    it("on success, derives the user via getSession and routes a complete DJ to the dashboard", async () => {
+      mockPollDeviceToken.mockResolvedValue(SUCCESS_POLL);
+      mockGetSession.mockResolvedValue({
+        data: { user: { id: "dj-1", hasCompletedOnboarding: true } },
+      });
+
+      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      renderHook(() => useDeviceAuthorization(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+
+      expect(mockClearTokenCache).toHaveBeenCalled();
+      expect(mockGetSession).toHaveBeenCalled();
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
+      expect(mockSafeCapture).toHaveBeenCalledWith("login_post_redirect", {
+        method: "qr",
+        destination: "dashboard",
+        has_completed_onboarding: true,
+        user_id: "dj-1",
+        session_confirmed: true,
+      });
+    });
+
+    it("on success, routes an incomplete DJ to the onboarding screen", async () => {
+      mockPollDeviceToken.mockResolvedValue(SUCCESS_POLL);
+      mockGetSession.mockResolvedValue({
+        data: { user: { id: "dj-2", hasCompletedOnboarding: false } },
+      });
+
+      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      renderHook(() => useDeviceAuthorization(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+
+      expect(mockPush).toHaveBeenCalledWith("/login?incomplete=true");
+    });
+
+    it.each([
+      { httpStatus: 400, code: "expired_token", expected: "expired" },
+      { httpStatus: 400, code: "access_denied", expected: "denied" },
+      { httpStatus: 500, code: "server_error", expected: "error" },
+    ])(
+      "surfaces the '$expected' status on a terminal $code poll",
+      async ({ httpStatus, code, expected }) => {
+        mockPollDeviceToken.mockResolvedValue({
+          status: httpStatus,
+          body: { error: code, error_description: "terminal" },
+        });
+
+        const { useDeviceAuthorization } = await import("./authenticationHooks");
+        const { result } = renderHook(() => useDeviceAuthorization(), {
+          wrapper: createWrapper(),
+        });
+
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(0);
+        });
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(5000);
+        });
+
+        expect(result.current.status).toBe(expected);
+
+        // A terminal state stops the loop — no further polls.
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(30000);
+        });
+        expect(mockPollDeviceToken).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    it("stops polling after unmount", async () => {
+      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      const { unmount } = renderHook(() => useDeviceAuthorization(), {
+        wrapper: createWrapper(),
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      unmount();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(30000);
+      });
+
+      expect(mockPollDeviceToken).not.toHaveBeenCalled();
+    });
+
+    it("restart fetches a fresh device code and resumes from 'loading'", async () => {
+      mockPollDeviceToken.mockResolvedValue({
+        status: 400,
+        body: { error: "expired_token", error_description: "expired" },
+      });
+
+      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useDeviceAuthorization(), {
+        wrapper: createWrapper(),
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(result.current.status).toBe("expired");
+      expect(mockRequestDeviceCode).toHaveBeenCalledTimes(1);
+
+      mockPollDeviceToken.mockResolvedValue({
+        status: 400,
+        body: {
+          error: "authorization_pending",
+          error_description: "Authorization pending",
+        },
+      });
+
+      await act(async () => {
+        result.current.restart();
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(mockRequestDeviceCode).toHaveBeenCalledTimes(2);
+      expect(result.current.status).toBe("waiting");
+    });
+
+    it("still navigates when the post-success getSession read rejects, instead of stalling", async () => {
+      mockPollDeviceToken.mockResolvedValue(SUCCESS_POLL);
+      // Both the hook's own user read and confirmSessionVisible's read reject.
+      mockGetSession.mockRejectedValue(new Error("network"));
+
+      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useDeviceAuthorization(), {
+        wrapper: createWrapper(),
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      // Fire the success poll, then drain redirectAfterAuth's confirm-gate
+      // retries (which also see the rejecting getSession).
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(20000);
+      });
+
+      // Auth already succeeded (the poll set the cookie); the flow must not
+      // freeze on "waiting". With no readable user and an unconfirmable
+      // session, redirectAfterAuth falls back to refresh() rather than
+      // stranding the DJ.
+      expect(mockClearTokenCache).toHaveBeenCalled();
+      expect(mockRefresh).toHaveBeenCalled();
+      // refresh() is a SHARED outcome — it fires on every redirectAfterAuth
+      // branch — so it does not distinguish "deferred to the server" from the
+      // #849 misroute. The differentiator is the push DESTINATION: an
+      // unreadable user is unknown, not onboarding-incomplete, and must never
+      // be dumped on the new-user form.
+      expect(mockPush).not.toHaveBeenCalledWith("/login?incomplete=true");
+    });
+
+    it("does not treat an unreadable user as onboarding-incomplete when the getSession read resolves without a user (#849)", async () => {
+      mockPollDeviceToken.mockResolvedValue(SUCCESS_POLL);
+      // The poll set the session cookie, but the follow-up read comes back
+      // empty (no user). That is "unknown onboarding status", not "incomplete"
+      // — the DJ must not be routed to the new-user onboarding form.
+      mockGetSession.mockResolvedValue({ data: { user: undefined } });
+
+      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      renderHook(() => useDeviceAuthorization(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(20000);
+      });
+
+      expect(mockClearTokenCache).toHaveBeenCalled();
+      expect(mockRefresh).toHaveBeenCalled();
+      expect(mockPush).not.toHaveBeenCalledWith("/login?incomplete=true");
+    });
+
+    it("defaults to a 5s poll interval when the server omits `interval`", async () => {
+      // A missing `interval` must not become NaN and make setTimeout fire at
+      // 0ms, flooding the token endpoint.
+      mockRequestDeviceCode.mockResolvedValue({
+        ...DEVICE_CODE_RESPONSE,
+        interval: undefined,
+      });
+
+      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      renderHook(() => useDeviceAuthorization(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      // No busy-loop: nothing polls before the 5s default elapses.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(4999);
+      });
+      expect(mockPollDeviceToken).not.toHaveBeenCalled();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1);
+      });
+      expect(mockPollDeviceToken).toHaveBeenCalledTimes(1);
+    });
+
+    it("surfaces the 'error' status when a poll throws (network failure)", async () => {
+      mockPollDeviceToken.mockRejectedValue(new Error("network down"));
+
+      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      const { result } = renderHook(() => useDeviceAuthorization(), {
+        wrapper: createWrapper(),
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+
+      expect(result.current.status).toBe("error");
     });
   });
 });

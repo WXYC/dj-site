@@ -30,6 +30,10 @@ Why the sequence matters: the migration PR adds a `preview` job under the preser
 
 ## Cutover — after prerequisites, in order
 
+### Invite-token onboarding (#827) — merge gate
+
+**Do not merge dj-site #827 to `main` until [Backend-Service #1558](https://github.com/WXYC/Backend-Service/pull/1558) is deployed to production.** The frontend calls `POST /auth/wxyc/complete-onboarding` and password-less `POST /auth/admin/provision-user`; those endpoints exist only on the Backend-Service branch until that PR ships. Deploy Backend-Service first, then merge and deploy dj-site. E2E on the PR branch already pairs with the matching Backend-Service ref via `.github/workflows/e2e-tests.yml`.
+
 With P0–P2 done, the migration PR's own `preview` check deploys a preview of the PR and probes it — that **is** the first proof previews work.
 
 1. [ ] **Prove the preview end-to-end.** On the migration PR's preview URL, verify a real **logged-in session + a flowsheet fetch** against the live backend — not just the `/` probe (a build inlined with wrong env still serves `/` fine but breaks client API calls). Then merge the migration PR. The CF Git build is still enabled, so previews now come from both — harmless duplication.

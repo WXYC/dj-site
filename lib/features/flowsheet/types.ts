@@ -206,7 +206,10 @@ export function isFlowsheetBreakpointEntry(
 }
 
 export type OnAirDJResponse = {
-  id: string; // User ID from better-auth (string)
+  // better-auth user id (string) for account DJs; null for legacy/tubafrenzy
+  // shows whose on-air DJ has no Backend-Service account (BS#1547). The banner
+  // keys on dj_name, so a null id is display-irrelevant.
+  id: string | null;
   dj_name: string;
 };
 

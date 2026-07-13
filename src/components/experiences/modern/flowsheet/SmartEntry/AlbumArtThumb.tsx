@@ -1,7 +1,7 @@
 import { Album as AlbumIcon } from "@mui/icons-material";
 import { Avatar, Box } from "@mui/joy";
-import type { AlbumEntry, Genre } from "@/lib/features/catalog/types";
-import { GENRE_COLORS, GENRE_VARIANTS } from "../../catalog/ArtistAvatar";
+import type { AlbumEntry } from "@/lib/features/catalog/types";
+import { genreTone } from "@/lib/features/experiences/modern/tokens/roles";
 
 /**
  * Album-art thumbnail for a result row, matching the card catalog's treatment:
@@ -16,9 +16,7 @@ export default function AlbumArtThumb({
   entry: Pick<AlbumEntry, "artwork_url" | "title" | "artist">;
   size?: number;
 }) {
-  const genre = (entry.artist?.genre as Genre) ?? "Unknown";
-  const color = GENRE_COLORS[genre] ?? "neutral";
-  const variant = GENRE_VARIANTS[genre] ?? "soft";
+  const { color, variant } = genreTone(entry.artist?.genre);
 
   if (entry.artwork_url) {
     return (

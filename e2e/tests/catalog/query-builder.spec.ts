@@ -76,7 +76,15 @@ test.describe("Catalog query builder", () => {
       .locator("#OrderTableContainer tbody tr")
       .filter({ hasText: "DOGA" });
     await expect(resultRow).toBeVisible({ timeout: 10000 });
-    await expect(resultRow.getByText("Juana Molina", { exact: true })).toBeVisible();
+    // The artist renders twice within a desktop row (stacked in the Album
+    // column below xl, its own column at xl); target the visible copy so the
+    // assertion is viewport-independent.
+    await expect(
+      resultRow
+        .getByText("Juana Molina", { exact: true })
+        .filter({ visible: true })
+        .first(),
+    ).toBeVisible();
 
     await expect.poll(() => lastQ ?? "").toMatch(/artist:Juana Molina/);
     await expect.poll(() => lastQ ?? "").toMatch(/AND/);

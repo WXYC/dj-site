@@ -89,12 +89,30 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
           }),
         });
 
+        const provisionResult = (await response.json().catch(() => null)) as {
+          emailSent?: boolean;
+          emailError?: string;
+          message?: string;
+          error?: string;
+        } | null;
+
         if (!response.ok) {
-          const errorData = await response.json().catch(() => null);
-          throw new Error(errorData?.message || errorData?.error || `Failed to create user (${response.status})`);
+          throw new Error(
+            provisionResult?.message ||
+              provisionResult?.error ||
+              `Failed to create user (${response.status})`
+          );
         }
 
-        toast.success(`Account created for ${newAccount.username} — setup email sent to ${newAccount.email}`);
+        if (provisionResult?.emailSent === false) {
+          toast.warning(
+            `Account created for ${newAccount.username}, but the setup email failed to send${
+              provisionResult.emailError ? `: ${provisionResult.emailError}` : ""
+            }. Resend the invite from the roster.`
+          );
+        } else {
+          toast.success(`Account created for ${newAccount.username} — setup email sent to ${newAccount.email}`);
+        }
 
         dispatch(adminSlice.actions.setAdding(false));
         dispatch(adminSlice.actions.reset());

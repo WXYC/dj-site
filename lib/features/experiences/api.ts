@@ -11,6 +11,7 @@ interface ExperienceResponse {
 
 interface ExperiencePreferenceResponse extends ExperienceResponse {
   colorMode: ColorMode;
+  themeId: string;
   preference: AppSkinPreference;
 }
 

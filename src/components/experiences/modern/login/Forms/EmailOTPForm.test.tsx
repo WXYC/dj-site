@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { screen } from "@testing-library/react";
 import EmailOTPForm from "./EmailOTPForm";
 import { renderWithProviders } from "@/lib/test-utils";
+import { applicationSlice } from "@/lib/features/application/frontend";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -9,6 +10,8 @@ vi.mock("next/navigation", () => ({
     refresh: vi.fn(),
   }),
 }));
+
+const QR_FLAG_KEY = "NEXT_PUBLIC_QR_LOGIN_ENABLED";
 
 describe("EmailOTPForm", () => {
   const defaultProps = { onCodeSent: vi.fn() };
@@ -57,5 +60,35 @@ describe("EmailOTPForm", () => {
 
     const form = container.querySelector("form");
     expect(form).toHaveAttribute("method", "post");
+  });
+
+  describe("QR entry link (flag-gated)", () => {
+    afterEach(() => {
+      delete process.env[QR_FLAG_KEY];
+    });
+
+    it("is hidden when the QR flag is off", () => {
+      delete process.env[QR_FLAG_KEY];
+      renderWithProviders(<EmailOTPForm {...defaultProps} />);
+
+      expect(
+        screen.queryByRole("button", { name: "Sign in with a QR code" })
+      ).not.toBeInTheDocument();
+    });
+
+    it("switches to the qr stage when the flag is on", async () => {
+      process.env[QR_FLAG_KEY] = "true";
+      const { user, store } = renderWithProviders(
+        <EmailOTPForm {...defaultProps} />
+      );
+
+      await user.click(
+        screen.getByRole("button", { name: "Sign in with a QR code" })
+      );
+
+      expect(applicationSlice.selectors.getAuthStage(store.getState())).toBe(
+        "qr"
+      );
+    });
   });
 });

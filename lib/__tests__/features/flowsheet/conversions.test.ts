@@ -294,6 +294,17 @@ describe("flowsheet conversions", () => {
       expect(result.djs[0].id).toBe("42");
       expect(result.djs[0].dj_name).toBe("Test");
     });
+
+    // Legacy/tubafrenzy-mirrored shows have no Backend-Service account, so the
+    // DJ arrives from /flowsheet/djs-on-air with a null id (BS#1547). The banner
+    // keys on dj_name, so a null id must still render the DJ as live, not "Off Air".
+    it("should render a legacy DJ with a null id as on air", () => {
+      const response = [createTestOnAirDJResponse({ id: null, dj_name: "DJ MONSTER" })];
+      const result = convertDJsOnAir(response);
+
+      expect(result.djs[0].id).toBeNull();
+      expect(result.onAir).toBe("DJ MONSTER");
+    });
   });
 
   describe("V2 flowsheet conversions", () => {

@@ -61,6 +61,51 @@ export const useDeleteFromBin = () => {
   return { deleteFromBin: action, loading };
 };
 
+/**
+ * Bulk-clears the bin by firing a delete for every current entry. There is no
+ * bulk endpoint on the backend yet, so this loops the single-item mutation;
+ * RTK Query coalesces the resulting `["Bin"]` invalidations into one refetch.
+ */
+export const useClearBin = () => {
+  const { loading: registryLoading, info } = useRegistry();
+  const { bin } = useBin();
+  const [deleteFromBin] = useDeleteFromBinMutation();
+  // Aggregate in-flight state tracked locally: the mutation hook's own
+  // `isLoading` only reflects the most recently dispatched request, so with
+  // N parallel deletes it flips false as soon as the last-dispatched one
+  // settles, not when they've all settled.
+  const [pending, setPending] = useState(false);
+
+  const clearBin = useCallback(async () => {
+    if (registryLoading || !info || !bin || bin.length === 0) return;
+    setPending(true);
+    try {
+      const outcomes = await Promise.allSettled(
+        bin.map((entry) =>
+          deleteFromBin({ dj_id: info.id!, album_id: entry.id }).unwrap()
+        )
+      );
+      // Name what survived so the DJ knows which albums to retry — the
+      // rows also stay visible in the bin after the refetch.
+      const failedTitles = bin
+        .filter((_, i) => outcomes[i].status === "rejected")
+        .map((entry) => entry.title);
+      if (failedTitles.length > 0) {
+        const shown = failedTitles.slice(0, 3).join(", ");
+        const more =
+          failedTitles.length > 3
+            ? ` and ${failedTitles.length - 3} more`
+            : "";
+        toast.error(`Couldn't remove ${shown}${more} from the bin`);
+      }
+    } finally {
+      setPending(false);
+    }
+  }, [registryLoading, info, bin, deleteFromBin]);
+
+  return { clearBin, loading: pending || registryLoading };
+};
+
 export const useAddToBin = () => {
   const { action, loading } = useBinMutation(useAddToBinMutation, "Failed to add album to bin");
   return { addToBin: action, loading };

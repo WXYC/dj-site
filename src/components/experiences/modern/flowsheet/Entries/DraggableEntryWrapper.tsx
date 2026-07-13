@@ -5,6 +5,11 @@ import { useTheme } from '@mui/joy/styles';
 import { DragControls, MotionProps, Reorder } from "motion/react";
 import RemoveButton from "./Components/RemoveButton";
 
+const ROW_CLASS_BY_VARIANT: Partial<Record<VariantProp, string>> = {
+  solid: "row-playing",
+  plain: "row-plain",
+};
+
 export default function DraggableEntryWrapper({
   children,
   entryRef,
@@ -12,6 +17,7 @@ export default function DraggableEntryWrapper({
   variant,
   color,
   style,
+  className,
 }: {
   children: React.ReactNode;
   entryRef: FlowsheetEntry;
@@ -19,12 +25,40 @@ export default function DraggableEntryWrapper({
   variant?: VariantProp;
   color?: ColorPaletteProp;
   style?: MotionProps["style"];
+  className?: string;
 }) {
   const theme = useTheme();
 
   const {
     entries: { switchEntries },
   } = useFlowsheet();
+
+  // Visual-level classes let the page styles target playing vs. ordinary
+  // rows (hover fill, always-visible actions) without prop drilling.
+  const rowClass =
+    [ROW_CLASS_BY_VARIANT[variant ?? "plain"], className]
+      .filter(Boolean)
+      .join(" ") || undefined;
+
+  const effectiveVariant = variant ?? "plain";
+  // The row color painted by the cells. Plain rows sit nearly flush with the
+  // page (hover supplies the lift); anything else falls back to the theme
+  // backdrop so an unmapped variant is still visibly distinct.
+  const rowBg =
+    effectiveVariant === "solid"
+      ? theme.palette[color ?? "neutral"].solidBg
+      : effectiveVariant === "soft"
+        ? theme.palette[color ?? "neutral"].softBg
+        : effectiveVariant === "plain"
+          ? "rgba(255, 255, 255, 0.015)"
+          : theme.palette.background.backdrop;
+  // An always-opaque surface tone for the row-actions legibility gradient:
+  // plain rows' near-transparent wash can't mask the status chips, so they
+  // mask against the hover fill tone instead (see tableStyles).
+  const rowBackdrop =
+    effectiveVariant === "plain" || effectiveVariant === "outlined"
+      ? theme.palette.background.level1
+      : rowBg;
 
   return (
     <Reorder.Item
@@ -34,14 +68,16 @@ export default function DraggableEntryWrapper({
       dragControls={controls}
       onDragEnd={() => switchEntries(entryRef)}
       data-testid={`flowsheet-entry-${entryRef.id}`}
+      className={rowClass}
       style={{
         ...style,
-        background:
-          (variant ?? "plain") == "plain"
-            ? theme.palette?.[color ?? "neutral"]?.[
-                `${variant ?? "plain"}Bg` as keyof typeof theme.palette.primary
-              ]
-            : theme.palette.background.backdrop,
+        // The row color is painted by the cells (via --row-bg) so they can
+        // carry rounded corners; a tr background would bleed square.
+        ["--row-bg" as string]: rowBg,
+        ["--row-backdrop" as string]: rowBackdrop,
+        ["--row-accent" as string]:
+          theme.palette[color ?? "neutral"].solidBg,
+        background: "transparent",
       }}
     >
         {children}

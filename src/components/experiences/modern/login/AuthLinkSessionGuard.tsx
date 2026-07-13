@@ -27,19 +27,25 @@ export default function AuthLinkSessionGuard({
 
   useEffect(() => {
     let cancelled = false;
+    setReady(false);
 
     const prepareLinkSession = async () => {
-      try {
-        const session = await authClient.getSession();
-        if (session.data?.user?.id) {
-          clearTokenCache();
-          await authClient.signOut();
+      const session = await authClient.getSession();
+      if (session.error) {
+        return;
+      }
+
+      if (session.data?.user?.id) {
+        clearTokenCache();
+        const signOut = await authClient.signOut();
+        if (signOut?.error) {
+          return;
         }
-      } finally {
-        if (!cancelled) {
-          router.refresh();
-          setReady(true);
-        }
+      }
+
+      if (!cancelled) {
+        router.refresh();
+        setReady(true);
       }
     };
 
@@ -48,7 +54,8 @@ export default function AuthLinkSessionGuard({
     return () => {
       cancelled = true;
     };
-  }, [linkToken, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh identity is stable; linkToken is the only intentional trigger
+  }, [linkToken]);
 
   if (!ready) {
     return (

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import OnboardingForm from "@/src/components/experiences/modern/login/Forms/OnboardingForm";
-import OnboardingInviteSessionGuard from "@/src/components/experiences/modern/login/OnboardingInviteSessionGuard";
+import AuthLinkSessionGuard from "@/src/components/experiences/modern/login/AuthLinkSessionGuard";
 import WXYCPage from "@/src/Layout/WXYCPage";
 import HoldOnQuotes from "@/src/components/experiences/modern/login/Quotes/HoldOn";
 import { Metadata } from "next";
@@ -36,10 +36,13 @@ export default async function ModernOnboardingPage({ searchParams }: OnboardingP
           This setup link is invalid or expired. Ask your station manager to resend the invite.
         </Alert>
       )}
-      {token && (
-        <OnboardingInviteSessionGuard inviteToken={token}>
+      {token && !error && (
+        <AuthLinkSessionGuard
+          linkToken={token}
+          loadingMessage="Preparing your account setup…"
+        >
           <OnboardingForm />
-        </OnboardingInviteSessionGuard>
+        </AuthLinkSessionGuard>
       )}
     </WXYCPage>
   );

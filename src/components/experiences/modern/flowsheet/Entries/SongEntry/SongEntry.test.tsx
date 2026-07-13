@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import SongEntry from "./SongEntry";
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
@@ -135,19 +135,23 @@ describe("SongEntry", () => {
     it("should render all entry fields", () => {
       render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
 
-      expect(screen.getByTestId("field-album_title")).toBeInTheDocument();
-      expect(screen.getByTestId("field-artist_name")).toBeInTheDocument();
-      expect(screen.getByTestId("field-track_title")).toBeInTheDocument();
-      expect(screen.getByTestId("field-record_label")).toBeInTheDocument();
+      // Every field mounts exactly once. Where the artist/label render
+      // depends on the breakpoint (own column at xl, stacked second line
+      // below); jsdom's matchMedia matches false, so this is the sub-xl
+      // stacked layout.
+      expect(screen.getAllByTestId("field-track_title")).toHaveLength(1);
+      expect(screen.getAllByTestId("field-album_title")).toHaveLength(1);
+      expect(screen.getAllByTestId("field-artist_name")).toHaveLength(1);
+      expect(screen.getAllByTestId("field-record_label")).toHaveLength(1);
     });
 
     it("should display entry field values", () => {
       render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
 
-      expect(screen.getByText("Test Album")).toBeInTheDocument();
-      expect(screen.getByText("Test Artist")).toBeInTheDocument();
-      expect(screen.getByText("Test Track")).toBeInTheDocument();
-      expect(screen.getByText("Test Label")).toBeInTheDocument();
+      expect(screen.getAllByText("Test Track")).toHaveLength(1);
+      expect(screen.getAllByText("Test Album")).toHaveLength(1);
+      expect(screen.getAllByText("Test Artist")).toHaveLength(1);
+      expect(screen.getAllByText("Test Label")).toHaveLength(1);
     });
 
     it("should render album art image from entry.artwork_url", () => {
@@ -431,7 +435,7 @@ describe("SongEntry", () => {
       expect(checkboxes[1]).toBeChecked();
     });
 
-    it("should be disabled when not editable", () => {
+    it("should not render checkboxes when not editable", () => {
       mockUseShowControl.mockReturnValue({
         live: false,
         autoplay: false,
@@ -440,8 +444,8 @@ describe("SongEntry", () => {
 
       render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
 
-      const checkboxes = screen.getAllByRole("checkbox");
-      checkboxes.forEach((cb) => expect(cb).toBeDisabled());
+      // Read-only rows surface state via chips (REQ/SEGUE), not controls
+      expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
     });
 
     it("should be enabled when editable", () => {
@@ -788,5 +792,164 @@ describe("SongEntry", () => {
       // Play button should not appear since we're not live
       // The handleMouseEnter logic only sets canClose when queue && live
     });
+  });
+});
+
+describe("SongEntry two-line row structure", () => {
+  const mockEntry: FlowsheetSongEntry = {
+    id: 1,
+    play_order: 0,
+    show_id: 100,
+    track_title: "On Your Own Love Again",
+    artist_name: "Jessica Pratt",
+    album_title: "On Your Own Love Again",
+    record_label: "Drag City",
+    request_flag: false,
+    segue: false,
+    album_id: 42,
+    rotation: "H",
+    rotation_id: 10,
+    artwork_url: "/test-album-art.jpg",
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseShowControl.mockReturnValue({
+      live: true,
+      autoplay: false,
+      currentShow: 100,
+    });
+    mockUseFlowsheet.mockReturnValue({
+      updateFlowsheet: mockUpdateFlowsheet,
+    });
+  });
+
+  // Point jsdom's matchMedia at a chosen breakpoint. The vitest setup's
+  // global mock always matches false (sub-xl); this override lets the xl
+  // structure be exercised too. Restored by the next test's beforeEach via
+  // the afterEach below.
+  const originalMatchMedia = window.matchMedia;
+  const setXl = (isXl: boolean) => {
+    window.matchMedia = ((query: string) => ({
+      matches: isXl && query === "(min-width: 1536px)",
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    })) as typeof window.matchMedia;
+  };
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia;
+  });
+
+  it("renders exactly 6 cells at xl to match the collapsed thead grid", () => {
+    setXl(true);
+    render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
+
+    const row = screen.getByTestId("draggable-wrapper");
+    expect(row.querySelectorAll(":scope > td")).toHaveLength(6);
+  });
+
+  it("puts each field in its own column at xl (artist/label standalone)", () => {
+    setXl(true);
+    render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
+
+    const cells = screen
+      .getByTestId("draggable-wrapper")
+      .querySelectorAll(":scope > td");
+
+    // Title cell (index 1): the title only — the artist has its own column.
+    expect(
+      cells[1].querySelector('[data-testid="field-track_title"]')
+    ).not.toBeNull();
+    expect(
+      cells[1].querySelector('[data-testid="field-artist_name"]')
+    ).toBeNull();
+    // Standalone artist column (index 2).
+    expect(
+      cells[2].querySelector('[data-testid="field-artist_name"]')
+    ).not.toBeNull();
+    // Album cell (index 3): the album only.
+    expect(
+      cells[3].querySelector('[data-testid="field-album_title"]')
+    ).not.toBeNull();
+    expect(
+      cells[3].querySelector('[data-testid="field-record_label"]')
+    ).toBeNull();
+    // Standalone label column (index 4).
+    expect(
+      cells[4].querySelector('[data-testid="field-record_label"]')
+    ).not.toBeNull();
+  });
+
+  it("renders 4 cells below xl, stacking artist/label into the title/album cells", () => {
+    setXl(false);
+    render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
+
+    const cells = screen
+      .getByTestId("draggable-wrapper")
+      .querySelectorAll(":scope > td");
+    expect(cells).toHaveLength(4);
+
+    // Title cell (index 1): the title plus the artist's stacked second line.
+    expect(
+      cells[1].querySelector('[data-testid="field-track_title"]')
+    ).not.toBeNull();
+    expect(
+      cells[1].querySelector('[data-testid="field-artist_name"]')
+    ).not.toBeNull();
+    // Album cell (index 2): the album plus the label's stacked second line.
+    expect(
+      cells[2].querySelector('[data-testid="field-album_title"]')
+    ).not.toBeNull();
+    expect(
+      cells[2].querySelector('[data-testid="field-record_label"]')
+    ).not.toBeNull();
+  });
+
+  it("shows the rotation chip on the title line", () => {
+    render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
+    expect(screen.getByText("H")).toBeDefined();
+  });
+
+  it("omits the rotation chip when the entry has no rotation", () => {
+    render(
+      <SongEntry
+        entry={{ ...mockEntry, rotation: undefined }}
+        playing={false}
+        queue={false}
+      />
+    );
+    expect(screen.queryByText("H")).toBeNull();
+  });
+
+  it("shows a read-only REQ chip on requested entries from previous shows", () => {
+    mockUseShowControl.mockReturnValue({
+      live: true,
+      autoplay: false,
+      currentShow: 200, // entry.show_id 100 => not editable
+    });
+    render(
+      <SongEntry
+        entry={{ ...mockEntry, request_flag: true }}
+        playing={false}
+        queue={false}
+      />
+    );
+    expect(screen.getByText("REQ")).toBeDefined();
+  });
+
+  it("does not show the REQ chip when the row is editable", () => {
+    render(
+      <SongEntry
+        entry={{ ...mockEntry, request_flag: true }}
+        playing={false}
+        queue={false}
+      />
+    );
+    expect(screen.queryByText("REQ")).toBeNull();
   });
 });

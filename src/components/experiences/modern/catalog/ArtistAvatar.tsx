@@ -2,14 +2,11 @@ import type { JSX } from "react";
 import { ArtistEntry, Format, Genre } from "@/lib/features/catalog/types";
 import { Rotation } from "@/lib/features/rotation/types";
 import {
-  Avatar,
-  Badge,
-  ColorPaletteProp,
-  Stack,
-  Tooltip,
-  Typography,
-  VariantProp,
-} from "@mui/joy";
+  formatTone,
+  GENRE_TONES,
+  ROTATION_TONES,
+} from "@/lib/features/experiences/modern/tokens/roles";
+import { Avatar, Badge, Stack, Tooltip, Typography } from "@mui/joy";
 
 interface ArtistAvatarProps {
   artist?: ArtistEntry;
@@ -19,50 +16,13 @@ interface ArtistAvatarProps {
   format?: Format;
 }
 
-export const ROTATION_STYLES: { [id in Rotation]: ColorPaletteProp } = {
-  H: "primary",
-  M: "warning",
-  L: "success",
-  S: "neutral",
-};
-
-export const GENRE_COLORS: { [id in Genre]: ColorPaletteProp } = {
-  Rock: "primary",
-  Blues: "success",
-  Electronic: "success",
-  Hiphop: "primary",
-  Jazz: "warning",
-  Classical: "neutral",
-  Reggae: "warning",
-  Soundtracks: "neutral",
-  OCS: "success",
-  Unknown: "neutral",
-};
-
-export const GENRE_VARIANTS: { [id in Genre]: VariantProp } = {
-  Rock: "solid",
-  Electronic: "solid",
-  Hiphop: "soft",
-  Jazz: "solid",
-  Blues: "soft",
-  Classical: "soft",
-  Reggae: "soft",
-  Soundtracks: "soft",
-  OCS: "soft",
-  Unknown: "soft",
-};
-
 export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
-  let color_choice = GENRE_COLORS[(props.artist?.genre as Genre) ?? "Unknown"];
-  if (color_choice === undefined) {
-    color_choice = "neutral";
-  }
-
-  let variant_choice =
-    GENRE_VARIANTS[(props.artist?.genre as Genre) ?? "Unknown"];
-  if (variant_choice === undefined) {
-    variant_choice = "solid";
-  }
+  const genreTone =
+    GENRE_TONES[(props.artist?.genre as Genre) ?? "Unknown"] ??
+    GENRE_TONES.Unknown;
+  const color_choice = genreTone.color;
+  const variant_choice = genreTone.variant;
+  const formatColor = formatTone(props.format).color;
 
   return (
     <Tooltip
@@ -76,7 +36,7 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
     >
       <Badge
         badgeContent={props.rotation ?? null}
-        color={props.rotation && ROTATION_STYLES[props.rotation]}
+        color={props.rotation ? ROTATION_TONES[props.rotation]?.color : undefined}
         size="sm"
       >
         <Avatar
@@ -120,7 +80,7 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
               </Typography>
               <Avatar
                 variant={variant_choice == "solid" ? "soft" : "solid"}
-                color={(props.format ?? "") == "CD" ? "primary" : "warning"}
+                color={formatColor}
                 sx={{
                   width: "1.4rem",
                   height: "1.4rem",

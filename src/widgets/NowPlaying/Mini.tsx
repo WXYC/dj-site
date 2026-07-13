@@ -13,7 +13,6 @@ import {
   IconButton,
   Stack,
 } from "@mui/joy";
-import { useColorScheme } from "@mui/joy/styles";
 import { MutableRefObject, RefObject } from "react";
 import AlbumArtAndIcons from "./AlbumArtAndIcons";
 import EntryText from "./EntryText";
@@ -40,8 +39,9 @@ export default function NowPlayingMini({
   analyserNode: AnalyserNode | null;
   animationFrameRef: MutableRefObject<number | null>;
 }) {
-  const { mode } = useColorScheme();
-  const overlayColor = mode === "light" ? "white" : "neutral.800";
+  // Idle overlay masks the visualizer with the card's own surface so the widget
+  // reads as one unified themed panel (not a hardcoded white / cool-grey block).
+  const overlayColor = "background.surface";
 
   return (
     <Card

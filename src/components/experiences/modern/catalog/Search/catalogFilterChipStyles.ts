@@ -1,8 +1,13 @@
-import type { Genre } from "@/lib/features/catalog/types";
-import type { ColorPaletteProp, VariantProp } from "@mui/joy";
+import type { Format, Genre } from "@/lib/features/catalog/types";
+import type { VariantProp } from "@mui/joy";
 import type { SxProps } from "@mui/joy/styles/types";
 
-import { GENRE_COLORS, GENRE_VARIANTS, ROTATION_STYLES } from "../ArtistAvatar";
+import {
+  formatTone,
+  GENRE_TONES,
+  ROTATION_TONES,
+  type FormatTone,
+} from "@/lib/features/experiences/modern/tokens/roles";
 import type { Rotation } from "@/lib/features/rotation/types";
 import {
   EXCLUSIVES_PURPLE,
@@ -33,7 +38,7 @@ export function genreNameToGenreKey(name: string): Genre {
 }
 
 export type CatalogFilterTagChipProps = {
-  color?: ColorPaletteProp;
+  color?: FormatTone["color"];
   variant?: VariantProp;
   sx?: SxProps;
 };
@@ -41,19 +46,12 @@ export type CatalogFilterTagChipProps = {
 /** Matches catalog result genre chips (`Result.tsx`). */
 export function getGenreFilterChipProps(genreName: string): CatalogFilterTagChipProps {
   const key = genreNameToGenreKey(genreName);
-  return {
-    color: GENRE_COLORS[key] ?? "neutral",
-    variant: GENRE_VARIANTS[key] ?? "soft",
-  };
+  return GENRE_TONES[key] ?? GENRE_TONES.Unknown;
 }
 
-/** Matches catalog result format chips (`Result.tsx`: vinyl primary, else warning). */
+/** Matches catalog result format chips — dedicated vinyl/CD hues. */
 export function getFormatFilterChipProps(formatName: string): CatalogFilterTagChipProps {
-  const isVinyl = formatName.toLowerCase().includes("vinyl");
-  return {
-    color: isVinyl ? "primary" : "warning",
-    variant: "soft",
-  };
+  return formatTone(formatName);
 }
 
 /** Tag filter chips (v1: exclusives uses WXYC exclusive purple). */
@@ -78,7 +76,7 @@ export function getTagFilterChipProps(tagId: string): CatalogFilterTagChipProps 
   }
   if (isCatalogRotationTag(tagId)) {
     return {
-      color: ROTATION_STYLES[tagId as Rotation] ?? "neutral",
+      color: ROTATION_TONES[tagId as Rotation]?.color ?? "neutral",
       variant: "soft",
     };
   }

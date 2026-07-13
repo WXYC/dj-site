@@ -79,7 +79,13 @@ test.describe("Catalog track search — matched_via chip rendering", () => {
     await searchInput.fill("vi scose poise");
 
     await expect(page.getByText("Confield")).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText("Autechre").first()).toBeVisible();
+    // The artist renders twice within a desktop row (stacked in the Album
+    // column below xl, its own column at xl); target a visible copy so the
+    // assertion is viewport-independent. .first() also covers the case where
+    // the artist name and its detail sub-line are the same string.
+    await expect(
+      page.getByText("Autechre").filter({ visible: true }).first(),
+    ).toBeVisible();
 
     await expect(
       page.getByLabel(/matched on track: vi scose poise/i).first(),
@@ -101,7 +107,9 @@ test.describe("Catalog track search — matched_via chip rendering", () => {
     await expect(
       page.getByText(wxycExampleSearchResults.variousArtistsComp.album_title),
     ).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText("Various Artists").first()).toBeVisible();
+    await expect(
+      page.getByText("Various Artists").filter({ visible: true }).first(),
+    ).toBeVisible();
 
     await expect(
       page

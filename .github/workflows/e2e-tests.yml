@@ -28,6 +28,12 @@ env:
   NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED: "true"
   NEXT_PUBLIC_FLOWSHEET_SSE_DASHBOARD_ENABLED: "true"
   NEXT_PUBLIC_FLOWSHEET_SSE_LIVE_VIEW_ENABLED: "true"
+  # Build-time gate for the RFC 8628 QR sign-in method. Inlined into the
+  # dj-site build, so it must be present here (the build-cache key hashes this
+  # workflow file, so flipping it auto-invalidates the stale .next/ cache).
+  # Required by e2e/tests/auth/qr-signin.spec.ts — without it the "Sign in with
+  # a QR code" entry link never renders and the spec can't reach the QR stage.
+  NEXT_PUBLIC_QR_LOGIN_ENABLED: "true"
   NEXT_PUBLIC_APP_ORGANIZATION: test-org
   SESSION_SECRET: e2e-secret-for-testing
   APP_ORGANIZATION_ID: test-org-id-0000000000000000001
@@ -125,10 +131,13 @@ jobs:
         id: backend-ref
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_BACKEND_REF: ${{ github.event.inputs.backend_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          REF="${{ github.event.inputs.backend_ref }}"
-          if [ -z "$REF" ] && [ "${{ github.event_name }}" = "pull_request" ]; then
-            REF="${{ github.head_ref }}"
+          REF="$INPUT_BACKEND_REF"
+          if [ -z "$REF" ] && [ "$EVENT_NAME" = "pull_request" ]; then
+            REF="$HEAD_REF"
           fi
           REF="${REF:-main}"
           if gh api "repos/${{ github.repository_owner }}/Backend-Service/git/ref/heads/${REF}" >/dev/null 2>&1; then

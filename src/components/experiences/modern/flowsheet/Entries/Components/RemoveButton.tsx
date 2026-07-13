@@ -34,7 +34,7 @@ export default function RemoveButton({
           queue ? removeFromQueue(entry.id) : removeFromFlowsheet(entry.id)
         }
       >
-        <Clear color="secondary" fontSize="small" />
+        <Clear fontSize="small" />
       </IconButton>
     </Tooltip>
   );

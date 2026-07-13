@@ -23,7 +23,7 @@ describe("AuthLinkSessionGuard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetSession.mockResolvedValue({ data: null });
-    mockSignOut.mockResolvedValue(undefined);
+    mockSignOut.mockResolvedValue({});
   });
 
   it("renders children when no session is active", async () => {
@@ -40,6 +40,7 @@ describe("AuthLinkSessionGuard", () => {
 
   it("signs out an existing session before showing the linked form", async () => {
     mockGetSession.mockResolvedValue({ data: { user: { id: "other-user" } } });
+    mockSignOut.mockResolvedValue({ data: {}, error: null });
 
     render(
       <AuthLinkSessionGuard linkToken="reset-token">
@@ -53,6 +54,23 @@ describe("AuthLinkSessionGuard", () => {
       expect(mockRefresh).toHaveBeenCalled();
       expect(screen.getByText("Reset form")).toBeInTheDocument();
     });
+  });
+
+  it("does not render the linked form when sign-out fails", async () => {
+    mockGetSession.mockResolvedValue({ data: { user: { id: "other-user" } } });
+    mockSignOut.mockResolvedValue({ error: { message: "sign-out failed" } });
+
+    render(
+      <AuthLinkSessionGuard linkToken="reset-token">
+        <div>Reset form</div>
+      </AuthLinkSessionGuard>
+    );
+
+    await waitFor(() => {
+      expect(mockSignOut).toHaveBeenCalled();
+    });
+    expect(screen.queryByText("Reset form")).not.toBeInTheDocument();
+    expect(screen.getByText("Preparing…")).toBeInTheDocument();
   });
 
   it("shows a custom loading message while preparing", () => {

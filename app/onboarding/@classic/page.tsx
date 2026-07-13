@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Header from "@/src/components/experiences/classic/login/Layout/Header";
 import OnboardingForm from "@/src/components/experiences/modern/login/Forms/OnboardingForm";
-import OnboardingInviteSessionGuard from "@/src/components/experiences/modern/login/OnboardingInviteSessionGuard";
+import AuthLinkSessionGuard from "@/src/components/experiences/modern/login/AuthLinkSessionGuard";
 
 type ClassicOnboardingPageProps = {
   searchParams: Promise<{ token?: string; error?: string }>;
@@ -34,10 +34,13 @@ export default async function ClassicOnboardingPage({ searchParams }: ClassicOnb
       {error && (
         <p>This setup link is invalid or expired. Ask your station manager to resend the invite.</p>
       )}
-      {token && (
-        <OnboardingInviteSessionGuard inviteToken={token}>
+      {token && !error && (
+        <AuthLinkSessionGuard
+          linkToken={token}
+          loadingMessage="Preparing your account setup…"
+        >
           <OnboardingForm />
-        </OnboardingInviteSessionGuard>
+        </AuthLinkSessionGuard>
       )}
       <footer>
         <p>Copyright &copy; {new Date().getFullYear()} WXYC Chapel Hill</p>

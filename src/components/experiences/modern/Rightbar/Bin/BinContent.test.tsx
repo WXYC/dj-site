@@ -9,10 +9,18 @@ const mockUseGetRightbarQuery = vi.fn();
 
 vi.mock("@/src/hooks/binHooks", () => ({
   useBin: () => mockUseBin(),
+  useDeleteFromBin: () => ({ deleteFromBin: vi.fn() }),
 }));
 
 vi.mock("@/lib/features/application/api", () => ({
   useGetRightbarQuery: () => mockUseGetRightbarQuery(),
+}));
+
+vi.mock("@/src/hooks/flowsheetHooks", () => ({
+  useShowControl: () => ({ live: false }),
+  // Hoisted once here (not per row) so the rows can stay hook-free.
+  useQueue: () => ({ addToQueue: vi.fn() }),
+  useFlowsheet: () => ({ addToFlowsheet: vi.fn(() => Promise.resolve()) }),
 }));
 
 // Mock child components
@@ -20,15 +28,18 @@ vi.mock("../RightBarContentContainer", () => ({
   default: ({
     label,
     startDecorator,
+    endDecorator,
     children,
   }: {
     label: string;
     startDecorator: React.ReactNode;
+    endDecorator?: React.ReactNode;
     children: React.ReactNode;
   }) => (
     <div data-testid="content-container">
       <span data-testid="container-label">{label}</span>
       <span data-testid="start-decorator">{startDecorator}</span>
+      <span data-testid="end-decorator">{endDecorator}</span>
       {children}
     </div>
   ),
@@ -37,6 +48,12 @@ vi.mock("../RightBarContentContainer", () => ({
 vi.mock("./BinEntry", () => ({
   default: ({ entry }: { entry: AlbumEntry }) => (
     <div data-testid={`bin-entry-${entry.id}`}>{entry.title}</div>
+  ),
+}));
+
+vi.mock("./ClearBinButton", () => ({
+  default: ({ count }: { count: number }) => (
+    <button data-testid="clear-bin-button">clear-{count}</button>
   ),
 }));
 
@@ -55,7 +72,12 @@ vi.mock("@mui/joy", () => ({
     variant?: string;
     sx?: any;
   }) => (
-    <div data-testid="card" data-variant={variant} style={{ height: sx?.height }}>
+    <div
+      data-testid="card"
+      data-variant={variant}
+      data-overflow-y={sx?.overflowY}
+      style={{ height: sx?.height }}
+    >
       {children}
     </div>
   ),
@@ -149,9 +171,7 @@ describe("BinContent", () => {
       isSuccess: true,
       isError: false,
     });
-    mockUseGetRightbarQuery.mockReturnValue({
-      data: false,
-    });
+    mockUseGetRightbarQuery.mockReturnValue({ data: false });
   });
 
   it("should render the content container with Mail Bin label", () => {
@@ -192,6 +212,22 @@ describe("BinContent", () => {
       "data-variant",
       "outlined"
     );
+  });
+
+  it("should use a fixed box height that scrolls on overflow (auto)", () => {
+    render(<BinContent />);
+
+    const card = screen.getByTestId("card");
+    expect(card).toHaveStyle({ height: "335px" });
+    expect(card).toHaveAttribute("data-overflow-y", "auto");
+  });
+
+  it("should use the taller fixed height when the rightbar is expanded", () => {
+    mockUseGetRightbarQuery.mockReturnValue({ data: true });
+
+    render(<BinContent />);
+
+    expect(screen.getByTestId("card")).toHaveStyle({ height: "500px" });
   });
 
   it("should render empty message when bin is empty", () => {
@@ -265,71 +301,50 @@ describe("BinContent", () => {
     expect(dividers.length).toBe(2);
   });
 
-  it("should use default height when max is false", () => {
-    mockUseGetRightbarQuery.mockReturnValue({
-      data: false,
+  it("should render the Clear Mail Bin button with the entry count when non-empty", () => {
+    render(<BinContent />);
+
+    expect(screen.getByTestId("clear-bin-button")).toHaveTextContent("clear-3");
+  });
+
+  it("should not render the Clear Mail Bin button when empty", () => {
+    mockUseBin.mockReturnValue({
+      bin: [],
+      loading: false,
+      isSuccess: true,
+      isError: false,
     });
 
     render(<BinContent />);
 
-    const card = screen.getByTestId("card");
-    expect(card).toHaveStyle({ height: "335px" });
+    expect(screen.queryByTestId("clear-bin-button")).not.toBeInTheDocument();
   });
 
-  it("should use taller height when max is true", () => {
-    mockUseGetRightbarQuery.mockReturnValue({
-      data: true,
+  it("should not render the Clear Mail Bin button on error", () => {
+    mockUseBin.mockReturnValue({
+      bin: mockBinEntries,
+      loading: false,
+      isSuccess: true,
+      isError: true,
     });
 
     render(<BinContent />);
 
-    const card = screen.getByTestId("card");
-    expect(card).toHaveStyle({ height: "500px" });
+    expect(screen.queryByTestId("clear-bin-button")).not.toBeInTheDocument();
   });
 
-  it("should use default height when max is undefined", () => {
-    mockUseGetRightbarQuery.mockReturnValue({
-      data: undefined,
-    });
-
-    render(<BinContent />);
-
-    const card = screen.getByTestId("card");
-    expect(card).toHaveStyle({ height: "335px" });
-  });
-
-  it("should render skeleton with correct height when loading and max is false", () => {
+  it("should render skeleton with a fixed height when loading", () => {
     mockUseBin.mockReturnValue({
       bin: undefined,
       loading: true,
       isSuccess: false,
       isError: false,
-    });
-    mockUseGetRightbarQuery.mockReturnValue({
-      data: false,
     });
 
     render(<BinContent />);
 
     const skeleton = screen.getByTestId("skeleton");
     expect(skeleton).toHaveStyle({ height: "335px" });
-  });
-
-  it("should render skeleton with taller height when loading and max is true", () => {
-    mockUseBin.mockReturnValue({
-      bin: undefined,
-      loading: true,
-      isSuccess: false,
-      isError: false,
-    });
-    mockUseGetRightbarQuery.mockReturnValue({
-      data: true,
-    });
-
-    render(<BinContent />);
-
-    const skeleton = screen.getByTestId("skeleton");
-    expect(skeleton).toHaveStyle({ height: "500px" });
   });
 
   it("should render single entry without divider", () => {
@@ -359,25 +374,6 @@ describe("BinContent", () => {
     expect(screen.getByTestId("bin-entry-1")).toBeInTheDocument();
     expect(screen.getByTestId("bin-entry-2")).toBeInTheDocument();
     expect(screen.getAllByTestId("bin-divider")).toHaveLength(1);
-  });
-
-  it("should handle entries with same ids correctly using index in key", () => {
-    const duplicateIdEntries = [
-      { ...mockBinEntries[0], id: 1 },
-      { ...mockBinEntries[1], id: 1 }, // Same id but different entry
-    ];
-
-    mockUseBin.mockReturnValue({
-      bin: duplicateIdEntries,
-      loading: false,
-      isSuccess: true,
-      isError: false,
-    });
-
-    render(<BinContent />);
-
-    // Should render both entries even with same id (index is used in key)
-    expect(screen.getAllByTestId("bin-entry-1")).toHaveLength(2);
   });
 
   it("should show empty message with typography body-md level", () => {

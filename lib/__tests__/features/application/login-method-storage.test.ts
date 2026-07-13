@@ -44,6 +44,26 @@ describe("login-method-storage", () => {
       localStorage.setItem(LOGIN_METHOD_STORAGE_KEY, "something-invalid");
       expect(getPreferredLoginMethod()).toBe("otp-email");
     });
+
+    describe("stored 'qr' preference (flag-gated)", () => {
+      const QR_FLAG_KEY = "NEXT_PUBLIC_QR_LOGIN_ENABLED";
+
+      afterEach(() => {
+        delete process.env[QR_FLAG_KEY];
+      });
+
+      it("returns 'qr' when 'qr' is stored and the QR flag is on", () => {
+        process.env[QR_FLAG_KEY] = "true";
+        localStorage.setItem(LOGIN_METHOD_STORAGE_KEY, "qr");
+        expect(getPreferredLoginMethod()).toBe("qr");
+      });
+
+      it("falls back to 'otp-email' when 'qr' is stored but the QR flag is off", () => {
+        delete process.env[QR_FLAG_KEY];
+        localStorage.setItem(LOGIN_METHOD_STORAGE_KEY, "qr");
+        expect(getPreferredLoginMethod()).toBe("otp-email");
+      });
+    });
   });
 
   describe("savePreferredLoginMethod", () => {
@@ -61,6 +81,11 @@ describe("login-method-storage", () => {
       savePreferredLoginMethod("password");
       savePreferredLoginMethod("otp-email");
       expect(localStorage.getItem(LOGIN_METHOD_STORAGE_KEY)).toBe("otp-email");
+    });
+
+    it("should save 'qr' to localStorage", () => {
+      savePreferredLoginMethod("qr");
+      expect(localStorage.getItem(LOGIN_METHOD_STORAGE_KEY)).toBe("qr");
     });
   });
 });
