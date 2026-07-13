@@ -10,10 +10,6 @@ export default function RightbarContainer({
     <Sheet
       className="SecondSidebar"
       sx={{
-        // Sit on `body` (not the default Sheet `surface`) so the outlined
-        // NowPlaying and Mail Bin cards (which use `surface`) read as framed,
-        // distinct panels instead of blending into the sidebar.
-        backgroundColor: "background.body",
         position: {
           xs: "fixed",
           md: "sticky",
