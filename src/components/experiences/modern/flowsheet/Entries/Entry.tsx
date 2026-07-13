@@ -20,7 +20,11 @@ import DateTimeStack from "./Components/DateTimeStack";
 import MessageEntry from "./MessageEntry";
 import SongEntry from "./SongEntry/SongEntry";
 
-export default function Entry({
+// NOT memoized: the flowsheet updates entry objects in place when fields like
+// request_flag/segue toggle, so a shallow prop check (React.memo) leaves the
+// row showing stale state. Rendering a single layout (see the page) is the
+// perf win; per-row memoization is unsafe here.
+function Entry({
   entry,
   playing,
 }: {
@@ -122,3 +126,6 @@ export default function Entry({
     </MessageEntry>
   );
 }
+
+export default Entry;
+

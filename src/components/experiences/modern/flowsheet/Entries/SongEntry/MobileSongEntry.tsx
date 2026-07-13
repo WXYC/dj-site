@@ -50,7 +50,8 @@ const FIELDS: {
 // Below the `sm` breakpoint the entries table is hidden and each song renders
 // as this "now playing"-style card: album art at left, values stacked in the
 // middle, and a compact vertical control column at the right.
-export default function MobileSongEntry({
+// Not memoized (see SongEntry): entry objects update in place.
+function MobileSongEntry({
   playing,
   queue,
   entry,
@@ -342,3 +343,5 @@ export default function MobileSongEntry({
     </Sheet>
   );
 }
+
+export default MobileSongEntry;
