@@ -79,7 +79,9 @@ export default function SmartResults({
       role="listbox"
       id="flowsheet-results-listbox"
       data-testid="flowsheet-search-results"
-      sx={{ overflowY: "auto", px: 0.5, pb: 1 }}
+      // flex:1 + minHeight:0 lets this scroll within the pane while the shortcut
+      // guide below stays pinned; when results are few the pane sizes to content.
+      sx={{ flex: 1, minHeight: 0, overflowY: "auto", px: 0.5, pb: 1 }}
     >
       {selectedMatch ? (
         <Box>

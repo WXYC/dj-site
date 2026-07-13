@@ -27,6 +27,7 @@ import BreakpointButton from "../Search/BreakpointButton";
 import TalksetButton from "../Search/TalksetButton";
 import RotationChips from "./RotationChips";
 import RotationTag from "./RotationTag";
+import ShortcutGuide from "./ShortcutGuide";
 import SmartComposer from "./SmartComposer";
 import SmartResults from "./SmartResults";
 import SmartToolbar from "./SmartToolbar";
@@ -147,6 +148,19 @@ export default function SmartEntry() {
     entry.selectMatch(album);
   };
 
+  // Leaving the composer empty exits selected-rotation mode too: committing
+  // (enqueue / play) and the clear ✕ both reset the composer to "", so this
+  // covers them (a failed commit keeps the text, so the mode survives). The
+  // filter it set is cleared alongside — resetSearch on commit already emptied
+  // filters, but a plain delete-to-empty hasn't, so clear it here regardless.
+  useEffect(() => {
+    if (!selectedRotation || entry.raw.trim() !== "") return;
+    setSelectedRotation(null);
+    dispatch(
+      flowsheetSlice.actions.setSearchFilters({ ...filters, rotationTags: [] })
+    );
+  }, [selectedRotation, entry.raw, filters, dispatch]);
+
   // Once song/artist/album/label are all filled there's nothing left to add via
   // the inline chips, so they (including the H/M/L/S buttons) drop away.
   const allFieldsFilled = TRIGGER_FIELDS.every((f) =>
@@ -158,10 +172,16 @@ export default function SmartEntry() {
     (f) => !entry.fields[f] && entry.pendingTrigger?.field !== f
   );
   // Once a match is picked, entering rotation mode no longer makes sense — the
-  // entry is chosen, so only the trigger chips for its still-missing fields
-  // remain. The H/M/L/S buttons return if the match is unselected.
+  // entry is chosen. The H/M/L/S buttons also don't apply while already in a
+  // rotation. In both cases the trigger chips for the entry's still-missing
+  // fields remain, so a rotation pick that lacks (say) a label still lets you
+  // add one via the chip or Tab — without clearing the selection.
   const hasMatch = Boolean(search.selectedMatch);
-  const showRotationButtons = !hasMatch;
+  const showRotationButtons = !hasMatch && !selectedRotation;
+  // Trigger chips show for missing fields whenever composing — including a
+  // selected rotation entry (so you can fill its gaps), but not while merely
+  // browsing a rotation (no pick yet).
+  const showTriggerChips = someTriggerOpen && (!selectedRotation || hasMatch);
 
   const flatCount = resultsFlat.length;
   // Composing an entry (has text) swaps the action cluster from the entry
@@ -256,6 +276,23 @@ export default function SmartEntry() {
   // (first-wins parser).
   const isClaimed = (field: SmartField) =>
     Boolean(entry.fields[field]) || entry.pendingTrigger?.field === field;
+
+  // What Tab will do next, for the live shortcut hint — always named by the
+  // field it moves into ("add album"), whether Tab is cycling a pending trigger
+  // to the next field or advancing into the first open one. Once the cycle
+  // passes the last field Tab removes the trigger, and everything filled → no
+  // hint.
+  const tabHint: string | null = (() => {
+    const pending = entry.pendingTrigger;
+    if (pending && pending.field !== "song") {
+      const next = cycleTriggerField(pending.field, (f) =>
+        Boolean(entry.fields[f])
+      );
+      return next ? `add ${next}` : "remove field";
+    }
+    const next = nextTriggerField(isClaimed);
+    return next ? `add ${next}` : null;
+  })();
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     switch (e.key) {
@@ -467,17 +504,18 @@ export default function SmartEntry() {
                 focused &&
                 live &&
                 isComposing &&
-                !selectedRotation &&
                 !allFieldsFilled &&
-                (someTriggerOpen || showRotationButtons) ? (
+                (showTriggerChips || showRotationButtons) ? (
                   <Box
                     sx={{ display: "inline-flex", alignItems: "center" }}
                   >
-                    <TriggerChips
-                      isClaimed={isClaimed}
-                      onInsert={insertTrigger}
-                    />
-                    {someTriggerOpen && showRotationButtons ? (
+                    {showTriggerChips ? (
+                      <TriggerChips
+                        isClaimed={isClaimed}
+                        onInsert={insertTrigger}
+                      />
+                    ) : null}
+                    {showTriggerChips && showRotationButtons ? (
                       <Box
                         aria-hidden
                         sx={{
@@ -658,6 +696,11 @@ export default function SmartEntry() {
                           : "No matches — press Enter to log it as typed."}
                       </Typography>
                     }
+                  />
+                  <ShortcutGuide
+                    tabHint={tabHint}
+                    ghostActive={Boolean(ghostSuffix)}
+                    showResultsNav={flatCount > 0}
                   />
                 </Sheet>
               </ClickAwayListener>
