@@ -1,3 +1,4 @@
+import { ENTRY_TONES } from "@/lib/features/experiences/modern/tokens/roles";
 import {
   FlowsheetBreakpointEntry,
   FlowsheetEntry,
@@ -20,8 +21,9 @@ export type MessageEntryPresentation = {
   Icon: typeof Headphones;
   // Container (Sheet/row) tone.
   color: ColorPaletteProp;
-  // Headline text tone (the end-show marker deliberately contrasts its
-  // container).
+  // Headline text tone. Sourced from the same ENTRY_TONES role as the
+  // container so the two can't contradict (the old end-show marker mixed a
+  // success container with primary text).
   textColor: ColorPaletteProp;
   // DJ name for the show markers, message text otherwise.
   headline: string;
@@ -35,15 +37,16 @@ export type MessageEntryPresentation = {
 
 // The single source of the message-row type switch (icon, tones, copy),
 // shared by the desktop table renderer (Entry → MessageEntry) and the
-// mobile card renderer (MobileEntry) so the two can't drift.
+// mobile card renderer (MobileEntry) so the two can't drift. Tones come
+// from the semantic role map (Layer B), not hardcoded palette names.
 export function getMessageEntryPresentation(
   entry: FlowsheetEntry
 ): MessageEntryPresentation {
   if (isFlowsheetStartShowEntry(entry)) {
     return {
       Icon: Headphones,
-      color: "success",
-      textColor: "success",
+      color: ENTRY_TONES.startShow.color,
+      textColor: ENTRY_TONES.startShow.color,
       headline: entry.dj_name,
       caption: "started the set",
       time: { day: entry.day, time: entry.time },
@@ -54,8 +57,8 @@ export function getMessageEntryPresentation(
   if (isFlowsheetEndShowEntry(entry)) {
     return {
       Icon: Logout,
-      color: "success",
-      textColor: "primary",
+      color: ENTRY_TONES.endShow.color,
+      textColor: ENTRY_TONES.endShow.color,
       headline: entry.dj_name,
       caption: "ended the set",
       time: { day: entry.day, time: entry.time },
@@ -66,8 +69,8 @@ export function getMessageEntryPresentation(
   if (isFlowsheetTalksetEntry(entry)) {
     return {
       Icon: Mic,
-      color: "danger",
-      textColor: "danger",
+      color: ENTRY_TONES.talkset.color,
+      textColor: ENTRY_TONES.talkset.color,
       headline: (entry as FlowsheetMessageEntry).message,
       editable: true,
     };
@@ -76,8 +79,8 @@ export function getMessageEntryPresentation(
   if (isFlowsheetBreakpointEntry(entry)) {
     return {
       Icon: Timer,
-      color: "warning",
-      textColor: "warning",
+      color: ENTRY_TONES.breakpoint.color,
+      textColor: ENTRY_TONES.breakpoint.color,
       headline: (entry as FlowsheetBreakpointEntry).message,
       editable: true,
     };
@@ -85,8 +88,8 @@ export function getMessageEntryPresentation(
 
   return {
     Icon: Notifications,
-    color: "warning",
-    textColor: "warning",
+    color: ENTRY_TONES.generic.color,
+    textColor: ENTRY_TONES.generic.color,
     // Callers only reach here for message-shaped entries (they route song
     // entries to SongEntry before consulting the presentation), but the
     // guards above don't narrow the union enough for TS to know that.

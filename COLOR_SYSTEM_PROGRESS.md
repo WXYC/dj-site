@@ -45,7 +45,12 @@ picker. Classic experience stays untouched and strippable.
       formatVinyl/formatCd hues, rotation→ROTATION_TONES), `MobileResult`/`Result` genre
       gradient via GENRE_TONES, `ArtistAvatar` tones, exclusive purple → CSS var, catalog
       `--joy-*`→`--wxyc-*` prefix fixes. tsc clean, 300 tests pass.
-- [ ] 6. Flowsheet + widgets migration (SongEntryStatusChips, Entry/MessageEntry, GoLive on-air, NowPlaying LIVE + icon leaks, RemoveButton secondary leak, rotation)
+- [x] **6. Flowsheet + widgets migration** — `SongEntryStatusChips` rotation→ROTATION_TONES;
+      `Entry.tsx` entry-type colors→ENTRY_TONES (fixes end-show container/text contradiction);
+      `brandColors.WXYC_EXCLUSIVE_PURPLE`→exclusive CSS var; `GoLive` on-air dot→onAir vars;
+      `AlbumArtAndIcons` Material-icon colors driven by ENTRY_TONES vars (fixes talkset
+      `secondary` leak + end-show); `RemoveButton` drops `secondary`. `getStyleForRotation`
+      now unused. tsc clean, 323 flowsheet/widget tests pass.
 - [x] **7. Sidebar decoupling** — `LeftbarContainer` Sheet + `Logo` now use `sidebar`/
       `sidebarAdmin` palette slots instead of `primary`/`success`. Editing primary no longer
       shifts the sidebar (the headline bug). Default theme visually identical (sidebar=primary scale).

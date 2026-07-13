@@ -79,8 +79,12 @@ export default function GoLive() {
                 height: 10,
                 borderRadius: "50%",
                 ml: 1,
-                backgroundColor: live ? "#ef4444" : "neutral.500",
-                boxShadow: live ? "0 0 6px 2px rgba(239, 68, 68, 0.5)" : "none",
+                backgroundColor: live
+                  ? "var(--wxyc-palette-onAir-indicator)"
+                  : "neutral.500",
+                boxShadow: live
+                  ? "0 0 6px 2px var(--wxyc-palette-onAir-glow)"
+                  : "none",
                 transition: "all 0.25s ease",
               }}
             />
