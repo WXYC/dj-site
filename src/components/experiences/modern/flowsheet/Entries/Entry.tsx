@@ -1,30 +1,18 @@
 import {
-  FlowsheetBreakpointEntry,
   FlowsheetEntry,
-  FlowsheetMessageEntry,
-  isFlowsheetBreakpointEntry,
-  isFlowsheetEndShowEntry,
   isFlowsheetSongEntry,
-  isFlowsheetStartShowEntry,
-  isFlowsheetTalksetEntry,
 } from "@/lib/features/flowsheet/types";
-import {
-  Headphones,
-  Logout,
-  Mic,
-  Notifications,
-  Timer,
-} from "@mui/icons-material";
 import { Stack, Typography } from "@mui/joy";
+import { memo } from "react";
 import DateTimeStack from "./Components/DateTimeStack";
+import { getMessageEntryPresentation } from "./entryPresentation";
 import MessageEntry from "./MessageEntry";
 import SongEntry from "./SongEntry/SongEntry";
 
-// NOT memoized: the flowsheet updates entry objects in place when fields like
-// request_flag/segue toggle, so a shallow prop check (React.memo) leaves the
-// row showing stale state. Rendering a single layout (see the page) is the
-// perf win; per-row memoization is unsafe here.
-function Entry({
+// Memoized: entry updates flow through Immer (RTK Query cache patches +
+// slice reducers), so a changed entry always arrives as a new object
+// reference and unchanged rows can safely skip re-rendering.
+const Entry = memo(function Entry({
   entry,
   playing,
 }: {
@@ -35,97 +23,31 @@ function Entry({
     return <SongEntry playing={playing} entry={entry} queue={false} />;
   }
 
-  if (isFlowsheetStartShowEntry(entry)) {
-    return (
-      <MessageEntry
-        entryRef={entry}
-        startDecorator={<Headphones sx={{ mb: -0.5, mr: 0.5 }} />}
-        endDecorator={<DateTimeStack day={entry.day} time={entry.time} />}
-        color={"success"}
-        variant="soft"
-        disableEditing={true}
-      >
-        <Stack direction="row" spacing={0.5}>
-          <Typography level="body-lg" color={"success"}>
-            {entry.dj_name}
-          </Typography>
-          <Typography textColor={"text.tertiary"} sx={{ alignSelf: "center" }}>
-            started the set
-          </Typography>
-        </Stack>
-      </MessageEntry>
-    );
-  }
-
-  if (isFlowsheetEndShowEntry(entry)) {
-    return (
-      <MessageEntry
-        entryRef={entry}
-        startDecorator={<Logout sx={{ mb: -0.5, mr: 0.5 }} />}
-        endDecorator={<DateTimeStack day={entry.day} time={entry.time} />}
-        color={"success"}
-        variant="soft"
-        disableEditing={true}
-      >
-        <Stack direction="row" spacing={0.5}>
-          <Typography level="body-lg" color={"primary"}>
-            {entry.dj_name}
-          </Typography>
-          <Typography textColor={"text.tertiary"} sx={{ alignSelf: "center" }}>
-            ended the set
-          </Typography>
-        </Stack>
-      </MessageEntry>
-    );
-  }
-
-  if (isFlowsheetTalksetEntry(entry)) {
-    return (
-      <MessageEntry
-        entryRef={entry}
-        startDecorator={<Mic sx={{ mb: -0.5, mr: 0.5 }} />}
-        color={"danger"}
-        variant="soft"
-      >
-        <Stack direction="row" spacing={0.5}>
-          <Typography level="body-lg" color={"danger"}>
-            {(entry as FlowsheetMessageEntry).message}
-          </Typography>
-        </Stack>
-      </MessageEntry>
-    );
-  }
-
-  if (isFlowsheetBreakpointEntry(entry)) {
-    return (
-      <MessageEntry
-        entryRef={entry}
-        startDecorator={<Timer sx={{ mb: -0.5, mr: 0.5 }} />}
-        color={"warning"}
-        variant="soft"
-      >
-        <Stack direction="row" spacing={0.5}>
-          <Typography level="body-lg" color="warning">
-            {(entry as FlowsheetBreakpointEntry).message}
-          </Typography>
-        </Stack>
-      </MessageEntry>
-    );
-  }
+  const p = getMessageEntryPresentation(entry);
 
   return (
     <MessageEntry
       entryRef={entry}
-      color={"warning"}
+      startDecorator={<p.Icon sx={{ mb: -0.5, mr: 0.5 }} />}
+      endDecorator={
+        p.time && <DateTimeStack day={p.time.day} time={p.time.time} />
+      }
+      color={p.color}
       variant="soft"
-      startDecorator={<Notifications sx={{ mb: -0.5, mr: 0.5 }} />}
+      disableEditing={!p.editable}
     >
-      <Typography level="body-lg" color={"warning"}>
-        {(entry as FlowsheetMessageEntry).message}
-      </Typography>
+      <Stack direction="row" spacing={0.5}>
+        <Typography level="body-lg" color={p.textColor}>
+          {p.headline}
+        </Typography>
+        {p.caption && (
+          <Typography textColor={"text.tertiary"} sx={{ alignSelf: "center" }}>
+            {p.caption}
+          </Typography>
+        )}
+      </Stack>
     </MessageEntry>
   );
-}
+});
 
 export default Entry;
-

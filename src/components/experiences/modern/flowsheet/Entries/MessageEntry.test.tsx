@@ -95,9 +95,13 @@ describe("MessageEntry", () => {
         </MessageEntry>
       );
 
-      // The message renders in both the xl (colSpan 4) and sub-xl (colSpan 2)
-      // span cells; CSS shows only the one matching the breakpoint.
-      expect(screen.getAllByText("Test Child Content")).toHaveLength(2);
+      // The message renders exactly once; its span cell's colSpan tracks the
+      // breakpoint via useMediaQuery (4 at xl, 2 below — jsdom matches false,
+      // so tests see the sub-xl span).
+      expect(screen.getAllByText("Test Child Content")).toHaveLength(1);
+      expect(
+        screen.getByText("Test Child Content").closest("td")
+      ).toHaveAttribute("colspan", "2");
     });
 
     it("should render start decorator when provided", () => {
@@ -401,7 +405,7 @@ describe("MessageEntry", () => {
         </MessageEntry>
       );
 
-      expect(screen.getAllByText("Minimal content")).toHaveLength(2);
+      expect(screen.getAllByText("Minimal content")).toHaveLength(1);
     });
 
     it("should handle complex children", () => {
@@ -418,8 +422,8 @@ describe("MessageEntry", () => {
         </MessageEntry>
       );
 
-      expect(screen.getAllByText("Line 1")).toHaveLength(2);
-      expect(screen.getAllByText("Line 2")).toHaveLength(2);
+      expect(screen.getAllByText("Line 1")).toHaveLength(1);
+      expect(screen.getAllByText("Line 2")).toHaveLength(1);
     });
 
     it("should handle multiple color variants", () => {

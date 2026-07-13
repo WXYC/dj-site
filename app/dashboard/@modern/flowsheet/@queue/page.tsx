@@ -3,14 +3,16 @@
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import SongEntry from "@/src/components/experiences/modern/flowsheet/Entries/SongEntry/SongEntry";
 import MobileSongEntry from "@/src/components/experiences/modern/flowsheet/Entries/SongEntry/MobileSongEntry";
+import {
+  FLOWSHEET_MOBILE_QUERY,
+  FLOWSHEET_TABLE_SX,
+  FlowsheetColumnSizingRow,
+} from "@/src/components/experiences/modern/flowsheet/Entries/tableStyles";
 import { useMediaQuery } from "@/src/hooks/useMediaQuery";
 import { Box, Table } from "@mui/joy";
 import { Reorder } from "motion/react";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useCallback, useEffect, useState } from "react";
-
-// Below `sm` the queue renders as stacked cards; only one layout mounts.
-const MOBILE_QUERY = "(max-width: 599.95px)";
 
 export default function Queue() {
   const queue = useAppSelector((state) => state.flowsheet.queue);
@@ -22,7 +24,7 @@ export default function Queue() {
     setIsMounted(true);
   }, []);
 
-  const isMobile = useMediaQuery(MOBILE_QUERY);
+  const isMobile = useMediaQuery(FLOWSHEET_MOBILE_QUERY);
 
   // Handler for reordering queue items - Disabled for now
   const handleReorder = useCallback((newOrder: typeof queue) => {
@@ -53,66 +55,13 @@ export default function Queue() {
   }
 
   return (
-    <Table
-      borderAxis="none"
-      sx={{
-        // Match the entries table's soft rounded-row treatment.
-        borderCollapse: "separate",
-        borderSpacing: "0 4px",
-        "--TableCell-paddingX": "12px",
-        // Match the entries table: below xl the artist and label columns
-        // collapse into two-line title/album cells (see SongEntry).
-        "& .col-artist, & .col-label": {
-          display: { xs: "none", xl: "table-cell" },
-        },
-        "& tbody tr > td": {
-          backgroundColor: "var(--row-bg, transparent)",
-          transition: "background-color 120ms",
-        },
-        "& tbody tr.row-plain:hover > td": {
-          backgroundColor: (theme) => theme.vars.palette.background.level1,
-        },
-        "& tbody tr:not(.row-plain):hover": { filter: "brightness(1.05)" },
-        "& tbody tr > td:first-of-type": {
-          borderTopLeftRadius: "8px",
-          borderBottomLeftRadius: "8px",
-        },
-        "& tbody tr > td:last-of-type": {
-          borderTopRightRadius: "8px",
-          borderBottomRightRadius: "8px",
-        },
-        "@media (hover: hover)": {
-          "& tbody tr .row-actions > :not(.row-actions-persist)": {
-            opacity: 0,
-            transition: "opacity 120ms",
-          },
-          "& tbody tr:hover .row-actions > *, & tbody tr:focus-within .row-actions > *":
-            {
-              opacity: 1,
-            },
-          "& tbody tr:hover .row-actions, & tbody tr:focus-within .row-actions":
-            {
-              background:
-                "linear-gradient(to right, transparent, var(--row-bg) 18px)",
-            },
-        },
-      }}
-    >
+    <Table borderAxis="none" sx={FLOWSHEET_TABLE_SX}>
       <thead
         style={{
           visibility: "collapse",
         }}
       >
-        {/* Column sizing only — must match the entries table's 6-column grid
-            (artist and label collapse below xl). */}
-        <tr>
-          <td style={{ width: "60px" }}></td>
-          <td></td>
-          <td className="col-artist"></td>
-          <td></td>
-          <td className="col-label"></td>
-          <td style={{ width: "150px" }}></td>
-        </tr>
+        <FlowsheetColumnSizingRow />
       </thead>
       <Reorder.Group
         values={reversed}

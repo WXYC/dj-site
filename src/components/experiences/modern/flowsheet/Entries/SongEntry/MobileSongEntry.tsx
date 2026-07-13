@@ -1,11 +1,7 @@
 "use client";
 
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
-import { useAddToFlowsheetMutation } from "@/lib/features/flowsheet/api";
-import {
-  FlowsheetSongEntry,
-  FlowsheetSubmissionParams,
-} from "@/lib/features/flowsheet/types";
+import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 import { useAppDispatch } from "@/lib/hooks";
 import { useFlowsheet, useShowControl } from "@/src/hooks/flowsheetHooks";
 import { entryFieldTextColor } from "@/src/utilities/modern/entryFieldColors";
@@ -21,12 +17,12 @@ import {
   Tooltip,
   Typography,
 } from "@mui/joy";
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import { memo, useEffect, useState } from "react";
 import RemoveButton from "../Components/RemoveButton";
 import FlowsheetEntryField from "./FlowsheetEntryField";
 import SongEntryControls from "./SongEntryControls";
 import SongEntryStatusChips from "./SongEntryStatusChips";
+import { usePlayNow } from "./usePlayNow";
 
 type EditableName =
   | "track_title"
@@ -50,8 +46,8 @@ const FIELDS: {
 // Below the `sm` breakpoint the entries table is hidden and each song renders
 // as this "now playing"-style card: album art at left, values stacked in the
 // middle, and a compact vertical control column at the right.
-// Not memoized (see SongEntry): entry objects update in place.
-function MobileSongEntry({
+// Memoized (see SongEntry): Immer gives changed entries new references.
+const MobileSongEntry = memo(function MobileSongEntry({
   playing,
   queue,
   entry,
@@ -61,9 +57,9 @@ function MobileSongEntry({
   entry: FlowsheetSongEntry;
 }) {
   const { live, currentShow } = useShowControl();
-  const [addToFlowsheet] = useAddToFlowsheetMutation();
   const { updateFlowsheet } = useFlowsheet();
   const dispatch = useAppDispatch();
+  const playNow = usePlayNow(entry);
 
   const editable = queue || (live && entry.show_id == currentShow);
   const image = entry.artwork_url ?? "/img/cassette.png";
@@ -116,22 +112,6 @@ function MobileSongEntry({
       updateFlowsheet({ entry_id: entry.id, data: { ...draft } });
     }
     setEditing(false);
-  };
-
-  const playNow = () => {
-    addToFlowsheet({
-      track_title: entry.track_title,
-      artist_name: entry.artist_name,
-      album_title: entry.album_title,
-      record_label: entry.record_label,
-      request_flag: entry.request_flag,
-      segue: entry.segue,
-      rotation_id: entry.rotation_id,
-      album_id: entry.album_id,
-      rotation_bin: entry.rotation,
-    } as FlowsheetSubmissionParams)
-      .then(() => dispatch(flowsheetSlice.actions.removeFromQueue(entry.id)))
-      .catch((error) => toast.error(`Failed to add to flowsheet: ${error}`));
   };
 
   return (
@@ -342,6 +322,6 @@ function MobileSongEntry({
       </Stack>
     </Sheet>
   );
-}
+});
 
 export default MobileSongEntry;
