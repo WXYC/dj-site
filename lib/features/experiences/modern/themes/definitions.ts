@@ -76,7 +76,7 @@ export const wxycRoseTheme: ThemeDefinition = {
       exclusive: ROSE_EXCLUSIVE,
       onAir: ROSE_ONAIR,
       rotation: ROSE_ROT_LIGHT,
-      background: { body: "#cfc8bf", surface: "#dad3ca", popup: "#c6bdb2", border: "#b6ab9c" },
+      background: { body: "#f5f3f1", surface: "#ffffff", popup: "#ece8e5", border: "#ddd6d1" },
     },
     dark: {
       primary: ROSE_DARK,
