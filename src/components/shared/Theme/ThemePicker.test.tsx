@@ -38,23 +38,23 @@ describe("ThemePicker", () => {
     await user.click(screen.getByRole("button", { name: /choose color theme/i }));
 
     expect(screen.getByText("WXYC Rose")).toBeInTheDocument();
-    expect(screen.getByText("Ocean")).toBeInTheDocument();
+    expect(screen.getByText("Solar")).toBeInTheDocument();
 
     const active = screen.getByRole("menuitemradio", { name: /WXYC Rose/i });
     expect(active).toHaveAttribute("aria-checked", "true");
-    const inactive = screen.getByRole("menuitemradio", { name: /Ocean/i });
+    const inactive = screen.getByRole("menuitemradio", { name: /Solar/i });
     expect(inactive).toHaveAttribute("aria-checked", "false");
   });
 
   it("switches and persists the chosen theme, then reloads", async () => {
     const { user } = renderWithProviders(<ThemePicker />);
     await user.click(screen.getByRole("button", { name: /choose color theme/i }));
-    await user.click(screen.getByRole("menuitemradio", { name: /Ocean/i }));
+    await user.click(screen.getByRole("menuitemradio", { name: /Solar/i }));
 
-    expect(setThemeId).toHaveBeenCalledWith("ocean");
+    expect(setThemeId).toHaveBeenCalledWith("solar");
     // mode defaults to light in the test CssVarsProvider
     expect(persistPreference).toHaveBeenCalledWith(
-      "modern-ocean-light",
+      "modern-solar-light",
       { updateUser: true }
     );
     expect(reload).toHaveBeenCalled();

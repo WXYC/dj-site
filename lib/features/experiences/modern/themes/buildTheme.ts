@@ -98,6 +98,21 @@ function toJoyPalette(scheme: ThemeSchemeInput, mode: "light" | "dark") {
     if (scheme[key]) palette[key] = scheme[key];
   }
 
+  // Page/surface backgrounds + divider (the dark-background fix).
+  if (scheme.background) {
+    const { body, surface, popup, border } = scheme.background;
+    palette.background = {
+      body,
+      surface,
+      popup,
+      level1: popup,
+      level2: popup,
+      level3: popup,
+      tooltip: popup,
+    };
+    palette.divider = border;
+  }
+
   return palette;
 }
 

@@ -1,5 +1,4 @@
-import { defaultTheme } from "./definitions/default";
-import { oceanTheme } from "./definitions/ocean";
+import { solarTheme, wxycRoseTheme } from "./definitions";
 import type { ModernThemeId, ThemeDefinition } from "./types";
 
 /**
@@ -15,12 +14,12 @@ export const DEFAULT_MODERN_THEME_ID = "default";
  * here (its `id` must be unique and match `^[a-z0-9]+$`).
  */
 export const MODERN_THEMES: Record<ModernThemeId, ThemeDefinition> = {
-  [defaultTheme.id]: defaultTheme,
-  [oceanTheme.id]: oceanTheme,
+  [wxycRoseTheme.id]: wxycRoseTheme,
+  [solarTheme.id]: solarTheme,
 };
 
 /** Ordered list for the picker (default first). */
-export const MODERN_THEME_LIST: ThemeDefinition[] = [defaultTheme, oceanTheme];
+export const MODERN_THEME_LIST: ThemeDefinition[] = [wxycRoseTheme, solarTheme];
 
 export const THEME_ID_PATTERN = /^[a-z0-9]+$/;
 
@@ -53,8 +52,8 @@ export function getThemeSwatches(
   const scheme = def.schemes[mode];
   return [
     scheme.primary?.[500] ?? scheme.sidebar[500],
-    scheme.sidebar[500],
     scheme.success?.[500] ?? scheme.sidebarAdmin[500],
     scheme.formatVinyl[500],
+    scheme.formatCd[500],
   ];
 }

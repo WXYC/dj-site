@@ -48,6 +48,22 @@ export interface OnAirTokens {
 }
 
 /**
+ * Page + surface backgrounds and border for a scheme. Optional — omitting it
+ * falls back to Joy's stock backgrounds. This is how a theme replaces the dated
+ * near-black dark background with a softer surface.
+ */
+export interface BackgroundTokens {
+  /** Page background (`background.body`). */
+  body: string;
+  /** Card/panel surface (`background.surface`). */
+  surface: string;
+  /** Elevated surfaces — menus, modals, raised rows (`background.popup`/`level1..3`). */
+  popup: string;
+  /** Divider / outlined border color. */
+  border: string;
+}
+
+/**
  * One color scheme (light or dark) for a modern theme.
  *
  * Joy built-ins (primary/neutral/success/warning/danger) are optional — omitted
@@ -73,6 +89,8 @@ export interface ThemeSchemeInput {
   exclusive: ExclusiveTokens;
   onAir: OnAirTokens;
   rotation: Record<"heavy" | "medium" | "light" | "singles", RotationBinTokens>;
+  /** Page/surface backgrounds; omit to keep Joy's stock backgrounds. */
+  background?: BackgroundTokens;
 }
 
 /**

@@ -11,7 +11,7 @@ import {
  *
  *   classic-<mode>              e.g. "classic-light"          (no theme axis)
  *   modern-<mode>               e.g. "modern-dark"            (legacy → theme "default")
- *   modern-<themeId>-<mode>     e.g. "modern-ocean-light"
+ *   modern-<themeId>-<mode>     e.g. "modern-solar-light"
  *
  * Theme ids are dash-free (`^[a-z0-9]+$`), so parsing splits on "-": the first
  * token is the experience, the last is the mode, and an optional middle token is
