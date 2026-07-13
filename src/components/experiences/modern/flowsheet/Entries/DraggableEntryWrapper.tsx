@@ -52,13 +52,6 @@ export default function DraggableEntryWrapper({
         : effectiveVariant === "plain"
           ? "rgba(255, 255, 255, 0.015)"
           : theme.palette.background.backdrop;
-  // An always-opaque surface tone for the row-actions legibility gradient:
-  // plain rows' near-transparent wash can't mask the status chips, so they
-  // mask against the hover fill tone instead (see tableStyles).
-  const rowBackdrop =
-    effectiveVariant === "plain" || effectiveVariant === "outlined"
-      ? theme.palette.background.level1
-      : rowBg;
 
   return (
     <Reorder.Item
@@ -74,7 +67,6 @@ export default function DraggableEntryWrapper({
         // The row color is painted by the cells (via --row-bg) so they can
         // carry rounded corners; a tr background would bleed square.
         ["--row-bg" as string]: rowBg,
-        ["--row-backdrop" as string]: rowBackdrop,
         ["--row-accent" as string]:
           theme.palette[color ?? "neutral"].solidBg,
         background: "transparent",
