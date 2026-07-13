@@ -12,10 +12,9 @@ export default function SmartToolbar() {
   return (
     <Box
       sx={{
-        px: 1,
-        // A little extra on the bottom so the results panel (which drops from
-        // the shell's bottom edge) doesn't crowd the filters.
-        pb: 1.2,
+        // Even padding on all sides; let the filter autocompletes size
+        // themselves to their content rather than forcing the row height.
+        p: 1,
         bgcolor: "background.surface",
       }}
     >
