@@ -63,6 +63,12 @@ export default function FlowsheetEntries() {
         borderCollapse: "separate",
         borderSpacing: "0 4px",
         "--TableCell-paddingX": "12px",
+        // Below xl the artist and label collapse into two-line title/album
+        // cells (see SongEntry), so their standalone columns are hidden and
+        // the remaining columns widen to fit the reflowed text.
+        "& .col-artist, & .col-label": {
+          display: { xs: "none", xl: "table-cell" },
+        },
         "& tbody tr > td": {
           backgroundColor: "var(--row-bg, transparent)",
           transition: "background-color 120ms",
@@ -121,13 +127,14 @@ export default function FlowsheetEntries() {
         {/* Column sizing only (thead is collapsed): art+drag | title |
             artist | album | label | status+actions. Every row type must
             render exactly these 6 column units or fixed-layout sizing
-            silently degrades. */}
+            silently degrades. The artist and label columns collapse below
+            xl (their text stacks into the title/album cells instead). */}
         <tr>
           <td style={{ width: "60px" }}></td>
           <td></td>
+          <td className="col-artist"></td>
           <td></td>
-          <td></td>
-          <td></td>
+          <td className="col-label"></td>
           <td style={{ width: "150px" }}></td>
         </tr>
       </thead>
