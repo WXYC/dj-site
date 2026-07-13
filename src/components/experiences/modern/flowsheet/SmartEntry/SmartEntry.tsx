@@ -13,7 +13,7 @@ import {
 import { ClickAwayListener, Popper, useMediaQuery } from "@mui/material";
 import { Transition } from "react-transition-group";
 import type { Modifier } from "@popperjs/core";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
@@ -24,6 +24,10 @@ import TalksetButton from "../Search/TalksetButton";
 import SmartComposer from "./SmartComposer";
 import SmartResults from "./SmartResults";
 import SmartToolbar from "./SmartToolbar";
+import TriggerChips from "./TriggerChips";
+import { insertTriggerWord } from "./insertTriggerWord";
+import { nextTriggerField, TRIGGER_WORD } from "./triggerWords";
+import type { SmartField } from "./parser/types";
 import { useFlowsheetSmartEntry } from "./useFlowsheetSmartEntry";
 import { useSmartEntrySearch } from "./useSmartEntrySearch";
 
@@ -46,9 +50,10 @@ const sameWidth: Modifier<"sameWidth", object> = {
 
 /**
  * The v2 flowsheet smart-entry component: a single continuous composer that
- * parses natural-language / semicolon input into a pending entry, over the
- * existing four-source search, with an anchored results panel. Slots into the
- * flowsheet page in place of the old segmented bar.
+ * parses natural-language trigger-word input (`song by artist on album via
+ * label`) into a pending entry, over the existing four-source search, with an
+ * anchored results panel. Slots into the flowsheet page in place of the old
+ * segmented bar.
  */
 export default function SmartEntry() {
   const entry = useFlowsheetSmartEntry();
@@ -101,6 +106,46 @@ export default function SmartEntry() {
     entry.dismissedGhost?.prefix === activeValue;
   const ghostSuffix = focused && !ghostDismissed ? ghost.ghostSuffix : "";
 
+  // After a trigger chip (or Tab) splices a word in, the controlled textarea
+  // re-renders with the new value; restore the caret (and focus) to just past
+  // the inserted word so the DJ can type the field value straight away.
+  const pendingCaretRef = useRef<number | null>(null);
+  useEffect(() => {
+    const caret = pendingCaretRef.current;
+    if (caret === null) return;
+    pendingCaretRef.current = null;
+    const el = inputRef.current;
+    if (!el) return;
+    el.focus();
+    el.setSelectionRange(caret, caret);
+  }, [entry.raw]);
+
+  const insertTrigger = (word: string) => {
+    const el = inputRef.current;
+    const len = entry.raw.length;
+    const selStart = el?.selectionStart ?? len;
+    const selEnd = el?.selectionEnd ?? len;
+    const { raw, caret } = insertTriggerWord(entry.raw, selStart, selEnd, word);
+    pendingCaretRef.current = caret;
+    entry.onRawChange(raw);
+  };
+
+  // The pre-insertion snapshot of the most recent Tab-advance, so a following
+  // Shift+Tab can undo it ("stop with this"). Set only by Tab; cleared the
+  // moment the DJ types (real edits go through handleRawChange), so the undo is
+  // available *only* immediately after tabbing.
+  const tabUndoRef = useRef<{ raw: string; caret: number } | null>(null);
+  const handleRawChange = (raw: string) => {
+    tabUndoRef.current = null;
+    entry.onRawChange(raw);
+  };
+
+  // A field is "claimed" once it has a parsed value or a trailing trigger is
+  // already awaiting one — its chip is dropped and Tab skips past it
+  // (first-wins parser).
+  const isClaimed = (field: SmartField) =>
+    Boolean(entry.fields[field]) || entry.pendingTrigger?.field === field;
+
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     switch (e.key) {
       case "ArrowDown":
@@ -112,6 +157,40 @@ export default function SmartEntry() {
         e.preventDefault();
         entry.setHighlight(Math.max(entry.selectedResult - 1, 0));
         return;
+      case "Tab": {
+        const el = inputRef.current;
+        const caretAtEnd = el
+          ? el.selectionStart === el.value.length &&
+            el.selectionEnd === el.value.length
+          : false;
+
+        if (e.shiftKey) {
+          // Shift+Tab immediately after a Tab undoes that advance ("stop with
+          // this" / back out the just-added field). Only available right after
+          // tabbing; otherwise it falls through to normal reverse focus
+          // movement so the DJ can still leave the composer.
+          if (isComposing && tabUndoRef.current) {
+            e.preventDefault();
+            const { raw, caret } = tabUndoRef.current;
+            tabUndoRef.current = null;
+            pendingCaretRef.current = caret;
+            entry.onRawChange(raw);
+          }
+          return;
+        }
+
+        // Plain Tab advances into the next unspecified field (artist → album →
+        // label, skipping any already filled) by splicing its trigger word —
+        // the keyboard analog of the frontmost chip. Only from the end of the
+        // line while composing; otherwise normal focus movement.
+        if (!isComposing || !caretAtEnd) return;
+        const field = nextTriggerField(isClaimed);
+        if (!field) return;
+        e.preventDefault();
+        tabUndoRef.current = { raw: entry.raw, caret: entry.raw.length };
+        insertTrigger(TRIGGER_WORD[field]);
+        return;
+      }
       case "Enter":
         if (e.shiftKey) return;
         e.preventDefault();
@@ -155,6 +234,13 @@ export default function SmartEntry() {
         sx={{
           borderRadius: "md",
           overflow: "hidden",
+          // The parent (<Main/>) is a fixed-height (100dvh) flex column with
+          // overflow:hidden. Without this the Sheet is a shrinkable flex item,
+          // so when the column runs short on space it gets compressed below its
+          // content height and — because of the overflow:hidden above (needed
+          // for the rounded corners) — clips the filter row at the bottom. Pin
+          // it to its natural height; the scroller below absorbs the overflow.
+          flexShrink: 0,
           bgcolor: "background.level1",
           borderColor: activeBorder,
           transition: "border-color 0.15s",
@@ -196,7 +282,7 @@ export default function SmartEntry() {
               spans={entry.spans}
               pendingTrigger={entry.pendingTrigger}
               ghostSuffix={ghostSuffix}
-              onChange={entry.onRawChange}
+              onChange={handleRawChange}
               onKeyDown={onKeyDown}
               onAcceptGhost={() => {
                 const full = ghost.acceptGhostText();
@@ -213,6 +299,14 @@ export default function SmartEntry() {
               inputRef={inputRef}
               disabled={!live}
               expanded={panelOpen}
+              // Inline field-mode chips floated at the caret while composing:
+              // splice by/from/via for artist/album/label — the old multi-field
+              // affordance on one line.
+              caretAffordance={
+                focused && live && isComposing ? (
+                  <TriggerChips isClaimed={isClaimed} onInsert={insertTrigger} />
+                ) : undefined
+              }
             />
 
             <Stack

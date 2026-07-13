@@ -23,8 +23,7 @@ describe("activeFieldAtEnd", () => {
     expect(active("Percolator by Stereolab on Dots")).toBe("album");
   });
 
-  it("tracks semicolon segments", () => {
-    expect(active("Percolator; Stereo")).toBe("artist");
-    expect(active("Percolator; Stereolab; Dots")).toBe("album");
+  it("stays on the song across a literal semicolon (not a separator)", () => {
+    expect(active("Percolator; Stereo")).toBe("song");
   });
 });

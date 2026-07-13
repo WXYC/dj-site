@@ -95,23 +95,23 @@ describe("smartEntryReducer", () => {
     });
 
     it("auto-escapes a trigger word inside the accepted value", () => {
-      // Accepting an album that contains "With" must keep the album whole — the
-      // inner "with" is suppressed so it isn't read as a label trigger.
-      const raw = "Song on Songs With Strangers";
-      const start = state({ raw: "Song on Songs Wi" });
+      // Accepting an album whose title contains "via" must keep the album whole
+      // — the inner "via" is suppressed so it isn't read as a label trigger.
+      const raw = "Song on Songs via Strangers";
+      const start = state({ raw: "Song on Songs vi" });
       const next = smartEntryReducer(start, {
         type: "ACCEPT_GHOST",
         raw,
         field: "album",
-        value: "Songs With Strangers",
+        value: "Songs via Strangers",
       });
-      const withOffset = raw.indexOf("With");
-      expect(next.suppressedTriggers).toContain(withOffset);
+      const viaOffset = raw.indexOf("via");
+      expect(next.suppressedTriggers).toContain(viaOffset);
       // And the parse keeps the album intact.
       const parse = parseSmartEntry(next.raw, {
         suppressedTriggers: next.suppressedTriggers,
       });
-      expect(parse.fields.album).toBe("Songs With Strangers");
+      expect(parse.fields.album).toBe("Songs via Strangers");
       expect(parse.fields.label).toBeUndefined();
     });
 

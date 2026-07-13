@@ -1,17 +1,12 @@
 import { findTriggerOffsets } from "./parser/parseSmartEntry";
 import type { SmartField } from "./parser/types";
+import { TRIGGER_WORD } from "./triggerWords";
 
 export type FilledSentence = {
   raw: string;
   locks: Partial<Record<SmartField, string>>;
   /** Offsets of trigger words inside filled values, to suppress. */
   suppress: number[];
-};
-
-const CONNECTOR: Record<"artist" | "album" | "label", string> = {
-  artist: "by",
-  album: "on",
-  label: "via",
 };
 
 /**
@@ -42,9 +37,9 @@ export function buildFilledSentence(
   };
 
   add("song", song, null);
-  add("artist", fields.artist ?? "", CONNECTOR.artist);
-  add("album", fields.album ?? "", CONNECTOR.album);
-  add("label", fields.label ?? "", CONNECTOR.label);
+  add("artist", fields.artist ?? "", TRIGGER_WORD.artist);
+  add("album", fields.album ?? "", TRIGGER_WORD.album);
+  add("label", fields.label ?? "", TRIGGER_WORD.label);
 
   const suppress = findTriggerOffsets(raw).filter((offset) =>
     ranges.some(([start, end]) => offset >= start && offset < end)

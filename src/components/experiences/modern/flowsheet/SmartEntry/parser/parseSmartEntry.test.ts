@@ -12,10 +12,9 @@ function offsetOf(raw: string, word: string, nth = 1): number {
   throw new Error(`"${word}" #${nth} not found in "${raw}"`);
 }
 
-describe("parseSmartEntry — trigger mode", () => {
+describe("parseSmartEntry", () => {
   it("empty input yields no fields", () => {
     const r = parseSmartEntry("");
-    expect(r.mode).toBe("trigger");
     expect(r.spans).toEqual([]);
     expect(r.fields).toEqual({});
     expect(r.fieldOrder).toEqual([]);
@@ -52,29 +51,28 @@ describe("parseSmartEntry — trigger mode", () => {
     expect(r.fields.song).toBeUndefined();
   });
 
-  it("treats 'off' as an explicit song trigger when there is no leading text", () => {
-    const r = parseSmartEntry("off Percolator by Stereolab");
-    expect(r.fields).toEqual({ song: "Percolator", artist: "Stereolab" });
-    expect(r.fieldOrder).toEqual<SmartField[]>(["song", "artist"]);
-  });
-
-  it("maps 'in' to album and 'with' to label", () => {
-    const r = parseSmartEntry("Song in Album with Label");
-    expect(r.fields).toEqual({
-      song: "Song",
-      album: "Album",
-      label: "Label",
-    });
-  });
-
-  it("maps 'from' to album", () => {
-    const r = parseSmartEntry("Percolator by Stereolab from Dots and Loops");
-    expect(r.fields).toEqual({
-      song: "Percolator",
+  it("only by/on/via are triggers — off/in/from/with are literal text", () => {
+    // 'off' is no longer a song trigger: it's part of the leading song text.
+    expect(parseSmartEntry("off Percolator by Stereolab").fields).toEqual({
+      song: "off Percolator",
       artist: "Stereolab",
-      album: "Dots and Loops",
     });
-    expect(r.fieldOrder).toEqual<SmartField[]>(["song", "artist", "album"]);
+    // 'in', 'from', 'with' are ordinary words, not album/label triggers.
+    expect(parseSmartEntry("Song in Album with Label").fields).toEqual({
+      song: "Song in Album with Label",
+    });
+    expect(
+      parseSmartEntry("Percolator by Stereolab from Dots and Loops").fields
+    ).toEqual({
+      song: "Percolator",
+      artist: "Stereolab from Dots and Loops",
+    });
+  });
+
+  it("treats a semicolon as ordinary literal text (not a separator)", () => {
+    const r = parseSmartEntry("Track 1; Jessica Pratt");
+    expect(r.fields).toEqual({ song: "Track 1; Jessica Pratt" });
+    expect(r.fieldOrder).toEqual<SmartField[]>(["song"]);
   });
 
   it("first assignment wins — a repeated trigger is literal text", () => {
@@ -141,66 +139,5 @@ describe("parseSmartEntry — trigger mode", () => {
       });
       expect(r.fieldOrder).toEqual<SmartField[]>(["song", "artist"]);
     });
-  });
-});
-
-describe("parseSmartEntry — semicolon mode", () => {
-  it("fills default order song → artist → album → label", () => {
-    const r = parseSmartEntry(
-      "Track 1; Shape Fixture Artist Alpha; Shape Fixture Album Alpha 2; Fixture Records"
-    );
-    expect(r.mode).toBe("semicolon");
-    expect(r.fields).toEqual({
-      song: "Track 1",
-      artist: "Shape Fixture Artist Alpha",
-      album: "Shape Fixture Album Alpha 2",
-      label: "Fixture Records",
-    });
-    expect(r.fieldOrder).toEqual<SmartField[]>([
-      "song",
-      "artist",
-      "album",
-      "label",
-    ]);
-  });
-
-  it("supports a partial prefix of the default order", () => {
-    const r = parseSmartEntry("Track 1; Jessica Pratt");
-    expect(r.fields).toEqual({ song: "Track 1", artist: "Jessica Pratt" });
-    expect(r.fieldOrder).toEqual<SmartField[]>(["song", "artist"]);
-  });
-
-  it("parses the first segment with the full trigger grammar (hybrid)", () => {
-    const r = parseSmartEntry("Halleluhwah by Can; Tago Mago");
-    expect(r.fields).toEqual({
-      song: "Halleluhwah",
-      artist: "Can",
-      album: "Tago Mago",
-    });
-    expect(r.fieldOrder).toEqual<SmartField[]>(["song", "artist", "album"]);
-  });
-
-  it("treats trigger words in later segments as literal", () => {
-    const r = parseSmartEntry("Track 1; Standing on the Corner");
-    expect(r.fields).toEqual({
-      song: "Track 1",
-      artist: "Standing on the Corner",
-    });
-  });
-
-  it("ignores a trailing empty segment", () => {
-    const r = parseSmartEntry("Track 1;");
-    expect(r.fields).toEqual({ song: "Track 1" });
-    expect(r.fieldOrder).toEqual<SmartField[]>(["song"]);
-  });
-
-  it("keeps spans ordered by start offset", () => {
-    const raw = "Track 1; Jessica Pratt; On Your Own Love Again";
-    const r = parseSmartEntry(raw);
-    const starts = r.spans.map((s) => s.start);
-    expect(starts).toEqual([...starts].sort((a, b) => a - b));
-    for (const span of r.spans) {
-      expect(raw.slice(span.start, span.end)).toBe(r.fields[span.field]);
-    }
   });
 });

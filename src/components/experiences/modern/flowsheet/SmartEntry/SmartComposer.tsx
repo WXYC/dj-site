@@ -1,7 +1,7 @@
 "use client";
 
 import { Box } from "@mui/joy";
-import type { KeyboardEvent, Ref } from "react";
+import type { KeyboardEvent, ReactNode, Ref } from "react";
 import type { FieldSpan, PendingTrigger } from "./parser/types";
 import ComposerMirror from "./ComposerMirror";
 import { smartEntryBoxSx, smartEntryTextMetricsSx } from "./smartEntryStyles";
@@ -27,12 +27,15 @@ export default function SmartComposer({
   inputRef,
   disabled = false,
   expanded = false,
-  placeholder = "Start typing…",
+  placeholder = "Start by typing the song name…",
+  caretAffordance,
 }: {
   raw: string;
   spans: FieldSpan[];
   pendingTrigger?: PendingTrigger;
   ghostSuffix?: string;
+  /** Chips floated inline at the end of the text (see ComposerMirror). */
+  caretAffordance?: ReactNode;
   onChange: (value: string) => void;
   onKeyDown?: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
   onAcceptGhost?: () => void;
@@ -60,6 +63,7 @@ export default function SmartComposer({
         spans={spans}
         pendingTrigger={pendingTrigger}
         ghostSuffix={ghostSuffix}
+        caretAffordance={caretAffordance}
       />
       <Box
         component="textarea"

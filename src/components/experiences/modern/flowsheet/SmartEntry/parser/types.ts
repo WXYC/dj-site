@@ -20,7 +20,7 @@ void _smartFieldIsSearchProperty;
 
 /**
  * Where a span's field assignment came from. The parser only ever emits
- * `"detected"` (passively recognized from trigger words / semicolon position).
+ * `"detected"` (passively recognized from a trigger word or leading position).
  * The stateful hook promotes a span to `"locked"` when the DJ accepts ghost
  * text or otherwise commits the field as a hard search constraint.
  */
@@ -44,8 +44,6 @@ export type FieldSpan = {
   source: SpanSource;
 };
 
-export type ParseMode = "trigger" | "semicolon";
-
 /**
  * A trigger word that has claimed a field but has no value text yet (e.g. the
  * caret sits right after "by "). The composer dims the trigger word and treats
@@ -60,7 +58,6 @@ export type PendingTrigger = {
 };
 
 export type ParseResult = {
-  mode: ParseMode;
   /** Value spans, ordered by `start`. */
   spans: FieldSpan[];
   /** Trimmed field values keyed by field; absent fields are simply omitted. */

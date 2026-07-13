@@ -71,15 +71,14 @@ describe("useFlowsheetSmartEntry", () => {
       expect(q.album).toBe("Dots and Loops");
     });
 
-    it("parses semicolon default order", () => {
+    it("treats a semicolon as literal text, not a separator", () => {
       const { store } = renderHost();
-      type("Track 1; Jessica Pratt; On Your Own Love Again");
+      type("Track 1; Jessica Pratt");
       act(() => vi.advanceTimersByTime(250));
 
       const q = query(store);
-      expect(q.song).toBe("Track 1");
-      expect(q.artist).toBe("Jessica Pratt");
-      expect(q.album).toBe("On Your Own Love Again");
+      expect(q.song).toBe("Track 1; Jessica Pratt");
+      expect(q.artist).toBe("");
     });
 
     it("opens the search panel once text is entered", () => {
