@@ -1,32 +1,21 @@
 "use client";
 
 import {
-  FlowsheetBreakpointEntry,
   FlowsheetEntry,
-  FlowsheetMessageEntry,
-  isFlowsheetBreakpointEntry,
-  isFlowsheetEndShowEntry,
   isFlowsheetSongEntry,
-  isFlowsheetStartShowEntry,
-  isFlowsheetTalksetEntry,
 } from "@/lib/features/flowsheet/types";
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
-import {
-  Headphones,
-  Logout,
-  Mic,
-  Notifications,
-  Timer,
-} from "@mui/icons-material";
-import { Box, ColorPaletteProp, Sheet, Stack, Typography } from "@mui/joy";
+import { Box, Sheet, Typography } from "@mui/joy";
+import { memo } from "react";
 import DateTimeStack from "./Components/DateTimeStack";
 import RemoveButton from "./Components/RemoveButton";
+import { getMessageEntryPresentation } from "./entryPresentation";
 import MobileSongEntry from "./SongEntry/MobileSongEntry";
 
 // Mobile counterpart of Entry.tsx: dispatches an entry to its stacked-card
-// renderer below the `sm` breakpoint. Not memoized (see Entry — entries
-// mutate in place).
-function MobileEntry({
+// renderer below the `sm` breakpoint. Memoized (see Entry — Immer gives
+// changed entries new references).
+const MobileEntry = memo(function MobileEntry({
   entry,
   playing,
 }: {
@@ -40,67 +29,13 @@ function MobileEntry({
   }
 
   const editable = entry.show_id == currentShow;
-  const removable =
-    live &&
-    editable &&
-    !isFlowsheetStartShowEntry(entry) &&
-    !isFlowsheetEndShowEntry(entry);
-
-  let icon = <Notifications />;
-  let color: ColorPaletteProp = "warning";
-  let content: React.ReactNode = (entry as FlowsheetMessageEntry).message;
-  let time: React.ReactNode = null;
-
-  if (isFlowsheetStartShowEntry(entry)) {
-    icon = <Headphones />;
-    color = "success";
-    time = <DateTimeStack day={entry.day} time={entry.time} />;
-    content = (
-      <>
-        <Typography level="body-sm" color="success">
-          {entry.dj_name}
-        </Typography>{" "}
-        <Typography level="body-sm" textColor="text.tertiary">
-          started the set
-        </Typography>
-      </>
-    );
-  } else if (isFlowsheetEndShowEntry(entry)) {
-    icon = <Logout />;
-    color = "success";
-    time = <DateTimeStack day={entry.day} time={entry.time} />;
-    content = (
-      <>
-        <Typography level="body-sm" color="primary">
-          {entry.dj_name}
-        </Typography>{" "}
-        <Typography level="body-sm" textColor="text.tertiary">
-          ended the set
-        </Typography>
-      </>
-    );
-  } else if (isFlowsheetTalksetEntry(entry)) {
-    icon = <Mic />;
-    color = "danger";
-    content = (
-      <Typography level="body-sm" color="danger">
-        {(entry as FlowsheetMessageEntry).message}
-      </Typography>
-    );
-  } else if (isFlowsheetBreakpointEntry(entry)) {
-    icon = <Timer />;
-    color = "warning";
-    content = (
-      <Typography level="body-sm" color="warning">
-        {(entry as FlowsheetBreakpointEntry).message}
-      </Typography>
-    );
-  }
+  const p = getMessageEntryPresentation(entry);
+  const removable = live && editable && p.editable;
 
   return (
     <Sheet
       variant="soft"
-      color={color}
+      color={p.color}
       sx={{
         borderRadius: "xl",
         px: 1.75,
@@ -111,18 +46,36 @@ function MobileEntry({
         boxShadow: "0 4px 12px -4px rgba(0,0,0,0.3)",
       }}
     >
-      <Box sx={{ display: "flex", color: `${color}.plainColor`, flexShrink: 0 }}>
-        {icon}
+      <Box
+        sx={{ display: "flex", color: `${p.color}.plainColor`, flexShrink: 0 }}
+      >
+        <p.Icon />
       </Box>
-      <Box sx={{ flex: 1, minWidth: 0 }}>{content}</Box>
-      {time && (
-        <Typography level="body-xs" textColor="text.tertiary" sx={{ flexShrink: 0 }}>
-          {time}
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography level="body-sm" color={p.textColor}>
+          {p.headline}
+        </Typography>
+        {p.caption && (
+          <>
+            {" "}
+            <Typography level="body-sm" textColor="text.tertiary">
+              {p.caption}
+            </Typography>
+          </>
+        )}
+      </Box>
+      {p.time && (
+        <Typography
+          level="body-xs"
+          textColor="text.tertiary"
+          sx={{ flexShrink: 0 }}
+        >
+          <DateTimeStack day={p.time.day} time={p.time.time} />
         </Typography>
       )}
       {removable && <RemoveButton queue={false} entry={entry} />}
     </Sheet>
   );
-}
+});
 
 export default MobileEntry;

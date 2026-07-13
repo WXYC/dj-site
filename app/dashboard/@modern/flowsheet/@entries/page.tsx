@@ -2,17 +2,17 @@
 
 import Entry from "@/src/components/experiences/modern/flowsheet/Entries/Entry";
 import MobileEntry from "@/src/components/experiences/modern/flowsheet/Entries/MobileEntry";
+import {
+  FLOWSHEET_MOBILE_QUERY,
+  FLOWSHEET_TABLE_SX,
+  FlowsheetColumnSizingRow,
+} from "@/src/components/experiences/modern/flowsheet/Entries/tableStyles";
 import FlowsheetSkeletonLoader from "@/src/components/experiences/modern/flowsheet/FlowsheetSkeletonLoader";
 import { useFlowsheet } from "@/src/hooks/flowsheetHooks";
 import { useMediaQuery } from "@/src/hooks/useMediaQuery";
 import { Box, Table } from "@mui/joy";
 import { Reorder } from "motion/react";
 import { useEffect, useState } from "react";
-
-// Below Joy's `sm` breakpoint (600px) the entries render as stacked cards
-// instead of the table. Only one layout is rendered at a time (not both
-// CSS-hidden), so the list never mounts twice.
-const MOBILE_QUERY = "(max-width: 599.95px)";
 
 export default function FlowsheetEntries() {
   const {
@@ -31,7 +31,7 @@ export default function FlowsheetEntries() {
     setMounted(true);
   }, []);
 
-  const isMobile = useMediaQuery(MOBILE_QUERY);
+  const isMobile = useMediaQuery(FLOWSHEET_MOBILE_QUERY);
 
   if (!mounted || loading) {
     return <FlowsheetSkeletonLoader count={10} />;
@@ -55,88 +55,13 @@ export default function FlowsheetEntries() {
   }
 
   return (
-    <Table
-      borderAxis="none"
-      sx={{
-        // Broadcast-log softening: separated rounded rows on lifted
-        // surfaces instead of hard gridlines over pure black.
-        borderCollapse: "separate",
-        borderSpacing: "0 4px",
-        "--TableCell-paddingX": "12px",
-        // Below xl the artist and label collapse into two-line title/album
-        // cells (see SongEntry), so their standalone columns are hidden and
-        // the remaining columns widen to fit the reflowed text.
-        "& .col-artist, & .col-label": {
-          display: { xs: "none", xl: "table-cell" },
-        },
-        "& tbody tr > td": {
-          backgroundColor: "var(--row-bg, transparent)",
-          transition: "background-color 120ms",
-        },
-        // Ordinary play rows sit nearly flush and lift on hover; colored
-        // rows (playing, markers) just brighten slightly.
-        "& tbody tr.row-plain:hover > td": {
-          backgroundColor: (theme) => theme.vars.palette.background.level1,
-        },
-        "& tbody tr:not(.row-plain):hover": { filter: "brightness(1.05)" },
-        // The current play lifts off the log for depth and keeps its
-        // controls available without hover.
-        "& tbody tr.row-playing > td": {
-          boxShadow: "0 6px 12px -4px rgba(0, 0, 0, 0.35)",
-          // Keep only the downward shadow: side bleed draws seams between
-          // the row's cells.
-          clipPath: "inset(0 0 -12px 0)",
-        },
-        "& tbody tr.row-playing .row-actions > *": { opacity: 1 },
-        "& tbody tr > td:first-of-type": {
-          borderTopLeftRadius: "8px",
-          borderBottomLeftRadius: "8px",
-        },
-        "& tbody tr > td:last-of-type": {
-          borderTopRightRadius: "8px",
-          borderBottomRightRadius: "8px",
-        },
-        // Controls stay quieter than the music identity: revealed on row
-        // hover/focus on pointer devices, always visible on touch. A control
-        // marked row-actions-persist (e.g. an activated request phone) stays
-        // visible without hover.
-        "@media (hover: hover)": {
-          "& tbody tr .row-actions > :not(.row-actions-persist)": {
-            opacity: 0,
-            transition: "opacity 120ms",
-          },
-          "& tbody tr:hover .row-actions > *, & tbody tr:focus-within .row-actions > *":
-            {
-              opacity: 1,
-            },
-          // Legibility backdrop appears only while revealed, so the status
-          // chips underneath stay visible at rest.
-          "& tbody tr:hover .row-actions, & tbody tr:focus-within .row-actions":
-            {
-              background:
-                "linear-gradient(to right, transparent, var(--row-bg) 18px)",
-            },
-        },
-      }}
-    >
+    <Table borderAxis="none" sx={FLOWSHEET_TABLE_SX}>
       <thead
         style={{
           visibility: "collapse",
         }}
       >
-        {/* Column sizing only (thead is collapsed): art+drag | title |
-            artist | album | label | status+actions. Every row type must
-            render exactly these 6 column units or fixed-layout sizing
-            silently degrades. The artist and label columns collapse below
-            xl (their text stacks into the title/album cells instead). */}
-        <tr>
-          <td style={{ width: "60px" }}></td>
-          <td></td>
-          <td className="col-artist"></td>
-          <td></td>
-          <td className="col-label"></td>
-          <td style={{ width: "150px" }}></td>
-        </tr>
+        <FlowsheetColumnSizingRow />
       </thead>
       <Reorder.Group
         values={current}

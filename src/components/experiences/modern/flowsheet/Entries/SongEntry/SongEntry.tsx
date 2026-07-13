@@ -1,28 +1,25 @@
 "use client";
 
-import { useAddToFlowsheetMutation } from "@/lib/features/flowsheet/api";
-import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
-import {
-  FlowsheetSongEntry,
-  FlowsheetSubmissionParams,
-} from "@/lib/features/flowsheet/types";
-import { useAppDispatch } from "@/lib/hooks";
+import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
+import { useMediaQuery } from "@/src/hooks/useMediaQuery";
 import { entryFieldTextColor } from "@/src/utilities/modern/entryFieldColors";
 import { PlayArrow } from "@mui/icons-material";
 import { AspectRatio, Box, IconButton, Stack, Tooltip } from "@mui/joy";
 import { useDragControls } from "motion/react";
-import { useState } from "react";
+import { memo, useState } from "react";
 import DragButton from "../Components/DragButton";
 import DraggableEntryWrapper from "../DraggableEntryWrapper";
+import { FLOWSHEET_XL_QUERY } from "../tableStyles";
 import FlowsheetEntryField from "./FlowsheetEntryField";
 import SongEntryControls from "./SongEntryControls";
 import SongEntryStatusChips from "./SongEntryStatusChips";
-import { toast } from "sonner";
+import { usePlayNow } from "./usePlayNow";
 
-// Not memoized: the flowsheet updates entry objects in place (e.g. request /
-// segue toggles), so a shallow prop check would leave the row stale.
-function SongEntry({
+// Memoized: entry updates flow through Immer (RTK Query cache patches +
+// slice reducers), so a changed entry always arrives as a new object
+// reference and unchanged rows can safely skip re-rendering.
+const SongEntry = memo(function SongEntry({
   playing,
   queue,
   entry,
@@ -32,17 +29,23 @@ function SongEntry({
   entry: FlowsheetSongEntry;
 }) {
   const { live, autoplay, currentShow } = useShowControl();
-  const [addToFlowsheet] = useAddToFlowsheetMutation();
+  const playNow = usePlayNow(entry);
 
   const controls = useDragControls();
 
   const [canClose, setCanClose] = useState(false);
 
+  // Above xl the artist and label get their own columns; below they stack
+  // into the title/album cells as quieter second lines. Each field mounts
+  // exactly once (never two CSS-toggled copies) so its editing state can't
+  // desync between layouts. Safe to gate with JS: the flowsheet pages only
+  // render after mount (see @entries/page.tsx), so there's no SSR pass to
+  // mismatch.
+  const isXl = useMediaQuery(FLOWSHEET_XL_QUERY);
+
   const editable = queue || (live && entry.show_id == currentShow);
 
   const image = entry.artwork_url ?? "/img/cassette.png";
-
-  const dispatch = useAppDispatch();
 
   const handleMouseEnter = () => {
     if (queue && live) {
@@ -106,25 +109,7 @@ function SongEntry({
                   transform: "translateY(-50%)",
                   zIndex: 10,
                 }}
-                onClick={() => {
-                  addToFlowsheet({
-                    track_title: entry.track_title,
-                    artist_name: entry.artist_name,
-                    album_title: entry.album_title,
-                    record_label: entry.record_label,
-                    request_flag: entry.request_flag,
-                    segue: entry.segue,
-                    rotation_id: entry.rotation_id,
-                    album_id: entry.album_id,
-                    rotation_bin: entry.rotation,
-                  } as FlowsheetSubmissionParams)
-                    .then(() => {
-                      dispatch(flowsheetSlice.actions.removeFromQueue(entry.id));
-                    })
-                    .catch((error) => {
-                      toast.error(`Failed to add to flowsheet: ${error}`);
-                    });
-                }}
+                onClick={playNow}
               >
                 <PlayArrow />
               </IconButton>
@@ -145,7 +130,27 @@ function SongEntry({
         />
         {/* Below xl the artist's own column is hidden; it stacks here under
             the title as a quieter second line (a two-line playlist cell). */}
-        <Box sx={{ display: { xs: "block", xl: "none" } }}>
+        {!isXl && (
+          <Box>
+            <FlowsheetEntryField
+              label="artist"
+              name={"artist_name"}
+              entry={entry}
+              playing={playing}
+              queue={queue}
+              editable={editable}
+              level="body-xs"
+              textColor={entryFieldTextColor("artist", playing)}
+            />
+          </Box>
+        )}
+      </td>
+      {isXl && (
+        <td
+          className="col-artist"
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
           <FlowsheetEntryField
             label="artist"
             name={"artist_name"}
@@ -153,27 +158,11 @@ function SongEntry({
             playing={playing}
             queue={queue}
             editable={editable}
-            level="body-xs"
+            level="body-sm"
             textColor={entryFieldTextColor("artist", playing)}
           />
-        </Box>
-      </td>
-      <td
-        className="col-artist"
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-      >
-        <FlowsheetEntryField
-          label="artist"
-          name={"artist_name"}
-          entry={entry}
-          playing={playing}
-          queue={queue}
-          editable={editable}
-          level="body-sm"
-          textColor={entryFieldTextColor("artist", playing)}
-        />
-      </td>
+        </td>
+      )}
       <td onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
         <FlowsheetEntryField
           label="album"
@@ -187,7 +176,27 @@ function SongEntry({
         />
         {/* Below xl the label's own column is hidden; it stacks here under
             the album as a quieter second line. */}
-        <Box sx={{ display: { xs: "block", xl: "none" } }}>
+        {!isXl && (
+          <Box>
+            <FlowsheetEntryField
+              label="label"
+              name={"record_label"}
+              entry={entry}
+              playing={playing}
+              queue={queue}
+              editable={editable}
+              level="body-xs"
+              textColor={entryFieldTextColor("label", playing)}
+            />
+          </Box>
+        )}
+      </td>
+      {isXl && (
+        <td
+          className="col-label"
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
           <FlowsheetEntryField
             label="label"
             name={"record_label"}
@@ -195,27 +204,11 @@ function SongEntry({
             playing={playing}
             queue={queue}
             editable={editable}
-            level="body-xs"
+            level="body-sm"
             textColor={entryFieldTextColor("label", playing)}
           />
-        </Box>
-      </td>
-      <td
-        className="col-label"
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-      >
-        <FlowsheetEntryField
-          label="label"
-          name={"record_label"}
-          entry={entry}
-          playing={playing}
-          queue={queue}
-          editable={editable}
-          level="body-sm"
-          textColor={entryFieldTextColor("label", playing)}
-        />
-      </td>
+        </td>
+      )}
       <td
         style={{ position: "relative" }}
         onMouseEnter={handleMouseEnter}
@@ -245,6 +238,6 @@ function SongEntry({
       </td>
     </DraggableEntryWrapper>
   );
-}
+});
 
 export default SongEntry;

@@ -24,8 +24,6 @@ export default function FlowsheetEntryField({
   queue,
   playing,
   editable,
-  revealEditOn = "hover",
-  editLayout = "fill",
   ...props
 }: {
   entry: FlowsheetSongEntry;
@@ -34,12 +32,6 @@ export default function FlowsheetEntryField({
   queue: boolean;
   playing: boolean;
   editable: boolean;
-  // "hover" (desktop): the pencil is hidden until the field is hovered.
-  // "always" (mobile/touch): keep it dimmed-visible as the edit affordance.
-  revealEditOn?: "hover" | "always";
-  // "fill" (desktop columns): the value stretches so the pencil sits at the
-  // cell's right edge. "inline" (mobile): the pencil hugs the value instead.
-  editLayout?: "fill" | "inline";
 } & Omit<TypographyProps, "whiteSpace" | "overflow" | "textOverflow">) {
   const { live } = useShowControl();
   const dispatch = useAppDispatch();
@@ -155,20 +147,18 @@ export default function FlowsheetEntryField({
         minWidth: 0,
         // A dimmed pencil signals the field is editable. Always visible
         // (dimmed) on touch devices that can't hover; on hover devices it
-        // reveals on hover unless the caller forces it always-on.
+        // reveals on hover.
         ...(canEdit && {
           "& .field-edit-btn": { opacity: 0.45 },
-          ...(revealEditOn === "hover" && {
-            "@media (hover: hover)": {
-              "& .field-edit-btn": {
-                opacity: 0,
-                transition: "opacity 120ms",
-              },
-              "&:hover .field-edit-btn, &:focus-within .field-edit-btn": {
-                opacity: 0.45,
-              },
+          "@media (hover: hover)": {
+            "& .field-edit-btn": {
+              opacity: 0,
+              transition: "opacity 120ms",
             },
-          }),
+            "&:hover .field-edit-btn, &:focus-within .field-edit-btn": {
+              opacity: 0.45,
+            },
+          },
         }),
       }}
     >
@@ -185,7 +175,8 @@ export default function FlowsheetEntryField({
           {...props}
           sx={{
             ...props.sx,
-            flex: editLayout === "inline" ? "0 1 auto" : "1 1 auto",
+            // The value stretches so the pencil sits at the cell's right edge.
+            flex: "1 1 auto",
             minWidth: 0,
             whiteSpace: "nowrap",
             overflow: "hidden",
