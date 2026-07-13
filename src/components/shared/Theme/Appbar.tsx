@@ -5,6 +5,7 @@ import { usePublicRoutes } from "@/src/hooks/applicationHooks";
 import { Box, ButtonGroup, Typography } from "@mui/joy";
 import dynamic from "next/dynamic";
 import { LinkButton } from "../General/LinkButton";
+import ThemePicker from "./ThemePicker";
 import ThemeSwitcher from "./ThemeSwitcher";
 
 const ColorSchemeToggle = dynamic(
@@ -45,6 +46,7 @@ export default function Appbar() {
             General Feedback
           </LinkButton>
         )}
+        <ThemePicker />
         <ThemeSwitcher />
         <ColorSchemeToggle />
       </ButtonGroup>

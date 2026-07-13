@@ -16,6 +16,7 @@ export const EXPERIENCE_REGISTRY: Record<ExperienceId, ExperienceConfig> = {
       hasLeftbar: false,
       hasMobileHeader: false,
       supportsThemeToggle: false,
+      supportsThemePicker: false,
     },
   },
   modern: {
@@ -30,6 +31,7 @@ export const EXPERIENCE_REGISTRY: Record<ExperienceId, ExperienceConfig> = {
       hasLeftbar: true,
       hasMobileHeader: true,
       supportsThemeToggle: true,
+      supportsThemePicker: true,
     },
   },
 };

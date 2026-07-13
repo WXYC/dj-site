@@ -10,6 +10,7 @@ import {
   useGetActiveExperienceQuery,
 } from "@/lib/features/experiences/api";
 import { useColorScheme } from "@mui/joy/styles";
+import { useModernTheme } from "@/src/styles/ModernThemeContext";
 import {
   buildPreference,
   useThemePreferenceActions,
@@ -28,13 +29,14 @@ export default function ThemeSwitcher() {
 
   const { data: experience, isLoading } = useGetActiveExperienceQuery();
   const { mode } = useColorScheme();
+  const { themeId } = useModernTheme();
   const { persistPreference } = useThemePreferenceActions();
 
   const handleSwitch = async (e: ReactMouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     const newExperience = experience === "classic" ? "modern" : "classic";
     const nextMode = mode === "light" || mode === "dark" ? mode : "light";
-    await persistPreference(buildPreference(newExperience, nextMode), {
+    await persistPreference(buildPreference(newExperience, nextMode, themeId), {
       updateUser: true,
     });
     router.refresh();
