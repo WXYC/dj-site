@@ -226,7 +226,9 @@ describe("session", () => {
       vi.mocked(parseAppSkinPreference).mockReturnValue({
         experience: "classic",
         colorMode: "dark",
-        themeId: "default",
+        themeId: "stacks",
+        canonical: "classic-dark",
+        needsRewrite: false,
       });
 
       const { createServerSideProps } = await import("@/lib/features/session");

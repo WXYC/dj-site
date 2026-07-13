@@ -84,11 +84,15 @@ per-scheme `background` slot (body/surface/popup/border → Joy `background.*` +
 divider). Picker swatches now primary/success/vinyl/CD.
 
 ## Themes
-Labels are music/radio references; `id`s stay fixed for preference back-compat.
-- **The Stacks** (`default`) — flagship; warm library rose, muted teal/stone/fuchsia,
+Labels + ids are music/radio references (meaningful slugs). Ids can change freely:
+an unknown preferred id resolves to the default (`stacks`) and the parser flags it
+`needsRewrite` so the client re-saves the canonical form — no migration table.
+Preference grammar: `classic-<mode>` or `modern-<themeId>-<mode>` (always 3-part for
+modern; the legacy 2-part `modern-<mode>` still parses and self-heals to 3-part).
+- **The Stacks** (`stacks`) — flagship; warm library rose, muted teal/stone/fuchsia,
   warm greige neutral. Light = near-white (pure-white cards); dark = warm chocolate.
-- **Blue Note** (`solarized`) — cool indigo/teal, the late shift (formerly "Ocean").
-- **Shellac** (`paper`) — old shellac 78s / switchboard: warm cream paper + rustic brown
+- **Blue Note** (`bluenote`) — cool indigo/teal, the late shift (formerly "Ocean").
+- **Shellac** (`shellac`) — old shellac 78s / switchboard: warm cream paper + rustic brown
   scaffolding, bakelite green (success) / brick red (danger, on-air) / mustard (warning),
   tube-amber vinyl vs. petrol-denim CD, warm taupe neutral.
 - **Deadstock** (`deadstock`) — punk/vampire blackout: stark black + white with blood-red
