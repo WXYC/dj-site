@@ -8,139 +8,148 @@ import type {
 } from "./types";
 
 /**
- * All modern theme color definitions live in this one file (Tailwind-sourced
- * scales). Adding a theme = add a `ThemeDefinition` here and register it in
- * `./registry.ts`. Infrastructure (types, buildTheme, registry) stays separate;
- * only the colors live here.
+ * All modern theme color definitions live in this one file. Adding a theme = add
+ * a `ThemeDefinition` here and register it in `./registry.ts`. Infrastructure
+ * (types, buildTheme, registry) stays separate; only the colors live here.
+ *
+ * The palettes deliberately use muted Material-design-style hues (not Tailwind's
+ * brighter defaults), which read as more sophisticated for this UI.
  */
-
-// ---------------------------------------------------------------------------
-// Tailwind default scales (exact hex, 50–900)
-// ---------------------------------------------------------------------------
-const ROSE: PaletteScale = { 50: "#fff1f2", 100: "#ffe4e6", 200: "#fecdd3", 300: "#fda4af", 400: "#fb7185", 500: "#f43f5e", 600: "#e11d48", 700: "#be123c", 800: "#9f1239", 900: "#881337" };
-const ZINC: PaletteScale = { 50: "#fafafa", 100: "#f4f4f5", 200: "#e4e4e7", 300: "#d4d4d8", 400: "#a1a1aa", 500: "#71717a", 600: "#52525b", 700: "#3f3f46", 800: "#27272a", 900: "#18181b" };
-const NEUTRAL: PaletteScale = { 50: "#fafafa", 100: "#f5f5f5", 200: "#e5e5e5", 300: "#d4d4d4", 400: "#a3a3a3", 500: "#737373", 600: "#525252", 700: "#404040", 800: "#262626", 900: "#171717" };
-const EMERALD: PaletteScale = { 50: "#ecfdf5", 100: "#d1fae5", 200: "#a7f3d0", 300: "#6ee7b7", 400: "#34d399", 500: "#10b981", 600: "#059669", 700: "#047857", 800: "#065f46", 900: "#064e3b" };
-const AMBER: PaletteScale = { 50: "#fffbeb", 100: "#fef3c7", 200: "#fde68a", 300: "#fcd34d", 400: "#fbbf24", 500: "#f59e0b", 600: "#d97706", 700: "#b45309", 800: "#92400e", 900: "#78350f" };
-const ORANGE: PaletteScale = { 50: "#fff7ed", 100: "#ffedd5", 200: "#fed7aa", 300: "#fdba74", 400: "#fb923c", 500: "#f97316", 600: "#ea580c", 700: "#c2410c", 800: "#9a3412", 900: "#7c2d12" };
-const RED: PaletteScale = { 50: "#fef2f2", 100: "#fee2e2", 200: "#fecaca", 300: "#fca5a5", 400: "#f87171", 500: "#ef4444", 600: "#dc2626", 700: "#b91c1c", 800: "#991b1b", 900: "#7f1d1d" };
-const VIOLET: PaletteScale = { 50: "#f5f3ff", 100: "#ede9fe", 200: "#ddd6fe", 300: "#c4b5fd", 400: "#a78bfa", 500: "#8b5cf6", 600: "#7c3aed", 700: "#6d28d9", 800: "#5b21b6", 900: "#4c1d95" };
-const YELLOW: PaletteScale = { 50: "#fefce8", 100: "#fef9c3", 200: "#fef08a", 300: "#fde047", 400: "#facc15", 500: "#eab308", 600: "#ca8a04", 700: "#a16207", 800: "#854d0e", 900: "#713f12" };
-const SKY: PaletteScale = { 50: "#f0f9ff", 100: "#e0f2fe", 200: "#bae6fd", 300: "#7dd3fc", 400: "#38bdf8", 500: "#0ea5e9", 600: "#0284c7", 700: "#0369a1", 800: "#075985", 900: "#0c4a6e" };
-
-// ---------------------------------------------------------------------------
-// Shared tokens (kept constant across themes for brand/semantic recognition)
-// ---------------------------------------------------------------------------
-const EXCLUSIVE_LIGHT: ExclusiveTokens = { solidBg: "#7e22ce", solidHoverBg: "#6b21a8" }; // purple 700/800
-const EXCLUSIVE_DARK: ExclusiveTokens = { solidBg: "#9333ea", solidHoverBg: "#a855f7" }; // purple 600/500
-const ONAIR_LIGHT: OnAirTokens = { indicator: "#ef4444", glow: "rgba(239, 68, 68, 0.45)" };
-const ONAIR_DARK: OnAirTokens = { indicator: "#f87171", glow: "rgba(248, 113, 113, 0.5)" };
-
-// Soft warm-stone dark surfaces (replaces the dated near-black), shared app-wide.
-const DARK_BACKGROUND: BackgroundTokens = { body: "#0c0a09", surface: "#1c1917", popup: "#292524", border: "#44403c" };
 
 const rot = (
   bg: string, bgHover: string, bgSelected: string,
   text: string, textSelected: string, border: string
 ): RotationBinTokens => ({ bg, bgHover, bgSelected, text, textSelected, border });
 
-// Rotation bins — mutually distinguishable, clear of the format/primary hues.
-// heavy=hottest → singles=coolest.
-const ROT_RED_L = rot("#fee2e2", "#fecaca", "#fca5a5", "#b91c1c", "#7f1d1d", "#fecaca");
-const ROT_RED_D = rot("#450a0a", "#7f1d1d", "#991b1b", "#fca5a5", "#fee2e2", "#991b1b");
-const ROT_TEAL_L = rot("#ccfbf1", "#99f6e4", "#5eead4", "#0f766e", "#134e4a", "#99f6e4");
-const ROT_TEAL_D = rot("#042f2e", "#134e4a", "#115e59", "#5eead4", "#ccfbf1", "#115e59");
-const ROT_YELLOW_L = rot("#fef9c3", "#fef08a", "#fde047", "#a16207", "#713f12", "#fef08a");
-const ROT_YELLOW_D = rot("#422006", "#713f12", "#854d0e", "#fde047", "#fef9c3", "#854d0e");
-const ROT_BLUE_L = rot("#dbeafe", "#bfdbfe", "#93c5fd", "#1d4ed8", "#1e3a8a", "#bfdbfe");
-const ROT_BLUE_D = rot("#172554", "#1e3a8a", "#1e40af", "#93c5fd", "#dbeafe", "#1e40af");
-const ROT_PINK_L = rot("#fce7f3", "#fbcfe8", "#f9a8d4", "#be185d", "#831843", "#fbcfe8");
-const ROT_PINK_D = rot("#500724", "#831843", "#9d174d", "#f9a8d4", "#fce7f3", "#9d174d");
-const ROT_INDIGO_L = rot("#e0e7ff", "#c7d2fe", "#a5b4fc", "#4338ca", "#312e81", "#c7d2fe");
-const ROT_INDIGO_D = rot("#1e1b4b", "#312e81", "#3730a3", "#a5b4fc", "#e0e7ff", "#3730a3");
+// ===========================================================================
+// WXYC Rose — the flagship. Rose primary, muted teal / stone / fuchsia accents.
+// ===========================================================================
+const ROSE: PaletteScale = { 50: "#fff1f2", 100: "#ffe4e6", 200: "#fecdd3", 300: "#fda4af", 400: "#fb7185", 500: "#f43f5e", 600: "#e11d48", 700: "#be123c", 800: "#9f1239", 900: "#881337" };
+const ROSE_DARK: PaletteScale = { 50: "#faeaef", 100: "#ecadc0", 200: "#e383a0", 300: "#d95a81", 400: "#d03161", 500: "#a6274e", 600: "#922244", 700: "#531427", 800: "#3e0f1d", 900: "#15050a" };
+const TEAL: PaletteScale = { 50: "#e0f2f1", 100: "#b2dfdb", 200: "#80cbc4", 300: "#4db6ac", 400: "#26a69a", 500: "#009688", 600: "#00897b", 700: "#00796b", 800: "#00695c", 900: "#004d40" };
+const TEAL_DARK: PaletteScale = { 50: "#e8f3f4", 100: "#b9dcdf", 200: "#74b9bf", 300: "#45a1a9", 400: "#178a94", 500: "#126e76", 600: "#106168", 700: "#0c454a", 800: "#07292c", 900: "#051c1e" };
+const STONE: PaletteScale = { 50: "#fafaf9", 100: "#f5f5f4", 200: "#e7e5e4", 300: "#d6d3d1", 400: "#a8a29e", 500: "#78716c", 600: "#57534e", 700: "#44403c", 800: "#292524", 900: "#1c1917" };
+const FUCHSIA: PaletteScale = { 50: "#fdf4ff", 100: "#fae8ff", 200: "#f5d0fe", 300: "#f0abfc", 400: "#e879f9", 500: "#d946ef", 600: "#c026d3", 700: "#a21caf", 800: "#86198f", 900: "#701a75" };
+const INDIGO_DARK: PaletteScale = { 50: "#eef2ff", 100: "#e0e7ff", 200: "#c7d2fe", 300: "#a5b4fc", 400: "#818cf8", 500: "#6366f1", 600: "#4f46e5", 700: "#4338ca", 800: "#3730a3", 900: "#312e81" };
 
-// ---------------------------------------------------------------------------
-// WXYC Rose — flagship. Rose primary; zinc neutral + amber warning (kills the
-// dated yellow-grey); orange/violet formats that harmonize with rose (Rock+CD
-// no longer clash); soft warm-stone dark background.
-// ---------------------------------------------------------------------------
+// Muted, sophisticated format hues that sit calmly next to rose.
+const VINYL_GOLD: PaletteScale = { 50: "#faf6ea", 100: "#f2e7c9", 200: "#e6d09b", 300: "#d8b96e", 400: "#cba74c", 500: "#bf9436", 600: "#a17c2c", 700: "#7e6123", 800: "#5c471a", 900: "#3e3011" };
+const CD_SLATE: PaletteScale = { 50: "#f2f5f8", 100: "#e0e8ef", 200: "#c3d2de", 300: "#9db6c9", 400: "#7699b0", 500: "#5b7a99", 600: "#4b6580", 700: "#3d5167", 800: "#2e3d4d", 900: "#202b36" };
+
+const ROSE_EXCLUSIVE: ExclusiveTokens = { solidBg: "#7B2D8E", solidHoverBg: "#6a2479" };
+const ROSE_ONAIR: OnAirTokens = { indicator: "#ef4444", glow: "rgba(239, 68, 68, 0.5)" };
+// Dark surfaces: a soft warm charcoal — clearly not black.
+const ROSE_DARK_BG: BackgroundTokens = { body: "#1e1a22", surface: "#282430", popup: "#322d3a", border: "#3d3745" };
+
+const ROSE_ROT_LIGHT = {
+  heavy: rot("#fce4ec", "#f8bbd0", "#e53935", "#b71c1c", "#ffffff", "#ef9a9a"),
+  medium: rot("#fff9c4", "#fff176", "#f9a825", "#f57f17", "#ffffff", "#fdd835"),
+  light: rot("#e0f2f1", "#b2dfdb", "#00897b", "#004d40", "#ffffff", "#80cbc4"),
+  singles: rot("#e8eaf6", "#c5cae9", "#5c6bc0", "#283593", "#ffffff", "#9fa8da"),
+};
+const ROSE_ROT_DARK = {
+  heavy: rot("#4a1a1a", "#5c2020", "#e53935", "#ef9a9a", "#ffffff", "#7f3333"),
+  medium: rot("#4a3a0a", "#5c4810", "#f9a825", "#fdd835", "#ffffff", "#7f6820"),
+  light: rot("#1a3a36", "#204a44", "#00897b", "#80cbc4", "#ffffff", "#336a60"),
+  singles: rot("#262a4a", "#30365c", "#5c6bc0", "#9fa8da", "#ffffff", "#4a5090"),
+};
+
 export const wxycRoseTheme: ThemeDefinition = {
   id: "default",
   label: "WXYC Rose",
-  description: "The signature WXYC look — soft rose, cool-zinc neutrals, warm accents.",
+  description: "The signature WXYC look — soft rose with muted teal and stone.",
   schemes: {
     light: {
       primary: ROSE,
-      neutral: ZINC,
-      success: EMERALD,
-      warning: AMBER,
-      danger: RED,
+      success: TEAL,
+      warning: STONE,
+      danger: FUCHSIA,
       sidebar: ROSE,
-      sidebarAdmin: EMERALD,
-      formatVinyl: ORANGE,
-      formatCd: VIOLET,
-      exclusive: EXCLUSIVE_LIGHT,
-      onAir: ONAIR_LIGHT,
-      rotation: { heavy: ROT_RED_L, medium: ROT_YELLOW_L, light: ROT_TEAL_L, singles: ROT_BLUE_L },
-      background: { body: "#fafaf9", surface: "#ffffff", popup: "#f5f5f4", border: "#e7e5e4" },
+      sidebarAdmin: TEAL,
+      formatVinyl: VINYL_GOLD,
+      formatCd: CD_SLATE,
+      exclusive: ROSE_EXCLUSIVE,
+      onAir: ROSE_ONAIR,
+      rotation: ROSE_ROT_LIGHT,
+      background: { body: "#faf7f8", surface: "#ffffff", popup: "#f4eef1", border: "#eae2e6" },
     },
     dark: {
-      primary: ROSE,
-      neutral: ZINC,
-      success: EMERALD,
-      warning: AMBER,
-      danger: RED,
-      sidebar: ROSE,
-      sidebarAdmin: EMERALD,
-      formatVinyl: ORANGE,
-      formatCd: VIOLET,
-      exclusive: EXCLUSIVE_DARK,
-      onAir: ONAIR_DARK,
-      rotation: { heavy: ROT_RED_D, medium: ROT_YELLOW_D, light: ROT_TEAL_D, singles: ROT_BLUE_D },
-      background: DARK_BACKGROUND,
+      primary: ROSE_DARK,
+      success: TEAL_DARK,
+      danger: INDIGO_DARK,
+      sidebar: ROSE_DARK,
+      sidebarAdmin: TEAL_DARK,
+      formatVinyl: VINYL_GOLD,
+      formatCd: CD_SLATE,
+      exclusive: ROSE_EXCLUSIVE,
+      onAir: ROSE_ONAIR,
+      rotation: ROSE_ROT_DARK,
+      background: ROSE_DARK_BG,
     },
   },
 };
 
-// ---------------------------------------------------------------------------
-// Solar — a soft, sunny/warm theme. Amber primary (sunlight), yellow vinyl,
-// muted sky CD ("golden hour" pairing), true-neutral scaffolding so the warm
-// hues pop rather than blend into a gold wash.
-// ---------------------------------------------------------------------------
-export const solarTheme: ThemeDefinition = {
-  id: "solar",
-  label: "Solar",
-  description: "Soft, sunny golds and ambers — warm but legible.",
+// ===========================================================================
+// Solarized — the cool indigo/teal palette (formerly "Ocean"), renamed only.
+// ===========================================================================
+const INDIGO: PaletteScale = { 50: "#eef2ff", 100: "#e0e7ff", 200: "#c7d2fe", 300: "#a5b4fc", 400: "#818cf8", 500: "#6366f1", 600: "#4f46e5", 700: "#4338ca", 800: "#3730a3", 900: "#312e81" };
+const OCEAN_TEAL: PaletteScale = { 50: "#f0fdfa", 100: "#ccfbf1", 200: "#99f6e4", 300: "#5eead4", 400: "#2dd4bf", 500: "#14b8a6", 600: "#0d9488", 700: "#0f766e", 800: "#115e59", 900: "#134e4a" };
+const SLATE: PaletteScale = { 50: "#f8fafc", 100: "#f1f5f9", 200: "#e2e8f0", 300: "#cbd5e1", 400: "#94a3b8", 500: "#64748b", 600: "#475569", 700: "#334155", 800: "#1e293b", 900: "#0f172a" };
+const CORAL: PaletteScale = { 50: "#fff1f2", 100: "#ffe4e6", 200: "#fecdd3", 300: "#fda4af", 400: "#fb7185", 500: "#f43f5e", 600: "#e11d48", 700: "#be123c", 800: "#9f1239", 900: "#881337" };
+const OCEAN_AMBER: PaletteScale = { 50: "#fffbeb", 100: "#fef3c7", 200: "#fde68a", 300: "#fcd34d", 400: "#fbbf24", 500: "#f59e0b", 600: "#d97706", 700: "#b45309", 800: "#92400e", 900: "#78350f" };
+const CYAN: PaletteScale = { 50: "#ecfeff", 100: "#cffafe", 200: "#a5f3fc", 300: "#67e8f9", 400: "#22d3ee", 500: "#06b6d4", 600: "#0891b2", 700: "#0e7490", 800: "#155e75", 900: "#164e63" };
+
+const OCEAN_EXCLUSIVE: ExclusiveTokens = { solidBg: "#8b5cf6", solidHoverBg: "#7c3aed" };
+const OCEAN_ONAIR: OnAirTokens = { indicator: "#f43f5e", glow: "rgba(244, 63, 94, 0.5)" };
+const OCEAN_DARK_BG: BackgroundTokens = { body: "#182029", surface: "#212b36", popup: "#2b3744", border: "#384654" };
+
+const OCEAN_ROT_LIGHT = {
+  heavy: rot("#e0e7ff", "#c7d2fe", "#4f46e5", "#312e81", "#ffffff", "#a5b4fc"),
+  medium: rot("#ccfbf1", "#99f6e4", "#0d9488", "#134e4a", "#ffffff", "#5eead4"),
+  light: rot("#cffafe", "#a5f3fc", "#0891b2", "#164e63", "#ffffff", "#67e8f9"),
+  singles: rot("#f1f5f9", "#e2e8f0", "#475569", "#0f172a", "#ffffff", "#cbd5e1"),
+};
+const OCEAN_ROT_DARK = {
+  heavy: rot("#1e1b4b", "#312e81", "#6366f1", "#c7d2fe", "#ffffff", "#4338ca"),
+  medium: rot("#0f2e2b", "#115e59", "#14b8a6", "#99f6e4", "#ffffff", "#0f766e"),
+  light: rot("#0a2e38", "#155e75", "#06b6d4", "#a5f3fc", "#ffffff", "#0e7490"),
+  singles: rot("#1e293b", "#334155", "#64748b", "#cbd5e1", "#ffffff", "#475569"),
+};
+
+export const solarizedTheme: ThemeDefinition = {
+  id: "solarized",
+  label: "Solarized",
+  description: "Cool indigo and teal, like the coast at night.",
   schemes: {
     light: {
-      primary: AMBER,
-      neutral: NEUTRAL,
-      success: EMERALD,
-      warning: ORANGE,
-      danger: RED,
-      sidebar: AMBER,
-      sidebarAdmin: EMERALD,
-      formatVinyl: YELLOW,
-      formatCd: SKY,
-      exclusive: EXCLUSIVE_LIGHT,
-      onAir: ONAIR_LIGHT,
-      rotation: { heavy: ROT_RED_L, medium: ROT_PINK_L, light: ROT_TEAL_L, singles: ROT_INDIGO_L },
-      background: { body: "#fffbeb", surface: "#ffffff", popup: "#fef3c7", border: "#fde68a" },
+      primary: INDIGO,
+      neutral: SLATE,
+      success: OCEAN_TEAL,
+      warning: OCEAN_AMBER,
+      danger: CORAL,
+      sidebar: INDIGO,
+      sidebarAdmin: OCEAN_TEAL,
+      formatVinyl: OCEAN_AMBER,
+      formatCd: CYAN,
+      exclusive: OCEAN_EXCLUSIVE,
+      onAir: OCEAN_ONAIR,
+      rotation: OCEAN_ROT_LIGHT,
+      background: { body: "#f6f8fb", surface: "#ffffff", popup: "#eef2f7", border: "#e2e8f0" },
     },
     dark: {
-      primary: AMBER,
-      neutral: NEUTRAL,
-      success: EMERALD,
-      warning: ORANGE,
-      danger: RED,
-      sidebar: AMBER,
-      sidebarAdmin: EMERALD,
-      formatVinyl: YELLOW,
-      formatCd: SKY,
-      exclusive: EXCLUSIVE_DARK,
-      onAir: ONAIR_DARK,
-      rotation: { heavy: ROT_RED_D, medium: ROT_PINK_D, light: ROT_TEAL_D, singles: ROT_INDIGO_D },
-      background: DARK_BACKGROUND,
+      primary: INDIGO,
+      neutral: SLATE,
+      success: OCEAN_TEAL,
+      warning: OCEAN_AMBER,
+      danger: CORAL,
+      sidebar: INDIGO,
+      sidebarAdmin: OCEAN_TEAL,
+      formatVinyl: OCEAN_AMBER,
+      formatCd: CYAN,
+      exclusive: OCEAN_EXCLUSIVE,
+      onAir: OCEAN_ONAIR,
+      rotation: OCEAN_ROT_DARK,
+      background: OCEAN_DARK_BG,
     },
   },
 };
