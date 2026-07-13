@@ -5,9 +5,18 @@ import type { AlbumEntry } from "@/lib/features/catalog/types";
 
 // Mock the hooks
 const mockUseBin = vi.fn();
+const mockUseGetRightbarQuery = vi.fn();
 
 vi.mock("@/src/hooks/binHooks", () => ({
   useBin: () => mockUseBin(),
+}));
+
+vi.mock("@/lib/features/application/api", () => ({
+  useGetRightbarQuery: () => mockUseGetRightbarQuery(),
+}));
+
+vi.mock("@/src/hooks/flowsheetHooks", () => ({
+  useShowControl: () => ({ live: false }),
 }));
 
 // Mock child components
@@ -63,7 +72,7 @@ vi.mock("@mui/joy", () => ({
       data-testid="card"
       data-variant={variant}
       data-overflow-y={sx?.overflowY}
-      style={{ maxHeight: sx?.maxHeight }}
+      style={{ height: sx?.height }}
     >
       {children}
     </div>
@@ -158,6 +167,7 @@ describe("BinContent", () => {
       isSuccess: true,
       isError: false,
     });
+    mockUseGetRightbarQuery.mockReturnValue({ data: false });
   });
 
   it("should render the content container with Mail Bin label", () => {
@@ -200,12 +210,20 @@ describe("BinContent", () => {
     );
   });
 
-  it("should cap the card height and scroll on overflow (auto)", () => {
+  it("should use a fixed box height that scrolls on overflow (auto)", () => {
     render(<BinContent />);
 
     const card = screen.getByTestId("card");
-    expect(card).toHaveStyle({ maxHeight: "500px" });
+    expect(card).toHaveStyle({ height: "335px" });
     expect(card).toHaveAttribute("data-overflow-y", "auto");
+  });
+
+  it("should use the taller fixed height when the rightbar is expanded", () => {
+    mockUseGetRightbarQuery.mockReturnValue({ data: true });
+
+    render(<BinContent />);
+
+    expect(screen.getByTestId("card")).toHaveStyle({ height: "500px" });
   });
 
   it("should render empty message when bin is empty", () => {
