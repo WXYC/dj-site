@@ -37,19 +37,19 @@ describe("ThemePicker", () => {
     const { user } = renderWithProviders(<ThemePicker />);
     await user.click(screen.getByRole("button", { name: /choose color theme/i }));
 
-    expect(screen.getByText("WXYC Rose")).toBeInTheDocument();
-    expect(screen.getByText("Solarized")).toBeInTheDocument();
+    expect(screen.getByText("The Stacks")).toBeInTheDocument();
+    expect(screen.getByText("Blue Note")).toBeInTheDocument();
 
-    const active = screen.getByRole("menuitemradio", { name: /WXYC Rose/i });
+    const active = screen.getByRole("menuitemradio", { name: /The Stacks/i });
     expect(active).toHaveAttribute("aria-checked", "true");
-    const inactive = screen.getByRole("menuitemradio", { name: /Solarized/i });
+    const inactive = screen.getByRole("menuitemradio", { name: /Blue Note/i });
     expect(inactive).toHaveAttribute("aria-checked", "false");
   });
 
   it("switches and persists the chosen theme, then reloads", async () => {
     const { user } = renderWithProviders(<ThemePicker />);
     await user.click(screen.getByRole("button", { name: /choose color theme/i }));
-    await user.click(screen.getByRole("menuitemradio", { name: /Solarized/i }));
+    await user.click(screen.getByRole("menuitemradio", { name: /Blue Note/i }));
 
     expect(setThemeId).toHaveBeenCalledWith("solarized");
     // mode defaults to light in the test CssVarsProvider
@@ -63,11 +63,11 @@ describe("ThemePicker", () => {
   it("closes on an outside click without switching themes", async () => {
     const { user } = renderWithProviders(<ThemePicker />);
     await user.click(screen.getByRole("button", { name: /choose color theme/i }));
-    expect(screen.getByText("Solarized")).toBeInTheDocument();
+    expect(screen.getByText("Blue Note")).toBeInTheDocument();
 
     await user.click(document.body);
 
-    expect(screen.queryByText("Solarized")).not.toBeInTheDocument();
+    expect(screen.queryByText("Blue Note")).not.toBeInTheDocument();
     expect(setThemeId).not.toHaveBeenCalled();
     expect(persistPreference).not.toHaveBeenCalled();
   });
@@ -75,7 +75,7 @@ describe("ThemePicker", () => {
   it("does not persist or reload when picking the active theme", async () => {
     const { user } = renderWithProviders(<ThemePicker />);
     await user.click(screen.getByRole("button", { name: /choose color theme/i }));
-    await user.click(screen.getByRole("menuitemradio", { name: /WXYC Rose/i }));
+    await user.click(screen.getByRole("menuitemradio", { name: /The Stacks/i }));
 
     expect(persistPreference).not.toHaveBeenCalled();
     expect(reload).not.toHaveBeenCalled();

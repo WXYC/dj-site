@@ -21,8 +21,12 @@ const rot = (
   text: string, textSelected: string, border: string
 ): RotationBinTokens => ({ bg, bgHover, bgSelected, text, textSelected, border });
 
+// Theme labels are music/radio references; the `id`s below stay fixed for
+// preference back-compat (they're persisted in cookies/accounts).
+
 // ===========================================================================
-// WXYC Rose — the flagship. Rose primary, muted teal / stone / fuchsia accents.
+// The Stacks (id "default") — the flagship. Warm record-library rose: rose
+// primary, muted teal / stone / fuchsia accents, warm greige neutral.
 // ===========================================================================
 const ROSE: PaletteScale = { 50: "#fff1f2", 100: "#ffe4e6", 200: "#fecdd3", 300: "#fda4af", 400: "#fb7185", 500: "#f43f5e", 600: "#e11d48", 700: "#be123c", 800: "#9f1239", 900: "#881337" };
 const ROSE_DARK: PaletteScale = { 50: "#faeaef", 100: "#ecadc0", 200: "#e383a0", 300: "#d95a81", 400: "#d03161", 500: "#a6274e", 600: "#922244", 700: "#531427", 800: "#3e0f1d", 900: "#15050a" };
@@ -58,10 +62,10 @@ const ROSE_ROT_DARK = {
   singles: rot("#262a4a", "#30365c", "#5c6bc0", "#9fa8da", "#ffffff", "#4a5090"),
 };
 
-export const wxycRoseTheme: ThemeDefinition = {
+export const theStacksTheme: ThemeDefinition = {
   id: "default",
-  label: "WXYC Rose",
-  description: "The signature WXYC look — soft rose with muted teal and stone.",
+  label: "The Stacks",
+  description: "The signature WXYC look — warm library rose with muted teal and stone.",
   schemes: {
     light: {
       primary: ROSE,
@@ -96,7 +100,7 @@ export const wxycRoseTheme: ThemeDefinition = {
 };
 
 // ===========================================================================
-// Solarized — the cool indigo/teal palette (formerly "Ocean"), renamed only.
+// Blue Note (id "solarized") — the cool indigo/teal palette, like the late shift.
 // ===========================================================================
 const INDIGO: PaletteScale = { 50: "#eef2ff", 100: "#e0e7ff", 200: "#c7d2fe", 300: "#a5b4fc", 400: "#818cf8", 500: "#6366f1", 600: "#4f46e5", 700: "#4338ca", 800: "#3730a3", 900: "#312e81" };
 const OCEAN_TEAL: PaletteScale = { 50: "#f0fdfa", 100: "#ccfbf1", 200: "#99f6e4", 300: "#5eead4", 400: "#2dd4bf", 500: "#14b8a6", 600: "#0d9488", 700: "#0f766e", 800: "#115e59", 900: "#134e4a" };
@@ -122,10 +126,10 @@ const OCEAN_ROT_DARK = {
   singles: rot("#1e293b", "#334155", "#64748b", "#cbd5e1", "#ffffff", "#475569"),
 };
 
-export const solarizedTheme: ThemeDefinition = {
+export const blueNoteTheme: ThemeDefinition = {
   id: "solarized",
-  label: "Solarized",
-  description: "Cool indigo and teal, like the coast at night.",
+  label: "Blue Note",
+  description: "Cool indigo and teal, like the late shift after midnight.",
   schemes: {
     light: {
       primary: INDIGO,
@@ -161,9 +165,9 @@ export const solarizedTheme: ThemeDefinition = {
 };
 
 // ===========================================================================
-// Paper Retro — an old-fashioned switchboard: warm cream paper, rustic brown
-// scaffolding, and the striking bakelite reds/greens of patch cables. Muted and
-// a touch "plasticky" (warm, slightly hazy surfaces) rather than bright.
+// Shellac (id "paper") — old shellac 78s and an antique switchboard: warm cream
+// paper, rustic brown scaffolding, and the striking bakelite reds/greens of patch
+// cables. Muted and a touch "plasticky" (warm, slightly hazy) rather than bright.
 // ===========================================================================
 // Warm coffee brown — the rustic base (sidebar / primary).
 const BROWN: PaletteScale = { 50: "#f5ede4", 100: "#e8d8c3", 200: "#d8bd9c", 300: "#c5a074", 400: "#b3854f", 500: "#9c6d3a", 600: "#855b30", 700: "#6b4826", 800: "#4f351c", 900: "#382512" };
@@ -200,10 +204,10 @@ const PAPER_ROT_DARK = {
   singles: rot("#332c1e", "#443a28", "#9c8b73", "#d2c8b9", "#ffffff", "#5a4e3a"),
 };
 
-export const paperRetroTheme: ThemeDefinition = {
+export const shellacTheme: ThemeDefinition = {
   id: "paper",
-  label: "Paper Retro",
-  description: "A vintage switchboard — cream paper, rustic browns, bakelite red and green.",
+  label: "Shellac",
+  description: "Old shellac 78s — cream paper, rustic browns, bakelite red and green.",
   schemes: {
     light: {
       primary: BROWN,
@@ -234,6 +238,77 @@ export const paperRetroTheme: ThemeDefinition = {
       onAir: PAPER_ONAIR,
       rotation: PAPER_ROT_DARK,
       background: PAPER_DARK_BG,
+    },
+  },
+};
+
+// ===========================================================================
+// Deadstock (id "deadstock") — a punk/vampire blackout: stark black and white
+// with blood red as the centerpiece. Bright crimson sidebar, near-black surfaces
+// with a faint blood undertone, records in oxblood vs. silver.
+// ===========================================================================
+const CRIMSON: PaletteScale = { 50: "#fdeaea", 100: "#f9c6c6", 200: "#ef9a9a", 300: "#e56b6b", 400: "#d84343", 500: "#c1121f", 600: "#a50f1a", 700: "#870c15", 800: "#5f0a10", 900: "#3a060a" };
+// Brighter blood red so the sidebar/primary pops against near-black in dark mode.
+const CRIMSON_DARK: PaletteScale = { 50: "#fdeaea", 100: "#f4b4b4", 200: "#ea8585", 300: "#e05a5a", 400: "#d63a3a", 500: "#e02424", 600: "#c11a1a", 700: "#7a1010", 800: "#500a0a", 900: "#240404" };
+const ZINC: PaletteScale = { 50: "#fafafa", 100: "#f4f4f5", 200: "#e4e4e7", 300: "#d4d4d8", 400: "#a1a1aa", 500: "#71717a", 600: "#52525b", 700: "#3f3f46", 800: "#27272a", 900: "#18181b" };
+const STEEL: PaletteScale = { 50: "#eef2f4", 100: "#d5dfe4", 200: "#b3c5cd", 300: "#8ba7b3", 400: "#6a8b99", 500: "#4f7180", 600: "#415d6a", 700: "#334954", 800: "#25343c", 900: "#182329" };
+const BONE: PaletteScale = { 50: "#faf7f0", 100: "#f0e8d5", 200: "#e2d3b0", 300: "#d0b981", 400: "#bda158", 500: "#a9822b", 600: "#8c6b23", 700: "#6b521b", 800: "#4c3a13", 900: "#30250c" };
+// Records: deep oxblood vinyl vs. silver CD.
+const OXBLOOD: PaletteScale = { 50: "#f6eaea", 100: "#e7c2c2", 200: "#d29494", 300: "#bd6666", 400: "#a94141", 500: "#7f1d1d", 600: "#6b1717", 700: "#531111", 800: "#3a0c0c", 900: "#240606" };
+const SILVER: PaletteScale = { 50: "#f4f5f6", 100: "#e5e7ea", 200: "#cdd1d6", 300: "#aab1b9", 400: "#828b95", 500: "#646d77", 600: "#525a63", 700: "#41474e", 800: "#2e3339", 900: "#1e2226" };
+
+const DEAD_EXCLUSIVE: ExclusiveTokens = { solidBg: "#a50f1a", solidHoverBg: "#870c15" };
+const DEAD_ONAIR: OnAirTokens = { indicator: "#e02424", glow: "rgba(224, 36, 36, 0.55)" };
+// Near-black with a faint blood undertone (red > green >= blue), vampiric.
+const DEAD_DARK_BG: BackgroundTokens = { body: "#0c0a0b", surface: "#171314", popup: "#201a1b", border: "#2e2626" };
+
+const DEAD_ROT_LIGHT = {
+  heavy: rot("#fde8e8", "#f8c9c9", "#c1121f", "#7a0c14", "#ffffff", "#eaa5a5"),
+  medium: rot("#f6efe0", "#ecdcbb", "#a9822b", "#5e4715", "#ffffff", "#dcc79a"),
+  light: rot("#e7ecef", "#cdd8de", "#4f7180", "#2f4350", "#ffffff", "#a9bcc6"),
+  singles: rot("#ececed", "#dcdcde", "#6b6b72", "#33333a", "#ffffff", "#c3c3c8"),
+};
+const DEAD_ROT_DARK = {
+  heavy: rot("#3a0d0d", "#4d1212", "#e02424", "#f0a5a5", "#ffffff", "#661717"),
+  medium: rot("#332a12", "#463916", "#c99a2e", "#e4c87d", "#ffffff", "#6b551a"),
+  light: rot("#182228", "#213038", "#5a90a8", "#a9ccdb", "#ffffff", "#31485a"),
+  singles: rot("#26262a", "#34343a", "#8a8a92", "#d2d2d8", "#ffffff", "#4a4a52"),
+};
+
+export const deadstockTheme: ThemeDefinition = {
+  id: "deadstock",
+  label: "Deadstock",
+  description: "A punk blackout — stark black and white with blood-red at the center.",
+  schemes: {
+    light: {
+      primary: CRIMSON,
+      neutral: ZINC,
+      success: STEEL,
+      warning: BONE,
+      danger: CRIMSON,
+      sidebar: CRIMSON,
+      sidebarAdmin: ZINC,
+      formatVinyl: OXBLOOD,
+      formatCd: SILVER,
+      exclusive: DEAD_EXCLUSIVE,
+      onAir: DEAD_ONAIR,
+      rotation: DEAD_ROT_LIGHT,
+      background: { body: "#f5f3f3", surface: "#ffffff", popup: "#ece8e8", border: "#dcd4d4" },
+    },
+    dark: {
+      primary: CRIMSON_DARK,
+      neutral: ZINC,
+      success: STEEL,
+      warning: BONE,
+      danger: CRIMSON_DARK,
+      sidebar: CRIMSON_DARK,
+      sidebarAdmin: ZINC,
+      formatVinyl: OXBLOOD,
+      formatCd: SILVER,
+      exclusive: DEAD_EXCLUSIVE,
+      onAir: DEAD_ONAIR,
+      rotation: DEAD_ROT_DARK,
+      background: DEAD_DARK_BG,
     },
   },
 };
