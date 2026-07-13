@@ -1,6 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { CssVarsProvider } from "@mui/joy/styles";
+import type { ReactElement } from "react";
+
+// Mock fonts before importing the modern theme (pulled in for the sidebar palette).
+vi.mock("next/font/google", () => ({
+  Kanit: () => ({ style: { fontFamily: "Kanit, sans-serif" } }),
+}));
+vi.mock("next/font/local", () => ({
+  default: () => ({ style: { fontFamily: "Minbus, sans-serif" } }),
+}));
+
 import LeftbarContainer from "./LeftbarContainer";
+import modernTheme from "@/lib/features/experiences/modern/theme";
 
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
@@ -16,13 +28,19 @@ vi.mock("@/src/components/shared/Branding/Logo", () => ({
   ),
 }));
 
+// The sidebar Sheet uses the custom `sidebar`/`sidebarAdmin` palette slots +
+// `invertedColors`, which only resolve under the modern theme.
+function renderInTheme(ui: ReactElement) {
+  return render(<CssVarsProvider theme={modernTheme}>{ui}</CssVarsProvider>);
+}
+
 describe("LeftbarContainer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it("should render children", () => {
-    render(
+    renderInTheme(
       <LeftbarContainer>
         <div data-testid="child-content">Child Content</div>
       </LeftbarContainer>
@@ -32,7 +50,7 @@ describe("LeftbarContainer", () => {
   });
 
   it("should render logo", () => {
-    render(
+    renderInTheme(
       <LeftbarContainer>
         <div>Content</div>
       </LeftbarContainer>
@@ -42,7 +60,7 @@ describe("LeftbarContainer", () => {
   });
 
   it("should have FirstSidebar class", () => {
-    render(
+    renderInTheme(
       <LeftbarContainer>
         <div>Content</div>
       </LeftbarContainer>
@@ -52,31 +70,34 @@ describe("LeftbarContainer", () => {
     expect(container).toBeInTheDocument();
   });
 
-  it("should use primary color for non-admin paths", () => {
-    render(
+  it("should use the sidebar color for non-admin paths", () => {
+    renderInTheme(
       <LeftbarContainer>
         <div>Content</div>
       </LeftbarContainer>
     );
 
-    expect(screen.getByTestId("logo")).toHaveAttribute("data-color", "primary");
+    expect(screen.getByTestId("logo")).toHaveAttribute("data-color", "sidebar");
   });
 
-  it("should use success color for admin paths", async () => {
+  it("should use the sidebarAdmin color for admin paths", async () => {
     const { usePathname } = await import("next/navigation");
     vi.mocked(usePathname).mockReturnValue("/dashboard/admin/roster");
 
-    render(
+    renderInTheme(
       <LeftbarContainer>
         <div>Content</div>
       </LeftbarContainer>
     );
 
-    expect(screen.getByTestId("logo")).toHaveAttribute("data-color", "success");
+    expect(screen.getByTestId("logo")).toHaveAttribute(
+      "data-color",
+      "sidebarAdmin"
+    );
   });
 
   it("should render multiple children", () => {
-    render(
+    renderInTheme(
       <LeftbarContainer>
         <div data-testid="child-1">Child 1</div>
         <div data-testid="child-2">Child 2</div>
@@ -88,7 +109,7 @@ describe("LeftbarContainer", () => {
   });
 
   it("should render as Sheet component", () => {
-    render(
+    renderInTheme(
       <LeftbarContainer>
         <div data-testid="content">Content</div>
       </LeftbarContainer>
@@ -99,11 +120,11 @@ describe("LeftbarContainer", () => {
   });
 
   describe("admin path detection", () => {
-    it("should use success color for admin schedule path", async () => {
+    it("should use sidebarAdmin color for admin schedule path", async () => {
       const { usePathname } = await import("next/navigation");
       vi.mocked(usePathname).mockReturnValue("/dashboard/admin/schedule");
 
-      render(
+      renderInTheme(
         <LeftbarContainer>
           <div>Content</div>
         </LeftbarContainer>
@@ -111,15 +132,15 @@ describe("LeftbarContainer", () => {
 
       expect(screen.getByTestId("logo")).toHaveAttribute(
         "data-color",
-        "success"
+        "sidebarAdmin"
       );
     });
 
-    it("should use primary color for catalog path", async () => {
+    it("should use sidebar color for catalog path", async () => {
       const { usePathname } = await import("next/navigation");
       vi.mocked(usePathname).mockReturnValue("/dashboard/catalog");
 
-      render(
+      renderInTheme(
         <LeftbarContainer>
           <div>Content</div>
         </LeftbarContainer>
@@ -127,15 +148,15 @@ describe("LeftbarContainer", () => {
 
       expect(screen.getByTestId("logo")).toHaveAttribute(
         "data-color",
-        "primary"
+        "sidebar"
       );
     });
 
-    it("should use primary color for flowsheet path", async () => {
+    it("should use sidebar color for flowsheet path", async () => {
       const { usePathname } = await import("next/navigation");
       vi.mocked(usePathname).mockReturnValue("/dashboard/flowsheet");
 
-      render(
+      renderInTheme(
         <LeftbarContainer>
           <div>Content</div>
         </LeftbarContainer>
@@ -143,15 +164,15 @@ describe("LeftbarContainer", () => {
 
       expect(screen.getByTestId("logo")).toHaveAttribute(
         "data-color",
-        "primary"
+        "sidebar"
       );
     });
 
-    it("should use primary color for settings path", async () => {
+    it("should use sidebar color for settings path", async () => {
       const { usePathname } = await import("next/navigation");
       vi.mocked(usePathname).mockReturnValue("/dashboard/settings");
 
-      render(
+      renderInTheme(
         <LeftbarContainer>
           <div>Content</div>
         </LeftbarContainer>
@@ -159,15 +180,15 @@ describe("LeftbarContainer", () => {
 
       expect(screen.getByTestId("logo")).toHaveAttribute(
         "data-color",
-        "primary"
+        "sidebar"
       );
     });
 
-    it("should use success color when admin appears anywhere in path", async () => {
+    it("should use sidebarAdmin color when admin appears anywhere in path", async () => {
       const { usePathname } = await import("next/navigation");
       vi.mocked(usePathname).mockReturnValue("/some/admin/nested/path");
 
-      render(
+      renderInTheme(
         <LeftbarContainer>
           <div>Content</div>
         </LeftbarContainer>
@@ -175,14 +196,14 @@ describe("LeftbarContainer", () => {
 
       expect(screen.getByTestId("logo")).toHaveAttribute(
         "data-color",
-        "success"
+        "sidebarAdmin"
       );
     });
   });
 
   describe("sheet styling", () => {
     it("should render Sheet with soft variant", () => {
-      render(
+      renderInTheme(
         <LeftbarContainer>
           <div>Content</div>
         </LeftbarContainer>
@@ -193,7 +214,7 @@ describe("LeftbarContainer", () => {
     });
 
     it("should render Sheet component with MuiSheet-root class", () => {
-      render(
+      renderInTheme(
         <LeftbarContainer>
           <div>Content</div>
         </LeftbarContainer>
