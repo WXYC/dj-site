@@ -116,6 +116,7 @@ export const createServerSideProps = cache(async (): Promise<SiteProps> => {
           ...appState,
           experience: parsedPreference.experience,
           colorMode: parsedPreference.colorMode,
+          themeId: parsedPreference.themeId,
         };
       }
     }

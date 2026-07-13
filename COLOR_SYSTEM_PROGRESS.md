@@ -21,7 +21,11 @@ picker. Classic experience stays untouched and strippable.
       `theme.test.ts`; added `themes.test.ts`. tsc clean, 51 tests pass, app compiles (200).
       - Verified in node_modules that custom palette keys need **explicit** variant
         tokens (`createVariantPalette`) — Joy does not auto-generate them from a bare scale.
-- [ ] 2. Preference plumbing (`themeId` end-to-end, back-compat)
+- [x] **2. Preference plumbing** — grammar `modern-<themeId>-<mode>` (2-part for
+      default = back-compat); `preferences.ts` structural parse; `ApplicationState.themeId`;
+      preferences API route + `api.ts` response; `session.ts` applies themeId from appSkin;
+      `buildPreference(exp, mode, themeId?)`. Split pure `themes/registry.ts` (no next/font)
+      so server/parser code validates ids cheaply. tsc clean, 212 tests pass.
 - [ ] 3. Server-driven ThemeRegistry + ModernThemeContext (fix classic theme selector)
 - [ ] 4. Theme picker UI (Appbar dropdown)
 - [ ] 5. Catalog migration (genre/format/exclusive + prefix-bug fixes)

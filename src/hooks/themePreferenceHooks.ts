@@ -93,9 +93,13 @@ export function useThemePreferenceSync() {
       const localPreference = readLocalPreference();
 
       let resolvedPreference: AppSkinPreference | null = null;
-      
+
       if (appSkinParsed) {
-        resolvedPreference = toAppSkinPreference(appSkinParsed.experience, appSkinParsed.colorMode);
+        resolvedPreference = toAppSkinPreference(
+          appSkinParsed.experience,
+          appSkinParsed.colorMode,
+          appSkinParsed.themeId
+        );
       } else if (localPreference) {
         resolvedPreference = localPreference;
       }
@@ -141,7 +145,8 @@ export function useThemePreferenceSync() {
 
 export function buildPreference(
   experience: "classic" | "modern",
-  colorMode: "light" | "dark"
+  colorMode: "light" | "dark",
+  themeId?: string
 ): AppSkinPreference {
-  return toAppSkinPreference(experience, colorMode);
+  return toAppSkinPreference(experience, colorMode, themeId);
 }

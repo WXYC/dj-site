@@ -1,5 +1,6 @@
 import { defaultApplicationState } from "@/lib/features/application/types";
 import { parseAppSkinPreference, toAppSkinPreference, isColorMode } from "@/lib/features/experiences/preferences";
+import { resolveModernThemeId } from "@/lib/features/experiences/modern/themes/registry";
 import { isExperienceId } from "@/lib/features/experiences/types";
 import { sessionOptions } from "@/lib/features/session";
 import { cookies } from "next/headers";
@@ -9,7 +10,7 @@ export async function POST(request: NextRequest) {
   const cookieStore = await cookies();
   const body = await request.json();
 
-  const { preference, experience, colorMode } = body ?? {};
+  const { preference, experience, colorMode, themeId } = body ?? {};
   const parsedPreference = parseAppSkinPreference(preference);
 
   // Get current state
@@ -26,6 +27,9 @@ export async function POST(request: NextRequest) {
 
   const resolvedExperience = parsedPreference?.experience ?? experience ?? currentState.experience;
   const resolvedColorMode = parsedPreference?.colorMode ?? colorMode ?? currentState.colorMode;
+  const resolvedThemeId = resolveModernThemeId(
+    parsedPreference?.themeId ?? themeId ?? currentState.themeId
+  );
 
   if (!isExperienceId(resolvedExperience)) {
     return NextResponse.json(
@@ -45,6 +49,7 @@ export async function POST(request: NextRequest) {
     ...currentState,
     experience: resolvedExperience,
     colorMode: resolvedColorMode,
+    themeId: resolvedThemeId,
   };
 
   // Remove old 'classic' property if it exists
@@ -62,7 +67,12 @@ export async function POST(request: NextRequest) {
     {
       experience: resolvedExperience,
       colorMode: resolvedColorMode,
-      preference: toAppSkinPreference(resolvedExperience, resolvedColorMode),
+      themeId: resolvedThemeId,
+      preference: toAppSkinPreference(
+        resolvedExperience,
+        resolvedColorMode,
+        resolvedThemeId
+      ),
     },
     { status: 200 }
   );
