@@ -6,6 +6,7 @@ import { Tooltip } from "@mui/joy";
 import IconButton from "@mui/joy/IconButton";
 import { useColorScheme } from "@mui/joy/styles";
 import { useGetActiveExperienceQuery } from "@/lib/features/experiences/api";
+import { useModernTheme } from "@/src/styles/ModernThemeContext";
 import {
   buildPreference,
   useThemePreferenceActions,
@@ -22,6 +23,7 @@ export function ColorSchemeToggleLoader(): JSX.Element {
 export default function ColorSchemeToggle(): JSX.Element {
   const { mode, setMode } = useColorScheme();
   const { data: experience } = useGetActiveExperienceQuery();
+  const { themeId } = useModernTheme();
   const { persistPreference } = useThemePreferenceActions();
 
   return (
@@ -37,7 +39,7 @@ export default function ColorSchemeToggle(): JSX.Element {
           const nextMode = mode === "light" ? "dark" : "light";
           setMode(nextMode);
           if (experience) {
-            persistPreference(buildPreference(experience, nextMode), {
+            persistPreference(buildPreference(experience, nextMode, themeId), {
               updateUser: true,
             });
           }

@@ -31,7 +31,11 @@ picker. Classic experience stays untouched and strippable.
       props from `app/layout.tsx` instead of the dead redux selector; classic now correctly
       gets `classicTheme`. Sync hook reconciles themeId. Verified via screenshots: default(rose),
       ocean(indigo) swap propagates to logo+links, dark mode, classic legacy page unaffected.
-- [ ] 4. Theme picker UI (Appbar dropdown)
+- [x] **4. Theme picker UI** — `ThemePicker.tsx` (Joy Dropdown/Menu, opens upward,
+      swatch previews per current mode, `role=menuitemradio` + aria-checked, PaletteRounded
+      icon) added to modern `Appbar` ButtonGroup; `supportsThemePicker` flag; toggles now
+      preserve themeId via `buildPreference(exp, mode, themeId)`. Verified via screenshot
+      (menu shows WXYC Rose ✓ + Ocean w/ swatches). 230 Theme/experiences tests pass.
 - [ ] 5. Catalog migration (genre/format/exclusive + prefix-bug fixes)
 - [ ] 6. Flowsheet + widgets migration (entries, SmartEntry, GoLive, NowPlaying, bins, rotation)
 - [ ] 7. Sidebar decoupling (LeftbarContainer + Logo)

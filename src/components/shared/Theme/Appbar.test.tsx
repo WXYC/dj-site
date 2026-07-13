@@ -15,6 +15,10 @@ vi.mock("./ThemeSwitcher", () => ({
   default: () => <span data-testid="theme-switcher">Theme Switcher</span>,
 }));
 
+vi.mock("./ThemePicker", () => ({
+  default: () => <span data-testid="theme-picker">Theme Picker</span>,
+}));
+
 vi.mock("../General/LinkButton", () => ({
   LinkButton: ({ children, href }: { children: React.ReactNode; href: string }) => (
     <a href={href} data-testid="link-button">
