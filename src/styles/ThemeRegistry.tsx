@@ -78,7 +78,9 @@ export default function ThemeRegistry(
 /**
  * Resolves the active Joy theme object. Classic gets its own theme; modern picks
  * the theme selected in `ModernThemeContext` (seeded from the server-resolved
- * preference), so switching themes is a client-side swap with no page reload.
+ * preference). Runtime changes to either input can't repaint by themselves —
+ * CssVarsProvider only generates its :root vars once — so theme/experience
+ * switches persist the preference and reload (see ThemePicker/ThemeSwitcher).
  */
 function ThemedProvider({
   experience,

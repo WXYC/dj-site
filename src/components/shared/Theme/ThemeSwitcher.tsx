@@ -3,8 +3,6 @@
 import { IconButton, Tooltip } from "@mui/joy";
 import type { MouseEvent as ReactMouseEvent } from "react";
 
-import { useRouter } from "next/navigation";
-
 import { AutoFixHigh, AutoFixOff } from "@mui/icons-material";
 import {
   useGetActiveExperienceQuery,
@@ -25,8 +23,6 @@ export function ThemeSwitchLoader() {
 }
 
 export default function ThemeSwitcher() {
-  const router = useRouter();
-
   const { data: experience, isLoading } = useGetActiveExperienceQuery();
   const { mode } = useColorScheme();
   const { themeId } = useModernTheme();
@@ -36,10 +32,17 @@ export default function ThemeSwitcher() {
     e.preventDefault();
     const newExperience = experience === "classic" ? "modern" : "classic";
     const nextMode = mode === "light" || mode === "dark" ? mode : "light";
-    await persistPreference(buildPreference(newExperience, nextMode, themeId), {
-      updateUser: true,
-    });
-    router.refresh();
+    const persisted = await persistPreference(
+      buildPreference(newExperience, nextMode, themeId),
+      { updateUser: true }
+    );
+    // Full reload, not router.refresh(): the experience decides which Joy
+    // theme CssVarsProvider gets, and the provider doesn't regenerate its
+    // injected :root vars on a soft refresh (see ThemePicker). Skip when the
+    // cookie didn't persist — SSR would just repaint the old experience.
+    if (persisted && typeof window !== "undefined") {
+      window.location.reload();
+    }
   };
 
   const isClassic = experience === "classic";

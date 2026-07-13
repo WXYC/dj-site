@@ -7,7 +7,7 @@ import { Format, Genre } from "@/lib/features/catalog/types";
 import { Rotation } from "@/lib/features/rotation/types";
 import {
   formatTone,
-  GENRE_TONES,
+  genreTone,
   ROTATION_TONES,
 } from "@/lib/features/experiences/modern/tokens/roles";
 import { EXCLUSIVES_PURPLE } from "../Search/catalogFilterStyles";
@@ -46,7 +46,7 @@ export function ReleaseChips({
   rotation?: Rotation;
   onStreaming: boolean | undefined;
 }) {
-  const genreColor = (GENRE_TONES[genre ?? "Unknown"] ?? GENRE_TONES.Unknown).color;
+  const genreColor = genreTone(genre).color;
 
   // At most four small pills (genre, format, rotation, exclusive) — they wrap,
   // so there's no overflow to collapse. Format stays visible so the DJ can

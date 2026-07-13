@@ -87,6 +87,10 @@ export const theStacksTheme: ThemeDefinition = {
       primary: ROSE_DARK,
       neutral: ROSE_NEUTRAL,
       success: TEAL_DARK,
+      // Same muted stone as light mode — omitting it here let dark fall
+      // through to Joy's stock amber warning, hue-shifting breakpoint
+      // entries and warning chips between modes on the default theme only.
+      warning: STONE,
       danger: INDIGO_DARK,
       sidebar: ROSE_DARK,
       sidebarAdmin: TEAL_DARK,

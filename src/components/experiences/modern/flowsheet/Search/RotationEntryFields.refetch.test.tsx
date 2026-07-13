@@ -10,6 +10,25 @@ import {
 import { rotationApi } from "@/lib/features/rotation/api";
 import RotationEntryFields from "./RotationEntryFields";
 
+// Mock fonts before importing the modern theme (pulled in for the rotation palette).
+vi.mock("next/font/google", () => ({
+  Kanit: () => ({ style: { fontFamily: "Kanit, sans-serif" } }),
+}));
+vi.mock("next/font/local", () => ({
+  default: () => ({ style: { fontFamily: "Minbus, sans-serif" } }),
+}));
+
+import { CssVarsProvider } from "@mui/joy/styles";
+import type { ReactElement } from "react";
+import modernTheme from "@/lib/features/experiences/modern/theme";
+
+// The bin colors come from the custom `rotation` palette slot, which only
+// resolves under the modern theme (see LeftbarContainer.test for the pattern).
+const inModernTheme = (ui: ReactElement) => (
+  <CssVarsProvider theme={modernTheme}>{ui}</CssVarsProvider>
+);
+
+
 // useFlowsheetSearch fans out into many RTK Query hooks (live show, bin,
 // catalog, rotation, LML). Mocking it here matches the sibling
 // RotationEntryFields.test.tsx pattern so this file only owns the rotation
@@ -99,7 +118,7 @@ describe("RotationEntryFields — refetch on release pick (#589)", () => {
     // the DJ actually picks the release.
     const { trackRequestsFor } = mockRotationListAndTracks(() => [trackForOoioo]);
 
-    const { store } = renderWithProviders(<RotationEntryFields disabled={false} />);
+    const { store } = renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
     store.dispatch(
       rotationApi.util.upsertQueryData("getRotationTracks", ROTATION_ID_OOIOO, [])
     );
@@ -126,7 +145,7 @@ describe("RotationEntryFields — refetch on release pick (#589)", () => {
       (rotationId) => tracksByRotation[rotationId] ?? []
     );
 
-    renderWithProviders(<RotationEntryFields disabled={false} />);
+    renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
 
     selectBin();
     await selectRelease(ooioo.id);
@@ -151,7 +170,7 @@ describe("RotationEntryFields — refetch on release pick (#589)", () => {
       return queue.shift() ?? [];
     });
 
-    renderWithProviders(<RotationEntryFields disabled={false} />);
+    renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
 
     selectBin();
     await selectRelease(ooioo.id);

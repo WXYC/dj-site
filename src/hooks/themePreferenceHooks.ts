@@ -14,8 +14,8 @@ import {
 import { useSetExperiencePreferenceMutation } from "@/lib/features/experiences/api";
 import { useModernTheme } from "@/src/styles/ModernThemeContext";
 import { useColorScheme } from "@mui/joy/styles";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef } from "react";
+import { toast } from "sonner";
 
 type PersistOptions = {
   updateUser?: boolean;
@@ -56,14 +56,26 @@ export function useThemePreferenceActions() {
   const { data: session } = authClient.useSession();
   const [setPreference] = useSetExperiencePreferenceMutation();
 
+  /**
+   * Persist a preference to localStorage, the app_state cookie, and
+   * (optionally) the account record. Returns whether the cookie write —
+   * the source SSR repaints from — succeeded, so callers can decide
+   * whether a reload would actually pick the new preference up.
+   */
   const persistPreference = useCallback(
-    async (preference: AppSkinPreference, options: PersistOptions = {}) => {
+    async (
+      preference: AppSkinPreference,
+      options: PersistOptions = {}
+    ): Promise<boolean> => {
       writeLocalPreference(preference);
 
+      let cookiePersisted = true;
       try {
         await setPreference({ preference }).unwrap();
       } catch (error) {
         console.error("Failed to update app_state preference:", error);
+        toast.error("Couldn't save your theme preference — it may not stick.");
+        cookiePersisted = false;
       }
 
       if (options.updateUser && session?.user?.id) {
@@ -71,8 +83,13 @@ export function useThemePreferenceActions() {
           await authClient.updateUser({ appSkin: preference } as any);
         } catch (error) {
           console.error("Failed to update user appSkin:", error);
+          toast.error(
+            "Couldn't sync the theme to your account — other devices may not pick it up."
+          );
         }
       }
+
+      return cookiePersisted;
     },
     [setPreference, session?.user?.id]
   );
@@ -81,10 +98,9 @@ export function useThemePreferenceActions() {
 }
 
 export function useThemePreferenceSync() {
-  const router = useRouter();
   const { data: session } = authClient.useSession();
   const { mode, setMode } = useColorScheme();
-  const { setThemeId } = useModernTheme();
+  const { themeId: paintedThemeId, setThemeId } = useModernTheme();
   const { persistPreference } = useThemePreferenceActions();
   const hasSyncedRef = useRef(false);
 
@@ -118,24 +134,34 @@ export function useThemePreferenceSync() {
       // Self-heal: persist the canonical form everywhere, and push it to the
       // backend user record only when the stored value drifted (legacy 2-part
       // form, or a renamed/unknown theme id) so it stops coming back stale.
-      await persistPreference(parsed.canonical, {
+      const persisted = await persistPreference(parsed.canonical, {
         updateUser: parsed.needsRewrite,
       });
 
-      const shouldRefresh =
+      // Joy's CssVarsProvider can't regenerate its injected :root vars at
+      // runtime (see ThemePicker), so if SSR painted a different experience
+      // OR a different modern theme than the resolved preference, only a full
+      // reload repaints correctly — router.refresh() is a soft refresh that
+      // won't re-mount the provider. Reload only once the cookie actually
+      // persisted; otherwise the next SSR would paint the same stale theme
+      // and this sync would loop.
+      const experienceMismatch =
         typeof window !== "undefined" &&
         parsed.canonical.startsWith("classic") !==
           document.documentElement.dataset.experience?.startsWith("classic");
-
-      if (shouldRefresh) {
-        router.refresh();
-      }
+      // Both ids are registry-resolved, so this comparison is loop-safe.
+      const themeMismatch =
+        parsed.experience === "modern" && parsed.themeId !== paintedThemeId;
 
       hasSyncedRef.current = true;
+
+      if (persisted && (experienceMismatch || themeMismatch)) {
+        window.location.reload();
+      }
     };
 
     sync();
-  }, [mode, persistPreference, router, (session?.user as any)?.appSkin, setMode, setThemeId]);
+  }, [mode, persistPreference, (session?.user as any)?.appSkin, setMode, setThemeId, paintedThemeId]);
 }
 
 export function buildPreference(

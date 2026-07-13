@@ -2,14 +2,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import ThemeSwitcher, { ThemeSwitchLoader } from "./ThemeSwitcher";
 
-const mockRefresh = vi.fn();
 const mockPersistPreference = vi.fn();
+const mockReload = vi.fn();
 
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({
-    refresh: mockRefresh,
-  }),
-}));
+// jsdom cannot navigate; stub reload so switching doesn't error.
+Object.defineProperty(window, "location", {
+  configurable: true,
+  value: { ...window.location, reload: mockReload },
+});
 
 vi.mock("@/lib/features/experiences/api", () => ({
   useGetActiveExperienceQuery: () => ({
@@ -34,7 +34,8 @@ vi.mock("@/src/hooks/themePreferenceHooks", () => ({
 describe("ThemeSwitcher", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockPersistPreference.mockResolvedValue(undefined);
+    // Resolves true = cookie write succeeded, so the switcher may reload.
+    mockPersistPreference.mockResolvedValue(true);
   });
 
   it("should render an icon button", () => {
@@ -52,15 +53,26 @@ describe("ThemeSwitcher", () => {
     });
   });
 
-  it("should call router.refresh after switching", async () => {
+  it("should hard-reload after switching (CssVarsProvider can't repaint on a soft refresh)", async () => {
     render(<ThemeSwitcher />);
     const button = screen.getByRole("button");
     fireEvent.click(button);
 
     // Wait for async operations
     await vi.waitFor(() => {
-      expect(mockRefresh).toHaveBeenCalled();
+      expect(mockReload).toHaveBeenCalled();
     });
+  });
+
+  it("should not reload when the cookie write failed", async () => {
+    mockPersistPreference.mockResolvedValueOnce(false);
+    render(<ThemeSwitcher />);
+    fireEvent.click(screen.getByRole("button"));
+
+    await vi.waitFor(() => {
+      expect(mockPersistPreference).toHaveBeenCalled();
+    });
+    expect(mockReload).not.toHaveBeenCalled();
   });
 });
 

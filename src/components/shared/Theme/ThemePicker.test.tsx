@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderWithProviders, screen } from "@/lib/test-utils/render";
 
-const persistPreference = vi.fn().mockResolvedValue(undefined);
+// Resolves true = the cookie write succeeded, so the picker may reload.
+const persistPreference = vi.fn().mockResolvedValue(true);
 const setThemeId = vi.fn();
 const reload = vi.fn();
 
@@ -46,18 +47,30 @@ describe("ThemePicker", () => {
     expect(inactive).toHaveAttribute("aria-checked", "false");
   });
 
-  it("switches and persists the chosen theme, then reloads", async () => {
+  it("persists the chosen theme, then reloads (SSR repaints from the cookie)", async () => {
     const { user } = renderWithProviders(<ThemePicker />);
     await user.click(screen.getByRole("button", { name: /choose color theme/i }));
     await user.click(screen.getByRole("menuitemradio", { name: /Blue Note/i }));
 
-    expect(setThemeId).toHaveBeenCalledWith("bluenote");
+    // No optimistic context write: the reload repaints, and a failed persist
+    // must not leave the picker claiming a theme the page isn't showing.
+    expect(setThemeId).not.toHaveBeenCalled();
     // mode defaults to light in the test CssVarsProvider
     expect(persistPreference).toHaveBeenCalledWith(
       "modern-bluenote-light",
       { updateUser: true }
     );
     expect(reload).toHaveBeenCalled();
+  });
+
+  it("does not reload when the cookie write failed", async () => {
+    persistPreference.mockResolvedValueOnce(false);
+    const { user } = renderWithProviders(<ThemePicker />);
+    await user.click(screen.getByRole("button", { name: /choose color theme/i }));
+    await user.click(screen.getByRole("menuitemradio", { name: /Blue Note/i }));
+
+    expect(persistPreference).toHaveBeenCalled();
+    expect(reload).not.toHaveBeenCalled();
   });
 
   it("closes on an outside click without switching themes", async () => {

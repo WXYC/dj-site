@@ -1,6 +1,6 @@
 "use client";
 
-import { AlbumEntry, Genre } from "@/lib/features/catalog/types";
+import { AlbumEntry } from "@/lib/features/catalog/types";
 import Box from "@mui/joy/Box";
 import IconButton from "@mui/joy/IconButton";
 import Sheet from "@mui/joy/Sheet";
@@ -14,7 +14,7 @@ import { applicationSlice } from "@/lib/features/application/frontend";
 import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
 import { useAppDispatch } from "@/lib/hooks";
 import { convertBinToQueue } from "@/lib/features/bin/conversions";
-import { GENRE_TONES } from "@/lib/features/experiences/modern/tokens/roles";
+import { genreTone } from "@/lib/features/experiences/modern/tokens/roles";
 import AddRemoveBin from "./AddRemoveBin";
 import { MatchedTrackChips } from "./MatchedTrackChips";
 import { ReleaseChips } from "./ReleaseChips";
@@ -37,7 +37,7 @@ function CatalogMobileResult({
 }) {
   const dispatch = useAppDispatch();
 
-  const genreColor = (GENRE_TONES[(album.artist.genre as Genre) ?? "Unknown"] ?? GENRE_TONES.Unknown).color;
+  const genreColor = genreTone(album.artist.genre).color;
 
   const artistDisplay = album.album_artist ? "Various Artists" : album.artist.name;
 

@@ -4,6 +4,25 @@ import { renderWithProviders } from "@/lib/test-utils";
 import RotationBinSelector from "./RotationBinSelector";
 import { Rotation } from "@/lib/features/rotation/types";
 
+// Mock fonts before importing the modern theme (pulled in for the rotation palette).
+vi.mock("next/font/google", () => ({
+  Kanit: () => ({ style: { fontFamily: "Kanit, sans-serif" } }),
+}));
+vi.mock("next/font/local", () => ({
+  default: () => ({ style: { fontFamily: "Minbus, sans-serif" } }),
+}));
+
+import { CssVarsProvider } from "@mui/joy/styles";
+import type { ReactElement } from "react";
+import modernTheme from "@/lib/features/experiences/modern/theme";
+
+// The bin colors come from the custom `rotation` palette slot, which only
+// resolves under the modern theme (see LeftbarContainer.test for the pattern).
+const inModernTheme = (ui: ReactElement) => (
+  <CssVarsProvider theme={modernTheme}>{ui}</CssVarsProvider>
+);
+
+
 describe("RotationBinSelector", () => {
   const mockOnSelectBin = vi.fn();
 
@@ -12,9 +31,7 @@ describe("RotationBinSelector", () => {
   });
 
   it("should render four bin buttons", () => {
-    renderWithProviders(
-      <RotationBinSelector selectedBin={null} onSelectBin={mockOnSelectBin} disabled={false} />
-    );
+    renderWithProviders(inModernTheme(<RotationBinSelector selectedBin={null} onSelectBin={mockOnSelectBin} disabled={false} />));
     expect(screen.getByText("H")).toBeInTheDocument();
     expect(screen.getByText("M")).toBeInTheDocument();
     expect(screen.getByText("L")).toBeInTheDocument();
@@ -22,25 +39,19 @@ describe("RotationBinSelector", () => {
   });
 
   it("should call onSelectBin when a bin is clicked", () => {
-    renderWithProviders(
-      <RotationBinSelector selectedBin={null} onSelectBin={mockOnSelectBin} disabled={false} />
-    );
+    renderWithProviders(inModernTheme(<RotationBinSelector selectedBin={null} onSelectBin={mockOnSelectBin} disabled={false} />));
     fireEvent.click(screen.getByRole("radio", { name: "H" }));
     expect(mockOnSelectBin).toHaveBeenCalledWith(Rotation.H);
   });
 
   it.each(["H", "M", "L", "S"])("should call onSelectBin with %s", (bin) => {
-    renderWithProviders(
-      <RotationBinSelector selectedBin={null} onSelectBin={mockOnSelectBin} disabled={false} />
-    );
+    renderWithProviders(inModernTheme(<RotationBinSelector selectedBin={null} onSelectBin={mockOnSelectBin} disabled={false} />));
     fireEvent.click(screen.getByRole("radio", { name: bin }));
     expect(mockOnSelectBin).toHaveBeenCalledWith(bin);
   });
 
   it("should not call onSelectBin when disabled", () => {
-    renderWithProviders(
-      <RotationBinSelector selectedBin={null} onSelectBin={mockOnSelectBin} disabled={true} />
-    );
+    renderWithProviders(inModernTheme(<RotationBinSelector selectedBin={null} onSelectBin={mockOnSelectBin} disabled={true} />));
     // Disabled buttons don't fire click events in the DOM
     const radio = screen.getByRole("radio", { name: "H" });
     fireEvent.click(radio);
@@ -48,9 +59,7 @@ describe("RotationBinSelector", () => {
   });
 
   it("should have radiogroup role for accessibility", () => {
-    renderWithProviders(
-      <RotationBinSelector selectedBin={null} onSelectBin={mockOnSelectBin} disabled={false} />
-    );
+    renderWithProviders(inModernTheme(<RotationBinSelector selectedBin={null} onSelectBin={mockOnSelectBin} disabled={false} />));
     expect(screen.getByRole("radiogroup")).toBeInTheDocument();
   });
 });
