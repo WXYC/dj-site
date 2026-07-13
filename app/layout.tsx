@@ -46,7 +46,11 @@ export default async function RootLayout({ children }: Props) {
   return (
     <StoreProvider>
       <PostHogProvider>
-        <ThemeRegistry options={{ key: "joy" }}>
+        <ThemeRegistry
+          options={{ key: "joy" }}
+          experience={serverSideProps.application.experience}
+          themeId={serverSideProps.application.themeId}
+        >
           <html lang="en" data-experience={serverSideProps.application.experience}>
             <body>
               <Toaster closeButton richColors />
