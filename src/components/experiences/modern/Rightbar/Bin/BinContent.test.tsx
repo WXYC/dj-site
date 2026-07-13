@@ -76,6 +76,8 @@ vi.mock("@mui/joy", () => ({
       data-testid="card"
       data-variant={variant}
       data-overflow-y={sx?.overflowY}
+      data-flex={sx?.flex}
+      data-min-height={sx?.minHeight}
       style={{ height: sx?.height }}
     >
       {children}
@@ -86,6 +88,8 @@ vi.mock("@mui/joy", () => ({
     <div
       data-testid="skeleton"
       data-variant={variant}
+      data-flex={sx?.flex}
+      data-min-height={sx?.minHeight}
       style={{ height: sx?.height }}
     />
   ),
@@ -214,20 +218,13 @@ describe("BinContent", () => {
     );
   });
 
-  it("should use a fixed box height that scrolls on overflow (auto)", () => {
+  it("should fill the leftover column height and scroll on overflow (auto)", () => {
     render(<BinContent />);
 
     const card = screen.getByTestId("card");
-    expect(card).toHaveStyle({ height: "335px" });
+    expect(card).toHaveAttribute("data-flex", "1");
+    expect(card).toHaveAttribute("data-min-height", "0");
     expect(card).toHaveAttribute("data-overflow-y", "auto");
-  });
-
-  it("should use the taller fixed height when the rightbar is expanded", () => {
-    mockUseGetRightbarQuery.mockReturnValue({ data: true });
-
-    render(<BinContent />);
-
-    expect(screen.getByTestId("card")).toHaveStyle({ height: "500px" });
   });
 
   it("should render empty message when bin is empty", () => {
@@ -333,7 +330,7 @@ describe("BinContent", () => {
     expect(screen.queryByTestId("clear-bin-button")).not.toBeInTheDocument();
   });
 
-  it("should render skeleton with a fixed height when loading", () => {
+  it("should render skeleton that fills the leftover column height when loading", () => {
     mockUseBin.mockReturnValue({
       bin: undefined,
       loading: true,
@@ -344,7 +341,8 @@ describe("BinContent", () => {
     render(<BinContent />);
 
     const skeleton = screen.getByTestId("skeleton");
-    expect(skeleton).toHaveStyle({ height: "335px" });
+    expect(skeleton).toHaveAttribute("data-flex", "1");
+    expect(skeleton).toHaveAttribute("data-min-height", "0");
   });
 
   it("should render single entry without divider", () => {

@@ -27,11 +27,13 @@ export default function RightbarContainer({
         flexShrink: 0,
         display: "flex",
         flexDirection: "column",
-        // Pin the trailing spacer to the bottom of the sidebar when the
-        // content is shorter than the viewport…
-        justifyContent: "space-between",
-        // …and let the column scroll when its content (Now Playing + a tall
-        // Mail Bin) exceeds it, instead of clipping the overflow off-screen.
+        // The Mail Bin flex-grows to absorb the leftover column height and
+        // scrolls internally (see BinContent), so the default content fills the
+        // viewport exactly — the trailing footer spacer stays pinned to the
+        // bottom without needing justify-content. overflowY stays `auto` as a
+        // fallback: the alternate panels (settings, album detail) render here
+        // too and can legitimately exceed the viewport, and a genuinely short
+        // screen should scroll rather than clip.
         overflowY: "auto",
         minHeight: 0,
         gap: 1,
