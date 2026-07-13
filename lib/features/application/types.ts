@@ -4,12 +4,15 @@ import { ColorMode, ExperienceId } from "../experiences/types";
 export const defaultApplicationState: ApplicationState = {
     experience: "modern",
     colorMode: "light",
+    themeId: "default",
     rightBarMini: true,
 };
 
 export interface ApplicationState {
     experience: ExperienceId;
     colorMode: ColorMode;
+    /** Active modern theme id (see lib/features/experiences/modern/themes). */
+    themeId: string;
     rightBarMini: boolean;
 }
 

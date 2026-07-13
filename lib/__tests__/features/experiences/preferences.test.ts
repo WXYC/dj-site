@@ -34,6 +34,11 @@ describe("preferences", () => {
       "classic-dark",
       "modern-light",
       "modern-dark",
+      // 3-part modern theme form
+      "modern-ocean-light",
+      "modern-ocean-dark",
+      // well-formed but unknown theme id still parses (resolution degrades later)
+      "modern-sunset-light",
     ])('should return true for "%s"', (value) => {
       expect(isAppSkinPreference(value)).toBe(true);
     });
@@ -51,6 +56,12 @@ describe("preferences", () => {
       42,
       true,
       "classic-light-extra",
+      // theme axis is modern-only
+      "classic-ocean-light",
+      // last token must be a color mode
+      "modern-ocean-auto",
+      // theme ids are dash-free / lowercase-alnum
+      "modern-Ocean-light",
     ])("should return false for %s", (value) => {
       expect(isAppSkinPreference(value)).toBe(false);
     });
@@ -58,29 +69,38 @@ describe("preferences", () => {
 
   describe("toAppSkinPreference", () => {
     it.each([
-      { experience: "classic" as const, colorMode: "light" as const, expected: "classic-light" },
-      { experience: "classic" as const, colorMode: "dark" as const, expected: "classic-dark" },
-      { experience: "modern" as const, colorMode: "light" as const, expected: "modern-light" },
-      { experience: "modern" as const, colorMode: "dark" as const, expected: "modern-dark" },
+      { experience: "classic" as const, colorMode: "light" as const, themeId: undefined, expected: "classic-light" },
+      { experience: "classic" as const, colorMode: "dark" as const, themeId: undefined, expected: "classic-dark" },
+      { experience: "modern" as const, colorMode: "light" as const, themeId: undefined, expected: "modern-light" },
+      { experience: "modern" as const, colorMode: "dark" as const, themeId: undefined, expected: "modern-dark" },
+      // default theme emits the legacy 2-part form (back-compat with old clients)
+      { experience: "modern" as const, colorMode: "light" as const, themeId: "default", expected: "modern-light" },
+      // non-default theme emits the 3-part form
+      { experience: "modern" as const, colorMode: "dark" as const, themeId: "ocean", expected: "modern-ocean-dark" },
+      // classic ignores the theme axis
+      { experience: "classic" as const, colorMode: "light" as const, themeId: "ocean", expected: "classic-light" },
     ])(
-      "should return $expected for $experience + $colorMode",
-      ({ experience, colorMode, expected }) => {
-        expect(toAppSkinPreference(experience, colorMode)).toBe(expected);
+      "should return $expected for $experience + $colorMode + $themeId",
+      ({ experience, colorMode, themeId, expected }) => {
+        expect(toAppSkinPreference(experience, colorMode, themeId)).toBe(expected);
       }
     );
   });
 
   describe("parseAppSkinPreference", () => {
     it.each([
-      { input: "classic-light", experience: "classic", colorMode: "light" },
-      { input: "classic-dark", experience: "classic", colorMode: "dark" },
-      { input: "modern-light", experience: "modern", colorMode: "light" },
-      { input: "modern-dark", experience: "modern", colorMode: "dark" },
+      { input: "classic-light", experience: "classic", colorMode: "light", themeId: "default" },
+      { input: "classic-dark", experience: "classic", colorMode: "dark", themeId: "default" },
+      { input: "modern-light", experience: "modern", colorMode: "light", themeId: "default" },
+      { input: "modern-dark", experience: "modern", colorMode: "dark", themeId: "default" },
+      // legacy 2-part modern → default theme
+      { input: "modern-ocean-light", experience: "modern", colorMode: "light", themeId: "ocean" },
+      { input: "modern-sunset-dark", experience: "modern", colorMode: "dark", themeId: "sunset" },
     ])(
-      'should parse "$input" into experience=$experience and colorMode=$colorMode',
-      ({ input, experience, colorMode }) => {
+      'should parse "$input" into experience=$experience colorMode=$colorMode themeId=$themeId',
+      ({ input, experience, colorMode, themeId }) => {
         const result = parseAppSkinPreference(input);
-        expect(result).toEqual({ experience, colorMode });
+        expect(result).toEqual({ experience, colorMode, themeId });
       }
     );
 
@@ -102,15 +122,27 @@ describe("preferences", () => {
       const state: ApplicationState = {
         experience: "modern",
         colorMode: "dark",
+        themeId: "default",
         rightBarMini: true,
       };
       expect(getPreferenceFromAppState(state)).toBe("modern-dark");
+    });
+
+    it("should emit the 3-part form for a non-default modern theme", () => {
+      const state: ApplicationState = {
+        experience: "modern",
+        colorMode: "light",
+        themeId: "ocean",
+        rightBarMini: true,
+      };
+      expect(getPreferenceFromAppState(state)).toBe("modern-ocean-light");
     });
 
     it("should return preference for classic light state", () => {
       const state: ApplicationState = {
         experience: "classic",
         colorMode: "light",
+        themeId: "default",
         rightBarMini: false,
       };
       expect(getPreferenceFromAppState(state)).toBe("classic-light");
