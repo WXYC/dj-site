@@ -1,16 +1,13 @@
 "use client";
 
-import type { JSX } from "react";
+import { useRef, useState, type JSX } from "react";
 import { Check, PaletteRounded } from "@mui/icons-material";
 import {
   Box,
-  Dropdown,
   IconButton,
   ListItemDecorator,
   Menu,
-  MenuButton,
   MenuItem,
-  Tooltip,
   Typography,
 } from "@mui/joy";
 import { useColorScheme } from "@mui/joy/styles";
@@ -67,27 +64,39 @@ export default function ThemePicker(): JSX.Element {
   const { themeId, setThemeId } = useModernTheme();
   const { persistPreference } = useThemePreferenceActions();
 
+  // Controlled Menu (rather than Dropdown/MenuButton): the trigger is a plain
+  // IconButton so it composes into the surrounding ButtonGroup, which clones its
+  // children with data-*-child markers a Dropdown wrapper would swallow.
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+
   const select = (id: string) => {
     if (id !== themeId) setThemeId(id);
     // Persist for this (modern) experience, carrying the chosen theme.
     persistPreference(buildPreference("modern", resolvedMode, id), {
       updateUser: true,
     });
+    setOpen(false);
   };
 
   return (
-    <Dropdown>
-      <Tooltip title="Choose color theme" size="sm" placement="top-start" variant="outlined">
-        <MenuButton
-          slots={{ root: IconButton }}
-          slotProps={{ root: { "aria-label": "Choose color theme" } }}
-        >
-          <PaletteRounded />
-        </MenuButton>
-      </Tooltip>
+    <>
+      <IconButton
+        ref={buttonRef}
+        aria-label="Choose color theme"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="Choose color theme"
+        onClick={() => setOpen((o) => !o)}
+      >
+        <PaletteRounded />
+      </IconButton>
       <Menu
+        anchorEl={buttonRef.current}
+        open={open}
+        onClose={() => setOpen(false)}
+        placement="top-end"
         sx={{ zIndex: 10001, minWidth: 200 }}
-        popperOptions={{ placement: "top-end" }}
       >
         <Typography
           level="body-xs"
@@ -120,6 +129,6 @@ export default function ThemePicker(): JSX.Element {
           );
         })}
       </Menu>
-    </Dropdown>
+    </>
   );
 }
