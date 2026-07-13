@@ -2,7 +2,7 @@
 
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 import { WXYC_EXCLUSIVE_PURPLE } from "@/src/utilities/modern/brandColors";
-import { getStyleForRotation } from "@/src/utilities/modern/rotationstyles";
+import { ROTATION_TONES } from "@/lib/features/experiences/modern/tokens/roles";
 import { Chip } from "@mui/joy";
 
 // Caption-scale status pills, matching the catalog table's chip language.
@@ -29,7 +29,7 @@ export default function SongEntryStatusChips({
         <Chip
           size="sm"
           variant="solid"
-          color={getStyleForRotation(entry.rotation)}
+          color={ROTATION_TONES[entry.rotation].color}
           aria-label={`Rotation ${entry.rotation}`}
           sx={STATUS_CHIP_SX}
         >
