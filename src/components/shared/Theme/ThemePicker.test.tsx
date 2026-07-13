@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderWithProviders, screen } from "@/lib/test-utils/render";
 
-const persistPreference = vi.fn();
+const persistPreference = vi.fn().mockResolvedValue(undefined);
 const setThemeId = vi.fn();
+const reload = vi.fn();
 
 vi.mock("@/src/hooks/themePreferenceHooks", () => ({
   useThemePreferenceActions: () => ({ persistPreference }),
@@ -17,12 +18,19 @@ vi.mock("@/src/styles/ModernThemeContext", () => ({
   useModernTheme: () => ({ themeId: "default", setThemeId }),
 }));
 
+// jsdom cannot navigate; stub reload so selecting a theme doesn't error.
+Object.defineProperty(window, "location", {
+  configurable: true,
+  value: { ...window.location, reload },
+});
+
 import ThemePicker from "./ThemePicker";
 
 describe("ThemePicker", () => {
   beforeEach(() => {
     persistPreference.mockClear();
     setThemeId.mockClear();
+    reload.mockClear();
   });
 
   it("lists registered themes and marks the active one", async () => {
@@ -38,7 +46,7 @@ describe("ThemePicker", () => {
     expect(inactive).toHaveAttribute("aria-checked", "false");
   });
 
-  it("switches and persists the chosen theme", async () => {
+  it("switches and persists the chosen theme, then reloads", async () => {
     const { user } = renderWithProviders(<ThemePicker />);
     await user.click(screen.getByRole("button", { name: /choose color theme/i }));
     await user.click(screen.getByRole("menuitemradio", { name: /Ocean/i }));
@@ -49,5 +57,15 @@ describe("ThemePicker", () => {
       "modern-ocean-light",
       { updateUser: true }
     );
+    expect(reload).toHaveBeenCalled();
+  });
+
+  it("does not persist or reload when picking the active theme", async () => {
+    const { user } = renderWithProviders(<ThemePicker />);
+    await user.click(screen.getByRole("button", { name: /choose color theme/i }));
+    await user.click(screen.getByRole("menuitemradio", { name: /WXYC Rose/i }));
+
+    expect(persistPreference).not.toHaveBeenCalled();
+    expect(reload).not.toHaveBeenCalled();
   });
 });
