@@ -70,13 +70,21 @@ export default function ThemePicker(): JSX.Element {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
 
-  const select = (id: string) => {
-    if (id !== themeId) setThemeId(id);
-    // Persist for this (modern) experience, carrying the chosen theme.
-    persistPreference(buildPreference("modern", resolvedMode, id), {
+  const select = async (id: string) => {
+    setOpen(false);
+    if (id === themeId) return;
+
+    // Optimistically update the context (keeps other consumers in sync).
+    setThemeId(id);
+    // Persist to the app_state cookie / account, then reload. Joy's
+    // CssVarsProvider does not regenerate the injected :root CSS variables when
+    // the theme object changes at runtime, and router.refresh() is a soft
+    // refresh that won't re-mount the provider — so a full reload (which
+    // re-runs SSR from the now-persisted themeId) is what actually repaints.
+    await persistPreference(buildPreference("modern", resolvedMode, id), {
       updateUser: true,
     });
-    setOpen(false);
+    if (typeof window !== "undefined") window.location.reload();
   };
 
   return (
