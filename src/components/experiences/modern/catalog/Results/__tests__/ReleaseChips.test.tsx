@@ -27,17 +27,25 @@ describe("ReleaseChips", () => {
     expect(screen.queryByText("WXYC EXCLUSIVE")).toBeNull();
   });
 
-  it("should collapse past three pills into a +N overflow chip", () => {
+  it("should show all four pills (no overflow) so format stays visible", () => {
     renderWithProviders(
       <ReleaseChips genre="Jazz" format="Vinyl" rotation="H" onStreaming={false} />
     );
 
-    // format is lowest priority: folded into the overflow chip
+    // All four wrap; format (Vinyl vs CD) is never folded away.
     expect(screen.getByText("Jazz")).toBeDefined();
+    expect(screen.getByText("Vinyl")).toBeDefined();
     expect(screen.getByText("H")).toBeDefined();
     expect(screen.getByText("WXYC EXCLUSIVE")).toBeDefined();
-    expect(screen.queryByText("Vinyl")).toBeNull();
-    expect(screen.getByText("+1")).toBeDefined();
+    expect(screen.queryByText("+1")).toBeNull();
+  });
+
+  it("should preserve casing on arbitrary format strings", () => {
+    renderWithProviders(
+      <ReleaseChips genre="Rock" format={"CD-R" as never} onStreaming={undefined} />
+    );
+    // Not case-mangled to "Cd-r".
+    expect(screen.getByText("CD-R")).toBeDefined();
   });
 
   it("should render the rotation pill only when a rotation is provided", () => {
