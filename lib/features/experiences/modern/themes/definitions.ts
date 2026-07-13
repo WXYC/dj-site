@@ -38,8 +38,9 @@ const CD_SLATE: PaletteScale = { 50: "#f2f5f8", 100: "#e0e8ef", 200: "#c3d2de", 
 
 const ROSE_EXCLUSIVE: ExclusiveTokens = { solidBg: "#7B2D8E", solidHoverBg: "#6a2479" };
 const ROSE_ONAIR: OnAirTokens = { indicator: "#ef4444", glow: "rgba(239, 68, 68, 0.5)" };
-// Dark surfaces: a soft warm charcoal — clearly not black.
-const ROSE_DARK_BG: BackgroundTokens = { body: "#1e1a22", surface: "#282430", popup: "#322d3a", border: "#3d3745" };
+// Dark surfaces: a warm charcoal — deep enough to read as solid dark (no haze),
+// but well short of the old near-black.
+const ROSE_DARK_BG: BackgroundTokens = { body: "#16131b", surface: "#201c28", popup: "#2a2633", border: "#363040" };
 
 const ROSE_ROT_LIGHT = {
   heavy: rot("#fce4ec", "#f8bbd0", "#e53935", "#b71c1c", "#ffffff", "#ef9a9a"),
@@ -71,7 +72,7 @@ export const wxycRoseTheme: ThemeDefinition = {
       exclusive: ROSE_EXCLUSIVE,
       onAir: ROSE_ONAIR,
       rotation: ROSE_ROT_LIGHT,
-      background: { body: "#faf7f8", surface: "#ffffff", popup: "#f4eef1", border: "#eae2e6" },
+      background: { body: "#f3eef1", surface: "#ffffff", popup: "#ebe3e7", border: "#e3dae0" },
     },
     dark: {
       primary: ROSE_DARK,
@@ -101,7 +102,7 @@ const CYAN: PaletteScale = { 50: "#ecfeff", 100: "#cffafe", 200: "#a5f3fc", 300:
 
 const OCEAN_EXCLUSIVE: ExclusiveTokens = { solidBg: "#8b5cf6", solidHoverBg: "#7c3aed" };
 const OCEAN_ONAIR: OnAirTokens = { indicator: "#f43f5e", glow: "rgba(244, 63, 94, 0.5)" };
-const OCEAN_DARK_BG: BackgroundTokens = { body: "#182029", surface: "#212b36", popup: "#2b3744", border: "#384654" };
+const OCEAN_DARK_BG: BackgroundTokens = { body: "#111821", surface: "#1a2430", popup: "#24303d", border: "#313f4d" };
 
 const OCEAN_ROT_LIGHT = {
   heavy: rot("#e0e7ff", "#c7d2fe", "#4f46e5", "#312e81", "#ffffff", "#a5b4fc"),
@@ -134,7 +135,7 @@ export const solarizedTheme: ThemeDefinition = {
       exclusive: OCEAN_EXCLUSIVE,
       onAir: OCEAN_ONAIR,
       rotation: OCEAN_ROT_LIGHT,
-      background: { body: "#f6f8fb", surface: "#ffffff", popup: "#eef2f7", border: "#e2e8f0" },
+      background: { body: "#eef2f7", surface: "#ffffff", popup: "#e6ecf3", border: "#dae2ec" },
     },
     dark: {
       primary: INDIGO,
