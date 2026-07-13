@@ -84,13 +84,17 @@ per-scheme `background` slot (body/surface/popup/border → Joy `background.*` +
 divider). Picker swatches now primary/success/vinyl/CD.
 
 ## Themes
-- **WXYC Rose** (`default`) — flagship; rose primary, muted teal/stone/fuchsia.
-- **Solarized** (`solarized`) — cool indigo/teal (formerly "Ocean").
-- **Paper Retro** (`paper`) — vintage switchboard: warm cream paper + rustic brown
-  scaffolding (primary/sidebar), striking bakelite green (success) / brick red (danger,
-  on-air) / mustard (warning), tube-amber vinyl vs. cool petrol-denim CD. Warm taupe
-  neutral; light bg is warm paper (`#e9ddc8`/`#f7efe0`), dark bg warm bakelite
-  brown-black (`#211a12`). Dark mode lightens brown/green scales so the sidebar reads.
+Labels are music/radio references; `id`s stay fixed for preference back-compat.
+- **The Stacks** (`default`) — flagship; warm library rose, muted teal/stone/fuchsia,
+  warm greige neutral. Light = near-white (pure-white cards); dark = warm chocolate.
+- **Blue Note** (`solarized`) — cool indigo/teal, the late shift (formerly "Ocean").
+- **Shellac** (`paper`) — old shellac 78s / switchboard: warm cream paper + rustic brown
+  scaffolding, bakelite green (success) / brick red (danger, on-air) / mustard (warning),
+  tube-amber vinyl vs. petrol-denim CD, warm taupe neutral.
+- **Deadstock** (`deadstock`) — punk/vampire blackout: stark black + white with blood-red
+  centerpiece. Crimson primary/sidebar (brighter CRIMSON_DARK in dark so it pops on
+  near-black), zinc neutral, steel success, bone warning, oxblood vinyl vs. silver CD,
+  charcoal admin sidebar. Dark bg is near-black with a faint blood undertone (`#0c0a0b`).
 
 ## Known follow-ups
 - No-reload theme swap (needs manual :root var application or Joy var-injection work).
