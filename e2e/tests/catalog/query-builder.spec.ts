@@ -80,7 +80,10 @@ test.describe("Catalog query builder", () => {
     // column below xl, its own column at xl); target the visible copy so the
     // assertion is viewport-independent.
     await expect(
-      resultRow.getByText("Juana Molina", { exact: true }).filter({ visible: true }),
+      resultRow
+        .getByText("Juana Molina", { exact: true })
+        .filter({ visible: true })
+        .first(),
     ).toBeVisible();
 
     await expect.poll(() => lastQ ?? "").toMatch(/artist:Juana Molina/);
