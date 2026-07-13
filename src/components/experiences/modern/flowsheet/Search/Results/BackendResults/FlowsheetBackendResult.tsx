@@ -4,7 +4,8 @@ import { useMetadataPrefetch } from "@/lib/features/metadata/api";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useFlowsheetSubmit } from "@/src/hooks/flowsheetHooks";
 import { WXYC_EXCLUSIVE_PURPLE } from "@/src/utilities/modern/brandColors";
-import { Chip, ColorPaletteProp, Stack, Typography } from "@mui/joy";
+import { formatTone } from "@/lib/features/experiences/modern/tokens/roles";
+import { Chip, Stack, Typography } from "@mui/joy";
 
 export default function FlowsheetBackendResult({
   entry,
@@ -76,11 +77,7 @@ export default function FlowsheetBackendResult({
           <Chip
             variant="soft"
             size="sm"
-            color={
-              (entry.format.includes("vinyl")
-                ? "primary"
-                : "info") as ColorPaletteProp
-            }
+            color={formatTone(entry.format).color}
             sx={{
               ml: 2,
             }}
