@@ -199,14 +199,20 @@ export function useFlowsheetSmartEntry() {
         suppress: filled.suppress,
         undoKind: "fill",
       });
-      dispatch(
-        flowsheetSlice.actions.setSelectedMatch(albumEntryToSelectedMatch(entry))
-      );
-      dispatch(flowsheetSlice.actions.setSelectedResult(0));
+      // Set the query to the new match's identity BEFORE recording the match.
+      // If these store writes aren't batched into one render, an intermediate
+      // render must not pair the new match with the previous query — that trips
+      // the selectedMatchApplies auto-clear and drops the just-picked result
+      // (so a second click "deselects" without selecting). Query-first means any
+      // in-between render clears the *old* match at worst, which we're replacing.
       const parsed = parseSmartEntry(filled.raw, {
         suppressedTriggers: filled.suppress,
       });
       dispatch(flowsheetSlice.actions.setParsedFields(fullParsedFields(parsed)));
+      dispatch(
+        flowsheetSlice.actions.setSelectedMatch(albumEntryToSelectedMatch(entry))
+      );
+      dispatch(flowsheetSlice.actions.setSelectedResult(0));
     },
     [state.raw, state.suppressedTriggers, dispatch]
   );
