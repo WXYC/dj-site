@@ -35,7 +35,7 @@ describe("CatalogResult plays metadata (Bug 12)", () => {
     renderWithProviders(
       <table>
         <tbody>
-          <CatalogResult album={album} />
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
         </tbody>
       </table>
     );
@@ -49,7 +49,7 @@ describe("CatalogResult plays metadata (Bug 12)", () => {
     renderWithProviders(
       <table>
         <tbody>
-          <CatalogResult album={album} />
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
         </tbody>
       </table>
     );
@@ -63,7 +63,7 @@ describe("CatalogResult plays metadata (Bug 12)", () => {
     renderWithProviders(
       <table>
         <tbody>
-          <CatalogResult album={album} />
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
         </tbody>
       </table>
     );
@@ -79,7 +79,7 @@ describe("CatalogResult WXYC Exclusive badge", () => {
     renderWithProviders(
       <table>
         <tbody>
-          <CatalogResult album={album} />
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
         </tbody>
       </table>
     );
@@ -93,7 +93,7 @@ describe("CatalogResult WXYC Exclusive badge", () => {
     renderWithProviders(
       <table>
         <tbody>
-          <CatalogResult album={album} />
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
         </tbody>
       </table>
     );
@@ -107,7 +107,7 @@ describe("CatalogResult WXYC Exclusive badge", () => {
     renderWithProviders(
       <table>
         <tbody>
-          <CatalogResult album={album} />
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
         </tbody>
       </table>
     );
@@ -127,7 +127,7 @@ describe("CatalogResult Various Artists display", () => {
     renderWithProviders(
       <table>
         <tbody>
-          <CatalogResult album={album} />
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
         </tbody>
       </table>
     );
@@ -146,7 +146,7 @@ describe("CatalogResult Various Artists display", () => {
     renderWithProviders(
       <table>
         <tbody>
-          <CatalogResult album={album} />
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
         </tbody>
       </table>
     );
@@ -162,7 +162,7 @@ describe("CatalogResult Various Artists display", () => {
     renderWithProviders(
       <table>
         <tbody>
-          <CatalogResult album={album} />
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
         </tbody>
       </table>
     );
@@ -182,7 +182,7 @@ describe("CatalogResult call number column", () => {
     renderWithProviders(
       <table>
         <tbody>
-          <CatalogResult album={album} />
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
         </tbody>
       </table>
     );
@@ -197,7 +197,7 @@ describe("CatalogResult call number column", () => {
     renderWithProviders(
       <table>
         <tbody>
-          <CatalogResult album={album} />
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
         </tbody>
       </table>
     );
@@ -210,7 +210,7 @@ describe("CatalogResult call number column", () => {
     renderWithProviders(
       <table>
         <tbody>
-          <CatalogResult album={album} />
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
         </tbody>
       </table>
     );
@@ -233,7 +233,7 @@ describe("CatalogResult text clamping", () => {
     renderWithProviders(
       <table>
         <tbody>
-          <CatalogResult album={album} />
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
         </tbody>
       </table>
     );
@@ -255,7 +255,7 @@ describe("CatalogResult record label column", () => {
     renderWithProviders(
       <table>
         <tbody>
-          <CatalogResult album={album} />
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
         </tbody>
       </table>
     );
@@ -266,19 +266,25 @@ describe("CatalogResult record label column", () => {
     expect(labelCell!.textContent).not.toContain(album.title);
   });
 
-  it("should show a dash when the label is empty", () => {
-    const album = createTestAlbum({ label: "" });
+  it("should show a dash in the label cell when the label is empty", () => {
+    // Give plays a nonzero value so its cell doesn't also render "—"; then the
+    // only dash is the label fallback, so this test can actually fail if that
+    // fallback regresses.
+    const album = createTestAlbum({ label: "", plays: 12 });
 
     renderWithProviders(
       <table>
         <tbody>
-          <CatalogResult album={album} />
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
         </tbody>
       </table>
     );
 
-    // plays default 0 also renders "—", so expect two dashes (plays + label)
-    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(1);
+    const labelCell = screen.getByText("—").closest("td");
+    expect(labelCell).not.toBeNull();
+    // The dash is in the label cell, not the plays cell (which shows "12").
+    expect(labelCell!.textContent).not.toContain("12");
+    expect(screen.getByText("12")).toBeDefined();
   });
 });
 
@@ -291,7 +297,7 @@ describe("CatalogResult album artwork", () => {
     renderWithProviders(
       <table>
         <tbody>
-          <CatalogResult album={album} />
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
         </tbody>
       </table>
     );
@@ -307,7 +313,7 @@ describe("CatalogResult album artwork", () => {
     renderWithProviders(
       <table>
         <tbody>
-          <CatalogResult album={album} />
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
         </tbody>
       </table>
     );
@@ -321,7 +327,7 @@ describe("CatalogResult album artwork", () => {
     renderWithProviders(
       <table>
         <tbody>
-          <CatalogResult album={album} />
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
         </tbody>
       </table>
     );

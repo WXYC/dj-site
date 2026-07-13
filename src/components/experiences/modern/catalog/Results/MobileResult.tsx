@@ -11,7 +11,7 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { QueueMusic } from "@mui/icons-material";
 
 import { applicationSlice } from "@/lib/features/application/frontend";
-import { useQueue, useShowControl } from "@/src/hooks/flowsheetHooks";
+import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
 import { useAppDispatch } from "@/lib/hooks";
 import { convertBinToQueue } from "@/lib/features/bin/conversions";
 import { GENRE_COLORS } from "../ArtistAvatar";
@@ -19,13 +19,22 @@ import AddRemoveBin from "./AddRemoveBin";
 import { MatchedTrackChips } from "./MatchedTrackChips";
 import { ReleaseChips } from "./ReleaseChips";
 import { toast } from "sonner";
+import { memo } from "react";
 
 // Below the `sm` breakpoint the desktop table is hidden and the results
 // render as this Apple-Music-style stacked card instead: artwork on the
 // left, everything else stacked vertically, actions in the top-right corner.
-export default function CatalogMobileResult({ album }: { album: AlbumEntry }) {
-  const { live } = useShowControl();
-  const { addToQueue } = useQueue();
+// `live`/`addToQueue` are hoisted into Results (shared across rows); memoized
+// so a query keystroke doesn't re-render unchanged cards.
+function CatalogMobileResult({
+  album,
+  live,
+  addToQueue,
+}: {
+  album: AlbumEntry;
+  live: boolean;
+  addToQueue: (entry: FlowsheetQuery) => void;
+}) {
   const dispatch = useAppDispatch();
 
   const genreColor = GENRE_COLORS[(album.artist.genre as Genre) ?? "Unknown"] ?? "neutral";
@@ -174,3 +183,5 @@ export default function CatalogMobileResult({ album }: { album: AlbumEntry }) {
     </Sheet>
   );
 }
+
+export default memo(CatalogMobileResult);

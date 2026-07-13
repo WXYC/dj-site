@@ -13,7 +13,7 @@ import { Stack, Tooltip } from "@mui/joy";
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { useCatalogQuerySearch } from "@/src/hooks/catalogHooks";
 import { QueueMusic } from "@mui/icons-material";
-import { useQueue, useShowControl } from "@/src/hooks/flowsheetHooks";
+import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
 import { useAppDispatch } from "@/lib/hooks";
 import { GENRE_COLORS } from "../ArtistAvatar";
 import AddRemoveBin from "./AddRemoveBin";
@@ -21,10 +21,20 @@ import { MatchedTrackChips } from "./MatchedTrackChips";
 import { ReleaseChips } from "./ReleaseChips";
 import { convertBinToQueue } from "@/lib/features/bin/conversions";
 import { toast } from "sonner";
+import { memo } from "react";
 
-export default function CatalogResult({ album }: { album: AlbumEntry }) {
-  const { live } = useShowControl();
-  const { addToQueue } = useQueue();
+// `live` and `addToQueue` are hoisted into Results and passed down so every
+// row shares one useShowControl/useQueue subscription; memoized so a query
+// keystroke doesn't re-render rows whose album is unchanged.
+function CatalogResult({
+  album,
+  live,
+  addToQueue,
+}: {
+  album: AlbumEntry;
+  live: boolean;
+  addToQueue: (entry: FlowsheetQuery) => void;
+}) {
   const dispatch = useAppDispatch();
 
   const { selected, setSelection, sortBy } = useCatalogQuerySearch();
@@ -252,3 +262,5 @@ export default function CatalogResult({ album }: { album: AlbumEntry }) {
     </tr>
   );
 }
+
+export default memo(CatalogResult);
