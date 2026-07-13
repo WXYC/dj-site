@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { insertTriggerWord } from "./insertTriggerWord";
+import {
+  insertTriggerWord,
+  removeTrailingTrigger,
+  replaceTriggerWord,
+} from "./insertTriggerWord";
 
 describe("insertTriggerWord", () => {
   it("appends the trigger with a leading space when caret is at the end", () => {
@@ -40,5 +44,34 @@ describe("insertTriggerWord", () => {
     // select the "XXX"
     const { raw: out } = insertTriggerWord(raw, 5, 8, "via");
     expect(out).toBe("Song via Album");
+  });
+});
+
+describe("replaceTriggerWord", () => {
+  it("swaps the trailing trigger word, keeping the trailing space", () => {
+    // "Song by " — "by" spans [5, 7)
+    const { raw: out, caret } = replaceTriggerWord("Song by ", 5, 7, "on");
+    expect(out).toBe("Song on ");
+    expect(caret).toBe(out.length);
+  });
+
+  it("handles a different-length word", () => {
+    const { raw: out } = replaceTriggerWord("Song on ", 5, 7, "via");
+    expect(out).toBe("Song via ");
+  });
+});
+
+describe("removeTrailingTrigger", () => {
+  it("removes the trailing trigger and its leading space", () => {
+    // "Song via " — "via" spans [5, 8)
+    const { raw: out, caret } = removeTrailingTrigger("Song via ", 5, 8);
+    expect(out).toBe("Song");
+    expect(caret).toBe("Song".length);
+  });
+
+  it("removes a trigger sitting at the very start", () => {
+    // "by " — "by" spans [0, 2)
+    const { raw: out } = removeTrailingTrigger("by ", 0, 2);
+    expect(out).toBe("");
   });
 });

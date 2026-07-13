@@ -41,3 +41,40 @@ export function insertTriggerWord(
     caret: head.length + core.length,
   };
 }
+
+/**
+ * Swap the trigger word occupying `[start, end)` for `word`, leaving the
+ * surrounding text (and the trailing space the parser needs) intact. Used to
+ * cycle a trailing trigger — `Song by ` → `Song on `. Caret lands at the end of
+ * the line, ready for the field value.
+ */
+export function replaceTriggerWord(
+  raw: string,
+  start: number,
+  end: number,
+  word: string
+): TriggerInsertion {
+  const out = raw.slice(0, start) + word + raw.slice(end);
+  return { raw: out, caret: out.length };
+}
+
+/**
+ * Remove the trailing trigger word at `[start, end)` along with the single
+ * space that introduced it — `Song via ` → `Song`. Caret lands where the
+ * trigger began (the end of the previous field).
+ */
+export function removeTrailingTrigger(
+  raw: string,
+  start: number,
+  end: number
+): TriggerInsertion {
+  // Absorb the one leading space that separated the trigger from the value
+  // before it, so we don't leave a dangling gap.
+  const cut = start > 0 && /\s/.test(raw[start - 1]) ? start - 1 : start;
+  const after = raw.slice(end).replace(/^\s+/, "");
+  const head = raw.slice(0, cut);
+  return {
+    raw: head + (after ? ` ${after}` : ""),
+    caret: head.length,
+  };
+}

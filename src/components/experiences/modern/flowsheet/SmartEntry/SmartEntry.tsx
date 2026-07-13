@@ -25,8 +25,16 @@ import SmartComposer from "./SmartComposer";
 import SmartResults from "./SmartResults";
 import SmartToolbar from "./SmartToolbar";
 import TriggerChips from "./TriggerChips";
-import { insertTriggerWord } from "./insertTriggerWord";
-import { nextTriggerField, TRIGGER_WORD } from "./triggerWords";
+import {
+  insertTriggerWord,
+  removeTrailingTrigger,
+  replaceTriggerWord,
+} from "./insertTriggerWord";
+import {
+  cycleTriggerField,
+  nextTriggerField,
+  TRIGGER_WORD,
+} from "./triggerWords";
 import type { SmartField } from "./parser/types";
 import { useFlowsheetSmartEntry } from "./useFlowsheetSmartEntry";
 import { useSmartEntrySearch } from "./useSmartEntrySearch";
@@ -140,6 +148,23 @@ export default function SmartEntry() {
     entry.onRawChange(raw);
   };
 
+  /** Revert to the snapshot taken before the current Tab sequence (removing the
+   *  whole trigger word). Returns false when there's nothing to undo. */
+  const restoreTabBase = (): boolean => {
+    const snap = tabUndoRef.current;
+    if (!snap) return false;
+    tabUndoRef.current = null;
+    pendingCaretRef.current = snap.caret;
+    entry.onRawChange(snap.raw);
+    return true;
+  };
+
+  /** Backspace at the end of the line: right after a Tab it removes the whole
+   *  trigger word (not one character); otherwise it defers to the autofill
+   *  undo (ghost accept / result fill). */
+  const handleBackspaceAtEnd = (): boolean =>
+    restoreTabBase() || entry.undoAutofill();
+
   // A field is "claimed" once it has a parsed value or a trailing trigger is
   // already awaiting one — its chip is dropped and Tab skips past it
   // (first-wins parser).
@@ -169,21 +194,48 @@ export default function SmartEntry() {
           // this" / back out the just-added field). Only available right after
           // tabbing; otherwise it falls through to normal reverse focus
           // movement so the DJ can still leave the composer.
-          if (isComposing && tabUndoRef.current) {
-            e.preventDefault();
-            const { raw, caret } = tabUndoRef.current;
-            tabUndoRef.current = null;
+          if (isComposing && restoreTabBase()) e.preventDefault();
+          return;
+        }
+
+        // Tab only acts from the end of the line while composing; otherwise it's
+        // normal focus movement.
+        if (!isComposing || !caretAtEnd) return;
+
+        const pending = entry.pendingTrigger;
+        if (pending && pending.field !== "song") {
+          // A value-less trailing trigger is already there (we just tabbed):
+          // cycle its word to the next open field instead of stacking another —
+          // by → on → via → (removed) → wraps on the next Tab.
+          e.preventDefault();
+          const next = cycleTriggerField(pending.field, (f) =>
+            Boolean(entry.fields[f])
+          );
+          if (next) {
+            const { raw, caret } = replaceTriggerWord(
+              entry.raw,
+              pending.start,
+              pending.end,
+              TRIGGER_WORD[next]
+            );
+            pendingCaretRef.current = caret;
+            entry.onRawChange(raw);
+          } else if (!restoreTabBase()) {
+            // Cycled past the last field → back to the pre-trigger text.
+            const { raw, caret } = removeTrailingTrigger(
+              entry.raw,
+              pending.start,
+              pending.end
+            );
             pendingCaretRef.current = caret;
             entry.onRawChange(raw);
           }
           return;
         }
 
-        // Plain Tab advances into the next unspecified field (artist → album →
-        // label, skipping any already filled) by splicing its trigger word —
-        // the keyboard analog of the frontmost chip. Only from the end of the
-        // line while composing; otherwise normal focus movement.
-        if (!isComposing || !caretAtEnd) return;
+        // Otherwise advance into the next unspecified field (artist → album →
+        // label, skipping any already filled) — the keyboard analog of the
+        // frontmost chip.
         const field = nextTriggerField(isClaimed);
         if (!field) return;
         e.preventDefault();
@@ -288,7 +340,7 @@ export default function SmartEntry() {
                 const full = ghost.acceptGhostText();
                 if (full) entry.acceptGhost(ghost.ghostSuffix, activeField, full);
               }}
-              onBackspaceAtEnd={entry.undoAutofill}
+              onBackspaceAtEnd={handleBackspaceAtEnd}
               onFocus={() => {
                 setFocused(true);
                 // Refocusing after a click-away should bring the results back
