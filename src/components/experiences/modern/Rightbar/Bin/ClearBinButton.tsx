@@ -33,8 +33,8 @@ export default function ClearBinButton({ count }: { count: number }) {
     <>
       <Tooltip title="Clear Mail Bin" placement="top" variant="outlined">
         <IconButton
-          variant="plain"
-          color="danger"
+          variant="soft"
+          color="warning"
           size="sm"
           aria-label="Clear Mail Bin"
           onClick={() => setOpen(true)}
@@ -56,7 +56,7 @@ export default function ClearBinButton({ count }: { count: number }) {
           <DialogActions>
             <Button
               variant="solid"
-              color="danger"
+              color="warning"
               loading={loading}
               onClick={handleConfirm}
             >

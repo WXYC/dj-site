@@ -6,13 +6,18 @@ import { Card, Divider, Skeleton, Typography } from "@mui/joy";
 import RightBarContentContainer from "../RightBarContentContainer";
 import BinEntry from "./BinEntry";
 import ClearBinButton from "./ClearBinButton";
-
-// Safety cap so a very large bin scrolls internally instead of dominating the
-// rightbar column; short bins size to their content and waste no space.
-const BIN_MAX_HEIGHT = 500;
+import { useGetRightbarQuery } from "@/lib/features/application/api";
+import { useShowControl } from "@/src/hooks/flowsheetHooks";
 
 export default function BinContent() {
+  const { data: max } = useGetRightbarQuery();
   const { bin, isError, loading } = useBin();
+  // Hoist the live subscription once for all rows (shared, like the catalog).
+  const { live } = useShowControl();
+
+  // Fixed-size box: reserves a consistent blank area and scrolls internally
+  // once its content exceeds it, rather than growing the rightbar downward.
+  const height = max ? 500 : 335;
 
   if (loading) {
     return (
@@ -24,7 +29,7 @@ export default function BinContent() {
           variant="rectangular"
           sx={{
             width: { xs: "100%", sm: 300, lg: 400 },
-            height: 335,
+            height: height,
             borderRadius:
               "max((8px - 1px) - 1rem, min(1rem / 2, (8px - 1px) / 2))",
           }}
@@ -46,7 +51,7 @@ export default function BinContent() {
         sx={{
           overflowY: "auto",
           width: { xs: "100%", sm: 300, lg: 400 },
-          maxHeight: BIN_MAX_HEIGHT,
+          height: height,
         }}
       >
         {!hasEntries ? (
@@ -56,7 +61,7 @@ export default function BinContent() {
         ) : (
           bin.map((entry, index) => (
             <div key={`bin-${entry.id}`}>
-              <BinEntry entry={entry} />
+              <BinEntry entry={entry} live={live} />
               {index < bin.length - 1 && <Divider />}
             </div>
           ))
