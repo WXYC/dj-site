@@ -1,6 +1,11 @@
 # Color System — implementation progress
 
-Branch: `feat/color-system` (off `feat/flowsheet-entry-redesign`; rebase onto main once the entry redesign lands).
+Branch: `feat/color-system` (off **`feat/flowsheet-entry-rows`** — the broadcast-log
+rows PR; rebase onto main once that lands). NOTE: originally mis-based on
+`flowsheet-entry-redesign`; rebased `--onto flowsheet-entry-rows` because the
+SmartEntry smart-sentence feature must NOT be in this diff. On this branch the
+catalog chips live in `Results/ReleaseChips.tsx` (+ `MobileResult.tsx`), not inline
+in `Result.tsx`.
 Dev server: watch on http://localhost:3000.
 
 Two-tier semantic color system for the **modern** experience + a theme-gallery

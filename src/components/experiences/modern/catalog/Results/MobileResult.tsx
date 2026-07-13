@@ -14,7 +14,7 @@ import { applicationSlice } from "@/lib/features/application/frontend";
 import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
 import { useAppDispatch } from "@/lib/hooks";
 import { convertBinToQueue } from "@/lib/features/bin/conversions";
-import { GENRE_COLORS } from "../ArtistAvatar";
+import { GENRE_TONES } from "@/lib/features/experiences/modern/tokens/roles";
 import AddRemoveBin from "./AddRemoveBin";
 import { MatchedTrackChips } from "./MatchedTrackChips";
 import { ReleaseChips } from "./ReleaseChips";
@@ -37,7 +37,7 @@ function CatalogMobileResult({
 }) {
   const dispatch = useAppDispatch();
 
-  const genreColor = GENRE_COLORS[(album.artist.genre as Genre) ?? "Unknown"] ?? "neutral";
+  const genreColor = (GENRE_TONES[(album.artist.genre as Genre) ?? "Unknown"] ?? GENRE_TONES.Unknown).color;
 
   const artistDisplay = album.album_artist ? "Various Artists" : album.artist.name;
 

@@ -15,7 +15,7 @@ import { useCatalogQuerySearch } from "@/src/hooks/catalogHooks";
 import { QueueMusic } from "@mui/icons-material";
 import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
 import { useAppDispatch } from "@/lib/hooks";
-import { GENRE_COLORS } from "../ArtistAvatar";
+import { GENRE_TONES } from "@/lib/features/experiences/modern/tokens/roles";
 import AddRemoveBin from "./AddRemoveBin";
 import { MatchedTrackChips } from "./MatchedTrackChips";
 import { ReleaseChips } from "./ReleaseChips";
@@ -39,7 +39,7 @@ function CatalogResult({
 
   const { selected, setSelection, sortBy } = useCatalogQuerySearch();
 
-  const genreColor = GENRE_COLORS[(album.artist.genre as Genre) ?? "Unknown"] ?? "neutral";
+  const genreColor = (GENRE_TONES[(album.artist.genre as Genre) ?? "Unknown"] ?? GENRE_TONES.Unknown).color;
   const isSelected = selected.includes(album.id);
 
   const artistDisplay = album.album_artist ? "Various Artists" : album.artist.name;

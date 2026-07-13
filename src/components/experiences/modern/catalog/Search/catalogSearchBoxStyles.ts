@@ -19,7 +19,7 @@ export const catalogSearchBoxSx: SxProps = {
     outline: "none !important",
     border: "none !important",
     fontFamily: "inherit !important",
-    fontSize: "var(--joy-fontSize-sm)",
+    fontSize: "var(--wxyc-fontSize-sm)",
     lineHeight: 1.25,
     minWidth: "0 !important",
     px: 0.75,
@@ -30,8 +30,8 @@ export const catalogSearchBoxSx: SxProps = {
     cursor: "text",
   },
   "&:focus-within": {
-    borderColor: "var(--joy-palette-primary-300)",
-    boxShadow: "0 0 0 2px var(--joy-palette-primary-100)",
+    borderColor: "var(--wxyc-palette-primary-300)",
+    boxShadow: "0 0 0 2px var(--wxyc-palette-primary-100)",
   },
 };
 
@@ -118,7 +118,7 @@ export const catalogInFieldClusterSx = {
 
 export const catalogInLabelSx = {
   color: "text.tertiary",
-  fontSize: "var(--joy-fontSize-xs)",
+  fontSize: "var(--wxyc-fontSize-xs)",
   lineHeight: 1,
   letterSpacing: "0.04em",
   userSelect: "none",
@@ -127,7 +127,7 @@ export const catalogInLabelSx = {
 
 export const catalogFieldSelectButtonSx = {
   color: "text.tertiary",
-  fontSize: "var(--joy-fontSize-xs)",
+  fontSize: "var(--wxyc-fontSize-xs)",
   lineHeight: 1,
   letterSpacing: "0.04em",
   fontWeight: 500,

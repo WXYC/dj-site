@@ -5,8 +5,12 @@ import Stack from "@mui/joy/Stack";
 
 import { Format, Genre } from "@/lib/features/catalog/types";
 import { Rotation } from "@/lib/features/rotation/types";
-import { getStyleForRotation } from "@/src/utilities/modern/rotationstyles";
-import { GENRE_COLORS } from "../ArtistAvatar";
+import {
+  FORMAT_TONES,
+  GENRE_TONES,
+  ROTATION_TONES,
+} from "@/lib/features/experiences/modern/tokens/roles";
+import { formatNameToFormatKey } from "../Search/catalogFilterChipStyles";
 import { EXCLUSIVES_PURPLE } from "../Search/catalogFilterStyles";
 
 // Descriptor pills are tiny caption-scale and quieter than the artist text;
@@ -43,7 +47,7 @@ export function ReleaseChips({
   rotation?: Rotation;
   onStreaming: boolean | undefined;
 }) {
-  const genreColor = GENRE_COLORS[genre ?? "Unknown"] ?? "neutral";
+  const genreColor = (GENRE_TONES[genre ?? "Unknown"] ?? GENRE_TONES.Unknown).color;
 
   // At most four small pills (genre, format, rotation, exclusive) — they wrap,
   // so there's no overflow to collapse. Format stays visible so the DJ can
@@ -54,13 +58,18 @@ export function ReleaseChips({
       <Chip variant="soft" color={genreColor} size="sm" sx={chipSx}>
         {genre}
       </Chip>
-      <Chip variant="soft" color="neutral" size="sm" sx={chipSx}>
+      <Chip
+        variant="soft"
+        color={FORMAT_TONES[formatNameToFormatKey(format)].color}
+        size="sm"
+        sx={chipSx}
+      >
         {formatLabel(format)}
       </Chip>
       {rotation && (
         <Chip
           variant="solid"
-          color={getStyleForRotation(rotation)}
+          color={ROTATION_TONES[rotation].color}
           size="sm"
           sx={chipSx}
           aria-label={`Rotation ${rotation}`}

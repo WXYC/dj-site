@@ -24,22 +24,26 @@ describe("catalogFilterChipStyles", () => {
     });
   });
 
-  it("uses catalog result format colors", () => {
+  it("uses dedicated format hues", () => {
     expect(getFormatFilterChipProps("Vinyl")).toEqual({
-      color: "primary",
+      color: "formatVinyl",
       variant: "soft",
     });
     expect(getFormatFilterChipProps("cd")).toEqual({
-      color: "warning",
+      color: "formatCd",
+      variant: "soft",
+    });
+    expect(getFormatFilterChipProps("mystery")).toEqual({
+      color: "neutral",
       variant: "soft",
     });
   });
 
-  it("styles exclusives tag with WXYC purple", () => {
+  it("styles exclusives tag with the WXYC exclusive palette slot", () => {
     const props = getTagFilterChipProps("exclusives");
     expect(props.variant).toBe("soft");
     expect(props.sx).toMatchObject({
-      bgcolor: "#7B2D8E",
+      bgcolor: "var(--wxyc-palette-exclusive-solidBg, #7B2D8E)",
       color: "#fff",
     });
     expect(props.color).toBeUndefined();

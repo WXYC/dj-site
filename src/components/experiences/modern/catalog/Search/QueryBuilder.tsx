@@ -104,7 +104,7 @@ function CatalogSearchInFieldCluster({
             key={opt.value}
             value={opt.value}
             sx={{
-              fontSize: "var(--joy-fontSize-xs)",
+              fontSize: "var(--wxyc-fontSize-xs)",
               letterSpacing: "0.04em",
             }}
           >
