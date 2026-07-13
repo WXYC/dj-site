@@ -29,6 +29,9 @@ const ROSE_DARK: PaletteScale = { 50: "#faeaef", 100: "#ecadc0", 200: "#e383a0",
 const TEAL: PaletteScale = { 50: "#e0f2f1", 100: "#b2dfdb", 200: "#80cbc4", 300: "#4db6ac", 400: "#26a69a", 500: "#009688", 600: "#00897b", 700: "#00796b", 800: "#00695c", 900: "#004d40" };
 const TEAL_DARK: PaletteScale = { 50: "#e8f3f4", 100: "#b9dcdf", 200: "#74b9bf", 300: "#45a1a9", 400: "#178a94", 500: "#126e76", 600: "#106168", 700: "#0c454a", 800: "#07292c", 900: "#051c1e" };
 const STONE: PaletteScale = { 50: "#fafaf9", 100: "#f5f5f4", 200: "#e7e5e4", 300: "#d6d3d1", 400: "#a8a29e", 500: "#78716c", 600: "#57534e", 700: "#44403c", 800: "#292524", 900: "#1c1917" };
+// Warm greige neutral so incidental greys (outlined borders, muted text, neutral
+// chips) harmonize with the chocolate surfaces instead of reading as cool grey.
+const ROSE_NEUTRAL: PaletteScale = { 50: "#f6f3f1", 100: "#ebe5e1", 200: "#ddd4ce", 300: "#c9bcb3", 400: "#ab9c92", 500: "#8a7b71", 600: "#6e615a", 700: "#554a45", 800: "#3a322e", 900: "#241f1c" };
 const FUCHSIA: PaletteScale = { 50: "#fdf4ff", 100: "#fae8ff", 200: "#f5d0fe", 300: "#f0abfc", 400: "#e879f9", 500: "#d946ef", 600: "#c026d3", 700: "#a21caf", 800: "#86198f", 900: "#701a75" };
 const INDIGO_DARK: PaletteScale = { 50: "#eef2ff", 100: "#e0e7ff", 200: "#c7d2fe", 300: "#a5b4fc", 400: "#818cf8", 500: "#6366f1", 600: "#4f46e5", 700: "#4338ca", 800: "#3730a3", 900: "#312e81" };
 
@@ -62,6 +65,7 @@ export const wxycRoseTheme: ThemeDefinition = {
   schemes: {
     light: {
       primary: ROSE,
+      neutral: ROSE_NEUTRAL,
       success: TEAL,
       warning: STONE,
       danger: FUCHSIA,
@@ -76,6 +80,7 @@ export const wxycRoseTheme: ThemeDefinition = {
     },
     dark: {
       primary: ROSE_DARK,
+      neutral: ROSE_NEUTRAL,
       success: TEAL_DARK,
       danger: INDIGO_DARK,
       sidebar: ROSE_DARK,
