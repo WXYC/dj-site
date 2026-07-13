@@ -20,11 +20,16 @@ const chipSx = {
 } as const;
 
 // `Format` is a cast string, not a real closed union (conversions.ts casts
-// `format_name as Format`), so only normalize the attested lowercase "cd";
-// preserve any other value's casing rather than title-case-mangling it
-// (e.g. "CD-R", "LP", "7-inch Single").
+// `format_name as Format`), so normalize only the attested bare lowercase
+// values ("cd" -> "CD", "vinyl" -> "Vinyl") and preserve anything that
+// already carries casing or punctuation ("CD-R", "LP", "7-inch Single",
+// "Unknown") rather than title-case-mangling it.
 function formatLabel(format: Format): string {
-  return /^cd$/i.test(format) ? "CD" : format;
+  if (/^cd$/i.test(format)) return "CD";
+  if (/^[a-z]+$/.test(format)) {
+    return format.charAt(0).toUpperCase() + format.slice(1);
+  }
+  return format;
 }
 
 export function ReleaseChips({
