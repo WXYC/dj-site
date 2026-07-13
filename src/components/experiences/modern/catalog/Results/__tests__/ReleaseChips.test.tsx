@@ -40,11 +40,18 @@ describe("ReleaseChips", () => {
     expect(screen.queryByText("+1")).toBeNull();
   });
 
-  it("should preserve casing on arbitrary format strings", () => {
+  it("should tidy attested lowercase formats but preserve arbitrary ones", () => {
+    const { unmount } = renderWithProviders(
+      <ReleaseChips genre="Rock" format={"vinyl" as never} onStreaming={undefined} />
+    );
+    // Bare lowercase "vinyl" is presented as "Vinyl".
+    expect(screen.getByText("Vinyl")).toBeDefined();
+    unmount();
+
     renderWithProviders(
       <ReleaseChips genre="Rock" format={"CD-R" as never} onStreaming={undefined} />
     );
-    // Not case-mangled to "Cd-r".
+    // Anything with existing casing/punctuation is preserved, not "Cd-r".
     expect(screen.getByText("CD-R")).toBeDefined();
   });
 
