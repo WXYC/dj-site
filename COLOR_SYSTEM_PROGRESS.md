@@ -41,9 +41,14 @@ picker. Classic experience stays untouched and strippable.
       icon) added to modern `Appbar` ButtonGroup; `supportsThemePicker` flag; toggles now
       preserve themeId via `buildPreference(exp, mode, themeId)`. Verified via screenshot
       (menu shows WXYC Rose ✓ + Ocean w/ swatches). 230 Theme/experiences tests pass.
-- [ ] 5. Catalog migration (genre/format/exclusive + prefix-bug fixes)
-- [ ] 6. Flowsheet + widgets migration (entries, SmartEntry, GoLive, NowPlaying, bins, rotation)
-- [ ] 7. Sidebar decoupling (LeftbarContainer + Logo)
+- [x] **5. Catalog migration** — `ReleaseChips.tsx` (genre→GENRE_TONES, format→dedicated
+      formatVinyl/formatCd hues, rotation→ROTATION_TONES), `MobileResult`/`Result` genre
+      gradient via GENRE_TONES, `ArtistAvatar` tones, exclusive purple → CSS var, catalog
+      `--joy-*`→`--wxyc-*` prefix fixes. tsc clean, 300 tests pass.
+- [ ] 6. Flowsheet + widgets migration (SongEntryStatusChips, Entry/MessageEntry, GoLive on-air, NowPlaying LIVE + icon leaks, RemoveButton secondary leak, rotation)
+- [x] **7. Sidebar decoupling** — `LeftbarContainer` Sheet + `Logo` now use `sidebar`/
+      `sidebarAdmin` palette slots instead of `primary`/`success`. Editing primary no longer
+      shifts the sidebar (the headline bug). Default theme visually identical (sidebar=primary scale).
 - [ ] 8. Admin roster tones + dead-code sweep
 - [ ] 9. Verify pass (vitest + e2e + manual screenshots; classic QA)
 
