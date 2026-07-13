@@ -60,6 +60,18 @@ describe("ThemePicker", () => {
     expect(reload).toHaveBeenCalled();
   });
 
+  it("closes on an outside click without switching themes", async () => {
+    const { user } = renderWithProviders(<ThemePicker />);
+    await user.click(screen.getByRole("button", { name: /choose color theme/i }));
+    expect(screen.getByText("Solarized")).toBeInTheDocument();
+
+    await user.click(document.body);
+
+    expect(screen.queryByText("Solarized")).not.toBeInTheDocument();
+    expect(setThemeId).not.toHaveBeenCalled();
+    expect(persistPreference).not.toHaveBeenCalled();
+  });
+
   it("does not persist or reload when picking the active theme", async () => {
     const { user } = renderWithProviders(<ThemePicker />);
     await user.click(screen.getByRole("button", { name: /choose color theme/i }));

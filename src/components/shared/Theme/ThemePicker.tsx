@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type JSX } from "react";
+import { useEffect, useRef, useState, type JSX } from "react";
 import { Check, PaletteRounded } from "@mui/icons-material";
 import {
   Box,
@@ -68,7 +68,23 @@ export default function ThemePicker(): JSX.Element {
   // IconButton so it composes into the surrounding ButtonGroup, which clones its
   // children with data-*-child markers a Dropdown wrapper would swallow.
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
+
+  // The Menu is controlled standalone (no Dropdown context), so Joy never wires
+  // up its built-in click-away — only Escape closes it. Close on any outside
+  // pointer press, ignoring the trigger (its own onClick toggles) and the menu.
+  useEffect(() => {
+    if (!open) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (buttonRef.current?.contains(target)) return;
+      if (menuRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [open]);
 
   const select = async (id: string) => {
     setOpen(false);
@@ -100,6 +116,7 @@ export default function ThemePicker(): JSX.Element {
         <PaletteRounded />
       </IconButton>
       <Menu
+        ref={menuRef}
         anchorEl={buttonRef.current}
         open={open}
         onClose={() => setOpen(false)}
