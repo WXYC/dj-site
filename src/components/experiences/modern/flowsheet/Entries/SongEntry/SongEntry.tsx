@@ -10,7 +10,7 @@ import { useAppDispatch } from "@/lib/hooks";
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
 import { entryFieldTextColor } from "@/src/utilities/modern/entryFieldColors";
 import { PlayArrow } from "@mui/icons-material";
-import { AspectRatio, IconButton, Stack, Tooltip } from "@mui/joy";
+import { AspectRatio, Box, IconButton, Stack, Tooltip } from "@mui/joy";
 import { useDragControls } from "motion/react";
 import { useState } from "react";
 import DragButton from "../Components/DragButton";
@@ -143,8 +143,26 @@ function SongEntry({
           level="title-sm"
           textColor={entryFieldTextColor("song", playing)}
         />
+        {/* Below xl the artist's own column is hidden; it stacks here under
+            the title as a quieter second line (a two-line playlist cell). */}
+        <Box sx={{ display: { xs: "block", xl: "none" } }}>
+          <FlowsheetEntryField
+            label="artist"
+            name={"artist_name"}
+            entry={entry}
+            playing={playing}
+            queue={queue}
+            editable={editable}
+            level="body-xs"
+            textColor={entryFieldTextColor("artist", playing)}
+          />
+        </Box>
       </td>
-      <td onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+      <td
+        className="col-artist"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
         <FlowsheetEntryField
           label="artist"
           name={"artist_name"}
@@ -167,8 +185,26 @@ function SongEntry({
           level="body-sm"
           textColor={entryFieldTextColor("album", playing)}
         />
+        {/* Below xl the label's own column is hidden; it stacks here under
+            the album as a quieter second line. */}
+        <Box sx={{ display: { xs: "block", xl: "none" } }}>
+          <FlowsheetEntryField
+            label="label"
+            name={"record_label"}
+            entry={entry}
+            playing={playing}
+            queue={queue}
+            editable={editable}
+            level="body-xs"
+            textColor={entryFieldTextColor("label", playing)}
+          />
+        </Box>
       </td>
-      <td onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+      <td
+        className="col-label"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
         <FlowsheetEntryField
           label="label"
           name={"record_label"}

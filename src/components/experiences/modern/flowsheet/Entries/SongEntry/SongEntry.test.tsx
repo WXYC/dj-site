@@ -135,19 +135,22 @@ describe("SongEntry", () => {
     it("should render all entry fields", () => {
       render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
 
-      expect(screen.getByTestId("field-album_title")).toBeInTheDocument();
-      expect(screen.getByTestId("field-artist_name")).toBeInTheDocument();
-      expect(screen.getByTestId("field-track_title")).toBeInTheDocument();
-      expect(screen.getByTestId("field-record_label")).toBeInTheDocument();
+      // Title and album render once. Artist and label render twice: their
+      // standalone xl column plus the second line that stacks into the
+      // title/album cell below xl.
+      expect(screen.getAllByTestId("field-track_title")).toHaveLength(1);
+      expect(screen.getAllByTestId("field-album_title")).toHaveLength(1);
+      expect(screen.getAllByTestId("field-artist_name")).toHaveLength(2);
+      expect(screen.getAllByTestId("field-record_label")).toHaveLength(2);
     });
 
     it("should display entry field values", () => {
       render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
 
-      expect(screen.getByText("Test Album")).toBeInTheDocument();
-      expect(screen.getByText("Test Artist")).toBeInTheDocument();
-      expect(screen.getByText("Test Track")).toBeInTheDocument();
-      expect(screen.getByText("Test Label")).toBeInTheDocument();
+      expect(screen.getAllByText("Test Track")).toHaveLength(1);
+      expect(screen.getAllByText("Test Album")).toHaveLength(1);
+      expect(screen.getAllByText("Test Artist")).toHaveLength(2);
+      expect(screen.getAllByText("Test Label")).toHaveLength(2);
     });
 
     it("should render album art image from entry.artwork_url", () => {
@@ -827,23 +830,35 @@ describe("SongEntry two-line row structure", () => {
     expect(row.querySelectorAll(":scope > td")).toHaveLength(6);
   });
 
-  it("gives each editable field its own column cell", () => {
+  it("puts each field in its column, stacking artist/label into the title/album cells", () => {
     render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
 
     const cells = screen
       .getByTestId("draggable-wrapper")
       .querySelectorAll(":scope > td");
-    const fieldOrder = [
-      "track_title",
-      "artist_name",
-      "album_title",
-      "record_label",
-    ];
-    fieldOrder.forEach((field, index) => {
-      expect(
-        cells[index + 1].contains(screen.getByTestId(`field-${field}`))
-      ).toBe(true);
-    });
+
+    // Title cell (index 1): the title plus the artist that stacks below xl.
+    expect(
+      cells[1].querySelector('[data-testid="field-track_title"]')
+    ).not.toBeNull();
+    expect(
+      cells[1].querySelector('[data-testid="field-artist_name"]')
+    ).not.toBeNull();
+    // Standalone artist column (index 2), shown at xl.
+    expect(
+      cells[2].querySelector('[data-testid="field-artist_name"]')
+    ).not.toBeNull();
+    // Album cell (index 3): the album plus the label that stacks below xl.
+    expect(
+      cells[3].querySelector('[data-testid="field-album_title"]')
+    ).not.toBeNull();
+    expect(
+      cells[3].querySelector('[data-testid="field-record_label"]')
+    ).not.toBeNull();
+    // Standalone label column (index 4), shown at xl.
+    expect(
+      cells[4].querySelector('[data-testid="field-record_label"]')
+    ).not.toBeNull();
   });
 
   it("shows the rotation chip on the title line", () => {

@@ -60,6 +60,11 @@ export default function Queue() {
         borderCollapse: "separate",
         borderSpacing: "0 4px",
         "--TableCell-paddingX": "12px",
+        // Match the entries table: below xl the artist and label columns
+        // collapse into two-line title/album cells (see SongEntry).
+        "& .col-artist, & .col-label": {
+          display: { xs: "none", xl: "table-cell" },
+        },
         "& tbody tr > td": {
           backgroundColor: "var(--row-bg, transparent)",
           transition: "background-color 120ms",
@@ -98,13 +103,14 @@ export default function Queue() {
           visibility: "collapse",
         }}
       >
-        {/* Column sizing only — must match the entries table's 6-column grid. */}
+        {/* Column sizing only — must match the entries table's 6-column grid
+            (artist and label collapse below xl). */}
         <tr>
           <td style={{ width: "60px" }}></td>
           <td></td>
+          <td className="col-artist"></td>
           <td></td>
-          <td></td>
-          <td></td>
+          <td className="col-label"></td>
           <td style={{ width: "150px" }}></td>
         </tr>
       </thead>
