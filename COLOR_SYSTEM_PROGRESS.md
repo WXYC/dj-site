@@ -73,6 +73,16 @@ picker. Classic experience stays untouched and strippable.
   on runtime theme change (nor does router.refresh re-mount it). Picker now persists then
   `window.location.reload()` (verified cookie-driven SSR path). Live no-reload swap = follow-up.
 
+## Palette refinement (design pass)
+Sonnet web agent pulled Tailwind scales; consolidated both themes into a single
+`themes/definitions.ts`. **WXYC Rose** (id still `default`): rose primary, zinc
+neutral + amber warning (kills the dated yellow-grey stone), soft warm-stone dark
+background (`#0c0a09/#1c1917/#292524`, replaces near-black), orange vinyl + violet
+CD (harmonize with rose — Rock+CD no longer clash). **Solar** (renamed from Ocean):
+soft amber primary, yellow vinyl, sky CD, true-neutral scaffolding. Added optional
+per-scheme `background` slot (body/surface/popup/border → Joy `background.*` +
+divider). Picker swatches now primary/success/vinyl/CD.
+
 ## Known follow-ups
 - No-reload theme swap (needs manual :root var application or Joy var-injection work).
 - e2e picker spec; Backend-Service appSkin validation confirmation.
