@@ -49,6 +49,18 @@ export const FORMAT_TONES: Record<Format, FormatTone> = {
   Unknown: { color: "neutral", variant: "soft" },
 };
 
+/**
+ * Resolve any format string to its tone. `Format` is a cast string, not a real
+ * closed union (the backend sends "cd", "LP", "CD-R", …), so callers must NOT
+ * index FORMAT_TONES directly — normalize here and always return a valid tone.
+ */
+export function formatTone(format: string | null | undefined): FormatTone {
+  const f = (format ?? "").toLowerCase();
+  if (f.includes("vinyl")) return FORMAT_TONES.Vinyl;
+  if (f.includes("cd")) return FORMAT_TONES.CD;
+  return FORMAT_TONES.Unknown;
+}
+
 // --- Rotation level (was ROTATION_STYLES / rotationstyles.ts) ---
 export const ROTATION_TONES: Record<Rotation, Tone> = {
   H: { color: "primary", variant: "solid" },

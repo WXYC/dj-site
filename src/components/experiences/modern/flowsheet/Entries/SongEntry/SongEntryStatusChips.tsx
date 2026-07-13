@@ -29,7 +29,7 @@ export default function SongEntryStatusChips({
         <Chip
           size="sm"
           variant="solid"
-          color={ROTATION_TONES[entry.rotation].color}
+          color={ROTATION_TONES[entry.rotation]?.color ?? "neutral"}
           aria-label={`Rotation ${entry.rotation}`}
           sx={STATUS_CHIP_SX}
         >
