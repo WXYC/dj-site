@@ -31,7 +31,7 @@ describe("CatalogMobileResult", () => {
   });
 
   it("renders album title, artist, and the stacked metadata line", () => {
-    renderWithProviders(<CatalogMobileResult album={album} />);
+    renderWithProviders(<CatalogMobileResult album={album} live={false} addToQueue={vi.fn()} />);
 
     expect(screen.getByText("On Your Own Love Again")).toBeDefined();
     expect(screen.getByText("Jessica Pratt")).toBeDefined();
@@ -42,14 +42,14 @@ describe("CatalogMobileResult", () => {
   });
 
   it("renders genre and format chips", () => {
-    renderWithProviders(<CatalogMobileResult album={album} />);
+    renderWithProviders(<CatalogMobileResult album={album} live={false} addToQueue={vi.fn()} />);
     expect(screen.getByText(album.artist.genre)).toBeDefined();
     expect(screen.getByText("Vinyl")).toBeDefined();
   });
 
   it("omits empty metadata segments", () => {
     renderWithProviders(
-      <CatalogMobileResult album={createTestAlbum({ ...album, plays: 0, label: "" })} />
+      <CatalogMobileResult album={createTestAlbum({ ...album, plays: 0, label: "" })} live={false} addToQueue={vi.fn()} />
     );
     const meta = screen.getByText(/RO 87\/4/);
     expect(meta.textContent).not.toContain("plays");
@@ -57,13 +57,13 @@ describe("CatalogMobileResult", () => {
   });
 
   it("does not render a selection checkbox on mobile", () => {
-    renderWithProviders(<CatalogMobileResult album={album} />);
+    renderWithProviders(<CatalogMobileResult album={album} live={false} addToQueue={vi.fn()} />);
     expect(screen.queryByRole("checkbox")).toBeNull();
   });
 
   it("shows the WXYC EXCLUSIVE chip when not on streaming", () => {
     renderWithProviders(
-      <CatalogMobileResult album={createTestAlbum({ ...album, on_streaming: false })} />
+      <CatalogMobileResult album={createTestAlbum({ ...album, on_streaming: false })} live={false} addToQueue={vi.fn()} />
     );
     expect(screen.getByText("WXYC EXCLUSIVE")).toBeDefined();
   });

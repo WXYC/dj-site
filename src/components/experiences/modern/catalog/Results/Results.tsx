@@ -11,11 +11,18 @@ import {
   useCatalogQueryResults,
   useCatalogQuerySearch,
 } from "@/src/hooks/catalogHooks";
+import { useQueue, useShowControl } from "@/src/hooks/flowsheetHooks";
+import { useMediaQuery } from "@/src/hooks/useMediaQuery";
 import { ColorPaletteProp } from "@mui/joy";
 import CatalogResult from "./Result";
 import CatalogMobileResult from "./MobileResult";
 import ResultsContainer from "./ResultsContainer";
 import TableHeader from "./TableHeader";
+
+// Below Joy's `sm` breakpoint (600px) the results render as stacked cards
+// instead of the table. Only one layout is rendered at a time (not both
+// CSS-hidden), so a page of N results never mounts 2N component trees.
+const MOBILE_QUERY = "(max-width: 599.95px)";
 
 export default function Results({
   color,
@@ -41,6 +48,54 @@ export default function Results({
   const loading = isLoadingInitial;
   const hasMore = hasNextPage;
   const loadNextPage = fetchNextPage;
+
+  const isMobile = useMediaQuery(MOBILE_QUERY);
+
+  // Hoisted once for the whole list instead of per row: every row shares this
+  // `live` flag and the stable `addToQueue` callback rather than each mounting
+  // its own useShowControl + useQueue (polling-query) subscriptions.
+  const { live } = useShowControl();
+  const { addToQueue } = useQueue();
+
+  const loadMoreButton = hasMore ? (
+    <Button
+      variant="solid"
+      color="primary"
+      size="lg"
+      loading={isFetchingMore}
+      onClick={loadNextPage}
+      sx={{ alignSelf: "center", mt: 1 }}
+    >
+      Load more
+    </Button>
+  ) : null;
+
+  if (isMobile) {
+    return (
+      <ResultsContainer>
+        <Box
+          sx={{ display: "flex", flexDirection: "column", gap: 1, p: 1 }}
+        >
+          {loading ? (
+            <Box sx={{ display: "flex", justifyContent: "center", pt: "3rem" }}>
+              <CircularProgress color="primary" size="md" />
+            </Box>
+          ) : (
+            releaseList?.map((album) => (
+              <CatalogMobileResult
+                album={album}
+                live={live}
+                addToQueue={addToQueue}
+                key={`mobile-result-${album.id}`}
+              />
+            ))
+          )}
+          {!loading && loadMoreButton}
+        </Box>
+      </ResultsContainer>
+    );
+  }
+
   return (
     <ResultsContainer>
       <Table
@@ -48,16 +103,13 @@ export default function Results({
         stickyHeader
         hoverRow
         sx={{
-          // The table is the desktop layout only; below `sm` the stacked
-          // mobile card list takes over (see below).
-          display: { xs: "none", sm: "table" },
           // Album/Artist have a floor here; below this the container's
           // overflow:auto becomes a horizontal scroll rather than crushing.
           // Lower below xl since Artist collapses into the Album column.
           minWidth: { xs: 760, xl: 900 },
-          // Below xl the Artist gets its own column; at and below the xl
-          // breakpoint it collapses (the artist stacks under the album title
-          // in the Album column instead) to fit narrower laptops.
+          // The Artist gets its own column only at and above xl; below xl it
+          // collapses (the artist stacks under the album title in the Album
+          // column instead) to fit narrower laptops.
           "& .col-artist": {
             display: { xs: "none", xl: "table-cell" },
           },
@@ -147,11 +199,7 @@ export default function Results({
             {/* Album and Artist carry no width: with table-layout fixed they
                 split the leftover space, so they grow to fill wide screens
                 while the metadata columns stay compact on the right. */}
-            <th
-              scope="col"
-              aria-sort={ariaSort("album") ?? ariaSort("artist")}
-              style={{ padding: 12 }}
-            >
+            <th scope="col" aria-sort={ariaSort("album")} style={{ padding: 12 }}>
               <TableHeader textValue="Album" />
               {/* Below xl the Artist sort lives here, since the artist is
                   stacked into this column. */}
@@ -168,7 +216,9 @@ export default function Results({
             >
               <TableHeader textValue="Artist" />
             </th>
-            <th scope="col" style={{ width: 140, padding: 12 }}></th>
+            <th scope="col" style={{ width: 140, padding: 12 }}>
+              <TableHeader textValue="Tags" />
+            </th>
             <th scope="col" style={{ width: 100, padding: 12 }}>
               <TableHeader textValue="Call #" />
             </th>
@@ -198,7 +248,12 @@ export default function Results({
             </tr>
           ) : (
             releaseList?.map((album) => (
-              <CatalogResult album={album} key={`result-${album.id}`} />
+              <CatalogResult
+                album={album}
+                live={live}
+                addToQueue={addToQueue}
+                key={`result-${album.id}`}
+              />
             ))
           )}
 
@@ -222,39 +277,6 @@ export default function Results({
           )}
         </tbody>
       </Table>
-
-      {/* Mobile: the table is hidden below `sm`; results render as a
-          vertical list of stacked cards (Apple-Music-style) instead. */}
-      <Box
-        sx={{
-          display: { xs: "flex", sm: "none" },
-          flexDirection: "column",
-          gap: 1,
-          p: 1,
-        }}
-      >
-        {loading ? (
-          <Box sx={{ display: "flex", justifyContent: "center", pt: "3rem" }}>
-            <CircularProgress color="primary" size="md" />
-          </Box>
-        ) : (
-          releaseList?.map((album) => (
-            <CatalogMobileResult album={album} key={`mobile-result-${album.id}`} />
-          ))
-        )}
-        {!loading && hasMore && (
-          <Button
-            variant="solid"
-            color="primary"
-            size="lg"
-            loading={isFetchingMore}
-            onClick={loadNextPage}
-            sx={{ alignSelf: "center", mt: 1 }}
-          >
-            Load more
-          </Button>
-        )}
-      </Box>
     </ResultsContainer>
   );
 }
