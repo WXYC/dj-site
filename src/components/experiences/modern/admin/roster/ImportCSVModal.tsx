@@ -206,8 +206,8 @@ export default function ImportCSVModal({ open, onClose, onComplete, organization
                   alignItems: "center",
                   justifyContent: "center",
                   padding: "2rem",
-                  border: "2px dashed var(--joy-palette-neutral-outlinedBorder)",
-                  borderRadius: "var(--joy-radius-md)",
+                  border: "2px dashed var(--wxyc-palette-neutral-outlinedBorder)",
+                  borderRadius: "var(--wxyc-radius-md)",
                   cursor: "pointer",
                   textAlign: "center",
                 }}

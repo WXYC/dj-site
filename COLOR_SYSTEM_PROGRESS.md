@@ -54,8 +54,13 @@ picker. Classic experience stays untouched and strippable.
 - [x] **7. Sidebar decoupling** — `LeftbarContainer` Sheet + `Logo` now use `sidebar`/
       `sidebarAdmin` palette slots instead of `primary`/`success`. Editing primary no longer
       shifts the sidebar (the headline bug). Default theme visually identical (sidebar=primary scale).
-- [ ] 8. Admin roster tones + dead-code sweep
-- [ ] 9. Verify pass (vitest + e2e + manual screenshots; classic QA)
+- [x] **8. Admin roster tones + dead-code sweep** — `AccountEntry` role/editor/webmaster/new
+      chips → ADMIN_TONES; `ImportCSVModal` `--joy-*`→`--wxyc-*`; deleted stale
+      `components/Theme/ThemeSwitcher.tsx`, `rotationstyles.ts` (+test); trimmed dead color
+      tables from `rotationBinColors.ts` (kept bin labels). tsc clean, 166 admin/util tests pass.
+- [~] 9. Verify pass — vitest + tsc + login/picker/classic screenshots done. PENDING (needs
+      user, auth couldn't be scripted): authenticated visual QA of catalog/flowsheet/sidebar/admin
+      across themes×modes; e2e picker spec; Backend-Service `appSkin` field validation check.
 
 ## Decisions / notes
 
