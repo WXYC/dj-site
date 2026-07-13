@@ -109,9 +109,7 @@ async function openAlbumViaCatalog(
 
   const searchInput = page.getByPlaceholder("Search the catalog").first();
   await searchInput.fill("Juana Molina");
-  // .first(): the album title renders in both the desktop table and the
-  // (mounted-but-hidden) mobile card list below the sm breakpoint.
-  await expect(page.getByText("DOGA").first()).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("DOGA")).toBeVisible({ timeout: 10000 });
 
   // The desktop row actions are hover-revealed, so hover the row before
   // clicking its "More information" icon. Scope to the desktop table row
