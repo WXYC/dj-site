@@ -13,14 +13,20 @@ import {
 import { ClickAwayListener, Popper, useMediaQuery } from "@mui/material";
 import { Transition } from "react-transition-group";
 import type { Modifier } from "@popperjs/core";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
+import type { AlbumEntry } from "@/lib/features/catalog/types";
+import { useGetRotationQuery } from "@/lib/features/rotation/api";
+import type { Rotation } from "@/lib/features/rotation/types";
+import { ROTATION_BIN_LABELS } from "@/src/utilities/modern/rotationBinColors";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
 import { useGhostText, type GhostTextField } from "@/src/hooks/useGhostText";
 import BreakpointButton from "../Search/BreakpointButton";
 import TalksetButton from "../Search/TalksetButton";
+import RotationChips from "./RotationChips";
+import RotationTag from "./RotationTag";
 import SmartComposer from "./SmartComposer";
 import SmartResults from "./SmartResults";
 import SmartToolbar from "./SmartToolbar";
@@ -33,6 +39,7 @@ import {
 import {
   cycleTriggerField,
   nextTriggerField,
+  TRIGGER_FIELDS,
   TRIGGER_WORD,
 } from "./triggerWords";
 import type { SmartField } from "./parser/types";
@@ -77,7 +84,86 @@ export default function SmartEntry() {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [focused, setFocused] = useState(false);
 
-  const flatCount = search.flat.length;
+  // Selected-rotation mode: choosing a bin persists (shown as an ✕-able tag by
+  // the song) and hands the results pane over to *everything* in that bin, so
+  // the DJ works only with rotation entries without typing. `null` = normal
+  // smart-entry search.
+  const [selectedRotation, setSelectedRotation] = useState<Rotation | null>(
+    null
+  );
+  const filters = useAppSelector(flowsheetSlice.selectors.getSearchFilters);
+  const { data: allRotation } = useGetRotationQuery();
+  const rotationEntries = useMemo(
+    () =>
+      selectedRotation
+        ? (allRotation ?? []).filter(
+            (e) =>
+              e.rotation_bin === selectedRotation &&
+              e.id !== (search.selectedMatch?.id ?? null)
+          )
+        : [],
+    [selectedRotation, allRotation, search.selectedMatch]
+  );
+
+  // The results model the pane renders — the rotation browse while a bin is
+  // selected, otherwise the typed-query search. The selected match still shows
+  // on top in both.
+  const resultsGroups =
+    selectedRotation && rotationEntries.length > 0
+      ? [
+          {
+            key: "rotation" as const,
+            label: `${ROTATION_BIN_LABELS[selectedRotation]} rotation`,
+            entries: rotationEntries,
+          },
+        ]
+      : selectedRotation
+        ? []
+        : search.groups;
+  const resultsFlat = selectedRotation ? rotationEntries : search.flat;
+  const resultsSelectedMatch = search.selectedMatch;
+
+  /** Enter selected-rotation mode: mirror the choice into the right-hand
+   *  rotation filter and open the browse pane. */
+  const selectRotation = (bin: Rotation) => {
+    setSelectedRotation(bin);
+    dispatch(
+      flowsheetSlice.actions.setSearchFilters({ ...filters, rotationTags: [bin] })
+    );
+    dispatch(flowsheetSlice.actions.setSearchOpen(true));
+    inputRef.current?.focus();
+  };
+  /** Leave selected-rotation mode (the ✕ on the tag / Escape) and clear the
+   *  rotation filter it set. */
+  const clearRotation = () => {
+    setSelectedRotation(null);
+    dispatch(
+      flowsheetSlice.actions.setSearchFilters({ ...filters, rotationTags: [] })
+    );
+  };
+  /** Select a result — the pick becomes the pending entry. Rotation mode is
+   *  kept (the tag stays) so the DJ can keep working within the bin. */
+  const selectResult = (album: AlbumEntry) => {
+    entry.selectMatch(album);
+  };
+
+  // Once song/artist/album/label are all filled there's nothing left to add via
+  // the inline chips, so they (including the H/M/L/S buttons) drop away.
+  const allFieldsFilled = TRIGGER_FIELDS.every((f) =>
+    Boolean(entry.fields[f])
+  );
+  // Whether any trigger chip is still showing (an unclaimed field) — drives the
+  // divider between the trigger chips and the rotation buttons.
+  const someTriggerOpen = TRIGGER_FIELDS.some(
+    (f) => !entry.fields[f] && entry.pendingTrigger?.field !== f
+  );
+  // Once a match is picked, entering rotation mode no longer makes sense — the
+  // entry is chosen, so only the trigger chips for its still-missing fields
+  // remain. The H/M/L/S buttons return if the match is unselected.
+  const hasMatch = Boolean(search.selectedMatch);
+  const showRotationButtons = !hasMatch;
+
+  const flatCount = resultsFlat.length;
   // Composing an entry (has text) swaps the action cluster from the entry
   // markers (breakpoint/talkset) to the commit + clear buttons.
   const isComposing = entry.raw.trim() !== "";
@@ -253,13 +339,20 @@ export default function SmartEntry() {
           entry.selectedResult > 0 &&
           entry.selectedResult <= flatCount
         ) {
-          // Promote the highlighted result instead of committing.
-          entry.selectMatch(search.flat[entry.selectedResult - 1]);
+          // Promote the highlighted result instead of committing (and end a
+          // rotation takeover if one is active).
+          selectResult(resultsFlat[entry.selectedResult - 1]);
         } else {
           formRef.current?.requestSubmit();
         }
         return;
       case "Escape":
+        // Rung 0: leave selected-rotation mode first.
+        if (selectedRotation) {
+          clearRotation();
+          e.preventDefault();
+          return;
+        }
         // Rung 1: a visible ghost is dismissed first.
         if (ghostSuffix) {
           entry.dismissGhost(activeField, activeValue);
@@ -273,9 +366,15 @@ export default function SmartEntry() {
 
   // Open once there is something to show or react to: a typed query (results or
   // the "log as typed" hint) or a promoted match.
+  // A selected rotation forces the browse pane open on click (independent of
+  // searchOpen, which otherwise only flips true on a keystroke — the cause of
+  // the "results don't show until I type a space" bug). Otherwise the pane
+  // opens on a typed query or a promoted match while the search is open.
   const panelOpen =
-    Boolean(searchOpen && anchorEl) &&
-    (entry.raw.trim() !== "" || Boolean(search.selectedMatch));
+    Boolean(anchorEl) &&
+    (selectedRotation !== null ||
+      (searchOpen &&
+        (entry.raw.trim() !== "" || Boolean(search.selectedMatch))));
 
   return (
     <>
@@ -329,6 +428,14 @@ export default function SmartEntry() {
               py: 0.5,
             }}
           >
+            {/* Selected-rotation tag — sits at the head of the line, next to
+                the song; ✕ exits rotation mode. */}
+            {selectedRotation ? (
+              <Box sx={{ alignSelf: "center", flexShrink: 0 }}>
+                <RotationTag bin={selectedRotation} onClear={clearRotation} />
+              </Box>
+            ) : null}
+
             <SmartComposer
               raw={entry.raw}
               spans={entry.spans}
@@ -351,12 +458,40 @@ export default function SmartEntry() {
               inputRef={inputRef}
               disabled={!live}
               expanded={panelOpen}
-              // Inline field-mode chips floated at the caret while composing:
-              // splice by/from/via for artist/album/label — the old multi-field
-              // affordance on one line.
+              // Inline affordances floated at the caret while composing: the
+              // field-mode chips (splice by/on/via) then, after a gap, the
+              // rotation buttons (H/M/L/S). Both drop away once every field is
+              // filled or a rotation is selected (the tag by the song replaces
+              // them).
               caretAffordance={
-                focused && live && isComposing ? (
-                  <TriggerChips isClaimed={isClaimed} onInsert={insertTrigger} />
+                focused &&
+                live &&
+                isComposing &&
+                !selectedRotation &&
+                !allFieldsFilled &&
+                (someTriggerOpen || showRotationButtons) ? (
+                  <Box
+                    sx={{ display: "inline-flex", alignItems: "center" }}
+                  >
+                    <TriggerChips
+                      isClaimed={isClaimed}
+                      onInsert={insertTrigger}
+                    />
+                    {someTriggerOpen && showRotationButtons ? (
+                      <Box
+                        aria-hidden
+                        sx={{
+                          width: "1px",
+                          height: "1rem",
+                          bgcolor: "divider",
+                          mx: 0.75,
+                        }}
+                      />
+                    ) : null}
+                    {showRotationButtons ? (
+                      <RotationChips onTakeover={selectRotation} />
+                    ) : null}
+                  </Box>
                 ) : undefined
               }
             />
@@ -379,7 +514,11 @@ export default function SmartEntry() {
                       size="sm"
                       aria-label="Clear entry"
                       onClick={() => {
+                        // The overall cancel-search: reset the composer AND drop
+                        // rotation-selection mode (reset() already clears the
+                        // filters, so just clear the local flag).
                         entry.reset();
+                        setSelectedRotation(null);
                         inputRef.current?.focus();
                       }}
                     >
@@ -474,6 +613,8 @@ export default function SmartEntry() {
                   // click that refocuses the composer (and reopens the panel) is
                   // caught by the just-mounted listener as a click-away.
                   if (anchorEl && anchorEl.contains(event.target as Node)) return;
+                  // Just close the pane — selected-rotation mode persists (it's
+                  // dismissed via the tag's ✕), so the tag/filter stay put.
                   dispatch(flowsheetSlice.actions.setSearchOpen(false));
                 }}
               >
@@ -501,18 +642,20 @@ export default function SmartEntry() {
                   })}
                 >
                   <SmartResults
-                    selectedMatch={search.selectedMatch}
-                    groups={search.groups}
+                    selectedMatch={resultsSelectedMatch}
+                    groups={resultsGroups}
                     fieldOrder={entry.fieldOrder}
                     query={searchQuery}
                     highlightIndex={entry.selectedResult}
-                    onSelect={entry.selectMatch}
+                    onSelect={selectResult}
                     onHover={entry.setHighlight}
                     onRemoveMatch={entry.removeMatch}
                     onPickTrack={entry.pickTrack}
                     emptyHint={
                       <Typography level="body-sm" sx={{ color: "text.tertiary" }}>
-                        No matches — press Enter to log it as typed.
+                        {selectedRotation
+                          ? `Nothing in ${ROTATION_BIN_LABELS[selectedRotation]} rotation right now.`
+                          : "No matches — press Enter to log it as typed."}
                       </Typography>
                     }
                   />

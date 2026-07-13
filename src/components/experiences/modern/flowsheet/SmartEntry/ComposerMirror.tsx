@@ -1,7 +1,7 @@
 "use client";
 
 import { Box } from "@mui/joy";
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { FieldSpan, PendingTrigger } from "./parser/types";
 import { buildMirrorSegments } from "./mirrorSegments";
 import {
@@ -36,8 +36,46 @@ export default function ComposerMirror({
 }) {
   const segments = buildMirrorSegments(raw, spans, pendingTrigger);
 
+  // Keep the affordance inline at the caret while it comfortably fits after the
+  // text; drop it to its own row when it doesn't. Without this a hover-expanded
+  // button can tip the cluster over the edge and wrap to the next line — moving
+  // it out from under the cursor, which un-hovers it, shrinks it, unwraps… i.e.
+  // jitter. The decision is measured off a zero-width sentinel at the end of the
+  // text (its position doesn't change when the affordance moves), so it's
+  // stable and can't oscillate.
+  const mirrorRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLSpanElement>(null);
+  const affordanceRef = useRef<HTMLSpanElement>(null);
+  const [ownRow, setOwnRow] = useState(false);
+
+  useEffect(() => {
+    if (!caretAffordance) {
+      setOwnRow(false);
+      return;
+    }
+    const measure = () => {
+      const mirror = mirrorRef.current;
+      const sentinel = sentinelRef.current;
+      const affordance = affordanceRef.current;
+      if (!mirror || !sentinel || !affordance) return;
+      const m = mirror.getBoundingClientRect();
+      const s = sentinel.getBoundingClientRect();
+      // Room to the right of where the text ends, minus a little padding slack.
+      const available = m.right - s.left - 12;
+      // Reserve headroom for a hover-expanded label so a hover never wraps.
+      const HOVER_BUDGET = 72;
+      setOwnRow(affordance.offsetWidth + HOVER_BUDGET > available);
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined" || !mirrorRef.current) return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(mirrorRef.current);
+    return () => observer.disconnect();
+  }, [raw, ghostSuffix, caretAffordance]);
+
   return (
     <Box
+      ref={mirrorRef}
       aria-hidden
       sx={{
         ...smartEntryBoxSx,
@@ -82,22 +120,35 @@ export default function ComposerMirror({
         </Box>
       ) : null}
       {caretAffordance ? (
-        <Box
-          component="span"
-          // Raise above the textarea (z-index 1) and re-enable pointer events
-          // (the mirror root disables them) so the chips are clickable while
-          // sitting inline right after the typed text — i.e. at the caret.
-          sx={{
-            position: "relative",
-            zIndex: 2,
-            pointerEvents: "auto",
-            display: "inline-flex",
-            verticalAlign: "middle",
-            ml: 1,
-          }}
-        >
-          {caretAffordance}
-        </Box>
+        <>
+          {/* Zero-width marker at the end of the text — the anchor the fit
+              measurement reads. */}
+          <Box
+            component="span"
+            ref={sentinelRef}
+            sx={{ display: "inline-block", width: 0 }}
+          />
+          <Box
+            component="span"
+            ref={affordanceRef}
+            // Raise above the textarea (z-index 1) and re-enable pointer events
+            // (the mirror root disables them) so the chips are clickable. Inline
+            // right after the text when it fits; on its own row (block-level,
+            // sized to content) when it doesn't — see the fit measurement above.
+            sx={{
+              position: "relative",
+              zIndex: 2,
+              pointerEvents: "auto",
+              display: ownRow ? "flex" : "inline-flex",
+              width: ownRow ? "fit-content" : undefined,
+              verticalAlign: "middle",
+              ml: ownRow ? 0 : 1,
+              mt: ownRow ? 0.5 : 0,
+            }}
+          >
+            {caretAffordance}
+          </Box>
+        </>
       ) : null}
     </Box>
   );
