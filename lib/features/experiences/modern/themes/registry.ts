@@ -1,4 +1,4 @@
-import { solarTheme, wxycRoseTheme } from "./definitions";
+import { solarizedTheme, wxycRoseTheme } from "./definitions";
 import type { ModernThemeId, ThemeDefinition } from "./types";
 
 /**
@@ -15,11 +15,11 @@ export const DEFAULT_MODERN_THEME_ID = "default";
  */
 export const MODERN_THEMES: Record<ModernThemeId, ThemeDefinition> = {
   [wxycRoseTheme.id]: wxycRoseTheme,
-  [solarTheme.id]: solarTheme,
+  [solarizedTheme.id]: solarizedTheme,
 };
 
 /** Ordered list for the picker (default first). */
-export const MODERN_THEME_LIST: ThemeDefinition[] = [wxycRoseTheme, solarTheme];
+export const MODERN_THEME_LIST: ThemeDefinition[] = [wxycRoseTheme, solarizedTheme];
 
 export const THEME_ID_PATTERN = /^[a-z0-9]+$/;
 
