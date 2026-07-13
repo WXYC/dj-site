@@ -38,9 +38,9 @@ const CD_SLATE: PaletteScale = { 50: "#f2f5f8", 100: "#e0e8ef", 200: "#c3d2de", 
 
 const ROSE_EXCLUSIVE: ExclusiveTokens = { solidBg: "#7B2D8E", solidHoverBg: "#6a2479" };
 const ROSE_ONAIR: OnAirTokens = { indicator: "#ef4444", glow: "rgba(239, 68, 68, 0.5)" };
-// Dark surfaces: a warm charcoal — deep enough to read as solid dark (no haze),
-// but well short of the old near-black.
-const ROSE_DARK_BG: BackgroundTokens = { body: "#16131b", surface: "#201c28", popup: "#2a2633", border: "#363040" };
+// Dark surfaces: a warm rose-brown charcoal — hued toward terracotta (red > green
+// > blue), not grape. Deep enough to read as solid dark without the purple haze.
+const ROSE_DARK_BG: BackgroundTokens = { body: "#140f09", surface: "#241812", popup: "#2f2119", border: "#3d2c22" };
 
 const ROSE_ROT_LIGHT = {
   heavy: rot("#fce4ec", "#f8bbd0", "#e53935", "#b71c1c", "#ffffff", "#ef9a9a"),
@@ -72,7 +72,7 @@ export const wxycRoseTheme: ThemeDefinition = {
       exclusive: ROSE_EXCLUSIVE,
       onAir: ROSE_ONAIR,
       rotation: ROSE_ROT_LIGHT,
-      background: { body: "#f3eef1", surface: "#ffffff", popup: "#ebe3e7", border: "#e3dae0" },
+      background: { body: "#f4ece5", surface: "#fdf8f3", popup: "#efe4da", border: "#e4d5c8" },
     },
     dark: {
       primary: ROSE_DARK,
