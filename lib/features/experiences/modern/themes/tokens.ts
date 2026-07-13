@@ -53,6 +53,12 @@ declare module "@mui/joy/Chip" {
     formatCd: true;
   }
 }
+declare module "@mui/joy/Avatar" {
+  interface AvatarPropsColorOverrides {
+    formatVinyl: true;
+    formatCd: true;
+  }
+}
 
 /** Neutral-based disabled tokens reference the theme's neutral scale (mirrors Joy). */
 const neutralVar = (index: number) => `var(--wxyc-palette-neutral-${index})`;
