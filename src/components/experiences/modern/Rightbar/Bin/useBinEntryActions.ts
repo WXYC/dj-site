@@ -6,9 +6,11 @@ import {
   convertBinToFlowsheet,
   convertBinToQueue,
 } from "@/lib/features/bin/conversions";
+import {
+  FlowsheetQuery,
+  FlowsheetSubmissionParams,
+} from "@/lib/features/flowsheet/types";
 import { useAppDispatch } from "@/lib/hooks";
-import { useDeleteFromBin } from "@/src/hooks/binHooks";
-import { useFlowsheet, useQueue } from "@/src/hooks/flowsheetHooks";
 import {
   DeleteOutline,
   InfoOutlined,
@@ -24,22 +26,37 @@ export type BinEntryAction = {
   label: string;
   Icon: React.ElementType;
   color: ColorPaletteProp;
-  run: () => void;
+  // `shiftKey` comes from the triggering click so Shift+click variants work
+  // without a global key listener.
+  run: (opts?: { shiftKey?: boolean }) => void;
+  // Shift+click also removes the album from the bin (the classic
+  // one-gesture "queue it and file it away" flow).
+  shiftRemoves?: boolean;
+};
+
+/**
+ * The write callbacks each bin row needs. Hoisted once in BinContent (the
+ * underlying hooks subscribe to the whole flowsheet/queue state, far too
+ * heavy to run per row) and threaded down to every row.
+ */
+export type BinEntryActionDeps = {
+  addToQueue: (entry: FlowsheetQuery) => void;
+  addToFlowsheet: (entry: FlowsheetSubmissionParams) => Promise<unknown>;
+  deleteFromBin: (album_id: number) => void;
 };
 
 /**
  * The action set for a single Mail Bin entry, shared by the hover icon buttons
  * and the right-click context menu so both stay in sync. Queue / Play only
- * appear while a show is live. No keyboard-shortcut affordances.
+ * appear while a show is live; Shift+click on either also removes the album
+ * from the bin.
  */
 export function useBinEntryActions(
   entry: AlbumEntry,
   live: boolean,
+  { addToQueue, addToFlowsheet, deleteFromBin }: BinEntryActionDeps,
 ): BinEntryAction[] {
   const dispatch = useAppDispatch();
-  const { addToQueue } = useQueue();
-  const { addToFlowsheet } = useFlowsheet();
-  const { deleteFromBin } = useDeleteFromBin();
 
   return useMemo(() => {
     const actions: BinEntryAction[] = [
@@ -64,9 +81,11 @@ export function useBinEntryActions(
         label: "Add to Queue",
         Icon: PlaylistAdd,
         color: "success",
-        run: () => {
+        shiftRemoves: true,
+        run: (opts) => {
           addToQueue(convertBinToQueue(entry));
           toast.success(`Added ${entry.title} to queue`);
+          if (opts?.shiftKey) deleteFromBin(entry.id);
         },
       });
       actions.push({
@@ -74,7 +93,18 @@ export function useBinEntryActions(
         label: "Play Now",
         Icon: PlayArrowOutlined,
         color: "primary",
-        run: () => addToFlowsheet(convertBinToFlowsheet(entry)),
+        shiftRemoves: true,
+        run: (opts) => {
+          addToFlowsheet(convertBinToFlowsheet(entry))
+            // Only file the album away once it actually reached the
+            // flowsheet — a failed play shouldn't also lose the bin entry.
+            .then(() => {
+              if (opts?.shiftKey) deleteFromBin(entry.id);
+            })
+            .catch(() =>
+              toast.error(`Failed to add ${entry.title} to flowsheet`),
+            );
+        },
       });
     }
 

@@ -1,25 +1,37 @@
 import { memo, useState } from "react";
 import { AlbumEntry } from "@/lib/features/catalog/types";
-import { Box, Stack, Typography } from "@mui/joy";
+import { Box, Stack, Tooltip, Typography } from "@mui/joy";
 
 import { ArtistAvatar } from "../../catalog/ArtistAvatar";
 import BinEntryActions from "./BinEntryActions";
 import BinEntryContextMenu, {
   type BinContextMenuAnchor,
 } from "./BinEntryContextMenu";
-import { useBinEntryActions } from "./useBinEntryActions";
+import {
+  useBinEntryActions,
+  type BinEntryActionDeps,
+} from "./useBinEntryActions";
 
 /**
  * One compact Mail Bin row: the coded artist avatar, a two-line title / artist
- * stack that truncates (full text in a native `title` tooltip), hover-revealed
- * action icon buttons, and a right-click context menu opened at the cursor.
+ * stack that truncates (full text in a real Joy Tooltip — the native `title`
+ * attr surfaces unreliably across browsers), hover/focus-revealed action icon
+ * buttons, and a right-click context menu opened at the cursor.
  * Memoized so unrelated rightbar state changes don't re-render the whole list.
  */
-function BinEntry({ entry, live }: { entry: AlbumEntry; live: boolean }) {
+function BinEntry({
+  entry,
+  live,
+  actionDeps,
+}: {
+  entry: AlbumEntry;
+  live: boolean;
+  actionDeps: BinEntryActionDeps;
+}) {
   const [menuAnchor, setMenuAnchor] = useState<BinContextMenuAnchor | null>(
     null,
   );
-  const actions = useBinEntryActions(entry, live);
+  const actions = useBinEntryActions(entry, live, actionDeps);
 
   return (
     <Stack
@@ -35,8 +47,10 @@ function BinEntry({ entry, live }: { entry: AlbumEntry; live: boolean }) {
         py: 0.5,
         minWidth: 0,
         maxWidth: "100%",
-        // Hover-revealed actions, absolutely pinned to the row's right edge so
-        // they don't reserve layout width; always visible on touch devices.
+        // Hover/focus-revealed actions, absolutely pinned to the row's right
+        // edge so they don't reserve layout width; always visible on touch
+        // devices. `:focus-within` keeps keyboard-focused buttons visible —
+        // a Tab stop must never land on an invisible control.
         "& .bin-row-actions": {
           position: "absolute",
           right: 2,
@@ -50,7 +64,9 @@ function BinEntry({ entry, live }: { entry: AlbumEntry; live: boolean }) {
           transition: "opacity 0.15s",
           "@media (hover: none)": { opacity: 1 },
         },
-        "&:hover .bin-row-actions": { opacity: 1 },
+        "&:hover .bin-row-actions, &:focus-within .bin-row-actions": {
+          opacity: 1,
+        },
       }}
     >
       <Box sx={{ flexShrink: 0 }}>
@@ -61,22 +77,32 @@ function BinEntry({ entry, live }: { entry: AlbumEntry; live: boolean }) {
         />
       </Box>
       <Box sx={{ minWidth: 0, flex: 1 }}>
-        <Typography
-          level="title-sm"
-          noWrap
+        <Tooltip
           title={entry.title}
-          sx={{ display: "block" }}
+          variant="outlined"
+          size="sm"
+          placement="top-start"
+          enterDelay={400}
         >
-          {entry.title}
-        </Typography>
-        <Typography
-          level="body-sm"
-          noWrap
+          <Typography level="title-sm" noWrap sx={{ display: "block" }}>
+            {entry.title}
+          </Typography>
+        </Tooltip>
+        <Tooltip
           title={entry.artist.name}
-          sx={{ display: "block", color: "text.tertiary" }}
+          variant="outlined"
+          size="sm"
+          placement="top-start"
+          enterDelay={400}
         >
-          {entry.artist.name}
-        </Typography>
+          <Typography
+            level="body-sm"
+            noWrap
+            sx={{ display: "block", color: "text.tertiary" }}
+          >
+            {entry.artist.name}
+          </Typography>
+        </Tooltip>
       </Box>
       <BinEntryActions actions={actions} className="bin-row-actions" />
       <BinEntryContextMenu

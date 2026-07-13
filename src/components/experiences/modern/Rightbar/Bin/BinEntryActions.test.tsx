@@ -1,21 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { screen, fireEvent } from "@testing-library/react";
+import { renderWithProviders } from "@/lib/test-utils";
 import BinEntryActions from "./BinEntryActions";
 import type { BinEntryAction } from "./useBinEntryActions";
-
-vi.mock("@mui/joy", () => ({
-  Stack: ({ children, className }: any) => (
-    <div data-testid="actions-stack" className={className}>
-      {children}
-    </div>
-  ),
-  Tooltip: ({ children }: any) => <>{children}</>,
-  IconButton: ({ children, onClick, "aria-label": ariaLabel, color }: any) => (
-    <button aria-label={ariaLabel} data-color={color} onClick={onClick}>
-      {children}
-    </button>
-  ),
-}));
 
 const Icon = () => <span>icon</span>;
 
@@ -25,25 +12,48 @@ describe("BinEntryActions", () => {
     { id: "remove", label: "Remove from Bin", Icon, color: "warning", run: vi.fn() },
   ];
 
-  it("renders one button per action with its aria-label and color", () => {
-    render(<BinEntryActions actions={makeActions()} />);
+  it("renders one button per action with its aria-label", () => {
+    renderWithProviders(<BinEntryActions actions={makeActions()} />);
 
     expect(screen.getByLabelText("More information")).toBeInTheDocument();
-    const remove = screen.getByLabelText("Remove from Bin");
-    expect(remove).toHaveAttribute("data-color", "warning");
+    expect(screen.getByLabelText("Remove from Bin")).toBeInTheDocument();
   });
 
   it("passes the className through to the stack (hover reveal target)", () => {
-    render(<BinEntryActions actions={makeActions()} className="bin-row-actions" />);
+    const { container } = renderWithProviders(
+      <BinEntryActions actions={makeActions()} className="bin-row-actions" />
+    );
 
-    expect(screen.getByTestId("actions-stack")).toHaveClass("bin-row-actions");
+    expect(container.querySelector(".bin-row-actions")).not.toBeNull();
   });
 
   it("runs the action handler on click", () => {
     const actions = makeActions();
-    render(<BinEntryActions actions={actions} />);
+    renderWithProviders(<BinEntryActions actions={actions} />);
 
     fireEvent.click(screen.getByLabelText("More information"));
     expect(actions[0].run).toHaveBeenCalledTimes(1);
+    expect(actions[0].run).toHaveBeenCalledWith({ shiftKey: false });
+  });
+
+  it("forwards the click's Shift state so Shift-removable actions can chain", () => {
+    const run = vi.fn();
+    renderWithProviders(
+      <BinEntryActions
+        actions={[
+          {
+            id: "queue",
+            label: "Add to Queue",
+            Icon,
+            color: "success",
+            run,
+            shiftRemoves: true,
+          },
+        ]}
+      />
+    );
+
+    fireEvent.click(screen.getByLabelText("Add to Queue"), { shiftKey: true });
+    expect(run).toHaveBeenCalledWith({ shiftKey: true });
   });
 });

@@ -1,19 +1,35 @@
 "use client";
 
-import { useBin } from "@/src/hooks/binHooks";
+import { useBin, useDeleteFromBin } from "@/src/hooks/binHooks";
 import { Inbox } from "@mui/icons-material";
 import { Card, Divider, Skeleton, Typography } from "@mui/joy";
+import { useMemo } from "react";
 import RightBarContentContainer from "../RightBarContentContainer";
 import BinEntry from "./BinEntry";
 import ClearBinButton from "./ClearBinButton";
 import { useGetRightbarQuery } from "@/lib/features/application/api";
-import { useShowControl } from "@/src/hooks/flowsheetHooks";
+import {
+  useFlowsheet,
+  useQueue,
+  useShowControl,
+} from "@/src/hooks/flowsheetHooks";
+import type { BinEntryActionDeps } from "./useBinEntryActions";
 
 export default function BinContent() {
   const { data: max } = useGetRightbarQuery();
   const { bin, isError, loading } = useBin();
   // Hoist the live subscription once for all rows (shared, like the catalog).
   const { live } = useShowControl();
+  // Same for the write callbacks the row actions need: useQueue/useFlowsheet
+  // subscribe to the whole queue/flowsheet state (plus a localStorage load on
+  // mount), far too heavy to run once per bin row.
+  const { addToQueue } = useQueue();
+  const { addToFlowsheet } = useFlowsheet();
+  const { deleteFromBin } = useDeleteFromBin();
+  const actionDeps: BinEntryActionDeps = useMemo(
+    () => ({ addToQueue, addToFlowsheet, deleteFromBin }),
+    [addToQueue, addToFlowsheet, deleteFromBin],
+  );
 
   // Fixed-size box: reserves a consistent blank area and scrolls internally
   // once its content exceeds it, rather than growing the rightbar downward.
@@ -60,8 +76,12 @@ export default function BinContent() {
           </div>
         ) : (
           bin.map((entry, index) => (
-            <div key={`bin-${entry.id}`}>
-              <BinEntry entry={entry} live={live} />
+            // The index suffix disambiguates duplicate album ids — nothing
+            // stops the same album being mailed to the bin twice (no unique
+            // constraint backend-side), and duplicate React keys would
+            // collapse the rows.
+            <div key={`bin-${entry.id}-${index}`}>
+              <BinEntry entry={entry} live={live} actionDeps={actionDeps} />
               {index < bin.length - 1 && <Divider />}
             </div>
           ))
