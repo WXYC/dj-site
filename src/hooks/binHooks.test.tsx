@@ -1,0 +1,105 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { renderHook, act } from "@testing-library/react";
+import type { AlbumEntry } from "@/lib/features/catalog/types";
+
+// --- Mocks for useClearBin's dependencies ---
+const mockUseRegistry = vi.fn();
+const mockUseGetBinQuery = vi.fn();
+const toastError = vi.fn();
+
+// Records every deleteFromBin({ dj_id, album_id }) call; unwrap rejects for ids in `failIds`.
+const failIds = new Set<number>();
+const deleteTrigger = vi.fn((arg: { dj_id: string; album_id: number }) => ({
+  unwrap: () =>
+    failIds.has(arg.album_id)
+      ? Promise.reject(new Error("delete failed"))
+      : Promise.resolve(),
+}));
+
+vi.mock("./authenticationHooks", () => ({
+  useRegistry: () => mockUseRegistry(),
+}));
+
+vi.mock("@/lib/features/bin/api", () => ({
+  useGetBinQuery: (...args: unknown[]) => mockUseGetBinQuery(...args),
+  useDeleteFromBinMutation: () => [deleteTrigger, { isLoading: false }],
+  useAddToBinMutation: () => [vi.fn(), { isLoading: false }],
+}));
+
+vi.mock("sonner", () => ({
+  toast: { error: (...a: unknown[]) => toastError(...a) },
+}));
+
+import { useClearBin } from "./binHooks";
+
+const entry = (id: number) => ({ id, title: `Album ${id}` }) as AlbumEntry;
+
+function setBin(bin: AlbumEntry[] | undefined) {
+  mockUseGetBinQuery.mockReturnValue({
+    data: bin,
+    isLoading: false,
+    isSuccess: true,
+    isError: false,
+  });
+}
+
+describe("useClearBin", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    failIds.clear();
+    mockUseRegistry.mockReturnValue({ loading: false, info: { id: "dj1" } });
+    setBin([entry(1), entry(2), entry(3)]);
+  });
+
+  it("fires a delete for every bin entry, scoped to the current dj", async () => {
+    const { result } = renderHook(() => useClearBin());
+
+    await act(async () => {
+      await result.current.clearBin();
+    });
+
+    expect(deleteTrigger).toHaveBeenCalledTimes(3);
+    expect(deleteTrigger).toHaveBeenCalledWith({ dj_id: "dj1", album_id: 1 });
+    expect(deleteTrigger).toHaveBeenCalledWith({ dj_id: "dj1", album_id: 2 });
+    expect(deleteTrigger).toHaveBeenCalledWith({ dj_id: "dj1", album_id: 3 });
+    expect(toastError).not.toHaveBeenCalled();
+  });
+
+  it("toasts once when any delete fails, after attempting them all", async () => {
+    failIds.add(2);
+    const { result } = renderHook(() => useClearBin());
+
+    await act(async () => {
+      await result.current.clearBin();
+    });
+
+    expect(deleteTrigger).toHaveBeenCalledTimes(3); // allSettled: others still fire
+    expect(toastError).toHaveBeenCalledTimes(1);
+    expect(toastError).toHaveBeenCalledWith(
+      "Failed to clear some albums from the bin"
+    );
+  });
+
+  it("is a no-op when the bin is empty", async () => {
+    setBin([]);
+    const { result } = renderHook(() => useClearBin());
+
+    await act(async () => {
+      await result.current.clearBin();
+    });
+
+    expect(deleteTrigger).not.toHaveBeenCalled();
+    expect(toastError).not.toHaveBeenCalled();
+  });
+
+  it("is a no-op when the registry has no dj yet", async () => {
+    mockUseRegistry.mockReturnValue({ loading: false, info: undefined });
+    const { result } = renderHook(() => useClearBin());
+
+    await act(async () => {
+      await result.current.clearBin();
+    });
+
+    expect(deleteTrigger).not.toHaveBeenCalled();
+  });
+});
