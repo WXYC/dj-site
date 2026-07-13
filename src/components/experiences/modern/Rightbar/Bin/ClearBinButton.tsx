@@ -50,8 +50,9 @@ export default function ClearBinButton({ count }: { count: number }) {
           </DialogTitle>
           <Divider />
           <DialogContent>
-            Clear all {count} {count === 1 ? "album" : "albums"} from your Mail
-            Bin? This can&apos;t be undone.
+            {`Clear all ${count} ${
+              count === 1 ? "album" : "albums"
+            } from your Mail Bin? This can't be undone.`}
           </DialogContent>
           <DialogActions>
             <Button
