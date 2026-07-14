@@ -30,7 +30,6 @@ import RotationTag from "./RotationTag";
 import ShortcutGuide from "./ShortcutGuide";
 import SmartComposer from "./SmartComposer";
 import SmartResults from "./SmartResults";
-import SmartToolbar from "./SmartToolbar";
 import TriggerChips from "./TriggerChips";
 import {
   insertTriggerWord,
@@ -92,7 +91,6 @@ export default function SmartEntry() {
   const [selectedRotation, setSelectedRotation] = useState<Rotation | null>(
     null
   );
-  const filters = useAppSelector(flowsheetSlice.selectors.getSearchFilters);
   const { data: allRotation } = useGetRotationQuery();
   // In rotation mode the entry must be a real rotation album, so the browse list
   // is narrowed to bin entries whose artist/album/label contain what's typed —
@@ -141,24 +139,14 @@ export default function SmartEntry() {
   const resultsFlat = selectedRotation ? rotationEntries : search.flat;
   const resultsSelectedMatch = search.selectedMatch;
 
-  /** Enter selected-rotation mode: mirror the choice into the right-hand
-   *  rotation filter and open the browse pane. */
+  /** Enter selected-rotation mode: open the browse pane onto the bin. */
   const selectRotation = (bin: Rotation) => {
     setSelectedRotation(bin);
-    dispatch(
-      flowsheetSlice.actions.setSearchFilters({ ...filters, rotationTags: [bin] })
-    );
     dispatch(flowsheetSlice.actions.setSearchOpen(true));
     inputRef.current?.focus();
   };
-  /** Leave selected-rotation mode (the ✕ on the tag / Escape) and clear the
-   *  rotation filter it set. */
-  const clearRotation = () => {
-    setSelectedRotation(null);
-    dispatch(
-      flowsheetSlice.actions.setSearchFilters({ ...filters, rotationTags: [] })
-    );
-  };
+  /** Leave selected-rotation mode (the ✕ on the tag / Escape). */
+  const clearRotation = () => setSelectedRotation(null);
   /** Select a result — the pick becomes the pending entry. Rotation mode is
    *  kept (the tag stays) so the DJ can keep working within the bin. */
   const selectResult = (album: AlbumEntry) => {
@@ -167,16 +155,10 @@ export default function SmartEntry() {
 
   // Leaving the composer empty exits selected-rotation mode too: committing
   // (enqueue / play) and the clear ✕ both reset the composer to "", so this
-  // covers them (a failed commit keeps the text, so the mode survives). The
-  // filter it set is cleared alongside — resetSearch on commit already emptied
-  // filters, but a plain delete-to-empty hasn't, so clear it here regardless.
+  // covers them (a failed commit keeps the text, so the mode survives).
   useEffect(() => {
-    if (!selectedRotation || entry.raw.trim() !== "") return;
-    setSelectedRotation(null);
-    dispatch(
-      flowsheetSlice.actions.setSearchFilters({ ...filters, rotationTags: [] })
-    );
-  }, [selectedRotation, entry.raw, filters, dispatch]);
+    if (selectedRotation && entry.raw.trim() === "") setSelectedRotation(null);
+  }, [selectedRotation, entry.raw]);
 
   // Once song/artist/album/label are all filled there's nothing left to add via
   // the inline chips, so they (including the H/M/L/S buttons) drop away.
@@ -642,10 +624,6 @@ export default function SmartEntry() {
               )}
             </Stack>
           </Box>
-
-          <Divider />
-
-          <SmartToolbar />
         </form>
       </Sheet>
 
@@ -731,7 +709,7 @@ export default function SmartEntry() {
                     emptyHint={
                       <Typography level="body-sm" sx={{ color: "text.tertiary" }}>
                         {selectedRotation
-                          ? `Nothing in ${ROTATION_BIN_LABELS[selectedRotation]} rotation right now.`
+                          ? `Nothing in ${ROTATION_BIN_LABELS[selectedRotation]} rotation matches.`
                           : "No matches — press Enter to log it as typed."}
                       </Typography>
                     }
