@@ -120,7 +120,7 @@ describe("DraggableEntryWrapper", () => {
     it("should render children content", () => {
       renderWithDragContext(
         <DraggableEntryWrapper
-          entryRef={mockSongEntry}
+          entry={mockSongEntry}
           controls={mockDragControls}
         >
           <td>Test Child Content</td>
@@ -133,7 +133,7 @@ describe("DraggableEntryWrapper", () => {
     it("should render as a tr element", () => {
       renderWithDragContext(
         <DraggableEntryWrapper
-          entryRef={mockSongEntry}
+          entry={mockSongEntry}
           controls={mockDragControls}
         >
           <td>Content</td>
@@ -147,7 +147,7 @@ describe("DraggableEntryWrapper", () => {
     it("should pass entry reference as value to Reorder.Item", () => {
       renderWithDragContext(
         <DraggableEntryWrapper
-          entryRef={mockSongEntry}
+          entry={mockSongEntry}
           controls={mockDragControls}
         >
           <td>Content</td>
@@ -162,7 +162,7 @@ describe("DraggableEntryWrapper", () => {
     it("should render with message entry", () => {
       renderWithDragContext(
         <DraggableEntryWrapper
-          entryRef={mockMessageEntry}
+          entry={mockMessageEntry}
           controls={mockDragControls}
         >
           <td>{mockMessageEntry.message}</td>
@@ -175,7 +175,7 @@ describe("DraggableEntryWrapper", () => {
     it("should gate dragging behind the handle (dragListener false)", () => {
       renderWithDragContext(
         <DraggableEntryWrapper
-          entryRef={mockSongEntry}
+          entry={mockSongEntry}
           controls={mockDragControls}
         >
           <td>Content</td>
@@ -191,7 +191,7 @@ describe("DraggableEntryWrapper", () => {
     it("should call onEntryDragStart from context when drag starts", () => {
       renderWithDragContext(
         <DraggableEntryWrapper
-          entryRef={mockSongEntry}
+          entry={mockSongEntry}
           controls={mockDragControls}
         >
           <td>Content</td>
@@ -206,7 +206,7 @@ describe("DraggableEntryWrapper", () => {
     it("should call onEntryDragEnd with the entry when drag ends", () => {
       renderWithDragContext(
         <DraggableEntryWrapper
-          entryRef={mockSongEntry}
+          entry={mockSongEntry}
           controls={mockDragControls}
         >
           <td>Content</td>
@@ -221,7 +221,7 @@ describe("DraggableEntryWrapper", () => {
     it("should not call drag callbacks on render", () => {
       renderWithDragContext(
         <DraggableEntryWrapper
-          entryRef={mockSongEntry}
+          entry={mockSongEntry}
           controls={mockDragControls}
         >
           <td>Content</td>
@@ -235,7 +235,7 @@ describe("DraggableEntryWrapper", () => {
     it("should render without a provider via the no-op default context", () => {
       render(
         <DraggableEntryWrapper
-          entryRef={mockSongEntry}
+          entry={mockSongEntry}
           controls={mockDragControls}
         >
           <td>Content</td>
@@ -253,7 +253,7 @@ describe("DraggableEntryWrapper", () => {
         <table>
           <tbody>
             <DraggableEntryWrapper
-              entryRef={mockSongEntry}
+              entry={mockSongEntry}
               controls={mockDragControls}
               draggable={false}
             >
@@ -275,7 +275,7 @@ describe("DraggableEntryWrapper", () => {
         <table>
           <tbody>
             <DraggableEntryWrapper
-              entryRef={mockSongEntry}
+              entry={mockSongEntry}
               controls={mockDragControls}
               draggable={false}
               style={{ opacity: 0.5, height: "60px" }}
@@ -295,7 +295,7 @@ describe("DraggableEntryWrapper", () => {
       renderWithDragContext(
         <>
           <DraggableEntryWrapper
-            entryRef={mockSongEntry}
+            entry={mockSongEntry}
             controls={mockDragControls}
             variant="solid"
           >
@@ -304,7 +304,7 @@ describe("DraggableEntryWrapper", () => {
           <table>
             <tbody>
               <DraggableEntryWrapper
-                entryRef={mockMessageEntry}
+                entry={mockMessageEntry}
                 controls={mockDragControls}
                 variant="solid"
                 draggable={false}
@@ -329,7 +329,7 @@ describe("DraggableEntryWrapper", () => {
     it("should apply plain variant styling by default", () => {
       renderWithDragContext(
         <DraggableEntryWrapper
-          entryRef={mockSongEntry}
+          entry={mockSongEntry}
           controls={mockDragControls}
         >
           <td>Content</td>
@@ -343,7 +343,7 @@ describe("DraggableEntryWrapper", () => {
     it("should merge custom style with the computed row style", () => {
       renderWithDragContext(
         <DraggableEntryWrapper
-          entryRef={mockSongEntry}
+          entry={mockSongEntry}
           controls={mockDragControls}
           style={{ marginBottom: "10px" }}
         >
@@ -359,7 +359,7 @@ describe("DraggableEntryWrapper", () => {
       for (const variant of ["solid", "soft", "outlined"] as const) {
         const { unmount } = renderWithDragContext(
           <DraggableEntryWrapper
-            entryRef={mockSongEntry}
+            entry={mockSongEntry}
             controls={mockDragControls}
             variant={variant}
           >
@@ -378,7 +378,7 @@ describe("DraggableEntryWrapper", () => {
     it("should render multiple td children", () => {
       renderWithDragContext(
         <DraggableEntryWrapper
-          entryRef={mockSongEntry}
+          entry={mockSongEntry}
           controls={mockDragControls}
         >
           <td>Cell 1</td>

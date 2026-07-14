@@ -6,13 +6,11 @@ export interface PartitionedEntries {
 }
 
 /**
- * Display comparator for entries within the current show: play_order DESC,
- * id DESC tiebreak — matching the server's own per-show ordering
- * (`getEntriesByShow`). play_order is what `PATCH /play-order` rewrites, so
- * it must drive the current show's display order or a persisted reorder
- * never renders (the global feed sorts by id, which reorders don't touch).
- * The id tiebreak matters because play_orders can collide within a show
- * (tubafrenzy webhook and dj-site assign them independently).
+ * Current-show display order: play_order DESC, id DESC tiebreak, matching
+ * the server's per-show ordering. play_order must drive display here or
+ * persisted reorders never render (the global feed sorts by id, which
+ * `PATCH /play-order` doesn't touch); the id tiebreak covers colliding
+ * play_orders (tubafrenzy and dj-site assign them independently).
  */
 export function compareCurrentShowOrder(
   a: FlowsheetEntry,
@@ -23,16 +21,10 @@ export function compareCurrentShowOrder(
 }
 
 /**
- * Partitions a sorted (id DESC) list of flowsheet entries into
- * "current show" and "previous shows" buckets.
- *
- * When live: current = ALL entries with show_id === currentShow
- * (including start/end markers), re-sorted by play_order DESC (id DESC
- * tiebreak) so drag reorders are reflected; previous = everything else,
- * left in id-DESC order.
- *
- * When not live (or no current show): current is empty,
- * previous is the full list.
+ * Partitions a sorted (id DESC) entry list into "current show" (all entries
+ * with the live show's id, including start/end markers, re-sorted by
+ * compareCurrentShowOrder so reorders render) and "previous shows" (left in
+ * id-DESC order). When not live: current is empty, previous is everything.
  */
 export function partitionFlowsheetEntries(
   allEntries: FlowsheetEntry[],

@@ -17,7 +17,7 @@ import { Box, Table } from "@mui/joy";
 import { Reorder } from "motion/react";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export default function Queue() {
   const queue = useAppSelector((state) => state.flowsheet.queue);
@@ -31,30 +31,39 @@ export default function Queue() {
 
   const isMobile = useMediaQuery(FLOWSHEET_MOBILE_QUERY);
 
-  // Visual order while a drag is in flight; committed to the slice (and
-  // localStorage) once on drop rather than on every crossover.
-  const [order, setOrder] = useState<FlowsheetSongEntry[] | null>(null);
+  // Order shown mid-drag (null when settled), mirrored in refs so the drag
+  // context below never changes identity (see @entries/page.tsx).
+  const [draftOrder, setDraftOrder] = useState<FlowsheetSongEntry[] | null>(
+    null
+  );
+  const draftOrderRef = useRef<FlowsheetSongEntry[] | null>(null);
 
+  // The queue renders newest-last, so display order is the reverse of the
+  // stored order — and a dropped order must be un-reversed before storage.
   const reversed = useMemo(() => queue.toReversed(), [queue]);
-  const visualQueue = order ?? reversed;
+  const reversedRef = useRef(reversed);
+  reversedRef.current = reversed;
 
-  const dragContextValue = useMemo<FlowsheetDragContextValue>(
+  const handleReorder = useCallback((next: FlowsheetSongEntry[]) => {
+    draftOrderRef.current = next;
+    setDraftOrder(next);
+  }, []);
+
+  const dragContext = useMemo<FlowsheetDragContextValue>(
     () => ({
-      // Queue order is pure client state — no poll/refetch can yank it, so
-      // there's nothing to freeze or suspend on drag start.
+      // Pure client state — nothing to freeze or suspend.
       onEntryDragStart: () => {},
       onEntryDragEnd: () => {
-        // The queue renders newest-last (reversed), so un-reverse the visual
-        // order before it becomes the stored queue.
         dispatch(
           flowsheetSlice.actions.reorderQueue(
-            (order ?? reversed).toReversed()
+            (draftOrderRef.current ?? reversedRef.current).toReversed()
           )
         );
-        setOrder(null);
+        draftOrderRef.current = null;
+        setDraftOrder(null);
       },
     }),
-    [order, reversed, dispatch]
+    [dispatch]
   );
 
   // An empty queue renders nothing — the bare table shell reads as a
@@ -78,6 +87,8 @@ export default function Queue() {
     );
   }
 
+  const visualOrder = draftOrder ?? reversed;
+
   return (
     <Table borderAxis="none" sx={FLOWSHEET_TABLE_SX}>
       <thead
@@ -87,14 +98,14 @@ export default function Queue() {
       >
         <FlowsheetColumnSizingRow />
       </thead>
-      <FlowsheetDragContext.Provider value={dragContextValue}>
+      <FlowsheetDragContext.Provider value={dragContext}>
         <Reorder.Group
-          values={visualQueue}
+          values={visualOrder}
           axis="y"
-          onReorder={setOrder}
+          onReorder={handleReorder}
           as="tbody"
         >
-          {visualQueue.map((entry) => (
+          {visualOrder.map((entry) => (
             <SongEntry
               key={`queue-${entry.id}`}
               entry={entry}

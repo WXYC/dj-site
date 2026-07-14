@@ -12,7 +12,7 @@ const ROW_CLASS_BY_VARIANT: Partial<Record<VariantProp, string>> = {
 
 export default function DraggableEntryWrapper({
   children,
-  entryRef,
+  entry,
   controls,
   variant,
   color,
@@ -21,7 +21,7 @@ export default function DraggableEntryWrapper({
   draggable = true,
 }: {
   children: React.ReactNode;
-  entryRef: FlowsheetEntry;
+  entry: FlowsheetEntry;
   controls: DragControls;
   variant?: VariantProp;
   color?: ColorPaletteProp;
@@ -63,14 +63,13 @@ export default function DraggableEntryWrapper({
     background: "transparent",
   };
 
-  // Non-draggable rows (previous shows, show markers) render as plain table
-  // rows: no motion layout tracking, and — critically — no Reorder.Item.
-  // A mounted Reorder.Item whose value is absent from the group's `values`
-  // wedges motion's reorder detection the moment a drag crosses it.
+  // Non-draggable rows render outside the motion tree: no layout tracking,
+  // and no Reorder.Item — a mounted Item missing from the group's `values`
+  // wedges motion's reorder detection when a drag crosses it.
   if (!draggable) {
     return (
       <tr
-        data-testid={`flowsheet-entry-${entryRef.id}`}
+        data-testid={`flowsheet-entry-${entry.id}`}
         className={rowClass}
         style={rowStyle as CSSProperties}
       >
@@ -81,13 +80,13 @@ export default function DraggableEntryWrapper({
 
   return (
     <Reorder.Item
-      value={entryRef}
+      value={entry}
       as="tr"
       dragListener={false}
       dragControls={controls}
       onDragStart={() => onEntryDragStart()}
-      onDragEnd={() => onEntryDragEnd(entryRef)}
-      data-testid={`flowsheet-entry-${entryRef.id}`}
+      onDragEnd={() => onEntryDragEnd(entry)}
+      data-testid={`flowsheet-entry-${entry.id}`}
       className={rowClass}
       style={rowStyle}
     >

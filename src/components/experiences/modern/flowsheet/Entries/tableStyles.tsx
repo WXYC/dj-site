@@ -11,14 +11,10 @@ export const FLOWSHEET_MOBILE_QUERY = "(max-width: 599.95px)";
 // FLOWSHEET_TABLE_SX below — both describe the same column collapse.
 export const FLOWSHEET_XL_QUERY = "(min-width: 1536px)";
 
-// The page-background gutter left of the flowsheet tables that drag grips
-// (DragButton) overflow into, anchored to each row's first cell at a negative
-// offset — same spot for every entry type, without moving the tables
-// themselves. InfiniteScroller creates the gutter with a negative-margin +
-// equal-padding bleed (its `overflow-y: auto` forces horizontal clipping, but
-// the clip region is the padding box, so grips inside the bled padding
-// survive) and defines this variable: full width where the page's own gutter
-// (Main's px) can absorb the bleed, narrower below md where it can't.
+// Page-background gutter left of the flowsheet tables that drag grips hang
+// into without moving the tables. InfiniteScroller creates it with a
+// negative-margin + equal-padding bleed and defines this variable: full
+// width where Main's own px can absorb the bleed, narrower below md.
 export const FLOWSHEET_DRAG_GUTTER_VAR = "--flowsheet-drag-gutter";
 export const FLOWSHEET_DRAG_GUTTER_PX = 36;
 export const FLOWSHEET_DRAG_GUTTER_NARROW_PX = 16;
@@ -64,12 +60,10 @@ export const FLOWSHEET_TABLE_SX: SxProps = {
       "1px 0 0 var(--row-bg), -1px 0 0 var(--row-bg), 0 6px 12px -4px rgba(0, 0, 0, 0.35)",
     clipPath: "inset(0 -1px -12px -1px)",
   },
-  // The first cell anchors the absolutely-positioned drag grip out in the
-  // left gutter, so its clip must open leftward past the grip or the
-  // now-playing row's grip gets amputated. Fixed at the widest gutter + a
-  // little slack; top inset stays 0 (no seam redraw), and the only extra
-  // thing the wider clip admits is ~8px of the lift shadow's soft left
-  // falloff.
+  // The first cell anchors the drag grip out in the left gutter, so its clip
+  // must open leftward past the grip or the now-playing row's grip gets
+  // amputated. The wider clip only additionally admits ~8px of the lift
+  // shadow's soft left falloff.
   "& tbody tr.row-playing > td:first-of-type": {
     clipPath: `inset(0 -1px -12px -${FLOWSHEET_DRAG_GUTTER_PX + 8}px)`,
   },
@@ -98,9 +92,8 @@ export const FLOWSHEET_TABLE_SX: SxProps = {
       {
         opacity: 1,
       },
-    // The drag grip follows the same quiet treatment as the action bar:
-    // revealed on row hover/focus on pointer devices, always visible on
-    // touch (where there's no hover to reveal it).
+    // Drag grips follow the action bar's quiet treatment: hover/focus
+    // revealed on pointer devices, always visible on touch.
     "& tbody tr .drag-grip": {
       opacity: 0,
       transition: "opacity 120ms",
