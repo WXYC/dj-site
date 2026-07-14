@@ -1,6 +1,8 @@
 import {
   FlowsheetEntry,
+  isFlowsheetEndShowEntry,
   isFlowsheetSongEntry,
+  isFlowsheetStartShowEntry,
 } from "@/lib/features/flowsheet/types";
 import { Stack, Typography } from "@mui/joy";
 import { memo } from "react";
@@ -15,19 +17,34 @@ import SongEntry from "./SongEntry/SongEntry";
 const Entry = memo(function Entry({
   entry,
   playing,
+  draggable = false,
 }: {
   entry: FlowsheetEntry;
   playing: boolean;
+  draggable?: boolean;
 }) {
+  // Markers count in position math (the server renumbers every entry type)
+  // but are never themselves draggable.
+  const isMarker =
+    isFlowsheetStartShowEntry(entry) || isFlowsheetEndShowEntry(entry);
+  const resolvedDraggable = draggable && !isMarker;
+
   if (isFlowsheetSongEntry(entry)) {
-    return <SongEntry playing={playing} entry={entry} queue={false} />;
+    return (
+      <SongEntry
+        playing={playing}
+        entry={entry}
+        queue={false}
+        draggable={resolvedDraggable}
+      />
+    );
   }
 
   const p = getMessageEntryPresentation(entry);
 
   return (
     <MessageEntry
-      entryRef={entry}
+      entry={entry}
       startDecorator={<p.Icon sx={{ mb: -0.5, mr: 0.5 }} />}
       endDecorator={
         p.time && <DateTimeStack day={p.time.day} time={p.time.time} />
@@ -35,6 +52,7 @@ const Entry = memo(function Entry({
       color={p.color}
       variant="soft"
       disableEditing={!p.editable}
+      draggable={resolvedDraggable}
     >
       <Stack direction="row" spacing={0.5}>
         <Typography level="body-lg" color={p.textColor}>

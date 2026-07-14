@@ -1,6 +1,9 @@
 "use client";
 
-import { useShowControl } from "@/src/hooks/flowsheetHooks";
+import {
+  useFlowsheetSaving,
+  useShowControl,
+} from "@/src/hooks/flowsheetHooks";
 import {
   PlayArrow,
   PlayDisabled,
@@ -18,8 +21,9 @@ import {
 } from "@mui/joy";
 
 export default function GoLive() {
-  const { live, autoplay, setAutoPlay, loading, isSaving, goLive, leave } =
+  const { live, autoplay, setAutoPlay, loading, goLive, leave } =
     useShowControl();
+  const isSaving = useFlowsheetSaving();
 
   return (
     <Stack direction="row" spacing={1} alignItems="center">

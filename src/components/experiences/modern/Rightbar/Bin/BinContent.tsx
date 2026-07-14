@@ -2,13 +2,14 @@
 
 import { useBin, useDeleteFromBin } from "@/src/hooks/binHooks";
 import { Inbox } from "@mui/icons-material";
-import { Card, Divider, Skeleton, Typography } from "@mui/joy";
+import { Card, Divider, Skeleton, Stack, Typography } from "@mui/joy";
 import { useMemo } from "react";
 import RightBarContentContainer from "../RightBarContentContainer";
 import BinEntry from "./BinEntry";
 import ClearBinButton from "./ClearBinButton";
+import ExportBinButton from "./ExportBinButton";
 import {
-  useFlowsheet,
+  useFlowsheetActions,
   useQueue,
   useShowControl,
 } from "@/src/hooks/flowsheetHooks";
@@ -18,11 +19,11 @@ export default function BinContent() {
   const { bin, isError, loading } = useBin();
   // Hoist the live subscription once for all rows (shared, like the catalog).
   const { live } = useShowControl();
-  // Same for the write callbacks the row actions need: useQueue/useFlowsheet
-  // subscribe to the whole queue/flowsheet state (plus a localStorage load on
-  // mount), far too heavy to run once per bin row.
+  // Same for the write callbacks the row actions need: useQueue subscribes
+  // to the whole queue state (plus a localStorage load on mount), far too
+  // heavy to run once per bin row.
   const { addToQueue } = useQueue();
-  const { addToFlowsheet } = useFlowsheet();
+  const { addToFlowsheet } = useFlowsheetActions();
   const { deleteFromBin } = useDeleteFromBin();
   const actionDeps: BinEntryActionDeps = useMemo(
     () => ({ addToQueue, addToFlowsheet, deleteFromBin }),
@@ -56,7 +57,14 @@ export default function BinContent() {
     <RightBarContentContainer
       label="Mail Bin"
       startDecorator={<Inbox sx={{ mt: 0.3, mr: 1 }} />}
-      endDecorator={hasEntries ? <ClearBinButton count={bin.length} /> : undefined}
+      endDecorator={
+        hasEntries ? (
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            <ExportBinButton entries={bin} />
+            <ClearBinButton count={bin.length} />
+          </Stack>
+        ) : undefined
+      }
       fill
     >
       {/* Fills the leftover column height (see RightBarContentContainer#fill)

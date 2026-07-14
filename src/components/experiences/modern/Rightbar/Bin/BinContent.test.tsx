@@ -20,7 +20,7 @@ vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useShowControl: () => ({ live: false }),
   // Hoisted once here (not per row) so the rows can stay hook-free.
   useQueue: () => ({ addToQueue: vi.fn() }),
-  useFlowsheet: () => ({ addToFlowsheet: vi.fn(() => Promise.resolve()) }),
+  useFlowsheetActions: () => ({ addToFlowsheet: vi.fn(() => Promise.resolve()) }),
 }));
 
 // Mock child components
@@ -57,6 +57,12 @@ vi.mock("./ClearBinButton", () => ({
   ),
 }));
 
+vi.mock("./ExportBinButton", () => ({
+  default: ({ entries }: { entries: AlbumEntry[] }) => (
+    <button data-testid="export-bin-button">export-{entries.length}</button>
+  ),
+}));
+
 // Mock MUI components
 vi.mock("@mui/icons-material", () => ({
   Inbox: () => <svg data-testid="inbox-icon" />,
@@ -84,6 +90,9 @@ vi.mock("@mui/joy", () => ({
     </div>
   ),
   Divider: () => <hr data-testid="bin-divider" />,
+  Stack: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="stack">{children}</div>
+  ),
   Skeleton: ({ variant, sx }: { variant?: string; sx?: any }) => (
     <div
       data-testid="skeleton"

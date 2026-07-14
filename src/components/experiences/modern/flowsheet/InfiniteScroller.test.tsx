@@ -3,16 +3,16 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import InfiniteScroller from "./InfiniteScroller";
 
 const mockFetchNextPage = vi.fn();
-const mockUseFlowsheet = vi.fn();
+const mockUseFlowsheetPagination = vi.fn();
 
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
-  useFlowsheet: () => mockUseFlowsheet(),
+  useFlowsheetPagination: () => mockUseFlowsheetPagination(),
 }));
 
 describe("InfiniteScroller", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUseFlowsheet.mockReturnValue({
+    mockUseFlowsheetPagination.mockReturnValue({
       loading: false,
       isFetching: false,
       hasNextPage: true,
@@ -114,7 +114,7 @@ describe("InfiniteScroller", () => {
     });
 
     it("should NOT call fetchNextPage when loading", () => {
-      mockUseFlowsheet.mockReturnValue({
+      mockUseFlowsheetPagination.mockReturnValue({
         loading: true,
         isFetching: false,
         hasNextPage: true,
@@ -134,7 +134,7 @@ describe("InfiniteScroller", () => {
     });
 
     it("should NOT call fetchNextPage when isFetching", () => {
-      mockUseFlowsheet.mockReturnValue({
+      mockUseFlowsheetPagination.mockReturnValue({
         loading: false,
         isFetching: true,
         hasNextPage: true,
@@ -154,7 +154,7 @@ describe("InfiniteScroller", () => {
     });
 
     it("should NOT call fetchNextPage when hasNextPage is false", () => {
-      mockUseFlowsheet.mockReturnValue({
+      mockUseFlowsheetPagination.mockReturnValue({
         loading: false,
         isFetching: false,
         hasNextPage: false,
@@ -246,7 +246,7 @@ describe("InfiniteScroller", () => {
 
       const initialCallCount = addEventListenerSpy.mock.calls.length;
 
-      mockUseFlowsheet.mockReturnValue({
+      mockUseFlowsheetPagination.mockReturnValue({
         loading: true,
         isFetching: false,
         hasNextPage: true,
@@ -280,7 +280,7 @@ describe("InfiniteScroller", () => {
 
       const initialCallCount = addEventListenerSpy.mock.calls.length;
 
-      mockUseFlowsheet.mockReturnValue({
+      mockUseFlowsheetPagination.mockReturnValue({
         loading: false,
         isFetching: true,
         hasNextPage: true,
@@ -347,7 +347,7 @@ describe("InfiniteScroller", () => {
 
   describe("Loading state transitions", () => {
     it("should not fetch while loading then fetch when loaded", () => {
-      mockUseFlowsheet.mockReturnValue({
+      mockUseFlowsheetPagination.mockReturnValue({
         loading: true,
         isFetching: false,
         hasNextPage: true,
@@ -365,7 +365,7 @@ describe("InfiniteScroller", () => {
       fireEvent.scroll(scrollContainer);
       expect(mockFetchNextPage).not.toHaveBeenCalled();
 
-      mockUseFlowsheet.mockReturnValue({
+      mockUseFlowsheetPagination.mockReturnValue({
         loading: false,
         isFetching: false,
         hasNextPage: true,

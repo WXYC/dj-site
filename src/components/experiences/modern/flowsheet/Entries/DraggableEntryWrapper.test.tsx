@@ -1,16 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import DraggableEntryWrapper from "./DraggableEntryWrapper";
+import { FlowsheetDragContext } from "./dragContext";
 import { FlowsheetSongEntry, FlowsheetMessageEntry } from "@/lib/features/flowsheet/types";
 import { DragControls } from "motion/react";
-
-// Mock hooks
-const mockUseFlowsheet = vi.fn();
-const mockSwitchEntries = vi.fn();
-
-vi.mock("@/src/hooks/flowsheetHooks", () => ({
-  useFlowsheet: () => mockUseFlowsheet(),
-}));
 
 // Mock MUI Joy theme
 vi.mock("@mui/joy/styles", () => ({
@@ -48,10 +41,13 @@ vi.mock("@mui/joy/styles", () => ({
   }),
 }));
 
-// Mock motion/react Reorder
+// Mock motion/react Reorder, capturing the props each Reorder.Item received
+// so tests can invoke the drag lifecycle callbacks directly.
+const reorderItemProps: any[] = [];
 vi.mock("motion/react", () => ({
   Reorder: {
-    Item: ({ children, value, as, onDragEnd, style, dragListener, dragControls, ...props }: any) => {
+    Item: ({ children, value, as, onDragStart, onDragEnd, style, dragListener, dragControls, ...props }: any) => {
+      reorderItemProps.push({ value, onDragStart, onDragEnd, dragListener });
       const Component = as || "div";
       // Filter out any non-DOM props to avoid React warnings
       const domProps = Object.keys(props).reduce((acc: any, key) => {
@@ -80,10 +76,10 @@ describe("DraggableEntryWrapper", () => {
     id: 1,
     play_order: 0,
     show_id: 100,
-    track_title: "Test Track",
-    artist_name: "Test Artist",
-    album_title: "Test Album",
-    record_label: "Test Label",
+    track_title: "la paradoja",
+    artist_name: "Juana Molina",
+    album_title: "DOGA",
+    record_label: "Sonamos",
     request_flag: false,
     segue: false,
   };
@@ -92,28 +88,39 @@ describe("DraggableEntryWrapper", () => {
     id: 2,
     play_order: 1,
     show_id: 100,
-    message: "Test Message",
+    message: "Talkset",
   };
 
   const mockDragControls: DragControls = {
     start: vi.fn(),
   } as unknown as DragControls;
 
+  const mockOnEntryDragStart = vi.fn();
+  const mockOnEntryDragEnd = vi.fn();
+
+  function renderWithDragContext(ui: React.ReactElement) {
+    return render(
+      <FlowsheetDragContext.Provider
+        value={{
+          onEntryDragStart: mockOnEntryDragStart,
+          onEntryDragEnd: mockOnEntryDragEnd,
+        }}
+      >
+        {ui}
+      </FlowsheetDragContext.Provider>
+    );
+  }
+
   beforeEach(() => {
     vi.clearAllMocks();
-
-    mockUseFlowsheet.mockReturnValue({
-      entries: {
-        switchEntries: mockSwitchEntries,
-      },
-    });
+    reorderItemProps.length = 0;
   });
 
   describe("Basic rendering", () => {
     it("should render children content", () => {
-      render(
+      renderWithDragContext(
         <DraggableEntryWrapper
-          entryRef={mockSongEntry}
+          entry={mockSongEntry}
           controls={mockDragControls}
         >
           <td>Test Child Content</td>
@@ -124,9 +131,9 @@ describe("DraggableEntryWrapper", () => {
     });
 
     it("should render as a tr element", () => {
-      render(
+      renderWithDragContext(
         <DraggableEntryWrapper
-          entryRef={mockSongEntry}
+          entry={mockSongEntry}
           controls={mockDragControls}
         >
           <td>Content</td>
@@ -138,9 +145,9 @@ describe("DraggableEntryWrapper", () => {
     });
 
     it("should pass entry reference as value to Reorder.Item", () => {
-      render(
+      renderWithDragContext(
         <DraggableEntryWrapper
-          entryRef={mockSongEntry}
+          entry={mockSongEntry}
           controls={mockDragControls}
         >
           <td>Content</td>
@@ -152,81 +159,177 @@ describe("DraggableEntryWrapper", () => {
       expect(value.id).toBe(mockSongEntry.id);
     });
 
-    it("should render with song entry", () => {
-      render(
-        <DraggableEntryWrapper
-          entryRef={mockSongEntry}
-          controls={mockDragControls}
-        >
-          <td>{mockSongEntry.track_title}</td>
-        </DraggableEntryWrapper>
-      );
-
-      expect(screen.getByText("Test Track")).toBeInTheDocument();
-    });
-
     it("should render with message entry", () => {
-      render(
+      renderWithDragContext(
         <DraggableEntryWrapper
-          entryRef={mockMessageEntry}
+          entry={mockMessageEntry}
           controls={mockDragControls}
         >
           <td>{mockMessageEntry.message}</td>
         </DraggableEntryWrapper>
       );
 
-      expect(screen.getByText("Test Message")).toBeInTheDocument();
+      expect(screen.getByText("Talkset")).toBeInTheDocument();
     });
-  });
 
-  describe("Drag controls configuration", () => {
-    it("should have dragListener set to false", () => {
-      render(
+    it("should gate dragging behind the handle (dragListener false)", () => {
+      renderWithDragContext(
         <DraggableEntryWrapper
-          entryRef={mockSongEntry}
+          entry={mockSongEntry}
           controls={mockDragControls}
         >
           <td>Content</td>
         </DraggableEntryWrapper>
       );
 
-      // dragListener: false is passed to Reorder.Item
-      // This is verified by the component not triggering drags automatically
-      expect(screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`)).toBeInTheDocument();
+      expect(reorderItemProps).toHaveLength(1);
+      expect(reorderItemProps[0].dragListener).toBe(false);
     });
   });
 
-  describe("onDragEnd behavior", () => {
-    it("should call switchEntries when drag ends", () => {
-      render(
+  describe("Drag lifecycle context wiring", () => {
+    it("should call onEntryDragStart from context when drag starts", () => {
+      renderWithDragContext(
         <DraggableEntryWrapper
-          entryRef={mockSongEntry}
+          entry={mockSongEntry}
           controls={mockDragControls}
         >
           <td>Content</td>
         </DraggableEntryWrapper>
+      );
+
+      reorderItemProps[0].onDragStart();
+      expect(mockOnEntryDragStart).toHaveBeenCalledTimes(1);
+      expect(mockOnEntryDragEnd).not.toHaveBeenCalled();
+    });
+
+    it("should call onEntryDragEnd with the entry when drag ends", () => {
+      renderWithDragContext(
+        <DraggableEntryWrapper
+          entry={mockSongEntry}
+          controls={mockDragControls}
+        >
+          <td>Content</td>
+        </DraggableEntryWrapper>
+      );
+
+      reorderItemProps[0].onDragEnd();
+      expect(mockOnEntryDragEnd).toHaveBeenCalledTimes(1);
+      expect(mockOnEntryDragEnd).toHaveBeenCalledWith(mockSongEntry);
+    });
+
+    it("should not call drag callbacks on render", () => {
+      renderWithDragContext(
+        <DraggableEntryWrapper
+          entry={mockSongEntry}
+          controls={mockDragControls}
+        >
+          <td>Content</td>
+        </DraggableEntryWrapper>
+      );
+
+      expect(mockOnEntryDragStart).not.toHaveBeenCalled();
+      expect(mockOnEntryDragEnd).not.toHaveBeenCalled();
+    });
+
+    it("should render without a provider via the no-op default context", () => {
+      render(
+        <DraggableEntryWrapper
+          entry={mockSongEntry}
+          controls={mockDragControls}
+        >
+          <td>Content</td>
+        </DraggableEntryWrapper>
+      );
+
+      expect(() => reorderItemProps[0].onDragStart()).not.toThrow();
+      expect(() => reorderItemProps[0].onDragEnd()).not.toThrow();
+    });
+  });
+
+  describe("Non-draggable render path", () => {
+    it("should render a plain tr (no Reorder.Item) when draggable is false", () => {
+      renderWithDragContext(
+        <table>
+          <tbody>
+            <DraggableEntryWrapper
+              entry={mockSongEntry}
+              controls={mockDragControls}
+              draggable={false}
+            >
+              <td>Content</td>
+            </DraggableEntryWrapper>
+          </tbody>
+        </table>
+      );
+
+      expect(reorderItemProps).toHaveLength(0);
+      expect(screen.queryByTestId("reorder-item")).not.toBeInTheDocument();
+      const item = screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`);
+      expect(item.tagName.toLowerCase()).toBe("tr");
+      expect(screen.getByText("Content")).toBeInTheDocument();
+    });
+
+    it("should keep the same testid and custom style on the plain tr path", () => {
+      renderWithDragContext(
+        <table>
+          <tbody>
+            <DraggableEntryWrapper
+              entry={mockSongEntry}
+              controls={mockDragControls}
+              draggable={false}
+              style={{ opacity: 0.5, height: "60px" }}
+            >
+              <td>Content</td>
+            </DraggableEntryWrapper>
+          </tbody>
+        </table>
       );
 
       const item = screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`);
+      expect(item.style.opacity).toBe("0.5");
+      expect(item.style.height).toBe("60px");
+    });
 
-      // Simulate drag end
-      const onDragEnd = item.getAttribute("onDragEnd");
-      if (typeof (item as any).onDragEnd === "function") {
-        (item as any).onDragEnd();
-      }
+    it("should apply the variant row class on both render paths", () => {
+      renderWithDragContext(
+        <>
+          <DraggableEntryWrapper
+            entry={mockSongEntry}
+            controls={mockDragControls}
+            variant="solid"
+          >
+            <td>Draggable</td>
+          </DraggableEntryWrapper>
+          <table>
+            <tbody>
+              <DraggableEntryWrapper
+                entry={mockMessageEntry}
+                controls={mockDragControls}
+                variant="solid"
+                draggable={false}
+              >
+                <td>Static</td>
+              </DraggableEntryWrapper>
+            </tbody>
+          </table>
+        </>
+      );
 
-      // In real implementation, onDragEnd would call switchEntries
-      // Since we're mocking Reorder.Item, we can't directly test this
-      // But we verify the component renders correctly
-      expect(screen.getByText("Content")).toBeInTheDocument();
+      expect(
+        screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`).className
+      ).toContain("row-playing");
+      expect(
+        screen.getByTestId(`flowsheet-entry-${mockMessageEntry.id}`).className
+      ).toContain("row-playing");
     });
   });
 
   describe("Variant and color styling", () => {
     it("should apply plain variant styling by default", () => {
-      render(
+      renderWithDragContext(
         <DraggableEntryWrapper
-          entryRef={mockSongEntry}
+          entry={mockSongEntry}
           controls={mockDragControls}
         >
           <td>Content</td>
@@ -234,123 +337,13 @@ describe("DraggableEntryWrapper", () => {
       );
 
       const item = screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`);
-      // Default variant is "plain", which should use theme.palette[color].plainBg
-      expect(item).toBeInTheDocument();
+      expect(item.className).toContain("row-plain");
     });
 
-    it("should apply primary color with plain variant", () => {
-      render(
+    it("should merge custom style with the computed row style", () => {
+      renderWithDragContext(
         <DraggableEntryWrapper
-          entryRef={mockSongEntry}
-          controls={mockDragControls}
-          variant="plain"
-          color="primary"
-        >
-          <td>Content</td>
-        </DraggableEntryWrapper>
-      );
-
-      const item = screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`);
-      // Should have primary plainBg color
-      expect(item.style.background).toBeDefined();
-    });
-
-    it("should apply success color with soft variant", () => {
-      render(
-        <DraggableEntryWrapper
-          entryRef={mockSongEntry}
-          controls={mockDragControls}
-          variant="soft"
-          color="success"
-        >
-          <td>Content</td>
-        </DraggableEntryWrapper>
-      );
-
-      const item = screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`);
-      expect(item).toBeInTheDocument();
-    });
-
-    it("should apply neutral color by default", () => {
-      render(
-        <DraggableEntryWrapper
-          entryRef={mockSongEntry}
-          controls={mockDragControls}
-        >
-          <td>Content</td>
-        </DraggableEntryWrapper>
-      );
-
-      const item = screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`);
-      expect(item).toBeInTheDocument();
-    });
-
-    it("should apply warning color", () => {
-      render(
-        <DraggableEntryWrapper
-          entryRef={mockSongEntry}
-          controls={mockDragControls}
-          color="warning"
-        >
-          <td>Content</td>
-        </DraggableEntryWrapper>
-      );
-
-      expect(screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`)).toBeInTheDocument();
-    });
-
-    it("should apply danger color", () => {
-      render(
-        <DraggableEntryWrapper
-          entryRef={mockSongEntry}
-          controls={mockDragControls}
-          color="danger"
-        >
-          <td>Content</td>
-        </DraggableEntryWrapper>
-      );
-
-      expect(screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`)).toBeInTheDocument();
-    });
-
-    it("should use backdrop background for non-plain variants", () => {
-      render(
-        <DraggableEntryWrapper
-          entryRef={mockSongEntry}
-          controls={mockDragControls}
-          variant="solid"
-          color="primary"
-        >
-          <td>Content</td>
-        </DraggableEntryWrapper>
-      );
-
-      const item = screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`);
-      // For non-plain variants, should use background.backdrop
-      expect(item).toBeInTheDocument();
-    });
-  });
-
-  describe("Custom style prop", () => {
-    it("should apply custom style", () => {
-      render(
-        <DraggableEntryWrapper
-          entryRef={mockSongEntry}
-          controls={mockDragControls}
-          style={{ opacity: 0.5 }}
-        >
-          <td>Content</td>
-        </DraggableEntryWrapper>
-      );
-
-      const item = screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`);
-      expect(item.style.opacity).toBe("0.5");
-    });
-
-    it("should merge custom style with background", () => {
-      render(
-        <DraggableEntryWrapper
-          entryRef={mockSongEntry}
+          entry={mockSongEntry}
           controls={mockDragControls}
           style={{ marginBottom: "10px" }}
         >
@@ -362,25 +355,30 @@ describe("DraggableEntryWrapper", () => {
       expect(item.style.marginBottom).toBe("10px");
     });
 
-    it("should handle undefined style prop", () => {
-      render(
-        <DraggableEntryWrapper
-          entryRef={mockSongEntry}
-          controls={mockDragControls}
-        >
-          <td>Content</td>
-        </DraggableEntryWrapper>
-      );
-
-      expect(screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`)).toBeInTheDocument();
+    it("should handle solid, soft, and outlined variants", () => {
+      for (const variant of ["solid", "soft", "outlined"] as const) {
+        const { unmount } = renderWithDragContext(
+          <DraggableEntryWrapper
+            entry={mockSongEntry}
+            controls={mockDragControls}
+            variant={variant}
+          >
+            <td>Content</td>
+          </DraggableEntryWrapper>
+        );
+        expect(
+          screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`)
+        ).toBeInTheDocument();
+        unmount();
+      }
     });
   });
 
   describe("Multiple children", () => {
     it("should render multiple td children", () => {
-      render(
+      renderWithDragContext(
         <DraggableEntryWrapper
-          entryRef={mockSongEntry}
+          entry={mockSongEntry}
           controls={mockDragControls}
         >
           <td>Cell 1</td>
@@ -392,209 +390,6 @@ describe("DraggableEntryWrapper", () => {
       expect(screen.getByText("Cell 1")).toBeInTheDocument();
       expect(screen.getByText("Cell 2")).toBeInTheDocument();
       expect(screen.getByText("Cell 3")).toBeInTheDocument();
-    });
-
-    it("should render complex nested children", () => {
-      render(
-        <DraggableEntryWrapper
-          entryRef={mockSongEntry}
-          controls={mockDragControls}
-        >
-          <td>
-            <div>
-              <span>Nested content</span>
-            </div>
-          </td>
-        </DraggableEntryWrapper>
-      );
-
-      expect(screen.getByText("Nested content")).toBeInTheDocument();
-    });
-  });
-
-  describe("Entry types", () => {
-    it("should work with FlowsheetSongEntry", () => {
-      const songEntry: FlowsheetSongEntry = {
-        id: 10,
-        play_order: 5,
-        show_id: 200,
-        track_title: "Song Title",
-        artist_name: "Artist Name",
-        album_title: "Album Title",
-        record_label: "Label",
-        request_flag: true,
-        segue: false,
-        album_id: 123,
-        rotation_id: 456,
-        rotation: "H",
-      };
-
-      render(
-        <DraggableEntryWrapper entryRef={songEntry} controls={mockDragControls}>
-          <td>{songEntry.track_title}</td>
-        </DraggableEntryWrapper>
-      );
-
-      const item = screen.getByTestId(`flowsheet-entry-${songEntry.id}`);
-      const value = JSON.parse(item.getAttribute("data-value") || "{}");
-      expect(value.track_title).toBe("Song Title");
-    });
-
-    it("should work with FlowsheetMessageEntry", () => {
-      const messageEntry: FlowsheetMessageEntry = {
-        id: 20,
-        play_order: 10,
-        show_id: 200,
-        message: "Talkset - DJ Speaking",
-      };
-
-      render(
-        <DraggableEntryWrapper
-          entryRef={messageEntry}
-          controls={mockDragControls}
-        >
-          <td>{messageEntry.message}</td>
-        </DraggableEntryWrapper>
-      );
-
-      const item = screen.getByTestId(`flowsheet-entry-${messageEntry.id}`);
-      const value = JSON.parse(item.getAttribute("data-value") || "{}");
-      expect(value.message).toBe("Talkset - DJ Speaking");
-    });
-  });
-
-  describe("Variant handling edge cases", () => {
-    it("should handle soft variant with neutral color", () => {
-      render(
-        <DraggableEntryWrapper
-          entryRef={mockSongEntry}
-          controls={mockDragControls}
-          variant="soft"
-          color="neutral"
-        >
-          <td>Content</td>
-        </DraggableEntryWrapper>
-      );
-
-      expect(screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`)).toBeInTheDocument();
-    });
-
-    it("should handle solid variant", () => {
-      render(
-        <DraggableEntryWrapper
-          entryRef={mockSongEntry}
-          controls={mockDragControls}
-          variant="solid"
-        >
-          <td>Content</td>
-        </DraggableEntryWrapper>
-      );
-
-      expect(screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`)).toBeInTheDocument();
-    });
-
-    it("should handle outlined variant", () => {
-      render(
-        <DraggableEntryWrapper
-          entryRef={mockSongEntry}
-          controls={mockDragControls}
-          variant="outlined"
-        >
-          <td>Content</td>
-        </DraggableEntryWrapper>
-      );
-
-      expect(screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`)).toBeInTheDocument();
-    });
-  });
-
-  describe("Integration with useFlowsheet hook", () => {
-    it("should access switchEntries from useFlowsheet", () => {
-      render(
-        <DraggableEntryWrapper
-          entryRef={mockSongEntry}
-          controls={mockDragControls}
-        >
-          <td>Content</td>
-        </DraggableEntryWrapper>
-      );
-
-      expect(mockUseFlowsheet).toHaveBeenCalled();
-    });
-
-    it("should not call switchEntries on render", () => {
-      render(
-        <DraggableEntryWrapper
-          entryRef={mockSongEntry}
-          controls={mockDragControls}
-        >
-          <td>Content</td>
-        </DraggableEntryWrapper>
-      );
-
-      expect(mockSwitchEntries).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("Theme integration", () => {
-    it("should access theme palette", () => {
-      render(
-        <DraggableEntryWrapper
-          entryRef={mockSongEntry}
-          controls={mockDragControls}
-          color="primary"
-          variant="soft"
-        >
-          <td>Content</td>
-        </DraggableEntryWrapper>
-      );
-
-      // Theme should be accessed via useTheme hook
-      expect(screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`)).toBeInTheDocument();
-    });
-  });
-
-  describe("Accessibility", () => {
-    it("should render as table row for proper table semantics", () => {
-      render(
-        <table>
-          <tbody>
-            <DraggableEntryWrapper
-              entryRef={mockSongEntry}
-              controls={mockDragControls}
-            >
-              <td>Accessible content</td>
-            </DraggableEntryWrapper>
-          </tbody>
-        </table>
-      );
-
-      expect(screen.getByText("Accessible content")).toBeInTheDocument();
-    });
-  });
-
-  describe("Style merging", () => {
-    it("should preserve all custom style properties", () => {
-      render(
-        <DraggableEntryWrapper
-          entryRef={mockSongEntry}
-          controls={mockDragControls}
-          style={{
-            opacity: 0.8,
-            marginTop: "5px",
-            marginBottom: "5px",
-            height: "50px",
-          }}
-        >
-          <td>Content</td>
-        </DraggableEntryWrapper>
-      );
-
-      const item = screen.getByTestId(`flowsheet-entry-${mockSongEntry.id}`);
-      expect(item.style.opacity).toBe("0.8");
-      expect(item.style.marginTop).toBe("5px");
-      expect(item.style.marginBottom).toBe("5px");
-      expect(item.style.height).toBe("50px");
     });
   });
 });

@@ -5,10 +5,10 @@ import {
   compareEntriesNewestFirst,
   insertEntrySortedFirstPage,
   maxPlayOrder,
+  movePlayOrder,
   primaryShowId,
   removeEntryById,
   replaceEntryIdAllPages,
-  swapPlayOrdersForSwitch,
 } from "@/lib/features/flowsheet/infinite-cache";
 
 function song(
@@ -153,13 +153,72 @@ describe("infinite-cache", () => {
     expect(draft.pages[0].map((e) => e.id)).toEqual([51, 50, 49]);
   });
 
-  it("swapPlayOrdersForSwitch swaps play_order between two entries", () => {
-    const a = song(1, 100, 1);
-    const b = song(2, 50, 1);
-    const draft = { pages: [[a, b]], pageParams: [0] };
-    swapPlayOrdersForSwitch(draft, 1, 50);
-    expect(draft.pages[0][0].play_order).toBe(50);
-    expect(draft.pages[0][1].play_order).toBe(100);
+  it("movePlayOrder moving down renumbers the crossed block up by one", () => {
+    // Entry 5 (play_order 5) drops to position 2: server bumps 2,3,4 → 3,4,5.
+    const draft = {
+      pages: [[song(5, 5, 1), song(4, 4, 1), song(3, 3, 1), song(2, 2, 1), song(1, 1, 1)]],
+      pageParams: [0],
+    };
+    movePlayOrder(draft, 5, 2);
+    const byId = new Map(draft.pages[0].map((e) => [e.id, e.play_order]));
+    expect(byId.get(5)).toBe(2);
+    expect(byId.get(4)).toBe(5);
+    expect(byId.get(3)).toBe(4);
+    expect(byId.get(2)).toBe(3);
+    expect(byId.get(1)).toBe(1);
+  });
+
+  it("movePlayOrder moving up renumbers the crossed block down by one", () => {
+    // Entry 2 (play_order 2) rises to position 4: server drops 3,4 → 2,3.
+    const draft = {
+      pages: [[song(5, 5, 1), song(4, 4, 1), song(3, 3, 1), song(2, 2, 1), song(1, 1, 1)]],
+      pageParams: [0],
+    };
+    movePlayOrder(draft, 2, 4);
+    const byId = new Map(draft.pages[0].map((e) => [e.id, e.play_order]));
+    expect(byId.get(2)).toBe(4);
+    expect(byId.get(4)).toBe(3);
+    expect(byId.get(3)).toBe(2);
+    expect(byId.get(5)).toBe(5);
+    expect(byId.get(1)).toBe(1);
+  });
+
+  it("movePlayOrder is a no-op when the position is unchanged", () => {
+    const draft = {
+      pages: [[song(2, 2, 1), song(1, 1, 1)]],
+      pageParams: [0],
+    };
+    movePlayOrder(draft, 2, 2);
+    expect(draft.pages[0].map((e) => e.play_order)).toEqual([2, 1]);
+  });
+
+  it("movePlayOrder is a no-op when the entry is missing", () => {
+    const draft = {
+      pages: [[song(2, 2, 1), song(1, 1, 1)]],
+      pageParams: [0],
+    };
+    movePlayOrder(draft, 999, 1);
+    expect(draft.pages[0].map((e) => e.play_order)).toEqual([2, 1]);
+  });
+
+  it("movePlayOrder never touches entries from other shows with overlapping play_orders", () => {
+    // play_order is per-show; show 1's renumber must not disturb show 2's
+    // rows even though their play_order ranges collide, and pages can span
+    // shows.
+    const draft = {
+      pages: [
+        [song(103, 3, 2), song(102, 2, 2), song(101, 1, 2)],
+        [song(13, 3, 1), song(12, 2, 1), song(11, 1, 1)],
+      ],
+      pageParams: [0, 1],
+    };
+    movePlayOrder(draft, 103, 1);
+    const show1 = draft.pages[1].map((e) => e.play_order);
+    expect(show1).toEqual([3, 2, 1]);
+    const byId = new Map(draft.pages[0].map((e) => [e.id, e.play_order]));
+    expect(byId.get(103)).toBe(1);
+    expect(byId.get(102)).toBe(3);
+    expect(byId.get(101)).toBe(2);
   });
 
   it("buildOptimisticEntry builds a track row from manual submission", () => {

@@ -62,7 +62,7 @@ export const defaultFlowsheetFrontendState: FlowsheetFrontendState = {
   },
   queue: [],
   queueIdCounter: 0,
-  currentShowEntries: [],
+  isDragging: false,
 };
 
 export const flowsheetSlice = createAppSlice({
@@ -218,8 +218,13 @@ export const flowsheetSlice = createAppSlice({
       }
       state.search.selectedResult = action.payload;
     },
-    setCurrentShowEntries: (state, action: PayloadAction<FlowsheetEntry[]>) => {
-      state.currentShowEntries = action.payload;
+    /**
+     * True while a flowsheet row is being dragged. In Redux so
+     * `useFlowsheetPollingInterval` can suspend every query subscriber's
+     * polling at once.
+     */
+    setIsDragging: (state, action: PayloadAction<boolean>) => {
+      state.isDragging = action.payload;
     },
     reset: () => defaultFlowsheetFrontendState,
   },
@@ -230,8 +235,8 @@ export const flowsheetSlice = createAppSlice({
     getSearchQueryLength: (state) => Object.values(state.search.query).filter((value) => value).length,
     getQueue: (state) => state.queue,
     getSelectedResult: (state) => state.search.selectedResult,
-    getCurrentShowEntries: (state) => state.currentShowEntries,
     getSelectedMatch: (state) => state.search.selectedMatch,
     getSearchFilters: (state) => state.search.filters,
+    getIsDragging: (state) => state.isDragging,
   },
 });

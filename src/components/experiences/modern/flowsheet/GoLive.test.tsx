@@ -6,6 +6,7 @@ import GoLive from "./GoLive";
 const mockGoLive = vi.fn();
 const mockLeave = vi.fn();
 const mockSetAutoPlay = vi.fn();
+const mockUseFlowsheetSaving = vi.fn(() => false);
 
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useShowControl: vi.fn(() => ({
@@ -13,11 +14,11 @@ vi.mock("@/src/hooks/flowsheetHooks", () => ({
     autoplay: false,
     setAutoPlay: mockSetAutoPlay,
     loading: false,
-    isSaving: false,
     currentShow: -1,
     goLive: mockGoLive,
     leave: mockLeave,
   })),
+  useFlowsheetSaving: () => mockUseFlowsheetSaving(),
 }));
 
 describe("GoLive", () => {
@@ -37,7 +38,6 @@ describe("GoLive", () => {
       autoplay: false,
       setAutoPlay: mockSetAutoPlay,
       loading: false,
-      isSaving: false,
       goLive: mockGoLive,
       leave: mockLeave,
       currentShow: 1,
@@ -54,7 +54,6 @@ describe("GoLive", () => {
       autoplay: false,
       setAutoPlay: mockSetAutoPlay,
       loading: false,
-      isSaving: false,
       goLive: mockGoLive,
       leave: mockLeave,
       currentShow: -1,
@@ -76,7 +75,6 @@ describe("GoLive", () => {
       autoplay: false,
       setAutoPlay: mockSetAutoPlay,
       loading: false,
-      isSaving: false,
       goLive: mockGoLive,
       leave: mockLeave,
       currentShow: 1,
@@ -97,7 +95,6 @@ describe("GoLive", () => {
       autoplay: false,
       setAutoPlay: mockSetAutoPlay,
       loading: false,
-      isSaving: false,
       goLive: mockGoLive,
       leave: mockLeave,
       currentShow: 1,
@@ -118,7 +115,6 @@ describe("GoLive", () => {
       autoplay: false,
       setAutoPlay: mockSetAutoPlay,
       loading: false,
-      isSaving: false,
       goLive: mockGoLive,
       leave: mockLeave,
       currentShow: -1,
@@ -137,7 +133,6 @@ describe("GoLive", () => {
       autoplay: false,
       setAutoPlay: mockSetAutoPlay,
       loading: true,
-      isSaving: false,
       goLive: mockGoLive,
       leave: mockLeave,
       currentShow: -1,
@@ -156,11 +151,11 @@ describe("GoLive", () => {
       autoplay: false,
       setAutoPlay: mockSetAutoPlay,
       loading: false,
-      isSaving: true,
       goLive: mockGoLive,
       leave: mockLeave,
       currentShow: 1,
     });
+    mockUseFlowsheetSaving.mockReturnValueOnce(true);
 
     render(<GoLive />);
     expect(screen.getByRole("progressbar")).toBeInTheDocument();

@@ -13,7 +13,10 @@ import {
 } from "@/lib/features/flowsheet/api";
 import { convertQueryToSubmission } from "@/lib/features/flowsheet/conversions";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
-import { compareEntriesNewestFirst } from "@/lib/features/flowsheet/infinite-cache";
+import {
+  compareEntriesNewestFirst,
+  primaryShowId,
+} from "@/lib/features/flowsheet/infinite-cache";
 import { useFlowsheetPollingInterval } from "./useSSEConnection";
 import { partitionFlowsheetEntries } from "@/lib/features/flowsheet/partition";
 import {
@@ -60,46 +63,33 @@ export const useShowControl = () => {
   const { loading: userloading, info: userData } = useRegistry();
   const flowsheetPollingInterval = useFlowsheetPollingInterval();
 
-  const {
-    data: liveList,
-    isLoading: loadingLiveList,
-  } = useWhoIsLiveQuery(undefined, {
-    skip: !userData || userloading,
-    pollingInterval: 60000, // Poll every 60 seconds to keep live status updated
+  const skip = !userData || userloading;
+  const userId = userData?.id;
+
+  // This hook runs in every entry row (and per editable field), so both query
+  // subscriptions are narrowed to primitives: rows re-render only when
+  // live/currentShow actually change, not on fetch-status flips or unrelated
+  // cache updates — and no per-row flatten/sort of the entry list.
+  const { live, loadingLiveList } = useWhoIsLiveQuery(undefined, {
+    skip,
+    pollingInterval: 60000,
+    selectFromResult: ({ data, isLoading }) => ({
+      live:
+        data?.djs !== undefined &&
+        data.djs.length !== 0 &&
+        data.djs.some((dj) => dj.id === userId),
+      loadingLiveList: isLoading,
+    }),
   });
 
-  const {
-    data: infiniteData,
-    isSuccess: entriesQuerySuccess,
-  } = useGetInfiniteEntriesInfiniteQuery(undefined, {
-    skip: !userData || userloading,
+  const { currentShow } = useGetInfiniteEntriesInfiniteQuery(undefined, {
+    skip,
     pollingInterval: flowsheetPollingInterval,
+    selectFromResult: ({ data, isSuccess }) => ({
+      // Newest entry's show_id; pages stay sorted newest-first.
+      currentShow: isSuccess && data ? primaryShowId(data) : -1,
+    }),
   });
-
-  // Flatten all pages into a single sorted array
-  const allEntries = useMemo(() => {
-    if (!infiniteData?.pages) return [];
-    const map = new Map<number, FlowsheetEntry>();
-    infiniteData.pages.flat().forEach((entry) => map.set(entry.id, entry));
-    return Array.from(map.values()).sort(compareEntriesNewestFirst);
-  }, [infiniteData?.pages]);
-
-  // Calculate derived state during render - no useState/useEffect needed
-  const currentShow = useMemo(() => {
-    return entriesQuerySuccess && allEntries.length > 0
-      ? allEntries[0].show_id
-      : -1;
-  }, [allEntries, entriesQuerySuccess]);
-
-  const live = useMemo(() => {
-    return (
-      liveList?.djs !== undefined &&
-      liveList?.djs.length !== 0 &&
-      liveList.djs.some((dj) => dj.id === userData?.id)
-    );
-  }, [liveList, userData?.id]);
-
-  const isSaving = useAppSelector(selectFlowsheetMutationPending);
 
   const [goLiveFunction, goingLiveResult] = useJoinShowMutation();
   const [leaveFunction, leavingResult] = useLeaveShowMutation();
@@ -147,15 +137,25 @@ export const useShowControl = () => {
       userloading ||
       goingLiveResult.isLoading ||
       leavingResult.isLoading,
-    isSaving,
     currentShow,
     goLive,
     leave,
   };
 };
 
+/**
+ * Whether any flowsheet mutation is in flight. Deliberately NOT part of
+ * useShowControl: that hook runs in every entry row, and this value flips on
+ * every mutation dispatch AND completion — subscribing rows to it re-renders
+ * the whole table twice per save, the second time when the response lands
+ * (mid-settle for drag reorders).
+ */
+export const useFlowsheetSaving = (): boolean =>
+  useAppSelector(selectFlowsheetMutationPending);
+
 export const useFlowsheetSearch = () => {
-  const { live, loading, isSaving } = useShowControl();
+  const { live, loading } = useShowControl();
+  const isSaving = useFlowsheetSaving();
 
   const dispatch = useAppDispatch();
   const searchOpen = useAppSelector((state) => state.flowsheet.search.open);
@@ -222,7 +222,6 @@ export const useFlowsheetSearch = () => {
 
 export const useFlowsheet = () => {
   const { loading: userloading, info: userData } = useRegistry();
-  const dispatch = useAppDispatch();
   const flowsheetPollingInterval = useFlowsheetPollingInterval();
 
   const {
@@ -246,110 +245,153 @@ export const useFlowsheet = () => {
     return Array.from(map.values()).sort(compareEntriesNewestFirst);
   }, [infiniteData?.pages]);
 
-  const [addToFlowsheet] = useAddToFlowsheetMutation();
-  // Stable identity so consumers (e.g. the Mail Bin's per-row action memos)
-  // can hold it in dependency arrays without recomputing every render.
-  const addToFlowsheetCallback = useCallback(
-    (arg: FlowsheetSubmissionParams) => {
-      if (!userData || userData.id === undefined || userloading) {
-        return Promise.reject('User not logged in');
-      }
-
-      // Tag invalidation from the mutation handles refetching
-      return addToFlowsheet(arg).unwrap();
-    },
-    [addToFlowsheet, userData, userloading]
-  );
-
-  const [removeFromFlowsheet, _] = useRemoveFromFlowsheetMutation();
-  const removeFromFlowsheetCallback = (entry: number) => {
-    if (!userData || userData.id === undefined || userloading) {
-      return;
-    }
-    removeFromFlowsheet(entry);
-  };
-
-  const [updateFlowsheetEntry] = useUpdateFlowsheetMutation();
-  const updateFlowsheet = (updateData: FlowsheetUpdateParams) => {
-    if (!userData || userData.id === undefined || userloading) {
-      return;
-    }
-    updateFlowsheetEntry(updateData);
-  };
-
-  const removeFromQueue = (entry: number) =>
-    dispatch(flowsheetSlice.actions.removeFromQueue(entry));
+  const actions = useFlowsheetActions();
 
   const { currentShow, live } = useShowControl();
 
-  // Partition entries into current show vs previous shows.
-  // All entries from the current show (including start/end markers) go into
-  // currentShowEntries so that concatenation with lastShowsEntries preserves
-  // strict id-DESC chronological order.
+  // Partition entries into current show vs previous shows. All entries from
+  // the current show (including start/end markers) go into currentShowEntries,
+  // sorted play_order DESC so persisted reorders are reflected.
   const { current: currentShowEntries, previous: lastShowsEntries } = useMemo(
     () => partitionFlowsheetEntries(allEntries, currentShow, live),
     [allEntries, currentShow, live]
-  );
-
-  const setCurrentShowEntries = (entries: FlowsheetEntry[]) => {
-    dispatch(flowsheetSlice.actions.setCurrentShowEntries(entries));
-  };
-
-  const [switchBackendEntries, switchBackendResult] =
-    useSwitchEntriesMutation();
-
-  // TODO: newLocation is an index into currentShowEntries but used as an index
-  // into allEntries — these arrays have different lengths and contents. This is
-  // safe only because drag-and-drop is currently disabled in the UI.
-  const switchEntries = useCallback(
-    async (entry: FlowsheetEntry) => {
-      if (!userData?.id || userloading) return;
-
-      const newLocation = currentShowEntries.findIndex(
-        (e) => e.id === entry.id
-      );
-
-      const swappedWith = allEntries[newLocation];
-
-      if (!swappedWith) return;
-
-      try {
-        // Tag invalidation from the mutation handles refetching
-        await switchBackendEntries({
-          entry_id: entry.id,
-          new_position: swappedWith.play_order!,
-        });
-      } catch (err) {
-        console.error("Failed to switch entries:", err);
-      }
-    },
-    [
-      userData?.id,
-      userloading,
-      allEntries,
-      currentShow,
-      switchBackendEntries,
-      currentShowEntries,
-    ]
   );
 
   return {
     entries: {
       current: currentShowEntries,
       previous: lastShowsEntries,
-      setCurrentShowEntries,
-      switchEntries,
+      switchEntries: actions.switchEntries,
     },
-    addToFlowsheet: addToFlowsheetCallback,
-    removeFromFlowsheet: removeFromFlowsheetCallback,
-    updateFlowsheet,
-    removeFromQueue,
+    addToFlowsheet: actions.addToFlowsheet,
+    removeFromFlowsheet: actions.removeFromFlowsheet,
+    updateFlowsheet: actions.updateFlowsheet,
+    removeFromQueue: actions.removeFromQueue,
     loading: isLoading || userloading,
     isFetching,
     hasNextPage,
     fetchNextPage,
     isSuccess,
     isError,
+  };
+};
+
+// Mutation result state is never consumed, and the hosts of these hooks
+// range from the flowsheet page to every row action — an empty
+// selectFromResult keeps mutation lifecycle flips (pending at dispatch,
+// fulfilled when the response lands) from re-rendering any of them.
+const NO_MUTATION_STATE = { selectFromResult: () => ({}) };
+
+/**
+ * Flowsheet mutation callbacks with no query subscriptions. Row-level
+ * components (entry fields, controls, remove buttons, the Mail Bin) must use
+ * this instead of useFlowsheet: the full hook subscribes to the entries
+ * query and re-sorts every loaded entry per cache update, which multiplied
+ * by hundreds of row-level instances is a serious per-update cost.
+ */
+export const useFlowsheetActions = () => {
+  const { loading: userloading, info: userData } = useRegistry();
+  const dispatch = useAppDispatch();
+
+  const [addToFlowsheetMutation] = useAddToFlowsheetMutation(NO_MUTATION_STATE);
+  // Stable identity so consumers (e.g. the Mail Bin's per-row action memos)
+  // can hold it in dependency arrays without recomputing every render.
+  const addToFlowsheet = useCallback(
+    (arg: FlowsheetSubmissionParams) => {
+      if (!userData || userData.id === undefined || userloading) {
+        return Promise.reject('User not logged in');
+      }
+
+      // Tag invalidation from the mutation handles refetching
+      return addToFlowsheetMutation(arg).unwrap();
+    },
+    [addToFlowsheetMutation, userData, userloading]
+  );
+
+  const [removeFromFlowsheetMutation] =
+    useRemoveFromFlowsheetMutation(NO_MUTATION_STATE);
+  const removeFromFlowsheet = useCallback(
+    (entry: number) => {
+      if (!userData || userData.id === undefined || userloading) {
+        return;
+      }
+      removeFromFlowsheetMutation(entry);
+    },
+    [removeFromFlowsheetMutation, userData, userloading]
+  );
+
+  const [updateFlowsheetMutation] =
+    useUpdateFlowsheetMutation(NO_MUTATION_STATE);
+  const updateFlowsheet = useCallback(
+    (updateData: FlowsheetUpdateParams) => {
+      if (!userData || userData.id === undefined || userloading) {
+        return;
+      }
+      updateFlowsheetMutation(updateData);
+    },
+    [updateFlowsheetMutation, userData, userloading]
+  );
+
+  const [switchEntriesMutation] = useSwitchEntriesMutation(NO_MUTATION_STATE);
+  // Position math (which play_order the entry should land on) belongs to the
+  // caller — only the page owning the drag state knows the pre-drag vs
+  // post-drag visual order.
+  const switchEntries = useCallback(
+    async (entry: FlowsheetEntry, newPosition: number) => {
+      if (!userData?.id || userloading) return;
+
+      try {
+        // Tag invalidation from the mutation handles refetching
+        await switchEntriesMutation({
+          entry_id: entry.id,
+          new_position: newPosition,
+        });
+      } catch (err) {
+        console.error("Failed to switch entries:", err);
+      }
+    },
+    [userData?.id, userloading, switchEntriesMutation]
+  );
+
+  const removeFromQueue = useCallback(
+    (entry: number) => dispatch(flowsheetSlice.actions.removeFromQueue(entry)),
+    [dispatch]
+  );
+
+  return {
+    addToFlowsheet,
+    removeFromFlowsheet,
+    updateFlowsheet,
+    switchEntries,
+    removeFromQueue,
+  };
+};
+
+/**
+ * Pagination state only — for consumers (InfiniteScroller) that drive
+ * fetching but never render entries, sparing them useFlowsheet's per-update
+ * flatten/sort/partition work.
+ */
+export const useFlowsheetPagination = () => {
+  const { loading: userloading, info: userData } = useRegistry();
+  const flowsheetPollingInterval = useFlowsheetPollingInterval();
+
+  const { isLoading, isFetching, hasNextPage, fetchNextPage } =
+    useGetInfiniteEntriesInfiniteQuery(undefined, {
+      skip: !userData || userloading,
+      pollingInterval: flowsheetPollingInterval,
+      selectFromResult: ({ isLoading, isFetching, hasNextPage }) => ({
+        isLoading,
+        isFetching,
+        hasNextPage,
+      }),
+    });
+
+  return {
+    loading: isLoading || userloading,
+    isFetching,
+    hasNextPage,
+    fetchNextPage,
   };
 };
 

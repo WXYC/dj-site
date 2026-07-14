@@ -16,10 +16,10 @@ import {
 import {
   buildOptimisticEntry,
   insertEntrySortedFirstPage,
+  movePlayOrder,
   patchEntryById,
   removeEntryById,
   replaceEntryIdAllPages,
-  swapPlayOrdersForSwitch,
 } from "./infinite-cache";
 import {
   FlowsheetEntry,
@@ -83,21 +83,25 @@ export const flowsheetApi = createApi({
       }),
       invalidatesTags: ["NowPlaying"],
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        // The optimistic move mirrors the server's renumber exactly, so
+        // success needs no refetch — re-pulling every loaded page after each
+        // drop churned row identities and stalled the settle animation. On
+        // failure, revert and resync against the server.
         const patchResult = dispatch(
           flowsheetApi.util.updateQueryData(
             "getInfiniteEntries",
             undefined,
             (draft) => {
-              swapPlayOrdersForSwitch(draft, arg.entry_id, arg.new_position);
+              movePlayOrder(draft, arg.entry_id, arg.new_position);
             }
           )
         );
         try {
           await queryFulfilled;
-          dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
         } catch (err) {
           flowsheetMutationCatch("switchEntries", err);
           patchResult.undo();
+          dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
         }
       },
     }),

@@ -27,16 +27,18 @@ export default function MessageEntry({
   endDecorator,
   color,
   variant,
-  entryRef,
+  entry,
   disableEditing = false,
+  draggable = true,
 }: {
   startDecorator?: React.ReactNode;
   children: React.ReactNode;
   endDecorator?: React.ReactNode;
   color: ColorPaletteProp;
   variant: VariantProp;
-  entryRef: FlowsheetEntry;
+  entry: FlowsheetEntry;
   disableEditing?: boolean;
+  draggable?: boolean;
 }) {
   const { live, currentShow } = useShowControl();
 
@@ -44,21 +46,23 @@ export default function MessageEntry({
 
   const isXl = useMediaQuery(FLOWSHEET_XL_QUERY);
 
-  const editable = entryRef.show_id == currentShow && !disableEditing;
+  const editable = entry.show_id == currentShow && !disableEditing;
 
   return (
     <DraggableEntryWrapper
       controls={controls}
-      entryRef={entryRef}
+      entry={entry}
       variant={variant}
       color={color}
+      draggable={draggable}
       className="row-marker"
       style={{
         height: "40px",
         borderRadius: "md",
       }}
     >
-      <td>
+      <td style={{ position: "relative" }}>
+        {live && editable && draggable && <DragButton controls={controls} />}
         <AspectRatio
           ratio={1.5}
           variant="plain"
@@ -97,10 +101,9 @@ export default function MessageEntry({
           justifyContent="end"
         >
           <Typography level="body-xs">{endDecorator}</Typography>
-          {live && editable && <DragButton controls={controls} />}
-          {live && editable && !isFlowsheetStartShowEntry(entryRef) &&
-            !isFlowsheetEndShowEntry(entryRef) && (
-              <RemoveButton queue={false} entry={entryRef} />
+          {live && editable && !isFlowsheetStartShowEntry(entry) &&
+            !isFlowsheetEndShowEntry(entry) && (
+              <RemoveButton queue={false} entry={entry} />
             )}
         </Stack>
       </td>

@@ -3,9 +3,17 @@
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 import { useAppDispatch } from "@/lib/hooks";
-import { useFlowsheet, useShowControl } from "@/src/hooks/flowsheetHooks";
+import { useFlowsheetActions, useShowControl } from "@/src/hooks/flowsheetHooks";
+import { useFlowsheetMoveContext } from "@/src/components/experiences/modern/flowsheet/Entries/dragContext";
 import { entryFieldTextColor } from "@/src/utilities/modern/entryFieldColors";
-import { CheckRounded, CloseRounded, EditOutlined, PlayArrow } from "@mui/icons-material";
+import {
+  CheckRounded,
+  CloseRounded,
+  EditOutlined,
+  KeyboardArrowDownRounded,
+  KeyboardArrowUpRounded,
+  PlayArrow,
+} from "@mui/icons-material";
 import {
   AspectRatio,
   Box,
@@ -51,13 +59,18 @@ const MobileSongEntry = memo(function MobileSongEntry({
   playing,
   queue,
   entry,
+  canMoveUp = false,
+  canMoveDown = false,
 }: {
   playing: boolean;
   queue: boolean;
   entry: FlowsheetSongEntry;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
 }) {
   const { live, currentShow } = useShowControl();
-  const { updateFlowsheet } = useFlowsheet();
+  const { updateFlowsheet } = useFlowsheetActions();
+  const { moveEntry } = useFlowsheetMoveContext();
   const dispatch = useAppDispatch();
   const playNow = usePlayNow(entry);
 
@@ -296,6 +309,35 @@ const MobileSongEntry = memo(function MobileSongEntry({
           </>
         ) : (
           <>
+            {/* One-step reorder — the mobile stand-in for drag. */}
+            {editable && (canMoveUp || canMoveDown) && (
+              <>
+                <Tooltip title="Move up" variant="outlined" size="sm">
+                  <IconButton
+                    size="sm"
+                    variant="plain"
+                    color="neutral"
+                    aria-label="Move up"
+                    disabled={!canMoveUp}
+                    onClick={() => moveEntry(entry, "up")}
+                  >
+                    <KeyboardArrowUpRounded />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Move down" variant="outlined" size="sm">
+                  <IconButton
+                    size="sm"
+                    variant="plain"
+                    color="neutral"
+                    aria-label="Move down"
+                    disabled={!canMoveDown}
+                    onClick={() => moveEntry(entry, "down")}
+                  >
+                    <KeyboardArrowDownRounded />
+                  </IconButton>
+                </Tooltip>
+              </>
+            )}
             <SongEntryControls
               entry={entry}
               queue={queue}

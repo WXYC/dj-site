@@ -153,21 +153,45 @@ export function replaceEntryIdAllPages(
   insertEntrySortedFirstPage(draft, serverEntry);
 }
 
-export function swapPlayOrdersForSwitch(
+/**
+ * Move `entryId` to `newPosition`, renumbering the crossed block of same-show
+ * entries by ±1 — mirrors `PATCH /play-order` exactly so the optimistic state
+ * matches what the server persists at any move distance. Other shows are
+ * untouched (play_order is per-show; values collide across shows).
+ */
+export function movePlayOrder(
   draft: InfiniteEntriesDraft,
   entryId: number,
   newPosition: number
 ): void {
-  let a: FlowsheetEntry | undefined;
-  let b: FlowsheetEntry | undefined;
+  let moved: FlowsheetEntry | undefined;
   for (const page of draft.pages) {
     for (const e of page) {
-      if (e.id === entryId) a = e;
-      if (e.play_order === newPosition) b = e;
+      if (e.id === entryId) moved = e;
     }
   }
-  if (!a || !b || a.id === b.id) return;
-  const poA = a.play_order;
-  a.play_order = b.play_order;
-  b.play_order = poA;
+  if (!moved) return;
+  const oldPosition = moved.play_order;
+  if (oldPosition === newPosition) return;
+  const showId = moved.show_id;
+
+  for (const page of draft.pages) {
+    for (const e of page) {
+      if (e.id === entryId || e.show_id !== showId) continue;
+      if (
+        newPosition > oldPosition &&
+        e.play_order > oldPosition &&
+        e.play_order <= newPosition
+      ) {
+        e.play_order -= 1;
+      } else if (
+        newPosition < oldPosition &&
+        e.play_order >= newPosition &&
+        e.play_order < oldPosition
+      ) {
+        e.play_order += 1;
+      }
+    }
+  }
+  moved.play_order = newPosition;
 }

@@ -8,11 +8,19 @@ import {
   FLOWSHEET_TABLE_SX,
   FlowsheetColumnSizingRow,
 } from "@/src/components/experiences/modern/flowsheet/Entries/tableStyles";
+import {
+  FlowsheetDragContext,
+  FlowsheetDragContextValue,
+  FlowsheetMoveContext,
+  FlowsheetMoveContextValue,
+} from "@/src/components/experiences/modern/flowsheet/Entries/dragContext";
+import { moveAdjacent } from "@/lib/features/flowsheet/reorder";
 import { useMediaQuery } from "@/src/hooks/useMediaQuery";
 import { Box, Table } from "@mui/joy";
 import { Reorder } from "motion/react";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
-import { useCallback, useEffect, useState } from "react";
+import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export default function Queue() {
   const queue = useAppSelector((state) => state.flowsheet.queue);
@@ -26,10 +34,52 @@ export default function Queue() {
 
   const isMobile = useMediaQuery(FLOWSHEET_MOBILE_QUERY);
 
-  // Handler for reordering queue items - Disabled for now
-  const handleReorder = useCallback((newOrder: typeof queue) => {
-    // Reordering disabled
+  // Order shown mid-drag (null when settled), mirrored in refs so the drag
+  // context below never changes identity (see @entries/page.tsx).
+  const [draftOrder, setDraftOrder] = useState<FlowsheetSongEntry[] | null>(
+    null
+  );
+  const draftOrderRef = useRef<FlowsheetSongEntry[] | null>(null);
+
+  // The queue renders newest-last, so display order is the reverse of the
+  // stored order — and a dropped order must be un-reversed before storage.
+  const reversed = useMemo(() => queue.toReversed(), [queue]);
+  const reversedRef = useRef(reversed);
+  reversedRef.current = reversed;
+
+  const handleReorder = useCallback((next: FlowsheetSongEntry[]) => {
+    draftOrderRef.current = next;
+    setDraftOrder(next);
   }, []);
+
+  const dragContext = useMemo<FlowsheetDragContextValue>(
+    () => ({
+      // Pure client state — nothing to freeze or suspend.
+      onEntryDragStart: () => {},
+      onEntryDragEnd: () => {
+        dispatch(
+          flowsheetSlice.actions.reorderQueue(
+            (draftOrderRef.current ?? reversedRef.current).toReversed()
+          )
+        );
+        draftOrderRef.current = null;
+        setDraftOrder(null);
+      },
+    }),
+    [dispatch]
+  );
+
+  // Mobile reorders one step at a time (up/down buttons instead of drag).
+  const moveContext = useMemo<FlowsheetMoveContextValue>(
+    () => ({
+      moveEntry: (entry, direction) => {
+        const next = moveAdjacent(reversedRef.current, entry.id, direction);
+        if (!next) return;
+        dispatch(flowsheetSlice.actions.reorderQueue(next.toReversed()));
+      },
+    }),
+    [dispatch]
+  );
 
   // An empty queue renders nothing — the bare table shell reads as a
   // stray grey bar above the entries.
@@ -37,22 +87,26 @@ export default function Queue() {
     return null;
   }
 
-  const reversed = queue.toReversed();
-
   if (isMobile) {
     return (
-      <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-        {reversed.map((entry) => (
-          <MobileSongEntry
-            key={`queue-mobile-${entry.id}`}
-            entry={entry}
-            playing={false}
-            queue={true}
-          />
-        ))}
-      </Box>
+      <FlowsheetMoveContext.Provider value={moveContext}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+          {reversed.map((entry, index) => (
+            <MobileSongEntry
+              key={`queue-mobile-${entry.id}`}
+              entry={entry}
+              playing={false}
+              queue={true}
+              canMoveUp={index > 0}
+              canMoveDown={index < reversed.length - 1}
+            />
+          ))}
+        </Box>
+      </FlowsheetMoveContext.Provider>
     );
   }
+
+  const visualOrder = draftOrder ?? reversed;
 
   return (
     <Table borderAxis="none" sx={FLOWSHEET_TABLE_SX}>
@@ -63,21 +117,23 @@ export default function Queue() {
       >
         <FlowsheetColumnSizingRow />
       </thead>
-      <Reorder.Group
-        values={reversed}
-        axis="y"
-        onReorder={handleReorder}
-        as="tbody"
-      >
-        {reversed.map((entry) => (
-          <SongEntry
-            key={`queue-${entry.id}`}
-            entry={entry}
-            playing={false}
-            queue={true}
-          />
-        ))}
-      </Reorder.Group>
+      <FlowsheetDragContext.Provider value={dragContext}>
+        <Reorder.Group
+          values={visualOrder}
+          axis="y"
+          onReorder={handleReorder}
+          as="tbody"
+        >
+          {visualOrder.map((entry) => (
+            <SongEntry
+              key={`queue-${entry.id}`}
+              entry={entry}
+              playing={false}
+              queue={true}
+            />
+          ))}
+        </Reorder.Group>
+      </FlowsheetDragContext.Provider>
     </Table>
   );
 }

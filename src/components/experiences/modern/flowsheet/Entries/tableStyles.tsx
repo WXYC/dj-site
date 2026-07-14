@@ -11,6 +11,14 @@ export const FLOWSHEET_MOBILE_QUERY = "(max-width: 599.95px)";
 // FLOWSHEET_TABLE_SX below — both describe the same column collapse.
 export const FLOWSHEET_XL_QUERY = "(min-width: 1536px)";
 
+// Page-background gutter left of the flowsheet tables that drag grips hang
+// into without moving the tables. InfiniteScroller creates it with a
+// negative-margin + equal-padding bleed and defines this variable: full
+// width where Main's own px can absorb the bleed, narrower below md.
+export const FLOWSHEET_DRAG_GUTTER_VAR = "--flowsheet-drag-gutter";
+export const FLOWSHEET_DRAG_GUTTER_PX = 36;
+export const FLOWSHEET_DRAG_GUTTER_NARROW_PX = 16;
+
 // Shared row/hover/action treatment for the entries and queue tables. The
 // queue never renders a `row-playing` row, so those rules are inert there.
 export const FLOWSHEET_TABLE_SX: SxProps = {
@@ -52,6 +60,13 @@ export const FLOWSHEET_TABLE_SX: SxProps = {
       "1px 0 0 var(--row-bg), -1px 0 0 var(--row-bg), 0 6px 12px -4px rgba(0, 0, 0, 0.35)",
     clipPath: "inset(0 -1px -12px -1px)",
   },
+  // The first cell anchors the drag grip out in the left gutter, so its clip
+  // must open leftward past the grip or the now-playing row's grip gets
+  // amputated. The wider clip only additionally admits ~8px of the lift
+  // shadow's soft left falloff.
+  "& tbody tr.row-playing > td:first-of-type": {
+    clipPath: `inset(0 -1px -12px -${FLOWSHEET_DRAG_GUTTER_PX + 8}px)`,
+  },
   "& tbody tr.row-playing .row-actions > *": { opacity: 1 },
   "& tbody tr > td:first-of-type": {
     borderTopLeftRadius: "8px",
@@ -77,6 +92,15 @@ export const FLOWSHEET_TABLE_SX: SxProps = {
       {
         opacity: 1,
       },
+    // Drag grips follow the action bar's quiet treatment: hover/focus
+    // revealed on pointer devices, always visible on touch.
+    "& tbody tr .drag-grip": {
+      opacity: 0,
+      transition: "opacity 120ms",
+    },
+    "& tbody tr:hover .drag-grip, & tbody tr:focus-within .drag-grip": {
+      opacity: 1,
+    },
   },
 };
 

@@ -1,14 +1,23 @@
 import { describe, it, expect } from "vitest";
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { Provider } from "react-redux";
 import {
+  FLOWSHEET_POLL_FAST_MS,
+  FLOWSHEET_POLL_SLOW_MS,
+} from "@/lib/features/flowsheet/constants";
+import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
+import {
   liveUpdatesConnectionRequested,
   liveUpdatesConnectionReleased,
+  liveUpdatesConnectionStateChanged,
   liveUpdatesSlice,
 } from "@/lib/features/flowsheet/live-updates-slice";
 import { makeStore } from "@/lib/store";
-import { useSSEConnection } from "@/src/hooks/useSSEConnection";
+import {
+  useFlowsheetPollingInterval,
+  useSSEConnection,
+} from "@/src/hooks/useSSEConnection";
 
 function makeWrapper() {
   const store = makeStore();
@@ -71,5 +80,51 @@ describe("useSSEConnection", () => {
     expect(
       liveUpdatesSlice.selectors.selectLiveUpdatesRefCount(store.getState())
     ).toBe(0);
+  });
+});
+
+describe("useFlowsheetPollingInterval", () => {
+  it("polls fast when SSE is disconnected and slow when connected", () => {
+    const { store, Wrapper } = makeWrapper();
+    const { result, rerender } = renderHook(
+      () => useFlowsheetPollingInterval(),
+      { wrapper: Wrapper }
+    );
+
+    expect(result.current).toBe(FLOWSHEET_POLL_FAST_MS);
+
+    act(() => {
+      store.dispatch(liveUpdatesConnectionStateChanged("connected"));
+    });
+    rerender();
+    expect(result.current).toBe(FLOWSHEET_POLL_SLOW_MS);
+  });
+
+  it("suspends polling while a flowsheet drag is in flight, regardless of SSE state", () => {
+    const { store, Wrapper } = makeWrapper();
+    const { result, rerender } = renderHook(
+      () => useFlowsheetPollingInterval(),
+      { wrapper: Wrapper }
+    );
+
+    act(() => {
+      store.dispatch(flowsheetSlice.actions.setIsDragging(true));
+    });
+    rerender();
+    expect(result.current).toBe(0);
+
+    // Still suspended when SSE connects mid-drag.
+    act(() => {
+      store.dispatch(liveUpdatesConnectionStateChanged("connected"));
+    });
+    rerender();
+    expect(result.current).toBe(0);
+
+    // Restores the SSE-appropriate cadence once the drag ends.
+    act(() => {
+      store.dispatch(flowsheetSlice.actions.setIsDragging(false));
+    });
+    rerender();
+    expect(result.current).toBe(FLOWSHEET_POLL_SLOW_MS);
   });
 });
