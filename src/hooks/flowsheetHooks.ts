@@ -263,45 +263,7 @@ export const useFlowsheet = () => {
     return Array.from(map.values()).sort(compareEntriesNewestFirst);
   }, [infiniteData?.pages]);
 
-  // None of these consume mutation result state, and this hook hosts the
-  // flowsheet page — an empty selectFromResult keeps mutation lifecycle
-  // flips (pending at dispatch, fulfilled when the response lands) from
-  // re-rendering the whole entry tree.
-  const noMutationState = { selectFromResult: () => ({}) };
-
-  const [addToFlowsheet] = useAddToFlowsheetMutation(noMutationState);
-  // Stable identity so consumers (e.g. the Mail Bin's per-row action memos)
-  // can hold it in dependency arrays without recomputing every render.
-  const addToFlowsheetCallback = useCallback(
-    (arg: FlowsheetSubmissionParams) => {
-      if (!userData || userData.id === undefined || userloading) {
-        return Promise.reject('User not logged in');
-      }
-
-      // Tag invalidation from the mutation handles refetching
-      return addToFlowsheet(arg).unwrap();
-    },
-    [addToFlowsheet, userData, userloading]
-  );
-
-  const [removeFromFlowsheet] = useRemoveFromFlowsheetMutation(noMutationState);
-  const removeFromFlowsheetCallback = (entry: number) => {
-    if (!userData || userData.id === undefined || userloading) {
-      return;
-    }
-    removeFromFlowsheet(entry);
-  };
-
-  const [updateFlowsheetEntry] = useUpdateFlowsheetMutation(noMutationState);
-  const updateFlowsheet = (updateData: FlowsheetUpdateParams) => {
-    if (!userData || userData.id === undefined || userloading) {
-      return;
-    }
-    updateFlowsheetEntry(updateData);
-  };
-
-  const removeFromQueue = (entry: number) =>
-    dispatch(flowsheetSlice.actions.removeFromQueue(entry));
+  const actions = useFlowsheetActions();
 
   const { currentShow, live } = useShowControl();
 
@@ -313,8 +275,82 @@ export const useFlowsheet = () => {
     [allEntries, currentShow, live]
   );
 
-  const [switchBackendEntries] = useSwitchEntriesMutation(noMutationState);
+  return {
+    entries: {
+      current: currentShowEntries,
+      previous: lastShowsEntries,
+      switchEntries: actions.switchEntries,
+    },
+    addToFlowsheet: actions.addToFlowsheet,
+    removeFromFlowsheet: actions.removeFromFlowsheet,
+    updateFlowsheet: actions.updateFlowsheet,
+    removeFromQueue: actions.removeFromQueue,
+    loading: isLoading || userloading,
+    isFetching,
+    hasNextPage,
+    fetchNextPage,
+    isSuccess,
+    isError,
+  };
+};
 
+// Mutation result state is never consumed, and the hosts of these hooks
+// range from the flowsheet page to every row action — an empty
+// selectFromResult keeps mutation lifecycle flips (pending at dispatch,
+// fulfilled when the response lands) from re-rendering any of them.
+const NO_MUTATION_STATE = { selectFromResult: () => ({}) };
+
+/**
+ * Flowsheet mutation callbacks with no query subscriptions. Row-level
+ * components (entry fields, controls, remove buttons, the Mail Bin) must use
+ * this instead of useFlowsheet: the full hook subscribes to the entries
+ * query and re-sorts every loaded entry per cache update, which multiplied
+ * by hundreds of row-level instances is a serious per-update cost.
+ */
+export const useFlowsheetActions = () => {
+  const { loading: userloading, info: userData } = useRegistry();
+  const dispatch = useAppDispatch();
+
+  const [addToFlowsheetMutation] = useAddToFlowsheetMutation(NO_MUTATION_STATE);
+  // Stable identity so consumers (e.g. the Mail Bin's per-row action memos)
+  // can hold it in dependency arrays without recomputing every render.
+  const addToFlowsheet = useCallback(
+    (arg: FlowsheetSubmissionParams) => {
+      if (!userData || userData.id === undefined || userloading) {
+        return Promise.reject('User not logged in');
+      }
+
+      // Tag invalidation from the mutation handles refetching
+      return addToFlowsheetMutation(arg).unwrap();
+    },
+    [addToFlowsheetMutation, userData, userloading]
+  );
+
+  const [removeFromFlowsheetMutation] =
+    useRemoveFromFlowsheetMutation(NO_MUTATION_STATE);
+  const removeFromFlowsheet = useCallback(
+    (entry: number) => {
+      if (!userData || userData.id === undefined || userloading) {
+        return;
+      }
+      removeFromFlowsheetMutation(entry);
+    },
+    [removeFromFlowsheetMutation, userData, userloading]
+  );
+
+  const [updateFlowsheetMutation] =
+    useUpdateFlowsheetMutation(NO_MUTATION_STATE);
+  const updateFlowsheet = useCallback(
+    (updateData: FlowsheetUpdateParams) => {
+      if (!userData || userData.id === undefined || userloading) {
+        return;
+      }
+      updateFlowsheetMutation(updateData);
+    },
+    [updateFlowsheetMutation, userData, userloading]
+  );
+
+  const [switchEntriesMutation] = useSwitchEntriesMutation(NO_MUTATION_STATE);
   // Position math (which play_order the entry should land on) belongs to the
   // caller — only the page owning the drag state knows the pre-drag vs
   // post-drag visual order.
@@ -324,7 +360,7 @@ export const useFlowsheet = () => {
 
       try {
         // Tag invalidation from the mutation handles refetching
-        await switchBackendEntries({
+        await switchEntriesMutation({
           entry_id: entry.id,
           new_position: newPosition,
         });
@@ -332,25 +368,20 @@ export const useFlowsheet = () => {
         console.error("Failed to switch entries:", err);
       }
     },
-    [userData?.id, userloading, switchBackendEntries]
+    [userData?.id, userloading, switchEntriesMutation]
+  );
+
+  const removeFromQueue = useCallback(
+    (entry: number) => dispatch(flowsheetSlice.actions.removeFromQueue(entry)),
+    [dispatch]
   );
 
   return {
-    entries: {
-      current: currentShowEntries,
-      previous: lastShowsEntries,
-      switchEntries,
-    },
-    addToFlowsheet: addToFlowsheetCallback,
-    removeFromFlowsheet: removeFromFlowsheetCallback,
+    addToFlowsheet,
+    removeFromFlowsheet,
     updateFlowsheet,
+    switchEntries,
     removeFromQueue,
-    loading: isLoading || userloading,
-    isFetching,
-    hasNextPage,
-    fetchNextPage,
-    isSuccess,
-    isError,
   };
 };
 

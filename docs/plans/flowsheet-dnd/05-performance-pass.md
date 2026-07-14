@@ -1,6 +1,8 @@
 # Flowsheet drag-and-drop — Stage 5: performance + cleanliness pass
 
 **Status: complete.** Response to observed drag jitter and post-drop stall.
+Three sub-passes: the initial jitter fixes, the settle-time mutation
+lifecycle fixes, and the hook-separability pass (bottom of this doc).
 
 ## The four real costs found (worst first)
 
@@ -39,6 +41,40 @@
 - Trimmed narration-style comments across the feature files; kept the
   constraint-bearing ones (Reorder.Item-outside-values wedge, padding-box
   clip, per-show play_order collisions, redux isDragging rationale).
+
+## Settle-time fixes (round 2)
+
+The entries settle still hitched while the queue (no mutations) was smooth —
+the response landing mid-spring re-rendered the table twice:
+
+- `isSaving` (selectFlowsheetMutationPending) lived inside `useShowControl`,
+  hosted ~6x per row; it flips at dispatch AND completion. Moved to
+  `useFlowsheetSaving`, consumed only by GoLive and the search bar.
+- `useFlowsheet`'s four mutation hooks carried default result-state
+  subscriptions nothing read; pending→fulfilled re-rendered the page hosting
+  the Reorder tree. All now pass an empty `selectFromResult`.
+
+## Hook separability (round 3)
+
+Audit of every flowsheetHooks consumer found the dominant remaining cost:
+five row-level components called the FULL `useFlowsheet()` bundle (entries
+query subscription + per-instance flatten/sort/partition on every cache
+update) just to get a mutation callback — SongEntryControls and each
+FlowsheetEntryField (`updateFlowsheet`), RemoveButton (removes),
+MobileSongEntry, BinContent and FlowsheetSearchbar (`addToFlowsheet`).
+~300 bundle instances on a 50-song show, each re-sorting every loaded entry
+in the settle frame.
+
+Split: **`useFlowsheetActions()`** — the five mutation callbacks
+(add/remove/update/switchEntries/removeFromQueue) with stable identities and
+zero query subscriptions. `useFlowsheet` composes it, so its API is
+unchanged for the page-level consumers (@entries page, classic Main).
+
+Evaluated and deliberately NOT split: goLive/leave out of `useShowControl`.
+Rows do carry those two mutation subscriptions through it, but they flip
+twice per show transition (imperceptible), and extracting them would either
+churn ~9 components or change the composed `loading` semantics that
+`useQueue`'s clear-on-offline effect depends on. Not worth it.
 
 ## Test notes
 

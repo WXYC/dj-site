@@ -12,7 +12,7 @@ const mockUpdateFlowsheet = vi.fn();
 
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useShowControl: () => mockUseShowControl(),
-  useFlowsheet: () => mockUseFlowsheet(),
+  useFlowsheetActions: () => mockUseFlowsheet(),
 }));
 
 vi.mock("@/lib/features/flowsheet/api", () => ({

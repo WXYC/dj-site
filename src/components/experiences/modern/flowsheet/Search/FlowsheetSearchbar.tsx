@@ -3,7 +3,7 @@
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import {
-  useFlowsheet,
+  useFlowsheetActions,
   useFlowsheetSearch,
   useFlowsheetSubmit,
 } from "@/src/hooks/flowsheetHooks";
@@ -33,7 +33,7 @@ export default function FlowsheetSearchbar() {
     lmlResults,
   } = useFlowsheetSubmit();
 
-  const { addToFlowsheet } = useFlowsheet();
+  const { addToFlowsheet } = useFlowsheetActions();
 
   const selectedResult = useAppSelector(
     flowsheetSlice.selectors.getSelectedResult
