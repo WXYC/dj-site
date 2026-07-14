@@ -92,8 +92,6 @@ export const useShowControl = () => {
     }),
   });
 
-  const isSaving = useAppSelector(selectFlowsheetMutationPending);
-
   const [goLiveFunction, goingLiveResult] = useJoinShowMutation();
   const [leaveFunction, leavingResult] = useLeaveShowMutation();
 
@@ -140,15 +138,25 @@ export const useShowControl = () => {
       userloading ||
       goingLiveResult.isLoading ||
       leavingResult.isLoading,
-    isSaving,
     currentShow,
     goLive,
     leave,
   };
 };
 
+/**
+ * Whether any flowsheet mutation is in flight. Deliberately NOT part of
+ * useShowControl: that hook runs in every entry row, and this value flips on
+ * every mutation dispatch AND completion — subscribing rows to it re-renders
+ * the whole table twice per save, the second time when the response lands
+ * (mid-settle for drag reorders).
+ */
+export const useFlowsheetSaving = (): boolean =>
+  useAppSelector(selectFlowsheetMutationPending);
+
 export const useFlowsheetSearch = () => {
-  const { live, loading, isSaving } = useShowControl();
+  const { live, loading } = useShowControl();
+  const isSaving = useFlowsheetSaving();
 
   const dispatch = useAppDispatch();
   const searchOpen = useAppSelector((state) => state.flowsheet.search.open);
@@ -255,7 +263,13 @@ export const useFlowsheet = () => {
     return Array.from(map.values()).sort(compareEntriesNewestFirst);
   }, [infiniteData?.pages]);
 
-  const [addToFlowsheet] = useAddToFlowsheetMutation();
+  // None of these consume mutation result state, and this hook hosts the
+  // flowsheet page — an empty selectFromResult keeps mutation lifecycle
+  // flips (pending at dispatch, fulfilled when the response lands) from
+  // re-rendering the whole entry tree.
+  const noMutationState = { selectFromResult: () => ({}) };
+
+  const [addToFlowsheet] = useAddToFlowsheetMutation(noMutationState);
   // Stable identity so consumers (e.g. the Mail Bin's per-row action memos)
   // can hold it in dependency arrays without recomputing every render.
   const addToFlowsheetCallback = useCallback(
@@ -270,7 +284,7 @@ export const useFlowsheet = () => {
     [addToFlowsheet, userData, userloading]
   );
 
-  const [removeFromFlowsheet, _] = useRemoveFromFlowsheetMutation();
+  const [removeFromFlowsheet] = useRemoveFromFlowsheetMutation(noMutationState);
   const removeFromFlowsheetCallback = (entry: number) => {
     if (!userData || userData.id === undefined || userloading) {
       return;
@@ -278,7 +292,7 @@ export const useFlowsheet = () => {
     removeFromFlowsheet(entry);
   };
 
-  const [updateFlowsheetEntry] = useUpdateFlowsheetMutation();
+  const [updateFlowsheetEntry] = useUpdateFlowsheetMutation(noMutationState);
   const updateFlowsheet = (updateData: FlowsheetUpdateParams) => {
     if (!userData || userData.id === undefined || userloading) {
       return;
@@ -299,7 +313,7 @@ export const useFlowsheet = () => {
     [allEntries, currentShow, live]
   );
 
-  const [switchBackendEntries] = useSwitchEntriesMutation();
+  const [switchBackendEntries] = useSwitchEntriesMutation(noMutationState);
 
   // Position math (which play_order the entry should land on) belongs to the
   // caller — only the page owning the drag state knows the pre-drag vs
