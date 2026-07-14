@@ -231,6 +231,12 @@ const SongEntry = memo(function SongEntry({
             borderRadius: "sm",
             pl: 3,
             pr: 0.5,
+            // At narrower breakpoints this bar's content can overflow its
+            // status column and sit visually on top of the label field's
+            // edit button. The bar itself shouldn't intercept clicks meant
+            // for whatever is underneath — only its actual controls should.
+            pointerEvents: "none",
+            "& > *": { pointerEvents: "auto" },
           }}
         >
           <SongEntryControls entry={entry} queue={queue} editable={editable} />

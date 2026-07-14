@@ -7,7 +7,6 @@ import { useMemo } from "react";
 import RightBarContentContainer from "../RightBarContentContainer";
 import BinEntry from "./BinEntry";
 import ClearBinButton from "./ClearBinButton";
-import { useGetRightbarQuery } from "@/lib/features/application/api";
 import {
   useFlowsheet,
   useQueue,
@@ -16,7 +15,6 @@ import {
 import type { BinEntryActionDeps } from "./useBinEntryActions";
 
 export default function BinContent() {
-  const { data: max } = useGetRightbarQuery();
   const { bin, isError, loading } = useBin();
   // Hoist the live subscription once for all rows (shared, like the catalog).
   const { live } = useShowControl();
@@ -31,21 +29,19 @@ export default function BinContent() {
     [addToQueue, addToFlowsheet, deleteFromBin],
   );
 
-  // Fixed-size box: reserves a consistent blank area and scrolls internally
-  // once its content exceeds it, rather than growing the rightbar downward.
-  const height = max ? 500 : 335;
-
   if (loading) {
     return (
       <RightBarContentContainer
         label="Mail Bin"
         startDecorator={<Inbox sx={{ mt: 0.3, mr: 1 }} />}
+        fill
       >
         <Skeleton
           variant="rectangular"
           sx={{
             width: { xs: "100%", sm: 300, lg: 400 },
-            height: height,
+            flex: 1,
+            minHeight: 0,
             borderRadius:
               "max((8px - 1px) - 1rem, min(1rem / 2, (8px - 1px) / 2))",
           }}
@@ -61,13 +57,18 @@ export default function BinContent() {
       label="Mail Bin"
       startDecorator={<Inbox sx={{ mt: 0.3, mr: 1 }} />}
       endDecorator={hasEntries ? <ClearBinButton count={bin.length} /> : undefined}
+      fill
     >
+      {/* Fills the leftover column height (see RightBarContentContainer#fill)
+          and scrolls internally, so a tall bin no longer pushes the rightbar
+          past the viewport. */}
       <Card
         variant="outlined"
         sx={{
           overflowY: "auto",
           width: { xs: "100%", sm: 300, lg: 400 },
-          height: height,
+          flex: 1,
+          minHeight: 0,
         }}
       >
         {!hasEntries ? (

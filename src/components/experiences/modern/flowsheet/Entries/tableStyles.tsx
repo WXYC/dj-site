@@ -38,10 +38,19 @@ export const FLOWSHEET_TABLE_SX: SxProps = {
   // The current play lifts off the log for depth and keeps its
   // controls available without hover.
   "& tbody tr.row-playing > td": {
-    boxShadow: "0 6px 12px -4px rgba(0, 0, 0, 0.35)",
-    // Keep only the downward shadow: side bleed draws seams between
-    // the row's cells.
-    clipPath: "inset(0 0 -12px 0)",
+    // The now-playing row's fill is painted per cell (so its ends can round),
+    // so at fractional column widths a hairline of the page shows through the
+    // seams between cells and reads as a stray outline around the row. The two
+    // zero-blur horizontal shadows extend each cell's fill 1px left/right to
+    // bridge those seams; they carry no vertical offset, so they never bleed
+    // into the 4px gaps between rows (no stray lines there). They come first so
+    // they paint over the drop shadow's 1px of side bleed. The drop shadow
+    // supplies the lift; the clip keeps it to the bottom edge (unclipped top
+    // bleed would itself re-draw seams), with -1px left/right insets so the
+    // seam bridge is not clipped away.
+    boxShadow:
+      "1px 0 0 var(--row-bg), -1px 0 0 var(--row-bg), 0 6px 12px -4px rgba(0, 0, 0, 0.35)",
+    clipPath: "inset(0 -1px -12px -1px)",
   },
   "& tbody tr.row-playing .row-actions > *": { opacity: 1 },
   "& tbody tr > td:first-of-type": {
@@ -52,17 +61,9 @@ export const FLOWSHEET_TABLE_SX: SxProps = {
     borderTopRightRadius: "8px",
     borderBottomRightRadius: "8px",
   },
-  // Legibility backdrop between the action icons and the status chips they
-  // overlay. Applied whenever the actions are visible at rest — a persisted
-  // control (activated request/segue), the always-revealed playing row —
-  // not just on hover; hover/focus reveal below adds it for the rest.
-  // `--row-backdrop` (set by DraggableEntryWrapper) is an opaque surface
-  // color even for near-transparent plain rows, so the mask actually masks.
-  "& tbody tr .row-actions:has(.row-actions-persist), & tbody tr.row-playing .row-actions":
-    {
-      background:
-        "linear-gradient(to right, transparent, var(--row-backdrop) 18px)",
-    },
+  // The action bar carries no background of its own — it's a fully transparent
+  // overlay, so the row shows straight through behind the controls (its fill,
+  // hover lift, and playing color) with no patch that could read as a seam.
   // Controls stay quieter than the music identity: revealed on row
   // hover/focus on pointer devices, always visible on touch. A control
   // marked row-actions-persist (e.g. an activated request phone) stays
@@ -76,18 +77,6 @@ export const FLOWSHEET_TABLE_SX: SxProps = {
       {
         opacity: 1,
       },
-    "& tbody tr:hover .row-actions, & tbody tr:focus-within .row-actions": {
-      background:
-        "linear-gradient(to right, transparent, var(--row-backdrop) 18px)",
-    },
-  },
-  // Touch devices skip the reveal entirely, so the actions (always visible)
-  // always carry the backdrop.
-  "@media (hover: none)": {
-    "& tbody tr .row-actions": {
-      background:
-        "linear-gradient(to right, transparent, var(--row-backdrop) 18px)",
-    },
   },
 };
 

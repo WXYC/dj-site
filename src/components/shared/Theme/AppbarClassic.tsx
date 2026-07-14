@@ -28,6 +28,11 @@ export default function AppbarClassic() {
         bottom: 5,
         right: 5,
         zIndex: 10000,
+        // Right-justify the whole footer so a long version string can't shove
+        // the button row leftward (matches the modern Appbar).
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "flex-end",
       }}
     >
       <Typography level="body-xs" variant="plain" sx={{ textAlign: "right" }}>
