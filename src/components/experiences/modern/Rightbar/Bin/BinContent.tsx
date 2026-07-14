@@ -8,7 +8,7 @@ import RightBarContentContainer from "../RightBarContentContainer";
 import BinEntry from "./BinEntry";
 import ClearBinButton from "./ClearBinButton";
 import {
-  useFlowsheet,
+  useFlowsheetActions,
   useQueue,
   useShowControl,
 } from "@/src/hooks/flowsheetHooks";
@@ -18,11 +18,11 @@ export default function BinContent() {
   const { bin, isError, loading } = useBin();
   // Hoist the live subscription once for all rows (shared, like the catalog).
   const { live } = useShowControl();
-  // Same for the write callbacks the row actions need: useQueue/useFlowsheet
-  // subscribe to the whole queue/flowsheet state (plus a localStorage load on
-  // mount), far too heavy to run once per bin row.
+  // Same for the write callbacks the row actions need: useQueue subscribes
+  // to the whole queue state (plus a localStorage load on mount), far too
+  // heavy to run once per bin row.
   const { addToQueue } = useQueue();
-  const { addToFlowsheet } = useFlowsheet();
+  const { addToFlowsheet } = useFlowsheetActions();
   const { deleteFromBin } = useDeleteFromBin();
   const actionDeps: BinEntryActionDeps = useMemo(
     () => ({ addToQueue, addToFlowsheet, deleteFromBin }),

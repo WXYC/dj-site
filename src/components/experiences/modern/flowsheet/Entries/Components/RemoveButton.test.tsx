@@ -6,7 +6,7 @@ const mockRemoveFromQueue = vi.fn();
 const mockRemoveFromFlowsheet = vi.fn();
 
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
-  useFlowsheet: () => ({
+  useFlowsheetActions: () => ({
     removeFromQueue: mockRemoveFromQueue,
     removeFromFlowsheet: mockRemoveFromFlowsheet,
   }),

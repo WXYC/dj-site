@@ -3,7 +3,7 @@
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 import { useAppDispatch } from "@/lib/hooks";
-import { useFlowsheet, useShowControl } from "@/src/hooks/flowsheetHooks";
+import { useFlowsheetActions, useShowControl } from "@/src/hooks/flowsheetHooks";
 import { entryFieldTextColor } from "@/src/utilities/modern/entryFieldColors";
 import { CheckRounded, CloseRounded, EditOutlined, PlayArrow } from "@mui/icons-material";
 import {
@@ -57,7 +57,7 @@ const MobileSongEntry = memo(function MobileSongEntry({
   entry: FlowsheetSongEntry;
 }) {
   const { live, currentShow } = useShowControl();
-  const { updateFlowsheet } = useFlowsheet();
+  const { updateFlowsheet } = useFlowsheetActions();
   const dispatch = useAppDispatch();
   const playNow = usePlayNow(entry);
 

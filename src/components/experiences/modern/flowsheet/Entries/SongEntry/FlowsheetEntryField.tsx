@@ -1,7 +1,7 @@
 "use client";
 
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
-import { useFlowsheet, useShowControl } from "@/src/hooks/flowsheetHooks";
+import { useFlowsheetActions, useShowControl } from "@/src/hooks/flowsheetHooks";
 import { toTitleCase } from "@/src/utilities/stringutilities";
 import { Box, IconButton, Tooltip, Typography, TypographyProps } from "@mui/joy";
 import { CheckRounded, EditOutlined } from "@mui/icons-material";
@@ -47,7 +47,7 @@ export default function FlowsheetEntryField({
     }
   }, [entry[name], editing]);
 
-  const { updateFlowsheet } = useFlowsheet();
+  const { updateFlowsheet } = useFlowsheetActions();
 
   const saveAndClose = useCallback(
     (e: MouseEvent | TouchEvent | FormEvent<HTMLFormElement>) => {

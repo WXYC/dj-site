@@ -22,7 +22,7 @@ const mockSetSearchProperty = vi.fn();
 
 // Mock hooks
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
-  useFlowsheet: vi.fn(() => ({
+  useFlowsheetActions: vi.fn(() => ({
     addToFlowsheet: mockAddToFlowsheet,
   })),
   useFlowsheetSearch: vi.fn(() => ({
@@ -422,7 +422,7 @@ describe("FlowsheetSearchbar", () => {
 
       // Need to re-import hooks with new mock values
       vi.doMock("@/src/hooks/flowsheetHooks", () => ({
-        useFlowsheet: vi.fn(() => ({
+        useFlowsheetActions: vi.fn(() => ({
           addToFlowsheet: mockAddToFlowsheet,
         })),
         useFlowsheetSearch: vi.fn(() => ({
@@ -528,7 +528,7 @@ describe("FlowsheetSearchbar", () => {
       mockLive = true;
 
       vi.doMock("@/src/hooks/flowsheetHooks", () => ({
-        useFlowsheet: vi.fn(() => ({
+        useFlowsheetActions: vi.fn(() => ({
           addToFlowsheet: mockAddToFlowsheet,
         })),
         useFlowsheetSearch: vi.fn(() => ({

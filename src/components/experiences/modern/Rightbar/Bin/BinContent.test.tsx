@@ -20,7 +20,7 @@ vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useShowControl: () => ({ live: false }),
   // Hoisted once here (not per row) so the rows can stay hook-free.
   useQueue: () => ({ addToQueue: vi.fn() }),
-  useFlowsheet: () => ({ addToFlowsheet: vi.fn(() => Promise.resolve()) }),
+  useFlowsheetActions: () => ({ addToFlowsheet: vi.fn(() => Promise.resolve()) }),
 }));
 
 // Mock child components
