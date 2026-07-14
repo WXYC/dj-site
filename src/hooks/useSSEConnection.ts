@@ -5,6 +5,7 @@ import {
   FLOWSHEET_POLL_FAST_MS,
   FLOWSHEET_POLL_SLOW_MS,
 } from "@/lib/features/flowsheet/constants";
+import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import {
   liveUpdatesConnectionReleased,
   liveUpdatesConnectionRequested,
@@ -40,10 +41,15 @@ export function useSSEConnection(): void {
  * with their own options, and RTK Query takes the MIN `pollingInterval`
  * across active subscribers — so all subscribers must read from this same
  * hook or the fast cadence wins.
+ *
+ * Suspended (returns 0) while a flowsheet row is being dragged: a poll
+ * completing mid-drag would replace the entries array under the drag.
  */
 export function useFlowsheetPollingInterval(): number {
   const sseConnected = useAppSelector(
     liveUpdatesSlice.selectors.selectLiveUpdatesIsConnected
   );
+  const isDragging = useAppSelector(flowsheetSlice.selectors.getIsDragging);
+  if (isDragging) return 0;
   return sseConnected ? FLOWSHEET_POLL_SLOW_MS : FLOWSHEET_POLL_FAST_MS;
 }

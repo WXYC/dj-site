@@ -24,7 +24,6 @@
     "test:scripts": "bats scripts/__tests__/*/*.test.sh"
   },
   "dependencies": {
-    "@atlaskit/pragmatic-drag-and-drop": "^1.8.1",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@mui/icons-material": "^6.4.0",

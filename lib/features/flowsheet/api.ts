@@ -16,10 +16,10 @@ import {
 import {
   buildOptimisticEntry,
   insertEntrySortedFirstPage,
+  movePlayOrder,
   patchEntryById,
   removeEntryById,
   replaceEntryIdAllPages,
-  swapPlayOrdersForSwitch,
 } from "./infinite-cache";
 import {
   FlowsheetEntry,
@@ -88,7 +88,7 @@ export const flowsheetApi = createApi({
             "getInfiniteEntries",
             undefined,
             (draft) => {
-              swapPlayOrdersForSwitch(draft, arg.entry_id, arg.new_position);
+              movePlayOrder(draft, arg.entry_id, arg.new_position);
             }
           )
         );

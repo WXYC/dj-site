@@ -3,25 +3,22 @@ import { IconButton } from "@mui/joy";
 import { DragControls } from "motion/react";
 
 export default function DragButton({ controls }: { controls: DragControls }) {
-  // Dragging disabled for now
-  return null;
-  
-  // Uncomment to re-enable dragging:
-  // return (
-  //   <IconButton
-  //     color="neutral"
-  //     variant="plain"
-  //     size="sm"
-  //     sx={{
-  //       ml: "-30px",
-  //       cursor: "grab",
-  //       "&:hover": {
-  //         background: "none",
-  //       },
-  //     }}
-  //     onPointerDown={(e) => controls.start(e)}
-  //   >
-  //     <DragIndicator />
-  //   </IconButton>
-  // );
+  return (
+    <IconButton
+      color="neutral"
+      variant="plain"
+      size="sm"
+      sx={{
+        ml: "-30px",
+        cursor: "grab",
+        touchAction: "none",
+        "&:hover": {
+          background: "none",
+        },
+      }}
+      onPointerDown={(e) => controls.start(e)}
+    >
+      <DragIndicator />
+    </IconButton>
+  );
 }

@@ -1,6 +1,8 @@
 import {
   FlowsheetEntry,
+  isFlowsheetEndShowEntry,
   isFlowsheetSongEntry,
+  isFlowsheetStartShowEntry,
 } from "@/lib/features/flowsheet/types";
 import { Stack, Typography } from "@mui/joy";
 import { memo } from "react";
@@ -15,12 +17,28 @@ import SongEntry from "./SongEntry/SongEntry";
 const Entry = memo(function Entry({
   entry,
   playing,
+  draggable = false,
 }: {
   entry: FlowsheetEntry;
   playing: boolean;
+  draggable?: boolean;
 }) {
+  // Show start/end markers stay in the reorderable array (the server
+  // renumbers across every entry type, so they count for position math) but
+  // are never themselves draggable items.
+  const isMarker =
+    isFlowsheetStartShowEntry(entry) || isFlowsheetEndShowEntry(entry);
+  const resolvedDraggable = draggable && !isMarker;
+
   if (isFlowsheetSongEntry(entry)) {
-    return <SongEntry playing={playing} entry={entry} queue={false} />;
+    return (
+      <SongEntry
+        playing={playing}
+        entry={entry}
+        queue={false}
+        draggable={resolvedDraggable}
+      />
+    );
   }
 
   const p = getMessageEntryPresentation(entry);
@@ -35,6 +53,7 @@ const Entry = memo(function Entry({
       color={p.color}
       variant="soft"
       disableEditing={!p.editable}
+      draggable={resolvedDraggable}
     >
       <Stack direction="row" spacing={0.5}>
         <Typography level="body-lg" color={p.textColor}>
