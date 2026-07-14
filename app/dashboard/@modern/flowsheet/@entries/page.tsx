@@ -1,12 +1,17 @@
 "use client";
 
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
-import { computeDragTarget } from "@/lib/features/flowsheet/reorder";
+import {
+  computeDragTarget,
+  moveAdjacent,
+} from "@/lib/features/flowsheet/reorder";
 import { FlowsheetEntry } from "@/lib/features/flowsheet/types";
 import { useAppDispatch } from "@/lib/hooks";
 import {
   FlowsheetDragContext,
   FlowsheetDragContextValue,
+  FlowsheetMoveContext,
+  FlowsheetMoveContextValue,
 } from "@/src/components/experiences/modern/flowsheet/Entries/dragContext";
 import Entry from "@/src/components/experiences/modern/flowsheet/Entries/Entry";
 import MobileEntry from "@/src/components/experiences/modern/flowsheet/Entries/MobileEntry";
@@ -89,24 +94,49 @@ export default function FlowsheetEntries() {
     [dispatch]
   );
 
+  // Mobile reorders one step at a time (up/down buttons instead of drag):
+  // a one-step move is just a drag whose final order is the adjacent swap.
+  const moveContext = useMemo<FlowsheetMoveContextValue>(
+    () => ({
+      moveEntry: (entry, direction) => {
+        const current = currentRef.current;
+        const next = moveAdjacent(current, entry.id, direction);
+        if (!next) return;
+        const newPosition = computeDragTarget(current, next, entry.id);
+        if (newPosition !== null) {
+          switchEntriesRef.current(entry, newPosition);
+        }
+      },
+    }),
+    []
+  );
+
   if (!mounted || loading) {
     return <FlowsheetSkeletonLoader count={10} />;
   }
 
   if (isMobile) {
     return (
-      <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-        {current.map((entry, index) => (
-          <MobileEntry key={entry.id} entry={entry} playing={index == 0} />
-        ))}
-        {previous.map((entry, index) => (
-          <MobileEntry
-            key={entry.id}
-            entry={entry}
-            playing={index == 0 && current.length == 0}
-          />
-        ))}
-      </Box>
+      <FlowsheetMoveContext.Provider value={moveContext}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+          {current.map((entry, index) => (
+            <MobileEntry
+              key={entry.id}
+              entry={entry}
+              playing={index == 0}
+              canMoveUp={index > 0}
+              canMoveDown={index < current.length - 1}
+            />
+          ))}
+          {previous.map((entry, index) => (
+            <MobileEntry
+              key={entry.id}
+              entry={entry}
+              playing={index == 0 && current.length == 0}
+            />
+          ))}
+        </Box>
+      </FlowsheetMoveContext.Provider>
     );
   }
 

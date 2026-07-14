@@ -18,14 +18,26 @@ import MobileSongEntry from "./SongEntry/MobileSongEntry";
 const MobileEntry = memo(function MobileEntry({
   entry,
   playing,
+  canMoveUp = false,
+  canMoveDown = false,
 }: {
   entry: FlowsheetEntry;
   playing: boolean;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
 }) {
   const { live, currentShow } = useShowControl();
 
   if (isFlowsheetSongEntry(entry)) {
-    return <MobileSongEntry entry={entry} playing={playing} queue={false} />;
+    return (
+      <MobileSongEntry
+        entry={entry}
+        playing={playing}
+        queue={false}
+        canMoveUp={canMoveUp}
+        canMoveDown={canMoveDown}
+      />
+    );
   }
 
   const editable = entry.show_id == currentShow;

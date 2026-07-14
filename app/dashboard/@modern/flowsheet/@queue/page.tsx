@@ -11,7 +11,10 @@ import {
 import {
   FlowsheetDragContext,
   FlowsheetDragContextValue,
+  FlowsheetMoveContext,
+  FlowsheetMoveContextValue,
 } from "@/src/components/experiences/modern/flowsheet/Entries/dragContext";
+import { moveAdjacent } from "@/lib/features/flowsheet/reorder";
 import { useMediaQuery } from "@/src/hooks/useMediaQuery";
 import { Box, Table } from "@mui/joy";
 import { Reorder } from "motion/react";
@@ -66,6 +69,18 @@ export default function Queue() {
     [dispatch]
   );
 
+  // Mobile reorders one step at a time (up/down buttons instead of drag).
+  const moveContext = useMemo<FlowsheetMoveContextValue>(
+    () => ({
+      moveEntry: (entry, direction) => {
+        const next = moveAdjacent(reversedRef.current, entry.id, direction);
+        if (!next) return;
+        dispatch(flowsheetSlice.actions.reorderQueue(next.toReversed()));
+      },
+    }),
+    [dispatch]
+  );
+
   // An empty queue renders nothing — the bare table shell reads as a
   // stray grey bar above the entries.
   if (!isMounted || queue.length === 0) {
@@ -74,16 +89,20 @@ export default function Queue() {
 
   if (isMobile) {
     return (
-      <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-        {reversed.map((entry) => (
-          <MobileSongEntry
-            key={`queue-mobile-${entry.id}`}
-            entry={entry}
-            playing={false}
-            queue={true}
-          />
-        ))}
-      </Box>
+      <FlowsheetMoveContext.Provider value={moveContext}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+          {reversed.map((entry, index) => (
+            <MobileSongEntry
+              key={`queue-mobile-${entry.id}`}
+              entry={entry}
+              playing={false}
+              queue={true}
+              canMoveUp={index > 0}
+              canMoveDown={index < reversed.length - 1}
+            />
+          ))}
+        </Box>
+      </FlowsheetMoveContext.Provider>
     );
   }
 

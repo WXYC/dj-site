@@ -25,7 +25,13 @@
   `FLOWSHEET_TABLE_SX` selectors are `& tbody tr`-based and match both.
 - `playing` is pinned to `entry.id === current[0]?.id` (was `index === 0`) so
   now-playing styling doesn't hop between rows mid-drag.
-- Mobile path unchanged (no drag).
+- Mobile never drags. Instead the song card's control tray gets up/down
+  arrows that move one step at a time: `FlowsheetMoveContext` (same
+  page-supplied split as the drag context) + `moveAdjacent` in reorder.ts,
+  with a one-step move computed as a drag whose final order is the adjacent
+  swap (`computeDragTarget` reused). Boundary disabling via per-row
+  `canMoveUp`/`canMoveDown` props (index-based, memo-safe). Message-entry
+  cards (talksets/breakpoints) deliberately have no move buttons on mobile.
 
 ## @queue/page.tsx — client-only queue
 

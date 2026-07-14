@@ -22,3 +22,23 @@ export const FlowsheetDragContext =
   createContext<FlowsheetDragContextValue>(NOOP_DRAG_CONTEXT);
 
 export const useFlowsheetDragContext = () => useContext(FlowsheetDragContext);
+
+export type FlowsheetMoveDirection = "up" | "down";
+
+/**
+ * Mobile counterpart of the drag context: the card layouts reorder with
+ * up/down buttons instead of drag, one step at a time. Same page-supplied
+ * split — the live flowsheet moves via the backend, the queue via Redux.
+ */
+export type FlowsheetMoveContextValue = {
+  moveEntry: (entry: FlowsheetEntry, direction: FlowsheetMoveDirection) => void;
+};
+
+const NOOP_MOVE_CONTEXT: FlowsheetMoveContextValue = {
+  moveEntry: () => {},
+};
+
+export const FlowsheetMoveContext =
+  createContext<FlowsheetMoveContextValue>(NOOP_MOVE_CONTEXT);
+
+export const useFlowsheetMoveContext = () => useContext(FlowsheetMoveContext);
