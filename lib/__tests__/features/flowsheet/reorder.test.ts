@@ -4,7 +4,10 @@ import {
   compareCurrentShowOrder,
   partitionFlowsheetEntries,
 } from "@/lib/features/flowsheet/partition";
-import { computeDragTarget } from "@/lib/features/flowsheet/reorder";
+import {
+  computeDragTarget,
+  moveAdjacent,
+} from "@/lib/features/flowsheet/reorder";
 import type {
   FlowsheetEntry,
   FlowsheetMessageEntry,
@@ -116,5 +119,39 @@ describe("computeDragTarget", () => {
       );
       expect(current.map((e) => e.id)).toEqual(finalOrder.map((e) => e.id));
     }
+  });
+});
+
+describe("moveAdjacent", () => {
+  it("swaps with the previous entry when moving up", () => {
+    const next = moveAdjacent(snapshot, 104, "up");
+    expect(next?.map((e) => e.id)).toEqual([104, 105, 103, 102, 101]);
+  });
+
+  it("swaps with the next entry when moving down", () => {
+    const next = moveAdjacent(snapshot, 104, "down");
+    expect(next?.map((e) => e.id)).toEqual([105, 103, 104, 102, 101]);
+  });
+
+  it("returns null at the edges", () => {
+    expect(moveAdjacent(snapshot, 105, "up")).toBeNull();
+    expect(moveAdjacent(snapshot, 101, "down")).toBeNull();
+  });
+
+  it("returns null for an unknown entry", () => {
+    expect(moveAdjacent(snapshot, 999, "up")).toBeNull();
+  });
+
+  it("does not mutate the input", () => {
+    const before = snapshot.map((e) => e.id);
+    moveAdjacent(snapshot, 104, "down");
+    expect(snapshot.map((e) => e.id)).toEqual(before);
+  });
+
+  it("one-step move computes the same target as the equivalent drag", () => {
+    // The mobile buttons reuse the drag position math; a move down is a drag
+    // whose final order is the adjacent swap.
+    const next = moveAdjacent(snapshot, 104, "down");
+    expect(computeDragTarget(snapshot, next!, 104)).toBe(3);
   });
 });
