@@ -239,7 +239,6 @@ export const useFlowsheetSearch = () => {
 
 export const useFlowsheet = () => {
   const { loading: userloading, info: userData } = useRegistry();
-  const dispatch = useAppDispatch();
   const flowsheetPollingInterval = useFlowsheetPollingInterval();
 
   const {
