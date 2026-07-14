@@ -94,17 +94,34 @@ export default function SmartEntry() {
   );
   const filters = useAppSelector(flowsheetSlice.selectors.getSearchFilters);
   const { data: allRotation } = useGetRotationQuery();
-  const rotationEntries = useMemo(
-    () =>
-      selectedRotation
-        ? (allRotation ?? []).filter(
-            (e) =>
-              e.rotation_bin === selectedRotation &&
-              e.id !== (search.selectedMatch?.id ?? null)
-          )
-        : [],
-    [selectedRotation, allRotation, search.selectedMatch]
-  );
+  // In rotation mode the entry must be a real rotation album, so the browse list
+  // is narrowed to bin entries whose artist/album/label contain what's typed —
+  // you pick from these "available options" rather than free-typing values.
+  const typedArtist = entry.fields.artist ?? "";
+  const typedAlbum = entry.fields.album ?? "";
+  const typedLabel = entry.fields.label ?? "";
+  const rotationEntries = useMemo(() => {
+    if (!selectedRotation) return [];
+    const matchId = search.selectedMatch?.id ?? null;
+    const has = (canonical: string | undefined, typed: string) =>
+      typed.trim() === "" ||
+      (canonical ?? "").toLowerCase().includes(typed.trim().toLowerCase());
+    return (allRotation ?? []).filter(
+      (e) =>
+        e.rotation_bin === selectedRotation &&
+        e.id !== matchId &&
+        has(e.artist?.name, typedArtist) &&
+        has(e.title, typedAlbum) &&
+        has(e.label, typedLabel)
+    );
+  }, [
+    selectedRotation,
+    allRotation,
+    search.selectedMatch,
+    typedArtist,
+    typedAlbum,
+    typedLabel,
+  ]);
 
   // The results model the pane renders — the rotation browse while a bin is
   // selected, otherwise the typed-query search. The selected match still shows
@@ -171,17 +188,18 @@ export default function SmartEntry() {
   const someTriggerOpen = TRIGGER_FIELDS.some(
     (f) => !entry.fields[f] && entry.pendingTrigger?.field !== f
   );
-  // Once a match is picked, entering rotation mode no longer makes sense — the
-  // entry is chosen. The H/M/L/S buttons also don't apply while already in a
-  // rotation. In both cases the trigger chips for the entry's still-missing
-  // fields remain, so a rotation pick that lacks (say) a label still lets you
-  // add one via the chip or Tab — without clearing the selection.
+  // The H/M/L/S buttons drop away once a match is picked (the entry is chosen)
+  // or once already in a rotation. The trigger chips for still-missing fields
+  // always remain (whenever composing) — so a fresh rotation browse shows the
+  // artist/album/label chips to narrow by, and a rotation pick lacking (say) a
+  // label still lets you add one via the chip or Tab without clearing it.
   const hasMatch = Boolean(search.selectedMatch);
   const showRotationButtons = !hasMatch && !selectedRotation;
-  // Trigger chips show for missing fields whenever composing — including a
-  // selected rotation entry (so you can fill its gaps), but not while merely
-  // browsing a rotation (no pick yet).
-  const showTriggerChips = someTriggerOpen && (!selectedRotation || hasMatch);
+  const showTriggerChips = someTriggerOpen;
+  // In rotation mode the entry must be a real rotation album: submission is
+  // blocked until a match is picked from the list (free-typed fields alone
+  // aren't a valid rotation entry).
+  const rotationLocked = selectedRotation !== null && !hasMatch;
 
   const flatCount = resultsFlat.length;
   // Composing an entry (has text) swaps the action cluster from the entry
@@ -369,16 +387,13 @@ export default function SmartEntry() {
       case "Enter":
         if (e.shiftKey) return;
         e.preventDefault();
+        // Enter only ever commits — never promotes a highlighted result. A
+        // result is chosen by clicking it, so hovering/arrowing to one and
+        // pressing Enter (to submit) can't silently overwrite the typed entry.
+        // In rotation mode you must pick a real rotation album first.
+        if (rotationLocked) return;
         if (e.ctrlKey || e.metaKey) {
-          // Ctrl/⌘+Enter always commits to the queue (overrides highlight).
           entry.submitToQueue(e);
-        } else if (
-          entry.selectedResult > 0 &&
-          entry.selectedResult <= flatCount
-        ) {
-          // Promote the highlighted result instead of committing (and end a
-          // rotation takeover if one is active).
-          selectResult(resultsFlat[entry.selectedResult - 1]);
         } else {
           formRef.current?.requestSubmit();
         }
@@ -445,7 +460,17 @@ export default function SmartEntry() {
             : {}),
         }}
       >
-        <form ref={formRef} onSubmit={(e) => entry.submit(e)}>
+        <form
+          ref={formRef}
+          onSubmit={(e) => {
+            // In rotation mode a real rotation album must be picked first.
+            if (rotationLocked) {
+              e.preventDefault();
+              return;
+            }
+            entry.submit(e);
+          }}
+        >
           {/* Hidden submit control so form.requestSubmit() works and the visible
               Play button stays type=button (avoids the logout-form e2e locator
               clash fixed in dbcbf940). */}
@@ -566,28 +591,42 @@ export default function SmartEntry() {
 
                   <Divider orientation="vertical" sx={{ mx: 0.25, my: 0.5 }} />
 
-                  <Tooltip title="Add to queue (Ctrl+Enter)" size="sm">
+                  <Tooltip
+                    title={
+                      rotationLocked
+                        ? "Pick a rotation entry to log"
+                        : "Add to queue (Ctrl+Enter)"
+                    }
+                    size="sm"
+                  >
                     <IconButton
                       type="button"
                       variant="soft"
                       color="success"
                       size="sm"
                       aria-label="Add to queue"
-                      disabled={!live}
+                      disabled={!live || rotationLocked}
                       onClick={(e) => entry.submitToQueue(e)}
                     >
                       <QueueMusic />
                     </IconButton>
                   </Tooltip>
 
-                  <Tooltip title="Play now (Enter)" size="sm">
+                  <Tooltip
+                    title={
+                      rotationLocked
+                        ? "Pick a rotation entry to log"
+                        : "Play now (Enter)"
+                    }
+                    size="sm"
+                  >
                     <IconButton
                       type="button"
                       variant="solid"
                       color="primary"
                       size="sm"
                       aria-label="Play now"
-                      disabled={!live}
+                      disabled={!live || rotationLocked}
                       onClick={() => formRef.current?.requestSubmit()}
                     >
                       <PlayArrow />
