@@ -696,22 +696,60 @@ describe("flowsheetHooks", () => {
       expect(mockUpdateFlowsheetEntry).not.toHaveBeenCalled();
     });
 
-    it("should return setCurrentShowEntries function", () => {
-      const { result } = renderHook(() => useFlowsheet(), {
-        wrapper: createWrapper(),
-      });
-
-      expect(typeof result.current.entries.setCurrentShowEntries).toBe(
-        "function"
-      );
-    });
-
     it("should return switchEntries function", () => {
       const { result } = renderHook(() => useFlowsheet(), {
         wrapper: createWrapper(),
       });
 
       expect(typeof result.current.entries.switchEntries).toBe("function");
+    });
+
+    it("should call the switch mutation with the entry id and target position verbatim", async () => {
+      mockSwitchBackendEntries.mockClear();
+
+      const { result } = renderHook(() => useFlowsheet(), {
+        wrapper: createWrapper(),
+      });
+
+      const entry = createTestFlowsheetEntry({
+        id: 2,
+        show_id: 100,
+        play_order: 2,
+      });
+
+      await act(async () => {
+        await result.current.entries.switchEntries(entry, 7);
+      });
+
+      expect(mockSwitchBackendEntries).toHaveBeenCalledTimes(1);
+      expect(mockSwitchBackendEntries).toHaveBeenCalledWith({
+        entry_id: 2,
+        new_position: 7,
+      });
+    });
+
+    it("should not call the switch mutation when no user is logged in", async () => {
+      mockSwitchBackendEntries.mockClear();
+      mockUseRegistry.mockReturnValue({
+        loading: false,
+        info: null,
+      });
+
+      const { result } = renderHook(() => useFlowsheet(), {
+        wrapper: createWrapper(),
+      });
+
+      const entry = createTestFlowsheetEntry({
+        id: 2,
+        show_id: 100,
+        play_order: 2,
+      });
+
+      await act(async () => {
+        await result.current.entries.switchEntries(entry, 1);
+      });
+
+      expect(mockSwitchBackendEntries).not.toHaveBeenCalled();
     });
   });
 

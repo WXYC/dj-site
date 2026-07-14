@@ -22,7 +22,7 @@ export type FlowsheetFrontendState = {
   };
   queue: FlowsheetSongEntry[];
   queueIdCounter: number;
-  currentShowEntries: FlowsheetEntry[];
+  isDragging: boolean;
 };
 
 export type FlowsheetQuery = {

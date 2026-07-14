@@ -1,6 +1,6 @@
 import { createAppSlice } from "@/lib/createAppSlice";
 import { PayloadAction } from "@reduxjs/toolkit";
-import { FlowsheetEntry, FlowsheetFrontendState, FlowsheetQuery, FlowsheetSearchProperty, FlowsheetSongEntry } from "./types";
+import { FlowsheetFrontendState, FlowsheetQuery, FlowsheetSearchProperty, FlowsheetSongEntry } from "./types";
 import { Rotation } from "../rotation/types";
 import { clearQueueFromStorage, loadQueueFromStorage, saveQueueToStorage } from "./queue-storage";
 
@@ -47,7 +47,7 @@ export const defaultFlowsheetFrontendState: FlowsheetFrontendState = {
   },
   queue: [],
   queueIdCounter: 0,
-  currentShowEntries: [],
+  isDragging: false,
 };
 
 export const flowsheetSlice = createAppSlice({
@@ -189,8 +189,14 @@ export const flowsheetSlice = createAppSlice({
       }
       state.search.selectedResult = action.payload;
     },
-    setCurrentShowEntries: (state, action: PayloadAction<FlowsheetEntry[]>) => {
-      state.currentShowEntries = action.payload;
+    /**
+     * True while a flowsheet row is being dragged. Lives in Redux (not
+     * component state) because `useFlowsheetPollingInterval` must suspend
+     * polling for every query subscriber (useFlowsheet + useShowControl hold
+     * independent subscriptions) while a drag is in flight.
+     */
+    setIsDragging: (state, action: PayloadAction<boolean>) => {
+      state.isDragging = action.payload;
     },
     reset: () => defaultFlowsheetFrontendState,
   },
@@ -202,7 +208,7 @@ export const flowsheetSlice = createAppSlice({
     getSearchQueryLength: (state) => Object.values(state.search.query).filter((value) => value).length,
     getQueue: (state) => state.queue,
     getSelectedResult: (state) => state.search.selectedResult,
-    getCurrentShowEntries: (state) => state.currentShowEntries,
+    getIsDragging: (state) => state.isDragging,
     getConfirmedArtist: (state) => state.search.confirmedArtist,
   },
 });

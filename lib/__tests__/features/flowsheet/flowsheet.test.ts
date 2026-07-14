@@ -460,24 +460,22 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
     });
   });
 
-  describe("setCurrentShowEntries", () => {
-    it("should set current show entries", () => {
-      const entries: FlowsheetEntry[] = [
-        createTestFlowsheetEntry({ id: 1 }),
-        createTestFlowsheetEntry({ id: 2 }),
-      ];
-      const result = harness().reduce(actions.setCurrentShowEntries(entries));
-      expect(result.currentShowEntries).toEqual(entries);
+  describe("setIsDragging", () => {
+    it("should default to not dragging", () => {
+      expect(harness().initialState.isDragging).toBe(false);
     });
 
-    it("should replace existing show entries", () => {
-      const first = [createTestFlowsheetEntry({ id: 1 })];
-      const second = [createTestFlowsheetEntry({ id: 2 }), createTestFlowsheetEntry({ id: 3 })];
+    it("should set dragging state", () => {
+      const result = harness().reduce(actions.setIsDragging(true));
+      expect(result.isDragging).toBe(true);
+    });
+
+    it("should clear dragging state", () => {
       const result = harness().chain(
-        actions.setCurrentShowEntries(first),
-        actions.setCurrentShowEntries(second)
+        actions.setIsDragging(true),
+        actions.setIsDragging(false)
       );
-      expect(result.currentShowEntries).toEqual(second);
+      expect(result.isDragging).toBe(false);
     });
   });
 
@@ -625,12 +623,11 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
       expect(select(flowsheetSlice.selectors.getSelectedResult)).toBe(5);
     });
 
-    it("should select current show entries", () => {
+    it("should select dragging state", () => {
       const { dispatch, select } = harness().withStore();
-      expect(select(flowsheetSlice.selectors.getCurrentShowEntries)).toEqual([]);
-      const entries: FlowsheetEntry[] = [createTestFlowsheetEntry({ id: 1 })];
-      dispatch(actions.setCurrentShowEntries(entries));
-      expect(select(flowsheetSlice.selectors.getCurrentShowEntries)).toEqual(entries);
+      expect(select(flowsheetSlice.selectors.getIsDragging)).toBe(false);
+      dispatch(actions.setIsDragging(true));
+      expect(select(flowsheetSlice.selectors.getIsDragging)).toBe(true);
     });
   });
 

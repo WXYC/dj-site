@@ -299,62 +299,40 @@ export const useFlowsheet = () => {
 
   const { currentShow, live } = useShowControl();
 
-  // Partition entries into current show vs previous shows.
-  // All entries from the current show (including start/end markers) go into
-  // currentShowEntries so that concatenation with lastShowsEntries preserves
-  // strict id-DESC chronological order.
+  // Partition entries into current show vs previous shows. All entries from
+  // the current show (including start/end markers) go into currentShowEntries,
+  // sorted play_order DESC so persisted reorders are reflected.
   const { current: currentShowEntries, previous: lastShowsEntries } = useMemo(
     () => partitionFlowsheetEntries(allEntries, currentShow, live),
     [allEntries, currentShow, live]
   );
 
-  const setCurrentShowEntries = (entries: FlowsheetEntry[]) => {
-    dispatch(flowsheetSlice.actions.setCurrentShowEntries(entries));
-  };
+  const [switchBackendEntries] = useSwitchEntriesMutation();
 
-  const [switchBackendEntries, switchBackendResult] =
-    useSwitchEntriesMutation();
-
-  // TODO: newLocation is an index into currentShowEntries but used as an index
-  // into allEntries — these arrays have different lengths and contents. This is
-  // safe only because drag-and-drop is currently disabled in the UI.
+  // Position math (which play_order the entry should land on) belongs to the
+  // caller — only the page owning the drag state knows the pre-drag vs
+  // post-drag visual order.
   const switchEntries = useCallback(
-    async (entry: FlowsheetEntry) => {
+    async (entry: FlowsheetEntry, newPosition: number) => {
       if (!userData?.id || userloading) return;
-
-      const newLocation = currentShowEntries.findIndex(
-        (e) => e.id === entry.id
-      );
-
-      const swappedWith = allEntries[newLocation];
-
-      if (!swappedWith) return;
 
       try {
         // Tag invalidation from the mutation handles refetching
         await switchBackendEntries({
           entry_id: entry.id,
-          new_position: swappedWith.play_order!,
+          new_position: newPosition,
         });
       } catch (err) {
         console.error("Failed to switch entries:", err);
       }
     },
-    [
-      userData?.id,
-      userloading,
-      allEntries,
-      currentShow,
-      switchBackendEntries,
-      currentShowEntries,
-    ]
+    [userData?.id, userloading, switchBackendEntries]
   );
 
   return {
     entries: {
       current: currentShowEntries,
       previous: lastShowsEntries,
-      setCurrentShowEntries,
       switchEntries,
     },
     addToFlowsheet: addToFlowsheetCallback,

@@ -29,6 +29,7 @@ export default function MessageEntry({
   variant,
   entryRef,
   disableEditing = false,
+  draggable = true,
 }: {
   startDecorator?: React.ReactNode;
   children: React.ReactNode;
@@ -37,6 +38,7 @@ export default function MessageEntry({
   variant: VariantProp;
   entryRef: FlowsheetEntry;
   disableEditing?: boolean;
+  draggable?: boolean;
 }) {
   const { live, currentShow } = useShowControl();
 
@@ -52,6 +54,7 @@ export default function MessageEntry({
       entryRef={entryRef}
       variant={variant}
       color={color}
+      draggable={draggable}
       className="row-marker"
       style={{
         height: "40px",
@@ -97,7 +100,7 @@ export default function MessageEntry({
           justifyContent="end"
         >
           <Typography level="body-xs">{endDecorator}</Typography>
-          {live && editable && <DragButton controls={controls} />}
+          {live && editable && draggable && <DragButton controls={controls} />}
           {live && editable && !isFlowsheetStartShowEntry(entryRef) &&
             !isFlowsheetEndShowEntry(entryRef) && (
               <RemoveButton queue={false} entry={entryRef} />

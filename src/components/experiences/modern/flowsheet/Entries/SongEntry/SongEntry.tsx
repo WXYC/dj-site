@@ -23,10 +23,12 @@ const SongEntry = memo(function SongEntry({
   playing,
   queue,
   entry,
+  draggable = true,
 }: {
   playing: boolean;
   queue: boolean;
   entry: FlowsheetSongEntry;
+  draggable?: boolean;
 }) {
   const { live, autoplay, currentShow } = useShowControl();
   const playNow = usePlayNow(entry);
@@ -63,6 +65,7 @@ const SongEntry = memo(function SongEntry({
       entryRef={entry}
       variant={queue ? "soft" : playing ? "solid" : "plain"}
       color={queue ? "success" : playing ? "primary" : "neutral"}
+      draggable={draggable}
       style={{
         height: "60px",
         borderRadius: "md",
@@ -75,7 +78,7 @@ const SongEntry = memo(function SongEntry({
         onMouseLeave={handleMouseLeave}
       >
         <Stack direction="row" sx={{ position: "relative" }}>
-          {editable && <DragButton controls={controls} />}
+          {editable && draggable && <DragButton controls={controls} />}
           <AspectRatio
             ratio={1}
             sx={{

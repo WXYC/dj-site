@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { partitionFlowsheetEntries } from "@/lib/features/flowsheet/partition";
+import {
+  compareCurrentShowOrder,
+  partitionFlowsheetEntries,
+} from "@/lib/features/flowsheet/partition";
 import type {
   FlowsheetEntry,
   FlowsheetSongEntry,
@@ -138,5 +141,57 @@ describe("partitionFlowsheetEntries", () => {
 
     expect(result.current).toEqual(entries);
     expect(result.previous).toEqual([]);
+  });
+
+  it("sorts current by play_order when a reorder made it diverge from id order", () => {
+    // A persisted drag reorder rewrites play_orders but never ids, so the
+    // id-DESC input order no longer matches the intended display order.
+    // Entry 105 was dragged below 103: play_orders are now 105→2, 104→4, 103→3.
+    const reordered = (id: number, play_order: number): FlowsheetSongEntry => ({
+      ...song(id, CURRENT_SHOW),
+      play_order,
+    });
+    const entries: FlowsheetEntry[] = [
+      reordered(105, 2),
+      reordered(104, 4),
+      reordered(103, 3),
+      { ...showMarker(101, CURRENT_SHOW, true), play_order: 1 },
+      song(90, PAST_SHOW),
+    ];
+
+    const result = partitionFlowsheetEntries(entries, CURRENT_SHOW, true);
+
+    expect(result.current.map((e) => e.id)).toEqual([104, 103, 105, 101]);
+    // Previous shows keep their incoming (id DESC) order untouched.
+    expect(result.previous.map((e) => e.id)).toEqual([90]);
+  });
+
+  it("breaks play_order collisions in current by id descending", () => {
+    // tubafrenzy's webhook and dj-site can assign the same play_order within
+    // a show; the newer row (higher id) must consistently render first.
+    const collided = (id: number): FlowsheetSongEntry => ({
+      ...song(id, CURRENT_SHOW),
+      play_order: 7,
+    });
+    const entries: FlowsheetEntry[] = [collided(105), collided(104)];
+
+    const result = partitionFlowsheetEntries(entries, CURRENT_SHOW, true);
+
+    expect(result.current.map((e) => e.id)).toEqual([105, 104]);
+  });
+});
+
+describe("compareCurrentShowOrder", () => {
+  it("orders by play_order descending", () => {
+    const a = { ...song(1, CURRENT_SHOW), play_order: 5 };
+    const b = { ...song(2, CURRENT_SHOW), play_order: 3 };
+    expect(compareCurrentShowOrder(a, b)).toBeLessThan(0);
+    expect(compareCurrentShowOrder(b, a)).toBeGreaterThan(0);
+  });
+
+  it("falls back to id descending on equal play_order", () => {
+    const older = { ...song(1, CURRENT_SHOW), play_order: 5 };
+    const newer = { ...song(2, CURRENT_SHOW), play_order: 5 };
+    expect(compareCurrentShowOrder(newer, older)).toBeLessThan(0);
   });
 });
