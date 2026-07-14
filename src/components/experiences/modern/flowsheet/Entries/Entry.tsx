@@ -23,9 +23,8 @@ const Entry = memo(function Entry({
   playing: boolean;
   draggable?: boolean;
 }) {
-  // Show start/end markers stay in the reorderable array (the server
-  // renumbers across every entry type, so they count for position math) but
-  // are never themselves draggable items.
+  // Markers count in position math (the server renumbers every entry type)
+  // but are never themselves draggable.
   const isMarker =
     isFlowsheetStartShowEntry(entry) || isFlowsheetEndShowEntry(entry);
   const resolvedDraggable = draggable && !isMarker;
@@ -45,7 +44,7 @@ const Entry = memo(function Entry({
 
   return (
     <MessageEntry
-      entryRef={entry}
+      entry={entry}
       startDecorator={<p.Icon sx={{ mb: -0.5, mr: 0.5 }} />}
       endDecorator={
         p.time && <DateTimeStack day={p.time.day} time={p.time.time} />

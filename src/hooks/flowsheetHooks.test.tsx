@@ -104,10 +104,28 @@ const mockUseGetInfiniteEntriesInfiniteQuery = vi.fn(() => ({
   fetchNextPage: vi.fn(),
 }));
 
+// Like RTK Query, apply an options.selectFromResult over the base result
+// while keeping the hook-level functions (refetch, fetchNextPage) intact.
+type QueryHookOptions = {
+  selectFromResult?: (r: unknown) => Record<string, unknown>;
+};
+function withSelectFromResult(
+  result: Record<string, unknown>,
+  options?: QueryHookOptions
+) {
+  return options?.selectFromResult
+    ? { ...result, ...options.selectFromResult(result) }
+    : result;
+}
+
 vi.mock("@/lib/features/flowsheet/api", () => ({
   useGetEntriesQuery: () => mockUseGetEntriesQuery(),
-  useGetInfiniteEntriesInfiniteQuery: () => mockUseGetInfiniteEntriesInfiniteQuery(),
-  useWhoIsLiveQuery: () => mockUseWhoIsLiveQuery(),
+  useGetInfiniteEntriesInfiniteQuery: (
+    _arg: unknown,
+    options?: QueryHookOptions
+  ) => withSelectFromResult(mockUseGetInfiniteEntriesInfiniteQuery(), options),
+  useWhoIsLiveQuery: (_arg: unknown, options?: QueryHookOptions) =>
+    withSelectFromResult(mockUseWhoIsLiveQuery(), options),
   useJoinShowMutation: () => [mockGoLiveFunction, { isLoading: false }],
   useLeaveShowMutation: () => [mockLeaveFunction, { isLoading: false }],
   useAddToFlowsheetMutation: () => [mockAddToFlowsheet, { isLoading: false }],

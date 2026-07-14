@@ -1,16 +1,12 @@
 import type { FlowsheetEntry } from "./types";
 
 /**
- * Given the pre-drag order (`snapshot`) and the dropped order (`finalOrder`)
- * of the current show's entries, compute the `new_position` to send to
- * `PATCH /play-order` for the dragged entry — or null when the drag was a
- * no-op (or the entry can't be found in either array).
- *
- * The server moves the entry to `new_position` and renumbers the block in
- * between, so the target is the play_order held pre-drag by whichever entry
- * occupied the drop slot. Both arrays include non-draggable marker rows —
- * they shift like everything else when the server renumbers, so they must
- * count in the index math.
+ * Compute the `new_position` for `PATCH /play-order` from the pre-drag order
+ * and the dropped order — null when the drag was a no-op. The server moves
+ * the entry to `new_position` and renumbers the block in between, so the
+ * target is the play_order held pre-drag by whichever entry occupied the
+ * drop slot. Both arrays must include non-draggable marker rows: the server
+ * renumbers across every entry type.
  */
 export function computeDragTarget(
   snapshot: FlowsheetEntry[],

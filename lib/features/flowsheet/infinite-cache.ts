@@ -154,12 +154,10 @@ export function replaceEntryIdAllPages(
 }
 
 /**
- * Move `entryId` to `newPosition`, renumbering the block of same-show entries
- * between its old and new play_order by ±1 — mirroring Backend-Service's
- * `PATCH /play-order` (`changeOrder`) semantics exactly so the optimistic
- * cache state matches what the server persists, even for moves of distance
- * greater than one. Entries from other shows are untouched (play_order is
- * per-show and values legitimately collide across shows).
+ * Move `entryId` to `newPosition`, renumbering the crossed block of same-show
+ * entries by ±1 — mirrors `PATCH /play-order` exactly so the optimistic state
+ * matches what the server persists at any move distance. Other shows are
+ * untouched (play_order is per-show; values collide across shows).
  */
 export function movePlayOrder(
   draft: InfiniteEntriesDraft,

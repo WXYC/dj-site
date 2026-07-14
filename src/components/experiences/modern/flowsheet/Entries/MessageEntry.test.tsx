@@ -87,7 +87,7 @@ describe("MessageEntry", () => {
     it("should render children content", () => {
       render(
         <MessageEntry
-          entryRef={mockMessageEntry}
+          entry={mockMessageEntry}
           color="neutral"
           variant="soft"
         >
@@ -107,7 +107,7 @@ describe("MessageEntry", () => {
     it("should render start decorator when provided", () => {
       render(
         <MessageEntry
-          entryRef={mockMessageEntry}
+          entry={mockMessageEntry}
           color="neutral"
           variant="soft"
           startDecorator={<span data-testid="start-icon">Icon</span>}
@@ -122,7 +122,7 @@ describe("MessageEntry", () => {
     it("should render end decorator when provided", () => {
       render(
         <MessageEntry
-          entryRef={mockMessageEntry}
+          entry={mockMessageEntry}
           color="neutral"
           variant="soft"
           endDecorator={<span data-testid="end-decorator">End</span>}
@@ -137,7 +137,7 @@ describe("MessageEntry", () => {
     it("should pass color to DraggableEntryWrapper", () => {
       render(
         <MessageEntry
-          entryRef={mockMessageEntry}
+          entry={mockMessageEntry}
           color="primary"
           variant="soft"
         >
@@ -154,7 +154,7 @@ describe("MessageEntry", () => {
     it("should pass variant to DraggableEntryWrapper", () => {
       render(
         <MessageEntry
-          entryRef={mockMessageEntry}
+          entry={mockMessageEntry}
           color="neutral"
           variant="solid"
         >
@@ -181,7 +181,7 @@ describe("MessageEntry", () => {
       it("should show DragButton when editable", () => {
         render(
           <MessageEntry
-            entryRef={mockMessageEntry}
+            entry={mockMessageEntry}
             color="neutral"
             variant="soft"
           >
@@ -195,7 +195,7 @@ describe("MessageEntry", () => {
       it("should show RemoveButton for non-show block entries", () => {
         render(
           <MessageEntry
-            entryRef={mockMessageEntry}
+            entry={mockMessageEntry}
             color="neutral"
             variant="soft"
           >
@@ -209,7 +209,7 @@ describe("MessageEntry", () => {
       it("should NOT show RemoveButton for start show entries", () => {
         render(
           <MessageEntry
-            entryRef={mockStartShowEntry}
+            entry={mockStartShowEntry}
             color="neutral"
             variant="soft"
           >
@@ -223,7 +223,7 @@ describe("MessageEntry", () => {
       it("should NOT show RemoveButton for end show entries", () => {
         render(
           <MessageEntry
-            entryRef={mockEndShowEntry}
+            entry={mockEndShowEntry}
             color="neutral"
             variant="soft"
           >
@@ -244,7 +244,7 @@ describe("MessageEntry", () => {
 
         render(
           <MessageEntry
-            entryRef={mockMessageEntry}
+            entry={mockMessageEntry}
             color="neutral"
             variant="soft"
             disableEditing={true}
@@ -264,7 +264,7 @@ describe("MessageEntry", () => {
 
         render(
           <MessageEntry
-            entryRef={mockMessageEntry}
+            entry={mockMessageEntry}
             color="neutral"
             variant="soft"
             disableEditing={true}
@@ -288,7 +288,7 @@ describe("MessageEntry", () => {
       it("should NOT show DragButton when not live", () => {
         render(
           <MessageEntry
-            entryRef={mockMessageEntry}
+            entry={mockMessageEntry}
             color="neutral"
             variant="soft"
           >
@@ -302,7 +302,7 @@ describe("MessageEntry", () => {
       it("should NOT show RemoveButton when not live", () => {
         render(
           <MessageEntry
-            entryRef={mockMessageEntry}
+            entry={mockMessageEntry}
             color="neutral"
             variant="soft"
           >
@@ -325,7 +325,7 @@ describe("MessageEntry", () => {
       it("should NOT show DragButton when entry is from different show", () => {
         render(
           <MessageEntry
-            entryRef={mockMessageEntry}
+            entry={mockMessageEntry}
             color="neutral"
             variant="soft"
           >
@@ -339,7 +339,7 @@ describe("MessageEntry", () => {
       it("should NOT show RemoveButton when entry is from different show", () => {
         render(
           <MessageEntry
-            entryRef={mockMessageEntry}
+            entry={mockMessageEntry}
             color="neutral"
             variant="soft"
           >
@@ -361,7 +361,7 @@ describe("MessageEntry", () => {
 
       render(
         <MessageEntry
-          entryRef={mockMessageEntry}
+          entry={mockMessageEntry}
           color="neutral"
           variant="soft"
         >
@@ -380,7 +380,7 @@ describe("MessageEntry", () => {
     it("should set height style to 40px", () => {
       render(
         <MessageEntry
-          entryRef={mockMessageEntry}
+          entry={mockMessageEntry}
           color="neutral"
           variant="soft"
         >
@@ -397,7 +397,7 @@ describe("MessageEntry", () => {
     it("should handle entry with no decorators", () => {
       render(
         <MessageEntry
-          entryRef={mockMessageEntry}
+          entry={mockMessageEntry}
           color="neutral"
           variant="soft"
         >
@@ -411,7 +411,7 @@ describe("MessageEntry", () => {
     it("should handle complex children", () => {
       render(
         <MessageEntry
-          entryRef={mockMessageEntry}
+          entry={mockMessageEntry}
           color="neutral"
           variant="soft"
         >
@@ -432,7 +432,7 @@ describe("MessageEntry", () => {
       colors.forEach((color) => {
         const { unmount } = render(
           <MessageEntry
-            entryRef={mockMessageEntry}
+            entry={mockMessageEntry}
             color={color as any}
             variant="soft"
           >
@@ -454,7 +454,7 @@ describe("MessageEntry", () => {
       variants.forEach((variant) => {
         const { unmount } = render(
           <MessageEntry
-            entryRef={mockMessageEntry}
+            entry={mockMessageEntry}
             color="neutral"
             variant={variant as any}
           >

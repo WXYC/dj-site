@@ -13,7 +13,10 @@ import {
 } from "@/lib/features/flowsheet/api";
 import { convertQueryToSubmission } from "@/lib/features/flowsheet/conversions";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
-import { compareEntriesNewestFirst } from "@/lib/features/flowsheet/infinite-cache";
+import {
+  compareEntriesNewestFirst,
+  primaryShowId,
+} from "@/lib/features/flowsheet/infinite-cache";
 import { useFlowsheetPollingInterval } from "./useSSEConnection";
 import { partitionFlowsheetEntries } from "@/lib/features/flowsheet/partition";
 import {
@@ -61,44 +64,33 @@ export const useShowControl = () => {
   const { loading: userloading, info: userData } = useRegistry();
   const flowsheetPollingInterval = useFlowsheetPollingInterval();
 
-  const {
-    data: liveList,
-    isLoading: loadingLiveList,
-  } = useWhoIsLiveQuery(undefined, {
-    skip: !userData || userloading,
-    pollingInterval: 60000, // Poll every 60 seconds to keep live status updated
+  const skip = !userData || userloading;
+  const userId = userData?.id;
+
+  // This hook runs in every entry row (and per editable field), so both query
+  // subscriptions are narrowed to primitives: rows re-render only when
+  // live/currentShow actually change, not on fetch-status flips or unrelated
+  // cache updates — and no per-row flatten/sort of the entry list.
+  const { live, loadingLiveList } = useWhoIsLiveQuery(undefined, {
+    skip,
+    pollingInterval: 60000,
+    selectFromResult: ({ data, isLoading }) => ({
+      live:
+        data?.djs !== undefined &&
+        data.djs.length !== 0 &&
+        data.djs.some((dj) => dj.id === userId),
+      loadingLiveList: isLoading,
+    }),
   });
 
-  const {
-    data: infiniteData,
-    isSuccess: entriesQuerySuccess,
-  } = useGetInfiniteEntriesInfiniteQuery(undefined, {
-    skip: !userData || userloading,
+  const { currentShow } = useGetInfiniteEntriesInfiniteQuery(undefined, {
+    skip,
     pollingInterval: flowsheetPollingInterval,
+    selectFromResult: ({ data, isSuccess }) => ({
+      // Newest entry's show_id; pages stay sorted newest-first.
+      currentShow: isSuccess && data ? primaryShowId(data) : -1,
+    }),
   });
-
-  // Flatten all pages into a single sorted array
-  const allEntries = useMemo(() => {
-    if (!infiniteData?.pages) return [];
-    const map = new Map<number, FlowsheetEntry>();
-    infiniteData.pages.flat().forEach((entry) => map.set(entry.id, entry));
-    return Array.from(map.values()).sort(compareEntriesNewestFirst);
-  }, [infiniteData?.pages]);
-
-  // Calculate derived state during render - no useState/useEffect needed
-  const currentShow = useMemo(() => {
-    return entriesQuerySuccess && allEntries.length > 0
-      ? allEntries[0].show_id
-      : -1;
-  }, [allEntries, entriesQuerySuccess]);
-
-  const live = useMemo(() => {
-    return (
-      liveList?.djs !== undefined &&
-      liveList?.djs.length !== 0 &&
-      liveList.djs.some((dj) => dj.id === userData?.id)
-    );
-  }, [liveList, userData?.id]);
 
   const isSaving = useAppSelector(selectFlowsheetMutationPending);
 
@@ -345,6 +337,34 @@ export const useFlowsheet = () => {
     fetchNextPage,
     isSuccess,
     isError,
+  };
+};
+
+/**
+ * Pagination state only — for consumers (InfiniteScroller) that drive
+ * fetching but never render entries, sparing them useFlowsheet's per-update
+ * flatten/sort/partition work.
+ */
+export const useFlowsheetPagination = () => {
+  const { loading: userloading, info: userData } = useRegistry();
+  const flowsheetPollingInterval = useFlowsheetPollingInterval();
+
+  const { isLoading, isFetching, hasNextPage, fetchNextPage } =
+    useGetInfiniteEntriesInfiniteQuery(undefined, {
+      skip: !userData || userloading,
+      pollingInterval: flowsheetPollingInterval,
+      selectFromResult: ({ isLoading, isFetching, hasNextPage }) => ({
+        isLoading,
+        isFetching,
+        hasNextPage,
+      }),
+    });
+
+  return {
+    loading: isLoading || userloading,
+    isFetching,
+    hasNextPage,
+    fetchNextPage,
   };
 };
 

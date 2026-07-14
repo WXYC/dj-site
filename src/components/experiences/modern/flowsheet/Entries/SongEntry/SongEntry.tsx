@@ -62,7 +62,7 @@ const SongEntry = memo(function SongEntry({
   return (
     <DraggableEntryWrapper
       controls={controls}
-      entryRef={entry}
+      entry={entry}
       variant={queue ? "soft" : playing ? "solid" : "plain"}
       color={queue ? "success" : playing ? "primary" : "neutral"}
       draggable={draggable}

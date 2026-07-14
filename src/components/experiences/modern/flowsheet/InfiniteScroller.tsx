@@ -5,7 +5,7 @@ import {
   FLOWSHEET_DRAG_GUTTER_PX,
   FLOWSHEET_DRAG_GUTTER_VAR,
 } from "@/src/components/experiences/modern/flowsheet/Entries/tableStyles";
-import { useFlowsheet } from "@/src/hooks/flowsheetHooks";
+import { useFlowsheetPagination } from "@/src/hooks/flowsheetHooks";
 import { Sheet } from "@mui/joy";
 import { useEffect, useRef } from "react";
 
@@ -15,7 +15,8 @@ export default function InfiniteScroller({
   children: React.ReactNode;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { loading, isFetching, hasNextPage, fetchNextPage } = useFlowsheet();
+  const { loading, isFetching, hasNextPage, fetchNextPage } =
+    useFlowsheetPagination();
 
   useEffect(() => {
     const scroller = scrollRef.current;
@@ -45,13 +46,10 @@ export default function InfiniteScroller({
         overflowY: "auto",
         background: "transparent",
         mt: 2,
-        // Left bleed for the flowsheet drag grips: `overflow-y: auto` forces
-        // horizontal clipping (a literal `overflow-x: visible` computes to
-        // auto), but the clip region is the padding box — so negative margin
-        // plus equal padding extends that box into the page gutter without
-        // moving the content, and grips hanging left of the tables survive
-        // the clip. Narrower below md, where Main's own px can't absorb the
-        // full bleed.
+        // Left bleed for the drag grips: `overflow-y: auto` forces horizontal
+        // clipping at the padding box, so negative margin + equal padding
+        // extends that box into the page gutter without moving the content.
+        // Narrower below md, where Main's px can't absorb the full bleed.
         [FLOWSHEET_DRAG_GUTTER_VAR]: {
           xs: `${FLOWSHEET_DRAG_GUTTER_NARROW_PX}px`,
           md: `${FLOWSHEET_DRAG_GUTTER_PX}px`,

@@ -7,12 +7,10 @@ import {
 } from "../tableStyles";
 
 /**
- * The drag grip. Renders in the same spot for every entry type: absolutely
- * positioned out of the row box into the page-background gutter left of the
- * table (the InfiniteScroller bleed, see FLOWSHEET_DRAG_GUTTER_VAR),
- * vertically centered on the row, revealed on row hover like the action bar
- * (`drag-grip` rules in FLOWSHEET_TABLE_SX). Must be a direct child of the
- * row's FIRST cell, and that cell must be `position: relative` to anchor it.
+ * The drag grip: hangs in the page-background gutter left of the table
+ * (see FLOWSHEET_DRAG_GUTTER_VAR), vertically centered, hover-revealed via
+ * the `drag-grip` rules in FLOWSHEET_TABLE_SX. Must be a direct child of the
+ * row's FIRST cell, which must be `position: relative` to anchor it.
  */
 export default function DragButton({ controls }: { controls: DragControls }) {
   return (

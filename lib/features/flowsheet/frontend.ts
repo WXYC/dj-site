@@ -190,10 +190,9 @@ export const flowsheetSlice = createAppSlice({
       state.search.selectedResult = action.payload;
     },
     /**
-     * True while a flowsheet row is being dragged. Lives in Redux (not
-     * component state) because `useFlowsheetPollingInterval` must suspend
-     * polling for every query subscriber (useFlowsheet + useShowControl hold
-     * independent subscriptions) while a drag is in flight.
+     * True while a flowsheet row is being dragged. In Redux so
+     * `useFlowsheetPollingInterval` can suspend every query subscriber's
+     * polling at once.
      */
     setIsDragging: (state, action: PayloadAction<boolean>) => {
       state.isDragging = action.payload;
