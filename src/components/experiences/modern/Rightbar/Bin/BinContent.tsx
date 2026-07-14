@@ -2,11 +2,12 @@
 
 import { useBin, useDeleteFromBin } from "@/src/hooks/binHooks";
 import { Inbox } from "@mui/icons-material";
-import { Card, Divider, Skeleton, Typography } from "@mui/joy";
+import { Card, Divider, Skeleton, Stack, Typography } from "@mui/joy";
 import { useMemo } from "react";
 import RightBarContentContainer from "../RightBarContentContainer";
 import BinEntry from "./BinEntry";
 import ClearBinButton from "./ClearBinButton";
+import ExportBinButton from "./ExportBinButton";
 import {
   useFlowsheet,
   useQueue,
@@ -56,7 +57,14 @@ export default function BinContent() {
     <RightBarContentContainer
       label="Mail Bin"
       startDecorator={<Inbox sx={{ mt: 0.3, mr: 1 }} />}
-      endDecorator={hasEntries ? <ClearBinButton count={bin.length} /> : undefined}
+      endDecorator={
+        hasEntries ? (
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            <ExportBinButton entries={bin} />
+            <ClearBinButton count={bin.length} />
+          </Stack>
+        ) : undefined
+      }
       fill
     >
       {/* Fills the leftover column height (see RightBarContentContainer#fill)
