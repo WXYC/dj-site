@@ -1,10 +1,23 @@
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 
 /** Columns shared by every export format, in display order. */
-const COLUMNS = ["Album", "Artist", "Label", "Format"] as const;
+const COLUMNS = ["Call #", "Album", "Artist", "Label", "Format"] as const;
+
+/**
+ * The library call number a DJ reads off the shelf: lettercode, artist number,
+ * then the album's entry — e.g. `RO 12/3`. Matches the format shown on catalog
+ * results (see Result.tsx). Missing parts collapse gracefully so a partial
+ * record still yields something scannable.
+ */
+export function callNumberFor(entry: AlbumEntry): string {
+  const { lettercode, numbercode } = entry.artist;
+  const prefix = [lettercode, numbercode].filter((p) => p != null && p !== "").join(" ");
+  return entry.entry != null ? `${prefix}/${entry.entry}`.trim() : prefix.trim();
+}
 
 function cellsFor(entry: AlbumEntry): string[] {
   return [
+    callNumberFor(entry),
     entry.title,
     entry.artist.name,
     entry.label ?? "",
@@ -54,9 +67,10 @@ export function formatBinForExport(entries: AlbumEntry[]): {
   const shareText = [
     "WXYC Mail Bin",
     "",
-    ...rows.map(([album, artist, label]) => {
+    ...rows.map(([callNumber, album, artist, label]) => {
       const suffix = label ? ` (${label})` : "";
-      return `${album} — ${artist}${suffix}`;
+      const prefix = callNumber ? `[${callNumber}] ` : "";
+      return `${prefix}${album} — ${artist}${suffix}`;
     }),
   ].join("\n");
 
