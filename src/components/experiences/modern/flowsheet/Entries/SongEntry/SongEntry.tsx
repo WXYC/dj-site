@@ -74,11 +74,12 @@ const SongEntry = memo(function SongEntry({
       }}
     >
       <td
+        style={{ position: "relative" }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
+        {editable && draggable && <DragButton controls={controls} />}
         <Stack direction="row" sx={{ position: "relative" }}>
-          {editable && draggable && <DragButton controls={controls} />}
           <AspectRatio
             ratio={1}
             sx={{

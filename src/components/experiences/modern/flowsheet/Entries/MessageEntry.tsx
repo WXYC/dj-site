@@ -61,7 +61,8 @@ export default function MessageEntry({
         borderRadius: "md",
       }}
     >
-      <td>
+      <td style={{ position: "relative" }}>
+        {live && editable && draggable && <DragButton controls={controls} />}
         <AspectRatio
           ratio={1.5}
           variant="plain"
@@ -100,7 +101,6 @@ export default function MessageEntry({
           justifyContent="end"
         >
           <Typography level="body-xs">{endDecorator}</Typography>
-          {live && editable && draggable && <DragButton controls={controls} />}
           {live && editable && !isFlowsheetStartShowEntry(entryRef) &&
             !isFlowsheetEndShowEntry(entryRef) && (
               <RemoveButton queue={false} entry={entryRef} />

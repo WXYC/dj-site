@@ -11,6 +11,13 @@ export const FLOWSHEET_MOBILE_QUERY = "(max-width: 599.95px)";
 // FLOWSHEET_TABLE_SX below — both describe the same column collapse.
 export const FLOWSHEET_XL_QUERY = "(min-width: 1536px)";
 
+// Width of the page-background gutter reserved left of the flowsheet tables.
+// Drag grips (DragButton) hang into it, anchored to each row's first cell at
+// a negative offset, so they sit off the row box in the same spot for every
+// entry type. The gutter must be real table margin (not overflow) because the
+// InfiniteScroller's `overflow-y: auto` forces horizontal clipping.
+export const FLOWSHEET_DRAG_GUTTER_PX = 36;
+
 // Shared row/hover/action treatment for the entries and queue tables. The
 // queue never renders a `row-playing` row, so those rules are inert there.
 export const FLOWSHEET_TABLE_SX: SxProps = {
@@ -19,6 +26,9 @@ export const FLOWSHEET_TABLE_SX: SxProps = {
   borderCollapse: "separate",
   borderSpacing: "0 4px",
   "--TableCell-paddingX": "12px",
+  // Cede the drag-grip gutter (see FLOWSHEET_DRAG_GUTTER_PX).
+  width: `calc(100% - ${FLOWSHEET_DRAG_GUTTER_PX}px)`,
+  marginLeft: `${FLOWSHEET_DRAG_GUTTER_PX}px`,
   // Below xl the artist and label collapse into two-line title/album
   // cells (see SongEntry), so their standalone columns are hidden and
   // the remaining columns widen to fit the reflowed text.
@@ -51,6 +61,14 @@ export const FLOWSHEET_TABLE_SX: SxProps = {
     boxShadow:
       "1px 0 0 var(--row-bg), -1px 0 0 var(--row-bg), 0 6px 12px -4px rgba(0, 0, 0, 0.35)",
     clipPath: "inset(0 -1px -12px -1px)",
+  },
+  // The first cell anchors the absolutely-positioned drag grip out in the
+  // left gutter, so its clip must open leftward past the grip or the
+  // now-playing row's grip gets amputated. Top inset stays 0 (no seam
+  // redraw); the only extra thing the wider clip admits is ~8px of the
+  // lift shadow's soft left falloff.
+  "& tbody tr.row-playing > td:first-of-type": {
+    clipPath: `inset(0 -1px -12px -${FLOWSHEET_DRAG_GUTTER_PX + 4}px)`,
   },
   "& tbody tr.row-playing .row-actions > *": { opacity: 1 },
   "& tbody tr > td:first-of-type": {
