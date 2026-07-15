@@ -8,6 +8,22 @@ import {
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import type { PlaylistSearchResult } from "@wxyc/shared";
+import type { PlaylistSearchParams } from "@wxyc/shared/dtos";
+
+type SortField = PlaylistSearchParams["sort"];
+type SortOrder = PlaylistSearchParams["order"];
+
+/**
+ * The full parameter tuple a search fires with. Queued whole (q + cursor +
+ * sort + order) so a sort/cursor change during an in-flight fetch whose query
+ * text is unchanged is not silently dropped by a query-string-only gate (#623).
+ */
+type SearchParams = {
+  q: string;
+  cursor: string | null;
+  sortBy: SortField;
+  sortOrder: SortOrder;
+};
 
 const MIN_QUERY_LENGTH = 2;
 const LIMIT = 50;
@@ -72,15 +88,17 @@ export function usePlaylistSearch() {
 
   const effectiveQuery = useMemo(() => buildQuery(rows), [rows]);
 
-  // Track pending query to fire after current request completes
-  const pendingQueryRef = useRef<string | null>(null);
+  // Params tuple queued to fire after the current request completes. Holds the
+  // WHOLE tuple (not just the query string) so an in-flight fetch cannot swallow
+  // a concurrent sort/cursor change that leaves the query text untouched (#623).
+  const pendingParamsRef = useRef<SearchParams | null>(null);
   // null sentinel = "never fired" — distinguishes initial mount from a
   // user-cleared empty query so the on-mount empty-q request still goes out.
   const lastFiredQueryRef = useRef<string | null>(null);
   const lastFiredParamsRef = useRef<{
     cursor: string | null;
-    sortBy: string;
-    sortOrder: string;
+    sortBy: SortField;
+    sortOrder: SortOrder;
   }>({
     cursor: null,
     sortBy: "date",
@@ -145,7 +163,7 @@ export function usePlaylistSearch() {
     const isPartialQuery =
       effectiveQuery.length > 0 && effectiveQuery.length < MIN_QUERY_LENGTH;
     if (isPartialQuery) {
-      pendingQueryRef.current = null;
+      pendingParamsRef.current = null;
       return;
     }
 
@@ -155,13 +173,15 @@ export function usePlaylistSearch() {
       sortOrder !== lastFiredParamsRef.current.sortOrder;
 
     if (isFetching) {
-      // Request in flight - queue this query for later
-      pendingQueryRef.current = effectiveQuery;
+      // Request in flight - queue the FULL params tuple for later. Storing the
+      // whole tuple (not just effectiveQuery) is what lets the drain effect
+      // notice a sort/cursor change made while the query text stayed the same.
+      pendingParamsRef.current = { q: effectiveQuery, cursor, sortBy, sortOrder };
     } else if (effectiveQuery !== lastFiredQueryRef.current || paramsChanged) {
       // No request in flight and query/params changed - fire immediately
       lastFiredQueryRef.current = effectiveQuery;
       lastFiredParamsRef.current = { cursor, sortBy, sortOrder };
-      pendingQueryRef.current = null;
+      pendingParamsRef.current = null;
       trigger({
         q: effectiveQuery,
         limit: LIMIT,
@@ -172,26 +192,37 @@ export function usePlaylistSearch() {
     }
   }, [effectiveQuery, cursor, sortBy, sortOrder, isFetching, trigger]);
 
-  // When request completes, check if there's a pending query
+  // When the in-flight request completes, drain any queued params. The gate
+  // compares the ENTIRE pending tuple against the last-fired tuple — a
+  // query-string-only comparison here would drop a queued sort/cursor change
+  // whose query text matches what already fired (#623). Fires with the QUEUED
+  // params (captured when the change happened), not the live selector values.
   useEffect(() => {
-    if (
-      !isFetching &&
-      pendingQueryRef.current &&
-      pendingQueryRef.current !== lastFiredQueryRef.current
-    ) {
-      const pending = pendingQueryRef.current;
-      lastFiredQueryRef.current = pending;
-      lastFiredParamsRef.current = { cursor, sortBy, sortOrder };
-      pendingQueryRef.current = null;
-      trigger({
-        q: pending,
-        limit: LIMIT,
-        sort: sortBy,
-        order: sortOrder,
-        cursor: cursor ?? undefined,
-      });
+    const pending = pendingParamsRef.current;
+    if (!isFetching && pending) {
+      const changed =
+        pending.q !== lastFiredQueryRef.current ||
+        pending.cursor !== lastFiredParamsRef.current.cursor ||
+        pending.sortBy !== lastFiredParamsRef.current.sortBy ||
+        pending.sortOrder !== lastFiredParamsRef.current.sortOrder;
+      pendingParamsRef.current = null;
+      if (changed) {
+        lastFiredQueryRef.current = pending.q;
+        lastFiredParamsRef.current = {
+          cursor: pending.cursor,
+          sortBy: pending.sortBy,
+          sortOrder: pending.sortOrder,
+        };
+        trigger({
+          q: pending.q,
+          limit: LIMIT,
+          sort: pending.sortBy,
+          order: pending.sortOrder,
+          cursor: pending.cursor ?? undefined,
+        });
+      }
     }
-  }, [isFetching, cursor, sortBy, sortOrder, trigger]);
+  }, [isFetching, trigger]);
 
   // Actions
   const addRow = useCallback(
@@ -248,7 +279,7 @@ export function usePlaylistSearch() {
 
     // Loading states
     isLoading: isFetching,
-    hasPendingQuery: pendingQueryRef.current !== null,
+    hasPendingQuery: pendingParamsRef.current !== null,
     isError,
 
     // Actions

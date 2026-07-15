@@ -257,7 +257,7 @@ describe("usePlaylistSearch", () => {
     });
   });
 
-  // Race-simulation coverage for the async-search hardening.
+  // Race-simulation coverage for the async-search hardening (#604, #623).
   describe("async-race hardening", () => {
     describe("#604 — stale accumulator on cursor reset", () => {
       it("does not resurrect the prior query's rows when typing resets the cursor", async () => {
@@ -344,6 +344,62 @@ describe("usePlaylistSearch", () => {
         await waitFor(() =>
           expect(result.current.results.map((r) => r.id)).toEqual([1, 2, 3]),
         );
+      });
+    });
+
+    describe("#623 — sort change while a fetch is in flight", () => {
+      it("re-fires with the new sort once the in-flight fetch settles", async () => {
+        const { store, wrapper } = createWrapper();
+        const rowId = store.getState().playlistSearch.rows[0].id;
+        const { rerender } = renderHook(() => usePlaylistSearch(), { wrapper });
+
+        // Initial empty-query mount fire.
+        await waitFor(() => expect(mockTrigger).toHaveBeenCalledTimes(1));
+
+        // Type a query and let it fire.
+        act(() => {
+          store.dispatch(
+            playlistSearchSlice.actions.updateRow({
+              id: rowId,
+              updates: { value: "abc" },
+            }),
+          );
+        });
+        await waitFor(() =>
+          expect(mockTrigger).toHaveBeenLastCalledWith(
+            expect.objectContaining({ q: "abc", sort: "date" }),
+          ),
+        );
+        const callsAfterAbc = mockTrigger.mock.calls.length;
+
+        // That abc/date fetch is now slow and in flight.
+        act(() => {
+          mockQueryState.isFetching = true;
+        });
+        rerender();
+
+        // User clicks the sort header — query text unchanged, only the sort
+        // moves. Nothing new should fire while the request is in flight; the
+        // full params tuple is queued instead.
+        act(() => {
+          store.dispatch(playlistSearchSlice.actions.setSort("artist"));
+        });
+        rerender();
+        expect(mockTrigger.mock.calls.length).toBe(callsAfterAbc);
+
+        // The in-flight fetch settles.
+        act(() => {
+          mockQueryState.isFetching = false;
+        });
+        rerender();
+
+        // Exactly one re-fire, carrying the new sort.
+        await waitFor(() =>
+          expect(mockTrigger).toHaveBeenLastCalledWith(
+            expect.objectContaining({ q: "abc", sort: "artist" }),
+          ),
+        );
+        expect(mockTrigger.mock.calls.length).toBe(callsAfterAbc + 1);
       });
     });
   });
