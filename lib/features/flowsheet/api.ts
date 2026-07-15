@@ -71,9 +71,11 @@ export const flowsheetApi = createApi({
           url: `/?page=${pageParam}&limit=${FLOWSHEET_PAGE_SIZE}`,
         };
       },
+      // `backendBaseQuery` soft-fails non-JSON GETs to `{data: null}` (#606);
+      // guard so a gateway interstitial can't crash the transform.
       transformResponse: (
-        response: FlowsheetV2PaginatedResponseJSON | FlowsheetV2EntryJSON[]
-      ) => convertV2FlowsheetResponse(extractFlowsheetEntries(response)),
+        response: FlowsheetV2PaginatedResponseJSON | FlowsheetV2EntryJSON[] | null
+      ) => (response ? convertV2FlowsheetResponse(extractFlowsheetEntries(response)) : []),
       providesTags: ["Flowsheet"],
     }),
     switchEntries: builder.mutation<undefined, FlowsheetSwitchParams>({
@@ -230,8 +232,10 @@ export const flowsheetApi = createApi({
       query: () => ({
         url: "/djs-on-air",
       }),
-      transformResponse: (response: OnAirDJResponse[]): OnAirDJData =>
-        convertDJsOnAir(response),
+      // convertDJsOnAir already maps a missing list to the off-air shape;
+      // widen for the #606 null soft-fail so it takes that path.
+      transformResponse: (response: OnAirDJResponse[] | null): OnAirDJData =>
+        convertDJsOnAir(response ?? undefined),
       providesTags: ["WhoIsLive"],
     }),
     addToFlowsheet: builder.mutation<FlowsheetEntry, FlowsheetSubmissionParams>(
