@@ -1,5 +1,6 @@
 import { Rotation } from "../rotation/types";
 import { OFF_AIR_LABEL } from "./constants";
+import { hasLinkedAlbumId } from "./linkage";
 import {
   FlowsheetEntry,
   FlowsheetQuery,
@@ -35,8 +36,7 @@ export function convertQueryToSubmission(
   // caller that lands a non-positive `album_id` falls back to the freeform
   // variant — at the cost of the rotation linkage, until BS-side schema work
   // lands. Matches the Classic-side shape from PR #699. (dj-site#701)
-  const hasLinkedAlbum =
-    typeof query.album_id === "number" && query.album_id > 0;
+  const hasLinkedAlbum = hasLinkedAlbumId(query.album_id);
   return {
     track_title: query.song,
     artist_name: query.artist,

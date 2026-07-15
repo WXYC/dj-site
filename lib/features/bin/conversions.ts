@@ -1,4 +1,5 @@
 import { AlbumEntry } from "../catalog/types";
+import { hasLinkedAlbumId } from "../flowsheet/linkage";
 import { FlowsheetQuery, FlowsheetSubmissionParams } from "../flowsheet/types";
 
 export function convertBinToFlowsheet(
@@ -14,8 +15,7 @@ export function convertBinToFlowsheet(
   // rotation_id stays on the wire (BS#1308 / @wxyc/shared 1.9.0 added it to
   // FlowsheetCreateSongFreeform), so the iOS rotation-artwork resolver can
   // still find unlinked-rotation bin plays by rotation_id alone.
-  const hasLinkedAlbum =
-    typeof binEntry.id === "number" && binEntry.id > 0;
+  const hasLinkedAlbum = hasLinkedAlbumId(binEntry.id);
 
   if (hasLinkedAlbum) {
     return {

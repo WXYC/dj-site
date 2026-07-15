@@ -36,18 +36,17 @@ describe("usePlayNow submission payload (#607/#701 gate)", () => {
     addToFlowsheetMock.mockClear();
   });
 
-  it("omits album_id/rotation keys for a freeform queue entry (album_id undefined)", () => {
+  it("omits album_id/rotation_bin for a freeform queue entry (album_id undefined)", () => {
     const { result } = renderHook(() => usePlayNow(queueEntry({})));
     result.current();
 
     const payload = addToFlowsheetMock.mock.calls[0][0];
     expect("album_id" in payload).toBe(false);
-    expect("rotation_id" in payload).toBe(false);
     expect("rotation_bin" in payload).toBe(false);
     expect(payload.artist_name).toBe("Juana Molina");
   });
 
-  it("omits the linkage keys for a synthesized negative album_id (BS throws on those)", () => {
+  it("drops a synthesized negative album_id but keeps rotation_id (freeform wire carries it, BS#1308)", () => {
     const { result } = renderHook(() =>
       usePlayNow(queueEntry({ album_id: -42, rotation_id: 9 }))
     );
@@ -55,7 +54,7 @@ describe("usePlayNow submission payload (#607/#701 gate)", () => {
 
     const payload = addToFlowsheetMock.mock.calls[0][0];
     expect("album_id" in payload).toBe(false);
-    expect("rotation_id" in payload).toBe(false);
+    expect(payload.rotation_id).toBe(9);
   });
 
   it("carries the linkage keys for a real positive album_id", () => {
