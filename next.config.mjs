@@ -60,6 +60,9 @@ function originOf(url) {
 // PostHog cloud serves the recorder / exception-autocapture assets from the
 // region "-assets" host (us.i -> us-assets.i). Self-hosted deployments serve
 // them from the same host, so a non-matching origin is returned unchanged.
+// Only the ^https://<region>.i.posthog.com$ shape is rewritten: a custom or
+// proxied NEXT_PUBLIC_POSTHOG_HOST that still lazy-loads from a "-assets"
+// host will need that origin added here manually.
 function posthogAssetsOrigin(origin) {
   if (!origin) return null;
   return origin.replace(
@@ -124,8 +127,13 @@ export function buildSecurityHeaders(env = process.env) {
     { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   ];
 
-  // HSTS only in production builds: a max-age on a local/http origin would pin
-  // the browser to https for a domain that may not serve it.
+  // NODE_ENV === "production" does NOT mean "production deploys only": `next
+  // build` sets it for EVERY build, previews included, so HSTS ships on
+  // *.wxyc-dj.pages.dev too (harmless — pages.dev is already HSTS-preloaded).
+  // The gate's only real effect is excluding `next dev`, where a max-age on a
+  // local http origin would pin the browser to https it doesn't serve.
+  // Cutover caveat: preload + includeSubDomains + 2y max-age is sticky on the
+  // eventual custom domain — be deliberate before flipping DNS to this app.
   if (env.NODE_ENV === "production") {
     headers.push({
       key: "Strict-Transport-Security",
