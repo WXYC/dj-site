@@ -75,6 +75,12 @@ describe("session", () => {
       expect(sessionOptions.cookieOptions.path).toBe("/");
       expect(sessionOptions.cookieOptions.sameSite).toBe("lax");
     });
+
+    it("marks the app_state cookie httpOnly so it is not script-readable (#631)", async () => {
+      const { sessionOptions } = await import("@/lib/features/session");
+
+      expect(sessionOptions.cookieOptions.httpOnly).toBe(true);
+    });
   });
 
   describe("createServerSideProps", () => {

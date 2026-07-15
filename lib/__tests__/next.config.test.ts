@@ -11,6 +11,14 @@ async function loadConfig() {
   return mod.default;
 }
 
+async function loadModule() {
+  vi.resetModules();
+  return import("../../next.config.mjs");
+}
+
+// The builders accept process.env; tests pass minimal partials.
+const env = (e: Partial<NodeJS.ProcessEnv> = {}) => e as NodeJS.ProcessEnv;
+
 type Rewrite = { source?: string };
 type RewritesResult =
   | Rewrite[]
@@ -108,6 +116,79 @@ describe("next.config", () => {
       const dashboard = redirects.find((r) => r.source === "/dashboard");
 
       expect(dashboard?.destination).toBe("/dashboard/flowsheet");
+
+  describe("security headers (#631)", () => {
+    it("applies the security header set to all paths", async () => {
+      const config = (await loadConfig()) as {
+        headers?: () => Promise<
+          Array<{ source: string; headers: Array<{ key: string }> }>
+        >;
+      };
+      const rules = config.headers ? await config.headers() : [];
+      expect(rules).toHaveLength(1);
+      expect(rules[0].source).toBe("/:path*");
+
+      const keys = rules[0].headers.map((h) => h.key);
+      expect(keys).toContain("Content-Security-Policy-Report-Only");
+      expect(keys).toContain("X-Content-Type-Options");
+      expect(keys).toContain("X-Frame-Options");
+      expect(keys).toContain("Referrer-Policy");
+    });
+
+    it("ships the CSP as Report-Only, not enforcing, for the first rollout", async () => {
+      const { buildSecurityHeaders } = await loadModule();
+      const keys = buildSecurityHeaders(env()).map((h) => h.key);
+      expect(keys).toContain("Content-Security-Policy-Report-Only");
+      expect(keys).not.toContain("Content-Security-Policy");
+    });
+
+    it("sets the static header values", async () => {
+      const { buildSecurityHeaders } = await loadModule();
+      const byKey = Object.fromEntries(
+        buildSecurityHeaders(env()).map((h) => [h.key, h.value]),
+      );
+      expect(byKey["X-Content-Type-Options"]).toBe("nosniff");
+      expect(byKey["X-Frame-Options"]).toBe("DENY");
+      expect(byKey["Referrer-Policy"]).toBe("strict-origin-when-cross-origin");
+    });
+
+    it("gates HSTS to production builds only", async () => {
+      const { buildSecurityHeaders } = await loadModule();
+      const has = (e: NodeJS.ProcessEnv) =>
+        buildSecurityHeaders(e).some(
+          (h) => h.key === "Strict-Transport-Security",
+        );
+      expect(has(env({ NODE_ENV: "production" }))).toBe(true);
+      expect(has(env({ NODE_ENV: "development" }))).toBe(false);
+      expect(has(env())).toBe(false);
+    });
+
+    it("derives connect-src origins from the backend and telemetry env vars", async () => {
+      const { buildContentSecurityPolicy } = await loadModule();
+      const csp = buildContentSecurityPolicy(
+        env({
+          NEXT_PUBLIC_BACKEND_URL: "https://api.wxyc.org",
+          NEXT_PUBLIC_ORCHESTRATOR_URL: "https://orchestrator.wxyc.org",
+          NEXT_PUBLIC_POSTHOG_HOST: "https://us.i.posthog.com",
+        }),
+      );
+      const connectSrc = csp
+        .split(";")
+        .map((d) => d.trim())
+        .find((d) => d.startsWith("connect-src"));
+      expect(connectSrc).toContain("'self'");
+      expect(connectSrc).toContain("https://api.wxyc.org");
+      expect(connectSrc).toContain("https://orchestrator.wxyc.org");
+      expect(connectSrc).toContain("https://us.i.posthog.com");
+      expect(connectSrc).toContain("https://us-assets.i.posthog.com");
+    });
+
+    it("declares the live audio stream and broad image origins", async () => {
+      const { buildContentSecurityPolicy } = await loadModule();
+      const csp = buildContentSecurityPolicy(env());
+      expect(csp).toContain("media-src 'self' https://audio-mp3.ibiblio.org");
+      expect(csp).toContain("img-src 'self' https: data: blob:");
+      expect(csp).toContain("frame-ancestors 'none'");
     });
   });
 });
