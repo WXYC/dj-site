@@ -1,4 +1,7 @@
+import { adminSlice } from "@/lib/features/admin/frontend";
+import { applicationSlice } from "@/lib/features/application/frontend";
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
+import { resetOrganizationIdCache } from "@/lib/features/authentication/organization-utils";
 import { binApi } from "@/lib/features/bin/api";
 import { catalogApi } from "@/lib/features/catalog/api";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
@@ -89,4 +92,12 @@ export function resetApplication(dispatch: ReturnType<typeof useAppDispatch>) {
   dispatch(catalogSlice.actions.reset());
   dispatch(binApi.util.resetApiState());
   dispatch(authenticationSlice.actions.reset());
+  // Wipe UI + admin state so a previous user's open panel, sidebar, roster
+  // search string, and page index don't survive into the next session on the
+  // same browser (#639).
+  dispatch(applicationSlice.actions.reset());
+  dispatch(adminSlice.actions.reset());
+  // Clear the module-level admin org-id cache so a departing user's resolved
+  // org UUID can't leak into the next session either (#616).
+  resetOrganizationIdCache();
 }

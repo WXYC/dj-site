@@ -39,6 +39,7 @@ import {
   getUserRoleInOrganizationClient,
   organizationRoleFromJwtToken,
   resolveOrganizationIdAdmin,
+  resetOrganizationIdCache,
   _resetOrgCacheForTesting,
 } from "@/lib/features/authentication/organization-utils";
 import {
@@ -163,6 +164,42 @@ describe("organization-utils", () => {
 
       expect(result).toBeNull();
       expect(receivedSlug).toBeNull();
+    });
+
+    it("caches distinct slugs independently (no cross-slug leakage) — #616", async () => {
+      const wxyc = await resolveOrganizationIdAdmin("wxyc");
+      const kvrx = await resolveOrganizationIdAdmin("kvrx");
+
+      expect(wxyc).toBe("org-for-wxyc");
+      expect(kvrx).toBe("org-for-kvrx");
+
+      // A repeat lookup of the first slug must return ITS cached id, not the
+      // most-recently-resolved slug's — the pre-#616 single-value cache failed
+      // this.
+      expect(await resolveOrganizationIdAdmin("wxyc")).toBe("org-for-wxyc");
+    });
+
+    it("resetOrganizationIdCache clears entries so a later resolve re-fetches — #616", async () => {
+      let calls = 0;
+      server.use(
+        http.get(
+          "https://api.wxyc.org/auth/admin/resolve-organization",
+          ({ request }) => {
+            calls++;
+            const slug = new URL(request.url).searchParams.get("slug");
+            return HttpResponse.json({ id: `org-for-${slug}` });
+          }
+        )
+      );
+
+      await resolveOrganizationIdAdmin("wxyc");
+      await resolveOrganizationIdAdmin("wxyc"); // served from cache
+      expect(calls).toBe(1);
+
+      resetOrganizationIdCache();
+
+      await resolveOrganizationIdAdmin("wxyc"); // cache cleared → refetch
+      expect(calls).toBe(2);
     });
   });
 
