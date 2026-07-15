@@ -184,6 +184,14 @@ describe("infinite-cache", () => {
     expect(primaryShowId(draft)).toBe(5);
   });
 
+  it("primaryShowId returns a negative optimistic show-marker id (only -1 is the orphan sentinel)", () => {
+    // The #619 goLive fix pushes a show-start marker whose show_id is a fresh
+    // negative tempId; it must win over the prior show's entries.
+    const marker = song(-40, 13, -40);
+    const draft = { pages: [[marker, song(89, 12, 5)]], pageParams: [0] };
+    expect(primaryShowId(draft)).toBe(-40);
+  });
+
   it("movePlayOrder refuses to renumber orphaned (show_id -1) entries as one block", () => {
     const draft = {
       pages: [[song(9, 3, -1), song(8, 2, -1), song(7, 1, -1)]],
