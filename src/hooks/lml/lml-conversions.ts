@@ -29,8 +29,11 @@ function normalizeGenre(genre: string | null): Genre {
 
 /**
  * Converts an LML library search result to the frontend `AlbumEntry` type.
- * LML does not carry label, rotation, or play count data — those fields are
- * left empty/undefined and filled in once the DJ selects the entry.
+ * LML does not carry rotation or play count data — those fields are left
+ * undefined and filled in once the DJ selects the entry. `label`,
+ * `on_streaming`, and `matched_via` DO ride on the response (dj-site#605); a
+ * missing/null `on_streaming` stays `undefined` so it is not mistaken for the
+ * `false` value that renders the WXYC EXCLUSIVE chip.
  */
 export function convertLmlItemToAlbumEntry(item: LmlLibraryItem): AlbumEntry {
   return {
@@ -46,7 +49,9 @@ export function convertLmlItemToAlbumEntry(item: LmlLibraryItem): AlbumEntry {
     entry: item.release_call_number ?? 0,
     format: normalizeFormat(item.format),
     alternate_artist: item.alternate_artist_name ?? "",
-    label: "",
+    label: item.label ?? "",
+    on_streaming: item.on_streaming ?? undefined,
+    matched_via: item.matched_via,
     rotation_bin: undefined,
     rotation_id: undefined,
     plays: undefined,
