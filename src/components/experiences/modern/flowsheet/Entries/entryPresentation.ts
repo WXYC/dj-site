@@ -30,7 +30,7 @@ export type MessageEntryPresentation = {
   // Tertiary suffix ("started the set" / "ended the set"), markers only.
   caption?: string;
   // Show markers carry their day/time; other messages don't.
-  time?: { day: string; time: string };
+  time?: { day: string; time: string; isToday?: boolean };
   // Show markers can't be edited or removed.
   editable: boolean;
 };
@@ -49,7 +49,7 @@ export function getMessageEntryPresentation(
       textColor: ENTRY_TONES.startShow.color,
       headline: entry.dj_name,
       caption: "started the set",
-      time: { day: entry.day, time: entry.time },
+      time: { day: entry.day, time: entry.time, isToday: entry.isToday },
       editable: false,
     };
   }
@@ -61,7 +61,7 @@ export function getMessageEntryPresentation(
       textColor: ENTRY_TONES.endShow.color,
       headline: entry.dj_name,
       caption: "ended the set",
-      time: { day: entry.day, time: entry.time },
+      time: { day: entry.day, time: entry.time, isToday: entry.isToday },
       editable: false,
     };
   }

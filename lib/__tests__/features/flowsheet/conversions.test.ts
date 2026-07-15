@@ -438,6 +438,49 @@ describe("flowsheet conversions", () => {
 
         expect(result.day).toBe("Unknown");
         expect(result.time).toBe("Unknown");
+        expect(result.isToday).toBe(false);
+      });
+
+      it("should mark a show entry from today as isToday (timestamp path)", () => {
+        // Comparison is done here at conversion, not by re-parsing the
+        // "M/D/YYYY" display string downstream — so no Safari Invalid-Date
+        // false negative. (dj-site#622)
+        const now = new Date();
+        const todayDay = `${now.getMonth() + 1}/${now.getDate()}/${now.getFullYear()}`;
+        const entry = createTestV2ShowStartEntry({
+          timestamp: `${todayDay}, 2:30:00 PM`,
+        });
+        const result = convertV2Entry(entry) as FlowsheetShowBlockEntry;
+
+        expect(result.day).toBe(todayDay);
+        expect(result.isToday).toBe(true);
+      });
+
+      it("should not mark a show entry from another day as isToday", () => {
+        const entry = createTestV2ShowStartEntry({
+          timestamp: "6/15/2020, 2:30:00 PM",
+        });
+        const result = convertV2Entry(entry) as FlowsheetShowBlockEntry;
+
+        expect(result.isToday).toBe(false);
+      });
+
+      it("should mark an add_time-derived entry from today as isToday", () => {
+        const entry = createTestV2DJJoinEntry({
+          add_time: new Date().toISOString(),
+        });
+        const result = convertV2Entry(entry) as FlowsheetShowBlockEntry;
+
+        expect(result.isToday).toBe(true);
+      });
+
+      it("should not mark an old add_time-derived entry as isToday", () => {
+        const entry = createTestV2DJJoinEntry({
+          add_time: "2020-06-15T14:30:00.000Z",
+        });
+        const result = convertV2Entry(entry) as FlowsheetShowBlockEntry;
+
+        expect(result.isToday).toBe(false);
       });
 
       it("should convert dj_join to ShowBlockEntry with isStart=true", () => {

@@ -262,7 +262,24 @@ describe("BinContent", () => {
     expect(screen.getByText("An empty record...")).toBeInTheDocument();
   });
 
-  it("should render empty message when isError is true", () => {
+  it("should render a distinct error message (not the empty message) when the fetch fails with no data", () => {
+    mockUseBin.mockReturnValue({
+      bin: null,
+      loading: false,
+      isSuccess: false,
+      isError: true,
+    });
+
+    render(<BinContent />);
+
+    // Error state must not masquerade as an empty bin. (#637)
+    expect(
+      screen.getByText(/Your saved records are safe/)
+    ).toBeInTheDocument();
+    expect(screen.queryByText("An empty record...")).not.toBeInTheDocument();
+  });
+
+  it("should keep cached entries visible with a compact stale notice when a refetch fails", () => {
     mockUseBin.mockReturnValue({
       bin: mockBinEntries,
       loading: false,
@@ -272,7 +289,34 @@ describe("BinContent", () => {
 
     render(<BinContent />);
 
+    // RTK keeps the prior data on a transient refetch failure — don't hide
+    // valid entries behind the alarming full-error copy. (#637)
+    expect(screen.getByTestId("bin-entry-1")).toBeInTheDocument();
+    expect(screen.getByTestId("bin-entry-2")).toBeInTheDocument();
+    expect(screen.getByTestId("bin-entry-3")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Couldn't refresh your Mail Bin/)
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Your saved records are safe/)
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("An empty record...")).not.toBeInTheDocument();
+  });
+
+  it("should render neither the error nor entries when the bin is genuinely empty", () => {
+    mockUseBin.mockReturnValue({
+      bin: [],
+      loading: false,
+      isSuccess: true,
+      isError: false,
+    });
+
+    render(<BinContent />);
+
     expect(screen.getByText("An empty record...")).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Your saved records are safe/)
+    ).not.toBeInTheDocument();
   });
 
   it("should render bin entries when bin has items", () => {

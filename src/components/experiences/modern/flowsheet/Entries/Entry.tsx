@@ -47,7 +47,13 @@ const Entry = memo(function Entry({
       entry={entry}
       startDecorator={<p.Icon sx={{ mb: -0.5, mr: 0.5 }} />}
       endDecorator={
-        p.time && <DateTimeStack day={p.time.day} time={p.time.time} />
+        p.time && (
+          <DateTimeStack
+            day={p.time.day}
+            time={p.time.time}
+            isToday={p.time.isToday}
+          />
+        )
       }
       color={p.color}
       variant="soft"

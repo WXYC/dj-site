@@ -372,4 +372,33 @@ describe("GradientAudioVisualizer", () => {
       ).not.toThrow();
     });
   });
+
+  describe("animation frame lifecycle (#634)", () => {
+    it("cancels the frame id captured in the same effect run on cleanup", () => {
+      // The bug was cancelling by a shared ref a later effect run could have
+      // overwritten. Here the scheduled id (777) must be exactly what cleanup
+      // cancels.
+      vi.spyOn(window, "requestAnimationFrame").mockReturnValue(777);
+      const cancelSpy = vi
+        .spyOn(window, "cancelAnimationFrame")
+        .mockImplementation(() => {});
+
+      const audioRef = createMockAudioRef();
+      const animationFrameRef = createMockAnimationFrameRef();
+
+      const { unmount } = render(
+        <GradientAudioVisualizer
+          audioRef={audioRef}
+          isPlaying={true}
+          audioContext={mockAudioContext}
+          analyserNode={mockAnalyser}
+          animationFrameRef={animationFrameRef}
+        />
+      );
+
+      unmount();
+
+      expect(cancelSpy).toHaveBeenCalledWith(777);
+    });
+  });
 });

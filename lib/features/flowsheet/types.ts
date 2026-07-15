@@ -84,6 +84,12 @@ export type FlowsheetMessageEntry = FlowsheetEntryBase & {
 export type DateTimeEntry = {
   day: string;
   time: string;
+  // Computed at conversion time (formatAddTime/parseTimestamp) where the real
+  // Date is in scope, so DateTimeStack never re-parses the "M/D/YYYY" display
+  // string with `new Date(day)` (Invalid Date on Safari). Optional so existing
+  // marker fixtures that omit it still typecheck; absent reads as "not today"
+  // and the date label is shown, the safe default. (dj-site#622)
+  isToday?: boolean;
 };
 
 export type FlowsheetBreakpointEntry = FlowsheetMessageEntry & DateTimeEntry;
