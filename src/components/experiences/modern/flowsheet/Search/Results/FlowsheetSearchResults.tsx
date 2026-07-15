@@ -5,7 +5,9 @@ import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { Box, Chip, Divider, Sheet, Stack, Typography } from "@mui/joy";
 import { useEffect, useMemo, useState } from "react";
-import FlowsheetBackendResults from "./BackendResults/FlowsheetBackendResults";
+import FlowsheetBackendResults, {
+  MAX_VISIBLE_RESULTS,
+} from "./BackendResults/FlowsheetBackendResults";
 import NewEntryPreview from "./NewEntry/NewEntryPreview";
 import LibraryTrackPicker, {
   useLibraryTrackPicker,
@@ -29,12 +31,27 @@ export default function FlowsheetSearchResults({
     flowsheetSlice.selectors.getSelectedResult
   );
 
+  // Each section paints at most MAX_VISIBLE_RESULTS rows, so the selectedResult
+  // index space must be built from the CAPPED lengths — offsets, the nav bound
+  // in FlowsheetSearchbar, and the submission mapping in flowsheetHooks all use
+  // the same Math.min. Deriving any of them from the full lengths would let the
+  // highlight walk off the visible list and submit an unseen album. (#657)
+  const binCount = Math.min(binResults.length, MAX_VISIBLE_RESULTS);
+  const rotationCount = Math.min(rotationResults.length, MAX_VISIBLE_RESULTS);
+  const catalogCount = Math.min(catalogResults.length, MAX_VISIBLE_RESULTS);
+
   // Resolve the highlighted result to a release id so the picker knows what to
   // fetch. Index 0 is the "new entry" preview (free-text only — no release to
-  // pick tracks from). Indices 1+ map into the concatenated result lists in
-  // the same order they're rendered above (bin → rotation → catalog → lml).
+  // pick tracks from). Indices 1+ map into the concatenated VISIBLE (capped)
+  // result lists in the same order they're rendered above
+  // (bin → rotation → catalog → lml).
   const allResults = useMemo(
-    () => [...binResults, ...rotationResults, ...catalogResults, ...lmlResults],
+    () => [
+      ...binResults.slice(0, MAX_VISIBLE_RESULTS),
+      ...rotationResults.slice(0, MAX_VISIBLE_RESULTS),
+      ...catalogResults.slice(0, MAX_VISIBLE_RESULTS),
+      ...lmlResults.slice(0, MAX_VISIBLE_RESULTS),
+    ],
     [binResults, rotationResults, catalogResults, lmlResults]
   );
   const highlightedResult: AlbumEntry | null =
@@ -119,7 +136,7 @@ export default function FlowsheetSearchResults({
           />
           <FlowsheetBackendResults
             results={rotationResults}
-            offset={binResults.length + 1}
+            offset={binCount + 1}
             label="From Rotation"
           />{" "}
           <Divider
@@ -129,7 +146,7 @@ export default function FlowsheetSearchResults({
           />
           <FlowsheetBackendResults
             results={catalogResults}
-            offset={binResults.length + rotationResults.length + 1}
+            offset={binCount + rotationCount + 1}
             label="From the Card Catalog"
           />
           <Divider
@@ -139,7 +156,7 @@ export default function FlowsheetSearchResults({
           />
           <FlowsheetBackendResults
             results={lmlResults}
-            offset={binResults.length + rotationResults.length + catalogResults.length + 1}
+            offset={binCount + rotationCount + catalogCount + 1}
             label="From Library Search"
           />
         </Box>

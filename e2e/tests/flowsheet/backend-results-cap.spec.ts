@@ -15,13 +15,14 @@ const authDir = path.join(__dirname, "../../.auth");
  * hard-caps at 50 rendered rows with a truncation footer.
  *
  * This spec mocks the card-catalog search (`GET .../library/`, NOT the
- * `/proxy/library/*` LML proxy) to return 500 rows, drives the real flowsheet
- * search path, and asserts:
- *   1. the page main thread stays responsive throughout the render window —
- *      `page.evaluate(() => 1)` resolves quickly on every sample (a frozen tab
- *      would stall these for seconds);
- *   2. the rendered result rows are bounded (the cap engaged), and the
- *      truncation footer is shown.
+ * `/proxy/library/*` LML proxy) to return 500 rows, mocks the LML proxy to
+ * return nothing (so stray LML rows can't shift the counts), drives the real
+ * flowsheet search path, and asserts:
+ *   1. the catalog section renders a bounded row count (the cap engaged) and
+ *      the truncation footer is shown — these are the regression gates;
+ *   2. the main thread stays responsive across the window — a smoke check
+ *      only: 500 rows renders fine even uncapped (the production freeze needed
+ *      thousands), so responsiveness alone would not catch a dropped cap.
  *
  * Mirrors library-search-proxy.spec.ts / flowsheet-track-picker.spec.ts:
  * serial mode, musicDirector session (kept off dj/dj2), ensure-live per test,
@@ -98,6 +99,18 @@ test.describe("Flowsheet backend results — render cap", () => {
       }
     });
 
+    // Suppress LML proxy results (same pattern as flowsheet-track-picker's
+    // catalog suppression, inverted) so stray library-search rows can't shift
+    // the section counts asserted below. Rotation/bin filter client-side on
+    // the distinctive artist and contribute nothing.
+    await page.route("**/proxy/library/search**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ results: [], total: 0, query: ARTIST }),
+      });
+    });
+
     // Open the search and trigger the debounced catalog search.
     await expect(flowsheet.artistInput).toBeEnabled({ timeout: 10_000 });
     await flowsheet.songInput.click();
@@ -109,22 +122,23 @@ test.describe("Flowsheet backend results — render cap", () => {
     );
     await expect(truncationFooter).toBeVisible({ timeout: 10_000 });
 
-    // Responsiveness gate: sample the main thread across the render window. A
-    // frozen tab (the pre-cap behavior) stalls these evaluates for seconds;
-    // with the cap each resolves near-instantly. The issue's target is ~100ms;
-    // we assert a looser 1s ceiling to stay robust on loaded CI runners while
-    // still catching a true multi-second freeze.
+    // Primary regression gate: the CARD CATALOG section renders exactly the
+    // cap, not the 500 the mock returned. Scoped to the section container so
+    // rows from other sections can't inflate or mask the count.
+    const catalogRows = page.locator(
+      '[data-testid="flowsheet-results-section-from-the-card-catalog"] [data-testid^="flowsheet-search-result-"]'
+    );
+    await expect(catalogRows).toHaveCount(50);
+
+    // Responsiveness smoke check (secondary): 500 rows renders fine even
+    // uncapped — the production freeze needed thousands — so this loop can't
+    // catch a dropped cap by itself; the footer + exact count above are the
+    // real gates. It exists to flag a gross main-thread stall. The 1s ceiling
+    // (vs the issue's ~100ms ideal) absorbs loaded CI runners.
     for (let i = 0; i < 30; i++) {
       const start = Date.now();
       await page.evaluate(() => 1);
       expect(Date.now() - start).toBeLessThan(1_000);
     }
-
-    // The cap engaged: the catalog section renders at most 50 rows (the footer
-    // above already proves truncation). Bounded well below the 500 returned.
-    const resultRows = page.locator(
-      '[data-testid^="flowsheet-search-result-"]'
-    );
-    expect(await resultRows.count()).toBeLessThanOrEqual(50);
   });
 });

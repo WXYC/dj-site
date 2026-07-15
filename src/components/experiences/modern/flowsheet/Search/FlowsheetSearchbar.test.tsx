@@ -324,6 +324,37 @@ describe("FlowsheetSearchbar", () => {
       expect(state.flowsheet.search.selectedResult).toBe(1);
     });
 
+    it("should bound ArrowDown by the VISIBLE (capped) row count, not the full result set (#657)", () => {
+      // 60 catalog rows: only 50 are painted (MAX_VISIBLE_RESULTS). The nav
+      // bound must stop at 50 — walking to 51+ selects an invisible row whose
+      // values would silently populate the fields and submit.
+      mockCatalogResults = Array.from({ length: 60 }, (_, i) => ({
+        id: `${i + 1}`,
+      }));
+      mockSearchOpen = true;
+
+      const store = createTestStore({
+        flowsheet: {
+          ...flowsheetSlice.getInitialState(),
+          search: {
+            ...flowsheetSlice.getInitialState().search,
+            selectedResult: 50,
+          },
+        },
+      });
+
+      render(
+        <Provider store={store}>
+          <FlowsheetSearchbar />
+        </Provider>
+      );
+
+      fireEvent.keyDown(document, { key: "ArrowDown" });
+
+      const state = store.getState();
+      expect(state.flowsheet.search.selectedResult).toBe(50);
+    });
+
     it("should not go below 0 on ArrowUp", () => {
       const store = createTestStore({
         flowsheet: {

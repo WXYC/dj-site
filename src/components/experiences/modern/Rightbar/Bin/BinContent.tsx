@@ -51,14 +51,18 @@ export default function BinContent() {
     );
   }
 
-  const hasEntries = !!bin && bin.length > 0 && !isError;
+  // Cached entries stay visible through a transient refetch failure (RTK keeps
+  // the prior data); actions are still withheld on error since mutations would
+  // fail against an unreachable backend. (#637)
+  const hasEntries = !!bin && bin.length > 0;
+  const showActions = hasEntries && !isError;
 
   return (
     <RightBarContentContainer
       label="Mail Bin"
       startDecorator={<Inbox sx={{ mt: 0.3, mr: 1 }} />}
       endDecorator={
-        hasEntries ? (
+        showActions ? (
           <Stack direction="row" spacing={0.5} alignItems="center">
             <ExportBinButton entries={bin} />
             <ClearBinButton count={bin.length} />
@@ -79,7 +83,7 @@ export default function BinContent() {
           minHeight: 0,
         }}
       >
-        {isError ? (
+        {isError && !hasEntries ? (
           // Distinct from the empty state: a fetch failure must not read as
           // "your saved records are gone". (#637)
           <div>
@@ -93,16 +97,26 @@ export default function BinContent() {
             <Typography level="body-md">An empty record...</Typography>
           </div>
         ) : (
-          bin.map((entry, index) => (
-            // The index suffix disambiguates duplicate album ids — nothing
-            // stops the same album being mailed to the bin twice (no unique
-            // constraint backend-side), and duplicate React keys would
-            // collapse the rows.
-            <div key={`bin-${entry.id}-${index}`}>
-              <BinEntry entry={entry} live={live} actionDeps={actionDeps} />
-              {index < bin.length - 1 && <Divider />}
-            </div>
-          ))
+          <>
+            {isError && (
+              // Transient refetch failure with cached data: keep the entries
+              // visible, flag the staleness without alarm. (#637)
+              <Typography level="body-xs" color="warning">
+                Couldn&apos;t refresh your Mail Bin — showing your last loaded
+                copy.
+              </Typography>
+            )}
+            {bin.map((entry, index) => (
+              // The index suffix disambiguates duplicate album ids — nothing
+              // stops the same album being mailed to the bin twice (no unique
+              // constraint backend-side), and duplicate React keys would
+              // collapse the rows.
+              <div key={`bin-${entry.id}-${index}`}>
+                <BinEntry entry={entry} live={live} actionDeps={actionDeps} />
+                {index < bin.length - 1 && <Divider />}
+              </div>
+            ))}
+          </>
         )}
       </Card>
     </RightBarContentContainer>

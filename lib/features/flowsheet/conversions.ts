@@ -79,6 +79,11 @@ export function convertDJsOnAir(
 // implementation-defined and Safari returns `Invalid Date` for "M/D/YYYY",
 // which made the old DateTimeStack is-today check false-negative and always
 // render the date label. (dj-site#622)
+//
+// The exact-string match is deliberately fragile in the SAFE direction: if a
+// backend timestamp is zero-padded or timezone-shifted the strings mismatch
+// and the date is SHOWN (harmless clutter). Do not "fix" this into a parsed
+// comparison — that reintroduces the implementation-defined parsing above.
 function isTodayDisplayDay(day: string): boolean {
   const now = new Date();
   return day === `${now.getMonth() + 1}/${now.getDate()}/${now.getFullYear()}`;

@@ -14,6 +14,7 @@ import { ClickAwayListener } from "@mui/material";
 import { useCallback, useEffect, useRef } from "react";
 import BreakpointButton from "./BreakpointButton";
 import FlowsheetSearchInput from "./FlowsheetSearchInput";
+import { MAX_VISIBLE_RESULTS } from "./Results/BackendResults/FlowsheetBackendResults";
 import FlowsheetSearchResults from "./Results/FlowsheetSearchResults";
 import RotationEntryFields from "./RotationEntryFields";
 import RotationModeToggle from "./RotationModeToggle";
@@ -171,10 +172,15 @@ export default function FlowsheetSearchbar() {
       }
       if (e.key === "ArrowDown" && searchOpen && !rotationMode) {
         e.preventDefault();
-        const nextIndex = Math.min(
-          selectedResult + 1,
-          binResults.length + catalogResults.length + rotationResults.length + lmlResults.length
-        );
+        // Bound by the VISIBLE rows: each section paints at most
+        // MAX_VISIBLE_RESULTS, so the bound must use the capped lengths or the
+        // highlight walks off the rendered list onto rows the cap hid. (#657)
+        const visibleTotal =
+          Math.min(binResults.length, MAX_VISIBLE_RESULTS) +
+          Math.min(catalogResults.length, MAX_VISIBLE_RESULTS) +
+          Math.min(rotationResults.length, MAX_VISIBLE_RESULTS) +
+          Math.min(lmlResults.length, MAX_VISIBLE_RESULTS);
+        const nextIndex = Math.min(selectedResult + 1, visibleTotal);
         dispatch(flowsheetSlice.actions.setSelectedResult(nextIndex));
       }
       if (e.key === "ArrowUp" && searchOpen && !rotationMode) {
