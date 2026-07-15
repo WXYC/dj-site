@@ -284,6 +284,7 @@ describe("flowsheetHooks", () => {
 
       expect(mockGoLiveFunction).toHaveBeenCalledWith({
         dj_id: "test-user-1",
+        dj_name: "Test DJ",
       });
     });
 
@@ -298,7 +299,31 @@ describe("flowsheetHooks", () => {
 
       expect(mockGoLiveFunction).toHaveBeenCalledWith({
         dj_id: "test-user-1",
+        dj_name: "Aubrey Hearst",
         dj_name_override: "Aubrey Hearst",
+      });
+    });
+
+    it("falls back to real_name for the optimistic dj_name when the DJ has no handle (#621)", () => {
+      mockUseRegistry.mockReturnValue({
+        loading: false,
+        info: {
+          ...mockUserInfo,
+          dj_name: undefined,
+        } as unknown as typeof mockUserInfo,
+      });
+
+      const { result } = renderHook(() => useShowControl(), {
+        wrapper: createWrapper(),
+      });
+
+      act(() => {
+        result.current.goLive();
+      });
+
+      expect(mockGoLiveFunction).toHaveBeenCalledWith({
+        dj_id: "test-user-1",
+        dj_name: "Test User",
       });
     });
 
@@ -897,6 +922,182 @@ describe("flowsheetHooks", () => {
       expect(result.current.queue.length).toBe(0);
     });
 
+    it("does not clear the queue during a transient WhoIsLive refetch (#644)", () => {
+      // Add an entry while live and settled.
+      const { result, rerender } = renderHook(() => useQueue(), {
+        wrapper: createWrapper(),
+      });
+
+      act(() => {
+        result.current.addToQueue({
+          song: "Test Song",
+          artist: "Test Artist",
+          album: "Test Album",
+          label: "Test Label",
+          request: false,
+        });
+      });
+      expect(result.current.queue.length).toBe(1);
+
+      // Invalidate→refetch window: WhoIsLive momentarily reads off-air while
+      // isFetching is true. The old !loading gate would have cleared here.
+      mockUseWhoIsLiveQuery.mockReturnValue({
+        data: { djs: [], onAir: "" },
+        isLoading: false,
+        isSuccess: true,
+        isFetching: true,
+      } as ReturnType<typeof mockUseWhoIsLiveQuery>);
+      rerender();
+      expect(result.current.queue.length).toBe(1);
+
+      // Refetch settles and confirms the DJ is still live: still no clear.
+      mockUseWhoIsLiveQuery.mockReturnValue({
+        data: mockLiveData,
+        isLoading: false,
+        isSuccess: true,
+        isFetching: false,
+      } as ReturnType<typeof mockUseWhoIsLiveQuery>);
+      rerender();
+      expect(result.current.queue.length).toBe(1);
+    });
+
+    it("clears the queue after two consecutive settled off-air reads (#644)", () => {
+      const { result, rerender } = renderHook(() => useQueue(), {
+        wrapper: createWrapper(),
+      });
+
+      act(() => {
+        result.current.addToQueue({
+          song: "Test Song",
+          artist: "Test Artist",
+          album: "Test Album",
+          label: "Test Label",
+          request: false,
+        });
+      });
+      expect(result.current.queue.length).toBe(1);
+
+      // First settled off-air read: could be stale (see the post-join test
+      // below), so no clear yet.
+      mockUseWhoIsLiveQuery.mockReturnValue({
+        data: { djs: [], onAir: "" },
+        isLoading: false,
+        isSuccess: true,
+        isFetching: false,
+      } as ReturnType<typeof mockUseWhoIsLiveQuery>);
+      rerender();
+      expect(result.current.queue.length).toBe(1);
+
+      // Next poll cycle: refetch...
+      mockUseWhoIsLiveQuery.mockReturnValue({
+        data: { djs: [], onAir: "" },
+        isLoading: false,
+        isSuccess: true,
+        isFetching: true,
+      } as ReturnType<typeof mockUseWhoIsLiveQuery>);
+      rerender();
+      expect(result.current.queue.length).toBe(1);
+
+      // ...settles off-air again: the DJ genuinely ended the show, so clear.
+      mockUseWhoIsLiveQuery.mockReturnValue({
+        data: { djs: [], onAir: "" },
+        isLoading: false,
+        isSuccess: true,
+        isFetching: false,
+      } as ReturnType<typeof mockUseWhoIsLiveQuery>);
+      rerender();
+      expect(result.current.queue.length).toBe(0);
+    });
+
+    it("survives a settled-but-stale off-air read right after join (#644)", () => {
+      // join fulfilled → invalidate → the refetch can settle BEFORE the
+      // backend registers the DJ, yielding a settled empty-djs read. One such
+      // read must not wipe the queue.
+      const { result, rerender } = renderHook(() => useQueue(), {
+        wrapper: createWrapper(),
+      });
+
+      act(() => {
+        result.current.addToQueue({
+          song: "Test Song",
+          artist: "Test Artist",
+          album: "Test Album",
+          label: "Test Label",
+          request: false,
+        });
+      });
+      expect(result.current.queue.length).toBe(1);
+
+      // Invalidation refetch in flight.
+      mockUseWhoIsLiveQuery.mockReturnValue({
+        data: mockLiveData,
+        isLoading: false,
+        isSuccess: true,
+        isFetching: true,
+      } as ReturnType<typeof mockUseWhoIsLiveQuery>);
+      rerender();
+
+      // Refetch settles with a stale empty roster: queue must survive.
+      mockUseWhoIsLiveQuery.mockReturnValue({
+        data: { djs: [], onAir: "" },
+        isLoading: false,
+        isSuccess: true,
+        isFetching: false,
+      } as ReturnType<typeof mockUseWhoIsLiveQuery>);
+      rerender();
+      expect(result.current.queue.length).toBe(1);
+
+      // Next poll corrects the roster: still live, still intact.
+      mockUseWhoIsLiveQuery.mockReturnValue({
+        data: mockLiveData,
+        isLoading: false,
+        isSuccess: true,
+        isFetching: true,
+      } as ReturnType<typeof mockUseWhoIsLiveQuery>);
+      rerender();
+      mockUseWhoIsLiveQuery.mockReturnValue({
+        data: mockLiveData,
+        isLoading: false,
+        isSuccess: true,
+        isFetching: false,
+      } as ReturnType<typeof mockUseWhoIsLiveQuery>);
+      rerender();
+      expect(result.current.queue.length).toBe(1);
+    });
+
+    it("clears the queue on logout even though the WhoIsLive subscription is skipped (#644)", () => {
+      const { result, rerender } = renderHook(() => useQueue(), {
+        wrapper: createWrapper(),
+      });
+
+      act(() => {
+        result.current.addToQueue({
+          song: "Test Song",
+          artist: "Test Artist",
+          album: "Test Album",
+          label: "Test Label",
+          request: false,
+        });
+      });
+      expect(result.current.queue.length).toBe(1);
+
+      // Logout: useRegistry reports loading whenever unauthenticated, and the
+      // WhoIsLive query is skipped — the settled gate can never fire, so the
+      // signed-in → signed-out transition must clear directly.
+      mockUseRegistry.mockReturnValue({
+        loading: true,
+        info: null,
+      });
+      rerender();
+
+      expect(result.current.queue.length).toBe(0);
+      // clearQueue's reducer also drops the persisted copy
+      // (localStorage is the vi.fn stub from vitest.setup.ts).
+      expect(window.localStorage.removeItem).toHaveBeenCalledWith(
+        "wxyc_flowsheet_queue"
+      );
+    });
+
     it("should handle removeFromQueue call when already live then user goes offline", () => {
       // First add an entry while live
       const { result, rerender } = renderHook(() => useQueue(), {
@@ -1348,6 +1549,70 @@ describe("flowsheetHooks", () => {
       });
 
       expect(result.current.selectedResultData.track_position).toBe("A1");
+    });
+
+    it("forwards the toggled request flag in the manual-entry branch (selectedResult == 0) (#602)", () => {
+      // A call-in request typed free-form: toggleRequest set query.request
+      // true, and the manual-entry branch of selectedResultData must forward
+      // it so convertQueryToSubmission emits request_flag: true.
+      const customWrapper = createHookWrapper(
+        { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
+        {
+          flowsheet: {
+            ...flowsheetSlice.getInitialState(),
+            search: {
+              ...flowsheetSlice.getInitialState().search,
+              selectedResult: 0,
+              query: {
+                song: "la paradoja",
+                artist: "Juana Molina",
+                album: "DOGA",
+                label: "Sonamos",
+                request: true,
+              },
+            },
+          },
+        }
+      );
+
+      const { result } = renderHook(() => useFlowsheetSubmit(), {
+        wrapper: customWrapper,
+      });
+
+      expect(result.current.selectedResultData.request).toBe(true);
+    });
+
+    it("forwards the toggled request flag in the selected-result branch (selectedResult > 0) (#602)", () => {
+      const mockAlbum = createTestAlbum({ id: 321, title: "DOGA" });
+      mockUseCatalogFlowsheetSearch.mockReturnValue({
+        searchResults: [mockAlbum],
+      });
+
+      const customWrapper = createHookWrapper(
+        { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
+        {
+          flowsheet: {
+            ...flowsheetSlice.getInitialState(),
+            search: {
+              ...flowsheetSlice.getInitialState().search,
+              selectedResult: 1,
+              query: {
+                song: "la paradoja",
+                artist: "Juana Molina",
+                album: "DOGA",
+                label: "Sonamos",
+                request: true,
+              },
+            },
+          },
+        }
+      );
+
+      const { result } = renderHook(() => useFlowsheetSubmit(), {
+        wrapper: customWrapper,
+      });
+
+      expect(result.current.selectedResultData.request).toBe(true);
     });
 
     it("should use fallback values from flowSheetRawQuery when selectedEntry has missing values", () => {

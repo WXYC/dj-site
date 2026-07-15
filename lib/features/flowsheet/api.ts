@@ -1,10 +1,7 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { DJRequestParams } from "../authentication/types";
 import { backendBaseQuery } from "../backend";
-import {
-  FLOWSHEET_OPTIMISTIC_DJ_PLACEHOLDER,
-  FLOWSHEET_PAGE_SIZE,
-} from "./constants";
+import { FLOWSHEET_PAGE_SIZE } from "./constants";
 import { scheduleDeferredFlowsheetRefetch } from "./deferred-refetch";
 import {
   convertDJsOnAir,
@@ -16,14 +13,18 @@ import {
 import {
   buildOptimisticEntry,
   insertEntrySortedFirstPage,
+  maxPlayOrder,
   movePlayOrder,
+  nextOptimisticTempId,
   patchEntryById,
   removeEntryById,
   replaceEntryIdAllPages,
 } from "./infinite-cache";
 import {
   FlowsheetEntry,
+  FlowsheetShowBlockEntry,
   FlowsheetSubmissionParams,
+  isFlowsheetStartShowEntry,
   FlowsheetSwitchParams,
   FlowsheetUpdateParams,
   FlowsheetV2EntryJSON,
@@ -70,9 +71,11 @@ export const flowsheetApi = createApi({
           url: `/?page=${pageParam}&limit=${FLOWSHEET_PAGE_SIZE}`,
         };
       },
+      // `backendBaseQuery` soft-fails non-JSON GETs to `{data: null}` (#606);
+      // guard so a gateway interstitial can't crash the transform.
       transformResponse: (
-        response: FlowsheetV2PaginatedResponseJSON | FlowsheetV2EntryJSON[]
-      ) => convertV2FlowsheetResponse(extractFlowsheetEntries(response)),
+        response: FlowsheetV2PaginatedResponseJSON | FlowsheetV2EntryJSON[] | null
+      ) => (response ? convertV2FlowsheetResponse(extractFlowsheetEntries(response)) : []),
       providesTags: ["Flowsheet"],
     }),
     switchEntries: builder.mutation<undefined, FlowsheetSwitchParams>({
@@ -107,15 +110,23 @@ export const flowsheetApi = createApi({
     }),
     joinShow: builder.mutation<
       void,
-      DJRequestParams & { dj_name_override?: string }
+      DJRequestParams & { dj_name?: string; dj_name_override?: string }
     >({
-      query: (params) => ({
+      // `dj_name` is a client-only display hint for the optimistic patches
+      // below; keep it off the wire (the backend derives the on-air name from
+      // dj_id / dj_name_override).
+      query: ({ dj_name: _dj_name, ...params }) => ({
         url: "/join",
         method: "POST",
         body: params,
       }),
       invalidatesTags: ["NowPlaying", "WhoIsLive"],
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        // Seed the banner with the real dj_name so the public /live page never
+        // renders a "Live" placeholder during the refetch window. A joiner
+        // with no display name must not blank the banner or leave a trailing
+        // comma: format only the named DJs, and when none exist keep the
+        // previous banner until the refetch lands. (#621)
         const patchLive = dispatch(
           flowsheetApi.util.updateQueryData(
             "whoIsLive",
@@ -125,10 +136,37 @@ export const flowsheetApi = createApi({
               if (!draft.djs.some((d) => d.id === arg.dj_id)) {
                 draft.djs.push({
                   id: arg.dj_id,
-                  dj_name: FLOWSHEET_OPTIMISTIC_DJ_PLACEHOLDER,
+                  dj_name: arg.dj_name ?? "",
                 });
-                draft.onAir = formatOnAirSummary(draft.djs);
+                const named = draft.djs.filter((d) => d.dj_name);
+                if (named.length) {
+                  draft.onAir = formatOnAirSummary(named);
+                }
               }
+            }
+          )
+        );
+        // Push an optimistic show-start marker with a fresh (negative) show_id
+        // so `currentShow` (the newest entry's show_id) no longer resolves to
+        // the previous show. Without this, the prior show's tail partitions as
+        // the current show and stays editable until the refetch lands. (#619)
+        const patchEntries = dispatch(
+          flowsheetApi.util.updateQueryData(
+            "getInfiniteEntries",
+            undefined,
+            (draft) => {
+              if (!draft.pages.length) return;
+              const tempId = nextOptimisticTempId();
+              const marker: FlowsheetShowBlockEntry = {
+                id: tempId,
+                play_order: maxPlayOrder(draft) + 1,
+                show_id: tempId,
+                dj_name: arg.dj_name ?? "",
+                isStart: true,
+                day: "",
+                time: "",
+              };
+              insertEntrySortedFirstPage(draft, marker);
             }
           )
         );
@@ -138,6 +176,7 @@ export const flowsheetApi = createApi({
         } catch (err) {
           flowsheetMutationCatch("joinShow", err);
           patchLive.undo();
+          patchEntries.undo();
         }
       },
     }),
@@ -160,12 +199,32 @@ export const flowsheetApi = createApi({
             }
           )
         );
+        // Leaving before joinShow's refetch lands would orphan the optimistic
+        // show-start marker (negative show_id) as a stray row — drop any such
+        // markers here. (#619)
+        const patchEntries = dispatch(
+          flowsheetApi.util.updateQueryData(
+            "getInfiniteEntries",
+            undefined,
+            (draft) => {
+              for (const page of draft.pages) {
+                for (let i = page.length - 1; i >= 0; i--) {
+                  const entry = page[i];
+                  if (entry.show_id < 0 && isFlowsheetStartShowEntry(entry)) {
+                    page.splice(i, 1);
+                  }
+                }
+              }
+            }
+          )
+        );
         try {
           await queryFulfilled;
           dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
         } catch (err) {
           flowsheetMutationCatch("leaveShow", err);
           patchLive.undo();
+          patchEntries.undo();
         }
       },
     }),
@@ -173,8 +232,10 @@ export const flowsheetApi = createApi({
       query: () => ({
         url: "/djs-on-air",
       }),
-      transformResponse: (response: OnAirDJResponse[]): OnAirDJData =>
-        convertDJsOnAir(response),
+      // convertDJsOnAir already maps a missing list to the off-air shape;
+      // widen for the #606 null soft-fail so it takes that path.
+      transformResponse: (response: OnAirDJResponse[] | null): OnAirDJData =>
+        convertDJsOnAir(response ?? undefined),
       providesTags: ["WhoIsLive"],
     }),
     addToFlowsheet: builder.mutation<FlowsheetEntry, FlowsheetSubmissionParams>(

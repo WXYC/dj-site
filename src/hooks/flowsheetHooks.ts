@@ -109,8 +109,18 @@ export const useShowControl = () => {
     // Only include `dj_name_override` when the caller actually wants to
     // override; the backend treats empty/whitespace as absent, but the
     // hook keeps the wire-shape clean either way.
-    const payload: { dj_id: string; dj_name_override?: string } = {
+    // `dj_name` is a display-only hint for the optimistic WhoIsLive / feed
+    // patch (so the public banner reads a real name, never "Live"); it's
+    // stripped from the request body in the joinShow query. Fall through the
+    // identity fields useRegistry exposes — a DJ without a registered handle
+    // still has a real_name. (#619, #621)
+    const payload: {
+      dj_id: string;
+      dj_name?: string;
+      dj_name_override?: string;
+    } = {
       dj_id: userData.id,
+      dj_name: djNameOverride ?? userData.dj_name ?? userData.real_name,
     };
     if (djNameOverride !== undefined) {
       payload.dj_name_override = djNameOverride;
@@ -414,21 +424,61 @@ export const useFlowsheetPagination = () => {
 
 export const useQueue = () => {
   const { live, loading } = useShowControl();
+  const { loading: userloading, info: userData } = useRegistry();
   const dispatch = useAppDispatch();
 
   const queue = useAppSelector((state) => state.flowsheet.queue);
+
+  // A settled WhoIsLive read: a successful response that isn't mid-refetch.
+  // isLoading (behind useShowControl's `loading`) is true only on the first
+  // fetch, so it doesn't cover the invalidate→refetch gaps (e.g. an
+  // optimistic-miss during go-live) where WhoIsLive momentarily reads
+  // off-air; isFetching does. (#644)
+  const { whoIsLiveSettled } = useWhoIsLiveQuery(undefined, {
+    skip: !userData || userloading,
+    pollingInterval: 60000,
+    selectFromResult: ({ isSuccess, isFetching }) => ({
+      whoIsLiveSettled: isSuccess && !isFetching,
+    }),
+  });
 
   // Load queue from localStorage on mount
   useEffect(() => {
     dispatch(flowsheetSlice.actions.loadQueue());
   }, [dispatch]); // Only run on mount
 
-  // Clear queue when user goes offline or is not live after loading completes
+  // True when the previous settled WhoIsLive read was also off-air. A single
+  // settled off-air read can be stale — right after joinShow fulfills, the
+  // invalidation refetch can land before the backend registers the DJ — so
+  // clearing requires two consecutive settled off-air reads. (#644)
+  const confirmedOffAir = useRef(false);
+  // Whether a signed-in user has been observed (drives the logout clear).
+  const hadUser = useRef(false);
+
+  // On logout the WhoIsLive subscription is skipped (and useRegistry reports
+  // loading whenever unauthenticated), so the settled gate below can never
+  // fire — clear directly on the signed-in → signed-out transition. (#644)
   useEffect(() => {
-    if (!loading && !live && queue.length > 0) {
+    if (userData) {
+      hadUser.current = true;
+      return;
+    }
+    if (hadUser.current) {
+      hadUser.current = false;
+      confirmedOffAir.current = false;
       dispatch(flowsheetSlice.actions.clearQueue());
     }
-  }, [live, loading, queue.length, dispatch]);
+  }, [userData, dispatch]);
+
+  // Clear the queue only when WhoIsLive has settled off-air twice in a row —
+  // never during a transient refetch or a single stale post-join read. (#644)
+  useEffect(() => {
+    if (!whoIsLiveSettled) return;
+    if (!live && confirmedOffAir.current && queue.length > 0) {
+      dispatch(flowsheetSlice.actions.clearQueue());
+    }
+    confirmedOffAir.current = !live;
+  }, [whoIsLiveSettled, live, queue.length, dispatch]);
 
   const addToQueue = useCallback(
     (entry: FlowsheetQuery) => {
@@ -539,7 +589,7 @@ export const useFlowsheetSubmit = () => {
         rotation_id: flowSheetRawQuery.rotation_id,
         rotation_bin: flowSheetRawQuery.rotation_bin,
         track_position: flowSheetRawQuery.track_position,
-        request: false,
+        request: flowSheetRawQuery.request,
       };
     } else {
       // User has selected a result from the search
@@ -553,7 +603,7 @@ export const useFlowsheetSubmit = () => {
         rotation_bin: selectedEntry.rotation_bin ?? undefined,
         rotation_id: selectedEntry.rotation_id ?? undefined,
         track_position: flowSheetRawQuery.track_position,
-        request: false,
+        request: flowSheetRawQuery.request,
       };
     }
   }, [selectedResult, selectedEntry, flowSheetRawQuery]);
