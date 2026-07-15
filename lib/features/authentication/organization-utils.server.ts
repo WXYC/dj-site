@@ -1,9 +1,9 @@
-import { serverAuthClient } from "./server-client";
+import { serverAuthClient, getServerAuthBaseURL } from "./server-client";
 import { normalizeRole, organizationRoleFromJwtToken } from "./organization-utils";
 import { WXYCRole } from "./types";
 
 async function fetchAuthJwtToken(cookieHeader?: string): Promise<string | null> {
-  const baseURL = process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "http://localhost:8082/auth";
+  const baseURL = getServerAuthBaseURL();
   try {
     const response = await fetch(`${baseURL}/token`, {
       method: "GET",
@@ -35,7 +35,7 @@ async function resolveOrganizationId(
   try {
     // Make direct HTTP request to better-auth API to get organization by slug
     // The client SDK's findOrganizationBySlug returns 404, so we'll use the API directly
-    const baseURL = process?.env?.NEXT_PUBLIC_BETTER_AUTH_URL || "https://api.wxyc.org/auth";
+    const baseURL = getServerAuthBaseURL();
     const response = await fetch(`${baseURL}/organization/get-full-organization?organizationSlug=${encodeURIComponent(organizationSlugOrId)}`, {
       method: 'GET',
       headers: cookieHeader ? {
@@ -68,8 +68,9 @@ async function resolveOrganizationId(
     return organizationSlugOrId;
   } catch (error) {
     console.error("Exception resolving organization ID from slug:", error);
-    // If slug resolution fails, assume it might already be an ID
-    return organizationSlugOrId;
+    // A transient failure resolving the slug must not be treated as an ID:
+    // returning the slug as a UUID silently downgrades the user to NO authority.
+    return undefined;
   }
 }
 

@@ -59,22 +59,24 @@ async function resolveOrganizationIdClient(
       },
     });
 
-    if (orgResult.error || !orgResult.data?.id) {
-      // If slug lookup fails, assume it might already be an ID
-      // Return it as-is (will be validated when we try to use it)
-      return organizationSlugOrId;
+    if (orgResult.error) {
+      // A slug lookup that errors must not be treated as an ID: returning the
+      // slug as a UUID silently downgrades the user to NO authority.
+      console.error("Failed to resolve organization slug:", orgResult.error);
+      return undefined;
     }
 
     if (orgResult.data?.id) {
       return orgResult.data.id;
     }
 
-    // If no organization found by slug, assume it's already an ID
+    // No error and no id: assume the input is already an organization ID.
     return organizationSlugOrId;
   } catch (error) {
     console.error("Exception resolving organization ID from slug:", error);
-    // If slug resolution fails, assume it might already be an ID
-    return organizationSlugOrId;
+    // A transient failure resolving the slug must not be treated as an ID:
+    // returning the slug as a UUID silently downgrades the user to NO authority.
+    return undefined;
   }
 }
 

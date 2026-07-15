@@ -5,7 +5,7 @@ const authDir = path.join(__dirname, "..", "..", ".auth");
 const DJ_STORAGE = path.join(authDir, "dj2.json");
 
 /**
- * Regression test for `lib/features/authentication/server-client.ts:getBaseURL()`.
+ * Regression test for `lib/features/authentication/server-client.ts:getServerAuthBaseURL()`.
  *
  * Bug (surfaced 2026-05-26 live-updates staging bring-up): in container
  * deployments where the auth service is reachable from the host at
@@ -27,7 +27,7 @@ const DJ_STORAGE = path.join(authDir, "dj2.json");
  *   Simulated:  `127.0.0.99:9999` has no listener; auth lives at
  *               `http://localhost:8084/auth`.
  *
- * In both cases the question is the same: does `getBaseURL()` prefer
+ * In both cases the question is the same: does `getServerAuthBaseURL()` prefer
  * `AUTH_REWRITE_URL` over `NEXT_PUBLIC_BETTER_AUTH_URL`? With the fix:
  * yes -> SSR session fetch succeeds -> dashboard renders. Without the fix:
  * no -> session=null -> redirect to /login.
