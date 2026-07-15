@@ -82,7 +82,11 @@ const MobileEntry = memo(function MobileEntry({
           textColor="text.tertiary"
           sx={{ flexShrink: 0 }}
         >
-          <DateTimeStack day={p.time.day} time={p.time.time} />
+          <DateTimeStack
+            day={p.time.day}
+            time={p.time.time}
+            isToday={p.time.isToday}
+          />
         </Typography>
       )}
       {removable && <RemoveButton queue={false} entry={entry} />}

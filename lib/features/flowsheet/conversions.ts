@@ -73,28 +73,49 @@ export function convertDJsOnAir(
 
 // V2 conversion functions
 
-function parseTimestamp(timestamp: string): { day: string; time: string } {
+// Whether an "M/D/YYYY" display day is today. The comparison is done here,
+// against a today string built the same way, rather than by re-parsing the
+// display string with `new Date(day)` downstream — non-ISO date parsing is
+// implementation-defined and Safari returns `Invalid Date` for "M/D/YYYY",
+// which made the old DateTimeStack is-today check false-negative and always
+// render the date label. (dj-site#622)
+function isTodayDisplayDay(day: string): boolean {
+  const now = new Date();
+  return day === `${now.getMonth() + 1}/${now.getDate()}/${now.getFullYear()}`;
+}
+
+function parseTimestamp(timestamp: string): {
+  day: string;
+  time: string;
+  isToday: boolean;
+} {
   if (!timestamp) {
-    return { day: "Unknown", time: "Unknown" };
+    return { day: "Unknown", time: "Unknown", isToday: false };
   }
   const commaIndex = timestamp.indexOf(",");
   if (commaIndex === -1) {
-    return { day: "Unknown", time: "Unknown" };
+    return { day: "Unknown", time: "Unknown", isToday: false };
   }
+  const day = timestamp.substring(0, commaIndex).trim();
   return {
-    day: timestamp.substring(0, commaIndex).trim(),
+    day,
     time: timestamp.substring(commaIndex + 1).trim(),
+    isToday: isTodayDisplayDay(day),
   };
 }
 
-function formatAddTime(isoString: string): { day: string; time: string } {
+function formatAddTime(isoString: string): {
+  day: string;
+  time: string;
+  isToday: boolean;
+} {
   const date = new Date(isoString);
   const day = `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
   const h = date.getHours() % 12 || 12;
   const m = date.getMinutes().toString().padStart(2, "0");
   const s = date.getSeconds().toString().padStart(2, "0");
   const ampm = date.getHours() >= 12 ? "PM" : "AM";
-  return { day, time: `${h}:${m}:${s} ${ampm}` };
+  return { day, time: `${h}:${m}:${s} ${ampm}`, isToday: isTodayDisplayDay(day) };
 }
 
 export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
@@ -124,7 +145,7 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
       };
 
     case "show_start": {
-      const { day, time } =
+      const { day, time, isToday } =
         entry.timestamp !== undefined
           ? parseTimestamp(entry.timestamp)
           : formatAddTime(entry.add_time);
@@ -134,11 +155,12 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
         isStart: true,
         day,
         time,
+        isToday,
       };
     }
 
     case "show_end": {
-      const { day, time } =
+      const { day, time, isToday } =
         entry.timestamp !== undefined
           ? parseTimestamp(entry.timestamp)
           : formatAddTime(entry.add_time);
@@ -148,38 +170,42 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
         isStart: false,
         day,
         time,
+        isToday,
       };
     }
 
     case "dj_join": {
-      const { day, time } = formatAddTime(entry.add_time);
+      const { day, time, isToday } = formatAddTime(entry.add_time);
       return {
         ...base,
         dj_name: entry.dj_name,
         isStart: true,
         day,
         time,
+        isToday,
       };
     }
 
     case "dj_leave": {
-      const { day, time } = formatAddTime(entry.add_time);
+      const { day, time, isToday } = formatAddTime(entry.add_time);
       return {
         ...base,
         dj_name: entry.dj_name,
         isStart: false,
         day,
         time,
+        isToday,
       };
     }
 
     case "breakpoint": {
-      const { day, time } = formatAddTime(entry.add_time);
+      const { day, time, isToday } = formatAddTime(entry.add_time);
       return {
         ...base,
         message: entry.message || "",
         day,
         time,
+        isToday,
       };
     }
 
