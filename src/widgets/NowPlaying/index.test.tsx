@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen } from "@testing-library/react";
+import { StrictMode } from "react";
 import { renderWithProviders as render } from "@/lib/test-utils";
 import NowPlaying from "./index";
 import type {
@@ -31,11 +32,13 @@ vi.mock("./Main", () => ({
     live,
     onAirDJ,
     loading,
+    audioContext,
   }: {
     entry?: any;
     live: boolean;
     onAirDJ?: string;
     loading?: boolean;
+    audioContext?: AudioContext | null;
   }) => (
     <div
       data-testid="now-playing-main"
@@ -44,6 +47,7 @@ vi.mock("./Main", () => ({
       data-live={live}
       data-on-air-dj={onAirDJ || ""}
       data-loading={loading}
+      data-has-audio-context={audioContext != null}
     />
   ),
 }));
@@ -336,11 +340,60 @@ describe("NowPlaying", () => {
     });
   });
 
-  describe("API polling", () => {
-    it("should call useGetNowPlayingQuery with pollingInterval", () => {
+  describe("Web Audio lifecycle (#634)", () => {
+    // A minimal fake Web Audio graph so the init effect runs in jsdom (which
+    // has no AudioContext). createMediaElementSource is the once-per-element
+    // call the double-mount guard must protect.
+    let createMediaElementSource: ReturnType<typeof vi.fn>;
+
+    function installFakeAudio() {
+      createMediaElementSource = vi.fn(() => ({ connect: vi.fn() }));
+      class FakeAudioContext {
+        destination = {};
+        createAnalyser = vi.fn(() => ({ fftSize: 0, connect: vi.fn() }));
+        createMediaElementSource = createMediaElementSource;
+        resume = vi.fn();
+        close = vi.fn(() => Promise.resolve());
+      }
+      vi.stubGlobal("AudioContext", FakeAudioContext);
+    }
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("promotes the AudioContext to state so children re-render with it", () => {
+      installFakeAudio();
       render(<NowPlaying mini={false} />);
+      // Refs wouldn't have triggered this re-render; state does.
+      expect(screen.getByTestId("now-playing-main")).toHaveAttribute(
+        "data-has-audio-context",
+        "true"
+      );
+    });
+
+    it("calls createMediaElementSource once under a Strict Mode double mount", () => {
+      installFakeAudio();
+      // Strict Mode double-invokes the init effect on the SAME audio element;
+      // the WeakMap cache must make the second invocation reuse the graph
+      // instead of calling createMediaElementSource again (which would throw
+      // InvalidStateError and leave a silently dead analyser).
+      render(
+        <StrictMode>
+          <NowPlaying mini={false} />
+        </StrictMode>
+      );
+      expect(createMediaElementSource).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("API polling", () => {
+    it("should call useGetNowPlayingQuery with pollingInterval and skip when unfocused", () => {
+      render(<NowPlaying mini={false} />);
+      // skipPollingIfUnfocused pauses the 60s poll on a hidden/blurred tab. (#634)
       expect(mockUseGetNowPlayingQuery).toHaveBeenCalledWith(undefined, {
         pollingInterval: 60000,
+        skipPollingIfUnfocused: true,
       });
     });
   });
