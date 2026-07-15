@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
-import { renderWithProviders } from "@/lib/test-utils";
+import { MOCK_USERS, renderWithProviders } from "@/lib/test-utils";
 import { makeStore } from "@/lib/store";
 import { adminSlice } from "@/lib/features/admin/frontend";
 import { Authorization } from "@/lib/features/admin/types";
@@ -28,8 +28,8 @@ vi.mock("sonner", () => ({
 }));
 
 const adminUser = {
-  username: "sm-admin",
-  email: "sm@wxyc.org",
+  username: MOCK_USERS.stationManager.username,
+  email: MOCK_USERS.stationManager.email,
   authority: Authorization.SM,
 } as User;
 
@@ -51,7 +51,7 @@ describe("RosterTable", () => {
   it("preserves the search filter and page after a successful add", async () => {
     const store = makeStore();
     // Order matters: setSearchString resets page to 0, so page is set after.
-    store.dispatch(adminSlice.actions.setSearchString("smith"));
+    store.dispatch(adminSlice.actions.setSearchString("Test DJ"));
     store.dispatch(adminSlice.actions.setPage(2));
     store.dispatch(adminSlice.actions.setAdding(true));
 
@@ -60,9 +60,18 @@ describe("RosterTable", () => {
       { store }
     );
 
-    await user.type(screen.getByPlaceholderText("Name"), "Sam Smith");
-    await user.type(screen.getByPlaceholderText("Username"), "ssmith");
-    await user.type(screen.getByPlaceholderText("Email"), "ssmith@wxyc.org");
+    await user.type(
+      screen.getByPlaceholderText("Name"),
+      MOCK_USERS.dj1.realName
+    );
+    await user.type(
+      screen.getByPlaceholderText("Username"),
+      MOCK_USERS.dj1.username
+    );
+    await user.type(
+      screen.getByPlaceholderText("Email"),
+      MOCK_USERS.dj1.email
+    );
 
     await user.click(screen.getByRole("button", { name: /Save/i }));
 
@@ -72,7 +81,9 @@ describe("RosterTable", () => {
     );
 
     // …but the search + page context is untouched.
-    expect(adminSlice.selectors.getSearchString(store.getState())).toBe("smith");
+    expect(adminSlice.selectors.getSearchString(store.getState())).toBe(
+      "Test DJ"
+    );
     expect(adminSlice.selectors.getPage(store.getState())).toBe(2);
   });
 });

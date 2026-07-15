@@ -5,7 +5,7 @@ import { AccountModification } from "@/lib/features/authentication/types";
 import { authClient } from "@/lib/features/authentication/client";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { useRegistry } from "./authenticationHooks";
 import { throwIfBetterAuthError } from "@/src/utilities/throwIfBetterAuthError";
@@ -23,16 +23,11 @@ export function useDJAccount() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateError, setUpdateError] = useState<Error | null>(null);
 
-  // Reset only on the isUpdating true→false transition (post-save cleanup).
-  // A mount-time reset would wipe modifications set by sibling fields that
-  // rendered earlier, producing an empty save payload (#636).
-  const wasUpdating = useRef(false);
-  useEffect(() => {
-    if (wasUpdating.current && !isUpdating) {
-      dispatch(authenticationSlice.actions.resetModifications());
-    }
-    wasUpdating.current = isUpdating;
-  }, [isUpdating, dispatch]);
+  // No mount-time or transition-driven resetModifications here: a mount-time
+  // reset would wipe modifications set by sibling fields that rendered
+  // earlier (#636), and a reset keyed off isUpdating falling would also fire
+  // after a FAILED save, greying out Save while the user's text still sits in
+  // the inputs. The reset is dispatched inside handleSaveData, on success only.
 
   const handleSaveData = useCallback(
     async (e: React.FormEvent<HTMLFormElement>) => {
@@ -48,22 +43,37 @@ export function useDJAccount() {
 
         let data: AccountModification = {};
 
-        // realName / djName / email are required identity fields: an empty
-        // submission for these is dropped so the prior value is kept. Every
-        // other profile field is clearable — an empty string is a deliberate
-        // clear and must reach updateData (#609).
+        // realName / djName are required identity fields: an empty submission
+        // for these is dropped so the prior value is kept. email never reaches
+        // this loop (the settings email input is disabled and unnamed; changes
+        // go through EmailChangeModal) — listed defensively only. Every other
+        // profile field is clearable — an empty string is a deliberate clear
+        // and must reach updateData (#609).
         const nonClearableFields: (keyof AccountModification)[] = [
           "realName",
           "djName",
           "email",
         ];
+        const droppedClears: (keyof AccountModification)[] = [];
 
         for (const [key, value] of formData.entries()) {
           const field = key as keyof AccountModification;
           if (!modifications.some((name) => name == field)) continue;
           const stringValue = value as string;
-          if (stringValue === "" && nonClearableFields.includes(field)) continue;
+          if (stringValue === "" && nonClearableFields.includes(field)) {
+            droppedClears.push(field);
+            continue;
+          }
           data[field] = stringValue;
+        }
+
+        if (droppedClears.length > 0) {
+          // A silently kept previous value would look like a successful clear.
+          // Say so, and leave the modify flags alone so Save stays enabled for
+          // the user to fix and resubmit.
+          toast.error(
+            "Real name and DJ name can't be empty — keeping the previous value."
+          );
         }
 
         if (Object.keys(data).length > 0) {
@@ -97,7 +107,14 @@ export function useDJAccount() {
 
             throwIfBetterAuthError(result, "Failed to update user");
 
-            // Update successful
+            // Update successful. Reset the modify flags only now, on a
+            // confirmed save — never after a failure, which must keep Save
+            // enabled for a retry. When a required clear was dropped above,
+            // keep the flags too: those fields still need fixing and
+            // resubmitting.
+            if (droppedClears.length === 0) {
+              dispatch(authenticationSlice.actions.resetModifications());
+            }
             toast.success("User settings saved.");
             router.refresh();
           }
@@ -112,7 +129,7 @@ export function useDJAccount() {
         setIsUpdating(false);
       }
     },
-    [modifications]
+    [modifications, dispatch]
   );
 
   return {
