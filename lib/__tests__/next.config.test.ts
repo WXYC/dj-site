@@ -116,6 +116,8 @@ describe("next.config", () => {
       const dashboard = redirects.find((r) => r.source === "/dashboard");
 
       expect(dashboard?.destination).toBe("/dashboard/flowsheet");
+    });
+  });
 
   describe("security headers (#631)", () => {
     it("applies the security header set to all paths", async () => {
