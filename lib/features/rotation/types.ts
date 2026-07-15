@@ -11,11 +11,6 @@ export type RotationFrontendState = {
   orderDirection: "asc" | "desc";
 };
 
-export type RotationParams = {
-  album_id: string;
-  rotation_bin: Rotation;
-};
-
 export type KillRotationParams = {
   rotation_id: number;
   kill_date: Date | undefined;
