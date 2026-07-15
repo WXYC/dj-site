@@ -102,14 +102,13 @@ export function useThemePreferenceSync() {
   const { mode, setMode } = useColorScheme();
   const { themeId: paintedThemeId, setThemeId } = useModernTheme();
   const { persistPreference } = useThemePreferenceActions();
-  const hasSyncedRef = useRef(false);
   // Live mirror of the color mode: reads after an await must observe a user's
   // mid-sync toggle, not the value captured when the effect first ran (#611).
   const modeRef = useRef(mode);
   modeRef.current = mode;
   // Set only when the component actually unmounts (empty-dep cleanup), so a
-  // mere dep change — e.g. the session's appSkin arriving — does not abort the
-  // one sync the synchronous guard below already committed to (#611).
+  // mere dep change — e.g. the session's appSkin arriving — does not abort a
+  // sync the synchronous guard below already committed to (#611).
   const unmountedRef = useRef(false);
   useEffect(() => {
     unmountedRef.current = false;
@@ -118,20 +117,43 @@ export function useThemePreferenceSync() {
     };
   }, []);
 
+  // Track WHAT was synced, not just that a sync ran: on cold loads the
+  // better-auth session resolves asynchronously, so the account's
+  // authoritative appSkin often arrives AFTER the first sync completed from
+  // local state — it must still apply (#611 follow-up). Each claimed sync
+  // records the session appSkin it saw; a later effect run re-syncs only when
+  // that value changed (undefined → value counts as a change). Syncs are
+  // chained onto one promise so a re-sync can never run concurrently with an
+  // in-flight sync, and a re-sync resolving to the canonical preference an
+  // earlier sync already applied is a no-op.
+  const hasSyncedRef = useRef(false);
+  const lastClaimedAppSkinRef = useRef<unknown>(undefined);
+  const lastAppliedCanonicalRef = useRef<AppSkinPreference | null>(null);
+  const syncChainRef = useRef<Promise<void>>(Promise.resolve());
+
+  const sessionAppSkin = (session?.user as any)?.appSkin;
+
   useEffect(() => {
-    if (hasSyncedRef.current || !mode) return;
+    if (!mode) return;
+    if (
+      hasSyncedRef.current &&
+      lastClaimedAppSkinRef.current === sessionAppSkin
+    ) {
+      return;
+    }
 
     // Claim the sync synchronously. A dep change (most commonly the session's
     // appSkin resolving mid-fetch) re-fires this effect; without claiming the
     // guard up front a second sync() would race the first and call
     // setMode/setThemeId/persistPreference out of order (#611).
     hasSyncedRef.current = true;
+    lastClaimedAppSkinRef.current = sessionAppSkin;
     const modeAtSyncStart = mode;
 
     const sync = async () => {
       // Resolve a preference from the first available source, in priority order.
       let parsed: ParsedAppSkin | null =
-        parseAppSkinPreference((session?.user as any)?.appSkin) ??
+        parseAppSkinPreference(sessionAppSkin) ??
         parseAppSkinPreference(readLocalPreference());
 
       if (!parsed) {
@@ -141,6 +163,13 @@ export function useThemePreferenceSync() {
       }
 
       if (!parsed) {
+        return;
+      }
+
+      // Already reconciled: a re-sync (late-arriving account appSkin) that
+      // resolves to what an earlier sync applied has nothing to do — and must
+      // not re-persist or trigger another reload check.
+      if (parsed.canonical === lastAppliedCanonicalRef.current) {
         return;
       }
 
@@ -156,6 +185,8 @@ export function useThemePreferenceSync() {
       if (parsed.experience === "modern") {
         setThemeId(parsed.themeId);
       }
+
+      lastAppliedCanonicalRef.current = parsed.canonical;
 
       // Self-heal: persist the canonical form everywhere, and push it to the
       // backend user record only when the stored value drifted (legacy 2-part
@@ -193,8 +224,13 @@ export function useThemePreferenceSync() {
       }
     };
 
-    sync();
-  }, [mode, persistPreference, (session?.user as any)?.appSkin, setMode, setThemeId, paintedThemeId]);
+    // Serialize: queue behind any in-flight sync so two syncs never interleave.
+    // Catch so one failed sync can't wedge the chain (or surface as an
+    // unhandled rejection) and block every later re-sync.
+    syncChainRef.current = syncChainRef.current.then(sync).catch((error) => {
+      console.error("Theme preference sync failed:", error);
+    });
+  }, [mode, persistPreference, sessionAppSkin, setMode, setThemeId, paintedThemeId]);
 }
 
 export function buildPreference(
