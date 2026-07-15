@@ -2,20 +2,12 @@
 
 import { DateTimeEntry } from "@/lib/features/flowsheet/types";
 import { Stack, Typography } from "@mui/joy";
-import { useEffect, useState } from "react";
 
-export default function DateTimeStack({ day, time }: DateTimeEntry) {
-  const [isToday, setIsToday] = useState(false);
-  useEffect(() => {
-    const today = new Date();
-    const entryDate = new Date(day);
-    setIsToday(
-      today.getFullYear() === entryDate.getFullYear() &&
-        today.getMonth() === entryDate.getMonth() &&
-        today.getDate() === entryDate.getDate()
-    );
-  }, [day]);
-
+// `isToday` is computed upstream in formatAddTime/parseTimestamp where the real
+// Date is in scope. This component must NOT re-derive it via `new Date(day)`:
+// `day` is a "M/D/YYYY" display string, and non-ISO Date parsing is Safari-
+// dependent (Invalid Date), which false-negatived the old check. (dj-site#622)
+export default function DateTimeStack({ day, time, isToday }: DateTimeEntry) {
   return (
     <Stack direction="column">
       <Typography
