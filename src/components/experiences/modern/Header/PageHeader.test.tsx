@@ -1,15 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import PageHeader from "./PageHeader";
-
-// Mock PageData component
-vi.mock("@/src/Layout/PageData", () => ({
-  default: ({ title }: { title: string }) => (
-    <div data-testid="page-data" data-title={title}>
-      PageData
-    </div>
-  ),
-}));
+import { getPageTitle } from "@/lib/utils/page-title";
 
 describe("PageHeader", () => {
   beforeEach(() => {
@@ -61,22 +53,19 @@ describe("PageHeader", () => {
     });
   });
 
-  describe("PageData Integration", () => {
-    it("should render PageData component with title", () => {
+  describe("Document Title", () => {
+    it("should set the document title with the site prefix on render", () => {
       render(<PageHeader title="Dashboard" />);
 
-      const pageData = screen.getByTestId("page-data");
-      expect(pageData).toBeInTheDocument();
-      expect(pageData).toHaveAttribute("data-title", "Dashboard");
+      expect(document.title).toBe(getPageTitle("Dashboard"));
     });
 
-    it("should pass title prop to PageData", () => {
-      render(<PageHeader title="My Custom Page" />);
+    it("should update the document title when the title prop changes", () => {
+      const { rerender } = render(<PageHeader title="My Custom Page" />);
+      expect(document.title).toBe(getPageTitle("My Custom Page"));
 
-      expect(screen.getByTestId("page-data")).toHaveAttribute(
-        "data-title",
-        "My Custom Page"
-      );
+      rerender(<PageHeader title="Another Page" />);
+      expect(document.title).toBe(getPageTitle("Another Page"));
     });
   });
 
@@ -259,16 +248,6 @@ describe("PageHeader", () => {
     });
   });
 
-  describe("Fragment Wrapper", () => {
-    it("should render PageData and Box inside a fragment", () => {
-      const { container } = render(<PageHeader title="Dashboard" />);
-
-      // Should have both PageData and Box as children
-      expect(screen.getByTestId("page-data")).toBeInTheDocument();
-      expect(document.querySelector(".MuiBox-root")).toBeInTheDocument();
-    });
-  });
-
   describe("Common Page Titles", () => {
     const commonTitles = [
       "Catalog",
@@ -285,10 +264,7 @@ describe("PageHeader", () => {
         render(<PageHeader title={title} />);
 
         expect(screen.getByRole("heading")).toHaveTextContent(title);
-        expect(screen.getByTestId("page-data")).toHaveAttribute(
-          "data-title",
-          title
-        );
+        expect(document.title).toBe(getPageTitle(title));
       });
     });
   });

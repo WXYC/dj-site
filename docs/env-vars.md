@@ -5,7 +5,9 @@ Copy `.env.example` to `.env.local`. Defaults:
 ```bash
 NEXT_PUBLIC_BACKEND_URL=http://localhost:8080
 NEXT_PUBLIC_BETTER_AUTH_URL=http://localhost:8082/auth
-NEXT_PUBLIC_DASHBOARD_HOME_PAGE=/dashboard/flowsheet
+# Post-auth landing page. When unset, every entry point falls back to
+# DEFAULT_DASHBOARD_HOME_PAGE in lib/features/application/constants.ts.
+NEXT_PUBLIC_DASHBOARD_HOME_PAGE=/dashboard/catalog
 NEXT_PUBLIC_DEFAULT_EXPERIENCE=modern
 NEXT_PUBLIC_ENABLED_EXPERIENCES=modern,classic
 NEXT_PUBLIC_ALLOW_EXPERIENCE_SWITCHING=true

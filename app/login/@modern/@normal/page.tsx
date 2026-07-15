@@ -5,9 +5,10 @@ import {
 } from "@/lib/features/authentication/server-utils";
 import { getOidcRedirectTarget } from "@/src/utilities/oidcRedirectTarget";
 import LoginFormSwitcher from "@/src/components/experiences/modern/login/Forms/LoginFormSwitcher";
+import { DEFAULT_DASHBOARD_HOME_PAGE } from "@/lib/features/application/constants";
 
 const DASHBOARD_HOME_PAGE =
-  process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog";
+  process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || DEFAULT_DASHBOARD_HOME_PAGE;
 
 /**
  * The @normal slot renders for every /login visit — its output is passed to the

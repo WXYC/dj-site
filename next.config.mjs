@@ -29,8 +29,12 @@ const nextConfig = {
         // children slot, so app/dashboard/page.tsx's redirect() never fires.
         // Handle it here instead.
         source: "/dashboard",
+        // MUST MATCH DEFAULT_DASHBOARD_HOME_PAGE in
+        // lib/features/application/constants.ts. This file is plain ESM loaded
+        // by the Next build and cannot import the TypeScript constant, so the
+        // literal is duplicated here under this comment — change both together.
         destination:
-          process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/flowsheet",
+          process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog",
         permanent: false,
       },
     ];
