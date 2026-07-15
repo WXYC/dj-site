@@ -101,11 +101,32 @@ const lightningBoltOoioo = createTestAlbum({
   rotation_bin: "H",
 });
 
-const selectBinAndRelease = () => {
+// Genuine V/A compilation — the shape where per-track Discogs credits ARE
+// the performing artist and the auto-fill must keep working (#518/#520).
+const tobaccoAGoGo = createTestAlbum({
+  id: 9,
+  title: "Tobacco A-Go-Go",
+  artist: createTestArtist({ name: "Various Artists" }),
+  rotation_id: 44,
+  rotation_bin: "H",
+});
+
+// The #763 report shape: normal release whose Discogs per-track credits are
+// contributor roles, not performers (rotation_id 21462 from Bb's repro).
+const foxbaseAlpha = createTestAlbum({
+  id: 10,
+  title: "Foxbase Alpha",
+  artist: createTestArtist({ name: "Saint Etienne" }),
+  label: "Heavenly",
+  rotation_id: 21462,
+  rotation_bin: "H",
+});
+
+const selectBinAndRelease = (release = lightningBoltOoioo) => {
   fireEvent.click(screen.getByRole("radio", { name: "H" }));
   fireEvent.focus(screen.getByTestId("rotation-release-combobox"));
   fireEvent.click(
-    screen.getByTestId(`rotation-release-option-${lightningBoltOoioo.id}`)
+    screen.getByTestId(`rotation-release-option-${release.id}`)
   );
 };
 
@@ -118,7 +139,7 @@ describe("RotationEntryFields", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSearchQuery = { artist: "", song: "", album: "", label: "" };
-    mockRotationData = [lightningBoltOoioo];
+    mockRotationData = [lightningBoltOoioo, tobaccoAGoGo, foxbaseAlpha];
     mockTracksData = undefined;
     mockTracksLoading = false;
   });
@@ -188,11 +209,12 @@ describe("RotationEntryFields", () => {
 
   describe("track-selection artist auto-fill", () => {
     // When a DJ picks a track from the dropdown, we override the artist that
-    // handleSelectRelease seeded iff the per-track Discogs credits (surfaced
-    // by BS#944) carry artist names. This covers V/A and split releases
-    // without any new UI. For normal releases BS falls back to
-    // [release.artist] so the value is identical to what handleSelectRelease
-    // already set; the override is functionally a no-op.
+    // handleSelectRelease seeded iff the release is credited as a
+    // compilation/V/A (album_artist populated, or a V/A-shaped artist name)
+    // AND the per-track Discogs credits (surfaced by BS#944) carry artist
+    // names. On normal releases Discogs per-track credits are contributor
+    // roles (producer, co-writer, sample) — trusting them corrupted the
+    // flowsheet write and the tubafrenzy mirror's rotation badging (#763).
     //
     // Test invariant: spy on `store.dispatch` *before* any clicks. react-redux's
     // useDispatch captures the dispatch reference at mount time, so spying
@@ -219,12 +241,13 @@ describe("RotationEntryFields", () => {
 
       const { store } = renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
       const dispatchSpy = vi.spyOn(store, "dispatch");
-      selectBinAndRelease();
+      selectBinAndRelease(tobaccoAGoGo);
       selectTrack(0);
 
-      // Release select dispatches artist=OOIOO; track select with empty
-      // credits must not dispatch any further artist value.
-      expect(artistValues(dispatchSpy)).toEqual(["OOIOO"]);
+      // Release select dispatches artist=Various Artists; track select with
+      // empty credits must not dispatch any further artist value even though
+      // the release qualifies for the override.
+      expect(artistValues(dispatchSpy)).toEqual(["Various Artists"]);
     });
 
     it("sets artist to track's single per-track credit on V/A releases", () => {
@@ -239,7 +262,7 @@ describe("RotationEntryFields", () => {
 
       const { store } = renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
       const dispatchSpy = vi.spyOn(store, "dispatch");
-      selectBinAndRelease();
+      selectBinAndRelease(tobaccoAGoGo);
       selectTrack(0);
 
       expect(dispatchSpy).toHaveBeenCalledWith(
@@ -262,7 +285,7 @@ describe("RotationEntryFields", () => {
 
       const { store } = renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
       const dispatchSpy = vi.spyOn(store, "dispatch");
-      selectBinAndRelease();
+      selectBinAndRelease(tobaccoAGoGo);
       selectTrack(0);
 
       expect(dispatchSpy).toHaveBeenCalledWith(
@@ -271,6 +294,94 @@ describe("RotationEntryFields", () => {
           value: "Skull Mitten, Various Drummers",
         })
       );
+    });
+
+    it("#763: does not overwrite the release artist with contributor credits on a normal release", () => {
+      // Bb's repro: "Glad" off Foxbase Alpha carries a Discogs contributor
+      // credit. Pre-fix, that name replaced "Saint Etienne" in the flowsheet
+      // write, and the tubafrenzy mirror then failed to badge the play as
+      // rotation on wxyc.info.
+      mockTracksData = [
+        {
+          position: "A2",
+          title: "Glad",
+          duration: null,
+          artists: ["Ian Catt"],
+        },
+      ];
+
+      const { store } = renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
+      const dispatchSpy = vi.spyOn(store, "dispatch");
+      selectBinAndRelease(foxbaseAlpha);
+      selectTrack(0);
+
+      expect(artistValues(dispatchSpy)).toEqual(["Saint Etienne"]);
+      // The track title itself must still auto-fill.
+      expect(dispatchSpy).toHaveBeenCalledWith(
+        flowsheetSlice.actions.setSearchProperty({ name: "song", value: "Glad" })
+      );
+    });
+
+    it("overwrites via the album_artist compilation signal even when the artist name isn't V/A-shaped", () => {
+      // A compilation can be filed under a credited album artist (the
+      // api.yaml example: a DJ-Kicks filed under "Kruder & Dorfmeister").
+      // NOTE: BS's GET /library/rotation does not currently emit
+      // album_artist (getRotationFromDB omits the column), so on today's
+      // rotation wire this arm is only reachable via catalog-sourced
+      // entries; this test pins the component contract for when BS wires
+      // it through.
+      const djKicks = createTestAlbum({
+        id: 11,
+        title: "DJ-Kicks",
+        artist: createTestArtist({ name: "Kruder & Dorfmeister" }),
+        album_artist: "Kruder & Dorfmeister",
+        rotation_id: 45,
+        rotation_bin: "H",
+      });
+      mockRotationData = [djKicks];
+      mockTracksData = [
+        {
+          position: "A1",
+          title: "Donaueschingen",
+          duration: null,
+          artists: ["Rockers Hi-Fi"],
+        },
+      ];
+
+      const { store } = renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
+      const dispatchSpy = vi.spyOn(store, "dispatch");
+      selectBinAndRelease(djKicks);
+      selectTrack(0);
+
+      expect(artistValues(dispatchSpy)).toEqual([
+        "Kruder & Dorfmeister",
+        "Rockers Hi-Fi",
+      ]);
+    });
+
+    it("known gap: split releases filed under a band name keep the release artist", () => {
+      // Accepted limitation of the V/A-whitelist heuristic (#763 decision):
+      // a split whose release artist is one of the performers (not a V/A
+      // string) no longer gets per-track credit auto-fill. Restoring this
+      // requires the planned BS compilation/split hint on RotationTrack;
+      // until then the DJ edits the artist by hand for the other side's
+      // tracks — strictly better than silently writing contributor credits
+      // on every normal release.
+      mockTracksData = [
+        {
+          position: "B1",
+          title: "13 Monsters",
+          duration: null,
+          artists: ["Lightning Bolt"],
+        },
+      ];
+
+      const { store } = renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
+      const dispatchSpy = vi.spyOn(store, "dispatch");
+      selectBinAndRelease(lightningBoltOoioo);
+      selectTrack(0);
+
+      expect(artistValues(dispatchSpy)).toEqual(["OOIOO"]);
     });
 
     it("dedupes doubled per-track credits before writing to the artist field", () => {
@@ -290,10 +401,10 @@ describe("RotationEntryFields", () => {
 
       const { store } = renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
       const dispatchSpy = vi.spyOn(store, "dispatch");
-      selectBinAndRelease();
+      selectBinAndRelease(tobaccoAGoGo);
       selectTrack(0);
 
-      expect(artistValues(dispatchSpy)).toEqual(["OOIOO", "Warrior"]);
+      expect(artistValues(dispatchSpy)).toEqual(["Various Artists", "Warrior"]);
     });
 
     it("strips Discogs (N) disambig before writing to the artist field", () => {
@@ -311,10 +422,10 @@ describe("RotationEntryFields", () => {
 
       const { store } = renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
       const dispatchSpy = vi.spyOn(store, "dispatch");
-      selectBinAndRelease();
+      selectBinAndRelease(tobaccoAGoGo);
       selectTrack(0);
 
-      expect(artistValues(dispatchSpy)).toEqual(["OOIOO", "M.I.A."]);
+      expect(artistValues(dispatchSpy)).toEqual(["Various Artists", "M.I.A."]);
     });
 
     it("falls back to the release-level artist when every per-track credit is malformed", () => {
@@ -333,10 +444,10 @@ describe("RotationEntryFields", () => {
 
       const { store } = renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
       const dispatchSpy = vi.spyOn(store, "dispatch");
-      selectBinAndRelease();
+      selectBinAndRelease(tobaccoAGoGo);
       selectTrack(0);
 
-      expect(artistValues(dispatchSpy)).toEqual(["OOIOO"]);
+      expect(artistValues(dispatchSpy)).toEqual(["Various Artists"]);
     });
   });
 });
