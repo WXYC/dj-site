@@ -18,6 +18,7 @@ import {
 } from "@/lib/features/authentication/types";
 import { betterAuthSessionToAuthenticationData, betterAuthSessionToAuthenticationDataAsync } from "@/lib/features/authentication/utilities";
 import { Authorization } from "@/lib/features/admin/types";
+import { DEFAULT_DASHBOARD_HOME_PAGE } from "@/lib/features/application/constants";
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useRouter, useSearchParams, type ReadonlyURLSearchParams } from "next/navigation";
@@ -122,7 +123,7 @@ async function redirectAfterAuth(
   oidcParams?: URLSearchParams | ReadonlyURLSearchParams,
 ): Promise<void> {
   const dashboardHome = String(
-    process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog",
+    process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || DEFAULT_DASHBOARD_HOME_PAGE,
   );
   // "incomplete" means we affirmatively KNOW onboarding isn't done: a present
   // user whose flag is false or absent (the latter is the #836 Bug B case). An

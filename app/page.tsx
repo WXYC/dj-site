@@ -6,6 +6,7 @@ import { Metadata } from "next";
 import { getPageTitle } from "@/lib/utils/page-title";
 import { getServerSession } from "@/lib/features/authentication/server-utils";
 import { redirect } from "next/navigation";
+import { DEFAULT_DASHBOARD_HOME_PAGE } from "@/lib/features/application/constants";
 
 export const metadata: Metadata = {
   title: getPageTitle("DJ Site"),
@@ -15,7 +16,7 @@ export default async function HomePage() {
   const session = await getServerSession();
   if (session) {
     redirect(
-      process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/flowsheet"
+      process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || DEFAULT_DASHBOARD_HOME_PAGE
     );
   }
   return (
