@@ -1,15 +1,21 @@
 import { defaultApplicationState } from "@/lib/features/application/types";
 import { isExperienceId } from "@/lib/features/experiences/types";
 import { sessionOptions } from "@/lib/features/session";
+import { guardAppStateMutation } from "@/lib/features/session-guards";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
+  const guardResponse = await guardAppStateMutation(request);
+  if (guardResponse) {
+    return guardResponse;
+  }
+
   const cookieStore = await cookies();
   const body = await request.json();
-  
+
   const requestedExperience = body.experience;
-  
+
   // Validate the experience
   if (!isExperienceId(requestedExperience)) {
     return NextResponse.json(
@@ -20,9 +26,14 @@ export async function POST(request: NextRequest) {
 
   // Get current state
   const data = cookieStore.get("app_state")?.value;
-  const currentState = data
-    ? { ...defaultApplicationState, ...JSON.parse(data) }
-    : defaultApplicationState;
+  let currentState = defaultApplicationState;
+  if (data) {
+    try {
+      currentState = { ...defaultApplicationState, ...JSON.parse(data) };
+    } catch (error) {
+      console.error("Failed to parse app_state", error);
+    }
+  }
   
   // Update with new experience
   const newState = {
