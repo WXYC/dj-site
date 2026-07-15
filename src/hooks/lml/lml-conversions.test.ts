@@ -103,10 +103,55 @@ describe("convertLmlItemToAlbumEntry", () => {
     expect(result.artist.genre).toBe("Unknown");
   });
 
-  it("should always set label to empty string", () => {
+  it("should default a missing label to empty string", () => {
     const item = createTestLmlLibraryItem();
     const result = convertLmlItemToAlbumEntry(item);
     expect(result.label).toBe("");
+  });
+
+  it("should pass the record label through (dj-site#605)", () => {
+    const item = createTestLmlLibraryItem({ label: "Sonamos" });
+    const result = convertLmlItemToAlbumEntry(item);
+    expect(result.label).toBe("Sonamos");
+  });
+
+  it("should default a null label to empty string", () => {
+    const item = createTestLmlLibraryItem({ label: null });
+    const result = convertLmlItemToAlbumEntry(item);
+    expect(result.label).toBe("");
+  });
+
+  it("should pass on_streaming:false through so the EXCLUSIVE chip renders (dj-site#605)", () => {
+    // The catalog/flowsheet result rows render the WXYC EXCLUSIVE chip on
+    // `on_streaming === false` (see SearchResults.tsx / Capsule.tsx). Dropping
+    // the field silently hid the chip on LML-sourced results.
+    const item = createTestLmlLibraryItem({ on_streaming: false });
+    const result = convertLmlItemToAlbumEntry(item);
+    expect(result.on_streaming).toBe(false);
+  });
+
+  it("should pass on_streaming:true through", () => {
+    const item = createTestLmlLibraryItem({ on_streaming: true });
+    const result = convertLmlItemToAlbumEntry(item);
+    expect(result.on_streaming).toBe(true);
+  });
+
+  it.each([[null], [undefined]])(
+    "should leave on_streaming undefined (not false) when the field is %s",
+    (value) => {
+      // A nullish on_streaming must NOT collapse to `false` — that would render
+      // a spurious EXCLUSIVE chip on releases whose streaming status is unknown.
+      const item = createTestLmlLibraryItem({ on_streaming: value });
+      const result = convertLmlItemToAlbumEntry(item);
+      expect(result.on_streaming).toBeUndefined();
+    },
+  );
+
+  it("should pass matched_via track-match hints through (dj-site#605)", () => {
+    const matched_via = [{ source: "cta", title: "La Verdad" }];
+    const item = createTestLmlLibraryItem({ matched_via });
+    const result = convertLmlItemToAlbumEntry(item);
+    expect(result.matched_via).toEqual(matched_via);
   });
 
   it("should always set rotation_bin, rotation_id, plays, and add_date to undefined", () => {

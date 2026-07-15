@@ -14,8 +14,8 @@ export const binApi = createApi({
       query: ({ dj_id }) => ({
         url: `/?dj_id=${dj_id}`,
       }),
-      transformResponse: (response: BinLibraryDetails[]) =>
-        response.map(convertToAlbumEntry),
+      transformResponse: (response: BinLibraryDetails[] | null) =>
+        response ? response.map(convertToAlbumEntry) : [],
       providesTags: ["Bin"],
     }),
     deleteFromBin: builder.mutation<void, BinMutationQuery>({

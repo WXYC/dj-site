@@ -10,35 +10,50 @@ function isSearchResult(
 
 // Stable synthetic id for rows whose canonical id is null/missing. The BS
 // catalog proxy returns `id: null` for LML-only and unlinked-rotation rows
-// (see dj-site#564 + Backend-Service#689); without this, multiple such rows in
-// the same list collapse to a single React key. The hash is deterministic
-// across renders and negated so it can't collide with real positive album ids.
+// (see dj-site#564 + Backend-Service#689); without a synthetic id, multiple
+// such rows in one list collapse to a single React key.
 //
-// Known follow-ups (out of scope for #691). Hash inputs are
-// (artist|album|label|letters|artist_num|num):
+// The id is derived from the row snapshot so it stays stable across renders
+// (React keys depend on it) and is negated so it can't collide with real
+// positive album ids. Hash inputs are the six catalog fields
+// (artist|album|label|letters|artist_num|num) PLUS `rotation_id` when present:
+// two rows with an IDENTICAL populated snapshot but different rotation_ids (the
+// rotation-picker variant of dj-site#626) would otherwise hash equal and share
+// a key.
 //
-//   1. dj-site#626 — same hash for all-null fields (joined to "|||||"). The
-//      related-but-not-identical case of two rows with IDENTICAL populated
-//      snapshots but different rotation_ids producing the same React key is
-//      a sibling defect with the same root cause; see scope-expansion
-//      comment on #626 for the rotation-picker variant.
-//   2. dj-site#608 — synthetic id leaks to the wire from bin operations
-//      (`lib/features/bin/conversions.ts:8,19`, `flowsheet/connections.ts:10`
-//      per the issue's Evidence section). The rotation-picker path through
-//      `setRotationMetadata` → `convertQueryToSubmission` is a sibling
-//      surface with the same root cause and same fix shape; see scope-
-//      expansion comment on #608. Backend-Service treats negative album_id
-//      as a present FK (`flowsheet.controller.ts:255` `if (body.album_id !=
-//      null)`), then `getAlbumFromDB(-X)` returns undefined and the next
-//      line `albumInfo.record_label = ...` throws TypeError (controller line
-//      ~260) before BS's FK-validation layer can return 4xx. The unlinked-
-//      row e2e test in `__tests__/features/catalog/conversions.test.ts` pins
-//      the current observed wire shape so any fix in either layer must
-//      update the assertion deliberately.
+// Determinism yields only for a genuinely contentless row — every snapshot
+// field null/empty AND no rotation_id (the all-null "|||||" case in #626).
+// There is nothing to hash deterministically there, so such rows fall back to a
+// per-call counter that guarantees distinct keys for the several blank rows a
+// single response can carry. The trade-off: an all-null row draws a fresh id on
+// each conversion and so remounts across renders — acceptable because the row
+// carries no identity to preserve.
+//
+// Known follow-up (out of scope): dj-site#608 — synthetic id leaks to the wire
+// from bin operations (`lib/features/bin/conversions.ts:8,19`,
+// `flowsheet/connections.ts:10`). Backend-Service treats a negative album_id as
+// a present FK (`flowsheet.controller.ts:255` `if (body.album_id != null)`),
+// then `getAlbumFromDB(-X)` returns undefined and the next line
+// `albumInfo.record_label = ...` throws TypeError (~line 260) before BS's
+// FK-validation can 4xx. The unlinked-row e2e in
+// `__tests__/features/catalog/conversions.test.ts` pins the current wire shape,
+// so a fix in either layer must update the assertion deliberately.
+
+// Contentless rows can't be distinguished by content. Their counter is placed
+// one below the 32-bit hash range: the hashed id is -(Math.abs(hash) || 1)
+// with hash coerced via `| 0`, and Math.abs(-2147483648) === 2147483648, so
+// the TRUE minimum hashed id is -(2**31) exactly. The base below must stay
+// strictly less than that — do not "simplify" it to -(2**31).
+const CONTENTLESS_ID_BASE = -(2 ** 31) - 1;
+let contentlessIdCounter = 0;
+function nextContentlessId(): number {
+  return CONTENTLESS_ID_BASE - contentlessIdCounter++;
+}
+
 function synthesizeAlbumId(
   response: AlbumSearchResultJSON | BinLibraryDetails
 ): number {
-  const key = [
+  const snapshot = [
     response.artist_name ?? "",
     response.album_title ?? "",
     response.label ?? "",
@@ -46,6 +61,16 @@ function synthesizeAlbumId(
     response.code_artist_number ?? "",
     response.code_number ?? "",
   ].join("|");
+  const rotationId =
+    "rotation_id" in response && response.rotation_id != null
+      ? String(response.rotation_id)
+      : "";
+
+  if (snapshot.replace(/\|/g, "") === "" && rotationId === "") {
+    return nextContentlessId();
+  }
+
+  const key = `${snapshot}|${rotationId}`;
   let hash = 5381;
   for (let i = 0; i < key.length; i++) {
     hash = ((hash << 5) + hash + key.charCodeAt(i)) | 0;
