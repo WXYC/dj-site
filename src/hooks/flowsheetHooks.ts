@@ -110,15 +110,17 @@ export const useShowControl = () => {
     // override; the backend treats empty/whitespace as absent, but the
     // hook keeps the wire-shape clean either way.
     // `dj_name` is a display-only hint for the optimistic WhoIsLive / feed
-    // patch (so the public banner reads the real name, never "Live"); it's
-    // stripped from the request body in the joinShow query. (#619, #621)
+    // patch (so the public banner reads a real name, never "Live"); it's
+    // stripped from the request body in the joinShow query. Fall through the
+    // identity fields useRegistry exposes — a DJ without a registered handle
+    // still has a real_name. (#619, #621)
     const payload: {
       dj_id: string;
       dj_name?: string;
       dj_name_override?: string;
     } = {
       dj_id: userData.id,
-      dj_name: djNameOverride ?? userData.dj_name,
+      dj_name: djNameOverride ?? userData.dj_name ?? userData.real_name,
     };
     if (djNameOverride !== undefined) {
       payload.dj_name_override = djNameOverride;
@@ -445,12 +447,37 @@ export const useQueue = () => {
     dispatch(flowsheetSlice.actions.loadQueue());
   }, [dispatch]); // Only run on mount
 
-  // Clear the queue only once WhoIsLive has settled and confirms the DJ is
-  // off-air — never during a transient refetch. (#644)
+  // True when the previous settled WhoIsLive read was also off-air. A single
+  // settled off-air read can be stale — right after joinShow fulfills, the
+  // invalidation refetch can land before the backend registers the DJ — so
+  // clearing requires two consecutive settled off-air reads. (#644)
+  const confirmedOffAir = useRef(false);
+  // Whether a signed-in user has been observed (drives the logout clear).
+  const hadUser = useRef(false);
+
+  // On logout the WhoIsLive subscription is skipped (and useRegistry reports
+  // loading whenever unauthenticated), so the settled gate below can never
+  // fire — clear directly on the signed-in → signed-out transition. (#644)
   useEffect(() => {
-    if (whoIsLiveSettled && !live && queue.length > 0) {
+    if (userData) {
+      hadUser.current = true;
+      return;
+    }
+    if (hadUser.current) {
+      hadUser.current = false;
+      confirmedOffAir.current = false;
       dispatch(flowsheetSlice.actions.clearQueue());
     }
+  }, [userData, dispatch]);
+
+  // Clear the queue only when WhoIsLive has settled off-air twice in a row —
+  // never during a transient refetch or a single stale post-join read. (#644)
+  useEffect(() => {
+    if (!whoIsLiveSettled) return;
+    if (!live && confirmedOffAir.current && queue.length > 0) {
+      dispatch(flowsheetSlice.actions.clearQueue());
+    }
+    confirmedOffAir.current = !live;
   }, [whoIsLiveSettled, live, queue.length, dispatch]);
 
   const addToQueue = useCallback(

@@ -24,6 +24,7 @@ import {
   FlowsheetEntry,
   FlowsheetShowBlockEntry,
   FlowsheetSubmissionParams,
+  isFlowsheetStartShowEntry,
   FlowsheetSwitchParams,
   FlowsheetUpdateParams,
   FlowsheetV2EntryJSON,
@@ -120,7 +121,10 @@ export const flowsheetApi = createApi({
       invalidatesTags: ["NowPlaying", "WhoIsLive"],
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
         // Seed the banner with the real dj_name so the public /live page never
-        // renders the "Live" placeholder during the refetch window. (#621)
+        // renders a "Live" placeholder during the refetch window. A joiner
+        // with no display name must not blank the banner or leave a trailing
+        // comma: format only the named DJs, and when none exist keep the
+        // previous banner until the refetch lands. (#621)
         const patchLive = dispatch(
           flowsheetApi.util.updateQueryData(
             "whoIsLive",
@@ -132,7 +136,10 @@ export const flowsheetApi = createApi({
                   id: arg.dj_id,
                   dj_name: arg.dj_name ?? "",
                 });
-                draft.onAir = formatOnAirSummary(draft.djs);
+                const named = draft.djs.filter((d) => d.dj_name);
+                if (named.length) {
+                  draft.onAir = formatOnAirSummary(named);
+                }
               }
             }
           )
@@ -190,12 +197,32 @@ export const flowsheetApi = createApi({
             }
           )
         );
+        // Leaving before joinShow's refetch lands would orphan the optimistic
+        // show-start marker (negative show_id) as a stray row — drop any such
+        // markers here. (#619)
+        const patchEntries = dispatch(
+          flowsheetApi.util.updateQueryData(
+            "getInfiniteEntries",
+            undefined,
+            (draft) => {
+              for (const page of draft.pages) {
+                for (let i = page.length - 1; i >= 0; i--) {
+                  const entry = page[i];
+                  if (entry.show_id < 0 && isFlowsheetStartShowEntry(entry)) {
+                    page.splice(i, 1);
+                  }
+                }
+              }
+            }
+          )
+        );
         try {
           await queryFulfilled;
           dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
         } catch (err) {
           flowsheetMutationCatch("leaveShow", err);
           patchLive.undo();
+          patchEntries.undo();
         }
       },
     }),
