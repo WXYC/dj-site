@@ -44,15 +44,20 @@ function selectWhoIsLiveCache(store: ReturnType<typeof createTestStore>) {
     .data;
 }
 
-async function seedStore() {
+async function seedStore(
+  onAirDJs: { id: string | null; dj_name: string }[] = []
+) {
   server.use(
     http.get(`${TEST_BACKEND_URL}/flowsheet/`, () =>
       HttpResponse.json(priorEntries)
     ),
     http.get(`${TEST_BACKEND_URL}/flowsheet/djs-on-air`, () =>
-      HttpResponse.json([])
+      HttpResponse.json(onAirDJs)
     ),
-    http.post(`${TEST_BACKEND_URL}/flowsheet/join`, () => HttpResponse.json({}))
+    http.post(`${TEST_BACKEND_URL}/flowsheet/join`, () =>
+      HttpResponse.json({})
+    ),
+    http.post(`${TEST_BACKEND_URL}/flowsheet/end`, () => HttpResponse.json({}))
   );
 
   const store = createTestStore();
@@ -131,5 +136,71 @@ describe("joinShow optimistic patch", () => {
     expect(live.djs.some((d) => d.dj_name === "Live")).toBe(false);
 
     await promise;
+  });
+
+  it("keeps the previous banner when a DJ with no display name joins solo (#621)", async () => {
+    const store = await seedStore();
+
+    const promise = store.dispatch(
+      flowsheetApi.endpoints.joinShow.initiate({ dj_id: "test-user-1" })
+    );
+
+    const live = selectWhoIsLiveCache(store)!;
+    // The DJ still flips live (the id lands in djs)...
+    expect(live.djs.some((d) => d.id === "test-user-1")).toBe(true);
+    // ...but the banner never blanks and never reads "Live"; it stays the
+    // previous value ("Off Air") until the refetch supplies a real name.
+    expect(live.onAir).toBe("Off Air");
+    expect(live.onAir).not.toBe("");
+    expect(live.onAir).not.toContain("Live");
+
+    await promise;
+  });
+
+  it("formats the banner without a trailing comma when a no-name DJ joins alongside another DJ (#621)", async () => {
+    const store = await seedStore([{ id: "1", dj_name: "Marz" }]);
+
+    const promise = store.dispatch(
+      flowsheetApi.endpoints.joinShow.initiate({ dj_id: "test-user-1" })
+    );
+
+    const live = selectWhoIsLiveCache(store)!;
+    expect(live.djs).toHaveLength(2);
+    // Only named DJs render; no "Marz, " trailing comma, no "Live".
+    expect(live.onAir).toBe("Marz");
+
+    await promise;
+  });
+
+  it("leaveShow removes the optimistic show-start marker when leaving before join's refetch (#619)", async () => {
+    const store = await seedStore();
+
+    const joinPromise = store.dispatch(
+      flowsheetApi.endpoints.joinShow.initiate({
+        dj_id: "test-user-1",
+        dj_name: "Test DJ",
+      })
+    );
+
+    // Marker present during the pre-refetch window.
+    expect(
+      selectEntriesCache(store)!
+        .pages.flat()
+        .some((e) => e.show_id < 0)
+    ).toBe(true);
+
+    const leavePromise = store.dispatch(
+      flowsheetApi.endpoints.leaveShow.initiate({ dj_id: "test-user-1" })
+    );
+
+    // leaveShow's optimistic patch drops the orphaned marker immediately...
+    const cache = selectEntriesCache(store)!;
+    expect(cache.pages.flat().some((e) => e.show_id < 0)).toBe(false);
+    // ...while the real prior-show entries survive.
+    expect(cache.pages.flat().map((e) => e.id)).toEqual(
+      expect.arrayContaining([5001, 5002])
+    );
+
+    await Promise.all([joinPromise, leavePromise]);
   });
 });
