@@ -3,6 +3,7 @@
 import { Button, Card, CardContent, Divider, Typography } from "@mui/joy";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { DEFAULT_DASHBOARD_HOME_PAGE } from "@/lib/features/application/constants";
 
 export default function NotFoundCard() {
   const lostQuotes: {
@@ -99,7 +100,7 @@ export default function NotFoundCard() {
         <Typography level="body-md" sx={{ mb: 2 }}>
           We couldn't find the resource you were looking for.
         </Typography>
-        <Link href={String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog")}>
+        <Link href={String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || DEFAULT_DASHBOARD_HOME_PAGE)}>
           <Button variant="solid" color="primary" fullWidth>
             Back to Safety
           </Button>

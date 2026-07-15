@@ -5,6 +5,7 @@ import { BetterAuthSessionResponse, BetterAuthSession } from "./utilities";
 import { Authorization } from "../admin/types";
 import { roleToAuthorization, VerifiedData } from "./types";
 import { getUserRoleInOrganization, getAppOrganizationId } from "./organization-utils.server";
+import { DEFAULT_DASHBOARD_HOME_PAGE } from "@/lib/features/application/constants";
 
 /**
  * Get the current session from better-auth in a server component
@@ -141,7 +142,7 @@ export async function requireRole(session: BetterAuthSession, requiredRole: Auth
   const header = cookieHeader || cookieStore.toString();
 
   if (!(await checkRole(session, requiredRole, header))) {
-    redirect(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog"));
+    redirect(String(process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || DEFAULT_DASHBOARD_HOME_PAGE));
   }
 }
 
