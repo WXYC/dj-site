@@ -38,6 +38,7 @@ import {
   useRotationFlowsheetSearch,
 } from "./catalogHooks";
 import { useLmlLibrarySearch } from "./lml";
+import { MAX_VISIBLE_RESULTS } from "@/src/components/experiences/modern/flowsheet/Search/Results/BackendResults/FlowsheetBackendResults";
 
 const FLOWSHEET_MUTATION_ENDPOINTS = new Set([
   "addToFlowsheet",
@@ -188,11 +189,15 @@ export const useFlowsheetSearch = () => {
     return rawLmlResults.filter((r) => !seen.has(r.id));
   }, [binResults, rotationResults, catalogResults, rawLmlResults]);
 
+  // Each section is capped to MAX_VISIBLE_RESULTS in the results dropdown, so
+  // the selectedResult index space maps into the capped concatenation — same
+  // order and same cap as FlowsheetSearchResults' offsets, keeping the
+  // highlighted row and the resolved entry in lockstep. (#657)
   const allSearchResults = useMemo(() => [
-    ...binResults,
-    ...rotationResults,
-    ...catalogResults,
-    ...lmlResults,
+    ...binResults.slice(0, MAX_VISIBLE_RESULTS),
+    ...rotationResults.slice(0, MAX_VISIBLE_RESULTS),
+    ...catalogResults.slice(0, MAX_VISIBLE_RESULTS),
+    ...lmlResults.slice(0, MAX_VISIBLE_RESULTS),
   ], [binResults, rotationResults, catalogResults, lmlResults]);
 
   const selectedEntry = useMemo(() => {
@@ -512,12 +517,15 @@ export const useFlowsheetSubmit = () => {
     return rawLmlResults.filter((r) => !seen.has(r.id));
   }, [binResults, rotationResults, catalogResults, rawLmlResults]);
 
-  // Memoized collection of all search results
+  // Memoized collection of all VISIBLE search results. Must mirror the capped
+  // index space (FlowsheetSearchResults offsets + FlowsheetSearchbar nav
+  // bound): submitting through the full lists would map a visible index onto a
+  // different, unseen album whenever an earlier section is truncated. (#657)
   const allSearchResults = useMemo(() => [
-    ...binResults,
-    ...rotationResults,
-    ...catalogResults,
-    ...lmlResults,
+    ...binResults.slice(0, MAX_VISIBLE_RESULTS),
+    ...rotationResults.slice(0, MAX_VISIBLE_RESULTS),
+    ...catalogResults.slice(0, MAX_VISIBLE_RESULTS),
+    ...lmlResults.slice(0, MAX_VISIBLE_RESULTS),
   ], [binResults, rotationResults, catalogResults, lmlResults]);
 
   // Memoized selected entry (null if creating new)

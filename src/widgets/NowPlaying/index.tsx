@@ -17,10 +17,13 @@ const AUDIO_SRC = "https://audio-mp3.ibiblio.org/wxyc.mp3";
 
 // `createMediaElementSource` may be called at most ONCE per HTMLMediaElement for
 // the element's lifetime; a second call throws InvalidStateError. Under React
-// Strict Mode (or any remount) the init effect runs twice on the same element,
-// so we cache the whole audio graph per element and reuse it instead of
-// re-creating — and we never close the context, since a closed context would
-// leave the element permanently routed to dead output. (dj-site#634)
+// Strict Mode the init effect runs twice on the same element, so we cache the
+// whole audio graph per element and reuse it instead of re-creating. The
+// context is closed only when its element has truly left the DOM (see the
+// unmount cleanup): a genuine remount renders a NEW <audio> node, and leaving
+// old contexts to await GC would accumulate live AudioContexts — Chromium
+// hard-caps ~6 per page, after which construction throws and the visualizer
+// dies silently for the session. (dj-site#634)
 type NowPlayingAudioGraph = {
   context: AudioContext;
   analyser: AnalyserNode;
@@ -131,18 +134,32 @@ export default function NowPlaying({ mini = false }: NowPlayingWidgetProps) {
     }
   };
 
-  // Cleanup on unmount: stop the stream. The AudioContext / source graph are
-  // intentionally NOT closed here — they're cached per element and reused on
-  // remount (closing would mute the element forever). The animation frame is
-  // owned and cancelled by GradientAudioVisualizer's own effect. (#634)
+  // Cleanup on unmount: stop the stream, then release the audio graph — but
+  // only if the element really left the DOM. The check is deferred because a
+  // Strict Mode synthetic unmount runs this cleanup with the element still
+  // connected (the effect re-runs on the same node immediately); a genuine
+  // unmount detaches the node, and its context must be closed or live
+  // AudioContexts accumulate across remounts (Rightbar remounts on
+  // experience/route changes) up to Chromium's ~6-per-page cap. The animation
+  // frame is owned and cancelled by GradientAudioVisualizer's effect. (#634)
   useEffect(() => {
+    const audio = audioRef.current;
     return () => {
-      const audio = audioRef.current;
-      if (audio) {
-        audio.pause();
-        audio.removeAttribute("src");
-        audio.load();
-      }
+      if (!audio) return;
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+
+      setTimeout(() => {
+        if (audio.isConnected) return;
+        const graph = audioGraphCache.get(audio);
+        if (graph) {
+          audioGraphCache.delete(audio);
+          graph.context.close().catch((error) => {
+            console.error("Error closing audio context:", error);
+          });
+        }
+      }, 0);
     };
   }, []);
 

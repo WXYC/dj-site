@@ -957,6 +957,66 @@ describe("flowsheetHooks", () => {
       expect(result.current.ctrlKeyPressed).toBe(false);
     });
 
+    describe("visible-index → submission mapping under the render cap (#657)", () => {
+      // 500 catalog rows, only 50 painted. bin/rotation/lml are empty, so
+      // the catalog section starts at visible index 1 and its last VISIBLE
+      // row is index 50 → catalogResults[49].
+      const manyAlbums = Array.from({ length: 500 }, (_, i) =>
+        createTestAlbum({
+          id: 1000 + i,
+          title: `Cap Album ${i}`,
+          artist: createTestArtist({ name: "Juana Molina" }),
+        })
+      );
+
+      const wrapperWithSelected = (selectedResult: number) =>
+        createHookWrapper(
+          { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
+          {
+            flowsheet: {
+              ...flowsheetSlice.getInitialState(),
+              search: {
+                ...flowsheetSlice.getInitialState().search,
+                selectedResult,
+                query: {
+                  ...flowsheetSlice.getInitialState().search.query,
+                  song: "la paradoja",
+                },
+              },
+            },
+          }
+        );
+
+      it("resolves the last visible capped row to exactly that album", () => {
+        mockUseCatalogFlowsheetSearch.mockReturnValue({
+          searchResults: manyAlbums,
+        });
+
+        const { result } = renderHook(() => useFlowsheetSubmit(), {
+          wrapper: wrapperWithSelected(50),
+        });
+
+        // Index 50 is the 50th (last painted) catalog row → manyAlbums[49].
+        expect(result.current.selectedResultData.album).toBe("Cap Album 49");
+        expect(result.current.selectedResultData.album_id).toBe(1049);
+      });
+
+      it("treats an index beyond the visible cap as manual entry, never an unseen album", () => {
+        mockUseCatalogFlowsheetSearch.mockReturnValue({
+          searchResults: manyAlbums,
+        });
+
+        const { result } = renderHook(() => useFlowsheetSubmit(), {
+          wrapper: wrapperWithSelected(51),
+        });
+
+        // The nav bound stops at 50, but even a stale/forced 51 must not map
+        // onto a hidden row — it falls back to the raw typed query.
+        expect(result.current.selectedResultData.album_id).toBeUndefined();
+        expect(result.current.selectedResultData.album).toBe("");
+      });
+    });
+
     it("should return handleSubmit function", () => {
       const { result } = renderHook(() => useFlowsheetSubmit(), {
         wrapper: createWrapper(),

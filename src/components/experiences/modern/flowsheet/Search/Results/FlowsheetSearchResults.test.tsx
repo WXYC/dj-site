@@ -8,6 +8,9 @@ import type { AlbumEntry } from "@/lib/features/catalog/types";
 
 // Mock child components
 vi.mock("./BackendResults/FlowsheetBackendResults", () => ({
+  // Keep in sync with the real per-section cap — the offsets under test are
+  // derived from it. (#657)
+  MAX_VISIBLE_RESULTS: 50,
   default: ({ results, label, offset }: any) => (
     <div data-testid="backend-results" data-label={label} data-offset={offset}>
       {results.length} results
@@ -317,5 +320,35 @@ describe("FlowsheetSearchResults", () => {
     expect(results[1]).toHaveAttribute("data-offset", "2"); // rotation (binResults.length + 1)
     expect(results[2]).toHaveAttribute("data-offset", "3"); // catalog (binResults.length + rotationResults.length + 1)
     expect(results[3]).toHaveAttribute("data-offset", "4"); // lml (bin + rotation + catalog + 1)
+  });
+
+  it("should derive offsets from the CAPPED section lengths when a section is truncated (#657)", () => {
+    const store = createTestStore(true);
+    // 60 bin rows: only 50 are painted, so later sections must start at 51 —
+    // full-length offsets would desync the highlight from the visible rows.
+    const manyBinResults: AlbumEntry[] = Array.from(
+      { length: 60 },
+      (_, i) => ({ id: 100 + i, title: `Bin Album ${i}` } as AlbumEntry)
+    );
+    const mockLmlResults: AlbumEntry[] = [
+      { id: 4, title: "LML Album" } as AlbumEntry,
+    ];
+
+    render(
+      <Provider store={store}>
+        <FlowsheetSearchResults
+          binResults={manyBinResults}
+          catalogResults={mockCatalogResults}
+          rotationResults={mockRotationResults}
+          lmlResults={mockLmlResults}
+        />
+      </Provider>
+    );
+
+    const results = screen.getAllByTestId("backend-results");
+    expect(results[0]).toHaveAttribute("data-offset", "1"); // bin
+    expect(results[1]).toHaveAttribute("data-offset", "51"); // rotation (min(60, 50) + 1)
+    expect(results[2]).toHaveAttribute("data-offset", "52"); // catalog
+    expect(results[3]).toHaveAttribute("data-offset", "53"); // lml
   });
 });
