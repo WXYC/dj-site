@@ -36,12 +36,20 @@ export const defaultFlowsheetFrontendState: FlowsheetFrontendState = {
   rotationMode: false,
   search: {
     open: false,
+    // Enumerate every FlowsheetQuery field (explicit `undefined` for the
+    // optionals) so resetSearch clears them all — even a future path that
+    // mutates search.query in place instead of reassigning it. (#645)
     query: {
       song: "",
       artist: "",
       album: "",
       label: "",
       request: false,
+      segue: undefined,
+      album_id: undefined,
+      rotation_bin: undefined,
+      rotation_id: undefined,
+      track_position: undefined,
     },
     selectedResult: 0,
     confirmedArtist: "",
@@ -177,6 +185,14 @@ export const flowsheetSlice = createAppSlice({
     },
     reorderQueue: (state, action: PayloadAction<FlowsheetSongEntry[]>) => {
       state.queue = action.payload;
+      // Keep the counter strictly ahead of every id in the queue so a future
+      // caller that passes entries with ids beyond the current counter can't
+      // make a later addToQueue collide. (#646)
+      const maxId = action.payload.reduce(
+        (max, entry) => Math.max(max, entry.id),
+        -1
+      );
+      state.queueIdCounter = Math.max(state.queueIdCounter, maxId + 1);
       saveQueueToStorage(state.queue);
     },
     setSelectedResult: (state, action: PayloadAction<number>) => {

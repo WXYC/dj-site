@@ -1,10 +1,7 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { DJRequestParams } from "../authentication/types";
 import { backendBaseQuery } from "../backend";
-import {
-  FLOWSHEET_OPTIMISTIC_DJ_PLACEHOLDER,
-  FLOWSHEET_PAGE_SIZE,
-} from "./constants";
+import { FLOWSHEET_PAGE_SIZE } from "./constants";
 import { scheduleDeferredFlowsheetRefetch } from "./deferred-refetch";
 import {
   convertDJsOnAir,
@@ -16,13 +13,16 @@ import {
 import {
   buildOptimisticEntry,
   insertEntrySortedFirstPage,
+  maxPlayOrder,
   movePlayOrder,
+  nextOptimisticTempId,
   patchEntryById,
   removeEntryById,
   replaceEntryIdAllPages,
 } from "./infinite-cache";
 import {
   FlowsheetEntry,
+  FlowsheetShowBlockEntry,
   FlowsheetSubmissionParams,
   FlowsheetSwitchParams,
   FlowsheetUpdateParams,
@@ -107,15 +107,20 @@ export const flowsheetApi = createApi({
     }),
     joinShow: builder.mutation<
       void,
-      DJRequestParams & { dj_name_override?: string }
+      DJRequestParams & { dj_name?: string; dj_name_override?: string }
     >({
-      query: (params) => ({
+      // `dj_name` is a client-only display hint for the optimistic patches
+      // below; keep it off the wire (the backend derives the on-air name from
+      // dj_id / dj_name_override).
+      query: ({ dj_name: _dj_name, ...params }) => ({
         url: "/join",
         method: "POST",
         body: params,
       }),
       invalidatesTags: ["NowPlaying", "WhoIsLive"],
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        // Seed the banner with the real dj_name so the public /live page never
+        // renders the "Live" placeholder during the refetch window. (#621)
         const patchLive = dispatch(
           flowsheetApi.util.updateQueryData(
             "whoIsLive",
@@ -125,10 +130,34 @@ export const flowsheetApi = createApi({
               if (!draft.djs.some((d) => d.id === arg.dj_id)) {
                 draft.djs.push({
                   id: arg.dj_id,
-                  dj_name: FLOWSHEET_OPTIMISTIC_DJ_PLACEHOLDER,
+                  dj_name: arg.dj_name ?? "",
                 });
                 draft.onAir = formatOnAirSummary(draft.djs);
               }
+            }
+          )
+        );
+        // Push an optimistic show-start marker with a fresh (negative) show_id
+        // so `currentShow` (the newest entry's show_id) no longer resolves to
+        // the previous show. Without this, the prior show's tail partitions as
+        // the current show and stays editable until the refetch lands. (#619)
+        const patchEntries = dispatch(
+          flowsheetApi.util.updateQueryData(
+            "getInfiniteEntries",
+            undefined,
+            (draft) => {
+              if (!draft.pages.length) return;
+              const tempId = nextOptimisticTempId();
+              const marker: FlowsheetShowBlockEntry = {
+                id: tempId,
+                play_order: maxPlayOrder(draft) + 1,
+                show_id: tempId,
+                dj_name: arg.dj_name ?? "",
+                isStart: true,
+                day: "",
+                time: "",
+              };
+              insertEntrySortedFirstPage(draft, marker);
             }
           )
         );
@@ -138,6 +167,7 @@ export const flowsheetApi = createApi({
         } catch (err) {
           flowsheetMutationCatch("joinShow", err);
           patchLive.undo();
+          patchEntries.undo();
         }
       },
     }),
