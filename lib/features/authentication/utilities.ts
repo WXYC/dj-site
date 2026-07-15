@@ -1,9 +1,7 @@
-import { jwtDecode } from "jwt-decode";
 import { Authorization } from "../admin/types";
 import {
   AuthenticationData,
   AuthenticatedUser,
-  BetterAuthJwtPayload,
   IncompleteUser,
   roleToAuthorization,
   User,
@@ -67,18 +65,6 @@ export const defaultAuthenticationData: AuthenticationData = {
   message: "Not Authenticated",
 };
 
-
-// Convert better-auth JWT token to User
-export function toUserFromBetterAuthJWT(token: string): User {
-  const decodedToken = jwtDecode<BetterAuthJwtPayload>(token);
-
-  return {
-    id: decodedToken.id || decodedToken.sub,
-    username: decodedToken.email.split("@")[0] || decodedToken.id || "", // Fallback if username not in token
-    email: decodedToken.email,
-    authority: roleToAuthorization(decodedToken.role),
-  };
-}
 
 /**
  * Convert better-auth session to AuthenticationData format (synchronous)

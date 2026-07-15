@@ -10,6 +10,7 @@ vi.mock("@/lib/features/authentication/server-client", () => ({
       listMembers: (options: any) => mockListMembers(options),
     },
   },
+  getServerAuthBaseURL: () => "https://api.wxyc.org/auth",
 }));
 
 // Mock auth client (client-side)
@@ -329,6 +330,27 @@ describe("organization-utils", () => {
 
       expect(result).toBeUndefined();
     });
+
+    it("returns undefined (not the slug) when a network error interrupts slug resolution (#613)", async () => {
+      // A transient auth-service failure must not be treated as an ID: the old
+      // slug-as-UUID fallback silently downgraded the user to NO authority.
+      mockListMembers.mockReset();
+      mockFetch.mockImplementation((input: RequestInfo) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url.includes("/token")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ token: null }),
+          });
+        }
+        return Promise.reject(new Error("Network error"));
+      });
+
+      const result = await getUserRoleInOrganization("user-123", "wxyc", "cookie");
+
+      expect(result).toBeUndefined();
+      expect(mockListMembers).not.toHaveBeenCalled();
+    });
   });
 
   describe("organizationRoleFromJwtToken", () => {
@@ -470,7 +492,9 @@ describe("organization-utils", () => {
       );
     });
 
-    it("should use slug as ID fallback when slug resolution fails", async () => {
+    it("returns undefined instead of falling back to the slug when slug resolution errors (#613)", async () => {
+      // A slug lookup that errors must not be treated as an ID: the old
+      // slug-as-UUID fallback silently downgraded the user to NO authority.
       mockGetFullOrganization.mockResolvedValue({
         data: null,
         error: { message: "Not found" },
@@ -480,15 +504,19 @@ describe("organization-utils", () => {
         error: null,
       });
 
-      await getUserRoleInOrganizationClient("user-123", "org-id-123");
+      const result = await getUserRoleInOrganizationClient("user-123", "org-id-123");
 
-      expect(mockClientListMembers).toHaveBeenCalledWith(
-        expect.objectContaining({
-          query: expect.objectContaining({
-            organizationId: "org-id-123",
-          }),
-        })
-      );
+      expect(result).toBeUndefined();
+      expect(mockClientListMembers).not.toHaveBeenCalled();
+    });
+
+    it("returns undefined (not the slug) when a network error interrupts slug resolution (#613)", async () => {
+      mockGetFullOrganization.mockRejectedValue(new Error("Network error"));
+
+      const result = await getUserRoleInOrganizationClient("user-123", "wxyc");
+
+      expect(result).toBeUndefined();
+      expect(mockClientListMembers).not.toHaveBeenCalled();
     });
 
     it("should normalize role variations", async () => {

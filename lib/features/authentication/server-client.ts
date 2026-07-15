@@ -4,7 +4,7 @@ import { adminClient, emailOTPClient, usernameClient, jwtClient, organizationCli
 // Server-side only - no React dependencies
 // This file can be safely imported in middleware, server components, and API routes
 
-function getBaseURL(): string {
+export function getServerAuthBaseURL(): string {
   // AUTH_REWRITE_URL is a server-only override for setups where the auth
   // service is reachable from the host (NEXT_PUBLIC_BETTER_AUTH_URL) but not
   // from inside the dj-site server (e.g. docker compose, where the host's
@@ -17,7 +17,7 @@ function getBaseURL(): string {
   );
 }
 
-const baseURL = getBaseURL();
+const baseURL = getServerAuthBaseURL();
 
 const baseConfig = {
     baseURL,
