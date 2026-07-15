@@ -2,6 +2,13 @@ import { AlbumEntry } from "@/lib/features/catalog/types";
 import { Box, Stack, Typography } from "@mui/joy";
 import FlowsheetBackendResult from "./FlowsheetBackendResult";
 
+// Hard cap on rendered rows. A misbehaving backend (e.g. an uncapped
+// "Various Artists" response — see BS#1162 / dj-site#657) can return thousands
+// of rows; rendering them all pins the main thread and eventually freezes the
+// tab. This cap is intentionally colocated with the render (not a distant
+// util) so PR #830's rewrite of this component can't silently drop it.
+const MAX_VISIBLE_RESULTS = 50;
+
 export default function FlowsheetBackendResults({
   results,
   offset,
@@ -11,6 +18,11 @@ export default function FlowsheetBackendResults({
   offset: number;
   label: string;
 }) {
+  const truncated = results.length > MAX_VISIBLE_RESULTS;
+  const visibleResults = truncated
+    ? results.slice(0, MAX_VISIBLE_RESULTS)
+    : results;
+
   return (
     <>
       <Box
@@ -28,13 +40,22 @@ export default function FlowsheetBackendResults({
         direction="column"
         sx={{ visibility: results.length > 0 ? "inherit" : "hidden" }}
       >
-        {results.map((entry, index) => (
+        {visibleResults.map((entry, index) => (
           <FlowsheetBackendResult
             key={`${label.replace(" ", "-")}-${index}`}
             entry={entry}
             index={index + offset}
           />
         ))}
+        {truncated && (
+          <Typography
+            level="body-xs"
+            data-testid="flowsheet-results-truncated"
+            sx={{ color: "text.tertiary", p: 1, fontStyle: "italic" }}
+          >
+            Showing top {MAX_VISIBLE_RESULTS} — refine your search to see more.
+          </Typography>
+        )}
       </Stack>
     </>
   );
