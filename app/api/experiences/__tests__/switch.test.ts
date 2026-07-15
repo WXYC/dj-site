@@ -119,6 +119,18 @@ describe("POST /api/experiences/switch", () => {
     expect(JSON.parse(store.get("app_state")!.value).experience).toBe("modern");
   });
 
+  it("rejects a cross-origin POST via the Referer fallback with 403", async () => {
+    const { POST } = await import("@/app/api/experiences/switch/route");
+    const response = await POST(
+      makeRequest(
+        { experience: "classic" },
+        { host: SITE_HOST, referer: "https://evil.example/attack" }
+      )
+    );
+
+    expect((response as any).status).toBe(403);
+  });
+
   it("rejects a POST with no Origin or Referer with 403 (fail closed)", async () => {
     const { POST } = await import("@/app/api/experiences/switch/route");
     const response = await POST(

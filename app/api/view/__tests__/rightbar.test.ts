@@ -148,6 +148,95 @@ describe("POST /api/view/rightbar origin/auth guard (#599)", () => {
     expect((response as any).status).toBe(200);
   });
 
+  it("rejects a cross-origin POST via the Referer fallback with 403", async () => {
+    const { POST } = await import("@/app/api/view/rightbar/route");
+    const response = await POST(
+      makeRequest({ host: SITE_HOST, referer: "https://evil.example/attack" })
+    );
+
+    expect((response as any).status).toBe(403);
+  });
+
+  it("prefers x-forwarded-host over host when a proxy sets it", async () => {
+    const { POST } = await import("@/app/api/view/rightbar/route");
+    const response = await POST(
+      makeRequest({
+        "x-forwarded-host": SITE_HOST,
+        host: "internal-render-host:8788",
+        origin: `https://${SITE_HOST}`,
+      })
+    );
+
+    expect((response as any).status).toBe(200);
+  });
+
+  it("still rejects a cross-origin POST when x-forwarded-host is set", async () => {
+    const { POST } = await import("@/app/api/view/rightbar/route");
+    const response = await POST(
+      makeRequest({
+        "x-forwarded-host": SITE_HOST,
+        host: "internal-render-host:8788",
+        origin: "https://evil.example",
+      })
+    );
+
+    expect((response as any).status).toBe(403);
+  });
+
+  it("uses the first value of a comma-separated x-forwarded-host list", async () => {
+    const { POST } = await import("@/app/api/view/rightbar/route");
+    const response = await POST(
+      makeRequest({
+        "x-forwarded-host": `${SITE_HOST}, inner-proxy.internal`,
+        host: "internal-render-host:8788",
+        origin: `https://${SITE_HOST}`,
+      })
+    );
+
+    expect((response as any).status).toBe(200);
+  });
+
+  it("matches host header ports against the Origin's port", async () => {
+    const { POST } = await import("@/app/api/view/rightbar/route");
+    const response = await POST(
+      makeRequest({ host: "localhost:3000", origin: "http://localhost:3000" })
+    );
+
+    expect((response as any).status).toBe(200);
+  });
+
+  it("rejects an Origin on a different port of the same hostname with 403", async () => {
+    // The port is part of the origin boundary; a hostname-only comparison
+    // would wrongly admit any other service on the same machine.
+    const { POST } = await import("@/app/api/view/rightbar/route");
+    const response = await POST(
+      makeRequest({ host: "localhost:3000", origin: "http://localhost:8080" })
+    );
+
+    expect((response as any).status).toBe(403);
+  });
+
+  it("rejects a literal 'Origin: null' (sandboxed iframe) with 403, not 500", async () => {
+    const { POST } = await import("@/app/api/view/rightbar/route");
+    const response = await POST(
+      makeRequest({ host: SITE_HOST, origin: "null" })
+    );
+
+    expect((response as any).status).toBe(403);
+  });
+
+  it("compares hosts case-insensitively", async () => {
+    const { POST } = await import("@/app/api/view/rightbar/route");
+    const response = await POST(
+      makeRequest({
+        "x-forwarded-host": SITE_HOST.toUpperCase(),
+        origin: `https://${SITE_HOST}`,
+      })
+    );
+
+    expect((response as any).status).toBe(200);
+  });
+
   it("rejects an unauthenticated same-origin POST with 403", async () => {
     (await getServerSessionMock()).mockResolvedValue(null);
 

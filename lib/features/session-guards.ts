@@ -8,13 +8,25 @@ import { getServerSession } from "./authentication/server-utils";
 // the check correct across production, localhost, and per-commit preview deploys
 // without hardcoding a host.
 function servedHost(request: NextRequest): string | null {
-  return request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  // Trusting x-forwarded-host assumes the edge (Cloudflare) overwrites any
+  // inbound value; a direct request spoofing it carries no victim session
+  // cookie, and the session requirement below backstops it.
+  const forwarded = request.headers.get("x-forwarded-host");
+  if (forwarded) {
+    // Multi-proxy chains may append a comma-separated list; the first entry is
+    // the client-facing host.
+    return forwarded.split(",")[0].trim().toLowerCase();
+  }
+  return request.headers.get("host")?.toLowerCase() ?? null;
 }
 
 function hostOf(headerValue: string | null): string | null {
   if (!headerValue) return null;
   try {
-    return new URL(headerValue).host;
+    // `host` includes any explicit port — the port is part of the origin
+    // boundary, so a hostname-only comparison would wrongly admit a different
+    // port on the same machine.
+    return new URL(headerValue).host.toLowerCase();
   } catch {
     return null;
   }
