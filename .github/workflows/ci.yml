@@ -401,7 +401,23 @@ jobs:
           PROBE_URL="${DEPLOY_URL%/}/"
           echo "Probing ${PROBE_URL}"
 
-          HTTP_CODE=$(curl -sS -o /dev/null -w '%{http_code}\n' --max-time 30 "$PROBE_URL" || echo "000")
+          # A Direct-Upload deployment is not instantly live: the new
+          # *.pages.dev hostname can take a minute-plus to propagate at the
+          # edge, during which curl sees DNS/connect failures (000), 5xx, or
+          # stale-routing 4xx. Poll for up to ~3 minutes before treating the
+          # status as real — historically almost every failure of this step
+          # was propagation lag, not a broken build.
+          MAX_ATTEMPTS=12
+          HTTP_CODE="000"
+          for ATTEMPT in $(seq 1 "$MAX_ATTEMPTS"); do
+            HTTP_CODE=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 "$PROBE_URL" || echo "000")
+            case "$HTTP_CODE" in
+              2*|3*|401|403) break ;;
+            esac
+            echo "Attempt ${ATTEMPT}/${MAX_ATTEMPTS}: HTTP ${HTTP_CODE} — waiting for the deployment to propagate."
+            if [ "$ATTEMPT" -lt "$MAX_ATTEMPTS" ]; then sleep 15; fi
+          done
+
           echo "Preview ${PROBE_URL} returned HTTP ${HTTP_CODE}"
           echo "http_code=${HTTP_CODE}" >> "$GITHUB_OUTPUT"
 
@@ -439,14 +455,29 @@ jobs:
           # the only automated guard against the fold regressing (unit tests and
           # Playwright E2E both run on Node/undici, which never folds). sign-out
           # emits the deletions unconditionally, so this creates no session/user.
-          HDRS=$(curl -sS -D - -o /dev/null --max-time 30 -X POST \
-            -H 'content-type: application/json' \
-            -H 'origin: https://dj.wxyc.org' \
-            "${BASE}/auth/sign-out" || true)
-          STATUS=$(printf '%s' "$HDRS" | head -1 | tr -d '\r')
-          COUNT=$(printf '%s' "$HDRS" | grep -ic '^set-cookie:')
-          echo "sign-out at ${BASE}: ${STATUS}; ${COUNT} Set-Cookie header(s)"
+          # Retry a few times: the smoke step already waited for the
+          # deployment to go live, but a POST through a cold edge node can
+          # still transiently fail or return an error page with no cookies.
+          # `|| true` on the grep is load-bearing — grep -c exits 1 on zero
+          # matches, and without it `bash -e` kills the step before COUNT is
+          # logged or written to $GITHUB_OUTPUT (the empty-count PR comments).
+          MAX_ATTEMPTS=5
+          COUNT=0
+          STATUS=""
+          for ATTEMPT in $(seq 1 "$MAX_ATTEMPTS"); do
+            HDRS=$(curl -sS -D - -o /dev/null --max-time 30 -X POST \
+              -H 'content-type: application/json' \
+              -H 'origin: https://dj.wxyc.org' \
+              "${BASE}/auth/sign-out" || true)
+            STATUS=$(printf '%s' "$HDRS" | head -1 | tr -d '\r')
+            COUNT=$(printf '%s' "$HDRS" | grep -ic '^set-cookie:' || true)
+            echo "Attempt ${ATTEMPT}/${MAX_ATTEMPTS}: sign-out at ${BASE}: ${STATUS:-<no response>}; ${COUNT} Set-Cookie header(s)"
+            if [ "$COUNT" -ge 2 ]; then break; fi
+            if [ "$ATTEMPT" -lt "$MAX_ATTEMPTS" ]; then sleep 10; fi
+          done
+
           echo "setcookie_count=${COUNT}" >> "$GITHUB_OUTPUT"
+          echo "signout_status=${STATUS:-no response}" >> "$GITHUB_OUTPUT"
           if [ "$COUNT" -lt 2 ]; then
             echo "::error::/auth/sign-out returned ${COUNT} Set-Cookie header(s), expected 3 — multiple Set-Cookie headers are being folded into one (opennextjs-cloudflare#501). See app/auth/[...path]/route.ts."
             exit 1
@@ -463,12 +494,13 @@ jobs:
           DEPLOY_OUTCOME: ${{ steps.deploy.outcome }}
           HTTP_CODE: ${{ steps.smoke.outputs.http_code }}
           SETCOOKIE_COUNT: ${{ steps.setcookie.outputs.setcookie_count }}
+          SIGNOUT_STATUS: ${{ steps.setcookie.outputs.signout_status }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           if [ "$DEPLOY_OUTCOME" != "success" ]; then
             BODY="Preview smoke check failed: the CI preview build/deploy for commit ${HEAD_SHA} did not complete (build error or \`wrangler pages deploy\` failure). See the workflow run for details: ${RUN_URL}. Merging is blocked until the preview builds and boots cleanly."
           elif printf '%s' "$HTTP_CODE" | grep -qE '^(2|3|401|403)'; then
-            BODY="Preview fold check failed: \`POST /auth/sign-out\` at ${DEPLOY_URL} returned \`${SETCOOKIE_COUNT}\` Set-Cookie header(s), expected 3. Multiple Set-Cookie headers are being folded into one (opennextjs-cloudflare#501) — the regression \`app/auth/[...path]/route.ts\` fixes. See the workflow run: ${RUN_URL}."
+            BODY="Preview fold check failed: \`POST /auth/sign-out\` at ${DEPLOY_URL} returned \`${SETCOOKIE_COUNT:-no}\` Set-Cookie header(s) (status: \`${SIGNOUT_STATUS:-unknown}\`), expected 3. Multiple Set-Cookie headers are being folded into one (opennextjs-cloudflare#501) — the regression \`app/auth/[...path]/route.ts\` fixes. See the workflow run: ${RUN_URL}."
           else
             BODY="Preview smoke check failed: ${DEPLOY_URL}/ returned HTTP \`${HTTP_CODE}\`. A 5xx response usually means the Cloudflare worker failed at boot — see the workflow run: ${RUN_URL}. Merging is blocked until the preview URL returns a non-5xx response."
           fi
