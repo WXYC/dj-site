@@ -325,8 +325,11 @@ describe("RotationEntryFields", () => {
     it("overwrites via the album_artist compilation signal even when the artist name isn't V/A-shaped", () => {
       // A compilation can be filed under a credited album artist (the
       // api.yaml example: a DJ-Kicks filed under "Kruder & Dorfmeister").
-      // `album_artist` being populated is BS's deterministic compilation
-      // marker, so per-track credits are trustworthy here.
+      // NOTE: BS's GET /library/rotation does not currently emit
+      // album_artist (getRotationFromDB omits the column), so on today's
+      // rotation wire this arm is only reachable via catalog-sourced
+      // entries; this test pins the component contract for when BS wires
+      // it through.
       const djKicks = createTestAlbum({
         id: 11,
         title: "DJ-Kicks",
