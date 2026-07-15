@@ -14,6 +14,10 @@ export const sessionOptions = {
     path: "/",
     sameSite: "lax" as const,
     secure: process.env.NODE_ENV === "production",
+    // app_state carries UI preference state only; the client reads it through
+    // the /api/view GET route (see src/hooks/themePreferenceHooks.ts), never
+    // document.cookie, so it never needs to be script-readable.
+    httpOnly: true,
   },
 };
 
