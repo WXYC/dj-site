@@ -114,8 +114,9 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
           toast.success(`Account created for ${newAccount.username} — setup email sent to ${newAccount.email}`);
         }
 
+        // setAdding(false) already clears the add-form data; a full slice
+        // reset would also wipe the admin's search + page context (#638).
         dispatch(adminSlice.actions.setAdding(false));
-        dispatch(adminSlice.actions.reset());
 
         // Refresh account list
         await refetch();
