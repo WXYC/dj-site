@@ -72,7 +72,13 @@ export function useLmlLibrarySearch({
   );
 
   return {
-    results: skip ? [] : data ?? [],
+    // Gate results on hasValidQuery, which is derived from the LIVE args, not
+    // just `skip` (derived from the debounced args). Backspacing below
+    // MIN_QUERY_LENGTH flips hasValidQuery false immediately, but `debounced`
+    // still holds the prior valid args (and the cache entry stays warm) for the
+    // 350ms until the debounce timer fires — without this guard the stale rows
+    // would keep rendering during that window (#625).
+    results: hasValidQuery && !skip ? data ?? [] : [],
     isLoading: hasValidQuery && (pendingDebounce || isFetching),
   };
 }
