@@ -73,12 +73,24 @@ export const useShiftKey = () => {
       }
     };
 
+    // Releasing Shift while the window is unfocused (alt-tab) never fires a
+    // keyup here, so the flag would stay stuck true and silently invert bin
+    // actions for the rest of the session. Reset on blur / tab-hide. (#635)
+    const handleReset = () => setShiftKeyPressed(false);
+    const handleVisibilityChange = () => {
+      if (document.hidden) setShiftKeyPressed(false);
+    };
+
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", handleReset);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", handleReset);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
 
