@@ -8,6 +8,10 @@ import {
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import type { PlaylistSearchResult } from "@wxyc/shared";
+import type { PlaylistSearchParams } from "@wxyc/shared/dtos";
+
+type SortField = PlaylistSearchParams["sort"];
+type SortOrder = PlaylistSearchParams["order"];
 
 const MIN_QUERY_LENGTH = 2;
 const LIMIT = 50;
@@ -72,15 +76,13 @@ export function usePlaylistSearch() {
 
   const effectiveQuery = useMemo(() => buildQuery(rows), [rows]);
 
-  // Track pending query to fire after current request completes
-  const pendingQueryRef = useRef<string | null>(null);
   // null sentinel = "never fired" — distinguishes initial mount from a
   // user-cleared empty query so the on-mount empty-q request still goes out.
   const lastFiredQueryRef = useRef<string | null>(null);
   const lastFiredParamsRef = useRef<{
     cursor: string | null;
-    sortBy: string;
-    sortOrder: string;
+    sortBy: SortField;
+    sortOrder: SortOrder;
   }>({
     cursor: null,
     sortBy: "date",
@@ -97,10 +99,22 @@ export function usePlaylistSearch() {
   >([]);
   const lastQueryForAccumulationRef = useRef<string>("");
 
-  const [trigger, { data, isFetching, isError }] =
+  const [trigger, { data, isFetching, isError, originalArgs }] =
     useLazySearchPlaylistsQuery();
 
-  // Reset accumulated results when query or sort changes
+  // The cursor that actually PRODUCED `data`, read from the request's
+  // originalArgs — not the live `cursor` selector. Typing resets the slice
+  // cursor to null (frontend.ts updateRow/setSort) one render before the new
+  // fetch lands, so the live cursor no longer describes the in-hand `data`.
+  // Basing replace-vs-append on this fingerprint keeps a just-blanked
+  // accumulator from being repopulated with the prior query's rows (#604).
+  const producingCursor = originalArgs?.cursor ?? null;
+
+  // Reset accumulated results when query or sort changes.
+  // ORDERING INVARIANT: this effect must stay declared BEFORE the accumulate
+  // effect below — when the new query's first page lands, both run in the same
+  // commit and reset-then-populate is what keeps the fresh page from being
+  // blanked (populate-then-reset would wipe it).
   useEffect(() => {
     const currentParams = `${effectiveQuery}-${sortBy}-${sortOrder}`;
     if (currentParams !== lastQueryForAccumulationRef.current) {
@@ -109,12 +123,15 @@ export function usePlaylistSearch() {
     }
   }, [effectiveQuery, sortBy, sortOrder]);
 
-  // Accumulate results when new data arrives. cursor === null means "first
-  // page" so we replace; otherwise we append (deduping by id) since the
-  // user is paginating.
+  // Accumulate results when new data arrives. A null producing cursor means
+  // "first page" so we replace; otherwise we append (deduping by id) since the
+  // user is paginating. Keyed on `producingCursor` (the cursor that produced
+  // `data`), never the live `cursor` — a live-cursor flip on a new query
+  // re-fired this effect against the previous query's `data` and replaced the
+  // blanked accumulator with stale rows (#604).
   useEffect(() => {
     if (data?.results) {
-      if (cursor === null) {
+      if (producingCursor === null) {
         setAccumulatedResults(data.results);
       } else {
         setAccumulatedResults((prev) => {
@@ -124,33 +141,39 @@ export function usePlaylistSearch() {
         });
       }
     }
-  }, [data, cursor]);
+  }, [data, producingCursor]);
 
-  // Fire search when query changes (response-based throttling)
+  // Fire search when query or params change (response-based throttling).
+  //
+  // This single effect is ALSO the mid-flight change protection (#623): a
+  // sort/cursor/query change made while a request is in flight takes the
+  // isFetching branch (no-op), and when the request settles, isFetching
+  // flipping false re-runs this effect against the live tuple. The full-tuple
+  // comparison — query string AND cursor/sortBy/sortOrder — is what fires the
+  // deferred request; if it compared the query string alone, a mid-flight
+  // sort/cursor change with unchanged query text would be silently dropped.
+  // There is no separate drain queue: the live selectors at settle time are
+  // exactly the params the user last requested.
   useEffect(() => {
     // Empty query is the "show recent tracks" default. Single-character
     // partials still get debounced — wait for at least MIN_QUERY_LENGTH
     // chars before issuing a substring match.
     const isPartialQuery =
       effectiveQuery.length > 0 && effectiveQuery.length < MIN_QUERY_LENGTH;
-    if (isPartialQuery) {
-      pendingQueryRef.current = null;
-      return;
-    }
+    if (isPartialQuery) return;
+
+    // Request in flight — defer. The settle re-run (isFetching dep) picks the
+    // change up.
+    if (isFetching) return;
 
     const paramsChanged =
       cursor !== lastFiredParamsRef.current.cursor ||
       sortBy !== lastFiredParamsRef.current.sortBy ||
       sortOrder !== lastFiredParamsRef.current.sortOrder;
 
-    if (isFetching) {
-      // Request in flight - queue this query for later
-      pendingQueryRef.current = effectiveQuery;
-    } else if (effectiveQuery !== lastFiredQueryRef.current || paramsChanged) {
-      // No request in flight and query/params changed - fire immediately
+    if (effectiveQuery !== lastFiredQueryRef.current || paramsChanged) {
       lastFiredQueryRef.current = effectiveQuery;
       lastFiredParamsRef.current = { cursor, sortBy, sortOrder };
-      pendingQueryRef.current = null;
       trigger({
         q: effectiveQuery,
         limit: LIMIT,
@@ -160,27 +183,6 @@ export function usePlaylistSearch() {
       });
     }
   }, [effectiveQuery, cursor, sortBy, sortOrder, isFetching, trigger]);
-
-  // When request completes, check if there's a pending query
-  useEffect(() => {
-    if (
-      !isFetching &&
-      pendingQueryRef.current &&
-      pendingQueryRef.current !== lastFiredQueryRef.current
-    ) {
-      const pending = pendingQueryRef.current;
-      lastFiredQueryRef.current = pending;
-      lastFiredParamsRef.current = { cursor, sortBy, sortOrder };
-      pendingQueryRef.current = null;
-      trigger({
-        q: pending,
-        limit: LIMIT,
-        sort: sortBy,
-        order: sortOrder,
-        cursor: cursor ?? undefined,
-      });
-    }
-  }, [isFetching, cursor, sortBy, sortOrder, trigger]);
 
   // Actions
   const addRow = useCallback(
@@ -222,6 +224,19 @@ export function usePlaylistSearch() {
 
   const hasMore = data?.nextCursor !== undefined;
 
+  // True when a change arrived while a request was in flight and is waiting
+  // for the settle re-fire: same tuple-vs-last-fired comparison the fire
+  // effect uses, so the two can't disagree.
+  const isPartialQuery =
+    effectiveQuery.length > 0 && effectiveQuery.length < MIN_QUERY_LENGTH;
+  const hasPendingQuery =
+    isFetching &&
+    !isPartialQuery &&
+    (effectiveQuery !== lastFiredQueryRef.current ||
+      cursor !== lastFiredParamsRef.current.cursor ||
+      sortBy !== lastFiredParamsRef.current.sortBy ||
+      sortOrder !== lastFiredParamsRef.current.sortOrder);
+
   return {
     // State
     rows,
@@ -237,7 +252,7 @@ export function usePlaylistSearch() {
 
     // Loading states
     isLoading: isFetching,
-    hasPendingQuery: pendingQueryRef.current !== null,
+    hasPendingQuery,
     isError,
 
     // Actions
