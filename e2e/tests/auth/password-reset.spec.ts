@@ -97,8 +97,9 @@ test.describe("Password Reset - Complete Flow", () => {
   });
 
   test("should show error message for invalid/expired token", async ({ page }) => {
-    // Navigate with an error parameter
-    await loginPage.gotoWithError("invalid_token");
+    // INVALID_TOKEN is the code better-auth actually redirects with for a bad
+    // or expired reset link; LoginSlotSwitcher allowlists it into the reset slot
+    await loginPage.gotoWithError("INVALID_TOKEN");
 
     // Should show error alert (use MUI Alert selector to avoid matching Next.js route announcer)
     const alertMessage = page.locator('[role="alert"].MuiAlert-root');
@@ -243,12 +244,22 @@ test.describe("Password Reset - Error Handling", () => {
   });
 
   test("should display helpful error message for expired link", async ({ page }) => {
-    await loginPage.gotoWithError("expired");
+    // better-auth reports an expired link with the same INVALID_TOKEN code
+    await loginPage.gotoWithError("INVALID_TOKEN");
 
     // Use MUI Alert selector to avoid matching Next.js route announcer
     const alertMessage = page.locator('[role="alert"].MuiAlert-root');
     await expect(alertMessage).toBeVisible();
     await expect(alertMessage).toContainText(/invalid|expired/i);
+  });
+
+  test("should keep an unrecognized error code on the login form with a generic alert", async ({ page }) => {
+    // Not a reset-flow code: must NOT open the password-reset slot (#617)
+    await loginPage.gotoWithError("some-unexpected-code");
+
+    const alertMessage = page.locator('[role="alert"].MuiAlert-root');
+    await expect(alertMessage).toContainText(/something went wrong with that link/i);
+    await loginPage.expectLoginFormVisible();
   });
 });
 
