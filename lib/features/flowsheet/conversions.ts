@@ -101,7 +101,9 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
   const base = {
     id: entry.id,
     play_order: entry.play_order,
-    show_id: entry.show_id ?? 0,
+    // -1 mirrors primaryShowId's no-show sentinel; 0 collides with a real
+    // show id and would mis-partition orphaned entries into it (#629).
+    show_id: entry.show_id ?? -1,
   };
 
   switch (entry.entry_type) {

@@ -502,11 +502,13 @@ describe("flowsheet conversions", () => {
         expect(result.message).toBe("Custom station message");
       });
 
-      it("should handle null show_id", () => {
+      it("maps null show_id to the -1 no-show sentinel (never a real show id)", () => {
         const entry = createTestV2TrackEntry({ show_id: null });
         const result = convertV2Entry(entry);
 
-        expect(result.show_id).toBe(0);
+        // 0 is a plausible real show id; -1 matches primaryShowId's sentinel
+        // so orphaned entries can never partition into an actual show (#629).
+        expect(result.show_id).toBe(-1);
       });
 
       it("should throw for unknown entry type", () => {
