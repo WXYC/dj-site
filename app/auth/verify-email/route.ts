@@ -185,12 +185,20 @@ export async function GET(request: NextRequest) {
     // so the cookie is implicitly scoped to the frontend domain (dj.wxyc.org).
     // Also ensure Path=/ so the cookie is sent on all frontend routes.
     for (const raw of setCookieHeaders) {
-      const adjusted = raw
+      let adjusted = raw
         // Remove Domain=...; (case-insensitive, with optional trailing semicolon/space)
         .replace(/\s*Domain=[^;]*;?\s*/i, " ")
         // Normalise the path so the session cookie covers the whole site
         .replace(/Path=[^;]*/i, "Path=/")
         .trim();
+
+      // The replace above only rewrites an EXISTING Path attribute. If upstream
+      // omitted Path entirely (spec-valid), it was a no-op and the cookie would
+      // default to the request path (/auth/verify-email), so it would not be
+      // sent on /dashboard/* requests and auto-sign-in would break (#633).
+      if (!/Path=/i.test(adjusted)) {
+        adjusted += "; Path=/";
+      }
 
       response.headers.append("Set-Cookie", adjusted);
     }
