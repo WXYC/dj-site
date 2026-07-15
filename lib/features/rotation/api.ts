@@ -13,8 +13,8 @@ export const rotationApi = createApi({
       query: () => ({
         url: "",
       }),
-      transformResponse: (response: AlbumSearchResultJSON[]) =>
-        response.map(convertToAlbumEntry),
+      transformResponse: (response: AlbumSearchResultJSON[] | null) =>
+        response ? response.map(convertToAlbumEntry) : [],
       providesTags: ["Rotation"],
     }),
     addRotationEntry: builder.mutation<any, RotationParams>({

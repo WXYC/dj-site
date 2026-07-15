@@ -66,8 +66,8 @@ export const catalogApi = createApi({
         url: "/",
         params: { artist_name, album_title, n, on_streaming },
       }),
-      transformResponse: (response: AlbumSearchResultJSON[]) =>
-        response.map(convertToAlbumEntry),
+      transformResponse: (response: AlbumSearchResultJSON[] | null) =>
+        response ? response.map(convertToAlbumEntry) : [],
     }),
     searchLibraryQuery: builder.query<LibraryQueryResult, LibraryQueryParams>({
       query: (params) => ({
@@ -159,13 +159,13 @@ export const catalogApi = createApi({
       ): SearchArtistsInGenreResponse =>
         response?.artists ? response : { artists: [] },
     }),
-    getInformation: builder.query<AlbumEntry, AlbumRequestParams>({
+    getInformation: builder.query<AlbumEntry | undefined, AlbumRequestParams>({
       query: ({ album_id }) => ({
         url: "/info",
         params: { album_id },
       }),
-      transformResponse: (response: AlbumSearchResultJSON) =>
-        convertToAlbumEntry(response),
+      transformResponse: (response: AlbumSearchResultJSON | null) =>
+        response ? convertToAlbumEntry(response) : undefined,
       providesTags: (result) =>
         result ? [{ type: "AlbumDetail", id: result.id }] : [],
     }),
