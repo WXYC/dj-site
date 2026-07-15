@@ -46,8 +46,19 @@ export function GradientAudioVisualizer({
     resize();
     window.addEventListener("resize", resize);
 
+    // Frame id local to THIS effect run. Cleanup cancels the value captured
+    // here, never whatever a later effect run wrote into the shared ref — that
+    // cross-run overwrite was what stuttered/killed the visualizer on reorder.
+    // The shared ref is still mirrored for the parent's prop contract. (#634)
+    let localFrameId: number | null = null;
+    const schedule = () => {
+      localFrameId = requestAnimationFrame(draw);
+      animationFrameRef.current = localFrameId;
+    };
+
     const draw = () => {
       if (!analyserNode) {
+        localFrameId = null;
         animationFrameRef.current = null;
         return;
       }
@@ -67,13 +78,13 @@ export function GradientAudioVisualizer({
       });
 
       // Schedule next frame
-      animationFrameRef.current = requestAnimationFrame(draw);
+      schedule();
     };
 
     const handlePlay = () => {
       audioContext.resume();
-      if (animationFrameRef.current === null) {
-        animationFrameRef.current = requestAnimationFrame(draw);
+      if (localFrameId === null) {
+        schedule();
       }
     };
 
@@ -82,14 +93,15 @@ export function GradientAudioVisualizer({
     // Start drawing if already playing
     if (isPlaying) {
       audioContext.resume();
-      animationFrameRef.current = requestAnimationFrame(draw);
+      schedule();
     }
 
     return () => {
       window.removeEventListener("resize", resize);
       audio.removeEventListener("play", handlePlay);
-      if (animationFrameRef.current !== null) {
-        cancelAnimationFrame(animationFrameRef.current);
+      if (localFrameId !== null) {
+        cancelAnimationFrame(localFrameId);
+        localFrameId = null;
         animationFrameRef.current = null;
       }
     };
