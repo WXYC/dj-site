@@ -304,6 +304,72 @@ describe("catalog conversions", () => {
       });
     });
 
+    // dj-site#626: two failure modes for synthesizeAlbumId.
+    //   (a) all-null rows hashed "|||||" to one id → React key collapse.
+    //   (b) two rows with an identical populated snapshot but different
+    //       rotation_id hashed equal (rotation-picker variant).
+    describe("synthetic id collisions (dj-site#626)", () => {
+      // Every snapshot field null AND no rotation_id — nothing to hash.
+      const allNullRow = {
+        add_date: undefined,
+        album_title: null,
+        artist_name: null,
+        code_letters: null,
+        code_number: null,
+        code_artist_number: null,
+        format_name: null,
+        genre_name: null,
+        label: null,
+        rotation_id: null,
+        rotation_bin: undefined,
+        plays: undefined,
+        id: null,
+      } as unknown as AlbumSearchResultJSON;
+
+      it("(a) gives two all-null rows DISTINCT ids", () => {
+        const first = convertToAlbumEntry(allNullRow);
+        const second = convertToAlbumEntry({
+          ...allNullRow,
+        } as AlbumSearchResultJSON);
+        expect(first.id).not.toBe(second.id);
+      });
+
+      it("(a) keeps all-null synthetic ids negative (can't collide with real ids)", () => {
+        const result = convertToAlbumEntry(allNullRow);
+        expect(result.id).toBeLessThan(0);
+      });
+
+      it("(b) gives identical populated snapshots with DIFFERENT rotation_id distinct ids", () => {
+        const a = convertToAlbumEntry({
+          ...unlinkedRowBase,
+          rotation_id: 5001,
+          id: null as unknown as number,
+        } as AlbumSearchResultJSON);
+        const b = convertToAlbumEntry({
+          ...unlinkedRowBase,
+          rotation_id: 5002,
+          id: null as unknown as number,
+        } as AlbumSearchResultJSON);
+        expect(a.id).not.toBe(b.id);
+      });
+
+      it("(b) keeps determinism where it matters: same snapshot + same rotation_id → same id", () => {
+        // Two distinct object references, equivalent payloads — the cross-call
+        // stability React keys depend on for populated rows.
+        const a = convertToAlbumEntry({
+          ...unlinkedRowBase,
+          rotation_id: 5001,
+          id: null as unknown as number,
+        } as AlbumSearchResultJSON);
+        const b = convertToAlbumEntry({
+          ...unlinkedRowBase,
+          rotation_id: 5001,
+          id: null as unknown as number,
+        } as AlbumSearchResultJSON);
+        expect(a.id).toBe(b.id);
+      });
+    });
+
     // These tests exercise the actual `BinLibraryDetails` branch (no `id`,
     // no `rotation_*`, no `add_date`, no `plays`). They pin the
     // `isSearchResult` gating audit promised in the commit body: removing
