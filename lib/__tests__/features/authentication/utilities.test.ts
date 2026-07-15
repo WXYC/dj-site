@@ -1,26 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Authorization } from "@/lib/features/admin/types";
-import type { BetterAuthJwtPayload } from "@/lib/features/authentication/types";
-
-vi.mock("jwt-decode", () => ({
-  jwtDecode: vi.fn(),
-}));
 
 import {
   defaultAuthenticationData,
   betterAuthSessionToAuthenticationData,
-  toUserFromBetterAuthJWT,
   BetterAuthSession,
 } from "@/lib/features/authentication/utilities";
-import { jwtDecode } from "jwt-decode";
 import {
   createTestBetterAuthSession,
   createTestIncompleteSession,
   createTestSessionWithRole,
-  createTestBetterAuthJWTPayload,
 } from "@/lib/test-utils";
-
-const mockedJwtDecode = vi.mocked(jwtDecode);
 
 describe("authentication utilities", () => {
   beforeEach(() => {
@@ -220,84 +210,6 @@ describe("authentication utilities", () => {
       expect(user.appSkin).toBe("dark");
       expect(user.createdAt).toEqual(createdAt);
       expect(user.updatedAt).toEqual(updatedAt);
-    });
-  });
-
-  describe("toUserFromBetterAuthJWT", () => {
-    it("should extract user ID from token", () => {
-      const payload = createTestBetterAuthJWTPayload({ id: "user-456" });
-      mockedJwtDecode.mockReturnValue(payload);
-
-      const result = toUserFromBetterAuthJWT("fake-token");
-
-      expect(result.id).toBe("user-456");
-      expect(mockedJwtDecode).toHaveBeenCalledWith("fake-token");
-    });
-
-    it("should fall back to sub when id is not present", () => {
-      const payload = createTestBetterAuthJWTPayload({
-        id: undefined,
-        sub: "sub-user-789",
-      });
-      mockedJwtDecode.mockReturnValue(payload);
-
-      const result = toUserFromBetterAuthJWT("fake-token");
-
-      expect(result.id).toBe("sub-user-789");
-    });
-
-    it("should extract email from token", () => {
-      const payload = createTestBetterAuthJWTPayload({ email: "dj@station.org" });
-      mockedJwtDecode.mockReturnValue(payload);
-
-      const result = toUserFromBetterAuthJWT("fake-token");
-
-      expect(result.email).toBe("dj@station.org");
-    });
-
-    it("should derive username from email", () => {
-      const payload = createTestBetterAuthJWTPayload({ email: "cooluser@wxyc.org" });
-      mockedJwtDecode.mockReturnValue(payload);
-
-      const result = toUserFromBetterAuthJWT("fake-token");
-
-      expect(result.username).toBe("cooluser");
-    });
-
-    it("should map stationManager role to SM authority", () => {
-      const payload = createTestBetterAuthJWTPayload({ role: "stationManager" });
-      mockedJwtDecode.mockReturnValue(payload);
-
-      const result = toUserFromBetterAuthJWT("fake-token");
-
-      expect(result.authority).toBe(Authorization.SM);
-    });
-
-    it("should map musicDirector role to MD authority", () => {
-      const payload = createTestBetterAuthJWTPayload({ role: "musicDirector" });
-      mockedJwtDecode.mockReturnValue(payload);
-
-      const result = toUserFromBetterAuthJWT("fake-token");
-
-      expect(result.authority).toBe(Authorization.MD);
-    });
-
-    it("should map dj role to DJ authority", () => {
-      const payload = createTestBetterAuthJWTPayload({ role: "dj" });
-      mockedJwtDecode.mockReturnValue(payload);
-
-      const result = toUserFromBetterAuthJWT("fake-token");
-
-      expect(result.authority).toBe(Authorization.DJ);
-    });
-
-    it("should map member role to NO authority", () => {
-      const payload = createTestBetterAuthJWTPayload({ role: "member" });
-      mockedJwtDecode.mockReturnValue(payload);
-
-      const result = toUserFromBetterAuthJWT("fake-token");
-
-      expect(result.authority).toBe(Authorization.NO);
     });
   });
 });

@@ -53,7 +53,7 @@ describe("server-client", () => {
     });
   });
 
-  describe("getBaseURL function behavior", () => {
+  describe("getServerAuthBaseURL function behavior", () => {
     it("should use env var when NEXT_PUBLIC_BETTER_AUTH_URL is set", async () => {
       process.env = { ...originalEnv, NEXT_PUBLIC_BETTER_AUTH_URL: "https://custom.example.com/auth" };
 
@@ -63,8 +63,23 @@ describe("server-client", () => {
       expect(capturedConfig?.baseURL).toBe("https://custom.example.com/auth");
     });
 
+    it("should prefer AUTH_REWRITE_URL over NEXT_PUBLIC_BETTER_AUTH_URL", async () => {
+      process.env = {
+        ...originalEnv,
+        AUTH_REWRITE_URL: "http://localhost:8084/auth",
+        NEXT_PUBLIC_BETTER_AUTH_URL: "https://custom.example.com/auth",
+      };
+
+      vi.resetModules();
+      const mod = await import("@/lib/features/authentication/server-client");
+
+      expect(capturedConfig?.baseURL).toBe("http://localhost:8084/auth");
+      expect(mod.getServerAuthBaseURL()).toBe("http://localhost:8084/auth");
+    });
+
     it("should use default URL when env var is not set", async () => {
       process.env = { ...originalEnv };
+      delete process.env.AUTH_REWRITE_URL;
       delete process.env.NEXT_PUBLIC_BETTER_AUTH_URL;
 
       vi.resetModules();
