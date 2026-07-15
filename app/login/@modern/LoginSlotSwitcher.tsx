@@ -6,6 +6,17 @@ import { useSearchParams } from "next/navigation";
 import { ReactNode, useEffect } from "react";
 import { Alert } from "@mui/joy";
 
+// Error codes that belong to the password-reset flow. better-auth's
+// reset-password link redirects to its redirectTo (/login, set in
+// useResetPassword.handleRequestReset) with ?error=INVALID_TOKEN when the token
+// is expired/invalid — the same code documented for the onboarding link in
+// app/onboarding/@modern/page.tsx. Only these route to the reset slot; every
+// other ?error= is NOT a reset error and must render the normal login form with
+// the error surfaced — notably verify-email's `missing-verification-token` and
+// `verification-failed` (app/auth/verify-email/route.ts) and server-utils'
+// `email-not-verified`, none of which previously routed anywhere sensible (#617).
+const RESET_ERROR_CODES: readonly string[] = ["INVALID_TOKEN"];
+
 export default function LoginSlotSwitcher({
   normal,
   newuser,
@@ -27,11 +38,20 @@ export default function LoginSlotSwitcher({
   const isVerified = searchParams?.get("verified") === "true";
 
   const hasResetToken = !!searchParams?.get("token");
-  const hasResetError =
+  // Allowlist, not denylist: only known reset error codes fall into the reset
+  // flow. An unknown ?error= (e.g. a broken verification link) must not drop
+  // the user into a password-reset form with no reset token (#617).
+  const hasResetError = !!errorParam && RESET_ERROR_CODES.includes(errorParam);
+  const hasResetParams = hasResetToken || hasResetError;
+
+  // An error code that is neither a reset error nor one of the specifically
+  // handled verify-email states: surface it on the normal login form instead of
+  // silently swallowing it (#617).
+  const hasUnrecognizedError =
     !!errorParam &&
+    !hasResetError &&
     !isEmailNotVerified &&
     !isVerificationFailed;
-  const hasResetParams = hasResetToken || hasResetError;
 
   useEffect(() => {
     if (hasResetParams) {
@@ -67,6 +87,12 @@ export default function LoginSlotSwitcher({
         <Alert color="danger" sx={{ mb: 2 }}>
           Email verification failed — the link may have expired. Please contact
           an administrator for a new invitation.
+        </Alert>
+      )}
+      {hasUnrecognizedError && (
+        <Alert color="danger" sx={{ mb: 2 }}>
+          Something went wrong with that link. Please sign in below, or contact
+          an administrator if the problem persists.
         </Alert>
       )}
       {normal}
