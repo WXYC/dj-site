@@ -24,16 +24,19 @@ export function maxPlayOrder(draft: Pick<InfiniteEntriesDraft, "pages">): number
 }
 
 /**
- * Newest entry's `show_id`, skipping orphaned entries (show_id -1, from
- * convertV2Entry's null mapping), or `-1` if none. The skip matters:
+ * Newest entry's `show_id`, skipping orphaned entries (show_id exactly -1,
+ * from convertV2Entry's null mapping), or `-1` if none. The skip matters:
  * partitionFlowsheetEntries treats currentShow -1 as "nobody is live", so a
  * single orphaned newest row must not masquerade as that sentinel and flip
- * the whole live show into "previous".
+ * the whole live show into "previous". Other negative show_ids are NOT
+ * skipped — the #619 fix pushes an optimistic show-start marker whose
+ * show_id is a fresh negative tempId, and it must win here so the prior
+ * show's tail stops partitioning as current during the goLive window.
  */
 export function primaryShowId(draft: Pick<InfiniteEntriesDraft, "pages">): number {
   for (const page of draft.pages) {
     for (const e of page) {
-      if (e.show_id >= 0) return e.show_id;
+      if (e.show_id !== -1) return e.show_id;
     }
   }
   return -1;
@@ -212,9 +215,11 @@ export function movePlayOrder(
     }
   }
   if (!moved) return;
-  // Orphaned entries (show_id -1) don't form a real per-show block — two
-  // unrelated orphans would renumber each other's play_order.
-  if (moved.show_id < 0) return;
+  // Orphaned entries (show_id exactly -1) don't form a real per-show block —
+  // two unrelated orphans would renumber each other's play_order. Other
+  // negative show_ids are coherent optimistic show blocks (#619 marker) and
+  // may renumber normally.
+  if (moved.show_id === -1) return;
   const oldPosition = moved.play_order;
   if (oldPosition === newPosition) return;
   const showId = moved.show_id;
