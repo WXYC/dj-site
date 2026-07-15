@@ -26,8 +26,11 @@ export default function SettingsInput({
     setValue(newValue);
     dispatch(
       authenticationSlice.actions.modify({
+        // Any divergence from the backend value is a modification — including
+        // clearing a set field to "" — so the clear survives to the save
+        // payload instead of being dropped as unmodified (#609).
         key: name,
-        value: backendValue !== newValue && newValue !== "" ? true : false,
+        value: (backendValue ?? "") !== newValue,
       })
     );
   };

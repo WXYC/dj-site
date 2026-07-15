@@ -110,4 +110,50 @@ describe("SettingsInput", () => {
     const input = screen.getByRole("textbox");
     expect(input).toHaveAttribute("name", "djName");
   });
+
+  // #609: clearing a previously-set field must register as a modification so
+  // the save flow can propagate the clear (before the fix, an empty value was
+  // treated as unmodified and silently dropped).
+  it("marks the field modified when a set value is cleared", () => {
+    const { Wrapper, store } = createWrapper();
+    render(
+      <Wrapper>
+        <SettingsInput name="pronouns" backendValue="they/them" />
+      </Wrapper>
+    );
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "" } });
+
+    expect(store.getState().authentication.modifications.pronouns).toBe(true);
+  });
+
+  it("marks the field unmodified when restored to the backend value", () => {
+    const { Wrapper, store } = createWrapper();
+    render(
+      <Wrapper>
+        <SettingsInput name="pronouns" backendValue="they/them" />
+      </Wrapper>
+    );
+
+    const input = screen.getByRole("textbox");
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.change(input, { target: { value: "they/them" } });
+
+    expect(store.getState().authentication.modifications.pronouns).toBe(false);
+  });
+
+  it("does not mark an unset field modified when typed then cleared", () => {
+    const { Wrapper, store } = createWrapper();
+    render(
+      <Wrapper>
+        <SettingsInput name="pronouns" />
+      </Wrapper>
+    );
+
+    const input = screen.getByRole("textbox");
+    fireEvent.change(input, { target: { value: "she/her" } });
+    fireEvent.change(input, { target: { value: "" } });
+
+    expect(store.getState().authentication.modifications.pronouns).toBe(false);
+  });
 });

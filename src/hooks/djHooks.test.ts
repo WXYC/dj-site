@@ -4,6 +4,7 @@ import { createElement, type ReactNode } from "react";
 import { Provider } from "react-redux";
 import { configureStore } from "@reduxjs/toolkit";
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
+import type { ModifiableData } from "@/lib/features/authentication/types";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
@@ -77,6 +78,102 @@ describe("useDJAccount", () => {
     vi.clearAllMocks();
     mockGetSession.mockResolvedValue({ data: { user: { id: "u1" } } });
     mockUpdateUser.mockResolvedValue({ data: { user: { id: "u1" } } });
+  });
+
+  describe("clearing profile fields (#609)", () => {
+    const optionalFields: (keyof ModifiableData)[] = [
+      "pronouns",
+      "namePronunciation",
+      "showTimes",
+      "title",
+      "semesterHired",
+      "bio",
+      "location",
+    ];
+
+    it.each(optionalFields)(
+      "sends an empty string when the optional field %s is cleared",
+      async (field) => {
+        const store = createTestStore();
+        store.dispatch(
+          authenticationSlice.actions.modify({ key: field, value: true })
+        );
+
+        const { useDJAccount } = await import("./djHooks");
+        const { result } = renderHook(() => useDJAccount(), {
+          wrapper: createWrapper(store),
+        });
+
+        await act(async () => {
+          await result.current.handleSaveData(formEvent({ [field]: "" }));
+        });
+
+        expect(mockUpdateUser).toHaveBeenCalledWith({ [field]: "" });
+      }
+    );
+
+    it.each(["realName", "djName", "email"] as (keyof ModifiableData)[])(
+      "drops an empty submission for the required field %s",
+      async (field) => {
+        const store = createTestStore();
+        store.dispatch(
+          authenticationSlice.actions.modify({ key: field, value: true })
+        );
+
+        const { useDJAccount } = await import("./djHooks");
+        const { result } = renderHook(() => useDJAccount(), {
+          wrapper: createWrapper(store),
+        });
+
+        await act(async () => {
+          await result.current.handleSaveData(formEvent({ [field]: "" }));
+        });
+
+        // Nothing to send once the empty required field is dropped.
+        expect(mockUpdateUser).not.toHaveBeenCalled();
+      }
+    );
+
+    it("still sends a non-empty required field", async () => {
+      const store = createTestStore();
+      store.dispatch(
+        authenticationSlice.actions.modify({ key: "realName", value: true })
+      );
+
+      const { useDJAccount } = await import("./djHooks");
+      const { result } = renderHook(() => useDJAccount(), {
+        wrapper: createWrapper(store),
+      });
+
+      await act(async () => {
+        await result.current.handleSaveData(
+          formEvent({ realName: "Juana Molina" })
+        );
+      });
+
+      expect(mockUpdateUser).toHaveBeenCalledWith({ realName: "Juana Molina" });
+    });
+
+    it("ignores fields that were never modified", async () => {
+      const store = createTestStore();
+      store.dispatch(
+        authenticationSlice.actions.modify({ key: "bio", value: true })
+      );
+
+      const { useDJAccount } = await import("./djHooks");
+      const { result } = renderHook(() => useDJAccount(), {
+        wrapper: createWrapper(store),
+      });
+
+      await act(async () => {
+        await result.current.handleSaveData(
+          formEvent({ bio: "", location: "Chapel Hill, NC" })
+        );
+      });
+
+      // Only bio was modified; location must not leak into the payload.
+      expect(mockUpdateUser).toHaveBeenCalledWith({ bio: "" });
+    });
   });
 
   describe("mount-time reset (#636)", () => {

@@ -48,10 +48,22 @@ export function useDJAccount() {
 
         let data: AccountModification = {};
 
+        // realName / djName / email are required identity fields: an empty
+        // submission for these is dropped so the prior value is kept. Every
+        // other profile field is clearable — an empty string is a deliberate
+        // clear and must reach updateData (#609).
+        const nonClearableFields: (keyof AccountModification)[] = [
+          "realName",
+          "djName",
+          "email",
+        ];
+
         for (const [key, value] of formData.entries()) {
-          if (value !== "" && modifications.some((name) => name == key)) {
-            data[key as keyof AccountModification] = value as string;
-          }
+          const field = key as keyof AccountModification;
+          if (!modifications.some((name) => name == field)) continue;
+          const stringValue = value as string;
+          if (stringValue === "" && nonClearableFields.includes(field)) continue;
+          data[field] = stringValue;
         }
 
         if (Object.keys(data).length > 0) {
