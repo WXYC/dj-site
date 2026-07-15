@@ -1,3 +1,5 @@
+import { safeCapture } from "@/lib/posthog";
+import { hasLinkedAlbumId } from "./linkage";
 import type {
   FlowsheetEntry,
   FlowsheetMessageEntry,
@@ -21,19 +23,29 @@ export function maxPlayOrder(draft: Pick<InfiniteEntriesDraft, "pages">): number
   return m;
 }
 
-/** First non-empty `show_id` in page order, or `-1` if none. */
+/**
+ * Newest entry's `show_id`, skipping orphaned entries (show_id -1, from
+ * convertV2Entry's null mapping), or `-1` if none. The skip matters:
+ * partitionFlowsheetEntries treats currentShow -1 as "nobody is live", so a
+ * single orphaned newest row must not masquerade as that sentinel and flip
+ * the whole live show into "previous".
+ */
 export function primaryShowId(draft: Pick<InfiniteEntriesDraft, "pages">): number {
   for (const page of draft.pages) {
-    if (page.length > 0) return page[0].show_id;
+    for (const e of page) {
+      if (e.show_id >= 0) return e.show_id;
+    }
   }
   return -1;
 }
 
 // Monotonic counter, not Date.now()+random: two submissions in the same
 // millisecond had a real collision chance, and a collision makes
-// replaceEntryIdAllPages silently drop one of the rows (#620).
-// More-negative = newer, which compareEntriesNewestFirst relies on.
-let optimisticTempIdCounter = 0;
+// replaceEntryIdAllPages silently drop one of the rows (#620). Seeded from
+// the clock so a Fast-Refresh module re-eval can't reissue an id still held
+// by an in-flight optimistic row. More-negative = newer, which
+// compareEntriesNewestFirst relies on.
+let optimisticTempIdCounter = Date.now();
 
 export function nextOptimisticTempId(): number {
   return -++optimisticTempIdCounter;
@@ -62,7 +74,7 @@ export function buildOptimisticEntry(
   // Key presence isn't enough: callers can pass `album_id: undefined` (or a
   // synthesized negative id for library-unlinked rows), which must render
   // the freeform variant, not a blank catalog row (#607).
-  if ("album_id" in arg && typeof arg.album_id === "number" && arg.album_id > 0) {
+  if ("album_id" in arg && hasLinkedAlbumId(arg.album_id)) {
     const entry: FlowsheetSongEntry = {
       id: tempId,
       play_order,
@@ -161,17 +173,22 @@ export function replaceEntryIdAllPages(
   tempId: number,
   serverEntry: FlowsheetEntry
 ): void {
-  if (
-    process.env.NODE_ENV !== "production" &&
-    !draft.pages.some((page) => page.some((e) => e.id === tempId))
-  ) {
+  if (!draft.pages.some((page) => page.some((e) => e.id === tempId))) {
     // Instrumentation for #860 (entries transiently vanishing after re-sync):
     // a missed swap means the optimistic row was already gone when the server
     // response landed. The insert below still runs, so the server entry is
-    // never lost — but the miss itself is the signal worth capturing.
-    console.warn(
-      `[flowsheet] replaceEntryIdAllPages: tempId ${tempId} not in cache (dj-site#860)`
-    );
+    // never lost. Known benign source of the same signal: a DJ deleting
+    // their just-submitted row before its POST resolves — correlate ids when
+    // analyzing, don't treat every event as a #860 repro.
+    safeCapture("flowsheet_optimistic_replace_miss", {
+      tempId,
+      serverEntryId: serverEntry.id,
+    });
+    if (process.env.NODE_ENV === "development") {
+      console.warn(
+        `[flowsheet] replaceEntryIdAllPages: tempId ${tempId} not in cache (dj-site#860)`
+      );
+    }
   }
   removeEntryById(draft, tempId);
   insertEntrySortedFirstPage(draft, serverEntry);
@@ -195,6 +212,9 @@ export function movePlayOrder(
     }
   }
   if (!moved) return;
+  // Orphaned entries (show_id -1) don't form a real per-show block — two
+  // unrelated orphans would renumber each other's play_order.
+  if (moved.show_id < 0) return;
   const oldPosition = moved.play_order;
   if (oldPosition === newPosition) return;
   const showId = moved.show_id;

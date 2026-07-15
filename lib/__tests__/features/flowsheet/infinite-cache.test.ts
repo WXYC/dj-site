@@ -3,6 +3,11 @@ import type {
   FlowsheetSongEntry,
   FlowsheetSubmissionParams,
 } from "@/lib/features/flowsheet/types";
+
+const safeCaptureMock = vi.fn();
+vi.mock("@/lib/posthog", () => ({
+  safeCapture: (...args: unknown[]) => safeCaptureMock(...args),
+}));
 import {
   buildOptimisticEntry,
   compareEntriesNewestFirst,
@@ -147,8 +152,8 @@ describe("infinite-cache", () => {
     expect(draft.pages[0].map((e) => e.id)).toEqual([51, 50, 49]);
   });
 
-  it("replaceEntryIdAllPages inserts when temp entry is not found, warning for #860 instrumentation", () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  it("replaceEntryIdAllPages inserts when temp entry is not found, capturing the #860 telemetry event", () => {
+    safeCaptureMock.mockClear();
     const draft = {
       pages: [[song(50, 10, 1), song(49, 9, 1)]],
       pageParams: [0],
@@ -156,10 +161,36 @@ describe("infinite-cache", () => {
     const server = song(51, 11, 1);
     replaceEntryIdAllPages(draft, -999, server);
     expect(draft.pages[0].map((e) => e.id)).toEqual([51, 50, 49]);
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("dj-site#860")
+    expect(safeCaptureMock).toHaveBeenCalledWith(
+      "flowsheet_optimistic_replace_miss",
+      { tempId: -999, serverEntryId: 51 }
     );
-    warnSpy.mockRestore();
+  });
+
+  it("replaceEntryIdAllPages does not emit telemetry on a normal swap", () => {
+    safeCaptureMock.mockClear();
+    const temp = song(-5, 11, 1);
+    const draft = {
+      pages: [[temp, song(50, 10, 1)]],
+      pageParams: [0],
+    };
+    replaceEntryIdAllPages(draft, -5, song(51, 11, 1));
+    expect(safeCaptureMock).not.toHaveBeenCalled();
+  });
+
+  it("primaryShowId skips orphaned entries so one null-show row can't read as 'nobody live' (#629)", () => {
+    const orphan = song(90, 12, -1);
+    const draft = { pages: [[orphan, song(89, 11, 5)], [song(88, 10, 5)]], pageParams: [0, 1] };
+    expect(primaryShowId(draft)).toBe(5);
+  });
+
+  it("movePlayOrder refuses to renumber orphaned (show_id -1) entries as one block", () => {
+    const draft = {
+      pages: [[song(9, 3, -1), song(8, 2, -1), song(7, 1, -1)]],
+      pageParams: [0],
+    };
+    movePlayOrder(draft, 9, 1);
+    expect(draft.pages[0].map((e) => e.play_order)).toEqual([3, 2, 1]);
   });
 
   it("nextOptimisticTempId never collides across rapid same-millisecond calls (#620)", () => {
