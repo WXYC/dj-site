@@ -198,3 +198,63 @@ describe("/auth/verify-email open-redirect protection (#597)", () => {
     expect(location.search).toBe("?verified=true");
   });
 });
+
+describe("/auth/verify-email cookie Path forwarding (#633)", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function backendSessionResponseWithCookie(cookie: string): Response {
+    const headers = new Headers();
+    headers.append("set-cookie", cookie);
+    return new Response(null, { status: 302, headers });
+  }
+
+  it("appends Path=/ when the upstream Set-Cookie omits Path entirely", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      backendSessionResponseWithCookie(
+        "__Secure-better-auth.session_token=abc.sig; HttpOnly; Secure; SameSite=Lax",
+      ),
+    );
+
+    const response = await invoke("/dashboard/flowsheet");
+    const cookies = response.headers.getSetCookie();
+
+    expect(cookies).toHaveLength(1);
+    expect(cookies[0]).toMatch(/Path=\//i);
+    // Exactly one Path attribute — the append branch adds precisely one.
+    expect(cookies[0].match(/Path=/gi)).toHaveLength(1);
+  });
+
+  it("normalises an existing non-root Path to Path=/ without duplicating it", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      backendSessionResponseWithCookie(
+        "__Secure-better-auth.session_token=abc.sig; Path=/auth; HttpOnly; Secure; SameSite=Lax",
+      ),
+    );
+
+    const response = await invoke("/dashboard/flowsheet");
+    const cookies = response.headers.getSetCookie();
+
+    expect(cookies[0]).toContain("Path=/");
+    expect(cookies[0]).not.toContain("Path=/auth");
+    // The replace rewrote the existing attribute; the append branch must not fire.
+    expect(cookies[0].match(/Path=/gi)).toHaveLength(1);
+  });
+
+  it("leaves an upstream Path=/ unchanged (happy path)", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(backendSessionResponse());
+
+    const response = await invoke("/dashboard/flowsheet");
+    const cookies = response.headers.getSetCookie();
+
+    expect(cookies[0].match(/Path=/gi)).toHaveLength(1);
+    expect(cookies[0]).toMatch(/Path=\/(;|$)/i);
+  });
+});
