@@ -24,6 +24,12 @@ export function usePlayNow(entry: FlowsheetSongEntry) {
     if (!userData || userData.id === undefined || userloading) {
       return;
     }
+    // Same gate as convertQueryToSubmission (#701): queue entries can carry
+    // `album_id: undefined` (freeform) or a synthesized negative id
+    // (library-unlinked bin rows, which BS throws on). Only a real positive
+    // album_id may carry the rotation linkage keys (#607).
+    const hasLinkedAlbum =
+      typeof entry.album_id === "number" && entry.album_id > 0;
     addToFlowsheet({
       track_title: entry.track_title,
       artist_name: entry.artist_name,
@@ -31,9 +37,11 @@ export function usePlayNow(entry: FlowsheetSongEntry) {
       record_label: entry.record_label,
       request_flag: entry.request_flag,
       segue: entry.segue,
-      rotation_id: entry.rotation_id,
-      album_id: entry.album_id,
-      rotation_bin: entry.rotation,
+      ...(hasLinkedAlbum && {
+        album_id: entry.album_id,
+        rotation_id: entry.rotation_id,
+        rotation_bin: entry.rotation,
+      }),
     } as FlowsheetSubmissionParams)
       .unwrap()
       .then(() => {

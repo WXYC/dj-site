@@ -103,7 +103,12 @@ describe("scheduleDeferredFlowsheetRefetch — #476 deferred metadata refetch", 
     await vi.runAllTimersAsync();
 
     expect(initiateSpy).toHaveBeenCalledTimes(1);
-    expect(initiateSpy).toHaveBeenCalledWith(undefined, { forceRefetch: true });
+    // subscribe: false — a leaked default subscription per addEntry pinned
+    // the getNowPlaying cache entry forever (#628).
+    expect(initiateSpy).toHaveBeenCalledWith(undefined, {
+      forceRefetch: true,
+      subscribe: false,
+    });
   });
 
   it("patches the infinite-query cache when the now-playing result matches the entry id", async () => {

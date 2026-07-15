@@ -1,11 +1,15 @@
-import { describe, it, expect } from "vitest";
-import type { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
+import { describe, it, expect, vi } from "vitest";
+import type {
+  FlowsheetSongEntry,
+  FlowsheetSubmissionParams,
+} from "@/lib/features/flowsheet/types";
 import {
   buildOptimisticEntry,
   compareEntriesNewestFirst,
   insertEntrySortedFirstPage,
   maxPlayOrder,
   movePlayOrder,
+  nextOptimisticTempId,
   primaryShowId,
   removeEntryById,
   replaceEntryIdAllPages,
@@ -143,7 +147,8 @@ describe("infinite-cache", () => {
     expect(draft.pages[0].map((e) => e.id)).toEqual([51, 50, 49]);
   });
 
-  it("replaceEntryIdAllPages inserts when temp entry is not found", () => {
+  it("replaceEntryIdAllPages inserts when temp entry is not found, warning for #860 instrumentation", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const draft = {
       pages: [[song(50, 10, 1), song(49, 9, 1)]],
       pageParams: [0],
@@ -151,6 +156,35 @@ describe("infinite-cache", () => {
     const server = song(51, 11, 1);
     replaceEntryIdAllPages(draft, -999, server);
     expect(draft.pages[0].map((e) => e.id)).toEqual([51, 50, 49]);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("dj-site#860")
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("nextOptimisticTempId never collides across rapid same-millisecond calls (#620)", () => {
+    const ids = new Set<number>();
+    for (let i = 0; i < 1000; i++) ids.add(nextOptimisticTempId());
+    expect(ids.size).toBe(1000);
+    for (const id of ids) expect(id).toBeLessThan(0);
+  });
+
+  it("later temp ids sort newer under compareEntriesNewestFirst (#620)", () => {
+    const older = nextOptimisticTempId();
+    const newer = nextOptimisticTempId();
+    expect(compareEntriesNewestFirst(song(newer, 2, 1), song(older, 1, 1))).toBeLessThan(0);
+  });
+
+  it("removeEntryById removes a duplicated id from every page (#643)", () => {
+    const dupA = song(7, 5, 1);
+    const dupB = song(7, 5, 1);
+    const draft = {
+      pages: [[song(9, 9, 1), dupA], [dupB, song(3, 3, 1)]],
+      pageParams: [0, 1],
+    };
+    removeEntryById(draft, 7);
+    expect(draft.pages[0].map((e) => e.id)).toEqual([9]);
+    expect(draft.pages[1].map((e) => e.id)).toEqual([3]);
   });
 
   it("movePlayOrder moving down renumbers the crossed block up by one", () => {
@@ -264,6 +298,48 @@ describe("infinite-cache", () => {
       draft
     );
     expect("segue" in entry && entry.segue).toBe(true);
+  });
+
+  it("buildOptimisticEntry takes the freeform branch when album_id key is present but undefined (#607)", () => {
+    // usePlayNow's pre-gate payloads carried `album_id: undefined` for
+    // freeform queue entries; key-presence alone must not select the blank
+    // catalog branch.
+    const draft = { pages: [[song(1, 10, 7)]], pageParams: [0] };
+    const { entry } = buildOptimisticEntry(
+      {
+        track_title: "On Your Own Love Again",
+        artist_name: "Jessica Pratt",
+        album_title: "On Your Own Love Again",
+        request_flag: false,
+        album_id: undefined,
+      } as FlowsheetSubmissionParams,
+      draft
+    );
+    expect("artist_name" in entry && entry.artist_name).toBe("Jessica Pratt");
+  });
+
+  it("buildOptimisticEntry takes the freeform branch for synthesized negative album_id (#607)", () => {
+    const draft = { pages: [[song(1, 10, 7)]], pageParams: [0] };
+    const { entry } = buildOptimisticEntry(
+      {
+        track_title: "la paradoja",
+        artist_name: "Juana Molina",
+        album_title: "DOGA",
+        request_flag: false,
+        album_id: -42,
+      } as FlowsheetSubmissionParams,
+      draft
+    );
+    expect("artist_name" in entry && entry.artist_name).toBe("Juana Molina");
+  });
+
+  it("buildOptimisticEntry uses the -1 no-show sentinel on an empty cache (#629)", () => {
+    const draft = { pages: [], pageParams: [] };
+    const { entry } = buildOptimisticEntry(
+      { track_title: "X", artist_name: "Y", album_title: "Z", request_flag: false },
+      draft
+    );
+    expect(entry.show_id).toBe(-1);
   });
 
   it("buildOptimisticEntry leaves `segue` undefined when not provided", () => {

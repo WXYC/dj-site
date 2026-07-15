@@ -30,9 +30,13 @@ export function scheduleDeferredFlowsheetRefetch(
   setTimeout(() => {
     void (async () => {
       try {
+        // subscribe: false — this is a one-shot refetch; the default
+        // subscription is never released and accretes a permanent ref count
+        // on the getNowPlaying cache entry per addEntry (#628).
         const result = await dispatch(
           flowsheetApi.endpoints.getNowPlaying.initiate(undefined, {
             forceRefetch: true,
+            subscribe: false,
           })
         ).unwrap();
         if (!result || result.id !== entryId) return;
