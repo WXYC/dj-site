@@ -84,4 +84,36 @@ describe("FlowsheetBackendResults", () => {
 
     expect(screen.getByText("FROM ROTATION")).toBeInTheDocument();
   });
+
+  it("caps rendering at 50 rows and shows a truncation footer for a huge response (#657)", () => {
+    const many: AlbumEntry[] = Array.from(
+      { length: 500 },
+      (_, i) => ({ id: i + 1, title: `Album ${i + 1}` } as AlbumEntry)
+    );
+
+    render(
+      <FlowsheetBackendResults results={many} offset={1} label="Card Catalog" />
+    );
+
+    expect(screen.getAllByTestId("backend-result")).toHaveLength(50);
+    expect(
+      screen.getByTestId("flowsheet-results-truncated")
+    ).toBeInTheDocument();
+  });
+
+  it("renders all rows and no footer when under the cap (#657)", () => {
+    const ten: AlbumEntry[] = Array.from(
+      { length: 10 },
+      (_, i) => ({ id: i + 1, title: `Album ${i + 1}` } as AlbumEntry)
+    );
+
+    render(
+      <FlowsheetBackendResults results={ten} offset={1} label="Card Catalog" />
+    );
+
+    expect(screen.getAllByTestId("backend-result")).toHaveLength(10);
+    expect(
+      screen.queryByTestId("flowsheet-results-truncated")
+    ).not.toBeInTheDocument();
+  });
 });
