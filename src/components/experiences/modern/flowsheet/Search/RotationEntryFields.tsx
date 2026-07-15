@@ -1,6 +1,6 @@
 "use client";
 
-import { isCompilationArtistName } from "@/lib/features/catalog/is-compilation-artist";
+import { isCompilationRelease } from "@/lib/features/catalog/is-compilation-artist";
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { Rotation } from "@/lib/features/rotation/types";
@@ -94,14 +94,11 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
   // `projectInlineTracklist` forwards them raw. Only compilations and V/A
   // releases can trust them as the performing artist; on anything else the
   // auto-fill silently corrupted the flowsheet write (#763, the Saint
-  // Etienne / Foxbase Alpha report). Gate on the release being credited as
-  // a compilation: `album_artist` populated (deterministic BS signal) or a
-  // V/A-shaped artist name. Known gap until BS exposes a compilation/split
-  // hint on RotationTrack: splits filed under a band name keep the
-  // release-level artist.
+  // Etienne / Foxbase Alpha report). Known gap until BS exposes a
+  // compilation/split hint on RotationTrack: splits filed under a band
+  // name keep the release-level artist.
   const trackCreditsAreDisambiguating =
-    !!selectedRelease?.album_artist ||
-    isCompilationArtistName(selectedRelease?.artist?.name);
+    !!selectedRelease && isCompilationRelease(selectedRelease);
 
   const handleSelectTrack = useCallback(
     (track: RotationTrack) => {
