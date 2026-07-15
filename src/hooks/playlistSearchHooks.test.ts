@@ -347,6 +347,12 @@ describe("usePlaylistSearch", () => {
       });
     });
 
+    // #623 — regression guard on the fire effect's full-tuple paramsChanged
+    // comparison. That comparison (query string AND cursor/sortBy/sortOrder,
+    // re-run when isFetching flips false) is what carries a mid-flight
+    // sort/cursor change into a deferred re-fire; a query-string-only
+    // comparison would drop it. This pins the existing guard rather than
+    // reproducing a live failure.
     describe("#623 — sort change while a fetch is in flight", () => {
       it("re-fires with the new sort once the in-flight fetch settles", async () => {
         const { store, wrapper } = createWrapper();
@@ -380,7 +386,7 @@ describe("usePlaylistSearch", () => {
 
         // User clicks the sort header — query text unchanged, only the sort
         // moves. Nothing new should fire while the request is in flight; the
-        // full params tuple is queued instead.
+        // change is picked up by the settle re-run of the fire effect.
         act(() => {
           store.dispatch(playlistSearchSlice.actions.setSort("artist"));
         });
