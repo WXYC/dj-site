@@ -79,7 +79,16 @@ export default function BinContent() {
           minHeight: 0,
         }}
       >
-        {!hasEntries ? (
+        {isError ? (
+          // Distinct from the empty state: a fetch failure must not read as
+          // "your saved records are gone". (#637)
+          <div>
+            <Typography level="body-md" color="danger">
+              Couldn&apos;t reach your Mail Bin. Your saved records are safe —
+              check your connection and try again.
+            </Typography>
+          </div>
+        ) : !hasEntries ? (
           <div>
             <Typography level="body-md">An empty record...</Typography>
           </div>
