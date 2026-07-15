@@ -73,8 +73,9 @@ NEXT_PUBLIC_BETTER_AUTH_URL=http://localhost:8082/auth
 # no change.
 # AUTH_REWRITE_URL=http://auth:8082/auth
 
-# Default page after login
-NEXT_PUBLIC_DASHBOARD_HOME_PAGE=/dashboard/flowsheet
+# Default page after login. When unset, all entry points fall back to
+# DEFAULT_DASHBOARD_HOME_PAGE in lib/features/application/constants.ts.
+NEXT_PUBLIC_DASHBOARD_HOME_PAGE=/dashboard/catalog
 
 # UI Experience settings
 NEXT_PUBLIC_DEFAULT_EXPERIENCE=modern

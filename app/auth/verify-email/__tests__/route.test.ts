@@ -257,4 +257,36 @@ describe("/auth/verify-email cookie Path forwarding (#633)", () => {
     expect(cookies[0].match(/Path=/gi)).toHaveLength(1);
     expect(cookies[0]).toMatch(/Path=\/(;|$)/i);
   });
+
+  it("handles each of multiple upstream Set-Cookie headers independently", async () => {
+    const headers = new Headers();
+    headers.append(
+      "set-cookie",
+      "__Secure-better-auth.session_token=abc.sig; Path=/auth; HttpOnly; Secure; SameSite=Lax",
+    );
+    headers.append(
+      "set-cookie",
+      "better-auth.csrf_token=xyz; HttpOnly; Secure; SameSite=Lax",
+    );
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(null, { status: 302, headers }),
+    );
+
+    const response = await invoke("/dashboard/flowsheet");
+    const cookies = response.headers.getSetCookie();
+
+    expect(cookies).toHaveLength(2);
+
+    // First cookie: existing Path rewritten by the replace branch.
+    const session = cookies.find((c) => c.includes("session_token"))!;
+    expect(session).not.toContain("Path=/auth");
+    expect(session).toMatch(/Path=\/(;|$)/i);
+    expect(session.match(/Path=/gi)).toHaveLength(1);
+
+    // Second cookie: no upstream Path, so the append branch fires for it —
+    // independently of the first cookie having taken the replace branch.
+    const csrf = cookies.find((c) => c.includes("csrf_token"))!;
+    expect(csrf).toMatch(/Path=\/(;|$)/i);
+    expect(csrf.match(/Path=/gi)).toHaveLength(1);
+  });
 });

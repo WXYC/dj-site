@@ -4,44 +4,38 @@ import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { getPageTitle } from "@/lib/utils/page-title";
 
-// Map of paths to their page titles
+// Titles for routes with no other client-side title writer. Dashboard routes
+// are deliberately absent: PageHeader owns document.title wherever it renders
+// (modern experience), and classic dashboard pages export metadata. Exactly
+// one writer per route — adding a route here that also renders PageHeader
+// reintroduces the race this map was trimmed to remove (#640 follow-up).
 const PATH_TO_TITLE: Record<string, string> = {
   "/": "DJ Site",
   "/live": "Listen Live",
   "/login": "Login",
   "/onboarding": "Onboarding",
-  "/dashboard/catalog": "Card Catalog",
-  "/dashboard/flowsheet": "Flowsheet",
-  "/dashboard/admin/roster": "DJ Roster",
 };
 
 /**
- * Client-side component that updates the page title on route changes.
- * This is necessary because Next.js metadata exports only work on initial page load,
- * not during client-side navigation.
+ * Client-side component that updates the page title on route changes for the
+ * mapped routes above. Next.js metadata exports only work on initial page
+ * load, not during client-side navigation. Unmapped routes are skipped
+ * entirely so this never fights the route's own title writer.
  */
 export default function PageTitleUpdater() {
   const pathname = usePathname();
 
   useEffect(() => {
-    // Find the matching title for the current path
-    // Check exact matches first, then check if path starts with any key
-    let title: string | undefined;
-    
-    // Try exact match first
-    if (PATH_TO_TITLE[pathname]) {
-      title = PATH_TO_TITLE[pathname];
-    } else {
-      // Try prefix match (e.g., /dashboard/flowsheet/... matches /dashboard/flowsheet)
-      const matchingPath = Object.keys(PATH_TO_TITLE).find((path) =>
-        pathname.startsWith(path)
-      );
-      if (matchingPath) {
-        title = PATH_TO_TITLE[matchingPath];
-      }
-    }
+    // Exact match first; otherwise a segment-boundary prefix match
+    // (e.g. /onboarding/step matches /onboarding). "/" is excluded from
+    // prefix matching — every path starts with "/", so it would be a
+    // catch-all that overwrites titles on unmapped routes.
+    const title =
+      PATH_TO_TITLE[pathname] ??
+      Object.entries(PATH_TO_TITLE).find(
+        ([path]) => path !== "/" && pathname.startsWith(`${path}/`),
+      )?.[1];
 
-    // Update document title if we found a match
     if (title) {
       document.title = getPageTitle(title);
     }
