@@ -1,5 +1,6 @@
 "use client";
 
+import { isCompilationArtistName } from "@/lib/features/catalog/is-compilation-artist";
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { Rotation } from "@/lib/features/rotation/types";
@@ -88,21 +89,31 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
     [dispatch, setSearchOpen]
   );
 
+  // Discogs per-track `artists` carries contributor credits (producer,
+  // co-writer, sample) on normal releases, not just performers — BS's
+  // `projectInlineTracklist` forwards them raw. Only compilations and V/A
+  // releases can trust them as the performing artist; on anything else the
+  // auto-fill silently corrupted the flowsheet write (#763, the Saint
+  // Etienne / Foxbase Alpha report). Gate on the release being credited as
+  // a compilation: `album_artist` populated (deterministic BS signal) or a
+  // V/A-shaped artist name. Known gap until BS exposes a compilation/split
+  // hint on RotationTrack: splits filed under a band name keep the
+  // release-level artist.
+  const trackCreditsAreDisambiguating =
+    !!selectedRelease?.album_artist ||
+    isCompilationArtistName(selectedRelease?.artist?.name);
+
   const handleSelectTrack = useCallback(
     (track: RotationTrack) => {
       setSelectedTrack(track);
       setManualEntry(false);
       dispatch(flowsheetSlice.actions.setSearchProperty({ name: "song", value: track.title ?? "" }));
-      // Auto-fill artist from per-track Discogs credits (surfaced by BS#944)
-      // for V/A and split releases. For normal releases BS falls back to
-      // [release.artist] so this just re-sets the value already seeded by
-      // handleSelectRelease. `normalizeTrackArtists` strips the Discogs `(N)`
-      // disambig and dedupes — see its header for the LML cache duplication
-      // root cause. When credits are empty (Discogs has no per-track data, or
-      // every entry was malformed) leave the release-level artist in place;
-      // mis-credited cases fall through to manual-entry mode (the existing
-      // escape hatch). Join separator mirrors buildArtistCredit in
-      // apps/backend/controllers/proxy.controller.ts.
+      if (!trackCreditsAreDisambiguating) return;
+      // `normalizeTrackArtists` strips the Discogs `(N)` disambig and dedupes
+      // — see its header for the LML cache duplication root cause. When
+      // credits are empty (Discogs has no per-track data, or every entry was
+      // malformed) leave the release-level artist in place. Join separator
+      // mirrors buildArtistCredit in apps/backend/controllers/proxy.controller.ts.
       const credits = normalizeTrackArtists(track.artists);
       if (credits.length > 0) {
         dispatch(
@@ -113,7 +124,7 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
         );
       }
     },
-    [dispatch]
+    [dispatch, trackCreditsAreDisambiguating]
   );
 
   const handleManualEntry = useCallback(() => {
