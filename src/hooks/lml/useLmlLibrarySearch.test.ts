@@ -305,6 +305,77 @@ describe("useLmlLibrarySearch", () => {
     });
   });
 
+  describe("stale-results guard on backspace below MIN_QUERY_LENGTH (#625)", () => {
+    it("clears rendered results within one render when the live query drops below the threshold", async () => {
+      server.use(
+        http.get(PROXY_SEARCH_URL, () =>
+          HttpResponse.json({
+            results: [
+              createTestLmlLibraryItem({
+                id: 7,
+                title: "DOGA",
+                artist: "Juana Molina",
+              }),
+            ],
+            total: 1,
+            query: "Juana Molina",
+          } satisfies LmlLibrarySearchResponse)
+        )
+      );
+
+      const { result, rerender } = renderHook(
+        ({ artist, album }) => useLmlLibrarySearch({ artist, album }),
+        { initialProps: { artist: "Juana", album: "" }, wrapper: withStore() }
+      );
+
+      // Let the debounce fire and the results land.
+      await vi.advanceTimersByTimeAsync(400);
+      await waitFor(() => expect(result.current.results.length).toBe(1));
+
+      // Backspace to below MIN_QUERY_LENGTH (len 2). `debounced` still holds
+      // "Juana" (and its warm cache entry) for the 350ms debounce window, so
+      // `skip` stays false — but the rendered results must clear immediately,
+      // without advancing any timers.
+      rerender({ artist: "Ju", album: "" });
+
+      expect(result.current.results).toEqual([]);
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    it("keeps showing results while the query stays valid mid-typing", async () => {
+      server.use(
+        http.get(PROXY_SEARCH_URL, () =>
+          HttpResponse.json({
+            results: [
+              createTestLmlLibraryItem({
+                id: 8,
+                title: "DOGA",
+                artist: "Juana Molina",
+              }),
+            ],
+            total: 1,
+            query: "Juana Molina",
+          } satisfies LmlLibrarySearchResponse)
+        )
+      );
+
+      const { result, rerender } = renderHook(
+        ({ artist, album }) => useLmlLibrarySearch({ artist, album }),
+        { initialProps: { artist: "Juana", album: "" }, wrapper: withStore() }
+      );
+
+      await vi.advanceTimersByTimeAsync(400);
+      await waitFor(() => expect(result.current.results.length).toBe(1));
+
+      // Extend the query (still >= MIN_QUERY_LENGTH). The guard keys on
+      // hasValidQuery, which is still true, so results must not be blanked
+      // while the debounce catches up.
+      rerender({ artist: "Juana M", album: "" });
+
+      expect(result.current.results.length).toBe(1);
+    });
+  });
+
   it("isLoading is true while debounce is pending for a valid query", async () => {
     server.use(
       http.get(PROXY_SEARCH_URL, () =>
