@@ -43,8 +43,14 @@ const distDir = process.env.NEXT_DIST_DIR_SUFFIX
 //                client resolves a cross-origin NEXT_PUBLIC_BETTER_AUTH_URL to
 //                the local /auth proxy (lib/features/authentication/client.ts),
 //                so 'self' covers it.
-//   frame-ancestors 'none' — nothing embeds dj-site in an iframe (grep found no
-//                self-framing); mirrors X-Frame-Options: DENY.
+//   frame-ancestors 'none' — nothing embeds dj-site in an iframe today (grep
+//                found no self-framing; confirmed by the maintainer 2026-07-15);
+//                mirrors X-Frame-Options: DENY. KNOWN FUTURE CAVEAT: serving
+//                the player from wxyc.org in an iframe is a long-term goal —
+//                when that project lands, relax this to
+//                `frame-ancestors 'self' https://wxyc.org` (and scope the
+//                X-Frame-Options change to the embedded route) rather than
+//                dropping framing protection wholesale.
 //
 // NEXT_PUBLIC_* values are inlined at build time, so the derived origins below
 // resolve to the environment being built (prod vs preview vs local).
