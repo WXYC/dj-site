@@ -32,6 +32,12 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { useThemePreferenceSync } from "./themePreferenceHooks";
 
+// vitest.setup.ts replaces window.localStorage with a vi.fn() mock (setItem is
+// a no-op), so tests seed the store by stubbing getItem's return value.
+function setLocalPreference(value: string | null) {
+  vi.mocked(window.localStorage.getItem).mockReturnValue(value);
+}
+
 const mockSetMode = vi.fn();
 const mockSetThemeId = vi.fn();
 
@@ -56,7 +62,7 @@ const mockReload = vi.fn();
 describe("useThemePreferenceSync (#611)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    localStorage.clear();
+    setLocalPreference(null);
     delete document.documentElement.dataset.experience;
     setColorScheme("light");
     setModernTheme("stacks");
@@ -147,5 +153,72 @@ describe("useThemePreferenceSync (#611)", () => {
     expect(mockSetMode).not.toHaveBeenCalled();
 
     vi.unstubAllGlobals();
+  });
+
+  it("applies a late-arriving account appSkin after the first sync, serialized and exactly once", async () => {
+    // First sync resolves from local state; the better-auth session (and its
+    // authoritative appSkin) arrives only afterwards — the follow-up sync must
+    // still apply it rather than dropping it behind the synced guard.
+    setLocalPreference("modern-stacks-light");
+    mockUseSession.mockReturnValue({ data: { user: { id: "u1" } } });
+
+    let resolveFirstPersist!: () => void;
+    mockSetPreference
+      .mockReturnValueOnce({
+        unwrap: () =>
+          new Promise<void>((r) => {
+            resolveFirstPersist = () => r(undefined);
+          }),
+      })
+      .mockReturnValue({ unwrap: () => Promise.resolve(undefined) });
+
+    const { rerender } = renderHook(() => useThemePreferenceSync());
+    await flush();
+    expect(mockSetPreference).toHaveBeenCalledTimes(1);
+    expect(mockSetPreference).toHaveBeenCalledWith({
+      preference: "modern-stacks-light",
+    });
+
+    // The account appSkin resolves while sync #1's persist is still in flight.
+    mockUseSession.mockReturnValue({
+      data: { user: { id: "u1", appSkin: "modern-bluenote-dark" } },
+    });
+    rerender();
+    await flush();
+
+    // Serialized: the re-sync is queued, never concurrent with sync #1.
+    expect(mockSetPreference).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveFirstPersist();
+    });
+    await flush();
+
+    // The account preference applied exactly once.
+    expect(mockSetPreference).toHaveBeenCalledTimes(2);
+    expect(mockSetPreference).toHaveBeenLastCalledWith({
+      preference: "modern-bluenote-dark",
+    });
+    expect(mockSetMode).toHaveBeenCalledWith("dark");
+    expect(mockSetThemeId).toHaveBeenCalledWith("bluenote");
+  });
+
+  it("skips the re-sync when the late account appSkin matches what was already applied", async () => {
+    setLocalPreference("modern-stacks-light");
+    mockUseSession.mockReturnValue({ data: { user: { id: "u1" } } });
+
+    const { rerender } = renderHook(() => useThemePreferenceSync());
+    await flush();
+    expect(mockSetPreference).toHaveBeenCalledTimes(1);
+
+    mockUseSession.mockReturnValue({
+      data: { user: { id: "u1", appSkin: "modern-stacks-light" } },
+    });
+    rerender();
+    await flush();
+
+    // Already reconciled — no second persist and no reload churn.
+    expect(mockSetPreference).toHaveBeenCalledTimes(1);
+    expect(mockReload).not.toHaveBeenCalled();
   });
 });

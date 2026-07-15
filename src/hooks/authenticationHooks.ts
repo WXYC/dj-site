@@ -528,6 +528,10 @@ export const useAuthentication = () => {
         });
     } else if (!session) {
       setAuthData({ message: "Not Authenticated" });
+      // If the session ended while a role fetch was in flight, that fetch's
+      // finally is now cancelled-gated and can no longer reset the flag —
+      // settle it here or `authenticating` sticks true forever (#612).
+      setIsLoadingRole(false);
     }
     return () => {
       cancelled = true;

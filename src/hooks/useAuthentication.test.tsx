@@ -75,6 +75,36 @@ describe("useAuthentication async role fetch (#612)", () => {
     expect(result.current.data).toEqual(dataB);
   });
 
+  it("settles authenticating=false when the session ends mid-fetch, and still discards the stale result", async () => {
+    const sessionA = { user: { id: "A" } };
+    let resolveA!: (v: unknown) => void;
+    const pA = new Promise<unknown>((r) => { resolveA = r; });
+    mockAsync.mockReturnValueOnce(pA);
+
+    mockUseSession.mockReturnValue({ data: sessionA, isPending: false, error: null });
+    const { result, rerender } = renderHook(() => useAuthentication());
+    expect(result.current.authenticating).toBe(true);
+
+    // Logout/expiry while A's role fetch is still in flight.
+    mockUseSession.mockReturnValue({ data: null, isPending: false, error: null });
+    rerender();
+
+    // The cancelled fetch's finally can no longer reset isLoadingRole, so the
+    // no-session branch must — otherwise `authenticating` sticks true forever.
+    expect(result.current.authenticating).toBe(false);
+    expect(result.current.data).toEqual({ message: "Not Authenticated" });
+
+    // A's fetch resolving late must not clobber the signed-out state.
+    await act(async () => {
+      resolveA({ message: "Authenticated", user: { id: "A", role: "dj" } });
+      await pA;
+      await Promise.resolve();
+    });
+
+    expect(result.current.data).toEqual({ message: "Not Authenticated" });
+    expect(result.current.authenticating).toBe(false);
+  });
+
   it("applies the role fetch result for a stable session", async () => {
     const session = { user: { id: "A" } };
     const data = { message: "Authenticated", user: { id: "A", role: "dj" } };
