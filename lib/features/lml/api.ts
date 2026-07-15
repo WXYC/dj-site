@@ -33,8 +33,8 @@ export const lmlApi = createApi({
           limit,
         },
       }),
-      transformResponse: (response: LmlLibrarySearchResponse) =>
-        response.results.map(convertLmlItemToAlbumEntry),
+      transformResponse: (response: LmlLibrarySearchResponse | null) =>
+        response?.results ? response.results.map(convertLmlItemToAlbumEntry) : [],
     }),
   }),
 });
