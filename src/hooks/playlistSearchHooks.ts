@@ -97,8 +97,16 @@ export function usePlaylistSearch() {
   >([]);
   const lastQueryForAccumulationRef = useRef<string>("");
 
-  const [trigger, { data, isFetching, isError }] =
+  const [trigger, { data, isFetching, isError, originalArgs }] =
     useLazySearchPlaylistsQuery();
+
+  // The cursor that actually PRODUCED `data`, read from the request's
+  // originalArgs — not the live `cursor` selector. Typing resets the slice
+  // cursor to null (frontend.ts updateRow/setSort) one render before the new
+  // fetch lands, so the live cursor no longer describes the in-hand `data`.
+  // Basing replace-vs-append on this fingerprint keeps a just-blanked
+  // accumulator from being repopulated with the prior query's rows (#604).
+  const producingCursor = originalArgs?.cursor ?? null;
 
   // Reset accumulated results when query or sort changes
   useEffect(() => {
@@ -109,12 +117,15 @@ export function usePlaylistSearch() {
     }
   }, [effectiveQuery, sortBy, sortOrder]);
 
-  // Accumulate results when new data arrives. cursor === null means "first
-  // page" so we replace; otherwise we append (deduping by id) since the
-  // user is paginating.
+  // Accumulate results when new data arrives. A null producing cursor means
+  // "first page" so we replace; otherwise we append (deduping by id) since the
+  // user is paginating. Keyed on `producingCursor` (the cursor that produced
+  // `data`), never the live `cursor` — a live-cursor flip on a new query
+  // re-fired this effect against the previous query's `data` and replaced the
+  // blanked accumulator with stale rows (#604).
   useEffect(() => {
     if (data?.results) {
-      if (cursor === null) {
+      if (producingCursor === null) {
         setAccumulatedResults(data.results);
       } else {
         setAccumulatedResults((prev) => {
@@ -124,7 +135,7 @@ export function usePlaylistSearch() {
         });
       }
     }
-  }, [data, cursor]);
+  }, [data, producingCursor]);
 
   // Fire search when query changes (response-based throttling)
   useEffect(() => {
