@@ -2,7 +2,8 @@ import { createApi } from "@reduxjs/toolkit/query/react";
 import { backendBaseQuery } from "../backend";
 import { convertToAlbumEntry } from "../catalog/conversions";
 import { AlbumEntry, AlbumSearchResultJSON } from "../catalog/types";
-import { KillRotationParams, RotationParams } from "./types";
+import type { AddRotationRequest } from "@wxyc/shared";
+import { KillRotationParams } from "./types";
 
 export const rotationApi = createApi({
   reducerPath: "rotationApi",
@@ -17,7 +18,10 @@ export const rotationApi = createApi({
         response.map(convertToAlbumEntry),
       providesTags: ["Rotation"],
     }),
-    addRotationEntry: builder.mutation<any, RotationParams>({
+    // Typed against the shared OpenAPI contract (album_id: number) — the old
+    // local RotationParams declared album_id: string, drifting from the wire
+    // and forcing casts on future callers (#627).
+    addRotationEntry: builder.mutation<any, AddRotationRequest>({
       query: (rotation) => ({
         url: "",
         method: "POST",
