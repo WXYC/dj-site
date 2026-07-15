@@ -5,7 +5,7 @@ import { AccountModification } from "@/lib/features/authentication/types";
 import { authClient } from "@/lib/features/authentication/client";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useRegistry } from "./authenticationHooks";
 import { throwIfBetterAuthError } from "@/src/utilities/throwIfBetterAuthError";
@@ -23,10 +23,15 @@ export function useDJAccount() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateError, setUpdateError] = useState<Error | null>(null);
 
+  // Reset only on the isUpdating true→false transition (post-save cleanup).
+  // A mount-time reset would wipe modifications set by sibling fields that
+  // rendered earlier, producing an empty save payload (#636).
+  const wasUpdating = useRef(false);
   useEffect(() => {
-    if (!isUpdating) {
+    if (wasUpdating.current && !isUpdating) {
       dispatch(authenticationSlice.actions.resetModifications());
     }
+    wasUpdating.current = isUpdating;
   }, [isUpdating, dispatch]);
 
   const handleSaveData = useCallback(
