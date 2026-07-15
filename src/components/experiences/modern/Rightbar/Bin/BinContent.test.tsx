@@ -262,7 +262,7 @@ describe("BinContent", () => {
     expect(screen.getByText("An empty record...")).toBeInTheDocument();
   });
 
-  it("should render empty message when isError is true", () => {
+  it("should render a distinct error message (not the empty message) when isError is true", () => {
     mockUseBin.mockReturnValue({
       bin: mockBinEntries,
       loading: false,
@@ -272,7 +272,27 @@ describe("BinContent", () => {
 
     render(<BinContent />);
 
+    // Error state must not masquerade as an empty bin. (#637)
+    expect(
+      screen.getByText(/Your saved records are safe/)
+    ).toBeInTheDocument();
+    expect(screen.queryByText("An empty record...")).not.toBeInTheDocument();
+  });
+
+  it("should render neither the error nor entries when the bin is genuinely empty", () => {
+    mockUseBin.mockReturnValue({
+      bin: [],
+      loading: false,
+      isSuccess: true,
+      isError: false,
+    });
+
+    render(<BinContent />);
+
     expect(screen.getByText("An empty record...")).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Your saved records are safe/)
+    ).not.toBeInTheDocument();
   });
 
   it("should render bin entries when bin has items", () => {
