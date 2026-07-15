@@ -40,8 +40,10 @@ function isSearchResult(
 // so a fix in either layer must update the assertion deliberately.
 
 // Contentless rows can't be distinguished by content. Their counter is placed
-// one below the 32-bit hash range (the smallest hashed id is -(2**31 - 1)) so a
-// fallback id can never collide with a hashed id or a real positive id.
+// one below the 32-bit hash range: the hashed id is -(Math.abs(hash) || 1)
+// with hash coerced via `| 0`, and Math.abs(-2147483648) === 2147483648, so
+// the TRUE minimum hashed id is -(2**31) exactly. The base below must stay
+// strictly less than that — do not "simplify" it to -(2**31).
 const CONTENTLESS_ID_BASE = -(2 ** 31) - 1;
 let contentlessIdCounter = 0;
 function nextContentlessId(): number {

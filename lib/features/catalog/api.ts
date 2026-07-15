@@ -119,7 +119,9 @@ export const catalogApi = createApi({
       // The POST response isn't a full AlbumEntry and the browse is a
       // paginated/sorted infinite query, so a new row can't be patched into the
       // cache coherently (its correct page may be unloaded). Invalidate the
-      // list instead so the panel refetches — dj-site#624.
+      // list instead so the panel refetches — dj-site#624. No UI dispatches
+      // this mutation yet; the tag is wired so the first adopter gets correct
+      // cache behavior instead of the stale-list bug #624 documented.
       invalidatesTags: [{ type: "CatalogList", id: "LIST" }],
     }),
     updateAlbum: builder.mutation<AlbumEntry, { albumId: number; body: UpdateAlbumRequestBody }>({
@@ -151,8 +153,10 @@ export const catalogApi = createApi({
         method: "POST",
         body,
       }),
-      // A new artist surfaces in the artist typeahead (searchArtistsInGenre) and
-      // can gate later album rows; refetch both rather than patch — dj-site#624.
+      // A new artist would surface in the artist typeahead (searchArtistsInGenre)
+      // and can gate later album rows; refetch both rather than patch —
+      // dj-site#624. Neither this mutation nor the typeahead has a UI consumer
+      // yet — tags are wired for the first adopter, not a live flow.
       invalidatesTags: [
         { type: "CatalogList", id: "LIST" },
         { type: "ArtistSearch", id: "LIST" },
