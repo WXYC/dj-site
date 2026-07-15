@@ -83,6 +83,46 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
       expect(result.search.selectedResult).toBe(3);
     });
 
+    it("resetSearch clears every optional FlowsheetQuery field (#645)", () => {
+      // Seed a query where every optional field is populated (rotation
+      // metadata, segue, track_position) — the fields the default literal
+      // previously omitted — then reset and assert they all read undefined.
+      const stateWithAllFields: FlowsheetFrontendState = {
+        ...harness().initialState,
+        search: {
+          ...harness().initialState.search,
+          query: {
+            song: "la paradoja",
+            artist: "Juana Molina",
+            album: "DOGA",
+            label: "Sonamos",
+            request: true,
+            segue: true,
+            album_id: 42,
+            rotation_bin: "H",
+            rotation_id: 7,
+            track_position: "A1",
+          },
+        },
+      };
+
+      const result = harness().reduce(
+        actions.resetSearch(),
+        stateWithAllFields
+      );
+
+      expect(result.search.query.song).toBe("");
+      expect(result.search.query.artist).toBe("");
+      expect(result.search.query.album).toBe("");
+      expect(result.search.query.label).toBe("");
+      expect(result.search.query.request).toBe(false);
+      expect(result.search.query.segue).toBeUndefined();
+      expect(result.search.query.album_id).toBeUndefined();
+      expect(result.search.query.rotation_bin).toBeUndefined();
+      expect(result.search.query.rotation_id).toBeUndefined();
+      expect(result.search.query.track_position).toBeUndefined();
+    });
+
     // Arrow-key navigation between search results moves to a different
     // album_id (each result is a distinct release). track_position picked on
     // the previous result would orphan onto the new release if not cleared.
@@ -457,6 +497,51 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
       mockedSaveQueue.mockClear();
       harness().reduce(actions.reorderQueue([]));
       expect(mockedSaveQueue).toHaveBeenCalled();
+    });
+
+    it("lifts queueIdCounter above any reordered id ≥ the current counter (#646)", () => {
+      const stateWithQueue: FlowsheetFrontendState = {
+        ...harness().initialState,
+        queue: [createTestFlowsheetEntry({ id: 0, play_order: 0 })],
+        queueIdCounter: 1,
+      };
+
+      // A future caller reorders in an entry whose id (9) exceeds the counter;
+      // without the recompute a later addToQueue would reuse id 1..9 and
+      // collide.
+      const reordered = [
+        createTestFlowsheetEntry({ id: 9, play_order: 0, track_title: "New" }),
+        createTestFlowsheetEntry({ id: 0, play_order: 1, track_title: "Old" }),
+      ];
+      const result = harness().reduce(
+        actions.reorderQueue(reordered),
+        stateWithQueue
+      );
+
+      expect(result.queueIdCounter).toBe(10);
+      // Invariant: counter is strictly greater than every id in the queue.
+      for (const entry of result.queue) {
+        expect(result.queueIdCounter).toBeGreaterThan(entry.id);
+      }
+    });
+
+    it("never lowers queueIdCounter on a same-id reorder (#646)", () => {
+      const entries = [
+        createTestFlowsheetEntry({ id: 0, play_order: 0 }),
+        createTestFlowsheetEntry({ id: 1, play_order: 1 }),
+      ];
+      const stateWithQueue: FlowsheetFrontendState = {
+        ...harness().initialState,
+        queue: entries,
+        queueIdCounter: 5,
+      };
+
+      const result = harness().reduce(
+        actions.reorderQueue([entries[1], entries[0]]),
+        stateWithQueue
+      );
+
+      expect(result.queueIdCounter).toBe(5);
     });
   });
 
