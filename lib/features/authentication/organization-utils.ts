@@ -4,11 +4,13 @@ import { getAppOrganizationId, getAppOrganizationIdClient } from "./organization
 import { BetterAuthJwtPayload, WXYCRole } from "./types";
 
 /**
- * Module-level cache for the organization ID resolved via the admin endpoint.
- * The slug-to-ID mapping is stable (WXYC has a single org) so no TTL is needed.
- * Resets on page reload.
+ * Module-level cache of organization IDs resolved via the admin endpoint,
+ * keyed by slug so distinct slugs never collide (multi-org / staging-vs-prod /
+ * admin-impersonation). Slug-to-ID mappings are stable so no TTL is needed;
+ * the cache resets on page reload and, on logout, via resetOrganizationIdCache
+ * so a departing user's resolved UUID can't leak into the next session (#616).
  */
-let cachedAdminOrgId: string | null = null;
+const cachedAdminOrgIds = new Map<string, string>();
 
 /**
  * Resolve the configured organization slug to its UUID via the admin endpoint.
@@ -20,10 +22,11 @@ let cachedAdminOrgId: string | null = null;
  * @returns The organization UUID, or null if the slug is not configured or resolution fails.
  */
 export async function resolveOrganizationIdAdmin(slugOverride?: string): Promise<string | null> {
-  if (cachedAdminOrgId) return cachedAdminOrgId;
-
   const slug = slugOverride || process.env.NEXT_PUBLIC_APP_ORGANIZATION;
   if (!slug) return null;
+
+  const cached = cachedAdminOrgIds.get(slug);
+  if (cached) return cached;
 
   try {
     const response = await fetch(
@@ -33,8 +36,9 @@ export async function resolveOrganizationIdAdmin(slugOverride?: string): Promise
 
     if (!response.ok) return null;
     const data = await response.json();
-    cachedAdminOrgId = data.id;
-    return cachedAdminOrgId;
+    if (!data.id) return null;
+    cachedAdminOrgIds.set(slug, data.id);
+    return data.id;
   } catch {
     return null;
   }
@@ -241,7 +245,14 @@ export function normalizeRole(role: string): string {
   return role;
 }
 
-/** @internal — test-only cache reset */
-export function _resetOrgCacheForTesting() {
-  cachedAdminOrgId = null;
+/**
+ * Clear the admin org-id cache. Wired into the logout flow (resetApplication)
+ * so a departing user's resolved organization UUID can't leak into the next
+ * session on the same browser (#616).
+ */
+export function resetOrganizationIdCache() {
+  cachedAdminOrgIds.clear();
 }
+
+/** @internal — test-only alias of {@link resetOrganizationIdCache}. */
+export const _resetOrgCacheForTesting = resetOrganizationIdCache;

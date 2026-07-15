@@ -504,25 +504,34 @@ export const useAuthentication = () => {
   );
   const [isLoadingRole, setIsLoadingRole] = useState(false);
 
-  // Fetch organization role when session is available
+  // Fetch organization role when session is available.
   useEffect(() => {
+    // Guard against a stale session's role fetch resolving after a newer one:
+    // on a session transition (logout→login, refresh, OTP) the older promise
+    // could otherwise clobber authData with the previous session's role, and
+    // resolve after unmount ("setState on unmounted component") — #612.
+    let cancelled = false;
     if (session && !isPending) {
       setIsLoadingRole(true);
       betterAuthSessionToAuthenticationDataAsync(session as any)
         .then((data) => {
-          setAuthData(data);
+          if (!cancelled) setAuthData(data);
         })
         .catch((error) => {
+          if (cancelled) return;
           console.error("Failed to fetch organization role, using session data:", error);
           // Fall back to synchronous version on error
           setAuthData(betterAuthSessionToAuthenticationData(session as any));
         })
         .finally(() => {
-          setIsLoadingRole(false);
+          if (!cancelled) setIsLoadingRole(false);
         });
     } else if (!session) {
       setAuthData({ message: "Not Authenticated" });
     }
+    return () => {
+      cancelled = true;
+    };
   }, [session, isPending]);
 
   return {
