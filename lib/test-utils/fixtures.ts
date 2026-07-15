@@ -347,7 +347,7 @@ export function createTestAuthenticationState(
 
 // Better Auth session fixtures
 import type { BetterAuthSession } from "@/lib/features/authentication/utilities";
-import type { BetterAuthJwtPayload, WXYCRole } from "@/lib/features/authentication/types";
+import type { WXYCRole } from "@/lib/features/authentication/types";
 
 export function createTestBetterAuthSession(
   overrides: Partial<BetterAuthSession> = {}
@@ -448,20 +448,6 @@ export function createTestPasswordResetUser(
 ): PasswordResetUser {
   return {
     confirmationMessage: "Check your email",
-    ...overrides,
-  };
-}
-
-export function createTestBetterAuthJWTPayload(
-  overrides: Partial<BetterAuthJwtPayload> = {}
-): BetterAuthJwtPayload {
-  return {
-    sub: "test-user-id-123",
-    id: "test-user-id-123",
-    email: "testdj@wxyc.org",
-    role: "dj",
-    exp: Math.floor(Date.now() / 1000) + 3600,
-    iat: Math.floor(Date.now() / 1000),
     ...overrides,
   };
 }
