@@ -2,6 +2,7 @@ import { createAppSlice } from "@/lib/createAppSlice";
 import { PayloadAction } from "@reduxjs/toolkit";
 import { FlowsheetFrontendState, FlowsheetQuery, FlowsheetSearchProperty, FlowsheetSongEntry } from "./types";
 import { Rotation } from "../rotation/types";
+import { hasLinkedAlbumId } from "./linkage";
 import { clearQueueFromStorage, loadQueueFromStorage, saveQueueToStorage } from "./queue-storage";
 
 // Drop the catalog-anchored trio (album_id, rotation_id, rotation) from a
@@ -19,7 +20,7 @@ function withSanitizedAlbumLinkage<
     rotation?: Rotation;
   }
 >(entry: T): T {
-  if (typeof entry.album_id === "number" && entry.album_id > 0) {
+  if (hasLinkedAlbumId(entry.album_id)) {
     return entry;
   }
   return {

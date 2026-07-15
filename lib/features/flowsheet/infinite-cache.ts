@@ -1,3 +1,5 @@
+import { safeCapture } from "@/lib/posthog";
+import { hasLinkedAlbumId } from "./linkage";
 import type {
   FlowsheetEntry,
   FlowsheetMessageEntry,
@@ -21,16 +23,35 @@ export function maxPlayOrder(draft: Pick<InfiniteEntriesDraft, "pages">): number
   return m;
 }
 
-/** First non-empty `show_id` in page order, or `-1` if none. */
+/**
+ * Newest entry's `show_id`, skipping orphaned entries (show_id exactly -1,
+ * from convertV2Entry's null mapping), or `-1` if none. The skip matters:
+ * partitionFlowsheetEntries treats currentShow -1 as "nobody is live", so a
+ * single orphaned newest row must not masquerade as that sentinel and flip
+ * the whole live show into "previous". Other negative show_ids are NOT
+ * skipped — the #619 fix pushes an optimistic show-start marker whose
+ * show_id is a fresh negative tempId, and it must win here so the prior
+ * show's tail stops partitioning as current during the goLive window.
+ */
 export function primaryShowId(draft: Pick<InfiniteEntriesDraft, "pages">): number {
   for (const page of draft.pages) {
-    if (page.length > 0) return page[0].show_id;
+    for (const e of page) {
+      if (e.show_id !== -1) return e.show_id;
+    }
   }
   return -1;
 }
 
+// Monotonic counter, not Date.now()+random: two submissions in the same
+// millisecond had a real collision chance, and a collision makes
+// replaceEntryIdAllPages silently drop one of the rows (#620). Seeded from
+// the clock so a Fast-Refresh module re-eval can't reissue an id still held
+// by an in-flight optimistic row. More-negative = newer, which
+// compareEntriesNewestFirst relies on.
+let optimisticTempIdCounter = Date.now();
+
 export function nextOptimisticTempId(): number {
-  return -(Date.now() * 1000 + Math.floor(Math.random() * 1000));
+  return -++optimisticTempIdCounter;
 }
 
 export function buildOptimisticEntry(
@@ -39,9 +60,9 @@ export function buildOptimisticEntry(
 ): { entry: FlowsheetEntry; tempId: number } {
   const tempId = nextOptimisticTempId();
   const play_order = maxPlayOrder(draft) + 1;
-  const sid = primaryShowId(draft);
-  // Fallback until POST response replaces row (empty cache / unknown show).
-  const show_id = sid >= 0 ? sid : 0;
+  // -1 is the shared unknown-show sentinel (primaryShowId, convertV2Entry);
+  // 0 collides with a real show id (#629). Server response replaces the row.
+  const show_id = primaryShowId(draft);
 
   if ("message" in arg) {
     const entry: FlowsheetMessageEntry = {
@@ -53,7 +74,10 @@ export function buildOptimisticEntry(
     return { entry, tempId };
   }
 
-  if ("album_id" in arg) {
+  // Key presence isn't enough: callers can pass `album_id: undefined` (or a
+  // synthesized negative id for library-unlinked rows), which must render
+  // the freeform variant, not a blank catalog row (#607).
+  if ("album_id" in arg && hasLinkedAlbumId(arg.album_id)) {
     const entry: FlowsheetSongEntry = {
       id: tempId,
       play_order,
@@ -71,13 +95,15 @@ export function buildOptimisticEntry(
     return { entry, tempId };
   }
 
+  // Freeform submissions — and linked-shape args whose album_id wasn't a
+  // usable positive id — render whatever typed fields they carry.
   const entry: FlowsheetSongEntry = {
     id: tempId,
     play_order,
     show_id,
     track_title: arg.track_title,
-    artist_name: arg.artist_name,
-    album_title: arg.album_title,
+    artist_name: "artist_name" in arg ? arg.artist_name : "",
+    album_title: "album_title" in arg ? arg.album_title : "",
     record_label: arg.record_label ?? "",
     request_flag: arg.request_flag,
     segue: arg.segue,
@@ -96,7 +122,7 @@ export function compareEntriesNewestFirst(a: FlowsheetEntry, b: FlowsheetEntry):
   const aTemp = a.id < 0;
   const bTemp = b.id < 0;
   if (aTemp !== bTemp) return aTemp ? -1 : 1;
-  if (aTemp) return a.id - b.id; // more negative = newer (larger Date.now())
+  if (aTemp) return a.id - b.id; // more negative = newer (later counter value)
   return b.id - a.id;
 }
 
@@ -120,11 +146,12 @@ export function insertEntrySortedFirstPage(
 }
 
 export function removeEntryById(draft: InfiniteEntriesDraft, id: number): void {
+  // No early return: ids must not survive on any page (the "AllPages" caller
+  // below depends on it), even if a bug elsewhere duplicated one (#643).
   for (const page of draft.pages) {
     const index = page.findIndex((item) => item.id === id);
     if (index !== -1) {
       page.splice(index, 1);
-      return;
     }
   }
 }
@@ -149,6 +176,23 @@ export function replaceEntryIdAllPages(
   tempId: number,
   serverEntry: FlowsheetEntry
 ): void {
+  if (!draft.pages.some((page) => page.some((e) => e.id === tempId))) {
+    // Instrumentation for #860 (entries transiently vanishing after re-sync):
+    // a missed swap means the optimistic row was already gone when the server
+    // response landed. The insert below still runs, so the server entry is
+    // never lost. Known benign source of the same signal: a DJ deleting
+    // their just-submitted row before its POST resolves — correlate ids when
+    // analyzing, don't treat every event as a #860 repro.
+    safeCapture("flowsheet_optimistic_replace_miss", {
+      tempId,
+      serverEntryId: serverEntry.id,
+    });
+    if (process.env.NODE_ENV === "development") {
+      console.warn(
+        `[flowsheet] replaceEntryIdAllPages: tempId ${tempId} not in cache (dj-site#860)`
+      );
+    }
+  }
   removeEntryById(draft, tempId);
   insertEntrySortedFirstPage(draft, serverEntry);
 }
@@ -171,6 +215,11 @@ export function movePlayOrder(
     }
   }
   if (!moved) return;
+  // Orphaned entries (show_id exactly -1) don't form a real per-show block —
+  // two unrelated orphans would renumber each other's play_order. Other
+  // negative show_ids are coherent optimistic show blocks (#619 marker) and
+  // may renumber normally.
+  if (moved.show_id === -1) return;
   const oldPosition = moved.play_order;
   if (oldPosition === newPosition) return;
   const showId = moved.show_id;

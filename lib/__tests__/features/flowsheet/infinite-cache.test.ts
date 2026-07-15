@@ -1,11 +1,20 @@
-import { describe, it, expect } from "vitest";
-import type { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
+import { describe, it, expect, vi } from "vitest";
+import type {
+  FlowsheetSongEntry,
+  FlowsheetSubmissionParams,
+} from "@/lib/features/flowsheet/types";
+
+const safeCaptureMock = vi.fn();
+vi.mock("@/lib/posthog", () => ({
+  safeCapture: (...args: unknown[]) => safeCaptureMock(...args),
+}));
 import {
   buildOptimisticEntry,
   compareEntriesNewestFirst,
   insertEntrySortedFirstPage,
   maxPlayOrder,
   movePlayOrder,
+  nextOptimisticTempId,
   primaryShowId,
   removeEntryById,
   replaceEntryIdAllPages,
@@ -143,7 +152,8 @@ describe("infinite-cache", () => {
     expect(draft.pages[0].map((e) => e.id)).toEqual([51, 50, 49]);
   });
 
-  it("replaceEntryIdAllPages inserts when temp entry is not found", () => {
+  it("replaceEntryIdAllPages inserts when temp entry is not found, capturing the #860 telemetry event", () => {
+    safeCaptureMock.mockClear();
     const draft = {
       pages: [[song(50, 10, 1), song(49, 9, 1)]],
       pageParams: [0],
@@ -151,6 +161,69 @@ describe("infinite-cache", () => {
     const server = song(51, 11, 1);
     replaceEntryIdAllPages(draft, -999, server);
     expect(draft.pages[0].map((e) => e.id)).toEqual([51, 50, 49]);
+    expect(safeCaptureMock).toHaveBeenCalledWith(
+      "flowsheet_optimistic_replace_miss",
+      { tempId: -999, serverEntryId: 51 }
+    );
+  });
+
+  it("replaceEntryIdAllPages does not emit telemetry on a normal swap", () => {
+    safeCaptureMock.mockClear();
+    const temp = song(-5, 11, 1);
+    const draft = {
+      pages: [[temp, song(50, 10, 1)]],
+      pageParams: [0],
+    };
+    replaceEntryIdAllPages(draft, -5, song(51, 11, 1));
+    expect(safeCaptureMock).not.toHaveBeenCalled();
+  });
+
+  it("primaryShowId skips orphaned entries so one null-show row can't read as 'nobody live' (#629)", () => {
+    const orphan = song(90, 12, -1);
+    const draft = { pages: [[orphan, song(89, 11, 5)], [song(88, 10, 5)]], pageParams: [0, 1] };
+    expect(primaryShowId(draft)).toBe(5);
+  });
+
+  it("primaryShowId returns a negative optimistic show-marker id (only -1 is the orphan sentinel)", () => {
+    // The #619 goLive fix pushes a show-start marker whose show_id is a fresh
+    // negative tempId; it must win over the prior show's entries.
+    const marker = song(-40, 13, -40);
+    const draft = { pages: [[marker, song(89, 12, 5)]], pageParams: [0] };
+    expect(primaryShowId(draft)).toBe(-40);
+  });
+
+  it("movePlayOrder refuses to renumber orphaned (show_id -1) entries as one block", () => {
+    const draft = {
+      pages: [[song(9, 3, -1), song(8, 2, -1), song(7, 1, -1)]],
+      pageParams: [0],
+    };
+    movePlayOrder(draft, 9, 1);
+    expect(draft.pages[0].map((e) => e.play_order)).toEqual([3, 2, 1]);
+  });
+
+  it("nextOptimisticTempId never collides across rapid same-millisecond calls (#620)", () => {
+    const ids = new Set<number>();
+    for (let i = 0; i < 1000; i++) ids.add(nextOptimisticTempId());
+    expect(ids.size).toBe(1000);
+    for (const id of ids) expect(id).toBeLessThan(0);
+  });
+
+  it("later temp ids sort newer under compareEntriesNewestFirst (#620)", () => {
+    const older = nextOptimisticTempId();
+    const newer = nextOptimisticTempId();
+    expect(compareEntriesNewestFirst(song(newer, 2, 1), song(older, 1, 1))).toBeLessThan(0);
+  });
+
+  it("removeEntryById removes a duplicated id from every page (#643)", () => {
+    const dupA = song(7, 5, 1);
+    const dupB = song(7, 5, 1);
+    const draft = {
+      pages: [[song(9, 9, 1), dupA], [dupB, song(3, 3, 1)]],
+      pageParams: [0, 1],
+    };
+    removeEntryById(draft, 7);
+    expect(draft.pages[0].map((e) => e.id)).toEqual([9]);
+    expect(draft.pages[1].map((e) => e.id)).toEqual([3]);
   });
 
   it("movePlayOrder moving down renumbers the crossed block up by one", () => {
@@ -264,6 +337,48 @@ describe("infinite-cache", () => {
       draft
     );
     expect("segue" in entry && entry.segue).toBe(true);
+  });
+
+  it("buildOptimisticEntry takes the freeform branch when album_id key is present but undefined (#607)", () => {
+    // usePlayNow's pre-gate payloads carried `album_id: undefined` for
+    // freeform queue entries; key-presence alone must not select the blank
+    // catalog branch.
+    const draft = { pages: [[song(1, 10, 7)]], pageParams: [0] };
+    const { entry } = buildOptimisticEntry(
+      {
+        track_title: "On Your Own Love Again",
+        artist_name: "Jessica Pratt",
+        album_title: "On Your Own Love Again",
+        request_flag: false,
+        album_id: undefined,
+      } as FlowsheetSubmissionParams,
+      draft
+    );
+    expect("artist_name" in entry && entry.artist_name).toBe("Jessica Pratt");
+  });
+
+  it("buildOptimisticEntry takes the freeform branch for synthesized negative album_id (#607)", () => {
+    const draft = { pages: [[song(1, 10, 7)]], pageParams: [0] };
+    const { entry } = buildOptimisticEntry(
+      {
+        track_title: "la paradoja",
+        artist_name: "Juana Molina",
+        album_title: "DOGA",
+        request_flag: false,
+        album_id: -42,
+      } as FlowsheetSubmissionParams,
+      draft
+    );
+    expect("artist_name" in entry && entry.artist_name).toBe("Juana Molina");
+  });
+
+  it("buildOptimisticEntry uses the -1 no-show sentinel on an empty cache (#629)", () => {
+    const draft = { pages: [], pageParams: [] };
+    const { entry } = buildOptimisticEntry(
+      { track_title: "X", artist_name: "Y", album_title: "Z", request_flag: false },
+      draft
+    );
+    expect(entry.show_id).toBe(-1);
   });
 
   it("buildOptimisticEntry leaves `segue` undefined when not provided", () => {
