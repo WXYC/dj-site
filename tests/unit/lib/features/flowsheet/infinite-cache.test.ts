@@ -178,6 +178,44 @@ describe("infinite-cache", () => {
     expect(safeCaptureMock).not.toHaveBeenCalled();
   });
 
+  it("replaceEntryIdAllPages leaves the server id exactly once when the refetch already landed it (#860)", () => {
+    safeCaptureMock.mockClear();
+    const draft = {
+      pages: [[song(51, 11, 1), song(50, 10, 1), song(49, 9, 1)]],
+      pageParams: [0],
+    };
+    replaceEntryIdAllPages(draft, -5, song(51, 11, 1));
+    const ids = draft.pages.flat().map((e) => e.id);
+    expect(ids.filter((id) => id === 51)).toHaveLength(1);
+    expect(ids).toEqual([51, 50, 49]);
+  });
+
+  it("replaceEntryIdAllPages does not emit telemetry when the server row already landed (benign refetch-race, #860)", () => {
+    safeCaptureMock.mockClear();
+    const draft = {
+      pages: [[song(51, 11, 1), song(50, 10, 1)]],
+      pageParams: [0],
+    };
+    replaceEntryIdAllPages(draft, -5, song(51, 11, 1));
+    expect(safeCaptureMock).not.toHaveBeenCalled();
+  });
+
+  it("removeEntryById removes every copy of a same-page duplicate id (#860)", () => {
+    const draft = {
+      pages: [[song(9, 9, 1), song(7, 5, 1), song(7, 5, 1), song(3, 3, 1)]],
+      pageParams: [0],
+    };
+    const removed = removeEntryById(draft, 7);
+    expect(removed).toBe(true);
+    expect(draft.pages[0].map((e) => e.id)).toEqual([9, 3]);
+  });
+
+  it("removeEntryById reports whether it removed anything", () => {
+    const draft = { pages: [[song(9, 9, 1)]], pageParams: [0] };
+    expect(removeEntryById(draft, 999)).toBe(false);
+    expect(removeEntryById(draft, 9)).toBe(true);
+  });
+
   it("primaryShowId skips orphaned entries so one null-show row can't read as 'nobody live' (#629)", () => {
     const orphan = song(90, 12, -1);
     const draft = { pages: [[orphan, song(89, 11, 5)], [song(88, 10, 5)]], pageParams: [0, 1] };
