@@ -145,15 +145,23 @@ export function insertEntrySortedFirstPage(
   }
 }
 
-export function removeEntryById(draft: InfiniteEntriesDraft, id: number): void {
-  // No early return: ids must not survive on any page (the "AllPages" caller
-  // below depends on it), even if a bug elsewhere duplicated one (#643).
+/**
+ * Remove every row carrying `id` from every page. All copies must go, including
+ * duplicates on a single page, because the swap below relies on the id surviving
+ * on no page. Iterate back-to-front so a splice can't shift an unchecked row
+ * past the cursor.
+ */
+export function removeEntryById(draft: InfiniteEntriesDraft, id: number): boolean {
+  let removed = false;
   for (const page of draft.pages) {
-    const index = page.findIndex((item) => item.id === id);
-    if (index !== -1) {
-      page.splice(index, 1);
+    for (let i = page.length - 1; i >= 0; i--) {
+      if (page[i].id === id) {
+        page.splice(i, 1);
+        removed = true;
+      }
     }
   }
+  return removed;
 }
 
 export function patchEntryById(
@@ -170,19 +178,23 @@ export function patchEntryById(
   }
 }
 
-/** Replace the entry with `tempId` everywhere it appears with `serverEntry`. */
+/**
+ * Replace the optimistic `tempId` row with `serverEntry`. A refetch may have
+ * already placed the real row in the cache before this runs, so `serverEntry.id`
+ * is removed before inserting to keep it present exactly once.
+ */
 export function replaceEntryIdAllPages(
   draft: InfiniteEntriesDraft,
   tempId: number,
   serverEntry: FlowsheetEntry
 ): void {
-  if (!draft.pages.some((page) => page.some((e) => e.id === tempId))) {
-    // Instrumentation for #860 (entries transiently vanishing after re-sync):
-    // a missed swap means the optimistic row was already gone when the server
-    // response landed. The insert below still runs, so the server entry is
-    // never lost. Known benign source of the same signal: a DJ deleting
-    // their just-submitted row before its POST resolves — correlate ids when
-    // analyzing, don't treat every event as a #860 repro.
+  const tempRemoved = removeEntryById(draft, tempId);
+  const serverRowAlreadyPresent = removeEntryById(draft, serverEntry.id);
+  insertEntrySortedFirstPage(draft, serverEntry);
+
+  // A miss only when neither row was present: an already-present server row is a
+  // benign refetch-race, not a lost optimistic entry.
+  if (!tempRemoved && !serverRowAlreadyPresent) {
     safeCapture("flowsheet_optimistic_replace_miss", {
       tempId,
       serverEntryId: serverEntry.id,
@@ -193,8 +205,6 @@ export function replaceEntryIdAllPages(
       );
     }
   }
-  removeEntryById(draft, tempId);
-  insertEntrySortedFirstPage(draft, serverEntry);
 }
 
 /**
