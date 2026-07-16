@@ -9,23 +9,12 @@ import { createTestAccountResult } from "@/tests/helpers";
 
 describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, actions }) => {
   describe("default state", () => {
-    it("should have mini set to false", () => {
-      expect(harness().initialState.rightbar.mini).toBe(false);
-    });
-
     it("should have sidebarOpen set to false", () => {
       expect(harness().initialState.rightbar.sidebarOpen).toBe(false);
     });
 
     it("should have panel set to default", () => {
       expect(harness().initialState.rightbar.panel).toEqual({ type: "default" });
-    });
-  });
-
-  describe("setRightbarMini action", () => {
-    it.each([true, false])("should set mini to %s", (value) => {
-      const result = harness().reduce(actions.setRightbarMini(value));
-      expect(result.rightbar.mini).toBe(value);
     });
   });
 
@@ -39,15 +28,6 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
     it("should auto-open the sidebar on mobile", () => {
       const result = harness().reduce(actions.openPanel({ type: "settings" }));
       expect(result.rightbar.sidebarOpen).toBe(true);
-    });
-
-    it("should un-mini the rightbar", () => {
-      const withMini = {
-        ...harness().initialState,
-        rightbar: { ...harness().initialState.rightbar, mini: true },
-      };
-      const result = harness().reduce(actions.openPanel({ type: "settings" }), withMini);
-      expect(result.rightbar.mini).toBe(false);
     });
 
     it("should overwrite the previous panel when switching", () => {
@@ -140,7 +120,6 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
   describe("reset action", () => {
     it("should reset state to default", () => {
       const result = harness().chain(
-        actions.setRightbarMini(true),
         actions.toggleSidebar(),
         actions.openPanel({ type: "album-detail", albumId: 42 }),
         actions.setAuthStage("forgot"),
@@ -154,12 +133,6 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
   // both use name: "application" which causes a conflict in combineSlices.
   // The selectors are tested indirectly through the actions.
   describe("selectors", () => {
-    describe("getRightbarMini", () => {
-      it("should be defined", () => {
-        expect(applicationSlice.selectors.getRightbarMini).toBeDefined();
-      });
-    });
-
     describe("getRightbarPanel", () => {
       it("should be defined", () => {
         expect(applicationSlice.selectors.getRightbarPanel).toBeDefined();

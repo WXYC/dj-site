@@ -12,12 +12,6 @@ vi.mock("@mui/joy/styles", () => ({
   }),
 }));
 
-vi.mock("@/lib/features/experiences/api", () => ({
-  useGetActiveExperienceQuery: () => ({
-    data: "modern",
-  }),
-}));
-
 vi.mock("@/src/hooks/themePreferenceHooks", () => ({
   buildPreference: (experience: string, mode: string) => `${experience}-${mode}`,
   useThemePreferenceActions: () => ({
@@ -31,19 +25,19 @@ describe("ColorSchemeToggle", () => {
   });
 
   it("should render an icon button", () => {
-    render(<ColorSchemeToggle />);
+    render(<ColorSchemeToggle experience="modern" />);
     expect(screen.getByRole("button")).toBeInTheDocument();
   });
 
   it("should have correct tooltip text for light mode", () => {
-    render(<ColorSchemeToggle />);
+    render(<ColorSchemeToggle experience="modern" />);
     // Button should indicate switching to dark mode when in light mode
     const button = screen.getByRole("button");
     expect(button).toBeInTheDocument();
   });
 
   it("should call setMode when clicked", () => {
-    render(<ColorSchemeToggle />);
+    render(<ColorSchemeToggle experience="modern" />);
     const button = screen.getByRole("button");
     fireEvent.click(button);
 
@@ -51,7 +45,7 @@ describe("ColorSchemeToggle", () => {
   });
 
   it("should persist preference when clicked", () => {
-    render(<ColorSchemeToggle />);
+    render(<ColorSchemeToggle experience="modern" />);
     const button = screen.getByRole("button");
     fireEvent.click(button);
 

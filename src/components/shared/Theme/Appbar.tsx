@@ -1,6 +1,7 @@
 "use client";
 
 import { ColorSchemeToggleLoader } from "@/src/components/shared/Theme/ColorSchemeToggle";
+import { ExperienceId } from "@/lib/features/experiences/types";
 import { usePublicRoutes } from "@/src/hooks/applicationHooks";
 import { Box, ButtonGroup, Typography } from "@mui/joy";
 import dynamic from "next/dynamic";
@@ -19,7 +20,7 @@ const ColorSchemeToggle = dynamic(
   }
 );
 
-export default function Appbar() {
+export default function Appbar({ experience }: { experience: ExperienceId }) {
   const isPublic = usePublicRoutes();
 
   return (
@@ -55,9 +56,9 @@ export default function Appbar() {
         {/* Classic-mode switcher sits left of the color-theme picker. The
             picker is intentionally absent from AppbarClassic, so it is
             unavailable once classic mode is enabled. */}
-        <ThemeSwitcher />
+        <ThemeSwitcher experience={experience} />
         <ThemePicker />
-        <ColorSchemeToggle />
+        <ColorSchemeToggle experience={experience} />
       </ButtonGroup>
     </Box>
   );

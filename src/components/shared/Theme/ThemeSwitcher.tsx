@@ -4,9 +4,7 @@ import { IconButton, Tooltip } from "@mui/joy";
 import type { MouseEvent as ReactMouseEvent } from "react";
 
 import { AutoFixHigh, AutoFixOff } from "@mui/icons-material";
-import {
-  useGetActiveExperienceQuery,
-} from "@/lib/features/experiences/api";
+import { ExperienceId } from "@/lib/features/experiences/types";
 import { useColorScheme } from "@mui/joy/styles";
 import { useModernTheme } from "@/src/styles/ModernThemeContext";
 import {
@@ -22,8 +20,11 @@ export function ThemeSwitchLoader() {
   );
 }
 
-export default function ThemeSwitcher() {
-  const { data: experience, isLoading } = useGetActiveExperienceQuery();
+export default function ThemeSwitcher({
+  experience,
+}: {
+  experience: ExperienceId;
+}) {
   const { mode } = useColorScheme();
   const { themeId } = useModernTheme();
   const { persistPreference } = useThemePreferenceActions();
@@ -54,12 +55,7 @@ export default function ThemeSwitcher() {
       placement="top-start"
       variant="outlined"
     >
-      <IconButton 
-        id="toggle-experience" 
-        onClick={handleSwitch} 
-        loading={isLoading} 
-        disabled={isLoading}
-      >
+      <IconButton id="toggle-experience" onClick={handleSwitch}>
         {isClassic ? <AutoFixHigh /> : <AutoFixOff />}
       </IconButton>
     </Tooltip>

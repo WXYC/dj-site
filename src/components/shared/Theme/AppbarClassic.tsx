@@ -1,6 +1,7 @@
 "use client";
 
 import { ColorSchemeToggleLoader } from "@/src/components/shared/Theme/ColorSchemeToggle";
+import { ExperienceId } from "@/lib/features/experiences/types";
 import { usePublicRoutes } from "@/src/hooks/applicationHooks";
 import { Box, ButtonGroup, Typography } from "@mui/joy";
 import dynamic from "next/dynamic";
@@ -18,7 +19,11 @@ const ColorSchemeToggle = dynamic(
   }
 );
 
-export default function AppbarClassic() {
+export default function AppbarClassic({
+  experience,
+}: {
+  experience: ExperienceId;
+}) {
   const isPublic = usePublicRoutes();
 
   return (
@@ -58,8 +63,8 @@ export default function AppbarClassic() {
             General Feedback
           </LinkButton>
         )}
-        <ThemeSwitcher />
-        <ColorSchemeToggle />
+        <ThemeSwitcher experience={experience} />
+        <ColorSchemeToggle experience={experience} />
       </ButtonGroup>
     </Box>
   );
