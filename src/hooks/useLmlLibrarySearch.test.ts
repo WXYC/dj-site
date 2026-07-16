@@ -11,7 +11,7 @@ import {
 } from "@/lib/test-utils";
 import type { AppStore } from "@/lib/store";
 import { useLmlLibrarySearch } from "./useLmlLibrarySearch";
-import type { LmlLibrarySearchResponse } from "./types";
+import type { LmlLibrarySearchResponse } from "@/lib/features/lml/types";
 
 vi.mock("@/lib/features/authentication/client", () => ({
   getJWTToken: vi.fn().mockResolvedValue("test-jwt-token"),

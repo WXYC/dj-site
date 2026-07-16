@@ -1,8 +1,8 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import type { AlbumEntry } from "../catalog/types";
 import { backendBaseQuery } from "../backend";
-import { convertLmlItemToAlbumEntry } from "@/src/hooks/lml/lml-conversions";
-import type { LmlLibrarySearchResponse } from "@/src/hooks/lml/types";
+import { convertLmlItemToAlbumEntry } from "./lml-conversions";
+import type { LmlLibrarySearchResponse } from "./types";
 
 export interface LmlSearchArgs {
   artist: string;

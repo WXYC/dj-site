@@ -612,7 +612,7 @@ export function createTestV2MessageEntry(
 }
 
 // LML library search fixtures
-import type { LmlLibraryItem } from "@/src/hooks/lml/types";
+import type { LmlLibraryItem } from "@/lib/features/lml/types";
 
 export function createTestLmlLibraryItem(
   overrides: Partial<LmlLibraryItem> = {}
