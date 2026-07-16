@@ -19,11 +19,25 @@ import {
   Stack,
   Tooltip,
 } from "@mui/joy";
+import { useEffect, useState } from "react";
 
 export default function GoLive() {
   const { live, autoplay, setAutoPlay, loading, goLive, leave } =
     useShowControl();
   const isSaving = useFlowsheetSaving();
+
+  // Must match the server's markup until this flips true post-mount, or the
+  // aria-label React hydrates onto the ButtonGroup won't match server HTML.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  const goLiveLabel =
+    mounted && !loading
+      ? live
+        ? "Click to leave"
+        : "Click to go live"
+      : "Loading...";
 
   return (
     <Stack direction="row" spacing={1} alignItems="center">
@@ -53,7 +67,7 @@ export default function GoLive() {
         </Tooltip>
       ) : null}
       <Tooltip
-        title={loading ? "Loading..." : live ? "Click to leave" : "Click to go live"}
+        title={goLiveLabel}
         placement="top"
         size="sm"
         variant="outlined"

@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
+import { hydrateRoot } from "react-dom/client";
 import GoLive from "@/src/components/experiences/modern/flowsheet/GoLive";
 
 // Mock flowsheet hooks
@@ -144,6 +146,65 @@ describe("GoLive", () => {
     expect(buttons[1]).toBeDisabled();
   });
 
+  describe("hydration safety", () => {
+    it("keeps the go-live aria-label consistent between the server render and the client's first hydration pass, then updates once mounted", async () => {
+      const { useShowControl } = await import("@/src/hooks/flowsheetHooks");
+      // clearAllMocks() clears call history, not a prior mockReturnValue.
+      vi.mocked(useShowControl).mockReturnValue({
+        live: false,
+        autoplay: false,
+        setAutoPlay: mockSetAutoPlay,
+        loading: false,
+        goLive: mockGoLive,
+        leave: mockLeave,
+        currentShow: -1,
+      });
+      vi.mocked(useShowControl).mockImplementationOnce(() => ({
+        live: false,
+        autoplay: false,
+        setAutoPlay: mockSetAutoPlay,
+        loading: true,
+        goLive: mockGoLive,
+        leave: mockLeave,
+        currentShow: -1,
+      }));
+
+      const serverHtml = renderToString(<GoLive />);
+      expect(serverHtml).toContain('aria-label="Loading..."');
+
+      const container = document.createElement("div");
+      container.innerHTML = serverHtml;
+      document.body.appendChild(container);
+
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      let root!: ReturnType<typeof hydrateRoot>;
+      act(() => {
+        root = hydrateRoot(container, <GoLive />);
+      });
+
+      // React's mismatch dump includes unchanged attributes as surrounding
+      // context, so match a `+`/`-` diff line, not any mention of the name.
+      const ariaLabelMismatchLogged = errorSpy.mock.calls.some((call) =>
+        call.some(
+          (arg) => typeof arg === "string" && /^[+-]\s*aria-label=/m.test(arg)
+        )
+      );
+      expect(ariaLabelMismatchLogged).toBe(false);
+      errorSpy.mockRestore();
+
+      const buttonGroup = container.querySelector('[role="group"]');
+      await waitFor(() => {
+        expect(buttonGroup).toHaveAttribute("aria-label", "Click to go live");
+      });
+
+      act(() => {
+        root.unmount();
+      });
+      document.body.removeChild(container);
+    });
+  });
+
   it("should show saving indicator when isSaving", async () => {
     const { useShowControl } = await import("@/src/hooks/flowsheetHooks");
     vi.mocked(useShowControl).mockReturnValue({
@@ -155,7 +216,9 @@ describe("GoLive", () => {
       leave: mockLeave,
       currentShow: 1,
     });
-    mockUseFlowsheetSaving.mockReturnValueOnce(true);
+    // Not `mockReturnValueOnce`: GoLive re-renders once more after mount,
+    // calling this hook again — a "once" value wouldn't cover that render.
+    mockUseFlowsheetSaving.mockReturnValue(true);
 
     render(<GoLive />);
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
