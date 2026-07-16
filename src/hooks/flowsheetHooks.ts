@@ -165,6 +165,66 @@ export const useShowControl = () => {
 export const useFlowsheetSaving = (): boolean =>
   useAppSelector(selectFlowsheetMutationPending);
 
+/**
+ * The one flowsheet search pipeline — four ordered sources
+ * (bin → rotation → catalog → lml), LML dedupe against the first three, and the
+ * MAX_VISIBLE_RESULTS-capped concat that FlowsheetSearchResults' offsets and
+ * FlowsheetSearchbar's arrow-key bound share. Search view (useFlowsheetSearch)
+ * and submit (useFlowsheetSubmit) resolve their selected entry from this single
+ * implementation, so the highlighted row and the submitted entry can never
+ * resolve to different albums — the divergence two hand-kept copies allowed. (#657)
+ */
+const useFlowsheetSearchResults = () => {
+  const searchQuery = useAppSelector(flowsheetSlice.selectors.getSearchQuery);
+  const selectedResult = useAppSelector(
+    flowsheetSlice.selectors.getSelectedResult
+  );
+
+  const { searchResults: binResults } = useBinResults();
+  const { searchResults: catalogResults } = useCatalogFlowsheetSearch();
+  const { searchResults: rotationResults } = useRotationFlowsheetSearch();
+  const { results: rawLmlResults } = useLmlLibrarySearch({
+    artist: searchQuery.artist,
+    album: searchQuery.album,
+  });
+
+  const lmlResults = useMemo(() => {
+    const seen = new Set<number>();
+    for (const r of binResults) seen.add(r.id);
+    for (const r of rotationResults) seen.add(r.id);
+    for (const r of catalogResults) seen.add(r.id);
+    return rawLmlResults.filter((r) => !seen.has(r.id));
+  }, [binResults, rotationResults, catalogResults, rawLmlResults]);
+
+  const allSearchResults = useMemo(
+    () => [
+      ...binResults.slice(0, MAX_VISIBLE_RESULTS),
+      ...rotationResults.slice(0, MAX_VISIBLE_RESULTS),
+      ...catalogResults.slice(0, MAX_VISIBLE_RESULTS),
+      ...lmlResults.slice(0, MAX_VISIBLE_RESULTS),
+    ],
+    [binResults, rotationResults, catalogResults, lmlResults]
+  );
+
+  const selectedEntry = useMemo(
+    () =>
+      selectedResult === 0
+        ? null
+        : allSearchResults[selectedResult - 1] ?? null,
+    [selectedResult, allSearchResults]
+  );
+
+  return {
+    searchQuery,
+    selectedResult,
+    binResults,
+    catalogResults,
+    rotationResults,
+    lmlResults,
+    selectedEntry,
+  };
+};
+
 export const useFlowsheetSearch = () => {
   const { live, loading } = useShowControl();
   const isSaving = useFlowsheetSaving();
@@ -175,67 +235,37 @@ export const useFlowsheetSearch = () => {
     dispatch(flowsheetSlice.actions.setSearchOpen(open));
   };
   const resetSearch = () => dispatch(flowsheetSlice.actions.resetSearch());
-  const searchQuery = useAppSelector(flowsheetSlice.selectors.getSearchQuery);
-  const selectedIndex = useAppSelector(flowsheetSlice.selectors.getSelectedResult);
   const setSearchProperty = (name: FlowsheetSearchProperty, value: string) => {
     dispatch(flowsheetSlice.actions.setSearchProperty({ name, value }));
   };
 
-  // Get the selected entry from search results
-  const { searchResults: binResults } = useBinResults();
-  const { searchResults: catalogResults } = useCatalogFlowsheetSearch();
-  const { searchResults: rotationResults } = useRotationFlowsheetSearch();
-  const { results: rawLmlResults } = useLmlLibrarySearch({
-    artist: searchQuery.artist,
-    album: searchQuery.album,
-  });
+  const {
+    searchQuery,
+    selectedResult: selectedIndex,
+    selectedEntry,
+  } = useFlowsheetSearchResults();
 
-  // Deduplicate LML results against the other three sources
-  const lmlResults = useMemo(() => {
-    const seen = new Set<number>();
-    for (const r of binResults) seen.add(r.id);
-    for (const r of rotationResults) seen.add(r.id);
-    for (const r of catalogResults) seen.add(r.id);
-    return rawLmlResults.filter((r) => !seen.has(r.id));
-  }, [binResults, rotationResults, catalogResults, rawLmlResults]);
-
-  // Each section is capped to MAX_VISIBLE_RESULTS in the results dropdown, so
-  // the selectedResult index space maps into the capped concatenation — same
-  // order and same cap as FlowsheetSearchResults' offsets, keeping the
-  // highlighted row and the resolved entry in lockstep. (#657)
-  const allSearchResults = useMemo(() => [
-    ...binResults.slice(0, MAX_VISIBLE_RESULTS),
-    ...rotationResults.slice(0, MAX_VISIBLE_RESULTS),
-    ...catalogResults.slice(0, MAX_VISIBLE_RESULTS),
-    ...lmlResults.slice(0, MAX_VISIBLE_RESULTS),
-  ], [binResults, rotationResults, catalogResults, lmlResults]);
-
-  const selectedEntry = useMemo(() => {
-    if (selectedIndex === 0) return null;
-    return allSearchResults[selectedIndex - 1] ?? null;
-  }, [selectedIndex, allSearchResults]);
-
-  // Get the display value for a field - either from selected result or raw query
-  const getDisplayValue = useCallback((name: FlowsheetSearchProperty): string => {
-    if (selectedIndex === 0 || !selectedEntry) {
-      // Show raw query values when creating new
-      return searchQuery[name] as string;
-    }
-    
-    // Show selected result values when a result is selected
-    switch (name) {
-      case "song":
-        return searchQuery.song as string; // Always show user input for song
-      case "artist":
-        return selectedEntry.artist?.name || searchQuery.artist as string;
-      case "album":
-        return selectedEntry.title || searchQuery.album as string;
-      case "label":
-        return selectedEntry.label || searchQuery.label as string;
-      default:
+  const getDisplayValue = useCallback(
+    (name: FlowsheetSearchProperty): string => {
+      if (selectedIndex === 0 || !selectedEntry) {
         return searchQuery[name] as string;
-    }
-  }, [selectedIndex, selectedEntry, searchQuery]);
+      }
+      switch (name) {
+        case "song":
+          // Song always reflects the DJ's own input, even under a selection.
+          return searchQuery.song as string;
+        case "artist":
+          return selectedEntry.artist?.name || (searchQuery.artist as string);
+        case "album":
+          return selectedEntry.title || (searchQuery.album as string);
+        case "label":
+          return selectedEntry.label || (searchQuery.label as string);
+        default:
+          return searchQuery[name] as string;
+      }
+    },
+    [selectedIndex, selectedEntry, searchQuery]
+  );
 
   return {
     live,
@@ -269,7 +299,6 @@ export const useFlowsheet = () => {
     pollingInterval: flowsheetPollingInterval,
   });
 
-  // Flatten all pages into a single deduplicated, sorted array
   const allEntries = useMemo(() => {
     if (!infiniteData?.pages) return [];
     const map = new Map<number, FlowsheetEntry>();
@@ -541,53 +570,18 @@ export const useFlowsheetSubmit = () => {
     }
   }, []);
 
-  const { searchResults: binResults } = useBinResults();
-  const { searchResults: catalogResults } = useCatalogFlowsheetSearch();
-  const { searchResults: rotationResults } = useRotationFlowsheetSearch();
+  const {
+    searchQuery: flowSheetRawQuery,
+    selectedResult,
+    binResults,
+    catalogResults,
+    rotationResults,
+    lmlResults,
+    selectedEntry,
+  } = useFlowsheetSearchResults();
 
-  const selectedResult = useAppSelector(
-    flowsheetSlice.selectors.getSelectedResult
-  );
-
-  const flowSheetRawQuery = useAppSelector(
-    flowsheetSlice.selectors.getSearchQuery
-  );
-
-  const { results: rawLmlResults } = useLmlLibrarySearch({
-    artist: flowSheetRawQuery.artist,
-    album: flowSheetRawQuery.album,
-  });
-
-  // Deduplicate LML results against the other three sources
-  const lmlResults = useMemo(() => {
-    const seen = new Set<number>();
-    for (const r of binResults) seen.add(r.id);
-    for (const r of rotationResults) seen.add(r.id);
-    for (const r of catalogResults) seen.add(r.id);
-    return rawLmlResults.filter((r) => !seen.has(r.id));
-  }, [binResults, rotationResults, catalogResults, rawLmlResults]);
-
-  // Memoized collection of all VISIBLE search results. Must mirror the capped
-  // index space (FlowsheetSearchResults offsets + FlowsheetSearchbar nav
-  // bound): submitting through the full lists would map a visible index onto a
-  // different, unseen album whenever an earlier section is truncated. (#657)
-  const allSearchResults = useMemo(() => [
-    ...binResults.slice(0, MAX_VISIBLE_RESULTS),
-    ...rotationResults.slice(0, MAX_VISIBLE_RESULTS),
-    ...catalogResults.slice(0, MAX_VISIBLE_RESULTS),
-    ...lmlResults.slice(0, MAX_VISIBLE_RESULTS),
-  ], [binResults, rotationResults, catalogResults, lmlResults]);
-
-  // Memoized selected entry (null if creating new)
-  const selectedEntry = useMemo(() => {
-    if (selectedResult === 0) return null;
-    return allSearchResults[selectedResult - 1] ?? null;
-  }, [selectedResult, allSearchResults]);
-
-  // Memoized calculation of the selected result data
   const selectedResultData = useMemo<FlowsheetQuery>(() => {
     if (selectedResult == 0 || !selectedEntry) {
-      // User is creating a new entry manually (or in rotation mode)
       return {
         song: flowSheetRawQuery.song as string,
         artist: flowSheetRawQuery.artist as string,
@@ -600,8 +594,7 @@ export const useFlowsheetSubmit = () => {
         request: flowSheetRawQuery.request,
       };
     } else {
-      // User has selected a result from the search
-      // Use result values if available, otherwise fall back to user edits
+      // Selected result fields win; each falls back to the DJ's typed value.
       return {
         song: flowSheetRawQuery.song as string,
         artist: selectedEntry.artist?.name || flowSheetRawQuery.artist as string,
@@ -658,7 +651,6 @@ export const useFlowsheetSubmit = () => {
     ]
   );
 
-  // Combine both keyboard listeners into one effect
   useEffect(() => {
     document.addEventListener("keydown", handleKeyDown);
     document.addEventListener("keyup", handleKeyUp);
