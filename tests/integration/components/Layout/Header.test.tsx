@@ -7,11 +7,6 @@ vi.mock("@/src/components/shared/Branding/Logo", () => ({
   default: () => <div data-testid="logo">Logo</div>,
 }));
 
-// Mock dynamic import of ColorSchemeToggle
-vi.mock("next/dynamic", () => ({
-  default: () => () => <div data-testid="color-scheme-toggle">Toggle</div>,
-}));
-
 describe("Header", () => {
   it("should render as header element", () => {
     render(<Header />);
