@@ -35,7 +35,6 @@ export default function CreateAccountPopup() {
           maxHeight: "max-content",
           maxWidth: "100%",
           mx: "auto",
-          // to make the demo resizable
           overflow: "auto",
           resize: "horizontal",
         }}

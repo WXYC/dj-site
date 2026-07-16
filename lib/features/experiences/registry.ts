@@ -1,8 +1,5 @@
 import { ExperienceConfig, ExperienceId } from "./types";
 
-/**
- * Central registry of all available experiences
- */
 export const EXPERIENCE_REGISTRY: Record<ExperienceId, ExperienceConfig> = {
   classic: {
     id: "classic",
@@ -36,30 +33,18 @@ export const EXPERIENCE_REGISTRY: Record<ExperienceId, ExperienceConfig> = {
   },
 };
 
-/**
- * Get experience configuration by ID
- */
 export function getExperienceConfig(id: ExperienceId): ExperienceConfig {
   return EXPERIENCE_REGISTRY[id];
 }
 
-/**
- * Get all enabled experiences
- */
 export function getEnabledExperiences(): ExperienceConfig[] {
   return Object.values(EXPERIENCE_REGISTRY).filter((exp) => exp.enabled);
 }
 
-/**
- * Check if an experience is enabled
- */
 export function isExperienceEnabled(id: ExperienceId): boolean {
   return EXPERIENCE_REGISTRY[id]?.enabled ?? false;
 }
 
-/**
- * Get default experience based on environment or fallback
- */
 export function getDefaultExperience(): ExperienceId {
   const envDefault = process.env.NEXT_PUBLIC_DEFAULT_EXPERIENCE;
   if (envDefault === "classic" || envDefault === "modern") {
@@ -68,9 +53,6 @@ export function getDefaultExperience(): ExperienceId {
   return "modern";
 }
 
-/**
- * Get list of allowed experiences from environment
- */
 export function getAllowedExperiences(): ExperienceId[] {
   const envAllowed = process.env.NEXT_PUBLIC_ENABLED_EXPERIENCES;
   if (envAllowed) {
@@ -82,9 +64,6 @@ export function getAllowedExperiences(): ExperienceId[] {
   return ["classic", "modern"];
 }
 
-/**
- * Check if experience switching is allowed
- */
 export function isExperienceSwitchingAllowed(): boolean {
   const envValue = process.env.NEXT_PUBLIC_ALLOW_EXPERIENCE_SWITCHING;
   if (envValue === "false" || envValue === "0") {

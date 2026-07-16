@@ -29,7 +29,6 @@ const GENRE_KEYS: Genre[] = [
   "Unknown",
 ];
 
-/** Map API `genre_name` to the `Genre` union used for palette lookup. */
 export function genreNameToGenreKey(name: string): Genre {
   const trimmed = name.trim();
   if (!trimmed) return "Unknown";
@@ -54,7 +53,7 @@ export function getFormatFilterChipProps(formatName: string): CatalogFilterTagCh
   return formatTone(formatName);
 }
 
-/** Tag filter chips (v1: exclusives uses WXYC exclusive purple). */
+/** Tag filter chips (exclusives uses WXYC exclusive purple). */
 export function getTagFilterChipProps(tagId: string): CatalogFilterTagChipProps {
   if (tagId === "exclusives") {
     return {

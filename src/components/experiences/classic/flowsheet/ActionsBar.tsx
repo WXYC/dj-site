@@ -12,9 +12,8 @@ export default function ActionsBar({
   const router = useRouter();
   const { live, leave } = useShowControl();
 
-  // Atomic show-end + session-end. Ports tubafrenzy's EndShowServlet flow:
-  // signoff the radio show and invalidate the session in one click, replacing
-  // the prior two-step "Sign Out When Finished!" + "Log Out" pair.
+  // Ports tubafrenzy's EndShowServlet flow: signoff the radio show and
+  // invalidate the session in one click.
   const endShow = () => {
     leave();
     router.push("/login?loginAction=endSession");

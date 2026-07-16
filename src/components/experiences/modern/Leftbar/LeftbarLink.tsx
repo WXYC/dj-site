@@ -37,7 +37,7 @@ export default function LeftbarLink(props: LeftbarLinkProps): JSX.Element {
                 horizontal: "right",
               }}
               badgeInset={"-50%"}
-              badgeContent={null} // will be non-empty when DJ is live
+              badgeContent={null}
               size="sm"
             >
               {props.children}

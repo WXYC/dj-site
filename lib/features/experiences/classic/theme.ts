@@ -1,10 +1,6 @@
 import { extendTheme } from "@mui/joy/styles";
 
-/**
- * Classic experience theme configuration
- * Features: Minimal theme, legacy browser support, traditional styling
- * Note: Most styling for classic experience is handled via CSS
- */
+/** Most styling for the classic experience is handled via CSS, not this theme object. */
 export const classicTheme = extendTheme({
   cssVarPrefix: "wxyc",
   components: {

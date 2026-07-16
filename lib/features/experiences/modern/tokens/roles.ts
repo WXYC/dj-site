@@ -23,7 +23,6 @@ export interface FormatTone {
   variant: VariantProp;
 }
 
-// --- Genre badges (was GENRE_COLORS/GENRE_VARIANTS in ArtistAvatar) ---
 export const GENRE_TONES: Record<Genre, Tone> = {
   Rock: { color: "primary", variant: "solid" },
   Blues: { color: "success", variant: "soft" },
@@ -46,7 +45,6 @@ export function genreTone(genre: string | null | undefined): Tone {
   return GENRE_TONES[(genre ?? "Unknown") as Genre] ?? GENRE_TONES.Unknown;
 }
 
-// --- Format badges (dedicated hues; replaces the 4 inconsistent CD/vinyl rules) ---
 export const FORMAT_TONES: Record<Format, FormatTone> = {
   Vinyl: { color: "formatVinyl", variant: "soft" },
   CD: { color: "formatCd", variant: "soft" },
@@ -65,7 +63,6 @@ export function formatTone(format: string | null | undefined): FormatTone {
   return FORMAT_TONES.Unknown;
 }
 
-// --- Rotation level (was ROTATION_STYLES / rotationstyles.ts) ---
 export const ROTATION_TONES: Record<Rotation, Tone> = {
   H: { color: "primary", variant: "solid" },
   M: { color: "warning", variant: "solid" },
@@ -73,7 +70,6 @@ export const ROTATION_TONES: Record<Rotation, Tone> = {
   S: { color: "neutral", variant: "solid" },
 };
 
-// --- Flowsheet message entries ---
 export type EntryRole =
   | "startShow"
   | "endShow"
@@ -88,7 +84,6 @@ export const ENTRY_TONES: Record<EntryRole, Tone> = {
   generic: { color: "warning", variant: "soft" },
 };
 
-// --- Admin roster ---
 export type AdminRoleTone = "role" | "editor" | "webmaster" | "newDj";
 export const ADMIN_TONES: Record<AdminRoleTone, Tone> = {
   role: { color: "success", variant: "soft" },

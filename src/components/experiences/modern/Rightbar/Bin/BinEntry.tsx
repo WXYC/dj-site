@@ -13,11 +13,9 @@ import {
 } from "./useBinEntryActions";
 
 /**
- * One compact Mail Bin row: the coded artist avatar, a two-line title / artist
- * stack that truncates (full text in a real Joy Tooltip — the native `title`
- * attr surfaces unreliably across browsers), hover/focus-revealed action icon
- * buttons, and a right-click context menu opened at the cursor.
- * Memoized so unrelated rightbar state changes don't re-render the whole list.
+ * Full text renders in a Joy Tooltip because the native `title` attr surfaces
+ * unreliably across browsers. Memoized so unrelated rightbar state changes
+ * don't re-render the whole list.
  */
 function BinEntry({
   entry,

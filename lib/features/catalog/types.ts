@@ -163,8 +163,6 @@ export type ArtistEntry = {
   id: number | undefined;
 };
 
-// --- Query-builder state ---
-
 export type CatalogSearchField = "all" | "artist" | "album" | "label";
 export type CatalogSearchOperator = "AND" | "OR" | "NOT";
 export type CatalogSortBy = "artist" | "album" | "plays" | "date";
@@ -194,8 +192,6 @@ export type CatalogSearchState = {
   /** User chose to browse the full catalog (empty query) without typing a search. */
   browseEngaged: boolean;
 };
-
-// --- Request envelope for /library/query ---
 
 export type LibraryQueryParams = {
   q?: string;

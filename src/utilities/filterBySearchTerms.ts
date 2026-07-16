@@ -6,10 +6,7 @@ interface SearchQuery {
   label: string;
 }
 
-/**
- * Filters album entries by matching against search terms from a flowsheet query.
- * Terms shorter than 4 characters are ignored to avoid noise.
- */
+/** Terms shorter than 4 characters are ignored to avoid noise. */
 export function filterBySearchTerms(items: AlbumEntry[], query: SearchQuery): AlbumEntry[] {
   const searchTerms = [query.album, query.artist, query.label]
     .map((term) => term.toLowerCase())

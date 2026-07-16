@@ -140,7 +140,6 @@ export const catalogApi = createApi({
           const { data: updated } = await queryFulfilled;
           patchCatalogSearchCaches(dispatch, getState as () => RootState, updated);
         } catch {
-          // Leave caches untouched when save fails.
         }
       },
     }),
@@ -207,7 +206,6 @@ export const catalogApi = createApi({
           const { data: updated } = await queryFulfilled;
           patchCatalogSearchCaches(dispatch, getState as () => RootState, updated);
         } catch {
-          // Leave caches untouched when mark-missing fails.
         }
       },
     }),
@@ -226,7 +224,6 @@ export const catalogApi = createApi({
           const { data: updated } = await queryFulfilled;
           patchCatalogSearchCaches(dispatch, getState as () => RootState, updated);
         } catch {
-          // Leave caches untouched when mark-found fails.
         }
       },
     }),

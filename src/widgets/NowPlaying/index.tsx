@@ -32,7 +32,6 @@ type NowPlayingAudioGraph = {
 const audioGraphCache = new WeakMap<HTMLMediaElement, NowPlayingAudioGraph>();
 
 export default function NowPlaying({ mini = false }: NowPlayingWidgetProps) {
-  // Single persistent audio element
   const audioRef = useRef<HTMLAudioElement>(null);
 
   // AudioContext / AnalyserNode live in state (not refs) so the children
@@ -42,7 +41,6 @@ export default function NowPlaying({ mini = false }: NowPlayingWidgetProps) {
   const [analyserNode, setAnalyserNode] = useState<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
 
-  // Shared playing state
   const [isPlaying, setIsPlaying] = useState(false);
 
   const {
@@ -66,7 +64,6 @@ export default function NowPlaying({ mini = false }: NowPlayingWidgetProps) {
     skipPollingIfUnfocused: true,
   });
 
-  // Initialize (or reuse) the AudioContext and AnalyserNode for this element.
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -97,7 +94,6 @@ export default function NowPlaying({ mini = false }: NowPlayingWidgetProps) {
     setAnalyserNode(graph.analyser);
   }, []);
 
-  // Set up audio event listeners for playing state
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -117,7 +113,6 @@ export default function NowPlaying({ mini = false }: NowPlayingWidgetProps) {
     };
   }, []);
 
-  // Toggle play/pause function
   const onTogglePlay = () => {
     const audio = audioRef.current;
     if (!audio) return;

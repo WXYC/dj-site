@@ -41,7 +41,6 @@ export default function SearchBar() {
               spacing={1}
               sx={{ alignItems: "center" }}
             >
-              {/* Operator dropdown (subsequent rows only) */}
               {!isFirst && (
                 <Select
                   value={row.operator}
@@ -60,10 +59,8 @@ export default function SearchBar() {
                 </Select>
               )}
 
-              {/* Sort By dropdown (first row only, before field dropdown) */}
               {isFirst && <SortBySelect />}
 
-              {/* Search field dropdown */}
               <Select
                 value={row.field}
                 onChange={(_, value) =>
@@ -86,7 +83,6 @@ export default function SearchBar() {
                 ))}
               </Select>
 
-              {/* Input field(s) */}
               {isDateField ? (
                 <Input
                   type="date"
@@ -147,7 +143,6 @@ export default function SearchBar() {
                 />
               )}
 
-              {/* -/+ row controls */}
               <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
                 {rows.length > 1 && (
                   <IconButton

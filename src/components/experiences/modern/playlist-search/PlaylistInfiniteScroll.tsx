@@ -55,7 +55,6 @@ export default function PlaylistInfiniteScroll({
     >
       {children}
 
-      {/* Sentinel element for intersection observer */}
       <Box
         ref={sentinelRef}
         sx={{
@@ -64,7 +63,6 @@ export default function PlaylistInfiniteScroll({
         }}
       />
 
-      {/* Loading indicator at bottom */}
       {isLoading && (
         <Box
           sx={{
@@ -81,7 +79,6 @@ export default function PlaylistInfiniteScroll({
         </Box>
       )}
 
-      {/* End of results indicator */}
       {!hasMore && !isLoading && (
         <Box sx={{ textAlign: "center", py: 2 }}>
           <Typography level="body-sm" sx={{ color: "text.tertiary" }}>

@@ -58,7 +58,6 @@ export default function ExportBinButton({
     try {
       const { tsv, html, shareText } = formatBinForExport(entries);
 
-      // Prefer the OS share sheet where it exists (email, messages, …).
       if (
         typeof navigator !== "undefined" &&
         typeof navigator.share === "function"
@@ -69,7 +68,6 @@ export default function ExportBinButton({
         } catch (err) {
           // Dismissed the sheet: treat as a no-op rather than copying.
           if (err instanceof DOMException && err.name === "AbortError") return;
-          // Any other share failure falls through to the clipboard path.
         }
       }
 

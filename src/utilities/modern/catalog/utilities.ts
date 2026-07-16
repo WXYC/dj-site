@@ -1,5 +1,3 @@
-// Functions to help with the sidebar mobile view
-
 export const openSidebarCSS = () => {
     if (typeof document !== "undefined") {
       document.body.style.overflow = "hidden";

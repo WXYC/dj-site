@@ -19,7 +19,6 @@ export function GradientAudioVisualizer({
   overlayColor,
   animationFrameRef,
 }: GradientAudioVisualizerProps) {
-  //#region Visualizer
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -71,13 +70,12 @@ export function GradientAudioVisualizer({
       const barW = (canvas.width / buffer.length) * 2.5;
       let x = 0;
       buffer.forEach((v) => {
-        const h = v * 0.7; // amplitude → bar height
+        const h = v * 0.7;
         c.fillStyle = grad;
         c.fillRect(x, canvas.height - h, Math.ceil(barW), h);
         x += barW + 1;
       });
 
-      // Schedule next frame
       schedule();
     };
 
@@ -90,7 +88,6 @@ export function GradientAudioVisualizer({
 
     audio.addEventListener("play", handlePlay);
 
-    // Start drawing if already playing
     if (isPlaying) {
       audioContext.resume();
       schedule();
@@ -106,7 +103,6 @@ export function GradientAudioVisualizer({
       }
     };
   }, [audioRef, analyserNode, audioContext, isPlaying, animationFrameRef]);
-  //#endregion
 
   return (
     <>

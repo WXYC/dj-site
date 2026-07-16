@@ -172,7 +172,6 @@ export const flowsheetSlice = createAppSlice({
     },
     loadQueue: (state) => {
       state.queue = loadQueueFromStorage().map(withSanitizedAlbumLinkage);
-      // Set counter to max ID + 1 to avoid duplicates
       const maxId = state.queue.reduce((max, entry) => Math.max(max, entry.id), -1);
       state.queueIdCounter = maxId + 1;
     },

@@ -29,7 +29,6 @@ export const loadQueueFromStorage = (): FlowsheetSongEntry[] => {
   }
 };
 
-// Save queue to localStorage
 export const saveQueueToStorage = (queue: FlowsheetSongEntry[]) => {
   if (typeof window === "undefined") return;
   try {
@@ -39,7 +38,6 @@ export const saveQueueToStorage = (queue: FlowsheetSongEntry[]) => {
   }
 };
 
-// Clear queue from localStorage
 export const clearQueueFromStorage = () => {
   if (typeof window === "undefined") return;
   try {

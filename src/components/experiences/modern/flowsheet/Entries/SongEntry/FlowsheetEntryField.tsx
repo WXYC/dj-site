@@ -55,14 +55,12 @@ export default function FlowsheetEntryField({
       setEditing(false);
 
       if (queue) {
-        // Update queue entry in Redux state
         dispatch(flowsheetSlice.actions.updateQueueEntry({
           entry_id: entry.id,
           field: name,
           value: value,
         }));
       } else {
-        // Update flowsheet entry via API
         updateFlowsheet({
           entry_id: entry.id,
           data: {
@@ -123,7 +121,6 @@ export default function FlowsheetEntryField({
             value={value}
           />
         </Typography>
-        {/* Clicking the check submits the field (same as Enter / click-away). */}
         <Tooltip title="Save" variant="outlined" size="sm">
           <IconButton
             type="submit"

@@ -88,9 +88,7 @@ export function buildCatalogQuery(rows: CatalogSearchRow[]): string {
   return parts.join(" ");
 }
 
-/**
- * Map UI state to the request shape. Empty genre/format arrays are omitted.
- */
+/** Empty genre/format arrays are omitted. */
 export function toLibraryQueryParams(
   rows: CatalogSearchRow[],
   filters: CatalogFilters,
@@ -119,7 +117,7 @@ export function toLibraryQueryParams(
   };
 }
 
-/** Build infinite-query args (page/limit are supplied by RTK `pageParam`). */
+/** page/limit are supplied by RTK `pageParam`. */
 export function toCatalogInfiniteQueryArg(
   rows: CatalogSearchRow[],
   filters: CatalogFilters,
@@ -341,12 +339,10 @@ export function useCatalogQueryResults() {
   };
 }
 
-// ---------------------------------------------------------------------------
 // Flowsheet-autofill hooks — unchanged from the pre-query-builder shape.
 // They read from flowsheetSlice and hit the preserved /library/ endpoint via
 // catalogApi.searchCatalog. Don't migrate them to /library/query — they don't
 // need filters, pagination, or query parsing.
-// ---------------------------------------------------------------------------
 
 export const useCatalogFlowsheetSearch = () => {
   const FLOWSHEET_MIN_SEARCH_LENGTH = 2;

@@ -58,7 +58,6 @@ export function useGhostText(
       suggestion = trackResult.track_title;
     }
 
-    // Verify the suggestion starts with what the user typed (case-insensitive)
     if (
       !suggestion ||
       !currentValue ||

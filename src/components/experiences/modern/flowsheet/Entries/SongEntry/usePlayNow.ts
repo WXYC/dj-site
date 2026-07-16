@@ -12,10 +12,8 @@ import { useRegistry } from "@/src/hooks/authenticationHooks";
 import { useCallback } from "react";
 import { toast } from "sonner";
 
-// "Play this queued song now": resubmit the queue entry to the flowsheet,
-// then drop it from the queue. Shared by the desktop row's hover PlayArrow
-// and the mobile card's Play button so the submission payload can't drift
-// between the two.
+// Shared by the desktop row's hover PlayArrow and the mobile card's Play
+// button so the submission payload can't drift between the two.
 export function usePlayNow(entry: FlowsheetSongEntry) {
   const { loading: userloading, info: userData } = useRegistry();
   const [addToFlowsheet] = useAddToFlowsheetMutation();

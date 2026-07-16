@@ -116,7 +116,6 @@ export default function TrackPickerDropdown<T extends TrackPickerEntry>({
         }
         return;
       }
-      // Total navigable items = visible tracks + "Not listed" manual option.
       const totalItems = visibleTracks.length + 1;
       switch (e.key) {
         case "ArrowDown":

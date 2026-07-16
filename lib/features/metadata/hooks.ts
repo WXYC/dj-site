@@ -4,7 +4,6 @@ const DEFAULT_ARTWORK_URL = "/img/cassette.png";
 
 /**
  * Fetches album metadata from the Backend-Service metadata proxy and returns the artwork URL.
- * Skips the query when either `artistName` or `releaseTitle` is falsy.
  */
 export function useAlbumArtwork(
   artistName: string | undefined,
@@ -26,7 +25,6 @@ export function useAlbumArtwork(
 
 /**
  * Fetches artist metadata (bio, Wikipedia link) from the Backend-Service metadata proxy.
- * Skips the query when `discogsArtistId` is falsy.
  */
 export function useArtistMetadata(discogsArtistId: number | null | undefined) {
   const shouldSkip = !discogsArtistId;

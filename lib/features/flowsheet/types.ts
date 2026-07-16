@@ -211,8 +211,6 @@ export type UpdateRequestBody = Partial<
   >
 >;
 
-// V2 JSON boundary types (Date fields arrive as strings over the wire)
-
 /** Replaces Date fields with string for JSON boundary */
 type JSONDates<T> = {
   [K in keyof T]: T[K] extends Date ? string : T[K];

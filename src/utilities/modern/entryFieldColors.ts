@@ -9,7 +9,6 @@ export function entryFieldTextColor(
 ): string {
   const isTitle = field === "song";
   if (playing) {
-    // Solid-primary row: bright white title, dimmed white for the rest.
     return isTitle ? "common.white" : "rgba(255, 255, 255, 0.72)";
   }
   return isTitle ? "text.primary" : "text.secondary";

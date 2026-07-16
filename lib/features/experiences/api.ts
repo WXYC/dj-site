@@ -2,9 +2,6 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { ColorMode, ExperienceId } from "./types";
 import { AppSkinPreference } from "./preferences";
 
-/**
- * Response type for experience API
- */
 interface ExperienceResponse {
   experience: ExperienceId;
 }
@@ -19,9 +16,6 @@ interface ExperiencePreferenceRequest {
   preference: AppSkinPreference;
 }
 
-/**
- * RTK Query API for experience management
- */
 export const experienceApi = createApi({
   baseQuery: fetchBaseQuery({ baseUrl: "/api/experiences" }),
   reducerPath: "experienceApi",

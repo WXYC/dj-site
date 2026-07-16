@@ -24,7 +24,6 @@ export default function Navigation() {
 
   const isActive = (path: string) => {
     if (!pathname) return false;
-    // Check if current path matches or starts with the nav link path
     return pathname === path || pathname.startsWith(path + "/");
   };
 
