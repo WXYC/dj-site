@@ -37,7 +37,7 @@ import {
   useCatalogFlowsheetSearch,
   useRotationFlowsheetSearch,
 } from "./catalogHooks";
-import { useLmlLibrarySearch } from "./lml";
+import { useLmlLibrarySearch } from "./useLmlLibrarySearch";
 import { MAX_VISIBLE_RESULTS } from "@/src/components/experiences/modern/flowsheet/Search/Results/BackendResults/FlowsheetBackendResults";
 
 const FLOWSHEET_MUTATION_ENDPOINTS = new Set([

@@ -57,7 +57,7 @@ vi.mock("./catalogHooks", () => ({
 
 // Mock LML hooks (#563 — useLmlLibrarySearch now wraps lmlApi RTK Query, which
 // isn't in the createHookWrapper store these tests use).
-vi.mock("./lml", () => ({
+vi.mock("./useLmlLibrarySearch", () => ({
   useLmlLibrarySearch: () => ({ results: [], isLoading: false }),
 }));
 
