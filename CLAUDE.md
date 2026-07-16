@@ -1,32 +1,159 @@
-# dj-site
+# DJ Site Engineering and Refactoring Rules
 
-DJ flowsheet and card catalog frontend for WXYC 89.3 FM. React-based revision of the original WXYC flowsheet and card catalog at `dj.wxyc.org`.
+## Mission
 
-## Topic guides
+Make `dj-site` the simplest accurate expression of its required behavior.
 
-CLAUDE.md is a router for the always-loaded reference card. Topic depth lives in `docs/`:
+Optimize in this order:
 
-- **[`docs/architecture.md`](docs/architecture.md)** — Tech stack (Next.js 16 / React 18 / MUI Joy UI / Redux Toolkit / better-auth), project structure (app router + parallel routes, `src/components/experiences/{classic,modern}`, `lib/features/*` feature layout), code conventions (path alias, typed hooks, experience registry, onboarding completeness flag, admin org resolution)
-- **[`docs/development.md`](docs/development.md)** — Local-dev prerequisites (Backend-Service running), npm script table (`dev`, `build`, `build:opennext`, `test`, `test:e2e`, …), local test credentials
-- **[`docs/env-vars.md`](docs/env-vars.md)** — Full env-var reference (`NEXT_PUBLIC_*`, `AUTH_REWRITE_URL`) + feature-flag catalog (`NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED`)
-- **[`docs/testing.md`](docs/testing.md)** — Vitest setup, `lib/test-utils/` factory functions, test constants (`TEST_ENTITY_IDS`, `TEST_SEARCH_STRINGS`), time utilities, the slice / API / component / conversion harnesses, MSW patterns, test organization, conventions
-- **[`docs/ci-cd.md`](docs/ci-cd.md)** — `.github/workflows/ci.yml` shape, E2E workflow (Docker Compose Backend-Service + Playwright), E2E-only deps (`pg` for Tier 1 SSE), second dj-site instance for the `AUTH_REWRITE_URL` Tier 2 test, Cloudflare Pages deploy via OpenNext / Wrangler, CI pin maintenance (workflow `permissions:` floors, `@gha/v1` reusable refs, `actionlint`)
-- **[`docs/test-fixtures.md`](docs/test-fixtures.md)** — Example WXYC catalog data (Juana Molina, Stereolab, Cat Power, Jessica Pratt, Chuquimamani-Condori, Duke Ellington & John Coltrane) for factory overrides
+1. Correct user-facing behavior.
+2. Data integrity and security.
+3. Reliability of the primary `Backend-Service` path.
+4. Failure isolation for every optional external service.
+5. Clear ownership and dependency direction.
+6. Removal of unnecessary runtime work.
+7. Readability and low cognitive overhead.
+8. Deletion of obsolete code and redundant comments.
 
-Read the relevant topic doc before doing work in that area.
+Do not optimize for minimum line count at the expense of clarity.
 
-## Always-loaded rules
+## Architectural Standard
 
-- **TypeScript strict mode.** `@/` alias resolves to project root. Typed Redux hooks (`useAppDispatch` / `useAppSelector` / `useAppStore`) from `@/lib/hooks` — never bare `useDispatch` / `useSelector`.
-- **Two experiences.** UI lives under `src/components/experiences/{classic,modern}`. Classic-theme views are prefixed `CLASSIC_`. Experience routing uses the registry pattern in `lib/features/experiences/registry.ts`.
-- **No formatter / linter config.** Follow existing code style.
-- **Dashboard home fallback.** The post-auth landing page is `NEXT_PUBLIC_DASHBOARD_HOME_PAGE`; its single-source-of-truth fallback is `DEFAULT_DASHBOARD_HOME_PAGE` in `lib/features/application/constants.ts`. Reference that constant everywhere the env var is read — `next.config.mjs` (can't import TS) and `.env.example` duplicate the literal and MUST match it.
-- **Test fixtures use real WXYC catalog data**, not mainstream acts. Defaults: `createTestArtist({ name: "Stereolab", … })`, `createTestAlbum({ title: "DOGA", artist: createTestArtist({ name: "Juana Molina", … }), label: "Sonamos", … })`, `createTestFlowsheetQuery({ artist: "Jessica Pratt", album: "On Your Own Love Again", … })`. Full preference list in `docs/test-fixtures.md`.
-- **Always render through `renderWithProviders`** for component tests (never bare RTL `render`); use the slice / API / component / conversion harnesses from `@/lib/test-utils` instead of ad-hoc test scaffolds.
-- **Branches.** Push to `main` triggers CI; on success the `deploy-production` job in `ci.yml` builds (`build:opennext`) and Direct-Uploads to the `wxyc-dj` Cloudflare Pages project via `wrangler pages deploy` (`scripts/deploy/deploy-cf-pages.sh`). PRs get a per-commit preview deploy from the `preview` job. No `prod` branch; no Cloudflare GitHub App Git build (removed in #810 — its pinned wrangler 3.x boot-500'd OpenNext ≥ 1.19).
+`Backend-Service` is the only external service that may be treated as a core runtime dependency.
 
-## Related Repos
+Every other external service—including PostHog, metadata lookup, telemetry, artwork, enrichment, recommendations, and feature flags—must:
 
-- **Backend-Service** (`github.com/WXYC/Backend-Service`): API server (port 8080) + auth service (port 8082). Provides all REST endpoints consumed by RTK Query APIs
-- **wxyc-shared** (`@wxyc/shared`): Shared DTOs, auth client, validation. Published to GitHub Packages. Used for type definitions and auth integration
-- **tubafrenzy**: Legacy Java flowsheet. The current database schema originates from here
+- be accessed through an application-owned contract;
+- have a service-specific adapter;
+- contain provider-specific types within that adapter;
+- fail open;
+- avoid blocking primary rendering or unrelated workflows;
+- provide a no-op, unavailable, or fallback implementation where appropriate.
+
+Feature modules may depend on integration contracts. They must not import optional third-party SDKs directly.
+
+## Simplicity
+
+Prefer:
+
+- direct code over speculative abstraction;
+- one authoritative owner for each value;
+- one primary implementation;
+- feature-specific modules over generic utility collections;
+- ordinary TypeScript and recognizable Next.js patterns;
+- deletion over indefinite deprecation;
+- framework capabilities over custom infrastructure.
+
+Introduce an abstraction only when it represents a real domain concept, enforces a necessary boundary, isolates a volatile dependency, removes substantial verified duplication, or enables otherwise impractical testing.
+
+Potential future reuse is not sufficient.
+
+A valid result is that no change should be made.
+
+## Tests
+
+Production source directories must not contain colocated tests or `__tests__` directories.
+
+Place tests under the top-level `tests/` hierarchy, organized by purpose and semantic feature:
+
+- `tests/unit`
+- `tests/integration`
+- `tests/contract`
+- `tests/e2e`
+- `tests/fixtures`
+- `tests/helpers`
+- `tests/fakes`
+
+Do not weaken tests to accommodate a refactor.
+
+## Comments
+
+Actively reduce comments in every touched file.
+
+Remove comments that:
+
+- restate code;
+- narrate control flow;
+- explain ordinary syntax;
+- repeat names or types;
+- announce obvious sections;
+- describe implementation history;
+- contain agent narration;
+- preserve commented-out code;
+- act as changelog entries;
+- contain vague TODOs;
+- compensate for unclear naming.
+
+Preserve only concise comments that explain a non-obvious reason, external constraint, compatibility requirement, security property, race condition, subtle invariant, or intentional exception.
+
+## Hooks and State
+
+Keep hooks grouped with their semantic feature.
+
+Audit every hook for:
+
+- mirrored server or prop state;
+- values that should be derived during render;
+- unnecessary effects;
+- effect chains;
+- unstable query arguments;
+- duplicate RTK Query subscriptions;
+- unnecessary polling or refetching;
+- broad cache invalidation;
+- broad Redux selection;
+- selectors that allocate on every call;
+- unnecessary memoization;
+- repeated parsing or normalization;
+- event-listener or timer leaks;
+- optional work delaying primary data;
+- multiple unrelated responsibilities.
+
+Use:
+
+- RTK Query for `Backend-Service` server state;
+- Redux for genuinely shared client-owned state;
+- local state for temporary local interaction state;
+- URL state when navigation or shareability requires it.
+
+Use effects only to synchronize with systems outside React.
+
+Do not claim a performance improvement without identifying the work removed or providing relevant evidence.
+
+## Next.js Boundaries
+
+Use Server Components by default when client interactivity is not required.
+
+Do not expand `"use client"` boundaries for convenience.
+
+Keep route and layout files focused on composition and framework concerns.
+
+Do not import server-only modules into client dependency graphs.
+
+Do not place the complete application beneath a failure-prone optional provider.
+
+## Change Discipline
+
+Work on one coherent architectural slice at a time.
+
+For each slice:
+
+1. Inspect the target and all callers.
+2. Establish observable behavior.
+3. Identify state and dependency ownership.
+4. Locate relevant tests.
+5. State invariants.
+6. Propose the smallest coherent design.
+7. Implement only that slice.
+8. Move affected tests into `tests/`.
+9. Reduce comments in touched files.
+10. Remove superseded code.
+11. Run focused and broader relevant tests.
+12. Run type checking, linting, and the production build.
+13. Verify runtime behavior where static checks are insufficient.
+14. Review the diff for unrelated changes.
+15. Request a fresh-context architectural review.
+16. Address supported findings and rerun verification.
+
+Do not combine unrelated cleanup with the active slice.
+
+Report what was inspected, changed, statically verified, tested, runtime verified, inferred, and not verified.
