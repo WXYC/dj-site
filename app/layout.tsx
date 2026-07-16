@@ -1,4 +1,5 @@
 import { type ReactNode } from "react";
+import InitColorSchemeScript from "@mui/joy/InitColorSchemeScript";
 import { StoreProvider } from "@/src/StoreProvider";
 import { TelemetryProvider } from "@/src/components/shared/TelemetryProvider";
 
@@ -47,6 +48,12 @@ export default async function RootLayout({ children }: Props) {
   return (
     <html lang="en" data-experience={experience}>
       <body>
+        {/*
+          Must remain the first child of <body> so its inline script stamps
+          data-joy-color-scheme before hydration. Reads the same storage keys
+          CssVarsProvider (and useThemePreferenceSync via setMode) persist to.
+        */}
+        <InitColorSchemeScript />
         <StoreProvider>
           <TelemetryProvider>
             <ThemeRegistry
