@@ -1,6 +1,6 @@
 "use client";
 
-import { authClient } from "@/lib/features/authentication/client";
+import { authClient, clearTokenCache } from "@/lib/features/authentication/client";
 import { isValidEmail } from "@wxyc/shared/validation";
 import { Email, Key } from "@mui/icons-material";
 import {
@@ -70,7 +70,10 @@ export default function EmailChangeModal({
 
     try {
       // Better Auth's changeEmail requires the user to be authenticated;
-      // signing in here also verifies the password to prevent unauthorized changes
+      // signing in here also verifies the password to prevent unauthorized changes.
+      // signIn.email always issues a fresh session token, even for a same-identity
+      // reverify, so the cached bearer must be dropped before calling it.
+      clearTokenCache();
       const verifyResult = await authClient.signIn.email({
         email: currentEmail,
         password,
