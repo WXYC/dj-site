@@ -5,7 +5,7 @@ import {
   pollDeviceToken,
   requestDeviceCode,
   type PollOutcome,
-} from "./device-auth";
+} from "@/lib/features/authentication/device-auth";
 
 // device-auth.ts imports `authBaseURL` from ./client, which constructs the
 // better-auth client at module load; stub the plugins so the import is cheap.

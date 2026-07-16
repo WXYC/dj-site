@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createTestAlbum } from "@/tests/helpers";
-import type { AlbumEntry } from "./types";
-import { mergeAlbumIntoSearchResult } from "./patchSearchResult";
+import type { AlbumEntry } from "@/lib/features/catalog/types";
+import { mergeAlbumIntoSearchResult } from "@/lib/features/catalog/patchSearchResult";
 
 describe("mergeAlbumIntoSearchResult", () => {
   it("updates editable fields while preserving search-only metadata", () => {

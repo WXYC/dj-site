@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { CssVarsThemeOptions, Theme } from "@mui/joy/styles";
-import { classicTheme as _classicTheme } from "../theme";
+import { classicTheme as _classicTheme } from "@/lib/features/experiences/classic/theme";
 
 // extendTheme returns Theme, but the type omits 'components' even though
 // it exists at runtime. This intersection restores access for testing.
@@ -242,12 +242,12 @@ describe("classic theme", () => {
 
   describe("default export", () => {
     it("should export classicTheme as default", async () => {
-      const module = await import("../theme");
+      const module = await import("@/lib/features/experiences/classic/theme");
       expect(module.default).toBe(classicTheme);
     });
 
     it("should export classicTheme as named export", async () => {
-      const module = await import("../theme");
+      const module = await import("@/lib/features/experiences/classic/theme");
       expect(module.classicTheme).toBeDefined();
       expect(module.classicTheme).toBe(classicTheme);
     });

@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { getOrchestratorUrl, isAutoDJStatusEnabled } from "./flags";
+import { getOrchestratorUrl, isAutoDJStatusEnabled } from "@/lib/features/autoDJ/flags";
 
 afterEach(() => vi.unstubAllEnvs());
 

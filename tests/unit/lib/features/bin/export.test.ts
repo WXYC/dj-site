@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatBinForExport, callNumberFor } from "./export";
+import { formatBinForExport, callNumberFor } from "@/lib/features/bin/export";
 import { createTestAlbum, createTestArtist } from "@/tests/fixtures/fixtures";
 
 const stereolab = createTestAlbum({
