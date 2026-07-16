@@ -2,7 +2,7 @@
 
 import { useBin, useDeleteFromBin } from "@/src/hooks/binHooks";
 import { Inbox } from "@mui/icons-material";
-import { Card, Divider, Skeleton, Stack, Typography } from "@mui/joy";
+import { Box, Card, Divider, Skeleton, Stack, Typography } from "@mui/joy";
 import { useMemo } from "react";
 import RightBarContentContainer from "../RightBarContentContainer";
 import BinEntry from "./BinEntry";
@@ -97,7 +97,7 @@ export default function BinContent() {
             <Typography level="body-md">An empty record...</Typography>
           </div>
         ) : (
-          <>
+          <Box component="div">
             {isError && (
               // Transient refetch failure with cached data: keep the entries
               // visible, flag the staleness without alarm. (#637)
@@ -116,7 +116,7 @@ export default function BinContent() {
                 {index < bin.length - 1 && <Divider />}
               </div>
             ))}
-          </>
+          </Box>
         )}
       </Card>
     </RightBarContentContainer>
