@@ -1,8 +1,8 @@
 "use client";
 
 import {
-  useSearchCatalogQuery,
   useSearchLibraryQueryInfiniteQuery,
+  useSearchLibraryQueryQuery,
   type CatalogInfiniteQueryArg,
 } from "@/lib/features/catalog/api";
 import { CATALOG_QUERY_PAGE_LIMIT } from "@/lib/features/catalog/constants";
@@ -344,6 +344,38 @@ export function useCatalogQueryResults() {
 // catalogApi.searchCatalog. Don't migrate them to /library/query — they don't
 // need filters, pagination, or query parsing.
 
+/**
+ * Build the `/library/query` `q` string from the flowsheet's artist/album
+ * fields, reusing the same query builder the card catalog uses so
+ * album/artist/label search symmetrically. The old `/library/` endpoint was
+ * artist-centric, so album-first input ("from <album>") returned nothing.
+ */
+export function buildFlowsheetSearchQuery(
+  artist: string,
+  album: string,
+): string {
+  const rows: CatalogSearchRow[] = [];
+  if (artist.trim()) {
+    rows.push({
+      id: "artist",
+      operator: "AND",
+      field: "artist",
+      value: artist,
+      exact: false,
+    });
+  }
+  if (album.trim()) {
+    rows.push({
+      id: "album",
+      operator: "AND",
+      field: "album",
+      value: album,
+      exact: false,
+    });
+  }
+  return buildCatalogQuery(rows);
+}
+
 export const useCatalogFlowsheetSearch = () => {
   const FLOWSHEET_MIN_SEARCH_LENGTH = 2;
 
@@ -354,28 +386,26 @@ export const useCatalogFlowsheetSearch = () => {
 
   const isCompilationQuery = isCompilationArtistName(flowsheetQuery.artist);
 
-  const { data } = useSearchCatalogQuery(
+  const q = useMemo(
+    () =>
+      buildFlowsheetSearchQuery(flowsheetQuery.artist, flowsheetQuery.album),
+    [flowsheetQuery.artist, flowsheetQuery.album],
+  );
+
+  const enabled =
+    flowsheetQuery.artist.length + flowsheetQuery.album.length >
+      FLOWSHEET_MIN_SEARCH_LENGTH && q.length > 0;
+
+  const { data, isFetching } = useSearchLibraryQueryQuery(
+    { q, limit: 10 },
     {
-      artist_name: flowsheetQuery.artist,
-      album_title: flowsheetQuery.album,
-      n: 10,
-    },
-    {
-      skip:
-        authenticating ||
-        !authenticated ||
-        isCompilationQuery ||
-        flowsheetQuery.artist.length + flowsheetQuery.album.length <=
-          FLOWSHEET_MIN_SEARCH_LENGTH,
+      skip: authenticating || !authenticated || isCompilationQuery || !enabled,
     },
   );
 
   return {
-    searchResults:
-      flowsheetQuery.artist.length + flowsheetQuery.album.length >
-      FLOWSHEET_MIN_SEARCH_LENGTH
-        ? data ?? []
-        : [],
+    searchResults: enabled ? data?.results ?? [] : [],
+    isFetching,
   };
 };
 
@@ -401,6 +431,6 @@ export const useRotationFlowsheetSearch = () => {
       FLOWSHEET_MIN_SEARCH_LENGTH
         ? searchResults
         : [],
-    loading: isLoading,
+    isFetching: isLoading,
   };
 };

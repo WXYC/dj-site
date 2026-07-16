@@ -453,18 +453,14 @@ describe("catalog conversions", () => {
         expect(albumEntry.id).toBe(1001);
         expect(albumEntry.rotation_id).toBe(5001);
 
-        const state = flowsheetSlice.reducer(
-          defaultFlowsheetFrontendState,
-          flowsheetSlice.actions.setRotationMetadata({
-            album_id: albumEntry.id,
-            rotation_id: albumEntry.rotation_id,
-            rotation_bin: albumEntry.rotation_bin,
-          })
-        );
-        expect(state.search.query.album_id).toBe(1001);
-        expect(state.search.query.rotation_id).toBe(5001);
+        const query = {
+          ...defaultFlowsheetFrontendState.search.query,
+          album_id: albumEntry.id,
+          rotation_id: albumEntry.rotation_id,
+          rotation_bin: albumEntry.rotation_bin,
+        };
 
-        const submission = convertQueryToSubmission(state.search.query) as {
+        const submission = convertQueryToSubmission(query) as {
           album_id?: number;
           rotation_id?: number;
           rotation_bin?: Rotation;
@@ -481,25 +477,17 @@ describe("catalog conversions", () => {
         const albumEntry = convertToAlbumEntry(unlinkedRowUndefinedId);
         expect(albumEntry.rotation_id).toBe(5042);
         expect(albumEntry.rotation_bin).toBe(Rotation.S);
+        // Synthesized negative id for a library-unlinked row.
+        expect(albumEntry.id).toBeLessThan(0);
 
-        const state = flowsheetSlice.reducer(
-          defaultFlowsheetFrontendState,
-          flowsheetSlice.actions.setRotationMetadata({
-            album_id: albumEntry.id,
-            rotation_id: albumEntry.rotation_id,
-            rotation_bin: albumEntry.rotation_bin,
-          })
-        );
-        // The synthesized id and the rotation metadata both still live in
-        // Redux state — they're load-bearing for the picker UI (React keys,
-        // displaying the bin badge on the selected row). Only the wire
-        // payload is gated.
-        expect(state.search.query.album_id).toBe(albumEntry.id);
-        expect(state.search.query.album_id).toBeLessThan(0);
-        expect(state.search.query.rotation_id).toBe(5042);
-        expect(state.search.query.rotation_bin).toBe(Rotation.S);
+        const query = {
+          ...defaultFlowsheetFrontendState.search.query,
+          album_id: albumEntry.id,
+          rotation_id: albumEntry.rotation_id,
+          rotation_bin: albumEntry.rotation_bin,
+        };
 
-        const submission = convertQueryToSubmission(state.search.query) as {
+        const submission = convertQueryToSubmission(query) as {
           album_id?: number;
           rotation_id?: number;
           rotation_bin?: Rotation;
@@ -531,21 +519,16 @@ describe("catalog conversions", () => {
         const albumEntry = convertToAlbumEntry(unlinkedRowOmittedId);
         expect(albumEntry.rotation_id).toBe(5042);
         expect(albumEntry.rotation_bin).toBe(Rotation.S);
+        expect(albumEntry.id).toBeLessThan(0);
 
-        const state = flowsheetSlice.reducer(
-          defaultFlowsheetFrontendState,
-          flowsheetSlice.actions.setRotationMetadata({
-            album_id: albumEntry.id,
-            rotation_id: albumEntry.rotation_id,
-            rotation_bin: albumEntry.rotation_bin,
-          })
-        );
-        expect(state.search.query.album_id).toBe(albumEntry.id);
-        expect(state.search.query.album_id).toBeLessThan(0);
-        expect(state.search.query.rotation_id).toBe(5042);
-        expect(state.search.query.rotation_bin).toBe(Rotation.S);
+        const query = {
+          ...defaultFlowsheetFrontendState.search.query,
+          album_id: albumEntry.id,
+          rotation_id: albumEntry.rotation_id,
+          rotation_bin: albumEntry.rotation_bin,
+        };
 
-        const submission = convertQueryToSubmission(state.search.query) as {
+        const submission = convertQueryToSubmission(query) as {
           album_id?: number;
           rotation_id?: number;
           rotation_bin?: Rotation;

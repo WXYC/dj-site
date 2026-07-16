@@ -166,7 +166,7 @@ test.describe("Flowsheet Entry Caching", () => {
 
       await page.unroute("**/flowsheet/");
       // Wait for form to finish clearing
-      await expect(flowsheet.songInput).toHaveValue("", { timeout: 5000 });
+      await expect(flowsheet.composer).toHaveValue("", { timeout: 5000 });
     });
   });
 
@@ -195,7 +195,7 @@ test.describe("Flowsheet Entry Caching", () => {
       await page.waitForLoadState("domcontentloaded");
 
       // Wait for the search inputs to be enabled (DJ is still live server-side)
-      await expect(flowsheet.songInput).toBeEnabled({ timeout: 10000 });
+      await expect(flowsheet.composer).toBeEnabled({ timeout: 10000 });
 
       const trackName = `Eager ${ts}`;
       await flowsheet.addTrack({ song: trackName, artist: "Eager Artist", album: "Eager Album" });

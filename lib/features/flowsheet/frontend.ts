@@ -1,6 +1,15 @@
 import { createAppSlice } from "@/lib/createAppSlice";
 import { PayloadAction } from "@reduxjs/toolkit";
-import { FlowsheetFrontendState, FlowsheetQuery, FlowsheetSearchProperty, FlowsheetSongEntry } from "./types";
+import {
+  FlowsheetEntry,
+  FlowsheetFrontendState,
+  FlowsheetQuery,
+  FlowsheetSearchFilterDimension,
+  FlowsheetSearchFilters,
+  FlowsheetSearchProperty,
+  FlowsheetSongEntry,
+  SelectedMatch,
+} from "./types";
 import { Rotation } from "../rotation/types";
 import { hasLinkedAlbumId } from "./linkage";
 import { clearQueueFromStorage, loadQueueFromStorage, saveQueueToStorage } from "./queue-storage";
@@ -31,9 +40,14 @@ function withSanitizedAlbumLinkage<
   };
 }
 
+export const defaultFlowsheetSearchFilters: FlowsheetSearchFilters = {
+  genres: [],
+  formats: [],
+  rotationTags: [],
+};
+
 export const defaultFlowsheetFrontendState: FlowsheetFrontendState = {
   autoplay: false,
-  rotationMode: false,
   search: {
     open: false,
     // Enumerate every FlowsheetQuery field (explicit `undefined` for the
@@ -52,7 +66,8 @@ export const defaultFlowsheetFrontendState: FlowsheetFrontendState = {
       track_position: undefined,
     },
     selectedResult: 0,
-    confirmedArtist: "",
+    selectedMatch: null,
+    filters: defaultFlowsheetSearchFilters,
   },
   queue: [],
   queueIdCounter: 0,
@@ -66,26 +81,10 @@ export const flowsheetSlice = createAppSlice({
     setAutoplay: (state, action) => {
       state.autoplay = action.payload;
     },
-    setRotationMode: (state, action: PayloadAction<boolean>) => {
-      state.rotationMode = action.payload;
-      if (!action.payload) {
-        state.search.query.album_id = undefined;
-        state.search.query.rotation_id = undefined;
-        state.search.query.rotation_bin = undefined;
-        state.search.query.track_position = undefined;
-      }
-    },
-    setRotationMetadata: (
-      state,
-      action: PayloadAction<{ album_id?: number; rotation_id?: number; rotation_bin?: Rotation }>
-    ) => {
-      state.search.query.album_id = action.payload.album_id;
-      state.search.query.rotation_id = action.payload.rotation_id;
-      state.search.query.rotation_bin = action.payload.rotation_bin;
-      // track_position references a release_track row on the previous
-      // album_id; orphan it on the new album and it points at the wrong
-      // release. Symmetric to setRotationMode(false). (dj-site#704)
-      state.search.query.track_position = undefined;
+    restoreDraft: (state, action: PayloadAction<FlowsheetQuery>) => {
+      state.search.query = { ...action.payload };
+      state.search.open = true;
+      state.search.selectedResult = 0;
     },
     setSearchOpen: (state, action) => {
       state.search.open = action.payload;
@@ -94,10 +93,8 @@ export const flowsheetSlice = createAppSlice({
       state.search.open = defaultFlowsheetFrontendState.search.open;
       state.search.query = defaultFlowsheetFrontendState.search.query;
       state.search.selectedResult = defaultFlowsheetFrontendState.search.selectedResult;
-      state.search.confirmedArtist = defaultFlowsheetFrontendState.search.confirmedArtist;
-    },
-    setConfirmedArtist: (state, action: PayloadAction<string>) => {
-      state.search.confirmedArtist = action.payload;
+      state.search.selectedMatch = defaultFlowsheetFrontendState.search.selectedMatch;
+      state.search.filters = defaultFlowsheetFrontendState.search.filters;
     },
     setSearchProperty: (
       state,
@@ -106,36 +103,68 @@ export const flowsheetSlice = createAppSlice({
       state.search.query[action.payload.name] = action.payload.value;
     },
     /**
+     * Replace all four user-authored text fields at once. The smart-entry
+     * composer parses its raw input into song/artist/album/label and writes
+     * them here in a single dispatch, so the existing bin/rotation/catalog/LML
+     * search sources — which all read `search.query` — keep working unchanged.
+     * Rotation/album linkage fields are left untouched.
+     */
+    setParsedFields: (
+      state,
+      action: PayloadAction<{
+        song: string;
+        artist: string;
+        album: string;
+        label: string;
+      }>
+    ) => {
+      state.search.query.song = action.payload.song;
+      state.search.query.artist = action.payload.artist;
+      state.search.query.album = action.payload.album;
+      state.search.query.label = action.payload.label;
+    },
+    /**
+     * Record the catalog/rotation result the DJ selected. This does NOT write
+     * the result's artist/album/label into the query — that merge is derived
+     * (see `buildPendingQuery`) so the DJ's typed text is never clobbered.
+     * Changing the selection moves the album anchor, so any picked
+     * `track_position` is cleared (symmetric to `setSelectedResult`, #704).
+     */
+    setSelectedMatch: (state, action: PayloadAction<SelectedMatch>) => {
+      state.search.selectedMatch = action.payload;
+      state.search.query.track_position = undefined;
+    },
+    clearSelectedMatch: (state) => {
+      state.search.selectedMatch = null;
+      state.search.query.track_position = undefined;
+    },
+    setSearchFilters: (
+      state,
+      action: PayloadAction<FlowsheetSearchFilters>
+    ) => {
+      state.search.filters = action.payload;
+    },
+    toggleSearchFilter: (
+      state,
+      action: PayloadAction<{
+        dimension: FlowsheetSearchFilterDimension;
+        value: string;
+      }>
+    ) => {
+      const { dimension, value } = action.payload;
+      const current = state.search.filters[dimension] as string[];
+      const next = current.includes(value)
+        ? current.filter((v) => v !== value)
+        : [...current, value];
+      state.search.filters[dimension] = next as never;
+    },
+    /**
      * Set the picked track's Discogs `release_track.position` (e.g. "A1"). Pass
      * `undefined` to clear — used when the DJ falls back to free-text entry or
      * picks a different release.
      */
     setTrackPosition: (state, action: PayloadAction<string | undefined>) => {
       state.search.query.track_position = action.payload;
-    },
-    /**
-     * Copy a selected search result's fields into the live search query and
-     * deselect it, so the user can edit one field without losing the others.
-     */
-    freezeSelectionToQuery: (
-      state,
-      action: PayloadAction<{
-        artist: string;
-        album: string;
-        label: string;
-        album_id?: number;
-        rotation_id?: number;
-        rotation_bin?: Rotation;
-      }>
-    ) => {
-      state.search.query.artist = action.payload.artist;
-      state.search.query.album = action.payload.album;
-      state.search.query.label = action.payload.label;
-      state.search.query.album_id = action.payload.album_id;
-      state.search.query.rotation_id = action.payload.rotation_id;
-      state.search.query.rotation_bin = action.payload.rotation_bin;
-      state.search.query.track_position = undefined;
-      state.search.selectedResult = 0;
     },
     toggleRequest: (state) => {
       state.search.query.request = !state.search.query.request;
@@ -217,13 +246,13 @@ export const flowsheetSlice = createAppSlice({
   },
   selectors: {
     getAutoplay: (state) => state.autoplay,
-    getRotationMode: (state) => state.rotationMode,
     getSearchOpen: (state) => state.search.open,
     getSearchQuery: (state) => state.search.query,
     getSearchQueryLength: (state) => Object.values(state.search.query).filter((value) => value).length,
     getQueue: (state) => state.queue,
     getSelectedResult: (state) => state.search.selectedResult,
+    getSelectedMatch: (state) => state.search.selectedMatch,
+    getSearchFilters: (state) => state.search.filters,
     getIsDragging: (state) => state.isDragging,
-    getConfirmedArtist: (state) => state.search.confirmedArtist,
   },
 });

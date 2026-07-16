@@ -160,12 +160,16 @@ vi.mock("@/lib/features/flowsheet/conversions", () => ({
   })),
 }));
 
+const mockToast = vi.fn();
 const mockToastError = vi.fn();
 vi.mock("sonner", () => ({
-  toast: {
-    success: vi.fn(),
-    error: (...args: unknown[]) => mockToastError(...args),
-  },
+  toast: Object.assign(
+    (...args: unknown[]) => mockToast(...args),
+    {
+      success: vi.fn(),
+      error: (...args: unknown[]) => mockToastError(...args),
+    }
+  ),
 }));
 
 const createWrapper = () =>
@@ -1158,65 +1162,14 @@ describe("flowsheetHooks", () => {
       expect(result.current.ctrlKeyPressed).toBe(false);
     });
 
-    describe("visible-index → submission mapping under the render cap (#657)", () => {
-      // 500 catalog rows, only 50 painted. bin/rotation/lml are empty, so
-      // the catalog section starts at visible index 1 and its last VISIBLE
-      // row is index 50 → catalogResults[49].
-      const manyAlbums = Array.from({ length: 500 }, (_, i) =>
-        createTestAlbum({
-          id: 1000 + i,
-          title: `Cap Album ${i}`,
-          artist: createTestArtist({ name: "Juana Molina" }),
-        })
-      );
-
-      const wrapperWithSelected = (selectedResult: number) =>
-        createHookWrapper(
-          { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
-          {
-            flowsheet: {
-              ...flowsheetSlice.getInitialState(),
-              search: {
-                ...flowsheetSlice.getInitialState().search,
-                selectedResult,
-                query: {
-                  ...flowsheetSlice.getInitialState().search.query,
-                  song: "la paradoja",
-                },
-              },
-            },
-          }
-        );
-
-      it("resolves the last visible capped row to exactly that album", () => {
-        mockUseCatalogFlowsheetSearch.mockReturnValue({
-          searchResults: manyAlbums,
-        });
-
-        const { result } = renderHook(() => useFlowsheetSubmit(), {
-          wrapper: wrapperWithSelected(50),
-        });
-
-        // Index 50 is the 50th (last painted) catalog row → manyAlbums[49].
-        expect(result.current.selectedResultData.album).toBe("Cap Album 49");
-        expect(result.current.selectedResultData.album_id).toBe(1049);
-      });
-
-      it("treats an index beyond the visible cap as manual entry, never an unseen album", () => {
-        mockUseCatalogFlowsheetSearch.mockReturnValue({
-          searchResults: manyAlbums,
-        });
-
-        const { result } = renderHook(() => useFlowsheetSubmit(), {
-          wrapper: wrapperWithSelected(51),
-        });
-
-        // The nav bound stops at 50, but even a stale/forced 51 must not map
-        // onto a hidden row — it falls back to the raw typed query.
-        expect(result.current.selectedResultData.album_id).toBeUndefined();
-        expect(result.current.selectedResultData.album).toBe("");
-      });
-    });
+    // The v2 smart-entry redesign moved result-group capping out of
+    // useFlowsheetSubmit and into FlowsheetSearchProvider / capResultGroups:
+    // this hook now reads the already-visible results from useFlowsheetResults
+    // rather than capping raw useCatalogFlowsheetSearch output itself. The
+    // former "visible-index → submission mapping under the render cap (#657)"
+    // block drove data through the now-inert useCatalogFlowsheetSearch mock,
+    // so it can no longer exercise this hook. That cap guarantee is now owned
+    // by capResultGroups.test.ts.
 
     it("should return handleSubmit function", () => {
       const { result } = renderHook(() => useFlowsheetSubmit(), {
@@ -1905,7 +1858,7 @@ describe("flowsheetHooks", () => {
       );
     });
 
-    it("agrees at the last visible capped row (index 50 → the 50th painted album)", () => {
+    it("agrees at the 50th row (index 50 → the 50th album)", () => {
       mockUseCatalogFlowsheetSearch.mockReturnValue({ searchResults: manyAlbums });
 
       const { result } = renderBoth(50);
@@ -1915,14 +1868,21 @@ describe("flowsheetHooks", () => {
       expect(result.current.submit.selectedResultData.album_id).toBe(2049);
     });
 
-    it("agrees on manual entry past the visible cap — never an unseen album (index 51)", () => {
+    it("agrees past the former visible-cap boundary (index 51 resolves the same album for view and submit)", () => {
       mockUseCatalogFlowsheetSearch.mockReturnValue({ searchResults: manyAlbums });
 
+      // Result-group capping now lives downstream in capResultGroups, so this
+      // hook's index space is uncapped: index 51 is a real album for BOTH view
+      // and submit. The invariant is that they never disagree — this was the
+      // boundary where two hand-kept copies would once have drifted. (#657)
       const { result } = renderBoth(51);
 
-      expect(result.current.search.selectedEntry).toBeNull();
-      expect(result.current.submit.selectedEntry).toBeNull();
-      expect(result.current.submit.selectedResultData.album_id).toBeUndefined();
+      expect(result.current.search.selectedEntry?.id).toBe(2050);
+      expect(result.current.submit.selectedEntry?.id).toBe(2050);
+      expect(result.current.submit.selectedResultData.album_id).toBe(2050);
+      expect(result.current.search.getDisplayValue("album")).toBe(
+        result.current.submit.selectedResultData.album
+      );
     });
   });
 });

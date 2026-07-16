@@ -122,5 +122,6 @@ export const useBinResults = () => {
 
   return {
     searchResults,
+    isFetching: loading,
   };
 };
