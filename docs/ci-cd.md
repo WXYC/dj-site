@@ -3,7 +3,7 @@
 ## CI (`.github/workflows/ci.yml`)
 
 Runs on push to `main` (full suite) and on PRs (scoped to changed code):
-1. **Lint & Type Check** -- `npx tsc --noEmit`
+1. **Lint & Type Check** -- `npm run lint` (`eslint .`), then `npx tsc --noEmit`
 2. **Unit Tests** -- On PRs, uses `vitest --changed origin/main` to only run tests affected by the diff. On `main` pushes, runs all tests.
 3. **Build** -- `npm run build`
 4. **Script Tests** -- `npm run test:scripts` (bats suites over `scripts/deploy/*.sh`; hermetic — fake `curl`/`wrangler` on PATH).
@@ -13,6 +13,12 @@ Runs on push to `main` (full suite) and on PRs (scoped to changed code):
 PRs that only change non-code files (docs, scripts, etc.) skip the actual work via per-job `if:` guards but **still post a (skipped) check status**. A leading `changes` job runs `dorny/paths-filter@v4` against the PR diff and exposes an `app_source` boolean output (its glob now includes `scripts/**`); downstream jobs declare `needs: changes` plus `if: github.event_name != 'pull_request' || needs.changes.outputs.app_source == 'true'`. This lets branch protection require Type Check / Build / Unit Tests / Preview URL smoke check on every PR without locking out workflow-only or docs-only PRs — skipped jobs count as success for required status checks. See issue #731 for the migration rationale.
 
 The workflow-level concurrency uses `cancel-in-progress: ${{ github.event_name == 'pull_request' }}`: superseded PR runs cancel to save compute, but `main` pushes queue so the `deploy-production` job (own `cancel-in-progress: false` group) never gets cancelled mid-upload.
+
+### Linting (`eslint.config.mjs`)
+
+`eslint-config-next` (`core-web-vitals` + `typescript`), as a native ESLint flat config — Next.js 16 removed the `next lint` command entirely (no `next/dist/cli/next-lint.js`), and `eslint-config-next` now ships flat-config arrays directly (`eslint-config-next/core-web-vitals`, `eslint-config-next/typescript`) instead of the old `FlatCompat`/`.eslintrc` shim, so `eslint.config.mjs` composes those two arrays with no compatibility layer. `npm run lint` runs `eslint .`.
+
+The config disables or test-scopes every rule that had findings against the codebase when the config was introduced (S19, 2026-07) — each disabled rule carries a one-line rationale comment citing the finding count. Rules with only warning-level findings (`@typescript-eslint/no-unused-vars`, `react-hooks/exhaustive-deps`, `@next/next/no-img-element`, etc.) are left enabled: warnings don't fail `eslint .`, so they stay visible as a tightening backlog without blocking CI. The full findings inventory and follow-up list live in `docs/plans/devx-refactor/19-lint-setup.md`.
 
 ## E2E (`.github/workflows/e2e-tests.yml`)
 

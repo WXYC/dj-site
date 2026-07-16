@@ -6,6 +6,7 @@
   },
   "scripts": {
     "dev": "next dev",
+    "lint": "eslint .",
     "build": "next build",
     "build:opennext": "opennextjs-cloudflare build && node scripts/post-build.js",
     "start": "next start",
@@ -60,6 +61,8 @@
     "@vitest/ui": "^4.0.18",
     "bats": "^1.11.0",
     "esbuild": "^0.28.0",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.2.10",
     "jsdom": "^29.1.1",
     "msw": "^2.15.0",
     "pg": "^8.22.0",

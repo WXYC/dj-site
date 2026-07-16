@@ -9,6 +9,7 @@ The backend must be running locally. See README.md for full setup options.
 | Command | Description |
 |---------|-------------|
 | `npm run dev` | Start dev server (port 3000) |
+| `npm run lint` | Lint (`eslint .`) |
 | `npm run build` | Production build (Next.js) |
 | `npm run build:opennext` | Build for Cloudflare (OpenNext) |
 | `npm run preview` | Build + preview Cloudflare build |
