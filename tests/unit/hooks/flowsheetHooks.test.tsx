@@ -46,7 +46,7 @@ const mockUseCatalogFlowsheetSearch = vi.fn(() => ({
   searchResults: [] as ReturnType<typeof createTestAlbum>[],
 }));
 const mockUseRotationFlowsheetSearch = vi.fn(() => ({
-  searchResults: [],
+  searchResults: [] as ReturnType<typeof createTestAlbum>[],
   loading: false,
 }));
 
@@ -166,6 +166,11 @@ vi.mock("sonner", () => ({
     success: vi.fn(),
     error: (...args: unknown[]) => mockToastError(...args),
   },
+}));
+
+const safeCaptureMock = vi.fn();
+vi.mock("@/lib/posthog", () => ({
+  safeCapture: (...args: unknown[]) => safeCaptureMock(...args),
 }));
 
 const createWrapper = () =>
@@ -1845,6 +1850,176 @@ describe("flowsheetHooks", () => {
       // selectedEntry should be the album from search results
       expect(result.current.selectedEntry).toBeDefined();
       expect(result.current.selectedEntry?.id).toBe(999);
+    });
+
+    describe("flowsheet_submit_rotation_link telemetry", () => {
+      const rotationWrapper = (rotationOverrides: { rotation_id?: number } = {}) => {
+        const rotationAlbum = createTestAlbum({
+          id: 111,
+          title: "DOGA",
+          label: "Sonamos",
+          artist: createTestArtist({ name: "Juana Molina" }),
+          ...rotationOverrides,
+        });
+        mockUseRotationFlowsheetSearch.mockReturnValue({
+          searchResults: [rotationAlbum],
+          loading: false,
+        });
+        return createHookWrapper(
+          { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
+          {
+            flowsheet: {
+              ...flowsheetSlice.getInitialState(),
+              search: {
+                ...flowsheetSlice.getInitialState().search,
+                selectedResult: 1,
+                query: {
+                  song: "la paradoja",
+                  artist: "",
+                  album: "",
+                  label: "",
+                  request: false,
+                },
+              },
+            },
+          }
+        );
+      };
+
+      it("fires with rotation_id_present:true when the rotation-picked entry has rotation_id set", async () => {
+        const wrapper = rotationWrapper({ rotation_id: 222 });
+        const { result } = renderHook(() => useFlowsheetSubmit(), { wrapper });
+
+        await act(async () => {
+          await result.current.handleSubmit({
+            preventDefault: vi.fn(),
+          } as unknown as FormEvent);
+        });
+
+        expect(safeCaptureMock).toHaveBeenCalledWith(
+          "flowsheet_submit_rotation_link",
+          {
+            rotation_id_present: true,
+            rotation_id: 222,
+            album_id_present: true,
+          }
+        );
+      });
+
+      it("fires with rotation_id_present:false when the rotation-picked entry has no rotation_id", async () => {
+        const wrapper = rotationWrapper();
+        const { result } = renderHook(() => useFlowsheetSubmit(), { wrapper });
+
+        await act(async () => {
+          await result.current.handleSubmit({
+            preventDefault: vi.fn(),
+          } as unknown as FormEvent);
+        });
+
+        expect(safeCaptureMock).toHaveBeenCalledWith(
+          "flowsheet_submit_rotation_link",
+          {
+            rotation_id_present: false,
+            rotation_id: null,
+            album_id_present: true,
+          }
+        );
+      });
+
+      it("does not fire for a non-rotation (catalog) pick", async () => {
+        const catalogAlbum = createTestAlbum({
+          id: 333,
+          title: "On Your Own Love Again",
+          artist: createTestArtist({ name: "Jessica Pratt" }),
+        });
+        mockUseCatalogFlowsheetSearch.mockReturnValue({
+          searchResults: [catalogAlbum],
+        });
+
+        const wrapper = createHookWrapper(
+          { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
+          {
+            flowsheet: {
+              ...flowsheetSlice.getInitialState(),
+              search: {
+                ...flowsheetSlice.getInitialState().search,
+                selectedResult: 1,
+                query: {
+                  song: "la paradoja",
+                  artist: "",
+                  album: "",
+                  label: "",
+                  request: false,
+                },
+              },
+            },
+          }
+        );
+
+        const { result } = renderHook(() => useFlowsheetSubmit(), { wrapper });
+
+        await act(async () => {
+          await result.current.handleSubmit({
+            preventDefault: vi.fn(),
+          } as unknown as FormEvent);
+        });
+
+        expect(mockAddToFlowsheet).toHaveBeenCalled();
+        expect(safeCaptureMock).not.toHaveBeenCalled();
+      });
+
+      it("does not fire for a freeform (typed, no selection) submit", async () => {
+        const wrapper = createHookWrapper(
+          { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
+          {
+            flowsheet: {
+              ...flowsheetSlice.getInitialState(),
+              search: {
+                ...flowsheetSlice.getInitialState().search,
+                selectedResult: 0,
+                query: {
+                  song: "la paradoja",
+                  artist: "Juana Molina",
+                  album: "DOGA",
+                  label: "Sonamos",
+                  request: false,
+                },
+              },
+            },
+          }
+        );
+
+        const { result } = renderHook(() => useFlowsheetSubmit(), { wrapper });
+
+        await act(async () => {
+          await result.current.handleSubmit({
+            preventDefault: vi.fn(),
+          } as unknown as FormEvent);
+        });
+
+        expect(mockAddToFlowsheet).toHaveBeenCalled();
+        expect(safeCaptureMock).not.toHaveBeenCalled();
+      });
+
+      it("does not fire when addToQueue (Ctrl+Enter) is used instead of a direct flowsheet submit", async () => {
+        const wrapper = rotationWrapper({ rotation_id: 222 });
+        const { result } = renderHook(() => useFlowsheetSubmit(), { wrapper });
+
+        act(() => {
+          document.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Control" })
+          );
+        });
+
+        await act(async () => {
+          await result.current.handleSubmit({
+            preventDefault: vi.fn(),
+          } as unknown as FormEvent);
+        });
+
+        expect(mockAddToFlowsheet).not.toHaveBeenCalled();
+        expect(safeCaptureMock).not.toHaveBeenCalled();
+      });
     });
   });
 

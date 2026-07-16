@@ -17,6 +17,7 @@ import {
   compareEntriesNewestFirst,
   primaryShowId,
 } from "@/lib/features/flowsheet/infinite-cache";
+import { safeCapture } from "@/lib/posthog";
 import { useFlowsheetPollingInterval } from "./useSSEConnection";
 import { partitionFlowsheetEntries } from "@/lib/features/flowsheet/partition";
 import {
@@ -605,6 +606,10 @@ export const useFlowsheetSubmit = () => {
     }
   }, [selectedResult, selectedEntry, flowSheetRawQuery]);
 
+  // Reference equality only — ids can collide across the bin/catalog/rotation/lml sources.
+  const isRotationPick =
+    selectedEntry !== null && rotationResults.includes(selectedEntry);
+
   const handleSubmit = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
@@ -619,6 +624,13 @@ export const useFlowsheetSubmit = () => {
         addToQueue(selectedResultData);
         dispatch(flowsheetSlice.actions.resetSearch());
         return;
+      }
+      if (isRotationPick && selectedEntry) {
+        safeCapture("flowsheet_submit_rotation_link", {
+          rotation_id_present: selectedEntry.rotation_id != null,
+          rotation_id: selectedEntry.rotation_id ?? null,
+          album_id_present: selectedEntry.id != null,
+        });
       }
       try {
         await addToFlowsheet(convertQueryToSubmission(selectedResultData));
@@ -644,6 +656,8 @@ export const useFlowsheetSubmit = () => {
       addToQueue,
       selectedResultData,
       dispatch,
+      isRotationPick,
+      selectedEntry,
     ]
   );
 
