@@ -1,0 +1,48 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly baseline: catches new CodeQL query-pack advisories against
+    # unchanged code, independent of the push/PR-triggered scans above.
+    - cron: "0 6 * * 1"
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+# Workflow-level floor; the analyze job restates contents:read (job-level
+# permissions replace, not add to, this block) alongside the write scope
+# github/codeql-action needs to upload results.
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (javascript-typescript)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      # Required so the action can read check-run/workflow-run metadata when
+      # triggered on a private repo; harmless no-op on a public one.
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          # No compilation step exists for this extraction mode -- CodeQL
+          # parses JS/TS sources directly rather than needing a build.
+          build-mode: none
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"
