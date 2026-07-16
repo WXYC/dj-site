@@ -11,13 +11,11 @@ const authDir = path.join(__dirname, "../../.auth");
  *
  * The full authorize round-trip needs a registered OIDC client seeded in the
  * Backend-Service E2E auth instance, which does not exist yet. So this asserts
- * the hop off the redirect chain rather than driving the upstream: the fake
- * client is unregistered, so authorize will 4xx after the hop — that landing is
- * irrelevant, the /login → /auth/oauth2/authorize redirect (params intact) is
- * what's in dj-site's control. Asserting the chain (not a route interception)
- * matters: Chromium follows a server 307 on a top-level navigation internally,
- * so page.route on the redirect target never fires — redirectedFrom() is the
- * documented way to see each server 3xx hop.
+ * only the hop: wait for the request to /auth/oauth2/authorize and check its
+ * params. The authorize navigation arrives asynchronously after the /login
+ * response settles, so the wait is load-bearing — sampling synchronously right
+ * after goto misses it. Asserting on the request (not its response) tolerates
+ * the upstream 4xx'ing the unregistered fake client after the hop.
  */
 test.describe("OIDC authorize continuation (signed-in DJ)", () => {
   // dj2's saved session is verified and onboarding-complete, and no other spec
@@ -37,33 +35,25 @@ test.describe("OIDC authorize continuation (signed-in DJ)", () => {
       scope: "openid profile",
     });
 
-    // "commit" settles as soon as the final response commits, so an authorize
-    // 4xx (unregistered client) can't hang or fail the navigation — page.goto
-    // rejects on transport errors, not HTTP status.
-    const response = await page.goto(`/login?${oidcParams.toString()}`, {
-      waitUntil: "commit",
-    });
+    // Register the wait before navigating so no request is missed. "commit"
+    // lets goto resolve without waiting for a full load the authorize hop may
+    // interrupt.
+    const authorizeRequest = page.waitForRequest(
+      (req) => req.url().includes("/auth/oauth2/authorize"),
+      { timeout: 12000 }
+    );
+    await page.goto(`/login?${oidcParams.toString()}`, { waitUntil: "commit" });
 
-    // Walk the redirect chain: response.request() is the final hop, and
-    // redirectedFrom() steps back through every preceding server 3xx.
-    const chain: string[] = [];
-    let request = response?.request() ?? null;
-    while (request) {
-      chain.push(request.url());
-      request = request.redirectedFrom();
+    let target: URL;
+    try {
+      target = new URL((await authorizeRequest).url());
+    } catch {
+      throw new Error(
+        `expected a navigation to /auth/oauth2/authorize; browser settled at ${page.url()}`
+      );
     }
 
-    const authorizeHop = chain.find(
-      (url) => new URL(url).pathname === "/auth/oauth2/authorize"
-    );
-    expect(
-      authorizeHop,
-      `expected a /auth/oauth2/authorize hop in the redirect chain, saw: ${chain.join(
-        " <- "
-      )}`
-    ).toBeDefined();
-
-    const target = new URL(authorizeHop as string);
+    expect(target.pathname).toBe("/auth/oauth2/authorize");
     for (const [key, value] of Array.from(oidcParams.entries())) {
       expect(
         target.searchParams.get(key),
