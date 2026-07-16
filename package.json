@@ -1,4 +1,5 @@
 {
+  "name": "dj-site",
   "private": true,
   "engines": {
     "node": "24.x"
@@ -31,11 +32,8 @@
     "@mui/material": "^6.4.0",
     "@opennextjs/cloudflare": "^1.20.1",
     "@reduxjs/toolkit": "^2.12.0",
-    "@uidotdev/usehooks": "^2.4.1",
     "@wxyc/shared": "^1.17.1",
     "better-auth": "^1.6.20",
-    "cookie": "^1.0.2",
-    "jose": "^6.2.3",
     "jwt-decode": "^4.0.0",
     "motion": "^12.42.0",
     "next": "^16.2.10",
@@ -43,11 +41,9 @@
     "qrcode.react": "^4.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-fast-marquee": "^1.6.5",
     "react-redux": "^9.3.0",
     "server-only": "^0.0.1",
-    "sonner": "^2.0.7",
-    "webcrypt-session": "^0.5.1"
+    "sonner": "^2.0.7"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.0",

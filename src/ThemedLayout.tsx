@@ -7,12 +7,6 @@ export type ThemedLayoutProps = {
   modern: ReactNode;
 };
 
-/** @deprecated Use ThemedLayoutProps — dashboard and login layouts now share the same shape. */
-export type DashboardLayoutProps = ThemedLayoutProps;
-
-/** @deprecated Use ThemedLayoutProps — dashboard and login layouts now share the same shape. */
-export type LoginLayoutProps = ThemedLayoutProps;
-
 export default async function ThemedLayout(
   props: ThemedLayoutProps
 ) {
