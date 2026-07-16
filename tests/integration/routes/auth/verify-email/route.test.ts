@@ -199,6 +199,52 @@ describe("/auth/verify-email open-redirect protection (#597)", () => {
   });
 });
 
+describe("/auth/verify-email Host trust boundary", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function requestServedOn(servedOrigin: string, callbackURL: string | null): NextRequest {
+    const url = new URL(`${servedOrigin}/auth/verify-email`);
+    url.searchParams.set("token", "valid-token");
+    if (callbackURL !== null) url.searchParams.set("callbackURL", callbackURL);
+    return new NextRequest(url);
+  }
+
+  async function invokeOn(servedOrigin: string, callbackURL: string | null): Promise<Response> {
+    const { GET } = await import("@/app/auth/verify-email/route");
+    return GET(requestServedOn(servedOrigin, callbackURL));
+  }
+
+  const SERVED_ORIGIN = "https://preview.wxyc-dj.pages.dev";
+
+  it("resolves the redirect against the served origin", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(backendSessionResponse());
+
+    const response = await invokeOn(SERVED_ORIGIN, "/dashboard/flowsheet");
+    const location = new URL(response.headers.get("location")!);
+
+    expect(location.origin).toBe(SERVED_ORIGIN);
+    expect(location.pathname).toBe("/dashboard/flowsheet");
+  });
+
+  it("coerces an off-origin callbackURL to the safe default regardless of served origin", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(backendSessionResponse());
+
+    const response = await invokeOn(SERVED_ORIGIN, "https://evil.example/dj-signin");
+    const location = new URL(response.headers.get("location")!);
+
+    expect(location.origin).toBe(SERVED_ORIGIN);
+    expect(location.pathname).toBe("/onboarding");
+  });
+});
+
 describe("/auth/verify-email cookie Path forwarding (#633)", () => {
   beforeEach(() => {
     vi.spyOn(console, "log").mockImplementation(() => {});
