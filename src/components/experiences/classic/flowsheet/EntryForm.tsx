@@ -33,7 +33,9 @@ export default function EntryForm({
   const [addToFlowsheet, { isLoading }] = useAddToFlowsheetMutation();
 
   const [entryType, setEntryType] = useState<EntryType>("track");
-  const [releaseType, setReleaseType] = useState<ReleaseType>("rotationRelease");
+  // Defaults to WXYC Library: DJs pull from the library far more often than
+  // rotation, so rotation-first cost an extra switch on most entries.
+  const [releaseType, setReleaseType] = useState<ReleaseType>("libraryRelease");
   const [rotationType, setRotationType] = useState<RotationType | "">("");
   // Holds the picked release's `rotation_id` (rotation row PK), NOT its album
   // id. `release.id` can be a synthesized negative for library-unlinked
