@@ -7,7 +7,7 @@ import {
   isFlowsheetTalksetEntry,
   isFlowsheetBreakpointEntry,
   FlowsheetEntry,
-} from "./types";
+} from "@/lib/features/flowsheet/types";
 
 const base = { id: 1, play_order: 1, show_id: 1 };
 

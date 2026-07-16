@@ -3,7 +3,7 @@ import { configureStore } from "@reduxjs/toolkit";
 
 // getJWTToken hits the auth client; stub it so the test exercises only the
 // orchestrator base query's error handling.
-vi.mock("../authentication/client", () => ({
+vi.mock("@/lib/features/authentication/client", () => ({
   getJWTToken: vi.fn(async () => null),
 }));
 
@@ -20,7 +20,7 @@ afterEach(() => {
 });
 
 async function loadStore() {
-  const { autoDJApi } = await import("./api");
+  const { autoDJApi } = await import("@/lib/features/autoDJ/api");
   const store = configureStore({
     reducer: { [autoDJApi.reducerPath]: autoDJApi.reducer },
     middleware: (gdm) => gdm().concat(autoDJApi.middleware),

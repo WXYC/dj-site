@@ -3,7 +3,7 @@ import { createTestAlbum } from "@/tests/helpers";
 import {
   albumMatchesCatalogQueryArg,
   parseRotationBinsFromQueryArg,
-} from "./catalogSearchQueryMatch";
+} from "@/lib/features/catalog/catalogSearchQueryMatch";
 
 describe("parseRotationBinsFromQueryArg", () => {
   it("parses comma-separated bins", () => {

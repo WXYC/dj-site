@@ -7,13 +7,13 @@ vi.mock("@opennextjs/cloudflare", () => ({
 
 async function loadConfig() {
   vi.resetModules();
-  const mod = await import("../../next.config.mjs");
+  const mod = await import("@/next.config.mjs");
   return mod.default;
 }
 
 async function loadModule() {
   vi.resetModules();
-  return import("../../next.config.mjs");
+  return import("@/next.config.mjs");
 }
 
 // The builders accept process.env; tests pass minimal partials.

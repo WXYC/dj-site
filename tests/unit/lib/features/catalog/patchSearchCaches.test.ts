@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
-import { patchCatalogSearchCaches } from "./patchSearchCaches";
-import { catalogApi } from "./api";
-import { catalogSlice } from "./frontend";
+import { patchCatalogSearchCaches } from "@/lib/features/catalog/patchSearchCaches";
+import { catalogApi } from "@/lib/features/catalog/api";
+import { catalogSlice } from "@/lib/features/catalog/frontend";
 import { createTestAlbum } from "@/tests/helpers";
 
 describe("patchCatalogSearchCaches", () => {

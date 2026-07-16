@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { catalogSlice, defaultCatalogFrontendState } from "./frontend";
+import { catalogSlice, defaultCatalogFrontendState } from "@/lib/features/catalog/frontend";
 
 describe("catalogSlice result context menu", () => {
   it("openResultContextMenu stores a single menu target", () => {

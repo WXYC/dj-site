@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { catalogSlice, defaultCatalogFrontendState } from "./frontend";
+import { catalogSlice, defaultCatalogFrontendState } from "@/lib/features/catalog/frontend";
 
 describe("catalogSlice rotation state", () => {
   it("setAlbumRotation stores per-album rotation", () => {

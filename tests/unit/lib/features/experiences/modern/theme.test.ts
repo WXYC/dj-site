@@ -25,7 +25,7 @@ vi.mock("next/font/local", () => ({
 }));
 
 // Import after mocking
-import { modernTheme as _modernTheme } from "../theme";
+import { modernTheme as _modernTheme } from "@/lib/features/experiences/modern/theme";
 
 const modernTheme = _modernTheme as ThemeWithComponents;
 
@@ -431,12 +431,12 @@ describe("modern theme", () => {
 
   describe("default export", () => {
     it("should export modernTheme as default", async () => {
-      const module = await import("../theme");
+      const module = await import("@/lib/features/experiences/modern/theme");
       expect(module.default).toBe(modernTheme);
     });
 
     it("should export modernTheme as named export", async () => {
-      const module = await import("../theme");
+      const module = await import("@/lib/features/experiences/modern/theme");
       expect(module.modernTheme).toBeDefined();
       expect(module.modernTheme).toBe(modernTheme);
     });
