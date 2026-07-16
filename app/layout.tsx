@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import InitColorSchemeScript from "@mui/joy/InitColorSchemeScript";
+import InitColorScheme from "@/src/styles/InitColorScheme";
 import { StoreProvider } from "@/src/StoreProvider";
 import { TelemetryProvider } from "@/src/components/shared/TelemetryProvider";
 
@@ -45,15 +45,13 @@ export default async function RootLayout({ children }: Props) {
   const serverSideProps = await createServerSideProps();
   const { experience, themeId } = serverSideProps.application;
 
+  // suppressHydrationWarning: InitColorScheme stamps data-joy-color-scheme on
+  // <html> before hydration, so the attribute is absent from SSR markup but
+  // present in the client DOM.
   return (
-    <html lang="en" data-experience={experience}>
+    <html lang="en" data-experience={experience} suppressHydrationWarning>
       <body>
-        {/*
-          Must remain the first child of <body> so its inline script stamps
-          data-joy-color-scheme before hydration. Reads the same storage keys
-          CssVarsProvider (and useThemePreferenceSync via setMode) persist to.
-        */}
-        <InitColorSchemeScript />
+        <InitColorScheme />
         <StoreProvider>
           <TelemetryProvider>
             <ThemeRegistry
