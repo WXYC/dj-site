@@ -26,9 +26,13 @@ async function performLogin(
     name: "Sign in with password instead",
   });
   await passwordLink.waitFor({ state: "visible", timeout: 15000 });
-  await passwordLink.click();
-
-  await page.waitForSelector('input[name="username"]');
+  // The switch is a client onClick: a click that lands before hydration
+  // attaches the handler is a silent no-op. Retry the click until the
+  // password form actually appears.
+  await expect(async () => {
+    await passwordLink.click();
+    await page.waitForSelector('input[name="username"]', { timeout: 1500 });
+  }).toPass({ timeout: 15000 });
   await page.fill('input[name="username"]', username);
   await page.fill('input[name="password"]', password);
 
