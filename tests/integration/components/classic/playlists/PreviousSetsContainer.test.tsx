@@ -3,19 +3,22 @@ import { screen, waitFor } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers/render";
 import type { PlaylistSearchResult } from "@wxyc/shared/dtos";
 
-const mockTrigger = vi.fn();
+const mockFetchNextPage = vi.fn();
 const mockQueryState = {
   data: undefined as
     | {
-        results: PlaylistSearchResult[];
-        total: number;
-        page: number;
-        totalPages: number;
-        nextCursor?: string;
+        pages: Array<{
+          results: PlaylistSearchResult[];
+          total: number;
+          page: number;
+          totalPages: number;
+          nextCursor?: string;
+        }>;
       }
     | undefined,
   isFetching: false,
   isError: false,
+  hasNextPage: false,
 };
 
 vi.mock("@/lib/features/playlist-search/api", async () => {
@@ -24,9 +27,12 @@ vi.mock("@/lib/features/playlist-search/api", async () => {
   >("@/lib/features/playlist-search/api");
   return {
     ...actual,
-    useLazySearchPlaylistsQuery: () =>
-      [mockTrigger, mockQueryState] as unknown as ReturnType<
-        typeof actual.useLazySearchPlaylistsQuery
+    useSearchPlaylistsInfiniteQuery: () =>
+      ({
+        ...mockQueryState,
+        fetchNextPage: mockFetchNextPage,
+      }) as unknown as ReturnType<
+        typeof actual.useSearchPlaylistsInfiniteQuery
       >,
   };
 });
@@ -35,10 +41,11 @@ vi.mock("@/lib/features/playlist-search/api", async () => {
 import PreviousSetsContainer from "@/src/components/experiences/classic/playlists/PreviousSetsContainer";
 
 beforeEach(() => {
-  mockTrigger.mockReset();
+  mockFetchNextPage.mockReset();
   mockQueryState.data = undefined;
   mockQueryState.isFetching = false;
   mockQueryState.isError = false;
+  mockQueryState.hasNextPage = false;
 });
 
 describe("Classic Previous Sets PreviousSetsContainer", () => {
@@ -63,40 +70,36 @@ describe("Classic Previous Sets PreviousSetsContainer", () => {
     const { user, rerender } = renderWithProviders(<PreviousSetsContainer />);
     const input = screen.getByPlaceholderText(/type to search/i);
     await user.type(input, "Juana");
-    // Land the response AFTER typing so the data effect ([data, cursor])
-    // fires its accumulator update — the reset effect (which clears on
-    // effectiveQuery change) doesn't fire again on this render.
+    // Land the response after typing, then rerender to project the fulfilled
+    // page into the DOM.
     mockQueryState.data = {
-      results: [
+      pages: [
         {
-          id: 1,
-          play_date: "2024-06-15T14:30:00.000Z",
-          artist_name: "Juana Molina",
-          track_title: "la paradoja",
-          album_title: "DOGA",
-          record_label: "Sonamos",
-          dj_name: "Test DJ",
-          show_id: 100,
+          results: [
+            {
+              id: 1,
+              play_date: "2024-06-15T14:30:00.000Z",
+              artist_name: "Juana Molina",
+              track_title: "la paradoja",
+              album_title: "DOGA",
+              record_label: "Sonamos",
+              dj_name: "Test DJ",
+              show_id: 100,
+            },
+          ],
+          total: 1,
+          page: 0,
+          totalPages: 1,
         },
       ],
-      total: 1,
-      page: 0,
-      totalPages: 1,
     };
-    // Single rerender simulates the one re-render that RTK Query would
-    // trigger in production when its cache state flips from pending to
-    // fulfilled. Issue #540: the bug shipped because accumulated results
-    // lived in a useRef — the data effect mutated it after render but no
-    // additional render happened to project the new array into the DOM.
     rerender(<PreviousSetsContainer />);
     await waitFor(() => {
       expect(screen.getByText("Juana Molina")).toBeDefined();
     });
   });
 
-  // Regression test for #540: when the hook returns total > 0 with results
-  // populated, the result table must render on the same render where the
-  // count copy appears — no extra re-render required.
+  // The count copy and the populated rows must appear on the same render.
   it("renders the result table when the hook returns { total: 5, results: [...5 rows...] }", async () => {
     const { user, rerender } = renderWithProviders(<PreviousSetsContainer />);
     await user.type(
@@ -104,67 +107,70 @@ describe("Classic Previous Sets PreviousSetsContainer", () => {
       "stereolab"
     );
     mockQueryState.data = {
-      results: [
+      pages: [
         {
-          id: 10,
-          play_date: "2024-06-15T14:30:00.000Z",
-          artist_name: "Stereolab",
-          track_title: "Brakhage",
-          album_title: "Dots and Loops",
-          record_label: "Duophonic",
-          dj_name: "Test DJ",
-          show_id: 200,
-        },
-        {
-          id: 11,
-          play_date: "2024-06-15T14:35:00.000Z",
-          artist_name: "Stereolab",
-          track_title: "Miss Modular",
-          album_title: "Dots and Loops",
-          record_label: "Duophonic",
-          dj_name: "Test DJ",
-          show_id: 200,
-        },
-        {
-          id: 12,
-          play_date: "2024-06-15T14:40:00.000Z",
-          artist_name: "Stereolab",
-          track_title: "The Flower Called Nowhere",
-          album_title: "Dots and Loops",
-          record_label: "Duophonic",
-          dj_name: "Test DJ",
-          show_id: 200,
-        },
-        {
-          id: 13,
-          play_date: "2024-06-15T14:45:00.000Z",
-          artist_name: "Stereolab",
-          track_title: "Diagonals",
-          album_title: "Dots and Loops",
-          record_label: "Duophonic",
-          dj_name: "Test DJ",
-          show_id: 200,
-        },
-        {
-          id: 14,
-          play_date: "2024-06-15T14:50:00.000Z",
-          artist_name: "Stereolab",
-          track_title: "Prisoner of Mars",
-          album_title: "Dots and Loops",
-          record_label: "Duophonic",
-          dj_name: "Test DJ",
-          show_id: 200,
+          results: [
+            {
+              id: 10,
+              play_date: "2024-06-15T14:30:00.000Z",
+              artist_name: "Stereolab",
+              track_title: "Brakhage",
+              album_title: "Dots and Loops",
+              record_label: "Duophonic",
+              dj_name: "Test DJ",
+              show_id: 200,
+            },
+            {
+              id: 11,
+              play_date: "2024-06-15T14:35:00.000Z",
+              artist_name: "Stereolab",
+              track_title: "Miss Modular",
+              album_title: "Dots and Loops",
+              record_label: "Duophonic",
+              dj_name: "Test DJ",
+              show_id: 200,
+            },
+            {
+              id: 12,
+              play_date: "2024-06-15T14:40:00.000Z",
+              artist_name: "Stereolab",
+              track_title: "The Flower Called Nowhere",
+              album_title: "Dots and Loops",
+              record_label: "Duophonic",
+              dj_name: "Test DJ",
+              show_id: 200,
+            },
+            {
+              id: 13,
+              play_date: "2024-06-15T14:45:00.000Z",
+              artist_name: "Stereolab",
+              track_title: "Diagonals",
+              album_title: "Dots and Loops",
+              record_label: "Duophonic",
+              dj_name: "Test DJ",
+              show_id: 200,
+            },
+            {
+              id: 14,
+              play_date: "2024-06-15T14:50:00.000Z",
+              artist_name: "Stereolab",
+              track_title: "Prisoner of Mars",
+              album_title: "Dots and Loops",
+              record_label: "Duophonic",
+              dj_name: "Test DJ",
+              show_id: 200,
+            },
+          ],
+          total: 5,
+          page: 0,
+          totalPages: 1,
         },
       ],
-      total: 5,
-      page: 0,
-      totalPages: 1,
     };
     rerender(<PreviousSetsContainer />);
 
     await waitFor(() => {
-      // The count copy is the smoking gun in #540 — it appears even when
-      // the table doesn't.
+      // The count copy must not appear without the rows beneath it.
       expect(screen.getByText(/found 5 results/i)).toBeDefined();
     });
     // The actual fix: the table renders, with all five rows.
