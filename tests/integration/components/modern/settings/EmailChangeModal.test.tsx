@@ -6,6 +6,7 @@ import EmailChangeModal from "@/src/components/experiences/modern/settings/Email
 // Mock the auth client
 const mockChangeEmail = vi.fn();
 const mockSignInEmail = vi.fn();
+const mockClearTokenCache = vi.fn();
 
 vi.mock("@/lib/features/authentication/client", () => ({
   authClient: {
@@ -14,6 +15,7 @@ vi.mock("@/lib/features/authentication/client", () => ({
       email: (...args: unknown[]) => mockSignInEmail(...args),
     },
   },
+  clearTokenCache: (...args: unknown[]) => mockClearTokenCache(...args),
 }));
 
 // Mock sonner toast
@@ -187,6 +189,39 @@ describe("EmailChangeModal", () => {
       await waitFor(() => {
         expect(screen.getByText("Invalid credentials")).toBeInTheDocument();
       });
+    });
+
+    it("should clear the cached token before password-reverify sign-in", async () => {
+      const callOrder: string[] = [];
+      mockClearTokenCache.mockImplementation(() => {
+        callOrder.push("clearTokenCache");
+      });
+      mockSignInEmail.mockImplementation(async () => {
+        callOrder.push("signInEmail");
+        return { data: { user: {} } };
+      });
+
+      const { user } = renderWithProviders(
+        <EmailChangeModal {...defaultProps} />
+      );
+
+      const newEmailInput = screen.getByPlaceholderText("Enter your new email");
+      const passwordInput = screen.getByPlaceholderText("Confirm your password");
+
+      await user.type(newEmailInput, "new@example.com");
+      await user.type(passwordInput, "correctpassword");
+
+      const submitButton = screen.getByRole("button", {
+        name: "Send Verification Email",
+      });
+      await user.click(submitButton);
+
+      await waitFor(() => {
+        expect(mockSignInEmail).toHaveBeenCalled();
+      });
+
+      expect(mockClearTokenCache).toHaveBeenCalledTimes(1);
+      expect(callOrder).toEqual(["clearTokenCache", "signInEmail"]);
     });
   });
 
