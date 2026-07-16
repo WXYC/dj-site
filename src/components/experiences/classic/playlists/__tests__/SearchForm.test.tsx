@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { screen, act } from "@testing-library/react";
-import { renderWithProviders } from "@/lib/test-utils/render";
+import { renderWithProviders } from "@/tests/helpers/render";
 import { playlistSearchSlice } from "@/lib/features/playlist-search/frontend";
 import SearchForm from "../SearchForm";
 

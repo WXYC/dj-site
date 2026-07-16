@@ -47,7 +47,6 @@ lib/
   store.ts                    # Redux store (combineSlices, RTK Query middleware)
   hooks.ts                    # Typed Redux hooks (useAppDispatch, useAppSelector, useAppStore)
   createAppSlice.ts           # Slice builder with async thunk support
-  test-utils/                 # Test utilities (see Testing section)
   __tests__/                  # Feature tests (slices, APIs, conversions)
 
 e2e/                          # Playwright E2E tests
@@ -56,7 +55,11 @@ e2e/                          # Playwright E2E tests
   fixtures/                   # Test data
   scripts/                    # Helper scripts
 
-tests/                        # Additional component/unit tests
+tests/                        # Additional component/unit tests; vitest helpers/fakes/fixtures/setup
+  helpers/                    # Render helpers, harnesses, time utilities (see Testing section)
+  fakes/                      # MSW handlers and server
+  fixtures/                   # Fixture factories and data
+  setup/                      # vitest.setup.ts
 ```
 
 Each feature in `lib/features/` follows a consistent structure:

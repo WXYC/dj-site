@@ -2,7 +2,7 @@
 
 ## Setup
 
-Vitest config is in `vitest.config.mts`. Global setup in `vitest.setup.ts` handles:
+Vitest config is in `vitest.config.mts`. Global setup in `tests/setup/vitest.setup.ts` handles:
 - MSW server lifecycle (`beforeAll`/`afterEach`/`afterAll`)
 - `localStorage` mock
 - `matchMedia` mock (required by MUI)
@@ -10,9 +10,9 @@ Vitest config is in `vitest.config.mts`. Global setup in `vitest.setup.ts` handl
 
 Globals are enabled (`describe`, `it`, `expect` available without import, though explicit imports from `vitest` are the convention used in this codebase).
 
-## Test Utilities (`lib/test-utils/`)
+## Test Utilities (`tests/helpers/`)
 
-Import everything from `@/lib/test-utils`:
+Import everything from `@/tests/helpers`:
 
 ```typescript
 import {
@@ -23,8 +23,11 @@ import {
   TEST_BACKEND_URL,
   TEST_ENTITY_IDS,
   TEST_SEARCH_STRINGS,
-} from "@/lib/test-utils";
+} from "@/tests/helpers";
 ```
+
+The barrel re-exports render helpers and harnesses (`tests/helpers/`), MSW handlers
+and server (`tests/fakes/`), and fixture factories (`tests/fixtures/`).
 
 ### Rendering
 
@@ -139,11 +142,11 @@ describeConversion("convertToSong", convertToSong, [
 
 ### MSW Setup
 
-Default handlers in `lib/test-utils/msw/handlers.ts` return empty responses for `/library/`, `/authentication/`, `/flowsheet/`, `/rotation/`. Override in individual tests:
+Default handlers in `tests/fakes/handlers.ts` return empty responses for `/library/`, `/authentication/`, `/flowsheet/`, `/rotation/`. Override in individual tests:
 
 ```typescript
 import { http, HttpResponse } from "msw";
-import { server, TEST_BACKEND_URL } from "@/lib/test-utils";
+import { server, TEST_BACKEND_URL } from "@/tests/helpers";
 
 server.use(
   http.get(`${TEST_BACKEND_URL}/library/`, () => {

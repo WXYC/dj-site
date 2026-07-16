@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { Authorization } from "@/lib/features/admin/types";
-import { createTestAccountResult } from "@/lib/test-utils";
+import { createTestAccountResult } from "@/tests/helpers";
 import { escapeCSVField, buildCSVContent } from "../ExportCSV";
 
 describe("CSV export (Bug 13)", () => {

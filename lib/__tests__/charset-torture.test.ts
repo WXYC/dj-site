@@ -5,7 +5,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
   CHARSET_TORTURE_ENTRIES,
   charsetEntryId,
-} from "@/lib/test-utils/charset-torture";
+} from "@/tests/fixtures/charset-torture";
 
 const ECHO_URL = "https://test.local/echo";
 

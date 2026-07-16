@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { screen } from "@testing-library/react";
-import { createTestStore, renderWithProviders } from "@/lib/test-utils";
+import { createTestStore, renderWithProviders } from "@/tests/helpers";
 import SSEConnectionIndicator from "./SSEConnectionIndicator";
 import {
   liveUpdatesConnectionStateChanged,

@@ -1,6 +1,6 @@
 import { describe } from "vitest";
 import { flowsheetApi } from "@/lib/features/flowsheet/api";
-import { describeApi } from "@/lib/test-utils";
+import { describeApi } from "@/tests/helpers";
 
 describe("flowsheetApi", () => {
   describeApi(flowsheetApi, {

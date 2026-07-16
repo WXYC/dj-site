@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
-import { renderWithProviders } from "@/lib/test-utils/render";
+import { renderWithProviders } from "@/tests/helpers/render";
 import type { PlaylistSearchResult } from "@wxyc/shared/dtos";
 
 const mockTrigger = vi.fn();

@@ -25,7 +25,7 @@ import { getUserFromSession } from "@/lib/features/authentication/server-utils";
 import {
   createTestBetterAuthSession,
   createTestSessionWithRole,
-} from "@/lib/test-utils";
+} from "@/tests/helpers";
 
 describe("getUserFromSession", () => {
   beforeEach(() => {

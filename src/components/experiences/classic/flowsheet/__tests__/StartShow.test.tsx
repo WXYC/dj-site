@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, screen } from "@testing-library/react";
-import { renderWithProviders } from "@/lib/test-utils/render";
+import { renderWithProviders } from "@/tests/helpers/render";
 
 // Mock useShowControl().goLive — we only care that StartShow forwards the
 // trimmed Public DJ Handle as the second arg (the override) when the user

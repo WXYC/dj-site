@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { screen } from "@testing-library/react";
 import AccountSearchForm from "./AccountSearchForm";
-import { renderWithProviders } from "@/lib/test-utils";
+import { renderWithProviders } from "@/tests/helpers";
 import { adminSlice } from "@/lib/features/admin/frontend";
 
 describe("AccountSearchForm", () => {

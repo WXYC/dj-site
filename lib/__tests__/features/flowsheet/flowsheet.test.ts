@@ -9,7 +9,7 @@ import {
   createTestFlowsheetEntry,
   TEST_SEARCH_STRINGS,
   TEST_ENTITY_IDS,
-} from "@/lib/test-utils";
+} from "@/tests/helpers";
 import type { FlowsheetFrontendState, FlowsheetEntry } from "@/lib/features/flowsheet/types";
 
 vi.mock("@/lib/features/flowsheet/queue-storage", () => ({

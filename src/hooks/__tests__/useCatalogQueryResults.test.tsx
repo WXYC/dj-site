@@ -5,7 +5,7 @@ import { Provider } from "react-redux";
 import { CssVarsProvider } from "@mui/joy/styles";
 import { makeStore } from "@/lib/store";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
-import { createTestAlbum } from "@/lib/test-utils";
+import { createTestAlbum } from "@/tests/helpers";
 import type { CatalogInfiniteQueryArg } from "@/lib/features/catalog/api";
 
 type InfiniteQueryResult = {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { renderWithProviders } from "@/lib/test-utils/render";
+import { renderWithProviders } from "@/tests/helpers/render";
 import ResultTable from "../ResultTable";
 import type { PreviousSetsResult } from "../ResultRow";
 

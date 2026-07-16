@@ -46,7 +46,7 @@ import {
   createTestBetterAuthSession,
   createTestIncompleteSession,
   createTestSessionWithOrgRole,
-} from "@/lib/test-utils";
+} from "@/tests/helpers";
 
 describe("server-utils", () => {
   beforeEach(() => {

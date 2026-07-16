@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderWithProviders } from "@/lib/test-utils";
+import { renderWithProviders } from "@/tests/helpers";
 
 // Mock the query string the server redirect lands on.
 const searchParamsMock = vi.fn<() => URLSearchParams>();

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { screen } from "@testing-library/react";
-import { renderWithProviders } from "@/lib/test-utils/render";
+import { renderWithProviders } from "@/tests/helpers/render";
 import { Rotation } from "@/lib/features/rotation/types";
 import ResultRow, { type PreviousSetsResult } from "../ResultRow";
 

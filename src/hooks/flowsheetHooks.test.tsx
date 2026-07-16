@@ -16,7 +16,7 @@ import {
   createTestFlowsheetEntry,
   createTestAlbum,
   createTestArtist,
-} from "@/lib/test-utils";
+} from "@/tests/helpers";
 
 // Mock authentication hooks
 const mockUserInfo = {

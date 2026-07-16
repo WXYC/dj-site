@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { binApi, useGetBinQuery, useDeleteFromBinMutation, useAddToBinMutation } from "@/lib/features/bin/api";
-import { describeApi } from "@/lib/test-utils";
+import { describeApi } from "@/tests/helpers";
 
 // Mock the authentication client to prevent token fetch issues
 vi.mock("@/lib/features/authentication/client", () => ({

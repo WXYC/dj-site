@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { screen } from "@testing-library/react";
 import RequiredBox from "./RequiredBox";
-import { renderWithProviders } from "@/lib/test-utils";
+import { renderWithProviders } from "@/tests/helpers";
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
 
 describe("RequiredBox", () => {

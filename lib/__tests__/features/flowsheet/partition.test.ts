@@ -8,7 +8,7 @@ import type {
   FlowsheetSongEntry,
   FlowsheetShowBlockEntry,
 } from "@/lib/features/flowsheet/types";
-import { TEST_ENTITY_IDS } from "@/lib/test-utils";
+import { TEST_ENTITY_IDS } from "@/tests/helpers";
 
 const CURRENT_SHOW = TEST_ENTITY_IDS.SHOW.CURRENT_SHOW;
 const PAST_SHOW = TEST_ENTITY_IDS.SHOW.PAST_SHOW;

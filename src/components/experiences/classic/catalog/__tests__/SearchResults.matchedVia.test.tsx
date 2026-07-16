@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { screen } from "@testing-library/react";
-import { createTestAlbum, createTestArtist } from "@/lib/test-utils";
-import { renderWithProviders } from "@/lib/test-utils/render";
+import { createTestAlbum, createTestArtist } from "@/tests/helpers";
+import { renderWithProviders } from "@/tests/helpers/render";
 import type { TrackMatchHint } from "@/lib/features/catalog/types";
 
 const mockSearchCatalogQuery = vi.fn();

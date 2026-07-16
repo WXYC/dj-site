@@ -2,7 +2,7 @@ import { describe, expect, it, vi, afterEach } from "vitest";
 import { patchCatalogSearchRotation } from "./patchSearchCaches";
 import { catalogApi } from "./api";
 import { catalogSlice } from "./frontend";
-import { createTestAlbum } from "@/lib/test-utils";
+import { createTestAlbum } from "@/tests/helpers";
 
 describe("patchCatalogSearchRotation", () => {
   afterEach(() => {

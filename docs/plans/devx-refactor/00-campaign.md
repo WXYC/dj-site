@@ -40,8 +40,8 @@ and test count exactly (minus explicitly deleted duplicates, which must be named
 |---|------|-------|------|--------|
 | 01 | dead-code-sweep | dup provider, dead hooks module, dup tests, 5 dead deps, deprecated aliases | simple | MERGED #885 |
 | 02 | telemetry-contract | posthog adapter completion; de-raw backend.ts/global-error; drop unused PHProvider | risky | MERGED #886 |
-| 03 | lml-module-consolidation | fix lib→src import inversion; move conversions/types into lib/features/lml | simple | PR #887 |
-| 04 | tests-helpers-move | lib/test-utils → tests/{helpers,fakes,fixtures} + 116-file import codemod | simple | pending |
+| 03 | lml-module-consolidation | fix lib→src import inversion; move conversions/types into lib/features/lml | simple | MERGED #887 |
+| 04 | tests-helpers-move | lib/test-utils → tests/{helpers,fakes,fixtures,setup} + 117-file import codemod | simple | reviewed, PR |
 | 05 | tests-unit-move | lib/__tests__ → tests/unit/lib + tests/contract | simple | pending |
 | 06 | tests-hooks-and-utilities-move | src/hooks + src/utilities tests → tests/unit | simple | pending |
 | 07 | tests-components-move-1 | shared/widgets/Layout/classic tests → tests/integration | simple | pending |

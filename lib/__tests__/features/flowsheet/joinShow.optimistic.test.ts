@@ -14,7 +14,7 @@ import {
   server,
   TEST_BACKEND_URL,
   TEST_ENTITY_IDS,
-} from "@/lib/test-utils";
+} from "@/tests/helpers";
 
 // Mock the auth client so the base query's prepareHeaders doesn't try to fetch
 // a JWT (no auth server running). Mirrors addToFlowsheet.wiring.test.ts.

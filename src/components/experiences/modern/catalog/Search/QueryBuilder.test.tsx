@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { screen } from "@testing-library/react";
 import QueryBuilder from "./QueryBuilder";
-import { createComponentHarnessWithQueries } from "@/lib/test-utils";
+import { createComponentHarnessWithQueries } from "@/tests/helpers";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
 
 const firstInput = (): HTMLElement =>

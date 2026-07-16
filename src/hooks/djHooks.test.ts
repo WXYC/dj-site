@@ -5,7 +5,7 @@ import { Provider } from "react-redux";
 import { toast } from "sonner";
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
 import type { ModifiableData } from "@/lib/features/authentication/types";
-import { createTestStore } from "@/lib/test-utils";
+import { createTestStore } from "@/tests/helpers";
 import type { AppStore } from "@/lib/store";
 
 vi.mock("next/navigation", () => ({

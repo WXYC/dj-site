@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen } from "@testing-library/react";
-import { renderWithProviders, createTestStore } from "@/lib/test-utils";
+import { renderWithProviders, createTestStore } from "@/tests/helpers";
 import { applicationSlice } from "@/lib/features/application/frontend";
-import { createTestAccountResult } from "@/lib/test-utils";
+import { createTestAccountResult } from "@/tests/helpers";
 import Rightbar from "./Rightbar";
 
 // Mock child components

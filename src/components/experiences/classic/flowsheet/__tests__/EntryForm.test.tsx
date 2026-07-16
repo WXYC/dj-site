@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
-import { renderWithProviders } from "@/lib/test-utils/render";
+import { renderWithProviders } from "@/tests/helpers/render";
 import {
   createTestArtist,
   createTestRotationAlbum,
-} from "@/lib/test-utils/fixtures";
+} from "@/tests/fixtures/fixtures";
 import { Rotation } from "@/lib/features/rotation/types";
 import { FlowsheetEntryType } from "@wxyc/shared/dtos";
 import EntryForm from "../EntryForm";

@@ -1,12 +1,12 @@
 import "@testing-library/jest-dom/vitest";
 import { afterAll, afterEach, beforeAll, beforeEach, vi } from "vitest";
-import { server } from "@/lib/test-utils/msw/server";
+import { server } from "@/tests/fakes/server";
 
 // Default the backend URL so that any module reading
 // `process.env.NEXT_PUBLIC_BACKEND_URL` at load time (e.g., RTK Query
 // `fetchBaseQuery` baseUrl construction in `lib/features/backend.ts`) sees
 // a defined value during tests. Aligns with `TEST_BACKEND_URL` in
-// `lib/test-utils/constants.ts`. Skip when explicitly set so a developer
+// `tests/helpers/constants.ts`. Skip when explicitly set so a developer
 // running vitest against a non-default backend isn't overridden.
 if (!process.env.NEXT_PUBLIC_BACKEND_URL) {
   process.env.NEXT_PUBLIC_BACKEND_URL = "http://localhost:3001";
@@ -22,7 +22,7 @@ afterAll(() => server.close());
 process.env.NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED = "true";
 
 // Pin backend URL for RTK Query base queries that read process.env directly
-// (matches TEST_BACKEND_URL default in test-utils/constants.ts).
+// (matches TEST_BACKEND_URL default in tests/helpers/constants.ts).
 process.env.NEXT_PUBLIC_BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
 

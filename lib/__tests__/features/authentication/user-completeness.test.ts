@@ -21,7 +21,7 @@ import {
 import {
   createTestBetterAuthSession,
   createTestIncompleteSession,
-} from "@/lib/test-utils";
+} from "@/tests/helpers";
 
 describe("isUserIncomplete", () => {
   it("should return false for complete user with hasCompletedOnboarding true", () => {

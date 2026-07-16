@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { screen } from "@testing-library/react";
 import EmailOTPForm from "./EmailOTPForm";
-import { renderWithProviders } from "@/lib/test-utils";
+import { renderWithProviders } from "@/tests/helpers";
 import { applicationSlice } from "@/lib/features/application/frontend";
 
 vi.mock("next/navigation", () => ({

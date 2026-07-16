@@ -9,7 +9,7 @@ import {
   createTestAlbum,
   TEST_ENTITY_IDS,
   TEST_SEARCH_STRINGS,
-} from "@/lib/test-utils";
+} from "@/tests/helpers";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 import { Rotation } from "@/lib/features/rotation/types";
 

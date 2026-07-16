@@ -1,6 +1,6 @@
 import { describe } from "vitest";
 import { applicationApi } from "@/lib/features/application/api";
-import { describeApi } from "@/lib/test-utils";
+import { describeApi } from "@/tests/helpers";
 
 describe("applicationApi", () => {
   describeApi(applicationApi, {

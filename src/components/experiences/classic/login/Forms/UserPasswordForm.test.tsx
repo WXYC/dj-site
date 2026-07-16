@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import UserPasswordForm from "./UserPasswordForm";
-import { renderWithProviders } from "@/lib/test-utils";
+import { renderWithProviders } from "@/tests/helpers";
 
 // Mock the useLogin hook
 const mockHandleLogin = vi.fn((e: React.FormEvent<HTMLFormElement>) => {

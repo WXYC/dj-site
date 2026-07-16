@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import AccountEditForm from "./AccountEditForm";
-import { createComponentHarness, createTestAccountResult } from "@/lib/test-utils";
+import { createComponentHarness, createTestAccountResult } from "@/tests/helpers";
 import type { Account } from "@/lib/features/admin/types";
 
 vi.mock("@/lib/features/authentication/client", () => ({

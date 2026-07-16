@@ -3,7 +3,7 @@ import { http, HttpResponse } from "msw";
 
 import { flowsheetApi } from "@/lib/features/flowsheet/api";
 import { OFF_AIR_LABEL } from "@/lib/features/flowsheet/constants";
-import { createTestStore, server, TEST_BACKEND_URL } from "@/lib/test-utils";
+import { createTestStore, server, TEST_BACKEND_URL } from "@/tests/helpers";
 
 // Mock the auth client so the base query's prepareHeaders doesn't try to fetch
 // a JWT (no auth server running). Mirrors addToFlowsheet.wiring.test.ts.

@@ -18,7 +18,7 @@ interface CharsetTortureCorpus {
 
 const corpusPath = resolve(
   dirname(fileURLToPath(import.meta.url)),
-  "../../tests/fixtures/charset-torture.json"
+  "./charset-torture.json"
 );
 
 const corpus: CharsetTortureCorpus = JSON.parse(

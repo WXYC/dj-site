@@ -3,7 +3,7 @@ import { renderHook, waitFor, act } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { Provider } from "react-redux";
 import { makeStore, AppStore } from "@/lib/store";
-import { MOCK_USERS } from "@/lib/test-utils/fixtures";
+import { MOCK_USERS } from "@/tests/fixtures/fixtures";
 import { adminSlice } from "@/lib/features/admin/frontend";
 import { ROSTER_PAGE_SIZE } from "@/lib/features/admin/types";
 

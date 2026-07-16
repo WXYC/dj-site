@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { formatBinForExport, callNumberFor } from "./export";
-import { createTestAlbum, createTestArtist } from "@/lib/test-utils/fixtures";
+import { createTestAlbum, createTestArtist } from "@/tests/fixtures/fixtures";
 
 const stereolab = createTestAlbum({
   title: "DOGA",

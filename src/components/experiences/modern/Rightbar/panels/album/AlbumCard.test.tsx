@@ -4,7 +4,7 @@ import {
   renderWithProviders,
   createTestAlbum,
   createTestArtist,
-} from "@/lib/test-utils";
+} from "@/tests/helpers";
 import AlbumCard from "./AlbumCard";
 
 vi.mock("./DiscogsMarkupRenderer", () => ({

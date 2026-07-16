@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { screen } from "@testing-library/react";
-import { renderWithProviders } from "@/lib/test-utils/render";
+import { renderWithProviders } from "@/tests/helpers/render";
 import type { TrackMatchHint } from "@/lib/features/catalog/types";
 import { MatchedTrackChips } from "../MatchedTrackChips";
 

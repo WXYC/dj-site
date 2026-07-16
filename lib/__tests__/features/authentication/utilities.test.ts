@@ -10,7 +10,7 @@ import {
   createTestBetterAuthSession,
   createTestIncompleteSession,
   createTestSessionWithRole,
-} from "@/lib/test-utils";
+} from "@/tests/helpers";
 
 describe("authentication utilities", () => {
   beforeEach(() => {

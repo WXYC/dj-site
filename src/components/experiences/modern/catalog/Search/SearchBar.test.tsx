@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import SearchBar from "./SearchBar";
-import { createComponentHarnessWithQueries } from "@/lib/test-utils";
+import { createComponentHarnessWithQueries } from "@/tests/helpers";
 import type { ColorPaletteProp } from "@mui/joy";
 
 vi.mock("@/lib/features/catalog/api", async (importOriginal) => {

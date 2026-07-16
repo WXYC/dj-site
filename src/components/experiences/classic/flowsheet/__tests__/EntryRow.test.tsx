@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { fireEvent, screen } from "@testing-library/react";
-import { renderWithProviders } from "@/lib/test-utils/render";
-import { createTestFlowsheetEntry } from "@/lib/test-utils";
+import { renderWithProviders } from "@/tests/helpers/render";
+import { createTestFlowsheetEntry } from "@/tests/helpers";
 import { Rotation } from "@/lib/features/rotation/types";
 import type {
   FlowsheetEntry,

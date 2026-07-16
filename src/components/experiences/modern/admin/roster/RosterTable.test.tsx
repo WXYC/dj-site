@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
-import { MOCK_USERS, renderWithProviders } from "@/lib/test-utils";
+import { MOCK_USERS, renderWithProviders } from "@/tests/helpers";
 import { makeStore } from "@/lib/store";
 import { adminSlice } from "@/lib/features/admin/frontend";
 import { Authorization } from "@/lib/features/admin/types";

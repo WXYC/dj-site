@@ -1,5 +1,5 @@
 import { test as base, expect, Page } from "@playwright/test";
-import { MOCK_USERS, MockUserKey, MockUser } from "../../lib/test-utils/fixtures";
+import { MOCK_USERS, MockUserKey, MockUser } from "../../tests/fixtures/fixtures";
 
 /** Re-export shared mock users for e2e convenience. */
 export const TEST_USERS = MOCK_USERS;
