@@ -13,13 +13,10 @@ import { BetterAuthJwtPayload, WXYCRole } from "./types";
 const cachedAdminOrgIds = new Map<string, string>();
 
 /**
- * Resolve the configured organization slug to its UUID via the admin endpoint.
- * Caches the result for the page session. For use in admin contexts only (roster,
- * role management) — requires the current user to have an admin session.
- *
- * @param slugOverride - Explicit slug to use instead of the NEXT_PUBLIC_APP_ORGANIZATION env var.
- *   Prefer passing this from a server component prop to avoid build-time inlining issues.
- * @returns The organization UUID, or null if the slug is not configured or resolution fails.
+ * Resolves the configured organization slug to its UUID via the admin
+ * endpoint (admin session required), caching per page session. Prefer
+ * passing slugOverride from a server component prop to avoid build-time
+ * inlining issues.
  */
 export async function resolveOrganizationIdAdmin(slugOverride?: string): Promise<string | null> {
   const slug = slugOverride || process.env.NEXT_PUBLIC_APP_ORGANIZATION;
@@ -44,19 +41,12 @@ export async function resolveOrganizationIdAdmin(slugOverride?: string): Promise
   }
 }
 
-// Re-export for existing consumers
 export { getAppOrganizationId, getAppOrganizationIdClient };
 
-/**
- * Client-side: Resolve organization slug to organization ID
- * @param organizationSlugOrId - The organization slug (e.g., "wxyc") or ID
- * @returns The organization ID, or undefined if not found
- */
 async function resolveOrganizationIdClient(
   organizationSlugOrId: string
 ): Promise<string | undefined> {
   try {
-    // First, try to find organization by slug via getFullOrganization
     const orgResult = await authClient.organization.getFullOrganization({
       query: {
         organizationSlug: organizationSlugOrId,
@@ -64,8 +54,8 @@ async function resolveOrganizationIdClient(
     });
 
     if (orgResult.error) {
-      // A slug lookup that errors must not be treated as an ID: returning the
-      // slug as a UUID silently downgrades the user to NO authority.
+      // Must not fall back to treating the slug as an ID here: that would
+      // silently downgrade the user to NO authority.
       console.error("Failed to resolve organization slug:", orgResult.error);
       return undefined;
     }
@@ -78,8 +68,7 @@ async function resolveOrganizationIdClient(
     return organizationSlugOrId;
   } catch (error) {
     console.error("Exception resolving organization ID from slug:", error);
-    // A transient failure resolving the slug must not be treated as an ID:
-    // returning the slug as a UUID silently downgrades the user to NO authority.
+    // Same reasoning as the error branch above: no fallback to the raw slug.
     return undefined;
   }
 }
@@ -151,12 +140,7 @@ export async function fetchOrganizationRoleForUserClient(
   return getUserRoleInOrganizationClient(userId, organizationSlugOrId);
 }
 
-/**
- * Client-side: Get user's role in a specific organization
- * @param userId - The user ID to look up
- * @param organizationSlugOrId - The organization slug (e.g., "wxyc") or ID
- * @returns The user's role in the organization, or undefined if not found or on error
- */
+/** Client-side: get a user's role in a specific organization. */
 export async function getUserRoleInOrganizationClient(
   userId: string,
   organizationSlugOrId: string
@@ -170,7 +154,6 @@ export async function getUserRoleInOrganizationClient(
       }
     }
 
-    // Resolve slug to ID if needed
     const organizationId = await resolveOrganizationIdClient(organizationSlugOrId);
 
     if (!organizationId) {
@@ -192,22 +175,18 @@ export async function getUserRoleInOrganizationClient(
       return undefined;
     }
 
-    // Find the member matching the userId
     const member = result.data?.members?.find((m: any) => m.userId === userId);
 
     if (!member) {
-      // User is not a member of this organization
       return undefined;
     }
 
-    // Extract role from member object
     const role = member.role as string | undefined;
 
     if (!role) {
       return undefined;
     }
 
-    // Normalize and return the role
     return normalizeRole(role) as WXYCRole;
   } catch (error) {
     console.error("Exception fetching organization member role:", error);
@@ -216,20 +195,14 @@ export async function getUserRoleInOrganizationClient(
 }
 
 /**
- * Normalize role string format (case and separator variations)
- * Converts role strings to a consistent format for our WXYCRole type
- * Handles variations in role naming (e.g., "musicDirector" vs "music_director" vs "music-director")
- *
- * Note: This function only normalizes the format, not the role value itself.
- * The actual role mapping (e.g., "owner"/"admin" to "stationManager") is handled by roleToAuthorization()
- *
- * @param role - The role string from better-auth
- * @returns Normalized role string that matches WXYCRole format (camelCase for multi-word roles)
+ * Normalizes case/separator variations in a role string (e.g.
+ * "music_director" -> "musicDirector") to our WXYCRole format. Only the
+ * format is normalized here; value mapping (e.g. "owner"/"admin" ->
+ * "stationManager") is roleToAuthorization()'s job.
  */
 export function normalizeRole(role: string): string {
   const normalized = role.toLowerCase().trim();
 
-  // Handle our WXYC role formats - convert to camelCase
   if (normalized === "musicdirector" || normalized === "music_director" || normalized === "music-director") {
     return "musicDirector";
   }
@@ -237,13 +210,12 @@ export function normalizeRole(role: string): string {
     return "stationManager";
   }
 
-  // Single-word roles (member, dj) - return as-is
   if (normalized === "member" || normalized === "dj") {
     return normalized;
   }
 
-  // For any other role string, return the original (roleToAuthorization will handle it)
-  // This includes better-auth default roles like "owner", "admin", "user"
+  // Unrecognized strings (including better-auth defaults like "owner",
+  // "admin", "user") pass through for roleToAuthorization to handle.
   return role;
 }
 
