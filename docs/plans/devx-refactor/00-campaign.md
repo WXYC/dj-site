@@ -41,22 +41,22 @@ and test count exactly (minus explicitly deleted duplicates, which must be named
 | 01 | dead-code-sweep | dup provider, dead hooks module, dup tests, 5 dead deps, deprecated aliases | simple | MERGED #885 |
 | 02 | telemetry-contract | posthog adapter completion; de-raw backend.ts/global-error; drop unused PHProvider | risky | MERGED #886 |
 | 03 | lml-module-consolidation | fix lib→src import inversion; move conversions/types into lib/features/lml | simple | MERGED #887 |
-| 04 | tests-helpers-move | lib/test-utils → tests/{helpers,fakes,fixtures,setup} + 117-file import codemod | simple | reviewed, PR |
-| 05 | tests-unit-move | lib/__tests__ → tests/unit/lib + tests/contract | simple | pending |
-| 06 | tests-hooks-and-utilities-move | src/hooks + src/utilities tests → tests/unit | simple | pending |
-| 07 | tests-components-move-1 | shared/widgets/Layout/classic tests → tests/integration | simple | pending |
-| 08 | tests-components-move-2 | modern components + app route/page tests → tests/integration | simple | pending |
+| 04 | tests-helpers-move | lib/test-utils → tests/{helpers,fakes,fixtures,setup} + 117-file import codemod | simple | MERGED #889 |
+| 05 | tests-unit-move | lib/__tests__ → tests/unit/lib + tests/contract | simple | MERGED #892 |
+| 06 | tests-hooks-and-utilities-move | src/hooks + src/utilities tests → tests/unit | simple | MERGED #893 |
+| 07 | tests-components-move-1 | shared/widgets/Layout/classic tests → tests/integration | simple | MERGED #897 |
+| 08 | tests-components-move-2 | modern components + app route/page tests → tests/integration; arc complete | simple | reviewed, PR |
 | 09 | auth-session-ownership | single session/org-role owner; stable useRegistry identities | risky | pending |
 | 10 | flowsheet-search-results-single-source | shared merge/cap pipeline for search + submit | risky | pending |
 | 11 | rightbar-and-experience-read-consolidation | vestigial slice state; one experience read path | moderate | pending |
-| 12 | bin-hooks-cleanup | toast-on-error effect → callback catch | simple | done, no PR |
+| 12 | bin-hooks-cleanup | toast-on-error effect → callback catch (+4 failure-path tests; ledger → 3,674) | simple | MERGED #898 |
 | 13 | admin-roster-server-state | RTKQ queryFn over authClient; delete roster-events bus | risky | pending |
 | 14 | comment-reduction-pass | top-density files untouched by earlier slices | simple | pending |
 | 15 | playlist-search-infinite-migration | moved to issue #883 (Jackson, 2026-07-15) | — | out of campaign |
 | 16 | e2e-relocation | declined (Jackson, 2026-07-15): e2e/ stays the sanctioned Playwright location; tests/ is the vitest hierarchy | — | won't do |
-| 17 | root-layout-boundary | server-rendered shell; providers inside body; Suspense-isolate useSearchParams (charter §8) | risky | pending |
+| 17 | root-layout-boundary | server-rendered shell; providers inside body; Suspense-isolate useSearchParams (charter §8) | risky | MERGED #890 |
 | 18 | — | failure-containment contract tests: considered, not adopted (Jackson, 2026-07-15) | — | not adopted |
-| 19 | lint-setup | ESLint flat config + script + CI; charter requires a lint step, repo has none | simple-mod | pending |
+| 19 | lint-setup | ESLint flat config + script + CI; charter requires a lint step, repo has none | simple-mod | MERGED #891 |
 
 Sequencing: S1–S3 shrink the surface before the bulk moves; S4 must precede S5–S8
 (helper import paths); S19 runs after S8 so the state-ownership slices (S9+) get
