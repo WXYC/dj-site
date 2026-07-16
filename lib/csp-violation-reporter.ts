@@ -3,7 +3,7 @@ import { safeCapture } from "./posthog";
 /**
  * Forwards Content-Security-Policy violations to PostHog so the Report-Only
  * rollout (#631) gathers real-user signal instead of relying on individual
- * DevTools consoles. Installed once per page from PostHogProvider.
+ * DevTools consoles. Installed once per page from TelemetryProvider.
  */
 
 // Dedupe per (violatedDirective, blockedURI-origin) per page session so a hot

@@ -2,23 +2,21 @@
 
 import { useEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { PostHogProvider as PHProvider } from "posthog-js/react";
-import { initPostHog, posthog } from "@/lib/posthog";
+import { initTelemetry, safeCapturePageview } from "@/lib/posthog";
 import { installCspViolationReporter } from "@/lib/csp-violation-reporter";
 import type { ReactNode } from "react";
 
-function PostHogPageView() {
+function TelemetryPageView() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    if (pathname && posthog) {
-      let url = window.origin + pathname;
-      if (searchParams.toString()) {
-        url += "?" + searchParams.toString();
-      }
-      posthog.capture("$pageview", { $current_url: url });
+    if (!pathname) return;
+    let url = window.origin + pathname;
+    if (searchParams.toString()) {
+      url += "?" + searchParams.toString();
     }
+    safeCapturePageview(url);
   }, [pathname, searchParams]);
 
   return null;
@@ -28,18 +26,18 @@ interface Props {
   readonly children: ReactNode;
 }
 
-export function PostHogProvider({ children }: Props) {
+export function TelemetryProvider({ children }: Props) {
   useEffect(() => {
-    initPostHog();
+    initTelemetry();
     // Report-Only CSP violations (#631) fire securitypolicyviolation events
     // client-side; forward them to PostHog so the rollout gathers signal.
     installCspViolationReporter();
   }, []);
 
   return (
-    <PHProvider client={posthog}>
-      <PostHogPageView />
+    <>
+      <TelemetryPageView />
       {children}
-    </PHProvider>
+    </>
   );
 }

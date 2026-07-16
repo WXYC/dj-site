@@ -10,6 +10,11 @@ green.
 - Integration branch `refactor/devx-root` hosts the merged campaign for local
   verification; it never becomes a PR. Slice branches fork from it; PRs target `main`,
   sequentially (one open at a time; a second only if directories are fully disjoint).
+- The repo allows rebase merges only, and branches carrying devx-root's integration
+  merge commits cannot rebase-merge. Before any slice PR opens (or after drift), the
+  branch is rebuilt as a single clean commit atop `origin/main`:
+  `git reset --hard origin/main && git cherry-pick <slice-commit> && git push
+  --force-with-lease`.
 - Agents verify with `npx tsc --noEmit`, `npm run test:run`, `npm run build`, and CI
   only — never a dev server or screenshots. Jackson verifies visually at milestone
   gates on `refactor/devx-root`.

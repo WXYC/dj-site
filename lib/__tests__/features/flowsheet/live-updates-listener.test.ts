@@ -13,14 +13,17 @@ import {
   liveUpdatesSlice,
 } from "@/lib/features/flowsheet/live-updates-slice";
 import type { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
-import { posthog } from "@/lib/posthog";
 import { makeStore } from "@/lib/store";
 import { server, TEST_BACKEND_URL } from "@/lib/test-utils";
 
-const captureSpy = vi.spyOn(posthog, "capture").mockImplementation(() => undefined as never);
-const captureExceptionSpy = vi
-  .spyOn(posthog, "captureException")
-  .mockImplementation(() => undefined as never);
+const { captureSpy, captureExceptionSpy } = vi.hoisted(() => ({
+  captureSpy: vi.fn(),
+  captureExceptionSpy: vi.fn(),
+}));
+vi.mock("@/lib/posthog", () => ({
+  safeCapture: captureSpy,
+  safeCaptureException: captureExceptionSpy,
+}));
 
 type MockES = {
   url: string;
