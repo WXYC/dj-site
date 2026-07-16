@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 
 import {
   isCompilationArtistName,
+  isCompilationReleaseArtistName,
   isCompilationRelease,
 } from "@/lib/features/catalog/is-compilation-artist";
 
@@ -41,7 +42,62 @@ describe("isCompilationArtistName", () => {
   });
 });
 
+describe("isCompilationReleaseArtistName", () => {
+  it.each([
+    "Various Artists",
+    "various artists",
+    "VARIOUS ARTISTS",
+    "Various Artist",
+    "Various",
+    "  Various   Artists  ", // extra/collapsed whitespace still matches
+    "V/A",
+    "v/a",
+    "V / A",
+    "V.A.",
+    "v.a.",
+    "Soundtrack",
+    "Original Soundtrack",
+    "Original Motion Picture Soundtrack",
+    "OST",
+    "Compilation",
+  ])("returns true for genuine compilation designation %s", (input) => {
+    expect(isCompilationReleaseArtistName(input)).toBe(true);
+  });
+
+  it.each([
+    "The Soundtrack of Our Lives",
+    "Various Production",
+    "Various Production, Inc.",
+    "Soundtrack of My Life",
+    "Death By Compilation",
+    "The Compilation Kids",
+    "Saint Etienne",
+    "Juana Molina",
+    "Stereolab",
+    "VA",
+  ])("returns false for keyword-substring single artist %s", (input) => {
+    expect(isCompilationReleaseArtistName(input)).toBe(false);
+  });
+
+  it.each([null, undefined, ""])(
+    "returns false for empty input %s",
+    (input) => {
+      expect(isCompilationReleaseArtistName(input)).toBe(false);
+    }
+  );
+});
+
 describe("isCompilationRelease", () => {
+  it.each([
+    "The Soundtrack of Our Lives",
+    "Various Production",
+  ])(
+    "returns false for keyword-substring single artist %s (no album_artist)",
+    (name) => {
+      expect(isCompilationRelease({ artist: { name } })).toBe(false);
+    }
+  );
+
   it("returns true when album_artist is populated, regardless of artist name", () => {
     expect(
       isCompilationRelease({

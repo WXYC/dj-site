@@ -428,6 +428,35 @@ describe("RotationEntryFields", () => {
       expect(artistValues(dispatchSpy)).toEqual(["Various Artists", "M.I.A."]);
     });
 
+    it("reverts to the release artist when switching from a credited to an uncredited track in one release", () => {
+      mockTracksData = [
+        {
+          position: "A1",
+          title: "Smoke Signal",
+          duration: null,
+          artists: ["Skull Mitten"],
+        },
+        {
+          position: "A2",
+          title: "Untitled Interlude",
+          duration: null,
+          artists: [],
+        },
+      ];
+
+      const { store } = renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
+      const dispatchSpy = vi.spyOn(store, "dispatch");
+      selectBinAndRelease(tobaccoAGoGo);
+      selectTrack(0);
+      selectTrack(1);
+
+      expect(artistValues(dispatchSpy)).toEqual([
+        "Various Artists",
+        "Skull Mitten",
+        "Various Artists",
+      ]);
+    });
+
     it("falls back to the release-level artist when every per-track credit is malformed", () => {
       // A partial-write LML cache row could surface [null, ""] as artists.
       // normalizeTrackArtists returns [] for that shape; the auto-fill must
