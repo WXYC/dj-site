@@ -2,11 +2,6 @@
 
 import Logo from "@/src/components/shared/Branding/Logo";
 import { Box } from "@mui/joy";
-import dynamic from "next/dynamic";
-
-const ColorSchemeToggle = dynamic(() => import("@/src/components/shared/Theme/ColorSchemeToggle").then(mod => mod.default), {
-    ssr: false,
-});
 
 export default function Header() {
   return (
