@@ -7,11 +7,11 @@ vi.mock("@/lib/features/session", () => ({
 }));
 
 // Mock the LoadingPage component
-vi.mock("./components/LoadingPage", () => ({
+vi.mock("@/src/components/LoadingPage", () => ({
   LoadingPage: () => <div data-testid="loading-page">Loading...</div>,
 }));
 
-import ThemedLayout, { ThemedLayoutProps } from "./ThemedLayout";
+import ThemedLayout, { ThemedLayoutProps } from "@/src/ThemedLayout";
 import { createServerSideProps } from "@/lib/features/session";
 
 const mockCreateServerSideProps = createServerSideProps as ReturnType<typeof vi.fn>;

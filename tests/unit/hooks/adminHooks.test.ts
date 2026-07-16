@@ -26,7 +26,7 @@ vi.mock("@/lib/features/authentication/organization-utils", () => ({
 }));
 
 import { authClient } from "@/lib/features/authentication/client";
-import { useAccountListResults } from "./adminHooks";
+import { useAccountListResults } from "@/src/hooks/adminHooks";
 import { Authorization } from "@/lib/features/admin/types";
 
 /** Build a better-auth user object from MOCK_USERS fixture data */

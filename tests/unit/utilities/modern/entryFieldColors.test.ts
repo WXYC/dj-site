@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EntryFieldName, entryFieldTextColor } from "./entryFieldColors";
+import { EntryFieldName, entryFieldTextColor } from "@/src/utilities/modern/entryFieldColors";
 
 const METADATA: EntryFieldName[] = ["artist", "album", "label"];
 

@@ -16,7 +16,7 @@ const deleteTrigger = vi.fn((arg: { dj_id: string; album_id: number }) => ({
       : Promise.resolve(),
 }));
 
-vi.mock("./authenticationHooks", () => ({
+vi.mock("@/src/hooks/authenticationHooks", () => ({
   useRegistry: () => mockUseRegistry(),
 }));
 
@@ -30,7 +30,7 @@ vi.mock("sonner", () => ({
   toast: { error: (...a: unknown[]) => toastError(...a) },
 }));
 
-import { useClearBin } from "./binHooks";
+import { useClearBin } from "@/src/hooks/binHooks";
 
 const entry = (id: number) => ({ id, title: `Album ${id}` }) as AlbumEntry;
 

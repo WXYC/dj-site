@@ -33,7 +33,7 @@ vi.mock("@/lib/features/playlist-search/api", async () => {
   };
 });
 
-import { usePlaylistSearch } from "./playlistSearchHooks";
+import { usePlaylistSearch } from "@/src/hooks/playlistSearchHooks";
 
 function createWrapper(store?: AppStore) {
   const s = store ?? makeStore();

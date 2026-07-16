@@ -28,10 +28,10 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
-vi.mock("./applicationHooks", () => ({ resetApplication: vi.fn() }));
+vi.mock("@/src/hooks/applicationHooks", () => ({ resetApplication: vi.fn() }));
 vi.mock("@/lib/posthog", () => ({ safeCapture: vi.fn() }));
 
-import { useAuthentication } from "./authenticationHooks";
+import { useAuthentication } from "@/src/hooks/authenticationHooks";
 
 describe("useAuthentication async role fetch (#612)", () => {
   beforeEach(() => {

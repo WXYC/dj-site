@@ -3,7 +3,7 @@ import {
   buildCatalogQuery,
   dedupeAlbumEntriesById,
   toLibraryQueryParams,
-} from "../catalogHooks";
+} from "@/src/hooks/catalogHooks";
 import { createTestAlbum } from "@/tests/helpers";
 import type {
   CatalogFilters,

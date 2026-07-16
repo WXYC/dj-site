@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getOidcRedirectTarget } from "./oidcRedirectTarget";
+import { getOidcRedirectTarget } from "@/src/utilities/oidcRedirectTarget";
 
 // At runtime `authBaseURL` (exported from `lib/features/authentication/client`)
 // is derived from `window.location.origin + "/auth"` on the client and

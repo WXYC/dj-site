@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { openSidebarCSS, closeSidebarCSS, toggleSidebarCSS } from "./utilities";
+import { openSidebarCSS, closeSidebarCSS, toggleSidebarCSS } from "@/src/utilities/modern/catalog/utilities";
 
 describe("catalog utilities", () => {
   beforeEach(() => {

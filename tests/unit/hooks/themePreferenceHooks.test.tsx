@@ -30,7 +30,7 @@ vi.mock("@/lib/features/experiences/api", () => ({
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-import { useThemePreferenceSync } from "./themePreferenceHooks";
+import { useThemePreferenceSync } from "@/src/hooks/themePreferenceHooks";
 
 // vitest.setup.ts replaces window.localStorage with a vi.fn() mock (setItem is
 // a no-op), so tests seed the store by stubbing getItem's return value.

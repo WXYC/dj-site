@@ -26,11 +26,11 @@ vi.mock("@/lib/features/flowsheet/api", () => ({
 }));
 
 // Mock debounce to return value immediately in tests
-vi.mock("./useDebouncedValue", () => ({
+vi.mock("@/src/hooks/useDebouncedValue", () => ({
   useDebouncedValue: (value: string) => value,
 }));
 
-import { useGhostText } from "./useGhostText";
+import { useGhostText } from "@/src/hooks/useGhostText";
 
 describe("useGhostText", () => {
   beforeEach(() => {
