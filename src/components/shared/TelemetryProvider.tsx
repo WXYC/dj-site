@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { initTelemetry, safeCapturePageview } from "@/lib/posthog";
 import { installCspViolationReporter } from "@/lib/csp-violation-reporter";
@@ -36,7 +36,11 @@ export function TelemetryProvider({ children }: Props) {
 
   return (
     <>
-      <TelemetryPageView />
+      {/* useSearchParams must sit under a Suspense boundary so it never forces
+          ancestor routes into dynamic rendering. */}
+      <Suspense fallback={null}>
+        <TelemetryPageView />
+      </Suspense>
       {children}
     </>
   );
