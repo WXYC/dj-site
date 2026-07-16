@@ -24,16 +24,15 @@ vi.mock("sonner", () => ({
   },
 }));
 
-vi.mock("@/lib/features/admin/roster-events", () => ({
-  invalidateRoster: vi.fn(),
-}));
-
 import { authClient } from "@/lib/features/authentication/client";
-import { invalidateRoster } from "@/lib/features/admin/roster-events";
+import { adminApi } from "@/lib/features/admin/api";
 import { toast } from "sonner";
 
 const mockUpdateUser = authClient.admin.updateUser as ReturnType<typeof vi.fn>;
 const mockListUsers = authClient.admin.listUsers as ReturnType<typeof vi.fn>;
+// The roster-invalidation bus was replaced by RTK Query tag invalidation; a
+// successful mutation now dispatches adminApi.util.invalidateTags(["Roster"]).
+const invalidateRoster = vi.spyOn(adminApi.util, "invalidateTags");
 
 function makeAccount(overrides: Partial<Account> = {}): Account {
   return createTestAccountResult({
@@ -108,7 +107,7 @@ describe("AccountEditForm name editing", () => {
     });
     expect(mockListUsers).not.toHaveBeenCalled();
     expect(toast.success).toHaveBeenCalled();
-    expect(invalidateRoster).toHaveBeenCalled();
+    expect(invalidateRoster).toHaveBeenCalledWith(["Roster"]);
   });
 
   it("should save an edited DJ name via admin.updateUser", async () => {
@@ -126,7 +125,7 @@ describe("AccountEditForm name editing", () => {
       });
     });
     expect(toast.success).toHaveBeenCalled();
-    expect(invalidateRoster).toHaveBeenCalled();
+    expect(invalidateRoster).toHaveBeenCalledWith(["Roster"]);
   });
 
   it("should trim surrounding whitespace before saving", async () => {

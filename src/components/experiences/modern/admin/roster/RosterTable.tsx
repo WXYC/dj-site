@@ -16,9 +16,8 @@ import {
   Table,
   Typography,
 } from "@mui/joy";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
-import { onRosterInvalidated } from "@/lib/features/admin/roster-events";
 import { getUsernameError } from "@/src/utilities/usernameValidation";
 import { AccountEntry } from "./AccountEntry";
 import AccountSearchForm from "./AccountSearchForm";
@@ -39,8 +38,6 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
   const totalAccounts = useAppSelector(adminSlice.selectors.getTotalAccounts);
   const totalPages = Math.max(1, Math.ceil(totalAccounts / ROSTER_PAGE_SIZE));
   const canCreateUser = user.authority >= Authorization.SM;
-
-  useEffect(() => onRosterInvalidated(refetch), [refetch]);
 
   const authorizationOfNewAccount = useAppSelector(
     adminSlice.selectors.getFormData

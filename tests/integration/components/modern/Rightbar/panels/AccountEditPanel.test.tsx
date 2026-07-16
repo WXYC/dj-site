@@ -29,10 +29,6 @@ vi.mock("sonner", () => ({
   },
 }));
 
-vi.mock("@/lib/features/admin/roster-events", () => ({
-  invalidateRoster: vi.fn(),
-}));
-
 function openAccountEditPanel(account: Account) {
   return applicationSlice.actions.openPanel({
     type: "account-edit",
