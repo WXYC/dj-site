@@ -5,6 +5,12 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
+    ignore:
+      # icons-material majors track @mui/material majors, and Material is
+      # pinned to 6.x until Joy UI ships against the v7+/v9 core (or we
+      # migrate off Joy). See #878; doomed bump attempt: #824.
+      - dependency-name: "@mui/icons-material"
+        update-types: ["version-update:semver-major"]
     groups:
       better-auth:
         patterns:
