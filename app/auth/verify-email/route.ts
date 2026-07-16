@@ -143,6 +143,10 @@ export async function GET(request: NextRequest) {
         `callbackURL: ${callbackURL}`
     );
 
+    // Redirect origin derives from request.url's Host; trusted only because
+    // Cloudflare routes the Worker by Host, pinning it to an account-owned
+    // origin. callbackURL is root-relative above, so Host selects the owned
+    // origin but cannot redirect off-app. See docs/adr/0007.
     const destination = hasSessionCookies
       ? new URL(callbackURL, request.url)
       : new URL("/login?verified=true", request.url);
