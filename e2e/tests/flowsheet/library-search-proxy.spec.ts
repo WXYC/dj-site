@@ -88,8 +88,8 @@ test.describe("Library Search Proxy", () => {
     });
 
     // Type enough to trigger the debounced search (min 3 chars combined)
-    await flowsheet.artistInput.fill("Stereolab");
-    await flowsheet.albumInput.fill("Aluminum");
+    await flowsheet.composer.click();
+    await flowsheet.composer.fill("by Stereolab on Aluminum");
 
     // Wait for the proxy request to fire
     const request = await proxyRequestPromise;
@@ -125,8 +125,8 @@ test.describe("Library Search Proxy", () => {
       }),
     );
 
-    await flowsheet.artistInput.fill("Cat Power");
-    await flowsheet.albumInput.fill("Moon Pix");
+    await flowsheet.composer.click();
+    await flowsheet.composer.fill("by Cat Power on Moon Pix");
 
     // Wait past debounce (350ms) + network roundtrip margin
     await page.waitForTimeout(600);

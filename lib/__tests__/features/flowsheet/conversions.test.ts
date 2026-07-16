@@ -197,7 +197,7 @@ describe("flowsheet conversions", () => {
 
       // Orthogonal: rotation_id / rotation_bin set without album_id. No
       // dispatcher currently produces this (rotation picker writes the trio
-      // together; setRotationMode clears all three), but pinning the case
+      // together; setSearchScope("all") clears all three), but pinning the case
       // catches a future regression that decouples rotation pass-through
       // from the album_id gate (e.g. moving rotation_id outside the
       // hasLinkedAlbum spread).

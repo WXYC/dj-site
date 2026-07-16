@@ -148,84 +148,149 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
       });
     });
 
-    describe("freezeSelectionToQuery", () => {
-      it("should copy the selected entry's fields into the query and deselect", () => {
-        const result = harness().chain(
-          actions.setSearchProperty({ name: "song", value: "la paradoja" }),
-          actions.setSelectedResult(2),
-          actions.freezeSelectionToQuery({
-            artist: "Juana Molina",
-            album: "DOGA",
-            label: "Sonamos",
-            album_id: 42,
+  });
+
+  describe("smart-entry search actions", () => {
+    describe("setParsedFields", () => {
+      it("replaces all four text fields in one dispatch", () => {
+        const result = harness().reduce(
+          actions.setParsedFields({
+            song: "Percolator",
+            artist: "Stereolab",
+            album: "Dots and Loops",
+            label: "Duophonic",
           })
         );
-
-        expect(result.search.query.artist).toBe("Juana Molina");
-        expect(result.search.query.album).toBe("DOGA");
-        expect(result.search.query.label).toBe("Sonamos");
-        expect(result.search.query.album_id).toBe(42);
-        expect(result.search.selectedResult).toBe(0);
-        // Unrelated fields are not touched
-        expect(result.search.query.song).toBe("la paradoja");
+        expect(result.search.query.song).toBe("Percolator");
+        expect(result.search.query.artist).toBe("Stereolab");
+        expect(result.search.query.album).toBe("Dots and Loops");
+        expect(result.search.query.label).toBe("Duophonic");
       });
 
-      it("should clear album_id when not provided", () => {
-        const seeded = harness().reduce(
-          actions.freezeSelectionToQuery({
-            artist: "Stereolab",
-            album: "Aluminum Tunes",
-            label: "Duophonic",
-            album_id: 7,
-          })
-        );
+      it("leaves rotation/album linkage untouched", () => {
+        const seeded: FlowsheetFrontendState = {
+          ...harness().initialState,
+          search: {
+            ...harness().initialState.search,
+            query: {
+              ...harness().initialState.search.query,
+              album_id: 123,
+              rotation_id: 456,
+              rotation_bin: "H" as const,
+            },
+          },
+        };
         const result = harness().reduce(
-          actions.freezeSelectionToQuery({
-            artist: "Cat Power",
-            album: "Moon Pix",
-            label: "Matador Records",
+          actions.setParsedFields({
+            song: "x",
+            artist: "y",
+            album: "z",
+            label: "w",
           }),
           seeded
         );
-        expect(result.search.query.album_id).toBeUndefined();
-      });
-
-      it("should round-trip rotation_id and rotation_bin", () => {
-        const result = harness().reduce(
-          actions.freezeSelectionToQuery({
-            artist: "Juana Molina",
-            album: "DOGA",
-            label: "Sonamos",
-            album_id: 42,
-            rotation_id: 99,
-            rotation_bin: "H",
-          })
-        );
-        expect(result.search.query.rotation_id).toBe(99);
+        expect(result.search.query.album_id).toBe(123);
+        expect(result.search.query.rotation_id).toBe(456);
         expect(result.search.query.rotation_bin).toBe("H");
       });
+    });
 
-      it("should clear rotation_id and rotation_bin when not provided", () => {
-        const seeded = harness().reduce(
-          actions.freezeSelectionToQuery({
-            artist: "Stereolab",
-            album: "Aluminum Tunes",
-            label: "Duophonic",
-            rotation_id: 5,
-            rotation_bin: "M",
+    describe("setSelectedMatch / clearSelectedMatch", () => {
+      const match = {
+        id: 4201,
+        album_id: 4201,
+        rotation_id: 12,
+        rotation_bin: "H" as const,
+        artist: "Stereolab",
+        album: "Dots and Loops",
+        label: "Duophonic",
+      };
+
+      it("records the selected match without overwriting typed query text", () => {
+        const result = harness().chain(
+          actions.setParsedFields({
+            song: "Percolator",
+            artist: "Stereo",
+            album: "",
+            label: "",
+          }),
+          actions.setSelectedMatch(match)
+        );
+        expect(result.search.selectedMatch).toEqual(match);
+        // The typed artist/album/label are NOT clobbered (anti-clobber rule).
+        expect(result.search.query.artist).toBe("Stereo");
+        expect(result.search.query.album).toBe("");
+      });
+
+      // Selecting a different match moves the album anchor; a previously picked
+      // track_position would orphan onto the new release. (dj-site#704)
+      it("clears track_position on selection", () => {
+        const result = harness().chain(
+          actions.setTrackPosition("A1"),
+          actions.setSelectedMatch(match)
+        );
+        expect(result.search.query.track_position).toBeUndefined();
+      });
+
+      it("clearSelectedMatch nulls the match and clears track_position", () => {
+        const result = harness().chain(
+          actions.setSelectedMatch(match),
+          actions.setTrackPosition("A1"),
+          actions.clearSelectedMatch()
+        );
+        expect(result.search.selectedMatch).toBeNull();
+        expect(result.search.query.track_position).toBeUndefined();
+      });
+    });
+
+    describe("filters", () => {
+      it("sets filters wholesale", () => {
+        const result = harness().reduce(
+          actions.setSearchFilters({
+            genres: ["Rock"],
+            formats: ["Vinyl"],
+            rotationTags: ["H"],
           })
         );
-        const result = harness().reduce(
-          actions.freezeSelectionToQuery({
-            artist: "Cat Power",
-            album: "Moon Pix",
-            label: "Matador Records",
-          }),
-          seeded
-        );
-        expect(result.search.query.rotation_id).toBeUndefined();
-        expect(result.search.query.rotation_bin).toBeUndefined();
+        expect(result.search.filters).toEqual({
+          genres: ["Rock"],
+          formats: ["Vinyl"],
+          rotationTags: ["H"],
+        });
       });
+
+      it("toggles a filter value on and off", () => {
+        const on = harness().reduce(
+          actions.toggleSearchFilter({ dimension: "genres", value: "Jazz" })
+        );
+        expect(on.search.filters.genres).toEqual(["Jazz"]);
+        const off = harness().reduce(
+          actions.toggleSearchFilter({ dimension: "genres", value: "Jazz" }),
+          on
+        );
+        expect(off.search.filters.genres).toEqual([]);
+      });
+    });
+
+    it("resetSearch clears selectedMatch and filters", () => {
+      const result = harness().chain(
+        actions.setSelectedMatch({
+          id: 1,
+          artist: "a",
+          album: "b",
+          label: "c",
+        }),
+        actions.setSearchFilters({
+          genres: ["Rock"],
+          formats: [],
+          rotationTags: [],
+        }),
+        actions.resetSearch()
+      );
+      expect(result.search.selectedMatch).toBeNull();
+      expect(result.search.filters).toEqual(
+        defaultFlowsheetFrontendState.search.filters
+      );
     });
   });
 
@@ -564,102 +629,7 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
     });
   });
 
-  describe("rotation mode actions", () => {
-    it("should toggle rotation mode on", () => {
-      const result = harness().reduce(actions.setRotationMode(true));
-      expect(result.rotationMode).toBe(true);
-    });
-
-    it("should toggle rotation mode off", () => {
-      const withRotation: FlowsheetFrontendState = {
-        ...harness().initialState,
-        rotationMode: true,
-      };
-      const result = harness().reduce(actions.setRotationMode(false), withRotation);
-      expect(result.rotationMode).toBe(false);
-    });
-
-    it("should clear rotation metadata when toggling off", () => {
-      const withMetadata: FlowsheetFrontendState = {
-        ...harness().initialState,
-        rotationMode: true,
-        search: {
-          ...harness().initialState.search,
-          query: {
-            ...harness().initialState.search.query,
-            album_id: 123,
-            rotation_id: 456,
-            rotation_bin: "H" as const,
-          },
-        },
-      };
-      const result = harness().reduce(actions.setRotationMode(false), withMetadata);
-      expect(result.search.query.album_id).toBeUndefined();
-      expect(result.search.query.rotation_id).toBeUndefined();
-      expect(result.search.query.rotation_bin).toBeUndefined();
-    });
-
-    it("should not clear rotation metadata when toggling on", () => {
-      const result = harness().reduce(actions.setRotationMode(true));
-      expect(result.search.query).toEqual(harness().initialState.search.query);
-    });
-
-    it("should set rotation metadata on query", () => {
-      const result = harness().reduce(
-        actions.setRotationMetadata({
-          album_id: TEST_ENTITY_IDS.ALBUM.ROTATION_ALBUM,
-          rotation_id: TEST_ENTITY_IDS.ROTATION.HEAVY,
-          rotation_bin: "H" as const,
-        })
-      );
-      expect(result.search.query.album_id).toBe(TEST_ENTITY_IDS.ALBUM.ROTATION_ALBUM);
-      expect(result.search.query.rotation_id).toBe(TEST_ENTITY_IDS.ROTATION.HEAVY);
-      expect(result.search.query.rotation_bin).toBe("H");
-    });
-
-    // track_position is anchored to a specific album_id (it's a Discogs
-    // release_track.position reference). Any reducer that overwrites album_id
-    // must clear track_position or it orphans onto the wrong release.
-    // (dj-site#704)
-    it("setRotationMetadata clears track_position when album_id changes", () => {
-      const result = harness().chain(
-        actions.setTrackPosition("A1"),
-        actions.setRotationMetadata({
-          album_id: TEST_ENTITY_IDS.ALBUM.ROTATION_ALBUM,
-          rotation_id: TEST_ENTITY_IDS.ROTATION.HEAVY,
-          rotation_bin: "H" as const,
-        })
-      );
-      expect(result.search.query.track_position).toBeUndefined();
-    });
-
-    it("should preserve rotation mode across resetSearch", () => {
-      const result = harness().chain(
-        actions.setRotationMode(true),
-        actions.setSearchOpen(true),
-        actions.setSearchProperty({ name: "artist", value: "Test Artist" }),
-        actions.setRotationMetadata({
-          album_id: 123,
-          rotation_id: 456,
-          rotation_bin: "H" as const,
-        }),
-        actions.resetSearch()
-      );
-      expect(result.rotationMode).toBe(true);
-      expect(result.search.open).toBe(false);
-      expect(result.search.query).toEqual(defaultFlowsheetFrontendState.search.query);
-      expect(result.search.selectedResult).toBe(0);
-    });
-  });
-
   describe("selectors", () => {
-    it("should select rotation mode", () => {
-      const { dispatch, select } = harness().withStore();
-      expect(select(flowsheetSlice.selectors.getRotationMode)).toBe(false);
-      dispatch(actions.setRotationMode(true));
-      expect(select(flowsheetSlice.selectors.getRotationMode)).toBe(true);
-    });
-
     it("should select autoplay state", () => {
       const { dispatch, select } = harness().withStore();
       dispatch(actions.setAutoplay(true));

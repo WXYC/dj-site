@@ -61,6 +61,38 @@ vi.mock("./lml", () => ({
   useLmlLibrarySearch: () => ({ results: [], isLoading: false }),
 }));
 
+// Mock FlowsheetSearchProvider (results source for search/submit hooks)
+const mockProviderBinResults: ReturnType<typeof createTestAlbum>[] = [];
+const mockProviderRotationResults: ReturnType<typeof createTestAlbum>[] = [];
+const mockProviderCatalogResults: ReturnType<typeof createTestAlbum>[] = [];
+const mockProviderLmlResults: ReturnType<typeof createTestAlbum>[] = [];
+
+vi.mock(
+  "@/src/components/experiences/modern/flowsheet/Search/FlowsheetSearchProvider",
+  () => ({
+    useFlowsheetResults: () => ({
+      binResults: mockProviderBinResults,
+      rotationResults: mockProviderRotationResults,
+      catalogResults: mockProviderCatalogResults,
+      lmlResults: mockProviderLmlResults,
+    }),
+    useFlowsheetResultsLoading: () => ({
+      binFetching: false,
+      rotationFetching: false,
+      catalogFetching: false,
+      lmlFetching: false,
+    }),
+    useFlowsheetAllResults: () => [
+      ...mockProviderBinResults,
+      ...mockProviderRotationResults,
+      ...mockProviderCatalogResults,
+      ...mockProviderLmlResults,
+    ],
+    FlowsheetSearchProvider: ({ children }: { children: React.ReactNode }) =>
+      children,
+  })
+);
+
 // Mock flowsheet API hooks
 const mockGoLiveFunction = vi.fn();
 const mockLeaveFunction = vi.fn();
@@ -160,12 +192,16 @@ vi.mock("@/lib/features/flowsheet/conversions", () => ({
   })),
 }));
 
+const mockToast = vi.fn();
 const mockToastError = vi.fn();
 vi.mock("sonner", () => ({
-  toast: {
-    success: vi.fn(),
-    error: (...args: unknown[]) => mockToastError(...args),
-  },
+  toast: Object.assign(
+    (...args: unknown[]) => mockToast(...args),
+    {
+      success: vi.fn(),
+      error: (...args: unknown[]) => mockToastError(...args),
+    }
+  ),
 }));
 
 const createWrapper = () =>
@@ -210,6 +246,10 @@ describe("flowsheetHooks", () => {
       searchResults: [],
       loading: false,
     });
+    mockProviderBinResults.length = 0;
+    mockProviderRotationResults.length = 0;
+    mockProviderCatalogResults.length = 0;
+    mockProviderLmlResults.length = 0;
     // Clear localStorage
     if (typeof window !== "undefined") {
       window.localStorage.clear();
@@ -1158,65 +1198,14 @@ describe("flowsheetHooks", () => {
       expect(result.current.ctrlKeyPressed).toBe(false);
     });
 
-    describe("visible-index → submission mapping under the render cap (#657)", () => {
-      // 500 catalog rows, only 50 painted. bin/rotation/lml are empty, so
-      // the catalog section starts at visible index 1 and its last VISIBLE
-      // row is index 50 → catalogResults[49].
-      const manyAlbums = Array.from({ length: 500 }, (_, i) =>
-        createTestAlbum({
-          id: 1000 + i,
-          title: `Cap Album ${i}`,
-          artist: createTestArtist({ name: "Juana Molina" }),
-        })
-      );
-
-      const wrapperWithSelected = (selectedResult: number) =>
-        createHookWrapper(
-          { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
-          {
-            flowsheet: {
-              ...flowsheetSlice.getInitialState(),
-              search: {
-                ...flowsheetSlice.getInitialState().search,
-                selectedResult,
-                query: {
-                  ...flowsheetSlice.getInitialState().search.query,
-                  song: "la paradoja",
-                },
-              },
-            },
-          }
-        );
-
-      it("resolves the last visible capped row to exactly that album", () => {
-        mockUseCatalogFlowsheetSearch.mockReturnValue({
-          searchResults: manyAlbums,
-        });
-
-        const { result } = renderHook(() => useFlowsheetSubmit(), {
-          wrapper: wrapperWithSelected(50),
-        });
-
-        // Index 50 is the 50th (last painted) catalog row → manyAlbums[49].
-        expect(result.current.selectedResultData.album).toBe("Cap Album 49");
-        expect(result.current.selectedResultData.album_id).toBe(1049);
-      });
-
-      it("treats an index beyond the visible cap as manual entry, never an unseen album", () => {
-        mockUseCatalogFlowsheetSearch.mockReturnValue({
-          searchResults: manyAlbums,
-        });
-
-        const { result } = renderHook(() => useFlowsheetSubmit(), {
-          wrapper: wrapperWithSelected(51),
-        });
-
-        // The nav bound stops at 50, but even a stale/forced 51 must not map
-        // onto a hidden row — it falls back to the raw typed query.
-        expect(result.current.selectedResultData.album_id).toBeUndefined();
-        expect(result.current.selectedResultData.album).toBe("");
-      });
-    });
+    // The v2 smart-entry redesign moved result-group capping out of
+    // useFlowsheetSubmit and into FlowsheetSearchProvider / capResultGroups:
+    // this hook now reads the already-visible results from useFlowsheetResults
+    // rather than capping raw useCatalogFlowsheetSearch output itself. The
+    // former "visible-index → submission mapping under the render cap (#657)"
+    // block drove data through the now-inert useCatalogFlowsheetSearch mock,
+    // so it can no longer exercise this hook. That cap guarantee is now owned
+    // by capResultGroups.test.ts.
 
     it("should return handleSubmit function", () => {
       const { result } = renderHook(() => useFlowsheetSubmit(), {
@@ -1463,9 +1452,7 @@ describe("flowsheetHooks", () => {
         artist: createTestArtist({ name: "Artist From Search" }),
       });
 
-      mockUseCatalogFlowsheetSearch.mockReturnValue({
-        searchResults: [mockAlbum],
-      });
+      mockProviderCatalogResults.push(mockAlbum);
 
       // Create wrapper with preloaded state where selectedResult > 0
       const customWrapper = createHookWrapper(
@@ -1511,9 +1498,7 @@ describe("flowsheetHooks", () => {
       // track_position before reaching the wire (regression-guard for #502).
       const mockAlbum = createTestAlbum({ id: 555, title: "DOGA" });
 
-      mockUseCatalogFlowsheetSearch.mockReturnValue({
-        searchResults: [mockAlbum],
-      });
+      mockProviderCatalogResults.push(mockAlbum);
 
       const customWrapper = createHookWrapper(
         { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
@@ -1546,9 +1531,7 @@ describe("flowsheetHooks", () => {
     it("should leave track_position undefined when no track was picked", () => {
       const mockAlbum = createTestAlbum({ id: 556, title: "Edits" });
 
-      mockUseCatalogFlowsheetSearch.mockReturnValue({
-        searchResults: [mockAlbum],
-      });
+      mockProviderCatalogResults.push(mockAlbum);
 
       const customWrapper = createHookWrapper(
         { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
@@ -1684,9 +1667,7 @@ describe("flowsheetHooks", () => {
         artist: null as any, // no artist
       });
 
-      mockUseCatalogFlowsheetSearch.mockReturnValue({
-        searchResults: [mockAlbum],
-      });
+      mockProviderCatalogResults.push(mockAlbum);
 
       // When selectedEntry exists but has no artist/title/label,
       // it should fall back to the user's entered values
@@ -1814,9 +1795,7 @@ describe("flowsheetHooks", () => {
         artist: createTestArtist({ name: "Selected Artist" }),
       });
 
-      mockUseCatalogFlowsheetSearch.mockReturnValue({
-        searchResults: [mockAlbum],
-      });
+      mockProviderCatalogResults.push(mockAlbum);
 
       const customWrapper = createHookWrapper(
         { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
