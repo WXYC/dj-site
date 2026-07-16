@@ -7,15 +7,11 @@ import { roleToAuthorization, VerifiedData } from "./types";
 import { getUserRoleInOrganization, getAppOrganizationId } from "./organization-utils.server";
 import { DEFAULT_DASHBOARD_HOME_PAGE } from "@/lib/features/application/constants";
 
-/**
- * Get the current session from better-auth in a server component
- * Returns null if not authenticated
- */
+/** Gets the current session from better-auth in a server component. */
 export async function getServerSession(): Promise<BetterAuthSession | null> {
   const cookieStore = await cookies();
   const cookieHeader = cookieStore.toString();
 
-  // Use fetchOptions to pass cookies to better-auth client
   const session = await serverAuthClient
     .getSession({
       fetchOptions: {
@@ -43,17 +39,17 @@ export async function getServerSession(): Promise<BetterAuthSession | null> {
 }
 
 /**
- * Require authentication - redirects to login if not authenticated
- * Redirects to login if email is not verified (user must verify via email link first)
- * Returns the session if authenticated and email-verified
+ * Redirects to login if unauthenticated or email-unverified; otherwise
+ * returns the session.
+ *
+ * Each exit carries a server-only `bounced` param so the client can emit a
+ * `login_server_bounce` PostHog event — the server's VERDICT, distinct from
+ * the client's post-login redirect INTENT (`login_post_redirect`): a DJ can
+ * be told "login successful" client-side and still get bounced here when the
+ * session cookie isn't valid server-side.
  */
 export async function requireAuth(): Promise<BetterAuthSession> {
   const session = await getServerSession();
-  // Each exit carries a server-only `bounced` param so the client can emit a
-  // `login_server_bounce` PostHog event. This records the server's VERDICT,
-  // which is distinct from the client's post-login redirect INTENT
-  // (`login_post_redirect`): a DJ can be told "login successful" client-side
-  // and still get bounced here when the session cookie isn't valid server-side.
   if (!session) {
     redirect("/login?bounced=no-session");
   }
@@ -62,15 +58,11 @@ export async function requireAuth(): Promise<BetterAuthSession> {
     redirect("/login?error=email-not-verified&bounced=email-not-verified");
   }
 
-  // Incomplete until explicitly marked complete.
-  //
-  // This redirect intentionally carries no OIDC authorize params, and doing so
-  // does not strand a "Sign in with WXYC" round-trip (#836 AC2): an authorize
-  // bounce targets `/login` directly, whose only incomplete-user render paths
-  // are the login layout (`app/login/@modern/layout.tsx`, session-mode
-  // onboarding) and the invite page (`app/onboarding/**`) — neither gates
-  // through `requireAuth()`. So a pending authorize resume target never reaches
-  // this code path; the client preserves it in the `/login` URL instead.
+  // No OIDC authorize params on this redirect: doesn't strand a "Sign in
+  // with WXYC" round-trip (#836 AC2) because an authorize bounce targets
+  // `/login` directly, and neither incomplete-user render path there (login
+  // layout, `app/onboarding/**`) gates through `requireAuth()` — the client
+  // preserves the resume target in the `/login` URL instead.
   if (isUserIncomplete(session)) {
     redirect("/login?incomplete=true&bounced=incomplete");
   }
@@ -79,12 +71,10 @@ export async function requireAuth(): Promise<BetterAuthSession> {
 }
 
 /**
- * Extract user's authorization level from session
- * Fetches role from APP_ORGANIZATION organization first, then falls back to session data
- * Gets role from organization query, session.user.organization.role, or session.user.role, then maps to Authorization enum
+ * Extracts the user's authorization level, preferring the APP_ORGANIZATION
+ * role query and falling back to role data embedded in the session.
  */
 async function getUserAuthority(session: BetterAuthSession, cookieHeader?: string): Promise<Authorization> {
-  // Try to get role from APP_ORGANIZATION first
   const organizationId = getAppOrganizationId();
 
   if (organizationId) {
@@ -96,22 +86,18 @@ async function getUserAuthority(session: BetterAuthSession, cookieHeader?: strin
       );
 
       if (orgRole !== undefined) {
-        // Successfully fetched role from organization
         return roleToAuthorization(orgRole);
       }
-      // If user is not a member, continue to fallback logic (will return NO access)
+      // Not a member: fall through to session-based fallback (resolves to NO access).
     } catch (error) {
-      // If organization query fails, fall back to session-based role extraction
       console.warn("Failed to fetch organization role, falling back to session data:", error);
     }
   }
 
-  // Fallback: Get role from session data (organization member data if available, or user role)
-  // Organization role takes precedence over base user role
-  // Also check if role is stored in metadata or other custom fields
+  // Organization role takes precedence over base user role; also check
+  // metadata/custom fields some flows stash the role in.
   const organizationRole = (session.user as any).organization?.role;
   const userRole = (session.user as any).role;
-  // Check for role in metadata or other potential locations
   const metadataRole = (session.user as any).metadata?.role;
   const customRole = (session.user as any).customRole;
   const roleToMap = organizationRole || metadataRole || customRole || userRole;
@@ -121,22 +107,16 @@ async function getUserAuthority(session: BetterAuthSession, cookieHeader?: strin
   return authority;
 }
 
-/**
- * Check if user has the required role (non-redirecting)
- * Returns true if user has sufficient permissions
- */
+/** Non-redirecting permission check. */
 export async function checkRole(session: BetterAuthSession, requiredRole: Authorization, cookieHeader?: string): Promise<boolean> {
   const userAuthority = await getUserAuthority(session, cookieHeader);
 
-  // Role hierarchy: SM > MD > DJ > NO
-  // User must have at least the required role
+  // Authorization is an ordered enum (SM > MD > DJ > NO); the user must meet
+  // or exceed the required role.
   return userAuthority >= requiredRole;
 }
 
-/**
- * Require a specific role - redirects if user doesn't have sufficient permissions
- * Redirects to dashboard home if insufficient permissions
- */
+/** Redirects to dashboard home if the session lacks `requiredRole`. */
 export async function requireRole(session: BetterAuthSession, requiredRole: Authorization, cookieHeader?: string): Promise<void> {
   const cookieStore = await cookies();
   const header = cookieHeader || cookieStore.toString();
@@ -155,9 +135,6 @@ export function isUserIncomplete(session: BetterAuthSession): boolean {
   return session.user.hasCompletedOnboarding !== true;
 }
 
-/**
- * Get array of missing required attributes for incomplete user
- */
 export function getIncompleteUserAttributes(session: BetterAuthSession): (keyof VerifiedData)[] {
   const missingAttributes: (keyof VerifiedData)[] = [];
 
@@ -170,9 +147,6 @@ export function getIncompleteUserAttributes(session: BetterAuthSession): (keyof 
   return missingAttributes;
 }
 
-/**
- * Get user object from session (for compatibility with existing code)
- */
 export async function getUserFromSession(session: BetterAuthSession, cookieHeader?: string) {
   const token = session.session?.token;
   const cookieStore = await cookies();
@@ -183,7 +157,7 @@ export async function getUserFromSession(session: BetterAuthSession, cookieHeade
     id: session.user.id,
     username: session.user.username || session.user.name,
     email: session.user.email,
-    realName: session.user.realName || undefined, // Convert null to undefined for cleaner handling
+    realName: session.user.realName || undefined,
     djName: session.user.djName || undefined,
     authority: userAuthority,
     name: session.user.name,

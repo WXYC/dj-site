@@ -12,8 +12,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 export function useWindowSize() {
-  // Initialize state with undefined width/height so server and client renders match
-  // Learn more here: https://joshwcomeau.com/react/the-perils-of-rehydration/
+  // Undefined initial width/height so the server and first client render
+  // match (https://joshwcomeau.com/react/the-perils-of-rehydration/).
   const [windowSize, setWindowSize] = useState<{
     width: number | undefined;
     height: number | undefined;
@@ -23,25 +23,18 @@ export function useWindowSize() {
   });
 
   useEffect(() => {
-    // only execute all the code below in client side
-    // Handler to call on window resize
     function handleResize() {
-      // Set window width/height to state
       setWindowSize({
         width: window.innerWidth,
         height: window.innerHeight,
       });
     }
 
-    // Add event listener
     window.addEventListener("resize", handleResize);
-
-    // Call handler right away so state gets updated with initial window size
     handleResize();
 
-    // Remove event listener on cleanup
     return () => window.removeEventListener("resize", handleResize);
-  }, []); // Empty array ensures that effect is only run on mount
+  }, []);
   return windowSize;
 }
 
@@ -49,7 +42,6 @@ export const usePublicRoutes = () => {
   const publicRoutes = ["/live", "/login"];
   const pathname = usePathname();
 
-  // Calculate during render - no useState/useEffect needed
   const isPublic = useMemo(() => {
     return publicRoutes.includes(pathname) || pathname.length <= 1;
   }, [pathname]);
@@ -73,9 +65,8 @@ export const useShiftKey = () => {
       }
     };
 
-    // Releasing Shift while the window is unfocused (alt-tab) never fires a
-    // keyup here, so the flag would stay stuck true and silently invert bin
-    // actions for the rest of the session. Reset on blur / tab-hide. (#635)
+    // Releasing Shift while unfocused (alt-tab) never fires keyup, which
+    // would leave this stuck true and silently invert bin actions (#635).
     const handleReset = () => setShiftKeyPressed(false);
     const handleVisibilityChange = () => {
       if (document.hidden) setShiftKeyPressed(false);

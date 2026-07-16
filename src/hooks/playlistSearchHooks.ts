@@ -28,9 +28,8 @@ const fieldPrefixes: Record<string, string> = {
 };
 
 /**
- * Build a query string from search rows.
- * Supports AND, OR, NOT operators and exact phrase matching.
- * The "all" field has no prefix — it's a plain text search.
+ * Builds a query string from search rows. Supports AND/OR/NOT operators and
+ * exact phrase matching; the "all" field has no prefix (plain text search).
  */
 function buildQuery(rows: SearchRow[]): string {
   const parts: string[] = [];
@@ -41,12 +40,10 @@ function buildQuery(rows: SearchRow[]): string {
 
     let term = row.value.trim();
 
-    // Format the value based on field type
     if (row.field === "dateRange" && row.valueTo) {
       term = `${row.value}..${row.valueTo}`;
     }
 
-    // Wrap in quotes if exact match is requested
     if (row.exact) {
       term = `"${term}"`;
     }
@@ -55,7 +52,6 @@ function buildQuery(rows: SearchRow[]): string {
       row.field === "all" ? "" : fieldPrefixes[row.field] || "";
     const fullTerm = `${fieldPrefix}${term}`;
 
-    // First row doesn't have an operator prefix
     if (i === 0) {
       parts.push(fullTerm);
     } else {
@@ -89,11 +85,10 @@ export function usePlaylistSearch() {
     sortOrder: "desc",
   });
 
-  // Accumulated results for infinite scroll. Held in state — not a ref —
-  // so the data-arrival effect re-renders the consumer once the new page
-  // lands. The earlier ref-based implementation (issue #540) silently
-  // mutated after render and never projected back into the DOM, so the
-  // page surfaced "Found N results" copy with an empty table beneath.
+  // State, not a ref, so the data-arrival effect actually re-renders the
+  // consumer — a ref-based version (#540) mutated after render without
+  // projecting into the DOM, so the page showed "Found N results" over an
+  // empty table.
   const [accumulatedResults, setAccumulatedResults] = useState<
     PlaylistSearchResult[]
   >([]);
@@ -102,18 +97,17 @@ export function usePlaylistSearch() {
   const [trigger, { data, isFetching, isError, originalArgs }] =
     useLazySearchPlaylistsQuery();
 
-  // The cursor that actually PRODUCED `data`, read from the request's
-  // originalArgs — not the live `cursor` selector. Typing resets the slice
-  // cursor to null (frontend.ts updateRow/setSort) one render before the new
-  // fetch lands, so the live cursor no longer describes the in-hand `data`.
-  // Basing replace-vs-append on this fingerprint keeps a just-blanked
-  // accumulator from being repopulated with the prior query's rows (#604).
+  // The cursor that actually PRODUCED `data` (from originalArgs), not the
+  // live `cursor` selector — typing resets the slice cursor to null one
+  // render before the new fetch lands, so the live cursor can't be trusted
+  // to describe the in-hand `data`. Basing replace-vs-append on this
+  // fingerprint keeps a just-blanked accumulator from being repopulated with
+  // the prior query's rows (#604).
   const producingCursor = originalArgs?.cursor ?? null;
 
-  // Reset accumulated results when query or sort changes.
   // ORDERING INVARIANT: this effect must stay declared BEFORE the accumulate
-  // effect below — when the new query's first page lands, both run in the same
-  // commit and reset-then-populate is what keeps the fresh page from being
+  // effect below — when a new query's first page lands, both run in the same
+  // commit, and reset-then-populate is what keeps the fresh page from being
   // blanked (populate-then-reset would wipe it).
   useEffect(() => {
     const currentParams = `${effectiveQuery}-${sortBy}-${sortOrder}`;
@@ -123,12 +117,11 @@ export function usePlaylistSearch() {
     }
   }, [effectiveQuery, sortBy, sortOrder]);
 
-  // Accumulate results when new data arrives. A null producing cursor means
-  // "first page" so we replace; otherwise we append (deduping by id) since the
-  // user is paginating. Keyed on `producingCursor` (the cursor that produced
-  // `data`), never the live `cursor` — a live-cursor flip on a new query
-  // re-fired this effect against the previous query's `data` and replaced the
-  // blanked accumulator with stale rows (#604).
+  // A null producingCursor means "first page" (replace); otherwise append,
+  // deduped by id (paginating). Keyed on producingCursor, never the live
+  // `cursor` — a live-cursor flip on a new query previously re-fired this
+  // against the prior query's `data`, replacing the blanked accumulator with
+  // stale rows (#604).
   useEffect(() => {
     if (data?.results) {
       if (producingCursor === null) {
@@ -143,27 +136,22 @@ export function usePlaylistSearch() {
     }
   }, [data, producingCursor]);
 
-  // Fire search when query or params change (response-based throttling).
-  //
-  // This single effect is ALSO the mid-flight change protection (#623): a
-  // sort/cursor/query change made while a request is in flight takes the
-  // isFetching branch (no-op), and when the request settles, isFetching
-  // flipping false re-runs this effect against the live tuple. The full-tuple
-  // comparison — query string AND cursor/sortBy/sortOrder — is what fires the
-  // deferred request; if it compared the query string alone, a mid-flight
-  // sort/cursor change with unchanged query text would be silently dropped.
-  // There is no separate drain queue: the live selectors at settle time are
-  // exactly the params the user last requested.
+  // Fires search on query/params change, and IS the mid-flight change
+  // protection (#623): a change made while a request is in flight hits the
+  // isFetching no-op branch below, then the settle (isFetching -> false)
+  // re-runs this effect against the live tuple. Comparing the FULL tuple
+  // (query AND cursor/sortBy/sortOrder), not just the query string, is what
+  // fires that deferred request — a query-only comparison would silently
+  // drop a mid-flight sort/cursor change. No separate drain queue is needed:
+  // the live selectors at settle time are exactly the params last requested.
   useEffect(() => {
-    // Empty query is the "show recent tracks" default. Single-character
-    // partials still get debounced — wait for at least MIN_QUERY_LENGTH
-    // chars before issuing a substring match.
+    // Debounce single-character partials; empty query is the "show recent
+    // tracks" default and fires immediately.
     const isPartialQuery =
       effectiveQuery.length > 0 && effectiveQuery.length < MIN_QUERY_LENGTH;
     if (isPartialQuery) return;
 
-    // Request in flight — defer. The settle re-run (isFetching dep) picks the
-    // change up.
+    // Defer while a request is in flight; the settle re-run picks it up.
     if (isFetching) return;
 
     const paramsChanged =
@@ -184,7 +172,6 @@ export function usePlaylistSearch() {
     }
   }, [effectiveQuery, cursor, sortBy, sortOrder, isFetching, trigger]);
 
-  // Actions
   const addRow = useCallback(
     () => dispatch(playlistSearchSlice.actions.addRow()),
     [dispatch],
@@ -207,9 +194,7 @@ export function usePlaylistSearch() {
     [dispatch],
   );
 
-  // Load the next page by advancing the cursor to whatever the last response
-  // returned. No-op when no nextCursor is available (last page or response
-  // not yet arrived).
+  // No-op when nextCursor is unavailable (last page or response not yet arrived).
   const loadNextPage = useCallback(() => {
     if (data?.nextCursor) {
       dispatch(playlistSearchSlice.actions.advanceCursor(data.nextCursor));
@@ -224,9 +209,8 @@ export function usePlaylistSearch() {
 
   const hasMore = data?.nextCursor !== undefined;
 
-  // True when a change arrived while a request was in flight and is waiting
-  // for the settle re-fire: same tuple-vs-last-fired comparison the fire
-  // effect uses, so the two can't disagree.
+  // Same tuple-vs-last-fired comparison the fire effect uses, so the two
+  // can't disagree about whether a change is waiting for the settle re-fire.
   const isPartialQuery =
     effectiveQuery.length > 0 && effectiveQuery.length < MIN_QUERY_LENGTH;
   const hasPendingQuery =
@@ -238,24 +222,20 @@ export function usePlaylistSearch() {
       sortOrder !== lastFiredParamsRef.current.sortOrder);
 
   return {
-    // State
     rows,
     sortBy,
     sortOrder,
     cursor,
     effectiveQuery,
 
-    // Results
     results: accumulatedResults,
     total: data?.total ?? 0,
     hasMore,
 
-    // Loading states
     isLoading: isFetching,
     hasPendingQuery,
     isError,
 
-    // Actions
     addRow,
     removeRow,
     updateRow,
