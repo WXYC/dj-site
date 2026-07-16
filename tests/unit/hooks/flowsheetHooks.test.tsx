@@ -1847,4 +1847,82 @@ describe("flowsheetHooks", () => {
       expect(result.current.selectedEntry?.id).toBe(999);
     });
   });
+
+  // The search view (useFlowsheetSearch) and the submit path (useFlowsheetSubmit)
+  // now resolve the selected result through one shared pipeline
+  // (useFlowsheetSearchResults). This proves the #657 invariant structurally:
+  // for the same query and selectedResult, the album the view highlights and the
+  // album the submission carries are always the same one — including at the
+  // MAX_VISIBLE_RESULTS cap boundary where a divergent second copy could drift.
+  describe("search view / submit agreement for the same query (#657)", () => {
+    const manyAlbums = Array.from({ length: 500 }, (_, i) =>
+      createTestAlbum({
+        id: 2000 + i,
+        title: `Agree Album ${i}`,
+        artist: createTestArtist({ name: "Juana Molina" }),
+      })
+    );
+
+    const wrapperWithSelected = (selectedResult: number) =>
+      createHookWrapper(
+        { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
+        {
+          flowsheet: {
+            ...flowsheetSlice.getInitialState(),
+            search: {
+              ...flowsheetSlice.getInitialState().search,
+              selectedResult,
+              query: {
+                ...flowsheetSlice.getInitialState().search.query,
+                song: "la paradoja",
+              },
+            },
+          },
+        }
+      );
+
+    const renderBoth = (selectedResult: number) =>
+      renderHook(
+        () => ({ search: useFlowsheetSearch(), submit: useFlowsheetSubmit() }),
+        { wrapper: wrapperWithSelected(selectedResult) }
+      );
+
+    it("resolves the highlighted view row and the submitted entry to the same album", () => {
+      mockUseCatalogFlowsheetSearch.mockReturnValue({ searchResults: manyAlbums });
+
+      const { result } = renderBoth(10);
+
+      const viewEntry = result.current.search.selectedEntry;
+      const submitEntry = result.current.submit.selectedEntry;
+
+      expect(viewEntry).not.toBeNull();
+      expect(viewEntry?.id).toBe(submitEntry?.id);
+      expect(result.current.submit.selectedResultData.album_id).toBe(viewEntry?.id);
+      expect(result.current.submit.selectedResultData.album).toBe(viewEntry?.title);
+      // What the view input paints must equal what the submission carries.
+      expect(result.current.search.getDisplayValue("album")).toBe(
+        result.current.submit.selectedResultData.album
+      );
+    });
+
+    it("agrees at the last visible capped row (index 50 → the 50th painted album)", () => {
+      mockUseCatalogFlowsheetSearch.mockReturnValue({ searchResults: manyAlbums });
+
+      const { result } = renderBoth(50);
+
+      expect(result.current.search.selectedEntry?.id).toBe(2049);
+      expect(result.current.submit.selectedEntry?.id).toBe(2049);
+      expect(result.current.submit.selectedResultData.album_id).toBe(2049);
+    });
+
+    it("agrees on manual entry past the visible cap — never an unseen album (index 51)", () => {
+      mockUseCatalogFlowsheetSearch.mockReturnValue({ searchResults: manyAlbums });
+
+      const { result } = renderBoth(51);
+
+      expect(result.current.search.selectedEntry).toBeNull();
+      expect(result.current.submit.selectedEntry).toBeNull();
+      expect(result.current.submit.selectedResultData.album_id).toBeUndefined();
+    });
+  });
 });
