@@ -1,9 +1,9 @@
 import { Suspense, type JSX } from "react";
-import ThemedLayout, { LoginLayoutProps } from "@/src/ThemedLayout";
+import ThemedLayout, { ThemedLayoutProps } from "@/src/ThemedLayout";
 import LoginBounceTelemetry from "./LoginBounceTelemetry";
 import SessionEndedNotice from "./SessionEndedNotice";
 
-const Layout = async (props: LoginLayoutProps): Promise<JSX.Element> => {
+const Layout = async (props: ThemedLayoutProps): Promise<JSX.Element> => {
   const themed = await ThemedLayout(props);
   return (
     <>

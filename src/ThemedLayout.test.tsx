@@ -11,11 +11,7 @@ vi.mock("./components/LoadingPage", () => ({
   LoadingPage: () => <div data-testid="loading-page">Loading...</div>,
 }));
 
-import ThemedLayout, {
-  DashboardLayoutProps,
-  LoginLayoutProps,
-  ThemedLayoutProps,
-} from "./ThemedLayout";
+import ThemedLayout, { ThemedLayoutProps } from "./ThemedLayout";
 import { createServerSideProps } from "@/lib/features/session";
 
 const mockCreateServerSideProps = createServerSideProps as ReturnType<typeof vi.fn>;
@@ -26,22 +22,6 @@ describe("ThemedLayout", () => {
   });
 
   describe("type exports", () => {
-    it("should export DashboardLayoutProps type (deprecated alias)", () => {
-      const props: DashboardLayoutProps = {
-        classic: <div>Classic</div>,
-        modern: <div>Modern</div>,
-      };
-      expect(props).toBeDefined();
-    });
-
-    it("should export LoginLayoutProps type (deprecated alias)", () => {
-      const props: LoginLayoutProps = {
-        classic: <div>Classic</div>,
-        modern: <div>Modern</div>,
-      };
-      expect(props).toBeDefined();
-    });
-
     it("should export ThemedLayoutProps type", () => {
       const props: ThemedLayoutProps = {
         classic: <div>Classic</div>,
@@ -154,7 +134,7 @@ describe("ThemedLayout", () => {
     });
 
     it("should handle login props without information slot", async () => {
-      const loginProps: LoginLayoutProps = {
+      const loginProps: ThemedLayoutProps = {
         classic: <div data-testid="classic-login">Classic Login</div>,
         modern: <div data-testid="modern-login">Modern Login</div>,
       };

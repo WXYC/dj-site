@@ -50,7 +50,7 @@ describe("closesthour utilities", () => {
     it("should handle hour rollover at 23:31", () => {
       vi.setSystemTime(new Date("2024-06-15T23:31:00"));
       const result = getClosestHour();
-      // This will rollover to next day 00:00
+      expect(result.getDate()).toBe(16);
       expect(result.getHours()).toBe(0);
       expect(result.getMinutes()).toBe(0);
     });
