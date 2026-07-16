@@ -226,6 +226,35 @@ jobs:
       - name: Run script tests
         run: npm run test:scripts
 
+  dependency-audit:
+    name: Dependency Audit
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.app_source == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Report-only: unresolved advisories on existing transitive deps (no
+      # fix available without a breaking major bump) would otherwise turn
+      # this red on every run regardless of what a PR actually changes.
+      # Findings are listed in the PR description; continue-on-error keeps
+      # them visible without blocking merges.
+      - name: npm audit (high severity, production deps)
+        run: npm audit --audit-level=high --omit=dev
+        continue-on-error: true
+
   # Production Direct-Upload deploy. Replaces the Cloudflare Pages Git-build
   # integration (whose pinned wrangler 3.x boot-500'd @opennextjs/cloudflare
   # >= 1.19 — WXYC/dj-site#810). Gated on full CI success. Own concurrency
