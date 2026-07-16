@@ -10,7 +10,7 @@ import {
   useGetRotationQuery,
   useGetRotationTracksQuery,
 } from "@/lib/features/rotation/api";
-import { useAppDispatch } from "@/lib/hooks";
+import { useAppDispatch, useAppStore } from "@/lib/hooks";
 import { useFlowsheetSearch } from "@/src/hooks/flowsheetHooks";
 import { Divider } from "@mui/joy";
 import { useCallback, useMemo, useState } from "react";
@@ -21,6 +21,7 @@ import TrackPickerDropdown from "./TrackPickerDropdown";
 
 export default function RotationEntryFields({ disabled }: { disabled: boolean }) {
   const dispatch = useAppDispatch();
+  const store = useAppStore();
   const { setSearchOpen } = useFlowsheetSearch();
 
   const [selectedBin, setSelectedBin] = useState<Rotation | null>(null);
@@ -107,10 +108,8 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
       dispatch(flowsheetSlice.actions.setSearchProperty({ name: "song", value: track.title ?? "" }));
       if (!trackCreditsAreDisambiguating) return;
       // `normalizeTrackArtists` strips the Discogs `(N)` disambig and dedupes
-      // — see its header for the LML cache duplication root cause. When
-      // credits are empty (Discogs has no per-track data, or every entry was
-      // malformed) leave the release-level artist in place. Join separator
-      // mirrors buildArtistCredit in apps/backend/controllers/proxy.controller.ts.
+      // — see its header for the LML cache duplication root cause. Join
+      // separator mirrors buildArtistCredit in apps/backend/controllers/proxy.controller.ts.
       const credits = normalizeTrackArtists(track.artists);
       if (credits.length > 0) {
         dispatch(
@@ -119,9 +118,25 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
             value: credits.join(", "),
           })
         );
+        return;
+      }
+      // No usable per-track credits: fall back to the release-level artist,
+      // dispatching only when it differs from the live value so re-selecting a
+      // release does not re-write it.
+      const releaseArtist = selectedRelease?.artist?.name ?? "";
+      const currentArtist = flowsheetSlice.selectors.getSearchQuery(
+        store.getState()
+      ).artist;
+      if (currentArtist !== releaseArtist) {
+        dispatch(
+          flowsheetSlice.actions.setSearchProperty({
+            name: "artist",
+            value: releaseArtist,
+          })
+        );
       }
     },
-    [dispatch, trackCreditsAreDisambiguating]
+    [dispatch, store, trackCreditsAreDisambiguating, selectedRelease]
   );
 
   const handleManualEntry = useCallback(() => {
