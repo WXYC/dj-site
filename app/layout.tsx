@@ -42,29 +42,30 @@ interface Props {
 
 export default async function RootLayout({ children }: Props) {
   const serverSideProps = await createServerSideProps();
+  const { experience, themeId } = serverSideProps.application;
 
   return (
-    <StoreProvider>
-      <TelemetryProvider>
-        <ThemeRegistry
-          options={{ key: "joy" }}
-          experience={serverSideProps.application.experience}
-          themeId={serverSideProps.application.themeId}
-        >
-          <html lang="en" data-experience={serverSideProps.application.experience}>
-            <body>
+    <html lang="en" data-experience={experience}>
+      <body>
+        <StoreProvider>
+          <TelemetryProvider>
+            <ThemeRegistry
+              options={{ key: "joy" }}
+              experience={experience}
+              themeId={themeId}
+            >
               <Toaster closeButton richColors />
               <PageTitleUpdater />
               <div id="root" style={{ height: "100%", overflow: "hidden" }}>
                 <main>
                   {children}
-                  <AppbarWrapper experience={serverSideProps.application.experience} />
+                  <AppbarWrapper experience={experience} />
                 </main>
               </div>
-            </body>
-          </html>
-        </ThemeRegistry>
-      </TelemetryProvider>
-    </StoreProvider>
+            </ThemeRegistry>
+          </TelemetryProvider>
+        </StoreProvider>
+      </body>
+    </html>
   );
 }
