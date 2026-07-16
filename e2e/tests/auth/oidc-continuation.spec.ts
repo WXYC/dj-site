@@ -10,10 +10,14 @@ const authDir = path.join(__dirname, "../../.auth");
  * instead of being dropped to the dashboard.
  *
  * The full authorize round-trip needs a registered OIDC client seeded in the
- * Backend-Service E2E auth instance, which does not exist yet. So the upstream
- * authorize request is intercepted and stubbed rather than driven: the assertion
- * stays entirely within dj-site's control and never depends on the fake client
- * being accepted (the upstream would 4xx an unregistered client after the hop).
+ * Backend-Service E2E auth instance, which does not exist yet. So this asserts
+ * the hop off the redirect chain rather than driving the upstream: the fake
+ * client is unregistered, so authorize will 4xx after the hop — that landing is
+ * irrelevant, the /login → /auth/oauth2/authorize redirect (params intact) is
+ * what's in dj-site's control. Asserting the chain (not a route interception)
+ * matters: Chromium follows a server 307 on a top-level navigation internally,
+ * so page.route on the redirect target never fires — redirectedFrom() is the
+ * documented way to see each server 3xx hop.
  */
 test.describe("OIDC authorize continuation (signed-in DJ)", () => {
   // dj2's saved session is verified and onboarding-complete, and no other spec
@@ -33,28 +37,33 @@ test.describe("OIDC authorize continuation (signed-in DJ)", () => {
       scope: "openid profile",
     });
 
-    // Intercepting the hop's target keeps the navigation from reaching the auth
-    // proxy: recording the request URL proves dj-site issued the redirect, and
-    // the stub response lets page.goto settle without a live authorize endpoint.
-    let authorizeUrl: string | undefined;
-    await page.route("**/oauth2/authorize**", async (route) => {
-      authorizeUrl = route.request().url();
-      await route.fulfill({
-        status: 200,
-        contentType: "text/plain",
-        body: "intercepted",
-      });
+    // "commit" settles as soon as the final response commits, so an authorize
+    // 4xx (unregistered client) can't hang or fail the navigation — page.goto
+    // rejects on transport errors, not HTTP status.
+    const response = await page.goto(`/login?${oidcParams.toString()}`, {
+      waitUntil: "commit",
     });
 
-    await page.goto(`/login?${oidcParams.toString()}`);
+    // Walk the redirect chain: response.request() is the final hop, and
+    // redirectedFrom() steps back through every preceding server 3xx.
+    const chain: string[] = [];
+    let request = response?.request() ?? null;
+    while (request) {
+      chain.push(request.url());
+      request = request.redirectedFrom();
+    }
 
+    const authorizeHop = chain.find(
+      (url) => new URL(url).pathname === "/auth/oauth2/authorize"
+    );
     expect(
-      authorizeUrl,
-      "expected dj-site to server-redirect /login to /auth/oauth2/authorize"
+      authorizeHop,
+      `expected a /auth/oauth2/authorize hop in the redirect chain, saw: ${chain.join(
+        " <- "
+      )}`
     ).toBeDefined();
 
-    const target = new URL(authorizeUrl as string);
-    expect(target.pathname).toBe("/auth/oauth2/authorize");
+    const target = new URL(authorizeHop as string);
     for (const [key, value] of Array.from(oidcParams.entries())) {
       expect(
         target.searchParams.get(key),
