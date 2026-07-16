@@ -5,19 +5,23 @@ import { Provider } from "react-redux";
 import { makeStore, AppStore } from "@/lib/store";
 import { playlistSearchSlice } from "@/lib/features/playlist-search/frontend";
 
-const mockTrigger = vi.fn();
-const mockQueryState = {
-  data: undefined as
-    | { results: { id: number }[]; total: number; nextCursor?: string }
-    | undefined,
+const mockFetchNextPage = vi.fn();
+
+type MockPage = { results: { id: number }[]; total: number; nextCursor?: string };
+type MockQueryArg = { q?: string; limit?: number; sort?: string; order?: string };
+
+let lastQueryArg: MockQueryArg | undefined;
+let lastSkip = false;
+let lastRefetchOnMountOrArgChange: boolean | undefined;
+
+// Mutable canned result for the infinite query. `data.pages` is the RTK page
+// array the hook flattens; hasNextPage is RTK's projection of nextCursor via
+// getNextPageParam.
+const mockInfiniteState = {
+  data: undefined as { pages: MockPage[] } | undefined,
   isFetching: false,
   isError: false,
-  // originalArgs mirrors RTK's lazy-query result: the request args that
-  // produced the current `data`. The accumulator keys replace-vs-append on
-  // originalArgs.cursor, so tests that assert accumulation must set it.
-  originalArgs: undefined as
-    | { q: string; cursor?: string; sort: string; order: string }
-    | undefined,
+  hasNextPage: false,
 };
 
 vi.mock("@/lib/features/playlist-search/api", async () => {
@@ -26,10 +30,24 @@ vi.mock("@/lib/features/playlist-search/api", async () => {
   >("@/lib/features/playlist-search/api");
   return {
     ...actual,
-    useLazySearchPlaylistsQuery: () =>
-      [mockTrigger, mockQueryState] as unknown as ReturnType<
-        typeof actual.useLazySearchPlaylistsQuery
-      >,
+    useSearchPlaylistsInfiniteQuery: (
+      queryArg: MockQueryArg,
+      options?: { skip?: boolean; refetchOnMountOrArgChange?: boolean },
+    ) => {
+      lastQueryArg = queryArg;
+      lastSkip = options?.skip ?? false;
+      lastRefetchOnMountOrArgChange = options?.refetchOnMountOrArgChange;
+      if (options?.skip) {
+        return {
+          data: undefined,
+          isFetching: false,
+          isError: false,
+          hasNextPage: false,
+          fetchNextPage: mockFetchNextPage,
+        };
+      }
+      return { ...mockInfiniteState, fetchNextPage: mockFetchNextPage };
+    },
   };
 });
 
@@ -45,11 +63,14 @@ function createWrapper(store?: AppStore) {
 }
 
 beforeEach(() => {
-  mockTrigger.mockReset();
-  mockQueryState.data = undefined;
-  mockQueryState.isFetching = false;
-  mockQueryState.isError = false;
-  mockQueryState.originalArgs = undefined;
+  mockFetchNextPage.mockReset();
+  lastQueryArg = undefined;
+  lastSkip = false;
+  lastRefetchOnMountOrArgChange = undefined;
+  mockInfiniteState.data = undefined;
+  mockInfiniteState.isFetching = false;
+  mockInfiniteState.isError = false;
+  mockInfiniteState.hasNextPage = false;
 });
 
 describe("usePlaylistSearch", () => {
@@ -59,10 +80,21 @@ describe("usePlaylistSearch", () => {
 
       renderHook(() => usePlaylistSearch(), { wrapper });
 
-      await waitFor(() => expect(mockTrigger).toHaveBeenCalled());
-      expect(mockTrigger).toHaveBeenCalledWith(
-        expect.objectContaining({ q: "", cursor: undefined }),
-      );
+      await waitFor(() => expect(lastQueryArg).toBeDefined());
+      expect(lastQueryArg).toEqual(expect.objectContaining({ q: "" }));
+      expect(lastSkip).toBe(false);
+      // The cursor is RTK's pageParam, not part of the search key; the first
+      // page starts from initialPageParam.
+      expect(lastQueryArg).not.toHaveProperty("cursor");
+    });
+
+    it("forces a fresh fetch on mount rather than serving a stale cached page", async () => {
+      const { wrapper } = createWrapper();
+
+      renderHook(() => usePlaylistSearch(), { wrapper });
+
+      await waitFor(() => expect(lastQueryArg).toBeDefined());
+      expect(lastRefetchOnMountOrArgChange).toBe(true);
     });
 
     it("re-fires the empty query when the user clears all rows back to default", async () => {
@@ -71,10 +103,8 @@ describe("usePlaylistSearch", () => {
 
       renderHook(() => usePlaylistSearch(), { wrapper });
 
-      // Initial empty fire
-      await waitFor(() => expect(mockTrigger).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(lastQueryArg?.q).toBe(""));
 
-      // User types something
       act(() => {
         store.dispatch(
           playlistSearchSlice.actions.updateRow({
@@ -83,13 +113,8 @@ describe("usePlaylistSearch", () => {
           }),
         );
       });
-      await waitFor(() =>
-        expect(mockTrigger).toHaveBeenCalledWith(
-          expect.objectContaining({ q: "autechre" }),
-        ),
-      );
+      await waitFor(() => expect(lastQueryArg?.q).toBe("autechre"));
 
-      // User clears it
       act(() => {
         store.dispatch(
           playlistSearchSlice.actions.updateRow({
@@ -98,10 +123,7 @@ describe("usePlaylistSearch", () => {
           }),
         );
       });
-      await waitFor(() => {
-        const lastCall = mockTrigger.mock.calls.at(-1);
-        expect(lastCall?.[0]).toEqual(expect.objectContaining({ q: "" }));
-      });
+      await waitFor(() => expect(lastQueryArg?.q).toBe(""));
     });
   });
 
@@ -112,8 +134,7 @@ describe("usePlaylistSearch", () => {
 
       renderHook(() => usePlaylistSearch(), { wrapper });
 
-      // Wait for the initial empty fire so we can isolate the next behavior
-      await waitFor(() => expect(mockTrigger).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(lastSkip).toBe(false));
 
       act(() => {
         store.dispatch(
@@ -124,9 +145,9 @@ describe("usePlaylistSearch", () => {
         );
       });
 
-      // Give effects a tick to settle, then assert no new call
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      expect(mockTrigger).toHaveBeenCalledTimes(1);
+      // A single-char partial skips the query — no request goes out.
+      await waitFor(() => expect(lastQueryArg?.q).toBe("a"));
+      expect(lastSkip).toBe(true);
     });
 
     it("fires once the user types a second character", async () => {
@@ -135,7 +156,7 @@ describe("usePlaylistSearch", () => {
 
       renderHook(() => usePlaylistSearch(), { wrapper });
 
-      await waitFor(() => expect(mockTrigger).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(lastSkip).toBe(false));
 
       act(() => {
         store.dispatch(
@@ -146,22 +167,26 @@ describe("usePlaylistSearch", () => {
         );
       });
 
-      await waitFor(() =>
-        expect(mockTrigger).toHaveBeenCalledWith(
-          expect.objectContaining({ q: "au" }),
-        ),
-      );
+      await waitFor(() => {
+        expect(lastQueryArg?.q).toBe("au");
+        expect(lastSkip).toBe(false);
+      });
     });
   });
 
   describe("cursor pagination", () => {
     it("hasMore is true when the response includes a nextCursor", async () => {
       const { wrapper } = createWrapper();
-      mockQueryState.data = {
-        results: [],
-        total: 1000,
-        nextCursor: "2024-06-15T14:30:00.000Z_42",
+      mockInfiniteState.data = {
+        pages: [
+          {
+            results: [],
+            total: 1000,
+            nextCursor: "2024-06-15T14:30:00.000Z_42",
+          },
+        ],
       };
+      mockInfiniteState.hasNextPage = true;
 
       const { result } = renderHook(() => usePlaylistSearch(), { wrapper });
 
@@ -170,76 +195,80 @@ describe("usePlaylistSearch", () => {
 
     it("hasMore is false when the response has no nextCursor", async () => {
       const { wrapper } = createWrapper();
-      mockQueryState.data = { results: [], total: 5 };
+      mockInfiniteState.data = { pages: [{ results: [], total: 5 }] };
+      mockInfiniteState.hasNextPage = false;
 
       const { result } = renderHook(() => usePlaylistSearch(), { wrapper });
 
       await waitFor(() => expect(result.current.hasMore).toBe(false));
     });
 
-    it("loadNextPage advances the cursor to nextCursor and re-fires", async () => {
-      const { store, wrapper } = createWrapper();
-      mockQueryState.data = {
-        results: [{ id: 1 }],
-        total: 1000,
-        nextCursor: "2024-06-15T14:30:00.000Z_42",
+    it("loadNextPage fetches the next page — RTK advances the cursor internally", async () => {
+      const { wrapper } = createWrapper();
+      mockInfiniteState.data = {
+        pages: [
+          {
+            results: [{ id: 1 }],
+            total: 1000,
+            nextCursor: "2024-06-15T14:30:00.000Z_42",
+          },
+        ],
       };
+      mockInfiniteState.hasNextPage = true;
 
       const { result } = renderHook(() => usePlaylistSearch(), { wrapper });
 
-      await waitFor(() => expect(mockTrigger).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(result.current.hasMore).toBe(true));
 
       act(() => {
         result.current.loadNextPage();
       });
 
-      await waitFor(() => expect(mockTrigger).toHaveBeenCalledTimes(2));
-      expect(mockTrigger.mock.calls[1][0]).toEqual(
-        expect.objectContaining({ cursor: "2024-06-15T14:30:00.000Z_42" }),
-      );
-      expect(store.getState().playlistSearch.cursor).toBe(
-        "2024-06-15T14:30:00.000Z_42",
-      );
+      expect(mockFetchNextPage).toHaveBeenCalledTimes(1);
     });
 
     it("loadNextPage is a no-op when no nextCursor is available", async () => {
       const { wrapper } = createWrapper();
-      mockQueryState.data = { results: [{ id: 1 }], total: 1 };
+      mockInfiniteState.data = { pages: [{ results: [{ id: 1 }], total: 1 }] };
+      mockInfiniteState.hasNextPage = false;
 
       const { result } = renderHook(() => usePlaylistSearch(), { wrapper });
 
-      await waitFor(() => expect(mockTrigger).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(result.current.results).toHaveLength(1));
 
       act(() => {
         result.current.loadNextPage();
       });
 
-      // Wait long enough for any spurious effect to fire
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      expect(mockTrigger).toHaveBeenCalledTimes(1);
+      expect(mockFetchNextPage).not.toHaveBeenCalled();
     });
 
-    it("editing a row resets the cursor and refetches from the start", async () => {
+    it("editing a row re-keys the query so pagination restarts from the first page", async () => {
       const { store, wrapper } = createWrapper();
       const rowId = store.getState().playlistSearch.rows[0].id;
+      mockInfiniteState.data = {
+        pages: [
+          {
+            results: [{ id: 1 }],
+            total: 1000,
+            nextCursor: "2024-06-15T14:30:00.000Z_42",
+          },
+        ],
+      };
+      mockInfiniteState.hasNextPage = true;
 
-      // Simulate having paged once already
+      const { result } = renderHook(() => usePlaylistSearch(), { wrapper });
+
+      await waitFor(() => expect(result.current.hasMore).toBe(true));
+
       act(() => {
-        store.dispatch(
-          playlistSearchSlice.actions.advanceCursor(
-            "2024-06-15T14:30:00.000Z_42",
-          ),
-        );
+        result.current.loadNextPage();
       });
+      expect(mockFetchNextPage).toHaveBeenCalled();
 
-      renderHook(() => usePlaylistSearch(), { wrapper });
-
-      await waitFor(() => expect(mockTrigger).toHaveBeenCalledTimes(1));
-      expect(mockTrigger.mock.calls[0][0]).toEqual(
-        expect.objectContaining({ cursor: "2024-06-15T14:30:00.000Z_42" }),
-      );
-
-      // User edits the search → cursor resets
+      // Editing the query changes the search key; RTK serves a fresh cache
+      // entry whose pagination starts from initialPageParam (no cursor in the
+      // arg).
       act(() => {
         store.dispatch(
           playlistSearchSlice.actions.updateRow({
@@ -249,34 +278,19 @@ describe("usePlaylistSearch", () => {
         );
       });
 
-      await waitFor(() => expect(mockTrigger).toHaveBeenCalledTimes(2));
-      expect(mockTrigger.mock.calls[1][0]).toEqual(
-        expect.objectContaining({ q: "autechre", cursor: undefined }),
-      );
-      expect(store.getState().playlistSearch.cursor).toBeNull();
+      await waitFor(() => expect(lastQueryArg?.q).toBe("autechre"));
+      expect(lastQueryArg).not.toHaveProperty("cursor");
     });
   });
 
-  // Race-simulation coverage for the async-search hardening (#604, #623).
   describe("async-race hardening", () => {
-    describe("#604 — stale accumulator on cursor reset", () => {
-      it("does not resurrect the prior query's rows when typing resets the cursor", async () => {
+    describe("stale results on query change", () => {
+      it("does not resurrect the prior query's rows when the query changes", async () => {
         const { store, wrapper } = createWrapper();
         const rowId = store.getState().playlistSearch.rows[0].id;
 
-        // Paginated state of an OLD query: cursor advanced, and data +
-        // originalArgs describe a page produced with a non-null cursor.
-        act(() => {
-          store.dispatch(
-            playlistSearchSlice.actions.advanceCursor("c1"),
-          );
-        });
-        mockQueryState.data = { results: [{ id: 111 }, { id: 222 }], total: 2 };
-        mockQueryState.originalArgs = {
-          q: "old",
-          cursor: "c1",
-          sort: "date",
-          order: "desc",
+        mockInfiniteState.data = {
+          pages: [{ results: [{ id: 111 }, { id: 222 }], total: 2 }],
         };
 
         const { result, rerender } = renderHook(() => usePlaylistSearch(), {
@@ -286,9 +300,9 @@ describe("usePlaylistSearch", () => {
           expect(result.current.results.map((r) => r.id)).toEqual([111, 222]),
         );
 
-        // Type a NEW query. updateRow resets the slice cursor to null, but
-        // data + originalArgs still hold the OLD query until the new fetch
-        // lands. The just-typed query must not flash the old rows.
+        // Typing a new query re-keys the cache entry; the fresh entry has no
+        // pages yet. Results derive only from the current entry, so the old
+        // rows cannot flash back.
         act(() => {
           store.dispatch(
             playlistSearchSlice.actions.updateRow({
@@ -297,29 +311,24 @@ describe("usePlaylistSearch", () => {
             }),
           );
         });
+        mockInfiniteState.data = undefined;
         rerender();
 
         await waitFor(() => expect(result.current.results).toEqual([]));
-        // Stays cleared across subsequent renders (no delayed stale flash).
         rerender();
         expect(result.current.results).toEqual([]);
       });
 
-      it("still appends the next page for the same query", async () => {
+      it("appends and dedupes the next page for the same query", async () => {
         const { wrapper } = createWrapper();
 
-        // Page 1 of the current query — produced with no cursor (first page).
-        mockQueryState.data = {
-          results: [{ id: 1 }, { id: 2 }],
-          total: 4,
-          nextCursor: "c1",
+        mockInfiniteState.data = {
+          pages: [
+            { results: [{ id: 1 }, { id: 2 }], total: 4, nextCursor: "c1" },
+          ],
         };
-        mockQueryState.originalArgs = {
-          q: "",
-          cursor: undefined,
-          sort: "date",
-          order: "desc",
-        };
+        mockInfiniteState.hasNextPage = true;
+
         const { result, rerender } = renderHook(() => usePlaylistSearch(), {
           wrapper,
         });
@@ -327,18 +336,19 @@ describe("usePlaylistSearch", () => {
           expect(result.current.results.map((r) => r.id)).toEqual([1, 2]),
         );
 
-        // Load the next page: cursor advances, then page 2 arrives produced
-        // with the c1 cursor. Overlapping id 2 is deduped.
         act(() => {
           result.current.loadNextPage();
         });
-        mockQueryState.data = { results: [{ id: 2 }, { id: 3 }], total: 4 };
-        mockQueryState.originalArgs = {
-          q: "",
-          cursor: "c1",
-          sort: "date",
-          order: "desc",
+        expect(mockFetchNextPage).toHaveBeenCalled();
+
+        // Page 2 arrives as a second RTK page; the overlapping id 2 is deduped.
+        mockInfiniteState.data = {
+          pages: [
+            { results: [{ id: 1 }, { id: 2 }], total: 4, nextCursor: "c1" },
+            { results: [{ id: 2 }, { id: 3 }], total: 4 },
+          ],
         };
+        mockInfiniteState.hasNextPage = false;
         rerender();
 
         await waitFor(() =>
@@ -347,22 +357,19 @@ describe("usePlaylistSearch", () => {
       });
     });
 
-    // #623 — regression guard on the fire effect's full-tuple paramsChanged
-    // comparison. That comparison (query string AND cursor/sortBy/sortOrder,
-    // re-run when isFetching flips false) is what carries a mid-flight
-    // sort/cursor change into a deferred re-fire; a query-string-only
-    // comparison would drop it. This pins the existing guard rather than
-    // reproducing a live failure.
-    describe("#623 — sort change while a fetch is in flight", () => {
-      it("re-fires with the new sort once the in-flight fetch settles", async () => {
+    // The end-to-end no-stale-leak guarantee is proven against a real store in
+    // tests/integration/hooks/playlistSearchRekey.test.tsx. This unit case pins
+    // the hook-level mechanism it relies on: the query key is never gated on
+    // fetch state, so a sort change made while a fetch is in flight always
+    // reaches the key (it cannot be dropped at the hook boundary).
+    describe("sort change while a fetch is in flight", () => {
+      it("updates the query key even while a fetch is in flight", async () => {
         const { store, wrapper } = createWrapper();
         const rowId = store.getState().playlistSearch.rows[0].id;
         const { rerender } = renderHook(() => usePlaylistSearch(), { wrapper });
 
-        // Initial empty-query mount fire.
-        await waitFor(() => expect(mockTrigger).toHaveBeenCalledTimes(1));
+        await waitFor(() => expect(lastQueryArg?.q).toBe(""));
 
-        // Type a query and let it fire.
         act(() => {
           store.dispatch(
             playlistSearchSlice.actions.updateRow({
@@ -372,40 +379,28 @@ describe("usePlaylistSearch", () => {
           );
         });
         await waitFor(() =>
-          expect(mockTrigger).toHaveBeenLastCalledWith(
+          expect(lastQueryArg).toEqual(
             expect.objectContaining({ q: "abc", sort: "date" }),
           ),
         );
-        const callsAfterAbc = mockTrigger.mock.calls.length;
 
-        // That abc/date fetch is now slow and in flight.
+        // Mark the abc/date fetch in flight, then change the sort. The key must
+        // still advance to sort:artist — the hook does not read isFetching.
         act(() => {
-          mockQueryState.isFetching = true;
+          mockInfiniteState.isFetching = true;
         });
         rerender();
 
-        // User clicks the sort header — query text unchanged, only the sort
-        // moves. Nothing new should fire while the request is in flight; the
-        // change is picked up by the settle re-run of the fire effect.
         act(() => {
           store.dispatch(playlistSearchSlice.actions.setSort("artist"));
         });
         rerender();
-        expect(mockTrigger.mock.calls.length).toBe(callsAfterAbc);
 
-        // The in-flight fetch settles.
-        act(() => {
-          mockQueryState.isFetching = false;
-        });
-        rerender();
-
-        // Exactly one re-fire, carrying the new sort.
         await waitFor(() =>
-          expect(mockTrigger).toHaveBeenLastCalledWith(
+          expect(lastQueryArg).toEqual(
             expect.objectContaining({ q: "abc", sort: "artist" }),
           ),
         );
-        expect(mockTrigger.mock.calls.length).toBe(callsAfterAbc + 1);
       });
     });
   });

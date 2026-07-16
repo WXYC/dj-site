@@ -5,50 +5,50 @@ import type {
   PlaylistSearchResponse,
 } from "@wxyc/shared";
 
-// Local extensions until @wxyc/shared adds cursor pagination to api.yaml.
-// Backend-Service /flowsheet/search accepts cursor and returns nextCursor;
-// see docs/playlist-search/README.md step 3 in that repo. page is optional
-// here because cursor mode does not use it (and the backend defaults page
-// to 0 when missing); offset-mode callers can still supply it.
-export type PlaylistSearchParamsWithCursor = Omit<
-  PlaylistSearchParams,
-  "page"
-> & {
-  page?: number;
-  cursor?: string;
-};
-
+// Backend-Service /flowsheet/search accepts an opaque cursor and returns
+// nextCursor; @wxyc/shared's api.yaml has not yet added cursor pagination.
 export type PlaylistSearchResponseWithCursor = PlaylistSearchResponse & {
   nextCursor?: string;
 };
+
+// Search key for the infinite query — everything except pagination. `page` and
+// the cursor are supplied per-page from pageParam.
+export type PlaylistSearchInfiniteArg = Omit<PlaylistSearchParams, "page">;
+
+// null pageParam = first page; a string pageParam is the opaque nextCursor.
+type PlaylistSearchPageParam = string | null;
 
 export const playlistSearchApi = createApi({
   reducerPath: "playlistSearchApi",
   baseQuery: backendBaseQuery("flowsheet"),
   endpoints: (builder) => ({
-    searchPlaylists: builder.query<
+    searchPlaylists: builder.infiniteQuery<
       PlaylistSearchResponseWithCursor,
-      PlaylistSearchParamsWithCursor
+      PlaylistSearchInfiniteArg,
+      PlaylistSearchPageParam
     >({
-      query: ({
-        q,
-        page = 0,
-        limit = 50,
-        sort = "date",
-        order = "desc",
-        cursor,
-      }) => ({
-        url: "/search",
-        // Only forward cursor when defined — sending cursor=undefined would
-        // serialize as the literal string "undefined".
-        params:
-          cursor !== undefined
-            ? { q, page, limit, sort, order, cursor }
-            : { q, page, limit, sort, order },
-      }),
+      infiniteQueryOptions: {
+        initialPageParam: null,
+        getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+      },
+      query({ pageParam, queryArg }) {
+        const { q, limit = 50, sort = "date", order = "desc" } = queryArg;
+        return {
+          url: "/search",
+          // Only forward cursor for non-first pages — sending cursor=null
+          // would serialize as the literal string "null".
+          params:
+            pageParam !== null
+              ? { q, page: 0, limit, sort, order, cursor: pageParam }
+              : { q, page: 0, limit, sort, order },
+        };
+      },
+      transformResponse: (
+        response: PlaylistSearchResponseWithCursor | null,
+      ): PlaylistSearchResponseWithCursor =>
+        response ?? { results: [], total: 0, page: 0, totalPages: 0 },
     }),
   }),
 });
 
-export const { useSearchPlaylistsQuery, useLazySearchPlaylistsQuery } =
-  playlistSearchApi;
+export const { useSearchPlaylistsInfiniteQuery } = playlistSearchApi;

@@ -29,10 +29,6 @@ export type PlaylistSearchState = {
   rows: SearchRow[];
   sortBy: SortField;
   sortOrder: SortOrder;
-  // Cursor for the next page to fetch. null = first page (start from the
-  // most recent entries). The hook reads nextCursor from the previous
-  // response and dispatches advanceCursor(nextCursor) on infinite-scroll.
-  cursor: string | null;
 };
 
 const createInitialRow = (): SearchRow => ({
@@ -47,7 +43,6 @@ const initialState: PlaylistSearchState = {
   rows: [createInitialRow()],
   sortBy: "date",
   sortOrder: "desc",
-  cursor: null,
 };
 
 export const playlistSearchSlice = createAppSlice({
@@ -63,7 +58,6 @@ export const playlistSearchSlice = createAppSlice({
     removeRow: (state, action: PayloadAction<string>) => {
       if (state.rows.length > 1) {
         state.rows = state.rows.filter((r) => r.id !== action.payload);
-        state.cursor = null;
       }
     },
     updateRow: (
@@ -73,7 +67,6 @@ export const playlistSearchSlice = createAppSlice({
       const row = state.rows.find((r) => r.id === action.payload.id);
       if (row) {
         Object.assign(row, action.payload.updates);
-        state.cursor = null;
       }
     },
     setSort: (state, action: PayloadAction<SortField>) => {
@@ -83,13 +76,6 @@ export const playlistSearchSlice = createAppSlice({
         state.sortBy = action.payload;
         state.sortOrder = "desc";
       }
-      state.cursor = null;
-    },
-    advanceCursor: (state, action: PayloadAction<string>) => {
-      state.cursor = action.payload;
-    },
-    resetCursor: (state) => {
-      state.cursor = null;
     },
     reset: () => initialState,
   },
@@ -97,6 +83,5 @@ export const playlistSearchSlice = createAppSlice({
     getRows: (state) => state.rows,
     getSortBy: (state) => state.sortBy,
     getSortOrder: (state) => state.sortOrder,
-    getCursor: (state) => state.cursor,
   },
 });
