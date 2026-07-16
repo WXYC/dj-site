@@ -1,5 +1,9 @@
 # DJ Site Engineering and Refactoring Rules
 
+Full charter with expanded rationale, integration patterns, and agent operating
+prompts: `docs/architecture/REFACTOR_CHARTER.md`. Where this file is silent, the
+charter governs.
+
 ## Mission
 
 Make `dj-site` the simplest accurate expression of its required behavior.
