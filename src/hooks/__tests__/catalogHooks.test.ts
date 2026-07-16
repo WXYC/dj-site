@@ -4,7 +4,7 @@ import {
   dedupeAlbumEntriesById,
   toLibraryQueryParams,
 } from "../catalogHooks";
-import { createTestAlbum } from "@/lib/test-utils";
+import { createTestAlbum } from "@/tests/helpers";
 import type {
   CatalogFilters,
   CatalogSearchRow,

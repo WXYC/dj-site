@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { usePathname } from "next/navigation";
-import { renderWithProviders } from "@/lib/test-utils";
+import { renderWithProviders } from "@/tests/helpers";
 import { getPageTitle } from "@/lib/utils/page-title";
 import PageTitleUpdater from "./PageTitleUpdater";
 import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";

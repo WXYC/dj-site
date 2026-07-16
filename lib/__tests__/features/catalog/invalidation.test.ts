@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { http, HttpResponse } from "msw";
-import { server, TEST_BACKEND_URL, createTestStore } from "@/lib/test-utils";
+import { server, TEST_BACKEND_URL, createTestStore } from "@/tests/helpers";
 import { catalogApi } from "@/lib/features/catalog/api";
 
 // Mock the authentication client so the base query's token fetch resolves.

@@ -19,7 +19,7 @@ import {
   createTestV2MessageEntry,
   TEST_ENTITY_IDS,
   TEST_SEARCH_STRINGS,
-} from "@/lib/test-utils";
+} from "@/tests/helpers";
 import type {
   FlowsheetSongEntry,
   FlowsheetShowBlockEntry,

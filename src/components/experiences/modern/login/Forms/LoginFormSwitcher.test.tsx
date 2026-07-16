@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import LoginFormSwitcher from "./LoginFormSwitcher";
-import { renderWithProviders, createTestStore } from "@/lib/test-utils";
+import { renderWithProviders, createTestStore } from "@/tests/helpers";
 import { applicationSlice } from "@/lib/features/application/frontend";
 import type { AuthStage } from "@/lib/features/application/types";
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
-import { renderWithProviders } from "@/lib/test-utils/render";
-import { createTestAlbum, createTestArtist } from "@/lib/test-utils/fixtures";
+import { renderWithProviders } from "@/tests/helpers/render";
+import { createTestAlbum, createTestArtist } from "@/tests/fixtures/fixtures";
 import { toast } from "sonner";
 import ExportBinButton from "./ExportBinButton";
 

@@ -6,7 +6,7 @@ import {
   createTestFlowsheetQuery,
   createTestStore,
   renderWithProviders,
-} from "@/lib/test-utils";
+} from "@/tests/helpers";
 import { useFlowsheetDragContext } from "@/src/components/experiences/modern/flowsheet/Entries/dragContext";
 import Queue from "./page";
 

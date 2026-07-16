@@ -15,7 +15,7 @@ import {
   createTestAuthenticatedUser,
   createTestIncompleteUser,
   createTestPasswordResetUser,
-} from "@/lib/test-utils";
+} from "@/tests/helpers";
 
 describe("authentication types", () => {
   describe("isAuthenticated", () => {

@@ -6,7 +6,7 @@ import {
   server,
   TEST_BACKEND_URL,
   createTestAlbumSearchResult,
-} from "@/lib/test-utils";
+} from "@/tests/helpers";
 import { rotationApi } from "@/lib/features/rotation/api";
 import RotationEntryFields from "./RotationEntryFields";
 

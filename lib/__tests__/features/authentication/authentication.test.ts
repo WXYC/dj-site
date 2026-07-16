@@ -3,7 +3,7 @@ import {
   authenticationSlice,
   defaultAuthenticationState,
 } from "@/lib/features/authentication/frontend";
-import { describeSlice } from "@/lib/test-utils";
+import { describeSlice } from "@/tests/helpers";
 
 describeSlice(authenticationSlice, defaultAuthenticationState, ({ harness, actions }) => {
   describe("verify action", () => {

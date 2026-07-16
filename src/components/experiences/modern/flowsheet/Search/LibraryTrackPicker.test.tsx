@@ -8,7 +8,7 @@ import {
   server,
   TEST_BACKEND_URL,
   createTestStore,
-} from "@/lib/test-utils";
+} from "@/tests/helpers";
 import LibraryTrackPicker, {
   useLibraryTrackPicker,
 } from "./LibraryTrackPicker";

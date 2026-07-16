@@ -8,7 +8,7 @@ import {
   authorizationToRole,
   AUTHORIZATION_LABELS,
 } from "@/lib/features/authentication/types";
-import { describeSlice } from "@/lib/test-utils";
+import { describeSlice } from "@/tests/helpers";
 
 describe("authorizationToRole", () => {
   it.each([

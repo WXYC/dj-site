@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderWithProviders, screen } from "@/lib/test-utils/render";
+import { renderWithProviders, screen } from "@/tests/helpers/render";
 
 // Resolves true = the cookie write succeeded, so the picker may reload.
 const persistPreference = vi.fn().mockResolvedValue(true);

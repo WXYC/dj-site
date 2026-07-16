@@ -5,7 +5,7 @@ import {
   renderWithProviders,
   createTestStore,
   createTestAccountResult,
-} from "@/lib/test-utils";
+} from "@/tests/helpers";
 import { applicationSlice } from "@/lib/features/application/frontend";
 import type { Account } from "@/lib/features/admin/types";
 

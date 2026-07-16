@@ -11,7 +11,7 @@ import {
   useGetGenresQuery,
   useAddGenreMutation,
 } from "@/lib/features/catalog/api";
-import { describeApi } from "@/lib/test-utils";
+import { describeApi } from "@/tests/helpers";
 
 // Mock the authentication client
 vi.mock("@/lib/features/authentication/client", () => ({

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import ResetPasswordForm from "./ResetPasswordForm";
-import { renderWithProviders } from "@/lib/test-utils";
+import { renderWithProviders } from "@/tests/helpers";
 import type { PasswordResetUser } from "@/lib/features/authentication/types";
 
 // Mock next/navigation

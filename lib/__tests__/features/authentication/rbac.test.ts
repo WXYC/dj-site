@@ -32,7 +32,7 @@ import {
 import {
   createTestBetterAuthSession,
   createTestSessionWithRole,
-} from "@/lib/test-utils";
+} from "@/tests/helpers";
 
 describe("checkRole", () => {
   beforeEach(() => {

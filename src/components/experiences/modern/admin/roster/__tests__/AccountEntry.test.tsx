@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import { AccountEntry } from "../AccountEntry";
-import { renderWithProviders, createTestAccountResult } from "@/lib/test-utils";
+import { renderWithProviders, createTestAccountResult } from "@/tests/helpers";
 
 vi.mock("@/lib/features/authentication/client", () => ({
   authClient: {

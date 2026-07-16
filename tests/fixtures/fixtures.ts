@@ -36,8 +36,8 @@ import {
   FlowsheetSongEntry,
 } from "@/lib/features/flowsheet/types";
 import { Rotation } from "@/lib/features/rotation/types";
-import { TEST_ENTITY_IDS, TEST_SEARCH_STRINGS } from "./constants";
-import { TEST_TIMESTAMPS, toDateString, toISOString } from "./time";
+import { TEST_ENTITY_IDS, TEST_SEARCH_STRINGS } from "@/tests/helpers/constants";
+import { TEST_TIMESTAMPS, toDateString, toISOString } from "@/tests/helpers/time";
 
 /**
  * Canonical mock users for all test contexts (unit and e2e).

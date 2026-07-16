@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import RotationReleaseDropdown from "./RotationReleaseDropdown";
-import { createTestAlbum, createTestArtist } from "@/lib/test-utils";
+import { createTestAlbum, createTestArtist } from "@/tests/helpers";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 
 const releases = [

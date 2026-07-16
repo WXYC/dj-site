@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
-import { renderWithProviders } from "@/lib/test-utils/render";
+import { renderWithProviders } from "@/tests/helpers/render";
 import ImportCSVModal from "./ImportCSVModal";
 
 // Mock the auth client

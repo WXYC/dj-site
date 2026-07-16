@@ -7,7 +7,7 @@ import {
   createTestV2TrackEntry,
   server,
   TEST_BACKEND_URL,
-} from "@/lib/test-utils";
+} from "@/tests/helpers";
 
 // Mock the auth client so the RTK Query base query's `prepareHeaders` doesn't
 // try to fetch a JWT during the test (no auth server running).

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, screen } from "@testing-library/react";
 import { StrictMode } from "react";
-import { renderWithProviders as render } from "@/lib/test-utils";
+import { renderWithProviders as render } from "@/tests/helpers";
 import NowPlaying from "./index";
 import type {
   FlowsheetSongEntry,

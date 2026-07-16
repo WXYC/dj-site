@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createTestAlbum } from "@/lib/test-utils";
+import { createTestAlbum } from "@/tests/helpers";
 import {
   albumMatchesCatalogQueryArg,
   parseRotationBinsFromQueryArg,

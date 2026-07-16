@@ -6,7 +6,7 @@ import {
   describeApi,
   server,
   TEST_BACKEND_URL,
-} from "@/lib/test-utils";
+} from "@/tests/helpers";
 
 describe("metadataApi", () => {
   describeApi(metadataApi, {

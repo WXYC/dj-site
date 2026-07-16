@@ -4,7 +4,7 @@ import {
   renderWithProviders,
   createTestAlbum,
   createTestArtist,
-} from "@/lib/test-utils";
+} from "@/tests/helpers";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import RotationEntryFields from "./RotationEntryFields";
 

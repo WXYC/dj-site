@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { createTestAlbum, createTestArtist } from "@/lib/test-utils";
-import { renderWithProviders } from "@/lib/test-utils/render";
+import { createTestAlbum, createTestArtist } from "@/tests/helpers";
+import { renderWithProviders } from "@/tests/helpers/render";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),

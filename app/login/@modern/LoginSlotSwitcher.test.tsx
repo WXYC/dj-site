@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { configureStore } from "@reduxjs/toolkit";
 import { applicationSlice } from "@/lib/features/application/frontend";
-import { renderWithProviders } from "@/lib/test-utils";
+import { renderWithProviders } from "@/tests/helpers";
 import LoginSlotSwitcher from "./LoginSlotSwitcher";
 
 const mockSearchParamsGet = vi.fn();

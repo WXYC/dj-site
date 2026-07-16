@@ -13,7 +13,7 @@ import type {
   FlowsheetMessageEntry,
   FlowsheetSongEntry,
 } from "@/lib/features/flowsheet/types";
-import { TEST_ENTITY_IDS } from "@/lib/test-utils";
+import { TEST_ENTITY_IDS } from "@/tests/helpers";
 
 const SHOW = TEST_ENTITY_IDS.SHOW.CURRENT_SHOW;
 

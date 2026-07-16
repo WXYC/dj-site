@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen } from "@testing-library/react";
-import { renderWithProviders } from "@/lib/test-utils/render";
-import { createTestAlbum, createTestArtist } from "@/lib/test-utils";
+import { renderWithProviders } from "@/tests/helpers/render";
+import { createTestAlbum, createTestArtist } from "@/tests/helpers";
 
 const mockSearchCatalogQuery = vi.fn();
 const mockReplace = vi.fn();

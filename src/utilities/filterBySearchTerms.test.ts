@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { filterBySearchTerms } from "./filterBySearchTerms";
-import { createTestAlbum, createTestArtist } from "@/lib/test-utils";
+import { createTestAlbum, createTestArtist } from "@/tests/helpers";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 
 describe("filterBySearchTerms", () => {

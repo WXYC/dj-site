@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { screen, fireEvent } from "@testing-library/react";
-import { renderWithProviders } from "@/lib/test-utils";
+import { renderWithProviders } from "@/tests/helpers";
 import BinEntryActions from "./BinEntryActions";
 import type { BinEntryAction } from "./useBinEntryActions";
 

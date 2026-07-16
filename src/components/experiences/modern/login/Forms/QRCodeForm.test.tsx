@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen } from "@testing-library/react";
-import { renderWithProviders } from "@/lib/test-utils";
+import { renderWithProviders } from "@/tests/helpers";
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { savePreferredLoginMethod } from "@/lib/features/application/login-method-storage";
 import QRCodeForm from "./QRCodeForm";

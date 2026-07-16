@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { screen, within } from "@testing-library/react";
 import NewAccountForm from "./NewAccountForm";
-import { renderWithProviders } from "@/lib/test-utils";
+import { renderWithProviders } from "@/tests/helpers";
 import { adminSlice } from "@/lib/features/admin/frontend";
 import { Authorization } from "@/lib/features/admin/types";
 

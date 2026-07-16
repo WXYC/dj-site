@@ -24,7 +24,7 @@ import {
   getServerSession,
   requireAuth,
 } from "@/lib/features/authentication/server-utils";
-import { createTestBetterAuthSession } from "@/lib/test-utils";
+import { createTestBetterAuthSession } from "@/tests/helpers";
 
 describe("getServerSession", () => {
   beforeEach(() => {

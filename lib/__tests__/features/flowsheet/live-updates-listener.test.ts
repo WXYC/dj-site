@@ -14,7 +14,7 @@ import {
 } from "@/lib/features/flowsheet/live-updates-slice";
 import type { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 import { makeStore } from "@/lib/store";
-import { server, TEST_BACKEND_URL } from "@/lib/test-utils";
+import { server, TEST_BACKEND_URL } from "@/tests/helpers";
 
 const { captureSpy, captureExceptionSpy } = vi.hoisted(() => ({
   captureSpy: vi.fn(),

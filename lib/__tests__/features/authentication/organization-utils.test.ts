@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { http, HttpResponse } from "msw";
-import { server } from "@/lib/test-utils/msw/server";
+import { server } from "@/tests/fakes/server";
 
 // Mock server auth client
 const mockListMembers = vi.fn();

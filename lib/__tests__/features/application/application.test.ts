@@ -4,8 +4,8 @@ import {
   defaultApplicationFrontendState,
 } from "@/lib/features/application/frontend";
 import { RightbarPanel } from "@/lib/features/application/types";
-import { describeSlice } from "@/lib/test-utils";
-import { createTestAccountResult } from "@/lib/test-utils";
+import { describeSlice } from "@/tests/helpers";
+import { createTestAccountResult } from "@/tests/helpers";
 
 describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, actions }) => {
   describe("default state", () => {

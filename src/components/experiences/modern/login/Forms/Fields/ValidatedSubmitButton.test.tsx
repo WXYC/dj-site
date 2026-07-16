@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { screen } from "@testing-library/react";
 import { ValidatedSubmitButton } from "./ValidatedSubmitButton";
-import { renderWithProviders } from "@/lib/test-utils";
+import { renderWithProviders } from "@/tests/helpers";
 
 describe("ValidatedSubmitButton", () => {
   it("should render with Submit text", () => {

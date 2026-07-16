@@ -8,7 +8,7 @@ import {
   createTestLmlLibraryItem,
   createTestStore,
   TEST_BACKEND_URL,
-} from "@/lib/test-utils";
+} from "@/tests/helpers";
 import type { AppStore } from "@/lib/store";
 import { useLmlLibrarySearch } from "./useLmlLibrarySearch";
 import type { LmlLibrarySearchResponse } from "@/lib/features/lml/types";

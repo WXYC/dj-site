@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, screen } from "@testing-library/react";
-import { renderWithProviders } from "@/lib/test-utils/render";
+import { renderWithProviders } from "@/tests/helpers/render";
 
 const leaveMock = vi.fn();
 const pushMock = vi.fn();

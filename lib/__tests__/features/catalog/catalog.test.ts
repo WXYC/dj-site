@@ -10,7 +10,7 @@ import {
   createTestBinResponse,
   TEST_ENTITY_IDS,
   TEST_SEARCH_STRINGS,
-} from "@/lib/test-utils";
+} from "@/tests/helpers";
 import { Rotation } from "@/lib/features/rotation/types";
 
 describe("catalogApi", () => {

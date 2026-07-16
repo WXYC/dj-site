@@ -1,6 +1,6 @@
 import { describe } from "vitest";
 import { lmlApi } from "@/lib/features/lml/api";
-import { describeApi } from "@/lib/test-utils";
+import { describeApi } from "@/tests/helpers";
 
 describe("lmlApi", () => {
   describeApi(lmlApi, {
