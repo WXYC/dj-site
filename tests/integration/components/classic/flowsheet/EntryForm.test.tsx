@@ -132,9 +132,16 @@ describe("Classic EntryForm — From dropdown", () => {
     ]);
   });
 
-  it("shows the Bin dropdown when From = Rotation", () => {
+  it("defaults From to WXYC Library", () => {
     renderWithProviders(<EntryForm />);
-    // Default is rotationRelease, so Bin should be visible immediately.
+    expect(getNamedSelect("releaseType").value).toBe("libraryRelease");
+    // Library mode shows the free-text Artist field on first render.
+    expect(document.querySelector('input[name="artistName"]')).not.toBeNull();
+  });
+
+  it("shows the Bin dropdown when From = Rotation", async () => {
+    const { user } = renderWithProviders(<EntryForm />);
+    await user.selectOptions(getNamedSelect("releaseType"), "rotationRelease");
     const bin = document.querySelector('select[name="rotationType"]');
     expect(bin).not.toBeNull();
   });
@@ -263,8 +270,9 @@ describe("Classic EntryForm — Submit disabled until track chosen", () => {
 });
 
 describe("Classic EntryForm — Bin dropdown (replaces H/M/L/S radios)", () => {
-  it("renders Bin as a select with Heavy/Medium/Light/Singles + empty placeholder", () => {
-    renderWithProviders(<EntryForm />);
+  it("renders Bin as a select with Heavy/Medium/Light/Singles + empty placeholder", async () => {
+    const { user } = renderWithProviders(<EntryForm />);
+    await user.selectOptions(getNamedSelect("releaseType"), "rotationRelease");
     const bin = getNamedSelect("rotationType");
     const optionValues = Array.from(bin.options).map((o) => o.value);
     expect(optionValues).toEqual(["", "heavy", "medium", "light", "singles"]);
@@ -275,8 +283,9 @@ describe("Classic EntryForm — Bin dropdown (replaces H/M/L/S radios)", () => {
     ).toBeNull();
   });
 
-  it("labels the empty Bin placeholder so screen readers can announce it", () => {
-    renderWithProviders(<EntryForm />);
+  it("labels the empty Bin placeholder so screen readers can announce it", async () => {
+    const { user } = renderWithProviders(<EntryForm />);
+    await user.selectOptions(getNamedSelect("releaseType"), "rotationRelease");
     const bin = getNamedSelect("rotationType");
     const placeholder = bin.options[0];
     expect(placeholder.value).toBe("");
@@ -309,6 +318,7 @@ describe("Classic EntryForm — Bin dropdown (replaces H/M/L/S radios)", () => {
       }),
     ];
     const { user } = renderWithProviders(<EntryForm />);
+    await user.selectOptions(getNamedSelect("releaseType"), "rotationRelease");
     await user.selectOptions(getNamedSelect("rotationType"), "heavy");
     const heavy = getNamedSelect("heavyRelease");
     // First option is the "Choose one..." placeholder; release names follow.
@@ -354,7 +364,8 @@ describe("Classic EntryForm — Rotation submission payload", () => {
       }),
     ];
     const { user } = renderWithProviders(<EntryForm />);
-    // Default state is Track + Rotation. Pick Heavy, then the release.
+    // Default is WXYC Library; switch to Rotation, pick Heavy, then the release.
+    await user.selectOptions(getNamedSelect("releaseType"), "rotationRelease");
     await user.selectOptions(getNamedSelect("rotationType"), "heavy");
     await selectByText(user, getNamedSelect("heavyRelease"), "Aluminum Tunes");
     await user.type(getNamedInput("songTitle"), "Tone Burst");
@@ -397,6 +408,7 @@ describe("Classic EntryForm — Rotation submission payload", () => {
       }),
     ];
     const { user } = renderWithProviders(<EntryForm />);
+    await user.selectOptions(getNamedSelect("releaseType"), "rotationRelease");
     await user.selectOptions(getNamedSelect("rotationType"), "heavy");
     await selectByText(user, getNamedSelect("heavyRelease"), "Setting");
     await user.type(getNamedInput("songTitle"), "Charcoal Bow");
@@ -428,6 +440,7 @@ describe("Classic EntryForm — Rotation submission payload", () => {
       }),
     ];
     const { user } = renderWithProviders(<EntryForm />);
+    await user.selectOptions(getNamedSelect("releaseType"), "rotationRelease");
     await user.selectOptions(getNamedSelect("rotationType"), "heavy");
     await selectByText(user, getNamedSelect("heavyRelease"), "Setting");
     await user.type(getNamedInput("songTitle"), "Charcoal Bow");
@@ -502,6 +515,7 @@ describe("Classic EntryForm — null artist (regression)", () => {
   it("renders a bin containing a null-artist release without throwing", async () => {
     rotationDataMock = rotationWithNullArtistRow();
     const { user } = renderWithProviders(<EntryForm />);
+    await user.selectOptions(getNamedSelect("releaseType"), "rotationRelease");
     await user.selectOptions(getNamedSelect("rotationType"), "heavy");
     const heavy = getNamedSelect("heavyRelease");
     const texts = Array.from(heavy.options).map((o) => o.textContent ?? "");
@@ -514,6 +528,7 @@ describe("Classic EntryForm — null artist (regression)", () => {
   it("seeds an empty artist and submits freeform when a null-artist release is selected", async () => {
     rotationDataMock = rotationWithNullArtistRow();
     const { user } = renderWithProviders(<EntryForm />);
+    await user.selectOptions(getNamedSelect("releaseType"), "rotationRelease");
     await user.selectOptions(getNamedSelect("rotationType"), "heavy");
     await selectByText(user, getNamedSelect("heavyRelease"), "Untitled");
     await user.type(getNamedInput("songTitle"), "Charcoal Bow");
