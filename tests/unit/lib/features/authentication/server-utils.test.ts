@@ -248,15 +248,76 @@ describe("server-utils", () => {
       expect(result).toBe(true);
     });
 
-    it("should fall back to session role when organization lookup fails", async () => {
+    it("should fail closed (NO authority) when org resolution throws in an org-scoped deployment", async () => {
       mockGetAppOrganizationId.mockReturnValue("wxyc-org-id");
       mockGetUserRoleInOrganization.mockRejectedValue(new Error("Org lookup failed"));
 
       const session = createTestSessionWithOrgRole("dj");
       const result = await checkRole(session, Authorization.DJ);
 
-      expect(result).toBe(true);
+      expect(result).toBe(false);
     });
+
+    it("should fail closed (NO authority) when org resolution returns undefined (not a member)", async () => {
+      mockGetAppOrganizationId.mockReturnValue("wxyc-org-id");
+      mockGetUserRoleInOrganization.mockResolvedValue(undefined);
+
+      const session = createTestSessionWithOrgRole("stationManager");
+      const result = await checkRole(session, Authorization.DJ);
+
+      expect(result).toBe(false);
+    });
+  });
+
+  describe("getUserAuthority fail-closed matrix", () => {
+    // getUserAuthority is private; exercised here via getUserFromSession, which
+    // returns the computed authority.
+    const baseRoles = ["admin", "owner", "stationManager", "musicDirector", "dj", "member", "user"];
+
+    beforeEach(() => {
+      mockGetAppOrganizationId.mockReturnValue("wxyc-org-id");
+    });
+
+    it.each(baseRoles)(
+      "org resolution FAILURE (throws) with base role %s => NO authority",
+      async (role) => {
+        mockGetUserRoleInOrganization.mockRejectedValue(new Error("transient"));
+        const session = createTestBetterAuthSession({
+          user: { id: "u", email: "u@wxyc.org", name: "u", emailVerified: true, role },
+        });
+        const result = await getUserFromSession(session);
+        expect(result.authority).toBe(Authorization.NO);
+      }
+    );
+
+    it.each(baseRoles)(
+      "org resolution UNDEFINED (not a member) with base role %s => NO authority",
+      async (role) => {
+        mockGetUserRoleInOrganization.mockResolvedValue(undefined);
+        const session = createTestBetterAuthSession({
+          user: { id: "u", email: "u@wxyc.org", name: "u", emailVerified: true, role },
+        });
+        const result = await getUserFromSession(session);
+        expect(result.authority).toBe(Authorization.NO);
+      }
+    );
+
+    it.each([
+      ["stationManager", Authorization.SM],
+      ["musicDirector", Authorization.MD],
+      ["dj", Authorization.DJ],
+      ["member", Authorization.NO],
+    ] as const)(
+      "successful org resolution of %s is unchanged => %s",
+      async (orgRole, expected) => {
+        mockGetUserRoleInOrganization.mockResolvedValue(orgRole);
+        const session = createTestBetterAuthSession({
+          user: { id: "u", email: "u@wxyc.org", name: "u", emailVerified: true, role: "admin" },
+        });
+        const result = await getUserFromSession(session);
+        expect(result.authority).toBe(expected);
+      }
+    );
   });
 
   describe("requireRole", () => {
