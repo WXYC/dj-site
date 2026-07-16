@@ -18,8 +18,9 @@ harnesses, msw handlers, and fixture factories live in `lib/test-utils/` and 116
 `lib/test-utils/*` → `tests/helpers/` (render, harnesses, time); msw handlers →
 `tests/fakes/`; fixture factories → `tests/fixtures/`. All 116 importers codemodded to
 the new specifiers (prefer codemod over a re-export shim; if a shim is used it is
-deleted in this same slice). `vitest.setup.ts` import path and `vitest.config.mts`
-coverage excludes updated; `docs/testing.md` pointers updated.
+deleted in this same slice). `vitest.setup.ts` moves to `tests/setup/` (charter §5.2)
+with `vitest.config.mts` setupFiles + coverage excludes updated; `docs/testing.md`
+pointers updated.
 
 ## Preserved behavior
 
