@@ -7,7 +7,7 @@ import type {
 } from "@reduxjs/toolkit/query";
 import { fetchBaseQuery } from "@reduxjs/toolkit/query";
 import { getJWTToken } from "./authentication/client";
-import { posthog } from "../posthog";
+import { safeCaptureException } from "../posthog";
 
 type BackendBaseQuery = BaseQueryFn<
   string | FetchArgs,
@@ -24,11 +24,8 @@ const innerBaseQuery = (domain: string): BackendBaseQuery =>
       headers.set("Content-Type", "application/json");
       headers.set("X-Request-Id", crypto.randomUUID());
 
-      // Get JWT token from better-auth /token endpoint
       const token = await getJWTToken();
-
       if (token) {
-        // Use Bearer format for better-auth JWT tokens
         headers.set("Authorization", `Bearer ${token}`);
       }
       return headers;
@@ -76,16 +73,12 @@ const logNonJsonResponse = (
     params,
   });
   // PostHog is the project's wired error sink (see lib/store.ts).
-  try {
-    posthog.captureException(new Error(message), {
-      domain,
-      url,
-      params,
-      originalStatus: error.originalStatus,
-    });
-  } catch {
-    // posthog may not be initialized (tests, SSR) — never let logging crash a query.
-  }
+  safeCaptureException(new Error(message), {
+    domain,
+    url,
+    params,
+    originalStatus: error.originalStatus,
+  });
 };
 
 /**

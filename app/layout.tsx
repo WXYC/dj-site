@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
 import { StoreProvider } from "@/src/StoreProvider";
-import { PostHogProvider } from "@/src/components/shared/PostHogProvider";
+import { TelemetryProvider } from "@/src/components/shared/TelemetryProvider";
 
 import "@/src/styles/globals.css";
 import { createServerSideProps } from "@/lib/features/session";
@@ -45,7 +45,7 @@ export default async function RootLayout({ children }: Props) {
 
   return (
     <StoreProvider>
-      <PostHogProvider>
+      <TelemetryProvider>
         <ThemeRegistry
           options={{ key: "joy" }}
           experience={serverSideProps.application.experience}
@@ -64,7 +64,7 @@ export default async function RootLayout({ children }: Props) {
             </body>
           </html>
         </ThemeRegistry>
-      </PostHogProvider>
+      </TelemetryProvider>
     </StoreProvider>
   );
 }

@@ -1,6 +1,6 @@
 import posthog from "posthog-js";
 
-export function initPostHog() {
+export function initTelemetry(): void {
   if (typeof window === "undefined") return;
   if (posthog.__loaded) return;
 
@@ -19,9 +19,10 @@ export function initPostHog() {
 }
 
 /**
- * Capture an exception without ever throwing back to the caller. PostHog may
- * be uninitialized (tests, SSR) — the dispatch / request path must not crash
- * because telemetry is unavailable.
+ * Telemetry is optional (CLAUDE.md optional-service rule): PostHog may be
+ * uninitialized (tests, SSR, missing key). Every capture is wrapped so an
+ * unavailable SDK fails open and never throws back into the dispatch, request,
+ * or render path.
  */
 export function safeCaptureException(
   err: unknown,
@@ -33,11 +34,10 @@ export function safeCaptureException(
       context
     );
   } catch {
-    // intentionally swallowed — see jsdoc
+    // optional-service contract: swallow
   }
 }
 
-/** Capture a PostHog event without throwing on uninitialized telemetry. */
 export function safeCapture(
   event: string,
   props?: Record<string, unknown>
@@ -45,8 +45,10 @@ export function safeCapture(
   try {
     posthog.capture(event, props);
   } catch {
-    // intentionally swallowed — see safeCaptureException
+    // optional-service contract: swallow
   }
 }
 
-export { posthog };
+export function safeCapturePageview(url: string): void {
+  safeCapture("$pageview", { $current_url: url });
+}

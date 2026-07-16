@@ -12,7 +12,7 @@ const { mockCaptureException } = vi.hoisted(() => ({
   mockCaptureException: vi.fn(),
 }));
 vi.mock("@/lib/posthog", () => ({
-  posthog: { captureException: mockCaptureException },
+  safeCaptureException: mockCaptureException,
 }));
 
 // We need to mock fetchBaseQuery from Redux Toolkit. The mock returns a function
@@ -351,10 +351,11 @@ describe("backend", () => {
         expect(result).toBe(success);
       });
 
-      it("does not throw if PostHog capture fails (defensive)", async () => {
-        mockCaptureException.mockImplementationOnce(() => {
-          throw new Error("posthog not initialized");
-        });
+      // The soft-fail path routes telemetry through the safeCaptureException
+      // contract, which owns the never-throw guarantee (covered in
+      // posthog.test.ts). backend must never wrap a query in a raw capture that
+      // could surface a telemetry outage as a query error.
+      it("routes the soft-fail through safeCaptureException and stays quiet", async () => {
         mockInnerBaseQuery.mockResolvedValueOnce({
           error: {
             status: "PARSING_ERROR",
@@ -369,6 +370,7 @@ describe("backend", () => {
         await expect(
           baseQuery({ url: "/42/tracks" }, fakeApi, fakeExtra)
         ).resolves.toEqual(expect.objectContaining({ data: null }));
+        expect(mockCaptureException).toHaveBeenCalledTimes(1);
       });
 
       // Mutations must keep surfacing the error loudly. Soft-handling a POST
