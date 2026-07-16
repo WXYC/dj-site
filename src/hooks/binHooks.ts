@@ -3,7 +3,7 @@ import {
   useDeleteFromBinMutation,
   useGetBinQuery,
 } from "@/lib/features/bin/api";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useRegistry } from "./authenticationHooks";
 import { useAppSelector } from "@/lib/hooks";
@@ -15,9 +15,11 @@ import { filterBySearchTerms } from "@/src/utilities/filterBySearchTerms";
 export const useBin = () => {
   const { loading, info } = useRegistry();
 
+  // dj_id is unused by the query while skipped; "" avoids asserting through
+  // the null case the skip condition already covers.
   const { data, isLoading, isSuccess, isError } = useGetBinQuery(
     {
-      dj_id: info?.id!,
+      dj_id: info?.id ?? "",
     },
     {
       skip: !info || loading,
@@ -42,16 +44,12 @@ function useBinMutation(
   const action = useCallback(
     (album_id: number) => {
       if (loading || !info) return;
-      mutate({ dj_id: info?.id!, album_id });
+      mutate({ dj_id: info.id, album_id })
+        .unwrap()
+        .catch(() => toast.error(errorMessage));
     },
-    [info, loading, mutate]
+    [info, loading, mutate, errorMessage]
   );
-
-  useEffect(() => {
-    if (result.isError) {
-      toast.error(errorMessage);
-    }
-  }, [result, errorMessage]);
 
   return { action, loading: result.isLoading || loading };
 }

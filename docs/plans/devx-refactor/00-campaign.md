@@ -49,7 +49,7 @@ and test count exactly (minus explicitly deleted duplicates, which must be named
 | 09 | auth-session-ownership | single session/org-role owner; stable useRegistry identities | risky | pending |
 | 10 | flowsheet-search-results-single-source | shared merge/cap pipeline for search + submit | risky | pending |
 | 11 | rightbar-and-experience-read-consolidation | vestigial slice state; one experience read path | moderate | pending |
-| 12 | bin-hooks-cleanup | toast-on-error effect → callback catch | simple | pending |
+| 12 | bin-hooks-cleanup | toast-on-error effect → callback catch | simple | done, no PR |
 | 13 | admin-roster-server-state | RTKQ queryFn over authClient; delete roster-events bus | risky | pending |
 | 14 | comment-reduction-pass | top-density files untouched by earlier slices | simple | pending |
 | 15 | playlist-search-infinite-migration | moved to issue #883 (Jackson, 2026-07-15) | — | out of campaign |
