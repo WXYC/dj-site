@@ -71,8 +71,10 @@ export async function requireAuth(): Promise<BetterAuthSession> {
 }
 
 /**
- * Extracts the user's authorization level, preferring the APP_ORGANIZATION
- * role query and falling back to role data embedded in the session.
+ * Extracts the user's authorization level. When an organization is configured,
+ * authority is scoped to it: an unresolved org role (not a member, or a
+ * transient failure) fails closed to NO, and the session base role is never
+ * trusted. The base role is used only when no organization is configured.
  */
 async function getUserAuthority(session: BetterAuthSession, cookieHeader?: string): Promise<Authorization> {
   const organizationId = getAppOrganizationId();
@@ -88,23 +90,20 @@ async function getUserAuthority(session: BetterAuthSession, cookieHeader?: strin
       if (orgRole !== undefined) {
         return roleToAuthorization(orgRole);
       }
-      // Not a member: fall through to session-based fallback (resolves to NO access).
     } catch (error) {
-      console.warn("Failed to fetch organization role, falling back to session data:", error);
+      console.warn("Failed to fetch organization role; failing closed to NO authority:", error);
     }
+
+    return Authorization.NO;
   }
 
-  // Organization role takes precedence over base user role; also check
-  // metadata/custom fields some flows stash the role in.
   const organizationRole = (session.user as any).organization?.role;
   const userRole = (session.user as any).role;
   const metadataRole = (session.user as any).metadata?.role;
   const customRole = (session.user as any).customRole;
   const roleToMap = organizationRole || metadataRole || customRole || userRole;
 
-  const authority = roleToAuthorization(roleToMap);
-
-  return authority;
+  return roleToAuthorization(roleToMap);
 }
 
 /** Non-redirecting permission check. */
