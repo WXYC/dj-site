@@ -171,6 +171,12 @@ describe("GoLive", () => {
 
       const serverHtml = renderToString(<GoLive />);
       expect(serverHtml).toContain('aria-label="Loading..."');
+      // Joy renders `disabled` as a `Mui-disabled` class, not a native
+      // `disabled` attribute, so that's what a divergent `loading` prop
+      // would show up as in the server markup.
+      expect(serverHtml).toMatch(
+        /data-testid="flowsheet-go-live-button"[^>]*class="[^"]*\bMui-disabled\b/
+      );
 
       const container = document.createElement("div");
       container.innerHTML = serverHtml;
@@ -191,11 +197,23 @@ describe("GoLive", () => {
         )
       );
       expect(ariaLabelMismatchLogged).toBe(false);
+      // disabled/loading render as class="…Mui-disabled…" / "…Mui-loading…",
+      // so a diverging `loading` prop shows up as a `className` diff line.
+      const classNameMismatchLogged = errorSpy.mock.calls.some((call) =>
+        call.some(
+          (arg) => typeof arg === "string" && /^[+-]\s*className=/m.test(arg)
+        )
+      );
+      expect(classNameMismatchLogged).toBe(false);
       errorSpy.mockRestore();
 
+      const goLiveButton = container.querySelector(
+        '[data-testid="flowsheet-go-live-button"]'
+      );
       const buttonGroup = container.querySelector('[role="group"]');
       await waitFor(() => {
         expect(buttonGroup).toHaveAttribute("aria-label", "Click to go live");
+        expect(goLiveButton?.className).not.toMatch(/\bMui-disabled\b/);
       });
 
       act(() => {

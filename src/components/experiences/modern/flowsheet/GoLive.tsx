@@ -27,17 +27,22 @@ export default function GoLive() {
   const isSaving = useFlowsheetSaving();
 
   // Must match the server's markup until this flips true post-mount, or the
-  // aria-label React hydrates onto the ButtonGroup won't match server HTML.
+  // aria-label/disabled/loading props React hydrates onto these elements
+  // won't match server HTML.
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
   }, []);
-  const goLiveLabel =
-    mounted && !loading
-      ? live
-        ? "Click to leave"
-        : "Click to go live"
-      : "Loading...";
+  // SSR always renders as if the session were still unresolved (mounted is
+  // false server-side too), so the client's first pass must hold `loading`
+  // true regardless of the real value or React sees a disabled/Mui-loading
+  // class diff during hydration.
+  const effectiveLoading = mounted ? loading : true;
+  const goLiveLabel = effectiveLoading
+    ? "Loading..."
+    : live
+      ? "Click to leave"
+      : "Click to go live";
 
   return (
     <Stack direction="row" spacing={1} alignItems="center">
@@ -76,7 +81,7 @@ export default function GoLive() {
           <IconButton
             variant="outlined"
             onClick={() => (live ? leave() : goLive())}
-            disabled={loading}
+            disabled={effectiveLoading}
             data-testid="flowsheet-go-live-button"
           >
             {live ? <PortableWifiOff /> : <WifiTethering />}
@@ -85,8 +90,8 @@ export default function GoLive() {
             variant={live ? "solid" : "outlined"}
             color={live ? "primary" : "neutral"}
             onClick={() => (live ? leave() : goLive())}
-            disabled={loading}
-            loading={loading}
+            disabled={effectiveLoading}
+            loading={effectiveLoading}
             data-testid="flowsheet-live-status"
             sx={{ transition: "all 0.25s ease" }}
           >
