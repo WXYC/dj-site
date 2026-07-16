@@ -11,6 +11,7 @@ import {
 } from "@reduxjs/toolkit";
 import { toast } from "sonner";
 import { safeCaptureException } from "./posthog";
+import { adminApi } from "./features/admin/api";
 import { adminSlice } from "./features/admin/frontend";
 import { applicationApi } from "./features/application/api";
 import { applicationSlice } from "./features/application/frontend";
@@ -49,7 +50,8 @@ const rootReducer = combineSlices(
   playlistSearchApi,
   rotationSlice,
   rotationApi,
-  adminSlice
+  adminSlice,
+  adminApi
 );
 
 export type RootState = ReturnType<typeof rootReducer>;
@@ -70,7 +72,8 @@ export const makeStore = () => {
         .concat(lmlApi.middleware)
         .concat(metadataApi.middleware)
         .concat(playlistSearchApi.middleware)
-        .concat(rotationApi.middleware);
+        .concat(rotationApi.middleware)
+        .concat(adminApi.middleware);
     },
   });
 };

@@ -1,7 +1,8 @@
 "use client";
 
-import { invalidateRoster } from "@/lib/features/admin/roster-events";
-import { authBaseURL, authClient } from "@/lib/features/authentication/client";
+import { authClient } from "@/lib/features/authentication/client";
+import { adminApi } from "@/lib/features/admin/api";
+import { useAppDispatch } from "@/lib/hooks";
 import { resolveOrganizationIdAdmin } from "@/lib/features/authentication/organization-utils";
 import {
   Account,
@@ -54,6 +55,9 @@ export default function AccountEditForm({
   // so after a successful save we compare against these instead.
   const [savedRealName, setSavedRealName] = useState(account.realName ?? "");
   const [savedDjName, setSavedDjName] = useState(account.djName ?? "");
+
+  const dispatch = useAppDispatch();
+  const invalidateRoster = () => dispatch(adminApi.util.invalidateTags(["Roster"]));
 
   const userCapabilities = (account.capabilities ?? []) as ("editor" | "webmaster")[];
   const isIncomplete = account.hasCompletedOnboarding !== true;
