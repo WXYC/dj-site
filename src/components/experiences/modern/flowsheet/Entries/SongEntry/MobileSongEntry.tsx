@@ -91,7 +91,6 @@ const MobileSongEntry = memo(function MobileSongEntry({
     record_label: entry.record_label,
   });
 
-  // Keep the draft in sync with the entry whenever we're not editing.
   useEffect(() => {
     if (!editing) {
       setDraft({
@@ -139,13 +138,11 @@ const MobileSongEntry = memo(function MobileSongEntry({
         gap: 1.25,
         border: playing ? "none" : "1px solid",
         borderColor: "background.level2",
-        // A soft elevation so the card floats off the page like a media card.
         boxShadow: playing
           ? "0 10px 24px -8px rgba(0,0,0,0.5)"
           : "0 4px 12px -4px rgba(0,0,0,0.3)",
       }}
     >
-      {/* Top: album art on the left, values stacked next to it. */}
       <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
       <Box sx={{ position: "relative", flexShrink: 0 }}>
         <AspectRatio ratio={1} sx={{ width: 68, borderRadius: "12px" }}>
@@ -171,7 +168,6 @@ const MobileSongEntry = memo(function MobileSongEntry({
         )}
       </Box>
 
-      {/* Values (or, while editing, pre-filled inputs) stacked in the middle. */}
       <Box sx={{ flex: 1, minWidth: 0 }}>
         {editing ? (
           <Stack gap={0.5}>
@@ -266,7 +262,6 @@ const MobileSongEntry = memo(function MobileSongEntry({
       </Box>
       </Box>
 
-      {/* Bottom: the control tray as a centered horizontal bar. */}
       <Stack
         direction="row"
         alignItems="center"
@@ -357,7 +352,6 @@ const MobileSongEntry = memo(function MobileSongEntry({
                 </IconButton>
               </Tooltip>
             )}
-            {/* Delete last, at the end of the bar. */}
             {editable && <RemoveButton queue={queue} entry={entry} />}
           </>
         )}

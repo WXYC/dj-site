@@ -16,7 +16,6 @@ export async function POST(request: NextRequest) {
 
   const requestedExperience = body.experience;
 
-  // Validate the experience
   if (!isExperienceId(requestedExperience)) {
     return NextResponse.json(
       { error: "Invalid experience", experience: defaultApplicationState.experience },
@@ -24,7 +23,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Get current state
   const data = cookieStore.get("app_state")?.value;
   let currentState = defaultApplicationState;
   if (data) {
@@ -35,13 +33,11 @@ export async function POST(request: NextRequest) {
     }
   }
   
-  // Update with new experience
   const newState = {
     ...currentState,
     experience: requestedExperience,
   };
-  
-  // Remove old 'classic' property if it exists
+
   if ("classic" in newState) {
     delete (newState as any).classic;
   }

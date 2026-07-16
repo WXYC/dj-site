@@ -25,10 +25,8 @@ const rot = (
 // naming an unknown id safely resolves to the default (`stacks`) and is re-saved,
 // so ids can change freely as themes come and go — no migration table needed.
 
-// ===========================================================================
 // The Stacks (id "stacks") — the flagship. Warm record-library rose: rose
 // primary, muted teal / stone / fuchsia accents, warm greige neutral.
-// ===========================================================================
 const ROSE: PaletteScale = { 50: "#fff1f2", 100: "#ffe4e6", 200: "#fecdd3", 300: "#fda4af", 400: "#fb7185", 500: "#f43f5e", 600: "#e11d48", 700: "#be123c", 800: "#9f1239", 900: "#881337" };
 const ROSE_DARK: PaletteScale = { 50: "#faeaef", 100: "#ecadc0", 200: "#e383a0", 300: "#d95a81", 400: "#d03161", 500: "#a6274e", 600: "#922244", 700: "#531427", 800: "#3e0f1d", 900: "#15050a" };
 const TEAL: PaletteScale = { 50: "#e0f2f1", 100: "#b2dfdb", 200: "#80cbc4", 300: "#4db6ac", 400: "#26a69a", 500: "#009688", 600: "#00897b", 700: "#00796b", 800: "#00695c", 900: "#004d40" };
@@ -108,9 +106,7 @@ export const theStacksTheme: ThemeDefinition = {
   },
 };
 
-// ===========================================================================
 // Blue Note (id "bluenote") — the cool indigo/teal palette, like the late shift.
-// ===========================================================================
 const INDIGO: PaletteScale = { 50: "#eef2ff", 100: "#e0e7ff", 200: "#c7d2fe", 300: "#a5b4fc", 400: "#818cf8", 500: "#6366f1", 600: "#4f46e5", 700: "#4338ca", 800: "#3730a3", 900: "#312e81" };
 const OCEAN_TEAL: PaletteScale = { 50: "#f0fdfa", 100: "#ccfbf1", 200: "#99f6e4", 300: "#5eead4", 400: "#2dd4bf", 500: "#14b8a6", 600: "#0d9488", 700: "#0f766e", 800: "#115e59", 900: "#134e4a" };
 const SLATE: PaletteScale = { 50: "#f8fafc", 100: "#f1f5f9", 200: "#e2e8f0", 300: "#cbd5e1", 400: "#94a3b8", 500: "#64748b", 600: "#475569", 700: "#334155", 800: "#1e293b", 900: "#0f172a" };
@@ -173,11 +169,9 @@ export const blueNoteTheme: ThemeDefinition = {
   },
 };
 
-// ===========================================================================
 // Shellac (id "shellac") — old shellac 78s and an antique switchboard: warm cream
 // paper, rustic brown scaffolding, and the striking bakelite reds/greens of patch
 // cables. Muted and a touch "plasticky" (warm, slightly hazy) rather than bright.
-// ===========================================================================
 // Warm coffee brown — the rustic base (sidebar / primary).
 const BROWN: PaletteScale = { 50: "#f5ede4", 100: "#e8d8c3", 200: "#d8bd9c", 300: "#c5a074", 400: "#b3854f", 500: "#9c6d3a", 600: "#855b30", 700: "#6b4826", 800: "#4f351c", 900: "#382512" };
 const BROWN_DARK: PaletteScale = { 50: "#f2e7d6", 100: "#e6d0b0", 200: "#d4b487", 300: "#c2985e", 400: "#b07f3c", 500: "#96682f", 600: "#7e5628", 700: "#4e3619", 800: "#37260f", 900: "#160e05" };
@@ -251,11 +245,9 @@ export const shellacTheme: ThemeDefinition = {
   },
 };
 
-// ===========================================================================
 // Deadstock (id "deadstock") — a punk/vampire blackout: stark black and white
 // with blood red as the centerpiece. Bright crimson sidebar, near-black surfaces
 // with a faint blood undertone, records in oxblood vs. silver.
-// ===========================================================================
 const CRIMSON: PaletteScale = { 50: "#fdeaea", 100: "#f9c6c6", 200: "#ef9a9a", 300: "#e56b6b", 400: "#d84343", 500: "#c1121f", 600: "#a50f1a", 700: "#870c15", 800: "#5f0a10", 900: "#3a060a" };
 // Brighter blood red so the sidebar/primary pops against near-black in dark mode.
 const CRIMSON_DARK: PaletteScale = { 50: "#fdeaea", 100: "#f4b4b4", 200: "#ea8585", 300: "#e05a5a", 400: "#d63a3a", 500: "#e02424", 600: "#c11a1a", 700: "#7a1010", 800: "#500a0a", 900: "#240404" };

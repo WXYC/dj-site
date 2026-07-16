@@ -9,7 +9,6 @@ import {
 } from "./types";
 import { getAppOrganizationId, getAppOrganizationIdClient } from "./organization-config";
 
-// Better-auth session type (from better-auth client)
 export type BetterAuthSession = {
   user: {
     id: string;
@@ -48,11 +47,10 @@ export type BetterAuthSession = {
     userId: string;
     expiresAt: Date;
     token?: string;  // Session ID (not a JWT token)
-    activeOrganizationId?: string | null;  // Active organization ID if user is part of an organization
+    activeOrganizationId?: string | null;
   };
 };
 
-// Better-auth session response type (from getSession() call)
 export type BetterAuthSessionResponse = {
   data: BetterAuthSession | null;
   error?: {
@@ -67,8 +65,7 @@ export const defaultAuthenticationData: AuthenticationData = {
 
 
 /**
- * Convert better-auth session to AuthenticationData format (synchronous)
- * Note: This function does not fetch organization role from APP_ORGANIZATION.
+ * This function does not fetch organization role from APP_ORGANIZATION.
  * It only uses role data already present in the session object.
  * For proper role-based access control, use betterAuthSessionToAuthenticationDataAsync() instead.
  */
@@ -79,7 +76,6 @@ export function betterAuthSessionToAuthenticationData(
     return { message: "Not Authenticated" };
   }
 
-  // Get role from organization member data (preferred) or user role
   const organizationRole = (session.user as any).organization?.role;
   const userRole = (session.user as any).role;
   const metadataRole = (session.user as any).metadata?.role;
@@ -93,7 +89,6 @@ export function betterAuthSessionToAuthenticationData(
 
   // Treat undefined/absent as incomplete (`!== true`), matching server-utils.
   if (session.user.hasCompletedOnboarding !== true) {
-    // Compute which profile fields are still missing for the onboarding form
     const missingAttributes: (keyof VerifiedData)[] = [];
     if (!session.user.realName || session.user.realName.trim() === "") {
       missingAttributes.push("realName");
@@ -134,7 +129,6 @@ export function betterAuthSessionToAuthenticationData(
 }
 
 /**
- * Convert better-auth session to AuthenticationData format (async)
  * Fetches the user's role from APP_ORGANIZATION organization for proper role-based access control.
  * Falls back to session-based role extraction if organization query fails.
  */
@@ -169,7 +163,6 @@ export async function betterAuthSessionToAuthenticationDataAsync(
   // On server-side, skip organization role fetch here - server-side code should use
   // betterAuthSessionToAuthenticationData with getUserRoleInOrganization separately (as in session.ts)
 
-  // Fallback: Get role from session data if not already set
   if (!roleToMap) {
     const organizationRole = (session.user as any).organization?.role;
     const userRole = (session.user as any).role;
@@ -185,7 +178,6 @@ export async function betterAuthSessionToAuthenticationDataAsync(
 
   // Treat undefined/absent as incomplete (`!== true`), matching server-utils.
   if (session.user.hasCompletedOnboarding !== true) {
-    // Compute which profile fields are still missing for the onboarding form
     const missingAttributes: (keyof VerifiedData)[] = [];
     if (!session.user.realName || session.user.realName.trim() === "") {
       missingAttributes.push("realName");

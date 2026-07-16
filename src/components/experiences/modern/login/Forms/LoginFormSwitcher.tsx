@@ -18,8 +18,6 @@ export default function LoginFormSwitcher() {
   const hasSyncedRef = useRef(false);
 
   // Sync before paint so the correct form renders without a flash.
-  // useLayoutEffect is client-only (this is a "use client" component),
-  // so the SSR warning does not apply.
   useLayoutEffect(() => {
     if (hasSyncedRef.current) return;
     hasSyncedRef.current = true;
@@ -60,7 +58,6 @@ export default function LoginFormSwitcher() {
     );
   }
 
-  // Default: otp-email
   return (
     <>
       <WelcomeQuotes />

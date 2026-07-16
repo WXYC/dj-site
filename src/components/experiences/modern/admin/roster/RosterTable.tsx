@@ -121,7 +121,6 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
         // reset would also wipe the admin's search + page context (#638).
         dispatch(adminSlice.actions.setAdding(false));
 
-        // Refresh account list
         await refetch();
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to create account";

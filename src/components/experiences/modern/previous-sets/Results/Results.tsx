@@ -73,7 +73,6 @@ export default function Results() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Infinite scroll
   useEffect(() => {
     const scroller = scrollRef.current;
     if (!scroller) return;

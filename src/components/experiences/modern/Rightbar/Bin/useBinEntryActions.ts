@@ -46,10 +46,8 @@ export type BinEntryActionDeps = {
 };
 
 /**
- * The action set for a single Mail Bin entry, shared by the hover icon buttons
- * and the right-click context menu so both stay in sync. Queue / Play only
- * appear while a show is live; Shift+click on either also removes the album
- * from the bin.
+ * Shared by the hover icon buttons and the right-click context menu so both
+ * stay in sync.
  */
 export function useBinEntryActions(
   entry: AlbumEntry,

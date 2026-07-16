@@ -30,5 +30,4 @@ const baseConfig = {
     ]
 };
 
-// Server-side auth client (for server components, middleware, and API routes)
 export const serverAuthClient = createAuthClient(baseConfig);

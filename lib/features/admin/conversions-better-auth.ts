@@ -1,7 +1,6 @@
 import { Account, AdminAuthenticationStatus, Authorization } from "./types";
 import { roleToAuthorization } from "../authentication/types";
 
-// Better-auth user type (from admin API)
 export type BetterAuthUser = {
   id: string;
   email: string;
@@ -17,13 +16,9 @@ export type BetterAuthUser = {
   banReason?: string;
   /** Cross-cutting capabilities independent of role hierarchy */
   capabilities?: string[];
-  /** Whether the user has completed the onboarding flow */
   hasCompletedOnboarding?: boolean;
 };
 
-/**
- * Converts better-auth user to Account format
- */
 export function convertBetterAuthToAccountResult(
   user: BetterAuthUser
 ): Account {
@@ -42,9 +37,6 @@ export function convertBetterAuthToAccountResult(
   };
 }
 
-/**
- * Maps better-auth role to Authorization enum
- */
 export function mapBetterAuthRoleToAuthorization(
   role: "member" | "dj" | "musicDirector" | "stationManager"
 ): Authorization {

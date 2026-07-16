@@ -13,7 +13,6 @@ export async function POST(request: NextRequest) {
   const { preference, experience, colorMode, themeId } = body ?? {};
   const parsedPreference = parseAppSkinPreference(preference);
 
-  // Get current state
   const data = cookieStore.get("app_state")?.value;
   let currentState = defaultApplicationState;
 
@@ -52,7 +51,6 @@ export async function POST(request: NextRequest) {
     themeId: resolvedThemeId,
   };
 
-  // Remove old 'classic' property if it exists
   if ("classic" in newState) {
     delete (newState as any).classic;
   }

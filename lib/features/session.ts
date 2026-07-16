@@ -47,10 +47,8 @@ export const createServerSideProps = cache(async (): Promise<SiteProps> => {
     }
   }
 
-  // Get better-auth session
   let authentication = defaultAuthenticationData;
   try {
-    // Get all cookies as a string for better-auth client
     const cookieHeader = cookieStore.toString();
     const session = await serverAuthClient
       .getSession({
@@ -78,7 +76,6 @@ export const createServerSideProps = cache(async (): Promise<SiteProps> => {
         },
       } as BetterAuthSession;
 
-      // Fetch organization role from APP_ORGANIZATION first
       const organizationId = getAppOrganizationId();
       if (organizationId) {
         try {
@@ -89,11 +86,9 @@ export const createServerSideProps = cache(async (): Promise<SiteProps> => {
           );
 
           if (orgRole !== undefined) {
-            // Create authentication data with the fetched organization role
             const authority = roleToAuthorization(orgRole);
             const authData = betterAuthSessionToAuthenticationData(normalizedSession);
 
-            // If we have an authenticated user, update the authority with the organization role
             if (isAuthenticated(authData) && authData.user) {
               authData.user.authority = authority;
             }
@@ -104,12 +99,10 @@ export const createServerSideProps = cache(async (): Promise<SiteProps> => {
             authentication = betterAuthSessionToAuthenticationData(normalizedSession);
           }
         } catch (error) {
-          // If organization query fails, fall back to session-based role extraction
           console.warn("Failed to fetch organization role, using session data:", error);
           authentication = betterAuthSessionToAuthenticationData(normalizedSession);
         }
       } else {
-        // No organization ID set, use session data
         authentication = betterAuthSessionToAuthenticationData(normalizedSession);
       }
 
@@ -125,7 +118,7 @@ export const createServerSideProps = cache(async (): Promise<SiteProps> => {
       }
     }
   } catch {
-    // If better-auth session fetch fails, use default (not authenticated)
+    // no-op: default (unauthenticated) authentication is used
   }
 
   return {

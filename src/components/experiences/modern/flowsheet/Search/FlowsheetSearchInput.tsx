@@ -31,7 +31,6 @@ export default function FlowsheetSearchInput({
 
   const displayValue = getDisplayValue(name);
 
-  // Whether this field's value is currently sourced from a selected result.
   let isAutoFilled = false;
   if (selectedIndex > 0 && name !== "song" && selectedEntry) {
     switch (name) {
@@ -115,7 +114,6 @@ export default function FlowsheetSearchInput({
           setSearchProperty(name, e.target.value);
         }}
         onKeyDown={(e) => {
-          // Accept ghost text on Tab
           if (e.key === "Tab" && hasGhost && onAcceptGhost) {
             e.preventDefault();
             onAcceptGhost();

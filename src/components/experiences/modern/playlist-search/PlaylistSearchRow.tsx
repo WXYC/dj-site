@@ -50,7 +50,6 @@ export default function PlaylistSearchRow({
 
   return (
     <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
-      {/* Operator dropdown - hidden on first row */}
       <Box sx={{ minWidth: 80, visibility: isFirst ? "hidden" : "visible" }}>
         <Select
           value={row.operator}
@@ -65,7 +64,6 @@ export default function PlaylistSearchRow({
         </Select>
       </Box>
 
-      {/* Field dropdown */}
       <Box sx={{ minWidth: 130 }}>
         <Select
           value={row.field}
@@ -82,7 +80,6 @@ export default function PlaylistSearchRow({
         </Select>
       </Box>
 
-      {/* Input field(s) - changes based on field type */}
       {isDateField ? (
         <Input
           type="date"
@@ -120,7 +117,6 @@ export default function PlaylistSearchRow({
         />
       )}
 
-      {/* Exact match checkbox - only for text fields */}
       {!isDateField && !isDateRangeField && (
         <Checkbox
           label="Exact"
@@ -131,7 +127,6 @@ export default function PlaylistSearchRow({
         />
       )}
 
-      {/* Row controls */}
       <Stack direction="row" spacing={0.5}>
         <IconButton size="sm" variant="outlined" onClick={onAdd}>
           <Add />

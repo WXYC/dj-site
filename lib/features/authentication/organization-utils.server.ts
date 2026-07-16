@@ -22,19 +22,12 @@ async function fetchAuthJwtToken(cookieHeader?: string): Promise<string | null> 
 // Re-export client-safe functions for convenience
 export { getAppOrganizationId, getAppOrganizationIdClient } from "./organization-utils";
 
-/**
- * Server-side: Resolve organization slug to organization ID
- * @param organizationSlugOrId - The organization slug (e.g., "wxyc") or ID
- * @param cookieHeader - Cookie header string for authenticated requests
- * @returns The organization ID, or undefined if not found
- */
 async function resolveOrganizationId(
   organizationSlugOrId: string,
   cookieHeader?: string
 ): Promise<string | undefined> {
   try {
-    // Make direct HTTP request to better-auth API to get organization by slug
-    // The client SDK's findOrganizationBySlug returns 404, so we'll use the API directly
+    // The client SDK's findOrganizationBySlug returns 404, so we use the API directly
     const baseURL = getServerAuthBaseURL();
     const response = await fetch(`${baseURL}/organization/get-full-organization?organizationSlug=${encodeURIComponent(organizationSlugOrId)}`, {
       method: 'GET',
@@ -74,13 +67,6 @@ async function resolveOrganizationId(
   }
 }
 
-/**
- * Server-side: Get user's role in a specific organization
- * @param userId - The user ID to look up
- * @param organizationSlugOrId - The organization slug (e.g., "wxyc") or ID
- * @param cookieHeader - Cookie header string for authenticated requests
- * @returns The user's role in the organization, or undefined if not found or on error
- */
 export async function getUserRoleInOrganization(
   userId: string,
   organizationSlugOrId: string,
@@ -97,7 +83,6 @@ export async function getUserRoleInOrganization(
       }
     }
 
-    // Resolve slug to ID if needed
     const organizationId = await resolveOrganizationId(organizationSlugOrId, cookieHeader);
     
     if (!organizationId) {
@@ -124,25 +109,21 @@ export async function getUserRoleInOrganization(
       return undefined;
     }
 
-    // Find the member matching the userId
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const member = result.data?.members?.find((m: any) => m.userId === userId);
-    
+
     if (!member) {
-      // User is not a member of this organization
       return undefined;
     }
 
-    // Extract role from member object
-    // Better-auth organization roles: "owner", "admin", "member" by default
-    // But may be customized to our roles: "member", "dj", "musicDirector", "stationManager"
+    // Better-auth organization roles default to "owner"/"admin"/"member" but
+    // may be customized to ours: "member", "dj", "musicDirector", "stationManager"
     const role = member.role as string | undefined;
-    
+
     if (!role) {
       return undefined;
     }
 
-    // Normalize and return the role
     return normalizeRole(role) as WXYCRole;
   } catch (error) {
     console.error("Exception fetching organization member role:", error);

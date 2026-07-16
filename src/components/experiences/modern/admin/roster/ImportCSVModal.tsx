@@ -98,7 +98,6 @@ export default function ImportCSVModal({ open, onClose, onComplete, organization
 
     const role = authorizationToRole(authorization);
 
-    // Filter to only valid rows
     const validRows = rows.filter((_, i) => !errors.some((e) => e.row === i + 1));
     const results: ImportResult[] = [];
 

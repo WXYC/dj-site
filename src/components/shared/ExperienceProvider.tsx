@@ -3,10 +3,6 @@
 import { ExperienceId } from "@/lib/features/experiences/types";
 import { ReactNode, createContext, useContext } from "react";
 
-/**
- * Experience Context
- * Provides the current experience ID throughout the component tree
- */
 interface ExperienceContextValue {
   experience: ExperienceId;
 }
@@ -20,10 +16,6 @@ interface ExperienceProviderProps {
   children: ReactNode;
 }
 
-/**
- * ExperienceProvider
- * Wraps the application to provide experience context
- */
 export function ExperienceProvider({
   experience,
   children,
@@ -35,9 +27,6 @@ export function ExperienceProvider({
   );
 }
 
-/**
- * Hook to access the current experience from context
- */
 export function useExperienceContext(): ExperienceContextValue {
   const context = useContext(ExperienceContext);
   if (!context) {

@@ -50,8 +50,8 @@ export function ReleaseChips({
 
   // At most four small pills (genre, format, rotation, exclusive) — they wrap,
   // so there's no overflow to collapse. Format stays visible so the DJ can
-  // always see Vinyl vs CD. No stopPropagation: clicking a pill bubbles to the
-  // row/card and opens album detail, as it did before the redesign.
+  // always see Vinyl vs CD. No stopPropagation: clicking a pill bubbles to
+  // open album detail.
   return (
     <Stack direction="row" gap={0.75} alignItems="center" flexWrap="wrap">
       <Chip variant="soft" color={genreColor} size="sm" sx={chipSx}>

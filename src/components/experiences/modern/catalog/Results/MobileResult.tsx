@@ -21,9 +21,7 @@ import { ReleaseChips } from "./ReleaseChips";
 import { toast } from "sonner";
 import { memo } from "react";
 
-// Below the `sm` breakpoint the desktop table is hidden and the results
-// render as this Apple-Music-style stacked card instead: artwork on the
-// left, everything else stacked vertically, actions in the top-right corner.
+// Rendered below the `sm` breakpoint in place of the desktop table.
 // `live`/`addToQueue` are hoisted into Results (shared across rows); memoized
 // so a query keystroke doesn't re-render unchanged cards.
 function CatalogMobileResult({

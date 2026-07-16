@@ -3,10 +3,6 @@
 import { Box } from "@mui/joy";
 import { ReactNode } from "react";
 
-/**
- * AppShell - Main application shell wrapper
- * Provides consistent structure for both experiences
- */
 interface AppShellProps {
   children: ReactNode;
   header?: ReactNode;

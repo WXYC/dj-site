@@ -29,7 +29,6 @@ export default function RightbarPanelContainer({
         overflow: "hidden",
       }}
     >
-      {/* Header */}
       <Box
         sx={{
           p: 2,
@@ -64,7 +63,6 @@ export default function RightbarPanelContainer({
       </Box>
       <Divider />
 
-      {/* Scrollable content */}
       <Box
         sx={{
           flex: 1,
@@ -75,7 +73,6 @@ export default function RightbarPanelContainer({
         {children}
       </Box>
 
-      {/* Optional footer */}
       {footer && (
         <>
           <Divider />

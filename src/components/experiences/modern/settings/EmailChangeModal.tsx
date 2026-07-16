@@ -40,7 +40,6 @@ export default function EmailChangeModal({
   const [error, setError] = useState<string | null>(null);
 
   const handleClose = () => {
-    // Reset state when closing
     setState("form");
     setNewEmail("");
     setPassword("");
@@ -62,7 +61,6 @@ export default function EmailChangeModal({
       return;
     }
 
-    // Email format validation using shared validator
     if (!isValidEmail(newEmail)) {
       setError("Please enter a valid email address");
       return;
@@ -71,9 +69,8 @@ export default function EmailChangeModal({
     setIsLoading(true);
 
     try {
-      // Verify the password by attempting to sign in with email
-      // Better Auth's changeEmail requires the user to be authenticated
-      // and we verify the password to prevent unauthorized changes
+      // Better Auth's changeEmail requires the user to be authenticated;
+      // signing in here also verifies the password to prevent unauthorized changes
       const verifyResult = await authClient.signIn.email({
         email: currentEmail,
         password,
@@ -85,13 +82,11 @@ export default function EmailChangeModal({
         throw new Error(errorObj.message || "Invalid password");
       }
 
-      // Build callback URL for verification redirect
       const callbackURL =
         typeof window !== "undefined"
           ? `${window.location.origin}/dashboard/settings`
           : undefined;
 
-      // Call Better Auth changeEmail API
       const result = await authClient.changeEmail({
         newEmail,
         callbackURL,
@@ -101,7 +96,6 @@ export default function EmailChangeModal({
         throw new Error(result.error.message || "Failed to initiate email change");
       }
 
-      // Success - show verification message
       setState("success");
       toast.success("Verification email sent!");
     } catch (err) {

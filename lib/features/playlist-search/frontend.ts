@@ -21,7 +21,7 @@ export type SearchRow = {
   operator: Operator;
   field: SearchField;
   value: string;
-  valueTo?: string; // For date range "to" value
+  valueTo?: string;
   exact: boolean; // Exact phrase match
 };
 

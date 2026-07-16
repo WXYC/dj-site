@@ -3,10 +3,10 @@ import type { Rotation } from "@/lib/features/rotation/types";
 /**
  * Rotation bin metadata (ids + display labels).
  *
- * The per-bin COLORS now live in the theme's `rotation` palette slot
+ * The per-bin COLORS live in the theme's `rotation` palette slot
  * (`theme.vars.palette.rotation.{heavy,medium,light,singles}.*`, see
  * lib/features/experiences/modern/themes) so they retheme with the color
- * system; the old hardcoded light/dark hex tables were removed.
+ * system.
  */
 
 export const ROTATION_BINS: Rotation[] = ["H", "M", "L", "S"];

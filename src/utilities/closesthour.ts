@@ -7,8 +7,6 @@ export function getClosestHour() {
       now.setHours(now.getHours() + 1);
     }
 
-    //console.log("Closest hour:", now);
-
     return now;
 }
 

@@ -52,7 +52,6 @@ export default function SettingsForm({ user }: SettingsFormProps) {
         gap: 1.5,
       }}
     >
-      {/* Identity Section */}
       <Typography level="title-sm" sx={{ gridColumn: "1/-1" }}>
         Identity
       </Typography>
@@ -101,7 +100,6 @@ export default function SettingsForm({ user }: SettingsFormProps) {
 
       <Divider sx={{ gridColumn: "1/-1", my: 1 }} />
 
-      {/* Station Info Section */}
       <Typography level="title-sm" sx={{ gridColumn: "1/-1" }}>
         Station Info
       </Typography>
@@ -135,7 +133,6 @@ export default function SettingsForm({ user }: SettingsFormProps) {
 
       <Divider sx={{ gridColumn: "1/-1", my: 1 }} />
 
-      {/* About Section */}
       <Typography level="title-sm" sx={{ gridColumn: "1/-1" }}>
         About
       </Typography>

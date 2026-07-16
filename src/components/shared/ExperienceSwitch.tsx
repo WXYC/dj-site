@@ -1,11 +1,6 @@
 import { ExperienceId } from "@/lib/features/experiences/types";
 import { ReactNode } from "react";
 
-/**
- * ExperienceSwitch
- * Configuration-driven component that renders the appropriate experience
- * Replaces the hardcoded logic in ThemedLayout
- */
 interface ExperienceSwitchProps {
   experience: ExperienceId;
   classic: ReactNode;

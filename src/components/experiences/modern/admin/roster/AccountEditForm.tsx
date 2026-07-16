@@ -346,7 +346,6 @@ export default function AccountEditForm({
 
   return (
     <Stack spacing={2.5} sx={{ mt: 1 }}>
-      {/* Role */}
       <FormControl>
         <FormLabel>Role</FormLabel>
         <Select
@@ -374,7 +373,6 @@ export default function AccountEditForm({
         )}
       </FormControl>
 
-      {/* Capabilities */}
       <FormControl>
         <FormLabel>Capabilities</FormLabel>
         <Stack direction="row" spacing={1}>
@@ -437,7 +435,6 @@ export default function AccountEditForm({
         </Stack>
       </FormControl>
 
-      {/* Real Name */}
       <FormControl>
         <FormLabel>Real Name</FormLabel>
         <Stack direction="row" spacing={1} alignItems="center">
@@ -462,7 +459,6 @@ export default function AccountEditForm({
         </Stack>
       </FormControl>
 
-      {/* DJ Name */}
       <FormControl>
         <FormLabel>DJ Name</FormLabel>
         <Stack direction="row" spacing={1} alignItems="center">
@@ -487,7 +483,6 @@ export default function AccountEditForm({
         </Stack>
       </FormControl>
 
-      {/* Email */}
       <FormControl>
         <FormLabel>Email</FormLabel>
         <Stack direction="row" spacing={1} alignItems="center">
@@ -515,7 +510,6 @@ export default function AccountEditForm({
 
       <Divider />
 
-      {/* Account actions */}
       <Stack spacing={1.5}>
         <Typography level="title-sm">Account Actions</Typography>
         <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>

@@ -23,14 +23,11 @@ type Props = {
   onUpdate: (entryId: number, data: UpdateRequestBody) => void;
   onDelete: (entryId: number) => void;
   fontSize: number;
-  /** True if the next row in the table is also a song row.
-   *  Used to suppress the segue indicator when the next row is a talkset,
+  /** Suppresses the segue indicator when the next row is a talkset,
    *  breakpoint, or show-block — those render full-width and would leave the
    *  red bracket dangling. EntryTable computes and passes this. */
   nextIsSong?: boolean;
-  /** True while this row is the source of an active drag. */
   isDragging?: boolean;
-  /** True while a drag-over event is hovering this row (drop target preview). */
   isDragOver?: boolean;
   onDragStart?: (entryId: number) => void;
   onDragOver?: (entryId: number) => void;
@@ -118,10 +115,9 @@ export default function EntryRow({
     }
   };
 
-  // Marker rows (talkset / breakpoint / start / end of show) span 5 of the 7
-  // post-PR8 columns: grip + indicators + artist + song + release + label + edit.
-  // The marker's content cell colspans the 5 middle data columns; the trailing
-  // edit/delete column gets an empty cell.
+  // Marker rows (talkset / breakpoint / start / end of show) colspan the 5
+  // middle data columns (of 7: grip + indicators + artist + song + release +
+  // label + edit); the trailing edit/delete column gets an empty cell.
 
   const dragClass = [
     isDragging ? "dragging" : "",

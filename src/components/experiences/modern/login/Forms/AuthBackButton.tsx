@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 export default function AuthBackButton({
   text
 } : {
-  text?: string; // Optional prop for custom button text
+  text?: string;
 }) {
   const { handleLogout, loggingOut } = useLogout();
   const dispatch = useAppDispatch();

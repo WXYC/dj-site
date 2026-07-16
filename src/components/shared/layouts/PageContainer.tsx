@@ -3,10 +3,6 @@
 import { Box } from "@mui/joy";
 import { ReactNode } from "react";
 
-/**
- * PageContainer - Consistent page content wrapper
- * Provides standard padding and max-width for page content
- */
 interface PageContainerProps {
   children: ReactNode;
   maxWidth?: string | number;

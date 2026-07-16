@@ -9,16 +9,11 @@ import { OpenHelp } from "@/src/utils/helpScreen";
 export default function StartShow() {
   const { goLive } = useShowControl();
   const { info: userData } = useRegistry();
-  // Editable per-show override for the DJ's public handle. Initialized to
-  // the registry's `dj_name` so the user sees their current value and can
-  // type over it. See #694 + BS#1295.
-  //
-  // `useRegistry()` is async: the first render is typically `info: null`
-  // and `userData?.dj_name` lands on a later render. `useState`'s
-  // initializer only runs once, so we sync the editable state to the
-  // registry value via `useEffect` until the user types into the field.
-  // After the user edits, their in-progress value wins even if the
-  // registry refetches.
+  // Editable per-show override for the DJ's public handle, initialized to the
+  // registry's `dj_name`. useRegistry() is async, so useState's initializer
+  // (which only runs once) can't wait for it — this effect syncs the field
+  // until the user edits it, after which their in-progress value wins even
+  // if the registry refetches. See #694 + BS#1295.
   const registryDjHandle = userData?.dj_name ?? "";
   const [djHandle, setDjHandle] = useState(registryDjHandle);
   const [userEditedDjHandle, setUserEditedDjHandle] = useState(false);
@@ -45,7 +40,6 @@ export default function StartShow() {
     goLive(override);
   };
 
-  // Format current time for display in disabled dropdown
   const getCurrentTimeDisplay = () => {
     const now = new Date();
     const hour = now.getHours();

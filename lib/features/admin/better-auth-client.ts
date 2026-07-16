@@ -4,10 +4,6 @@ import { Authorization } from "./types";
 import { isAuthenticated } from "../authentication/types";
 import { betterAuthSessionToAuthenticationData as convertSession, BetterAuthSessionResponse } from "../authentication/utilities";
 
-/**
- * Verifies that the current user is authenticated and has admin (stationManager) privileges
- * @throws Error if user is not authenticated or not an admin
- */
 export async function verifyAdminAccess(): Promise<void> {
   const cookieStore = await cookies();
   const cookieHeader = cookieStore.toString();
@@ -35,10 +31,6 @@ export async function verifyAdminAccess(): Promise<void> {
   }
 }
 
-/**
- * Gets the better-auth admin client for making admin API calls
- * Verifies admin access before returning
- */
 export async function getBetterAuthAdminClient() {
   await verifyAdminAccess();
   return serverAuthClient;

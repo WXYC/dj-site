@@ -75,7 +75,6 @@ function renderToken(token: ResolvedToken, key: number): ReactNode {
   }
 }
 
-/** Renders pre-parsed Discogs markup tokens as React elements. */
 export default function DiscogsMarkup({ tokens }: { tokens: ResolvedToken[] }) {
   return <>{tokens.map((token, i) => renderToken(token, i))}</>;
 }

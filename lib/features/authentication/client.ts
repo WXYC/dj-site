@@ -4,10 +4,6 @@ import { createAuthClient } from "better-auth/react"
 import { adminClient, emailOTPClient, usernameClient, jwtClient, organizationClient } from "better-auth/client/plugins"
 import { isValidEmail } from "@wxyc/shared/validation"
 
-// Client-side only - contains React hooks
-// This file should only be imported in client components
-
-// NEXT_PUBLIC_ variables are available at build time in Next.js
 function getBaseURL(): string {
   // Client-side: prefer same-origin proxy to ensure session cookies are set
   const envURL = process?.env?.NEXT_PUBLIC_BETTER_AUTH_URL;
@@ -21,7 +17,6 @@ function getBaseURL(): string {
         }
         return envURL;
       } catch {
-        // If envURL isn't a valid absolute URL, treat it as a path
         return envURL.startsWith("/")
           ? `${window.location.origin}${envURL}`
           : `${window.location.origin}/auth`;
@@ -51,7 +46,6 @@ const baseConfig = {
     ]
 };
 
-// Client-side auth client (for React components)
 export const authClient = createAuthClient(baseConfig);
 
 let cachedToken: string | null = null;

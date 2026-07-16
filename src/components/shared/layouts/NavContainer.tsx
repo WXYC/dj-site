@@ -3,10 +3,6 @@
 import { Box } from "@mui/joy";
 import { ReactNode } from "react";
 
-/**
- * NavContainer - Flexible navigation container
- * Can be used for sidebars, headers, or mobile navigation
- */
 interface NavContainerProps {
   children: ReactNode;
   orientation?: "horizontal" | "vertical";

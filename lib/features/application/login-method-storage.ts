@@ -33,7 +33,6 @@ export function getPreferredLoginMethod(): PreferredLoginMethod {
   }
 }
 
-/** Persist the user's preferred login method to localStorage. */
 export function savePreferredLoginMethod(method: PreferredLoginMethod): void {
   if (typeof window === "undefined") return;
   try {

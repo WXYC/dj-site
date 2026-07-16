@@ -31,9 +31,6 @@ export function sanitizeCSVField(field: string): string {
   return result.trim();
 }
 
-/**
- * Derive a username from an email address (local part before @).
- */
 export function deriveUsername(email: string): string {
   return email.split("@")[0];
 }
@@ -57,11 +54,9 @@ export function parseCSVText(text: string): string[][] {
     if (inQuotes) {
       if (char === '"') {
         if (i + 1 < text.length && text[i + 1] === '"') {
-          // Escaped quote
           currentField += '"';
           i += 2;
         } else {
-          // End of quoted field
           inQuotes = false;
           i++;
         }
@@ -78,7 +73,6 @@ export function parseCSVText(text: string): string[][] {
         currentField = "";
         i++;
       } else if (char === "\r") {
-        // CRLF or bare CR
         currentRow.push(currentField);
         currentField = "";
         rows.push(currentRow);
@@ -133,7 +127,6 @@ export function parseCSVImport(text: string): CSVParseResult {
   const djNameIdx = findColumnIndex(headers, DJ_NAME_ALIASES);
   const emailIdx = findColumnIndex(headers, EMAIL_ALIASES);
 
-  // Check for required headers
   const missingHeaders: string[] = [];
   if (nameIdx === -1) missingHeaders.push("Name");
   if (djNameIdx === -1) missingHeaders.push("DJ Name");
@@ -165,7 +158,6 @@ export function parseCSVImport(text: string): CSVParseResult {
 
     const username = rawUsername || (email ? deriveUsername(email) : "");
 
-    // Validate
     if (!name) {
       errors.push({ row: rowNum, field: "name", message: "Name is required" });
     }

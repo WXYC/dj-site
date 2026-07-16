@@ -34,7 +34,6 @@ export default function Main() {
     if (!currentShowEntries || currentShowEntries.length === 0) {
       return null;
     }
-    // Find start show entry
     const startEntry = currentShowEntries.find(isFlowsheetStartShowEntry);
     if (startEntry) {
       return {
@@ -89,7 +88,6 @@ export default function Main() {
     );
   }
 
-  // Show StartShow component when not live
   if (!live) {
     return (
       <div style={{ width: "100%", margin: "0 auto" }}>
@@ -99,7 +97,6 @@ export default function Main() {
     );
   }
 
-  // Show flowsheet when live
   return (
     <div style={{ width: "100%", margin: "0 auto" }}>
       <Navigation />

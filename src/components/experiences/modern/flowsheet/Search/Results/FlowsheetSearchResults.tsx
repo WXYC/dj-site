@@ -58,8 +58,6 @@ export default function FlowsheetSearchResults({
     selectedResult > 0 ? allResults[selectedResult - 1] ?? null : null;
 
   const [manualOverride, setManualOverride] = useState<number | null>(null);
-  // Reset the "Not listed — enter manually" opt-out when the DJ navigates to a
-  // different result.
   useEffect(() => {
     if (
       manualOverride !== null &&

@@ -1,7 +1,3 @@
-/**
- * Opens the help screen in a popup window
- * Replicates the legacy OpenHelp() JavaScript function
- */
 export function OpenHelp() {
   const width = 500;
   const height = 500;

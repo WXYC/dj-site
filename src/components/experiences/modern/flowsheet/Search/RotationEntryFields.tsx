@@ -130,7 +130,6 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
     dispatch(flowsheetSlice.actions.setSearchProperty({ name: "song", value: "" }));
   }, [dispatch]);
 
-  // Show track dropdown when tracks are available and user hasn't chosen manual entry
   const showTrackDropdown = selectedRelease && !manualEntry && (tracksLoading || (tracks && tracks.length > 0));
 
   return (

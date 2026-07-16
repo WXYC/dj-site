@@ -331,7 +331,6 @@ export const flowsheetApi = createApi({
         }
       },
     }),
-    // Ghost text autocomplete suggestions
     suggestArtists: builder.query<string[], { q: string; limit?: number }>({
       query: ({ q, limit }) => ({
         url: "/suggest/artists",

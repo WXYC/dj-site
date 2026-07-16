@@ -134,7 +134,6 @@ export const useShowControl = () => {
       return;
     }
 
-    // Clear the queue when ending the show
     dispatch(flowsheetSlice.actions.clearQueue());
     // Tag invalidation from the mutation handles refetching
     leaveFunction({ dj_id: userData.id });
@@ -310,9 +309,7 @@ export const useFlowsheet = () => {
 
   const { currentShow, live } = useShowControl();
 
-  // Partition entries into current show vs previous shows. All entries from
-  // the current show (including start/end markers) go into currentShowEntries,
-  // sorted play_order DESC so persisted reorders are reflected.
+  // currentShowEntries is sorted play_order DESC so persisted reorders are reflected.
   const { current: currentShowEntries, previous: lastShowsEntries } = useMemo(
     () => partitionFlowsheetEntries(allEntries, currentShow, live),
     [allEntries, currentShow, live]
@@ -476,10 +473,9 @@ export const useQueue = () => {
     }),
   });
 
-  // Load queue from localStorage on mount
   useEffect(() => {
     dispatch(flowsheetSlice.actions.loadQueue());
-  }, [dispatch]); // Only run on mount
+  }, [dispatch]);
 
   // True when the previous settled WhoIsLive read was also off-air. A single
   // settled off-air read can be stale — right after joinShow fulfills, the

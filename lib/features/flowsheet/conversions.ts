@@ -71,8 +71,6 @@ export function convertDJsOnAir(
   };
 }
 
-// V2 conversion functions
-
 // Whether an "M/D/YYYY" display day is today. The comparison is done here,
 // against a today string built the same way, rather than by re-parsing the
 // display string with `new Date(day)` downstream — non-ISO date parsing is

@@ -73,21 +73,20 @@ export type NewUserCredentials = Credentials & Record<string, string>;
 export type User = {
   username: string;
   email: string;
-  realName?: string;          // Optional: User's real name
-  djName?: string;            // Optional: DJ name/on-air name
-  pronouns?: string;          // Optional: User's pronouns (e.g., "they/them")
-  namePronunciation?: string; // Optional: Phonetic pronunciation guide
-  showTimes?: string;         // Optional: When the DJ has their show
-  title?: string;             // Optional: Role/title at the station
-  semesterHired?: string;     // Optional: When they joined (e.g., "Fall 2024")
-  bio?: string;               // Optional: Short biography
-  location?: string;          // Optional: Where they're based
+  realName?: string;
+  djName?: string;
+  pronouns?: string;
+  namePronunciation?: string;
+  showTimes?: string;
+  title?: string;
+  semesterHired?: string;
+  bio?: string;
+  location?: string;
   authority: Authorization;
-  // Better-auth fields (optional for compatibility)
   id?: string;
   name?: string;              // Username (duplicate of username)
   emailVerified?: boolean;
-  appSkin?: string;           // UI theme
+  appSkin?: string;
   createdAt?: Date;
   updatedAt?: Date;
 };
@@ -120,16 +119,15 @@ export type Validators =
   | "ResetPasswordCredentials";
 
 
-// Better-auth JWT payload structure
 export interface BetterAuthJwtPayload extends JwtPayload {
-  sub?: string;        // User ID
+  sub?: string;
   id?: string;         // User ID (better-auth may include both)
-  email: string;       // User email
-  role: WXYCRole;      // Organization member role
-  exp: number;         // Expiration timestamp
-  iat: number;         // Issued at timestamp
-  iss?: string;        // Issuer
-  aud?: string;        // Audience
+  email: string;
+  role: WXYCRole;
+  exp: number;
+  iat: number;
+  iss?: string;
+  aud?: string;
 }
 
 export type DJRegistryParams = {

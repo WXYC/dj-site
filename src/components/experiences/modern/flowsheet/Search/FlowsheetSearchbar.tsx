@@ -60,13 +60,11 @@ export default function FlowsheetSearchbar() {
   const autoFilledAlbumRef = useRef<string | null>(null);
   const autoFilledLabelRef = useRef<string | null>(null);
 
-  // Ghost text for artist field
   const artistGhost = useGhostText(
     "artist",
     searchQuery.artist as string
   );
 
-  // Ghost text for song field (filtered by confirmed artist)
   const songGhost = useGhostText(
     "song",
     searchQuery.song as string,
@@ -86,7 +84,6 @@ export default function FlowsheetSearchbar() {
     const fullSong = songGhost.acceptGhostText();
     if (fullSong) {
       setSearchProperty("song", fullSong);
-      // Auto-fill album and label from the track result
       if (songGhost.trackResult?.album_title) {
         setSearchProperty("album", songGhost.trackResult.album_title);
       }
