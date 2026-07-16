@@ -146,18 +146,20 @@ export class DashboardPage {
    * Users without proper permissions should be redirected away from admin pages
    */
   async expectRedirectedToDefaultDashboard(): Promise<void> {
-    // Wait for navigation to complete
-    await this.page.waitForLoadState("domcontentloaded");
-    // Give the app time to process the redirect
-    await this.page.waitForTimeout(1000);
-    const url = this.page.url();
-    // Should be redirected to dashboard, flowsheet, or catalog (NOT admin pages)
-    const isOnDashboard = url.includes("/dashboard");
-    const isNotOnAdminPage = !url.includes("/dashboard/admin");
-    const isNotOnLogin = !url.includes("/login");
-    // Accept any non-admin dashboard page as a valid redirect destination
-    const isValidRedirect = isOnDashboard && isNotOnAdminPage && isNotOnLogin;
-    expect(isValidRedirect, `Expected redirect to dashboard (not admin), got: ${url}`).toBe(true);
+    // The deny redirect can arrive as a streaming-SSR client redirect (the shell
+    // flushes at the admin URL first, the router soft-navigates after hydration),
+    // so poll for the final URL instead of sampling after a fixed delay.
+    await this.page.waitForURL(
+      (u) => {
+        const url = u.toString();
+        return (
+          url.includes("/dashboard") &&
+          !url.includes("/dashboard/admin") &&
+          !url.includes("/login")
+        );
+      },
+      { timeout: 15000 }
+    );
   }
 
   /**
