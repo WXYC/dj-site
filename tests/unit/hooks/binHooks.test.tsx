@@ -16,6 +16,15 @@ const deleteTrigger = vi.fn((arg: { dj_id: string; album_id: number }) => ({
       : Promise.resolve(),
 }));
 
+// Same shape for useAddToBin's mutation trigger; unwrap rejects for ids in `addFailIds`.
+const addFailIds = new Set<number>();
+const addTrigger = vi.fn((arg: { dj_id: string; album_id: number }) => ({
+  unwrap: () =>
+    addFailIds.has(arg.album_id)
+      ? Promise.reject(new Error("add failed"))
+      : Promise.resolve(),
+}));
+
 vi.mock("@/src/hooks/authenticationHooks", () => ({
   useRegistry: () => mockUseRegistry(),
 }));
@@ -23,14 +32,21 @@ vi.mock("@/src/hooks/authenticationHooks", () => ({
 vi.mock("@/lib/features/bin/api", () => ({
   useGetBinQuery: (...args: unknown[]) => mockUseGetBinQuery(...args),
   useDeleteFromBinMutation: () => [deleteTrigger, { isLoading: false }],
-  useAddToBinMutation: () => [vi.fn(), { isLoading: false }],
+  useAddToBinMutation: () => [addTrigger, { isLoading: false }],
 }));
 
 vi.mock("sonner", () => ({
   toast: { error: (...a: unknown[]) => toastError(...a) },
 }));
 
-import { useClearBin } from "@/src/hooks/binHooks";
+import { useClearBin, useAddToBin, useDeleteFromBin } from "@/src/hooks/binHooks";
+
+// Flushes the microtask queue past the mutate().unwrap().catch() chain in
+// useBinMutation's action callback, which isn't awaited by the caller.
+async function flushMicrotasks() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
 
 const entry = (id: number) => ({ id, title: `Album ${id}` }) as AlbumEntry;
 
@@ -115,5 +131,71 @@ describe("useClearBin", () => {
     });
 
     expect(deleteTrigger).not.toHaveBeenCalled();
+  });
+});
+
+describe("useAddToBin", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    addFailIds.clear();
+    mockUseRegistry.mockReturnValue({ loading: false, info: { id: "dj1" } });
+  });
+
+  it("does not toast when the add mutation succeeds", async () => {
+    const { result } = renderHook(() => useAddToBin());
+
+    await act(async () => {
+      result.current.addToBin(1);
+      await flushMicrotasks();
+    });
+
+    expect(addTrigger).toHaveBeenCalledWith({ dj_id: "dj1", album_id: 1 });
+    expect(toastError).not.toHaveBeenCalled();
+  });
+
+  it("toasts once with the add-failure message when the add mutation fails", async () => {
+    addFailIds.add(1);
+    const { result } = renderHook(() => useAddToBin());
+
+    await act(async () => {
+      result.current.addToBin(1);
+      await flushMicrotasks();
+    });
+
+    expect(toastError).toHaveBeenCalledTimes(1);
+    expect(toastError).toHaveBeenCalledWith("Failed to add album to bin");
+  });
+});
+
+describe("useDeleteFromBin", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    failIds.clear();
+    mockUseRegistry.mockReturnValue({ loading: false, info: { id: "dj1" } });
+  });
+
+  it("does not toast when the delete mutation succeeds", async () => {
+    const { result } = renderHook(() => useDeleteFromBin());
+
+    await act(async () => {
+      result.current.deleteFromBin(1);
+      await flushMicrotasks();
+    });
+
+    expect(deleteTrigger).toHaveBeenCalledWith({ dj_id: "dj1", album_id: 1 });
+    expect(toastError).not.toHaveBeenCalled();
+  });
+
+  it("toasts once with the remove-failure message when the delete mutation fails", async () => {
+    failIds.add(1);
+    const { result } = renderHook(() => useDeleteFromBin());
+
+    await act(async () => {
+      result.current.deleteFromBin(1);
+      await flushMicrotasks();
+    });
+
+    expect(toastError).toHaveBeenCalledTimes(1);
+    expect(toastError).toHaveBeenCalledWith("Failed to remove album from bin");
   });
 });
