@@ -47,14 +47,14 @@ and test count exactly (minus explicitly deleted duplicates, which must be named
 | 12 | bin-hooks-cleanup | toast-on-error effect → callback catch | simple | pending |
 | 13 | admin-roster-server-state | RTKQ queryFn over authClient; delete roster-events bus | risky | pending |
 | 14 | comment-reduction-pass | top-density files untouched by earlier slices | simple | pending |
-| 15 | playlist-search-infinite-migration | OPTIONAL: adopt catalog builder.infiniteQuery pattern | risky | pending |
-| 16 | e2e-relocation | OPTIONAL, LAST: e2e/ → tests/e2e | simple | pending |
+| 15 | playlist-search-infinite-migration | moved to issue #883 (Jackson, 2026-07-15) | — | out of campaign |
+| 16 | e2e-relocation | declined (Jackson, 2026-07-15): e2e/ stays the sanctioned Playwright location; tests/ is the vitest hierarchy | — | won't do |
 
 Sequencing: S1–S3 shrink the surface before the bulk moves; S4 must precede S5–S8
 (helper import paths); S9 before S10 (useRegistry identity stability changes memo
-behavior S10 relies on); S11–S13 independent after S9; S14 last of the code slices;
-S15/S16 optional tail. Risk drives implementation model: simple → Sonnet,
-risky/moderate → Opus; every slice gets an independent fresh-context review.
+behavior S10 relies on); S11–S13 independent after S9; S14 is the final slice.
+Risk drives implementation model: simple → Sonnet, risky/moderate → Opus; every
+slice gets an independent fresh-context review.
 
 ## Milestone gates (Jackson's visual verification)
 
@@ -64,7 +64,7 @@ risky/moderate → Opus; every slice gets an independent fresh-context review.
 | M2 | S8 | Test migration done; zero colocated tests; app untouched — quick smoke |
 | M3 | S10 | Auth/session + flowsheet search behavior: login flows, role gating, search/submit from all four sources |
 | M4 | S13 | Rightbar toggle, bin error toasts, admin roster CRUD + search |
-| M5 | S14 (+S15/S16 if run) | Final full pass before campaign close |
+| M5 | S14 | Final full pass before campaign close |
 
 The pipeline pauses at each gate; feedback becomes fix slices at the head of the
 docket before the next slice starts.
