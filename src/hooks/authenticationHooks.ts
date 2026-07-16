@@ -22,7 +22,7 @@ import { DEFAULT_DASHBOARD_HOME_PAGE } from "@/lib/features/application/constant
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useRouter, useSearchParams, type ReadonlyURLSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { resetApplication } from "./applicationHooks";
 import { throwIfBetterAuthError } from "@/src/utilities/throwIfBetterAuthError";
@@ -38,40 +38,29 @@ const LOGIN_EVENTS = {
 
 type LoginMethod = "password" | "otp" | "onboarding" | "qr";
 
-/**
- * How hard we try to confirm the freshly-established session is visible
- * server-side before navigating into a `requireAuth()`-gated route. The client
- * sign-in resolves as soon as the auth response (incl. Set-Cookie) is in hand,
- * but the very next server component render occasionally can't see a valid
- * session yet, so `requireAuth()` bounces the DJ straight back to
- * `/login?bounced=no-session` (WXYC/dj-site login no-session race — 61% of all
- * server bounces in the first month of `login_server_bounce` telemetry). The
- * backend has no read replica or session cache, so a single confirming read
- * that succeeds proves the next server render will resolve the session too.
- */
+// Login no-session race: client sign-in resolves once the auth response (incl.
+// Set-Cookie) is in hand, but the next server render occasionally can't see the
+// session yet and `requireAuth()` bounces to `/login?bounced=no-session` (61% of
+// server bounces in `login_server_bounce`'s first month). No backend read replica
+// or session cache, so one confirming read that succeeds proves the next server
+// render resolves too. The per-read timeout bounds the loop — better-auth's fetch
+// has no default timeout, so a stalled read would otherwise pin the spinner and
+// strand the DJ. Worst case ~5 × (timeout + delay).
 const SESSION_CONFIRM_ATTEMPTS = 5;
 const SESSION_CONFIRM_DELAY_MS = 150;
-// Cap on a single confirming read. better-auth's fetch has no default timeout,
-// so without this a stalled connection would hang the `await` forever, pinning
-// the login button's spinner and stranding the DJ — the exact outcome the
-// docstring promises can't happen. A timed-out read counts as "not yet
-// visible", so the loop stays bounded (worst case ~5 x (timeout + delay)).
 const SESSION_CONFIRM_TIMEOUT_MS = 2000;
 
 /**
  * Poll better-auth until it acknowledges the current session, forcing a fresh
- * server read each time (`disableCookieCache`) so we observe the real verdict
- * rather than a stale client snapshot. Resolves `true` as soon as a user is
- * seen, or `false` once attempts are exhausted — the caller navigates either
- * way so a persistent failure never strands the DJ on the login screen. Each
- * read is time-boxed so a hung request can't defeat that guarantee.
+ * server read each time (`disableCookieCache`). Resolves `true` once a user is
+ * seen or `false` when attempts are exhausted — the caller navigates either way,
+ * so a persistent failure never strands the DJ on the login screen.
  */
 async function confirmSessionVisible(): Promise<boolean> {
   for (let attempt = 1; attempt <= SESSION_CONFIRM_ATTEMPTS; attempt++) {
-    // `.catch` sits on the read itself, not around the race: if a read the
-    // timeout already beat rejects late, that rejection must resolve to null
-    // here rather than surface as an unhandled promise rejection. A transient
-    // failure and an empty session are treated the same — retry.
+    // `.catch` sits on the read, not the race: a read the timeout already beat
+    // must resolve to null here, not surface as an unhandled rejection. A
+    // transient failure and an empty session both mean "not yet visible" — retry.
     const session = await Promise.race([
       authClient
         .getSession({ query: { disableCookieCache: true } })
@@ -96,25 +85,18 @@ async function confirmSessionVisible(): Promise<boolean> {
 /**
  * Send a freshly-authenticated user to the right place and record the choice.
  *
- * Waits for the server to acknowledge the new session (`confirmSessionVisible`)
- * before navigating, closing the no-session race where a client-side "login
- * successful" is immediately undone by a server-side `requireAuth()` bounce.
+ * Waits for `confirmSessionVisible` before navigating, closing the no-session
+ * race where a client "login successful" is undone by a server `requireAuth()`
+ * bounce. Emits one `login_post_redirect` with a `destination` discriminator; the
+ * RAW onboarding flag (incl. null) keeps an undefined-flag misroute distinct from
+ * a genuinely-incomplete account (#836 Bug B), and `session_confirmed` keeps a
+ * residual race visible in telemetry.
  *
- * Emits one `login_post_redirect` event with a `destination` discriminator so a
- * PostHog breakdown shows the share of successful logins bounced to the
- * incomplete screen vs. the dashboard. Captures the RAW onboarding flag
- * (incl. null when absent) so a complete DJ misrouted because the flag came
- * back undefined is distinguishable from a genuinely-incomplete account, plus
- * `session_confirmed` so a residual race (server never acknowledged the
- * session) stays visible in telemetry instead of looking fixed.
- *
- * When the confirm gate fails for a dashboard-bound login, we `refresh()`
- * rather than `push()` into a redirect we already know will bounce: pushing to
- * the dashboard would only hit `/login?bounced=no-session`, which then trips the
- * `SessionEndedNotice` toast — a "your session has ended" message contradicting
- * the "Login successful" the DJ just saw. A refresh lets the `/login` layout be
- * the authority: it forwards to the dashboard if the session became visible, or
- * re-shows the form to retry if not. Never strands the DJ either way.
+ * On a failed confirm gate for a dashboard-bound login we `refresh()` rather than
+ * `push()` into a known bounce: pushing would hit `/login?bounced=no-session` and
+ * trip the `SessionEndedNotice` toast, contradicting the "Login successful" just
+ * shown. A refresh lets the `/login` layout arbitrate — forward if the session
+ * became visible, re-show the form if not. Never strands the DJ.
  */
 async function redirectAfterAuth(
   router: { push: (href: string) => void; refresh: () => void },
@@ -125,17 +107,15 @@ async function redirectAfterAuth(
   const dashboardHome = String(
     process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || DEFAULT_DASHBOARD_HOME_PAGE,
   );
-  // "incomplete" means we affirmatively KNOW onboarding isn't done: a present
-  // user whose flag is false or absent (the latter is the #836 Bug B case). An
-  // absent user OBJECT is unknown, not incomplete — the post-auth read failed
-  // (e.g. the QR flow's getSession hiccup), so defer to the server's
-  // requireAuth to resolve the real onboarding status rather than forcing the
-  // onboarding form on a DJ who just authenticated successfully (#849).
+  // "incomplete" = we affirmatively know onboarding isn't done: a present user
+  // whose flag is false or absent (#836 Bug B). An absent user OBJECT is unknown,
+  // not incomplete — the post-auth read failed (e.g. QR getSession hiccup), so
+  // defer to server requireAuth rather than force onboarding on a DJ who just
+  // authenticated (#849).
   const incomplete = !!user && user.hasCompletedOnboarding !== true;
-  // Resolve a live OIDC authorize bounce (`client_id` + `response_type=code`)
-  // to its resume target, or null. Computed here — not at the call site — so
-  // every credential entry point (useLogin/useOTPVerify/useNewUser) shares one
-  // definition of what a bounce is and how it's resumed (#836).
+  // Resolve a live OIDC authorize bounce (`client_id` + `response_type=code`) to
+  // its resume target, or null. Computed here so every credential entry point
+  // shares one definition of a bounce and its resume (#836).
   const oidcTarget = oidcParams
     ? getOidcRedirectTarget(oidcParams, authBaseURL)
     : null;
@@ -156,26 +136,22 @@ async function redirectAfterAuth(
   }
 
   if (!incomplete && oidcTarget) {
-    // Hand off to the authorize endpoint with a full document navigation.
-    // In production `authBaseURL` is the same-origin `/auth` proxy (a
-    // next.config rewrite, not an app route), so `router.push` would treat
-    // this as an internal soft navigation and fire a background RSC fetch
-    // that hits `/oauth2/authorize` — burning the one-time OIDC code before
-    // the user ever leaves the page. `window.location.assign` leaves the
-    // SPA cleanly, so `router.refresh()` is moot.
+    // Full document navigation to the authorize endpoint. In prod `authBaseURL`
+    // is the same-origin `/auth` proxy (a next.config rewrite, not an app route),
+    // so `router.push` would soft-navigate and fire a background RSC fetch to
+    // `/oauth2/authorize`, burning the one-time OIDC code before the user leaves.
+    // `window.location.assign` leaves the SPA cleanly, so `refresh()` is moot.
     window.location.assign(oidcTarget);
     return;
   }
 
   if (incomplete) {
     // Preserve a live authorize bounce verbatim across the onboarding detour
-    // (#836 Bug A): the invited DJ lands on the onboarding form still carrying
-    // the authorize query, so useNewUser can resume the round-trip on
-    // completion instead of stranding at the dashboard. The onboarding form
-    // renders off session state (`isUserIncomplete`), so we don't need the
-    // non-load-bearing `incomplete=true` marker when we have real params to
-    // keep. An absent onboarding flag with a live bounce lands here too — it is
-    // routed to onboarding rather than delegated a code (#836 Bug B).
+    // (#836 Bug A) so useNewUser can resume the round-trip on completion. The
+    // onboarding form renders off session state, so the non-load-bearing
+    // `incomplete=true` marker is only needed when there are no real params to
+    // keep. An absent-flag user with a live bounce lands here too — routed to
+    // onboarding, not delegated a code (#836 Bug B).
     router.push(oidcTarget ? `/login?${oidcParams!.toString()}` : "/login?incomplete=true");
   } else {
     router.push(dashboardHome);
@@ -478,6 +454,9 @@ export const useLogout = () => {
       clearTokenCache();
       await authClient.signOut();
       resetApplication(dispatch);
+      // Drop the departing session's cached org-role so it can't be served to the
+      // next user on this shared control-room browser.
+      clearSessionAuthData();
       // Navigate to a clean /login ourselves. Leaning on router.refresh() to let
       // the dashboard's requireAuth() redirect us would route a deliberate logout
       // through /login?bounced=no-session, firing a false-positive
@@ -496,6 +475,63 @@ export const useLogout = () => {
   };
 };
 
+// Single owner for the per-session org-role resolution. `authClient.useSession()`
+// is better-auth's shared reactive store, but the async role lookup it feeds
+// (`betterAuthSessionToAuthenticationDataAsync` → jwtDecode + org `listMembers`
+// fallback) was re-run by every mounted consumer: N guards/registry/catalog hooks
+// meant N resolutions per session. A single-slot cache keyed by session identity,
+// with in-flight dedupe, collapses that to one — consumers converge on one cached
+// `AuthenticationData` reference. The effect below keeps the #612 cancellation
+// contract unchanged; committing only while this key is still the newest request
+// means a stale session's late resolution can never win the slot.
+let cachedAuthKey: string | null = null;
+let cachedAuthData: AuthenticationData | null = null;
+let inflightAuthKey: string | null = null;
+let inflightAuthData: Promise<AuthenticationData> | null = null;
+
+function resolveSessionAuthData(session: unknown): Promise<AuthenticationData> {
+  let key: string | null;
+  try {
+    key = JSON.stringify(session);
+  } catch {
+    // Unserializable session (should not happen): resolve directly, un-deduped,
+    // so behavior is never worse than the per-mount baseline.
+    return betterAuthSessionToAuthenticationDataAsync(session as any);
+  }
+  if (cachedAuthKey === key && cachedAuthData) return Promise.resolve(cachedAuthData);
+  if (inflightAuthKey === key && inflightAuthData) return inflightAuthData;
+
+  const promise = betterAuthSessionToAuthenticationDataAsync(session as any)
+    .then((data) => {
+      if (inflightAuthKey === key) {
+        cachedAuthKey = key;
+        cachedAuthData = data;
+        inflightAuthKey = null;
+        inflightAuthData = null;
+      }
+      return data;
+    })
+    .catch((error) => {
+      if (inflightAuthKey === key) {
+        inflightAuthKey = null;
+        inflightAuthData = null;
+      }
+      throw error;
+    });
+  inflightAuthKey = key;
+  inflightAuthData = promise;
+  return promise;
+}
+
+// Drop the cached org-role resolution and any in-flight slot. Called on logout so
+// the dedupe never outlives the session that seeded it.
+function clearSessionAuthData(): void {
+  cachedAuthKey = null;
+  cachedAuthData = null;
+  inflightAuthKey = null;
+  inflightAuthData = null;
+}
+
 export const useAuthentication = () => {
   const { data: session, isPending, error: sessionError } = authClient.useSession();
   const [authData, setAuthData] = useState<AuthenticationData>(
@@ -505,23 +541,21 @@ export const useAuthentication = () => {
   );
   const [isLoadingRole, setIsLoadingRole] = useState(false);
 
-  // Fetch organization role when session is available.
   useEffect(() => {
-    // Guard against a stale session's role fetch resolving after a newer one:
-    // on a session transition (logout→login, refresh, OTP) the older promise
-    // could otherwise clobber authData with the previous session's role, and
-    // resolve after unmount ("setState on unmounted component") — #612.
+    // Guard against a stale session's role fetch resolving after a newer one: on
+    // a session transition (logout→login, refresh, OTP) the older promise could
+    // otherwise clobber authData with the previous session's role, or resolve
+    // after unmount — #612.
     let cancelled = false;
     if (session && !isPending) {
       setIsLoadingRole(true);
-      betterAuthSessionToAuthenticationDataAsync(session as any)
+      resolveSessionAuthData(session)
         .then((data) => {
           if (!cancelled) setAuthData(data);
         })
         .catch((error) => {
           if (cancelled) return;
           console.error("Failed to fetch organization role, using session data:", error);
-          // Fall back to synchronous version on error
           setAuthData(betterAuthSessionToAuthenticationData(session as any));
         })
         .finally(() => {
@@ -550,18 +584,22 @@ export const useAuthentication = () => {
 export const useRegistry = () => {
   const { data, authenticated, authenticating } = useAuthentication();
 
-  // Return user data from better-auth session instead of fetching from DJ Registry API
   const user = isAuthenticated(data) ? data.user : null;
+  const id = user?.id;
+  const realName = user?.realName;
+  const djName = user?.djName;
 
-  const info = user ? {
-    id: user.id!, // User ID (string) - backend now accepts this instead of numeric DJ ID
-    real_name: user.realName || undefined,
-    dj_name: user.djName || undefined,
-  } : null;
+  // Stable `info` identity across renders when content is unchanged: consumers
+  // feed it into useCallback/effect dep arrays across flowsheet/bin/dj hooks, so
+  // a fresh object each render would cascade recomputation (census §3).
+  const info = useMemo(
+    () => (id ? { id, real_name: realName || undefined, dj_name: djName || undefined } : null),
+    [id, realName, djName],
+  );
 
   return {
     loading: authenticating || !authenticated,
-    info: info,
+    info,
   };
 };
 
