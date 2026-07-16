@@ -38,7 +38,8 @@ import {
   useRotationFlowsheetSearch,
 } from "./catalogHooks";
 import { useLmlLibrarySearch } from "./useLmlLibrarySearch";
-import { MAX_VISIBLE_RESULTS } from "@/src/components/experiences/modern/flowsheet/Search/Results/BackendResults/FlowsheetBackendResults";
+import { useDocumentKeydown } from "./useDocumentKeydown";
+import type { AlbumEntry } from "@/lib/features/catalog/types";
 
 const FLOWSHEET_MUTATION_ENDPOINTS = new Set([
   "addToFlowsheet",
@@ -166,26 +167,32 @@ export const useFlowsheetSaving = (): boolean =>
 
 /**
  * The one flowsheet search pipeline — four ordered sources
- * (bin → rotation → catalog → lml), LML dedupe against the first three, and the
- * MAX_VISIBLE_RESULTS-capped concat that FlowsheetSearchResults' offsets and
- * FlowsheetSearchbar's arrow-key bound share. Search view (useFlowsheetSearch)
- * and submit (useFlowsheetSubmit) resolve their selected entry from this single
- * implementation, so the highlighted row and the submitted entry can never
- * resolve to different albums — the divergence two hand-kept copies allowed. (#657)
+ * (bin → rotation → catalog → lml) with LML deduped against the first three.
+ * Search view (useFlowsheetSearch), submit (useFlowsheetSubmit), and the
+ * composer's FlowsheetSearchProvider all resolve their sources and selected
+ * entry from this single implementation, so the highlighted row and the
+ * submitted entry can never resolve to different albums — the divergence two
+ * hand-kept copies allowed. Result-group capping lives downstream in
+ * capResultGroups; the index space here is uncapped and identical across view
+ * and submit. (#657)
  */
-const useFlowsheetSearchResults = () => {
+export const useFlowsheetSearchResults = () => {
   const searchQuery = useAppSelector(flowsheetSlice.selectors.getSearchQuery);
   const selectedResult = useAppSelector(
     flowsheetSlice.selectors.getSelectedResult
   );
 
-  const { searchResults: binResults } = useBinResults();
-  const { searchResults: catalogResults } = useCatalogFlowsheetSearch();
-  const { searchResults: rotationResults } = useRotationFlowsheetSearch();
-  const { results: rawLmlResults } = useLmlLibrarySearch({
-    artist: searchQuery.artist,
-    album: searchQuery.album,
-  });
+  const { searchResults: binResults, isFetching: binFetching } =
+    useBinResults();
+  const { searchResults: catalogResults, isFetching: catalogFetching } =
+    useCatalogFlowsheetSearch();
+  const { searchResults: rotationResults, isFetching: rotationFetching } =
+    useRotationFlowsheetSearch();
+  const { results: rawLmlResults, isLoading: lmlFetching } =
+    useLmlLibrarySearch({
+      artist: searchQuery.artist,
+      album: searchQuery.album,
+    });
 
   const lmlResults = useMemo(() => {
     const seen = new Set<number>();
@@ -196,12 +203,7 @@ const useFlowsheetSearchResults = () => {
   }, [binResults, rotationResults, catalogResults, rawLmlResults]);
 
   const allSearchResults = useMemo(
-    () => [
-      ...binResults.slice(0, MAX_VISIBLE_RESULTS),
-      ...rotationResults.slice(0, MAX_VISIBLE_RESULTS),
-      ...catalogResults.slice(0, MAX_VISIBLE_RESULTS),
-      ...lmlResults.slice(0, MAX_VISIBLE_RESULTS),
-    ],
+    () => [...binResults, ...rotationResults, ...catalogResults, ...lmlResults],
     [binResults, rotationResults, catalogResults, lmlResults]
   );
 
@@ -221,6 +223,10 @@ const useFlowsheetSearchResults = () => {
     rotationResults,
     lmlResults,
     selectedEntry,
+    binFetching,
+    catalogFetching,
+    rotationFetching,
+    lmlFetching,
   };
 };
 
@@ -541,29 +547,29 @@ export const useQueue = () => {
 };
 
 export const useFlowsheetSubmit = () => {
-  // Ref drives the submit-path decision (synchronous read); the state mirror
-  // drives the button color/icon. Without the ref, a fast Ctrl+Enter races
-  // the form's implicit submit and lands the entry in the flowsheet because
-  // React hasn't committed setCtrlKeyPressed by the time handleSubmit fires.
   const queueModifierRef = useRef(false);
   const [ctrlKeyPressed, setCtrlKeyPressed] = useState(false);
 
   const { addToQueue } = useQueue();
-  const { addToFlowsheet } = useFlowsheet();
+  const { addToFlowsheet, removeFromFlowsheet } = useFlowsheet();
   const dispatch = useAppDispatch();
 
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+  useDocumentKeydown((e) => {
     if (e.key === "Control" || e.key === "Meta") {
       queueModifierRef.current = true;
       setCtrlKeyPressed(true);
     }
-  }, []);
+  });
 
-  const handleKeyUp = useCallback((e: KeyboardEvent) => {
-    if (e.key === "Control" || e.key === "Meta") {
-      queueModifierRef.current = false;
-      setCtrlKeyPressed(false);
-    }
+  useEffect(() => {
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === "Control" || e.key === "Meta") {
+        queueModifierRef.current = false;
+        setCtrlKeyPressed(false);
+      }
+    };
+    document.addEventListener("keyup", handleKeyUp);
+    return () => document.removeEventListener("keyup", handleKeyUp);
   }, []);
 
   const {
@@ -576,53 +582,50 @@ export const useFlowsheetSubmit = () => {
     selectedEntry,
   } = useFlowsheetSearchResults();
 
-  const selectedResultData = useMemo<FlowsheetQuery>(() => {
-    if (selectedResult == 0 || !selectedEntry) {
-      return {
-        song: flowSheetRawQuery.song as string,
-        artist: flowSheetRawQuery.artist as string,
-        album: flowSheetRawQuery.album as string,
-        label: flowSheetRawQuery.label as string,
-        album_id: flowSheetRawQuery.album_id,
-        rotation_id: flowSheetRawQuery.rotation_id,
-        rotation_bin: flowSheetRawQuery.rotation_bin,
-        track_position: flowSheetRawQuery.track_position,
-        request: flowSheetRawQuery.request,
-      };
-    } else {
-      // Selected result fields win; each falls back to the DJ's typed value.
-      return {
-        song: flowSheetRawQuery.song as string,
-        artist: selectedEntry.artist?.name || flowSheetRawQuery.artist as string,
-        album: selectedEntry.title || flowSheetRawQuery.album as string,
-        label: selectedEntry.label || flowSheetRawQuery.label as string,
-        album_id: selectedEntry.id ?? undefined,
-        rotation_bin: selectedEntry.rotation_bin ?? undefined,
-        rotation_id: selectedEntry.rotation_id ?? undefined,
-        track_position: flowSheetRawQuery.track_position,
-        request: flowSheetRawQuery.request,
-      };
-    }
-  }, [selectedResult, selectedEntry, flowSheetRawQuery]);
+  const selectedResultData = useMemo<FlowsheetQuery>(
+    () =>
+      buildSelectedResultData(selectedResult, selectedEntry, flowSheetRawQuery),
+    [selectedResult, selectedEntry, flowSheetRawQuery]
+  );
 
   const handleSubmit = useCallback(
-    async (e: FormEvent) => {
+    async (e: FormEvent, committedQuery?: FlowsheetQuery) => {
       e.preventDefault();
-      // Guard required fields here because clicking a search result row
-      // bypasses the form's HTML5 `required` validation (the row's onClick
-      // calls handleSubmit directly instead of submitting the form).
-      if (!(selectedResultData.song ?? "").trim()) {
+      const query = committedQuery ?? flowSheetRawQuery;
+
+      const data = buildSelectedResultData(
+        selectedResult,
+        selectedEntry,
+        query
+      );
+
+      if (!(data.song ?? "").trim()) {
         toast.error("Song title is required");
         return;
       }
+
       if (queueModifierRef.current) {
-        addToQueue(selectedResultData);
+        addToQueue(data);
         dispatch(flowsheetSlice.actions.resetSearch());
         return;
       }
+
+      const draft = { ...data };
+      dispatch(flowsheetSlice.actions.resetSearch());
+
       try {
-        await addToFlowsheet(convertQueryToSubmission(selectedResultData));
-        dispatch(flowsheetSlice.actions.resetSearch());
+        const created = await addToFlowsheet(convertQueryToSubmission(draft));
+        toast("Added to flowsheet", {
+          action: {
+            label: "Undo",
+            onClick: () => {
+              if (created && typeof created === "object" && "id" in created) {
+                removeFromFlowsheet(created.id as number);
+              }
+            },
+          },
+          duration: 5000,
+        });
       } catch (err) {
         const message =
           err &&
@@ -636,26 +639,26 @@ export const useFlowsheetSubmit = () => {
             : err instanceof Error
               ? err.message
               : "Could not add to flowsheet";
-        toast.error(message);
+        toast.error(message, {
+          action: {
+            label: "Restore entry",
+            onClick: () =>
+              dispatch(flowsheetSlice.actions.restoreDraft(draft)),
+          },
+          duration: 10000,
+        });
       }
     },
     [
       addToFlowsheet,
       addToQueue,
-      selectedResultData,
+      selectedResult,
+      selectedEntry,
+      flowSheetRawQuery,
       dispatch,
+      removeFromFlowsheet,
     ]
   );
-
-  useEffect(() => {
-    document.addEventListener("keydown", handleKeyDown);
-    document.addEventListener("keyup", handleKeyUp);
-
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.removeEventListener("keyup", handleKeyUp);
-    };
-  }, [handleKeyDown, handleKeyUp]);
 
   return {
     ctrlKeyPressed,
@@ -668,3 +671,36 @@ export const useFlowsheetSubmit = () => {
     selectedEntry,
   };
 };
+
+function buildSelectedResultData(
+  selectedResult: number,
+  selectedEntry: AlbumEntry | null,
+  flowSheetRawQuery: FlowsheetQuery
+): FlowsheetQuery {
+  if (selectedResult === 0 || !selectedEntry) {
+    return {
+      song: flowSheetRawQuery.song as string,
+      artist: flowSheetRawQuery.artist as string,
+      album: flowSheetRawQuery.album as string,
+      label: flowSheetRawQuery.label as string,
+      album_id: flowSheetRawQuery.album_id,
+      rotation_id: flowSheetRawQuery.rotation_id,
+      rotation_bin: flowSheetRawQuery.rotation_bin,
+      track_position: flowSheetRawQuery.track_position,
+      request: flowSheetRawQuery.request,
+    };
+  }
+  return {
+    song: flowSheetRawQuery.song as string,
+    artist: selectedEntry.artist?.name || (flowSheetRawQuery.artist as string),
+    album: selectedEntry.title || (flowSheetRawQuery.album as string),
+    label: selectedEntry.label || (flowSheetRawQuery.label as string),
+    album_id: selectedEntry.id ?? undefined,
+    rotation_bin: selectedEntry.rotation_bin ?? undefined,
+    rotation_id: selectedEntry.rotation_id ?? undefined,
+    track_position: flowSheetRawQuery.track_position,
+    // Selecting a catalog match doesn't clear a request the DJ toggled — the
+    // request flag is orthogonal to how the entry was sourced. (#602)
+    request: flowSheetRawQuery.request,
+  };
+}

@@ -201,4 +201,36 @@ describe("useGhostText", () => {
       expect(result.current.trackResult).toBeNull();
     });
   });
+
+  describe("album field via suggestion override", () => {
+    it("ghosts from the override (e.g. the top catalog title)", () => {
+      const { result } = renderHook(() =>
+        useGhostText("album", "Dots", undefined, "Dots and Loops")
+      );
+      expect(result.current.ghostSuffix).toBe(" and Loops");
+      expect(result.current.acceptGhostText()).toBe("Dots and Loops");
+    });
+
+    it("hides when the override does not extend the typed value", () => {
+      const { result } = renderHook(() =>
+        useGhostText("album", "Emperor", undefined, "Emperor")
+      );
+      expect(result.current.ghostSuffix).toBe("");
+    });
+
+    it("hides when the override does not match the prefix", () => {
+      const { result } = renderHook(() =>
+        useGhostText("album", "Xyz", undefined, "Dots and Loops")
+      );
+      expect(result.current.ghostSuffix).toBe("");
+    });
+
+    it("an override wins over the internal artist query", () => {
+      mockArtistQuery.data = ["Autechre"];
+      const { result } = renderHook(() =>
+        useGhostText("artist", "Au", undefined, "Auteur Theory")
+      );
+      expect(result.current.acceptGhostText()).toBe("Auteur Theory");
+    });
+  });
 });

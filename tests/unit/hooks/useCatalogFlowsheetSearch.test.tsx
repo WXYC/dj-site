@@ -5,7 +5,7 @@ import { Provider } from "react-redux";
 import { CssVarsProvider } from "@mui/joy/styles";
 import { makeStore } from "@/lib/store";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
-import type { SearchCatalogQueryParams } from "@/lib/features/catalog/types";
+import type { LibraryQueryParams } from "@/lib/features/catalog/types";
 
 type QueryResult = {
   data: unknown;
@@ -15,8 +15,10 @@ type QueryResult = {
   isError: boolean;
 };
 
-const searchCatalogCalls: Array<{
-  args: SearchCatalogQueryParams;
+// The flowsheet catalog search now goes through /library/query
+// (useSearchLibraryQueryQuery). Capture its calls to assert the skip gating.
+const searchLibraryCalls: Array<{
+  args: LibraryQueryParams;
   options: { skip?: boolean };
 }> = [];
 
@@ -41,11 +43,12 @@ vi.mock("@/lib/features/catalog/api", () => ({
     util: { resetApiState: () => ({ type: "noop" }) },
   },
   useLazySearchLibraryQueryQuery: () => [() => {}, nextQueryResult],
-  useSearchCatalogQuery: (
-    args: SearchCatalogQueryParams,
+  useSearchLibraryQueryInfiniteQuery: () => nextQueryResult,
+  useSearchLibraryQueryQuery: (
+    args: LibraryQueryParams,
     options: { skip?: boolean }
   ) => {
-    searchCatalogCalls.push({ args, options });
+    searchLibraryCalls.push({ args, options });
     return nextQueryResult;
   },
 }));
@@ -85,7 +88,7 @@ function renderWithQuery(query: { artist: string; album: string }) {
 
 describe("useCatalogFlowsheetSearch", () => {
   beforeEach(() => {
-    searchCatalogCalls.length = 0;
+    searchLibraryCalls.length = 0;
     nextQueryResult = {
       data: undefined,
       isFetching: false,
@@ -108,7 +111,7 @@ describe("useCatalogFlowsheetSearch", () => {
       (artist, album) => {
         const { result } = renderWithQuery({ artist, album });
 
-        const lastCall = searchCatalogCalls.at(-1);
+        const lastCall = searchLibraryCalls.at(-1);
         expect(lastCall?.options.skip).toBe(true);
         expect(result.current.searchResults).toEqual([]);
       }
@@ -120,7 +123,7 @@ describe("useCatalogFlowsheetSearch", () => {
         album: "DOGA",
       });
 
-      const lastCall = searchCatalogCalls.at(-1);
+      const lastCall = searchLibraryCalls.at(-1);
       expect(lastCall?.options.skip).toBe(false);
       // No data was returned by the mock; expect empty results but the
       // network call should have been allowed through (skip=false).
@@ -133,7 +136,7 @@ describe("useCatalogFlowsheetSearch", () => {
         album: "Various Artists Compilation Vol 5",
       });
 
-      const lastCall = searchCatalogCalls.at(-1);
+      const lastCall = searchLibraryCalls.at(-1);
       expect(lastCall?.options.skip).toBe(false);
       expect(result.current.searchResults).toEqual([]);
     });

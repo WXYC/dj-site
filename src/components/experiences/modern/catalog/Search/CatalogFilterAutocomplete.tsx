@@ -7,6 +7,7 @@ import Autocomplete, {
 import AutocompleteOption from "@mui/joy/AutocompleteOption";
 import Chip from "@mui/joy/Chip";
 import Skeleton from "@mui/joy/Skeleton";
+import type { SxProps } from "@mui/joy/styles/types";
 import type { Key, ReactNode } from "react";
 
 import { catalogFilterAutocompleteSx } from "./catalogFilterStyles";
@@ -28,6 +29,10 @@ type CatalogFilterAutocompleteProps = {
     tags: string[],
     getTagProps: AutocompleteRenderGetTagProps,
   ) => ReactNode;
+  /** Extra sx for the popup listbox (e.g. a raised z-index over an overlay). */
+  listboxSx?: SxProps;
+  /** Extra sx for the autocomplete root (e.g. a taller --Input-minHeight). */
+  rootSx?: SxProps;
 };
 
 export function CatalogFilterAutocomplete({
@@ -40,6 +45,8 @@ export function CatalogFilterAutocomplete({
   getTagChipProps,
   getOptionLabel = (option) => option,
   renderTags: renderTagsProp,
+  listboxSx,
+  rootSx,
 }: CatalogFilterAutocompleteProps) {
   if (isLoading) {
     return <Skeleton variant="rectangular" width="100%" height={28} sx={{ borderRadius: "sm" }} />;
@@ -115,10 +122,16 @@ export function CatalogFilterAutocomplete({
           sx: catalogFilterTagFontSx,
         },
         listbox: {
-          sx: catalogFilterTagFontSx,
+          sx: [
+            catalogFilterTagFontSx,
+            ...(Array.isArray(listboxSx) ? listboxSx : [listboxSx]),
+          ],
         },
       }}
-      sx={catalogFilterAutocompleteSx}
+      sx={[
+        catalogFilterAutocompleteSx,
+        ...(Array.isArray(rootSx) ? rootSx : [rootSx]),
+      ]}
     />
   );
 }

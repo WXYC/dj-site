@@ -100,9 +100,9 @@ test.describe("Flowsheet artist search — crash smoke", () => {
       // Focus the artist field (opens search) and type one key at a time so the
       // debounced catalog/LML/rotation/bin/suggest searches fire on every
       // intermediate state ("t", "th", "the", "the ", "the o", "the o'", …).
-      await expect(flowsheet.artistInput).toBeEnabled({ timeout: 10_000 });
-      await flowsheet.artistInput.click();
-      await flowsheet.artistInput.pressSequentially(artist, { delay: 80 });
+      await expect(flowsheet.composer).toBeEnabled({ timeout: 10_000 });
+      await flowsheet.composer.click();
+      await flowsheet.composer.pressSequentially(`by ${artist}`, { delay: 80 });
 
       // Settle the crash window after the last keystroke: the longest debounce
       // (LML, 350 ms) + its search round-trip against the local E2E backend +
@@ -123,8 +123,8 @@ test.describe("Flowsheet artist search — crash smoke", () => {
       //    tree didn't unmount into the boundary mid-type. (We don't assert the
       //    exact value: against the live backend a matched result can auto-fill
       //    the field, so the typed string isn't guaranteed to survive.)
-      await expect(flowsheet.artistInput).toBeVisible();
-      await expect(flowsheet.artistInput).toBeEnabled();
+      await expect(flowsheet.composer).toBeVisible();
+      await expect(flowsheet.composer).toBeEnabled();
 
       // 3) No null/undefined dereference — the specific crash class — reached
       //    the console or window during the type.

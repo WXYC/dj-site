@@ -43,6 +43,10 @@ lib/
     catalog/                  # Card catalog search
     experiences/              # Theme system (classic/modern registry, preferences)
     flowsheet/                # Flowsheet entries, queue, search, pagination
+                              # Modern entry UI: `.../modern/flowsheet/SmartEntry/`
+                              # (SmartEntry: a single continuous "smart sentence"
+                              # composer + parser + useFlowsheetSmartEntry, over
+                              # the four-source FlowsheetSearchProvider in Search/)
     rotation/                 # Rotation tracking
   store.ts                    # Redux store (combineSlices, RTK Query middleware)
   hooks.ts                    # Typed Redux hooks (useAppDispatch, useAppSelector, useAppStore)

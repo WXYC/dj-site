@@ -1,0 +1,146 @@
+"use client";
+
+import Close from "@mui/icons-material/Close";
+import { Box, Divider, IconButton, Stack, Typography } from "@mui/joy";
+import type { ReactNode } from "react";
+import type { AlbumEntry } from "@/lib/features/catalog/types";
+import type { FlowsheetQuery, SelectedMatch } from "@/lib/features/flowsheet/types";
+import type { SmartResultGroup } from "./deriveSmartResults";
+import SelectedMatchTracks from "./SelectedMatchTracks";
+import SmartResultRow from "./SmartResultRow";
+import { selectedMatchToEntry } from "./useFlowsheetSmartEntry";
+import type { SmartField } from "./parser/types";
+
+function GroupLabel({ children }: { children: ReactNode }) {
+  return (
+    <Typography
+      level="body-xs"
+      sx={{
+        color: "text.tertiary",
+        px: 1,
+        pt: 0.85,
+        pb: 0.35,
+        textTransform: "uppercase",
+        letterSpacing: "0.04em",
+        fontSize: "0.65rem",
+      }}
+    >
+      {children}
+    </Typography>
+  );
+}
+
+/**
+ * The results surface: the promoted "Selected match" at top (with a remove
+ * affordance), then the labelled result groups as sentence rows. Rows are
+ * indexed 1..N for keyboard nav; `highlightIndex` marks the arrow-highlighted
+ * one. Renders nothing when there is neither a match nor any results.
+ */
+export default function SmartResults({
+  selectedMatch,
+  groups,
+  fieldOrder,
+  query,
+  highlightIndex,
+  onSelect,
+  onHover,
+  onRemoveMatch,
+  onPickTrack,
+  emptyHint,
+}: {
+  selectedMatch: SelectedMatch | null;
+  groups: SmartResultGroup[];
+  fieldOrder: SmartField[];
+  query: FlowsheetQuery;
+  highlightIndex: number;
+  onSelect: (entry: AlbumEntry) => void;
+  onHover: (index: number) => void;
+  onRemoveMatch: () => void;
+  onPickTrack: (title: string, position: string) => void;
+  emptyHint?: ReactNode;
+}) {
+  const hasResults = groups.length > 0;
+  if (!selectedMatch && !hasResults) {
+    return emptyHint ? (
+      <Box sx={{ px: 1.5, py: 1.5 }}>{emptyHint}</Box>
+    ) : null;
+  }
+
+  // Precompute the 1-based flat index at which each group starts.
+  const groupStart: number[] = [];
+  let running = 0;
+  for (const g of groups) {
+    groupStart.push(running);
+    running += g.entries.length;
+  }
+
+  return (
+    <Box
+      role="listbox"
+      id="flowsheet-results-listbox"
+      data-testid="flowsheet-search-results"
+      // flex:1 + minHeight:0 lets this scroll within the pane while the shortcut
+      // guide below stays pinned; when results are few the pane sizes to content.
+      sx={{ flex: 1, minHeight: 0, overflowY: "auto", px: 0.5, pb: 1 }}
+    >
+      {selectedMatch ? (
+        <Box>
+          <GroupLabel>Selected match</GroupLabel>
+          <Stack direction="row" alignItems="center" spacing={0.5}>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <SmartResultRow
+                entry={selectedMatchToEntry(selectedMatch)}
+                fieldOrder={fieldOrder}
+                query={query}
+                tone="promoted"
+                onSelect={() => {}}
+              />
+            </Box>
+            <IconButton
+              size="sm"
+              variant="plain"
+              aria-label="Remove selected match"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onRemoveMatch();
+              }}
+            >
+              <Close />
+            </IconButton>
+          </Stack>
+
+          {selectedMatch.album_id && selectedMatch.album_id > 0 ? (
+            <SelectedMatchTracks
+              albumId={selectedMatch.album_id}
+              currentPosition={query.track_position}
+              onPick={onPickTrack}
+            />
+          ) : null}
+
+          {hasResults ? <Divider sx={{ my: 0.75 }} /> : null}
+        </Box>
+      ) : null}
+
+      {groups.map((group, gi) => (
+        <Box key={group.key}>
+          <GroupLabel>{group.label}</GroupLabel>
+          {group.entries.map((entry, j) => {
+            const index = groupStart[gi] + j + 1; // 1-based flat index
+            return (
+              <SmartResultRow
+                key={entry.id}
+                entry={entry}
+                index={index}
+                fieldOrder={fieldOrder}
+                query={query}
+                tone={highlightIndex === index ? "highlight" : "plain"}
+                onSelect={onSelect}
+                onHover={onHover}
+              />
+            );
+          })}
+        </Box>
+      ))}
+    </Box>
+  );
+}
