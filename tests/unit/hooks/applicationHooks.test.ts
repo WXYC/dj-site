@@ -6,7 +6,7 @@ import {
   resolveOrganizationIdAdmin,
   resetOrganizationIdCache,
 } from "@/lib/features/authentication/organization-utils";
-import { resetApplication } from "./applicationHooks";
+import { resetApplication } from "@/src/hooks/applicationHooks";
 
 describe("resetApplication (logout state hygiene) — #639/#616", () => {
   beforeEach(() => {

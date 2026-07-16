@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { filterBySearchTerms } from "./filterBySearchTerms";
+import { filterBySearchTerms } from "@/src/utilities/filterBySearchTerms";
 import { createTestAlbum, createTestArtist } from "@/tests/helpers";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 

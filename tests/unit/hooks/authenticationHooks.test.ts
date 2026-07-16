@@ -78,7 +78,7 @@ vi.mock("@/src/utilities/throwIfBetterAuthError", () => ({
 }));
 
 // Mock applicationHooks
-vi.mock("./applicationHooks", () => ({
+vi.mock("@/src/hooks/applicationHooks", () => ({
   resetApplication: vi.fn(),
 }));
 
@@ -187,7 +187,7 @@ describe("authenticationHooks", () => {
         },
       });
 
-      const { useLogin } = await import("./authenticationHooks");
+      const { useLogin } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
 
       const form = {
@@ -224,7 +224,7 @@ describe("authenticationHooks", () => {
         },
       });
 
-      const { useLogin } = await import("./authenticationHooks");
+      const { useLogin } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
 
       const form = {
@@ -260,7 +260,7 @@ describe("authenticationHooks", () => {
         },
       });
 
-      const { useLogin } = await import("./authenticationHooks");
+      const { useLogin } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
 
       const form = {
@@ -288,7 +288,7 @@ describe("authenticationHooks", () => {
     it("routes to signIn.username when the identifier has no @", async () => {
       mockSignInUsername.mockResolvedValue({ data: { user: { id: "user-1" } } });
 
-      const { useLogin } = await import("./authenticationHooks");
+      const { useLogin } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
 
       const form = {
@@ -323,7 +323,7 @@ describe("authenticationHooks", () => {
         data: { user: { id: "user-1", hasCompletedOnboarding: true } },
       });
 
-      const { useLogin } = await import("./authenticationHooks");
+      const { useLogin } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
 
       const form = {
@@ -359,7 +359,7 @@ describe("authenticationHooks", () => {
         data: { user: { id: "user-1", hasCompletedOnboarding: true } },
       });
 
-      const { useLogin } = await import("./authenticationHooks");
+      const { useLogin } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
 
       const form = {
@@ -392,7 +392,7 @@ describe("authenticationHooks", () => {
         data: { user: { id: "user-1", hasCompletedOnboarding: false } },
       });
 
-      const { useLogin } = await import("./authenticationHooks");
+      const { useLogin } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
 
       const form = {
@@ -421,7 +421,7 @@ describe("authenticationHooks", () => {
       mockSignInUsername.mockResolvedValue({ data: { user: { id: "user-1" } } });
       mockGetSession.mockResolvedValue({ data: { user: { id: "user-1" } } });
 
-      const { useLogin } = await import("./authenticationHooks");
+      const { useLogin } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
 
       const form = {
@@ -443,7 +443,7 @@ describe("authenticationHooks", () => {
     it("routes to signIn.email when the identifier contains @", async () => {
       mockSignInEmail.mockResolvedValue({ data: { user: { id: "user-1" } } });
 
-      const { useLogin } = await import("./authenticationHooks");
+      const { useLogin } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
 
       const form = {
@@ -471,7 +471,7 @@ describe("authenticationHooks", () => {
       mockLookupEmailByIdentifier.mockResolvedValue("jbromberg@wxyc.org");
       mockSendVerificationOtp.mockResolvedValue({ data: {} });
 
-      const { useOTPRequest } = await import("./authenticationHooks");
+      const { useOTPRequest } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useOTPRequest(), { wrapper: createWrapper() });
 
       let returned: { email: string } | undefined;
@@ -491,7 +491,7 @@ describe("authenticationHooks", () => {
       mockLookupEmailByIdentifier.mockResolvedValue("dj@wxyc.org");
       mockSendVerificationOtp.mockResolvedValue({ data: {} });
 
-      const { useOTPRequest } = await import("./authenticationHooks");
+      const { useOTPRequest } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useOTPRequest(), { wrapper: createWrapper() });
 
       await act(async () => {
@@ -507,7 +507,7 @@ describe("authenticationHooks", () => {
     it("throws when the lookup returns null", async () => {
       mockLookupEmailByIdentifier.mockResolvedValue(null);
 
-      const { useOTPRequest } = await import("./authenticationHooks");
+      const { useOTPRequest } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useOTPRequest(), { wrapper: createWrapper() });
 
       await act(async () => {
@@ -529,7 +529,7 @@ describe("authenticationHooks", () => {
         },
       });
 
-      const { useOTPVerify } = await import("./authenticationHooks");
+      const { useOTPVerify } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useOTPVerify(), { wrapper: createWrapper() });
 
       await act(async () => {
@@ -556,7 +556,7 @@ describe("authenticationHooks", () => {
         data: { user: { id: "user-1", hasCompletedOnboarding: false } },
       });
 
-      const { useOTPVerify } = await import("./authenticationHooks");
+      const { useOTPVerify } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useOTPVerify(), { wrapper: createWrapper() });
 
       await act(async () => {
@@ -575,7 +575,7 @@ describe("authenticationHooks", () => {
       );
       mockSignInEmail.mockResolvedValue({ data: { user: { id: "user-1" } } });
 
-      const { useNewUser } = await import("./authenticationHooks");
+      const { useNewUser } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useNewUser("invite"), { wrapper: createWrapper() });
 
       const form = {
@@ -613,7 +613,7 @@ describe("authenticationHooks", () => {
         error: { message: "Email not verified" },
       });
 
-      const { useNewUser } = await import("./authenticationHooks");
+      const { useNewUser } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useNewUser("invite"), { wrapper: createWrapper() });
 
       const form = {
@@ -639,7 +639,7 @@ describe("authenticationHooks", () => {
     it("invite mode: rejects onboarding without a setup token", async () => {
       mockSearchParams.mockReturnValue(new URLSearchParams(""));
 
-      const { useNewUser } = await import("./authenticationHooks");
+      const { useNewUser } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useNewUser("invite"), { wrapper: createWrapper() });
 
       const form = {
@@ -660,7 +660,7 @@ describe("authenticationHooks", () => {
     });
 
     it("session mode: posts profile fields only and redirects without signing in", async () => {
-      const { useNewUser } = await import("./authenticationHooks");
+      const { useNewUser } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useNewUser("session"), { wrapper: createWrapper() });
 
       const form = {
@@ -692,7 +692,7 @@ describe("authenticationHooks", () => {
         "client_id=flowsheet&response_type=code&redirect_uri=https%3A%2F%2Fflowsheet.wxyc.org%2Fauth%2Fcallback&state=xyz&code_challenge=abc&code_challenge_method=S256";
       mockSearchParams.mockReturnValue(new URLSearchParams(search));
 
-      const { useNewUser } = await import("./authenticationHooks");
+      const { useNewUser } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useNewUser("session"), { wrapper: createWrapper() });
 
       const form = {
@@ -719,7 +719,7 @@ describe("authenticationHooks", () => {
       );
       mockCompleteOnboarding.mockRejectedValue(new Error("Invalid or expired setup token"));
 
-      const { useNewUser } = await import("./authenticationHooks");
+      const { useNewUser } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useNewUser("invite"), { wrapper: createWrapper() });
 
       const form = {
@@ -752,7 +752,7 @@ describe("authenticationHooks", () => {
         callOrder.push("signOut");
       });
 
-      const { useLogout } = await import("./authenticationHooks");
+      const { useLogout } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useLogout(), { wrapper: createWrapper() });
 
       await act(async () => {
@@ -767,7 +767,7 @@ describe("authenticationHooks", () => {
     });
 
     it("clears the JWT token cache even when no form event is supplied", async () => {
-      const { useLogout } = await import("./authenticationHooks");
+      const { useLogout } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useLogout(), { wrapper: createWrapper() });
 
       await act(async () => {
@@ -780,7 +780,7 @@ describe("authenticationHooks", () => {
     it("navigates explicitly to a clean /login after signing out, instead of routing through the requireAuth no-session bounce", async () => {
       mockSignOut.mockResolvedValue(undefined);
 
-      const { useLogout } = await import("./authenticationHooks");
+      const { useLogout } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useLogout(), { wrapper: createWrapper() });
 
       await act(async () => {
@@ -823,7 +823,7 @@ describe("authenticationHooks", () => {
         callOrder.push("push");
       });
 
-      const { useLogin } = await import("./authenticationHooks");
+      const { useLogin } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
 
       await act(async () => {
@@ -849,7 +849,7 @@ describe("authenticationHooks", () => {
         .mockResolvedValueOnce({ data: null })
         .mockResolvedValue({ data: { user: { id: "user-1" } } });
 
-      const { useLogin } = await import("./authenticationHooks");
+      const { useLogin } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
 
       await act(async () => {
@@ -874,7 +874,7 @@ describe("authenticationHooks", () => {
       });
       mockGetSession.mockResolvedValue({ data: null });
 
-      const { useLogin } = await import("./authenticationHooks");
+      const { useLogin } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
 
       await act(async () => {
@@ -904,7 +904,7 @@ describe("authenticationHooks", () => {
       // attempt. Without the timeout the await would hang forever.
       mockGetSession.mockReturnValue(new Promise(() => {}));
 
-      const { useLogin } = await import("./authenticationHooks");
+      const { useLogin } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
 
       await act(async () => {
@@ -935,7 +935,7 @@ describe("authenticationHooks", () => {
         .mockRejectedValueOnce(new Error("network blip"))
         .mockResolvedValue({ data: { user: { id: "user-1" } } });
 
-      const { useLogin } = await import("./authenticationHooks");
+      const { useLogin } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
 
       await act(async () => {
@@ -964,7 +964,7 @@ describe("authenticationHooks", () => {
         return { data: { user: { id: "user-1", hasCompletedOnboarding: true } } };
       });
 
-      const { useLogin } = await import("./authenticationHooks");
+      const { useLogin } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useLogin(), { wrapper: createWrapper() });
 
       const form = {
@@ -995,7 +995,7 @@ describe("authenticationHooks", () => {
         return { data: { user: { id: "user-1", hasCompletedOnboarding: true } } };
       });
 
-      const { useOTPVerify } = await import("./authenticationHooks");
+      const { useOTPVerify } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useOTPVerify(), { wrapper: createWrapper() });
 
       await act(async () => {
@@ -1017,7 +1017,7 @@ describe("authenticationHooks", () => {
         data: { user: { id: "user-1", hasCompletedOnboarding: true } },
       });
 
-      const { useOTPVerify } = await import("./authenticationHooks");
+      const { useOTPVerify } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useOTPVerify(), { wrapper: createWrapper() });
 
       await act(async () => {
@@ -1054,7 +1054,7 @@ describe("authenticationHooks", () => {
     });
 
     it("requests a device code on mount and exposes the user_code + verification URI", async () => {
-      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      const { useDeviceAuthorization } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useDeviceAuthorization(), {
         wrapper: createWrapper(),
       });
@@ -1072,7 +1072,7 @@ describe("authenticationHooks", () => {
     });
 
     it("polls /device/token at the server interval while pending", async () => {
-      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      const { useDeviceAuthorization } = await import("@/src/hooks/authenticationHooks");
       renderHook(() => useDeviceAuthorization(), { wrapper: createWrapper() });
 
       await act(async () => {
@@ -1106,7 +1106,7 @@ describe("authenticationHooks", () => {
           },
         });
 
-      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      const { useDeviceAuthorization } = await import("@/src/hooks/authenticationHooks");
       renderHook(() => useDeviceAuthorization(), { wrapper: createWrapper() });
 
       await act(async () => {
@@ -1148,7 +1148,7 @@ describe("authenticationHooks", () => {
         data: { user: { id: "dj-1", hasCompletedOnboarding: true } },
       });
 
-      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      const { useDeviceAuthorization } = await import("@/src/hooks/authenticationHooks");
       renderHook(() => useDeviceAuthorization(), { wrapper: createWrapper() });
 
       await act(async () => {
@@ -1176,7 +1176,7 @@ describe("authenticationHooks", () => {
         data: { user: { id: "dj-2", hasCompletedOnboarding: false } },
       });
 
-      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      const { useDeviceAuthorization } = await import("@/src/hooks/authenticationHooks");
       renderHook(() => useDeviceAuthorization(), { wrapper: createWrapper() });
 
       await act(async () => {
@@ -1201,7 +1201,7 @@ describe("authenticationHooks", () => {
           body: { error: code, error_description: "terminal" },
         });
 
-        const { useDeviceAuthorization } = await import("./authenticationHooks");
+        const { useDeviceAuthorization } = await import("@/src/hooks/authenticationHooks");
         const { result } = renderHook(() => useDeviceAuthorization(), {
           wrapper: createWrapper(),
         });
@@ -1224,7 +1224,7 @@ describe("authenticationHooks", () => {
     );
 
     it("stops polling after unmount", async () => {
-      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      const { useDeviceAuthorization } = await import("@/src/hooks/authenticationHooks");
       const { unmount } = renderHook(() => useDeviceAuthorization(), {
         wrapper: createWrapper(),
       });
@@ -1248,7 +1248,7 @@ describe("authenticationHooks", () => {
         body: { error: "expired_token", error_description: "expired" },
       });
 
-      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      const { useDeviceAuthorization } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useDeviceAuthorization(), {
         wrapper: createWrapper(),
       });
@@ -1284,7 +1284,7 @@ describe("authenticationHooks", () => {
       // Both the hook's own user read and confirmSessionVisible's read reject.
       mockGetSession.mockRejectedValue(new Error("network"));
 
-      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      const { useDeviceAuthorization } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useDeviceAuthorization(), {
         wrapper: createWrapper(),
       });
@@ -1319,7 +1319,7 @@ describe("authenticationHooks", () => {
       // — the DJ must not be routed to the new-user onboarding form.
       mockGetSession.mockResolvedValue({ data: { user: undefined } });
 
-      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      const { useDeviceAuthorization } = await import("@/src/hooks/authenticationHooks");
       renderHook(() => useDeviceAuthorization(), { wrapper: createWrapper() });
 
       await act(async () => {
@@ -1342,7 +1342,7 @@ describe("authenticationHooks", () => {
         interval: undefined,
       });
 
-      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      const { useDeviceAuthorization } = await import("@/src/hooks/authenticationHooks");
       renderHook(() => useDeviceAuthorization(), { wrapper: createWrapper() });
 
       await act(async () => {
@@ -1363,7 +1363,7 @@ describe("authenticationHooks", () => {
     it("surfaces the 'error' status when a poll throws (network failure)", async () => {
       mockPollDeviceToken.mockRejectedValue(new Error("network down"));
 
-      const { useDeviceAuthorization } = await import("./authenticationHooks");
+      const { useDeviceAuthorization } = await import("@/src/hooks/authenticationHooks");
       const { result } = renderHook(() => useDeviceAuthorization(), {
         wrapper: createWrapper(),
       });

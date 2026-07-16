@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { useShiftKey } from "./applicationHooks";
+import { useShiftKey } from "@/src/hooks/applicationHooks";
 
 // Focused coverage for the alt-tab reset (#635): a Shift held while the window
 // loses focus never emits a keyup on window, so without a blur/visibilitychange

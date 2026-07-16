@@ -32,8 +32,8 @@ vi.mock("@/src/utilities/throwIfBetterAuthError", () => ({
 
 // useDJAccount pulls the signed-in DJ from useRegistry; stub a resolved user so
 // handleSaveData proceeds to the updateUser call.
-vi.mock("./authenticationHooks", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./authenticationHooks")>();
+vi.mock("@/src/hooks/authenticationHooks", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/src/hooks/authenticationHooks")>();
   return {
     ...actual,
     useRegistry: () => ({
@@ -92,7 +92,7 @@ describe("useDJAccount", () => {
           authenticationSlice.actions.modify({ key: field, value: true })
         );
 
-        const { useDJAccount } = await import("./djHooks");
+        const { useDJAccount } = await import("@/src/hooks/djHooks");
         const { result } = renderHook(() => useDJAccount(), {
           wrapper: createWrapper(store),
         });
@@ -113,7 +113,7 @@ describe("useDJAccount", () => {
           authenticationSlice.actions.modify({ key: field, value: true })
         );
 
-        const { useDJAccount } = await import("./djHooks");
+        const { useDJAccount } = await import("@/src/hooks/djHooks");
         const { result } = renderHook(() => useDJAccount(), {
           wrapper: createWrapper(store),
         });
@@ -139,7 +139,7 @@ describe("useDJAccount", () => {
         authenticationSlice.actions.modify({ key: "realName", value: true })
       );
 
-      const { useDJAccount } = await import("./djHooks");
+      const { useDJAccount } = await import("@/src/hooks/djHooks");
       const { result } = renderHook(() => useDJAccount(), {
         wrapper: createWrapper(store),
       });
@@ -159,7 +159,7 @@ describe("useDJAccount", () => {
         authenticationSlice.actions.modify({ key: "bio", value: true })
       );
 
-      const { useDJAccount } = await import("./djHooks");
+      const { useDJAccount } = await import("@/src/hooks/djHooks");
       const { result } = renderHook(() => useDJAccount(), {
         wrapper: createWrapper(store),
       });
@@ -183,7 +183,7 @@ describe("useDJAccount", () => {
         authenticationSlice.actions.modify({ key: "bio", value: true })
       );
 
-      const { useDJAccount } = await import("./djHooks");
+      const { useDJAccount } = await import("@/src/hooks/djHooks");
       const { result } = renderHook(() => useDJAccount(), {
         wrapper: createWrapper(store),
       });
@@ -213,7 +213,7 @@ describe("useDJAccount", () => {
         authenticationSlice.actions.modify({ key: "pronouns", value: true })
       );
 
-      const { useDJAccount } = await import("./djHooks");
+      const { useDJAccount } = await import("@/src/hooks/djHooks");
       renderHook(() => useDJAccount(), { wrapper: createWrapper(store) });
 
       // Mounting the hook must NOT wipe the pre-existing edit.
@@ -226,7 +226,7 @@ describe("useDJAccount", () => {
         authenticationSlice.actions.modify({ key: "bio", value: true })
       );
 
-      const { useDJAccount } = await import("./djHooks");
+      const { useDJAccount } = await import("@/src/hooks/djHooks");
       const { result } = renderHook(() => useDJAccount(), {
         wrapper: createWrapper(store),
       });
@@ -248,7 +248,7 @@ describe("useDJAccount", () => {
       );
       mockUpdateUser.mockRejectedValue(new Error("network down"));
 
-      const { useDJAccount } = await import("./djHooks");
+      const { useDJAccount } = await import("@/src/hooks/djHooks");
       const { result } = renderHook(() => useDJAccount(), {
         wrapper: createWrapper(store),
       });

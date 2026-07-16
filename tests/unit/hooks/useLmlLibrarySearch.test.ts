@@ -10,7 +10,7 @@ import {
   TEST_BACKEND_URL,
 } from "@/tests/helpers";
 import type { AppStore } from "@/lib/store";
-import { useLmlLibrarySearch } from "./useLmlLibrarySearch";
+import { useLmlLibrarySearch } from "@/src/hooks/useLmlLibrarySearch";
 import type { LmlLibrarySearchResponse } from "@/lib/features/lml/types";
 
 vi.mock("@/lib/features/authentication/client", () => ({

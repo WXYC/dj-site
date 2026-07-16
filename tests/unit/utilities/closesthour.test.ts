@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { getClosestHour, parseTimeStringToDate } from "../closesthour";
+import { getClosestHour, parseTimeStringToDate } from "@/src/utilities/closesthour";
 
 describe("closesthour utilities", () => {
   describe("getClosestHour", () => {

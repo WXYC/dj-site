@@ -64,11 +64,11 @@ vi.mock("@/lib/features/catalog/api", () => ({
   }),
 }));
 
-vi.mock("../authenticationHooks", () => ({
+vi.mock("@/src/hooks/authenticationHooks", () => ({
   useAuthentication: () => ({ authenticating: false, authenticated: true }),
 }));
 
-import { useCatalogQueryResults } from "../catalogHooks";
+import { useCatalogQueryResults } from "@/src/hooks/catalogHooks";
 
 function Wrapper({
   store,

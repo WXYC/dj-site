@@ -7,7 +7,7 @@ import {
   useFlowsheet,
   useQueue,
   useFlowsheetSubmit,
-} from "./flowsheetHooks";
+} from "@/src/hooks/flowsheetHooks";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
 import { liveUpdatesSlice } from "@/lib/features/flowsheet/live-updates-slice";
@@ -30,12 +30,12 @@ const mockUseRegistry = vi.fn(() => ({
   info: mockUserInfo as typeof mockUserInfo | null,
 }));
 
-vi.mock("./authenticationHooks", () => ({
+vi.mock("@/src/hooks/authenticationHooks", () => ({
   useRegistry: () => mockUseRegistry(),
 }));
 
 // Mock bin hooks
-vi.mock("./binHooks", () => ({
+vi.mock("@/src/hooks/binHooks", () => ({
   useBinResults: vi.fn(() => ({
     searchResults: [],
   })),
@@ -50,14 +50,14 @@ const mockUseRotationFlowsheetSearch = vi.fn(() => ({
   loading: false,
 }));
 
-vi.mock("./catalogHooks", () => ({
+vi.mock("@/src/hooks/catalogHooks", () => ({
   useCatalogFlowsheetSearch: () => mockUseCatalogFlowsheetSearch(),
   useRotationFlowsheetSearch: () => mockUseRotationFlowsheetSearch(),
 }));
 
 // Mock LML hooks (#563 — useLmlLibrarySearch now wraps lmlApi RTK Query, which
 // isn't in the createHookWrapper store these tests use).
-vi.mock("./useLmlLibrarySearch", () => ({
+vi.mock("@/src/hooks/useLmlLibrarySearch", () => ({
   useLmlLibrarySearch: () => ({ results: [], isLoading: false }),
 }));
 

@@ -3,7 +3,7 @@ import {
   getUsernameError,
   MAX_USERNAME_LENGTH,
   MIN_USERNAME_LENGTH,
-} from "./usernameValidation";
+} from "@/src/utilities/usernameValidation";
 
 describe("getUsernameError", () => {
   describe("valid usernames", () => {
