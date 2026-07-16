@@ -69,6 +69,13 @@ vi.mock("@mui/icons-material", () => ({
 }));
 
 vi.mock("@mui/joy", () => ({
+  Box: ({
+    children,
+    component: Component = "div",
+  }: {
+    children: React.ReactNode;
+    component?: React.ElementType;
+  }) => <Component>{children}</Component>,
   Card: ({
     children,
     variant,
