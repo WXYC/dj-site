@@ -27,11 +27,6 @@ export const experienceApi = createApi({
   reducerPath: "experienceApi",
   tagTypes: ["Experience"],
   endpoints: (builder) => ({
-    getActiveExperience: builder.query<ExperienceId, void>({
-      query: () => "/active",
-      providesTags: ["Experience"],
-      transformResponse: (response: ExperienceResponse) => response.experience,
-    }),
     switchExperience: builder.mutation<ExperienceId, ExperienceId>({
       query: (experienceId) => ({
         url: "/switch",
@@ -56,7 +51,6 @@ export const experienceApi = createApi({
 });
 
 export const {
-  useGetActiveExperienceQuery,
   useSwitchExperienceMutation,
   useSetExperiencePreferenceMutation,
 } = experienceApi;

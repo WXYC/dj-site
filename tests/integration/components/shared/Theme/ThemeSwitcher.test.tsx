@@ -11,13 +11,6 @@ Object.defineProperty(window, "location", {
   value: { ...window.location, reload: mockReload },
 });
 
-vi.mock("@/lib/features/experiences/api", () => ({
-  useGetActiveExperienceQuery: () => ({
-    data: "modern",
-    isLoading: false,
-  }),
-}));
-
 vi.mock("@mui/joy/styles", () => ({
   useColorScheme: () => ({
     mode: "light",
@@ -39,12 +32,12 @@ describe("ThemeSwitcher", () => {
   });
 
   it("should render an icon button", () => {
-    render(<ThemeSwitcher />);
+    render(<ThemeSwitcher experience="modern" />);
     expect(screen.getByRole("button")).toBeInTheDocument();
   });
 
   it("should call persistPreference when clicked", async () => {
-    render(<ThemeSwitcher />);
+    render(<ThemeSwitcher experience="modern" />);
     const button = screen.getByRole("button");
     fireEvent.click(button);
 
@@ -54,7 +47,7 @@ describe("ThemeSwitcher", () => {
   });
 
   it("should hard-reload after switching (CssVarsProvider can't repaint on a soft refresh)", async () => {
-    render(<ThemeSwitcher />);
+    render(<ThemeSwitcher experience="modern" />);
     const button = screen.getByRole("button");
     fireEvent.click(button);
 
@@ -66,7 +59,7 @@ describe("ThemeSwitcher", () => {
 
   it("should not reload when the cookie write failed", async () => {
     mockPersistPreference.mockResolvedValueOnce(false);
-    render(<ThemeSwitcher />);
+    render(<ThemeSwitcher experience="modern" />);
     fireEvent.click(screen.getByRole("button"));
 
     await vi.waitFor(() => {
@@ -78,7 +71,7 @@ describe("ThemeSwitcher", () => {
 
 describe("ThemeSwitcher button", () => {
   it("should have the toggle-experience id", () => {
-    render(<ThemeSwitcher />);
+    render(<ThemeSwitcher experience="modern" />);
     const button = screen.getByRole("button");
     expect(button).toHaveAttribute("id", "toggle-experience");
   });

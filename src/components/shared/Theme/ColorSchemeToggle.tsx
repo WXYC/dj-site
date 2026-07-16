@@ -5,7 +5,7 @@ import { DarkModeRounded, LightModeRounded } from "@mui/icons-material";
 import { Tooltip } from "@mui/joy";
 import IconButton from "@mui/joy/IconButton";
 import { useColorScheme } from "@mui/joy/styles";
-import { useGetActiveExperienceQuery } from "@/lib/features/experiences/api";
+import { ExperienceId } from "@/lib/features/experiences/types";
 import { useModernTheme } from "@/src/styles/ModernThemeContext";
 import {
   buildPreference,
@@ -20,9 +20,12 @@ export function ColorSchemeToggleLoader(): JSX.Element {
   );
 }
 
-export default function ColorSchemeToggle(): JSX.Element {
+export default function ColorSchemeToggle({
+  experience,
+}: {
+  experience: ExperienceId;
+}): JSX.Element {
   const { mode, setMode } = useColorScheme();
-  const { data: experience } = useGetActiveExperienceQuery();
   const { themeId } = useModernTheme();
   const { persistPreference } = useThemePreferenceActions();
 
@@ -38,11 +41,9 @@ export default function ColorSchemeToggle(): JSX.Element {
         onClick={() => {
           const nextMode = mode === "light" ? "dark" : "light";
           setMode(nextMode);
-          if (experience) {
-            persistPreference(buildPreference(experience, nextMode, themeId), {
-              updateUser: true,
-            });
-          }
+          persistPreference(buildPreference(experience, nextMode, themeId), {
+            updateUser: true,
+          });
         }}
       >
         {mode === "light" ? <DarkModeRounded /> : <LightModeRounded />}

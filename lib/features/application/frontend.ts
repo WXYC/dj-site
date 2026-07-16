@@ -4,7 +4,6 @@ import { PayloadAction } from "@reduxjs/toolkit";
 
 export const defaultApplicationFrontendState: ApplicationFrontendState = {
   rightbar: {
-    mini: false,
     sidebarOpen: false,
     panel: { type: "default" },
   },
@@ -17,13 +16,9 @@ export const applicationSlice = createAppSlice({
   name: "application",
   initialState: defaultApplicationFrontendState,
   reducers: {
-    setRightbarMini: (state, action) => {
-      state.rightbar.mini = action.payload;
-    },
     openPanel: (state, action: PayloadAction<RightbarPanel>) => {
       state.rightbar.panel = action.payload;
       state.rightbar.sidebarOpen = true;
-      state.rightbar.mini = false;
     },
     closePanel: (state) => {
       state.rightbar.panel = { type: "default" };
@@ -40,7 +35,6 @@ export const applicationSlice = createAppSlice({
     reset: () => defaultApplicationFrontendState,
   },
   selectors: {
-    getRightbarMini: (state) => state.rightbar.mini,
     getRightbarPanel: (state) => state.rightbar.panel,
     getAuthStage: (state) => state.authFlow.stage,
   },

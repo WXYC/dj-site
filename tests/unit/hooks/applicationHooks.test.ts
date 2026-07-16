@@ -21,19 +21,23 @@ describe("resetApplication (logout state hygiene) — #639/#616", () => {
     const store = makeStore();
 
     // Seed previous-session UI + admin state.
-    store.dispatch(applicationSlice.actions.setRightbarMini(true));
+    store.dispatch(applicationSlice.actions.openPanel({ type: "settings" }));
     store.dispatch(applicationSlice.actions.setAuthStage("reset"));
     store.dispatch(adminSlice.actions.setSearchString("bromberg"));
     store.dispatch(adminSlice.actions.setPage(3));
 
-    expect(applicationSlice.selectors.getRightbarMini(store.getState())).toBe(true);
+    expect(applicationSlice.selectors.getRightbarPanel(store.getState())).toEqual({
+      type: "settings",
+    });
     expect(adminSlice.selectors.getSearchString(store.getState())).toBe("bromberg");
     expect(adminSlice.selectors.getPage(store.getState())).toBe(3);
 
     resetApplication(store.dispatch);
 
     // Nothing from the previous session survives.
-    expect(applicationSlice.selectors.getRightbarMini(store.getState())).toBe(false);
+    expect(applicationSlice.selectors.getRightbarPanel(store.getState())).toEqual({
+      type: "default",
+    });
     expect(applicationSlice.selectors.getAuthStage(store.getState())).toBe("otp-email");
     expect(adminSlice.selectors.getSearchString(store.getState())).toBe("");
     expect(adminSlice.selectors.getPage(store.getState())).toBe(0);

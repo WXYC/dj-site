@@ -29,22 +29,22 @@ vi.mock("@/src/components/shared/General/LinkButton", () => ({
 
 describe("Appbar", () => {
   it("should render the component", () => {
-    render(<Appbar />);
+    render(<Appbar experience="modern" />);
     expect(document.querySelector(".ignoreClassic")).toBeInTheDocument();
   });
 
   it("should render version text", () => {
-    render(<Appbar />);
+    render(<Appbar experience="modern" />);
     expect(screen.getByText(/WXYC DJ Site/)).toBeInTheDocument();
   });
 
   it("should render ThemeSwitcher", () => {
-    render(<Appbar />);
+    render(<Appbar experience="modern" />);
     expect(screen.getByTestId("theme-switcher")).toBeInTheDocument();
   });
 
   it("should show General Feedback link for authenticated users", () => {
-    render(<Appbar />);
+    render(<Appbar experience="modern" />);
     expect(screen.getByText("General Feedback")).toBeInTheDocument();
   });
 });
@@ -54,7 +54,7 @@ describe("Appbar when on public route", () => {
     const { usePublicRoutes } = await import("@/src/hooks/applicationHooks");
     vi.mocked(usePublicRoutes).mockReturnValue(true);
 
-    render(<Appbar />);
+    render(<Appbar experience="modern" />);
     expect(screen.getByText("Log In")).toBeInTheDocument();
   });
 });

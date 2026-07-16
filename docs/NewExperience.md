@@ -65,14 +65,16 @@ html[data-experience="minimal"] {
 
 ### 5. Update Theme Registry
 
-Update `src/styles/ThemeRegistry.tsx` to include your theme:
+Update `src/styles/ThemeRegistry.tsx` to include your theme. The active
+experience is resolved on the server (`createServerSideProps`) and threaded down
+as a prop from `RootLayout` — there is no client-side experience query. Switching
+persists the cookie and hard-reloads, so the prop is always current.
 
 ```typescript
 import minimalTheme from "@/lib/features/experiences/minimal/theme";
 
-// In the component:
-const experience = useActiveExperience();
-const theme = 
+// `experience` is a prop on ThemeRegistry, passed from RootLayout:
+const theme =
   experience === "classic" ? classicTheme :
   experience === "minimal" ? minimalTheme :
   modernTheme;

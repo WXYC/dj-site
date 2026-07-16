@@ -22,7 +22,6 @@ export interface ApplicationFrontendState {
 }
 
 export interface RightbarState {
-    mini: boolean;
     sidebarOpen: boolean;
     panel: RightbarPanel;
 }
