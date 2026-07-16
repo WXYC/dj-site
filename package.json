@@ -35,9 +35,9 @@
     "@wxyc/shared": "^1.17.1",
     "better-auth": "^1.6.20",
     "jwt-decode": "^4.0.0",
-    "motion": "^12.42.0",
+    "motion": "^12.42.2",
     "next": "^16.2.10",
-    "posthog-js": "^1.395.0",
+    "posthog-js": "^1.402.3",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -68,11 +68,11 @@
     "wrangler": "^4.106.0"
   },
   "optionalDependencies": {
-    "@ast-grep/napi-darwin-arm64": "^0.44.0",
-    "@ast-grep/napi-darwin-x64": "^0.44.0",
-    "@ast-grep/napi-linux-arm64-gnu": "^0.44.0",
-    "@ast-grep/napi-linux-x64-gnu": "^0.44.0",
-    "@ast-grep/napi-win32-arm64-msvc": "^0.44.0",
-    "@ast-grep/napi-win32-x64-msvc": "^0.44.0"
+    "@ast-grep/napi-darwin-arm64": "^0.44.1",
+    "@ast-grep/napi-darwin-x64": "^0.44.1",
+    "@ast-grep/napi-linux-arm64-gnu": "^0.44.1",
+    "@ast-grep/napi-linux-x64-gnu": "^0.44.1",
+    "@ast-grep/napi-win32-arm64-msvc": "^0.44.1",
+    "@ast-grep/napi-win32-x64-msvc": "^0.44.1"
   }
 }
