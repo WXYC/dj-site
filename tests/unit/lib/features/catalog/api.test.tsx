@@ -274,6 +274,43 @@ describe("catalogApi", () => {
         );
         expect(revalidateGenres).not.toHaveBeenCalled();
       });
+
+      it("refetches the client genre list after a successful add", async () => {
+        let getCount = 0;
+        global.fetch = vi.fn(
+          async (_url: RequestInfo | URL, opts?: RequestInit) => {
+            const method = opts?.method ?? "GET";
+            if (method === "GET") {
+              getCount += 1;
+              return new Response(JSON.stringify([]), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+              });
+            }
+            return new Response(
+              JSON.stringify({ id: 3, genre_name: "Noise" }),
+              { status: 200, headers: { "Content-Type": "application/json" } },
+            );
+          },
+        ) as typeof global.fetch;
+
+        const store = makeStore();
+        store.dispatch(catalogApi.endpoints.getGenres.initiate());
+        await vi.waitFor(() => expect(getCount).toBeGreaterThanOrEqual(1));
+        const afterInitialLoad = getCount;
+
+        await store.dispatch(
+          catalogApi.endpoints.addGenre.initiate({
+            name: "Noise",
+            description: "",
+          }),
+        );
+        // invalidatesTags on the "Genres" tag forces the subscribed list query
+        // to refetch.
+        await vi.waitFor(() =>
+          expect(getCount).toBeGreaterThan(afterInitialLoad),
+        );
+      });
     });
   });
 
