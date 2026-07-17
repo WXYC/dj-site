@@ -3,16 +3,24 @@
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import {
-  useFlowsheetActions,
   useFlowsheetSearch,
   useFlowsheetSubmit,
 } from "@/src/hooks/flowsheetHooks";
 import { useGhostText } from "@/src/hooks/useGhostText";
 import { PlayArrow, QueueMusic, Troubleshoot } from "@mui/icons-material";
-import { Box, Button, Divider, FormControl, Stack, useTheme } from "@mui/joy";
-import { ClickAwayListener } from "@mui/material";
-import { useCallback, useEffect, useRef } from "react";
+import { Box, Button, Divider, FormControl, Sheet } from "@mui/joy";
+import { ClickAwayListener, Popper, useMediaQuery } from "@mui/material";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Transition } from "react-transition-group";
 import BreakpointButton from "./BreakpointButton";
+import {
+  ENTRY_BAR_CELL_PADDING_X,
+  ENTRY_BAR_GRID_TEMPLATE,
+  entryBarActiveBorder,
+  entryPanelSx,
+  sameWidth,
+  withReducedMotion,
+} from "./entryBarStyles";
 import FlowsheetSearchInput from "./FlowsheetSearchInput";
 import { MAX_VISIBLE_RESULTS } from "./Results/BackendResults/FlowsheetBackendResults";
 import FlowsheetSearchResults from "./Results/FlowsheetSearchResults";
@@ -21,8 +29,6 @@ import RotationModeToggle from "./RotationModeToggle";
 import TalksetButton from "./TalksetButton";
 
 export default function FlowsheetSearchbar() {
-  const theme = useTheme();
-
   const dispatch = useAppDispatch();
 
   const {
@@ -33,8 +39,6 @@ export default function FlowsheetSearchbar() {
     rotationResults,
     lmlResults,
   } = useFlowsheetSubmit();
-
-  const { addToFlowsheet } = useFlowsheetActions();
 
   const selectedResult = useAppSelector(
     flowsheetSlice.selectors.getSelectedResult
@@ -53,6 +57,11 @@ export default function FlowsheetSearchbar() {
   const songRef = useRef<HTMLInputElement>(null);
   const albumRef = useRef<HTMLInputElement>(null);
   const labelRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const prefersReducedMotion = useMediaQuery(
+    "(prefers-reduced-motion: reduce)"
+  );
 
   // Remember the album/label we auto-filled from a track suggestion so we can
   // keep them in sync as the song narrows, without ever clobbering a value the
@@ -216,6 +225,9 @@ export default function FlowsheetSearchbar() {
     };
   }, [handleKeyDown]);
 
+  const panelOpen = searchOpen && !rotationMode;
+  const activeBorder = entryBarActiveBorder(searchOpen, ctrlKeyPressed);
+
   return (
     <ClickAwayListener onClickAway={handleClose}>
       <FormControl
@@ -232,87 +244,89 @@ export default function FlowsheetSearchbar() {
           gap: 0,
         }}
       >
-        <FlowsheetSearchResults
-          binResults={binResults}
-          catalogResults={catalogResults}
-          rotationResults={rotationResults}
-          lmlResults={lmlResults}
-        />
-        <Stack direction="row" spacing={0.5} alignItems="center">
-          <BreakpointButton />
-          <TalksetButton />
-          <RotationModeToggle />
+        <Sheet
+          ref={setAnchorEl}
+          variant="outlined"
+          sx={{
+            borderRadius: "md",
+            flexShrink: 0,
+            bgcolor: "background.level1",
+            borderColor: activeBorder,
+            ...withReducedMotion({ transition: "border-color 0.15s" }),
+            "&:hover": {
+              borderColor:
+                live && !searchOpen ? "neutral.500" : undefined,
+            },
+            // While the panel is open, square the bottom and hide the border
+            // line between the shell and the panel so the active outline flows
+            // down into the results box as one continuous shape.
+            ...(panelOpen
+              ? {
+                  borderBottomLeftRadius: 0,
+                  borderBottomRightRadius: 0,
+                  borderBottomColor: "transparent",
+                }
+              : {}),
+          }}
+        >
           <Box
             ref={searchRef}
             component="form"
             onSubmit={handleFormSubmit}
             data-testid="flowsheet-search-form"
             sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              flexDirection: "row",
-              flexGrow: 1,
+              // The field grid mirrors the entries table's column template so
+              // each input sits over its column below (see entryBarStyles).
+              display: "grid",
+              gridTemplateColumns: ENTRY_BAR_GRID_TEMPLATE,
+              alignItems: "stretch",
               minWidth: 0,
-              zIndex: 8001,
-              background: "transparent",
-              outline: "1px solid",
-              outlineColor: theme.palette.neutral.outlinedBorder,
-              borderRadius: "8px",
-              alignItems: "center",
-              minHeight: "2rem",
-              paddingInline: rotationMode ? "0" : "0.5rem",
+              minHeight: "2.75rem",
               cursor: live ? "text" : "default",
               "& input": {
                 background: "transparent !important",
                 outline: "none !important",
                 border: "none !important",
                 fontFamily: "inherit !important",
+                fontSize: "var(--wxyc-fontSize-md)",
                 minWidth: "0 !important",
-                px: 1,
+                px: ENTRY_BAR_CELL_PADDING_X,
                 flex: 1,
                 minHeight: 0,
-                height: "1.5rem",
+                height: "2.75rem",
                 cursor: live ? "text" : "default",
               },
-              "&:hover": {
-                outlineColor: live
-                  ? theme.palette.neutral["700"]
-                  : theme.palette.neutral.outlinedBorder,
-              },
-              "&:focus-within": {
-                outline: "2px solid",
-                outlineColor: ctrlKeyPressed
-                  ? theme.palette.success["400"]
-                  : theme.palette.primary["400"],
-              },
             }}
-            onClick={() =>
-              live && artistRef.current?.focus()
-            }
+            onClick={() => live && !rotationMode && artistRef.current?.focus()}
             onFocus={() => live && setSearchOpen(true)}
             suppressHydrationWarning
           >
-            {!rotationMode && (
+            <Box
+              sx={{
+                display: { xs: "none", sm: "flex" },
+                alignItems: "center",
+                justifyContent: "center",
+                minHeight: 0,
+                pointerEvents: "none",
+                "& svg": {
+                  fill: "var(--wxyc-palette-neutral-400) !important",
+                  pointerEvents: "none",
+                },
+              }}
+            >
+              <Troubleshoot />
+            </Box>
+            {rotationMode ? (
               <Box
                 sx={{
-                  marginInlineEnd: "0.5rem",
+                  gridColumn: { xs: "1 / -2", sm: "2 / -2" },
                   display: "flex",
-                  flexDirection: "column",
                   alignItems: "center",
-                  justifyContent: "center",
-                  minHeight: 0,
-                  pointerEvents: "none",
-                  "& svg": {
-                    fill: "var(--wxyc-palette-neutral-400) !important",
-                    pointerEvents: "none",
-                  },
+                  minWidth: 0,
                 }}
               >
-                <Troubleshoot />
+                <RotationEntryFields disabled={!live} />
               </Box>
-            )}
-            {rotationMode ? (
-              <RotationEntryFields disabled={!live} />
             ) : (
               <>
                 <FlowsheetSearchInput
@@ -325,7 +339,6 @@ export default function FlowsheetSearchbar() {
                   onBlur={handleArtistBlur}
                   suppressHydrationWarning
                 />
-                <Divider orientation="vertical" />
                 <FlowsheetSearchInput
                   name={"song"}
                   inputRef={songRef}
@@ -335,7 +348,6 @@ export default function FlowsheetSearchbar() {
                   onAcceptGhost={handleAcceptSongGhost}
                   suppressHydrationWarning
                 />
-                <Divider orientation="vertical" />
                 <FlowsheetSearchInput
                   name={"album"}
                   inputRef={albumRef}
@@ -343,7 +355,6 @@ export default function FlowsheetSearchbar() {
                   required={selectedResult == 0}
                   suppressHydrationWarning
                 />
-                <Divider orientation="vertical" />
                 <FlowsheetSearchInput
                   name={"label"}
                   inputRef={labelRef}
@@ -354,17 +365,19 @@ export default function FlowsheetSearchbar() {
             )}
             <input type="submit" hidden />
             <Box
-              component="div"
-              className="MuiInput-endDecorator"
               sx={{
-                display: rotationMode && !searchOpen ? "none" : "flex",
+                display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                mr: rotationMode ? 0.5 : -0.5,
+                justifyContent: "flex-end",
                 gap: 0.5,
+                pr: 1,
+                minWidth: 0,
               }}
             >
-              {!searchOpen && <Divider orientation="vertical" />}
+              <BreakpointButton />
+              <TalksetButton />
+              <RotationModeToggle />
+              <Divider orientation="vertical" sx={{ my: 1 }} />
               <Button
                 size="sm"
                 variant={searchOpen ? "solid" : "plain"}
@@ -389,12 +402,8 @@ export default function FlowsheetSearchbar() {
                   }
                 }}
                 sx={{
-                  minHeight: "22px",
-                  maxWidth: "22px !important",
+                  minHeight: "28px",
                   borderRadius: "0.3rem",
-                  "& > button": {
-                    maxWidth: "12px !important",
-                  },
                 }}
               >
                 {searchOpen ? (
@@ -409,7 +418,57 @@ export default function FlowsheetSearchbar() {
               </Button>
             </Box>
           </Box>
-        </Stack>
+        </Sheet>
+        <Popper
+          open={panelOpen && Boolean(anchorEl)}
+          anchorEl={anchorEl}
+          placement="bottom-start"
+          disablePortal
+          transition
+          // Sit flush below the shell (which hides its bottom border) so the
+          // two read as one continuous outlined shape.
+          modifiers={[sameWidth, { name: "offset", options: { offset: [0, 0] } }]}
+          style={{ zIndex: 1300 }}
+        >
+          {({ TransitionProps }) => (
+            <Transition
+              {...TransitionProps}
+              nodeRef={panelRef}
+              appear
+              timeout={prefersReducedMotion ? 0 : 180}
+            >
+              {(status) => (
+                <Box
+                  ref={panelRef}
+                  // CSS-only enter/exit — MUI Material transitions (Grow)
+                  // crash here because the app provides a Joy theme with no
+                  // theme.transitions. Scale + fade from the top edge.
+                  sx={{
+                    transformOrigin: "top center",
+                    transition: prefersReducedMotion
+                      ? "none"
+                      : "opacity 180ms ease, transform 180ms cubic-bezier(0.4, 0, 0.2, 1)",
+                    opacity:
+                      status === "entering" || status === "entered" ? 1 : 0,
+                    transform:
+                      status === "entering" || status === "entered"
+                        ? "scaleY(1)"
+                        : "scaleY(0.97)",
+                  }}
+                >
+                  <Sheet variant="outlined" sx={entryPanelSx(activeBorder)}>
+                    <FlowsheetSearchResults
+                      binResults={binResults}
+                      catalogResults={catalogResults}
+                      rotationResults={rotationResults}
+                      lmlResults={lmlResults}
+                    />
+                  </Sheet>
+                </Box>
+              )}
+            </Transition>
+          )}
+        </Popper>
       </FormControl>
     </ClickAwayListener>
   );
