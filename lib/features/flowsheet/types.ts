@@ -21,6 +21,9 @@ export type FlowsheetFrontendState = {
     confirmedArtist: string;
     // Bumped by every resetSearch; remount key for reset-sensitive local state
     resetEpoch: number;
+    // Which fields the frozen (clicked) release supplied — edits to these
+    // deviate; filling ones it lacked is added data
+    selectionProvided?: { artist: boolean; album: boolean; label: boolean };
   };
   queue: FlowsheetSongEntry[];
   queueIdCounter: number;

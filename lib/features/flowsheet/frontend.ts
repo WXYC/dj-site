@@ -96,6 +96,7 @@ export const flowsheetSlice = createAppSlice({
       state.search.query = defaultFlowsheetFrontendState.search.query;
       state.search.selectedResult = defaultFlowsheetFrontendState.search.selectedResult;
       state.search.confirmedArtist = defaultFlowsheetFrontendState.search.confirmedArtist;
+      state.search.selectionProvided = undefined;
       // Always forward, never back to default — it is a remount signal
       state.search.resetEpoch += 1;
     },
@@ -117,17 +118,24 @@ export const flowsheetSlice = createAppSlice({
     ) => {
       const previous = state.search.query[action.payload.name];
       state.search.query[action.payload.name] = action.payload.value;
+      // Deviation is judged against what the release supplied at freeze time
+      // (selectionProvided), never the rolling query value — per-keystroke
+      // edits would otherwise read their own first character as "supplied"
+      const provided =
+        state.search.selectionProvided?.[
+          action.payload.name as "artist" | "album" | "label"
+        ];
       if (
         action.payload.deviates &&
         state.search.query.album_id != null &&
-        typeof previous === "string" &&
-        previous !== "" &&
+        provided === true &&
         previous !== action.payload.value
       ) {
         state.search.query.album_id = undefined;
         state.search.query.rotation_id = undefined;
         state.search.query.rotation_bin = undefined;
         state.search.query.track_position = undefined;
+        state.search.selectionProvided = undefined;
       }
     },
     /**
@@ -161,6 +169,11 @@ export const flowsheetSlice = createAppSlice({
       state.search.query.rotation_bin = action.payload.rotation_bin;
       state.search.query.track_position = undefined;
       state.search.selectedResult = 0;
+      state.search.selectionProvided = {
+        artist: action.payload.artist !== "",
+        album: action.payload.album !== "",
+        label: action.payload.label !== "",
+      };
     },
     toggleRequest: (state) => {
       state.search.query.request = !state.search.query.request;
