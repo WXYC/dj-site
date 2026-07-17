@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "build": "next build",
     "build:opennext": "opennextjs-cloudflare build && node scripts/post-build.js",
+    "analyze": "next build --experimental-analyze && node scripts/analyze-bundle.mjs",
     "start": "next start",
     "preview": "npm run build:opennext && opennextjs-cloudflare preview",
     "deploy": "npm run build:opennext && wrangler pages deploy .open-next/assets",
