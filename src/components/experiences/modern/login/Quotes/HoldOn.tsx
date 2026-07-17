@@ -16,7 +16,7 @@ const holdOnQuotesAndArtists: HoldOnQuote[] = [
 ];
 
 // Pick in the nearest Server Component ancestor so the chosen quote is in the
-// initial HTML and identical on hydration — #975.
+// initial HTML and identical on hydration.
 export function pickHoldOnQuote(): HoldOnQuote {
   return holdOnQuotesAndArtists[
     Math.floor(Math.random() * holdOnQuotesAndArtists.length)

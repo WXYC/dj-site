@@ -14,7 +14,7 @@ const forgottenQuotesAndArtists: ForgotQuote[] = [
 ];
 
 // Pick in the nearest Server Component ancestor so the chosen quote is in the
-// initial HTML and identical on hydration — #975.
+// initial HTML and identical on hydration.
 export function pickForgotQuote(): ForgotQuote {
   return forgottenQuotesAndArtists[
     Math.floor(Math.random() * forgottenQuotesAndArtists.length)
