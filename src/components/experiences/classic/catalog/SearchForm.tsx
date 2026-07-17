@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useRef } from "react";
 
@@ -52,9 +53,14 @@ export default function SearchForm() {
               <tr>
                 <td align="center" valign="top">
                   <span className="title">Search the&nbsp;&nbsp;</span>
-                  <img
+                  {/* unoptimized: see next.config.mjs images.unoptimized comment */}
+                  <Image
                     src="/img/wxyc-logo-classic.gif"
                     alt="WXYC logo"
+                    width={148}
+                    height={35}
+                    unoptimized
+                    priority
                     style={{ border: 0 }}
                   />
                   <span className="title">&nbsp;&nbsp;Library:</span>
