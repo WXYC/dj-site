@@ -22,14 +22,11 @@ Production and PR previews are built in GitHub Actions and pushed to the `wxyc-d
 
 Deploy-helper scripts live in `scripts/deploy/`, each with a bats suite in `scripts/__tests__/deploy/`; run `npm run test:scripts`. See [`docs/ci-cd.md`](docs/ci-cd.md) and the cutover procedure in [`docs/deploy-cutover-runbook.md`](docs/deploy-cutover-runbook.md).
 
-## API Integration
-The revised catalog leverages services defined in `api-service.js`, which utilizes the popular Axios library to communicate with an AWS API Gateway. This integration allows seamless communication between the front-end application and the API endpoints, enabling data retrieval and manipulation.
-
 ## Technologies Used
-- React: The front-end framework used for building the revised WXYC Card Catalog.
+- Next.js (App Router): React framework for the revised WXYC Card Catalog.
 - MUI Joy UI: A library of pre-built UI components for React that allows fast and beautiful feature development.
-- Github Pages: For hosting the frontend and automating publication.
-- Axios: A JavaScript library used for making HTTP requests to the AWS API Gateway.
+- Redux Toolkit / RTK Query: Owns server state, talking directly to [Backend-Service](https://github.com/WXYC/Backend-Service) (see [Local Development Prerequisites](#local-development-prerequisites) below).
+- Cloudflare Pages (via OpenNext/wrangler): Hosting and deployment — see [Deployment](#deployment) above.
 
 ## Local Development Prerequisites
 
