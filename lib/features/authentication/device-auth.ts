@@ -5,7 +5,7 @@ import {
   DeviceAuthTokenRequest,
   DeviceAuthTokenResponse,
 } from "@wxyc/shared/dtos";
-import { authBaseURL } from "./client";
+import { authFetch } from "./client";
 
 /**
  * The decision a single `/auth/device/token` poll resolves to.
@@ -86,18 +86,16 @@ export async function requestDeviceCode(
 ): Promise<DeviceAuthCodeResponse> {
   const body: DeviceAuthCodeRequest = { client_id: clientId };
 
-  const response = await fetch(`${authBaseURL}/device/code`, {
+  const { ok, status, data } = await authFetch<DeviceAuthCodeResponse>("/device/code", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify(body),
+    json: body,
   });
 
-  if (!response.ok) {
-    throw new Error(`Failed to start device authorization (${response.status})`);
+  if (!ok) {
+    throw new Error(`Failed to start device authorization (${status})`);
   }
 
-  return (await response.json()) as DeviceAuthCodeResponse;
+  return data as DeviceAuthCodeResponse;
 }
 
 /** The fixed RFC 8628 device-flow grant type. */
@@ -122,19 +120,10 @@ export async function pollDeviceToken(
     client_id: clientId,
   };
 
-  const response = await fetch(`${authBaseURL}/device/token`, {
+  const { status, data } = await authFetch<unknown>("/device/token", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify(body),
+    json: body,
   });
 
-  let parsed: unknown = null;
-  try {
-    parsed = await response.json();
-  } catch {
-    parsed = null;
-  }
-
-  return { status: response.status, body: parsed };
+  return { status, body: data };
 }

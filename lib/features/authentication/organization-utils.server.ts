@@ -1,20 +1,18 @@
 import "server-only";
-import { serverAuthClient, getServerAuthBaseURL } from "./server-client";
+import { serverAuthClient, serverAuthFetch } from "./server-client";
 import { normalizeRole, organizationRoleFromJwtToken } from "./organization-utils";
 import { WXYCRole } from "./types";
 
 async function fetchAuthJwtToken(cookieHeader?: string): Promise<string | null> {
-  const baseURL = getServerAuthBaseURL();
   try {
-    const response = await fetch(`${baseURL}/token`, {
+    const { ok, data } = await serverAuthFetch<{ token?: unknown }>("/token", {
       method: "GET",
       headers: cookieHeader ? { cookie: cookieHeader } : {},
     });
-    if (!response.ok) {
+    if (!ok) {
       return null;
     }
-    const data = await response.json();
-    return typeof data.token === "string" ? data.token : null;
+    return typeof data?.token === "string" ? data.token : null;
   } catch {
     return null;
   }
@@ -28,37 +26,35 @@ async function resolveOrganizationId(
   cookieHeader?: string
 ): Promise<string | undefined> {
   try {
-    // The client SDK's findOrganizationBySlug returns 404, so we use the API directly
-    const baseURL = getServerAuthBaseURL();
-    const response = await fetch(`${baseURL}/organization/get-full-organization?organizationSlug=${encodeURIComponent(organizationSlugOrId)}`, {
-      method: 'GET',
-      headers: cookieHeader ? {
-        cookie: cookieHeader,
-      } : {},
-    });
-    
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let orgResult: any;
-    if (response.ok) {
-      const data = await response.json();
-      orgResult = { data, error: null };
-    } else {
-      const errorData = await response.json().catch(() => ({ message: response.statusText }));
-      orgResult = { data: null, error: { code: errorData.code, message: errorData.message || response.statusText, status: response.status, statusText: response.statusText } };
-    }
+    // The client SDK's findOrganizationBySlug returns 404, so call the API directly.
+    const { ok, status, data } = await serverAuthFetch<{
+      id?: string;
+      code?: string;
+      message?: string;
+    }>(
+      `/organization/get-full-organization?organizationSlug=${encodeURIComponent(organizationSlugOrId)}`,
+      {
+        method: "GET",
+        headers: cookieHeader ? { cookie: cookieHeader } : {},
+      }
+    );
 
-    if (orgResult.error) {
-      // Log the actual error to understand why slug lookup failed
-      console.error("Failed to resolve organization slug:", orgResult.error);
-      // If slug lookup fails, we should NOT use it as an ID - return undefined to fail gracefully
+    if (!ok) {
+      // A failed slug lookup must NOT be treated as an ID: returning the slug
+      // as a UUID silently downgrades the user to NO authority.
+      console.error("Failed to resolve organization slug:", {
+        code: data?.code,
+        message: data?.message,
+        status,
+      });
       return undefined;
     }
 
-    if (orgResult.data?.id) {
-      return orgResult.data.id;
+    if (data?.id) {
+      return data.id;
     }
 
-    // If no organization found by slug, assume it's already an ID
+    // No organization found by slug: assume the input is already an ID.
     return organizationSlugOrId;
   } catch (error) {
     console.error("Exception resolving organization ID from slug:", error);

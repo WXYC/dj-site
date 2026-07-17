@@ -161,13 +161,11 @@ describe("authentication client", () => {
       consoleSpy.mockRestore();
     });
 
-    it("should return null on JSON parse error", async () => {
+    it("should return null when the token response body is not JSON", async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.reject(new Error("Invalid JSON")),
       });
-
-      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
       const { getJWTToken } = await import(
         "@/lib/features/authentication/client"
@@ -175,12 +173,6 @@ describe("authentication client", () => {
       const token = await getJWTToken();
 
       expect(token).toBeNull();
-      expect(consoleSpy).toHaveBeenCalledWith(
-        "Failed to get JWT token:",
-        expect.any(Error)
-      );
-
-      consoleSpy.mockRestore();
     });
 
     it("should return null on fetch timeout", async () => {

@@ -1,5 +1,5 @@
 import { jwtDecode } from "jwt-decode";
-import { authClient, authBaseURL, getJWTToken } from "./client";
+import { authClient, authFetch, getJWTToken } from "./client";
 import { getAppOrganizationId, getAppOrganizationIdClient } from "./organization-config";
 import { BetterAuthJwtPayload, WXYCRole } from "./types";
 
@@ -26,14 +26,13 @@ export async function resolveOrganizationIdAdmin(slugOverride?: string): Promise
   if (cached) return cached;
 
   try {
-    const response = await fetch(
-      `${authBaseURL}/admin/resolve-organization?slug=${encodeURIComponent(slug)}`,
-      { credentials: "include" }
+    const { ok, data } = await authFetch<{ id?: string }>(
+      `/admin/resolve-organization?slug=${encodeURIComponent(slug)}`,
+      { method: "GET" }
     );
 
-    if (!response.ok) return null;
-    const data = await response.json();
-    if (!data.id) return null;
+    if (!ok) return null;
+    if (!data?.id) return null;
     cachedAdminOrgIds.set(slug, data.id);
     return data.id;
   } catch {
