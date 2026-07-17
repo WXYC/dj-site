@@ -79,3 +79,50 @@ barrel-rewrite optimization, has no measurable effect on the production
 Turbopack build here. The config entry is still correct and worth keeping: it
 satisfies the optimization for the webpack builder and matches Next's own
 default handling of `@mui/material`/`@mui/icons-material`.
+
+## After store scoping
+
+The root layout previously mounted one combined 12-API store above every route.
+Public surfaces now mount a reduced store (`lib/store-public.ts`:
+authentication, application, experiences, flowsheet, playlist-search) and the
+authenticated dashboard nests the full store (`lib/store.ts`) inside it. The
+DJ-only feature graphs (admin roster, catalog, rotation, autoDJ, bin, metadata,
+LML) no longer enter the `/`, `/live`, or `/playlists` client graphs.
+
+| Route | Client JS (raw) | Δ raw | Client JS (gzip) | Δ gzip |
+| --- | --- | --- | --- | --- |
+| `/` | 1661.4 kB | −17.9 kB | 641.8 kB | −9.1 kB |
+| `/login` | 1772.4 kB | −13.5 kB | 691.2 kB | −5.7 kB |
+| `/live` | 1685.7 kB | −0.9 kB | 653.7 kB | −0.5 kB |
+| `/playlists` | 1667.6 kB | −16.5 kB | 644.3 kB | −8.5 kB |
+| `/dashboard/flowsheet` | 2214.0 kB | +26.4 kB | 897.3 kB | +12.5 kB |
+| `/dashboard/catalog` | 1888.4 kB | +41.2 kB | 749.1 kB | +20.2 kB |
+| `/dashboard/admin/roster` | 1834.3 kB | +25.5 kB | 722.7 kB | +12.1 kB |
+
+Deltas are vs the committed `c01dbc8d` "Before" table above (same
+`npm run analyze` method).
+
+What the numbers do and don't show:
+
+- The win on public routes is architectural first, bytes second. An analyzer
+  source-graph audit confirms `/`, `/live`, and `/playlists` no longer include
+  `lib/store.ts` or any of the admin/catalog/rotation/autoDJ/bin/metadata/LML
+  RTK slices or APIs. Their byte cost is small relative to the MUI-Joy-dominated
+  baseline, so removing them moves the analyzer total only modestly; on `/live`
+  the removed code overlaps shared chunks it still loads for the flowsheet
+  cluster it legitimately needs (live now-playing + SSE), so its byte total is
+  nearly flat even though the modules are gone.
+- `/live` and `/playlists` keep the public store, not zero Redux: `/live`'s
+  `NowPlaying` uses the flowsheet RTK Query hooks and its `SSESubscription`
+  drives the live-updates listener middleware; `/playlists` uses the
+  playlist-search API. The public store is the union those surfaces need.
+- `/login` still carries admin+bin+catalog because the shared logout helper
+  `resetApplication` resets every slice and so references them; it is out of the
+  public-route hot path targeted here and is security-sensitive (clears a prior
+  user's state), so it was left as-is.
+- Dashboard routes grow slightly. They now resolve two nested stores (the shell
+  reads the public store; dashboard content reads the full store). The slice
+  modules are shared between the two, so the net new code is the small
+  `store-public` / provider modules; the larger swing is Turbopack
+  re-attributing shared chunks across route graphs, not duplicated feature code.
+  Dashboard behavior is unchanged.
