@@ -1,12 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { http, HttpResponse } from "msw";
 
 import { flowsheetApi } from "@/lib/features/flowsheet/api";
-import {
-  __getHasEverConnectedForTests,
-  __getLiveUpdatesEventSourceForTests,
-  __resetLiveUpdatesEventSourceForTests,
-} from "@/lib/features/flowsheet/live-updates-listener";
+import { getLiveUpdatesListenerHandle } from "@/lib/features/flowsheet/live-updates-listener";
 import {
   liveUpdatesConnectionReleased,
   liveUpdatesConnectionRequested,
@@ -14,7 +10,21 @@ import {
 } from "@/lib/features/flowsheet/live-updates-slice";
 import type { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 import { makeStore } from "@/lib/store";
+import { makePublicStore } from "@/lib/store-public";
 import { server, TEST_BACKEND_URL } from "@/tests/helpers";
+
+// The live-updates connection state is owned per store. Reach a store's
+// EventSource / reconnect flag through its listener handle.
+function esOf(store: object): EventSource | null {
+  const handle = getLiveUpdatesListenerHandle(store);
+  if (!handle) throw new Error("store has no live-updates listener handle");
+  return handle.getEventSource();
+}
+function hasEverConnectedOf(store: object): boolean {
+  const handle = getLiveUpdatesListenerHandle(store);
+  if (!handle) throw new Error("store has no live-updates listener handle");
+  return handle.getHasEverConnected();
+}
 
 const { captureSpy, captureExceptionSpy } = vi.hoisted(() => ({
   captureSpy: vi.fn(),
@@ -68,24 +78,19 @@ function frame(payload: unknown): string {
   return JSON.stringify(payload);
 }
 
-describe("liveUpdatesListenerMiddleware", () => {
+describe("live-updates listener middleware", () => {
   beforeEach(() => {
     captureSpy.mockClear();
     captureExceptionSpy.mockClear();
-    __resetLiveUpdatesEventSourceForTests();
-  });
-
-  afterEach(() => {
-    __resetLiveUpdatesEventSourceForTests();
   });
 
   it("opens an EventSource on the 0->1 refCount transition", () => {
     const store = makeStore();
-    expect(__getLiveUpdatesEventSourceForTests()).toBeNull();
+    expect(esOf(store)).toBeNull();
 
     store.dispatch(liveUpdatesConnectionRequested());
 
-    expect(__getLiveUpdatesEventSourceForTests()).not.toBeNull();
+    expect(esOf(store)).not.toBeNull();
     const es = getLastMock();
     expect(es.url).toContain("/events/stream?topics=live-fs-topic");
     expect(
@@ -96,9 +101,9 @@ describe("liveUpdatesListenerMiddleware", () => {
   it("does not open a second EventSource on the 1->2 refCount transition", () => {
     const store = makeStore();
     store.dispatch(liveUpdatesConnectionRequested());
-    const first = __getLiveUpdatesEventSourceForTests();
+    const first = esOf(store);
     store.dispatch(liveUpdatesConnectionRequested());
-    expect(__getLiveUpdatesEventSourceForTests()).toBe(first);
+    expect(esOf(store)).toBe(first);
     expect(MockEventSourceCtor._instances).toHaveLength(1);
   });
 
@@ -106,41 +111,80 @@ describe("liveUpdatesListenerMiddleware", () => {
     const store = makeStore();
     store.dispatch(liveUpdatesConnectionRequested());
     store.dispatch(liveUpdatesConnectionRequested());
-    expect(__getLiveUpdatesEventSourceForTests()).not.toBeNull();
+    expect(esOf(store)).not.toBeNull();
     store.dispatch(liveUpdatesConnectionReleased());
-    expect(__getLiveUpdatesEventSourceForTests()).not.toBeNull();
+    expect(esOf(store)).not.toBeNull();
     store.dispatch(liveUpdatesConnectionReleased());
-    expect(__getLiveUpdatesEventSourceForTests()).toBeNull();
+    expect(esOf(store)).toBeNull();
     expect(
       liveUpdatesSlice.selectors.selectLiveUpdatesConnectionStatus(store.getState())
     ).toBe("closed");
   });
 
-  it("a second store's request opens a fresh EventSource only after the first closes", () => {
-    // Module-scope EventSource ref + per-store ref-count means concurrent
-    // stores must not double-open. After the first store releases, the second
-    // store's first request must open a new ES against its own listenerApi.
+  it("gives each store its own EventSource, independently held", () => {
+    // Each store scopes its own ref-count, so each owns a separate connection.
+    // A second store requesting while the first is still connected opens its
+    // OWN stream rather than aliasing the first's.
     const storeA = makeStore();
     storeA.dispatch(liveUpdatesConnectionRequested());
-    const esA = __getLiveUpdatesEventSourceForTests();
+    const esA = esOf(storeA);
     expect(esA).not.toBeNull();
+    expect(MockEventSourceCtor._instances).toHaveLength(1);
 
     const storeB = makeStore();
     storeB.dispatch(liveUpdatesConnectionRequested());
-    expect(__getLiveUpdatesEventSourceForTests()).toBe(esA);
-    expect(MockEventSourceCtor._instances).toHaveLength(1);
+    const esB = esOf(storeB);
+    expect(esB).not.toBeNull();
+    expect(esB).not.toBe(esA);
+    expect(MockEventSourceCtor._instances).toHaveLength(2);
 
-    // storeB's refCount is independently tracked.
-    expect(
-      liveUpdatesSlice.selectors.selectLiveUpdatesRefCount(storeB.getState())
-    ).toBe(1);
-
+    // Releasing storeA closes only storeA's stream; storeB keeps its own.
     storeA.dispatch(liveUpdatesConnectionReleased());
-    // storeA's refCount drops to 0 but the module-scope ES is still held by
-    // storeB conceptually. The listener checks storeA's refCount === 0 and
-    // closes the ES — this is the documented limitation of the module-scoped
-    // singleton across multiple stores; tests must reset between makeStore()s.
-    expect(__getLiveUpdatesEventSourceForTests()).toBeNull();
+    expect(esOf(storeA)).toBeNull();
+    expect((esA as unknown as MockES).readyState).toBe(MockEventSourceCtor.CLOSED);
+    expect(esOf(storeB)).toBe(esB);
+    expect((esB as unknown as MockES).readyState).not.toBe(
+      MockEventSourceCtor.CLOSED
+    );
+  });
+
+  it("keeps the surviving store connected when a subscriber moves between stores and the new request lands before the old release", () => {
+    // Soft nav between a public route (public store) and the dashboard (full
+    // store) can run the destination's connectionRequested before the source's
+    // connectionReleased cleanup. With connection state shared across stores,
+    // the old store's release would close a stream the new store still needs,
+    // stranding it at ref-count 1 with no EventSource. Per-store ownership must
+    // keep the surviving store's stream live through the overlap.
+    const oldStore = makePublicStore();
+    oldStore.dispatch(liveUpdatesConnectionRequested());
+    getLastMock()._fireOpen();
+    const oldEs = esOf(oldStore);
+    expect(oldEs).not.toBeNull();
+
+    const newStore = makeStore();
+    // New subtree mounts and requests BEFORE the old subtree's release fires.
+    newStore.dispatch(liveUpdatesConnectionRequested());
+    getLastMock()._fireOpen();
+    const newEs = esOf(newStore);
+    expect(newEs).not.toBeNull();
+    expect(newEs).not.toBe(oldEs);
+
+    // Old subtree finally unmounts and releases.
+    oldStore.dispatch(liveUpdatesConnectionReleased());
+
+    // Invariant: a store with ref-count > 0 still owns a live EventSource.
+    expect(
+      liveUpdatesSlice.selectors.selectLiveUpdatesRefCount(newStore.getState())
+    ).toBe(1);
+    expect(esOf(newStore)).toBe(newEs);
+    expect((newEs as unknown as MockES).readyState).not.toBe(
+      MockEventSourceCtor.CLOSED
+    );
+    expect(
+      liveUpdatesSlice.selectors.selectLiveUpdatesConnectionStatus(
+        newStore.getState()
+      )
+    ).toBe("connected");
   });
 
   it("marks status connected on onopen", () => {
@@ -351,7 +395,7 @@ describe("liveUpdatesListenerMiddleware", () => {
     }
   });
 
-  describe("reconnect refetch (issue #682)", () => {
+  describe("reconnect refetch", () => {
     it("does not schedule an invalidate on the first onopen (initial connect)", () => {
       vi.useFakeTimers();
       const invalidateSpy = vi.spyOn(flowsheetApi.util, "invalidateTags");
@@ -458,18 +502,18 @@ describe("liveUpdatesListenerMiddleware", () => {
       }
     });
 
-    it("__getHasEverConnectedForTests follows the request → open → release lifecycle", () => {
+    it("the reconnect-detect flag follows the request → open → release lifecycle", () => {
       const store = makeStore();
-      expect(__getHasEverConnectedForTests()).toBe(false);
+      expect(hasEverConnectedOf(store)).toBe(false);
       store.dispatch(liveUpdatesConnectionRequested());
-      expect(__getHasEverConnectedForTests()).toBe(false);
+      expect(hasEverConnectedOf(store)).toBe(false);
       getLastMock()._fireOpen();
-      expect(__getHasEverConnectedForTests()).toBe(true);
+      expect(hasEverConnectedOf(store)).toBe(true);
       store.dispatch(liveUpdatesConnectionReleased());
-      expect(__getHasEverConnectedForTests()).toBe(false);
+      expect(hasEverConnectedOf(store)).toBe(false);
     });
 
-    it("does not set hasEverConnected when the onopen handler's status read throws (pins commit 7b56287 ordering invariant)", () => {
+    it("does not set the reconnect-detect flag when the onopen handler's status read throws", () => {
       const store = makeStore();
       store.dispatch(liveUpdatesConnectionRequested());
       // Spy AFTER the requested-effect's initial "connecting" status set, so
@@ -486,7 +530,7 @@ describe("liveUpdatesListenerMiddleware", () => {
         // If a future refactor moves `hasEverConnected = true` back above the
         // status dispatch, this assertion flips to true and the test fails —
         // which is the regression we want.
-        expect(__getHasEverConnectedForTests()).toBe(false);
+        expect(hasEverConnectedOf(store)).toBe(false);
       } finally {
         selectorSpy.mockRestore();
       }

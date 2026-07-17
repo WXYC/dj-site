@@ -13,7 +13,10 @@ import { catalogSlice } from "./features/catalog/frontend";
 import { experienceApi } from "./features/experiences/api";
 import { flowsheetApi } from "./features/flowsheet/api";
 import { flowsheetSlice } from "./features/flowsheet/frontend";
-import { liveUpdatesListenerMiddleware } from "./features/flowsheet/live-updates-listener";
+import {
+  attachLiveUpdatesListener,
+  createLiveUpdatesListenerMiddleware,
+} from "./features/flowsheet/live-updates-listener";
 import { liveUpdatesSlice } from "./features/flowsheet/live-updates-slice";
 import { lmlApi } from "./features/lml/api";
 import { metadataApi } from "./features/metadata/api";
@@ -47,11 +50,12 @@ const rootReducer = combineSlices(
 export type RootState = ReturnType<typeof rootReducer>;
 
 export const makeStore = () => {
-  return configureStore({
+  const liveUpdatesListener = createLiveUpdatesListenerMiddleware();
+  const store = configureStore({
     reducer: rootReducer,
     middleware: (getDefaultMiddleware) => {
       return getDefaultMiddleware()
-        .prepend(liveUpdatesListenerMiddleware.middleware)
+        .prepend(liveUpdatesListener.middleware)
         .concat(rtkQueryErrorLogger)
         .concat(applicationApi.middleware)
         .concat(autoDJApi.middleware)
@@ -66,6 +70,8 @@ export const makeStore = () => {
         .concat(adminApi.middleware);
     },
   });
+  attachLiveUpdatesListener(store, liveUpdatesListener);
+  return store;
 };
 
 export type AppStore = ReturnType<typeof makeStore>;
