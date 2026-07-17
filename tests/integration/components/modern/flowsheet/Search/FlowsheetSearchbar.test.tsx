@@ -156,13 +156,13 @@ describe("FlowsheetSearchbar", () => {
     );
 
     // MainContent is a column flex pinned to 100dvh; flex-grow on the
-    // searchbar's FormControl absorbs all leftover vertical space and pushes
-    // the entry tables to the bottom of the viewport.
-    const formControl = container.querySelector(
-      ".MuiFormControl-root"
+    // searchbar's outer wrapper absorbs all leftover vertical space and
+    // pushes the entry tables to the bottom of the viewport.
+    const wrapper = container.querySelector(
+      '[data-testid="flowsheet-entry-bar"]'
     ) as HTMLElement;
-    expect(formControl).toBeInTheDocument();
-    expect(getComputedStyle(formControl).flexGrow).not.toBe("1");
+    expect(wrapper).toBeInTheDocument();
+    expect(getComputedStyle(wrapper).flexGrow).not.toBe("1");
   });
 
   it("should render BreakpointButton", () => {

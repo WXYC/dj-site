@@ -8,14 +8,7 @@ import {
 } from "@/src/hooks/flowsheetHooks";
 import { useGhostText } from "@/src/hooks/useGhostText";
 import { Close, PlayArrow, QueueMusic } from "@mui/icons-material";
-import {
-  Box,
-  Divider,
-  FormControl,
-  IconButton,
-  Sheet,
-  Tooltip,
-} from "@mui/joy";
+import { Box, Divider, IconButton, Sheet, Tooltip } from "@mui/joy";
 import { ClickAwayListener, Popper, useMediaQuery } from "@mui/material";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Transition } from "react-transition-group";
@@ -243,8 +236,11 @@ export default function FlowsheetSearchbar() {
 
   return (
     <ClickAwayListener onClickAway={handleClose}>
-      <FormControl
-        size="sm"
+      {/* Plain Box, deliberately NOT a Joy FormControl: the bar hosts several
+          Joy control components at once (rotation dropdowns, the panel's
+          track picker), and FormControl warns when more than one registers. */}
+      <Box
+        data-testid="flowsheet-entry-bar"
         sx={{
           // No flex-grow: inside MainContent's 100dvh column this control
           // must never absorb leftover viewport height (see the regression
@@ -520,7 +516,7 @@ export default function FlowsheetSearchbar() {
             </Transition>
           )}
         </Popper>
-      </FormControl>
+      </Box>
     </ClickAwayListener>
   );
 }
