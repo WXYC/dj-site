@@ -7,8 +7,16 @@ import {
   useFlowsheetSubmit,
 } from "@/src/hooks/flowsheetHooks";
 import { useGhostText } from "@/src/hooks/useGhostText";
-import { PlayArrow, QueueMusic, Troubleshoot } from "@mui/icons-material";
-import { Box, Button, Divider, FormControl, Sheet } from "@mui/joy";
+import { PlayArrow, QueueMusic } from "@mui/icons-material";
+import {
+  Box,
+  Button,
+  Divider,
+  FormControl,
+  IconButton,
+  Sheet,
+  Tooltip,
+} from "@mui/joy";
 import { ClickAwayListener, Popper, useMediaQuery } from "@mui/material";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Transition } from "react-transition-group";
@@ -34,6 +42,7 @@ export default function FlowsheetSearchbar() {
   const {
     ctrlKeyPressed,
     handleSubmit,
+    submitToQueue,
     binResults,
     catalogResults,
     rotationResults,
@@ -296,6 +305,12 @@ export default function FlowsheetSearchbar() {
                 height: "2.75rem",
                 cursor: live ? "text" : "default",
               },
+              // Field cells carry a left rule duplicating the outer outline,
+              // reading as interior column borders of the "table header".
+              "& .entry-field-cell": {
+                borderLeft: "1px solid",
+                borderColor: "neutral.outlinedBorder",
+              },
             }}
             onClick={() => live && !rotationMode && artistRef.current?.focus()}
             onFocus={() => live && setSearchOpen(true)}
@@ -307,17 +322,14 @@ export default function FlowsheetSearchbar() {
                 alignItems: "center",
                 justifyContent: "center",
                 minHeight: 0,
-                pointerEvents: "none",
-                "& svg": {
-                  fill: "var(--wxyc-palette-neutral-400) !important",
-                  pointerEvents: "none",
-                },
               }}
+              onClick={(e) => e.stopPropagation()}
             >
-              <Troubleshoot />
+              <RotationModeToggle />
             </Box>
             {rotationMode ? (
               <Box
+                className="entry-field-cell"
                 sx={{
                   gridColumn: { xs: "1 / -2", sm: "2 / -2" },
                   display: "flex",
@@ -376,8 +388,26 @@ export default function FlowsheetSearchbar() {
             >
               <BreakpointButton />
               <TalksetButton />
-              <RotationModeToggle />
               <Divider orientation="vertical" sx={{ my: 1 }} />
+              {searchOpen && (
+                <Tooltip
+                  placement="top"
+                  size="sm"
+                  variant="outlined"
+                  title="Add to queue (Ctrl+Enter)"
+                >
+                  <IconButton
+                    size="sm"
+                    variant="soft"
+                    color="success"
+                    disabled={!live}
+                    data-testid="flowsheet-search-queue"
+                    onClick={() => submitToQueue()}
+                  >
+                    <QueueMusic fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
               <Button
                 size="sm"
                 variant={searchOpen ? "solid" : "plain"}
@@ -406,15 +436,7 @@ export default function FlowsheetSearchbar() {
                   borderRadius: "0.3rem",
                 }}
               >
-                {searchOpen ? (
-                  ctrlKeyPressed ? (
-                    <QueueMusic fontSize="small" />
-                  ) : (
-                    <PlayArrow fontSize="small" />
-                  )
-                ) : (
-                  "/"
-                )}
+                {searchOpen ? <PlayArrow fontSize="small" /> : "/"}
               </Button>
             </Box>
           </Box>

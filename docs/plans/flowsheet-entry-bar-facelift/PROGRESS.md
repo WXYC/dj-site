@@ -4,7 +4,15 @@ Plan: `~/.claude/plans/i-ll-have-another-agent-rustling-barto.md` (approved 2026
 Branch: `feat/flowsheet-entry-bar-facelift`. #830 is parked — design lifted by copy only.
 Issues absorbed: #946 #937 #936 #939 #940 #938 #931 + ghost text.
 
-## Slice 1 — outlined shell + table-aligned grid + Popper results panel ✅ (awaiting visual verification)
+## Slice 1 — outlined shell + table-aligned grid + Popper results panel ✅ (visually approved 2026-07-17 + fixups applied)
+
+Kickout fixups (Jackson): interior left-border rules on each field cell
+(`.entry-field-cell`, duplicating the outer outline); dedicated queue button
+(soft success, `flowsheet-search-queue`) next to Play while search is open —
+`submitToQueue` extracted from `handleSubmit`'s Ctrl branch (#936 pulled
+forward from Slice 2); rotation toggle moved to the leading art-column cell
+(replacing the Troubleshoot glyph) with `AutoModeRounded`; breakpoint/talkset
+stay right.
 
 - Entry bar fields render on the entries table's exact column template
   (Jackson's mid-flight ask): grid `60px | artist | song | album | label | 150px`
