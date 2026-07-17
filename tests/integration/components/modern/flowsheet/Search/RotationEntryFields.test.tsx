@@ -207,6 +207,64 @@ describe("RotationEntryFields", () => {
     );
   });
 
+  describe("manual record label", () => {
+    it("renders a label input, disabled until a release is selected", () => {
+      renderWithProviders(
+        inModernTheme(<RotationEntryFields disabled={false} />)
+      );
+
+      const label = screen.getByTestId("flowsheet-search-label");
+      expect(label).toBeDisabled();
+
+      selectBinAndRelease();
+      expect(screen.getByTestId("flowsheet-search-label")).not.toBeDisabled();
+    });
+
+    it("prefills the label from the selected release", () => {
+      const { store } = renderWithProviders(
+        inModernTheme(<RotationEntryFields disabled={false} />)
+      );
+
+      selectBinAndRelease(foxbaseAlpha);
+
+      expect(
+        flowsheetSlice.selectors.getSearchQuery(store.getState()).label
+      ).toBe("Heavenly");
+      expect(screen.getByTestId("flowsheet-search-label")).toHaveValue(
+        "Heavenly"
+      );
+    });
+
+    it("accepts a hand-typed label when the release has none", () => {
+      mockRotationData = [
+        createTestAlbum({
+          id: 11,
+          title: "No Label On File",
+          artist: createTestArtist({ name: "Chuquimamani-Condori" }),
+          label: "",
+          rotation_id: 77,
+          rotation_bin: "H",
+        }),
+      ];
+      const { store } = renderWithProviders(
+        inModernTheme(<RotationEntryFields disabled={false} />)
+      );
+
+      fireEvent.click(screen.getByRole("radio", { name: "H" }));
+      fireEvent.focus(screen.getByTestId("rotation-release-combobox"));
+      fireEvent.click(screen.getByTestId("rotation-release-option-11"));
+
+      const label = screen.getByTestId("flowsheet-search-label");
+      expect(label).toHaveValue("");
+
+      fireEvent.change(label, { target: { value: "Smithsonian Folkways" } });
+
+      expect(
+        flowsheetSlice.selectors.getSearchQuery(store.getState()).label
+      ).toBe("Smithsonian Folkways");
+    });
+  });
+
   describe("track-selection artist auto-fill", () => {
     // When a DJ picks a track from the dropdown, we override the artist that
     // handleSelectRelease seeded iff the release is credited as a

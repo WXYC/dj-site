@@ -119,9 +119,16 @@ eslint ignores extended to root-level `playwright-report/`/`test-results/`
   regression tests added at the bar level (all inputs) and on Breakpoint/
   Talkset buttons.
 
+## Slice 5 — rotation manual label + divider cleanup ✅ (awaiting visual verification)
+- Rotation mode gains an editable label field (prefilled from the release;
+  hand-typed when upstream has none — the #931 UI half). Disabled until a
+  release is picked.
+- Rotation segments now use the shared `::before` cell rules; the raw
+  full-height Dividers are gone (Jackson kickout note).
+- (Album/label ghost text landed earlier from live search results; 4b done.)
+
 ## Upcoming
-- Slice 4b (optional): album-field ghost via top-catalog-result override
-- Slice 5: rotation manual label (#931) + the RotationEntryFields half of #940
-- Slice 6: freeform discoverability (#938) + ShortcutGuide + e2e sweep
+- Slice 6: freeform discoverability (#938) + footer polish + zero-results hint
 - Results-column alignment (Jackson): CODE moves into the song column so rows
   read Artist–Song(CODE)–Album–Label; no existing gh issue found 2026-07-17
+- Full-suite + e2e sweep, then PR

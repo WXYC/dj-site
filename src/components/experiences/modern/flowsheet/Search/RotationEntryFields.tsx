@@ -11,7 +11,7 @@ import {
   useGetRotationTracksQuery,
 } from "@/lib/features/rotation/api";
 import { useAppDispatch, useAppSelector, useAppStore } from "@/lib/hooks";
-import { Divider } from "@mui/joy";
+import { Box } from "@mui/joy";
 import { useCallback, useMemo, useState } from "react";
 import FlowsheetSearchInput from "./FlowsheetSearchInput";
 import RotationBinSelector from "./RotationBinSelector";
@@ -23,6 +23,9 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
   const store = useAppStore();
   const songValue = useAppSelector(
     (state) => flowsheetSlice.selectors.getSearchQuery(state).song as string
+  );
+  const labelValue = useAppSelector(
+    (state) => flowsheetSlice.selectors.getSearchQuery(state).label as string
   );
 
   const [selectedBin, setSelectedBin] = useState<Rotation | null>(null);
@@ -155,32 +158,48 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
         onSelectBin={handleSelectBin}
         disabled={disabled}
       />
-      <Divider orientation="vertical" />
-      <RotationReleaseDropdown
-        releases={filteredReleases}
-        selectedRelease={selectedRelease}
-        onSelectRelease={handleSelectRelease}
-        disabled={disabled || !selectedBin}
+      <Box
+        className="entry-field-cell"
+        sx={{ display: "flex", alignItems: "center", minWidth: 0, flex: 1 }}
+      >
+        <RotationReleaseDropdown
+          releases={filteredReleases}
+          selectedRelease={selectedRelease}
+          onSelectRelease={handleSelectRelease}
+          disabled={disabled || !selectedBin}
+        />
+      </Box>
+      <Box
+        className="entry-field-cell"
+        sx={{ display: "flex", alignItems: "center", minWidth: 0, flex: 1 }}
+      >
+        {showTrackDropdown ? (
+          <TrackPickerDropdown
+            tracks={tracks ?? []}
+            isLoading={tracksLoading}
+            selectedTrack={selectedTrack}
+            onSelectTrack={handleSelectTrack}
+            onManualEntry={handleManualEntry}
+            disabled={disabled}
+          />
+        ) : (
+          <FlowsheetSearchInput
+            name="song"
+            value={songValue}
+            disabled={disabled || !selectedRelease}
+            required
+            suppressHydrationWarning
+          />
+        )}
+      </Box>
+      {/* Editable label: some rotation albums carry no label upstream and the
+          DJ is the only source for it */}
+      <FlowsheetSearchInput
+        name="label"
+        value={labelValue}
+        disabled={disabled || !selectedRelease}
+        suppressHydrationWarning
       />
-      <Divider orientation="vertical" />
-      {showTrackDropdown ? (
-        <TrackPickerDropdown
-          tracks={tracks ?? []}
-          isLoading={tracksLoading}
-          selectedTrack={selectedTrack}
-          onSelectTrack={handleSelectTrack}
-          onManualEntry={handleManualEntry}
-          disabled={disabled}
-        />
-      ) : (
-        <FlowsheetSearchInput
-          name="song"
-          value={songValue}
-          disabled={disabled || !selectedRelease}
-          required
-          suppressHydrationWarning
-        />
-      )}
     </>
   );
 }
