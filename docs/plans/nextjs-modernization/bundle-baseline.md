@@ -53,3 +53,24 @@ bundle-weight PR lands.
 | `/dashboard/flowsheet` | 2187.6 kB | 884.8 kB |
 | `/dashboard/catalog` | 1847.2 kB | 728.9 kB |
 | `/dashboard/admin/roster` | 1808.8 kB | 710.6 kB |
+
+## After — `experimental.optimizePackageImports: ["@mui/joy"]` (#962)
+
+| Route | Client JS (raw) | Δ raw | Client JS (gzip) | Δ gzip |
+| --- | --- | --- | --- | --- |
+| `/` | 1679.3 kB | 0.0 kB | 650.9 kB | 0.0 kB |
+| `/login` | 1785.9 kB | 0.0 kB | 696.9 kB | 0.0 kB |
+| `/live` | 1686.6 kB | 0.0 kB | 654.2 kB | 0.0 kB |
+| `/playlists` | 1684.1 kB | 0.0 kB | 652.8 kB | 0.0 kB |
+| `/dashboard/flowsheet` | 2187.6 kB | 0.0 kB | 884.8 kB | 0.0 kB |
+| `/dashboard/catalog` | 1847.2 kB | 0.0 kB | 728.9 kB | 0.0 kB |
+| `/dashboard/admin/roster` | 1808.8 kB | 0.0 kB | 710.6 kB | 0.0 kB |
+
+Output is byte-for-byte identical (same chunk sizes and same chunk counts on
+every route). Turbopack already tree-shakes the `@mui/joy` barrel natively —
+per-route sizes vary with actual usage, which only happens if the barrel is
+being pruned — so `optimizePackageImports`, historically a webpack/SWC
+barrel-rewrite optimization, has no measurable effect on the production
+Turbopack build here. The config entry is still correct and worth keeping: it
+satisfies the optimization for the webpack builder and matches Next's own
+default handling of `@mui/material`/`@mui/icons-material`.

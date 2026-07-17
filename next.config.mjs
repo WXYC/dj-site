@@ -154,6 +154,12 @@ const nextConfig = {
   reactStrictMode: false,
   productionBrowserSourceMaps: true,
   distDir,
+  experimental: {
+    // @mui/material and @mui/icons-material are in Next's default
+    // optimizePackageImports list; @mui/joy (this app's primary UI kit) is not,
+    // so it must be listed explicitly.
+    optimizePackageImports: ["@mui/joy"],
+  },
   // Explicitly set workspace root to silence lockfile warning
   outputFileTracingRoot: import.meta.dirname,
   // Required for OpenNext Cloudflare
