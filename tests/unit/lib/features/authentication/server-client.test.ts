@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
+vi.mock("server-only", () => ({}));
+
 let capturedConfig: any = null;
 
 vi.mock("better-auth/client", () => ({

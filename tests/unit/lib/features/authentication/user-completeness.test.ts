@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 
+vi.mock("server-only", () => ({}));
+
 vi.mock("next/headers", () => ({
   cookies: vi.fn(),
 }));
