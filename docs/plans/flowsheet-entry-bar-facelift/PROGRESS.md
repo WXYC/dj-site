@@ -151,5 +151,13 @@ eslint ignores extended to root-level `playwright-report/`/`test-results/`
 - "No matches" hint: body-xs, tertiary, and only shown once the DJ has typed
   something.
 
-## Upcoming
-- Full-suite + e2e sweep, then PR
+## Final sweep ✅ (2026-07-17)
+- Full vitest: 3762/3762 across 276 files. Local e2e: 104 passed / 12
+  skipped; the tail of the run was cut when the dev stack went down
+  mid-sweep — GitHub CI is the authoritative e2e gate (per Jackson: never
+  run e2e locally again).
+- Click-select → edit-deviate verified end-to-end through the real store
+  (regression test added after Jackson's bin repro; the state chain is
+  correct in the shipped code — his repro likely hit the stale pre-deviates
+  HMR bundle just before the session crash).
+- PR opened; branch pushed.
