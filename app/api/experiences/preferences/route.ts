@@ -8,7 +8,12 @@ import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
-  const guardResponse = await guardAppStateMutation(request);
+  // requireSession is off: logged-out visitors persist theme choices from
+  // /login (ThemeRegistry in the root layout); the origin check still blocks
+  // the sameSite-lax cross-origin POST this guard exists for.
+  const guardResponse = await guardAppStateMutation(request, {
+    requireSession: false,
+  });
   if (guardResponse) {
     return guardResponse;
   }
