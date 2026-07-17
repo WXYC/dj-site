@@ -2,8 +2,10 @@
 
 import { Suspense, useEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { useReportWebVitals } from "next/web-vitals";
 import { initTelemetry, safeCapturePageview } from "@/lib/posthog";
 import { installCspViolationReporter } from "@/lib/csp-violation-reporter";
+import { reportWebVital } from "@/lib/web-vitals-reporter";
 import type { ReactNode } from "react";
 
 function TelemetryPageView() {
@@ -33,6 +35,8 @@ export function TelemetryProvider({ children }: Props) {
     // client-side; forward them to PostHog so the rollout gathers signal.
     installCspViolationReporter();
   }, []);
+
+  useReportWebVitals(reportWebVital);
 
   return (
     <>
