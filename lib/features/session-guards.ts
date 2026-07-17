@@ -45,16 +45,20 @@ function forbidden(): NextResponse {
  * third-party page drive a top-level cross-origin POST, so we reject any request
  * whose Origin/Referer host isn't the host we were served on. A request missing
  * BOTH Origin and Referer is rejected too (fail closed): a legitimate
- * same-origin fetch from the app always carries at least a Referer. We also
- * require an authenticated session — neither route has a logged-out caller
- * (see the PR notes), so this adds a defense-in-depth layer without breaking a
- * legitimate flow.
+ * same-origin fetch from the app always carries at least a Referer.
+ *
+ * `requireSession` (default true) adds a defense-in-depth session check for
+ * routes with no logged-out caller (switch, rightbar). `/api/experiences/
+ * preferences` MUST opt out: theme persistence runs from the root-layout
+ * ThemeRegistry on every page, including /login before authentication — a
+ * session requirement there 403s every logged-out theme-save.
  *
  * Returns a 403 `NextResponse` to return as-is, or `null` when the request may
  * proceed.
  */
 export async function guardAppStateMutation(
-  request: NextRequest
+  request: NextRequest,
+  { requireSession = true }: { requireSession?: boolean } = {}
 ): Promise<NextResponse | null> {
   const expectedHost = servedHost(request);
   const requestHost =
@@ -65,9 +69,11 @@ export async function guardAppStateMutation(
     return forbidden();
   }
 
-  const session = await getServerSession();
-  if (!session) {
-    return forbidden();
+  if (requireSession) {
+    const session = await getServerSession();
+    if (!session) {
+      return forbidden();
+    }
   }
 
   return null;

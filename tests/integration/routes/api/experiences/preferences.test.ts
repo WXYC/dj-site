@@ -156,11 +156,27 @@ describe("POST /api/experiences/preferences", () => {
     expect((response as any).status).toBe(403);
   });
 
-  it("rejects an unauthenticated same-origin POST with 403", async () => {
+  it("accepts an unauthenticated same-origin POST (logged-out theme persistence from /login)", async () => {
     (await getServerSessionMock()).mockResolvedValue(null);
 
     const { POST } = await import("@/app/api/experiences/preferences/route");
-    const response = await POST(makeRequest());
+    const response = await POST(
+      makeRequest({ experience: "modern", colorMode: "dark" })
+    );
+
+    expect((response as any).status).toBe(200);
+  });
+
+  it("still rejects an unauthenticated CROSS-origin POST with 403", async () => {
+    (await getServerSessionMock()).mockResolvedValue(null);
+
+    const { POST } = await import("@/app/api/experiences/preferences/route");
+    const response = await POST(
+      makeRequest(
+        { experience: "modern" },
+        { host: SITE_HOST, origin: "https://evil.example" }
+      )
+    );
 
     expect((response as any).status).toBe(403);
   });
