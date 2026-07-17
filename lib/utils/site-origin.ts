@@ -20,9 +20,10 @@ export async function getSiteOrigin(): Promise<string> {
     headerList.get("host") ??
     "localhost:3000";
 
+  // Multi-proxy chains append comma-separated values, same as x-forwarded-host.
   const forwardedProto = headerList.get("x-forwarded-proto");
   const protocol =
-    forwardedProto ??
+    (forwardedProto ? forwardedProto.split(",")[0].trim() : null) ??
     (host.startsWith("localhost") || host.startsWith("127.0.0.1")
       ? "http"
       : "https");
