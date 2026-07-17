@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   catalogApi,
   useSearchCatalogQuery,
@@ -11,11 +11,19 @@ import {
   useGetGenresQuery,
   useAddGenreMutation,
 } from "@/lib/features/catalog/api";
+import { revalidateGenres } from "@/lib/features/catalog/actions";
+import { makeStore } from "@/lib/store";
 import { describeApi } from "@/tests/helpers";
 
 // Mock the authentication client
 vi.mock("@/lib/features/authentication/client", () => ({
   getJWTToken: vi.fn().mockResolvedValue("test-token"),
+}));
+
+// The `revalidateTag` server action can't run outside a Next server request, so
+// stub the wrapper and assert the mutation path invokes it.
+vi.mock("@/lib/features/catalog/actions", () => ({
+  revalidateGenres: vi.fn().mockResolvedValue(undefined),
 }));
 
 describe("catalogApi", () => {
@@ -223,6 +231,49 @@ describe("catalogApi", () => {
     it("should have initiate method", () => {
       expect(catalogApi.endpoints.addGenre.initiate).toBeDefined();
       expect(typeof catalogApi.endpoints.addGenre.initiate).toBe("function");
+    });
+
+    describe("cache invalidation", () => {
+      const originalFetch = global.fetch;
+
+      beforeEach(() => {
+        vi.mocked(revalidateGenres).mockClear();
+      });
+
+      afterEach(() => {
+        global.fetch = originalFetch;
+      });
+
+      it("revalidates the genres tag after a successful add", async () => {
+        global.fetch = vi.fn().mockResolvedValue(
+          new Response(JSON.stringify({ id: 3, genre_name: "Noise" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+        const store = makeStore();
+        await store.dispatch(
+          catalogApi.endpoints.addGenre.initiate({
+            name: "Noise",
+            description: "",
+          }),
+        );
+        expect(revalidateGenres).toHaveBeenCalledTimes(1);
+      });
+
+      it("does not revalidate when the add fails", async () => {
+        global.fetch = vi
+          .fn()
+          .mockResolvedValue(new Response("nope", { status: 500 }));
+        const store = makeStore();
+        await store.dispatch(
+          catalogApi.endpoints.addGenre.initiate({
+            name: "Noise",
+            description: "",
+          }),
+        );
+        expect(revalidateGenres).not.toHaveBeenCalled();
+      });
     });
   });
 
