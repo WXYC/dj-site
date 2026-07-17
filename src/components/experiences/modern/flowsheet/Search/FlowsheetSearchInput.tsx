@@ -6,6 +6,7 @@ import { useAppDispatch } from "@/lib/hooks";
 import { useFlowsheetSearch } from "@/src/hooks/flowsheetHooks";
 import { toTitleCase } from "@/src/utilities/stringutilities";
 import { InputHTMLAttributes, Ref } from "react";
+import { ENTRY_BAR_CELL_PADDING_X } from "./entryBarStyles";
 
 type FlowsheetSearchInputProps = Omit<
   InputHTMLAttributes<HTMLInputElement>,
@@ -90,7 +91,9 @@ export default function FlowsheetSearchInput({
             fontFamily: "inherit",
             fontSize: "inherit",
             lineHeight: "inherit",
-            paddingInline: "inherit",
+            // Must equal the input's own padding or the ghost drifts off the
+            // end of the typed text ("inherit" reads the unpadded wrapper)
+            paddingInline: ENTRY_BAR_CELL_PADDING_X,
             overflow: "hidden",
           }}
         >
@@ -115,15 +118,27 @@ export default function FlowsheetSearchInput({
           setSearchProperty(name, e.target.value);
         }}
         onKeyDown={(e) => {
-          if (e.key === "Tab" && hasGhost && onAcceptGhost) {
+          if (!hasGhost || !onAcceptGhost) return;
+          if (e.key === "Tab") {
             e.preventDefault();
             onAcceptGhost();
+            return;
+          }
+          if (e.key === "ArrowRight" || e.key === "End") {
+            const el = e.currentTarget;
+            const atEnd =
+              el.selectionStart === el.value.length &&
+              el.selectionEnd === el.value.length;
+            if (atEnd) {
+              e.preventDefault();
+              onAcceptGhost();
+            }
           }
         }}
         onClick={(e) => e.stopPropagation()}
         disabled={Boolean(props.disabled)}
         {...props}
-        style={externalStyle}
+        style={{ paddingInline: ENTRY_BAR_CELL_PADDING_X, ...externalStyle }}
       />
     </div>
   );
