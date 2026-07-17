@@ -326,6 +326,22 @@ describe("FlowsheetSearchbar", () => {
     expect(mockResetSearch).toHaveBeenCalled();
   });
 
+  it("should not open the search when special-entry buttons receive focus", () => {
+    mockLive = true;
+    const store = createTestStore();
+
+    render(
+      <Provider store={store}>
+        <FlowsheetSearchbar />
+      </Provider>
+    );
+
+    fireEvent.focus(screen.getByTestId("breakpoint-button"));
+    fireEvent.click(screen.getByTestId("talkset-button"));
+
+    expect(mockSetSearchOpen).not.toHaveBeenCalled();
+  });
+
   it("should not show the queue button while the search is closed", () => {
     const store = createTestStore();
 

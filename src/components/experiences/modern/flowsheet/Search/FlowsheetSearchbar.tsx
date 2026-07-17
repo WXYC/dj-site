@@ -385,6 +385,7 @@ export default function FlowsheetSearchbar() {
                 minHeight: 0,
               }}
               onClick={(e) => e.stopPropagation()}
+              onFocus={(e) => e.stopPropagation()}
             >
               <RotationModeToggle />
             </Box>
@@ -449,6 +450,10 @@ export default function FlowsheetSearchbar() {
                 pr: 1,
                 minWidth: 0,
               }}
+              // Button interactions must not bubble into the form's
+              // open-search focus/click handlers
+              onClick={(e) => e.stopPropagation()}
+              onFocus={(e) => e.stopPropagation()}
             >
               {showClear && (
                 <>
