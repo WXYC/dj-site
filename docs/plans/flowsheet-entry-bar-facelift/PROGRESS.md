@@ -82,8 +82,25 @@ Also: entry-bar wrapper Box (not Joy FormControl — multi-control warning),
 eslint ignores extended to root-level `playwright-report/`/`test-results/`
 (failed e2e runs write a minified trace bundle there that linted as errors).
 
+## Interstitial round (Jackson feedback, 2026-07-17)
+- Clear in rotation mode resets bin/release/track/song — `resetEpoch` counter
+  in `resetSearch` remounts `RotationEntryFields` (reducer half of the #940
+  fix pulled forward from Slice 5).
+- Only `song` is HTML5-required; artist/album are the DJ's call.
+- Entry wrapper is a plain Box (Joy FormControl warns on multiple controls).
+- Comment discipline re-affirmed: no issue refs anywhere incl. test names.
+
+## Slice 4 — ghost text ✅ (awaiting visual verification)
+- Alignment: ghost span's `paddingInline:"inherit"` read the unpadded wrapper;
+  span + input now share `ENTRY_BAR_CELL_PADDING_X`, form owns `fontSize`.
+- Keyboard semantics (settled after live iteration): **Tab = switch fields
+  only, never accepts; ArrowRight/End at caret end = accept + next field**
+  (the accept handlers already advance artist→song→album).
+- Footer hint chip: `→ accept + next field`.
+
 ## Upcoming
-- Slice 3: click-to-autofill (#937) via `freezeSelectionToQuery`
-- Slice 4: ghost text verify + album ghost
-- Slice 5: rotation manual label (#931) + resetEpoch (#940)
+- Slice 4b (optional): album-field ghost via top-catalog-result override
+- Slice 5: rotation manual label (#931) + the RotationEntryFields half of #940
 - Slice 6: freeform discoverability (#938) + ShortcutGuide + e2e sweep
+- Results-column alignment (Jackson): CODE moves into the song column so rows
+  read Artist–Song(CODE)–Album–Label; no existing gh issue found 2026-07-17

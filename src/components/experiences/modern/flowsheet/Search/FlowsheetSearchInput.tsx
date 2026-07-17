@@ -118,12 +118,8 @@ export default function FlowsheetSearchInput({
           setSearchProperty(name, e.target.value);
         }}
         onKeyDown={(e) => {
+          // Tab is field navigation only — accepting is ArrowRight's job
           if (!hasGhost || !onAcceptGhost) return;
-          if (e.key === "Tab") {
-            e.preventDefault();
-            onAcceptGhost();
-            return;
-          }
           if (e.key === "ArrowRight" || e.key === "End") {
             const el = e.currentTarget;
             const atEnd =
