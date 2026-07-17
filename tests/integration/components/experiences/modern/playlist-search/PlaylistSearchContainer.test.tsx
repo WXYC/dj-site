@@ -82,7 +82,6 @@ describe("PlaylistSearchContainer", () => {
     render(
       <PlaylistSearchContainer
         initialResults={[makeResult(11), makeResult(12)]}
-        initialTotal={2}
       />,
     );
     expect(screen.getByTestId("results-table")).toHaveAttribute(
@@ -98,7 +97,7 @@ describe("PlaylistSearchContainer", () => {
       results: [makeResult(50)],
     });
     render(
-      <PlaylistSearchContainer initialResults={[makeResult(11)]} initialTotal={1} />,
+      <PlaylistSearchContainer initialResults={[makeResult(11)]} />,
     );
     expect(screen.getByTestId("results-table")).toHaveAttribute(
       "data-row-ids",
@@ -128,7 +127,7 @@ describe("PlaylistSearchContainer", () => {
       results: [],
     });
     render(
-      <PlaylistSearchContainer initialResults={[makeResult(11)]} initialTotal={1} />,
+      <PlaylistSearchContainer initialResults={[makeResult(11)]} />,
     );
     expect(screen.queryByTestId("results-table")).not.toBeInTheDocument();
   });
@@ -139,7 +138,7 @@ describe("PlaylistSearchContainer", () => {
       effectiveQuery: "",
       results: [],
     });
-    render(<PlaylistSearchContainer initialResults={[]} initialTotal={0} />);
+    render(<PlaylistSearchContainer initialResults={[]} />);
     expect(screen.queryByTestId("results-table")).not.toBeInTheDocument();
   });
 });

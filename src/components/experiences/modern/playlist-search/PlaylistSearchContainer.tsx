@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import {
   MIN_QUERY_LENGTH,
   usePlaylistSearch,
@@ -14,12 +15,10 @@ export interface PlaylistSearchContainerProps {
   // Server-rendered "recent playlists" listing for the empty default query.
   // The client infinite query takes over once it resolves.
   initialResults?: PlaylistSearchResult[];
-  initialTotal?: number;
 }
 
 export default function PlaylistSearchContainer({
   initialResults = [],
-  initialTotal = 0,
 }: PlaylistSearchContainerProps) {
   const {
     sortBy,
@@ -43,9 +42,18 @@ export default function PlaylistSearchContainer({
   const isRealQuery = effectiveQuery.length >= MIN_QUERY_LENGTH;
   const showResults = isDefaultQuery || isRealQuery;
 
-  const usingSeed = isDefaultQuery && results.length === 0;
+  // The seed retires permanently once the client query produces an answer:
+  // sort/argument changes re-key the RTK cache (results drop to [] mid-flight),
+  // and resurfacing the seed there would flash rows in the original server
+  // order over the user's chosen sort.
+  const seedRetired = useRef(false);
+  if (results.length > 0 || isError) {
+    seedRetired.current = true;
+  }
+
+  const usingSeed =
+    isDefaultQuery && results.length === 0 && !seedRetired.current;
   const displayResults = usingSeed ? initialResults : results;
-  const displayTotal = usingSeed ? initialTotal : total;
 
   return (
     <Box sx={{ width: "100%", px: 2 }}>
@@ -65,8 +73,8 @@ export default function PlaylistSearchContainer({
             <Typography level="body-sm" sx={{ mb: 1, color: "text.secondary" }}>
               {isLoading
                 ? "Searching..."
-                : displayTotal > 0
-                ? `Found ${displayTotal.toLocaleString()} results`
+                : total > 0
+                ? `Found ${total.toLocaleString()} results`
                 : "No results found"}
             </Typography>
           )}

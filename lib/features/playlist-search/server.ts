@@ -6,7 +6,6 @@ import type { PlaylistSearchResponseWithCursor } from "./api";
 
 export type RecentPlaylistsSeed = {
   results: PlaylistSearchResult[];
-  total: number;
 };
 
 // The empty-query "recent playlists" listing is canonical, request-time-knowable
@@ -27,6 +26,5 @@ export async function fetchRecentPlaylistsSeed(): Promise<RecentPlaylistsSeed> {
   );
   return {
     results: raw?.results ?? [],
-    total: raw?.total ?? 0,
   };
 }

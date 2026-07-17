@@ -3,7 +3,9 @@ import "server-only";
 // Request-time seed fetches for public Server Components must fail open: a slow
 // or unreachable backend renders the page's normal loading state, never an
 // error page. The short timeout keeps a hung backend from stalling the route.
-const SEED_FETCH_TIMEOUT_MS = 2000;
+// Seed fetches run before the first byte of the document: this bound is
+// the worst-case TTFB penalty a degraded backend can add to a public page.
+const SEED_FETCH_TIMEOUT_MS = 800;
 
 /**
  * Unauthenticated GET against Backend-Service for server-rendered initial data.

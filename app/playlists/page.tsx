@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 };
 
 export default async function PlaylistsPage() {
-  const { results, total } = await fetchRecentPlaylistsSeed();
+  const { results } = await fetchRecentPlaylistsSeed();
 
   return (
     <WXYCPage>
@@ -22,7 +22,7 @@ export default async function PlaylistsPage() {
           py: 2,
         }}
       >
-        <PlaylistSearchContainer initialResults={results} initialTotal={total} />
+        <PlaylistSearchContainer initialResults={results} />
       </Box>
     </WXYCPage>
   );
