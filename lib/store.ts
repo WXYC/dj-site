@@ -1,16 +1,6 @@
-import type {
-  Action,
-  Middleware,
-  MiddlewareAPI,
-  ThunkAction,
-} from "@reduxjs/toolkit";
-import {
-  combineSlices,
-  configureStore,
-  isRejectedWithValue,
-} from "@reduxjs/toolkit";
-import { toast } from "sonner";
-import { safeCaptureException } from "./posthog";
+import type { Action, ThunkAction } from "@reduxjs/toolkit";
+import { combineSlices, configureStore } from "@reduxjs/toolkit";
+import { rtkQueryErrorLogger } from "./rtk-query-error-logger";
 import { adminApi } from "./features/admin/api";
 import { adminSlice } from "./features/admin/frontend";
 import { applicationApi } from "./features/application/api";
@@ -86,39 +76,3 @@ export type AppThunk<ThunkReturnType = void> = ThunkAction<
   unknown,
   Action
 >;
-
-export const rtkQueryErrorLogger: Middleware =
-  (api: MiddlewareAPI) => (next) => (action) => {
-    if (isRejectedWithValue(action)) {
-      const payload = action.payload as {
-        data?: { message?: string };
-        status?: string;
-        error?: string;
-      };
-
-      const endpointName = (action as any)?.meta?.arg?.endpointName;
-
-      safeCaptureException(
-        new Error(
-          payload?.data?.message || payload?.error || "RTK Query error"
-        ),
-        {
-          endpoint: endpointName,
-          status: payload?.status,
-        }
-      );
-
-      const serverMessage = payload?.data?.message;
-      if (serverMessage && serverMessage.trim().length > 0) {
-        toast.error(serverMessage);
-      } else if (payload?.status === "FETCH_ERROR") {
-        toast.error("Network error — please check your connection.");
-      } else if (payload?.status === "TIMEOUT_ERROR") {
-        toast.error("Request timed out — please try again.");
-      } else if (payload?.error && typeof payload.error === "string") {
-        toast.error(payload.error);
-      }
-    }
-
-    return next(action);
-  };
