@@ -158,6 +158,16 @@ const nextConfig = {
   outputFileTracingRoot: import.meta.dirname,
   // Required for OpenNext Cloudflare
   output: "standalone",
+  images: {
+    // wrangler.jsonc declares no `images` (Cloudflare Images) binding.
+    // OpenNext's /_next/image handler (@opennextjs/cloudflare compile-images)
+    // checks `env.IMAGES` and, when it's undefined, returns the original
+    // bytes unresized/unconverted — so the default optimizer would add a
+    // Worker round-trip for no benefit. `unoptimized: true` skips that hop;
+    // next/image still buys explicit width/height (CLS) and native
+    // lazy-loading. Revisit if a Cloudflare Images binding is ever added.
+    unoptimized: true,
+  },
   async headers() {
     return [
       {
