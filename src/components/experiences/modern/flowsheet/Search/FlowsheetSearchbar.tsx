@@ -15,11 +15,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Transition } from "react-transition-group";
 import BreakpointButton from "./BreakpointButton";
 import {
-  ENTRY_BAR_CELL_PADDING_X,
   ENTRY_BAR_GRID_TEMPLATE,
+  ENTRY_PANEL_MODIFIERS,
   entryBarActiveBorder,
   entryPanelSx,
-  sameWidth,
   withReducedMotion,
 } from "./entryBarStyles";
 import FlowsheetSearchInput from "./FlowsheetSearchInput";
@@ -92,7 +91,8 @@ export default function FlowsheetSearchbar() {
   const panelRef = useRef<HTMLDivElement>(null);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const prefersReducedMotion = useMediaQuery(
-    "(prefers-reduced-motion: reduce)"
+    "(prefers-reduced-motion: reduce)",
+    { noSsr: true }
   );
 
   // Remember the album/label we auto-filled from a track suggestion so we can
@@ -164,14 +164,26 @@ export default function FlowsheetSearchbar() {
     if (fullSong) {
       setSearchProperty("song", fullSong);
       if (songGhost.trackResult?.album_title) {
-        setSearchProperty("album", songGhost.trackResult.album_title);
+        dispatch(
+          flowsheetSlice.actions.setSearchProperty({
+            name: "album",
+            value: songGhost.trackResult.album_title,
+            deviates: true,
+          })
+        );
       }
       if (songGhost.trackResult?.record_label) {
-        setSearchProperty("label", songGhost.trackResult.record_label);
+        dispatch(
+          flowsheetSlice.actions.setSearchProperty({
+            name: "label",
+            value: songGhost.trackResult.record_label,
+            deviates: true,
+          })
+        );
       }
       albumRef.current?.focus();
     }
-  }, [songGhost, setSearchProperty]);
+  }, [songGhost, setSearchProperty, dispatch]);
 
   const handleAcceptAlbumGhost = useCallback(() => {
     const fullAlbum = albumGhost.acceptGhostText();
@@ -277,7 +289,16 @@ export default function FlowsheetSearchbar() {
         Math.min(rotationResults.length, MAX_VISIBLE_RESULTS) +
         Math.min(lmlResults.length, MAX_VISIBLE_RESULTS),
     };
-  });
+  }, [
+    live,
+    searchOpen,
+    rotationMode,
+    selectedResult,
+    binResults,
+    catalogResults,
+    rotationResults,
+    lmlResults,
+  ]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -320,8 +341,11 @@ export default function FlowsheetSearchbar() {
 
   const panelOpen = searchOpen && !rotationMode;
   const activeBorder = entryBarActiveBorder(searchOpen, ctrlKeyPressed);
+  // Composing covers typed content AND a keyboard-highlighted result (which
+  // fills the fields visually without touching the query)
+  const composing = searchQueryLength > 0 || selectedResult > 0;
   // Rotation picks live in RotationEntryFields' local state, invisible to the query-length signal
-  const showClear = rotationMode || searchQueryLength > 0;
+  const showClear = rotationMode || composing;
 
   return (
     <ClickAwayListener onClickAway={handleClose}>
@@ -526,7 +550,7 @@ export default function FlowsheetSearchbar() {
                   <Divider orientation="vertical" sx={{ my: 1 }} />
                 </>
               )}
-              {searchQueryLength === 0 ? (
+              {!composing ? (
                 <>
                   <BreakpointButton />
                   <TalksetButton />
@@ -580,7 +604,7 @@ export default function FlowsheetSearchbar() {
           transition
           // Sit flush below the shell (which hides its bottom border) so the
           // two read as one continuous outlined shape.
-          modifiers={[sameWidth, { name: "offset", options: { offset: [0, 0] } }]}
+          modifiers={ENTRY_PANEL_MODIFIERS}
           style={{ zIndex: 1300 }}
         >
           {({ TransitionProps }) => (

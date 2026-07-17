@@ -51,7 +51,6 @@ function FlowsheetBackendResult({
 
   return (
     <Box
-      key={`bin-${index}`}
       data-testid={`flowsheet-search-result-${index}`}
       sx={{
         // Rows sit on the entry bar's column template so every value lines

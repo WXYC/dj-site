@@ -185,9 +185,9 @@ test.describe("Flowsheet Track Picker", () => {
     const resultRow = page.locator('[data-testid="flowsheet-search-result-1"]');
     await expect(resultRow).toBeVisible({ timeout: 10_000 });
 
-    // Hovering highlights the row (setSelectedResult) and prefetches the
-    // tracklist — both signals the picker reads.
-    await resultRow.hover();
+    // Hover only prefetches now; clicking commits the release into the query
+    // (freeze), which is the signal the picker reads.
+    await resultRow.click();
 
     // Picker row appears below the result list once a release is highlighted.
     await expect(
@@ -328,7 +328,7 @@ test.describe("Flowsheet Track Picker", () => {
 
     const resultRow = page.locator('[data-testid="flowsheet-search-result-1"]');
     await expect(resultRow).toBeVisible({ timeout: 10_000 });
-    await resultRow.hover();
+    await resultRow.click();
 
     // Picker row visible, but the combobox never renders — the fallback
     // message replaces it.
