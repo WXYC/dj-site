@@ -21,6 +21,7 @@ vi.mock("@/src/hooks/adminHooks", () => ({
 vi.mock("@/lib/features/authentication/client", () => ({
   authBaseURL: "http://auth.test",
   authClient: {},
+  authFetch: vi.fn(async () => ({ ok: true, status: 200, data: { emailSent: true } })),
 }));
 
 vi.mock("sonner", () => ({

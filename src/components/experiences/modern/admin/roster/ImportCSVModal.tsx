@@ -1,6 +1,6 @@
 "use client";
 
-import { authBaseURL } from "@/lib/features/authentication/client";
+import { provisionErrorMessage, useProvisionUserMutation } from "@/lib/features/admin/api";
 import { Authorization } from "@/lib/features/admin/types";
 import { authorizationToRole } from "@/lib/features/authentication/types";
 import { CheckCircle, Error as ErrorIcon, Upload } from "@mui/icons-material";
@@ -62,6 +62,7 @@ export default function ImportCSVModal({ open, onClose, onComplete, organization
   const [importProgress, setImportProgress] = useState(0);
   const [importResults, setImportResults] = useState<ImportResult[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [provisionUser] = useProvisionUserMutation();
 
   const validRowCount = rows.filter((_, i) => !errors.some((e) => e.row === i + 1)).length;
   const successCount = importResults.filter((r) => r.success).length;
@@ -105,48 +106,27 @@ export default function ImportCSVModal({ open, onClose, onComplete, organization
       const row = validRows[i];
 
       try {
-        const response = await fetch(`${authBaseURL}/admin/provision-user`, {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: row.email,
-            username: row.username,
-            name: row.name,
-            organizationSlug,
-            role,
-            realName: row.name,
-            djName: row.djName,
-          }),
-        });
-
-        const provisionResult = (await response.json().catch(() => null)) as {
-          emailSent?: boolean;
-          emailError?: string;
-          message?: string;
-          error?: string;
-        } | null;
-
-        if (!response.ok) {
-          throw new Error(
-            provisionResult?.message ||
-              provisionResult?.error ||
-              `Failed (${response.status})`
-          );
-        }
+        const provisioned = await provisionUser({
+          email: row.email,
+          username: row.username,
+          name: row.name,
+          organizationSlug,
+          role,
+          realName: row.name,
+          djName: row.djName,
+        }).unwrap();
 
         results.push({
           row,
           success: true,
-          emailSent: provisionResult?.emailSent,
+          emailSent: provisioned.emailSent,
           error:
-            provisionResult?.emailSent === false
-              ? provisionResult.emailError || "Setup email failed to send"
+            provisioned.emailSent === false
+              ? provisioned.emailError || "Setup email failed to send"
               : undefined,
         });
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Failed to create account";
-        results.push({ row, success: false, error: errorMessage });
+        results.push({ row, success: false, error: provisionErrorMessage(err) });
       }
 
       setImportProgress(((i + 1) / validRows.length) * 100);
@@ -168,7 +148,7 @@ export default function ImportCSVModal({ open, onClose, onComplete, organization
     } else {
       toast.error(`Created ${successCount} of ${validRows.length} accounts — some failed`);
     }
-  }, [rows, errors, authorization]);
+  }, [rows, errors, authorization, organizationSlug, provisionUser]);
 
   const handleDone = () => {
     onComplete();

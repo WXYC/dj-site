@@ -3,9 +3,28 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers/render";
 import ImportCSVModal from "@/src/components/experiences/modern/admin/roster/ImportCSVModal";
 
-// Mock the auth client
+// Mock the auth client. authFetch is the gateway the provisionUser mutation
+// calls; route it through the same global fetch these tests assert on, at the
+// URL the real gateway would build.
 vi.mock("@/lib/features/authentication/client", () => ({
   authBaseURL: "http://localhost:8082/auth",
+  authFetch: async (path: string, init: any = {}) => {
+    const { json, ...rest } = init;
+    const response = await fetch(`http://localhost:8082/auth${path}`, {
+      credentials: "include",
+      ...rest,
+      ...(json !== undefined
+        ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(json) }
+        : {}),
+    });
+    let data: unknown = null;
+    try {
+      data = await response.json();
+    } catch {
+      data = null;
+    }
+    return { ok: response.ok, status: response.status, data };
+  },
 }));
 
 // Mock sonner toast
