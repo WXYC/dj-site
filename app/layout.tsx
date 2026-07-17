@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
 import InitColorScheme from "@/src/styles/InitColorScheme";
-import { StoreProvider } from "@/src/StoreProvider";
+import { PublicStoreProvider } from "@/src/PublicStoreProvider";
 import { TelemetryProvider } from "@/src/components/shared/TelemetryProvider";
 
 import "@/src/styles/globals.css";
@@ -52,7 +52,7 @@ export default async function RootLayout({ children }: Props) {
     <html lang="en" data-experience={experience} suppressHydrationWarning>
       <body>
         <InitColorScheme />
-        <StoreProvider>
+        <PublicStoreProvider>
           <TelemetryProvider>
             <ThemeRegistry
               options={{ key: "joy" }}
@@ -69,7 +69,7 @@ export default async function RootLayout({ children }: Props) {
               </div>
             </ThemeRegistry>
           </TelemetryProvider>
-        </StoreProvider>
+        </PublicStoreProvider>
       </body>
     </html>
   );
