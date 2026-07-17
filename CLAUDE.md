@@ -44,8 +44,11 @@ Established by the 2026-07 DevX refactor (retrospective:
   handle events in handlers. Every `useEffect` needs a justification, correct
   deps, and cleanup.
 - **Comments state non-obvious constraints** — races, invariants, security
-  properties, external quirks, issue-numbered rationale. Never narration,
-  restatement, section banners, or history (version control has the history).
+  properties, external quirks. Never narration, restatement, section banners,
+  history (version control has the history), or process artifacts: no issue/PR
+  numbers or tracker references in code or tests — the process must not define
+  the product. State the constraint self-contained; the tracker links to code,
+  never the reverse.
 - **Deletion is a first-class outcome.** Dead code, superseded implementations,
   and unused deps go; "may be useful later" is not a reason. Verify with fresh
   greps before deleting, never trust a stale audit.
