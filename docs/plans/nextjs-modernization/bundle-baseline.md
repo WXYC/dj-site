@@ -42,6 +42,11 @@ This runs `next build --experimental-analyze` and prints the per-route table via
 the tables below (and the commit/date header) when re-measuring after a
 bundle-weight PR lands.
 
+`--experimental-analyze` is Turbopack-only: `next build` errors if a webpack
+build (`--webpack`, or a `webpack` key in next.config) is ever introduced, and
+the script exits non-zero if the analyzer stops emitting `analyze.data` —
+neither can silently produce an empty table.
+
 ## Before — commit `c01dbc8d`
 
 | Route | Client JS (raw) | Client JS (gzip) |

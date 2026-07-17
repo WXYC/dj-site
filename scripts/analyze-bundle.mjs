@@ -44,7 +44,9 @@ function clientJsBytes(file) {
   let raw = 0;
   let gz = 0;
   for (const [index, sums] of perOutput) {
-    const name = data.output_files[index].filename;
+    const outputFile = data.output_files[index];
+    if (!outputFile) continue;
+    const name = outputFile.filename;
     if (name.includes("/static/") && name.endsWith(".js")) {
       raw += sums.raw;
       gz += sums.gz;
@@ -64,6 +66,15 @@ const kb = (n) => `${(n / 1024).toFixed(1)} kB`;
 const rows = findRouteDataFiles(ANALYZE_DIR)
   .map((file) => ({ route: routeOf(file), ...clientJsBytes(file) }))
   .sort((a, b) => a.route.localeCompare(b.route));
+
+// Fail loudly if a future Next stops emitting analyze.data — an empty table
+// diffed against the baseline would read as a 100% bundle win.
+if (rows.length === 0) {
+  console.error(
+    `Analyzer directory ${ANALYZE_DIR} exists but contains no analyze.data files.`
+  );
+  process.exit(1);
+}
 
 const width = Math.max(...rows.map((r) => r.route.length), "Route".length);
 console.log(`${"Route".padEnd(width)}  ${"Client JS".padStart(12)}  ${"gzip".padStart(12)}`);
