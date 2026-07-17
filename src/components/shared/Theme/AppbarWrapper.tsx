@@ -1,5 +1,3 @@
-"use client";
-
 import { ExperienceId } from "@/lib/features/experiences/types";
 import Appbar from "./Appbar";
 import AppbarClassic from "./AppbarClassic";

@@ -1,5 +1,3 @@
-"use client";
-
 import "@/src/styles/classic/wxyc.css";
 
 export default function HelpScreen() {
