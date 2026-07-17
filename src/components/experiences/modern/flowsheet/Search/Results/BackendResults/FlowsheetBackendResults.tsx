@@ -1,6 +1,12 @@
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import { Box, Stack, Typography } from "@mui/joy";
+import {
+  ENTRY_BAR_CELL_PADDING_X,
+  ENTRY_BAR_GRID_TEMPLATE,
+} from "../../entryBarStyles";
 import FlowsheetBackendResult from "./FlowsheetBackendResult";
+
+const HEADER_CELLS = ["ARTIST", "SONG", "ALBUM", "LABEL"] as const;
 
 // Hard cap on rendered rows PER SECTION. A misbehaving backend (e.g. an
 // uncapped "Various Artists" response — see BS#1162 / dj-site#657) can return
@@ -46,6 +52,42 @@ export default function FlowsheetBackendResults({
           {label.toUpperCase()}
         </Typography>
       </Box>
+      {results.length > 0 && (
+        // One table-style header per section, on the entry bar's column
+        // template — replaces the per-row field captions
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: ENTRY_BAR_GRID_TEMPLATE,
+            pb: 0.25,
+          }}
+        >
+          <Typography
+            level="body-xs"
+            sx={{
+              display: { xs: "none", sm: "block" },
+              color: "text.tertiary",
+              textAlign: "center",
+            }}
+          >
+            CODE
+          </Typography>
+          {HEADER_CELLS.map((cell) => (
+            <Typography
+              key={cell}
+              level="body-xs"
+              sx={{
+                color: "text.tertiary",
+                minWidth: 0,
+                px: ENTRY_BAR_CELL_PADDING_X,
+              }}
+            >
+              {cell}
+            </Typography>
+          ))}
+          <Box />
+        </Box>
+      )}
       <Stack
         direction="column"
         data-testid={`flowsheet-results-section-${label

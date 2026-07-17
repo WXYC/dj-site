@@ -127,8 +127,29 @@ eslint ignores extended to root-level `playwright-report/`/`test-results/`
   full-height Dividers are gone (Jackson kickout note).
 - (Album/label ghost text landed earlier from live search results; 4b done.)
 
+## Slice 6 — results as an aligned table ✅ (awaiting visual verification)
+- Result rows render on the entry bar's grid template: compressed CODE in the
+  60px art column, then Artist | Song ("Unknown" placeholder) | Album | Label
+  directly under the inputs; format/EXCLUSIVE chips in the actions column.
+- Per-row field captions removed; each source section gets one table-style
+  header row (CODE/ARTIST/SONG/ALBUM/LABEL) under its "FROM ..." label.
+- NewEntryPreview (row 0) deleted — the entry fields are the authoritative
+  preview; index semantics unchanged (0 = free-text, sections still offset
+  from 1). Freeform discoverability now lives in the zero-results hint
+  ("No matches — press Enter to log your entry exactly as typed").
+
+### Slice 6 live-feedback round (Jackson, 2026-07-17)
+- Hover = dim highlight only (`background.level1`), never rewrites the
+  fields; click commits (freeze) and lights the row primary via a
+  `query.album_id === entry.id` committed-state subscription.
+- Deviation: editing artist/album/label (fields a click filled) dispatches
+  `setSearchProperty` with `deviates` — reducer drops
+  album_id/rotation_id/rotation_bin/track_position, which also unlights the
+  row. Song edits and rotation-mode dispatches never deviate.
+- Section headers + all dim text use palette tokens (`text.tertiary`), not
+  opacity; missing-value cells likewise.
+- "No matches" hint: body-xs, tertiary, and only shown once the DJ has typed
+  something.
+
 ## Upcoming
-- Slice 6: freeform discoverability (#938) + footer polish + zero-results hint
-- Results-column alignment (Jackson): CODE moves into the song column so rows
-  read Artist–Song(CODE)–Album–Label; no existing gh issue found 2026-07-17
 - Full-suite + e2e sweep, then PR

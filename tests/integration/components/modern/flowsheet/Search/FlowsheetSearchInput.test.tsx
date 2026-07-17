@@ -49,7 +49,7 @@ describe("FlowsheetSearchInput", () => {
 
     expect(mockDispatch).toHaveBeenCalledWith({
       type: "setSearchProperty",
-      payload: { name: "artist", value: "Juana Molina" },
+      payload: { name: "artist", value: "Juana Molina", deviates: false },
     });
   });
 
@@ -130,7 +130,7 @@ describe("FlowsheetSearchInput", () => {
       expect(onThaw).toHaveBeenCalledTimes(1);
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "setSearchProperty",
-        payload: { name: "artist", value: "Juana M" },
+        payload: { name: "artist", value: "Juana M", deviates: false },
       });
     });
 

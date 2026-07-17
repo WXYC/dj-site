@@ -5,8 +5,20 @@ import { useMetadataPrefetch } from "@/lib/features/metadata/api";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { WXYC_EXCLUSIVE_PURPLE } from "@/src/utilities/modern/brandColors";
 import { formatTone } from "@/lib/features/experiences/modern/tokens/roles";
-import { Chip, Stack, Typography } from "@mui/joy";
+import { Box, Chip, Typography } from "@mui/joy";
 import { memo } from "react";
+import {
+  ENTRY_BAR_CELL_PADDING_X,
+  ENTRY_BAR_GRID_TEMPLATE,
+} from "../../entryBarStyles";
+
+const cellTextSx = (isSelected: boolean, present: boolean) => ({
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  color: isSelected ? "white" : present ? "inherit" : "text.tertiary",
+  fontStyle: present ? "normal" : "italic",
+});
 
 function FlowsheetBackendResult({
   entry,
@@ -20,10 +32,16 @@ function FlowsheetBackendResult({
   const isSelected = useAppSelector(
     (state) => flowsheetSlice.selectors.getSelectedResult(state) === index
   );
+  // Clicked-and-committed: the frozen query carries this row's album id.
+  // Editing a filled field deviates (clears the linkage) and unlights it.
+  const isCommitted = useAppSelector(
+    (state) =>
+      entry.id != null &&
+      flowsheetSlice.selectors.getSearchQuery(state).album_id === entry.id
+  );
+  const lit = isSelected || isCommitted;
 
   const dispatch = useAppDispatch();
-  const setSelected = (index: number) =>
-    dispatch(flowsheetSlice.actions.setSelectedResult(index));
 
   // Warm the tracklist cache so the picker is instantaneous once the result is
   // highlighted (LML's 3-tier cache + BS's 10-minute LRU absorb the actual
@@ -32,18 +50,26 @@ function FlowsheetBackendResult({
   const prefetchTracks = useMetadataPrefetch("getLibraryTracks");
 
   return (
-    <Stack
+    <Box
       key={`bin-${index}`}
-      direction="row"
-      justifyContent="space-between"
       data-testid={`flowsheet-search-result-${index}`}
       sx={{
-        p: 1,
-        backgroundColor: isSelected ? "primary.700" : "transparent",
+        // Rows sit on the entry bar's column template so every value lines
+        // up under the field it would fill
+        display: "grid",
+        gridTemplateColumns: ENTRY_BAR_GRID_TEMPLATE,
+        alignItems: "center",
+        py: 0.75,
+        backgroundColor: lit ? "primary.700" : "transparent",
         cursor: "pointer",
+        // Hover is a dim highlight only — committing values to the fields
+        // takes a click (or keyboard selection); hovering must never
+        // rewrite what the DJ is typing
+        "&:hover": {
+          backgroundColor: lit ? "primary.700" : "background.level1",
+        },
       }}
       onMouseOver={() => {
-        setSelected(index);
         if (entry.id) prefetchTracks(entry.id);
       }}
       // Autofill, never submit; prevented mousedown keeps input focus
@@ -56,126 +82,69 @@ function FlowsheetBackendResult({
         );
       }}
     >
-      <Stack direction="column" sx={{ flex: 1, minWidth: 0, px: 1 }}>
-        <Typography
-          level="body-xs"
-          sx={{
-            mb: -0.5,
-            color: isSelected ? "neutral.300" : "text.tertiary",
-          }}
-        >
-          CODE
+      <Typography
+        component="div"
+        sx={{
+          display: { xs: "none", sm: "block" },
+          fontFamily: "monospace",
+          fontSize: "0.65rem",
+          lineHeight: 1.3,
+          textAlign: "center",
+          overflow: "hidden",
+          px: "4px",
+          color: lit ? "neutral.300" : "text.tertiary",
+        }}
+      >
+        {entry.artist?.genre} {entry.artist?.lettercode}{" "}
+        {entry.artist?.numbercode}/{entry.entry}
+      </Typography>
+      <Box sx={{ minWidth: 0, px: ENTRY_BAR_CELL_PADDING_X }}>
+        <Typography sx={cellTextSx(lit, Boolean(entry.artist?.name))}>
+          {entry.artist?.name || "Unknown"}
         </Typography>
-        <Typography
-          component={"div"}
-          sx={{
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            color: isSelected ? "white" : "inherit",
-            fontFamily: "monospace",
-            fontSize: "1rem",
-          }}
-        >
-          {entry.artist?.genre} {entry.artist?.lettercode}{" "}
-          {entry.artist?.numbercode}/{entry.entry}
+      </Box>
+      <Box sx={{ minWidth: 0, px: ENTRY_BAR_CELL_PADDING_X }}>
+        <Typography sx={cellTextSx(lit, false)}>Unknown</Typography>
+      </Box>
+      <Box sx={{ minWidth: 0, px: ENTRY_BAR_CELL_PADDING_X }}>
+        <Typography sx={cellTextSx(lit, Boolean(entry.title))}>
+          {entry.title || "Unknown"}
+        </Typography>
+      </Box>
+      <Box sx={{ minWidth: 0, px: ENTRY_BAR_CELL_PADDING_X }}>
+        <Typography sx={cellTextSx(lit, Boolean(entry.label))}>
+          {entry.label || "Unknown"}
+        </Typography>
+      </Box>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "flex-end",
+          gap: 0.5,
+          pr: 1,
+          minWidth: 0,
+        }}
+      >
+        <Chip variant="soft" size="sm" color={formatTone(entry.format).color}>
+          {entry.format.includes("vinyl") ? "vinyl" : "cd"}
+        </Chip>
+        {entry.on_streaming === false && (
           <Chip
             variant="soft"
             size="sm"
-            color={formatTone(entry.format).color}
             sx={{
-              ml: 2,
+              backgroundColor: WXYC_EXCLUSIVE_PURPLE,
+              color: "#fff",
+              fontWeight: "bold",
+              fontSize: "0.6rem",
             }}
           >
-            {entry.format.includes("vinyl") ? "vinyl" : "cd"}
+            EXCLUSIVE
           </Chip>
-          {entry.on_streaming === false && (
-            <Chip
-              variant="soft"
-              size="sm"
-              sx={{
-                ml: 1,
-                backgroundColor: WXYC_EXCLUSIVE_PURPLE,
-                color: "#fff",
-                fontWeight: "bold",
-                fontSize: "0.6rem",
-              }}
-            >
-              EXCLUSIVE
-            </Chip>
-          )}
-        </Typography>
-      </Stack>
-      <Stack direction="column" sx={{ flex: 1, minWidth: 0, px: 1 }}>
-        <Typography
-          level="body-xs"
-          sx={{
-            mb: -0.5,
-            color: isSelected ? "neutral.300" : "text.tertiary",
-          }}
-        >
-          ARTIST
-        </Typography>
-        <Typography
-          sx={{
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            color: isSelected ? "white" : "inherit",
-            fontStyle: entry.artist?.name ? "normal" : "italic",
-            opacity: entry.artist?.name ? 1 : 0.6,
-          }}
-        >
-          {entry.artist?.name || "Unknown"}
-        </Typography>
-      </Stack>
-      <Stack direction="column" sx={{ flex: 1, minWidth: 0, px: 1 }}>
-        <Typography
-          level="body-xs"
-          sx={{
-            mb: -0.5,
-            color: isSelected ? "neutral.300" : "text.tertiary",
-          }}
-        >
-          ALBUM
-        </Typography>
-        <Typography
-          sx={{
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            color: isSelected ? "white" : "inherit",
-            fontStyle: entry.title ? "normal" : "italic",
-            opacity: entry.title ? 1 : 0.6,
-          }}
-        >
-          {entry.title || "Unknown"}
-        </Typography>
-      </Stack>
-      <Stack direction="column" sx={{ flex: 1, minWidth: 0, px: 1 }}>
-        <Typography
-          level="body-xs"
-          sx={{
-            mb: -0.5,
-            color: isSelected ? "neutral.300" : "text.tertiary",
-          }}
-        >
-          LABEL
-        </Typography>
-        <Typography
-          sx={{
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            color: isSelected ? "white" : "inherit",
-            fontStyle: entry.label ? "normal" : "italic",
-            opacity: entry.label ? 1 : 0.6,
-          }}
-        >
-          {entry.label || "Unknown"}
-        </Typography>
-      </Stack>
-    </Stack>
+        )}
+      </Box>
+    </Box>
   );
 }
 

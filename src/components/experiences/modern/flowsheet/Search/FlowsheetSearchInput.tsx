@@ -17,6 +17,9 @@ type FlowsheetSearchInputProps = Omit<
   isAutoFilled?: boolean;
   // Freeze the highlighted result into the query before applying an edit
   onThaw?: () => void;
+  // Editing this field deviates from a clicked result's release (drops the
+  // album linkage); the song field never deviates — it's always the DJ's
+  deviates?: boolean;
   ghostSuffix?: string;
   onAcceptGhost?: () => void;
   inputRef?: Ref<HTMLInputElement>;
@@ -27,6 +30,7 @@ export default function FlowsheetSearchInput({
   value,
   isAutoFilled = false,
   onThaw,
+  deviates = false,
   style: externalStyle,
   ghostSuffix,
   onAcceptGhost,
@@ -91,6 +95,7 @@ export default function FlowsheetSearchInput({
             flowsheetSlice.actions.setSearchProperty({
               name,
               value: e.target.value,
+              deviates,
             })
           );
         }}

@@ -104,9 +104,22 @@ export const flowsheetSlice = createAppSlice({
     },
     setSearchProperty: (
       state,
-      action: PayloadAction<{ name: FlowsheetSearchProperty; value: string }>
+      action: PayloadAction<{
+        name: FlowsheetSearchProperty;
+        value: string;
+        // Editing a field a clicked result filled deviates from that release:
+        // the album linkage (and any picked track position) no longer
+        // describes what the DJ is entering, so it must not ride the wire
+        deviates?: boolean;
+      }>
     ) => {
       state.search.query[action.payload.name] = action.payload.value;
+      if (action.payload.deviates && state.search.query.album_id != null) {
+        state.search.query.album_id = undefined;
+        state.search.query.rotation_id = undefined;
+        state.search.query.rotation_bin = undefined;
+        state.search.query.track_position = undefined;
+      }
     },
     /**
      * Set the picked track's Discogs `release_track.position` (e.g. "A1"). Pass

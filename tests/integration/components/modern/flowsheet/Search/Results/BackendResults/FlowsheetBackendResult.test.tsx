@@ -68,28 +68,24 @@ describe("FlowsheetBackendResult", () => {
     it("should render CODE section with genre and lettercode", () => {
       render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
 
-      expect(screen.getByText("CODE")).toBeInTheDocument();
       expect(screen.getByText(/Rock AB 123\/5/)).toBeInTheDocument();
     });
 
     it("should render ARTIST section", () => {
       render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
 
-      expect(screen.getByText("ARTIST")).toBeInTheDocument();
       expect(screen.getByText("Test Artist")).toBeInTheDocument();
     });
 
     it("should render ALBUM section", () => {
       render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
 
-      expect(screen.getByText("ALBUM")).toBeInTheDocument();
       expect(screen.getByText("Test Album")).toBeInTheDocument();
     });
 
     it("should render LABEL section", () => {
       render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
 
-      expect(screen.getByText("LABEL")).toBeInTheDocument();
       expect(screen.getByText("Test Label")).toBeInTheDocument();
     });
   });
@@ -126,47 +122,27 @@ describe("FlowsheetBackendResult", () => {
   });
 
   describe("Selected state styling", () => {
-    it("should have transparent background when not selected", () => {
-      mockUseAppSelector.mockReturnValue(0); // Different index
+    it("renders in both selected and unselected states", () => {
+      mockUseAppSelector.mockReturnValue(false);
+      const { unmount } = render(
+        <FlowsheetBackendResult entry={mockEntry} index={1} />
+      );
+      unmount();
 
+      mockUseAppSelector.mockReturnValue(true);
       render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
-
-      // The background is transparent when not selected
-      // We can verify by checking the rendered styles
-    });
-
-    it("should have primary background when selected (not submitting to queue)", () => {
-      mockUseAppSelector.mockReturnValue(1); // Same as index
-
-      render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
-
-      // Background should be primary.700 when selected
-    });
-
-    it("should have success background when selected and submitting to queue", () => {
-      mockUseAppSelector.mockReturnValue(1);
-
-      vi.mock("@/src/hooks/flowsheetHooks", async () => ({
-        useFlowsheetSubmit: () => ({
-          ctrlKeyPressed: true, // Submitting to queue
-          handleSubmit: mockHandleSubmit,
-        }),
-      }));
-
-      render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
-
-      // Background should be success.700 when selected and submitting to queue
+      expect(screen.getByText("Test Artist")).toBeInTheDocument();
     });
   });
 
   describe("Mouse interactions", () => {
-    it("should dispatch setSelectedResult on mouse over", () => {
+    it("should not change the selection on mouse over — hover is visual only", () => {
       render(<FlowsheetBackendResult entry={mockEntry} index={5} />);
 
-      const resultRow = screen.getByText("Test Artist").closest('[class*="MuiStack-root"]');
+      const resultRow = screen.getByText("Test Artist").closest('[data-testid^="flowsheet-search-result-"]');
       fireEvent.mouseOver(resultRow!);
 
-      expect(mockDispatch).toHaveBeenCalled();
+      expect(mockDispatch).not.toHaveBeenCalled();
     });
 
     // Clicking a result AUTOFILLS the fields via freezeSelectionToQuery — it
@@ -176,7 +152,7 @@ describe("FlowsheetBackendResult", () => {
 
       const resultRow = screen
         .getByText("Test Artist")
-        .closest('[class*="MuiStack-root"]');
+        .closest('[data-testid^="flowsheet-search-result-"]');
       const notPrevented = fireEvent.mouseDown(resultRow!);
 
       expect(notPrevented).toBe(false);
@@ -199,7 +175,7 @@ describe("FlowsheetBackendResult", () => {
 
       const resultRow = screen
         .getByText("Test Artist")
-        .closest('[class*="MuiStack-root"]');
+        .closest('[data-testid^="flowsheet-search-result-"]');
       fireEvent.click(resultRow!);
 
       expect(mockHandleSubmit).not.toHaveBeenCalled();
@@ -218,7 +194,7 @@ describe("FlowsheetBackendResult", () => {
 
       render(<FlowsheetBackendResult entry={entryWithoutArtist} index={1} />);
 
-      expect(screen.getByText("Unknown")).toBeInTheDocument();
+      expect(screen.getAllByText("Unknown").length).toBeGreaterThanOrEqual(2);
     });
 
     it("should display 'Unknown' for missing album title", () => {
@@ -258,9 +234,9 @@ describe("FlowsheetBackendResult", () => {
 
       render(<FlowsheetBackendResult entry={entryWithMissingValues} index={1} />);
 
-      // Unknown values should have italic fontStyle
+      // Missing artist/album/label plus the constant song placeholder
       const unknownElements = screen.getAllByText("Unknown");
-      expect(unknownElements.length).toBe(3);
+      expect(unknownElements.length).toBe(4);
     });
   });
 
@@ -280,7 +256,7 @@ describe("FlowsheetBackendResult", () => {
         render(<FlowsheetBackendResult entry={entryWithNullArtist} index={1} />)
       ).not.toThrow();
 
-      expect(screen.getByText("Unknown")).toBeInTheDocument();
+      expect(screen.getAllByText("Unknown").length).toBeGreaterThanOrEqual(2);
     });
   });
 
@@ -297,13 +273,13 @@ describe("FlowsheetBackendResult", () => {
       expect(screen.getByText("Test Album")).toBeInTheDocument();
     });
 
-    it("should set selected on mouseover with correct index", () => {
+    it("should prefetch tracks on mouse over", () => {
       render(<FlowsheetBackendResult entry={mockEntry} index={42} />);
 
-      const resultRow = screen.getByText("Test Artist").closest('[class*="MuiStack-root"]');
+      const resultRow = screen.getByText("Test Artist").closest('[data-testid^="flowsheet-search-result-"]');
       fireEvent.mouseOver(resultRow!);
 
-      expect(mockDispatch).toHaveBeenCalled();
+      expect(mockPrefetchTracks).toHaveBeenCalledWith(1);
     });
   });
 
@@ -375,7 +351,7 @@ describe("FlowsheetBackendResult", () => {
       render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
 
       // The Stack component should have cursor: pointer
-      const resultRow = screen.getByText("Test Artist").closest('[class*="MuiStack-root"]');
+      const resultRow = screen.getByText("Test Artist").closest('[data-testid^="flowsheet-search-result-"]');
       expect(resultRow).toBeInTheDocument();
     });
   });
