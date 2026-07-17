@@ -1,5 +1,6 @@
 import { createApi, fakeBaseQuery } from "@reduxjs/toolkit/query/react";
-import { authClient } from "@/lib/features/authentication/client";
+import { authClient, authFetch } from "@/lib/features/authentication/client";
+import { authErrorMessage } from "@/lib/features/authentication/auth-fetch";
 import { resolveOrganizationIdAdmin } from "@/lib/features/authentication/organization-utils";
 import { throwIfBetterAuthError } from "@/src/utilities/throwIfBetterAuthError";
 import { adminSlice } from "./frontend";
@@ -8,6 +9,30 @@ import { Account, ROSTER_PAGE_SIZE } from "./types";
 
 type RosterArgs = { search: string; page: number };
 type RosterResult = { accounts: Account[]; total: number };
+
+type ProvisionUserArgs = {
+  email: string;
+  username: string;
+  name: string;
+  organizationSlug: string;
+  role: string;
+  realName?: string;
+  djName?: string;
+};
+
+type ProvisionUserResult = {
+  emailSent?: boolean;
+  emailError?: string;
+};
+
+/** Normalize a rejected provisionUser mutation into a user-facing message. */
+export function provisionErrorMessage(error: unknown): string {
+  if (error && typeof error === "object" && "message" in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string" && message) return message;
+  }
+  return "Failed to create account";
+}
 
 export const adminApi = createApi({
   reducerPath: "adminApi",
@@ -81,7 +106,22 @@ export const adminApi = createApi({
       },
       providesTags: ["Roster"],
     }),
+    provisionUser: builder.mutation<ProvisionUserResult, ProvisionUserArgs>({
+      queryFn: async (args) => {
+        const { ok, status, data } = await authFetch<
+          ProvisionUserResult & { message?: string; error?: string }
+        >("/admin/provision-user", { method: "POST", json: args });
+
+        if (!ok) {
+          return {
+            error: { message: authErrorMessage(data, `Failed to create user (${status})`) },
+          };
+        }
+
+        return { data: { emailSent: data?.emailSent, emailError: data?.emailError } };
+      },
+    }),
   }),
 });
 
-export const { useGetRosterQuery } = adminApi;
+export const { useGetRosterQuery, useProvisionUserMutation } = adminApi;

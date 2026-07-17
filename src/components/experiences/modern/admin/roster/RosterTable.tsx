@@ -1,7 +1,7 @@
 "use client";
 
-import { authBaseURL, authClient } from "@/lib/features/authentication/client";
 import { adminSlice } from "@/lib/features/admin/frontend";
+import { provisionErrorMessage, useProvisionUserMutation } from "@/lib/features/admin/api";
 import { Authorization, ROSTER_PAGE_SIZE } from "@/lib/features/admin/types";
 import { User, authorizationToRole } from "@/lib/features/authentication/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
@@ -33,6 +33,7 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
   const [importModalOpen, setImportModalOpen] = useState(false);
 
   const dispatch = useAppDispatch();
+  const [provisionUser] = useProvisionUserMutation();
   const isAdding = useAppSelector(adminSlice.selectors.getAdding);
   const page = useAppSelector(adminSlice.selectors.getPage);
   const totalAccounts = useAppSelector(adminSlice.selectors.getTotalAccounts);
@@ -77,40 +78,20 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
 
         const role = authorizationToRole(authorizationOfNewAccount);
 
-        const response = await fetch(`${authBaseURL}/admin/provision-user`, {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: newAccount.email,
-            username: newAccount.username,
-            name: newAccount.realName || newAccount.username,
-            organizationSlug,
-            role,
-            realName: newAccount.realName || undefined,
-            djName: newAccount.djName || undefined,
-          }),
-        });
+        const provisioned = await provisionUser({
+          email: newAccount.email,
+          username: newAccount.username,
+          name: newAccount.realName || newAccount.username,
+          organizationSlug,
+          role,
+          realName: newAccount.realName || undefined,
+          djName: newAccount.djName || undefined,
+        }).unwrap();
 
-        const provisionResult = (await response.json().catch(() => null)) as {
-          emailSent?: boolean;
-          emailError?: string;
-          message?: string;
-          error?: string;
-        } | null;
-
-        if (!response.ok) {
-          throw new Error(
-            provisionResult?.message ||
-              provisionResult?.error ||
-              `Failed to create user (${response.status})`
-          );
-        }
-
-        if (provisionResult?.emailSent === false) {
+        if (provisioned.emailSent === false) {
           toast.warning(
             `Account created for ${newAccount.username}, but the setup email failed to send${
-              provisionResult.emailError ? `: ${provisionResult.emailError}` : ""
+              provisioned.emailError ? `: ${provisioned.emailError}` : ""
             }. Resend the invite from the roster.`
           );
         } else {
@@ -118,12 +99,12 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
         }
 
         // setAdding(false) already clears the add-form data; a full slice
-        // reset would also wipe the admin's search + page context (#638).
+        // reset would also wipe the admin's search + page context.
         dispatch(adminSlice.actions.setAdding(false));
 
         await refetch();
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Failed to create account";
+        const errorMessage = provisionErrorMessage(err);
         setCreateError(err instanceof Error ? err : new Error(errorMessage));
         if (errorMessage.trim().length > 0) {
           toast.error(errorMessage);
@@ -132,7 +113,7 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
         setIsCreating(false);
       }
     },
-    [authorizationOfNewAccount, canCreateUser, dispatch, refetch]
+    [authorizationOfNewAccount, canCreateUser, dispatch, organizationSlug, provisionUser, refetch]
   );
 
   return (
