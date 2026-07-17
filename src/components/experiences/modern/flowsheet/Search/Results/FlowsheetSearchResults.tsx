@@ -9,7 +9,6 @@ import { useEffect, useMemo, useState } from "react";
 import FlowsheetBackendResults, {
   MAX_VISIBLE_RESULTS,
 } from "./BackendResults/FlowsheetBackendResults";
-import NewEntryPreview from "./NewEntry/NewEntryPreview";
 import LibraryTrackPicker, {
   useLibraryTrackPicker,
 } from "../LibraryTrackPicker";
@@ -58,9 +57,11 @@ export default function FlowsheetSearchResults({
     selectedResult > 0 ? allResults[selectedResult - 1] ?? null : null;
 
   // A click-to-autofill zeroes the highlight; the frozen query keeps the album
-  const frozenAlbumId = useAppSelector(
-    flowsheetSlice.selectors.getSearchQuery
-  ).album_id;
+  const searchQuery = useAppSelector(flowsheetSlice.selectors.getSearchQuery);
+  const frozenAlbumId = searchQuery.album_id;
+  const hasTypedText = Boolean(
+    searchQuery.artist || searchQuery.song || searchQuery.album || searchQuery.label
+  );
 
   // A library-unlinked rotation/catalog row carries a synthesized negative
   // id from synthesizeAlbumId — there's no real release to pick tracks from,
@@ -107,10 +108,20 @@ export default function FlowsheetSearchResults({
             flex: 1,
           }}
         >
-          <NewEntryPreview />
-          <Divider
-            sx={{ visibility: binResults.length > 0 ? "inherit" : "hidden" }}
-          />
+          {hasTypedText &&
+            binResults.length +
+              rotationResults.length +
+              catalogResults.length +
+              lmlResults.length ===
+              0 && (
+            <Typography
+              level="body-xs"
+              data-testid="flowsheet-results-empty-hint"
+              sx={{ color: "text.tertiary", p: 1, textAlign: "center" }}
+            >
+              No matches — press Enter to log your entry exactly as typed.
+            </Typography>
+          )}
           <FlowsheetBackendResults
             results={binResults}
             offset={1}
@@ -189,11 +200,11 @@ export default function FlowsheetSearchResults({
                   }}
                 />
               ) : picker.isLoading ? (
-                <Typography level="body-xs" sx={{ opacity: 0.5 }}>
+                <Typography level="body-xs" sx={{ color: "text.tertiary" }}>
                   Loading tracks…
                 </Typography>
               ) : (
-                <Typography level="body-xs" sx={{ opacity: 0.5 }}>
+                <Typography level="body-xs" sx={{ color: "text.tertiary" }}>
                   No tracklist on file — type the song title above.
                 </Typography>
               )}

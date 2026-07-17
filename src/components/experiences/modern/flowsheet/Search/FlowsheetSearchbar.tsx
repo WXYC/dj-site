@@ -440,6 +440,7 @@ export default function FlowsheetSearchbar() {
                 <FlowsheetSearchInput
                   name={"artist"}
                   value={getDisplayValue("artist")}
+                  deviates
                   isAutoFilled={autoFilled.artist}
                   onThaw={thawSelection}
                   inputRef={artistRef}
@@ -462,6 +463,7 @@ export default function FlowsheetSearchbar() {
                 <FlowsheetSearchInput
                   name={"album"}
                   value={getDisplayValue("album")}
+                  deviates
                   isAutoFilled={autoFilled.album}
                   onThaw={thawSelection}
                   inputRef={albumRef}
@@ -473,6 +475,7 @@ export default function FlowsheetSearchbar() {
                 <FlowsheetSearchInput
                   name={"label"}
                   value={getDisplayValue("label")}
+                  deviates
                   isAutoFilled={autoFilled.label}
                   onThaw={thawSelection}
                   inputRef={labelRef}

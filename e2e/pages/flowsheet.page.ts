@@ -19,7 +19,6 @@ export class FlowsheetPage {
   readonly labelInput: Locator;
   readonly submitButton: Locator;
   readonly searchResults: Locator;
-  readonly newEntryPreview: Locator;
 
   // Special entry buttons
   readonly talksetButton: Locator;
@@ -45,9 +44,6 @@ export class FlowsheetPage {
     this.submitButton = page.locator('[data-testid="flowsheet-search-submit"]');
     this.searchResults = page.locator(
       '[data-testid="flowsheet-search-results"]'
-    );
-    this.newEntryPreview = page.locator(
-      '[data-testid="flowsheet-new-entry-preview"]'
     );
 
     // Special entries

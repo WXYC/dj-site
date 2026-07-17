@@ -123,6 +123,47 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
       expect(result.search.query.track_position).toBeUndefined();
     });
 
+    describe("setSearchProperty deviation", () => {
+      const frozen = () =>
+        harness().reduce(
+          actions.freezeSelectionToQuery({
+            artist: "Stereolab",
+            album: "DOGA",
+            label: "Duophonic",
+            album_id: 42,
+            rotation_id: 7,
+            rotation_bin: "H",
+          })
+        );
+
+      it("editing a filled field with deviates drops the album linkage", () => {
+        const result = harness().reduce(
+          actions.setSearchProperty({
+            name: "album",
+            value: "DOGA (remaster)",
+            deviates: true,
+          }),
+          frozen()
+        );
+
+        expect(result.search.query.album).toBe("DOGA (remaster)");
+        expect(result.search.query.album_id).toBeUndefined();
+        expect(result.search.query.rotation_id).toBeUndefined();
+        expect(result.search.query.rotation_bin).toBeUndefined();
+        expect(result.search.query.track_position).toBeUndefined();
+      });
+
+      it("a non-deviating write preserves the linkage (rotation flows)", () => {
+        const result = harness().reduce(
+          actions.setSearchProperty({ name: "song", value: "Prayer" }),
+          frozen()
+        );
+
+        expect(result.search.query.album_id).toBe(42);
+        expect(result.search.query.rotation_id).toBe(7);
+      });
+    });
+
     it("resetSearch increments resetEpoch", () => {
       const once = harness().reduce(actions.resetSearch());
       expect(once.search.resetEpoch).toBe(1);

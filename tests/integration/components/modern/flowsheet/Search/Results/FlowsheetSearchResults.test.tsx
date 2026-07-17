@@ -18,10 +18,6 @@ vi.mock("@/src/components/experiences/modern/flowsheet/Search/Results/BackendRes
   ),
 }));
 
-vi.mock("@/src/components/experiences/modern/flowsheet/Search/Results/NewEntry/NewEntryPreview", () => ({
-  default: () => <div data-testid="new-entry-preview">New Entry</div>,
-}));
-
 // LibraryTrackPicker hits the proxy `/library/:id/tracks` endpoint via
 // metadataApi; we don't want this test to wire that into the store. The
 // default stub returns `show: true` so the picker row is rendered when its
@@ -80,23 +76,6 @@ describe("FlowsheetSearchResults", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  it("should render NewEntryPreview", () => {
-    const store = createTestStore(true);
-
-    render(
-      <Provider store={store}>
-        <FlowsheetSearchResults
-          binResults={[]}
-          catalogResults={[]}
-          rotationResults={[]}
-          lmlResults={[]}
-        />
-      </Provider>
-    );
-
-    expect(screen.getByTestId("new-entry-preview")).toBeInTheDocument();
   });
 
   it("should render backend results for bin", () => {
