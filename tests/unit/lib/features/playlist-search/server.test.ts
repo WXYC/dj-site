@@ -34,7 +34,7 @@ describe("fetchRecentPlaylistsSeed", () => {
     vi.unstubAllGlobals();
   });
 
-  it("requests the empty-query first page and returns its rows and total", async () => {
+  it("requests the empty-query first page and returns its rows", async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({
         results: [makeResult(1), makeResult(2)],
@@ -47,7 +47,6 @@ describe("fetchRecentPlaylistsSeed", () => {
 
     const seed = await fetchRecentPlaylistsSeed();
     expect(seed.results).toHaveLength(2);
-    expect(seed.total).toBe(2);
 
     const requestedUrl = String(
       (fetchMock.mock.calls[0] as unknown as unknown[])[0],
@@ -62,7 +61,7 @@ describe("fetchRecentPlaylistsSeed", () => {
   it("fails open to an empty seed on a non-2xx response", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(null, false)));
     const seed = await fetchRecentPlaylistsSeed();
-    expect(seed).toEqual({ results: [], total: 0 });
+    expect(seed).toEqual({ results: [] });
   });
 
   it("fails open to an empty seed when the fetch rejects", async () => {
@@ -73,6 +72,6 @@ describe("fetchRecentPlaylistsSeed", () => {
       }),
     );
     const seed = await fetchRecentPlaylistsSeed();
-    expect(seed).toEqual({ results: [], total: 0 });
+    expect(seed).toEqual({ results: [] });
   });
 });
