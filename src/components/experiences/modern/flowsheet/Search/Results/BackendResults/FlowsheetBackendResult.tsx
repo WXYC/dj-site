@@ -1,19 +1,25 @@
 import { AlbumEntry } from "@/lib/features/catalog/types";
+import { entryToFreezePayload } from "@/lib/features/flowsheet/conversions";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useMetadataPrefetch } from "@/lib/features/metadata/api";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { WXYC_EXCLUSIVE_PURPLE } from "@/src/utilities/modern/brandColors";
 import { formatTone } from "@/lib/features/experiences/modern/tokens/roles";
 import { Chip, Stack, Typography } from "@mui/joy";
+import { memo } from "react";
 
-export default function FlowsheetBackendResult({
+function FlowsheetBackendResult({
   entry,
   index,
 }: {
   entry: AlbumEntry;
   index: number;
 }) {
-  const selected = useAppSelector(flowsheetSlice.selectors.getSelectedResult);
+  // Boolean subscription: a highlight move re-renders only the two rows
+  // whose selected state flipped, not every visible row
+  const isSelected = useAppSelector(
+    (state) => flowsheetSlice.selectors.getSelectedResult(state) === index
+  );
 
   const dispatch = useAppDispatch();
   const setSelected = (index: number) =>
@@ -33,7 +39,7 @@ export default function FlowsheetBackendResult({
       data-testid={`flowsheet-search-result-${index}`}
       sx={{
         p: 1,
-        backgroundColor: selected == index ? "primary.700" : "transparent",
+        backgroundColor: isSelected ? "primary.700" : "transparent",
         cursor: "pointer",
       }}
       onMouseOver={() => {
@@ -44,14 +50,9 @@ export default function FlowsheetBackendResult({
       onMouseDown={(e) => {
         e.preventDefault();
         dispatch(
-          flowsheetSlice.actions.freezeSelectionToQuery({
-            artist: entry.artist?.name ?? "",
-            album: entry.title ?? "",
-            label: entry.label ?? "",
-            album_id: entry.id ?? undefined,
-            rotation_id: entry.rotation_id ?? undefined,
-            rotation_bin: entry.rotation_bin ?? undefined,
-          })
+          flowsheetSlice.actions.freezeSelectionToQuery(
+            entryToFreezePayload(entry)
+          )
         );
       }}
     >
@@ -60,7 +61,7 @@ export default function FlowsheetBackendResult({
           level="body-xs"
           sx={{
             mb: -0.5,
-            color: selected == index ? "neutral.300" : "text.tertiary",
+            color: isSelected ? "neutral.300" : "text.tertiary",
           }}
         >
           CODE
@@ -71,7 +72,7 @@ export default function FlowsheetBackendResult({
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
-            color: selected == index ? "white" : "inherit",
+            color: isSelected ? "white" : "inherit",
             fontFamily: "monospace",
             fontSize: "1rem",
           }}
@@ -110,7 +111,7 @@ export default function FlowsheetBackendResult({
           level="body-xs"
           sx={{
             mb: -0.5,
-            color: selected == index ? "neutral.300" : "text.tertiary",
+            color: isSelected ? "neutral.300" : "text.tertiary",
           }}
         >
           ARTIST
@@ -120,7 +121,7 @@ export default function FlowsheetBackendResult({
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
-            color: selected == index ? "white" : "inherit",
+            color: isSelected ? "white" : "inherit",
             fontStyle: entry.artist?.name ? "normal" : "italic",
             opacity: entry.artist?.name ? 1 : 0.6,
           }}
@@ -133,7 +134,7 @@ export default function FlowsheetBackendResult({
           level="body-xs"
           sx={{
             mb: -0.5,
-            color: selected == index ? "neutral.300" : "text.tertiary",
+            color: isSelected ? "neutral.300" : "text.tertiary",
           }}
         >
           ALBUM
@@ -143,7 +144,7 @@ export default function FlowsheetBackendResult({
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
-            color: selected == index ? "white" : "inherit",
+            color: isSelected ? "white" : "inherit",
             fontStyle: entry.title ? "normal" : "italic",
             opacity: entry.title ? 1 : 0.6,
           }}
@@ -156,7 +157,7 @@ export default function FlowsheetBackendResult({
           level="body-xs"
           sx={{
             mb: -0.5,
-            color: selected == index ? "neutral.300" : "text.tertiary",
+            color: isSelected ? "neutral.300" : "text.tertiary",
           }}
         >
           LABEL
@@ -166,7 +167,7 @@ export default function FlowsheetBackendResult({
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
-            color: selected == index ? "white" : "inherit",
+            color: isSelected ? "white" : "inherit",
             fontStyle: entry.label ? "normal" : "italic",
             opacity: entry.label ? 1 : 0.6,
           }}
@@ -177,3 +178,5 @@ export default function FlowsheetBackendResult({
     </Stack>
   );
 }
+
+export default memo(FlowsheetBackendResult);

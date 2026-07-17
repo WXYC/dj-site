@@ -98,6 +98,27 @@ eslint ignores extended to root-level `playwright-report/`/`test-results/`
   (the accept handlers already advance artist→song→album).
 - Footer hint chip: `→ accept + next field`.
 
+## Performance + SSR pass ✅ (2026-07-17, post-rebase onto main @33 commits)
+
+- Rebased cleanly onto main (comment-strip sweep, login/layout RSC refactors,
+  CellTower flowsheet icon). All refs in code/tests stayed clean.
+- `FlowsheetSearchInput` is now presentational (`value`/`isAutoFilled`/
+  `onThaw` props + its own dispatch): previously each of 5 inputs subscribed
+  to the FULL search pipeline + `useShowControl`'s two RTK subscriptions per
+  keystroke. One pipeline subscription remains (the bar's).
+- `RotationEntryFields` no longer subscribes to the pipeline just for
+  `setSearchOpen` (direct dispatch).
+- `FlowsheetBackendResult`: boolean `isSelected` subscription + `memo` — a
+  highlight move re-renders 2 rows, not all visible rows (up to 200).
+- Document keydown listener uses the latest-ref pattern — stable callback, no
+  per-keystroke teardown/re-add.
+- Shared `entryToFreezePayload` mapper (conversions.ts) feeds both the
+  click-autofill and edit-thaw freeze dispatches.
+- **No enabled-flash guarantee** (Jackson): `live` defaults false until
+  whoIsLive resolves, so SSR + first paint render everything disabled;
+  regression tests added at the bar level (all inputs) and on Breakpoint/
+  Talkset buttons.
+
 ## Upcoming
 - Slice 4b (optional): album-field ghost via top-catalog-result override
 - Slice 5: rotation manual label (#931) + the RotationEntryFields half of #940

@@ -16,6 +16,28 @@ export function formatOnAirSummary(djs: OnAirDJResponse[]): string {
   return djs.map((dj) => dj.dj_name).join(", ");
 }
 
+/**
+ * Map a search-result album onto freezeSelectionToQuery's payload — the one
+ * shape both the click-to-autofill path and the edit-thaw path dispatch.
+ */
+export function entryToFreezePayload(entry: {
+  artist?: { name?: string } | null;
+  title?: string | null;
+  label?: string | null;
+  id?: number | null;
+  rotation_id?: number | null;
+  rotation_bin?: Rotation | null;
+}) {
+  return {
+    artist: entry.artist?.name ?? "",
+    album: entry.title ?? "",
+    label: entry.label ?? "",
+    album_id: entry.id ?? undefined,
+    rotation_id: entry.rotation_id ?? undefined,
+    rotation_bin: entry.rotation_bin ?? undefined,
+  };
+}
+
 export function convertQueryToSubmission(
   query: FlowsheetQuery
 ): FlowsheetSubmissionParams {

@@ -3,7 +3,6 @@
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { FlowsheetSearchProperty } from "@/lib/features/flowsheet/types";
 import { useAppDispatch } from "@/lib/hooks";
-import { useFlowsheetSearch } from "@/src/hooks/flowsheetHooks";
 import { toTitleCase } from "@/src/utilities/stringutilities";
 import { InputHTMLAttributes, Ref } from "react";
 import { ENTRY_BAR_CELL_PADDING_X } from "./entryBarStyles";
@@ -13,6 +12,11 @@ type FlowsheetSearchInputProps = Omit<
   "placeholder" | "value" | "onChange" | "onClick"
 > & {
   name: FlowsheetSearchProperty;
+  value: string;
+  // True when the shown value comes from a highlighted result, not the query
+  isAutoFilled?: boolean;
+  // Freeze the highlighted result into the query before applying an edit
+  onThaw?: () => void;
   ghostSuffix?: string;
   onAcceptGhost?: () => void;
   inputRef?: Ref<HTMLInputElement>;
@@ -20,48 +24,16 @@ type FlowsheetSearchInputProps = Omit<
 
 export default function FlowsheetSearchInput({
   name,
+  value,
+  isAutoFilled = false,
+  onThaw,
   style: externalStyle,
   ghostSuffix,
   onAcceptGhost,
   inputRef,
   ...props
 }: FlowsheetSearchInputProps) {
-  const { getDisplayValue, setSearchProperty, selectedIndex, selectedEntry } =
-    useFlowsheetSearch();
   const dispatch = useAppDispatch();
-
-  const displayValue = getDisplayValue(name);
-
-  let isAutoFilled = false;
-  if (selectedIndex > 0 && name !== "song" && selectedEntry) {
-    switch (name) {
-      case "artist":
-        isAutoFilled = Boolean(selectedEntry.artist?.name);
-        break;
-      case "album":
-        isAutoFilled = Boolean(selectedEntry.title);
-        break;
-      case "label":
-        isAutoFilled = Boolean(selectedEntry.label);
-        break;
-    }
-  }
-
-  // Freeze the selected entry's fields into the live query and deselect, so
-  // editing one field doesn't blank out the others that came from the result.
-  const thawSelection = () => {
-    if (!selectedEntry) return;
-    dispatch(
-      flowsheetSlice.actions.freezeSelectionToQuery({
-        artist: selectedEntry.artist?.name ?? "",
-        album: selectedEntry.title ?? "",
-        label: selectedEntry.label ?? "",
-        album_id: selectedEntry.id ?? undefined,
-        rotation_id: selectedEntry.rotation_id ?? undefined,
-        rotation_bin: selectedEntry.rotation_bin ?? undefined,
-      })
-    );
-  };
 
   const hasGhost = !isAutoFilled && Boolean(ghostSuffix);
 
@@ -97,7 +69,7 @@ export default function FlowsheetSearchInput({
             overflow: "hidden",
           }}
         >
-          <span style={{ visibility: "hidden" }}>{displayValue}</span>
+          <span style={{ visibility: "hidden" }}>{value}</span>
           <span style={{ color: "rgba(128, 128, 128, 0.5)" }}>
             {ghostSuffix}
           </span>
@@ -109,13 +81,18 @@ export default function FlowsheetSearchInput({
         type="text"
         data-testid={`flowsheet-search-${name}`}
         placeholder={toTitleCase(name)}
-        value={displayValue}
+        value={value}
         autoComplete="off"
         onChange={(e) => {
           if (isAutoFilled) {
-            thawSelection();
+            onThaw?.();
           }
-          setSearchProperty(name, e.target.value);
+          dispatch(
+            flowsheetSlice.actions.setSearchProperty({
+              name,
+              value: e.target.value,
+            })
+          );
         }}
         onKeyDown={(e) => {
           // Tab is field navigation only — accepting is ArrowRight's job
