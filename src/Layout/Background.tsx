@@ -1,3 +1,9 @@
+"use client";
+
+// Not removable: both Boxes take function-valued `sx` (theme.getColorSchemeSelector).
+// From a Server Component, a function prop crossing into the Joy client boundary
+// fails RSC serialization at request time on dynamic routes — `next build` does
+// not catch it; only e2e/preview do.
 import { Box } from "@mui/joy";
 import { ReactNode } from "react";
 
