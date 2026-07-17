@@ -1,5 +1,6 @@
 import WXYCPage from "@/src/Layout/WXYCPage";
 import { PlaylistSearchContainer } from "@/src/components/experiences/modern/playlist-search";
+import { fetchRecentPlaylistsSeed } from "@/lib/features/playlist-search/server";
 import { Box } from "@mui/joy";
 import { Metadata } from "next";
 import { getPageTitle } from "@/lib/utils/page-title";
@@ -8,7 +9,9 @@ export const metadata: Metadata = {
   title: getPageTitle("Playlist Archive"),
 };
 
-export default function PlaylistsPage() {
+export default async function PlaylistsPage() {
+  const { results, total } = await fetchRecentPlaylistsSeed();
+
   return (
     <WXYCPage>
       <Box
@@ -19,7 +22,7 @@ export default function PlaylistsPage() {
           py: 2,
         }}
       >
-        <PlaylistSearchContainer />
+        <PlaylistSearchContainer initialResults={results} initialTotal={total} />
       </Box>
     </WXYCPage>
   );

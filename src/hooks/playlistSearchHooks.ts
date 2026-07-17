@@ -9,7 +9,7 @@ import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useCallback, useMemo } from "react";
 import type { PlaylistSearchResult } from "@wxyc/shared";
 
-const MIN_QUERY_LENGTH = 2;
+export const MIN_QUERY_LENGTH = 2;
 const LIMIT = 50;
 
 /** Field-specific prefixes for backend query parsing. */
