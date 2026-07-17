@@ -326,7 +326,7 @@ describe("FlowsheetSearchInput", () => {
       expect(onAcceptGhost).not.toHaveBeenCalled();
     });
 
-    it("should call onAcceptGhost when Tab pressed with ghost text", async () => {
+    it("should not accept on Tab — Tab is field navigation only", async () => {
       await resetToDefaultMock();
       const onAcceptGhost = vi.fn();
 
@@ -339,9 +339,10 @@ describe("FlowsheetSearchInput", () => {
       );
 
       const input = screen.getByRole("textbox");
-      fireEvent.keyDown(input, { key: "Tab" });
+      const notPrevented = fireEvent.keyDown(input, { key: "Tab" });
 
-      expect(onAcceptGhost).toHaveBeenCalledTimes(1);
+      expect(onAcceptGhost).not.toHaveBeenCalled();
+      expect(notPrevented).toBe(true);
     });
 
     it("should not call onAcceptGhost when Tab pressed without ghost text", async () => {

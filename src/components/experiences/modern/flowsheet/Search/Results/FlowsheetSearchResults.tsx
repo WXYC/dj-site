@@ -227,7 +227,7 @@ export default function FlowsheetSearchResults({
               <Typography level="body-xs">→</Typography>
             </Chip>
             <Typography level="body-xs" sx={{ whiteSpace: "nowrap" }}>
-              complete suggestion
+              accept + next field
             </Typography>
           </Stack>
 
