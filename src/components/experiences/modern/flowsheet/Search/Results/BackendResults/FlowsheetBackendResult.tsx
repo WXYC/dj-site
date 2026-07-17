@@ -2,7 +2,6 @@ import { AlbumEntry } from "@/lib/features/catalog/types";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useMetadataPrefetch } from "@/lib/features/metadata/api";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { useFlowsheetSubmit } from "@/src/hooks/flowsheetHooks";
 import { WXYC_EXCLUSIVE_PURPLE } from "@/src/utilities/modern/brandColors";
 import { formatTone } from "@/lib/features/experiences/modern/tokens/roles";
 import { Chip, Stack, Typography } from "@mui/joy";
@@ -20,9 +19,6 @@ export default function FlowsheetBackendResult({
   const setSelected = (index: number) =>
     dispatch(flowsheetSlice.actions.setSelectedResult(index));
 
-  const { ctrlKeyPressed: submittingToQueue, handleSubmit } =
-    useFlowsheetSubmit();
-
   // Warm the tracklist cache so the picker is instantaneous once the result is
   // highlighted (LML's 3-tier cache + BS's 10-minute LRU absorb the actual
   // request). Same pattern as rotation prefetch, but per-row instead of
@@ -37,19 +33,32 @@ export default function FlowsheetBackendResult({
       data-testid={`flowsheet-search-result-${index}`}
       sx={{
         p: 1,
-        backgroundColor:
-          selected == index
-            ? submittingToQueue
-              ? "success.700"
-              : "primary.700"
-            : "transparent",
+        backgroundColor: selected == index ? "primary.700" : "transparent",
         cursor: "pointer",
       }}
       onMouseOver={() => {
         setSelected(index);
         if (entry.id) prefetchTracks(entry.id);
       }}
-      onClick={handleSubmit}
+      // Clicking a result AUTOFILLS the entry fields — it must never submit
+      // (#937). mousedown + preventDefault keeps focus in the inputs (no blur
+      // flicker, and the ClickAwayListener never sees a click-away).
+      // freezeSelectionToQuery copies the row's fields + linkage ids into the
+      // live query and clears track_position (#704); submission then rides the
+      // frozen query.album_id through convertQueryToSubmission's #701 gate.
+      onMouseDown={(e) => {
+        e.preventDefault();
+        dispatch(
+          flowsheetSlice.actions.freezeSelectionToQuery({
+            artist: entry.artist?.name ?? "",
+            album: entry.title ?? "",
+            label: entry.label ?? "",
+            album_id: entry.id ?? undefined,
+            rotation_id: entry.rotation_id ?? undefined,
+            rotation_bin: entry.rotation_bin ?? undefined,
+          })
+        );
+      }}
     >
       <Stack direction="column" sx={{ flex: 1, minWidth: 0, px: 1 }}>
         <Typography

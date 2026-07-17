@@ -64,6 +64,24 @@ Note: e2e re-run after the final swap tweak hit better-auth's sign-in 429
 rate limiter (3 suite runs in 15 min); previous 12/12 pass covered the panel
 restructure. Re-verify e2e at the next gate.
 
+## Slice 3 — click-to-autofill (#937) ✅ (awaiting visual verification)
+
+Result rows: `onClick={handleSubmit}` → `onMouseDown` + `preventDefault` +
+`dispatch(freezeSelectionToQuery(row fields + linkage ids))`. Clicking fills
+artist/album/label, keeps the typed song, keeps focus + panel open; commits
+only via Enter/Play/Queue. Dropped the per-row `useFlowsheetSubmit`
+subscription (perf) and the ctrl-tinted highlight (the cluster communicates
+the queue path now). Track-picker row keys off the *effective* album id
+(highlight OR frozen `query.album_id` via `hasLinkedAlbumId`), so the
+tracklist stays pickable after a click. Protections: freeze reducer #704
+test added (click clears `track_position`); #701/#702/#703 ride the existing
+gates (freeze → `query.album_id` → conversions/queue chokepoints, covered in
+slice 2's queue-path test + conversions suite).
+
+Also: entry-bar wrapper Box (not Joy FormControl — multi-control warning),
+eslint ignores extended to root-level `playwright-report/`/`test-results/`
+(failed e2e runs write a minified trace bundle there that linted as errors).
+
 ## Upcoming
 - Slice 3: click-to-autofill (#937) via `freezeSelectionToQuery`
 - Slice 4: ghost text verify + album ghost

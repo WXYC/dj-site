@@ -190,6 +190,25 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
         expect(result.search.query.album_id).toBeUndefined();
       });
 
+      // #937 made freeze the click-to-autofill path, so this reducer is now
+      // the direct guard for #704: a click onto a different release must drop
+      // any track_position picked against the previous one.
+      it("clears a previously picked track_position (#704)", () => {
+        const seeded = harness().reduce(actions.setTrackPosition("A1"));
+        expect(seeded.search.query.track_position).toBe("A1");
+
+        const result = harness().reduce(
+          actions.freezeSelectionToQuery({
+            artist: "Jessica Pratt",
+            album: "On Your Own Love Again",
+            label: "Drag City",
+            album_id: 11,
+          }),
+          seeded
+        );
+        expect(result.search.query.track_position).toBeUndefined();
+      });
+
       it("should round-trip rotation_id and rotation_bin", () => {
         const result = harness().reduce(
           actions.freezeSelectionToQuery({

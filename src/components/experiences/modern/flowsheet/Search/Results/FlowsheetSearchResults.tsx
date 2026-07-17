@@ -2,6 +2,7 @@
 
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
+import { hasLinkedAlbumId } from "@/lib/features/flowsheet/linkage";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { Box, Chip, Divider, Stack, Typography } from "@mui/joy";
 import { useEffect, useMemo, useState } from "react";
@@ -56,31 +57,39 @@ export default function FlowsheetSearchResults({
   const highlightedResult: AlbumEntry | null =
     selectedResult > 0 ? allResults[selectedResult - 1] ?? null : null;
 
-  const [manualOverride, setManualOverride] = useState<number | null>(null);
-  useEffect(() => {
-    if (
-      manualOverride !== null &&
-      highlightedResult?.id !== manualOverride
-    ) {
-      setManualOverride(null);
-    }
-  }, [highlightedResult?.id, manualOverride]);
+  // After a click-to-autofill (#937) the highlight resets to 0 but the frozen
+  // query carries the clicked row's album_id — the picker must keep working
+  // against that release, not vanish with the highlight.
+  const frozenAlbumId = useAppSelector(
+    flowsheetSlice.selectors.getSearchQuery
+  ).album_id;
 
   // A library-unlinked rotation/catalog row carries a synthesized negative
   // id from synthesizeAlbumId — there's no real release to pick tracks from,
   // and #702's chokepoint drops track_position anyway. Skip the picker entirely
   // for those rows instead of letting the DJ pick something we'll silently
   // discard. (dj-site#704)
-  const pickerAlbumId =
-    highlightedResult &&
-    highlightedResult.id > 0 &&
-    highlightedResult.id !== manualOverride
+  const effectiveAlbumId =
+    highlightedResult && highlightedResult.id > 0
       ? highlightedResult.id
+      : hasLinkedAlbumId(frozenAlbumId)
+        ? (frozenAlbumId as number)
+        : null;
+
+  const [manualOverride, setManualOverride] = useState<number | null>(null);
+  useEffect(() => {
+    if (manualOverride !== null && effectiveAlbumId !== manualOverride) {
+      setManualOverride(null);
+    }
+  }, [effectiveAlbumId, manualOverride]);
+
+  const pickerAlbumId =
+    effectiveAlbumId !== null && effectiveAlbumId !== manualOverride
+      ? effectiveAlbumId
       : null;
   const picker = useLibraryTrackPicker(pickerAlbumId);
 
-  const showPickerRow =
-    !!highlightedResult && highlightedResult.id > 0 && !rotationMode;
+  const showPickerRow = effectiveAlbumId !== null && !rotationMode;
 
   // Rendered as the CONTENT of the searchbar's Popper panel — the outlined
   // Sheet, positioning, and open/close transitions live in FlowsheetSearchbar
@@ -170,8 +179,8 @@ export default function FlowsheetSearchResults({
                   isLoading={picker.isLoading}
                   disabled={false}
                   onManualEntry={() => {
-                    if (highlightedResult)
-                      setManualOverride(highlightedResult.id);
+                    if (effectiveAlbumId !== null)
+                      setManualOverride(effectiveAlbumId);
                     dispatch(
                       flowsheetSlice.actions.setSearchProperty({
                         name: "song",

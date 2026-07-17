@@ -28,6 +28,8 @@ const eslintConfig = [
       "coverage/**",
       "e2e/playwright-report/**",
       "e2e/test-results/**",
+      "playwright-report/**",
+      "test-results/**",
       "e2e/.auth/**",
       ".wrangler/**",
       "public/**",
