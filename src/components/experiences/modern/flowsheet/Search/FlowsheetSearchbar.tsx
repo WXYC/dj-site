@@ -10,7 +10,7 @@ import { useGhostText } from "@/src/hooks/useGhostText";
 import { Close, PlayArrow, QueueMusic } from "@mui/icons-material";
 import { Box, Divider, IconButton, Sheet, Tooltip } from "@mui/joy";
 import { ClickAwayListener, Popper, useMediaQuery } from "@mui/material";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Transition } from "react-transition-group";
 import BreakpointButton from "./BreakpointButton";
 import {
@@ -87,6 +87,44 @@ export default function FlowsheetSearchbar() {
     confirmedArtist
   );
 
+  // Album/label have no suggest endpoint — the live results are the source.
+  // First prefix-match wins, in the same order the panel renders.
+  const orderedResults = useMemo(
+    () => [...binResults, ...rotationResults, ...catalogResults, ...lmlResults],
+    [binResults, rotationResults, catalogResults, lmlResults]
+  );
+  const albumSuggestion = useMemo(() => {
+    const typed = ((searchQuery.album as string) ?? "").toLowerCase();
+    if (!typed) return null;
+    return (
+      orderedResults.find((r) =>
+        r.title?.toLowerCase().startsWith(typed)
+      )?.title ?? null
+    );
+  }, [orderedResults, searchQuery.album]);
+  const labelSuggestion = useMemo(() => {
+    const typed = ((searchQuery.label as string) ?? "").toLowerCase();
+    if (!typed) return null;
+    return (
+      orderedResults.find((r) =>
+        r.label?.toLowerCase().startsWith(typed)
+      )?.label ?? null
+    );
+  }, [orderedResults, searchQuery.label]);
+
+  const albumGhost = useGhostText(
+    "album",
+    searchQuery.album as string,
+    undefined,
+    albumSuggestion
+  );
+  const labelGhost = useGhostText(
+    "label",
+    searchQuery.label as string,
+    undefined,
+    labelSuggestion
+  );
+
   const handleAcceptArtistGhost = useCallback(() => {
     const fullArtist = artistGhost.acceptGhostText();
     if (fullArtist) {
@@ -109,6 +147,21 @@ export default function FlowsheetSearchbar() {
       albumRef.current?.focus();
     }
   }, [songGhost, setSearchProperty]);
+
+  const handleAcceptAlbumGhost = useCallback(() => {
+    const fullAlbum = albumGhost.acceptGhostText();
+    if (fullAlbum) {
+      setSearchProperty("album", fullAlbum);
+      labelRef.current?.focus();
+    }
+  }, [albumGhost, setSearchProperty]);
+
+  const handleAcceptLabelGhost = useCallback(() => {
+    const fullLabel = labelGhost.acceptGhostText();
+    if (fullLabel) {
+      setSearchProperty("label", fullLabel);
+    }
+  }, [labelGhost, setSearchProperty]);
 
   // When artist field loses focus, confirm the artist for song suggestions
   const handleArtistBlur = useCallback(() => {
@@ -372,12 +425,16 @@ export default function FlowsheetSearchbar() {
                   name={"album"}
                   inputRef={albumRef}
                   disabled={!live}
+                  ghostSuffix={albumGhost.ghostSuffix}
+                  onAcceptGhost={handleAcceptAlbumGhost}
                   suppressHydrationWarning
                 />
                 <FlowsheetSearchInput
                   name={"label"}
                   inputRef={labelRef}
                   disabled={!live}
+                  ghostSuffix={labelGhost.ghostSuffix}
+                  onAcceptGhost={handleAcceptLabelGhost}
                   suppressHydrationWarning
                 />
               </>

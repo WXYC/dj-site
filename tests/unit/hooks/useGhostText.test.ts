@@ -201,4 +201,54 @@ describe("useGhostText", () => {
       expect(result.current.trackResult).toBeNull();
     });
   });
+
+  describe("suggestionOverride (album/label fields)", () => {
+    it("uses the override as the suggestion without querying", () => {
+      const { result } = renderHook(() =>
+        useGhostText("album", "Transient", undefined, "Transient Random-Noise Bursts With Announcements")
+      );
+
+      expect(result.current.ghostSuffix).toBe(
+        " Random-Noise Bursts With Announcements"
+      );
+      expect(result.current.acceptGhostText()).toBe(
+        "Transient Random-Noise Bursts With Announcements"
+      );
+      expect(useSuggestArtistsQueryMock).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ skip: true })
+      );
+      expect(useSuggestTracksQueryMock).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ skip: true })
+      );
+    });
+
+    it("matches the override prefix case-insensitively", () => {
+      const { result } = renderHook(() =>
+        useGhostText("label", "drag", undefined, "Drag City")
+      );
+
+      expect(result.current.ghostSuffix).toBe(" City");
+      expect(result.current.acceptGhostText()).toBe("Drag City");
+    });
+
+    it("shows nothing when the override does not extend the typed value", () => {
+      const { result } = renderHook(() =>
+        useGhostText("album", "DOGA", undefined, "DOGA")
+      );
+
+      expect(result.current.ghostSuffix).toBe("");
+      expect(result.current.acceptGhostText()).toBeNull();
+    });
+
+    it("shows nothing when the override does not prefix-match", () => {
+      const { result } = renderHook(() =>
+        useGhostText("album", "Moon", undefined, "On Your Own Love Again")
+      );
+
+      expect(result.current.ghostSuffix).toBe("");
+      expect(result.current.acceptGhostText()).toBeNull();
+    });
+  });
 });
