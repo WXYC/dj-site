@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { Authorization } from "@/lib/features/admin/types";
 import { AuthorizedView, RequireDJ, RequireMD, RequireSM } from "@/src/components/shared/Authorization/AuthorizedView";
 
@@ -10,9 +10,24 @@ vi.mock("@/lib/features/authentication/client", () => ({
   },
 }));
 
+// Org resolution is mocked so the org-scoped path can be driven independently
+// of env config. Defaults to "no organization configured" so the existing
+// raw-role tests exercise the base-role path.
+vi.mock("@/lib/features/authentication/organization-config", () => ({
+  getAppOrganizationIdClient: vi.fn(() => undefined),
+}));
+
+vi.mock("@/lib/features/authentication/organization-utils", () => ({
+  fetchOrganizationRoleForUserClient: vi.fn(),
+}));
+
 import { authClient } from "@/lib/features/authentication/client";
+import { getAppOrganizationIdClient } from "@/lib/features/authentication/organization-config";
+import { fetchOrganizationRoleForUserClient } from "@/lib/features/authentication/organization-utils";
 
 const mockUseSession = authClient.useSession as ReturnType<typeof vi.fn>;
+const mockGetOrgId = getAppOrganizationIdClient as ReturnType<typeof vi.fn>;
+const mockFetchOrgRole = fetchOrganizationRoleForUserClient as ReturnType<typeof vi.fn>;
 
 function createMockSession(role: string) {
   return {
@@ -175,5 +190,95 @@ describe("Convenience Components", () => {
     );
 
     expect(screen.getByText("Admin content")).toBeInTheDocument();
+  });
+});
+
+describe("when an organization is configured", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetOrgId.mockReturnValue("wxyc-org-123");
+  });
+
+  it("gates on the org-scoped role, not the raw session role, when they disagree", async () => {
+    // Raw session role would map to SM, but the org-scoped role is only DJ —
+    // the server-side check would deny SM content, so this must too.
+    mockUseSession.mockReturnValue(createMockSession("stationManager"));
+    mockFetchOrgRole.mockResolvedValue("dj");
+
+    render(
+      <AuthorizedView requiredRole={Authorization.SM} fallback={<div>Access denied</div>}>
+        <div>SM only content</div>
+      </AuthorizedView>
+    );
+
+    expect(await screen.findByText("Access denied")).toBeInTheDocument();
+    expect(screen.queryByText("SM only content")).not.toBeInTheDocument();
+    expect(mockFetchOrgRole).toHaveBeenCalledWith("user-123", "wxyc-org-123");
+  });
+
+  it("grants on the org-scoped role even when the raw session role is lower", async () => {
+    mockUseSession.mockReturnValue(createMockSession("dj"));
+    mockFetchOrgRole.mockResolvedValue("stationManager");
+
+    render(
+      <AuthorizedView requiredRole={Authorization.SM} fallback={<div>Access denied</div>}>
+        <div>SM only content</div>
+      </AuthorizedView>
+    );
+
+    expect(await screen.findByText("SM only content")).toBeInTheDocument();
+  });
+
+  it("fails closed to NO when org resolution returns undefined (not a member)", async () => {
+    mockUseSession.mockReturnValue(createMockSession("stationManager"));
+    mockFetchOrgRole.mockResolvedValue(undefined);
+
+    render(
+      <AuthorizedView requiredRole={Authorization.DJ} fallback={<div>Access denied</div>}>
+        <div>DJ content</div>
+      </AuthorizedView>
+    );
+
+    expect(await screen.findByText("Access denied")).toBeInTheDocument();
+    expect(screen.queryByText("DJ content")).not.toBeInTheDocument();
+  });
+
+  it("fails closed to NO when org resolution throws", async () => {
+    mockUseSession.mockReturnValue(createMockSession("stationManager"));
+    mockFetchOrgRole.mockRejectedValue(new Error("org service down"));
+
+    render(
+      <AuthorizedView requiredRole={Authorization.DJ} fallback={<div>Access denied</div>}>
+        <div>DJ content</div>
+      </AuthorizedView>
+    );
+
+    expect(await screen.findByText("Access denied")).toBeInTheDocument();
+  });
+
+  it("shows the loading state while the org role is still resolving", async () => {
+    mockUseSession.mockReturnValue(createMockSession("stationManager"));
+    let resolveRole: (role: string) => void = () => {};
+    mockFetchOrgRole.mockReturnValue(
+      new Promise<string>((resolve) => {
+        resolveRole = resolve;
+      })
+    );
+
+    render(
+      <AuthorizedView
+        requiredRole={Authorization.SM}
+        fallback={<div>Access denied</div>}
+        loading={<div>Loading...</div>}
+      >
+        <div>SM content</div>
+      </AuthorizedView>
+    );
+
+    expect(screen.getByText("Loading...")).toBeInTheDocument();
+    expect(screen.queryByText("SM content")).not.toBeInTheDocument();
+
+    resolveRole("stationManager");
+    await waitFor(() => expect(screen.getByText("SM content")).toBeInTheDocument());
   });
 });
