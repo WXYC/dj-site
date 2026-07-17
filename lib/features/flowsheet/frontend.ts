@@ -107,14 +107,23 @@ export const flowsheetSlice = createAppSlice({
       action: PayloadAction<{
         name: FlowsheetSearchProperty;
         value: string;
-        // Editing a field a clicked result filled deviates from that release:
-        // the album linkage (and any picked track position) no longer
-        // describes what the DJ is entering, so it must not ride the wire
+        // Changing a value the selected release supplied deviates from that
+        // release: the album linkage (and any picked track position) no
+        // longer describes what the DJ is entering, so it must not ride the
+        // wire. Filling a field the release left EMPTY is added data, not a
+        // deviation — the selection survives.
         deviates?: boolean;
       }>
     ) => {
+      const previous = state.search.query[action.payload.name];
       state.search.query[action.payload.name] = action.payload.value;
-      if (action.payload.deviates && state.search.query.album_id != null) {
+      if (
+        action.payload.deviates &&
+        state.search.query.album_id != null &&
+        typeof previous === "string" &&
+        previous !== "" &&
+        previous !== action.payload.value
+      ) {
         state.search.query.album_id = undefined;
         state.search.query.rotation_id = undefined;
         state.search.query.rotation_bin = undefined;

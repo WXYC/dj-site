@@ -1,4 +1,5 @@
 import {
+  FLOWSHEET_CELL_PADDING_X,
   FLOWSHEET_COL_ACTIONS_PX,
   FLOWSHEET_COL_ART_PX,
 } from "@/src/components/experiences/modern/flowsheet/Entries/tableStyles";
@@ -18,18 +19,19 @@ export const withReducedMotion = (sx: Record<string, unknown>) => ({
  * The bar's field grid mirrors the entries table's column template
  * (FlowsheetColumnSizingRow: art | artist | title | album | label | actions)
  * so the inputs sit exactly over the columns below, reading as headers.
- * Below xl the table hides artist/label into second lines, so exact
- * alignment only exists at xl — the bar keeps all four fields visible on a
- * flexible template. Below sm the leading icon cell is dropped.
+ * Below xl the table hides artist/label into second lines (the bar keeps all
+ * four fields visible); below sm the leading icon cell is dropped. The
+ * actions track is fixed from sm up: an `auto` track sizes to content
+ * independently per grid container, so the bar, section headers, and result
+ * rows would each place the field columns differently.
  */
 export const ENTRY_BAR_GRID_TEMPLATE = {
   xs: `repeat(4, minmax(0, 1fr)) auto`,
-  sm: `${FLOWSHEET_COL_ART_PX}px repeat(4, minmax(0, 1fr)) auto`,
-  xl: `${FLOWSHEET_COL_ART_PX}px repeat(4, minmax(0, 1fr)) ${FLOWSHEET_COL_ACTIONS_PX}px`,
+  sm: `${FLOWSHEET_COL_ART_PX}px repeat(4, minmax(0, 1fr)) ${FLOWSHEET_COL_ACTIONS_PX}px`,
 } as const;
 
 /** Matches the tables' --TableCell-paddingX so text origins line up. */
-export const ENTRY_BAR_CELL_PADDING_X = "12px";
+export const ENTRY_BAR_CELL_PADDING_X = FLOWSHEET_CELL_PADDING_X;
 
 /**
  * Shell border color: neutral at rest, primary while the search is active,
@@ -49,7 +51,7 @@ export function entryBarActiveBorder(
  * Popper modifier: size the results panel to the shell's width so the two
  * edges are flush. Lifted from the parked entry-redesign branch.
  */
-export const sameWidth: Modifier<"sameWidth", object> = {
+const sameWidth: Modifier<"sameWidth", object> = {
   name: "sameWidth",
   enabled: true,
   phase: "beforeWrite",
@@ -64,6 +66,13 @@ export const sameWidth: Modifier<"sameWidth", object> = {
     }
   },
 };
+
+// Stable identity — Popper diffs `modifiers` by reference and re-runs its
+// pipeline whenever it changes
+export const ENTRY_PANEL_MODIFIERS = [
+  sameWidth,
+  { name: "offset", options: { offset: [0, 0] } },
+];
 
 /**
  * Results panel Sheet: square top + no top border continues the shell's

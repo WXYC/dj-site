@@ -17,12 +17,20 @@ export const FLOWSHEET_DRAG_GUTTER_VAR = "--flowsheet-drag-gutter";
 export const FLOWSHEET_DRAG_GUTTER_PX = 36;
 export const FLOWSHEET_DRAG_GUTTER_NARROW_PX = 16;
 
+// Fixed column widths shared between the entries/queue tables and the entry
+// bar's field grid (FlowsheetSearchbar): the bar renders its inputs on this
+// exact template so they align with the columns below as de-facto headers.
+// Change these only in lock-step with FLOWSHEET_TABLE_SX's breakpoints.
+export const FLOWSHEET_COL_ART_PX = 60;
+export const FLOWSHEET_COL_ACTIONS_PX = 150;
+export const FLOWSHEET_CELL_PADDING_X = "12px";
+
 // Shared row/hover/action treatment for the entries and queue tables. The
 // queue never renders a `row-playing` row, so those rules are inert there.
 export const FLOWSHEET_TABLE_SX: SxProps = {
   borderCollapse: "separate",
   borderSpacing: "0 4px",
-  "--TableCell-paddingX": "12px",
+  "--TableCell-paddingX": FLOWSHEET_CELL_PADDING_X,
   // See FLOWSHEET_XL_QUERY: below xl these columns hide and reflow into
   // title/album as second lines (SongEntry).
   "& .col-artist, & .col-label": {
@@ -84,13 +92,6 @@ export const FLOWSHEET_TABLE_SX: SxProps = {
     },
   },
 };
-
-// Fixed column widths shared between the entries/queue tables and the entry
-// bar's field grid (FlowsheetSearchbar): the bar renders its inputs on this
-// exact template so they align with the columns below as de-facto headers.
-// Change these only in lock-step with FLOWSHEET_TABLE_SX's breakpoints.
-export const FLOWSHEET_COL_ART_PX = 60;
-export const FLOWSHEET_COL_ACTIONS_PX = 150;
 
 // Column sizing only (rendered inside a visibility-collapsed thead): art+drag
 // | artist | title | album | label | status+actions (tubafrenzy reading

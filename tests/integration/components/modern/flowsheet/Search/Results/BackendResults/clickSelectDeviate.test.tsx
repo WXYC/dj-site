@@ -1,66 +1,37 @@
 import { describe, it, expect, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { Provider } from "react-redux";
-import { configureStore } from "@reduxjs/toolkit";
+import { fireEvent, screen } from "@testing-library/react";
+import {
+  renderWithProviders,
+  createTestAlbum,
+  createTestArtist,
+} from "@/tests/helpers";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import FlowsheetBackendResult from "@/src/components/experiences/modern/flowsheet/Search/Results/BackendResults/FlowsheetBackendResult";
 import FlowsheetSearchInput from "@/src/components/experiences/modern/flowsheet/Search/FlowsheetSearchInput";
-import type { AlbumEntry } from "@/lib/features/catalog/types";
 
-vi.mock("@/lib/features/metadata/api", () => ({
+vi.mock("@/lib/features/metadata/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/features/metadata/api")>()),
   useMetadataPrefetch: () => vi.fn(),
 }));
 
-const binEntry: AlbumEntry = {
+const binEntry = createTestAlbum({
   id: 42,
   title: "Aluminum Tunes",
-  entry: 3,
-  format: "CD",
+  artist: createTestArtist({ name: "Stereolab" }),
   label: "Duophonic",
-  rotation_bin: undefined,
-  rotation_id: undefined,
-  artist: {
-    id: 1,
-    name: "Stereolab",
-    lettercode: "ST",
-    numbercode: 55,
-    genre: "Rock",
-  },
-  alternate_artist: undefined,
-  plays: undefined,
-  add_date: undefined,
-} as AlbumEntry;
-
-function createStore() {
-  return configureStore({
-    reducer: { flowsheet: flowsheetSlice.reducer },
-  });
-}
+});
 
 // The click-select/deviate contract, end to end through the real store:
 // clicking a result freezes its linkage (the row reads as committed), and
 // editing a filled field deviates — dropping the linkage/commit state.
 describe("click-select then deviate", () => {
   it("clicking commits the row; editing a filled field deselects it", () => {
-    const store = createStore();
-
-    const Harness = () => {
-      const artistValue = flowsheetSlice.selectors.getSearchQuery(
-        store.getState()
-      ).artist;
-      return (
-        <Provider store={store}>
-          <FlowsheetBackendResult entry={binEntry} index={1} />
-          <FlowsheetSearchInput
-            name="artist"
-            value={artistValue as string}
-            deviates
-          />
-        </Provider>
-      );
-    };
-
-    const { rerender } = render(<Harness />);
+    const { store, rerender } = renderWithProviders(
+      <>
+        <FlowsheetBackendResult entry={binEntry} index={1} />
+        <FlowsheetSearchInput name="artist" value="" deviates />
+      </>
+    );
 
     fireEvent.mouseDown(screen.getByTestId("flowsheet-search-result-1"));
 
@@ -68,7 +39,16 @@ describe("click-select then deviate", () => {
     expect(query.album_id).toBe(42);
     expect(query.artist).toBe("Stereolab");
 
-    rerender(<Harness />);
+    rerender(
+      <>
+        <FlowsheetBackendResult entry={binEntry} index={1} />
+        <FlowsheetSearchInput
+          name="artist"
+          value={query.artist as string}
+          deviates
+        />
+      </>
+    );
     fireEvent.change(screen.getByTestId("flowsheet-search-artist"), {
       target: { value: "Stereolab X" },
     });

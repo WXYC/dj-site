@@ -162,6 +162,47 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
         expect(result.search.query.album_id).toBe(42);
         expect(result.search.query.rotation_id).toBe(7);
       });
+
+      // Filling a field the release left empty is added data, not deviation
+      it("keeps the selection when filling a field the release lacked", () => {
+        const frozenNoLabel = harness().reduce(
+          actions.freezeSelectionToQuery({
+            artist: "Chuquimamani-Condori",
+            album: "DJ E",
+            label: "",
+            album_id: 11,
+            rotation_id: 3,
+            rotation_bin: "H",
+          })
+        );
+
+        const result = harness().reduce(
+          actions.setSearchProperty({
+            name: "label",
+            value: "Smithsonian Folkways",
+            deviates: true,
+          }),
+          frozenNoLabel
+        );
+
+        expect(result.search.query.label).toBe("Smithsonian Folkways");
+        expect(result.search.query.album_id).toBe(11);
+        expect(result.search.query.rotation_id).toBe(3);
+        expect(result.search.query.rotation_bin).toBe("H");
+      });
+
+      it("keeps the selection on a no-op rewrite of the same value", () => {
+        const result = harness().reduce(
+          actions.setSearchProperty({
+            name: "album",
+            value: "DOGA",
+            deviates: true,
+          }),
+          frozen()
+        );
+
+        expect(result.search.query.album_id).toBe(42);
+      });
     });
 
     it("resetSearch increments resetEpoch", () => {
