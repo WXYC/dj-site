@@ -1,8 +1,8 @@
-"use client";
-import { useState, useEffect } from "react";
 import { Typography } from "@mui/joy";
 
-const greetingsAndArtists: [string, string, string][] = [
+export type WelcomeQuote = [greeting: string, fragment: string, artist: string];
+
+const greetingsAndArtists: WelcomeQuote[] = [
   ["Welcome...", "to the Jungle", "Guns N' Roses"],
   ["Welcome...", "to the Hotel California", "Eagles"],
   ["Welcome...", "to the Black Parade", "My Chemical Romance"],
@@ -25,18 +25,16 @@ const greetingsAndArtists: [string, string, string][] = [
   ["Come On...", "Let's Go", "Broadcast"],
 ];
 
-export default function WelcomeQuotes() {
-  const [index, setIndex] = useState(0);
-  const [mounted, setMounted] = useState(false);
+// Pick in the nearest Server Component ancestor so the chosen quote is in the
+// initial HTML and identical on hydration — #975.
+export function pickWelcomeQuote(): WelcomeQuote {
+  return greetingsAndArtists[
+    Math.floor(Math.random() * greetingsAndArtists.length)
+  ];
+}
 
-  useEffect(() => {
-    setIndex(Math.floor(Math.random() * greetingsAndArtists.length));
-    setMounted(true);
-  }, []);
-
-  const [greeting, fragment, artist] = greetingsAndArtists[index];
-
-  if (!mounted) return null;
+export default function WelcomeQuotes({ quote }: { quote: WelcomeQuote }) {
+  const [greeting, fragment, artist] = quote;
 
   return (
     <div>

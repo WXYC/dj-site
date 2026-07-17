@@ -1,4 +1,6 @@
-import WelcomeQuotes from "@/src/components/experiences/modern/login/Quotes/Welcome";
+import WelcomeQuotes, {
+  pickWelcomeQuote,
+} from "@/src/components/experiences/modern/login/Quotes/Welcome";
 import WXYCPage from "@/src/Layout/WXYCPage";
 import { Button, Divider, Stack } from "@mui/joy";
 import Link from "next/link";
@@ -27,7 +29,7 @@ export default async function HomePage() {
         alignItems="center"
         sx={{ height: "100%" }}
       >
-        <WelcomeQuotes />
+        <WelcomeQuotes quote={pickWelcomeQuote()} />
         <Divider />
         <Link href="/login" style={{ width: "100%" }}>
           <Button variant="solid" color="primary" fullWidth>
