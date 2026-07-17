@@ -1,26 +1,28 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import posthog from "posthog-js";
 
-vi.mock("posthog-js", () => {
-  return {
-    default: {
-      init: vi.fn(),
-      capture: vi.fn(),
-      captureException: vi.fn(),
-      __loaded: false,
-    },
-  };
-});
+// posthog-js is now loaded via a deferred dynamic import (#972). Hoisted so the
+// mock SDK is available for assertions; the rejection test overrides this with
+// vi.doMock to make the dynamic import fail.
+const control = vi.hoisted(() => ({
+  posthog: {
+    init: vi.fn(),
+    capture: vi.fn(),
+    captureException: vi.fn(),
+    __loaded: false,
+  },
+}));
 
-// posthog-js is now loaded via a deferred dynamic import (#972), so
-// initTelemetry resolves the client on a microtask. Flush the queue before
-// asserting on init/capture, and re-import the module per test (vi.resetModules)
-// so the module-level `client`/`loading` singletons reset.
+vi.mock("posthog-js", () => ({ default: control.posthog }));
+
+const posthog = control.posthog;
+
+// initTelemetry resolves the client on a microtask, so flush the queue before
+// asserting. Re-import per test (vi.resetModules) so the module-level
+// client/loading/buffer singletons reset.
 const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 async function loadTelemetry() {
-  const mod = await import("@/lib/posthog");
-  return mod;
+  return import("@/lib/posthog");
 }
 
 async function initAndWait() {
@@ -35,8 +37,10 @@ describe("initTelemetry", () => {
 
   beforeEach(() => {
     vi.resetModules();
-    vi.mocked(posthog.init).mockClear();
-    (posthog as any).__loaded = false;
+    posthog.init.mockClear();
+    posthog.capture.mockClear();
+    posthog.captureException.mockClear();
+    posthog.__loaded = false;
     process.env.NEXT_PUBLIC_POSTHOG_KEY = "phc_test123";
   });
 
@@ -89,11 +93,20 @@ describe("initTelemetry", () => {
   });
 
   it("skips re-init when posthog.__loaded is already true", async () => {
-    (posthog as any).__loaded = true;
+    posthog.__loaded = true;
 
     await initAndWait();
 
     expect(posthog.init).not.toHaveBeenCalled();
+  });
+
+  it("imports posthog-js exactly once when initTelemetry is called twice (StrictMode)", async () => {
+    const mod = await loadTelemetry();
+    mod.initTelemetry();
+    mod.initTelemetry();
+    await flush();
+
+    expect(posthog.init).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -102,23 +115,15 @@ describe("safe capture contract", () => {
 
   beforeEach(() => {
     vi.resetModules();
-    vi.mocked(posthog.capture).mockReset();
-    vi.mocked(posthog.captureException).mockReset();
-    (posthog as any).__loaded = false;
+    posthog.capture.mockReset();
+    posthog.captureException.mockReset();
+    posthog.init.mockReset();
+    posthog.__loaded = false;
     process.env.NEXT_PUBLIC_POSTHOG_KEY = "phc_test123";
   });
 
   afterEach(() => {
     process.env = { ...originalEnv };
-  });
-
-  it("no-ops safely before the dynamic import resolves", async () => {
-    const { safeCapture, safeCaptureException } = await loadTelemetry();
-
-    expect(() => safeCapture("early_event")).not.toThrow();
-    expect(() => safeCaptureException(new Error("early"))).not.toThrow();
-    expect(posthog.capture).not.toHaveBeenCalled();
-    expect(posthog.captureException).not.toHaveBeenCalled();
   });
 
   it("safeCapture forwards event and props to posthog.capture once loaded", async () => {
@@ -132,7 +137,7 @@ describe("safe capture contract", () => {
 
   it("safeCapture never throws when the SDK throws", async () => {
     const { safeCapture } = await initAndWait();
-    vi.mocked(posthog.capture).mockImplementationOnce(() => {
+    posthog.capture.mockImplementationOnce(() => {
       throw new Error("posthog not initialized");
     });
 
@@ -153,14 +158,14 @@ describe("safe capture contract", () => {
     const { safeCaptureException } = await initAndWait();
     safeCaptureException("just a string");
 
-    const captured = vi.mocked(posthog.captureException).mock.calls[0][0];
+    const captured = posthog.captureException.mock.calls[0][0];
     expect(captured).toBeInstanceOf(Error);
     expect((captured as Error).message).toBe("just a string");
   });
 
   it("safeCaptureException never throws when the SDK throws", async () => {
     const { safeCaptureException } = await initAndWait();
-    vi.mocked(posthog.captureException).mockImplementationOnce(() => {
+    posthog.captureException.mockImplementationOnce(() => {
       throw new Error("posthog not initialized");
     });
 
@@ -178,10 +183,92 @@ describe("safe capture contract", () => {
 
   it("safeCapturePageview never throws when the SDK throws", async () => {
     const { safeCapturePageview } = await initAndWait();
-    vi.mocked(posthog.capture).mockImplementationOnce(() => {
+    posthog.capture.mockImplementationOnce(() => {
       throw new Error("posthog not initialized");
     });
 
     expect(() => safeCapturePageview("https://wxyc.org/live")).not.toThrow();
+  });
+});
+
+describe("pre-load buffer (#972 review)", () => {
+  const originalEnv = { ...process.env };
+
+  beforeEach(() => {
+    vi.resetModules();
+    posthog.capture.mockReset();
+    posthog.captureException.mockReset();
+    posthog.init.mockReset();
+    posthog.__loaded = false;
+    process.env.NEXT_PUBLIC_POSTHOG_KEY = "phc_test123";
+  });
+
+  afterEach(() => {
+    process.env = { ...originalEnv };
+  });
+
+  it("flushes captures fired before load in order once the client resolves", async () => {
+    const mod = await loadTelemetry();
+    mod.initTelemetry(); // load is in-flight, client still null
+
+    mod.safeCapturePageview("https://wxyc.org/live");
+    mod.safeCapture("web_vitals", { name: "TTFB", value: 12 });
+    mod.safeCaptureException(new Error("early boom"));
+
+    // Nothing forwarded while the chunk is still loading.
+    expect(posthog.capture).not.toHaveBeenCalled();
+    expect(posthog.captureException).not.toHaveBeenCalled();
+
+    await flush();
+
+    expect(posthog.capture).toHaveBeenNthCalledWith(1, "$pageview", {
+      $current_url: "https://wxyc.org/live",
+    });
+    expect(posthog.capture).toHaveBeenNthCalledWith(2, "web_vitals", {
+      name: "TTFB",
+      value: 12,
+    });
+    expect(posthog.captureException.mock.calls[0][0]).toBeInstanceOf(Error);
+    expect(posthog.captureException.mock.calls[0][0].message).toBe(
+      "early boom"
+    );
+  });
+
+  it("no-ops (no buffering, no flush) when telemetry was never initialized", async () => {
+    const { safeCapture } = await loadTelemetry();
+    safeCapture("orphan_event");
+    await flush();
+
+    expect(posthog.capture).not.toHaveBeenCalled();
+  });
+
+  it("all wrappers no-op and buffer clears when the dynamic import rejects", async () => {
+    // Force the posthog-js chunk import to fail for this test only.
+    vi.doMock("posthog-js", () => {
+      throw new Error("chunk load failed");
+    });
+    try {
+      const mod = await import("@/lib/posthog");
+      mod.initTelemetry();
+
+      // Buffer some events during the (doomed) load window.
+      mod.safeCapture("early_event");
+      mod.safeCaptureException(new Error("early"));
+      mod.safeCapturePageview("https://wxyc.org/live");
+
+      // Let the rejected import settle; must not raise an unhandled rejection.
+      await flush();
+
+      expect(posthog.capture).not.toHaveBeenCalled();
+      expect(posthog.captureException).not.toHaveBeenCalled();
+
+      // Post-failure captures also no-op (session stays dark, buffer cleared).
+      mod.safeCapture("later_event");
+      await flush();
+      expect(posthog.capture).not.toHaveBeenCalled();
+    } finally {
+      vi.doUnmock("posthog-js");
+      vi.resetModules();
+    }
   });
 });
