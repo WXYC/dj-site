@@ -198,7 +198,22 @@ describe("FlowsheetSearchbar", () => {
     expect(allInputs[3]).toBe(label);
   });
 
-  it("should render search results container", () => {
+  // The results panel is a Popper mounted only while the search is open — the
+  // shell and panel share one continuous outline (see entryBarStyles).
+  it("should not render the results panel while the search is closed", () => {
+    const store = createTestStore();
+
+    render(
+      <Provider store={store}>
+        <FlowsheetSearchbar />
+      </Provider>
+    );
+
+    expect(screen.queryByTestId("search-results")).not.toBeInTheDocument();
+  });
+
+  it("should render the results panel while the search is open", () => {
+    mockSearchOpen = true;
     const store = createTestStore();
 
     render(
@@ -701,7 +716,9 @@ describe("FlowsheetSearchbar", () => {
 
     it("does not overwrite an album the DJ has already typed", () => {
       mockSongGhost();
-      vi.mocked(useFlowsheetSearch).mockReturnValueOnce({
+      // mockReturnValue (not Once): the anchor-ref setState adds a mount
+      // re-render, and the hook must answer consistently on every render.
+      vi.mocked(useFlowsheetSearch).mockReturnValue({
         live: mockLive,
         searchOpen: mockSearchOpen,
         setSearchOpen: mockSetSearchOpen,

@@ -85,6 +85,13 @@ export const FLOWSHEET_TABLE_SX: SxProps = {
   },
 };
 
+// Fixed column widths shared between the entries/queue tables and the entry
+// bar's field grid (FlowsheetSearchbar): the bar renders its inputs on this
+// exact template so they align with the columns below as de-facto headers.
+// Change these only in lock-step with FLOWSHEET_TABLE_SX's breakpoints.
+export const FLOWSHEET_COL_ART_PX = 60;
+export const FLOWSHEET_COL_ACTIONS_PX = 150;
+
 // Column sizing only (rendered inside a visibility-collapsed thead): art+drag
 // | artist | title | album | label | status+actions (tubafrenzy reading
 // order, artist before song — #820). Every row type must render exactly
@@ -92,12 +99,12 @@ export const FLOWSHEET_TABLE_SX: SxProps = {
 export function FlowsheetColumnSizingRow() {
   return (
     <tr>
-      <td style={{ width: "60px" }}></td>
+      <td style={{ width: `${FLOWSHEET_COL_ART_PX}px` }}></td>
       <td className="col-artist"></td>
       <td></td>
       <td></td>
       <td className="col-label"></td>
-      <td style={{ width: "150px" }}></td>
+      <td style={{ width: `${FLOWSHEET_COL_ACTIONS_PX}px` }}></td>
     </tr>
   );
 }

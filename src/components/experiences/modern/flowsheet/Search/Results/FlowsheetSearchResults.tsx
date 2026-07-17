@@ -3,7 +3,7 @@
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { Box, Chip, Divider, Sheet, Stack, Typography } from "@mui/joy";
+import { Box, Chip, Divider, Stack, Typography } from "@mui/joy";
 import { useEffect, useMemo, useState } from "react";
 import FlowsheetBackendResults, {
   MAX_VISIBLE_RESULTS,
@@ -25,7 +25,6 @@ export default function FlowsheetSearchResults({
   lmlResults: AlbumEntry[];
 }) {
   const dispatch = useAppDispatch();
-  const open = useAppSelector(flowsheetSlice.selectors.getSearchOpen);
   const rotationMode = useAppSelector(flowsheetSlice.selectors.getRotationMode);
   const selectedResult = useAppSelector(
     flowsheetSlice.selectors.getSelectedResult
@@ -83,35 +82,21 @@ export default function FlowsheetSearchResults({
   const showPickerRow =
     !!highlightedResult && highlightedResult.id > 0 && !rotationMode;
 
+  // Rendered as the CONTENT of the searchbar's Popper panel — the outlined
+  // Sheet, positioning, and open/close transitions live in FlowsheetSearchbar
+  // (the panel and the entry shell share one continuous outline). This
+  // component is only mounted while the panel is open.
   return (
-    <Sheet
-      variant="outlined"
+    <Box
       data-testid="flowsheet-search-results"
       sx={{
-        visibility: open && !rotationMode ? "visible" : "hidden",
-        minHeight: "60px",
-        position: "absolute",
-        top: -5,
-        left: -5,
-        right: -5,
-        zIndex: 8000,
-        borderRadius: "md",
-        transition: "height 0.2s ease-in-out",
-        boxShadow: "0px 34px 24px -9px rgba(0,0,0,0.5)",
+        minHeight: "40px",
+        display: "flex",
+        flexDirection: "column",
+        minWidth: 0,
+        overflow: "hidden",
       }}
     >
-      <Box
-        sx={{
-          mt: "40px",
-          position: "relative",
-          minHeight: "40px",
-          maxHeight: "calc(80vh - 60px)",
-          transition: "height 0.2s ease-in-out",
-          overflow: "hidden",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
         <Box
           sx={{
             overflowY: "auto",
@@ -278,7 +263,6 @@ export default function FlowsheetSearchResults({
             </Typography>
           </Stack>
         </Stack>
-      </Box>
-    </Sheet>
+    </Box>
   );
 }
