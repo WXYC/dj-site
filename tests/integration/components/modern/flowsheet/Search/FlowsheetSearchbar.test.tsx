@@ -90,8 +90,24 @@ vi.mock("@/src/components/experiences/modern/flowsheet/Search/RotationEntryField
 vi.mock("@mui/icons-material", () => ({
   PlayArrow: () => <span data-testid="play-icon" />,
   QueueMusic: () => <span data-testid="queue-icon" />,
-  Troubleshoot: () => <span data-testid="search-icon" />,
+  Close: () => <span data-testid="close-icon" />,
 }));
+
+// Store whose flowsheet query already has typed content — the signal that
+// swaps the idle (breakpoint/talkset) cluster for the commit cluster
+// (clear/queue/play).
+function createStoreWithQueryContent(artist = "Stereolab") {
+  const initial = flowsheetSlice.getInitialState();
+  return createTestStore({
+    flowsheet: {
+      ...initial,
+      search: {
+        ...initial.search,
+        query: { ...initial.search.query, artist },
+      },
+    },
+  });
+}
 
 function createTestStore(preloadedState = {}) {
   return configureStore({
@@ -243,12 +259,11 @@ describe("FlowsheetSearchbar", () => {
   });
 
   // #936/#939: the queue affordance is a dedicated, always-visible button
-  // while the search is open — never gated behind a held Ctrl.
-  it("should show the queue button when the search is open, without Ctrl", () => {
+  // once the DJ has typed — never gated behind a held Ctrl.
+  it("should show the queue button once the query has content, without Ctrl", () => {
     mockLive = true;
-    mockSearchOpen = true;
     mockCtrlKeyPressed = false;
-    const store = createTestStore();
+    const store = createStoreWithQueryContent();
 
     render(
       <Provider store={store}>
@@ -260,6 +275,35 @@ describe("FlowsheetSearchbar", () => {
     expect(queueButton).toBeInTheDocument();
     fireEvent.click(queueButton);
     expect(mockSubmitToQueue).toHaveBeenCalled();
+  });
+
+  it("should show the clear button once the query has content and reset on click", () => {
+    mockLive = true;
+    const store = createStoreWithQueryContent();
+
+    render(
+      <Provider store={store}>
+        <FlowsheetSearchbar />
+      </Provider>
+    );
+
+    const clearButton = screen.getByTestId("flowsheet-search-clear");
+    fireEvent.click(clearButton);
+    expect(mockResetSearch).toHaveBeenCalled();
+  });
+
+  it("should not show the clear button while the query is empty", () => {
+    const store = createTestStore();
+
+    render(
+      <Provider store={store}>
+        <FlowsheetSearchbar />
+      </Provider>
+    );
+
+    expect(
+      screen.queryByTestId("flowsheet-search-clear")
+    ).not.toBeInTheDocument();
   });
 
   it("should not show the queue button while the search is closed", () => {
@@ -507,7 +551,10 @@ describe("FlowsheetSearchbar", () => {
   });
 
   describe("button states", () => {
-    it("should show / when search is closed", () => {
+    // Idle ↔ commit cluster swap: breakpoint/talkset at rest, queue/play
+    // while the search is open. The old "/" affordance button is gone (the
+    // keyboard shortcut remains in handleKeyDown).
+    it("should show special-entry buttons and no commit buttons when closed", () => {
       mockSearchOpen = false;
       const store = createTestStore();
 
@@ -517,9 +564,29 @@ describe("FlowsheetSearchbar", () => {
         </Provider>
       );
 
-      const buttons = screen.getAllByRole("button");
-      const submitButton = buttons.find((btn) => btn.textContent === "/");
-      expect(submitButton).toBeInTheDocument();
+      expect(screen.getByTestId("breakpoint-button")).toBeInTheDocument();
+      expect(screen.getByTestId("talkset-button")).toBeInTheDocument();
+      expect(
+        screen.queryByTestId("flowsheet-search-submit")
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId("flowsheet-search-queue")
+      ).not.toBeInTheDocument();
+    });
+
+    it("should swap out special-entry buttons once the DJ has typed", () => {
+      const store = createStoreWithQueryContent();
+
+      render(
+        <Provider store={store}>
+          <FlowsheetSearchbar />
+        </Provider>
+      );
+
+      expect(screen.queryByTestId("breakpoint-button")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("talkset-button")).not.toBeInTheDocument();
+      expect(screen.getByTestId("flowsheet-search-submit")).toBeInTheDocument();
+      expect(screen.getByTestId("flowsheet-search-queue")).toBeInTheDocument();
     });
 
     it("should show play icon when search is open and ctrl not pressed", () => {
@@ -563,7 +630,7 @@ describe("FlowsheetSearchbar", () => {
 
     it("should disable submit button when not live", () => {
       mockLive = false;
-      const store = createTestStore();
+      const store = createStoreWithQueryContent();
 
       render(
         <Provider store={store}>
@@ -571,9 +638,7 @@ describe("FlowsheetSearchbar", () => {
         </Provider>
       );
 
-      const buttons = screen.getAllByRole("button");
-      const submitButton = buttons.find((btn) => btn.textContent === "/");
-      expect(submitButton).toBeDisabled();
+      expect(screen.getByTestId("flowsheet-search-submit")).toBeDisabled();
     });
   });
 
