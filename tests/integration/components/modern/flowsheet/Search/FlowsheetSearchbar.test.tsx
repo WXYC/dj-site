@@ -22,6 +22,7 @@ const mockHandleSubmit = vi.fn();
 const mockSubmitToQueue = vi.fn();
 const mockAddToFlowsheet = vi.fn();
 const mockSetSearchProperty = vi.fn();
+const mockGetDisplayValue = vi.fn(() => "");
 
 // Mock hooks
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
@@ -35,6 +36,7 @@ vi.mock("@/src/hooks/flowsheetHooks", () => ({
     resetSearch: mockResetSearch,
     searchQuery: { song: "", artist: "", album: "", label: "", request: false },
     setSearchProperty: mockSetSearchProperty,
+    getDisplayValue: mockGetDisplayValue,
   })),
   useFlowsheetSubmit: vi.fn(() => ({
     ctrlKeyPressed: mockCtrlKeyPressed,
@@ -324,6 +326,24 @@ describe("FlowsheetSearchbar", () => {
     const clearButton = screen.getByTestId("flowsheet-search-clear");
     fireEvent.click(clearButton);
     expect(mockResetSearch).toHaveBeenCalled();
+  });
+
+  // Server render and first client paint happen before whoIsLive resolves —
+  // live defaults false, and every field must render disabled so there is no
+  // enabled-flash while the live check is in flight.
+  it("should render every input disabled while live status is unresolved", () => {
+    mockLive = false;
+    const store = createTestStore();
+
+    render(
+      <Provider store={store}>
+        <FlowsheetSearchbar />
+      </Provider>
+    );
+
+    for (const name of ["artist", "song", "album", "label"]) {
+      expect(screen.getByTestId(`input-${name}`)).toBeDisabled();
+    }
   });
 
   it("should not open the search when special-entry buttons receive focus", () => {
@@ -641,6 +661,7 @@ describe("FlowsheetSearchbar", () => {
           resetSearch: mockResetSearch,
           searchQuery: { song: "", artist: "", album: "", label: "", request: false },
           setSearchProperty: mockSetSearchProperty,
+          getDisplayValue: mockGetDisplayValue,
         })),
         useFlowsheetSubmit: vi.fn(() => ({
           ctrlKeyPressed: false,
@@ -833,6 +854,7 @@ describe("FlowsheetSearchbar", () => {
               request: false,
             },
             setSearchProperty: mockSetSearchProperty,
+            getDisplayValue: mockGetDisplayValue,
           }) as unknown as ReturnType<typeof useFlowsheetSearch>
       );
     });
@@ -871,6 +893,7 @@ describe("FlowsheetSearchbar", () => {
           request: false,
         },
         setSearchProperty: mockSetSearchProperty,
+        getDisplayValue: mockGetDisplayValue,
       } as unknown as ReturnType<typeof useFlowsheetSearch>);
       const store = createTestStore();
 
@@ -905,6 +928,7 @@ describe("FlowsheetSearchbar", () => {
           request: false,
         },
         setSearchProperty: mockSetSearchProperty,
+        getDisplayValue: mockGetDisplayValue,
       };
       vi.mocked(useFlowsheetSearch).mockImplementation(
         () => searchState as unknown as ReturnType<typeof useFlowsheetSearch>

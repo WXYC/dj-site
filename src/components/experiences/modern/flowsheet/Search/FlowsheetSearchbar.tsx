@@ -1,5 +1,6 @@
 "use client";
 
+import { entryToFreezePayload } from "@/lib/features/flowsheet/conversions";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import {
@@ -39,6 +40,7 @@ export default function FlowsheetSearchbar() {
     catalogResults,
     rotationResults,
     lmlResults,
+    selectedEntry,
   } = useFlowsheetSubmit();
 
   const selectedResult = useAppSelector(
@@ -53,8 +55,31 @@ export default function FlowsheetSearchbar() {
   );
   const resetEpoch = useAppSelector(flowsheetSlice.selectors.getResetEpoch);
 
-  const { live, searchOpen, setSearchOpen, resetSearch, searchQuery, setSearchProperty } =
-    useFlowsheetSearch();
+  const {
+    live,
+    searchOpen,
+    setSearchOpen,
+    resetSearch,
+    searchQuery,
+    setSearchProperty,
+    getDisplayValue,
+  } = useFlowsheetSearch();
+
+  const thawSelection = useCallback(() => {
+    if (!selectedEntry) return;
+    dispatch(
+      flowsheetSlice.actions.freezeSelectionToQuery(
+        entryToFreezePayload(selectedEntry)
+      )
+    );
+  }, [selectedEntry, dispatch]);
+
+  const highlightFills = selectedResult > 0 && selectedEntry !== null;
+  const autoFilled = {
+    artist: highlightFills && Boolean(selectedEntry?.artist?.name),
+    album: highlightFills && Boolean(selectedEntry?.title),
+    label: highlightFills && Boolean(selectedEntry?.label),
+  };
 
   const confirmedArtist = useAppSelector(
     flowsheetSlice.selectors.getConfirmedArtist
@@ -227,45 +252,55 @@ export default function FlowsheetSearchbar() {
     [searchRef.current]
   );
 
+  // Latest-ref: the document listener reads volatile state through a ref so
+  // the callback stays stable and the listener isn't torn down and re-added
+  // on every keystroke/results change.
+  const keyNavRef = useRef({
+    live,
+    searchOpen,
+    rotationMode,
+    selectedResult,
+    visibleTotal: 0,
+  });
+  useEffect(() => {
+    keyNavRef.current = {
+      live,
+      searchOpen,
+      rotationMode,
+      selectedResult,
+      // Bound by the VISIBLE rows: each section paints at most
+      // MAX_VISIBLE_RESULTS, so the bound must use the capped lengths or the
+      // highlight walks off the rendered list onto rows the cap hid.
+      visibleTotal:
+        Math.min(binResults.length, MAX_VISIBLE_RESULTS) +
+        Math.min(catalogResults.length, MAX_VISIBLE_RESULTS) +
+        Math.min(rotationResults.length, MAX_VISIBLE_RESULTS) +
+        Math.min(lmlResults.length, MAX_VISIBLE_RESULTS),
+    };
+  });
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
+      const nav = keyNavRef.current;
       if (e.key === "/") {
         const tag = (e.target as HTMLElement)?.tagName;
         if (tag === "INPUT" || tag === "TEXTAREA") return;
         e.preventDefault();
-        if (!live) return;
+        if (!nav.live) return;
         artistRef.current?.focus();
       }
-      if (e.key === "ArrowDown" && searchOpen && !rotationMode) {
+      if (e.key === "ArrowDown" && nav.searchOpen && !nav.rotationMode) {
         e.preventDefault();
-        // Bound by the VISIBLE rows: each section paints at most
-        // MAX_VISIBLE_RESULTS, so the bound must use the capped lengths or the
-        // highlight walks off the rendered list onto rows the cap hid. (#657)
-        const visibleTotal =
-          Math.min(binResults.length, MAX_VISIBLE_RESULTS) +
-          Math.min(catalogResults.length, MAX_VISIBLE_RESULTS) +
-          Math.min(rotationResults.length, MAX_VISIBLE_RESULTS) +
-          Math.min(lmlResults.length, MAX_VISIBLE_RESULTS);
-        const nextIndex = Math.min(selectedResult + 1, visibleTotal);
+        const nextIndex = Math.min(nav.selectedResult + 1, nav.visibleTotal);
         dispatch(flowsheetSlice.actions.setSelectedResult(nextIndex));
       }
-      if (e.key === "ArrowUp" && searchOpen && !rotationMode) {
+      if (e.key === "ArrowUp" && nav.searchOpen && !nav.rotationMode) {
         e.preventDefault();
-        const prevIndex = Math.max(selectedResult - 1, 0);
+        const prevIndex = Math.max(nav.selectedResult - 1, 0);
         dispatch(flowsheetSlice.actions.setSelectedResult(prevIndex));
       }
     },
-    [
-      live,
-      dispatch,
-      searchOpen,
-      rotationMode,
-      binResults,
-      catalogResults,
-      rotationResults,
-      lmlResults,
-      selectedResult,
-    ]
+    [dispatch]
   );
 
   const handleFormSubmit = useCallback(
@@ -277,9 +312,7 @@ export default function FlowsheetSearchbar() {
   );
 
   useEffect(() => {
-    document.removeEventListener("keydown", handleKeyDown);
     document.addEventListener("keydown", handleKeyDown);
-
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
@@ -406,6 +439,9 @@ export default function FlowsheetSearchbar() {
               <>
                 <FlowsheetSearchInput
                   name={"artist"}
+                  value={getDisplayValue("artist")}
+                  isAutoFilled={autoFilled.artist}
+                  onThaw={thawSelection}
                   inputRef={artistRef}
                   disabled={!live}
                   ghostSuffix={artistGhost.ghostSuffix}
@@ -415,6 +451,7 @@ export default function FlowsheetSearchbar() {
                 />
                 <FlowsheetSearchInput
                   name={"song"}
+                  value={getDisplayValue("song")}
                   inputRef={songRef}
                   disabled={!live}
                   required={true}
@@ -424,6 +461,9 @@ export default function FlowsheetSearchbar() {
                 />
                 <FlowsheetSearchInput
                   name={"album"}
+                  value={getDisplayValue("album")}
+                  isAutoFilled={autoFilled.album}
+                  onThaw={thawSelection}
                   inputRef={albumRef}
                   disabled={!live}
                   ghostSuffix={albumGhost.ghostSuffix}
@@ -432,6 +472,9 @@ export default function FlowsheetSearchbar() {
                 />
                 <FlowsheetSearchInput
                   name={"label"}
+                  value={getDisplayValue("label")}
+                  isAutoFilled={autoFilled.label}
+                  onThaw={thawSelection}
                   inputRef={labelRef}
                   disabled={!live}
                   ghostSuffix={labelGhost.ghostSuffix}

@@ -8,15 +8,24 @@ vi.mock("@/lib/features/flowsheet/api", () => ({
   useAddToFlowsheetMutation: () => [mockAddToFlowsheet, {}],
 }));
 
+let mockLive = true;
+
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useFlowsheetSearch: () => ({
-    live: true,
+    live: mockLive,
   }),
 }));
 
 describe("TalksetButton", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockLive = true;
+  });
+
+  it("should be disabled while live status is unresolved or off air", () => {
+    mockLive = false;
+    render(<TalksetButton />);
+    expect(screen.getByRole("button")).toBeDisabled();
   });
 
   it("should render an icon button", () => {

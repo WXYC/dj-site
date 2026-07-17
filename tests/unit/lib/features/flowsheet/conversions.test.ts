@@ -4,6 +4,7 @@ import {
   convertDJsOnAir,
   convertV2Entry,
   convertV2FlowsheetResponse,
+  entryToFreezePayload,
   extractFlowsheetEntries,
 } from "@/lib/features/flowsheet/conversions";
 import {
@@ -712,6 +713,39 @@ describe("flowsheet conversions", () => {
           total_pages: 0,
         });
         expect(result).toEqual([]);
+      });
+    });
+  });
+
+  describe("entryToFreezePayload", () => {
+    it("maps a full result onto the freeze payload", () => {
+      expect(
+        entryToFreezePayload({
+          id: 42,
+          artist: { name: "Juana Molina" },
+          title: "DOGA",
+          label: "Sonamos",
+          rotation_id: 7,
+          rotation_bin: "H",
+        })
+      ).toEqual({
+        artist: "Juana Molina",
+        album: "DOGA",
+        label: "Sonamos",
+        album_id: 42,
+        rotation_id: 7,
+        rotation_bin: "H",
+      });
+    });
+
+    it("defaults missing fields to empty strings and undefined ids", () => {
+      expect(entryToFreezePayload({})).toEqual({
+        artist: "",
+        album: "",
+        label: "",
+        album_id: undefined,
+        rotation_id: undefined,
+        rotation_bin: undefined,
       });
     });
   });

@@ -10,8 +10,7 @@ import {
   useGetRotationQuery,
   useGetRotationTracksQuery,
 } from "@/lib/features/rotation/api";
-import { useAppDispatch, useAppStore } from "@/lib/hooks";
-import { useFlowsheetSearch } from "@/src/hooks/flowsheetHooks";
+import { useAppDispatch, useAppSelector, useAppStore } from "@/lib/hooks";
 import { Divider } from "@mui/joy";
 import { useCallback, useMemo, useState } from "react";
 import FlowsheetSearchInput from "./FlowsheetSearchInput";
@@ -22,7 +21,9 @@ import TrackPickerDropdown from "./TrackPickerDropdown";
 export default function RotationEntryFields({ disabled }: { disabled: boolean }) {
   const dispatch = useAppDispatch();
   const store = useAppStore();
-  const { setSearchOpen } = useFlowsheetSearch();
+  const songValue = useAppSelector(
+    (state) => flowsheetSlice.selectors.getSearchQuery(state).song as string
+  );
 
   const [selectedBin, setSelectedBin] = useState<Rotation | null>(null);
   const [selectedRelease, setSelectedRelease] = useState<AlbumEntry | null>(null);
@@ -74,7 +75,7 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
       setSelectedRelease(release);
       setSelectedTrack(null);
       setManualEntry(false);
-      setSearchOpen(true);
+      dispatch(flowsheetSlice.actions.setSearchOpen(true));
       dispatch(flowsheetSlice.actions.setSearchProperty({ name: "song", value: "" }));
       dispatch(flowsheetSlice.actions.setSearchProperty({ name: "artist", value: release.artist?.name ?? "" }));
       dispatch(flowsheetSlice.actions.setSearchProperty({ name: "album", value: release.title }));
@@ -87,7 +88,7 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
         })
       );
     },
-    [dispatch, setSearchOpen]
+    [dispatch]
   );
 
   // Discogs per-track `artists` carries contributor credits (producer,
@@ -174,6 +175,7 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
       ) : (
         <FlowsheetSearchInput
           name="song"
+          value={songValue}
           disabled={disabled || !selectedRelease}
           required
           suppressHydrationWarning
