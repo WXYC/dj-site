@@ -5,7 +5,10 @@ import { authenticationSlice } from "./features/authentication/frontend";
 import { experienceApi } from "./features/experiences/api";
 import { flowsheetApi } from "./features/flowsheet/api";
 import { flowsheetSlice } from "./features/flowsheet/frontend";
-import { liveUpdatesListenerMiddleware } from "./features/flowsheet/live-updates-listener";
+import {
+  attachLiveUpdatesListener,
+  createLiveUpdatesListenerMiddleware,
+} from "./features/flowsheet/live-updates-listener";
 import { liveUpdatesSlice } from "./features/flowsheet/live-updates-slice";
 import { playlistSearchApi } from "./features/playlist-search/api";
 import { playlistSearchSlice } from "./features/playlist-search/frontend";
@@ -32,17 +35,20 @@ const publicRootReducer = combineSlices(
 );
 
 export const makePublicStore = () => {
-  return configureStore({
+  const liveUpdatesListener = createLiveUpdatesListenerMiddleware();
+  const store = configureStore({
     reducer: publicRootReducer,
     middleware: (getDefaultMiddleware) => {
       return getDefaultMiddleware()
-        .prepend(liveUpdatesListenerMiddleware.middleware)
+        .prepend(liveUpdatesListener.middleware)
         .concat(rtkQueryErrorLogger)
         .concat(experienceApi.middleware)
         .concat(flowsheetApi.middleware)
         .concat(playlistSearchApi.middleware);
     },
   });
+  attachLiveUpdatesListener(store, liveUpdatesListener);
+  return store;
 };
 
 export type PublicAppStore = ReturnType<typeof makePublicStore>;
