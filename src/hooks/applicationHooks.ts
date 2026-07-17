@@ -8,8 +8,7 @@ import { catalogSlice } from "@/lib/features/catalog/frontend";
 import { flowsheetApi } from "@/lib/features/flowsheet/api";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useAppDispatch } from "@/lib/hooks";
-import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 export function useWindowSize() {
   // Undefined initial width/height so the server and first client render
@@ -37,17 +36,6 @@ export function useWindowSize() {
   }, []);
   return windowSize;
 }
-
-export const usePublicRoutes = () => {
-  const publicRoutes = ["/live", "/login"];
-  const pathname = usePathname();
-
-  const isPublic = useMemo(() => {
-    return publicRoutes.includes(pathname) || pathname.length <= 1;
-  }, [pathname]);
-
-  return isPublic;
-};
 
 export const useShiftKey = () => {
   const [shiftKeyPressed, setShiftKeyPressed] = useState(false);
