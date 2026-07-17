@@ -1,3 +1,4 @@
+import "server-only";
 import { serverAuthClient, getServerAuthBaseURL } from "./server-client";
 import { normalizeRole, organizationRoleFromJwtToken } from "./organization-utils";
 import { WXYCRole } from "./types";

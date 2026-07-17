@@ -1,3 +1,4 @@
+import "server-only";
 import { createAuthClient } from "better-auth/client"
 import { adminClient, emailOTPClient, usernameClient, jwtClient, organizationClient } from "better-auth/client/plugins"
 

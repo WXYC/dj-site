@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { http, HttpResponse } from "msw";
 import { server } from "@/tests/fakes/server";
 
+vi.mock("server-only", () => ({}));
+
 // Mock server auth client
 const mockListMembers = vi.fn();
 vi.mock("@/lib/features/authentication/server-client", () => ({
