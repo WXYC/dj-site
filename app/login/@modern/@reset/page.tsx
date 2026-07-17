@@ -1,18 +1,25 @@
-"use client";
-
 import { PasswordResetUser } from "@/lib/features/authentication/types";
+import { getPageTitle } from "@/lib/utils/page-title";
 import AuthBackButton from "@/src/components/experiences/modern/login/Forms/AuthBackButton";
-import RequestPasswordResetForm from "@/src/components/experiences/modern/login/Forms/RequestPasswordResetForm";
-import ResetPasswordForm from "@/src/components/experiences/modern/login/Forms/ResetPasswordForm";
-import AuthLinkSessionGuard from "@/src/components/experiences/modern/login/AuthLinkSessionGuard";
-import ForgotQuotes from "@/src/components/experiences/modern/login/Quotes/Forgot";
+import PasswordResetForms from "@/src/components/experiences/modern/login/Forms/PasswordResetForms";
+import ForgotQuotes, {
+  pickForgotQuote,
+} from "@/src/components/experiences/modern/login/Quotes/Forgot";
 import { Alert } from "@mui/joy";
-import { useSearchParams } from "next/navigation";
+import { Metadata } from "next";
 
-export default function PasswordResetPage() {
-  const searchParams = useSearchParams();
-  const token = searchParams?.get("token") || undefined;
-  const error = searchParams?.get("error") || undefined;
+export const metadata: Metadata = {
+  title: getPageTitle("Reset Password"),
+};
+
+type PasswordResetPageProps = {
+  searchParams: Promise<{ token?: string; error?: string }>;
+};
+
+export default async function PasswordResetPage({
+  searchParams,
+}: PasswordResetPageProps) {
+  const { token, error } = await searchParams;
 
   const confirmationMessage = error
     ? "This reset link is invalid or expired. Please request a new one."
@@ -20,31 +27,16 @@ export default function PasswordResetPage() {
       ? "Enter your new password below."
       : "Enter your email to receive a reset link.";
 
-  const resetData: PasswordResetUser = {
-    token,
-    error,
-    confirmationMessage,
-  };
-
-  const resetForm = token ? (
-    <AuthLinkSessionGuard
-      linkToken={token}
-      loadingMessage="Preparing password reset…"
-    >
-      <ResetPasswordForm {...resetData} />
-    </AuthLinkSessionGuard>
-  ) : (
-    <RequestPasswordResetForm />
-  );
+  const resetData: PasswordResetUser = { token, error, confirmationMessage };
 
   return (
     <>
       <AuthBackButton text="Never mind, I remembered" />
-      <ForgotQuotes />
-      
-      <Alert color={error ? "danger" : "neutral"}>{resetData.confirmationMessage}</Alert>
+      <ForgotQuotes quote={pickForgotQuote()} />
 
-      {resetForm}
+      <Alert color={error ? "danger" : "neutral"}>{confirmationMessage}</Alert>
+
+      <PasswordResetForms {...resetData} />
     </>
   );
 }

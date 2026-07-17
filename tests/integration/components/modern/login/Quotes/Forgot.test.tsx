@@ -1,45 +1,49 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-import ForgotQuotes from "@/src/components/experiences/modern/login/Quotes/Forgot";
+import ForgotQuotes, {
+  pickForgotQuote,
+} from "@/src/components/experiences/modern/login/Quotes/Forgot";
 
-describe("ForgotQuotes", () => {
-  beforeEach(() => {
-    vi.spyOn(Math, "random").mockReturnValue(0);
-  });
-
+describe("pickForgotQuote", () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("should render the song title", () => {
-    render(<ForgotQuotes />);
-    expect(screen.getByText("Forgotten")).toBeInTheDocument();
+  it("selects the first entry when random is 0", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    expect(pickForgotQuote()).toEqual([
+      "Forgotten",
+      "Linkin Park",
+      "your password?",
+    ]);
   });
 
-  it("should render the password-related message", () => {
-    render(<ForgotQuotes />);
-    expect(screen.getByText("...your password?")).toBeInTheDocument();
-  });
-
-  it("should render the artist name", () => {
-    render(<ForgotQuotes />);
-    expect(screen.getByText("- Linkin Park")).toBeInTheDocument();
-  });
-
-  it("should render different quote when random value changes", () => {
+  it("selects a mid-array entry", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.25);
-    render(<ForgotQuotes />);
-    // Index 2 (Math.floor(0.25 * 8)) should be "Forgot About Dre"
-    expect(screen.getByText("Forgot About Dre")).toBeInTheDocument();
-    expect(screen.getByText("- Dr. Dre ft. Eminem")).toBeInTheDocument();
-    expect(screen.getByText("...and your password!")).toBeInTheDocument();
+    expect(pickForgotQuote()).toEqual([
+      "Forgot About Dre",
+      "Dr. Dre ft. Eminem",
+      "and your password!",
+    ]);
   });
 
-  it("should render last quote when random approaches 1", () => {
+  it("selects the last entry as random approaches 1", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99);
-    render(<ForgotQuotes />);
-    // Index 7 (last item) should be "Forget About It"
-    expect(screen.getByText("Forget About It")).toBeInTheDocument();
-    expect(screen.getByText("- Alison Krauss")).toBeInTheDocument();
+    expect(pickForgotQuote()).toEqual([
+      "Forget About It",
+      "Alison Krauss",
+      "but don't forget your password!",
+    ]);
+  });
+});
+
+describe("ForgotQuotes", () => {
+  it("renders the provided title, fragment, and artist", () => {
+    render(
+      <ForgotQuotes quote={["Forgotten", "Linkin Park", "your password?"]} />
+    );
+    expect(screen.getByText("Forgotten")).toBeInTheDocument();
+    expect(screen.getByText("...your password?")).toBeInTheDocument();
+    expect(screen.getByText("- Linkin Park")).toBeInTheDocument();
   });
 });
