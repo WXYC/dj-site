@@ -5,6 +5,7 @@ import {
 } from "@/lib/features/authentication/server-utils";
 import { getOidcRedirectTarget } from "@/src/utilities/oidcRedirectTarget";
 import LoginFormSwitcher from "@/src/components/experiences/modern/login/Forms/LoginFormSwitcher";
+import { pickWelcomeQuote } from "@/src/components/experiences/modern/login/Quotes/Welcome";
 import { DEFAULT_DASHBOARD_HOME_PAGE } from "@/lib/features/application/constants";
 
 const DASHBOARD_HOME_PAGE =
@@ -46,7 +47,7 @@ export default async function LoginPage({
     redirect(oidcTarget ?? DASHBOARD_HOME_PAGE);
   }
 
-  return <LoginFormSwitcher />;
+  return <LoginFormSwitcher welcomeQuote={pickWelcomeQuote()} />;
 }
 
 function toSearchParams(raw: {

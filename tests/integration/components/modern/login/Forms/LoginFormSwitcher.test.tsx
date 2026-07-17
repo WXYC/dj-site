@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import LoginFormSwitcher from "@/src/components/experiences/modern/login/Forms/LoginFormSwitcher";
+import type { WelcomeQuote } from "@/src/components/experiences/modern/login/Quotes/Welcome";
 import { renderWithProviders, createTestStore } from "@/tests/helpers";
 import { applicationSlice } from "@/lib/features/application/frontend";
 import type { AuthStage } from "@/lib/features/application/types";
@@ -37,17 +38,22 @@ vi.mock("@/src/hooks/authenticationHooks", async (importOriginal) => {
 
 let mockPreferredMethod: AuthStage = "otp-email";
 
+const TEST_WELCOME_QUOTE: WelcomeQuote = ["Welcome...", "to the Jungle", "Guns N' Roses"];
+
 const renderWithAuthStage = (stage: AuthStage) => {
   mockPreferredMethod = stage;
   const store = createTestStore();
   store.dispatch(applicationSlice.actions.setAuthStage(stage));
-  return renderWithProviders(<LoginFormSwitcher />, { store });
+  return renderWithProviders(
+    <LoginFormSwitcher welcomeQuote={TEST_WELCOME_QUOTE} />,
+    { store }
+  );
 };
 
 describe("LoginFormSwitcher", () => {
   it("should render email OTP form by default", () => {
     mockPreferredMethod = "otp-email";
-    renderWithProviders(<LoginFormSwitcher />);
+    renderWithProviders(<LoginFormSwitcher welcomeQuote={TEST_WELCOME_QUOTE} />);
 
     expect(screen.getByRole("button", { name: "Send login code" })).toBeInTheDocument();
   });

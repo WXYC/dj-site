@@ -2,7 +2,9 @@ import { redirect } from "next/navigation";
 import OnboardingForm from "@/src/components/experiences/modern/login/Forms/OnboardingForm";
 import AuthLinkSessionGuard from "@/src/components/experiences/modern/login/AuthLinkSessionGuard";
 import WXYCPage from "@/src/Layout/WXYCPage";
-import HoldOnQuotes from "@/src/components/experiences/modern/login/Quotes/HoldOn";
+import HoldOnQuotes, {
+  pickHoldOnQuote,
+} from "@/src/components/experiences/modern/login/Quotes/HoldOn";
 import { Metadata } from "next";
 import { getPageTitle } from "@/lib/utils/page-title";
 import { Alert } from "@mui/joy";
@@ -30,7 +32,7 @@ export default async function ModernOnboardingPage({ searchParams }: OnboardingP
 
   return (
     <WXYCPage>
-      <HoldOnQuotes />
+      <HoldOnQuotes quote={pickHoldOnQuote()} />
       {error && (
         <Alert color="danger" sx={{ mb: 2 }}>
           This setup link is invalid or expired. Ask your station manager to resend the invite.
