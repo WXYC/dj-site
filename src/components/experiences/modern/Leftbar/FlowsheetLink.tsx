@@ -1,7 +1,7 @@
 "use client";
 
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
-import { Stream } from "@mui/icons-material";
+import { Podcasts } from "@mui/icons-material";
 import { Badge } from "@mui/joy";
 import LeftbarLink from "./LeftbarLink";
 
@@ -20,7 +20,7 @@ export default function FlowsheetLink() {
       }}
     >
       <LeftbarLink path="/dashboard/flowsheet" title={`Flowsheet${live ? "      🔴 [ON AIR]" : ""}`}>
-        <Stream />
+        <Podcasts />
       </LeftbarLink>
     </Badge>
   );

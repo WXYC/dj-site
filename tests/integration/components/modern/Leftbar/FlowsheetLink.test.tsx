@@ -25,7 +25,7 @@ vi.mock("next/link", () => ({
 
 // Mock MUI icons
 vi.mock("@mui/icons-material", () => ({
-  Stream: () => <span data-testid="stream-icon" />,
+  Podcasts: () => <span data-testid="podcasts-icon" />,
 }));
 
 describe("FlowsheetLink", () => {
@@ -40,10 +40,10 @@ describe("FlowsheetLink", () => {
     expect(link).toHaveAttribute("href", "/dashboard/flowsheet");
   });
 
-  it("should render stream icon", () => {
+  it("should render podcasts icon", () => {
     render(<FlowsheetLink />);
 
-    expect(screen.getByTestId("stream-icon")).toBeInTheDocument();
+    expect(screen.getByTestId("podcasts-icon")).toBeInTheDocument();
   });
 
   it("should show 'Flowsheet' title when not live", () => {
