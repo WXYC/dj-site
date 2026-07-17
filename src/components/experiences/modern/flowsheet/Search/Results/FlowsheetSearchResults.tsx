@@ -224,6 +224,15 @@ export default function FlowsheetSearchResults({
 
           <Stack direction="row" alignItems="center" spacing={0.5}>
             <Chip variant="soft" size="sm" color="neutral">
+              <Typography level="body-xs">→</Typography>
+            </Chip>
+            <Typography level="body-xs" sx={{ whiteSpace: "nowrap" }}>
+              complete suggestion
+            </Typography>
+          </Stack>
+
+          <Stack direction="row" alignItems="center" spacing={0.5}>
+            <Chip variant="soft" size="sm" color="neutral">
               <Typography level="body-xs">⇧ TAB</Typography>
             </Chip>
             <Typography level="body-xs" sx={{ whiteSpace: "nowrap" }}>

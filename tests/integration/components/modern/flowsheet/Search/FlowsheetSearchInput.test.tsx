@@ -276,6 +276,56 @@ describe("FlowsheetSearchInput", () => {
       expect(screen.queryByTestId("ghost-text-artist")).not.toBeInTheDocument();
     });
 
+    it("should call onAcceptGhost on ArrowRight at the caret end", async () => {
+      const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
+      vi.mocked(useFlowsheetSearch).mockReturnValue({
+        getDisplayValue: () => "Stereo",
+        setSearchProperty: mockSetSearchProperty,
+        selectedIndex: 0,
+        selectedEntry: null,
+      } as any);
+      const onAcceptGhost = vi.fn();
+
+      render(
+        <FlowsheetSearchInput
+          name="artist"
+          ghostSuffix="lab"
+          onAcceptGhost={onAcceptGhost}
+        />
+      );
+
+      const input = screen.getByRole("textbox") as HTMLInputElement;
+      input.setSelectionRange(input.value.length, input.value.length);
+      fireEvent.keyDown(input, { key: "ArrowRight" });
+
+      expect(onAcceptGhost).toHaveBeenCalledTimes(1);
+    });
+
+    it("should not accept on ArrowRight while the caret is mid-text", async () => {
+      const { useFlowsheetSearch } = await import("@/src/hooks/flowsheetHooks");
+      vi.mocked(useFlowsheetSearch).mockReturnValue({
+        getDisplayValue: () => "Stereo",
+        setSearchProperty: mockSetSearchProperty,
+        selectedIndex: 0,
+        selectedEntry: null,
+      } as any);
+      const onAcceptGhost = vi.fn();
+
+      render(
+        <FlowsheetSearchInput
+          name="artist"
+          ghostSuffix="lab"
+          onAcceptGhost={onAcceptGhost}
+        />
+      );
+
+      const input = screen.getByRole("textbox") as HTMLInputElement;
+      input.setSelectionRange(2, 2);
+      fireEvent.keyDown(input, { key: "ArrowRight" });
+
+      expect(onAcceptGhost).not.toHaveBeenCalled();
+    });
+
     it("should call onAcceptGhost when Tab pressed with ghost text", async () => {
       await resetToDefaultMock();
       const onAcceptGhost = vi.fn();

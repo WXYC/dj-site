@@ -292,14 +292,16 @@ export default function FlowsheetSearchbar() {
               minWidth: 0,
               minHeight: "2.75rem",
               cursor: live ? "text" : "default",
+              // Set here (not on the inputs) so the ghost-text spans inherit
+              // the same metrics as the inputs
+              fontSize: "var(--wxyc-fontSize-md)",
               "& input": {
                 background: "transparent !important",
                 outline: "none !important",
                 border: "none !important",
                 fontFamily: "inherit !important",
-                fontSize: "var(--wxyc-fontSize-md)",
+                fontSize: "inherit",
                 minWidth: "0 !important",
-                px: ENTRY_BAR_CELL_PADDING_X,
                 flex: 1,
                 minHeight: 0,
                 height: "2.75rem",
