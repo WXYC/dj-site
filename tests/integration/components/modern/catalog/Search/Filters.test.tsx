@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, within } from "@testing-library/react";
 import { Filters } from "@/src/components/experiences/modern/catalog/Search/Filters";
+import { useGetGenresQuery } from "@/lib/features/catalog/api";
 import { createComponentHarnessWithQueries } from "@/tests/helpers";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
 
@@ -113,6 +114,35 @@ describe("Filters", () => {
       "Rock",
       "Jazz",
     ]);
+  });
+
+  it("seeds genre options from initialGenres before the client query resolves", async () => {
+    vi.mocked(useGetGenresQuery).mockReturnValue({
+      data: undefined,
+      isLoading: true,
+    } as unknown as ReturnType<typeof useGetGenresQuery>);
+
+    const { genreInput, user } = setup({ initialGenres: mockGenres });
+    await user.click(genreInput());
+    expect(
+      await screen.findByRole("option", { name: "Rock" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Jazz" })).toBeInTheDocument();
+  });
+
+  it("prefers the resolved client query over the initial seed", async () => {
+    const clientGenres = [{ id: 9, genre_name: "Ambient" }];
+    vi.mocked(useGetGenresQuery).mockReturnValue({
+      data: clientGenres,
+      isLoading: false,
+    } as unknown as ReturnType<typeof useGetGenresQuery>);
+
+    const { genreInput, user } = setup({ initialGenres: mockGenres });
+    await user.click(genreInput());
+    expect(
+      await screen.findByRole("option", { name: "Ambient" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Rock" })).not.toBeInTheDocument();
   });
 
   it("selects formats via autocomplete", async () => {
