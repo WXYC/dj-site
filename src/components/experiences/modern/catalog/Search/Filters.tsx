@@ -4,6 +4,7 @@ import {
   useGetFormatsQuery,
   useGetGenresQuery,
 } from "@/lib/features/catalog/api";
+import type { LibraryGenreRow } from "@/lib/features/catalog/types";
 import { Box, Divider } from "@mui/joy";
 
 import { CatalogFilterSection } from "./CatalogFilterSection";
@@ -23,9 +24,20 @@ export function catalogFiltersActive(filters: {
   );
 }
 
-export const Filters = () => {
+export const Filters = ({
+  initialGenres,
+}: {
+  initialGenres?: LibraryGenreRow[];
+}) => {
   const { data: genres, isLoading: genresLoading } = useGetGenresQuery();
   const { data: formats, isLoading: formatsLoading } = useGetFormatsQuery();
+
+  // Seed from the server-cached genres until the client query resolves, then
+  // the client query owns the value (mirrors the NowPlaying seed pattern). Only
+  // show the loading affordance when neither a seed nor client data is present.
+  const seededGenres = genres ?? initialGenres;
+  const genresPending =
+    genresLoading && genres === undefined && initialGenres === undefined;
 
   return (
     <Box
@@ -37,7 +49,10 @@ export const Filters = () => {
       }}
     >
       <CatalogFilterSection>
-        <GenreFilterAutocomplete genres={genres} isLoading={genresLoading} />
+        <GenreFilterAutocomplete
+          genres={seededGenres}
+          isLoading={genresPending}
+        />
       </CatalogFilterSection>
 
       <Divider orientation="vertical" />
