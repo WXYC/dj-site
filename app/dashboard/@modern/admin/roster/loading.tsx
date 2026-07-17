@@ -1,1 +1,1 @@
-export { LoadingPage as default } from "@/src/components/LoadingPage";
+export { LoadingFallback as default } from "@/src/components/LoadingFallback";

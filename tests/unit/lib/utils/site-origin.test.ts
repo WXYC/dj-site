@@ -25,6 +25,16 @@ describe("getSiteOrigin", () => {
     await expect(getSiteOrigin()).resolves.toBe("https://dj.wxyc.org");
   });
 
+  it("falls through to host when x-forwarded-host is empty after trimming", async () => {
+    mockGet.mockImplementation((name: string) => {
+      if (name === "x-forwarded-host") return " , internal.local";
+      if (name === "host") return "dj.wxyc.org";
+      return null;
+    });
+
+    await expect(getSiteOrigin()).resolves.toBe("https://dj.wxyc.org");
+  });
+
   it("uses only the first entry of a multi-proxy x-forwarded-proto list", async () => {
     mockGet.mockImplementation((name: string) => {
       if (name === "x-forwarded-host") return "dj.wxyc.org";

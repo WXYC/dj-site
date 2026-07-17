@@ -14,16 +14,20 @@ import { headers } from "next/headers";
  */
 export async function getSiteOrigin(): Promise<string> {
   const headerList = await headers();
-  const forwardedHost = headerList.get("x-forwarded-host");
-  const host =
-    (forwardedHost ? forwardedHost.split(",")[0].trim() : null) ??
-    headerList.get("host") ??
-    "localhost:3000";
+  // Multi-proxy chains append comma-separated values; `||` (not `??`) so an
+  // empty-after-trim first entry falls through instead of yielding "https://".
+  const forwardedHost = headerList
+    .get("x-forwarded-host")
+    ?.split(",")[0]
+    .trim();
+  const host = forwardedHost || headerList.get("host") || "localhost:3000";
 
-  // Multi-proxy chains append comma-separated values, same as x-forwarded-host.
-  const forwardedProto = headerList.get("x-forwarded-proto");
+  const forwardedProto = headerList
+    .get("x-forwarded-proto")
+    ?.split(",")[0]
+    .trim();
   const protocol =
-    (forwardedProto ? forwardedProto.split(",")[0].trim() : null) ??
+    forwardedProto ||
     (host.startsWith("localhost") || host.startsWith("127.0.0.1")
       ? "http"
       : "https");
