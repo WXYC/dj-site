@@ -169,9 +169,8 @@ describe("FlowsheetBackendResult", () => {
       expect(mockDispatch).toHaveBeenCalled();
     });
 
-    // #937: clicking a result AUTOFILLS the fields via freezeSelectionToQuery
-    // — it must never submit. mousedown is prevented so focus stays in the
-    // entry inputs.
+    // Clicking a result AUTOFILLS the fields via freezeSelectionToQuery — it
+    // must never submit. mousedown is prevented so focus stays in the inputs.
     it("should autofill (freeze) the row's fields on mousedown, not submit", () => {
       render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
 

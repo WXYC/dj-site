@@ -1292,8 +1292,8 @@ describe("flowsheetHooks", () => {
       );
     });
 
-    // Dedicated queue button path (#936) — same guard/reset as Ctrl+Enter,
-    // minus the modifier.
+    // Dedicated queue button path — same guard/reset as Ctrl+Enter, minus
+    // the modifier.
     describe("submitToQueue", () => {
       const renderCombined = () =>
         renderHook(
@@ -1337,7 +1337,7 @@ describe("flowsheetHooks", () => {
         expect(result.current.search.searchQuery.artist).toBe("");
       });
 
-      it("sanitizes synthesized negative album linkage on the queue path (#702/#703)", () => {
+      it("sanitizes synthesized negative album linkage on the queue path", () => {
         const { result } = renderCombined();
 
         act(() => {

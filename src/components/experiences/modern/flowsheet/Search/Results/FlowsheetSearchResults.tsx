@@ -57,9 +57,7 @@ export default function FlowsheetSearchResults({
   const highlightedResult: AlbumEntry | null =
     selectedResult > 0 ? allResults[selectedResult - 1] ?? null : null;
 
-  // After a click-to-autofill (#937) the highlight resets to 0 but the frozen
-  // query carries the clicked row's album_id — the picker must keep working
-  // against that release, not vanish with the highlight.
+  // A click-to-autofill zeroes the highlight; the frozen query keeps the album
   const frozenAlbumId = useAppSelector(
     flowsheetSlice.selectors.getSearchQuery
   ).album_id;
@@ -91,10 +89,7 @@ export default function FlowsheetSearchResults({
 
   const showPickerRow = effectiveAlbumId !== null && !rotationMode;
 
-  // Rendered as the CONTENT of the searchbar's Popper panel — the outlined
-  // Sheet, positioning, and open/close transitions live in FlowsheetSearchbar
-  // (the panel and the entry shell share one continuous outline). This
-  // component is only mounted while the panel is open.
+  // Panel CONTENT only — the Sheet/Popper/transitions live in FlowsheetSearchbar
   return (
     <Box
       data-testid="flowsheet-search-results"

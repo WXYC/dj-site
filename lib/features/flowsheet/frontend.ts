@@ -53,6 +53,7 @@ export const defaultFlowsheetFrontendState: FlowsheetFrontendState = {
     },
     selectedResult: 0,
     confirmedArtist: "",
+    resetEpoch: 0,
   },
   queue: [],
   queueIdCounter: 0,
@@ -95,6 +96,8 @@ export const flowsheetSlice = createAppSlice({
       state.search.query = defaultFlowsheetFrontendState.search.query;
       state.search.selectedResult = defaultFlowsheetFrontendState.search.selectedResult;
       state.search.confirmedArtist = defaultFlowsheetFrontendState.search.confirmedArtist;
+      // Always forward, never back to default — it is a remount signal
+      state.search.resetEpoch += 1;
     },
     setConfirmedArtist: (state, action: PayloadAction<string>) => {
       state.search.confirmedArtist = action.payload;
@@ -225,5 +228,6 @@ export const flowsheetSlice = createAppSlice({
     getSelectedResult: (state) => state.search.selectedResult,
     getIsDragging: (state) => state.isDragging,
     getConfirmedArtist: (state) => state.search.confirmedArtist,
+    getResetEpoch: (state) => state.search.resetEpoch,
   },
 });

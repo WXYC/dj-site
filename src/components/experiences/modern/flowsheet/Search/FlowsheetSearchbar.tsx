@@ -51,6 +51,7 @@ export default function FlowsheetSearchbar() {
   const searchQueryLength = useAppSelector(
     flowsheetSlice.selectors.getSearchQueryLength
   );
+  const resetEpoch = useAppSelector(flowsheetSlice.selectors.getResetEpoch);
 
   const { live, searchOpen, setSearchOpen, resetSearch, searchQuery, setSearchProperty } =
     useFlowsheetSearch();
@@ -233,12 +234,12 @@ export default function FlowsheetSearchbar() {
 
   const panelOpen = searchOpen && !rotationMode;
   const activeBorder = entryBarActiveBorder(searchOpen, ctrlKeyPressed);
+  // Rotation picks live in RotationEntryFields' local state, invisible to the query-length signal
+  const showClear = rotationMode || searchQueryLength > 0;
 
   return (
     <ClickAwayListener onClickAway={handleClose}>
-      {/* Plain Box, deliberately NOT a Joy FormControl: the bar hosts several
-          Joy control components at once (rotation dropdowns, the panel's
-          track picker), and FormControl warns when more than one registers. */}
+      {/* Not a Joy FormControl — it warns when multiple Joy controls register */}
       <Box
         data-testid="flowsheet-entry-bar"
         sx={{
@@ -284,8 +285,7 @@ export default function FlowsheetSearchbar() {
             onSubmit={handleFormSubmit}
             data-testid="flowsheet-search-form"
             sx={{
-              // The field grid mirrors the entries table's column template so
-              // each input sits over its column below (see entryBarStyles).
+              // Mirrors the entries table's column template (see entryBarStyles)
               display: "grid",
               gridTemplateColumns: ENTRY_BAR_GRID_TEMPLATE,
               alignItems: "stretch",
@@ -305,9 +305,6 @@ export default function FlowsheetSearchbar() {
                 height: "2.75rem",
                 cursor: live ? "text" : "default",
               },
-              // Field cells carry a left rule mimicking the Joy Divider next
-              // to the action buttons: vertically inset and divider-dim, not
-              // a full-height cell border.
               "& .entry-field-cell": {
                 position: "relative",
                 "&::before": {
@@ -347,14 +344,13 @@ export default function FlowsheetSearchbar() {
                   position: "relative",
                 }}
               >
-                <RotationEntryFields disabled={!live} />
+                <RotationEntryFields key={resetEpoch} disabled={!live} />
               </Box>
             ) : (
               <>
                 <FlowsheetSearchInput
                   name={"artist"}
                   inputRef={artistRef}
-                  required={selectedResult == 0}
                   disabled={!live}
                   ghostSuffix={artistGhost.ghostSuffix}
                   onAcceptGhost={handleAcceptArtistGhost}
@@ -374,7 +370,6 @@ export default function FlowsheetSearchbar() {
                   name={"album"}
                   inputRef={albumRef}
                   disabled={!live}
-                  required={selectedResult == 0}
                   suppressHydrationWarning
                 />
                 <FlowsheetSearchInput
@@ -396,15 +391,7 @@ export default function FlowsheetSearchbar() {
                 minWidth: 0,
               }}
             >
-              {searchQueryLength === 0 ? (
-                // Idle cluster — special-entry buttons. Swapped out for the
-                // commit cluster only once the DJ has typed something, so a
-                // focused-but-empty bar still offers breakpoint/talkset.
-                <>
-                  <BreakpointButton />
-                  <TalksetButton />
-                </>
-              ) : (
+              {showClear && (
                 <>
                   <Tooltip
                     placement="top"
@@ -420,13 +407,22 @@ export default function FlowsheetSearchbar() {
                       data-testid="flowsheet-search-clear"
                       onClick={() => {
                         resetSearch();
-                        artistRef.current?.focus();
+                        if (!rotationMode) artistRef.current?.focus();
                       }}
                     >
                       <Close fontSize="small" />
                     </IconButton>
                   </Tooltip>
                   <Divider orientation="vertical" sx={{ my: 1 }} />
+                </>
+              )}
+              {searchQueryLength === 0 ? (
+                <>
+                  <BreakpointButton />
+                  <TalksetButton />
+                </>
+              ) : (
+                <>
                   <Tooltip
                     placement="top"
                     size="sm"
