@@ -19,6 +19,7 @@ let mockLmlResults: any[] = [];
 const mockSetSearchOpen = vi.fn();
 const mockResetSearch = vi.fn();
 const mockHandleSubmit = vi.fn();
+const mockSubmitToQueue = vi.fn();
 const mockAddToFlowsheet = vi.fn();
 const mockSetSearchProperty = vi.fn();
 
@@ -38,6 +39,7 @@ vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useFlowsheetSubmit: vi.fn(() => ({
     ctrlKeyPressed: mockCtrlKeyPressed,
     handleSubmit: mockHandleSubmit,
+    submitToQueue: mockSubmitToQueue,
     binResults: mockBinResults,
     catalogResults: mockCatalogResults,
     rotationResults: mockRotationResults,
@@ -225,7 +227,9 @@ describe("FlowsheetSearchbar", () => {
     expect(screen.getByTestId("search-results")).toBeInTheDocument();
   });
 
-  it("should render search icon", () => {
+  // The leading (art-column) cell hosts the rotation-mode toggle; the search
+  // icon it replaced is gone.
+  it("should render the rotation toggle in the leading cell", () => {
     const store = createTestStore();
 
     render(
@@ -234,7 +238,42 @@ describe("FlowsheetSearchbar", () => {
       </Provider>
     );
 
-    expect(screen.getByTestId("search-icon")).toBeInTheDocument();
+    expect(screen.getByTestId("rotation-toggle")).toBeInTheDocument();
+    expect(screen.queryByTestId("search-icon")).not.toBeInTheDocument();
+  });
+
+  // #936/#939: the queue affordance is a dedicated, always-visible button
+  // while the search is open — never gated behind a held Ctrl.
+  it("should show the queue button when the search is open, without Ctrl", () => {
+    mockLive = true;
+    mockSearchOpen = true;
+    mockCtrlKeyPressed = false;
+    const store = createTestStore();
+
+    render(
+      <Provider store={store}>
+        <FlowsheetSearchbar />
+      </Provider>
+    );
+
+    const queueButton = screen.getByTestId("flowsheet-search-queue");
+    expect(queueButton).toBeInTheDocument();
+    fireEvent.click(queueButton);
+    expect(mockSubmitToQueue).toHaveBeenCalled();
+  });
+
+  it("should not show the queue button while the search is closed", () => {
+    const store = createTestStore();
+
+    render(
+      <Provider store={store}>
+        <FlowsheetSearchbar />
+      </Provider>
+    );
+
+    expect(
+      screen.queryByTestId("flowsheet-search-queue")
+    ).not.toBeInTheDocument();
   });
 
   it("should render submit button", () => {

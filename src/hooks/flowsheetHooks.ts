@@ -610,6 +610,17 @@ export const useFlowsheetSubmit = () => {
   const isRotationPick =
     selectedEntry !== null && rotationResults.includes(selectedEntry);
 
+  // Explicit queue path for the dedicated queue button (#936) — same guard
+  // and reset as the Ctrl+Enter branch of handleSubmit, minus the modifier.
+  const submitToQueue = useCallback(() => {
+    if (!(selectedResultData.song ?? "").trim()) {
+      toast.error("Song title is required");
+      return;
+    }
+    addToQueue(selectedResultData);
+    dispatch(flowsheetSlice.actions.resetSearch());
+  }, [addToQueue, selectedResultData, dispatch]);
+
   const handleSubmit = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
@@ -621,8 +632,7 @@ export const useFlowsheetSubmit = () => {
         return;
       }
       if (queueModifierRef.current) {
-        addToQueue(selectedResultData);
-        dispatch(flowsheetSlice.actions.resetSearch());
+        submitToQueue();
         return;
       }
       if (isRotationPick && selectedEntry) {
@@ -653,7 +663,7 @@ export const useFlowsheetSubmit = () => {
     },
     [
       addToFlowsheet,
-      addToQueue,
+      submitToQueue,
       selectedResultData,
       dispatch,
       isRotationPick,
@@ -674,6 +684,7 @@ export const useFlowsheetSubmit = () => {
   return {
     ctrlKeyPressed,
     handleSubmit,
+    submitToQueue,
     binResults,
     catalogResults,
     rotationResults,

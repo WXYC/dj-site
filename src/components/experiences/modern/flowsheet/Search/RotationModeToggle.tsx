@@ -3,7 +3,7 @@
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useFlowsheetSearch } from "@/src/hooks/flowsheetHooks";
-import { Album } from "@mui/icons-material";
+import { AutoModeRounded } from "@mui/icons-material";
 import { IconButton, Tooltip } from "@mui/joy";
 
 export default function RotationModeToggle() {
@@ -25,11 +25,8 @@ export default function RotationModeToggle() {
         data-testid="flowsheet-rotation-toggle"
         onClick={() => dispatch(flowsheetSlice.actions.setRotationMode(!rotationMode))}
         disabled={!live}
-        sx={{
-          zIndex: 8001,
-        }}
       >
-        <Album />
+        <AutoModeRounded />
       </IconButton>
     </Tooltip>
   );
