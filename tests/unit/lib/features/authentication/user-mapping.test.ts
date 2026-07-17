@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+
+vi.mock("server-only", () => ({}));
 import { Authorization } from "@/lib/features/admin/types";
 
 const mockCookies = vi.fn();
