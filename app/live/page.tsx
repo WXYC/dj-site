@@ -1,6 +1,10 @@
 import WXYCPage from "@/src/Layout/WXYCPage";
 import SSESubscription from "@/src/components/shared/SSESubscription";
 import NowPlaying from "@/src/widgets/NowPlaying";
+import {
+  fetchNowPlayingSeed,
+  fetchWhoIsLiveSeed,
+} from "@/lib/features/flowsheet/server";
 import { Box, Card } from "@mui/joy";
 import { Metadata } from "next";
 import { getPageTitle } from "@/lib/utils/page-title";
@@ -9,7 +13,12 @@ export const metadata: Metadata = {
   title: getPageTitle("Listen Live"),
 };
 
-export default function LivePage() {
+export default async function LivePage() {
+  const [initialEntry, initialOnAirData] = await Promise.all([
+    fetchNowPlayingSeed(),
+    fetchWhoIsLiveSeed(),
+  ]);
+
   return (
     <WXYCPage>
       <SSESubscription surface="live" />
@@ -28,7 +37,11 @@ export default function LivePage() {
           alignItems: "center",
         }}
       >
-        <NowPlaying mini={false} />
+        <NowPlaying
+          mini={false}
+          initialEntry={initialEntry}
+          initialOnAirData={initialOnAirData}
+        />
       </Box>
     </WXYCPage>
   );

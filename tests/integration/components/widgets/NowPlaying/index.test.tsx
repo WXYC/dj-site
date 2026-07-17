@@ -558,6 +558,86 @@ describe("NowPlaying", () => {
     });
   });
 
+  describe("server-seeded initial data", () => {
+    const seededEntry: FlowsheetSongEntry = {
+      id: 99,
+      play_order: 5,
+      show_id: 3,
+      track_title: "Seeded Track",
+      artist_name: "Seeded Artist",
+      album_title: "Seeded Album",
+      record_label: "Seeded Label",
+      request_flag: false,
+      segue: false,
+    };
+
+    const seededOnAir: OnAirDJData = {
+      onAir: "DJ Seed",
+      djs: [{ id: "7", dj_name: "DJ Seed" }],
+    };
+
+    it("renders the seeded entry before the client query resolves", () => {
+      render(<NowPlaying mini={false} initialEntry={seededEntry} />);
+      const main = screen.getByTestId("now-playing-main");
+      expect(main).toHaveAttribute("data-has-entry", "true");
+      expect(main).toHaveAttribute("data-entry-id", "99");
+    });
+
+    it("lets a resolved client entry take over from the seed", () => {
+      mockUseGetNowPlayingQuery.mockReturnValue({
+        data: mockSongEntry,
+        isLoading: false,
+        isError: false,
+      });
+      render(<NowPlaying mini={false} initialEntry={seededEntry} />);
+      expect(screen.getByTestId("now-playing-main")).toHaveAttribute(
+        "data-entry-id",
+        "1"
+      );
+    });
+
+    it("does not resurrect the seed once the client query resolves to nothing playing", () => {
+      // null is the resolved "nothing playing" value and must own the slot; the
+      // seed only fills the undefined pre-resolution gap.
+      mockUseGetNowPlayingQuery.mockReturnValue({
+        data: null,
+        isLoading: false,
+        isError: false,
+      });
+      render(<NowPlaying mini={false} initialEntry={seededEntry} />);
+      expect(screen.getByTestId("now-playing-main")).toHaveAttribute(
+        "data-has-entry",
+        "false"
+      );
+    });
+
+    it("seeds the on-air DJ with no spinner on first paint", () => {
+      mockUseWhoIsLiveQuery.mockReturnValue({
+        data: undefined,
+        isLoading: true,
+        isError: false,
+      });
+      render(<NowPlaying mini={false} initialOnAirData={seededOnAir} />);
+      const main = screen.getByTestId("now-playing-main");
+      expect(main).toHaveAttribute("data-live", "true");
+      expect(main).toHaveAttribute("data-on-air-dj", "DJ Seed");
+      expect(main).toHaveAttribute("data-loading", "false");
+    });
+
+    it("keeps the loading spinner when no seed exists and the query is loading", () => {
+      mockUseWhoIsLiveQuery.mockReturnValue({
+        data: undefined,
+        isLoading: true,
+        isError: false,
+      });
+      render(<NowPlaying mini={false} />);
+      expect(screen.getByTestId("now-playing-main")).toHaveAttribute(
+        "data-loading",
+        "true"
+      );
+    });
+  });
+
   describe("mini vs main switching", () => {
     it("should pass different props to mini vs main", () => {
       mockUseWhoIsLiveQuery.mockReturnValue({

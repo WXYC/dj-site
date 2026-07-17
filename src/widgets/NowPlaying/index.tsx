@@ -4,6 +4,10 @@ import {
   useGetNowPlayingQuery,
   useWhoIsLiveQuery,
 } from "@/lib/features/flowsheet/api";
+import {
+  FlowsheetEntry,
+  OnAirDJData,
+} from "@/lib/features/flowsheet/types";
 import { useEffect, useRef, useState } from "react";
 import { useFlowsheetPollingInterval } from "@/src/hooks/useSSEConnection";
 import NowPlayingMain from "./Main";
@@ -11,6 +15,11 @@ import NowPlayingMini from "./Mini";
 
 export type NowPlayingWidgetProps = {
   mini: boolean;
+  // Server-rendered seeds for the public /live page so first paint shows the
+  // on-air DJ and now-playing track instead of a spinner. Omitted elsewhere
+  // (e.g. the Rightbar), where the widget keeps its client-fetched behavior.
+  initialEntry?: FlowsheetEntry | null;
+  initialOnAirData?: OnAirDJData;
 };
 
 const AUDIO_SRC = "https://audio-mp3.ibiblio.org/wxyc.mp3";
@@ -31,7 +40,11 @@ type NowPlayingAudioGraph = {
 };
 const audioGraphCache = new WeakMap<HTMLMediaElement, NowPlayingAudioGraph>();
 
-export default function NowPlaying({ mini = false }: NowPlayingWidgetProps) {
+export default function NowPlaying({
+  mini = false,
+  initialEntry,
+  initialOnAirData,
+}: NowPlayingWidgetProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
 
   // AudioContext / AnalyserNode live in state (not refs) so the children
@@ -44,25 +57,33 @@ export default function NowPlaying({ mini = false }: NowPlayingWidgetProps) {
   const [isPlaying, setIsPlaying] = useState(false);
 
   const {
-    data: djsOnAirData,
-    isLoading: djLoading,
+    data: whoIsLiveData,
+    isLoading: whoIsLiveLoading,
     isError: djError,
   } = useWhoIsLiveQuery();
 
-  const onAirDJ = djsOnAirData?.onAir;
+  // The client query owns this value once it resolves; before then fall back to
+  // the server seed so the public page renders the on-air state on first paint.
+  const onAirData = whoIsLiveData ?? initialOnAirData;
+  const onAirDJ = onAirData?.onAir;
   const live = onAirDJ !== undefined && onAirDJ !== "Off Air" && !djError;
+  // Show today's spinner only while the query is loading AND no seed is present;
+  // with a seed there is already content to render.
+  const djLoading = whoIsLiveLoading && onAirData === undefined;
 
   const nowPlayingPollingInterval = useFlowsheetPollingInterval();
 
-  const {
-    data: latestEntry,
-    isLoading: latestEntryLoading,
-    isError: latestEntryError,
-  } = useGetNowPlayingQuery(undefined, {
+  const { data: nowPlayingData } = useGetNowPlayingQuery(undefined, {
     pollingInterval: nowPlayingPollingInterval,
     // Don't keep hitting the backend on a hidden/blurred tab. (#634)
     skipPollingIfUnfocused: true,
   });
+
+  // `data` is undefined only until the first client fetch resolves; once it
+  // does (even to null = nothing playing) it owns the value. Seed from the
+  // server-provided entry until then.
+  const latestEntry =
+    nowPlayingData !== undefined ? nowPlayingData : initialEntry;
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -172,7 +193,7 @@ export default function NowPlaying({ mini = false }: NowPlayingWidgetProps) {
         <NowPlayingMini
           entry={latestEntry ?? undefined}
           live={live}
-          onAirDJs={djsOnAirData?.djs}
+          onAirDJs={onAirData?.djs}
           audioRef={audioRef}
           isPlaying={isPlaying}
           onTogglePlay={onTogglePlay}
