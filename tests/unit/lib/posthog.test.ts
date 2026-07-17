@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-// posthog-js is now loaded via a deferred dynamic import (#972). Hoisted so the
+// posthog-js is now loaded via a deferred dynamic import. Hoisted so the
 // mock SDK is available for assertions; the rejection test overrides this with
 // vi.doMock to make the dynamic import fail.
 const control = vi.hoisted(() => ({
@@ -191,7 +191,7 @@ describe("safe capture contract", () => {
   });
 });
 
-describe("pre-load buffer (#972 review)", () => {
+describe("pre-load buffer", () => {
   const originalEnv = { ...process.env };
 
   beforeEach(() => {

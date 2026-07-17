@@ -2,7 +2,7 @@ import type { Instrumentation } from "next";
 import { safeCaptureException } from "@/lib/posthog";
 
 /**
- * Single server-observability entry point (#960).
+ * Single server-observability entry point.
  *
  * No server-side PostHog node client is warranted yet: telemetry is an
  * optional adapter (CLAUDE.md) and PostHog is browser-only here, so `register`
@@ -26,7 +26,7 @@ export function register(): void {}
  *     this handler never needs to demote them.
  *
  * `safeCaptureException` no-ops server-side (posthog-js is loaded via a
- * browser-only dynamic import, #972) — the fail-open contract holds; the tags
+ * browser-only dynamic import) — the fail-open contract holds; the tags
  * below are carried on the event for wherever a server sink is later attached.
  */
 export const onRequestError: Instrumentation.onRequestError = (

@@ -3,7 +3,7 @@ import { safeCapture } from "./posthog";
 /**
  * Forwards Core Web Vitals (LCP/CLS/INP/FCP/TTFB) to PostHog through the same
  * fail-open `safeCapture` wrapper used for `$pageview` and `csp_violation`
- * (#961), so it inherits the optional-service contract and needs no new
+ * so it inherits the optional-service contract and needs no new
  * adapter. Passed to `useReportWebVitals` from TelemetryProvider.
  */
 
