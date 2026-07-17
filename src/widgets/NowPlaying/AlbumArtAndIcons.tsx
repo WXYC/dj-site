@@ -8,6 +8,7 @@ import {
 } from "@/lib/features/flowsheet/types";
 import { Headphones, Logout, Mic, Timer } from "@mui/icons-material";
 import { AspectRatio, Box } from "@mui/joy";
+import Image from "next/image";
 import { ENTRY_TONES } from "@/lib/features/experiences/modern/tokens/roles";
 
 const DEFAULT_ARTWORK_URL = "/img/cassette.png";
@@ -26,32 +27,29 @@ export default function AlbumArtAndIcons({
   entry: FlowsheetEntry | undefined;
 }) {
   if (!entry) {
-    return (
-      <ImageWrapper>
-        <img
-          src={DEFAULT_ARTWORK_URL}
-          srcSet={DEFAULT_ARTWORK_URL}
-          loading="lazy"
-          alt=""
-          style={{ width: "100%", objectPosition: "center" }}
-        />
-      </ImageWrapper>
-    );
+    return <DefaultArtwork />;
   }
 
   if (isFlowsheetSongEntry(entry)) {
-    const artworkUrl = entry.artwork_url ?? DEFAULT_ARTWORK_URL;
-    return (
-      <ImageWrapper>
-        <img
-          src={artworkUrl}
-          srcSet={artworkUrl}
-          loading="lazy"
-          alt=""
-          style={{ width: "100%", objectPosition: "center" }}
-        />
-      </ImageWrapper>
-    );
+    // entry.artwork_url, when present, is resolved from a third-party host at
+    // runtime (see the img-src CSP comment in next.config.mjs) — next/image
+    // needs a build-time-known remote pattern, so only the local
+    // DEFAULT_ARTWORK_URL fallback below converts; a live artwork_url keeps
+    // the plain <img>.
+    if (entry.artwork_url) {
+      return (
+        <ImageWrapper>
+          <img
+            src={entry.artwork_url}
+            srcSet={entry.artwork_url}
+            loading="lazy"
+            alt=""
+            style={{ width: "100%", objectPosition: "center" }}
+          />
+        </ImageWrapper>
+      );
+    }
+    return <DefaultArtwork />;
   }
 
   if (isFlowsheetBreakpointEntry(entry)) {
@@ -86,17 +84,19 @@ export default function AlbumArtAndIcons({
     );
   }
 
-  return (
-    <ImageWrapper>
-      <img
-        src={DEFAULT_ARTWORK_URL}
-        srcSet={DEFAULT_ARTWORK_URL}
-        loading="lazy"
-        alt=""
-      />
-    </ImageWrapper>
-  );
+  return <DefaultArtwork />;
 }
+
+// AspectRatio clones its first child with `data-first-child`, which its own
+// styles target for the fill/cover sizing (see @mui/joy AspectRatio.js) —
+// `Image fill` becomes that first child directly, no extra wrapper needed.
+// unoptimized: see next.config.mjs images.unoptimized comment; `sizes` is
+// moot alongside it (the optimizer's width negotiation never runs).
+const DefaultArtwork = () => (
+  <ImageWrapper>
+    <Image src={DEFAULT_ARTWORK_URL} alt="" fill unoptimized />
+  </ImageWrapper>
+);
 
 const BoxWrapper = ({
   children

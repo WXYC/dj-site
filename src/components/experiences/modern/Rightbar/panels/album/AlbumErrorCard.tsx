@@ -11,6 +11,7 @@ import {
   Stack,
   Typography,
 } from "@mui/joy";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -27,7 +28,8 @@ export default function AlbumErrorCard() {
     >
       <CardOverflow>
         <AspectRatio ratio="4">
-          <img src="/img/wxyc_dark.jpg" />
+          {/* unoptimized: see next.config.mjs images.unoptimized comment */}
+          <Image src="/img/wxyc_dark.jpg" alt="" fill unoptimized priority />
         </AspectRatio>
         <ModalClose variant="solid" />;
       </CardOverflow>
