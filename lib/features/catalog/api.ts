@@ -3,6 +3,7 @@ import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import type { RootState } from "@/lib/store";
 import type { LibraryFilingRequest, LibraryFilingResponse } from "@wxyc/shared";
 import { hasLinkedAlbumId } from "../flowsheet/linkage";
+import { revalidateGenres } from "./actions";
 import { backendBaseQuery } from "../backend";
 import { rotationApi } from "../rotation/api";
 import {
@@ -846,6 +847,16 @@ export const catalogApi = createApi({
         body,
       }),
       invalidatesTags: [{ type: "GenreList", id: "LIST" }],
+      // Expire the server-cached genre seed (getCachedGenres, tagged "genres")
+      // once the write lands, so a newly added genre reaches the next render's
+      // seed rather than waiting out the accessor's cacheLife window.
+      async onQueryStarted(_arg, { queryFulfilled }) {
+        try {
+          await queryFulfilled;
+          await revalidateGenres();
+        } catch {
+        }
+      },
     }),
   }),
 });
