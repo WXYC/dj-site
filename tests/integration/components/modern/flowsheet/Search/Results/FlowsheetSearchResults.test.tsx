@@ -189,6 +189,7 @@ describe("FlowsheetSearchResults", () => {
           query: flowsheetSlice.getInitialState().search.query,
           selectedResult: 1,
           confirmedArtist: "",
+          resetEpoch: 0,
         },
       });
       const unlinkedRotationResult: AlbumEntry[] = [
@@ -218,6 +219,7 @@ describe("FlowsheetSearchResults", () => {
           query: flowsheetSlice.getInitialState().search.query,
           selectedResult: 1,
           confirmedArtist: "",
+          resetEpoch: 0,
         },
       });
       const linkedResult: AlbumEntry[] = [
@@ -254,6 +256,7 @@ describe("FlowsheetSearchResults", () => {
         },
         selectedResult: 1,
         confirmedArtist: "",
+        resetEpoch: 0,
       },
     });
     const linkedResult: AlbumEntry[] = [
