@@ -36,8 +36,7 @@ export const Filters = ({
   // the client query owns the value (mirrors the NowPlaying seed pattern). Only
   // show the loading affordance when neither a seed nor client data is present.
   const seededGenres = genres ?? initialGenres;
-  const genresPending =
-    genresLoading && genres === undefined && initialGenres === undefined;
+  const genresPending = genresLoading && initialGenres === undefined;
 
   return (
     <Box

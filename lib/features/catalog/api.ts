@@ -60,7 +60,7 @@ function transformLibraryQueryResponse(
 export const catalogApi = createApi({
   reducerPath: "catalogApi",
   baseQuery: backendBaseQuery("library"),
-  tagTypes: ["Rotation", "AlbumDetail", "CatalogList", "ArtistSearch"],
+  tagTypes: ["Rotation", "AlbumDetail", "CatalogList", "ArtistSearch", "Genres"],
   endpoints: (builder) => ({
     searchCatalog: builder.query<AlbumEntry[], SearchCatalogQueryParams>({
       query: ({ artist_name, album_title, n, on_streaming }) => ({
@@ -244,6 +244,7 @@ export const catalogApi = createApi({
       query: () => ({
         url: "/genres",
       }),
+      providesTags: [{ type: "Genres", id: "LIST" }],
     }),
     addGenre: builder.mutation<LibraryGenreRow, AddGenreRequestBody>({
       query: (body) => ({
@@ -251,10 +252,13 @@ export const catalogApi = createApi({
         method: "POST",
         body,
       }),
-      // Expire the server-cached genre seed (getCachedGenres, tagged "genres")
-      // once the write lands. No UI dispatches this mutation yet; the hook is
-      // wired for the first adopter. See revalidateGenres for why this is inert
-      // until the OpenNext tag-cache adapter replaces the dummy tag cache.
+      // Client-side: refetch the in-session genre list so an add is reflected
+      // without a reload. No UI dispatches this mutation yet; the tag is wired
+      // for the first adopter.
+      invalidatesTags: [{ type: "Genres", id: "LIST" }],
+      // Server-side: expire the server-cached genre seed (getCachedGenres,
+      // tagged "genres"). Inert until the OpenNext tag-cache adapter replaces
+      // the no-op tag cache; see revalidateGenres.
       async onQueryStarted(_arg, { queryFulfilled }) {
         try {
           await queryFulfilled;
