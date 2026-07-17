@@ -26,7 +26,7 @@ const greetingsAndArtists: WelcomeQuote[] = [
 ];
 
 // Pick in the nearest Server Component ancestor so the chosen quote is in the
-// initial HTML and identical on hydration — #975.
+// initial HTML and identical on hydration.
 export function pickWelcomeQuote(): WelcomeQuote {
   return greetingsAndArtists[
     Math.floor(Math.random() * greetingsAndArtists.length)
