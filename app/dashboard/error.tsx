@@ -10,8 +10,9 @@ import { safeCaptureException } from "@/lib/posthog";
 // @modern slots; @modern has its own error.tsx (app/dashboard/@modern/error.tsx)
 // so page errors there keep the Leftbar/Rightbar chrome mounted, since that
 // chrome lives in @modern's own layout.tsx, not in `children`. @classic has
-// no equivalent chrome-rendering layout, so this outer boundary is what
-// actually catches its page errors without clearing the root <html> shell.
+// no chrome-preserving layout (its chrome is co-located in each page and is
+// torn down with it), so this outer boundary is what catches its page errors
+// without clearing the root <html> shell.
 export default function DashboardError({
   error,
   reset,
