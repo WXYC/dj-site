@@ -40,12 +40,7 @@ export default function FlowsheetBackendResult({
         setSelected(index);
         if (entry.id) prefetchTracks(entry.id);
       }}
-      // Clicking a result AUTOFILLS the entry fields — it must never submit
-      // (#937). mousedown + preventDefault keeps focus in the inputs (no blur
-      // flicker, and the ClickAwayListener never sees a click-away).
-      // freezeSelectionToQuery copies the row's fields + linkage ids into the
-      // live query and clears track_position (#704); submission then rides the
-      // frozen query.album_id through convertQueryToSubmission's #701 gate.
+      // Autofill, never submit; prevented mousedown keeps input focus
       onMouseDown={(e) => {
         e.preventDefault();
         dispatch(

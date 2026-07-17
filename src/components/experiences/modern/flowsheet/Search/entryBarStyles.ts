@@ -7,7 +7,7 @@ import type { Modifier } from "@popperjs/core";
 
 /**
  * Wrap a transition-bearing sx fragment so it collapses under
- * prefers-reduced-motion. Lifted from the parked #830 redesign.
+ * prefers-reduced-motion. Lifted from the parked entry-redesign branch.
  */
 export const withReducedMotion = (sx: Record<string, unknown>) => ({
   ...sx,
@@ -47,7 +47,7 @@ export function entryBarActiveBorder(
 
 /**
  * Popper modifier: size the results panel to the shell's width so the two
- * edges are flush. Lifted from the parked #830 redesign.
+ * edges are flush. Lifted from the parked entry-redesign branch.
  */
 export const sameWidth: Modifier<"sameWidth", object> = {
   name: "sameWidth",

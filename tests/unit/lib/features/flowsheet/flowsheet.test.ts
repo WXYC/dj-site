@@ -123,6 +123,13 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
       expect(result.search.query.track_position).toBeUndefined();
     });
 
+    it("resetSearch increments resetEpoch", () => {
+      const once = harness().reduce(actions.resetSearch());
+      expect(once.search.resetEpoch).toBe(1);
+      const twice = harness().reduce(actions.resetSearch(), once);
+      expect(twice.search.resetEpoch).toBe(2);
+    });
+
     // Arrow-key navigation between search results moves to a different
     // album_id (each result is a distinct release). track_position picked on
     // the previous result would orphan onto the new release if not cleared.
@@ -190,10 +197,9 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
         expect(result.search.query.album_id).toBeUndefined();
       });
 
-      // #937 made freeze the click-to-autofill path, so this reducer is now
-      // the direct guard for #704: a click onto a different release must drop
-      // any track_position picked against the previous one.
-      it("clears a previously picked track_position (#704)", () => {
+      // Freeze is the click-to-autofill path: a click onto a different
+      // release must drop any track_position picked against the previous one.
+      it("clears a previously picked track_position", () => {
         const seeded = harness().reduce(actions.setTrackPosition("A1"));
         expect(seeded.search.query.track_position).toBe("A1");
 

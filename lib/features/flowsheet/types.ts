@@ -19,6 +19,8 @@ export type FlowsheetFrontendState = {
     query: FlowsheetQuery;
     selectedResult: number;
     confirmedArtist: string;
+    // Bumped by every resetSearch; remount key for reset-sensitive local state
+    resetEpoch: number;
   };
   queue: FlowsheetSongEntry[];
   queueIdCounter: number;

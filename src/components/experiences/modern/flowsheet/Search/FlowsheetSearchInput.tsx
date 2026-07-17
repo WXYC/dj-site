@@ -66,8 +66,6 @@ export default function FlowsheetSearchInput({
 
   return (
     <div
-      // entry-field-cell: the searchbar's field grid draws a left rule on
-      // each field cell (interior column borders of the header row).
       className="entry-field-cell"
       style={{
         position: "relative",

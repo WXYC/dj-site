@@ -258,8 +258,8 @@ describe("FlowsheetSearchbar", () => {
     expect(screen.queryByTestId("search-icon")).not.toBeInTheDocument();
   });
 
-  // #936/#939: the queue affordance is a dedicated, always-visible button
-  // once the DJ has typed — never gated behind a held Ctrl.
+  // The queue affordance is a dedicated button once the DJ has typed — never
+  // gated behind a held Ctrl (which is right-click on the control room Mac).
   it("should show the queue button once the query has content, without Ctrl", () => {
     mockLive = true;
     mockCtrlKeyPressed = false;
@@ -304,6 +304,26 @@ describe("FlowsheetSearchbar", () => {
     expect(
       screen.queryByTestId("flowsheet-search-clear")
     ).not.toBeInTheDocument();
+  });
+
+  // Rotation picks live in local component state the query-length signal
+  // can't see, so rotation mode always offers Clear.
+  it("should show the clear button in rotation mode even with an empty query", () => {
+    mockLive = true;
+    const initial = flowsheetSlice.getInitialState();
+    const store = createTestStore({
+      flowsheet: { ...initial, rotationMode: true },
+    });
+
+    render(
+      <Provider store={store}>
+        <FlowsheetSearchbar />
+      </Provider>
+    );
+
+    const clearButton = screen.getByTestId("flowsheet-search-clear");
+    fireEvent.click(clearButton);
+    expect(mockResetSearch).toHaveBeenCalled();
   });
 
   it("should not show the queue button while the search is closed", () => {

@@ -610,7 +610,7 @@ export const useFlowsheetSubmit = () => {
   const isRotationPick =
     selectedEntry !== null && rotationResults.includes(selectedEntry);
 
-  // Explicit queue path for the dedicated queue button (#936) — same guard
+  // Explicit queue path for the dedicated queue button — same guard
   // and reset as the Ctrl+Enter branch of handleSubmit, minus the modifier.
   const submitToQueue = useCallback(() => {
     if (!(selectedResultData.song ?? "").trim()) {
