@@ -1,12 +1,15 @@
 "use client";
 
+import type { LibraryGenreRow } from "@/lib/features/catalog/types";
 import { Box, ColorPaletteProp } from "@mui/joy";
 import QueryBuilder from "./QueryBuilder";
 
 export default function SearchBar({
   color,
+  initialGenres,
 }: {
   color: ColorPaletteProp | undefined;
+  initialGenres?: LibraryGenreRow[];
 }) {
   return (
     <Box
@@ -22,7 +25,7 @@ export default function SearchBar({
         minWidth: 0,
       }}
     >
-      <QueryBuilder color={color} />
+      <QueryBuilder color={color} initialGenres={initialGenres} />
     </Box>
   );
 }

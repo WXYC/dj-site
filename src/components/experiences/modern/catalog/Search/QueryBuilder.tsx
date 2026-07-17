@@ -1,6 +1,10 @@
 "use client";
 
-import type { CatalogSearchField, CatalogSearchRow } from "@/lib/features/catalog/types";
+import type {
+  CatalogSearchField,
+  CatalogSearchRow,
+  LibraryGenreRow,
+} from "@/lib/features/catalog/types";
 import { useCatalogQuerySearch } from "@/src/hooks/catalogHooks";
 import { Add, Cancel, Remove, Troubleshoot } from "@mui/icons-material";
 import {
@@ -255,9 +259,13 @@ function CatalogSearchRowSegment({
 
 export type QueryBuilderProps = {
   color?: ColorPaletteProp;
+  initialGenres?: LibraryGenreRow[];
 };
 
-export default function QueryBuilder({ color = "primary" }: QueryBuilderProps) {
+export default function QueryBuilder({
+  color = "primary",
+  initialGenres,
+}: QueryBuilderProps) {
   const { rows, addRow, removeRow, updateRow } = useCatalogQuerySearch();
 
   const multiRow = rows.length > 1;
@@ -297,7 +305,7 @@ export default function QueryBuilder({ color = "primary" }: QueryBuilderProps) {
         </Box>
         <Divider sx={{ my: 0.25 }} />
         <Box sx={catalogSearchFiltersGutterSx}>
-          <Filters />
+          <Filters initialGenres={initialGenres} />
         </Box>
       </Sheet>
     </Box>
