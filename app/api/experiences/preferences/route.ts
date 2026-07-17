@@ -3,10 +3,16 @@ import { parseAppSkinPreference, toAppSkinPreference, isColorMode } from "@/lib/
 import { resolveModernThemeId } from "@/lib/features/experiences/modern/themes/registry";
 import { isExperienceId } from "@/lib/features/experiences/types";
 import { sessionOptions } from "@/lib/features/session";
+import { guardAppStateMutation } from "@/lib/features/session-guards";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
+  const guardResponse = await guardAppStateMutation(request);
+  if (guardResponse) {
+    return guardResponse;
+  }
+
   const cookieStore = await cookies();
   const body = await request.json();
 

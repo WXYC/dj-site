@@ -38,7 +38,8 @@ function forbidden(): NextResponse {
 
 /**
  * Guard for POST routes that mutate the `app_state` cookie
- * (`/api/experiences/switch`, `/api/view/rightbar`).
+ * (`/api/experiences/switch`, `/api/experiences/preferences`,
+ * `/api/view/rightbar`).
  *
  * The session cookie is `sameSite: "lax"` (see `sessionOptions`), which lets a
  * third-party page drive a top-level cross-origin POST, so we reject any request
