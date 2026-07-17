@@ -7,7 +7,7 @@ vi.mock("sonner", () => ({
   },
 }));
 
-import { rtkQueryErrorLogger } from "@/lib/store";
+import { rtkQueryErrorLogger } from "@/lib/rtk-query-error-logger";
 import { toast } from "sonner";
 
 function createRejectedAction(payload: unknown) {
