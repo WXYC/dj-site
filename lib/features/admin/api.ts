@@ -108,17 +108,25 @@ export const adminApi = createApi({
     }),
     provisionUser: builder.mutation<ProvisionUserResult, ProvisionUserArgs>({
       queryFn: async (args) => {
-        const { ok, status, data } = await authFetch<
-          ProvisionUserResult & { message?: string; error?: string }
-        >("/admin/provision-user", { method: "POST", json: args });
+        try {
+          const { ok, status, data } = await authFetch<
+            ProvisionUserResult & { message?: string; error?: string }
+          >("/admin/provision-user", { method: "POST", json: args });
 
-        if (!ok) {
+          if (!ok) {
+            return {
+              error: { message: authErrorMessage(data, `Failed to create user (${status})`) },
+            };
+          }
+
+          return { data: { emailSent: data?.emailSent, emailError: data?.emailError } };
+        } catch (err) {
           return {
-            error: { message: authErrorMessage(data, `Failed to create user (${status})`) },
+            error: {
+              message: err instanceof Error ? err.message : "Failed to create user",
+            },
           };
         }
-
-        return { data: { emailSent: data?.emailSent, emailError: data?.emailError } };
       },
     }),
   }),

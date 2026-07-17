@@ -21,7 +21,7 @@ async function fetchAuthJwtToken(cookieHeader?: string): Promise<string | null> 
 // Re-export client-safe functions for convenience
 export { getAppOrganizationId, getAppOrganizationIdClient } from "./organization-utils";
 
-async function resolveOrganizationId(
+export async function resolveOrganizationId(
   organizationSlugOrId: string,
   cookieHeader?: string
 ): Promise<string | undefined> {
@@ -52,6 +52,13 @@ async function resolveOrganizationId(
 
     if (data?.id) {
       return data.id;
+    }
+
+    if (data === null) {
+      // An ok response whose body didn't parse is a failure, not "no org by
+      // this slug" — falling through would hand the slug back as a UUID.
+      console.error("Unparseable organization resolution response:", { status });
+      return undefined;
     }
 
     // No organization found by slug: assume the input is already an ID.
