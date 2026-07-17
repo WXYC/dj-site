@@ -4,6 +4,27 @@ import { server } from "@/tests/fakes/server";
 
 vi.mock("server-only", () => ({}));
 
+// A faithful stand-in for the shared authFetch plumbing that still routes
+// through the global fetch these tests stub / intercept, at the same URL the
+// real gateway would build.
+async function mockAuthFetch(path: string, init: any = {}) {
+  const { json, ...rest } = init;
+  const response = await fetch(`https://api.wxyc.org/auth${path}`, {
+    credentials: "include",
+    ...rest,
+    ...(json !== undefined
+      ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(json) }
+      : {}),
+  });
+  let data: unknown = null;
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
+  return { ok: response.ok, status: response.status, data };
+}
+
 // Mock server auth client
 const mockListMembers = vi.fn();
 vi.mock("@/lib/features/authentication/server-client", () => ({
@@ -13,6 +34,7 @@ vi.mock("@/lib/features/authentication/server-client", () => ({
     },
   },
   getServerAuthBaseURL: () => "https://api.wxyc.org/auth",
+  serverAuthFetch: (path: string, init: any) => mockAuthFetch(path, init),
 }));
 
 // Mock auth client (client-side)
@@ -27,6 +49,7 @@ vi.mock("@/lib/features/authentication/client", () => ({
     },
   },
   authBaseURL: "https://api.wxyc.org/auth",
+  authFetch: (path: string, init: any) => mockAuthFetch(path, init),
   getJWTToken: () => mockGetJWTToken(),
 }));
 

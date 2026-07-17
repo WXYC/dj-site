@@ -3,6 +3,7 @@
 import { createAuthClient } from "better-auth/react"
 import { adminClient, emailOTPClient, usernameClient, jwtClient, organizationClient } from "better-auth/client/plugins"
 import { isValidEmail } from "@wxyc/shared/validation"
+import { authErrorMessage, authFetchWithBase, type AuthFetchInit, type AuthResult } from "./auth-fetch"
 
 function getBaseURL(): string {
   // Client-side: prefer same-origin proxy to ensure session cookies are set
@@ -32,6 +33,18 @@ function getBaseURL(): string {
 const baseURL = getBaseURL();
 export { baseURL as authBaseURL };
 
+/**
+ * Typed gateway for browser-side auth-service requests. Resolves the path
+ * against the auth base URL and sends the session cookie by default (the
+ * same-origin proxy relies on it); a caller can override `credentials`.
+ */
+export function authFetch<T = unknown>(
+  path: string,
+  init: AuthFetchInit = {},
+): Promise<AuthResult<T>> {
+  return authFetchWithBase<T>(baseURL, path, { credentials: "include", ...init });
+}
+
 const baseConfig = {
     baseURL,
     fetchOptions: {
@@ -55,17 +68,15 @@ const TOKEN_CACHE_MS = 4 * 60 * 1000;
 
 async function fetchJWTToken(): Promise<string | null> {
   try {
-    const response = await fetch(`${baseURL}/token`, {
+    const { ok, data } = await authFetch<{ token?: string | null }>("/token", {
       method: "GET",
-      credentials: "include",
     });
 
-    if (!response.ok) {
+    if (!ok) {
       return null;
     }
 
-    const data = await response.json();
-    return data.token || null;
+    return data?.token || null;
   } catch (error) {
     console.error("Failed to get JWT token:", error);
     return null;
@@ -112,18 +123,18 @@ export async function lookupEmailByIdentifier(identifier: string): Promise<strin
     return identifier;
   }
 
-  const response = await fetch(`${baseURL}/wxyc/lookup-email`, {
+  // Unauthenticated public lookup: no session cookie is sent.
+  const { ok, data } = await authFetch<{ email?: string | null }>("/wxyc/lookup-email", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ identifier }),
+    credentials: "same-origin",
+    json: { identifier },
   });
 
-  if (!response.ok) {
+  if (!ok) {
     return null;
   }
 
-  const data = (await response.json()) as { email?: string | null };
-  return data.email ?? null;
+  return data?.email ?? null;
 }
 
 export type CompleteOnboardingRequest = {
@@ -151,26 +162,16 @@ type CompleteOnboardingErrorPayload = {
 export async function completeOnboarding(
   body: CompleteOnboardingRequest
 ): Promise<CompleteOnboardingResponse> {
-  const response = await fetch(`${baseURL}/wxyc/complete-onboarding`, {
+  const { ok, data } = await authFetch<
+    CompleteOnboardingResponse | CompleteOnboardingErrorPayload
+  >("/wxyc/complete-onboarding", {
     method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    json: body,
   });
 
-  const payload = (await response.json().catch(() => null)) as
-    | CompleteOnboardingResponse
-    | CompleteOnboardingErrorPayload
-    | null;
-
-  if (!response.ok) {
-    const errorPayload = payload as CompleteOnboardingErrorPayload | null;
-    const message =
-      errorPayload?.error ||
-      errorPayload?.message ||
-      "Failed to complete onboarding";
-    throw new Error(message);
+  if (!ok) {
+    throw new Error(authErrorMessage(data, "Failed to complete onboarding"));
   }
 
-  return payload as CompleteOnboardingResponse;
+  return data as CompleteOnboardingResponse;
 }
