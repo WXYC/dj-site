@@ -25,7 +25,7 @@ vi.mock("next/link", () => ({
 
 // Mock MUI icons
 vi.mock("@mui/icons-material", () => ({
-  Podcasts: () => <span data-testid="podcasts-icon" />,
+  CellTower: () => <span data-testid="celltower-icon" />,
 }));
 
 describe("FlowsheetLink", () => {
@@ -40,10 +40,10 @@ describe("FlowsheetLink", () => {
     expect(link).toHaveAttribute("href", "/dashboard/flowsheet");
   });
 
-  it("should render podcasts icon", () => {
+  it("should render celltower icon", () => {
     render(<FlowsheetLink />);
 
-    expect(screen.getByTestId("podcasts-icon")).toBeInTheDocument();
+    expect(screen.getByTestId("celltower-icon")).toBeInTheDocument();
   });
 
   it("should show 'Flowsheet' title when not live", () => {
