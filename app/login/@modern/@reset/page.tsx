@@ -1,25 +1,26 @@
 import { PasswordResetUser } from "@/lib/features/authentication/types";
-import { getPageTitle } from "@/lib/utils/page-title";
 import AuthBackButton from "@/src/components/experiences/modern/login/Forms/AuthBackButton";
 import PasswordResetForms from "@/src/components/experiences/modern/login/Forms/PasswordResetForms";
 import ForgotQuotes, {
   pickForgotQuote,
 } from "@/src/components/experiences/modern/login/Quotes/Forgot";
 import { Alert } from "@mui/joy";
-import { Metadata } from "next";
+import { firstSearchParam } from "@/lib/utils/search-params";
 
-export const metadata: Metadata = {
-  title: getPageTitle("Reset Password"),
-};
+// No metadata export: parallel-slot metadata resolves statically per pathname,
+// so a title here bleeds into plain /login (verified on a preview deploy) —
+// the layout's "Login" title stands for every view of this path.
 
 type PasswordResetPageProps = {
-  searchParams: Promise<{ token?: string; error?: string }>;
+  searchParams: Promise<{ token?: string | string[]; error?: string | string[] }>;
 };
 
 export default async function PasswordResetPage({
   searchParams,
 }: PasswordResetPageProps) {
-  const { token, error } = await searchParams;
+  const params = await searchParams;
+  const token = firstSearchParam(params.token);
+  const error = firstSearchParam(params.error);
 
   const confirmationMessage = error
     ? "This reset link is invalid or expired. Please request a new one."
