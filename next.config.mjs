@@ -159,6 +159,10 @@ const nextConfig = {
     // optimizePackageImports list; @mui/joy (this app's primary UI kit) is not,
     // so it must be listed explicitly.
     optimizePackageImports: ["@mui/joy"],
+    // Enables the `"use cache"` directive (getCachedGenres) WITHOUT the full
+    // `cacheComponents` PPR strict mode, which would force Suspense/`"use cache"`
+    // on every dynamic data access across the app. Scoped-pilot flag only.
+    useCache: true,
   },
   // Explicitly set workspace root to silence lockfile warning
   outputFileTracingRoot: import.meta.dirname,

@@ -1,5 +1,6 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import type { RootState } from "@/lib/store";
+import { revalidateGenres } from "./actions";
 import { backendBaseQuery } from "../backend";
 import { CATALOG_QUERY_PAGE_LIMIT } from "./constants";
 import { convertToAlbumEntry } from "./conversions";
@@ -250,6 +251,17 @@ export const catalogApi = createApi({
         method: "POST",
         body,
       }),
+      // Expire the server-cached genre seed (getCachedGenres, tagged "genres")
+      // once the write lands. No UI dispatches this mutation yet; the hook is
+      // wired for the first adopter. See revalidateGenres for why this is inert
+      // until the OpenNext tag-cache adapter replaces the dummy tag cache.
+      async onQueryStarted(_arg, { queryFulfilled }) {
+        try {
+          await queryFulfilled;
+          await revalidateGenres();
+        } catch {
+        }
+      },
     }),
   }),
 });
