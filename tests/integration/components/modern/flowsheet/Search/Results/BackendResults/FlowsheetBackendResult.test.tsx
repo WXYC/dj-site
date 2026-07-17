@@ -23,15 +23,12 @@ vi.mock("@/lib/features/flowsheet/frontend", () => ({
         type: "setSelectedResult",
         payload: index,
       })),
+      freezeSelectionToQuery: vi.fn((payload) => ({
+        type: "freezeSelectionToQuery",
+        payload,
+      })),
     },
   },
-}));
-
-vi.mock("@/src/hooks/flowsheetHooks", () => ({
-  useFlowsheetSubmit: () => ({
-    ctrlKeyPressed: false,
-    handleSubmit: mockHandleSubmit,
-  }),
 }));
 
 const mockPrefetchTracks = vi.fn();
@@ -172,13 +169,41 @@ describe("FlowsheetBackendResult", () => {
       expect(mockDispatch).toHaveBeenCalled();
     });
 
-    it("should call handleSubmit on click", () => {
+    // #937: clicking a result AUTOFILLS the fields via freezeSelectionToQuery
+    // — it must never submit. mousedown is prevented so focus stays in the
+    // entry inputs.
+    it("should autofill (freeze) the row's fields on mousedown, not submit", () => {
       render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
 
-      const resultRow = screen.getByText("Test Artist").closest('[class*="MuiStack-root"]');
+      const resultRow = screen
+        .getByText("Test Artist")
+        .closest('[class*="MuiStack-root"]');
+      const notPrevented = fireEvent.mouseDown(resultRow!);
+
+      expect(notPrevented).toBe(false);
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "freezeSelectionToQuery",
+        payload: {
+          artist: "Test Artist",
+          album: "Test Album",
+          label: "Test Label",
+          album_id: 1,
+          rotation_id: 10,
+          rotation_bin: "H",
+        },
+      });
+      expect(mockHandleSubmit).not.toHaveBeenCalled();
+    });
+
+    it("should not submit on click", () => {
+      render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
+
+      const resultRow = screen
+        .getByText("Test Artist")
+        .closest('[class*="MuiStack-root"]');
       fireEvent.click(resultRow!);
 
-      expect(mockHandleSubmit).toHaveBeenCalled();
+      expect(mockHandleSubmit).not.toHaveBeenCalled();
     });
   });
 
