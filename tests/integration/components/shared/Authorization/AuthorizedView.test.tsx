@@ -281,4 +281,46 @@ describe("when an organization is configured", () => {
     resolveRole("stationManager");
     await waitFor(() => expect(screen.getByText("SM content")).toBeInTheDocument());
   });
+
+  it("never paints the previous user's authority during a live session identity swap", async () => {
+    const sessionFor = (id: string, role: string) => ({
+      data: {
+        user: { id, email: `${id}@wxyc.org`, name: id, username: id, role, emailVerified: true },
+        session: { id: `sess-${id}`, userId: id, expiresAt: new Date() },
+      },
+      isPending: false,
+      error: null,
+    });
+
+    mockGetOrgId.mockReturnValue("org-wxyc");
+    mockUseSession.mockReturnValue(sessionFor("user-a", "dj"));
+    let resolveSecond: (role: string) => void = () => {};
+    mockFetchOrgRole
+      .mockResolvedValueOnce("stationManager")
+      .mockImplementationOnce(
+        () => new Promise<string>((resolve) => { resolveSecond = resolve; })
+      );
+
+    const makeView = () => (
+      <AuthorizedView
+        requiredRole={Authorization.SM}
+        fallback={<div>Access denied</div>}
+        loading={<div>Loading...</div>}
+      >
+        <div>SM content</div>
+      </AuthorizedView>
+    );
+
+    const { rerender } = render(makeView());
+    await waitFor(() => expect(screen.getByText("SM content")).toBeInTheDocument());
+
+    mockUseSession.mockReturnValue(sessionFor("user-b", "dj"));
+    rerender(makeView());
+
+    expect(screen.queryByText("SM content")).not.toBeInTheDocument();
+    expect(screen.getByText("Loading...")).toBeInTheDocument();
+
+    resolveSecond("dj");
+    await waitFor(() => expect(screen.getByText("Access denied")).toBeInTheDocument());
+  });
 });
