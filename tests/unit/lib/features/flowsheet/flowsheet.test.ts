@@ -164,8 +164,10 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
       });
 
       // Filling a field the release left empty is added data, not deviation
-      it("keeps the selection when filling a field the release lacked", () => {
-        const frozenNoLabel = harness().reduce(
+      // — judged against the freeze-time snapshot, so it must survive
+      // per-keystroke edits (each keystroke is its own dispatch)
+      it("keeps the selection while typing into a field the release lacked", () => {
+        let state = harness().reduce(
           actions.freezeSelectionToQuery({
             artist: "Chuquimamani-Condori",
             album: "DJ E",
@@ -176,19 +178,17 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
           })
         );
 
-        const result = harness().reduce(
-          actions.setSearchProperty({
-            name: "label",
-            value: "Smithsonian Folkways",
-            deviates: true,
-          }),
-          frozenNoLabel
-        );
+        for (const value of ["n", "ne", "new", "new label"]) {
+          state = harness().reduce(
+            actions.setSearchProperty({ name: "label", value, deviates: true }),
+            state
+          );
+        }
 
-        expect(result.search.query.label).toBe("Smithsonian Folkways");
-        expect(result.search.query.album_id).toBe(11);
-        expect(result.search.query.rotation_id).toBe(3);
-        expect(result.search.query.rotation_bin).toBe("H");
+        expect(state.search.query.label).toBe("new label");
+        expect(state.search.query.album_id).toBe(11);
+        expect(state.search.query.rotation_id).toBe(3);
+        expect(state.search.query.rotation_bin).toBe("H");
       });
 
       it("keeps the selection on a no-op rewrite of the same value", () => {
