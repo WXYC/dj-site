@@ -1,9 +1,11 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { Authorization } from "@/lib/features/admin/types";
 import { authClient } from "@/lib/features/authentication/client";
 import { roleToAuthorization } from "@/lib/features/authentication/types";
+import { fetchOrganizationRoleForUserClient } from "@/lib/features/authentication/organization-utils";
+import { getAppOrganizationIdClient } from "@/lib/features/authentication/organization-config";
 
 export interface AuthorizedViewProps {
   requiredRole: Authorization;
@@ -19,6 +21,45 @@ export function AuthorizedView({
   loading = null,
 }: AuthorizedViewProps) {
   const session = authClient.useSession();
+  const userId = session.data?.user?.id as string | undefined;
+  const rawRole = (session.data?.user as any)?.role as string | undefined;
+
+  // `undefined` = authority not resolved yet. When an organization is
+  // configured, authority is org-scoped and fails closed to NO — the session
+  // base role is never trusted (mirrors getUserAuthority in server-utils.ts).
+  const [authority, setAuthority] = useState<Authorization | undefined>(undefined);
+
+  useEffect(() => {
+    if (!userId) {
+      setAuthority(undefined);
+      return;
+    }
+
+    const organizationId = getAppOrganizationIdClient();
+    if (!organizationId) {
+      setAuthority(roleToAuthorization(rawRole));
+      return;
+    }
+
+    let cancelled = false;
+    setAuthority(undefined);
+    fetchOrganizationRoleForUserClient(userId, organizationId)
+      .then((orgRole) => {
+        if (cancelled) return;
+        // An unresolved org role (not a member, or a transient failure) fails
+        // closed to NO rather than falling back to the raw session role.
+        setAuthority(
+          orgRole !== undefined ? roleToAuthorization(orgRole) : Authorization.NO
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setAuthority(Authorization.NO);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, rawRole]);
 
   if (session.isPending) {
     return <>{loading}</>;
@@ -28,10 +69,11 @@ export function AuthorizedView({
     return <>{fallback}</>;
   }
 
-  const userRole = (session.data.user as any).role as string | undefined;
-  const userAuthority = roleToAuthorization(userRole);
+  if (authority === undefined) {
+    return <>{loading}</>;
+  }
 
-  if (userAuthority < requiredRole) {
+  if (authority < requiredRole) {
     return <>{fallback}</>;
   }
 
