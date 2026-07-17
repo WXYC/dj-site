@@ -6,7 +6,7 @@ import type { PostHog } from "posthog-js";
  * unavailable SDK fails open and never throws back into the dispatch, request,
  * or render path.
  *
- * `posthog-js` is loaded via a dynamic `import()` inside `initTelemetry` (#972)
+ * `posthog-js` is loaded via a dynamic `import()` inside `initTelemetry`
  * rather than a top-level static import, so the client library ships in its own
  * deferred chunk instead of the root layout's shared bundle that every route
  * parses before hydration.
