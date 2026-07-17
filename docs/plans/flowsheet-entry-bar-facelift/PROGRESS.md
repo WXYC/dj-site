@@ -47,8 +47,24 @@ stay right.
 - [ ] Rotation mode still swaps fields in-shell
 - [ ] Light + dark, all four themes spot-check; narrow width sanity
 
+## Slice 2 — commit cluster + swap policy ✅ (iterated live with Jackson 2026-07-17)
+
+Policy (settled over three live refinements): swap signal is **typed content**
+(`getSearchQueryLength > 0`), NOT focus — a focused-but-empty bar still offers
+Breakpoint/Talkset. Once content exists: `[Clear][|][Queue][Play]`, all
+IconButtons (square); the "/" affordance button is deleted (keyboard shortcut
+remains). Field-cell rules are `::before` pseudo-elements (vertically inset,
+`divider` token) mimicking the real Divider, not full-height borders.
+`submitToQueue` extracted from `handleSubmit`'s Ctrl branch with unit coverage
+incl. the #702/#703 negative-album_id sanitization through the queue-button
+path. Dead components deleted after fresh grep: `AddToQueueButton`,
+`AddRemoveFromQueue`, `RemoveFromQueueButton` (+ their tests).
+
+Note: e2e re-run after the final swap tweak hit better-auth's sign-in 429
+rate limiter (3 suite runs in 15 min); previous 12/12 pass covered the panel
+restructure. Re-verify e2e at the next gate.
+
 ## Upcoming
-- Slice 2: action-cluster state swap (Clear/Queue/Play), `submitToQueue`
 - Slice 3: click-to-autofill (#937) via `freezeSelectionToQuery`
 - Slice 4: ghost text verify + album ghost
 - Slice 5: rotation manual label (#931) + resetEpoch (#940)

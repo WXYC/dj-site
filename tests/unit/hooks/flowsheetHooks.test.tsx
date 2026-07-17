@@ -9,6 +9,7 @@ import {
   useFlowsheetSubmit,
 } from "@/src/hooks/flowsheetHooks";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
+import { useAppDispatch } from "@/lib/hooks";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
 import { liveUpdatesSlice } from "@/lib/features/flowsheet/live-updates-slice";
 import {
@@ -1289,6 +1290,78 @@ describe("flowsheetHooks", () => {
         "keyup",
         expect.any(Function)
       );
+    });
+
+    // Dedicated queue button path (#936) — same guard/reset as Ctrl+Enter,
+    // minus the modifier.
+    describe("submitToQueue", () => {
+      const renderCombined = () =>
+        renderHook(
+          () => ({
+            submit: useFlowsheetSubmit(),
+            queue: useQueue(),
+            search: useFlowsheetSearch(),
+            dispatch: useAppDispatch(),
+          }),
+          { wrapper: createWrapper() }
+        );
+
+      it("rejects a songless entry and leaves the search intact", () => {
+        const { result } = renderCombined();
+
+        act(() => {
+          result.current.search.setSearchProperty("artist", "Stereolab");
+        });
+        act(() => {
+          result.current.submit.submitToQueue();
+        });
+
+        expect(result.current.queue.queue.length).toBe(0);
+        expect(result.current.search.searchQuery.artist).toBe("Stereolab");
+      });
+
+      it("queues the typed entry and resets the search", () => {
+        const { result } = renderCombined();
+
+        act(() => {
+          result.current.search.setSearchProperty("artist", "Juana Molina");
+          result.current.search.setSearchProperty("song", "Eras");
+        });
+        act(() => {
+          result.current.submit.submitToQueue();
+        });
+
+        expect(result.current.queue.queue.length).toBe(1);
+        expect(result.current.queue.queue[0].track_title).toBe("Eras");
+        expect(result.current.search.searchQuery.song).toBe("");
+        expect(result.current.search.searchQuery.artist).toBe("");
+      });
+
+      it("sanitizes synthesized negative album linkage on the queue path (#702/#703)", () => {
+        const { result } = renderCombined();
+
+        act(() => {
+          result.current.dispatch(
+            flowsheetSlice.actions.freezeSelectionToQuery({
+              artist: "Chuquimamani-Condori",
+              album: "DJ E",
+              label: "",
+              album_id: -42,
+              rotation_id: 7,
+              rotation_bin: "H",
+            })
+          );
+          result.current.search.setSearchProperty("song", "Prayer");
+        });
+        act(() => {
+          result.current.submit.submitToQueue();
+        });
+
+        expect(result.current.queue.queue.length).toBe(1);
+        const queued = result.current.queue.queue[0];
+        expect(queued.album_id).toBeUndefined();
+        expect(queued.rotation_id).toBeUndefined();
+      });
     });
 
     it("should clean up keyboard event listeners on unmount", () => {

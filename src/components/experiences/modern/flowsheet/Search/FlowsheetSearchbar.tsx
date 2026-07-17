@@ -7,10 +7,9 @@ import {
   useFlowsheetSubmit,
 } from "@/src/hooks/flowsheetHooks";
 import { useGhostText } from "@/src/hooks/useGhostText";
-import { PlayArrow, QueueMusic } from "@mui/icons-material";
+import { Close, PlayArrow, QueueMusic } from "@mui/icons-material";
 import {
   Box,
-  Button,
   Divider,
   FormControl,
   IconButton,
@@ -54,6 +53,11 @@ export default function FlowsheetSearchbar() {
   );
 
   const rotationMode = useAppSelector(flowsheetSlice.selectors.getRotationMode);
+  // Composing = any query field set (covers typed searches and rotation
+  // picks, whose rotation_bin/album_id land in the query too).
+  const searchQueryLength = useAppSelector(
+    flowsheetSlice.selectors.getSearchQueryLength
+  );
 
   const { live, searchOpen, setSearchOpen, resetSearch, searchQuery, setSearchProperty } =
     useFlowsheetSearch();
@@ -305,11 +309,20 @@ export default function FlowsheetSearchbar() {
                 height: "2.75rem",
                 cursor: live ? "text" : "default",
               },
-              // Field cells carry a left rule duplicating the outer outline,
-              // reading as interior column borders of the "table header".
+              // Field cells carry a left rule mimicking the Joy Divider next
+              // to the action buttons: vertically inset and divider-dim, not
+              // a full-height cell border.
               "& .entry-field-cell": {
-                borderLeft: "1px solid",
-                borderColor: "neutral.outlinedBorder",
+                position: "relative",
+                "&::before": {
+                  content: '""',
+                  position: "absolute",
+                  left: 0,
+                  top: "8px",
+                  bottom: "8px",
+                  width: "1px",
+                  bgcolor: "divider",
+                },
               },
             }}
             onClick={() => live && !rotationMode && artistRef.current?.focus()}
@@ -335,6 +348,7 @@ export default function FlowsheetSearchbar() {
                   display: "flex",
                   alignItems: "center",
                   minWidth: 0,
+                  position: "relative",
                 }}
               >
                 <RotationEntryFields disabled={!live} />
@@ -386,58 +400,73 @@ export default function FlowsheetSearchbar() {
                 minWidth: 0,
               }}
             >
-              <BreakpointButton />
-              <TalksetButton />
-              <Divider orientation="vertical" sx={{ my: 1 }} />
-              {searchOpen && (
-                <Tooltip
-                  placement="top"
-                  size="sm"
-                  variant="outlined"
-                  title="Add to queue (Ctrl+Enter)"
-                >
-                  <IconButton
+              {searchQueryLength === 0 ? (
+                // Idle cluster — special-entry buttons. Swapped out for the
+                // commit cluster only once the DJ has typed something, so a
+                // focused-but-empty bar still offers breakpoint/talkset.
+                <>
+                  <BreakpointButton />
+                  <TalksetButton />
+                </>
+              ) : (
+                <>
+                  <Tooltip
+                    placement="top"
                     size="sm"
-                    variant="soft"
-                    color="success"
-                    disabled={!live}
-                    data-testid="flowsheet-search-queue"
-                    onClick={() => submitToQueue()}
+                    variant="outlined"
+                    title="Clear entry"
                   >
-                    <QueueMusic fontSize="small" />
-                  </IconButton>
-                </Tooltip>
+                    <IconButton
+                      size="sm"
+                      variant="plain"
+                      color="neutral"
+                      disabled={!live}
+                      data-testid="flowsheet-search-clear"
+                      onClick={() => {
+                        resetSearch();
+                        artistRef.current?.focus();
+                      }}
+                    >
+                      <Close fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Divider orientation="vertical" sx={{ my: 1 }} />
+                  <Tooltip
+                    placement="top"
+                    size="sm"
+                    variant="outlined"
+                    title="Add to queue (Ctrl+Enter)"
+                  >
+                    <IconButton
+                      size="sm"
+                      variant="soft"
+                      color="success"
+                      disabled={!live}
+                      data-testid="flowsheet-search-queue"
+                      onClick={() => submitToQueue()}
+                    >
+                      <QueueMusic fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip
+                    placement="top"
+                    size="sm"
+                    variant="outlined"
+                    title="Play now (Enter)"
+                  >
+                    <IconButton
+                      size="sm"
+                      variant="solid"
+                      color={ctrlKeyPressed ? "success" : "primary"}
+                      disabled={!live}
+                      data-testid="flowsheet-search-submit"
+                      onClick={() => searchRef.current?.requestSubmit()}
+                    >
+                      <PlayArrow fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </>
               )}
-              <Button
-                size="sm"
-                variant={searchOpen ? "solid" : "plain"}
-                color={
-                  searchOpen
-                    ? ctrlKeyPressed
-                      ? "success"
-                      : "primary"
-                    : "neutral"
-                }
-                disabled={!live}
-                data-testid="flowsheet-search-submit"
-                onClick={() => {
-                  if (searchOpen) {
-                    searchRef.current?.requestSubmit();
-                  } else {
-                    const input = artistRef.current;
-                    if (input) {
-                      input.value = "";
-                      input.focus();
-                    }
-                  }
-                }}
-                sx={{
-                  minHeight: "28px",
-                  borderRadius: "0.3rem",
-                }}
-              >
-                {searchOpen ? <PlayArrow fontSize="small" /> : "/"}
-              </Button>
             </Box>
           </Box>
         </Sheet>
