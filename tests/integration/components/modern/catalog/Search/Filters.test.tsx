@@ -44,6 +44,12 @@ const setup = createComponentHarnessWithQueries(
 describe("Filters", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Re-establish the default so a per-test genre override never leaks into the
+    // next test (clearAllMocks resets calls, not the implementation).
+    vi.mocked(useGetGenresQuery).mockReturnValue({
+      data: mockGenres,
+      isLoading: false,
+    } as unknown as ReturnType<typeof useGetGenresQuery>);
   });
 
   it("renders three sections separated by vertical dividers", () => {
@@ -128,6 +134,21 @@ describe("Filters", () => {
       await screen.findByRole("option", { name: "Rock" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Jazz" })).toBeInTheDocument();
+  });
+
+  it("shows the genre loading affordance when pending with no seed", () => {
+    vi.mocked(useGetGenresQuery).mockReturnValue({
+      data: undefined,
+      isLoading: true,
+    } as unknown as ReturnType<typeof useGetGenresQuery>);
+
+    setup();
+    // Skeleton replaces the combobox while the client query is pending and no
+    // server seed was provided.
+    expect(
+      screen.queryByRole("combobox", { name: "Genre" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Format" })).toBeInTheDocument();
   });
 
   it("prefers the resolved client query over the initial seed", async () => {
