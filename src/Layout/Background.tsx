@@ -1,16 +1,17 @@
-"use client";
-
-// Not removable: both Boxes take function-valued `sx` (theme.getColorSchemeSelector).
-// From a Server Component, a function prop crossing into the Joy client boundary
-// fails RSC serialization at request time on dynamic routes — `next build` does
-// not catch it; only e2e/preview do.
 import { Box } from "@mui/joy";
 import { ReactNode } from "react";
+
+// Serializable stand-in for theme.getColorSchemeSelector("dark"): a function-valued
+// `sx` cannot cross the RSC boundary into Joy's client Box (request-time
+// serialization error on dynamic routes — next build does not catch it). Hardcodes
+// Joy's scheme attribute, same coupling as src/styles/classic/*.css.
+const DARK_SCHEME_SELECTOR =
+  '&[data-joy-color-scheme="dark"], [data-joy-color-scheme="dark"] &';
 
 export function BackgroundImage() {
   return (
     <Box
-      sx={(theme) => ({
+      sx={{
         height: "100%",
         position: "fixed",
         right: 0,
@@ -25,10 +26,10 @@ export function BackgroundImage() {
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
         backgroundImage: `url("/img/wxyc_color.png")`,
-        [theme.getColorSchemeSelector("dark")]: {
+        [DARK_SCHEME_SELECTOR]: {
           backgroundImage: `url("/img/wxyc_dark.jpg")`,
         },
-      })}
+      }}
     />
   );
 }
@@ -36,7 +37,7 @@ export function BackgroundImage() {
 export function BackgroundBox({ children }: { children: ReactNode }) {
   return (
     <Box
-      sx={(theme) => ({
+      sx={{
         width:
           "clamp(100vw - var(--Cover-width), (var(--Collapsed-breakpoint) - 100vw) * 999, 100vw)",
         transition: "width var(--Transition-duration)",
@@ -48,10 +49,10 @@ export function BackgroundBox({ children }: { children: ReactNode }) {
         justifyContent: "flex-end",
         backdropFilter: "blur(4px)",
         backgroundColor: "rgba(255 255 255 / 0.6)",
-        [theme.getColorSchemeSelector("dark")]: {
+        [DARK_SCHEME_SELECTOR]: {
           backgroundColor: "rgba(19 19 24 / 0.4)",
         },
-      })}
+      }}
     >
       <Box
         sx={{
