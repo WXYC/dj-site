@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import Appbar from "@/src/components/shared/Theme/Appbar";
 
 // Mock dependencies
-vi.mock("@/src/hooks/applicationHooks", () => ({
+vi.mock("@/src/hooks/usePublicRoutes", () => ({
   usePublicRoutes: vi.fn(() => false),
 }));
 
@@ -51,7 +51,7 @@ describe("Appbar", () => {
 
 describe("Appbar when on public route", () => {
   it("should show Log In link for public routes", async () => {
-    const { usePublicRoutes } = await import("@/src/hooks/applicationHooks");
+    const { usePublicRoutes } = await import("@/src/hooks/usePublicRoutes");
     vi.mocked(usePublicRoutes).mockReturnValue(true);
 
     render(<Appbar experience="modern" />);

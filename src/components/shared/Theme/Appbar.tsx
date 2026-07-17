@@ -2,7 +2,7 @@
 
 import { ColorSchemeToggleLoader } from "@/src/components/shared/Theme/ColorSchemeToggle";
 import { ExperienceId } from "@/lib/features/experiences/types";
-import { usePublicRoutes } from "@/src/hooks/applicationHooks";
+import { usePublicRoutes } from "@/src/hooks/usePublicRoutes";
 import { Box, ButtonGroup, Typography } from "@mui/joy";
 import dynamic from "next/dynamic";
 import { LinkButton } from "../General/LinkButton";
