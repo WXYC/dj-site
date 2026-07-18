@@ -11,7 +11,7 @@
     "build:opennext": "opennextjs-cloudflare build && node scripts/post-build.js",
     "analyze": "next build --experimental-analyze && node scripts/analyze-bundle.mjs",
     "start": "next start",
-    "preview": "npm run build:opennext && opennextjs-cloudflare preview",
+    "preview": "npm run build:opennext && wrangler pages dev .open-next/assets",
     "deploy": "npm run build:opennext && wrangler pages deploy .open-next/assets",
     "test": "vitest",
     "test:ui": "vitest --ui",
