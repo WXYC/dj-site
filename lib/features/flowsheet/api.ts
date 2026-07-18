@@ -150,7 +150,7 @@ export const flowsheetApi = createApi({
         // (so `currentShow` — the newest entry's show_id — no longer resolves
         // to the prior show, leaving its tail editable) and the Now Playing
         // card (so "started the set" shows before any song is added, without
-        // waiting on the post-join refetch). Fresh (negative) show_id. (#619)
+        // waiting on the post-join refetch). Fresh (negative) show_id.
         const entriesCache =
           flowsheetApi.endpoints.getInfiniteEntries.select(undefined)(
             getState()
