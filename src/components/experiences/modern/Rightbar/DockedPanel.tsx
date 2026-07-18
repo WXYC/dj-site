@@ -37,6 +37,7 @@ export default function DockedPanel({ content }: { content: ReactNode | null }) 
       }}
     >
       <Sheet
+        className="DockedPanel"
         sx={{
           width: DOCK_PANEL_WIDTH,
           height: "100%",

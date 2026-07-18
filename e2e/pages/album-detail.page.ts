@@ -1,151 +1,102 @@
 import { Page, Locator, expect } from "@playwright/test";
 
 /**
- * Page Object Model for the Album Detail Panel
+ * Page Object Model for the album detail card.
  *
- * The album detail panel opens in the rightbar sidebar when clicking
- * an album in the catalog, flowsheet, or bin. It displays album metadata
- * fetched from the catalog API and enriched with Discogs/streaming data.
+ * The card opens at /dashboard/<page>/album/<id>: as a centered modal for an
+ * unpinned album, or docked beside the pinned rail (".DockedPanel") once
+ * pinned. The rail itself lives in the minified rightbar (".SecondSidebar").
  */
 export class AlbumDetailPage {
   readonly page: Page;
 
-  // Panel container (rightbar sidebar)
-  readonly panel: Locator;
-
-  // Album header
-  readonly albumTitle: Locator;
+  // Centered modal (unpinned presentation)
+  readonly modal: Locator;
   readonly closeButton: Locator;
-  readonly artwork: Locator;
+  readonly pinButton: Locator;
 
-  // Library status
-  readonly libraryStatus: Locator;
-  readonly markMissingButton: Locator;
-  readonly markFoundButton: Locator;
+  // Docked panel (pinned presentation)
+  readonly dockedPanel: Locator;
+  readonly dockedUnpinButton: Locator;
+  readonly dockedCollapseButton: Locator;
 
-  // Streaming links
-  readonly streamingLinks: Locator;
-
-  // Tracklist
-  readonly tracklist: Locator;
-  readonly noTracklistMessage: Locator;
-
-  // Footer
-  readonly playsCount: Locator;
-  readonly addedDate: Locator;
-  readonly discogsLink: Locator;
-
-  // Error state
-  readonly errorCard: Locator;
-  readonly goBackButton: Locator;
-
-  // Loading state
-  readonly loadingCard: Locator;
+  // Pinned rail
+  readonly rail: Locator;
+  readonly railHomeExpandButton: Locator;
+  readonly railHomeCollapseButton: Locator;
+  readonly railAlbumTiles: Locator;
+  readonly railUnpinBadges: Locator;
 
   constructor(page: Page) {
     this.page = page;
 
-    // The panel is inside the rightbar sidebar
-    this.panel = page.locator(".SecondSidebar");
+    this.modal = page.locator('[aria-label="Album details"]');
+    this.closeButton = page.getByRole("button", { name: "Close album details" });
+    this.pinButton = page.getByRole("button", { name: "Pin card to the rail" });
 
-    // The title is rendered as "Artist Name * Album Title" inside a Typography
-    this.albumTitle = this.panel.locator('[class*="MuiTypography"][class*="title-lg"]');
-    this.closeButton = this.panel.locator('button[aria-label="Close panel"]');
-    this.artwork = this.panel.locator('img[alt*="cover"]');
+    this.dockedPanel = page.locator(".DockedPanel");
+    this.dockedUnpinButton = page.getByRole("button", { name: "Unpin card" });
+    this.dockedCollapseButton = page.getByRole("button", { name: "Collapse to rail" });
 
-    // Library status chips
-    this.libraryStatus = this.panel.locator(':text("In Library"), :text("Missing since")');
-    this.markMissingButton = this.panel.locator(':text("Mark Missing")');
-    this.markFoundButton = this.panel.locator(':text("Mark Found")');
-
-    // Streaming links are rendered as Chip components with anchor tags
-    this.streamingLinks = this.panel.locator('a[class*="MuiChip"]');
-
-    // Tracklist table
-    this.tracklist = this.panel.locator("table");
-    this.noTracklistMessage = this.panel.locator(':text("No tracklist available")');
-
-    // Footer section (CardOverflow with variant="soft")
-    const footer = this.panel.locator('[class*="CardOverflow"]');
-    this.playsCount = footer.locator(':text("plays")');
-    this.addedDate = footer.locator(':text("Added")');
-    this.discogsLink = footer.locator('a:has-text("Discogs")');
-
-    // Error state
-    this.errorCard = this.panel.locator(':text("Ack!")');
-    this.goBackButton = this.panel.locator('button:has-text("Go Back")');
-
-    // Loading state (skeleton)
-    this.loadingCard = this.panel.locator('[class*="Skeleton"]');
+    this.rail = page.locator(".SecondSidebar");
+    this.railHomeExpandButton = page.getByRole("button", { name: "Expand the dashboard panel" });
+    this.railHomeCollapseButton = page.getByRole("button", { name: "Collapse the dashboard panel" });
+    this.railAlbumTiles = page.getByRole("button", { name: /^Open .+/ });
+    this.railUnpinBadges = page.getByRole("button", { name: /^Unpin .+/ });
   }
 
-  /**
-   * Navigate to the catalog and open an album via search.
-   * Direct URL navigation (/dashboard/album/:id) is no longer supported.
-   */
-  async goto(albumId: number): Promise<void> {
-    // Navigate to catalog — the album will be opened via dispatch, not URL
-    await this.page.goto(`/dashboard/catalog`);
+  /** Hard-navigate to an album permalink. */
+  async goto(pagePath: string, albumId: number): Promise<void> {
+    await this.page.goto(`${pagePath}/album/${albumId}`);
     await this.page.waitForLoadState("domcontentloaded");
   }
 
-  /**
-   * Wait for the panel to show album content.
-   */
   async waitForModal(): Promise<void> {
-    // Wait for the panel's close button — it's always present when any panel content is shown
-    await this.closeButton.waitFor({ state: "visible", timeout: 10000 });
+    await this.modal.waitFor({ state: "visible", timeout: 10000 });
   }
 
-  /**
-   * Wait for album data to load (title becomes visible).
-   */
-  async waitForAlbumLoaded(): Promise<void> {
-    await this.albumTitle.waitFor({ state: "visible", timeout: 10000 });
+  /** Wait for album data inside the modal (any of the given texts). */
+  async waitForAlbumLoaded(text: string): Promise<void> {
+    await expect(this.modal.getByText(text).first()).toBeVisible({ timeout: 10000 });
   }
 
-  /**
-   * Close the panel by clicking the close button.
-   */
   async close(): Promise<void> {
-    await this.closeButton.click({ force: true });
-    // Wait for default rightbar content to reappear
-    await this.panel.locator('text=Now Playing').waitFor({ state: "visible", timeout: 5000 });
+    await this.closeButton.click();
+    await this.modal.waitFor({ state: "hidden", timeout: 5000 });
+  }
+
+  async pin(): Promise<void> {
+    await this.pinButton.click();
+    await this.dockedPanel.waitFor({ state: "visible", timeout: 5000 });
   }
 
   // --- Assertions ---
 
   async expectModalVisible(): Promise<void> {
-    await expect(this.albumTitle).toBeVisible();
+    await expect(this.modal).toBeVisible();
   }
 
   async expectModalHidden(): Promise<void> {
-    await expect(this.panel.locator('text=Now Playing')).toBeVisible();
+    await expect(this.modal).toBeHidden();
   }
 
-  async expectAlbumTitle(artistAndTitle: string): Promise<void> {
-    await expect(this.albumTitle).toContainText(artistAndTitle, { timeout: 10000 });
+  async expectModalText(text: string): Promise<void> {
+    await expect(this.modal.getByText(text).first()).toBeVisible({ timeout: 10000 });
   }
 
-  async expectArtworkVisible(): Promise<void> {
-    await expect(this.artwork).toBeVisible();
+  async expectDockedText(text: string): Promise<void> {
+    await expect(this.dockedPanel.getByText(text).first()).toBeVisible({ timeout: 10000 });
   }
 
-  async expectPlaysCount(text: string): Promise<void> {
-    await expect(this.playsCount).toContainText(text);
+  async expectDockedCardVisible(): Promise<void> {
+    await expect(this.dockedUnpinButton).toBeVisible({ timeout: 10000 });
   }
 
-  async expectLibraryStatusVisible(): Promise<void> {
-    await expect(this.libraryStatus).toBeVisible();
+  async expectRailVisible(): Promise<void> {
+    await expect(this.railAlbumTiles.first()).toBeVisible({ timeout: 10000 });
   }
 
-  async expectErrorState(): Promise<void> {
-    await expect(this.errorCard).toBeVisible({ timeout: 10000 });
-  }
-
-  async expectTracklistOrFallback(): Promise<void> {
-    const hasTracklist = await this.tracklist.isVisible().catch(() => false);
-    const hasNoTracklist = await this.noTracklistMessage.isVisible().catch(() => false);
-    expect(hasTracklist || hasNoTracklist).toBe(true);
+  async expectFullRightbar(): Promise<void> {
+    await expect(this.rail.getByText("Now Playing").first()).toBeVisible({ timeout: 10000 });
   }
 }
