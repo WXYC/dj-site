@@ -5,10 +5,13 @@ import { applicationSlice } from "@/lib/features/application/frontend";
 import PinnedRail from "@/src/components/experiences/modern/Rightbar/PinnedRail";
 
 const push = vi.fn();
+const routing = vi.hoisted(() => ({
+  pathname: "/dashboard/flowsheet",
+}));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push }),
-  usePathname: () => "/dashboard/flowsheet",
+  usePathname: () => routing.pathname,
 }));
 
 vi.mock("@/lib/features/catalog/api", async (importOriginal) => ({
@@ -19,12 +22,13 @@ vi.mock("@/lib/features/catalog/api", async (importOriginal) => ({
 describe("PinnedRail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    routing.pathname = "/dashboard/flowsheet";
   });
 
-  function renderRail(pins: number[], { railExpanded = false, activeAlbumId = null as number | null } = {}) {
+  function renderRail(pins: number[], { homeOpen = false, activeAlbumId = null as number | null } = {}) {
     const store = createTestStore();
     pins.forEach((id) => store.dispatch(applicationSlice.actions.pinAlbum(id)));
-    if (railExpanded) store.dispatch(applicationSlice.actions.setRailExpanded(true));
+    if (homeOpen) store.dispatch(applicationSlice.actions.setDockView("home"));
     renderWithProviders(<PinnedRail activeAlbumId={activeAlbumId} />, { store });
     return store;
   }
@@ -42,17 +46,25 @@ describe("PinnedRail", () => {
   });
 
   it("collapses the home panel when the dashboard-app button is clicked again", () => {
-    renderRail([42], { railExpanded: true });
+    renderRail([42], { homeOpen: true });
 
     fireEvent.click(screen.getByLabelText("Collapse the dashboard panel"));
     expect(screen.getByLabelText("Expand the dashboard panel")).toBeInTheDocument();
   });
 
-  it("opens a pinned album and dismisses the home panel", () => {
-    renderRail([42], { railExpanded: true });
+  it("navigates to a pinned album that is not already open", () => {
+    renderRail([42]);
 
     fireEvent.click(screen.getByLabelText("Open Pinned album"));
     expect(push).toHaveBeenCalledWith("/dashboard/flowsheet/album/42");
+  });
+
+  it("switches the dock to the album pane when its URL is already active", () => {
+    routing.pathname = "/dashboard/flowsheet/album/42";
+    renderRail([42], { homeOpen: true, activeAlbumId: 42 });
+
+    fireEvent.click(screen.getByLabelText("Open Pinned album"));
+    expect(push).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Expand the dashboard panel")).toBeInTheDocument();
   });
 

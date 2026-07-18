@@ -20,9 +20,14 @@ export default function DockedAlbumCard({ albumId }: { albumId: number }) {
   const pathname = usePathname();
   const dispatch = useAppDispatch();
 
+  const collapseDock = () => {
+    dispatch(applicationSlice.actions.setDockView("collapsed"));
+    router.push(albumParentPath(pathname));
+  };
+
   return (
     <>
-      <DockedPanelHeader onCollapse={() => router.push(albumParentPath(pathname))}>
+      <DockedPanelHeader onCollapse={collapseDock}>
         <Tooltip variant="outlined" size="sm" title="Unpin card">
           <IconButton
             aria-label="Unpin card"

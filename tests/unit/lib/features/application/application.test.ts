@@ -146,36 +146,40 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
       expect(result.pinnedAlbumIds).toEqual([7]);
     });
 
-    it("should collapse the expanded rail when pinning", () => {
+    it("should surface the album pane when pinning", () => {
       const result = harness().chain(
         actions.pinAlbum(42),
-        actions.setRailExpanded(true),
+        actions.setDockView("home"),
         actions.pinAlbum(7),
       );
-      expect(result.railExpanded).toBe(false);
+      expect(result.dockView).toBe("album");
     });
 
-    it("should reset rail expansion when the last pin is removed", () => {
+    it("should collapse the dock when the last pin is removed", () => {
       const result = harness().chain(
         actions.pinAlbum(42),
-        actions.setRailExpanded(true),
+        actions.setDockView("home"),
         actions.unpinAlbum(42),
       );
       expect(result.pinnedAlbumIds).toEqual([]);
-      expect(result.railExpanded).toBe(false);
+      expect(result.dockView).toBe("collapsed");
     });
   });
 
-  describe("setRailExpanded action", () => {
-    it("should expand and collapse the rail", () => {
-      const expanded = harness().reduce(actions.setRailExpanded(true));
-      expect(expanded.railExpanded).toBe(true);
+  describe("setDockView action", () => {
+    it("should default to collapsed", () => {
+      expect(harness().initialState.dockView).toBe("collapsed");
+    });
+
+    it("should switch between panes and the collapsed state", () => {
+      const home = harness().reduce(actions.setDockView("home"));
+      expect(home.dockView).toBe("home");
 
       const collapsed = harness().chain(
-        actions.setRailExpanded(true),
-        actions.setRailExpanded(false),
+        actions.setDockView("home"),
+        actions.setDockView("collapsed"),
       );
-      expect(collapsed.railExpanded).toBe(false);
+      expect(collapsed.dockView).toBe("collapsed");
     });
   });
 
@@ -185,7 +189,7 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
         actions.toggleSidebar(),
         actions.openPanel({ type: "settings" }),
         actions.pinAlbum(42),
-        actions.setRailExpanded(true),
+        actions.setDockView("home"),
         actions.setAuthStage("forgot"),
         actions.reset()
       );
@@ -215,9 +219,9 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
       });
     });
 
-    describe("getRailExpanded", () => {
+    describe("getDockView", () => {
       it("should be defined", () => {
-        expect(applicationSlice.selectors.getRailExpanded).toBeDefined();
+        expect(applicationSlice.selectors.getDockView).toBeDefined();
       });
     });
   });

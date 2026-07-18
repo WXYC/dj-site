@@ -2,7 +2,10 @@
 
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { useGetInformationQuery } from "@/lib/features/catalog/api";
-import { albumDetailHref } from "@/lib/features/catalog/albumRoutes";
+import {
+  albumDetailHref,
+  parseAlbumIdFromPathname,
+} from "@/lib/features/catalog/albumRoutes";
 import { genreTone } from "@/lib/features/experiences/modern/tokens/roles";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { Close, SpaceDashboardOutlined } from "@mui/icons-material";
@@ -28,9 +31,15 @@ function PinnedAlbumIcon({ albumId, active }: { albumId: number; active: boolean
   const label = data ? `${artistDisplay} – ${data.title}` : "Pinned album";
   const genreColor = genreTone(data?.artist.genre).color;
 
+  // Already-open URLs won't renavigate, so the view flips directly; otherwise
+  // the dock owner reacts to the pathname landing, which keeps pane switches
+  // from passing through a closed state.
   const openAlbum = () => {
-    dispatch(applicationSlice.actions.setRailExpanded(false));
-    router.push(albumDetailHref(pathname, albumId));
+    if (parseAlbumIdFromPathname(pathname) === albumId) {
+      dispatch(applicationSlice.actions.setDockView("album"));
+    } else {
+      router.push(albumDetailHref(pathname, albumId));
+    }
   };
 
   return (
@@ -120,7 +129,7 @@ function PinnedAlbumIcon({ albumId, active }: { albumId: number; active: boolean
 export default function PinnedRail({ activeAlbumId }: { activeAlbumId: number | null }) {
   const dispatch = useAppDispatch();
   const pinnedAlbumIds = useAppSelector(applicationSlice.selectors.getPinnedAlbumIds);
-  const railExpanded = useAppSelector(applicationSlice.selectors.getRailExpanded);
+  const homeOpen = useAppSelector(applicationSlice.selectors.getDockView) === "home";
 
   return (
     <Box
@@ -142,10 +151,12 @@ export default function PinnedRail({ activeAlbumId }: { activeAlbumId: number | 
       >
         <Tooltip variant="outlined" size="sm" title="Now Playing & Mail Bin" placement="left">
           <IconButton
-            aria-label={railExpanded ? "Collapse the dashboard panel" : "Expand the dashboard panel"}
-            variant={railExpanded ? "soft" : "plain"}
-            color={railExpanded ? "primary" : "neutral"}
-            onClick={() => dispatch(applicationSlice.actions.setRailExpanded(!railExpanded))}
+            aria-label={homeOpen ? "Collapse the dashboard panel" : "Expand the dashboard panel"}
+            variant={homeOpen ? "soft" : "plain"}
+            color={homeOpen ? "primary" : "neutral"}
+            onClick={() =>
+              dispatch(applicationSlice.actions.setDockView(homeOpen ? "collapsed" : "home"))
+            }
             sx={{ "--IconButton-size": "44px" }}
           >
             <SpaceDashboardOutlined />

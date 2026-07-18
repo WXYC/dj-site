@@ -26,12 +26,15 @@ export interface ApplicationFrontendState {
      */
     pinnedAlbumIds: number[];
     /**
-     * While albums are pinned, the full rightbar (NowPlaying + Bin) can be
-     * temporarily expanded back over the rail via the dashboard-app icon.
-     * Meaningless when nothing is pinned.
+     * One shared collapse state for the docked panel beside the rail:
+     * collapsing any pane collapses the dock, and reopening a different pane
+     * from the collapsed state animates while pane-to-pane switches don't.
+     * "album" shows the URL's album card; meaningless when nothing is pinned.
      */
-    railExpanded: boolean;
+    dockView: DockView;
 }
+
+export type DockView = "collapsed" | "home" | "album";
 
 export interface RightbarState {
     sidebarOpen: boolean;

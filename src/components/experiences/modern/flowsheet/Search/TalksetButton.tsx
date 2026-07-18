@@ -25,9 +25,6 @@ export default function TalksetButton() {
           });
         }}
         disabled={!live}
-        sx = {{
-            zIndex: 8001,
-        }}
       >
         <Mic />
       </IconButton>

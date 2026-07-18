@@ -38,9 +38,6 @@ export default function BreakpointButton() {
           });
         }}
         disabled={!live}
-        sx = {{
-            zIndex: 8001,
-        }}
       >
         <Timer />
       </IconButton>

@@ -1,5 +1,5 @@
 import { createAppSlice } from "@/lib/createAppSlice";
-import { ApplicationFrontendState, AuthStage, RightbarPanel } from "./types";
+import { ApplicationFrontendState, AuthStage, DockView, RightbarPanel } from "./types";
 import { PayloadAction } from "@reduxjs/toolkit";
 
 export const defaultApplicationFrontendState: ApplicationFrontendState = {
@@ -11,7 +11,7 @@ export const defaultApplicationFrontendState: ApplicationFrontendState = {
     stage: "otp-email" as AuthStage,
   },
   pinnedAlbumIds: [],
-  railExpanded: false,
+  dockView: "collapsed",
 };
 
 export const applicationSlice = createAppSlice({
@@ -38,20 +38,19 @@ export const applicationSlice = createAppSlice({
       if (!state.pinnedAlbumIds.includes(action.payload)) {
         state.pinnedAlbumIds.push(action.payload);
       }
-      // Pinning is the gesture that reveals the rail; never leave the full
-      // rightbar covering a card the DJ just asked to keep visible.
-      state.railExpanded = false;
+      // Pinning must never hide the card the DJ just asked to keep visible.
+      state.dockView = "album";
     },
     unpinAlbum: (state, action: PayloadAction<number>) => {
       state.pinnedAlbumIds = state.pinnedAlbumIds.filter(
         (id) => id !== action.payload,
       );
       if (state.pinnedAlbumIds.length === 0) {
-        state.railExpanded = false;
+        state.dockView = "collapsed";
       }
     },
-    setRailExpanded: (state, action: PayloadAction<boolean>) => {
-      state.railExpanded = action.payload;
+    setDockView: (state, action: PayloadAction<DockView>) => {
+      state.dockView = action.payload;
     },
     reset: () => defaultApplicationFrontendState,
   },
@@ -59,6 +58,6 @@ export const applicationSlice = createAppSlice({
     getRightbarPanel: (state) => state.rightbar.panel,
     getAuthStage: (state) => state.authFlow.stage,
     getPinnedAlbumIds: (state) => state.pinnedAlbumIds,
-    getRailExpanded: (state) => state.railExpanded,
+    getDockView: (state) => state.dockView,
   },
 });
