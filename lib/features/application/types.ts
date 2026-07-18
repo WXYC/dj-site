@@ -19,7 +19,27 @@ export interface ApplicationState {
 export interface ApplicationFrontendState {
     rightbar: RightbarState;
     authFlow: AuthFlowState;
+    /**
+     * Albums pinned to the rightbar rail, in pin order. Session-scoped:
+     * survives navigation and album changes, not reloads. Which card is open
+     * is owned by the URL, never mirrored here.
+     */
+    pinnedAlbumIds: number[];
+    /**
+     * One shared collapse state for the docked panel beside the rail:
+     * collapsing any pane collapses the dock, and reopening a different pane
+     * from the collapsed state animates while pane-to-pane switches don't.
+     * Meaningless when nothing is pinned.
+     */
+    dockView: DockView;
+    /**
+     * Which pinned album the album pane shows. Owned here, not by the URL —
+     * opening an unpinned album's modal must not evict the docked card.
+     */
+    dockAlbumId: number | null;
 }
+
+export type DockView = "collapsed" | "home" | "album";
 
 export interface RightbarState {
     sidebarOpen: boolean;
@@ -38,6 +58,5 @@ export interface AuthFlowState {
 
 export type RightbarPanel =
     | { type: "default" }
-    | { type: "album-detail"; albumId: number }
     | { type: "settings" }
     | { type: "account-edit"; account: Account; isSelf: boolean; organizationSlug: string };

@@ -20,7 +20,7 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
 
   describe("openPanel action", () => {
     it("should set the panel state", () => {
-      const panel: RightbarPanel = { type: "album-detail", albumId: 42 };
+      const panel: RightbarPanel = { type: "settings" };
       const result = harness().reduce(actions.openPanel(panel));
       expect(result.rightbar.panel).toEqual(panel);
     });
@@ -31,11 +31,17 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
     });
 
     it("should overwrite the previous panel when switching", () => {
+      const account = createTestAccountResult();
       const result = harness().chain(
-        actions.openPanel({ type: "album-detail", albumId: 1 }),
-        actions.openPanel({ type: "album-detail", albumId: 2 }),
+        actions.openPanel({
+          type: "account-edit",
+          account,
+          isSelf: false,
+          organizationSlug: "wxyc",
+        }),
+        actions.openPanel({ type: "settings" }),
       );
-      expect(result.rightbar.panel).toEqual({ type: "album-detail", albumId: 2 });
+      expect(result.rightbar.panel).toEqual({ type: "settings" });
     });
 
     it("should carry account data for account-edit panel", () => {
@@ -54,7 +60,7 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
   describe("closePanel action", () => {
     it("should reset panel to default", () => {
       const result = harness().chain(
-        actions.openPanel({ type: "album-detail", albumId: 42 }),
+        actions.openPanel({ type: "settings" }),
         actions.closePanel(),
       );
       expect(result.rightbar.panel).toEqual({ type: "default" });
@@ -117,11 +123,107 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
     });
   });
 
+  describe("pinAlbum / unpinAlbum actions", () => {
+    it("should default to no pinned albums", () => {
+      expect(harness().initialState.pinnedAlbumIds).toEqual([]);
+    });
+
+    it("should pin albums in order and dedupe repeats", () => {
+      const result = harness().chain(
+        actions.pinAlbum(42),
+        actions.pinAlbum(7),
+        actions.pinAlbum(42),
+      );
+      expect(result.pinnedAlbumIds).toEqual([42, 7]);
+    });
+
+    it("should unpin only the given album", () => {
+      const result = harness().chain(
+        actions.pinAlbum(42),
+        actions.pinAlbum(7),
+        actions.unpinAlbum(42),
+      );
+      expect(result.pinnedAlbumIds).toEqual([7]);
+    });
+
+    it("should surface the pinned album's pane when pinning", () => {
+      const result = harness().chain(
+        actions.pinAlbum(42),
+        actions.setDockView("home"),
+        actions.pinAlbum(7),
+      );
+      expect(result.dockView).toBe("album");
+      expect(result.dockAlbumId).toBe(7);
+    });
+
+    it("should collapse the dock when the last pin is removed", () => {
+      const result = harness().chain(
+        actions.pinAlbum(42),
+        actions.setDockView("home"),
+        actions.unpinAlbum(42),
+      );
+      expect(result.pinnedAlbumIds).toEqual([]);
+      expect(result.dockView).toBe("collapsed");
+      expect(result.dockAlbumId).toBeNull();
+    });
+
+    it("should clear the displayed album when it is unpinned", () => {
+      const result = harness().chain(
+        actions.pinAlbum(42),
+        actions.pinAlbum(7),
+        actions.unpinAlbum(7),
+      );
+      expect(result.dockAlbumId).toBeNull();
+      expect(result.dockView).toBe("collapsed");
+    });
+
+    it("should leave the dock alone when unpinning an album it is not showing", () => {
+      const result = harness().chain(
+        actions.pinAlbum(7),
+        actions.pinAlbum(42),
+        actions.unpinAlbum(7),
+      );
+      expect(result.dockAlbumId).toBe(42);
+      expect(result.dockView).toBe("album");
+    });
+  });
+
+  describe("openDockAlbum action", () => {
+    it("should show the album pane for the given album", () => {
+      const result = harness().chain(
+        actions.pinAlbum(42),
+        actions.setDockView("collapsed"),
+        actions.openDockAlbum(42),
+      );
+      expect(result.dockView).toBe("album");
+      expect(result.dockAlbumId).toBe(42);
+    });
+  });
+
+  describe("setDockView action", () => {
+    it("should default to collapsed", () => {
+      expect(harness().initialState.dockView).toBe("collapsed");
+    });
+
+    it("should switch between panes and the collapsed state", () => {
+      const home = harness().reduce(actions.setDockView("home"));
+      expect(home.dockView).toBe("home");
+
+      const collapsed = harness().chain(
+        actions.setDockView("home"),
+        actions.setDockView("collapsed"),
+      );
+      expect(collapsed.dockView).toBe("collapsed");
+    });
+  });
+
   describe("reset action", () => {
     it("should reset state to default", () => {
       const result = harness().chain(
         actions.toggleSidebar(),
-        actions.openPanel({ type: "album-detail", albumId: 42 }),
+        actions.openPanel({ type: "settings" }),
+        actions.pinAlbum(42),
+        actions.setDockView("home"),
         actions.setAuthStage("forgot"),
         actions.reset()
       );
@@ -142,6 +244,18 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
     describe("getAuthStage", () => {
       it("should be defined", () => {
         expect(applicationSlice.selectors.getAuthStage).toBeDefined();
+      });
+    });
+
+    describe("getPinnedAlbumIds", () => {
+      it("should be defined", () => {
+        expect(applicationSlice.selectors.getPinnedAlbumIds).toBeDefined();
+      });
+    });
+
+    describe("getDockView", () => {
+      it("should be defined", () => {
+        expect(applicationSlice.selectors.getDockView).toBeDefined();
       });
     });
   });

@@ -1,6 +1,5 @@
 "use client";
 
-import { applicationSlice } from "@/lib/features/application/frontend";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 import { useAppDispatch } from "@/lib/hooks";
@@ -13,6 +12,7 @@ import {
   PhoneEnabled,
 } from "@mui/icons-material";
 import { Checkbox, IconButton, Tooltip } from "@mui/joy";
+import useOpenAlbumDetail from "@/src/components/experiences/modern/catalog/album/useOpenAlbumDetail";
 import RemoveButton from "../Components/RemoveButton";
 
 // The interactive controls for a song entry — segue + request toggles, the
@@ -32,6 +32,7 @@ export default function SongEntryControls({
   showRemove?: boolean;
 }) {
   const dispatch = useAppDispatch();
+  const openAlbumDetail = useOpenAlbumDetail();
   const { updateFlowsheet } = useFlowsheetActions();
 
   const commit = (field: "segue" | "request_flag", value: boolean) => {
@@ -104,14 +105,7 @@ export default function SongEntryControls({
         size="sm"
         disabled={!entry?.album_id || entry.album_id < 0}
         aria-label="Album information"
-        onClick={() =>
-          dispatch(
-            applicationSlice.actions.openPanel({
-              type: "album-detail",
-              albumId: entry.album_id!,
-            })
-          )
-        }
+        onClick={() => openAlbumDetail(entry.album_id!)}
       >
         <InfoOutlined />
       </IconButton>

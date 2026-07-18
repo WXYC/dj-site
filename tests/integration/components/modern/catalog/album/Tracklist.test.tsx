@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import Tracklist from "@/src/components/experiences/modern/Rightbar/panels/album/Tracklist";
+import Tracklist from "@/src/components/experiences/modern/catalog/album/Tracklist";
 
 describe("Tracklist", () => {
   it("renders 'No tracklist available' when tracklist is undefined", () => {

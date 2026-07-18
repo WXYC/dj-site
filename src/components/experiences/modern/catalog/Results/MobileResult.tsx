@@ -10,9 +10,8 @@ import Typography from "@mui/joy/Typography";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { QueueMusic } from "@mui/icons-material";
 
-import { applicationSlice } from "@/lib/features/application/frontend";
 import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
-import { useAppDispatch } from "@/lib/hooks";
+import useOpenAlbumDetail from "@/src/components/experiences/modern/catalog/album/useOpenAlbumDetail";
 import { convertBinToQueue } from "@/lib/features/bin/conversions";
 import { genreTone } from "@/lib/features/experiences/modern/tokens/roles";
 import AddRemoveBin from "./AddRemoveBin";
@@ -33,14 +32,13 @@ function CatalogMobileResult({
   live: boolean;
   addToQueue: (entry: FlowsheetQuery) => void;
 }) {
-  const dispatch = useAppDispatch();
+  const openAlbumDetail = useOpenAlbumDetail();
 
   const genreColor = genreTone(album.artist.genre).color;
 
   const artistDisplay = album.album_artist ? "Various Artists" : album.artist.name;
 
-  const openDetail = () =>
-    dispatch(applicationSlice.actions.openPanel({ type: "album-detail", albumId: album.id }));
+  const openDetail = () => openAlbumDetail(album.id);
 
   // The actions sit in the top-right corner, so only the top text lines
   // (title, artist) need to reserve room for them; everything below runs

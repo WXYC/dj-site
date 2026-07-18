@@ -10,11 +10,10 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
 import { Stack, Tooltip } from "@mui/joy";
 
-import { applicationSlice } from "@/lib/features/application/frontend";
 import { useCatalogQuerySearch } from "@/src/hooks/catalogHooks";
 import { QueueMusic } from "@mui/icons-material";
 import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
-import { useAppDispatch } from "@/lib/hooks";
+import useOpenAlbumDetail from "@/src/components/experiences/modern/catalog/album/useOpenAlbumDetail";
 import { genreTone } from "@/lib/features/experiences/modern/tokens/roles";
 import AddRemoveBin from "./AddRemoveBin";
 import { MatchedTrackChips } from "./MatchedTrackChips";
@@ -35,7 +34,7 @@ function CatalogResult({
   live: boolean;
   addToQueue: (entry: FlowsheetQuery) => void;
 }) {
-  const dispatch = useAppDispatch();
+  const openAlbumDetail = useOpenAlbumDetail();
 
   const { selected, setSelection, sortBy } = useCatalogQuerySearch();
 
@@ -59,7 +58,7 @@ function CatalogResult({
     <tr
       key={album.id}
       className={isSelected ? "row-selected" : undefined}
-      onClick={() => dispatch(applicationSlice.actions.openPanel({ type: "album-detail", albumId: album.id }))}
+      onClick={() => openAlbumDetail(album.id)}
       style={{ cursor: "pointer" }}
     >
       <td
@@ -236,7 +235,7 @@ function CatalogResult({
               variant="plain"
               color="neutral"
               size="sm"
-              onClick={() => dispatch(applicationSlice.actions.openPanel({ type: "album-detail", albumId: album.id }))}
+              onClick={() => openAlbumDetail(album.id)}
             >
               <InfoOutlinedIcon />
             </IconButton>

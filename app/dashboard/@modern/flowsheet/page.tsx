@@ -1,11 +1,4 @@
-import { Metadata } from "next";
-import { getPageTitle } from "@/lib/utils/page-title";
-import FlowsheetSearch from "./flowsheet-search";
-
-export const metadata: Metadata = {
-  title: getPageTitle("Flowsheet"),
-};
-
+// The flowsheet UI is rendered by layout.tsx; the base URL has no overlay child.
 export default function FlowsheetPage() {
-  return <FlowsheetSearch />;
+  return null;
 }

@@ -3,9 +3,18 @@ import type { ReactNode } from "react";
 
 export default function RightbarContainer({
   children,
+  variant = "full",
 }: {
   children: ReactNode;
+  // "rail" narrows the sidebar to the pinned-album strip at the dock
+  // breakpoint; below md the drawer keeps its full width regardless.
+  variant?: "full" | "rail";
 }) {
+  const width =
+    variant === "rail"
+      ? { xs: "100%" as const, sm: 350, md: 68 }
+      : { xs: "100%" as const, sm: 350, lg: 450 };
+
   return (
     <Sheet
       className="SecondSidebar"
@@ -37,8 +46,8 @@ export default function RightbarContainer({
         overflowY: "auto",
         minHeight: 0,
         gap: 1,
-        width: { xs: "100%", sm: 350, lg: 450 },
-        maxWidth: { xs: "100%", sm: 350, lg: 450 },
+        width,
+        maxWidth: width,
         minWidth: 0,
       }}
     >

@@ -5,21 +5,21 @@ import {
   createTestAlbum,
   createTestArtist,
 } from "@/tests/helpers";
-import AlbumCard from "@/src/components/experiences/modern/Rightbar/panels/album/AlbumCard";
+import AlbumCard from "@/src/components/experiences/modern/catalog/album/AlbumCard";
 
-vi.mock("@/src/components/experiences/modern/Rightbar/panels/album/DiscogsMarkupRenderer", () => ({
+vi.mock("@/src/components/experiences/modern/catalog/album/DiscogsMarkupRenderer", () => ({
   default: () => <span>mocked bio</span>,
 }));
 
-vi.mock("@/src/components/experiences/modern/Rightbar/panels/album/LibraryStatus", () => ({
+vi.mock("@/src/components/experiences/modern/catalog/album/LibraryStatus", () => ({
   default: () => <span>mocked status</span>,
 }));
 
-vi.mock("@/src/components/experiences/modern/Rightbar/panels/album/StreamingLinks", () => ({
+vi.mock("@/src/components/experiences/modern/catalog/album/StreamingLinks", () => ({
   default: () => null,
 }));
 
-vi.mock("@/src/components/experiences/modern/Rightbar/panels/album/Tracklist", () => ({
+vi.mock("@/src/components/experiences/modern/catalog/album/Tracklist", () => ({
   default: () => null,
 }));
 
