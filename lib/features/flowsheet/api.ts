@@ -121,7 +121,7 @@ export const flowsheetApi = createApi({
         body: params,
       }),
       invalidatesTags: ["NowPlaying", "WhoIsLive"],
-      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+      async onQueryStarted(arg, { dispatch, queryFulfilled, getState }) {
         // Seed the banner with the real dj_name so the public /live page never
         // renders a "Live" placeholder during the refetch window. A joiner
         // with no display name must not blank the banner or leave a trailing
@@ -146,28 +146,41 @@ export const flowsheetApi = createApi({
             }
           )
         );
-        // Push an optimistic show-start marker with a fresh (negative) show_id
-        // so `currentShow` (the newest entry's show_id) no longer resolves to
-        // the previous show. Without this, the prior show's tail partitions as
-        // the current show and stays editable until the refetch lands. (#619)
+        // One optimistic show-start marker seeds both caches: the entries feed
+        // (so `currentShow` — the newest entry's show_id — no longer resolves
+        // to the prior show, leaving its tail editable) and the Now Playing
+        // card (so "started the set" shows before any song is added, without
+        // waiting on the post-join refetch). Fresh (negative) show_id. (#619)
+        const entriesCache =
+          flowsheetApi.endpoints.getInfiniteEntries.select(undefined)(
+            getState()
+          );
+        const tempId = nextOptimisticTempId();
+        const marker: FlowsheetShowBlockEntry = {
+          id: tempId,
+          play_order:
+            (entriesCache.data ? maxPlayOrder(entriesCache.data) : 0) + 1,
+          show_id: tempId,
+          dj_name: arg.dj_name ?? "",
+          isStart: true,
+          day: "",
+          time: "",
+        };
         const patchEntries = dispatch(
           flowsheetApi.util.updateQueryData(
             "getInfiniteEntries",
             undefined,
             (draft) => {
               if (!draft.pages.length) return;
-              const tempId = nextOptimisticTempId();
-              const marker: FlowsheetShowBlockEntry = {
-                id: tempId,
-                play_order: maxPlayOrder(draft) + 1,
-                show_id: tempId,
-                dj_name: arg.dj_name ?? "",
-                isStart: true,
-                day: "",
-                time: "",
-              };
               insertEntrySortedFirstPage(draft, marker);
             }
+          )
+        );
+        const patchNowPlaying = dispatch(
+          flowsheetApi.util.updateQueryData(
+            "getNowPlaying",
+            undefined,
+            () => marker
           )
         );
         try {
@@ -177,6 +190,7 @@ export const flowsheetApi = createApi({
           flowsheetMutationCatch("joinShow", err);
           patchLive.undo();
           patchEntries.undo();
+          patchNowPlaying.undo();
         }
       },
     }),
@@ -187,7 +201,15 @@ export const flowsheetApi = createApi({
         body: params,
       }),
       invalidatesTags: ["NowPlaying", "WhoIsLive"],
-      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+      async onQueryStarted(arg, { dispatch, queryFulfilled, getState }) {
+        // The leave arg carries no dj_name, so resolve the departing DJ's name
+        // from the whoIsLive cache before patchLive filters them out — the
+        // show-end card needs it.
+        const state = getState();
+        const departingDjName =
+          flowsheetApi.endpoints.whoIsLive
+            .select(undefined)(state)
+            .data?.djs.find((d) => d.id === arg.dj_id)?.dj_name ?? "";
         const patchLive = dispatch(
           flowsheetApi.util.updateQueryData(
             "whoIsLive",
@@ -218,6 +240,28 @@ export const flowsheetApi = createApi({
             }
           )
         );
+        // Mirror the show-end onto the Now Playing card so it flips to the
+        // show-end state immediately, without waiting on the refetch.
+        const entriesCache =
+          flowsheetApi.endpoints.getInfiniteEntries.select(undefined)(state);
+        const endTempId = nextOptimisticTempId();
+        const endMarker: FlowsheetShowBlockEntry = {
+          id: endTempId,
+          play_order:
+            (entriesCache.data ? maxPlayOrder(entriesCache.data) : 0) + 1,
+          show_id: endTempId,
+          dj_name: departingDjName,
+          isStart: false,
+          day: "",
+          time: "",
+        };
+        const patchNowPlaying = dispatch(
+          flowsheetApi.util.updateQueryData(
+            "getNowPlaying",
+            undefined,
+            () => endMarker
+          )
+        );
         try {
           await queryFulfilled;
           dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
@@ -225,6 +269,7 @@ export const flowsheetApi = createApi({
           flowsheetMutationCatch("leaveShow", err);
           patchLive.undo();
           patchEntries.undo();
+          patchNowPlaying.undo();
         }
       },
     }),

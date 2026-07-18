@@ -480,5 +480,112 @@ describe("backend", () => {
         expect((result as { error?: unknown }).error).toBeUndefined();
       });
     });
+
+    describe("304 revalidation handling", () => {
+      const fakeApi = {} as any;
+      const fakeExtra = {} as any;
+
+      beforeEach(() => {
+        mockInnerBaseQuery.mockReset();
+        mockCaptureException.mockReset();
+      });
+
+      it("retries an empty-body 304 unconditionally and resolves with the reloaded body", async () => {
+        const reloaded = { data: { id: 7, entry_type: "show_start" }, meta: undefined };
+        mockInnerBaseQuery
+          .mockResolvedValueOnce({ error: { status: 304 }, meta: undefined })
+          .mockResolvedValueOnce(reloaded);
+
+        const baseQuery = backendBaseQuery("flowsheet");
+        const result = await baseQuery({ url: "/latest" }, fakeApi, fakeExtra);
+
+        expect(mockInnerBaseQuery).toHaveBeenCalledTimes(2);
+        expect(mockInnerBaseQuery.mock.calls[1][0]).toMatchObject({
+          url: "/latest",
+          cache: "reload",
+        });
+        expect(result).toBe(reloaded);
+        expect((result as { data?: unknown }).data).not.toBeNull();
+      });
+
+      it("retries a PARSING_ERROR carrying originalStatus 304 and never yields { data: null }", async () => {
+        // A 304 whose body an intermediary spliced back in fails JSON parsing
+        // and surfaces as PARSING_ERROR; it must still take the reload path.
+        const reloaded = { data: [{ id: 1 }], meta: undefined };
+        mockInnerBaseQuery
+          .mockResolvedValueOnce({
+            error: {
+              status: "PARSING_ERROR",
+              originalStatus: 304,
+              data: "not-json",
+              error: "SyntaxError",
+            },
+            meta: undefined,
+          })
+          .mockResolvedValueOnce(reloaded);
+
+        const baseQuery = backendBaseQuery("flowsheet");
+        const result = await baseQuery("/latest", fakeApi, fakeExtra);
+
+        expect(mockInnerBaseQuery).toHaveBeenCalledTimes(2);
+        expect(mockInnerBaseQuery.mock.calls[1][0]).toMatchObject({
+          cache: "reload",
+        });
+        expect((result as { data?: unknown }).data).not.toBeNull();
+        expect((result as { data?: unknown }).data).toEqual([{ id: 1 }]);
+      });
+
+      it("lets the retry's error propagate rather than collapsing to the soft-fail null", async () => {
+        const retryError = {
+          error: { status: 500, data: "boom" },
+          meta: undefined,
+        };
+        mockInnerBaseQuery
+          .mockResolvedValueOnce({ error: { status: 304 }, meta: undefined })
+          .mockResolvedValueOnce(retryError);
+
+        const baseQuery = backendBaseQuery("flowsheet");
+        const result = await baseQuery({ url: "/latest" }, fakeApi, fakeExtra);
+
+        expect(mockInnerBaseQuery).toHaveBeenCalledTimes(2);
+        expect(result).toBe(retryError);
+        expect((result as { data?: unknown }).data).toBeUndefined();
+      });
+
+      it("does not retry a 304 when the caller set its own conditional validator", async () => {
+        // A caller managing its own conditional GET owns the 304 (it restores a
+        // cached body from it); the transport-repair retry must stand aside.
+        const notModified = {
+          error: { status: 304 },
+          meta: { response: { status: 304 } },
+        };
+        mockInnerBaseQuery.mockResolvedValueOnce(notModified);
+
+        const baseQuery = backendBaseQuery("proxy");
+        const result = await baseQuery(
+          { url: "/artist/1", headers: { "If-None-Match": '"rev-1"' } },
+          fakeApi,
+          fakeExtra
+        );
+
+        expect(mockInnerBaseQuery).toHaveBeenCalledTimes(1);
+        expect(result).toBe(notModified);
+      });
+
+      it("does not retry a 304 on a mutation", async () => {
+        const notModified = { error: { status: 304 }, meta: undefined };
+        mockInnerBaseQuery.mockResolvedValueOnce(notModified);
+
+        const baseQuery = backendBaseQuery("flowsheet");
+        const result = await baseQuery(
+          { url: "/", method: "POST", body: {} },
+          fakeApi,
+          fakeExtra
+        );
+
+        expect(mockInnerBaseQuery).toHaveBeenCalledTimes(1);
+        expect(result).toBe(notModified);
+      });
+    });
   });
 });
