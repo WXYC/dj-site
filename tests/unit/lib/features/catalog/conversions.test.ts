@@ -477,7 +477,7 @@ describe("catalog conversions", () => {
         expect(submission.rotation_bin).toBe(Rotation.H);
       });
 
-      it("drops album_id + rotation linkage on the wire for a library-UNLINKED (id:undefined) row", () => {
+      it("drops album_id + rotation_bin but keeps rotation_id on the wire for a library-UNLINKED (id:undefined) row", () => {
         const albumEntry = convertToAlbumEntry(unlinkedRowUndefinedId);
         expect(albumEntry.rotation_id).toBe(5042);
         expect(albumEntry.rotation_bin).toBe(Rotation.S);
@@ -504,21 +504,21 @@ describe("catalog conversions", () => {
           rotation_id?: number;
           rotation_bin?: Rotation;
         };
-        // dj-site#701 fix: `convertQueryToSubmission` gates the catalog
-        // variant on `album_id > 0`. Synthesized negative ids fall through
-        // to the freeform variant — BS used to take `albumId != null` on
-        // negative numbers and TypeError; now the unlinked-row submit just
-        // loses rotation linkage on the wire (recoverable when BS-side
-        // schema work lets `rotation_id` ride without `album_id`).
+        // The synthesized negative id falls through to the freeform variant,
+        // so album_id (BS would TypeError on the negative) and the
+        // read-derived rotation_bin drop off the wire. rotation_id is exempt:
+        // it rides the freeform variant so the unlinked rotation release keeps
+        // its badge — including after a later artist_name edit, which is what
+        // the string-match badge fallbacks can't survive.
         // Freeform `artist_name` / `album_title` come from sibling
         // `setSearchProperty` dispatches in the live picker, not from
         // `setRotationMetadata`; out of scope for this e2e.
         expect(submission.album_id).toBeUndefined();
-        expect(submission.rotation_id).toBeUndefined();
         expect(submission.rotation_bin).toBeUndefined();
+        expect(submission.rotation_id).toBe(5042);
       });
 
-      it("drops album_id + rotation linkage on the wire for a library-UNLINKED (id omitted) row", () => {
+      it("drops album_id + rotation_bin but keeps rotation_id on the wire for a library-UNLINKED (id omitted) row", () => {
         // Sibling coverage for the omitted-key wire shape — JSON omission
         // is the most common upstream coercion mode. Both id-absence shapes
         // (id:undefined and id-omitted) take the FALSE branch of
@@ -550,10 +550,10 @@ describe("catalog conversions", () => {
           rotation_id?: number;
           rotation_bin?: Rotation;
         };
-        // See sibling id:undefined e2e for the dj-site#701 gate rationale.
+        // See sibling id:undefined e2e for the gate rationale.
         expect(submission.album_id).toBeUndefined();
-        expect(submission.rotation_id).toBeUndefined();
         expect(submission.rotation_bin).toBeUndefined();
+        expect(submission.rotation_id).toBe(5042);
       });
     });
   });

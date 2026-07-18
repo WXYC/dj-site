@@ -42,24 +42,29 @@ export function entryToFreezePayload(entry: {
 export function convertQueryToSubmission(
   query: FlowsheetQuery
 ): FlowsheetSubmissionParams {
-  // BS's `FlowsheetCreateSongFromCatalog` variant requires a positive
-  // `album_id` (a real `library.id`); the rotation-linkage fields
-  // (`rotation_id`, `rotation_bin`) and the Discogs tracklist position
-  // (`track_position`) only land on the wire when paired with it.
-  // `track_position` is a `release_track.position` reference into a specific
-  // Discogs release — orphaning it on the freeform variant produces a
-  // position string ("A1") with no album to position into, so reducers that
-  // overwrite `album_id` but leave a stale `track_position` (e.g.
-  // `setRotationMetadata`) must not leak it to the wire.
-  // The Modern rotation picker and the bin → queue path can both write a
-  // synthesized negative `album_id` for library-unlinked rotation rows
-  // (`synthesizeAlbumId` in `lib/features/catalog/conversions.ts`); on
-  // negative numbers BS takes the `album_id != null` branch, calls
-  // `getAlbumFromDB(-X)` → undefined → throws TypeError. Gate here so any
-  // caller that lands a non-positive `album_id` falls back to the freeform
-  // variant — at the cost of the rotation linkage, until BS-side schema work
-  // lands. Matches the Classic-side shape from PR #699. (dj-site#701)
+  // `album_id`, `rotation_bin`, and `track_position` are album-scoped and only
+  // ride the wire alongside a positive `library.id`:
+  //   - The Modern rotation picker and bin → queue path can dispatch a
+  //     synthesized negative `album_id` for library-unlinked rows
+  //     (`synthesizeAlbumId`); BS takes the `album_id != null` branch on a
+  //     negative number, calls `getAlbumFromDB(-X)` → undefined → TypeError.
+  //   - `track_position` is a `release_track.position` ("A1") into a specific
+  //     Discogs release; orphaned onto the freeform variant it points at
+  //     nothing (`setRotationMetadata` overwrites `album_id` without clearing
+  //     a stale position).
+  //   - `rotation_bin` is derived on read from the rotation JOIN, never a
+  //     write field.
+  // `rotation_id` is the exception: it's a first-class FK that BS persists on
+  // the freeform variant, and both badge paths (the read-time `rotation_bin`
+  // JOIN and the tubafrenzy mirror's `flowsheetEntryType` recompute)
+  // short-circuit on it. Forwarding it independent of `album_id` keeps the
+  // rotation badge on an unlinked release even after its `artist_name` is
+  // edited off "Various Artists" — the string-match fallbacks that would
+  // otherwise carry the badge break on that edit. (Matches
+  // `convertBinToFlowsheet`.)
   const hasLinkedAlbum = hasLinkedAlbumId(query.album_id);
+  const hasRotation =
+    typeof query.rotation_id === "number" && query.rotation_id > 0;
   return {
     track_title: query.song,
     artist_name: query.artist,
@@ -67,9 +72,9 @@ export function convertQueryToSubmission(
     record_label: query.label,
     request_flag: query.request,
     segue: query.segue,
+    ...(hasRotation && { rotation_id: query.rotation_id }),
     ...(hasLinkedAlbum && {
       album_id: query.album_id,
-      rotation_id: query.rotation_id,
       rotation_bin: query.rotation_bin,
       ...(query.track_position !== undefined && {
         track_position: query.track_position,
