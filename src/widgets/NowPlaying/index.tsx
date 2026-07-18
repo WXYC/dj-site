@@ -120,17 +120,23 @@ export default function NowPlaying({
     if (!audio) return;
 
     const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
-    const handleEnded = () => setIsPlaying(false);
+    // Any transition away from playing — pause, end, or an element that gets
+    // emptied/errored outside the toggle path — must clear the flag, or the
+    // button can desync from the element's real state.
+    const handleStop = () => setIsPlaying(false);
 
     audio.addEventListener("play", handlePlay);
-    audio.addEventListener("pause", handlePause);
-    audio.addEventListener("ended", handleEnded);
+    audio.addEventListener("pause", handleStop);
+    audio.addEventListener("ended", handleStop);
+    audio.addEventListener("emptied", handleStop);
+    audio.addEventListener("error", handleStop);
 
     return () => {
       audio.removeEventListener("play", handlePlay);
-      audio.removeEventListener("pause", handlePause);
-      audio.removeEventListener("ended", handleEnded);
+      audio.removeEventListener("pause", handleStop);
+      audio.removeEventListener("ended", handleStop);
+      audio.removeEventListener("emptied", handleStop);
+      audio.removeEventListener("error", handleStop);
     };
   }, []);
 
@@ -140,9 +146,9 @@ export default function NowPlaying({
 
     if (isPlaying) {
       audio.pause();
-      audio.removeAttribute("src");
-      audio.load();
     } else {
+      // Re-assigning src re-runs the media load algorithm, snapping a paused
+      // live stream back to the live edge instead of resuming a stale buffer.
       audio.src = AUDIO_SRC;
       audio.play().catch((error) => {
         console.error("Failed to play audio:", error);
