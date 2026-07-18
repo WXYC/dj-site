@@ -8,10 +8,8 @@ const authDir = path.join(__dirname, "../../.auth");
  * NowPlaying Audio Stream E2E Tests
  *
  * Verifies that the live MP3 stream is not buffered until the user
- * explicitly presses play, and that stopping fully tears down the
- * connection.
- *
- * See: https://github.com/WXYC/dj-site/issues/374
+ * explicitly presses play, and that pausing keeps the element intact so
+ * playback can resume from the live edge.
  */
 test.describe("NowPlaying audio stream", () => {
   test.use({ storageState: path.join(authDir, "dj2.json") });
@@ -38,7 +36,7 @@ test.describe("NowPlaying audio stream", () => {
     await nowPlaying.expectNoSrc();
   });
 
-  test("should set src on play and remove it on stop", async ({ page }) => {
+  test("keeps the stream source while paused", async ({ page }) => {
     const nowPlaying = new NowPlayingPage(page);
     await nowPlaying.blockAudioStream();
 
@@ -51,24 +49,28 @@ test.describe("NowPlaying audio stream", () => {
     await nowPlaying.expectStreamSrc();
 
     await nowPlaying.stop();
-    await nowPlaying.expectNoSrc();
+    // Pausing does not tear down the element; the source is retained so resume
+    // can restart playback without rebuilding the audio graph.
+    await nowPlaying.expectStreamSrc();
+    await expect(nowPlaying.playButton).toBeVisible();
   });
 
-  test("should reconnect stream on second play", async ({ page }) => {
+  test("resumes playback on a second play after pausing", async ({ page }) => {
     const nowPlaying = new NowPlayingPage(page);
     await nowPlaying.blockAudioStream();
 
     await page.goto("/dashboard/flowsheet");
     await page.waitForLoadState("domcontentloaded");
 
-    // Play → stop
     await nowPlaying.play();
     await nowPlaying.expectStreamSrc();
     await nowPlaying.stop();
-    await nowPlaying.expectNoSrc();
+    await nowPlaying.expectStreamSrc();
 
-    // Play again — should reconnect
+    // Second play reassigns src, re-running the media load algorithm to snap
+    // back to the live edge; the pause button reappearing confirms resume.
     await nowPlaying.play();
     await nowPlaying.expectStreamSrc();
+    await expect(nowPlaying.pauseButton).toBeVisible();
   });
 });
