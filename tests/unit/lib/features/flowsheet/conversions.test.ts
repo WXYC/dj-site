@@ -139,12 +139,13 @@ describe("flowsheet conversions", () => {
     // unlinked (`synthesizeAlbumId` in catalog/conversions.ts hashes the
     // denormalized snapshot into a stable negative int for React keys). BS
     // takes the `album_id != null` branch on negative numbers, calls
-    // `getAlbumFromDB(-X)` → undefined → throws TypeError. Gate the wire
-    // payload at the chokepoint so picker / queue / future-caller leaks all
-    // route through the freeform variant for unlinked rows. (dj-site#701,
-    // sibling shape #608. Classic-side equivalent shipped in PR #699.)
+    // `getAlbumFromDB(-X)` → undefined → throws TypeError. Gate album_id (and
+    // the album-scoped rotation_bin / track_position) at the chokepoint so
+    // picker / queue / future-caller leaks route through the freeform variant
+    // for unlinked rows. rotation_id is exempt from the gate — it rides the
+    // freeform variant to keep the rotation badge on unlinked releases.
     describe("synthesized negative album_id", () => {
-      it("omits album_id, rotation_id, rotation_bin when album_id is negative", () => {
+      it("omits album_id and rotation_bin but keeps rotation_id when album_id is negative", () => {
         const query = createTestFlowsheetQuery({
           album_id: -987654321,
           rotation_id: TEST_ENTITY_IDS.ROTATION.HEAVY,
@@ -152,8 +153,11 @@ describe("flowsheet conversions", () => {
         });
         const result = convertQueryToSubmission(query) as QuerySubmission;
         expect(result.album_id).toBeUndefined();
-        expect(result.rotation_id).toBeUndefined();
         expect(result.rotation_bin).toBeUndefined();
+        // rotation_id rides the freeform variant so an unlinked rotation
+        // release keeps its badge — the synthesized negative id only bars
+        // album_id and the album-scoped fields, not the rotation linkage.
+        expect(result.rotation_id).toBe(TEST_ENTITY_IDS.ROTATION.HEAVY);
       });
 
       it("preserves freeform fields when falling back from a negative album_id", () => {
@@ -184,7 +188,7 @@ describe("flowsheet conversions", () => {
       // Zero is not a legitimate album_id (PG serial starts at 1), but the
       // sign check below is the load-bearing one; pin zero too so a future
       // fix can't quietly switch the guard to `!= 0` and drift the boundary.
-      it("omits album_id when album_id is zero", () => {
+      it("omits album_id and rotation_bin but keeps rotation_id when album_id is zero", () => {
         const query = createTestFlowsheetQuery({
           album_id: 0,
           rotation_id: 5001,
@@ -192,17 +196,15 @@ describe("flowsheet conversions", () => {
         });
         const result = convertQueryToSubmission(query) as QuerySubmission;
         expect(result.album_id).toBeUndefined();
-        expect(result.rotation_id).toBeUndefined();
         expect(result.rotation_bin).toBeUndefined();
+        expect(result.rotation_id).toBe(5001);
       });
 
-      // Orthogonal: rotation_id / rotation_bin set without album_id. No
-      // dispatcher currently produces this (rotation picker writes the trio
-      // together; setRotationMode clears all three), but pinning the case
-      // catches a future regression that decouples rotation pass-through
-      // from the album_id gate (e.g. moving rotation_id outside the
-      // hasLinkedAlbum spread).
-      it("omits rotation_id and rotation_bin when album_id is undefined", () => {
+      // The core of the fix: a rotation release picked without a linked
+      // library album lands with album_id NULL, but must still carry
+      // rotation_id so the badge survives. rotation_bin stays derived-on-read
+      // (never a write field), so it drops off the freeform variant.
+      it("keeps rotation_id but omits rotation_bin when album_id is undefined", () => {
         const query = createTestFlowsheetQuery({
           album_id: undefined,
           rotation_id: 5001,
@@ -210,8 +212,16 @@ describe("flowsheet conversions", () => {
         });
         const result = convertQueryToSubmission(query) as QuerySubmission;
         expect(result.album_id).toBeUndefined();
-        expect(result.rotation_id).toBeUndefined();
         expect(result.rotation_bin).toBeUndefined();
+        expect(result.rotation_id).toBe(5001);
+      });
+
+      // A plain freeform add (no rotation picked) carries no rotation_id —
+      // the exemption forwards a real rotation id, it doesn't invent one.
+      it("omits rotation_id when the query has none", () => {
+        const query = createTestFlowsheetQuery({ album_id: undefined });
+        const result = convertQueryToSubmission(query) as QuerySubmission;
+        expect(result.rotation_id).toBeUndefined();
       });
 
       // `track_position` is a `release_track.position` reference (e.g. "A1")
