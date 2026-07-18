@@ -10,6 +10,7 @@ export const defaultApplicationFrontendState: ApplicationFrontendState = {
   authFlow: {
     stage: "otp-email" as AuthStage,
   },
+  albumCardPinned: false,
 };
 
 export const applicationSlice = createAppSlice({
@@ -32,10 +33,14 @@ export const applicationSlice = createAppSlice({
     setAuthStage: (state, action) => {
       state.authFlow.stage = action.payload;
     },
+    setAlbumCardPinned: (state, action: PayloadAction<boolean>) => {
+      state.albumCardPinned = action.payload;
+    },
     reset: () => defaultApplicationFrontendState,
   },
   selectors: {
     getRightbarPanel: (state) => state.rightbar.panel,
     getAuthStage: (state) => state.authFlow.stage,
+    getAlbumCardPinned: (state) => state.albumCardPinned,
   },
 });

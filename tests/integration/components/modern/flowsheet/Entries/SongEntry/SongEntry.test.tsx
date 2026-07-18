@@ -10,6 +10,10 @@ const mockAddToFlowsheet = vi.fn();
 const mockDispatch = vi.fn();
 const mockUpdateFlowsheet = vi.fn();
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+}));
+
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useShowControl: () => mockUseShowControl(),
   useFlowsheetActions: () => mockUseFlowsheet(),

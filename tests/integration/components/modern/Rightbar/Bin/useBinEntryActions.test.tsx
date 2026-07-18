@@ -3,22 +3,17 @@ import { renderHook } from "@testing-library/react";
 import { Unarchive } from "@mui/icons-material";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 
-const dispatch = vi.fn();
+const push = vi.fn();
 const addToQueue = vi.fn();
 const addToFlowsheet = vi.fn(() => Promise.resolve());
 const deleteFromBin = vi.fn();
 
-vi.mock("@/lib/hooks", () => ({ useAppDispatch: () => dispatch }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 vi.mock("@/lib/features/bin/conversions", () => ({
   convertBinToQueue: (e: AlbumEntry) => ({ q: e.id }),
   convertBinToFlowsheet: (e: AlbumEntry) => ({ f: e.id }),
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
-vi.mock("@/lib/features/application/frontend", () => ({
-  applicationSlice: {
-    actions: { openPanel: (p: unknown) => ({ type: "openPanel", payload: p }) },
-  },
-}));
 
 import { useBinEntryActions } from "@/src/components/experiences/modern/Rightbar/Bin/useBinEntryActions";
 
@@ -50,10 +45,7 @@ describe("useBinEntryActions", () => {
     const byId = Object.fromEntries(result.current.map((a) => [a.id, a]));
 
     byId.info.run();
-    expect(dispatch).toHaveBeenCalledWith({
-      type: "openPanel",
-      payload: { type: "album-detail", albumId: 7 },
-    });
+    expect(push).toHaveBeenCalledWith("/dashboard/album/7");
 
     byId.queue.run();
     expect(addToQueue).toHaveBeenCalledWith({ q: 7 });

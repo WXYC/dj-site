@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import StreamingLinks from "@/src/components/experiences/modern/Rightbar/panels/album/StreamingLinks";
+import StreamingLinks from "@/src/components/experiences/modern/catalog/album/StreamingLinks";
 import type { AlbumMetadata } from "@/lib/features/metadata/types";
 
 function createTestMetadata(

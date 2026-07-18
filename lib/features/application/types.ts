@@ -19,6 +19,11 @@ export interface ApplicationState {
 export interface ApplicationFrontendState {
     rightbar: RightbarState;
     authFlow: AuthFlowState;
+    /**
+     * The route-driven album card docks to the right edge instead of centering
+     * when pinned. Session-scoped: survives album changes, not reloads.
+     */
+    albumCardPinned: boolean;
 }
 
 export interface RightbarState {
@@ -38,6 +43,5 @@ export interface AuthFlowState {
 
 export type RightbarPanel =
     | { type: "default" }
-    | { type: "album-detail"; albumId: number }
     | { type: "settings" }
     | { type: "account-edit"; account: Account; isSelf: boolean; organizationSlug: string };

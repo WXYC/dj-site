@@ -20,7 +20,7 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
 
   describe("openPanel action", () => {
     it("should set the panel state", () => {
-      const panel: RightbarPanel = { type: "album-detail", albumId: 42 };
+      const panel: RightbarPanel = { type: "settings" };
       const result = harness().reduce(actions.openPanel(panel));
       expect(result.rightbar.panel).toEqual(panel);
     });
@@ -31,11 +31,17 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
     });
 
     it("should overwrite the previous panel when switching", () => {
+      const account = createTestAccountResult();
       const result = harness().chain(
-        actions.openPanel({ type: "album-detail", albumId: 1 }),
-        actions.openPanel({ type: "album-detail", albumId: 2 }),
+        actions.openPanel({
+          type: "account-edit",
+          account,
+          isSelf: false,
+          organizationSlug: "wxyc",
+        }),
+        actions.openPanel({ type: "settings" }),
       );
-      expect(result.rightbar.panel).toEqual({ type: "album-detail", albumId: 2 });
+      expect(result.rightbar.panel).toEqual({ type: "settings" });
     });
 
     it("should carry account data for account-edit panel", () => {
@@ -54,7 +60,7 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
   describe("closePanel action", () => {
     it("should reset panel to default", () => {
       const result = harness().chain(
-        actions.openPanel({ type: "album-detail", albumId: 42 }),
+        actions.openPanel({ type: "settings" }),
         actions.closePanel(),
       );
       expect(result.rightbar.panel).toEqual({ type: "default" });
@@ -117,11 +123,29 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
     });
   });
 
+  describe("setAlbumCardPinned action", () => {
+    it("should default to unpinned", () => {
+      expect(harness().initialState.albumCardPinned).toBe(false);
+    });
+
+    it("should pin and unpin the album card", () => {
+      const pinnedState = harness().reduce(actions.setAlbumCardPinned(true));
+      expect(pinnedState.albumCardPinned).toBe(true);
+
+      const unpinnedState = harness().chain(
+        actions.setAlbumCardPinned(true),
+        actions.setAlbumCardPinned(false),
+      );
+      expect(unpinnedState.albumCardPinned).toBe(false);
+    });
+  });
+
   describe("reset action", () => {
     it("should reset state to default", () => {
       const result = harness().chain(
         actions.toggleSidebar(),
-        actions.openPanel({ type: "album-detail", albumId: 42 }),
+        actions.openPanel({ type: "settings" }),
+        actions.setAlbumCardPinned(true),
         actions.setAuthStage("forgot"),
         actions.reset()
       );
@@ -142,6 +166,12 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
     describe("getAuthStage", () => {
       it("should be defined", () => {
         expect(applicationSlice.selectors.getAuthStage).toBeDefined();
+      });
+    });
+
+    describe("getAlbumCardPinned", () => {
+      it("should be defined", () => {
+        expect(applicationSlice.selectors.getAlbumCardPinned).toBeDefined();
       });
     });
   });
