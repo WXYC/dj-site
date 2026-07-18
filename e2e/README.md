@@ -67,6 +67,9 @@ npx playwright test e2e/tests/auth/login.spec.ts
 
 # Run tests matching a pattern
 npx playwright test -g "login"
+
+# Run only the protected fast subset (results cap, track picker, crash smoke)
+npm run test:e2e -- --grep @smoke
 ```
 
 ## Test Users

@@ -38,7 +38,7 @@ const authDir = path.join(__dirname, "../../.auth");
  * own). ensureLive (not a once-only goLive) self-heals if a sibling spec
  * sharing the musicDirector session flipped it off-air between tests.
  */
-test.describe("Flowsheet artist search — crash smoke", () => {
+test.describe("Flowsheet artist search — crash smoke", { tag: "@smoke" }, () => {
   test.use({ storageState: path.join(authDir, "musicDirector.json") });
   test.describe.configure({ mode: "serial" });
   test.setTimeout(60_000);
