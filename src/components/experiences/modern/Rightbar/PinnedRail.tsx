@@ -31,13 +31,11 @@ function PinnedAlbumIcon({ albumId, active }: { albumId: number; active: boolean
   const label = data ? `${artistDisplay} – ${data.title}` : "Pinned album";
   const genreColor = genreTone(data?.artist.genre).color;
 
-  // Already-open URLs won't renavigate, so the view flips directly; otherwise
-  // the dock owner reacts to the pathname landing, which keeps pane switches
-  // from passing through a closed state.
+  // The view flips immediately; already-open URLs won't renavigate, so the
+  // push is skipped for them.
   const openAlbum = () => {
-    if (parseAlbumIdFromPathname(pathname) === albumId) {
-      dispatch(applicationSlice.actions.setDockView("album"));
-    } else {
+    dispatch(applicationSlice.actions.setDockView("album"));
+    if (parseAlbumIdFromPathname(pathname) !== albumId) {
       router.push(albumDetailHref(pathname, albumId));
     }
   };

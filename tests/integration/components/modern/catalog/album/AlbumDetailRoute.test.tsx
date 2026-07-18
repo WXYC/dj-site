@@ -59,4 +59,24 @@ describe("AlbumDetailRoute", () => {
 
     expect(screen.getByTestId("album-detail-modal")).toBeInTheDocument();
   });
+
+  it("reopens a collapsed dock when its album URL is visited", () => {
+    routing.isDesktop = true;
+    const store = createTestStore();
+    store.dispatch(applicationSlice.actions.pinAlbum(42));
+    store.dispatch(applicationSlice.actions.setDockView("collapsed"));
+    renderWithProviders(<AlbumDetailRoute />, { store });
+
+    expect(applicationSlice.selectors.getDockView(store.getState())).toBe("album");
+  });
+
+  it("leaves the dock alone for an unpinned album", () => {
+    routing.isDesktop = true;
+    const store = createTestStore();
+    store.dispatch(applicationSlice.actions.pinAlbum(7));
+    store.dispatch(applicationSlice.actions.setDockView("collapsed"));
+    renderWithProviders(<AlbumDetailRoute />, { store });
+
+    expect(applicationSlice.selectors.getDockView(store.getState())).toBe("collapsed");
+  });
 });

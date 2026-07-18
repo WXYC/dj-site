@@ -12,7 +12,6 @@ const routing = vi.hoisted(() => ({
 
 vi.mock("next/navigation", () => ({
   usePathname: () => routing.pathname,
-  useRouter: () => ({ push: vi.fn() }),
 }));
 
 vi.mock("@/src/hooks/useMediaQuery", () => ({
@@ -197,16 +196,23 @@ describe("Rightbar", () => {
     expect(screen.getByTestId("pinned-rail")).toBeInTheDocument();
   });
 
-  it("should surface the docked card on mount of a pinned album URL", () => {
+  it("should stay collapsed even when the URL holds a pinned album", () => {
     routing.isDesktop = true;
     routing.pathname = "/dashboard/catalog/album/42";
     const store = createTestStore();
     store.dispatch(applicationSlice.actions.pinAlbum(42));
-    store.dispatch(applicationSlice.actions.setDockView("collapsed"));
     renderWithProviders(<Rightbar />, { store });
 
-    expect(screen.getByTestId("docked-album-card")).toBeInTheDocument();
-    expect(screen.getByTestId("docked-panel")).toHaveAttribute("data-open", "true");
+    act(() => {
+      store.dispatch(applicationSlice.actions.setDockView("home"));
+    });
+    act(() => {
+      store.dispatch(applicationSlice.actions.setDockView("collapsed"));
+    });
+
+    expect(screen.getByTestId("docked-panel")).toHaveAttribute("data-open", "false");
+    expect(screen.queryByTestId("docked-album-card")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("now-playing-content")).not.toBeInTheDocument();
   });
 
   it("should not dock the card when the URL's album is not pinned", () => {
