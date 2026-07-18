@@ -54,6 +54,20 @@ body {
 	font-family: Verdana, Geneva, Arial, Helvetica, sans-serif;
 }
 
+/* Clamp long artist / release / label values to a single line with an
+   ellipsis; the full text stays reachable via the cell's title attribute.
+   inline-block + max-width so truncation works without a fixed table layout;
+   max-width in em keeps the character budget stable across the font-size
+   classes. */
+.classic-cell-truncate {
+	display: inline-block;
+	max-width: 20em;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	vertical-align: bottom;
+}
+
 .fontSize7 {
 	font-size: 1.7em;
 }

@@ -734,3 +734,63 @@ describe("Classic EntryRow action menu + inline edit (song rows)", () => {
     ).toBeNull();
   });
 });
+
+describe("Classic EntryRow truncates long text with the full value recoverable", () => {
+  const LONG_ALBUM =
+    "On Your Own Love Again (Deluxe Expanded Anniversary Edition, Remastered)";
+  const LONG_ARTIST = "Chuquimamani-Condori and Joshua Chuquimia Crampton";
+  const LONG_LABEL = "Sonamos Recordings International Distribution Division";
+
+  const longEntry = () =>
+    createTestFlowsheetEntry({
+      artist_name: LONG_ARTIST,
+      album_title: LONG_ALBUM,
+      record_label: LONG_LABEL,
+    });
+
+  it("clamps the album cell and keeps the full title in its title attribute", () => {
+    const { container } = renderRow({ entry: longEntry() });
+    const cell = container.querySelector<HTMLElement>(
+      'span.classic-cell-truncate[title="' + LONG_ALBUM + '"]'
+    );
+    expect(cell).not.toBeNull();
+    expect(cell!.textContent).toBe(LONG_ALBUM);
+  });
+
+  it("applies the same treatment to the artist and label cells", () => {
+    const { container } = renderRow({ entry: longEntry() });
+    const artist = container.querySelector<HTMLElement>(
+      'span.classic-cell-truncate[title="' + LONG_ARTIST + '"]'
+    );
+    const label = container.querySelector<HTMLElement>(
+      'span.classic-cell-truncate[title="' + LONG_LABEL + '"]'
+    );
+    expect(artist).not.toBeNull();
+    expect(artist!.textContent).toBe(LONG_ARTIST);
+    expect(label).not.toBeNull();
+    expect(label!.textContent).toBe(LONG_LABEL);
+  });
+
+  it("carries the truncation class on each affected cell", () => {
+    const { container } = renderRow({ entry: longEntry() });
+    // Artist, album, and label each get one truncating wrapper.
+    expect(
+      container.querySelectorAll("span.classic-cell-truncate")
+    ).toHaveLength(3);
+  });
+
+  it("does not truncate while the row is being edited (inputs stay full)", () => {
+    const { container } = renderRow({ entry: longEntry() });
+    fireEvent.click(screen.getByRole("button", { name: /actions/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Edit" }));
+    // In edit mode the values live in inputs, not truncating spans.
+    expect(
+      container.querySelectorAll("span.classic-cell-truncate")
+    ).toHaveLength(0);
+    expect(
+      (container.querySelector(
+        'input[name="album_title"]'
+      ) as HTMLInputElement).value
+    ).toBe(LONG_ALBUM);
+  });
+});

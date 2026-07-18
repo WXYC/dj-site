@@ -271,7 +271,9 @@ export default function EntryRow({
               onKeyDown={handleEditKeyDown}
             />
           ) : (
-            entry.artist_name
+            <span className="classic-cell-truncate" title={entry.artist_name}>
+              {entry.artist_name}
+            </span>
           )}
         </td>
         <td align="left">
@@ -303,7 +305,12 @@ export default function EntryRow({
               onKeyDown={handleEditKeyDown}
             />
           ) : (
-            entry.album_title || ""
+            <span
+              className="classic-cell-truncate"
+              title={entry.album_title || ""}
+            >
+              {entry.album_title || ""}
+            </span>
           )}
         </td>
         <td align="left">
@@ -319,7 +326,12 @@ export default function EntryRow({
               onKeyDown={handleEditKeyDown}
             />
           ) : (
-            entry.record_label || ""
+            <span
+              className="classic-cell-truncate"
+              title={entry.record_label || ""}
+            >
+              {entry.record_label || ""}
+            </span>
           )}
         </td>
         <td align="center" className="action-cell">
