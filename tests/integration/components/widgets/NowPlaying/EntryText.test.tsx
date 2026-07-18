@@ -15,8 +15,14 @@ vi.mock("@mui/joy", () => ({
       {children}
     </div>
   ),
-  Typography: ({ children, level, color, ...props }: any) => (
-    <span data-testid="typography" data-level={level} data-color={color} {...props}>
+  Typography: ({ children, level, color, textColor, ...props }: any) => (
+    <span
+      data-testid="typography"
+      data-level={level}
+      data-color={color}
+      data-text-color={textColor}
+      {...props}
+    >
       {children}
     </span>
   ),
@@ -39,21 +45,36 @@ describe("EntryText", () => {
   });
 
   describe("when entry is a song entry", () => {
-    it("should display album title and artist name", () => {
-      const songEntry: FlowsheetSongEntry = {
-        ...baseEntry,
-        track_title: "Test Track",
-        artist_name: "Test Artist",
-        album_title: "Test Album",
-        record_label: "Test Label",
-        request_flag: false,
-        segue: false,
-      };
+    const songEntry: FlowsheetSongEntry = {
+      ...baseEntry,
+      track_title: "la paradoja",
+      artist_name: "Juana Molina",
+      album_title: "DOGA",
+      record_label: "Sonamos",
+      request_flag: false,
+      segue: false,
+    };
 
+    it("should display track title, artist name, and album title", () => {
       render(<EntryText entry={songEntry} />);
 
-      expect(screen.getByText("Test Album")).toBeInTheDocument();
-      expect(screen.getByText("Test Artist")).toBeInTheDocument();
+      expect(screen.getByText("la paradoja")).toBeInTheDocument();
+      expect(screen.getByText("Juana Molina")).toBeInTheDocument();
+      expect(screen.getByText("DOGA")).toBeInTheDocument();
+    });
+
+    it("should render the track title as the headline, above artist and album", () => {
+      render(<EntryText entry={songEntry} />);
+
+      expect(screen.getByText("la paradoja")).toHaveAttribute("data-level", "title-md");
+      expect(screen.getByText("Juana Molina")).toHaveAttribute("data-level", "body-sm");
+      expect(screen.getByText("DOGA")).toHaveAttribute("data-level", "body-sm");
+    });
+
+    it("should render the album title with tertiary text color", () => {
+      render(<EntryText entry={songEntry} />);
+
+      expect(screen.getByText("DOGA")).toHaveAttribute("data-text-color", "text.tertiary");
     });
   });
 
