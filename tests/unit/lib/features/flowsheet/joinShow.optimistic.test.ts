@@ -44,12 +44,24 @@ function selectWhoIsLiveCache(store: ReturnType<typeof createTestStore>) {
     .data;
 }
 
+function selectNowPlayingCache(store: ReturnType<typeof createTestStore>) {
+  return flowsheetApi.endpoints.getNowPlaying.select(undefined)(
+    store.getState()
+  ).data;
+}
+
+/** The seeded now-playing entry — a real track, not a show marker. */
+const SEEDED_NOW_PLAYING = priorEntries[1];
+
 async function seedStore(
   onAirDJs: { id: string | null; dj_name: string }[] = []
 ) {
   server.use(
     http.get(`${TEST_BACKEND_URL}/flowsheet/`, () =>
       HttpResponse.json(priorEntries)
+    ),
+    http.get(`${TEST_BACKEND_URL}/flowsheet/latest`, () =>
+      HttpResponse.json(SEEDED_NOW_PLAYING)
     ),
     http.get(`${TEST_BACKEND_URL}/flowsheet/djs-on-air`, () =>
       HttpResponse.json(onAirDJs)
@@ -61,12 +73,15 @@ async function seedStore(
   );
 
   const store = createTestStore();
-  // Prime both caches so the optimistic patches have data to work with.
+  // Prime the caches so the optimistic patches have data to work with.
   await store
     .dispatch(flowsheetApi.endpoints.getInfiniteEntries.initiate(undefined))
     .unwrap();
   await store
     .dispatch(flowsheetApi.endpoints.whoIsLive.initiate(undefined))
+    .unwrap();
+  await store
+    .dispatch(flowsheetApi.endpoints.getNowPlaying.initiate(undefined))
     .unwrap();
   return store;
 }
@@ -202,5 +217,68 @@ describe("joinShow optimistic patch", () => {
     );
 
     await Promise.all([joinPromise, leavePromise]);
+  });
+
+  it("reaches the Now Playing card with the show-start marker and DJ name before the refetch", async () => {
+    const store = await seedStore();
+
+    // Sanity: the seeded card is the prior track, not a show marker.
+    expect(selectNowPlayingCache(store)).toMatchObject({ id: 5002 });
+
+    const promise = store.dispatch(
+      flowsheetApi.endpoints.joinShow.initiate({
+        dj_id: "test-user-1",
+        dj_name: "Test DJ",
+      })
+    );
+
+    // The card flips to the show-start state synchronously, carrying the name.
+    expect(selectNowPlayingCache(store)).toMatchObject({
+      isStart: true,
+      dj_name: "Test DJ",
+    });
+
+    await promise;
+  });
+
+  it("restores the previous Now Playing card when the join fails", async () => {
+    const store = await seedStore();
+    server.use(
+      http.post(
+        `${TEST_BACKEND_URL}/flowsheet/join`,
+        () => new HttpResponse(null, { status: 500 })
+      )
+    );
+
+    const before = selectNowPlayingCache(store);
+
+    await store
+      .dispatch(
+        flowsheetApi.endpoints.joinShow.initiate({
+          dj_id: "test-user-1",
+          dj_name: "Test DJ",
+        })
+      )
+      .unwrap()
+      .catch(() => {});
+
+    // The optimistic marker is rolled back to the seeded track, never left as
+    // a stray marker or blanked.
+    expect(selectNowPlayingCache(store)).toEqual(before);
+  });
+
+  it("flips the Now Playing card to the show-end state carrying the departing DJ's name", async () => {
+    const store = await seedStore([{ id: "test-user-1", dj_name: "Test DJ" }]);
+
+    const promise = store.dispatch(
+      flowsheetApi.endpoints.leaveShow.initiate({ dj_id: "test-user-1" })
+    );
+
+    expect(selectNowPlayingCache(store)).toMatchObject({
+      isStart: false,
+      dj_name: "Test DJ",
+    });
+
+    await promise;
   });
 });
