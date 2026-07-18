@@ -5,7 +5,7 @@ import InfiniteScroller from "@/src/components/experiences/modern/flowsheet/Infi
 import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
 import SSEConnectionIndicator from "@/src/components/shared/SSEConnectionIndicator";
 import SSESubscription from "@/src/components/shared/SSESubscription";
-import { Divider } from "@mui/joy";
+import { Box } from "@mui/joy";
 import { Suspense } from "react";
 
 export type FlowsheetPageProps = {
@@ -24,8 +24,13 @@ export default function FlowsheetPage({
       <SSESubscription surface="dashboard" />
       <AutoDJBanner />
       <PageHeader title="Flowsheet">
-        <SSEConnectionIndicator />
-        <GoLive />
+        <Box
+          component="div"
+          sx={{ display: "flex", alignItems: "center", gap: 1 }}
+        >
+          <SSEConnectionIndicator />
+          <GoLive />
+        </Box>
       </PageHeader>
       <>
         {children}
