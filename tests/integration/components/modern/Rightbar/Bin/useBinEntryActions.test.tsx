@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
+import { Unarchive } from "@mui/icons-material";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 
 const dispatch = vi.fn();
@@ -62,6 +63,12 @@ describe("useBinEntryActions", () => {
 
     byId.remove.run();
     expect(deleteFromBin).toHaveBeenCalledWith(7);
+  });
+
+  it("uses the Unarchive icon for remove, matching RemoveFromBin", () => {
+    const { result } = renderHook(() => useBinEntryActions(entry, false, deps));
+    const remove = result.current.find((a) => a.id === "remove");
+    expect(remove?.Icon).toBe(Unarchive);
   });
 
   it("marks queue and play as Shift-removable, but not info/remove", () => {
