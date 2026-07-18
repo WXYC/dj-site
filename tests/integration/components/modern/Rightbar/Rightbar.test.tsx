@@ -39,14 +39,24 @@ vi.mock("@/src/components/experiences/modern/Rightbar/Bin/BinContent", () => ({
   default: () => <div data-testid="bin-content">Bin Content</div>,
 }));
 
+vi.mock("@/src/components/experiences/modern/Rightbar/DockedPanel", () => ({
+  default: ({ content }: { content: React.ReactNode | null }) => (
+    <div data-testid="docked-panel" data-open={content !== null}>
+      {content}
+    </div>
+  ),
+}));
+
+vi.mock("@/src/components/experiences/modern/Rightbar/DockedPanelHeader", () => ({
+  default: ({ children }: { children?: React.ReactNode }) => (
+    <div data-testid="docked-panel-header">{children}</div>
+  ),
+}));
+
 vi.mock("@/src/components/experiences/modern/Rightbar/PinnedRail", () => ({
   default: ({ activeAlbumId }: { activeAlbumId: number | null }) => (
     <div data-testid="pinned-rail">Rail active={String(activeAlbumId)}</div>
   ),
-}));
-
-vi.mock("@/src/components/experiences/modern/Rightbar/RailCollapse", () => ({
-  default: () => <div data-testid="rail-collapse">Collapse</div>,
 }));
 
 vi.mock("@/src/components/experiences/modern/catalog/album/DockedAlbumCard", () => ({
@@ -131,7 +141,7 @@ describe("Rightbar", () => {
     expect(screen.queryByTestId("now-playing-content")).not.toBeInTheDocument();
   });
 
-  it("should render the pinned rail on desktop when albums are pinned", () => {
+  it("should show the rail with a closed panel when pins exist but nothing is open", () => {
     routing.isDesktop = true;
     const store = createTestStore();
     store.dispatch(applicationSlice.actions.pinAlbum(42));
@@ -139,8 +149,23 @@ describe("Rightbar", () => {
 
     expect(screen.getByTestId("pinned-rail")).toBeInTheDocument();
     expect(screen.getByTestId("rightbar-container")).toHaveAttribute("data-variant", "rail");
+    expect(screen.getByTestId("docked-panel")).toHaveAttribute("data-open", "false");
     expect(screen.queryByTestId("now-playing-content")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("docked-album-card")).not.toBeInTheDocument();
+  });
+
+  it("should keep the rail visible while the home panel is expanded", () => {
+    routing.isDesktop = true;
+    const store = createTestStore();
+    store.dispatch(applicationSlice.actions.pinAlbum(42));
+    store.dispatch(applicationSlice.actions.setRailExpanded(true));
+    renderWithProviders(<Rightbar />, { store });
+
+    expect(screen.getByTestId("pinned-rail")).toBeInTheDocument();
+    const panel = screen.getByTestId("docked-panel");
+    expect(panel).toHaveAttribute("data-open", "true");
+    expect(screen.getByTestId("docked-panel-header")).toBeInTheDocument();
+    expect(screen.getByTestId("now-playing-content")).toBeInTheDocument();
+    expect(screen.getByTestId("bin-content")).toBeInTheDocument();
   });
 
   it("should dock the card when the URL's album is pinned", () => {
@@ -150,8 +175,22 @@ describe("Rightbar", () => {
     store.dispatch(applicationSlice.actions.pinAlbum(42));
     renderWithProviders(<Rightbar />, { store });
 
+    expect(screen.getByTestId("docked-panel")).toHaveAttribute("data-open", "true");
     expect(screen.getByTestId("docked-album-card")).toHaveTextContent("Album 42");
     expect(screen.getByTestId("pinned-rail")).toHaveTextContent("active=42");
+  });
+
+  it("should let the home panel take the slot over the docked card", () => {
+    routing.isDesktop = true;
+    routing.pathname = "/dashboard/catalog/album/42";
+    const store = createTestStore();
+    store.dispatch(applicationSlice.actions.pinAlbum(42));
+    store.dispatch(applicationSlice.actions.setRailExpanded(true));
+    renderWithProviders(<Rightbar />, { store });
+
+    expect(screen.getByTestId("now-playing-content")).toBeInTheDocument();
+    expect(screen.queryByTestId("docked-album-card")).not.toBeInTheDocument();
+    expect(screen.getByTestId("pinned-rail")).toBeInTheDocument();
   });
 
   it("should not dock the card when the URL's album is not pinned", () => {
@@ -161,21 +200,9 @@ describe("Rightbar", () => {
     store.dispatch(applicationSlice.actions.pinAlbum(42));
     renderWithProviders(<Rightbar />, { store });
 
+    expect(screen.getByTestId("docked-panel")).toHaveAttribute("data-open", "false");
     expect(screen.queryByTestId("docked-album-card")).not.toBeInTheDocument();
     expect(screen.getByTestId("pinned-rail")).toBeInTheDocument();
-  });
-
-  it("should expand the full rightbar with a collapse affordance when railExpanded", () => {
-    routing.isDesktop = true;
-    const store = createTestStore();
-    store.dispatch(applicationSlice.actions.pinAlbum(42));
-    store.dispatch(applicationSlice.actions.setRailExpanded(true));
-    renderWithProviders(<Rightbar />, { store });
-
-    expect(screen.getByTestId("now-playing-content")).toBeInTheDocument();
-    expect(screen.getByTestId("rail-collapse")).toBeInTheDocument();
-    expect(screen.queryByTestId("pinned-rail")).not.toBeInTheDocument();
-    expect(screen.getByTestId("rightbar-container")).toHaveAttribute("data-variant", "full");
   });
 
   it("should suspend rail mode while a panel is open", () => {
@@ -198,6 +225,6 @@ describe("Rightbar", () => {
 
     expect(screen.getByTestId("now-playing-content")).toBeInTheDocument();
     expect(screen.queryByTestId("pinned-rail")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("rail-collapse")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("docked-panel")).not.toBeInTheDocument();
   });
 });

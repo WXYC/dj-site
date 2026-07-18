@@ -3,6 +3,7 @@ import {
   albumDetailHref,
   albumParentPath,
   parseAlbumIdFromPathname,
+  withAlbumSegment,
 } from "@/lib/features/catalog/albumRoutes";
 
 describe("albumParentPath", () => {
@@ -37,6 +38,29 @@ describe("albumDetailHref", () => {
   it("falls back to the catalog from pages without an album child route", () => {
     expect(albumDetailHref("/dashboard", 8)).toBe("/dashboard/catalog/album/8");
     expect(albumDetailHref("/dashboard/settings", 8)).toBe("/dashboard/catalog/album/8");
+  });
+});
+
+describe("withAlbumSegment", () => {
+  it("carries the open album onto another album-hosting page", () => {
+    expect(withAlbumSegment("/dashboard/flowsheet", "/dashboard/catalog/album/4")).toBe(
+      "/dashboard/flowsheet/album/4",
+    );
+    expect(withAlbumSegment("/dashboard/admin/roster", "/dashboard/playlists/album/9")).toBe(
+      "/dashboard/admin/roster/album/9",
+    );
+  });
+
+  it("returns the bare target when no album is open", () => {
+    expect(withAlbumSegment("/dashboard/flowsheet", "/dashboard/catalog")).toBe(
+      "/dashboard/flowsheet",
+    );
+  });
+
+  it("returns the bare target for pages without an album child route", () => {
+    expect(withAlbumSegment("/dashboard/admin/schedule", "/dashboard/catalog/album/4")).toBe(
+      "/dashboard/admin/schedule",
+    );
   });
 });
 

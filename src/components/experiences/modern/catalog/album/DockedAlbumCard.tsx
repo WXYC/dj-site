@@ -3,47 +3,26 @@
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { albumParentPath } from "@/lib/features/catalog/albumRoutes";
 import { useAppDispatch } from "@/lib/hooks";
-import { Close, PushPin } from "@mui/icons-material";
-import { Box, Divider, IconButton, Sheet, Tooltip } from "@mui/joy";
+import DockedPanelHeader from "@/src/components/experiences/modern/Rightbar/DockedPanelHeader";
+import { PushPin } from "@mui/icons-material";
+import { Box, IconButton, Tooltip } from "@mui/joy";
 import { usePathname, useRouter } from "next/navigation";
 import AlbumDetailContent from "./AlbumDetailContent";
+import { RIGHTBAR_FOOTER_CLEARANCE } from "./dock";
 
 /**
- * A pinned album's card, docked as a flex sibling between Main and the pinned
- * rail. Closing strips the /album segment (the icon stays in the rail);
- * unpinning hands the presentation back to the centered modal.
+ * A pinned album's card, rendered inside the docked panel. Collapsing strips
+ * the /album segment (the icon stays in the rail); unpinning hands the
+ * presentation back to the centered modal.
  */
 export default function DockedAlbumCard({ albumId }: { albumId: number }) {
   const router = useRouter();
   const pathname = usePathname();
   const dispatch = useAppDispatch();
 
-  const handleClose = () => router.push(albumParentPath(pathname));
-
   return (
-    <Sheet
-      sx={{
-        position: "sticky",
-        top: 0,
-        height: "100dvh",
-        width: "clamp(380px, 30vw, 420px)",
-        flexShrink: 0,
-        minWidth: 0,
-        borderLeft: "1px solid",
-        borderColor: "divider",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "flex-end",
-          gap: 0.5,
-          p: 1,
-          flexShrink: 0,
-        }}
-      >
+    <>
+      <DockedPanelHeader onCollapse={() => router.push(albumParentPath(pathname))}>
         <Tooltip variant="outlined" size="sm" title="Unpin card">
           <IconButton
             aria-label="Unpin card"
@@ -55,20 +34,11 @@ export default function DockedAlbumCard({ albumId }: { albumId: number }) {
             <PushPin />
           </IconButton>
         </Tooltip>
-        <IconButton
-          aria-label="Close album details"
-          size="sm"
-          variant="plain"
-          color="neutral"
-          onClick={handleClose}
-        >
-          <Close />
-        </IconButton>
-      </Box>
-      <Divider />
+      </DockedPanelHeader>
       <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto", p: 2 }}>
         <AlbumDetailContent albumId={albumId} />
       </Box>
-    </Sheet>
+      <Box sx={{ minHeight: `${RIGHTBAR_FOOTER_CLEARANCE}px`, flexShrink: 0 }} />
+    </>
   );
 }

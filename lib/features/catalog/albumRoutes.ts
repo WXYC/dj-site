@@ -32,3 +32,16 @@ export function parseAlbumIdFromPathname(pathname: string): number | null {
   const match = pathname.match(ALBUM_SEGMENT);
   return match ? Number(match[1]) : null;
 }
+
+/**
+ * Carries the open card across page navigation: a leftbar link to `targetPage`
+ * keeps /album/<id> appended so the card survives the page switch. Pages
+ * without an album child route get the bare target.
+ */
+export function withAlbumSegment(targetPage: string, pathname: string): string {
+  const albumId = parseAlbumIdFromPathname(pathname);
+  if (albumId === null || !ALBUM_HOST_PAGES.includes(targetPage)) {
+    return targetPage;
+  }
+  return `${targetPage}/album/${albumId}`;
+}

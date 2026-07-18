@@ -81,6 +81,9 @@ export default function RightbarPanelContainer({
           </Box>
         </>
       )}
+      {/* Clearance for the viewport-fixed footer buttons (feedback, theme
+          switcher) that float over the rightbar's bottom edge. */}
+      <Box sx={{ minHeight: "65px", flexShrink: 0 }} />
     </Box>
   );
 }

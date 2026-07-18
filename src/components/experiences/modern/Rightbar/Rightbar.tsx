@@ -3,16 +3,22 @@
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { RightbarPanel } from "@/lib/features/application/types";
 import { parseAlbumIdFromPathname } from "@/lib/features/catalog/albumRoutes";
-import { useAppSelector } from "@/lib/hooks";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useMediaQuery } from "@/src/hooks/useMediaQuery";
 import { Box, Divider } from "@mui/joy";
 import { usePathname } from "next/navigation";
 import DockedAlbumCard from "../catalog/album/DockedAlbumCard";
-import { ALBUM_DOCK_QUERY } from "../catalog/album/dock";
+import {
+  ALBUM_DOCK_QUERY,
+  DOCK_PANEL_WIDTH,
+  HOME_PANEL_WIDTH,
+  RIGHTBAR_FOOTER_CLEARANCE,
+} from "../catalog/album/dock";
 import BinContent from "./Bin/BinContent";
+import DockedPanel from "./DockedPanel";
+import DockedPanelHeader from "./DockedPanelHeader";
 import NowPlayingContent from "./NowPlayingContent";
 import PinnedRail from "./PinnedRail";
-import RailCollapse from "./RailCollapse";
 import RightbarContainer from "./RightbarContainer";
 import RightbarMobileClose from "./RightbarMobileClose";
 import AccountEditPanel from "./panels/AccountEditPanel";
@@ -25,7 +31,7 @@ function DefaultRightbarContent() {
       <Divider />
       <BinContent />
       <Divider />
-      <Box sx={{ minHeight: "65px" }}></Box>
+      <Box sx={{ minHeight: `${RIGHTBAR_FOOTER_CLEARANCE}px` }}></Box>
     </>
   );
 }
@@ -40,6 +46,7 @@ function RightbarPanelRouter({ panel }: { panel: Exclude<RightbarPanel, { type: 
 }
 
 export default function Rightbar() {
+  const dispatch = useAppDispatch();
   const panel = useAppSelector(applicationSlice.selectors.getRightbarPanel);
   const pinnedAlbumIds = useAppSelector(applicationSlice.selectors.getPinnedAlbumIds);
   const railExpanded = useAppSelector(applicationSlice.selectors.getRailExpanded);
@@ -49,29 +56,49 @@ export default function Rightbar() {
   // The URL owns which card is open; Redux owns only the pin list. Settings
   // and account-edit panels need the full width, so any open panel suspends
   // rail mode until it closes.
+  const railActive = isDesktop && pinnedAlbumIds.length > 0 && panel.type === "default";
+
+  if (!railActive) {
+    return (
+      <>
+        <RightbarMobileClose />
+        <RightbarContainer>
+          {panel.type === "default" ? (
+            <DefaultRightbarContent />
+          ) : (
+            <RightbarPanelRouter panel={panel} />
+          )}
+        </RightbarContainer>
+      </>
+    );
+  }
+
   const activeAlbumId = parseAlbumIdFromPathname(pathname);
-  const railMode =
-    isDesktop && pinnedAlbumIds.length > 0 && !railExpanded && panel.type === "default";
   const dockedAlbumId =
-    railMode && activeAlbumId !== null && pinnedAlbumIds.includes(activeAlbumId)
-      ? activeAlbumId
-      : null;
+    activeAlbumId !== null && pinnedAlbumIds.includes(activeAlbumId) ? activeAlbumId : null;
+
+  // One panel slot beside the always-present rail: the home panel wins over
+  // the docked card so the dashboard is reachable without closing the card.
+  const panelContent = railExpanded ? (
+    <>
+      <DockedPanelHeader
+        onCollapse={() => dispatch(applicationSlice.actions.setRailExpanded(false))}
+      />
+      <DefaultRightbarContent />
+    </>
+  ) : dockedAlbumId !== null ? (
+    <DockedAlbumCard albumId={dockedAlbumId} />
+  ) : null;
 
   return (
     <>
       <RightbarMobileClose />
-      {dockedAlbumId !== null && <DockedAlbumCard albumId={dockedAlbumId} />}
-      <RightbarContainer variant={railMode ? "rail" : "full"}>
-        {railMode ? (
-          <PinnedRail activeAlbumId={activeAlbumId} />
-        ) : panel.type === "default" ? (
-          <>
-            {isDesktop && pinnedAlbumIds.length > 0 && <RailCollapse />}
-            <DefaultRightbarContent />
-          </>
-        ) : (
-          <RightbarPanelRouter panel={panel} />
-        )}
+      <DockedPanel
+        content={panelContent}
+        width={railExpanded ? HOME_PANEL_WIDTH : DOCK_PANEL_WIDTH}
+      />
+      <RightbarContainer variant="rail">
+        <PinnedRail activeAlbumId={activeAlbumId} />
       </RightbarContainer>
     </>
   );

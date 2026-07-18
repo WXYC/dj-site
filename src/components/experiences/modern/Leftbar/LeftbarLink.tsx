@@ -1,5 +1,6 @@
 "use client";
 import type { JSX } from "react";
+import { albumParentPath, withAlbumSegment } from "@/lib/features/catalog/albumRoutes";
 import { Badge, ListItem, ListItemButton, Tooltip } from "@mui/joy";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -25,10 +26,10 @@ export default function LeftbarLink(props: LeftbarLinkProps): JSX.Element {
       >
         <ListItemButton
           disabled={props.disabled}
-          variant={pathname === props.path ? "solid" : "plain"}
+          variant={albumParentPath(pathname) === props.path ? "solid" : "plain"}
           {...(!props.disabled && {
             component: Link,
-            href: props.path,
+            href: withAlbumSegment(props.path, pathname),
           })}
         >
             <Badge

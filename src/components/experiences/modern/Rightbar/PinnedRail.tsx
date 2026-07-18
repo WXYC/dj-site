@@ -8,6 +8,10 @@ import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { Close, SpaceDashboardOutlined } from "@mui/icons-material";
 import { Box, Divider, IconButton, Tooltip, Typography } from "@mui/joy";
 import { usePathname, useRouter } from "next/navigation";
+import {
+  DOCK_HEADER_HEIGHT,
+  RIGHTBAR_FOOTER_CLEARANCE,
+} from "../catalog/album/dock";
 
 function PinnedAlbumIcon({ albumId, active }: { albumId: number; active: boolean }) {
   const router = useRouter();
@@ -24,12 +28,15 @@ function PinnedAlbumIcon({ albumId, active }: { albumId: number; active: boolean
   const label = data ? `${artistDisplay} – ${data.title}` : "Pinned album";
   const genreColor = genreTone(data?.artist.genre).color;
 
+  const openAlbum = () => {
+    dispatch(applicationSlice.actions.setRailExpanded(false));
+    router.push(albumDetailHref(pathname, albumId));
+  };
+
   return (
     <Box
       sx={{
         position: "relative",
-        // The unpin badge is reachable but invisible until the tile is
-        // hovered or it holds focus.
         "& .unpin-badge": { opacity: 0, transition: "opacity 0.2s" },
         "&:hover .unpin-badge, & .unpin-badge:focus-visible": { opacity: 1 },
       }}
@@ -37,10 +44,10 @@ function PinnedAlbumIcon({ albumId, active }: { albumId: number; active: boolean
       <Tooltip variant="outlined" size="sm" title={label} placement="left">
         <IconButton
           aria-label={`Open ${label}`}
-          onClick={() => router.push(albumDetailHref(pathname, albumId))}
+          onClick={openAlbum}
           variant={active ? "soft" : "plain"}
           color={active ? "primary" : "neutral"}
-          sx={{ p: "4px", borderRadius: "md" }}
+          sx={{ p: "4px", borderRadius: "md", "--IconButton-size": "52px" }}
         >
           {data?.artwork_url ? (
             <Box
@@ -91,8 +98,8 @@ function PinnedAlbumIcon({ albumId, active }: { albumId: number; active: boolean
         onClick={() => dispatch(applicationSlice.actions.unpinAlbum(albumId))}
         sx={{
           position: "absolute",
-          top: -2,
-          right: -2,
+          top: 0,
+          right: 0,
           zIndex: 1,
           "--IconButton-size": "18px",
           "--Icon-fontSize": "12px",
@@ -106,50 +113,64 @@ function PinnedAlbumIcon({ albumId, active }: { albumId: number; active: boolean
 }
 
 /**
- * The minified rightbar: a narrow strip of "apps". The dashboard app (top)
- * expands the full NowPlaying + Bin rightbar; below it, one icon per pinned
- * album. Rendered only at the dock breakpoint while albums are pinned.
+ * The persistent strip at the far right while albums are pinned. The dashboard
+ * app (top) toggles the home panel (NowPlaying + Bin) in the docked slot;
+ * below it, one icon per pinned album swaps the slot to that album's card.
  */
 export default function PinnedRail({ activeAlbumId }: { activeAlbumId: number | null }) {
   const dispatch = useAppDispatch();
   const pinnedAlbumIds = useAppSelector(applicationSlice.selectors.getPinnedAlbumIds);
+  const railExpanded = useAppSelector(applicationSlice.selectors.getRailExpanded);
 
   return (
     <Box
       sx={{
+        flex: 1,
+        minHeight: 0,
         display: "flex",
         flexDirection: "column",
-        alignItems: "center",
-        gap: 1,
-        py: 1.5,
       }}
     >
-      <Tooltip variant="outlined" size="sm" title="Now Playing & Mail Bin" placement="left">
-        <IconButton
-          aria-label="Expand the rightbar"
-          variant="plain"
-          color="neutral"
-          onClick={() => dispatch(applicationSlice.actions.setRailExpanded(true))}
-          sx={{ "--IconButton-size": "44px" }}
-        >
-          <SpaceDashboardOutlined />
-        </IconButton>
-      </Tooltip>
-      <Divider sx={{ width: "60%" }} />
       <Box
         sx={{
+          height: DOCK_HEADER_HEIGHT,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        <Tooltip variant="outlined" size="sm" title="Now Playing & Mail Bin" placement="left">
+          <IconButton
+            aria-label={railExpanded ? "Collapse the dashboard panel" : "Expand the dashboard panel"}
+            variant={railExpanded ? "soft" : "plain"}
+            color={railExpanded ? "primary" : "neutral"}
+            onClick={() => dispatch(applicationSlice.actions.setRailExpanded(!railExpanded))}
+            sx={{ "--IconButton-size": "44px" }}
+          >
+            <SpaceDashboardOutlined />
+          </IconButton>
+        </Tooltip>
+      </Box>
+      <Divider />
+      <Box
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: "auto",
+          overflowX: "hidden",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           gap: 0.5,
-          overflowY: "auto",
-          minHeight: 0,
+          py: 1,
         }}
       >
         {pinnedAlbumIds.map((albumId) => (
           <PinnedAlbumIcon key={albumId} albumId={albumId} active={albumId === activeAlbumId} />
         ))}
       </Box>
+      <Box sx={{ minHeight: `${RIGHTBAR_FOOTER_CLEARANCE}px`, flexShrink: 0 }} />
     </Box>
   );
 }
