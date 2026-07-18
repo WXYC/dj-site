@@ -26,6 +26,7 @@ import {
   FlowsheetSearchProperty,
   FlowsheetSubmissionParams,
   FlowsheetUpdateParams,
+  isFlowsheetBreakpointEntry,
 } from "@/lib/features/flowsheet/types";
 import type { RootState } from "@/lib/store";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
@@ -333,6 +334,25 @@ export const useFlowsheet = () => {
     isSuccess,
     isError,
   };
+};
+
+/**
+ * Just the `message` strings of the currently-loaded breakpoint entries.
+ * `selectFromResult` derives the array in the store so the single consumer
+ * (BreakpointButton's one-per-hour guard) re-renders only when the set of
+ * breakpoints changes, not on every flowsheet cache update.
+ */
+export const useCurrentBreakpointMessages = (): string[] => {
+  const { loading: userloading, info: userData } = useRegistry();
+  return useGetInfiniteEntriesInfiniteQuery(undefined, {
+    skip: !userData || userloading,
+    selectFromResult: ({ data }) => ({
+      breakpointMessages: (data?.pages ?? [])
+        .flat()
+        .filter(isFlowsheetBreakpointEntry)
+        .map((entry) => entry.message),
+    }),
+  }).breakpointMessages;
 };
 
 // Mutation result state is never consumed, and the hosts of these hooks

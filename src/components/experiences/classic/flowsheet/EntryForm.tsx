@@ -8,19 +8,11 @@ import { useGetRotationQuery } from "@/lib/features/rotation/api";
 import { sortRotationReleases } from "@/lib/features/rotation/sort";
 import { Rotation } from "@/lib/features/rotation/types";
 import { FlowsheetEntryType } from "@wxyc/shared/dtos";
+import { stationBreakpointMessage } from "@/src/utilities/stationTime";
 
 type EntryType = "track" | "talkset" | "breakpoint";
 type ReleaseType = "rotationRelease" | "libraryRelease" | "otherRelease";
 type RotationType = "heavy" | "medium" | "light" | "singles";
-
-function formatBreakpointTime(): string {
-  const now = new Date();
-  const hour = now.getHours();
-  const minutes = now.getMinutes();
-  const ampm = hour >= 12 ? "PM" : "AM";
-  const displayHour = hour % 12 || 12;
-  return `${displayHour}:${minutes.toString().padStart(2, "0")} ${ampm}`;
-}
 
 export default function EntryForm({
   onSuccess,
@@ -123,7 +115,7 @@ export default function EntryForm({
       };
     } else if (entryType === "breakpoint") {
       submissionData = {
-        message: `${formatBreakpointTime()} Breakpoint`,
+        message: stationBreakpointMessage(),
         entry_type: FlowsheetEntryType.breakpoint,
       };
     } else if (releaseType === "rotationRelease" && selectedRotationId > 0) {

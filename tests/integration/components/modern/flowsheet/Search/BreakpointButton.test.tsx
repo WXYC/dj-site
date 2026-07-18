@@ -9,21 +9,20 @@ vi.mock("@/lib/features/flowsheet/api", () => ({
 }));
 
 let mockLive = true;
+let mockBreakpointMessages: string[] = [];
 
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useFlowsheetSearch: () => ({
     live: mockLive,
   }),
-}));
-
-vi.mock("@/src/utilities/closesthour", () => ({
-  getClosestHour: () => new Date("2024-01-15T14:00:00"),
+  useCurrentBreakpointMessages: () => mockBreakpointMessages,
 }));
 
 describe("BreakpointButton", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockLive = true;
+    mockBreakpointMessages = [];
   });
 
   it("should be disabled while live status is unresolved or off air", () => {

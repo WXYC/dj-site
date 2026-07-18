@@ -1,4 +1,5 @@
 import { Rotation } from "../rotation/types";
+import { formatStationDateTime } from "@/src/utilities/stationTime";
 import { OFF_AIR_LABEL } from "./constants";
 import { hasLinkedAlbumId } from "./linkage";
 import {
@@ -224,7 +225,10 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
     }
 
     case "breakpoint": {
-      const { day, time, isToday } = formatAddTime(entry.add_time);
+      // Breakpoints mark the station's top-of-hour, so the rendered time is
+      // pinned to the station's wall clock rather than the viewer's zone —
+      // otherwise a DJ logging from another zone reads an hour off.
+      const { day, time, isToday } = formatStationDateTime(entry.add_time);
       return {
         ...base,
         message: entry.message || "",

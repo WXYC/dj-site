@@ -1,8 +1,15 @@
 "use client";
 
 import { useAddToFlowsheetMutation } from "@/lib/features/flowsheet/api";
-import { useFlowsheetSearch } from "@/src/hooks/flowsheetHooks";
-import { getClosestHour } from "@/src/utilities/closesthour";
+import {
+  useCurrentBreakpointMessages,
+  useFlowsheetSearch,
+} from "@/src/hooks/flowsheetHooks";
+import {
+  formatStationHourLabel,
+  isStationHourBreakpointPresent,
+  stationBreakpointMessage,
+} from "@/src/utilities/stationTime";
 import { FlowsheetEntryType } from "@wxyc/shared/dtos";
 import { Timer } from "@mui/icons-material";
 import { IconButton, Tooltip } from "@mui/joy";
@@ -11,15 +18,19 @@ export default function BreakpointButton() {
   const [addToFlowsheet, _] = useAddToFlowsheetMutation();
 
   const { live } = useFlowsheetSearch();
+  const breakpointMessages = useCurrentBreakpointMessages();
+
+  const alreadyMarked = isStationHourBreakpointPresent(breakpointMessages);
 
   return (
     <Tooltip
       placement="top"
       size="sm"
-      title={`Add a ${getClosestHour().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      })} breakpoint`}
+      title={
+        alreadyMarked
+          ? "This hour already has a breakpoint"
+          : `Add a ${formatStationHourLabel()} breakpoint`
+      }
       variant="outlined"
     >
       <IconButton
@@ -28,16 +39,15 @@ export default function BreakpointButton() {
         color="warning"
         data-testid="flowsheet-breakpoint-button"
         onClick={() => {
-          const now = getClosestHour();
+          // Re-check against a fresh clock: the render-time value can be stale
+          // if the station hour has rolled over since the last cache update.
+          if (isStationHourBreakpointPresent(breakpointMessages)) return;
           addToFlowsheet({
-            message: `${now.toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })} Breakpoint`,
+            message: stationBreakpointMessage(),
             entry_type: FlowsheetEntryType.breakpoint,
           });
         }}
-        disabled={!live}
+        disabled={!live || alreadyMarked}
         sx = {{
             zIndex: 8001,
         }}
