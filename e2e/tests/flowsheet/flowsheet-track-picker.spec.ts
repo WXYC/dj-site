@@ -25,7 +25,7 @@ const authDir = path.join(__dirname, "../../.auth");
  * (which toggle dj2 live/off-air) and session conflicts with auth tests
  * (which invalidate dj.json) — same pattern as library-search-proxy.spec.ts.
  */
-test.describe("Flowsheet Track Picker", () => {
+test.describe("Flowsheet Track Picker", { tag: "@smoke" }, () => {
   test.use({ storageState: path.join(authDir, "musicDirector.json") });
   test.describe.configure({ mode: "serial" });
   test.setTimeout(60_000);
