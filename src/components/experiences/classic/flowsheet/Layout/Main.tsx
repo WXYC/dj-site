@@ -4,7 +4,6 @@ import "@/src/styles/classic/wxyc.css";
 import "@/src/styles/classic/flowsheet.css";
 import Image from "next/image";
 import { useFlowsheet, useShowControl } from "@/src/hooks/flowsheetHooks";
-import { useLogout } from "@/src/hooks/authenticationHooks";
 import EntryForm from "../EntryForm";
 import EntryTable from "../EntryTable";
 import Navigation from "../../Navigation";
@@ -16,18 +15,16 @@ export default function Main() {
   const { entries, removeFromFlowsheet, updateFlowsheet, loading } =
     useFlowsheet();
   const { live, leave } = useShowControl();
-  const { handleLogout } = useLogout();
   const [switchEntries] = useSwitchEntriesMutation();
 
   const currentShowEntries = entries.current;
   const previousEntries = entries.previous;
 
-  // Ports tubafrenzy's EndShowServlet flow: signoff the radio show and
-  // invalidate the session in one click. handleLogout owns the session
-  // teardown (token cache, signOut, state reset) and the /login redirect.
+  // End Show signs off the radio show only — the DJ stays logged in. Once
+  // `live` flips false (leaveShow tag invalidation), this component renders
+  // StartShow, the locked-out-of-show page.
   const endShow = () => {
     leave();
-    handleLogout();
   };
 
   const handleUpdate = (entryId: number, data: UpdateRequestBody) => {
