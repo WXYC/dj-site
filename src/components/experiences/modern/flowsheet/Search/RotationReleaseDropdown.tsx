@@ -2,9 +2,9 @@
 
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import { sortRotationReleases } from "@/lib/features/rotation/sort";
+import { ClickAwayListener } from "@mui/base/ClickAwayListener";
 import { KeyboardArrowDown } from "@mui/icons-material";
 import { Box, Input, Sheet, Typography } from "@mui/joy";
-import { ClickAwayListener } from "@mui/material";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 function formatRelease(release: AlbumEntry): string {

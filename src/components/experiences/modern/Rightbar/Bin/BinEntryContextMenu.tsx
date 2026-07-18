@@ -1,9 +1,9 @@
 "use client";
 
 import { useShiftKey } from "@/src/hooks/applicationHooks";
+import { ClickAwayListener } from "@mui/base/ClickAwayListener";
+import { Popper } from "@mui/base/Popper";
 import { Chip, ListItemDecorator, MenuItem, MenuList, Typography } from "@mui/joy";
-import ClickAwayListener from "@mui/material/ClickAwayListener";
-import Popper from "@mui/material/Popper";
 import { useEffect } from "react";
 import type { BinEntryAction } from "./useBinEntryActions";
 

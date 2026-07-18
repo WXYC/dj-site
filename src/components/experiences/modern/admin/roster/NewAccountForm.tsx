@@ -3,9 +3,9 @@
 import { adminSlice } from "@/lib/features/admin/frontend";
 import { Authorization } from "@/lib/features/admin/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import { ClickAwayListener } from "@mui/base/ClickAwayListener";
 import { PersonAdd } from "@mui/icons-material";
 import { Button, FormControl, Input, Option, Select } from "@mui/joy";
-import { ClickAwayListener } from "@mui/material";
 
 export default function NewAccountForm() {
   const dispatch = useAppDispatch();
