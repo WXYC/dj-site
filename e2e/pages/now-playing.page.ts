@@ -63,15 +63,19 @@ export class NowPlayingPage {
    * In headless Chromium the real audio.play() rejects (no audio device)
    * and the browser may asynchronously fire a "pause" event that races
    * with React's state update, leaving isPlaying indeterminate. We stub
-   * audio.play() to dispatch a "play" event and resolve immediately,
-   * then wait for React to re-render before returning.
+   * audio.play() to dispatch a "play" event and resolve immediately.
+   *
+   * The synthetic "play" is deferred to a macrotask so it lands after the
+   * "emptied" event the browser fires when the widget (re)assigns src on
+   * resume — matching real playback, where play follows emptied. Firing it
+   * synchronously would let the later emptied undo the playing state.
    */
   async play(): Promise<void> {
     await this.page.evaluate(() => {
       const audio = document.querySelector("#now-playing-music") as HTMLAudioElement;
       if (audio) {
         audio.play = () => {
-          audio.dispatchEvent(new Event("play"));
+          setTimeout(() => audio.dispatchEvent(new Event("play")), 0);
           return Promise.resolve();
         };
       }
