@@ -21,7 +21,8 @@ vi.mock("@/lib/features/flowsheet/api", async (importOriginal) => {
     ...actual,
     useGetNowPlayingQuery: (arg: unknown, options: unknown) =>
       mockUseGetNowPlayingQuery(arg, options),
-    useWhoIsLiveQuery: () => mockUseWhoIsLiveQuery(),
+    useWhoIsLiveQuery: (arg: unknown, options: unknown) =>
+      mockUseWhoIsLiveQuery(arg, options),
   };
 });
 
@@ -433,12 +434,37 @@ describe("NowPlaying", () => {
   });
 
   describe("API polling", () => {
-    it("should call useGetNowPlayingQuery with pollingInterval and skip when unfocused", () => {
+    it("polls both hooks on the shared cadence, skipping unfocused, refetching on focus by default", () => {
       render(<NowPlaying mini={false} />);
-      // skipPollingIfUnfocused pauses the 60s poll on a hidden/blurred tab. (#634)
+      // The dashboard default pauses the poll on a hidden/blurred tab but
+      // resyncs the moment it regains focus.
       expect(mockUseGetNowPlayingQuery).toHaveBeenCalledWith(undefined, {
         pollingInterval: 60000,
         skipPollingIfUnfocused: true,
+        refetchOnFocus: true,
+      });
+      // whoIsLive rides the same cadence so the LIVE/OFF-AIR badge and DJ names
+      // stay current without a flowsheet mutation to invalidate them.
+      expect(mockUseWhoIsLiveQuery).toHaveBeenCalledWith(undefined, {
+        pollingInterval: 60000,
+        skipPollingIfUnfocused: true,
+        refetchOnFocus: true,
+      });
+    });
+
+    it("keeps both polls alive on blurred tabs when pollInBackground is set", () => {
+      render(<NowPlaying mini={false} pollInBackground />);
+      // The listen-live surface plays audio in a background tab, so polls must
+      // survive blur.
+      expect(mockUseGetNowPlayingQuery).toHaveBeenCalledWith(undefined, {
+        pollingInterval: 60000,
+        skipPollingIfUnfocused: false,
+        refetchOnFocus: true,
+      });
+      expect(mockUseWhoIsLiveQuery).toHaveBeenCalledWith(undefined, {
+        pollingInterval: 60000,
+        skipPollingIfUnfocused: false,
+        refetchOnFocus: true,
       });
     });
   });

@@ -20,6 +20,10 @@ export type NowPlayingWidgetProps = {
   // (e.g. the Rightbar), where the widget keeps its client-fetched behavior.
   initialEntry?: FlowsheetEntry | null;
   initialOnAirData?: OnAirDJData;
+  // The public listen-live surface plays audio in background tabs, so its polls
+  // must survive blur to stay current for a backgrounded listener. The
+  // dashboard keeps the blur-skip (no reason to poll a hidden control panel).
+  pollInBackground?: boolean;
 };
 
 const AUDIO_SRC = "https://audio-mp3.ibiblio.org/wxyc.mp3";
@@ -44,6 +48,7 @@ export default function NowPlaying({
   mini = false,
   initialEntry,
   initialOnAirData,
+  pollInBackground = false,
 }: NowPlayingWidgetProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
 
@@ -56,11 +61,17 @@ export default function NowPlaying({
 
   const [isPlaying, setIsPlaying] = useState(false);
 
+  const nowPlayingPollingInterval = useFlowsheetPollingInterval();
+
   const {
     data: whoIsLiveData,
     isLoading: whoIsLiveLoading,
     isError: djError,
-  } = useWhoIsLiveQuery();
+  } = useWhoIsLiveQuery(undefined, {
+    pollingInterval: nowPlayingPollingInterval,
+    skipPollingIfUnfocused: !pollInBackground,
+    refetchOnFocus: true,
+  });
 
   // The client query owns this value once it resolves; before then fall back to
   // the server seed so the public page renders the on-air state on first paint.
@@ -71,12 +82,10 @@ export default function NowPlaying({
   // with a seed there is already content to render.
   const djLoading = whoIsLiveLoading && onAirData === undefined;
 
-  const nowPlayingPollingInterval = useFlowsheetPollingInterval();
-
   const { data: nowPlayingData } = useGetNowPlayingQuery(undefined, {
     pollingInterval: nowPlayingPollingInterval,
-    // Don't keep hitting the backend on a hidden/blurred tab. (#634)
-    skipPollingIfUnfocused: true,
+    skipPollingIfUnfocused: !pollInBackground,
+    refetchOnFocus: true,
   });
 
   // `data` is undefined only until the first client fetch resolves; once it

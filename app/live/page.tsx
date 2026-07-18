@@ -41,6 +41,7 @@ export default async function LivePage() {
           mini={false}
           initialEntry={initialEntry}
           initialOnAirData={initialOnAirData}
+          pollInBackground
         />
       </Box>
     </WXYCPage>
