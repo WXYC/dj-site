@@ -110,7 +110,7 @@ const PORT_RANGE_SIZE = 5;
  * then probes a range of ports starting at {@link PORT_RANGE_START}.
  * Throws if no reachable port is found.
  */
-async function getAuthServiceBaseUrl(): Promise<string> {
+export async function getAuthServiceBaseUrl(): Promise<string> {
   const authUrl = process.env.NEXT_PUBLIC_BETTER_AUTH_URL;
   if (authUrl) {
     // The env var includes the /auth path (e.g., "http://localhost:8084/auth").
