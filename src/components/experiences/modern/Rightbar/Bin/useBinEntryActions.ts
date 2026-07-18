@@ -12,10 +12,10 @@ import {
 } from "@/lib/features/flowsheet/types";
 import { useAppDispatch } from "@/lib/hooks";
 import {
-  DeleteOutline,
   InfoOutlined,
   PlayArrowOutlined,
   PlaylistAdd,
+  Unarchive,
 } from "@mui/icons-material";
 import { ColorPaletteProp } from "@mui/joy";
 import { useMemo } from "react";
@@ -109,7 +109,7 @@ export function useBinEntryActions(
     actions.push({
       id: "remove",
       label: "Remove from Bin",
-      Icon: DeleteOutline,
+      Icon: Unarchive,
       color: "warning",
       run: () => deleteFromBin(entry.id),
     });
