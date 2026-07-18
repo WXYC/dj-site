@@ -223,6 +223,12 @@ describe("GoLive", () => {
     });
   });
 
+  it("guards the on-air dot's aspect ratio against flex distortion", () => {
+    render(<GoLive />);
+    const dot = screen.getByTestId("flowsheet-on-air-dot");
+    expect(dot).toHaveStyle({ flexShrink: "0", aspectRatio: "1" });
+  });
+
   it("should show saving indicator when isSaving", async () => {
     const { useShowControl } = await import("@/src/hooks/flowsheetHooks");
     vi.mocked(useShowControl).mockReturnValue({

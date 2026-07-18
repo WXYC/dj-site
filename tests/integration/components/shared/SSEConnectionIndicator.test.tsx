@@ -34,4 +34,10 @@ describe("SSEConnectionIndicator", () => {
     expect(dot).toBeInTheDocument();
     expect(dot.getAttribute("data-status")).toBe(status);
   });
+
+  it("guards the dot's aspect ratio against flex distortion", () => {
+    renderWithProviders(<SSEConnectionIndicator />);
+    const dot = screen.getByLabelText(STATUS_LABELS.closed);
+    expect(dot).toHaveStyle({ flexShrink: "0", aspectRatio: "1" });
+  });
 });

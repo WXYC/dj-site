@@ -97,10 +97,13 @@ export default function GoLive() {
           >
             {live ? "You Are On Air" : "You Are Off Air"}
             <Box
+              data-testid="flowsheet-on-air-dot"
               sx={{
                 width: 10,
                 height: 10,
                 borderRadius: "50%",
+                flexShrink: 0,
+                aspectRatio: "1",
                 ml: 1,
                 backgroundColor: live
                   ? "var(--wxyc-palette-onAir-indicator)"
