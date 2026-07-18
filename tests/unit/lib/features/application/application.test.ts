@@ -123,20 +123,59 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
     });
   });
 
-  describe("setAlbumCardPinned action", () => {
-    it("should default to unpinned", () => {
-      expect(harness().initialState.albumCardPinned).toBe(false);
+  describe("pinAlbum / unpinAlbum actions", () => {
+    it("should default to no pinned albums", () => {
+      expect(harness().initialState.pinnedAlbumIds).toEqual([]);
     });
 
-    it("should pin and unpin the album card", () => {
-      const pinnedState = harness().reduce(actions.setAlbumCardPinned(true));
-      expect(pinnedState.albumCardPinned).toBe(true);
-
-      const unpinnedState = harness().chain(
-        actions.setAlbumCardPinned(true),
-        actions.setAlbumCardPinned(false),
+    it("should pin albums in order and dedupe repeats", () => {
+      const result = harness().chain(
+        actions.pinAlbum(42),
+        actions.pinAlbum(7),
+        actions.pinAlbum(42),
       );
-      expect(unpinnedState.albumCardPinned).toBe(false);
+      expect(result.pinnedAlbumIds).toEqual([42, 7]);
+    });
+
+    it("should unpin only the given album", () => {
+      const result = harness().chain(
+        actions.pinAlbum(42),
+        actions.pinAlbum(7),
+        actions.unpinAlbum(42),
+      );
+      expect(result.pinnedAlbumIds).toEqual([7]);
+    });
+
+    it("should collapse the expanded rail when pinning", () => {
+      const result = harness().chain(
+        actions.pinAlbum(42),
+        actions.setRailExpanded(true),
+        actions.pinAlbum(7),
+      );
+      expect(result.railExpanded).toBe(false);
+    });
+
+    it("should reset rail expansion when the last pin is removed", () => {
+      const result = harness().chain(
+        actions.pinAlbum(42),
+        actions.setRailExpanded(true),
+        actions.unpinAlbum(42),
+      );
+      expect(result.pinnedAlbumIds).toEqual([]);
+      expect(result.railExpanded).toBe(false);
+    });
+  });
+
+  describe("setRailExpanded action", () => {
+    it("should expand and collapse the rail", () => {
+      const expanded = harness().reduce(actions.setRailExpanded(true));
+      expect(expanded.railExpanded).toBe(true);
+
+      const collapsed = harness().chain(
+        actions.setRailExpanded(true),
+        actions.setRailExpanded(false),
+      );
+      expect(collapsed.railExpanded).toBe(false);
     });
   });
 
@@ -145,7 +184,8 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
       const result = harness().chain(
         actions.toggleSidebar(),
         actions.openPanel({ type: "settings" }),
-        actions.setAlbumCardPinned(true),
+        actions.pinAlbum(42),
+        actions.setRailExpanded(true),
         actions.setAuthStage("forgot"),
         actions.reset()
       );
@@ -169,9 +209,15 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
       });
     });
 
-    describe("getAlbumCardPinned", () => {
+    describe("getPinnedAlbumIds", () => {
       it("should be defined", () => {
-        expect(applicationSlice.selectors.getAlbumCardPinned).toBeDefined();
+        expect(applicationSlice.selectors.getPinnedAlbumIds).toBeDefined();
+      });
+    });
+
+    describe("getRailExpanded", () => {
+      it("should be defined", () => {
+        expect(applicationSlice.selectors.getRailExpanded).toBeDefined();
       });
     });
   });

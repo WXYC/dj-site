@@ -11,7 +11,8 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { QueueMusic } from "@mui/icons-material";
 
 import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
-import { useRouter } from "next/navigation";
+import { albumDetailHref } from "@/lib/features/catalog/albumRoutes";
+import { usePathname, useRouter } from "next/navigation";
 import { convertBinToQueue } from "@/lib/features/bin/conversions";
 import { genreTone } from "@/lib/features/experiences/modern/tokens/roles";
 import AddRemoveBin from "./AddRemoveBin";
@@ -33,12 +34,13 @@ function CatalogMobileResult({
   addToQueue: (entry: FlowsheetQuery) => void;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
 
   const genreColor = genreTone(album.artist.genre).color;
 
   const artistDisplay = album.album_artist ? "Various Artists" : album.artist.name;
 
-  const openDetail = () => router.push(`/dashboard/album/${album.id}`);
+  const openDetail = () => router.push(albumDetailHref(pathname, album.id));
 
   // The actions sit in the top-right corner, so only the top text lines
   // (title, artist) need to reserve room for them; everything below runs

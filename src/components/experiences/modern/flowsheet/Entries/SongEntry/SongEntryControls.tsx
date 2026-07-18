@@ -12,7 +12,8 @@ import {
   PhoneEnabled,
 } from "@mui/icons-material";
 import { Checkbox, IconButton, Tooltip } from "@mui/joy";
-import { useRouter } from "next/navigation";
+import { albumDetailHref } from "@/lib/features/catalog/albumRoutes";
+import { usePathname, useRouter } from "next/navigation";
 import RemoveButton from "../Components/RemoveButton";
 
 // The interactive controls for a song entry — segue + request toggles, the
@@ -33,6 +34,7 @@ export default function SongEntryControls({
 }) {
   const dispatch = useAppDispatch();
   const router = useRouter();
+  const pathname = usePathname();
   const { updateFlowsheet } = useFlowsheetActions();
 
   const commit = (field: "segue" | "request_flag", value: boolean) => {
@@ -105,7 +107,7 @@ export default function SongEntryControls({
         size="sm"
         disabled={!entry?.album_id || entry.album_id < 0}
         aria-label="Album information"
-        onClick={() => router.push(`/dashboard/album/${entry.album_id}`)}
+        onClick={() => router.push(albumDetailHref(pathname, entry.album_id!))}
       >
         <InfoOutlined />
       </IconButton>

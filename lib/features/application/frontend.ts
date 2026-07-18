@@ -10,7 +10,8 @@ export const defaultApplicationFrontendState: ApplicationFrontendState = {
   authFlow: {
     stage: "otp-email" as AuthStage,
   },
-  albumCardPinned: false,
+  pinnedAlbumIds: [],
+  railExpanded: false,
 };
 
 export const applicationSlice = createAppSlice({
@@ -33,14 +34,31 @@ export const applicationSlice = createAppSlice({
     setAuthStage: (state, action) => {
       state.authFlow.stage = action.payload;
     },
-    setAlbumCardPinned: (state, action: PayloadAction<boolean>) => {
-      state.albumCardPinned = action.payload;
+    pinAlbum: (state, action: PayloadAction<number>) => {
+      if (!state.pinnedAlbumIds.includes(action.payload)) {
+        state.pinnedAlbumIds.push(action.payload);
+      }
+      // Pinning is the gesture that reveals the rail; never leave the full
+      // rightbar covering a card the DJ just asked to keep visible.
+      state.railExpanded = false;
+    },
+    unpinAlbum: (state, action: PayloadAction<number>) => {
+      state.pinnedAlbumIds = state.pinnedAlbumIds.filter(
+        (id) => id !== action.payload,
+      );
+      if (state.pinnedAlbumIds.length === 0) {
+        state.railExpanded = false;
+      }
+    },
+    setRailExpanded: (state, action: PayloadAction<boolean>) => {
+      state.railExpanded = action.payload;
     },
     reset: () => defaultApplicationFrontendState,
   },
   selectors: {
     getRightbarPanel: (state) => state.rightbar.panel,
     getAuthStage: (state) => state.authFlow.stage,
-    getAlbumCardPinned: (state) => state.albumCardPinned,
+    getPinnedAlbumIds: (state) => state.pinnedAlbumIds,
+    getRailExpanded: (state) => state.railExpanded,
   },
 });

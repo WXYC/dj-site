@@ -13,7 +13,8 @@ import { Stack, Tooltip } from "@mui/joy";
 import { useCatalogQuerySearch } from "@/src/hooks/catalogHooks";
 import { QueueMusic } from "@mui/icons-material";
 import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
-import { useRouter } from "next/navigation";
+import { albumDetailHref } from "@/lib/features/catalog/albumRoutes";
+import { usePathname, useRouter } from "next/navigation";
 import { genreTone } from "@/lib/features/experiences/modern/tokens/roles";
 import AddRemoveBin from "./AddRemoveBin";
 import { MatchedTrackChips } from "./MatchedTrackChips";
@@ -35,6 +36,7 @@ function CatalogResult({
   addToQueue: (entry: FlowsheetQuery) => void;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
 
   const { selected, setSelection, sortBy } = useCatalogQuerySearch();
 
@@ -58,7 +60,7 @@ function CatalogResult({
     <tr
       key={album.id}
       className={isSelected ? "row-selected" : undefined}
-      onClick={() => router.push(`/dashboard/album/${album.id}`)}
+      onClick={() => router.push(albumDetailHref(pathname, album.id))}
       style={{ cursor: "pointer" }}
     >
       <td
@@ -235,7 +237,7 @@ function CatalogResult({
               variant="plain"
               color="neutral"
               size="sm"
-              onClick={() => router.push(`/dashboard/album/${album.id}`)}
+              onClick={() => router.push(albumDetailHref(pathname, album.id))}
             >
               <InfoOutlinedIcon />
             </IconButton>

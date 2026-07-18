@@ -5,8 +5,6 @@ import { LoadingPage } from "./components/LoadingPage";
 export type ThemedLayoutProps = {
   classic: ReactNode;
   modern: ReactNode;
-  /** Route-driven overlay slot (album card); only the dashboard layout has it. */
-  information?: ReactNode;
 };
 
 export default async function ThemedLayout(
@@ -15,11 +13,10 @@ export default async function ThemedLayout(
   const serverSideProps = await createServerSideProps();
   const isClassic = serverSideProps.application.experience === "classic";
 
-  const { classic, modern, information } = props;
+  const { classic, modern } = props;
 
   return (
     <Suspense fallback={<LoadingPage />}>
-      {information}
       {classic && modern && isClassic ? (
         <div id="classic-container">{classic}</div>
       ) : (

@@ -1,24 +1,4 @@
-
-import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
-import MobileSearchBar from "@/src/components/experiences/modern/catalog/Search/MobileSearchBar";
-import SearchBar from "@/src/components/experiences/modern/catalog/Search/SearchBar";
-import Results from "@/src/components/experiences/modern/catalog/Results/Results";
-import { Metadata } from "next";
-import { getPageTitle } from "@/lib/utils/page-title";
-
-export const metadata: Metadata = {
-  title: getPageTitle("Card Catalog"),
-};
-
+// The catalog UI is rendered by layout.tsx; the base URL has no overlay child.
 export default function CatalogPage() {
-  return (
-    <>
-      <PageHeader title="Card Catalog" />
-      <>
-        <MobileSearchBar color="primary" />
-        <SearchBar color="primary" />
-        <Results color="primary" />
-      </>
-    </>
-  );
+  return null;
 }

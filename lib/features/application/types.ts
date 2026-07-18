@@ -20,10 +20,17 @@ export interface ApplicationFrontendState {
     rightbar: RightbarState;
     authFlow: AuthFlowState;
     /**
-     * The route-driven album card docks to the right edge instead of centering
-     * when pinned. Session-scoped: survives album changes, not reloads.
+     * Albums pinned to the rightbar rail, in pin order. Session-scoped:
+     * survives navigation and album changes, not reloads. Which card is open
+     * is owned by the URL, never mirrored here.
      */
-    albumCardPinned: boolean;
+    pinnedAlbumIds: number[];
+    /**
+     * While albums are pinned, the full rightbar (NowPlaying + Bin) can be
+     * temporarily expanded back over the rail via the dashboard-app icon.
+     * Meaningless when nothing is pinned.
+     */
+    railExpanded: boolean;
 }
 
 export interface RightbarState {

@@ -8,7 +8,10 @@ const addToQueue = vi.fn();
 const addToFlowsheet = vi.fn(() => Promise.resolve());
 const deleteFromBin = vi.fn();
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push }),
+  usePathname: () => "/dashboard/flowsheet",
+}));
 vi.mock("@/lib/features/bin/conversions", () => ({
   convertBinToQueue: (e: AlbumEntry) => ({ q: e.id }),
   convertBinToFlowsheet: (e: AlbumEntry) => ({ f: e.id }),
@@ -45,7 +48,7 @@ describe("useBinEntryActions", () => {
     const byId = Object.fromEntries(result.current.map((a) => [a.id, a]));
 
     byId.info.run();
-    expect(push).toHaveBeenCalledWith("/dashboard/album/7");
+    expect(push).toHaveBeenCalledWith("/dashboard/flowsheet/album/7");
 
     byId.queue.run();
     expect(addToQueue).toHaveBeenCalledWith({ q: 7 });
