@@ -27,10 +27,18 @@ export default function EntryText({
     return (
       <EntryStack>
         <Typography level="title-md" noWrap sx={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-          {entry.album_title}
+          {entry.track_title}
         </Typography>
         <Typography level="body-sm" noWrap sx={{ overflow: "hidden", textOverflow: "ellipsis" }}>
           {entry.artist_name}
+        </Typography>
+        <Typography
+          level="body-sm"
+          textColor="text.tertiary"
+          noWrap
+          sx={{ overflow: "hidden", textOverflow: "ellipsis" }}
+        >
+          {entry.album_title}
         </Typography>
       </EntryStack>
     );
