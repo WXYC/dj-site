@@ -33,7 +33,6 @@ function setup(opts?: { entries?: FlowsheetEntry[]; onReorder?: (sourceId: numbe
     <EntryTable
       entries={entries}
       previousEntries={[]}
-      fontSize={3}
       onUpdate={() => {}}
       onDelete={() => {}}
       onReorder={onReorder}
@@ -55,10 +54,19 @@ describe("Classic EntryTable header", () => {
     }
   });
 
-  it("has 7 columns: grip + indicators + artist + song + release + label + edit", () => {
+  it("has 8 columns: grip + playlist + req + artist + song + release + label + action", () => {
     const { container } = setup();
     const headers = container.querySelectorAll("thead th");
-    expect(headers.length).toBe(7);
+    expect(headers.length).toBe(8);
+  });
+
+  it("labels the Playlist and Req. indicator columns like tubafrenzy", () => {
+    const { container } = setup();
+    const headers = Array.from(container.querySelectorAll("thead th")).map(
+      (th) => th.textContent ?? ""
+    );
+    expect(headers[1]).toBe("Playlist");
+    expect(headers[2]).toBe("Req.");
   });
 
   it("places an empty grip-handle column as the first header cell", () => {

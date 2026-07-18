@@ -1,29 +1,29 @@
-/* Segue indicator for Classic flowsheet rows.
-   Ported from tubafrenzy's segue-styles.css (commits 20823f75, e0ea0a97, fbea79bc).
-   A song row with segue=true segues OUT of the row above it, so the visual
-   bracket (red left border + circled up-arrow) renders at the TOP of the segue
-   row connecting it to the prior row.
-   Suppression when the next row is not a song row (talkset / breakpoint /
-   show-block) is handled in EntryTable by only passing the .classic-segue
-   class when the next row is also a song row — Classic's other row variants
-   render as full-width markers and would leave the bracket dangling. */
+/* Verbatim port of tubafrenzy's segue-styles.css.
+   Entry rows carry data-segue="true" when they segue into the next row.
+   The :has(+ tr.entry-row) guard ensures the indicator only renders when
+   the very next sibling is another entry row — not a breakpoint, talkset,
+   or show delimiter that would leave the bracket dangling. */
 
-.classic-segue > td:first-child {
-  position: relative;
-  border-top: 3px solid #CC0000;
+.entry-table tr.entry-row[data-segue="true"]:has(+ tr.entry-row) > td {
+  border-bottom-color: transparent;
+}
+
+.entry-table tr.entry-row[data-segue="true"]:has(+ tr.entry-row) > td:first-child,
+.entry-table tr.entry-row[data-segue="true"] + tr.entry-row > td:first-child {
   border-left: 3px solid #CC0000;
 }
 
-.classic-segue > td:not(:first-child) {
-  border-top: 3px solid #CC0000;
+/* Circled up-arrow centered on the boundary between the two segued rows */
+.entry-table tr.entry-row[data-segue="true"]:has(+ tr.entry-row) > td:first-child {
+  position: relative;
 }
 
-.classic-segue > td:first-child::before {
-  content: "\2191";
+.entry-table tr.entry-row[data-segue="true"]:has(+ tr.entry-row) > td:first-child::after {
+  content: '\2191';
   position: absolute;
-  top: 0;
+  bottom: 0;
   left: 0;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, 50%);
   width: 18px;
   height: 18px;
   border-radius: 50%;

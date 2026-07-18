@@ -1,63 +1,80 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers/render";
 
-const mockPush = vi.fn();
+const mockReplace = vi.fn();
 let mockSearchParams = new URLSearchParams("");
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => ({ replace: mockReplace }),
   useSearchParams: () => mockSearchParams,
 }));
 
 import SearchForm from "@/src/components/experiences/classic/catalog/SearchForm";
 
 beforeEach(() => {
-  mockPush.mockClear();
+  mockReplace.mockClear();
   mockSearchParams = new URLSearchParams("");
 });
 
-describe("Classic catalog SearchForm — Browse Exclusive Albums", () => {
-  it("renders a 'Browse Exclusive Albums' button", () => {
+describe("Classic catalog SearchForm — live search input", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("renders the live-search input with tubafrenzy's placeholder", () => {
     renderWithProviders(<SearchForm />);
-    expect(
-      screen.getByRole("button", { name: /browse exclusive albums/i })
-    ).toBeDefined();
+    const input = screen.getByRole("textbox") as HTMLInputElement;
+    expect(input.placeholder).toMatch(/type to search .*releases/i);
   });
 
-  it("clicking the button navigates to ?exclusive=true", async () => {
-    const { user } = renderWithProviders(<SearchForm />);
-    await user.click(
-      screen.getByRole("button", { name: /browse exclusive albums/i })
-    );
-    expect(mockPush).toHaveBeenCalledWith("/dashboard/catalog?exclusive=true");
-  });
-
-  it("preserves ?exclusive=true on submit when the URL already carries it", async () => {
-    mockSearchParams = new URLSearchParams("exclusive=true");
-    const { user } = renderWithProviders(<SearchForm />);
+  it("debounces typing and updates the URL with the query", () => {
+    renderWithProviders(<SearchForm />);
     const input = screen.getByRole("textbox");
-    await user.type(input, "polvo");
-    const submit = screen.getByRole("button", {
-      name: /search the wxyc library/i,
-    });
-    await user.click(submit);
-    expect(mockPush).toHaveBeenCalledTimes(1);
-    const pushedUrl = mockPush.mock.calls[0][0] as string;
+    fireEvent.change(input, { target: { value: "polvo" } });
+    expect(mockReplace).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(300);
+    expect(mockReplace).toHaveBeenCalledWith(
+      "/dashboard/catalog?searchString=polvo"
+    );
+  });
+
+  it("only fires once for rapid keystrokes (debounce)", () => {
+    renderWithProviders(<SearchForm />);
+    const input = screen.getByRole("textbox");
+    fireEvent.change(input, { target: { value: "p" } });
+    vi.advanceTimersByTime(100);
+    fireEvent.change(input, { target: { value: "po" } });
+    vi.advanceTimersByTime(100);
+    fireEvent.change(input, { target: { value: "polvo" } });
+    vi.advanceTimersByTime(300);
+    expect(mockReplace).toHaveBeenCalledTimes(1);
+    expect(mockReplace).toHaveBeenCalledWith(
+      "/dashboard/catalog?searchString=polvo"
+    );
+  });
+
+  it("clears the query from the URL when the input is emptied", () => {
+    mockSearchParams = new URLSearchParams("searchString=polvo");
+    renderWithProviders(<SearchForm />);
+    const input = screen.getByRole("textbox");
+    fireEvent.change(input, { target: { value: "" } });
+    vi.advanceTimersByTime(300);
+    expect(mockReplace).toHaveBeenCalledWith("/dashboard/catalog");
+  });
+
+  it("preserves ?exclusive=true when typing while the filter is active", () => {
+    mockSearchParams = new URLSearchParams("exclusive=true");
+    renderWithProviders(<SearchForm />);
+    const input = screen.getByRole("textbox");
+    fireEvent.change(input, { target: { value: "polvo" } });
+    vi.advanceTimersByTime(300);
+    const pushedUrl = mockReplace.mock.calls[0][0] as string;
     expect(pushedUrl).toContain("searchString=polvo");
     expect(pushedUrl).toContain("exclusive=true");
-  });
-
-  it("omits exclusive=true on submit when the URL does not carry it", async () => {
-    const { user } = renderWithProviders(<SearchForm />);
-    const input = screen.getByRole("textbox");
-    await user.type(input, "polvo");
-    const submit = screen.getByRole("button", {
-      name: /search the wxyc library/i,
-    });
-    await user.click(submit);
-    const pushedUrl = mockPush.mock.calls[0][0] as string;
-    expect(pushedUrl).toContain("searchString=polvo");
-    expect(pushedUrl).not.toContain("exclusive=true");
   });
 
   it("seeds the input from ?searchString= on mount", () => {
@@ -68,61 +85,40 @@ describe("Classic catalog SearchForm — Browse Exclusive Albums", () => {
   });
 });
 
-describe("Classic catalog SearchForm — track-search help text", () => {
-  afterEach(() => {
-    process.env.NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED = "true";
+describe("Classic catalog SearchForm — Browse Exclusive Albums", () => {
+  it("renders the 'Browse Exclusive Albums' pill", () => {
+    renderWithProviders(<SearchForm />);
+    const btn = screen.getByRole("button", {
+      name: /browse exclusive albums/i,
+    });
+    expect(btn.classList.contains("browse-exclusive-btn")).toBe(true);
   });
 
-  describe("when CATALOG_TRACK_SEARCH_UI_ENABLED is on", () => {
-    beforeEach(() => {
-      process.env.NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED = "true";
-    });
+  it("clicking the pill navigates to ?exclusive=true and clears the input", () => {
+    mockSearchParams = new URLSearchParams("searchString=polvo");
+    renderWithProviders(<SearchForm />);
+    fireEvent.click(
+      screen.getByRole("button", { name: /browse exclusive albums/i })
+    );
+    expect(mockReplace).toHaveBeenCalledWith(
+      "/dashboard/catalog?exclusive=true"
+    );
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("");
+  });
+});
 
-    it("omits the 'Coming later' line", () => {
-      renderWithProviders(<SearchForm />);
-      expect(screen.queryByText(/Coming later/i)).toBeNull();
-    });
-
-    it("renders a track-search worked example with a clickable hyperlink", () => {
-      renderWithProviders(<SearchForm />);
-      const link = screen.getByRole("link", { name: /vi scose poise/i });
-      expect(link.getAttribute("href")).toBe(
-        "/dashboard/catalog?searchString=vi+scose+poise"
-      );
-      expect(link.textContent).toMatch(/vi scose poise/i);
-    });
-
-    it("mentions both compilation and general track lookup", () => {
-      renderWithProviders(<SearchForm />);
-      const notes = screen.getByText(/Confield by Autechre/i);
-      const text = notes.textContent ?? "";
-      expect(text).toMatch(/track/i);
-      expect(text).toMatch(/compilation|various[- ]artists/i);
-    });
+describe("Classic catalog SearchForm — search tips modal", () => {
+  it("does not render the tips modal initially", () => {
+    renderWithProviders(<SearchForm />);
+    expect(screen.queryByText(/search tips/i)).toBeNull();
   });
 
-  describe.each(["false", "0", undefined] as const)(
-    "when CATALOG_TRACK_SEARCH_UI_ENABLED is %s",
-    (value) => {
-      beforeEach(() => {
-        if (value === undefined) {
-          delete process.env.NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED;
-        } else {
-          process.env.NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED = value;
-        }
-      });
-
-      it("retains the legacy 'Coming later' line", () => {
-        renderWithProviders(<SearchForm />);
-        expect(screen.getByText(/Coming later/i)).toBeDefined();
-      });
-
-      it("does not render the new track-search example", () => {
-        renderWithProviders(<SearchForm />);
-        expect(
-          screen.queryByRole("link", { name: /vi scose poise/i })
-        ).toBeNull();
-      });
-    }
-  );
+  it("opens the tips modal from the ? icon and closes it again", () => {
+    renderWithProviders(<SearchForm />);
+    fireEvent.click(screen.getByTitle(/search tips/i));
+    expect(screen.getByText("Search Tips")).toBeDefined();
+    expect(screen.getByText(/exact phrase/i)).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: /close/i }));
+    expect(screen.queryByText("Search Tips")).toBeNull();
+  });
 });

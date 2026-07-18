@@ -73,7 +73,7 @@ describe("Classic catalog SearchResults — Exclusive filter", () => {
       error: undefined,
     });
     renderWithProviders(<SearchResults />);
-    expect(screen.getByTestId("classic-filter-chip-exclusive")).toBeDefined();
+    expect(screen.getByTestId("classic-facet-chip-exclusive")).toBeDefined();
   });
 
   it("does NOT render the Exclusive filter chip when ?exclusive is absent", () => {
@@ -84,7 +84,7 @@ describe("Classic catalog SearchResults — Exclusive filter", () => {
     });
     renderWithProviders(<SearchResults />);
     expect(
-      screen.queryByTestId("classic-filter-chip-exclusive")
+      screen.queryByTestId("classic-facet-chip-exclusive")
     ).toBeNull();
   });
 
@@ -96,9 +96,7 @@ describe("Classic catalog SearchResults — Exclusive filter", () => {
       error: undefined,
     });
     const { user } = renderWithProviders(<SearchResults />);
-    await user.click(
-      screen.getByRole("button", { name: /remove exclusive filter/i })
-    );
+    await user.click(screen.getByTestId("classic-facet-chip-exclusive"));
     expect(mockReplace).toHaveBeenCalledTimes(1);
     const replacedUrl = mockReplace.mock.calls[0][0] as string;
     expect(replacedUrl).not.toContain("exclusive=true");
@@ -113,9 +111,7 @@ describe("Classic catalog SearchResults — Exclusive filter", () => {
       error: undefined,
     });
     const { user } = renderWithProviders(<SearchResults />);
-    await user.click(
-      screen.getByRole("button", { name: /remove exclusive filter/i })
-    );
+    await user.click(screen.getByTestId("classic-facet-chip-exclusive"));
     const replacedUrl = mockReplace.mock.calls[0][0] as string;
     expect(replacedUrl).toContain("searchString=polvo");
     expect(replacedUrl).not.toContain("exclusive=true");

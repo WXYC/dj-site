@@ -10,11 +10,9 @@ import {
   isFlowsheetEndShowEntry,
   UpdateRequestBody,
 } from "@/lib/features/flowsheet/types";
-import { Capsule, capsulesForSongEntry } from "./Capsule";
 import EntryActionMenu from "./EntryActionMenu";
 import { formatShortDate, formatShortTime } from "./marker-format";
 import "@/src/styles/classic/segue.css";
-import "@/src/styles/classic/markers.css";
 import "@/src/styles/classic/drag.css";
 import "@/src/styles/classic/actions.css";
 
@@ -22,11 +20,10 @@ type Props = {
   entry: FlowsheetEntry;
   onUpdate: (entryId: number, data: UpdateRequestBody) => void;
   onDelete: (entryId: number) => void;
-  fontSize: number;
-  /** Suppresses the segue indicator when the next row is a talkset,
-   *  breakpoint, or show-block — those render full-width and would leave the
-   *  red bracket dangling. EntryTable computes and passes this. */
-  nextIsSong?: boolean;
+  /** Tubafrenzy marks the row ABOVE a segue pair with data-segue="true" and
+   *  draws the bracket down to the next row in CSS. EntryTable computes this
+   *  from the FOLLOWING entry's segue flag and passes it here. */
+  seguesIntoNext?: boolean;
   isDragging?: boolean;
   isDragOver?: boolean;
   onDragStart?: (entryId: number) => void;
@@ -46,7 +43,7 @@ function GripCell() {
 }
 
 function EmptyGripCell() {
-  return <td className="grip-cell">&nbsp;</td>;
+  return <td className="grip-cell"></td>;
 }
 
 type EditDraft = {
@@ -61,8 +58,7 @@ export default function EntryRow({
   entry,
   onUpdate,
   onDelete,
-  fontSize,
-  nextIsSong,
+  seguesIntoNext,
   isDragging,
   isDragOver,
   onDragStart,
@@ -70,7 +66,6 @@ export default function EntryRow({
   onDrop,
   onDragEnd,
 }: Props) {
-  const fontSizeClass = `fontSize${fontSize}`;
   const [draft, setDraft] = useState<EditDraft | null>(null);
   const isEditing = draft !== null;
 
@@ -115,9 +110,9 @@ export default function EntryRow({
     }
   };
 
-  // Marker rows (talkset / breakpoint / start / end of show) colspan the 5
-  // middle data columns (of 7: grip + indicators + artist + song + release +
-  // label + edit); the trailing edit/delete column gets an empty cell.
+  // Marker rows (talkset / breakpoint / start / end of show) colspan the 6
+  // middle data columns (of 8: grip + playlist + req + artist + song +
+  // release + label + action); the trailing action column gets its own cell.
 
   const dragClass = [
     isDragging ? "dragging" : "",
@@ -150,97 +145,74 @@ export default function EntryRow({
   if (isFlowsheetTalksetEntry(entry)) {
     return (
       <tr
-        className={[
-          "flowsheetEntryData",
-          "classic-marker-talkset",
-          fontSizeClass,
-          dragClass,
-        ]
+        className={["flowsheetEntryData", "talkset-row", dragClass]
           .filter(Boolean)
           .join(" ")}
         draggable={isDraggable}
         {...dragHandlers}
       >
         {isDraggable ? <GripCell /> : <EmptyGripCell />}
-        <td colSpan={5} align="center">
+        <td colSpan={6} align="center">
           talkset
         </td>
-        <td>&nbsp;</td>
+        <td className="action-cell">
+          <EntryActionMenu entryId={entry.id} onDelete={onDelete} />
+        </td>
       </tr>
     );
   }
 
   if (isFlowsheetBreakpointEntry(entry)) {
     return (
-      <tr
-        className={`flowsheetEntryData classic-marker-breakpoint ${fontSizeClass}`.trim()}
-      >
+      <tr className="flowsheetEntryData breakpoint-row">
         <EmptyGripCell />
-        <td colSpan={5} align="center">
-          {formatShortTime(entry.time)} breakpoint
-        </td>
-        <td>&nbsp;</td>
+        <td colSpan={6}>{formatShortTime(entry.time)}</td>
+        <td className="action-cell"></td>
       </tr>
     );
   }
 
   if (isFlowsheetStartShowEntry(entry)) {
     return (
-      <tr
-        className={`flowsheetEntryData classic-marker-breakpoint ${fontSizeClass}`.trim()}
-      >
+      <tr className="flowsheetEntryData breakpoint-row">
         <EmptyGripCell />
-        <td colSpan={5} align="center">
+        <td colSpan={6}>
           Start of show — {entry.dj_name} @ {formatShortDate(entry.day)}{" "}
           {formatShortTime(entry.time)}
         </td>
-        <td>&nbsp;</td>
+        <td className="action-cell"></td>
       </tr>
     );
   }
 
   if (isFlowsheetEndShowEntry(entry)) {
     return (
-      <tr
-        className={`flowsheetEntryData classic-marker-breakpoint ${fontSizeClass}`.trim()}
-      >
+      <tr className="flowsheetEntryData breakpoint-row">
         <EmptyGripCell />
-        <td colSpan={5} align="center">
+        <td colSpan={6}>
           End of show — {entry.dj_name} @ {formatShortDate(entry.day)}{" "}
           {formatShortTime(entry.time)}
         </td>
-        <td>&nbsp;</td>
+        <td className="action-cell"></td>
       </tr>
     );
   }
 
   if (isFlowsheetSongEntry(entry)) {
-    const capsules = capsulesForSongEntry(entry);
-    // Segue indicator: render only when the row's `segue` flag is true AND the
-    // next row in the table is also a song row. Tubafrenzy expresses the same
-    // guard via `:has(+ tr.entry-row)`; Classic does it in JSX because the
-    // adjacent non-song rows (talkset / breakpoint / start / end of show) are
-    // structurally distinct.
-    const showSegueBracket = entry.segue === true && nextIsSong === true;
-    const trClassName = [
-      "flowsheetEntryData",
-      fontSizeClass,
-      showSegueBracket ? "classic-segue" : "",
-      dragClass,
-    ]
+    const trClassName = ["flowsheetEntryData", "entry-row", dragClass]
       .filter(Boolean)
       .join(" ");
-    const dataSegue = showSegueBracket ? "true" : undefined;
+    const dataSegue = seguesIntoNext ? "true" : undefined;
 
     return (
       <tr
-        style={{ backgroundColor: "#F3F3F3" }}
         className={trClassName}
         data-segue={dataSegue}
         draggable={isDraggable}
         {...dragHandlers}
       >
         {isDraggable ? <GripCell /> : <EmptyGripCell />}
+        <td align="center">{entry.rotation ?? ""}</td>
         <td align="center">
           {draft ? (
             <input
@@ -252,10 +224,10 @@ export default function EntryRow({
                 setDraft({ ...draft, request_flag: e.target.checked })
               }
             />
+          ) : entry.request_flag ? (
+            "*"
           ) : (
-            capsules.map((c) => (
-              <Capsule key={c.variant} variant={c.variant} label={c.label} />
-            ))
+            ""
           )}
         </td>
         <td align="left">

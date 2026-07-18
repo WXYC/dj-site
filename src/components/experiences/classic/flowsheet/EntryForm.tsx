@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState, useEffect } from "react";
+import { FormEvent, useState } from "react";
 import { useAppDispatch } from "@/lib/hooks";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useAddToFlowsheetMutation } from "@/lib/features/flowsheet/api";
@@ -8,11 +8,30 @@ import { useGetRotationQuery } from "@/lib/features/rotation/api";
 import { sortRotationReleases } from "@/lib/features/rotation/sort";
 import { Rotation } from "@/lib/features/rotation/types";
 import { FlowsheetEntryType } from "@wxyc/shared/dtos";
-import { stationBreakpointMessage } from "@/src/utilities/stationTime";
+import {
+  stationBreakpointMessage,
+  STATION_TIME_ZONE,
+} from "@/src/utilities/stationTime";
 
 type EntryType = "track" | "talkset" | "breakpoint";
 type ReleaseType = "rotationRelease" | "libraryRelease" | "otherRelease";
 type RotationType = "heavy" | "medium" | "light" | "singles";
+
+const MS_PER_HOUR = 3_600_000;
+
+// Tubafrenzy labels the breakpoint option with the show's next hour
+// ("3:00 PM Breakpoint"), computed against the station's wall clock.
+function nextStationHourLabel(now: Date = new Date()): string {
+  const nextHour = new Date(
+    now.getTime() - (now.getTime() % MS_PER_HOUR) + MS_PER_HOUR
+  );
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: STATION_TIME_ZONE,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(nextHour);
+}
 
 export default function EntryForm({
   onSuccess,
@@ -37,8 +56,6 @@ export default function EntryForm({
   const [selectedRotationId, setSelectedRotationId] = useState<number>(0);
   const [artistName, setArtistName] = useState("");
   const [songTitle, setSongTitle] = useState("");
-  const [composer, setComposer] = useState("");
-  const [useArtistForComposer, setUseArtistForComposer] = useState(false);
   const [releaseTitle, setReleaseTitle] = useState("");
   const [labelName, setLabelName] = useState("");
   const [requestFlag, setRequestFlag] = useState(false);
@@ -48,27 +65,22 @@ export default function EntryForm({
 
   // Sorted A→Z by artist (ties broken by album title) so the native <select>
   // type-ahead lands the DJ in the right neighborhood. WXYC/dj-site#745.
-  const heavyReleases = sortRotationReleases(
-    rotationData?.filter((r) => r.rotation_bin === Rotation.H) || []
-  );
-  const mediumReleases = sortRotationReleases(
-    rotationData?.filter((r) => r.rotation_bin === Rotation.M) || []
-  );
-  const lightReleases = sortRotationReleases(
-    rotationData?.filter((r) => r.rotation_bin === Rotation.L) || []
-  );
-  const singlesReleases = sortRotationReleases(
-    rotationData?.filter((r) => r.rotation_bin === Rotation.S) || []
-  );
+  const releasesByBin: Record<RotationType, ReturnType<typeof sortRotationReleases>> = {
+    heavy: sortRotationReleases(
+      rotationData?.filter((r) => r.rotation_bin === Rotation.H) || []
+    ),
+    medium: sortRotationReleases(
+      rotationData?.filter((r) => r.rotation_bin === Rotation.M) || []
+    ),
+    light: sortRotationReleases(
+      rotationData?.filter((r) => r.rotation_bin === Rotation.L) || []
+    ),
+    singles: sortRotationReleases(
+      rotationData?.filter((r) => r.rotation_bin === Rotation.S) || []
+    ),
+  };
 
-  useEffect(() => {
-    if (useArtistForComposer) {
-      setComposer(artistName);
-    }
-  }, [useArtistForComposer, artistName]);
-
-  const handleRotationSelect = (type: RotationType, rotationId: number) => {
-    setRotationType(type);
+  const handleRotationSelect = (rotationId: number) => {
     setSelectedRotationId(rotationId);
     const release = rotationData?.find((r) => r.rotation_id === rotationId);
     if (release) {
@@ -81,7 +93,6 @@ export default function EntryForm({
   const resetTrackFields = () => {
     setArtistName("");
     setSongTitle("");
-    setComposer("");
     setReleaseTitle("");
     setLabelName("");
     setRequestFlag(false);
@@ -99,8 +110,7 @@ export default function EntryForm({
     (releaseType === "rotationRelease"
       ? selectedRotationId > 0
       : artistName.trim().length > 0);
-  const canSubmit =
-    entryType === "track" ? canSubmitTrack : true;
+  const canSubmit = entryType === "track" ? canSubmitTrack : true;
 
   const handleSubmit = async (e?: FormEvent<HTMLFormElement>) => {
     e?.preventDefault();
@@ -178,12 +188,16 @@ export default function EntryForm({
     }
   };
 
+  const selectedBinReleases =
+    rotationType !== "" ? releasesByBin[rotationType] : [];
+
   return (
     <form name="flowsheetEntry" method="POST" onSubmit={handleSubmit}>
-      <fieldset disabled={!isLive}>
+      <fieldset disabled={!isLive} style={{ border: 0, margin: 0, padding: 0 }}>
         <div style={{ textAlign: "center", marginBottom: "8px" }}>
-          <span className="label">Add a </span>
+          <label className="label" htmlFor="addEntryType">Add a </label>
           <select
+            id="addEntryType"
             name="addEntryType"
             value={entryType}
             onChange={(e) => setEntryType(e.target.value as EntryType)}
@@ -191,11 +205,11 @@ export default function EntryForm({
           >
             <option value="track">Track</option>
             <option value="talkset">Talkset</option>
-            <option value="breakpoint">Breakpoint</option>
+            <option value="breakpoint">{nextStationHourLabel()} Breakpoint</option>
           </select>
           {entryType !== "track" && (
             <>
-              &nbsp;
+              {" "}
               <input
                 type="submit"
                 value="Add"
@@ -208,8 +222,9 @@ export default function EntryForm({
         {entryType === "track" && (
           <>
             <div style={{ textAlign: "center", margin: "8px 0" }}>
-              <span className="label">From </span>
+              <label className="label" htmlFor="releaseType">From </label>
               <select
+                id="releaseType"
                 name="releaseType"
                 value={releaseType}
                 onChange={(e) => setReleaseType(e.target.value as ReleaseType)}
@@ -224,8 +239,9 @@ export default function EntryForm({
             {releaseType === "rotationRelease" && (
               <>
                 <div style={{ textAlign: "center", marginBottom: "6px" }}>
-                  <span className="label">Bin </span>
+                  <label className="label" htmlFor="rotationType">Bin </label>
                   <select
+                    id="rotationType"
                     name="rotationType"
                     value={rotationType}
                     onChange={(e) => {
@@ -234,31 +250,28 @@ export default function EntryForm({
                     }}
                     disabled={!isLive}
                   >
-                    <option value="">-- choose bin --</option>
+                    <option value=""></option>
                     <option value="heavy">Heavy</option>
                     <option value="medium">Medium</option>
                     <option value="light">Light</option>
                     <option value="singles">Singles</option>
                   </select>
                 </div>
-                <div
-                  id="releaseDropdownTD"
-                  style={{ textAlign: "center", marginBottom: "8px" }}
-                >
-                  {rotationType === "heavy" && (
+                {rotationType !== "" && (
+                  <div
+                    id="releaseDropdownTD"
+                    style={{ textAlign: "center", marginBottom: "8px" }}
+                  >
                     <select
-                      name="heavyRelease"
+                      name={`${rotationType}Release`}
                       value={selectedRotationId}
                       onChange={(e) =>
-                        handleRotationSelect("heavy", parseInt(e.target.value))
+                        handleRotationSelect(parseInt(e.target.value))
                       }
                       disabled={!isLive}
                     >
-                      <option value="0">
-                        ---------------- Choose one of the releases in Heavy
-                        Rotation ------------------
-                      </option>
-                      {heavyReleases.map((release) => (
+                      <option value="0"></option>
+                      {selectedBinReleases.map((release) => (
                         <option
                           key={release.rotation_id}
                           value={release.rotation_id}
@@ -267,94 +280,23 @@ export default function EntryForm({
                         </option>
                       ))}
                     </select>
-                  )}
-                  {rotationType === "medium" && (
-                    <select
-                      name="mediumRelease"
-                      value={selectedRotationId}
-                      onChange={(e) =>
-                        handleRotationSelect("medium", parseInt(e.target.value))
-                      }
-                      disabled={!isLive}
-                    >
-                      <option value="0">
-                        ---------------- Choose one of the releases in Medium
-                        Rotation -----------------
-                      </option>
-                      {mediumReleases.map((release) => (
-                        <option
-                          key={release.rotation_id}
-                          value={release.rotation_id}
-                        >
-                          {release.artist?.name ?? ""} - {release.title}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                  {rotationType === "light" && (
-                    <select
-                      name="lightRelease"
-                      value={selectedRotationId}
-                      onChange={(e) =>
-                        handleRotationSelect("light", parseInt(e.target.value))
-                      }
-                      disabled={!isLive}
-                    >
-                      <option value="0">
-                        ---------------- Choose one of the releases in Light
-                        Rotation ------------------
-                      </option>
-                      {lightReleases.map((release) => (
-                        <option
-                          key={release.rotation_id}
-                          value={release.rotation_id}
-                        >
-                          {release.artist?.name ?? ""} - {release.title}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                  {rotationType === "singles" && (
-                    <select
-                      name="singlesRelease"
-                      value={selectedRotationId}
-                      onChange={(e) =>
-                        handleRotationSelect(
-                          "singles",
-                          parseInt(e.target.value)
-                        )
-                      }
-                      disabled={!isLive}
-                    >
-                      <option value="0">
-                        ---------------- Choose one of the releases in Singles
-                        Rotation ----------------
-                      </option>
-                      {singlesReleases.map((release) => (
-                        <option
-                          key={release.rotation_id}
-                          value={release.rotation_id}
-                        >
-                          {release.artist?.name ?? ""} - {release.title}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
+                  </div>
+                )}
               </>
             )}
 
-            <table cellPadding={2} align="center">
+            <table className="flowsheet-entry-form">
               <tbody>
                 {releaseType !== "rotationRelease" && (
                   <tr id="artistTextboxRow">
-                    <td className="redtitle" align="right">
-                      ARTIST:
+                    <td>
+                      <label htmlFor="artistName">Artist</label>
                     </td>
-                    <td colSpan={3} className="redtitle" valign="top" align="left">
+                    <td>
                       <input
                         type="text"
-                        size={40}
+                        autoCorrect="off"
+                        id="artistName"
                         name="artistName"
                         value={artistName}
                         onChange={(e) => setArtistName(e.target.value)}
@@ -364,13 +306,14 @@ export default function EntryForm({
                   </tr>
                 )}
                 <tr id="songTextboxRow">
-                  <td className="redtitle" align="right">
-                    SONG:
+                  <td>
+                    <label htmlFor="songTitle">Song</label>
                   </td>
-                  <td colSpan={3} className="redtitle" align="left" valign="top">
+                  <td>
                     <input
                       type="text"
-                      size={50}
+                      autoCorrect="off"
+                      id="songTitle"
                       name="songTitle"
                       value={songTitle}
                       onChange={(e) => setSongTitle(e.target.value)}
@@ -378,53 +321,15 @@ export default function EntryForm({
                     />
                   </td>
                 </tr>
-                {releaseType !== "rotationRelease" && (
-                  <tr id="composerTextboxRow">
-                    <td className="redtitle" align="right">
-                      COMPOSER:
-                    </td>
-                    <td colSpan={2} className="redtitle" valign="top" align="left">
-                      <input
-                        type="text"
-                        size={50}
-                        name="bmiComposer"
-                        value={composer}
-                        onChange={(e) => setComposer(e.target.value)}
-                        disabled={!isLive}
-                      />
-                      &nbsp;&nbsp;
-                    </td>
-                    <td className="label" valign="top">
-                      <div id="autofillText" className="label">
-                        Auto-fill 'COMPOSER' field with 'ARTIST' field?
-                        <input
-                          type="checkbox"
-                          name="useArtistName"
-                          checked={useArtistForComposer}
-                          onChange={(e) => setUseArtistForComposer(e.target.checked)}
-                          disabled={!isLive}
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-
-            <table cellPadding={2} align="center">
-              <tbody>
                 <tr id="regularReleaseRow">
-                  <td colSpan={4} className="label">
-                    <div id="rotationDisclaimer2" style={{ textAlign: "center" }}>
-                      <span style={{ fontSize: "0.7em" }}>
-                        'Release' and 'Label' are optional fields but listeners
-                        may be interested in this information.
-                      </span>
-                    </div>
-                    Release:&nbsp;
+                  <td>
+                    <label htmlFor="releaseTitle">Release</label>
+                  </td>
+                  <td>
                     <input
                       type="text"
-                      size={60}
+                      autoCorrect="off"
+                      id="releaseTitle"
                       name="releaseTitle"
                       value={releaseTitle}
                       onChange={(e) => setReleaseTitle(e.target.value)}
@@ -434,52 +339,61 @@ export default function EntryForm({
                           selectedRotationId > 0)
                       }
                     />
-                    &nbsp;&nbsp;&nbsp; Label:&nbsp;
+                    <div className="optional-hint">optional</div>
+                  </td>
+                </tr>
+                <tr id="labelRow">
+                  <td>
+                    <label htmlFor="labelName">Label</label>
+                  </td>
+                  <td>
                     <input
                       type="text"
-                      size={25}
+                      autoCorrect="off"
+                      id="labelName"
                       name="labelName"
                       value={labelName}
                       onChange={(e) => setLabelName(e.target.value)}
                       disabled={!isLive}
                     />
-                    &nbsp;&nbsp;&nbsp;
-                  </td>
-                </tr>
-                <tr id="requestSubmitRow">
-                  <td colSpan={4} className="redlabel" style={{ textAlign: "center" }}>
-                    <label>
-                      <input
-                        type="checkbox"
-                        name="requestAnswer"
-                        checked={requestFlag}
-                        onChange={(e) => setRequestFlag(e.target.checked)}
-                        disabled={!isLive}
-                      />{" "}
-                      Request
-                    </label>
-                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                    <label>
-                      <input
-                        type="checkbox"
-                        name="segueAnswer"
-                        checked={segue}
-                        onChange={(e) => setSegue(e.target.checked)}
-                        disabled={!isLive}
-                      />{" "}
-                      Segue
-                    </label>
-                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                    <input
-                      type="submit"
-                      id="submitButton"
-                      value="Add"
-                      disabled={!isLive || isLoading || !canSubmit}
-                    />
+                    <div className="optional-hint">optional</div>
                   </td>
                 </tr>
               </tbody>
             </table>
+            <div id="requestSubmitRow" style={{ textAlign: "center", margin: "8px 0" }}>
+              <div>
+                <label>
+                  <input
+                    type="checkbox"
+                    name="segueAnswer"
+                    checked={segue}
+                    onChange={(e) => setSegue(e.target.checked)}
+                    disabled={!isLive}
+                  />{" "}
+                  Segue
+                </label>
+                &nbsp;&nbsp;
+                <label>
+                  <input
+                    type="checkbox"
+                    name="requestAnswer"
+                    checked={requestFlag}
+                    onChange={(e) => setRequestFlag(e.target.checked)}
+                    disabled={!isLive}
+                  />{" "}
+                  Request
+                </label>
+              </div>
+              <div style={{ marginTop: "6px" }}>
+                <input
+                  type="submit"
+                  id="submitButton"
+                  value="Add"
+                  disabled={!isLive || isLoading || !canSubmit}
+                />
+              </div>
+            </div>
           </>
         )}
       </fieldset>

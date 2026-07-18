@@ -1,60 +1,33 @@
 "use client";
 
+import "@/src/styles/classic/wxyc.css";
 import "@/src/styles/classic/flowsheet.css";
+import Image from "next/image";
 import { useFlowsheet, useShowControl } from "@/src/hooks/flowsheetHooks";
-import { useRegistry } from "@/src/hooks/authenticationHooks";
-import { useState, useMemo } from "react";
-import ActionsBar from "../ActionsBar";
+import { useLogout } from "@/src/hooks/authenticationHooks";
 import EntryForm from "../EntryForm";
 import EntryTable from "../EntryTable";
-import FontSizeAdjuster from "../FontSizeAdjuster";
 import Navigation from "../../Navigation";
 import StartShow from "../StartShow";
-import {
-  isFlowsheetStartShowEntry,
-  FlowsheetEntry,
-  UpdateRequestBody,
-} from "@/lib/features/flowsheet/types";
-import { useAddToFlowsheetMutation, useSwitchEntriesMutation } from "@/lib/features/flowsheet/api";
-import { FlowsheetEntryType } from "@wxyc/shared/dtos";
+import { UpdateRequestBody } from "@/lib/features/flowsheet/types";
+import { useSwitchEntriesMutation } from "@/lib/features/flowsheet/api";
 
 export default function Main() {
   const { entries, removeFromFlowsheet, updateFlowsheet, loading } =
     useFlowsheet();
-  const { live, currentShow } = useShowControl();
-  const { info: userData } = useRegistry();
-  const [fontSize, setFontSize] = useState<1 | 2 | 3 | 4 | 5 | 6 | 7>(3);
-  const [addToFlowsheet] = useAddToFlowsheetMutation();
+  const { live, leave } = useShowControl();
+  const { handleLogout } = useLogout();
   const [switchEntries] = useSwitchEntriesMutation();
 
   const currentShowEntries = entries.current;
   const previousEntries = entries.previous;
 
-  const showInfo = useMemo(() => {
-    if (!currentShowEntries || currentShowEntries.length === 0) {
-      return null;
-    }
-    const startEntry = currentShowEntries.find(isFlowsheetStartShowEntry);
-    if (startEntry) {
-      return {
-        date: startEntry.day,
-        timeRange: startEntry.time,
-        djName: startEntry.dj_name || userData?.real_name || "Unknown DJ",
-      };
-    }
-    return {
-      date: new Date().toLocaleDateString(),
-      timeRange: new Date().toLocaleTimeString(),
-      djName: userData?.real_name || "Unknown DJ",
-    };
-  }, [currentShowEntries, userData]);
-
-  const handleAddTalkset = async () => {
-    try {
-      await addToFlowsheet({ message: "Talkset", entry_type: FlowsheetEntryType.talkset }).unwrap();
-    } catch (error) {
-      console.error("Failed to add talkset:", error);
-    }
+  // Ports tubafrenzy's EndShowServlet flow: signoff the radio show and
+  // invalidate the session in one click. handleLogout owns the session
+  // teardown (token cache, signOut, state reset) and the /login redirect.
+  const endShow = () => {
+    leave();
+    handleLogout();
   };
 
   const handleUpdate = (entryId: number, data: UpdateRequestBody) => {
@@ -100,48 +73,36 @@ export default function Main() {
   return (
     <div style={{ width: "100%", margin: "0 auto" }}>
       <Navigation />
-      <ActionsBar onAddTalkset={handleAddTalkset} />
-      <hr />
-      <EntryForm onSuccess={() => {}} isLive={live} />
-      <hr />
-      <div className="redlabel" style={{ textAlign: "center" }}>
-        &nbsp;
-      </div>
-      <hr />
-      <div style={{ textAlign: "center" }}>
-        <table
-          cellPadding={2}
-          cellSpacing={2}
-          border={0}
-          style={{ backgroundColor: "#AAAAAA", width: "100%" }}
+      <div style={{ textAlign: "right", padding: "4px 10px" }}>
+        <a
+          href="#"
+          className="label"
+          onClick={(e) => {
+            e.preventDefault();
+            endShow();
+          }}
         >
-          <tbody>
-            <tr>
-              <th style={{ width: "25%", textAlign: "left" }} className="redlabel">
-                <span className="text-override-black" style={{ color: "black" }}>
-                  Date of Show: {showInfo?.date || "N/A"}
-                  <br />
-                  Hours: {showInfo?.timeRange || "N/A"}
-                </span>
-              </th>
-              <th>
-                <FontSizeAdjuster onFontSizeChange={setFontSize} />
-              </th>
-              <th
-                style={{ width: "25%", textAlign: "center", backgroundColor: "#AAAAAA" }}
-                className="redlabel"
-              >
-                <span className="text-override-black" style={{ color: "black" }}>
-                  Disc Jockey: {showInfo?.djName || "N/A"}&nbsp;
-                </span>
-              </th>
-            </tr>
-          </tbody>
-        </table>
+          End Show
+        </a>
+      </div>
+      <div style={{ textAlign: "center", margin: "12px 0 8px" }}>
+        {/* unoptimized: see next.config.mjs images.unoptimized comment */}
+        <Image
+          src="/img/wxyc-logo-classic.gif"
+          alt="WXYC 89.3 FM"
+          width={148}
+          height={35}
+          unoptimized
+          priority
+          style={{ border: 0 }}
+        />
+      </div>
+      <EntryForm isLive={live} />
+      <div className="redlabel" style={{ textAlign: "center" }}></div>
+      <div style={{ textAlign: "center" }}>
         <EntryTable
           entries={currentShowEntries}
           previousEntries={previousEntries}
-          fontSize={fontSize}
           onUpdate={handleUpdate}
           onDelete={handleDelete}
           onReorder={handleReorder}

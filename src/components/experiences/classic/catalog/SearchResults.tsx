@@ -2,7 +2,6 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSearchCatalogQuery } from "@/lib/features/catalog/api";
-import { Capsule } from "@/src/components/experiences/classic/flowsheet/Capsule";
 import { MatchedTrackChips } from "./MatchedTrackChips";
 
 export default function SearchResults() {
@@ -29,103 +28,127 @@ export default function SearchResults() {
     return null;
   }
 
-  const filterChips = exclusive ? (
-    <div className="classic-filter-chips">
-      <span
-        className="classic-filter-chip classic-filter-chip--exclusive"
-        data-testid="classic-filter-chip-exclusive"
-      >
-        <span className="classic-filter-chip__label">Exclusive</span>
-        <button
-          type="button"
-          className="classic-filter-chip__dismiss"
-          aria-label="Remove Exclusive filter"
-          onClick={() => {
-            const params = new URLSearchParams(
-              Array.from(searchParams.entries())
-            );
-            params.delete("exclusive");
-            const qs = params.toString();
-            router.replace(
-              qs ? `/dashboard/catalog?${qs}` : `/dashboard/catalog`
-            );
-          }}
+  const clearExclusive = () => {
+    const params = new URLSearchParams(Array.from(searchParams.entries()));
+    params.delete("exclusive");
+    const qs = params.toString();
+    router.replace(qs ? `/dashboard/catalog?${qs}` : `/dashboard/catalog`);
+  };
+
+  // Mirrors tubafrenzy's facet bar: the Exclusive availability filter renders
+  // as an active chip that a click dismisses.
+  const facetBar = exclusive ? (
+    <div id="facetBar">
+      <div className="facet-bar">
+        <span
+          className="facet-chip exclusive-chip active"
+          data-testid="classic-facet-chip-exclusive"
+          onClick={clearExclusive}
         >
-          &times;
-        </button>
-      </span>
+          Exclusive &times;
+        </span>
+      </div>
     </div>
   ) : null;
 
   if (isLoading) {
     return (
-      <div style={{ textAlign: "center" }} className="text">
-        {filterChips}
-        <p>Loading search results...</p>
+      <div id="liveResults">
+        {facetBar}
+        <div className="live-results-loading">Searching...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div style={{ textAlign: "center" }} className="text">
-        {filterChips}
-        <p>Error loading search results. Please try again.</p>
+      <div id="liveResults">
+        {facetBar}
+        <div className="live-results-error">Error loading search results. Please try again.</div>
       </div>
     );
   }
 
   if (!results || results.length === 0) {
-    const emptyContext = hasQuery
-      ? `No results found for "${searchString}"`
-      : "No exclusive albums found";
     return (
-      <div style={{ textAlign: "center" }} className="text">
-        {filterChips}
-        <p>{emptyContext}</p>
+      <div id="liveResults">
+        {facetBar}
+        <div className="live-results-empty">
+          {hasQuery
+            ? `No results found for "${searchString}"`
+            : "No exclusive albums found"}
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ textAlign: "center" }}>
-      {filterChips}
-      <table
-        cellPadding={4}
-        cellSpacing={2}
-        border={0}
-        style={{ width: "100%", marginTop: "20px" }}
-      >
+    <div id="liveResults">
+      {facetBar}
+      <div className="live-results-summary">
+        {exclusive && !hasQuery ? (
+          <>
+            Browsing <b>{results.length}</b> exclusive releases.
+          </>
+        ) : (
+          <>
+            Your search <b>&quot;{searchString}&quot;</b> matched{" "}
+            <b>{results.length}</b> releases.
+            {exclusive && (
+              <>
+                {" "}
+                <span className="exclusive-capsule">EXCLUSIVE ONLY</span>
+              </>
+            )}
+          </>
+        )}
+      </div>
+      <table className="entry-table" cellPadding={8} style={{ width: "100%" }}>
         <thead>
-          <tr className="searchResultsHeader">
-            <th>Artist</th>
-            <th>Album</th>
-            <th>Format</th>
-            <th>Library Code</th>
+          <tr className="entry-header">
+            <th style={{ width: "12%" }}>Genre</th>
+            <th style={{ width: "10%" }}>Code</th>
+            <th style={{ width: "28%" }}>Artist</th>
+            <th style={{ width: "38%" }}>Release</th>
+            <th style={{ width: "12%" }}>Format</th>
           </tr>
         </thead>
         <tbody>
-          {results.map((result) => (
-            <tr key={result.id} className="text">
-              <td align="left">{result.album_artist ? "Various Artists" : (result.artist?.name || "Unknown")}</td>
-              <td align="left">
+          {results.map((result, index) => (
+            <tr
+              key={result.id}
+              className={`entry-row ${
+                index % 2 === 0 ? "entry-row-even" : "entry-row-odd"
+              }`}
+            >
+              <td>{result.artist?.genre ?? ""}</td>
+              <td>
+                {result.artist?.lettercode} {result.artist?.numbercode}/
+                {result.entry}
+              </td>
+              <td>
+                {result.album_artist
+                  ? "Various Artists"
+                  : result.artist?.name || "Unknown"}
+              </td>
+              <td>
                 {result.title}
                 {result.on_streaming === false && (
                   <>
                     {" "}
-                    <Capsule variant="exclusive" label="EXCLUSIVE" />
+                    <span className="exclusive-capsule">EXCLUSIVE</span>
                   </>
                 )}
                 <MatchedTrackChips matched_via={result.matched_via} />
               </td>
-              <td align="left">{result.format}</td>
-              <td align="left">
-                {result.artist?.lettercode} {result.entry}
-              </td>
+              <td>{result.format}</td>
             </tr>
           ))}
         </tbody>
       </table>
+      <div className="live-results-status">
+        Showing {results.length} of {results.length}
+      </div>
     </div>
   );
 }

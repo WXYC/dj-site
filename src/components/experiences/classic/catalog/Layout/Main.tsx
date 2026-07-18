@@ -1,7 +1,6 @@
 "use client";
 
 import "@/src/styles/classic/wxyc.css";
-import "@/src/styles/classic/filter-chip.css";
 import Navigation from "../../Navigation";
 
 export default function Main({
@@ -9,8 +8,10 @@ export default function Main({
 }: {
   children: React.ReactNode;
 }) {
+  // Tubafrenzy's live catalog page (searchCardCatalogLive.jsp) renders
+  // full-width with centered content — no 800px .centerWidth cap.
   return (
-    <div className="centerWidth" style={{ margin: "0 auto" }}>
+    <div style={{ textAlign: "center" }}>
       <Navigation />
       {children}
     </div>
