@@ -4,6 +4,7 @@ import { applicationSlice } from "@/lib/features/application/frontend";
 import { useGetInformationQuery } from "@/lib/features/catalog/api";
 import {
   albumDetailHref,
+  albumParentPath,
   parseAlbumIdFromPathname,
 } from "@/lib/features/catalog/albumRoutes";
 import { genreTone } from "@/lib/features/experiences/modern/tokens/roles";
@@ -11,6 +12,7 @@ import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { Close, SpaceDashboardOutlined } from "@mui/icons-material";
 import { Box, Divider, IconButton, Tooltip, Typography } from "@mui/joy";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   DOCK_HEADER_HEIGHT,
   RIGHTBAR_FOOTER_CLEARANCE,
@@ -31,12 +33,40 @@ function PinnedAlbumIcon({ albumId, active }: { albumId: number; active: boolean
   const label = data ? `${artistDisplay} – ${data.title}` : "Pinned album";
   const genreColor = genreTone(data?.artist.genre).color;
 
-  // The view flips immediately; already-open URLs won't renavigate, so the
-  // push is skipped for them.
+  // The dock flips immediately; the push keeps the URL on the album the DJ
+  // is looking at without renavigating when it is already there.
   const openAlbum = () => {
-    dispatch(applicationSlice.actions.setDockView("album"));
+    dispatch(applicationSlice.actions.openDockAlbum(albumId));
     if (parseAlbumIdFromPathname(pathname) !== albumId) {
       router.push(albumDetailHref(pathname, albumId));
+    }
+  };
+
+  // Unpinning from the rail discards the card entirely — never a modal
+  // handoff (that is the docked header's unpin) — and leaves the dock's
+  // collapse state alone, except that unpinning the pane in view yields to
+  // home. When the album's URL is open, the unpin must wait for the
+  // navigation away: unpinning first would let the route child flash the
+  // modal until the pathname lands.
+  const [unpinPending, setUnpinPending] = useState(false);
+
+  useEffect(() => {
+    if (!unpinPending || parseAlbumIdFromPathname(pathname) === albumId) {
+      return;
+    }
+    dispatch(applicationSlice.actions.unpinAlbum(albumId));
+    setUnpinPending(false);
+  }, [unpinPending, pathname, albumId, dispatch]);
+
+  const unpin = () => {
+    if (active) {
+      dispatch(applicationSlice.actions.setDockView("home"));
+    }
+    if (parseAlbumIdFromPathname(pathname) === albumId) {
+      setUnpinPending(true);
+      router.push(albumParentPath(pathname));
+    } else {
+      dispatch(applicationSlice.actions.unpinAlbum(albumId));
     }
   };
 
@@ -102,7 +132,7 @@ function PinnedAlbumIcon({ albumId, active }: { albumId: number; active: boolean
         size="sm"
         variant="solid"
         color="neutral"
-        onClick={() => dispatch(applicationSlice.actions.unpinAlbum(albumId))}
+        onClick={unpin}
         sx={{
           position: "absolute",
           top: 0,

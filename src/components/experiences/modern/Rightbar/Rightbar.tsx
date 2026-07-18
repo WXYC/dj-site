@@ -2,18 +2,11 @@
 
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { RightbarPanel } from "@/lib/features/application/types";
-import { parseAlbumIdFromPathname } from "@/lib/features/catalog/albumRoutes";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useMediaQuery } from "@/src/hooks/useMediaQuery";
 import { Box, Divider } from "@mui/joy";
-import { usePathname } from "next/navigation";
 import DockedAlbumCard from "../catalog/album/DockedAlbumCard";
-import {
-  ALBUM_DOCK_QUERY,
-  DOCK_PANEL_WIDTH,
-  HOME_PANEL_WIDTH,
-  RIGHTBAR_FOOTER_CLEARANCE,
-} from "../catalog/album/dock";
+import { ALBUM_DOCK_QUERY, RIGHTBAR_FOOTER_CLEARANCE } from "../catalog/album/dock";
 import BinContent from "./Bin/BinContent";
 import DockedPanel from "./DockedPanel";
 import DockedPanelHeader from "./DockedPanelHeader";
@@ -50,17 +43,17 @@ export default function Rightbar() {
   const panel = useAppSelector(applicationSlice.selectors.getRightbarPanel);
   const pinnedAlbumIds = useAppSelector(applicationSlice.selectors.getPinnedAlbumIds);
   const dockView = useAppSelector(applicationSlice.selectors.getDockView);
+  const dockAlbumId = useAppSelector(applicationSlice.selectors.getDockAlbumId);
   const isDesktop = useMediaQuery(ALBUM_DOCK_QUERY);
-  const pathname = usePathname();
 
-  // The URL owns which album is open; Redux owns the pin list and the dock's
-  // shared collapse state — collapse never navigates, and only navigation
-  // (via the album route child) or an explicit rail click reopens the dock.
-  // Settings and account-edit panels need the full width, so any open panel
-  // suspends rail mode until it closes.
-  const activeAlbumId = parseAlbumIdFromPathname(pathname);
+  // Redux owns the dock entirely (pin list, collapse state, displayed album);
+  // the URL owns only the modal card, so opening an unpinned album never
+  // touches the dock. Collapse never navigates, and only an explicit rail
+  // click or arriving at a pinned album's URL (via the album route child)
+  // reopens the dock. Settings and account-edit panels need the full width,
+  // so any open panel suspends rail mode until it closes.
   const dockedAlbumId =
-    activeAlbumId !== null && pinnedAlbumIds.includes(activeAlbumId) ? activeAlbumId : null;
+    dockAlbumId !== null && pinnedAlbumIds.includes(dockAlbumId) ? dockAlbumId : null;
 
   const railActive = isDesktop && pinnedAlbumIds.length > 0 && panel.type === "default";
 
@@ -94,12 +87,9 @@ export default function Rightbar() {
   return (
     <>
       <RightbarMobileClose />
-      <DockedPanel
-        content={panelContent}
-        width={dockView === "home" ? HOME_PANEL_WIDTH : DOCK_PANEL_WIDTH}
-      />
+      <DockedPanel content={panelContent} />
       <RightbarContainer variant="rail">
-        <PinnedRail activeAlbumId={activeAlbumId} />
+        <PinnedRail activeAlbumId={dockView === "album" ? dockedAlbumId : null} />
       </RightbarContainer>
     </>
   );

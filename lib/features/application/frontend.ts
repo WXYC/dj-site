@@ -12,6 +12,7 @@ export const defaultApplicationFrontendState: ApplicationFrontendState = {
   },
   pinnedAlbumIds: [],
   dockView: "collapsed",
+  dockAlbumId: null,
 };
 
 export const applicationSlice = createAppSlice({
@@ -40,14 +41,25 @@ export const applicationSlice = createAppSlice({
       }
       // Pinning must never hide the card the DJ just asked to keep visible.
       state.dockView = "album";
+      state.dockAlbumId = action.payload;
     },
     unpinAlbum: (state, action: PayloadAction<number>) => {
       state.pinnedAlbumIds = state.pinnedAlbumIds.filter(
         (id) => id !== action.payload,
       );
+      if (state.dockAlbumId === action.payload) {
+        state.dockAlbumId = null;
+        if (state.dockView === "album") {
+          state.dockView = "collapsed";
+        }
+      }
       if (state.pinnedAlbumIds.length === 0) {
         state.dockView = "collapsed";
       }
+    },
+    openDockAlbum: (state, action: PayloadAction<number>) => {
+      state.dockView = "album";
+      state.dockAlbumId = action.payload;
     },
     setDockView: (state, action: PayloadAction<DockView>) => {
       state.dockView = action.payload;
@@ -59,5 +71,6 @@ export const applicationSlice = createAppSlice({
     getAuthStage: (state) => state.authFlow.stage,
     getPinnedAlbumIds: (state) => state.pinnedAlbumIds,
     getDockView: (state) => state.dockView,
+    getDockAlbumId: (state) => state.dockAlbumId,
   },
 });

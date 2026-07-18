@@ -40,7 +40,7 @@ export default function BinContent() {
         <Skeleton
           variant="rectangular"
           sx={{
-            width: { xs: "100%", sm: 300, lg: 400 },
+            width: "100%",
             flex: 1,
             minHeight: 0,
             borderRadius:
@@ -74,11 +74,13 @@ export default function BinContent() {
       {/* Fills the leftover column height (see RightBarContentContainer#fill)
           and scrolls internally, so a tall bin no longer pushes the rightbar
           past the viewport. */}
+      {/* Sized by the hosting column (full rightbar or home pane) so the bin,
+          NowPlaying, and the panes hold one shared width. */}
       <Card
         variant="outlined"
         sx={{
           overflowY: "auto",
-          width: { xs: "100%", sm: 300, lg: 400 },
+          width: "100%",
           flex: 1,
           minHeight: 0,
         }}

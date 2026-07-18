@@ -3,12 +3,9 @@
 // drawer, so the card must stay a (fullscreen) modal and pinning is hidden.
 export const ALBUM_DOCK_QUERY = "(min-width: 900px)";
 
+// One width for every docked pane (home and album): contents size to their
+// container, so pane switches never resize the panel.
 export const DOCK_PANEL_WIDTH = "clamp(380px, 30vw, 420px)";
-
-// The home panel hosts the Bin card, whose width is viewport-responsive
-// (400px at lg), so it mirrors the full rightbar's widths instead of the
-// album panel's clamp.
-export const HOME_PANEL_WIDTH = { md: 350, lg: 450 } as const;
 
 // Panel headers and the rail's home-button area share one height so their
 // bottom dividers form a single line across the panel/rail seam.

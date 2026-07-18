@@ -29,7 +29,7 @@ export default function AlbumDetailRoute() {
   // in the dock, precisely so collapsed stays collapsed.
   useEffect(() => {
     if (isDesktop && isPinned) {
-      dispatch(applicationSlice.actions.setDockView("album"));
+      dispatch(applicationSlice.actions.openDockAlbum(albumId));
     }
   }, [albumId, isPinned, isDesktop, dispatch]);
 

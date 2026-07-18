@@ -68,6 +68,7 @@ describe("AlbumDetailRoute", () => {
     renderWithProviders(<AlbumDetailRoute />, { store });
 
     expect(applicationSlice.selectors.getDockView(store.getState())).toBe("album");
+    expect(applicationSlice.selectors.getDockAlbumId(store.getState())).toBe(42);
   });
 
   it("leaves the dock alone for an unpinned album", () => {

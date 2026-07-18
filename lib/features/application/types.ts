@@ -29,9 +29,14 @@ export interface ApplicationFrontendState {
      * One shared collapse state for the docked panel beside the rail:
      * collapsing any pane collapses the dock, and reopening a different pane
      * from the collapsed state animates while pane-to-pane switches don't.
-     * "album" shows the URL's album card; meaningless when nothing is pinned.
+     * Meaningless when nothing is pinned.
      */
     dockView: DockView;
+    /**
+     * Which pinned album the album pane shows. Owned here, not by the URL —
+     * opening an unpinned album's modal must not evict the docked card.
+     */
+    dockAlbumId: number | null;
 }
 
 export type DockView = "collapsed" | "home" | "album";

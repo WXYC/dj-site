@@ -141,7 +141,7 @@ describe("Rightbar", () => {
     expect(screen.queryByTestId("now-playing-content")).not.toBeInTheDocument();
   });
 
-  it("should show the rail with a closed panel when pins exist but nothing is open", () => {
+  it("should open the docked card for a freshly pinned album", () => {
     routing.isDesktop = true;
     const store = createTestStore();
     store.dispatch(applicationSlice.actions.pinAlbum(42));
@@ -149,6 +149,18 @@ describe("Rightbar", () => {
 
     expect(screen.getByTestId("pinned-rail")).toBeInTheDocument();
     expect(screen.getByTestId("rightbar-container")).toHaveAttribute("data-variant", "rail");
+    expect(screen.getByTestId("docked-panel")).toHaveAttribute("data-open", "true");
+    expect(screen.getByTestId("docked-album-card")).toHaveTextContent("Album 42");
+  });
+
+  it("should show the rail with a closed panel when the dock is collapsed", () => {
+    routing.isDesktop = true;
+    const store = createTestStore();
+    store.dispatch(applicationSlice.actions.pinAlbum(42));
+    store.dispatch(applicationSlice.actions.setDockView("collapsed"));
+    renderWithProviders(<Rightbar />, { store });
+
+    expect(screen.getByTestId("pinned-rail")).toBeInTheDocument();
     expect(screen.getByTestId("docked-panel")).toHaveAttribute("data-open", "false");
     expect(screen.queryByTestId("now-playing-content")).not.toBeInTheDocument();
   });
@@ -168,16 +180,24 @@ describe("Rightbar", () => {
     expect(screen.getByTestId("bin-content")).toBeInTheDocument();
   });
 
-  it("should dock the card when the URL's album is pinned", () => {
+  it("should highlight the docked album in the rail", () => {
     routing.isDesktop = true;
-    routing.pathname = "/dashboard/catalog/album/42";
+    const store = createTestStore();
+    store.dispatch(applicationSlice.actions.pinAlbum(42));
+    renderWithProviders(<Rightbar />, { store });
+
+    expect(screen.getByTestId("pinned-rail")).toHaveTextContent("active=42");
+  });
+
+  it("should keep the docked card while an unpinned album's URL is open", () => {
+    routing.isDesktop = true;
+    routing.pathname = "/dashboard/catalog/album/7";
     const store = createTestStore();
     store.dispatch(applicationSlice.actions.pinAlbum(42));
     renderWithProviders(<Rightbar />, { store });
 
     expect(screen.getByTestId("docked-panel")).toHaveAttribute("data-open", "true");
     expect(screen.getByTestId("docked-album-card")).toHaveTextContent("Album 42");
-    expect(screen.getByTestId("pinned-rail")).toHaveTextContent("active=42");
   });
 
   it("should let the home panel take the slot over the docked card", () => {
@@ -213,18 +233,6 @@ describe("Rightbar", () => {
     expect(screen.getByTestId("docked-panel")).toHaveAttribute("data-open", "false");
     expect(screen.queryByTestId("docked-album-card")).not.toBeInTheDocument();
     expect(screen.queryByTestId("now-playing-content")).not.toBeInTheDocument();
-  });
-
-  it("should not dock the card when the URL's album is not pinned", () => {
-    routing.isDesktop = true;
-    routing.pathname = "/dashboard/catalog/album/7";
-    const store = createTestStore();
-    store.dispatch(applicationSlice.actions.pinAlbum(42));
-    renderWithProviders(<Rightbar />, { store });
-
-    expect(screen.getByTestId("docked-panel")).toHaveAttribute("data-open", "false");
-    expect(screen.queryByTestId("docked-album-card")).not.toBeInTheDocument();
-    expect(screen.getByTestId("pinned-rail")).toBeInTheDocument();
   });
 
   it("should suspend rail mode while a panel is open", () => {

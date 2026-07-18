@@ -146,13 +146,14 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
       expect(result.pinnedAlbumIds).toEqual([7]);
     });
 
-    it("should surface the album pane when pinning", () => {
+    it("should surface the pinned album's pane when pinning", () => {
       const result = harness().chain(
         actions.pinAlbum(42),
         actions.setDockView("home"),
         actions.pinAlbum(7),
       );
       expect(result.dockView).toBe("album");
+      expect(result.dockAlbumId).toBe(7);
     });
 
     it("should collapse the dock when the last pin is removed", () => {
@@ -163,6 +164,39 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
       );
       expect(result.pinnedAlbumIds).toEqual([]);
       expect(result.dockView).toBe("collapsed");
+      expect(result.dockAlbumId).toBeNull();
+    });
+
+    it("should clear the displayed album when it is unpinned", () => {
+      const result = harness().chain(
+        actions.pinAlbum(42),
+        actions.pinAlbum(7),
+        actions.unpinAlbum(7),
+      );
+      expect(result.dockAlbumId).toBeNull();
+      expect(result.dockView).toBe("collapsed");
+    });
+
+    it("should leave the dock alone when unpinning an album it is not showing", () => {
+      const result = harness().chain(
+        actions.pinAlbum(7),
+        actions.pinAlbum(42),
+        actions.unpinAlbum(7),
+      );
+      expect(result.dockAlbumId).toBe(42);
+      expect(result.dockView).toBe("album");
+    });
+  });
+
+  describe("openDockAlbum action", () => {
+    it("should show the album pane for the given album", () => {
+      const result = harness().chain(
+        actions.pinAlbum(42),
+        actions.setDockView("collapsed"),
+        actions.openDockAlbum(42),
+      );
+      expect(result.dockView).toBe("album");
+      expect(result.dockAlbumId).toBe(42);
     });
   });
 
