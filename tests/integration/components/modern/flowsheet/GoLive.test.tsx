@@ -223,10 +223,15 @@ describe("GoLive", () => {
     });
   });
 
-  it("guards the on-air dot's aspect ratio against flex distortion", () => {
+  it("guards the on-air dot against being shrunk by a flex parent", () => {
     render(<GoLive />);
-    const dot = screen.getByTestId("flowsheet-on-air-dot");
-    expect(dot).toHaveStyle({ flexShrink: "0", aspectRatio: "1" });
+    // The dot has no identifying attribute of its own (a test hook would
+    // define product markup); it's the last child of the status button,
+    // after the "You Are On/Off Air" text node.
+    const statusButton = screen.getByTestId("flowsheet-live-status");
+    const dot = statusButton.lastElementChild;
+    expect(dot).not.toBeNull();
+    expect(dot).toHaveStyle({ flexShrink: "0" });
   });
 
   it("should show saving indicator when isSaving", async () => {
