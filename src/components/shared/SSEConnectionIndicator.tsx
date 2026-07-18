@@ -38,6 +38,8 @@ export default function SSEConnectionIndicator() {
           width: 10,
           height: 10,
           borderRadius: "50%",
+          flexShrink: 0,
+          aspectRatio: "1",
           backgroundColor: theme.vars.palette[palette].solidBg,
           marginX: 0.5,
         })}
