@@ -16,20 +16,34 @@ if (!fs.existsSync(authDir)) {
 // that silently invalidates old storage states.
 const SESSION_CACHE_SALT = "1";
 
-// A persisted storageState is only reusable against the same seeded users.
-// The key folds the credentials that produced the session with the salt: a
-// credential change or a salt bump yields a new key, so a stale state is never
-// silently reused. It does NOT prove the session row still exists server-side
-// (a reseeded database drops it) — validateStoredSession() covers that.
+// A persisted storageState is only reusable against the same seeded users, so
+// the key must rotate whenever those users change. We fingerprint the fixture
+// *source* that declares them — not the credential values — which gives a
+// strict superset of that guarantee (any username, password, OR user-set edit
+// changes the file bytes) without ever routing a secret-shaped value through a
+// hash. The users are declared in tests/fixtures/fixtures.ts and re-exported
+// here as TEST_USERS; if that source starts pulling credentials from another
+// file, add its path below. The key does NOT prove the session row still
+// exists server-side (a reseeded database drops it) — persistedSessionIsUsable
+// covers that.
+const USER_FIXTURE_SOURCES = [
+  path.join(__dirname, "fixtures", "auth.fixture.ts"),
+  path.join(__dirname, "..", "tests", "fixtures", "fixtures.ts"),
+];
+
 function seedKey(): string {
-  const material = JSON.stringify(
-    Object.values(TEST_USERS).map((u) => [u.username, u.password])
-  );
-  return crypto
-    .createHash("sha256")
-    .update(`${material}|${SESSION_CACHE_SALT}`)
-    .digest("hex")
-    .slice(0, 16);
+  const hash = crypto.createHash("sha256");
+  for (const file of USER_FIXTURE_SOURCES) {
+    try {
+      hash.update(fs.readFileSync(file));
+    } catch {
+      // A missing source is unexpected but must not break the run: the salt and
+      // any readable sources still contribute, and the live-session check is
+      // the real guard against reusing a stale state.
+    }
+  }
+  hash.update(SESSION_CACHE_SALT);
+  return hash.digest("hex").slice(0, 16);
 }
 
 function seedSidecarPath(statePath: string): string {
