@@ -1025,3 +1025,87 @@ describe("SongEntry two-line row structure", () => {
     expect(screen.queryByText("REQ")).toBeNull();
   });
 });
+
+describe("SongEntry status chips reserve space for the hover actions", () => {
+  const mockEntry: FlowsheetSongEntry = {
+    id: 1,
+    play_order: 0,
+    show_id: 100,
+    track_title: "On Your Own Love Again",
+    artist_name: "Jessica Pratt",
+    album_title: "On Your Own Love Again",
+    record_label: "Drag City",
+    request_flag: false,
+    segue: false,
+    album_id: 42,
+    rotation: "H",
+    rotation_id: 10,
+    artwork_url: "/test-album-art.jpg",
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseFlowsheet.mockReturnValue({ updateFlowsheet: mockUpdateFlowsheet });
+  });
+
+  const chipContainer = () =>
+    screen
+      .getByTestId("draggable-wrapper")
+      .querySelector<HTMLElement>(".status-chips");
+
+  it("reserves the wider four-control gap on editable rows", () => {
+    mockUseShowControl.mockReturnValue({
+      live: true,
+      autoplay: false,
+      currentShow: 100,
+    });
+    render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
+
+    const container = chipContainer();
+    expect(container).not.toBeNull();
+    expect(container).toHaveStyle({ paddingRight: "160px" });
+    // The chips still render inside the reserved container.
+    expect(container!.textContent).toContain("H");
+  });
+
+  it("reserves the narrow info-only gap on read-only rows", () => {
+    mockUseShowControl.mockReturnValue({
+      live: true,
+      autoplay: false,
+      currentShow: 999,
+    });
+    render(
+      <SongEntry
+        entry={{ ...mockEntry, request_flag: true, segue: true }}
+        playing={false}
+        queue={false}
+      />
+    );
+
+    const container = chipContainer();
+    expect(container).not.toBeNull();
+    expect(container).toHaveStyle({ paddingRight: "48px" });
+    // Read-only rows surface request/segue as chips; they live in the
+    // reserved container too.
+    expect(container!.textContent).toContain("REQ");
+    expect(container!.textContent).toContain("SEGUE");
+  });
+
+  it("still renders the action controls alongside the reserved chips", () => {
+    mockUseShowControl.mockReturnValue({
+      live: true,
+      autoplay: false,
+      currentShow: 100,
+    });
+    render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
+
+    expect(chipContainer()).not.toBeNull();
+    // The info button (album detail) is part of the overlaid controls.
+    const infoButton = screen
+      .getAllByRole("button")
+      .find((btn) =>
+        btn.querySelector('[data-testid="InfoOutlinedIcon"]')
+      );
+    expect(infoButton).toBeDefined();
+  });
+});
