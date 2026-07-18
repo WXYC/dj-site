@@ -22,8 +22,47 @@ export const FLOWSHEET_DRAG_GUTTER_NARROW_PX = 16;
 // exact template so they align with the columns below as de-facto headers.
 // Change these only in lock-step with FLOWSHEET_TABLE_SX's breakpoints.
 export const FLOWSHEET_COL_ART_PX = 60;
-export const FLOWSHEET_COL_ACTIONS_PX = 150;
-export const FLOWSHEET_CELL_PADDING_X = "12px";
+export const FLOWSHEET_CELL_PADDING_X_PX = 12;
+export const FLOWSHEET_CELL_PADDING_X = `${FLOWSHEET_CELL_PADDING_X_PX}px`;
+
+// The last column holds the status chips (in flow) and the hover action
+// cluster (an absolute overlay pinned to the cell's right edge). Both the
+// column width and the chips' reserved padding derive from the controls'
+// real footprint so the two can never disagree: every control is a 32px sm
+// icon-button/checkbox target laid out in a 4px-gap row.
+export const FLOWSHEET_ACTION_CONTROL_PX = 32;
+export const FLOWSHEET_ACTION_GAP_PX = 4;
+
+// Width of a row of `count` action controls.
+const actionsRowWidthPx = (count: number) =>
+  count * FLOWSHEET_ACTION_CONTROL_PX +
+  Math.max(0, count - 1) * FLOWSHEET_ACTION_GAP_PX;
+
+// Editable rows expose four controls (segue, request, info, remove); read-only
+// rows only the info button.
+export const FLOWSHEET_ACTIONS_EDITABLE_PX = actionsRowWidthPx(4);
+export const FLOWSHEET_ACTIONS_READONLY_PX = actionsRowWidthPx(1);
+
+// Room kept to the left of the action cluster for a status chip so no chip
+// ever renders under the overlay. Sized for the widest single pill
+// (EXCLUSIVE); extra chips wrap onto a second line within this zone (the row
+// is tall enough), still clear of the actions.
+export const FLOWSHEET_STATUS_CHIP_MIN_PX = 72;
+
+// Padding-right the chip row reserves for the overlay, by row editability, so
+// the actions never paint over a chip. One gap separates the last chip from
+// the first control.
+export const flowsheetChipsReservePx = (editable: boolean) =>
+  (editable ? FLOWSHEET_ACTIONS_EDITABLE_PX : FLOWSHEET_ACTIONS_READONLY_PX) +
+  FLOWSHEET_ACTION_GAP_PX;
+
+// The column must fit the widest reserve (editable) plus a chip beside it,
+// within the cell's horizontal padding — otherwise fixed table layout would
+// clip the chip zone to zero and the overlay would sit on the chips again.
+export const FLOWSHEET_COL_ACTIONS_PX =
+  flowsheetChipsReservePx(true) +
+  FLOWSHEET_STATUS_CHIP_MIN_PX +
+  2 * FLOWSHEET_CELL_PADDING_X_PX;
 
 // Shared row/hover/action treatment for the entries and queue tables. The
 // queue never renders a `row-playing` row, so those rules are inert there.
