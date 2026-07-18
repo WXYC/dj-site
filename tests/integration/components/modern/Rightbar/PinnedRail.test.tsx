@@ -14,6 +14,10 @@ vi.mock("next/navigation", () => ({
   usePathname: () => routing.pathname,
 }));
 
+vi.mock("@/src/hooks/useMediaQuery", () => ({
+  useMediaQuery: () => true,
+}));
+
 vi.mock("@/lib/features/catalog/api", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useGetInformationQuery: () => ({ data: undefined }),

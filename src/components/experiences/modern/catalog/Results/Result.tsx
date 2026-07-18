@@ -13,8 +13,7 @@ import { Stack, Tooltip } from "@mui/joy";
 import { useCatalogQuerySearch } from "@/src/hooks/catalogHooks";
 import { QueueMusic } from "@mui/icons-material";
 import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
-import { albumDetailHref } from "@/lib/features/catalog/albumRoutes";
-import { usePathname, useRouter } from "next/navigation";
+import useOpenAlbumDetail from "@/src/components/experiences/modern/catalog/album/useOpenAlbumDetail";
 import { genreTone } from "@/lib/features/experiences/modern/tokens/roles";
 import AddRemoveBin from "./AddRemoveBin";
 import { MatchedTrackChips } from "./MatchedTrackChips";
@@ -35,8 +34,7 @@ function CatalogResult({
   live: boolean;
   addToQueue: (entry: FlowsheetQuery) => void;
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
+  const openAlbumDetail = useOpenAlbumDetail();
 
   const { selected, setSelection, sortBy } = useCatalogQuerySearch();
 
@@ -60,7 +58,7 @@ function CatalogResult({
     <tr
       key={album.id}
       className={isSelected ? "row-selected" : undefined}
-      onClick={() => router.push(albumDetailHref(pathname, album.id))}
+      onClick={() => openAlbumDetail(album.id)}
       style={{ cursor: "pointer" }}
     >
       <td
@@ -237,7 +235,7 @@ function CatalogResult({
               variant="plain"
               color="neutral"
               size="sm"
-              onClick={() => router.push(albumDetailHref(pathname, album.id))}
+              onClick={() => openAlbumDetail(album.id)}
             >
               <InfoOutlinedIcon />
             </IconButton>

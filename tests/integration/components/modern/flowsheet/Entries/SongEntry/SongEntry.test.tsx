@@ -12,6 +12,7 @@ const mockUpdateFlowsheet = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  usePathname: () => "/dashboard/flowsheet",
 }));
 
 vi.mock("@/src/hooks/flowsheetHooks", () => ({

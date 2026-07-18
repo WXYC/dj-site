@@ -3,14 +3,13 @@ import { renderHook } from "@testing-library/react";
 import { Unarchive } from "@mui/icons-material";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 
-const push = vi.fn();
+const openAlbumDetail = vi.fn();
 const addToQueue = vi.fn();
 const addToFlowsheet = vi.fn(() => Promise.resolve());
 const deleteFromBin = vi.fn();
 
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push }),
-  usePathname: () => "/dashboard/flowsheet",
+vi.mock("@/src/components/experiences/modern/catalog/album/useOpenAlbumDetail", () => ({
+  default: () => openAlbumDetail,
 }));
 vi.mock("@/lib/features/bin/conversions", () => ({
   convertBinToQueue: (e: AlbumEntry) => ({ q: e.id }),
@@ -48,7 +47,7 @@ describe("useBinEntryActions", () => {
     const byId = Object.fromEntries(result.current.map((a) => [a.id, a]));
 
     byId.info.run();
-    expect(push).toHaveBeenCalledWith("/dashboard/flowsheet/album/7");
+    expect(openAlbumDetail).toHaveBeenCalledWith(7);
 
     byId.queue.run();
     expect(addToQueue).toHaveBeenCalledWith({ q: 7 });

@@ -3,10 +3,10 @@
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { useGetInformationQuery } from "@/lib/features/catalog/api";
 import {
-  albumDetailHref,
   albumParentPath,
   parseAlbumIdFromPathname,
 } from "@/lib/features/catalog/albumRoutes";
+import useOpenAlbumDetail from "../catalog/album/useOpenAlbumDetail";
 import { genreTone } from "@/lib/features/experiences/modern/tokens/roles";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { Close, SpaceDashboardOutlined } from "@mui/icons-material";
@@ -33,14 +33,8 @@ function PinnedAlbumIcon({ albumId, active }: { albumId: number; active: boolean
   const label = data ? `${artistDisplay} – ${data.title}` : "Pinned album";
   const genreColor = genreTone(data?.artist.genre).color;
 
-  // The dock flips immediately; the push keeps the URL on the album the DJ
-  // is looking at without renavigating when it is already there.
-  const openAlbum = () => {
-    dispatch(applicationSlice.actions.openDockAlbum(albumId));
-    if (parseAlbumIdFromPathname(pathname) !== albumId) {
-      router.push(albumDetailHref(pathname, albumId));
-    }
-  };
+  const openAlbumDetail = useOpenAlbumDetail();
+  const openAlbum = () => openAlbumDetail(albumId);
 
   // Unpinning from the rail discards the card entirely — never a modal
   // handoff (that is the docked header's unpin) — and leaves the dock's

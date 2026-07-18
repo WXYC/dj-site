@@ -16,8 +16,7 @@ import {
   Unarchive,
 } from "@mui/icons-material";
 import { ColorPaletteProp } from "@mui/joy";
-import { albumDetailHref } from "@/lib/features/catalog/albumRoutes";
-import { usePathname, useRouter } from "next/navigation";
+import useOpenAlbumDetail from "@/src/components/experiences/modern/catalog/album/useOpenAlbumDetail";
 import { useMemo } from "react";
 import { toast } from "sonner";
 
@@ -54,8 +53,7 @@ export function useBinEntryActions(
   live: boolean,
   { addToQueue, addToFlowsheet, deleteFromBin }: BinEntryActionDeps,
 ): BinEntryAction[] {
-  const router = useRouter();
-  const pathname = usePathname();
+  const openAlbumDetail = useOpenAlbumDetail();
 
   return useMemo(() => {
     const actions: BinEntryAction[] = [
@@ -64,7 +62,7 @@ export function useBinEntryActions(
         label: "More information",
         Icon: InfoOutlined,
         color: "neutral",
-        run: () => router.push(albumDetailHref(pathname, entry.id)),
+        run: () => openAlbumDetail(entry.id),
       },
     ];
 
@@ -110,5 +108,5 @@ export function useBinEntryActions(
     });
 
     return actions;
-  }, [entry, live, router, pathname, addToQueue, addToFlowsheet, deleteFromBin]);
+  }, [entry, live, openAlbumDetail, addToQueue, addToFlowsheet, deleteFromBin]);
 }
