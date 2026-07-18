@@ -31,7 +31,7 @@ const authDir = path.join(__dirname, "../../.auth");
  * CI-verified only: like every e2e spec it needs the Docker Backend-Service +
  * Playwright stack (`npm run test:e2e`), which isn't run here.
  */
-test.describe("Flowsheet backend results — render cap", () => {
+test.describe("Flowsheet backend results — render cap", { tag: "@smoke" }, () => {
   test.use({ storageState: path.join(authDir, "musicDirector.json") });
   test.describe.configure({ mode: "serial" });
   test.setTimeout(60_000);
