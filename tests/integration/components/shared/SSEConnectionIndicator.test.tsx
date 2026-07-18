@@ -35,9 +35,14 @@ describe("SSEConnectionIndicator", () => {
     expect(dot.getAttribute("data-status")).toBe(status);
   });
 
-  it("guards the dot against being shrunk by a flex parent", () => {
+  it("guards the dot against being shrunk or stretched by a flex parent", () => {
     renderWithProviders(<SSEConnectionIndicator />);
     const dot = screen.getByLabelText(STATUS_LABELS.closed);
-    expect(dot).toHaveStyle({ flexShrink: "0" });
+    expect(dot).toHaveStyle({
+      flexShrink: "0",
+      flexGrow: "0",
+      minWidth: "10px",
+      maxWidth: "10px",
+    });
   });
 });
