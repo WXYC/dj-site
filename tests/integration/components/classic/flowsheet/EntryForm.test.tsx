@@ -283,15 +283,15 @@ describe("Classic EntryForm — Bin dropdown (replaces H/M/L/S radios)", () => {
     ).toBeNull();
   });
 
-  it("labels the empty Bin placeholder so screen readers can announce it", async () => {
+  it("keeps the Bin placeholder blank (tubafrenzy parity) but names the select via its label", async () => {
     const { user } = renderWithProviders(<EntryForm />);
     await user.selectOptions(getNamedSelect("releaseType"), "rotationRelease");
     const bin = getNamedSelect("rotationType");
     const placeholder = bin.options[0];
     expect(placeholder.value).toBe("");
-    // Visible text on the placeholder option — not zero-width — so VO/JAWS
-    // can announce something meaningful for the unselected state.
-    expect(placeholder.textContent?.trim().length).toBeGreaterThan(0);
+    // Tubafrenzy's Bin placeholder option is visually blank; accessibility
+    // comes from the associated <label for="rotationType">Bin</label>.
+    expect(bin.labels?.[0]?.textContent?.trim()).toBe("Bin");
   });
 
   // WXYC/dj-site#745 — DJs need releases sorted A→Z by artist so the native

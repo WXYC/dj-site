@@ -5,7 +5,8 @@ import "@/src/styles/classic/actions.css";
 
 type Props = {
   entryId: number;
-  onEdit: (entryId: number) => void;
+  /** Omitted for rows with nothing to edit (talksets) — menu shows Delete only. */
+  onEdit?: (entryId: number) => void;
   onDelete: (entryId: number) => void;
 };
 
@@ -33,7 +34,7 @@ export default function EntryActionMenu({ entryId, onEdit, onDelete }: Props) {
 
   const handleEdit = () => {
     setOpen(false);
-    onEdit(entryId);
+    onEdit?.(entryId);
   };
 
   const handleDelete = () => {
@@ -55,14 +56,16 @@ export default function EntryActionMenu({ entryId, onEdit, onDelete }: Props) {
       </button>
       {open && (
         <div className="action-dropdown" role="menu">
-          <button
-            type="button"
-            className="action-item"
-            onClick={handleEdit}
-            role="menuitem"
-          >
-            Edit
-          </button>
+          {onEdit && (
+            <button
+              type="button"
+              className="action-item"
+              onClick={handleEdit}
+              role="menuitem"
+            >
+              Edit
+            </button>
+          )}
           <button
             type="button"
             className="action-item action-delete"

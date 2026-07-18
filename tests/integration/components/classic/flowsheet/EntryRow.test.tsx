@@ -16,7 +16,7 @@ import EntryRow from "@/src/components/experiences/classic/flowsheet/EntryRow";
 // want the read-only previous-show context can pass `dragHandlers: false`.
 function renderRow(props: {
   entry: FlowsheetEntry;
-  nextIsSong?: boolean;
+  seguesIntoNext?: boolean;
   isDragging?: boolean;
   isDragOver?: boolean;
   dragHandlers?: boolean;
@@ -33,10 +33,9 @@ function renderRow(props: {
       <tbody>
         <EntryRow
           entry={props.entry}
-          fontSize={3}
           onUpdate={props.onUpdate ?? (() => {})}
           onDelete={props.onDelete ?? (() => {})}
-          nextIsSong={props.nextIsSong}
+          seguesIntoNext={props.seguesIntoNext}
           isDragging={props.isDragging}
           isDragOver={props.isDragOver}
           onDragStart={
@@ -51,71 +50,52 @@ function renderRow(props: {
   );
 }
 
-describe("Classic EntryRow capsule indicators", () => {
-  it("renders a REQUEST capsule when request_flag=true", () => {
+// Song-row cell layout mirrors tubafrenzy's flowsheetRadioShowModify.jsp:
+// td1 grip | td2 Playlist (rotation letter) | td3 Req. (*) | td4 artist |
+// td5 song | td6 release | td7 label | td8 action.
+
+describe("Classic EntryRow plain-text indicators", () => {
+  it("renders * in the Req. cell when request_flag=true", () => {
     const entry = createTestFlowsheetEntry({ request_flag: true });
-    renderRow({ entry });
-    expect(screen.getByText("REQUEST")).toBeDefined();
+    const { container } = renderRow({ entry });
+    const reqCell = container.querySelector("tr > td:nth-child(3)");
+    expect(reqCell!.textContent).toBe("*");
   });
 
-  it("does not render any capsule when no flags are set", () => {
+  it("renders empty Playlist and Req. cells when no flags are set", () => {
     const entry = createTestFlowsheetEntry({
       request_flag: false,
       rotation: undefined,
       on_streaming: undefined,
     });
-    renderRow({ entry });
-    expect(screen.queryByText("REQUEST")).toBeNull();
-    expect(screen.queryByText(/^ROTATION /)).toBeNull();
-    expect(screen.queryByText("EXCLUSIVE")).toBeNull();
+    const { container } = renderRow({ entry });
+    expect(container.querySelector("tr > td:nth-child(2)")!.textContent).toBe("");
+    expect(container.querySelector("tr > td:nth-child(3)")!.textContent).toBe("");
   });
 
   it.each([
-    [Rotation.H, "ROTATION H"],
-    [Rotation.M, "ROTATION M"],
-    [Rotation.L, "ROTATION L"],
-    [Rotation.S, "ROTATION S"],
-  ])("renders a %s rotation capsule as %s", (rotation, label) => {
+    [Rotation.H, "H"],
+    [Rotation.M, "M"],
+    [Rotation.L, "L"],
+    [Rotation.S, "S"],
+  ])("renders rotation %s as the plain letter %s in the Playlist cell", (rotation, letter) => {
     const entry = createTestFlowsheetEntry({ rotation });
-    renderRow({ entry });
-    expect(screen.getByText(label)).toBeDefined();
+    const { container } = renderRow({ entry });
+    const playlistCell = container.querySelector("tr > td:nth-child(2)");
+    expect(playlistCell!.textContent).toBe(letter);
   });
 
-  it("renders an EXCLUSIVE capsule when on_streaming=false", () => {
-    const entry = createTestFlowsheetEntry({ on_streaming: false });
-    renderRow({ entry });
-    expect(screen.getByText("EXCLUSIVE")).toBeDefined();
-  });
-
-  it("does not render EXCLUSIVE when on_streaming=true", () => {
-    const entry = createTestFlowsheetEntry({ on_streaming: true });
-    renderRow({ entry });
-    expect(screen.queryByText("EXCLUSIVE")).toBeNull();
-  });
-
-  it("renders REQUEST, ROTATION, and EXCLUSIVE together in that priority order", () => {
+  it("does NOT render capsule badges on song rows (tubafrenzy uses plain text)", () => {
     const entry = createTestFlowsheetEntry({
       request_flag: true,
       rotation: Rotation.H,
       on_streaming: false,
     });
-    renderRow({ entry });
-    const request = screen.getByText("REQUEST");
-    const rotation = screen.getByText("ROTATION H");
-    const exclusive = screen.getByText("EXCLUSIVE");
-    // DOM order matches priority order.
-    const order = [request, rotation, exclusive].map((el) =>
-      Array.from(document.body.querySelectorAll(".classic-capsule")).indexOf(el)
-    );
-    expect(order).toEqual([0, 1, 2]);
-  });
-
-  it("renders the indicators inside the second <td> cell (after the grip handle)", () => {
-    const entry = createTestFlowsheetEntry({ request_flag: true });
     const { container } = renderRow({ entry });
-    const indicatorsCell = container.querySelector("tr > td:nth-child(2)");
-    expect(indicatorsCell).not.toBeNull();
-    expect(indicatorsCell!.querySelector(".classic-capsule")).not.toBeNull();
+    expect(container.querySelector(".classic-capsule")).toBeNull();
+    expect(screen.queryByText("REQUEST")).toBeNull();
+    expect(screen.queryByText(/^ROTATION /)).toBeNull();
+    expect(screen.queryByText("EXCLUSIVE")).toBeNull();
   });
 });
 
@@ -153,7 +133,7 @@ describe("Classic EntryRow grip handle (drag-to-reorder)", () => {
     };
     const { container } = renderRow({ entry });
     expect(container.querySelector(".grip-handle")).not.toBeNull();
-    const row = container.querySelector("tr.classic-marker-talkset");
+    const row = container.querySelector("tr.talkset-row");
     expect(row!.getAttribute("draggable")).toBe("true");
   });
 
@@ -168,7 +148,7 @@ describe("Classic EntryRow grip handle (drag-to-reorder)", () => {
     };
     const { container } = renderRow({ entry });
     expect(container.querySelector(".grip-handle")).toBeNull();
-    const row = container.querySelector("tr.classic-marker-breakpoint");
+    const row = container.querySelector("tr.breakpoint-row");
     expect(row!.getAttribute("draggable")).not.toBe("true");
   });
 
@@ -184,7 +164,7 @@ describe("Classic EntryRow grip handle (drag-to-reorder)", () => {
     };
     const { container } = renderRow({ entry });
     expect(container.querySelector(".grip-handle")).toBeNull();
-    const row = container.querySelector("tr.classic-marker-breakpoint");
+    const row = container.querySelector("tr.breakpoint-row");
     expect(row!.getAttribute("draggable")).not.toBe("true");
   });
 
@@ -240,39 +220,35 @@ describe("Classic EntryRow read-only context (no drag handlers wired)", () => {
       message: "Talkset - station ID",
     };
     const { container } = renderRow({ entry, dragHandlers: false });
-    const row = container.querySelector("tr.classic-marker-talkset");
+    const row = container.querySelector("tr.talkset-row");
     expect(row!.getAttribute("draggable")).not.toBe("true");
     expect(container.querySelector(".grip-handle")).toBeNull();
   });
 });
 
 describe("Classic EntryRow segue indicator", () => {
-  it("renders the .classic-segue class on a segue song row when the next row is also a song", () => {
-    const entry = createTestFlowsheetEntry({ segue: true });
-    const { container } = renderRow({ entry, nextIsSong: true });
-    const row = container.querySelector("tr.classic-segue");
-    expect(row).not.toBeNull();
-    // The row also exposes data-segue="true" so CSS can target it.
+  // Tubafrenzy marks the row ABOVE the segue pair with data-segue="true"; the
+  // ported segue-styles.css draws the bracket down to the next row. EntryTable
+  // owns the "is the next entry a segue song?" computation and passes
+  // `seguesIntoNext`.
+  it("renders data-segue='true' when seguesIntoNext is set", () => {
+    const entry = createTestFlowsheetEntry();
+    const { container } = renderRow({ entry, seguesIntoNext: true });
+    const row = container.querySelector("tr.entry-row");
     expect(row!.getAttribute("data-segue")).toBe("true");
   });
 
-  it("does NOT render the segue indicator when the next row is not a song row", () => {
+  it("does NOT render data-segue when seguesIntoNext is false", () => {
     const entry = createTestFlowsheetEntry({ segue: true });
-    const { container } = renderRow({ entry, nextIsSong: false });
-    const row = container.querySelector("tr.classic-segue");
-    expect(row).toBeNull();
+    const { container } = renderRow({ entry, seguesIntoNext: false });
+    const row = container.querySelector("tr.entry-row");
+    expect(row!.getAttribute("data-segue")).toBeNull();
   });
 
-  it("does NOT render the segue indicator when segue is false", () => {
-    const entry = createTestFlowsheetEntry({ segue: false });
-    const { container } = renderRow({ entry, nextIsSong: true });
-    expect(container.querySelector("tr.classic-segue")).toBeNull();
-  });
-
-  it("does NOT render the segue indicator when segue is undefined", () => {
-    const entry = createTestFlowsheetEntry({ segue: undefined });
-    const { container } = renderRow({ entry, nextIsSong: true });
-    expect(container.querySelector("tr.classic-segue")).toBeNull();
+  it("does NOT render data-segue when seguesIntoNext is undefined", () => {
+    const entry = createTestFlowsheetEntry({ segue: true });
+    const { container } = renderRow({ entry });
+    expect(container.querySelector("tr[data-segue]")).toBeNull();
   });
 });
 
@@ -293,11 +269,11 @@ describe("Classic EntryRow markers", () => {
       expect(cell!.getAttribute("align")).toBe("center");
     });
 
-    it("uses the classic-marker-talkset class on its row (background #BBBBBB)", () => {
+    it("uses the talkset-row class on its row (tubafrenzy #555 / #DDDD22)", () => {
       const { container } = renderRow({ entry: talksetEntry });
       const row = container.querySelector("tr");
       expect(row).not.toBeNull();
-      expect(row!.classList.contains("classic-marker-talkset")).toBe(true);
+      expect(row!.classList.contains("talkset-row")).toBe(true);
     });
 
     it("does NOT use the legacy redlabel class on its cell", () => {
@@ -316,23 +292,17 @@ describe("Classic EntryRow markers", () => {
       time: "5:00:00 PM",
     };
 
-    it("renders '{h:mm a} breakpoint' (no seconds, lowercase suffix)", () => {
+    it("renders the bare time '{h:mm a}' like tubafrenzy's HH:MM breakpoint rows", () => {
       const { container } = renderRow({ entry: breakpointEntry });
       const cell = container.querySelector("tr > td:nth-child(2)");
       expect(cell).not.toBeNull();
-      expect(cell!.textContent).toBe("5:00 PM breakpoint");
+      expect(cell!.textContent).toBe("5:00 PM");
     });
 
-    it("renders content centered", () => {
-      const { container } = renderRow({ entry: breakpointEntry });
-      const cell = container.querySelector("tr > td:nth-child(2)");
-      expect(cell!.getAttribute("align")).toBe("center");
-    });
-
-    it("uses the classic-marker-breakpoint class on its row", () => {
+    it("uses the breakpoint-row class on its row", () => {
       const { container } = renderRow({ entry: breakpointEntry });
       const row = container.querySelector("tr");
-      expect(row!.classList.contains("classic-marker-breakpoint")).toBe(true);
+      expect(row!.classList.contains("breakpoint-row")).toBe(true);
     });
 
     it("does NOT use the legacy littlegreenlabel class on its cell", () => {
@@ -360,10 +330,10 @@ describe("Classic EntryRow markers", () => {
       );
     });
 
-    it("uses the classic-marker-breakpoint class on its row (shared #444 styling)", () => {
+    it("uses the breakpoint-row class on its row (shared #444 styling)", () => {
       const { container } = renderRow({ entry: startEntry });
       const row = container.querySelector("tr");
-      expect(row!.classList.contains("classic-marker-breakpoint")).toBe(true);
+      expect(row!.classList.contains("breakpoint-row")).toBe(true);
     });
   });
 
@@ -386,10 +356,10 @@ describe("Classic EntryRow markers", () => {
       );
     });
 
-    it("uses the classic-marker-breakpoint class on its row (shared #444 styling)", () => {
+    it("uses the breakpoint-row class on its row (shared #444 styling)", () => {
       const { container } = renderRow({ entry: endEntry });
       const row = container.querySelector("tr");
-      expect(row!.classList.contains("classic-marker-breakpoint")).toBe(true);
+      expect(row!.classList.contains("breakpoint-row")).toBe(true);
     });
   });
 
@@ -706,7 +676,7 @@ describe("Classic EntryRow action menu + inline edit (song rows)", () => {
     expect(checkbox!.getAttribute("aria-label")).toBe("Listener request");
   });
 
-  it("does NOT render the action menu on talkset rows", () => {
+  it("renders a Delete-only action menu on talkset rows (no Edit item)", () => {
     const entry: FlowsheetEntry = {
       id: 30,
       show_id: 1,
@@ -714,9 +684,9 @@ describe("Classic EntryRow action menu + inline edit (song rows)", () => {
       message: "Talkset - station ID",
     };
     renderRow({ entry });
-    expect(
-      screen.queryByRole("button", { name: /actions/i })
-    ).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /actions/i }));
+    expect(screen.queryByRole("menuitem", { name: "Edit" })).toBeNull();
+    expect(screen.getByRole("menuitem", { name: "Delete" })).toBeDefined();
   });
 
   it("does NOT render the action menu on breakpoint rows", () => {

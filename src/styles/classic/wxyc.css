@@ -1,281 +1,574 @@
+/* Port of tubafrenzy's wxyc-shared.css + wxycdb.css (catalog subset), kept
+   1:1 so Classic mode visually duplicates the legacy app. Dark-scheme
+   overrides at the bottom are a dj-site addition (tubafrenzy has no dark
+   mode) and are best-effort. */
+
+/* ========== Base ========== */
+
+html[data-experience="classic"] body {
+	background-color: #FFFFFF;
+	font-family: Verdana, Geneva, Arial, Helvetica, sans-serif;
+	line-height: 1.33;
+}
+
+/* ========== Typography ========== */
+
+.title {
+	font-size: 1em;
+	font-weight: bold;
+}
+
+.subtitle {
+	font-size: 0.95em;
+}
+
+.bigtext {
+	font-size: 1.3em;
+	line-height: 1.50;
+}
+
+.text {
+	font-size: 0.9em;
+}
+
+.smalltext {
+	font-size: 0.8em;
+}
+
+.label {
+	font-size: 0.9em;
+	font-weight: bold;
+}
+
+.redlabel {
+	font-size: 0.9em;
+	font-weight: bold;
+	color: #FF0000;
+}
+
+.smalllabel {
+	font-size: 0.8em;
+}
+
+.text TD {
+	font-size: 1em;
+}
+
+.submenu {
+	font-family: Geneva, Verdana, Arial, Helvetica, sans-serif;
+	font-size: 0.9em;
+}
+
+.submenu TD {
+	font-family: Geneva, Verdana, Arial, Helvetica, sans-serif;
+	font-size: 1em;
+	font-weight: bold;
+}
+
+.submenu TD A {
+	font-family: Geneva, Verdana, Arial, Helvetica, sans-serif;
+	font-weight: normal;
+	text-decoration: none;
+	color: #000000;
+}
+
+.submenu TD A:hover {
+	font-family: Geneva, Verdana, Arial, Helvetica, sans-serif;
+	font-weight: normal;
+	text-decoration: underline;
+	color: #000000;
+}
+
+.redtitle {
+	font-size: 1em;
+	font-weight: bold;
+	color: #FF0000;
+}
+
+.bigblue {
+	font-size: 1.3em;
+	line-height: 1.50;
+	font-weight: bold;
+	color: #0000FF;
+}
+
+.greenlabel {
+	font-size: 1.3em;
+	line-height: 1.50;
+	font-weight: bold;
+	color: #00FF00;
+}
+
+.littlegreenlabel {
+	font-size: 0.8em;
+	font-weight: bold;
+	color: #00FF00;
+}
+
+/* ========== Search ========== */
+
 .searchResultsHeader {
-	background:#AAAAAA;
+	background: #AAAAAA;
 	text-align: center;
-	font-family: Verdana, Arial, Helvetica, sans-serif;
-	font-size: 0.8em;
-	line-height: 1.33;
+	font-size: 0.9em;
 	font-weight: bold;
 	color: #FF0000;
 }
 
-.title
-{
-  font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
-  font-size: 1em;
-  font-weight: bold;
-}
-
-.subtitle
-{
-  font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
-  font-size: 0.9em;
-  line-height: 1.33;
-}
-
-.bigtext
-{
-  font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
-  font-size: 1.3em;
-  line-height: 1.50;
-}
-
-.text
-{
-  font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
-  font-size: 0.8em;
-  line-height: 1.33;
-}
-
-.smalltext
-{
-  font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
-  font-size: 0.7em;
-  line-height: 1.33;
-}
-
-.label
-{
-  font-family: Verdana,Arial,Helvetica,sans-serif;
-  font-size: 0.8em;
-  line-height: 1.33;
-  font-weight: bold;
-}
-
-.redlabel
-{
-  font-family: Verdana,Arial,Helvetica,sans-serif;
-  font-size: 0.8em;
-  line-height: 1.33;
-  font-weight: bold;
-  color:#FF0000
-}
-
-.smalllabel
-{
-  font-family: Verdana,Arial,Helvetica,sans-serif;
-  font-size: 0.7em;
-  line-height: 1.33;
-}
-
-.text TD
-{
-  font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
-  font-size: 0.8em;
-  line-height: 1.33;
-}
-
-.submenu
-{
-  font-family: Geneva,Verdana,Arial,Helvetica,sans-serif;
-  font-size: 0.8em;
-}
-
-.submenu TD
-{
-  font-family: Geneva,Verdana,Arial,Helvetica,sans-serif;
-  font-size: 0.8em;
-  font-weight: bold;
-}
-
-.submenu TD A
-{
-  font-family: Geneva,Verdana,Arial,Helvetica,sans-serif;
-  font-weight: normal;
-  text-decoration: none;
-  color:#000000;
-}
-
-.submenu TD A:hover
-{
-  font-family: Geneva,Verdana,Arial,Helvetica,sans-serif;
-  font-weight: normal;
-  text-decoration: underline;
-  color:#000000;
-}
-
-#facetLinksHeader {
-	text-align: left;
-	font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
-    font-size: 0.7em;
-    line-height: 1.33;
-    position: absolute;
-    top: 145px; 
-    left: 5px; 
-    
-}
-#facetLinks {
-	text-align: left;
-	font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
-    font-size: 0.7em;
-    line-height: 1.33;
-    position: absolute;
-    top: 200px; 
-    left: 15px; 
-    
-}
-
-#searchString{
-	text-align: left;
-	font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
-    font-size: 0.7em;
-    line-height: 1.33;
-    position: absolute;
-    top: 10px; 
-    left: 130px; 
-    width: 150px;
-    margin: 10px;
-}
-
-
-#searchButton{
-	margin: 10px;
-    position: absolute;
-    top: 10px; 
-    left: 400px; 
-    width: 200px;
-}
-
-
-#adminLogin {
-	text-align: left;
-	font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
-    font-size: 0.7em;
-    line-height: 1.33;
-    position: absolute;
-    top: 10px; 
-    left: 625px; 
-    width: 200px;
-    margin: 10px;
-}
-
-#sortbyRelevance{
-	text-align: left;
-	font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
-    font-size: 0.7em;
-    line-height: 1.33;
-    position: absolute;
-    top: 10px; 
-	left: 10px; 
-    width: 100px;
-    margin: 10px;
-}
-
-#searchResultsPanel {
-	text-align: left;
-	font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
-    font-size: 0.7em;
-    line-height: 1.33;
-    position: absolute;
-    top: 60px; 
-    left: 130px; 
-    width: 670px;
-    
-}
-
-#libraryReleasePanel {
-	text-align: left;
-	font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
-    font-size: 0.7em;
-    line-height: 1.33;
-    position: absolute;
-    top: 60px; 
-    left: 10px; 
-    width: 790px;
-    
-}
-
-#searchResultsHeader {
-	background:#AAAAAA;
-	text-align: center;
-	font-family: Verdana, Arial, Helvetica, sans-serif;
-	font-size: 0.8em;
-	line-height: 1.33;
-	font-weight: bold;
-	color: #FF0000;
-}
- 
 .sortFieldHighlight {
-	background:#EEEEEE;
+	background: #EEEEEE;
 }
 
-#facetLinks a:hover{
-    color:#FF0000;
+/* ========== Forms ========== */
+
+/* :where() keeps these at tubafrenzy's original 0-0-1 specificity so
+   component classes (.action-trigger, .browse-exclusive-btn, .action-item)
+   beat them exactly like they do against tubafrenzy's bare BUTTON rule. */
+:where(html[data-experience="classic"]) INPUT,
+:where(html[data-experience="classic"]) SELECT,
+:where(html[data-experience="classic"]) TEXTAREA,
+:where(html[data-experience="classic"]) BUTTON {
+	font-family: inherit;
+	color: #000000;
+	font-size: 14px;
 }
 
-#pageLinks {
+/* ========== Live Search ========== */
+
+.search-input-container {
+	display: inline-block;
+	position: relative;
+}
+
+#searchInput {
+	width: 400px;
+	padding: 10px 14px;
+	font-size: 16px;
+}
+
+#searchInfoIcon {
+	display: inline-block;
+	margin-left: 8px;
+	width: 22px;
+	height: 22px;
+	line-height: 22px;
+	text-align: center;
+	border-radius: 50%;
+	background-color: #666;
+	color: #fff;
+	font-size: 14px;
+	font-weight: bold;
+	cursor: pointer;
+	text-decoration: none;
+	vertical-align: middle;
+}
+
+#searchInfoIcon:hover {
+	background-color: #888;
+}
+
+#liveResults {
+	margin-top: 20px;
 	text-align: left;
-	font-family: Verdana,Geneva,Arial,Helvetica,sans-serif;
-    font-size: 0.7em;
-    line-height: 1.33;
 }
 
-
-ul 
-{ 
-  list-style-type: circle; padding-top: 0; padding-bottom: 0;  border: 0;
+.live-results-summary {
+	margin-bottom: 15px;
+	text-align: center;
+	font-size: 0.95em;
+	line-height: 1.5;
 }
 
-ol 
-{ 
-  padding-top: 0; padding-bottom: 0;  border: 0;
+/* ========== Entry Tables ========== */
+
+.entry-table { border-collapse: collapse; width: 100%; }
+.entry-header { background: #444; color: #fff; }
+.entry-header th { padding: 10px 8px; font-weight: bold; text-align: left; }
+.entry-row { transition: background-color 0.15s ease; }
+.entry-row td { padding: 8px; border-bottom: 1px solid #ddd; }
+.entry-row-even { background-color: #f9f9f9; }
+.entry-row-odd { background-color: #fff; }
+.entry-row:hover { background-color: #e8e8e8; }
+.entry-row a { color: #000; text-decoration: none; }
+.entry-row a:hover { color: #CC0000; text-decoration: underline; }
+
+.talkset-row { background: #555; }
+.talkset-row td { padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold; color: #DDDD22; }
+.breakpoint-row { background: #444; }
+.breakpoint-row td { padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold; color: #80c880; text-align: center; }
+
+.sortable-header {
+	cursor: pointer;
+	user-select: none;
 }
 
-li
-{
-  padding-top: 0; padding-bottom: 0; border: 0;
+.sortable-header:hover {
+	background-color: #555;
 }
 
-INPUT { font-family: Verdana,Arial,Helvetica,sans-serif; color:#000000; font-size:12px; }
-SELECT { font-family: Verdana,Arial,Helvetica,sans-serif; color:#000000; font-size:12px; }
-TEXTAREA { font-family: Verdana,Arial,Helvetica,sans-serif; color:#000000; font-size:12px; }
+.sortable-header.sorted {
+	background-color: #666;
+}
+
+.live-results-status {
+	margin-top: 15px;
+	text-align: center;
+	font-size: 0.85em;
+	color: #666;
+}
+
+.live-results-loading-more {
+	text-align: center;
+	padding: 15px;
+	font-size: 0.9em;
+	color: #666;
+}
+
+.live-results-loading,
+.live-results-error,
+.live-results-empty {
+	text-align: center;
+	padding: 20px;
+	font-size: 0.95em;
+}
+
+.live-results-error {
+	color: #FF0000;
+}
+
+/* ========== Show Info Bar ========== */
+
+.show-info-bar { border-collapse: separate; border-spacing: 2px; width: 100%; background: #AAAAAA; }
+.show-info-bar th, .show-info-bar td { padding: 4px 8px; background: #AAAAAA; text-align: center; }
+.show-info-bar a { color: #CC0000; }
+
+/* ========== Capsule Badges ========== */
+
+.request-capsule {
+  display: inline-block;
+  background: #CC0000;
+  color: #fff;
+  font-size: 0.7em;
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.rotation-capsule {
+  display: inline-block;
+  background: #555;
+  color: #fff;
+  font-size: 0.7em;
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.exclusive-capsule {
+  display: inline-block;
+  background: #7B2D8E;
+  color: #fff;
+  font-size: 0.7em;
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+/* ========== Navigation Bar ========== */
+
+.nav-bar {
+	background-color: #333;
+	padding: 8px 0;
+	margin-bottom: 10px;
+}
+
+.nav-bar ul {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	text-align: center;
+}
+
+.nav-bar li {
+	display: inline-block;
+	margin: 0;
+	padding: 0;
+}
+
+.nav-bar a {
+	display: inline-block;
+	color: #fff;
+	text-decoration: none;
+	padding: 8px 16px;
+	font-size: 0.85em;
+	font-weight: bold;
+}
+
+.nav-bar a:hover {
+	background-color: #555;
+	text-decoration: none;
+}
+
+.nav-bar a.active {
+	background-color: #CC0000;
+}
+
+/* dj-site addition: entries the DJ can't reach yet render as inert text in
+   the same slot metrics as the links. */
+.nav-bar .nav-disabled {
+	display: inline-block;
+	color: #888;
+	padding: 8px 16px;
+	font-size: 0.85em;
+	font-weight: bold;
+	cursor: not-allowed;
+}
+
+/* ========== Facet Bar ========== */
+
+.facet-bar {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	align-items: center;
+	gap: 6px;
+	padding: 10px 0;
+	font-size: 0.85em;
+}
+
+#facetBar {
+	margin: 10px auto 0 auto;
+	text-align: center;
+	max-width: 800px;
+}
+
+.facet-group-label {
+	font-weight: bold;
+	color: #333;
+}
+
+.facet-group-separator {
+	margin-left: 16px;
+}
+
+.facet-chip {
+	display: inline-block;
+	padding: 4px 10px;
+	border: 1px solid #ccc;
+	border-radius: 14px;
+	background-color: #f5f5f5;
+	color: #333;
+	cursor: pointer;
+	white-space: nowrap;
+	transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.facet-chip:hover {
+	background-color: #e0e0e0;
+	border-color: #999;
+}
+
+.facet-chip.active {
+	background-color: #CC0000;
+	color: #fff;
+	border-color: #CC0000;
+}
+
+.facet-chip.active:hover {
+	background-color: #aa0000;
+	border-color: #aa0000;
+}
+
+.exclusive-chip.active {
+	background-color: #7B2D8E;
+	border-color: #7B2D8E;
+}
+
+.exclusive-chip.active:hover {
+	background-color: #6a2479;
+	border-color: #6a2479;
+}
+
+/* ========== Browse Exclusive ========== */
+
+.browse-exclusive-btn {
+	display: inline-block;
+	background: #7B2D8E;
+	color: #fff;
+	padding: 8px 20px;
+	border-radius: 9999px;
+	text-decoration: none;
+	font-weight: bold;
+	font-size: 0.9em;
+	letter-spacing: 0.5px;
+	margin-top: 4px;
+	border: none;
+	cursor: pointer;
+}
+
+.browse-exclusive-btn:hover {
+	background: #6a2479;
+	color: #fff;
+}
+
+/* ========== Modal ========== */
+
+.modal-overlay {
+	display: none;
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background-color: rgba(0, 0, 0, 0.5);
+	z-index: 1000;
+	justify-content: center;
+	align-items: center;
+}
+
+.modal-overlay.wxyc-flex {
+	display: flex;
+}
+
+.modal-content {
+	background-color: #fff;
+	padding: 20px 30px;
+	border-radius: 8px;
+	max-width: 600px;
+	max-height: 80vh;
+	overflow-y: auto;
+	position: relative;
+	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.modal-close {
+	position: absolute;
+	top: 10px;
+	right: 15px;
+	font-size: 24px;
+	font-weight: bold;
+	color: #666;
+	cursor: pointer;
+	line-height: 1;
+	background: none;
+	border: none;
+	padding: 0;
+}
+
+.modal-close:hover {
+	color: #000;
+}
+
+.modal-title {
+	margin-top: 0;
+	margin-bottom: 15px;
+	font-size: 1.1em;
+}
+
+.modal-content ul {
+	text-align: left;
+	padding-left: 25px;
+}
+
+.modal-content li {
+	padding: 4px 0;
+}
+
+/* ========== Buttons ========== */
+
+:where(html[data-experience="classic"]) input[type="submit"] {
+	color: #fff;
+}
+
+/* Chrome renders native buttons with a light gray background, making white
+   text illegible. This targets Blink-based browsers without affecting Safari's
+   native blue gradient, which already provides sufficient contrast. */
+@supports selector(:popover-open) and (not (-apple-pay-button-style: inherit)) {
+	:where(html[data-experience="classic"]) input[type="submit"] {
+		background-color: #444;
+		border: 1px solid #333;
+	}
+}
+
+/* ========== Disabled Fields ========== */
+
+:where(html[data-experience="classic"]) input:disabled,
+:where(html[data-experience="classic"]) select:disabled,
+:where(html[data-experience="classic"]) textarea:disabled {
+	background-color: #C0C0C0;
+}
+
+/* ========== Inline Validation ========== */
+
+.validation-message {
+	display: none;
+	color: #FF0000;
+	font-size: 0.85em;
+	font-weight: bold;
+	margin-top: 6px;
+	padding: 6px 10px;
+	background-color: #FFF0F0;
+	border: 1px solid #FF0000;
+	border-radius: 3px;
+	text-align: center;
+}
+
+.validation-message.visible {
+	display: block;
+}
+
+/* ========== wxycdb page bits ========== */
+
+ul {
+	list-style-type: circle;
+}
+
+ul, ol, li {
+	padding-top: 0;
+	padding-bottom: 0;
+	border: 0;
+}
 
 .centerWidth {
-	 width: 800px;
-	 text-align: center;
+	width: 800px;
+	text-align: center;
 }
 
-/* Windows 2000 Dark Theme - Retro Palette */
+/* ========== Dark scheme (dj-site addition; tubafrenzy has no dark mode) ========== */
+
 html[data-experience="classic"][data-joy-color-scheme="dark"] body,
 html[data-experience="classic"][data-joy-color-scheme="dark"] {
 	background-color: #2D2D2D;
 	color: #E0E0E0;
 }
 
-html[data-experience="classic"][data-joy-color-scheme="dark"] .title {
-	color: #E0E0E0;
-}
-
-html[data-experience="classic"][data-joy-color-scheme="dark"] .subtitle {
-	color: #D0D0D0;
-}
-
-html[data-experience="classic"][data-joy-color-scheme="dark"] .bigtext {
-	color: #E0E0E0;
-}
-
-html[data-experience="classic"][data-joy-color-scheme="dark"] .text {
-	color: #D0D0D0;
-}
-
-html[data-experience="classic"][data-joy-color-scheme="dark"] .smalltext {
-	color: #C0C0C0;
-}
-
+html[data-experience="classic"][data-joy-color-scheme="dark"] .title,
+html[data-experience="classic"][data-joy-color-scheme="dark"] .bigtext,
 html[data-experience="classic"][data-joy-color-scheme="dark"] .label {
 	color: #E0E0E0;
 }
 
-html[data-experience="classic"][data-joy-color-scheme="dark"] .redlabel {
+html[data-experience="classic"][data-joy-color-scheme="dark"] .subtitle,
+html[data-experience="classic"][data-joy-color-scheme="dark"] .text {
+	color: #D0D0D0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .smalltext,
+html[data-experience="classic"][data-joy-color-scheme="dark"] .smalllabel {
+	color: #C0C0C0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .redlabel,
+html[data-experience="classic"][data-joy-color-scheme="dark"] .redtitle {
 	color: #FF8080;
 }
 
@@ -284,17 +577,8 @@ html[data-experience="classic"][data-joy-color-scheme="dark"] .searchResultsHead
 	color: #FF8080;
 }
 
-html[data-experience="classic"][data-joy-color-scheme="dark"] #searchResultsHeader {
-	background: #5A5A5A;
-	color: #FF8080;
-}
-
 html[data-experience="classic"][data-joy-color-scheme="dark"] .sortFieldHighlight {
 	background: #4A4A4A;
-}
-
-html[data-experience="classic"][data-joy-color-scheme="dark"] #facetLinks a:hover {
-	color: #FF8080;
 }
 
 html[data-experience="classic"][data-joy-color-scheme="dark"] .submenu TD A {
@@ -305,65 +589,71 @@ html[data-experience="classic"][data-joy-color-scheme="dark"] .submenu TD A:hove
 	color: #FF8080;
 }
 
-html[data-experience="classic"][data-joy-color-scheme="dark"] INPUT {
-	background-color: #3D3D3D;
-	color: #E0E0E0;
-	border: 1px solid #5A5A5A;
-}
-
-html[data-experience="classic"][data-joy-color-scheme="dark"] INPUT:disabled {
-	background-color: #2D2D2D;
-	color: #808080;
-	border: 1px solid #4A4A4A;
-}
-
-html[data-experience="classic"][data-joy-color-scheme="dark"] SELECT {
-	background-color: #3D3D3D;
-	color: #E0E0E0;
-	border: 1px solid #5A5A5A;
-}
-
-html[data-experience="classic"][data-joy-color-scheme="dark"] SELECT:disabled {
-	background-color: #2D2D2D;
-	color: #808080;
-	border: 1px solid #4A4A4A;
-}
-
+html[data-experience="classic"][data-joy-color-scheme="dark"] INPUT,
+html[data-experience="classic"][data-joy-color-scheme="dark"] SELECT,
 html[data-experience="classic"][data-joy-color-scheme="dark"] TEXTAREA {
 	background-color: #3D3D3D;
 	color: #E0E0E0;
 	border: 1px solid #5A5A5A;
 }
 
-html[data-experience="classic"][data-joy-color-scheme="dark"] .ac_results {
-	background-color: #3D3D3D;
-	border: 1px solid #5A5A5A;
+html[data-experience="classic"][data-joy-color-scheme="dark"] INPUT:disabled,
+html[data-experience="classic"][data-joy-color-scheme="dark"] SELECT:disabled,
+html[data-experience="classic"][data-joy-color-scheme="dark"] TEXTAREA:disabled {
+	background-color: #2D2D2D;
+	color: #808080;
+	border: 1px solid #4A4A4A;
 }
 
-html[data-experience="classic"][data-joy-color-scheme="dark"] .ac_results li {
-	border-bottom: 1px solid #4A4A4A;
-	color: #E0E0E0;
-}
-
-html[data-experience="classic"][data-joy-color-scheme="dark"] .ac_over {
-	background-color: #5A5A5A;
-}
-
-html[data-experience="classic"][data-joy-color-scheme="dark"] .ac_odd {
-	background-color: #3D3D3D;
-}
-
-html[data-experience="classic"][data-joy-color-scheme="dark"] .ac_even {
+html[data-experience="classic"][data-joy-color-scheme="dark"] .entry-row-even {
 	background-color: #353535;
 }
 
-html[data-experience="classic"][data-joy-color-scheme="dark"] table {
-	border-color: #5A5A5A;
+html[data-experience="classic"][data-joy-color-scheme="dark"] .entry-row-odd {
+	background-color: #2D2D2D;
 }
 
-html[data-experience="classic"][data-joy-color-scheme="dark"] td,
-html[data-experience="classic"][data-joy-color-scheme="dark"] th {
+html[data-experience="classic"][data-joy-color-scheme="dark"] .entry-row td {
+	border-bottom-color: #4A4A4A;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .entry-row:hover {
+	background-color: #4A4A4A;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .entry-row a {
+	color: #E0E0E0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .live-results-summary,
+html[data-experience="classic"][data-joy-color-scheme="dark"] .live-results-status,
+html[data-experience="classic"][data-joy-color-scheme="dark"] .live-results-loading,
+html[data-experience="classic"][data-joy-color-scheme="dark"] .live-results-empty {
+	color: #D0D0D0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .facet-chip {
+	background-color: #3D3D3D;
 	border-color: #5A5A5A;
+	color: #D0D0D0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .facet-chip:hover {
+	background-color: #4A4A4A;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .facet-group-label {
+	color: #D0D0D0;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .modal-content {
+	background-color: #3D3D3D;
+	color: #E0E0E0;
+}
+
+/* Keep nav-bar links white in dark mode — the bar is already dark. */
+html[data-experience="classic"][data-joy-color-scheme="dark"] .nav-bar a {
+	color: #fff;
 }
 
 html[data-experience="classic"][data-joy-color-scheme="dark"] a {

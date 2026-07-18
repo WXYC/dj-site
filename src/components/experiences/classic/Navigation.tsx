@@ -11,15 +11,18 @@ type NavLink = {
   disabled?: boolean;
 };
 
+// Styled as tubafrenzy's .nav-bar (its public-page navigation): dark #333
+// bar, bold white links, active page highlighted #CC0000. The bar itself is
+// the one sanctioned addition over tubafrenzy's DJ pages, which have no
+// cross-page navigation.
 export default function Navigation() {
   const pathname = usePathname();
   const { handleLogout } = useLogout();
-  
+
   const navLinks: NavLink[] = [
     { path: "/dashboard/catalog", title: "Card Catalog" },
     { path: "/dashboard/flowsheet", title: "Flowsheet" },
     { path: "/dashboard/playlists", title: "Previous Sets", disabled: true },
-    { path: "/dashboard/settings", title: "Settings" },
   ];
 
   const isActive = (path: string) => {
@@ -28,74 +31,34 @@ export default function Navigation() {
   };
 
   return (
-    <table
-      cellPadding={5}
-      cellSpacing={0}
-      border={0}
-      style={{ width: "100%", marginBottom: "20px", borderBottom: "2px solid #AAAAAA" }}
-    >
-      <tbody>
-        <tr>
-          <td align="center" className="label" style={{ padding: "5px 10px" }}>
-            <span className="smalltext" style={{ color: "#666666" }}>
-              Navigation:&nbsp;&nbsp;
-            </span>
-            {navLinks.map((link, index) => {
-              const active = isActive(link.path);
-              return (
-                <span key={link.path}>
-                  {link.disabled ? (
-                    <span
-                      className="smalltext"
-                      style={{
-                        color: "#999999",
-                        textDecoration: "none",
-                        cursor: "not-allowed",
-                      }}
-                    >
-                      {link.title}
-                    </span>
-                  ) : (
-                    <Link
-                      href={link.path}
-                      style={{
-                        textDecoration: active ? "underline" : "none",
-                        color: active ? "#FF0000" : "#0000EE",
-                        fontWeight: active ? "bold" : "normal",
-                      }}
-                      className="smalltext"
-                    >
-                      {link.title}
-                    </Link>
-                  )}
-                  {index < navLinks.length - 1 && (
-                    <span className="smalltext" style={{ color: "#666666" }}>
-                      &nbsp;&nbsp;|&nbsp;&nbsp;
-                    </span>
-                  )}
-                </span>
-              );
-            })}
-            <span className="smalltext" style={{ color: "#666666" }}>
-              &nbsp;&nbsp;|&nbsp;&nbsp;
-            </span>
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                handleLogout();
-              }}
-              style={{
-                textDecoration: "none",
-                color: "#0000EE",
-              }}
-              className="smalltext"
-            >
-              Log Out
-            </a>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <nav className="nav-bar">
+      <ul>
+        {navLinks.map((link) => (
+          <li key={link.path}>
+            {link.disabled ? (
+              <span className="nav-disabled">{link.title}</span>
+            ) : (
+              <Link
+                href={link.path}
+                className={isActive(link.path) ? "active" : undefined}
+              >
+                {link.title}
+              </Link>
+            )}
+          </li>
+        ))}
+        <li>
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              handleLogout();
+            }}
+          >
+            Log Out
+          </a>
+        </li>
+      </ul>
+    </nav>
   );
 }
