@@ -39,15 +39,19 @@ export default function BreakpointButton() {
         color="warning"
         data-testid="flowsheet-breakpoint-button"
         onClick={() => {
-          // Re-check against a fresh clock: the render-time value can be stale
-          // if the station hour has rolled over since the last cache update.
+          // The click handler is the enforcement point, re-derived from a fresh
+          // clock. The button is NOT disabled on `alreadyMarked` on purpose:
+          // that state is computed from render-time `new Date()` with no
+          // hour-boundary re-render, so a disabled button could outlive its
+          // station hour (structural sharing keeps the data reference stable
+          // across quiet polls) and lock out the next, legitimate hour.
           if (isStationHourBreakpointPresent(breakpointMessages)) return;
           addToFlowsheet({
             message: stationBreakpointMessage(),
             entry_type: FlowsheetEntryType.breakpoint,
           });
         }}
-        disabled={!live || alreadyMarked}
+        disabled={!live}
         sx = {{
             zIndex: 8001,
         }}

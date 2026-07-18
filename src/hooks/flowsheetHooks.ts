@@ -337,21 +337,33 @@ export const useFlowsheet = () => {
 };
 
 /**
- * Just the `message` strings of the currently-loaded breakpoint entries.
+ * Breakpoint `message` strings for the CURRENT show only.
+ *
  * `selectFromResult` derives the array in the store so the single consumer
  * (BreakpointButton's one-per-hour guard) re-renders only when the set of
  * breakpoints changes, not on every flowsheet cache update.
+ *
+ * Scoping to the current show is what makes the bare-label guard safe: without
+ * it, an earlier show's same-hour breakpoint (loaded via infinite scroll, or
+ * simply the previous show on a low-traffic first page) would key-collide with
+ * today's and wrongly block it. Within a single show the label is unique per
+ * station hour. Accepted edge: a show spanning the November DST fall-back
+ * repeats the 1 AM hour, whose two legitimate breakpoints collapse to one key.
  */
 export const useCurrentBreakpointMessages = (): string[] => {
   const { loading: userloading, info: userData } = useRegistry();
   return useGetInfiniteEntriesInfiniteQuery(undefined, {
     skip: !userData || userloading,
-    selectFromResult: ({ data }) => ({
-      breakpointMessages: (data?.pages ?? [])
-        .flat()
-        .filter(isFlowsheetBreakpointEntry)
-        .map((entry) => entry.message),
-    }),
+    selectFromResult: ({ data }) => {
+      const showId = data ? primaryShowId(data) : -1;
+      return {
+        breakpointMessages: (data?.pages ?? [])
+          .flat()
+          .filter(isFlowsheetBreakpointEntry)
+          .filter((entry) => entry.show_id === showId)
+          .map((entry) => entry.message),
+      };
+    },
   }).breakpointMessages;
 };
 

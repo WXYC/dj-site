@@ -15,8 +15,8 @@ const MS_PER_HOUR = 3_600_000;
 // agree.
 const BREAKPOINT_SUFFIX = "Breakpoint";
 
-// Rounds an instant to the nearest top-of-hour, matching the legacy
-// getClosestHour rule (strictly past :30 rounds up, exactly :30 rounds down).
+// Rounds an instant to the nearest top-of-hour: strictly past :30 rounds up,
+// exactly :30 rounds down.
 //
 // Rounding on the raw epoch is equivalent to rounding the Eastern wall clock:
 // the Eastern offset is always a whole number of hours, so a UTC hour boundary
