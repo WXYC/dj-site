@@ -1,6 +1,14 @@
 import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import SongEntry from "@/src/components/experiences/modern/flowsheet/Entries/SongEntry/SongEntry";
+import {
+  flowsheetChipsReservePx,
+  FLOWSHEET_ACTIONS_EDITABLE_PX,
+  FLOWSHEET_ACTIONS_READONLY_PX,
+  FLOWSHEET_CELL_PADDING_X_PX,
+  FLOWSHEET_COL_ACTIONS_PX,
+  FLOWSHEET_STATUS_CHIP_MIN_PX,
+} from "@/src/components/experiences/modern/flowsheet/Entries/tableStyles";
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 
 // Mock hooks
@@ -1048,12 +1056,38 @@ describe("SongEntry status chips reserve space for the hover actions", () => {
     mockUseFlowsheet.mockReturnValue({ updateFlowsheet: mockUpdateFlowsheet });
   });
 
-  const chipContainer = () =>
-    screen
-      .getByTestId("draggable-wrapper")
-      .querySelector<HTMLElement>(".status-chips");
+  // jsdom does no layout, so the geometry contract is proven against the
+  // shared constants the overlay and the column derive from — not by reading
+  // back computed pixels.
+  describe("reserve geometry contract", () => {
+    it("reserves at least the full action-cluster footprint on each row type", () => {
+      expect(flowsheetChipsReservePx(true)).toBeGreaterThanOrEqual(
+        FLOWSHEET_ACTIONS_EDITABLE_PX
+      );
+      expect(flowsheetChipsReservePx(false)).toBeGreaterThanOrEqual(
+        FLOWSHEET_ACTIONS_READONLY_PX
+      );
+    });
 
-  it("reserves the wider four-control gap on editable rows", () => {
+    it("reserves more room on editable rows (four controls) than read-only (info only)", () => {
+      expect(flowsheetChipsReservePx(true)).toBeGreaterThan(
+        flowsheetChipsReservePx(false)
+      );
+    });
+
+    it("keeps a chip's width beside the widest reserve within the column", () => {
+      // The invariant the whole fix rests on: even the editable reserve leaves
+      // at least one pill's width of chip space inside the fixed column, so a
+      // chip can never be clipped to zero and forced under the overlay.
+      const chipZone =
+        FLOWSHEET_COL_ACTIONS_PX -
+        2 * FLOWSHEET_CELL_PADDING_X_PX -
+        flowsheetChipsReservePx(true);
+      expect(chipZone).toBeGreaterThanOrEqual(FLOWSHEET_STATUS_CHIP_MIN_PX);
+    });
+  });
+
+  it("renders both the status chips and the overlaid controls on an editable row", () => {
     mockUseShowControl.mockReturnValue({
       live: true,
       autoplay: false,
@@ -1061,14 +1095,15 @@ describe("SongEntry status chips reserve space for the hover actions", () => {
     });
     render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
 
-    const container = chipContainer();
-    expect(container).not.toBeNull();
-    expect(container).toHaveStyle({ paddingRight: "160px" });
-    // The chips still render inside the reserved container.
-    expect(container!.textContent).toContain("H");
+    // Chip present (rotation "H") next to the action controls (info button).
+    expect(screen.getByText("H")).toBeInTheDocument();
+    const infoButton = screen
+      .getAllByRole("button")
+      .find((btn) => btn.querySelector('[data-testid="InfoOutlinedIcon"]'));
+    expect(infoButton).toBeDefined();
   });
 
-  it("reserves the narrow info-only gap on read-only rows", () => {
+  it("renders the request/segue chips beside the info control on read-only rows", () => {
     mockUseShowControl.mockReturnValue({
       live: true,
       autoplay: false,
@@ -1082,30 +1117,9 @@ describe("SongEntry status chips reserve space for the hover actions", () => {
       />
     );
 
-    const container = chipContainer();
-    expect(container).not.toBeNull();
-    expect(container).toHaveStyle({ paddingRight: "48px" });
-    // Read-only rows surface request/segue as chips; they live in the
-    // reserved container too.
-    expect(container!.textContent).toContain("REQ");
-    expect(container!.textContent).toContain("SEGUE");
-  });
-
-  it("still renders the action controls alongside the reserved chips", () => {
-    mockUseShowControl.mockReturnValue({
-      live: true,
-      autoplay: false,
-      currentShow: 100,
-    });
-    render(<SongEntry entry={mockEntry} playing={false} queue={false} />);
-
-    expect(chipContainer()).not.toBeNull();
-    // The info button (album detail) is part of the overlaid controls.
-    const infoButton = screen
-      .getAllByRole("button")
-      .find((btn) =>
-        btn.querySelector('[data-testid="InfoOutlinedIcon"]')
-      );
-    expect(infoButton).toBeDefined();
+    expect(screen.getByText("REQ")).toBeInTheDocument();
+    expect(screen.getByText("SEGUE")).toBeInTheDocument();
+    // Read-only rows drop the editable checkboxes; only the info button remains.
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
   });
 });

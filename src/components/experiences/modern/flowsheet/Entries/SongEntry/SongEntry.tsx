@@ -10,7 +10,7 @@ import { useDragControls } from "motion/react";
 import { memo, useState } from "react";
 import DragButton from "../Components/DragButton";
 import DraggableEntryWrapper from "../DraggableEntryWrapper";
-import { FLOWSHEET_XL_QUERY } from "../tableStyles";
+import { flowsheetChipsReservePx, FLOWSHEET_XL_QUERY } from "../tableStyles";
 import FlowsheetEntryField from "./FlowsheetEntryField";
 import SongEntryControls from "./SongEntryControls";
 import SongEntryStatusChips from "./SongEntryStatusChips";
@@ -225,13 +225,12 @@ const SongEntry = memo(function SongEntry({
           gap={0.75}
           alignItems="center"
           flexWrap="wrap"
-          className="status-chips"
-          // Reserve room for the hover action cluster, which overlays this cell
-          // from the right edge (the absolutely-positioned Stack below). Without
-          // it the chips extend under the actions and get covered — unclickable
-          // while the row is hovered. Editable rows expose four controls
-          // (segue, request, info, remove); read-only rows only the info button.
-          style={{ paddingRight: editable ? "160px" : "48px" }}
+          // Reserve the hover action cluster's footprint (it overlays this cell
+          // from the right edge — the absolutely-positioned Stack below) so no
+          // chip renders underneath it, where it would be covered and
+          // unclickable on hover. The reserve tracks how many controls the row
+          // shows; the column is sized to leave a chip's width beside it.
+          sx={{ pr: `${flowsheetChipsReservePx(editable)}px` }}
         >
           <SongEntryStatusChips entry={entry} editable={editable} />
         </Stack>
