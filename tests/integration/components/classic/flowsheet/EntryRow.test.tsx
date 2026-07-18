@@ -779,6 +779,21 @@ describe("Classic EntryRow truncates long text with the full value recoverable",
     ).toHaveLength(3);
   });
 
+  it("renders no truncating wrapper for an absent album or label (no empty span)", () => {
+    const { container } = renderRow({
+      entry: createTestFlowsheetEntry({
+        artist_name: LONG_ARTIST,
+        album_title: undefined,
+        record_label: undefined,
+      }),
+    });
+    // Only the artist cell wraps; empty album/label stay bare so there's no
+    // empty span advertising an empty title.
+    const wrappers = container.querySelectorAll("span.classic-cell-truncate");
+    expect(wrappers).toHaveLength(1);
+    expect(wrappers[0].getAttribute("title")).toBe(LONG_ARTIST);
+  });
+
   it("does not truncate while the row is being edited (inputs stay full)", () => {
     const { container } = renderRow({ entry: longEntry() });
     fireEvent.click(screen.getByRole("button", { name: /actions/i }));
