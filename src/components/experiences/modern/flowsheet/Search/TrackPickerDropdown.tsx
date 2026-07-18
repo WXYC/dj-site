@@ -1,9 +1,9 @@
 "use client";
 
 import { normalizeTrackArtists } from "@/lib/features/rotation/normalize-track-artists";
+import { ClickAwayListener } from "@mui/base/ClickAwayListener";
 import { KeyboardArrowDown } from "@mui/icons-material";
 import { Box, CircularProgress, Input, Sheet, Typography } from "@mui/joy";
-import { ClickAwayListener } from "@mui/material";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 /**

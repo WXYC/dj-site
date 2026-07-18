@@ -5,7 +5,7 @@ import { useFlowsheetActions, useShowControl } from "@/src/hooks/flowsheetHooks"
 import { toTitleCase } from "@/src/utilities/stringutilities";
 import { Box, IconButton, Tooltip, Typography, TypographyProps } from "@mui/joy";
 import { CheckRounded, EditOutlined } from "@mui/icons-material";
-import { ClickAwayListener } from "@mui/material";
+import { ClickAwayListener } from "@mui/base/ClickAwayListener";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useAppDispatch } from "@/lib/hooks";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";

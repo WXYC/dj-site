@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, type JSX } from "react";
+import { ClickAwayListener } from "@mui/base/ClickAwayListener";
 import { Check, PaletteRounded } from "@mui/icons-material";
 import {
   Box,
@@ -11,7 +12,6 @@ import {
   Typography,
 } from "@mui/joy";
 import { useColorScheme } from "@mui/joy/styles";
-import { ClickAwayListener } from "@mui/material";
 import {
   MODERN_THEME_LIST,
   getThemeSwatches,

@@ -8,9 +8,11 @@ import {
   useFlowsheetSubmit,
 } from "@/src/hooks/flowsheetHooks";
 import { useGhostText } from "@/src/hooks/useGhostText";
+import { ClickAwayListener } from "@mui/base/ClickAwayListener";
+import { Popper } from "@mui/base/Popper";
 import { Close, PlayArrow, QueueMusic } from "@mui/icons-material";
 import { Box, Divider, IconButton, Sheet, Tooltip } from "@mui/joy";
-import { ClickAwayListener, Popper, useMediaQuery } from "@mui/material";
+import useMediaQuery from "@mui/system/useMediaQuery";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Transition } from "react-transition-group";
 import BreakpointButton from "./BreakpointButton";
