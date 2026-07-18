@@ -220,7 +220,19 @@ const SongEntry = memo(function SongEntry({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        <Stack direction="row" gap={0.75} alignItems="center" flexWrap="wrap">
+        <Stack
+          direction="row"
+          gap={0.75}
+          alignItems="center"
+          flexWrap="wrap"
+          className="status-chips"
+          // Reserve room for the hover action cluster, which overlays this cell
+          // from the right edge (the absolutely-positioned Stack below). Without
+          // it the chips extend under the actions and get covered — unclickable
+          // while the row is hovered. Editable rows expose four controls
+          // (segue, request, info, remove); read-only rows only the info button.
+          style={{ paddingRight: editable ? "160px" : "48px" }}
+        >
           <SongEntryStatusChips entry={entry} editable={editable} />
         </Stack>
         <Stack
