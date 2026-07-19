@@ -1337,7 +1337,7 @@ describe("flowsheetHooks", () => {
         expect(result.current.search.searchQuery.artist).toBe("");
       });
 
-      it("sanitizes synthesized negative album linkage on the queue path", () => {
+      it("drops a synthesized negative album_id but keeps rotation linkage on the queue path", () => {
         const { result } = renderCombined();
 
         act(() => {
@@ -1359,8 +1359,13 @@ describe("flowsheetHooks", () => {
 
         expect(result.current.queue.queue.length).toBe(1);
         const queued = result.current.queue.queue[0];
+        // The synthesized negative id must not reach the queue (SongEntry
+        // "Play Now" would forward it to BS and 500), but rotation_id/rotation
+        // ride the freeform variant so the library-unlinked rotation pick keeps
+        // its badge and propagates as rotation to the wxyc.info archive.
         expect(queued.album_id).toBeUndefined();
-        expect(queued.rotation_id).toBeUndefined();
+        expect(queued.rotation_id).toBe(7);
+        expect(queued.rotation).toBe("H");
       });
     });
 

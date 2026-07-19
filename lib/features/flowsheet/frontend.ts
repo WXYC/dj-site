@@ -5,14 +5,20 @@ import { Rotation } from "../rotation/types";
 import { hasLinkedAlbumId } from "./linkage";
 import { clearQueueFromStorage, loadQueueFromStorage, saveQueueToStorage } from "./queue-storage";
 
-// Drop the catalog-anchored trio (album_id, rotation_id, rotation) from a
-// would-be queue entry when album_id isn't a real positive library.id.
-// SongEntry's "Play Now" handler (src/components/experiences/modern/flowsheet/
-// Entries/SongEntry/SongEntry.tsx) reads entry.album_id directly and bypasses
-// convertQueryToSubmission, so without sanitization here a synthesized
-// negative id from synthesizeAlbumId (library-unlinked rotation/catalog rows)
-// rides the wire and trips BS's `album_id != null` branch → TypeError 500 —
-// same shape PR #702 gated for the form-submit path. (dj-site#703)
+// Drop only a non-positive album_id from a would-be queue entry. SongEntry's
+// "Play Now" handler reads entry.album_id directly and bypasses
+// convertQueryToSubmission, so without this a synthesized negative id from
+// synthesizeAlbumId (library-unlinked rotation/catalog rows) rides the wire
+// and trips BS's `album_id != null` branch → getAlbumFromDB(-X) → TypeError.
+//
+// rotation_id and rotation are NOT album-scoped and must survive: rotation_id
+// is a first-class FK that BS persists on the freeform variant, and rotation
+// is the local badge field the queue row (and the eventual "Play Now" write)
+// carries. A library-unlinked rotation pick — typical of Various-Artists
+// compilations — would otherwise lose its rotation linkage the moment it was
+// queued, dropping the badge on dj-site/iOS and failing to propagate as
+// rotation to the wxyc.info archive. (Mirrors convertQueryToSubmission /
+// convertBinToFlowsheet, which forward rotation_id independent of album_id.)
 function withSanitizedAlbumLinkage<
   T extends {
     album_id?: number;
@@ -26,8 +32,6 @@ function withSanitizedAlbumLinkage<
   return {
     ...entry,
     album_id: undefined,
-    rotation_id: undefined,
-    rotation: undefined,
   };
 }
 
