@@ -379,15 +379,18 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
       expect(mockedSaveQueue).toHaveBeenCalled();
     });
 
-    describe("addToQueue album-linkage sanitization (dj-site#703)", () => {
+    describe("addToQueue album-linkage sanitization", () => {
       // The Modern rotation picker + bin/catalog deposit paths can feed
       // addToQueue with a synthesized negative album_id (from
       // synthesizeAlbumId, for library-unlinked rows). SongEntry's "Play Now"
       // bypasses convertQueryToSubmission and would forward the negative id to
-      // BS — same 500 PR #702 fixed for the form-submit path. Sanitize at the
-      // reducer so the queue never holds a synthesized id, mirroring the
-      // chokepoint logic in convertQueryToSubmission.
-      it("strips album_id, rotation_id, and rotation when album_id is a synthesized negative hash", () => {
+      // BS, which branches on `album_id != null`, calls getAlbumFromDB(-X), and
+      // throws. Drop only the non-positive album_id at the reducer. rotation_id
+      // is a first-class FK that BS persists on the freeform variant, and
+      // rotation is the local badge field — both must survive an unlinked pick
+      // so the queued row keeps its rotation linkage all the way to "Play Now"
+      // (mirrors convertQueryToSubmission / convertBinToFlowsheet).
+      it("drops a synthesized negative album_id but keeps rotation_id and rotation", () => {
         const query = createTestFlowsheetQuery({
           album_id: -123456,
           rotation_id: 7,
@@ -395,11 +398,11 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
         });
         const result = harness().reduce(actions.addToQueue(query));
         expect(result.queue[0].album_id).toBeUndefined();
-        expect(result.queue[0].rotation_id).toBeUndefined();
-        expect(result.queue[0].rotation).toBeUndefined();
+        expect(result.queue[0].rotation_id).toBe(7);
+        expect(result.queue[0].rotation).toBe("H");
       });
 
-      it("strips the catalog-anchored trio when album_id is zero", () => {
+      it("drops a zero album_id but keeps rotation_id and rotation", () => {
         const query = createTestFlowsheetQuery({
           album_id: 0,
           rotation_id: 7,
@@ -407,11 +410,11 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
         });
         const result = harness().reduce(actions.addToQueue(query));
         expect(result.queue[0].album_id).toBeUndefined();
-        expect(result.queue[0].rotation_id).toBeUndefined();
-        expect(result.queue[0].rotation).toBeUndefined();
+        expect(result.queue[0].rotation_id).toBe(7);
+        expect(result.queue[0].rotation).toBe("H");
       });
 
-      it("strips orphaned rotation linkage when album_id is undefined", () => {
+      it("keeps rotation_id and rotation when album_id is undefined (freeform rotation pick)", () => {
         const query = createTestFlowsheetQuery({
           album_id: undefined,
           rotation_id: 7,
@@ -419,8 +422,8 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
         });
         const result = harness().reduce(actions.addToQueue(query));
         expect(result.queue[0].album_id).toBeUndefined();
-        expect(result.queue[0].rotation_id).toBeUndefined();
-        expect(result.queue[0].rotation).toBeUndefined();
+        expect(result.queue[0].rotation_id).toBe(7);
+        expect(result.queue[0].rotation).toBe("H");
       });
 
       it("preserves the catalog-anchored trio when album_id is a positive library.id", () => {
@@ -514,12 +517,13 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
       expect(result.queueIdCounter).toBe(0);
     });
 
-    describe("loadQueue album-linkage sanitization (dj-site#703)", () => {
-      // Queues persisted to localStorage before #703 shipped may contain rows
-      // with synthesized negative album_id. Sanitize on load so a stale
-      // poisoned queue can't leak a negative album_id via SongEntry "Play Now"
-      // after the user reloads the page.
-      it("sanitizes poisoned localStorage entries with negative album_id", () => {
+    describe("loadQueue album-linkage sanitization", () => {
+      // Queues persisted to localStorage before the album_id gate shipped may
+      // contain rows with a synthesized negative album_id. Drop the poisoned
+      // album_id on load so it can't leak to BS via SongEntry "Play Now" after
+      // a reload — but keep rotation_id and rotation so the reloaded queue row
+      // still carries its rotation linkage.
+      it("drops a poisoned negative album_id on load but keeps rotation_id and rotation", () => {
         const poisoned = createTestFlowsheetEntry({
           id: 1,
           album_id: -42,
@@ -530,8 +534,8 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
 
         const result = harness().reduce(actions.loadQueue());
         expect(result.queue[0].album_id).toBeUndefined();
-        expect(result.queue[0].rotation_id).toBeUndefined();
-        expect(result.queue[0].rotation).toBeUndefined();
+        expect(result.queue[0].rotation_id).toBe(7);
+        expect(result.queue[0].rotation).toBe("H");
       });
 
       it("preserves linkage for library-linked entries on load", () => {
