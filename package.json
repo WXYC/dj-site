@@ -38,7 +38,7 @@
     "jwt-decode": "^4.0.0",
     "motion": "^12.42.2",
     "next": "^16.2.10",
-    "posthog-js": "^1.402.3",
+    "posthog-js": "^1.404.1",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
