@@ -30,7 +30,7 @@
     "@mui/base": "5.0.0-beta.40-1",
     "@mui/icons-material": "^6.4.0",
     "@mui/joy": "^5.0.0-beta.51",
-    "@mui/system": "5.18.0",
+    "@mui/system": "9.2.0",
     "@opennextjs/cloudflare": "^1.20.1",
     "@reduxjs/toolkit": "^2.12.0",
     "@wxyc/shared": "^1.17.1",
