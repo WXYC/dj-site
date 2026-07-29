@@ -24,6 +24,12 @@ NEXT_PUBLIC_QR_LOGIN_ENABLED=false
 # the dj-site server.
 # AUTH_REWRITE_URL=http://auth:8082/auth
 
+# Optional, server-only debug flag — set to 1 to log per-phase SSR auth timing
+# ([server_timing] lines for getSession + org-role) to Cloudflare Workers Logs
+# during a cold-load measurement window. Off by default (zero cost on the hot
+# authenticated path); read at call time, so no rebuild is needed to toggle.
+# SERVER_TIMING=1
+
 # Optional — OAuth 2.0 Device Authorization Grant (RFC 8628) client_id for the
 # QR shared-computer sign-in. Sent to /auth/device/code and /auth/device/token.
 # Defaults to "dj-site" when unset.
