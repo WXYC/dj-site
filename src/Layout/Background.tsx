@@ -25,9 +25,9 @@ export function BackgroundImage() {
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
-        backgroundImage: `url("/img/wxyc_color.png")`,
+        backgroundImage: `url("/img/wxyc_color.webp")`,
         [DARK_SCHEME_SELECTOR]: {
-          backgroundImage: `url("/img/wxyc_dark.jpg")`,
+          backgroundImage: `url("/img/wxyc_dark.webp")`,
         },
       }}
     />

@@ -20,9 +20,9 @@ export function BackgroundImage() {
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
-        backgroundImage: `url("/img/wxyc_color.png")`,
+        backgroundImage: `url("/img/wxyc_color.webp")`,
         [theme.getColorSchemeSelector("dark")]: {
-          backgroundImage: `url("/img/wxyc_dark.jpg")`,
+          backgroundImage: `url("/img/wxyc_dark.webp")`,
         },
       })}
     />
