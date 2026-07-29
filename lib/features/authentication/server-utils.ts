@@ -1,12 +1,11 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { serverAuthClient } from "./server-client";
-import { BetterAuthSessionResponse, BetterAuthSession } from "./utilities";
+import { BetterAuthSession } from "./utilities";
 import { Authorization } from "../admin/types";
 import { roleToAuthorization, VerifiedData } from "./types";
-import { getUserRoleInOrganization, getAppOrganizationId } from "./organization-utils.server";
-import { measure } from "@/lib/server-timing";
+import { getAppOrganizationId } from "./organization-utils.server";
+import { getSessionCached, getOrgRoleCached } from "./session-cache";
 import { DEFAULT_DASHBOARD_HOME_PAGE } from "@/lib/features/application/constants";
 
 /** Gets the current session from better-auth in a server component. */
@@ -14,18 +13,7 @@ export async function getServerSession(): Promise<BetterAuthSession | null> {
   const cookieStore = await cookies();
   const cookieHeader = cookieStore.toString();
 
-  const session = await measure("auth.getSession", () =>
-    serverAuthClient
-      .getSession({
-        fetchOptions: {
-          headers: { cookie: cookieHeader },
-        },
-      })
-      .catch((error) => {
-        // Swallow auth-server fetch errors to avoid noisy Next.js errors.
-        return { data: null, error } as BetterAuthSessionResponse;
-      })
-  );
+  const session = await getSessionCached(cookieHeader);
 
   if (!session.data) {
     return null;
@@ -85,8 +73,10 @@ async function getUserAuthority(session: BetterAuthSession, cookieHeader?: strin
 
   if (organizationId) {
     try {
-      const orgRole = await measure("auth.orgRole", () =>
-        getUserRoleInOrganization(session.user.id, organizationId, cookieHeader)
+      const orgRole = await getOrgRoleCached(
+        session.user.id,
+        organizationId,
+        cookieHeader
       );
 
       if (orgRole !== undefined) {

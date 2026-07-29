@@ -2,13 +2,12 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import "server-only";
 import { defaultApplicationState } from "./application/types";
-import { defaultAuthenticationData, betterAuthSessionToAuthenticationData, BetterAuthSessionResponse, BetterAuthSession } from "./authentication/utilities";
-import { getUserRoleInOrganization, getAppOrganizationId } from "./authentication/organization-utils.server";
+import { defaultAuthenticationData, betterAuthSessionToAuthenticationData, BetterAuthSession } from "./authentication/utilities";
+import { getAppOrganizationId } from "./authentication/organization-utils.server";
 import { roleToAuthorization, isAuthenticated, AuthenticatedUser } from "./authentication/types";
 import { SiteProps } from "./types";
-import { serverAuthClient } from "./authentication/server-client";
 import { parseAppSkinPreference } from "./experiences/preferences";
-import { measure } from "@/lib/server-timing";
+import { getSessionCached, getOrgRoleCached } from "./authentication/session-cache";
 
 export const sessionOptions = {
   cookieOptions: {
@@ -51,20 +50,7 @@ export const createServerSideProps = cache(async (): Promise<SiteProps> => {
   let authentication = defaultAuthenticationData;
   try {
     const cookieHeader = cookieStore.toString();
-    const session = await measure("auth.getSession", () =>
-      serverAuthClient
-        .getSession({
-          fetchOptions: {
-            headers: {
-              cookie: cookieHeader,
-            },
-          },
-        })
-        .catch((error) => {
-          // Swallow auth-server fetch errors to avoid noisy Next.js errors.
-          return { data: null, error } as BetterAuthSessionResponse;
-        })
-    );
+    const session = await getSessionCached(cookieHeader);
 
     if (session.data) {
       const normalizedSession = {
@@ -82,12 +68,10 @@ export const createServerSideProps = cache(async (): Promise<SiteProps> => {
       const organizationId = getAppOrganizationId();
       if (organizationId) {
         try {
-          const orgRole = await measure("auth.orgRole", () =>
-            getUserRoleInOrganization(
-              normalizedSession.user.id,
-              organizationId,
-              cookieHeader
-            )
+          const orgRole = await getOrgRoleCached(
+            normalizedSession.user.id,
+            organizationId,
+            cookieHeader
           );
 
           if (orgRole !== undefined) {
