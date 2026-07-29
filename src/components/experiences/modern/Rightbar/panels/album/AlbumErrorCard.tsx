@@ -29,7 +29,7 @@ export default function AlbumErrorCard() {
       <CardOverflow>
         <AspectRatio ratio="4">
           {/* unoptimized: see next.config.mjs images.unoptimized comment */}
-          <Image src="/img/wxyc_dark.jpg" alt="" fill unoptimized priority />
+          <Image src="/img/wxyc_dark.webp" alt="" fill unoptimized priority />
         </AspectRatio>
         <ModalClose variant="solid" />;
       </CardOverflow>
