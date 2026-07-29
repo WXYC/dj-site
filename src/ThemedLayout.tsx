@@ -5,6 +5,10 @@ import { LoadingPage } from "./components/LoadingPage";
 export type ThemedLayoutProps = {
   classic: ReactNode;
   modern: ReactNode;
+  // The dashboard's `@information` parallel slot renders the permalinkable
+  // album-detail modal over the active experience (WXYC/dj-site#979). Optional
+  // because the login layout shares this shape and has no such slot.
+  information?: ReactNode;
 };
 
 export default async function ThemedLayout(
@@ -13,10 +17,11 @@ export default async function ThemedLayout(
   const serverSideProps = await createServerSideProps();
   const isClassic = serverSideProps.application.experience === "classic";
 
-  const { classic, modern } = props;
+  const { classic, modern, information } = props;
 
   return (
     <Suspense fallback={<LoadingPage />}>
+      {information}
       {classic && modern && isClassic ? (
         <div id="classic-container">{classic}</div>
       ) : (
