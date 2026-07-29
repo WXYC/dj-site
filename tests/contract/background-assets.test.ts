@@ -9,7 +9,9 @@ import { join } from "node:path";
 // nothing in the source tree may reference them, or the regression returns
 // silently (a stray `url(".../wxyc_color.png")` re-ships 2.9 MB).
 const IMG_DIR = join(process.cwd(), "public", "img");
-const SCAN_ROOTS = ["src", "app"];
+// lib/ is a first-class source root here (lib/features/*, middleware helpers),
+// so a stray reference there must fail the guard too, not just src/ and app/.
+const SCAN_ROOTS = ["src", "app", "lib"];
 const RETIRED = ["/img/wxyc_color.png", "/img/wxyc_dark.jpg"];
 
 function sourceFiles(dir: string): string[] {
@@ -19,7 +21,7 @@ function sourceFiles(dir: string): string[] {
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) {
       out.push(...sourceFiles(full));
-    } else if (/\.(tsx?|css)$/.test(entry)) {
+    } else if (/\.(tsx?|jsx?|mjs|cjs|css|scss)$/.test(entry)) {
       out.push(full);
     }
   }
