@@ -8,6 +8,7 @@ import { roleToAuthorization, isAuthenticated, AuthenticatedUser } from "./authe
 import { SiteProps } from "./types";
 import { serverAuthClient } from "./authentication/server-client";
 import { parseAppSkinPreference } from "./experiences/preferences";
+import { measure } from "@/lib/server-timing";
 
 export const sessionOptions = {
   cookieOptions: {
@@ -50,18 +51,20 @@ export const createServerSideProps = cache(async (): Promise<SiteProps> => {
   let authentication = defaultAuthenticationData;
   try {
     const cookieHeader = cookieStore.toString();
-    const session = await serverAuthClient
-      .getSession({
-        fetchOptions: {
-          headers: {
-            cookie: cookieHeader,
+    const session = await measure("auth.getSession", () =>
+      serverAuthClient
+        .getSession({
+          fetchOptions: {
+            headers: {
+              cookie: cookieHeader,
+            },
           },
-        },
-      })
-      .catch((error) => {
-        // Swallow auth-server fetch errors to avoid noisy Next.js errors.
-        return { data: null, error } as BetterAuthSessionResponse;
-      });
+        })
+        .catch((error) => {
+          // Swallow auth-server fetch errors to avoid noisy Next.js errors.
+          return { data: null, error } as BetterAuthSessionResponse;
+        })
+    );
 
     if (session.data) {
       const normalizedSession = {
@@ -79,10 +82,12 @@ export const createServerSideProps = cache(async (): Promise<SiteProps> => {
       const organizationId = getAppOrganizationId();
       if (organizationId) {
         try {
-          const orgRole = await getUserRoleInOrganization(
-            normalizedSession.user.id,
-            organizationId,
-            cookieHeader
+          const orgRole = await measure("auth.orgRole", () =>
+            getUserRoleInOrganization(
+              normalizedSession.user.id,
+              organizationId,
+              cookieHeader
+            )
           );
 
           if (orgRole !== undefined) {
