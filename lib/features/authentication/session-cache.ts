@@ -21,6 +21,17 @@ import { measure } from "@/lib/server-timing";
  *
  * Keyed on the cookie header (session) and user+org+cookie (role); within one
  * request those are constant, so each resolves to a single fetch.
+ *
+ * Two caller invariants this relies on:
+ *  - The memoized result is SHARED by reference across callers in a request —
+ *    treat it as read-only. Today's callers (`getServerSession`,
+ *    `createServerSideProps`) spread-copy `session.data` before normalizing, so
+ *    they never mutate the shared object; new callers must do the same.
+ *  - Pass a CONSISTENT `cookieHeader` for the same user within a request. It is
+ *    part of the role key, so a caller that omitted it (`undefined`) while
+ *    another passed the string would key differently and lose the dedup (a
+ *    redundant round-trip — correctness is still preserved). Every current
+ *    call site resolves a concrete header, so they collide on one key.
  */
 export const getSessionCached = cache((cookieHeader: string) =>
   measure("auth.getSession", () =>
