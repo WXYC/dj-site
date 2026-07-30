@@ -10,10 +10,18 @@ const bodyFont = Kanit({
   subsets: ["latin"],
 });
 
+// Subset to Basic Latin + Latin-1 Supplement + Latin Extended-A (a superset of
+// the source face's own coverage, which tops out at U+0178): h1-h4 render
+// arbitrary page titles via PageHeader, not a fixed wordmark, so codepoints for
+// catalog-driven diacritics (e.g. Nilüfer Yanya) must stay in the face. Minbus
+// is a base-Latin display face with no accent glyphs, so those codepoints map
+// to their base letters (ü -> u); keeping them in the cmap renders the base
+// letter in-face rather than swapping mid-word to a fallback font for the
+// accented character.
 const titleFont = localFont({
   src: [
     {
-      path: "../../../../../public/fonts/Minbus.otf",
+      path: "../../../../../public/fonts/Minbus.woff2",
       weight: "100",
     },
   ],
