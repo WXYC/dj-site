@@ -1,0 +1,68 @@
+name: Keep-Warm Ping
+
+# Pings a cheap, auth/DB-free, Worker-invoked route on a schedule so the
+# production Cloudflare Pages Worker (OpenNext) is less likely to be cold when
+# a real visitor shows up. Measured ~1.6s cold TTFB vs ~0.2-0.4s warm on the
+# /dashboard/catalog -> /login path.
+#
+# Target: GET https://dj.wxyc.org/sitemap.xml. app/sitemap.ts sets
+# Cache-Control: public, max-age=0, must-revalidate, so Cloudflare never
+# serves it from edge cache -- every hit reaches the Worker (confirmed
+# cf-cache-status: DYNAMIC on repeated production probes). Its only server
+# work is lib/utils/site-origin.ts's getSiteOrigin(), which reads request
+# headers -- no auth-service round-trip, no backend/DB call. Contrast with
+# app/page.tsx ("/"), which calls getServerSession() and always makes an
+# auth-service round-trip, and app/robots.ts, which showed a less consistent
+# edge cache-status (EXPIRED, not a clean DYNAMIC) in the same measurement
+# pass -- both were ruled out as keep-warm targets for that reason.
+#
+# Schedule: every 10 minutes, around the clock, offset to :02/:12/.../:52 rather
+# than the top of each ten -- :00 is the most contended minute for GitHub's
+# scheduler and the likeliest to be delayed or dropped. Production pageview data shows
+# traffic is uniformly low and spread across nearly every hour (~15 pageviews a
+# day, peaking only mildly at ~1.5/day/hour in the late-afternoon Eastern
+# drive-time hours), with no hour dense enough for real visits to keep the
+# Worker warm on their own -- and DJs show up at essentially all hours. A
+# narrow local-time window would just create cold blind spots during real
+# usage, so the ping runs 24/7 rather than a pinned window; running around the
+# clock also sidesteps the fact that GitHub Actions cron ignores DST.
+#
+# This is a probabilistic mitigation, not a guarantee: Cloudflare routes across
+# a pool of independently-cold isolates, so a single ping warms one isolate
+# while a concurrent or subsequently-routed request can still land cold, and
+# GitHub Actions cron is best-effort (runs are routinely delayed under load) so
+# the real cadence is looser than 10 minutes. It lowers the probability of a
+# cold hit; it does not eliminate it.
+on:
+  schedule:
+    - cron: "2-59/10 * * * *"
+  workflow_dispatch:
+
+# contents:read is the floor: this job makes one HTTP GET, no checkout, no
+# writes.
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    name: Ping keep-warm endpoint
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: GET https://dj.wxyc.org/sitemap.xml
+        run: |
+          # curl's -w prints the status ("000" when no HTTP response); `|| true`
+          # keeps a connection failure from tripping the shell's -e, and the
+          # default guards against an empty capture -- no second "000" to append.
+          HTTP_CODE=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 https://dj.wxyc.org/sitemap.xml || true)
+          HTTP_CODE="${HTTP_CODE:-000}"
+          echo "https://dj.wxyc.org/sitemap.xml returned HTTP ${HTTP_CODE}"
+          case "$HTTP_CODE" in
+            2*)
+              exit 0
+              ;;
+            *)
+              echo "::error::Keep-warm ping to /sitemap.xml returned HTTP ${HTTP_CODE}, expected 2xx."
+              exit 1
+              ;;
+          esac
