@@ -32,6 +32,32 @@ export function serverAuthFetch<T = unknown>(
   return authFetchWithBase<T>(getServerAuthBaseURL(), path, init);
 }
 
+/**
+ * Mint a Backend-Service bearer JWT server-side by forwarding the caller's
+ * session cookie to the auth service's `/token` endpoint. This is the
+ * server-side counterpart to the client's `getJWTToken`: the browser session
+ * cookie is scoped to the dj-site origin, not to Backend-Service, so an
+ * authenticated server-side BS call must exchange the cookie for a JWT here
+ * rather than forward the cookie directly. Returns null on any failure (no
+ * cookie, auth error, unparseable body) so callers fail closed.
+ */
+export async function getServerJwtToken(
+  cookieHeader?: string,
+): Promise<string | null> {
+  try {
+    const { ok, data } = await serverAuthFetch<{ token?: unknown }>("/token", {
+      method: "GET",
+      headers: cookieHeader ? { cookie: cookieHeader } : {},
+    });
+    if (!ok) {
+      return null;
+    }
+    return typeof data?.token === "string" ? data.token : null;
+  } catch {
+    return null;
+  }
+}
+
 const baseURL = getServerAuthBaseURL();
 
 const baseConfig = {
