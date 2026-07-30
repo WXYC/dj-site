@@ -11,7 +11,7 @@ import {
   useCatalogQueryResults,
   useCatalogQuerySearch,
 } from "@/src/hooks/catalogHooks";
-import { useQueue, useShowControl } from "@/src/hooks/flowsheetHooks";
+import { useLiveStatus, useQueue } from "@/src/hooks/flowsheetHooks";
 import { useMediaQuery } from "@/src/hooks/useMediaQuery";
 import { ColorPaletteProp } from "@mui/joy";
 import CatalogResult from "./Result";
@@ -67,8 +67,8 @@ export default function Results({
 
   // Hoisted once for the whole list instead of per row: every row shares this
   // `live` flag and the stable `addToQueue` callback rather than each mounting
-  // its own useShowControl + useQueue (polling-query) subscriptions.
-  const { live } = useShowControl();
+  // its own useLiveStatus + useQueue (polling-query) subscriptions.
+  const { live } = useLiveStatus();
   const { addToQueue } = useQueue();
 
   const loadMoreButton = hasMore ? (

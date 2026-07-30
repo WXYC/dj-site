@@ -10,15 +10,15 @@ import ClearBinButton from "./ClearBinButton";
 import ExportBinButton from "./ExportBinButton";
 import {
   useFlowsheetActions,
+  useLiveStatus,
   useQueue,
-  useShowControl,
 } from "@/src/hooks/flowsheetHooks";
 import type { BinEntryActionDeps } from "./useBinEntryActions";
 
 export default function BinContent() {
   const { bin, isError, loading } = useBin();
   // Hoist the live subscription once for all rows (shared, like the catalog).
-  const { live } = useShowControl();
+  const { live } = useLiveStatus();
   // Same for the write callbacks the row actions need: useQueue subscribes
   // to the whole queue state (plus a localStorage load on mount), far too
   // heavy to run once per bin row.

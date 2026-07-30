@@ -4,13 +4,13 @@ import FlowsheetEntryField from "@/src/components/experiences/modern/flowsheet/E
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 
 // Mock hooks
-const mockUseShowControl = vi.fn();
+const mockUseLiveStatus = vi.fn();
 const mockUseFlowsheet = vi.fn();
 const mockDispatch = vi.fn();
 const mockUpdateFlowsheet = vi.fn();
 
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
-  useShowControl: () => mockUseShowControl(),
+  useLiveStatus: () => mockUseLiveStatus(),
   useFlowsheetActions: () => mockUseFlowsheet(),
 }));
 
@@ -50,7 +50,7 @@ describe("FlowsheetEntryField", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockUseShowControl.mockReturnValue({
+    mockUseLiveStatus.mockReturnValue({
       live: true,
     });
 
@@ -218,7 +218,7 @@ describe("FlowsheetEntryField", () => {
     });
 
     it("should NOT enter edit mode on double click when not live", () => {
-      mockUseShowControl.mockReturnValue({
+      mockUseLiveStatus.mockReturnValue({
         live: false,
       });
 

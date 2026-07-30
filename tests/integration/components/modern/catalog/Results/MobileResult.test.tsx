@@ -14,7 +14,7 @@ vi.mock("next/link", () => ({
 }));
 
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
-  useShowControl: () => ({ live: false }),
+  useLiveStatus: () => ({ live: false }),
   useQueue: () => ({ addToQueue: vi.fn() }),
 }));
 

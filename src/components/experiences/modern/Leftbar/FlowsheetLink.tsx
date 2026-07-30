@@ -1,12 +1,12 @@
 "use client";
 
-import { useShowControl } from "@/src/hooks/flowsheetHooks";
+import { useLiveStatus } from "@/src/hooks/flowsheetHooks";
 import { CellTower } from "@mui/icons-material";
 import { Badge } from "@mui/joy";
 import LeftbarLink from "./LeftbarLink";
 
 export default function FlowsheetLink() {
-  const { live } = useShowControl();
+  const { live } = useLiveStatus();
 
   return (
     <Badge

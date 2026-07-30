@@ -17,7 +17,7 @@ vi.mock("@/lib/features/application/api", () => ({
 }));
 
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
-  useShowControl: () => ({ live: false }),
+  useLiveStatus: () => ({ live: false }),
   // Hoisted once here (not per row) so the rows can stay hook-free.
   useQueue: () => ({ addToQueue: vi.fn() }),
   useFlowsheetActions: () => ({ addToFlowsheet: vi.fn(() => Promise.resolve()) }),

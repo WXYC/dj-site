@@ -63,17 +63,24 @@ export function selectFlowsheetMutationPending(state: RootState): boolean {
   );
 }
 
-export const useShowControl = () => {
+/**
+ * Live/on-air status alone — for consumers that need `live` but never touch
+ * `currentShow`, the entries list, autoplay, or the go-live/leave actions.
+ * Split out of useShowControl (#1056) so the persistent chrome (Leftbar,
+ * Mail Bin), per-row, and per-field consumers subscribe to the lightweight
+ * WhoIsLive poll without dragging in the heavy paginated entries query that
+ * useShowControl also carries for the flowsheet's currentShow derivation.
+ *
+ * This hook runs in every entry row (and per editable field), so the query
+ * subscription is narrowed to primitives: rows re-render only when `live`
+ * actually changes, not on fetch-status flips or unrelated cache updates.
+ */
+export const useLiveStatus = () => {
   const { loading: userloading, info: userData } = useRegistry();
-  const flowsheetPollingInterval = useFlowsheetPollingInterval();
 
   const skip = !userData || userloading;
   const userId = userData?.id;
 
-  // This hook runs in every entry row (and per editable field), so both query
-  // subscriptions are narrowed to primitives: rows re-render only when
-  // live/currentShow actually change, not on fetch-status flips or unrelated
-  // cache updates — and no per-row flatten/sort of the entry list.
   const { live, loadingLiveList } = useWhoIsLiveQuery(undefined, {
     skip,
     pollingInterval: 60000,
@@ -86,6 +93,22 @@ export const useShowControl = () => {
     }),
   });
 
+  return { live, loading: loadingLiveList };
+};
+
+export const useShowControl = () => {
+  const { loading: userloading, info: userData } = useRegistry();
+  const flowsheetPollingInterval = useFlowsheetPollingInterval();
+
+  const skip = !userData || userloading;
+
+  // One authoritative `live` definition, shared with every other consumer.
+  const { live, loading: loadingLiveList } = useLiveStatus();
+
+  // This hook also runs in every entry row (for currentShow), so the entries
+  // subscription stays narrowed to a primitive: rows re-render only when
+  // currentShow actually changes, not on fetch-status flips or unrelated
+  // cache updates — and no per-row flatten/sort of the entry list.
   const { currentShow } = useGetInfiniteEntriesInfiniteQuery(undefined, {
     skip,
     pollingInterval: flowsheetPollingInterval,
@@ -487,14 +510,17 @@ export const useFlowsheetPagination = () => {
 };
 
 export const useQueue = () => {
-  const { live, loading } = useShowControl();
+  // live-only: useQueue never reads currentShow, so pulling the full
+  // useShowControl here would drag its heavy entries subscription into every
+  // page that renders the Mail Bin or catalog results (#1056).
+  const { live, loading } = useLiveStatus();
   const { loading: userloading, info: userData } = useRegistry();
   const dispatch = useAppDispatch();
 
   const queue = useAppSelector((state) => state.flowsheet.queue);
 
   // A settled WhoIsLive read: a successful response that isn't mid-refetch.
-  // isLoading (behind useShowControl's `loading`) is true only on the first
+  // isLoading (behind useLiveStatus's `loading`) is true only on the first
   // fetch, so it doesn't cover the invalidate→refetch gaps (e.g. an
   // optimistic-miss during go-live) where WhoIsLive momentarily reads
   // off-air; isFetching does. (#644)
@@ -569,7 +595,7 @@ export const useQueue = () => {
     queue,
     addToQueue,
     removeFromQueue,
-    loading,
+    loading: loading || userloading,
   };
 };
 
