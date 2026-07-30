@@ -1,98 +1,135 @@
 // Regression guard: /dashboard/catalog's client-reference-manifests must
-// reference no chunk that carries motion (framer-motion/motion-dom) or
-// qrcode.react source. Both are heavy and both are already isolated by
-// Turbopack's per-route code-splitting to the routes that actually import
-// them (motion -> /dashboard/flowsheet's DnD; qrcode.react -> the six
-// login/* route states) -- neither dependency is imported by anything on the
-// catalog route today. That isolation is implicit: it falls out of Next's
-// automatic chunking, not an explicit boundary in source. A future refactor
-// that pulls a motion- or qrcode-using component into a module shared with
-// catalog (a common layout piece, a shared hook, etc.) would silently drag
-// the dependency back into catalog's first load with no compiler error and
-// no obviously-related diff. This script makes that regression fail CI
-// instead of shipping.
+// reference no chunk that carries a heavy dependency belonging to another
+// route -- motion (framer-motion/motion-dom/motion-utils, the flowsheet DnD),
+// qrcode.react (the six login/* states), or the posthog-js library. None is
+// reachable from catalog's first load today: motion and qrcode.react aren't
+// imported by anything on the catalog route, and posthog-js is loaded only via
+// a dynamic import() inside the first-party lib/posthog.ts adapter, never
+// statically. That isolation is implicit -- it falls out of Next/Turbopack's
+// automatic chunking and the adapter's dynamic import, not an explicit boundary
+// in source. A future refactor that pulls a motion- or qrcode-using component
+// into a module shared with catalog, or turns the posthog-js dynamic import
+// into a static one (or adds any new static importer), would silently drag the
+// dependency into catalog's first load with no compiler error and no obviously
+// related diff. posthog-js in particular is one edit away and would add ~1 MB.
+// This script makes that regression fail CI instead of shipping.
 //
-// Detection method: walk each catalog route's client-reference-manifest for
-// the chunk filenames it references, then for each chunk resolve its real
-// source map and sum the sourcesContent bytes whose source path matches a
-// motion or qrcode marker. Chunk -> map linkage MUST go through the chunk's
-// trailing `//# sourceMappingURL=` comment, not through string-substitution
-// on the map filename: Turbopack emits orphan `.js.map` files with no `.js`
-// chunk of the same name (observed: 67 of 68 map files in a real build have
-// no same-named `.js` sibling), so a chunk's real map is whatever its own
-// sourceMappingURL comment names, which is frequently a different basename.
+// Detection method: walk each catalog route's client-reference-manifest for the
+// chunk filenames it references, then for each chunk resolve its real source map
+// and sum the sourcesContent bytes whose source path matches a dependency
+// marker. Three correctness details:
+//   1. Chunk -> map linkage MUST go through the chunk's trailing
+//      `//# sourceMappingURL=` comment, not string-substitution on the map
+//      filename: Turbopack emits orphan `.js.map` files with no `.js` chunk of
+//      the same name (nearly every map file in a real build has no same-named
+//      `.js` sibling), so a chunk's real map is whatever its own
+//      sourceMappingURL comment names, frequently a different basename.
+//   2. Markers are scoped to `node_modules/<pkg>` so a first-party file whose
+//      path merely contains the package name -- the login QRCodeForm, or the
+//      lib/posthog.ts adapter itself -- is never mistaken for the library.
+//   3. If a source path matches a marker but its sourcesContent entry is null
+//      or empty, the guard cannot measure it and FAILS LOUDLY rather than
+//      scoring it zero. Bundlers sometimes drop sourcesContent for node_modules;
+//      scoring a marker match as zero bytes would let exactly the regression
+//      this guards against pass silently.
 //
 // Usage: node scripts/check-catalog-first-load.mjs [buildDir]
 // buildDir defaults to $CATALOG_GUARD_BUILD_DIR or ".next". Accepting an
-// override (arg or env var) is what lets this run hermetically against a
-// small fixture tree in tests, without a real `next build`.
+// override (arg or env var) is what lets this run hermetically against a small
+// fixture tree in tests, without a real `next build`.
 import fs from "node:fs";
 import path from "node:path";
 
 const BYTE_THRESHOLD = 1000; // ignore incidental one-line re-exports; real usage attributes tens/hundreds of KB
-const MOTION_MARKERS = ["motion-dom", "framer-motion", "/motion/"];
-const QRCODE_MARKERS = ["qrcode"]; // matched case-insensitively
+
+// Each dependency's markers are node_modules-scoped path fragments; a source
+// whose path contains any marker is attributed to that dependency. "qrcode"
+// (no trailing slash) covers both node_modules/qrcode.react and its
+// node_modules/qrcode dependency.
+const DEPS = [
+  {
+    key: "motion",
+    label: "motion/framer-motion",
+    markers: [
+      "node_modules/motion-dom",
+      "node_modules/framer-motion",
+      "node_modules/motion/",
+      "node_modules/motion-utils",
+    ],
+  },
+  { key: "qrcode", label: "qrcode.react", markers: ["node_modules/qrcode"] },
+  { key: "posthog", label: "posthog-js", markers: ["node_modules/posthog-js"] },
+];
+
+// The client-reference-manifest lists chunks as "static/chunks/<name>.js". This
+// charset tracks Turbopack's current chunk-naming scheme; if a future Turbopack
+// emits differently-named chunks, the "references zero chunks" branch below
+// trips rather than silently skipping them.
 const CHUNK_REF_RE = /static\/chunks\/([A-Za-z0-9_-]+\.js)/g;
 
 const baseDir = process.argv[2] || process.env.CATALOG_GUARD_BUILD_DIR || ".next";
 const chunksDir = path.join(baseDir, "static", "chunks");
 
+function manifestPathFor(experience) {
+  return path.join(
+    baseDir,
+    "server",
+    "app",
+    "dashboard",
+    `@${experience}`,
+    "catalog",
+    "page_client-reference-manifest.js"
+  );
+}
 const MANIFESTS = [
-  {
-    label: "@modern",
-    manifestPath: path.join(
-      baseDir,
-      "server",
-      "app",
-      "dashboard",
-      "@modern",
-      "catalog",
-      "page_client-reference-manifest.js"
-    ),
-  },
-  {
-    label: "@classic",
-    manifestPath: path.join(
-      baseDir,
-      "server",
-      "app",
-      "dashboard",
-      "@classic",
-      "catalog",
-      "page_client-reference-manifest.js"
-    ),
-  },
+  { label: "@modern", manifestPath: manifestPathFor("modern") },
+  { label: "@classic", manifestPath: manifestPathFor("classic") },
 ];
 
-// real chunk filename -> bytes of motion/qrcode source attributed to it via
-// its source map's sourcesContent, or null if the chunk file itself is missing.
+function zeroBytes() {
+  const bytes = {};
+  for (const dep of DEPS) bytes[dep.key] = 0;
+  return bytes;
+}
+
+// real chunk filename -> per-dependency attributed bytes, plus any marker
+// matches whose size could not be measured (null/empty sourcesContent), or null
+// if the chunk file itself is missing on disk.
 function chunkDeps(jsName) {
   const jsPath = path.join(chunksDir, jsName);
   if (!fs.existsSync(jsPath)) return null;
 
+  const unresolved = { bytes: zeroBytes(), unverifiable: [], resolvedMap: false };
+
   const src = fs.readFileSync(jsPath, "utf8");
   const match = src.match(/sourceMappingURL=([^\s]+\.map)/);
-  if (!match) return { motion: 0, qrcode: 0, resolvedMap: false };
+  if (!match) return unresolved;
 
   const mapPath = path.join(chunksDir, match[1].split("/").pop());
-  if (!fs.existsSync(mapPath)) return { motion: 0, qrcode: 0, resolvedMap: false };
+  if (!fs.existsSync(mapPath)) return unresolved;
 
   let map;
   try {
     map = JSON.parse(fs.readFileSync(mapPath, "utf8"));
   } catch {
-    return { motion: 0, qrcode: 0, resolvedMap: false };
+    return unresolved;
   }
 
   const content = map.sourcesContent || [];
-  let motion = 0;
-  let qrcode = 0;
+  const bytes = zeroBytes();
+  const unverifiable = [];
   (map.sources || []).forEach((s, i) => {
-    const bytes = (content[i] || "").length;
-    if (MOTION_MARKERS.some((marker) => s.includes(marker))) motion += bytes;
-    if (QRCODE_MARKERS.some((marker) => s.toLowerCase().includes(marker))) qrcode += bytes;
+    for (const dep of DEPS) {
+      if (!dep.markers.some((marker) => s.includes(marker))) continue;
+      const c = content[i];
+      if (c === null || c === undefined || c === "") {
+        unverifiable.push(dep.label);
+      } else {
+        bytes[dep.key] += c.length;
+      }
+    }
   });
-  return { motion, qrcode, resolvedMap: content.length > 0 };
+  return { bytes, unverifiable, resolvedMap: content.length > 0 };
 }
 
 function checkManifest(label, manifestPath) {
@@ -112,21 +149,34 @@ function checkManifest(label, manifestPath) {
   }
 
   const messages = [];
+  let chunksOnDisk = 0;
   let resolvedMaps = 0;
   for (const chunk of chunkNames) {
     const deps = chunkDeps(chunk);
-    if (!deps) continue; // manifest references a chunk that no longer exists on disk; not this guard's concern
+    if (!deps) continue; // manifest references a chunk that no longer exists on disk
+    chunksOnDisk += 1;
     if (deps.resolvedMap) resolvedMaps += 1;
-    if (deps.motion > BYTE_THRESHOLD) {
+    for (const dep of DEPS) {
+      if (deps.bytes[dep.key] > BYTE_THRESHOLD) {
+        messages.push(
+          `${label}: chunk ${chunk} carries ~${deps.bytes[dep.key]} source bytes attributed to ${dep.label} -- catalog's first load must not reach ${dep.label}`
+        );
+      }
+    }
+    for (const depLabel of new Set(deps.unverifiable)) {
       messages.push(
-        `${label}: chunk ${chunk} carries ~${deps.motion} source bytes attributed to motion/framer-motion -- catalog's first load must not reach motion`
+        `${label}: chunk ${chunk} has a ${depLabel} source with null/empty sourcesContent -- cannot verify its size, so failing rather than scoring it zero (the bundler may be dropping node_modules sourcesContent, which would let a real regression pass silently)`
       );
     }
-    if (deps.qrcode > BYTE_THRESHOLD) {
-      messages.push(
-        `${label}: chunk ${chunk} carries ~${deps.qrcode} source bytes attributed to qrcode.react -- catalog's first load must not reach qrcode.react`
-      );
-    }
+  }
+
+  if (messages.length === 0 && chunksOnDisk === 0) {
+    return {
+      ok: false,
+      messages: [
+        `${label}: manifest references ${chunkNames.length} chunks but none exist on disk under ${chunksDir} -- the build output is incomplete or laid out differently than expected`,
+      ],
+    };
   }
 
   if (messages.length === 0 && resolvedMaps === 0) {
@@ -174,4 +224,6 @@ if (!allOk) {
   process.exit(1);
 }
 
-console.log(`check-catalog-first-load: OK -- catalog first-load is clean of motion/qrcode.react in ${summaries.join(", ")}`);
+console.log(
+  `check-catalog-first-load: OK -- catalog first-load is clean of motion/qrcode.react/posthog-js in ${summaries.join(", ")}`
+);
