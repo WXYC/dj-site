@@ -88,6 +88,18 @@ write_tainted_chunk() {
     write_map "$map" "$source_path" "$big"
 }
 
+# write_null_content_chunk CHUNK MAP SOURCE_PATH
+# Writes a chunk whose map lists SOURCE_PATH but gives it a null sourcesContent
+# entry -- the size is unmeasurable, so a marker-matching source here must fail
+# loudly rather than be scored as zero bytes.
+write_null_content_chunk() {
+    local chunk="$1" map="$2" source_path="$3"
+    write_chunk "$chunk" "$map"
+    cat > "$FIXTURE_DIR/static/chunks/$map" <<EOF
+{"version":3,"sources":["$source_path"],"sourcesContent":[null],"names":[],"mappings":""}
+EOF
+}
+
 @test "exits 0 when both catalog manifests reference only clean chunks" {
     write_clean_chunk "clean1.js" "clean1.js.map"
     write_manifest "modern" "clean1.js"
@@ -124,6 +136,43 @@ write_tainted_chunk() {
     [[ "$output" == *"qr1.js"* ]]
     [[ "$output" == *"qrcode"* ]]
     [[ "$output" == *"@classic"* ]]
+}
+
+@test "exits non-zero and names the chunk when @modern references a posthog-js chunk" {
+    write_clean_chunk "clean1.js" "clean1.js.map"
+    write_tainted_chunk "ph1.js" "phmap.js.map" "turbopack:///[project]/node_modules/posthog-js/dist/main.js"
+    write_manifest "modern" "clean1.js" "ph1.js"
+    write_manifest "classic" "clean1.js"
+
+    run node "$SCRIPT_PATH" "$FIXTURE_DIR"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"ph1.js"* ]]
+    [[ "$output" == *"posthog-js"* ]]
+    [[ "$output" == *"@modern"* ]]
+}
+
+@test "the first-party lib/posthog.ts adapter is not mistaken for the posthog-js library" {
+    # A node_modules-scoped marker must not match the first-party adapter path,
+    # even at large size -- only the real library counts.
+    write_clean_chunk "clean1.js" "clean1.js.map"
+    write_tainted_chunk "adapter.js" "adaptermap.js.map" "turbopack:///[project]/lib/posthog.ts"
+    write_manifest "modern" "clean1.js" "adapter.js"
+    write_manifest "classic" "clean1.js"
+
+    run node "$SCRIPT_PATH" "$FIXTURE_DIR"
+    [ "$status" -eq 0 ]
+}
+
+@test "exits non-zero when a marker-matching source has null sourcesContent (must not score it zero)" {
+    write_clean_chunk "clean1.js" "clean1.js.map"
+    write_null_content_chunk "nullc.js" "nullcmap.js.map" "turbopack:///[project]/node_modules/motion-dom/dist/index.mjs"
+    write_manifest "modern" "clean1.js" "nullc.js"
+    write_manifest "classic" "clean1.js"
+
+    run node "$SCRIPT_PATH" "$FIXTURE_DIR"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"nullc.js"* ]]
+    [[ "$output" == *"sourcesContent"* ]]
 }
 
 @test "a sub-threshold incidental reference does not fail the guard" {
