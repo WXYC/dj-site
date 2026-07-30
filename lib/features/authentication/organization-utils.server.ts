@@ -1,22 +1,7 @@
 import "server-only";
-import { serverAuthClient, serverAuthFetch } from "./server-client";
+import { serverAuthClient, serverAuthFetch, getServerJwtToken } from "./server-client";
 import { normalizeRole, organizationRoleFromJwtToken } from "./organization-utils";
 import { WXYCRole } from "./types";
-
-async function fetchAuthJwtToken(cookieHeader?: string): Promise<string | null> {
-  try {
-    const { ok, data } = await serverAuthFetch<{ token?: unknown }>("/token", {
-      method: "GET",
-      headers: cookieHeader ? { cookie: cookieHeader } : {},
-    });
-    if (!ok) {
-      return null;
-    }
-    return typeof data?.token === "string" ? data.token : null;
-  } catch {
-    return null;
-  }
-}
 
 // Re-export client-safe functions for convenience
 export { getAppOrganizationId, getAppOrganizationIdClient } from "./organization-utils";
@@ -78,7 +63,7 @@ export async function getUserRoleInOrganization(
 ): Promise<WXYCRole | undefined> {
   try {
     if (cookieHeader) {
-      const jwtToken = await fetchAuthJwtToken(cookieHeader);
+      const jwtToken = await getServerJwtToken(cookieHeader);
       if (jwtToken) {
         const jwtRole = organizationRoleFromJwtToken(jwtToken, userId);
         if (jwtRole) {

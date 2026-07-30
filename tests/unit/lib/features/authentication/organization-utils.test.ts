@@ -35,6 +35,16 @@ vi.mock("@/lib/features/authentication/server-client", () => ({
   },
   getServerAuthBaseURL: () => "https://api.wxyc.org/auth",
   serverAuthFetch: (path: string, init: any) => mockAuthFetch(path, init),
+  getServerJwtToken: async (cookieHeader?: string) => {
+    const { ok, data } = await mockAuthFetch("/token", {
+      method: "GET",
+      headers: cookieHeader ? { cookie: cookieHeader } : {},
+    });
+    if (!ok) return null;
+    return typeof (data as { token?: unknown })?.token === "string"
+      ? (data as { token: string }).token
+      : null;
+  },
 }));
 
 // Mock auth client (client-side)

@@ -91,3 +91,68 @@ describe("server-client", () => {
     });
   });
 });
+
+describe("getServerJwtToken", () => {
+  const originalEnv = process.env;
+  const realFetch = global.fetch;
+  let mockFetch: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env = { ...originalEnv, NEXT_PUBLIC_BETTER_AUTH_URL: "https://api.wxyc.org/auth" };
+    mockFetch = vi.fn();
+    global.fetch = mockFetch as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+    global.fetch = realFetch;
+  });
+
+  async function importFresh() {
+    vi.resetModules();
+    return import("@/lib/features/authentication/server-client");
+  }
+
+  it("mints a token and forwards the session cookie to /token", async () => {
+    mockFetch.mockResolvedValue(
+      new Response(JSON.stringify({ token: "jwt-abc" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    const { getServerJwtToken } = await importFresh();
+    await expect(getServerJwtToken("session=xyz")).resolves.toBe("jwt-abc");
+
+    const [url, init] = mockFetch.mock.calls[0];
+    expect(String(url)).toBe("https://api.wxyc.org/auth/token");
+    expect(new Headers(init.headers).get("cookie")).toBe("session=xyz");
+  });
+
+  it("returns null on a non-ok response", async () => {
+    mockFetch.mockResolvedValue(new Response("{}", { status: 401 }));
+
+    const { getServerJwtToken } = await importFresh();
+    await expect(getServerJwtToken("session=xyz")).resolves.toBeNull();
+  });
+
+  it("returns null when the token field is not a string", async () => {
+    mockFetch.mockResolvedValue(
+      new Response(JSON.stringify({ token: null }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    const { getServerJwtToken } = await importFresh();
+    await expect(getServerJwtToken("session=xyz")).resolves.toBeNull();
+  });
+
+  it("returns null when the fetch rejects", async () => {
+    mockFetch.mockRejectedValue(new Error("network down"));
+
+    const { getServerJwtToken } = await importFresh();
+    await expect(getServerJwtToken("session=xyz")).resolves.toBeNull();
+  });
+});

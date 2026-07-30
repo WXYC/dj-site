@@ -45,8 +45,9 @@ yarn-error.log*
 next-env.d.ts
 
 
-# personal legacy analysis
-legacy/
+# personal legacy analysis (top-level scratch dir only; must not match route
+# segments like app/dashboard/album/legacy/)
+/legacy/
 
 # personal planning docs (kept locally; canonical plans live in WXYC/wiki)
 /plans/
