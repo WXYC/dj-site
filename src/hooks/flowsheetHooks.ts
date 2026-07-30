@@ -74,6 +74,10 @@ export function selectFlowsheetMutationPending(state: RootState): boolean {
  * This hook runs in every entry row (and per editable field), so the query
  * subscription is narrowed to primitives: rows re-render only when `live`
  * actually changes, not on fetch-status flips or unrelated cache updates.
+ *
+ * It also surfaces the `userData`/`userloading` it already reads so composing
+ * hooks (useShowControl, useQueue) can share this one registry subscription
+ * instead of each opening a second useSession + role-resolution effect.
  */
 export const useLiveStatus = () => {
   const { loading: userloading, info: userData } = useRegistry();
@@ -93,17 +97,24 @@ export const useLiveStatus = () => {
     }),
   });
 
-  return { live, loading: loadingLiveList };
+  return { live, loading: loadingLiveList, userData, userloading };
 };
 
 export const useShowControl = () => {
-  const { loading: userloading, info: userData } = useRegistry();
   const flowsheetPollingInterval = useFlowsheetPollingInterval();
 
-  const skip = !userData || userloading;
+  // One authoritative `live` definition — and one registry read — shared with
+  // every other consumer: useLiveStatus already owns the useRegistry
+  // subscription, so reuse its userData/userloading rather than opening a
+  // second one in every entry row.
+  const {
+    live,
+    loading: loadingLiveList,
+    userData,
+    userloading,
+  } = useLiveStatus();
 
-  // One authoritative `live` definition, shared with every other consumer.
-  const { live, loading: loadingLiveList } = useLiveStatus();
+  const skip = !userData || userloading;
 
   // This hook also runs in every entry row (for currentShow), so the entries
   // subscription stays narrowed to a primitive: rows re-render only when
@@ -513,8 +524,7 @@ export const useQueue = () => {
   // live-only: useQueue never reads currentShow, so pulling the full
   // useShowControl here would drag its heavy entries subscription into every
   // page that renders the Mail Bin or catalog results (#1056).
-  const { live, loading } = useLiveStatus();
-  const { loading: userloading, info: userData } = useRegistry();
+  const { live, loading, userData, userloading } = useLiveStatus();
   const dispatch = useAppDispatch();
 
   const queue = useAppSelector((state) => state.flowsheet.queue);
