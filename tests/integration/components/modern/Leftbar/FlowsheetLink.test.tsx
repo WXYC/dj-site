@@ -4,7 +4,7 @@ import FlowsheetLink from "@/src/components/experiences/modern/Leftbar/Flowsheet
 
 // Mock hooks
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
-  useShowControl: vi.fn(() => ({
+  useLiveStatus: vi.fn(() => ({
     live: false,
   })),
 }));
@@ -55,8 +55,8 @@ describe("FlowsheetLink", () => {
   });
 
   it("should show 'ON AIR' indicator when live", async () => {
-    const { useShowControl } = await import("@/src/hooks/flowsheetHooks");
-    vi.mocked(useShowControl).mockReturnValue({
+    const { useLiveStatus } = await import("@/src/hooks/flowsheetHooks");
+    vi.mocked(useLiveStatus).mockReturnValue({
       live: true,
     } as any);
 
@@ -83,8 +83,8 @@ describe("FlowsheetLink", () => {
   });
 
   it("should have visible badge when live", async () => {
-    const { useShowControl } = await import("@/src/hooks/flowsheetHooks");
-    vi.mocked(useShowControl).mockReturnValue({
+    const { useLiveStatus } = await import("@/src/hooks/flowsheetHooks");
+    vi.mocked(useLiveStatus).mockReturnValue({
       live: true,
     } as any);
 

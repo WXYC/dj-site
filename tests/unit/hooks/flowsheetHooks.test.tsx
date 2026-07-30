@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import {
   useShowControl,
+  useLiveStatus,
   useFlowsheetSearch,
   useFlowsheet,
   useQueue,
@@ -220,6 +221,46 @@ describe("flowsheetHooks", () => {
     if (typeof window !== "undefined") {
       window.localStorage.clear();
     }
+  });
+
+  describe("useLiveStatus", () => {
+    it("should return live status", () => {
+      const { result } = renderHook(() => useLiveStatus(), {
+        wrapper: createWrapper(),
+      });
+
+      expect(result.current.live).toBe(true);
+    });
+
+    it("should return live as false when user is not in live list", () => {
+      mockUseWhoIsLiveQuery.mockReturnValue({
+        data: { djs: [], onAir: "" },
+        isLoading: false,
+        isSuccess: true,
+      });
+
+      const { result } = renderHook(() => useLiveStatus(), {
+        wrapper: createWrapper(),
+      });
+
+      expect(result.current.live).toBe(false);
+    });
+
+    it("should return loading status", () => {
+      const { result } = renderHook(() => useLiveStatus(), {
+        wrapper: createWrapper(),
+      });
+
+      expect(typeof result.current.loading).toBe("boolean");
+    });
+
+    it("should never subscribe to the heavy entries query (#1056)", () => {
+      renderHook(() => useLiveStatus(), {
+        wrapper: createWrapper(),
+      });
+
+      expect(mockUseGetInfiniteEntriesInfiniteQuery).not.toHaveBeenCalled();
+    });
   });
 
   describe("useShowControl", () => {

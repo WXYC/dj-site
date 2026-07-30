@@ -15,7 +15,7 @@ vi.mock("@/src/hooks/binHooks", () => ({
 }));
 
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
-  useShowControl: () => ({ live: false }),
+  useLiveStatus: () => ({ live: false }),
   useQueue: () => ({ addToQueue: vi.fn() }),
   useFlowsheetActions: () => ({ addToFlowsheet: vi.fn(() => Promise.resolve()) }),
 }));

@@ -24,7 +24,7 @@ import { toast } from "sonner";
 import { memo } from "react";
 
 // `live` and `addToQueue` are hoisted into Results and passed down so every
-// row shares one useShowControl/useQueue subscription; memoized so a query
+// row shares one useLiveStatus/useQueue subscription; memoized so a query
 // keystroke doesn't re-render rows whose album is unchanged.
 function CatalogResult({
   album,

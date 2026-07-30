@@ -1,7 +1,7 @@
 "use client";
 
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
-import { useFlowsheetActions, useShowControl } from "@/src/hooks/flowsheetHooks";
+import { useFlowsheetActions, useLiveStatus } from "@/src/hooks/flowsheetHooks";
 import { toTitleCase } from "@/src/utilities/stringutilities";
 import { Box, IconButton, Tooltip, Typography, TypographyProps } from "@mui/joy";
 import { CheckRounded, EditOutlined } from "@mui/icons-material";
@@ -33,7 +33,7 @@ export default function FlowsheetEntryField({
   playing: boolean;
   editable: boolean;
 } & Omit<TypographyProps, "whiteSpace" | "overflow" | "textOverflow">) {
-  const { live } = useShowControl();
+  const { live } = useLiveStatus();
   const dispatch = useAppDispatch();
 
   const [editing, setEditing] = useState(false);
