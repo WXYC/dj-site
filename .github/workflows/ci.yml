@@ -200,6 +200,9 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      - name: Guard catalog first-load (motion/qrcode.react must stay out)
+        run: node scripts/check-catalog-first-load.mjs
+
   # Bats suites for scripts/deploy/*.sh (hermetic — fake curl/wrangler on
   # PATH, no network). Gated like the other jobs so it also runs on `main`
   # pushes; deploy-production `needs:` it so a script regression can't ship.
