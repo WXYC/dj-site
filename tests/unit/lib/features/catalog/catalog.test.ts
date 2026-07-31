@@ -229,6 +229,46 @@ describe("convertToAlbumEntry", () => {
   );
 
   describeConversionWithAssertions(
+    "discogsUnavailable fields",
+    convertToAlbumEntry,
+    [
+      {
+        name: "should pass through discogsUnavailable, discogsUnavailableNote, and lastDiscogsRecheckAt when present",
+        input: createTestAlbumSearchResult({
+          discogsUnavailable: true,
+          discogsUnavailableNote: "audience doesn't use Discogs",
+          lastDiscogsRecheckAt: "2026-07-24T06:00:00.000Z",
+        } as any),
+        assertions: (result) => {
+          expect(result.discogsUnavailable).toBe(true);
+          expect(result.discogsUnavailableNote).toBe("audience doesn't use Discogs");
+          expect(result.lastDiscogsRecheckAt).toBe("2026-07-24T06:00:00.000Z");
+        },
+      },
+      {
+        name: "should default discogsUnavailable fields to undefined when absent",
+        input: createTestAlbumSearchResult(),
+        assertions: (result) => {
+          expect(result.discogsUnavailable).toBeUndefined();
+          expect(result.discogsUnavailableNote).toBeUndefined();
+          expect(result.lastDiscogsRecheckAt).toBeUndefined();
+        },
+      },
+      {
+        name: "should pass through an explicit null note",
+        input: createTestAlbumSearchResult({
+          discogsUnavailable: false,
+          discogsUnavailableNote: null,
+        } as any),
+        assertions: (result) => {
+          expect(result.discogsUnavailable).toBe(false);
+          expect(result.discogsUnavailableNote).toBeNull();
+        },
+      },
+    ]
+  );
+
+  describeConversionWithAssertions(
     "album_artist (compilation handling)",
     convertToAlbumEntry,
     [

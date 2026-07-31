@@ -135,6 +135,15 @@ export function convertToAlbumEntry(
     disc_quantity: isSearchResult(response)
       ? (response as Record<string, unknown>).disc_quantity as number | undefined
       : undefined,
+    discogsUnavailable: isSearchResult(response)
+      ? (response as Record<string, unknown>).discogsUnavailable as boolean | undefined
+      : undefined,
+    discogsUnavailableNote: isSearchResult(response)
+      ? (response as Record<string, unknown>).discogsUnavailableNote as string | null | undefined
+      : undefined,
+    lastDiscogsRecheckAt: isSearchResult(response)
+      ? (response as Record<string, unknown>).lastDiscogsRecheckAt as string | null | undefined
+      : undefined,
   };
 }
 

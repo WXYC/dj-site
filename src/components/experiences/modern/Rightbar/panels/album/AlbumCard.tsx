@@ -16,6 +16,7 @@ import {
 } from "@mui/joy";
 import { useRef, useState, useEffect } from "react";
 import DiscogsMarkup from "./DiscogsMarkupRenderer";
+import DiscogsUnavailableControl from "./DiscogsUnavailableControl";
 import LibraryStatus from "./LibraryStatus";
 import StreamingLinks from "./StreamingLinks";
 import Tracklist from "./Tracklist";
@@ -113,6 +114,7 @@ export default function AlbumCard({
             <LibraryStatus album={album} />
           </Stack>
         </Stack>
+        <DiscogsUnavailableControl key={album.id} album={album} />
         <StreamingLinks metadata={metadata} />
         {artistBio && (
           <>

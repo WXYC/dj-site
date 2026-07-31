@@ -20,10 +20,20 @@ export const TrackMatchSource = {
 /**
  * JSON boundary adapter for AlbumSearchResult.
  * RTK Query delivers raw JSON where add_date is a string, not a Date.
+ *
+ * discogsUnavailable/discogsUnavailableNote/lastDiscogsRecheckAt are declared
+ * here by hand rather than picked up from `AlbumSearchResult`: api.yaml only
+ * carries them on `Album`/`AlbumInfoResponse` (the `GET /library/info`
+ * response schema), not on `AlbumSearchResult`, even though `GET /library/`,
+ * `GET /library/query`, and `PATCH /library/:id` all serve from the same
+ * backend read model and carry the fields on the wire.
  */
 export type AlbumSearchResultJSON = Omit<AlbumSearchResult, "add_date"> & {
   add_date: string;
   matched_via?: TrackMatchHint[];
+  discogsUnavailable?: boolean;
+  discogsUnavailableNote?: string | null;
+  lastDiscogsRecheckAt?: string | null;
 };
 
 export type SearchCatalogQueryParams = {
@@ -48,15 +58,27 @@ export type AddAlbumRequestBody = {
   label_id?: number;
 };
 
+/**
+ * PATCH /library/:id is a true partial update on the backend — only fields
+ * present in the body are validated and written — so every field here is
+ * optional. discogsUnavailableNote must be null whenever discogsUnavailable
+ * is false or absent-with-existing-false-state (the backend CHECK constraint
+ * `discogs_unavailable OR discogs_unavailable_note IS NULL`); callers that
+ * only toggle the flag off must pass `discogsUnavailableNote: null` alongside
+ * it rather than omitting the note. lastDiscogsRecheckAt is deliberately
+ * absent — it is server-write-only.
+ */
 export type UpdateAlbumRequestBody = {
-  album_title: string;
-  label: string;
-  genre_id: number;
-  format_id: number;
-  artist_id: number;
+  album_title?: string;
+  label?: string;
+  genre_id?: number;
+  format_id?: number;
+  artist_id?: number;
   alternate_artist_name?: string;
   disc_quantity?: number;
   label_id?: number;
+  discogsUnavailable?: boolean;
+  discogsUnavailableNote?: string | null;
 };
 
 /**
@@ -153,6 +175,12 @@ export type AlbumEntry = {
   genre_id?: number;
   format_id?: number;
   disc_quantity?: number;
+  /** MD-set marker: this release is intentionally not on Discogs (embargoed promo, audience-segment release, etc). Writable via PATCH /library/:id. */
+  discogsUnavailable?: boolean;
+  /** Optional free-text reason for discogsUnavailable; null whenever the flag is false. Writable via PATCH /library/:id. */
+  discogsUnavailableNote?: string | null;
+  /** Stamped by the daily discogs-unavailable recheck cron. Read-only — never sent in a PATCH body. */
+  lastDiscogsRecheckAt?: string | null;
 };
 
 export type ArtistEntry = {
