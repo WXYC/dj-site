@@ -55,6 +55,58 @@ describe("mergeAlbumIntoSearchResult", () => {
     expect(merged.date_found).toBe("2024-02-01");
   });
 
+  it("applies a defined discogsUnavailable flag from the mutation response", () => {
+    const existing = createTestAlbum({ id: 42, discogsUnavailable: false });
+    const updated = createTestAlbum({ id: 42, discogsUnavailable: true });
+
+    const merged = mergeAlbumIntoSearchResult(existing, updated);
+
+    expect(merged.discogsUnavailable).toBe(true);
+  });
+
+  it("falls back to the cached discogsUnavailable flag when the response omits it", () => {
+    const existing = createTestAlbum({ id: 42, discogsUnavailable: true });
+    const updated = createTestAlbum({ id: 42, discogsUnavailable: undefined });
+
+    const merged = mergeAlbumIntoSearchResult(existing, updated);
+
+    expect(merged.discogsUnavailable).toBe(true);
+  });
+
+  it("passes through an explicit null discogsUnavailableNote (cleared on the server)", () => {
+    const existing = createTestAlbum({
+      id: 42,
+      discogsUnavailable: true,
+      discogsUnavailableNote: "embargoed until 2026-09-01",
+    });
+    const updated = createTestAlbum({
+      id: 42,
+      discogsUnavailable: false,
+      discogsUnavailableNote: null,
+    });
+
+    const merged = mergeAlbumIntoSearchResult(existing, updated);
+
+    expect(merged.discogsUnavailableNote).toBeNull();
+  });
+
+  it("falls back to the cached discogsUnavailableNote when the response omits it", () => {
+    const existing = createTestAlbum({
+      id: 42,
+      discogsUnavailable: true,
+      discogsUnavailableNote: "embargoed until 2026-09-01",
+    });
+    const updated = createTestAlbum({
+      id: 42,
+      discogsUnavailable: true,
+      discogsUnavailableNote: undefined,
+    });
+
+    const merged = mergeAlbumIntoSearchResult(existing, updated);
+
+    expect(merged.discogsUnavailableNote).toBe("embargoed until 2026-09-01");
+  });
+
   it("merges albums with empty title fields from LML-only rows", () => {
     const existing = createTestAlbum({
       id: 42,

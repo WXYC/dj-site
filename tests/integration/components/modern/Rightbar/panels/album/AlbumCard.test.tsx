@@ -15,6 +15,10 @@ vi.mock("@/src/components/experiences/modern/Rightbar/panels/album/LibraryStatus
   default: () => <span>mocked status</span>,
 }));
 
+vi.mock("@/src/components/experiences/modern/Rightbar/panels/album/DiscogsUnavailableControl", () => ({
+  default: () => <span>mocked discogs-unavailable control</span>,
+}));
+
 vi.mock("@/src/components/experiences/modern/Rightbar/panels/album/StreamingLinks", () => ({
   default: () => null,
 }));

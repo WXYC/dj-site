@@ -43,5 +43,16 @@ export function mergeAlbumIntoSearchResult(
     date_found:
       updated.date_found === undefined ? existing.date_found : updated.date_found,
     album_artist: updated.album_artist ?? existing.album_artist,
+    discogsUnavailable: updated.discogsUnavailable ?? existing.discogsUnavailable,
+    // `null` is a meaningful write (note cleared) and must pass through;
+    // only an absent (`undefined`) field falls back to the cached value.
+    discogsUnavailableNote:
+      updated.discogsUnavailableNote === undefined
+        ? existing.discogsUnavailableNote
+        : updated.discogsUnavailableNote,
+    lastDiscogsRecheckAt:
+      updated.lastDiscogsRecheckAt === undefined
+        ? existing.lastDiscogsRecheckAt
+        : updated.lastDiscogsRecheckAt,
   };
 }
