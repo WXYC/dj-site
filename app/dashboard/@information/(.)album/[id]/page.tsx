@@ -54,7 +54,7 @@ export default function AlbumPopup() {
     artworkUrl,
     isLoading: metadataLoading,
     metadata,
-  } = useAlbumArtwork(data?.artist.name, data?.title);
+  } = useAlbumArtwork(data?.artist.name, data?.title, data?.discogsUnavailable === true);
 
   const { artistMetadata, bioTokens } = useArtistMetadata(metadata?.discogsArtistId);
 

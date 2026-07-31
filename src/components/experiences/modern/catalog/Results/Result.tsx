@@ -15,7 +15,7 @@ import { useCatalogQuerySearch } from "@/src/hooks/catalogHooks";
 import { QueueMusic } from "@mui/icons-material";
 import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
 import { useAppDispatch } from "@/lib/hooks";
-import { genreTone } from "@/lib/features/experiences/modern/tokens/roles";
+import { AlbumArtwork } from "../AlbumArtwork";
 import AddRemoveBin from "./AddRemoveBin";
 import { MatchedTrackChips } from "./MatchedTrackChips";
 import { ReleaseChips } from "./ReleaseChips";
@@ -39,7 +39,6 @@ function CatalogResult({
 
   const { selected, setSelection, sortBy } = useCatalogQuerySearch();
 
-  const genreColor = genreTone(album.artist.genre).color;
   const isSelected = selected.includes(album.id);
 
   const artistDisplay = album.album_artist ? "Various Artists" : album.artist.name;
@@ -81,45 +80,7 @@ function CatalogResult({
         />
       </td>
       <td>
-        {album.artwork_url ? (
-          <Box
-            component="img"
-            src={album.artwork_url}
-            alt={`${album.artist.name} - ${album.title}`}
-            sx={{
-              width: 48,
-              height: 48,
-              borderRadius: "sm",
-              objectFit: "cover",
-            }}
-          />
-        ) : (
-          <Box
-            aria-hidden
-            sx={{
-              width: 48,
-              height: 48,
-              borderRadius: "sm",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: (theme) =>
-                `linear-gradient(135deg, ${theme.vars.palette[genreColor][400]}, ${theme.vars.palette[genreColor][700]})`,
-            }}
-          >
-            <Typography
-              level="title-sm"
-              sx={{
-                color: "#fff",
-                opacity: 0.9,
-                fontWeight: 700,
-                letterSpacing: "0.08em",
-              }}
-            >
-              {album.artist.lettercode}
-            </Typography>
-          </Box>
-        )}
+        <AlbumArtwork album={album} size={48} />
       </td>
       <td>
         <Typography

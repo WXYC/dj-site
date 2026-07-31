@@ -1,7 +1,6 @@
 "use client";
 
 import { AlbumEntry } from "@/lib/features/catalog/types";
-import Box from "@mui/joy/Box";
 import IconButton from "@mui/joy/IconButton";
 import Sheet from "@mui/joy/Sheet";
 import Stack from "@mui/joy/Stack";
@@ -14,7 +13,7 @@ import { applicationSlice } from "@/lib/features/application/frontend";
 import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
 import { useAppDispatch } from "@/lib/hooks";
 import { convertBinToQueue } from "@/lib/features/bin/conversions";
-import { genreTone } from "@/lib/features/experiences/modern/tokens/roles";
+import { AlbumArtwork } from "../AlbumArtwork";
 import AddRemoveBin from "./AddRemoveBin";
 import { MatchedTrackChips } from "./MatchedTrackChips";
 import { ReleaseChips } from "./ReleaseChips";
@@ -34,8 +33,6 @@ function CatalogMobileResult({
   addToQueue: (entry: FlowsheetQuery) => void;
 }) {
   const dispatch = useAppDispatch();
-
-  const genreColor = genreTone(album.artist.genre).color;
 
   const artistDisplay = album.album_artist ? "Various Artists" : album.artist.name;
 
@@ -70,36 +67,7 @@ function CatalogMobileResult({
         cursor: "pointer",
       }}
     >
-      {album.artwork_url ? (
-        <Box
-          component="img"
-          src={album.artwork_url}
-          alt={`${album.artist.name} - ${album.title}`}
-          sx={{ width: 56, height: 56, borderRadius: "sm", objectFit: "cover", flexShrink: 0 }}
-        />
-      ) : (
-        <Box
-          aria-hidden
-          sx={{
-            width: 56,
-            height: 56,
-            borderRadius: "sm",
-            flexShrink: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: (theme) =>
-              `linear-gradient(135deg, ${theme.vars.palette[genreColor][400]}, ${theme.vars.palette[genreColor][700]})`,
-          }}
-        >
-          <Typography
-            level="title-sm"
-            sx={{ color: "#fff", opacity: 0.9, fontWeight: 700, letterSpacing: "0.08em" }}
-          >
-            {album.artist.lettercode}
-          </Typography>
-        </Box>
-      )}
+      <AlbumArtwork album={album} size={56} />
 
       <Stack sx={{ flex: 1, minWidth: 0 }} gap={0.25}>
         <Typography

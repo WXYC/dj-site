@@ -334,4 +334,40 @@ describe("CatalogResult album artwork", () => {
 
     expect(screen.queryByRole("img")).toBeNull();
   });
+
+  it("should render the Not on Discogs badge instead of artwork when discogsUnavailable is true", () => {
+    const album = createTestAlbum({
+      artwork_url: "https://i.discogs.com/confield.jpg",
+      discogsUnavailable: true,
+    });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
+        </tbody>
+      </table>
+    );
+
+    expect(screen.queryByRole("img")).toBeNull();
+    expect(screen.getByText("Not on Discogs")).toBeInTheDocument();
+  });
+
+  it("should still render artwork_url when discogsUnavailable is false", () => {
+    const album = createTestAlbum({
+      artwork_url: "https://i.discogs.com/confield.jpg",
+      discogsUnavailable: false,
+    });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
+        </tbody>
+      </table>
+    );
+
+    expect(screen.getByAltText(`${album.artist.name} - ${album.title}`)).toBeInTheDocument();
+    expect(screen.queryByText("Not on Discogs")).toBeNull();
+  });
 });
