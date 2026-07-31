@@ -68,3 +68,47 @@ describe("CatalogMobileResult", () => {
     expect(screen.getByText("WXYC EXCLUSIVE")).toBeDefined();
   });
 });
+
+describe("CatalogMobileResult album artwork", () => {
+  const artworkAlbum = createTestAlbum({
+    title: "On Your Own Love Again",
+    artist: createTestArtist({ name: "Jessica Pratt", lettercode: "RO", numbercode: 87 }),
+  });
+
+  it("renders album artwork when artwork_url is provided", () => {
+    const withArtwork = createTestAlbum({
+      ...artworkAlbum,
+      artwork_url: "https://i.discogs.com/on-your-own-love-again.jpg",
+    });
+
+    renderWithProviders(<CatalogMobileResult album={withArtwork} live={false} addToQueue={vi.fn()} />);
+
+    const img = screen.getByAltText(`${withArtwork.artist.name} - ${withArtwork.title}`);
+    expect(img.getAttribute("src")).toBe("https://i.discogs.com/on-your-own-love-again.jpg");
+  });
+
+  it("falls back to the lettercode placeholder when artwork_url is absent", () => {
+    renderWithProviders(
+      <CatalogMobileResult
+        album={createTestAlbum({ ...artworkAlbum, artwork_url: undefined })}
+        live={false}
+        addToQueue={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByRole("img")).toBeNull();
+  });
+
+  it("renders the Not on Discogs badge instead of artwork when discogsUnavailable is true", () => {
+    const flagged = createTestAlbum({
+      ...artworkAlbum,
+      artwork_url: "https://i.discogs.com/on-your-own-love-again.jpg",
+      discogsUnavailable: true,
+    });
+
+    renderWithProviders(<CatalogMobileResult album={flagged} live={false} addToQueue={vi.fn()} />);
+
+    expect(screen.queryByRole("img")).toBeNull();
+    expect(screen.getByText("Not on Discogs")).toBeInTheDocument();
+  });
+});

@@ -15,6 +15,7 @@ import {
   Typography,
 } from "@mui/joy";
 import { useRef, useState, useEffect } from "react";
+import { NotOnDiscogsBadge } from "@/src/components/experiences/modern/catalog/AlbumArtwork";
 import DiscogsMarkup from "./DiscogsMarkupRenderer";
 import DiscogsUnavailableControl from "./DiscogsUnavailableControl";
 import LibraryStatus from "./LibraryStatus";
@@ -51,6 +52,16 @@ export default function AlbumCard({
     }
   }, [artistBio]);
 
+  // MD-flagged release: the matched Discogs release is wrong or inapplicable
+  // (embargoed promo, audience-segment release, etc). Every block sourced
+  // from the /metadata/album proxy — artwork, label/year/genre/style,
+  // streaming links, artist bio, tracklist, and the Discogs footer link — is
+  // gated on this flag rather than on `metadata` being present, so the
+  // suppression holds even if a caller still fetches metadata for a flagged
+  // album. Library-owned data (title, LibraryStatus, plays/add date) is
+  // unaffected — the flag says nothing about the library entry itself.
+  const isDiscogsUnavailable = album.discogsUnavailable === true;
+
   return (
     <Card
       variant="outlined"
@@ -60,18 +71,25 @@ export default function AlbumCard({
     >
       <CardContent>
         <Stack direction="row" spacing={2} sx={{ mb: 1 }}>
-          <Box
-            component="img"
-            src={artworkUrl}
-            alt={`${album.title} cover`}
-            sx={{
-              width: { xs: 120, lg: 160 },
-              height: { xs: 120, lg: 160 },
-              objectFit: "cover",
-              borderRadius: "sm",
-              flexShrink: 0,
-            }}
-          />
+          {isDiscogsUnavailable ? (
+            <NotOnDiscogsBadge
+              size={{ xs: 120, lg: 160 }}
+              note={album.discogsUnavailableNote}
+            />
+          ) : (
+            <Box
+              component="img"
+              src={artworkUrl}
+              alt={`${album.title} cover`}
+              sx={{
+                width: { xs: 120, lg: 160 },
+                height: { xs: 120, lg: 160 },
+                objectFit: "cover",
+                borderRadius: "sm",
+                flexShrink: 0,
+              }}
+            />
+          )}
           <Stack sx={{ minWidth: 0, justifyContent: "center" }}>
             <Typography level="title-lg" sx={{ mb: 0.5 }}>
               {album.album_artist ? "Various Artists" : album.artist.name} &bull; {album.title}
@@ -81,42 +99,53 @@ export default function AlbumCard({
                 {album.album_artist}
               </Typography>
             )}
-            <Stack
-              direction="row"
-              spacing={1}
-              sx={{ mb: 1, flexWrap: "wrap", alignItems: "center" }}
-            >
-              {metadata?.label && (
-                <Typography level="body-sm">{metadata.label}</Typography>
-              )}
-              {metadata?.label && metadata.releaseYear ? (
-                <Typography level="body-sm">&bull;</Typography>
-              ) : null}
-              {metadata?.releaseYear ? (
-                <Typography level="body-sm">{metadata.releaseYear}</Typography>
-              ) : null}
-              {!metadata && !metadataLoading && (
-                <Typography level="body-sm">
-                  {album.label || ""}{album.label ? " \u2022 " : ""}{album?.format ?? ""}
+            {isDiscogsUnavailable ? (
+              album.discogsUnavailableNote && (
+                <Typography
+                  level="body-sm"
+                  sx={{ mb: 1, color: "text.tertiary", fontStyle: "italic" }}
+                >
+                  {album.discogsUnavailableNote}
                 </Typography>
-              )}
-              {metadata?.genres?.map((g) => (
-                <Chip key={g} size="sm" variant="soft">
-                  {g}
-                </Chip>
-              ))}
-              {metadata?.styles?.map((s) => (
-                <Chip key={s} size="sm" variant="outlined">
-                  {s}
-                </Chip>
-              ))}
-            </Stack>
+              )
+            ) : (
+              <Stack
+                direction="row"
+                spacing={1}
+                sx={{ mb: 1, flexWrap: "wrap", alignItems: "center" }}
+              >
+                {metadata?.label && (
+                  <Typography level="body-sm">{metadata.label}</Typography>
+                )}
+                {metadata?.label && metadata.releaseYear ? (
+                  <Typography level="body-sm">&bull;</Typography>
+                ) : null}
+                {metadata?.releaseYear ? (
+                  <Typography level="body-sm">{metadata.releaseYear}</Typography>
+                ) : null}
+                {!metadata && !metadataLoading && (
+                  <Typography level="body-sm">
+                    {album.label || ""}{album.label ? " \u2022 " : ""}{album?.format ?? ""}
+                  </Typography>
+                )}
+                {metadata?.genres?.map((g) => (
+                  <Chip key={g} size="sm" variant="soft">
+                    {g}
+                  </Chip>
+                ))}
+                {metadata?.styles?.map((s) => (
+                  <Chip key={s} size="sm" variant="outlined">
+                    {s}
+                  </Chip>
+                ))}
+              </Stack>
+            )}
             <LibraryStatus album={album} />
           </Stack>
         </Stack>
         <DiscogsUnavailableControl key={album.id} album={album} />
-        <StreamingLinks metadata={metadata} />
-        {artistBio && (
+        {!isDiscogsUnavailable && <StreamingLinks metadata={metadata} />}
+        {!isDiscogsUnavailable && artistBio && (
           <>
             <Divider sx={{ my: 1 }} />
             <Typography level="title-sm" sx={{ mb: 0.5 }}>
@@ -156,7 +185,7 @@ export default function AlbumCard({
           </>
         )}
         <Divider sx={{ my: 1 }} />
-        {metadataLoading ? (
+        {isDiscogsUnavailable ? null : metadataLoading ? (
           <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
             <CircularProgress size="sm" />
           </Box>
@@ -191,7 +220,7 @@ export default function AlbumCard({
               ? "Unknown Time"
               : new Date(album.add_date).toLocaleDateString()}
           </Typography>
-          {metadata?.discogsUrl && (
+          {!isDiscogsUnavailable && metadata?.discogsUrl && (
             <>
               <Divider orientation="vertical" />
               <Link

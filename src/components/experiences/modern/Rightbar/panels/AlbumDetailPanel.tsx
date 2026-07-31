@@ -21,6 +21,7 @@ export default function AlbumDetailPanel({ albumId }: { albumId: number }) {
   const { artworkUrl, isLoading: metadataLoading, metadata } = useAlbumArtwork(
     data?.artist.name,
     data?.title,
+    data?.discogsUnavailable === true,
   );
 
   const { artistMetadata, bioTokens } = useArtistMetadata(metadata?.discogsArtistId);
