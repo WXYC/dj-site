@@ -126,6 +126,47 @@ describe("Classic SearchResults matched_via chip", () => {
     expect(more.getAttribute("title")).toContain("Track Four");
   });
 
+  // A folded shelf location -- a V/A compilation or soundtrack that carries the
+  // queried track -- arrives as an ordinary catalog result row tagged with a
+  // matched_via hint of source "discogs_release", NOT as a separate "also
+  // available on" field. It must render through the existing result-row ->
+  // MatchedTrackChips path with zero location-specific handling, so a future
+  // source-based change cannot silently drop folded locations.
+  it("folds a V/A shelf location into results as a Various Artists row carrying a matched-on-track chip", () => {
+    const soundtrack = createTestAlbum({
+      album_artist: "Various Artists",
+      title: "Lost in Translation",
+      artist: createTestArtist({
+        name: "Soundtracks - L",
+        genre: "Soundtracks",
+        lettercode: "OST",
+        numbercode: 12,
+      }),
+      matched_via: [
+        {
+          source: "discogs_release",
+          title: "Tommib",
+          artist_credit: "Squarepusher",
+          position: "12",
+          confidence: 1.0,
+        },
+      ],
+    });
+    mockSearchCatalogQuery.mockReturnValue({
+      data: [soundtrack],
+      isLoading: false,
+      error: undefined,
+    });
+
+    renderWithProviders(<SearchResults />);
+
+    // The shelf location surfaces as an ordinary result row...
+    expect(screen.getByText("Lost in Translation")).toBeDefined();
+    expect(screen.getByText("Various Artists")).toBeDefined();
+    // ...carrying its matched-on-track chip, rendered source-agnostically.
+    expect(screen.getByText("matched on track: Tommib")).toBeDefined();
+  });
+
   describe("CATALOG_TRACK_SEARCH_UI_ENABLED flag", () => {
     const FLAG_KEY = "NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED";
 
