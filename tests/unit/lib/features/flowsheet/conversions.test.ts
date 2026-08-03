@@ -387,6 +387,44 @@ describe("flowsheet conversions", () => {
         expect(result.artwork_url).toBeUndefined();
       });
 
+      it("should convert discogsUnavailable: true on track entries", () => {
+        const entry = createTestV2TrackEntry({ discogsUnavailable: true });
+        const result = convertV2Entry(entry) as FlowsheetSongEntry;
+
+        expect(result.discogsUnavailable).toBe(true);
+      });
+
+      it("should convert discogsUnavailable: false on track entries", () => {
+        const entry = createTestV2TrackEntry({ discogsUnavailable: false });
+        const result = convertV2Entry(entry) as FlowsheetSongEntry;
+
+        expect(result.discogsUnavailable).toBe(false);
+      });
+
+      it("should default discogsUnavailable to undefined when absent", () => {
+        const entry = createTestV2TrackEntry();
+        const result = convertV2Entry(entry) as FlowsheetSongEntry;
+
+        expect(result.discogsUnavailable).toBeUndefined();
+      });
+
+      it("should pass discogsUnavailableNote through on track entries", () => {
+        const entry = createTestV2TrackEntry({
+          discogsUnavailable: true,
+          discogsUnavailableNote: "embargoed until 2026-09-01",
+        });
+        const result = convertV2Entry(entry) as FlowsheetSongEntry;
+
+        expect(result.discogsUnavailableNote).toBe("embargoed until 2026-09-01");
+      });
+
+      it("should default discogsUnavailableNote to undefined when absent", () => {
+        const entry = createTestV2TrackEntry();
+        const result = convertV2Entry(entry) as FlowsheetSongEntry;
+
+        expect(result.discogsUnavailableNote).toBeUndefined();
+      });
+
       it.each([
         { wire: true, expected: true },
         { wire: false, expected: false },

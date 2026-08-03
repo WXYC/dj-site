@@ -173,6 +173,8 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
         rotation: entry.rotation_bin as Rotation,
         on_streaming: entry.on_streaming ?? undefined,
         artwork_url: entry.artwork_url ?? undefined,
+        discogsUnavailable: entry.discogsUnavailable ?? undefined,
+        discogsUnavailableNote: entry.discogsUnavailableNote ?? undefined,
       };
 
     case "show_start": {

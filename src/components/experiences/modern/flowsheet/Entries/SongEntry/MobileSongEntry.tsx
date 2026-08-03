@@ -5,6 +5,7 @@ import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 import { useAppDispatch } from "@/lib/hooks";
 import { useFlowsheetActions, useShowControl } from "@/src/hooks/flowsheetHooks";
 import { useFlowsheetMoveContext } from "@/src/components/experiences/modern/flowsheet/Entries/dragContext";
+import { NotOnDiscogsBadge } from "@/src/components/experiences/modern/catalog/AlbumArtwork";
 import { entryFieldTextColor } from "@/src/utilities/modern/entryFieldColors";
 import {
   CheckRounded,
@@ -146,7 +147,11 @@ const MobileSongEntry = memo(function MobileSongEntry({
       <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
       <Box sx={{ position: "relative", flexShrink: 0 }}>
         <AspectRatio ratio={1} sx={{ width: 68, borderRadius: "12px" }}>
-          <img src={image} alt="album art" />
+          {entry.discogsUnavailable === true ? (
+            <NotOnDiscogsBadge size={68} note={entry.discogsUnavailableNote} />
+          ) : (
+            <img src={image} alt="album art" />
+          )}
         </AspectRatio>
         {queue && live && (
           <Button

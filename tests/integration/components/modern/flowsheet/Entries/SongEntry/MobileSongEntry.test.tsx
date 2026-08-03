@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 import { FlowsheetMoveContext } from "@/src/components/experiences/modern/flowsheet/Entries/dragContext";
 import MobileSongEntry from "@/src/components/experiences/modern/flowsheet/Entries/SongEntry/MobileSongEntry";
+import { createTestFlowsheetEntry, renderWithProviders } from "@/tests/helpers";
 
 const mockUseShowControl = vi.fn(() => ({
   live: true,
@@ -100,5 +101,70 @@ describe("MobileSongEntry move buttons", () => {
 
     expect(screen.queryByLabelText("Move up")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Move down")).not.toBeInTheDocument();
+  });
+});
+
+describe("MobileSongEntry discogsUnavailable artwork gate", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseShowControl.mockReturnValue({ live: true, currentShow: 100 });
+  });
+
+  it("renders the Not on Discogs badge instead of artwork_url when flagged", () => {
+    const flaggedEntry = createTestFlowsheetEntry({
+      track_title: "la paradoja",
+      artist_name: "Juana Molina",
+      album_title: "DOGA",
+      record_label: "Sonamos",
+      artwork_url: "https://i.discogs.com/doga.jpg",
+      discogsUnavailable: true,
+    });
+
+    renderWithProviders(
+      <MobileSongEntry entry={flaggedEntry} playing={false} queue={false} />
+    );
+
+    expect(screen.getByLabelText("Not on Discogs")).toBeInTheDocument();
+    expect(screen.queryByRole("img")).toBeNull();
+  });
+
+  it("renders the artwork <img> and no badge when unflagged", () => {
+    const unflaggedEntry = createTestFlowsheetEntry({
+      track_title: "la paradoja",
+      artist_name: "Juana Molina",
+      album_title: "DOGA",
+      record_label: "Sonamos",
+      artwork_url: "https://i.discogs.com/doga.jpg",
+      discogsUnavailable: undefined,
+    });
+
+    renderWithProviders(
+      <MobileSongEntry entry={unflaggedEntry} playing={false} queue={false} />
+    );
+
+    expect(screen.queryByLabelText("Not on Discogs")).toBeNull();
+    const image = screen.getByRole("img");
+    expect(image).toHaveAttribute("src", "https://i.discogs.com/doga.jpg");
+  });
+
+  it("surfaces discogsUnavailableNote via the badge tooltip", async () => {
+    const flaggedEntry = createTestFlowsheetEntry({
+      track_title: "la paradoja",
+      artist_name: "Juana Molina",
+      album_title: "DOGA",
+      record_label: "Sonamos",
+      discogsUnavailable: true,
+      discogsUnavailableNote: "embargoed until 2026-09-01",
+    });
+
+    const { user } = renderWithProviders(
+      <MobileSongEntry entry={flaggedEntry} playing={false} queue={false} />
+    );
+
+    await user.hover(screen.getByLabelText("Not on Discogs"));
+
+    expect(
+      await screen.findByText("embargoed until 2026-09-01")
+    ).toBeInTheDocument();
   });
 });
