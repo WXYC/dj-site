@@ -3,6 +3,7 @@
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
 import { useMediaQuery } from "@/src/hooks/useMediaQuery";
+import { NotOnDiscogsBadge } from "@/src/components/experiences/modern/catalog/AlbumArtwork";
 import { entryFieldTextColor } from "@/src/utilities/modern/entryFieldColors";
 import { PlayArrow } from "@mui/icons-material";
 import { AspectRatio, Box, IconButton, Stack, Tooltip } from "@mui/joy";
@@ -89,11 +90,15 @@ const SongEntry = memo(function SongEntry({
               minHeight: "48px",
             }}
           >
-            <img
-              src={image}
-              alt="album art"
-              style={{ minWidth: "48px", minHeight: "48px" }}
-            />
+            {entry.discogsUnavailable === true ? (
+              <NotOnDiscogsBadge size={48} note={entry.discogsUnavailableNote} />
+            ) : (
+              <img
+                src={image}
+                alt="album art"
+                style={{ minWidth: "48px", minHeight: "48px" }}
+              />
+            )}
           </AspectRatio>
           {canClose && queue && (
             <Tooltip

@@ -1,5 +1,6 @@
 import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import SongEntry from "@/src/components/experiences/modern/flowsheet/Entries/SongEntry/SongEntry";
 import {
   flowsheetChipsReservePx,
@@ -10,6 +11,11 @@ import {
   FLOWSHEET_STATUS_CHIP_MIN_PX,
 } from "@/src/components/experiences/modern/flowsheet/Entries/tableStyles";
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
+// Imported from the fixtures module directly (not the "@/tests/helpers"
+// barrel) — the barrel re-exports render.tsx, which pulls in "@/lib/store",
+// and this file's flowsheet/api mock only stubs useAddToFlowsheetMutation,
+// not the flowsheetApi slice the store needs.
+import { createTestFlowsheetEntry } from "@/tests/fixtures/fixtures";
 
 // Mock hooks
 const mockUseShowControl = vi.fn();
@@ -1121,5 +1127,70 @@ describe("SongEntry status chips reserve space for the hover actions", () => {
     expect(screen.getByText("SEGUE")).toBeInTheDocument();
     // Read-only rows drop the editable checkboxes; only the info button remains.
     expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+  });
+});
+
+describe("SongEntry discogsUnavailable artwork gate", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseShowControl.mockReturnValue({
+      live: true,
+      autoplay: false,
+      currentShow: 100,
+    });
+    mockUseFlowsheet.mockReturnValue({ updateFlowsheet: mockUpdateFlowsheet });
+  });
+
+  it("renders the Not on Discogs badge instead of artwork_url when flagged", () => {
+    const entry = createTestFlowsheetEntry({
+      track_title: "la paradoja",
+      artist_name: "Juana Molina",
+      album_title: "DOGA",
+      record_label: "Sonamos",
+      artwork_url: "https://i.discogs.com/doga.jpg",
+      discogsUnavailable: true,
+    });
+
+    render(<SongEntry entry={entry} playing={false} queue={false} />);
+
+    expect(screen.getByLabelText("Not on Discogs")).toBeInTheDocument();
+    expect(screen.queryByRole("img")).toBeNull();
+  });
+
+  it("renders the artwork <img> and no badge when unflagged", () => {
+    const entry = createTestFlowsheetEntry({
+      track_title: "la paradoja",
+      artist_name: "Juana Molina",
+      album_title: "DOGA",
+      record_label: "Sonamos",
+      artwork_url: "https://i.discogs.com/doga.jpg",
+      discogsUnavailable: undefined,
+    });
+
+    render(<SongEntry entry={entry} playing={false} queue={false} />);
+
+    expect(screen.queryByLabelText("Not on Discogs")).toBeNull();
+    const image = screen.getByRole("img");
+    expect(image).toHaveAttribute("src", "https://i.discogs.com/doga.jpg");
+  });
+
+  it("surfaces discogsUnavailableNote via the badge tooltip", async () => {
+    const entry = createTestFlowsheetEntry({
+      track_title: "la paradoja",
+      artist_name: "Juana Molina",
+      album_title: "DOGA",
+      record_label: "Sonamos",
+      discogsUnavailable: true,
+      discogsUnavailableNote: "embargoed until 2026-09-01",
+    });
+
+    const user = userEvent.setup();
+    render(<SongEntry entry={entry} playing={false} queue={false} />);
+
+    await user.hover(screen.getByLabelText("Not on Discogs"));
+
+    expect(
+      await screen.findByText("embargoed until 2026-09-01")
+    ).toBeInTheDocument();
   });
 });

@@ -72,6 +72,8 @@ export type FlowsheetSongBase = {
   rotation?: Rotation;
   on_streaming?: boolean;
   artwork_url?: string;
+  discogsUnavailable?: boolean;
+  discogsUnavailableNote?: string | null;
 };
 
 export type FlowsheetSongEntry = FlowsheetEntryBase & FlowsheetSongBase;
@@ -221,7 +223,13 @@ type JSONDates<T> = {
   [K in keyof T]: T[K] extends Date ? string : T[K];
 };
 
-export type FlowsheetV2TrackEntryJSON = JSONDates<FlowsheetV2TrackEntry>;
+export type FlowsheetV2TrackEntryJSON = JSONDates<FlowsheetV2TrackEntry> & {
+  // BS serves discogsUnavailable flat on the V2 track entry; the pinned
+  // @wxyc/shared predates it, so the field is declared locally here until the
+  // dependency is bumped. camelCase matches the wire.
+  discogsUnavailable?: boolean;
+  discogsUnavailableNote?: string | null;
+};
 export type FlowsheetV2ShowStartEntryJSON = JSONDates<FlowsheetV2ShowStartEntry>;
 export type FlowsheetV2ShowEndEntryJSON = JSONDates<FlowsheetV2ShowEndEntry>;
 export type FlowsheetV2DJJoinEntryJSON = JSONDates<FlowsheetV2DJJoinEntry>;
