@@ -19,6 +19,7 @@ import { NotOnDiscogsBadge } from "@/src/components/experiences/modern/catalog/A
 import DiscogsMarkup from "./DiscogsMarkupRenderer";
 import DiscogsUnavailableControl from "./DiscogsUnavailableControl";
 import LibraryStatus from "./LibraryStatus";
+import RotationClassifyControl from "./RotationClassifyControl";
 import StreamingLinks from "./StreamingLinks";
 import Tracklist from "./Tracklist";
 
@@ -144,6 +145,7 @@ export default function AlbumCard({
           </Stack>
         </Stack>
         <DiscogsUnavailableControl key={album.id} album={album} />
+        <RotationClassifyControl key={album.id} album={album} />
         {!isDiscogsUnavailable && <StreamingLinks metadata={metadata} />}
         {!isDiscogsUnavailable && artistBio && (
           <>
