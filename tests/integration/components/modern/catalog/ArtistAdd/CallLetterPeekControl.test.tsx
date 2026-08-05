@@ -45,14 +45,16 @@ function sessionWithRole() {
 }
 
 function mockPeekCode() {
+  let requestCount = 0;
   let receivedParams: URLSearchParams | undefined;
   server.use(
     http.get(`${TEST_BACKEND_URL}/library/artists/peek-code`, ({ request }) => {
+      requestCount += 1;
       receivedParams = new URL(request.url).searchParams;
       return HttpResponse.json({ next_code_number: 7 });
     }),
   );
-  return () => receivedParams;
+  return { getReceivedParams: () => receivedParams, getRequestCount: () => requestCount };
 }
 
 describe("CallLetterPeekControl", () => {
@@ -61,8 +63,8 @@ describe("CallLetterPeekControl", () => {
   });
 
   describe("permission gating", () => {
-    it("renders nothing for a DJ", async () => {
-      mockPeekCode();
+    it("renders nothing and never queries peek-code for a DJ", async () => {
+      const { getRequestCount } = mockPeekCode();
       mockFetchOrgRole.mockResolvedValue("dj");
       mockUseSession.mockReturnValue(sessionWithRole());
       renderWithProviders(
@@ -70,10 +72,14 @@ describe("CallLetterPeekControl", () => {
       );
 
       await waitFor(() => expect(mockFetchOrgRole).toHaveBeenCalled());
+      // Wait for the org-role fetch to actually settle (not just have been
+      // called) before asserting the negative, so this doesn't pass vacuously
+      // while resolution is still pending.
       await mockFetchOrgRole.mock.results[0].value;
       await waitFor(() =>
-        expect(screen.queryByLabelText("Next code number")).not.toBeInTheDocument(),
+        expect(screen.queryByTestId("next-code-number")).not.toBeInTheDocument(),
       );
+      expect(getRequestCount()).toBe(0);
     });
 
     it("renders for a Music Director", async () => {
@@ -84,7 +90,7 @@ describe("CallLetterPeekControl", () => {
         <CallLetterPeekControl code_letters="MO" genre_id={3} />,
       );
 
-      expect(await screen.findByLabelText("Next code number")).toBeInTheDocument();
+      expect(await screen.findByTestId("next-code-number")).toBeInTheDocument();
     });
   });
 
@@ -95,7 +101,7 @@ describe("CallLetterPeekControl", () => {
     });
 
     it("queries peek-code with the code_letters and genre_id props and previews the response", async () => {
-      const getReceivedParams = mockPeekCode();
+      const { getReceivedParams } = mockPeekCode();
       renderWithProviders(
         <CallLetterPeekControl code_letters="MO" genre_id={3} />,
       );
@@ -106,11 +112,11 @@ describe("CallLetterPeekControl", () => {
         expect(params?.get("genre_id")).toBe("3");
       });
 
-      expect(await screen.findByLabelText("Next code number")).toHaveTextContent("7");
+      expect(await screen.findByTestId("next-code-number")).toHaveTextContent("7");
     });
 
     it("re-queries reactively when code_letters changes", async () => {
-      const getReceivedParams = mockPeekCode();
+      const { getReceivedParams } = mockPeekCode();
       const { rerender } = renderWithProviders(
         <CallLetterPeekControl code_letters="MO" genre_id={3} />,
       );
@@ -122,11 +128,25 @@ describe("CallLetterPeekControl", () => {
       await waitFor(() => expect(getReceivedParams()?.get("code_letters")).toBe("ST"));
     });
 
+    it("shows a loading state instead of the previous letters' code number during the debounce window", async () => {
+      mockPeekCode();
+      const { rerender } = renderWithProviders(
+        <CallLetterPeekControl code_letters="MO" genre_id={3} />,
+      );
+
+      expect(await screen.findByTestId("next-code-number")).toHaveTextContent("7");
+
+      rerender(<CallLetterPeekControl code_letters="ST" genre_id={3} />);
+
+      expect(screen.queryByTestId("next-code-number")).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Loading next code number")).toBeInTheDocument();
+    });
+
     it("renders nothing when code_letters is blank", () => {
       mockPeekCode();
       renderWithProviders(<CallLetterPeekControl code_letters="" genre_id={3} />);
 
-      expect(screen.queryByLabelText("Next code number")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("next-code-number")).not.toBeInTheDocument();
     });
 
     it("renders nothing when genre_id is not selected", () => {
@@ -135,7 +155,7 @@ describe("CallLetterPeekControl", () => {
         <CallLetterPeekControl code_letters="MO" genre_id={null} />,
       );
 
-      expect(screen.queryByLabelText("Next code number")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("next-code-number")).not.toBeInTheDocument();
     });
 
     it("shows an error message when the peek query fails", async () => {
