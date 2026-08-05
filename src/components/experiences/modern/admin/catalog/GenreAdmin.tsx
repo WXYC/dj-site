@@ -14,7 +14,11 @@ import {
   Typography,
 } from "@mui/joy";
 import { RequireMD } from "@/src/components/shared/Authorization";
-import { useAddGenreMutation, useGetGenresQuery } from "@/lib/features/catalog/api";
+import {
+  catalogMutationErrorMessage,
+  useAddGenreMutation,
+  useGetGenresQuery,
+} from "@/lib/features/catalog/api";
 
 function GenreAdmin() {
   const { data: genres } = useGetGenresQuery();
@@ -26,14 +30,19 @@ function GenreAdmin() {
     e.preventDefault();
     const trimmedName = name.trim();
     const trimmedDescription = description.trim();
-    if (!trimmedName || !trimmedDescription) return;
+    if (!trimmedName || !trimmedDescription) {
+      toast.error(
+        !trimmedName ? "Genre name can't be blank" : "Genre description can't be blank"
+      );
+      return;
+    }
 
     try {
       await addGenre({ name: trimmedName, description: trimmedDescription }).unwrap();
       setName("");
       setDescription("");
-    } catch {
-      toast.error("Failed to add genre");
+    } catch (err) {
+      toast.error(catalogMutationErrorMessage(err, "Failed to add genre"));
     }
   };
 

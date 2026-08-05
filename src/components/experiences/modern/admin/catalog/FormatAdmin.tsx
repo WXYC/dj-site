@@ -14,7 +14,11 @@ import {
   Typography,
 } from "@mui/joy";
 import { RequireMD } from "@/src/components/shared/Authorization";
-import { useAddFormatMutation, useGetFormatsQuery } from "@/lib/features/catalog/api";
+import {
+  catalogMutationErrorMessage,
+  useAddFormatMutation,
+  useGetFormatsQuery,
+} from "@/lib/features/catalog/api";
 
 function FormatAdmin() {
   const { data: formats } = useGetFormatsQuery();
@@ -24,13 +28,16 @@ function FormatAdmin() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const trimmed = name.trim();
-    if (!trimmed) return;
+    if (!trimmed) {
+      toast.error("Format name can't be blank");
+      return;
+    }
 
     try {
       await addFormat({ name: trimmed }).unwrap();
       setName("");
-    } catch {
-      toast.error("Failed to add format");
+    } catch (err) {
+      toast.error(catalogMutationErrorMessage(err, "Failed to add format"));
     }
   };
 

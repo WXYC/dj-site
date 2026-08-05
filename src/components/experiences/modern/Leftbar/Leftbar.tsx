@@ -41,11 +41,7 @@ export default async function Leftbar(): Promise<JSX.Element> {
             >
               <ManageAccounts />
             </LeftbarLink>
-            <LeftbarLink
-              path="/dashboard/admin/catalog"
-              title="Catalog Admin"
-              disabled={user.authority < Authorization.MD}
-            >
+            <LeftbarLink path="/dashboard/admin/catalog" title="Catalog Admin">
               <LibraryMusicIcon />
             </LeftbarLink>
             <LeftbarLink
