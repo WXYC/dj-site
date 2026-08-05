@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
+import { useState } from "react";
 import {
   renderWithProviders,
   server,
@@ -53,6 +54,9 @@ function sessionWithRole() {
 
 const ARTIST_SEARCH_URL = `${TEST_BACKEND_URL}/library/artists/search`;
 
+const ROCK_GENRE_ID = 7;
+const JAZZ_GENRE_ID = 99;
+
 const juanaMolina: ArtistInGenreOption = {
   id: 12,
   artist_name: "Juana Molina",
@@ -60,16 +64,75 @@ const juanaMolina: ArtistInGenreOption = {
   code_number: 3,
 };
 
-function mockArtistSearch(artists: ArtistInGenreOption[]) {
-  let capturedUrl: URL | undefined;
+const chuquimamaniCondori: ArtistInGenreOption = {
+  id: 20,
+  artist_name: "Chuquimamani-Condori",
+  code_letters: "CH",
+  code_number: 1,
+};
+
+const jessicaPratt: ArtistInGenreOption = {
+  id: 31,
+  artist_name: "Jessica Pratt",
+  code_letters: "PR",
+  code_number: 5,
+};
+
+type SearchResponder = (url: URL) => Response;
+
+/**
+ * Installs the artist-search handler and returns the list of requests it has
+ * served. Every request is appended, so a test can assert how many the
+ * component actually issued — a single last-write-wins capture cannot tell one
+ * debounced request from five.
+ */
+function mockArtistSearch(
+  respond: ArtistInGenreOption[] | SearchResponder,
+): URL[] {
+  const requests: URL[] = [];
   server.use(
     http.get(ARTIST_SEARCH_URL, ({ request }) => {
-      capturedUrl = new URL(request.url);
-      return HttpResponse.json({ artists });
+      const url = new URL(request.url);
+      requests.push(url);
+      return typeof respond === "function"
+        ? respond(url)
+        : HttpResponse.json({ artists: respond });
     }),
   );
-  return () => capturedUrl;
+  return requests;
 }
+
+/**
+ * The component's search text is caller-owned, so tests drive it through a
+ * host that holds the value — the same shape the consuming forms use.
+ */
+function ControlledTypeahead({
+  genreId = ROCK_GENRE_ID,
+  initialValue = "",
+  onSelect = vi.fn(),
+  onCreateNew = vi.fn(),
+  disabled,
+}: {
+  genreId?: number;
+  initialValue?: string;
+  onSelect?: (artist: ArtistInGenreOption) => void;
+  onCreateNew?: (searchTerm: string) => void;
+  disabled?: boolean;
+}) {
+  const [value, setValue] = useState(initialValue);
+  return (
+    <ArtistSearchTypeahead
+      genreId={genreId}
+      value={value}
+      onChange={setValue}
+      onSelect={onSelect}
+      onCreateNew={onCreateNew}
+      disabled={disabled}
+    />
+  );
+}
+
+const findInput = () => screen.findByPlaceholderText("Search artists...");
 
 describe("ArtistSearchTypeahead", () => {
   beforeEach(() => {
@@ -84,13 +147,7 @@ describe("ArtistSearchTypeahead", () => {
     it("renders nothing for a DJ", async () => {
       mockFetchOrgRole.mockResolvedValue("dj");
       mockUseSession.mockReturnValue(sessionWithRole());
-      renderWithProviders(
-        <ArtistSearchTypeahead
-          genreId={1}
-          onSelect={vi.fn()}
-          onCreateNew={vi.fn()}
-        />,
-      );
+      renderWithProviders(<ControlledTypeahead />);
 
       await waitFor(() => expect(mockFetchOrgRole).toHaveBeenCalled());
       await mockFetchOrgRole.mock.results[0].value;
@@ -104,166 +161,346 @@ describe("ArtistSearchTypeahead", () => {
     it("renders the search input for a Music Director", async () => {
       mockFetchOrgRole.mockResolvedValue("musicDirector");
       mockUseSession.mockReturnValue(sessionWithRole());
-      renderWithProviders(
-        <ArtistSearchTypeahead
-          genreId={1}
-          onSelect={vi.fn()}
-          onCreateNew={vi.fn()}
-        />,
-      );
+      renderWithProviders(<ControlledTypeahead />);
 
-      expect(
-        await screen.findByPlaceholderText("Search artists..."),
-      ).toBeInTheDocument();
+      expect(await findInput()).toBeInTheDocument();
     });
   });
 
-  describe("querying", () => {
+  describe("as a Music Director", () => {
     beforeEach(() => {
       mockFetchOrgRole.mockResolvedValue("musicDirector");
       mockUseSession.mockReturnValue(sessionWithRole());
     });
 
-    it("debounces the query and scopes it to the given genre", async () => {
-      const getUrl = mockArtistSearch([juanaMolina]);
-      const { user } = renderWithProviders(
-        <ArtistSearchTypeahead
-          genreId={7}
-          onSelect={vi.fn()}
-          onCreateNew={vi.fn()}
-        />,
-      );
+    describe("querying", () => {
+      it("issues one debounced request scoped to the given genre", async () => {
+        const requests = mockArtistSearch([juanaMolina]);
+        const { user } = renderWithProviders(<ControlledTypeahead />);
 
-      const input = await screen.findByPlaceholderText("Search artists...");
-      await user.type(input, "Juana");
+        const input = await findInput();
+        await user.type(input, "Juana");
 
-      expect(getUrl()).toBeUndefined();
+        expect(requests).toHaveLength(0);
 
-      await vi.advanceTimersByTimeAsync(400);
-      await waitFor(() => expect(getUrl()).toBeDefined());
+        await vi.advanceTimersByTimeAsync(400);
+        await waitFor(() => expect(requests).toHaveLength(1));
 
-      expect(getUrl()!.searchParams.get("q")).toBe("Juana");
-      expect(getUrl()!.searchParams.get("genre_id")).toBe("7");
-    });
+        expect(requests[0].searchParams.get("q")).toBe("Juana");
+        expect(requests[0].searchParams.get("genre_id")).toBe(
+          String(ROCK_GENRE_ID),
+        );
+      });
 
-    it("does not query below the minimum query length", async () => {
-      const getUrl = mockArtistSearch([juanaMolina]);
-      const { user } = renderWithProviders(
-        <ArtistSearchTypeahead
-          genreId={7}
-          onSelect={vi.fn()}
-          onCreateNew={vi.fn()}
-        />,
-      );
+      it("does not query below the minimum query length", async () => {
+        const requests = mockArtistSearch([juanaMolina]);
+        const { user } = renderWithProviders(<ControlledTypeahead />);
 
-      const input = await screen.findByPlaceholderText("Search artists...");
-      await user.type(input, "J");
-      await vi.advanceTimersByTimeAsync(400);
+        const input = await findInput();
+        await user.type(input, "J");
+        await vi.advanceTimersByTimeAsync(400);
 
-      expect(getUrl()).toBeUndefined();
-    });
+        expect(requests).toHaveLength(0);
+      });
 
-    it("renders matching results", async () => {
-      mockArtistSearch([juanaMolina]);
-      const { user } = renderWithProviders(
-        <ArtistSearchTypeahead
-          genreId={7}
-          onSelect={vi.fn()}
-          onCreateNew={vi.fn()}
-        />,
-      );
+      it("does not query for a seeded value until the panel is opened", async () => {
+        const requests = mockArtistSearch([juanaMolina]);
+        renderWithProviders(<ControlledTypeahead initialValue="Juana Molina" />);
 
-      const input = await screen.findByPlaceholderText("Search artists...");
-      await user.type(input, "Juana");
-      await vi.advanceTimersByTimeAsync(400);
+        await findInput();
+        await vi.advanceTimersByTimeAsync(400);
 
-      expect(await screen.findByText("Juana Molina")).toBeInTheDocument();
-    });
-  });
+        expect(requests).toHaveLength(0);
+        expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+      });
 
-  describe("selection", () => {
-    beforeEach(() => {
-      mockFetchOrgRole.mockResolvedValue("musicDirector");
-      mockUseSession.mockReturnValue(sessionWithRole());
-    });
+      it("renders matching results", async () => {
+        mockArtistSearch([juanaMolina]);
+        const { user } = renderWithProviders(<ControlledTypeahead />);
 
-    it("calls onSelect with the full artist object on click", async () => {
-      mockArtistSearch([juanaMolina]);
-      const onSelect = vi.fn();
-      const { user } = renderWithProviders(
-        <ArtistSearchTypeahead
-          genreId={7}
-          onSelect={onSelect}
-          onCreateNew={vi.fn()}
-        />,
-      );
+        const input = await findInput();
+        await user.type(input, "Juana");
+        await vi.advanceTimersByTimeAsync(400);
 
-      const input = await screen.findByPlaceholderText("Search artists...");
-      await user.type(input, "Juana");
-      await vi.advanceTimersByTimeAsync(400);
-
-      await user.click(await screen.findByText("Juana Molina"));
-
-      expect(onSelect).toHaveBeenCalledWith(juanaMolina);
-    });
-
-    it("navigates results with the keyboard and selects with Enter", async () => {
-      mockArtistSearch([
-        juanaMolina,
-        { id: 20, artist_name: "Chuquimamani-Condori", code_letters: "CH", code_number: 1 },
-      ]);
-      const onSelect = vi.fn();
-      const { user } = renderWithProviders(
-        <ArtistSearchTypeahead
-          genreId={7}
-          onSelect={onSelect}
-          onCreateNew={vi.fn()}
-        />,
-      );
-
-      const input = await screen.findByPlaceholderText("Search artists...");
-      await user.type(input, "Juana");
-      await vi.advanceTimersByTimeAsync(400);
-      await screen.findByText("Juana Molina");
-
-      await user.keyboard("{ArrowDown}{Enter}");
-
-      expect(onSelect).toHaveBeenCalledWith({
-        id: 20,
-        artist_name: "Chuquimamani-Condori",
-        code_letters: "CH",
-        code_number: 1,
+        expect(await screen.findByText("Juana Molina")).toBeInTheDocument();
       });
     });
-  });
 
-  describe("no matches", () => {
-    beforeEach(() => {
-      mockFetchOrgRole.mockResolvedValue("musicDirector");
-      mockUseSession.mockReturnValue(sessionWithRole());
+    describe("stale results", () => {
+      it("drops the previous genre's results when the genre changes", async () => {
+        const requests = mockArtistSearch((url) =>
+          HttpResponse.json({
+            artists:
+              url.searchParams.get("genre_id") === String(ROCK_GENRE_ID)
+                ? [juanaMolina]
+                : [jessicaPratt],
+          }),
+        );
+        const { user, rerender } = renderWithProviders(
+          <ControlledTypeahead genreId={ROCK_GENRE_ID} />,
+        );
+
+        const input = await findInput();
+        await user.type(input, "Juana");
+        await vi.advanceTimersByTimeAsync(400);
+        expect(await screen.findByText("Juana Molina")).toBeInTheDocument();
+
+        rerender(<ControlledTypeahead genreId={JAZZ_GENRE_ID} />);
+        await vi.advanceTimersByTimeAsync(400);
+
+        await waitFor(() =>
+          expect(screen.queryByText("Juana Molina")).not.toBeInTheDocument(),
+        );
+        expect(
+          requests.some(
+            (r) => r.searchParams.get("genre_id") === String(JAZZ_GENRE_ID),
+          ),
+        ).toBe(true);
+      });
+
+      it("drops results as soon as the query falls below the minimum length", async () => {
+        mockArtistSearch([juanaMolina]);
+        const { user } = renderWithProviders(<ControlledTypeahead />);
+
+        const input = await findInput();
+        await user.type(input, "Juana");
+        await vi.advanceTimersByTimeAsync(400);
+        expect(await screen.findByText("Juana Molina")).toBeInTheDocument();
+
+        await user.clear(input);
+
+        expect(screen.queryByText("Juana Molina")).not.toBeInTheDocument();
+      });
+
+      it("drops results while a newly typed query is still debouncing", async () => {
+        mockArtistSearch([juanaMolina]);
+        const { user } = renderWithProviders(<ControlledTypeahead />);
+
+        const input = await findInput();
+        await user.type(input, "Juana");
+        await vi.advanceTimersByTimeAsync(400);
+        expect(await screen.findByText("Juana Molina")).toBeInTheDocument();
+
+        // Still a valid query, but no longer the one that produced these rows.
+        await user.type(input, "s");
+
+        expect(screen.queryByText("Juana Molina")).not.toBeInTheDocument();
+      });
     });
 
-    it("offers to create a new artist with the current search term", async () => {
-      mockArtistSearch([]);
-      const onCreateNew = vi.fn();
-      const { user } = renderWithProviders(
-        <ArtistSearchTypeahead
-          genreId={7}
-          onSelect={vi.fn()}
-          onCreateNew={onCreateNew}
-        />,
-      );
+    describe("selection", () => {
+      it("calls onSelect with the full artist object on click", async () => {
+        mockArtistSearch([juanaMolina]);
+        const onSelect = vi.fn();
+        const { user } = renderWithProviders(
+          <ControlledTypeahead onSelect={onSelect} />,
+        );
 
-      const input = await screen.findByPlaceholderText("Search artists...");
-      await user.type(input, "Nonexistent Band");
-      await vi.advanceTimersByTimeAsync(400);
+        const input = await findInput();
+        await user.type(input, "Juana");
+        await vi.advanceTimersByTimeAsync(400);
 
-      const createOption = await screen.findByText(
-        'Create new artist "Nonexistent Band"',
-      );
-      await user.click(createOption);
+        await user.click(await screen.findByText("Juana Molina"));
 
-      expect(onCreateNew).toHaveBeenCalledWith("Nonexistent Band");
+        expect(onSelect).toHaveBeenCalledWith(juanaMolina);
+        expect(input).toHaveValue("Juana Molina");
+      });
+
+      it("navigates results with the keyboard and selects with Enter", async () => {
+        mockArtistSearch([juanaMolina, chuquimamaniCondori]);
+        const onSelect = vi.fn();
+        const { user } = renderWithProviders(
+          <ControlledTypeahead onSelect={onSelect} />,
+        );
+
+        const input = await findInput();
+        await user.type(input, "Juana");
+        await vi.advanceTimersByTimeAsync(400);
+        await screen.findByText("Juana Molina");
+
+        await user.keyboard("{ArrowDown}{ArrowDown}{ArrowUp}{Enter}");
+
+        expect(onSelect).toHaveBeenCalledWith(juanaMolina);
+      });
+
+      it("issues no further request once a result has been picked", async () => {
+        const requests = mockArtistSearch([juanaMolina]);
+        const { user } = renderWithProviders(<ControlledTypeahead />);
+
+        const input = await findInput();
+        await user.type(input, "Juana");
+        await vi.advanceTimersByTimeAsync(400);
+
+        await user.click(await screen.findByText("Juana Molina"));
+        await vi.advanceTimersByTimeAsync(400);
+
+        expect(requests).toHaveLength(1);
+        expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+      });
+
+      it("reopens the panel when the already-focused input is clicked", async () => {
+        mockArtistSearch([juanaMolina]);
+        const { user } = renderWithProviders(<ControlledTypeahead />);
+
+        const input = await findInput();
+        await user.type(input, "Juana");
+        await vi.advanceTimersByTimeAsync(400);
+        await user.click(await screen.findByText("Juana Molina"));
+
+        // The options' onMouseDown preventDefault keeps focus on the input, so
+        // clicking it again cannot refire onFocus.
+        expect(input).toHaveFocus();
+        await user.click(input);
+        await vi.advanceTimersByTimeAsync(400);
+
+        expect(await screen.findByRole("listbox")).toBeInTheDocument();
+      });
+
+      it("closes the panel on Escape", async () => {
+        mockArtistSearch([juanaMolina]);
+        const { user } = renderWithProviders(<ControlledTypeahead />);
+
+        const input = await findInput();
+        await user.type(input, "Juana");
+        await vi.advanceTimersByTimeAsync(400);
+        await screen.findByRole("listbox");
+
+        await user.keyboard("{Escape}");
+
+        expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+      });
+    });
+
+    describe("creating a new artist", () => {
+      it("offers to create a new artist with the current search term", async () => {
+        mockArtistSearch([]);
+        const onCreateNew = vi.fn();
+        const { user } = renderWithProviders(
+          <ControlledTypeahead onCreateNew={onCreateNew} />,
+        );
+
+        const input = await findInput();
+        await user.type(input, "Nonexistent Band");
+        await vi.advanceTimersByTimeAsync(400);
+
+        await user.click(
+          await screen.findByText('Create new artist "Nonexistent Band"'),
+        );
+
+        expect(onCreateNew).toHaveBeenCalledWith("Nonexistent Band");
+      });
+
+      it("reaches the create row with the keyboard past the last result", async () => {
+        mockArtistSearch([juanaMolina]);
+        const onCreateNew = vi.fn();
+        const onSelect = vi.fn();
+        const { user } = renderWithProviders(
+          <ControlledTypeahead onSelect={onSelect} onCreateNew={onCreateNew} />,
+        );
+
+        const input = await findInput();
+        await user.type(input, "Juana");
+        await vi.advanceTimersByTimeAsync(400);
+        await screen.findByText("Juana Molina");
+
+        await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+
+        expect(onCreateNew).toHaveBeenCalledWith("Juana");
+        expect(onSelect).not.toHaveBeenCalled();
+      });
+
+      it("does not create on Enter before results have arrived", async () => {
+        const onCreateNew = vi.fn();
+        const onSelect = vi.fn();
+        mockArtistSearch([juanaMolina]);
+        const { user } = renderWithProviders(
+          <ControlledTypeahead onSelect={onSelect} onCreateNew={onCreateNew} />,
+        );
+
+        const input = await findInput();
+        await user.type(input, "Juana");
+
+        // Still inside the debounce window: no row exists to act on.
+        await user.keyboard("{Enter}");
+
+        expect(onCreateNew).not.toHaveBeenCalled();
+        expect(onSelect).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("failed search", () => {
+      it("reports the failure instead of offering to create a duplicate", async () => {
+        mockArtistSearch(() =>
+          HttpResponse.json({ message: "boom" }, { status: 500 }),
+        );
+        const { user } = renderWithProviders(<ControlledTypeahead />);
+
+        const input = await findInput();
+        await user.type(input, "Juana");
+        await vi.advanceTimersByTimeAsync(400);
+
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          /Artist search is unavailable/i,
+        );
+        expect(
+          screen.queryByText(/Create new artist/i),
+        ).not.toBeInTheDocument();
+        expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+      });
+
+      it("closes on Escape even though there are no rows to navigate", async () => {
+        mockArtistSearch(() =>
+          HttpResponse.json({ message: "boom" }, { status: 500 }),
+        );
+        const { user } = renderWithProviders(<ControlledTypeahead />);
+
+        const input = await findInput();
+        await user.type(input, "Juana");
+        await vi.advanceTimersByTimeAsync(400);
+        await screen.findByRole("alert");
+
+        await user.keyboard("{Escape}");
+
+        expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      });
+
+      it("retries the search on demand", async () => {
+        let failNext = true;
+        const requests = mockArtistSearch(() => {
+          if (failNext) {
+            failNext = false;
+            return HttpResponse.json({ message: "boom" }, { status: 500 });
+          }
+          return HttpResponse.json({ artists: [juanaMolina] });
+        });
+        const { user } = renderWithProviders(<ControlledTypeahead />);
+
+        const input = await findInput();
+        await user.type(input, "Juana");
+        await vi.advanceTimersByTimeAsync(400);
+        await screen.findByRole("alert");
+
+        await user.click(screen.getByRole("button", { name: /try again/i }));
+        await vi.advanceTimersByTimeAsync(400);
+
+        expect(await screen.findByText("Juana Molina")).toBeInTheDocument();
+        expect(requests).toHaveLength(2);
+      });
+    });
+
+    describe("disabled", () => {
+      it("neither opens nor queries", async () => {
+        const requests = mockArtistSearch([juanaMolina]);
+        renderWithProviders(<ControlledTypeahead initialValue="Juana" disabled />);
+
+        const input = await findInput();
+        expect(input).toBeDisabled();
+
+        await vi.advanceTimersByTimeAsync(400);
+
+        expect(requests).toHaveLength(0);
+        expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+      });
     });
   });
 });
