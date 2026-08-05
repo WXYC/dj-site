@@ -8,6 +8,7 @@ import {
   server,
   TEST_BACKEND_URL,
 } from "@/tests/helpers";
+import { _resetAuthorizedViewCacheForTesting } from "@/src/components/shared/Authorization/AuthorizedView";
 import DiscogsUnavailableControl from "@/src/components/experiences/modern/Rightbar/panels/album/DiscogsUnavailableControl";
 
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -15,8 +16,9 @@ vi.mock("@/lib/features/authentication/client", () => ({
   getJWTToken: vi.fn().mockResolvedValue("test-token"),
 }));
 
-// No organization configured: AuthorizedView falls back to the raw session
-// role synchronously, so tests don't need to await an org-role fetch.
+// No organization configured (the real production shape): the WXYC tier
+// resolves via fetchOrganizationRoleForUserClient's JWT decode, not the raw
+// session role, so every test drives that mock and awaits resolution.
 vi.mock("@/lib/features/authentication/organization-config", () => ({
   getAppOrganizationIdClient: vi.fn(() => undefined),
 }));
@@ -30,11 +32,17 @@ vi.mock("sonner", () => ({
 }));
 
 import { authClient } from "@/lib/features/authentication/client";
+import { fetchOrganizationRoleForUserClient } from "@/lib/features/authentication/organization-utils";
 import { toast } from "sonner";
 
 const mockUseSession = authClient.useSession as ReturnType<typeof vi.fn>;
+const mockFetchOrgRole = fetchOrganizationRoleForUserClient as ReturnType<typeof vi.fn>;
 
-function sessionWithRole(role: string) {
+// session.user.role is better-auth's admin-plugin column (null in
+// production for ordinary members) — it is never the WXYC tier. The tier
+// comes from mockFetchOrgRole, mirroring what the JWT carries in production.
+function sessionWithRole(tier: string) {
+  mockFetchOrgRole.mockResolvedValue(tier);
   return {
     data: {
       user: {
@@ -42,7 +50,7 @@ function sessionWithRole(role: string) {
         email: "test@wxyc.org",
         name: "Test User",
         username: "testuser",
-        role,
+        role: null,
         emailVerified: true,
       },
       session: { id: "sess-1", userId: "user-1", expiresAt: new Date() },
@@ -91,28 +99,30 @@ function mockPatch() {
 describe("DiscogsUnavailableControl", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    _resetAuthorizedViewCacheForTesting();
   });
 
   describe("permission gating", () => {
-    it("renders nothing for a DJ", () => {
+    it("renders nothing for a DJ", async () => {
       mockUseSession.mockReturnValue(sessionWithRole("dj"));
       renderWithProviders(<DiscogsUnavailableControl album={juanaMolinaAlbum()} />);
 
+      await waitFor(() => expect(mockFetchOrgRole).toHaveBeenCalled());
       expect(screen.queryByLabelText("Not on Discogs")).not.toBeInTheDocument();
     });
 
-    it("renders the toggle for a Music Director", () => {
+    it("renders the toggle for a Music Director", async () => {
       mockUseSession.mockReturnValue(sessionWithRole("musicDirector"));
       renderWithProviders(<DiscogsUnavailableControl album={juanaMolinaAlbum()} />);
 
-      expect(screen.getByLabelText("Not on Discogs")).toBeInTheDocument();
+      expect(await screen.findByLabelText("Not on Discogs")).toBeInTheDocument();
     });
 
-    it("renders the toggle for a Station Manager", () => {
+    it("renders the toggle for a Station Manager", async () => {
       mockUseSession.mockReturnValue(sessionWithRole("stationManager"));
       renderWithProviders(<DiscogsUnavailableControl album={juanaMolinaAlbum()} />);
 
-      expect(screen.getByLabelText("Not on Discogs")).toBeInTheDocument();
+      expect(await screen.findByLabelText("Not on Discogs")).toBeInTheDocument();
     });
   });
 
@@ -121,14 +131,14 @@ describe("DiscogsUnavailableControl", () => {
       mockUseSession.mockReturnValue(sessionWithRole("musicDirector"));
     });
 
-    it("is unchecked with no note field when the album is not flagged", () => {
+    it("is unchecked with no note field when the album is not flagged", async () => {
       renderWithProviders(<DiscogsUnavailableControl album={juanaMolinaAlbum()} />);
 
-      expect(screen.getByLabelText("Not on Discogs")).not.toBeChecked();
+      expect(await screen.findByLabelText("Not on Discogs")).not.toBeChecked();
       expect(screen.queryByLabelText("Reason (optional)")).not.toBeInTheDocument();
     });
 
-    it("is checked with the note prefilled when the album is already flagged", () => {
+    it("is checked with the note prefilled when the album is already flagged", async () => {
       renderWithProviders(
         <DiscogsUnavailableControl
           album={juanaMolinaAlbum({
@@ -138,20 +148,20 @@ describe("DiscogsUnavailableControl", () => {
         />,
       );
 
-      expect(screen.getByLabelText("Not on Discogs")).toBeChecked();
+      expect(await screen.findByLabelText("Not on Discogs")).toBeChecked();
       expect(screen.getByLabelText("Reason (optional)")).toHaveValue(
         "audience doesn't use Discogs",
       );
     });
 
-    it("caps the note field at 500 characters", () => {
+    it("caps the note field at 500 characters", async () => {
       renderWithProviders(
         <DiscogsUnavailableControl
           album={juanaMolinaAlbum({ discogsUnavailable: true })}
         />,
       );
 
-      expect(screen.getByLabelText("Reason (optional)")).toHaveAttribute(
+      expect(await screen.findByLabelText("Reason (optional)")).toHaveAttribute(
         "maxLength",
         "500",
       );
@@ -169,7 +179,7 @@ describe("DiscogsUnavailableControl", () => {
         <DiscogsUnavailableControl album={juanaMolinaAlbum()} />,
       );
 
-      const toggle = screen.getByLabelText("Not on Discogs");
+      const toggle = await screen.findByLabelText("Not on Discogs");
       await user.click(toggle);
 
       // Reflected immediately, ahead of the PATCH resolving.
@@ -195,7 +205,7 @@ describe("DiscogsUnavailableControl", () => {
         />,
       );
 
-      const toggle = screen.getByLabelText("Not on Discogs");
+      const toggle = await screen.findByLabelText("Not on Discogs");
       await user.click(toggle);
 
       expect(toggle).not.toBeChecked();
@@ -219,7 +229,7 @@ describe("DiscogsUnavailableControl", () => {
         <DiscogsUnavailableControl album={juanaMolinaAlbum()} />,
       );
 
-      const toggle = screen.getByLabelText("Not on Discogs");
+      const toggle = await screen.findByLabelText("Not on Discogs");
       await user.click(toggle);
 
       await waitFor(() => expect(toggle).not.toBeChecked());
@@ -234,13 +244,14 @@ describe("DiscogsUnavailableControl", () => {
       mockUseSession.mockReturnValue(sessionWithRole("musicDirector"));
     });
 
-    it("does not show a Save button until the note text changes", () => {
+    it("does not show a Save button until the note text changes", async () => {
       renderWithProviders(
         <DiscogsUnavailableControl
           album={juanaMolinaAlbum({ discogsUnavailable: true, discogsUnavailableNote: "old reason" })}
         />,
       );
 
+      await screen.findByLabelText("Reason (optional)");
       expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
     });
 
@@ -252,7 +263,7 @@ describe("DiscogsUnavailableControl", () => {
         />,
       );
 
-      const note = screen.getByLabelText("Reason (optional)");
+      const note = await screen.findByLabelText("Reason (optional)");
       await user.clear(note);
       await user.type(note, "  new reason  ");
       await user.click(screen.getByRole("button", { name: "Save" }));
@@ -273,7 +284,7 @@ describe("DiscogsUnavailableControl", () => {
         />,
       );
 
-      const note = screen.getByLabelText("Reason (optional)");
+      const note = await screen.findByLabelText("Reason (optional)");
       await user.clear(note);
       await user.click(screen.getByRole("button", { name: "Save" }));
 
@@ -293,7 +304,7 @@ describe("DiscogsUnavailableControl", () => {
         />,
       );
 
-      const note = screen.getByLabelText("Reason (optional)");
+      const note = await screen.findByLabelText("Reason (optional)");
       await user.clear(note);
       await user.type(note, "new reason");
       await user.click(screen.getByRole("button", { name: "Save" }));
@@ -315,7 +326,7 @@ describe("DiscogsUnavailableControl", () => {
         />,
       );
 
-      const note = screen.getByLabelText("Reason (optional)");
+      const note = await screen.findByLabelText("Reason (optional)");
       await user.type(note, " updated");
       await user.click(screen.getByRole("button", { name: "Save" }));
 
