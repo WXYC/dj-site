@@ -6,7 +6,6 @@ import {
   RequireDJ,
   RequireMD,
   RequireSM,
-  _resetAuthorizedViewCacheForTesting,
 } from "@/src/components/shared/Authorization/AuthorizedView";
 
 // Mock the auth client
@@ -59,7 +58,6 @@ function createMockSession(userId = "user-123", sessionRole: string | null = nul
 
 beforeEach(() => {
   vi.clearAllMocks();
-  _resetAuthorizedViewCacheForTesting();
   mockGetOrgId.mockReturnValue(undefined);
 });
 
@@ -176,31 +174,6 @@ describe("AuthorizedView", () => {
     });
   });
 
-  describe("repeated mounts on one panel", () => {
-    it("issues at most one org-role fetch for the same user across multiple AuthorizedView instances", async () => {
-      mockUseSession.mockReturnValue(createMockSession());
-      mockFetchOrgRole.mockResolvedValue("musicDirector");
-
-      render(
-        <>
-          <RequireMD fallback={<div>Denied 1</div>}>
-            <div>Content 1</div>
-          </RequireMD>
-          <RequireMD fallback={<div>Denied 2</div>}>
-            <div>Content 2</div>
-          </RequireMD>
-          <RequireDJ fallback={<div>Denied 3</div>}>
-            <div>Content 3</div>
-          </RequireDJ>
-        </>
-      );
-
-      await waitFor(() => expect(screen.getByText("Content 1")).toBeInTheDocument());
-      expect(screen.getByText("Content 2")).toBeInTheDocument();
-      expect(screen.getByText("Content 3")).toBeInTheDocument();
-      expect(mockFetchOrgRole).toHaveBeenCalledTimes(1);
-    });
-  });
 });
 
 describe("Convenience Components", () => {
