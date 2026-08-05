@@ -35,6 +35,9 @@ export const TEST_ENTITY_IDS = {
     MEDIUM: 5002,
     LIGHT: 5003,
   },
+  GENRE: {
+    ROCK: 3,
+  },
 } as const;
 
 // Test strings for search queries
@@ -43,6 +46,11 @@ export const TEST_SEARCH_STRINGS = {
   ALBUM_NAME: "Test Album",
   TRACK_TITLE: "Test Track",
   LABEL: "Test Label",
+  // Card-catalog call letters for real WXYC-representative artists.
+  CODE_LETTERS: {
+    MOLINA: "MO",
+    STEREOLAB: "ST",
+  },
 } as const;
 
 // Backend URL for MSW handlers
