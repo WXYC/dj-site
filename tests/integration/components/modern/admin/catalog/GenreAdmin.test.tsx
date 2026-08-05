@@ -157,5 +157,57 @@ describe("GenreAdmin", () => {
 
       await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Failed to add genre"));
     });
+
+    it("surfaces the server's error message instead of a generic one", async () => {
+      mockGenres([]);
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/library/genres`, () =>
+          HttpResponse.json({ message: "A genre named Electronic already exists" }, { status: 409 }),
+        ),
+      );
+      const { user } = renderWithProviders(<GenreAdmin />);
+
+      const nameInput = await screen.findByLabelText(/genre name/i);
+      const descriptionInput = screen.getByLabelText(/description/i);
+      await user.type(nameInput, "Electronic");
+      await user.type(descriptionInput, "Synth-driven music");
+      await user.click(screen.getByRole("button", { name: /Add Genre/i }));
+
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith("A genre named Electronic already exists"),
+      );
+    });
+
+    it("shows an error toast and does not submit when the name is whitespace-only", async () => {
+      const { getReceivedBody } = mockGenres([]);
+      const { user } = renderWithProviders(<GenreAdmin />);
+
+      const nameInput = await screen.findByLabelText(/genre name/i);
+      const descriptionInput = screen.getByLabelText(/description/i);
+      await user.type(nameInput, "   ");
+      await user.type(descriptionInput, "Synth-driven music");
+      await user.click(screen.getByRole("button", { name: /Add Genre/i }));
+
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith("Genre name can't be blank"),
+      );
+      expect(getReceivedBody()).toBeUndefined();
+    });
+
+    it("shows an error toast and does not submit when the description is whitespace-only", async () => {
+      const { getReceivedBody } = mockGenres([]);
+      const { user } = renderWithProviders(<GenreAdmin />);
+
+      const nameInput = await screen.findByLabelText(/genre name/i);
+      const descriptionInput = screen.getByLabelText(/description/i);
+      await user.type(nameInput, "Electronic");
+      await user.type(descriptionInput, "   ");
+      await user.click(screen.getByRole("button", { name: /Add Genre/i }));
+
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith("Genre description can't be blank"),
+      );
+      expect(getReceivedBody()).toBeUndefined();
+    });
   });
 });

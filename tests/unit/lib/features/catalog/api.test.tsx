@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   catalogApi,
+  catalogMutationErrorMessage,
   useSearchCatalogQuery,
   useSearchLibraryQueryInfiniteQuery,
   useAddAlbumMutation,
@@ -235,6 +236,37 @@ describe("catalogApi", () => {
     it("should have middleware", () => {
       expect(catalogApi.middleware).toBeDefined();
       expect(typeof catalogApi.middleware).toBe("function");
+    });
+  });
+
+  describe("catalogMutationErrorMessage", () => {
+    it("extracts the server message from a FetchBaseQueryError body", () => {
+      const error = { status: 409, data: { message: "Format already exists" } };
+      expect(catalogMutationErrorMessage(error, "fallback")).toBe(
+        "Format already exists",
+      );
+    });
+
+    it("extracts message from a SerializedError", () => {
+      const error = { name: "Error", message: "Network request failed" };
+      expect(catalogMutationErrorMessage(error, "fallback")).toBe(
+        "Network request failed",
+      );
+    });
+
+    it("falls back when the error body has no message field", () => {
+      const error = { status: 500, data: { error: "rejected" } };
+      expect(catalogMutationErrorMessage(error, "fallback")).toBe("fallback");
+    });
+
+    it("falls back when the message is blank", () => {
+      const error = { status: 409, data: { message: "   " } };
+      expect(catalogMutationErrorMessage(error, "fallback")).toBe("fallback");
+    });
+
+    it("falls back for a non-object error", () => {
+      expect(catalogMutationErrorMessage("boom", "fallback")).toBe("fallback");
+      expect(catalogMutationErrorMessage(undefined, "fallback")).toBe("fallback");
     });
   });
 

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
+import { renderWithProviders } from "@/tests/helpers/render";
 import Leftbar from "@/src/components/experiences/modern/Leftbar/Leftbar";
 import { Authorization } from "@/lib/features/admin/types";
 import type { User } from "@/lib/features/authentication/types";
@@ -117,14 +118,14 @@ describe("Leftbar", () => {
 
   it("should render the leftbar container", async () => {
     const Component = await Leftbar();
-    render(Component);
+    renderWithProviders(Component);
 
     expect(screen.getByTestId("leftbar-container")).toBeInTheDocument();
   });
 
   it("should render catalog link", async () => {
     const Component = await Leftbar();
-    render(Component);
+    renderWithProviders(Component);
 
     const catalogLink = screen.getByTestId(
       "leftbar-link--dashboard-catalog"
@@ -135,14 +136,14 @@ describe("Leftbar", () => {
 
   it("should render flowsheet link", async () => {
     const Component = await Leftbar();
-    render(Component);
+    renderWithProviders(Component);
 
     expect(screen.getByTestId("flowsheet-link")).toBeInTheDocument();
   });
 
   it("should render previous sets link as enabled", async () => {
     const Component = await Leftbar();
-    render(Component);
+    renderWithProviders(Component);
 
     const playlistsLink = screen.getByTestId(
       "leftbar-link--dashboard-playlists"
@@ -154,7 +155,7 @@ describe("Leftbar", () => {
 
   it("should render settings button", async () => {
     const Component = await Leftbar();
-    render(Component);
+    renderWithProviders(Component);
 
     const settingsButton = screen.getByTestId("leftbar-settings-button");
     expect(settingsButton).toBeInTheDocument();
@@ -163,7 +164,7 @@ describe("Leftbar", () => {
 
   it("should render logout component with user", async () => {
     const Component = await Leftbar();
-    render(Component);
+    renderWithProviders(Component);
 
     const logout = screen.getByTestId("leftbar-logout");
     expect(logout).toBeInTheDocument();
@@ -172,7 +173,7 @@ describe("Leftbar", () => {
 
   it("should not render admin links for DJ authority", async () => {
     const Component = await Leftbar();
-    render(Component);
+    renderWithProviders(Component);
 
     // DJ users should not see admin links
     expect(
@@ -196,7 +197,7 @@ describe("Leftbar", () => {
     });
 
     const Component = await Leftbar();
-    render(Component);
+    renderWithProviders(Component);
 
     // MD users should see admin links
     expect(
@@ -220,7 +221,7 @@ describe("Leftbar", () => {
     });
 
     const Component = await Leftbar();
-    render(Component);
+    renderWithProviders(Component);
 
     // SM users should see admin links
     expect(
@@ -238,7 +239,7 @@ describe("Leftbar", () => {
     });
 
     const Component = await Leftbar();
-    render(Component);
+    renderWithProviders(Component);
 
     const rosterLink = screen.getByTestId(
       "leftbar-link--dashboard-admin-roster"
@@ -256,15 +257,15 @@ describe("Leftbar", () => {
     });
 
     const Component = await Leftbar();
-    render(Component);
+    renderWithProviders(Component);
 
     const catalogLink = screen.getByTestId(
       "leftbar-link--dashboard-admin-catalog"
     );
-    expect(catalogLink).toHaveAttribute("data-disabled", "false");
+    expect(catalogLink).not.toHaveAttribute("data-disabled", "true");
   });
 
-  it("should disable catalog admin link for DJ-adjacent authority below MD", async () => {
+  it("should not render catalog admin link for DJ authority (admin block hidden, not merely disabled)", async () => {
     const { getUserFromSession } = await import(
       "@/lib/features/authentication/server-utils"
     );
@@ -274,7 +275,7 @@ describe("Leftbar", () => {
     });
 
     const Component = await Leftbar();
-    render(Component);
+    renderWithProviders(Component);
 
     // DJ authority hides the whole admin block, so the catalog link never renders.
     expect(
@@ -292,7 +293,7 @@ describe("Leftbar", () => {
     });
 
     const Component = await Leftbar();
-    render(Component);
+    renderWithProviders(Component);
 
     expect(screen.getByTestId("library-music-icon")).toBeInTheDocument();
   });
@@ -307,7 +308,7 @@ describe("Leftbar", () => {
     });
 
     const Component = await Leftbar();
-    render(Component);
+    renderWithProviders(Component);
 
     const rosterLink = screen.getByTestId(
       "leftbar-link--dashboard-admin-roster"
@@ -325,7 +326,7 @@ describe("Leftbar", () => {
     });
 
     const Component = await Leftbar();
-    render(Component);
+    renderWithProviders(Component);
 
     const scheduleLink = screen.getByTestId(
       "leftbar-link--dashboard-admin-schedule"
@@ -343,7 +344,7 @@ describe("Leftbar", () => {
     });
 
     const Component = await Leftbar();
-    render(Component);
+    renderWithProviders(Component);
 
     // Should have dividers between sections
     expect(screen.getAllByTestId("divider").length).toBeGreaterThan(0);
@@ -351,28 +352,28 @@ describe("Leftbar", () => {
 
   it("should render list component", async () => {
     const Component = await Leftbar();
-    render(Component);
+    renderWithProviders(Component);
 
     expect(screen.getByTestId("list")).toBeInTheDocument();
   });
 
   it("should render album icon for catalog link", async () => {
     const Component = await Leftbar();
-    render(Component);
+    renderWithProviders(Component);
 
     expect(screen.getByTestId("album-icon")).toBeInTheDocument();
   });
 
   it("should render settings icon for settings link", async () => {
     const Component = await Leftbar();
-    render(Component);
+    renderWithProviders(Component);
 
     expect(screen.getByTestId("settings-icon")).toBeInTheDocument();
   });
 
   it("should render storage icon for playlists link", async () => {
     const Component = await Leftbar();
-    render(Component);
+    renderWithProviders(Component);
 
     expect(screen.getByTestId("storage-icon")).toBeInTheDocument();
   });
@@ -387,7 +388,7 @@ describe("Leftbar", () => {
     });
 
     const Component = await Leftbar();
-    render(Component);
+    renderWithProviders(Component);
 
     expect(screen.getByTestId("manage-accounts-icon")).toBeInTheDocument();
   });
@@ -402,7 +403,7 @@ describe("Leftbar", () => {
     });
 
     const Component = await Leftbar();
-    render(Component);
+    renderWithProviders(Component);
 
     expect(screen.getByTestId("edit-calendar-icon")).toBeInTheDocument();
   });

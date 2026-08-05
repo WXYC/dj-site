@@ -146,5 +146,37 @@ describe("FormatAdmin", () => {
 
       await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Failed to add format"));
     });
+
+    it("surfaces the server's error message instead of a generic one", async () => {
+      mockFormats([]);
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/library/formats`, () =>
+          HttpResponse.json({ message: "A format named Cassette already exists" }, { status: 409 }),
+        ),
+      );
+      const { user } = renderWithProviders(<FormatAdmin />);
+
+      const input = await screen.findByLabelText(/new format/i);
+      await user.type(input, "Cassette");
+      await user.click(screen.getByRole("button", { name: /Add Format/i }));
+
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith("A format named Cassette already exists"),
+      );
+    });
+
+    it("shows an error toast and does not submit when the name is whitespace-only", async () => {
+      const { getReceivedBody } = mockFormats([]);
+      const { user } = renderWithProviders(<FormatAdmin />);
+
+      const input = await screen.findByLabelText(/new format/i);
+      await user.type(input, "   ");
+      await user.click(screen.getByRole("button", { name: /Add Format/i }));
+
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith("Format name can't be blank"),
+      );
+      expect(getReceivedBody()).toBeUndefined();
+    });
   });
 });
