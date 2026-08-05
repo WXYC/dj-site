@@ -1,0 +1,69 @@
+"use client";
+
+import { useState } from "react";
+import { toast } from "sonner";
+import {
+  Button,
+  FormControl,
+  FormLabel,
+  Input,
+  List,
+  ListItem,
+  Sheet,
+  Stack,
+  Typography,
+} from "@mui/joy";
+import { RequireMD } from "@/src/components/shared/Authorization";
+import { useAddFormatMutation, useGetFormatsQuery } from "@/lib/features/catalog/api";
+
+function FormatAdmin() {
+  const { data: formats } = useGetFormatsQuery();
+  const [addFormat, { isLoading }] = useAddFormatMutation();
+  const [name, setName] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed) return;
+
+    try {
+      await addFormat({ name: trimmed }).unwrap();
+      setName("");
+    } catch {
+      toast.error("Failed to add format");
+    }
+  };
+
+  return (
+    <RequireMD>
+      <Sheet variant="outlined" sx={{ p: 2, borderRadius: "md" }}>
+        <Typography level="title-md" sx={{ mb: 1 }}>
+          Formats
+        </Typography>
+        <List size="sm" sx={{ mb: 2 }}>
+          {(formats ?? []).map((format) => (
+            <ListItem key={format.id}>{format.format_name}</ListItem>
+          ))}
+        </List>
+        <form onSubmit={handleSubmit}>
+          <Stack direction="row" spacing={1} alignItems="flex-end">
+            <FormControl sx={{ flex: 1 }}>
+              <FormLabel>New format</FormLabel>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Cassette"
+                required
+              />
+            </FormControl>
+            <Button type="submit" loading={isLoading}>
+              Add Format
+            </Button>
+          </Stack>
+        </form>
+      </Sheet>
+    </RequireMD>
+  );
+}
+
+export default FormatAdmin;

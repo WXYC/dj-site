@@ -3,6 +3,7 @@ import { Authorization } from "@/lib/features/admin/types";
 import { requireAuth, getUserFromSession } from "@/lib/features/authentication/server-utils";
 import { EditCalendar, ManageAccounts } from "@mui/icons-material";
 import AlbumIcon from "@mui/icons-material/Album";
+import LibraryMusicIcon from "@mui/icons-material/LibraryMusic";
 import StorageIcon from "@mui/icons-material/Storage";
 import Divider from "@mui/joy/Divider";
 import List from "@mui/joy/List";
@@ -39,6 +40,13 @@ export default async function Leftbar(): Promise<JSX.Element> {
               disabled={user.authority < Authorization.SM}
             >
               <ManageAccounts />
+            </LeftbarLink>
+            <LeftbarLink
+              path="/dashboard/admin/catalog"
+              title="Catalog Admin"
+              disabled={user.authority < Authorization.MD}
+            >
+              <LibraryMusicIcon />
             </LeftbarLink>
             <LeftbarLink
               path="/dashboard/admin/schedule"
