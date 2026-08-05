@@ -8,15 +8,29 @@ on:
   workflow_dispatch:
     inputs:
       backend_ref:
-        description: 'Backend-Service branch/tag to use'
+        description: 'Backend-Service branch or commit SHA (blank = the pinned ref)'
         required: false
-        default: 'main'
+        default: ''
 
 concurrency:
   group: e2e-${{ github.ref }}
   cancel-in-progress: true
 
 env:
+  # Backend-Service commit this suite runs against by default.
+  #
+  # This job used to check Backend-Service out at `main`, so dj-site's merge gate
+  # floated on another repo's default branch: an upstream commit could — and did —
+  # turn every dj-site PR red with no signal at the boundary. Backend-Service
+  # bb84c63f/fb81e2b2 broke 14 admin/auth specs on 2026-08-03 and closed this
+  # repo's merge gate for two days (#1088).
+  #
+  # ef60c249 is the last commit verified green here (4/4 shards, run 31026323488).
+  #
+  # TEMPORARY. Unpin — restore `main` — once WXYC/Backend-Service#1999 lands, or
+  # this suite silently stops testing the Backend that production actually runs.
+  # Advance the pin deliberately when a newer Backend commit is verified green.
+  BACKEND_PINNED_REF: ef60c2492a48cce2f210a9dbdf877c9bb9e39903
   # Frontend configuration
   NEXT_PUBLIC_BACKEND_URL: http://localhost:8085
   NEXT_PUBLIC_BETTER_AUTH_URL: http://localhost:8084/auth
@@ -134,19 +148,46 @@ jobs:
           INPUT_BACKEND_REF: ${{ github.event.inputs.backend_ref }}
           HEAD_REF: ${{ github.head_ref }}
           EVENT_NAME: ${{ github.event_name }}
+          OWNER: ${{ github.repository_owner }}
         run: |
+          set -euo pipefail
+
+          # Accepts a branch name OR a commit SHA. The branch lookup used to be the
+          # whole check, so a SHA fell through to the fallback and the run tested
+          # something other than what it named — while still printing a ref line
+          # that looked deliberate. A pinned SHA cannot work without this.
+          resolve() {
+            gh api "repos/${OWNER}/Backend-Service/git/ref/heads/$1" >/dev/null 2>&1 && return 0
+            gh api "repos/${OWNER}/Backend-Service/commits/$1" >/dev/null 2>&1 && return 0
+            return 1
+          }
+
           REF="$INPUT_BACKEND_REF"
           if [ -z "$REF" ] && [ "$EVENT_NAME" = "pull_request" ]; then
+            # Paired-branch convention: a same-named Backend-Service branch is used
+            # when one exists, so a cross-repo change can be tested as a unit.
             REF="$HEAD_REF"
           fi
-          REF="${REF:-main}"
-          if gh api "repos/${{ github.repository_owner }}/Backend-Service/git/ref/heads/${REF}" >/dev/null 2>&1; then
+
+          if [ -n "$REF" ] && resolve "$REF"; then
             echo "ref=${REF}" >> "$GITHUB_OUTPUT"
             echo "Using Backend-Service ref: ${REF}"
-          else
-            echo "ref=main" >> "$GITHUB_OUTPUT"
-            echo "Backend-Service ref ${REF} not found; falling back to main"
+            exit 0
           fi
+
+          # An explicit request that does not resolve is a mistake, not a cue to
+          # test something else. Failing here is what makes a bisection trustworthy.
+          if [ -n "$INPUT_BACKEND_REF" ]; then
+            echo "::error::backend_ref '${INPUT_BACKEND_REF}' is not a branch or commit in ${OWNER}/Backend-Service."
+            exit 1
+          fi
+
+          if ! resolve "$BACKEND_PINNED_REF"; then
+            echo "::error::BACKEND_PINNED_REF '${BACKEND_PINNED_REF}' is not a branch or commit in ${OWNER}/Backend-Service."
+            exit 1
+          fi
+          echo "ref=${BACKEND_PINNED_REF}" >> "$GITHUB_OUTPUT"
+          echo "Using Backend-Service ref: ${BACKEND_PINNED_REF} (pinned)"
 
       - name: Checkout Backend-Service
         uses: actions/checkout@v7
