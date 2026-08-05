@@ -10,9 +10,3 @@ export type RotationFrontendState = {
   orderBy: "title" | "artist" | "album";
   orderDirection: "asc" | "desc";
 };
-
-export type KillRotationParams = {
-  rotation_id: number;
-  kill_date: Date | undefined;
-};
-
