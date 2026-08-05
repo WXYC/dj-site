@@ -101,6 +101,10 @@ vi.mock("@mui/icons-material/Storage", () => ({
   default: () => <svg data-testid="storage-icon" />,
 }));
 
+vi.mock("@mui/icons-material/LibraryMusic", () => ({
+  default: () => <svg data-testid="library-music-icon" />,
+}));
+
 vi.mock("@mui/icons-material", () => ({
   EditCalendar: () => <svg data-testid="edit-calendar-icon" />,
   ManageAccounts: () => <svg data-testid="manage-accounts-icon" />,
@@ -175,6 +179,9 @@ describe("Leftbar", () => {
       screen.queryByTestId("leftbar-link--dashboard-admin-roster")
     ).not.toBeInTheDocument();
     expect(
+      screen.queryByTestId("leftbar-link--dashboard-admin-catalog")
+    ).not.toBeInTheDocument();
+    expect(
       screen.queryByTestId("leftbar-link--dashboard-admin-schedule")
     ).not.toBeInTheDocument();
   });
@@ -194,6 +201,9 @@ describe("Leftbar", () => {
     // MD users should see admin links
     expect(
       screen.getByTestId("leftbar-link--dashboard-admin-roster")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId("leftbar-link--dashboard-admin-catalog")
     ).toBeInTheDocument();
     expect(
       screen.getByTestId("leftbar-link--dashboard-admin-schedule")
@@ -234,6 +244,57 @@ describe("Leftbar", () => {
       "leftbar-link--dashboard-admin-roster"
     );
     expect(rosterLink).toHaveAttribute("data-disabled", "true");
+  });
+
+  it("should enable catalog admin link for MD authority", async () => {
+    const { getUserFromSession } = await import(
+      "@/lib/features/authentication/server-utils"
+    );
+    vi.mocked(getUserFromSession).mockResolvedValue({
+      ...mockUser,
+      authority: Authorization.MD,
+    });
+
+    const Component = await Leftbar();
+    render(Component);
+
+    const catalogLink = screen.getByTestId(
+      "leftbar-link--dashboard-admin-catalog"
+    );
+    expect(catalogLink).toHaveAttribute("data-disabled", "false");
+  });
+
+  it("should disable catalog admin link for DJ-adjacent authority below MD", async () => {
+    const { getUserFromSession } = await import(
+      "@/lib/features/authentication/server-utils"
+    );
+    vi.mocked(getUserFromSession).mockResolvedValue({
+      ...mockUser,
+      authority: Authorization.DJ,
+    });
+
+    const Component = await Leftbar();
+    render(Component);
+
+    // DJ authority hides the whole admin block, so the catalog link never renders.
+    expect(
+      screen.queryByTestId("leftbar-link--dashboard-admin-catalog")
+    ).not.toBeInTheDocument();
+  });
+
+  it("should render library music icon for catalog admin link when visible", async () => {
+    const { getUserFromSession } = await import(
+      "@/lib/features/authentication/server-utils"
+    );
+    vi.mocked(getUserFromSession).mockResolvedValue({
+      ...mockUser,
+      authority: Authorization.SM,
+    });
+
+    const Component = await Leftbar();
+    render(Component);
+
+    expect(screen.getByTestId("library-music-icon")).toBeInTheDocument();
   });
 
   it("should enable roster link for SM authority", async () => {

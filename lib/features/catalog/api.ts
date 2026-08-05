@@ -59,7 +59,7 @@ function transformLibraryQueryResponse(
 export const catalogApi = createApi({
   reducerPath: "catalogApi",
   baseQuery: backendBaseQuery("library"),
-  tagTypes: ["Rotation", "AlbumDetail", "CatalogList", "ArtistSearch"],
+  tagTypes: ["Rotation", "AlbumDetail", "CatalogList", "ArtistSearch", "FormatList", "GenreList"],
   endpoints: (builder) => ({
     searchCatalog: builder.query<AlbumEntry[], SearchCatalogQueryParams>({
       query: ({ artist_name, album_title, n, on_streaming }) => ({
@@ -231,6 +231,7 @@ export const catalogApi = createApi({
       query: () => ({
         url: "/formats",
       }),
+      providesTags: [{ type: "FormatList", id: "LIST" }],
     }),
     addFormat: builder.mutation<LibraryFormatRow, AddFormatRequestBody>({
       query: (body) => ({
@@ -238,11 +239,13 @@ export const catalogApi = createApi({
         method: "POST",
         body,
       }),
+      invalidatesTags: [{ type: "FormatList", id: "LIST" }],
     }),
     getGenres: builder.query<LibraryGenreRow[], void>({
       query: () => ({
         url: "/genres",
       }),
+      providesTags: [{ type: "GenreList", id: "LIST" }],
     }),
     addGenre: builder.mutation<LibraryGenreRow, AddGenreRequestBody>({
       query: (body) => ({
@@ -250,6 +253,7 @@ export const catalogApi = createApi({
         method: "POST",
         body,
       }),
+      invalidatesTags: [{ type: "GenreList", id: "LIST" }],
     }),
   }),
 });
