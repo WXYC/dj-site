@@ -3,9 +3,38 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Authorization } from "@/lib/features/admin/types";
 import { authClient } from "@/lib/features/authentication/client";
-import { roleToAuthorization } from "@/lib/features/authentication/types";
+import { roleToAuthorization, type WXYCRole } from "@/lib/features/authentication/types";
 import { fetchOrganizationRoleForUserClient } from "@/lib/features/authentication/organization-utils";
 import { getAppOrganizationIdClient } from "@/lib/features/authentication/organization-config";
+
+/**
+ * Module-level cache of in-flight/resolved org-role lookups, keyed by userId
+ * + organizationId. A single panel can mount several gated controls
+ * (RequireMD/RequireSM/RequireDJ), each its own AuthorizedView instance; without
+ * this cache every one of them would independently decode the JWT / hit
+ * listMembers for the same session.
+ */
+const orgRoleCache = new Map<string, Promise<WXYCRole | undefined>>();
+
+function orgRoleCacheKey(userId: string, organizationId: string | undefined) {
+  return `${userId}:${organizationId ?? ""}`;
+}
+
+function getCachedOrgRole(userId: string, organizationId: string | undefined) {
+  const key = orgRoleCacheKey(userId, organizationId);
+  let cached = orgRoleCache.get(key);
+  if (!cached) {
+    cached = fetchOrganizationRoleForUserClient(userId, organizationId);
+    cached.catch(() => orgRoleCache.delete(key));
+    orgRoleCache.set(key, cached);
+  }
+  return cached;
+}
+
+/** @internal test-only: clear the module-level org-role cache between tests. */
+export function _resetAuthorizedViewCacheForTesting() {
+  orgRoleCache.clear();
+}
 
 export interface AuthorizedViewProps {
   requiredRole: Authorization;
@@ -22,14 +51,10 @@ export function AuthorizedView({
 }: AuthorizedViewProps) {
   const session = authClient.useSession();
   const userId = session.data?.user?.id as string | undefined;
-  const rawRole = (session.data?.user as any)?.role as string | undefined;
 
   // Resolved authority is keyed to the userId it was computed for: on a live
   // session identity swap the stale value must not paint the old user's
   // privileges for even one render, so a key mismatch reads as unresolved.
-  // When an organization is configured, authority is org-scoped and fails
-  // closed to NO — the session base role is never trusted (mirrors
-  // getUserAuthority in server-utils.ts).
   const [resolved, setResolved] = useState<
     { forUserId: string; authority: Authorization } | undefined
   >(undefined);
@@ -40,23 +65,19 @@ export function AuthorizedView({
       return;
     }
 
-    // NEXT_PUBLIC_APP_ORGANIZATION must be set wherever the server sets
-    // APP_ORGANIZATION (organization-config.ts documents the pairing): if the
-    // server is org-scoped and this is unset, this branch trusts the raw
-    // session role while the server fails closed — the client would show UI
-    // the server denies.
+    // session.data.user.role is better-auth's admin-plugin column (only ever
+    // "admin" or null on this app) — it is NOT the WXYC tier and must never be
+    // trusted here. The WXYC tier reaches the client only via the auth JWT.
+    // fetchOrganizationRoleForUserClient decodes that JWT unconditionally and
+    // only needs an organizationId for its listMembers fallback, so this
+    // resolves correctly whether or not NEXT_PUBLIC_APP_ORGANIZATION is set
+    // in this build (it currently isn't, in production). An unresolved role
+    // — no JWT claim and no org membership — fails closed to NO.
     const organizationId = getAppOrganizationIdClient();
-    if (!organizationId) {
-      setResolved({ forUserId: userId, authority: roleToAuthorization(rawRole) });
-      return;
-    }
-
     let cancelled = false;
-    fetchOrganizationRoleForUserClient(userId, organizationId)
+    getCachedOrgRole(userId, organizationId)
       .then((orgRole) => {
         if (cancelled) return;
-        // An unresolved org role (not a member, or a transient failure) fails
-        // closed to NO rather than falling back to the raw session role.
         setResolved({
           forUserId: userId,
           authority:
@@ -72,7 +93,7 @@ export function AuthorizedView({
     return () => {
       cancelled = true;
     };
-  }, [userId, rawRole]);
+  }, [userId]);
 
   const authority =
     userId && resolved?.forUserId === userId ? resolved.authority : undefined;
