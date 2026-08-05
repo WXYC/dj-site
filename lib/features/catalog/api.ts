@@ -275,7 +275,7 @@ export const {
   useUpdateAlbumMutation,
   useAddArtistMutation,
   useLazyPeekArtistCodeQuery,
-  useLazySearchArtistsInGenreQuery,
+  useSearchArtistsInGenreQuery,
   useGetInformationQuery,
   useGetFormatsQuery,
   useAddFormatMutation,
