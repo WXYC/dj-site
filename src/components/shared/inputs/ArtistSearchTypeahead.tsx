@@ -5,29 +5,19 @@ import { useLazySearchArtistsInGenreQuery } from "@/lib/features/catalog/api";
 import type { ArtistInGenreOption } from "@/lib/features/catalog/types";
 import { ClickAwayListener } from "@mui/base/ClickAwayListener";
 import { Box, CircularProgress, Input, Sheet, Typography } from "@mui/joy";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 const DEBOUNCE_MS = 300;
 const MIN_QUERY_LENGTH = 2;
 const RESULT_LIMIT = 10;
 
 /**
- * Shared, MD-gated artist-search typeahead. This is the load-bearing prop
- * contract for #1076 (Rightbar album panel artist link), #1079 (add-release
- * panel), and #1080 (artist-add dedup step) — all three mount this component
- * against their own surface, so changes here ripple to all of them.
- *
- * - A controlled search input: the query text is React state owned by this
- *   component, not a caller-supplied `value`/`onChange` pair — callers only
- *   observe outcomes (`onSelect`, `onCreateNew`), never raw keystrokes.
- * - `genreId` scopes the search to `useLazySearchArtistsInGenreQuery`.
- * - `onSelect(artist)` receives the full matched artist (id AND
- *   artist_name), never just an id — downstream consumers render the name
- *   without a second lookup.
- * - `onCreateNew(searchTerm)` fires on the empty-state "create new" row and
- *   only hands the current query string back to the caller. It does not
- *   navigate or open a modal itself — the create flow (dedup, form, etc.)
- *   belongs to the caller (see #1080).
+ * Shared, MD-gated artist-search typeahead — the query text is state owned
+ * by this component rather than a caller-supplied `value`/`onChange` pair,
+ * so multiple consumers with different surrounding form shapes can mount it
+ * identically and only ever observe outcomes (`onSelect`, `onCreateNew`).
+ * `onCreateNew` hands back the raw search term instead of driving the
+ * create-artist flow itself, since which UI that opens is caller-specific.
  */
 export interface ArtistSearchTypeaheadProps {
   genreId: number;
@@ -46,26 +36,47 @@ function ArtistSearchTypeaheadInner({
   const [open, setOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listboxId = useId();
   const [trigger, { data, isFetching }] = useLazySearchArtistsInGenreQuery();
 
   const trimmed = query.trim();
   const hasValidQuery = trimmed.length >= MIN_QUERY_LENGTH;
 
+  // Selecting a result writes its name into `query` so the input reads back
+  // the pick, but that write must not re-arm a redundant search — one-shot
+  // skip flag consumed by the next debounce tick.
+  const skipNextSearch = useRef(false);
+
   useEffect(() => {
     if (!hasValidQuery) return;
+    if (skipNextSearch.current) {
+      skipNextSearch.current = false;
+      return;
+    }
     const timer = setTimeout(() => {
       trigger({ genre_id: genreId, q: trimmed, limit: RESULT_LIMIT });
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [trigger, genreId, trimmed, hasValidQuery]);
 
-  const artists = hasValidQuery ? (data?.artists ?? []) : [];
+  const artists = useMemo(
+    () => (hasValidQuery ? (data?.artists ?? []) : []),
+    [hasValidQuery, data],
+  );
   const showPanel = open && hasValidQuery;
   const totalRows = artists.length + 1;
+
+  // The result set can shrink out from under a stale mouse-hover index
+  // (fewer rows in a later response), which would otherwise leave Enter as
+  // a silent no-op against a highlight index past the end of the list.
+  useEffect(() => {
+    setHighlightIndex((prev) => Math.min(prev, totalRows - 1));
+  }, [totalRows]);
 
   const handleSelect = useCallback(
     (artist: ArtistInGenreOption) => {
       onSelect(artist);
+      skipNextSearch.current = true;
       setQuery(artist.artist_name);
       setOpen(false);
       setHighlightIndex(0);
@@ -136,7 +147,14 @@ function ArtistSearchTypeaheadInner({
           slotProps={{
             input: {
               ref: inputRef,
+              role: "combobox",
               "aria-label": "Search artists",
+              "aria-expanded": showPanel,
+              "aria-controls": listboxId,
+              "aria-activedescendant": showPanel
+                ? `${listboxId}-option-${highlightIndex}`
+                : undefined,
+              "aria-autocomplete": "list",
               autoComplete: "off",
               spellCheck: false,
             },
@@ -146,6 +164,8 @@ function ArtistSearchTypeaheadInner({
         {showPanel && (
           <Sheet
             variant="outlined"
+            role="listbox"
+            id={listboxId}
             sx={{
               position: "absolute",
               top: "calc(100% + 4px)",
@@ -162,6 +182,9 @@ function ArtistSearchTypeaheadInner({
             {artists.map((artist, index) => (
               <Box
                 key={artist.id}
+                id={`${listboxId}-option-${index}`}
+                role="option"
+                aria-selected={highlightIndex === index}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => handleSelect(artist)}
                 onMouseEnter={() => setHighlightIndex(index)}
@@ -186,6 +209,9 @@ function ArtistSearchTypeaheadInner({
               </Box>
             ))}
             <Box
+              id={`${listboxId}-option-${artists.length}`}
+              role="option"
+              aria-selected={highlightIndex === artists.length}
               onMouseDown={(e) => e.preventDefault()}
               onClick={handleCreateNew}
               onMouseEnter={() => setHighlightIndex(artists.length)}
