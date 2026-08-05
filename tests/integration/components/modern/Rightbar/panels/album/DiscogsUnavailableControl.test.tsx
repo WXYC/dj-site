@@ -8,7 +8,6 @@ import {
   server,
   TEST_BACKEND_URL,
 } from "@/tests/helpers";
-import { _resetAuthorizedViewCacheForTesting } from "@/src/components/shared/Authorization/AuthorizedView";
 import DiscogsUnavailableControl from "@/src/components/experiences/modern/Rightbar/panels/album/DiscogsUnavailableControl";
 
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -39,10 +38,10 @@ const mockUseSession = authClient.useSession as ReturnType<typeof vi.fn>;
 const mockFetchOrgRole = fetchOrganizationRoleForUserClient as ReturnType<typeof vi.fn>;
 
 // session.user.role is better-auth's admin-plugin column (null in
-// production for ordinary members) — it is never the WXYC tier. The tier
-// comes from mockFetchOrgRole, mirroring what the JWT carries in production.
-function sessionWithRole(tier: string) {
-  mockFetchOrgRole.mockResolvedValue(tier);
+// production for ordinary members) — it is never the WXYC tier. Callers must
+// also set mockFetchOrgRole to the intended tier; this only builds the
+// session shape.
+function sessionWithRole() {
   return {
     data: {
       user: {
@@ -99,27 +98,35 @@ function mockPatch() {
 describe("DiscogsUnavailableControl", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    _resetAuthorizedViewCacheForTesting();
   });
 
   describe("permission gating", () => {
     it("renders nothing for a DJ", async () => {
-      mockUseSession.mockReturnValue(sessionWithRole("dj"));
+      mockFetchOrgRole.mockResolvedValue("dj");
+      mockUseSession.mockReturnValue(sessionWithRole());
       renderWithProviders(<DiscogsUnavailableControl album={juanaMolinaAlbum()} />);
 
       await waitFor(() => expect(mockFetchOrgRole).toHaveBeenCalled());
-      expect(screen.queryByLabelText("Not on Discogs")).not.toBeInTheDocument();
+      // Wait for the org-role fetch to actually settle (not just have been
+      // called) before asserting the negative, so this doesn't pass vacuously
+      // while resolution is still pending.
+      await mockFetchOrgRole.mock.results[0].value;
+      await waitFor(() =>
+        expect(screen.queryByLabelText("Not on Discogs")).not.toBeInTheDocument()
+      );
     });
 
     it("renders the toggle for a Music Director", async () => {
-      mockUseSession.mockReturnValue(sessionWithRole("musicDirector"));
+      mockFetchOrgRole.mockResolvedValue("musicDirector");
+      mockUseSession.mockReturnValue(sessionWithRole());
       renderWithProviders(<DiscogsUnavailableControl album={juanaMolinaAlbum()} />);
 
       expect(await screen.findByLabelText("Not on Discogs")).toBeInTheDocument();
     });
 
     it("renders the toggle for a Station Manager", async () => {
-      mockUseSession.mockReturnValue(sessionWithRole("stationManager"));
+      mockFetchOrgRole.mockResolvedValue("stationManager");
+      mockUseSession.mockReturnValue(sessionWithRole());
       renderWithProviders(<DiscogsUnavailableControl album={juanaMolinaAlbum()} />);
 
       expect(await screen.findByLabelText("Not on Discogs")).toBeInTheDocument();
@@ -128,7 +135,8 @@ describe("DiscogsUnavailableControl", () => {
 
   describe("initial state", () => {
     beforeEach(() => {
-      mockUseSession.mockReturnValue(sessionWithRole("musicDirector"));
+      mockFetchOrgRole.mockResolvedValue("musicDirector");
+      mockUseSession.mockReturnValue(sessionWithRole());
     });
 
     it("is unchecked with no note field when the album is not flagged", async () => {
@@ -170,7 +178,8 @@ describe("DiscogsUnavailableControl", () => {
 
   describe("toggling the flag", () => {
     beforeEach(() => {
-      mockUseSession.mockReturnValue(sessionWithRole("musicDirector"));
+      mockFetchOrgRole.mockResolvedValue("musicDirector");
+      mockUseSession.mockReturnValue(sessionWithRole());
     });
 
     it("PATCHes the flag and optimistically reflects the just-set value", async () => {
@@ -241,7 +250,8 @@ describe("DiscogsUnavailableControl", () => {
 
   describe("editing the note", () => {
     beforeEach(() => {
-      mockUseSession.mockReturnValue(sessionWithRole("musicDirector"));
+      mockFetchOrgRole.mockResolvedValue("musicDirector");
+      mockUseSession.mockReturnValue(sessionWithRole());
     });
 
     it("does not show a Save button until the note text changes", async () => {

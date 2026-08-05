@@ -3,38 +3,9 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Authorization } from "@/lib/features/admin/types";
 import { authClient } from "@/lib/features/authentication/client";
-import { roleToAuthorization, type WXYCRole } from "@/lib/features/authentication/types";
+import { roleToAuthorization } from "@/lib/features/authentication/types";
 import { fetchOrganizationRoleForUserClient } from "@/lib/features/authentication/organization-utils";
 import { getAppOrganizationIdClient } from "@/lib/features/authentication/organization-config";
-
-/**
- * Module-level cache of in-flight/resolved org-role lookups, keyed by userId
- * + organizationId. A single panel can mount several gated controls
- * (RequireMD/RequireSM/RequireDJ), each its own AuthorizedView instance; without
- * this cache every one of them would independently decode the JWT / hit
- * listMembers for the same session.
- */
-const orgRoleCache = new Map<string, Promise<WXYCRole | undefined>>();
-
-function orgRoleCacheKey(userId: string, organizationId: string | undefined) {
-  return `${userId}:${organizationId ?? ""}`;
-}
-
-function getCachedOrgRole(userId: string, organizationId: string | undefined) {
-  const key = orgRoleCacheKey(userId, organizationId);
-  let cached = orgRoleCache.get(key);
-  if (!cached) {
-    cached = fetchOrganizationRoleForUserClient(userId, organizationId);
-    cached.catch(() => orgRoleCache.delete(key));
-    orgRoleCache.set(key, cached);
-  }
-  return cached;
-}
-
-/** @internal test-only: clear the module-level org-role cache between tests. */
-export function _resetAuthorizedViewCacheForTesting() {
-  orgRoleCache.clear();
-}
 
 export interface AuthorizedViewProps {
   requiredRole: Authorization;
@@ -73,9 +44,14 @@ export function AuthorizedView({
     // resolves correctly whether or not NEXT_PUBLIC_APP_ORGANIZATION is set
     // in this build (it currently isn't, in production). An unresolved role
     // — no JWT claim and no org membership — fails closed to NO.
+    //
+    // No extra caching is added here: getJWTToken (client.ts) already caches
+    // the token with a TTL and coalesces concurrent in-flight requests, so
+    // multiple AuthorizedView instances mounted on one panel share the same
+    // underlying fetch and only pay for a cheap synchronous JWT decode each.
     const organizationId = getAppOrganizationIdClient();
     let cancelled = false;
-    getCachedOrgRole(userId, organizationId)
+    fetchOrganizationRoleForUserClient(userId, organizationId)
       .then((orgRole) => {
         if (cancelled) return;
         setResolved({
