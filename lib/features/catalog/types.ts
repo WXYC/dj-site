@@ -66,7 +66,10 @@ export type AddAlbumRequestBody = {
  * `discogs_unavailable OR discogs_unavailable_note IS NULL`); callers that
  * only toggle the flag off must pass `discogsUnavailableNote: null` alongside
  * it rather than omitting the note. lastDiscogsRecheckAt is deliberately
- * absent — it is server-write-only.
+ * absent — it is server-write-only. label_id and alternate_artist_name are
+ * nullable (matching the published contract) so a caller can explicitly clear
+ * either — omitting them is a no-op under true-partial-update semantics, so
+ * omission can never clear a value.
  */
 export type UpdateAlbumRequestBody = {
   album_title?: string;
@@ -74,9 +77,9 @@ export type UpdateAlbumRequestBody = {
   genre_id?: number;
   format_id?: number;
   artist_id?: number;
-  alternate_artist_name?: string;
+  alternate_artist_name?: string | null;
   disc_quantity?: number;
-  label_id?: number;
+  label_id?: number | null;
   discogsUnavailable?: boolean;
   discogsUnavailableNote?: string | null;
 };
