@@ -11,6 +11,7 @@ import {
 } from "@/lib/features/rotation/api";
 import { Rotation } from "@/lib/features/rotation/types";
 import { AlbumEntry } from "@/lib/features/catalog/types";
+import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
 import RotationBinSelector from "@/src/components/experiences/modern/flowsheet/Search/RotationBinSelector";
 
 interface RotationClassifyControlProps {
@@ -109,8 +110,13 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
         rotation_bin: selectedBin,
       }).unwrap();
       setSelectedBin(null);
-    } catch {
-      toast.error("Failed to add to rotation");
+    } catch (err) {
+      // The global rtkQueryErrorLogger middleware already toasts the server's
+      // own message; a second unconditional toast would bury it. Only speak for
+      // the one rejection shape that middleware leaves silent.
+      if (isUnmessagedHttpError(err)) {
+        toast.error("Failed to add to rotation");
+      }
     }
   };
 
@@ -124,8 +130,10 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
       // the retired album selectable in the flowsheet picker for another day.
       await killRotationEntry({ rotation_id: rotationId }).unwrap();
       setSelectedBin(null);
-    } catch {
-      toast.error("Failed to kill rotation entry");
+    } catch (err) {
+      if (isUnmessagedHttpError(err)) {
+        toast.error("Failed to kill rotation entry");
+      }
     } finally {
       setInFlightKillIds((prev) => {
         const next = new Set(prev);

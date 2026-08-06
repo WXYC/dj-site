@@ -15,6 +15,7 @@ import { RequireMD } from "@/src/components/shared/Authorization";
 import { useUpdateAlbumMutation } from "@/lib/features/catalog/api";
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import { DISCOGS_UNAVAILABLE_NOTE_MAX_LENGTH } from "@/lib/features/catalog/constants";
+import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
 
 interface DiscogsUnavailableControlProps {
   album: AlbumEntry;
@@ -58,11 +59,16 @@ function DiscogsUnavailableControl({ album }: DiscogsUnavailableControlProps) {
         albumId: album.id,
         body: { discogsUnavailable: next, discogsUnavailableNote: nextNote },
       }).unwrap();
-    } catch {
+    } catch (err) {
       setFlag(previousFlag);
       setSavedNote(previousNote);
       setNote(previousNote);
-      toast.error("Failed to update Discogs availability");
+      // The global rtkQueryErrorLogger middleware already toasts the server's
+      // own message; a second unconditional toast would bury it. Only speak for
+      // the one rejection shape that middleware leaves silent.
+      if (isUnmessagedHttpError(err)) {
+        toast.error("Failed to update Discogs availability");
+      }
     } finally {
       setFlagPending(false);
     }
@@ -80,8 +86,10 @@ function DiscogsUnavailableControl({ album }: DiscogsUnavailableControlProps) {
       }).unwrap();
       setSavedNote(nextNote ?? "");
       setNote(nextNote ?? "");
-    } catch {
-      toast.error("Failed to save note");
+    } catch (err) {
+      if (isUnmessagedHttpError(err)) {
+        toast.error("Failed to save note");
+      }
     } finally {
       setNotePending(false);
     }
