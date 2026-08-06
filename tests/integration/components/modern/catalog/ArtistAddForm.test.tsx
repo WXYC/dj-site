@@ -198,6 +198,29 @@ describe("ArtistAddForm", () => {
       expect(await screen.findByRole("alert")).toHaveTextContent(/Stereolab/);
     });
 
+    it("clears the stale conflict banner once the rejected code is edited", async () => {
+      mockAddArtist(() =>
+        HttpResponse.json(
+          {
+            message: "Artist code already exists for that genre and code letters.",
+            artist: { artist_id: 5, artist_name: "Stereolab", code_letters: MOLINA },
+          },
+          { status: 409 },
+        ),
+      );
+      const { user } = renderWithProviders(<ArtistAddForm />);
+
+      await fillCoreFields(user);
+      await user.click(screen.getByRole("button", { name: /add artist/i }));
+      expect(await screen.findByRole("alert")).toHaveTextContent(`${MOLINA}12`);
+
+      // Editing the field the server actually rejected must drop the banner
+      // rather than have it keep reporting the new, unsubmitted value as taken.
+      await user.type(screen.getByLabelText("Code number"), "3");
+
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+
     it("blocks submission and surfaces a duplicate when an existing artist is picked from the typeahead", async () => {
       mockArtistSearch([
         { id: 12, artist_name: "Juana Molina", code_letters: MOLINA, code_number: 3 },
