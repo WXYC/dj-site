@@ -1,7 +1,7 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import type { RootState } from "@/lib/store";
 import { backendBaseQuery } from "../backend";
-import { isAddArtistConflictBody } from "./adminCreateArtistValidation";
+import { isAddArtistConflict } from "./adminCreateArtistValidation";
 import { CATALOG_QUERY_PAGE_LIMIT } from "./constants";
 import { convertToAlbumEntry } from "./conversions";
 import { patchCatalogSearchCaches } from "./patchSearchCaches";
@@ -172,9 +172,7 @@ export const catalogApi = createApi({
       // the caller can actually name an artist from, so any other 409 keeps
       // whatever reason the server sent.
       transformErrorResponse: (error) => {
-        if (error.status !== 409 || !isAddArtistConflictBody(error.data)) {
-          return error;
-        }
+        if (!isAddArtistConflict(error)) return error;
         const data = { ...(error.data as unknown as Record<string, unknown>) };
         delete data.message;
         return { ...error, data };
@@ -187,12 +185,16 @@ export const catalogApi = createApi({
       // session, even though the backend would now reject it as taken.
       //
       // Invalidation fires on a rejected mutation as well as a fulfilled one,
-      // so this has to opt out explicitly: a rejected add wrote nothing, and a
-      // code-taken 409 is a routine outcome. Invalidating on it would flip the
-      // code preview the MD is reading back to a spinner and spend two more
-      // round trips reconfirming unchanged lists.
+      // so the rejections that provably wrote nothing opt out: every 4xx, of
+      // which the code-taken 409 is the routine one. Invalidating on those
+      // would flip the code preview the MD is reading back to a spinner and
+      // spend two more round trips reconfirming lists that cannot have
+      // changed. A 5xx or a transport failure still gets the tags — the row
+      // may well have been written on a response the client never saw, and
+      // ArtistSearch backs the typeahead that is all that stands between a
+      // retry and a duplicate artist.
       invalidatesTags: (_result, error, { code_letters, genre_id }) =>
-        error
+        error && typeof error.status === "number" && error.status < 500
           ? []
           : [
               { type: "CatalogList", id: "LIST" },
