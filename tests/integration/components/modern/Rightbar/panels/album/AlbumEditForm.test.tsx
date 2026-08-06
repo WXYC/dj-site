@@ -407,6 +407,21 @@ describe("AlbumEditForm", () => {
     });
 
     describe("clearing nullable fields", () => {
+      it("sends the typed alternate_artist_name when the field is set", async () => {
+        const { getReceivedBody } = mockPatch();
+        const { user } = renderWithProviders(<AlbumEditForm album={juanaMolinaAlbum()} />);
+
+        const field = await screen.findByLabelText("Alternate Artist Name");
+        await user.type(field, "Juana Molina y Los Hermanos");
+        await user.click(screen.getByRole("button", SAVE_BUTTON));
+
+        await waitFor(() =>
+          expect(getReceivedBody()).toEqual({
+            alternate_artist_name: "Juana Molina y Los Hermanos",
+          }),
+        );
+      });
+
       it("sends alternate_artist_name: null when the field is cleared", async () => {
         const { getReceivedBody } = mockPatch();
         const { user } = renderWithProviders(
@@ -546,7 +561,7 @@ describe("AlbumEditForm", () => {
 
       it("re-enables Save once the artist is re-picked under the new genre", async () => {
         const { getReceivedBody } = mockPatch();
-        mockArtistSearch([
+        const searchRequests = mockArtistSearch([
           {
             id: JUANA_JAZZ_ARTIST_ID,
             artist_name: "Juana Molina",
@@ -563,6 +578,14 @@ describe("AlbumEditForm", () => {
         const artistInput = screen.getByLabelText("Search artists");
         await user.click(artistInput);
         await user.click(await screen.findByText("Juana Molina"));
+
+        // The rows offered must come from the genre now selected, not the one
+        // the album arrived under — picking a Rock-only artist while filing
+        // under Jazz is the 400 this whole invalidation design exists to avoid.
+        expect(searchRequests.length).toBeGreaterThan(0);
+        expect(searchRequests.at(-1)?.searchParams.get("genre_id")).toBe(
+          String(JAZZ_GENRE_ID),
+        );
 
         const saveButton = screen.getByRole("button", SAVE_BUTTON);
         await waitFor(() => expect(saveButton).toBeEnabled());
@@ -642,6 +665,51 @@ describe("AlbumEditForm", () => {
           screen.getByText("Search and select an artist to continue."),
         ).toBeInTheDocument();
         expect(getCallCount()).toBe(0);
+      });
+
+      // The typeahead reports a genre move through the same callback as a text
+      // edit, but only the text edit unmakes the pick — so a picked link has to
+      // survive a genre round trip exactly as a seeded one does, and say so.
+      it("restores a picked link when the genre returns to the one it was picked under", async () => {
+        const { getReceivedBody } = mockPatch();
+        mockArtistSearch([
+          {
+            id: JUANA_ARTIST_ID,
+            artist_name: "Juana Molina",
+            code_letters: "MO",
+            code_number: 12,
+          },
+        ]);
+        const { user } = renderWithProviders(<AlbumEditForm album={juanaMolinaAlbum()} />);
+
+        const title = await screen.findByLabelText("Title");
+        await user.clear(title);
+        await user.type(title, "DOGA (Reissue)");
+
+        const artistInput = screen.getByLabelText("Search artists");
+        await user.click(artistInput);
+        await user.click(await screen.findByText("Juana Molina"));
+
+        await user.click(screen.getByRole("combobox", { name: "Genre" }));
+        await user.click(await screen.findByRole("option", { name: "Jazz" }));
+        expect(screen.getByRole("button", SAVE_BUTTON)).toBeDisabled();
+        expect(
+          screen.getByText(/the previous link no longer applies under this genre/i),
+        ).toBeInTheDocument();
+
+        await user.click(screen.getByRole("combobox", { name: "Genre" }));
+        await user.click(await screen.findByRole("option", { name: "Rock" }));
+
+        expect(
+          screen.queryByText(/select an artist to continue/i),
+        ).not.toBeInTheDocument();
+        const saveButton = screen.getByRole("button", SAVE_BUTTON);
+        await waitFor(() => expect(saveButton).toBeEnabled());
+        await user.click(saveButton);
+
+        await waitFor(() =>
+          expect(getReceivedBody()).toEqual({ album_title: "DOGA (Reissue)" }),
+        );
       });
     });
 

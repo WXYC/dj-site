@@ -128,10 +128,11 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
   // invalidates it by comparison rather than by erasing it. Erasing is what
   // makes the round trip unrecoverable: an MD who changes the genre and changes
   // it back is left on an album whose every field reads its original value with
-  // Save permanently blocked and nothing on screen explaining why. The seeded
-  // link starts here too — the typeahead's own `onSelectionCleared` only
-  // retracts selections it reported through `onSelect`, so it never speaks for
-  // a link this form read straight off the album.
+  // Save permanently blocked and nothing on screen explaining why. The link
+  // seeded off the album starts here too — the typeahead's own
+  // `onSelectionCleared` only retracts selections it reported through
+  // `onSelect`, so it never speaks for a link this form read straight off the
+  // album, and a genre change has to invalidate that one here instead.
   const [artistLink, setArtistLink] = useState<ArtistLink | null>(() =>
     artistLinkFrom(saved),
   );
@@ -140,14 +141,16 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
     setArtistLink({ id: artist.id, genreId });
   };
 
-  // A retraction from the typeahead is unconditional: it fires both when the
-  // text is edited away from the picked artist and when the genre moves, and
-  // the two are indistinguishable here. Dropping the link outright is the safe
-  // reading — a pick can always be redone, whereas restoring a link the
-  // typeahead disowned would file the album under an artist the field no longer
-  // names.
+  // The typeahead retracts on two different events: the text was edited away
+  // from the picked artist, or the genre moved off the one it was picked under.
+  // Only the first invalidates the pair — a genre move leaves the text standing
+  // deliberately, so the link is still true about the genre it names and the
+  // comparison above is what should judge it. Telling them apart by whether
+  // `genreId` has already moved past the link's is what lets a genre round trip
+  // restore a picked link, exactly as it restores a seeded one; a same-genre
+  // retraction still drops the link, because the text no longer names it.
   const handleArtistSelectionCleared = () => {
-    setArtistLink(null);
+    setArtistLink((prev) => (prev !== null && prev.genreId !== genreId ? prev : null));
   };
 
   const handleArtistCreateNew = () => {
