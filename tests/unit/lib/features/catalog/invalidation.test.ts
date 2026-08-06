@@ -103,4 +103,51 @@ describe("catalog add-mutation cache invalidation (#624)", () => {
     artistSub.unsubscribe();
     catalogSub.unsubscribe();
   });
+
+  it("addArtist invalidates the peek-code preview for the same code_letters/genre_id pair", async () => {
+    let peekCalls = 0;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/artists/peek-code`, () => {
+        peekCalls += 1;
+        // A distinct number per call proves a real refetch happened rather
+        // than a cache hit redisplaying the first response.
+        return HttpResponse.json({ next_code_number: peekCalls === 1 ? 7 : 8 });
+      }),
+      http.post(`${TEST_BACKEND_URL}/library/artists`, () =>
+        HttpResponse.json({ id: 7002 }),
+      ),
+    );
+
+    const store = createTestStore();
+    const peekArg = { code_letters: "MO", genre_id: 1 };
+
+    const firstPeekSub = store.dispatch(
+      catalogApi.endpoints.peekArtistCode.initiate(peekArg),
+    );
+    const firstPeek = await firstPeekSub;
+    expect(peekCalls).toBe(1);
+    expect(firstPeek.data?.next_code_number).toBe(7);
+    // Leave the pair (e.g. the MD types a different letters/genre combo, or
+    // navigates away) the way the real control's debounced trigger would.
+    firstPeekSub.unsubscribe();
+
+    await store.dispatch(
+      catalogApi.endpoints.addArtist.initiate({
+        artist_name: "Molina",
+        code_letters: "MO",
+        genre_id: 1,
+        code_number: 7,
+      }),
+    );
+
+    // Returning to the same pair must issue a fresh request rather than
+    // redisplaying the now-stale cached code number.
+    const secondPeekSub = store.dispatch(
+      catalogApi.endpoints.peekArtistCode.initiate(peekArg),
+    );
+    const secondPeek = await secondPeekSub;
+    expect(peekCalls).toBe(2);
+    expect(secondPeek.data?.next_code_number).toBe(8);
+    secondPeekSub.unsubscribe();
+  });
 });
