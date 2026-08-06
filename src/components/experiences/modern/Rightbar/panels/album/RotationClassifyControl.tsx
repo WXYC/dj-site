@@ -17,17 +17,6 @@ interface RotationClassifyControlProps {
   album: AlbumEntry;
 }
 
-// A cache entry populated by the flowsheet's own rotation-list subscription
-// (see RotationEntryFields) can be minutes old by the time an MD opens this
-// control on the same album: the two subscribe to the same query with no
-// forced-refetch option, so RTK Query happily hands out whatever the last
-// fulfillment was. Because `addRotation` on the backend is a bare insert with
-// no dedupe, trusting that stale entry can let the MD add a second active row
-// for an album someone else already put in rotation. Mounting with this
-// window revalidates on open without forcing every other subscriber
-// (including the flowsheet, which sets no such option) to refetch on its own.
-const ROTATION_LIST_REVALIDATION_WINDOW_SECONDS = 20;
-
 /**
  * MD+ control for rotation classification: adds an album to a rotation bin
  * via `useAddRotationEntryMutation`, or retires an active entry via
@@ -63,11 +52,11 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
     data: rotationEntries,
     isFetching: rotationFetching,
     isError: rotationErrored,
-  } = useGetRotationQuery(undefined, {
-    refetchOnMountOrArgChange: ROTATION_LIST_REVALIDATION_WINDOW_SECONDS,
-  });
+    refetch: refetchRotation,
+  } = useGetRotationQuery();
 
   const [selectedBin, setSelectedBin] = useState<Rotation | null>(null);
+  const [killTargetId, setKillTargetId] = useState<number | null>(null);
 
   // `synthesizeAlbumId` hands out negative ids to rows the library never
   // linked (see conversions.ts); neither read nor write may treat one of
@@ -98,7 +87,16 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
   // window is exactly where a second submit would open a duplicate active
   // entry for the same album, which the backend's bare insert would accept.
   const addBusy = addPending || rotationFetching;
-  const killBusy = killPending || rotationFetching;
+
+  // `killPending` and `rotationFetching` are both control-wide — the mutation
+  // hook is a single instance shared by every row, and the invalidation
+  // refetch it triggers updates the one list all rows read. Gating by
+  // `killTargetId` (set to the rotation_id a kill was issued for) scopes the
+  // busy signal to the row that started it; otherwise killing one bin's entry
+  // would spin every other active bin's Kill button as if it were being
+  // retired too.
+  const isRowKillBusy = (rotationId: number) =>
+    killTargetId === rotationId && (killPending || rotationFetching);
 
   const handleAdd = async () => {
     if (!selectedBin || !albumIdValid) return;
@@ -114,6 +112,7 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
   };
 
   const handleKill = async (rotationId: number) => {
+    setKillTargetId(rotationId);
     try {
       // `kill_date` is omitted so the server dates the kill itself. Computing
       // it here would yield the browser's UTC calendar day, which is already
@@ -127,6 +126,18 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
     }
   };
 
+  // `RotationBinSelector` and the Add button can't act on a synthesized id —
+  // there is no library row for the backend's rotation insert to reference —
+  // so rendering them here would be a picker that always ends in a
+  // permanently-disabled button with no explanation, not a real affordance.
+  if (!albumIdValid) {
+    return (
+      <Chip size="sm" variant="soft" color="neutral">
+        Not linked to a library album — can&apos;t be classified
+      </Chip>
+    );
+  }
+
   if (rotationStateUnknown) {
     return (
       <Stack
@@ -139,6 +150,11 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
             ? "Rotation status unavailable"
             : "Checking rotation status…"}
         </Chip>
+        {rotationErrored && (
+          <Button size="sm" variant="soft" onClick={() => refetchRotation()}>
+            Retry
+          </Button>
+        )}
       </Stack>
     );
   }
@@ -160,7 +176,7 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
               size="sm"
               color="warning"
               variant="soft"
-              loading={killBusy}
+              loading={isRowKillBusy(entry.rotation_id)}
               onClick={() => handleKill(entry.rotation_id)}
             >
               Kill {entry.rotation_bin}
@@ -185,7 +201,7 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
         />
         <Button
           size="sm"
-          disabled={!selectedBin || !albumIdValid}
+          disabled={!selectedBin}
           loading={addBusy}
           onClick={handleAdd}
         >

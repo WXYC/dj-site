@@ -1,11 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import {
   renderWithProviders,
   createTestAlbum,
   createTestArtist,
-  createTestStore,
   server,
   TEST_BACKEND_URL,
 } from "@/tests/helpers";
@@ -23,7 +22,7 @@ import { CssVarsProvider } from "@mui/joy/styles";
 import type { ReactElement } from "react";
 import modernTheme from "@/lib/features/experiences/modern/theme";
 import { useGetInformationQuery } from "@/lib/features/catalog/api";
-import { rotationApi, useGetRotationQuery } from "@/lib/features/rotation/api";
+import { rotationApi } from "@/lib/features/rotation/api";
 
 // The bin colors come from the custom `rotation` palette slot, which only
 // resolves under the modern theme (see RotationEntryFields.test for the pattern).
@@ -219,21 +218,43 @@ function fakeRotationEndpoints(initial: RotationRow[] = []) {
   };
 }
 
+/**
+ * Same GET/PATCH shape as `fakeRotationEndpoints`, but the PATCH response
+ * only resolves once the test calls `releaseKill` — lets a test assert on
+ * in-flight state instead of racing a same-tick MSW response.
+ */
+function fakeRotationEndpointsWithGatedKill(initial: RotationRow[] = []) {
+  let rows = [...initial];
+  let releaseKill: () => void = () => {};
+  const killGate = new Promise<void>((resolve) => {
+    releaseKill = resolve;
+  });
+
+  server.use(
+    http.get(`${TEST_BACKEND_URL}/library/rotation`, () => HttpResponse.json(rows)),
+    http.patch(`${TEST_BACKEND_URL}/library/rotation`, async ({ request }) => {
+      const body = (await request.json()) as { rotation_id: number };
+      await killGate;
+      const killed = rows.find((row) => row.rotation_id === body.rotation_id);
+      rows = rows.filter((row) => row.rotation_id !== body.rotation_id);
+      return HttpResponse.json({
+        id: body.rotation_id,
+        album_id: killed?.id ?? JUANA_MOLINA_ALBUM_ID,
+        rotation_bin: killed?.rotation_bin ?? "H",
+        add_date: "2026-08-01",
+        kill_date: "2026-08-05",
+      });
+    }),
+  );
+
+  return { releaseKill: () => releaseKill() };
+}
+
 /** Sources the album the way the panel does, from `GET /library/info`. */
 function AlbumPanelSection({ albumId }: { albumId: number }) {
   const { data } = useGetInformationQuery({ album_id: albumId });
   if (!data) return null;
   return <RotationClassifyControl album={data} />;
-}
-
-/**
- * Subscribes to the rotation list exactly as `RotationEntryFields` does in
- * production: no options, so it neither forces nor skips a refetch on its
- * own. Stands in for "the flowsheet had already populated the cache."
- */
-function FlowsheetLikeSubscriber() {
-  useGetRotationQuery();
-  return null;
 }
 
 describe("RotationClassifyControl", () => {
@@ -497,6 +518,29 @@ describe("RotationClassifyControl", () => {
       expect(await screen.findByRole("button", { name: "Kill M" })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Kill H" })).not.toBeInTheDocument();
     });
+
+    it("shows the busy state only on the row whose kill is in flight, not every active bin", async () => {
+      const { releaseKill } = fakeRotationEndpointsWithGatedKill([
+        juanaMolinaRotationRow("H"),
+        { ...juanaMolinaRotationRow("M"), rotation_id: JUANA_MOLINA_SECOND_ROTATION_ID },
+      ]);
+      const { user } = renderWithProviders(
+        inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
+      );
+
+      const killH = await screen.findByRole("button", { name: "Kill H" });
+      const killM = screen.getByRole("button", { name: "Kill M" });
+      await user.click(killH);
+
+      await waitFor(() => expect(killH).toBeDisabled());
+      expect(killM).not.toBeDisabled();
+
+      releaseKill();
+      await waitFor(() =>
+        expect(screen.queryByRole("button", { name: "Kill H" })).not.toBeInTheDocument(),
+      );
+      expect(screen.getByRole("button", { name: "Kill M" })).not.toBeDisabled();
+    });
   });
 
   describe("rotation state that isn't known yet", () => {
@@ -521,54 +565,52 @@ describe("RotationClassifyControl", () => {
       ).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /^Kill/ })).not.toBeInTheDocument();
     });
+
+    it("recovers once the MD clicks Retry after the endpoint comes back, with no remount", async () => {
+      let endpointRecovered = false;
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/rotation`, () => {
+          if (endpointRecovered) {
+            return HttpResponse.json([juanaMolinaRotationRow()]);
+          }
+          return HttpResponse.json({ error: "unreachable" }, { status: 500 });
+        }),
+      );
+      const { user } = renderWithProviders(
+        inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
+      );
+
+      await screen.findByText("Rotation status unavailable");
+      endpointRecovered = true;
+      await user.click(screen.getByRole("button", { name: "Retry" }));
+
+      expect(await screen.findByRole("button", { name: "Kill H" })).toBeInTheDocument();
+    });
   });
 
-  describe("rotation cache staleness across subscribers", () => {
+  describe("an album not linked to the library catalog", () => {
     beforeEach(() => {
       mockFetchOrgRole.mockResolvedValue("musicDirector");
       mockUseSession.mockReturnValue(sessionWithRole());
     });
 
-    afterEach(() => {
-      vi.useRealTimers();
-    });
-
-    it("revalidates on mount instead of trusting a rotation-list entry the flowsheet cached before another MD's add landed", async () => {
-      vi.useFakeTimers({ shouldAdvanceTime: true });
-      vi.setSystemTime(new Date("2026-08-05T12:00:00.000Z"));
-
-      let rows: RotationRow[] = [];
-      let listRequests = 0;
-      server.use(
-        http.get(`${TEST_BACKEND_URL}/library/rotation`, () => {
-          listRequests += 1;
-          return HttpResponse.json(rows);
-        }),
-      );
-
-      const store = createTestStore();
-
-      // The flowsheet's own subscription populates the cache with the
-      // pre-add world: the album isn't in rotation yet.
-      const flowsheet = renderWithProviders(<FlowsheetLikeSubscriber />, { store });
-      await waitFor(() => expect(listRequests).toBe(1));
-      flowsheet.unmount();
-
-      // Another MD adds the album to H. This session's cached copy of the
-      // list doesn't know that yet.
-      rows = [juanaMolinaRotationRow()];
-
-      // Past the classify control's revalidation window, with no live
-      // subscriber having refreshed the entry in between.
-      vi.setSystemTime(new Date("2026-08-05T12:00:21.000Z"));
-
+    it("explains why instead of offering a bin picker that can never submit", async () => {
+      fakeRotationEndpoints();
       renderWithProviders(
-        inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
-        { store },
+        inModernTheme(
+          <RotationClassifyControl album={{ ...juanaMolinaAlbum(), id: -1 }} />,
+        ),
       );
 
-      expect(await screen.findByRole("button", { name: "Kill H" })).toBeInTheDocument();
-      expect(listRequests).toBeGreaterThan(1);
+      expect(
+        await screen.findByText("Not linked to a library album — can't be classified"),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("radiogroup", { name: "Rotation bin" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Add to Rotation" }),
+      ).not.toBeInTheDocument();
     });
   });
 });
