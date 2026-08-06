@@ -870,6 +870,29 @@ describe("ArtistAddForm", () => {
         expect(screen.queryByRole("alert")).not.toBeInTheDocument();
       });
 
+      it("waits for the genres request rather than calling an outage on an empty cache", async () => {
+        let release: (() => void) | undefined;
+        const held = new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        server.use(
+          http.get(`${TEST_BACKEND_URL}/library/genres`, async () => {
+            await held;
+            return HttpResponse.json([{ id: GENRE_ID, genre_name: "Rock" }]);
+          }),
+        );
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        // An unanswered request is not an outage. The dropdown is empty for
+        // the same reason either way, so the alert has to wait for the answer.
+        expect(await screen.findByRole("button", { name: /add artist/i })).toBeInTheDocument();
+        expect(screen.queryByText(/genres are unavailable/i)).not.toBeInTheDocument();
+
+        release?.();
+        await selectGenre(user);
+        expect(screen.queryByText(/genres are unavailable/i)).not.toBeInTheDocument();
+      });
+
       it("keeps filing against the last good genre list when a refetch fails", async () => {
         let genreCalls = 0;
         server.use(
@@ -899,6 +922,37 @@ describe("ArtistAddForm", () => {
 
         await waitFor(() => expect(getBodies()).toHaveLength(1));
         expect(getBodies()[0]).toMatchObject({ genre_id: GENRE_ID });
+      });
+
+      it("blocks the submit when the list goes away under a held genre", async () => {
+        let genreCalls = 0;
+        server.use(
+          http.get(`${TEST_BACKEND_URL}/library/genres`, () => {
+            genreCalls += 1;
+            return genreCalls === 1
+              ? HttpResponse.json([{ id: GENRE_ID, genre_name: "Rock" }])
+              : // The backend adapter soft-fails a non-JSON GET into a
+                // fulfilled `{ data: null }`, which replaces the cached array
+                // rather than leaving it standing.
+                HttpResponse.json(null);
+          }),
+        );
+        const { getBodies } = mockAddArtist(() => created());
+        const { user, store, container } = renderWithProviders(<ArtistAddForm />);
+
+        await fillCoreFields(user);
+        store.dispatch(
+          catalogApi.util.invalidateTags([{ type: "GenreList", id: "LIST" }]),
+        );
+
+        // With no list, the dropdown falls back to its placeholder while
+        // genre_id still names the old genre. Filing then writes into a genre
+        // the form has stopped showing, beside an alert saying nothing can be
+        // filed at all.
+        expect(await screen.findByText(/genres are unavailable/i)).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /add artist/i })).toBeDisabled();
+        fireEvent.submit(container.querySelector("form")!);
+        expect(getBodies()).toHaveLength(0);
       });
 
       it("explains a genres outage and offers a retry instead of an empty dropdown", async () => {

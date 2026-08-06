@@ -85,6 +85,7 @@ function ArtistAddForm() {
 function ArtistAddFields() {
   const {
     data: genres,
+    isUninitialized: genresUnstarted,
     isLoading: genresLoading,
     isFetching: genresFetching,
     refetch: refetchGenres,
@@ -167,8 +168,12 @@ function ArtistAddFields() {
   // exist". The test is the absence of a list, not `isError`: a refetch that
   // rejects leaves the last good list in the cache and the form still submits
   // perfectly well against it, so reading the error flag would put a "can't be
-  // filed right now" alert beside an enabled submit button.
-  const genresUnavailable = !genresLoading && genres == null;
+  // filed right now" alert beside an enabled submit button. The query also
+  // subscribes from an effect, so the mount render reports neither a pending
+  // request nor data — reading that as an outage would announce the alert on
+  // every mount, before anything has been asked.
+  const genresUnavailable =
+    !genresUnstarted && !genresLoading && genres == null;
 
   // Puts the caret back where the edit left it. React writes the normalized
   // value into the node during the commit's mutation phase, which is the write
@@ -190,6 +195,11 @@ function ArtistAddFields() {
     !nameTooLong &&
     !alphabeticalNameTooLong &&
     genreId !== null &&
+    // A list that goes away under a held selection leaves the dropdown showing
+    // its placeholder while `genreId` still names the old genre. Submitting
+    // then files under a genre the form has stopped displaying, beside an
+    // alert saying nothing can be filed at all.
+    !genresUnavailable &&
     trimmedCodeLetters.length > 0 &&
     !codeLettersTooLong &&
     codeNumber !== null;
