@@ -410,6 +410,42 @@ describe("ArtistSearchTypeahead", () => {
         expect(input).toHaveValue("Juana Molina");
       });
 
+      it("writes the picked name into the field before reporting the selection", async () => {
+        mockArtistSearch([juanaMolina]);
+        const onSelect = vi.fn();
+
+        // A host that rewrites the field from inside `onSelect` — the ordering
+        // consumers are told they can rely on. It only holds while the
+        // component's own write to `value` lands first; reversed, the component
+        // would overwrite the caller and the rewrite would vanish.
+        function RewritingHost() {
+          const [value, setValue] = useState("");
+          return (
+            <ArtistSearchTypeahead
+              genreId={ROCK_GENRE_ID}
+              value={value}
+              onChange={setValue}
+              onSelect={(artist) => {
+                setValue(`${artist.artist_name} (linked)`);
+                onSelect(artist);
+              }}
+              onCreateNew={vi.fn()}
+              onSelectionCleared={vi.fn()}
+            />
+          );
+        }
+
+        const { user } = renderWithProviders(<RewritingHost />);
+
+        const input = await findInput();
+        await user.type(input, "Juana");
+        await vi.advanceTimersByTimeAsync(400);
+        await user.click(await screen.findByText("Juana Molina"));
+
+        expect(onSelect).toHaveBeenCalledWith(juanaMolina);
+        expect(input).toHaveValue("Juana Molina (linked)");
+      });
+
       it("navigates results with the keyboard and selects with Enter", async () => {
         mockArtistSearch([juanaMolina, chuquimamaniCondori]);
         const onSelect = vi.fn();
@@ -580,6 +616,92 @@ describe("ArtistSearchTypeahead", () => {
         expect(onSelectionCleared).toHaveBeenCalledTimes(2);
       });
 
+      it("retracts the picked artist when the genre moves under it", async () => {
+        mockArtistSearch([juanaMolina]);
+        const onSelect = vi.fn();
+        const onSelectionCleared = vi.fn();
+        const { user, rerender } = renderWithProviders(
+          <ControlledTypeahead
+            genreId={ROCK_GENRE_ID}
+            onSelect={onSelect}
+            onSelectionCleared={onSelectionCleared}
+          />,
+        );
+
+        const input = await findInput();
+        await user.type(input, "Juana");
+        await vi.advanceTimersByTimeAsync(400);
+        await user.click(await screen.findByText("Juana Molina"));
+
+        expect(onSelect).toHaveBeenCalledWith(juanaMolina);
+        expect(onSelectionCleared).not.toHaveBeenCalled();
+
+        // Artist rows are scoped to a genre, so the id the caller is holding
+        // names no row once the form files the release under another one. A
+        // caller that kept it would save an artist link its own genre does not
+        // have.
+        rerender(
+          <ControlledTypeahead
+            genreId={JAZZ_GENRE_ID}
+            onSelect={onSelect}
+            onSelectionCleared={onSelectionCleared}
+          />,
+        );
+
+        expect(onSelectionCleared).toHaveBeenCalledTimes(1);
+
+        // The caller has already dropped the id; editing the text afterwards is
+        // not a second retraction.
+        await user.type(input, "s");
+
+        expect(onSelectionCleared).toHaveBeenCalledTimes(1);
+      });
+
+      it("leaves the field text standing when the genre moves under a picked artist", async () => {
+        mockArtistSearch([juanaMolina]);
+        const { user, rerender } = renderWithProviders(
+          <ControlledTypeahead genreId={ROCK_GENRE_ID} />,
+        );
+
+        const input = await findInput();
+        await user.type(input, "Juana");
+        await vi.advanceTimersByTimeAsync(400);
+        await user.click(await screen.findByText("Juana Molina"));
+
+        rerender(<ControlledTypeahead genreId={JAZZ_GENRE_ID} />);
+
+        // Refiling a release does not rename its artist: the text is exactly
+        // what the user needs in order to re-pick that artist under the new
+        // genre, and clearing it would leave the form with no artist at all.
+        expect(input).toHaveValue("Juana Molina");
+      });
+
+      it("reports no retraction when the genre moves with nothing picked", async () => {
+        mockArtistSearch([juanaMolina]);
+        const onSelectionCleared = vi.fn();
+        const { user, rerender } = renderWithProviders(
+          <ControlledTypeahead
+            genreId={ROCK_GENRE_ID}
+            onSelectionCleared={onSelectionCleared}
+          />,
+        );
+
+        const input = await findInput();
+        await user.type(input, "Juana");
+        await vi.advanceTimersByTimeAsync(400);
+        await screen.findByText("Juana Molina");
+
+        rerender(
+          <ControlledTypeahead
+            genreId={JAZZ_GENRE_ID}
+            onSelectionCleared={onSelectionCleared}
+          />,
+        );
+        await vi.advanceTimersByTimeAsync(400);
+
+        expect(onSelectionCleared).not.toHaveBeenCalled();
+      });
+
       it("reports no retraction for text that was never a selection", async () => {
         mockArtistSearch([juanaMolina]);
         const onSelectionCleared = vi.fn();
@@ -634,6 +756,69 @@ describe("ArtistSearchTypeahead", () => {
 
         expect(onCreateNew).toHaveBeenCalledWith("Juana");
         expect(onSelect).not.toHaveBeenCalled();
+      });
+
+      it("stays on the create row when arrowing down past it", async () => {
+        mockArtistSearch([juanaMolina]);
+        const onCreateNew = vi.fn();
+        const onSelect = vi.fn();
+        const { user } = renderWithProviders(
+          <ControlledTypeahead onSelect={onSelect} onCreateNew={onCreateNew} />,
+        );
+
+        const input = await findInput();
+        await user.type(input, "Juana");
+        await vi.advanceTimersByTimeAsync(400);
+        await screen.findByText("Juana Molina");
+
+        // Result, create row, then one press past the end of the list: create
+        // is the last row, so the highlight holds there rather than wrapping
+        // off it and stranding the user mid-list.
+        await user.keyboard("{ArrowDown}{ArrowDown}{ArrowDown}{Enter}");
+
+        expect(onCreateNew).toHaveBeenCalledWith("Juana");
+        expect(onSelect).not.toHaveBeenCalled();
+      });
+
+      it("returns to the last result when arrowing up off the create row", async () => {
+        mockArtistSearch([juanaMolina, chuquimamaniCondori]);
+        const onCreateNew = vi.fn();
+        const onSelect = vi.fn();
+        const { user } = renderWithProviders(
+          <ControlledTypeahead onSelect={onSelect} onCreateNew={onCreateNew} />,
+        );
+
+        const input = await findInput();
+        await user.type(input, "Juana");
+        await vi.advanceTimersByTimeAsync(400);
+        await screen.findByText("Chuquimamani-Condori");
+
+        // The create row is held as a sentinel rather than as an index one past
+        // the last result, so backing out of it has to name the row to return
+        // to; the last result is the row directly above it.
+        await user.keyboard("{ArrowDown}{ArrowDown}{ArrowDown}{ArrowUp}{Enter}");
+
+        expect(onSelect).toHaveBeenCalledWith(chuquimamaniCondori);
+        expect(onCreateNew).not.toHaveBeenCalled();
+      });
+
+      it("names the create row in aria-activedescendant while it is highlighted", async () => {
+        mockArtistSearch([juanaMolina]);
+        const { user } = renderWithProviders(<ControlledTypeahead />);
+
+        const input = await findInput();
+        await user.type(input, "Juana");
+        await vi.advanceTimersByTimeAsync(400);
+        const [resultOption, createOption] = await screen.findAllByRole("option");
+
+        await user.keyboard("{ArrowDown}");
+        expect(input).toHaveAttribute("aria-activedescendant", resultOption.id);
+
+        // The create row's highlight is a sentinel, not an index into the
+        // results, so it needs its own branch to name the option a screen
+        // reader should announce.
+        await user.keyboard("{ArrowDown}");
+        expect(input).toHaveAttribute("aria-activedescendant", createOption.id);
       });
 
       it("does not create on Enter before results have arrived", async () => {
@@ -754,6 +939,27 @@ describe("ArtistSearchTypeahead", () => {
 
         expect(requests).toHaveLength(0);
         expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+      });
+
+      it("takes down a panel that is already open when the field is disabled", async () => {
+        mockArtistSearch([juanaMolina]);
+        const { user, rerender } = renderWithProviders(<ControlledTypeahead />);
+
+        const input = await findInput();
+        await user.type(input, "Juana");
+        await vi.advanceTimersByTimeAsync(400);
+        await screen.findByText("Juana Molina");
+
+        rerender(<ControlledTypeahead disabled />);
+
+        // The greyed-out input says the field is inert. A row left standing
+        // under it is not: one click hands the caller an artist id it is no
+        // longer allowed to accept, with nothing on screen to say so.
+        expect(input).toBeDisabled();
+        expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+        expect(screen.queryAllByRole("option")).toHaveLength(0);
+        expect(screen.queryByText("Juana Molina")).not.toBeInTheDocument();
+        expect(screen.queryByText(/Create new artist/i)).not.toBeInTheDocument();
       });
     });
   });
