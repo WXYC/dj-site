@@ -18,6 +18,7 @@ import {
   createLiveUpdatesListenerMiddleware,
 } from "./features/flowsheet/live-updates-listener";
 import { liveUpdatesSlice } from "./features/flowsheet/live-updates-slice";
+import { labelsApi } from "./features/labels/api";
 import { lmlApi } from "./features/lml/api";
 import { metadataApi } from "./features/metadata/api";
 import { playlistSearchApi } from "./features/playlist-search/api";
@@ -37,6 +38,7 @@ const rootReducer = combineSlices(
   flowsheetSlice,
   flowsheetApi,
   liveUpdatesSlice,
+  labelsApi,
   lmlApi,
   metadataApi,
   playlistSearchSlice,
@@ -63,6 +65,7 @@ export const makeStore = () => {
         .concat(catalogApi.middleware)
         .concat(binApi.middleware)
         .concat(flowsheetApi.middleware)
+        .concat(labelsApi.middleware)
         .concat(lmlApi.middleware)
         .concat(metadataApi.middleware)
         .concat(playlistSearchApi.middleware)
