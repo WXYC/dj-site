@@ -15,22 +15,7 @@ import {
 } from "@mui/joy";
 import { RequireMD } from "@/src/components/shared/Authorization";
 import { useAddFormatMutation, useGetFormatsQuery } from "@/lib/features/catalog/api";
-
-/**
- * True when `err` is a genuine HTTP error response (fetchBaseQuery's numeric
- * `status`) whose body carries no `message`. This is the one rejection shape
- * the global `rtkQueryErrorLogger` middleware leaves untoasted — it only
- * toasts `data.message`, `FETCH_ERROR`, `TIMEOUT_ERROR`, or a top-level
- * `error` string, none of which this shape has.
- */
-function isUnmessagedHttpError(err: unknown): boolean {
-  if (!err || typeof err !== "object" || !("status" in err)) return false;
-  const { status, data } = err as { status?: unknown; data?: unknown };
-  if (typeof status !== "number") return false;
-  const message =
-    data && typeof data === "object" ? (data as { message?: unknown }).message : undefined;
-  return !(typeof message === "string" && message.trim().length > 0);
-}
+import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
 
 function FormatAdmin() {
   const { data: formats } = useGetFormatsQuery();
