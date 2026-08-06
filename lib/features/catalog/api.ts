@@ -163,9 +163,21 @@ export const catalogApi = createApi({
         method: "POST",
         body,
       }),
+      // The 409 body carries the conflicting artist, which the caller renders
+      // inline by name. Its generic `message` is dropped here so the global
+      // rejected-query middleware — which toasts any `data.message` — stays
+      // quiet and that recoverable outcome is reported once rather than as a
+      // banner plus a generic failure toast.
+      transformErrorResponse: (error) => {
+        if (error.status !== 409 || !error.data || typeof error.data !== "object") {
+          return error;
+        }
+        const data = { ...(error.data as Record<string, unknown>) };
+        delete data.message;
+        return { ...error, data };
+      },
       // A new artist would surface in the artist typeahead (searchArtistsInGenre)
-      // and can gate later album rows; refetch both rather than patch —
-      // dj-site#624.
+      // and can gate later album rows; refetch both rather than patch.
       // Also invalidate the peek-code preview for the exact code_letters/genre_id
       // pair just filled: without this, a cached preview for that pair keeps
       // showing the pre-add code number to an MD who revisits it in the same
