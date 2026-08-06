@@ -95,6 +95,17 @@ export type AddArtistRequestBody = {
   alphabetical_name?: string;
 };
 
+/**
+ * Body of the 409 `POST /library/artists` returns when the
+ * (code_letters, genre_id, code_number) triple is already taken — the
+ * conflicting artist comes back alongside the message so the caller can name
+ * it rather than reporting a generic failure.
+ */
+export type AddArtistConflict = {
+  message: string;
+  artist: { artist_id: number; artist_name: string; code_letters: string };
+};
+
 export type PeekArtistCodeQuery = {
   code_letters: string;
   genre_id: number;
