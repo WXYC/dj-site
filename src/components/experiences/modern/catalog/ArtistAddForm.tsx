@@ -159,6 +159,13 @@ function ArtistAddFields() {
     setConflict(null);
   };
 
+  const handleGenreChange = (value: number | null) => {
+    setGenreId(value);
+    // Uniqueness is (code_letters, genre_id, code_number) — a code the
+    // server rejected under one genre may be free under another.
+    setConflict(null);
+  };
+
   return (
     <Sheet variant="outlined" sx={{ p: 2, borderRadius: "md" }}>
       <Typography level="title-md" sx={{ mb: 1 }}>
@@ -171,7 +178,7 @@ function ArtistAddFields() {
             <Select
               placeholder="Select genre..."
               value={genreId}
-              onChange={(_, value) => setGenreId(value)}
+              onChange={(_, value) => handleGenreChange(value)}
             >
               {(genres ?? []).map((genre) => (
                 <Option key={genre.id} value={genre.id}>
