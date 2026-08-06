@@ -6,7 +6,7 @@ import type { ArtistInGenreOption } from "@/lib/features/catalog/types";
 import { useDebouncedValue } from "@/src/hooks/useDebouncedValue";
 import { ClickAwayListener } from "@mui/base/ClickAwayListener";
 import { Box, Button, CircularProgress, Input, Sheet, Typography } from "@mui/joy";
-import { useCallback, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 const DEBOUNCE_MS = 300;
 const MIN_QUERY_LENGTH = 2;
@@ -42,12 +42,13 @@ const NO_ARTISTS: ArtistInGenreOption[] = [];
  * create-artist flow itself, since which UI that opens is caller-specific.
  *
  * `onSelectionCleared` retracts an earlier `onSelect`: the artist id a caller
- * holds is only good for the exact text that produced it, so editing the field
- * after a pick invalidates it. Without the retraction a caller that keeps the
- * id would save the old link under text that no longer names that artist —
- * silently, since the field reads as whatever was typed last. It is required
- * rather than optional so that holding an id and never dropping it cannot be
- * reached by omission.
+ * holds is only good for the exact text that produced it and for the genre it
+ * was found under, so editing the field or moving `genreId` after a pick
+ * invalidates it. Without the retraction a caller that keeps the id would save
+ * the old link under text that no longer names that artist, or under a genre
+ * that has no such artist row — silently, since the field reads as whatever it
+ * last read. It is required rather than optional so that holding an id and
+ * never dropping it cannot be reached by omission.
  */
 export interface ArtistSearchTypeaheadProps {
   genreId: number;
@@ -56,9 +57,16 @@ export interface ArtistSearchTypeaheadProps {
   onSelect: (artist: ArtistInGenreOption) => void;
   onCreateNew: (searchTerm: string) => void;
   /**
-   * Fired when the field's text is edited away from the artist last passed to
-   * `onSelect`, once per selection. Callers holding that artist's id must drop
-   * it here; a later `onSelect` arms the signal again.
+   * Fired when the artist last passed to `onSelect` stops describing the field:
+   * its text was edited away from that artist's name, or `genreId` moved off the
+   * genre the artist was found under. Fires once per selection; a later
+   * `onSelect` arms the signal again. Callers holding that artist's id must drop
+   * it here.
+   *
+   * A genre change retracts the id but leaves the field's text standing: refiling
+   * a release does not rename its artist, so the same text is what the user needs
+   * in order to re-pick that artist under the new genre. This component writes
+   * `value` only when a row is picked.
    */
   onSelectionCleared: () => void;
   disabled?: boolean;
@@ -79,6 +87,11 @@ function ArtistSearchTypeaheadInner({
   // rendered here depends on it — it exists only to decide, at the moment the
   // text is edited, whether that report is still true.
   const confirmedArtist = useRef<ArtistInGenreOption | null>(null);
+  // The genre the confirmed artist was found under, kept because the retraction
+  // below turns on whether `genreId` moved — which the current prop alone cannot
+  // say. It tracks the prop even with nothing confirmed, so the first pick after
+  // a genre change is not read as having been made under the older genre.
+  const confirmedGenreId = useRef(genreId);
   const inputRef = useRef<HTMLInputElement>(null);
   const listboxId = useId();
 
@@ -87,10 +100,15 @@ function ArtistSearchTypeaheadInner({
 
   const hasValidQuery = trimmed.length >= MIN_QUERY_LENGTH;
   const debouncedIsValid = debouncedQuery.length >= MIN_QUERY_LENGTH;
+  // `disabled` can arrive while the panel is already open, so it has to shut the
+  // panel rather than only bar it from opening: a panel left standing under a
+  // greyed-out input is still clickable, and one click there hands the caller an
+  // artist id it is no longer allowed to accept.
+  const panelOpen = open && !disabled;
   // Nothing to search for while the panel is shut: a form that seeds the field
   // with an already-linked artist must not fire a request on mount, and closing
   // the panel after a pick must not re-query for the name just written back.
-  const skip = !open || !debouncedIsValid;
+  const skip = !panelOpen || !debouncedIsValid;
 
   // `currentData` is the payload for these exact args; `data` is the latest
   // payload for ANY args, falling back to the previous ones whenever the
@@ -118,7 +136,7 @@ function ArtistSearchTypeaheadInner({
   const resultsAreCurrent = hasValidQuery && !pendingDebounce && !skip;
   const artists = resultsAreCurrent ? (data?.artists ?? NO_ARTISTS) : NO_ARTISTS;
 
-  const showPanel = open && hasValidQuery;
+  const showPanel = panelOpen && hasValidQuery;
   const isSearching = showPanel && (pendingDebounce || isFetching);
   // A search that failed outright has no answer about existing artists, so it
   // gets its own presentation rather than passing for "no matches". A failed
@@ -145,6 +163,21 @@ function ArtistSearchTypeaheadInner({
     rawHighlightIndex >= artists.length ? artists.length - 1 : rawHighlightIndex;
   const createIndex = artists.length;
   const createHighlighted = highlightIndex === CREATE_HIGHLIGHT;
+
+  // Artist rows are scoped to a genre, so an id reported under one genre names
+  // no row under the next: a genre change invalidates a held selection exactly
+  // as a text edit does, and must retract it rather than leave the caller filing
+  // an album against an artist row its new genre does not have. The guard is a
+  // ref comparison rather than the dependency list alone because callers
+  // commonly pass an inline `onSelectionCleared`, whose identity changes every
+  // render.
+  useEffect(() => {
+    if (confirmedGenreId.current === genreId) return;
+    confirmedGenreId.current = genreId;
+    if (!confirmedArtist.current) return;
+    confirmedArtist.current = null;
+    onSelectionCleared();
+  }, [genreId, onSelectionCleared]);
 
   const openPanel = useCallback(() => {
     if (disabled) return;
