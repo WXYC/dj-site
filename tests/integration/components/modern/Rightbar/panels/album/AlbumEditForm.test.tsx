@@ -351,6 +351,11 @@ describe("AlbumEditForm", () => {
         expect(screen.getByLabelText("Alternate Artist Name")).toBeDisabled();
         expect(screen.getByLabelText("Disc Quantity")).toBeDisabled();
         expect(screen.getByLabelText("Search artists")).toBeDisabled();
+        // Genre is the field the artist-link invariant turns on: a genre moved
+        // inside the request window would be reseeded away by the response
+        // while the artist link it invalidated had no chance to be re-picked.
+        expect(screen.getByRole("combobox", { name: "Genre" })).toBeDisabled();
+        expect(screen.getByRole("combobox", { name: "Format" })).toBeDisabled();
 
         await user.type(label, " Discos");
         expect(label).toHaveValue("Sonamos");
@@ -510,6 +515,61 @@ describe("AlbumEditForm", () => {
         const discQuantity = await screen.findByLabelText("Disc Quantity");
         await user.clear(discQuantity);
         await user.type(discQuantity, value);
+
+        expect(screen.getByRole("button", SAVE_BUTTON)).toBeDisabled();
+        expect(
+          screen.getByText(
+            `Disc quantity must be a whole number between ${DISC_QUANTITY_MIN} and ${DISC_QUANTITY_MAX}.`,
+          ),
+        ).toBeInTheDocument();
+        expect(getCallCount()).toBe(0);
+      });
+    });
+
+    // `library.disc_quantity` is a plain smallint with no CHECK behind it, and
+    // neither the API's insert path nor the tubafrenzy ETL bounds it, so rows
+    // outside 1-99 are already on the shelf. The range is a rule about the
+    // value being written, not about the row: holding an untouched stored value
+    // to it would make the album permanently uneditable, since every unrelated
+    // edit would be blocked until someone invented a disc count for it.
+    describe("an album stored outside the disc-quantity range", () => {
+      it.each([
+        ["below the minimum", DISC_QUANTITY_MIN - 1],
+        ["above the maximum", DISC_QUANTITY_MAX + 1],
+      ])("still saves an unrelated edit when the stored value is %s", async (_case, stored) => {
+        const { getReceivedBody, getCallCount } = mockPatch();
+        const { user } = renderWithProviders(
+          <AlbumEditForm album={juanaMolinaAlbum({ disc_quantity: stored })} />,
+        );
+
+        const title = await screen.findByLabelText("Title");
+        expect(screen.getByLabelText("Disc Quantity")).toHaveValue(stored);
+        await user.clear(title);
+        await user.type(title, "DOGA (Reissue)");
+
+        expect(
+          screen.queryByText(
+            `Disc quantity must be a whole number between ${DISC_QUANTITY_MIN} and ${DISC_QUANTITY_MAX}.`,
+          ),
+        ).not.toBeInTheDocument();
+
+        const saveButton = screen.getByRole("button", SAVE_BUTTON);
+        expect(saveButton).toBeEnabled();
+        await user.click(saveButton);
+
+        await waitFor(() => expect(getCallCount()).toBe(1));
+        expect(getReceivedBody()).toEqual({ album_title: "DOGA (Reissue)" });
+      });
+
+      it("still blocks Save once the MD types a fresh out-of-range value", async () => {
+        const { getCallCount } = mockPatch();
+        const { user } = renderWithProviders(
+          <AlbumEditForm album={juanaMolinaAlbum({ disc_quantity: DISC_QUANTITY_MIN - 1 })} />,
+        );
+
+        const discQuantity = await screen.findByLabelText("Disc Quantity");
+        await user.clear(discQuantity);
+        await user.type(discQuantity, String(DISC_QUANTITY_MAX + 1));
 
         expect(screen.getByRole("button", SAVE_BUTTON)).toBeDisabled();
         expect(

@@ -248,6 +248,71 @@ describe("DiscogsUnavailableControl", () => {
     });
   });
 
+  // The global RTK Query middleware re-toasts a server-supplied reason, so this
+  // control stays quiet for that one shape. For every other shape the
+  // middleware raises a raw parse failure, a bare transport line, or nothing at
+  // all — none of which say which control failed — so the fallback here is the
+  // only message naming the failure and must survive.
+  describe("every rejection shape leaves the MD a readable message", () => {
+    beforeEach(() => {
+      mockFetchOrgRole.mockResolvedValue("musicDirector");
+      mockUseSession.mockReturnValue(sessionWithRole());
+    });
+
+    async function toggleWith(respond: Parameters<typeof http.patch>[1]) {
+      server.use(http.patch(`${TEST_BACKEND_URL}/library/:id`, respond));
+      const { user } = renderWithProviders(
+        <DiscogsUnavailableControl album={juanaMolinaAlbum()} />,
+      );
+      const toggle = await screen.findByLabelText("Not on Discogs");
+      await user.click(toggle);
+      await waitFor(() => expect(toggle).not.toBeChecked());
+      return (toast.error as ReturnType<typeof vi.fn>).mock.calls.map(
+        ([message]) => message,
+      );
+    }
+
+    it("stays quiet when the server supplied its own reason", async () => {
+      const messages = await toggleWith(() =>
+        HttpResponse.json(
+          { message: "Album is not catalogued" },
+          { status: 400 },
+        ),
+      );
+
+      expect(messages).toEqual(["Album is not catalogued"]);
+    });
+
+    // A route that answers a mutation with HTML (an Express 404 page, a gateway
+    // 502) leaves the middleware toasting only the JSON parse failure.
+    it("speaks alongside the raw parse failure when the body is not JSON", async () => {
+      const messages = await toggleWith(
+        () =>
+          new HttpResponse(
+            "<!DOCTYPE html><html><body>Cannot PATCH /library/4242</body></html>",
+            { status: 404, headers: { "Content-Type": "text/html" } },
+          ),
+      );
+
+      expect(messages).toContain("Failed to update Discogs availability");
+    });
+
+    it("speaks alongside the generic network toast when the request never lands", async () => {
+      const messages = await toggleWith(() => HttpResponse.error());
+
+      expect(messages).toContain("Failed to update Discogs availability");
+    });
+
+    // A 200 whose body the response transform can't read rejects the thunk
+    // without a value, so the middleware never sees it and toasts nothing —
+    // this fallback is all the MD gets.
+    it("is the only message when the response transform throws", async () => {
+      const messages = await toggleWith(() => HttpResponse.json(null));
+
+      expect(messages).toEqual(["Failed to update Discogs availability"]);
+    });
+  });
+
   describe("editing the note", () => {
     beforeEach(() => {
       mockFetchOrgRole.mockResolvedValue("musicDirector");
