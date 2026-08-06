@@ -131,7 +131,7 @@ describe("FormatAdmin", () => {
       await waitFor(() => expect(input).toHaveValue(""));
     });
 
-    it("shows an error toast when the add fails", async () => {
+    it("shows exactly one fallback toast when the add fails with no server message", async () => {
       mockFormats([]);
       server.use(
         http.post(`${TEST_BACKEND_URL}/library/formats`, () =>
@@ -145,9 +145,10 @@ describe("FormatAdmin", () => {
       await user.click(screen.getByRole("button", { name: /Add Format/i }));
 
       await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Failed to add format"));
+      expect(toast.error).toHaveBeenCalledTimes(1);
     });
 
-    it("surfaces the server's error message instead of a generic one", async () => {
+    it("shows exactly one toast carrying the server's error message on a 409 duplicate-name reply", async () => {
       mockFormats([]);
       server.use(
         http.post(`${TEST_BACKEND_URL}/library/formats`, () =>
@@ -163,6 +164,26 @@ describe("FormatAdmin", () => {
       await waitFor(() =>
         expect(toast.error).toHaveBeenCalledWith("A format named Cassette already exists"),
       );
+      expect(toast.error).toHaveBeenCalledTimes(1);
+    });
+
+    it("shows exactly one toast on a network failure", async () => {
+      mockFormats([]);
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/library/formats`, () => HttpResponse.error()),
+      );
+      const { user } = renderWithProviders(<FormatAdmin />);
+
+      const input = await screen.findByLabelText(/new format/i);
+      await user.type(input, "Cassette");
+      await user.click(screen.getByRole("button", { name: /Add Format/i }));
+
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith(
+          "Network error — please check your connection.",
+        ),
+      );
+      expect(toast.error).toHaveBeenCalledTimes(1);
     });
 
     it("shows an error toast and does not submit when the name is whitespace-only", async () => {
