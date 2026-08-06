@@ -18,6 +18,15 @@ vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useQueue: () => ({ addToQueue: vi.fn() }),
 }));
 
+// The bin control reaches useRegistry -> useAuthentication -> the better-auth
+// session store, whose deferred teardown outlives this file's jsdom environment.
+vi.mock("@/lib/features/authentication/client", async () => {
+  const { createAuthClientModuleMock } = await import(
+    "@/tests/helpers/auth-client-mock"
+  );
+  return createAuthClientModuleMock();
+});
+
 import CatalogMobileResult from "@/src/components/experiences/modern/catalog/Results/MobileResult";
 
 describe("CatalogMobileResult", () => {
