@@ -14,11 +14,23 @@ import {
   Typography,
 } from "@mui/joy";
 import { RequireMD } from "@/src/components/shared/Authorization";
-import {
-  catalogMutationErrorMessage,
-  useAddGenreMutation,
-  useGetGenresQuery,
-} from "@/lib/features/catalog/api";
+import { useAddGenreMutation, useGetGenresQuery } from "@/lib/features/catalog/api";
+
+/**
+ * True when `err` is a genuine HTTP error response (fetchBaseQuery's numeric
+ * `status`) whose body carries no `message`. This is the one rejection shape
+ * the global `rtkQueryErrorLogger` middleware leaves untoasted — it only
+ * toasts `data.message`, `FETCH_ERROR`, `TIMEOUT_ERROR`, or a top-level
+ * `error` string, none of which this shape has.
+ */
+function isUnmessagedHttpError(err: unknown): boolean {
+  if (!err || typeof err !== "object" || !("status" in err)) return false;
+  const { status, data } = err as { status?: unknown; data?: unknown };
+  if (typeof status !== "number") return false;
+  const message =
+    data && typeof data === "object" ? (data as { message?: unknown }).message : undefined;
+  return !(typeof message === "string" && message.trim().length > 0);
+}
 
 function GenreAdmin() {
   const { data: genres } = useGetGenresQuery();
@@ -42,7 +54,12 @@ function GenreAdmin() {
       setName("");
       setDescription("");
     } catch (err) {
-      toast.error(catalogMutationErrorMessage(err, "Failed to add genre"));
+      // The global rtkQueryErrorLogger middleware already toasts the server
+      // message for the common failure (e.g. a 409 duplicate-name reply);
+      // only surface a fallback here for the gap it leaves silent.
+      if (isUnmessagedHttpError(err)) {
+        toast.error("Failed to add genre");
+      }
     }
   };
 

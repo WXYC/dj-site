@@ -23,32 +23,6 @@ import {
   UpdateAlbumRequestBody,
 } from "./types";
 
-/**
- * Normalize a rejected catalogApi mutation into a user-facing message.
- * `.unwrap()` rejects with the `FetchBaseQueryError` the backend returned —
- * `data.message` per the shared `ApiErrorResponse` schema (e.g. a 409
- * duplicate-name reply) — or a `SerializedError` for network-level failures.
- * Falls back to `fallback` when neither carries a usable message.
- */
-export function catalogMutationErrorMessage(error: unknown, fallback: string): string {
-  if (error && typeof error === "object" && "data" in error) {
-    const data = (error as { data?: unknown }).data;
-    if (data && typeof data === "object" && "message" in data) {
-      const message = (data as { message?: unknown }).message;
-      if (typeof message === "string" && message.trim().length > 0) {
-        return message;
-      }
-    }
-  }
-  if (error && typeof error === "object" && "message" in error) {
-    const message = (error as { message?: unknown }).message;
-    if (typeof message === "string" && message.trim().length > 0) {
-      return message;
-    }
-  }
-  return fallback;
-}
-
 type LibraryQueryResponseJSON = {
   results: AlbumSearchResultJSON[];
   total: number;
