@@ -283,9 +283,14 @@ function ArtistSearchTypeaheadInner({
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       // Escape dismisses any open panel, including the error and in-progress
-      // states that have no rows to navigate.
+      // states that have no rows to navigate. The event stops here rather than
+      // bubbling: consumers mount this inside dialogs whose own Escape handler
+      // closes them and discards their form, and that handler does not consult
+      // defaultPrevented — so dismissing a suggestion list would otherwise cost
+      // the user every field they had filled in.
       if (e.key === "Escape" && showPanel) {
         e.preventDefault();
+        e.stopPropagation();
         closePanel();
         inputRef.current?.blur();
         return;
