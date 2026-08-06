@@ -41,8 +41,7 @@ function RotationClassifyControl({ album }: RotationClassifyControlProps) {
 function RotationClassifyFields({ album }: RotationClassifyControlProps) {
   const [addRotationEntry, { isLoading: addPending }] =
     useAddRotationEntryMutation();
-  const [killRotationEntry, { isLoading: killPending }] =
-    useKillRotationEntryMutation();
+  const [killRotationEntry] = useKillRotationEntryMutation();
 
   // The album-detail read (`GET /library/info`) joins no rotation table and
   // selects no rotation columns, so `album.rotation_id` is always undefined
@@ -56,7 +55,9 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
   } = useGetRotationQuery();
 
   const [selectedBin, setSelectedBin] = useState<Rotation | null>(null);
-  const [killTargetId, setKillTargetId] = useState<number | null>(null);
+  const [inFlightKillIds, setInFlightKillIds] = useState<Set<number>>(
+    () => new Set(),
+  );
 
   // `synthesizeAlbumId` hands out negative ids to rows the library never
   // linked (see conversions.ts); neither read nor write may treat one of
@@ -81,22 +82,24 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
   // album whose actual rotation membership is simply unknown, not "none".
   const rotationStateUnknown = rotationEntries === undefined;
 
-  // Both mutations invalidate the rotation list and this control's state only
-  // flips once that refetch lands, so the actions stay busy while it is in
-  // flight — including the first load, when membership isn't known yet. That
-  // window is exactly where a second submit would open a duplicate active
-  // entry for the same album, which the backend's bare insert would accept.
+  // The add mutation invalidates the rotation list, and this control's state
+  // only flips once that refetch lands, so `addBusy` stays true through the
+  // window between a successful POST and the list update — otherwise a
+  // second submit there would open a duplicate active entry for the same
+  // album, which the backend's bare insert would accept. `rotationFetching`
+  // is also true during the very first load, before membership is known at
+  // all, but that window never reaches this form: the `rotationStateUnknown`
+  // early return below renders a status chip in its place, so there is no
+  // Add affordance yet for `addBusy` to guard.
   const addBusy = addPending || rotationFetching;
 
-  // `killPending` and `rotationFetching` are both control-wide — the mutation
-  // hook is a single instance shared by every row, and the invalidation
-  // refetch it triggers updates the one list all rows read. Gating by
-  // `killTargetId` (set to the rotation_id a kill was issued for) scopes the
-  // busy signal to the row that started it; otherwise killing one bin's entry
-  // would spin every other active bin's Kill button as if it were being
-  // retired too.
-  const isRowKillBusy = (rotationId: number) =>
-    killTargetId === rotationId && (killPending || rotationFetching);
+  // Tracked as a set of `rotation_id`s, not a single scalar: the kill
+  // mutation hook is one instance shared by every row, so a second kill
+  // issued while a first is still open must not clear the first row's busy
+  // state. Each id is added when that row's kill starts and removed once
+  // that same request settles — fulfilled or rejected — so a row reads busy
+  // iff its own kill is in flight, independent of any other row's.
+  const isRowKillBusy = (rotationId: number) => inFlightKillIds.has(rotationId);
 
   const handleAdd = async () => {
     if (!selectedBin || !albumIdValid) return;
@@ -112,7 +115,7 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
   };
 
   const handleKill = async (rotationId: number) => {
-    setKillTargetId(rotationId);
+    setInFlightKillIds((prev) => new Set(prev).add(rotationId));
     try {
       // `kill_date` is omitted so the server dates the kill itself. Computing
       // it here would yield the browser's UTC calendar day, which is already
@@ -123,6 +126,12 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
       setSelectedBin(null);
     } catch {
       toast.error("Failed to kill rotation entry");
+    } finally {
+      setInFlightKillIds((prev) => {
+        const next = new Set(prev);
+        next.delete(rotationId);
+        return next;
+      });
     }
   };
 
