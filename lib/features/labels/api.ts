@@ -24,8 +24,10 @@ export const labelsApi = createApi({
         response ?? [],
       // Label creation is an upsert on the exact name, so a stale empty result
       // served from cache after a label was created sends the next search back
-      // through the create path and produces a second row. A mutation that
-      // writes a label invalidates this tag.
+      // through the create path and produces a second row. The only writer is
+      // the release-creation mutation, which lives in a different `createApi`
+      // — and `invalidatesTags` does not reach across instances. It has to
+      // dispatch `labelsApi.util.invalidateTags` for this tag to do anything.
       providesTags: [{ type: "LabelSearch", id: "LIST" }],
     }),
   }),
