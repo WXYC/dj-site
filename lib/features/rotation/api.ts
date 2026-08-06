@@ -67,7 +67,11 @@ export const rotationApi = createApi({
           // The request carries only `rotation_id`, so the album whose cached
           // catalog rows need clearing is knowable only from the updated row.
           // Entries that never linked to a library album have none, and there
-          // is nothing in the catalog to patch for them.
+          // is nothing in the catalog to patch for them. `RotationEntry.album_id`
+          // is typed as a required `number` in the shared contract, but the
+          // underlying column is nullable — this guard is reachable in
+          // production and must not be deleted as dead code on the strength
+          // of the type alone.
           if (typeof data.album_id !== "number") return;
           patchCatalogSearchRotation(
             dispatch,
