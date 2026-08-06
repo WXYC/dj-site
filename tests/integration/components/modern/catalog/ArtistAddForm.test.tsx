@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import {
   renderWithProviders,
@@ -11,7 +11,8 @@ import {
 import ArtistAddForm from "@/src/components/experiences/modern/catalog/ArtistAddForm";
 
 const GENRE_ID = TEST_ENTITY_IDS.GENRE.ROCK;
-const { MOLINA } = TEST_SEARCH_STRINGS.CODE_LETTERS;
+const JAZZ_GENRE_ID = TEST_ENTITY_IDS.GENRE.ROCK + 1;
+const { MOLINA, STEREOLAB } = TEST_SEARCH_STRINGS.CODE_LETTERS;
 
 vi.mock("@/lib/features/authentication/client", () => ({
   authClient: { useSession: vi.fn() },
@@ -29,8 +30,13 @@ vi.mock("@/lib/features/authentication/organization-utils", () => ({
   fetchOrganizationRoleForUserClient: vi.fn(),
 }));
 
+vi.mock("sonner", () => ({
+  toast: { error: vi.fn(), success: vi.fn() },
+}));
+
 import { authClient } from "@/lib/features/authentication/client";
 import { fetchOrganizationRoleForUserClient } from "@/lib/features/authentication/organization-utils";
+import { toast } from "sonner";
 
 const mockUseSession = authClient.useSession as ReturnType<typeof vi.fn>;
 const mockFetchOrgRole = fetchOrganizationRoleForUserClient as ReturnType<
@@ -55,28 +61,43 @@ function sessionWithRole() {
   };
 }
 
-function mockGenres() {
+function mockGenres(
+  genres: { id: number; genre_name: string }[] = [{ id: GENRE_ID, genre_name: "Rock" }],
+) {
   server.use(
-    http.get(`${TEST_BACKEND_URL}/library/genres`, () =>
-      HttpResponse.json([{ id: GENRE_ID, genre_name: "Rock" }]),
-    ),
+    http.get(`${TEST_BACKEND_URL}/library/genres`, () => HttpResponse.json(genres)),
   );
 }
 
-function mockArtistSearch(artists: unknown[] = []) {
+function mockArtistSearch(artists: unknown[] = []): { getCallCount: () => number } {
+  let calls = 0;
   server.use(
-    http.get(`${TEST_BACKEND_URL}/library/artists/search`, () =>
-      HttpResponse.json({ artists }),
-    ),
+    http.get(`${TEST_BACKEND_URL}/library/artists/search`, () => {
+      calls += 1;
+      return HttpResponse.json({ artists });
+    }),
   );
+  return { getCallCount: () => calls };
 }
 
-function mockPeekCode(next_code_number = 7) {
+/** Captures the query params every peek-code preview request was made with. */
+function mockPeekCode(
+  respond: (code_letters: string) => number = () => 7,
+): { getQueries: () => { code_letters: string | null; genre_id: string | null }[] } {
+  const queries: { code_letters: string | null; genre_id: string | null }[] = [];
   server.use(
-    http.get(`${TEST_BACKEND_URL}/library/artists/peek-code`, () =>
-      HttpResponse.json({ next_code_number }),
-    ),
+    http.get(`${TEST_BACKEND_URL}/library/artists/peek-code`, ({ request }) => {
+      const params = new URL(request.url).searchParams;
+      queries.push({
+        code_letters: params.get("code_letters"),
+        genre_id: params.get("genre_id"),
+      });
+      return HttpResponse.json({
+        next_code_number: respond(params.get("code_letters") ?? ""),
+      });
+    }),
   );
+  return { getQueries: () => queries };
 }
 
 /** Captures the exact serialized JSON body POSTed to /library/artists. */
@@ -94,15 +115,50 @@ function mockAddArtist(
   return { getBodies: () => bodies };
 }
 
-async function fillCoreFields(user: ReturnType<typeof renderWithProviders>["user"]) {
+function created(overrides: Record<string, unknown> = {}) {
+  return HttpResponse.json(
+    {
+      id: 99,
+      artist_name: "Juana Molina",
+      code_letters: MOLINA,
+      code_number: 12,
+      genre_id: GENRE_ID,
+      ...overrides,
+    },
+    { status: 201 },
+  );
+}
+
+function conflictResponse(overrides: Record<string, unknown> = {}) {
+  return HttpResponse.json(
+    {
+      message: "Artist code already exists for that genre and code letters.",
+      artist: { artist_id: 5, artist_name: "Stereolab", code_letters: MOLINA },
+      ...overrides,
+    },
+    { status: 409 },
+  );
+}
+
+async function selectGenre(
+  user: ReturnType<typeof renderWithProviders>["user"],
+  name = "Rock",
+) {
   const genreSelect = await screen.findByRole("combobox", { name: /genre/i });
   await user.click(genreSelect);
-  await user.click(await screen.findByRole("option", { name: "Rock" }));
+  await user.click(await screen.findByRole("option", { name }));
+}
+
+async function fillCoreFields(
+  user: ReturnType<typeof renderWithProviders>["user"],
+  codeLetters: string = MOLINA,
+) {
+  await selectGenre(user);
 
   const nameInput = await screen.findByPlaceholderText("Search artists...");
   await user.type(nameInput, "Juana Molina");
 
-  await user.type(screen.getByLabelText(/call letters/i), MOLINA);
+  await user.type(screen.getByLabelText(/call letters/i), codeLetters);
   await user.type(screen.getByLabelText("Code number"), "12");
 }
 
@@ -144,10 +200,7 @@ describe("ArtistAddForm", () => {
 
     it("submits a valid AddArtistRequestBody, asserting the serialized outgoing body", async () => {
       const { getBodies } = mockAddArtist((body) =>
-        HttpResponse.json(
-          { id: 99, artist_name: (body as { artist_name: string }).artist_name, code_number: 12, genre_id: GENRE_ID },
-          { status: 201 },
-        ),
+        created({ artist_name: (body as { artist_name: string }).artist_name }),
       );
       const { user } = renderWithProviders(<ArtistAddForm />);
 
@@ -163,33 +216,45 @@ describe("ArtistAddForm", () => {
       });
     });
 
-    it("shows the assigned code number from the 201 response", async () => {
-      mockAddArtist(() =>
-        HttpResponse.json(
-          { id: 99, artist_name: "Juana Molina", code_number: 12, genre_id: GENRE_ID },
-          { status: 201 },
-        ),
+    it("carries alphabetical_name on the wire when one is typed", async () => {
+      const { getBodies } = mockAddArtist(() => created());
+      const { user } = renderWithProviders(<ArtistAddForm />);
+
+      await fillCoreFields(user);
+      await user.type(
+        screen.getByLabelText(/alphabetical name/i),
+        "Molina, Juana",
       );
+      await user.click(screen.getByRole("button", { name: /add artist/i }));
+
+      await waitFor(() => expect(getBodies()).toHaveLength(1));
+      expect(getBodies()[0]).toEqual({
+        artist_name: "Juana Molina",
+        code_letters: MOLINA,
+        genre_id: GENRE_ID,
+        code_number: 12,
+        alphabetical_name: "Molina, Juana",
+      });
+    });
+
+    it("shows the assigned code from the 201 response rather than echoing what was typed", async () => {
+      // The response deliberately disagrees with the typed MO/12 so the
+      // assertion can only pass by reading the server's copy of what was
+      // filed — an echo of client state would render MO12.
+      mockAddArtist(() => created({ code_letters: STEREOLAB, code_number: 44 }));
       const { user } = renderWithProviders(<ArtistAddForm />);
 
       await fillCoreFields(user);
       await user.click(screen.getByRole("button", { name: /add artist/i }));
 
       expect(
-        await screen.findByText(new RegExp(`${MOLINA}12`)),
+        await screen.findByText(new RegExp(`${STEREOLAB}44`)),
       ).toBeInTheDocument();
+      expect(screen.queryByText(new RegExp(`${MOLINA}12`))).not.toBeInTheDocument();
     });
 
     it("renders the conflicting artist by name on a 409 response instead of a generic failure", async () => {
-      mockAddArtist(() =>
-        HttpResponse.json(
-          {
-            message: "Artist code already exists for that genre and code letters.",
-            artist: { artist_id: 5, artist_name: "Stereolab", code_letters: MOLINA },
-          },
-          { status: 409 },
-        ),
-      );
+      mockAddArtist(() => conflictResponse());
       const { user } = renderWithProviders(<ArtistAddForm />);
 
       await fillCoreFields(user);
@@ -198,48 +263,35 @@ describe("ArtistAddForm", () => {
       expect(await screen.findByRole("alert")).toHaveTextContent(/Stereolab/);
     });
 
-    it("clears the stale conflict banner once the rejected code is edited", async () => {
-      mockAddArtist(() =>
-        HttpResponse.json(
-          {
-            message: "Artist code already exists for that genre and code letters.",
-            artist: { artist_id: 5, artist_name: "Stereolab", code_letters: MOLINA },
-          },
-          { status: 409 },
-        ),
-      );
-      const { user } = renderWithProviders(<ArtistAddForm />);
+    it.each([
+      ["the code number", async (user: ReturnType<typeof renderWithProviders>["user"]) =>
+        user.type(screen.getByLabelText("Code number"), "3")],
+      ["the call letters", async (user: ReturnType<typeof renderWithProviders>["user"]) =>
+        user.type(screen.getByLabelText(/call letters/i), "X")],
+    ])(
+      "clears the stale conflict banner once %s is edited",
+      async (_label, edit) => {
+        mockAddArtist(() => conflictResponse());
+        const { user } = renderWithProviders(<ArtistAddForm />);
 
-      await fillCoreFields(user);
-      await user.click(screen.getByRole("button", { name: /add artist/i }));
-      expect(await screen.findByRole("alert")).toHaveTextContent(`${MOLINA}12`);
+        await fillCoreFields(user);
+        await user.click(screen.getByRole("button", { name: /add artist/i }));
+        expect(await screen.findByRole("alert")).toHaveTextContent(`${MOLINA}12`);
 
-      // Editing the field the server actually rejected must drop the banner
-      // rather than have it keep reporting the new, unsubmitted value as taken.
-      await user.type(screen.getByLabelText("Code number"), "3");
+        // Editing a field the server actually saw must drop the banner rather
+        // than have it keep reporting the new, unsubmitted value as taken.
+        await edit(user);
 
-      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    });
+        expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      },
+    );
 
     it("clears the stale conflict banner when the genre changes", async () => {
-      const JAZZ_GENRE_ID = TEST_ENTITY_IDS.GENRE.ROCK + 1;
-      server.use(
-        http.get(`${TEST_BACKEND_URL}/library/genres`, () =>
-          HttpResponse.json([
-            { id: GENRE_ID, genre_name: "Rock" },
-            { id: JAZZ_GENRE_ID, genre_name: "Jazz" },
-          ]),
-        ),
-      );
-      mockAddArtist(() =>
-        HttpResponse.json(
-          {
-            message: "Artist code already exists for that genre and code letters.",
-            artist: { artist_id: 5, artist_name: "Stereolab", code_letters: MOLINA },
-          },
-          { status: 409 },
-        ),
-      );
+      mockGenres([
+        { id: GENRE_ID, genre_name: "Rock" },
+        { id: JAZZ_GENRE_ID, genre_name: "Jazz" },
+      ]);
+      mockAddArtist(() => conflictResponse());
       const { user } = renderWithProviders(<ArtistAddForm />);
 
       await fillCoreFields(user);
@@ -249,45 +301,280 @@ describe("ArtistAddForm", () => {
       // (code_letters, genre_id, code_number) is the uniqueness triple — a
       // code rejected under one genre may be free under another, so moving
       // genres must not leave the prior genre's rejection standing.
-      const genreSelect = screen.getByRole("combobox", { name: /genre/i });
-      await user.click(genreSelect);
-      await user.click(await screen.findByRole("option", { name: "Jazz" }));
+      await selectGenre(user, "Jazz");
 
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     });
 
-    it("blocks submission and surfaces a duplicate when an existing artist is picked from the typeahead", async () => {
-      mockArtistSearch([
-        { id: 12, artist_name: "Juana Molina", code_letters: MOLINA, code_number: 3 },
-      ]);
-      const { getBodies } = mockAddArtist(() =>
-        HttpResponse.json({ id: 1 }, { status: 201 }),
-      );
+    describe("call letters", () => {
+      it("normalizes to uppercase on the wire and in the code preview", async () => {
+        const { getQueries } = mockPeekCode();
+        const { getBodies } = mockAddArtist(() => created());
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await fillCoreFields(user, "mo");
+
+        // Both backend lookups keyed on call letters compare the column for
+        // equality, and the catalog is filed uppercase: a lowercase value
+        // would miss the duplicate check and preview a next code of 1.
+        expect(screen.getByLabelText(/call letters/i)).toHaveValue(MOLINA);
+        await waitFor(() =>
+          expect(getQueries().at(-1)).toEqual({
+            code_letters: MOLINA,
+            genre_id: String(GENRE_ID),
+          }),
+        );
+
+        await user.click(screen.getByRole("button", { name: /add artist/i }));
+
+        await waitFor(() => expect(getBodies()).toHaveLength(1));
+        expect(getBodies()[0]).toMatchObject({ code_letters: MOLINA });
+      });
+
+      it("caps the field at the four characters the column holds and says so", async () => {
+        const { getBodies } = mockAddArtist(() => created());
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await fillCoreFields(user, "molina");
+
+        // artists.code_letters is a varchar(4) with no server-side guard: an
+        // over-long value reaches PostgreSQL and returns a 500.
+        expect(screen.getByLabelText(/call letters/i)).toHaveValue("MOLI");
+        expect(screen.getByText(/up to 4 characters/i)).toBeInTheDocument();
+
+        await user.click(screen.getByRole("button", { name: /add artist/i }));
+
+        await waitFor(() => expect(getBodies()).toHaveLength(1));
+        expect(getBodies()[0]).toMatchObject({ code_letters: "MOLI" });
+      });
+    });
+
+    describe("the call-letter preview", () => {
+      it("previews the next code for the current call-letters/genre pair", async () => {
+        const { getQueries } = mockPeekCode(() => 7);
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await selectGenre(user);
+        await user.type(screen.getByLabelText(/call letters/i), MOLINA);
+
+        expect(await screen.findByTestId("next-code-number")).toHaveTextContent("7");
+        expect(screen.getByText("Next code:")).toBeInTheDocument();
+        expect(getQueries()).toContainEqual({
+          code_letters: MOLINA,
+          genre_id: String(GENRE_ID),
+        });
+      });
+
+      it("re-previews when the call letters change", async () => {
+        mockPeekCode((code_letters) => (code_letters === MOLINA ? 7 : 3));
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await selectGenre(user);
+        const codeLettersInput = screen.getByLabelText(/call letters/i);
+        await user.type(codeLettersInput, MOLINA);
+        expect(await screen.findByTestId("next-code-number")).toHaveTextContent("7");
+
+        await user.clear(codeLettersInput);
+        await user.type(codeLettersInput, STEREOLAB);
+
+        await waitFor(() =>
+          expect(screen.getByTestId("next-code-number")).toHaveTextContent("3"),
+        );
+      });
+    });
+
+    describe("duplicate protection", () => {
+      it("blocks submission and surfaces a duplicate when an existing artist is picked from the typeahead", async () => {
+        mockArtistSearch([
+          { id: 12, artist_name: "Juana Molina", code_letters: MOLINA, code_number: 3 },
+        ]);
+        const { getBodies } = mockAddArtist(() => created());
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await selectGenre(user);
+
+        const nameInput = await screen.findByPlaceholderText("Search artists...");
+        await user.type(nameInput, "Juana Molina");
+        await user.click(await screen.findByText("Juana Molina"));
+
+        await user.type(screen.getByLabelText(/call letters/i), MOLINA);
+        await user.type(screen.getByLabelText("Code number"), "12");
+
+        expect(screen.getByRole("button", { name: /add artist/i })).toBeDisabled();
+        expect(screen.getByText(/already exists/i)).toBeInTheDocument();
+        expect(getBodies()).toHaveLength(0);
+      });
+
+      it("keeps submission blocked when the genre changes after an existing artist was picked", async () => {
+        mockGenres([
+          { id: GENRE_ID, genre_name: "Rock" },
+          { id: JAZZ_GENRE_ID, genre_name: "Jazz" },
+        ]);
+        const { getCallCount } = mockArtistSearch([
+          { id: 12, artist_name: "Juana Molina", code_letters: MOLINA, code_number: 3 },
+        ]);
+        const { getBodies } = mockAddArtist(() => created());
+        const { user, container } = renderWithProviders(<ArtistAddForm />);
+
+        await selectGenre(user);
+        const nameInput = await screen.findByPlaceholderText("Search artists...");
+        await user.type(nameInput, "Juana Molina");
+        await user.click(await screen.findByText("Juana Molina"));
+        await user.type(screen.getByLabelText(/call letters/i), MOLINA);
+        await user.type(screen.getByLabelText("Code number"), "12");
+        expect(screen.getByRole("button", { name: /add artist/i })).toBeDisabled();
+
+        const searchesUnderRock = getCallCount();
+        await selectGenre(user, "Jazz");
+
+        // The typeahead retracts the held artist on a genre change but never
+        // reopens its panel, so nothing checks this name under Jazz. Treating
+        // the retraction as "new here" is how the form would create the very
+        // duplicate the typeahead exists to prevent.
+        expect(getCallCount()).toBe(searchesUnderRock);
+        expect(screen.getByRole("button", { name: /add artist/i })).toBeDisabled();
+        expect(
+          screen.getByText(/search this name again under the new genre/i),
+        ).toBeInTheDocument();
+
+        // Submitting past the disabled button (Enter in a field, say) must hit
+        // the same block rather than only the button's disabled state.
+        fireEvent.submit(container.querySelector("form")!);
+        expect(getBodies()).toHaveLength(0);
+      });
+
+      it("re-enables submission once the name is searched again under the new genre", async () => {
+        mockGenres([
+          { id: GENRE_ID, genre_name: "Rock" },
+          { id: JAZZ_GENRE_ID, genre_name: "Jazz" },
+        ]);
+        mockArtistSearch([]);
+        mockAddArtist(() => created());
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await fillCoreFields(user);
+        await selectGenre(user, "Jazz");
+        expect(
+          screen.getByText(/search this name again under the new genre/i),
+        ).toBeInTheDocument();
+
+        await user.type(screen.getByPlaceholderText("Search artists..."), "!");
+
+        await waitFor(() =>
+          expect(
+            screen.queryByText(/search this name again under the new genre/i),
+          ).not.toBeInTheDocument(),
+        );
+        expect(screen.getByRole("button", { name: /add artist/i })).toBeEnabled();
+      });
+    });
+
+    describe("failure handling", () => {
+      it("shows exactly one toast carrying the server's message when the add fails", async () => {
+        mockAddArtist(() =>
+          HttpResponse.json({ message: "Artist could not be filed" }, { status: 500 }),
+        );
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await fillCoreFields(user);
+        await user.click(screen.getByRole("button", { name: /add artist/i }));
+
+        // The global rtkQueryErrorLogger middleware already toasts this; a
+        // second unconditional toast here would stack two on one failure.
+        await waitFor(() =>
+          expect(toast.error).toHaveBeenCalledWith("Artist could not be filed"),
+        );
+        expect(toast.error).toHaveBeenCalledTimes(1);
+      });
+
+      it("shows exactly one fallback toast when the add fails with no server message", async () => {
+        mockAddArtist(() => HttpResponse.json({ error: "rejected" }, { status: 500 }));
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await fillCoreFields(user);
+        await user.click(screen.getByRole("button", { name: /add artist/i }));
+
+        await waitFor(() =>
+          expect(toast.error).toHaveBeenCalledWith("Failed to add artist"),
+        );
+        expect(toast.error).toHaveBeenCalledTimes(1);
+      });
+
+      it("survives a 409 whose body carries no usable artist", async () => {
+        mockAddArtist(() => conflictResponse({ artist: null }));
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await fillCoreFields(user);
+        await user.click(screen.getByRole("button", { name: /add artist/i }));
+
+        await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+        // Rendering the banner would dereference `artist.artist_name`; there is
+        // no error boundary here, so a malformed 409 must not reach it.
+        expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /add artist/i })).toBeInTheDocument();
+      });
+
+      it("explains a genres outage and offers a retry instead of an empty dropdown", async () => {
+        let genreCalls = 0;
+        server.use(
+          http.get(`${TEST_BACKEND_URL}/library/genres`, () => {
+            genreCalls += 1;
+            return genreCalls === 1
+              ? HttpResponse.json({ message: "genres unavailable" }, { status: 500 })
+              : HttpResponse.json([{ id: GENRE_ID, genre_name: "Rock" }]);
+          }),
+        );
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        // genre_id is required to submit, so an empty dropdown leaves the form
+        // permanently un-submittable with nothing explaining why.
+        expect(await screen.findByText(/genres are unavailable/i)).toBeInTheDocument();
+
+        await user.click(screen.getByRole("button", { name: /try again/i }));
+
+        await waitFor(() =>
+          expect(screen.queryByText(/genres are unavailable/i)).not.toBeInTheDocument(),
+        );
+        await selectGenre(user);
+        expect(await screen.findByPlaceholderText("Search artists...")).toBeEnabled();
+      });
+    });
+
+    it("holds the fields while the add is in flight so mid-flight typing isn't cleared", async () => {
+      let release: () => void = () => {};
+      const inFlight = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      mockAddArtist(async () => {
+        await inFlight;
+        return created();
+      });
       const { user } = renderWithProviders(<ArtistAddForm />);
 
-      const genreSelect = await screen.findByRole("combobox", { name: /genre/i });
-      await user.click(genreSelect);
-      await user.click(await screen.findByRole("option", { name: "Rock" }));
+      await fillCoreFields(user);
+      await user.click(screen.getByRole("button", { name: /add artist/i }));
 
-      const nameInput = await screen.findByPlaceholderText("Search artists...");
-      await user.type(nameInput, "Juana Molina");
-      await user.click(await screen.findByText("Juana Molina"));
+      // The success handler clears every field unconditionally; anything typed
+      // during the request would be discarded with no signal.
+      await waitFor(() =>
+        expect(screen.getByLabelText("Code number")).toBeDisabled(),
+      );
+      expect(screen.getByLabelText(/call letters/i)).toBeDisabled();
+      expect(screen.getByLabelText(/alphabetical name/i)).toBeDisabled();
+      expect(screen.getByPlaceholderText("Search artists...")).toBeDisabled();
+      expect(screen.getByRole("combobox", { name: /genre/i })).toBeDisabled();
 
-      await user.type(screen.getByLabelText(/call letters/i), MOLINA);
-      await user.type(screen.getByLabelText("Code number"), "12");
-
-      expect(screen.getByRole("button", { name: /add artist/i })).toBeDisabled();
-      expect(screen.getByText(/already exists/i)).toBeInTheDocument();
-      expect(getBodies()).toHaveLength(0);
+      release();
+      await waitFor(() =>
+        expect(screen.getByLabelText("Code number")).toBeEnabled(),
+      );
     });
 
     it("reuses parseRequiredPositiveInt to reject a non-numeric code number", async () => {
-      mockAddArtist(() => HttpResponse.json({ id: 1 }, { status: 201 }));
+      mockAddArtist(() => created());
       const { user } = renderWithProviders(<ArtistAddForm />);
 
-      const genreSelect = await screen.findByRole("combobox", { name: /genre/i });
-      await user.click(genreSelect);
-      await user.click(await screen.findByRole("option", { name: "Rock" }));
+      await selectGenre(user);
 
       const nameInput = await screen.findByPlaceholderText("Search artists...");
       await user.type(nameInput, "Juana Molina");

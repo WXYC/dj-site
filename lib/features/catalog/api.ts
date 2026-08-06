@@ -150,7 +150,12 @@ export const catalogApi = createApi({
       },
     }),
     addArtist: builder.mutation<
-      { id: number; code_number?: number; genre_id?: number } & Record<string, unknown>,
+      {
+        id: number;
+        code_letters?: string;
+        code_number?: number;
+        genre_id?: number;
+      } & Record<string, unknown>,
       AddArtistRequestBody
     >({
       query: (body) => ({
@@ -160,8 +165,7 @@ export const catalogApi = createApi({
       }),
       // A new artist would surface in the artist typeahead (searchArtistsInGenre)
       // and can gate later album rows; refetch both rather than patch —
-      // dj-site#624. Neither this mutation nor the typeahead has a UI consumer
-      // yet — tags are wired for the first adopter, not a live flow.
+      // dj-site#624.
       // Also invalidate the peek-code preview for the exact code_letters/genre_id
       // pair just filled: without this, a cached preview for that pair keeps
       // showing the pre-add code number to an MD who revisits it in the same
