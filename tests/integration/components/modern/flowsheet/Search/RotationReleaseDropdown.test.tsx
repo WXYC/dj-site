@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import RotationReleaseDropdown from "@/src/components/experiences/modern/flowsheet/Search/RotationReleaseDropdown";
-import { createTestAlbum, createTestArtist } from "@/tests/helpers";
+import {
+  createTestAlbum,
+  createTestArtist,
+  renderWithProviders,
+} from "@/tests/helpers";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 
 const releases = [
@@ -401,6 +405,118 @@ describe("RotationReleaseDropdown — combobox (#745)", () => {
         screen.queryByTestId("rotation-release-option-1")
       ).not.toBeInTheDocument();
     });
+  });
+});
+
+// The bin is shared server state: any DJ's rotation add or kill invalidates the
+// cached list, so `releases` can be reordered, extended, or shortened while this
+// panel sits open. A keyboard highlight held as a raw position into the derived
+// list would come to rest on whichever release slid into that slot and commit it
+// to the live air log on Enter, with nothing on screen to explain the swap.
+describe("RotationReleaseDropdown — highlight across list changes", () => {
+  const onSelect = vi.fn();
+  beforeEach(() => vi.clearAllMocks());
+
+  // Sorts ahead of every release in the shared fixture, so adding it shifts the
+  // whole list down by one.
+  const arthurRussell = createTestAlbum({
+    id: 4,
+    title: "World of Echo",
+    artist: createTestArtist({ name: "Arthur Russell" }),
+    label: "Audika",
+  });
+
+  function renderPicker(initial: AlbumEntry[]) {
+    const { rerender } = renderWithProviders(
+      <RotationReleaseDropdown
+        releases={initial}
+        selectedRelease={null}
+        onSelectRelease={onSelect}
+        disabled={false}
+      />
+    );
+    return (next: AlbumEntry[]) =>
+      rerender(
+        <RotationReleaseDropdown
+          releases={next}
+          selectedRelease={null}
+          onSelectRelease={onSelect}
+          disabled={false}
+        />
+      );
+  }
+
+  // Opens the panel (highlighting the first release) and arrows down onto
+  // Cat Power — the middle of the sorted fixture.
+  function highlightCatPower(input: HTMLInputElement) {
+    fireEvent.focus(input);
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+  }
+
+  it("commits the highlighted release after a concurrent add reorders the list", () => {
+    const setReleases = renderPicker(releases);
+    const input = getCombobox();
+    highlightCatPower(input);
+
+    setReleases([...releases, arthurRussell]);
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 2, title: "Moon Pix" })
+    );
+  });
+
+  it("commits the highlighted release after an earlier release is killed", () => {
+    const setReleases = renderPicker(releases);
+    const input = getCombobox();
+    highlightCatPower(input);
+
+    setReleases([releases[1], releases[2]]);
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 2, title: "Moon Pix" })
+    );
+  });
+
+  it("commits nothing when the highlighted release itself leaves the list", () => {
+    const setReleases = renderPicker(releases);
+    const input = getCombobox();
+    highlightCatPower(input);
+
+    setReleases([releases[0], releases[2]]);
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("commits nothing when the bin empties under the open panel", () => {
+    const setReleases = renderPicker(releases);
+    const input = getCombobox();
+    highlightCatPower(input);
+
+    setReleases([]);
+    expect(() => fireEvent.keyDown(input, { key: "Enter" })).not.toThrow();
+
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(screen.getByText(/no releases in this bin/i)).toBeInTheDocument();
+  });
+
+  it("re-enters the list from the top when the highlighted release is gone", () => {
+    const setReleases = renderPicker(releases);
+    const input = getCombobox();
+    highlightCatPower(input);
+
+    setReleases([releases[0], releases[2]]);
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 1, title: "Confield" })
+    );
   });
 });
 
