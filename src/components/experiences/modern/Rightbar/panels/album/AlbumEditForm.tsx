@@ -48,13 +48,18 @@ type SavedFields = {
 };
 
 /**
- * An artist id together with the genre it was resolved under. Artist rows are
- * genre-scoped, so an id alone cannot say whether it still describes the form:
- * the pair does, by comparison against the genre currently held.
+ * An artist id together with the genre it was resolved under and the name it
+ * was resolved for. An id alone cannot say whether it still describes the form:
+ * artist rows are genre-scoped, and an id is only good for the text that
+ * produced it. Carrying all three lets this form judge the link against what is
+ * on screen at any moment, rather than depending on the typeahead to announce
+ * every way it can go stale — that announcement fires at most once per
+ * selection, so a link that outlives one is never spoken for again.
  */
 type ArtistLink = {
   id: number;
   genreId: number | undefined;
+  name: string;
 };
 
 /**
@@ -76,10 +81,10 @@ function snapshotFromAlbum(album: AlbumEntry): SavedFields {
   };
 }
 
-function artistLinkFrom(saved: SavedFields): ArtistLink | null {
+function artistLinkFrom(saved: SavedFields, name: string): ArtistLink | null {
   return saved.artistId === undefined
     ? null
-    : { id: saved.artistId, genreId: saved.genreId };
+    : { id: saved.artistId, genreId: saved.genreId, name };
 }
 
 /**
@@ -124,31 +129,31 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
     saved.discQuantity,
   );
 
-  // The held link carries the genre it was resolved under so a genre change
-  // invalidates it by comparison rather than by erasing it. Erasing is what
-  // makes the round trip unrecoverable: an MD who changes the genre and changes
-  // it back is left on an album whose every field reads its original value with
-  // Save permanently blocked and nothing on screen explaining why. The link
-  // seeded off the album starts here too — the typeahead's own
-  // `onSelectionCleared` only retracts selections it reported through
-  // `onSelect`, so it never speaks for a link this form read straight off the
-  // album, and a genre change has to invalidate that one here instead.
+  // The link is kept whole and judged by comparison rather than erased on the
+  // first sign of trouble. Erasing is what makes a genre round trip
+  // unrecoverable: an MD who changes the genre and changes it back would be
+  // left on an album whose every field reads its original value with Save
+  // permanently blocked and nothing on screen explaining why. The link seeded
+  // off the album starts here too — the typeahead's `onSelectionCleared` only
+  // retracts selections it reported through `onSelect`, so it never speaks for
+  // a link this form read straight off the album.
   const [artistLink, setArtistLink] = useState<ArtistLink | null>(() =>
-    artistLinkFrom(saved),
+    artistLinkFrom(saved, album.artist.name),
   );
 
   const handleArtistSelect = (artist: ArtistInGenreOption) => {
-    setArtistLink({ id: artist.id, genreId });
+    setArtistLink({ id: artist.id, genreId, name: artist.artist_name });
   };
 
   // The typeahead retracts on two different events: the text was edited away
   // from the picked artist, or the genre moved off the one it was picked under.
-  // Only the first invalidates the pair — a genre move leaves the text standing
-  // deliberately, so the link is still true about the genre it names and the
-  // comparison above is what should judge it. Telling them apart by whether
-  // `genreId` has already moved past the link's is what lets a genre round trip
-  // restore a picked link, exactly as it restores a seeded one; a same-genre
-  // retraction still drops the link, because the text no longer names it.
+  // A genre move leaves the text standing deliberately, so the link is still
+  // true about what it names and the derivation below is what should weigh it;
+  // dropping it here would defeat the round trip. Any other retraction is
+  // acted on immediately. Either way the derivation below is the standing
+  // authority — it re-checks both the genre and the name on every render, and
+  // it has to, because the typeahead stops tracking a selection after the first
+  // retraction it fires and never speaks for that link again.
   const handleArtistSelectionCleared = () => {
     setArtistLink((prev) => (prev !== null && prev.genreId !== genreId ? prev : null));
   };
@@ -163,10 +168,19 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
   const trimmedLabel = label.trim();
   const trimmedAlternateArtistName = alternateArtistName.trim();
 
-  // A link resolved under a different genre names no row under the current one.
+  // A link resolved under a different genre names no row under the current one,
+  // and a link whose name no longer matches the field names an artist the MD is
+  // no longer looking at. Either way the id must not reach the request: a
+  // re-attribution the field contradicts is silent on screen and permanent on
+  // the shelf, since the server can burn a fresh call number for it.
   const artistLinkStaleForGenre =
     artistLink !== null && artistLink.genreId !== genreId;
-  const artistId = artistLinkStaleForGenre ? undefined : artistLink?.id;
+  const artistLinkStaleForName =
+    artistLink !== null && artistLink.name.trim() !== artistName.trim();
+  const artistId =
+    artistLink === null || artistLinkStaleForGenre || artistLinkStaleForName
+      ? undefined
+      : artistLink.id;
 
   // Backend-Service rejects an empty album_title outright (400), so an empty
   // draft must block Save rather than reach the request at all. The length caps
@@ -246,7 +260,7 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
       setGenreId(nextSaved.genreId);
       setFormatId(nextSaved.formatId);
       setArtistName(updated.artist.name);
-      setArtistLink(artistLinkFrom(nextSaved));
+      setArtistLink(artistLinkFrom(nextSaved, updated.artist.name));
       setAlternateArtistName(nextSaved.alternateArtistName);
       setDiscQuantity(nextSaved.discQuantity);
       toast.success("Album updated");

@@ -68,6 +68,7 @@ const CD_FORMAT_ID = 3;
 const VINYL_FORMAT_ID = 4;
 const JUANA_ARTIST_ID = 501;
 const JUANA_JAZZ_ARTIST_ID = 777;
+const JESSICA_ARTIST_ID = 600;
 
 const SAVE_BUTTON = { name: "Save Release" };
 
@@ -710,6 +711,52 @@ describe("AlbumEditForm", () => {
         await waitFor(() =>
           expect(getReceivedBody()).toEqual({ album_title: "DOGA (Reissue)" }),
         );
+      });
+
+      // The typeahead retracts at most once per selection and stops tracking
+      // that selection afterwards, so a link restored by a genre round trip has
+      // nothing left to announce a later text edit. The form has to judge the
+      // link against the field itself — otherwise Save re-attributes the album
+      // to an artist the field visibly does not name, and the server can burn a
+      // fresh call number doing it.
+      it("blocks Save when a restored link's artist text is edited without a fresh pick", async () => {
+        const { getCallCount } = mockPatch();
+        mockArtistSearch([
+          {
+            id: JESSICA_ARTIST_ID,
+            artist_name: "Jessica Pratt",
+            code_letters: "PR",
+            code_number: 3,
+          },
+        ]);
+        const { user } = renderWithProviders(<AlbumEditForm album={juanaMolinaAlbum()} />);
+
+        const artistInput = await screen.findByLabelText("Search artists");
+        await user.clear(artistInput);
+        await user.type(artistInput, "Jessica");
+        await user.click(await screen.findByText("Jessica Pratt"));
+
+        const saveButton = screen.getByRole("button", SAVE_BUTTON);
+        await waitFor(() => expect(saveButton).toBeEnabled());
+
+        await user.click(screen.getByRole("combobox", { name: "Genre" }));
+        await user.click(await screen.findByRole("option", { name: "Jazz" }));
+        expect(saveButton).toBeDisabled();
+
+        await user.click(screen.getByRole("combobox", { name: "Genre" }));
+        await user.click(await screen.findByRole("option", { name: "Rock" }));
+        await waitFor(() => expect(saveButton).toBeEnabled());
+
+        // Retyping the album's original artist without picking a row: the field
+        // reads "Juana Molina" while the held id is Jessica Pratt's.
+        await user.clear(artistInput);
+        await user.type(artistInput, "Juana Molina");
+
+        await waitFor(() => expect(saveButton).toBeDisabled());
+        expect(
+          screen.getByText("Search and select an artist to continue."),
+        ).toBeInTheDocument();
+        expect(getCallCount()).toBe(0);
       });
     });
 
