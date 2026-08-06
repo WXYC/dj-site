@@ -27,16 +27,11 @@ function CallLetterPeekControl({ code_letters, genre_id }: CallLetterPeekControl
   );
 }
 
-interface CallLetterPeekProps {
-  code_letters: string;
-  genre_id: number | null;
-}
-
 // The input-validity guard lives here, inside RequireMD's child, rather than
 // above RequireMD in CallLetterPeekControl: unmounting RequireMD on every
 // empty input would drop its resolved-authority state and force a full
 // org-role re-fetch on the next non-empty keystroke.
-function CallLetterPeek({ code_letters, genre_id }: CallLetterPeekProps) {
+function CallLetterPeek({ code_letters, genre_id }: CallLetterPeekControlProps) {
   const labelId = useId();
   const [peekArtistCode, { data, isFetching, error }] = useLazyPeekArtistCodeQuery();
 

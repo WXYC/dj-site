@@ -129,6 +129,23 @@ describe("CallLetterPeekControl", () => {
       expect(await screen.findByTestId("next-code-number")).toHaveTextContent("7");
     });
 
+    it("resolves the org role exactly once across a clear-and-retype cycle", async () => {
+      mockPeekCode();
+      const { rerender } = renderWithProviders(
+        <CallLetterPeekControl code_letters={MOLINA} genre_id={GENRE_ID} />,
+      );
+      await awaitRoleResolution();
+
+      // Clearing code_letters must not unmount RequireMD: if the validity
+      // guard ever moves above it, this cycle re-triggers org-role
+      // resolution on every keystroke that empties and refills the input.
+      rerender(<CallLetterPeekControl code_letters="" genre_id={GENRE_ID} />);
+      rerender(<CallLetterPeekControl code_letters={STEREOLAB} genre_id={GENRE_ID} />);
+
+      expect(await screen.findByTestId("next-code-number")).toBeInTheDocument();
+      expect(mockFetchOrgRole).toHaveBeenCalledTimes(1);
+    });
+
     it("re-queries reactively when code_letters changes", async () => {
       const { getReceivedParams } = mockPeekCode();
       const { rerender } = renderWithProviders(
