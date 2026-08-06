@@ -248,12 +248,11 @@ describe("DiscogsUnavailableControl", () => {
     });
   });
 
-  // The global RTK Query middleware re-toasts a server-supplied reason, so this
-  // control stays quiet for that one shape. For every other shape the
-  // middleware raises a raw parse failure, a bare transport line, or nothing at
-  // all — none of which say which control failed — so the fallback here is the
-  // only message naming the failure and must survive.
-  describe("every rejection shape leaves the MD a readable message", () => {
+  // The global RTK Query middleware owns the wording for every shape it can
+  // describe — a server-supplied reason, a transport failure, a body that
+  // wasn't JSON — and this control stays out of those. What it must cover is
+  // the shapes the middleware says nothing for, or the failure is silent.
+  describe("every rejection shape leaves the MD exactly one message", () => {
     beforeEach(() => {
       mockFetchOrgRole.mockResolvedValue("musicDirector");
       mockUseSession.mockReturnValue(sessionWithRole());
@@ -283,9 +282,16 @@ describe("DiscogsUnavailableControl", () => {
       expect(messages).toEqual(["Album is not catalogued"]);
     });
 
-    // A route that answers a mutation with HTML (an Express 404 page, a gateway
-    // 502) leaves the middleware toasting only the JSON parse failure.
-    it("speaks alongside the raw parse failure when the body is not JSON", async () => {
+    it("speaks when the server rejects with no reason at all", async () => {
+      const messages = await toggleWith(() => HttpResponse.json({}, { status: 500 }));
+
+      expect(messages).toEqual(["Failed to update Discogs availability"]);
+    });
+
+    // A route answering a mutation with HTML (an Express 404 page, a gateway
+    // 502) is the middleware's to word — asserted as "something, but not a
+    // second toast from here", so improving that wording doesn't break this.
+    it("leaves a non-JSON body to the middleware", async () => {
       const messages = await toggleWith(
         () =>
           new HttpResponse(
@@ -294,13 +300,14 @@ describe("DiscogsUnavailableControl", () => {
           ),
       );
 
-      expect(messages).toContain("Failed to update Discogs availability");
+      expect(messages).toHaveLength(1);
+      expect(messages).not.toContain("Failed to update Discogs availability");
     });
 
-    it("speaks alongside the generic network toast when the request never lands", async () => {
+    it("leaves a request that never lands to the middleware", async () => {
       const messages = await toggleWith(() => HttpResponse.error());
 
-      expect(messages).toContain("Failed to update Discogs availability");
+      expect(messages).toEqual(["Network error — please check your connection."]);
     });
 
     // A 200 whose body the response transform can't read rejects the thunk
