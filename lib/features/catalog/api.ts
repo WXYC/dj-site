@@ -59,7 +59,7 @@ function transformLibraryQueryResponse(
 export const catalogApi = createApi({
   reducerPath: "catalogApi",
   baseQuery: backendBaseQuery("library"),
-  tagTypes: ["Rotation", "AlbumDetail", "CatalogList", "ArtistSearch", "FormatList", "GenreList"],
+  tagTypes: ["Rotation", "AlbumDetail", "CatalogList", "ArtistSearch", "FormatList", "GenreList", "ArtistCodePeek"],
   endpoints: (builder) => ({
     searchCatalog: builder.query<AlbumEntry[], SearchCatalogQueryParams>({
       query: ({ artist_name, album_title, n, on_streaming }) => ({
@@ -156,9 +156,14 @@ export const catalogApi = createApi({
       // and can gate later album rows; refetch both rather than patch —
       // dj-site#624. Neither this mutation nor the typeahead has a UI consumer
       // yet — tags are wired for the first adopter, not a live flow.
-      invalidatesTags: [
+      // Also invalidate the peek-code preview for the exact code_letters/genre_id
+      // pair just filled: without this, a cached preview for that pair keeps
+      // showing the pre-add code number to an MD who revisits it in the same
+      // session, even though the backend would now reject it as taken.
+      invalidatesTags: (_result, _error, { code_letters, genre_id }) => [
         { type: "CatalogList", id: "LIST" },
         { type: "ArtistSearch", id: "LIST" },
+        { type: "ArtistCodePeek", id: `${genre_id}:${code_letters}` },
       ],
     }),
     peekArtistCode: builder.query<PeekArtistCodeResponse, PeekArtistCodeQuery>({
@@ -166,6 +171,9 @@ export const catalogApi = createApi({
         url: "/artists/peek-code",
         params: { code_letters, genre_id },
       }),
+      providesTags: (_result, _error, { code_letters, genre_id }) => [
+        { type: "ArtistCodePeek", id: `${genre_id}:${code_letters}` },
+      ],
     }),
     searchArtistsInGenre: builder.query<
       SearchArtistsInGenreResponse,
