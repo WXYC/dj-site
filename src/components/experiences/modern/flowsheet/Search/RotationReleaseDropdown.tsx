@@ -20,6 +20,10 @@ function matchesQuery(release: AlbumEntry, query: string): boolean {
   );
 }
 
+function filterReleases(sorted: AlbumEntry[], query: string): AlbumEntry[] {
+  return query ? sorted.filter((r) => matchesQuery(r, query)) : sorted;
+}
+
 export default function RotationReleaseDropdown({
   releases,
   selectedRelease,
@@ -33,13 +37,30 @@ export default function RotationReleaseDropdown({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [highlightIndex, setHighlightIndex] = useState(-1);
+  // The keyboard highlight is a release id, never a position. `releases` is
+  // shared server state — any DJ's rotation add or kill invalidates the cached
+  // bin and can reorder or shorten this list while the panel is open — so a
+  // positional highlight would silently come to rest on a different release and
+  // hand that one to the parent on Enter, filling the draft entry with a release
+  // the DJ never highlighted. An id either still resolves to the release the DJ
+  // highlighted, or resolves to nothing.
+  const [highlightId, setHighlightId] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const visibleReleases = useMemo(() => {
-    const sorted = sortRotationReleases(releases);
-    return query ? sorted.filter((r) => matchesQuery(r, query)) : sorted;
-  }, [releases, query]);
+  const sortedReleases = useMemo(
+    () => sortRotationReleases(releases),
+    [releases]
+  );
+  const visibleReleases = useMemo(
+    () => filterReleases(sortedReleases, query),
+    [sortedReleases, query]
+  );
+  // -1 once the highlighted release has left the visible list (killed, or
+  // filtered out by the query), which is also the "nothing highlighted" state.
+  // Resolving by id assumes ids are unique within this list: the rotation feed
+  // returns one row per (album, bin) and the parent narrows to a single bin.
+  // The option render's `key` already rests on that same assumption.
+  const highlightIndex = visibleReleases.findIndex((r) => r.id === highlightId);
 
   // While the panel is open the input mirrors the live filter query (which
   // starts empty so the DJ can see every release). While closed it mirrors
@@ -60,13 +81,13 @@ export default function RotationReleaseDropdown({
     if (open) return;
     setOpen(true);
     setQuery("");
-    setHighlightIndex(0);
-  }, [disabled, open]);
+    setHighlightId(sortedReleases[0]?.id ?? null);
+  }, [disabled, open, sortedReleases]);
 
   const closePanel = useCallback(() => {
     setOpen(false);
     setQuery("");
-    setHighlightIndex(-1);
+    setHighlightId(null);
   }, []);
 
   const handleSelect = useCallback(
@@ -87,22 +108,26 @@ export default function RotationReleaseDropdown({
         return;
       }
       switch (e.key) {
+        // Both arrows step from the highlight's *current* position in the
+        // *current* list. With nothing highlighted (index -1) either one
+        // re-enters at the top rather than leaving the DJ stuck.
         case "ArrowDown":
           e.preventDefault();
-          setHighlightIndex((prev) =>
-            Math.min(prev + 1, visibleReleases.length - 1)
+          setHighlightId(
+            visibleReleases[
+              Math.min(highlightIndex + 1, visibleReleases.length - 1)
+            ]?.id ?? null
           );
           break;
         case "ArrowUp":
           e.preventDefault();
-          setHighlightIndex((prev) => Math.max(prev - 1, 0));
+          setHighlightId(
+            visibleReleases[Math.max(highlightIndex - 1, 0)]?.id ?? null
+          );
           break;
         case "Enter":
           e.preventDefault();
-          if (
-            highlightIndex >= 0 &&
-            highlightIndex < visibleReleases.length
-          ) {
+          if (highlightIndex >= 0) {
             handleSelect(visibleReleases[highlightIndex]);
           }
           break;
@@ -140,9 +165,14 @@ export default function RotationReleaseDropdown({
           // the panel is already open).
           onClick={openPanel}
           onChange={(e) => {
+            const nextQuery = e.target.value;
             if (!open) openPanel();
-            setQuery(e.target.value);
-            setHighlightIndex(0);
+            setQuery(nextQuery);
+            // The filtered list for `nextQuery` doesn't exist yet this tick, so
+            // resolve the first match against the same filter the memo will run.
+            setHighlightId(
+              filterReleases(sortedReleases, nextQuery)[0]?.id ?? null
+            );
           }}
           onKeyDown={handleKeyDown}
           endDecorator={
@@ -233,7 +263,7 @@ export default function RotationReleaseDropdown({
                           : "neutral.800",
                     },
                   }}
-                  onMouseEnter={() => setHighlightIndex(index)}
+                  onMouseEnter={() => setHighlightId(release.id)}
                 >
                   <Typography
                     level="body-sm"
