@@ -47,17 +47,22 @@ describe("labelsApi", () => {
     expect(result.data).toEqual([{ id: 5, label_name: "Sonamos" }]);
   });
 
-  // The shared backend base query converts an unparseable body into a
-  // successful `null` payload rather than a toast, so the declared
-  // `LabelRow[]` return type only holds if this endpoint substitutes a list.
-  // Consumers index and map the result; a `null` reaching them would throw.
-  it("yields an empty list when the backend soft-fails on a non-JSON body", async () => {
+  // The shared backend base query soft-fails an unparseable body into a
+  // successful `null` payload. That default is wrong for a duplicate check:
+  // an empty list is indistinguishable from "no existing label matched", so a
+  // gateway's HTML 502 or a missing route would license the create path and
+  // produce the near-duplicate this endpoint exists to surface. The endpoint
+  // opts out, so an unreachable backend has to arrive as an error.
+  it.each([
+    ["a gateway HTML error page", 502],
+    ["the framework's HTML 404", 404],
+  ])("surfaces %s as an error rather than an empty list", async (_name, status) => {
     server.use(
       http.get(
         `${TEST_BACKEND_URL}/labels/search`,
         () =>
           new HttpResponse("<!DOCTYPE html><html><body>Not Found</body></html>", {
-            status: 404,
+            status,
             headers: { "Content-Type": "text/html" },
           }),
       ),
@@ -68,7 +73,49 @@ describe("labelsApi", () => {
       labelsApi.endpoints.searchLabels.initiate({ q: "Sona", limit: 10 }),
     );
 
+    expect(result.isError).toBe(true);
+    expect(result.data).toBeUndefined();
+  });
+
+  // A JSON `null` body still parses, so it reaches transformResponse rather
+  // than the opt-out above. Consumers index and map the result, so the
+  // declared `LabelRow[]` return type only holds if a list is substituted.
+  it("substitutes an empty list for a JSON null body", async () => {
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/labels/search`, () =>
+        HttpResponse.json(null),
+      ),
+    );
+
+    const store = labelsStore();
+    const result = await store.dispatch(
+      labelsApi.endpoints.searchLabels.initiate({ q: "Sona", limit: 10 }),
+    );
+
     expect(result.isError).toBe(false);
     expect(result.data).toEqual([]);
+  });
+
+  // Creating a label is an upsert on the exact name. Without a tag on this
+  // result, a search cached just before a label was created keeps serving its
+  // pre-creation empty list for the whole unused-data window, and the next
+  // release filed under that label goes through the create path a second time.
+  it("provides the label-search list tag so a label write can invalidate it", async () => {
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/labels/search`, () =>
+        HttpResponse.json([{ id: 5, label_name: "Sonamos" }]),
+      ),
+    );
+
+    const store = labelsStore();
+    await store.dispatch(
+      labelsApi.endpoints.searchLabels.initiate({ q: "Sona", limit: 10 }),
+    );
+
+    expect(
+      labelsApi.util.selectInvalidatedBy(store.getState(), [
+        { type: "LabelSearch", id: "LIST" },
+      ]),
+    ).toEqual([expect.objectContaining({ endpointName: "searchLabels" })]);
   });
 });

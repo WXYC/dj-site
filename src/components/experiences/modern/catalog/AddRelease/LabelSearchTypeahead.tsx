@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ClickAwayListener } from "@mui/base/ClickAwayListener";
 import { Box, Button, CircularProgress, Input, Sheet, Typography } from "@mui/joy";
+import { RequireMD } from "@/src/components/shared/Authorization";
 import { useSearchLabelsQuery } from "@/lib/features/labels/api";
 import type { LabelRow } from "@/lib/features/labels/types";
 import { useDebouncedValue } from "@/src/hooks/useDebouncedValue";
@@ -17,8 +18,8 @@ const NO_HIGHLIGHT = -1;
 const NO_LABELS: LabelRow[] = [];
 
 /**
- * Search-backed label picker over `GET /labels/search`. Unlike the artist
- * typeahead, there is no separate "create new" affordance: `createLabel`'s
+ * Search-backed, MD-gated label picker over `GET /labels/search`. Unlike the
+ * artist typeahead, there is no separate "create new" affordance: `createLabel`'s
  * conflict target is the exact label name, so free-typing without picking a
  * row already IS the create path (the caller sends the typed text as `label`
  * and omits `label_id`, and the backend upserts it). This component only
@@ -39,7 +40,7 @@ export interface LabelSearchTypeaheadProps {
   disabled?: boolean;
 }
 
-export default function LabelSearchTypeahead({
+function LabelSearchTypeaheadInner({
   value,
   onChange,
   onSelect,
@@ -50,6 +51,8 @@ export default function LabelSearchTypeahead({
   const [rawHighlightIndex, setHighlightIndex] = useState(NO_HIGHLIGHT);
   const confirmedLabel = useRef<LabelRow | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Row elements by index, kept so the highlight can be scrolled into view.
+  const rowRefs = useRef<(HTMLDivElement | null)[]>([]);
   const listboxId = useId();
 
   const trimmed = value.trim();
@@ -91,6 +94,18 @@ export default function LabelSearchTypeahead({
   const highlightIndex =
     rawHighlightIndex >= labels.length ? labels.length - 1 : rawHighlightIndex;
 
+  // The panel is a fixed-height scroller and holds more rows than fit, so a
+  // highlight driven past the fold by the arrow keys is reachable but invisible
+  // — and Enter would then commit a label id for a row the MD never saw. Scroll
+  // offset is browser state React does not model, so keeping the highlight
+  // visible has to be a post-render synchronization rather than a derivation.
+  // `block: "nearest"` moves the panel only when the row is actually outside it,
+  // leaving an already-visible highlight where it is.
+  useEffect(() => {
+    if (highlightIndex < 0) return;
+    rowRefs.current[highlightIndex]?.scrollIntoView({ block: "nearest" });
+  }, [highlightIndex]);
+
   const openPanel = useCallback(() => {
     if (disabled) return;
     setOpen(true);
@@ -100,6 +115,21 @@ export default function LabelSearchTypeahead({
     setOpen(false);
     setHighlightIndex(NO_HIGHLIGHT);
   }, []);
+
+  // Focus leaving the field entirely takes the panel with it. The panel is
+  // absolutely positioned and stacked above the rest of the form, so one left
+  // standing after a Tab covers whatever the MD just moved into, and its Escape
+  // dismissal is no longer reachable from there. Containment is checked against
+  // the whole wrapper, not just the input, so moving focus to the retry button
+  // inside the panel does not close it. Rows suppress the focus shift on
+  // mousedown, so a row click never reaches this path at all.
+  const handleFocusOut = useCallback(
+    (e: React.FocusEvent<HTMLDivElement>) => {
+      if (e.currentTarget.contains(e.relatedTarget)) return;
+      closePanel();
+    },
+    [closePanel],
+  );
 
   const handleSelect = useCallback(
     (label: LabelRow) => {
@@ -188,7 +218,7 @@ export default function LabelSearchTypeahead({
 
   return (
     <ClickAwayListener onClickAway={closePanel}>
-      <Box sx={{ position: "relative", width: "100%" }}>
+      <Box sx={{ position: "relative", width: "100%" }} onBlur={handleFocusOut}>
         <Input
           size="sm"
           fullWidth
@@ -278,15 +308,20 @@ export default function LabelSearchTypeahead({
               labels.map((label, index) => (
                 <Box
                   key={label.id}
+                  ref={(el: HTMLDivElement | null) => {
+                    rowRefs.current[index] = el;
+                  }}
                   // Indexed rather than keyed by label id so the id the input's
                   // aria-activedescendant names can be derived from the
                   // highlight alone.
                   id={`${listboxId}-option-${index}`}
                   role="option"
                   aria-selected={highlightIndex === index}
-                  // preventDefault keeps focus on the input so neither the
-                  // click-away nor the blur path closes the panel before this
-                  // row's `onClick` selection handler runs.
+                  // Suppressing the default mousedown keeps focus on the input,
+                  // so the wrapper's focus-out handler never runs and the panel
+                  // is still mounted when this row's `onClick` selection handler
+                  // fires. Without it the row unmounts under the pointer between
+                  // mousedown and click, and the pick is lost.
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleSelect(label)}
                   onMouseEnter={() => setHighlightIndex(index)}
@@ -317,5 +352,13 @@ export default function LabelSearchTypeahead({
         )}
       </Box>
     </ClickAwayListener>
+  );
+}
+
+export default function LabelSearchTypeahead(props: LabelSearchTypeaheadProps) {
+  return (
+    <RequireMD>
+      <LabelSearchTypeaheadInner {...props} />
+    </RequireMD>
   );
 }
