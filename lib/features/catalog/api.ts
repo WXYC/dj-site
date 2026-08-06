@@ -185,9 +185,10 @@ export const catalogApi = createApi({
       // session, even though the backend would now reject it as taken.
       //
       // Invalidation fires on a rejected mutation as well as a fulfilled one,
-      // so the rejections that provably wrote nothing opt out: every 4xx, of
-      // which the code-taken 409 is the routine one. Invalidating on those
-      // would flip the code preview the MD is reading back to a spinner and
+      // so the rejections that provably wrote nothing opt out: anything the
+      // server answered below 500, of which the code-taken 409 is the routine
+      // one. Invalidating on those would flip the code preview back to a
+      // spinner in front of the MD who is reading it and
       // spend two more round trips reconfirming lists that cannot have
       // changed. A 5xx or a transport failure still gets the tags — the row
       // may well have been written on a response the client never saw, and
