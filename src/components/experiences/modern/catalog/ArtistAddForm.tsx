@@ -78,7 +78,15 @@ function ArtistAddFields() {
   const [codeLetters, setCodeLetters] = useState("");
   const [codeNumberRaw, setCodeNumberRaw] = useState("");
   const [alphabeticalName, setAlphabeticalName] = useState("");
-  const [conflict, setConflict] = useState<AddArtistConflict | null>(null);
+  // Snapshots the code the server actually rejected, alongside the response —
+  // `conflict` must not be read against live `codeLetters`/`codeNumberRaw`,
+  // since an MD editing either field after a 409 would otherwise have the
+  // banner keep reporting the new, unsubmitted value as taken.
+  const [conflict, setConflict] = useState<{
+    code_letters: string;
+    code_number: string;
+    response: AddArtistConflict;
+  } | null>(null);
   const [added, setAdded] = useState<{ code_letters: string; code_number: number } | null>(
     null,
   );
@@ -130,11 +138,25 @@ function ArtistAddFields() {
       toast.success(`Added ${trimmedName}`);
     } catch (err) {
       if (isAddArtistConflict(err)) {
-        setConflict(err.data);
+        setConflict({
+          code_letters: trimmedCodeLetters,
+          code_number: codeNumberRaw.trim(),
+          response: err.data,
+        });
       } else {
         toast.error("Failed to add artist");
       }
     }
+  };
+
+  const handleCodeLettersChange = (value: string) => {
+    setCodeLetters(value);
+    setConflict(null);
+  };
+
+  const handleCodeNumberChange = (value: string) => {
+    setCodeNumberRaw(value);
+    setConflict(null);
   };
 
   return (
@@ -190,7 +212,7 @@ function ArtistAddFields() {
             <FormLabel>Call letters</FormLabel>
             <Input
               value={codeLetters}
-              onChange={(e) => setCodeLetters(e.target.value)}
+              onChange={(e) => handleCodeLettersChange(e.target.value)}
               placeholder="e.g. MO"
             />
           </FormControl>
@@ -199,7 +221,7 @@ function ArtistAddFields() {
             <FormLabel>Code number</FormLabel>
             <Input
               value={codeNumberRaw}
-              onChange={(e) => setCodeNumberRaw(e.target.value)}
+              onChange={(e) => handleCodeNumberChange(e.target.value)}
               placeholder="e.g. 42"
             />
             {codeNumberInvalid && (
@@ -211,8 +233,9 @@ function ArtistAddFields() {
 
           {conflict && (
             <Typography level="body-sm" color="danger" role="alert">
-              {trimmedCodeLetters}
-              {codeNumberRaw.trim()} is already taken by {conflict.artist.artist_name}.
+              {conflict.code_letters}
+              {conflict.code_number} is already taken by{" "}
+              {conflict.response.artist.artist_name}.
             </Typography>
           )}
 
