@@ -47,8 +47,11 @@ const NO_ARTISTS: ArtistInGenreOption[] = [];
  * invalidates it. Without the retraction a caller that keeps the id would save
  * the old link under text that no longer names that artist, or under a genre
  * that has no such artist row — silently, since the field reads as whatever it
- * last read. It is required rather than optional so that holding an id and
- * never dropping it cannot be reached by omission.
+ * last read. It is required rather than optional so that a caller cannot wire
+ * up `onSelect` without also wiring up its retraction. The coverage is limited
+ * to selections this component reported: a caller that seeds `value` with a
+ * link obtained elsewhere holds an id this component never confirmed, and is
+ * responsible for invalidating that link itself when `genreId` changes.
  */
 export interface ArtistSearchTypeaheadProps {
   genreId: number;
@@ -65,8 +68,9 @@ export interface ArtistSearchTypeaheadProps {
    *
    * A genre change retracts the id but leaves the field's text standing: refiling
    * a release does not rename its artist, so the same text is what the user needs
-   * in order to re-pick that artist under the new genre. This component writes
-   * `value` only when a row is picked.
+   * in order to re-pick that artist under the new genre. This component never
+   * writes `value` in response to a prop change — only a row pick or the user's
+   * own edit.
    */
   onSelectionCleared: () => void;
   disabled?: boolean;
@@ -84,8 +88,9 @@ function ArtistSearchTypeaheadInner({
   const [open, setOpen] = useState(false);
   const [rawHighlightIndex, setHighlightIndex] = useState(NO_HIGHLIGHT);
   // The artist the caller was last told about, held in a ref because nothing
-  // rendered here depends on it — it exists only to decide, at the moment the
-  // text is edited, whether that report is still true.
+  // rendered here depends on it — it exists only to decide whether that report
+  // is still true, at the moment the text is edited or `genreId` moves off the
+  // genre the artist was found under.
   const confirmedArtist = useRef<ArtistInGenreOption | null>(null);
   // The genre the confirmed artist was found under, kept because the retraction
   // below turns on whether `genreId` moved — which the current prop alone cannot
@@ -291,9 +296,11 @@ function ArtistSearchTypeaheadInner({
   });
 
   return (
-    // Every close goes through `closePanel`: a close that left the highlight
-    // standing would reopen the panel pre-highlighted, turning the next Enter
-    // into a selection the user never navigated to.
+    // Clicking away goes through `closePanel`, which resets the highlight along
+    // with `open`. That pairing does not hold for every way the panel closes:
+    // disabling the input hides it only through the `panelOpen` derivation
+    // above, leaving `open` and the highlight standing, so re-enabling reopens
+    // the panel pre-highlighted rather than fresh.
     <ClickAwayListener onClickAway={closePanel}>
       <Box sx={{ position: "relative", width: "100%" }}>
         <Input
