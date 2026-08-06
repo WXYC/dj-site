@@ -11,7 +11,7 @@ import {
 } from "@/lib/features/rotation/api";
 import { Rotation } from "@/lib/features/rotation/types";
 import { AlbumEntry } from "@/lib/features/catalog/types";
-import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
+import { isUnmessagedRejection } from "@/lib/rtk-query-error-logger";
 import RotationBinSelector from "@/src/components/experiences/modern/flowsheet/Search/RotationBinSelector";
 
 interface RotationClassifyControlProps {
@@ -111,10 +111,12 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
       }).unwrap();
       setSelectedBin(null);
     } catch (err) {
-      // The global rtkQueryErrorLogger middleware already toasts the server's
-      // own message; a second unconditional toast would bury it. Only speak for
-      // the one rejection shape that middleware leaves silent.
-      if (isUnmessagedHttpError(err)) {
+      // The global rtkQueryErrorLogger middleware re-toasts a server-supplied
+      // reason verbatim, so a second generic toast would bury it. Every other
+      // rejection reaches the MD as a raw JSON-parse error, a bare transport
+      // line, or nothing at all — none of which say which control failed — so
+      // this one still has to speak.
+      if (isUnmessagedRejection(err)) {
         toast.error("Failed to add to rotation");
       }
     }
@@ -131,7 +133,7 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
       await killRotationEntry({ rotation_id: rotationId }).unwrap();
       setSelectedBin(null);
     } catch (err) {
-      if (isUnmessagedHttpError(err)) {
+      if (isUnmessagedRejection(err)) {
         toast.error("Failed to kill rotation entry");
       }
     } finally {

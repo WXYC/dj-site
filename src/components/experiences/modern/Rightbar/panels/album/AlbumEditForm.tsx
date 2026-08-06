@@ -30,7 +30,7 @@ import {
   ArtistInGenreOption,
   UpdateAlbumRequestBody,
 } from "@/lib/features/catalog/types";
-import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
+import { isUnmessagedRejection } from "@/lib/rtk-query-error-logger";
 import ArtistSearchTypeahead from "@/src/components/shared/inputs/ArtistSearchTypeahead";
 
 interface AlbumEditFormProps {
@@ -196,8 +196,16 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
   // draft from being silently discarded on the post-save reseed below.
   const discQuantityCleared =
     discQuantity === undefined && saved.discQuantity !== undefined;
+  // The 1-99 range is a PATCH-time rule, not a storage constraint:
+  // `disc_quantity` is a plain smallint with no CHECK behind it, so rows
+  // written by other paths already sit outside it. Only a value this draft
+  // moved is held to the rule. Judging the stored value instead would strand
+  // every such album — no unrelated field could be edited, and the range
+  // message would sit under a field the MD never touched, until someone
+  // invented a disc count for it.
   const discQuantityOutOfRange =
     discQuantity !== undefined &&
+    discQuantity !== saved.discQuantity &&
     (!Number.isInteger(discQuantity) ||
       discQuantity < DISC_QUANTITY_MIN ||
       discQuantity > DISC_QUANTITY_MAX);
@@ -265,13 +273,14 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
       setDiscQuantity(nextSaved.discQuantity);
       toast.success("Album updated");
     } catch (err) {
-      // The global rtkQueryErrorLogger middleware already toasts the server's
-      // own message, and Backend-Service answers every rejection here with a
-      // specific one ("Artist is not catalogued in the selected genre",
-      // "format_id does not reference an existing format", …). A second
-      // unconditional toast would bury it, so only speak for the one rejection
-      // shape the middleware leaves silent.
-      if (isUnmessagedHttpError(err)) {
+      // The global rtkQueryErrorLogger middleware re-toasts the server's own
+      // message verbatim, and Backend-Service answers every rejection here with
+      // a specific one ("Artist is not catalogued in the selected genre",
+      // "format_id does not reference an existing format", …); a second generic
+      // toast would bury it. Every other rejection reaches the MD as a raw
+      // JSON-parse error, a bare transport line, or nothing at all — none of
+      // which say the save failed — so this fallback still has to speak.
+      if (isUnmessagedRejection(err)) {
         toast.error("Failed to update album");
       }
     }

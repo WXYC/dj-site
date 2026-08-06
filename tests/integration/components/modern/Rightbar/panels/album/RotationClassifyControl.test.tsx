@@ -372,6 +372,35 @@ describe("RotationClassifyControl", () => {
         await screen.findByRole("radiogroup", { name: "Rotation bin" }),
       ).toBeInTheDocument();
     });
+
+    // A route answering a mutation with HTML (an Express 404 page, a gateway
+    // 502) leaves the global middleware toasting only the raw JSON parse
+    // failure, so this control's own message is the only one naming what
+    // failed and must still fire.
+    it("shows an error toast when the POST comes back as HTML", async () => {
+      fakeRotationEndpoints();
+      server.use(
+        http.post(
+          `${TEST_BACKEND_URL}/library/rotation`,
+          () =>
+            new HttpResponse(
+              "<!DOCTYPE html><html><body>Cannot POST /library/rotation</body></html>",
+              { status: 404, headers: { "Content-Type": "text/html" } },
+            ),
+        ),
+      );
+      const { user } = renderWithProviders(
+        inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
+      );
+
+      await screen.findByRole("radiogroup", { name: "Rotation bin" });
+      await user.click(screen.getByRole("radio", { name: "M" }));
+      await user.click(screen.getByRole("button", { name: "Add to Rotation" }));
+
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith("Failed to add to rotation"),
+      );
+    });
   });
 
   describe("kill-rotation flow", () => {
