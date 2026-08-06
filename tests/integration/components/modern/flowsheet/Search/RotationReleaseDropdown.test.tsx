@@ -411,8 +411,9 @@ describe("RotationReleaseDropdown — combobox (#745)", () => {
 // The bin is shared server state: any DJ's rotation add or kill invalidates the
 // cached list, so `releases` can be reordered, extended, or shortened while this
 // panel sits open. A keyboard highlight held as a raw position into the derived
-// list would come to rest on whichever release slid into that slot and commit it
-// to the live air log on Enter, with nothing on screen to explain the swap.
+// list would come to rest on whichever release slid into that slot and hand that
+// one to the parent on Enter, with nothing on screen to explain the swap — so the
+// draft entry the DJ goes on to submit names a release they never highlighted.
 describe("RotationReleaseDropdown — highlight across list changes", () => {
   const onSelect = vi.fn();
   beforeEach(() => vi.clearAllMocks());

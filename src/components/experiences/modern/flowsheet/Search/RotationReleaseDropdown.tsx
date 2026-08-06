@@ -41,8 +41,9 @@ export default function RotationReleaseDropdown({
   // shared server state — any DJ's rotation add or kill invalidates the cached
   // bin and can reorder or shorten this list while the panel is open — so a
   // positional highlight would silently come to rest on a different release and
-  // commit that one to the live air log on Enter. An id either still resolves
-  // to the release the DJ highlighted, or resolves to nothing.
+  // hand that one to the parent on Enter, filling the draft entry with a release
+  // the DJ never highlighted. An id either still resolves to the release the DJ
+  // highlighted, or resolves to nothing.
   const [highlightId, setHighlightId] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -56,6 +57,9 @@ export default function RotationReleaseDropdown({
   );
   // -1 once the highlighted release has left the visible list (killed, or
   // filtered out by the query), which is also the "nothing highlighted" state.
+  // Resolving by id assumes ids are unique within this list: the rotation feed
+  // returns one row per (album, bin) and the parent narrows to a single bin.
+  // The option render's `key` already rests on that same assumption.
   const highlightIndex = visibleReleases.findIndex((r) => r.id === highlightId);
 
   // While the panel is open the input mirrors the live filter query (which
