@@ -140,6 +140,21 @@ describeConversion("convertToSong", convertToSong, [
 ]);
 ```
 
+### Auth Client Mock
+
+`createAuthClientModuleMock()` (`tests/helpers/auth-client-mock.ts`) replaces `@/lib/features/authentication/client` with an unauthenticated session. Every test that renders a component reaching `useAuthentication` — directly, or through `useRegistry` / `useBin` / `usePlayNow` — must use it. Letting the real module instantiate installs a better-auth session store whose teardown is deferred a second past the last subscriber; a short test file finishes inside that second, the deferred teardown then runs against removed jsdom globals, and the resulting `window is not defined` is reported as an unhandled error that fails the run with every test green.
+
+```typescript
+vi.mock("@/lib/features/authentication/client", async () => {
+  const { createAuthClientModuleMock } = await import(
+    "@/tests/helpers/auth-client-mock"
+  );
+  return createAuthClientModuleMock();
+});
+```
+
+Import the helper by path inside the factory: `vi.mock` factories cannot close over imports, and the `@/tests/helpers` barrel pulls in the Redux store, which imports the module being replaced.
+
 ### MSW Setup
 
 Default handlers in `tests/fakes/handlers.ts` return empty responses for `/library/`, `/authentication/`, `/flowsheet/`, `/rotation/`. Override in individual tests:

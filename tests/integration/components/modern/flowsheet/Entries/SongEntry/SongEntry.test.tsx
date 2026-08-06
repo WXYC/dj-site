@@ -112,6 +112,15 @@ vi.mock("sonner", () => ({
   },
 }));
 
+// usePlayNow reaches useRegistry -> useAuthentication -> the better-auth session
+// store, whose deferred teardown outlives this file's jsdom environment.
+vi.mock("@/lib/features/authentication/client", async () => {
+  const { createAuthClientModuleMock } = await import(
+    "@/tests/helpers/auth-client-mock"
+  );
+  return createAuthClientModuleMock();
+});
+
 describe("SongEntry", () => {
   const mockEntry: FlowsheetSongEntry = {
     id: 1,

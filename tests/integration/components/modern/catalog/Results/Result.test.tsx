@@ -26,6 +26,15 @@ vi.mock("@/src/hooks/catalogHooks", () => ({
   }),
 }));
 
+// The bin control reaches useRegistry -> useAuthentication -> the better-auth
+// session store, whose deferred teardown outlives this file's jsdom environment.
+vi.mock("@/lib/features/authentication/client", async () => {
+  const { createAuthClientModuleMock } = await import(
+    "@/tests/helpers/auth-client-mock"
+  );
+  return createAuthClientModuleMock();
+});
+
 import CatalogResult from "@/src/components/experiences/modern/catalog/Results/Result";
 
 describe("CatalogResult plays metadata (Bug 12)", () => {
