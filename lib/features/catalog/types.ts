@@ -97,12 +97,13 @@ export type AddArtistRequestBody = {
 
 /**
  * Body of the 409 `POST /library/artists` returns when the
- * (code_letters, genre_id, code_number) triple is already taken — the
- * conflicting artist comes back alongside the message so the caller can name
- * it rather than reporting a generic failure.
+ * (code_letters, genre_id, code_number) triple is already taken, as the
+ * caller sees it: the conflicting artist, so it can be named rather than
+ * reported as a generic failure. The backend also sends a generic `message`
+ * alongside it; `addArtist` strips that before the rejection reaches any
+ * consumer, so nothing here should read it.
  */
 export type AddArtistConflict = {
-  message: string;
   artist: { artist_id: number; artist_name: string; code_letters: string };
 };
 

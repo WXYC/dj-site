@@ -15,6 +15,7 @@ import {
   Typography,
 } from "@mui/joy";
 import { RequireMD } from "@/src/components/shared/Authorization";
+import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
 import { useAddArtistMutation, useGetGenresQuery } from "@/lib/features/catalog/api";
 import { parseRequiredPositiveInt } from "@/lib/features/catalog/adminCreateArtistValidation";
 import type {
@@ -26,13 +27,21 @@ import ArtistSearchTypeahead from "@/src/components/shared/inputs/ArtistSearchTy
 import CallLetterPeekControl from "./CallLetterPeekControl";
 
 /**
- * `artists.code_letters` is a `varchar(4)` and nothing between this field and
- * the INSERT checks its length: an over-long value reaches PostgreSQL and
- * comes back as a 22001 500, not a validation error. The ceiling has to hold
- * here, and be visible to the MD rather than silently truncating what they
- * typed.
+ * Column ceilings on the rows this form writes. Nothing between these fields
+ * and the INSERT checks any of them — the handler validates only that the keys
+ * are present — so an over-long or over-large value reaches PostgreSQL and
+ * comes back as a 22001/22003 500 rather than a validation error. Each ceiling
+ * has to hold here, and be visible to the MD rather than failing at the far
+ * end of a submit.
+ *
+ * `artists.code_letters` is a `varchar(4)`; `artists.artist_name` and
+ * `artists.alphabetical_name` are `varchar(128)`; the code number is filed as
+ * `genre_artist_crossreference.artist_genre_code`, a PostgreSQL `integer`
+ * whose range check fires at bind time, before the insert.
  */
 const CODE_LETTERS_MAX_LENGTH = 4;
+const ARTIST_NAME_MAX_LENGTH = 128;
+const CODE_NUMBER_MAX = 2147483647;
 
 /**
  * Call letters are matched case-sensitively everywhere the backend uses them —
@@ -65,22 +74,6 @@ function isAddArtistConflict(
     typeof artist === "object" &&
     typeof (artist as { artist_name?: unknown }).artist_name === "string"
   );
-}
-
-/**
- * True when `err` is a genuine HTTP error response (fetchBaseQuery's numeric
- * `status`) whose body carries no `message`. This is the one rejection shape
- * the global `rtkQueryErrorLogger` middleware leaves untoasted — it only
- * toasts `data.message`, `FETCH_ERROR`, `TIMEOUT_ERROR`, or a top-level
- * `error` string, none of which this shape has.
- */
-function isUnmessagedHttpError(err: unknown): boolean {
-  if (!err || typeof err !== "object" || !("status" in err)) return false;
-  const { status, data } = err as { status?: unknown; data?: unknown };
-  if (typeof status !== "number") return false;
-  const message =
-    data && typeof data === "object" ? (data as { message?: unknown }).message : undefined;
-  return !(typeof message === "string" && message.trim().length > 0);
 }
 
 /**
@@ -123,8 +116,10 @@ function ArtistAddFields() {
   // the typeahead's panel stays shut, so nothing checks the typed name against
   // the new genre. Treating the retraction as "this name is new here" would
   // turn a blocked duplicate into an enabled submit at the exact moment the
-  // check matters, so the check is marked stale instead and the MD has to
-  // re-engage the field under the new genre.
+  // check matters, so the check is marked stale instead. It clears only on an
+  // answer about the current genre — a row picked, "create new" chosen, or the
+  // text changed to a different question altogether. Reopening the panel
+  // re-runs the search but reports nothing back, so it does not clear this.
   const [dedupCheckStale, setDedupCheckStale] = useState(false);
   const [genreId, setGenreId] = useState<number | null>(null);
   const [codeLetters, setCodeLetters] = useState("");
@@ -144,9 +139,19 @@ function ArtistAddFields() {
   );
 
   const trimmedName = name.trim();
+  const trimmedAlphabeticalName = alphabeticalName.trim();
   const trimmedCodeLetters = codeLetters.trim();
+  const nameTooLong = trimmedName.length > ARTIST_NAME_MAX_LENGTH;
+  const alphabeticalNameTooLong =
+    trimmedAlphabeticalName.length > ARTIST_NAME_MAX_LENGTH;
   const codeLettersTooLong = trimmedCodeLetters.length > CODE_LETTERS_MAX_LENGTH;
-  const codeNumber = parseRequiredPositiveInt(codeNumberRaw);
+  const parsedCodeNumber = parseRequiredPositiveInt(codeNumberRaw);
+  // parseRequiredPositiveInt only rejects non-integers; the column's range is
+  // this form's to enforce.
+  const codeNumber =
+    parsedCodeNumber !== null && parsedCodeNumber <= CODE_NUMBER_MAX
+      ? parsedCodeNumber
+      : null;
   const codeNumberInvalid = codeNumberRaw.trim().length > 0 && codeNumber === null;
   // A failed genres GET leaves an empty dropdown behind: fetchBaseQuery's
   // rejection sets `isError`, while the backend adapter's soft-fail turns a
@@ -160,6 +165,8 @@ function ArtistAddFields() {
     existingArtist === null &&
     !dedupCheckStale &&
     trimmedName.length > 0 &&
+    !nameTooLong &&
+    !alphabeticalNameTooLong &&
     genreId !== null &&
     trimmedCodeLetters.length > 0 &&
     !codeLettersTooLong &&
@@ -168,8 +175,10 @@ function ArtistAddFields() {
   const handleNameChange = (value: string) => {
     setName(value);
     setAdded(null);
-    // Editing the text reopens the typeahead's panel and re-runs the search
-    // under the current genre, which is the re-check the stale flag waits for.
+    // A different string is a different question: whatever the previous genre
+    // said about the old text has nothing left to be stale about, and the edit
+    // reopens the typeahead's panel to search the new text under the current
+    // genre.
     setDedupCheckStale(false);
   };
 
@@ -182,8 +191,8 @@ function ArtistAddFields() {
       code_letters: trimmedCodeLetters,
       genre_id: genreId,
       code_number: codeNumber,
-      ...(alphabeticalName.trim()
-        ? { alphabetical_name: alphabeticalName.trim() }
+      ...(trimmedAlphabeticalName
+        ? { alphabetical_name: trimmedAlphabeticalName }
         : {}),
     };
 
@@ -285,7 +294,7 @@ function ArtistAddFields() {
             )}
           </FormControl>
 
-          <FormControl>
+          <FormControl error={nameTooLong}>
             <FormLabel>Artist name</FormLabel>
             <ArtistSearchTypeahead
               genreId={genreId ?? -1}
@@ -302,27 +311,39 @@ function ArtistAddFields() {
               onSelectionCleared={() => setExistingArtist(null)}
               disabled={genreId === null || isLoading}
             />
-            {existingArtist ? (
+            {nameTooLong ? (
+              <FormHelperText>
+                At most {ARTIST_NAME_MAX_LENGTH} characters
+              </FormHelperText>
+            ) : existingArtist ? (
               <FormHelperText sx={{ color: "danger.500" }}>
                 {existingArtist.artist_name} already exists in this genre.
               </FormHelperText>
             ) : (
               dedupCheckStale && (
                 <FormHelperText sx={{ color: "warning.500" }}>
-                  Search this name again under the new genre before adding.
+                  Re-check this name under the new genre: pick the existing
+                  artist from the suggestions, or choose &quot;Create new
+                  artist&quot;.
                 </FormHelperText>
               )
             )}
           </FormControl>
 
-          <FormControl>
+          <FormControl error={alphabeticalNameTooLong}>
             <FormLabel>Alphabetical name (optional)</FormLabel>
             <Input
               value={alphabeticalName}
               disabled={isLoading}
               onChange={(e) => setAlphabeticalName(e.target.value)}
               placeholder="Defaults to artist name"
+              slotProps={{ input: { maxLength: ARTIST_NAME_MAX_LENGTH } }}
             />
+            {alphabeticalNameTooLong && (
+              <FormHelperText>
+                At most {ARTIST_NAME_MAX_LENGTH} characters
+              </FormHelperText>
+            )}
           </FormControl>
 
           <FormControl error={codeLettersTooLong}>
@@ -350,7 +371,11 @@ function ArtistAddFields() {
               placeholder="e.g. 42"
             />
             {codeNumberInvalid && (
-              <FormHelperText>Must be a positive whole number</FormHelperText>
+              <FormHelperText>
+                {parsedCodeNumber === null
+                  ? "Must be a positive whole number"
+                  : `Must be no greater than ${CODE_NUMBER_MAX}`}
+              </FormHelperText>
             )}
           </FormControl>
 

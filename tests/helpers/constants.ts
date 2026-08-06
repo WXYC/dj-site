@@ -37,6 +37,7 @@ export const TEST_ENTITY_IDS = {
   },
   GENRE: {
     ROCK: 6001,
+    JAZZ: 6002,
   },
 } as const;
 

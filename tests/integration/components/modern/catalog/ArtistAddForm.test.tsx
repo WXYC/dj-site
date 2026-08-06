@@ -11,7 +11,7 @@ import {
 import ArtistAddForm from "@/src/components/experiences/modern/catalog/ArtistAddForm";
 
 const GENRE_ID = TEST_ENTITY_IDS.GENRE.ROCK;
-const JAZZ_GENRE_ID = TEST_ENTITY_IDS.GENRE.ROCK + 1;
+const JAZZ_GENRE_ID = TEST_ENTITY_IDS.GENRE.JAZZ;
 const { MOLINA, STEREOLAB } = TEST_SEARCH_STRINGS.CODE_LETTERS;
 
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -253,6 +253,32 @@ describe("ArtistAddForm", () => {
       expect(screen.queryByText(new RegExp(`${MOLINA}12`))).not.toBeInTheDocument();
     });
 
+    it("clears the fields and confirms by name after a successful add", async () => {
+      mockAddArtist(() => created());
+      const { user } = renderWithProviders(<ArtistAddForm />);
+
+      await fillCoreFields(user);
+      await user.type(
+        screen.getByLabelText(/alphabetical name/i),
+        "Molina, Juana",
+      );
+      await user.click(screen.getByRole("button", { name: /add artist/i }));
+
+      // The next artist in a batch starts from an empty form, not from the
+      // last one's values.
+      await waitFor(() =>
+        expect(toast.success).toHaveBeenCalledWith("Added Juana Molina"),
+      );
+      expect(screen.getByPlaceholderText("Search artists...")).toHaveValue("");
+      expect(screen.getByLabelText(/alphabetical name/i)).toHaveValue("");
+      expect(screen.getByLabelText(/call letters/i)).toHaveValue("");
+      expect(screen.getByLabelText("Code number")).toHaveValue("");
+      // The genre is deliberately kept: an MD files a whole genre at a time.
+      expect(screen.getByRole("combobox", { name: /genre/i })).toHaveTextContent(
+        "Rock",
+      );
+    });
+
     it("renders the conflicting artist by name on a 409 response instead of a generic failure", async () => {
       mockAddArtist(() => conflictResponse());
       const { user } = renderWithProviders(<ArtistAddForm />);
@@ -261,6 +287,10 @@ describe("ArtistAddForm", () => {
       await user.click(screen.getByRole("button", { name: /add artist/i }));
 
       expect(await screen.findByRole("alert")).toHaveTextContent(/Stereolab/);
+      // A recoverable outcome gets one surface. The backend's 409 carries a
+      // generic message that the global rejected-query middleware would
+      // otherwise toast on top of this banner.
+      expect(toast.error).not.toHaveBeenCalled();
     });
 
     it.each([
@@ -331,7 +361,7 @@ describe("ArtistAddForm", () => {
         expect(getBodies()[0]).toMatchObject({ code_letters: MOLINA });
       });
 
-      it("caps the field at the four characters the column holds and says so", async () => {
+      it("caps typed input at the four characters the column holds and says so", async () => {
         const { getBodies } = mockAddArtist(() => created());
         const { user } = renderWithProviders(<ArtistAddForm />);
 
@@ -346,6 +376,64 @@ describe("ArtistAddForm", () => {
 
         await waitFor(() => expect(getBodies()).toHaveLength(1));
         expect(getBodies()[0]).toMatchObject({ code_letters: "MOLI" });
+      });
+
+      it("blocks a value that arrives past the field's own cap", async () => {
+        const { getBodies } = mockAddArtist(() => created());
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await fillCoreFields(user);
+        // maxLength constrains typing and pasting, but not a programmatic set
+        // (autofill, password managers) — so the ceiling is also checked before
+        // submit rather than trusted to the field alone.
+        fireEvent.change(screen.getByLabelText(/call letters/i), {
+          target: { value: "MOLINA" },
+        });
+
+        expect(screen.getByText(/at most 4 characters/i)).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /add artist/i })).toBeDisabled();
+        expect(getBodies()).toHaveLength(0);
+      });
+    });
+
+    describe("the remaining column ceilings", () => {
+      it.each([
+        ["artist name", "Search artists...", 129],
+        ["alphabetical name", "Defaults to artist name", 129],
+      ])(
+        "blocks an over-long %s before it reaches the varchar(128) column",
+        async (_label, placeholder, length) => {
+          const { getBodies } = mockAddArtist(() => created());
+          const { user } = renderWithProviders(<ArtistAddForm />);
+
+          await fillCoreFields(user);
+          fireEvent.change(screen.getByPlaceholderText(placeholder), {
+            target: { value: "Nilüfer".padEnd(length, "!") },
+          });
+
+          expect(screen.getAllByText(/at most 128 characters/i).length).toBeGreaterThan(0);
+          expect(screen.getByRole("button", { name: /add artist/i })).toBeDisabled();
+          expect(getBodies()).toHaveLength(0);
+        },
+      );
+
+      it("blocks a code number past the integer column's range", async () => {
+        const { getBodies } = mockAddArtist(() => created());
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await selectGenre(user);
+        await user.type(
+          await screen.findByPlaceholderText("Search artists..."),
+          "Juana Molina",
+        );
+        await user.type(screen.getByLabelText(/call letters/i), MOLINA);
+        // artist_genre_code is a PG int4; a larger value raises 22003 at bind
+        // time in the duplicate pre-check, before anything is inserted.
+        await user.type(screen.getByLabelText("Code number"), "2147483648");
+
+        expect(screen.getByText(/no greater than 2147483647/i)).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /add artist/i })).toBeDisabled();
+        expect(getBodies()).toHaveLength(0);
       });
     });
 
@@ -434,7 +522,7 @@ describe("ArtistAddForm", () => {
         expect(getCallCount()).toBe(searchesUnderRock);
         expect(screen.getByRole("button", { name: /add artist/i })).toBeDisabled();
         expect(
-          screen.getByText(/search this name again under the new genre/i),
+          screen.getByText(/re-check this name under the new genre/i),
         ).toBeInTheDocument();
 
         // Submitting past the disabled button (Enter in a field, say) must hit
@@ -443,7 +531,41 @@ describe("ArtistAddForm", () => {
         expect(getBodies()).toHaveLength(0);
       });
 
-      it("re-enables submission once the name is searched again under the new genre", async () => {
+      it("re-enables submission once the MD chooses to create the artist under the new genre", async () => {
+        mockGenres([
+          { id: GENRE_ID, genre_name: "Rock" },
+          { id: JAZZ_GENRE_ID, genre_name: "Jazz" },
+        ]);
+        mockArtistSearch([]);
+        const { getBodies } = mockAddArtist(() => created());
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await fillCoreFields(user);
+        await selectGenre(user, "Jazz");
+        expect(
+          screen.getByText(/re-check this name under the new genre/i),
+        ).toBeInTheDocument();
+
+        // The "create new" row only renders once a search under the current
+        // genre has settled with no match, so choosing it is the answer the
+        // stale flag is waiting for.
+        await user.click(screen.getByPlaceholderText("Search artists..."));
+        await user.click(
+          await screen.findByRole("option", {
+            name: 'Create new artist "Juana Molina"',
+          }),
+        );
+
+        expect(
+          screen.queryByText(/re-check this name under the new genre/i),
+        ).not.toBeInTheDocument();
+        await user.click(screen.getByRole("button", { name: /add artist/i }));
+
+        await waitFor(() => expect(getBodies()).toHaveLength(1));
+        expect(getBodies()[0]).toMatchObject({ genre_id: JAZZ_GENRE_ID });
+      });
+
+      it("re-enables submission once the name itself is edited under the new genre", async () => {
         mockGenres([
           { id: GENRE_ID, genre_name: "Rock" },
           { id: JAZZ_GENRE_ID, genre_name: "Jazz" },
@@ -455,15 +577,40 @@ describe("ArtistAddForm", () => {
         await fillCoreFields(user);
         await selectGenre(user, "Jazz");
         expect(
-          screen.getByText(/search this name again under the new genre/i),
+          screen.getByText(/re-check this name under the new genre/i),
         ).toBeInTheDocument();
 
+        // A different string is a different question — nothing about the old
+        // genre's answer is left to be stale.
         await user.type(screen.getByPlaceholderText("Search artists..."), "!");
 
+        expect(
+          screen.queryByText(/re-check this name under the new genre/i),
+        ).not.toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /add artist/i })).toBeEnabled();
+      });
+
+      it("re-enables submission when the name is edited away from a picked artist", async () => {
+        mockArtistSearch([
+          { id: 12, artist_name: "Juana Molina", code_letters: MOLINA, code_number: 3 },
+        ]);
+        mockAddArtist(() => created());
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await selectGenre(user);
+        const nameInput = await screen.findByPlaceholderText("Search artists...");
+        await user.type(nameInput, "Juana Molina");
+        await user.click(await screen.findByText("Juana Molina"));
+        await user.type(screen.getByLabelText(/call letters/i), MOLINA);
+        await user.type(screen.getByLabelText("Code number"), "12");
+        expect(screen.getByRole("button", { name: /add artist/i })).toBeDisabled();
+
+        // The typeahead retracts the artist it reported once the text stops
+        // naming it; the id it handed over is only good for that exact text.
+        await user.type(nameInput, " Trio");
+
         await waitFor(() =>
-          expect(
-            screen.queryByText(/search this name again under the new genre/i),
-          ).not.toBeInTheDocument(),
+          expect(screen.queryByText(/already exists/i)).not.toBeInTheDocument(),
         );
         expect(screen.getByRole("button", { name: /add artist/i })).toBeEnabled();
       });
@@ -507,7 +654,10 @@ describe("ArtistAddForm", () => {
         await fillCoreFields(user);
         await user.click(screen.getByRole("button", { name: /add artist/i }));
 
-        await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+        await waitFor(() =>
+          expect(toast.error).toHaveBeenCalledWith("Failed to add artist"),
+        );
+        expect(toast.error).toHaveBeenCalledTimes(1);
         // Rendering the banner would dereference `artist.artist_name`; there is
         // no error boundary here, so a malformed 409 must not reach it.
         expect(screen.queryByRole("alert")).not.toBeInTheDocument();
@@ -540,7 +690,7 @@ describe("ArtistAddForm", () => {
       });
     });
 
-    it("holds the fields while the add is in flight so mid-flight typing isn't cleared", async () => {
+    it("disables every field while the add is in flight", async () => {
       let release: () => void = () => {};
       const inFlight = new Promise<void>((resolve) => {
         release = resolve;
