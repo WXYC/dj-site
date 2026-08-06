@@ -46,6 +46,12 @@ export const rotationApi = createApi({
             { rotation_bin, rotation_id: data.id },
           );
         } catch {
+          // A rejected `queryFulfilled` (mutation failure or the cache patch
+          // itself throwing) must not escape this handler: RTK Query treats
+          // an onQueryStarted rejection as an unhandled promise rejection,
+          // and the caller's own `.unwrap()` already owns surfacing the
+          // failure to the user (toast). Swallowing here avoids reporting
+          // the same failure twice.
         }
       },
     }),
@@ -80,6 +86,12 @@ export const rotationApi = createApi({
             { rotation_bin: undefined, rotation_id: undefined },
           );
         } catch {
+          // A rejected `queryFulfilled` (mutation failure or the cache patch
+          // itself throwing) must not escape this handler: RTK Query treats
+          // an onQueryStarted rejection as an unhandled promise rejection,
+          // and the caller's own `.unwrap()` already owns surfacing the
+          // failure to the user (toast). Swallowing here avoids reporting
+          // the same failure twice.
         }
       },
     }),
