@@ -221,6 +221,41 @@ describe("ArtistAddForm", () => {
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     });
 
+    it("clears the stale conflict banner when the genre changes", async () => {
+      const JAZZ_GENRE_ID = TEST_ENTITY_IDS.GENRE.ROCK + 1;
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/genres`, () =>
+          HttpResponse.json([
+            { id: GENRE_ID, genre_name: "Rock" },
+            { id: JAZZ_GENRE_ID, genre_name: "Jazz" },
+          ]),
+        ),
+      );
+      mockAddArtist(() =>
+        HttpResponse.json(
+          {
+            message: "Artist code already exists for that genre and code letters.",
+            artist: { artist_id: 5, artist_name: "Stereolab", code_letters: MOLINA },
+          },
+          { status: 409 },
+        ),
+      );
+      const { user } = renderWithProviders(<ArtistAddForm />);
+
+      await fillCoreFields(user);
+      await user.click(screen.getByRole("button", { name: /add artist/i }));
+      expect(await screen.findByRole("alert")).toHaveTextContent(`${MOLINA}12`);
+
+      // (code_letters, genre_id, code_number) is the uniqueness triple — a
+      // code rejected under one genre may be free under another, so moving
+      // genres must not leave the prior genre's rejection standing.
+      const genreSelect = screen.getByRole("combobox", { name: /genre/i });
+      await user.click(genreSelect);
+      await user.click(await screen.findByRole("option", { name: "Jazz" }));
+
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+
     it("blocks submission and surfaces a duplicate when an existing artist is picked from the typeahead", async () => {
       mockArtistSearch([
         { id: 12, artist_name: "Juana Molina", code_letters: MOLINA, code_number: 3 },
