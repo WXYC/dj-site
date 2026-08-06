@@ -1,6 +1,7 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import type { RootState } from "@/lib/store";
 import { backendBaseQuery } from "../backend";
+import { isAddArtistConflictBody } from "./adminCreateArtistValidation";
 import { CATALOG_QUERY_PAGE_LIMIT } from "./constants";
 import { convertToAlbumEntry } from "./conversions";
 import { patchCatalogSearchCaches } from "./patchSearchCaches";
@@ -167,12 +168,14 @@ export const catalogApi = createApi({
       // inline by name. Its generic `message` is dropped here so the global
       // rejected-query middleware — which toasts any `data.message` — stays
       // quiet and that recoverable outcome is reported once rather than as a
-      // banner plus a generic failure toast.
+      // banner plus a generic failure toast. The strip is confined to bodies
+      // the caller can actually name an artist from, so any other 409 keeps
+      // whatever reason the server sent.
       transformErrorResponse: (error) => {
-        if (error.status !== 409 || !error.data || typeof error.data !== "object") {
+        if (error.status !== 409 || !isAddArtistConflictBody(error.data)) {
           return error;
         }
-        const data = { ...(error.data as Record<string, unknown>) };
+        const data = { ...(error.data as unknown as Record<string, unknown>) };
         delete data.message;
         return { ...error, data };
       },
@@ -182,11 +185,20 @@ export const catalogApi = createApi({
       // pair just filled: without this, a cached preview for that pair keeps
       // showing the pre-add code number to an MD who revisits it in the same
       // session, even though the backend would now reject it as taken.
-      invalidatesTags: (_result, _error, { code_letters, genre_id }) => [
-        { type: "CatalogList", id: "LIST" },
-        { type: "ArtistSearch", id: "LIST" },
-        { type: "ArtistCodePeek", id: `${genre_id}:${code_letters}` },
-      ],
+      //
+      // Invalidation fires on a rejected mutation as well as a fulfilled one,
+      // so this has to opt out explicitly: a rejected add wrote nothing, and a
+      // code-taken 409 is a routine outcome. Invalidating on it would flip the
+      // code preview the MD is reading back to a spinner and spend two more
+      // round trips reconfirming unchanged lists.
+      invalidatesTags: (_result, error, { code_letters, genre_id }) =>
+        error
+          ? []
+          : [
+              { type: "CatalogList", id: "LIST" },
+              { type: "ArtistSearch", id: "LIST" },
+              { type: "ArtistCodePeek", id: `${genre_id}:${code_letters}` },
+            ],
     }),
     peekArtistCode: builder.query<PeekArtistCodeResponse, PeekArtistCodeQuery>({
       query: ({ code_letters, genre_id }) => ({

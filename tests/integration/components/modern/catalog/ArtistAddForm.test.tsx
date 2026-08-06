@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import {
   renderWithProviders,
@@ -138,6 +138,15 @@ function conflictResponse(overrides: Record<string, unknown> = {}) {
     },
     { status: 409 },
   );
+}
+
+/** The FormControl wrapping a field, so a helper-text assertion names its owner. */
+function fieldGroup(field: HTMLElement): HTMLElement {
+  const group = field.closest(".MuiFormControl-root");
+  if (!(group instanceof HTMLElement)) {
+    throw new Error("field is not inside a FormControl");
+  }
+  return group;
 }
 
 async function selectGenre(
@@ -378,6 +387,37 @@ describe("ArtistAddForm", () => {
         expect(getBodies()[0]).toMatchObject({ code_letters: "MOLI" });
       });
 
+      it.each([
+        ["a lowercase character", "l", "MLOI", 2],
+        ["an already-uppercase character", "L", "MLOI", 2],
+        // Uppercasing "ß" yields "SS", so the caret has to land past two
+        // characters the keystroke did not itself type.
+        ["a character that uppercases to two", "ß", "MSSOI", 3],
+      ])(
+        "leaves the caret where the edit put it after inserting %s mid-code",
+        async (_label, typed, expectedValue, expectedCaret) => {
+          const { user } = renderWithProviders(<ArtistAddForm />);
+
+          await selectGenre(user);
+          const field = screen.getByLabelText(
+            /call letters/i,
+          ) as HTMLInputElement;
+          await user.type(field, "MOI");
+
+          // Normalizing inside the change handler rewrites the controlled
+          // input on every keystroke, and the value setter drops the caret at
+          // the end. An MD fixing a typo mid-code would then have the second
+          // correction land at the end, filing a different but still valid
+          // four-character code with nothing reported wrong.
+          field.setSelectionRange(1, 1);
+          await user.keyboard(typed);
+
+          expect(field).toHaveValue(expectedValue);
+          expect(field.selectionStart).toBe(expectedCaret);
+          expect(field.selectionEnd).toBe(expectedCaret);
+        },
+      );
+
       it("blocks a value that arrives past the field's own cap", async () => {
         const { getBodies } = mockAddArtist(() => created());
         const { user } = renderWithProviders(<ArtistAddForm />);
@@ -411,7 +451,13 @@ describe("ArtistAddForm", () => {
             target: { value: "Nilüfer".padEnd(length, "!") },
           });
 
-          expect(screen.getAllByText(/at most 128 characters/i).length).toBeGreaterThan(0);
+          // Scoped to the field's own FormControl: a tree-wide query passes
+          // just as well with the two length guards wired to each other's
+          // fields, leaving each reporting the wrong one.
+          const field = screen.getByPlaceholderText(placeholder);
+          expect(
+            within(fieldGroup(field)).getByText(/at most 128 characters/i),
+          ).toBeInTheDocument();
           expect(screen.getByRole("button", { name: /add artist/i })).toBeDisabled();
           expect(getBodies()).toHaveLength(0);
         },
@@ -468,6 +514,107 @@ describe("ArtistAddForm", () => {
         await waitFor(() =>
           expect(screen.getByTestId("next-code-number")).toHaveTextContent("3"),
         );
+      });
+
+      it("stops previewing once the normalized value is longer than any code", async () => {
+        const { getQueries } = mockPeekCode();
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await selectGenre(user);
+        const codeLettersInput = screen.getByLabelText(/call letters/i);
+        await user.type(codeLettersInput, MOLINA);
+        expect(await screen.findByTestId("next-code-number")).toHaveTextContent("7");
+
+        // maxLength counts the keystroke, not the normalized write-back, so
+        // uppercasing can push the value past the column's four characters.
+        // No series can ever hold it, and previewing anyway would answer
+        // "Next code: 1" beside the length error that blocks the submit.
+        await user.clear(codeLettersInput);
+        await user.type(codeLettersInput, "ßxß");
+        expect(codeLettersInput).toHaveValue("SSXSS");
+
+        await waitFor(() =>
+          expect(screen.getByText(/at most 4 characters/i)).toBeInTheDocument(),
+        );
+        expect(screen.queryByText("Next code:")).not.toBeInTheDocument();
+        expect(
+          getQueries().map((query) => query.code_letters),
+        ).not.toContain("SSXSS");
+      });
+
+      it("leaves the preview alone when the add is rejected", async () => {
+        const { getQueries } = mockPeekCode();
+        const { getCallCount } = mockArtistSearch([]);
+        mockAddArtist(() => conflictResponse());
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await fillCoreFields(user);
+        await waitFor(() => expect(getQueries().length).toBeGreaterThan(0));
+        const peeksBeforeSubmit = getQueries().length;
+        const searchesBeforeSubmit = getCallCount();
+
+        await user.click(screen.getByRole("button", { name: /add artist/i }));
+        expect(await screen.findByRole("alert")).toHaveTextContent(/Stereolab/);
+
+        // A rejected add wrote nothing. Invalidating on it would flip the code
+        // number the MD is reading back to a spinner and spend two more round
+        // trips reconfirming lists that cannot have changed.
+        expect(getQueries()).toHaveLength(peeksBeforeSubmit);
+        expect(getCallCount()).toBe(searchesBeforeSubmit);
+        expect(screen.getByTestId("next-code-number")).toHaveTextContent("7");
+      });
+
+      it("re-previews after a successful add, whose row the preview predates", async () => {
+        const { getQueries } = mockPeekCode();
+        mockAddArtist(() => created());
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await fillCoreFields(user);
+        await waitFor(() => expect(getQueries().length).toBeGreaterThan(0));
+        const peeksBeforeSubmit = getQueries().length;
+
+        await user.click(screen.getByRole("button", { name: /add artist/i }));
+
+        // The cached preview for that letters/genre pair now predates a row
+        // holding the code it reports as free.
+        await waitFor(() =>
+          expect(getQueries().length).toBeGreaterThan(peeksBeforeSubmit),
+        );
+      });
+    });
+
+    describe("the success confirmation", () => {
+      it.each([
+        ["the call letters", async (user: ReturnType<typeof renderWithProviders>["user"]) =>
+          user.type(screen.getByLabelText(/call letters/i), "X")],
+        ["the code number", async (user: ReturnType<typeof renderWithProviders>["user"]) =>
+          user.type(screen.getByLabelText("Code number"), "3")],
+        ["the alphabetical name", async (user: ReturnType<typeof renderWithProviders>["user"]) =>
+          user.type(screen.getByLabelText(/alphabetical name/i), "Molina, Juana")],
+        ["the genre", async (user: ReturnType<typeof renderWithProviders>["user"]) =>
+          selectGenre(user, "Jazz")],
+      ])("drops the confirmation once %s moves on to the next entry", async (_label, edit) => {
+        mockGenres([
+          { id: GENRE_ID, genre_name: "Rock" },
+          { id: JAZZ_GENRE_ID, genre_name: "Jazz" },
+        ]);
+        mockAddArtist(() => created());
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await fillCoreFields(user);
+        await user.click(screen.getByRole("button", { name: /add artist/i }));
+        expect(await screen.findByRole("status")).toHaveTextContent(
+          `Added as ${MOLINA}12.`,
+        );
+
+        // An MD filing a batch who transcribes the next card's code before its
+        // name would otherwise keep the previous artist's confirmation
+        // standing beside a different half-typed entry.
+        await edit(user);
+
+        expect(
+          screen.queryByText(new RegExp(`Added as ${MOLINA}12`)),
+        ).not.toBeInTheDocument();
       });
     });
 
@@ -654,14 +801,44 @@ describe("ArtistAddForm", () => {
         await fillCoreFields(user);
         await user.click(screen.getByRole("button", { name: /add artist/i }));
 
+        // Only a 409 this form can name an artist from has its message
+        // suppressed in favour of the banner. Any other 409 keeps the server's
+        // reason, which is more use than a generic fallback.
         await waitFor(() =>
-          expect(toast.error).toHaveBeenCalledWith("Failed to add artist"),
+          expect(toast.error).toHaveBeenCalledWith(
+            "Artist code already exists for that genre and code letters.",
+          ),
         );
         expect(toast.error).toHaveBeenCalledTimes(1);
         // Rendering the banner would dereference `artist.artist_name`; there is
         // no error boundary here, so a malformed 409 must not reach it.
         expect(screen.queryByRole("alert")).not.toBeInTheDocument();
         expect(screen.getByRole("button", { name: /add artist/i })).toBeInTheDocument();
+      });
+
+      it("keeps a second 409 reason's message rather than dropping it", async () => {
+        // The strip exists for the one 409 shape the backend sends today. A
+        // different reason — or an intermediary answering 409 with its own
+        // JSON — must not have its message deleted before anything can toast
+        // it, leaving the MD a generic fallback and no server reason.
+        mockAddArtist(() =>
+          HttpResponse.json(
+            { message: "That genre is locked for the semester audit." },
+            { status: 409 },
+          ),
+        );
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await fillCoreFields(user);
+        await user.click(screen.getByRole("button", { name: /add artist/i }));
+
+        await waitFor(() =>
+          expect(toast.error).toHaveBeenCalledWith(
+            "That genre is locked for the semester audit.",
+          ),
+        );
+        expect(toast.error).toHaveBeenCalledTimes(1);
+        expect(screen.queryByRole("alert")).not.toBeInTheDocument();
       });
 
       it("explains a genres outage and offers a retry instead of an empty dropdown", async () => {
