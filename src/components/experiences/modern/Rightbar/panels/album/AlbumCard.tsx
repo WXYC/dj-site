@@ -16,6 +16,7 @@ import {
 } from "@mui/joy";
 import { useRef, useState, useEffect } from "react";
 import { NotOnDiscogsBadge } from "@/src/components/experiences/modern/catalog/AlbumArtwork";
+import AlbumEditForm from "./AlbumEditForm";
 import DiscogsMarkup from "./DiscogsMarkupRenderer";
 import DiscogsUnavailableControl from "./DiscogsUnavailableControl";
 import LibraryStatus from "./LibraryStatus";
@@ -145,6 +146,7 @@ export default function AlbumCard({
           </Stack>
         </Stack>
         <DiscogsUnavailableControl key={album.id} album={album} />
+        <AlbumEditForm key={album.id} album={album} />
         <RotationClassifyControl key={album.id} album={album} />
         {!isDiscogsUnavailable && <StreamingLinks metadata={metadata} />}
         {!isDiscogsUnavailable && artistBio && (
