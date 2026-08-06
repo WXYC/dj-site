@@ -219,22 +219,23 @@ function fakeRotationEndpoints(initial: RotationRow[] = []) {
 }
 
 /**
- * Same GET/PATCH shape as `fakeRotationEndpoints`, but the PATCH response
- * only resolves once the test calls `releaseKill` — lets a test assert on
- * in-flight state instead of racing a same-tick MSW response.
+ * Same GET/PATCH shape as `fakeRotationEndpoints`, but each PATCH resolves
+ * only once the test releases it — lets a test assert on in-flight state
+ * instead of racing a same-tick MSW response. Gated per `rotation_id` so two
+ * kills issued back-to-back can be released independently; `releaseKill()`
+ * with no argument releases every outstanding kill at once.
  */
 function fakeRotationEndpointsWithGatedKill(initial: RotationRow[] = []) {
   let rows = [...initial];
-  let releaseKill: () => void = () => {};
-  const killGate = new Promise<void>((resolve) => {
-    releaseKill = resolve;
-  });
+  const pendingResolvers = new Map<number, () => void>();
 
   server.use(
     http.get(`${TEST_BACKEND_URL}/library/rotation`, () => HttpResponse.json(rows)),
     http.patch(`${TEST_BACKEND_URL}/library/rotation`, async ({ request }) => {
       const body = (await request.json()) as { rotation_id: number };
-      await killGate;
+      await new Promise<void>((resolve) => {
+        pendingResolvers.set(body.rotation_id, resolve);
+      });
       const killed = rows.find((row) => row.rotation_id === body.rotation_id);
       rows = rows.filter((row) => row.rotation_id !== body.rotation_id);
       return HttpResponse.json({
@@ -247,7 +248,17 @@ function fakeRotationEndpointsWithGatedKill(initial: RotationRow[] = []) {
     }),
   );
 
-  return { releaseKill: () => releaseKill() };
+  return {
+    releaseKill: (rotationId?: number) => {
+      if (rotationId === undefined) {
+        pendingResolvers.forEach((resolve) => resolve());
+        pendingResolvers.clear();
+        return;
+      }
+      pendingResolvers.get(rotationId)?.();
+      pendingResolvers.delete(rotationId);
+    },
+  };
 }
 
 /** Sources the album the way the panel does, from `GET /library/info`. */
@@ -540,6 +551,33 @@ describe("RotationClassifyControl", () => {
         expect(screen.queryByRole("button", { name: "Kill H" })).not.toBeInTheDocument(),
       );
       expect(screen.getByRole("button", { name: "Kill M" })).not.toBeDisabled();
+    });
+
+    it("keeps a row busy while its own kill is in flight even after a second row's kill is issued", async () => {
+      const { releaseKill } = fakeRotationEndpointsWithGatedKill([
+        juanaMolinaRotationRow("H"),
+        { ...juanaMolinaRotationRow("M"), rotation_id: JUANA_MOLINA_SECOND_ROTATION_ID },
+      ]);
+      const { user } = renderWithProviders(
+        inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
+      );
+
+      const killH = await screen.findByRole("button", { name: "Kill H" });
+      const killM = screen.getByRole("button", { name: "Kill M" });
+
+      await user.click(killH);
+      await waitFor(() => expect(killH).toBeDisabled());
+
+      await user.click(killM);
+      await waitFor(() => expect(killM).toBeDisabled());
+      // H's kill is still open — issuing M's kill must not un-spin it.
+      expect(killH).toBeDisabled();
+
+      releaseKill();
+      await waitFor(() => {
+        expect(screen.queryByRole("button", { name: "Kill H" })).not.toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "Kill M" })).not.toBeInTheDocument();
+      });
     });
   });
 
