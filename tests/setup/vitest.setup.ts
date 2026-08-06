@@ -59,6 +59,15 @@ global.ResizeObserver = class ResizeObserver {
   disconnect() {}
 };
 
+// Stub scrollIntoView (jsdom runs no layout engine, so it ships no
+// implementation and any call throws). Components that keep a keyboard
+// highlight visible inside a scrolling panel call it on every highlight move.
+// Defined on the prototype so a test can `vi.spyOn(Element.prototype,
+// "scrollIntoView")` to assert which element was scrolled to.
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = function scrollIntoView() {};
+}
+
 // Mock IntersectionObserver for infinite-scroll components (jsdom lacks it).
 global.IntersectionObserver = class IntersectionObserver {
   readonly root = null;
