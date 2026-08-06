@@ -57,6 +57,23 @@ describe("rtkQueryErrorLogger (Bug 29)", () => {
     expect(toast.error).toHaveBeenCalled();
   });
 
+  // An endpoint that opts out of the base query's non-JSON soft-fail sends the
+  // parser's own complaint down this path. It names the character it choked on,
+  // not the outage that produced it, so the toast must not repeat it verbatim.
+  it("reports an unparseable body without quoting the JSON parser", () => {
+    const action = createRejectedAction({
+      status: "PARSING_ERROR",
+      originalStatus: 502,
+      data: "<!DOCTYPE html><html><body>Bad Gateway</body></html>",
+      error: "SyntaxError: Unexpected token '<', \"<!DOCTYPE \"... is not valid JSON",
+    });
+    middleware(action);
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    expect(toast.error).not.toHaveBeenCalledWith(
+      expect.stringContaining("SyntaxError"),
+    );
+  });
+
   it("should not show toast for non-rejected actions", () => {
     const action = { type: "some/action" };
     middleware(action);

@@ -357,6 +357,27 @@ describe("LabelSearchTypeahead", () => {
       );
     });
 
+    // The retry button is the error panel's only recovery affordance, and Tab
+    // is the only way a keyboard reaches it. Closing on focus-out has to be
+    // scoped to focus leaving the field entirely, not merely leaving the input,
+    // or the button unmounts on the very keystroke that would reach it.
+    it("keeps the panel open when focus moves to the retry button", async () => {
+      mockLabelSearch(() =>
+        HttpResponse.json({ message: "boom" }, { status: 500 }),
+      );
+      const { user } = renderWithProviders(<TypeaheadBesideField />);
+
+      const input = await findInput();
+      await user.type(input, "Sona");
+      await vi.advanceTimersByTimeAsync(400);
+      await screen.findByRole("alert");
+
+      await user.tab();
+
+      expect(screen.getByRole("button", { name: /try again/i })).toHaveFocus();
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+    });
+
     // Rows suppress the focus shift on mousedown for exactly this reason: the
     // focus-out close must not fire between mousedown and click and take the
     // row away before its selection handler runs.
@@ -444,8 +465,7 @@ describe("LabelSearchTypeahead", () => {
       const { user } = renderWithProviders(<ControlledTypeahead />);
 
       const input = await findInput();
-      await user.type(input, "D");
-      await user.type(input, "r");
+      await user.type(input, "Dr");
       await vi.advanceTimersByTimeAsync(400);
       await screen.findByText("Deathbomb Arc");
 
@@ -466,6 +486,51 @@ describe("LabelSearchTypeahead", () => {
       await screen.findByText("Deathbomb Arc");
 
       expect(scrolled).toHaveLength(0);
+    });
+
+    // A hovered row is already under the cursor. Scrolling it flush would slide
+    // a different row beneath a cursor that never moved, and that row's own
+    // hover would move the highlight again.
+    it("does not scroll a row the pointer moved the highlight onto", async () => {
+      const scrolled = captureScrollTargets();
+      mockLabelSearch(manyLabels);
+      const { user } = renderWithProviders(<ControlledTypeahead />);
+
+      const input = await findInput();
+      await user.type(input, "Dr");
+      await vi.advanceTimersByTimeAsync(400);
+
+      await user.hover(await screen.findByText("Deathbomb Arc"));
+
+      expect(screen.getAllByRole("option").at(-1)).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+      expect(scrolled).toHaveLength(0);
+    });
+
+    // The MD means the text they typed even though it prefixes an existing
+    // label. With no create row for the keyboard to land on, an Enter that did
+    // nothing at all would leave Escape as the only way forward — so the first
+    // press dismisses the matches it has now been shown, and the second submits.
+    it("dismisses the matches on Enter with nothing highlighted, then submits", async () => {
+      mockLabelSearch([dragCity]);
+      const onSubmit = vi.fn();
+      const { user } = renderWithProviders(<TypeaheadInForm onSubmit={onSubmit} />);
+
+      const input = await findInput();
+      await user.type(input, "Drag");
+      await vi.advanceTimersByTimeAsync(400);
+      await screen.findByRole("listbox");
+
+      await user.keyboard("{Enter}");
+
+      expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+      expect(onSubmit).not.toHaveBeenCalled();
+
+      await user.keyboard("{Enter}");
+
+      expect(onSubmit).toHaveBeenCalledTimes(1);
     });
 
     it("names the highlighted row in aria-activedescendant", async () => {

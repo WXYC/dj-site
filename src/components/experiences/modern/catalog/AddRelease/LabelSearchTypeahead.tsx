@@ -53,6 +53,11 @@ function LabelSearchTypeaheadInner({
   const inputRef = useRef<HTMLInputElement>(null);
   // Row elements by index, kept so the highlight can be scrolled into view.
   const rowRefs = useRef<(HTMLDivElement | null)[]>([]);
+  // Whether the arrow keys, rather than the pointer, put the highlight where it
+  // is. Only a keyboard move can land off-screen; a hovered row is by
+  // definition under the cursor, and scrolling it flush would slide a different
+  // row beneath a cursor that never moved and re-highlight from there.
+  const highlightFromKeyboard = useRef(false);
   const listboxId = useId();
 
   const trimmed = value.trim();
@@ -102,7 +107,7 @@ function LabelSearchTypeaheadInner({
   // `block: "nearest"` moves the panel only when the row is actually outside it,
   // leaving an already-visible highlight where it is.
   useEffect(() => {
-    if (highlightIndex < 0) return;
+    if (!highlightFromKeyboard.current || highlightIndex < 0) return;
     rowRefs.current[highlightIndex]?.scrollIntoView({ block: "nearest" });
   }, [highlightIndex]);
 
@@ -186,10 +191,12 @@ function LabelSearchTypeaheadInner({
       switch (e.key) {
         case "ArrowDown":
           e.preventDefault();
+          highlightFromKeyboard.current = true;
           setHighlightIndex(Math.min(highlightIndex + 1, labels.length - 1));
           break;
         case "ArrowUp":
           e.preventDefault();
+          highlightFromKeyboard.current = true;
           setHighlightIndex(Math.max(highlightIndex - 1, NO_HIGHLIGHT));
           break;
         case "Enter":
@@ -200,6 +207,13 @@ function LabelSearchTypeaheadInner({
           e.preventDefault();
           if (highlightIndex >= 0) {
             handleSelect(labels[highlightIndex]);
+          } else {
+            // Nothing highlighted, and this field has no create row for the
+            // keyboard to land on — so the key would otherwise do nothing at
+            // all and leave no way forward but Escape. Dismissing the matches
+            // is the answer to "I have seen them and still mean this text":
+            // the check has already reported, so the next Enter submits.
+            closePanel();
           }
           break;
       }
@@ -324,7 +338,16 @@ function LabelSearchTypeaheadInner({
                   // mousedown and click, and the pick is lost.
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleSelect(label)}
-                  onMouseEnter={() => setHighlightIndex(index)}
+                  // Pointer motion, not entry: scrolling the keyboard's chosen
+                  // row into view slides a different row under a cursor parked
+                  // over the panel, and entry alone would then hand that row the
+                  // highlight the arrow key had just placed. `mousemove` only
+                  // fires when the pointer itself moves, so the keyboard keeps
+                  // the highlight until the MD actually reaches for the mouse.
+                  onMouseMove={() => {
+                    highlightFromKeyboard.current = false;
+                    setHighlightIndex(index);
+                  }}
                   sx={{
                     px: 1.5,
                     py: 0.75,
