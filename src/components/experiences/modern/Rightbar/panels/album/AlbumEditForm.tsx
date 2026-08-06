@@ -30,7 +30,7 @@ import {
   ArtistInGenreOption,
   UpdateAlbumRequestBody,
 } from "@/lib/features/catalog/types";
-import { isUnmessagedRejection } from "@/lib/rtk-query-error-logger";
+import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
 import ArtistSearchTypeahead from "@/src/components/shared/inputs/ArtistSearchTypeahead";
 
 interface AlbumEditFormProps {
@@ -158,9 +158,13 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
     setArtistLink((prev) => (prev !== null && prev.genreId !== genreId ? prev : null));
   };
 
-  const handleArtistCreateNew = () => {
+  // The typeahead always offers a create-new affordance; this form has no way
+  // to honour it, and there is no artist-add surface anywhere to send the MD
+  // to yet. The message must therefore say what is possible here rather than
+  // name a detour that doesn't exist.
+  const handleArtistCreateNew = (searchTerm: string) => {
     toast.info(
-      "Creating a new artist isn't supported from this form yet — use the artist-add flow first, then search for it here.",
+      `Adding a new artist isn't supported from this form — "${searchTerm}" must already be catalogued under the selected genre to be picked here.`,
     );
   };
 
@@ -277,10 +281,12 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
       // message verbatim, and Backend-Service answers every rejection here with
       // a specific one ("Artist is not catalogued in the selected genre",
       // "format_id does not reference an existing format", …); a second generic
-      // toast would bury it. Every other rejection reaches the MD as a raw
-      // JSON-parse error, a bare transport line, or nothing at all — none of
-      // which say the save failed — so this fallback still has to speak.
-      if (isUnmessagedRejection(err)) {
+      // toast would bury it, as it would bury the middleware's transport lines.
+      // What it cannot speak for is an HTTP error with no body message, or a
+      // rejection carrying no status at all (an aborted request, a response the
+      // transform couldn't read) — that one it never even sees, so without this
+      // the save would fail in total silence.
+      if (isUnmessagedHttpError(err)) {
         toast.error("Failed to update album");
       }
     }

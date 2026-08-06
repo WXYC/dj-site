@@ -43,6 +43,8 @@ import { toast } from "sonner";
 const mockUseSession = authClient.useSession as ReturnType<typeof vi.fn>;
 const mockFetchOrgRole = fetchOrganizationRoleForUserClient as ReturnType<typeof vi.fn>;
 const mockToastError = toast.error as ReturnType<typeof vi.fn>;
+const mockToastSuccess = toast.success as ReturnType<typeof vi.fn>;
+const mockToastInfo = toast.info as ReturnType<typeof vi.fn>;
 
 function sessionWithRole() {
   return {
@@ -119,37 +121,84 @@ function mockArtistSearch(artists: { id: number; artist_name: string; code_lette
   return requests;
 }
 
+const GENRE_NAMES: Record<number, string> = {
+  [ROCK_GENRE_ID]: "Rock",
+  [JAZZ_GENRE_ID]: "Jazz",
+};
+const FORMAT_NAMES: Record<number, string> = {
+  [CD_FORMAT_ID]: "CD",
+  [VINYL_FORMAT_ID]: "Vinyl",
+};
+const ARTIST_NAMES: Record<number, string> = {
+  [JUANA_ARTIST_ID]: "Juana Molina",
+  [JUANA_JAZZ_ARTIST_ID]: "Juana Molina",
+  [JESSICA_ARTIST_ID]: "Jessica Pratt",
+};
+
 /**
+ * Answers with the row as the server would leave it: seeded from the album
+ * under test, then the received partial applied on top. The response is what
+ * reseeds the form, so a fake that echoed fixed defaults instead of the row's
+ * own values would let a reseed bug pass unseen — and would answer a
+ * `label_id: null` clear with the label still set, which the server never does.
+ * Omitting a field is a no-op, matching true-partial-update semantics.
+ *
  * `gate`, when supplied, holds the response open until it settles — the window
  * in which Backend-Service awaits its post-update enrichment (a streaming check
  * plus a metadata lookup) before answering, which is measured in seconds for
  * exactly the fields this form edits.
  */
-function mockPatch({ gate }: { gate?: Promise<unknown> } = {}) {
+function mockPatch({
+  gate,
+  album = juanaMolinaAlbum(),
+}: { gate?: Promise<unknown>; album?: ReturnType<typeof juanaMolinaAlbum> } = {}) {
   let receivedBody: Record<string, unknown> | undefined;
   let callCount = 0;
+  const row: Record<string, unknown> = {
+    id: album.id,
+    album_title: album.title,
+    artist_name: album.artist.name,
+    artist_id: album.artist_id,
+    code_letters: album.artist.lettercode,
+    code_number: album.entry,
+    code_artist_number: album.artist.numbercode,
+    format_name: album.format,
+    format_id: album.format_id,
+    genre_name: album.artist.genre,
+    genre_id: album.genre_id,
+    label: album.label,
+    disc_quantity: album.disc_quantity,
+    alternate_artist_name: album.alternate_artist || null,
+    album_artist: album.album_artist,
+  };
+
   server.use(
     http.patch(`${TEST_BACKEND_URL}/library/:id`, async ({ request }) => {
       callCount++;
       receivedBody = (await request.json()) as Record<string, unknown>;
+
+      if ("album_title" in receivedBody) row.album_title = receivedBody.album_title;
+      if ("label" in receivedBody) row.label = receivedBody.label;
+      // The server treats label_id: null as clearing both columns together.
+      if (receivedBody.label_id === null) row.label = null;
+      if ("alternate_artist_name" in receivedBody)
+        row.alternate_artist_name = receivedBody.alternate_artist_name;
+      if ("disc_quantity" in receivedBody) row.disc_quantity = receivedBody.disc_quantity;
+      if (typeof receivedBody.genre_id === "number") {
+        row.genre_id = receivedBody.genre_id;
+        row.genre_name = GENRE_NAMES[receivedBody.genre_id];
+      }
+      if (typeof receivedBody.format_id === "number") {
+        row.format_id = receivedBody.format_id;
+        row.format_name = FORMAT_NAMES[receivedBody.format_id];
+      }
+      if (typeof receivedBody.artist_id === "number") {
+        row.artist_id = receivedBody.artist_id;
+        row.artist_name = ARTIST_NAMES[receivedBody.artist_id];
+      }
+
       if (gate) await gate;
-      return HttpResponse.json({
-        id: 4242,
-        album_title: receivedBody.album_title ?? "DOGA",
-        artist_name: "Juana Molina",
-        artist_id: receivedBody.artist_id ?? JUANA_ARTIST_ID,
-        code_letters: "MO",
-        code_number: 1,
-        code_artist_number: 12,
-        format_name: "CD",
-        format_id: receivedBody.format_id ?? CD_FORMAT_ID,
-        genre_name: receivedBody.genre_id === JAZZ_GENRE_ID ? "Jazz" : "Rock",
-        genre_id: receivedBody.genre_id ?? ROCK_GENRE_ID,
-        label: receivedBody.label ?? "Sonamos",
-        disc_quantity: receivedBody.disc_quantity ?? 1,
-        alternate_artist_name:
-          "alternate_artist_name" in receivedBody ? receivedBody.alternate_artist_name : null,
-      });
+      return HttpResponse.json({ ...row });
     }),
   );
   return {
@@ -298,10 +347,9 @@ describe("AlbumEditForm", () => {
       });
 
       it("never includes album_artist in the outgoing body", async () => {
-        const { getReceivedBody } = mockPatch();
-        const { user } = renderWithProviders(
-          <AlbumEditForm album={juanaMolinaAlbum({ album_artist: "Various Artists" })} />,
-        );
+        const album = juanaMolinaAlbum({ album_artist: "Various Artists" });
+        const { getReceivedBody } = mockPatch({ album });
+        const { user } = renderWithProviders(<AlbumEditForm album={album} />);
 
         const title = await screen.findByLabelText("Title");
         await user.clear(title);
@@ -312,19 +360,67 @@ describe("AlbumEditForm", () => {
         expect(getReceivedBody()).not.toHaveProperty("album_artist");
       });
 
+      // Save is disabled the instant the click dispatches (the button is in its
+      // loading state), so asserting that alone would pass on the in-flight
+      // render and never observe the response. The baseline reset is only
+      // visible once the save has settled: the fields must hold the saved
+      // values, and Save must be disabled because they now match the baseline,
+      // not because a request is open.
       it("disables Save again and resets the baseline after a successful save", async () => {
-        mockPatch();
+        const { getReceivedBody } = mockPatch();
         const { user } = renderWithProviders(<AlbumEditForm album={juanaMolinaAlbum()} />);
 
         const title = await screen.findByLabelText("Title");
         await user.clear(title);
         await user.type(title, "New Title");
+        const label = screen.getByLabelText("Label");
+        await user.clear(label);
         expect(screen.getByRole("button", SAVE_BUTTON)).toBeEnabled();
 
         await user.click(screen.getByRole("button", SAVE_BUTTON));
 
         await waitFor(() =>
-          expect(screen.getByRole("button", SAVE_BUTTON)).toBeDisabled(),
+          expect(mockToastSuccess).toHaveBeenCalledWith("Album updated"),
+        );
+        expect(getReceivedBody()).toEqual({
+          album_title: "New Title",
+          label_id: null,
+        });
+        expect(title).toHaveValue("New Title");
+        expect(label).toHaveValue("");
+        expect(title).toBeEnabled();
+        expect(screen.getByRole("button", SAVE_BUTTON)).toBeDisabled();
+      });
+
+      // Every field is reseeded from the response, so a value the server
+      // normalised or filled in on its own must land back in the form — and a
+      // second save must then diff against that, not against what was typed.
+      it("reseeds from the response and diffs the next save against it", async () => {
+        const { getReceivedBody } = mockPatch();
+        const { user } = renderWithProviders(<AlbumEditForm album={juanaMolinaAlbum()} />);
+
+        await screen.findByLabelText("Title");
+        await user.click(screen.getByRole("combobox", { name: "Format" }));
+        await user.click(await screen.findByRole("option", { name: "Vinyl" }));
+        await user.click(screen.getByRole("button", SAVE_BUTTON));
+
+        await waitFor(() =>
+          expect(mockToastSuccess).toHaveBeenCalledWith("Album updated"),
+        );
+        await waitFor(() =>
+          expect(screen.getByRole("combobox", { name: "Format" })).toHaveTextContent(
+            "Vinyl",
+          ),
+        );
+
+        const title = screen.getByLabelText("Title");
+        await user.clear(title);
+        await user.type(title, "DOGA (Reissue)");
+        await user.click(screen.getByRole("button", SAVE_BUTTON));
+
+        // The format is no longer a change: the baseline moved with the save.
+        await waitFor(() =>
+          expect(getReceivedBody()).toEqual({ album_title: "DOGA (Reissue)" }),
         );
       });
 
@@ -429,10 +525,9 @@ describe("AlbumEditForm", () => {
       });
 
       it("sends alternate_artist_name: null when the field is cleared", async () => {
-        const { getReceivedBody } = mockPatch();
-        const { user } = renderWithProviders(
-          <AlbumEditForm album={juanaMolinaAlbum({ alternate_artist: "Various" })} />,
-        );
+        const album = juanaMolinaAlbum({ alternate_artist: "Various" });
+        const { getReceivedBody } = mockPatch({ album });
+        const { user } = renderWithProviders(<AlbumEditForm album={album} />);
 
         const field = await screen.findByLabelText("Alternate Artist Name");
         await user.clear(field);
@@ -537,10 +632,9 @@ describe("AlbumEditForm", () => {
         ["below the minimum", DISC_QUANTITY_MIN - 1],
         ["above the maximum", DISC_QUANTITY_MAX + 1],
       ])("still saves an unrelated edit when the stored value is %s", async (_case, stored) => {
-        const { getReceivedBody, getCallCount } = mockPatch();
-        const { user } = renderWithProviders(
-          <AlbumEditForm album={juanaMolinaAlbum({ disc_quantity: stored })} />,
-        );
+        const album = juanaMolinaAlbum({ disc_quantity: stored });
+        const { getReceivedBody, getCallCount } = mockPatch({ album });
+        const { user } = renderWithProviders(<AlbumEditForm album={album} />);
 
         const title = await screen.findByLabelText("Title");
         expect(screen.getByLabelText("Disc Quantity")).toHaveValue(stored);
@@ -562,10 +656,9 @@ describe("AlbumEditForm", () => {
       });
 
       it("still blocks Save once the MD types a fresh out-of-range value", async () => {
-        const { getCallCount } = mockPatch();
-        const { user } = renderWithProviders(
-          <AlbumEditForm album={juanaMolinaAlbum({ disc_quantity: DISC_QUANTITY_MIN - 1 })} />,
-        );
+        const album = juanaMolinaAlbum({ disc_quantity: DISC_QUANTITY_MIN - 1 });
+        const { getCallCount } = mockPatch({ album });
+        const { user } = renderWithProviders(<AlbumEditForm album={album} />);
 
         const discQuantity = await screen.findByLabelText("Disc Quantity");
         await user.clear(discQuantity);
@@ -690,6 +783,26 @@ describe("AlbumEditForm", () => {
           expect(getReceivedBody()).toEqual({ album_title: "DOGA (Reissue)" }),
         );
       });
+    });
+
+    // The typeahead always offers its create-new row. This form can't honour
+    // it and has nowhere to send the MD, so the message must describe what is
+    // actually possible instead of naming a flow that doesn't exist.
+    it("explains that a new artist can't be created from here", async () => {
+      const { getCallCount } = mockPatch();
+      mockArtistSearch([]);
+      const { user } = renderWithProviders(<AlbumEditForm album={juanaMolinaAlbum()} />);
+
+      const artistInput = await screen.findByLabelText("Search artists");
+      await user.clear(artistInput);
+      await user.type(artistInput, "Csillagrablók");
+      await user.click(await screen.findByText(/Create new artist/));
+
+      expect(mockToastInfo).toHaveBeenCalledWith(
+        expect.stringContaining("Csillagrablók"),
+      );
+      expect(mockToastInfo.mock.calls[0][0]).not.toMatch(/artist-add flow/);
+      expect(getCallCount()).toBe(0);
     });
 
     // The typeahead retracts only the selections it reported through its own
@@ -822,8 +935,8 @@ describe("AlbumEditForm", () => {
 
     describe("alongside the Discogs-unavailable toggle", () => {
       it("keeps both controls independently operable in the same panel", async () => {
-        const { getReceivedBody, getCallCount } = mockPatch();
         const album = juanaMolinaAlbum({ discogsUnavailable: true });
+        const { getReceivedBody, getCallCount } = mockPatch({ album });
         const { user } = renderWithProviders(
           <>
             <DiscogsUnavailableControl album={album} />

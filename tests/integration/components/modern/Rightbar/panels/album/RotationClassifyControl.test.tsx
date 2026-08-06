@@ -374,10 +374,10 @@ describe("RotationClassifyControl", () => {
     });
 
     // A route answering a mutation with HTML (an Express 404 page, a gateway
-    // 502) leaves the global middleware toasting only the raw JSON parse
-    // failure, so this control's own message is the only one naming what
-    // failed and must still fire.
-    it("shows an error toast when the POST comes back as HTML", async () => {
+    // 502) is the global middleware's to word; this control must not stack a
+    // vaguer second toast on top of it. Asserted as "something, but not our
+    // message", so improving that wording doesn't break this.
+    it("leaves a non-JSON POST response to the middleware", async () => {
       fakeRotationEndpoints();
       server.use(
         http.post(
@@ -397,9 +397,8 @@ describe("RotationClassifyControl", () => {
       await user.click(screen.getByRole("radio", { name: "M" }));
       await user.click(screen.getByRole("button", { name: "Add to Rotation" }));
 
-      await waitFor(() =>
-        expect(toast.error).toHaveBeenCalledWith("Failed to add to rotation"),
-      );
+      await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+      expect(toast.error).not.toHaveBeenCalledWith("Failed to add to rotation");
     });
   });
 
