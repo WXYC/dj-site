@@ -12,7 +12,6 @@ import {
   Option,
   Select,
   Stack,
-  Switch,
   Typography,
 } from "@mui/joy";
 import { RequireMD } from "@/src/components/shared/Authorization";
@@ -96,7 +95,6 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
   const [discQuantity, setDiscQuantity] = useState<number | undefined>(
     saved.discQuantity,
   );
-  const [clearLabelId, setClearLabelId] = useState(false);
 
   // True once the current `artistId` has been confirmed via a fresh pick
   // (ArtistSearchTypeahead's `onSelect`) under the genre presently held here.
@@ -138,9 +136,28 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
   const trimmedLabel = label.trim();
   const trimmedAlternateArtistName = alternateArtistName.trim();
 
+  // Backend-Service rejects an empty album_title outright (400), so an empty
+  // draft must block Save rather than reach the request at all.
+  const titleInvalid = trimmedTitle.length === 0;
+  // Blanking a previously-set disc_quantity has no way to reach the server
+  // (the field isn't nullable in this contract) — blocking Save keeps the
+  // draft from being silently discarded on the post-save reseed below.
+  const discQuantityInvalid = discQuantity === undefined && saved.discQuantity !== undefined;
+
   const changes: UpdateAlbumRequestBody = {};
-  if (trimmedTitle !== saved.title) changes.album_title = trimmedTitle;
-  if (trimmedLabel !== saved.label) changes.label = trimmedLabel;
+  if (!titleInvalid && trimmedTitle !== saved.title) changes.album_title = trimmedTitle;
+  // Backend-Service rejects an empty `label` string outright — clearing the
+  // label is only reachable through `label_id: null`, which the server
+  // treats as clearing both columns together. Sending `label` and
+  // `label_id: null` in the same request is also rejected, so these two
+  // branches must stay mutually exclusive.
+  if (trimmedLabel !== saved.label) {
+    if (trimmedLabel.length > 0) {
+      changes.label = trimmedLabel;
+    } else {
+      changes.label_id = null;
+    }
+  }
   if (genreId !== undefined && genreId !== saved.genreId) changes.genre_id = genreId;
   if (formatId !== undefined && formatId !== saved.formatId)
     changes.format_id = formatId;
@@ -150,17 +167,17 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
     changes.alternate_artist_name =
       trimmedAlternateArtistName.length > 0 ? trimmedAlternateArtistName : null;
   }
-  if (discQuantity !== undefined && discQuantity !== saved.discQuantity) {
+  if (!discQuantityInvalid && discQuantity !== undefined && discQuantity !== saved.discQuantity) {
     changes.disc_quantity = discQuantity;
   }
-  if (clearLabelId) changes.label_id = null;
 
   const hasChanges = Object.keys(changes).length > 0;
   // An album always needs a definite artist link, so Save must stay blocked
   // while it's unresolved — whether that's from a genre change invalidating
   // the seeded id or from editing the artist text away from a confirmed pick.
   const artistLinkMissing = artistId === undefined;
-  const canSave = hasChanges && !artistLinkMissing && !saving;
+  const canSave =
+    hasChanges && !artistLinkMissing && !titleInvalid && !discQuantityInvalid && !saving;
 
   const handleSave = async () => {
     if (!canSave) return;
@@ -177,7 +194,6 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
       artistConfirmedForGenre.current = false;
       setAlternateArtistName(nextSaved.alternateArtistName);
       setDiscQuantity(nextSaved.discQuantity);
-      setClearLabelId(false);
       toast.success("Album updated");
     } catch {
       toast.error("Failed to update album");
@@ -186,14 +202,16 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
 
   return (
     <Stack spacing={1.5}>
-      <FormControl>
+      <FormControl error={titleInvalid}>
         <FormLabel>Title</FormLabel>
         <Input size="sm" value={title} onChange={(e) => setTitle(e.target.value)} />
+        {titleInvalid && <FormHelperText>Title can&apos;t be empty.</FormHelperText>}
       </FormControl>
 
       <FormControl>
         <FormLabel>Label</FormLabel>
         <Input size="sm" value={label} onChange={(e) => setLabel(e.target.value)} />
+        <FormHelperText>Clearing this unlinks the label record too.</FormHelperText>
       </FormControl>
 
       <FormControl>
@@ -240,8 +258,9 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
         />
         {artistLinkMissing && (
           <FormHelperText>
-            Search and select an artist to continue — the previous link no
-            longer applies under this genre.
+            {genreId !== saved.genreId
+              ? "Search and select an artist to continue — the previous link no longer applies under this genre."
+              : "Search and select an artist to continue."}
           </FormHelperText>
         )}
       </FormControl>
@@ -255,7 +274,7 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
         />
       </FormControl>
 
-      <FormControl>
+      <FormControl error={discQuantityInvalid}>
         <FormLabel>Disc Quantity</FormLabel>
         <Input
           size="sm"
@@ -266,24 +285,12 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
             setDiscQuantity(e.target.value === "" ? undefined : Number(e.target.value))
           }
         />
+        {discQuantityInvalid && (
+          <FormHelperText>
+            Disc quantity can&apos;t be cleared — restore a value to continue.
+          </FormHelperText>
+        )}
       </FormControl>
-
-      <FormControl
-        orientation="horizontal"
-        sx={{ justifyContent: "space-between", alignItems: "center" }}
-      >
-        <FormLabel>Clear linked label record</FormLabel>
-        <Switch
-          checked={clearLabelId}
-          onChange={(e) => setClearLabelId(e.target.checked)}
-        />
-      </FormControl>
-      {clearLabelId && (
-        <Typography level="body-xs" sx={{ color: "text.tertiary" }}>
-          Unlinks the label record (label_id) without changing the Label text
-          above.
-        </Typography>
-      )}
 
       <Divider />
 

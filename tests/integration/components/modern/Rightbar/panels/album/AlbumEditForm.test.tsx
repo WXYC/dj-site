@@ -246,7 +246,7 @@ describe("AlbumEditForm", () => {
         expect(getReceivedBody()).not.toHaveProperty("album_artist");
       });
 
-      it("re-hides Save and resets the baseline after a successful save", async () => {
+      it("disables Save again and resets the baseline after a successful save", async () => {
         mockPatch();
         const { user } = renderWithProviders(<AlbumEditForm album={juanaMolinaAlbum()} />);
 
@@ -279,15 +279,40 @@ describe("AlbumEditForm", () => {
         );
       });
 
-      it("sends label_id: null when 'Clear linked label record' is toggled", async () => {
+      it("sends label_id: null (not an empty label string) when the Label field is cleared", async () => {
         const { getReceivedBody } = mockPatch();
         const { user } = renderWithProviders(<AlbumEditForm album={juanaMolinaAlbum()} />);
 
-        const clearSwitch = await screen.findByLabelText("Clear linked label record");
-        await user.click(clearSwitch);
+        const field = await screen.findByLabelText("Label");
+        await user.clear(field);
         await user.click(screen.getByRole("button", { name: "Save" }));
 
         await waitFor(() => expect(getReceivedBody()).toEqual({ label_id: null }));
+      });
+    });
+
+    describe("required fields", () => {
+      it("blocks Save and never sends an empty title", async () => {
+        const { getCallCount } = mockPatch();
+        const { user } = renderWithProviders(<AlbumEditForm album={juanaMolinaAlbum()} />);
+
+        const title = await screen.findByLabelText("Title");
+        await user.clear(title);
+
+        expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+        expect(screen.getByText("Title can't be empty.")).toBeInTheDocument();
+        expect(getCallCount()).toBe(0);
+      });
+
+      it("blocks Save when a previously-set disc quantity is cleared", async () => {
+        const { getCallCount } = mockPatch();
+        const { user } = renderWithProviders(<AlbumEditForm album={juanaMolinaAlbum()} />);
+
+        const discQuantity = await screen.findByLabelText("Disc Quantity");
+        await user.clear(discQuantity);
+
+        expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+        expect(getCallCount()).toBe(0);
       });
     });
 
