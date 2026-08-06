@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   Button,
@@ -17,7 +17,10 @@ import {
 import { RequireMD } from "@/src/components/shared/Authorization";
 import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
 import { useAddArtistMutation, useGetGenresQuery } from "@/lib/features/catalog/api";
-import { parseRequiredPositiveInt } from "@/lib/features/catalog/adminCreateArtistValidation";
+import {
+  isAddArtistConflictBody,
+  parseRequiredPositiveInt,
+} from "@/lib/features/catalog/adminCreateArtistValidation";
 import type {
   AddArtistConflict,
   AddArtistRequestBody,
@@ -52,6 +55,11 @@ const CODE_NUMBER_MAX = 2147483647;
  * next code of 1, opening a second series that shadows the real one while the
  * form reports success. Normalizing at the edge keeps the field, the code
  * preview, and the request body on the one casing the catalog actually uses.
+ *
+ * Case is the only thing normalized. The catalog files live codes that are not
+ * plain letters — "V/A" for Various Artists compilations, "??" placeholders,
+ * and codes carrying digits — so narrowing this field to A-Z would make those
+ * releases impossible to file. The permissiveness is load-bearing.
  */
 function normalizeCodeLetters(value: string): string {
   return value.toUpperCase();
@@ -62,18 +70,13 @@ function isAddArtistConflict(
 ): err is { status: 409; data: AddArtistConflict } {
   if (!err || typeof err !== "object" || !("status" in err)) return false;
   const { status, data } = err as { status?: unknown; data?: unknown };
-  if (status !== 409 || !data || typeof data !== "object") return false;
   // The banner dereferences `artist.artist_name` two levels down, so key
   // presence is not enough: a 409 carrying a null or nameless artist would
   // pass a `"artist" in data` guard and then throw during render, and there is
   // no error boundary in this subtree to catch it — white-screening the form
-  // on an outcome that is supposed to be recoverable.
-  const { artist } = data as { artist?: unknown };
-  return (
-    !!artist &&
-    typeof artist === "object" &&
-    typeof (artist as { artist_name?: unknown }).artist_name === "string"
-  );
+  // on an outcome that is supposed to be recoverable. It is the same test the
+  // endpoint gates its `message` strip on, so the two cannot drift apart.
+  return status === 409 && isAddArtistConflictBody(data);
 }
 
 /**
@@ -122,7 +125,25 @@ function ArtistAddFields() {
   // re-runs the search but reports nothing back, so it does not clear this.
   const [dedupCheckStale, setDedupCheckStale] = useState(false);
   const [genreId, setGenreId] = useState<number | null>(null);
-  const [codeLetters, setCodeLetters] = useState("");
+  // Value and caret are one state object because normalizing on every keystroke
+  // makes them inseparable. Writing the uppercased text back into a controlled
+  // input replaces `node.value`, and the HTML value setter drops the caret at
+  // the end of the field; React only restores a selection across a commit when
+  // focus moved, which it has not here. Left alone, an MD correcting a
+  // character mid-code has the caret jump silently after the first lowercase
+  // keystroke, so the next one lands at the end and files a different — but
+  // still valid-looking — four-character code with nothing reported wrong.
+  // Codes are written onto the physical cards, so a wrong-but-valid one is the
+  // expensive outcome. Carrying the caret in the same state also guarantees the
+  // render the restore below depends on: an edit that only changed case
+  // normalizes back to the string already held, which on its own would be an
+  // identical value and skip the render entirely.
+  const [codeLettersField, setCodeLettersField] = useState<{
+    value: string;
+    caret: number | null;
+  }>({ value: "", caret: null });
+  const codeLetters = codeLettersField.value;
+  const codeLettersInputRef = useRef<HTMLInputElement | null>(null);
   const [codeNumberRaw, setCodeNumberRaw] = useState("");
   const [alphabeticalName, setAlphabeticalName] = useState("");
   // Snapshots the code the server actually rejected, alongside the response —
@@ -159,6 +180,20 @@ function ArtistAddFields() {
   // way `genre_id` is unreachable and the form can never submit, so the outage
   // has to say so rather than presenting an empty list as "no genres exist".
   const genresUnavailable = genresErrored || (!genresLoading && genres == null);
+
+  // Puts the caret back where the edit left it, after the commit that rewrote
+  // the field. Re-asserting the value first is what makes that stick: React's
+  // own controlled-value restore runs after layout effects, and on a case-only
+  // edit the committed props never changed, so the DOM would still be holding
+  // the pre-normalization text and get rewritten — moving the caret to the end
+  // again — immediately after it was placed.
+  useLayoutEffect(() => {
+    const input = codeLettersInputRef.current;
+    const { value, caret } = codeLettersField;
+    if (caret === null || input === null) return;
+    if (input.value !== value) input.value = value;
+    input.setSelectionRange(caret, caret);
+  }, [codeLettersField]);
 
   const canSubmit =
     !isLoading &&
@@ -206,7 +241,7 @@ function ArtistAddFields() {
         code_number: result.code_number ?? codeNumber,
       });
       setName("");
-      setCodeLetters("");
+      setCodeLettersField({ value: "", caret: null });
       setCodeNumberRaw("");
       setAlphabeticalName("");
       setExistingArtist(null);
@@ -228,14 +263,28 @@ function ArtistAddFields() {
     }
   };
 
-  const handleCodeLettersChange = (value: string) => {
-    setCodeLetters(normalizeCodeLetters(value));
+  const handleCodeLettersChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const input = event.target;
+    const raw = input.value;
+    const caret = input.selectionStart;
+    setCodeLettersField({
+      value: normalizeCodeLetters(raw),
+      // Uppercasing can lengthen the text before the caret ("ß" becomes "SS"),
+      // so the caret's new home is the length of the normalized prefix, not
+      // the index the browser reported against the raw text.
+      caret:
+        caret === null ? null : normalizeCodeLetters(raw.slice(0, caret)).length,
+    });
     setConflict(null);
+    setAdded(null);
   };
 
   const handleCodeNumberChange = (value: string) => {
     setCodeNumberRaw(value);
     setConflict(null);
+    setAdded(null);
   };
 
   const handleGenreChange = (value: number | null) => {
@@ -243,8 +292,17 @@ function ArtistAddFields() {
     // Uniqueness is (code_letters, genre_id, code_number) — a code the
     // server rejected under one genre may be free under another.
     setConflict(null);
+    setAdded(null);
     // Whatever the typeahead last reported was found under the previous genre.
     setDedupCheckStale(trimmedName.length > 0);
+  };
+
+  const handleAlphabeticalNameChange = (value: string) => {
+    setAlphabeticalName(value);
+    // The confirmation names a code that was already filed; leaving it beside
+    // a half-typed next entry reads as that entry's outcome. It is not part of
+    // the uniqueness triple, so a standing conflict stays accurate.
+    setAdded(null);
   };
 
   return (
@@ -335,7 +393,7 @@ function ArtistAddFields() {
             <Input
               value={alphabeticalName}
               disabled={isLoading}
-              onChange={(e) => setAlphabeticalName(e.target.value)}
+              onChange={(e) => handleAlphabeticalNameChange(e.target.value)}
               placeholder="Defaults to artist name"
               slotProps={{ input: { maxLength: ARTIST_NAME_MAX_LENGTH } }}
             />
@@ -351,9 +409,14 @@ function ArtistAddFields() {
             <Input
               value={codeLetters}
               disabled={isLoading}
-              onChange={(e) => handleCodeLettersChange(e.target.value)}
+              onChange={handleCodeLettersChange}
               placeholder="e.g. MO"
-              slotProps={{ input: { maxLength: CODE_LETTERS_MAX_LENGTH } }}
+              slotProps={{
+                input: {
+                  ref: codeLettersInputRef,
+                  maxLength: CODE_LETTERS_MAX_LENGTH,
+                },
+              }}
             />
             <FormHelperText>
               {codeLettersTooLong
@@ -379,7 +442,14 @@ function ArtistAddFields() {
             )}
           </FormControl>
 
-          <CallLetterPeekControl code_letters={codeLetters} genre_id={genreId} />
+          {/* Gated on the same length the submit checks: uppercasing can push a
+              value past the field's own maxLength ("ßxß" becomes "SSXSS"),
+              which no series can ever hold, so previewing it would answer
+              "Next code: 1" beside the length error that blocks the submit. */}
+          <CallLetterPeekControl
+            code_letters={codeLettersTooLong ? "" : codeLetters}
+            genre_id={genreId}
+          />
 
           {conflict && (
             <Typography level="body-sm" color="danger" role="alert">
