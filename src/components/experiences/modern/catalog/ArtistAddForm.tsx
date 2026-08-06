@@ -18,7 +18,7 @@ import { RequireMD } from "@/src/components/shared/Authorization";
 import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
 import { useAddArtistMutation, useGetGenresQuery } from "@/lib/features/catalog/api";
 import {
-  isAddArtistConflictBody,
+  isAddArtistConflict,
   parseRequiredPositiveInt,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
 import type {
@@ -65,20 +65,6 @@ function normalizeCodeLetters(value: string): string {
   return value.toUpperCase();
 }
 
-function isAddArtistConflict(
-  err: unknown,
-): err is { status: 409; data: AddArtistConflict } {
-  if (!err || typeof err !== "object" || !("status" in err)) return false;
-  const { status, data } = err as { status?: unknown; data?: unknown };
-  // The banner dereferences `artist.artist_name` two levels down, so key
-  // presence is not enough: a 409 carrying a null or nameless artist would
-  // pass a `"artist" in data` guard and then throw during render, and there is
-  // no error boundary in this subtree to catch it — white-screening the form
-  // on an outcome that is supposed to be recoverable. It is the same test the
-  // endpoint gates its `message` strip on, so the two cannot drift apart.
-  return status === 409 && isAddArtistConflictBody(data);
-}
-
 /**
  * MD-gated artist-add form. Dedups against existing artists via
  * `ArtistSearchTypeahead` and previews the call-letter assignment via
@@ -99,7 +85,6 @@ function ArtistAddForm() {
 function ArtistAddFields() {
   const {
     data: genres,
-    isError: genresErrored,
     isLoading: genresLoading,
     isFetching: genresFetching,
     refetch: refetchGenres,
@@ -134,10 +119,10 @@ function ArtistAddFields() {
   // keystroke, so the next one lands at the end and files a different — but
   // still valid-looking — four-character code with nothing reported wrong.
   // Codes are written onto the physical cards, so a wrong-but-valid one is the
-  // expensive outcome. Carrying the caret in the same state also guarantees the
-  // render the restore below depends on: an edit that only changed case
-  // normalizes back to the string already held, which on its own would be an
-  // identical value and skip the render entirely.
+  // expensive outcome. Pairing the caret with the value is also what guarantees
+  // the render the replacement below hangs off: an edit that only changed case
+  // normalizes back to the string already held, and a state write of an equal
+  // value would be skipped entirely.
   const [codeLettersField, setCodeLettersField] = useState<{
     value: string;
     caret: number | null;
@@ -175,23 +160,25 @@ function ArtistAddFields() {
       : null;
   const codeNumberInvalid = codeNumberRaw.trim().length > 0 && codeNumber === null;
   // A failed genres GET leaves an empty dropdown behind: fetchBaseQuery's
-  // rejection sets `isError`, while the backend adapter's soft-fail turns a
-  // non-JSON GET failure into `{ data: null }` with no error at all. Either
-  // way `genre_id` is unreachable and the form can never submit, so the outage
-  // has to say so rather than presenting an empty list as "no genres exist".
-  const genresUnavailable = genresErrored || (!genresLoading && genres == null);
+  // rejection leaves `data` undefined, while the backend adapter's soft-fail
+  // turns a non-JSON GET failure into `{ data: null }` with no error at all.
+  // Either way `genre_id` is unreachable and the form can never submit, so the
+  // outage has to say so rather than presenting an empty list as "no genres
+  // exist". The test is the absence of a list, not `isError`: a refetch that
+  // rejects leaves the last good list in the cache and the form still submits
+  // perfectly well against it, so reading the error flag would put a "can't be
+  // filed right now" alert beside an enabled submit button.
+  const genresUnavailable = !genresLoading && genres == null;
 
-  // Puts the caret back where the edit left it, after the commit that rewrote
-  // the field. Re-asserting the value first is what makes that stick: React's
-  // own controlled-value restore runs after layout effects, and on a case-only
-  // edit the committed props never changed, so the DOM would still be holding
-  // the pre-normalization text and get rewritten — moving the caret to the end
-  // again — immediately after it was placed.
+  // Puts the caret back where the edit left it. React writes the normalized
+  // value into the node during the commit's mutation phase, which is the write
+  // that moves the caret, so the replacement has to run after that — a layout
+  // effect, not an effect, or the field paints for a frame with the caret at
+  // the wrong end.
   useLayoutEffect(() => {
     const input = codeLettersInputRef.current;
-    const { value, caret } = codeLettersField;
+    const { caret } = codeLettersField;
     if (caret === null || input === null) return;
-    if (input.value !== value) input.value = value;
     input.setSelectionRange(caret, caret);
   }, [codeLettersField]);
 

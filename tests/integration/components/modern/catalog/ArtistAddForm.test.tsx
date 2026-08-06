@@ -9,6 +9,7 @@ import {
   TEST_SEARCH_STRINGS,
 } from "@/tests/helpers";
 import ArtistAddForm from "@/src/components/experiences/modern/catalog/ArtistAddForm";
+import { catalogApi } from "@/lib/features/catalog/api";
 
 const GENRE_ID = TEST_ENTITY_IDS.GENRE.ROCK;
 const JAZZ_GENRE_ID = TEST_ENTITY_IDS.GENRE.JAZZ;
@@ -389,6 +390,10 @@ describe("ArtistAddForm", () => {
 
       it.each([
         ["a lowercase character", "l", "MLOI", 2],
+        // The control: an uppercase keystroke normalizes to what the DOM
+        // already holds, so nothing is written back and the browser's own
+        // caret is already right. It pins that the two cases agree, not the
+        // replacement itself.
         ["an already-uppercase character", "L", "MLOI", 2],
         // Uppercasing "ß" yields "SS", so the caret has to land past two
         // characters the keystroke did not itself type.
@@ -564,6 +569,28 @@ describe("ArtistAddForm", () => {
         expect(screen.getByTestId("next-code-number")).toHaveTextContent("7");
       });
 
+      it("re-previews after a failure that may still have written the row", async () => {
+        const { getQueries } = mockPeekCode();
+        mockAddArtist(() =>
+          HttpResponse.json({ message: "Artist could not be filed" }, { status: 500 }),
+        );
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await fillCoreFields(user);
+        await waitFor(() => expect(getQueries().length).toBeGreaterThan(0));
+        const peeksBeforeSubmit = getQueries().length;
+
+        await user.click(screen.getByRole("button", { name: /add artist/i }));
+
+        // Only the rejections that provably wrote nothing skip invalidation. A
+        // 500 can carry a row the client never saw, and the caches behind the
+        // dedup typeahead and this preview are what stand between a retry and
+        // a duplicate.
+        await waitFor(() =>
+          expect(getQueries().length).toBeGreaterThan(peeksBeforeSubmit),
+        );
+      });
+
       it("re-previews after a successful add, whose row the preview predates", async () => {
         const { getQueries } = mockPeekCode();
         mockAddArtist(() => created());
@@ -591,6 +618,8 @@ describe("ArtistAddForm", () => {
           user.type(screen.getByLabelText("Code number"), "3")],
         ["the alphabetical name", async (user: ReturnType<typeof renderWithProviders>["user"]) =>
           user.type(screen.getByLabelText(/alphabetical name/i), "Molina, Juana")],
+        ["the artist name", async (user: ReturnType<typeof renderWithProviders>["user"]) =>
+          user.type(screen.getByPlaceholderText("Search artists..."), "Stereolab")],
         ["the genre", async (user: ReturnType<typeof renderWithProviders>["user"]) =>
           selectGenre(user, "Jazz")],
       ])("drops the confirmation once %s moves on to the next entry", async (_label, edit) => {
@@ -839,6 +868,37 @@ describe("ArtistAddForm", () => {
         );
         expect(toast.error).toHaveBeenCalledTimes(1);
         expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      });
+
+      it("keeps filing against the last good genre list when a refetch fails", async () => {
+        let genreCalls = 0;
+        server.use(
+          http.get(`${TEST_BACKEND_URL}/library/genres`, () => {
+            genreCalls += 1;
+            return genreCalls === 1
+              ? HttpResponse.json([{ id: GENRE_ID, genre_name: "Rock" }])
+              : HttpResponse.json({ message: "genres unavailable" }, { status: 500 });
+          }),
+        );
+        const { getBodies } = mockAddArtist(() => created());
+        const { user, store } = renderWithProviders(<ArtistAddForm />);
+
+        await fillCoreFields(user);
+
+        // Adding a genre elsewhere invalidates this list; if that refetch
+        // rejects, the cached list is still there and every one of its genres
+        // is still fileable. Claiming an outage would sit a "can't be filed
+        // right now" alert beside a submit that works.
+        store.dispatch(
+          catalogApi.util.invalidateTags([{ type: "GenreList", id: "LIST" }]),
+        );
+        await waitFor(() => expect(genreCalls).toBe(2));
+
+        expect(screen.queryByText(/genres are unavailable/i)).not.toBeInTheDocument();
+        await user.click(screen.getByRole("button", { name: /add artist/i }));
+
+        await waitFor(() => expect(getBodies()).toHaveLength(1));
+        expect(getBodies()[0]).toMatchObject({ genre_id: GENRE_ID });
       });
 
       it("explains a genres outage and offers a retry instead of an empty dropdown", async () => {
