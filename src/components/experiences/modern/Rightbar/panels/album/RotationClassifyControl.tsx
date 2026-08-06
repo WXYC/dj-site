@@ -17,9 +17,20 @@ interface RotationClassifyControlProps {
   album: AlbumEntry;
 }
 
+// A cache entry populated by the flowsheet's own rotation-list subscription
+// (see RotationEntryFields) can be minutes old by the time an MD opens this
+// control on the same album: the two subscribe to the same query with no
+// forced-refetch option, so RTK Query happily hands out whatever the last
+// fulfillment was. Because `addRotation` on the backend is a bare insert with
+// no dedupe, trusting that stale entry can let the MD add a second active row
+// for an album someone else already put in rotation. Mounting with this
+// window revalidates on open without forcing every other subscriber
+// (including the flowsheet, which sets no such option) to refetch on its own.
+const ROTATION_LIST_REVALIDATION_WINDOW_SECONDS = 20;
+
 /**
  * MD+ control for rotation classification: adds an album to a rotation bin
- * via `useAddRotationEntryMutation`, or retires the active entry via
+ * via `useAddRotationEntryMutation`, or retires an active entry via
  * `useKillRotationEntryMutation`. Add and kill are two states of one control.
  *
  * The fields live in a child so their hooks — including the rotation-list
@@ -47,26 +58,39 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
   // The album-detail read (`GET /library/info`) joins no rotation table and
   // selects no rotation columns, so `album.rotation_id` is always undefined
   // here — whether the album is in rotation is only answerable from the
-  // active-rotation list. Subscribing with no options joins the cache entry
-  // the flowsheet rotation picker already holds instead of forcing a refetch
-  // underneath it.
-  const { data: rotationEntries, isFetching: rotationFetching } =
-    useGetRotationQuery();
+  // active-rotation list.
+  const {
+    data: rotationEntries,
+    isFetching: rotationFetching,
+    isError: rotationErrored,
+  } = useGetRotationQuery(undefined, {
+    refetchOnMountOrArgChange: ROTATION_LIST_REVALIDATION_WINDOW_SECONDS,
+  });
 
   const [selectedBin, setSelectedBin] = useState<Rotation | null>(null);
 
-  // Both reads project `library.id` as the row id, so matching on it is
-  // matching library album to library album. Rotation rows that never linked
-  // to a library album carry a synthesized negative id instead, which no real
-  // album id can equal.
-  const activeEntry = useMemo(() => {
-    if (album.id <= 0) return undefined;
-    return rotationEntries?.find(
-      (entry) => entry.id === album.id && typeof entry.rotation_id === "number",
-    );
-  }, [rotationEntries, album.id]);
+  // `synthesizeAlbumId` hands out negative ids to rows the library never
+  // linked (see conversions.ts); neither read nor write may treat one of
+  // those as a real album, so both derive from this single flag.
+  const albumIdValid = album.id > 0;
 
-  const rotationId = activeEntry?.rotation_id ?? null;
+  // Both reads project `library.id` as the row id, so matching on it is
+  // matching library album to library album. `getRotationFromDB` dedupes
+  // with `rotation_bin` as PART of the uniqueness key, so a re-binned album
+  // with an unkilled prior entry surfaces as more than one row here — every
+  // one of them is a genuinely active entry for this album, not a mismatch.
+  const activeEntries = useMemo(() => {
+    if (!albumIdValid || !rotationEntries) return [];
+    return rotationEntries.filter(
+      (entry): entry is AlbumEntry & { rotation_id: number } =>
+        entry.id === album.id && typeof entry.rotation_id === "number",
+    );
+  }, [rotationEntries, album.id, albumIdValid]);
+
+  // Undecidable until the first load lands. A failed first load must not
+  // fall through to the Add picker — that would offer a second insert on an
+  // album whose actual rotation membership is simply unknown, not "none".
+  const rotationStateUnknown = rotationEntries === undefined;
 
   // Both mutations invalidate the rotation list and this control's state only
   // flips once that refetch lands, so the actions stay busy while it is in
@@ -77,19 +101,19 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
   const killBusy = killPending || rotationFetching;
 
   const handleAdd = async () => {
-    if (!selectedBin) return;
+    if (!selectedBin || !albumIdValid) return;
     try {
       await addRotationEntry({
         album_id: album.id,
         rotation_bin: selectedBin,
       }).unwrap();
+      setSelectedBin(null);
     } catch {
       toast.error("Failed to add to rotation");
     }
   };
 
-  const handleKill = async () => {
-    if (rotationId === null) return;
+  const handleKill = async (rotationId: number) => {
     try {
       // `kill_date` is omitted so the server dates the kill itself. Computing
       // it here would yield the browser's UTC calendar day, which is already
@@ -103,26 +127,51 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
     }
   };
 
-  return rotationId !== null ? (
-    <Stack
-      direction="row"
-      spacing={1}
-      sx={{ alignItems: "center", justifyContent: "space-between" }}
-    >
-      <Chip size="sm" variant="soft">
-        In Rotation
-      </Chip>
-      <Button
-        size="sm"
-        color="warning"
-        variant="soft"
-        loading={killBusy}
-        onClick={handleKill}
+  if (rotationStateUnknown) {
+    return (
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{ alignItems: "center", justifyContent: "space-between" }}
       >
-        Kill
-      </Button>
-    </Stack>
-  ) : (
+        <Chip size="sm" variant="soft" color={rotationErrored ? "danger" : "neutral"}>
+          {rotationErrored
+            ? "Rotation status unavailable"
+            : "Checking rotation status…"}
+        </Chip>
+      </Stack>
+    );
+  }
+
+  if (activeEntries.length > 0) {
+    return (
+      <Stack spacing={1}>
+        {activeEntries.map((entry) => (
+          <Stack
+            key={entry.rotation_id}
+            direction="row"
+            spacing={1}
+            sx={{ alignItems: "center", justifyContent: "space-between" }}
+          >
+            <Chip size="sm" variant="soft">
+              In Rotation ({entry.rotation_bin})
+            </Chip>
+            <Button
+              size="sm"
+              color="warning"
+              variant="soft"
+              loading={killBusy}
+              onClick={() => handleKill(entry.rotation_id)}
+            >
+              Kill {entry.rotation_bin}
+            </Button>
+          </Stack>
+        ))}
+      </Stack>
+    );
+  }
+
+  return (
     <FormControl
       orientation="horizontal"
       sx={{ justifyContent: "space-between", alignItems: "center" }}
@@ -136,7 +185,7 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
         />
         <Button
           size="sm"
-          disabled={!selectedBin}
+          disabled={!selectedBin || !albumIdValid}
           loading={addBusy}
           onClick={handleAdd}
         >

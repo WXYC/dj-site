@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import {
   renderWithProviders,
   createTestAlbum,
   createTestArtist,
+  createTestStore,
   server,
   TEST_BACKEND_URL,
 } from "@/tests/helpers";
@@ -22,7 +23,7 @@ import { CssVarsProvider } from "@mui/joy/styles";
 import type { ReactElement } from "react";
 import modernTheme from "@/lib/features/experiences/modern/theme";
 import { useGetInformationQuery } from "@/lib/features/catalog/api";
-import { rotationApi } from "@/lib/features/rotation/api";
+import { rotationApi, useGetRotationQuery } from "@/lib/features/rotation/api";
 
 // The bin colors come from the custom `rotation` palette slot, which only
 // resolves under the modern theme (see RotationEntryFields.test for the pattern).
@@ -59,6 +60,10 @@ const mockFetchOrgRole = fetchOrganizationRoleForUserClient as ReturnType<typeof
 
 const JUANA_MOLINA_ALBUM_ID = 4242;
 const JUANA_MOLINA_ROTATION_ID = 900;
+// A second active entry for the same album, in a different bin — the
+// re-binned-without-a-kill case `getRotationFromDB`'s DISTINCT ON surfaces
+// as more than one row.
+const JUANA_MOLINA_SECOND_ROTATION_ID = 901;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 function sessionWithRole() {
@@ -221,6 +226,16 @@ function AlbumPanelSection({ albumId }: { albumId: number }) {
   return <RotationClassifyControl album={data} />;
 }
 
+/**
+ * Subscribes to the rotation list exactly as `RotationEntryFields` does in
+ * production: no options, so it neither forces nor skips a refetch on its
+ * own. Stands in for "the flowsheet had already populated the cache."
+ */
+function FlowsheetLikeSubscriber() {
+  useGetRotationQuery();
+  return null;
+}
+
 describe("RotationClassifyControl", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -238,7 +253,7 @@ describe("RotationClassifyControl", () => {
       await waitFor(() =>
         expect(screen.queryByRole("radiogroup", { name: "Rotation bin" })).not.toBeInTheDocument()
       );
-      expect(screen.queryByRole("button", { name: "Kill" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Kill H" })).not.toBeInTheDocument();
       expect(backend.listRequests()).toBe(0);
     });
 
@@ -266,7 +281,7 @@ describe("RotationClassifyControl", () => {
       renderWithProviders(inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />));
 
       await screen.findByRole("radiogroup", { name: "Rotation bin" });
-      expect(screen.queryByRole("button", { name: "Kill" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Kill H" })).not.toBeInTheDocument();
     });
 
     it("POSTs album_id and the picked rotation_bin", async () => {
@@ -297,7 +312,7 @@ describe("RotationClassifyControl", () => {
       await user.click(screen.getByRole("radio", { name: "H" }));
       await user.click(screen.getByRole("button", { name: "Add to Rotation" }));
 
-      expect(await screen.findByRole("button", { name: "Kill" })).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "Kill H" })).toBeInTheDocument();
       expect(
         screen.queryByRole("radiogroup", { name: "Rotation bin" }),
       ).not.toBeInTheDocument();
@@ -339,7 +354,7 @@ describe("RotationClassifyControl", () => {
         inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
       );
 
-      expect(await screen.findByRole("button", { name: "Kill" })).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "Kill H" })).toBeInTheDocument();
       expect(
         screen.queryByRole("radiogroup", { name: "Rotation bin" }),
       ).not.toBeInTheDocument();
@@ -351,7 +366,7 @@ describe("RotationClassifyControl", () => {
         inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
       );
 
-      await user.click(await screen.findByRole("button", { name: "Kill" }));
+      await user.click(await screen.findByRole("button", { name: "Kill H" }));
 
       await waitFor(() =>
         expect(backend.killBody()).toEqual({
@@ -383,12 +398,12 @@ describe("RotationClassifyControl", () => {
         inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
       );
 
-      await user.click(await screen.findByRole("button", { name: "Kill" }));
+      await user.click(await screen.findByRole("button", { name: "Kill H" }));
 
       expect(
         await screen.findByRole("radiogroup", { name: "Rotation bin" }),
       ).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Kill" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Kill H" })).not.toBeInTheDocument();
     });
 
     it("shows an error toast when the PATCH fails", async () => {
@@ -402,12 +417,12 @@ describe("RotationClassifyControl", () => {
         inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
       );
 
-      await user.click(await screen.findByRole("button", { name: "Kill" }));
+      await user.click(await screen.findByRole("button", { name: "Kill H" }));
 
       await waitFor(() =>
         expect(toast.error).toHaveBeenCalledWith("Failed to kill rotation entry"),
       );
-      expect(await screen.findByRole("button", { name: "Kill" })).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "Kill H" })).toBeInTheDocument();
     });
   });
 
@@ -428,7 +443,7 @@ describe("RotationClassifyControl", () => {
         inModernTheme(<AlbumPanelSection albumId={JUANA_MOLINA_ALBUM_ID} />),
       );
 
-      expect(await screen.findByRole("button", { name: "Kill" })).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "Kill H" })).toBeInTheDocument();
     });
 
     it("offers the bin picker for an album the rotation list doesn't cover", async () => {
@@ -440,7 +455,120 @@ describe("RotationClassifyControl", () => {
       expect(
         await screen.findByRole("radiogroup", { name: "Rotation bin" }),
       ).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Kill" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Kill H" })).not.toBeInTheDocument();
+    });
+  });
+
+  describe("an album active in more than one rotation bin", () => {
+    beforeEach(() => {
+      mockFetchOrgRole.mockResolvedValue("musicDirector");
+      mockUseSession.mockReturnValue(sessionWithRole());
+    });
+
+    it("surfaces every active bin instead of silently acting on the alphabetically-lowest one", async () => {
+      fakeRotationEndpoints([
+        juanaMolinaRotationRow("H"),
+        { ...juanaMolinaRotationRow("M"), rotation_id: JUANA_MOLINA_SECOND_ROTATION_ID },
+      ]);
+      renderWithProviders(
+        inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
+      );
+
+      expect(await screen.findByRole("button", { name: "Kill H" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Kill M" })).toBeInTheDocument();
+      expect(screen.getByText("In Rotation (H)")).toBeInTheDocument();
+      expect(screen.getByText("In Rotation (M)")).toBeInTheDocument();
+    });
+
+    it("retires only the targeted bin, leaving the album's other active entry visible and killable", async () => {
+      const backend = fakeRotationEndpoints([
+        juanaMolinaRotationRow("H"),
+        { ...juanaMolinaRotationRow("M"), rotation_id: JUANA_MOLINA_SECOND_ROTATION_ID },
+      ]);
+      const { user } = renderWithProviders(
+        inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
+      );
+
+      await user.click(await screen.findByRole("button", { name: "Kill H" }));
+
+      await waitFor(() =>
+        expect(backend.killBody()).toEqual({ rotation_id: JUANA_MOLINA_ROTATION_ID }),
+      );
+      expect(await screen.findByRole("button", { name: "Kill M" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Kill H" })).not.toBeInTheDocument();
+    });
+  });
+
+  describe("rotation state that isn't known yet", () => {
+    beforeEach(() => {
+      mockFetchOrgRole.mockResolvedValue("musicDirector");
+      mockUseSession.mockReturnValue(sessionWithRole());
+    });
+
+    it("does not fail open to the Add picker when the first rotation-list fetch errors", async () => {
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/rotation`, () =>
+          HttpResponse.json({ error: "unreachable" }, { status: 500 }),
+        ),
+      );
+      renderWithProviders(
+        inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
+      );
+
+      expect(await screen.findByText("Rotation status unavailable")).toBeInTheDocument();
+      expect(
+        screen.queryByRole("radiogroup", { name: "Rotation bin" }),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^Kill/ })).not.toBeInTheDocument();
+    });
+  });
+
+  describe("rotation cache staleness across subscribers", () => {
+    beforeEach(() => {
+      mockFetchOrgRole.mockResolvedValue("musicDirector");
+      mockUseSession.mockReturnValue(sessionWithRole());
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("revalidates on mount instead of trusting a rotation-list entry the flowsheet cached before another MD's add landed", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      vi.setSystemTime(new Date("2026-08-05T12:00:00.000Z"));
+
+      let rows: RotationRow[] = [];
+      let listRequests = 0;
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/rotation`, () => {
+          listRequests += 1;
+          return HttpResponse.json(rows);
+        }),
+      );
+
+      const store = createTestStore();
+
+      // The flowsheet's own subscription populates the cache with the
+      // pre-add world: the album isn't in rotation yet.
+      const flowsheet = renderWithProviders(<FlowsheetLikeSubscriber />, { store });
+      await waitFor(() => expect(listRequests).toBe(1));
+      flowsheet.unmount();
+
+      // Another MD adds the album to H. This session's cached copy of the
+      // list doesn't know that yet.
+      rows = [juanaMolinaRotationRow()];
+
+      // Past the classify control's revalidation window, with no live
+      // subscriber having refreshed the entry in between.
+      vi.setSystemTime(new Date("2026-08-05T12:00:21.000Z"));
+
+      renderWithProviders(
+        inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
+        { store },
+      );
+
+      expect(await screen.findByRole("button", { name: "Kill H" })).toBeInTheDocument();
+      expect(listRequests).toBeGreaterThan(1);
     });
   });
 });
