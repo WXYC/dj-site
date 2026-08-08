@@ -248,6 +248,13 @@ function ArtistSearchTypeaheadInner({
           confirmedArtist.current.artist_name.normalize("NFC");
         if (stillMatches && !confirmedActive.current) {
           confirmedActive.current = true;
+          // Announcing a selection leaves the field holding that artist's name
+          // byte for byte, the same way a pick from the panel does. A caller
+          // deciding whether the link still describes the field compares the
+          // two directly, so re-announcing while the field keeps a different
+          // composition of the same name would have the caller retract what
+          // was just confirmed.
+          onChange(confirmedArtist.current.artist_name);
           onSelect(confirmedArtist.current);
         } else if (!stillMatches && confirmedActive.current) {
           confirmedActive.current = false;

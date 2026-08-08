@@ -939,12 +939,11 @@ describe("AlbumEditForm", () => {
         );
       });
 
-      // The typeahead retracts at most once per selection and stops tracking
-      // that selection afterwards, so a link restored by a genre round trip has
-      // nothing left to announce a later text edit. The form has to judge the
-      // link against the field itself — otherwise Save re-attributes the album
-      // to an artist the field visibly does not name, and the server can burn a
-      // fresh call number doing it.
+      // A link restored by a genre round trip was never announced through
+      // `onSelect`, so the typeahead has nothing to retract when the text is
+      // later edited. The form has to judge the link against the field itself —
+      // otherwise Save re-attributes the album to an artist the field visibly
+      // does not name, and the server can burn a fresh call number doing it.
       it("blocks Save when a restored link's artist text is edited without a fresh pick", async () => {
         const { getCallCount } = mockPatch();
         mockArtistSearch([
@@ -983,6 +982,51 @@ describe("AlbumEditForm", () => {
           screen.getByText("Search and select an artist to continue."),
         ).toBeInTheDocument();
         expect(getCallCount()).toBe(0);
+      });
+
+      // Restoring a picked artist's name in a different Unicode composition is
+      // the same name to the MD, so it has to leave Save armed. The typeahead
+      // matches canonically but the form compares the held link's name against
+      // the field directly, so a re-announcement that left the field in the
+      // typed composition would be retracted again the moment it landed —
+      // stranding Save under an artist the field correctly names.
+      it("keeps Save armed when the picked artist's name is restored in another composition", async () => {
+        const NFC_NAME = "Nilüfer Yanya";
+        const NFD_NAME = "Nilüfer Yanya";
+        expect(NFD_NAME).not.toBe(NFC_NAME);
+        expect(NFD_NAME.normalize("NFC")).toBe(NFC_NAME);
+
+        const { getReceivedBody } = mockPatch();
+        mockArtistSearch([
+          {
+            id: JESSICA_ARTIST_ID,
+            artist_name: NFC_NAME,
+            code_letters: "YA",
+            code_number: 4,
+          },
+        ]);
+        const { user } = renderWithProviders(<AlbumEditForm album={juanaMolinaAlbum()} />);
+
+        const artistInput = await screen.findByLabelText("Search artists");
+        await user.clear(artistInput);
+        await user.type(artistInput, "Nil");
+        await user.click(await screen.findByText(NFC_NAME));
+
+        const saveButton = screen.getByRole("button", SAVE_BUTTON);
+        await waitFor(() => expect(saveButton).toBeEnabled());
+
+        // Edit away, then restore the same name decomposed — what a clipboard
+        // round trip produces.
+        await user.type(artistInput, "x");
+        await waitFor(() => expect(saveButton).toBeDisabled());
+        await user.clear(artistInput);
+        await user.type(artistInput, NFD_NAME);
+
+        await waitFor(() => expect(saveButton).toBeEnabled());
+        await user.click(saveButton);
+        await waitFor(() =>
+          expect(getReceivedBody()).toEqual({ artist_id: JESSICA_ARTIST_ID }),
+        );
       });
     });
 
