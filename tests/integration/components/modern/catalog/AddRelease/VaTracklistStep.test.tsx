@@ -256,27 +256,33 @@ describe("V/A tracklist-confirm step", () => {
     await waitFor(() => expect(suggestionCalls()).toBe(2));
   });
 
-  // The heading describes the rows on screen, so it has to be fixed at the
-  // moment they are seeded. Read live from the query it would start describing
-  // a response whose tracks were never adopted — announcing an import above a
-  // single hand-typed row, which a librarian would reasonably save believing
-  // they were confirming the import.
-  it("does not claim a Discogs import for rows that were typed by hand", async () => {
+  // The heading describes the rows below it, so it is fixed at the moment they
+  // are seeded rather than read live from the query. Read live, it would start
+  // describing a response whose tracks were never adopted — announcing an
+  // import above rows that came from somewhere else.
+  it("keeps the heading describing the rows actually on screen across a retry", async () => {
+    let releaseRetry: () => void = () => {};
+    const retryInFlight = new Promise<void>((resolve) => {
+      releaseRetry = resolve;
+    });
     let suggestionCalls = 0;
     server.use(
       http.get(
         `${TEST_BACKEND_URL}/library/${NEW_LIBRARY_ID}/compilation-tracks/discogs-suggestions`,
-        () => {
+        async () => {
           suggestionCalls += 1;
-          return suggestionCalls === 1
-            ? new HttpResponse("<!DOCTYPE html><html><body>502</body></html>", {
-                status: 502,
-                headers: { "Content-Type": "text/html" },
-              })
-            : suggestionsPayload([
-                { artist_name: "Stereolab", track_title: "Peng!", track_position: "A1" },
-                { artist_name: "Cat Power", track_title: "Nude As The News", track_position: "A2" },
-              ]);
+          if (suggestionCalls === 1) {
+            return new HttpResponse("<!DOCTYPE html><html><body>502</body></html>", {
+              status: 502,
+              headers: { "Content-Type": "text/html" },
+            });
+          }
+          // Held so the in-flight window is observable rather than raced past.
+          await retryInFlight;
+          return suggestionsPayload([
+            { artist_name: "Stereolab", track_title: "Peng!", track_position: "A1" },
+            { artist_name: "Cat Power", track_title: "Nude As The News", track_position: "A2" },
+          ]);
         },
       ),
     );
@@ -284,18 +290,50 @@ describe("V/A tracklist-confirm step", () => {
 
     await submitRelease(user, "Various Artists");
     await screen.findByRole("alert");
-
-    // Retry, then — without waiting for it — fall back to manual entry, the way
-    // a librarian who sees no immediate change would.
     await user.click(screen.getByRole("button", { name: "Try again" }));
-    await user.click(await screen.findByRole("button", { name: "Enter tracks manually" }));
-    await user.type(await screen.findByLabelText("Artist for track 1"), "Duke Ellington");
 
-    await waitFor(() => expect(suggestionCalls).toBe(2));
+    // Mid-retry the panel commits to neither reading. Withholding the manual
+    // -entry affordance here is what makes a late response unable to contradict
+    // a choice the librarian has already made.
+    await screen.findByText("Checking Discogs for a tracklist…");
+    expect(screen.queryByText(/No Discogs tracklist matched/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Imported/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Enter tracks manually" }),
+    ).not.toBeInTheDocument();
 
-    expect(screen.queryByText(/Imported 2 tracks from Discogs/)).not.toBeInTheDocument();
-    expect(screen.getByText(/No Discogs tracklist matched/)).toBeInTheDocument();
-    expect(screen.getByLabelText("Artist for track 1")).toHaveValue("Duke Ellington");
+    releaseRetry();
+
+    // Once it lands, the heading and the rows agree — two imported tracks, two rows.
+    expect(await screen.findByText(/Imported 2 tracks from Discogs/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Artist for track 1")).toHaveValue("Stereolab");
+    expect(screen.getByLabelText("Artist for track 2")).toHaveValue("Cat Power");
+    expect(screen.queryByLabelText("Artist for track 3")).not.toBeInTheDocument();
+  });
+
+  // A response adopted once is never re-adopted: a later arrival for the same
+  // release must not relabel or replace rows the librarian has since edited.
+  it("does not re-seed rows the librarian has already edited", async () => {
+    mockSuggestions(() =>
+      suggestionsPayload([
+        { artist_name: "Stereolab", track_title: "Peng!", track_position: "A1" },
+      ]),
+    );
+    const getWriteBody = mockTrackWrite();
+    const { user } = renderWithProviders(<AddReleasePanel />);
+
+    await submitRelease(user, "Various Artists");
+
+    const artist = await screen.findByLabelText("Artist for track 1");
+    await user.clear(artist);
+    await user.type(artist, "Jessica Pratt");
+    await user.click(screen.getByRole("button", { name: "Save Tracks" }));
+
+    await waitFor(() =>
+      expect(getWriteBody()).toEqual({
+        tracks: [{ artist_name: "Jessica Pratt", track_title: "Peng!", track_position: "A1" }],
+      }),
+    );
   });
 
   it("reports the retry as busy so it does not read as having done nothing", async () => {
