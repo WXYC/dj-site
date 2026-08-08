@@ -19,6 +19,7 @@ import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
 import { useAddArtistMutation, useGetGenresQuery } from "@/lib/features/catalog/api";
 import {
   isAddArtistConflict,
+  isConflictRejection,
   parseRequiredPositiveInt,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
 import type {
@@ -135,10 +136,16 @@ function ArtistAddFields() {
   // `conflict` must not be read against live `codeLetters`/`codeNumberRaw`,
   // since an MD editing either field after a 409 would otherwise have the
   // banner keep reporting the new, unsubmitted value as taken.
+  //
+  // `response` is null when the 409 named no artist the banner could render —
+  // an intermediary's own JSON, or a shape this form cannot read. The
+  // submission was refused either way, so what blocks resubmitting the same
+  // triple is the 409 itself, not whether its body happened to parse; the
+  // server's own message reaches the MD through the global toast instead.
   const [conflict, setConflict] = useState<{
     code_letters: string;
     code_number: string;
-    response: AddArtistConflict;
+    response: AddArtistConflict | null;
   } | null>(null);
   const [added, setAdded] = useState<{ code_letters: string; code_number: number } | null>(
     null,
@@ -253,13 +260,14 @@ function ArtistAddFields() {
       setDedupCheckStale(false);
       toast.success(`Added ${trimmedName}`);
     } catch (err) {
-      if (isAddArtistConflict(err)) {
+      if (isConflictRejection(err)) {
         setConflict({
           code_letters: trimmedCodeLetters,
           code_number: codeNumberRaw.trim(),
-          response: err.data,
+          response: isAddArtistConflict(err) ? err.data : null,
         });
-      } else if (isUnmessagedHttpError(err)) {
+      }
+      if (!isAddArtistConflict(err) && isUnmessagedHttpError(err)) {
         // The global rtkQueryErrorLogger middleware already toasts the server
         // message for the common failure; only surface a fallback here for the
         // gap it leaves silent.
@@ -456,7 +464,7 @@ function ArtistAddFields() {
             genre_id={genreId}
           />
 
-          {conflict && (
+          {conflict?.response && (
             <Typography level="body-sm" color="danger" role="alert">
               {conflict.code_letters}
               {conflict.code_number} is already taken by{" "}

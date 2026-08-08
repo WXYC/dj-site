@@ -1025,6 +1025,28 @@ describe("ArtistAddForm", () => {
         expect(screen.queryByRole("alert")).not.toBeInTheDocument();
       });
 
+      it("blocks resubmitting a triple refused by a 409 the banner cannot name", async () => {
+        // The refusal is what makes the triple unsubmittable, not the body's
+        // shape. A 409 this form cannot read still means the server rejected
+        // exactly these values, so resending them unchanged reaches the same
+        // answer — the button has to stay shut until something moves.
+        const { getBodies } = mockAddArtist(() => conflictResponse({ artist: null }));
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await fillCoreFields(user);
+        await user.click(screen.getByRole("button", { name: /add artist/i }));
+
+        await waitFor(() =>
+          expect(screen.getByRole("button", { name: /add artist/i })).toBeDisabled(),
+        );
+        expect(getBodies()).toHaveLength(1);
+
+        // Moving the rejected code is what re-opens it.
+        await user.clear(screen.getByLabelText("Code number"));
+        await user.type(screen.getByLabelText("Code number"), "13");
+        expect(screen.getByRole("button", { name: /add artist/i })).toBeEnabled();
+      });
+
       it("waits for the genres request rather than calling an outage on an empty cache", async () => {
         let release: (() => void) | undefined;
         const held = new Promise<void>((resolve) => {
