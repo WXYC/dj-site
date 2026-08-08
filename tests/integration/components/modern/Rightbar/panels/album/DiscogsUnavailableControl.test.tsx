@@ -312,10 +312,12 @@ describe("DiscogsUnavailableControl", () => {
       expect(messages).toEqual(["Network error — please check your connection."]);
     });
 
-    // A 200 whose body the response transform can't read rejects the thunk
-    // without a value, so the middleware never sees it and toasts nothing —
-    // this fallback is all the MD gets.
-    it("is the only message when the response transform throws", async () => {
+    // A 200 with a JSON `null` body (a malformed response updateAlbum should
+    // never legitimately produce) is guarded in transformResponse rather than
+    // left to crash; the guard's rejection still carries no value, so the
+    // middleware never sees it and toasts nothing — this fallback is all the
+    // MD gets.
+    it("is the only message when the response transform guards against an empty body", async () => {
       const messages = await toggleWith(() => HttpResponse.json(null));
 
       expect(messages).toEqual(["Failed to update Discogs availability"]);

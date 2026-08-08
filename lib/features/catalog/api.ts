@@ -130,8 +130,14 @@ export const catalogApi = createApi({
         method: "PATCH",
         body,
       }),
-      transformResponse: (response: AlbumSearchResultJSON) =>
-        convertToAlbumEntry(response),
+      // A JSON `null` body (malformed upstream response) is guarded here
+      // rather than left to crash inside `convertToAlbumEntry` — its opening
+      // `"id" in response` throws on `null` — so the rejection this endpoint
+      // produces is an intentional one, not a stray `TypeError`.
+      transformResponse: (response: AlbumSearchResultJSON | null) => {
+        if (!response) throw new Error("updateAlbum: response body was empty");
+        return convertToAlbumEntry(response);
+      },
       invalidatesTags: (_result, _error, { albumId }) => [
         { type: "AlbumDetail", id: albumId },
       ],
@@ -204,8 +210,12 @@ export const catalogApi = createApi({
         url: `/${albumId}/missing`,
         method: "PATCH",
       }),
-      transformResponse: (response: AlbumSearchResultJSON) =>
-        convertToAlbumEntry(response),
+      // See updateAlbum's transformResponse: guards the same JSON-`null`-body
+      // case with an intentional rejection instead of an unguarded crash.
+      transformResponse: (response: AlbumSearchResultJSON | null) => {
+        if (!response) throw new Error("markMissing: response body was empty");
+        return convertToAlbumEntry(response);
+      },
       invalidatesTags: (_result, _error, { albumId }) => [
         { type: "AlbumDetail", id: albumId },
       ],
@@ -222,8 +232,12 @@ export const catalogApi = createApi({
         url: `/${albumId}/found`,
         method: "PATCH",
       }),
-      transformResponse: (response: AlbumSearchResultJSON) =>
-        convertToAlbumEntry(response),
+      // See updateAlbum's transformResponse: guards the same JSON-`null`-body
+      // case with an intentional rejection instead of an unguarded crash.
+      transformResponse: (response: AlbumSearchResultJSON | null) => {
+        if (!response) throw new Error("markFound: response body was empty");
+        return convertToAlbumEntry(response);
+      },
       invalidatesTags: (_result, _error, { albumId }) => [
         { type: "AlbumDetail", id: albumId },
       ],
