@@ -256,6 +256,91 @@ describe("V/A tracklist-confirm step", () => {
     await waitFor(() => expect(suggestionCalls()).toBe(2));
   });
 
+  // The heading describes the rows on screen, so it has to be fixed at the
+  // moment they are seeded. Read live from the query it would start describing
+  // a response whose tracks were never adopted — announcing an import above a
+  // single hand-typed row, which a librarian would reasonably save believing
+  // they were confirming the import.
+  it("does not claim a Discogs import for rows that were typed by hand", async () => {
+    let suggestionCalls = 0;
+    server.use(
+      http.get(
+        `${TEST_BACKEND_URL}/library/${NEW_LIBRARY_ID}/compilation-tracks/discogs-suggestions`,
+        () => {
+          suggestionCalls += 1;
+          return suggestionCalls === 1
+            ? new HttpResponse("<!DOCTYPE html><html><body>502</body></html>", {
+                status: 502,
+                headers: { "Content-Type": "text/html" },
+              })
+            : suggestionsPayload([
+                { artist_name: "Stereolab", track_title: "Peng!", track_position: "A1" },
+                { artist_name: "Cat Power", track_title: "Nude As The News", track_position: "A2" },
+              ]);
+        },
+      ),
+    );
+    const { user } = renderWithProviders(<AddReleasePanel />);
+
+    await submitRelease(user, "Various Artists");
+    await screen.findByRole("alert");
+
+    // Retry, then — without waiting for it — fall back to manual entry, the way
+    // a librarian who sees no immediate change would.
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    await user.click(await screen.findByRole("button", { name: "Enter tracks manually" }));
+    await user.type(await screen.findByLabelText("Artist for track 1"), "Duke Ellington");
+
+    await waitFor(() => expect(suggestionCalls).toBe(2));
+
+    expect(screen.queryByText(/Imported 2 tracks from Discogs/)).not.toBeInTheDocument();
+    expect(screen.getByText(/No Discogs tracklist matched/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Artist for track 1")).toHaveValue("Duke Ellington");
+  });
+
+  it("reports the retry as busy so it does not read as having done nothing", async () => {
+    let releaseRetry: () => void = () => {};
+    const retryInFlight = new Promise<void>((resolve) => {
+      releaseRetry = resolve;
+    });
+    let calls = 0;
+    server.use(
+      http.get(
+        `${TEST_BACKEND_URL}/library/${NEW_LIBRARY_ID}/compilation-tracks/discogs-suggestions`,
+        async () => {
+          calls += 1;
+          // The second response is held open deliberately: the busy state only
+          // exists while the request is in flight, so a handler that answers
+          // immediately leaves nothing to observe.
+          if (calls > 1) await retryInFlight;
+          return new HttpResponse("<!DOCTYPE html><html><body>502</body></html>", {
+            status: 502,
+            headers: { "Content-Type": "text/html" },
+          });
+        },
+      ),
+    );
+    const { user } = renderWithProviders(<AddReleasePanel />);
+
+    await submitRelease(user, "Various Artists");
+    await screen.findByRole("alert");
+
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+
+    // A refetch moves the query to pending, so `isError` goes false while
+    // nothing has been adopted yet. Branching on the query flags rather than on
+    // whether rows exist drops through to the tracklist view, whose heading
+    // announces "No Discogs tracklist matched" — a claim an in-flight request
+    // has no standing to make, and precisely the false negative the endpoint's
+    // soft-fail opt-out exists to prevent.
+    expect(await screen.findByText("Checking Discogs for a tracklist…")).toBeInTheDocument();
+    expect(screen.queryByText(/No Discogs tracklist matched/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Enter tracks manually" }),
+    ).not.toBeInTheDocument();
+    releaseRetry();
+  });
+
   it("offers manual entry from the error state as an explicit choice", async () => {
     mockSuggestions(
       () =>
@@ -296,6 +381,27 @@ describe("V/A tracklist-confirm step", () => {
       );
       expect(screen.queryByText("Per-Track Artists")).not.toBeInTheDocument();
     }
+  });
+
+  // These credits have no other entry point in the product, so degrading to
+  // "never offered" has to be audible — a silent close reads as though this
+  // compilation needed none.
+  it("says so when a created V/A release comes back without an id to address", async () => {
+    mockSuggestions(() => suggestionsPayload([]));
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/library/`, () => HttpResponse.json({ ok: true })),
+    );
+    const { user } = renderWithProviders(<AddReleasePanel />);
+
+    await submitRelease(user, "Various Artists");
+
+    const { toast } = await import("sonner");
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        expect.stringContaining("per-track artists couldn't be requested"),
+      ),
+    );
+    expect(screen.queryByText("Per-Track Artists")).not.toBeInTheDocument();
   });
 
   describe("dismissing the step", () => {
@@ -340,7 +446,7 @@ describe("V/A tracklist-confirm step", () => {
       confirmSpy.mockRestore();
     });
 
-    it("treats an all-blank tracklist as a skip rather than posting an empty write", async () => {
+    it("refuses to save an all-blank tracklist rather than closing as if it had", async () => {
       mockSuggestions(() => suggestionsPayload([]));
       let writeCalls = 0;
       server.use(
@@ -359,12 +465,79 @@ describe("V/A tracklist-confirm step", () => {
       await submitRelease(user, "Various Artists");
       await screen.findByLabelText("Artist for track 1");
 
+      // Closing on an empty save would be indistinguishable from a real one —
+      // and "Skip for now", which means exactly this, asks for confirmation
+      // first. The affordance that files nothing must not be the quieter one.
+      expect(screen.getByRole("button", { name: "Save Tracks" })).toBeDisabled();
+      expect(screen.getByText("Per-Track Artists")).toBeInTheDocument();
+      expect(writeCalls).toBe(0);
+    });
+
+    // A request can commit and still fail to deliver its response. Since
+    // `artist_name` is part of the server's uniqueness key, a correction
+    // re-submitted after that is filed *beside* the row it was meant to
+    // replace — both permanent, with no edit path in the product. So a retry
+    // reads what actually landed and locks it rather than trusting the write
+    // to de-duplicate.
+    it("locks credits an earlier attempt already filed instead of re-filing corrected copies", async () => {
+      mockSuggestions(() =>
+        suggestionsPayload([
+          { artist_name: "Nilufer Yanya", track_title: "Stabilise", track_position: "A1" },
+        ]),
+      );
+      const postedBodies: unknown[] = [];
+      let postCalls = 0;
+      server.use(
+        // Commits, then fails to answer — the case the reconciliation exists for.
+        http.post(`${TEST_BACKEND_URL}/library/${NEW_LIBRARY_ID}/compilation-tracks`, async ({ request }) => {
+          postedBodies.push(await request.json());
+          postCalls += 1;
+          return postCalls === 1
+            ? HttpResponse.json({ message: "gateway timeout" }, { status: 504 })
+            : HttpResponse.json({
+                library_id: NEW_LIBRARY_ID,
+                inserted: 1,
+                skipped: 0,
+                tracks: [],
+              });
+        }),
+        http.get(`${TEST_BACKEND_URL}/library/${NEW_LIBRARY_ID}/compilation-tracks`, () =>
+          HttpResponse.json({
+            library_id: NEW_LIBRARY_ID,
+            tracks: [
+              { id: 71, artist_name: "Nilufer Yanya", track_title: "Stabilise", track_position: "A1" },
+            ],
+          }),
+        ),
+      );
+      const { user } = renderWithProviders(<AddReleasePanel />);
+
+      await submitRelease(user, "Various Artists");
+      await user.click(await screen.findByRole("button", { name: "Save Tracks" }));
+
+      // The row the server kept is now beyond this panel's reach, and says so.
+      // Waited on the banner rather than on the input being disabled: every
+      // input is disabled for the duration of the write too, so that alone
+      // would pass before the reconciliation had happened.
+      await waitFor(() =>
+        expect(screen.getByRole("status")).toHaveTextContent(
+          /already filed by an earlier attempt/,
+        ),
+      );
+      expect(screen.getByLabelText("Artist for track 1")).toBeDisabled();
+      // With every row locked there is nothing left to submit, so the correction
+      // the librarian would otherwise attempt is refused at the button.
+      expect(screen.getByRole("button", { name: "Save Tracks" })).toBeDisabled();
+
+      // A genuinely new credit still saves, and carries only itself.
+      await user.click(screen.getByRole("button", { name: "Add track" }));
+      await user.type(await screen.findByLabelText("Artist for track 2"), "Jessica Pratt");
       await user.click(screen.getByRole("button", { name: "Save Tracks" }));
 
-      await waitFor(() =>
-        expect(screen.queryByText("Per-Track Artists")).not.toBeInTheDocument(),
-      );
-      expect(writeCalls).toBe(0);
+      await waitFor(() => expect(postedBodies).toHaveLength(2));
+      expect(postedBodies[1]).toEqual({
+        tracks: [{ artist_name: "Jessica Pratt", track_title: null, track_position: null }],
+      });
     });
 
     // The rows are the only copy of anything hand-entered; closing on a failed

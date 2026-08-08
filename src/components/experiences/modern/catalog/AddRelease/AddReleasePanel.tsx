@@ -83,8 +83,12 @@ function AddReleaseForm() {
   // Set only after a V/A release has actually been created, and carries the id
   // the server assigned it — the per-track write is addressed to that release,
   // so the step cannot exist before there is a release to address.
+  // `attempted` latches on the first write attempt, successful or not. It is
+  // what tells the step that the release can no longer be assumed empty: a
+  // request that commits and then fails to deliver its response leaves rows
+  // behind that only a read can discover.
   const [vaStep, setVaStep] = useState<
-    { libraryId: number; albumTitle: string } | null
+    { libraryId: number; albumTitle: string; attempted: boolean } | null
   >(null);
   // Bumped whenever the artist text or the genre changes — including the
   // reset a close (or a close-then-reopen) performs, since that also changes
@@ -165,26 +169,29 @@ function AddReleaseForm() {
   };
 
   const handleSaveTracks = async (tracks: CompilationTrackInput[]) => {
-    if (!vaStep) return;
-    // Saving nothing is indistinguishable from skipping, and the backend
-    // rejects an empty list — treat it as the skip the MD evidently meant.
-    if (tracks.length === 0) {
-      closePanel();
-      return;
-    }
+    if (!vaStep || tracks.length === 0) return;
+    // Latched before the request rather than after it: a response that never
+    // arrives still leaves whatever the server committed, so "attempted" has to
+    // survive the failure that makes it matter.
+    setVaStep({ ...vaStep, attempted: true });
     try {
-      const { inserted } = await writeCompilationTracks({
+      const { inserted, skipped } = await writeCompilationTracks({
         libraryId: vaStep.libraryId,
         tracks,
       }).unwrap();
+      // `skipped` is reported rather than dropped: it is the only signal that a
+      // credit the MD believed they were filing was already there, which after
+      // a retry is the difference between "saved" and "saved nothing new".
+      const skippedNote = skipped > 0 ? ` (${skipped} already filed)` : "";
       toast.success(
-        `Added ${inserted} per-track ${inserted === 1 ? "artist" : "artists"} to "${vaStep.albumTitle}"`,
+        `Added ${inserted} per-track ${inserted === 1 ? "artist" : "artists"} to "${vaStep.albumTitle}"${skippedNote}`,
       );
       closePanel();
     } catch {
       // Toasted by the global rtkQueryErrorLogger middleware. The panel stays
       // open on purpose: the rows are the only copy of work the MD may have
       // hand-entered, and closing would destroy them with no way to re-derive.
+      // The step re-reads what actually landed before allowing another write.
     }
   };
 
@@ -287,11 +294,19 @@ function AddReleaseForm() {
         // is deliberate — the lenient substring one would pull single artists
         // whose names merely contain "various" or "soundtrack" into a per-track
         // capture step that makes no sense for them.
-        if (
-          isCompilationReleaseArtistName(artistName) &&
-          typeof created?.id === "number"
-        ) {
-          setVaStep({ libraryId: created.id, albumTitle });
+        if (isCompilationReleaseArtistName(artistName)) {
+          if (typeof created?.id === "number") {
+            setVaStep({ libraryId: created.id, albumTitle, attempted: false });
+          } else {
+            // The per-track write is addressed by release id, so without one
+            // there is no step to offer. Said out loud rather than closing as
+            // if nothing were owed: these credits have no other entry point,
+            // and a silent close reads as "this compilation needed none".
+            toast.error(
+              `"${albumTitle}" was saved, but its per-track artists couldn't be requested. Add them from the release once it appears in the catalog.`,
+            );
+            closePanel();
+          }
         } else {
           closePanel();
         }
@@ -331,134 +346,135 @@ function AddReleaseForm() {
               onSave={handleSaveTracks}
               onSkip={handleDismiss}
               isSaving={isSavingTracks}
+              hasAttemptedWrite={vaStep.attempted}
             />
           ) : (
-          <form onSubmit={handleSubmit}>
-            <Stack spacing={1.5}>
-              <FormControl required>
-                <FormLabel>Album title</FormLabel>
-                <Input
-                  value={form.albumTitle}
-                  disabled={isLoading}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, albumTitle: e.target.value }))
-                  }
-                />
-              </FormControl>
-
-              <FormControl required>
-                <FormLabel>Genre</FormLabel>
-                <Select
-                  aria-label="Genre"
-                  value={form.genreId}
-                  disabled={isLoading}
-                  onChange={handleGenreChange}
-                  placeholder="Choose a genre..."
-                >
-                  {(genres ?? []).map((genre) => (
-                    <Option key={genre.id} value={genre.id}>
-                      {genre.genre_name}
-                    </Option>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <FormControl required>
-                <FormLabel>Format</FormLabel>
-                <Select
-                  aria-label="Format"
-                  value={form.formatId}
-                  disabled={isLoading}
-                  onChange={(_, value: number | null) =>
-                    setForm((f) => ({ ...f, formatId: value }))
-                  }
-                  placeholder="Choose a format..."
-                >
-                  {(formats ?? []).map((format) => (
-                    <Option key={format.id} value={format.id}>
-                      {format.format_name}
-                    </Option>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <FormControl required>
-                <FormLabel>Artist</FormLabel>
-                {form.genreId !== null ? (
-                  <ArtistSearchTypeahead
-                    genreId={form.genreId}
-                    value={form.artistName}
+            <form onSubmit={handleSubmit}>
+              <Stack spacing={1.5}>
+                <FormControl required>
+                  <FormLabel>Album title</FormLabel>
+                  <Input
+                    value={form.albumTitle}
                     disabled={isLoading}
-                    onChange={(value) => {
-                      setForm((f) => ({ ...f, artistName: value }));
-                      // The guidance names the exact term that missed, so it
-                      // stops describing the field the moment that term is
-                      // edited.
-                      setArtistNotFound(null);
-                    }}
-                    onSelect={(artist: ArtistInGenreOption) => {
-                      setForm((f) => ({ ...f, artistId: artist.id }));
-                      setArtistNotFound(null);
-                    }}
-                    onCreateNew={(term) => {
-                      // Choosing to create says this text names no existing
-                      // artist, which retires any id picked earlier under the
-                      // same text — the typeahead only retracts on an edit, and
-                      // there is none on this path. Left standing, the id would
-                      // file the release against the very artist the panel is
-                      // telling the MD does not exist yet.
-                      setForm((f) => ({ ...f, artistId: null }));
-                      setArtistNotFound({ term, genreId: form.genreId as number });
-                    }}
-                    onSelectionCleared={() =>
-                      setForm((f) => ({ ...f, artistId: null }))
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, albumTitle: e.target.value }))
                     }
                   />
-                ) : (
-                  <Input disabled placeholder="Choose a genre first" />
+                </FormControl>
+
+                <FormControl required>
+                  <FormLabel>Genre</FormLabel>
+                  <Select
+                    aria-label="Genre"
+                    value={form.genreId}
+                    disabled={isLoading}
+                    onChange={handleGenreChange}
+                    placeholder="Choose a genre..."
+                  >
+                    {(genres ?? []).map((genre) => (
+                      <Option key={genre.id} value={genre.id}>
+                        {genre.genre_name}
+                      </Option>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <FormControl required>
+                  <FormLabel>Format</FormLabel>
+                  <Select
+                    aria-label="Format"
+                    value={form.formatId}
+                    disabled={isLoading}
+                    onChange={(_, value: number | null) =>
+                      setForm((f) => ({ ...f, formatId: value }))
+                    }
+                    placeholder="Choose a format..."
+                  >
+                    {(formats ?? []).map((format) => (
+                      <Option key={format.id} value={format.id}>
+                        {format.format_name}
+                      </Option>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <FormControl required>
+                  <FormLabel>Artist</FormLabel>
+                  {form.genreId !== null ? (
+                    <ArtistSearchTypeahead
+                      genreId={form.genreId}
+                      value={form.artistName}
+                      disabled={isLoading}
+                      onChange={(value) => {
+                        setForm((f) => ({ ...f, artistName: value }));
+                        // The guidance names the exact term that missed, so it
+                        // stops describing the field the moment that term is
+                        // edited.
+                        setArtistNotFound(null);
+                      }}
+                      onSelect={(artist: ArtistInGenreOption) => {
+                        setForm((f) => ({ ...f, artistId: artist.id }));
+                        setArtistNotFound(null);
+                      }}
+                      onCreateNew={(term) => {
+                        // Choosing to create says this text names no existing
+                        // artist, which retires any id picked earlier under the
+                        // same text — the typeahead only retracts on an edit, and
+                        // there is none on this path. Left standing, the id would
+                        // file the release against the very artist the panel is
+                        // telling the MD does not exist yet.
+                        setForm((f) => ({ ...f, artistId: null }));
+                        setArtistNotFound({ term, genreId: form.genreId as number });
+                      }}
+                      onSelectionCleared={() =>
+                        setForm((f) => ({ ...f, artistId: null }))
+                      }
+                    />
+                  ) : (
+                    <Input disabled placeholder="Choose a genre first" />
+                  )}
+                </FormControl>
+
+                {artistNotFound && (
+                  <Sheet
+                    variant="soft"
+                    color="warning"
+                    role="status"
+                    sx={{ p: 1, borderRadius: "sm" }}
+                  >
+                    <Typography level="body-sm">
+                      {`"${artistNotFound.term}" isn't filed under ${
+                        genres?.find((g) => g.id === artistNotFound.genreId)
+                          ?.genre_name ?? "this genre"
+                      } yet. Add it as a new artist, then come back and add this release.`}
+                    </Typography>
+                  </Sheet>
                 )}
-              </FormControl>
 
-              {artistNotFound && (
-                <Sheet
-                  variant="soft"
-                  color="warning"
-                  role="status"
-                  sx={{ p: 1, borderRadius: "sm" }}
-                >
-                  <Typography level="body-sm">
-                    {`"${artistNotFound.term}" isn't filed under ${
-                      genres?.find((g) => g.id === artistNotFound.genreId)
-                        ?.genre_name ?? "this genre"
-                    } yet. Add it as a new artist, then come back and add this release.`}
-                  </Typography>
-                </Sheet>
-              )}
+                <FormControl required>
+                  <FormLabel>Label</FormLabel>
+                  <LabelSearchTypeahead
+                    value={form.labelName}
+                    disabled={isLoading}
+                    onChange={(value) =>
+                      setForm((f) => ({ ...f, labelName: value }))
+                    }
+                    onSelect={(label: Label) =>
+                      setForm((f) => ({ ...f, labelId: label.id }))
+                    }
+                    onSelectionCleared={() =>
+                      setForm((f) => ({ ...f, labelId: null }))
+                    }
+                  />
+                </FormControl>
 
-              <FormControl required>
-                <FormLabel>Label</FormLabel>
-                <LabelSearchTypeahead
-                  value={form.labelName}
-                  disabled={isLoading}
-                  onChange={(value) =>
-                    setForm((f) => ({ ...f, labelName: value }))
-                  }
-                  onSelect={(label: Label) =>
-                    setForm((f) => ({ ...f, labelId: label.id }))
-                  }
-                  onSelectionCleared={() =>
-                    setForm((f) => ({ ...f, labelId: null }))
-                  }
-                />
-              </FormControl>
-
-              <Stack direction="row" justifyContent="flex-end">
-                <Button type="submit" loading={isLoading}>
-                  Save Release
-                </Button>
+                <Stack direction="row" justifyContent="flex-end">
+                  <Button type="submit" loading={isLoading}>
+                    Save Release
+                  </Button>
+                </Stack>
               </Stack>
-            </Stack>
-          </form>
+            </form>
           )}
         </ModalDialog>
       </Modal>
