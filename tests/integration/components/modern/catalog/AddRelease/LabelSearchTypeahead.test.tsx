@@ -7,11 +7,12 @@ import {
   afterEach,
   onTestFinished,
 } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { useState } from "react";
 import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import LabelSearchTypeahead from "@/src/components/experiences/modern/catalog/AddRelease/LabelSearchTypeahead";
+import { labelsApi } from "@/lib/features/labels/api";
 import type { Label } from "@/lib/features/labels/types";
 
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -261,6 +262,19 @@ describe("LabelSearchTypeahead", () => {
       expect(await screen.findByText("Sonamos")).toBeInTheDocument();
     });
 
+    it("names a real element in aria-controls once there are rows to show", async () => {
+      mockLabelSearch([sonamos]);
+      const { user } = renderWithProviders(<ControlledTypeahead />);
+
+      const input = await findInput();
+      await user.type(input, "Sona");
+      await vi.advanceTimersByTimeAsync(400);
+      const listbox = await screen.findByRole("listbox");
+
+      expect(input).toHaveAttribute("aria-expanded", "true");
+      expect(input).toHaveAttribute("aria-controls", listbox.id);
+    });
+
     it("tells the MD a new label will be created when nothing matches", async () => {
       mockLabelSearch([]);
       const { user } = renderWithProviders(<ControlledTypeahead />);
@@ -272,6 +286,22 @@ describe("LabelSearchTypeahead", () => {
       expect(
         await screen.findByText(/will be created as a new label/i),
       ).toBeInTheDocument();
+    });
+
+    // The Sheet only gets an `id` in the listbox variant — the status variant
+    // renders prose, not options, so nothing exists for aria-controls to
+    // name. Naming a nonexistent id here would be a dangling IDREF.
+    it("does not claim the input is expanded or controls a listbox when there is nothing to pick", async () => {
+      mockLabelSearch([]);
+      const { user } = renderWithProviders(<ControlledTypeahead />);
+
+      const input = await findInput();
+      await user.type(input, "Nonexistent Label");
+      await vi.advanceTimersByTimeAsync(400);
+      await screen.findByRole("status");
+
+      expect(input).toHaveAttribute("aria-expanded", "false");
+      expect(input).not.toHaveAttribute("aria-controls");
     });
   });
 
@@ -457,6 +487,54 @@ describe("LabelSearchTypeahead", () => {
       expect(onSelect).toHaveBeenCalledWith(dragCity);
     });
 
+    // The highlight is local state while the rows come from the query, so a
+    // list that shrinks out from under a highlight set by an earlier response
+    // (a cross-slice cache invalidation refetching the same query with fewer
+    // matches, not a keystroke — typing itself resets the highlight) would
+    // otherwise leave `rawHighlightIndex` pointing past the end of the new
+    // list. Without the clamp, `labels[highlightIndex]` is `undefined` and
+    // Enter would hand the caller a selection that was never on screen.
+    it("clamps a highlight left stale by a list that shrinks under it", async () => {
+      let requestCount = 0;
+      mockLabelSearch(() => {
+        requestCount += 1;
+        return HttpResponse.json(requestCount === 1 ? [sonamos, dragCity] : [dragCity]);
+      });
+      const onSelect = vi.fn();
+      const { user, store } = renderWithProviders(
+        <ControlledTypeahead onSelect={onSelect} />,
+      );
+
+      const input = await findInput();
+      await user.type(input, "Dr");
+      await vi.advanceTimersByTimeAsync(400);
+      await screen.findByText("Drag City");
+
+      // Highlight the last row of the two-row list.
+      await user.keyboard("{ArrowDown}{ArrowDown}");
+      expect(screen.getAllByRole("option").at(-1)).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+
+      // A write elsewhere in the app invalidates the tag this query provides,
+      // refetching the same args with a shorter list — no keystroke, so
+      // nothing resets the highlight.
+      await act(async () => {
+        store.dispatch(
+          labelsApi.util.invalidateTags([{ type: "LabelSearch", id: "LIST" }]),
+        );
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      await waitFor(() =>
+        expect(screen.queryByText("Sonamos")).not.toBeInTheDocument(),
+      );
+
+      await user.keyboard("{Enter}");
+
+      expect(onSelect).toHaveBeenCalledWith(dragCity);
+    });
+
     it("does not act on Enter in a panel opened without navigating", async () => {
       mockLabelSearch([sonamos]);
       const onSelect = vi.fn();
@@ -528,6 +606,28 @@ describe("LabelSearchTypeahead", () => {
         "true",
       );
       expect(scrolled).toHaveLength(0);
+    });
+
+    // The highlight is a single piece of state regardless of what moved it —
+    // arrow keys and the pointer both just call setHighlightIndex — so a row
+    // the mouse highlighted is exactly as pickable with Enter as one the
+    // keyboard navigated to.
+    it("picks the row the pointer highlighted when Enter is pressed", async () => {
+      mockLabelSearch([sonamos, dragCity]);
+      const onSelect = vi.fn();
+      const { user } = renderWithProviders(
+        <ControlledTypeahead onSelect={onSelect} />,
+      );
+
+      const input = await findInput();
+      await user.type(input, "So");
+      await vi.advanceTimersByTimeAsync(400);
+
+      await user.hover(await screen.findByText("Drag City"));
+      await user.keyboard("{Enter}");
+
+      expect(onSelect).toHaveBeenCalledWith(dragCity);
+      expect(input).toHaveValue("Drag City");
     });
 
     // The MD means the text they typed even though it prefixes an existing
@@ -756,6 +856,23 @@ describe("LabelSearchTypeahead", () => {
         /Label search is unavailable/i,
       );
       expect(screen.queryByText(/will be created as a new label/i)).not.toBeInTheDocument();
+    });
+
+    // Same reasoning as the no-matches state: the error panel has no `id`
+    // either, so aria-controls would name an element that does not exist.
+    it("does not claim the input is expanded or controls a listbox while reporting a failure", async () => {
+      mockLabelSearch(() =>
+        HttpResponse.json({ message: "boom" }, { status: 500 }),
+      );
+      const { user } = renderWithProviders(<ControlledTypeahead />);
+
+      const input = await findInput();
+      await user.type(input, "Sona");
+      await vi.advanceTimersByTimeAsync(400);
+      await screen.findByRole("alert");
+
+      expect(input).toHaveAttribute("aria-expanded", "false");
+      expect(input).not.toHaveAttribute("aria-controls");
     });
 
     it("retries the search on demand", async () => {
