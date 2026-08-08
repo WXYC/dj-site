@@ -4,6 +4,7 @@ import MobileSearchBar from "@/src/components/experiences/modern/catalog/Search/
 import SearchBar from "@/src/components/experiences/modern/catalog/Search/SearchBar";
 import Results from "@/src/components/experiences/modern/catalog/Results/Results";
 import AddReleasePanel from "@/src/components/experiences/modern/catalog/AddRelease/AddReleasePanel";
+import ArtistAddPanel from "@/src/components/experiences/modern/catalog/ArtistAddPanel";
 import { Metadata } from "next";
 import { getPageTitle } from "@/lib/utils/page-title";
 
@@ -15,6 +16,7 @@ export default function CatalogPage() {
   return (
     <>
       <PageHeader title="Card Catalog">
+        <ArtistAddPanel />
         <AddReleasePanel />
       </PageHeader>
       <>

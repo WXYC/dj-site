@@ -27,7 +27,7 @@ import {
 } from "@/lib/features/catalog/api";
 import type { AddAlbumRequestBody, ArtistInGenreOption } from "@/lib/features/catalog/types";
 import { labelsApi } from "@/lib/features/labels/api";
-import type { LabelRow } from "@/lib/features/labels/types";
+import type { Label } from "@/lib/features/labels/types";
 import LabelSearchTypeahead from "./LabelSearchTypeahead";
 
 /**
@@ -358,7 +358,7 @@ function AddReleaseForm() {
                   onChange={(value) =>
                     setForm((f) => ({ ...f, labelName: value }))
                   }
-                  onSelect={(label: LabelRow) =>
+                  onSelect={(label: Label) =>
                     setForm((f) => ({ ...f, labelId: label.id }))
                   }
                   onSelectionCleared={() =>
