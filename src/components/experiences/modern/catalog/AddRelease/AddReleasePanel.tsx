@@ -72,13 +72,25 @@ function AddReleaseForm() {
   const [artistNotFound, setArtistNotFound] = useState<
     { term: string; genreId: number } | null
   >(null);
-  // Live mirror of the artist field: the submit handler's catch runs after an
-  // awaited rejection, by which point a still-mounted panel may have moved on
-  // to a different typed term. Reading this instead of the term captured at
-  // submit time is what lets the catch refuse to relabel guidance onto text
-  // the MD has since edited away from.
-  const artistNameRef = useRef(form.artistName);
-  artistNameRef.current = form.artistName;
+  // Bumped whenever the artist text or the genre changes — including the
+  // reset a close (or a close-then-reopen) performs, since that also changes
+  // both away from whatever a request in flight was submitted with. Compared
+  // against a snapshot taken at submit time, this is what lets the async
+  // continuation after an awaited request tell "nothing relevant has moved"
+  // from "the panel now describes a different artist, genre, or release
+  // entirely" — a plain field-vs-closure comparison of just the artist text
+  // covers only one of those axes and misses the other.
+  const formGenerationRef = useRef(0);
+  const artistNameAtRenderRef = useRef(form.artistName);
+  const genreIdAtRenderRef = useRef(form.genreId);
+  if (
+    artistNameAtRenderRef.current !== form.artistName ||
+    genreIdAtRenderRef.current !== form.genreId
+  ) {
+    artistNameAtRenderRef.current = form.artistName;
+    genreIdAtRenderRef.current = form.genreId;
+    formGenerationRef.current += 1;
+  }
 
   // Skipped until the dialog is open: these two lookups are static enough to
   // cache indefinitely, but every catalog page load by an MD would otherwise
@@ -105,7 +117,12 @@ function AddReleaseForm() {
   // part-filled form with no undo. A confirm only interrupts the two
   // accidental paths; the submit handler calls closePanel directly so a
   // completed save never asks the MD to confirm work they already finished.
+  // Dismissal is refused outright while a save is in flight rather than
+  // asking the confirm question at all: the request can still succeed a
+  // moment later and create the row anyway, which would make "nothing has
+  // been saved yet" false by the time the MD reads it.
   const handleDismiss = () => {
+    if (isLoading) return;
     if (hasUnsavedInput() && !confirm("Discard this release? Nothing has been saved yet.")) {
       return;
     }
@@ -130,15 +147,22 @@ function AddReleaseForm() {
     const labelName = form.labelName.trim();
     const hasArtist = form.artistId !== null || artistName.length > 0;
 
-    if (!albumTitle || !form.genreId || !form.formatId || !hasArtist || !labelName) {
+    if (
+      !albumTitle ||
+      form.genreId === null ||
+      form.formatId === null ||
+      !hasArtist ||
+      !labelName
+    ) {
       toast.error("Album title, genre, format, artist, and label are all required");
       return;
     }
+    const genreId = form.genreId;
 
     const body: AddAlbumRequestBody = {
       album_title: albumTitle,
       label: labelName,
-      genre_id: form.genreId,
+      genre_id: genreId,
       format_id: form.formatId,
     };
     // A resolved artist_id is sent wherever the MD picked an existing artist:
@@ -163,6 +187,15 @@ function AddReleaseForm() {
     // backend silently drops it — never send it. code_number is assigned
     // server-side here — never send it either.
 
+    // Every field is disabled for the duration of this request (see the
+    // `disabled={isLoading}` props below), so in the ordinary case nothing
+    // can change before it settles. This is still taken as a snapshot rather
+    // than trusted implicitly: a dismiss-and-reopen or a genre/artist change
+    // land here the moment any gap in that disabling is found or reopened,
+    // rather than silently reintroducing the stale-guidance bug this exists
+    // to close.
+    const submitGeneration = formGenerationRef.current;
+
     try {
       await addAlbum(body).unwrap();
       // A free-typed label with no resolved id means the backend just
@@ -170,7 +203,9 @@ function AddReleaseForm() {
       // reads, so nothing else invalidates its cache — without this, a
       // reopened picker searching this same name within the 60s cache
       // window still shows the stale empty (or prior) result and offers to
-      // create the very near-duplicate this field exists to prevent.
+      // create the very near-duplicate this field exists to prevent. This
+      // runs unconditionally: the label really was created regardless of
+      // what the dialog is showing by the time the response lands.
       if (form.labelId === null) {
         dispatch(labelsApi.util.invalidateTags([{ type: "LabelSearch", id: "LIST" }]));
       }
@@ -178,17 +213,23 @@ function AddReleaseForm() {
       // without this: both leave the MD looking at the catalog page with no
       // dialog open, which invites a duplicate re-add of the same release.
       toast.success(`Added "${albumTitle}" to the catalog`);
-      closePanel();
+      // Guarded on the generation: without it, a request whose panel was
+      // dismissed and reopened onto a new, still-unsaved release would close
+      // that unrelated form the moment this one's response arrived, discarding
+      // it exactly as if the MD had cancelled — which they did not.
+      if (formGenerationRef.current === submitGeneration) {
+        closePanel();
+      }
     } catch (err) {
-      // The field's own onChange already cleared any guidance the moment the
-      // MD edited it; re-checking here guards the other direction, where the
-      // edit happens first and this stale rejection arrives after.
+      // Guarded the same way as the success path above, and for the same
+      // reason: a rejection that arrives after the artist text or the genre
+      // has moved on would otherwise relabel guidance onto a term or a genre
+      // the form no longer shows.
       if (
-        serverErrorMessage(err) === GENRE_SCOPED_ARTIST_MISS_MESSAGE &&
-        form.genreId &&
-        artistNameRef.current === artistName
+        formGenerationRef.current === submitGeneration &&
+        serverErrorMessage(err) === GENRE_SCOPED_ARTIST_MISS_MESSAGE
       ) {
-        setArtistNotFound({ term: artistName, genreId: form.genreId });
+        setArtistNotFound({ term: artistName, genreId });
       }
       // Every rejection, this one included, has already been toasted with the
       // server's message by the global rtkQueryErrorLogger middleware — it
@@ -213,6 +254,7 @@ function AddReleaseForm() {
                 <FormLabel>Album title</FormLabel>
                 <Input
                   value={form.albumTitle}
+                  disabled={isLoading}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, albumTitle: e.target.value }))
                   }
@@ -224,6 +266,7 @@ function AddReleaseForm() {
                 <Select
                   aria-label="Genre"
                   value={form.genreId}
+                  disabled={isLoading}
                   onChange={handleGenreChange}
                   placeholder="Choose a genre..."
                 >
@@ -240,6 +283,7 @@ function AddReleaseForm() {
                 <Select
                   aria-label="Format"
                   value={form.formatId}
+                  disabled={isLoading}
                   onChange={(_, value: number | null) =>
                     setForm((f) => ({ ...f, formatId: value }))
                   }
@@ -259,6 +303,7 @@ function AddReleaseForm() {
                   <ArtistSearchTypeahead
                     genreId={form.genreId}
                     value={form.artistName}
+                    disabled={isLoading}
                     onChange={(value) => {
                       setForm((f) => ({ ...f, artistName: value }));
                       // The guidance names the exact term that missed, so it
@@ -309,6 +354,7 @@ function AddReleaseForm() {
                 <FormLabel>Label</FormLabel>
                 <LabelSearchTypeahead
                   value={form.labelName}
+                  disabled={isLoading}
                   onChange={(value) =>
                     setForm((f) => ({ ...f, labelName: value }))
                   }
