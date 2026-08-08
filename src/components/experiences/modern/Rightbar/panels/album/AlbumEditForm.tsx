@@ -31,7 +31,10 @@ import {
   UpdateAlbumRequestBody,
 } from "@/lib/features/catalog/types";
 import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
-import ArtistSearchTypeahead from "@/src/components/shared/inputs/ArtistSearchTypeahead";
+// The ungated variant: AlbumEditFormFields only ever renders inside this
+// module's own <RequireMD> below, so the default export's self-gating would
+// re-resolve authority a second time on every mount for no reason.
+import { ArtistSearchTypeaheadInner as ArtistSearchTypeahead } from "@/src/components/shared/inputs/ArtistSearchTypeahead";
 
 interface AlbumEditFormProps {
   album: AlbumEntry;
@@ -368,7 +371,7 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
         </Select>
       </FormControl>
 
-      <FormControl>
+      <FormControl error={artistLinkMissing}>
         <FormLabel>Artist</FormLabel>
         <ArtistSearchTypeahead
           genreId={genreId ?? saved.genreId ?? 0}
