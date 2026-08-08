@@ -525,11 +525,13 @@ describe("V/A tracklist-confirm step", () => {
       );
       const postedBodies: unknown[] = [];
       let postCalls = 0;
+      let committed = false;
       server.use(
         // Commits, then fails to answer — the case the reconciliation exists for.
         http.post(`${TEST_BACKEND_URL}/library/${NEW_LIBRARY_ID}/compilation-tracks`, async ({ request }) => {
           postedBodies.push(await request.json());
           postCalls += 1;
+          committed = true;
           return postCalls === 1
             ? HttpResponse.json({ message: "gateway timeout" }, { status: 504 })
             : HttpResponse.json({
@@ -539,12 +541,23 @@ describe("V/A tracklist-confirm step", () => {
                 tracks: [],
               });
         }),
+        // Reflects commit ordering rather than answering the same way forever:
+        // a read issued before the write committed must come back empty. Left
+        // unconditional, the lock could come from the read the step fires on
+        // mount and the test would pass with the invalidation deleted.
         http.get(`${TEST_BACKEND_URL}/library/${NEW_LIBRARY_ID}/compilation-tracks`, () =>
           HttpResponse.json({
             library_id: NEW_LIBRARY_ID,
-            tracks: [
-              { id: 71, artist_name: "Nilufer Yanya", track_title: "Stabilise", track_position: "A1" },
-            ],
+            tracks: committed
+              ? [
+                  {
+                    id: 71,
+                    artist_name: "Nilufer Yanya",
+                    track_title: "Stabilise",
+                    track_position: "A1",
+                  },
+                ]
+              : [],
           }),
         ),
       );
@@ -562,7 +575,7 @@ describe("V/A tracklist-confirm step", () => {
           /already filed by an earlier attempt/,
         ),
       );
-      expect(screen.getByLabelText("Artist for track 1")).toBeDisabled();
+      expect(screen.getByLabelText(/^Artist for track 1/)).toBeDisabled();
       // With every row locked there is nothing left to submit, so the correction
       // the librarian would otherwise attempt is refused at the button.
       expect(screen.getByRole("button", { name: "Save Tracks" })).toBeDisabled();
@@ -576,6 +589,161 @@ describe("V/A tracklist-confirm step", () => {
       expect(postedBodies[1]).toEqual({
         tracks: [{ artist_name: "Jessica Pratt", track_title: null, track_position: null }],
       });
+    });
+
+    // The backend that just failed a write is the same one being asked what it
+    // kept. When that read fails too, the panel knows nothing about what is
+    // stored — and guessing is exactly how a corrected duplicate gets filed.
+    it("refuses to save again when it cannot confirm what the failed attempt stored", async () => {
+      mockSuggestions(() =>
+        suggestionsPayload([
+          { artist_name: "Nilufer Yanya", track_title: "Stabilise", track_position: "A1" },
+        ]),
+      );
+      let postCalls = 0;
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/library/${NEW_LIBRARY_ID}/compilation-tracks`, () => {
+          postCalls += 1;
+          return HttpResponse.json({ message: "gateway timeout" }, { status: 504 });
+        }),
+        http.get(`${TEST_BACKEND_URL}/library/${NEW_LIBRARY_ID}/compilation-tracks`, () =>
+          HttpResponse.json({ message: "boom" }, { status: 500 }),
+        ),
+      );
+      const { user } = renderWithProviders(<AddReleasePanel />);
+
+      await submitRelease(user, "Various Artists");
+      await user.click(await screen.findByRole("button", { name: "Save Tracks" }));
+
+      await waitFor(() =>
+        expect(screen.getByText(/Couldn't check which credits the last attempt saved/)).toBeInTheDocument(),
+      );
+      // Nothing locked, because nothing is known — so the write is refused at
+      // the button rather than left live over an unknown stored state.
+      expect(screen.getByRole("button", { name: "Save Tracks" })).toBeDisabled();
+
+      // The correction a librarian would reach for cannot be filed.
+      const artist = screen.getByLabelText(/^Artist for track 1/);
+      await user.clear(artist);
+      await user.type(artist, "Nilüfer Yanya");
+      expect(screen.getByRole("button", { name: "Save Tracks" })).toBeDisabled();
+      expect(postCalls).toBe(1);
+    });
+
+    // The first reconciliation rides the query's skip-to-unskip transition. A
+    // second one has no such trigger — the read is already subscribed — so from
+    // the second attempt onward the write's cache invalidation is the only
+    // thing that refreshes the account of what is stored.
+    it("re-reads what landed after every failed attempt, not just the first", async () => {
+      mockSuggestions(() =>
+        suggestionsPayload([
+          { artist_name: "Stereolab", track_title: "Peng!", track_position: "A1" },
+        ]),
+      );
+      const landed: { id: number; artist_name: string; track_title: string | null; track_position: string | null }[] = [];
+      server.use(
+        // Every attempt commits and then fails to answer.
+        http.post(`${TEST_BACKEND_URL}/library/${NEW_LIBRARY_ID}/compilation-tracks`, async ({ request }) => {
+          const body = (await request.json()) as { tracks: { artist_name: string; track_title: string | null; track_position: string | null }[] };
+          body.tracks.forEach((t, i) =>
+            landed.push({ id: 900 + landed.length + i, ...t }),
+          );
+          return HttpResponse.json({ message: "gateway timeout" }, { status: 504 });
+        }),
+        http.get(`${TEST_BACKEND_URL}/library/${NEW_LIBRARY_ID}/compilation-tracks`, () =>
+          HttpResponse.json({ library_id: NEW_LIBRARY_ID, tracks: [...landed] }),
+        ),
+      );
+      const { user } = renderWithProviders(<AddReleasePanel />);
+
+      await submitRelease(user, "Various Artists");
+      await user.click(await screen.findByRole("button", { name: "Save Tracks" }));
+      await waitFor(() =>
+        expect(screen.getByLabelText(/^Artist for track 1/)).toBeDisabled(),
+      );
+
+      // Second attempt: a new credit, which also commits and also fails.
+      await user.click(screen.getByRole("button", { name: "Add track" }));
+      await user.type(await screen.findByLabelText(/^Artist for track 2/), "Cat Power");
+      await user.click(screen.getByRole("button", { name: "Save Tracks" }));
+
+      // Without the refetch this row stays editable and a third attempt would
+      // file a corrected copy beside it.
+      await waitFor(() =>
+        expect(screen.getByLabelText(/^Artist for track 2/)).toBeDisabled(),
+      );
+      expect(screen.getByRole("status")).toHaveTextContent(/2 credits were already filed/);
+    });
+
+    // Locking is captured against the rows that existed when the read landed,
+    // not recomputed from live input. Recomputed, a row would freeze the moment
+    // its half-typed contents happened to match a stored credit — which is
+    // ordinary typing when the stored credit has no title.
+    it("does not freeze a row being typed that transiently matches a stored credit", async () => {
+      mockSuggestions(() => suggestionsPayload([]));
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/library/${NEW_LIBRARY_ID}/compilation-tracks`, () =>
+          HttpResponse.json({ message: "gateway timeout" }, { status: 504 }),
+        ),
+        http.get(`${TEST_BACKEND_URL}/library/${NEW_LIBRARY_ID}/compilation-tracks`, () =>
+          HttpResponse.json({
+            library_id: NEW_LIBRARY_ID,
+            tracks: [{ id: 80, artist_name: "Juana Molina", track_title: null, track_position: null }],
+          }),
+        ),
+      );
+      const { user } = renderWithProviders(<AddReleasePanel />);
+
+      await submitRelease(user, "Various Artists");
+      await user.type(await screen.findByLabelText(/^Artist for track 1/), "Juana Molina");
+      await user.click(screen.getByRole("button", { name: "Save Tracks" }));
+
+      await waitFor(() =>
+        expect(screen.getByRole("status")).toHaveTextContent(/already filed by an earlier attempt/),
+      );
+
+      // A fresh row for that artist's second track: the artist is typed before
+      // the title, so mid-entry its identity equals the stored title-less credit.
+      await user.click(screen.getByRole("button", { name: "Add track" }));
+      const newArtist = await screen.findByLabelText(/^Artist for track 2/);
+      await user.type(newArtist, "Juana Molina");
+
+      expect(newArtist).toBeEnabled();
+      await user.type(screen.getByLabelText("Title for track 2"), "la paradoja");
+      expect(screen.getByLabelText("Title for track 2")).toHaveValue("la paradoja");
+    });
+
+    // Locking withholds the ability to file a competing correction, not the
+    // ability to clear a row off the screen. A row that could neither be edited
+    // nor removed would have no exit but discarding the whole tracklist.
+    it("still allows a locked row to be removed", async () => {
+      mockSuggestions(() =>
+        suggestionsPayload([
+          { artist_name: "Stereolab", track_title: "Peng!", track_position: "A1" },
+        ]),
+      );
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/library/${NEW_LIBRARY_ID}/compilation-tracks`, () =>
+          HttpResponse.json({ message: "gateway timeout" }, { status: 504 }),
+        ),
+        http.get(`${TEST_BACKEND_URL}/library/${NEW_LIBRARY_ID}/compilation-tracks`, () =>
+          HttpResponse.json({
+            library_id: NEW_LIBRARY_ID,
+            tracks: [{ id: 81, artist_name: "Stereolab", track_title: "Peng!", track_position: "A1" }],
+          }),
+        ),
+      );
+      const { user } = renderWithProviders(<AddReleasePanel />);
+
+      await submitRelease(user, "Various Artists");
+      await user.click(await screen.findByRole("button", { name: "Save Tracks" }));
+
+      await waitFor(() =>
+        expect(screen.getByLabelText(/^Artist for track 1/)).toBeDisabled(),
+      );
+      await user.click(screen.getByRole("button", { name: "Remove track 1" }));
+
+      expect(screen.queryByLabelText(/^Artist for track 1/)).not.toBeInTheDocument();
     });
 
     // The rows are the only copy of anything hand-entered; closing on a failed
