@@ -31,10 +31,7 @@ import {
   UpdateAlbumRequestBody,
 } from "@/lib/features/catalog/types";
 import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
-// The ungated variant: AlbumEditFormFields only ever renders inside this
-// module's own <RequireMD> below, so the default export's self-gating would
-// re-resolve authority a second time on every mount for no reason.
-import { ArtistSearchTypeaheadInner as ArtistSearchTypeahead } from "@/src/components/shared/inputs/ArtistSearchTypeahead";
+import ArtistSearchTypeahead from "@/src/components/shared/inputs/ArtistSearchTypeahead";
 
 interface AlbumEditFormProps {
   album: AlbumEntry;
@@ -144,8 +141,17 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
     artistLinkFrom(saved, album.artist.name),
   );
 
+  // The genre the typeahead actually searches under: the Select has no "no
+  // genre" option, so `genreId` only reads undefined before the MD has ever
+  // touched it, and until then the search — and anything resolved from it —
+  // has to fall back to the album's saved genre instead of going out scoped
+  // to nothing. Every comparison against "the genre currently in effect" below
+  // reads this, not the raw `genreId` state, so a pick resolved through the
+  // fallback is never judged against a value it was never searched under.
+  const resolvedGenreId = genreId ?? saved.genreId;
+
   const handleArtistSelect = (artist: ArtistInGenreOption) => {
-    setArtistLink({ id: artist.id, genreId, name: artist.artist_name });
+    setArtistLink({ id: artist.id, genreId: resolvedGenreId, name: artist.artist_name });
   };
 
   // The typeahead retracts on two different events: the text was edited away
@@ -158,7 +164,7 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
   // it has to, because the typeahead stops tracking a selection after the first
   // retraction it fires and never speaks for that link again.
   const handleArtistSelectionCleared = () => {
-    setArtistLink((prev) => (prev !== null && prev.genreId !== genreId ? prev : null));
+    setArtistLink((prev) => (prev !== null && prev.genreId !== resolvedGenreId ? prev : null));
   };
 
   // The typeahead always offers a create-new affordance; this form has no way
@@ -181,7 +187,7 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
   // re-attribution the field contradicts is silent on screen and permanent on
   // the shelf, since the server can burn a fresh call number for it.
   const artistLinkStaleForGenre =
-    artistLink !== null && artistLink.genreId !== genreId;
+    artistLink !== null && artistLink.genreId !== resolvedGenreId;
   const artistLinkStaleForName =
     artistLink !== null && artistLink.name.trim() !== artistName.trim();
   const artistId =
@@ -270,15 +276,6 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
     try {
       updated = await updateAlbum({ albumId: album.id, body: changes }).unwrap();
     } catch (err) {
-      // The global rtkQueryErrorLogger middleware re-toasts the server's own
-      // message verbatim, and Backend-Service answers every rejection here with
-      // a specific one ("Artist is not catalogued in the selected genre",
-      // "format_id does not reference an existing format", …); a second generic
-      // toast would bury it, as it would bury the middleware's transport lines.
-      // What it cannot speak for is an HTTP error with no body message, or a
-      // rejection carrying no status at all (an aborted request, a response the
-      // transform couldn't read) — that one it never even sees, so without this
-      // the save would fail in total silence.
       if (isUnmessagedHttpError(err)) {
         toast.error("Failed to update album");
       }
@@ -374,19 +371,27 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
       <FormControl error={artistLinkMissing}>
         <FormLabel>Artist</FormLabel>
         <ArtistSearchTypeahead
-          genreId={genreId ?? saved.genreId ?? 0}
+          // `resolvedGenreId` is only undefined for a legacy row with no genre
+          // at all — there is no artist-in-genre search to run yet, and
+          // `genre_id: 0` is not a real fallback: Backend-Service rejects it
+          // outright, which would toast that rejection on every debounce tick
+          // while the MD types. `disabled` below keeps the field inert (and
+          // this prop unused) until a real genre resolves.
+          genreId={resolvedGenreId ?? 0}
           value={artistName}
           onChange={setArtistName}
           onSelect={handleArtistSelect}
           onCreateNew={handleArtistCreateNew}
           onSelectionCleared={handleArtistSelectionCleared}
-          disabled={saving}
+          disabled={saving || resolvedGenreId === undefined}
         />
         {artistLinkMissing && (
           <FormHelperText>
-            {artistLinkStaleForGenre
-              ? "Search and select an artist to continue — the previous link no longer applies under this genre."
-              : "Search and select an artist to continue."}
+            {resolvedGenreId === undefined
+              ? "Choose a genre before searching for an artist."
+              : artistLinkStaleForGenre
+                ? "Search and select an artist to continue — the previous link no longer applies under this genre."
+                : "Search and select an artist to continue."}
           </FormHelperText>
         )}
       </FormControl>
