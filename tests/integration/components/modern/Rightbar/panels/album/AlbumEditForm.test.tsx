@@ -234,18 +234,21 @@ describe("AlbumEditForm", () => {
       expect(await screen.findByLabelText("Title")).toBeInTheDocument();
     });
 
-    // AuthorizedView (RequireMD) re-resolves authority from scratch on every
-    // mount — it has no cache of an authority a parent already established.
-    // The artist field must use the ungated typeahead variant so this form's
-    // own RequireMD is the only resolution in the tree; the self-gated
-    // default export would open a second, redundant one on every mount.
-    it("resolves organization authority once, not once per nested field", async () => {
+    // The artist field uses the same self-gated typeahead every other caller
+    // does, rather than an ungated variant reserved for this form — an
+    // ungated export left in the module's public surface is an authorization
+    // hole waiting for a future importer that skips the gate entirely. That
+    // costs a second AuthorizedView resolution alongside this form's own
+    // RequireMD, but AuthorizedView's role fetch already caches its token and
+    // coalesces concurrent lookups, so the real cost is a second cheap
+    // synchronous JWT decode, not a second network round trip.
+    it("resolves organization authority for both this form's gate and the artist field's own gate", async () => {
       mockFetchOrgRole.mockResolvedValue("musicDirector");
       mockUseSession.mockReturnValue(sessionWithRole());
       renderWithProviders(<AlbumEditForm album={juanaMolinaAlbum()} />);
 
       expect(await screen.findByLabelText("Search artists")).toBeInTheDocument();
-      expect(mockFetchOrgRole).toHaveBeenCalledTimes(1);
+      expect(mockFetchOrgRole).toHaveBeenCalledTimes(2);
     });
   });
 
