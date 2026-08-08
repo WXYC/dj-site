@@ -254,6 +254,15 @@ export const catalogApi = createApi({
       // the claim "this release has no per-track credits", and callers act on
       // that claim by offering to write the credits themselves.
       extraOptions: { surfaceNonJsonAsError: true },
+      // Guards a well-formed 200 whose body omits `tracks`: consumers iterate
+      // it directly, and a missing array would crash them mid-render rather
+      // than resolving to the empty set the shape promises.
+      transformResponse: (
+        response: CompilationTrackList | null,
+      ): CompilationTrackList => ({
+        library_id: response?.library_id ?? 0,
+        tracks: response?.tracks ?? [],
+      }),
       providesTags: (_result, _error, { libraryId }) => [
         { type: "CompilationTracks", id: libraryId },
       ],
@@ -271,6 +280,14 @@ export const catalogApi = createApi({
       // librarian to hand-enter a tracklist of arbitrary length. An outage must
       // not be able to impersonate "Discogs knows nothing about this release".
       extraOptions: { surfaceNonJsonAsError: true },
+      // See getCompilationTracks: same guard against a 200 that omits `tracks`.
+      transformResponse: (
+        response: CompilationTrackSuggestions | null,
+      ): CompilationTrackSuggestions => ({
+        library_id: response?.library_id ?? 0,
+        discogs_release_id: response?.discogs_release_id ?? null,
+        tracks: response?.tracks ?? [],
+      }),
     }),
     writeCompilationTracks: builder.mutation<
       CompilationTracksWriteResponse,
