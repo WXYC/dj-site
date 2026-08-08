@@ -897,6 +897,47 @@ describe("LabelSearchTypeahead", () => {
       expect(await screen.findByText("Sonamos")).toBeInTheDocument();
       expect(requests).toHaveLength(2);
     });
+
+    // RTK Query keeps the last-good `data` on a rejected refetch (see
+    // `lib/features/backend.ts`), so a background refetch of the same args —
+    // a cross-slice cache invalidation, not a keystroke — that fails leaves
+    // `currentData` still holding the prior successful list. A field that
+    // exists to confirm "no existing label matches" must not go on trusting a
+    // list it can no longer vouch for just because the list itself is
+    // non-empty; the panel has to report the failure, and Enter must not
+    // treat the stale rows as a verified answer.
+    it("reports a background refetch failure instead of trusting the list it had before it", async () => {
+      let requestCount = 0;
+      mockLabelSearch(() => {
+        requestCount += 1;
+        return requestCount === 1
+          ? HttpResponse.json([sonamos])
+          : HttpResponse.json({ message: "boom" }, { status: 500 });
+      });
+      const onSubmit = vi.fn();
+      const { user, store } = renderWithProviders(
+        <TypeaheadInForm onSubmit={onSubmit} />,
+      );
+
+      const input = await findInput();
+      await user.type(input, "Sona");
+      await vi.advanceTimersByTimeAsync(400);
+      await screen.findByText("Sonamos");
+
+      await act(async () => {
+        store.dispatch(
+          labelsApi.util.invalidateTags([{ type: "LabelSearch", id: "LIST" }]),
+        );
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      await screen.findByRole("alert");
+
+      expect(screen.queryByText("Sonamos")).not.toBeInTheDocument();
+
+      await user.keyboard("{Enter}");
+
+      expect(onSubmit).not.toHaveBeenCalled();
+    });
   });
 
   describe("disabled", () => {

@@ -31,8 +31,12 @@ export const labelsApi = createApi({
       // `payload.data.message`, `payload.status`, and `payload.error`;
       // nesting the real error under a key it never inspects keeps this
       // endpoint's failures out of the global toast without touching that
-      // shared module. Its unconditional PostHog capture is untouched by this
-      // transform, so a searchLabels failure is still recorded there.
+      // shared module. Its unconditional PostHog capture still fires for
+      // every searchLabels failure (it is not behind any of those checks),
+      // but reads the same three fields for the error message it records —
+      // so the trade for silencing the toast is a generic "RTK Query error"
+      // capture there instead of the real status/body, still tagged with
+      // `endpoint: "searchLabels"` from the action's own metadata.
       transformErrorResponse: (
         response: FetchBaseQueryError,
       ): { searchLabelsError: FetchBaseQueryError } => ({

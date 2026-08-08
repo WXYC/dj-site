@@ -91,7 +91,15 @@ function LabelSearchTypeaheadInner({
   // copy (and the Enter guard that lets a submit through on it) would fire a
   // beat before the duplicate check has actually been dispatched.
   const isSearching = showPanel && (pendingDebounce || isFetching || isUninitialized);
-  const showError = resultsAreCurrent && isError && data === undefined;
+  // RTK Query keeps the last-good `data` on a rejected refetch, so a
+  // background refetch of these same args (a cross-slice cache invalidation,
+  // not a keystroke) that fails leaves `data` still holding the prior
+  // successful list — `isError` is true with `data` defined. A duplicate
+  // check that goes on trusting that list because it happens to be non-empty
+  // would report a stale "no match" through exactly the outage it exists to
+  // catch, so `showError` does not require `data === undefined`: any error
+  // for the current args takes the panel over, stale rows or not.
+  const showError = resultsAreCurrent && isError;
   const showSearching = isSearching && labels.length === 0 && !showError;
   const showNoMatches = showPanel && !showError && !showSearching && labels.length === 0;
   const showListbox = showPanel && !showError && !showSearching && labels.length > 0;
