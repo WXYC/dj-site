@@ -233,6 +233,20 @@ describe("AlbumEditForm", () => {
 
       expect(await screen.findByLabelText("Title")).toBeInTheDocument();
     });
+
+    // AuthorizedView (RequireMD) re-resolves authority from scratch on every
+    // mount — it has no cache of an authority a parent already established.
+    // The artist field must use the ungated typeahead variant so this form's
+    // own RequireMD is the only resolution in the tree; the self-gated
+    // default export would open a second, redundant one on every mount.
+    it("resolves organization authority once, not once per nested field", async () => {
+      mockFetchOrgRole.mockResolvedValue("musicDirector");
+      mockUseSession.mockReturnValue(sessionWithRole());
+      renderWithProviders(<AlbumEditForm album={juanaMolinaAlbum()} />);
+
+      expect(await screen.findByLabelText("Search artists")).toBeInTheDocument();
+      expect(mockFetchOrgRole).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("as a Music Director", () => {

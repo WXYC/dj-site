@@ -76,7 +76,17 @@ export interface ArtistSearchTypeaheadProps {
   disabled?: boolean;
 }
 
-function ArtistSearchTypeaheadInner({
+/**
+ * Ungated variant for a caller that already wraps its own mount point in
+ * `RequireMD` (or an equivalent authority check). `AuthorizedView` re-resolves
+ * from scratch on every mount — it has no cache of an authority a parent
+ * already established — so nesting the gated default export inside an
+ * already-MD-gated form re-runs that resolution for no reason and renders a
+ * blank field until it settles, on every remount (`key={album.id}`-keyed
+ * forms remount on every navigation). Use the default export for any other
+ * caller; this one skips the gate, not the auth check.
+ */
+export function ArtistSearchTypeaheadInner({
   genreId,
   value,
   onChange,
