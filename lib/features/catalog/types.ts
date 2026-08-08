@@ -133,6 +133,57 @@ export type SearchArtistsInGenreResponse = {
   artists: ArtistInGenreOption[];
 };
 
+/**
+ * A per-track artist credit to write to a Various-Artists compilation. Only the
+ * librarian-meaningful free-text fields travel on the wire: the backend derives
+ * the canonical artist link from them server-side, so widening its storage does
+ * not widen this shape.
+ *
+ * `track_title` and `track_position` are both nullable in storage. Position is
+ * a string, not a number — sleeve positions are `A1`, `B2`, `1-04`.
+ */
+export type CompilationTrackInput = {
+  artist_name: string;
+  track_title?: string | null;
+  track_position?: string | null;
+};
+
+/** A stored per-track credit, with the id the server assigned it. */
+export type CompilationTrack = CompilationTrackInput & {
+  id: number;
+};
+
+export type CompilationTrackList = {
+  library_id: number;
+  tracks: CompilationTrack[];
+};
+
+/**
+ * Result of an additive write. `inserted + skipped` equals the number of rows
+ * submitted: a row already present is skipped rather than duplicated, matched
+ * on the storage uniqueness key. There is no count of rows changed, because the
+ * write path cannot change or remove a row — only add one.
+ */
+export type CompilationTracksWriteResponse = {
+  library_id: number;
+  inserted: number;
+  skipped: number;
+  tracks: CompilationTrack[];
+};
+
+/**
+ * A proposed — and deliberately unwritten — tracklist derived from the release's
+ * linked Discogs entry. `discogs_release_id: null` with an empty `tracks` is the
+ * upstream's honest "nothing resolved", which routes the librarian to manual
+ * entry. It is not the same as the request having failed; see the endpoint's
+ * opt-out of the shared non-JSON soft-fail.
+ */
+export type CompilationTrackSuggestions = {
+  library_id: number;
+  discogs_release_id: number | null;
+  tracks: CompilationTrackInput[];
+};
+
 export type LibraryFormatRow = {
   id: number;
   format_name: string;

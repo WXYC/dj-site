@@ -29,8 +29,16 @@ describe("catalogApi", () => {
       "getGenres",
       "peekArtistCode",
       "searchArtistsInGenre",
+      "getCompilationTracks",
+      "getCompilationTrackSuggestions",
     ],
-    mutations: ["addAlbum", "addArtist", "addFormat", "addGenre"],
+    mutations: [
+      "addAlbum",
+      "addArtist",
+      "addFormat",
+      "addGenre",
+      "writeCompilationTracks",
+    ],
     reducerPath: "catalogApi",
   });
 
