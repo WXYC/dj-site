@@ -12,7 +12,7 @@ import { http, HttpResponse } from "msw";
 import { useState } from "react";
 import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import LabelSearchTypeahead from "@/src/components/experiences/modern/catalog/AddRelease/LabelSearchTypeahead";
-import type { LabelRow } from "@/lib/features/labels/types";
+import type { Label } from "@/lib/features/labels/types";
 
 vi.mock("@/lib/features/authentication/client", () => ({
   authClient: { useSession: vi.fn() },
@@ -58,11 +58,11 @@ function sessionWithRole() {
 
 const LABEL_SEARCH_URL = `${TEST_BACKEND_URL}/labels/search`;
 
-const sonamos: LabelRow = { id: 5, label_name: "Sonamos" };
-const dragCity: LabelRow = { id: 9, label_name: "Drag City" };
+const sonamos: Label = { id: 5, label_name: "Sonamos" };
+const dragCity: Label = { id: 9, label_name: "Drag City" };
 
 /** More rows than the panel's fixed height shows, so the tail needs scrolling. */
-const manyLabels: LabelRow[] = [
+const manyLabels: Label[] = [
   "Drag City",
   "Domino",
   "Dead Oceans",
@@ -77,7 +77,7 @@ const manyLabels: LabelRow[] = [
 
 type SearchResponder = (url: URL) => Response | Promise<Response>;
 
-function mockLabelSearch(respond: LabelRow[] | SearchResponder): URL[] {
+function mockLabelSearch(respond: Label[] | SearchResponder): URL[] {
   const requests: URL[] = [];
   server.use(
     http.get(LABEL_SEARCH_URL, ({ request }) => {
@@ -98,7 +98,7 @@ function ControlledTypeahead({
   disabled,
 }: {
   initialValue?: string;
-  onSelect?: (label: LabelRow) => void;
+  onSelect?: (label: Label) => void;
   onSelectionCleared?: () => void;
   disabled?: boolean;
 }) {
@@ -150,7 +150,7 @@ function TypeaheadUnderEscapeHandler({ onEscape }: { onEscape: () => void }) {
 }
 
 /** A focusable neighbour, so Tab out of the field lands somewhere real. */
-function TypeaheadBesideField({ onSelect }: { onSelect?: (l: LabelRow) => void }) {
+function TypeaheadBesideField({ onSelect }: { onSelect?: (l: Label) => void }) {
   return (
     <>
       <ControlledTypeahead onSelect={onSelect} />
@@ -196,7 +196,10 @@ describe("LabelSearchTypeahead", () => {
       renderWithProviders(<ControlledTypeahead />);
 
       await waitFor(() => expect(mockFetchOrgRole).toHaveBeenCalled());
-      await mockFetchOrgRole.mock.results[0].value;
+      // The mock is module-scoped and nothing in this file clears it between
+      // tests, so its call history spans the whole file — indexing from the
+      // front picks up whichever test happened to run first, not this one.
+      await mockFetchOrgRole.mock.results.at(-1)!.value;
       await waitFor(() =>
         expect(
           screen.queryByPlaceholderText("Search labels..."),
@@ -362,9 +365,14 @@ describe("LabelSearchTypeahead", () => {
     // scoped to focus leaving the field entirely, not merely leaving the input,
     // or the button unmounts on the very keystroke that would reach it.
     it("keeps the panel open when focus moves to the retry button", async () => {
-      mockLabelSearch(() =>
-        HttpResponse.json({ message: "boom" }, { status: 500 }),
-      );
+      let failNext = true;
+      mockLabelSearch(() => {
+        if (failNext) {
+          failNext = false;
+          return HttpResponse.json({ message: "boom" }, { status: 500 });
+        }
+        return HttpResponse.json([sonamos]);
+      });
       const { user } = renderWithProviders(<TypeaheadBesideField />);
 
       const input = await findInput();
@@ -376,6 +384,19 @@ describe("LabelSearchTypeahead", () => {
 
       expect(screen.getByRole("button", { name: /try again/i })).toHaveFocus();
       expect(screen.getByRole("alert")).toBeInTheDocument();
+
+      // Activating the retry button from the keyboard unmounts it: the error
+      // panel gives way to the "searching" panel the instant the refetch
+      // starts. If focus is still on the button when React tears it down, the
+      // browser drops focus to <body> — taking arrow-key, Enter-to-pick and
+      // Escape-to-dismiss with it, since all three are wired through the input.
+      await user.keyboard("{Enter}");
+
+      expect(document.activeElement).not.toBe(document.body);
+      expect(input).toHaveFocus();
+
+      await vi.advanceTimersByTimeAsync(400);
+      expect(await screen.findByText("Sonamos")).toBeInTheDocument();
     });
 
     // Rows suppress the focus shift on mousedown for exactly this reason: the

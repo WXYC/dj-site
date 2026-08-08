@@ -1,13 +1,14 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
+import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { backendBaseQuery } from "../backend";
-import { LabelRow, SearchLabelsParams } from "./types";
+import { Label, SearchLabelsParams } from "./types";
 
 export const labelsApi = createApi({
   reducerPath: "labelsApi",
   baseQuery: backendBaseQuery("labels"),
   tagTypes: ["LabelSearch"],
   endpoints: (builder) => ({
-    searchLabels: builder.query<LabelRow[], SearchLabelsParams>({
+    searchLabels: builder.query<Label[], SearchLabelsParams>({
       query: ({ q, limit }) => ({
         url: "/search",
         params: { q, limit },
@@ -20,14 +21,33 @@ export const labelsApi = createApi({
       // near-duplicate this endpoint exists to surface. Opt out so an outage
       // reaches consumers as an error they can refuse to act on.
       extraOptions: { surfaceNonJsonAsError: true },
-      transformResponse: (response: LabelRow[] | null): LabelRow[] =>
+      transformResponse: (response: Label[] | null): Label[] =>
         response ?? [],
-      // Label creation is an upsert on the exact name, so a stale empty result
-      // served from cache after a label was created sends the next search back
-      // through the create path and produces a second row. The only writer is
-      // the release-creation mutation, which lives in a different `createApi`
-      // — and `invalidatesTags` does not reach across instances. It has to
-      // dispatch `labelsApi.util.invalidateTags` for this tag to do anything.
+      // The picker renders its own inline outage panel (role="alert") for
+      // every shape of failure here, so the shared rtk-query-error-logger
+      // middleware reporting the same failure again as a global toast is a
+      // second, redundant surface for one event — worse, a screen reader
+      // announces both. That middleware keys its toast branches off
+      // `payload.data.message`, `payload.status`, and `payload.error`;
+      // nesting the real error under a key it never inspects keeps this
+      // endpoint's failures out of the global toast without touching that
+      // shared module. Its unconditional PostHog capture is untouched by this
+      // transform, so a searchLabels failure is still recorded there.
+      transformErrorResponse: (
+        response: FetchBaseQueryError,
+      ): { searchLabelsError: FetchBaseQueryError } => ({
+        searchLabelsError: response,
+      }),
+      // The only writer of labels is the release-creation mutation, which
+      // lives in a different `createApi` — `invalidatesTags` does not reach
+      // across API instances, so it has to dispatch
+      // `labelsApi.util.invalidateTags` for this tag to do anything. That
+      // cross-slice invalidation is the whole reason the tag exists: it is
+      // not preventing a duplicate row. `labelsService.createLabel` upserts
+      // with `onConflictDoNothing({ target: labels.label_name })` and
+      // re-selects, so resubmitting an identical label name can never create
+      // a second row — a duplicate needs a different string, which is a
+      // different cache key and so was never at risk from a stale entry here.
       providesTags: [{ type: "LabelSearch", id: "LIST" }],
     }),
   }),

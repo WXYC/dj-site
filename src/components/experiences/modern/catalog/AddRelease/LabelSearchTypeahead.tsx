@@ -5,7 +5,7 @@ import { ClickAwayListener } from "@mui/base/ClickAwayListener";
 import { Box, Button, CircularProgress, Input, Sheet, Typography } from "@mui/joy";
 import { RequireMD } from "@/src/components/shared/Authorization";
 import { useSearchLabelsQuery } from "@/lib/features/labels/api";
-import type { LabelRow } from "@/lib/features/labels/types";
+import type { Label } from "@/lib/features/labels/types";
 import { useDebouncedValue } from "@/src/hooks/useDebouncedValue";
 
 const DEBOUNCE_MS = 300;
@@ -15,7 +15,7 @@ const RESULT_LIMIT = 10;
 /** Nothing highlighted. Arrow keys and hover are the only way onto a row. */
 const NO_HIGHLIGHT = -1;
 
-const NO_LABELS: LabelRow[] = [];
+const NO_LABELS: Label[] = [];
 
 /**
  * Search-backed, MD-gated label picker over `GET /labels/search`. Unlike the
@@ -35,7 +35,7 @@ const NO_LABELS: LabelRow[] = [];
 export interface LabelSearchTypeaheadProps {
   value: string;
   onChange: (value: string) => void;
-  onSelect: (label: LabelRow) => void;
+  onSelect: (label: Label) => void;
   onSelectionCleared: () => void;
   disabled?: boolean;
 }
@@ -49,7 +49,7 @@ function LabelSearchTypeaheadInner({
 }: LabelSearchTypeaheadProps) {
   const [open, setOpen] = useState(false);
   const [rawHighlightIndex, setHighlightIndex] = useState(NO_HIGHLIGHT);
-  const confirmedLabel = useRef<LabelRow | null>(null);
+  const confirmedLabel = useRef<Label | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   // Row elements by index, kept so the highlight can be scrolled into view.
   const rowRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -71,6 +71,7 @@ function LabelSearchTypeaheadInner({
   const {
     currentData: data,
     isFetching,
+    isUninitialized,
     isError,
     refetch,
   } = useSearchLabelsQuery(
@@ -83,11 +84,17 @@ function LabelSearchTypeaheadInner({
   const labels = resultsAreCurrent ? (data ?? NO_LABELS) : NO_LABELS;
 
   const showPanel = panelOpen && hasValidQuery;
-  const isSearching = showPanel && (pendingDebounce || isFetching);
+  // `skip` flipping false does not dispatch the query until the next effect,
+  // so the render in between reports `isFetching: false` — RTK Query's
+  // uninitialized window. Without `isUninitialized` here that render reads as
+  // a completed search with no matches: the "will be created as a new label"
+  // copy (and the Enter guard that lets a submit through on it) would fire a
+  // beat before the duplicate check has actually been dispatched.
+  const isSearching = showPanel && (pendingDebounce || isFetching || isUninitialized);
   const showError = resultsAreCurrent && isError && data === undefined;
   const showSearching = isSearching && labels.length === 0 && !showError;
   const showNoMatches = showPanel && !showError && !showSearching && labels.length === 0;
-  const showListbox = showPanel && !showError && !showSearching && !showNoMatches;
+  const showListbox = showPanel && !showError && !showSearching && labels.length > 0;
 
   // The highlight is local state while the rows come from the query, so nothing
   // structurally holds the two in step across a re-render. Clamping here keeps
@@ -137,7 +144,7 @@ function LabelSearchTypeaheadInner({
   );
 
   const handleSelect = useCallback(
-    (label: LabelRow) => {
+    (label: Label) => {
       confirmedLabel.current = label;
       onChange(label.label_name);
       onSelect(label);
@@ -300,7 +307,16 @@ function LabelSearchTypeaheadInner({
                   size="sm"
                   variant="plain"
                   onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => refetch()}
+                  onClick={() => {
+                    // Retrying swaps this button out for the "searching" panel
+                    // the instant the refetch starts. Moving focus to the
+                    // input before that render commits keeps focus off a node
+                    // React is about to remove — losing focus mid-retry would
+                    // otherwise drop it to <body>, taking arrow-key,
+                    // Enter-to-pick and Escape-to-dismiss with it.
+                    refetch();
+                    inputRef.current?.focus();
+                  }}
                   sx={{ mt: 0.5, px: 0 }}
                 >
                   Try again
@@ -312,7 +328,7 @@ function LabelSearchTypeaheadInner({
                   Searching labels...
                 </Typography>
               </Box>
-            ) : labels.length === 0 ? (
+            ) : showNoMatches ? (
               <Box sx={{ px: 1.5, py: 0.75 }}>
                 <Typography level="body-sm" sx={{ fontStyle: "italic" }}>
                   {`"${trimmed}" will be created as a new label.`}

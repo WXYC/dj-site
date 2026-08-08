@@ -2,10 +2,15 @@ import { describe, it, expect, vi } from "vitest";
 import { configureStore } from "@reduxjs/toolkit";
 import { http, HttpResponse } from "msw";
 import { labelsApi, useSearchLabelsQuery } from "@/lib/features/labels/api";
+import { rtkQueryErrorLogger } from "@/lib/rtk-query-error-logger";
 import { describeApi, server, TEST_BACKEND_URL } from "@/tests/helpers";
 
 vi.mock("@/lib/features/authentication/client", () => ({
   getJWTToken: vi.fn().mockResolvedValue("test-token"),
+}));
+
+vi.mock("sonner", () => ({
+  toast: { error: vi.fn(), success: vi.fn() },
 }));
 
 /** Just this slice, so a failure names the labels endpoint rather than the whole store. */
@@ -13,6 +18,15 @@ function labelsStore() {
   return configureStore({
     reducer: { [labelsApi.reducerPath]: labelsApi.reducer },
     middleware: (gdm) => gdm().concat(labelsApi.middleware),
+  });
+}
+
+/** Includes the shared middleware, for tests asserting what it does — or does not — do. */
+function labelsStoreWithErrorLogger() {
+  return configureStore({
+    reducer: { [labelsApi.reducerPath]: labelsApi.reducer },
+    middleware: (gdm) =>
+      gdm().concat(rtkQueryErrorLogger).concat(labelsApi.middleware),
   });
 }
 
@@ -77,9 +91,38 @@ describe("labelsApi", () => {
     expect(result.data).toBeUndefined();
   });
 
+  // The picker renders its own inline "Label search is unavailable" panel for
+  // every failure shape here — the opt-out above turns a non-JSON body into
+  // this same isError state. The shared rtk-query-error-logger middleware
+  // reporting it a second time as a global toast would double the same
+  // outage for a screen-reader user without adding any information.
+  it.each([
+    ["a gateway HTML error page (PARSING_ERROR opt-out)", () =>
+      new HttpResponse("<!DOCTYPE html><html><body>Bad Gateway</body></html>", {
+        status: 502,
+        headers: { "Content-Type": "text/html" },
+      }),
+    ],
+    ["a structured JSON error body", () =>
+      HttpResponse.json({ message: "boom" }, { status: 500 }),
+    ],
+  ])("keeps %s out of the global toast", async (_name, respond) => {
+    const { toast } = await import("sonner");
+    vi.mocked(toast.error).mockClear();
+    server.use(http.get(`${TEST_BACKEND_URL}/labels/search`, respond));
+
+    const store = labelsStoreWithErrorLogger();
+    const result = await store.dispatch(
+      labelsApi.endpoints.searchLabels.initiate({ q: "Sona", limit: 10 }),
+    );
+
+    expect(result.isError).toBe(true);
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
   // A JSON `null` body still parses, so it reaches transformResponse rather
   // than the opt-out above. Consumers index and map the result, so the
-  // declared `LabelRow[]` return type only holds if a list is substituted.
+  // declared `Label[]` return type only holds if a list is substituted.
   it("substitutes an empty list for a JSON null body", async () => {
     server.use(
       http.get(`${TEST_BACKEND_URL}/labels/search`, () =>

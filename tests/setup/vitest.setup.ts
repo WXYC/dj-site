@@ -63,10 +63,12 @@ global.ResizeObserver = class ResizeObserver {
 // implementation and any call throws). Components that keep a keyboard
 // highlight visible inside a scrolling panel call it on every highlight move.
 // Defined on the prototype so a test can `vi.spyOn(Element.prototype,
-// "scrollIntoView")` to assert which element was scrolled to.
-if (!Element.prototype.scrollIntoView) {
-  Element.prototype.scrollIntoView = function scrollIntoView() {};
-}
+// "scrollIntoView")` to assert which element was scrolled to. Assigned
+// unconditionally, like the other DOM stubs in this file: a future jsdom that
+// ships its own no-op (routed to the virtual console instead of throwing)
+// would otherwise leave that no-op in place under a guard that never fires
+// again, and every keyboard-highlight move would flood test output.
+Element.prototype.scrollIntoView = function scrollIntoView() {};
 
 // Mock IntersectionObserver for infinite-scroll components (jsdom lacks it).
 global.IntersectionObserver = class IntersectionObserver {

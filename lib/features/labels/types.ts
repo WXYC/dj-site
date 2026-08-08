@@ -1,8 +1,6 @@
-export type LabelRow = {
-  id: number;
-  label_name: string;
-  parent_label_id?: number | null;
-};
+import type { Label } from "@wxyc/shared/dtos";
+
+export type { Label };
 
 /** GET /labels/search — `q` is matched case-insensitively as a prefix. */
 export type SearchLabelsParams = {
