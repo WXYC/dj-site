@@ -230,6 +230,33 @@ describe("AddReleasePanel", () => {
       mockUseSession.mockReturnValue(sessionWithRole());
     });
 
+    it("does not fetch genres or formats until the dialog is opened", async () => {
+      let genreRequests = 0;
+      let formatRequests = 0;
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/genres`, () => {
+          genreRequests += 1;
+          return HttpResponse.json([{ id: ROCK_GENRE_ID, genre_name: "Rock" }]);
+        }),
+        http.get(`${TEST_BACKEND_URL}/library/formats`, () => {
+          formatRequests += 1;
+          return HttpResponse.json([{ id: CD_FORMAT_ID, format_name: "CD" }]);
+        }),
+      );
+      const { user } = renderWithProviders(<AddReleasePanel />);
+      await screen.findByRole("button", { name: "Add Release" });
+
+      // A catalog page load never opens this dialog for most visits, so the
+      // two lookups it needs must wait for that instead of firing on mount.
+      expect(genreRequests).toBe(0);
+      expect(formatRequests).toBe(0);
+
+      await openPanel(user);
+
+      await waitFor(() => expect(genreRequests).toBeGreaterThan(0));
+      await waitFor(() => expect(formatRequests).toBeGreaterThan(0));
+    });
+
     it("disables the artist field until a genre is chosen", async () => {
       const { user } = renderWithProviders(<AddReleasePanel />);
       await openPanel(user);
@@ -520,7 +547,10 @@ describe("AddReleasePanel", () => {
       ).toBeInTheDocument();
     });
 
-    it("does not show guidance for the submitted term once the artist field is edited while the rejection is still in flight", async () => {
+    // A submitted term can no longer be edited out from under a pending
+    // rejection: every field is disabled for the duration of the request,
+    // which is what closes the race the guidance-staleness bug depended on.
+    it("disables every field while the mutation is in flight, and re-enables them once it settles", async () => {
       let resolveResponse: (response: Response) => void;
       const responsePromise = new Promise<Response>((resolve) => {
         resolveResponse = resolve;
@@ -529,7 +559,8 @@ describe("AddReleasePanel", () => {
       const { user } = renderWithProviders(<AddReleasePanel />);
 
       await openPanel(user);
-      await user.type(screen.getByLabelText(/Album title/), "Edits");
+      const albumTitleInput = screen.getByLabelText(/Album title/);
+      await user.type(albumTitleInput, "Edits");
       await pickGenre(user);
       await pickFormat(user);
 
@@ -542,11 +573,11 @@ describe("AddReleasePanel", () => {
       await user.click(screen.getByRole("button", { name: "Save Release" }));
       await waitFor(() => expect(getReceivedBody()).toBeDefined());
 
-      // The field is never disabled while the mutation is in flight, so the
-      // MD can correct it before the rejection they are still waiting on
-      // arrives.
-      await user.clear(artistInput);
-      await user.type(artistInput, "DJ E");
+      expect(albumTitleInput).toBeDisabled();
+      expect(screen.getByRole("combobox", { name: "Genre" })).toBeDisabled();
+      expect(screen.getByRole("combobox", { name: "Format" })).toBeDisabled();
+      expect(artistInput).toBeDisabled();
+      expect(labelInput).toBeDisabled();
 
       resolveResponse!(
         HttpResponse.json(
@@ -560,10 +591,90 @@ describe("AddReleasePanel", () => {
 
       await waitFor(() => expect(mockToastError).toHaveBeenCalled());
 
-      // Guidance naming the submitted term would now describe text the field
-      // no longer holds.
-      expect(screen.queryByText(/isn't filed under/i)).not.toBeInTheDocument();
-      expect(artistInput).toHaveValue("DJ E");
+      expect(albumTitleInput).toBeEnabled();
+      expect(screen.getByRole("combobox", { name: "Genre" })).toBeEnabled();
+      expect(screen.getByRole("combobox", { name: "Format" })).toBeEnabled();
+      expect(artistInput).toBeEnabled();
+      expect(labelInput).toBeEnabled();
+    });
+
+    // A trailing space submits identically to the trimmed term — the guard
+    // must compare on the same basis it is protecting, not the raw field
+    // value against the trimmed one, or a submission that carried whitespace
+    // and was never touched again would read as "edited" and lose guidance
+    // it is still entitled to.
+    it("still shows guidance for a submitted term that carried surrounding whitespace", async () => {
+      mockAddAlbum(() =>
+        HttpResponse.json(
+          {
+            message:
+              "Artist doesn't exist or hasn't released an album in this genre before. Add a new artist entry to the library",
+          },
+          { status: 400 },
+        ),
+      );
+      const { user } = renderWithProviders(<AddReleasePanel />);
+
+      await openPanel(user);
+      await user.type(screen.getByLabelText(/Album title/), "Edits");
+      await pickGenre(user);
+      await pickFormat(user);
+
+      const artistInput = await screen.findByPlaceholderText("Search artists...");
+      await user.type(artistInput, "Chuquimamani-Condori  ");
+
+      const labelInput = await screen.findByPlaceholderText("Search labels...");
+      await user.type(labelInput, "self-released");
+
+      await user.click(screen.getByRole("button", { name: "Save Release" }));
+
+      expect(
+        await screen.findByText(/Chuquimamani-Condori.*isn't filed under Rock/i),
+      ).toBeInTheDocument();
+    });
+
+    // The Genre Select is disabled for the same window (see the
+    // field-disabling test above), so a genre swap can no longer race a
+    // pending rejection through the UI at all — this pins the other half of
+    // the same in-flight window: dismissal.
+    it("refuses to dismiss while a save is in flight", async () => {
+      let resolveResponse: (response: Response) => void;
+      const responsePromise = new Promise<Response>((resolve) => {
+        resolveResponse = resolve;
+      });
+      const getReceivedBody = mockAddAlbum(() => responsePromise);
+      const confirmSpy = vi.spyOn(window, "confirm");
+      const { user } = renderWithProviders(<AddReleasePanel />);
+
+      await openPanel(user);
+      await user.type(screen.getByLabelText(/Album title/), "DOGA");
+      await pickGenre(user);
+      await pickFormat(user);
+      await user.type(
+        await screen.findByPlaceholderText("Search artists..."),
+        "Juana Molina",
+      );
+      await user.type(
+        await screen.findByPlaceholderText("Search labels..."),
+        "Sonamos",
+      );
+
+      await user.click(screen.getByRole("button", { name: "Save Release" }));
+      await waitFor(() => expect(getReceivedBody()).toBeDefined());
+
+      await user.click(screen.getByTestId("CloseIcon"));
+
+      // Neither the confirm question nor a close: the request could still
+      // succeed and create the row a moment later, which would make "nothing
+      // has been saved yet" false.
+      expect(confirmSpy).not.toHaveBeenCalled();
+      expect(screen.getByRole("button", { name: "Save Release" })).toBeInTheDocument();
+
+      resolveResponse!(HttpResponse.json({ id: 999 }));
+      await waitFor(() =>
+        expect(screen.queryByRole("button", { name: "Save Release" })).not.toBeInTheDocument(),
+      );
+      confirmSpy.mockRestore();
     });
 
     it("leaves a 400 that is not the genre-scoped miss to the generic error path", async () => {
