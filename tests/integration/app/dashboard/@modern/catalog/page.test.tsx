@@ -1,10 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
-import { http, HttpResponse } from "msw";
 import { renderWithProviders } from "@/tests/helpers";
-import { server } from "@/tests/fakes/server";
-import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
-import ArtistAddPanel from "@/src/components/experiences/modern/catalog/ArtistAddPanel";
+
+// Search and results aren't under test here; this page's own responsibility is
+// which controls it offers in its header.
+vi.mock("@/src/components/experiences/modern/catalog/Search/MobileSearchBar", () => ({
+  default: () => null,
+}));
+vi.mock("@/src/components/experiences/modern/catalog/Search/SearchBar", () => ({
+  default: () => null,
+}));
+vi.mock("@/src/components/experiences/modern/catalog/Results/Results", () => ({
+  default: () => null,
+}));
 
 vi.mock("@/lib/features/authentication/client", () => ({
   authClient: { useSession: vi.fn() },
@@ -19,12 +27,9 @@ vi.mock("@/lib/features/authentication/organization-utils", () => ({
   fetchOrganizationRoleForUserClient: vi.fn(),
 }));
 
-vi.mock("sonner", () => ({
-  toast: { error: vi.fn(), success: vi.fn() },
-}));
-
 import { authClient } from "@/lib/features/authentication/client";
 import { fetchOrganizationRoleForUserClient } from "@/lib/features/authentication/organization-utils";
+import CatalogPage from "@/app/dashboard/@modern/catalog/page";
 
 const mockUseSession = authClient.useSession as ReturnType<typeof vi.fn>;
 const mockFetchOrgRole = fetchOrganizationRoleForUserClient as ReturnType<
@@ -48,45 +53,34 @@ function session() {
   };
 }
 
-describe("ArtistAddPanel", () => {
+describe("catalog page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseSession.mockReturnValue(session());
+  });
+
+  // Both write surfaces have to be reachable from this page, and neither
+  // component can assert that about itself. The add-release panel tells an MD
+  // whose artist isn't filed under the chosen genre to add that artist first —
+  // if the artist entry point stops being mounted, that sentence names a step
+  // the product no longer offers, and every test that renders either panel
+  // directly still passes.
+  it("offers an MD both catalog write entry points", async () => {
     mockFetchOrgRole.mockResolvedValue("musicDirector");
-    server.use(
-      http.get(`${TEST_BACKEND_URL}/library/genres`, () =>
-        HttpResponse.json([{ id: 7, genre_name: "Rock" }]),
-      ),
-    );
-  });
-
-  // The add-release panel tells an MD whose artist isn't filed under the
-  // chosen genre to add that artist first. This entry point is what makes
-  // that instruction followable — without it the form exists but nothing
-  // renders it, and the release cannot be filed at all.
-  it("opens the artist-add form from the catalog header", async () => {
-    const { user } = renderWithProviders(<ArtistAddPanel />);
-
-    const trigger = await screen.findByRole("button", { name: /add artist/i });
-    expect(
-      screen.queryByPlaceholderText("Search artists..."),
-    ).not.toBeInTheDocument();
-
-    await user.click(trigger);
+    renderWithProviders(<CatalogPage />);
 
     expect(
-      await screen.findByPlaceholderText("Search artists..."),
+      await screen.findByRole("button", { name: /add artist/i }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Code number")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: /add release/i }),
+    ).toBeInTheDocument();
   });
 
-  it("stays shut for a DJ", async () => {
+  it("offers a DJ neither", async () => {
     mockFetchOrgRole.mockResolvedValue("dj");
-    renderWithProviders(<ArtistAddPanel />);
+    renderWithProviders(<CatalogPage />);
 
-    // Awaiting the call only proves the gate was asked. AuthorizedView renders
-    // nothing while the answer is outstanding, so asserting absence before the
-    // promise settles cannot tell a refusal from a pending question.
     await waitFor(() => expect(mockFetchOrgRole).toHaveBeenCalled());
     await mockFetchOrgRole.mock.results[0].value;
 
@@ -94,7 +88,7 @@ describe("ArtistAddPanel", () => {
       screen.queryByRole("button", { name: /add artist/i }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByPlaceholderText("Search artists..."),
+      screen.queryByRole("button", { name: /add release/i }),
     ).not.toBeInTheDocument();
   });
 });

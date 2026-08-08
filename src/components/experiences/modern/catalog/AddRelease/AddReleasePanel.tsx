@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { AddCircle } from "@mui/icons-material";
 import {
   Button,
+  DialogTitle,
   FormControl,
   FormLabel,
   Input,
@@ -247,7 +248,7 @@ function AddReleaseForm() {
       <Modal open={open} onClose={handleDismiss}>
         <ModalDialog sx={{ maxWidth: 480, width: "100%" }}>
           <ModalClose />
-          <Typography level="title-lg">Add Release</Typography>
+          <DialogTitle>Add Release</DialogTitle>
           <form onSubmit={handleSubmit}>
             <Stack spacing={1.5}>
               <FormControl required>
