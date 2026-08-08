@@ -926,6 +926,25 @@ describe("ArtistAddForm", () => {
 
         expect(screen.getByRole("button", { name: /add artist/i })).toBeEnabled();
       });
+
+      it("leaves the conflict banner and the submit block standing when only the artist name is edited", async () => {
+        mockAddArtist(() => conflictResponse());
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await fillCoreFields(user);
+        await user.click(screen.getByRole("button", { name: /add artist/i }));
+        expect(await screen.findByRole("alert")).toHaveTextContent(`${MOLINA}12`);
+
+        // The artist name is not part of the (code_letters, genre_id,
+        // code_number) triple the server rejected, so editing it must not
+        // read as an answer about that rejection — unlike the code_letters,
+        // code_number, and genre handlers, handleNameChange must not clear a
+        // still-accurate conflict.
+        await user.type(screen.getByPlaceholderText("Search artists..."), " II");
+
+        expect(screen.getByRole("alert")).toHaveTextContent(`${MOLINA}12`);
+        expect(screen.getByRole("button", { name: /add artist/i })).toBeDisabled();
+      });
     });
 
     describe("failure handling", () => {
