@@ -13,6 +13,10 @@ import {
   AlbumEntry,
   AlbumSearchResultJSON,
   AlbumRequestParams,
+  CompilationTrackInput,
+  CompilationTrackList,
+  CompilationTrackSuggestions,
+  CompilationTracksWriteResponse,
   LibraryFormatRow,
   LibraryGenreRow,
   LibraryQueryParams,
@@ -60,7 +64,7 @@ function transformLibraryQueryResponse(
 export const catalogApi = createApi({
   reducerPath: "catalogApi",
   baseQuery: backendBaseQuery("library"),
-  tagTypes: ["Rotation", "AlbumDetail", "CatalogList", "ArtistSearch", "FormatList", "GenreList", "ArtistCodePeek"],
+  tagTypes: ["Rotation", "AlbumDetail", "CatalogList", "ArtistSearch", "FormatList", "GenreList", "ArtistCodePeek", "CompilationTracks"],
   endpoints: (builder) => ({
     searchCatalog: builder.query<AlbumEntry[], SearchCatalogQueryParams>({
       query: ({ artist_name, album_title, n, on_streaming }) => ({
@@ -241,6 +245,51 @@ export const catalogApi = createApi({
         response?.artists ? response : { artists: [] },
       providesTags: [{ type: "ArtistSearch", id: "LIST" }],
     }),
+    getCompilationTracks: builder.query<CompilationTrackList, { libraryId: number }>({
+      query: ({ libraryId }) => ({
+        url: `/${libraryId}/compilation-tracks`,
+      }),
+      // Opted out of the shared non-JSON soft-fail for the same reason the
+      // label search is: soft-failing would turn an unreadable response into
+      // the claim "this release has no per-track credits", and callers act on
+      // that claim by offering to write the credits themselves.
+      extraOptions: { surfaceNonJsonAsError: true },
+      providesTags: (_result, _error, { libraryId }) => [
+        { type: "CompilationTracks", id: libraryId },
+      ],
+    }),
+    getCompilationTrackSuggestions: builder.query<
+      CompilationTrackSuggestions,
+      { libraryId: number }
+    >({
+      query: ({ libraryId }) => ({
+        url: `/${libraryId}/compilation-tracks/discogs-suggestions`,
+      }),
+      // Same opt-out, and the stakes are higher here: the soft-fail's `null`
+      // is indistinguishable from the upstream's genuine `discogs_release_id:
+      // null` + empty `tracks`, which is precisely the signal that sends the
+      // librarian to hand-enter a tracklist of arbitrary length. An outage must
+      // not be able to impersonate "Discogs knows nothing about this release".
+      extraOptions: { surfaceNonJsonAsError: true },
+    }),
+    writeCompilationTracks: builder.mutation<
+      CompilationTracksWriteResponse,
+      { libraryId: number; tracks: CompilationTrackInput[] }
+    >({
+      query: ({ libraryId, tracks }) => ({
+        url: `/${libraryId}/compilation-tracks`,
+        method: "POST",
+        body: { tracks },
+      }),
+      // Additive-only server-side: this can add credits to a release, never
+      // amend or remove one. Callers must not present it as a way to correct a
+      // tracklist that already has stored rows — a corrected row posted here
+      // lands *alongside* the row it was meant to replace, and both stay
+      // searchable, with the response's `skipped` count as the only hint.
+      invalidatesTags: (_result, _error, { libraryId }) => [
+        { type: "CompilationTracks", id: libraryId },
+      ],
+    }),
     getInformation: builder.query<AlbumEntry | undefined, AlbumRequestParams>({
       query: ({ album_id }) => ({
         url: "/info",
@@ -336,6 +385,9 @@ export const {
   useAddArtistMutation,
   useLazyPeekArtistCodeQuery,
   useSearchArtistsInGenreQuery,
+  useGetCompilationTracksQuery,
+  useGetCompilationTrackSuggestionsQuery,
+  useWriteCompilationTracksMutation,
   useGetInformationQuery,
   useGetFormatsQuery,
   useAddFormatMutation,

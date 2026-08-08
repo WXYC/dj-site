@@ -25,11 +25,18 @@ import {
   useAddAlbumMutation,
   useGetFormatsQuery,
   useGetGenresQuery,
+  useWriteCompilationTracksMutation,
 } from "@/lib/features/catalog/api";
-import type { AddAlbumRequestBody, ArtistInGenreOption } from "@/lib/features/catalog/types";
+import { isCompilationReleaseArtistName } from "@/lib/features/catalog/is-compilation-artist";
+import type {
+  AddAlbumRequestBody,
+  ArtistInGenreOption,
+  CompilationTrackInput,
+} from "@/lib/features/catalog/types";
 import { labelsApi } from "@/lib/features/labels/api";
 import type { Label } from "@/lib/features/labels/types";
 import LabelSearchTypeahead from "./LabelSearchTypeahead";
+import VaTracklistStep from "./VaTracklistStep";
 
 /**
  * Exact 400 message `addAlbum` sends when an `artist_name` fails genre-scoped
@@ -73,6 +80,12 @@ function AddReleaseForm() {
   const [artistNotFound, setArtistNotFound] = useState<
     { term: string; genreId: number } | null
   >(null);
+  // Set only after a V/A release has actually been created, and carries the id
+  // the server assigned it — the per-track write is addressed to that release,
+  // so the step cannot exist before there is a release to address.
+  const [vaStep, setVaStep] = useState<
+    { libraryId: number; albumTitle: string } | null
+  >(null);
   // Bumped whenever the artist text or the genre changes — including the
   // reset a close (or a close-then-reopen) performs, since that also changes
   // both away from whatever a request in flight was submitted with. Compared
@@ -99,11 +112,17 @@ function AddReleaseForm() {
   const { data: genres } = useGetGenresQuery(undefined, { skip: !open });
   const { data: formats } = useGetFormatsQuery(undefined, { skip: !open });
   const [addAlbum, { isLoading }] = useAddAlbumMutation();
+  // Held here rather than inside the tracklist step so that "a request this
+  // panel started is still in flight" has one owner, which is what the
+  // dismissal guard below reads.
+  const [writeCompilationTracks, { isLoading: isSavingTracks }] =
+    useWriteCompilationTracksMutation();
 
   const closePanel = () => {
     setOpen(false);
     setForm(emptyForm());
     setArtistNotFound(null);
+    setVaStep(null);
   };
 
   const hasUnsavedInput = () =>
@@ -123,11 +142,50 @@ function AddReleaseForm() {
   // moment later and create the row anyway, which would make "nothing has
   // been saved yet" false by the time the MD reads it.
   const handleDismiss = () => {
-    if (isLoading) return;
+    if (isLoading || isSavingTracks) return;
+    // Past the V/A step the release is already in the catalog, so "nothing has
+    // been saved yet" would be false — and what dismissal costs is different in
+    // kind: not the release, only its per-track credits, which nothing else in
+    // the product can currently supply for an existing release.
+    if (vaStep) {
+      if (
+        !confirm(
+          `"${vaStep.albumTitle}" is already saved. Close without adding its per-track artists? They can't be added from here once this closes.`,
+        )
+      ) {
+        return;
+      }
+      closePanel();
+      return;
+    }
     if (hasUnsavedInput() && !confirm("Discard this release? Nothing has been saved yet.")) {
       return;
     }
     closePanel();
+  };
+
+  const handleSaveTracks = async (tracks: CompilationTrackInput[]) => {
+    if (!vaStep) return;
+    // Saving nothing is indistinguishable from skipping, and the backend
+    // rejects an empty list — treat it as the skip the MD evidently meant.
+    if (tracks.length === 0) {
+      closePanel();
+      return;
+    }
+    try {
+      const { inserted } = await writeCompilationTracks({
+        libraryId: vaStep.libraryId,
+        tracks,
+      }).unwrap();
+      toast.success(
+        `Added ${inserted} per-track ${inserted === 1 ? "artist" : "artists"} to "${vaStep.albumTitle}"`,
+      );
+      closePanel();
+    } catch {
+      // Toasted by the global rtkQueryErrorLogger middleware. The panel stays
+      // open on purpose: the rows are the only copy of work the MD may have
+      // hand-entered, and closing would destroy them with no way to re-derive.
+    }
   };
 
   const handleGenreChange = (_: unknown, value: number | null) => {
@@ -198,7 +256,7 @@ function AddReleaseForm() {
     const submitGeneration = formGenerationRef.current;
 
     try {
-      await addAlbum(body).unwrap();
+      const created = await addAlbum(body).unwrap();
       // A free-typed label with no resolved id means the backend just
       // upserted a new row from `body.label`. labelsApi's searchLabels only
       // reads, so nothing else invalidates its cache — without this, a
@@ -217,9 +275,26 @@ function AddReleaseForm() {
       // Guarded on the generation: without it, a request whose panel was
       // dismissed and reopened onto a new, still-unsaved release would close
       // that unrelated form the moment this one's response arrived, discarding
-      // it exactly as if the MD had cancelled — which they did not.
+      // it exactly as if the MD had cancelled — which they did not. The V/A
+      // hand-off is guarded by the same test and for the same reason: it would
+      // otherwise replace that unrelated form with a tracklist step addressed
+      // to a release the MD has stopped looking at.
       if (formGenerationRef.current === submitGeneration) {
-        closePanel();
+        // Detection is by name because it is the only signal available here:
+        // `album_artist`, the deterministic V/A marker, is dropped by the
+        // backend on this route (see the body-construction note above), so it
+        // cannot be sent and cannot come back. The strict whole-name predicate
+        // is deliberate — the lenient substring one would pull single artists
+        // whose names merely contain "various" or "soundtrack" into a per-track
+        // capture step that makes no sense for them.
+        if (
+          isCompilationReleaseArtistName(artistName) &&
+          typeof created?.id === "number"
+        ) {
+          setVaStep({ libraryId: created.id, albumTitle });
+        } else {
+          closePanel();
+        }
       }
     } catch (err) {
       // Guarded the same way as the success path above, and for the same
@@ -246,9 +321,18 @@ function AddReleaseForm() {
         Add Release
       </Button>
       <Modal open={open} onClose={handleDismiss}>
-        <ModalDialog sx={{ maxWidth: 480, width: "100%" }}>
+        <ModalDialog sx={{ maxWidth: vaStep ? 720 : 480, width: "100%" }}>
           <ModalClose />
-          <DialogTitle>Add Release</DialogTitle>
+          <DialogTitle>{vaStep ? "Per-Track Artists" : "Add Release"}</DialogTitle>
+          {vaStep ? (
+            <VaTracklistStep
+              libraryId={vaStep.libraryId}
+              albumTitle={vaStep.albumTitle}
+              onSave={handleSaveTracks}
+              onSkip={handleDismiss}
+              isSaving={isSavingTracks}
+            />
+          ) : (
           <form onSubmit={handleSubmit}>
             <Stack spacing={1.5}>
               <FormControl required>
@@ -375,6 +459,7 @@ function AddReleaseForm() {
               </Stack>
             </Stack>
           </form>
+          )}
         </ModalDialog>
       </Modal>
     </>
