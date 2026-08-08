@@ -67,13 +67,27 @@ describe("mergeAlbumIntoSearchResult", () => {
   it("falls back to the cached entry when the response's code_number is the LML-only sentinel", () => {
     // `entry: 0` isn't a real call number — it's convertToAlbumEntry's
     // fallback for a row with no code_number at all — so it must not
-    // overwrite a cached row that does have one.
-    const existing = createTestAlbum({ id: 42, entry: 5 });
-    const updated = createTestAlbum({ id: 42, entry: 0 });
+    // overwrite a cached row that does have one. The call number's three
+    // parts (lettercode, numbercode, entry) have to come from the same row:
+    // pairing the response's artist prefix with the cached entry digit would
+    // print a call number that belongs to neither row, so the fallback must
+    // carry the cached artist along with the cached entry, not just the entry.
+    const existing = createTestAlbum({
+      id: 42,
+      entry: 5,
+      artist: createTestArtist({ name: "Jessica Pratt", lettercode: "PR", numbercode: 3 }),
+    });
+    const updated = createTestAlbum({
+      id: 42,
+      entry: 0,
+      artist: createTestArtist({ name: "Juana Molina", lettercode: "MO", numbercode: 12 }),
+    });
 
     const merged = mergeAlbumIntoSearchResult(existing, updated);
 
     expect(merged.entry).toBe(5);
+    expect(merged.artist.lettercode).toBe("PR");
+    expect(merged.artist.numbercode).toBe(3);
   });
 
   it("clears date_lost and date_found when mutation returns null", () => {
