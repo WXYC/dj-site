@@ -39,15 +39,8 @@ function GenreAdmin() {
       setName("");
       setDescription("");
     } catch (err) {
-      // The global rtkQueryErrorLogger middleware already toasts the server
-      // message for the common failure (e.g. a 409 duplicate-name reply);
-      // only surface a fallback here for the gap it leaves silent. That gap
-      // now also covers a rejection with no `status` at all (a `SerializedError`
-      // — the shared predicate's own no-`status` branch): this used to stay
-      // silent when this file carried its own local copy of the predicate,
-      // which returned `false` for that shape. Toasting it is intentional —
-      // the alternative is a failed add nobody is ever told about — but it is
-      // a behavior change from before the shared extraction.
+      // A no-status rejection is toasted here on purpose: the alternative is
+      // a failed add nobody is ever told about.
       if (isUnmessagedHttpError(err)) {
         toast.error("Failed to add genre");
       }

@@ -89,6 +89,18 @@ const SHAPES: {
     middlewareToasts: [],
     callerSpeaks: true,
   },
+  {
+    // RTK's own documented `rejectWithValue(payload)` shape for a bare
+    // string error — no `status` at all, unlike every other shape above.
+    // The middleware's `error`-string branch fires on this regardless of
+    // `status`, so a predicate that reads "no `status`" as "middleware said
+    // nothing" doubles the toast.
+    name: "no-status rejectWithValue payload carrying only `error`",
+    err: { error: "Oh no!" },
+    reachesMiddleware: true,
+    middlewareToasts: ["Oh no!"],
+    callerSpeaks: false,
+  },
 ];
 
 describe("rejection-shape gate", () => {
@@ -123,10 +135,8 @@ describe("rejection-shape gate", () => {
   });
 
   // A `PARSING_ERROR` is a mutation answered with a body that isn't JSON — a
-  // gateway's HTML error page, or a route that isn't there. It carries a
-  // string status, so the middleware owns the wording and the caller keeps out
-  // of it; the raw parser complaint it falls through to today is a middleware
-  // concern, not a reason for a second toast here.
+  // gateway's HTML error page, or a route that isn't there. The middleware
+  // owns a plain-language line for it, so the caller keeps out of it.
   it("leaves a PARSING_ERROR to the middleware", () => {
     expect(
       isUnmessagedHttpError({

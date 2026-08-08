@@ -111,12 +111,6 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
       }).unwrap();
       setSelectedBin(null);
     } catch (err) {
-      // The global rtkQueryErrorLogger middleware speaks for the shapes it can
-      // describe — a server-supplied reason, a transport failure — and a second
-      // vaguer toast on top of one of those only adds noise. It says nothing at
-      // all for an HTTP error with no body message, and never even runs for a
-      // rejection that carries no status (an aborted request, a response the
-      // transform couldn't read), which would otherwise fail in total silence.
       if (isUnmessagedHttpError(err)) {
         toast.error("Failed to add to rotation");
       }

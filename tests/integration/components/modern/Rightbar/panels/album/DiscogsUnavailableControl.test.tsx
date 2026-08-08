@@ -289,8 +289,9 @@ describe("DiscogsUnavailableControl", () => {
     });
 
     // A route answering a mutation with HTML (an Express 404 page, a gateway
-    // 502) is the middleware's to word — asserted as "something, but not a
-    // second toast from here", so improving that wording doesn't break this.
+    // 502) is the middleware's to word: it toasts its own plain-language
+    // PARSING_ERROR line, and this control must not stack a second, vaguer
+    // toast on top of it.
     it("leaves a non-JSON body to the middleware", async () => {
       const messages = await toggleWith(
         () =>
@@ -300,8 +301,9 @@ describe("DiscogsUnavailableControl", () => {
           ),
       );
 
-      expect(messages).toHaveLength(1);
-      expect(messages).not.toContain("Failed to update Discogs availability");
+      expect(messages).toEqual([
+        "Server returned an unexpected response — please try again.",
+      ]);
     });
 
     it("leaves a request that never lands to the middleware", async () => {
