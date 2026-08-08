@@ -85,7 +85,6 @@ function ArtistAddForm() {
 function ArtistAddFields() {
   const {
     data: genres,
-    isUninitialized: genresUnstarted,
     isLoading: genresLoading,
     isFetching: genresFetching,
     refetch: refetchGenres,
@@ -168,12 +167,10 @@ function ArtistAddFields() {
   // exist". The test is the absence of a list, not `isError`: a refetch that
   // rejects leaves the last good list in the cache and the form still submits
   // perfectly well against it, so reading the error flag would put a "can't be
-  // filed right now" alert beside an enabled submit button. The query also
-  // subscribes from an effect, so the mount render reports neither a pending
-  // request nor data — reading that as an outage would announce the alert on
-  // every mount, before anything has been asked.
-  const genresUnavailable =
-    !genresUnstarted && !genresLoading && genres == null;
+  // filed right now" alert beside an enabled submit button. `genresLoading`
+  // alone covers the mount render: `useGetGenresQuery` passes no `skip`, so
+  // RTK Query synthesizes `isLoading: true` for that first render regardless.
+  const genresUnavailable = !genresLoading && genres == null;
 
   // Puts the caret back where the edit left it. React writes the normalized
   // value into the node during the commit's mutation phase, which is the write
@@ -191,6 +188,12 @@ function ArtistAddFields() {
     !isLoading &&
     existingArtist === null &&
     !dedupCheckStale &&
+    // The code_letters/code_number/genre handlers below already clear
+    // `conflict` on any edit that could change the outcome, so a standing
+    // conflict here means the (code_letters, genre_id, code_number) triple is
+    // still the exact one the server just rejected — resubmitting it
+    // unchanged can only reach the same 409.
+    conflict === null &&
     trimmedName.length > 0 &&
     !nameTooLong &&
     !alphabeticalNameTooLong &&
@@ -210,8 +213,13 @@ function ArtistAddFields() {
     // A different string is a different question: whatever the previous genre
     // said about the old text has nothing left to be stale about, and the edit
     // reopens the typeahead's panel to search the new text under the current
-    // genre.
-    setDedupCheckStale(false);
+    // genre. A whitespace-only edit is not a different string — it trims back
+    // to the exact name the stale flag was raised against — so it must leave
+    // the flag standing rather than dismiss a re-check the new genre's search
+    // hasn't answered yet.
+    if (value.trim() !== trimmedName) {
+      setDedupCheckStale(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {

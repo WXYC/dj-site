@@ -593,6 +593,40 @@ describe("ArtistSearchTypeahead", () => {
         expect(onSelectionCleared).toHaveBeenCalledTimes(1);
       });
 
+      it("re-confirms the picked artist once an edit returns the text to its exact name", async () => {
+        mockArtistSearch([juanaMolina]);
+        const onSelect = vi.fn();
+        const onSelectionCleared = vi.fn();
+        const { user } = renderWithProviders(
+          <ControlledTypeahead
+            onSelect={onSelect}
+            onSelectionCleared={onSelectionCleared}
+          />,
+        );
+
+        const input = await findInput();
+        await user.type(input, "Juana");
+        await vi.advanceTimersByTimeAsync(400);
+        await user.click(await screen.findByText("Juana Molina"));
+        expect(onSelect).toHaveBeenCalledTimes(1);
+
+        await user.type(input, "x");
+        expect(onSelectionCleared).toHaveBeenCalledTimes(1);
+
+        // The correction lands the field back on byte-identical text — not a
+        // new question, since this is the exact artist already confirmed.
+        // Nothing else tells a caller holding no id to check again.
+        await user.type(input, "{Backspace}");
+
+        expect(onSelect).toHaveBeenCalledTimes(2);
+        expect(onSelect).toHaveBeenLastCalledWith(juanaMolina);
+        expect(onSelectionCleared).toHaveBeenCalledTimes(1);
+
+        // Confirmed again; a further edit away retracts it a second time.
+        await user.type(input, "!");
+        expect(onSelectionCleared).toHaveBeenCalledTimes(2);
+      });
+
       it("re-arms the retraction after a second pick", async () => {
         mockArtistSearch([juanaMolina, chuquimamaniCondori]);
         const onSelectionCleared = vi.fn();

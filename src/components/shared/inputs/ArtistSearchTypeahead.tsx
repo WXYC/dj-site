@@ -52,6 +52,12 @@ const NO_ARTISTS: ArtistInGenreOption[] = [];
  * to selections this component reported: a caller that seeds `value` with a
  * link obtained elsewhere holds an id this component never confirmed, and is
  * responsible for invalidating that link itself when `genreId` changes.
+ *
+ * A text-driven retraction re-arms on its own: an edit that lands the field
+ * back on the exact name last picked re-fires `onSelect` with that same
+ * artist, without a new pick from the panel. A genre change does not — moving
+ * `genreId` discards the picked artist outright, since the match it named is
+ * only good for the genre it was found under.
  */
 export interface ArtistSearchTypeaheadProps {
   genreId: number;
@@ -90,8 +96,14 @@ function ArtistSearchTypeaheadInner({
   // The artist the caller was last told about, held in a ref because nothing
   // rendered here depends on it — it exists only to decide whether that report
   // is still true, at the moment the text is edited or `genreId` moves off the
-  // genre the artist was found under.
+  // genre the artist was found under. Kept even once the text has drifted off
+  // it, so a later edit that lands back on the exact same name can re-confirm
+  // without a new pick — a genre change is what discards it outright.
   const confirmedArtist = useRef<ArtistInGenreOption | null>(null);
+  // Whether the caller currently holds `confirmedArtist`'s id. Text drifting
+  // away deactivates without discarding the artist above, which is what makes
+  // the re-confirm possible; a genre change deactivates and discards together.
+  const confirmedActive = useRef(false);
   // The genre the confirmed artist was found under, kept because the retraction
   // below turns on whether `genreId` moved — which the current prop alone cannot
   // say. It tracks the prop even with nothing confirmed, so the first pick after
@@ -180,8 +192,10 @@ function ArtistSearchTypeaheadInner({
     if (confirmedGenreId.current === genreId) return;
     confirmedGenreId.current = genreId;
     if (!confirmedArtist.current) return;
+    const wasActive = confirmedActive.current;
     confirmedArtist.current = null;
-    onSelectionCleared();
+    confirmedActive.current = false;
+    if (wasActive) onSelectionCleared();
   }, [genreId, onSelectionCleared]);
 
   const openPanel = useCallback(() => {
@@ -201,6 +215,7 @@ function ArtistSearchTypeaheadInner({
   const handleSelect = useCallback(
     (artist: ArtistInGenreOption) => {
       confirmedArtist.current = artist;
+      confirmedActive.current = true;
       // `onChange` runs first so that a caller which rewrites `value` from
       // inside `onSelect` writes last and wins.
       onChange(artist.artist_name);
@@ -213,20 +228,27 @@ function ArtistSearchTypeaheadInner({
   const handleTextEdit = useCallback(
     (next: string) => {
       onChange(next);
-      // Text that no longer names the confirmed artist retracts it, and only
-      // once: the caller has dropped the id by the second keystroke, and a
-      // repeated retraction would read as a second, unrelated event.
-      if (
-        confirmedArtist.current &&
-        next.trim() !== confirmedArtist.current.artist_name
-      ) {
-        confirmedArtist.current = null;
-        onSelectionCleared();
+      // A picked artist is retracted the moment the text stops naming it, and
+      // re-confirmed the moment a later edit lands back on that exact name —
+      // an MD correcting a stray keystroke back onto the artist they already
+      // picked has not asked a new question. Each transition fires at most
+      // once: a retraction stays retracted through further edits that keep
+      // missing, and a re-confirmation stays confirmed through further edits
+      // that keep matching.
+      if (confirmedArtist.current) {
+        const stillMatches = next.trim() === confirmedArtist.current.artist_name;
+        if (stillMatches && !confirmedActive.current) {
+          confirmedActive.current = true;
+          onSelect(confirmedArtist.current);
+        } else if (!stillMatches && confirmedActive.current) {
+          confirmedActive.current = false;
+          onSelectionCleared();
+        }
       }
       setOpen(true);
       setHighlightIndex(NO_HIGHLIGHT);
     },
-    [onChange, onSelectionCleared],
+    [onChange, onSelect, onSelectionCleared],
   );
 
   const handleCreateNew = useCallback(() => {

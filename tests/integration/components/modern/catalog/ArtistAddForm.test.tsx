@@ -547,7 +547,7 @@ describe("ArtistAddForm", () => {
         ).not.toContain("SSXSS");
       });
 
-      it("leaves the preview alone when the add is rejected", async () => {
+      it("re-previews after a code-taken 409, since the rejection is evidence the preview was stale", async () => {
         const { getQueries } = mockPeekCode();
         const { getCallCount } = mockArtistSearch([]);
         mockAddArtist(() => conflictResponse());
@@ -561,9 +561,37 @@ describe("ArtistAddForm", () => {
         await user.click(screen.getByRole("button", { name: /add artist/i }));
         expect(await screen.findByRole("alert")).toHaveTextContent(/Stereolab/);
 
-        // A rejected add wrote nothing. Invalidating on it would flip the code
-        // number the MD is reading back to a spinner and spend two more round
-        // trips reconfirming lists that cannot have changed.
+        // The 409 names the exact code_letters/genre_id pair the preview just
+        // showed as free — unlike the catalog and typeahead lists, which the
+        // rejection proves are unchanged, the preview itself is exactly what
+        // the rejection contradicts and has to be refetched.
+        await waitFor(() =>
+          expect(getQueries().length).toBeGreaterThan(peeksBeforeSubmit),
+        );
+        expect(getCallCount()).toBe(searchesBeforeSubmit);
+      });
+
+      it("leaves the preview alone after a non-409 rejection below 500", async () => {
+        const { getQueries } = mockPeekCode();
+        const { getCallCount } = mockArtistSearch([]);
+        mockAddArtist(() =>
+          HttpResponse.json({ message: "Invalid request" }, { status: 400 }),
+        );
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await fillCoreFields(user);
+        await waitFor(() => expect(getQueries().length).toBeGreaterThan(0));
+        const peeksBeforeSubmit = getQueries().length;
+        const searchesBeforeSubmit = getCallCount();
+
+        await user.click(screen.getByRole("button", { name: /add artist/i }));
+        await waitFor(() =>
+          expect(toast.error).toHaveBeenCalledWith("Invalid request"),
+        );
+
+        // A 400 that isn't the code-taken 409 carries no evidence that this
+        // pair's preview is stale — the opt-out narrows to "409 only", it
+        // does not widen to "every sub-500".
         expect(getQueries()).toHaveLength(peeksBeforeSubmit);
         expect(getCallCount()).toBe(searchesBeforeSubmit);
         expect(screen.getByTestId("next-code-number")).toHaveTextContent("7");
@@ -788,6 +816,93 @@ describe("ArtistAddForm", () => {
         await waitFor(() =>
           expect(screen.queryByText(/already exists/i)).not.toBeInTheDocument(),
         );
+        expect(screen.getByRole("button", { name: /add artist/i })).toBeEnabled();
+      });
+
+      it("keeps the duplicate block armed when an edit round-trips back to byte-identical text", async () => {
+        mockArtistSearch([
+          { id: 12, artist_name: "Juana Molina", code_letters: MOLINA, code_number: 3 },
+        ]);
+        const { getBodies } = mockAddArtist(() => created());
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await selectGenre(user);
+        const nameInput = await screen.findByPlaceholderText("Search artists...");
+        await user.type(nameInput, "Juana Molina");
+        await user.click(await screen.findByText("Juana Molina"));
+        await user.type(screen.getByLabelText(/call letters/i), MOLINA);
+        await user.type(screen.getByLabelText("Code number"), "12");
+        expect(screen.getByRole("button", { name: /add artist/i })).toBeDisabled();
+
+        // A stray keystroke and its correction land the field back on the
+        // exact text the typeahead already confirmed as a duplicate — not a
+        // new question it has never answered.
+        await user.type(nameInput, "x");
+        await user.type(nameInput, "{Backspace}");
+
+        expect(screen.getByText(/already exists in this genre/i)).toBeInTheDocument();
+        // The disabled button cannot be clicked (MUI drops pointer-events on
+        // it); its disabled state plus the untouched body count together are
+        // what prove nothing was submitted.
+        expect(screen.getByRole("button", { name: /add artist/i })).toBeDisabled();
+        expect(getBodies()).toHaveLength(0);
+      });
+
+      it("keeps the re-check guard armed across a whitespace-only edit that trims back to the same name", async () => {
+        mockGenres([
+          { id: GENRE_ID, genre_name: "Rock" },
+          { id: JAZZ_GENRE_ID, genre_name: "Jazz" },
+        ]);
+        mockArtistSearch([]);
+        const { getBodies } = mockAddArtist(() => created());
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await fillCoreFields(user);
+        await selectGenre(user, "Jazz");
+        expect(
+          screen.getByText(/re-check this name under the new genre/i),
+        ).toBeInTheDocument();
+
+        // Trims back to the exact name the stale check was raised against —
+        // not an answer about whether that name exists under the new genre.
+        await user.type(screen.getByPlaceholderText("Search artists..."), " ");
+
+        expect(
+          screen.getByText(/re-check this name under the new genre/i),
+        ).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /add artist/i })).toBeDisabled();
+        expect(getBodies()).toHaveLength(0);
+      });
+    });
+
+    describe("resubmission after a conflict", () => {
+      it("disables submission of the exact rejected triple until something changes", async () => {
+        const { getBodies } = mockAddArtist(() => conflictResponse());
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await fillCoreFields(user);
+        await user.click(screen.getByRole("button", { name: /add artist/i }));
+        expect(await screen.findByRole("alert")).toHaveTextContent(`${MOLINA}12`);
+
+        // The (code_letters, genre_id, code_number) triple the server just
+        // rejected has not changed, so a second click can only reach the same
+        // 409 — the button must not let the MD spend it. It is disabled
+        // (MUI drops pointer-events on it, so a click cannot even land), and
+        // only the one legitimate submit reached the server.
+        expect(screen.getByRole("button", { name: /add artist/i })).toBeDisabled();
+        expect(getBodies()).toHaveLength(1);
+      });
+
+      it("re-enables submission once the code letters move off the rejected value", async () => {
+        mockAddArtist(() => conflictResponse());
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await fillCoreFields(user);
+        await user.click(screen.getByRole("button", { name: /add artist/i }));
+        expect(await screen.findByRole("alert")).toHaveTextContent(`${MOLINA}12`);
+
+        await user.type(screen.getByLabelText(/call letters/i), "X");
+
         expect(screen.getByRole("button", { name: /add artist/i })).toBeEnabled();
       });
     });

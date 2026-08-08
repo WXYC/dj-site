@@ -187,21 +187,30 @@ export const catalogApi = createApi({
       // Invalidation fires on a rejected mutation as well as a fulfilled one,
       // so the rejections that provably wrote nothing opt out: anything the
       // server answered below 500, of which the code-taken 409 is the routine
-      // one. Invalidating on those would flip the code preview back to a
-      // spinner in front of the MD who is reading it and
-      // spend two more round trips reconfirming lists that cannot have
-      // changed. A 5xx or a transport failure still gets the tags — the row
-      // may well have been written on a response the client never saw, and
-      // ArtistSearch backs the typeahead that is all that stands between a
-      // retry and a duplicate artist.
-      invalidatesTags: (_result, error, { code_letters, genre_id }) =>
-        error && typeof error.status === "number" && error.status < 500
-          ? []
-          : [
-              { type: "CatalogList", id: "LIST" },
-              { type: "ArtistSearch", id: "LIST" },
-              { type: "ArtistCodePeek", id: `${genre_id}:${code_letters}` },
-            ],
+      // one. Invalidating CatalogList/ArtistSearch on those would spend two
+      // round trips reconfirming lists that cannot have changed. The peek tag
+      // is the one exception: a 409 IS the evidence that this cache entry —
+      // and only this one — is stale, since it names the exact pair the
+      // preview just showed as free. A 5xx or a transport failure still gets
+      // every tag — the row may well have been written on a response the
+      // client never saw, and ArtistSearch backs the typeahead that is all
+      // that stands between a retry and a duplicate artist.
+      invalidatesTags: (_result, error, { code_letters, genre_id }) => {
+        const codePeekTag = {
+          type: "ArtistCodePeek" as const,
+          id: `${genre_id}:${code_letters}`,
+        };
+        const wroteNothing =
+          !!error && typeof error.status === "number" && error.status < 500;
+        if (!wroteNothing) {
+          return [
+            { type: "CatalogList", id: "LIST" },
+            { type: "ArtistSearch", id: "LIST" },
+            codePeekTag,
+          ];
+        }
+        return isAddArtistConflict(error) ? [codePeekTag] : [];
+      },
     }),
     peekArtistCode: builder.query<PeekArtistCodeResponse, PeekArtistCodeQuery>({
       query: ({ code_letters, genre_id }) => ({
