@@ -139,10 +139,12 @@ describe("labelsApi", () => {
     expect(result.data).toEqual([]);
   });
 
-  // Creating a label is an upsert on the exact name. Without a tag on this
-  // result, a search cached just before a label was created keeps serving its
-  // pre-creation empty list for the whole unused-data window, and the next
-  // release filed under that label goes through the create path a second time.
+  // Without a tag on this result, a search cached just before a label was
+  // created keeps serving its pre-creation empty list for the whole
+  // unused-data window. Refiling under the identical name is harmless — the
+  // create path upserts on the exact name — but the librarian never sees the
+  // label they just made, so they type a variant of it instead, and a
+  // different string is a different row.
   it("provides the label-search list tag so a label write can invalidate it", async () => {
     server.use(
       http.get(`${TEST_BACKEND_URL}/labels/search`, () =>

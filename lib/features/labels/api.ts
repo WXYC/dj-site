@@ -14,12 +14,12 @@ export const labelsApi = createApi({
         params: { q, limit },
       }),
       // The shared base query soft-fails an unparseable body — a gateway's HTML
-      // 502, Express's HTML 404 — into a successful `null` payload. For a
-      // duplicate check that resolves to "no existing label matched", which is
-      // the one answer an unreachable backend cannot give: the consumer would
-      // render its create affordance and the librarian would file the very
-      // near-duplicate this endpoint exists to surface. Opt out so an outage
-      // reaches consumers as an error they can refuse to act on.
+      // 502, Express's HTML 404 — into a successful `null` payload, which here
+      // resolves to "no existing label matched". That is the one answer an
+      // unreachable backend cannot honestly give: the consumer renders its
+      // create affordance and the librarian files the very near-duplicate this
+      // endpoint exists to surface. Opt out so an outage reaches consumers as
+      // an error they can refuse to act on.
       extraOptions: { surfaceNonJsonAsError: true },
       transformResponse: (response: Label[] | null): Label[] =>
         response ?? [],
@@ -33,10 +33,10 @@ export const labelsApi = createApi({
       // endpoint's failures out of the global toast without touching that
       // shared module. Its unconditional PostHog capture still fires for
       // every searchLabels failure (it is not behind any of those checks),
-      // but reads the same three fields for the error message it records —
-      // so the trade for silencing the toast is a generic "RTK Query error"
-      // capture there instead of the real status/body, still tagged with
-      // `endpoint: "searchLabels"` from the action's own metadata.
+      // but builds its message from `data.message` and `error`, both of which
+      // the nesting hides — so the trade for silencing the toast is a generic
+      // "RTK Query error" capture carrying no status or body, still tagged
+      // with `endpoint: "searchLabels"` from the action's own metadata.
       transformErrorResponse: (
         response: FetchBaseQueryError,
       ): { searchLabelsError: FetchBaseQueryError } => ({
