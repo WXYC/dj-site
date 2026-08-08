@@ -189,12 +189,17 @@ export const catalogApi = createApi({
       // server answered below 500, of which the code-taken 409 is the routine
       // one. Invalidating CatalogList/ArtistSearch on those would spend two
       // round trips reconfirming lists that cannot have changed. The peek tag
-      // is the one exception: a 409 IS the evidence that this cache entry —
-      // and only this one — is stale, since it names the exact pair the
-      // preview just showed as free. A 5xx or a transport failure still gets
-      // every tag — the row may well have been written on a response the
-      // client never saw, and ArtistSearch backs the typeahead that is all
-      // that stands between a retry and a duplicate artist.
+      // is the one exception: every 409 on this endpoint means the
+      // code_letters/genre_id/code_number triple is taken, so it IS the
+      // evidence that this cache entry — and only this one — is stale, since
+      // it names the exact pair the preview just showed as free. That holds
+      // regardless of whether the body happens to parse as
+      // `isAddArtistConflict` — that check exists so the caller can name the
+      // conflicting artist in a banner, not to decide whether the pair is
+      // actually free. A 5xx or a transport failure still gets every tag —
+      // the row may well have been written on a response the client never
+      // saw, and ArtistSearch backs the typeahead that is all that stands
+      // between a retry and a duplicate artist.
       invalidatesTags: (_result, error, { code_letters, genre_id }) => {
         const codePeekTag = {
           type: "ArtistCodePeek" as const,
@@ -209,7 +214,7 @@ export const catalogApi = createApi({
             codePeekTag,
           ];
         }
-        return isAddArtistConflict(error) ? [codePeekTag] : [];
+        return error.status === 409 ? [codePeekTag] : [];
       },
     }),
     peekArtistCode: builder.query<PeekArtistCodeResponse, PeekArtistCodeQuery>({

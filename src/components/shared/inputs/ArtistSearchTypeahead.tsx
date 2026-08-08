@@ -236,7 +236,16 @@ function ArtistSearchTypeaheadInner({
       // missing, and a re-confirmation stays confirmed through further edits
       // that keep matching.
       if (confirmedArtist.current) {
-        const stillMatches = next.trim() === confirmedArtist.current.artist_name;
+        // Canonically-equivalent, byte-different compositions (NFD vs NFC —
+        // some IMEs and clipboard round-trips produce combining marks where
+        // the picked name has a precomposed character) must count as the
+        // same name on both sides of this check: it decides retraction as
+        // well as re-confirmation, and an MD who retypes what looks like the
+        // exact name they picked has not asked a new question just because
+        // the keystrokes composed differently.
+        const stillMatches =
+          next.trim().normalize("NFC") ===
+          confirmedArtist.current.artist_name.normalize("NFC");
         if (stillMatches && !confirmedActive.current) {
           confirmedActive.current = true;
           onSelect(confirmedArtist.current);
@@ -252,6 +261,14 @@ function ArtistSearchTypeaheadInner({
   );
 
   const handleCreateNew = useCallback(() => {
+    // An explicit "create new" overrides whatever match the panel is
+    // offering, including one this component still holds confirmed — the
+    // text can equal a picked artist's name and still show "create new"
+    // beside it. Discarding the artist here, not just deactivating it, stops
+    // a later edit that returns to that text from silently re-confirming a
+    // match the MD deliberately bypassed.
+    confirmedArtist.current = null;
+    confirmedActive.current = false;
     onCreateNew(trimmed);
     closePanel();
   }, [onCreateNew, trimmed, closePanel]);
