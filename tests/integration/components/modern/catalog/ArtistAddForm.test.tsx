@@ -571,6 +571,27 @@ describe("ArtistAddForm", () => {
         expect(getCallCount()).toBe(searchesBeforeSubmit);
       });
 
+      it("re-previews after a 409 even when the body carries no usable artist", async () => {
+        const { getQueries } = mockPeekCode();
+        mockAddArtist(() => conflictResponse({ artist: null }));
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await fillCoreFields(user);
+        await waitFor(() => expect(getQueries().length).toBeGreaterThan(0));
+        const peeksBeforeSubmit = getQueries().length;
+
+        await user.click(screen.getByRole("button", { name: /add artist/i }));
+        await waitFor(() => expect(toast.error).toHaveBeenCalled());
+
+        // Every 409 on this endpoint means the code_letters/genre_id/code_number
+        // triple is taken, regardless of whether the body happens to carry a
+        // parseable `artist` to name in a banner — that shape only decides how
+        // the rejection is presented, not whether the pair is actually free.
+        await waitFor(() =>
+          expect(getQueries().length).toBeGreaterThan(peeksBeforeSubmit),
+        );
+      });
+
       it("leaves the preview alone after a non-409 rejection below 500", async () => {
         const { getQueries } = mockPeekCode();
         const { getCallCount } = mockArtistSearch([]);

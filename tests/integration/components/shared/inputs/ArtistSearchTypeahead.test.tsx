@@ -627,6 +627,38 @@ describe("ArtistSearchTypeahead", () => {
         expect(onSelectionCleared).toHaveBeenCalledTimes(2);
       });
 
+      it("re-confirms across a Unicode-equivalent but differently-composed name", async () => {
+        mockArtistSearch([niluferYanya]);
+        const onSelect = vi.fn();
+        const onSelectionCleared = vi.fn();
+        const { user } = renderWithProviders(
+          <ControlledTypeahead
+            onSelect={onSelect}
+            onSelectionCleared={onSelectionCleared}
+          />,
+        );
+
+        const input = await findInput();
+        await user.type(input, "Nilufer");
+        await vi.advanceTimersByTimeAsync(400);
+        await user.click(await screen.findByText("Nilüfer Yanya"));
+        expect(onSelect).toHaveBeenCalledTimes(1);
+
+        await user.type(input, "!");
+        expect(onSelectionCleared).toHaveBeenCalledTimes(1);
+
+        // Retypes the same name, but NFD-decomposed (a base "u" plus a
+        // combining diaeresis) rather than the NFC-composed form the artist
+        // was picked with — visually and canonically identical, byte
+        // different. A caller holding no id has no reason to expect one
+        // encoding over the other.
+        await user.clear(input);
+        await user.type(input, "Nilüfer Yanya");
+
+        expect(onSelect).toHaveBeenCalledTimes(2);
+        expect(onSelectionCleared).toHaveBeenCalledTimes(1);
+      });
+
       it("re-arms the retraction after a second pick", async () => {
         mockArtistSearch([juanaMolina, chuquimamaniCondori]);
         const onSelectionCleared = vi.fn();
@@ -771,6 +803,39 @@ describe("ArtistSearchTypeahead", () => {
         );
 
         expect(onCreateNew).toHaveBeenCalledWith("Nonexistent Band");
+      });
+
+      it("does not re-confirm a picked artist once 'create new' has overridden it", async () => {
+        mockArtistSearch([juanaMolina]);
+        const onSelect = vi.fn();
+        const onCreateNew = vi.fn();
+        const { user } = renderWithProviders(
+          <ControlledTypeahead onSelect={onSelect} onCreateNew={onCreateNew} />,
+        );
+
+        const input = await findInput();
+        await user.type(input, "Juana Molina");
+        await vi.advanceTimersByTimeAsync(400);
+        await user.click(await screen.findByText("Juana Molina"));
+        expect(onSelect).toHaveBeenCalledTimes(1);
+
+        // Reopen the panel over the identical, already-picked text and choose
+        // "create new" instead — an explicit override the MD is allowed to
+        // make even though a match is right there.
+        await user.click(input);
+        await vi.advanceTimersByTimeAsync(400);
+        await user.click(
+          await screen.findByText('Create new artist "Juana Molina" instead'),
+        );
+        expect(onCreateNew).toHaveBeenCalledWith("Juana Molina");
+
+        // A stray keystroke and its correction land the field back on the
+        // exact text just overridden. The override must stick — the
+        // re-confirm mechanism must not silently undo it.
+        await user.type(input, "!");
+        await user.type(input, "{Backspace}");
+
+        expect(onSelect).toHaveBeenCalledTimes(1);
       });
 
       it("reaches the create row with the keyboard past the last result", async () => {
