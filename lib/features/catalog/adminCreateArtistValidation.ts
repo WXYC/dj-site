@@ -9,6 +9,24 @@ export function parseRequiredPositiveInt(raw: string): number | null {
 }
 
 /**
+ * True when a `POST /library/artists` submission was refused as conflicting,
+ * whatever the reason. Resubmitting the same triple unchanged can only be
+ * refused the same way, so this — not the body's shape — is what a caller
+ * gates resubmission on.
+ *
+ * Deliberately blind to the body: the backend's only 409 is the code-taken
+ * one, but an intermediary can answer 409 with JSON of its own, and a body
+ * that fails to parse narrows what can be *said* about the refusal, never
+ * whether one happened.
+ */
+export function isConflictRejection(
+  err: unknown,
+): err is { status: 409; data: unknown } {
+  if (!err || typeof err !== "object" || !("status" in err)) return false;
+  return (err as { status?: unknown }).status === 409;
+}
+
+/**
  * True when a `POST /library/artists` rejection is the code-taken 409 naming
  * the artist that already holds the code — the only one a caller can report by
  * name instead of as a generic failure.
