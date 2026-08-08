@@ -295,6 +295,15 @@ function ArtistSearchTypeaheadInner({
         inputRef.current?.blur();
         return;
       }
+      // The panel is open but has no answer yet: the search is still in
+      // flight, or it failed outright. Implicit form submission from this
+      // input would send a partially-typed name past a duplicate check that
+      // never completed, so callers that mount this inside a form (as
+      // AddReleasePanel does) must not have Enter fall through to it here.
+      if (e.key === "Enter" && (showSearching || showError)) {
+        e.preventDefault();
+        return;
+      }
       if (!showListbox) return;
       switch (e.key) {
         case "ArrowDown": {
@@ -327,6 +336,8 @@ function ArtistSearchTypeaheadInner({
     [
       showPanel,
       showListbox,
+      showSearching,
+      showError,
       highlightIndex,
       createHighlighted,
       artists,
