@@ -263,19 +263,9 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
 
   const handleSave = async () => {
     if (!canSave) return;
+    let updated: AlbumEntry;
     try {
-      const updated = await updateAlbum({ albumId: album.id, body: changes }).unwrap();
-      const nextSaved = snapshotFromAlbum(updated);
-      setSaved(nextSaved);
-      setTitle(nextSaved.title);
-      setLabel(nextSaved.label);
-      setGenreId(nextSaved.genreId);
-      setFormatId(nextSaved.formatId);
-      setArtistName(updated.artist.name);
-      setArtistLink(artistLinkFrom(nextSaved, updated.artist.name));
-      setAlternateArtistName(nextSaved.alternateArtistName);
-      setDiscQuantity(nextSaved.discQuantity);
-      toast.success("Album updated");
+      updated = await updateAlbum({ albumId: album.id, body: changes }).unwrap();
     } catch (err) {
       // The global rtkQueryErrorLogger middleware re-toasts the server's own
       // message verbatim, and Backend-Service answers every rejection here with
@@ -289,7 +279,23 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
       if (isUnmessagedHttpError(err)) {
         toast.error("Failed to update album");
       }
+      return;
     }
+
+    // Deliberately outside the try: the write has already landed by this
+    // point, so a throw here (a reseed bug, a toast call failing) must not be
+    // reported as a failed save.
+    const nextSaved = snapshotFromAlbum(updated);
+    setSaved(nextSaved);
+    setTitle(nextSaved.title);
+    setLabel(nextSaved.label);
+    setGenreId(nextSaved.genreId);
+    setFormatId(nextSaved.formatId);
+    setArtistName(updated.artist.name);
+    setArtistLink(artistLinkFrom(nextSaved, updated.artist.name));
+    setAlternateArtistName(nextSaved.alternateArtistName);
+    setDiscQuantity(nextSaved.discQuantity);
+    toast.success("Album updated");
   };
 
   return (

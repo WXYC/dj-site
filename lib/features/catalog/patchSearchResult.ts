@@ -29,8 +29,15 @@ export function mergeAlbumIntoSearchResult(
     ...existing,
     ...updated,
     id: existing.id,
-    // Preserve search-row entry number; artist lettercode/number can update via spread.
-    entry: existing.entry,
+    // A nonzero `updated.entry` (Backend-Service's `code_number`) is
+    // authoritative: an artist re-attribution can move the album onto a
+    // freshly-issued call number (`updateAlbum` -> `generateAlbumCodeNumber`
+    // when the new artist already owns the album's current one), and the
+    // cached row must pick that up or it renders a call number nobody holds.
+    // `0` is not a real call number — it's `convertToAlbumEntry`'s fallback
+    // for an LML-only row that never got a `code_number` — so only that
+    // sentinel falls back to the cached value instead of zeroing it out.
+    entry: updated.entry === 0 ? existing.entry : updated.entry,
     matched_via: existing.matched_via,
     artwork_url: updated.artwork_url ?? existing.artwork_url,
     rotation_bin: existing.rotation_bin,
