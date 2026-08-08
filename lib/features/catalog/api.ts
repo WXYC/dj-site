@@ -259,8 +259,12 @@ export const catalogApi = createApi({
       // than resolving to the empty set the shape promises.
       transformResponse: (
         response: CompilationTrackList | null,
+        _meta,
+        { libraryId },
       ): CompilationTrackList => ({
-        library_id: response?.library_id ?? 0,
+        // Falls back to the id that was asked for rather than inventing one:
+        // a fabricated `0` is a value a later consumer could act on.
+        library_id: response?.library_id ?? libraryId,
         tracks: response?.tracks ?? [],
       }),
       providesTags: (_result, _error, { libraryId }) => [
@@ -283,8 +287,10 @@ export const catalogApi = createApi({
       // See getCompilationTracks: same guard against a 200 that omits `tracks`.
       transformResponse: (
         response: CompilationTrackSuggestions | null,
+        _meta,
+        { libraryId },
       ): CompilationTrackSuggestions => ({
-        library_id: response?.library_id ?? 0,
+        library_id: response?.library_id ?? libraryId,
         discogs_release_id: response?.discogs_release_id ?? null,
         tracks: response?.tracks ?? [],
       }),

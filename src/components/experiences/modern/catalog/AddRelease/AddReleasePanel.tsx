@@ -170,10 +170,6 @@ function AddReleaseForm() {
 
   const handleSaveTracks = async (tracks: CompilationTrackInput[]) => {
     if (!vaStep || tracks.length === 0) return;
-    // Latched before the request rather than after it: a response that never
-    // arrives still leaves whatever the server committed, so "attempted" has to
-    // survive the failure that makes it matter.
-    setVaStep({ ...vaStep, attempted: true });
     try {
       const { inserted, skipped } = await writeCompilationTracks({
         libraryId: vaStep.libraryId,
@@ -191,7 +187,14 @@ function AddReleaseForm() {
       // Toasted by the global rtkQueryErrorLogger middleware. The panel stays
       // open on purpose: the rows are the only copy of work the MD may have
       // hand-entered, and closing would destroy them with no way to re-derive.
-      // The step re-reads what actually landed before allowing another write.
+      //
+      // Latched here rather than before the request: a rejection is the only
+      // outcome that leaves the release in an unknown state, and `.unwrap()`
+      // always settles, so this cannot be missed. Setting it up front would
+      // instead fire the stored-credit read alongside every successful save,
+      // whose result is discarded when the panel closes. The step gates the
+      // next write on that read succeeding.
+      setVaStep((current) => (current ? { ...current, attempted: true } : current));
     }
   };
 
