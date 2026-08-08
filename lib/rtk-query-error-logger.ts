@@ -10,11 +10,17 @@ import { safeCaptureException } from "./posthog";
  * Two shapes qualify. An HTTP error response (fetchBaseQuery's numeric
  * `status`) whose body carries no `message`: the middleware only re-toasts
  * `data.message`, and a numeric-status rejection has no top-level `error`
- * string to fall through to either. And a rejection with no fetchBaseQuery
- * `status` at all — a `SerializedError`, which is what `.unwrap()` throws when
- * a `transformResponse` throws or the request aborts. That one is not
- * `isRejectedWithValue`, so the middleware never even runs for it, and without
- * a caller speaking up the failure is completely silent.
+ * string to fall through to either. And any rejection payload with no
+ * `status` key at all: every other branch below keys off `status`
+ * (`FETCH_ERROR`, `TIMEOUT_ERROR`) or a top-level `error` string, so a
+ * payload lacking `status` never matches any of them. That covers a
+ * `SerializedError` — what `.unwrap()` throws when a `transformResponse`
+ * throws or the request aborts — as well as a `fakeBaseQuery` rejection such
+ * as `adminApi`'s (`{ message }`, no `status`): that one *is*
+ * `isRejectedWithValue` and does reach the middleware below, it just carries
+ * nothing the middleware reads (`payload.data.message`, not a top-level
+ * `payload.message`). Either way, without a caller speaking up the failure is
+ * completely silent.
  *
  * Every string `status` is excluded on purpose: `FETCH_ERROR`,
  * `TIMEOUT_ERROR` and the rest are already answered with a plain-language

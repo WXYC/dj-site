@@ -753,6 +753,42 @@ describe("AlbumEditForm", () => {
         );
       });
 
+      // Artists can be catalogued in multiple genres (genre_artist_crossreference),
+      // so re-picking the identical artist id under the new genre is a real,
+      // reachable flow. `artistId === saved.artistId` then suppresses
+      // `changes.artist_id`, leaving `genre_id` as the only changed field —
+      // the one body shape whose safety rests entirely on Backend-Service
+      // re-validating the pair against `existing.artist_id` rather than on
+      // this form's own invariant.
+      it("PATCHes only genre_id when the MD re-picks the same artist row under the new genre", async () => {
+        const { getReceivedBody } = mockPatch();
+        mockArtistSearch([
+          {
+            id: JUANA_ARTIST_ID,
+            artist_name: "Juana Molina",
+            code_letters: "MO",
+            code_number: 12,
+          },
+        ]);
+        const { user } = renderWithProviders(<AlbumEditForm album={juanaMolinaAlbum()} />);
+
+        await screen.findByLabelText("Title");
+        await user.click(screen.getByRole("combobox", { name: "Genre" }));
+        await user.click(await screen.findByRole("option", { name: "Jazz" }));
+
+        const artistInput = screen.getByLabelText("Search artists");
+        await user.click(artistInput);
+        await user.click(await screen.findByText("Juana Molina"));
+
+        const saveButton = screen.getByRole("button", SAVE_BUTTON);
+        await waitFor(() => expect(saveButton).toBeEnabled());
+        await user.click(saveButton);
+
+        await waitFor(() =>
+          expect(getReceivedBody()).toEqual({ genre_id: JAZZ_GENRE_ID }),
+        );
+      });
+
       // The invalidation is a comparison against the genre the link was
       // resolved under, not an erasure — otherwise returning the genre to where
       // it started leaves an album whose every field reads its original value
