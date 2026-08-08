@@ -374,9 +374,9 @@ describe("RotationClassifyControl", () => {
     });
 
     // A route answering a mutation with HTML (an Express 404 page, a gateway
-    // 502) is the global middleware's to word; this control must not stack a
-    // vaguer second toast on top of it. Asserted as "something, but not our
-    // message", so improving that wording doesn't break this.
+    // 502) is the global middleware's to word: it toasts its own
+    // plain-language PARSING_ERROR line, and this control must not stack a
+    // vaguer second toast on top of it.
     it("leaves a non-JSON POST response to the middleware", async () => {
       fakeRotationEndpoints();
       server.use(
@@ -397,8 +397,12 @@ describe("RotationClassifyControl", () => {
       await user.click(screen.getByRole("radio", { name: "M" }));
       await user.click(screen.getByRole("button", { name: "Add to Rotation" }));
 
-      await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
-      expect(toast.error).not.toHaveBeenCalledWith("Failed to add to rotation");
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith(
+          "Server returned an unexpected response — please try again.",
+        ),
+      );
+      expect(toast.error).toHaveBeenCalledTimes(1);
     });
   });
 
