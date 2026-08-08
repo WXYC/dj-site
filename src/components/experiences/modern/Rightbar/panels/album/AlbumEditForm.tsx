@@ -53,8 +53,8 @@ type SavedFields = {
  * artist rows are genre-scoped, and an id is only good for the text that
  * produced it. Carrying all three lets this form judge the link against what is
  * on screen at any moment, rather than depending on the typeahead to announce
- * every way it can go stale — that announcement fires at most once per
- * selection, so a link that outlives one is never spoken for again.
+ * every way it can go stale — its announcements cover only the selections it
+ * made itself, and a link read straight off the album is never one of them.
  */
 type ArtistLink = {
   id: number;
@@ -160,9 +160,11 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
   // true about what it names and the derivation below is what should weigh it;
   // dropping it here would defeat the round trip. Any other retraction is
   // acted on immediately. Either way the derivation below is the standing
-  // authority — it re-checks both the genre and the name on every render, and
-  // it has to, because the typeahead stops tracking a selection after the first
-  // retraction it fires and never speaks for that link again.
+  // authority — it re-checks both the genre and the name on every render.
+  // It has to, because the two retractions differ in what follows them: a
+  // text edit that lands back on the exact picked name re-announces that
+  // artist through `onSelect`, restoring the link with no new pick, while a
+  // genre move discards the selection for good.
   const handleArtistSelectionCleared = () => {
     setArtistLink((prev) => (prev !== null && prev.genreId !== resolvedGenreId ? prev : null));
   };
