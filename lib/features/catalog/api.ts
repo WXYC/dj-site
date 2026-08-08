@@ -175,8 +175,11 @@ export const catalogApi = createApi({
         delete data.message;
         return { ...error, data };
       },
-      // A new artist would surface in the artist typeahead (searchArtistsInGenre)
-      // and can gate later album rows; refetch both rather than patch.
+      // A new artist can appear in the artist typeahead (searchArtistsInGenre)
+      // and gates the album rows filed under it, and neither cache can absorb
+      // the row by patch: typeahead entries are keyed by the search args the
+      // new name may not match, and the browse is a paginated/sorted infinite
+      // query whose correct page may be unloaded. Invalidate both instead.
       // Also invalidate the peek-code preview for the exact code_letters/genre_id
       // pair just filled: without this, a cached preview for that pair keeps
       // showing the pre-add code number to an MD who revisits it in the same

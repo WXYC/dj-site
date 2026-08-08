@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { AddCircle } from "@mui/icons-material";
 import {
@@ -19,12 +19,14 @@ import {
 } from "@mui/joy";
 import { RequireMD } from "@/src/components/shared/Authorization";
 import ArtistSearchTypeahead from "@/src/components/shared/inputs/ArtistSearchTypeahead";
+import { useAppDispatch } from "@/lib/hooks";
 import {
   useAddAlbumMutation,
   useGetFormatsQuery,
   useGetGenresQuery,
 } from "@/lib/features/catalog/api";
 import type { AddAlbumRequestBody, ArtistInGenreOption } from "@/lib/features/catalog/types";
+import { labelsApi } from "@/lib/features/labels/api";
 import type { LabelRow } from "@/lib/features/labels/types";
 import LabelSearchTypeahead from "./LabelSearchTypeahead";
 
@@ -59,6 +61,7 @@ function emptyForm() {
 }
 
 function AddReleaseForm() {
+  const dispatch = useAppDispatch();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   // Set on a genre-scoped artist miss (backend 400) or on the typeahead's own
@@ -69,15 +72,44 @@ function AddReleaseForm() {
   const [artistNotFound, setArtistNotFound] = useState<
     { term: string; genreId: number } | null
   >(null);
+  // Live mirror of the artist field: the submit handler's catch runs after an
+  // awaited rejection, by which point a still-mounted panel may have moved on
+  // to a different typed term. Reading this instead of the term captured at
+  // submit time is what lets the catch refuse to relabel guidance onto text
+  // the MD has since edited away from.
+  const artistNameRef = useRef(form.artistName);
+  artistNameRef.current = form.artistName;
 
-  const { data: genres } = useGetGenresQuery();
-  const { data: formats } = useGetFormatsQuery();
+  // Skipped until the dialog is open: these two lookups are static enough to
+  // cache indefinitely, but every catalog page load by an MD would otherwise
+  // fetch both on mount for a dialog usually never opened.
+  const { data: genres } = useGetGenresQuery(undefined, { skip: !open });
+  const { data: formats } = useGetFormatsQuery(undefined, { skip: !open });
   const [addAlbum, { isLoading }] = useAddAlbumMutation();
 
   const closePanel = () => {
     setOpen(false);
     setForm(emptyForm());
     setArtistNotFound(null);
+  };
+
+  const hasUnsavedInput = () =>
+    form.albumTitle.trim() !== "" ||
+    form.genreId !== null ||
+    form.formatId !== null ||
+    form.artistName.trim() !== "" ||
+    form.labelName.trim() !== "";
+
+  // Modal's onClose fires for a backdrop click, an Escape that reaches the
+  // dialog, and the close button alike — all three would otherwise wipe a
+  // part-filled form with no undo. A confirm only interrupts the two
+  // accidental paths; the submit handler calls closePanel directly so a
+  // completed save never asks the MD to confirm work they already finished.
+  const handleDismiss = () => {
+    if (hasUnsavedInput() && !confirm("Discard this release? Nothing has been saved yet.")) {
+      return;
+    }
+    closePanel();
   };
 
   const handleGenreChange = (_: unknown, value: number | null) => {
@@ -133,9 +165,29 @@ function AddReleaseForm() {
 
     try {
       await addAlbum(body).unwrap();
+      // A free-typed label with no resolved id means the backend just
+      // upserted a new row from `body.label`. labelsApi's searchLabels only
+      // reads, so nothing else invalidates its cache — without this, a
+      // reopened picker searching this same name within the 60s cache
+      // window still shows the stale empty (or prior) result and offers to
+      // create the very near-duplicate this field exists to prevent.
+      if (form.labelId === null) {
+        dispatch(labelsApi.util.invalidateTags([{ type: "LabelSearch", id: "LIST" }]));
+      }
+      // Closing on success looks identical to an accidental dismissal
+      // without this: both leave the MD looking at the catalog page with no
+      // dialog open, which invites a duplicate re-add of the same release.
+      toast.success(`Added "${albumTitle}" to the catalog`);
       closePanel();
     } catch (err) {
-      if (serverErrorMessage(err) === GENRE_SCOPED_ARTIST_MISS_MESSAGE && form.genreId) {
+      // The field's own onChange already cleared any guidance the moment the
+      // MD edited it; re-checking here guards the other direction, where the
+      // edit happens first and this stale rejection arrives after.
+      if (
+        serverErrorMessage(err) === GENRE_SCOPED_ARTIST_MISS_MESSAGE &&
+        form.genreId &&
+        artistNameRef.current === artistName
+      ) {
         setArtistNotFound({ term: artistName, genreId: form.genreId });
       }
       // Every rejection, this one included, has already been toasted with the
@@ -151,7 +203,7 @@ function AddReleaseForm() {
       <Button startDecorator={<AddCircle />} onClick={() => setOpen(true)}>
         Add Release
       </Button>
-      <Modal open={open} onClose={closePanel}>
+      <Modal open={open} onClose={handleDismiss}>
         <ModalDialog sx={{ maxWidth: 480, width: "100%" }}>
           <ModalClose />
           <Typography level="title-lg">Add Release</Typography>

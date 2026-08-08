@@ -34,6 +34,7 @@ import { toast } from "sonner";
 const mockUseSession = authClient.useSession as ReturnType<typeof vi.fn>;
 const mockFetchOrgRole = fetchOrganizationRoleForUserClient as ReturnType<typeof vi.fn>;
 const mockToastError = toast.error as ReturnType<typeof vi.fn>;
+const mockToastSuccess = toast.success as ReturnType<typeof vi.fn>;
 
 function sessionWithRole() {
   return {
@@ -79,6 +80,25 @@ function mockLabelSearch(labels: { id: number; label_name: string }[]) {
   server.use(
     http.get(`${TEST_BACKEND_URL}/labels/search`, () => HttpResponse.json(labels)),
   );
+}
+
+/**
+ * Installs the label-search handler and returns the list of requests it has
+ * served, so a test can tell a cache hit (no new request) apart from a
+ * refetch forced by invalidation.
+ */
+function mockLabelSearchTracking(
+  respond: (url: URL) => Response | Promise<Response>,
+): URL[] {
+  const requests: URL[] = [];
+  server.use(
+    http.get(`${TEST_BACKEND_URL}/labels/search`, ({ request }) => {
+      const url = new URL(request.url);
+      requests.push(url);
+      return respond(url);
+    }),
+  );
+  return requests;
 }
 
 function mockAddAlbum(
@@ -500,6 +520,52 @@ describe("AddReleasePanel", () => {
       ).toBeInTheDocument();
     });
 
+    it("does not show guidance for the submitted term once the artist field is edited while the rejection is still in flight", async () => {
+      let resolveResponse: (response: Response) => void;
+      const responsePromise = new Promise<Response>((resolve) => {
+        resolveResponse = resolve;
+      });
+      const getReceivedBody = mockAddAlbum(() => responsePromise);
+      const { user } = renderWithProviders(<AddReleasePanel />);
+
+      await openPanel(user);
+      await user.type(screen.getByLabelText(/Album title/), "Edits");
+      await pickGenre(user);
+      await pickFormat(user);
+
+      const artistInput = await screen.findByPlaceholderText("Search artists...");
+      await user.type(artistInput, "Chuquimamani-Condori");
+
+      const labelInput = await screen.findByPlaceholderText("Search labels...");
+      await user.type(labelInput, "self-released");
+
+      await user.click(screen.getByRole("button", { name: "Save Release" }));
+      await waitFor(() => expect(getReceivedBody()).toBeDefined());
+
+      // The field is never disabled while the mutation is in flight, so the
+      // MD can correct it before the rejection they are still waiting on
+      // arrives.
+      await user.clear(artistInput);
+      await user.type(artistInput, "DJ E");
+
+      resolveResponse!(
+        HttpResponse.json(
+          {
+            message:
+              "Artist doesn't exist or hasn't released an album in this genre before. Add a new artist entry to the library",
+          },
+          { status: 400 },
+        ),
+      );
+
+      await waitFor(() => expect(mockToastError).toHaveBeenCalled());
+
+      // Guidance naming the submitted term would now describe text the field
+      // no longer holds.
+      expect(screen.queryByText(/isn't filed under/i)).not.toBeInTheDocument();
+      expect(artistInput).toHaveValue("DJ E");
+    });
+
     it("leaves a 400 that is not the genre-scoped miss to the generic error path", async () => {
       const BLANK_TITLE_MESSAGE = "album_title must be a non-empty string";
       mockAddAlbum(() =>
@@ -616,6 +682,43 @@ describe("AddReleasePanel", () => {
       expect(screen.queryByText(/isn't filed under/i)).not.toBeInTheDocument();
     });
 
+    // The backend upserts labels on the exact name, so a stale empty result
+    // served from cache after this panel files a new one sends the next MD
+    // who searches for it back through the free-type path, filing a second,
+    // near-duplicate row beside the one just created.
+    it("invalidates the label search cache after a release is added with a free-typed label", async () => {
+      const labelRequests = mockLabelSearchTracking(() => HttpResponse.json([]));
+      const getReceivedBody = mockAddAlbum();
+      const { user } = renderWithProviders(<AddReleasePanel />);
+
+      await openPanel(user);
+      await user.type(screen.getByLabelText(/Album title/), "Edits");
+      await pickGenre(user);
+      await pickFormat(user);
+      await user.type(
+        await screen.findByPlaceholderText("Search artists..."),
+        "Chuquimamani-Condori",
+      );
+      const labelInput = await screen.findByPlaceholderText("Search labels...");
+      await user.type(labelInput, "Duophonic");
+      await screen.findByText(/will be created as a new label/i);
+
+      await user.click(screen.getByRole("button", { name: "Save Release" }));
+      await waitFor(() => expect(getReceivedBody()).toBeDefined());
+      expect(labelRequests).toHaveLength(1);
+
+      // Reopening and searching the exact term the panel just filed — a
+      // stale cache would serve the earlier empty result without a new
+      // request, hiding the label the backend just created.
+      await openPanel(user);
+      await user.type(
+        await screen.findByPlaceholderText("Search labels..."),
+        "Duophonic",
+      );
+
+      await waitFor(() => expect(labelRequests.length).toBeGreaterThan(1));
+    });
+
     it("closes and resets the form after a successful add", async () => {
       mockAddAlbum();
       const { user } = renderWithProviders(<AddReleasePanel />);
@@ -634,6 +737,9 @@ describe("AddReleasePanel", () => {
       await waitFor(() =>
         expect(screen.queryByRole("button", { name: "Save Release" })).not.toBeInTheDocument(),
       );
+      // A silent close on success is indistinguishable from an accidental
+      // dismissal, which invites a duplicate re-add of the same release.
+      expect(mockToastSuccess).toHaveBeenCalledWith('Added "DOGA" to the catalog');
 
       await openPanel(user);
 
@@ -653,6 +759,10 @@ describe("AddReleasePanel", () => {
       expect(screen.getByPlaceholderText("Search labels...")).toHaveValue("");
     });
 
+    // Two complete form fills, each driving both typeaheads through their
+    // 300ms debounce, run close enough to the default 5s test timeout that a
+    // loaded full-suite run can miss it — an explicit longer budget keeps
+    // that a timing margin rather than a flake.
     it("carries no resolved artist_id or label_id into the next release", async () => {
       mockArtistSearch([
         { id: 12, artist_name: "Juana Molina", code_letters: "MO", code_number: 3 },
@@ -699,6 +809,56 @@ describe("AddReleasePanel", () => {
           label: "Drag City",
         }),
       );
+    }, 10000);
+
+    // Modal's onClose fires alike for the close button, a backdrop click,
+    // and an Escape that reaches the dialog — all three would otherwise wipe
+    // a part-filled form with no undo.
+    describe("dismissing with unsaved input", () => {
+      const closeButton = () => screen.getByTestId("CloseIcon");
+
+      it("asks for confirmation and leaves the form standing when declined", async () => {
+        const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+        const { user } = renderWithProviders(<AddReleasePanel />);
+
+        await openPanel(user);
+        await user.type(screen.getByLabelText(/Album title/), "DOGA");
+
+        await user.click(closeButton());
+
+        expect(confirmSpy).toHaveBeenCalled();
+        expect(screen.getByLabelText(/Album title/)).toHaveValue("DOGA");
+        confirmSpy.mockRestore();
+      });
+
+      it("discards the form once the confirmation is accepted", async () => {
+        const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+        const { user } = renderWithProviders(<AddReleasePanel />);
+
+        await openPanel(user);
+        await user.type(screen.getByLabelText(/Album title/), "DOGA");
+
+        await user.click(closeButton());
+
+        expect(
+          screen.queryByRole("button", { name: "Save Release" }),
+        ).not.toBeInTheDocument();
+        confirmSpy.mockRestore();
+      });
+
+      it("closes without asking when nothing has been entered", async () => {
+        const confirmSpy = vi.spyOn(window, "confirm");
+        const { user } = renderWithProviders(<AddReleasePanel />);
+
+        await openPanel(user);
+        await user.click(closeButton());
+
+        expect(confirmSpy).not.toHaveBeenCalled();
+        expect(
+          screen.queryByRole("button", { name: "Save Release" }),
+        ).not.toBeInTheDocument();
+        confirmSpy.mockRestore();
+      });
     });
   });
 });

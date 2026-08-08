@@ -149,6 +149,24 @@ function ControlledTypeahead({
   );
 }
 
+/**
+ * The field's production home (AddReleasePanel) is a form, where an
+ * unhandled Enter submits. Wrapping it in one is the only way to observe
+ * which key presses this component lets through to that submission.
+ */
+function TypeaheadInForm({ onSubmit }: { onSubmit: () => void }) {
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit();
+      }}
+    >
+      <ControlledTypeahead />
+    </form>
+  );
+}
+
 const findInput = () => screen.findByPlaceholderText("Search artists...");
 
 describe("ArtistSearchTypeahead", () => {
@@ -1023,6 +1041,42 @@ describe("ArtistSearchTypeahead", () => {
 
         expect(await screen.findByText("Juana Molina")).toBeInTheDocument();
         expect(requests).toHaveLength(2);
+      });
+    });
+
+    // The backend resolves an artist by exact genre-scoped name, so a
+    // submission that outruns the search sends a partially-typed name with no
+    // artist_id and skips the duplicate check this field exists to run. Enter
+    // is only allowed through once the search has an answer.
+    describe("Enter inside a form", () => {
+      it("swallows Enter while the search is still in flight", async () => {
+        mockArtistSearch([juanaMolina]);
+        const onSubmit = vi.fn();
+        const { user } = renderWithProviders(<TypeaheadInForm onSubmit={onSubmit} />);
+
+        const input = await findInput();
+        await user.type(input, "Juana");
+        // Still inside the debounce window: no answer to act on yet.
+        await user.keyboard("{Enter}");
+
+        expect(onSubmit).not.toHaveBeenCalled();
+      });
+
+      it("swallows Enter while the search is reporting a failure", async () => {
+        mockArtistSearch(() =>
+          HttpResponse.json({ message: "boom" }, { status: 500 }),
+        );
+        const onSubmit = vi.fn();
+        const { user } = renderWithProviders(<TypeaheadInForm onSubmit={onSubmit} />);
+
+        const input = await findInput();
+        await user.type(input, "Juana");
+        await vi.advanceTimersByTimeAsync(400);
+        await screen.findByRole("alert");
+
+        await user.keyboard("{Enter}");
+
+        expect(onSubmit).not.toHaveBeenCalled();
       });
     });
 
