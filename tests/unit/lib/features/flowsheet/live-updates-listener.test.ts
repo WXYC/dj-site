@@ -493,11 +493,13 @@ describe("live-updates listener middleware", () => {
     store.dispatch(liveUpdatesConnectionReleased());
   });
 
-  it("skips an insert whose id is already cached instead of downgrading the sender's row", async () => {
+  it("skips a cached-id echo entirely: no downgrade merge, no refetch", async () => {
     // The sender's own addToFlowsheet pipeline owns its row (optimistic
-    // insert -> temp-id resolve -> deferred enrichment refetch). The echoed
-    // broadcast carries the PRE-enrichment row (artwork null, metadata
-    // pending); merging it over the cached row would revert enriched fields.
+    // insert -> temp-id resolve -> the mutation's own invalidatesTags). The
+    // echoed broadcast carries the PRE-enrichment row (artwork null, metadata
+    // pending): merging it would revert enriched fields, and scheduling a
+    // Flowsheet refetch per self-echo collapses the sender's loaded pages to
+    // the first fetch during rapid adds (the entry-caching E2E pins this).
     const initialEntry = makeSongEntry({ id: 9001 });
 
     server.use(
@@ -526,25 +528,34 @@ describe("live-updates listener middleware", () => {
       )
       .unwrap();
 
-    store.dispatch(liveUpdatesConnectionRequested());
-    getLastMock()._fireMessage(
-      insertFrame(makeInsertWirePayload({ id: 9001, artwork_url: null }))
-    );
+    vi.useFakeTimers();
+    try {
+      const invalidateSpy = vi.spyOn(flowsheetApi.util, "invalidateTags");
+      store.dispatch(liveUpdatesConnectionRequested());
+      getLastMock()._fireMessage(
+        insertFrame(makeInsertWirePayload({ id: 9001, artwork_url: null }))
+      );
 
-    const after = flowsheetApi.endpoints.getInfiniteEntries.select(undefined)(
-      store.getState()
-    ).data;
-    const matches = (after?.pages ?? [])
-      .flat()
-      .filter((e) => e.id === 9001);
-    expect(matches).toHaveLength(1);
-    expect(matches[0]).toMatchObject({
-      id: 9001,
-      // Preserved — the raw pre-enrichment echo did not null it back out.
-      artwork_url: "https://cdn.example/artwork.jpg",
-    });
+      const after = flowsheetApi.endpoints.getInfiniteEntries.select(
+        undefined
+      )(store.getState()).data;
+      const matches = (after?.pages ?? [])
+        .flat()
+        .filter((e) => e.id === 9001);
+      expect(matches).toHaveLength(1);
+      expect(matches[0]).toMatchObject({
+        id: 9001,
+        // Preserved — the raw pre-enrichment echo did not null it back out.
+        artwork_url: "https://cdn.example/artwork.jpg",
+      });
 
-    store.dispatch(liveUpdatesConnectionReleased());
+      vi.advanceTimersByTime(600);
+      expect(invalidateSpy).not.toHaveBeenCalled();
+      invalidateSpy.mockRestore();
+    } finally {
+      vi.useRealTimers();
+      store.dispatch(liveUpdatesConnectionReleased());
+    }
   });
 
   it("schedules a debounced Flowsheet+NowPlaying invalidate for a genuinely new insert", async () => {

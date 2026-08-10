@@ -248,12 +248,15 @@ export function createLiveUpdatesListenerMiddleware(): LiveUpdatesListenerHandle
    * for offset-based fetchNextPage, and (d) bounds every SSE-vs-optimistic
    * race window at ~one debounce interval instead of the 5-minute slow poll.
    *
-   * An id that is already cached is SKIPPED, not merged: the sender's own
-   * `addToFlowsheet` pipeline owns that row (optimistic insert → temp-id
-   * resolve → deferred enrichment refetch), and merging the raw pre-enrichment
-   * broadcast over it would downgrade enriched fields. The scheduled
-   * invalidate still provides eventual consistency for whatever state the
-   * echo represented.
+   * An id that is already cached is SKIPPED ENTIRELY — no patch AND no
+   * invalidate. That id is the sender's own broadcast echo: their
+   * `addToFlowsheet` pipeline owns the row (optimistic insert → temp-id
+   * resolve → the mutation's own invalidatesTags), merging the raw
+   * pre-enrichment echo over it would downgrade enriched fields, and
+   * scheduling a Flowsheet refetch per self-echo collapses the sender's
+   * loaded pages back to the first fetch during rapid adds — a refetch
+   * replays only the recorded pageParams, so optimistic rows past the page
+   * size vanish from the list (the entry-caching E2E pins exactly this).
    */
   function routeInsertEvent(
     dispatch: AppDispatch,
@@ -283,6 +286,7 @@ export function createLiveUpdatesListenerMiddleware(): LiveUpdatesListenerHandle
     const alreadyCached = infiniteData.pages.some((page) =>
       page.some((e) => e.id === payload.id)
     );
+    if (alreadyCached) return;
 
     const now = Date.now();
     if (now - insertBurstWindowStart > REFETCH_DEBOUNCE_MS) {
@@ -291,7 +295,7 @@ export function createLiveUpdatesListenerMiddleware(): LiveUpdatesListenerHandle
     }
     insertBurstCount += 1;
 
-    if (!alreadyCached && insertBurstCount <= INSERT_PATCH_BURST_LIMIT) {
+    if (insertBurstCount <= INSERT_PATCH_BURST_LIMIT) {
       const entry = convertV2Entry(
         payload as unknown as FlowsheetV2EntryJSON
       );
