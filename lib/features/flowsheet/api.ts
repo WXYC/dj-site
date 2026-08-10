@@ -19,6 +19,7 @@ import {
   patchEntryById,
   removeEntryById,
   replaceEntryIdAllPages,
+  upsertEntrySortedFirstPage,
 } from "./infinite-cache";
 import {
   FlowsheetEntry,
@@ -39,6 +40,26 @@ function flowsheetMutationCatch(endpoint: string, err: unknown) {
   if (process.env.NODE_ENV === "development") {
     console.warn(`[flowsheet] ${endpoint}`, err);
   }
+}
+
+/**
+ * Failure rollback for a mutation that optimistically patched the entries
+ * cache: undo every optimistic patch, then refetch the entries feed. The
+ * undo alone can't be trusted — Immer's inverse patches are index-addressed,
+ * and a concurrent SSE insert that resized pages[0] mid-request makes those
+ * indices stale, so the undo could remove or restore the wrong slots.
+ */
+function rollbackAndResyncEntries(
+  endpoint: string,
+  err: unknown,
+  dispatch: (
+    action: ReturnType<typeof flowsheetApi.util.invalidateTags>
+  ) => unknown,
+  patches: Array<{ undo: () => void } | undefined>
+): void {
+  flowsheetMutationCatch(endpoint, err);
+  for (const patch of patches) patch?.undo();
+  dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
 }
 
 export const flowsheetApi = createApi({
@@ -102,9 +123,9 @@ export const flowsheetApi = createApi({
         try {
           await queryFulfilled;
         } catch (err) {
-          flowsheetMutationCatch("switchEntries", err);
-          patchResult.undo();
-          dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
+          rollbackAndResyncEntries("switchEntries", err, dispatch, [
+            patchResult,
+          ]);
         }
       },
     }),
@@ -187,13 +208,11 @@ export const flowsheetApi = createApi({
           await queryFulfilled;
           dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
         } catch (err) {
-          flowsheetMutationCatch("joinShow", err);
-          patchLive.undo();
-          patchEntries.undo();
-          patchNowPlaying.undo();
-          // See removeFromFlowsheet: patchEntries' undo is index-addressed
-          // and goes stale if an SSE insert resized pages[0] mid-flight.
-          dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
+          rollbackAndResyncEntries("joinShow", err, dispatch, [
+            patchLive,
+            patchEntries,
+            patchNowPlaying,
+          ]);
         }
       },
     }),
@@ -269,13 +288,11 @@ export const flowsheetApi = createApi({
           await queryFulfilled;
           dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
         } catch (err) {
-          flowsheetMutationCatch("leaveShow", err);
-          patchLive.undo();
-          patchEntries.undo();
-          patchNowPlaying.undo();
-          // See removeFromFlowsheet: patchEntries' undo is index-addressed
-          // and goes stale if an SSE insert resized pages[0] mid-flight.
-          dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
+          rollbackAndResyncEntries("leaveShow", err, dispatch, [
+            patchLive,
+            patchEntries,
+            patchNowPlaying,
+          ]);
         }
       },
     }),
@@ -341,23 +358,16 @@ export const flowsheetApi = createApi({
                   if (tempId !== undefined) {
                     replaceEntryIdAllPages(draft, tempId, data);
                   } else {
-                    // The SSE insert listener may have spliced this row
-                    // (under its real id) while the POST was in flight —
-                    // remove any copy first so the id is present exactly
-                    // once. insertEntrySortedFirstPage does not dedupe.
-                    removeEntryById(draft, data.id);
-                    insertEntrySortedFirstPage(draft, data);
+                    upsertEntrySortedFirstPage(draft, data);
                   }
                 }
               )
             );
             scheduleDeferredFlowsheetRefetch(dispatch, data.id);
           } catch (err) {
-            flowsheetMutationCatch("addToFlowsheet", err);
-            patchResult?.undo();
-            // See removeFromFlowsheet: undo's index-addressed inverse
-            // patches go stale if an SSE insert resized pages[0] mid-flight.
-            dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
+            rollbackAndResyncEntries("addToFlowsheet", err, dispatch, [
+              patchResult,
+            ]);
           }
         },
       }
@@ -385,13 +395,9 @@ export const flowsheetApi = createApi({
           await queryFulfilled;
           dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
         } catch (err) {
-          flowsheetMutationCatch("removeFromFlowsheet", err);
-          patchResult.undo();
-          // Undo restores by Immer's index-addressed inverse patches; a
-          // concurrent SSE insert that spliced pages[0] in the window makes
-          // those indices stale, so follow the undo with a refetch (the
-          // switchEntries precedent) instead of trusting it.
-          dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
+          rollbackAndResyncEntries("removeFromFlowsheet", err, dispatch, [
+            patchResult,
+          ]);
         }
       },
     }),
@@ -440,11 +446,9 @@ export const flowsheetApi = createApi({
           await queryFulfilled;
           dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
         } catch (err) {
-          flowsheetMutationCatch("updateFlowsheet", err);
-          patchResult.undo();
-          // See removeFromFlowsheet above: undo's index-addressed inverse
-          // patches go stale if an SSE insert resized pages[0] mid-flight.
-          dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
+          rollbackAndResyncEntries("updateFlowsheet", err, dispatch, [
+            patchResult,
+          ]);
         }
       },
     }),

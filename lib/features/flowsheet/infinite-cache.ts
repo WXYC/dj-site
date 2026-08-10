@@ -146,6 +146,21 @@ export function insertEntrySortedFirstPage(
 }
 
 /**
+ * Insert keeping `entry.id` present exactly once: any existing copy — e.g. a
+ * row the SSE insert listener spliced while a mutation was in flight — is
+ * removed first, because insertEntrySortedFirstPage alone does not dedupe.
+ * Unlike replaceEntryIdAllPages there is no temp id to retire and no
+ * replace-miss telemetry: this is the plain upsert form.
+ */
+export function upsertEntrySortedFirstPage(
+  draft: InfiniteEntriesDraft,
+  entry: FlowsheetEntry
+): void {
+  removeEntryById(draft, entry.id);
+  insertEntrySortedFirstPage(draft, entry);
+}
+
+/**
  * Remove every row carrying `id` from every page. All copies must go, including
  * duplicates on a single page, because the swap below relies on the id surviving
  * on no page. Iterate back-to-front so a splice can't shift an unchecked row

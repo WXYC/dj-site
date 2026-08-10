@@ -18,6 +18,7 @@ import {
   primaryShowId,
   removeEntryById,
   replaceEntryIdAllPages,
+  upsertEntrySortedFirstPage,
 } from "@/lib/features/flowsheet/infinite-cache";
 
 function song(
@@ -130,6 +131,27 @@ describe("infinite-cache", () => {
     insertEntrySortedFirstPage(draft, song(1, 1, 2));
     expect(draft.pages).toEqual([[song(1, 1, 2)]]);
     expect(draft.pageParams).toEqual([0]);
+  });
+
+  it("upsertEntrySortedFirstPage removes an existing copy before inserting (SSE-splice race)", () => {
+    const stale = song(51, 11, 1);
+    const draft = {
+      pages: [[stale, song(50, 10, 1)], [song(49, 9, 1)]],
+      pageParams: [0, 1],
+    };
+    const fresh = { ...song(51, 11, 1), track_title: "fresh" };
+    upsertEntrySortedFirstPage(draft, fresh);
+    expect(draft.pages.flat().filter((e) => e.id === 51)).toHaveLength(1);
+    expect(draft.pages[0][0]).toBe(fresh);
+  });
+
+  it("upsertEntrySortedFirstPage inserts plainly when the id is absent", () => {
+    const draft = {
+      pages: [[song(50, 10, 1)]],
+      pageParams: [0],
+    };
+    upsertEntrySortedFirstPage(draft, song(51, 11, 1));
+    expect(draft.pages[0].map((e) => e.id)).toEqual([51, 50]);
   });
 
   it("removeEntryById removes from nested page", () => {

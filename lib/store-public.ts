@@ -35,7 +35,7 @@ const publicRootReducer = combineSlices(
 );
 
 export const makePublicStore = () => {
-  const liveUpdatesListener = createLiveUpdatesListenerMiddleware();
+  const liveUpdatesListener = createLiveUpdatesListenerMiddleware("live");
   const store = configureStore({
     reducer: publicRootReducer,
     middleware: (getDefaultMiddleware) => {

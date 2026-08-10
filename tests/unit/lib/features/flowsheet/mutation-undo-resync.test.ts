@@ -9,14 +9,16 @@ import {
   TEST_BACKEND_URL,
 } from "@/tests/helpers";
 
-// Mock the auth client so the base query's prepareHeaders doesn't try to
-// fetch a JWT (no auth server running). Mirrors addToFlowsheet.wiring.test.ts.
-vi.mock("@/lib/features/authentication/client", () => ({
-  getJWTToken: vi.fn().mockResolvedValue(null),
-  clearTokenCache: vi.fn(),
-  authBaseURL: "http://localhost:3001/auth",
-  authClient: {},
-}));
+// Replace the auth client so the base query's prepareHeaders doesn't try to
+// fetch a JWT (no auth server running). Imported by path per the helper's
+// own instructions — the barrel would pull in the Redux store, which imports
+// the very module being replaced.
+vi.mock("@/lib/features/authentication/client", async () => {
+  const { createAuthClientModuleMock } = await import(
+    "@/tests/helpers/auth-client-mock"
+  );
+  return createAuthClientModuleMock();
+});
 
 // Mock the deferred-refetch helper (unit-tested in deferred-refetch.test.ts)
 // so a successful add doesn't arm a real timer that outlives the test.
