@@ -147,8 +147,12 @@ describe("SongEntry", () => {
       currentShow: 100,
     });
 
+    // usePlayNow now writes through useFlowsheetActions too — its
+    // addToFlowsheet must resolve to the same mock the Play button tests
+    // below configure via mockAddToFlowsheet.
     mockUseFlowsheet.mockReturnValue({
       updateFlowsheet: mockUpdateFlowsheet,
+      addToFlowsheet: mockAddToFlowsheet,
     });
 
     mockAddToFlowsheet.mockReturnValue(Promise.resolve());
@@ -914,8 +918,12 @@ describe("SongEntry two-line row structure", () => {
       autoplay: false,
       currentShow: 100,
     });
+    // usePlayNow now writes through useFlowsheetActions too — its
+    // addToFlowsheet must resolve to the same mock the Play button tests
+    // below configure via mockAddToFlowsheet.
     mockUseFlowsheet.mockReturnValue({
       updateFlowsheet: mockUpdateFlowsheet,
+      addToFlowsheet: mockAddToFlowsheet,
     });
   });
 

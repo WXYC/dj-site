@@ -1397,6 +1397,39 @@ describe("flowsheetHooks", () => {
         expect(result.current.search.searchQuery.artist).toBe("");
       });
 
+      // A compilation rotation release renders its artist field seeded
+      // empty (RotationEntryFields.needsPerformerName); a DJ who queues
+      // before typing into it hits this rather than the required-song
+      // check, matching Classic's canSubmitTrack rotation gate
+      // (`!rotationNeedsArtist || artistName.trim().length > 0`).
+      it("rejects a blank artist and leaves the search intact", () => {
+        const { result } = renderCombined();
+
+        act(() => {
+          result.current.search.setSearchProperty("song", "Call Your Name");
+        });
+        act(() => {
+          result.current.submit.submitToQueue();
+        });
+
+        expect(result.current.queue.queue.length).toBe(0);
+        expect(result.current.search.searchQuery.song).toBe("Call Your Name");
+      });
+
+      it("rejects a whitespace-only artist", () => {
+        const { result } = renderCombined();
+
+        act(() => {
+          result.current.search.setSearchProperty("artist", "   ");
+          result.current.search.setSearchProperty("song", "Call Your Name");
+        });
+        act(() => {
+          result.current.submit.submitToQueue();
+        });
+
+        expect(result.current.queue.queue.length).toBe(0);
+      });
+
       it("drops a synthesized negative album_id but keeps rotation linkage on the queue path", () => {
         const { result } = renderCombined();
 

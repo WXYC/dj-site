@@ -10,6 +10,7 @@ import {
   FlowsheetQuery,
   FlowsheetSubmissionParams,
 } from "@/lib/features/flowsheet/types";
+import { VARIOUS_ARTISTS_BIN_PLAY_MESSAGE } from "@/lib/features/flowsheet/various-artists-guard";
 import { useAppDispatch } from "@/lib/hooks";
 import {
   InfoOutlined,
@@ -93,7 +94,14 @@ export function useBinEntryActions(
         color: "primary",
         shiftRemoves: true,
         run: (opts) => {
-          addToFlowsheet(convertBinToFlowsheet(entry))
+          const submission = convertBinToFlowsheet(entry);
+          if (!submission) {
+            // No artist field to satisfy the refusal in place — point the DJ
+            // at the escape hatch instead of just saying no.
+            toast.error(VARIOUS_ARTISTS_BIN_PLAY_MESSAGE);
+            return;
+          }
+          addToFlowsheet(submission)
             // Only file the album away once it actually reached the
             // flowsheet — a failed play shouldn't also lose the bin entry.
             .then(() => {

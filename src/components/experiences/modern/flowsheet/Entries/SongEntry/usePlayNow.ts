@@ -1,28 +1,44 @@
 "use client";
 
-import { useAddToFlowsheetMutation } from "@/lib/features/flowsheet/api";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { hasLinkedAlbumId } from "@/lib/features/flowsheet/linkage";
 import {
   FlowsheetSongEntry,
   FlowsheetSubmissionParams,
 } from "@/lib/features/flowsheet/types";
+import {
+  isVariousArtistsEntry,
+  VARIOUS_ARTISTS_REJECTION_MESSAGE,
+} from "@/lib/features/flowsheet/various-artists-guard";
 import { useAppDispatch } from "@/lib/hooks";
-import { useRegistry } from "@/src/hooks/authenticationHooks";
+import { useFlowsheetActions } from "@/src/hooks/flowsheetHooks";
 import { useCallback } from "react";
 import { toast } from "sonner";
 
 // Shared by the desktop row's hover PlayArrow and the mobile card's Play
 // button so the submission payload can't drift between the two.
 export function usePlayNow(entry: FlowsheetSongEntry) {
-  const { loading: userloading, info: userData } = useRegistry();
-  const [addToFlowsheet] = useAddToFlowsheetMutation();
+  // Routed through the shared flowsheet chokepoint (rather than a raw
+  // mutation trigger) so this replay carries the same auth guard and
+  // tag-invalidation refetch every other flowsheet write gets.
+  const { addToFlowsheet } = useFlowsheetActions();
   const dispatch = useAppDispatch();
 
   return useCallback(() => {
-    if (!userData || userData.id === undefined || userloading) {
+    // A blank artist reaches the queue only through the bin's escape hatch
+    // (queued blank rather than carrying the refused credit) or a manual
+    // edit to the queue row's artist cell; a literal compilation credit
+    // reaches it only from a queue entry rehydrated from localStorage that
+    // predates this guard. Neither has anywhere else to be caught before
+    // the flowsheet write.
+    if (
+      !entry.artist_name?.trim() ||
+      isVariousArtistsEntry(entry.artist_name)
+    ) {
+      toast.error(VARIOUS_ARTISTS_REJECTION_MESSAGE);
       return;
     }
+
     // Queue entries can carry `album_id: undefined` (freeform) or a
     // synthesized negative id (library-unlinked bin rows, which BS throws
     // on — #701). Only a real positive album_id may go on the wire (#607).
@@ -42,12 +58,11 @@ export function usePlayNow(entry: FlowsheetSongEntry) {
         rotation_bin: entry.rotation,
       }),
     } as FlowsheetSubmissionParams)
-      .unwrap()
       .then(() => {
         dispatch(flowsheetSlice.actions.removeFromQueue(entry.id));
       })
       .catch((error) => {
         toast.error(`Failed to add to flowsheet: ${error}`);
       });
-  }, [addToFlowsheet, dispatch, entry, userData, userloading]);
+  }, [addToFlowsheet, dispatch, entry]);
 }

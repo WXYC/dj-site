@@ -21,6 +21,15 @@ export const VARIOUS_ARTISTS_REJECTION_MESSAGE =
   'Use the artist who performed the track, not "Various Artists".';
 
 /**
+ * Copy for the mail bin's Play Now refusal specifically. Play Now is a
+ * single click with no artist field to satisfy the refusal in place, unlike
+ * every other refusal surface — so the message has to name a different
+ * remedy: queue it, then name the performer in the now-editable queue row.
+ */
+export const VARIOUS_ARTISTS_BIN_PLAY_MESSAGE =
+  'Use the artist who performed the track, not "Various Artists". Add it to the queue instead, then type the performer into the artist cell before playing it.';
+
+/**
  * Whole-name predicate for the flowsheet submit block: true when the artist
  * field holds a compilation credit instead of a performer.
  *
