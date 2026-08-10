@@ -799,6 +799,21 @@ describe("flowsheet conversions", () => {
       });
     });
 
+    // A linked row's credit column wins on the wire whether it is blank or
+    // not, so naming a performer still departs from the release and still
+    // has to strip the linkage.
+    it("reports the artist as provided for a linked release that carries no credit", () => {
+      expect(
+        entryToFreezePayload({
+          id: 42,
+          artist: { name: "" },
+          title: "Untitled",
+        })
+      ).toEqual(
+        expect.objectContaining({ artist: "", artistProvided: true, album_id: 42 })
+      );
+    });
+
     // Withholding the seed must not read downstream as "the release had no
     // artist": the deviation rule keys on what the release supplied, and a
     // credit it refuses is still something it supplied.

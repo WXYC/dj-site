@@ -678,6 +678,28 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
       expect(result.queue[0].album_id).toBe(1001);
     });
 
+    // A linked row always carries an artist, so a blank artist on a linked
+    // queue entry means the conversion withheld the credit — the one case
+    // the empty-field exemption must not cover. Exempted, the linkage rides
+    // the wire and BS hands the withheld credit back over the performer the
+    // DJ just named.
+    it("drops album_id when a withheld artist is named on a linked queue entry", () => {
+      const withItem = harness().reduce(
+        actions.addToQueue(createTestFlowsheetQuery({ album_id: 1001, artist: "" }))
+      );
+      const result = harness().reduce(
+        actions.updateQueueEntry({
+          entry_id: withItem.queue[0].id,
+          field: "artist_name",
+          value: "Chuquimamani-Condori",
+        }),
+        withItem
+      );
+
+      expect(result.queue[0].artist_name).toBe("Chuquimamani-Condori");
+      expect(result.queue[0].album_id).toBeUndefined();
+    });
+
     // The searchbar's half of this rule exempts a field the release left
     // empty — filling it is added data, and the linkage still describes the
     // entry. The queue's half has to agree, or a library row with no label
