@@ -14,6 +14,10 @@ import {
 import { convertQueryToSubmission } from "@/lib/features/flowsheet/conversions";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import {
+  isVariousArtistsEntry,
+  VARIOUS_ARTISTS_REJECTION_MESSAGE,
+} from "@/lib/features/flowsheet/various-artists-guard";
+import {
   compareEntriesNewestFirst,
   primaryShowId,
 } from "@/lib/features/flowsheet/infinite-cache";
@@ -685,6 +689,10 @@ export const useFlowsheetSubmit = () => {
       toast.error("Song title is required");
       return;
     }
+    if (isVariousArtistsEntry(selectedResultData.artist)) {
+      toast.error(VARIOUS_ARTISTS_REJECTION_MESSAGE);
+      return;
+    }
     addToQueue(selectedResultData);
     dispatch(flowsheetSlice.actions.resetSearch());
   }, [addToQueue, selectedResultData, dispatch]);
@@ -697,6 +705,13 @@ export const useFlowsheetSubmit = () => {
       // calls handleSubmit directly instead of submitting the form).
       if (!(selectedResultData.song ?? "").trim()) {
         toast.error("Song title is required");
+        return;
+      }
+      // A compilation credit reaches this field two ways the DJ never typed:
+      // a clicked result row, and the rotation picker's release-artist
+      // fallback when Discogs lists no performer for the track.
+      if (isVariousArtistsEntry(selectedResultData.artist)) {
+        toast.error(VARIOUS_ARTISTS_REJECTION_MESSAGE);
         return;
       }
       if (queueModifierRef.current) {

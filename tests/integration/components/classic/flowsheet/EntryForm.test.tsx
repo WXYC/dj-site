@@ -602,3 +602,170 @@ describe("Classic EntryForm — Enter-key submission guard", () => {
     expect(addToFlowsheetMock.mock.calls[0][0].artist_name).toBe("Cat Power");
   });
 });
+
+describe("Classic EntryForm — Various Artists refusal", () => {
+  async function selectByText(
+    user: ReturnType<typeof renderWithProviders>["user"],
+    select: HTMLSelectElement,
+    textContains: string
+  ): Promise<void> {
+    const option = Array.from(select.options).find((o) =>
+      o.text.includes(textContains)
+    );
+    if (!option) throw new Error(`No option text contains: ${textContains}`);
+    await user.selectOptions(select, option);
+  }
+
+  const addButton = () =>
+    screen.getByRole("button", { name: /^add$/i }) as HTMLButtonElement;
+
+  it.each([
+    "Various Artists",
+    "various artists",
+    "V/A",
+    "VA",
+    "Var. Artists",
+    "Soundtrack",
+  ])("disables Add when the artist field holds %s", async (artist) => {
+    const { user } = renderWithProviders(<EntryForm />);
+    await user.selectOptions(getNamedSelect("releaseType"), "otherRelease");
+    await user.type(getNamedInput("artistName"), artist);
+    await user.type(getNamedInput("songTitle"), "Call Your Name");
+
+    expect(addButton().disabled).toBe(true);
+    expect(screen.getByText(/not "various artists"/i)).toBeInTheDocument();
+  });
+
+  it("keeps Add live for a performing artist whose name embeds a keyword", async () => {
+    const { user } = renderWithProviders(<EntryForm />);
+    await user.selectOptions(getNamedSelect("releaseType"), "otherRelease");
+    await user.type(getNamedInput("artistName"), "Various Production");
+    await user.type(getNamedInput("songTitle"), "Hater");
+
+    expect(addButton().disabled).toBe(false);
+    expect(screen.queryByText(/not "various artists"/i)).not.toBeInTheDocument();
+  });
+
+  it("re-enables Add once a performing artist replaces the compilation credit", async () => {
+    const { user } = renderWithProviders(<EntryForm />);
+    await user.selectOptions(getNamedSelect("releaseType"), "otherRelease");
+    await user.type(getNamedInput("artistName"), "Various Artists");
+    await user.type(getNamedInput("songTitle"), "Call Your Name");
+    expect(addButton().disabled).toBe(true);
+
+    await user.clear(getNamedInput("artistName"));
+    await user.type(getNamedInput("artistName"), "Chuquimamani-Condori");
+
+    expect(addButton().disabled).toBe(false);
+    expect(screen.queryByText(/not "various artists"/i)).not.toBeInTheDocument();
+  });
+
+  describe("rotation releases", () => {
+    const compilation = () =>
+      createTestRotationAlbum(Rotation.H, {
+        id: 6101,
+        rotation_id: 6102,
+        title: "In-Correcto 15-25",
+        label: "self-released",
+        artist: createTestArtist({
+          name: "Various Artists",
+          lettercode: "ZC",
+          numbercode: 4,
+        }),
+      });
+
+    const credited = () =>
+      createTestRotationAlbum(Rotation.H, {
+        id: 6201,
+        rotation_id: 6202,
+        title: "Aluminum Tunes",
+        label: "Duophonic",
+        artist: createTestArtist({
+          name: "Stereolab",
+          lettercode: "RO",
+          numbercode: 87,
+        }),
+      });
+
+    async function pickRotation(
+      user: ReturnType<typeof renderWithProviders>["user"],
+      titleContains: string
+    ) {
+      await user.selectOptions(getNamedSelect("releaseType"), "rotationRelease");
+      await user.selectOptions(getNamedSelect("rotationType"), "heavy");
+      await selectByText(user, getNamedSelect("heavyRelease"), titleContains);
+    }
+
+    // Rotation mode normally submits the release-level artist with no Artist
+    // field at all. On a compilation that artist IS the credit submission
+    // refuses, so the field has to appear or the refusal is unescapable.
+    it("reveals the Artist row for a compilation release", async () => {
+      rotationDataMock = [compilation()];
+      const { user } = renderWithProviders(<EntryForm />);
+      await pickRotation(user, "In-Correcto");
+
+      expect(getNamedInput("artistName")).toBeInTheDocument();
+      expect(getNamedInput("artistName").value).toBe("");
+    });
+
+    it("keeps the Artist row hidden for a normally-credited release", async () => {
+      rotationDataMock = [credited()];
+      const { user } = renderWithProviders(<EntryForm />);
+      await pickRotation(user, "Aluminum Tunes");
+
+      expect(
+        document.querySelector('input[name="artistName"]')
+      ).not.toBeInTheDocument();
+    });
+
+    it("holds Add until the DJ names the performer on a compilation", async () => {
+      rotationDataMock = [compilation()];
+      const { user } = renderWithProviders(<EntryForm />);
+      await pickRotation(user, "In-Correcto");
+      await user.type(getNamedInput("songTitle"), "Call Your Name");
+
+      expect(addButton().disabled).toBe(true);
+
+      await user.type(getNamedInput("artistName"), "Chuquimamani-Condori");
+
+      expect(addButton().disabled).toBe(false);
+    });
+
+    it("submits the typed artist freeform, keeping the rotation linkage", async () => {
+      rotationDataMock = [compilation()];
+      const { user } = renderWithProviders(<EntryForm />);
+      await pickRotation(user, "In-Correcto");
+      await user.type(getNamedInput("songTitle"), "Call Your Name");
+      await user.type(getNamedInput("artistName"), "Chuquimamani-Condori");
+      await user.click(addButton());
+
+      await waitFor(() => {
+        expect(addToFlowsheetMock).toHaveBeenCalledTimes(1);
+      });
+      const payload = addToFlowsheetMock.mock.calls[0][0];
+      // The catalog-linked variant resolves the artist from `album_id`, which
+      // on a compilation resolves straight back to "Various Artists" — so the
+      // typed name only survives on the freeform variant.
+      expect(payload.artist_name).toBe("Chuquimamani-Condori");
+      expect(payload.album_title).toBe("In-Correcto 15-25");
+      expect(payload.track_title).toBe("Call Your Name");
+      expect(payload.rotation_id).toBe(6102);
+      expect("album_id" in payload).toBe(false);
+    });
+
+    it("still submits a normally-credited release through the catalog-linked variant", async () => {
+      rotationDataMock = [credited()];
+      const { user } = renderWithProviders(<EntryForm />);
+      await pickRotation(user, "Aluminum Tunes");
+      await user.type(getNamedInput("songTitle"), "Tone Burst");
+      await user.click(addButton());
+
+      await waitFor(() => {
+        expect(addToFlowsheetMock).toHaveBeenCalledTimes(1);
+      });
+      const payload = addToFlowsheetMock.mock.calls[0][0];
+      expect(payload.album_id).toBe(6201);
+      expect(payload.rotation_id).toBe(6202);
+    });
+  });
+});

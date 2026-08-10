@@ -526,6 +526,26 @@ html[data-experience="classic"] body {
 	display: block;
 }
 
+/* Field-scoped variant: sits directly under the offending input rather than
+   centered under the form, and is sized to the 300px text inputs. */
+.artist-error-message {
+	display: none;
+	color: #FF0000;
+	font-size: 11px;
+	font-weight: bold;
+	margin-top: 4px;
+	padding: 4px 8px;
+	background-color: #FFF0F0;
+	border: 1px solid #FF0000;
+	border-radius: 3px;
+	max-width: 300px;
+	box-sizing: border-box;
+}
+
+.artist-error-message.visible {
+	display: block;
+}
+
 /* ========== wxycdb page bits ========== */
 
 ul {

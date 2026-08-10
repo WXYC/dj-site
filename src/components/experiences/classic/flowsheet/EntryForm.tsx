@@ -7,6 +7,11 @@ import { useAddToFlowsheetMutation } from "@/lib/features/flowsheet/api";
 import { useGetRotationQuery } from "@/lib/features/rotation/api";
 import { sortRotationReleases } from "@/lib/features/rotation/sort";
 import { Rotation } from "@/lib/features/rotation/types";
+import { isCompilationRelease } from "@/lib/features/catalog/is-compilation-artist";
+import {
+  isVariousArtistsEntry,
+  VARIOUS_ARTISTS_REJECTION_MESSAGE,
+} from "@/lib/features/flowsheet/various-artists-guard";
 import { FlowsheetEntryType } from "@wxyc/shared/dtos";
 import {
   stationBreakpointMessage,
@@ -80,11 +85,27 @@ export default function EntryForm({
     ),
   };
 
+  const selectedRotationRelease = rotationData?.find(
+    (r) => r.rotation_id === selectedRotationId
+  );
+  // On a compilation the release-level artist is the compilation credit, so
+  // rotation mode has to expose the Artist field it normally hides — otherwise
+  // the submit refusal below has no field to satisfy it.
+  const rotationNeedsArtist =
+    releaseType === "rotationRelease" &&
+    !!selectedRotationRelease &&
+    isCompilationRelease(selectedRotationRelease);
+  const showArtistField =
+    releaseType !== "rotationRelease" || rotationNeedsArtist;
+  const artistRefused = showArtistField && isVariousArtistsEntry(artistName);
+
   const handleRotationSelect = (rotationId: number) => {
     setSelectedRotationId(rotationId);
     const release = rotationData?.find((r) => r.rotation_id === rotationId);
     if (release) {
-      setArtistName(release.artist?.name ?? "");
+      // Never seed a value the form then refuses.
+      const seeded = release.artist?.name ?? "";
+      setArtistName(isVariousArtistsEntry(seeded) ? "" : seeded);
       setReleaseTitle(release.title);
       setLabelName(release.label);
     }
@@ -107,8 +128,10 @@ export default function EntryForm({
   // Breakpoint modes have no track to gate on, so they're always enabled.
   const canSubmitTrack =
     songTitle.trim().length > 0 &&
+    !artistRefused &&
     (releaseType === "rotationRelease"
-      ? selectedRotationId > 0
+      ? selectedRotationId > 0 &&
+        (!rotationNeedsArtist || artistName.trim().length > 0)
       : artistName.trim().length > 0);
   const canSubmit = entryType === "track" ? canSubmitTrack : true;
 
@@ -142,7 +165,22 @@ export default function EntryForm({
       // a non-error submit; recovering the linkage requires BS to accept
       // `rotation_id` without `album_id` (Option C, BS-side schema work).
       // Aligned with sibling dj-site#608's fix shape.
-      if (typeof release.id === "number" && release.id > 0) {
+      if (rotationNeedsArtist) {
+        // The catalog-linked variant carries no `artist_name` — BS resolves it
+        // from `album_id`, which on a compilation resolves straight back to the
+        // credit the DJ just replaced. Only the freeform variant preserves the
+        // performer they typed. `rotation_id` rides that variant, so the
+        // rotation badge survives the trade.
+        submissionData = {
+          artist_name: artistName,
+          album_title: release.title,
+          track_title: songTitle,
+          rotation_id: release.rotation_id,
+          request_flag: requestFlag,
+          segue,
+          record_label: labelName || release.label,
+        };
+      } else if (typeof release.id === "number" && release.id > 0) {
         submissionData = {
           album_id: release.id,
           track_title: songTitle,
@@ -287,7 +325,7 @@ export default function EntryForm({
 
             <table className="flowsheet-entry-form">
               <tbody>
-                {releaseType !== "rotationRelease" && (
+                {showArtistField && (
                   <tr id="artistTextboxRow">
                     <td>
                       <label htmlFor="artistName">Artist</label>
@@ -301,7 +339,24 @@ export default function EntryForm({
                         value={artistName}
                         onChange={(e) => setArtistName(e.target.value)}
                         disabled={!isLive}
+                        aria-invalid={artistRefused}
+                        aria-describedby={
+                          artistRefused ? "artistNameError" : undefined
+                        }
                       />
+                      {rotationNeedsArtist && !artistRefused && (
+                        <div className="field-hint">
+                          Compilation — name the artist on this track
+                        </div>
+                      )}
+                      {artistRefused && (
+                        <div
+                          id="artistNameError"
+                          className="artist-error-message visible"
+                        >
+                          {VARIOUS_ARTISTS_REJECTION_MESSAGE}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 )}

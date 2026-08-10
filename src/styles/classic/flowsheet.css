@@ -104,6 +104,13 @@
 	color: #888;
 }
 
+/* Same weight as .optional-hint, opposite meaning: names a constraint on a
+   field the form requires. */
+.field-hint {
+	font-size: x-small;
+	color: #888;
+}
+
 /* Autocomplete dropdown styles */
 .ac_results {
 	background-color: #FFFFFF;

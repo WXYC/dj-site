@@ -3,6 +3,7 @@
 import { isCompilationRelease } from "@/lib/features/catalog/is-compilation-artist";
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
+import { isVariousArtistsEntry } from "@/lib/features/flowsheet/various-artists-guard";
 import { Rotation } from "@/lib/features/rotation/types";
 import { normalizeTrackArtists } from "@/lib/features/rotation/normalize-track-artists";
 import {
@@ -18,11 +19,26 @@ import RotationBinSelector from "./RotationBinSelector";
 import RotationReleaseDropdown from "./RotationReleaseDropdown";
 import TrackPickerDropdown from "./TrackPickerDropdown";
 
+/**
+ * The artist value to seed from a release, or "" when the release-level artist
+ * is a compilation credit submission would refuse. Never auto-filling a value
+ * the form then rejects is what keeps the guard from reading as a bug; a
+ * compilation filed under a credited album artist keeps that name, because the
+ * guard has no quarrel with it.
+ */
+function seedableArtistName(release: AlbumEntry | null): string {
+  const name = release?.artist?.name ?? "";
+  return isVariousArtistsEntry(name) ? "" : name;
+}
+
 export default function RotationEntryFields({ disabled }: { disabled: boolean }) {
   const dispatch = useAppDispatch();
   const store = useAppStore();
   const songValue = useAppSelector(
     (state) => flowsheetSlice.selectors.getSearchQuery(state).song as string
+  );
+  const artistValue = useAppSelector(
+    (state) => flowsheetSlice.selectors.getSearchQuery(state).artist as string
   );
   const labelValue = useAppSelector(
     (state) => flowsheetSlice.selectors.getSearchQuery(state).label as string
@@ -80,7 +96,7 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
       setManualEntry(false);
       dispatch(flowsheetSlice.actions.setSearchOpen(true));
       dispatch(flowsheetSlice.actions.setSearchProperty({ name: "song", value: "" }));
-      dispatch(flowsheetSlice.actions.setSearchProperty({ name: "artist", value: release.artist?.name ?? "" }));
+      dispatch(flowsheetSlice.actions.setSearchProperty({ name: "artist", value: seedableArtistName(release) }));
       dispatch(flowsheetSlice.actions.setSearchProperty({ name: "album", value: release.title }));
       dispatch(flowsheetSlice.actions.setSearchProperty({ name: "label", value: release.label ?? "" }));
       dispatch(
@@ -126,8 +142,10 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
       }
       // No usable per-track credits: fall back to the release-level artist,
       // dispatching only when it differs from the live value so re-selecting a
-      // release does not re-write it.
-      const releaseArtist = selectedRelease?.artist?.name ?? "";
+      // release does not re-write it. On a V/A comp that fallback is empty
+      // rather than the compilation credit — clearing still prevents the
+      // previous track's performer from lingering, which is the point.
+      const releaseArtist = seedableArtistName(selectedRelease);
       const currentArtist = flowsheetSlice.selectors.getSearchQuery(
         store.getState()
       ).artist;
@@ -192,6 +210,20 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
           />
         )}
       </Box>
+      {/* On a compilation the performing artist is per-track, so the DJ needs
+          somewhere to supply or correct it — without this the submit guard
+          would refuse a V/A release with no field to fix. Normally-credited
+          releases keep the read-only behavior: their release artist is the
+          answer. */}
+      {trackCreditsAreDisambiguating && (
+        <FlowsheetSearchInput
+          name="artist"
+          value={artistValue}
+          disabled={disabled || !selectedRelease}
+          required
+          suppressHydrationWarning
+        />
+      )}
       {/* Editable label: some rotation albums carry no label upstream and the
           DJ is the only source for it */}
       <FlowsheetSearchInput
