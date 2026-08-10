@@ -295,6 +295,20 @@ describe("bin conversions", () => {
         expect(convertBinToFlowsheet(binEntry)).toBeNull();
       });
 
+      // A release that carries no credit dead-ends the same way: the
+      // flowsheet is the permanent record and refuses a blank artist
+      // everywhere else, and Play Now has no field to fill in either.
+      it.each([
+        ["an empty name", ""],
+        ["a whitespace-only name", "   "],
+      ])("returns null for a release with %s", (_label, name) => {
+        const binEntry = createBinEntry({
+          id: 42,
+          artist: createTestArtist({ name }),
+        });
+        expect(convertBinToFlowsheet(binEntry)).toBeNull();
+      });
+
       it("still plays normally when a compilation is filed under a credited album artist", () => {
         const binEntry = createBinEntry({
           id: 42,
@@ -399,6 +413,19 @@ describe("bin conversions", () => {
         });
         const result = convertBinToQueue(binEntry);
         expect(result.rotation_id).toBe(TEST_ENTITY_IDS.ROTATION.HEAVY);
+      });
+
+      // A release with no credit reaches the same blank cell, so it needs the
+      // same trade: left linked, BS would spread the library row's empty
+      // artist back over the performer the DJ types into that cell.
+      it("withholds album_id for a linked release that carries no credit", () => {
+        const binEntry = createBinEntry({
+          id: 42,
+          artist: createTestArtist({ name: "" }),
+        });
+        const result = convertBinToQueue(binEntry);
+        expect(result.artist).toBe("");
+        expect(result.album_id).toBeUndefined();
       });
 
       it("still queues normally when a compilation is filed under a credited album artist", () => {

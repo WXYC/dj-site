@@ -2405,6 +2405,66 @@ describe("flowsheetHooks", () => {
       );
     });
 
+    // The submission has to carry what the input paints, or the refusal
+    // names a string the DJ cannot see. The linkage goes with the withheld
+    // credit: kept, BS's album_id branch would spread the library row's
+    // credit back over the performer the DJ typed.
+    describe("a highlighted result whose credit is refused", () => {
+      const compilation = [
+        createTestAlbum({
+          id: 4243,
+          title: "Edits",
+          artist: createTestArtist({ name: "Various Artists" }),
+        }),
+      ];
+
+      it("submits no credit and no linkage, matching the blank field", () => {
+        mockUseCatalogFlowsheetSearch.mockReturnValue({
+          searchResults: compilation,
+        });
+
+        const { result } = renderBoth(1);
+
+        expect(result.current.search.getDisplayValue("artist")).toBe("");
+        expect(result.current.submit.selectedResultData.artist).toBe("");
+        expect(result.current.submit.selectedResultData.album_id).toBeUndefined();
+      });
+
+      it("carries the performer the DJ typed, still without the linkage", () => {
+        mockUseCatalogFlowsheetSearch.mockReturnValue({
+          searchResults: compilation,
+        });
+
+        const { result } = renderHook(
+          () => ({ search: useFlowsheetSearch(), submit: useFlowsheetSubmit() }),
+          {
+            wrapper: createHookWrapper(
+              { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
+              {
+                flowsheet: {
+                  ...flowsheetSlice.getInitialState(),
+                  search: {
+                    ...flowsheetSlice.getInitialState().search,
+                    selectedResult: 1,
+                    query: {
+                      ...flowsheetSlice.getInitialState().search.query,
+                      song: "Call Your Name",
+                      artist: "Chuquimamani-Condori",
+                    },
+                  },
+                },
+              }
+            ),
+          }
+        );
+
+        expect(result.current.submit.selectedResultData.artist).toBe(
+          "Chuquimamani-Condori"
+        );
+        expect(result.current.submit.selectedResultData.album_id).toBeUndefined();
+      });
+    });
+
     it("agrees at the last visible capped row (index 50 → the 50th painted album)", () => {
       mockUseCatalogFlowsheetSearch.mockReturnValue({ searchResults: manyAlbums });
 

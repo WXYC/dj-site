@@ -1,21 +1,22 @@
 import { AlbumEntry } from "../catalog/types";
 import { hasLinkedAlbumId } from "../flowsheet/linkage";
-import { releaseCreditIsRefused, seedableArtistName } from "../flowsheet/various-artists-guard";
+import { releaseCannotSupplyArtist, seedableArtistName } from "../flowsheet/various-artists-guard";
 import { FlowsheetQuery, FlowsheetSubmissionParams } from "../flowsheet/types";
 
 /**
- * `null` means Play Now must refuse the entry outright: a compilation credit
- * is invisible on the linked (`album_id`-only) submission shape, so the
- * check runs against the `AlbumEntry` here, before the linked/unlinked
- * branch below can hide it. Play Now has no artist field to satisfy the
- * refusal in place — the caller (useBinEntryActions) redirects the DJ to
- * Add to Queue, whose conversion below seeds a blank, editable artist
- * instead of refusing.
+ * `null` means Play Now must refuse the entry outright: the release leaves
+ * the artist blank, either because its credit is refused or because it
+ * carries none, and the flowsheet is the permanent record. Neither is
+ * visible on the linked (`album_id`-only) submission shape, so the check
+ * runs against the `AlbumEntry` here, before the linked/unlinked branch
+ * below can hide it. Play Now has no artist field to satisfy the refusal in
+ * place — the caller (useBinEntryActions) redirects the DJ to Add to Queue,
+ * whose conversion below seeds a blank, editable artist instead of refusing.
  */
 export function convertBinToFlowsheet(
   binEntry: AlbumEntry
 ): FlowsheetSubmissionParams | null {
-  if (releaseCreditIsRefused(binEntry)) return null;
+  if (releaseCannotSupplyArtist(binEntry)) return null;
 
   // #608: gate album_id on `> 0` to drop the synthesized negative id that
   // `synthesizeAlbumId` produces for library-unlinked bin rows. Bypassed
@@ -60,14 +61,15 @@ export function convertBinToFlowsheet(
  * flowsheet boundary until they do.
  */
 export function convertBinToQueue(binEntry: AlbumEntry): FlowsheetQuery {
-  const refused = releaseCreditIsRefused(binEntry);
+  const cannotSupplyArtist = releaseCannotSupplyArtist(binEntry);
   return {
-    // Withheld together with the artist when refused: BS's album_id branch
-    // spreads the library row's artist over the request's, so keeping the
-    // linkage would hand the credit right back once the DJ types a real
-    // performer into the queued row (mirrors
-    // RotationEntryFields.handleSelectRelease's withholding trade).
-    album_id: refused ? undefined : binEntry.id,
+    // Withheld together with the artist whenever the release leaves it
+    // blank: BS's album_id branch spreads the library row's artist over the
+    // request's, so keeping the linkage would hand the credit — or the
+    // blank — right back once the DJ types a real performer into the queued
+    // row (mirrors RotationEntryFields.handleSelectRelease's withholding
+    // trade).
+    album_id: cannotSupplyArtist ? undefined : binEntry.id,
     song: "",
     album: binEntry.title,
     artist: seedableArtistName(binEntry),
