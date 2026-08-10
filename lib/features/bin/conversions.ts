@@ -1,10 +1,22 @@
 import { AlbumEntry } from "../catalog/types";
 import { hasLinkedAlbumId } from "../flowsheet/linkage";
+import { releaseCreditIsRefused, seedableArtistName } from "../flowsheet/various-artists-guard";
 import { FlowsheetQuery, FlowsheetSubmissionParams } from "../flowsheet/types";
 
+/**
+ * `null` means Play Now must refuse the entry outright: a compilation credit
+ * is invisible on the linked (`album_id`-only) submission shape, so the
+ * check runs against the `AlbumEntry` here, before the linked/unlinked
+ * branch below can hide it. Play Now has no artist field to satisfy the
+ * refusal in place — the caller (useBinEntryActions) redirects the DJ to
+ * Add to Queue, whose conversion below seeds a blank, editable artist
+ * instead of refusing.
+ */
 export function convertBinToFlowsheet(
   binEntry: AlbumEntry
-): FlowsheetSubmissionParams {
+): FlowsheetSubmissionParams | null {
+  if (releaseCreditIsRefused(binEntry)) return null;
+
   // #608: gate album_id on `> 0` to drop the synthesized negative id that
   // `synthesizeAlbumId` produces for library-unlinked bin rows. Bypassed
   // `convertQueryToSubmission`'s chokepoint gate (04f027a) because
@@ -38,11 +50,17 @@ export function convertBinToFlowsheet(
 }
 
 export function convertBinToQueue(binEntry: AlbumEntry): FlowsheetQuery {
+  const refused = releaseCreditIsRefused(binEntry);
   return {
-    album_id: binEntry.id,
+    // Withheld together with the artist when refused: BS's album_id branch
+    // spreads the library row's artist over the request's, so keeping the
+    // linkage would hand the credit right back once the DJ types a real
+    // performer into the queued row (mirrors
+    // RotationEntryFields.handleSelectRelease's withholding trade).
+    album_id: refused ? undefined : binEntry.id,
     song: "",
     album: binEntry.title,
-    artist: binEntry.artist.name,
+    artist: seedableArtistName(binEntry),
     label: binEntry.label,
     rotation_id: binEntry.rotation_id,
     rotation_bin: binEntry.rotation_bin,

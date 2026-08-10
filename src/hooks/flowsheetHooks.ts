@@ -693,6 +693,16 @@ export const useFlowsheetSubmit = () => {
       toast.error(VARIOUS_ARTISTS_REJECTION_MESSAGE);
       return;
     }
+    // Only a compilation rotation release seeds this field blank
+    // (RotationEntryFields.needsPerformerName) — every other source (bin,
+    // catalog, LML, a normally-credited rotation pick) supplies a real
+    // name. HTML5 `required` can't catch this: it only guards the field
+    // Rotation mode renders when a performer is needed, and the queue
+    // button/Ctrl+Enter never run constraint validation regardless.
+    if (!(selectedResultData.artist ?? "").trim()) {
+      toast.error(VARIOUS_ARTISTS_REJECTION_MESSAGE);
+      return;
+    }
     addToQueue(selectedResultData);
     dispatch(flowsheetSlice.actions.resetSearch());
   }, [addToQueue, selectedResultData, dispatch]);

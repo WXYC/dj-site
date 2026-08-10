@@ -7,6 +7,7 @@ import { convertToAlbumEntry } from "@/lib/features/catalog/conversions";
 import {
   createTestBinResponse,
   createTestAlbum,
+  createTestArtist,
   TEST_ENTITY_IDS,
   TEST_SEARCH_STRINGS,
 } from "@/tests/helpers";
@@ -269,6 +270,41 @@ describe("bin conversions", () => {
         expect(result.album_id).toBe(42);
       });
     });
+
+    // Play Now is a single click with no artist field, so a refused credit
+    // can't be satisfied in place — the escape hatch is Add to Queue instead
+    // (see convertBinToQueue below), and Play Now refuses outright rather
+    // than submitting a payload BS would resolve back to the credit anyway.
+    describe("refused release credit", () => {
+      it.each(["Various Artists", "VA", "Var. Artists"])(
+        "returns null for a linked release credited %s",
+        (name) => {
+          const binEntry = createBinEntry({
+            id: 42,
+            artist: createTestArtist({ name }),
+          });
+          expect(convertBinToFlowsheet(binEntry)).toBeNull();
+        }
+      );
+
+      it("returns null for an unlinked (synthesized negative id) release credited Various Artists", () => {
+        const binEntry = createBinEntry({
+          id: -1,
+          artist: createTestArtist({ name: "Various Artists" }),
+        });
+        expect(convertBinToFlowsheet(binEntry)).toBeNull();
+      });
+
+      it("still plays normally when a compilation is filed under a credited album artist", () => {
+        const binEntry = createBinEntry({
+          id: 42,
+          artist: createTestArtist({ name: "Kruder & Dorfmeister" }),
+        });
+        const result = convertBinToFlowsheet(binEntry) as BinFlowsheetResult;
+        expect(result).not.toBeNull();
+        expect(result.album_id).toBe(42);
+      });
+    });
   });
 
   describe("convertBinToQueue", () => {
@@ -325,6 +361,55 @@ describe("bin conversions", () => {
       const binEntry = createBinEntry();
       const result = convertBinToQueue(binEntry);
       expect(result.request).toBe(false);
+    });
+
+    // The escape hatch for a refused bin credit: Add to Queue still succeeds,
+    // but with a blank artist cell (editable in place) rather than the
+    // compilation credit, and album_id withheld so a later Play from the
+    // queue can't have BS resolve the credit straight back once the DJ
+    // types a real performer into that cell (mirrors
+    // RotationEntryFields.handleSelectRelease's withholding trade).
+    describe("refused release credit", () => {
+      it.each(["Various Artists", "VA", "Var. Artists"])(
+        "seeds a blank artist for a release credited %s",
+        (name) => {
+          const binEntry = createBinEntry({
+            id: 42,
+            artist: createTestArtist({ name }),
+          });
+          const result = convertBinToQueue(binEntry);
+          expect(result.artist).toBe("");
+        }
+      );
+
+      it("withholds album_id for a linked release with a refused credit", () => {
+        const binEntry = createBinEntry({
+          id: 42,
+          artist: createTestArtist({ name: "Various Artists" }),
+        });
+        const result = convertBinToQueue(binEntry);
+        expect(result.album_id).toBeUndefined();
+      });
+
+      it("keeps rotation_id when album_id is withheld", () => {
+        const binEntry = createBinEntry({
+          id: 42,
+          artist: createTestArtist({ name: "Various Artists" }),
+          rotation_id: TEST_ENTITY_IDS.ROTATION.HEAVY,
+        });
+        const result = convertBinToQueue(binEntry);
+        expect(result.rotation_id).toBe(TEST_ENTITY_IDS.ROTATION.HEAVY);
+      });
+
+      it("still queues normally when a compilation is filed under a credited album artist", () => {
+        const binEntry = createBinEntry({
+          id: 42,
+          artist: createTestArtist({ name: "Kruder & Dorfmeister" }),
+        });
+        const result = convertBinToQueue(binEntry);
+        expect(result.artist).toBe("Kruder & Dorfmeister");
+        expect(result.album_id).toBe(42);
+      });
     });
   });
 });

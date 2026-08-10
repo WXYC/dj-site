@@ -8,12 +8,20 @@ const addToQueue = vi.fn();
 const addToFlowsheet = vi.fn(() => Promise.resolve());
 const deleteFromBin = vi.fn();
 
+const convertBinToQueueMock = vi.fn((e: AlbumEntry) => ({ q: e.id }));
+const convertBinToFlowsheetMock = vi.fn(
+  (e: AlbumEntry): { f: number } | null => ({ f: e.id })
+);
+
 vi.mock("@/lib/hooks", () => ({ useAppDispatch: () => dispatch }));
 vi.mock("@/lib/features/bin/conversions", () => ({
-  convertBinToQueue: (e: AlbumEntry) => ({ q: e.id }),
-  convertBinToFlowsheet: (e: AlbumEntry) => ({ f: e.id }),
+  convertBinToQueue: (e: AlbumEntry) => convertBinToQueueMock(e),
+  convertBinToFlowsheet: (e: AlbumEntry) => convertBinToFlowsheetMock(e),
 }));
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+const toastErrorMock = vi.fn();
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: (...args: unknown[]) => toastErrorMock(...args) },
+}));
 vi.mock("@/lib/features/application/frontend", () => ({
   applicationSlice: {
     actions: { openPanel: (p: unknown) => ({ type: "openPanel", payload: p }) },
@@ -118,6 +126,30 @@ describe("useBinEntryActions", () => {
     byId.play.run();
     await Promise.resolve();
     await Promise.resolve();
+    expect(deleteFromBin).not.toHaveBeenCalled();
+  });
+
+  it("refuses Play Now for a refused release credit instead of writing to the flowsheet", () => {
+    convertBinToFlowsheetMock.mockReturnValueOnce(null);
+    const { result } = renderHook(() => useBinEntryActions(entry, true, deps));
+    const byId = Object.fromEntries(result.current.map((a) => [a.id, a]));
+
+    byId.play.run();
+
+    expect(addToFlowsheet).not.toHaveBeenCalled();
+    expect(toastErrorMock).toHaveBeenCalledWith(
+      expect.stringMatching(/not "various artists"/i)
+    );
+  });
+
+  it("does not remove a refused entry from the bin, even with Shift held", async () => {
+    convertBinToFlowsheetMock.mockReturnValueOnce(null);
+    const { result } = renderHook(() => useBinEntryActions(entry, true, deps));
+    const byId = Object.fromEntries(result.current.map((a) => [a.id, a]));
+
+    byId.play.run({ shiftKey: true });
+    await Promise.resolve();
+
     expect(deleteFromBin).not.toHaveBeenCalled();
   });
 });
