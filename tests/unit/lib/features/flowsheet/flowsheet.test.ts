@@ -573,6 +573,67 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
       expect(result.queue[0].track_title).toBe(withItem.queue[0].track_title);
     });
 
+    // Editing a field the library row supplied deviates from that row, so
+    // the album linkage must not ride the wire: Backend-Service's album_id
+    // branch spreads the library row over the request and would hand the
+    // old value straight back. rotation_id and rotation are not
+    // album-scoped and survive (see withSanitizedAlbumLinkage).
+    it.each(["artist_name", "album_title", "record_label"] as const)(
+      "drops album_id when %s is edited away from the linked row",
+      (field) => {
+        const withItem = harness().reduce(
+          actions.addToQueue(
+            createTestFlowsheetQuery({ album_id: 1001, rotation_id: 7 })
+          )
+        );
+        const result = harness().reduce(
+          actions.updateQueueEntry({
+            entry_id: withItem.queue[0].id,
+            field,
+            value: "Chuquimamani-Condori",
+          }),
+          withItem
+        );
+
+        expect(result.queue[0].album_id).toBeUndefined();
+        expect(result.queue[0].rotation_id).toBe(7);
+      }
+    );
+
+    it("keeps album_id when the edit leaves the value unchanged", () => {
+      const withItem = harness().reduce(
+        actions.addToQueue(
+          createTestFlowsheetQuery({ album_id: 1001, artist: "Jessica Pratt" })
+        )
+      );
+      const result = harness().reduce(
+        actions.updateQueueEntry({
+          entry_id: withItem.queue[0].id,
+          field: "artist_name",
+          value: "Jessica Pratt",
+        }),
+        withItem
+      );
+
+      expect(result.queue[0].album_id).toBe(1001);
+    });
+
+    it("keeps album_id when a field the library row does not own is edited", () => {
+      const withItem = harness().reduce(
+        actions.addToQueue(createTestFlowsheetQuery({ album_id: 1001 }))
+      );
+      const result = harness().reduce(
+        actions.updateQueueEntry({
+          entry_id: withItem.queue[0].id,
+          field: "track_title",
+          value: "Back, Baby",
+        }),
+        withItem
+      );
+
+      expect(result.queue[0].album_id).toBe(1001);
+    });
+
     it("should call saveQueueToStorage when updating queue entry", () => {
       const withItem = harness().reduce(actions.addToQueue(createTestFlowsheetQuery()));
       mockedSaveQueue.mockClear();

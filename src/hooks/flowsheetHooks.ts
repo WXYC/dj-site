@@ -25,6 +25,7 @@ import {
 import { safeCapture } from "@/lib/posthog";
 import { useFlowsheetPollingInterval } from "./useSSEConnection";
 import { partitionFlowsheetEntries } from "@/lib/features/flowsheet/partition";
+import { flowsheetWriteErrorMessage } from "@/lib/features/flowsheet/submission-error";
 import {
   FlowsheetEntry,
   FlowsheetQuery,
@@ -694,16 +695,11 @@ export const useFlowsheetSubmit = () => {
       toast.error(VARIOUS_ARTISTS_REJECTION_MESSAGE);
       return;
     }
-    // Only a compilation rotation release seeds this field blank
-    // (RotationEntryFields.needsPerformerName) — every other source (bin,
-    // catalog, LML, a normally-credited rotation pick) supplies a real
-    // name. HTML5 `required` can't catch this: it only guards the field
-    // Rotation mode renders when a performer is needed, and the queue
-    // button/Ctrl+Enter never run constraint validation regardless.
-    if (!(selectedResultData.artist ?? "").trim()) {
-      toast.error(MISSING_ARTIST_REJECTION_MESSAGE);
-      return;
-    }
+    // A blank artist is deliberately allowed through: the queue is a draft,
+    // and naming the performer later in the queue row's editable artist
+    // cell is both a real workflow and the remedy the mail bin's refusal
+    // redirects to. Emptiness is refused at the flowsheet boundary instead
+    // (handleSubmit and usePlayNow).
     addToQueue(selectedResultData);
     dispatch(flowsheetSlice.actions.resetSearch());
   }, [addToQueue, selectedResultData, dispatch]);
@@ -730,6 +726,14 @@ export const useFlowsheetSubmit = () => {
         toast.error(VARIOUS_ARTISTS_REJECTION_MESSAGE);
         return;
       }
+      // The flowsheet is the permanent record, so emptiness is refused here
+      // rather than on the queue path. Only `song` carries HTML5 `required`
+      // in the searchbar, and a clicked result row never touches an input,
+      // so markup validation cannot stand in for this.
+      if (!(selectedResultData.artist ?? "").trim()) {
+        toast.error(MISSING_ARTIST_REJECTION_MESSAGE);
+        return;
+      }
       if (isRotationPick && selectedEntry) {
         safeCapture("flowsheet_submit_rotation_link", {
           rotation_id_present: selectedEntry.rotation_id != null,
@@ -741,19 +745,7 @@ export const useFlowsheetSubmit = () => {
         await addToFlowsheet(convertQueryToSubmission(selectedResultData));
         dispatch(flowsheetSlice.actions.resetSearch());
       } catch (err) {
-        const message =
-          err &&
-          typeof err === "object" &&
-          "data" in err &&
-          err.data &&
-          typeof err.data === "object" &&
-          "message" in err.data &&
-          typeof (err.data as { message: unknown }).message === "string"
-            ? (err.data as { message: string }).message
-            : err instanceof Error
-              ? err.message
-              : "Could not add to flowsheet";
-        toast.error(message);
+        toast.error(flowsheetWriteErrorMessage(err));
       }
     },
     [

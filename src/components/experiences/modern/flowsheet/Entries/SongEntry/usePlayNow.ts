@@ -1,7 +1,7 @@
 "use client";
 
-import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { hasLinkedAlbumId } from "@/lib/features/flowsheet/linkage";
+import { flowsheetWriteErrorMessage } from "@/lib/features/flowsheet/submission-error";
 import {
   FlowsheetSongEntry,
   FlowsheetSubmissionParams,
@@ -11,7 +11,6 @@ import {
   MISSING_ARTIST_REJECTION_MESSAGE,
   VARIOUS_ARTISTS_REJECTION_MESSAGE,
 } from "@/lib/features/flowsheet/various-artists-guard";
-import { useAppDispatch } from "@/lib/hooks";
 import { useFlowsheetActions } from "@/src/hooks/flowsheetHooks";
 import { useCallback } from "react";
 import { toast } from "sonner";
@@ -22,8 +21,7 @@ export function usePlayNow(entry: FlowsheetSongEntry) {
   // Routed through the shared flowsheet chokepoint (rather than a raw
   // mutation trigger) so this replay carries the same auth guard and
   // tag-invalidation refetch every other flowsheet write gets.
-  const { addToFlowsheet } = useFlowsheetActions();
-  const dispatch = useAppDispatch();
+  const { addToFlowsheet, removeFromQueue } = useFlowsheetActions();
 
   return useCallback(() => {
     // A blank artist reaches the queue only through the bin's escape hatch
@@ -62,10 +60,10 @@ export function usePlayNow(entry: FlowsheetSongEntry) {
       }),
     } as FlowsheetSubmissionParams)
       .then(() => {
-        dispatch(flowsheetSlice.actions.removeFromQueue(entry.id));
+        removeFromQueue(entry.id);
       })
       .catch((error) => {
-        toast.error(`Failed to add to flowsheet: ${error}`);
+        toast.error(flowsheetWriteErrorMessage(error));
       });
-  }, [addToFlowsheet, dispatch, entry]);
+  }, [addToFlowsheet, removeFromQueue, entry]);
 }

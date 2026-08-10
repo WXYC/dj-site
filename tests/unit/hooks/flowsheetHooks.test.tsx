@@ -1398,56 +1398,29 @@ describe("flowsheetHooks", () => {
         expect(result.current.search.searchQuery.artist).toBe("");
       });
 
-      // A compilation rotation release renders its artist field seeded
-      // empty (RotationEntryFields.needsPerformerName); a DJ who queues
-      // before typing into it hits this rather than the required-song
-      // check, matching Classic's canSubmitTrack rotation gate
-      // (`!rotationNeedsArtist || artistName.trim().length > 0`).
-      it("rejects a blank artist and leaves the search intact", () => {
-        const { result } = renderCombined();
+      // Emptiness is refused at the flowsheet boundary, not here. A queued
+      // entry is a draft: parking a song title and naming the performer
+      // later in the queue row's editable artist cell is a real workflow,
+      // and it is the same affordance the mail bin's refusal redirects to.
+      it.each([["", "blank"], ["   ", "whitespace-only"]])(
+        "queues a %s artist so it can be named in the queue row later",
+        (artist) => {
+          const { result } = renderCombined();
 
-        act(() => {
-          result.current.search.setSearchProperty("song", "Call Your Name");
-        });
-        act(() => {
-          result.current.submit.submitToQueue();
-        });
+          act(() => {
+            result.current.search.setSearchProperty("artist", artist);
+            result.current.search.setSearchProperty("song", "Call Your Name");
+          });
+          act(() => {
+            result.current.submit.submitToQueue();
+          });
 
-        expect(result.current.queue.queue.length).toBe(0);
-        expect(result.current.search.searchQuery.song).toBe("Call Your Name");
-      });
-
-      // The blank field and the refused credit are different mistakes and
-      // get different copy: a DJ who never typed "Various Artists" should
-      // not be told to stop.
-      it("names the missing artist rather than blaming Various Artists", () => {
-        const { result } = renderCombined();
-
-        act(() => {
-          result.current.search.setSearchProperty("song", "Call Your Name");
-        });
-        act(() => {
-          result.current.submit.submitToQueue();
-        });
-
-        expect(mockToastError).toHaveBeenCalledWith(
-          MISSING_ARTIST_REJECTION_MESSAGE
-        );
-      });
-
-      it("rejects a whitespace-only artist", () => {
-        const { result } = renderCombined();
-
-        act(() => {
-          result.current.search.setSearchProperty("artist", "   ");
-          result.current.search.setSearchProperty("song", "Call Your Name");
-        });
-        act(() => {
-          result.current.submit.submitToQueue();
-        });
-
-        expect(result.current.queue.queue.length).toBe(0);
-      });
+          expect(result.current.queue.queue.length).toBe(1);
+          expect(result.current.queue.queue[0].track_title).toBe(
+            "Call Your Name"
+          );
+        }
+      );
 
       it("drops a synthesized negative album_id but keeps rotation linkage on the queue path", () => {
         const { result } = renderCombined();
@@ -1532,9 +1505,10 @@ describe("flowsheetHooks", () => {
     });
 
     it("should call handleSubmit and add to flowsheet when ctrl is not pressed", () => {
-      // Preload a song title — handleSubmit now requires it (covers the
-      // row-click bypass of the form's HTML5 validation; see the
-      // "song-title validation" describe block below).
+      // Preload both fields handleSubmit requires. Neither can be left to
+      // the form's HTML5 validation, which a clicked result row bypasses —
+      // see the "song-title validation" and "various-artists validation"
+      // describe blocks below.
       const wrapper = createHookWrapper(
         { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
         {
@@ -1545,6 +1519,7 @@ describe("flowsheetHooks", () => {
               query: {
                 ...flowsheetSlice.getInitialState().search.query,
                 song: "la paradoja",
+                artist: "Juana Molina",
               },
             },
           },
@@ -2061,6 +2036,32 @@ describe("flowsheetHooks", () => {
           expect(mockToastError).not.toHaveBeenCalled();
         }
       );
+
+      // The flowsheet is the permanent record, so this is where emptiness is
+      // refused — the queue accepts it as a draft. Only `song` carries HTML5
+      // `required` in the searchbar, and a clicked result row never touches
+      // an input at all, so markup validation cannot cover this.
+      it.each(["", "   "])(
+        "refuses a blank artist (%j) and does not call addToFlowsheet",
+        async (artist) => {
+          await submitWith(artist);
+
+          expect(mockAddToFlowsheet).not.toHaveBeenCalled();
+          expect(mockToastError).toHaveBeenCalledWith(
+            MISSING_ARTIST_REJECTION_MESSAGE
+          );
+        }
+      );
+
+      // A DJ who left the artist empty never typed "Various Artists", so
+      // borrowing the credit's copy would name a fix they did not need.
+      it("does not blame Various Artists when the artist is merely blank", async () => {
+        await submitWith("");
+
+        expect(mockToastError).not.toHaveBeenCalledWith(
+          expect.stringMatching(/various artists/i)
+        );
+      });
 
       it("checks the song title before the artist so a blank entry names the first problem", async () => {
         const { result } = renderHook(() => useFlowsheetSubmit(), {

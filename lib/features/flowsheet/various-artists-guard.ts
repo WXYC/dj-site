@@ -26,8 +26,7 @@ export const VARIOUS_ARTISTS_REJECTION_MESSAGE =
  * every other refusal surface — so the message has to name a different
  * remedy: queue it, then name the performer in the now-editable queue row.
  */
-export const VARIOUS_ARTISTS_BIN_PLAY_MESSAGE =
-  'Use the artist who performed the track, not "Various Artists". Add it to the queue instead, then type the performer into the artist cell before playing it.';
+export const VARIOUS_ARTISTS_BIN_PLAY_MESSAGE = `${VARIOUS_ARTISTS_REJECTION_MESSAGE} Add it to the queue instead, then type the performer into the artist cell before playing it.`;
 
 /**
  * Copy for a blank artist, which is a different mistake from a refused

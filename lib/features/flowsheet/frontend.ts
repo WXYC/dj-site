@@ -19,6 +19,15 @@ import { clearQueueFromStorage, loadQueueFromStorage, saveQueueToStorage } from 
 // queued, dropping the badge on dj-site/iOS and failing to propagate as
 // rotation to the wxyc.info archive. (Mirrors convertQueryToSubmission /
 // convertBinToFlowsheet, which forward rotation_id independent of album_id.)
+// The fields a linked library row supplies. Editing one of these on a queued
+// entry deviates from that row; editing anything else (track title, request,
+// segue) does not, since the row never claimed to describe them.
+const ALBUM_SCOPED_QUEUE_FIELDS: readonly (keyof FlowsheetSongEntry)[] = [
+  "artist_name",
+  "album_title",
+  "record_label",
+];
+
 function withSanitizedAlbumLinkage<
   T extends {
     album_id?: number;
@@ -220,7 +229,22 @@ export const flowsheetSlice = createAppSlice({
     updateQueueEntry: (state, action: PayloadAction<{ entry_id: number; field: keyof FlowsheetSongEntry; value: string | boolean }>) => {
       const entry = state.queue.find((e) => e.id === action.payload.entry_id);
       if (entry) {
+        const previous = entry[action.payload.field];
         (entry as any)[action.payload.field] = action.payload.value;
+        // Same deviation rule the searchbar applies in setSearchProperty:
+        // once the DJ edits a field the linked library row supplied, that
+        // linkage no longer describes the entry and must not ride the wire,
+        // because BS's album_id branch spreads the library row over the
+        // request and would hand the replaced value straight back. This is
+        // the only place a queued entry's credit can be corrected, so
+        // without it a Various-Artists row rehydrated from storage silently
+        // discards the performer the DJ just typed.
+        if (
+          ALBUM_SCOPED_QUEUE_FIELDS.includes(action.payload.field) &&
+          previous !== action.payload.value
+        ) {
+          entry.album_id = undefined;
+        }
       }
       saveQueueToStorage(state.queue);
     },

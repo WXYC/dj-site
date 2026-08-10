@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
 import type { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
-import { MISSING_ARTIST_REJECTION_MESSAGE } from "@/lib/features/flowsheet/various-artists-guard";
+import {
+  MISSING_ARTIST_REJECTION_MESSAGE,
+  VARIOUS_ARTISTS_REJECTION_MESSAGE,
+} from "@/lib/features/flowsheet/various-artists-guard";
 import { usePlayNow } from "@/src/components/experiences/modern/flowsheet/Entries/SongEntry/usePlayNow";
 
 const addToFlowsheetMock = vi.fn((_params: Record<string, unknown>) => ({
@@ -102,7 +105,7 @@ describe("usePlayNow various-artists refusal", () => {
 
       expect(addToFlowsheetMock).not.toHaveBeenCalled();
       expect(toastErrorMock).toHaveBeenCalledWith(
-        expect.stringMatching(/not "various artists"/i)
+        VARIOUS_ARTISTS_REJECTION_MESSAGE
       );
     }
   );

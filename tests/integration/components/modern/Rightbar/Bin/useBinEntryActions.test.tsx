@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { Unarchive } from "@mui/icons-material";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
+import { VARIOUS_ARTISTS_BIN_PLAY_MESSAGE } from "@/lib/features/flowsheet/various-artists-guard";
 
 const dispatch = vi.fn();
 const addToQueue = vi.fn();
@@ -137,8 +138,11 @@ describe("useBinEntryActions", () => {
     byId.play.run();
 
     expect(addToFlowsheet).not.toHaveBeenCalled();
+    // Pinned to the bin-specific constant, not a substring both messages
+    // share: the remedy it names is the only thing standing between the DJ
+    // and a dead end, and the generic copy would satisfy a looser matcher.
     expect(toastErrorMock).toHaveBeenCalledWith(
-      expect.stringMatching(/not "various artists"/i)
+      VARIOUS_ARTISTS_BIN_PLAY_MESSAGE
     );
   });
 

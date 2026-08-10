@@ -2,6 +2,7 @@ import { Rotation } from "../rotation/types";
 import { formatStationDateTime } from "@/src/utilities/stationTime";
 import { OFF_AIR_LABEL } from "./constants";
 import { hasLinkedAlbumId } from "./linkage";
+import { seedableArtistName } from "./various-artists-guard";
 import {
   FlowsheetEntry,
   FlowsheetQuery,
@@ -30,7 +31,10 @@ export function entryToFreezePayload(entry: {
   rotation_bin?: Rotation | null;
 }) {
   return {
-    artist: entry.artist?.name ?? "",
+    // Seeded empty when the release's credit is one submission refuses, so
+    // the form never autofills a value it then rejects. The DJ types the
+    // performer into the field the freeze leaves blank.
+    artist: seedableArtistName(entry),
     album: entry.title ?? "",
     label: entry.label ?? "",
     album_id: entry.id ?? undefined,
