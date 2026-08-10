@@ -30,6 +30,16 @@ export const VARIOUS_ARTISTS_BIN_PLAY_MESSAGE =
   'Use the artist who performed the track, not "Various Artists". Add it to the queue instead, then type the performer into the artist cell before playing it.';
 
 /**
+ * Copy for a blank artist, which is a different mistake from a refused
+ * credit and must not borrow its message: a DJ who left the field empty
+ * never typed "Various Artists", so telling them not to names a fix they
+ * did not need. Emptiness is legal in the queue and refused only at the
+ * flowsheet boundary, so this fires later than the credit refusal does.
+ */
+export const MISSING_ARTIST_REJECTION_MESSAGE =
+  "Name the artist who performed the track.";
+
+/**
  * Whole-name predicate for the flowsheet submit block: true when the artist
  * field holds a compilation credit instead of a performer.
  *

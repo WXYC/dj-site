@@ -1,13 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
 import type { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
+import { MISSING_ARTIST_REJECTION_MESSAGE } from "@/lib/features/flowsheet/various-artists-guard";
 import { usePlayNow } from "@/src/components/experiences/modern/flowsheet/Entries/SongEntry/usePlayNow";
 
 const addToFlowsheetMock = vi.fn((_params: Record<string, unknown>) => ({
   unwrap: () => Promise.resolve(),
 }));
 
-// usePlayNow now writes through useFlowsheetActions (the shared flowsheet
+// usePlayNow writes through useFlowsheetActions (the shared flowsheet
 // chokepoint), which also opens three mutation hooks it never fires here —
 // they still have to resolve or the hook throws on render.
 vi.mock("@/lib/features/flowsheet/api", () => ({
@@ -121,10 +122,24 @@ describe("usePlayNow various-artists refusal", () => {
 
       expect(addToFlowsheetMock).not.toHaveBeenCalled();
       expect(toastErrorMock).toHaveBeenCalledWith(
-        expect.stringMatching(/not "various artists"/i)
+        MISSING_ARTIST_REJECTION_MESSAGE
       );
     }
   );
+
+  // The blank field and the refused credit are different mistakes and get
+  // different copy: a DJ who left the artist empty never typed "Various
+  // Artists", so telling them not to would name a fix they didn't need.
+  it("does not blame Various Artists when the artist is merely blank", () => {
+    const { result } = renderHook(() =>
+      usePlayNow(queueEntry({ artist_name: "" }))
+    );
+    result.current();
+
+    expect(toastErrorMock).not.toHaveBeenCalledWith(
+      expect.stringMatching(/various artists/i)
+    );
+  });
 
   it("still plays a normally-credited queue entry", () => {
     const { result } = renderHook(() =>

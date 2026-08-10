@@ -8,6 +8,7 @@ import {
 } from "@/lib/features/flowsheet/types";
 import {
   isVariousArtistsEntry,
+  MISSING_ARTIST_REJECTION_MESSAGE,
   VARIOUS_ARTISTS_REJECTION_MESSAGE,
 } from "@/lib/features/flowsheet/various-artists-guard";
 import { useAppDispatch } from "@/lib/hooks";
@@ -30,11 +31,13 @@ export function usePlayNow(entry: FlowsheetSongEntry) {
     // edit to the queue row's artist cell; a literal compilation credit
     // reaches it only from a queue entry rehydrated from localStorage that
     // predates this guard. Neither has anywhere else to be caught before
-    // the flowsheet write.
-    if (
-      !entry.artist_name?.trim() ||
-      isVariousArtistsEntry(entry.artist_name)
-    ) {
+    // the flowsheet write, and they take different copy because they are
+    // different mistakes.
+    if (!entry.artist_name?.trim()) {
+      toast.error(MISSING_ARTIST_REJECTION_MESSAGE);
+      return;
+    }
+    if (isVariousArtistsEntry(entry.artist_name)) {
       toast.error(VARIOUS_ARTISTS_REJECTION_MESSAGE);
       return;
     }
