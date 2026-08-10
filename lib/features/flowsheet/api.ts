@@ -324,17 +324,18 @@ export const flowsheetApi = createApi({
             flowsheetApi.endpoints.getInfiniteEntries.select(undefined)(root);
 
           let tempId: number | undefined;
-          let patchResult: { undo: () => void } | undefined;
 
           // Optimistic entry only when the cache already has pages —
           // buildOptimisticEntry needs existing data for play_order and show_id.
+          // The patch result is deliberately not kept: rollback is id-addressed
+          // (removeEntryById in the catch below), never index-addressed undo.
           if (cached?.data?.pages?.length) {
             const { entry, tempId: tid } = buildOptimisticEntry(
               arg,
               cached.data
             );
             tempId = tid;
-            patchResult = dispatch(
+            dispatch(
               flowsheetApi.util.updateQueryData(
                 "getInfiniteEntries",
                 undefined,
@@ -365,9 +366,25 @@ export const flowsheetApi = createApi({
             );
             scheduleDeferredFlowsheetRefetch(dispatch, data.id);
           } catch (err) {
-            rollbackAndResyncEntries("addToFlowsheet", err, dispatch, [
-              patchResult,
-            ]);
+            flowsheetMutationCatch("addToFlowsheet", err);
+            // Surgical, id-addressed rollback instead of the shared
+            // undo-then-refetch: removing the temp row by id is immune to
+            // the index staleness that makes patchResult.undo()
+            // untrustworthy under concurrent SSE splices, and unlike a full
+            // refetch it cannot wipe OTHER still-in-flight optimistic rows
+            // mid-rapid-add — the exact path this endpoint serves.
+            if (tempId !== undefined) {
+              const rollbackId = tempId;
+              dispatch(
+                flowsheetApi.util.updateQueryData(
+                  "getInfiniteEntries",
+                  undefined,
+                  (draft) => {
+                    removeEntryById(draft, rollbackId);
+                  }
+                )
+              );
+            }
           }
         },
       }

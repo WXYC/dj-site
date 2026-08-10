@@ -47,14 +47,20 @@ async function seedEntriesStore() {
 
 // A concurrent SSE insert can resize pages[0] inside a mutation's request
 // window, making undo()'s index-addressed Immer inverse patches remove or
-// restore the wrong slots — so every failed mutation that optimistically
-// spliced the entries cache must follow its undo with a Flowsheet refetch.
+// restore the wrong slots. Mutations whose optimistic patch can only be
+// reverted structurally (reorder, field restore, marker removal) follow the
+// undo with a Flowsheet refetch; addToFlowsheet instead rolls back by id,
+// which needs no refetch.
 describe("failed-mutation undo resync", () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("addToFlowsheet failure invalidates Flowsheet after the undo", async () => {
+  it("addToFlowsheet failure removes the temp row surgically — no refetch to wipe other in-flight rows", async () => {
+    // Unlike the undo-then-refetch endpoints below, the add path rolls back
+    // by id (removeEntryById on the temp id): index-addressed undo is
+    // untrustworthy under concurrent SSE splices, and a full refetch here
+    // would collapse OTHER still-optimistic rows mid-rapid-add.
     const store = await seedEntriesStore();
     server.use(
       http.post(`${TEST_BACKEND_URL}/flowsheet/`, () =>
@@ -76,7 +82,12 @@ describe("failed-mutation undo resync", () => {
       .unwrap()
       .catch(() => undefined);
 
-    expect(invalidateSpy).toHaveBeenCalledWith(["Flowsheet"]);
+    const ids = (selectEntriesCache(store)?.pages ?? [])
+      .flat()
+      .map((e) => e.id);
+    expect(ids.some((id) => id < 0)).toBe(false);
+    expect(ids).toContain(5000);
+    expect(invalidateSpy).not.toHaveBeenCalledWith(["Flowsheet"]);
   });
 
   it("joinShow failure invalidates Flowsheet after the undos", async () => {
