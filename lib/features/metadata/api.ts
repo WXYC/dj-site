@@ -1,6 +1,5 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { backendBaseQuery } from "../backend";
-import { withConditionalGet } from "./conditionalGet";
 import {
   AlbumMetadata,
   AlbumMetadataQueryParams,
@@ -10,7 +9,7 @@ import {
 
 export const metadataApi = createApi({
   reducerPath: "metadataApi",
-  baseQuery: withConditionalGet(backendBaseQuery("proxy")),
+  baseQuery: backendBaseQuery("proxy"),
   endpoints: (builder) => ({
     getAlbumMetadata: builder.query<AlbumMetadata, AlbumMetadataQueryParams>({
       query: ({ artistName, releaseTitle, trackTitle }) => ({
