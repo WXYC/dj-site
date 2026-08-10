@@ -345,6 +345,171 @@ describe("live-updates listener middleware", () => {
     });
   });
 
+  it("rejects an insert event whose payload is null", () => {
+    const store = makeStore();
+    const updateSpy = vi.spyOn(flowsheetApi.util, "updateQueryData");
+    store.dispatch(liveUpdatesConnectionRequested());
+    getLastMock()._fireMessage(
+      frame({ type: "insert", payload: null, timestamp: 1 })
+    );
+    expect(captureSpy).toHaveBeenCalledWith(
+      "sse_unknown_event_type",
+      expect.anything()
+    );
+    expect(updateSpy).not.toHaveBeenCalled();
+    updateSpy.mockRestore();
+  });
+
+  it("rejects an insert event whose payload has no numeric id", () => {
+    const store = makeStore();
+    const updateSpy = vi.spyOn(flowsheetApi.util, "updateQueryData");
+    store.dispatch(liveUpdatesConnectionRequested());
+    getLastMock()._fireMessage(
+      frame({ type: "insert", payload: {}, timestamp: 1 })
+    );
+    expect(captureSpy).toHaveBeenCalledWith(
+      "sse_unknown_event_type",
+      expect.anything()
+    );
+    expect(updateSpy).not.toHaveBeenCalled();
+    updateSpy.mockRestore();
+  });
+
+  it("inserts a new row into getInfiniteEntries when an insert arrives for a row not yet cached", async () => {
+    const existingEntry = makeSongEntry({ id: 5000 });
+
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/flowsheet/`, () =>
+        HttpResponse.json([
+          {
+            id: existingEntry.id,
+            entry_type: "track",
+            play_order: existingEntry.play_order,
+            show_id: existingEntry.show_id,
+            track_title: existingEntry.track_title,
+            artist_name: existingEntry.artist_name,
+            album_title: existingEntry.album_title,
+            record_label: existingEntry.record_label,
+            request_flag: existingEntry.request_flag,
+          },
+        ])
+      )
+    );
+
+    const store = makeStore();
+    await store
+      .dispatch(
+        flowsheetApi.endpoints.getInfiniteEntries.initiate(undefined)
+      )
+      .unwrap();
+
+    const insertedEntry = makeSongEntry({
+      id: 9002,
+      track_title: "Back, Baby",
+      artist_name: "Jessica Pratt",
+      album_title: "On Your Own Love Again",
+      record_label: "Drag City",
+    });
+
+    store.dispatch(liveUpdatesConnectionRequested());
+    getLastMock()._fireMessage(
+      frame({ type: "insert", payload: insertedEntry, timestamp: 1 })
+    );
+
+    expect(captureSpy).not.toHaveBeenCalledWith(
+      "sse_unknown_event_type",
+      expect.anything()
+    );
+    expect(captureSpy).not.toHaveBeenCalledWith(
+      "sse_unknown_event_id",
+      expect.anything()
+    );
+
+    const after = flowsheetApi.endpoints.getInfiniteEntries.select(undefined)(
+      store.getState()
+    ).data;
+    // Newest-first: the freshly inserted higher id sorts ahead of the
+    // pre-existing lower id on page 0.
+    expect(after?.pages?.[0]?.map((e) => e.id)).toEqual([9002, 5000]);
+    expect(after?.pages?.[0]?.[0]).toMatchObject({
+      id: 9002,
+      track_title: "Back, Baby",
+      artist_name: "Jessica Pratt",
+    });
+  });
+
+  it("merges rather than duplicates when an insert arrives for an id already cached (sender's own optimistic add resolved first)", async () => {
+    const initialEntry = makeSongEntry({ id: 9001, artwork_url: undefined });
+
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/flowsheet/`, () =>
+        HttpResponse.json([
+          {
+            id: initialEntry.id,
+            entry_type: "track",
+            play_order: initialEntry.play_order,
+            show_id: initialEntry.show_id,
+            track_title: initialEntry.track_title,
+            artist_name: initialEntry.artist_name,
+            album_title: initialEntry.album_title,
+            record_label: initialEntry.record_label,
+            request_flag: initialEntry.request_flag,
+          },
+        ])
+      )
+    );
+
+    const store = makeStore();
+    await store
+      .dispatch(
+        flowsheetApi.endpoints.getInfiniteEntries.initiate(undefined)
+      )
+      .unwrap();
+
+    const echoedEntry = makeSongEntry({
+      id: 9001,
+      artwork_url: "https://cdn.example/artwork.jpg",
+    });
+
+    store.dispatch(liveUpdatesConnectionRequested());
+    getLastMock()._fireMessage(
+      frame({ type: "insert", payload: echoedEntry, timestamp: 1 })
+    );
+
+    const after = flowsheetApi.endpoints.getInfiniteEntries.select(undefined)(
+      store.getState()
+    ).data;
+    const matches = (after?.pages ?? [])
+      .flat()
+      .filter((e) => e.id === 9001);
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      id: 9001,
+      artwork_url: "https://cdn.example/artwork.jpg",
+    });
+  });
+
+  it("does not schedule a debounced invalidate for an insert event", () => {
+    vi.useFakeTimers();
+    try {
+      const store = makeStore();
+      const invalidateSpy = vi.spyOn(flowsheetApi.util, "invalidateTags");
+      store.dispatch(liveUpdatesConnectionRequested());
+      getLastMock()._fireMessage(
+        frame({
+          type: "insert",
+          payload: makeSongEntry({ id: 12345 }),
+          timestamp: 1,
+        })
+      );
+      vi.advanceTimersByTime(600);
+      expect(invalidateSpy).not.toHaveBeenCalled();
+      invalidateSpy.mockRestore();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("schedules a refetch invalidate when an update arrives for an unknown id", async () => {
     vi.useFakeTimers();
     try {

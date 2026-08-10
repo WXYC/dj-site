@@ -3,7 +3,7 @@ import type { Middleware, TypedStartListening } from "@reduxjs/toolkit";
 import { safeCapture, safeCaptureException } from "@/lib/posthog";
 import type { AppDispatch, RootState } from "@/lib/store";
 import { flowsheetApi } from "./api";
-import { patchEntryById } from "./infinite-cache";
+import { insertEntrySortedFirstPage, patchEntryById } from "./infinite-cache";
 import {
   liveUpdatesConnectionReleased,
   liveUpdatesConnectionRequested,
@@ -42,19 +42,25 @@ type LiveFsUpdateEvent = {
   timestamp: number;
 };
 
+type LiveFsInsertEvent = {
+  type: "insert";
+  payload: FlowsheetEntry;
+  timestamp: number;
+};
+
 type LiveFsRefetchEvent = {
   type: "refetch";
   payload: { source: string };
   timestamp: number;
 };
 
-type LiveFsEvent = LiveFsUpdateEvent | LiveFsRefetchEvent;
+type LiveFsEvent = LiveFsUpdateEvent | LiveFsInsertEvent | LiveFsRefetchEvent;
 
 function isLiveFsEvent(value: unknown): value is LiveFsEvent {
   if (typeof value !== "object" || value === null) return false;
   const v = value as { type?: unknown; payload?: unknown };
   if (typeof v.payload !== "object" || v.payload === null) return false;
-  if (v.type === "update") {
+  if (v.type === "update" || v.type === "insert") {
     // Require a numeric id so `payload.id === undefined` can't sneak through
     // and match `nowPlayingData?.id === undefined` (which is `true` whenever
     // no row is now-playing, corrupting the cache via empty Object.assign).
@@ -207,6 +213,71 @@ export function createLiveUpdatesListenerMiddleware(): LiveUpdatesListenerHandle
     scheduleDebouncedInvalidate(dispatch, ["Flowsheet"]);
   }
 
+  /**
+   * A BS `insert` event's payload is the full client-facing row (same shape
+   * as `update`'s), so unlike an update's unknown id — which signals a stale
+   * cache and falls back to invalidation — a not-yet-cached id here is the
+   * expected common case: the row is brand new. Insert it directly instead
+   * of round-tripping through a refetch.
+   *
+   * A cached hit still happens: the sender's own `addToFlowsheet` mutation
+   * already resolves its optimistic temp id to the real server row via
+   * `replaceEntryIdAllPages` before this broadcast round-trips back to the
+   * same client, so treat a present id as a merge, not a second insert —
+   * otherwise the sender would see its own row duplicated.
+   */
+  function routeInsertEvent(
+    dispatch: AppDispatch,
+    getState: () => RootState,
+    payload: FlowsheetEntry
+  ) {
+    const state = getState();
+    const infiniteData = flowsheetApi.endpoints.getInfiniteEntries.select(
+      undefined
+    )(state).data;
+    const nowPlayingData = flowsheetApi.endpoints.getNowPlaying.select(
+      undefined
+    )(state).data;
+
+    const inInfinite = (infiniteData?.pages ?? []).some((page) =>
+      page.some((e) => e.id === payload.id)
+    );
+    const inNowPlaying = nowPlayingData?.id === payload.id;
+
+    try {
+      dispatch(
+        flowsheetApi.util.updateQueryData(
+          "getInfiniteEntries",
+          undefined,
+          (draft) => {
+            if (inInfinite) {
+              patchEntryById(draft, payload.id, payload);
+            } else {
+              insertEntrySortedFirstPage(draft, payload);
+            }
+          }
+        )
+      );
+      if (inNowPlaying) {
+        dispatch(
+          flowsheetApi.util.updateQueryData(
+            "getNowPlaying",
+            undefined,
+            (draft) => {
+              if (draft) Object.assign(draft, payload);
+            }
+          )
+        );
+      }
+    } catch (err) {
+      safeCaptureException(err, {
+        context: SSE_EVENTS.DISPATCH_FAILURE,
+        event_type: "insert",
+        payload_id: payload.id,
+      });
+    }
+  }
+
   startListening({
     actionCreator: liveUpdatesConnectionRequested,
     effect: (_action, listenerApi) => {
@@ -307,6 +378,15 @@ export function createLiveUpdatesListenerMiddleware(): LiveUpdatesListenerHandle
             "NowPlaying",
             "WhoIsLive",
           ]);
+          return;
+        }
+
+        if (parsed.type === "insert") {
+          routeInsertEvent(
+            listenerApi.dispatch,
+            listenerApi.getState,
+            parsed.payload
+          );
           return;
         }
 
