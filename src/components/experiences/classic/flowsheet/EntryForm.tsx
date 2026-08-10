@@ -7,9 +7,10 @@ import { useAddToFlowsheetMutation } from "@/lib/features/flowsheet/api";
 import { useGetRotationQuery } from "@/lib/features/rotation/api";
 import { sortRotationReleases } from "@/lib/features/rotation/sort";
 import { Rotation } from "@/lib/features/rotation/types";
-import { isCompilationRelease } from "@/lib/features/catalog/is-compilation-artist";
 import {
   isVariousArtistsEntry,
+  releaseCreditIsRefused,
+  seedableArtistName,
   VARIOUS_ARTISTS_REJECTION_MESSAGE,
 } from "@/lib/features/flowsheet/various-artists-guard";
 import { FlowsheetEntryType } from "@wxyc/shared/dtos";
@@ -88,13 +89,14 @@ export default function EntryForm({
   const selectedRotationRelease = rotationData?.find(
     (r) => r.rotation_id === selectedRotationId
   );
-  // On a compilation the release-level artist is the compilation credit, so
-  // rotation mode has to expose the Artist field it normally hides — otherwise
-  // the submit refusal below has no field to satisfy it.
+  // Rotation mode hides the Artist field and submits the release-level artist.
+  // When that artist is a credit submission refuses, the field has to come back
+  // or the refusal has nothing that can satisfy it. Keyed on the refused credit
+  // rather than on `isCompilationRelease`: a compilation filed under a credited
+  // album artist is submittable as-is and must keep its library linkage.
   const rotationNeedsArtist =
     releaseType === "rotationRelease" &&
-    !!selectedRotationRelease &&
-    isCompilationRelease(selectedRotationRelease);
+    releaseCreditIsRefused(selectedRotationRelease ?? null);
   const showArtistField =
     releaseType !== "rotationRelease" || rotationNeedsArtist;
   const artistRefused = showArtistField && isVariousArtistsEntry(artistName);
@@ -103,9 +105,7 @@ export default function EntryForm({
     setSelectedRotationId(rotationId);
     const release = rotationData?.find((r) => r.rotation_id === rotationId);
     if (release) {
-      // Never seed a value the form then refuses.
-      const seeded = release.artist?.name ?? "";
-      setArtistName(isVariousArtistsEntry(seeded) ? "" : seeded);
+      setArtistName(seedableArtistName(release));
       setReleaseTitle(release.title);
       setLabelName(release.label);
     }
@@ -352,7 +352,8 @@ export default function EntryForm({
                       {artistRefused && (
                         <div
                           id="artistNameError"
-                          className="artist-error-message visible"
+                          role="alert"
+                          className="artist-error-message"
                         >
                           {VARIOUS_ARTISTS_REJECTION_MESSAGE}
                         </div>

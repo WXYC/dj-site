@@ -3,7 +3,10 @@
 import { isCompilationRelease } from "@/lib/features/catalog/is-compilation-artist";
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
-import { isVariousArtistsEntry } from "@/lib/features/flowsheet/various-artists-guard";
+import {
+  releaseCreditIsRefused,
+  seedableArtistName,
+} from "@/lib/features/flowsheet/various-artists-guard";
 import { Rotation } from "@/lib/features/rotation/types";
 import { normalizeTrackArtists } from "@/lib/features/rotation/normalize-track-artists";
 import {
@@ -18,18 +21,6 @@ import FlowsheetSearchInput from "./FlowsheetSearchInput";
 import RotationBinSelector from "./RotationBinSelector";
 import RotationReleaseDropdown from "./RotationReleaseDropdown";
 import TrackPickerDropdown from "./TrackPickerDropdown";
-
-/**
- * The artist value to seed from a release, or "" when the release-level artist
- * is a compilation credit submission would refuse. Never auto-filling a value
- * the form then rejects is what keeps the guard from reading as a bug; a
- * compilation filed under a credited album artist keeps that name, because the
- * guard has no quarrel with it.
- */
-function seedableArtistName(release: AlbumEntry | null): string {
-  const name = release?.artist?.name ?? "";
-  return isVariousArtistsEntry(name) ? "" : name;
-}
 
 export default function RotationEntryFields({ disabled }: { disabled: boolean }) {
   const dispatch = useAppDispatch();
@@ -101,7 +92,11 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
       dispatch(flowsheetSlice.actions.setSearchProperty({ name: "label", value: release.label ?? "" }));
       dispatch(
         flowsheetSlice.actions.setRotationMetadata({
-          album_id: release.id,
+          // Withheld when the credit is refused: BS's album_id branch spreads
+          // the library row's artist_name over the request's, so keeping the
+          // linkage would hand back the very credit the DJ just replaced.
+          // Classic makes the same trade by switching submission variants.
+          album_id: releaseCreditIsRefused(release) ? undefined : release.id,
           rotation_id: release.rotation_id,
           rotation_bin: release.rotation_bin,
         })
@@ -120,6 +115,10 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
   // name keep the release-level artist.
   const trackCreditsAreDisambiguating =
     !!selectedRelease && isCompilationRelease(selectedRelease);
+
+  // Distinct from the above on purpose — see releaseCreditIsRefused.
+  const needsPerformerName =
+    !!selectedRelease && releaseCreditIsRefused(selectedRelease);
 
   const handleSelectTrack = useCallback(
     (track: RotationTrack) => {
@@ -210,16 +209,15 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
           />
         )}
       </Box>
-      {/* On a compilation the performing artist is per-track, so the DJ needs
-          somewhere to supply or correct it — without this the submit guard
-          would refuse a V/A release with no field to fix. Normally-credited
-          releases keep the read-only behavior: their release artist is the
-          answer. */}
-      {trackCreditsAreDisambiguating && (
+      {/* Shown exactly when the release cannot supply its own artist, so the
+          submit guard always has a field that can satisfy it. Releases whose
+          credit is a real name keep the read-only behavior — including
+          compilations filed under a credited album artist. */}
+      {needsPerformerName && (
         <FlowsheetSearchInput
           name="artist"
           value={artistValue}
-          disabled={disabled || !selectedRelease}
+          disabled={disabled}
           required
           suppressHydrationWarning
         />
