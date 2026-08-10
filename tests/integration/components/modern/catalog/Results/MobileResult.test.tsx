@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { createTestAlbum, createTestArtist } from "@/tests/helpers";
 import { renderWithProviders } from "@/tests/helpers/render";
 
@@ -119,5 +120,51 @@ describe("CatalogMobileResult album artwork", () => {
 
     expect(screen.queryByRole("img")).toBeNull();
     expect(screen.getByText("Not on Discogs")).toBeInTheDocument();
+  });
+
+  // Catalog search shares the mail bin's queue conversion, so the
+  // compilation-credit rule reaches this surface too — a V/A release queued
+  // from a search result must arrive blank and unlinked, ready for the DJ to
+  // name the performer in the queue row.
+  describe("adding a compilation to the queue", () => {
+    const compilation = createTestAlbum({
+      title: "Edits",
+      artist: createTestArtist({ name: "Various Artists" }),
+      label: "self-released",
+    });
+    const credited = createTestAlbum({
+      title: "On Your Own Love Again",
+      artist: createTestArtist({ name: "Jessica Pratt" }),
+      label: "Drag City",
+    });
+
+    it("queues a blank artist and withholds the library linkage", async () => {
+      const addToQueue = vi.fn();
+      renderWithProviders(
+        <CatalogMobileResult album={compilation} live={true} addToQueue={addToQueue} />
+      );
+
+      await userEvent.click(screen.getByRole("button", { name: "Add to Queue" }));
+
+      expect(addToQueue).toHaveBeenCalledWith(
+        expect.objectContaining({ artist: "", album_id: undefined })
+      );
+    });
+
+    it("leaves a normally-credited release linked", async () => {
+      const addToQueue = vi.fn();
+      renderWithProviders(
+        <CatalogMobileResult album={credited} live={true} addToQueue={addToQueue} />
+      );
+
+      await userEvent.click(screen.getByRole("button", { name: "Add to Queue" }));
+
+      expect(addToQueue).toHaveBeenCalledWith(
+        expect.objectContaining({
+          artist: "Jessica Pratt",
+          album_id: credited.id,
+        })
+      );
+    });
   });
 });

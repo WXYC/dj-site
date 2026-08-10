@@ -49,6 +49,16 @@ export function convertBinToFlowsheet(
   };
 }
 
+/**
+ * Also the catalog search results' Add-to-Queue conversion (modern
+ * `Result` / `MobileResult`), not the mail bin's alone — the name predates
+ * that second caller. Any behavior change here reaches both surfaces.
+ *
+ * A refused credit is queued blank rather than refused outright: unlike Play
+ * Now, the queue row's artist cell is editable, so it is the surface where
+ * the DJ can name the performer. `usePlayNow` refuses the blank at the
+ * flowsheet boundary until they do.
+ */
 export function convertBinToQueue(binEntry: AlbumEntry): FlowsheetQuery {
   const refused = releaseCreditIsRefused(binEntry);
   return {

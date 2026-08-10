@@ -10,7 +10,10 @@ import {
   FlowsheetQuery,
   FlowsheetSubmissionParams,
 } from "@/lib/features/flowsheet/types";
-import { VARIOUS_ARTISTS_BIN_PLAY_MESSAGE } from "@/lib/features/flowsheet/various-artists-guard";
+import {
+  releaseCreditIsRefused,
+  VARIOUS_ARTISTS_BIN_PLAY_MESSAGE,
+} from "@/lib/features/flowsheet/various-artists-guard";
 import { useAppDispatch } from "@/lib/hooks";
 import {
   InfoOutlined,
@@ -83,7 +86,15 @@ export function useBinEntryActions(
         shiftRemoves: true,
         run: (opts) => {
           addToQueue(convertBinToQueue(entry));
-          toast.success(`Added ${entry.title} to queue`);
+          // A refused credit is queued with a blank artist rather than the
+          // credit, so the success toast has to say what is still missing —
+          // otherwise the DJ meets the requirement for the first time at
+          // the Play refusal, with no idea it was coming.
+          toast.success(
+            releaseCreditIsRefused(entry)
+              ? `Added ${entry.title} to queue. Name the performer in the artist cell before playing it.`
+              : `Added ${entry.title} to queue`
+          );
           if (opts?.shiftKey) deleteFromBin(entry.id);
         },
       });

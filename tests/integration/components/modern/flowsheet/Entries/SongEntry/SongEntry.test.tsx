@@ -23,6 +23,7 @@ const mockUseFlowsheet = vi.fn();
 const mockAddToFlowsheet = vi.fn();
 const mockDispatch = vi.fn();
 const mockUpdateFlowsheet = vi.fn();
+const mockRemoveFromQueue = vi.fn();
 
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useShowControl: () => mockUseShowControl(),
@@ -147,12 +148,13 @@ describe("SongEntry", () => {
       currentShow: 100,
     });
 
-    // usePlayNow now writes through useFlowsheetActions too — its
-    // addToFlowsheet must resolve to the same mock the Play button tests
-    // below configure via mockAddToFlowsheet.
+    // usePlayNow draws addToFlowsheet and removeFromQueue from this same
+    // hook, so an incomplete return value throws inside the Play handler
+    // rather than failing an assertion.
     mockUseFlowsheet.mockReturnValue({
       updateFlowsheet: mockUpdateFlowsheet,
       addToFlowsheet: mockAddToFlowsheet,
+      removeFromQueue: mockRemoveFromQueue,
     });
 
     mockAddToFlowsheet.mockReturnValue(Promise.resolve());
@@ -704,88 +706,78 @@ describe("SongEntry", () => {
   });
 
   describe("Play button in queue", () => {
-    it("should call addToFlowsheet when play button is clicked", async () => {
+    // The refusal, the queue removal, and the failure toast are the hook's
+    // behavior and are pinned in usePlayNow's own tests. What only this
+    // level can show is that the button reaches the hook at all.
+    const clickPlay = () => {
+      const firstTd = screen
+        .getByTestId("draggable-wrapper")
+        .querySelector("td");
+      fireEvent.mouseEnter(firstTd!);
+      const playButton = screen
+        .getAllByRole("button")
+        .find(
+          (btn) => btn.querySelector('svg[data-testid="PlayArrowIcon"]') !== null
+        );
+      expect(playButton).toBeDefined();
+      fireEvent.click(playButton!);
+    };
+
+    it("submits the queued entry when the play button is clicked", async () => {
       mockUseShowControl.mockReturnValue({
         live: true,
         autoplay: false,
         currentShow: 100,
       });
-
       mockAddToFlowsheet.mockReturnValue(Promise.resolve());
 
       render(<SongEntry entry={mockEntry} playing={false} queue={true} />);
+      clickPlay();
 
-      const firstTd = screen.getByTestId("draggable-wrapper").querySelector("td");
-      fireEvent.mouseEnter(firstTd!);
-
-      // Wait for the play button to appear
       await waitFor(() => {
-        const playButtons = screen.getAllByRole("button");
-        // Find the play button (not drag or remove)
-        const playButton = playButtons.find(btn =>
-          btn.querySelector('svg[data-testid="PlayArrowIcon"]') !== null ||
-          btn.textContent?.includes("Play") ||
-          !btn.getAttribute("data-testid")?.includes("drag") &&
-          !btn.getAttribute("data-testid")?.includes("remove")
+        expect(mockAddToFlowsheet).toHaveBeenCalledWith(
+          expect.objectContaining({
+            track_title: mockEntry.track_title,
+            artist_name: mockEntry.artist_name,
+            album_title: mockEntry.album_title,
+          })
         );
-        if (playButton && !playButton.getAttribute("data-testid")) {
-          fireEvent.click(playButton);
-        }
       });
-
-      // addToFlowsheet should be called with entry data
-      // The promise resolves successfully
     });
 
-    it("should dispatch removeFromQueue after successful addToFlowsheet", async () => {
+    it("clears the entry from the queue once the write lands", async () => {
       mockUseShowControl.mockReturnValue({
         live: true,
         autoplay: false,
         currentShow: 100,
       });
-
-      // Return a resolved promise
-      mockAddToFlowsheet.mockImplementation(() => ({
-        then: (callback: any) => {
-          callback();
-          return { catch: vi.fn() };
-        },
-      }));
+      mockAddToFlowsheet.mockReturnValue(Promise.resolve());
 
       render(<SongEntry entry={mockEntry} playing={false} queue={true} />);
+      clickPlay();
 
-      const firstTd = screen.getByTestId("draggable-wrapper").querySelector("td");
-      fireEvent.mouseEnter(firstTd!);
-
-      // Check that dispatch was ready to be called
-      // The actual dispatch happens on successful addToFlowsheet
+      await waitFor(() => {
+        expect(mockRemoveFromQueue).toHaveBeenCalledWith(mockEntry.id);
+      });
     });
 
-    it("should show toast error when addToFlowsheet fails", async () => {
-      const { toast } = await import("sonner");
-
+    it("leaves the entry in the queue when the write fails", async () => {
       mockUseShowControl.mockReturnValue({
         live: true,
         autoplay: false,
         currentShow: 100,
       });
-
-      // Return a rejected promise
-      const mockError = new Error("Failed to add");
-      mockAddToFlowsheet.mockImplementation(() => ({
-        then: (successCallback: any) => ({
-          catch: (errorCallback: any) => {
-            errorCallback(mockError);
-          },
-        }),
-      }));
+      mockAddToFlowsheet.mockReturnValue(
+        Promise.reject(new Error("Show not live"))
+      );
 
       render(<SongEntry entry={mockEntry} playing={false} queue={true} />);
+      clickPlay();
 
-      const firstTd = screen.getByTestId("draggable-wrapper").querySelector("td");
-      fireEvent.mouseEnter(firstTd!);
-
-      // Error handling should be set up
+      await waitFor(() => {
+        expect(mockAddToFlowsheet).toHaveBeenCalled();
+      });
+      expect(mockRemoveFromQueue).not.toHaveBeenCalled();
     });
 
     it("should not show play button when not in queue", () => {
@@ -918,12 +910,13 @@ describe("SongEntry two-line row structure", () => {
       autoplay: false,
       currentShow: 100,
     });
-    // usePlayNow now writes through useFlowsheetActions too — its
-    // addToFlowsheet must resolve to the same mock the Play button tests
-    // below configure via mockAddToFlowsheet.
+    // usePlayNow draws addToFlowsheet and removeFromQueue from this same
+    // hook, so an incomplete return value throws inside the Play handler
+    // rather than failing an assertion.
     mockUseFlowsheet.mockReturnValue({
       updateFlowsheet: mockUpdateFlowsheet,
       addToFlowsheet: mockAddToFlowsheet,
+      removeFromQueue: mockRemoveFromQueue,
     });
   });
 
