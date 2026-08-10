@@ -16,6 +16,7 @@ import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import {
   isVariousArtistsEntry,
   MISSING_ARTIST_REJECTION_MESSAGE,
+  seedableArtistName,
   VARIOUS_ARTISTS_REJECTION_MESSAGE,
 } from "@/lib/features/flowsheet/various-artists-guard";
 import {
@@ -296,7 +297,11 @@ export const useFlowsheetSearch = () => {
           // Song always reflects the DJ's own input, even under a selection.
           return searchQuery.song as string;
         case "artist":
-          return selectedEntry.artist?.name || (searchQuery.artist as string);
+          // Withheld for a refused credit, like the freeze payload it
+          // previews: a highlighted result that displayed the credit would
+          // put it back into the field on the DJ's first keystroke, since
+          // the browser derives that keystroke's value from what is shown.
+          return seedableArtistName(selectedEntry) || (searchQuery.artist as string);
         case "album":
           return selectedEntry.title || (searchQuery.album as string);
         case "label":

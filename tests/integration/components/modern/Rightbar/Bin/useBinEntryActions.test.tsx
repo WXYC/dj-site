@@ -20,8 +20,12 @@ vi.mock("@/lib/features/bin/conversions", () => ({
   convertBinToFlowsheet: (e: AlbumEntry) => convertBinToFlowsheetMock(e),
 }));
 const toastErrorMock = vi.fn();
+const toastSuccessMock = vi.fn();
 vi.mock("sonner", () => ({
-  toast: { success: vi.fn(), error: (...args: unknown[]) => toastErrorMock(...args) },
+  toast: {
+    success: (...args: unknown[]) => toastSuccessMock(...args),
+    error: (...args: unknown[]) => toastErrorMock(...args),
+  },
 }));
 vi.mock("@/lib/features/application/frontend", () => ({
   applicationSlice: {
@@ -31,7 +35,19 @@ vi.mock("@/lib/features/application/frontend", () => ({
 
 import { useBinEntryActions } from "@/src/components/experiences/modern/Rightbar/Bin/useBinEntryActions";
 
-const entry = { id: 7, title: "DOGA" } as AlbumEntry;
+// The credit matters to the queue toast, so it has to be on the fixture —
+// an entry with no artist at all makes the refused branch unreachable and
+// the assertions below vacuous.
+const entry = {
+  id: 7,
+  title: "DOGA",
+  artist: { name: "Juana Molina" },
+} as AlbumEntry;
+const compilationEntry = {
+  id: 8,
+  title: "Edits",
+  artist: { name: "Various Artists" },
+} as AlbumEntry;
 // The write callbacks are hoisted in BinContent and passed down; the hook
 // itself no longer runs useQueue/useFlowsheet/useDeleteFromBin per row.
 const deps = { addToQueue, addToFlowsheet, deleteFromBin };
@@ -144,6 +160,30 @@ describe("useBinEntryActions", () => {
     expect(toastErrorMock).toHaveBeenCalledWith(
       VARIOUS_ARTISTS_BIN_PLAY_MESSAGE
     );
+  });
+
+  // The queue conversion drops the credit silently, so the toast is the only
+  // notice the DJ gets that the artist cell still needs filling.
+  it("says what the queued entry is still missing when the credit is refused", () => {
+    const { result } = renderHook(() =>
+      useBinEntryActions(compilationEntry, true, deps)
+    );
+    const byId = Object.fromEntries(result.current.map((a) => [a.id, a]));
+
+    byId.queue.run();
+
+    expect(toastSuccessMock).toHaveBeenCalledWith(
+      "Added Edits to queue. Name the performer in the artist cell before playing it."
+    );
+  });
+
+  it("confirms a credited entry without the caveat", () => {
+    const { result } = renderHook(() => useBinEntryActions(entry, true, deps));
+    const byId = Object.fromEntries(result.current.map((a) => [a.id, a]));
+
+    byId.queue.run();
+
+    expect(toastSuccessMock).toHaveBeenCalledWith("Added DOGA to queue");
   });
 
   it("does not remove a refused entry from the bin, even with Shift held", async () => {

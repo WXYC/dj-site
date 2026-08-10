@@ -116,9 +116,12 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
   const trackCreditsAreDisambiguating =
     !!selectedRelease && isCompilationRelease(selectedRelease);
 
-  // Distinct from the above on purpose — see releaseCreditIsRefused.
+  // Distinct from the above on purpose — see releaseCreditIsRefused. Keyed
+  // on the seed rather than the refusal so it also covers a release that
+  // carries no credit at all: both leave the artist blank, and submission
+  // refuses a blank, so both need the field that can satisfy the refusal.
   const needsPerformerName =
-    !!selectedRelease && releaseCreditIsRefused(selectedRelease);
+    !!selectedRelease && !seedableArtistName(selectedRelease);
 
   const handleSelectTrack = useCallback(
     (track: RotationTrack) => {

@@ -205,6 +205,33 @@ describe("RotationEntryFields", () => {
     expect(screen.getByTestId("flowsheet-search-artist")).toBeInTheDocument();
   });
 
+  // A release carrying no credit at all seeds the same blank artist a
+  // refused credit does, and submission refuses a blank just as firmly — so
+  // it needs the same field, or the refusal is a dead end with nowhere to
+  // type the performer.
+  it("renders an artist input for a release that carries no credit at all", () => {
+    const uncredited = {
+      ...createTestAlbum({
+        id: 8,
+        title: "Untitled",
+        rotation_id: 43,
+        rotation_bin: "H",
+      }),
+      artist: null,
+    } as unknown as ReturnType<typeof createTestAlbum>;
+    mockRotationData = [lightningBoltOoioo, uncredited];
+
+    renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
+
+    expect(
+      screen.queryByTestId("flowsheet-search-artist")
+    ).not.toBeInTheDocument();
+
+    selectBinAndRelease(uncredited);
+
+    expect(screen.getByTestId("flowsheet-search-artist")).toBeInTheDocument();
+  });
+
   it("drops the artist input again when the DJ switches to a credited release", () => {
     renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
 

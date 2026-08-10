@@ -89,3 +89,22 @@ export function seedableArtistName(release: ReleaseCredit): string {
   const name = release?.artist?.name ?? "";
   return isVariousArtistsEntry(name) ? "" : name;
 }
+
+/**
+ * Success copy for a release added to the queue, shared by the mail bin and
+ * both catalog result surfaces because all three queue through the same
+ * conversion.
+ *
+ * A refused credit is queued with a blank artist rather than the credit, so
+ * the toast has to say what is still missing — told only "added", the DJ
+ * meets the requirement for the first time at the Play refusal, with no idea
+ * it was coming.
+ */
+export function queueAdditionMessage(
+  release: ReleaseCredit & { title?: string | null }
+): string {
+  const added = `Added ${release?.title ?? ""} to queue`;
+  return releaseCreditIsRefused(release)
+    ? `${added}. Name the performer in the artist cell before playing it.`
+    : added;
+}

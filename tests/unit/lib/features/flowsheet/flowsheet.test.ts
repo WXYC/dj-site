@@ -128,6 +128,7 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
         harness().reduce(
           actions.freezeSelectionToQuery({
             artist: "Stereolab",
+            artistProvided: true,
             album: "DOGA",
             label: "Duophonic",
             album_id: 42,
@@ -170,6 +171,7 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
         let state = harness().reduce(
           actions.freezeSelectionToQuery({
             artist: "Chuquimamani-Condori",
+            artistProvided: true,
             album: "DJ E",
             label: "",
             album_id: 11,
@@ -244,6 +246,7 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
           actions.setSelectedResult(2),
           actions.freezeSelectionToQuery({
             artist: "Juana Molina",
+            artistProvided: true,
             album: "DOGA",
             label: "Sonamos",
             album_id: 42,
@@ -263,6 +266,7 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
         const seeded = harness().reduce(
           actions.freezeSelectionToQuery({
             artist: "Stereolab",
+            artistProvided: true,
             album: "Aluminum Tunes",
             label: "Duophonic",
             album_id: 7,
@@ -271,6 +275,7 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
         const result = harness().reduce(
           actions.freezeSelectionToQuery({
             artist: "Cat Power",
+            artistProvided: true,
             album: "Moon Pix",
             label: "Matador Records",
           }),
@@ -288,6 +293,7 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
         const result = harness().reduce(
           actions.freezeSelectionToQuery({
             artist: "Jessica Pratt",
+            artistProvided: true,
             album: "On Your Own Love Again",
             label: "Drag City",
             album_id: 11,
@@ -301,6 +307,7 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
         const result = harness().reduce(
           actions.freezeSelectionToQuery({
             artist: "Juana Molina",
+            artistProvided: true,
             album: "DOGA",
             label: "Sonamos",
             album_id: 42,
@@ -345,6 +352,7 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
         const frozen = harness().reduce(
           actions.freezeSelectionToQuery({
             artist: "",
+            artistProvided: false,
             album: "Edits",
             label: "self-released",
             album_id: 42,
@@ -366,6 +374,7 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
         const seeded = harness().reduce(
           actions.freezeSelectionToQuery({
             artist: "Stereolab",
+            artistProvided: true,
             album: "Aluminum Tunes",
             label: "Duophonic",
             rotation_id: 5,
@@ -375,6 +384,7 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
         const result = harness().reduce(
           actions.freezeSelectionToQuery({
             artist: "Cat Power",
+            artistProvided: true,
             album: "Moon Pix",
             label: "Matador Records",
           }),
@@ -665,6 +675,27 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
         withItem
       );
 
+      expect(result.queue[0].album_id).toBe(1001);
+    });
+
+    // The searchbar's half of this rule exempts a field the release left
+    // empty — filling it is added data, and the linkage still describes the
+    // entry. The queue's half has to agree, or a library row with no label
+    // loses its linkage the moment the DJ supplies one.
+    it("keeps album_id when a field the library row left empty is filled", () => {
+      const withItem = harness().reduce(
+        actions.addToQueue(createTestFlowsheetQuery({ album_id: 1001, label: "" }))
+      );
+      const result = harness().reduce(
+        actions.updateQueueEntry({
+          entry_id: withItem.queue[0].id,
+          field: "record_label",
+          value: "Drag City",
+        }),
+        withItem
+      );
+
+      expect(result.queue[0].record_label).toBe("Drag City");
       expect(result.queue[0].album_id).toBe(1001);
     });
 

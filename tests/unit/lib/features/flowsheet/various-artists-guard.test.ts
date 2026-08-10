@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 
 import {
   isVariousArtistsEntry,
+  queueAdditionMessage,
   releaseCreditIsRefused,
   seedableArtistName,
 } from "@/lib/features/flowsheet/various-artists-guard";
@@ -113,4 +114,26 @@ describe("seedableArtistName", () => {
   it("returns an empty string for a null-artist release", () => {
     expect(seedableArtistName({ artist: null })).toBe("");
   });
+});
+
+describe("queueAdditionMessage", () => {
+  it("confirms the addition without a caveat for a credited release", () => {
+    expect(
+      queueAdditionMessage({
+        title: "On Your Own Love Again",
+        artist: { name: "Jessica Pratt" },
+      })
+    ).toBe("Added On Your Own Love Again to queue");
+  });
+
+  // The conversion queues a refused credit blank, so a bare "added" would let
+  // the DJ meet the requirement for the first time at the Play refusal.
+  it.each(["Various Artists", "VA", "Var. Artists"])(
+    "names what is still missing for a release credited %s",
+    (name) => {
+      expect(queueAdditionMessage({ title: "Edits", artist: { name } })).toBe(
+        "Added Edits to queue. Name the performer in the artist cell before playing it."
+      );
+    }
+  );
 });

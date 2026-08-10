@@ -13,6 +13,7 @@ import { applicationSlice } from "@/lib/features/application/frontend";
 import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
 import { useAppDispatch } from "@/lib/hooks";
 import { convertBinToQueue } from "@/lib/features/bin/conversions";
+import { queueAdditionMessage } from "@/lib/features/flowsheet/various-artists-guard";
 import { AlbumArtwork } from "../AlbumArtwork";
 import AddRemoveBin from "./AddRemoveBin";
 import { MatchedTrackChips } from "./MatchedTrackChips";
@@ -138,7 +139,7 @@ function CatalogMobileResult({
             color="neutral"
             onClick={() => {
               addToQueue(convertBinToQueue(album));
-              toast.success(`Added ${album.title} to queue`);
+              toast.success(queueAdditionMessage(album));
             }}
           >
             <QueueMusic />
