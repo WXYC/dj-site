@@ -169,11 +169,13 @@ export const flowsheetSlice = createAppSlice({
         artist: string;
         album: string;
         label: string;
-        // Whether the release supplied an artist, for the case where the
-        // seeded string cannot say: a refused credit is withheld from the
-        // seed but was still supplied, and the deviation rule below must
-        // treat a performer typed over it as a departure from the release.
-        artistProvided?: boolean;
+        // Whether the release supplied an artist, which the seeded string
+        // cannot answer: a refused credit is withheld from the seed but was
+        // still supplied, and the deviation rule must treat a performer
+        // typed over it as a departure from the release. Required, because
+        // inferring it from an empty seed is the mistake this field exists
+        // to prevent.
+        artistProvided: boolean;
         album_id?: number;
         rotation_id?: number;
         rotation_bin?: Rotation;
@@ -188,7 +190,7 @@ export const flowsheetSlice = createAppSlice({
       state.search.query.track_position = undefined;
       state.search.selectedResult = 0;
       state.search.selectionProvided = {
-        artist: action.payload.artistProvided ?? action.payload.artist !== "",
+        artist: action.payload.artistProvided,
         album: action.payload.album !== "",
         label: action.payload.label !== "",
       };
@@ -244,8 +246,14 @@ export const flowsheetSlice = createAppSlice({
         // the only place a queued entry's credit can be corrected, so
         // without it a Various-Artists row rehydrated from storage silently
         // discards the performer the DJ just typed.
+        //
+        // Filling a field the row left EMPTY is added data, not a deviation
+        // — the linkage still describes the entry and survives, exactly as
+        // it does in the searchbar.
         if (
           ALBUM_SCOPED_QUEUE_FIELDS.includes(action.payload.field) &&
+          previous !== "" &&
+          previous !== undefined &&
           previous !== action.payload.value
         ) {
           entry.album_id = undefined;

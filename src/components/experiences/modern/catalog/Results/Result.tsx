@@ -20,6 +20,7 @@ import AddRemoveBin from "./AddRemoveBin";
 import { MatchedTrackChips } from "./MatchedTrackChips";
 import { ReleaseChips } from "./ReleaseChips";
 import { convertBinToQueue } from "@/lib/features/bin/conversions";
+import { queueAdditionMessage } from "@/lib/features/flowsheet/various-artists-guard";
 import { toast } from "sonner";
 import { memo } from "react";
 
@@ -210,7 +211,7 @@ function CatalogResult({
                 size="sm"
                 onClick={() => {
                   addToQueue(convertBinToQueue(album));
-                  toast.success(`Added ${album.title} to queue`);
+                  toast.success(queueAdditionMessage(album));
                 }}
               >
                 <QueueMusic />

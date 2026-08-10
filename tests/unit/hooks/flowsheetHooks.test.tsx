@@ -577,6 +577,41 @@ describe("flowsheetHooks", () => {
       expect(result.current.searchOpen).toBe(false);
     });
 
+    // The artist input paints getDisplayValue, and the browser builds the
+    // next keystroke's value from what is painted — so a highlighted result
+    // that showed the refused credit would put it straight back into the
+    // field the freeze payload was careful to leave blank.
+    it("withholds a refused credit from the highlighted result's artist display", () => {
+      mockUseCatalogFlowsheetSearch.mockReturnValue({
+        searchResults: [
+          createTestAlbum({
+            id: 4242,
+            title: "Edits",
+            artist: createTestArtist({ name: "Various Artists" }),
+          }),
+        ],
+      });
+
+      const { result } = renderHook(() => useFlowsheetSearch(), {
+        wrapper: createHookWrapper(
+          { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
+          {
+            flowsheet: {
+              ...flowsheetSlice.getInitialState(),
+              search: {
+                ...flowsheetSlice.getInitialState().search,
+                selectedResult: 1,
+              },
+            },
+          }
+        ),
+      });
+
+      expect(result.current.selectedEntry?.id).toBe(4242);
+      expect(result.current.getDisplayValue("album")).toBe("Edits");
+      expect(result.current.getDisplayValue("artist")).toBe("");
+    });
+
     it("should return raw query value when selectedIndex is 0", () => {
       const { result } = renderHook(() => useFlowsheetSearch(), {
         wrapper: createWrapper(),
@@ -1429,6 +1464,7 @@ describe("flowsheetHooks", () => {
           result.current.dispatch(
             flowsheetSlice.actions.freezeSelectionToQuery({
               artist: "Chuquimamani-Condori",
+              artistProvided: true,
               album: "DJ E",
               label: "",
               album_id: -42,
