@@ -163,4 +163,19 @@ describe("queueAdditionMessage", () => {
       );
     }
   );
+
+  // A release carrying no credit is queued just as blank as one whose credit
+  // is refused, and withholds its linkage on the same terms. The caveat has
+  // to track what the queue row is missing, not which route left it empty —
+  // otherwise this release is the one case that reaches the Play refusal
+  // unwarned.
+  it.each([
+    { label: "an empty credit", artist: { name: "" } },
+    { label: "a null credit name", artist: { name: null } },
+    { label: "no artist at all", artist: null },
+  ])("names what is still missing for a release with $label", ({ artist }) => {
+    expect(queueAdditionMessage({ title: "Edits", artist })).toBe(
+      "Added Edits to queue. Name the performer in the artist cell before playing it."
+    );
+  });
 });
