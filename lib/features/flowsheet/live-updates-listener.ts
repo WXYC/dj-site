@@ -1,8 +1,10 @@
 import { createListenerMiddleware } from "@reduxjs/toolkit";
 import type { Middleware, TypedStartListening } from "@reduxjs/toolkit";
+import type { FlowsheetEntryResponse, LiveFsEvent } from "@wxyc/shared/dtos";
 import { safeCapture, safeCaptureException } from "@/lib/posthog";
 import type { AppDispatch, RootState } from "@/lib/store";
 import { flowsheetApi } from "./api";
+import { convertV2Entry } from "./conversions";
 import { insertEntrySortedFirstPage, patchEntryById } from "./infinite-cache";
 import {
   liveUpdatesConnectionReleased,
@@ -11,10 +13,20 @@ import {
   liveUpdatesSlice,
   type LiveUpdatesConnectionStatus,
 } from "./live-updates-slice";
-import type { FlowsheetEntry } from "./types";
+import type { FlowsheetEntry, FlowsheetV2EntryJSON } from "./types";
 
 const LIVE_FS_TOPIC = "live-fs-topic";
 const REFETCH_DEBOUNCE_MS = 500;
+
+/**
+ * Ceiling on per-row cache patches within one debounce window. Each patched
+ * insert runs a full Immer produce over every loaded page; a burst past this
+ * limit (bulk historical import — the BS-side broadcast comment explicitly
+ * contemplates one) skips the per-row patch and leans on the debounced
+ * invalidate already scheduled for the window, which brings every row in one
+ * refetch instead of N sequential produces + renders.
+ */
+const INSERT_PATCH_BURST_LIMIT = 5;
 
 // Drop benign SSE handshake frames so `sse_unknown_event_type` stays a
 // contract-drift signal, not per-connection noise.
@@ -31,30 +43,18 @@ const SSE_EVENTS = {
   DISCONNECTED: "sse_disconnected",
   UNKNOWN_EVENT_TYPE: "sse_unknown_event_type",
   UNKNOWN_EVENT_ID: "sse_unknown_event_id",
+  CACHE_UNINITIALIZED: "sse_cache_uninitialized",
   PARSE_FAILURE: "sse_parse_failure",
   DISPATCH_FAILURE: "sse_dispatch_failure",
   CONNECTION_ERROR: "sse_connection_error",
 } as const;
 
-type LiveFsUpdateEvent = {
-  type: "update";
-  payload: FlowsheetEntry;
-  timestamp: number;
-};
-
-type LiveFsInsertEvent = {
-  type: "insert";
-  payload: FlowsheetEntry;
-  timestamp: number;
-};
-
-type LiveFsRefetchEvent = {
-  type: "refetch";
-  payload: { source: string };
-  timestamp: number;
-};
-
-type LiveFsEvent = LiveFsUpdateEvent | LiveFsInsertEvent | LiveFsRefetchEvent;
+// Wire types come from the @wxyc/shared SSOT (api.yaml's LiveFsEvent union):
+// the payload is the raw client-facing flowsheet ROW (FlowsheetEntryResponse —
+// snake_case, nullable varchars, no read-time JOIN fields like rotation_bin),
+// NOT a converted FlowsheetEntry, and timestamp is an ISO date-time string.
+// A local re-declaration of these types previously drifted on both counts and
+// type-blessed installing the raw row into the converted cache.
 
 function isLiveFsEvent(value: unknown): value is LiveFsEvent {
   if (typeof value !== "object" || value === null) return false;
@@ -152,7 +152,7 @@ export function createLiveUpdatesListenerMiddleware(): LiveUpdatesListenerHandle
   function routeUpdateEvent(
     dispatch: AppDispatch,
     getState: () => RootState,
-    payload: FlowsheetEntry
+    payload: FlowsheetEntryResponse
   ) {
     const state = getState();
     const infiniteData = flowsheetApi.endpoints.getInfiniteEntries.select(
@@ -167,6 +167,13 @@ export function createLiveUpdatesListenerMiddleware(): LiveUpdatesListenerHandle
     );
     const inNowPlaying = nowPlayingData?.id === payload.id;
 
+    // Updates deliberately merge the RAW wire fields over the cached row (the
+    // cast below, not convertV2Entry): the wire row has no rotation_bin, so a
+    // converted row would carry `rotation: undefined` as an OWN property and
+    // Object.assign would clobber the cached badge; the raw row simply lacks
+    // the key and leaves it alone. The overlapping snake_case field names
+    // (track_title, artist_name, artwork_url, ...) are what make the merge
+    // deliver enrichment fills.
     if (inInfinite || inNowPlaying) {
       try {
         if (inInfinite) {
@@ -175,7 +182,11 @@ export function createLiveUpdatesListenerMiddleware(): LiveUpdatesListenerHandle
               "getInfiniteEntries",
               undefined,
               (draft) => {
-                patchEntryById(draft, payload.id, payload);
+                patchEntryById(
+                  draft,
+                  payload.id,
+                  payload as unknown as Partial<FlowsheetEntry>
+                );
               }
             )
           );
@@ -213,69 +224,97 @@ export function createLiveUpdatesListenerMiddleware(): LiveUpdatesListenerHandle
     scheduleDebouncedInvalidate(dispatch, ["Flowsheet"]);
   }
 
+  // Burst accounting for routeInsertEvent's patch ceiling — windowed by wall
+  // clock, no reset needed on disconnect (a stale window start just admits
+  // the next patch, which is the safe direction).
+  let insertBurstWindowStart = 0;
+  let insertBurstCount = 0;
+
   /**
-   * A BS `insert` event's payload is the full client-facing row (same shape
-   * as `update`'s), so unlike an update's unknown id — which signals a stale
-   * cache and falls back to invalidation — a not-yet-cached id here is the
-   * expected common case: the row is brand new. Insert it directly instead
-   * of round-tripping through a refetch.
+   * A BS `insert` event's payload is the raw client-facing flowsheet ROW —
+   * the CDC allow-list projection, which carries no read-time JOIN fields
+   * (rotation_bin, on_streaming) and NULLs where the converted cache uses ""
+   * — so it MUST go through `convertV2Entry` before touching the cache, or
+   * the row renders shape-corrupt (literal "null" labels, broken show
+   * partition via the unmapped `show_id: null`).
    *
-   * A cached hit still happens: the sender's own `addToFlowsheet` mutation
-   * already resolves its optimistic temp id to the real server row via
-   * `replaceEntryIdAllPages` before this broadcast round-trips back to the
-   * same client, so treat a present id as a merge, not a second insert —
-   * otherwise the sender would see its own row duplicated.
+   * Hybrid patch-plus-invalidate: the converted row is spliced in for instant
+   * UI, and a debounced Flowsheet+NowPlaying invalidate is ALWAYS scheduled as
+   * the consistency backstop. The refetch is what (a) keeps the NowPlaying
+   * card in step with a brand-new row it can't know about, (b) carries along
+   * non-broadcast marker rows (breakpoints/talksets — BS only broadcasts
+   * `entry_type='track'`), preserving the pre-insert-handling repair
+   * behavior, (c) repairs the page-boundary drift a growing pages[0] causes
+   * for offset-based fetchNextPage, and (d) bounds every SSE-vs-optimistic
+   * race window at ~one debounce interval instead of the 5-minute slow poll.
+   *
+   * An id that is already cached is SKIPPED, not merged: the sender's own
+   * `addToFlowsheet` pipeline owns that row (optimistic insert → temp-id
+   * resolve → deferred enrichment refetch), and merging the raw pre-enrichment
+   * broadcast over it would downgrade enriched fields. The scheduled
+   * invalidate still provides eventual consistency for whatever state the
+   * echo represented.
    */
   function routeInsertEvent(
     dispatch: AppDispatch,
     getState: () => RootState,
-    payload: FlowsheetEntry
+    payload: FlowsheetEntryResponse
   ) {
     const state = getState();
     const infiniteData = flowsheetApi.endpoints.getInfiniteEntries.select(
       undefined
     )(state).data;
-    const nowPlayingData = flowsheetApi.endpoints.getNowPlaying.select(
-      undefined
-    )(state).data;
 
-    const inInfinite = (infiniteData?.pages ?? []).some((page) =>
-      page.some((e) => e.id === payload.id)
-    );
-    const inNowPlaying = nowPlayingData?.id === payload.id;
-
-    try {
-      dispatch(
-        flowsheetApi.util.updateQueryData(
-          "getInfiniteEntries",
-          undefined,
-          (draft) => {
-            if (inInfinite) {
-              patchEntryById(draft, payload.id, payload);
-            } else {
-              insertEntrySortedFirstPage(draft, payload);
-            }
-          }
-        )
-      );
-      if (inNowPlaying) {
-        dispatch(
-          flowsheetApi.util.updateQueryData(
-            "getNowPlaying",
-            undefined,
-            (draft) => {
-              if (draft) Object.assign(draft, payload);
-            }
-          )
-        );
-      }
-    } catch (err) {
-      safeCaptureException(err, {
-        context: SSE_EVENTS.DISPATCH_FAILURE,
+    // RTK's updateQueryData silently no-ops on an uninitialized cache (public
+    // /live page, auth-gated dashboard skip, rejected initial fetch) — the
+    // recipe never runs, so nothing would throw and nothing would render.
+    // Telemetry + invalidate is the same parity routeUpdateEvent's unknown-id
+    // miss path gets; the invalidate also warms the cache for the next event.
+    if (!infiniteData) {
+      safeCapture(SSE_EVENTS.CACHE_UNINITIALIZED, {
+        surface: "listener",
         event_type: "insert",
         payload_id: payload.id,
       });
+      scheduleDebouncedInvalidate(dispatch, ["Flowsheet", "NowPlaying"]);
+      return;
     }
+
+    const alreadyCached = infiniteData.pages.some((page) =>
+      page.some((e) => e.id === payload.id)
+    );
+
+    const now = Date.now();
+    if (now - insertBurstWindowStart > REFETCH_DEBOUNCE_MS) {
+      insertBurstWindowStart = now;
+      insertBurstCount = 0;
+    }
+    insertBurstCount += 1;
+
+    if (!alreadyCached && insertBurstCount <= INSERT_PATCH_BURST_LIMIT) {
+      const entry = convertV2Entry(
+        payload as unknown as FlowsheetV2EntryJSON
+      );
+      try {
+        dispatch(
+          flowsheetApi.util.updateQueryData(
+            "getInfiniteEntries",
+            undefined,
+            (draft) => {
+              insertEntrySortedFirstPage(draft, entry);
+            }
+          )
+        );
+      } catch (err) {
+        safeCaptureException(err, {
+          context: SSE_EVENTS.DISPATCH_FAILURE,
+          event_type: "insert",
+          payload_id: payload.id,
+        });
+      }
+    }
+
+    scheduleDebouncedInvalidate(dispatch, ["Flowsheet", "NowPlaying"]);
   }
 
   startListening({
