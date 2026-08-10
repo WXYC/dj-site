@@ -35,6 +35,14 @@ export function entryToFreezePayload(entry: {
     // the form never autofills a value it then rejects. The DJ types the
     // performer into the field the freeze leaves blank.
     artist: seedableArtistName(entry),
+    // Whether the release supplied an artist at all, which a withheld seed
+    // can no longer be read off the seeded string to answer. The deviation
+    // rule needs the release's answer, not the seed's: typing a performer
+    // over a withheld credit departs from the linked row and must strip the
+    // linkage, or BS's album_id branch spreads the refused credit back over
+    // the request. Filling a field the release genuinely left empty is added
+    // data, and still keeps the selection.
+    artistProvided: Boolean(entry.artist?.name),
     album: entry.title ?? "",
     label: entry.label ?? "",
     album_id: entry.id ?? undefined,

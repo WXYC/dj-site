@@ -778,6 +778,7 @@ describe("flowsheet conversions", () => {
         })
       ).toEqual({
         artist: "Juana Molina",
+        artistProvided: true,
         album: "DOGA",
         label: "Sonamos",
         album_id: 42,
@@ -789,9 +790,32 @@ describe("flowsheet conversions", () => {
     it("defaults missing fields to empty strings and undefined ids", () => {
       expect(entryToFreezePayload({})).toEqual({
         artist: "",
+        artistProvided: false,
         album: "",
         label: "",
         album_id: undefined,
+        rotation_id: undefined,
+        rotation_bin: undefined,
+      });
+    });
+
+    // Withholding the seed must not read downstream as "the release had no
+    // artist": the deviation rule keys on what the release supplied, and a
+    // credit it refuses is still something it supplied.
+    it("reports the artist as provided when a refused credit is withheld from the seed", () => {
+      expect(
+        entryToFreezePayload({
+          id: 42,
+          artist: { name: "Various Artists" },
+          title: "Edits",
+          label: "self-released",
+        })
+      ).toEqual({
+        artist: "",
+        artistProvided: true,
+        album: "Edits",
+        label: "self-released",
+        album_id: 42,
         rotation_id: undefined,
         rotation_bin: undefined,
       });

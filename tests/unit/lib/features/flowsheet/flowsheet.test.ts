@@ -312,6 +312,56 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
         expect(result.search.query.rotation_bin).toBe("H");
       });
 
+      // A refused credit is seeded blank, but the release still supplied one.
+      // Typing a performer over it is a deviation from the linked row, so the
+      // linkage must not survive the correction — read as "the release left
+      // this empty" the deviation rule stands down, album_id rides the wire,
+      // and BS's album_id branch spreads the refused credit straight back.
+      it("drops the linkage when a performer is named over a withheld credit", () => {
+        const frozen = harness().reduce(
+          actions.freezeSelectionToQuery({
+            artist: "",
+            artistProvided: true,
+            album: "Edits",
+            label: "self-released",
+            album_id: 42,
+          })
+        );
+        const result = harness().reduce(
+          actions.setSearchProperty({
+            name: "artist",
+            value: "Chuquimamani-Condori",
+            deviates: true,
+          }),
+          frozen
+        );
+
+        expect(result.search.query.album_id).toBeUndefined();
+      });
+
+      // The other blank: a release that genuinely carries no artist supplied
+      // nothing, so filling the field is added data and the selection stands.
+      it("keeps the linkage when a field the release left empty is filled", () => {
+        const frozen = harness().reduce(
+          actions.freezeSelectionToQuery({
+            artist: "",
+            album: "Edits",
+            label: "self-released",
+            album_id: 42,
+          })
+        );
+        const result = harness().reduce(
+          actions.setSearchProperty({
+            name: "artist",
+            value: "Chuquimamani-Condori",
+            deviates: true,
+          }),
+          frozen
+        );
+
+        expect(result.search.query.album_id).toBe(42);
+      });
+
       it("should clear rotation_id and rotation_bin when not provided", () => {
         const seeded = harness().reduce(
           actions.freezeSelectionToQuery({
