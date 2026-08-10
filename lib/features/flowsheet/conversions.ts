@@ -35,14 +35,16 @@ export function entryToFreezePayload(entry: {
     // the form never autofills a value it then rejects. The DJ types the
     // performer into the field the freeze leaves blank.
     artist: seedableArtistName(entry),
-    // Whether the release supplied an artist at all, which a withheld seed
-    // can no longer be read off the seeded string to answer. The deviation
-    // rule needs the release's answer, not the seed's: typing a performer
-    // over a withheld credit departs from the linked row and must strip the
-    // linkage, or BS's album_id branch spreads the refused credit back over
-    // the request. Filling a field the release genuinely left empty is added
-    // data, and still keeps the selection.
-    artistProvided: Boolean(entry.artist?.name),
+    // Whether an artist typed into the field departs from this release,
+    // which the seeded string can no longer answer once a credit is withheld
+    // from it. True for every linked release, whatever its credit column
+    // holds: BS's album_id branch spreads that column over the request, so a
+    // performer typed over a withheld credit — or over a blank — is handed
+    // straight back unless the edit strips the linkage first. Without a
+    // linked row there is no linkage to strip and the deviation rule never
+    // runs, so the release's own credit is the only answer left to give.
+    artistProvided:
+      hasLinkedAlbumId(entry.id ?? undefined) || Boolean(entry.artist?.name),
     album: entry.title ?? "",
     label: entry.label ?? "",
     album_id: entry.id ?? undefined,

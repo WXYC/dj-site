@@ -249,11 +249,16 @@ export const flowsheetSlice = createAppSlice({
         //
         // Filling a field the row left EMPTY is added data, not a deviation
         // — the linkage still describes the entry and survives, exactly as
-        // it does in the searchbar.
+        // it does in the searchbar. The artist is the exception: a linked
+        // row always carries a credit, so a blank artist there means the
+        // conversion withheld one, and naming the performer corrects that
+        // row rather than adding to it.
+        const supplied =
+          action.payload.field === "artist_name" ||
+          (previous !== "" && previous !== undefined);
         if (
           ALBUM_SCOPED_QUEUE_FIELDS.includes(action.payload.field) &&
-          previous !== "" &&
-          previous !== undefined &&
+          supplied &&
           previous !== action.payload.value
         ) {
           entry.album_id = undefined;

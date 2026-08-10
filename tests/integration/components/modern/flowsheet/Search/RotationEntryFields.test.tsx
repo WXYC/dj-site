@@ -232,6 +232,32 @@ describe("RotationEntryFields", () => {
     expect(screen.getByTestId("flowsheet-search-artist")).toBeInTheDocument();
   });
 
+  // And the field only means something once the linkage is gone: BS's
+  // album_id branch would otherwise spread the library row's empty
+  // artist_name over whatever the DJ types into it.
+  it("withholds album_id for a release that carries no credit at all", () => {
+    const uncredited = {
+      ...createTestAlbum({
+        id: 8,
+        title: "Untitled",
+        rotation_id: 43,
+        rotation_bin: "H",
+      }),
+      artist: null,
+    } as unknown as ReturnType<typeof createTestAlbum>;
+    mockRotationData = [lightningBoltOoioo, uncredited];
+
+    const { store } = renderWithProviders(
+      inModernTheme(<RotationEntryFields disabled={false} />)
+    );
+
+    selectBinAndRelease(uncredited);
+
+    const query = flowsheetSlice.selectors.getSearchQuery(store.getState());
+    expect(query.album_id).toBeUndefined();
+    expect(query.rotation_id).toBe(43);
+  });
+
   it("drops the artist input again when the DJ switches to a credited release", () => {
     renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
 
