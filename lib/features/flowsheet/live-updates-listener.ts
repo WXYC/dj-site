@@ -79,6 +79,15 @@ function isLiveFsEvent(value: unknown): value is LiveFsEvent {
 }
 
 /**
+ * Which consumer this store serves, stamped onto every telemetry capture that
+ * carries a `surface` property. The split is what makes `sse_cache_uninitialized`
+ * diagnostic: on "live" (the public page never mounts the entries query) the
+ * event is expected on every station-wide add, while on "dashboard" it signals
+ * a real cache-init defect (auth-gated skip, rejected initial fetch).
+ */
+export type LiveUpdatesSurface = "dashboard" | "live";
+
+/**
  * Inspection surface for one store's live-updates connection. The EventSource,
  * reconnect flag, and debounce timer live in the middleware instance's closure,
  * so this is the only way to observe them.
@@ -101,7 +110,9 @@ export type LiveUpdatesListenerHandle = {
  * request/release from different stores independent, so a store with
  * ref-count > 0 always retains its own live EventSource.
  */
-export function createLiveUpdatesListenerMiddleware(): LiveUpdatesListenerHandle {
+export function createLiveUpdatesListenerMiddleware(
+  surface: LiveUpdatesSurface
+): LiveUpdatesListenerHandle {
   const listenerMiddleware = createListenerMiddleware();
   const startListening =
     listenerMiddleware.startListening as TypedStartListening<
@@ -144,12 +155,8 @@ export function createLiveUpdatesListenerMiddleware(): LiveUpdatesListenerHandle
    * the next mount — free.
    */
   function flushPendingInvalidate(dispatch: AppDispatch): void {
-    if (debouncedInvalidateTimer !== null) {
-      clearTimeout(debouncedInvalidateTimer);
-      debouncedInvalidateTimer = null;
-    }
     const toInvalidate = Array.from(pendingInvalidateTags);
-    pendingInvalidateTags = new Set();
+    clearDebouncedInvalidate();
     if (toInvalidate.length === 0) return;
     dispatch(flowsheetApi.util.invalidateTags(toInvalidate));
   }
@@ -281,7 +288,7 @@ export function createLiveUpdatesListenerMiddleware(): LiveUpdatesListenerHandle
       (infiniteData?.pages ?? []).find((p) => p.length > 0)?.[0]?.show_id ??
       null;
     safeCapture(SSE_EVENTS.UNKNOWN_EVENT_ID, {
-      surface: "listener",
+      surface,
       event_type: "update",
       payload_id: payload.id,
       current_show_id: currentShowId,
@@ -361,7 +368,7 @@ export function createLiveUpdatesListenerMiddleware(): LiveUpdatesListenerHandle
       if (!capturedCacheUninitializedThisConnection) {
         capturedCacheUninitializedThisConnection = true;
         safeCapture(SSE_EVENTS.CACHE_UNINITIALIZED, {
-          surface: "listener",
+          surface,
           event_type: "insert",
           payload_id: payload.id,
         });

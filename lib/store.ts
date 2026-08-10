@@ -52,7 +52,7 @@ const rootReducer = combineSlices(
 export type RootState = ReturnType<typeof rootReducer>;
 
 export const makeStore = () => {
-  const liveUpdatesListener = createLiveUpdatesListenerMiddleware();
+  const liveUpdatesListener = createLiveUpdatesListenerMiddleware("dashboard");
   const store = configureStore({
     reducer: rootReducer,
     middleware: (getDefaultMiddleware) => {

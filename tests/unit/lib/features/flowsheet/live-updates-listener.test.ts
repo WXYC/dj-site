@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { http, HttpResponse } from "msw";
-import type { FlowsheetEntryResponse } from "@wxyc/shared/dtos";
 
 import { flowsheetApi } from "@/lib/features/flowsheet/api";
 import { getLiveUpdatesListenerHandle } from "@/lib/features/flowsheet/live-updates-listener";
@@ -12,7 +11,11 @@ import {
 import type { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 import { makeStore } from "@/lib/store";
 import { makePublicStore } from "@/lib/store-public";
-import { server, TEST_BACKEND_URL } from "@/tests/helpers";
+import {
+  createTestInsertWirePayload,
+  server,
+  TEST_BACKEND_URL,
+} from "@/tests/helpers";
 
 // The live-updates connection state is owned per store. Reach a store's
 // EventSource / reconnect flag through its listener handle.
@@ -75,59 +78,32 @@ function makeSongEntry(overrides: Partial<FlowsheetSongEntry> = {}): FlowsheetSo
   };
 }
 
-/**
- * What BS actually broadcasts on a `LiveFsInsertEvent`: the raw
- * CLIENT_FACING_FLOWSHEET_COLUMNS row (FlowsheetEntryResponse) — snake_case,
- * nullable varchars, `metadata_status: 'pending'` with the enrichment fields
- * still null, and NONE of the read-time JOIN fields (rotation_bin,
- * on_streaming). Insert tests MUST use this shape, not a converted
- * FlowsheetEntry: an already-converted fixture pins a wire shape BS never
- * emits and masks conversion defects.
- */
-type InsertWirePayload = {
-  // Nullable-widened over the SSOT's keys: the CDC projection rides DB NULLs
-  // through columns the DTO models as optional-non-nullable (record_label)
-  // or required (show_id), so a plain Partial<FlowsheetEntryResponse> would
-  // reject exactly the nulls these tests exist to pin. Keying on the DTO
-  // still compile-checks key-name drift.
-  [K in keyof FlowsheetEntryResponse]?: FlowsheetEntryResponse[K] | null;
+const SEED_WIRE_ROW = {
+  id: 5000,
+  entry_type: "track",
+  play_order: 1,
+  show_id: 7000,
+  track_title: "la paradoja",
+  artist_name: "Juana Molina",
+  album_title: "DOGA",
+  record_label: "Sonamos",
+  request_flag: false,
 };
 
-function makeInsertWirePayload(
-  overrides: InsertWirePayload = {}
-): InsertWirePayload {
-  return {
-    id: 9002,
-    show_id: 7000,
-    album_id: null,
-    rotation_id: null,
-    entry_type: "track",
-    artist_name: "Jessica Pratt",
-    album_title: "On Your Own Love Again",
-    track_title: "Back, Baby",
-    track_position: null,
-    record_label: null,
-    label_id: null,
-    play_order: 2,
-    request_flag: false,
-    segue: false,
-    message: null,
-    add_time: "2026-08-10T20:00:00.000Z",
-    radio_hour: null,
-    dj_name: null,
-    metadata_status: "pending",
-    artwork_url: null,
-    discogs_url: null,
-    release_year: null,
-    spotify_url: null,
-    apple_music_url: null,
-    youtube_music_url: null,
-    bandcamp_url: null,
-    soundcloud_url: null,
-    artist_bio: null,
-    artist_wikipedia_url: null,
-    ...overrides,
-  };
+/**
+ * Prime getInfiniteEntries through a real MSW GET so RTK Query treats the
+ * cache as a fully-initialized entry (upsertQueryData proved unreliable for
+ * infinite queries on this RTK Query version).
+ */
+async function makeStoreWithSeededEntries(rows: unknown[] = [SEED_WIRE_ROW]) {
+  server.use(
+    http.get(`${TEST_BACKEND_URL}/flowsheet/`, () => HttpResponse.json(rows))
+  );
+  const store = makeStore();
+  await store
+    .dispatch(flowsheetApi.endpoints.getInfiniteEntries.initiate(undefined))
+    .unwrap();
+  return store;
 }
 
 function insertFrame(payload: unknown): string {
@@ -352,35 +328,9 @@ describe("live-updates listener middleware", () => {
   });
 
   it("patches getInfiniteEntries when an update arrives for a cached id", async () => {
-    const initialEntry = makeSongEntry({ id: 9001, artwork_url: undefined });
-
-    // Populate the cache via a real GET through MSW so RTK Query treats it as
-    // a fully-initialized cache entry (upsertQueryData proved unreliable for
-    // infinite queries on this RTK Query version).
-    server.use(
-      http.get(`${TEST_BACKEND_URL}/flowsheet/`, () =>
-        HttpResponse.json([
-          {
-            id: initialEntry.id,
-            entry_type: "track",
-            play_order: initialEntry.play_order,
-            show_id: initialEntry.show_id,
-            track_title: initialEntry.track_title,
-            artist_name: initialEntry.artist_name,
-            album_title: initialEntry.album_title,
-            record_label: initialEntry.record_label,
-            request_flag: initialEntry.request_flag,
-          },
-        ])
-      )
-    );
-
-    const store = makeStore();
-    await store
-      .dispatch(
-        flowsheetApi.endpoints.getInfiniteEntries.initiate(undefined)
-      )
-      .unwrap();
+    const store = await makeStoreWithSeededEntries([
+      { ...SEED_WIRE_ROW, id: 9001 },
+    ]);
 
     const cached =
       flowsheetApi.endpoints.getInfiniteEntries.select(undefined)(
@@ -415,36 +365,15 @@ describe("live-updates listener middleware", () => {
     // back to null (rendered downstream as the literal string "null") and
     // clobber the -1 orphan show_id sentinel, collapsing the live-show
     // partition. Non-null fills must still ride the same merge.
-    server.use(
-      http.get(`${TEST_BACKEND_URL}/flowsheet/`, () =>
-        HttpResponse.json([
-          {
-            id: 9001,
-            entry_type: "track",
-            play_order: 1,
-            show_id: 7000,
-            track_title: "la paradoja",
-            artist_name: "Juana Molina",
-            album_title: "DOGA",
-            record_label: "Sonamos",
-            request_flag: false,
-          },
-        ])
-      )
-    );
-
-    const store = makeStore();
-    await store
-      .dispatch(
-        flowsheetApi.endpoints.getInfiniteEntries.initiate(undefined)
-      )
-      .unwrap();
+    const store = await makeStoreWithSeededEntries([
+      { ...SEED_WIRE_ROW, id: 9001 },
+    ]);
 
     store.dispatch(liveUpdatesConnectionRequested());
     getLastMock()._fireMessage(
       frame({
         type: "update",
-        payload: makeInsertWirePayload({
+        payload: createTestInsertWirePayload({
           id: 9001,
           record_label: null,
           show_id: null,
@@ -498,32 +427,7 @@ describe("live-updates listener middleware", () => {
   });
 
   it("converts the raw wire row before inserting it (nulls fold, sentinel maps, no internal keys graft)", async () => {
-    const existingEntry = makeSongEntry({ id: 5000 });
-
-    server.use(
-      http.get(`${TEST_BACKEND_URL}/flowsheet/`, () =>
-        HttpResponse.json([
-          {
-            id: existingEntry.id,
-            entry_type: "track",
-            play_order: existingEntry.play_order,
-            show_id: existingEntry.show_id,
-            track_title: existingEntry.track_title,
-            artist_name: existingEntry.artist_name,
-            album_title: existingEntry.album_title,
-            record_label: existingEntry.record_label,
-            request_flag: existingEntry.request_flag,
-          },
-        ])
-      )
-    );
-
-    const store = makeStore();
-    await store
-      .dispatch(
-        flowsheetApi.endpoints.getInfiniteEntries.initiate(undefined)
-      )
-      .unwrap();
+    const store = await makeStoreWithSeededEntries();
 
     store.dispatch(liveUpdatesConnectionRequested());
     // record_label null (the tubafrenzy-webhook shape) and show_id null (a
@@ -532,7 +436,7 @@ describe("live-updates listener middleware", () => {
     // label rendered (and could be PATCHed back), and the unmapped null
     // show_id bypassed the -1 orphan sentinel and collapsed the partition.
     getLastMock()._fireMessage(
-      insertFrame(makeInsertWirePayload({ record_label: null, show_id: null }))
+      insertFrame(createTestInsertWirePayload({ record_label: null, show_id: null }))
     );
 
     expect(captureSpy).not.toHaveBeenCalledWith(
@@ -571,40 +475,20 @@ describe("live-updates listener middleware", () => {
     // entry-caching E2E pins this) or a receiver whose refetch raced the
     // frame — whose NowPlaying cache never otherwise learns about the row,
     // hence the NowPlaying-only nudge.
-    const initialEntry = makeSongEntry({ id: 9001 });
-
-    server.use(
-      http.get(`${TEST_BACKEND_URL}/flowsheet/`, () =>
-        HttpResponse.json([
-          {
-            id: initialEntry.id,
-            entry_type: "track",
-            play_order: initialEntry.play_order,
-            show_id: initialEntry.show_id,
-            track_title: initialEntry.track_title,
-            artist_name: initialEntry.artist_name,
-            album_title: initialEntry.album_title,
-            record_label: initialEntry.record_label,
-            request_flag: initialEntry.request_flag,
-            artwork_url: "https://cdn.example/artwork.jpg",
-          },
-        ])
-      )
-    );
-
-    const store = makeStore();
-    await store
-      .dispatch(
-        flowsheetApi.endpoints.getInfiniteEntries.initiate(undefined)
-      )
-      .unwrap();
+    const store = await makeStoreWithSeededEntries([
+      {
+        ...SEED_WIRE_ROW,
+        id: 9001,
+        artwork_url: "https://cdn.example/artwork.jpg",
+      },
+    ]);
 
     vi.useFakeTimers();
     try {
       const invalidateSpy = vi.spyOn(flowsheetApi.util, "invalidateTags");
       store.dispatch(liveUpdatesConnectionRequested());
       getLastMock()._fireMessage(
-        insertFrame(makeInsertWirePayload({ id: 9001, artwork_url: null }))
+        insertFrame(createTestInsertWirePayload({ id: 9001, artwork_url: null }))
       );
 
       const after = flowsheetApi.endpoints.getInfiniteEntries.select(
@@ -640,30 +524,7 @@ describe("live-updates listener middleware", () => {
     // id is almost certainly this client's own row. Splicing it would render
     // a duplicate beside the optimistic row, and the full backstop would
     // replay pageParams per self-add.
-    server.use(
-      http.get(`${TEST_BACKEND_URL}/flowsheet/`, () =>
-        HttpResponse.json([
-          {
-            id: 5000,
-            entry_type: "track",
-            play_order: 1,
-            show_id: 7000,
-            track_title: "la paradoja",
-            artist_name: "Juana Molina",
-            album_title: "DOGA",
-            record_label: "Sonamos",
-            request_flag: false,
-          },
-        ])
-      )
-    );
-
-    const store = makeStore();
-    await store
-      .dispatch(
-        flowsheetApi.endpoints.getInfiniteEntries.initiate(undefined)
-      )
-      .unwrap();
+    const store = await makeStoreWithSeededEntries();
 
     // Simulate addToFlowsheet's optimistic insert (negative temp id).
     store.dispatch(
@@ -690,7 +551,7 @@ describe("live-updates listener middleware", () => {
       const invalidateSpy = vi.spyOn(flowsheetApi.util, "invalidateTags");
       store.dispatch(liveUpdatesConnectionRequested());
       getLastMock()._fireMessage(
-        insertFrame(makeInsertWirePayload({ id: 9002 }))
+        insertFrame(createTestInsertWirePayload({ id: 9002 }))
       );
 
       const after = flowsheetApi.endpoints.getInfiniteEntries.select(
@@ -718,30 +579,7 @@ describe("live-updates listener middleware", () => {
     // convertV2Entry throws on an entry_type outside its switch while the
     // event guard only vets a numeric id. An uncaught throw would escape
     // es.onmessage, losing both the telemetry and the backstop refetch.
-    server.use(
-      http.get(`${TEST_BACKEND_URL}/flowsheet/`, () =>
-        HttpResponse.json([
-          {
-            id: 5000,
-            entry_type: "track",
-            play_order: 1,
-            show_id: 7000,
-            track_title: "la paradoja",
-            artist_name: "Juana Molina",
-            album_title: "DOGA",
-            record_label: "Sonamos",
-            request_flag: false,
-          },
-        ])
-      )
-    );
-
-    const store = makeStore();
-    await store
-      .dispatch(
-        flowsheetApi.endpoints.getInfiniteEntries.initiate(undefined)
-      )
-      .unwrap();
+    const store = await makeStoreWithSeededEntries();
 
     vi.useFakeTimers();
     try {
@@ -750,7 +588,7 @@ describe("live-updates listener middleware", () => {
       expect(() =>
         getLastMock()._fireMessage(
           insertFrame({
-            ...makeInsertWirePayload({ id: 9400 }),
+            ...createTestInsertWirePayload({ id: 9400 }),
             entry_type: "hologram",
           })
         )
@@ -775,30 +613,7 @@ describe("live-updates listener middleware", () => {
   });
 
   it("caps debounce deferral so a sustained insert stream cannot starve the backstop refetch", async () => {
-    server.use(
-      http.get(`${TEST_BACKEND_URL}/flowsheet/`, () =>
-        HttpResponse.json([
-          {
-            id: 5000,
-            entry_type: "track",
-            play_order: 1,
-            show_id: 7000,
-            track_title: "la paradoja",
-            artist_name: "Juana Molina",
-            album_title: "DOGA",
-            record_label: "Sonamos",
-            request_flag: false,
-          },
-        ])
-      )
-    );
-
-    const store = makeStore();
-    await store
-      .dispatch(
-        flowsheetApi.endpoints.getInfiniteEntries.initiate(undefined)
-      )
-      .unwrap();
+    const store = await makeStoreWithSeededEntries();
 
     vi.useFakeTimers();
     try {
@@ -810,7 +625,7 @@ describe("live-updates listener middleware", () => {
       for (let i = 0; i < 8; i++) {
         getLastMock()._fireMessage(
           insertFrame(
-            makeInsertWirePayload({ id: 9300 + i, play_order: 2 + i })
+            createTestInsertWirePayload({ id: 9300 + i, play_order: 2 + i })
           )
         );
         vi.advanceTimersByTime(400);
@@ -825,36 +640,13 @@ describe("live-updates listener middleware", () => {
   });
 
   it("flushes the pending invalidate on connection release instead of dropping it", async () => {
-    server.use(
-      http.get(`${TEST_BACKEND_URL}/flowsheet/`, () =>
-        HttpResponse.json([
-          {
-            id: 5000,
-            entry_type: "track",
-            play_order: 1,
-            show_id: 7000,
-            track_title: "la paradoja",
-            artist_name: "Juana Molina",
-            album_title: "DOGA",
-            record_label: "Sonamos",
-            request_flag: false,
-          },
-        ])
-      )
-    );
-
-    const store = makeStore();
-    await store
-      .dispatch(
-        flowsheetApi.endpoints.getInfiniteEntries.initiate(undefined)
-      )
-      .unwrap();
+    const store = await makeStoreWithSeededEntries();
 
     vi.useFakeTimers();
     try {
       const invalidateSpy = vi.spyOn(flowsheetApi.util, "invalidateTags");
       store.dispatch(liveUpdatesConnectionRequested());
-      getLastMock()._fireMessage(insertFrame(makeInsertWirePayload()));
+      getLastMock()._fireMessage(insertFrame(createTestInsertWirePayload()));
       expect(invalidateSpy).not.toHaveBeenCalled();
 
       // Release mid-window: the pending repair fires immediately rather than
@@ -877,36 +669,13 @@ describe("live-updates listener middleware", () => {
     // provide: NowPlaying can't know about a brand-new row (its id is never
     // the cached one), non-broadcast marker rows only arrive via refetch, and
     // the refetch re-syncs offset-based pageParams after pages[0] grew.
-    server.use(
-      http.get(`${TEST_BACKEND_URL}/flowsheet/`, () =>
-        HttpResponse.json([
-          {
-            id: 5000,
-            entry_type: "track",
-            play_order: 1,
-            show_id: 7000,
-            track_title: "la paradoja",
-            artist_name: "Juana Molina",
-            album_title: "DOGA",
-            record_label: "Sonamos",
-            request_flag: false,
-          },
-        ])
-      )
-    );
-
-    const store = makeStore();
-    await store
-      .dispatch(
-        flowsheetApi.endpoints.getInfiniteEntries.initiate(undefined)
-      )
-      .unwrap();
+    const store = await makeStoreWithSeededEntries();
 
     vi.useFakeTimers();
     try {
       const invalidateSpy = vi.spyOn(flowsheetApi.util, "invalidateTags");
       store.dispatch(liveUpdatesConnectionRequested());
-      getLastMock()._fireMessage(insertFrame(makeInsertWirePayload()));
+      getLastMock()._fireMessage(insertFrame(createTestInsertWirePayload()));
 
       vi.advanceTimersByTime(600);
       expect(invalidateSpy).toHaveBeenCalledWith(["Flowsheet", "NowPlaying"]);
@@ -930,14 +699,18 @@ describe("live-updates listener middleware", () => {
     try {
       const invalidateSpy = vi.spyOn(flowsheetApi.util, "invalidateTags");
       store.dispatch(liveUpdatesConnectionRequested());
-      getLastMock()._fireMessage(insertFrame(makeInsertWirePayload()));
+      getLastMock()._fireMessage(insertFrame(createTestInsertWirePayload()));
       getLastMock()._fireMessage(
-        insertFrame(makeInsertWirePayload({ id: 9003, play_order: 3 }))
+        insertFrame(createTestInsertWirePayload({ id: 9003, play_order: 3 }))
       );
 
       expect(captureSpy).toHaveBeenCalledWith(
         "sse_cache_uninitialized",
-        expect.objectContaining({ event_type: "insert", payload_id: 9002 })
+        expect.objectContaining({
+          surface: "dashboard",
+          event_type: "insert",
+          payload_id: 9002,
+        })
       );
       expect(
         captureSpy.mock.calls.filter(
@@ -953,31 +726,24 @@ describe("live-updates listener middleware", () => {
     }
   });
 
-  it("stops per-row patching past the burst limit and leans on the scheduled refetch", async () => {
-    server.use(
-      http.get(`${TEST_BACKEND_URL}/flowsheet/`, () =>
-        HttpResponse.json([
-          {
-            id: 5000,
-            entry_type: "track",
-            play_order: 1,
-            show_id: 7000,
-            track_title: "la paradoja",
-            artist_name: "Juana Molina",
-            album_title: "DOGA",
-            record_label: "Sonamos",
-            request_flag: false,
-          },
-        ])
-      )
-    );
+  it("stamps surface 'live' on captures from the public store", () => {
+    // The surface split is what makes sse_cache_uninitialized diagnostic:
+    // "live" occurrences are expected (the public page never mounts the
+    // entries query); "dashboard" occurrences signal a real cache-init
+    // defect.
+    const store = makePublicStore();
+    store.dispatch(liveUpdatesConnectionRequested());
+    getLastMock()._fireMessage(insertFrame(createTestInsertWirePayload()));
 
-    const store = makeStore();
-    await store
-      .dispatch(
-        flowsheetApi.endpoints.getInfiniteEntries.initiate(undefined)
-      )
-      .unwrap();
+    expect(captureSpy).toHaveBeenCalledWith(
+      "sse_cache_uninitialized",
+      expect.objectContaining({ surface: "live", payload_id: 9002 })
+    );
+    store.dispatch(liveUpdatesConnectionReleased());
+  });
+
+  it("stops per-row patching past the burst limit and leans on the scheduled refetch", async () => {
+    const store = await makeStoreWithSeededEntries();
 
     vi.useFakeTimers();
     try {
@@ -986,7 +752,7 @@ describe("live-updates listener middleware", () => {
       // Fake timers freeze Date.now(), so all eight land in one burst window.
       for (let i = 0; i < 8; i++) {
         getLastMock()._fireMessage(
-          insertFrame(makeInsertWirePayload({ id: 9101 + i, play_order: 2 + i }))
+          insertFrame(createTestInsertWirePayload({ id: 9101 + i, play_order: 2 + i }))
         );
       }
 

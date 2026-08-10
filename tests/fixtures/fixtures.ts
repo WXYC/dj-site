@@ -14,7 +14,10 @@ import {
   VerifiedData,
   Verification,
 } from "@/lib/features/authentication/types";
-import type { BinLibraryDetails } from "@wxyc/shared/dtos";
+import type {
+  BinLibraryDetails,
+  FlowsheetEntryResponse,
+} from "@wxyc/shared/dtos";
 import type {
   FlowsheetV2TrackEntryJSON,
   FlowsheetV2ShowStartEntryJSON,
@@ -528,6 +531,64 @@ export function createTestV2TrackEntry(
     record_label: TEST_SEARCH_STRINGS.LABEL,
     request_flag: false,
     album_id: TEST_ENTITY_IDS.ALBUM.ROCK_ALBUM,
+    ...overrides,
+  };
+}
+
+/**
+ * Nullable-widened over the SSOT's keys: Backend-Service's CDC projection
+ * rides DB NULLs through columns the DTO models as optional-non-nullable
+ * (record_label) or required (show_id), so a plain
+ * Partial<FlowsheetEntryResponse> would reject exactly the nulls the SSE
+ * wire tests exist to pin. Keying on the DTO still compile-checks key-name
+ * drift.
+ */
+export type InsertWirePayload = {
+  [K in keyof FlowsheetEntryResponse]?: FlowsheetEntryResponse[K] | null;
+};
+
+/**
+ * What BS actually broadcasts on a `LiveFsInsertEvent`: the raw
+ * CLIENT_FACING_FLOWSHEET_COLUMNS row (FlowsheetEntryResponse) — snake_case,
+ * nullable varchars, `metadata_status: 'pending'` with the enrichment fields
+ * still null, and NONE of the read-time JOIN fields (rotation_bin,
+ * on_streaming). SSE insert tests MUST use this shape, not a converted
+ * FlowsheetEntry: an already-converted fixture pins a wire shape BS never
+ * emits and masks conversion defects.
+ */
+export function createTestInsertWirePayload(
+  overrides: InsertWirePayload = {}
+): InsertWirePayload {
+  return {
+    id: 9002,
+    show_id: 7000,
+    album_id: null,
+    rotation_id: null,
+    entry_type: "track",
+    artist_name: "Jessica Pratt",
+    album_title: "On Your Own Love Again",
+    track_title: "Back, Baby",
+    track_position: null,
+    record_label: null,
+    label_id: null,
+    play_order: 2,
+    request_flag: false,
+    segue: false,
+    message: null,
+    add_time: "2026-08-10T20:00:00.000Z",
+    radio_hour: null,
+    dj_name: null,
+    metadata_status: "pending",
+    artwork_url: null,
+    discogs_url: null,
+    release_year: null,
+    spotify_url: null,
+    apple_music_url: null,
+    youtube_music_url: null,
+    bandcamp_url: null,
+    soundcloud_url: null,
+    artist_bio: null,
+    artist_wikipedia_url: null,
     ...overrides,
   };
 }
