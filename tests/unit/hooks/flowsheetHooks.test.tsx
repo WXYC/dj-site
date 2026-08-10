@@ -10,6 +10,7 @@ import {
   useFlowsheetSubmit,
 } from "@/src/hooks/flowsheetHooks";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
+import { MISSING_ARTIST_REJECTION_MESSAGE } from "@/lib/features/flowsheet/various-artists-guard";
 import { useAppDispatch } from "@/lib/hooks";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
 import { liveUpdatesSlice } from "@/lib/features/flowsheet/live-updates-slice";
@@ -1414,6 +1415,24 @@ describe("flowsheetHooks", () => {
 
         expect(result.current.queue.queue.length).toBe(0);
         expect(result.current.search.searchQuery.song).toBe("Call Your Name");
+      });
+
+      // The blank field and the refused credit are different mistakes and
+      // get different copy: a DJ who never typed "Various Artists" should
+      // not be told to stop.
+      it("names the missing artist rather than blaming Various Artists", () => {
+        const { result } = renderCombined();
+
+        act(() => {
+          result.current.search.setSearchProperty("song", "Call Your Name");
+        });
+        act(() => {
+          result.current.submit.submitToQueue();
+        });
+
+        expect(mockToastError).toHaveBeenCalledWith(
+          MISSING_ARTIST_REJECTION_MESSAGE
+        );
       });
 
       it("rejects a whitespace-only artist", () => {

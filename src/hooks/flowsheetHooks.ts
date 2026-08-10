@@ -15,6 +15,7 @@ import { convertQueryToSubmission } from "@/lib/features/flowsheet/conversions";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import {
   isVariousArtistsEntry,
+  MISSING_ARTIST_REJECTION_MESSAGE,
   VARIOUS_ARTISTS_REJECTION_MESSAGE,
 } from "@/lib/features/flowsheet/various-artists-guard";
 import {
@@ -700,7 +701,7 @@ export const useFlowsheetSubmit = () => {
     // Rotation mode renders when a performer is needed, and the queue
     // button/Ctrl+Enter never run constraint validation regardless.
     if (!(selectedResultData.artist ?? "").trim()) {
-      toast.error(VARIOUS_ARTISTS_REJECTION_MESSAGE);
+      toast.error(MISSING_ARTIST_REJECTION_MESSAGE);
       return;
     }
     addToQueue(selectedResultData);
