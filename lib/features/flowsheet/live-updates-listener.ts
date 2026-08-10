@@ -28,14 +28,15 @@ const REFETCH_DEBOUNCE_MS = 500;
 const REFETCH_DEBOUNCE_MAX_WAIT_MS = 2000;
 
 /**
- * Ceiling on per-row cache patches within one debounce window. Each patched
- * insert runs a full Immer produce over every loaded page; a burst past this
- * limit (bulk historical import — the BS-side broadcast comment explicitly
- * contemplates one) skips the per-row patch and leans on the debounced
- * invalidate scheduled for the window, which the max-wait ceiling guarantees
- * fires within REFETCH_DEBOUNCE_MAX_WAIT_MS even while the stream continues —
- * one refetch for every skipped row instead of N sequential produces +
- * renders.
+ * Ceiling on per-row cache patches between backstop refetches: the counter
+ * resets when a drain that includes a Flowsheet invalidate fires, so the
+ * limit literally means "patches since the last entries refetch". Each
+ * patched insert runs a full Immer produce over every loaded page; a burst
+ * past this limit (bulk historical import — the BS-side broadcast comment
+ * explicitly contemplates one) skips the per-row patch and leans on the
+ * scheduled invalidate, which the max-wait ceiling guarantees fires within
+ * REFETCH_DEBOUNCE_MAX_WAIT_MS even while the stream continues — one refetch
+ * for every skipped row instead of N sequential produces + renders.
  */
 const INSERT_PATCH_BURST_LIMIT = 5;
 
@@ -73,7 +74,18 @@ function isLiveFsEvent(value: unknown): value is LiveFsEvent {
     // Require a numeric id so `payload.id === undefined` can't sneak through
     // and match `nowPlayingData?.id === undefined` (which is `true` whenever
     // no row is now-playing, corrupting the cache via empty Object.assign).
-    return typeof (v.payload as { id?: unknown }).id === "number";
+    if (typeof (v.payload as { id?: unknown }).id !== "number") return false;
+    // An insert payload is contractually a TRACK row (BS broadcasts only
+    // entry_type='track'). Any other entry_type would convert to a corrupt
+    // row — the marker arms derive display dates from fields a track row
+    // carries differently — so contract drift must surface as
+    // sse_unknown_event_type, never as a silent bad splice.
+    if (v.type === "insert") {
+      return (
+        (v.payload as { entry_type?: unknown }).entry_type === "track"
+      );
+    }
+    return true;
   }
   return v.type === "refetch";
 }
@@ -125,6 +137,9 @@ export function createLiveUpdatesListenerMiddleware(
   let pendingInvalidateTags: Set<FlowsheetTag> = new Set();
   // When the currently-armed debounce window opened; bounds total deferral.
   let debounceFirstScheduledAt = 0;
+  // Patches applied since the last Flowsheet-including drain — the counter
+  // INSERT_PATCH_BURST_LIMIT caps. Reset by the drain and on teardown.
+  let insertBurstCount = 0;
   // One `sse_cache_uninitialized` capture per connection: on surfaces that
   // never mount the entries query (the public /live page), the uninitialized
   // lane fires for EVERY station-wide track add, so a per-insert capture is a
@@ -145,21 +160,9 @@ export function createLiveUpdatesListenerMiddleware(
       debouncedInvalidateTimer = null;
     }
     pendingInvalidateTags = new Set();
+    insertBurstCount = 0;
   }
 
-  /**
-   * Fire the pending invalidate now instead of waiting out the debounce.
-   * Used on connection release: dropping the pending tags there would lose
-   * the repair for rows spliced or burst-skipped during the final window,
-   * while invalidating with no subscribers merely marks the caches stale for
-   * the next mount — free.
-   */
-  function flushPendingInvalidate(dispatch: AppDispatch): void {
-    const toInvalidate = Array.from(pendingInvalidateTags);
-    clearDebouncedInvalidate();
-    if (toInvalidate.length === 0) return;
-    dispatch(flowsheetApi.util.invalidateTags(toInvalidate));
-  }
 
   function setConnectionStatusIfChanged(
     listenerApi: { dispatch: AppDispatch; getState: () => RootState },
@@ -199,26 +202,51 @@ export function createLiveUpdatesListenerMiddleware(
       const toInvalidate = Array.from(pendingInvalidateTags);
       pendingInvalidateTags = new Set();
       if (toInvalidate.length === 0) return;
+      // An entries refetch is on its way: reopen the per-refetch patch
+      // budget (see INSERT_PATCH_BURST_LIMIT).
+      if (toInvalidate.includes("Flowsheet")) insertBurstCount = 0;
       dispatch(flowsheetApi.util.invalidateTags(toInvalidate));
     }, REFETCH_DEBOUNCE_MS);
   }
 
   /**
+   * Keys that exist only on the wire row, or that map to a DIFFERENT key in
+   * the converted shape. Grafting them onto a cached converted row would
+   * fork the cache's shape by event history (the insert path's conversion
+   * invariant is that none of these ever appear on a cached entry), and
+   * `rotation_bin` specifically converts to the `rotation` key — a raw merge
+   * would write a field the badge never reads while the real badge field
+   * silently stays stale.
+   */
+  const WIRE_ONLY_UPDATE_KEYS = new Set([
+    "entry_type",
+    "metadata_status",
+    "add_time",
+    "radio_hour",
+    "dj_name",
+    "rotation_bin",
+  ]);
+
+  /**
    * The RAW wire fields an update may merge over the cached CONVERTED row.
-   * Null-valued keys are dropped: the wire row carries `null` for every unset
-   * column (`record_label: null` on webhook-shaped rows, `show_id: null` on
-   * stub-showless rows), and Object.assign would copy those over the
-   * converted values — the folded `""` varchars (rendered downstream as the
-   * literal string "null") and the `-1` orphan show_id sentinel (whose loss
-   * collapses the live-show partition). Enrichment only ever fills fields, so
-   * dropping nulls never suppresses a real value transition.
+   * Null-valued keys are dropped: the wire row carries `null` for every
+   * unset column (`record_label: null` on webhook-shaped rows, `show_id:
+   * null` on stub-showless rows, and `artwork_url: null` on linked rows
+   * whose artwork lives in album_metadata and is coalesced at read time),
+   * and Object.assign would copy those over the converted values — the
+   * folded `""` varchars (rendered downstream as the literal string "null")
+   * and the `-1` orphan show_id sentinel (whose loss collapses the
+   * live-show partition). The cost: a genuine upstream non-null-to-null
+   * clear (host-guard remediation) doesn't propagate until the next refetch
+   * or poll — accepted, since no currently rendered field is reachable by
+   * such a clear and stale-for-minutes beats corrupt-now.
    */
   function nonNullWirePatch(
     payload: FlowsheetEntryResponse
   ): Partial<FlowsheetEntry> {
     const out: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(payload)) {
-      if (value !== null) out[key] = value;
+      if (value !== null && !WIRE_ONLY_UPDATE_KEYS.has(key)) out[key] = value;
     }
     return out as Partial<FlowsheetEntry>;
   }
@@ -281,6 +309,14 @@ export function createLiveUpdatesListenerMiddleware(
           payload_id: payload.id,
         });
       }
+      // A row can reach getNowPlaying without ever entering the entries
+      // cache (a skip-lane NowPlaying nudge, or the /latest poll), and this
+      // terminal-enrichment update is that row's only guaranteed follow-up
+      // event — so when the entries cache is loaded but missing the row,
+      // this update must carry the entries repair the insert lane deferred.
+      if (inNowPlaying && !inInfinite && infiniteData) {
+        scheduleDebouncedInvalidate(dispatch, ["Flowsheet"]);
+      }
       return;
     }
 
@@ -296,12 +332,6 @@ export function createLiveUpdatesListenerMiddleware(
     scheduleDebouncedInvalidate(dispatch, ["Flowsheet"]);
   }
 
-  // Burst accounting for routeInsertEvent's patch ceiling — windowed by wall
-  // clock, no reset needed on disconnect (a stale window start just admits
-  // the next patch, which is the safe direction).
-  let insertBurstWindowStart = 0;
-  let insertBurstCount = 0;
-
   /**
    * A BS `insert` event's payload is the raw client-facing flowsheet ROW —
    * the CDC allow-list projection, which carries no read-time JOIN fields
@@ -315,27 +345,24 @@ export function createLiveUpdatesListenerMiddleware(
    * invalidate is scheduled as the consistency backstop. The refetch is what
    * (a) keeps the NowPlaying card in step with a brand-new row it can't know
    * about, (b) carries along non-broadcast marker rows (breakpoints/talksets
-   * — BS only broadcasts `entry_type='track'`), preserving the
-   * pre-insert-handling repair behavior, (c) repairs the page-boundary drift
-   * a growing pages[0] causes for offset-based fetchNextPage, and (d) bounds
-   * every SSE-vs-optimistic race window at ~one debounce interval instead of
-   * the 5-minute slow poll.
+   * — BS only broadcasts `entry_type='track'`), (c) repairs the
+   * page-boundary drift a growing pages[0] causes for offset-based
+   * fetchNextPage, and (d) bounds every SSE-vs-optimistic race window at
+   * ~one debounce interval instead of the 5-minute slow poll.
    *
-   * Two lanes skip the splice and downgrade the backstop to NowPlaying-only
-   * (never Flowsheet — a refetch replays only the recorded pageParams, so a
-   * per-self-add refetch collapses the sender's optimistic rows past the
-   * page size out of the list during rapid adds; the entry-caching E2E pins
-   * exactly this):
+   * Two lanes skip the splice and never schedule a Flowsheet invalidate — a
+   * refetch replays only the recorded pageParams, so a per-self-add refetch
+   * collapses the sender's optimistic rows past the page size out of the
+   * list during rapid adds (the entry-caching E2E pins exactly this):
    *
    * 1. The id is already cached. Either the sender's own broadcast echo
    *    (their `addToFlowsheet` pipeline owns the row — optimistic insert →
    *    temp-id resolve — and merging the raw pre-enrichment echo over it
    *    would downgrade enriched fields), or a receiver whose refetch raced
-   *    the frame and delivered the row first. The receiver's NowPlaying
-   *    cache never learns about the row otherwise (later updates take the
-   *    inInfinite branch), so the NowPlaying nudge is load-bearing there —
-   *    without it the card sticks on the previous track for a full slow-poll
-   *    interval.
+   *    the frame and delivered the row first. This lane nudges NowPlaying:
+   *    the receiver's NowPlaying cache never learns about the row otherwise
+   *    (later updates take the inInfinite branch), so without the nudge the
+   *    card sticks on the previous track for a full slow-poll interval.
    *
    * 2. A pending optimistic song row (negative temp id) is in the cache. BS
    *    broadcasts at commit, BEFORE the sender's own POST response resolves
@@ -343,9 +370,12 @@ export function createLiveUpdatesListenerMiddleware(
    *    under its not-yet-known real id — splicing it would render a
    *    duplicate beside the optimistic row. The mutation pipeline installs
    *    the row on fulfillment (replaceEntryIdAllPages dedupes on the real
-   *    id). A genuinely concurrent other-client insert in this narrow window
-   *    is repaired by its later enrichment update via the unknown-id lane's
-   *    Flowsheet refetch.
+   *    id) and its own invalidatesTags refreshes NowPlaying, so this lane
+   *    schedules nothing. The heuristic can misfire on a genuinely
+   *    concurrent other-client insert inside the sender's POST window; the
+   *    miss is bounded — that row's terminal-enrichment update schedules
+   *    the Flowsheet refetch (routeUpdateEvent's miss lanes), and the
+   *    sender's own post-add NowPlaying refetch surfaces it on the card.
    */
   function routeInsertEvent(
     dispatch: AppDispatch,
@@ -353,9 +383,10 @@ export function createLiveUpdatesListenerMiddleware(
     payload: FlowsheetEntryResponse
   ) {
     const state = getState();
-    const infiniteData = flowsheetApi.endpoints.getInfiniteEntries.select(
+    const entriesQuery = flowsheetApi.endpoints.getInfiniteEntries.select(
       undefined
-    )(state).data;
+    )(state);
+    const infiniteData = entriesQuery.data;
 
     // RTK's updateQueryData silently no-ops on an uninitialized cache (public
     // /live page, auth-gated dashboard skip, rejected initial fetch) — the
@@ -363,9 +394,16 @@ export function createLiveUpdatesListenerMiddleware(
     // The invalidate refetches existing or previously-rejected substates (it
     // is what keeps /live's NowPlaying card fresh); it cannot START a
     // never-initiated entries query, so on /live this lane recurs by
-    // construction — hence the once-per-connection capture.
+    // construction — hence the once-per-connection capture. A pending first
+    // GET is a benign mount race, not a defect signal, so it must not spend
+    // the connection's single capture; the invalidate is still scheduled,
+    // since that in-flight response may have been served before this row
+    // committed.
     if (!infiniteData) {
-      if (!capturedCacheUninitializedThisConnection) {
+      if (
+        !entriesQuery.isLoading &&
+        !capturedCacheUninitializedThisConnection
+      ) {
         capturedCacheUninitializedThisConnection = true;
         safeCapture(SSE_EVENTS.CACHE_UNINITIALIZED, {
           surface,
@@ -389,14 +427,7 @@ export function createLiveUpdatesListenerMiddleware(
       page.some((e) => e.id < 0 && "track_title" in e)
     );
     if (hasPendingOptimisticAdd) {
-      scheduleDebouncedInvalidate(dispatch, ["NowPlaying"]);
       return;
-    }
-
-    const now = Date.now();
-    if (now - insertBurstWindowStart > REFETCH_DEBOUNCE_MS) {
-      insertBurstWindowStart = now;
-      insertBurstCount = 0;
     }
 
     if (insertBurstCount < INSERT_PATCH_BURST_LIMIT) {
@@ -463,7 +494,7 @@ export function createLiveUpdatesListenerMiddleware(
       es.onopen = () => {
         const isReconnect = hasEverConnected;
         if (setConnectionStatusIfChanged(listenerApi, "connected")) {
-          safeCapture(SSE_EVENTS.CONNECTED, { topic: LIVE_FS_TOPIC });
+          safeCapture(SSE_EVENTS.CONNECTED, { topic: LIVE_FS_TOPIC, surface });
         }
         if (isReconnect) {
           scheduleDebouncedInvalidate(listenerApi.dispatch, [
@@ -484,12 +515,16 @@ export function createLiveUpdatesListenerMiddleware(
         // 2 = CLOSED (permanently closed).
         if (es.readyState === EventSource.CONNECTING) {
           if (setConnectionStatusIfChanged(listenerApi, "reconnecting")) {
-            safeCapture(SSE_EVENTS.RECONNECTING, { topic: LIVE_FS_TOPIC });
+            safeCapture(SSE_EVENTS.RECONNECTING, {
+              topic: LIVE_FS_TOPIC,
+              surface,
+            });
           }
         } else if (es.readyState === EventSource.CLOSED) {
           if (setConnectionStatusIfChanged(listenerApi, "closed")) {
             safeCapture(SSE_EVENTS.DISCONNECTED, {
               topic: LIVE_FS_TOPIC,
+              surface,
               reason: "permanent",
             });
           }
@@ -565,10 +600,15 @@ export function createLiveUpdatesListenerMiddleware(
       eventSource.close();
       eventSource = null;
       hasEverConnected = false;
-      capturedCacheUninitializedThisConnection = false;
-      // Flush, don't drop: a release mid-burst would otherwise discard the
-      // pending repair for rows the final debounce window never fetched.
-      flushPendingInvalidate(listenerApi.dispatch);
+      // Drop — never flush — the pending invalidate: with the live surfaces
+      // unmounting, an invalidateTags dispatch reaches zero-subscriber
+      // queries, and RTK responds with removeQueryResult (a hard DELETE of
+      // the cache entry, pageParams included), not a mark-stale — destroying
+      // the warm cache keepUnusedDataFor exists to preserve; and any
+      // still-subscribed query would refetch every recorded page into a tree
+      // being torn down. The dropped repair window is bounded by the poll on
+      // the next mount.
+      clearDebouncedInvalidate();
       setConnectionStatusIfChanged(listenerApi, "closed");
     },
   });

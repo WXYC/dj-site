@@ -157,11 +157,10 @@ export const backendBaseQuery = (domain: string): BackendBaseQuery => {
     // revalidation can surface an unspliced 304 with an empty body. An empty
     // revalidation body must never overwrite populated cache: a GET's 304
     // always came from the transport (browser HTTP cache) — no app code sets
-    // conditional validator headers since the dead metadata conditional-GET
-    // wrapper was deleted — so retry once unconditionally to get a full 200.
-    // If that retry also errors, let it propagate — RTK keeps the last-good
-    // data on a rejected refetch — so a 304 can never collapse to the
-    // { data: null } soft-fail below.
+    // conditional validator headers — so retry once unconditionally to get a
+    // full 200. If that retry also errors, let it propagate — RTK keeps the
+    // last-good data on a rejected refetch — so a 304 can never collapse to
+    // the { data: null } soft-fail below.
     if (result.error && isNotModified(result.error) && isGetRequest(args)) {
       return inner(withReload(args), api, extraOptions);
     }

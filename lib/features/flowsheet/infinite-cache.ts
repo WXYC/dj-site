@@ -151,13 +151,16 @@ export function insertEntrySortedFirstPage(
  * removed first, because insertEntrySortedFirstPage alone does not dedupe.
  * Unlike replaceEntryIdAllPages there is no temp id to retire and no
  * replace-miss telemetry: this is the plain upsert form.
+ *
+ * @returns whether an existing copy was displaced.
  */
 export function upsertEntrySortedFirstPage(
   draft: InfiniteEntriesDraft,
   entry: FlowsheetEntry
-): void {
-  removeEntryById(draft, entry.id);
+): boolean {
+  const displaced = removeEntryById(draft, entry.id);
   insertEntrySortedFirstPage(draft, entry);
+  return displaced;
 }
 
 /**
@@ -204,8 +207,10 @@ export function replaceEntryIdAllPages(
   serverEntry: FlowsheetEntry
 ): void {
   const tempRemoved = removeEntryById(draft, tempId);
-  const serverRowAlreadyPresent = removeEntryById(draft, serverEntry.id);
-  insertEntrySortedFirstPage(draft, serverEntry);
+  const serverRowAlreadyPresent = upsertEntrySortedFirstPage(
+    draft,
+    serverEntry
+  );
 
   // A miss only when neither row was present: an already-present server row is a
   // benign refetch-race, not a lost optimistic entry.
