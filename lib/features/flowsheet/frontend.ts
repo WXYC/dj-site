@@ -19,15 +19,6 @@ import { clearQueueFromStorage, loadQueueFromStorage, saveQueueToStorage } from 
 // queued, dropping the badge on dj-site/iOS and failing to propagate as
 // rotation to the wxyc.info archive. (Mirrors convertQueryToSubmission /
 // convertBinToFlowsheet, which forward rotation_id independent of album_id.)
-// The fields a linked library row supplies. Editing one of these on a queued
-// entry deviates from that row; editing anything else (track title, request,
-// segue) does not, since the row never claimed to describe them.
-const ALBUM_SCOPED_QUEUE_FIELDS: readonly (keyof FlowsheetSongEntry)[] = [
-  "artist_name",
-  "album_title",
-  "record_label",
-];
-
 function withSanitizedAlbumLinkage<
   T extends {
     album_id?: number;
@@ -43,6 +34,15 @@ function withSanitizedAlbumLinkage<
     album_id: undefined,
   };
 }
+
+// The fields a linked library row supplies. Editing one of these on a queued
+// entry deviates from that row; editing anything else (track title, request,
+// segue) does not, since the row never claimed to describe them.
+const ALBUM_SCOPED_QUEUE_FIELDS: readonly (keyof FlowsheetSongEntry)[] = [
+  "artist_name",
+  "album_title",
+  "record_label",
+];
 
 export const defaultFlowsheetFrontendState: FlowsheetFrontendState = {
   autoplay: false,
@@ -169,6 +169,11 @@ export const flowsheetSlice = createAppSlice({
         artist: string;
         album: string;
         label: string;
+        // Whether the release supplied an artist, for the case where the
+        // seeded string cannot say: a refused credit is withheld from the
+        // seed but was still supplied, and the deviation rule below must
+        // treat a performer typed over it as a departure from the release.
+        artistProvided?: boolean;
         album_id?: number;
         rotation_id?: number;
         rotation_bin?: Rotation;
@@ -183,7 +188,7 @@ export const flowsheetSlice = createAppSlice({
       state.search.query.track_position = undefined;
       state.search.selectedResult = 0;
       state.search.selectionProvided = {
-        artist: action.payload.artist !== "",
+        artist: action.payload.artistProvided ?? action.payload.artist !== "",
         album: action.payload.album !== "",
         label: action.payload.label !== "",
       };

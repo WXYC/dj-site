@@ -160,6 +160,7 @@ describe("FlowsheetBackendResult", () => {
         type: "freezeSelectionToQuery",
         payload: {
           artist: "Test Artist",
+          artistProvided: true,
           album: "Test Album",
           label: "Test Label",
           album_id: 1,
