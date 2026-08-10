@@ -373,6 +373,11 @@ export const flowsheetApi = createApi({
         } catch (err) {
           flowsheetMutationCatch("removeFromFlowsheet", err);
           patchResult.undo();
+          // Undo restores by Immer's index-addressed inverse patches; a
+          // concurrent SSE insert that spliced pages[0] in the window makes
+          // those indices stale, so follow the undo with a refetch (the
+          // switchEntries precedent) instead of trusting it.
+          dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
         }
       },
     }),
@@ -423,6 +428,9 @@ export const flowsheetApi = createApi({
         } catch (err) {
           flowsheetMutationCatch("updateFlowsheet", err);
           patchResult.undo();
+          // See removeFromFlowsheet above: undo's index-addressed inverse
+          // patches go stale if an SSE insert resized pages[0] mid-flight.
+          dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
         }
       },
     }),

@@ -81,32 +81,6 @@ const withReload = (args: string | FetchArgs): FetchArgs =>
     ? { url: args, cache: "reload" }
     : { ...args, cache: "reload" };
 
-const CONDITIONAL_HEADERS = ["if-none-match", "if-modified-since"];
-
-/**
- * Whether the caller itself set a conditional validator header. Such a caller
- * (the metadata conditional-GET wrapper) owns its 304 handling — it needs the
- * empty 304 to restore its cached body — so the unconditional retry below must
- * stand aside. A 304 with no app-set validator instead came from the transport
- * (browser HTTP cache) and is the case the retry exists to repair.
- */
-const hasAppConditionalHeader = (args: string | FetchArgs): boolean => {
-  if (typeof args === "string") return false;
-  const { headers } = args;
-  if (!headers) return false;
-  if (headers instanceof Headers) {
-    return CONDITIONAL_HEADERS.some((h) => headers.has(h));
-  }
-  if (Array.isArray(headers)) {
-    return headers.some(([key]) =>
-      CONDITIONAL_HEADERS.includes(key.toLowerCase())
-    );
-  }
-  return Object.keys(headers).some((key) =>
-    CONDITIONAL_HEADERS.includes(key.toLowerCase())
-  );
-};
-
 const logNonJsonResponse = (
   domain: string,
   args: string | FetchArgs,
@@ -181,17 +155,14 @@ export const backendBaseQuery = (domain: string): BackendBaseQuery => {
     // Watermarked routes send two validators (a watermark Last-Modified and
     // Express's per-body weak ETag) and no Cache-Control, so a dual-validator
     // revalidation can surface an unspliced 304 with an empty body. An empty
-    // revalidation body must never overwrite populated cache: on GETs whose 304
-    // came from the transport (not an app-set conditional header), retry once
-    // unconditionally to get a full 200. If that retry also errors, let it
-    // propagate — RTK keeps the last-good data on a rejected refetch — so a 304
-    // can never collapse to the { data: null } soft-fail below.
-    if (
-      result.error &&
-      isNotModified(result.error) &&
-      isGetRequest(args) &&
-      !hasAppConditionalHeader(args)
-    ) {
+    // revalidation body must never overwrite populated cache: a GET's 304
+    // always came from the transport (browser HTTP cache) — no app code sets
+    // conditional validator headers since the dead metadata conditional-GET
+    // wrapper was deleted — so retry once unconditionally to get a full 200.
+    // If that retry also errors, let it propagate — RTK keeps the last-good
+    // data on a rejected refetch — so a 304 can never collapse to the
+    // { data: null } soft-fail below.
+    if (result.error && isNotModified(result.error) && isGetRequest(args)) {
       return inner(withReload(args), api, extraOptions);
     }
 

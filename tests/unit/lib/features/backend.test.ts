@@ -552,26 +552,6 @@ describe("backend", () => {
         expect((result as { data?: unknown }).data).toBeUndefined();
       });
 
-      it("does not retry a 304 when the caller set its own conditional validator", async () => {
-        // A caller managing its own conditional GET owns the 304 (it restores a
-        // cached body from it); the transport-repair retry must stand aside.
-        const notModified = {
-          error: { status: 304 },
-          meta: { response: { status: 304 } },
-        };
-        mockInnerBaseQuery.mockResolvedValueOnce(notModified);
-
-        const baseQuery = backendBaseQuery("proxy");
-        const result = await baseQuery(
-          { url: "/artist/1", headers: { "If-None-Match": '"rev-1"' } },
-          fakeApi,
-          fakeExtra
-        );
-
-        expect(mockInnerBaseQuery).toHaveBeenCalledTimes(1);
-        expect(result).toBe(notModified);
-      });
-
       it("does not retry a 304 on a mutation", async () => {
         const notModified = { error: { status: 304 }, meta: undefined };
         mockInnerBaseQuery.mockResolvedValueOnce(notModified);
