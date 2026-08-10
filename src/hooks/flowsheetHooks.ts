@@ -16,7 +16,7 @@ import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import {
   isVariousArtistsEntry,
   MISSING_ARTIST_REJECTION_MESSAGE,
-  releaseCreditIsRefused,
+  releaseCannotSupplyArtist,
   seedableArtistName,
   VARIOUS_ARTISTS_REJECTION_MESSAGE,
 } from "@/lib/features/flowsheet/various-artists-guard";
@@ -675,10 +675,12 @@ export const useFlowsheetSubmit = () => {
       //
       // The artist is withheld for a refused credit on the same terms the
       // field the DJ sees withholds it, so the submission can never carry a
-      // value the input does not show. The album linkage goes with it: BS's
-      // album_id branch spreads the library row over the request, so keeping
-      // it would hand the credit back over whatever performer the DJ typed.
-      // rotation_id is not album-scoped and survives.
+      // value the input does not show. The album linkage goes with it
+      // whenever the release leaves the artist blank at all: BS's album_id
+      // branch spreads the library row over the request, so keeping the
+      // linkage would hand that blank — or that credit — back over whatever
+      // performer the DJ typed into the fallback. rotation_id is not
+      // album-scoped and survives.
       return {
         song: flowSheetRawQuery.song as string,
         artist:
@@ -686,7 +688,7 @@ export const useFlowsheetSubmit = () => {
           (flowSheetRawQuery.artist as string),
         album: selectedEntry.title || flowSheetRawQuery.album as string,
         label: selectedEntry.label || flowSheetRawQuery.label as string,
-        album_id: releaseCreditIsRefused(selectedEntry)
+        album_id: releaseCannotSupplyArtist(selectedEntry)
           ? undefined
           : selectedEntry.id ?? undefined,
         rotation_bin: selectedEntry.rotation_bin ?? undefined,

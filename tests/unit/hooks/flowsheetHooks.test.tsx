@@ -2430,6 +2430,25 @@ describe("flowsheetHooks", () => {
         expect(result.current.submit.selectedResultData.album_id).toBeUndefined();
       });
 
+      // A release that carries no credit reaches the same fallback, and
+      // keeping its linkage would let BS spread the library row's blank
+      // artist back over the performer the DJ typed.
+      it("withholds the linkage for a release that carries no credit either", () => {
+        mockUseCatalogFlowsheetSearch.mockReturnValue({
+          searchResults: [
+            createTestAlbum({
+              id: 4244,
+              title: "Untitled",
+              artist: createTestArtist({ name: "" }),
+            }),
+          ],
+        });
+
+        const { result } = renderBoth(1);
+
+        expect(result.current.submit.selectedResultData.album_id).toBeUndefined();
+      });
+
       it("carries the performer the DJ typed, still without the linkage", () => {
         mockUseCatalogFlowsheetSearch.mockReturnValue({
           searchResults: compilation,
