@@ -99,13 +99,9 @@
 	box-sizing: border-box;
 }
 
-.optional-hint {
-	font-size: x-small;
-	color: #888;
-}
-
-/* Same weight as .optional-hint, opposite meaning: names a constraint on a
-   field the form requires. */
+/* .optional-hint marks a field the form will accept blank; .field-hint names a
+   constraint on one it won't. Same treatment, opposite meanings. */
+.optional-hint,
 .field-hint {
 	font-size: x-small;
 	color: #888;

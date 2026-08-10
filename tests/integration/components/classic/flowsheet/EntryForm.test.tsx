@@ -753,6 +753,64 @@ describe("Classic EntryForm — Various Artists refusal", () => {
       expect("album_id" in payload).toBe(false);
     });
 
+    // A compilation filed under a credited album artist is submittable as-is:
+    // it must keep its linkage and gain no field. Keying the escape hatch on
+    // isCompilationRelease stripped album_id from entries never in trouble.
+    it("keeps the catalog-linked variant for a credited album artist", async () => {
+      rotationDataMock = [
+        createTestRotationAlbum(Rotation.H, {
+          id: 6301,
+          rotation_id: 6302,
+          title: "DJ-Kicks",
+          label: "!K7",
+          album_artist: "Kruder & Dorfmeister",
+          artist: createTestArtist({
+            name: "Kruder & Dorfmeister",
+            lettercode: "KR",
+            numbercode: 3,
+          }),
+        }),
+      ];
+      const { user } = renderWithProviders(<EntryForm />);
+      await pickRotation(user, "DJ-Kicks");
+
+      expect(
+        document.querySelector('input[name="artistName"]')
+      ).not.toBeInTheDocument();
+
+      await user.type(getNamedInput("songTitle"), "Donaueschingen");
+      await user.click(addButton());
+
+      await waitFor(() => {
+        expect(addToFlowsheetMock).toHaveBeenCalledTimes(1);
+      });
+      expect(addToFlowsheetMock.mock.calls[0][0].album_id).toBe(6301);
+    });
+
+    // "VA" is refused by the guard but is not an isCompilationRelease, so
+    // keying the field on that predicate submitted the credit verbatim.
+    it("reveals the Artist row for a release credited VA", async () => {
+      rotationDataMock = [
+        createTestRotationAlbum(Rotation.H, {
+          id: 6401,
+          rotation_id: 6402,
+          title: "Habibi Funk 015",
+          label: "Habibi Funk",
+          artist: createTestArtist({
+            name: "VA",
+            lettercode: "ZH",
+            numbercode: 9,
+          }),
+        }),
+      ];
+      const { user } = renderWithProviders(<EntryForm />);
+      await pickRotation(user, "Habibi Funk");
+
+      expect(getNamedInput("artistName")).toBeInTheDocument();
+      expect(getNamedInput("artistName").value).toBe("");
+      expect(addButton().disabled).toBe(true);
+    });
+
     it("still submits a normally-credited release through the catalog-linked variant", async () => {
       rotationDataMock = [credited()];
       const { user } = renderWithProviders(<EntryForm />);

@@ -217,6 +217,85 @@ describe("RotationEntryFields", () => {
     ).not.toBeInTheDocument();
   });
 
+  // The artist field is worthless on a linked release: BS's album_id branch
+  // spreads the library row's artist_name over the request's, so the typed
+  // performer is discarded and the credit lands anyway. Withholding album_id
+  // is what makes the field mean something.
+  it("withholds album_id for a release whose credit is refused", () => {
+    const { store } = renderWithProviders(
+      inModernTheme(<RotationEntryFields disabled={false} />)
+    );
+
+    selectBinAndRelease(tobaccoAGoGo);
+
+    const query = flowsheetSlice.selectors.getSearchQuery(store.getState());
+    expect(query.album_id).toBeUndefined();
+    expect(query.rotation_id).toBe(44);
+  });
+
+  it("keeps album_id for a normally-credited release", () => {
+    const { store } = renderWithProviders(
+      inModernTheme(<RotationEntryFields disabled={false} />)
+    );
+
+    selectBinAndRelease(lightningBoltOoioo);
+
+    expect(
+      flowsheetSlice.selectors.getSearchQuery(store.getState()).album_id
+    ).toBe(7);
+  });
+
+  // A compilation filed under a credited album artist is submittable as-is:
+  // it must not lose its linkage or gain a field it does not need.
+  it("keeps album_id and renders no artist input for a credited album artist", () => {
+    const djKicks = createTestAlbum({
+      id: 13,
+      title: "DJ-Kicks",
+      artist: createTestArtist({ name: "Kruder & Dorfmeister" }),
+      album_artist: "Kruder & Dorfmeister",
+      rotation_id: 47,
+      rotation_bin: "H",
+    });
+    mockRotationData = [djKicks];
+
+    const { store } = renderWithProviders(
+      inModernTheme(<RotationEntryFields disabled={false} />)
+    );
+
+    selectBinAndRelease(djKicks);
+
+    expect(
+      flowsheetSlice.selectors.getSearchQuery(store.getState()).album_id
+    ).toBe(13);
+    expect(
+      screen.queryByTestId("flowsheet-search-artist")
+    ).not.toBeInTheDocument();
+  });
+
+  // "VA" is refused by the guard but is not an isCompilationRelease. Keying
+  // the field on that predicate blanked the artist with nothing to refill it.
+  it("reveals the artist input for a release credited VA", () => {
+    const vaRelease = createTestAlbum({
+      id: 14,
+      title: "Habibi Funk 015",
+      artist: createTestArtist({ name: "VA" }),
+      rotation_id: 48,
+      rotation_bin: "H",
+    });
+    mockRotationData = [vaRelease];
+
+    const { store } = renderWithProviders(
+      inModernTheme(<RotationEntryFields disabled={false} />)
+    );
+
+    selectBinAndRelease(vaRelease);
+
+    expect(screen.getByTestId("flowsheet-search-artist")).toBeInTheDocument();
+    const query = flowsheetSlice.selectors.getSearchQuery(store.getState());
+    expect(query.artist).toBe("");
+    expect(query.album_id).toBeUndefined();
+  });
+
   it("leaves the compilation artist field empty rather than seeding the V/A credit", () => {
     const { store } = renderWithProviders(
       inModernTheme(<RotationEntryFields disabled={false} />)
@@ -233,9 +312,9 @@ describe("RotationEntryFields", () => {
   });
 
   it("seeds the artist into the search query on release selection", () => {
-    // The artist is no longer rendered as an input, but the value still has
-    // to flow into Redux so form submission carries the release's primary
-    // artist. Assert against the real action creator to catch slice drift.
+    // A credited release renders no artist input, but the value still has to
+    // flow into Redux so form submission carries the release's primary artist.
+    // Assert against the real action creator to catch slice drift.
     const { store } = renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
     const dispatchSpy = vi.spyOn(store, "dispatch");
 

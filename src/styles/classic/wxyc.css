@@ -527,9 +527,9 @@ html[data-experience="classic"] body {
 }
 
 /* Field-scoped variant: sits directly under the offending input rather than
-   centered under the form, and is sized to the 300px text inputs. */
+   centered under the form, and is sized to the 300px text inputs. Rendered
+   only while the value is refused, so it needs no hidden state. */
 .artist-error-message {
-	display: none;
 	color: #FF0000;
 	font-size: 11px;
 	font-weight: bold;
@@ -542,8 +542,10 @@ html[data-experience="classic"] body {
 	box-sizing: border-box;
 }
 
-.artist-error-message.visible {
-	display: block;
+html[data-experience="classic"][data-joy-color-scheme="dark"] .artist-error-message {
+	color: #FF8A8A;
+	background-color: #3A1D1D;
+	border-color: #A33;
 }
 
 /* ========== wxycdb page bits ========== */

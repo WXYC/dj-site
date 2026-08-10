@@ -707,15 +707,16 @@ export const useFlowsheetSubmit = () => {
         toast.error("Song title is required");
         return;
       }
-      // A compilation credit reaches this field two ways the DJ never typed:
-      // a clicked result row, and the rotation picker's release-artist
-      // fallback when Discogs lists no performer for the track.
-      if (isVariousArtistsEntry(selectedResultData.artist)) {
-        toast.error(VARIOUS_ARTISTS_REJECTION_MESSAGE);
-        return;
-      }
       if (queueModifierRef.current) {
         submitToQueue();
+        return;
+      }
+      // A compilation credit reaches this field two ways the DJ never typed:
+      // a clicked result row, and the rotation picker's release-artist
+      // fallback when Discogs lists no performer for the track. The queue
+      // path above carries its own copy; this one covers the rest.
+      if (isVariousArtistsEntry(selectedResultData.artist)) {
+        toast.error(VARIOUS_ARTISTS_REJECTION_MESSAGE);
         return;
       }
       if (isRotationPick && selectedEntry) {
