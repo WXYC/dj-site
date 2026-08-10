@@ -191,6 +191,9 @@ export const flowsheetApi = createApi({
           patchLive.undo();
           patchEntries.undo();
           patchNowPlaying.undo();
+          // See removeFromFlowsheet: patchEntries' undo is index-addressed
+          // and goes stale if an SSE insert resized pages[0] mid-flight.
+          dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
         }
       },
     }),
@@ -270,6 +273,9 @@ export const flowsheetApi = createApi({
           patchLive.undo();
           patchEntries.undo();
           patchNowPlaying.undo();
+          // See removeFromFlowsheet: patchEntries' undo is index-addressed
+          // and goes stale if an SSE insert resized pages[0] mid-flight.
+          dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
         }
       },
     }),
@@ -335,6 +341,11 @@ export const flowsheetApi = createApi({
                   if (tempId !== undefined) {
                     replaceEntryIdAllPages(draft, tempId, data);
                   } else {
+                    // The SSE insert listener may have spliced this row
+                    // (under its real id) while the POST was in flight —
+                    // remove any copy first so the id is present exactly
+                    // once. insertEntrySortedFirstPage does not dedupe.
+                    removeEntryById(draft, data.id);
                     insertEntrySortedFirstPage(draft, data);
                   }
                 }
@@ -344,6 +355,9 @@ export const flowsheetApi = createApi({
           } catch (err) {
             flowsheetMutationCatch("addToFlowsheet", err);
             patchResult?.undo();
+            // See removeFromFlowsheet: undo's index-addressed inverse
+            // patches go stale if an SSE insert resized pages[0] mid-flight.
+            dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
           }
         },
       }
