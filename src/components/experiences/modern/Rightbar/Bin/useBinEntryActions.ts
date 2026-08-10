@@ -11,7 +11,9 @@ import {
   FlowsheetSubmissionParams,
 } from "@/lib/features/flowsheet/types";
 import {
+  MISSING_ARTIST_BIN_PLAY_MESSAGE,
   queueAdditionMessage,
+  releaseCreditIsRefused,
   VARIOUS_ARTISTS_BIN_PLAY_MESSAGE,
 } from "@/lib/features/flowsheet/various-artists-guard";
 import { useAppDispatch } from "@/lib/hooks";
@@ -100,8 +102,14 @@ export function useBinEntryActions(
           const submission = convertBinToFlowsheet(entry);
           if (!submission) {
             // No artist field to satisfy the refusal in place — point the DJ
-            // at the escape hatch instead of just saying no.
-            toast.error(VARIOUS_ARTISTS_BIN_PLAY_MESSAGE);
+            // at the escape hatch instead of just saying no. A release that
+            // carries no credit and one whose credit is refused dead-end the
+            // same way, but only the second involves a credit worth naming.
+            toast.error(
+              releaseCreditIsRefused(entry)
+                ? VARIOUS_ARTISTS_BIN_PLAY_MESSAGE
+                : MISSING_ARTIST_BIN_PLAY_MESSAGE
+            );
             return;
           }
           addToFlowsheet(submission)

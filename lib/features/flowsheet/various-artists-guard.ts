@@ -39,6 +39,13 @@ export const MISSING_ARTIST_REJECTION_MESSAGE =
   "Name the artist who performed the track.";
 
 /**
+ * Copy for the mail bin's Play Now refusal when the release carries no
+ * credit at all. Same dead end as the compilation credit and the same
+ * remedy, but the DJ never typed a credit to be told off for.
+ */
+export const MISSING_ARTIST_BIN_PLAY_MESSAGE = `${MISSING_ARTIST_REJECTION_MESSAGE} Add it to the queue instead, then type the performer into the artist cell before playing it.`;
+
+/**
  * Whole-name predicate for the flowsheet submit block: true when the artist
  * field holds a compilation credit instead of a performer.
  *
@@ -91,6 +98,22 @@ export function seedableArtistName(release: ReleaseCredit): string {
 }
 
 /**
+ * True when a release leaves the artist field blank — because its credit is
+ * refused, or because it carries no credit at all.
+ *
+ * The two arrive at the same place by different routes, and every surface
+ * that has to react to a blank artist cares about the place, not the route:
+ * a field is needed to type the performer into, the album linkage must not
+ * ride the wire over what gets typed, and the flowsheet refuses the write
+ * until it does. `releaseCreditIsRefused` stays the right question only
+ * where the compilation credit specifically is the subject — the copy that
+ * names it, and the escape hatch that seeds around it.
+ */
+export function releaseCannotSupplyArtist(release: ReleaseCredit): boolean {
+  return seedableArtistName(release).trim() === "";
+}
+
+/**
  * Success copy for a release added to the queue, shared by the mail bin and
  * both catalog result surfaces because all three queue through the same
  * conversion.
@@ -100,10 +123,11 @@ export function seedableArtistName(release: ReleaseCredit): string {
  * meets the requirement for the first time at the Play refusal, with no idea
  * it was coming.
  */
-export function queueAdditionMessage(
-  release: ReleaseCredit & { title?: string | null }
-): string {
-  const added = `Added ${release?.title ?? ""} to queue`;
+export function queueAdditionMessage(release: {
+  title?: string | null;
+  artist?: { name?: string | null } | null;
+}): string {
+  const added = `Added ${release.title ?? ""} to queue`;
   return releaseCreditIsRefused(release)
     ? `${added}. Name the performer in the artist cell before playing it.`
     : added;

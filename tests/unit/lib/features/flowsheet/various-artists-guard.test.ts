@@ -3,6 +3,7 @@ import { describe, it, expect } from "vitest";
 import {
   isVariousArtistsEntry,
   queueAdditionMessage,
+  releaseCannotSupplyArtist,
   releaseCreditIsRefused,
   seedableArtistName,
 } from "@/lib/features/flowsheet/various-artists-guard";
@@ -113,6 +114,32 @@ describe("seedableArtistName", () => {
 
   it("returns an empty string for a null-artist release", () => {
     expect(seedableArtistName({ artist: null })).toBe("");
+  });
+});
+
+describe("releaseCannotSupplyArtist", () => {
+  it.each(["Various Artists", "VA", "Var. Artists"])(
+    "is true for a release credited %s",
+    (name) => {
+      expect(releaseCannotSupplyArtist({ artist: { name } })).toBe(true);
+    }
+  );
+
+  // The other route to the same blank field: nothing was refused, there was
+  // simply nothing to seed.
+  it.each([
+    ["a null artist", { artist: null }],
+    ["an absent artist", {}],
+    ["an empty name", { artist: { name: "" } }],
+    ["a whitespace-only name", { artist: { name: "   " } }],
+  ])("is true for %s", (_label, release) => {
+    expect(releaseCannotSupplyArtist(release)).toBe(true);
+  });
+
+  it("is false for a release that names its performer", () => {
+    expect(
+      releaseCannotSupplyArtist({ artist: { name: "Chuquimamani-Condori" } })
+    ).toBe(false);
   });
 });
 

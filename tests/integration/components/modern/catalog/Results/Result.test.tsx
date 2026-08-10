@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { createTestAlbum, createTestArtist } from "@/tests/helpers";
 import { renderWithProviders } from "@/tests/helpers/render";
 
@@ -11,6 +11,11 @@ vi.mock("next/navigation", () => ({
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: React.ReactNode; href: string }) =>
     <a href={href}>{children}</a>,
+}));
+
+const toastSuccessMock = vi.fn();
+vi.mock("sonner", () => ({
+  toast: { success: (...args: unknown[]) => toastSuccessMock(...args) },
 }));
 
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
@@ -378,5 +383,73 @@ describe("CatalogResult album artwork", () => {
 
     expect(screen.getByAltText(`${album.artist.name} - ${album.title}`)).toBeInTheDocument();
     expect(screen.queryByText("Not on Discogs")).toBeNull();
+  });
+});
+
+// Catalog search shares the mail bin's queue conversion, so the
+// compilation-credit rule reaches this surface too — and the toast is the
+// only notice the DJ gets that the credit was withheld.
+describe("CatalogResult adding a compilation to the queue", () => {
+  const clickAddToQueue = () => {
+    const button = screen
+      .getAllByRole("button")
+      .find(
+        (btn) => btn.querySelector('svg[data-testid="QueueMusicIcon"]') !== null
+      );
+    expect(button).toBeDefined();
+    fireEvent.click(button!);
+  };
+
+  it("queues a blank artist, withholds the linkage, and says what is missing", () => {
+    const compilation = createTestAlbum({
+      title: "Edits",
+      artist: createTestArtist({ name: "Various Artists" }),
+      label: "self-released",
+    });
+    const addToQueue = vi.fn();
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={compilation} live={true} addToQueue={addToQueue} />
+        </tbody>
+      </table>
+    );
+    clickAddToQueue();
+
+    expect(addToQueue).toHaveBeenCalledWith(
+      expect.objectContaining({ artist: "", album_id: undefined })
+    );
+    expect(toastSuccessMock).toHaveBeenCalledWith(
+      "Added Edits to queue. Name the performer in the artist cell before playing it."
+    );
+  });
+
+  it("leaves a normally-credited release linked and confirms without a caveat", () => {
+    const credited = createTestAlbum({
+      title: "On Your Own Love Again",
+      artist: createTestArtist({ name: "Jessica Pratt" }),
+      label: "Drag City",
+    });
+    const addToQueue = vi.fn();
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={credited} live={true} addToQueue={addToQueue} />
+        </tbody>
+      </table>
+    );
+    clickAddToQueue();
+
+    expect(addToQueue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        artist: "Jessica Pratt",
+        album_id: credited.id,
+      })
+    );
+    expect(toastSuccessMock).toHaveBeenCalledWith(
+      "Added On Your Own Love Again to queue"
+    );
   });
 });

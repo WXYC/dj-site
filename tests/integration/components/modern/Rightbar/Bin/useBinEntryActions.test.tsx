@@ -2,7 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { Unarchive } from "@mui/icons-material";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
-import { VARIOUS_ARTISTS_BIN_PLAY_MESSAGE } from "@/lib/features/flowsheet/various-artists-guard";
+import {
+  MISSING_ARTIST_BIN_PLAY_MESSAGE,
+  VARIOUS_ARTISTS_BIN_PLAY_MESSAGE,
+} from "@/lib/features/flowsheet/various-artists-guard";
 
 const dispatch = vi.fn();
 const addToQueue = vi.fn();
@@ -148,7 +151,9 @@ describe("useBinEntryActions", () => {
 
   it("refuses Play Now for a refused release credit instead of writing to the flowsheet", () => {
     convertBinToFlowsheetMock.mockReturnValueOnce(null);
-    const { result } = renderHook(() => useBinEntryActions(entry, true, deps));
+    const { result } = renderHook(() =>
+      useBinEntryActions(compilationEntry, true, deps)
+    );
     const byId = Object.fromEntries(result.current.map((a) => [a.id, a]));
 
     byId.play.run();
@@ -159,6 +164,24 @@ describe("useBinEntryActions", () => {
     // and a dead end, and the generic copy would satisfy a looser matcher.
     expect(toastErrorMock).toHaveBeenCalledWith(
       VARIOUS_ARTISTS_BIN_PLAY_MESSAGE
+    );
+  });
+
+  // Same dead end, but the DJ never typed a credit — telling them not to
+  // write "Various Artists" would name a mistake they did not make.
+  it("refuses Play Now for a release with no credit and does not blame Various Artists", () => {
+    convertBinToFlowsheetMock.mockReturnValueOnce(null);
+    const uncredited = { id: 9, title: "Untitled" } as AlbumEntry;
+    const { result } = renderHook(() =>
+      useBinEntryActions(uncredited, true, deps)
+    );
+    const byId = Object.fromEntries(result.current.map((a) => [a.id, a]));
+
+    byId.play.run();
+
+    expect(addToFlowsheet).not.toHaveBeenCalled();
+    expect(toastErrorMock).toHaveBeenCalledWith(
+      MISSING_ARTIST_BIN_PLAY_MESSAGE
     );
   });
 

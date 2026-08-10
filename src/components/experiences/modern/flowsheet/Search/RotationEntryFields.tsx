@@ -4,7 +4,7 @@ import { isCompilationRelease } from "@/lib/features/catalog/is-compilation-arti
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import {
-  releaseCreditIsRefused,
+  releaseCannotSupplyArtist,
   seedableArtistName,
 } from "@/lib/features/flowsheet/various-artists-guard";
 import { Rotation } from "@/lib/features/rotation/types";
@@ -92,11 +92,13 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
       dispatch(flowsheetSlice.actions.setSearchProperty({ name: "label", value: release.label ?? "" }));
       dispatch(
         flowsheetSlice.actions.setRotationMetadata({
-          // Withheld when the credit is refused: BS's album_id branch spreads
-          // the library row's artist_name over the request's, so keeping the
-          // linkage would hand back the very credit the DJ just replaced.
-          // Classic makes the same trade by switching submission variants.
-          album_id: releaseCreditIsRefused(release) ? undefined : release.id,
+          // Withheld whenever the release leaves the artist blank: BS's
+          // album_id branch spreads the library row's artist_name over the
+          // request's, so keeping the linkage would hand back the very
+          // credit — or the very blank — the DJ is about to replace in the
+          // field below. Classic makes the same trade by switching
+          // submission variants.
+          album_id: releaseCannotSupplyArtist(release) ? undefined : release.id,
           rotation_id: release.rotation_id,
           rotation_bin: release.rotation_bin,
         })
@@ -116,12 +118,9 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
   const trackCreditsAreDisambiguating =
     !!selectedRelease && isCompilationRelease(selectedRelease);
 
-  // Distinct from the above on purpose — see releaseCreditIsRefused. Keyed
-  // on the seed rather than the refusal so it also covers a release that
-  // carries no credit at all: both leave the artist blank, and submission
-  // refuses a blank, so both need the field that can satisfy the refusal.
+  // Distinct from the above on purpose — see releaseCannotSupplyArtist.
   const needsPerformerName =
-    !!selectedRelease && !seedableArtistName(selectedRelease);
+    !!selectedRelease && releaseCannotSupplyArtist(selectedRelease);
 
   const handleSelectTrack = useCallback(
     (track: RotationTrack) => {
