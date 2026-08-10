@@ -118,17 +118,18 @@ export function releaseCannotSupplyArtist(release: ReleaseCredit): boolean {
  * both catalog result surfaces because all three queue through the same
  * conversion.
  *
- * A refused credit is queued with a blank artist rather than the credit, so
- * the toast has to say what is still missing — told only "added", the DJ
- * meets the requirement for the first time at the Play refusal, with no idea
- * it was coming.
+ * A release that cannot supply an artist is queued blank, so the toast has to
+ * say what is still missing — told only "added", the DJ meets the requirement
+ * for the first time at the Play refusal, with no idea it was coming. Keyed
+ * on what the queue row lacks rather than on the refused credit specifically,
+ * because the conversion blanks and unlinks both cases identically.
  */
 export function queueAdditionMessage(release: {
   title?: string | null;
   artist?: { name?: string | null } | null;
 }): string {
   const added = `Added ${release.title ?? ""} to queue`;
-  return releaseCreditIsRefused(release)
+  return releaseCannotSupplyArtist(release)
     ? `${added}. Name the performer in the artist cell before playing it.`
     : added;
 }
