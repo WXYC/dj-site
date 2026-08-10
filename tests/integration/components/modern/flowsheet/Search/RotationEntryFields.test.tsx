@@ -177,7 +177,7 @@ describe("RotationEntryFields", () => {
     );
   });
 
-  it("never renders an artist input — rotation mode has no override UI", () => {
+  it("renders no artist input for a normally-credited release", () => {
     renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
     expect(
       screen.queryByTestId("flowsheet-search-artist")
@@ -188,6 +188,48 @@ describe("RotationEntryFields", () => {
     expect(
       screen.queryByTestId("flowsheet-search-artist")
     ).not.toBeInTheDocument();
+  });
+
+  // Submission refuses a compilation credit in the artist field, and the
+  // release-level artist on a V/A comp IS that credit — so rotation mode has
+  // to offer somewhere to correct it, or the refusal is a dead end.
+  it("renders an artist input once a compilation release is selected", () => {
+    renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
+
+    expect(
+      screen.queryByTestId("flowsheet-search-artist")
+    ).not.toBeInTheDocument();
+
+    selectBinAndRelease(tobaccoAGoGo);
+
+    expect(screen.getByTestId("flowsheet-search-artist")).toBeInTheDocument();
+  });
+
+  it("drops the artist input again when the DJ switches to a credited release", () => {
+    renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
+
+    selectBinAndRelease(tobaccoAGoGo);
+    expect(screen.getByTestId("flowsheet-search-artist")).toBeInTheDocument();
+
+    selectBinAndRelease(foxbaseAlpha);
+    expect(
+      screen.queryByTestId("flowsheet-search-artist")
+    ).not.toBeInTheDocument();
+  });
+
+  it("leaves the compilation artist field empty rather than seeding the V/A credit", () => {
+    const { store } = renderWithProviders(
+      inModernTheme(<RotationEntryFields disabled={false} />)
+    );
+
+    selectBinAndRelease(tobaccoAGoGo);
+
+    expect(
+      flowsheetSlice.selectors.getSearchQuery(store.getState()).artist
+    ).toBe("");
+    expect(
+      (screen.getByTestId("flowsheet-search-artist") as HTMLInputElement).value
+    ).toBe("");
   });
 
   it("seeds the artist into the search query on release selection", () => {
@@ -302,10 +344,11 @@ describe("RotationEntryFields", () => {
       selectBinAndRelease(tobaccoAGoGo);
       selectTrack(0);
 
-      // Release select dispatches artist=Various Artists; track select with
-      // empty credits must not dispatch any further artist value even though
-      // the release qualifies for the override.
-      expect(artistValues(dispatchSpy)).toEqual(["Various Artists"]);
+      // Release select dispatches an empty artist — the V/A credit is a value
+      // submission refuses, so it is never seeded. Track select with empty
+      // credits must not dispatch any further artist value even though the
+      // release qualifies for the override.
+      expect(artistValues(dispatchSpy)).toEqual([""]);
     });
 
     it("sets artist to track's single per-track credit on V/A releases", () => {
@@ -462,7 +505,7 @@ describe("RotationEntryFields", () => {
       selectBinAndRelease(tobaccoAGoGo);
       selectTrack(0);
 
-      expect(artistValues(dispatchSpy)).toEqual(["Various Artists", "Warrior"]);
+      expect(artistValues(dispatchSpy)).toEqual(["", "Warrior"]);
     });
 
     it("strips Discogs (N) disambig before writing to the artist field", () => {
@@ -483,7 +526,7 @@ describe("RotationEntryFields", () => {
       selectBinAndRelease(tobaccoAGoGo);
       selectTrack(0);
 
-      expect(artistValues(dispatchSpy)).toEqual(["Various Artists", "M.I.A."]);
+      expect(artistValues(dispatchSpy)).toEqual(["", "M.I.A."]);
     });
 
     it("reverts to the release artist when switching from a credited to an uncredited track in one release", () => {
@@ -508,11 +551,10 @@ describe("RotationEntryFields", () => {
       selectTrack(0);
       selectTrack(1);
 
-      expect(artistValues(dispatchSpy)).toEqual([
-        "Various Artists",
-        "Skull Mitten",
-        "Various Artists",
-      ]);
+      // Reverting to an empty artist still clears the previous track's
+      // performer, which is what this guards; on a V/A comp the release-level
+      // value it reverts *to* is empty rather than the compilation credit.
+      expect(artistValues(dispatchSpy)).toEqual(["", "Skull Mitten", ""]);
     });
 
     it("falls back to the release-level artist when every per-track credit is malformed", () => {
@@ -520,6 +562,19 @@ describe("RotationEntryFields", () => {
       // normalizeTrackArtists returns [] for that shape; the auto-fill must
       // be a no-op so the release-level artist (seeded by handleSelectRelease)
       // stays in the field rather than being clobbered with an empty string.
+      //
+      // Uses a compilation filed under a credited album artist: on a V/A comp
+      // the seed is empty by design, which would make a clobber and a no-op
+      // indistinguishable.
+      const djKicks = createTestAlbum({
+        id: 12,
+        title: "DJ-Kicks",
+        artist: createTestArtist({ name: "Kruder & Dorfmeister" }),
+        album_artist: "Kruder & Dorfmeister",
+        rotation_id: 46,
+        rotation_bin: "H",
+      });
+      mockRotationData = [djKicks];
       mockTracksData = [
         {
           position: "A1",
@@ -531,10 +586,10 @@ describe("RotationEntryFields", () => {
 
       const { store } = renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
       const dispatchSpy = vi.spyOn(store, "dispatch");
-      selectBinAndRelease(tobaccoAGoGo);
+      selectBinAndRelease(djKicks);
       selectTrack(0);
 
-      expect(artistValues(dispatchSpy)).toEqual(["Various Artists"]);
+      expect(artistValues(dispatchSpy)).toEqual(["Kruder & Dorfmeister"]);
     });
   });
 });

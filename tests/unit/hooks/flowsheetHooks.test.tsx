@@ -1361,6 +1361,25 @@ describe("flowsheetHooks", () => {
         expect(result.current.search.searchQuery.artist).toBe("Stereolab");
       });
 
+      // The queue is a staging area for the flowsheet, so it takes the same
+      // refusal — otherwise ⌘-Enter becomes the way around the guard.
+      it("rejects a various-artists entry and leaves the search intact", () => {
+        const { result } = renderCombined();
+
+        act(() => {
+          result.current.search.setSearchProperty("artist", "Various Artists");
+          result.current.search.setSearchProperty("song", "Call Your Name");
+        });
+        act(() => {
+          result.current.submit.submitToQueue();
+        });
+
+        expect(result.current.queue.queue.length).toBe(0);
+        expect(result.current.search.searchQuery.artist).toBe(
+          "Various Artists"
+        );
+      });
+
       it("queues the typed entry and resets the search", () => {
         const { result } = renderCombined();
 
@@ -1926,6 +1945,104 @@ describe("flowsheetHooks", () => {
 
         expect(mockAddToFlowsheet).toHaveBeenCalledTimes(1);
         expect(mockToastError).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("handleSubmit various-artists validation", () => {
+      // Every submission path converges here, including the result-row click
+      // that never touches an input, so the artist check has to live beside
+      // the song check rather than in the markup.
+      const mkPreloaded = (artist: string) => ({
+        flowsheet: {
+          ...flowsheetSlice.getInitialState(),
+          search: {
+            ...flowsheetSlice.getInitialState().search,
+            selectedResult: 0,
+            query: {
+              song: "Call Your Name",
+              artist,
+              album: "In-Correcto 15-25",
+              label: "self-released",
+              request: false,
+            },
+          },
+        },
+      });
+
+      const submitWith = async (artist: string) => {
+        const { result } = renderHook(() => useFlowsheetSubmit(), {
+          wrapper: createHookWrapper(
+            { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
+            mkPreloaded(artist)
+          ),
+        });
+
+        await act(async () => {
+          await result.current.handleSubmit({
+            preventDefault: vi.fn(),
+          } as unknown as FormEvent);
+        });
+      };
+
+      it.each([
+        "Various Artists",
+        "various artists",
+        "V/A",
+        "VA",
+        "Var. Artists",
+        "Soundtrack",
+      ])("refuses %s and does not call addToFlowsheet", async (artist) => {
+        await submitWith(artist);
+
+        expect(mockAddToFlowsheet).not.toHaveBeenCalled();
+        expect(mockToastError).toHaveBeenCalledWith(
+          expect.stringMatching(/not "various artists"/i)
+        );
+      });
+
+      it.each(["Chuquimamani-Condori", "Various Production", "Van Morrison"])(
+        "submits normally for the performing artist %s",
+        async (artist) => {
+          await submitWith(artist);
+
+          expect(mockAddToFlowsheet).toHaveBeenCalledTimes(1);
+          expect(mockToastError).not.toHaveBeenCalled();
+        }
+      );
+
+      it("checks the song title before the artist so a blank entry names the first problem", async () => {
+        const { result } = renderHook(() => useFlowsheetSubmit(), {
+          wrapper: createHookWrapper(
+            { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
+            {
+              flowsheet: {
+                ...flowsheetSlice.getInitialState(),
+                search: {
+                  ...flowsheetSlice.getInitialState().search,
+                  selectedResult: 0,
+                  query: {
+                    song: "",
+                    artist: "Various Artists",
+                    album: "",
+                    label: "",
+                    request: false,
+                  },
+                },
+              },
+            }
+          ),
+        });
+
+        await act(async () => {
+          await result.current.handleSubmit({
+            preventDefault: vi.fn(),
+          } as unknown as FormEvent);
+        });
+
+        expect(mockAddToFlowsheet).not.toHaveBeenCalled();
+        expect(mockToastError).toHaveBeenCalledWith(
+          expect.stringMatching(/song title is required/i)
+        );
       });
     });
 
