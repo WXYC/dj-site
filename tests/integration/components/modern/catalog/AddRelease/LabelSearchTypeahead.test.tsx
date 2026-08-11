@@ -415,11 +415,12 @@ describe("LabelSearchTypeahead", () => {
       expect(screen.getByRole("button", { name: /try again/i })).toHaveFocus();
       expect(screen.getByRole("alert")).toBeInTheDocument();
 
-      // Activating the retry button from the keyboard unmounts it: the error
-      // panel gives way to the "searching" panel the instant the refetch
-      // starts. If focus is still on the button when React tears it down, the
-      // browser drops focus to <body> — taking arrow-key, Enter-to-pick and
-      // Escape-to-dismiss with it, since all three are wired through the input.
+      // The error panel — button included — stays mounted for the length of
+      // the retry itself, but a successful retry swaps it for the listbox the
+      // instant the new data lands. If focus is still on the button when React
+      // tears it down, the browser drops focus to <body> — taking arrow-key,
+      // Enter-to-pick and Escape-to-dismiss with it, since all three are wired
+      // through the input.
       await user.keyboard("{Enter}");
 
       expect(document.activeElement).not.toBe(document.body);
@@ -937,6 +938,53 @@ describe("LabelSearchTypeahead", () => {
       await user.keyboard("{Enter}");
 
       expect(onSubmit).not.toHaveBeenCalled();
+    });
+
+    // Pressing "Try again" clears `isError` the instant the retry's request
+    // goes pending — well before that request has an answer. If the panel
+    // keyed off `isError` alone, the still-cached stale list from the outage
+    // above would fill that gap and render as current for the length of the
+    // retry, presenting rows that were correct once as though they still are.
+    it("keeps the outage panel up through a retry's in-flight window, not just until it starts", async () => {
+      let requestCount = 0;
+      let releaseRetry = () => {};
+      const retryHeld = new Promise<void>((resolve) => {
+        releaseRetry = resolve;
+      });
+      mockLabelSearch(async () => {
+        requestCount += 1;
+        if (requestCount === 1) return HttpResponse.json([sonamos]);
+        if (requestCount === 2) {
+          return HttpResponse.json({ message: "boom" }, { status: 500 });
+        }
+        await retryHeld;
+        return HttpResponse.json([sonamos]);
+      });
+      const { user, store } = renderWithProviders(<ControlledTypeahead />);
+
+      const input = await findInput();
+      await user.type(input, "Sona");
+      await vi.advanceTimersByTimeAsync(400);
+      await screen.findByText("Sonamos");
+
+      await act(async () => {
+        store.dispatch(
+          labelsApi.util.invalidateTags([{ type: "LabelSearch", id: "LIST" }]),
+        );
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      await screen.findByRole("alert");
+
+      await user.click(screen.getByRole("button", { name: /try again/i }));
+
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+      expect(screen.queryByText("Sonamos")).not.toBeInTheDocument();
+
+      releaseRetry();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(await screen.findByText("Sonamos")).toBeInTheDocument();
+      expect(requestCount).toBe(3);
     });
   });
 

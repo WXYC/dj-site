@@ -977,6 +977,39 @@ describe("ArtistSearchTypeahead", () => {
         expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
       });
 
+      // A gateway that answers with an HTML error page, or a route that is not
+      // there, produces an unparseable body. The shared base query's default is
+      // to turn that into a successful empty payload, which this typeahead
+      // would read as "no such artist is catalogued" — a confirmed no-match
+      // reported at the exact moment the duplicate check could not run, and the
+      // "create new" affordance right there beside it is how an outage becomes
+      // a duplicate artist row.
+      it.each([
+        ["a gateway HTML error page", 502],
+        ["the framework's HTML 404", 404],
+      ])("treats %s as a failure, not a confirmed no-match", async (_name, status) => {
+        mockArtistSearch(
+          () =>
+            new HttpResponse("<!DOCTYPE html><html><body>Error</body></html>", {
+              status,
+              headers: { "Content-Type": "text/html" },
+            }),
+        );
+        const { user } = renderWithProviders(<ControlledTypeahead />);
+
+        const input = await findInput();
+        await user.type(input, "Juana");
+        await vi.advanceTimersByTimeAsync(400);
+
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          /Artist search is unavailable/i,
+        );
+        expect(
+          screen.queryByText(/Create new artist/i),
+        ).not.toBeInTheDocument();
+        expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+      });
+
       it("reports a failure that follows a successful search", async () => {
         mockArtistSearch((url) =>
           url.searchParams.get("q") === "Juana"

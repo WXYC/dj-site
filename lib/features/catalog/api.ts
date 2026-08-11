@@ -239,6 +239,15 @@ export const catalogApi = createApi({
         url: "/artists/search",
         params: { genre_id, q, limit },
       }),
+      // The shared base query soft-fails an unparseable body — a gateway's
+      // HTML 502, Express's HTML 404 — into a successful `null` payload,
+      // which here resolves to "no such artist is catalogued". That is the
+      // one answer an unreachable backend cannot honestly give: this search
+      // backs the artist typeahead's duplicate-artist guard, so a false
+      // no-match during an outage is what lets the librarian file the
+      // near-duplicate the guard exists to prevent. Opt out so an outage
+      // reaches the typeahead as an error it can refuse to act on.
+      extraOptions: { surfaceNonJsonAsError: true },
       transformResponse: (
         response: SearchArtistsInGenreResponse | null,
       ): SearchArtistsInGenreResponse =>

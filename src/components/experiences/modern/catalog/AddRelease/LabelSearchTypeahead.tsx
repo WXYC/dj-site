@@ -49,6 +49,13 @@ function LabelSearchTypeaheadInner({
 }: LabelSearchTypeaheadProps) {
   const [open, setOpen] = useState(false);
   const [rawHighlightIndex, setHighlightIndex] = useState(NO_HIGHLIGHT);
+  // Set for the span of a manually triggered retry and cleared once it
+  // settles, win or lose. RTK Query clears `isError` the instant a refetch
+  // goes pending — well before the retry has an answer — so keying the error
+  // panel off `isError` alone would hand that whole in-flight window to
+  // `showListbox` whenever a prior successful fetch left rows cached: the
+  // stale list would render as current for as long as the retry takes.
+  const [retrying, setRetrying] = useState(false);
   const confirmedLabel = useRef<Label | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   // Row elements by index, kept so the highlight can be scrolled into view.
@@ -98,8 +105,10 @@ function LabelSearchTypeaheadInner({
   // check that goes on trusting that list because it happens to be non-empty
   // would report a stale "no match" through exactly the outage it exists to
   // catch, so `showError` does not require `data === undefined`: any error
-  // for the current args takes the panel over, stale rows or not.
-  const showError = resultsAreCurrent && isError;
+  // for the current args takes the panel over, stale rows or not. `retrying`
+  // extends that same coverage across the button-triggered retry itself,
+  // whose pending window clears `isError` before the new attempt resolves.
+  const showError = resultsAreCurrent && (isError || retrying);
   const showSearching = isSearching && labels.length === 0 && !showError;
   const showNoMatches = showPanel && !showError && !showSearching && labels.length === 0;
   const showListbox = showPanel && !showError && !showSearching && labels.length > 0;
@@ -316,13 +325,15 @@ function LabelSearchTypeaheadInner({
                   variant="plain"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
-                    // Retrying swaps this button out for the "searching" panel
-                    // the instant the refetch starts. Moving focus to the
-                    // input before that render commits keeps focus off a node
-                    // React is about to remove — losing focus mid-retry would
-                    // otherwise drop it to <body>, taking arrow-key,
-                    // Enter-to-pick and Escape-to-dismiss with it.
-                    refetch();
+                    // Moving focus to the input before the next render commits
+                    // keeps focus off a node React may remove — losing focus
+                    // mid-retry would otherwise drop it to <body>, taking
+                    // arrow-key, Enter-to-pick and Escape-to-dismiss with it.
+                    setRetrying(true);
+                    // `refetch()`'s returned promise resolves with the settled
+                    // state on both outcomes — it never rejects — so clearing
+                    // `retrying` belongs in `finally`, not a success-only `then`.
+                    refetch().finally(() => setRetrying(false));
                     inputRef.current?.focus();
                   }}
                   sx={{ mt: 0.5, px: 0 }}
