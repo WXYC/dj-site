@@ -231,7 +231,9 @@ describe("MobileHeader", () => {
       );
 
       const sheet = document.querySelector(".MuiSheet-root");
-      expect(sheet).toHaveStyle({ width: "100vw" });
+      // Computed styles resolve viewport units, so this has to name the width
+      // the viewport resolves to rather than the `100vw` the component declares.
+      expect(sheet).toHaveStyle({ width: `${window.innerWidth}px` });
     });
   });
 
