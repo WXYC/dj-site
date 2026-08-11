@@ -2,6 +2,7 @@
 
 import { entryToFreezePayload } from "@/lib/features/flowsheet/conversions";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
+import { seedableArtistName } from "@/lib/features/flowsheet/various-artists-guard";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import {
   useFlowsheetSearch,
@@ -77,7 +78,11 @@ export default function FlowsheetSearchbar() {
 
   const highlightFills = selectedResult > 0 && selectedEntry !== null;
   const autoFilled = {
-    artist: highlightFills && Boolean(selectedEntry?.artist?.name),
+    // Keyed on the seeded value, not the raw credit: seedableArtistName is
+    // the same function that fills the field, so this can't disagree with
+    // what's shown (a refused compilation credit seeds "" and must not
+    // suppress the typeahead the DJ needs to type the performer by hand).
+    artist: highlightFills && seedableArtistName(selectedEntry) !== "",
     album: highlightFills && Boolean(selectedEntry?.title),
     label: highlightFills && Boolean(selectedEntry?.label),
   };

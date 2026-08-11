@@ -147,6 +147,26 @@ describe("FlowsheetSearchInput", () => {
       expect(onThaw).not.toHaveBeenCalled();
     });
 
+    // A blank field correctly flagged as not auto-filled (e.g. a refused
+    // compilation credit, which seeds "") has nothing frozen to thaw — typing
+    // must apply straight to the query like any other empty field.
+    it("should not thaw a blank field that is not flagged as auto-filled", () => {
+      const onThaw = vi.fn();
+      render(
+        <FlowsheetSearchInput name="artist" value="" onThaw={onThaw} />
+      );
+
+      fireEvent.change(screen.getByRole("textbox"), {
+        target: { value: "C" },
+      });
+
+      expect(onThaw).not.toHaveBeenCalled();
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "setSearchProperty",
+        payload: { name: "artist", value: "C", deviates: false },
+      });
+    });
+
     it("should not block keystrokes when auto-filled", () => {
       render(
         <FlowsheetSearchInput
