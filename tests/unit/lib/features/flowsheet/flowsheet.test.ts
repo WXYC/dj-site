@@ -11,6 +11,7 @@ import {
   TEST_ENTITY_IDS,
 } from "@/tests/helpers";
 import type { FlowsheetFrontendState, FlowsheetEntry } from "@/lib/features/flowsheet/types";
+import { convertQueryToSubmission } from "@/lib/features/flowsheet/conversions";
 
 vi.mock("@/lib/features/flowsheet/queue-storage", () => ({
   saveQueueToStorage: vi.fn(),
@@ -137,7 +138,7 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
           })
         );
 
-      it("editing a filled field with deviates drops the album linkage", () => {
+      it("editing a filled field with deviates drops the album-scoped fields only", () => {
         const result = harness().reduce(
           actions.setSearchProperty({
             name: "album",
@@ -149,9 +150,43 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
 
         expect(result.search.query.album).toBe("DOGA (remaster)");
         expect(result.search.query.album_id).toBeUndefined();
-        expect(result.search.query.rotation_id).toBeUndefined();
-        expect(result.search.query.rotation_bin).toBeUndefined();
         expect(result.search.query.track_position).toBeUndefined();
+      });
+
+      // rotation_id and rotation_bin identify the rotation row, not the album
+      // row (see the file-header invariant), so a deviation from the linked
+      // release must not touch them — only the album-scoped fields drop.
+      it("keeps rotation_id and rotation_bin when deviating from a linked release", () => {
+        const result = harness().reduce(
+          actions.setSearchProperty({
+            name: "album",
+            value: "DOGA (remaster)",
+            deviates: true,
+          }),
+          frozen()
+        );
+
+        expect(result.search.query.album_id).toBeUndefined();
+        expect(result.search.query.rotation_id).toBe(7);
+        expect(result.search.query.rotation_bin).toBe("H");
+      });
+
+      it("keeps the submitted entry's rotation linkage after a deviation", () => {
+        const result = harness().reduce(
+          actions.setSearchProperty({
+            name: "album",
+            value: "DOGA (remaster)",
+            deviates: true,
+          }),
+          frozen()
+        );
+
+        const submission = convertQueryToSubmission(result.search.query) as {
+          album_id?: number;
+          rotation_id?: number;
+        };
+        expect(submission.album_id).toBeUndefined();
+        expect(submission.rotation_id).toBe(7);
       });
 
       it("a non-deviating write preserves the linkage (rotation flows)", () => {

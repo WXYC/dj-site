@@ -144,9 +144,10 @@ export const flowsheetSlice = createAppSlice({
         provided === true &&
         previous !== action.payload.value
       ) {
+        // rotation_id and rotation_bin identify the rotation row, not the
+        // album row (see the file-header invariant), so they survive a
+        // deviation — only the album-scoped fields drop.
         state.search.query.album_id = undefined;
-        state.search.query.rotation_id = undefined;
-        state.search.query.rotation_bin = undefined;
         state.search.query.track_position = undefined;
         state.search.selectionProvided = undefined;
       }
