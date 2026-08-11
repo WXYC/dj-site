@@ -43,8 +43,7 @@ export function entryToFreezePayload(entry: {
     // straight back unless the edit strips the linkage first. Without a
     // linked row there is no linkage to strip and the deviation rule never
     // runs, so the release's own credit is the only answer left to give.
-    artistProvided:
-      hasLinkedAlbumId(entry.id ?? undefined) || Boolean(entry.artist?.name),
+    artistProvided: hasLinkedAlbumId(entry.id) || Boolean(entry.artist?.name),
     album: entry.title ?? "",
     label: entry.label ?? "",
     album_id: entry.id ?? undefined,

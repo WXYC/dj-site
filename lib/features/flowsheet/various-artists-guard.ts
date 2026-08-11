@@ -21,12 +21,16 @@ export const VARIOUS_ARTISTS_REJECTION_MESSAGE =
   'Use the artist who performed the track, not "Various Artists".';
 
 /**
- * Copy for the mail bin's Play Now refusal specifically. Play Now is a
+ * The remedy appended to the mail bin's Play Now refusals. Play Now is a
  * single click with no artist field to satisfy the refusal in place, unlike
- * every other refusal surface — so the message has to name a different
+ * every other refusal surface — so those messages have to name a different
  * remedy: queue it, then name the performer in the now-editable queue row.
  */
-export const VARIOUS_ARTISTS_BIN_PLAY_MESSAGE = `${VARIOUS_ARTISTS_REJECTION_MESSAGE} Add it to the queue instead, then type the performer into the artist cell before playing it.`;
+const BIN_PLAY_QUEUE_REMEDY =
+  " Add it to the queue instead, then type the performer into the artist cell before playing it.";
+
+/** Copy for the mail bin's Play Now refusal of a compilation credit. */
+export const VARIOUS_ARTISTS_BIN_PLAY_MESSAGE = `${VARIOUS_ARTISTS_REJECTION_MESSAGE}${BIN_PLAY_QUEUE_REMEDY}`;
 
 /**
  * Copy for a blank artist, which is a different mistake from a refused
@@ -43,7 +47,7 @@ export const MISSING_ARTIST_REJECTION_MESSAGE =
  * credit at all. Same dead end as the compilation credit and the same
  * remedy, but the DJ never typed a credit to be told off for.
  */
-export const MISSING_ARTIST_BIN_PLAY_MESSAGE = `${MISSING_ARTIST_REJECTION_MESSAGE} Add it to the queue instead, then type the performer into the artist cell before playing it.`;
+export const MISSING_ARTIST_BIN_PLAY_MESSAGE = `${MISSING_ARTIST_REJECTION_MESSAGE}${BIN_PLAY_QUEUE_REMEDY}`;
 
 /**
  * Whole-name predicate for the flowsheet submit block: true when the artist
@@ -66,7 +70,28 @@ export function isVariousArtistsEntry(
   );
 }
 
-type ReleaseCredit = { artist?: { name?: string | null } | null } | null;
+/**
+ * The refusal a flowsheet write earns for its artist value, or `null` when the
+ * value is submittable. The flowsheet is the permanent record, so it refuses
+ * both a blank artist and a compilation credit — the queue refuses only the
+ * latter, because a blank queue row is a draft the DJ can still fill in.
+ *
+ * The two conditions are mutually exclusive (`isVariousArtistsEntry` is false
+ * for every blank and whitespace-only value), so the order here is not
+ * load-bearing. They take different copy because they are different mistakes:
+ * a DJ who left the field empty never typed "Various Artists", so telling
+ * them not to names a fix they did not need.
+ */
+export function flowsheetArtistRejection(
+  artist: string | null | undefined
+): string | null {
+  if (!artist?.trim()) return MISSING_ARTIST_REJECTION_MESSAGE;
+  if (isVariousArtistsEntry(artist)) return VARIOUS_ARTISTS_REJECTION_MESSAGE;
+  return null;
+}
+
+type ReleaseArtistCredit = { name?: string | null } | null;
+type ReleaseCredit = { artist?: ReleaseArtistCredit } | null;
 
 /**
  * True when a release cannot supply its own performing artist, because its
@@ -126,7 +151,7 @@ export function releaseCannotSupplyArtist(release: ReleaseCredit): boolean {
  */
 export function queueAdditionMessage(release: {
   title?: string | null;
-  artist?: { name?: string | null } | null;
+  artist?: ReleaseArtistCredit;
 }): string {
   const added = `Added ${release.title ?? ""} to queue`;
   return releaseCannotSupplyArtist(release)

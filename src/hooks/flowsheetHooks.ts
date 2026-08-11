@@ -14,8 +14,8 @@ import {
 import { convertQueryToSubmission } from "@/lib/features/flowsheet/conversions";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import {
+  flowsheetArtistRejection,
   isVariousArtistsEntry,
-  MISSING_ARTIST_REJECTION_MESSAGE,
   releaseCannotSupplyArtist,
   seedableArtistName,
   VARIOUS_ARTISTS_REJECTION_MESSAGE,
@@ -739,18 +739,16 @@ export const useFlowsheetSubmit = () => {
       }
       // A compilation credit reaches this field two ways the DJ never typed:
       // a clicked result row, and the rotation picker's release-artist
-      // fallback when Discogs lists no performer for the track. The queue
-      // path above carries its own copy; this one covers the rest.
-      if (isVariousArtistsEntry(selectedResultData.artist)) {
-        toast.error(VARIOUS_ARTISTS_REJECTION_MESSAGE);
-        return;
-      }
-      // The flowsheet is the permanent record, so emptiness is refused here
-      // rather than on the queue path. Only `song` carries HTML5 `required`
-      // in the searchbar, and a clicked result row never touches an input,
-      // so markup validation cannot stand in for this.
-      if (!(selectedResultData.artist ?? "").trim()) {
-        toast.error(MISSING_ARTIST_REJECTION_MESSAGE);
+      // fallback when Discogs lists no performer for the track. Emptiness is
+      // refused here rather than on the queue path above, which allows it as
+      // a draft — and only `song` carries HTML5 `required` in the searchbar,
+      // while a clicked result row never touches an input at all, so markup
+      // validation cannot stand in for either check.
+      const artistRejection = flowsheetArtistRejection(
+        selectedResultData.artist
+      );
+      if (artistRejection) {
+        toast.error(artistRejection);
         return;
       }
       if (isRotationPick && selectedEntry) {

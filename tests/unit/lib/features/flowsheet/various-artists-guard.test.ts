@@ -1,11 +1,14 @@
 import { describe, it, expect } from "vitest";
 
 import {
+  flowsheetArtistRejection,
   isVariousArtistsEntry,
+  MISSING_ARTIST_REJECTION_MESSAGE,
   queueAdditionMessage,
   releaseCannotSupplyArtist,
   releaseCreditIsRefused,
   seedableArtistName,
+  VARIOUS_ARTISTS_REJECTION_MESSAGE,
 } from "@/lib/features/flowsheet/various-artists-guard";
 
 describe("isVariousArtistsEntry", () => {
@@ -140,6 +143,43 @@ describe("releaseCannotSupplyArtist", () => {
     expect(
       releaseCannotSupplyArtist({ artist: { name: "Chuquimamani-Condori" } })
     ).toBe(false);
+  });
+});
+
+describe("flowsheetArtistRejection", () => {
+  it.each([null, undefined, "", "   ", "\t\n"])(
+    "asks for a performer when the artist is blank (%s)",
+    (artist) => {
+      expect(flowsheetArtistRejection(artist)).toBe(
+        MISSING_ARTIST_REJECTION_MESSAGE
+      );
+    }
+  );
+
+  it.each(["Various Artists", "V/A", "VA", "Var. Artists", "Soundtrack"])(
+    "refuses the compilation credit %s with its own copy",
+    (artist) => {
+      expect(flowsheetArtistRejection(artist)).toBe(
+        VARIOUS_ARTISTS_REJECTION_MESSAGE
+      );
+    }
+  );
+
+  // A DJ who left the field empty never typed "Various Artists", so the two
+  // conditions must never borrow each other's copy.
+  it("distinguishes the two refusals", () => {
+    expect(MISSING_ARTIST_REJECTION_MESSAGE).not.toBe(
+      VARIOUS_ARTISTS_REJECTION_MESSAGE
+    );
+  });
+
+  it.each([
+    "Juana Molina",
+    "Stereolab",
+    "Duke Ellington & John Coltrane",
+    "The Soundtrack of Our Lives",
+  ])("passes the submittable performer %s", (artist) => {
+    expect(flowsheetArtistRejection(artist)).toBeNull();
   });
 });
 
