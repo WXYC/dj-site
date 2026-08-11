@@ -2,7 +2,10 @@ import { createApi } from "@reduxjs/toolkit/query/react";
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import type { RootState } from "@/lib/store";
 import { backendBaseQuery } from "../backend";
-import { isAddArtistConflict } from "./adminCreateArtistValidation";
+import {
+  isAddArtistConflict,
+  isArtistNameConflictData,
+} from "./adminCreateArtistValidation";
 import { CATALOG_QUERY_PAGE_LIMIT } from "./constants";
 import { convertToAlbumEntry } from "./conversions";
 import { patchCatalogSearchCaches } from "./patchSearchCaches";
@@ -192,20 +195,22 @@ export const catalogApi = createApi({
       //
       // Invalidation fires on a rejected mutation as well as a fulfilled one,
       // so the rejections that provably wrote nothing opt out: anything the
-      // server answered below 500, of which the code-taken 409 is the routine
-      // one. Invalidating CatalogList/ArtistSearch on those would spend two
-      // round trips reconfirming lists that cannot have changed. The peek tag
-      // is the one exception: every 409 on this endpoint means the
-      // code_letters/genre_id/code_number triple is taken, so it IS the
-      // evidence that this cache entry — and only this one — is stale, since
-      // it names the exact pair the preview just showed as free. That holds
-      // regardless of whether the body happens to parse as
-      // `isAddArtistConflict` — that check exists so the caller can name the
-      // conflicting artist in a banner, not to decide whether the pair is
-      // actually free. A 5xx or a transport failure still gets every tag —
-      // the row may well have been written on a response the client never
-      // saw, and ArtistSearch backs the typeahead that is all that stands
-      // between a retry and a duplicate artist.
+      // server answered below 500, of which a 409 is the routine one.
+      // Invalidating CatalogList/ArtistSearch on those would spend two round
+      // trips reconfirming lists that cannot have changed. The peek tag is
+      // narrower still: a code-triple conflict names the exact
+      // code_letters/genre_id pair the preview just showed as free, so it IS
+      // evidence that cache entry is stale — regardless of whether the body
+      // happens to parse as `isAddArtistConflict`, which exists so the caller
+      // can name the conflicting artist in a banner, not to decide whether
+      // the pair is actually free. A genre-scoped artist-name conflict is not
+      // that evidence: it says nothing about the code triple at all, so
+      // `isArtistNameConflictData` carves it out rather than invalidating a
+      // cache entry the rejection gives no reason to distrust. A 5xx or a
+      // transport failure still gets every tag — the row may well have been
+      // written on a response the client never saw, and ArtistSearch backs
+      // the typeahead that is all that stands between a retry and a
+      // duplicate artist.
       invalidatesTags: (_result, error, { code_letters, genre_id }) => {
         const codePeekTag = {
           type: "ArtistCodePeek" as const,
@@ -220,7 +225,8 @@ export const catalogApi = createApi({
             codePeekTag,
           ];
         }
-        return error.status === 409 ? [codePeekTag] : [];
+        if (error.status !== 409) return [];
+        return isArtistNameConflictData(error.data) ? [] : [codePeekTag];
       },
     }),
     peekArtistCode: builder.query<PeekArtistCodeResponse, PeekArtistCodeQuery>({

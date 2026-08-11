@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { parseRequiredPositiveInt } from "@/lib/features/catalog/adminCreateArtistValidation";
+import {
+  isArtistNameConflictData,
+  parseRequiredPositiveInt,
+} from "@/lib/features/catalog/adminCreateArtistValidation";
 
 describe("parseRequiredPositiveInt", () => {
   it.each([
@@ -26,5 +29,29 @@ describe("parseRequiredPositiveInt", () => {
 
   it("rejects leading-zero decimals (not valid code-number literals)", () => {
     expect(parseRequiredPositiveInt("007")).toBeNull();
+  });
+});
+
+describe("isArtistNameConflictData", () => {
+  it("is true when the body carries the name-conflict reason", () => {
+    expect(
+      isArtistNameConflictData({
+        reason: "artist_name_conflict",
+        artist: { artist_id: 5, artist_name: "Stereolab", code_letters: "ST" },
+      }),
+    ).toBe(true);
+  });
+
+  it.each([
+    [
+      "a body with no reason field at all, exactly what today's deployed backend sends",
+      { artist: { artist_id: 5, artist_name: "Stereolab", code_letters: "ST" } },
+    ],
+    ["a reason value this endpoint has never sent", { reason: "artist_code_conflict" }],
+    ["a non-object body", "Artist code already exists for that genre and code letters."],
+    ["null", null],
+    ["undefined", undefined],
+  ])("is false for %s", (_label, data) => {
+    expect(isArtistNameConflictData(data)).toBe(false);
   });
 });

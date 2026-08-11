@@ -96,15 +96,19 @@ export type AddArtistRequestBody = {
 };
 
 /**
- * Body of the 409 `POST /library/artists` returns when the
- * (code_letters, genre_id, code_number) triple is already taken, as the
- * caller sees it: the conflicting artist, so it can be named rather than
- * reported as a generic failure. The backend also sends a generic `message`
- * alongside it; `addArtist` strips that before the rejection reaches any
- * consumer, so nothing here should read it.
+ * Body of a 409 `POST /library/artists` returns, as the caller sees it: the
+ * conflicting artist, so it can be named rather than reported as a generic
+ * failure. Two distinct conflicts share this shape. The pre-existing
+ * (code_letters, genre_id, code_number) triple conflict sets no `reason` at
+ * all — the shape today's deployed backend sends on its one 409. The
+ * genre-scoped artist-name conflict sets `reason: "artist_name_conflict"`.
+ * The backend also sends a generic `message` alongside `artist`; `addArtist`
+ * strips that before the rejection reaches any consumer, so nothing here
+ * should read it.
  */
 export type AddArtistConflict = {
   artist: { artist_id: number; artist_name: string; code_letters: string };
+  reason?: "artist_name_conflict";
 };
 
 export type PeekArtistCodeQuery = {
