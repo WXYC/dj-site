@@ -640,7 +640,9 @@ describe("SongEntry", () => {
       render(<SongEntry entry={mockEntry} playing={true} queue={false} />);
 
       const wrapper = screen.getByTestId("draggable-wrapper");
-      expect(wrapper).toHaveStyle({ marginBottom: "0.25rem" });
+      // Computed styles resolve rem against the root font size: the component
+      // declares 0.25rem, which is 4px at the default 16px root.
+      expect(wrapper).toHaveStyle({ marginBottom: "4px" });
     });
 
     it("should not add margin when not playing", () => {
