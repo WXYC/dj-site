@@ -20,9 +20,11 @@ export default async function CatalogAdminPage() {
       <PageHeader title="Catalog Admin" />
       {/* Main is a fixed 100dvh box with overflow:hidden, so a page that owns no
           scroll container has its overflow clipped away rather than scrolled to.
-          minHeight:0 is what lets this flex child shrink below its content and
-          actually scroll. Both lists grow without bound and each card's add form
-          sits below its list, so without this the forms become unreachable. */}
+          `overflow: auto` is what makes this scroll: a scroll container's
+          automatic minimum size is already zero, so minHeight here is belt and
+          braces for consistency with the other scroll panes, not the mechanism.
+          Both lists grow without bound and each card's add form sits below its
+          list, so without a scroll container the forms become unreachable. */}
       <Stack spacing={2} sx={{ flex: 1, minHeight: 0, overflow: "auto" }}>
         <FormatAdmin />
         <GenreAdmin />
