@@ -9,6 +9,7 @@ import { sortRotationReleases } from "@/lib/features/rotation/sort";
 import { Rotation } from "@/lib/features/rotation/types";
 import {
   isVariousArtistsEntry,
+  releaseCannotSupplyArtist,
   releaseCreditIsRefused,
   seedableArtistName,
   VARIOUS_ARTISTS_REJECTION_MESSAGE,
@@ -90,15 +91,24 @@ export default function EntryForm({
     (r) => r.rotation_id === selectedRotationId
   );
   // Rotation mode hides the Artist field and submits the release-level artist.
-  // When that artist is a credit submission refuses, the field has to come back
-  // or the refusal has nothing that can satisfy it. Keyed on the refused credit
-  // rather than on `isCompilationRelease`: a compilation filed under a credited
-  // album artist is submittable as-is and must keep its library linkage.
-  const rotationNeedsArtist =
+  // When that release can't supply one — its credit is refused, or it carries
+  // no credit at all — the field has to come back or the refusal has nothing
+  // that can satisfy it. Keyed on `releaseCannotSupplyArtist` rather than on
+  // `isCompilationRelease`: a compilation filed under a credited album artist
+  // is submittable as-is and must keep its library linkage.
+  const rotationCannotSupplyArtist =
+    releaseType === "rotationRelease" &&
+    releaseCannotSupplyArtist(selectedRotationRelease ?? null);
+  // Narrower than the above: true only when the release's own credit is the
+  // compilation designation submission refuses, not merely blank. Stays
+  // narrow because it drives copy that names the compilation specifically —
+  // a blank credit isn't a compilation, so that copy would name a fix the DJ
+  // didn't need.
+  const rotationCreditIsRefused =
     releaseType === "rotationRelease" &&
     releaseCreditIsRefused(selectedRotationRelease ?? null);
   const showArtistField =
-    releaseType !== "rotationRelease" || rotationNeedsArtist;
+    releaseType !== "rotationRelease" || rotationCannotSupplyArtist;
   const artistRefused = showArtistField && isVariousArtistsEntry(artistName);
 
   const handleRotationSelect = (rotationId: number) => {
@@ -131,7 +141,7 @@ export default function EntryForm({
     !artistRefused &&
     (releaseType === "rotationRelease"
       ? selectedRotationId > 0 &&
-        (!rotationNeedsArtist || artistName.trim().length > 0)
+        (!rotationCannotSupplyArtist || artistName.trim().length > 0)
       : artistName.trim().length > 0);
   const canSubmit = entryType === "track" ? canSubmitTrack : true;
 
@@ -165,12 +175,13 @@ export default function EntryForm({
       // a non-error submit; recovering the linkage requires BS to accept
       // `rotation_id` without `album_id` (Option C, BS-side schema work).
       // Aligned with sibling dj-site#608's fix shape.
-      if (rotationNeedsArtist) {
+      if (rotationCannotSupplyArtist) {
         // The catalog-linked variant carries no `artist_name` — BS resolves it
         // from `album_id`, which on a compilation resolves straight back to the
-        // credit the DJ just replaced. Only the freeform variant preserves the
-        // performer they typed. `rotation_id` rides that variant, so the
-        // rotation badge survives the trade.
+        // credit the DJ just replaced, or on a no-credit release resolves to
+        // nothing at all. Only the freeform variant preserves the performer
+        // they typed. `rotation_id` rides that variant, so the rotation badge
+        // survives the trade.
         submissionData = {
           artist_name: artistName,
           album_title: release.title,
@@ -344,7 +355,7 @@ export default function EntryForm({
                           artistRefused ? "artistNameError" : undefined
                         }
                       />
-                      {rotationNeedsArtist && !artistRefused && (
+                      {rotationCreditIsRefused && !artistRefused && (
                         <div className="field-hint">
                           Compilation — name the artist on this track
                         </div>
