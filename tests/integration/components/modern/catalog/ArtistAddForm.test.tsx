@@ -356,6 +356,33 @@ describe("ArtistAddForm", () => {
       },
     );
 
+    it.each([
+      ["the code number", async (user: ReturnType<typeof renderWithProviders>["user"]) =>
+        user.type(screen.getByLabelText("Code number"), "3")],
+      ["the call letters", async (user: ReturnType<typeof renderWithProviders>["user"]) =>
+        user.type(screen.getByLabelText(/call letters/i), "X")],
+    ])(
+      "leaves a name conflict standing when %s is edited, since the name is still the rejected one",
+      async (_label, edit) => {
+        mockAddArtist(() => nameConflictResponse());
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await fillCoreFields(user);
+        await user.click(screen.getByRole("button", { name: /add artist/i }));
+        expect(await screen.findByRole("alert")).toHaveTextContent("Stereolab");
+
+        // The code triple was never what the server objected to. Dropping the
+        // banner here would re-enable submit for a name the server just
+        // rejected, and send the librarian back around the same 409.
+        await edit(user);
+
+        expect(screen.getByRole("alert")).toHaveTextContent("Stereolab");
+        expect(
+          screen.getByRole("button", { name: /add artist/i }),
+        ).toBeDisabled();
+      },
+    );
+
     it("clears the stale conflict banner when the genre changes", async () => {
       mockGenres([
         { id: GENRE_ID, genre_name: "Rock" },

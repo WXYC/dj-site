@@ -289,6 +289,21 @@ function ArtistAddFields() {
     }
   };
 
+  // An edit to the code triple changes what the server was asked about the
+  // code and nothing else. A standing NAME conflict has to survive it: the
+  // name is still exactly the one that was rejected, and dropping the banner
+  // would re-enable submit for a resubmission that can only reach the same
+  // 409 — steering the librarian to keep adjusting a code that was never the
+  // problem. Genre is deliberately not routed through here: the name check is
+  // genre-scoped too, so changing it reopens both questions.
+  const clearCodeTripleConflict = () => {
+    setConflict((current) =>
+      current?.response && isArtistNameConflictData(current.response)
+        ? current
+        : null,
+    );
+  };
+
   const handleCodeLettersChange = (
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
@@ -303,13 +318,13 @@ function ArtistAddFields() {
       caret:
         caret === null ? null : normalizeCodeLetters(raw.slice(0, caret)).length,
     });
-    setConflict(null);
+    clearCodeTripleConflict();
     setAdded(null);
   };
 
   const handleCodeNumberChange = (value: string) => {
     setCodeNumberRaw(value);
-    setConflict(null);
+    clearCodeTripleConflict();
     setAdded(null);
   };
 
