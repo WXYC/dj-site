@@ -525,12 +525,16 @@ describe("Classic EntryForm — null artist (regression)", () => {
     expect(texts.some((t) => t.includes("- Untitled"))).toBe(true);
   });
 
-  it("seeds an empty artist and submits freeform when a null-artist release is selected", async () => {
+  it("seeds an empty artist field and submits freeform once the DJ names the performer", async () => {
     rotationDataMock = rotationWithNullArtistRow();
     const { user } = renderWithProviders(<EntryForm />);
     await user.selectOptions(getNamedSelect("releaseType"), "rotationRelease");
     await user.selectOptions(getNamedSelect("rotationType"), "heavy");
     await selectByText(user, getNamedSelect("heavyRelease"), "Untitled");
+    // A release with no credit can't supply an artist, so the field surfaces
+    // seeded blank rather than crashing on the null artist object.
+    expect(getNamedInput("artistName").value).toBe("");
+    await user.type(getNamedInput("artistName"), "Chuquimamani-Condori");
     await user.type(getNamedInput("songTitle"), "Charcoal Bow");
     await user.click(screen.getByRole("button", { name: /^add$/i }));
 
@@ -539,8 +543,9 @@ describe("Classic EntryForm — null artist (regression)", () => {
     });
     const payload = addToFlowsheetMock.mock.calls[0][0];
     expect(payload.track_title).toBe("Charcoal Bow");
-    // Unlinked row (negative id) → freeform variant; null artist coalesces to "".
-    expect(payload.artist_name).toBe("");
+    // Unlinked row (negative id) → freeform variant; the DJ's typed name is
+    // what rides the wire, not the null credit.
+    expect(payload.artist_name).toBe("Chuquimamani-Condori");
     expect(payload.album_title).toBe("Untitled");
   });
 });
@@ -824,6 +829,84 @@ describe("Classic EntryForm — Various Artists refusal", () => {
       const payload = addToFlowsheetMock.mock.calls[0][0];
       expect(payload.album_id).toBe(6201);
       expect(payload.rotation_id).toBe(6202);
+    });
+
+    // A rotation release with no credit at all dead-ends the same way a
+    // refused credit does: the artist cell is empty and the DJ needs
+    // somewhere to type. Regression for the field staying hidden because the
+    // gate only recognized a refused credit, not a merely blank one.
+    const uncredited = () =>
+      ({
+        ...createTestRotationAlbum(Rotation.H, {
+          id: 6601,
+          rotation_id: 6602,
+          title: "Sallie Gardner at a Gallop",
+          label: "self-released",
+        }),
+        artist: null,
+      }) as unknown as ReturnType<typeof createTestRotationAlbum>;
+
+    it("reveals the Artist row for a release with no credit at all", async () => {
+      rotationDataMock = [uncredited()];
+      const { user } = renderWithProviders(<EntryForm />);
+      await pickRotation(user, "Sallie Gardner");
+
+      expect(getNamedInput("artistName")).toBeInTheDocument();
+      expect(getNamedInput("artistName").value).toBe("");
+    });
+
+    it("holds Add until the DJ names the performer on a no-credit release", async () => {
+      rotationDataMock = [uncredited()];
+      const { user } = renderWithProviders(<EntryForm />);
+      await pickRotation(user, "Sallie Gardner");
+      await user.type(getNamedInput("songTitle"), "Call Your Name");
+
+      expect(addButton().disabled).toBe(true);
+
+      await user.type(getNamedInput("artistName"), "Chuquimamani-Condori");
+
+      expect(addButton().disabled).toBe(false);
+    });
+
+    it("submits the typed artist freeform for a no-credit release", async () => {
+      rotationDataMock = [uncredited()];
+      const { user } = renderWithProviders(<EntryForm />);
+      await pickRotation(user, "Sallie Gardner");
+      await user.type(getNamedInput("songTitle"), "Call Your Name");
+      await user.type(getNamedInput("artistName"), "Chuquimamani-Condori");
+      await user.click(addButton());
+
+      await waitFor(() => {
+        expect(addToFlowsheetMock).toHaveBeenCalledTimes(1);
+      });
+      const payload = addToFlowsheetMock.mock.calls[0][0];
+      expect(payload.artist_name).toBe("Chuquimamani-Condori");
+      expect(payload.album_title).toBe("Sallie Gardner at a Gallop");
+      expect(payload.track_title).toBe("Call Your Name");
+      expect(payload.rotation_id).toBe(6602);
+    });
+
+    // The narrower predicate stays load-bearing for copy that names the
+    // compilation specifically: a blank credit isn't a compilation, so
+    // telling the DJ that would name a fix they didn't need.
+    it("shows the compilation hint for a refused credit but not for a merely blank one", async () => {
+      rotationDataMock = [compilation()];
+      const { user } = renderWithProviders(<EntryForm />);
+      await pickRotation(user, "In-Correcto");
+
+      expect(
+        screen.getByText(/compilation — name the artist on this track/i)
+      ).toBeInTheDocument();
+
+      rotationDataMock = [uncredited()];
+      const { user: user2 } = renderWithProviders(<EntryForm />);
+      await user2.selectOptions(getNamedSelect("releaseType"), "rotationRelease");
+      await user2.selectOptions(getNamedSelect("rotationType"), "heavy");
+      await selectByText(user2, getNamedSelect("heavyRelease"), "Sallie Gardner");
+
+      expect(
+        screen.queryByText(/compilation — name the artist on this track/i)
+      ).not.toBeInTheDocument();
     });
   });
 });
