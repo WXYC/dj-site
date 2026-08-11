@@ -44,10 +44,16 @@ describe("isArtistNameConflictData", () => {
 
   it.each([
     [
-      "a body with no reason field at all, exactly what today's deployed backend sends",
+      "a body with no reason field at all, which is what a backend predating the discriminant sends",
       { artist: { artist_id: 5, artist_name: "Stereolab", code_letters: "ST" } },
     ],
-    ["a reason value this endpoint has never sent", { reason: "artist_code_conflict" }],
+    [
+      "the code-triple conflict's own discriminant, which must not route to the name-conflict remedy",
+      {
+        reason: "artist_code_conflict",
+        artist: { artist_id: 5, artist_name: "Stereolab", code_letters: "ST" },
+      },
+    ],
     ["a non-object body", "Artist code already exists for that genre and code letters."],
     ["null", null],
     ["undefined", undefined],
