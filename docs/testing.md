@@ -172,9 +172,17 @@ server.use(
 
 ## Test Organization
 
-- `lib/__tests__/features/<feature>/` -- Slice tests, API structure tests, conversion tests
-- `src/components/**/*.test.tsx` -- Component tests (co-located with the component)
-- `tests/` -- Additional component and capability tests
+Tests are never co-located with source. Every vitest test lives under `tests/`, mirroring the path of the source it covers:
+
+- `tests/unit/` -- Slice tests, API structure tests, conversion tests, pure utilities
+- `tests/integration/` -- Component tests and multi-module behaviour
+- `tests/contract/` -- Backend-Service contract tests
+- `tests/helpers/` -- Factories and harnesses
+- `tests/fakes/` -- MSW handlers
+- `tests/fixtures/` -- Static fixture data
+- `tests/setup/` -- Vitest setup files
+
+Playwright specs stay in `e2e/`, and bats scripts in `scripts/__tests__/`.
 
 ## Test Conventions
 
