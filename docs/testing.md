@@ -176,7 +176,7 @@ Tests are never co-located with source. Every vitest test lives under `tests/`, 
 
 - `tests/unit/` -- Slice tests, API structure tests, conversion tests, pure utilities
 - `tests/integration/` -- Component tests and multi-module behaviour
-- `tests/contract/` -- Backend-Service contract tests
+- `tests/contract/` -- Wire-shape contracts (charset round-trip, backend soft-fail) and bundled-asset budget guards
 - `tests/helpers/` -- Factories and harnesses
 - `tests/fakes/` -- MSW handlers
 - `tests/fixtures/` -- Static fixture data
