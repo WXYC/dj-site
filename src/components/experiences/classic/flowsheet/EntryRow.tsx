@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type DragEvent as ReactDragEvent } from "react";
+import { toast } from "sonner";
 import {
   FlowsheetEntry,
   isFlowsheetSongEntry,
@@ -10,6 +11,7 @@ import {
   isFlowsheetEndShowEntry,
   UpdateRequestBody,
 } from "@/lib/features/flowsheet/types";
+import { flowsheetArtistRejection } from "@/lib/features/flowsheet/various-artists-guard";
 import EntryActionMenu from "./EntryActionMenu";
 import { formatShortDate, formatShortTime } from "./marker-format";
 import "@/src/styles/classic/segue.css";
@@ -91,6 +93,16 @@ export default function EntryRow({
       record_label: draft.record_label.trim(),
     };
     if (!trimmed.track_title) return;
+    // Classic has no queue — every row this edits is already posted, so the
+    // artist is refused unconditionally, matching the flowsheet-write rule
+    // in flowsheetArtistRejection. Checked before onUpdate, not inside it,
+    // so a refusal leaves the row in edit mode for the same reason the
+    // empty-track_title check above does.
+    const rejection = flowsheetArtistRejection(trimmed.artist_name);
+    if (rejection) {
+      toast.error(rejection);
+      return;
+    }
     onUpdate(entry.id, {
       ...trimmed,
       request_flag: draft.request_flag,

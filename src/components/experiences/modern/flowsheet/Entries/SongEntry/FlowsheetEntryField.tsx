@@ -1,12 +1,14 @@
 "use client";
 
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
+import { flowsheetArtistRejection } from "@/lib/features/flowsheet/various-artists-guard";
 import { useFlowsheetActions, useLiveStatus } from "@/src/hooks/flowsheetHooks";
 import { toTitleCase } from "@/src/utilities/stringutilities";
 import { Box, IconButton, Tooltip, Typography, TypographyProps } from "@mui/joy";
 import { CheckRounded, EditOutlined } from "@mui/icons-material";
 import { ClickAwayListener } from "@mui/base/ClickAwayListener";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { toast } from "sonner";
 import { useAppDispatch } from "@/lib/hooks";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 
@@ -52,22 +54,36 @@ export default function FlowsheetEntryField({
   const saveAndClose = useCallback(
     (e: MouseEvent | TouchEvent | FormEvent<HTMLFormElement>) => {
       e.preventDefault();
-      setEditing(false);
 
       if (queue) {
+        setEditing(false);
         dispatch(flowsheetSlice.actions.updateQueueEntry({
           entry_id: entry.id,
           field: name,
           value: value,
         }));
-      } else {
-        updateFlowsheet({
-          entry_id: entry.id,
-          data: {
-            [name]: value,
-          },
-        });
+        return;
       }
+
+      // A blank artist is a queue-only escape hatch (branch above); a posted
+      // row is the permanent record, so this field alone must refuse both
+      // blank and a compilation credit. Checked before setEditing(false) so
+      // a refusal leaves the input open with the DJ's typed value intact.
+      if (name === "artist_name") {
+        const rejection = flowsheetArtistRejection(value);
+        if (rejection) {
+          toast.error(rejection);
+          return;
+        }
+      }
+
+      setEditing(false);
+      updateFlowsheet({
+        entry_id: entry.id,
+        data: {
+          [name]: value,
+        },
+      });
     },
     [entry, value, queue, name, dispatch, updateFlowsheet]
   );

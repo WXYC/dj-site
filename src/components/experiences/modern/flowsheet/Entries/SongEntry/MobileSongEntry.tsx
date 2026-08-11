@@ -2,6 +2,7 @@
 
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
+import { flowsheetArtistRejection } from "@/lib/features/flowsheet/various-artists-guard";
 import { useAppDispatch } from "@/lib/hooks";
 import { useFlowsheetActions, useShowControl } from "@/src/hooks/flowsheetHooks";
 import { useFlowsheetMoveContext } from "@/src/components/experiences/modern/flowsheet/Entries/dragContext";
@@ -27,6 +28,7 @@ import {
   Typography,
 } from "@mui/joy";
 import { memo, useEffect, useState } from "react";
+import { toast } from "sonner";
 import RemoveButton from "../Components/RemoveButton";
 import FlowsheetEntryField from "./FlowsheetEntryField";
 import SongEntryControls from "./SongEntryControls";
@@ -120,10 +122,22 @@ const MobileSongEntry = memo(function MobileSongEntry({
           })
         )
       );
-    } else {
-      // One call carries all four fields.
-      updateFlowsheet({ entry_id: entry.id, data: { ...draft } });
+      setEditing(false);
+      return;
     }
+
+    // Posted entries are the permanent record: refuse before the combined
+    // write, or a rejected artist would still carry the other three fields
+    // through. Checked before setEditing(false) so refusal leaves the draft
+    // open for the DJ to fix rather than discarding it.
+    const rejection = flowsheetArtistRejection(draft.artist_name);
+    if (rejection) {
+      toast.error(rejection);
+      return;
+    }
+
+    // One call carries all four fields.
+    updateFlowsheet({ entry_id: entry.id, data: { ...draft } });
     setEditing(false);
   };
 
