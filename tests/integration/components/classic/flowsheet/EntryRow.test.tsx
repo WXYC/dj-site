@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, screen } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers/render";
 import { createTestFlowsheetEntry } from "@/tests/helpers";
@@ -7,7 +7,16 @@ import type {
   FlowsheetEntry,
   UpdateRequestBody,
 } from "@/lib/features/flowsheet/types";
+import {
+  MISSING_ARTIST_REJECTION_MESSAGE,
+  VARIOUS_ARTISTS_REJECTION_MESSAGE,
+} from "@/lib/features/flowsheet/various-artists-guard";
 import EntryRow from "@/src/components/experiences/classic/flowsheet/EntryRow";
+
+const toastErrorMock = vi.fn();
+vi.mock("sonner", () => ({
+  toast: { error: (...args: unknown[]) => toastErrorMock(...args) },
+}));
 
 // renderInTable wraps EntryRow in a <table><tbody> so the row's <td> elements
 // are mounted in a valid layout context (RTL otherwise warns).
@@ -702,5 +711,79 @@ describe("Classic EntryRow action menu + inline edit (song rows)", () => {
     expect(
       screen.queryByRole("button", { name: /actions/i })
     ).toBeNull();
+  });
+});
+
+// Classic has no queue — every row EntryRow edits is already posted to the
+// permanent flowsheet, so the artist guard applies unconditionally on Save.
+describe("Classic EntryRow artist guard on save (posted entries only, no queue)", () => {
+  const baseEntry = () =>
+    createTestFlowsheetEntry({
+      id: 40,
+      artist_name: "Cat Power",
+      track_title: "Metal Heart",
+      album_title: "Moon Pix",
+      record_label: "Matador",
+      request_flag: false,
+    });
+
+  beforeEach(() => {
+    toastErrorMock.mockClear();
+  });
+
+  function editArtistAndSave(container: HTMLElement, artistValue: string) {
+    fireEvent.click(screen.getByRole("button", { name: /actions/i }));
+    fireEvent.click(screen.getByText("Edit"));
+    fireEvent.change(
+      container.querySelector('input[name="artist_name"]') as HTMLInputElement,
+      { target: { value: artistValue } }
+    );
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+  }
+
+  it.each(["Various Artists", "V/A", "VA"])(
+    "refuses saving the artist as %s and leaves the row in edit mode",
+    (artist) => {
+      const onUpdate = vi.fn();
+      const { container } = renderRow({ entry: baseEntry(), onUpdate });
+
+      editArtistAndSave(container, artist);
+
+      expect(onUpdate).not.toHaveBeenCalled();
+      expect(toastErrorMock).toHaveBeenCalledWith(
+        VARIOUS_ARTISTS_REJECTION_MESSAGE
+      );
+      expect(container.querySelector('input[name="artist_name"]')).not.toBeNull();
+    }
+  );
+
+  it.each(["", "   "])(
+    "refuses saving a blank artist (%j) and leaves the row in edit mode",
+    (artist) => {
+      const onUpdate = vi.fn();
+      const { container } = renderRow({ entry: baseEntry(), onUpdate });
+
+      editArtistAndSave(container, artist);
+
+      expect(onUpdate).not.toHaveBeenCalled();
+      expect(toastErrorMock).toHaveBeenCalledWith(
+        MISSING_ARTIST_REJECTION_MESSAGE
+      );
+      expect(container.querySelector('input[name="artist_name"]')).not.toBeNull();
+    }
+  );
+
+  it("saves normally and exits edit mode when the artist is a real performer", () => {
+    const onUpdate = vi.fn();
+    const { container } = renderRow({ entry: baseEntry(), onUpdate });
+
+    editArtistAndSave(container, "Chuquimamani-Condori");
+
+    expect(onUpdate).toHaveBeenCalledWith(
+      40,
+      expect.objectContaining({ artist_name: "Chuquimamani-Condori" })
+    );
+    expect(toastErrorMock).not.toHaveBeenCalled();
+    expect(container.querySelector('input[name="artist_name"]')).toBeNull();
   });
 });

@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
+import {
+  MISSING_ARTIST_REJECTION_MESSAGE,
+  VARIOUS_ARTISTS_REJECTION_MESSAGE,
+} from "@/lib/features/flowsheet/various-artists-guard";
 import { FlowsheetMoveContext } from "@/src/components/experiences/modern/flowsheet/Entries/dragContext";
 import MobileSongEntry from "@/src/components/experiences/modern/flowsheet/Entries/SongEntry/MobileSongEntry";
 import { createTestFlowsheetEntry, renderWithProviders } from "@/tests/helpers";
@@ -9,14 +13,21 @@ const mockUseShowControl = vi.fn(() => ({
   live: true,
   currentShow: 100,
 }));
+const mockUpdateFlowsheet = vi.fn();
+const mockDispatch = vi.fn();
 
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useShowControl: () => mockUseShowControl(),
-  useFlowsheetActions: () => ({ updateFlowsheet: vi.fn() }),
+  useFlowsheetActions: () => ({ updateFlowsheet: mockUpdateFlowsheet }),
 }));
 
 vi.mock("@/lib/hooks", () => ({
-  useAppDispatch: () => vi.fn(),
+  useAppDispatch: () => mockDispatch,
+}));
+
+const toastErrorMock = vi.fn();
+vi.mock("sonner", () => ({
+  toast: { error: (...args: unknown[]) => toastErrorMock(...args) },
 }));
 
 vi.mock("@/src/components/experiences/modern/flowsheet/Entries/SongEntry/usePlayNow", () => ({
@@ -166,5 +177,95 @@ describe("MobileSongEntry discogsUnavailable artwork gate", () => {
     expect(
       await screen.findByText("embargoed until 2026-09-01")
     ).toBeInTheDocument();
+  });
+});
+
+// saveAll carries all four fields in one call, so a rejected artist has to
+// block the whole write, not just the artist field. The escape hatch that
+// lets a queue row's artist stay blank lives in the `queue` branch above
+// this guard, so it must not be reachable through it.
+describe("MobileSongEntry save-all artist guard", () => {
+  const FIELD_ORDER = ["track_title", "artist_name", "album_title", "record_label"];
+
+  const entry = (overrides: Partial<FlowsheetSongEntry> = {}) =>
+    createTestFlowsheetEntry({
+      id: 50,
+      show_id: 100,
+      track_title: "Metal Heart",
+      artist_name: "Cat Power",
+      album_title: "Moon Pix",
+      record_label: "Matador",
+      request_flag: false,
+      ...overrides,
+    });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseShowControl.mockReturnValue({ live: true, currentShow: 100 });
+  });
+
+  function editArtistAndSave(props: Partial<Parameters<typeof MobileSongEntry>[0]>, artistValue: string) {
+    renderWithProviders(
+      <FlowsheetMoveContext.Provider value={{ moveEntry: mockMoveEntry }}>
+        <MobileSongEntry entry={entry()} playing={false} queue={false} {...props} />
+      </FlowsheetMoveContext.Provider>
+    );
+    fireEvent.click(screen.getByLabelText("Edit entry"));
+    const artistInput = screen.getAllByRole("textbox")[FIELD_ORDER.indexOf("artist_name")];
+    fireEvent.change(artistInput, { target: { value: artistValue } });
+    fireEvent.click(screen.getByLabelText("Save entry"));
+  }
+
+  it.each(["Various Artists", "V/A", "VA"])(
+    "refuses saving a posted entry's artist as %s",
+    (artist) => {
+      editArtistAndSave({ queue: false }, artist);
+
+      expect(mockUpdateFlowsheet).not.toHaveBeenCalled();
+      expect(toastErrorMock).toHaveBeenCalledWith(
+        VARIOUS_ARTISTS_REJECTION_MESSAGE
+      );
+      // Still in edit mode — the Save control, not the Edit control, is present.
+      expect(screen.getByLabelText("Save entry")).toBeInTheDocument();
+    }
+  );
+
+  it.each(["", "   "])(
+    "refuses saving a posted entry with a blank artist (%j)",
+    (artist) => {
+      editArtistAndSave({ queue: false }, artist);
+
+      expect(mockUpdateFlowsheet).not.toHaveBeenCalled();
+      expect(toastErrorMock).toHaveBeenCalledWith(
+        MISSING_ARTIST_REJECTION_MESSAGE
+      );
+      expect(screen.getByLabelText("Save entry")).toBeInTheDocument();
+    }
+  );
+
+  it("saves normally when the posted entry's artist is a real performer", () => {
+    editArtistAndSave({ queue: false }, "Jessica Pratt");
+
+    expect(mockUpdateFlowsheet).toHaveBeenCalledWith({
+      entry_id: 50,
+      data: expect.objectContaining({ artist_name: "Jessica Pratt" }),
+    });
+    expect(toastErrorMock).not.toHaveBeenCalled();
+  });
+
+  it("still blanks a queue row's artist (the mail bin escape hatch)", async () => {
+    const { flowsheetSlice } = await import("@/lib/features/flowsheet/frontend");
+
+    editArtistAndSave({ queue: true }, "");
+
+    expect(mockDispatch).toHaveBeenCalledWith(
+      flowsheetSlice.actions.updateQueueEntry({
+        entry_id: 50,
+        field: "artist_name",
+        value: "",
+      })
+    );
+    expect(mockUpdateFlowsheet).not.toHaveBeenCalled();
+    expect(toastErrorMock).not.toHaveBeenCalled();
   });
 });

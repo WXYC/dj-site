@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { renderWithProviders } from "@/tests/helpers";
 import FlowsheetEntryField from "@/src/components/experiences/modern/flowsheet/Entries/SongEntry/FlowsheetEntryField";
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
+import {
+  MISSING_ARTIST_REJECTION_MESSAGE,
+  VARIOUS_ARTISTS_REJECTION_MESSAGE,
+} from "@/lib/features/flowsheet/various-artists-guard";
 
 // Mock hooks
 const mockUseLiveStatus = vi.fn();
@@ -31,6 +36,11 @@ vi.mock("@/lib/features/flowsheet/frontend", () => ({
 
 vi.mock("@/src/utilities/stringutilities", () => ({
   toTitleCase: (str: string) => str.charAt(0).toUpperCase() + str.slice(1),
+}));
+
+const toastErrorMock = vi.fn();
+vi.mock("sonner", () => ({
+  toast: { error: (...args: unknown[]) => toastErrorMock(...args) },
 }));
 
 describe("FlowsheetEntryField", () => {
@@ -726,6 +736,126 @@ describe("FlowsheetEntryField", () => {
           artist_name: "API Artist",
         },
       });
+    });
+  });
+
+  // FlowsheetEntryField is shared by queue rows and posted rows (`canEdit =
+  // editable && live`). A blank artist is a deliberate escape hatch on a
+  // queue row — the mail bin's refusal redirects here — so the guard below
+  // must apply only to the non-queue (posted) branch.
+  describe("Posted-row artist guard (queue rows stay unguarded)", () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+      mockUseLiveStatus.mockReturnValue({ live: true });
+      mockUseFlowsheet.mockReturnValue({ updateFlowsheet: mockUpdateFlowsheet });
+    });
+
+    function editAndSubmit(entry: FlowsheetSongEntry, queue: boolean, value: string) {
+      renderWithProviders(
+        <FlowsheetEntryField
+          entry={entry}
+          name="artist_name"
+          label="artist"
+          queue={queue}
+          playing={false}
+          editable={true}
+        />
+      );
+      fireEvent.doubleClick(screen.getByText(entry.artist_name));
+      const input = screen.getByRole("textbox");
+      fireEvent.change(input, { target: { value } });
+      fireEvent.submit(input.closest("form")!);
+    }
+
+    it.each(["Various Artists", "V/A", "VA"])(
+      "refuses editing a posted entry's artist to %s",
+      (artist) => {
+        editAndSubmit(mockEntry, false, artist);
+
+        expect(mockUpdateFlowsheet).not.toHaveBeenCalled();
+        expect(toastErrorMock).toHaveBeenCalledWith(
+          VARIOUS_ARTISTS_REJECTION_MESSAGE
+        );
+        // The field stays in edit mode so the DJ can fix the typed value.
+        expect(screen.getByRole("textbox")).toHaveValue(artist);
+      }
+    );
+
+    it.each(["", "   "])(
+      "refuses editing a posted entry's artist to blank (%j)",
+      (artist) => {
+        editAndSubmit(mockEntry, false, artist);
+
+        expect(mockUpdateFlowsheet).not.toHaveBeenCalled();
+        expect(toastErrorMock).toHaveBeenCalledWith(
+          MISSING_ARTIST_REJECTION_MESSAGE
+        );
+        expect(screen.getByRole("textbox")).toBeInTheDocument();
+      }
+    );
+
+    it("still blanks a queue row's artist (the mail bin escape hatch)", async () => {
+      const { flowsheetSlice } = await import(
+        "@/lib/features/flowsheet/frontend"
+      );
+
+      editAndSubmit(mockEntry, true, "");
+
+      expect(flowsheetSlice.actions.updateQueueEntry).toHaveBeenCalledWith({
+        entry_id: 1,
+        field: "artist_name",
+        value: "",
+      });
+      expect(mockUpdateFlowsheet).not.toHaveBeenCalled();
+      expect(toastErrorMock).not.toHaveBeenCalled();
+    });
+
+    it("still accepts a compilation-credit string on a queue row", async () => {
+      const { flowsheetSlice } = await import(
+        "@/lib/features/flowsheet/frontend"
+      );
+
+      editAndSubmit(mockEntry, true, "Various Artists");
+
+      expect(flowsheetSlice.actions.updateQueueEntry).toHaveBeenCalledWith({
+        entry_id: 1,
+        field: "artist_name",
+        value: "Various Artists",
+      });
+      expect(toastErrorMock).not.toHaveBeenCalled();
+    });
+
+    it("does not apply the artist guard to a blank song title", () => {
+      renderWithProviders(
+        <FlowsheetEntryField
+          entry={mockEntry}
+          name="track_title"
+          label="track"
+          queue={false}
+          playing={false}
+          editable={true}
+        />
+      );
+      fireEvent.doubleClick(screen.getByText("Test Track"));
+      const input = screen.getByRole("textbox");
+      fireEvent.change(input, { target: { value: "" } });
+      fireEvent.submit(input.closest("form")!);
+
+      expect(mockUpdateFlowsheet).toHaveBeenCalledWith({
+        entry_id: 1,
+        data: { track_title: "" },
+      });
+      expect(toastErrorMock).not.toHaveBeenCalled();
+    });
+
+    it("saves normally when the posted entry's artist is a real performer", () => {
+      editAndSubmit(mockEntry, false, "Duke Ellington & John Coltrane");
+
+      expect(mockUpdateFlowsheet).toHaveBeenCalledWith({
+        entry_id: 1,
+        data: { artist_name: "Duke Ellington & John Coltrane" },
+      });
+      expect(toastErrorMock).not.toHaveBeenCalled();
     });
   });
 });
