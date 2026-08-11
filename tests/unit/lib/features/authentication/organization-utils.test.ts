@@ -272,6 +272,35 @@ describe("organization-utils", () => {
       expect(mockListMembers).not.toHaveBeenCalled();
     });
 
+    it("returns the JWT role with no organization slug/id at all — the deployed shape, since APP_ORGANIZATION is unset everywhere", async () => {
+      const payload = Buffer.from(
+        JSON.stringify({ sub: "user-123", role: "musicDirector" })
+      ).toString("base64url");
+      server.use(
+        http.get("https://api.wxyc.org/auth/token", () =>
+          HttpResponse.json({ token: `header.${payload}.sig` })
+        )
+      );
+
+      const result = await getUserRoleInOrganization("user-123", undefined, "cookie");
+
+      expect(result).toBe("musicDirector");
+      expect(mockListMembers).not.toHaveBeenCalled();
+    });
+
+    it("fails closed to undefined (not a listMembers call) when there is no JWT role and no organization slug/id", async () => {
+      server.use(
+        http.get("https://api.wxyc.org/auth/token", () =>
+          HttpResponse.json({ token: null })
+        )
+      );
+
+      const result = await getUserRoleInOrganization("user-123", undefined, "cookie");
+
+      expect(result).toBeUndefined();
+      expect(mockListMembers).not.toHaveBeenCalled();
+    });
+
     it("falls through to listMembers when JWT role is unrecognized", async () => {
       const payload = Buffer.from(
         JSON.stringify({ sub: "user-123", role: "superuser" })

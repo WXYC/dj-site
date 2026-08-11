@@ -34,6 +34,21 @@ NEXT_PUBLIC_QR_LOGIN_ENABLED=false
 # QR shared-computer sign-in. Sent to /auth/device/code and /auth/device/token.
 # Defaults to "dj-site" when unset.
 # NEXT_PUBLIC_DEVICE_AUTH_CLIENT_ID=dj-site
+
+# Optional, server-only — better-auth organization slug or ID used ONLY as a
+# fallback for the `organization.listMembers` lookup when a session's WXYC
+# tier can't be read from its JWT (no claim, or the auth service issued a
+# session with no JWT). The primary resolution path (getUserAuthority,
+# fetchOrganizationRoleForUserClient) always tries the JWT first regardless
+# of this variable. Unset in every environment today (including production):
+# the JWT path alone is sufficient, and `listMembers` is admin-only in
+# better-auth so this fallback is a no-op for non-admin sessions anyway.
+# APP_ORGANIZATION=wxyc
+
+# Client-side counterpart of APP_ORGANIZATION, same fallback role. Must match
+# APP_ORGANIZATION's value when both are set, since they name the same
+# organization from the browser and the server respectively.
+# NEXT_PUBLIC_APP_ORGANIZATION=wxyc
 ```
 
 ## Build-time env in CI/CD

@@ -28,7 +28,7 @@ export type BetterAuthSession = {
     appSkin?: string;
     createdAt?: Date;
     updatedAt?: Date;
-    role?: string;  // Base user role (e.g., "user")
+    role?: string | null;  // better-auth's admin-plugin column: 'admin' | null. Never a WXYC tier.
     banned?: boolean;
     banReason?: string | null;
     banExpires?: Date | null;

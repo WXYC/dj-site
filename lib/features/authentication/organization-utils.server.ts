@@ -58,7 +58,7 @@ export async function resolveOrganizationId(
 
 export async function getUserRoleInOrganization(
   userId: string,
-  organizationSlugOrId: string,
+  organizationSlugOrId?: string,
   cookieHeader?: string
 ): Promise<WXYCRole | undefined> {
   try {
@@ -72,8 +72,14 @@ export async function getUserRoleInOrganization(
       }
     }
 
+    // No organization configured to fall back to: the JWT (checked above) is
+    // the only other role source, so there is nothing left to resolve.
+    if (!organizationSlugOrId) {
+      return undefined;
+    }
+
     const organizationId = await resolveOrganizationId(organizationSlugOrId, cookieHeader);
-    
+
     if (!organizationId) {
       return undefined;
     }

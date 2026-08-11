@@ -18,22 +18,44 @@ vi.mock("@/lib/features/authentication/server-client", () => ({
   },
 }));
 
+const mockGetUserRoleInOrganization = vi.fn();
 vi.mock("@/lib/features/authentication/organization-utils.server", () => ({
   getAppOrganizationId: vi.fn().mockReturnValue(undefined),
-  getUserRoleInOrganization: vi.fn().mockResolvedValue(undefined),
+  getUserRoleInOrganization: (userId: string, orgId: string | undefined, cookie?: string) =>
+    mockGetUserRoleInOrganization(userId, orgId, cookie),
 }));
 
 import { getUserFromSession } from "@/lib/features/authentication/server-utils";
-import {
-  createTestBetterAuthSession,
-  createTestSessionWithRole,
-} from "@/tests/helpers";
+import { createTestBetterAuthSession } from "@/tests/helpers";
+import type { BetterAuthSession } from "@/lib/features/authentication/utilities";
+import type { WXYCRole } from "@/lib/features/authentication/types";
+
+/**
+ * A realistic session (role null — better-auth's admin-plugin column, never
+ * a WXYC tier) paired with a mocked JWT-first role resolution, standing in
+ * for what a decoded JWT claim carries in production.
+ */
+function sessionWithResolvedRole(role: WXYCRole): BetterAuthSession {
+  mockGetUserRoleInOrganization.mockResolvedValue(role);
+  return createTestBetterAuthSession({
+    user: {
+      id: "test-user-id-123",
+      email: "testdj@wxyc.org",
+      name: "testdj",
+      emailVerified: true,
+      realName: "Test User",
+      djName: "DJ Test",
+      role: null,
+    },
+  });
+}
 
 describe("getUserFromSession", () => {
   beforeEach(() => {
     mockCookies.mockReturnValue({
       toString: () => "session=test-cookie",
     });
+    mockGetUserRoleInOrganization.mockReset();
   });
 
   it("should extract basic user information from session", async () => {
@@ -92,25 +114,25 @@ describe("getUserFromSession", () => {
   });
 
   it("should map station manager role to SM authority", async () => {
-    const session = createTestSessionWithRole("stationManager");
+    const session = sessionWithResolvedRole("stationManager");
 
     expect((await getUserFromSession(session)).authority).toBe(Authorization.SM);
   });
 
-  it("should map music director role to MD authority", async () => {
-    const session = createTestSessionWithRole("musicDirector");
+  it("should map music director role to MD authority — the mapping this issue fixes when APP_ORGANIZATION is unset", async () => {
+    const session = sessionWithResolvedRole("musicDirector");
 
     expect((await getUserFromSession(session)).authority).toBe(Authorization.MD);
   });
 
   it("should map dj role to DJ authority", async () => {
-    const session = createTestSessionWithRole("dj");
+    const session = sessionWithResolvedRole("dj");
 
     expect((await getUserFromSession(session)).authority).toBe(Authorization.DJ);
   });
 
   it("should map member role to NO authority", async () => {
-    const session = createTestSessionWithRole("member");
+    const session = sessionWithResolvedRole("member");
 
     expect((await getUserFromSession(session)).authority).toBe(Authorization.NO);
   });

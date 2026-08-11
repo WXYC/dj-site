@@ -63,39 +63,30 @@ export async function requireAuth(): Promise<BetterAuthSession> {
 }
 
 /**
- * Extracts the user's authorization level. When an organization is configured,
- * authority is scoped to it: an unresolved org role (not a member, or a
- * transient failure) fails closed to NO, and the session base role is never
- * trusted. The base role is used only when no organization is configured.
+ * Extracts the user's WXYC tier from the auth JWT, unconditionally — that is
+ * the only credential that reliably carries it. `session.user.role` is
+ * better-auth's admin-plugin column ('admin' | null); it is a different axis
+ * from the WXYC tier and is never read here, even to justify SM for an
+ * admin. APP_ORGANIZATION, when configured, is consulted only as a fallback
+ * for the `listMembers` lookup when the JWT is absent or carries no
+ * recognized role — it is not a branch condition, so this resolves
+ * correctly whether or not APP_ORGANIZATION is set. Any resolution failure
+ * (no JWT claim, no org membership, a thrown error) fails closed to NO.
  */
 async function getUserAuthority(session: BetterAuthSession, cookieHeader?: string): Promise<Authorization> {
   const organizationId = getAppOrganizationId();
 
-  if (organizationId) {
-    try {
-      const orgRole = await getOrgRoleCached(
-        session.user.id,
-        organizationId,
-        cookieHeader
-      );
+  try {
+    const orgRole = await getOrgRoleCached(session.user.id, organizationId, cookieHeader);
 
-      if (orgRole !== undefined) {
-        return roleToAuthorization(orgRole);
-      }
-    } catch (error) {
-      console.warn("Failed to fetch organization role; failing closed to NO authority:", error);
+    if (orgRole !== undefined) {
+      return roleToAuthorization(orgRole);
     }
-
-    return Authorization.NO;
+  } catch (error) {
+    console.warn("Failed to resolve WXYC role from JWT/organization membership; failing closed to NO authority:", error);
   }
 
-  const organizationRole = (session.user as any).organization?.role;
-  const userRole = (session.user as any).role;
-  const metadataRole = (session.user as any).metadata?.role;
-  const customRole = (session.user as any).customRole;
-  const roleToMap = organizationRole || metadataRole || customRole || userRole;
-
-  return roleToAuthorization(roleToMap);
+  return Authorization.NO;
 }
 
 /** Non-redirecting permission check. */

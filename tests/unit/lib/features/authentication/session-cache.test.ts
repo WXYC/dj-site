@@ -19,7 +19,7 @@ vi.mock("@/lib/features/authentication/server-client", () => ({
 
 const mockGetUserRoleInOrganization = vi.fn();
 vi.mock("@/lib/features/authentication/organization-utils.server", () => ({
-  getUserRoleInOrganization: (userId: string, orgId: string, cookie?: string) =>
+  getUserRoleInOrganization: (userId: string, orgId: string | undefined, cookie?: string) =>
     mockGetUserRoleInOrganization(userId, orgId, cookie),
 }));
 
@@ -69,6 +69,19 @@ describe("session-cache", () => {
         "cookie"
       );
       expect(role).toBe("dj");
+    });
+
+    it("forwards an undefined organizationId — the deployed shape, since APP_ORGANIZATION is unset", async () => {
+      mockGetUserRoleInOrganization.mockResolvedValue("musicDirector");
+
+      const role = await getOrgRoleCached("u1", undefined, "cookie");
+
+      expect(mockGetUserRoleInOrganization).toHaveBeenCalledWith(
+        "u1",
+        undefined,
+        "cookie"
+      );
+      expect(role).toBe("musicDirector");
     });
   });
 });

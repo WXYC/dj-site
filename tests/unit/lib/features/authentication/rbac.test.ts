@@ -22,68 +22,89 @@ vi.mock("@/lib/features/authentication/server-client", () => ({
   },
 }));
 
+const mockGetUserRoleInOrganization = vi.fn();
 vi.mock("@/lib/features/authentication/organization-utils.server", () => ({
   getAppOrganizationId: vi.fn().mockReturnValue(undefined),
-  getUserRoleInOrganization: vi.fn().mockResolvedValue(undefined),
+  getUserRoleInOrganization: (userId: string, orgId: string | undefined, cookie?: string) =>
+    mockGetUserRoleInOrganization(userId, orgId, cookie),
 }));
 
 import {
   checkRole,
   requireRole,
 } from "@/lib/features/authentication/server-utils";
-import {
-  createTestBetterAuthSession,
-  createTestSessionWithRole,
-} from "@/tests/helpers";
+import { createTestBetterAuthSession } from "@/tests/helpers";
+import type { BetterAuthSession } from "@/lib/features/authentication/utilities";
+import type { WXYCRole } from "@/lib/features/authentication/types";
+
+/**
+ * A realistic session (role null — better-auth's admin-plugin column, never
+ * a WXYC tier) paired with a mocked JWT-first role resolution, standing in
+ * for what a decoded JWT claim carries in production.
+ */
+function sessionWithResolvedRole(role: WXYCRole): BetterAuthSession {
+  mockGetUserRoleInOrganization.mockResolvedValue(role);
+  return createTestBetterAuthSession({
+    user: {
+      id: "test-id",
+      email: "test@wxyc.org",
+      name: "testuser",
+      emailVerified: true,
+      realName: "Test User",
+      djName: "DJ Test",
+      role: null,
+    },
+  });
+}
 
 describe("checkRole", () => {
   beforeEach(() => {
     mockCookies.mockReturnValue({
       toString: () => "session=test-cookie",
     });
+    mockGetUserRoleInOrganization.mockReset();
   });
 
   it("should return true when user has sufficient role", async () => {
-    const session = createTestSessionWithRole("stationManager");
+    const session = sessionWithResolvedRole("stationManager");
 
     expect(await checkRole(session, Authorization.DJ)).toBe(true);
   });
 
   it("should return true when user has exact role", async () => {
-    const session = createTestSessionWithRole("dj");
+    const session = sessionWithResolvedRole("dj");
 
     expect(await checkRole(session, Authorization.DJ)).toBe(true);
   });
 
   it("should return false when user has insufficient role", async () => {
-    const session = createTestSessionWithRole("member");
+    const session = sessionWithResolvedRole("member");
 
     expect(await checkRole(session, Authorization.DJ)).toBe(false);
   });
 
   it("should check role hierarchy: SM > MD > DJ > NO", async () => {
-    const smSession = createTestSessionWithRole("stationManager");
-    const mdSession = createTestSessionWithRole("musicDirector");
-    const djSession = createTestSessionWithRole("dj");
-
+    const smSession = sessionWithResolvedRole("stationManager");
     expect(await checkRole(smSession, Authorization.SM)).toBe(true);
     expect(await checkRole(smSession, Authorization.MD)).toBe(true);
     expect(await checkRole(smSession, Authorization.DJ)).toBe(true);
 
+    const mdSession = sessionWithResolvedRole("musicDirector");
     expect(await checkRole(mdSession, Authorization.SM)).toBe(false);
     expect(await checkRole(mdSession, Authorization.MD)).toBe(true);
     expect(await checkRole(mdSession, Authorization.DJ)).toBe(true);
 
+    const djSession = sessionWithResolvedRole("dj");
     expect(await checkRole(djSession, Authorization.SM)).toBe(false);
     expect(await checkRole(djSession, Authorization.MD)).toBe(false);
     expect(await checkRole(djSession, Authorization.DJ)).toBe(true);
   });
 
   it("should handle NO authorization requirement", async () => {
-    const memberSession = createTestSessionWithRole("member");
-    const djSession = createTestSessionWithRole("dj");
-
+    const memberSession = sessionWithResolvedRole("member");
     expect(await checkRole(memberSession, Authorization.NO)).toBe(true);
+
+    const djSession = sessionWithResolvedRole("dj");
     expect(await checkRole(djSession, Authorization.NO)).toBe(true);
   });
 
@@ -121,7 +142,7 @@ describe("requireRole", () => {
   });
 
   it("should not redirect when user has sufficient role", async () => {
-    const session = createTestSessionWithRole("stationManager");
+    const session = sessionWithResolvedRole("stationManager");
 
     await requireRole(session, Authorization.DJ);
 
@@ -129,7 +150,7 @@ describe("requireRole", () => {
   });
 
   it("should redirect to dashboard home when user has insufficient role", async () => {
-    const session = createTestSessionWithRole("member");
+    const session = sessionWithResolvedRole("member");
 
     await expect(requireRole(session, Authorization.DJ)).rejects.toThrow(
       "REDIRECT:/dashboard"
@@ -140,7 +161,7 @@ describe("requireRole", () => {
   it("should redirect to default path when NEXT_PUBLIC_DASHBOARD_HOME_PAGE is not set", async () => {
     process.env = { ...originalEnv };
     delete process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE;
-    const session = createTestSessionWithRole("member");
+    const session = sessionWithResolvedRole("member");
 
     await expect(requireRole(session, Authorization.DJ)).rejects.toThrow(
       "REDIRECT:/dashboard/catalog"
@@ -148,7 +169,7 @@ describe("requireRole", () => {
   });
 
   it("should allow SM to access SM-required resources", async () => {
-    const session = createTestSessionWithRole("stationManager");
+    const session = sessionWithResolvedRole("stationManager");
 
     await requireRole(session, Authorization.SM);
 
@@ -156,13 +177,21 @@ describe("requireRole", () => {
   });
 
   it("should not allow MD to access SM-required resources", async () => {
-    const session = createTestSessionWithRole("musicDirector");
+    const session = sessionWithResolvedRole("musicDirector");
 
     await expect(requireRole(session, Authorization.SM)).rejects.toThrow("REDIRECT:/dashboard");
   });
 
+  it("should allow MD to reach an MD-required resource without redirecting — the redirect this issue fixes", async () => {
+    const session = sessionWithResolvedRole("musicDirector");
+
+    await requireRole(session, Authorization.MD);
+
+    expect(mockRedirect).not.toHaveBeenCalled();
+  });
+
   it("should allow any role to access NO-required resources", async () => {
-    const memberSession = createTestSessionWithRole("member");
+    const memberSession = sessionWithResolvedRole("member");
 
     await requireRole(memberSession, Authorization.NO);
 

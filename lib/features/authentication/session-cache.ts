@@ -49,7 +49,7 @@ export const getSessionCached = cache((cookieHeader: string) =>
 );
 
 export const getOrgRoleCached = cache(
-  (userId: string, organizationId: string, cookieHeader?: string) =>
+  (userId: string, organizationId: string | undefined, cookieHeader?: string) =>
     measure("auth.orgRole", () =>
       getUserRoleInOrganization(userId, organizationId, cookieHeader)
     )
