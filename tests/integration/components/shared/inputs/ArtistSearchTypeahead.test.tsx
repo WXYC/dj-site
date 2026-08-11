@@ -1111,6 +1111,59 @@ describe("ArtistSearchTypeahead", () => {
         expect(requests).toHaveLength(2);
       });
 
+      // Pressing "Try again" clears `isError` the instant the retry's request
+      // goes pending — well before that request has an answer. Keying the panel
+      // off `isError` alone would let the still-cached list from the outage fill
+      // that gap, offering rows that were correct once, plus the "create new"
+      // row, as though the search had answered. That is the duplicate artist
+      // this panel exists to prevent, reached through the retry button.
+      it("keeps the outage panel up through a retry's in-flight window, not just until it starts", async () => {
+        let requestCount = 0;
+        let releaseRetry = () => {};
+        const retryHeld = new Promise<void>((resolve) => {
+          releaseRetry = resolve;
+        });
+        mockArtistSearch(async () => {
+          requestCount += 1;
+          if (requestCount === 1) {
+            return HttpResponse.json({ artists: [juanaMolina] });
+          }
+          if (requestCount === 2) {
+            return HttpResponse.json({ message: "boom" }, { status: 500 });
+          }
+          await retryHeld;
+          return HttpResponse.json({ artists: [juanaMolina] });
+        });
+        const { user, store } = renderWithProviders(<ControlledTypeahead />);
+
+        const input = await findInput();
+        await user.type(input, "Juana");
+        await vi.advanceTimersByTimeAsync(400);
+        await screen.findByText("Juana Molina");
+
+        await act(async () => {
+          store.dispatch(
+            catalogApi.util.invalidateTags([{ type: "ArtistSearch", id: "LIST" }]),
+          );
+          await vi.advanceTimersByTimeAsync(0);
+        });
+        await screen.findByRole("alert");
+
+        await user.click(screen.getByRole("button", { name: /try again/i }));
+
+        expect(screen.getByRole("alert")).toBeInTheDocument();
+        expect(screen.queryByText("Juana Molina")).not.toBeInTheDocument();
+        expect(
+          screen.queryByRole("option", { name: /create new artist/i }),
+        ).not.toBeInTheDocument();
+
+        releaseRetry();
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(await screen.findByText("Juana Molina")).toBeInTheDocument();
+        expect(requestCount).toBe(3);
+      });
+
       it("keeps reporting the failure when a retry does not fix it", async () => {
         const requests = mockArtistSearch(() =>
           HttpResponse.json({ message: "boom" }, { status: 500 }),
