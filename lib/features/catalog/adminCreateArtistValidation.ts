@@ -14,10 +14,11 @@ export function parseRequiredPositiveInt(raw: string): number | null {
  * refused the same way, so this — not the body's shape — is what a caller
  * gates resubmission on.
  *
- * Deliberately blind to the body: the backend's only 409 is the code-taken
- * one, but an intermediary can answer 409 with JSON of its own, and a body
- * that fails to parse narrows what can be *said* about the refusal, never
- * whether one happened.
+ * Deliberately blind to the body: the backend answers 409 for more than one
+ * reason (the code-triple conflict, the genre-scoped artist-name conflict),
+ * an intermediary can answer 409 with JSON of its own, and a body that fails
+ * to parse narrows what can be *said* about the refusal, never whether one
+ * happened.
  */
 export function isConflictRejection(
   err: unknown,
@@ -27,19 +28,22 @@ export function isConflictRejection(
 }
 
 /**
- * True when a `POST /library/artists` rejection is the code-taken 409 naming
- * the artist that already holds the code — the only one a caller can report by
- * name instead of as a generic failure.
+ * True when a `POST /library/artists` rejection is a 409 that names an
+ * artist the request conflicts with — the shape both the code-triple
+ * conflict and the genre-scoped artist-name conflict share, so a caller can
+ * report by name instead of as a generic failure. Which of the two it is is
+ * a separate question, answered by `isArtistNameConflictData` against the
+ * same body.
  *
  * Two places have to agree on this exact test, which is why it is one function
  * rather than two: the endpoint drops the body's generic `message` so the
  * recoverable outcome is reported once rather than as a banner plus a toast,
  * and the caller dereferences `artist.artist_name` while rendering that banner
- * with no error boundary beneath it. Were the strip the broader test, a second
- * 409 reason — or an intermediary answering 409 with its own JSON — would lose
- * its message before anything could surface it, leaving only a generic
- * fallback. Were the banner's the broader one, it would throw on a body that
- * carries no artist.
+ * with no error boundary beneath it. Were the strip the broader test, a 409
+ * reason this form cannot name an artist from — or an intermediary answering
+ * 409 with its own JSON — would lose its message before anything could
+ * surface it, leaving only a generic fallback. Were the banner's the broader
+ * one, it would throw on a body that carries no artist.
  */
 export function isAddArtistConflict(
   err: unknown,
@@ -52,5 +56,25 @@ export function isAddArtistConflict(
     !!artist &&
     typeof artist === "object" &&
     typeof (artist as { artist_name?: unknown }).artist_name === "string"
+  );
+}
+
+/**
+ * True when a `POST /library/artists` 409 body identifies itself as the
+ * genre-scoped artist-name conflict rather than the pre-existing code-triple
+ * conflict. The discriminant is `reason === "artist_name_conflict"` on the
+ * raw body; every other value — including a body with no `reason` field at
+ * all, which is exactly what today's deployed backend sends on its one 409 —
+ * is the code-triple case. Takes the raw, untyped body rather than routing
+ * through `isAddArtistConflict` so the distinction stays correct even against
+ * a body this form cannot otherwise name an artist from.
+ */
+export function isArtistNameConflictData(
+  data: unknown,
+): data is { reason: "artist_name_conflict" } {
+  return (
+    !!data &&
+    typeof data === "object" &&
+    (data as { reason?: unknown }).reason === "artist_name_conflict"
   );
 }

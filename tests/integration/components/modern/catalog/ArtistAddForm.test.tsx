@@ -141,6 +141,19 @@ function conflictResponse(overrides: Record<string, unknown> = {}) {
   );
 }
 
+/** The genre-scoped artist-name conflict: distinguishable only by `reason`. */
+function nameConflictResponse(overrides: Record<string, unknown> = {}) {
+  return HttpResponse.json(
+    {
+      message: "Artist name already exists in that genre.",
+      reason: "artist_name_conflict",
+      artist: { artist_id: 5, artist_name: "Stereolab", code_letters: MOLINA },
+      ...overrides,
+    },
+    { status: 409 },
+  );
+}
+
 /** The FormControl wrapping a field, so a helper-text assertion names its owner. */
 function fieldGroup(field: HTMLElement): HTMLElement {
   const group = field.closest(".MuiFormControl-root");
@@ -300,6 +313,23 @@ describe("ArtistAddForm", () => {
       // A recoverable outcome gets one surface. The backend's 409 carries a
       // generic message that the global rejected-query middleware would
       // otherwise toast on top of this banner.
+      expect(toast.error).not.toHaveBeenCalled();
+    });
+
+    it("renders a name-collision banner naming the existing artist, not the code, on a genre-scoped name conflict", async () => {
+      mockAddArtist(() => nameConflictResponse());
+      const { user } = renderWithProviders(<ArtistAddForm />);
+
+      await fillCoreFields(user);
+      await user.click(screen.getByRole("button", { name: /add artist/i }));
+
+      // The code is free here — the name is what collided — so the banner
+      // must say so instead of the code-taken phrasing, which would name the
+      // one remedy (changing the code) that cannot fix this rejection.
+      const alert = await screen.findByRole("alert");
+      expect(alert).toHaveTextContent("Juana Molina");
+      expect(alert).toHaveTextContent("Stereolab");
+      expect(alert).not.toHaveTextContent(`${MOLINA}12`);
       expect(toast.error).not.toHaveBeenCalled();
     });
 
@@ -583,13 +613,35 @@ describe("ArtistAddForm", () => {
         await user.click(screen.getByRole("button", { name: /add artist/i }));
         await waitFor(() => expect(toast.error).toHaveBeenCalled());
 
-        // Every 409 on this endpoint means the code_letters/genre_id/code_number
-        // triple is taken, regardless of whether the body happens to carry a
-        // parseable `artist` to name in a banner — that shape only decides how
-        // the rejection is presented, not whether the pair is actually free.
+        // A 409 that isn't identifiable as a name conflict means the
+        // code_letters/genre_id/code_number triple is taken, regardless of
+        // whether the body happens to carry a parseable `artist` to name in a
+        // banner — that shape only decides how the rejection is presented,
+        // not whether the pair is actually free.
         await waitFor(() =>
           expect(getQueries().length).toBeGreaterThan(peeksBeforeSubmit),
         );
+      });
+
+      it("leaves the preview alone after a genre-scoped name conflict, which says nothing about the code triple", async () => {
+        const { getQueries } = mockPeekCode();
+        mockAddArtist(() => nameConflictResponse());
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await fillCoreFields(user);
+        await waitFor(() => expect(getQueries().length).toBeGreaterThan(0));
+        const peeksBeforeSubmit = getQueries().length;
+
+        await user.click(screen.getByRole("button", { name: /add artist/i }));
+        expect(await screen.findByRole("alert")).toHaveTextContent("Stereolab");
+
+        // Unlike the code-triple conflict, a name conflict leaves the
+        // code_letters/genre_id pair this preview covers untouched — the pair
+        // it just showed as free may still be free, so nothing here justifies
+        // a refetch. Brief settle so an errant invalidation's refetch could
+        // complete before the negative assertion below.
+        await new Promise((r) => setTimeout(r, 10));
+        expect(getQueries()).toHaveLength(peeksBeforeSubmit);
       });
 
       it("leaves the preview alone after a non-409 rejection below 500", async () => {
@@ -928,6 +980,9 @@ describe("ArtistAddForm", () => {
       });
 
       it("leaves the conflict banner and the submit block standing when only the artist name is edited", async () => {
+        // No `reason` field — the shape today's deployed backend sends for
+        // its one 409, and the case this must stay pinned to exactly as it
+        // behaves today.
         mockAddArtist(() => conflictResponse());
         const { user } = renderWithProviders(<ArtistAddForm />);
 
@@ -936,14 +991,32 @@ describe("ArtistAddForm", () => {
         expect(await screen.findByRole("alert")).toHaveTextContent(`${MOLINA}12`);
 
         // The artist name is not part of the (code_letters, genre_id,
-        // code_number) triple the server rejected, so editing it must not
-        // read as an answer about that rejection — unlike the code_letters,
-        // code_number, and genre handlers, handleNameChange must not clear a
-        // still-accurate conflict.
+        // code_number) triple a code-triple conflict rejected, so editing it
+        // must not read as an answer about that rejection — unlike the
+        // code_letters, code_number, and genre handlers, handleNameChange
+        // must not clear a still-accurate code conflict.
         await user.type(screen.getByPlaceholderText("Search artists..."), " II");
 
         expect(screen.getByRole("alert")).toHaveTextContent(`${MOLINA}12`);
         expect(screen.getByRole("button", { name: /add artist/i })).toBeDisabled();
+      });
+
+      it("clears a name-conflict banner and re-enables submission once the artist name is edited", async () => {
+        mockAddArtist(() => nameConflictResponse());
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await fillCoreFields(user);
+        await user.click(screen.getByRole("button", { name: /add artist/i }));
+        expect(await screen.findByRole("alert")).toHaveTextContent("Stereolab");
+        expect(screen.getByRole("button", { name: /add artist/i })).toBeDisabled();
+
+        // Unlike the code-triple case, the artist name IS what a name
+        // conflict rejected — editing it is the one remedy that can change
+        // the outcome, so it must not be left stuck behind a reload.
+        await user.type(screen.getByPlaceholderText("Search artists..."), " Trio");
+
+        expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /add artist/i })).toBeEnabled();
       });
     });
 

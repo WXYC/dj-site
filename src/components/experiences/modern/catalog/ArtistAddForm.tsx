@@ -19,6 +19,7 @@ import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
 import { useAddArtistMutation, useGetGenresQuery } from "@/lib/features/catalog/api";
 import {
   isAddArtistConflict,
+  isArtistNameConflictData,
   isConflictRejection,
   parseRequiredPositiveInt,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
@@ -132,10 +133,11 @@ function ArtistAddFields() {
   const codeLettersInputRef = useRef<HTMLInputElement | null>(null);
   const [codeNumberRaw, setCodeNumberRaw] = useState("");
   const [alphabeticalName, setAlphabeticalName] = useState("");
-  // Snapshots the code the server actually rejected, alongside the response —
-  // `conflict` must not be read against live `codeLetters`/`codeNumberRaw`,
-  // since an MD editing either field after a 409 would otherwise have the
-  // banner keep reporting the new, unsubmitted value as taken.
+  // Snapshots the code and name the server actually rejected, alongside the
+  // response — `conflict` must not be read against live
+  // `codeLetters`/`codeNumberRaw`/`name`, since an MD editing any of them
+  // after a 409 would otherwise have the banner keep reporting the new,
+  // unsubmitted value as taken.
   //
   // `response` is null when the 409 named no artist the banner could render —
   // an intermediary's own JSON, or a shape this form cannot read. The
@@ -145,6 +147,7 @@ function ArtistAddFields() {
   const [conflict, setConflict] = useState<{
     code_letters: string;
     code_number: string;
+    name: string;
     response: AddArtistConflict | null;
   } | null>(null);
   const [added, setAdded] = useState<{ code_letters: string; code_number: number } | null>(
@@ -195,11 +198,11 @@ function ArtistAddFields() {
     !isLoading &&
     existingArtist === null &&
     !dedupCheckStale &&
-    // The code_letters/code_number/genre handlers below already clear
-    // `conflict` on any edit that could change the outcome, so a standing
-    // conflict here means the (code_letters, genre_id, code_number) triple is
-    // still the exact one the server just rejected — resubmitting it
-    // unchanged can only reach the same 409.
+    // Each handler below clears `conflict` once its own edit could change the
+    // rejected outcome — code_letters/code_number/genre for a code-triple
+    // conflict, the name for a name conflict — so a standing conflict here
+    // means the fields relevant to it are still exactly what the server just
+    // rejected: resubmitting unchanged can only reach the same 409.
     conflict === null &&
     trimmedName.length > 0 &&
     !nameTooLong &&
@@ -226,6 +229,15 @@ function ArtistAddFields() {
     // hasn't answered yet.
     if (value.trim() !== trimmedName) {
       setDedupCheckStale(false);
+    }
+    // A name conflict is keyed on the name itself, unlike the code-triple
+    // conflict: editing it away from the rejected value is exactly the
+    // remedy that lets a resubmission succeed, so it must not stay blocked by
+    // state left over from the name the server actually rejected. A standing
+    // code-triple conflict is untouched here — its triple has nothing to do
+    // with the name field.
+    if (conflict?.response && isArtistNameConflictData(conflict.response)) {
+      setConflict(null);
     }
   };
 
@@ -264,6 +276,7 @@ function ArtistAddFields() {
         setConflict({
           code_letters: trimmedCodeLetters,
           code_number: codeNumberRaw.trim(),
+          name: trimmedName,
           response: isAddArtistConflict(err) ? err.data : null,
         });
       }
@@ -464,13 +477,19 @@ function ArtistAddFields() {
             genre_id={genreId}
           />
 
-          {conflict?.response && (
-            <Typography level="body-sm" color="danger" role="alert">
-              {conflict.code_letters}
-              {conflict.code_number} is already taken by{" "}
-              {conflict.response.artist.artist_name}.
-            </Typography>
-          )}
+          {conflict?.response &&
+            (isArtistNameConflictData(conflict.response) ? (
+              <Typography level="body-sm" color="danger" role="alert">
+                {conflict.name} is already taken in this genre by{" "}
+                {conflict.response.artist.artist_name}.
+              </Typography>
+            ) : (
+              <Typography level="body-sm" color="danger" role="alert">
+                {conflict.code_letters}
+                {conflict.code_number} is already taken by{" "}
+                {conflict.response.artist.artist_name}.
+              </Typography>
+            ))}
 
           {added && (
             <Typography level="body-sm" color="success" role="status">
