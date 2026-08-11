@@ -350,7 +350,6 @@ export function createTestAuthenticationState(
 
 // Better Auth session fixtures
 import type { BetterAuthSession } from "@/lib/features/authentication/utilities";
-import type { WXYCRole } from "@/lib/features/authentication/types";
 
 export function createTestBetterAuthSession(
   overrides: Partial<BetterAuthSession> = {}
@@ -397,30 +396,13 @@ export function createTestIncompleteSession(
   return session;
 }
 
-export function createTestSessionWithOrgRole(role: WXYCRole): BetterAuthSession {
-  return createTestBetterAuthSession({
-    user: {
-      id: "test-user-id-123",
-      email: "testdj@wxyc.org",
-      name: "testdj",
-      username: "testdj",
-      emailVerified: true,
-      realName: "Test User",
-      djName: "DJ Test",
-      role: "user",
-      organization: {
-        id: "org-123",
-        name: "WXYC",
-        role: role,
-      },
-    },
-  });
-}
-
 /**
- * Alias for createTestSessionWithOrgRole - creates a session with a specific role
- * set in the user object. When organization-utils is mocked to return undefined for
- * getAppOrganizationId, the auth system falls back to session.user.role.
+ * A session whose base role is better-auth's admin-plugin column, not a
+ * WXYC tier. `betterAuthSessionToAuthenticationData` (client-side, session
+ * fields only, no JWT) reads this directly; server-side WXYC-tier
+ * resolution never does — it resolves the tier from the JWT instead, so
+ * callers exercising that path must mock the JWT/organization-role
+ * resolution function directly rather than relying on this fixture.
  */
 export function createTestSessionWithRole(role: string): BetterAuthSession {
   return createTestBetterAuthSession({

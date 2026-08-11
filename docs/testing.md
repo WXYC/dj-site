@@ -49,8 +49,7 @@ All factories accept a `Partial<T>` overrides argument:
 | `createTestUser(overrides?)` | `User` | username "testdj", authority DJ |
 | `createTestAuthenticatedUser(overrides?)` | `AuthenticatedUser` | Includes user + tokens |
 | `createTestBetterAuthSession(overrides?)` | `BetterAuthSession` | Full session with user/session objects |
-| `createTestSessionWithOrgRole(role)` | `BetterAuthSession` | Session with specific org role |
-| `createTestBetterAuthJWTPayload(overrides?)` | `BetterAuthJwtPayload` | JWT claims |
+| `createTestSessionWithRole(role)` | `BetterAuthSession` | Session with a role on `session.user.role` — the admin-plugin column, for `betterAuthSessionToAuthenticationData` tests only |
 | `createTestAccountResult(overrides?)` | `Account` | Admin roster account |
 | `createTestBinQueryResponse(overrides?)` | `BinQueryResponse` | Bin entry |
 | `createTestOnAirDJResponse(overrides?)` | On-air DJ object | `{ id, dj_name }` |
