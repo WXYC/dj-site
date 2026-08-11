@@ -93,6 +93,7 @@ function ArtistSearchTypeaheadInner({
 }: ArtistSearchTypeaheadProps) {
   const [open, setOpen] = useState(false);
   const [rawHighlightIndex, setHighlightIndex] = useState(NO_HIGHLIGHT);
+  const [retryingFor, setRetryingFor] = useState<string | null>(null);
   // The artist the caller was last told about, held in a ref because nothing
   // rendered here depends on it — it exists only to decide whether that report
   // is still true, at the moment the text is edited or `genreId` moves off the
@@ -165,7 +166,13 @@ function ArtistSearchTypeaheadInner({
   // stale "no match" through exactly the outage it exists to catch, so
   // `showError` does not require `data === undefined`: any error for the
   // current args takes the panel over, stale rows or not.
-  const showError = resultsAreCurrent && isError;
+  // `retryingFor` extends that same coverage across the button-triggered
+  // retry itself, whose pending window clears `isError` before the new
+  // attempt resolves — without it the stale rows and the "create new" row
+  // become selectable again mid-retry, which is the duplicate this panel
+  // exists to prevent. Scoped to `debouncedQuery` so a retry left in flight
+  // for an earlier query cannot blank a later, unrelated query's results.
+  const showError = resultsAreCurrent && (isError || retryingFor === debouncedQuery);
   // Until the first rows land there is nothing to offer but "create new", and
   // offering it against results that have not arrived is how a typeahead built
   // to prevent duplicate artists ends up producing them. The panel reports
@@ -449,7 +456,25 @@ function ArtistSearchTypeaheadInner({
                   size="sm"
                   variant="plain"
                   onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => refetch()}
+                  onClick={() => {
+                    // Moving focus to the input before the next render commits
+                    // keeps focus off a node React may remove — losing focus
+                    // mid-retry would otherwise drop it to <body>, taking
+                    // arrow-key, Enter-to-pick and Escape-to-dismiss with it.
+                    const query = debouncedQuery;
+                    setRetryingFor(query);
+                    // `refetch()`'s returned promise resolves with the settled
+                    // state on both outcomes — it never rejects — so clearing
+                    // the flag belongs in `finally`, not a success-only `then`.
+                    // The comparison against `query` (rather than an
+                    // unconditional clear) leaves the flag alone if the field
+                    // has since moved to a different query, so this retry's
+                    // outcome cannot speak for a query it was never for.
+                    refetch().finally(() => {
+                      setRetryingFor((current) => (current === query ? null : current));
+                    });
+                    inputRef.current?.focus();
+                  }}
                   sx={{ mt: 0.5, px: 0 }}
                 >
                   Try again
