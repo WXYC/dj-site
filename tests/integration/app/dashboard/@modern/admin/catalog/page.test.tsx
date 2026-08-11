@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { renderWithProviders } from "@/tests/helpers";
 
 vi.mock("server-only", () => ({}));
 
@@ -67,10 +67,24 @@ function sessionData(role: string | null) {
 }
 
 describe("catalog admin page", () => {
+  const originalEnv = process.env;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    // vi.clearAllMocks() clears call history but not a configured
+    // mockResolvedValue, so it's reset explicitly rather than relying on
+    // every test below to set one before use.
+    mockGetUserRoleInOrganization.mockReset();
     mockGetAppOrganizationId.mockReturnValue(undefined);
     mockCookiesToString.mockReturnValue("session=test-cookie");
+    // Pinned so the redirect destination asserted below is deterministic —
+    // requireRole falls back to DEFAULT_DASHBOARD_HOME_PAGE otherwise, which
+    // would make the assertion depend on the ambient environment.
+    process.env = { ...originalEnv, NEXT_PUBLIC_DASHBOARD_HOME_PAGE: "/dashboard" };
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
   });
 
   it("reaches the page for a music director with APP_ORGANIZATION unset", async () => {
@@ -78,7 +92,7 @@ describe("catalog admin page", () => {
     mockGetUserRoleInOrganization.mockResolvedValue("musicDirector");
 
     const result = await CatalogAdminPage();
-    render(result);
+    renderWithProviders(result);
 
     expect(mockRedirect).not.toHaveBeenCalled();
   });
@@ -87,8 +101,8 @@ describe("catalog admin page", () => {
     mockGetSession.mockResolvedValue({ data: sessionData(null), error: null });
     mockGetUserRoleInOrganization.mockResolvedValue("dj");
 
-    await expect(CatalogAdminPage()).rejects.toThrow(/^NEXT_REDIRECT:/);
-    expect(mockRedirect).toHaveBeenCalled();
+    await expect(CatalogAdminPage()).rejects.toThrow("NEXT_REDIRECT:/dashboard");
+    expect(mockRedirect).toHaveBeenCalledWith("/dashboard");
   });
 
   it("still reaches the page for a station manager", async () => {
@@ -96,7 +110,7 @@ describe("catalog admin page", () => {
     mockGetUserRoleInOrganization.mockResolvedValue("stationManager");
 
     const result = await CatalogAdminPage();
-    render(result);
+    renderWithProviders(result);
 
     expect(mockRedirect).not.toHaveBeenCalled();
   });
@@ -105,6 +119,7 @@ describe("catalog admin page", () => {
     mockGetSession.mockResolvedValue({ data: sessionData("musicDirector"), error: null });
     mockGetUserRoleInOrganization.mockResolvedValue(undefined);
 
-    await expect(CatalogAdminPage()).rejects.toThrow(/^NEXT_REDIRECT:/);
+    await expect(CatalogAdminPage()).rejects.toThrow("NEXT_REDIRECT:/dashboard");
+    expect(mockRedirect).toHaveBeenCalledWith("/dashboard");
   });
 });

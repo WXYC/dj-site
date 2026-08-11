@@ -35,19 +35,31 @@ NEXT_PUBLIC_QR_LOGIN_ENABLED=false
 # Defaults to "dj-site" when unset.
 # NEXT_PUBLIC_DEVICE_AUTH_CLIENT_ID=dj-site
 
-# Optional, server-only — better-auth organization slug or ID used ONLY as a
-# fallback for the `organization.listMembers` lookup when a session's WXYC
-# tier can't be read from its JWT (no claim, or the auth service issued a
-# session with no JWT). The primary resolution path (getUserAuthority,
-# fetchOrganizationRoleForUserClient) always tries the JWT first regardless
-# of this variable. Unset in every environment today (including production):
-# the JWT path alone is sufficient, and `listMembers` is admin-only in
-# better-auth so this fallback is a no-op for non-admin sessions anyway.
+# Optional, server-only — better-auth organization slug or ID, read by
+# getAppOrganizationId() and consulted ONLY as a fallback for the
+# `organization.listMembers` lookup inside getUserAuthority's WXYC-tier
+# resolution, when a session's tier can't be read from its JWT (no claim, or
+# the auth service issued a session with no JWT). getUserAuthority's
+# JWT-first resolution always runs regardless of this variable — it is not a
+# branch condition. Unset everywhere today: not in .env.example, CI, GitHub
+# repo variables, or either Cloudflare Pages environment (production or
+# preview). Because the JWT path alone is sufficient, this fallback has never
+# actually fired in a deployed environment.
 # APP_ORGANIZATION=wxyc
 
-# Client-side counterpart of APP_ORGANIZATION, same fallback role. Must match
-# APP_ORGANIZATION's value when both are set, since they name the same
-# organization from the browser and the server respectively.
+# Optional — the client-side variable read by getAppOrganizationIdClient(),
+# consulted the same way as APP_ORGANIZATION above but for AuthorizedView's
+# client-side tier resolution (fetchOrganizationRoleForUserClient). Its
+# `globalThis.process?.env` read is never build-inlined by the bundler, so
+# from the browser's perspective this is always unresolved regardless of
+# what's configured — that client-side fallback has never fired either.
+# Unlike APP_ORGANIZATION, though, this variable IS set in the Cloudflare
+# Pages production environment: the admin roster page
+# (app/dashboard/@modern/admin/roster/page.tsx) reads it directly,
+# server-side, as the organization slug for listing and provisioning DJs — an
+# unrelated, load-bearing use that predates and is untouched by the
+# JWT-first fix above. The two variables are configured independently; don't
+# infer one's status from the other. See docs/deploy-cutover-runbook.md.
 # NEXT_PUBLIC_APP_ORGANIZATION=wxyc
 ```
 

@@ -301,6 +301,22 @@ describe("organization-utils", () => {
       expect(mockListMembers).not.toHaveBeenCalled();
     });
 
+    it("never reaches the JWT endpoint at all when cookieHeader is omitted, even with a valid role waiting there — the deployed shape has no other role source", async () => {
+      const payload = Buffer.from(
+        JSON.stringify({ sub: "user-123", role: "musicDirector" })
+      ).toString("base64url");
+      server.use(
+        http.get("https://api.wxyc.org/auth/token", () =>
+          HttpResponse.json({ token: `header.${payload}.sig` })
+        )
+      );
+
+      const result = await getUserRoleInOrganization("user-123", undefined, undefined);
+
+      expect(result).toBeUndefined();
+      expect(mockListMembers).not.toHaveBeenCalled();
+    });
+
     it("falls through to listMembers when JWT role is unrecognized", async () => {
       const payload = Buffer.from(
         JSON.stringify({ sub: "user-123", role: "superuser" })

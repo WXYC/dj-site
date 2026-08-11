@@ -89,8 +89,17 @@ async function getUserAuthority(session: BetterAuthSession, cookieHeader?: strin
   return Authorization.NO;
 }
 
-/** Non-redirecting permission check. */
-export async function checkRole(session: BetterAuthSession, requiredRole: Authorization, cookieHeader?: string): Promise<boolean> {
+/**
+ * Non-redirecting permission check.
+ *
+ * `cookieHeader` is required, not optional: it is the only way
+ * `getUserAuthority` can reach the JWT, and with APP_ORGANIZATION unset in
+ * every environment (the normal case), an omitted header leaves no other
+ * role source — resolution fails closed to NO for every caller, silently.
+ * Callers that don't have a header to hand should fetch one (see
+ * `requireRole` below) rather than pass a fallback string here.
+ */
+export async function checkRole(session: BetterAuthSession, requiredRole: Authorization, cookieHeader: string): Promise<boolean> {
   const userAuthority = await getUserAuthority(session, cookieHeader);
 
   // Authorization is an ordered enum (SM > MD > DJ > NO); the user must meet
