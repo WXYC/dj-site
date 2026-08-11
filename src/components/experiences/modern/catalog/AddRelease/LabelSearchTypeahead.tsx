@@ -49,13 +49,17 @@ function LabelSearchTypeaheadInner({
 }: LabelSearchTypeaheadProps) {
   const [open, setOpen] = useState(false);
   const [rawHighlightIndex, setHighlightIndex] = useState(NO_HIGHLIGHT);
-  // Set for the span of a manually triggered retry and cleared once it
-  // settles, win or lose. RTK Query clears `isError` the instant a refetch
-  // goes pending — well before the retry has an answer — so keying the error
-  // panel off `isError` alone would hand that whole in-flight window to
-  // `showListbox` whenever a prior successful fetch left rows cached: the
-  // stale list would render as current for as long as the retry takes.
-  const [retrying, setRetrying] = useState(false);
+  // Named for the query it was started against, not a bare boolean. RTK Query
+  // clears `isError` the instant a refetch goes pending — well before the
+  // retry has an answer — so keying the error panel off `isError` alone would
+  // hand that whole in-flight window to `showListbox` whenever a prior
+  // successful fetch left rows cached: the stale list would render as current
+  // for as long as the retry takes. Scoping the flag to `debouncedQuery`
+  // confines that coverage to the query the retry was actually for: a retry
+  // left outstanding on one query must not go on suppressing a later,
+  // unrelated query's own successful results just because it has not yet
+  // settled.
+  const [retryingFor, setRetryingFor] = useState<string | null>(null);
   const confirmedLabel = useRef<Label | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   // Row elements by index, kept so the highlight can be scrolled into view.
@@ -105,10 +109,12 @@ function LabelSearchTypeaheadInner({
   // check that goes on trusting that list because it happens to be non-empty
   // would report a stale "no match" through exactly the outage it exists to
   // catch, so `showError` does not require `data === undefined`: any error
-  // for the current args takes the panel over, stale rows or not. `retrying`
-  // extends that same coverage across the button-triggered retry itself,
-  // whose pending window clears `isError` before the new attempt resolves.
-  const showError = resultsAreCurrent && (isError || retrying);
+  // for the current args takes the panel over, stale rows or not.
+  // `retryingFor` extends that same coverage across the button-triggered
+  // retry itself, whose pending window clears `isError` before the new
+  // attempt resolves — scoped to `debouncedQuery` so a retry left in flight
+  // for an earlier query cannot blank a later, unrelated query's results.
+  const showError = resultsAreCurrent && (isError || retryingFor === debouncedQuery);
   const showSearching = isSearching && labels.length === 0 && !showError;
   const showNoMatches = showPanel && !showError && !showSearching && labels.length === 0;
   const showListbox = showPanel && !showError && !showSearching && labels.length > 0;
@@ -329,11 +335,18 @@ function LabelSearchTypeaheadInner({
                     // keeps focus off a node React may remove — losing focus
                     // mid-retry would otherwise drop it to <body>, taking
                     // arrow-key, Enter-to-pick and Escape-to-dismiss with it.
-                    setRetrying(true);
+                    const query = debouncedQuery;
+                    setRetryingFor(query);
                     // `refetch()`'s returned promise resolves with the settled
                     // state on both outcomes — it never rejects — so clearing
-                    // `retrying` belongs in `finally`, not a success-only `then`.
-                    refetch().finally(() => setRetrying(false));
+                    // the flag belongs in `finally`, not a success-only `then`.
+                    // The comparison against `query` (rather than an
+                    // unconditional clear) leaves the flag alone if the field
+                    // has since moved to a different query, so this retry's
+                    // outcome cannot speak for a query it was never for.
+                    refetch().finally(() => {
+                      setRetryingFor((current) => (current === query ? null : current));
+                    });
                     inputRef.current?.focus();
                   }}
                   sx={{ mt: 0.5, px: 0 }}

@@ -986,6 +986,129 @@ describe("LabelSearchTypeahead", () => {
       expect(await screen.findByText("Sonamos")).toBeInTheDocument();
       expect(requestCount).toBe(3);
     });
+
+    it("reports the same failure again when a retry does not fix it", async () => {
+      const requests = mockLabelSearch(() =>
+        HttpResponse.json({ message: "boom" }, { status: 500 }),
+      );
+      const { user } = renderWithProviders(<ControlledTypeahead />);
+
+      const input = await findInput();
+      await user.type(input, "Sona");
+      await vi.advanceTimersByTimeAsync(400);
+      await screen.findByRole("alert");
+
+      await user.click(screen.getByRole("button", { name: /try again/i }));
+      await vi.advanceTimersByTimeAsync(400);
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        /Label search is unavailable/i,
+      );
+      expect(
+        screen.queryByText(/will be created as a new label/i),
+      ).not.toBeInTheDocument();
+      expect(requests).toHaveLength(2);
+    });
+
+    // The flag that keeps the outage panel up through a retry is keyed to the
+    // query it was started for, not held as a single component-wide switch —
+    // a retry stalled on one query must not go on suppressing a later, wholly
+    // unrelated query's own successful results just because it has not yet
+    // settled.
+    it("does not let a retry stalled on one query blank a later query's results", async () => {
+      let releaseRetry = () => {};
+      const retryHeld = new Promise<void>((resolve) => {
+        releaseRetry = resolve;
+      });
+      let sonaRequestCount = 0;
+      mockLabelSearch(async (url) => {
+        const q = url.searchParams.get("q");
+        if (q === "Sona") {
+          sonaRequestCount += 1;
+          if (sonaRequestCount === 1) {
+            return HttpResponse.json({ message: "boom" }, { status: 500 });
+          }
+          // The retry for "Sona" never gets an answer inside this test.
+          await retryHeld;
+          return HttpResponse.json({ message: "boom" }, { status: 500 });
+        }
+        return HttpResponse.json([dragCity]);
+      });
+      const { user } = renderWithProviders(<ControlledTypeahead />);
+
+      const input = await findInput();
+      await user.type(input, "Sona");
+      await vi.advanceTimersByTimeAsync(400);
+      await screen.findByRole("alert");
+
+      await user.click(screen.getByRole("button", { name: /try again/i }));
+
+      // The retry above is still outstanding when the MD abandons "Sona" for
+      // an unrelated, valid query.
+      await user.clear(input);
+      await user.type(input, "Drag");
+      await vi.advanceTimersByTimeAsync(400);
+
+      expect(await screen.findByText("Drag City")).toBeInTheDocument();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+      releaseRetry();
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    // The error panel stays mounted through a retry, so its button is
+    // reachable — and clickable — a second time before the first click's
+    // request has settled. RTK Query folds that second click into the
+    // request the first click already started (it does not fire a second
+    // network request while one is already outstanding for this exact
+    // query), so both clicks' promises settle together, on the one real
+    // answer, rather than one ahead of the other. The flag has to stay
+    // consistent with that: whichever click's `finally` runs, the query it
+    // was for is still the query on screen, so clearing is correct either way.
+    it("keeps the outage panel up when the retry button is clicked twice before the request answers", async () => {
+      let releaseRetry = () => {};
+      const retryHeld = new Promise<void>((resolve) => {
+        releaseRetry = resolve;
+      });
+      let requestCount = 0;
+      mockLabelSearch(async () => {
+        requestCount += 1;
+        if (requestCount === 1) return HttpResponse.json([sonamos]);
+        if (requestCount === 2) {
+          return HttpResponse.json({ message: "boom" }, { status: 500 });
+        }
+        await retryHeld;
+        return HttpResponse.json({ message: "boom" }, { status: 500 });
+      });
+      const { user, store } = renderWithProviders(<ControlledTypeahead />);
+
+      const input = await findInput();
+      await user.type(input, "Sona");
+      await vi.advanceTimersByTimeAsync(400);
+      await screen.findByText("Sonamos");
+
+      await act(async () => {
+        store.dispatch(
+          labelsApi.util.invalidateTags([{ type: "LabelSearch", id: "LIST" }]),
+        );
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      await screen.findByRole("alert");
+
+      const retryButton = screen.getByRole("button", { name: /try again/i });
+      await user.click(retryButton);
+      await user.click(retryButton);
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+      expect(screen.queryByText("Sonamos")).not.toBeInTheDocument();
+
+      releaseRetry();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+      expect(requestCount).toBe(3);
+    });
   });
 
   describe("disabled", () => {
