@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { useState } from "react";
 import {
@@ -8,6 +8,7 @@ import {
   TEST_BACKEND_URL,
 } from "@/tests/helpers";
 import ArtistSearchTypeahead from "@/src/components/shared/inputs/ArtistSearchTypeahead";
+import { catalogApi } from "@/lib/features/catalog/api";
 import type { ArtistInGenreOption } from "@/lib/features/catalog/types";
 
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -1037,6 +1038,40 @@ describe("ArtistSearchTypeahead", () => {
         expect(screen.queryByText(/Create new artist/i)).not.toBeInTheDocument();
       });
 
+      // RTK Query keeps the last-good `data` on a rejected refetch, so a
+      // background refetch of these same args (a cross-slice cache
+      // invalidation, not a keystroke) that fails leaves `currentData` still
+      // holding the prior successful list — `isError` is true with `data`
+      // defined. A duplicate check that goes on trusting that list because it
+      // happens to be non-empty would report a stale "no match" through
+      // exactly the outage it exists to catch.
+      it("reports a background refetch failure instead of trusting the list it had before it", async () => {
+        let requestCount = 0;
+        mockArtistSearch(() => {
+          requestCount += 1;
+          return requestCount === 1
+            ? HttpResponse.json({ artists: [juanaMolina] })
+            : HttpResponse.json({ message: "boom" }, { status: 500 });
+        });
+        const { user, store } = renderWithProviders(<ControlledTypeahead />);
+
+        const input = await findInput();
+        await user.type(input, "Juana");
+        await vi.advanceTimersByTimeAsync(400);
+        await screen.findByText("Juana Molina");
+
+        await act(async () => {
+          store.dispatch(
+            catalogApi.util.invalidateTags([{ type: "ArtistSearch", id: "LIST" }]),
+          );
+          await vi.advanceTimersByTimeAsync(0);
+        });
+        await screen.findByRole("alert");
+
+        expect(screen.queryByText("Juana Molina")).not.toBeInTheDocument();
+        expect(screen.queryByText(/Create new artist/i)).not.toBeInTheDocument();
+      });
+
       it("closes on Escape even though there are no rows to navigate", async () => {
         mockArtistSearch(() =>
           HttpResponse.json({ message: "boom" }, { status: 500 }),
@@ -1073,6 +1108,29 @@ describe("ArtistSearchTypeahead", () => {
         await vi.advanceTimersByTimeAsync(400);
 
         expect(await screen.findByText("Juana Molina")).toBeInTheDocument();
+        expect(requests).toHaveLength(2);
+      });
+
+      it("keeps reporting the failure when a retry does not fix it", async () => {
+        const requests = mockArtistSearch(() =>
+          HttpResponse.json({ message: "boom" }, { status: 500 }),
+        );
+        const { user } = renderWithProviders(<ControlledTypeahead />);
+
+        const input = await findInput();
+        await user.type(input, "Juana");
+        await vi.advanceTimersByTimeAsync(400);
+        await screen.findByRole("alert");
+
+        await user.click(screen.getByRole("button", { name: /try again/i }));
+        await vi.advanceTimersByTimeAsync(400);
+
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          /Artist search is unavailable/i,
+        );
+        expect(
+          screen.queryByText(/Create new artist/i),
+        ).not.toBeInTheDocument();
         expect(requests).toHaveLength(2);
       });
     });

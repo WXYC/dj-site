@@ -156,11 +156,16 @@ function ArtistSearchTypeaheadInner({
   const showPanel = panelOpen && hasValidQuery;
   const isSearching = showPanel && (pendingDebounce || isFetching);
   // A search that failed outright has no answer about existing artists, so it
-  // gets its own presentation rather than passing for "no matches". A failed
-  // refetch that still has a prior response for these exact args keeps showing
-  // that response instead — which is what the arg-scoped `data` above buys: an
-  // earlier query's payload must never suppress this query's error panel.
-  const showError = resultsAreCurrent && isError && data === undefined;
+  // gets its own presentation rather than passing for "no matches". RTK Query
+  // keeps the last-good `data` on a rejected refetch, so a background refetch
+  // of these same args (a cross-slice cache invalidation, not a keystroke)
+  // that fails leaves `data` still holding the prior successful list —
+  // `isError` is true with `data` defined. A duplicate check that goes on
+  // trusting that list because it happens to be non-empty would report a
+  // stale "no match" through exactly the outage it exists to catch, so
+  // `showError` does not require `data === undefined`: any error for the
+  // current args takes the panel over, stale rows or not.
+  const showError = resultsAreCurrent && isError;
   // Until the first rows land there is nothing to offer but "create new", and
   // offering it against results that have not arrived is how a typeahead built
   // to prevent duplicate artists ends up producing them. The panel reports

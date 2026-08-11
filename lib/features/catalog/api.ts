@@ -1,4 +1,5 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
+import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import type { RootState } from "@/lib/store";
 import { backendBaseQuery } from "../backend";
 import { isAddArtistConflict } from "./adminCreateArtistValidation";
@@ -252,6 +253,18 @@ export const catalogApi = createApi({
         response: SearchArtistsInGenreResponse | null,
       ): SearchArtistsInGenreResponse =>
         response?.artists ? response : { artists: [] },
+      // The typeahead renders its own inline "Artist search is unavailable"
+      // panel for every failure shape here — the opt-out above turns a
+      // non-JSON body into this same isError state. The shared
+      // rtk-query-error-logger middleware reporting it a second time as a
+      // global toast would double the same outage for a screen-reader user
+      // without adding any information; see searchLabels for the identical
+      // nesting.
+      transformErrorResponse: (
+        response: FetchBaseQueryError,
+      ): { searchArtistsInGenreError: FetchBaseQueryError } => ({
+        searchArtistsInGenreError: response,
+      }),
       providesTags: [{ type: "ArtistSearch", id: "LIST" }],
     }),
     getCompilationTracks: builder.query<CompilationTrackList, { libraryId: number }>({

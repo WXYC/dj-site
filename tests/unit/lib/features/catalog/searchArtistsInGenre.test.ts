@@ -7,6 +7,10 @@ vi.mock("@/lib/features/authentication/client", () => ({
   getJWTToken: vi.fn().mockResolvedValue("test-token"),
 }));
 
+vi.mock("sonner", () => ({
+  toast: { error: vi.fn(), success: vi.fn() },
+}));
+
 const ROCK_GENRE_ID = 7;
 const ARTIST_SEARCH_URL = `${TEST_BACKEND_URL}/library/artists/search`;
 
@@ -119,6 +123,39 @@ describe("searchArtistsInGenre", () => {
 
     expect(result.isError).toBe(true);
     expect(result.data).toBeUndefined();
+  });
+
+  // The typeahead renders its own inline "Artist search is unavailable" panel
+  // for every failure shape here — the opt-out above turns a non-JSON body
+  // into this same isError state. The shared rtk-query-error-logger
+  // middleware reporting it a second time as a global toast would double the
+  // same outage for a screen-reader user without adding any information.
+  it.each([
+    ["a gateway HTML error page (PARSING_ERROR opt-out)", () =>
+      new HttpResponse("<!DOCTYPE html><html><body>Bad Gateway</body></html>", {
+        status: 502,
+        headers: { "Content-Type": "text/html" },
+      }),
+    ],
+    ["a structured JSON error body", () =>
+      HttpResponse.json({ message: "boom" }, { status: 500 }),
+    ],
+  ])("keeps %s out of the global toast", async (_name, respond) => {
+    const { toast } = await import("sonner");
+    vi.mocked(toast.error).mockClear();
+    server.use(http.get(ARTIST_SEARCH_URL, respond));
+
+    const store = createTestStore();
+    const result = await store.dispatch(
+      catalogApi.endpoints.searchArtistsInGenre.initiate({
+        genre_id: ROCK_GENRE_ID,
+        q: "Juana",
+        limit: 10,
+      }),
+    );
+
+    expect(result.isError).toBe(true);
+    expect(toast.error).not.toHaveBeenCalled();
   });
 
   it("provides the artist-search list tag so an artist write can invalidate it", async () => {
