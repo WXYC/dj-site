@@ -77,6 +77,11 @@ function sessionWithResolvedRole(role: WXYCRole): BetterAuthSession {
 describe("server-utils", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // vi.clearAllMocks() clears call history but not a configured
+    // mockResolvedValue — sessionWithResolvedRole sets one as a side effect,
+    // so it must be reset explicitly or a test that forgets to call it would
+    // silently inherit the previous test's resolved role.
+    mockGetUserRoleInOrganization.mockReset();
     mockCookies.mockReturnValue({
       toString: () => "session=test-cookie",
     });
@@ -217,7 +222,7 @@ describe("server-utils", () => {
     it("should return true when user has sufficient role", async () => {
       const session = sessionWithResolvedRole("stationManager");
 
-      const result = await checkRole(session, Authorization.DJ);
+      const result = await checkRole(session, Authorization.DJ, "session=test-cookie");
 
       expect(result).toBe(true);
     });
@@ -225,7 +230,7 @@ describe("server-utils", () => {
     it("should return true when user has exact role", async () => {
       const session = sessionWithResolvedRole("dj");
 
-      const result = await checkRole(session, Authorization.DJ);
+      const result = await checkRole(session, Authorization.DJ, "session=test-cookie");
 
       expect(result).toBe(true);
     });
@@ -233,7 +238,7 @@ describe("server-utils", () => {
     it("should return false when user has insufficient role", async () => {
       const session = sessionWithResolvedRole("member");
 
-      const result = await checkRole(session, Authorization.DJ);
+      const result = await checkRole(session, Authorization.DJ, "session=test-cookie");
 
       expect(result).toBe(false);
     });
@@ -241,21 +246,21 @@ describe("server-utils", () => {
     it("should check role hierarchy: SM > MD > DJ > NO", async () => {
       // SM can access everything
       const smSession = sessionWithResolvedRole("stationManager");
-      expect(await checkRole(smSession, Authorization.SM)).toBe(true);
-      expect(await checkRole(smSession, Authorization.MD)).toBe(true);
-      expect(await checkRole(smSession, Authorization.DJ)).toBe(true);
+      expect(await checkRole(smSession, Authorization.SM, "session=test-cookie")).toBe(true);
+      expect(await checkRole(smSession, Authorization.MD, "session=test-cookie")).toBe(true);
+      expect(await checkRole(smSession, Authorization.DJ, "session=test-cookie")).toBe(true);
 
       // MD can access MD and below
       const mdSession = sessionWithResolvedRole("musicDirector");
-      expect(await checkRole(mdSession, Authorization.SM)).toBe(false);
-      expect(await checkRole(mdSession, Authorization.MD)).toBe(true);
-      expect(await checkRole(mdSession, Authorization.DJ)).toBe(true);
+      expect(await checkRole(mdSession, Authorization.SM, "session=test-cookie")).toBe(false);
+      expect(await checkRole(mdSession, Authorization.MD, "session=test-cookie")).toBe(true);
+      expect(await checkRole(mdSession, Authorization.DJ, "session=test-cookie")).toBe(true);
 
       // DJ can only access DJ and below
       const djSession = sessionWithResolvedRole("dj");
-      expect(await checkRole(djSession, Authorization.SM)).toBe(false);
-      expect(await checkRole(djSession, Authorization.MD)).toBe(false);
-      expect(await checkRole(djSession, Authorization.DJ)).toBe(true);
+      expect(await checkRole(djSession, Authorization.SM, "session=test-cookie")).toBe(false);
+      expect(await checkRole(djSession, Authorization.MD, "session=test-cookie")).toBe(false);
+      expect(await checkRole(djSession, Authorization.DJ, "session=test-cookie")).toBe(true);
     });
 
     it("should fetch role from organization when APP_ORGANIZATION is set", async () => {
@@ -278,7 +283,7 @@ describe("server-utils", () => {
       mockGetUserRoleInOrganization.mockRejectedValue(new Error("Org lookup failed"));
 
       const session = createTestBetterAuthSession();
-      const result = await checkRole(session, Authorization.DJ);
+      const result = await checkRole(session, Authorization.DJ, "session=test-cookie");
 
       expect(result).toBe(false);
     });
@@ -288,12 +293,12 @@ describe("server-utils", () => {
       mockGetUserRoleInOrganization.mockResolvedValue(undefined);
 
       const session = createTestBetterAuthSession();
-      const result = await checkRole(session, Authorization.DJ);
+      const result = await checkRole(session, Authorization.DJ, "session=test-cookie");
 
       expect(result).toBe(false);
     });
 
-    it("resolves the WXYC tier from the JWT even when APP_ORGANIZATION is unset — the core defect this guards against", async () => {
+    it("resolves the WXYC tier from the JWT even when APP_ORGANIZATION is unset", async () => {
       // Before the fix, an unset APP_ORGANIZATION made getUserAuthority skip
       // org/JWT resolution entirely and fall back to session.user.role
       // (better-auth's admin-plugin column), which can never be "musicDirector".
@@ -315,7 +320,16 @@ describe("server-utils", () => {
         user: { id: "u", email: "u@wxyc.org", name: "u", emailVerified: true, role: "musicDirector" },
       });
 
-      expect(await checkRole(session, Authorization.DJ)).toBe(false);
+      expect(await checkRole(session, Authorization.DJ, "session=test-cookie")).toBe(false);
+    });
+
+    it("rejects a call that omits cookieHeader at compile time — a caller can't silently deny every user by forgetting it", async () => {
+      const session = sessionWithResolvedRole("stationManager");
+
+      // @ts-expect-error — cookieHeader is a required third argument. If this
+      // directive ever goes unused, the parameter went optional again and
+      // every caller that forgets it will resolve to NO authority, silently.
+      await checkRole(session, Authorization.SM);
     });
   });
 
@@ -564,7 +578,7 @@ describe("server-utils", () => {
       expect(result.authority).toBe(Authorization.NO);
     });
 
-    it("should map music director role to MD authority with APP_ORGANIZATION unset — the redirect this issue fixes", async () => {
+    it("should map music director role to MD authority with APP_ORGANIZATION unset", async () => {
       const session = sessionWithResolvedRole("musicDirector");
       const result = await getUserFromSession(session);
       expect(result.authority).toBe(Authorization.MD);
@@ -574,7 +588,7 @@ describe("server-utils", () => {
   describe("checkRole edge cases", () => {
     it("should handle NO authorization requirement", async () => {
       const memberSession = sessionWithResolvedRole("member");
-      expect(await checkRole(memberSession, Authorization.NO)).toBe(true);
+      expect(await checkRole(memberSession, Authorization.NO, "session=test-cookie")).toBe(true);
     });
   });
 

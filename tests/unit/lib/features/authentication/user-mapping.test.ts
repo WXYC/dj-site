@@ -119,7 +119,7 @@ describe("getUserFromSession", () => {
     expect((await getUserFromSession(session)).authority).toBe(Authorization.SM);
   });
 
-  it("should map music director role to MD authority — the mapping this issue fixes when APP_ORGANIZATION is unset", async () => {
+  it("should map music director role to MD authority with APP_ORGANIZATION unset", async () => {
     const session = sessionWithResolvedRole("musicDirector");
 
     expect((await getUserFromSession(session)).authority).toBe(Authorization.MD);
