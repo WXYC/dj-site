@@ -22,6 +22,31 @@ vi.mock("@mui/icons-material/DragHandle", () => ({
   default: () => <span data-testid="drag-handle-icon" />,
 }));
 
+// Reading a computed style resolves viewport units to pixels, which cannot tell
+// `100vw` apart from a hardcoded width that happens to equal the test viewport.
+// This header renders only below the md breakpoint, so that distinction is the
+// property under test; read the declared value out of the emitted rule instead.
+function declaredStyle(element: Element, property: string): string | undefined {
+  for (const styleSheet of Array.from(document.styleSheets)) {
+    let rules: CSSRuleList;
+    try {
+      rules = styleSheet.cssRules;
+    } catch {
+      continue;
+    }
+    for (const rule of Array.from(rules)) {
+      if (!(rule instanceof CSSStyleRule) || !element.matches(rule.selectorText)) {
+        continue;
+      }
+      const value = rule.style.getPropertyValue(property);
+      if (value) {
+        return value;
+      }
+    }
+  }
+  return undefined;
+}
+
 function createTestStore(initialState?: { rightbar?: { sidebarOpen?: boolean } }) {
   return configureStore({
     reducer: {
@@ -230,10 +255,8 @@ describe("MobileHeader", () => {
         </Provider>
       );
 
-      const sheet = document.querySelector(".MuiSheet-root");
-      // Computed styles resolve viewport units, so this has to name the width
-      // the viewport resolves to rather than the `100vw` the component declares.
-      expect(sheet).toHaveStyle({ width: `${window.innerWidth}px` });
+      const sheet = document.querySelector(".MuiSheet-root")!;
+      expect(declaredStyle(sheet, "width")).toBe("100vw");
     });
   });
 
