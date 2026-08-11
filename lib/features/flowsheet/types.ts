@@ -76,7 +76,22 @@ export type FlowsheetSongBase = {
   discogsUnavailableNote?: string | null;
 };
 
-export type FlowsheetSongEntry = FlowsheetEntryBase & FlowsheetSongBase;
+export type FlowsheetSongEntry = FlowsheetEntryBase &
+  FlowsheetSongBase & {
+    // Which of this row's album-scoped fields the linked release supplied,
+    // captured once when the row entered the queue — mirrors the search
+    // state's selectionProvided, keyed on the queue entry's own field names
+    // (see ALBUM_SCOPED_QUEUE_FIELDS) so the reducer needs no name mapping.
+    // Absent on rows persisted before this field existed; updateQueueEntry
+    // reads that absence as fully provided, since losing album_id on a
+    // rehydrated edit is safer than a stale linkage overwriting the DJ's
+    // correction.
+    linkageProvided?: {
+      artist_name: boolean;
+      album_title: boolean;
+      record_label: boolean;
+    };
+  };
 
 export type FlowsheetShowBlockEntry = FlowsheetEntryBase &
   DateTimeEntry & {

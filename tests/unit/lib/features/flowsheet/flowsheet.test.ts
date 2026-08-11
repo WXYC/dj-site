@@ -520,6 +520,53 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
       });
     });
 
+    // Captured once at queue time, the way selectionProvided is captured
+    // once at freeze time — updateQueueEntry reads this snapshot instead of
+    // re-deriving "supplied" from the field's rolling value.
+    describe("addToQueue linkageProvided", () => {
+      it("marks every album-scoped field provided when the linked release supplied all three", () => {
+        const result = harness().reduce(
+          actions.addToQueue(
+            createTestFlowsheetQuery({
+              album_id: 1001,
+              artist: "Jessica Pratt",
+              album: "On Your Own Love Again",
+              label: "Drag City",
+            })
+          )
+        );
+        expect(result.queue[0].linkageProvided).toEqual({
+          artist_name: true,
+          album_title: true,
+          record_label: true,
+        });
+      });
+
+      it("marks record_label not provided when the linked release left it blank", () => {
+        const result = harness().reduce(
+          actions.addToQueue(createTestFlowsheetQuery({ album_id: 1001, label: "" }))
+        );
+        expect(result.queue[0].linkageProvided?.record_label).toBe(false);
+      });
+
+      // A linked release always carries an artist column; a blank string
+      // here means its credit is withheld, not that the release never
+      // supplied one — so artist_name is provided regardless.
+      it("marks artist_name provided even when the linked release withholds its credit", () => {
+        const result = harness().reduce(
+          actions.addToQueue(createTestFlowsheetQuery({ album_id: 1001, artist: "" }))
+        );
+        expect(result.queue[0].linkageProvided?.artist_name).toBe(true);
+      });
+
+      it("leaves linkageProvided unset for an unlinked entry", () => {
+        const result = harness().reduce(
+          actions.addToQueue(createTestFlowsheetQuery({ album_id: undefined }))
+        );
+        expect(result.queue[0].linkageProvided).toBeUndefined();
+      });
+    });
+
     it("should remove item from queue", () => {
       const query = createTestFlowsheetQuery();
       const withItem = harness().reduce(actions.addToQueue(query));
@@ -719,6 +766,88 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
 
       expect(result.queue[0].record_label).toBe("Drag City");
       expect(result.queue[0].album_id).toBe(1001);
+    });
+
+    // linkageProvided is captured once when the row is queued, not
+    // re-derived from the field's rolling value — a second edit of a field
+    // the release left empty must not misread its own first character as
+    // "supplied" and drop a linkage that never deviated.
+    it("keeps album_id when a field the library row left empty is edited twice", () => {
+      const withItem = harness().reduce(
+        actions.addToQueue(createTestFlowsheetQuery({ album_id: 1001, label: "" }))
+      );
+      const firstEdit = harness().reduce(
+        actions.updateQueueEntry({
+          entry_id: withItem.queue[0].id,
+          field: "record_label",
+          value: "Drag City",
+        }),
+        withItem
+      );
+      expect(firstEdit.queue[0].album_id).toBe(1001);
+
+      const secondEdit = harness().reduce(
+        actions.updateQueueEntry({
+          entry_id: firstEdit.queue[0].id,
+          field: "record_label",
+          value: "Sonamos",
+        }),
+        firstEdit
+      );
+
+      expect(secondEdit.queue[0].record_label).toBe("Sonamos");
+      expect(secondEdit.queue[0].album_id).toBe(1001);
+    });
+
+    describe("linkageProvided rehydration default", () => {
+      // FlowsheetSongEntry is persisted to localStorage, so a row queued
+      // before linkageProvided existed rehydrates without it. The default
+      // must read as fully provided: losing album_id on that edit is safer
+      // than letting a stale linkage overwrite the DJ's correction.
+      it("drops album_id on an album-scoped edit for a rehydrated entry with no linkageProvided, even though the edited field was empty", () => {
+        const rehydrated = createTestFlowsheetEntry({
+          id: 1,
+          album_id: 1001,
+          record_label: "",
+        });
+        mockedLoadQueue.mockReturnValueOnce([rehydrated]);
+        const loaded = harness().reduce(actions.loadQueue());
+        expect(loaded.queue[0].linkageProvided).toBeUndefined();
+
+        const result = harness().reduce(
+          actions.updateQueueEntry({
+            entry_id: loaded.queue[0].id,
+            field: "record_label",
+            value: "Sonamos",
+          }),
+          loaded
+        );
+
+        expect(result.queue[0].record_label).toBe("Sonamos");
+        expect(result.queue[0].album_id).toBeUndefined();
+      });
+
+      it("drops album_id when correcting a rehydrated entry's withheld artist", () => {
+        const rehydrated = createTestFlowsheetEntry({
+          id: 1,
+          album_id: 1001,
+          artist_name: "",
+        });
+        mockedLoadQueue.mockReturnValueOnce([rehydrated]);
+        const loaded = harness().reduce(actions.loadQueue());
+
+        const result = harness().reduce(
+          actions.updateQueueEntry({
+            entry_id: loaded.queue[0].id,
+            field: "artist_name",
+            value: "Chuquimamani-Condori",
+          }),
+          loaded
+        );
+
+        expect(result.queue[0].artist_name).toBe("Chuquimamani-Condori");
+        expect(result.queue[0].album_id).toBeUndefined();
+      });
     });
 
     it("keeps album_id when a field the library row does not own is edited", () => {
