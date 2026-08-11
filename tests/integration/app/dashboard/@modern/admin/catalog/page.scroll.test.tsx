@@ -79,8 +79,10 @@ describe("catalog admin page", () => {
   // a page that supplies no scroll container of its own is not merely missing a
   // scrollbar — everything past the fold is unreachable. The genre add form sits
   // below a list that grows without bound, which is exactly what gets clipped.
-  // Rendering inside the real Main is what makes this assertable; the page in
-  // isolation looks fine no matter what it does.
+  // The assertion is page-level: it walks up from the content to the nearest
+  // scrollable ancestor, which is the page's own Stack. Main is rendered for
+  // fidelity, not because the assertion reads anything off it — this stays green
+  // against a stubbed Main, so it does not pin Main's own layout.
   it("scrolls its own content, since Main clips at viewport height", async () => {
     const page = await CatalogAdminPage();
     renderWithProviders(<Main>{page}</Main>);
@@ -94,15 +96,21 @@ describe("catalog admin page", () => {
     expect(scroller).toContainElement(screen.getByText("Formats"));
   });
 
-  it("keeps both add forms mounted below their lists", async () => {
+  // Mounting is not the property at risk — both forms mounted before the fix and
+  // were still unreachable. What matters is that each one is inside the scroll
+  // container, since anything outside it is clipped rather than scrolled to.
+  it("puts both add forms inside the scroll container", async () => {
     const page = await CatalogAdminPage();
     renderWithProviders(<Main>{page}</Main>);
 
-    expect(
+    const scroller = nearestScrollableAncestor(await screen.findByText("Genres"));
+
+    expect(scroller).not.toBeNull();
+    expect(scroller).toContainElement(
       await screen.findByRole("button", { name: /add format/i }),
-    ).toBeInTheDocument();
-    expect(
+    );
+    expect(scroller).toContainElement(
       await screen.findByRole("button", { name: /add genre/i }),
-    ).toBeInTheDocument();
+    );
   });
 });
