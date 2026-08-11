@@ -1,6 +1,13 @@
 import { createAppSlice } from "@/lib/createAppSlice";
 import { PayloadAction } from "@reduxjs/toolkit";
-import { FlowsheetFrontendState, FlowsheetQuery, FlowsheetSearchProperty, FlowsheetSongEntry } from "./types";
+import {
+  ALBUM_SCOPED_QUEUE_FIELDS,
+  AlbumScopedQueueField,
+  FlowsheetFrontendState,
+  FlowsheetQuery,
+  FlowsheetSearchProperty,
+  FlowsheetSongEntry,
+} from "./types";
 import { Rotation } from "../rotation/types";
 import { hasLinkedAlbumId } from "./linkage";
 import { clearQueueFromStorage, loadQueueFromStorage, saveQueueToStorage } from "./queue-storage";
@@ -35,14 +42,13 @@ function withSanitizedAlbumLinkage<
   };
 }
 
-// The fields a linked library row supplies. Editing one of these on a queued
-// entry deviates from that row; editing anything else (track title, request,
-// segue) does not, since the row never claimed to describe them.
-const ALBUM_SCOPED_QUEUE_FIELDS: readonly (keyof FlowsheetSongEntry)[] = [
-  "artist_name",
-  "album_title",
-  "record_label",
-];
+// Array.includes can't narrow on its own, and this is the only thing standing
+// between the payload's field name and a typed linkageProvided lookup.
+function isAlbumScopedField(
+  field: keyof FlowsheetSongEntry
+): field is AlbumScopedQueueField {
+  return (ALBUM_SCOPED_QUEUE_FIELDS as readonly string[]).includes(field);
+}
 
 export const defaultFlowsheetFrontendState: FlowsheetFrontendState = {
   autoplay: false,
@@ -200,20 +206,16 @@ export const flowsheetSlice = createAppSlice({
     },
     addToQueue: (state, action: PayloadAction<FlowsheetQuery>) => {
       const newId = state.queueIdCounter;
-      // Captured once here, the way selectionProvided is captured once at
-      // freeze time — never re-derived from the field's rolling value later,
-      // or a second edit would misread its own first character as
-      // "supplied". A linked row always carries an artist column (every
-      // producer of this payload — convertBinToQueue, the rotation picker,
-      // the searchbar's queue submit — withholds album_id itself whenever
-      // the release can't supply one), so artist_name is unconditionally
-      // provided here; album_title/record_label reflect whether the release
-      // actually seeded a value.
+      // A linked row always carries an artist column — every producer of this
+      // payload (convertBinToQueue, the rotation picker, the searchbar's queue
+      // submit) withholds album_id itself whenever the release can't supply
+      // one — so artist_name is unconditionally provided here.
+      // album_title/record_label reflect whether the release seeded a value.
       const linkageProvided = hasLinkedAlbumId(action.payload.album_id)
         ? {
             artist_name: true,
-            album_title: action.payload.album !== "" && action.payload.album !== undefined,
-            record_label: action.payload.label !== "" && action.payload.label !== undefined,
+            album_title: action.payload.album !== "",
+            record_label: action.payload.label !== "",
           }
         : undefined;
       state.queue.push(
@@ -255,32 +257,21 @@ export const flowsheetSlice = createAppSlice({
       if (entry) {
         const previous = entry[action.payload.field];
         (entry as any)[action.payload.field] = action.payload.value;
-        // Same deviation rule the searchbar applies in setSearchProperty,
-        // judged against linkageProvided (captured once when the row was
-        // queued) rather than the rolling value: once the DJ edits a field
-        // the linked library row supplied, that linkage no longer describes
-        // the entry and must not ride the wire, because BS's album_id
-        // branch spreads the library row over the request and would hand
-        // the replaced value straight back. This is the only place a
-        // queued entry's credit can be corrected, so without it a
+        // The deviation rule setSearchProperty applies to the searchbar,
+        // judged against linkageProvided rather than the rolling value: once
+        // the DJ edits a field the linked library row supplied, that linkage
+        // no longer describes the entry and must not ride the wire, because
+        // BS's album_id branch spreads the library row over the request and
+        // would hand the replaced value straight back. This is the only place
+        // a queued entry's credit can be corrected, so without it a
         // Various-Artists row rehydrated from storage silently discards the
         // performer the DJ just typed.
         //
-        // Filling a field the row left EMPTY is added data, not a deviation
-        // — the linkage still describes the entry and survives, exactly as
-        // it does in the searchbar. A row with no linkageProvided (queued
-        // before this field existed) reads as fully provided: losing the
-        // linkage on that edit is safer than letting a stale linkage
-        // overwrite the DJ's correction.
-        const provided =
-          entry.linkageProvided?.[
-            action.payload.field as keyof NonNullable<
-              FlowsheetSongEntry["linkageProvided"]
-            >
-          ] ?? true;
+        // Filling a field the row left EMPTY is added data, not a deviation —
+        // the linkage still describes the entry and survives.
         if (
-          ALBUM_SCOPED_QUEUE_FIELDS.includes(action.payload.field) &&
-          provided &&
+          isAlbumScopedField(action.payload.field) &&
+          (entry.linkageProvided?.[action.payload.field] ?? true) &&
           previous !== action.payload.value
         ) {
           entry.album_id = undefined;

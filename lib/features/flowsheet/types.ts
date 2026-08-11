@@ -76,21 +76,35 @@ export type FlowsheetSongBase = {
   discogsUnavailableNote?: string | null;
 };
 
+// The fields a linked library row supplies. Editing one of these on a queued
+// entry deviates from that row; editing anything else (track title, request,
+// segue) does not, since the row never claimed to describe them.
+//
+// `satisfies` against FlowsheetSongBase rather than FlowsheetSongEntry: the
+// entry type derives linkageProvided's keys from this tuple, so checking
+// against it would be circular.
+export const ALBUM_SCOPED_QUEUE_FIELDS = [
+  "artist_name",
+  "album_title",
+  "record_label",
+] as const satisfies readonly (keyof FlowsheetSongBase)[];
+
+export type AlbumScopedQueueField = (typeof ALBUM_SCOPED_QUEUE_FIELDS)[number];
+
 export type FlowsheetSongEntry = FlowsheetEntryBase &
   FlowsheetSongBase & {
     // Which of this row's album-scoped fields the linked release supplied,
-    // captured once when the row entered the queue — mirrors the search
-    // state's selectionProvided, keyed on the queue entry's own field names
-    // (see ALBUM_SCOPED_QUEUE_FIELDS) so the reducer needs no name mapping.
-    // Absent on rows persisted before this field existed; updateQueueEntry
-    // reads that absence as fully provided, since losing album_id on a
-    // rehydrated edit is safer than a stale linkage overwriting the DJ's
-    // correction.
-    linkageProvided?: {
-      artist_name: boolean;
-      album_title: boolean;
-      record_label: boolean;
-    };
+    // captured once when the row entered the queue and never re-derived from
+    // the field's rolling value, or a second edit would misread its own first
+    // keystroke as "supplied".
+    //
+    // Absent on rows persisted to localStorage before this field existed, and
+    // updateQueueEntry reads that absence as fully provided: losing album_id
+    // on a rehydrated edit is safer than a stale linkage overwriting the DJ's
+    // correction. That default is the one place this diverges from the search
+    // state's selectionProvided, which is never persisted and so can treat
+    // absence as "nothing is selected".
+    linkageProvided?: Record<AlbumScopedQueueField, boolean>;
   };
 
 export type FlowsheetShowBlockEntry = FlowsheetEntryBase &
