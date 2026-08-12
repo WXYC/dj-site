@@ -62,12 +62,11 @@
     "@vitest/coverage-v8": "^4.1.10",
     "@vitest/ui": "^4.0.18",
     "bats": "^1.11.0",
-    "esbuild": "^0.28.0",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.3.0",
     "jsdom": "^30.0.1",
     "msw": "^2.15.0",
-    "pg": "^8.22.0",
+    "pg": "^8.23.0",
     "typescript": "^6.0.3",
     "vitest": "^4.0.18",
     "wrangler": "^4.121.0"
