@@ -1,10 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, fireEvent } from "@testing-library/react";
 import MobileHeader from "@/src/components/experiences/modern/Header/MobileHeader";
-import { Provider } from "react-redux";
-import { configureStore } from "@reduxjs/toolkit";
 import { applicationSlice } from "@/lib/features/application/frontend";
-import { render } from "@testing-library/react";
+import { renderWithProviders, createTestStore } from "@/tests/helpers";
 
 // Mock Logo component
 vi.mock("@/src/components/shared/Branding/Logo", () => ({
@@ -47,14 +45,10 @@ function declaredStyle(element: Element, property: string): string | undefined {
   return undefined;
 }
 
-function createTestStore(initialState?: { rightbar?: { sidebarOpen?: boolean } }) {
-  return configureStore({
-    reducer: {
-      application: applicationSlice.reducer,
-    },
-    preloadedState: initialState
-      ? { application: { ...applicationSlice.getInitialState(), ...initialState } as any }
-      : undefined,
+function createStoreWithSidebar(sidebarOpen: boolean) {
+  const initial = applicationSlice.getInitialState();
+  return createTestStore({
+    application: { ...initial, rightbar: { ...initial.rightbar, sidebarOpen } },
   });
 }
 
@@ -67,11 +61,7 @@ describe("MobileHeader", () => {
     it("should render as a Sheet component", () => {
       const store = createTestStore();
 
-      render(
-        <Provider store={store}>
-          <MobileHeader />
-        </Provider>
-      );
+      renderWithProviders(<MobileHeader />, { store });
 
       const sheet = document.querySelector(".MuiSheet-root");
       expect(sheet).toBeInTheDocument();
@@ -80,11 +70,7 @@ describe("MobileHeader", () => {
     it("should render Logo component", () => {
       const store = createTestStore();
 
-      render(
-        <Provider store={store}>
-          <MobileHeader />
-        </Provider>
-      );
+      renderWithProviders(<MobileHeader />, { store });
 
       expect(screen.getByTestId("logo")).toBeInTheDocument();
     });
@@ -92,11 +78,7 @@ describe("MobileHeader", () => {
     it("should render menu toggle button", () => {
       const store = createTestStore();
 
-      render(
-        <Provider store={store}>
-          <MobileHeader />
-        </Provider>
-      );
+      renderWithProviders(<MobileHeader />, { store });
 
       expect(screen.getByRole("button")).toBeInTheDocument();
     });
@@ -104,11 +86,7 @@ describe("MobileHeader", () => {
     it("should render DragHandle icon in menu button", () => {
       const store = createTestStore();
 
-      render(
-        <Provider store={store}>
-          <MobileHeader />
-        </Provider>
-      );
+      renderWithProviders(<MobileHeader />, { store });
 
       expect(screen.getByTestId("drag-handle-icon")).toBeInTheDocument();
     });
@@ -119,11 +97,7 @@ describe("MobileHeader", () => {
       const store = createTestStore();
       const dispatchSpy = vi.spyOn(store, "dispatch");
 
-      render(
-        <Provider store={store}>
-          <MobileHeader />
-        </Provider>
-      );
+      renderWithProviders(<MobileHeader />, { store });
 
       const button = screen.getByRole("button");
       fireEvent.click(button);
@@ -136,11 +110,7 @@ describe("MobileHeader", () => {
     it("should call toggleSidebarCSS when button is clicked", () => {
       const store = createTestStore();
 
-      render(
-        <Provider store={store}>
-          <MobileHeader />
-        </Provider>
-      );
+      renderWithProviders(<MobileHeader />, { store });
 
       const button = screen.getByRole("button");
       fireEvent.click(button);
@@ -149,15 +119,9 @@ describe("MobileHeader", () => {
     });
 
     it("should toggle sidebar state in store when clicked", () => {
-      const store = createTestStore({
-        rightbar: { sidebarOpen: false },
-      });
+      const store = createStoreWithSidebar(false);
 
-      render(
-        <Provider store={store}>
-          <MobileHeader />
-        </Provider>
-      );
+      renderWithProviders(<MobileHeader />, { store });
 
       // Initial state
       expect(store.getState().application.rightbar.sidebarOpen).toBe(false);
@@ -170,15 +134,9 @@ describe("MobileHeader", () => {
     });
 
     it("should toggle sidebar from open to closed", () => {
-      const store = createTestStore({
-        rightbar: { sidebarOpen: true },
-      });
+      const store = createStoreWithSidebar(true);
 
-      render(
-        <Provider store={store}>
-          <MobileHeader />
-        </Provider>
-      );
+      renderWithProviders(<MobileHeader />, { store });
 
       // Initial state
       expect(store.getState().application.rightbar.sidebarOpen).toBe(true);
@@ -195,11 +153,7 @@ describe("MobileHeader", () => {
     it("should have outlined variant on button", () => {
       const store = createTestStore();
 
-      render(
-        <Provider store={store}>
-          <MobileHeader />
-        </Provider>
-      );
+      renderWithProviders(<MobileHeader />, { store });
 
       const button = screen.getByRole("button");
       expect(button).toHaveClass("MuiIconButton-variantOutlined");
@@ -208,11 +162,7 @@ describe("MobileHeader", () => {
     it("should have neutral color on button", () => {
       const store = createTestStore();
 
-      render(
-        <Provider store={store}>
-          <MobileHeader />
-        </Provider>
-      );
+      renderWithProviders(<MobileHeader />, { store });
 
       const button = screen.getByRole("button");
       expect(button).toHaveClass("MuiIconButton-colorNeutral");
@@ -221,11 +171,7 @@ describe("MobileHeader", () => {
     it("should have small size on button", () => {
       const store = createTestStore();
 
-      render(
-        <Provider store={store}>
-          <MobileHeader />
-        </Provider>
-      );
+      renderWithProviders(<MobileHeader />, { store });
 
       const button = screen.getByRole("button");
       expect(button).toHaveClass("MuiIconButton-sizeSm");
@@ -236,11 +182,7 @@ describe("MobileHeader", () => {
     it("should position header at top of viewport", () => {
       const store = createTestStore();
 
-      render(
-        <Provider store={store}>
-          <MobileHeader />
-        </Provider>
-      );
+      renderWithProviders(<MobileHeader />, { store });
 
       const sheet = document.querySelector(".MuiSheet-root");
       expect(sheet).toHaveStyle({ position: "fixed", top: "0px" });
@@ -249,11 +191,7 @@ describe("MobileHeader", () => {
     it("should have full viewport width", () => {
       const store = createTestStore();
 
-      render(
-        <Provider store={store}>
-          <MobileHeader />
-        </Provider>
-      );
+      renderWithProviders(<MobileHeader />, { store });
 
       const sheet = document.querySelector(".MuiSheet-root")!;
       expect(declaredStyle(sheet, "width")).toBe("100vw");
@@ -262,15 +200,9 @@ describe("MobileHeader", () => {
 
   describe("Multiple Interactions", () => {
     it("should handle multiple toggle clicks", () => {
-      const store = createTestStore({
-        rightbar: { sidebarOpen: false },
-      });
+      const store = createStoreWithSidebar(false);
 
-      render(
-        <Provider store={store}>
-          <MobileHeader />
-        </Provider>
-      );
+      renderWithProviders(<MobileHeader />, { store });
 
       const button = screen.getByRole("button");
 
@@ -290,11 +222,7 @@ describe("MobileHeader", () => {
     it("should call toggleSidebarCSS on each click", () => {
       const store = createTestStore();
 
-      render(
-        <Provider store={store}>
-          <MobileHeader />
-        </Provider>
-      );
+      renderWithProviders(<MobileHeader />, { store });
 
       const button = screen.getByRole("button");
 
@@ -310,11 +238,7 @@ describe("MobileHeader", () => {
     it("should have accessible button element", () => {
       const store = createTestStore();
 
-      render(
-        <Provider store={store}>
-          <MobileHeader />
-        </Provider>
-      );
+      renderWithProviders(<MobileHeader />, { store });
 
       const button = screen.getByRole("button");
       expect(button).toBeInTheDocument();
@@ -324,11 +248,7 @@ describe("MobileHeader", () => {
     it("should be keyboard accessible", () => {
       const store = createTestStore();
 
-      render(
-        <Provider store={store}>
-          <MobileHeader />
-        </Provider>
-      );
+      renderWithProviders(<MobileHeader />, { store });
 
       const button = screen.getByRole("button");
       button.focus();
@@ -340,11 +260,7 @@ describe("MobileHeader", () => {
     it("should have three child elements in header (button, logo container, empty box)", () => {
       const store = createTestStore();
 
-      render(
-        <Provider store={store}>
-          <MobileHeader />
-        </Provider>
-      );
+      renderWithProviders(<MobileHeader />, { store });
 
       const sheet = document.querySelector(".MuiSheet-root");
       // Button, Logo Box, Empty Box
@@ -354,11 +270,7 @@ describe("MobileHeader", () => {
     it("should render logo inside a container box", () => {
       const store = createTestStore();
 
-      render(
-        <Provider store={store}>
-          <MobileHeader />
-        </Provider>
-      );
+      renderWithProviders(<MobileHeader />, { store });
 
       const logo = screen.getByTestId("logo");
       expect(logo.parentElement).toHaveClass("MuiBox-root");

@@ -1,9 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import FlowsheetSearchbar from "@/src/components/experiences/modern/flowsheet/Search/FlowsheetSearchbar";
-import { Provider } from "react-redux";
-import { configureStore } from "@reduxjs/toolkit";
+import { renderWithProviders, createTestStore } from "@/tests/helpers";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { useGhostText } from "@/src/hooks/useGhostText";
 import { useFlowsheetSearch } from "@/src/hooks/flowsheetHooks";
@@ -111,15 +110,6 @@ function createStoreWithQueryContent(artist = "Stereolab") {
   });
 }
 
-function createTestStore(preloadedState = {}) {
-  return configureStore({
-    reducer: {
-      flowsheet: flowsheetSlice.reducer,
-    },
-    preloadedState,
-  });
-}
-
 describe("FlowsheetSearchbar", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -139,11 +129,7 @@ describe("FlowsheetSearchbar", () => {
   it("should render search form", () => {
     const store = createTestStore();
 
-    const { container } = render(
-      <Provider store={store}>
-        <FlowsheetSearchbar />
-      </Provider>
-    );
+    const { container } = renderWithProviders(<FlowsheetSearchbar />, { store });
 
     expect(container.querySelector("form")).toBeInTheDocument();
   });
@@ -151,11 +137,7 @@ describe("FlowsheetSearchbar", () => {
   it("should not stretch to fill the page column (regression: giant gap above the flowsheet)", () => {
     const store = createTestStore();
 
-    const { container } = render(
-      <Provider store={store}>
-        <FlowsheetSearchbar />
-      </Provider>
-    );
+    const { container } = renderWithProviders(<FlowsheetSearchbar />, { store });
 
     // MainContent is a column flex pinned to 100dvh; flex-grow on the
     // searchbar's outer wrapper absorbs all leftover vertical space and
@@ -170,11 +152,7 @@ describe("FlowsheetSearchbar", () => {
   it("should render BreakpointButton", () => {
     const store = createTestStore();
 
-    render(
-      <Provider store={store}>
-        <FlowsheetSearchbar />
-      </Provider>
-    );
+    renderWithProviders(<FlowsheetSearchbar />, { store });
 
     expect(screen.getByTestId("breakpoint-button")).toBeInTheDocument();
   });
@@ -182,11 +160,7 @@ describe("FlowsheetSearchbar", () => {
   it("should render TalksetButton", () => {
     const store = createTestStore();
 
-    render(
-      <Provider store={store}>
-        <FlowsheetSearchbar />
-      </Provider>
-    );
+    renderWithProviders(<FlowsheetSearchbar />, { store });
 
     expect(screen.getByTestId("talkset-button")).toBeInTheDocument();
   });
@@ -194,11 +168,7 @@ describe("FlowsheetSearchbar", () => {
   it("should render search inputs in Artist | Song | Album | Label order", () => {
     const store = createTestStore();
 
-    render(
-      <Provider store={store}>
-        <FlowsheetSearchbar />
-      </Provider>
-    );
+    renderWithProviders(<FlowsheetSearchbar />, { store });
 
     const artist = screen.getByTestId("input-artist");
     const song = screen.getByTestId("input-song");
@@ -223,11 +193,7 @@ describe("FlowsheetSearchbar", () => {
   it("should not render the results panel while the search is closed", () => {
     const store = createTestStore();
 
-    render(
-      <Provider store={store}>
-        <FlowsheetSearchbar />
-      </Provider>
-    );
+    renderWithProviders(<FlowsheetSearchbar />, { store });
 
     expect(screen.queryByTestId("search-results")).not.toBeInTheDocument();
   });
@@ -236,11 +202,7 @@ describe("FlowsheetSearchbar", () => {
     mockSearchOpen = true;
     const store = createTestStore();
 
-    render(
-      <Provider store={store}>
-        <FlowsheetSearchbar />
-      </Provider>
-    );
+    renderWithProviders(<FlowsheetSearchbar />, { store });
 
     expect(screen.getByTestId("search-results")).toBeInTheDocument();
   });
@@ -250,11 +212,7 @@ describe("FlowsheetSearchbar", () => {
   it("should render the rotation toggle in the leading cell", () => {
     const store = createTestStore();
 
-    render(
-      <Provider store={store}>
-        <FlowsheetSearchbar />
-      </Provider>
-    );
+    renderWithProviders(<FlowsheetSearchbar />, { store });
 
     expect(screen.getByTestId("rotation-toggle")).toBeInTheDocument();
     expect(screen.queryByTestId("search-icon")).not.toBeInTheDocument();
@@ -267,11 +225,7 @@ describe("FlowsheetSearchbar", () => {
     mockCtrlKeyPressed = false;
     const store = createStoreWithQueryContent();
 
-    render(
-      <Provider store={store}>
-        <FlowsheetSearchbar />
-      </Provider>
-    );
+    renderWithProviders(<FlowsheetSearchbar />, { store });
 
     const queueButton = screen.getByTestId("flowsheet-search-queue");
     expect(queueButton).toBeInTheDocument();
@@ -283,11 +237,7 @@ describe("FlowsheetSearchbar", () => {
     mockLive = true;
     const store = createStoreWithQueryContent();
 
-    render(
-      <Provider store={store}>
-        <FlowsheetSearchbar />
-      </Provider>
-    );
+    renderWithProviders(<FlowsheetSearchbar />, { store });
 
     const clearButton = screen.getByTestId("flowsheet-search-clear");
     fireEvent.click(clearButton);
@@ -297,11 +247,7 @@ describe("FlowsheetSearchbar", () => {
   it("should not show the clear button while the query is empty", () => {
     const store = createTestStore();
 
-    render(
-      <Provider store={store}>
-        <FlowsheetSearchbar />
-      </Provider>
-    );
+    renderWithProviders(<FlowsheetSearchbar />, { store });
 
     expect(
       screen.queryByTestId("flowsheet-search-clear")
@@ -317,11 +263,7 @@ describe("FlowsheetSearchbar", () => {
       flowsheet: { ...initial, rotationMode: true },
     });
 
-    render(
-      <Provider store={store}>
-        <FlowsheetSearchbar />
-      </Provider>
-    );
+    renderWithProviders(<FlowsheetSearchbar />, { store });
 
     const clearButton = screen.getByTestId("flowsheet-search-clear");
     fireEvent.click(clearButton);
@@ -335,11 +277,7 @@ describe("FlowsheetSearchbar", () => {
     mockLive = false;
     const store = createTestStore();
 
-    render(
-      <Provider store={store}>
-        <FlowsheetSearchbar />
-      </Provider>
-    );
+    renderWithProviders(<FlowsheetSearchbar />, { store });
 
     for (const name of ["artist", "song", "album", "label"]) {
       expect(screen.getByTestId(`input-${name}`)).toBeDisabled();
@@ -350,11 +288,7 @@ describe("FlowsheetSearchbar", () => {
     mockLive = true;
     const store = createTestStore();
 
-    render(
-      <Provider store={store}>
-        <FlowsheetSearchbar />
-      </Provider>
-    );
+    renderWithProviders(<FlowsheetSearchbar />, { store });
 
     fireEvent.focus(screen.getByTestId("breakpoint-button"));
     fireEvent.click(screen.getByTestId("talkset-button"));
@@ -365,11 +299,7 @@ describe("FlowsheetSearchbar", () => {
   it("should not show the queue button while the search is closed", () => {
     const store = createTestStore();
 
-    render(
-      <Provider store={store}>
-        <FlowsheetSearchbar />
-      </Provider>
-    );
+    renderWithProviders(<FlowsheetSearchbar />, { store });
 
     expect(
       screen.queryByTestId("flowsheet-search-queue")
@@ -379,11 +309,7 @@ describe("FlowsheetSearchbar", () => {
   it("should render submit button", () => {
     const store = createTestStore();
 
-    render(
-      <Provider store={store}>
-        <FlowsheetSearchbar />
-      </Provider>
-    );
+    renderWithProviders(<FlowsheetSearchbar />, { store });
 
     // The button shows "/" when not in search mode
     const buttons = screen.getAllByRole("button");
@@ -395,11 +321,7 @@ describe("FlowsheetSearchbar", () => {
       mockLive = true;
       const store = createTestStore();
 
-      render(
-        <Provider store={store}>
-          <FlowsheetSearchbar />
-        </Provider>
-      );
+      renderWithProviders(<FlowsheetSearchbar />, { store });
 
       // Simulate keydown event on document
       fireEvent.keyDown(document, { key: "/" });
@@ -413,11 +335,7 @@ describe("FlowsheetSearchbar", () => {
       mockLive = true;
       const store = createTestStore();
 
-      render(
-        <Provider store={store}>
-          <FlowsheetSearchbar />
-        </Provider>
-      );
+      renderWithProviders(<FlowsheetSearchbar />, { store });
 
       const input = screen.getByTestId("input-song");
       input.focus();
@@ -438,11 +356,7 @@ describe("FlowsheetSearchbar", () => {
       mockLive = false;
       const store = createTestStore();
 
-      render(
-        <Provider store={store}>
-          <FlowsheetSearchbar />
-        </Provider>
-      );
+      renderWithProviders(<FlowsheetSearchbar />, { store });
 
       fireEvent.keyDown(document, { key: "/" });
 
@@ -457,11 +371,7 @@ describe("FlowsheetSearchbar", () => {
 
       const store = createTestStore();
 
-      render(
-        <Provider store={store}>
-          <FlowsheetSearchbar />
-        </Provider>
-      );
+      renderWithProviders(<FlowsheetSearchbar />, { store });
 
       fireEvent.keyDown(document, { key: "ArrowDown" });
 
@@ -485,11 +395,7 @@ describe("FlowsheetSearchbar", () => {
         },
       });
 
-      render(
-        <Provider store={store}>
-          <FlowsheetSearchbar />
-        </Provider>
-      );
+      renderWithProviders(<FlowsheetSearchbar />, { store });
 
       fireEvent.keyDown(document, { key: "ArrowUp" });
 
@@ -516,11 +422,7 @@ describe("FlowsheetSearchbar", () => {
         },
       });
 
-      render(
-        <Provider store={store}>
-          <FlowsheetSearchbar />
-        </Provider>
-      );
+      renderWithProviders(<FlowsheetSearchbar />, { store });
 
       fireEvent.keyDown(document, { key: "ArrowDown" });
 
@@ -539,11 +441,7 @@ describe("FlowsheetSearchbar", () => {
         },
       });
 
-      render(
-        <Provider store={store}>
-          <FlowsheetSearchbar />
-        </Provider>
-      );
+      renderWithProviders(<FlowsheetSearchbar />, { store });
 
       fireEvent.keyDown(document, { key: "ArrowUp" });
 
@@ -556,11 +454,12 @@ describe("FlowsheetSearchbar", () => {
     it("should reset search on click away", async () => {
       const store = createTestStore();
 
-      render(
-        <Provider store={store}>
+      renderWithProviders(
+        <>
           <FlowsheetSearchbar />
           <div data-testid="outside">Outside</div>
-        </Provider>
+        </>,
+        { store }
       );
 
       // Click outside the search bar
@@ -575,11 +474,7 @@ describe("FlowsheetSearchbar", () => {
     it("should call handleSubmit on form submit", async () => {
       const store = createTestStore();
 
-      const { container } = render(
-        <Provider store={store}>
-          <FlowsheetSearchbar />
-        </Provider>
-      );
+      const { container } = renderWithProviders(<FlowsheetSearchbar />, { store });
 
       const form = container.querySelector("form")!;
       fireEvent.submit(form);
@@ -590,11 +485,7 @@ describe("FlowsheetSearchbar", () => {
     it("should prevent default on form submit", async () => {
       const store = createTestStore();
 
-      const { container } = render(
-        <Provider store={store}>
-          <FlowsheetSearchbar />
-        </Provider>
-      );
+      const { container } = renderWithProviders(<FlowsheetSearchbar />, { store });
 
       const form = container.querySelector("form")!;
       const submitEvent = new Event("submit", { bubbles: true, cancelable: true });
@@ -614,11 +505,7 @@ describe("FlowsheetSearchbar", () => {
       mockSearchOpen = false;
       const store = createTestStore();
 
-      render(
-        <Provider store={store}>
-          <FlowsheetSearchbar />
-        </Provider>
-      );
+      renderWithProviders(<FlowsheetSearchbar />, { store });
 
       expect(screen.getByTestId("breakpoint-button")).toBeInTheDocument();
       expect(screen.getByTestId("talkset-button")).toBeInTheDocument();
@@ -633,11 +520,7 @@ describe("FlowsheetSearchbar", () => {
     it("should swap out special-entry buttons once the DJ has typed", () => {
       const store = createStoreWithQueryContent();
 
-      render(
-        <Provider store={store}>
-          <FlowsheetSearchbar />
-        </Provider>
-      );
+      renderWithProviders(<FlowsheetSearchbar />, { store });
 
       expect(screen.queryByTestId("breakpoint-button")).not.toBeInTheDocument();
       expect(screen.queryByTestId("talkset-button")).not.toBeInTheDocument();
@@ -674,11 +557,7 @@ describe("FlowsheetSearchbar", () => {
 
       const store = createTestStore();
 
-      render(
-        <Provider store={store}>
-          <FlowsheetSearchbar />
-        </Provider>
-      );
+      renderWithProviders(<FlowsheetSearchbar />, { store });
 
       // Button should be rendered (with play icon from mock)
       const buttons = screen.getAllByRole("button");
@@ -689,11 +568,7 @@ describe("FlowsheetSearchbar", () => {
       mockLive = false;
       const store = createStoreWithQueryContent();
 
-      render(
-        <Provider store={store}>
-          <FlowsheetSearchbar />
-        </Provider>
-      );
+      renderWithProviders(<FlowsheetSearchbar />, { store });
 
       expect(screen.getByTestId("flowsheet-search-submit")).toBeDisabled();
     });
@@ -704,11 +579,7 @@ describe("FlowsheetSearchbar", () => {
       mockLive = true;
       const store = createTestStore();
 
-      const { container } = render(
-        <Provider store={store}>
-          <FlowsheetSearchbar />
-        </Provider>
-      );
+      const { container } = renderWithProviders(<FlowsheetSearchbar />, { store });
 
       const form = container.querySelector("form")!;
       fireEvent.focus(form);
@@ -720,11 +591,7 @@ describe("FlowsheetSearchbar", () => {
       mockLive = false;
       const store = createTestStore();
 
-      const { container } = render(
-        <Provider store={store}>
-          <FlowsheetSearchbar />
-        </Provider>
-      );
+      const { container } = renderWithProviders(<FlowsheetSearchbar />, { store });
 
       const form = container.querySelector("form")!;
       fireEvent.focus(form);
@@ -736,11 +603,7 @@ describe("FlowsheetSearchbar", () => {
       mockLive = true;
       const store = createTestStore();
 
-      const { container } = render(
-        <Provider store={store}>
-          <FlowsheetSearchbar />
-        </Provider>
-      );
+      const { container } = renderWithProviders(<FlowsheetSearchbar />, { store });
 
       const form = container.querySelector("form")!;
       await userEvent.click(form);
@@ -776,11 +639,7 @@ describe("FlowsheetSearchbar", () => {
 
       const store = createTestStore();
 
-      render(
-        <Provider store={store}>
-          <FlowsheetSearchbar />
-        </Provider>
-      );
+      renderWithProviders(<FlowsheetSearchbar />, { store });
 
       const buttons = screen.getAllByRole("button");
       expect(buttons.length).toBeGreaterThan(0);
@@ -792,11 +651,7 @@ describe("FlowsheetSearchbar", () => {
       const removeEventListenerSpy = vi.spyOn(document, "removeEventListener");
       const store = createTestStore();
 
-      const { unmount } = render(
-        <Provider store={store}>
-          <FlowsheetSearchbar />
-        </Provider>
-      );
+      const { unmount } = renderWithProviders(<FlowsheetSearchbar />, { store });
 
       unmount();
 
@@ -863,11 +718,7 @@ describe("FlowsheetSearchbar", () => {
       mockSongGhost();
       const store = createTestStore();
 
-      render(
-        <Provider store={store}>
-          <FlowsheetSearchbar />
-        </Provider>
-      );
+      renderWithProviders(<FlowsheetSearchbar />, { store });
 
       expect(mockSetSearchProperty).toHaveBeenCalledWith(
         "album",
@@ -897,11 +748,7 @@ describe("FlowsheetSearchbar", () => {
       } as unknown as ReturnType<typeof useFlowsheetSearch>);
       const store = createTestStore();
 
-      render(
-        <Provider store={store}>
-          <FlowsheetSearchbar />
-        </Provider>
-      );
+      renderWithProviders(<FlowsheetSearchbar />, { store });
 
       expect(mockSetSearchProperty).not.toHaveBeenCalledWith(
         "album",
@@ -950,11 +797,7 @@ describe("FlowsheetSearchbar", () => {
       );
 
       const store = createTestStore();
-      const { rerender } = render(
-        <Provider store={store}>
-          <FlowsheetSearchbar />
-        </Provider>
-      );
+      const { rerender } = renderWithProviders(<FlowsheetSearchbar />, { store });
 
       // Phase 1: the empty album auto-fills from the suggestion.
       expect(mockSetSearchProperty).toHaveBeenCalledWith(
@@ -974,11 +817,7 @@ describe("FlowsheetSearchbar", () => {
           request: false,
         },
       };
-      rerender(
-        <Provider store={store}>
-          <FlowsheetSearchbar />
-        </Provider>
-      );
+      rerender(<FlowsheetSearchbar />);
 
       // Phase 3: a new entry where the DJ hand-types the same album string the
       // previous entry auto-filled, while a *different* suggestion is active.
@@ -995,11 +834,7 @@ describe("FlowsheetSearchbar", () => {
           request: false,
         },
       };
-      rerender(
-        <Provider store={store}>
-          <FlowsheetSearchbar />
-        </Provider>
-      );
+      rerender(<FlowsheetSearchbar />);
 
       expect(mockSetSearchProperty).not.toHaveBeenCalledWith(
         "album",
