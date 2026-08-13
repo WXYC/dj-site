@@ -31,8 +31,8 @@ and server (`tests/fakes/`), and fixture factories (`tests/fixtures/`).
 
 ### Rendering
 
-- **`renderWithProviders(ui, options?)`** -- Wraps component in Redux `Provider` + MUI `CssVarsProvider`. Returns `{ ...rtlResult, store, user }`. Accepts a custom `store`; seed state by dispatching actions against the returned `store` before or after render, not via a `preloadedState` option.
-- **`createTestStore()`** -- Creates a fresh `AppStore` instance.
+- **`renderWithProviders(ui, options?)`** -- Wraps component in Redux `Provider` + MUI `CssVarsProvider`. Returns `{ ...rtlResult, store, user }`. Accepts a custom `store`, or a `preloadedState` to seed the store it creates.
+- **`createTestStore(preloadedState?)`** -- Creates a fresh `AppStore` instance, optionally seeded.
 
 ### Factory Functions
 

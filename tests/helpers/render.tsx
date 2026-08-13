@@ -39,23 +39,19 @@ function createTestWrapper(store: AppStore) {
  * const { getByText, store } = renderWithProviders(<MyComponent />);
  *
  * @example
- * // Seed state by dispatching against the returned store, then re-render
- * const { store, rerender } = renderWithProviders(<MyComponent />);
- * store.dispatch(flowsheetSlice.actions.setAutoplay(true));
- * rerender(<MyComponent />);
+ * // Seed state via preloadedState
+ * const { store } = renderWithProviders(<MyComponent />, {
+ *   preloadedState: { flowsheet: { ...flowsheetSlice.getInitialState(), autoplay: true } },
+ * });
  */
 export function renderWithProviders(
   ui: ReactElement,
   {
     preloadedState,
-    store = makeStore(),
+    store = makeStore(preloadedState),
     ...renderOptions
   }: ExtendedRenderOptions = {}
 ): CustomRenderResult {
-  // Apply preloaded state to the store if provided
-  // Note: For full preloadedState support, makeStore would need to accept it
-  // This is a simplified version that works with the current store setup
-
   const user = userEvent.setup();
   const wrapper = createTestWrapper(store);
 
@@ -70,8 +66,8 @@ export function renderWithProviders(
  * Create a store for use in tests.
  * Returns a fresh store instance for each test.
  */
-export function createTestStore(): AppStore {
-  return makeStore();
+export function createTestStore(preloadedState?: Partial<RootState>): AppStore {
+  return makeStore(preloadedState);
 }
 
 // Re-export everything from @testing-library/react
