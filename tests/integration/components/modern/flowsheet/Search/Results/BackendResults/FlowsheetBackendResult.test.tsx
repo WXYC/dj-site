@@ -116,6 +116,10 @@ describe("FlowsheetBackendResult", () => {
         <FlowsheetBackendResult entry={mockEntry} index={5} />
       );
 
+      const queryBeforeHover = flowsheetSlice.selectors.getSearchQuery(
+        store.getState()
+      );
+
       const resultRow = screen
         .getByText("Juana Molina")
         .closest('[data-testid^="flowsheet-search-result-"]');
@@ -123,6 +127,10 @@ describe("FlowsheetBackendResult", () => {
 
       expect(flowsheetSlice.selectors.getSelectedResult(store.getState())).toBe(
         0
+      );
+      // Hover must not rewrite any part of the DJ's in-progress query.
+      expect(flowsheetSlice.selectors.getSearchQuery(store.getState())).toEqual(
+        queryBeforeHover
       );
     });
 
@@ -163,14 +171,22 @@ describe("FlowsheetBackendResult", () => {
 
   describe("Tracklist prefetch", () => {
     it("prefetches tracks on mouse over when the row carries a real library link", () => {
-      renderWithProviders(<FlowsheetBackendResult entry={mockEntry} index={42} />);
+      // id and index are deliberately distinct values so this test can tell
+      // apart a component that reads entry.id from one that reads index.
+      const linkedEntry: AlbumEntry = createTestAlbum({
+        ...mockEntry,
+        id: 1,
+      });
+      renderWithProviders(
+        <FlowsheetBackendResult entry={linkedEntry} index={42} />
+      );
 
       const resultRow = screen
         .getByText("Juana Molina")
         .closest('[data-testid^="flowsheet-search-result-"]');
       fireEvent.mouseOver(resultRow!);
 
-      expect(mockPrefetchTracks).toHaveBeenCalledWith(42);
+      expect(mockPrefetchTracks).toHaveBeenCalledWith(1);
     });
 
     it("does not prefetch tracks for a library-unlinked row (synthesized negative id)", () => {
