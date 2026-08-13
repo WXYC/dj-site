@@ -11,10 +11,9 @@ export const metadata: Metadata = {
 
 // Gated at authenticated-DJ, never MD: mainmenu.jsp places Missing Releases
 // outside its hasAdminAccess() block and Backend gates PATCH
-// /library/:id/missing|found at catalog:['read'] so any DJ can flag a stack
-// missing/found while pulling records (BS#393). Marking a stack missing or
+// /library/:id/missing|found at catalog:['read']. Marking a stack missing or
 // found is a status toggle done by whoever is standing at the stacks, not a
-// catalog-write action.
+// catalog-write action, so any DJ can do it while pulling records.
 export default async function ClassicMissingReleasesPage() {
   const session = await requireAuth();
   await requireRole(session, Authorization.DJ);
