@@ -343,6 +343,34 @@ export function useCatalogQueryResults() {
   };
 }
 
+const MISSING_RELEASES_QUERY_ARG: CatalogInfiniteQueryArg = { missing: true };
+
+/**
+ * Data-fetching hook for the classic Missing Releases screen. Unlike
+ * `useCatalogQueryResults`, there's no pagination UI to drive `fetchNextPage`
+ * from — tubafrenzy's `missingReleases.jsp` always lists every missing
+ * release on one page, so this auto-advances through every page itself.
+ */
+export function useMissingReleases() {
+  const { data, isFetching, isError, hasNextPage, fetchNextPage } =
+    useSearchLibraryQueryInfiniteQuery(MISSING_RELEASES_QUERY_ARG);
+
+  useEffect(() => {
+    if (isFetching || !hasNextPage) return;
+    void fetchNextPage();
+  }, [isFetching, hasNextPage, fetchNextPage]);
+
+  const results = useMemo(
+    () => dedupeAlbumEntriesById(data?.pages?.flatMap((page) => page.results) ?? []),
+    [data?.pages],
+  );
+
+  const total = data?.pages?.[0]?.total ?? 0;
+  const isLoading = isFetching && !data?.pages?.length;
+
+  return { results, total, isLoading, isError };
+}
+
 // Flowsheet-autofill hooks — unchanged from the pre-query-builder shape.
 // They read from flowsheetSlice and hit the preserved /library/ endpoint via
 // catalogApi.searchCatalog. Don't migrate them to /library/query — they don't
