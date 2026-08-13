@@ -456,7 +456,7 @@ describe("catalog conversions", () => {
         const state = flowsheetSlice.reducer(
           defaultFlowsheetFrontendState,
           flowsheetSlice.actions.setRotationMetadata({
-            album_id: albumEntry.id,
+            album_id: albumEntry.id ?? undefined,
             rotation_id: albumEntry.rotation_id,
             rotation_bin: albumEntry.rotation_bin,
           })
@@ -485,7 +485,7 @@ describe("catalog conversions", () => {
         const state = flowsheetSlice.reducer(
           defaultFlowsheetFrontendState,
           flowsheetSlice.actions.setRotationMetadata({
-            album_id: albumEntry.id,
+            album_id: albumEntry.id ?? undefined,
             rotation_id: albumEntry.rotation_id,
             rotation_bin: albumEntry.rotation_bin,
           })
@@ -535,7 +535,7 @@ describe("catalog conversions", () => {
         const state = flowsheetSlice.reducer(
           defaultFlowsheetFrontendState,
           flowsheetSlice.actions.setRotationMetadata({
-            album_id: albumEntry.id,
+            album_id: albumEntry.id ?? undefined,
             rotation_id: albumEntry.rotation_id,
             rotation_bin: albumEntry.rotation_bin,
           })

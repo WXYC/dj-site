@@ -9,6 +9,8 @@
  * positive-integer id boundary. Callers gate the linked-album submission
  * shape on this — previously five files re-derived the check locally.
  */
-export function hasLinkedAlbumId(albumId: unknown): albumId is number {
+export function hasLinkedAlbumId(
+  albumId: number | null | undefined
+): albumId is number {
   return typeof albumId === "number" && albumId > 0;
 }

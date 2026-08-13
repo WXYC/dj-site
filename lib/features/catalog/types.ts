@@ -223,7 +223,7 @@ export type AlbumParams = AddAlbumRequestBody;
 export type ArtistParams = AddArtistRequestBody;
 
 export type AlbumEntry = {
-  id: number;
+  id: number | null;
   title: string;
   artist: ArtistEntry;
   entry: number;

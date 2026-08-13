@@ -40,7 +40,8 @@ function CatalogResult({
 
   const { selected, setSelection, sortBy } = useCatalogQuerySearch();
 
-  const isSelected = selected.includes(album.id);
+  // Catalog rows always carry a real library.id; only LML rows go null.
+  const isSelected = selected.includes(album.id!);
 
   const artistDisplay = album.album_artist ? "Various Artists" : album.artist.name;
   const artistDetail = album.album_artist ?? album.alternate_artist;
@@ -59,7 +60,7 @@ function CatalogResult({
     <tr
       key={album.id}
       className={isSelected ? "row-selected" : undefined}
-      onClick={() => dispatch(applicationSlice.actions.openPanel({ type: "album-detail", albumId: album.id }))}
+      onClick={() => dispatch(applicationSlice.actions.openPanel({ type: "album-detail", albumId: album.id! }))}
       style={{ cursor: "pointer" }}
     >
       <td
@@ -72,7 +73,7 @@ function CatalogResult({
           onChange={(event) => {
             setSelection(
               event.target.checked
-                ? [...selected, album.id]
+                ? [...selected, album.id!]
                 : selected.filter((item) => item !== album.id)
             );
           }}
@@ -198,7 +199,7 @@ function CatalogResult({
               variant="plain"
               color="neutral"
               size="sm"
-              onClick={() => dispatch(applicationSlice.actions.openPanel({ type: "album-detail", albumId: album.id }))}
+              onClick={() => dispatch(applicationSlice.actions.openPanel({ type: "album-detail", albumId: album.id! }))}
             >
               <InfoOutlinedIcon />
             </IconButton>

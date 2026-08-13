@@ -232,11 +232,16 @@ const useFlowsheetSearchResults = () => {
   });
 
   const lmlResults = useMemo(() => {
+    // bin/rotation/catalog rows always carry a real library.id; widening
+    // `seen` to `Set<number | null>` would make every LML row (id possibly
+    // null) test `!seen.has(null)` — always true — turning the dedupe into a
+    // guaranteed no-op. Keep `Set<number>` and filter the null case
+    // explicitly instead. Real fix is #1184.
     const seen = new Set<number>();
-    for (const r of binResults) seen.add(r.id);
-    for (const r of rotationResults) seen.add(r.id);
-    for (const r of catalogResults) seen.add(r.id);
-    return rawLmlResults.filter((r) => !seen.has(r.id));
+    for (const r of binResults) if (r.id !== null) seen.add(r.id);
+    for (const r of rotationResults) if (r.id !== null) seen.add(r.id);
+    for (const r of catalogResults) if (r.id !== null) seen.add(r.id);
+    return rawLmlResults.filter((r) => r.id === null || !seen.has(r.id));
   }, [binResults, rotationResults, catalogResults, rawLmlResults]);
 
   const allSearchResults = useMemo(

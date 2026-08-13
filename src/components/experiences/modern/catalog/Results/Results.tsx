@@ -203,9 +203,10 @@ export default function Results({
                     selected.length === releaseList.length
                   }
                   onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                    // Catalog rows always carry a real library.id; only LML rows go null.
                     setSelection(
                       event.target.checked
-                        ? releaseList.map((row) => row.id)
+                        ? releaseList.map((row) => row.id!)
                         : []
                     );
                   }}

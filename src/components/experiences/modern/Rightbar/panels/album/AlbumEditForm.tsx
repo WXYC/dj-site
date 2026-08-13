@@ -276,7 +276,8 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
     if (!canSave) return;
     let updated: AlbumEntry;
     try {
-      updated = await updateAlbum({ albumId: album.id, body: changes }).unwrap();
+      // Catalog rows always carry a real library.id; only LML rows go null.
+      updated = await updateAlbum({ albumId: album.id!, body: changes }).unwrap();
     } catch (err) {
       if (isUnmessagedHttpError(err)) {
         toast.error("Failed to update album");
