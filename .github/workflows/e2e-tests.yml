@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       backend_ref:
-        description: 'Backend-Service branch or commit SHA (blank = the pinned ref)'
+        description: 'Backend-Service branch or commit SHA (blank = BACKEND_PINNED_REF, default main)'
         required: false
         default: ''
 
@@ -17,20 +17,18 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Backend-Service commit this suite runs against by default.
+  # Backend-Service ref this suite runs against by default.
   #
-  # This job used to check Backend-Service out at `main`, so dj-site's merge gate
-  # floated on another repo's default branch: an upstream commit could — and did —
-  # turn every dj-site PR red with no signal at the boundary. Backend-Service
-  # bb84c63f/fb81e2b2 broke 14 admin/auth specs on 2026-08-03 and closed this
-  # repo's merge gate for two days (#1088).
-  #
-  # ef60c249 is the last commit verified green here (4/4 shards, run 31026323488).
-  #
-  # TEMPORARY. Unpin — restore `main` — once WXYC/Backend-Service#1999 lands, or
-  # this suite silently stops testing the Backend that production actually runs.
-  # Advance the pin deliberately when a newer Backend commit is verified green.
-  BACKEND_PINNED_REF: ef60c2492a48cce2f210a9dbdf877c9bb9e39903
+  # Decision (#1088, acceptance criterion 3): this suite floats on Backend
+  # `main`. The 2026-08-05 pin to ef60c249 (#1089) reopened the merge gate, but
+  # a pin goes stale invisibly — within a week it was ten days behind the
+  # Backend that production actually runs. The outage that motivated pinning
+  # (WXYC/Backend-Service#1999: an email-config throw surfaced by the awaited
+  # BS#1969 invite send in an environment with no SES) is fixed at the root,
+  # and this env now declares EMAIL_ENABLED=false like every other Backend test
+  # environment. The resolver below accepts a branch or a commit SHA, so a
+  # future incident can re-pin deliberately with a one-line change here.
+  BACKEND_PINNED_REF: main
   # Frontend configuration
   NEXT_PUBLIC_BACKEND_URL: http://localhost:8085
   NEXT_PUBLIC_BETTER_AUTH_URL: http://localhost:8084/auth
@@ -187,7 +185,7 @@ jobs:
             exit 1
           fi
           echo "ref=${BACKEND_PINNED_REF}" >> "$GITHUB_OUTPUT"
-          echo "Using Backend-Service ref: ${BACKEND_PINNED_REF} (pinned)"
+          echo "Using Backend-Service ref: ${BACKEND_PINNED_REF} (default)"
 
       - name: Checkout Backend-Service
         uses: actions/checkout@v7
@@ -228,6 +226,14 @@ jobs:
           E2E_BACKEND_PORT=8085
           COOKIE_SAME_SITE=lax
           NODE_ENV=test
+          # This environment sends no email and sets no SES vars. Backend's
+          # senders no-op only when email is declared disabled — enabled (the
+          # unset default) plus missing SES config is a loud throw by design.
+          # Every other Backend test environment sets this; without it, the
+          # awaited account-setup invite send reports emailSent:false on every
+          # provision and the roster UI warns instead of confirming, failing
+          # each admin spec at its create-account step (#1088 / BS#1999).
+          EMAIL_ENABLED=false
           # Mirror target: localhost mock that returns 200 to every POST,
           # short-circuiting the 15.5s exponential-backoff retry storm that
           # the default (https://www.wxyc.info, currently cert-expired) would
