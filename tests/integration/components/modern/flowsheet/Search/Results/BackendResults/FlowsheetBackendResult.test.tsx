@@ -1,98 +1,69 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
+import { renderWithProviders, createTestAlbum, createTestArtist } from "@/tests/helpers";
+import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import FlowsheetBackendResult from "@/src/components/experiences/modern/flowsheet/Search/Results/BackendResults/FlowsheetBackendResult";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 
-// Mock hooks
-const mockDispatch = vi.fn();
-const mockHandleSubmit = vi.fn();
-const mockUseAppSelector = vi.fn();
-
-vi.mock("@/lib/hooks", () => ({
-  useAppDispatch: () => mockDispatch,
-  useAppSelector: (selector: any) => mockUseAppSelector(selector),
-}));
-
-vi.mock("@/lib/features/flowsheet/frontend", () => ({
-  flowsheetSlice: {
-    selectors: {
-      getSelectedResult: "getSelectedResult",
-    },
-    actions: {
-      setSelectedResult: vi.fn((index) => ({
-        type: "setSelectedResult",
-        payload: index,
-      })),
-      freezeSelectionToQuery: vi.fn((payload) => ({
-        type: "freezeSelectionToQuery",
-        payload,
-      })),
-    },
-  },
-}));
-
+// lib/store.ts wires metadataApi's reducer + middleware from this same
+// module, so a whole-module factory makes makeStore() throw the moment a
+// real store is built — the mock must preserve everything but the hook.
 const mockPrefetchTracks = vi.fn();
-vi.mock("@/lib/features/metadata/api", () => ({
+vi.mock("@/lib/features/metadata/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/features/metadata/api")>()),
   useMetadataPrefetch: () => mockPrefetchTracks,
 }));
 
-// ArtistAvatar was removed — CODE column displays catalog info directly
-
 describe("FlowsheetBackendResult", () => {
-  const mockEntry: AlbumEntry = {
-    id: 1,
-    title: "Test Album",
+  const mockEntry: AlbumEntry = createTestAlbum({
+    id: 42,
+    title: "DOGA",
     entry: 5,
     format: "CD",
-    label: "Test Label",
+    label: "Sonamos",
     rotation_bin: "H",
     rotation_id: 10,
-    artist: {
-      id: 1,
-      name: "Test Artist",
+    artist: createTestArtist({
+      name: "Juana Molina",
       lettercode: "AB",
       numbercode: 123,
       genre: "Rock",
-    },
-    alternate_artist: undefined,
-    plays: undefined,
-    add_date: undefined,
-  };
+    }),
+  });
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUseAppSelector.mockReturnValue(0); // Default: nothing selected
   });
 
   describe("Basic rendering", () => {
     it("should render CODE section with genre and lettercode", () => {
-      render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
+      renderWithProviders(<FlowsheetBackendResult entry={mockEntry} index={1} />);
 
       expect(screen.getByText(/Rock AB 123\/5/)).toBeInTheDocument();
     });
 
     it("should render ARTIST section", () => {
-      render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
+      renderWithProviders(<FlowsheetBackendResult entry={mockEntry} index={1} />);
 
-      expect(screen.getByText("Test Artist")).toBeInTheDocument();
+      expect(screen.getByText("Juana Molina")).toBeInTheDocument();
     });
 
     it("should render ALBUM section", () => {
-      render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
+      renderWithProviders(<FlowsheetBackendResult entry={mockEntry} index={1} />);
 
-      expect(screen.getByText("Test Album")).toBeInTheDocument();
+      expect(screen.getByText("DOGA")).toBeInTheDocument();
     });
 
     it("should render LABEL section", () => {
-      render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
+      renderWithProviders(<FlowsheetBackendResult entry={mockEntry} index={1} />);
 
-      expect(screen.getByText("Test Label")).toBeInTheDocument();
+      expect(screen.getByText("Sonamos")).toBeInTheDocument();
     });
   });
 
   describe("Format chip", () => {
     it("should show 'cd' chip for CD format", () => {
-      render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
+      renderWithProviders(<FlowsheetBackendResult entry={mockEntry} index={1} />);
 
       expect(screen.getByText("cd")).toBeInTheDocument();
     });
@@ -104,7 +75,7 @@ describe("FlowsheetBackendResult", () => {
         format: "vinyl" as any, // Using lowercase to match component's check
       };
 
-      render(<FlowsheetBackendResult entry={vinylEntry} index={1} />);
+      renderWithProviders(<FlowsheetBackendResult entry={vinylEntry} index={1} />);
 
       expect(screen.getByText("vinyl")).toBeInTheDocument();
     });
@@ -115,7 +86,9 @@ describe("FlowsheetBackendResult", () => {
         format: "Unknown",
       };
 
-      render(<FlowsheetBackendResult entry={unknownFormatEntry} index={1} />);
+      renderWithProviders(
+        <FlowsheetBackendResult entry={unknownFormatEntry} index={1} />
+      );
 
       expect(screen.getByText("cd")).toBeInTheDocument();
     });
@@ -123,63 +96,81 @@ describe("FlowsheetBackendResult", () => {
 
   describe("Selected state styling", () => {
     it("renders in both selected and unselected states", () => {
-      mockUseAppSelector.mockReturnValue(false);
-      const { unmount } = render(
+      const { unmount, store } = renderWithProviders(
         <FlowsheetBackendResult entry={mockEntry} index={1} />
       );
       unmount();
 
-      mockUseAppSelector.mockReturnValue(true);
-      render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
-      expect(screen.getByText("Test Artist")).toBeInTheDocument();
+      // selectedResult defaults to 0; dispatch to select index 1 instead.
+      store.dispatch(flowsheetSlice.actions.setSelectedResult(1));
+      renderWithProviders(<FlowsheetBackendResult entry={mockEntry} index={1} />, {
+        store,
+      });
+      expect(screen.getByText("Juana Molina")).toBeInTheDocument();
     });
   });
 
   describe("Mouse interactions", () => {
     it("should not change the selection on mouse over — hover is visual only", () => {
-      render(<FlowsheetBackendResult entry={mockEntry} index={5} />);
+      const { store } = renderWithProviders(
+        <FlowsheetBackendResult entry={mockEntry} index={5} />
+      );
 
-      const resultRow = screen.getByText("Test Artist").closest('[data-testid^="flowsheet-search-result-"]');
+      const resultRow = screen
+        .getByText("Juana Molina")
+        .closest('[data-testid^="flowsheet-search-result-"]');
       fireEvent.mouseOver(resultRow!);
 
-      expect(mockDispatch).not.toHaveBeenCalled();
+      expect(flowsheetSlice.selectors.getSelectedResult(store.getState())).toBe(
+        0
+      );
     });
 
     // Clicking a result AUTOFILLS the fields via freezeSelectionToQuery — it
     // must never submit. mousedown is prevented so focus stays in the inputs.
     it("should autofill (freeze) the row's fields on mousedown, not submit", () => {
-      render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
+      const { store } = renderWithProviders(
+        <FlowsheetBackendResult entry={mockEntry} index={1} />
+      );
 
       const resultRow = screen
-        .getByText("Test Artist")
+        .getByText("Juana Molina")
         .closest('[data-testid^="flowsheet-search-result-"]');
       const notPrevented = fireEvent.mouseDown(resultRow!);
 
       expect(notPrevented).toBe(false);
-      expect(mockDispatch).toHaveBeenCalledWith({
-        type: "freezeSelectionToQuery",
-        payload: {
-          artist: "Test Artist",
-          artistProvided: true,
-          album: "Test Album",
-          label: "Test Label",
-          album_id: 1,
-          rotation_id: 10,
-          rotation_bin: "H",
-        },
+      const query = flowsheetSlice.selectors.getSearchQuery(store.getState());
+      expect(query).toMatchObject({
+        artist: "Juana Molina",
+        album: "DOGA",
+        label: "Sonamos",
+        album_id: 42,
+        rotation_id: 10,
+        rotation_bin: "H",
       });
-      expect(mockHandleSubmit).not.toHaveBeenCalled();
     });
 
     it("should not submit on click", () => {
-      render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
+      renderWithProviders(<FlowsheetBackendResult entry={mockEntry} index={1} />);
 
       const resultRow = screen
-        .getByText("Test Artist")
+        .getByText("Juana Molina")
         .closest('[data-testid^="flowsheet-search-result-"]');
-      fireEvent.click(resultRow!);
+      // A plain click doesn't fire the mousedown-based freeze handler.
+      expect(() => fireEvent.click(resultRow!)).not.toThrow();
+    });
+  });
 
-      expect(mockHandleSubmit).not.toHaveBeenCalled();
+  describe("Tracklist prefetch", () => {
+    it("prefetches tracks on mouse over when the row carries a real library link", () => {
+      renderWithProviders(<FlowsheetBackendResult entry={mockEntry} index={42} />);
+
+      const resultRow = screen
+        .getByText("Juana Molina")
+        .closest('[data-testid^="flowsheet-search-result-"]');
+      fireEvent.mouseOver(resultRow!);
+
+      expect(mockPrefetchTracks).toHaveBeenCalledWith(42);
     });
   });
 
@@ -193,7 +184,9 @@ describe("FlowsheetBackendResult", () => {
         },
       };
 
-      render(<FlowsheetBackendResult entry={entryWithoutArtist} index={1} />);
+      renderWithProviders(
+        <FlowsheetBackendResult entry={entryWithoutArtist} index={1} />
+      );
 
       expect(screen.getAllByText("Unknown").length).toBeGreaterThanOrEqual(2);
     });
@@ -204,7 +197,9 @@ describe("FlowsheetBackendResult", () => {
         title: "",
       };
 
-      render(<FlowsheetBackendResult entry={entryWithoutTitle} index={1} />);
+      renderWithProviders(
+        <FlowsheetBackendResult entry={entryWithoutTitle} index={1} />
+      );
 
       const unknownElements = screen.getAllByText("Unknown");
       expect(unknownElements.length).toBeGreaterThan(0);
@@ -216,7 +211,9 @@ describe("FlowsheetBackendResult", () => {
         label: "",
       };
 
-      render(<FlowsheetBackendResult entry={entryWithoutLabel} index={1} />);
+      renderWithProviders(
+        <FlowsheetBackendResult entry={entryWithoutLabel} index={1} />
+      );
 
       const unknownElements = screen.getAllByText("Unknown");
       expect(unknownElements.length).toBeGreaterThan(0);
@@ -233,7 +230,9 @@ describe("FlowsheetBackendResult", () => {
         label: "",
       };
 
-      render(<FlowsheetBackendResult entry={entryWithMissingValues} index={1} />);
+      renderWithProviders(
+        <FlowsheetBackendResult entry={entryWithMissingValues} index={1} />
+      );
 
       // Missing artist/album/label plus the constant song placeholder
       const unknownElements = screen.getAllByText("Unknown");
@@ -245,7 +244,7 @@ describe("FlowsheetBackendResult", () => {
   // proxy rows where the artist object wasn't populated). The CODE and ARTIST
   // columns dereferenced `entry.artist.genre` / `entry.artist.name` with no
   // guard, so one such row threw mid-render and app/global-error white-screened
-  // the whole site as the DJ typed. (dj-site flowsheet entry crash, 2026-06-21)
+  // the whole site as the DJ typed.
   describe("Null artist (regression)", () => {
     it("does not throw and shows 'Unknown' when artist is null", () => {
       const entryWithNullArtist = {
@@ -254,7 +253,9 @@ describe("FlowsheetBackendResult", () => {
       } as unknown as AlbumEntry;
 
       expect(() =>
-        render(<FlowsheetBackendResult entry={entryWithNullArtist} index={1} />)
+        renderWithProviders(
+          <FlowsheetBackendResult entry={entryWithNullArtist} index={1} />
+        )
       ).not.toThrow();
 
       expect(screen.getAllByText("Unknown").length).toBeGreaterThanOrEqual(2);
@@ -263,55 +264,47 @@ describe("FlowsheetBackendResult", () => {
 
   describe("Different index values", () => {
     it("should work with index 0", () => {
-      render(<FlowsheetBackendResult entry={mockEntry} index={0} />);
+      renderWithProviders(<FlowsheetBackendResult entry={mockEntry} index={0} />);
 
-      expect(screen.getByText("Test Album")).toBeInTheDocument();
+      expect(screen.getByText("DOGA")).toBeInTheDocument();
     });
 
     it("should work with large index values", () => {
-      render(<FlowsheetBackendResult entry={mockEntry} index={999} />);
+      renderWithProviders(
+        <FlowsheetBackendResult entry={mockEntry} index={999} />
+      );
 
-      expect(screen.getByText("Test Album")).toBeInTheDocument();
-    });
-
-    it("should prefetch tracks on mouse over", () => {
-      render(<FlowsheetBackendResult entry={mockEntry} index={42} />);
-
-      const resultRow = screen.getByText("Test Artist").closest('[data-testid^="flowsheet-search-result-"]');
-      fireEvent.mouseOver(resultRow!);
-
-      expect(mockPrefetchTracks).toHaveBeenCalledWith(1);
+      expect(screen.getByText("DOGA")).toBeInTheDocument();
     });
   });
 
   describe("Entry with all fields", () => {
     it("should render complete entry", () => {
       // Note: Using lowercase "vinyl" to match component's includes() check
-      const completeEntry: AlbumEntry = {
+      const completeEntry: AlbumEntry = createTestAlbum({
         id: 100,
-        title: "Complete Album",
+        title: "Aluminum Tunes",
         entry: 10,
         format: "vinyl" as any,
-        label: "Complete Label",
+        label: "Duophonic",
         rotation_bin: "M",
         rotation_id: 20,
-        artist: {
-          id: 50,
-          name: "Complete Artist",
+        artist: createTestArtist({
+          name: "Stereolab",
           lettercode: "XY",
           numbercode: 456,
           genre: "Jazz",
-        },
+        }),
         alternate_artist: "Alt Artist",
         plays: 100,
         add_date: "2024-01-01",
-      };
+      });
 
-      render(<FlowsheetBackendResult entry={completeEntry} index={1} />);
+      renderWithProviders(<FlowsheetBackendResult entry={completeEntry} index={1} />);
 
-      expect(screen.getByText("Complete Artist")).toBeInTheDocument();
-      expect(screen.getByText("Complete Album")).toBeInTheDocument();
-      expect(screen.getByText("Complete Label")).toBeInTheDocument();
+      expect(screen.getByText("Stereolab")).toBeInTheDocument();
+      expect(screen.getByText("Aluminum Tunes")).toBeInTheDocument();
+      expect(screen.getByText("Duophonic")).toBeInTheDocument();
       expect(screen.getByText(/Jazz XY 456\/10/)).toBeInTheDocument();
       expect(screen.getByText("vinyl")).toBeInTheDocument();
     });
@@ -319,7 +312,7 @@ describe("FlowsheetBackendResult", () => {
 
   describe("Genre and code formatting", () => {
     it("should format code correctly with all parts", () => {
-      render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
+      renderWithProviders(<FlowsheetBackendResult entry={mockEntry} index={1} />);
 
       // Should show: genre lettercode numbercode/entry
       expect(screen.getByText(/Rock AB 123\/5/)).toBeInTheDocument();
@@ -337,7 +330,7 @@ describe("FlowsheetBackendResult", () => {
           },
         };
 
-        const { unmount } = render(
+        const { unmount } = renderWithProviders(
           <FlowsheetBackendResult entry={entryWithGenre} index={1} />
         );
 
@@ -349,34 +342,25 @@ describe("FlowsheetBackendResult", () => {
 
   describe("Accessibility", () => {
     it("should have cursor pointer style", () => {
-      render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
+      renderWithProviders(<FlowsheetBackendResult entry={mockEntry} index={1} />);
 
-      // The Stack component should have cursor: pointer
-      const resultRow = screen.getByText("Test Artist").closest('[data-testid^="flowsheet-search-result-"]');
+      const resultRow = screen
+        .getByText("Juana Molina")
+        .closest('[data-testid^="flowsheet-search-result-"]');
       expect(resultRow).toBeInTheDocument();
-    });
-  });
-
-  describe("Key prop usage", () => {
-    it("should use bin-{index} as key pattern", () => {
-      // This test verifies the key is used correctly
-      // The key is set as `bin-${index}` in the component
-      render(<FlowsheetBackendResult entry={mockEntry} index={5} />);
-
-      expect(screen.getByText("Test Album")).toBeInTheDocument();
     });
   });
 
   describe("CODE column", () => {
     it("should render code in monospace font", () => {
-      render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
+      renderWithProviders(<FlowsheetBackendResult entry={mockEntry} index={1} />);
 
       const codeText = screen.getByText(/Rock AB/);
       expect(codeText).toHaveStyle({ fontFamily: "monospace" });
     });
 
     it("should render format chip", () => {
-      render(<FlowsheetBackendResult entry={mockEntry} index={1} />);
+      renderWithProviders(<FlowsheetBackendResult entry={mockEntry} index={1} />);
 
       expect(screen.getByText("cd")).toBeInTheDocument();
     });
