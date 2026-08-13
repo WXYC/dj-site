@@ -51,10 +51,11 @@ const rootReducer = combineSlices(
 
 export type RootState = ReturnType<typeof rootReducer>;
 
-export const makeStore = () => {
+export const makeStore = (preloadedState?: Partial<RootState>) => {
   const liveUpdatesListener = createLiveUpdatesListenerMiddleware("dashboard");
   const store = configureStore({
     reducer: rootReducer,
+    preloadedState,
     middleware: (getDefaultMiddleware) => {
       return getDefaultMiddleware()
         .prepend(liveUpdatesListener.middleware)

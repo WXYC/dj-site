@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { screen } from "@testing-library/react";
+import { useAppSelector } from "@/lib/hooks";
 
 vi.mock("sonner", () => ({
   toast: {
@@ -9,6 +11,9 @@ vi.mock("sonner", () => ({
 
 import { rtkQueryErrorLogger } from "@/lib/rtk-query-error-logger";
 import { toast } from "sonner";
+import { makeStore } from "@/lib/store";
+import { applicationSlice } from "@/lib/features/application/frontend";
+import { renderWithProviders } from "@/tests/helpers/render";
 
 function createRejectedAction(payload: unknown) {
   return {
@@ -84,5 +89,44 @@ describe("rtkQueryErrorLogger (Bug 29)", () => {
     const action = { type: "some/action" };
     middleware(action);
     expect(next).toHaveBeenCalledWith(action);
+  });
+});
+
+describe("makeStore", () => {
+  it("forwards preloadedState to configureStore", () => {
+    const store = makeStore({
+      application: {
+        ...applicationSlice.getInitialState(),
+        rightbar: {
+          ...applicationSlice.getInitialState().rightbar,
+          sidebarOpen: true,
+        },
+      },
+    });
+
+    expect(store.getState().application.rightbar.sidebarOpen).toBe(true);
+  });
+});
+
+describe("renderWithProviders preloadedState", () => {
+  function SidebarOpenProbe() {
+    const sidebarOpen = useAppSelector((s) => s.application.rightbar.sidebarOpen);
+    return <div data-testid="sidebar-open">{String(sidebarOpen)}</div>;
+  }
+
+  it("seeds the store rendered by renderWithProviders", () => {
+    renderWithProviders(<SidebarOpenProbe />, {
+      preloadedState: {
+        application: {
+          ...applicationSlice.getInitialState(),
+          rightbar: {
+            ...applicationSlice.getInitialState().rightbar,
+            sidebarOpen: true,
+          },
+        },
+      },
+    });
+
+    expect(screen.getByTestId("sidebar-open")).toHaveTextContent("true");
   });
 });
