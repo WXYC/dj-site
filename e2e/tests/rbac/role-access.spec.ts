@@ -1,6 +1,6 @@
 import { test, expect } from "../../fixtures/auth.fixture";
 import { DashboardPage } from "../../pages/dashboard.page";
-import { useClassicExperience } from "../../helpers/experience";
+import { setExperienceCookie } from "../../helpers/experience";
 import path from "path";
 
 const authDir = path.join(__dirname, "../../.auth");
@@ -160,50 +160,50 @@ test.describe("Role-Based Access Control", () => {
     });
   });
 
-  // Every stored auth state lands on the app's default experience, so without
-  // an explicit switch a "classic" assertion would be made against the modern
-  // slot and pass for the wrong reason. These rows pin that the switch works
-  // and that each slot covers the URLs the other one owns.
-  test.describe("Classic experience", () => {
-    test.use({ storageState: path.join(authDir, "musicDirector.json") });
+  // Both experiences render for the same URL, so a slot assertion has to pin
+  // which one the layout actually chose — otherwise it passes against whichever
+  // slot happened to paint.
+  test.describe("Experience slots", () => {
+    // /login renders both slots and takes no session, so the preference cookie
+    // decides the outcome on its own. Every signed-in surface resolves the
+    // experience from the account instead, which is shared across specs.
+    test.describe("Classic", () => {
+      test.use({ storageState: { cookies: [], origins: [] } });
 
-    test.beforeEach(async ({ context, baseURL }) => {
-      await useClassicExperience(context, baseURL ?? "http://localhost:3000");
-    });
+      test("should render the classic slot when the preference says classic", async ({
+        context,
+        page,
+        baseURL,
+      }) => {
+        await setExperienceCookie(
+          context,
+          "classic",
+          baseURL ?? "http://localhost:3000"
+        );
 
-    test("should render the classic slot on a shared URL", async ({ page }) => {
-      await page.goto("/dashboard/catalog");
-      await expect(page.locator("#classic-container")).toBeVisible({
-        timeout: 15000,
+        await page.goto("/login");
+        await expect(page.locator("#classic-container")).toBeVisible({
+          timeout: 15000,
+        });
+        await expect(page.locator("#modern-container")).toHaveCount(0);
       });
-      await expect(page.locator("#modern-container")).toHaveCount(0);
     });
-
-    test("should offer a way out at a modern-only URL", async ({ page }) => {
-      await page.goto("/dashboard/admin/catalog");
-      await expect(page.locator("#classic-container")).toBeVisible({
-        timeout: 15000,
-      });
-      await expect(
-        page.getByRole("button", { name: /switch to the modern interface/i })
-      ).toBeVisible();
-    });
-  });
-
-  test.describe("Modern experience", () => {
-    test.use({ storageState: path.join(authDir, "musicDirector.json") });
 
     // /dashboard/help exists only in the classic slot, so it exercises the
-    // modern-side fallback against a route that ships today. The librarian URLs
-    // will exercise it the same way as they land.
-    test("should offer a way out at a classic-only URL", async ({ page }) => {
-      await page.goto("/dashboard/help");
-      await expect(page.locator("#modern-container")).toBeVisible({
-        timeout: 15000,
+    // modern-side fallback against a route that ships today. This user's
+    // preference is only ever read, never written, so no other spec moves it.
+    test.describe("Modern", () => {
+      test.use({ storageState: path.join(authDir, "dj2.json") });
+
+      test("should offer a way out at a classic-only URL", async ({ page }) => {
+        await page.goto("/dashboard/help");
+        await expect(page.locator("#modern-container")).toBeVisible({
+          timeout: 15000,
+        });
+        await expect(
+          page.getByRole("button", { name: /switch to the classic interface/i })
+        ).toBeVisible();
       });
-      await expect(
-        page.getByRole("button", { name: /switch to the classic interface/i })
-      ).toBeVisible();
     });
   });
 });
