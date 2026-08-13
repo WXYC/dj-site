@@ -1,6 +1,7 @@
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import { entryToFreezePayload } from "@/lib/features/flowsheet/conversions";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
+import { hasLinkedAlbumId } from "@/lib/features/flowsheet/linkage";
 import { useMetadataPrefetch } from "@/lib/features/metadata/api";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { WXYC_EXCLUSIVE_PURPLE } from "@/src/utilities/modern/brandColors";
@@ -69,7 +70,7 @@ function FlowsheetBackendResult({
         },
       }}
       onMouseOver={() => {
-        if (entry.id) prefetchTracks(entry.id);
+        if (hasLinkedAlbumId(entry.id)) prefetchTracks(entry.id);
       }}
       // Autofill, never submit; prevented mousedown keeps input focus
       onMouseDown={(e) => {

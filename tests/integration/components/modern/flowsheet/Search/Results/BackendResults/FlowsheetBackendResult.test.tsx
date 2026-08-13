@@ -172,6 +172,23 @@ describe("FlowsheetBackendResult", () => {
 
       expect(mockPrefetchTracks).toHaveBeenCalledWith(42);
     });
+
+    it("does not prefetch tracks for a library-unlinked row (synthesized negative id)", () => {
+      const unlinkedEntry: AlbumEntry = createTestAlbum({
+        ...mockEntry,
+        id: -1,
+      });
+      renderWithProviders(
+        <FlowsheetBackendResult entry={unlinkedEntry} index={42} />
+      );
+
+      const resultRow = screen
+        .getByText("Juana Molina")
+        .closest('[data-testid^="flowsheet-search-result-"]');
+      fireEvent.mouseOver(resultRow!);
+
+      expect(mockPrefetchTracks).not.toHaveBeenCalled();
+    });
   });
 
   describe("Unknown/missing values", () => {
