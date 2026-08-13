@@ -39,12 +39,10 @@ function createTestWrapper(store: AppStore) {
  * const { getByText, store } = renderWithProviders(<MyComponent />);
  *
  * @example
- * // With preloaded state
- * const { getByText, store } = renderWithProviders(<MyComponent />, {
- *   preloadedState: {
- *     flowsheet: { ...defaultFlowsheetFrontendState, autoplay: true }
- *   }
- * });
+ * // Seed state by dispatching against the returned store, then re-render
+ * const { store, rerender } = renderWithProviders(<MyComponent />);
+ * store.dispatch(flowsheetSlice.actions.setAutoplay(true));
+ * rerender(<MyComponent />);
  */
 export function renderWithProviders(
   ui: ReactElement,
