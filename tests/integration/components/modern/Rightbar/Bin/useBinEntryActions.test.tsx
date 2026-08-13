@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { Unarchive } from "@mui/icons-material";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
+import { createTestAlbum, createTestArtist } from "@/tests/helpers";
 import {
   MISSING_ARTIST_BIN_PLAY_MESSAGE,
   VARIOUS_ARTISTS_BIN_PLAY_MESSAGE,
@@ -42,16 +43,16 @@ import { useBinEntryActions } from "@/src/components/experiences/modern/Rightbar
 // The credit matters to the queue toast, so it has to be on the fixture —
 // an entry with no artist at all makes the refused branch unreachable and
 // the assertions below vacuous.
-const entry = {
+const entry = createTestAlbum({
   id: 7,
   title: "DOGA",
-  artist: { name: "Juana Molina" },
-} as AlbumEntry;
-const compilationEntry = {
+  artist: createTestArtist({ name: "Juana Molina" }),
+});
+const compilationEntry = createTestAlbum({
   id: 8,
   title: "Edits",
-  artist: { name: "Various Artists" },
-} as AlbumEntry;
+  artist: createTestArtist({ name: "Various Artists" }),
+});
 // The write callbacks are hoisted in BinContent and passed down; the hook
 // itself no longer runs useQueue/useFlowsheet/useDeleteFromBin per row.
 const deps = { addToQueue, addToFlowsheet, deleteFromBin };
@@ -172,7 +173,11 @@ describe("useBinEntryActions", () => {
   // write "Various Artists" would name a mistake they did not make.
   it("refuses Play Now for a release with no credit and does not blame Various Artists", () => {
     convertBinToFlowsheetMock.mockReturnValueOnce(null);
-    const uncredited = { id: 9, title: "Untitled" } as AlbumEntry;
+    const uncredited = createTestAlbum({
+      id: 9,
+      title: "Untitled",
+      artist: undefined,
+    });
     const { result } = renderHook(() =>
       useBinEntryActions(uncredited, true, deps)
     );

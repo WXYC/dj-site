@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
+import { createTestAlbum } from "@/tests/fixtures/fixtures";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 
 // --- Mocks for useClearBin's dependencies ---
@@ -48,7 +49,7 @@ async function flushMicrotasks() {
   await Promise.resolve();
 }
 
-const entry = (id: number) => ({ id, title: `Album ${id}` }) as AlbumEntry;
+const entry = (id: number) => createTestAlbum({ id, title: `Album ${id}` });
 
 function setBin(bin: AlbumEntry[] | undefined) {
   mockUseGetBinQuery.mockReturnValue({

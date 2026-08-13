@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import BinEntry from "@/src/components/experiences/modern/Rightbar/Bin/BinEntry";
+import { createTestAlbum, createTestArtist } from "@/tests/helpers";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 
 // Mock child components
@@ -33,19 +34,10 @@ vi.mock("@/src/components/experiences/modern/Rightbar/Bin/BinEntryContextMenu", 
 }));
 
 describe("BinEntry", () => {
-  const mockEntry: AlbumEntry = {
-    id: 1,
-    title: "Test Album",
+  const mockEntry: AlbumEntry = createTestAlbum({
     entry: 5,
-    format: "CD",
-    artist: {
-      id: 1,
-      name: "Test Artist",
-      lettercode: "AB",
-      numbercode: 123,
-      genre: "Rock",
-    },
-  } as AlbumEntry;
+    artist: createTestArtist({ id: 1, lettercode: "AB", numbercode: 123 }),
+  });
 
   // Hoisted once in BinContent and threaded down; the row never runs the
   // heavy queue/flowsheet hooks itself.

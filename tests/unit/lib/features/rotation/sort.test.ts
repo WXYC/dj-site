@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { sortRotationReleases } from "@/lib/features/rotation/sort";
 import { createTestAlbum, createTestArtist } from "@/tests/helpers";
-import type { AlbumEntry } from "@/lib/features/catalog/types";
+import type { ArtistEntry } from "@/lib/features/catalog/types";
 
 describe("sortRotationReleases", () => {
   it("sorts alphabetically by artist name", () => {
@@ -123,8 +123,8 @@ describe("sortRotationReleases", () => {
       }),
       {
         ...createTestAlbum({ id: 2, title: "Untitled" }),
-        artist: null,
-      } as unknown as AlbumEntry,
+        artist: null as unknown as ArtistEntry,
+      },
     ];
     expect(() => sortRotationReleases(releases)).not.toThrow();
     // The null artist coalesces to "" and sorts ahead of "Autechre".

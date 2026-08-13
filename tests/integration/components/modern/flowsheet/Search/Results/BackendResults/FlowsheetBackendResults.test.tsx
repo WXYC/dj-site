@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import FlowsheetBackendResults from "@/src/components/experiences/modern/flowsheet/Search/Results/BackendResults/FlowsheetBackendResults";
+import { createTestAlbum } from "@/tests/helpers";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 
 // Mock child component
@@ -14,9 +15,9 @@ vi.mock("@/src/components/experiences/modern/flowsheet/Search/Results/BackendRes
 
 describe("FlowsheetBackendResults", () => {
   const mockResults: AlbumEntry[] = [
-    { id: 1, title: "Album One" } as AlbumEntry,
-    { id: 2, title: "Album Two" } as AlbumEntry,
-    { id: 3, title: "Album Three" } as AlbumEntry,
+    createTestAlbum({ id: 1, title: "Album One" }),
+    createTestAlbum({ id: 2, title: "Album Two" }),
+    createTestAlbum({ id: 3, title: "Album Three" }),
   ];
 
   beforeEach(() => {
@@ -88,7 +89,7 @@ describe("FlowsheetBackendResults", () => {
   it("caps rendering at 50 rows and shows a truncation footer for a huge response (#657)", () => {
     const many: AlbumEntry[] = Array.from(
       { length: 500 },
-      (_, i) => ({ id: i + 1, title: `Album ${i + 1}` } as AlbumEntry)
+      (_, i) => createTestAlbum({ id: i + 1, title: `Album ${i + 1}` })
     );
 
     render(
@@ -105,7 +106,7 @@ describe("FlowsheetBackendResults", () => {
     // Pins the strict > comparison: exactly 50 is NOT truncated.
     const fifty: AlbumEntry[] = Array.from(
       { length: 50 },
-      (_, i) => ({ id: i + 1, title: `Album ${i + 1}` } as AlbumEntry)
+      (_, i) => createTestAlbum({ id: i + 1, title: `Album ${i + 1}` })
     );
 
     render(
@@ -121,7 +122,7 @@ describe("FlowsheetBackendResults", () => {
   it("renders 50 rows plus the footer at one over the cap (#657 boundary)", () => {
     const fiftyOne: AlbumEntry[] = Array.from(
       { length: 51 },
-      (_, i) => ({ id: i + 1, title: `Album ${i + 1}` } as AlbumEntry)
+      (_, i) => createTestAlbum({ id: i + 1, title: `Album ${i + 1}` })
     );
 
     render(
@@ -141,7 +142,7 @@ describe("FlowsheetBackendResults", () => {
   it("renders all rows and no footer when under the cap (#657)", () => {
     const ten: AlbumEntry[] = Array.from(
       { length: 10 },
-      (_, i) => ({ id: i + 1, title: `Album ${i + 1}` } as AlbumEntry)
+      (_, i) => createTestAlbum({ id: i + 1, title: `Album ${i + 1}` })
     );
 
     render(
