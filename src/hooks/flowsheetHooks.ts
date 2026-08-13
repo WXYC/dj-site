@@ -232,11 +232,14 @@ const useFlowsheetSearchResults = () => {
   });
 
   const lmlResults = useMemo(() => {
-    // bin/rotation/catalog rows always carry a real library.id; widening
-    // `seen` to `Set<number | null>` would make every LML row (id possibly
-    // null) test `!seen.has(null)` — always true — turning the dedupe into a
-    // guaranteed no-op. Keep `Set<number>` and filter the null case
-    // explicitly instead. Real fix is #1184.
+    // bin/rotation/catalog rows always carry a real library.id; LML rows may
+    // carry id: null. The `r.id === null || ...` clause below keeps every
+    // null-id row unconditionally — that's true whether `seen` is typed
+    // Set<number> or Set<number | null>, since bin/rotation/catalog never
+    // contribute a null id for `seen` to match against either way. So this
+    // dedupe is a no-op for null-id LML rows regardless of the Set's type
+    // parameter; #1184 must dedupe those rows against bin/rotation/catalog
+    // explicitly once LML starts returning them.
     const seen = new Set<number>();
     for (const r of binResults) if (r.id !== null) seen.add(r.id);
     for (const r of rotationResults) if (r.id !== null) seen.add(r.id);
