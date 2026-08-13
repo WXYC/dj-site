@@ -238,8 +238,9 @@ const useFlowsheetSearchResults = () => {
     // Set<number> or Set<number | null>, since bin/rotation/catalog never
     // contribute a null id for `seen` to match against either way. So this
     // dedupe is a no-op for null-id LML rows regardless of the Set's type
-    // parameter; #1184 must dedupe those rows against bin/rotation/catalog
-    // explicitly once LML starts returning them.
+    // parameter: once LML starts returning null ids, deduping those rows
+    // against bin/rotation/catalog needs an explicit identity check
+    // elsewhere — this predicate does not provide one.
     const seen = new Set<number>();
     for (const r of binResults) if (r.id !== null) seen.add(r.id);
     for (const r of rotationResults) if (r.id !== null) seen.add(r.id);
