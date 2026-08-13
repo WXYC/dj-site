@@ -1,6 +1,7 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import type { RootState } from "@/lib/store";
+import { hasLinkedAlbumId } from "../flowsheet/linkage";
 import { backendBaseQuery } from "../backend";
 import {
   isAddArtistConflict,
@@ -90,7 +91,23 @@ export const catalogApi = createApi({
       }),
       transformResponse: (response: LibraryQueryResponseJSON | null) =>
         transformLibraryQueryResponse(response),
-      providesTags: [{ type: "CatalogList", id: "LIST" }],
+      // Per-row AlbumDetail tags on top of the list tag. This endpoint serves
+      // status-filtered views (`missing: true`) whose membership a single-row
+      // PATCH changes, and — unlike its infinite sibling —
+      // `patchCatalogSearchCaches` never reaches it, so without these tags a
+      // fulfilled markFound/markMissing/updateAlbum leaves the row on screen
+      // still carrying the status it just lost, with `total` disagreeing with
+      // the server. A reader acting on that stale row re-issues a PATCH that
+      // already succeeded. Rows whose id was synthesized client-side carry no
+      // server identity, so they name no tag.
+      providesTags: (result) => [
+        { type: "CatalogList", id: "LIST" },
+        ...(result?.results ?? []).flatMap((row) =>
+          hasLinkedAlbumId(row.id)
+            ? [{ type: "AlbumDetail" as const, id: row.id }]
+            : [],
+        ),
+      ],
     }),
     searchLibraryQueryInfinite: builder.infiniteQuery<
       LibraryQueryResult,

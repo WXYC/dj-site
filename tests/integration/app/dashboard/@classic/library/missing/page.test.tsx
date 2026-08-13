@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers";
 
 vi.mock("server-only", () => ({}));
@@ -82,24 +83,22 @@ describe("Classic /dashboard/library/missing page — missingReleases.jsp, DJ-ac
     process.env = originalEnv;
   });
 
-  it("reaches the page for a plain DJ session — the non-negotiable authority constraint", async () => {
+  // Asserting the rendered content, not just the absence of a redirect: a page
+  // that returned null would satisfy "did not redirect" while showing the DJ
+  // nothing.
+  it.each([
+    { role: "dj", label: "a plain DJ session — the non-negotiable authority constraint" },
+    { role: "musicDirector", label: "a music director" },
+  ])("reaches the Missing Releases screen for $label", async ({ role }) => {
     mockGetSession.mockResolvedValue({ data: sessionData(null), error: null });
-    mockGetUserRoleInOrganization.mockResolvedValue("dj");
+    mockGetUserRoleInOrganization.mockResolvedValue(role);
 
     const result = await ClassicMissingReleasesPage();
     renderWithProviders(result);
 
     expect(mockRedirect).not.toHaveBeenCalled();
-  });
-
-  it("still reaches the page for a music director", async () => {
-    mockGetSession.mockResolvedValue({ data: sessionData(null), error: null });
-    mockGetUserRoleInOrganization.mockResolvedValue("musicDirector");
-
-    const result = await ClassicMissingReleasesPage();
-    renderWithProviders(result);
-
-    expect(mockRedirect).not.toHaveBeenCalled();
+    expect(screen.getByTestId("missing-releases-table")).toBeInTheDocument();
+    expect(screen.getByTestId("classic-nav")).toBeInTheDocument();
   });
 
   it("redirects a member with no station role (below DJ)", async () => {

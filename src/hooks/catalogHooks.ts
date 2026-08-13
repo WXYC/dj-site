@@ -3,9 +3,13 @@
 import {
   useSearchCatalogQuery,
   useSearchLibraryQueryInfiniteQuery,
+  useSearchLibraryQueryQuery,
   type CatalogInfiniteQueryArg,
 } from "@/lib/features/catalog/api";
-import { CATALOG_QUERY_PAGE_LIMIT } from "@/lib/features/catalog/constants";
+import {
+  CATALOG_QUERY_MAX_LIMIT,
+  CATALOG_QUERY_PAGE_LIMIT,
+} from "@/lib/features/catalog/constants";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
 import { isCompilationArtistName } from "@/lib/features/catalog/is-compilation-artist";
 import {
@@ -343,32 +347,52 @@ export function useCatalogQueryResults() {
   };
 }
 
-const MISSING_RELEASES_QUERY_ARG: CatalogInfiniteQueryArg = { missing: true };
+const MISSING_RELEASES_QUERY_ARG: LibraryQueryParams = {
+  missing: true,
+  limit: CATALOG_QUERY_MAX_LIMIT,
+};
+
+/** Stable identity for the no-rows case, so consumers can memoize on it. */
+const NO_RESULTS: AlbumEntry[] = [];
 
 /**
- * Data-fetching hook for the classic Missing Releases screen. Unlike
- * `useCatalogQueryResults`, there's no pagination UI to drive `fetchNextPage`
- * from — tubafrenzy's `missingReleases.jsp` always lists every missing
- * release on one page, so this auto-advances through every page itself.
+ * Data-fetching hook for the classic Missing Releases screen: exactly one
+ * bounded request, no page cascade.
+ *
+ * `missingReleases.jsp` lists every missing release on one page, but
+ * `/library/query` rejects a `limit` above {@link CATALOG_QUERY_MAX_LIMIT}, so
+ * one request can only ever carry the first page of them. `isTruncated` says
+ * when the server's `total` exceeds what came back; a caller must render that
+ * rather than present a capped list as the whole shelf.
+ *
+ * `isLoading` folds in RTK's uninitialized substate — the state during the
+ * server render, and while the auth gate below is still closed — so no caller
+ * can read "there are no missing releases" off a request never issued.
  */
 export function useMissingReleases() {
-  const { data, isFetching, isError, hasNextPage, fetchNextPage } =
-    useSearchLibraryQueryInfiniteQuery(MISSING_RELEASES_QUERY_ARG);
+  // Same gate as useCatalogQueryResults: the bearer token resolves
+  // asynchronously, so a request issued before the session settles goes out
+  // unauthenticated and comes back 401.
+  const { authenticating, authenticated } = useAuthentication();
+  const ready = !authenticating && authenticated;
 
-  useEffect(() => {
-    if (isFetching || !hasNextPage) return;
-    void fetchNextPage();
-  }, [isFetching, hasNextPage, fetchNextPage]);
+  const { data, isLoading, isFetching, isUninitialized, isError } =
+    useSearchLibraryQueryQuery(MISSING_RELEASES_QUERY_ARG, { skip: !ready });
 
-  const results = useMemo(
-    () => dedupeAlbumEntriesById(data?.pages?.flatMap((page) => page.results) ?? []),
-    [data?.pages],
-  );
+  const results = data?.results ?? NO_RESULTS;
+  const total = data?.total ?? 0;
 
-  const total = data?.pages?.[0]?.total ?? 0;
-  const isLoading = isFetching && !data?.pages?.length;
-
-  return { results, total, isLoading, isError };
+  return {
+    results,
+    total,
+    isLoading: isUninitialized || isLoading,
+    // A refetch (the one markFound's tag invalidation triggers) keeps the
+    // delivered rows on screen while it runs. They are stale for that window,
+    // which is what callers offering row actions need to know.
+    isRefreshing: isFetching && !isLoading,
+    isError,
+    isTruncated: total > results.length,
+  };
 }
 
 // Flowsheet-autofill hooks — unchanged from the pre-query-builder shape.
