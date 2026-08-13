@@ -14,7 +14,8 @@ const deleteFromBin = vi.fn();
 
 const convertBinToQueueMock = vi.fn((e: AlbumEntry) => ({ q: e.id }));
 const convertBinToFlowsheetMock = vi.fn(
-  (e: AlbumEntry): { f: number } | null => ({ f: e.id })
+  // Test fixtures always carry a real numeric id.
+  (e: AlbumEntry): { f: number } | null => ({ f: e.id! })
 );
 
 vi.mock("@/lib/hooks", () => ({ useAppDispatch: () => dispatch }));

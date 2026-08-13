@@ -10,9 +10,10 @@ export default function RemoveFromBin({
   const { deleteFromBin, loading } = useDeleteFromBin();
 
   return (
+    // Catalog/bin/rotation rows always carry a real library.id; only LML rows go null.
     <Tooltip title={`Remove ${album.title} from bin`}>
       <IconButton
-        onClick={() => deleteFromBin(album.id)}
+        onClick={() => deleteFromBin(album.id!)}
         color="warning"
         loading={loading}
         {...props}

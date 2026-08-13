@@ -80,7 +80,8 @@ export const useClearBin = () => {
     try {
       const outcomes = await Promise.allSettled(
         bin.map((entry) =>
-          deleteFromBin({ dj_id: info.id!, album_id: entry.id }).unwrap()
+          // Bin rows always carry a real library.id; only LML rows go null.
+          deleteFromBin({ dj_id: info.id!, album_id: entry.id! }).unwrap()
         )
       );
       // Name what survived so the DJ knows which albums to retry — the

@@ -98,7 +98,7 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
           // credit — or the very blank — the DJ is about to replace in the
           // field below. Classic makes the same trade by switching
           // submission variants.
-          album_id: releaseCannotSupplyArtist(release) ? undefined : release.id,
+          album_id: releaseCannotSupplyArtist(release) ? undefined : (release.id ?? undefined),
           rotation_id: release.rotation_id,
           rotation_bin: release.rotation_bin,
         })

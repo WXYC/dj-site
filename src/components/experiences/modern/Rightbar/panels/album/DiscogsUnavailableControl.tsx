@@ -55,8 +55,9 @@ function DiscogsUnavailableControl({ album }: DiscogsUnavailableControlProps) {
     }
 
     try {
+      // Catalog rows always carry a real library.id; only LML rows go null.
       await updateAlbum({
-        albumId: album.id,
+        albumId: album.id!,
         body: { discogsUnavailable: next, discogsUnavailableNote: nextNote },
       }).unwrap();
     } catch (err) {
@@ -77,8 +78,9 @@ function DiscogsUnavailableControl({ album }: DiscogsUnavailableControlProps) {
 
     setNotePending(true);
     try {
+      // Catalog rows always carry a real library.id; only LML rows go null.
       await updateAlbum({
-        albumId: album.id,
+        albumId: album.id!,
         body: { discogsUnavailable: true, discogsUnavailableNote: nextNote },
       }).unwrap();
       setSavedNote(nextNote ?? "");

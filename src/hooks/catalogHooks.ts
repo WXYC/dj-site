@@ -31,13 +31,17 @@ import type { Rotation } from "@/lib/features/rotation/types";
 
 const MIN_QUERY_LENGTH = 2;
 
-/** Keep first occurrence per album id (backend may return duplicates in one page). */
+/**
+ * Keep first occurrence per album id (backend may return duplicates in one
+ * page). Catalog-page rows always carry a real library.id; only LML rows
+ * (never passed here) go null.
+ */
 export function dedupeAlbumEntriesById(entries: AlbumEntry[]): AlbumEntry[] {
   const seen = new Set<number>();
   const out: AlbumEntry[] = [];
   for (const entry of entries) {
-    if (seen.has(entry.id)) continue;
-    seen.add(entry.id);
+    if (seen.has(entry.id!)) continue;
+    seen.add(entry.id!);
     out.push(entry);
   }
   return out;

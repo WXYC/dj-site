@@ -11,6 +11,7 @@ interface LibraryStatusProps {
   album: AlbumEntry;
 }
 
+// Catalog rows always carry a real library.id; only LML rows go null.
 export default function LibraryStatus({ album }: LibraryStatusProps) {
   const [markMissing] = useMarkMissingMutation();
   const [markFound] = useMarkFoundMutation();
@@ -30,7 +31,7 @@ export default function LibraryStatus({ album }: LibraryStatusProps) {
           size="sm"
           variant="outlined"
           color="success"
-          onClick={() => markFound({ albumId: album.id })}
+          onClick={() => markFound({ albumId: album.id! })}
           sx={{ cursor: "pointer" }}
         >
           Mark Found
@@ -48,7 +49,7 @@ export default function LibraryStatus({ album }: LibraryStatusProps) {
         size="sm"
         variant="outlined"
         color="danger"
-        onClick={() => markMissing({ albumId: album.id })}
+        onClick={() => markMissing({ albumId: album.id! })}
         sx={{ cursor: "pointer" }}
       >
         Mark Missing

@@ -349,7 +349,10 @@ export const catalogApi = createApi({
       transformResponse: (response: AlbumSearchResultJSON | null) =>
         response ? convertToAlbumEntry(response) : undefined,
       providesTags: (result) =>
-        result ? [{ type: "AlbumDetail", id: result.id }] : [],
+        // `/library/info` always resolves an existing catalog row — id is
+        // never null here, but the shared AlbumEntry type accommodates LML
+        // rows that never reach this endpoint.
+        result ? [{ type: "AlbumDetail", id: result.id ?? undefined }] : [],
     }),
     markMissing: builder.mutation<AlbumEntry, { albumId: number }>({
       query: ({ albumId }) => ({

@@ -68,8 +68,12 @@ export default function FlowsheetSearchResults({
   // and #702's chokepoint drops track_position anyway. Skip the picker entirely
   // for those rows instead of letting the DJ pick something we'll silently
   // discard. (dj-site#704)
+  // `highlightedResult.id === null` (an LML row) falls through to the
+  // frozen-query check below exactly like a non-positive id does today —
+  // widening `AlbumEntry.id` must not make the picker disappear for the one
+  // source where it currently works. Real fix is #1184.
   const effectiveAlbumId =
-    highlightedResult && highlightedResult.id > 0
+    highlightedResult && highlightedResult.id !== null && highlightedResult.id > 0
       ? highlightedResult.id
       : hasLinkedAlbumId(frozenAlbumId)
         ? (frozenAlbumId as number)

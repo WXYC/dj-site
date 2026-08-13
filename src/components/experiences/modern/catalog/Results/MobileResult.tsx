@@ -37,8 +37,9 @@ function CatalogMobileResult({
 
   const artistDisplay = album.album_artist ? "Various Artists" : album.artist.name;
 
+  // Catalog rows always carry a real library.id; only LML rows go null.
   const openDetail = () =>
-    dispatch(applicationSlice.actions.openPanel({ type: "album-detail", albumId: album.id }));
+    dispatch(applicationSlice.actions.openPanel({ type: "album-detail", albumId: album.id! }));
 
   // The actions sit in the top-right corner, so only the top text lines
   // (title, artist) need to reserve room for them; everything below runs

@@ -28,9 +28,12 @@ export function convertBinToFlowsheet(
   // rotation_id stays on the wire (BS#1308 / @wxyc/shared 1.9.0 added it to
   // FlowsheetCreateSongFreeform), so the iOS rotation-artwork resolver can
   // still find unlinked-rotation bin plays by rotation_id alone.
-  const hasLinkedAlbum = hasLinkedAlbumId(binEntry.id);
-
-  if (hasLinkedAlbum) {
+  //
+  // Called inline (not via a saved boolean) so the predicate narrows
+  // `binEntry.id` to `number` for the branch below — bin rows always resolve
+  // to a real `library.id` via an inner join, but the field is `number | null`
+  // to accommodate LML catalog rows, which never reach the bin.
+  if (hasLinkedAlbumId(binEntry.id)) {
     return {
       album_id: binEntry.id,
       track_title: binEntry.title,
@@ -69,7 +72,7 @@ export function convertBinToQueue(binEntry: AlbumEntry): FlowsheetQuery {
     // blank — right back once the DJ types a real performer into the queued
     // row (mirrors RotationEntryFields.handleSelectRelease's withholding
     // trade).
-    album_id: cannotSupplyArtist ? undefined : binEntry.id,
+    album_id: cannotSupplyArtist ? undefined : (binEntry.id ?? undefined),
     song: "",
     album: binEntry.title,
     artist: seedableArtistName(binEntry),

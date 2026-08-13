@@ -62,8 +62,9 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
 
   // `synthesizeAlbumId` hands out negative ids to rows the library never
   // linked (see conversions.ts); neither read nor write may treat one of
-  // those as a real album, so both derive from this single flag.
-  const albumIdValid = album.id > 0;
+  // those as a real album, so both derive from this single flag. A null id
+  // (LML row) is equally invalid here, though this panel never sees one.
+  const albumIdValid = album.id !== null && album.id > 0;
 
   // Both reads project `library.id` as the row id, so matching on it is
   // matching library album to library album. `getRotationFromDB` dedupes
@@ -106,7 +107,8 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
     if (!selectedBin || !albumIdValid) return;
     try {
       await addRotationEntry({
-        album_id: album.id,
+        // Guarded by the `albumIdValid` check above.
+        album_id: album.id!,
         rotation_bin: selectedBin,
       }).unwrap();
       setSelectedBin(null);

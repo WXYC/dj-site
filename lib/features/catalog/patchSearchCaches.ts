@@ -91,7 +91,9 @@ function insertAlbumIntoInfiniteDraft(
   album: AlbumEntry,
   args: CatalogSearchQueryCacheArg,
 ): void {
-  if (findAlbumInSearchDraft(draft, album.id)) return;
+  // Every row this module touches comes from a `/library/query` cache page —
+  // LML rows never enter it — so `album.id` is always a real `library.id`.
+  if (findAlbumInSearchDraft(draft, album.id!)) return;
 
   if (!draft.pages.length) {
     draft.pages = [
@@ -170,14 +172,14 @@ function applyRotationToSearchCache(
   args: CatalogSearchQueryCacheArg,
   album: AlbumEntry,
 ): void {
-  const existing = findAlbumInSearchDraft(draft, album.id);
+  const existing = findAlbumInSearchDraft(draft, album.id!);
   const matches = albumMatchesCatalogQueryArg(album, args);
 
   if (existing) {
     existing.rotation_bin = album.rotation_bin;
     existing.rotation_id = album.rotation_id;
     if (!matches) {
-      removeAlbumFromInfiniteDraft(draft, album.id);
+      removeAlbumFromInfiniteDraft(draft, album.id!);
     }
     return;
   }
@@ -260,12 +262,12 @@ export function patchCatalogSearchCaches(
         "searchLibraryQueryInfinite",
         args,
         (draft) => {
-          const existing = findAlbumInSearchDraft(draft, updated.id);
+          const existing = findAlbumInSearchDraft(draft, updated.id!);
           if (!existing) return;
 
           const merged = mergeAlbumIntoSearchResult(existing, updated);
           if (!albumMatchesCatalogQueryArg(merged, args)) {
-            removeAlbumFromInfiniteDraft(draft, updated.id);
+            removeAlbumFromInfiniteDraft(draft, updated.id!);
             return;
           }
 

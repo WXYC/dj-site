@@ -69,11 +69,12 @@ export function useBinEntryActions(
         label: "More information",
         Icon: InfoOutlined,
         color: "neutral",
+        // Bin rows always carry a real library.id; only LML rows go null.
         run: () =>
           dispatch(
             applicationSlice.actions.openPanel({
               type: "album-detail",
-              albumId: entry.id,
+              albumId: entry.id!,
             }),
           ),
       },
@@ -89,7 +90,7 @@ export function useBinEntryActions(
         run: (opts) => {
           addToQueue(convertBinToQueue(entry));
           toast.success(queueAdditionMessage(entry));
-          if (opts?.shiftKey) deleteFromBin(entry.id);
+          if (opts?.shiftKey) deleteFromBin(entry.id!);
         },
       });
       actions.push({
@@ -116,7 +117,7 @@ export function useBinEntryActions(
             // Only file the album away once it actually reached the
             // flowsheet — a failed play shouldn't also lose the bin entry.
             .then(() => {
-              if (opts?.shiftKey) deleteFromBin(entry.id);
+              if (opts?.shiftKey) deleteFromBin(entry.id!);
             })
             .catch(() =>
               toast.error(`Failed to add ${entry.title} to flowsheet`),
@@ -130,7 +131,7 @@ export function useBinEntryActions(
       label: "Remove from Bin",
       Icon: Unarchive,
       color: "warning",
-      run: () => deleteFromBin(entry.id),
+      run: () => deleteFromBin(entry.id!),
     });
 
     return actions;

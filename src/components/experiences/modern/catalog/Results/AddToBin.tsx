@@ -10,9 +10,10 @@ export default function AddToBin({
   const { addToBin, loading: binLoading } = useAddToBin();
 
   return (
+    // Catalog/bin/rotation rows always carry a real library.id; only LML rows go null.
     <Tooltip title={`Add ${album.title} to bin`}>
       <IconButton
-        onClick={() => addToBin(album.id)}
+        onClick={() => addToBin(album.id!)}
         loading={binLoading}
         {...props}
       >
