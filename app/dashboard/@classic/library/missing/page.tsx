@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import { getPageTitle } from "@/lib/utils/page-title";
 import { requireAuth, requireRole } from "@/lib/features/authentication/server-utils";
 import { Authorization } from "@/lib/features/admin/types";
-import Main from "@/src/components/experiences/classic/library/Layout/Main";
+import Main from "@/src/components/experiences/classic/Layout/Main";
 import MissingReleases from "@/src/components/experiences/classic/library/MissingReleases";
 
 export const metadata: Metadata = {
