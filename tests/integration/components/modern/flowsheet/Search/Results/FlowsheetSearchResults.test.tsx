@@ -1,10 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { screen, fireEvent } from "@testing-library/react";
+import { http, HttpResponse } from "msw";
 import FlowsheetSearchResults from "@/src/components/experiences/modern/flowsheet/Search/Results/FlowsheetSearchResults";
-import { Provider } from "react-redux";
-import { configureStore } from "@reduxjs/toolkit";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
-import type { AlbumEntry } from "@/lib/features/catalog/types";
+import {
+  renderWithProviders,
+  createTestAlbum,
+  server,
+  TEST_BACKEND_URL,
+} from "@/tests/helpers";
+import type { RootState } from "@/lib/store";
 
 // Mock child components
 vi.mock("@/src/components/experiences/modern/flowsheet/Search/Results/BackendResults/FlowsheetBackendResults", () => ({
@@ -18,60 +23,74 @@ vi.mock("@/src/components/experiences/modern/flowsheet/Search/Results/BackendRes
   ),
 }));
 
-// LibraryTrackPicker hits the proxy `/library/:id/tracks` endpoint via
-// metadataApi; we don't want this test to wire that into the store. The
-// default stub returns `show: true` so the picker row is rendered when its
-// other guards pass — individual tests override useLibraryTrackPicker as
-// needed.
+// Only the presentational component is mocked, so the "not listed" wiring
+// stays assertable without driving the real combobox — useLibraryTrackPicker
+// is left real. The manual-entry button only renders once its tracks query
+// resolves, so exercising it needs the real hook plus a resolved tracklist.
 const libraryTrackPickerSpy = vi.fn();
-vi.mock("@/src/components/experiences/modern/flowsheet/Search/LibraryTrackPicker", () => ({
-  __esModule: true,
-  default: (props: any) => {
-    libraryTrackPickerSpy(props);
-    return (
-      <button
-        data-testid="library-track-picker-manual"
-        onClick={() => props.onManualEntry?.()}
-      >
-        Not listed
-      </button>
-    );
-  },
-  useLibraryTrackPicker: () => ({ show: true, isLoading: false, tracks: [] }),
-}));
+vi.mock("@/src/components/experiences/modern/flowsheet/Search/LibraryTrackPicker", async (importOriginal) => {
+  const actual = await importOriginal<
+    typeof import("@/src/components/experiences/modern/flowsheet/Search/LibraryTrackPicker")
+  >();
+  return {
+    ...actual,
+    default: (props: any) => {
+      libraryTrackPickerSpy(props);
+      return (
+        <button
+          data-testid="library-track-picker-manual"
+          onClick={() => props.onManualEntry?.()}
+        >
+          Not listed
+        </button>
+      );
+    },
+  };
+});
 
-function createTestStore(
+function mockLibraryTracksResponse(libraryId: number) {
+  server.use(
+    http.get(`${TEST_BACKEND_URL}/proxy/library/${libraryId}/tracks`, () =>
+      HttpResponse.json({
+        library_id: libraryId,
+        discogs_release_id: 42,
+        source: "discogs",
+        tracks: [
+          {
+            position: "A1",
+            title: "la paradoja",
+            artist_credit: "Juana Molina",
+            duration_ms: null,
+          },
+        ],
+      })
+    )
+  );
+}
+
+function buildFlowsheetState(
   searchOpen = false,
   overrides: Partial<ReturnType<typeof flowsheetSlice.getInitialState>> = {}
-) {
+): RootState["flowsheet"] {
   const initial = flowsheetSlice.getInitialState();
-  return configureStore({
-    reducer: {
-      flowsheet: flowsheetSlice.reducer,
+  return {
+    ...initial,
+    ...overrides,
+    search: {
+      ...initial.search,
+      ...(overrides.search ?? {}),
+      open: searchOpen,
     },
-    preloadedState: {
-      flowsheet: {
-        ...initial,
-        ...overrides,
-        search: {
-          ...initial.search,
-          ...(overrides.search ?? {}),
-          open: searchOpen,
-        },
-      },
-    },
-  });
+  };
 }
 
 describe("FlowsheetSearchResults", () => {
-  const mockBinResults: AlbumEntry[] = [
-    { id: 1, title: "Bin Album" } as AlbumEntry,
+  const mockBinResults = [createTestAlbum({ id: 1, title: "Bin Album" })];
+  const mockCatalogResults = [
+    createTestAlbum({ id: 2, title: "Catalog Album" }),
   ];
-  const mockCatalogResults: AlbumEntry[] = [
-    { id: 2, title: "Catalog Album" } as AlbumEntry,
-  ];
-  const mockRotationResults: AlbumEntry[] = [
-    { id: 3, title: "Rotation Album" } as AlbumEntry,
+  const mockRotationResults = [
+    createTestAlbum({ id: 3, title: "Rotation Album" }),
   ];
 
   beforeEach(() => {
@@ -79,17 +98,14 @@ describe("FlowsheetSearchResults", () => {
   });
 
   it("should render backend results for bin", () => {
-    const store = createTestStore(true);
-
-    render(
-      <Provider store={store}>
-        <FlowsheetSearchResults
-          binResults={mockBinResults}
-          catalogResults={[]}
-          rotationResults={[]}
-          lmlResults={[]}
-        />
-      </Provider>
+    renderWithProviders(
+      <FlowsheetSearchResults
+        binResults={mockBinResults}
+        catalogResults={[]}
+        rotationResults={[]}
+        lmlResults={[]}
+      />,
+      { preloadedState: { flowsheet: buildFlowsheetState(true) } }
     );
 
     const results = screen.getAllByTestId("backend-results");
@@ -97,17 +113,14 @@ describe("FlowsheetSearchResults", () => {
   });
 
   it("should render backend results for catalog", () => {
-    const store = createTestStore(true);
-
-    render(
-      <Provider store={store}>
-        <FlowsheetSearchResults
-          binResults={[]}
-          catalogResults={mockCatalogResults}
-          rotationResults={[]}
-          lmlResults={[]}
-        />
-      </Provider>
+    renderWithProviders(
+      <FlowsheetSearchResults
+        binResults={[]}
+        catalogResults={mockCatalogResults}
+        rotationResults={[]}
+        lmlResults={[]}
+      />,
+      { preloadedState: { flowsheet: buildFlowsheetState(true) } }
     );
 
     const results = screen.getAllByTestId("backend-results");
@@ -115,17 +128,14 @@ describe("FlowsheetSearchResults", () => {
   });
 
   it("should render backend results for rotation", () => {
-    const store = createTestStore(true);
-
-    render(
-      <Provider store={store}>
-        <FlowsheetSearchResults
-          binResults={[]}
-          catalogResults={[]}
-          rotationResults={mockRotationResults}
-          lmlResults={[]}
-        />
-      </Provider>
+    renderWithProviders(
+      <FlowsheetSearchResults
+        binResults={[]}
+        catalogResults={[]}
+        rotationResults={mockRotationResults}
+        lmlResults={[]}
+      />,
+      { preloadedState: { flowsheet: buildFlowsheetState(true) } }
     );
 
     const results = screen.getAllByTestId("backend-results");
@@ -133,20 +143,16 @@ describe("FlowsheetSearchResults", () => {
   });
 
   it("should render backend results for LML library search", () => {
-    const store = createTestStore(true);
-    const mockLmlResults: AlbumEntry[] = [
-      { id: 4, title: "LML Album" } as AlbumEntry,
-    ];
+    const mockLmlResults = [createTestAlbum({ id: 4, title: "LML Album" })];
 
-    render(
-      <Provider store={store}>
-        <FlowsheetSearchResults
-          binResults={[]}
-          catalogResults={[]}
-          rotationResults={[]}
-          lmlResults={mockLmlResults}
-        />
-      </Provider>
+    renderWithProviders(
+      <FlowsheetSearchResults
+        binResults={[]}
+        catalogResults={[]}
+        rotationResults={[]}
+        lmlResults={mockLmlResults}
+      />,
+      { preloadedState: { flowsheet: buildFlowsheetState(true) } }
     );
 
     const results = screen.getAllByTestId("backend-results");
@@ -154,17 +160,14 @@ describe("FlowsheetSearchResults", () => {
   });
 
   it("should render keyboard shortcut hints", () => {
-    const store = createTestStore(true);
-
-    render(
-      <Provider store={store}>
-        <FlowsheetSearchResults
-          binResults={[]}
-          catalogResults={[]}
-          rotationResults={[]}
-          lmlResults={[]}
-        />
-      </Provider>
+    renderWithProviders(
+      <FlowsheetSearchResults
+        binResults={[]}
+        catalogResults={[]}
+        rotationResults={[]}
+        lmlResults={[]}
+      />,
+      { preloadedState: { flowsheet: buildFlowsheetState(true) } }
     );
 
     expect(screen.getByText("switch fields")).toBeInTheDocument();
@@ -183,28 +186,30 @@ describe("FlowsheetSearchResults", () => {
   // track_position field anyway.
   describe("LibraryTrackPicker visibility over unlinked rotation rows", () => {
     it("hides the picker row when the highlighted result has a synthesized negative id", () => {
-      const store = createTestStore(true, {
-        search: {
-          open: true,
-          query: flowsheetSlice.getInitialState().search.query,
-          selectedResult: 1,
-          confirmedArtist: "",
-          resetEpoch: 0,
-        },
-      });
-      const unlinkedRotationResult: AlbumEntry[] = [
-        { id: -987654, title: "Unlinked Rotation Row" } as AlbumEntry,
+      const unlinkedRotationResult = [
+        createTestAlbum({ id: -987654, title: "Unlinked Rotation Row" }),
       ];
 
-      render(
-        <Provider store={store}>
-          <FlowsheetSearchResults
-            binResults={unlinkedRotationResult}
-            catalogResults={[]}
-            rotationResults={[]}
-            lmlResults={[]}
-          />
-        </Provider>
+      renderWithProviders(
+        <FlowsheetSearchResults
+          binResults={unlinkedRotationResult}
+          catalogResults={[]}
+          rotationResults={[]}
+          lmlResults={[]}
+        />,
+        {
+          preloadedState: {
+            flowsheet: buildFlowsheetState(true, {
+              search: {
+                open: true,
+                query: flowsheetSlice.getInitialState().search.query,
+                selectedResult: 1,
+                confirmedArtist: "",
+                resetEpoch: 0,
+              },
+            }),
+          },
+        }
       );
 
       expect(
@@ -213,28 +218,30 @@ describe("FlowsheetSearchResults", () => {
     });
 
     it("shows the picker row when the highlighted result has a positive library.id", () => {
-      const store = createTestStore(true, {
-        search: {
-          open: true,
-          query: flowsheetSlice.getInitialState().search.query,
-          selectedResult: 1,
-          confirmedArtist: "",
-          resetEpoch: 0,
-        },
-      });
-      const linkedResult: AlbumEntry[] = [
-        { id: 1234, title: "Linked Library Row" } as AlbumEntry,
+      const linkedResult = [
+        createTestAlbum({ id: 1234, title: "Linked Library Row" }),
       ];
 
-      render(
-        <Provider store={store}>
-          <FlowsheetSearchResults
-            binResults={linkedResult}
-            catalogResults={[]}
-            rotationResults={[]}
-            lmlResults={[]}
-          />
-        </Provider>
+      renderWithProviders(
+        <FlowsheetSearchResults
+          binResults={linkedResult}
+          catalogResults={[]}
+          rotationResults={[]}
+          lmlResults={[]}
+        />,
+        {
+          preloadedState: {
+            flowsheet: buildFlowsheetState(true, {
+              search: {
+                open: true,
+                query: flowsheetSlice.getInitialState().search.query,
+                selectedResult: 1,
+                confirmedArtist: "",
+                resetEpoch: 0,
+              },
+            }),
+          },
+        }
       );
 
       expect(
@@ -246,54 +253,53 @@ describe("FlowsheetSearchResults", () => {
   // dj-site#704: clicking "Not listed" must clear any track_position the DJ
   // previously picked, otherwise a stale "A1" rides through on submit
   // pointing at an album the DJ no longer intends.
-  it("clears track_position in Redux when the manual-entry button is clicked", () => {
-    const store = createTestStore(true, {
-      search: {
-        open: true,
-        query: {
-          ...flowsheetSlice.getInitialState().search.query,
-          track_position: "A1",
-        },
-        selectedResult: 1,
-        confirmedArtist: "",
-        resetEpoch: 0,
-      },
-    });
-    const linkedResult: AlbumEntry[] = [
-      { id: 1234, title: "Linked Library Row" } as AlbumEntry,
+  it("clears track_position in Redux when the manual-entry button is clicked", async () => {
+    mockLibraryTracksResponse(1234);
+    const linkedResult = [
+      createTestAlbum({ id: 1234, title: "Linked Library Row" }),
     ];
 
-    render(
-      <Provider store={store}>
-        <FlowsheetSearchResults
-          binResults={linkedResult}
-          catalogResults={[]}
-          rotationResults={[]}
-          lmlResults={[]}
-        />
-      </Provider>
+    const { store } = renderWithProviders(
+      <FlowsheetSearchResults
+        binResults={linkedResult}
+        catalogResults={[]}
+        rotationResults={[]}
+        lmlResults={[]}
+      />,
+      {
+        preloadedState: {
+          flowsheet: buildFlowsheetState(true, {
+            search: {
+              open: true,
+              query: {
+                ...flowsheetSlice.getInitialState().search.query,
+                track_position: "A1",
+              },
+              selectedResult: 1,
+              confirmedArtist: "",
+              resetEpoch: 0,
+            },
+          }),
+        },
+      }
     );
 
-    fireEvent.click(screen.getByTestId("library-track-picker-manual"));
+    fireEvent.click(await screen.findByTestId("library-track-picker-manual"));
 
     expect(store.getState().flowsheet.search.query.track_position).toBeUndefined();
   });
 
   it("should calculate correct offsets for results", () => {
-    const store = createTestStore(true);
-    const mockLmlResults: AlbumEntry[] = [
-      { id: 4, title: "LML Album" } as AlbumEntry,
-    ];
+    const mockLmlResults = [createTestAlbum({ id: 4, title: "LML Album" })];
 
-    render(
-      <Provider store={store}>
-        <FlowsheetSearchResults
-          binResults={mockBinResults}
-          catalogResults={mockCatalogResults}
-          rotationResults={mockRotationResults}
-          lmlResults={mockLmlResults}
-        />
-      </Provider>
+    renderWithProviders(
+      <FlowsheetSearchResults
+        binResults={mockBinResults}
+        catalogResults={mockCatalogResults}
+        rotationResults={mockRotationResults}
+        lmlResults={mockLmlResults}
+      />,
+      { preloadedState: { flowsheet: buildFlowsheetState(true) } }
     );
 
     const results = screen.getAllByTestId("backend-results");
@@ -305,26 +311,21 @@ describe("FlowsheetSearchResults", () => {
   });
 
   it("should derive offsets from the CAPPED section lengths when a section is truncated (#657)", () => {
-    const store = createTestStore(true);
     // 60 bin rows: only 50 are painted, so later sections must start at 51 —
     // full-length offsets would desync the highlight from the visible rows.
-    const manyBinResults: AlbumEntry[] = Array.from(
-      { length: 60 },
-      (_, i) => ({ id: 100 + i, title: `Bin Album ${i}` } as AlbumEntry)
+    const manyBinResults = Array.from({ length: 60 }, (_, i) =>
+      createTestAlbum({ id: 100 + i, title: `Bin Album ${i}` })
     );
-    const mockLmlResults: AlbumEntry[] = [
-      { id: 4, title: "LML Album" } as AlbumEntry,
-    ];
+    const mockLmlResults = [createTestAlbum({ id: 4, title: "LML Album" })];
 
-    render(
-      <Provider store={store}>
-        <FlowsheetSearchResults
-          binResults={manyBinResults}
-          catalogResults={mockCatalogResults}
-          rotationResults={mockRotationResults}
-          lmlResults={mockLmlResults}
-        />
-      </Provider>
+    renderWithProviders(
+      <FlowsheetSearchResults
+        binResults={manyBinResults}
+        catalogResults={mockCatalogResults}
+        rotationResults={mockRotationResults}
+        lmlResults={mockLmlResults}
+      />,
+      { preloadedState: { flowsheet: buildFlowsheetState(true) } }
     );
 
     const results = screen.getAllByTestId("backend-results");

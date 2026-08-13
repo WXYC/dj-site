@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { filterBySearchTerms } from "@/src/utilities/filterBySearchTerms";
 import { createTestAlbum, createTestArtist } from "@/tests/helpers";
-import type { AlbumEntry } from "@/lib/features/catalog/types";
 
 describe("filterBySearchTerms", () => {
   const query = { artist: "stereolab", album: "", label: "" };
@@ -27,8 +26,8 @@ describe("filterBySearchTerms", () => {
   it("does not throw when an entry's artist.name is null", () => {
     const malformed = {
       ...createTestAlbum(),
-      artist: { ...createTestArtist(), name: null },
-    } as unknown as AlbumEntry;
+      artist: { ...createTestArtist(), name: null as unknown as string },
+    };
 
     expect(() => filterBySearchTerms([malformed], query)).not.toThrow();
   });
@@ -36,8 +35,8 @@ describe("filterBySearchTerms", () => {
   it("excludes a null-named entry but still returns its valid siblings", () => {
     const malformed = {
       ...createTestAlbum({ id: 1 }),
-      artist: { ...createTestArtist(), name: null },
-    } as unknown as AlbumEntry;
+      artist: { ...createTestArtist(), name: null as unknown as string },
+    };
     const valid = createTestAlbum({
       id: 2,
       artist: createTestArtist({ name: "Stereolab" }),

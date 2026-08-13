@@ -3,7 +3,7 @@ import { fireEvent, screen } from "@testing-library/react";
 import { renderWithProviders, createTestAlbum, createTestArtist } from "@/tests/helpers";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import FlowsheetBackendResult from "@/src/components/experiences/modern/flowsheet/Search/Results/BackendResults/FlowsheetBackendResult";
-import type { AlbumEntry } from "@/lib/features/catalog/types";
+import type { AlbumEntry, ArtistEntry } from "@/lib/features/catalog/types";
 
 // lib/store.ts wires metadataApi's reducer + middleware from this same
 // module, so a whole-module factory makes makeStore() throw the moment a
@@ -70,10 +70,10 @@ describe("FlowsheetBackendResult", () => {
 
     it("should show 'vinyl' chip for vinyl format", () => {
       // Note: Component checks format.includes("vinyl") (lowercase)
-      const vinylEntry: AlbumEntry = {
+      const vinylEntry = createTestAlbum({
         ...mockEntry,
         format: "vinyl" as any, // Using lowercase to match component's check
-      };
+      });
 
       renderWithProviders(<FlowsheetBackendResult entry={vinylEntry} index={1} />);
 
@@ -81,10 +81,10 @@ describe("FlowsheetBackendResult", () => {
     });
 
     it("should show 'cd' chip for non-vinyl format", () => {
-      const unknownFormatEntry: AlbumEntry = {
+      const unknownFormatEntry = createTestAlbum({
         ...mockEntry,
         format: "Unknown",
-      };
+      });
 
       renderWithProviders(
         <FlowsheetBackendResult entry={unknownFormatEntry} index={1} />
@@ -209,13 +209,10 @@ describe("FlowsheetBackendResult", () => {
 
   describe("Unknown/missing values", () => {
     it("should display 'Unknown' for missing artist name", () => {
-      const entryWithoutArtist: AlbumEntry = {
+      const entryWithoutArtist = createTestAlbum({
         ...mockEntry,
-        artist: {
-          ...mockEntry.artist,
-          name: "",
-        },
-      };
+        artist: { ...mockEntry.artist, name: "" },
+      });
 
       renderWithProviders(
         <FlowsheetBackendResult entry={entryWithoutArtist} index={1} />
@@ -225,10 +222,7 @@ describe("FlowsheetBackendResult", () => {
     });
 
     it("should display 'Unknown' for missing album title", () => {
-      const entryWithoutTitle: AlbumEntry = {
-        ...mockEntry,
-        title: "",
-      };
+      const entryWithoutTitle = createTestAlbum({ ...mockEntry, title: "" });
 
       renderWithProviders(
         <FlowsheetBackendResult entry={entryWithoutTitle} index={1} />
@@ -239,10 +233,7 @@ describe("FlowsheetBackendResult", () => {
     });
 
     it("should display 'Unknown' for missing label", () => {
-      const entryWithoutLabel: AlbumEntry = {
-        ...mockEntry,
-        label: "",
-      };
+      const entryWithoutLabel = createTestAlbum({ ...mockEntry, label: "" });
 
       renderWithProviders(
         <FlowsheetBackendResult entry={entryWithoutLabel} index={1} />
@@ -253,15 +244,12 @@ describe("FlowsheetBackendResult", () => {
     });
 
     it("should apply italic style for missing values", () => {
-      const entryWithMissingValues: AlbumEntry = {
+      const entryWithMissingValues = createTestAlbum({
         ...mockEntry,
-        artist: {
-          ...mockEntry.artist,
-          name: "",
-        },
+        artist: { ...mockEntry.artist, name: "" },
         title: "",
         label: "",
-      };
+      });
 
       renderWithProviders(
         <FlowsheetBackendResult entry={entryWithMissingValues} index={1} />
@@ -280,10 +268,10 @@ describe("FlowsheetBackendResult", () => {
   // the whole site as the DJ typed.
   describe("Null artist (regression)", () => {
     it("does not throw and shows 'Unknown' when artist is null", () => {
-      const entryWithNullArtist = {
+      const entryWithNullArtist = createTestAlbum({
         ...mockEntry,
-        artist: null,
-      } as unknown as AlbumEntry;
+        artist: null as unknown as ArtistEntry,
+      });
 
       expect(() =>
         renderWithProviders(
@@ -355,13 +343,10 @@ describe("FlowsheetBackendResult", () => {
       const genres = ["Rock", "Jazz", "Electronic", "Hiphop", "Classical"];
 
       genres.forEach((genre) => {
-        const entryWithGenre: AlbumEntry = {
+        const entryWithGenre = createTestAlbum({
           ...mockEntry,
-          artist: {
-            ...mockEntry.artist,
-            genre: genre as any,
-          },
-        };
+          artist: { ...mockEntry.artist, genre: genre as any },
+        });
 
         const { unmount } = renderWithProviders(
           <FlowsheetBackendResult entry={entryWithGenre} index={1} />

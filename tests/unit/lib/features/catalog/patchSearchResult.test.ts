@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { createTestAlbum, createTestArtist } from "@/tests/helpers";
-import type { AlbumEntry } from "@/lib/features/catalog/types";
 import { mergeAlbumIntoSearchResult } from "@/lib/features/catalog/patchSearchResult";
 
 describe("mergeAlbumIntoSearchResult", () => {
@@ -166,21 +165,15 @@ describe("mergeAlbumIntoSearchResult", () => {
       title: "Old Title",
       genre_id: 1,
     });
-    const updated: AlbumEntry = {
-      ...createTestAlbum({ id: 42 }),
+    const updated = createTestAlbum({
+      id: 42,
       title: "",
       label: "",
       entry: 0,
-      artist: {
-        name: "",
-        lettercode: "AB",
-        numbercode: 1,
-        genre: "Rock",
-        id: 5,
-      },
+      artist: createTestArtist({ id: 5, name: "", lettercode: "AB", numbercode: 1 }),
       genre_id: 7,
       format_id: 3,
-    };
+    });
 
     const merged = mergeAlbumIntoSearchResult(existing, updated);
 

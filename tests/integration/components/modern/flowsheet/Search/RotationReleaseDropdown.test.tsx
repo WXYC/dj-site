@@ -6,7 +6,7 @@ import {
   createTestArtist,
   renderWithProviders,
 } from "@/tests/helpers";
-import type { AlbumEntry } from "@/lib/features/catalog/types";
+import type { AlbumEntry, ArtistEntry } from "@/lib/features/catalog/types";
 
 const releases = [
   createTestAlbum({
@@ -533,8 +533,8 @@ describe("RotationReleaseDropdown — null artist (regression)", () => {
 
   const nullArtist = {
     ...createTestAlbum({ id: 9, title: "Untitled" }),
-    artist: null,
-  } as unknown as AlbumEntry;
+    artist: null as unknown as ArtistEntry,
+  };
 
   // A real bin holds more than one release, so the panel runs the list through
   // `sortRotationReleases` — whose comparator dereferences `artist.name`.
