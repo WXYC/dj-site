@@ -8,11 +8,15 @@ import { CssVarsProvider } from "@mui/joy/styles";
 import type { AppStore, RootState } from "@/lib/store";
 import { makeStore } from "@/lib/store";
 
-// Extended render options to include preloaded state and store
-interface ExtendedRenderOptions extends Omit<RenderOptions, "wrapper"> {
-  preloadedState?: Partial<RootState>;
-  store?: AppStore;
-}
+// A caller seeds state via preloadedState (the store is built for them) or
+// hands in an already-built store (e.g. to share one across renders) — never
+// both, since a supplied store already has its own state and preloadedState
+// would be silently discarded. This union makes that combination a type error.
+type SeedOptions =
+  | { preloadedState?: Partial<RootState>; store?: never }
+  | { store: AppStore; preloadedState?: never };
+
+type ExtendedRenderOptions = Omit<RenderOptions, "wrapper"> & SeedOptions;
 
 // Custom render result that includes the store and user event utilities
 interface CustomRenderResult extends RenderResult {

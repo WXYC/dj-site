@@ -96,15 +96,15 @@ describe("FlowsheetBackendResult", () => {
 
   describe("Selected state styling", () => {
     it("renders in both selected and unselected states", () => {
-      const { unmount, store } = renderWithProviders(
-        <FlowsheetBackendResult entry={mockEntry} index={1} />
-      );
-      unmount();
-
-      // selectedResult defaults to 0; dispatch to select index 1 instead.
-      store.dispatch(flowsheetSlice.actions.setSelectedResult(1));
+      // selectedResult defaults to 0; seed it to 1 so index 1 renders selected.
+      const initial = flowsheetSlice.getInitialState();
       renderWithProviders(<FlowsheetBackendResult entry={mockEntry} index={1} />, {
-        store,
+        preloadedState: {
+          flowsheet: {
+            ...initial,
+            search: { ...initial.search, selectedResult: 1 },
+          },
+        },
       });
       expect(screen.getByText("Juana Molina")).toBeInTheDocument();
     });
