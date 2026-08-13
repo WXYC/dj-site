@@ -62,6 +62,55 @@ tests/                        # Additional component/unit tests; vitest helpers/
   setup/                      # vitest.setup.ts
 ```
 
+## Dashboard URL map
+
+`/dashboard` is a parallel-route tree: `ThemedLayout` renders the `@classic` **or** the `@modern` slot for the **same URL**, chosen by the viewer's experience preference. A URL is therefore not owned by one experience — every URL has two slots, and both must render something.
+
+**Neither slot may render `null`.** A slot with no page for the current URL falls through to its `default.tsx`, which renders `ExperienceGap`: a named statement that the screen belongs to the other experience, plus a one-click switch. Because the fallback lives in `default.tsx` rather than per-route stub files, a new single-slot route is covered by the counterpart slot automatically.
+
+### Librarian (card catalog) screens
+
+These reproduce tubafrenzy's `/wxycdb` screens. They are **classic-first**: the classic slot holds the real screen and the modern slot falls through to `ExperienceGap`.
+
+| URL | Screen | `/wxycdb` source | Authority |
+|---|---|---|---|
+| `/dashboard/library` | Entry: artist vs. Various Artists, multi-match disambiguation | `chooseLibraryCodeOrArtist.jsp`, `multipleArtistsDisplay.jsp` | MD |
+| `/dashboard/library/artist/new` | Create artist + library code | `createArtist.jsp`, `createLibraryCode.jsp` | MD |
+| `/dashboard/library/artist/[id]` | Artist card + its release list | `artistCardModify.jsp` | MD |
+| `/dashboard/library/various/[id]` | V/A bucket card, `albumArtist`, per-track credits | `variousArtistsCardModify.jsp` | MD |
+| `/dashboard/library/release/[id]` | Release edit | `libraryReleaseModify.jsp` | MD |
+| `/dashboard/library/release/[id]/move` | Move release to another library code | `libraryReleaseModifyLibCode.jsp` | MD |
+| `/dashboard/library/release/[id]/delete` | Delete confirmation | `libraryReleaseDelete.jsp` | MD |
+| `/dashboard/library/missing` | Missing releases | `missingReleases.jsp` | **authenticated DJ** |
+| `/dashboard/rotation` | Rotation release list | `rotationReleaseList.jsp` | **authenticated DJ** |
+| `/dashboard/rotation/new` | Add rotation release | `rotationReleaseInsert.jsp` | MD |
+| `/dashboard/rotation/[id]` | Modify rotation release | `rotationReleaseModify.jsp` | MD |
+| `/dashboard/rotation/[id]/import` | Import rotation release into the library | `rotationReleaseImport.jsp`, `rotationReleaseImportNewArtist.jsp` | MD |
+
+Naming follows `/wxycdb`'s own directory split (`libraryAdmin/`, `rotation/`) rather than nesting under `/dashboard/catalog`, which would collide confusingly with the unrelated modern `/dashboard/admin/catalog` (format + genre admin).
+
+### Authority is per screen
+
+`mainmenu.jsp` wraps only add/edit/delete and the cross-reference views in `hasAdminAccess()`. Missing Releases and both rotation links sit **outside** that block, and Backend agrees: `GET /library/rotation` and `PATCH /library/:id/missing|found` are gated at `catalog: ['read']` while `POST`/`PATCH /library/rotation` require `catalog: ['write']`. Mark Missing / Mark Found is deliberately DJ-accessible and must never be MD-gated.
+
+Two rows diverge from the JSP, deliberately:
+
+- **`/dashboard/rotation/new`, `/[id]`, `/[id]/import` are MD**, though `mainmenu.jsp` does not admin-gate them. Backend requires `catalog: ['write']` for every rotation write, so an ungated page would render a full form to a DJ and fail at submit. Gating the page is the honest surface.
+- **`/dashboard/catalog` stays authenticated-DJ in both slots.** It is classic's DJ-facing search page. The modern slot has no server gate at all — `@modern/catalog/page.tsx` calls neither `requireAuth` nor `requireRole`, relying on `RequireMD` inside its panels — so adding `requireRole(MD)` to serve the librarian entry point here would break classic DJ search. The librarian entry point is `/dashboard/library`, a distinct URL.
+
+Page authority is **server-side** (`requireAuth` + `requireRole` in the page component), matching `@modern/admin/catalog/page.tsx`. `AuthorizedView` / `RequireMD` is a client component and hides affordances only; it is never the gate.
+
+### Existing dual-slot URLs
+
+| URL | Classic slot | Modern slot | Authority |
+|---|---|---|---|
+| `/dashboard/catalog` | Card catalog search | Card catalog search + MD add panels | authenticated DJ |
+| `/dashboard/flowsheet` | Flowsheet | Flowsheet | authenticated DJ |
+| `/dashboard/playlists` | Previous sets | Previous sets | authenticated DJ |
+| `/dashboard/help` | Help | `ExperienceGap` | authenticated DJ |
+| `/dashboard/admin/catalog` | `ExperienceGap` | Format + genre admin | MD |
+| `/dashboard/admin/roster` | `ExperienceGap` | Roster admin | SM |
+
 Each feature in `lib/features/` follows a consistent structure:
 - `types.ts` -- TypeScript types/interfaces
 - `frontend.ts` -- Redux slice (state + actions + selectors)

@@ -1,5 +1,6 @@
 import { test, expect } from "../../fixtures/auth.fixture";
 import { DashboardPage } from "../../pages/dashboard.page";
+import { useClassicExperience } from "../../helpers/experience";
 import path from "path";
 
 const authDir = path.join(__dirname, "../../.auth");
@@ -156,6 +157,53 @@ test.describe("Role-Based Access Control", () => {
       // The default login form is the OTP email form
       await page.waitForSelector('input[name="identifier"]');
       expect(page.url()).toContain("/login");
+    });
+  });
+
+  // Every stored auth state lands on the app's default experience, so without
+  // an explicit switch a "classic" assertion would be made against the modern
+  // slot and pass for the wrong reason. These rows pin that the switch works
+  // and that each slot covers the URLs the other one owns.
+  test.describe("Classic experience", () => {
+    test.use({ storageState: path.join(authDir, "musicDirector.json") });
+
+    test.beforeEach(async ({ context, baseURL }) => {
+      await useClassicExperience(context, baseURL ?? "http://localhost:3000");
+    });
+
+    test("should render the classic slot on a shared URL", async ({ page }) => {
+      await page.goto("/dashboard/catalog");
+      await expect(page.locator("#classic-container")).toBeVisible({
+        timeout: 15000,
+      });
+      await expect(page.locator("#modern-container")).toHaveCount(0);
+    });
+
+    test("should offer a way out at a modern-only URL", async ({ page }) => {
+      await page.goto("/dashboard/admin/catalog");
+      await expect(page.locator("#classic-container")).toBeVisible({
+        timeout: 15000,
+      });
+      await expect(
+        page.getByRole("button", { name: /switch to the modern interface/i })
+      ).toBeVisible();
+    });
+  });
+
+  test.describe("Modern experience", () => {
+    test.use({ storageState: path.join(authDir, "musicDirector.json") });
+
+    // /dashboard/help exists only in the classic slot, so it exercises the
+    // modern-side fallback against a route that ships today. The librarian URLs
+    // will exercise it the same way as they land.
+    test("should offer a way out at a classic-only URL", async ({ page }) => {
+      await page.goto("/dashboard/help");
+      await expect(page.locator("#modern-container")).toBeVisible({
+        timeout: 15000,
+      });
+      await expect(
+        page.getByRole("button", { name: /switch to the classic interface/i })
+      ).toBeVisible();
     });
   });
 });

@@ -3,14 +3,16 @@
 import { authClient } from "@/lib/features/authentication/client";
 import { ApplicationState } from "@/lib/features/application/types";
 import {
-  APP_SKIN_STORAGE_KEY,
   AppSkinPreference,
   ParsedAppSkin,
   getPreferenceFromAppState,
-  isAppSkinPreference,
   parseAppSkinPreference,
   toAppSkinPreference,
 } from "@/lib/features/experiences/preferences";
+import {
+  readLocalAppSkin as readLocalPreference,
+  writeLocalAppSkin as writeLocalPreference,
+} from "@/lib/features/experiences/local-storage";
 import { useSetExperiencePreferenceMutation } from "@/lib/features/experiences/api";
 import { useModernTheme } from "@/src/styles/ModernThemeContext";
 import { useColorScheme } from "@mui/joy/styles";
@@ -20,26 +22,6 @@ import { toast } from "sonner";
 type PersistOptions = {
   updateUser?: boolean;
 };
-
-function readLocalPreference(): AppSkinPreference | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const stored = localStorage.getItem(APP_SKIN_STORAGE_KEY);
-    return isAppSkinPreference(stored) ? stored : null;
-  } catch (error) {
-    console.error("Failed to read app skin from localStorage:", error);
-    return null;
-  }
-}
-
-function writeLocalPreference(preference: AppSkinPreference) {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(APP_SKIN_STORAGE_KEY, preference);
-  } catch (error) {
-    console.error("Failed to write app skin to localStorage:", error);
-  }
-}
 
 async function fetchAppState(): Promise<ApplicationState | null> {
   try {

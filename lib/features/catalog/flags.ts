@@ -15,3 +15,20 @@ export function isCatalogTrackSearchUiEnabled(): boolean {
   const envValue = process.env.NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED;
   return envValue === "true" || envValue === "1";
 }
+
+/**
+ * Gates the librarian entries in the classic navigation bar.
+ *
+ * The screens themselves stay URL-reachable and server-gated whether or not
+ * this is set — it controls discoverability, not authority. Every push to main
+ * deploys, so the surface lands incrementally across several releases; leaving
+ * it OFF keeps a half-built menu out of a working librarian's way until the
+ * whole set is present.
+ *
+ * Defaults to OFF; flip on by setting NEXT_PUBLIC_CLASSIC_LIBRARIAN_NAV_ENABLED
+ * to "true" (or "1").
+ */
+export function isClassicLibrarianNavEnabled(): boolean {
+  const envValue = process.env.NEXT_PUBLIC_CLASSIC_LIBRARIAN_NAV_ENABLED;
+  return envValue === "true" || envValue === "1";
+}
