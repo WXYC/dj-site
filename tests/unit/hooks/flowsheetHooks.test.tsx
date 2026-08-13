@@ -60,8 +60,12 @@ vi.mock("@/src/hooks/catalogHooks", () => ({
 
 // Mock LML hooks (#563 — useLmlLibrarySearch now wraps lmlApi RTK Query, which
 // isn't in the createHookWrapper store these tests use).
+const mockUseLmlLibrarySearch = vi.fn(() => ({
+  results: [] as ReturnType<typeof createTestAlbum>[],
+  isLoading: false,
+}));
 vi.mock("@/src/hooks/useLmlLibrarySearch", () => ({
-  useLmlLibrarySearch: () => ({ results: [], isLoading: false }),
+  useLmlLibrarySearch: () => mockUseLmlLibrarySearch(),
 }));
 
 // Mock flowsheet API hooks
@@ -217,6 +221,10 @@ describe("flowsheetHooks", () => {
     mockUseRotationFlowsheetSearch.mockReturnValue({
       searchResults: [],
       loading: false,
+    });
+    mockUseLmlLibrarySearch.mockReturnValue({
+      results: [],
+      isLoading: false,
     });
     // Clear localStorage
     if (typeof window !== "undefined") {
@@ -1331,6 +1339,30 @@ describe("flowsheetHooks", () => {
       });
 
       expect(Array.isArray(result.current.rotationResults)).toBe(true);
+    });
+
+    // Pins the null-id path of the LML dedupe: a null-id LML row is never
+    // dropped by the `seen`-based dedupe (it isn't a real duplicate of
+    // anything catalog/bin/rotation could carry), while an LML row that
+    // shares an id with an already-seen catalog row is still deduped away.
+    it("keeps a null-id LML row and drops one that duplicates a seen catalog id", () => {
+      mockUseCatalogFlowsheetSearch.mockReturnValue({
+        searchResults: [createTestAlbum({ id: 42, title: "DOGA" })],
+      });
+      mockUseLmlLibrarySearch.mockReturnValue({
+        results: [
+          createTestAlbum({ id: 42, title: "DOGA (LML duplicate)" }),
+          createTestAlbum({ id: null, title: "Edits" }),
+        ],
+        isLoading: false,
+      });
+
+      const { result } = renderHook(() => useFlowsheetSubmit(), {
+        wrapper: createWrapper(),
+      });
+
+      expect(result.current.lmlResults).toHaveLength(1);
+      expect(result.current.lmlResults[0].title).toBe("Edits");
     });
 
     it("should return selectedResultData", () => {
