@@ -95,7 +95,7 @@ describe("FlowsheetBackendResult", () => {
   });
 
   describe("Selected state styling", () => {
-    it("renders in both selected and unselected states", () => {
+    it("renders in the selected state", () => {
       // selectedResult defaults to 0; seed it to 1 so index 1 renders selected.
       const initial = flowsheetSlice.getInitialState();
       renderWithProviders(<FlowsheetBackendResult entry={mockEntry} index={1} />, {
