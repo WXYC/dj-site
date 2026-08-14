@@ -140,6 +140,68 @@ describeConversion("convertToSong", convertToSong, [
 ]);
 ```
 
+### Classic Page Authority Harness
+
+`tests/helpers/classic-page-authority-harness.ts` covers the
+`requireAuth()` -> `requireRole()` gate that every page under
+`app/dashboard/@classic/**` runs in front of its screen-specific content.
+Import it directly (not through the `@/tests/helpers` barrel) since its
+mock-shape functions must be pulled into `vi.mock` factories by path:
+
+```typescript
+import {
+  setUpClassicPageAuthority,
+  setUpClassicPageAuthorityEnv,
+  assertReachesClassicPage,
+  assertDeniedClassicPage,
+} from "@/tests/helpers/classic-page-authority-harness";
+
+vi.mock("server-only", () => ({}));
+vi.mock("next/headers", async () => {
+  const { classicPageAuthorityHeadersMock } = await import("@/tests/helpers/classic-page-authority-harness");
+  return classicPageAuthorityHeadersMock();
+});
+vi.mock("next/navigation", async () => {
+  const { classicPageAuthorityNavigationMock } = await import("@/tests/helpers/classic-page-authority-harness");
+  return classicPageAuthorityNavigationMock();
+});
+vi.mock("@/lib/features/authentication/server-client", async () => {
+  const { classicPageAuthorityServerClientMock } = await import("@/tests/helpers/classic-page-authority-harness");
+  return classicPageAuthorityServerClientMock();
+});
+vi.mock("@/lib/features/authentication/organization-utils.server", async () => {
+  const { classicPageAuthorityOrganizationUtilsMock } = await import("@/tests/helpers/classic-page-authority-harness");
+  return classicPageAuthorityOrganizationUtilsMock();
+});
+
+// Mock the page's own screen content so the landmark below proves the page
+// rendered, not just that it exists.
+vi.mock("@/src/components/experiences/classic/library/MissingReleases", () => ({
+  default: () => <div data-testid="missing-releases-table" />,
+}));
+
+import ClassicMissingReleasesPage from "@/app/dashboard/@classic/library/missing/page";
+
+describe("Classic /dashboard/library/missing page", () => {
+  setUpClassicPageAuthorityEnv();
+
+  it("reaches the page for a DJ", async () => {
+    setUpClassicPageAuthority("dj");
+    await assertReachesClassicPage(ClassicMissingReleasesPage, "missing-releases-table");
+  });
+
+  it("redirects a member with no station role", async () => {
+    setUpClassicPageAuthority(undefined);
+    await assertDeniedClassicPage(ClassicMissingReleasesPage);
+  });
+});
+```
+
+- **`setUpClassicPageAuthorityEnv()`** -- registers the `beforeEach`/`afterEach` that reset the mocks and pin `NEXT_PUBLIC_DASHBOARD_HOME_PAGE` so redirect assertions are deterministic. Call once per `describe` block.
+- **`setUpClassicPageAuthority(role, adminPluginRole?)`** -- arranges the session/org-role mocks for one scenario. `role` is the WXYC tier the org-role resolver returns (`"dj" | "musicDirector" | "stationManager" | undefined`); `adminPluginRole` models a WXYC tier string leaking into the unrelated better-auth admin-plugin session column, which must never grant access on its own.
+- **`assertReachesClassicPage(page, ...landmarkTestIds)`** -- awaits and renders the page, then asserts no redirect happened AND every named landmark testid is in the document. Checking only "no redirect" passes vacuously for a page that renders nothing, so it can't distinguish "allowed and working" from "allowed and broken" -- always pass at least the page's own screen-specific landmark.
+- **`assertDeniedClassicPage(page, destination?)`** -- asserts the page denies access by redirecting to `destination` (defaults to `/dashboard`).
+
 ### Auth Client Mock
 
 `createAuthClientModuleMock()` (`tests/helpers/auth-client-mock.ts`) replaces `@/lib/features/authentication/client` with an unauthenticated session. Every test that renders a component reaching `useAuthentication` — directly, or through `useRegistry` / `useBin` / `usePlayNow` — must use it. Letting the real module instantiate installs a better-auth session store whose teardown is deferred a second past the last subscriber; a short test file finishes inside that second, the deferred teardown then runs against removed jsdom globals, and the resulting `window is not defined` is reported as an unhandled error that fails the run with every test green.
