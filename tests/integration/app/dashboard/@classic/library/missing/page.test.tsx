@@ -62,4 +62,10 @@ describe("Classic /dashboard/library/missing page — missingReleases.jsp, DJ-ac
 
     await assertDeniedClassicPage(ClassicMissingReleasesPage);
   });
+
+  it("bounces an unauthenticated visitor to login, not to the dashboard home", async () => {
+    setUpClassicPageAuthority("unauthenticated");
+
+    await assertDeniedClassicPage(ClassicMissingReleasesPage, "/login?bounced=no-session");
+  });
 });
