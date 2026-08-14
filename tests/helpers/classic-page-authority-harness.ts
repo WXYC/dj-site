@@ -1,6 +1,8 @@
 import { vi, beforeEach, afterEach, expect } from "vitest";
 import { screen } from "@testing-library/react";
 import type { ReactElement } from "react";
+import type { WXYCRole } from "@wxyc/shared/auth-client/auth";
+import { DEFAULT_DASHBOARD_HOME_PAGE } from "@/lib/features/application/constants";
 import { renderWithProviders } from "./render";
 
 /**
@@ -25,7 +27,10 @@ import { renderWithProviders } from "./render";
  * ```
  */
 
-export type ClassicPageRole = "dj" | "musicDirector" | "stationManager" | "unauthenticated" | undefined;
+// Derived from WXYCRole rather than re-listing the tiers, so a tier added or
+// renamed in @wxyc/shared surfaces here as a type error instead of silently
+// leaving a station role untestable.
+export type ClassicPageRole = WXYCRole | "unauthenticated" | undefined;
 
 export const mockCookiesToString = vi.fn(() => "session=test-cookie");
 
@@ -147,7 +152,7 @@ export function setUpClassicPageAuthorityEnv() {
     mockGetUserRoleInOrganization.mockReset();
     mockGetAppOrganizationId.mockReturnValue(undefined);
     mockCookiesToString.mockReturnValue("session=test-cookie");
-    process.env = { ...originalEnv, NEXT_PUBLIC_DASHBOARD_HOME_PAGE: "/dashboard" };
+    process.env = { ...originalEnv, NEXT_PUBLIC_DASHBOARD_HOME_PAGE: DEFAULT_DASHBOARD_HOME_PAGE };
   });
 
   afterEach(() => {
@@ -173,8 +178,17 @@ export async function assertReachesClassicPage(page: () => Promise<ReactElement>
   }
 }
 
-/** Asserts the page denies access by redirecting to `destination`. */
-export async function assertDeniedClassicPage(page: () => Promise<ReactElement>, destination = "/dashboard") {
+/**
+ * Asserts the page denies access by redirecting to `destination`, which
+ * defaults to the dashboard home the role gate sends an under-authorized
+ * member to. `rejects.toThrow` matches on substring, so a destination that is
+ * a prefix of the real one would pass on the marker alone — the exact-argument
+ * assertion below is what actually pins it.
+ */
+export async function assertDeniedClassicPage(
+  page: () => Promise<ReactElement>,
+  destination: string = DEFAULT_DASHBOARD_HOME_PAGE,
+) {
   await expect(page()).rejects.toThrow(`NEXT_REDIRECT:${destination}`);
   expect(mockRedirect).toHaveBeenCalledWith(destination);
 }
