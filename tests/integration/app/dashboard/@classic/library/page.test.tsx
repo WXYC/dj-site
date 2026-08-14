@@ -38,7 +38,7 @@ vi.mock("@/lib/features/authentication/organization-utils.server", () => ({
 
 // The page's own responsibility under test is the auth gate, not these
 // forms' RTK Query-backed content.
-vi.mock("@/src/components/experiences/classic/catalog/Layout/Main", () => ({
+vi.mock("@/src/components/experiences/classic/Layout/Main", () => ({
   default: ({ children }: { children: React.ReactNode }) => <div data-testid="classic-main">{children}</div>,
 }));
 vi.mock("@/src/components/experiences/classic/catalog/ArtistSearchForm", () => ({

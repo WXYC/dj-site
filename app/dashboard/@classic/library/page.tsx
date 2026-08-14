@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import { getPageTitle } from "@/lib/utils/page-title";
 import { requireAuth, requireRole } from "@/lib/features/authentication/server-utils";
 import { Authorization } from "@/lib/features/admin/types";
-import Main from "@/src/components/experiences/classic/catalog/Layout/Main";
+import Main from "@/src/components/experiences/classic/Layout/Main";
 import ArtistSearchForm from "@/src/components/experiences/classic/catalog/ArtistSearchForm";
 import NewArtistForm from "@/src/components/experiences/classic/catalog/NewArtistForm";
 
