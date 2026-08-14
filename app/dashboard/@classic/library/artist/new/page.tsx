@@ -21,9 +21,9 @@ type ClassicCreateLibraryCodePageProps = {
 /**
  * Reproduces `createLibraryCode.jsp`: the miss branch of
  * `findOrCreateLibraryCode` (`ArtistAdminServlet:161`). URL-reachable on its
- * own route, taking the code that missed as query params, ahead of
- * WXYC/dj-site#1198 wiring the chooser's no-match branch into it. Not linked
- * in nav -- see `isClassicLibrarianNavEnabled`.
+ * own route, taking the code that missed as query params, ahead of the
+ * chooser's no-match branch being wired into it. Not linked in nav -- see
+ * `isClassicLibrarianNavEnabled`.
  */
 export default async function ClassicCreateLibraryCodePage({
   searchParams,

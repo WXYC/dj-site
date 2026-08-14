@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
-import { http, HttpResponse } from "msw";
+import { http, HttpResponse, delay } from "msw";
 import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 
 // The real better-auth client installs listeners whose teardown is deferred a
@@ -85,8 +85,31 @@ describe("classic CreateLibraryCodeForm — createLibraryCode.jsp", () => {
     expect(screen.getByRole("button", { name: "Reset" })).toBeInTheDocument();
   });
 
-  it("uppercases the carried call letters for display and submission", async () => {
-    mockAddArtist(() => created());
+  // ArtistAdminServlet picks the heading off the call letters: a `Z-` code is
+  // a Various Artists shelf bucket and gets its own shorter wording, so a
+  // librarian filing a compilation is not told to associate a named artist.
+  it("shows the Various Artists heading for a Z- code and the artist heading otherwise", async () => {
+    const { unmount } = renderWithProviders(
+      <CreateLibraryCodeForm {...defaultProps} codeLetters="z-ro" />,
+    );
+
+    expect(
+      await screen.findByText(
+        "This 'Various Artists' library code does not currently exist in the database. To create it, click 'Add!'",
+      ),
+    ).toBeInTheDocument();
+    unmount();
+
+    renderWithProviders(<CreateLibraryCodeForm {...defaultProps} />);
+    expect(
+      await screen.findByText(
+        "This library code does not currently exist in the database. To create it, you need to associate it with an artist (new or existing) and click 'Add!'.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("uppercases the carried call letters on the wire, not just in the display", async () => {
+    const { getBodies } = mockAddArtist(() => created());
     const { user } = renderWithProviders(<CreateLibraryCodeForm {...defaultProps} />);
 
     await screen.findByText("MO");
@@ -94,7 +117,71 @@ describe("classic CreateLibraryCodeForm — createLibraryCode.jsp", () => {
     await user.type(screen.getByLabelText(/artist alphabetical name/i), "Molina, Juana");
     await user.click(screen.getByRole("button", { name: "Add!" }));
 
+    await waitFor(() => expect(getBodies()).toHaveLength(1));
+    expect(getBodies()[0]).toMatchObject({ code_letters: "MO" });
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard/library"));
+  });
+
+  // The carried code is displayed verbatim, so every refusal has to name the
+  // part that is wrong: a message about something "missing" beside a row
+  // showing that very value reads as a broken screen, not a bad link.
+  it.each([
+    [{ genreIdRaw: "" }, "This link carries no genre."],
+    [{ genreIdRaw: "abc" }, "This link's genre (abc) is not a genre id."],
+    [{ codeLetters: "" }, "This link carries no call letters."],
+    [{ codeNumberRaw: "" }, "This link carries no call number."],
+    [
+      { codeNumberRaw: "012" },
+      "This link's call number (012) is not a whole number above zero.",
+    ],
+  ])("names the unusable part of the carried code (%o)", async (override, message) => {
+    const { user } = renderWithProviders(
+      <CreateLibraryCodeForm {...defaultProps} {...override} />,
+    );
+
+    await user.type(screen.getByLabelText(/artist presentation name/i), "Juana Molina");
+    await user.type(screen.getByLabelText(/artist alphabetical name/i), "Molina, Juana");
+    await user.click(screen.getByRole("button", { name: "Add!" }));
+
+    expect(await screen.findByText(message)).toBeInTheDocument();
+  });
+
+  // The pending window must not borrow the missing-value rendering: "no genre
+  // arrived" and "the genre hasn't loaded yet" have opposite outcomes.
+  it("shows the genre as pending while the list is in flight, not as absent", async () => {
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/genres`, async () => {
+        await delay(50);
+        return HttpResponse.json([{ id: GENRE_ID, genre_name: "Blues" }]);
+      }),
+    );
+    renderWithProviders(<CreateLibraryCodeForm {...defaultProps} />);
+
+    expect(screen.getByText("Loading…")).toBeInTheDocument();
+    expect(screen.queryByText("—")).not.toBeInTheDocument();
+    expect(await screen.findByText("Blues")).toBeInTheDocument();
+  });
+
+  // A genre id that parses but names nothing in the catalog is not the same
+  // screen as a missing param or an outage: filing anyway would put the
+  // release under a genre the librarian was never shown, and library codes
+  // carry no unique constraint to catch it afterwards.
+  it("refuses to file when the carried genre id is absent from the catalog", async () => {
+    mockGenres([{ id: 999, genre_name: "Jazz" }]);
+    const { getBodies } = mockAddArtist(() => created());
+    const { user } = renderWithProviders(<CreateLibraryCodeForm {...defaultProps} />);
+
+    expect(
+      await screen.findByText(`No genre in the catalog has id ${GENRE_ID}, so this code can't be filed.`),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add!" })).toBeDisabled();
+
+    await user.type(screen.getByLabelText(/artist presentation name/i), "Juana Molina");
+    await user.type(screen.getByLabelText(/artist alphabetical name/i), "Molina, Juana");
+    await user.click(screen.getByRole("button", { name: "Add!" }));
+
+    expect(getBodies()).toHaveLength(0);
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it("shows the JSP's exact validation message when the presentation name is empty", async () => {
