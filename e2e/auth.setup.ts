@@ -184,16 +184,6 @@ setup("authenticate as station manager", async ({ page }) => {
   );
 });
 
-/**
- * A dedicated identity whose experience preference is classic, so classic
- * assertions on authenticated dashboard URLs are ordinary tests rather than a
- * race against every other spec's shared seeded users. Not in TEST_USERS: it
- * is not seeded by Backend-Service (see dev_env/setup-e2e-test-users.ts for
- * that set) — it is created here, once, via the same admin roster path the
- * admin specs exercise, and its appSkin is set through the app's own
- * experience-switch flow rather than a raw API call, so the fixture never
- * predicts an internal endpoint shape it doesn't own.
- */
 interface ClassicIdentity {
   username: string;
   password: string;
@@ -205,10 +195,20 @@ interface ClassicIdentity {
 }
 
 /**
+ * Dedicated identities whose experience preference is classic, so classic
+ * assertions on authenticated dashboard URLs are ordinary tests rather than a
+ * race against every other spec's shared seeded users. Not in TEST_USERS:
+ * they are not seeded by Backend-Service (see dev_env/setup-e2e-test-users.ts
+ * for that set) — each is created here, once, via the same admin roster path
+ * the admin specs exercise, and its appSkin is set through the app's own
+ * experience-switch flow rather than a raw API call, so the fixture never
+ * predicts an internal endpoint shape it doesn't own. Both are provisioned by
+ * {@link provisionClassicIdentity}.
+ *
  * The classic-librarian screens are authority-split (rotation list is
  * DJ-readable, rotation insert and catalog admin are MD-gated), so specs that
  * assert that split need identities at both authorities — hence two entries
- * rather than one. Each is provisioned by {@link provisionClassicIdentity}.
+ * rather than one.
  */
 const CLASSIC_MD_USER: ClassicIdentity = {
   username: "test_classic_md",
@@ -375,10 +375,9 @@ async function ensureClassicIdentityAccountExists(
  * Provisions a classic-preference identity: reconciles its roster account
  * (creating it only if absent), completes onboarding on first run, and
  * switches its appSkin to classic through the live switch flow. Shared by
- * every "provision classic-preference identity" setup test below — the
- * factory this issue exists to add, so a second identity at a different
- * authority costs a declaration plus one `setup()` call, not a copy of this
- * whole body.
+ * every "provision classic-preference identity" setup test below, so a
+ * second identity at a different authority costs a declaration plus one
+ * `setup()` call, not a copy of this whole body.
  */
 async function provisionClassicIdentity(
   page: import("@playwright/test").Page,
