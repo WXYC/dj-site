@@ -58,41 +58,53 @@ export default function FlowsheetSearchResults({
 
   // A click-to-autofill zeroes the highlight; the frozen query keeps the album
   const searchQuery = useAppSelector(flowsheetSlice.selectors.getSearchQuery);
-  const frozenAlbumId = searchQuery.album_id;
   const hasTypedText = Boolean(
     searchQuery.artist || searchQuery.song || searchQuery.album || searchQuery.label
   );
 
-  // A library-unlinked rotation/catalog row carries a synthesized negative
-  // id from synthesizeAlbumId — there's no real release to pick tracks from,
-  // and #702's chokepoint drops track_position anyway. Skip the picker entirely
-  // for those rows instead of letting the DJ pick something we'll silently
-  // discard. (dj-site#704)
-  // `highlightedResult.id === null` (an LML row) falls through to the
-  // frozen-query check below exactly like a non-positive id does today —
-  // widening `AlbumEntry.id` must not make the picker disappear for the one
-  // source where it currently works. Real fix is #1184.
-  const effectiveAlbumId =
-    highlightedResult && highlightedResult.id !== null && highlightedResult.id > 0
-      ? highlightedResult.id
-      : hasLinkedAlbumId(frozenAlbumId)
-        ? (frozenAlbumId as number)
-        : null;
+  // Two ids, two questions, two id spaces.
+  //
+  // READ — which release's tracklist to fetch. The tracklist endpoint resolves
+  // its path param against `library.legacy_release_id`, so this side must
+  // resolve there too. Post-click there is no highlight left to read from (the
+  // dominant flow is click the release, then pick the track), so the frozen
+  // query has to carry the legacy id itself.
+  const tracklistReleaseId = hasLinkedAlbumId(
+    highlightedResult?.legacy_release_id
+  )
+    ? highlightedResult.legacy_release_id
+    : hasLinkedAlbumId(searchQuery.legacy_release_id)
+      ? searchQuery.legacy_release_id
+      : null;
+
+  // WRITE — whether this row has a real library linkage, which is the only
+  // thing that decides if a picker is offered at all. A library-unlinked
+  // rotation/catalog row carries a synthesized negative id from
+  // synthesizeAlbumId, and the submission chokepoint drops `track_position`
+  // without a positive `album_id` behind it — so offering a picker there would
+  // let the DJ pick something that gets silently discarded.
+  const linkedAlbumId = hasLinkedAlbumId(highlightedResult?.id)
+    ? highlightedResult.id
+    : hasLinkedAlbumId(searchQuery.album_id)
+      ? searchQuery.album_id
+      : null;
 
   const [manualOverride, setManualOverride] = useState<number | null>(null);
   useEffect(() => {
-    if (manualOverride !== null && effectiveAlbumId !== manualOverride) {
+    if (manualOverride !== null && tracklistReleaseId !== manualOverride) {
       setManualOverride(null);
     }
-  }, [effectiveAlbumId, manualOverride]);
+  }, [tracklistReleaseId, manualOverride]);
 
-  const pickerAlbumId =
-    effectiveAlbumId !== null && effectiveAlbumId !== manualOverride
-      ? effectiveAlbumId
+  // Keyed on the read half: opting out is per-release-tracklist, and the
+  // release's identity for tracklist purposes is its legacy id.
+  const pickerReleaseId =
+    tracklistReleaseId !== null && tracklistReleaseId !== manualOverride
+      ? tracklistReleaseId
       : null;
-  const picker = useLibraryTrackPicker(pickerAlbumId);
+  const picker = useLibraryTrackPicker(pickerReleaseId);
 
-  const showPickerRow = effectiveAlbumId !== null && !rotationMode;
+  const showPickerRow = linkedAlbumId !== null && !rotationMode;
 
   // Panel CONTENT only — the Sheet/Popper/transitions live in FlowsheetSearchbar
   return (
@@ -189,8 +201,8 @@ export default function FlowsheetSearchResults({
                   isLoading={picker.isLoading}
                   disabled={false}
                   onManualEntry={() => {
-                    if (effectiveAlbumId !== null)
-                      setManualOverride(effectiveAlbumId);
+                    if (tracklistReleaseId !== null)
+                      setManualOverride(tracklistReleaseId);
                     dispatch(
                       flowsheetSlice.actions.setSearchProperty({
                         name: "song",

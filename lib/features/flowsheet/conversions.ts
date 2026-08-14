@@ -27,6 +27,7 @@ export function entryToFreezePayload(entry: {
   title?: string | null;
   label?: string | null;
   id?: number | null;
+  legacy_release_id?: number | null;
   rotation_id?: number | null;
   rotation_bin?: Rotation | null;
 }) {
@@ -47,6 +48,11 @@ export function entryToFreezePayload(entry: {
     album: entry.title ?? "",
     label: entry.label ?? "",
     album_id: entry.id ?? undefined,
+    // The read half of the freeze. Carried so the picker survives the click
+    // that zeroes the highlight, and resolved independently of `album_id` —
+    // which release's tracklist to show is not the same question as which
+    // release a submission should link to.
+    legacy_release_id: entry.legacy_release_id ?? undefined,
     rotation_id: entry.rotation_id ?? undefined,
     rotation_bin: entry.rotation_bin ?? undefined,
   };

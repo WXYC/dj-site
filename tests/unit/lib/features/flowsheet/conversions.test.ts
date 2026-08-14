@@ -770,6 +770,7 @@ describe("flowsheet conversions", () => {
       expect(
         entryToFreezePayload({
           id: 42,
+          legacy_release_id: 45342,
           artist: { name: "Juana Molina" },
           title: "DOGA",
           label: "Sonamos",
@@ -782,6 +783,7 @@ describe("flowsheet conversions", () => {
         album: "DOGA",
         label: "Sonamos",
         album_id: 42,
+        legacy_release_id: 45342,
         rotation_id: 7,
         rotation_bin: "H",
       });
@@ -794,6 +796,7 @@ describe("flowsheet conversions", () => {
         album: "",
         label: "",
         album_id: undefined,
+        legacy_release_id: undefined,
         rotation_id: undefined,
         rotation_bin: undefined,
       });
@@ -831,9 +834,29 @@ describe("flowsheet conversions", () => {
         album: "Edits",
         label: "self-released",
         album_id: 42,
+        legacy_release_id: undefined,
         rotation_id: undefined,
         rotation_bin: undefined,
       });
+    });
+
+    // The two ids travel together but are decided separately: album_id is a
+    // write-path value the caller may withhold, legacy_release_id is a
+    // read-path value that describes which release's tracklist to fetch.
+    it("carries the legacy id for a row that has no library.id", () => {
+      expect(
+        entryToFreezePayload({
+          id: null,
+          legacy_release_id: 45342,
+          artist: { name: "Jessica Pratt" },
+          title: "On Your Own Love Again",
+        })
+      ).toEqual(
+        expect.objectContaining({
+          album_id: undefined,
+          legacy_release_id: 45342,
+        })
+      );
     });
   });
 });

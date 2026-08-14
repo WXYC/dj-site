@@ -170,38 +170,85 @@ describe("FlowsheetBackendResult", () => {
   });
 
   describe("Tracklist prefetch", () => {
-    it("prefetches tracks on mouse over when the row carries a real library link", () => {
-      // id and index are deliberately distinct values so this test can tell
-      // apart a component that reads entry.id from one that reads index.
-      const linkedEntry: AlbumEntry = createTestAlbum({
-        ...mockEntry,
-        id: 1,
-      });
-      renderWithProviders(
-        <FlowsheetBackendResult entry={linkedEntry} index={42} />
-      );
-
+    const hoverRow = () => {
       const resultRow = screen
         .getByText("Juana Molina")
         .closest('[data-testid^="flowsheet-search-result-"]');
       fireEvent.mouseOver(resultRow!);
+    };
 
-      expect(mockPrefetchTracks).toHaveBeenCalledWith(1);
+    it("prefetches the row's legacy_release_id, not its library.id", () => {
+      // `id`, `legacy_release_id`, and `index` are three distinct values, so
+      // this can tell apart a component reading the right one from a component
+      // reading either of the two plausible wrong ones. The endpoint resolves
+      // its path param against `library.legacy_release_id`, so `id` is the
+      // wrong space — and because the two spaces are nearly coextensive, a
+      // wrong-space lookup lands on a real but unrelated release rather than
+      // failing.
+      const catalogEntry: AlbumEntry = createTestAlbum({
+        ...mockEntry,
+        id: 1,
+        legacy_release_id: 45342,
+      });
+      renderWithProviders(
+        <FlowsheetBackendResult entry={catalogEntry} index={42} />
+      );
+
+      hoverRow();
+
+      expect(mockPrefetchTracks).toHaveBeenCalledWith(45342);
     });
 
-    it("does not prefetch tracks for a library-unlinked row (synthesized negative id)", () => {
+    it("prefetches a row that carries no library.id at all", () => {
+      // An LML-sourced row knows a legacy release id but no `library.id`. The
+      // gate has to key on the same field the argument does, or this row —
+      // the one source whose picker works today — silently stops prefetching.
+      const lmlEntry: AlbumEntry = createTestAlbum({
+        ...mockEntry,
+        id: null,
+        legacy_release_id: 45342,
+      });
+      renderWithProviders(
+        <FlowsheetBackendResult entry={lmlEntry} index={42} />
+      );
+
+      hoverRow();
+
+      expect(mockPrefetchTracks).toHaveBeenCalledWith(45342);
+    });
+
+    it("does not prefetch for a library-unlinked row (synthesized negative id, no legacy id)", () => {
+      // An unlinked rotation row: the LEFT JOIN found no library row, so there
+      // is no legacy id either. Backend 400s on a non-positive path param, so
+      // this gate is what keeps the hover from erroring.
       const unlinkedEntry: AlbumEntry = createTestAlbum({
         ...mockEntry,
         id: -1,
+        legacy_release_id: null,
       });
       renderWithProviders(
         <FlowsheetBackendResult entry={unlinkedEntry} index={42} />
       );
 
-      const resultRow = screen
-        .getByText("Juana Molina")
-        .closest('[data-testid^="flowsheet-search-result-"]');
-      fireEvent.mouseOver(resultRow!);
+      hoverRow();
+
+      expect(mockPrefetchTracks).not.toHaveBeenCalled();
+    });
+
+    it("does not prefetch when the legacy id is absent despite a real library link", () => {
+      // Backend's column is NOT NULL, so this shape means an emitter that
+      // predates the field rather than routine data. It must degrade to no
+      // prefetch, not fall back to `id` — falling back is the defect.
+      const noLegacyEntry: AlbumEntry = createTestAlbum({
+        ...mockEntry,
+        id: 42,
+        legacy_release_id: null,
+      });
+      renderWithProviders(
+        <FlowsheetBackendResult entry={noLegacyEntry} index={7} />
+      );
+
+      hoverRow();
 
       expect(mockPrefetchTracks).not.toHaveBeenCalled();
     });

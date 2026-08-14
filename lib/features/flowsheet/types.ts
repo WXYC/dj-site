@@ -38,6 +38,22 @@ export type FlowsheetQuery = {
   request: boolean;
   segue?: boolean;
   album_id?: number;
+  /**
+   * The frozen release's `legacy_release_id` — the id space the track picker
+   * resolves in, kept alongside `album_id` (the space a submission writes in)
+   * rather than derived from it, because the two are different spaces over the
+   * same row and neither can be computed from the other client-side.
+   *
+   * Carried on the query because a click zeroes the highlight: post-click
+   * there is no result row left to read the id from, and the picker still has
+   * to know which release it is showing.
+   *
+   * Moves in lockstep with `album_id` in every reducer that sets or clears
+   * either. A stale value left behind after `album_id` clears means the picker
+   * goes on serving the previous release's tracklist — silently, since nothing
+   * about that combination is invalid.
+   */
+  legacy_release_id?: number;
   rotation_bin?: Rotation;
   rotation_id?: number;
   /**
@@ -51,7 +67,12 @@ export type FlowsheetQuery = {
 
 export type FlowsheetSearchProperty = keyof Omit<
   FlowsheetQuery,
-  "request" | "segue" | "album_id" | "rotation_bin" | "rotation_id"
+  | "request"
+  | "segue"
+  | "album_id"
+  | "legacy_release_id"
+  | "rotation_bin"
+  | "rotation_id"
 >;
 
 export type FlowsheetEntryBase = {
