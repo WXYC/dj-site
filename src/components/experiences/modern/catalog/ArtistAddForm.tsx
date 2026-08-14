@@ -86,12 +86,12 @@ function ArtistAddForm() {
 }
 
 function ArtistAddFields() {
+  const genresQuery = useGetGenresQuery();
   const {
     data: genres,
-    isLoading: genresLoading,
     isFetching: genresFetching,
     refetch: refetchGenres,
-  } = useGetGenresQuery();
+  } = genresQuery;
   const [addArtist, { isLoading }] = useAddArtistMutation();
 
   const [name, setName] = useState("");
@@ -175,7 +175,7 @@ function ArtistAddFields() {
   // `genre_id` is unreachable either way, so the outage has to say so rather
   // than presenting an empty list as "no genres exist" — but a refetch that
   // rejects over a good cached list must not read as the same outage.
-  const genresUnavailable = isGenresUnavailable(genresLoading, genres);
+  const genresUnavailable = isGenresUnavailable(genresQuery);
 
   // Puts the caret back where the edit left it. React writes the normalized
   // value into the node during the commit's mutation phase, which is the write

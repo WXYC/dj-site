@@ -45,17 +45,17 @@ export default function NewArtistForm() {
   const codeLettersId = useId();
   const codeNumberId = useId();
 
+  const genresQuery = useGetGenresQuery();
   const {
     data: genres,
-    isLoading: genresLoading,
     isFetching: genresFetching,
     refetch: refetchGenres,
-  } = useGetGenresQuery();
+  } = genresQuery;
   const [addArtist, { isLoading }] = useAddArtistMutation();
   // See isGenresUnavailable's doc for the cached-list trap: `isError` can be
   // true while a good cached list is still on screen, so this reads
   // absence-of-list, never the error flag.
-  const genresUnavailable = isGenresUnavailable(genresLoading, genres);
+  const genresUnavailable = isGenresUnavailable(genresQuery);
   const [peekArtistCode, { data: peekData, isFetching: peekFetching }] =
     useLazyPeekArtistCodeQuery();
 
@@ -122,11 +122,11 @@ export default function NewArtistForm() {
     // A list that goes away under a held selection leaves the dropdown
     // showing its placeholder while `genreId` still names the old genre;
     // submitting would then file under a genre the form has stopped
-    // displaying, beside a message saying nothing can be filed at all.
+    // displaying. The inline alert beside the select already announces the
+    // outage and clears itself on recovery — writing it into
+    // `validationMessage` too would render the sentence twice and leave a
+    // stale copy standing after a successful retry.
     if (genresUnavailable) {
-      setValidationMessage(
-        "Genres are unavailable, so an artist can't be filed right now.",
-      );
       return;
     }
     if (genreId == null) {

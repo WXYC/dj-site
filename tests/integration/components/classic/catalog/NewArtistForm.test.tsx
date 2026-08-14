@@ -10,7 +10,14 @@ vi.mock("@/lib/features/authentication/client", async () => {
   const { createAuthClientModuleMock } = await import(
     "@/tests/helpers/auth-client-mock"
   );
-  return createAuthClientModuleMock();
+  // The shared mock leaves the session unauthenticated (getJWTToken resolves
+  // null), which silently drops the Authorization header from every request
+  // this file makes; resolve a token so the authenticated request path stays
+  // exercised.
+  return {
+    ...createAuthClientModuleMock(),
+    getJWTToken: vi.fn(async () => "test-token"),
+  };
 });
 
 import NewArtistForm from "@/src/components/experiences/classic/catalog/NewArtistForm";
@@ -310,7 +317,16 @@ describe("classic NewArtistForm — chooseLibraryCodeOrArtist.jsp's newArtistFor
       store.dispatch(
         catalogApi.util.invalidateTags([{ type: "GenreList", id: "LIST" }]),
       );
+      // `genreCalls` reaching 2 only proves MSW entered the handler; the
+      // rejection lands afterwards. Wait for it to settle in the cache so the
+      // no-alert assertion observes the post-rejection render instead of
+      // winning a race against it.
       await waitFor(() => expect(genreCalls).toBe(2));
+      await waitFor(() =>
+        expect(
+          catalogApi.endpoints.getGenres.select()(store.getState()).isError,
+        ).toBe(true),
+      );
 
       expect(screen.queryByText(/genres are unavailable/i)).not.toBeInTheDocument();
       expect(screen.getByRole("option", { name: "Blues" })).toBeInTheDocument();
@@ -321,6 +337,58 @@ describe("classic NewArtistForm — chooseLibraryCodeOrArtist.jsp's newArtistFor
       await user.type(screen.getByLabelText(/call numbers/i), "12");
       await user.click(screen.getByRole("button", { name: "Submit" }));
 
+      await waitFor(() => expect(getBodies()).toHaveLength(1));
+      expect(getBodies()[0]).toMatchObject({ genre_id: GENRE_ID });
+    });
+
+    it("flips to unavailable when a non-JSON refetch replaces the cached list, refuses the submit, and recovers", async () => {
+      let genreCalls = 0;
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/genres`, () => {
+          genreCalls += 1;
+          // Call 2 is the refetch: an HTML error page, which the shared base
+          // query soft-fails into a fulfilled `{ data: null }` that replaces
+          // the cached list — unlike the JSON 500 above, which keeps it.
+          if (genreCalls === 2) {
+            return new HttpResponse(
+              "<!DOCTYPE html><html><body>Bad Gateway</body></html>",
+              { status: 502, headers: { "Content-Type": "text/html" } },
+            );
+          }
+          return HttpResponse.json([{ id: GENRE_ID, genre_name: "Blues" }]);
+        }),
+      );
+      const { getBodies } = mockAddArtist(() => created());
+      const { user, store } = renderWithProviders(<NewArtistForm />);
+
+      await selectGenre(user);
+      await user.type(screen.getByLabelText(/artist presentation name/i), "Juana Molina");
+      await user.type(screen.getByLabelText(/artist alphabetical name/i), "Molina, Juana");
+      await user.type(screen.getByLabelText(/call letters/i), "MO");
+      await user.type(screen.getByLabelText(/call numbers/i), "12");
+
+      store.dispatch(
+        catalogApi.util.invalidateTags([{ type: "GenreList", id: "LIST" }]),
+      );
+      expect(await screen.findByText(/genres are unavailable/i)).toBeInTheDocument();
+
+      // `genreId` still holds the vanished list's selection, so submitting
+      // now would file under a genre the form has stopped displaying. The
+      // refusal must not add a second copy of the sentence: the inline alert
+      // is the one announcement, and it alone must clear on recovery.
+      await user.click(screen.getByRole("button", { name: "Submit" }));
+      expect(screen.getAllByText(/genres are unavailable/i)).toHaveLength(1);
+
+      await user.click(screen.getByRole("button", { name: /try again/i }));
+      await waitFor(() =>
+        expect(screen.queryByText(/genres are unavailable/i)).not.toBeInTheDocument(),
+      );
+      expect(await screen.findByRole("option", { name: "Blues" })).toBeInTheDocument();
+
+      // Exactly one POST reaches the backend: the recovered submit. Had the
+      // refused submit fired anyway, its body would have been recorded long
+      // before this one.
+      await user.click(screen.getByRole("button", { name: "Submit" }));
       await waitFor(() => expect(getBodies()).toHaveLength(1));
       expect(getBodies()[0]).toMatchObject({ genre_id: GENRE_ID });
     });
