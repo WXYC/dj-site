@@ -205,5 +205,39 @@ test.describe("Role-Based Access Control", () => {
         ).toBeVisible();
       });
     });
+
+    // classicMd.json is a dedicated identity whose account appSkin is classic,
+    // provisioned once in e2e/auth.setup.ts's "provision classic-preference
+    // identity" step. Every other seeded user's appSkin defaults to
+    // modern-light and is unsafe to flip (shared server state — see that
+    // setup step's comment), so this is the only account that can assert the
+    // classic slot on a signed-in dashboard URL without racing another spec.
+    test.describe("Classic (authenticated)", () => {
+      test.use({ storageState: path.join(authDir, "classicMd.json") });
+
+      test("should render the classic slot on an authenticated dashboard URL", async ({
+        page,
+      }) => {
+        await page.goto("/dashboard/flowsheet");
+        await expect(page.locator("#classic-container")).toBeVisible({
+          timeout: 15000,
+        });
+        await expect(page.locator("#modern-container")).toHaveCount(0);
+      });
+
+      // /dashboard/admin/catalog is modern-only and requires at least MD —
+      // the classicMd identity is provisioned with the musicDirector role
+      // specifically so it can reach a modern-only URL and exercise the
+      // classic slot's app/dashboard/@classic/default.tsx fallback.
+      test("should offer a way out at a modern-only URL", async ({ page }) => {
+        await page.goto("/dashboard/admin/catalog");
+        await expect(page.locator("#classic-container")).toBeVisible({
+          timeout: 15000,
+        });
+        await expect(
+          page.getByRole("button", { name: /switch to the modern interface/i })
+        ).toBeVisible();
+      });
+    });
   });
 });

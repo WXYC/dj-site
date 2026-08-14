@@ -1,5 +1,11 @@
-import { test as setup, expect, request } from "@playwright/test";
-import { TEST_USERS, getAuthServiceBaseUrl } from "./fixtures/auth.fixture";
+import { test as setup, expect, request, Browser } from "@playwright/test";
+import {
+  TEST_USERS,
+  getAuthServiceBaseUrl,
+  completeOnboardingWithInviteToken,
+} from "./fixtures/auth.fixture";
+import { RosterPage } from "./pages/roster.page";
+import { setExperienceViaAccount } from "./helpers/experience";
 import crypto from "crypto";
 import path from "path";
 import fs from "fs";
@@ -173,6 +179,111 @@ setup("authenticate as station manager", async ({ page }) => {
     TEST_USERS.stationManager.password,
     `${authDir}/stationManager.json`
   );
+});
+
+/**
+ * A dedicated identity whose experience preference is classic, so classic
+ * assertions on authenticated dashboard URLs are ordinary tests rather than a
+ * race against every other spec's shared seeded users. Not in TEST_USERS: it
+ * is not seeded by Backend-Service (see dev_env/setup-e2e-test-users.ts for
+ * that set) — it is created here, once, via the same admin roster path the
+ * admin specs exercise, and its appSkin is set through the app's own
+ * experience-switch flow rather than a raw API call, so the fixture never
+ * predicts an internal endpoint shape it doesn't own.
+ */
+const CLASSIC_MD_USER = {
+  username: "test_classic_md",
+  // Set through the onboarding form (unlike TEST_USERS, which are seeded
+  // directly into the database), so it must satisfy isStrongPassword —
+  // TEST_USERS' shared "testpassword123" has no uppercase and would leave
+  // the onboarding form's Submit button permanently disabled.
+  password: "TestClassicMd1",
+  email: "test_classic_md@wxyc.org",
+  realName: "Test Classic MD",
+  djName: "Test Classic MD",
+};
+
+/**
+ * Creates {@link CLASSIC_MD_USER} via the station manager's roster if it
+ * doesn't already exist. Idempotent: setup runs repeatedly against a
+ * persistent local stack, so a prior run's account must be reconciled with,
+ * not recreated (which would surface as a duplicate-username error toast).
+ */
+async function ensureClassicMdAccountExists(browser: Browser): Promise<void> {
+  const baseURL = process.env.E2E_BASE_URL || "http://localhost:3000";
+  const context = await browser.newContext({
+    baseURL,
+    storageState: `${authDir}/stationManager.json`,
+  });
+  const adminPage = await context.newPage();
+  try {
+    const rosterPage = new RosterPage(adminPage);
+    await adminPage.goto("/dashboard/admin/roster");
+    await rosterPage.waitForTableLoaded();
+
+    const alreadyExists = await rosterPage
+      .getUserRow(CLASSIC_MD_USER.username)
+      .isVisible()
+      .catch(() => false);
+    if (alreadyExists) {
+      console.log(`[auth] ${CLASSIC_MD_USER.username} already provisioned, skipping creation`);
+      return;
+    }
+
+    console.log(`[auth] creating ${CLASSIC_MD_USER.username} via admin roster`);
+    await rosterPage.createAccount({
+      realName: CLASSIC_MD_USER.realName,
+      username: CLASSIC_MD_USER.username,
+      email: CLASSIC_MD_USER.email,
+      djName: CLASSIC_MD_USER.djName,
+      role: "musicDirector",
+    });
+    // The row, not the toast: sonner auto-dismisses on its own timer, so a
+    // slow local stack can outlast it between submit and this check. The row
+    // appearing is the same reconciliation signal `alreadyExists` reads above.
+    await rosterPage.expectUserInRoster(CLASSIC_MD_USER.username);
+  } finally {
+    await context.close();
+  }
+}
+
+/**
+ * Setup authentication state for the classic-preference identity.
+ * Used by classic-experience specs on authenticated dashboard URLs.
+ */
+setup("provision classic-preference identity", async ({ page, browser }) => {
+  // First-run path chains an admin roster creation, an invite-token
+  // onboarding, and a full-page experience-switch reload — comfortably past
+  // the file's 20s default on a cold local stack.
+  setup.setTimeout(60_000);
+
+  const statePath = `${authDir}/classicMd.json`;
+
+  if (await persistedSessionIsUsable(statePath)) {
+    console.log(`[auth] reusing cached session for ${CLASSIC_MD_USER.username}`);
+    return;
+  }
+
+  let loggedIn = true;
+  try {
+    await performLogin(page, CLASSIC_MD_USER.username, CLASSIC_MD_USER.password, statePath);
+  } catch (error) {
+    console.log(`[auth] ${CLASSIC_MD_USER.username} not yet provisioned (${error})`);
+    loggedIn = false;
+  }
+
+  if (!loggedIn) {
+    console.log(`[auth] logging in ${CLASSIC_MD_USER.username} failed, provisioning account`);
+    await ensureClassicMdAccountExists(browser);
+    await completeOnboardingWithInviteToken(page, CLASSIC_MD_USER.email, CLASSIC_MD_USER.password);
+  }
+
+  // /dashboard/help is classic-only, so the modern slot (the account's
+  // fresh default) renders ExperienceGap there and offers the real switch
+  // flow this identity exists to have already taken.
+  await setExperienceViaAccount(page, "classic", "/dashboard/help");
+  await page.context().storageState({ path: statePath });
+  fs.writeFileSync(seedSidecarPath(statePath), seedKey());
 });
 
 /**
