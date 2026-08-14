@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import {
   useAddArtistMutation,
   useGetGenresQuery,
@@ -11,9 +11,11 @@ import {
   isAddArtistConflict,
   parseRequiredPositiveInt,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
-import type { AddArtistRequestBody } from "@/lib/features/catalog/types";
+import type { AddArtistRequestBody, PeekArtistCodeQuery } from "@/lib/features/catalog/types";
+import { useDebouncedValue } from "@/src/hooks/useDebouncedValue";
 
 const CODE_LETTERS_MAX_LENGTH = 4;
+const PEEK_DEBOUNCE_MS = 150;
 
 /**
  * Reproduces `chooseLibraryCodeOrArtist.jsp`'s `newArtistForm`: presentation
@@ -25,8 +27,14 @@ const CODE_LETTERS_MAX_LENGTH = 4;
  * legacy backend accepts an artist with no library code at all. Backend-
  * Service's `POST /library/artists` requires `genre_id`, `code_letters`, and
  * `code_number` (see `AddArtistRequestBody`), so this form additionally
- * collects them, previewing the assigned code via `peek-code` the same way
- * the modern `ArtistAddForm` does.
+ * collects them, previewing the assigned code via `peek-code`.
+ *
+ * The preview debounces call letters and genre together as one composed
+ * value, same as the modern `CallLetterPeekControl` (which this form cannot
+ * import directly — it renders MUI Joy, and classic renders none) — a genre
+ * change alone must invalidate a preview typed under the previous genre just
+ * as surely as a letters edit does, or the number shown briefly names the
+ * previous genre's series instead of the one about to be submitted.
  */
 export default function NewArtistForm() {
   const genreFieldId = useId();
@@ -37,7 +45,8 @@ export default function NewArtistForm() {
 
   const { data: genres } = useGetGenresQuery();
   const [addArtist, { isLoading }] = useAddArtistMutation();
-  const [peekArtistCode, { data: peekData }] = useLazyPeekArtistCodeQuery();
+  const [peekArtistCode, { data: peekData, isFetching: peekFetching }] =
+    useLazyPeekArtistCodeQuery();
 
   const [presentationName, setPresentationName] = useState("");
   const [alphabeticalName, setAlphabeticalName] = useState("");
@@ -48,6 +57,25 @@ export default function NewArtistForm() {
   const [added, setAdded] = useState<{ code_letters: string; code_number: number } | null>(null);
 
   const codeNumber = parseRequiredPositiveInt(codeNumberRaw);
+
+  const trimmedCodeLetters = codeLetters.trim();
+  const peekArg: PeekArtistCodeQuery | null = useMemo(
+    () =>
+      trimmedCodeLetters && genreId != null
+        ? { code_letters: trimmedCodeLetters, genre_id: genreId }
+        : null,
+    [trimmedCodeLetters, genreId],
+  );
+  const debouncedPeekArg = useDebouncedValue(peekArg, PEEK_DEBOUNCE_MS);
+  // The debounced value lags peekArg for PEEK_DEBOUNCE_MS after every change
+  // (letters OR genre); treat that window as stale rather than rendering the
+  // previous pair's code number as though it were current.
+  const peekStale = debouncedPeekArg !== peekArg;
+
+  useEffect(() => {
+    if (!debouncedPeekArg) return;
+    peekArtistCode(debouncedPeekArg, true);
+  }, [debouncedPeekArg, peekArtistCode]);
 
   const resetFields = () => {
     setPresentationName("");
@@ -67,12 +95,8 @@ export default function NewArtistForm() {
   };
 
   const handleCodeLettersChange = (value: string) => {
-    const normalized = value.toUpperCase();
-    setCodeLetters(normalized);
+    setCodeLetters(value.toUpperCase());
     setAdded(null);
-    if (normalized.trim() && genreId != null) {
-      peekArtistCode({ code_letters: normalized.trim(), genre_id: genreId }, true);
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -223,9 +247,10 @@ export default function NewArtistForm() {
                 }}
                 size={3}
               />
-              {peekData && codeLetters.trim() && genreId != null && (
-                <span>
-                  &nbsp;Next code: {peekData.next_code_number}
+              {peekArg && (
+                <span role="status" aria-live="polite">
+                  &nbsp;Next code:{" "}
+                  {peekStale || peekFetching ? "…" : (peekData?.next_code_number ?? "…")}
                 </span>
               )}
             </td>
