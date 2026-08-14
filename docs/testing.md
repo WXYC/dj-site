@@ -142,10 +142,7 @@ describeConversion("convertToSong", convertToSong, [
 
 ### Classic Page Authority Harness
 
-`tests/helpers/classic-page-authority-harness.ts` covers the
-`requireAuth()` -> `requireRole()` gate that every page under
-`app/dashboard/@classic/**` runs in front of its screen-specific content.
-The dynamic imports inside the `vi.mock` factories must name the harness by path — factories cannot close over statically-imported bindings. The top-level static import of the setUp/assert functions is ordinary; it targets the harness module directly because the `@/tests/helpers` barrel does not re-export it.
+`tests/helpers/classic-page-authority-harness.ts` covers the `requireAuth()` -> `requireRole()` gate that every page under `app/dashboard/@classic/**` runs in front of its screen-specific content. The dynamic imports inside the `vi.mock` factories must name the harness by path — factories cannot close over statically-imported bindings. The top-level static import of the setUp/assert functions is ordinary; it targets the harness module directly because the `@/tests/helpers` barrel does not re-export it.
 
 ```tsx
 import {
@@ -179,6 +176,14 @@ vi.mock("@/src/components/experiences/classic/library/MissingReleases", () => ({
   default: () => <div data-testid="missing-releases-table" />,
 }));
 
+// The page renders through Layout/Main -> Navigation, which reaches the real
+// better-auth client through useLogout(). Replace the nav rather than pulling
+// a live auth client into a server-component test; a page whose own nav is
+// under test would use createAuthClientModuleMock() instead.
+vi.mock("@/src/components/experiences/classic/Navigation", () => ({
+  default: () => <nav data-testid="classic-nav" />,
+}));
+
 import ClassicMissingReleasesPage from "@/app/dashboard/@classic/library/missing/page";
 
 describe("Classic /dashboard/library/missing page", () => {
@@ -197,9 +202,9 @@ describe("Classic /dashboard/library/missing page", () => {
 ```
 
 - **`setUpClassicPageAuthorityEnv()`** -- registers the `beforeEach`/`afterEach` that reset the mocks and pin `NEXT_PUBLIC_DASHBOARD_HOME_PAGE` so redirect assertions are deterministic. Call once per `describe` block.
-- **`setUpClassicPageAuthority(role, adminPluginRole?)`** -- arranges the session/org-role mocks for one scenario. `role` is the WXYC tier the org-role resolver returns (`"dj" | "musicDirector" | "stationManager" | "unauthenticated" | undefined`). `undefined` is a valid session with no station role -- `requireRole` denies it to the dashboard home; `"unauthenticated"` is no session at all -- `requireAuth` denies it to `/login?bounced=no-session` before role resolution runs. `adminPluginRole` models a WXYC tier string leaking into the unrelated better-auth admin-plugin session column, which must never grant access on its own.
+- **`setUpClassicPageAuthority(role, adminPluginRole?)`** -- arranges the session/org-role mocks for one scenario. `role` is the WXYC tier the org-role resolver returns — any `WXYCRole`, plus `"unauthenticated"` and `undefined` (the type is derived from `WXYCRole`, so a tier added upstream is testable here without editing the harness). `undefined` is a valid session with no station role -- `requireRole` denies it to the dashboard home; `"unauthenticated"` is no session at all -- `requireAuth` denies it to `/login?bounced=no-session` before role resolution runs. `adminPluginRole` models a WXYC tier string leaking into the unrelated better-auth admin-plugin session column, which must never grant access on its own.
 - **`assertReachesClassicPage(page, ...landmarkTestIds)`** -- awaits and renders the page, then asserts no redirect happened AND every named landmark testid is in the document. Checking only "no redirect" passes vacuously for a page that renders nothing, so it can't distinguish "allowed and working" from "allowed and broken" -- the signature requires at least one landmark (the page's own screen-specific one) for exactly that reason.
-- **`assertDeniedClassicPage(page, destination?)`** -- asserts the page denies access by redirecting to `destination` (defaults to `/dashboard`).
+- **`assertDeniedClassicPage(page, destination?)`** -- asserts the page denies access by redirecting to `destination`, which defaults to `DEFAULT_DASHBOARD_HOME_PAGE` (the same constant the env pin uses, so the two can't drift apart).
 
 ### Auth Client Mock
 
