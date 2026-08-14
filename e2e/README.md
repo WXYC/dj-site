@@ -74,7 +74,7 @@ npm run test:e2e -- --grep @smoke
 
 ## Test Users
 
-Seeded test users all use the password: `testpassword123`. `test_classic_md` is provisioned at setup time and uses its own password — see its row below.
+Seeded test users all use the password: `testpassword123`. `test_classic_md` and `test_classic_dj` are provisioned at setup time and use their own passwords — see their rows below.
 
 | Username | Role | Purpose |
 |----------|------|---------|
@@ -87,7 +87,8 @@ Seeded test users all use the password: `testpassword123`. `test_classic_md` is 
 | `test_deletable_user` | dj | User for deletion tests |
 | `test_promotable_user` | member | User for role promotion tests |
 | `test_demotable_sm` | stationManager | User for role demotion tests |
-| `test_classic_md` | musicDirector | Not seeded — created by `auth.setup.ts` via the admin roster. Its account `appSkin` is switched to classic once at setup time, so classic-experience specs on authenticated dashboard URLs (`e2e/tests/rbac/role-access.spec.ts`) have a dedicated identity instead of racing a shared seeded user's preference. Password is `TestClassicMd1`, not the shared `testpassword123` — it's set through the onboarding form, which requires `isStrongPassword` |
+| `test_classic_md` | musicDirector | Not seeded — created by `auth.setup.ts`'s `provisionClassicIdentity` factory via the admin roster. Its account `appSkin` is switched to classic once at setup time, so classic-experience specs on authenticated dashboard URLs (`e2e/tests/rbac/role-access.spec.ts`) have a dedicated identity instead of racing a shared seeded user's preference. Password is `TestClassicMd1`, not the shared `testpassword123` — it's set through the onboarding form, which requires `isStrongPassword` |
+| `test_classic_dj` | dj | Not seeded — the DJ-authority counterpart to `test_classic_md`, provisioned by the same factory. Exists so classic-librarian specs can assert the DJ-readable / MD-gated authority split without racing a shared seeded user's preference. Password is `TestClassicDj1` |
 
 ## Test Structure
 

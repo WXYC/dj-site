@@ -243,5 +243,24 @@ test.describe("Role-Based Access Control", () => {
         ).toBeVisible();
       });
     });
+
+    // classicDj.json is the DJ-authority counterpart to classicMd.json,
+    // provisioned by the same "provision classic-preference identity"
+    // factory in e2e/auth.setup.ts. Mirrors the MD assertion above so the
+    // upcoming DJ-readable / MD-gated split on the classic librarian screens
+    // has a dedicated non-MD identity to assert against.
+    test.describe("Classic (authenticated, DJ)", () => {
+      test.use({ storageState: path.join(authDir, "classicDj.json") });
+
+      test("should render the classic slot on an authenticated dashboard URL", async ({
+        page,
+      }) => {
+        await page.goto("/dashboard/flowsheet");
+        await expect(page.locator("#classic-container")).toBeVisible({
+          timeout: 15000,
+        });
+        await expect(page.locator("#modern-container")).toHaveCount(0);
+      });
+    });
   });
 });

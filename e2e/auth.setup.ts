@@ -32,8 +32,8 @@ const SESSION_CACHE_SALT = "1";
 // here as TEST_USERS; if that source starts pulling credentials from another
 // file, add its path below. The key does NOT prove the session row still
 // exists server-side (a reseeded database drops it) — persistedSessionIsUsable
-// covers that. CLASSIC_MD_USER is declared inline further down this same
-// file, so __filename covers it too.
+// covers that. The classic identities (CLASSIC_MD_USER, CLASSIC_DJ_USER) are
+// declared inline further down this same file, so __filename covers them too.
 const USER_FIXTURE_SOURCES = [
   path.join(__dirname, "fixtures", "auth.fixture.ts"),
   path.join(__dirname, "..", "tests", "fixtures", "fixtures.ts"),
@@ -194,7 +194,23 @@ setup("authenticate as station manager", async ({ page }) => {
  * experience-switch flow rather than a raw API call, so the fixture never
  * predicts an internal endpoint shape it doesn't own.
  */
-const CLASSIC_MD_USER = {
+interface ClassicIdentity {
+  username: string;
+  password: string;
+  email: string;
+  realName: string;
+  djName: string;
+  role: "dj" | "musicDirector";
+  statePath: string;
+}
+
+/**
+ * The classic-librarian screens are authority-split (rotation list is
+ * DJ-readable, rotation insert and catalog admin are MD-gated), so specs that
+ * assert that split need identities at both authorities — hence two entries
+ * rather than one. Each is provisioned by {@link provisionClassicIdentity}.
+ */
+const CLASSIC_MD_USER: ClassicIdentity = {
   username: "test_classic_md",
   // Set through the onboarding form (unlike TEST_USERS, which are seeded
   // directly into the database), so it must satisfy isStrongPassword —
@@ -204,6 +220,18 @@ const CLASSIC_MD_USER = {
   email: "test_classic_md@wxyc.org",
   realName: "Test Classic MD",
   djName: "Test Classic MD",
+  role: "musicDirector",
+  statePath: `${authDir}/classicMd.json`,
+};
+
+const CLASSIC_DJ_USER: ClassicIdentity = {
+  username: "test_classic_dj",
+  password: "TestClassicDj1",
+  email: "test_classic_dj@wxyc.org",
+  realName: "Test Classic DJ",
+  djName: "Test Classic DJ",
+  role: "dj",
+  statePath: `${authDir}/classicDj.json`,
 };
 
 const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1"]);
@@ -234,18 +262,19 @@ function isLoopbackHostname(hostname: string): boolean {
 }
 
 /**
- * Gates every write the "provision classic-preference identity" step can
- * make against whatever `E2E_BASE_URL` (and `NEXT_PUBLIC_BETTER_AUTH_URL`)
- * point at: `ensureClassicMdAccountExists` creates a musicDirector account
- * through the live admin roster, and `setExperienceViaAccount` flips that
- * account's `appSkin` through the live switch flow. Every other setup step
- * only logs in. Called at the top of that step's body — not just inside
- * `ensureClassicMdAccountExists` — because a successful login skips account
- * creation entirely and would otherwise reach the appSkin write unguarded.
- * Without this, a mistyped or inherited env var pointed at a shared
- * environment has no structural guard between it and a real account there.
+ * Gates every write a "provision classic-preference identity" step can make
+ * against whatever `E2E_BASE_URL` (and `NEXT_PUBLIC_BETTER_AUTH_URL`) point
+ * at: `ensureClassicIdentityAccountExists` creates an account through the
+ * live admin roster, and `setExperienceViaAccount` flips that account's
+ * `appSkin` through the live switch flow. Every other setup step only logs
+ * in. Called at the top of that step's body — not just inside
+ * `ensureClassicIdentityAccountExists` — because a successful login skips
+ * account creation entirely and would otherwise reach the appSkin write
+ * unguarded. Without this, a mistyped or inherited env var pointed at a
+ * shared environment has no structural guard between it and a real account
+ * there.
  */
-function assertLocalWriteTarget(): void {
+function assertLocalWriteTarget(identity: ClassicIdentity): void {
   const targets: Array<[envVar: string, value: string | undefined]> = [
     ["E2E_BASE_URL", process.env.E2E_BASE_URL || "http://localhost:3000"],
     ["NEXT_PUBLIC_BETTER_AUTH_URL", process.env.NEXT_PUBLIC_BETTER_AUTH_URL],
@@ -257,12 +286,12 @@ function assertLocalWriteTarget(): void {
       hostname = new URL(value).hostname;
     } catch {
       throw new Error(
-        `Refusing to provision ${CLASSIC_MD_USER.username}: ${envVar}="${value}" is not a valid URL.`
+        `Refusing to provision ${identity.username}: ${envVar}="${value}" is not a valid URL.`
       );
     }
     if (!isLoopbackHostname(hostname)) {
       throw new Error(
-        `Refusing to provision ${CLASSIC_MD_USER.username} against a non-local target: ` +
+        `Refusing to provision ${identity.username} against a non-local target: ` +
           `${envVar}="${value}" resolves to host "${hostname}", not loopback.`
       );
     }
@@ -270,30 +299,36 @@ function assertLocalWriteTarget(): void {
 }
 
 /**
- * True when {@link CLASSIC_MD_USER} already has a roster row. The roster is
- * server-side paginated (ROSTER_PAGE_SIZE=50) with no sort order, so a raw
- * listing only answers "is this account among an arbitrary 50 rows", not
- * "does it exist" — the suite creates more than 50 non-anonymous accounts
- * within roughly two full local runs. Filtering through the roster's search
- * input (server-side, by name) is unambiguous regardless of roster size.
+ * True when `identity` already has a roster row. The roster is server-side
+ * paginated (ROSTER_PAGE_SIZE=50) with no sort order, so a raw listing only
+ * answers "is this account among an arbitrary 50 rows", not "does it exist"
+ * — the suite creates more than 50 non-anonymous accounts within roughly two
+ * full local runs. Filtering through the roster's search input (server-side,
+ * by name) is unambiguous regardless of roster size.
  */
-async function classicMdAccountExists(rosterPage: RosterPage): Promise<boolean> {
-  await rosterPage.searchInput.fill(CLASSIC_MD_USER.realName);
+async function classicIdentityAccountExists(
+  rosterPage: RosterPage,
+  identity: ClassicIdentity
+): Promise<boolean> {
+  await rosterPage.searchInput.fill(identity.realName);
   return await rosterPage
-    .getUserRow(CLASSIC_MD_USER.username)
+    .getUserRow(identity.username)
     .waitFor({ state: "visible", timeout: 15000 })
     .then(() => true)
     .catch(() => false);
 }
 
 /**
- * Creates {@link CLASSIC_MD_USER} via the station manager's roster if it
- * doesn't already exist. Idempotent: setup runs repeatedly against a
- * persistent local stack, so a prior run's account must be reconciled with,
- * not recreated (which would surface as a duplicate-username error toast).
+ * Creates `identity` via the station manager's roster if it doesn't already
+ * exist. Idempotent: setup runs repeatedly against a persistent local stack,
+ * so a prior run's account must be reconciled with, not recreated (which
+ * would surface as a duplicate-username error toast).
  */
-async function ensureClassicMdAccountExists(browser: Browser): Promise<void> {
-  assertLocalWriteTarget();
+async function ensureClassicIdentityAccountExists(
+  browser: Browser,
+  identity: ClassicIdentity
+): Promise<void> {
+  assertLocalWriteTarget(identity);
 
   const baseURL = process.env.E2E_BASE_URL || "http://localhost:3000";
   const context = await browser.newContext({
@@ -313,62 +348,71 @@ async function ensureClassicMdAccountExists(browser: Browser): Promise<void> {
     await adminPage.goto("/dashboard/admin/roster");
     await rosterPage.waitForTableLoaded();
 
-    if (await classicMdAccountExists(rosterPage)) {
-      console.log(`[auth] ${CLASSIC_MD_USER.username} already provisioned, skipping creation`);
+    if (await classicIdentityAccountExists(rosterPage, identity)) {
+      console.log(`[auth] ${identity.username} already provisioned, skipping creation`);
       return;
     }
 
-    console.log(`[auth] creating ${CLASSIC_MD_USER.username} via admin roster`);
+    console.log(`[auth] creating ${identity.username} via admin roster`);
     await rosterPage.createAccount({
-      realName: CLASSIC_MD_USER.realName,
-      username: CLASSIC_MD_USER.username,
-      email: CLASSIC_MD_USER.email,
-      djName: CLASSIC_MD_USER.djName,
-      role: "musicDirector",
+      realName: identity.realName,
+      username: identity.username,
+      email: identity.email,
+      djName: identity.djName,
+      role: identity.role,
     });
     // The row, not the toast: sonner auto-dismisses on its own timer, so a
     // slow local stack can outlast it between submit and this check. The row
-    // appearing is the same reconciliation signal `classicMdAccountExists`
+    // appearing is the same reconciliation signal `classicIdentityAccountExists`
     // reads above (the search filter is still applied from that check).
-    await rosterPage.expectUserInRoster(CLASSIC_MD_USER.username);
+    await rosterPage.expectUserInRoster(identity.username);
   } finally {
     await context.close();
   }
 }
 
 /**
- * Setup authentication state for the classic-preference identity.
- * Used by classic-experience specs on authenticated dashboard URLs.
+ * Provisions a classic-preference identity: reconciles its roster account
+ * (creating it only if absent), completes onboarding on first run, and
+ * switches its appSkin to classic through the live switch flow. Shared by
+ * every "provision classic-preference identity" setup test below — the
+ * factory this issue exists to add, so a second identity at a different
+ * authority costs a declaration plus one `setup()` call, not a copy of this
+ * whole body.
  */
-setup("provision classic-preference identity", async ({ page, browser }) => {
+async function provisionClassicIdentity(
+  page: import("@playwright/test").Page,
+  browser: Browser,
+  identity: ClassicIdentity
+): Promise<void> {
   // Gates every write below (account creation AND the appSkin switch), not
   // just the account-creation branch — see assertLocalWriteTarget's doc.
-  assertLocalWriteTarget();
+  assertLocalWriteTarget(identity);
 
   // First-run path chains an admin roster creation, an invite-token
   // onboarding, and a full-page experience-switch reload — comfortably past
   // the file's 20s default on a cold local stack.
   setup.setTimeout(60_000);
 
-  const statePath = `${authDir}/classicMd.json`;
+  const statePath = identity.statePath;
 
   if (await persistedSessionIsUsable(statePath)) {
-    console.log(`[auth] reusing cached session for ${CLASSIC_MD_USER.username}`);
+    console.log(`[auth] reusing cached session for ${identity.username}`);
     return;
   }
 
   let loggedIn = true;
   try {
-    await performLogin(page, CLASSIC_MD_USER.username, CLASSIC_MD_USER.password, statePath);
+    await performLogin(page, identity.username, identity.password, statePath);
   } catch (error) {
-    console.log(`[auth] ${CLASSIC_MD_USER.username} not yet provisioned (${error})`);
+    console.log(`[auth] ${identity.username} not yet provisioned (${error})`);
     loggedIn = false;
   }
 
   if (!loggedIn) {
-    console.log(`[auth] logging in ${CLASSIC_MD_USER.username} failed, provisioning account`);
-    await ensureClassicMdAccountExists(browser);
-    await completeOnboardingWithInviteToken(page, CLASSIC_MD_USER.email, CLASSIC_MD_USER.password);
+    console.log(`[auth] logging in ${identity.username} failed, provisioning account`);
+    await ensureClassicIdentityAccountExists(browser, identity);
+    await completeOnboardingWithInviteToken(page, identity.email, identity.password);
   }
 
   // /dashboard/help is classic-only, so the modern slot (the account's
@@ -393,6 +437,24 @@ setup("provision classic-preference identity", async ({ page, browser }) => {
   await page.evaluate((key) => localStorage.removeItem(key), APP_SKIN_STORAGE_KEY);
   await page.context().storageState({ path: statePath });
   fs.writeFileSync(seedSidecarPath(statePath), seedKey());
+}
+
+/**
+ * Setup authentication state for the classic-preference MD identity.
+ * Used by classic-experience specs on authenticated dashboard URLs.
+ */
+setup("provision classic-preference identity (music director)", async ({ page, browser }) => {
+  await provisionClassicIdentity(page, browser, CLASSIC_MD_USER);
+});
+
+/**
+ * Setup authentication state for the classic-preference DJ identity. Exists
+ * so classic-experience specs can assert the DJ-vs-MD authority split on the
+ * upcoming classic librarian screens without racing a shared seeded user's
+ * appSkin (see provisionClassicIdentity's doc).
+ */
+setup("provision classic-preference identity (dj)", async ({ page, browser }) => {
+  await provisionClassicIdentity(page, browser, CLASSIC_DJ_USER);
 });
 
 /**
