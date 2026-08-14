@@ -2,11 +2,16 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { catalogApi } from "@/lib/features/catalog/api";
 
-vi.mock("@/lib/features/authentication/client", () => ({
-  authClient: { useSession: vi.fn() },
-  getJWTToken: vi.fn().mockResolvedValue("test-token"),
-}));
+// The real better-auth client installs listeners whose teardown is deferred a
+// second past the last subscriber; a short file finishes inside that second.
+vi.mock("@/lib/features/authentication/client", async () => {
+  const { createAuthClientModuleMock } = await import(
+    "@/tests/helpers/auth-client-mock"
+  );
+  return createAuthClientModuleMock();
+});
 
 import NewArtistForm from "@/src/components/experiences/classic/catalog/NewArtistForm";
 
@@ -255,6 +260,70 @@ describe("classic NewArtistForm — chooseLibraryCodeOrArtist.jsp's newArtistFor
     await user.click(screen.getByRole("button", { name: "Submit" }));
 
     expect(await screen.findByText("Failed to add artist.")).toBeInTheDocument();
+  });
+
+  describe("genre outage", () => {
+    it("explains a genres outage and offers a retry instead of an empty dropdown", async () => {
+      let genreCalls = 0;
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/genres`, () => {
+          genreCalls += 1;
+          return genreCalls === 1
+            ? HttpResponse.json({ message: "genres unavailable" }, { status: 500 })
+            : HttpResponse.json([{ id: GENRE_ID, genre_name: "Blues" }]);
+        }),
+      );
+      const { user } = renderWithProviders(<NewArtistForm />);
+
+      // genre_id is required to submit, so an empty dropdown leaves the form
+      // permanently un-submittable with nothing explaining why.
+      expect(await screen.findByText(/genres are unavailable/i)).toBeInTheDocument();
+      expect(screen.queryByRole("option", { name: "Blues" })).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: /try again/i }));
+
+      await waitFor(() =>
+        expect(screen.queryByText(/genres are unavailable/i)).not.toBeInTheDocument(),
+      );
+      expect(await screen.findByRole("option", { name: "Blues" })).toBeInTheDocument();
+    });
+
+    it("keeps filing against the last good genre list when a refetch fails", async () => {
+      let genreCalls = 0;
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/genres`, () => {
+          genreCalls += 1;
+          return genreCalls === 1
+            ? HttpResponse.json([{ id: GENRE_ID, genre_name: "Blues" }])
+            : HttpResponse.json({ message: "genres unavailable" }, { status: 500 });
+        }),
+      );
+      const { getBodies } = mockAddArtist(() => created());
+      const { user, store } = renderWithProviders(<NewArtistForm />);
+
+      await selectGenre(user);
+
+      // Adding a genre elsewhere invalidates this list; if that refetch
+      // rejects, the cached list is still there and every one of its genres
+      // is still fileable. Claiming an outage would show a "can't be filed
+      // right now" message beside a submit that works.
+      store.dispatch(
+        catalogApi.util.invalidateTags([{ type: "GenreList", id: "LIST" }]),
+      );
+      await waitFor(() => expect(genreCalls).toBe(2));
+
+      expect(screen.queryByText(/genres are unavailable/i)).not.toBeInTheDocument();
+      expect(screen.getByRole("option", { name: "Blues" })).toBeInTheDocument();
+
+      await user.type(screen.getByLabelText(/artist presentation name/i), "Juana Molina");
+      await user.type(screen.getByLabelText(/artist alphabetical name/i), "Molina, Juana");
+      await user.type(screen.getByLabelText(/call letters/i), "MO");
+      await user.type(screen.getByLabelText(/call numbers/i), "12");
+      await user.click(screen.getByRole("button", { name: "Submit" }));
+
+      await waitFor(() => expect(getBodies()).toHaveLength(1));
+      expect(getBodies()[0]).toMatchObject({ genre_id: GENRE_ID });
+    });
   });
 
   it("resets every field back to empty on Reset values", async () => {
