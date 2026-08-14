@@ -75,7 +75,7 @@ These reproduce tubafrenzy's `/wxycdb` screens. They are **classic-first**: the 
 | URL | Screen | `/wxycdb` source | Authority |
 |---|---|---|---|
 | `/dashboard/library` | Entry: artist vs. Various Artists, multi-match disambiguation | `chooseLibraryCodeOrArtist.jsp`, `multipleArtistsDisplay.jsp` | MD |
-| `/dashboard/library/artist/new` | Create artist + library code | `createArtist.jsp`, `createLibraryCode.jsp` | MD |
+| `/dashboard/library/artist/new` | Code-miss create screen: genre/letters/numbers carried read-only from the miss branch, only the two name fields editable | `createLibraryCode.jsp` | MD |
 | `/dashboard/library/artist/[id]` | Artist card + its release list | `artistCardModify.jsp` | MD |
 | `/dashboard/library/various/[id]` | V/A bucket card, `albumArtist`, per-track credits | `variousArtistsCardModify.jsp` | MD |
 | `/dashboard/library/release/[id]` | Release edit | `libraryReleaseModify.jsp` | MD |
@@ -88,6 +88,8 @@ These reproduce tubafrenzy's `/wxycdb` screens. They are **classic-first**: the 
 | `/dashboard/rotation/[id]/import` | Import rotation release into the library | `rotationReleaseImport.jsp`, `rotationReleaseImportNewArtist.jsp` | MD |
 
 Naming follows `/wxycdb`'s own directory split (`libraryAdmin/`, `rotation/`) rather than nesting under `/dashboard/catalog`, which would collide confusingly with the unrelated modern `/dashboard/admin/catalog` (format + genre admin).
+
+`createArtist.jsp` is deliberately absent from this table: `ArtistAdminServlet:250` renders it only as the post-*delete* restore screen ("you may restore the artist by clicking 'Add!'"), not a creation step, so no row here owns it. It travels with artist delete if a slice ever picks that up.
 
 ### Authority is per screen
 
