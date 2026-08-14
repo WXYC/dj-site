@@ -23,6 +23,7 @@ import {
   isConflictRejection,
   parseRequiredPositiveInt,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
+import { isGenresUnavailable } from "@/lib/features/catalog/genreAvailability";
 import type {
   AddArtistConflict,
   AddArtistRequestBody,
@@ -169,18 +170,12 @@ function ArtistAddFields() {
       ? parsedCodeNumber
       : null;
   const codeNumberInvalid = codeNumberRaw.trim().length > 0 && codeNumber === null;
-  // A failed genres GET leaves an empty dropdown behind: fetchBaseQuery's
-  // rejection leaves `data` undefined, while the backend adapter's soft-fail
-  // turns a non-JSON GET failure into `{ data: null }` with no error at all.
-  // Either way `genre_id` is unreachable and the form can never submit, so the
-  // outage has to say so rather than presenting an empty list as "no genres
-  // exist". The test is the absence of a list, not `isError`: a refetch that
-  // rejects leaves the last good list in the cache and the form still submits
-  // perfectly well against it, so reading the error flag would put a "can't be
-  // filed right now" alert beside an enabled submit button. `genresLoading`
-  // alone covers the mount render: `useGetGenresQuery` passes no `skip`, so
-  // RTK Query synthesizes `isLoading: true` for that first render regardless.
-  const genresUnavailable = !genresLoading && genres == null;
+  // See isGenresUnavailable's doc for why this is `data == null`, not
+  // `isError`: a failed genres GET leaves an empty dropdown behind, and
+  // `genre_id` is unreachable either way, so the outage has to say so rather
+  // than presenting an empty list as "no genres exist" — but a refetch that
+  // rejects over a good cached list must not read as the same outage.
+  const genresUnavailable = isGenresUnavailable(genresLoading, genres);
 
   // Puts the caret back where the edit left it. React writes the normalized
   // value into the node during the commit's mutation phase, which is the write

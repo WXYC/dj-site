@@ -12,6 +12,7 @@ import {
   isArtistNameConflictData,
   parseRequiredPositiveInt,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
+import { isGenresUnavailable } from "@/lib/features/catalog/genreAvailability";
 import type { AddArtistRequestBody, PeekArtistCodeQuery } from "@/lib/features/catalog/types";
 import { useDebouncedValue } from "@/src/hooks/useDebouncedValue";
 
@@ -44,8 +45,17 @@ export default function NewArtistForm() {
   const codeLettersId = useId();
   const codeNumberId = useId();
 
-  const { data: genres } = useGetGenresQuery();
+  const {
+    data: genres,
+    isLoading: genresLoading,
+    isFetching: genresFetching,
+    refetch: refetchGenres,
+  } = useGetGenresQuery();
   const [addArtist, { isLoading }] = useAddArtistMutation();
+  // See isGenresUnavailable's doc for the cached-list trap: `isError` can be
+  // true while a good cached list is still on screen, so this reads
+  // absence-of-list, never the error flag.
+  const genresUnavailable = isGenresUnavailable(genresLoading, genres);
   const [peekArtistCode, { data: peekData, isFetching: peekFetching }] =
     useLazyPeekArtistCodeQuery();
 
@@ -107,6 +117,16 @@ export default function NewArtistForm() {
     const nameResult = validateNewArtistNames(presentationName, alphabeticalName);
     if (!nameResult.valid) {
       setValidationMessage(nameResult.message);
+      return;
+    }
+    // A list that goes away under a held selection leaves the dropdown
+    // showing its placeholder while `genreId` still names the old genre;
+    // submitting would then file under a genre the form has stopped
+    // displaying, beside a message saying nothing can be filed at all.
+    if (genresUnavailable) {
+      setValidationMessage(
+        "Genres are unavailable, so an artist can't be filed right now.",
+      );
       return;
     }
     if (genreId == null) {
@@ -216,7 +236,7 @@ export default function NewArtistForm() {
                 id={genreFieldId}
                 aria-label="Genre"
                 value={genreId ?? ""}
-                disabled={isLoading}
+                disabled={isLoading || genresUnavailable}
                 onChange={(e) => {
                   setGenreId(e.target.value ? Number(e.target.value) : null);
                   setAdded(null);
@@ -231,6 +251,19 @@ export default function NewArtistForm() {
                   </option>
                 ))}
               </select>
+              {genresUnavailable && (
+                <div role="alert" className="artist-error-message">
+                  Genres are unavailable, so an artist can&apos;t be filed
+                  right now.{" "}
+                  <button
+                    type="button"
+                    disabled={genresFetching}
+                    onClick={() => refetchGenres()}
+                  >
+                    Try again
+                  </button>
+                </div>
+              )}
             </td>
           </tr>
           <tr>
