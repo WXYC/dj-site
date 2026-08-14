@@ -17,9 +17,8 @@ import {
  * Divergence from the JSP, forced by the Backend contract: the JSP submits
  * `mode=findOrCreateLibraryCode` to a legacy endpoint that resolves a code to
  * an existing artist, a new-artist form, or `multipleArtistsDisplay.jsp` for
- * a multi-match. Backend-Service has no such resolve endpoint (tracked at
- * WXYC/Backend-Service#2149; the dj-site side is WXYC/dj-site#1198), so this
- * form validates and stops there rather than inventing a client-side scan or
+ * a multi-match. Backend-Service has no such resolve endpoint, so this form
+ * validates and stops there rather than inventing a client-side scan or
  * approximating it with the unrelated name-search endpoint.
  */
 export default function ArtistSearchForm() {
