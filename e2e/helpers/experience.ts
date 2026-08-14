@@ -49,9 +49,14 @@ export async function setExperienceCookie(
  * signed-in account needs a role that can reach it) works for
  * `target: "modern"` from a classic account.
  *
- * Idempotent: a no-op when the account is already on `target`. Mutates
- * shared server state on the signed-in account, so only call this against a
- * dedicated identity no other spec observes.
+ * Idempotent: waits (up to 5s) for `target`'s container to appear before
+ * falling back to the switch flow, rather than reading an instantaneous DOM
+ * snapshot right after `page.goto` resolves — `ThemedLayout` renders the
+ * chosen slot inside a `Suspense` boundary awaiting a Backend-Service round
+ * trip, so a snapshot taken too early can read as "not there yet" even when
+ * the account is already on `target`. Mutates shared server state on the
+ * signed-in account, so only call this against a dedicated identity no other
+ * spec observes.
  */
 export async function setExperienceViaAccount(
   page: Page,
@@ -63,7 +68,11 @@ export async function setExperienceViaAccount(
   const targetContainer = page.locator(
     target === "classic" ? "#classic-container" : "#modern-container"
   );
-  if (await targetContainer.isVisible({ timeout: 5000 }).catch(() => false)) {
+  const alreadyOnTarget = await targetContainer
+    .waitFor({ state: "visible", timeout: 5000 })
+    .then(() => true)
+    .catch(() => false);
+  if (alreadyOnTarget) {
     return;
   }
 

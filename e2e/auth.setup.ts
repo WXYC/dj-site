@@ -31,10 +31,12 @@ const SESSION_CACHE_SALT = "1";
 // here as TEST_USERS; if that source starts pulling credentials from another
 // file, add its path below. The key does NOT prove the session row still
 // exists server-side (a reseeded database drops it) — persistedSessionIsUsable
-// covers that.
+// covers that. CLASSIC_MD_USER is declared inline further down this same
+// file, so __filename covers it too.
 const USER_FIXTURE_SOURCES = [
   path.join(__dirname, "fixtures", "auth.fixture.ts"),
   path.join(__dirname, "..", "tests", "fixtures", "fixtures.ts"),
+  __filename,
 ];
 
 function seedKey(): string {
@@ -203,6 +205,58 @@ const CLASSIC_MD_USER = {
   djName: "Test Classic MD",
 };
 
+const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1"]);
+
+/**
+ * This gates the only write path in this file: `ensureClassicMdAccountExists`
+ * creates a musicDirector account through the live admin roster against
+ * whatever `E2E_BASE_URL` (and `NEXT_PUBLIC_BETTER_AUTH_URL`) point at. Every
+ * other setup step only logs in. Without this, a mistyped or inherited env
+ * var pointed at a shared environment has no structural guard between it and
+ * a real MD account there — only the incidental fact that the station-manager
+ * login would have to succeed first.
+ */
+function assertLocalWriteTarget(): void {
+  const targets: Array<[envVar: string, value: string | undefined]> = [
+    ["E2E_BASE_URL", process.env.E2E_BASE_URL || "http://localhost:3000"],
+    ["NEXT_PUBLIC_BETTER_AUTH_URL", process.env.NEXT_PUBLIC_BETTER_AUTH_URL],
+  ];
+  for (const [envVar, value] of targets) {
+    if (!value) continue;
+    let hostname: string;
+    try {
+      hostname = new URL(value).hostname;
+    } catch {
+      throw new Error(
+        `Refusing to provision ${CLASSIC_MD_USER.username}: ${envVar}="${value}" is not a valid URL.`
+      );
+    }
+    if (!LOOPBACK_HOSTNAMES.has(hostname)) {
+      throw new Error(
+        `Refusing to provision ${CLASSIC_MD_USER.username} against a non-local target: ` +
+          `${envVar}="${value}" resolves to host "${hostname}", not loopback.`
+      );
+    }
+  }
+}
+
+/**
+ * True when {@link CLASSIC_MD_USER} already has a roster row. The roster is
+ * server-side paginated (ROSTER_PAGE_SIZE=50) with no sort order, so a raw
+ * listing only answers "is this account among an arbitrary 50 rows", not
+ * "does it exist" — the suite creates more than 50 non-anonymous accounts
+ * within roughly two full local runs. Filtering through the roster's search
+ * input (server-side, by name) is unambiguous regardless of roster size.
+ */
+async function classicMdAccountExists(rosterPage: RosterPage): Promise<boolean> {
+  await rosterPage.searchInput.fill(CLASSIC_MD_USER.realName);
+  return await rosterPage
+    .getUserRow(CLASSIC_MD_USER.username)
+    .waitFor({ state: "visible", timeout: 5000 })
+    .then(() => true)
+    .catch(() => false);
+}
+
 /**
  * Creates {@link CLASSIC_MD_USER} via the station manager's roster if it
  * doesn't already exist. Idempotent: setup runs repeatedly against a
@@ -210,9 +264,18 @@ const CLASSIC_MD_USER = {
  * not recreated (which would surface as a duplicate-username error toast).
  */
 async function ensureClassicMdAccountExists(browser: Browser): Promise<void> {
+  assertLocalWriteTarget();
+
   const baseURL = process.env.E2E_BASE_URL || "http://localhost:3000";
   const context = await browser.newContext({
     baseURL,
+    // Requires the "authenticate as station manager" setup test (declared
+    // above in this file) to have already written stationManager.json. That
+    // ordering holds only because the setup project sets fullyParallel:
+    // false and Playwright runs one file's tests in declaration order —
+    // nothing enforces it, and a failed station-manager step doesn't stop
+    // this one. A future split across files would surface a missing file
+    // here as an opaque ENOENT from browser.newContext.
     storageState: `${authDir}/stationManager.json`,
   });
   const adminPage = await context.newPage();
@@ -221,11 +284,7 @@ async function ensureClassicMdAccountExists(browser: Browser): Promise<void> {
     await adminPage.goto("/dashboard/admin/roster");
     await rosterPage.waitForTableLoaded();
 
-    const alreadyExists = await rosterPage
-      .getUserRow(CLASSIC_MD_USER.username)
-      .isVisible()
-      .catch(() => false);
-    if (alreadyExists) {
+    if (await classicMdAccountExists(rosterPage)) {
       console.log(`[auth] ${CLASSIC_MD_USER.username} already provisioned, skipping creation`);
       return;
     }
@@ -240,7 +299,8 @@ async function ensureClassicMdAccountExists(browser: Browser): Promise<void> {
     });
     // The row, not the toast: sonner auto-dismisses on its own timer, so a
     // slow local stack can outlast it between submit and this check. The row
-    // appearing is the same reconciliation signal `alreadyExists` reads above.
+    // appearing is the same reconciliation signal `classicMdAccountExists`
+    // reads above (the search filter is still applied from that check).
     await rosterPage.expectUserInRoster(CLASSIC_MD_USER.username);
   } finally {
     await context.close();
@@ -282,6 +342,16 @@ setup("provision classic-preference identity", async ({ page, browser }) => {
   // fresh default) renders ExperienceGap there and offers the real switch
   // flow this identity exists to have already taken.
   await setExperienceViaAccount(page, "classic", "/dashboard/help");
+
+  // The switch flow also sets the app_state cookie to classic (see
+  // useExperienceSwitch), so by this point the cookie and the account field
+  // agree and either alone would render the classic slot. Drop the cookie
+  // from what gets persisted so the specs that assert against this identity
+  // are demonstrably exercising the account's appSkin field, not a cookie
+  // that happens to carry the same value — if appSkin ever became nullable,
+  // a persisted cookie would silently keep those specs passing for the wrong
+  // reason.
+  await page.context().clearCookies({ name: "app_state" });
   await page.context().storageState({ path: statePath });
   fs.writeFileSync(seedSidecarPath(statePath), seedKey());
 });
