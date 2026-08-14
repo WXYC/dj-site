@@ -308,6 +308,88 @@ describe("Classic MissingReleases — missingReleases.jsp", () => {
       );
     });
 
+    it("keeps the table on screen, not the error paragraph, when the refetch behind a mark-found fails", async () => {
+      let queryCalls = 0;
+      let releaseSecondQuery: (() => void) | undefined;
+      const secondQueryHeld = new Promise<void>((resolve) => {
+        releaseSecondQuery = resolve;
+      });
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/query`, async () => {
+          queryCalls += 1;
+          if (queryCalls === 1) {
+            return HttpResponse.json(libraryQueryPage([missingRow()]));
+          }
+          // markFound's own tag invalidation drives this second request; hold
+          // it open so the assertions below land while it's still pending.
+          await secondQueryHeld;
+          return HttpResponse.json({ message: null }, { status: 500 });
+        }),
+      );
+      server.use(
+        http.patch(`${TEST_BACKEND_URL}/library/:id/found`, () =>
+          HttpResponse.json(missingRow({ date_found: "2026-08-13" })),
+        ),
+      );
+
+      const { user } = await renderAndSettle();
+      await user.click(markFoundButton("On Your Own Love Again"));
+
+      // The PATCH succeeds, but the refetch its invalidation triggers is
+      // about to fail. The rows RTK already delivered must stay on screen —
+      // swapping in the error paragraph would take the shelf list away
+      // rather than merely leaving it stale.
+      await waitFor(() => expect(queryCalls).toBe(2));
+      releaseSecondQuery!();
+
+      await waitFor(() =>
+        expect(markFoundButton("On Your Own Love Again")).toBeEnabled(),
+      );
+      expect(screen.getByText("On Your Own Love Again")).toBeInTheDocument();
+      expect(
+        screen.queryByText("Error loading missing releases. Please try again."),
+      ).not.toBeInTheDocument();
+    });
+
+    it("disables every row's action while the list is refetching, not only the row just acted on", async () => {
+      let queryCalls = 0;
+      let releaseSecondQuery: (() => void) | undefined;
+      const secondQueryHeld = new Promise<void>((resolve) => {
+        releaseSecondQuery = resolve;
+      });
+      const rows = [
+        missingRow(),
+        missingRow({ id: 4202, album_title: "DOGA", artist_name: "Juana Molina" }),
+      ];
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/query`, async () => {
+          queryCalls += 1;
+          if (queryCalls === 1) {
+            return HttpResponse.json(libraryQueryPage(rows));
+          }
+          await secondQueryHeld;
+          return HttpResponse.json(libraryQueryPage(rows));
+        }),
+      );
+      server.use(
+        http.patch(`${TEST_BACKEND_URL}/library/:id/found`, () =>
+          HttpResponse.json(missingRow({ date_found: "2026-08-13" })),
+        ),
+      );
+
+      const { user } = await renderAndSettle();
+      await user.click(markFoundButton("On Your Own Love Again"));
+      await waitFor(() => expect(queryCalls).toBe(2));
+
+      // "DOGA" was never clicked and never entered pendingIds — its only
+      // route to being disabled is the list-wide refetch flag, the stale-row
+      // window the action cell's own comment cites as its justification.
+      await waitFor(() => expect(markFoundButton("DOGA")).toBeDisabled());
+
+      releaseSecondQuery!();
+      await waitFor(() => expect(markFoundButton("DOGA")).toBeEnabled());
+    });
+
     it("offers no action on a row with no server-issued id", async () => {
       mockMissingReleasePages([
         { ...missingRow(), id: null } as unknown as AlbumSearchResultJSON,

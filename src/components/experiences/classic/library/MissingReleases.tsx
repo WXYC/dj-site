@@ -18,12 +18,21 @@ function formatMissingSince(dateLost: string | null | undefined): string {
   });
 }
 
-// Xeroxed from missingReleases.jsp. Four deliberate divergences:
+// Xeroxed from missingReleases.jsp. Five deliberate divergences:
 //
 // - The JSP renders every missing release. `/library/query` rejects a `limit`
 //   above CATALOG_QUERY_MAX_LIMIT outright, so one request carries at most
 //   that many rows and this screen states the cap whenever the server's total
 //   is larger. A silently capped list would read as a complete shelf.
+// - Row order diverges and cannot be fixed from this client. The JSP's
+//   LibraryReleaseService.getMissingReleases() orders by DATE_LOST descending
+//   — most recently lost first. This screen sends no sort/order, so
+//   `/library/query` applies its defaults (album ascending); the endpoint's
+//   valid sort keys don't include one that maps to date_lost, so no request
+//   shape can ask for the JSP's order. A client-side reorder of the fetched
+//   rows was rejected: above the cap it would present a JSP-faithful order
+//   over the wrong hundred rows, disguising which ones were selected rather
+//   than disclosing the divergence.
 // - Mark as Found runs the PATCH in place. The JSP navigates to
 //   `libraryRelease?id=…&mode=markFound`, a screen that confirms the outcome;
 //   here the row's own action cell carries the in-flight and failure states.
