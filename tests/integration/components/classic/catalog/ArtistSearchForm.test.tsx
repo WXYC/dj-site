@@ -59,7 +59,7 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
   });
 
   it("disables the genre select until genres load, then defaults it to the first genre with no placeholder option", async () => {
-    renderWithProviders(<ArtistSearchForm />);
+    const { user } = renderWithProviders(<ArtistSearchForm />);
 
     expect(screen.getByLabelText(/^genre/i)).toBeDisabled();
 
@@ -70,6 +70,18 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
     );
     expect(screen.getByLabelText(/^genre/i)).toBeEnabled();
     expect(screen.queryByRole("option", { name: /select genre/i })).not.toBeInTheDocument();
+
+    // The <select>'s own displayed value above proves nothing about
+    // `genreId` itself: a single-line <select> with no option explicitly
+    // selected auto-selects its first option in the DOM regardless of React
+    // state, and jsdom implements that. Prove the default reached state, not
+    // just the rendered element, by submitting compilation mode without ever
+    // touching the select — if `genreId` were still null, this would fail
+    // with "You must select a genre." instead of passing clean.
+    await user.click(screen.getByRole("radio", { name: /various artists/i }));
+    await user.click(screen.getByRole("button", { name: "Search!" }));
+
+    expect(screen.queryByText("You must select a genre.")).not.toBeInTheDocument();
   });
 
   it("disables the letters/numbers textboxes until the textbox radio is chosen", async () => {

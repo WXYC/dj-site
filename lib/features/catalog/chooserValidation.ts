@@ -2,7 +2,8 @@
  * Client-side validation for the classic catalog chooser's two forms,
  * reproducing tubafrenzy's `library-code-form.js` (`artistSearchForm`) and
  * `validate-names.ts` (`newArtistForm`) rule-for-rule, including exact
- * message text.
+ * message text — with one addition: the compilation branch's genre-selected
+ * guard below has no JSP counterpart (see the comment at that guard for why).
  */
 
 export type CallLetterMode = "textbox" | "compilation" | null;
