@@ -74,7 +74,7 @@ npm run test:e2e -- --grep @smoke
 
 ## Test Users
 
-All seeded test users use the password: `testpassword123`. `test_classic_md` is the one exception — see its row below.
+Seeded test users all use the password: `testpassword123`. `test_classic_md` is provisioned at setup time and uses its own password — see its row below.
 
 | Username | Role | Purpose |
 |----------|------|---------|

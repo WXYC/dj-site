@@ -6,6 +6,7 @@ import {
 } from "./fixtures/auth.fixture";
 import { RosterPage } from "./pages/roster.page";
 import { setExperienceViaAccount } from "./helpers/experience";
+import { APP_SKIN_STORAGE_KEY } from "../lib/features/experiences/preferences";
 import crypto from "crypto";
 import path from "path";
 import fs from "fs";
@@ -207,14 +208,42 @@ const CLASSIC_MD_USER = {
 
 const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1"]);
 
+// Every octet of a dotted-quad, so this can't accidentally accept something
+// like "127.0.0.1.evil.com" (which `new URL().hostname` never produces
+// anyway, but the pattern should still refuse it on its own terms).
+const IPV4_LOOPBACK_PATTERN = /^127\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+
 /**
- * This gates the only write path in this file: `ensureClassicMdAccountExists`
- * creates a musicDirector account through the live admin roster against
- * whatever `E2E_BASE_URL` (and `NEXT_PUBLIC_BETTER_AUTH_URL`) point at. Every
- * other setup step only logs in. Without this, a mistyped or inherited env
- * var pointed at a shared environment has no structural guard between it and
- * a real MD account there — only the incidental fact that the station-manager
- * login would have to succeed first.
+ * Whether `hostname` — as returned by `new URL(value).hostname` — names a
+ * loopback address. Exact-match against {@link LOOPBACK_HOSTNAMES} plus two
+ * loopback forms that set membership alone misses: `new URL` returns the
+ * IPv6 literal bracketed (`"[::1]"`), and the entire `127.0.0.0/8` block is
+ * loopback, not just `127.0.0.1` (this repo's own `docs/ci-cd.md` uses
+ * `127.0.0.99`). This still rejects `localhost.evil.com` and similar —
+ * deliberately no suffix/`includes` matching.
+ */
+function isLoopbackHostname(hostname: string): boolean {
+  const unbracketed =
+    hostname.startsWith("[") && hostname.endsWith("]")
+      ? hostname.slice(1, -1)
+      : hostname;
+  if (LOOPBACK_HOSTNAMES.has(unbracketed)) return true;
+  const match = IPV4_LOOPBACK_PATTERN.exec(unbracketed);
+  if (!match) return false;
+  return match.slice(1).every((octet) => Number(octet) <= 255);
+}
+
+/**
+ * Gates every write the "provision classic-preference identity" step can
+ * make against whatever `E2E_BASE_URL` (and `NEXT_PUBLIC_BETTER_AUTH_URL`)
+ * point at: `ensureClassicMdAccountExists` creates a musicDirector account
+ * through the live admin roster, and `setExperienceViaAccount` flips that
+ * account's `appSkin` through the live switch flow. Every other setup step
+ * only logs in. Called at the top of that step's body — not just inside
+ * `ensureClassicMdAccountExists` — because a successful login skips account
+ * creation entirely and would otherwise reach the appSkin write unguarded.
+ * Without this, a mistyped or inherited env var pointed at a shared
+ * environment has no structural guard between it and a real account there.
  */
 function assertLocalWriteTarget(): void {
   const targets: Array<[envVar: string, value: string | undefined]> = [
@@ -231,7 +260,7 @@ function assertLocalWriteTarget(): void {
         `Refusing to provision ${CLASSIC_MD_USER.username}: ${envVar}="${value}" is not a valid URL.`
       );
     }
-    if (!LOOPBACK_HOSTNAMES.has(hostname)) {
+    if (!isLoopbackHostname(hostname)) {
       throw new Error(
         `Refusing to provision ${CLASSIC_MD_USER.username} against a non-local target: ` +
           `${envVar}="${value}" resolves to host "${hostname}", not loopback.`
@@ -252,7 +281,7 @@ async function classicMdAccountExists(rosterPage: RosterPage): Promise<boolean> 
   await rosterPage.searchInput.fill(CLASSIC_MD_USER.realName);
   return await rosterPage
     .getUserRow(CLASSIC_MD_USER.username)
-    .waitFor({ state: "visible", timeout: 5000 })
+    .waitFor({ state: "visible", timeout: 15000 })
     .then(() => true)
     .catch(() => false);
 }
@@ -312,6 +341,10 @@ async function ensureClassicMdAccountExists(browser: Browser): Promise<void> {
  * Used by classic-experience specs on authenticated dashboard URLs.
  */
 setup("provision classic-preference identity", async ({ page, browser }) => {
+  // Gates every write below (account creation AND the appSkin switch), not
+  // just the account-creation branch — see assertLocalWriteTarget's doc.
+  assertLocalWriteTarget();
+
   // First-run path chains an admin roster creation, an invite-token
   // onboarding, and a full-page experience-switch reload — comfortably past
   // the file's 20s default on a cold local stack.
@@ -344,14 +377,20 @@ setup("provision classic-preference identity", async ({ page, browser }) => {
   await setExperienceViaAccount(page, "classic", "/dashboard/help");
 
   // The switch flow also sets the app_state cookie to classic (see
-  // useExperienceSwitch), so by this point the cookie and the account field
-  // agree and either alone would render the classic slot. Drop the cookie
-  // from what gets persisted so the specs that assert against this identity
-  // are demonstrably exercising the account's appSkin field, not a cookie
-  // that happens to carry the same value — if appSkin ever became nullable,
-  // a persisted cookie would silently keep those specs passing for the wrong
-  // reason.
+  // useExperienceSwitch) AND the wxyc_app_skin localStorage key (see
+  // writeLocalAppSkin), so by this point the cookie, localStorage, and the
+  // account field all agree and any one alone would render the classic slot.
+  // useThemePreferenceSync (mounted unconditionally in the root layout) falls
+  // back to localStorage whenever the cookie is absent, re-persisting the
+  // cookie and reloading — so dropping only the cookie leaves localStorage as
+  // a live second lever that reproduces the classic render without the
+  // account's appSkin ever being consulted. Strip both from what gets
+  // persisted so the specs that assert against this identity are
+  // demonstrably exercising the account's appSkin field alone — if appSkin
+  // ever became nullable, a persisted cookie or localStorage entry would
+  // silently keep those specs passing for the wrong reason.
   await page.context().clearCookies({ name: "app_state" });
+  await page.evaluate((key) => localStorage.removeItem(key), APP_SKIN_STORAGE_KEY);
   await page.context().storageState({ path: statePath });
   fs.writeFileSync(seedSidecarPath(statePath), seedKey());
 });
