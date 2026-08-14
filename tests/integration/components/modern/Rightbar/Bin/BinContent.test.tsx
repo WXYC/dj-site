@@ -126,6 +126,10 @@ describe("BinContent", () => {
   const mockBinEntries: AlbumEntry[] = [
     {
       id: 1,
+      // Distinct from `id` on purpose: the two are separate id spaces,
+      // and a fixture where they coincide can't tell a right-space read
+      // from a wrong-space one.
+      legacy_release_id: 45001,
       title: "Album One",
       entry: 1,
       format: "CD",
@@ -145,6 +149,10 @@ describe("BinContent", () => {
     },
     {
       id: 2,
+      // Distinct from `id` on purpose: the two are separate id spaces,
+      // and a fixture where they coincide can't tell a right-space read
+      // from a wrong-space one.
+      legacy_release_id: 45002,
       title: "Album Two",
       entry: 2,
       format: "Vinyl",
@@ -164,6 +172,10 @@ describe("BinContent", () => {
     },
     {
       id: 3,
+      // Distinct from `id` on purpose: the two are separate id spaces,
+      // and a fixture where they coincide can't tell a right-space read
+      // from a wrong-space one.
+      legacy_release_id: 45003,
       title: "Album Three",
       entry: 3,
       format: "CD",

@@ -63,6 +63,7 @@ Message factories: `createTestStartShowMessage(djName?, dateTime?)`, `createTest
 
 ```typescript
 TEST_ENTITY_IDS.ALBUM.ROCK_ALBUM     // 1001
+TEST_ENTITY_IDS.LEGACY_RELEASE.ROCK_ALBUM  // 7001 -- same row, other id space
 TEST_ENTITY_IDS.ARTIST.ROCK_ARTIST   // 2001
 TEST_ENTITY_IDS.FLOWSHEET.ENTRY_1    // 3001
 TEST_ENTITY_IDS.SHOW.CURRENT_SHOW    // 4001
@@ -257,4 +258,5 @@ Playwright specs stay in `e2e/`, and bats scripts in `scripts/__tests__/`.
 - Use the API harness for verifying RTK Query endpoint structure
 - Use `createTest*` factory functions instead of inline test data
 - Reference `TEST_ENTITY_IDS` and `TEST_SEARCH_STRINGS` constants for IDs and strings
+- Keep an album fixture's `legacy_release_id` **distinct from its `id`**. They are two id spaces over the same row — `id` is Backend's `library.id` serial, `legacy_release_id` is the tubafrenzy `LIBRARY_RELEASE_ID` the per-track store is keyed by — and a fixture where the two coincide cannot tell a path that resolves in the right space from one that resolves in the wrong space. Pair an `TEST_ENTITY_IDS.ALBUM` id with the `TEST_ENTITY_IDS.LEGACY_RELEASE` entry of the same name; never copy one into the other. This applies to hand-built rows too, including wire-shaped ones (`createTestAlbumSearchResult`), where the type is optional and the compiler will not ask
 - Use `renderWithProviders` for all component tests (never bare RTL `render`)

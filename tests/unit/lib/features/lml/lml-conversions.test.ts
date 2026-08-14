@@ -21,6 +21,7 @@ describe("convertLmlItemToAlbumEntry", () => {
 
     expect(result).toEqual({
       id: 42,
+      legacy_release_id: 42,
       title: "DOGA",
       artist: {
         name: "Juana Molina",
@@ -152,6 +153,18 @@ describe("convertLmlItemToAlbumEntry", () => {
     const item = createTestLmlLibraryItem({ matched_via });
     const result = convertLmlItemToAlbumEntry(item);
     expect(result.matched_via).toEqual(matched_via);
+  });
+
+  it("should carry LmlLibraryItem.id into legacy_release_id", () => {
+    // LML's `library.db` is keyed by the tubafrenzy LIBRARY_RELEASE_ID, so the
+    // `id` it returns is a `legacy_release_id`, not a Backend `library.id`.
+    // Populating the field it actually belongs in is this change; `id` keeps
+    // its current value for now, so an LML row is the one source where the two
+    // spaces legitimately coincide.
+    const item = createTestLmlLibraryItem({ id: 45342 });
+    const result = convertLmlItemToAlbumEntry(item);
+    expect(result.legacy_release_id).toBe(45342);
+    expect(result.id).toBe(45342);
   });
 
   it("should always set rotation_bin, rotation_id, plays, and add_date to undefined", () => {

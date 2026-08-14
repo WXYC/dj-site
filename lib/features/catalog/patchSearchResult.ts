@@ -43,6 +43,10 @@ export function mergeAlbumIntoSearchResult(
     ...existing,
     ...updated,
     id: existing.id,
+    // Pinned from the same row as `id` above. Taking one id from the cached
+    // row and letting `...updated` supply the other would leave the merged row
+    // carrying two id spaces that point at different releases.
+    legacy_release_id: existing.legacy_release_id,
     artist: callNumberFromResponse ? updated.artist : existing.artist,
     entry: callNumberFromResponse ? updated.entry : existing.entry,
     matched_via: existing.matched_via,
