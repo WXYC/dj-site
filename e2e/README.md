@@ -87,6 +87,7 @@ All test users use the password: `testpassword123`
 | `test_deletable_user` | dj | User for deletion tests |
 | `test_promotable_user` | member | User for role promotion tests |
 | `test_demotable_sm` | stationManager | User for role demotion tests |
+| `test_classic_md` | musicDirector | Not seeded — created by `auth.setup.ts` via the admin roster. Its account `appSkin` is switched to classic once at setup time, so classic-experience specs on authenticated dashboard URLs (`e2e/tests/rbac/role-access.spec.ts`) have a dedicated identity instead of racing a shared seeded user's preference |
 
 ## Test Structure
 
