@@ -70,7 +70,12 @@ function FlowsheetBackendResult({
         },
       }}
       onMouseOver={() => {
-        if (hasLinkedAlbumId(entry.id)) prefetchTracks(entry.id);
+        // Gate and argument are the same field on purpose. They are the cache
+        // key this endpoint is keyed by, so gating on one id space while
+        // fetching in the other would warm an entry the picker never reads —
+        // and would stop firing entirely for rows that carry no library.id.
+        if (hasLinkedAlbumId(entry.legacy_release_id))
+          prefetchTracks(entry.legacy_release_id);
       }}
       // Autofill, never submit; prevented mousedown keeps input focus
       onMouseDown={(e) => {
