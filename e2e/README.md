@@ -74,7 +74,7 @@ npm run test:e2e -- --grep @smoke
 
 ## Test Users
 
-All test users use the password: `testpassword123`
+All seeded test users use the password: `testpassword123`. `test_classic_md` is the one exception — see its row below.
 
 | Username | Role | Purpose |
 |----------|------|---------|
@@ -87,7 +87,7 @@ All test users use the password: `testpassword123`
 | `test_deletable_user` | dj | User for deletion tests |
 | `test_promotable_user` | member | User for role promotion tests |
 | `test_demotable_sm` | stationManager | User for role demotion tests |
-| `test_classic_md` | musicDirector | Not seeded — created by `auth.setup.ts` via the admin roster. Its account `appSkin` is switched to classic once at setup time, so classic-experience specs on authenticated dashboard URLs (`e2e/tests/rbac/role-access.spec.ts`) have a dedicated identity instead of racing a shared seeded user's preference |
+| `test_classic_md` | musicDirector | Not seeded — created by `auth.setup.ts` via the admin roster. Its account `appSkin` is switched to classic once at setup time, so classic-experience specs on authenticated dashboard URLs (`e2e/tests/rbac/role-access.spec.ts`) have a dedicated identity instead of racing a shared seeded user's preference. Password is `TestClassicMd1`, not the shared `testpassword123` — it's set through the onboarding form, which requires `isStrongPassword` |
 
 ## Test Structure
 

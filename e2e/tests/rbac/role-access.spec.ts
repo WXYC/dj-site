@@ -225,10 +225,14 @@ test.describe("Role-Based Access Control", () => {
         await expect(page.locator("#modern-container")).toHaveCount(0);
       });
 
-      // /dashboard/admin/catalog is modern-only and requires at least MD —
-      // the classicMd identity is provisioned with the musicDirector role
-      // specifically so it can reach a modern-only URL and exercise the
-      // classic slot's app/dashboard/@classic/default.tsx fallback.
+      // /dashboard/admin/catalog is modern-only, but that role gate is never
+      // evaluated here: for a classic account ThemedLayout renders only the
+      // classic slot, so the modern page (and its requireRole check) never
+      // renders, and middleware/layout only require an authenticated
+      // session. This spec and the one above only need authentication. The
+      // identity keeps the musicDirector role anyway — upcoming classic
+      // librarian screens are MD-gated server-side, so this fixture needs to
+      // already hold MD to be usable once those specs land.
       test("should offer a way out at a modern-only URL", async ({ page }) => {
         await page.goto("/dashboard/admin/catalog");
         await expect(page.locator("#classic-container")).toBeVisible({
