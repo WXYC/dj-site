@@ -440,6 +440,78 @@ describe("catalog conversions", () => {
       });
     });
 
+    // `id` (Backend's `library.id` serial) and `legacy_release_id` (the
+    // tubafrenzy `LIBRARY_RELEASE_ID` the per-track store is keyed by) are two
+    // disjoint id spaces over the same row. The converter's job here is only to
+    // carry the second one through intact so each downstream path can resolve
+    // in the space it actually needs; nothing about which path reads which
+    // changes yet.
+    //
+    // Every fixture below keeps the two values distinct on purpose. Equal ids
+    // cannot tell a read that resolves in the right space from one that
+    // resolves in the wrong space, which is precisely the failure being
+    // guarded against.
+    describe("legacy_release_id rides alongside library.id", () => {
+      it.each([
+        [
+          "catalog search",
+          { ...catalogSearchRow, legacy_release_id: 45342 },
+          2001,
+          45342,
+        ],
+        [
+          "library-linked rotation",
+          { ...linkedRow, legacy_release_id: 45001 },
+          1001,
+          45001,
+        ],
+      ] as const)(
+        "carries both ids on a %s row",
+        (_source, row, expectedId, expectedLegacy) => {
+          const result = convertToAlbumEntry(row as AlbumSearchResultJSON);
+          expect(result.id).toBe(expectedId);
+          expect(result.legacy_release_id).toBe(expectedLegacy);
+        },
+      );
+
+      it("carries both ids on a bin row", () => {
+        // BinLibraryDetails inner-joins library, so the field is always present
+        // and non-null on a real bin row.
+        const result = convertToAlbumEntry({
+          ...binDetails,
+          legacy_release_id: 45234,
+        } as BinLibraryDetails);
+        expect(result.id).toBe(1234);
+        expect(result.legacy_release_id).toBe(45234);
+      });
+
+      it.each([
+        ["absent", catalogSearchRow],
+        ["explicitly null", { ...catalogSearchRow, legacy_release_id: null }],
+      ] as const)(
+        "resolves an %s legacy_release_id to null, never undefined",
+        (_shape, row) => {
+          const result = convertToAlbumEntry(row as AlbumSearchResultJSON);
+          // `null` and `undefined` are not interchangeable here: an absent
+          // field would make the required property optional in practice, and a
+          // consumer distinguishing "no legacy id" from "field forgotten"
+          // could no longer do so.
+          expect(result.legacy_release_id).toBeNull();
+          expect("legacy_release_id" in result).toBe(true);
+        },
+      );
+
+      it("leaves an unlinked rotation row's legacy_release_id null while its id synthesizes", () => {
+        // 144 of 206 production rotation rows are library-unlinked: the LEFT
+        // JOIN yields no library row, so there is no legacy id to carry. The
+        // synthesized negative `id` is existing behavior and deliberately
+        // untouched here.
+        const result = convertToAlbumEntry(unlinkedRowNullId);
+        expect(result.legacy_release_id).toBeNull();
+        expect(result.id).toBeLessThan(0);
+      });
+    });
+
     describe("end-to-end: rotation pick → mutation submission", () => {
       // Asserts the chain the picker uses (per the #691 forensics):
       //   useGetRotationQuery (rotationApi.transformResponse)

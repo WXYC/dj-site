@@ -177,6 +177,9 @@ export function createTestArtist(overrides: Partial<ArtistEntry> = {}): ArtistEn
 export function createTestAlbum(overrides: Partial<AlbumEntry> = {}): AlbumEntry {
   return {
     id: TEST_ENTITY_IDS.ALBUM.ROCK_ALBUM,
+    // Deliberately NOT a copy of `id` — see the LEGACY_RELEASE note in
+    // tests/helpers/constants.ts.
+    legacy_release_id: TEST_ENTITY_IDS.LEGACY_RELEASE.ROCK_ALBUM,
     title: TEST_SEARCH_STRINGS.ALBUM_NAME,
     artist: createTestArtist(),
     entry: 1,
@@ -199,6 +202,11 @@ export function createTestAlbumSearchResult(
 ): AlbumSearchResultJSON {
   return {
     id: TEST_ENTITY_IDS.ALBUM.ROCK_ALBUM,
+    // The wire type leaves this optional, so the compiler will not demand it
+    // here — but a spec that builds a row through this factory and converts it
+    // would otherwise exercise the no-legacy-id branch while appearing to test
+    // the populated one.
+    legacy_release_id: TEST_ENTITY_IDS.LEGACY_RELEASE.ROCK_ALBUM,
     add_date: toDateString(TEST_TIMESTAMPS.ONE_WEEK_AGO),
     album_title: TEST_SEARCH_STRINGS.ALBUM_NAME,
     artist_name: TEST_SEARCH_STRINGS.ARTIST_NAME,
@@ -279,6 +287,7 @@ export function createTestAlbumList(count: number = 3): AlbumEntry[] {
   return Array.from({ length: count }, (_, index) =>
     createTestAlbum({
       id: TEST_ENTITY_IDS.ALBUM.ROCK_ALBUM + index,
+      legacy_release_id: TEST_ENTITY_IDS.LEGACY_RELEASE.ROCK_ALBUM + index,
       title: `${TEST_SEARCH_STRINGS.ALBUM_NAME} ${index + 1}`,
       artist: createTestArtist({
         id: TEST_ENTITY_IDS.ARTIST.ROCK_ARTIST + index,
@@ -305,6 +314,7 @@ export function createTestRotationAlbum(
 ): AlbumEntry {
   return createTestAlbum({
     id: TEST_ENTITY_IDS.ALBUM.ROTATION_ALBUM,
+    legacy_release_id: TEST_ENTITY_IDS.LEGACY_RELEASE.ROTATION_ALBUM,
     rotation_bin: rotation,
     rotation_id: TEST_ENTITY_IDS.ROTATION.HEAVY,
     ...overrides,

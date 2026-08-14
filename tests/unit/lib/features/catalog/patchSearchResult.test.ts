@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createTestAlbum, createTestArtist } from "@/tests/helpers";
 import { mergeAlbumIntoSearchResult } from "@/lib/features/catalog/patchSearchResult";
+import { Rotation } from "@/lib/features/rotation/types";
 
 describe("mergeAlbumIntoSearchResult", () => {
   it("updates editable fields while preserving search-only metadata", () => {
@@ -157,6 +158,46 @@ describe("mergeAlbumIntoSearchResult", () => {
     const merged = mergeAlbumIntoSearchResult(existing, updated);
 
     expect(merged.discogsUnavailableNote).toBe("embargoed until 2026-09-01");
+  });
+
+  it("keeps the id pair coherent, taking both ids from the cached row", () => {
+    // The merge deliberately pins `id` to the cached row rather than letting
+    // `...updated` supply it. `legacy_release_id` has to be pinned from the
+    // same side or the merged row ends up carrying two id spaces that point at
+    // different releases — this defect, reintroduced through cache merging.
+    // The two rows' legacy ids must differ or the assertion cannot fail.
+    const existing = createTestAlbum({ id: 42, legacy_release_id: 45042 });
+    const updated = createTestAlbum({ id: 42, legacy_release_id: 99999 });
+
+    const merged = mergeAlbumIntoSearchResult(existing, updated);
+
+    expect(merged.id).toBe(existing.id);
+    expect(merged.legacy_release_id).toBe(existing.legacy_release_id);
+  });
+
+  it("keeps the id pair coherent on the rotation-only patch branch", () => {
+    // The rotation-only branch spreads `existing` wholesale and overrides just
+    // the two rotation fields, so both ids ride along from one row. Pinned so a
+    // future edit to that branch can't split them.
+    const existing = createTestAlbum({ id: 42, legacy_release_id: 45042 });
+    const rotationPatch = createTestAlbum({
+      id: 7,
+      legacy_release_id: 99999,
+      title: "",
+      label: "",
+      entry: 0,
+      artist: createTestArtist({ name: "", lettercode: "", numbercode: 0 }),
+      genre_id: undefined,
+      format_id: undefined,
+      rotation_bin: Rotation.H,
+      rotation_id: 5001,
+    });
+
+    const merged = mergeAlbumIntoSearchResult(existing, rotationPatch);
+
+    expect(merged.rotation_bin).toBe(Rotation.H);
+    expect(merged.id).toBe(42);
+    expect(merged.legacy_release_id).toBe(45042);
   });
 
   it("merges albums with empty title fields from LML-only rows", () => {

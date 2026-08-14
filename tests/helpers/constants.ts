@@ -16,6 +16,17 @@ export const TEST_ENTITY_IDS = {
     ELECTRONIC_ALBUM: 1003,
     ROTATION_ALBUM: 1004,
   },
+  // The `legacy_release_id` id space, deliberately disjoint from ALBUM (the
+  // `library.id` space). A fixture whose two ids coincide cannot distinguish a
+  // path that resolves in the right space from one that resolves in the wrong
+  // one, so every album factory pairs an ALBUM id with the LEGACY_RELEASE id
+  // of the same name — never a copy of the ALBUM id.
+  LEGACY_RELEASE: {
+    ROCK_ALBUM: 7001,
+    JAZZ_ALBUM: 7002,
+    ELECTRONIC_ALBUM: 7003,
+    ROTATION_ALBUM: 7004,
+  },
   ARTIST: {
     ROCK_ARTIST: 2001,
     JAZZ_ARTIST: 2002,

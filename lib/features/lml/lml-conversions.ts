@@ -38,6 +38,11 @@ function normalizeGenre(genre: string | null): Genre {
 export function convertLmlItemToAlbumEntry(item: LmlLibraryItem): AlbumEntry {
   return {
     id: item.id,
+    // LML's `library.db` is keyed by the tubafrenzy LIBRARY_RELEASE_ID, so the
+    // `id` it returns is a legacy release id, not a Backend `library.id`. It
+    // belongs in this field; `id` keeps the same value for now, which makes an
+    // LML row the one source where the two spaces legitimately coincide.
+    legacy_release_id: item.id,
     title: item.title ?? "",
     artist: {
       name: item.artist ?? "",

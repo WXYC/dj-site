@@ -80,6 +80,16 @@ export function convertToAlbumEntry(
 
   return {
     id,
+    // Both union arms carry it: catalog search and rotation rows arrive as
+    // AlbumSearchResultJSON, bin rows as BinLibraryDetails. Coalesced to
+    // `null` rather than left `undefined` so an absent field and a null one
+    // are indistinguishable downstream — the property is always present.
+    //
+    // Note this is NOT gated on `isSearchResult` or on the row being linked:
+    // it is a property of the underlying library row, independent of whether
+    // `id` resolved, and gating it would drop it for exactly the rows whose
+    // ids diverge most.
+    legacy_release_id: response.legacy_release_id ?? null,
     title: response.album_title ?? "",
     artist: {
       name: response.artist_name ?? "",

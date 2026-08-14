@@ -31,13 +31,21 @@ export const TrackMatchSource = {
  * `matched_via` is omitted from the base and re-declared so the local
  * `TrackMatchHint` applies: intersecting the two array types instead would
  * demand a value satisfying both, which no single response row can.
+ *
+ * `legacy_release_id` is widened to allow `null`. This type carries rotation
+ * rows as well as catalog search rows, and the published contract types the
+ * two differently — `AlbumSearchResult` non-null (catalog search inner-joins
+ * library) but `Rotation` nullable (`getRotationFromDB` LEFT JOINs, and most
+ * production rotation rows have no library row behind them). The union of the
+ * shapes this type actually carries is the nullable one.
  */
 export type AlbumSearchResultJSON = Omit<
   AlbumSearchResult,
-  "add_date" | "matched_via"
+  "add_date" | "matched_via" | "legacy_release_id"
 > & {
   add_date: string;
   matched_via?: TrackMatchHint[];
+  legacy_release_id?: number | null;
 };
 
 export type SearchCatalogQueryParams = {
@@ -227,7 +235,24 @@ export type AlbumParams = AddAlbumRequestBody;
 export type ArtistParams = AddArtistRequestBody;
 
 export type AlbumEntry = {
+  /**
+   * Backend's `library.id` serial — the id every write path sends as
+   * `album_id`, and the only id an endpoint under `/library/:id` accepts.
+   * `null` where no library row is known.
+   */
   id: number | null;
+  /**
+   * The row's tubafrenzy `LIBRARY_RELEASE_ID` (Backend's
+   * `library.legacy_release_id`) — a **different id space** from `id`, and the
+   * one the per-track store is keyed by. `null` where the source row has no
+   * library row behind it (an unlinked rotation row) or predates the field.
+   *
+   * Required rather than optional on purpose: every failure mode of a missing
+   * value is silent — a read resolves `null` and quietly returns nothing, a
+   * dedupe quietly no-ops — so a conversion path that forgets to map it should
+   * fail to compile rather than ship an `undefined`.
+   */
+  legacy_release_id: number | null;
   title: string;
   artist: ArtistEntry;
   entry: number;
