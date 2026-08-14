@@ -3,7 +3,14 @@ import { Rotation } from "../rotation/types";
 
 export type { AlbumSearchResult };
 
-/** Track-level match hints returned by catalog track search (not yet in @wxyc/shared). */
+/**
+ * Track-level match hints returned by catalog track search.
+ *
+ * Declared here rather than imported from `@wxyc/shared`, which publishes the
+ * same shape with every optional field nullable and `source` narrowed to an
+ * enum. Adopting the published shape is a null-handling change at every
+ * consumer, not a rename, so the two are kept separate deliberately.
+ */
 export type TrackMatchHint = {
   source: string;
   title: string;
@@ -21,19 +28,16 @@ export const TrackMatchSource = {
  * JSON boundary adapter for AlbumSearchResult.
  * RTK Query delivers raw JSON where add_date is a string, not a Date.
  *
- * discogsUnavailable/discogsUnavailableNote/lastDiscogsRecheckAt are declared
- * here by hand rather than picked up from `AlbumSearchResult`: api.yaml only
- * carries them on `Album`/`AlbumInfoResponse` (the `GET /library/info`
- * response schema), not on `AlbumSearchResult`, even though `GET /library/`,
- * `GET /library/query`, and `PATCH /library/:id` all serve from the same
- * backend read model and carry the fields on the wire.
+ * `matched_via` is omitted from the base and re-declared so the local
+ * `TrackMatchHint` applies: intersecting the two array types instead would
+ * demand a value satisfying both, which no single response row can.
  */
-export type AlbumSearchResultJSON = Omit<AlbumSearchResult, "add_date"> & {
+export type AlbumSearchResultJSON = Omit<
+  AlbumSearchResult,
+  "add_date" | "matched_via"
+> & {
   add_date: string;
   matched_via?: TrackMatchHint[];
-  discogsUnavailable?: boolean;
-  discogsUnavailableNote?: string | null;
-  lastDiscogsRecheckAt?: string | null;
 };
 
 export type SearchCatalogQueryParams = {
