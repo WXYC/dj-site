@@ -25,7 +25,7 @@ import { renderWithProviders } from "./render";
  * ```
  */
 
-export type ClassicPageRole = "dj" | "musicDirector" | "stationManager" | undefined;
+export type ClassicPageRole = "dj" | "musicDirector" | "stationManager" | "unauthenticated" | undefined;
 
 export const mockCookiesToString = vi.fn(() => "session=test-cookie");
 
@@ -46,9 +46,28 @@ export function classicPageAuthorityHeadersMock() {
   return { cookies: () => ({ toString: mockCookiesToString }) };
 }
 
-/** Replacement for `next/navigation`. */
+/**
+ * Replacement for `next/navigation`. The pages under test only call
+ * `redirect()`, but replacing the module replaces it for everything the page
+ * renders — and the classic pages render through `Layout/Main` ->
+ * `Navigation`, whose client hooks (`usePathname`, `useRouter`,
+ * `useSearchParams`) would otherwise come back undefined and throw. The
+ * hook stubs keep the mock's shape matching the module graph it serves.
+ */
 export function classicPageAuthorityNavigationMock() {
-  return { redirect: (url: string) => mockRedirect(url) };
+  return {
+    redirect: (url: string) => mockRedirect(url),
+    usePathname: () => "/dashboard",
+    useRouter: () => ({
+      push: vi.fn(),
+      replace: vi.fn(),
+      refresh: vi.fn(),
+      back: vi.fn(),
+      forward: vi.fn(),
+      prefetch: vi.fn(),
+    }),
+    useSearchParams: () => new URLSearchParams(),
+  };
 }
 
 /** Replacement for `@/lib/features/authentication/server-client`. */
@@ -92,11 +111,19 @@ function classicPageSessionData(adminPluginRole: string | null) {
 /**
  * Arranges the session/role mocks for one authority scenario. `role` is the
  * WXYC tier the org-role resolver returns; pass `undefined` for a member with
- * no station role (below DJ) or a fully unauthenticated JWT. `adminPluginRole`
- * models a WXYC tier string leaking into the unrelated better-auth
- * admin-plugin session column, which must never grant access on its own.
+ * a valid session but no station role (below DJ) — `requireRole` denies that
+ * member to the dashboard home. Pass `"unauthenticated"` for no session at
+ * all — a different exit: `requireAuth` denies it to
+ * `/login?bounced=no-session` before any role resolution runs, so
+ * `adminPluginRole` is meaningless there. `adminPluginRole` models a WXYC
+ * tier string leaking into the unrelated better-auth admin-plugin session
+ * column, which must never grant access on its own.
  */
 export function setUpClassicPageAuthority(role: ClassicPageRole, adminPluginRole: string | null = null) {
+  if (role === "unauthenticated") {
+    mockGetSession.mockResolvedValue({ data: null, error: null });
+    return;
+  }
   mockGetSession.mockResolvedValue({ data: classicPageSessionData(adminPluginRole), error: null });
   mockGetUserRoleInOrganization.mockResolvedValue(role);
 }
@@ -113,6 +140,10 @@ export function setUpClassicPageAuthorityEnv() {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset (not just clear) the arrangement mocks: clearAllMocks preserves
+    // persistent mockResolvedValue implementations and un-consumed *Once
+    // queues, so one test's session/role arrangement would leak into the next.
+    mockGetSession.mockReset();
     mockGetUserRoleInOrganization.mockReset();
     mockGetAppOrganizationId.mockReturnValue(undefined);
     mockCookiesToString.mockReturnValue("session=test-cookie");
@@ -128,9 +159,11 @@ export function setUpClassicPageAuthorityEnv() {
  * Awaits and renders the page, then asserts it was actually reached: no
  * redirect, AND every named landmark testid rendered. Checking only "no
  * redirect" passes vacuously for a page that renders nothing, so it cannot
- * distinguish "allowed and working" from "allowed and broken".
+ * distinguish "allowed and working" from "allowed and broken" — which is why
+ * the signature requires at least one landmark: with none, this would
+ * degenerate into exactly that vacuous absence-of-redirect check.
  */
-export async function assertReachesClassicPage(page: () => Promise<ReactElement>, ...landmarkTestIds: string[]) {
+export async function assertReachesClassicPage(page: () => Promise<ReactElement>, ...landmarkTestIds: [string, ...string[]]) {
   const result = await page();
   renderWithProviders(result);
 

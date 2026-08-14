@@ -61,4 +61,10 @@ describe("classic library page — chooseLibraryCodeOrArtist.jsp entry point", (
 
     await assertDeniedClassicPage(LibraryPage);
   });
+
+  it("bounces an unauthenticated visitor to login, not to the dashboard home", async () => {
+    setUpClassicPageAuthority("unauthenticated");
+
+    await assertDeniedClassicPage(LibraryPage, "/login?bounced=no-session");
+  });
 });

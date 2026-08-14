@@ -145,10 +145,9 @@ describeConversion("convertToSong", convertToSong, [
 `tests/helpers/classic-page-authority-harness.ts` covers the
 `requireAuth()` -> `requireRole()` gate that every page under
 `app/dashboard/@classic/**` runs in front of its screen-specific content.
-Import it directly (not through the `@/tests/helpers` barrel) since its
-mock-shape functions must be pulled into `vi.mock` factories by path:
+The dynamic imports inside the `vi.mock` factories must name the harness by path — factories cannot close over statically-imported bindings. The top-level static import of the setUp/assert functions is ordinary; it targets the harness module directly because the `@/tests/helpers` barrel does not re-export it.
 
-```typescript
+```tsx
 import {
   setUpClassicPageAuthority,
   setUpClassicPageAuthorityEnv,
@@ -198,8 +197,8 @@ describe("Classic /dashboard/library/missing page", () => {
 ```
 
 - **`setUpClassicPageAuthorityEnv()`** -- registers the `beforeEach`/`afterEach` that reset the mocks and pin `NEXT_PUBLIC_DASHBOARD_HOME_PAGE` so redirect assertions are deterministic. Call once per `describe` block.
-- **`setUpClassicPageAuthority(role, adminPluginRole?)`** -- arranges the session/org-role mocks for one scenario. `role` is the WXYC tier the org-role resolver returns (`"dj" | "musicDirector" | "stationManager" | undefined`); `adminPluginRole` models a WXYC tier string leaking into the unrelated better-auth admin-plugin session column, which must never grant access on its own.
-- **`assertReachesClassicPage(page, ...landmarkTestIds)`** -- awaits and renders the page, then asserts no redirect happened AND every named landmark testid is in the document. Checking only "no redirect" passes vacuously for a page that renders nothing, so it can't distinguish "allowed and working" from "allowed and broken" -- always pass at least the page's own screen-specific landmark.
+- **`setUpClassicPageAuthority(role, adminPluginRole?)`** -- arranges the session/org-role mocks for one scenario. `role` is the WXYC tier the org-role resolver returns (`"dj" | "musicDirector" | "stationManager" | "unauthenticated" | undefined`). `undefined` is a valid session with no station role -- `requireRole` denies it to the dashboard home; `"unauthenticated"` is no session at all -- `requireAuth` denies it to `/login?bounced=no-session` before role resolution runs. `adminPluginRole` models a WXYC tier string leaking into the unrelated better-auth admin-plugin session column, which must never grant access on its own.
+- **`assertReachesClassicPage(page, ...landmarkTestIds)`** -- awaits and renders the page, then asserts no redirect happened AND every named landmark testid is in the document. Checking only "no redirect" passes vacuously for a page that renders nothing, so it can't distinguish "allowed and working" from "allowed and broken" -- the signature requires at least one landmark (the page's own screen-specific one) for exactly that reason.
 - **`assertDeniedClassicPage(page, destination?)`** -- asserts the page denies access by redirecting to `destination` (defaults to `/dashboard`).
 
 ### Auth Client Mock
