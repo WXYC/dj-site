@@ -34,7 +34,7 @@
     "@mui/system": "5.18.0",
     "@opennextjs/cloudflare": "^1.20.2",
     "@reduxjs/toolkit": "^2.12.0",
-    "@wxyc/shared": "^2.6.0",
+    "@wxyc/shared": "^3.5.0",
     "better-auth": "^1.6.26",
     "jwt-decode": "^4.0.0",
     "motion": "^12.42.2",
