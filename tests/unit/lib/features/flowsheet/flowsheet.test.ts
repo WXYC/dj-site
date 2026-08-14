@@ -1072,6 +1072,97 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
       expect(result.search.query.track_position).toBeUndefined();
     });
 
+    // The query carries two ids for the frozen release: album_id (what a
+    // submission writes) and legacy_release_id (what the track picker reads).
+    // They must move together in every reducer that touches either. Leaving a
+    // stale legacy id behind after album_id clears is the worst case — the
+    // picker goes on serving the previous release's tracklist against a query
+    // that no longer references it, and nothing errors.
+    describe("the query's two ids move in lockstep", () => {
+      const frozen = {
+        artist: "Juana Molina",
+        album: "DOGA",
+        label: "Sonamos",
+        artistProvided: true,
+        album_id: 1234,
+        legacy_release_id: 45342,
+      };
+
+      it("freezeSelectionToQuery sets both", () => {
+        const result = harness().reduce(
+          actions.freezeSelectionToQuery(frozen)
+        );
+        expect(result.search.query.album_id).toBe(1234);
+        expect(result.search.query.legacy_release_id).toBe(45342);
+      });
+
+      it.each([
+        [
+          "setRotationMode(false)",
+          () => harness().chain(
+            actions.freezeSelectionToQuery(frozen),
+            actions.setRotationMode(false)
+          ),
+        ],
+        [
+          "resetSearch",
+          () => harness().chain(
+            actions.freezeSelectionToQuery(frozen),
+            actions.resetSearch()
+          ),
+        ],
+        [
+          "a deviating edit to a supplied field",
+          () => harness().chain(
+            actions.freezeSelectionToQuery(frozen),
+            actions.setSearchProperty({
+              name: "artist",
+              value: "Someone Else",
+              deviates: true,
+            })
+          ),
+        ],
+      ])("%s clears both", (_name, run) => {
+        const result = run();
+        expect(result.search.query.album_id).toBeUndefined();
+        expect(result.search.query.legacy_release_id).toBeUndefined();
+      });
+
+      it("setRotationMetadata replaces both", () => {
+        const result = harness().chain(
+          actions.freezeSelectionToQuery(frozen),
+          actions.setRotationMetadata({
+            album_id: TEST_ENTITY_IDS.ALBUM.ROTATION_ALBUM,
+            legacy_release_id: TEST_ENTITY_IDS.LEGACY_RELEASE.ROTATION_ALBUM,
+            rotation_id: TEST_ENTITY_IDS.ROTATION.HEAVY,
+            rotation_bin: "H" as const,
+          })
+        );
+        expect(result.search.query.album_id).toBe(
+          TEST_ENTITY_IDS.ALBUM.ROTATION_ALBUM
+        );
+        expect(result.search.query.legacy_release_id).toBe(
+          TEST_ENTITY_IDS.LEGACY_RELEASE.ROTATION_ALBUM
+        );
+      });
+
+      it("carries a legacy id even when the write half withholds album_id", () => {
+        // A rotation release whose credit submission refuses has its album_id
+        // withheld so BS can't hand the credit back. That is a write-side
+        // decision and says nothing about which tracklist to show, so the read
+        // half must survive it — otherwise picking such a release silently
+        // loses the picker.
+        const result = harness().reduce(
+          actions.freezeSelectionToQuery({
+            ...frozen,
+            album_id: undefined,
+          })
+        );
+        expect(result.search.query.album_id).toBeUndefined();
+        expect(result.search.query.legacy_release_id).toBe(45342);
+      });
+    });
+
     it("should preserve rotation mode across resetSearch", () => {
       const result = harness().chain(
         actions.setRotationMode(true),

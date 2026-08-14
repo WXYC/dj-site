@@ -16,6 +16,9 @@ const authDir = path.join(__dirname, "../../.auth");
  *  2. Free-text fallback: DJ picks a release with no Discogs identity /
  *     empty tracklist → picker collapses to "type the song title above" →
  *     submission carries `track_title` but no `track_position`.
+ *  3. Id space: a card-catalog row, whose `library.id` and `legacy_release_id`
+ *     differ, shows its own tracklist rather than the unrelated release its
+ *     `library.id` resolves to in the other space.
  *
  * Mocks the LML proxy endpoints (`/proxy/library/search`,
  * `/proxy/library/:id/tracks`) and the flowsheet POST so the spec doesn't
@@ -231,6 +234,130 @@ test.describe("Flowsheet Track Picker", { tag: "@smoke" }, () => {
       artist_name: "Juana Molina",
       album_title: "DOGA",
     });
+  });
+
+  test("shows the catalog row's own tracklist, not the one its library.id resolves to", async ({
+    page,
+  }) => {
+    // The two sibling tests both source their release from the library-search
+    // proxy, where the row's `id` and its `legacy_release_id` happen to be the
+    // same number — so neither can tell the two id spaces apart. A card-catalog
+    // row is where they diverge, and where reading the wrong one returns a real
+    // but unrelated release's tracklist with a 200.
+    const LIBRARY_ID = 1234;
+    const LEGACY_RELEASE_ID = 45342;
+
+    // Suppress the library-search proxy so only the catalog row populates the
+    // list and lands at a known index.
+    await page.route("**/proxy/library/search**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ results: [], total: 0, query: null }),
+      });
+    });
+
+    await page.route(isCatalogSearch, async (route) => {
+      if (route.request().method() !== "GET") {
+        await route.fallback();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            id: LIBRARY_ID,
+            legacy_release_id: LEGACY_RELEASE_ID,
+            add_date: "2026-05-01T00:00:00.000Z",
+            album_title: "On Your Own Love Again",
+            artist_name: "Jessica Pratt",
+            code_letters: "PR",
+            code_artist_number: 3,
+            code_number: 1,
+            format_name: "Vinyl",
+            genre_name: "Rock",
+            label: "Drag City",
+            plays: 4,
+          },
+        ]),
+      });
+    });
+
+    // Both id spaces answer, with different tracklists. Stubbing only the
+    // correct one would let a wrong-space read fail as an unrouted request —
+    // which surfaces as a collapsed picker, not as the wrong answer it is.
+    await page.route(`**/proxy/library/${LIBRARY_ID}/tracks`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          library_id: LIBRARY_ID,
+          discogs_release_id: 111111,
+          source: "discogs",
+          tracks: [
+            {
+              position: "B2",
+              title: "WRONG RELEASE",
+              artist_credit: "Someone Else",
+              duration_ms: null,
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.route(
+      `**/proxy/library/${LEGACY_RELEASE_ID}/tracks`,
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            library_id: LEGACY_RELEASE_ID,
+            discogs_release_id: 222222,
+            source: "discogs",
+            tracks: [
+              {
+                position: "A1",
+                title: "Wrong Hand",
+                artist_credit: "Jessica Pratt",
+                duration_ms: 168000,
+              },
+            ],
+          }),
+        });
+      }
+    );
+
+    await flowsheet.songInput.click();
+    await flowsheet.artistInput.fill("Jessica Pratt");
+    await flowsheet.albumInput.fill("On Your Own Love Again");
+
+    // Located by content rather than by index: bin and rotation results are
+    // not mocked here, so a seeded row matching this artist would shift the
+    // positional index and silently click the wrong release.
+    const resultRow = page
+      .locator('[data-testid^="flowsheet-search-result-"]')
+      .filter({ hasText: "On Your Own Love Again" })
+      .first();
+    await expect(resultRow).toBeVisible({ timeout: 10_000 });
+    await resultRow.click();
+
+    const pickerTrigger = page.locator('[data-testid="track-picker-combobox"]');
+    await expect(pickerTrigger).toBeVisible({ timeout: 10_000 });
+    await pickerTrigger.click();
+    await expect(
+      page.locator('[data-testid="track-picker-panel"]')
+    ).toBeVisible();
+
+    // The release the DJ clicked, not the one its library.id collides with.
+    await expect(
+      page.locator('[data-testid="track-picker-option-0"]')
+    ).toContainText("Wrong Hand");
+    await expect(
+      page.locator('[data-testid="track-picker-panel"]')
+    ).not.toContainText("WRONG RELEASE");
   });
 
   test("falls back to free-text song input when the release has no tracklist", async ({

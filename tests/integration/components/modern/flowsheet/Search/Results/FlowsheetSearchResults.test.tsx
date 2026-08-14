@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, fireEvent } from "@testing-library/react";
-import { http, HttpResponse } from "msw";
 import FlowsheetSearchResults from "@/src/components/experiences/modern/flowsheet/Search/Results/FlowsheetSearchResults";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import {
   renderWithProviders,
   createTestAlbum,
   server,
-  TEST_BACKEND_URL,
+  libraryTracksHandler,
+  ONE_TRACK,
 } from "@/tests/helpers";
 import type { RootState } from "@/lib/store";
 
@@ -48,24 +48,8 @@ vi.mock("@/src/components/experiences/modern/flowsheet/Search/LibraryTrackPicker
   };
 });
 
-function mockLibraryTracksResponse(libraryId: number) {
-  server.use(
-    http.get(`${TEST_BACKEND_URL}/proxy/library/${libraryId}/tracks`, () =>
-      HttpResponse.json({
-        library_id: libraryId,
-        discogs_release_id: 42,
-        source: "discogs",
-        tracks: [
-          {
-            position: "A1",
-            title: "la paradoja",
-            artist_credit: "Juana Molina",
-            duration_ms: null,
-          },
-        ],
-      })
-    )
-  );
+function mockLibraryTracksResponse(legacyReleaseId: number) {
+  server.use(libraryTracksHandler(legacyReleaseId, ONE_TRACK));
 }
 
 function buildFlowsheetState(
@@ -254,9 +238,14 @@ describe("FlowsheetSearchResults", () => {
   // previously picked, otherwise a stale "A1" rides through on submit
   // pointing at an album the DJ no longer intends.
   it("clears track_position in Redux when the manual-entry button is clicked", async () => {
-    mockLibraryTracksResponse(1234);
+    // Stubbed on the legacy id, which is what the picker requests.
+    mockLibraryTracksResponse(45342);
     const linkedResult = [
-      createTestAlbum({ id: 1234, title: "Linked Library Row" }),
+      createTestAlbum({
+        id: 1234,
+        legacy_release_id: 45342,
+        title: "Linked Library Row",
+      }),
     ];
 
     const { store } = renderWithProviders(
@@ -287,6 +276,169 @@ describe("FlowsheetSearchResults", () => {
     fireEvent.click(await screen.findByTestId("library-track-picker-manual"));
 
     expect(store.getState().flowsheet.search.query.track_position).toBeUndefined();
+  });
+
+  // The picker read and the flowsheet write resolve in two different id
+  // spaces over the same row. Reading in the wrong one almost never misses —
+  // the spaces are nearly coextensive — so it returns a real but unrelated
+  // release's tracklist, presented as this release's, with a 200 and nothing
+  // in telemetry. These cases pin the read to the space the endpoint actually
+  // resolves in.
+  describe("id space the picker resolves in", () => {
+    // Two live handlers, one per id space, returning distinguishable
+    // tracklists. Asserting on WHICH tracklist arrives is what makes a
+    // wrong-space read visible; stubbing only the correct id would let a
+    // wrong-space read fail as an unstubbed request, which reads as a
+    // collapsed picker rather than a wrong answer.
+    const LIBRARY_ID = 1234;
+    const LEGACY_RELEASE_ID = 45342;
+
+    const stubBothSpaces = () => {
+      server.use(
+        libraryTracksHandler(LIBRARY_ID, [
+          {
+            position: "B2",
+            title: "WRONG RELEASE — resolved in the library.id space",
+            artist_credit: "Not This Artist",
+          },
+        ]),
+        libraryTracksHandler(LEGACY_RELEASE_ID, ONE_TRACK),
+      );
+    };
+
+    const highlightedRow = [
+      createTestAlbum({
+        id: LIBRARY_ID,
+        legacy_release_id: LEGACY_RELEASE_ID,
+        title: "Linked Library Row",
+      }),
+    ];
+
+    it("fetches the highlighted row's legacy_release_id, not its library.id", async () => {
+      stubBothSpaces();
+
+      renderWithProviders(
+        <FlowsheetSearchResults
+          binResults={highlightedRow}
+          catalogResults={[]}
+          rotationResults={[]}
+          lmlResults={[]}
+        />,
+        {
+          preloadedState: {
+            flowsheet: buildFlowsheetState(true, {
+              search: {
+                open: true,
+                query: flowsheetSlice.getInitialState().search.query,
+                selectedResult: 1,
+                confirmedArtist: "",
+                resetEpoch: 0,
+              },
+            }),
+          },
+        }
+      );
+
+      await screen.findByTestId("library-track-picker-manual");
+
+      const tracks =
+        libraryTrackPickerSpy.mock.calls.at(-1)?.[0]?.tracks ?? [];
+      expect(tracks).toHaveLength(1);
+      expect(tracks[0].title).toBe("la paradoja");
+    });
+
+    it("keeps resolving on the legacy id after a click clears the highlight", async () => {
+      // The dominant flow is click the release, then pick the track — and the
+      // click zeroes selectedResult, so there is no highlighted row left to
+      // read. The frozen query has to carry the legacy id itself; carrying
+      // only album_id would send the picker back into the library.id space
+      // for the whole post-click interaction.
+      stubBothSpaces();
+
+      const { store } = renderWithProviders(
+        <FlowsheetSearchResults
+          binResults={highlightedRow}
+          catalogResults={[]}
+          rotationResults={[]}
+          lmlResults={[]}
+        />,
+        {
+          preloadedState: {
+            flowsheet: buildFlowsheetState(true, {
+              search: {
+                open: true,
+                query: flowsheetSlice.getInitialState().search.query,
+                selectedResult: 0,
+                confirmedArtist: "",
+                resetEpoch: 0,
+              },
+            }),
+          },
+        }
+      );
+
+      store.dispatch(
+        flowsheetSlice.actions.freezeSelectionToQuery({
+          artist: "Juana Molina",
+          album: "DOGA",
+          label: "Sonamos",
+          artistProvided: true,
+          album_id: LIBRARY_ID,
+          legacy_release_id: LEGACY_RELEASE_ID,
+        })
+      );
+
+      await screen.findByTestId("library-track-picker-manual");
+
+      const tracks =
+        libraryTrackPickerSpy.mock.calls.at(-1)?.[0]?.tracks ?? [];
+      expect(tracks).toHaveLength(1);
+      expect(tracks[0].title).toBe("la paradoja");
+    });
+
+    it("offers no picker for a row with a library link but no legacy id", async () => {
+      // Backend's column is NOT NULL, so this is an emitter that predates the
+      // field, not routine data. It must collapse to free text rather than
+      // fall back to the library.id space.
+      stubBothSpaces();
+
+      renderWithProviders(
+        <FlowsheetSearchResults
+          binResults={[
+            createTestAlbum({
+              id: LIBRARY_ID,
+              legacy_release_id: null,
+              title: "No Legacy Id",
+            }),
+          ]}
+          catalogResults={[]}
+          rotationResults={[]}
+          lmlResults={[]}
+        />,
+        {
+          preloadedState: {
+            flowsheet: buildFlowsheetState(true, {
+              search: {
+                open: true,
+                query: flowsheetSlice.getInitialState().search.query,
+                selectedResult: 1,
+                confirmedArtist: "",
+                resetEpoch: 0,
+              },
+            }),
+          },
+        }
+      );
+
+      // The picker ROW still renders — the row is library-linked, so a track
+      // is still offerable as free text — but the dropdown never populates.
+      expect(
+        screen.getByTestId("flowsheet-search-track-picker-row")
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByTestId("library-track-picker-manual")
+      ).not.toBeInTheDocument();
+    });
   });
 
   it("should calculate correct offsets for results", () => {

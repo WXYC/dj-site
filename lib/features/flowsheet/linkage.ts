@@ -8,6 +8,11 @@
  * catalog/conversions) and are rejected by endpoints that validate a
  * positive-integer id boundary. Callers gate the linked-album submission
  * shape on this — previously five files re-derived the check locally.
+ *
+ * Read-path callers pass a `legacy_release_id` rather than an `album_id`. The
+ * question is the same one — is this a real server-issued id — and the answer
+ * does not depend on which space the id is in, which is why the parameter is
+ * deliberately not typed to either.
  */
 export function hasLinkedAlbumId(
   albumId: number | null | undefined

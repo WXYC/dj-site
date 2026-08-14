@@ -66,6 +66,7 @@ export const defaultFlowsheetFrontendState: FlowsheetFrontendState = {
       request: false,
       segue: undefined,
       album_id: undefined,
+      legacy_release_id: undefined,
       rotation_bin: undefined,
       rotation_id: undefined,
       track_position: undefined,
@@ -90,6 +91,7 @@ export const flowsheetSlice = createAppSlice({
       state.rotationMode = action.payload;
       if (!action.payload) {
         state.search.query.album_id = undefined;
+        state.search.query.legacy_release_id = undefined;
         state.search.query.rotation_id = undefined;
         state.search.query.rotation_bin = undefined;
         state.search.query.track_position = undefined;
@@ -97,9 +99,15 @@ export const flowsheetSlice = createAppSlice({
     },
     setRotationMetadata: (
       state,
-      action: PayloadAction<{ album_id?: number; rotation_id?: number; rotation_bin?: Rotation }>
+      action: PayloadAction<{
+        album_id?: number;
+        legacy_release_id?: number;
+        rotation_id?: number;
+        rotation_bin?: Rotation;
+      }>
     ) => {
       state.search.query.album_id = action.payload.album_id;
+      state.search.query.legacy_release_id = action.payload.legacy_release_id;
       state.search.query.rotation_id = action.payload.rotation_id;
       state.search.query.rotation_bin = action.payload.rotation_bin;
       // track_position references a release_track row on the previous
@@ -154,6 +162,10 @@ export const flowsheetSlice = createAppSlice({
         // album row (see the file-header invariant), so they survive a
         // deviation — only the album-scoped fields drop.
         state.search.query.album_id = undefined;
+        // Cleared with album_id, not after it: a legacy id left behind keeps
+        // the picker serving the previous release's tracklist against a query
+        // that no longer references that release.
+        state.search.query.legacy_release_id = undefined;
         state.search.query.track_position = undefined;
         state.search.selectionProvided = undefined;
       }
@@ -184,6 +196,10 @@ export const flowsheetSlice = createAppSlice({
         // to prevent.
         artistProvided: boolean;
         album_id?: number;
+        // Decided independently of album_id: a caller may withhold the write
+        // linkage while the release's tracklist is still the right one to
+        // show. See RotationEntryFields' withheld-credit case.
+        legacy_release_id?: number;
         rotation_id?: number;
         rotation_bin?: Rotation;
       }>
@@ -192,6 +208,7 @@ export const flowsheetSlice = createAppSlice({
       state.search.query.album = action.payload.album;
       state.search.query.label = action.payload.label;
       state.search.query.album_id = action.payload.album_id;
+      state.search.query.legacy_release_id = action.payload.legacy_release_id;
       state.search.query.rotation_id = action.payload.rotation_id;
       state.search.query.rotation_bin = action.payload.rotation_bin;
       state.search.query.track_position = undefined;

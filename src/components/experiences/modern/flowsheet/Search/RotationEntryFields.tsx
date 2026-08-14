@@ -72,6 +72,7 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
       dispatch(
         flowsheetSlice.actions.setRotationMetadata({
           album_id: undefined,
+          legacy_release_id: undefined,
           rotation_id: undefined,
           rotation_bin: bin,
         })
@@ -99,6 +100,11 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
           // field below. Classic makes the same trade by switching
           // submission variants.
           album_id: releaseCannotSupplyArtist(release) ? undefined : (release.id ?? undefined),
+          // NOT subject to the withholding above: that trade is about which
+          // artist_name BS hands back on a write, and says nothing about which
+          // release's tracklist to show. Gating this on it would drop the
+          // picker for exactly the releases whose credit is refused.
+          legacy_release_id: release.legacy_release_id ?? undefined,
           rotation_id: release.rotation_id,
           rotation_bin: release.rotation_bin,
         })

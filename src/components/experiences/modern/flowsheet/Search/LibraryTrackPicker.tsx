@@ -12,19 +12,23 @@ type PickerTrack = LibraryTrack & TrackPickerEntry;
 /**
  * Hook that resolves the picker state for a given library release.
  *
+ * Takes a **`legacy_release_id`**, not a `library.id` — see the id-space note
+ * on the `getLibraryTracks` endpoint. `null` means no release is resolved and
+ * the query is skipped.
+ *
  * `picker.show` is the parent's render gate: true means render
  * `<LibraryTrackPicker>` in place of the free-text song input, false means
  * leave the free-text input alone. The picker collapses back to free-text on
- * three signals — no release selected, query still in flight, and a release
+ * three signals — no release resolved, query still in flight, and a release
  * with no Discogs-resolvable tracklist (`source: null` or `tracks: []`).
  */
-export function useLibraryTrackPicker(albumId: number | null) {
-  const { data, isLoading } = useGetLibraryTracksQuery(albumId ?? 0, {
-    skip: albumId === null,
+export function useLibraryTrackPicker(legacyReleaseId: number | null) {
+  const { data, isLoading } = useGetLibraryTracksQuery(legacyReleaseId ?? 0, {
+    skip: legacyReleaseId === null,
   });
 
   return useMemo(() => {
-    if (albumId === null) {
+    if (legacyReleaseId === null) {
       return { show: false, isLoading: false, tracks: [] as PickerTrack[] };
     }
     if (isLoading) {
@@ -35,7 +39,7 @@ export function useLibraryTrackPicker(albumId: number | null) {
       artists: t.artist_credit ? [t.artist_credit] : [],
     }));
     return { show: tracks.length > 0, isLoading: false, tracks };
-  }, [albumId, isLoading, data?.tracks]);
+  }, [legacyReleaseId, isLoading, data?.tracks]);
 }
 
 /**
