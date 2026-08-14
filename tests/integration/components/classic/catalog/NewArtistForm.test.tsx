@@ -11,8 +11,14 @@ vi.mock("@/lib/features/authentication/client", () => ({
 import NewArtistForm from "@/src/components/experiences/classic/catalog/NewArtistForm";
 
 const GENRE_ID = 3;
+const JAZZ_GENRE_ID = 7;
 
-function mockGenres(genres: { id: number; genre_name: string }[] = [{ id: GENRE_ID, genre_name: "Blues" }]) {
+function mockGenres(
+  genres: { id: number; genre_name: string }[] = [
+    { id: GENRE_ID, genre_name: "Blues" },
+    { id: JAZZ_GENRE_ID, genre_name: "Jazz" },
+  ],
+) {
   server.use(http.get(`${TEST_BACKEND_URL}/library/genres`, () => HttpResponse.json(genres)));
 }
 
@@ -21,6 +27,16 @@ function mockPeekCode(next_code_number = 7) {
     http.get(`${TEST_BACKEND_URL}/library/artists/peek-code`, () =>
       HttpResponse.json({ next_code_number }),
     ),
+  );
+}
+
+/** Answers per genre_id, so a genre switch is distinguishable in the preview. */
+function mockPeekCodeByGenre(answers: Record<number, number>) {
+  server.use(
+    http.get(`${TEST_BACKEND_URL}/library/artists/peek-code`, ({ request }) => {
+      const genreId = Number(new URL(request.url).searchParams.get("genre_id"));
+      return HttpResponse.json({ next_code_number: answers[genreId] ?? 0 });
+    }),
   );
 }
 
@@ -129,6 +145,21 @@ describe("classic NewArtistForm — chooseLibraryCodeOrArtist.jsp's newArtistFor
     await user.type(screen.getByLabelText(/call letters/i), "MO");
 
     expect(await screen.findByText(/next code:\s*7/i)).toBeInTheDocument();
+  });
+
+  it("does not keep the previous genre's preview number standing across a genre change", async () => {
+    mockPeekCodeByGenre({ [GENRE_ID]: 7, [JAZZ_GENRE_ID]: 3 });
+    const { user } = renderWithProviders(<NewArtistForm />);
+
+    await selectGenre(user, "Blues");
+    await user.type(screen.getByLabelText(/call letters/i), "MO");
+    expect(await screen.findByText(/next code:\s*7/i)).toBeInTheDocument();
+
+    // Switching genres alone (letters untouched) must invalidate the stale
+    // preview rather than keep showing Blues' number under Jazz.
+    await selectGenre(user, "Jazz");
+    expect(screen.queryByText(/next code:\s*7/i)).not.toBeInTheDocument();
+    expect(await screen.findByText(/next code:\s*3/i)).toBeInTheDocument();
   });
 
   it("confirms the assigned code from the server response after submit", async () => {
