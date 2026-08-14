@@ -176,6 +176,87 @@ describe("classic NewArtistForm — chooseLibraryCodeOrArtist.jsp's newArtistFor
     expect(await screen.findByText(/Added as MO12/i)).toBeInTheDocument();
   });
 
+  it("shows the code-conflict message on a 409 naming the artist_code_conflict reason", async () => {
+    mockAddArtist(() =>
+      HttpResponse.json(
+        {
+          message: "Artist code already exists for that genre and code letters.",
+          reason: "artist_code_conflict",
+          artist: { artist_id: 1, artist_name: "Stereolab", code_letters: "MO" },
+        },
+        { status: 409 },
+      ),
+    );
+    const { user } = renderWithProviders(<NewArtistForm />);
+
+    await selectGenre(user);
+    await user.type(screen.getByLabelText(/artist presentation name/i), "Juana Molina");
+    await user.type(screen.getByLabelText(/artist alphabetical name/i), "Molina, Juana");
+    await user.type(screen.getByLabelText(/call letters/i), "MO");
+    await user.type(screen.getByLabelText(/call numbers/i), "12");
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(
+      await screen.findByText("Stereolab already holds that library code."),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a distinct name-conflict message, steering to the existing artist rather than the code, on a 409 naming the artist_name_conflict reason", async () => {
+    mockAddArtist(() =>
+      HttpResponse.json(
+        {
+          message: "Artist name already exists in that genre.",
+          reason: "artist_name_conflict",
+          artist: { artist_id: 2, artist_name: "Juana Molina", code_letters: "MO" },
+        },
+        { status: 409 },
+      ),
+    );
+    const { user } = renderWithProviders(<NewArtistForm />);
+
+    await selectGenre(user);
+    await user.type(screen.getByLabelText(/artist presentation name/i), "Juana Molina");
+    await user.type(screen.getByLabelText(/artist alphabetical name/i), "Molina, Juana");
+    await user.type(screen.getByLabelText(/call letters/i), "MO");
+    await user.type(screen.getByLabelText(/call numbers/i), "12");
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(
+      await screen.findByText(
+        "Juana Molina already exists in this genre. File under the existing artist instead of picking a different code.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/already holds that library code/i)).not.toBeInTheDocument();
+  });
+
+  it("falls back without crashing on a 409 body with no artist", async () => {
+    mockAddArtist(() => HttpResponse.json({ message: "Conflict" }, { status: 409 }));
+    const { user } = renderWithProviders(<NewArtistForm />);
+
+    await selectGenre(user);
+    await user.type(screen.getByLabelText(/artist presentation name/i), "Juana Molina");
+    await user.type(screen.getByLabelText(/artist alphabetical name/i), "Molina, Juana");
+    await user.type(screen.getByLabelText(/call letters/i), "MO");
+    await user.type(screen.getByLabelText(/call numbers/i), "12");
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(await screen.findByText("Failed to add artist.")).toBeInTheDocument();
+  });
+
+  it("shows the generic fallback message on a 5xx", async () => {
+    mockAddArtist(() => HttpResponse.json({ message: "Internal error" }, { status: 500 }));
+    const { user } = renderWithProviders(<NewArtistForm />);
+
+    await selectGenre(user);
+    await user.type(screen.getByLabelText(/artist presentation name/i), "Juana Molina");
+    await user.type(screen.getByLabelText(/artist alphabetical name/i), "Molina, Juana");
+    await user.type(screen.getByLabelText(/call letters/i), "MO");
+    await user.type(screen.getByLabelText(/call numbers/i), "12");
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(await screen.findByText("Failed to add artist.")).toBeInTheDocument();
+  });
+
   it("resets every field back to empty on Reset values", async () => {
     const { user } = renderWithProviders(<NewArtistForm />);
 

@@ -17,7 +17,8 @@ export type ArtistSearchFormValues = {
 export type ArtistSearchValidationField =
   | "callLetterMode"
   | "artistLettersTextbox"
-  | "rockCompLetters";
+  | "rockCompLetters"
+  | "genreId";
 
 export type ValidationResult<Field extends string> =
   | { valid: true }
@@ -48,6 +49,18 @@ export function validateArtistSearchForm(
   }
 
   if (values.callLetterMode === "compilation") {
+    // The JSP's <select name="genreID"> has no empty option, so a genre is
+    // always selected by the time this rule runs there — a null genreId is a
+    // state the JSP itself can never produce. Treating it as "not Rock or
+    // Soundtracks" would silently skip the sub-bucket-letter rule below for a
+    // genre that is, in fact, unknown rather than confirmed clear.
+    if (values.genreId === null) {
+      return {
+        valid: false,
+        field: "genreId",
+        message: "You must select a genre.",
+      };
+    }
     if (values.genreId === 11 && values.rockCompLetters.trim() === "") {
       return {
         valid: false,

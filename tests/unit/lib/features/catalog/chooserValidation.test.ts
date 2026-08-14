@@ -65,6 +65,21 @@ describe("validateArtistSearchForm", () => {
     ).toEqual({ valid: true });
   });
 
+  it("requires a genre in compilation mode — a state the JSP's always-selected <select> can never produce, so it must not silently pass the sub-bucket rule", () => {
+    expect(
+      validateArtistSearchForm({
+        callLetterMode: "compilation",
+        artistLettersTextbox: "",
+        rockCompLetters: "",
+        genreId: null,
+      }),
+    ).toEqual({
+      valid: false,
+      field: "genreId",
+      message: "You must select a genre.",
+    });
+  });
+
   it("requires the rockCompLetters sub-bucket letter for genreID 11 (Rock)", () => {
     expect(
       validateArtistSearchForm({

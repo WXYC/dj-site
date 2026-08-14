@@ -9,6 +9,7 @@ import {
 import { validateNewArtistNames } from "@/lib/features/catalog/chooserValidation";
 import {
   isAddArtistConflict,
+  isArtistNameConflictData,
   parseRequiredPositiveInt,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
 import type { AddArtistRequestBody, PeekArtistCodeQuery } from "@/lib/features/catalog/types";
@@ -139,9 +140,20 @@ export default function NewArtistForm() {
       });
       resetFields();
     } catch (err) {
+      // The 409 this endpoint sends has two distinct causes that call for
+      // different remedies: a taken (code_letters, genre_id, code_number)
+      // triple is fixed by picking a different code, but a genre-scoped
+      // artist-name match means the artist already exists — no code choice
+      // fixes that, the remedy is to file under the existing artist.
+      // `isArtistNameConflictData` is the discriminant. A 409 this form
+      // cannot name an artist from (no `artist` in the body) falls through
+      // `isAddArtistConflict` to the generic fallback below instead of
+      // dereferencing a field that may not be there.
       if (isAddArtistConflict(err)) {
         setValidationMessage(
-          `${err.data.artist.artist_name} already holds that library code.`,
+          isArtistNameConflictData(err.data)
+            ? `${err.data.artist.artist_name} already exists in this genre. File under the existing artist instead of picking a different code.`
+            : `${err.data.artist.artist_name} already holds that library code.`,
         );
       } else {
         setValidationMessage("Failed to add artist.");
