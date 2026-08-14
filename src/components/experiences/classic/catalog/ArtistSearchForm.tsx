@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useGetGenresQuery } from "@/lib/features/catalog/api";
 import {
   isRockCompLettersRequired,
@@ -40,6 +40,19 @@ export default function ArtistSearchForm() {
   const showRockCompLetters =
     callLetterMode === "compilation" && isRockCompLettersRequired(genreId);
 
+  // The JSP's <select name="genreID"> carries no empty option, so the browser
+  // selects the first <option> the moment the page loads — a genre is always
+  // chosen, never absent. This form's genre list is fetched client-side, so
+  // there is a real gap between mount and that data arriving; defaulting to
+  // the first genre as soon as it does reproduces the JSP's "always
+  // selected" invariant instead of leaving a JSP-impossible unselected state
+  // standing indefinitely.
+  useEffect(() => {
+    if (genreId === null && genres && genres.length > 0) {
+      setGenreId(genres[0].id);
+    }
+  }, [genres, genreId]);
+
   const reset = () => {
     setCallLetterMode(null);
     setArtistLettersTextbox("");
@@ -47,6 +60,10 @@ export default function ArtistSearchForm() {
     setRockCompLetters("");
     setValidationMessage(null);
     setDeferredNote(false);
+    // A native <input type=reset> restores a <select> to its default option
+    // along with the rest of the form; mirror that instead of leaving the
+    // genre standing at whatever the librarian last picked.
+    setGenreId(genres && genres.length > 0 ? genres[0].id : null);
   };
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -88,11 +105,13 @@ export default function ArtistSearchForm() {
               <select
                 id={genreFieldId}
                 value={genreId ?? ""}
+                // No JSP-absent empty option once genres have loaded — see
+                // the defaulting effect above. Disabled (with nothing to
+                // select) is this list's own pre-load state, not a stand-in
+                // for the JSP's empty option.
+                disabled={!genres || genres.length === 0}
                 onChange={(e) => setGenreId(e.target.value ? Number(e.target.value) : null)}
               >
-                <option value="" disabled>
-                  Select genre...
-                </option>
                 {(genres ?? []).map((genre) => (
                   <option key={genre.id} value={genre.id}>
                     {genre.genre_name}

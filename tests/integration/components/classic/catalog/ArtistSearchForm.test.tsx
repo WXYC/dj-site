@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 
@@ -56,6 +56,20 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
     await selectGenre(user, "Rock");
     await user.click(screen.getByRole("radio", { name: /various artists/i }));
     expect(screen.getByText(/\(rock comps require a call letter\)/i)).toBeInTheDocument();
+  });
+
+  it("disables the genre select until genres load, then defaults it to the first genre with no placeholder option", async () => {
+    renderWithProviders(<ArtistSearchForm />);
+
+    expect(screen.getByLabelText(/^genre/i)).toBeDisabled();
+
+    await screen.findByRole("option", { name: "Blues" });
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(/^genre/i)).toHaveValue(String(BLUES_GENRE_ID)),
+    );
+    expect(screen.getByLabelText(/^genre/i)).toBeEnabled();
+    expect(screen.queryByRole("option", { name: /select genre/i })).not.toBeInTheDocument();
   });
 
   it("disables the letters/numbers textboxes until the textbox radio is chosen", async () => {
@@ -155,9 +169,10 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
     ).toBeInTheDocument();
   });
 
-  it("resets the mode and fields on Reset values", async () => {
+  it("resets the mode and fields, including the genre back to its default, on Reset values", async () => {
     const { user } = renderWithProviders(<ArtistSearchForm />);
 
+    await selectGenre(user, "Rock");
     await user.click(screen.getByRole("radio", { name: /call letters:/i }));
     await user.type(screen.getByLabelText("Call letters:"), "MO");
     await user.type(screen.getByLabelText(/call numbers:/i), "12");
@@ -167,5 +182,8 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
     expect(screen.getByRole("radio", { name: /call letters:/i })).not.toBeChecked();
     expect(screen.getByLabelText("Call letters:")).toHaveValue("");
     expect(screen.getByLabelText(/call numbers:/i)).toHaveValue("");
+    // A native <input type=reset> restores a <select> to its default option
+    // along with everything else — Rock must not survive the reset.
+    expect(screen.getByLabelText(/^genre/i)).toHaveValue(String(BLUES_GENRE_ID));
   });
 });
