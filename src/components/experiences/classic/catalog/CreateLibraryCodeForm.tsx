@@ -1,7 +1,6 @@
 "use client";
 
-import { useId } from "react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAddArtistMutation, useGetGenresQuery } from "@/lib/features/catalog/api";
 import { validateNewArtistNames } from "@/lib/features/catalog/chooserValidation";
@@ -21,6 +20,16 @@ type CreateLibraryCodeFormProps = {
 
 const INTERIM_SUCCESS_DESTINATION = "/dashboard/library";
 
+// The heading is the servlet's message, and it has two forms
+// (`ArtistAdminServlet:152-155`): a Various Artists code -- call letters
+// prefixed `Z-`, which is what the chooser's compilation mode builds -- gets
+// the shorter wording, because for those the librarian is filing a shelf
+// bucket rather than associating a named artist.
+const VARIOUS_ARTISTS_HEADING =
+  "This 'Various Artists' library code does not currently exist in the database. To create it, click 'Add!'";
+const ARTIST_HEADING =
+  "This library code does not currently exist in the database. To create it, you need to associate it with an artist (new or existing) and click 'Add!'.";
+
 /**
  * Reproduces `createLibraryCode.jsp`: the miss branch of
  * `findOrCreateLibraryCode` (`ArtistAdminServlet:161`) -- genre, letters, and
@@ -28,15 +37,21 @@ const INTERIM_SUCCESS_DESTINATION = "/dashboard/library";
  * two name fields are editable, matching the JSP's field order, labels, and
  * "Add!"/"Reset" button labels.
  *
- * Divergences from the JSP, both forced and both enumerated in the PR:
+ * Deliberate divergences from the JSP:
  * - The dead `Z_` V/A auto-naming branch (`:26`, testing an underscore the
  *   servlet's own prefix `Z-` never produces) is not reproduced -- see
- *   NewArtistForm's header for the same call.
+ *   NewArtistForm's header for the same call. The servlet's *live* V/A
+ *   handling is reproduced: `Z-` letters get their own heading.
+ * - The servlet forwards no `artistNumbers` on its V/A branch and
+ *   `processAddArtistLibraryCode` skips call numbers for `Z-` entirely, so
+ *   `/wxycdb` files V/A codes with no number at all. `POST /library/artists`
+ *   requires `code_number`, so a V/A code is filed here with the number it
+ *   carried -- and a V/A link that carries none is refused rather than filed
+ *   incomplete.
  * - The JSP's successful submit lands on the artist card
- *   (`goToArtistModifyCard`). That page doesn't exist yet (WXYC/dj-site#1166
- *   is deploy-gated), so this interim build lands where the chooser's own
- *   create path already lands today -- `/dashboard/library` -- and will move
- *   to the card once 1166 ships.
+ *   (`goToArtistModifyCard`), which does not exist here yet, so this interim
+ *   build lands where the chooser's own create path already lands today --
+ *   `/dashboard/library` -- and moves to the card once that screen ships.
  *
  * Genre display follows `isGenresUnavailable`'s convention: an unissued or
  * failed genres request renders an explicit unavailable state, never a blank
@@ -68,9 +83,36 @@ export default function CreateLibraryCodeForm({
   const genreId = parseRequiredPositiveInt(genreIdRaw);
   const codeNumber = parseRequiredPositiveInt(codeNumberRaw);
   const upperCodeLetters = codeLetters.trim().toUpperCase();
-  const codeIncomplete = genreId == null || upperCodeLetters === "" || codeNumber == null;
+  const heading = upperCodeLetters.startsWith("Z-") ? VARIOUS_ARTISTS_HEADING : ARTIST_HEADING;
+
+  // Which part of the carried code is unusable, so the refusal can name it.
+  // The rows below display these values verbatim like the JSP does, so a
+  // message that says "missing" about a value the librarian is looking at
+  // reads as a broken screen rather than a malformed link.
+  const codeProblem =
+    genreId == null
+      ? genreIdRaw.trim() === ""
+        ? "This link carries no genre."
+        : `This link's genre (${genreIdRaw}) is not a genre id.`
+      : upperCodeLetters === ""
+        ? "This link carries no call letters."
+        : codeNumber == null
+          ? codeNumberRaw.trim() === ""
+            ? "This link carries no call number."
+            : `This link's call number (${codeNumberRaw}) is not a whole number above zero.`
+          : null;
 
   const genreName = genres?.find((genre) => genre.id === genreId)?.genre_name;
+  // Absent from a list that did load: the id is real enough to parse but names
+  // no genre this client knows about. Distinct from the outage and from a
+  // missing param -- filing anyway would put the release under a genre the
+  // librarian was never shown, and library codes carry no unique constraint
+  // to catch it afterwards.
+  // Only meaningful once the id itself parsed: a malformed link is a
+  // different refusal, and it keeps Add! enabled so the click produces the
+  // message naming what is wrong rather than a mute disabled button.
+  const genreUnresolved =
+    genreId != null && !genresUnavailable && genres != null && genreName == null;
 
   const resetFields = () => {
     setPresentationName("");
@@ -81,10 +123,8 @@ export default function CreateLibraryCodeForm({
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (codeIncomplete) {
-      setValidationMessage(
-        "This link is missing genre, call letters, or call number information.",
-      );
+    if (codeProblem != null) {
+      setValidationMessage(codeProblem);
       return;
     }
 
@@ -98,8 +138,11 @@ export default function CreateLibraryCodeForm({
     // already carries a valid id from the URL, but the outage banner is the
     // one place that announces the backend is down, and a submit that
     // slipped past it would file silently against a genre the librarian
-    // cannot currently be shown the name of.
-    if (genresUnavailable) {
+    // cannot currently be shown the name of. Clearing first keeps a message
+    // from an earlier attempt from standing beside fields that have since
+    // been corrected.
+    if (genresUnavailable || genreUnresolved) {
+      setValidationMessage(null);
       return;
     }
 
@@ -136,13 +179,10 @@ export default function CreateLibraryCodeForm({
   return (
     <div data-testid="create-library-code-form">
       <div style={{ textAlign: "center" }}>
-        <h3>
-          This library code does not currently exist in the database. To create it, you need to
-          associate it with an artist (new or existing) and click &apos;Add!&apos;.
-        </h3>
+        <h3>{heading}</h3>
       </div>
       <form name="newArtistForm" onSubmit={handleSubmit}>
-        <table cellPadding={5}>
+        <table cellPadding={5} style={{ margin: "0 auto" }}>
           <tbody>
             <tr>
               <td />
@@ -166,8 +206,21 @@ export default function CreateLibraryCodeForm({
                       Try again
                     </button>
                   </span>
+                ) : genreUnresolved ? (
+                  <span role="alert" className="artist-error-message">
+                    No genre in the catalog has id {genreIdRaw}, so this code can&apos;t be filed.
+                  </span>
+                ) : genreName != null ? (
+                  genreName
+                ) : genreId == null ? (
+                  // The link never carried a usable genre; submitting says so
+                  // precisely, so the row just shows what did arrive.
+                  genreIdRaw.trim() || "—"
                 ) : (
-                  (genreName ?? "—")
+                  // Still in flight. Naming the pending state keeps it from
+                  // reading as "this code has no genre", which is a different
+                  // screen with a different outcome.
+                  <span>Loading…</span>
                 )}
               </td>
             </tr>
@@ -231,7 +284,14 @@ export default function CreateLibraryCodeForm({
             <tr>
               <td />
               <td>
-                <input type="submit" value="Add!" disabled={isLoading} />
+                {/* Disabled while the code can't be filed, so the button
+                    never absorbs a click without saying anything -- the
+                    banner beside Genre is the explanation in both cases. */}
+                <input
+                  type="submit"
+                  value="Add!"
+                  disabled={isLoading || genresUnavailable || genreUnresolved}
+                />
                 <input type="reset" value="Reset" onClick={resetFields} disabled={isLoading} />
               </td>
             </tr>
