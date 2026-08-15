@@ -175,6 +175,22 @@ describe("mergeAlbumIntoSearchResult", () => {
     expect(merged.legacy_release_id).toBe(existing.legacy_release_id);
   });
 
+  it("learns a legacy id the cached row is missing", () => {
+    // Both rows are the same library row — the caller finds `existing` by
+    // `updated.id` — so taking the legacy id from the response cannot mix
+    // spaces. Pinning it unconditionally would discard a value the cached row
+    // never had, and every consequence of that is silent: the row's tracklist
+    // read resolves nothing and the picker stays collapsed for as long as the
+    // cache entry lives.
+    const existing = createTestAlbum({ id: 42, legacy_release_id: null });
+    const updated = createTestAlbum({ id: 42, legacy_release_id: 45042 });
+
+    const merged = mergeAlbumIntoSearchResult(existing, updated);
+
+    expect(merged.id).toBe(42);
+    expect(merged.legacy_release_id).toBe(45042);
+  });
+
   it("keeps the id pair coherent on the rotation-only patch branch", () => {
     // The rotation-only branch spreads `existing` wholesale and overrides just
     // the two rotation fields, so both ids ride along from one row. Pinned so a
