@@ -100,10 +100,13 @@ export default function RotationEntryFields({ disabled }: { disabled: boolean })
           // field below. Classic makes the same trade by switching
           // submission variants.
           album_id: releaseCannotSupplyArtist(release) ? undefined : (release.id ?? undefined),
-          // NOT subject to the withholding above: that trade is about which
-          // artist_name BS hands back on a write, and says nothing about which
-          // release's tracklist to show. Gating this on it would drop the
-          // picker for exactly the releases whose credit is refused.
+          // Assigned unconditionally, and not subject to the withholding
+          // above. The reducer overwrites the query's album linkage wholesale,
+          // so omitting this would leave the PREVIOUS selection's legacy id
+          // standing beside this selection's album_id — the one way the pair
+          // can come to describe two different releases. The withholding is
+          // about which artist_name BS hands back on a write and has no
+          // bearing on which release this row is.
           legacy_release_id: release.legacy_release_id ?? undefined,
           rotation_id: release.rotation_id,
           rotation_bin: release.rotation_bin,
