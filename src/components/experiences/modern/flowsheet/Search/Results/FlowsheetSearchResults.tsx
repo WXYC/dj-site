@@ -62,20 +62,27 @@ export default function FlowsheetSearchResults({
     searchQuery.artist || searchQuery.song || searchQuery.album || searchQuery.label
   );
 
-  // Two ids, two questions, two id spaces.
-  //
+  // Two ids, two questions, two id spaces — but one row answers both. A
+  // highlighted row answers them itself, INCLUDING by answering "no"; only
+  // when there is no highlight at all does the frozen query answer. Resolving
+  // each id independently would let one side reach past the highlighted row
+  // into a frozen release that outlived the highlight which set it, and a
+  // picker straddling two releases hands the flowsheet one release's track
+  // position paired with the other's album_id — a write the submission
+  // boundary has no way to recognize as wrong.
+  const idSource = highlightedResult ?? {
+    id: searchQuery.album_id ?? null,
+    legacy_release_id: searchQuery.legacy_release_id ?? null,
+  };
+
   // READ — which release's tracklist to fetch. The tracklist endpoint resolves
   // its path param against `library.legacy_release_id`, so this side must
   // resolve there too. Post-click there is no highlight left to read from (the
   // dominant flow is click the release, then pick the track), so the frozen
   // query has to carry the legacy id itself.
-  const tracklistReleaseId = hasLinkedAlbumId(
-    highlightedResult?.legacy_release_id
-  )
-    ? highlightedResult.legacy_release_id
-    : hasLinkedAlbumId(searchQuery.legacy_release_id)
-      ? searchQuery.legacy_release_id
-      : null;
+  const tracklistReleaseId = hasLinkedAlbumId(idSource.legacy_release_id)
+    ? idSource.legacy_release_id
+    : null;
 
   // WRITE — whether this row has a real library linkage, which is the only
   // thing that decides if a picker is offered at all. A library-unlinked
@@ -83,11 +90,7 @@ export default function FlowsheetSearchResults({
   // synthesizeAlbumId, and the submission chokepoint drops `track_position`
   // without a positive `album_id` behind it — so offering a picker there would
   // let the DJ pick something that gets silently discarded.
-  const linkedAlbumId = hasLinkedAlbumId(highlightedResult?.id)
-    ? highlightedResult.id
-    : hasLinkedAlbumId(searchQuery.album_id)
-      ? searchQuery.album_id
-      : null;
+  const linkedAlbumId = hasLinkedAlbumId(idSource.id) ? idSource.id : null;
 
   const [manualOverride, setManualOverride] = useState<number | null>(null);
   useEffect(() => {
@@ -96,15 +99,18 @@ export default function FlowsheetSearchResults({
     }
   }, [tracklistReleaseId, manualOverride]);
 
+  const showPickerRow = linkedAlbumId !== null && !rotationMode;
+
   // Keyed on the read half: opting out is per-release-tracklist, and the
-  // release's identity for tracklist purposes is its legacy id.
+  // release's identity for tracklist purposes is its legacy id. Gated on the
+  // row rendering at all, because the tracklist has no other consumer —
+  // rotation mode keeps a legacy id in the query that nothing there reads, and
+  // fetching for it would be a request per rotation pick with no destination.
   const pickerReleaseId =
-    tracklistReleaseId !== null && tracklistReleaseId !== manualOverride
+    showPickerRow && tracklistReleaseId !== manualOverride
       ? tracklistReleaseId
       : null;
   const picker = useLibraryTrackPicker(pickerReleaseId);
-
-  const showPickerRow = linkedAlbumId !== null && !rotationMode;
 
   // Panel CONTENT only — the Sheet/Popper/transitions live in FlowsheetSearchbar
   return (

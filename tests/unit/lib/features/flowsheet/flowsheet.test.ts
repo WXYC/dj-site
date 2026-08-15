@@ -1146,12 +1146,13 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
         );
       });
 
-      it("carries a legacy id even when the write half withholds album_id", () => {
-        // A rotation release whose credit submission refuses has its album_id
-        // withheld so BS can't hand the credit back. That is a write-side
-        // decision and says nothing about which tracklist to show, so the read
-        // half must survive it — otherwise picking such a release silently
-        // loses the picker.
+      it("takes each id from its own payload field rather than deriving one from the other", () => {
+        // A row can carry a legacy id without a library link — an LML row is
+        // exactly that shape — and a caller can withhold album_id deliberately.
+        // The reducer must not infer either id's presence from the other's, or
+        // the payload loses a value its caller meant to send. Whether a picker
+        // is then OFFERED is the component's call, made from album_id; this is
+        // only about the reducer carrying what it was handed.
         const result = harness().reduce(
           actions.freezeSelectionToQuery({
             ...frozen,

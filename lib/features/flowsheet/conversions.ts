@@ -49,9 +49,11 @@ export function entryToFreezePayload(entry: {
     label: entry.label ?? "",
     album_id: entry.id ?? undefined,
     // The read half of the freeze. Carried so the picker survives the click
-    // that zeroes the highlight, and resolved independently of `album_id` —
-    // which release's tracklist to show is not the same question as which
-    // release a submission should link to.
+    // that zeroes the highlight. Taken from this entry's own field rather than
+    // derived from `album_id` — which release's tracklist to show is not the
+    // same question as which release a submission should link to, and a row
+    // can answer one without answering the other. Both come off the SAME
+    // entry, which is what keeps the pair describing one release.
     legacy_release_id: entry.legacy_release_id ?? undefined,
     rotation_id: entry.rotation_id ?? undefined,
     rotation_bin: entry.rotation_bin ?? undefined,

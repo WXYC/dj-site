@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, fireEvent } from "@testing-library/react";
+import { screen, fireEvent, waitFor } from "@testing-library/react";
 import FlowsheetSearchResults from "@/src/components/experiences/modern/flowsheet/Search/Results/FlowsheetSearchResults";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import {
@@ -438,6 +438,196 @@ describe("FlowsheetSearchResults", () => {
       expect(
         screen.queryByTestId("library-track-picker-manual")
       ).not.toBeInTheDocument();
+    });
+
+    // The two ids answer two different questions, but they must answer them
+    // about the SAME row. A frozen release outlives the highlight that created
+    // it, so resolving each id independently lets one side reach past the
+    // highlighted row into the frozen query — and a picker that straddles two
+    // releases pairs one release's track position with the other's album_id.
+    // Both cases below arrive through the ordinary sequence: click a release,
+    // then arrow onto another row.
+    const freezeReleaseA = (store: ReturnType<typeof renderWithProviders>["store"]) =>
+      store.dispatch(
+        flowsheetSlice.actions.freezeSelectionToQuery({
+          artist: "Juana Molina",
+          album: "DOGA",
+          label: "Sonamos",
+          artistProvided: true,
+          album_id: LIBRARY_ID,
+          legacy_release_id: LEGACY_RELEASE_ID,
+        })
+      );
+
+    it("drops the frozen release's tracklist when the highlight moves to a row with no legacy id", async () => {
+      stubBothSpaces();
+
+      const { store } = renderWithProviders(
+        <FlowsheetSearchResults
+          binResults={[
+            createTestAlbum({
+              id: 5678,
+              legacy_release_id: null,
+              title: "No Legacy Id",
+            }),
+          ]}
+          catalogResults={[]}
+          rotationResults={[]}
+          lmlResults={[]}
+        />,
+        {
+          preloadedState: {
+            flowsheet: buildFlowsheetState(true, {
+              search: {
+                open: true,
+                query: flowsheetSlice.getInitialState().search.query,
+                selectedResult: 0,
+                confirmedArtist: "",
+                resetEpoch: 0,
+              },
+            }),
+          },
+        }
+      );
+
+      // Settle on the frozen release first, so the collapse below is the
+      // highlight taking effect rather than the query never having resolved.
+      freezeReleaseA(store);
+      await screen.findByTestId("library-track-picker-manual");
+
+      store.dispatch(flowsheetSlice.actions.setSelectedResult(1));
+
+      await waitFor(() =>
+        expect(
+          screen.queryByTestId("library-track-picker-manual")
+        ).not.toBeInTheDocument()
+      );
+      // Still library-linked, so free text is still offerable.
+      expect(
+        screen.getByTestId("flowsheet-search-track-picker-row")
+      ).toBeInTheDocument();
+    });
+
+    it("withdraws the picker when the highlight moves to a library-unlinked row", async () => {
+      // Unlinked rows carry a client-synthesized negative id and no legacy id,
+      // so neither question has an answer. Falling back to the frozen release
+      // for either one offers a picker whose pick the submission boundary
+      // discards for want of a positive album_id.
+      stubBothSpaces();
+
+      const { store } = renderWithProviders(
+        <FlowsheetSearchResults
+          binResults={[]}
+          catalogResults={[]}
+          rotationResults={[
+            createTestAlbum({
+              id: -8812,
+              legacy_release_id: null,
+              title: "Unlinked Rotation Row",
+            }),
+          ]}
+          lmlResults={[]}
+        />,
+        {
+          preloadedState: {
+            flowsheet: buildFlowsheetState(true, {
+              search: {
+                open: true,
+                query: flowsheetSlice.getInitialState().search.query,
+                selectedResult: 0,
+                confirmedArtist: "",
+                resetEpoch: 0,
+              },
+            }),
+          },
+        }
+      );
+
+      freezeReleaseA(store);
+      await screen.findByTestId("library-track-picker-manual");
+
+      store.dispatch(flowsheetSlice.actions.setSelectedResult(1));
+
+      await waitFor(() =>
+        expect(
+          screen.queryByTestId("flowsheet-search-track-picker-row")
+        ).not.toBeInTheDocument()
+      );
+    });
+
+    it("fetches no tracklist while rotation mode holds a legacy id in the query", async () => {
+      // Rotation mode writes the pair into the query but offers no picker row,
+      // so the tracklist has no consumer there. The request is the only
+      // observable difference, hence the counter.
+      stubBothSpaces();
+
+      const trackRequests: string[] = [];
+      const record = ({ request }: { request: Request }) => {
+        if (new URL(request.url).pathname.endsWith("/tracks")) {
+          trackRequests.push(request.url);
+        }
+      };
+      server.events.on("request:start", record);
+
+      try {
+        const rotation = renderWithProviders(
+          <FlowsheetSearchResults
+            binResults={[]}
+            catalogResults={[]}
+            rotationResults={[]}
+            lmlResults={[]}
+          />,
+          {
+            preloadedState: {
+              flowsheet: buildFlowsheetState(true, {
+                rotationMode: true,
+                search: {
+                  open: true,
+                  query: flowsheetSlice.getInitialState().search.query,
+                  selectedResult: 0,
+                  confirmedArtist: "",
+                  resetEpoch: 0,
+                },
+              }),
+            },
+          }
+        );
+
+        freezeReleaseA(rotation.store);
+        await new Promise((r) => setTimeout(r, 20));
+        expect(trackRequests).toHaveLength(0);
+        rotation.unmount();
+
+        // The same query state outside rotation mode DOES fetch — without this
+        // half, a component that never fetches at all would pass the above.
+        const normal = renderWithProviders(
+          <FlowsheetSearchResults
+            binResults={[]}
+            catalogResults={[]}
+            rotationResults={[]}
+            lmlResults={[]}
+          />,
+          {
+            preloadedState: {
+              flowsheet: buildFlowsheetState(true, {
+                search: {
+                  open: true,
+                  query: flowsheetSlice.getInitialState().search.query,
+                  selectedResult: 0,
+                  confirmedArtist: "",
+                  resetEpoch: 0,
+                },
+              }),
+            },
+          }
+        );
+
+        freezeReleaseA(normal.store);
+        await screen.findByTestId("library-track-picker-manual");
+        expect(trackRequests).toHaveLength(1);
+      } finally {
+        server.events.removeListener("request:start", record);
+      }
     });
   });
 
