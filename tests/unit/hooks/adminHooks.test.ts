@@ -5,7 +5,7 @@ import { Provider } from "react-redux";
 import { makeStore, AppStore } from "@/lib/store";
 import { MOCK_USERS } from "@/tests/fixtures/fixtures";
 import { adminSlice } from "@/lib/features/admin/frontend";
-import { MEMBER_PAGE_SIZE, ROSTER_PAGE_SIZE } from "@/lib/features/admin/types";
+import { ROSTER_PAGE_SIZE } from "@/lib/features/admin/types";
 
 // Mock the auth client before importing the hook
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -345,25 +345,65 @@ describe("useAccountListResults", () => {
     expect(result.current.data).toHaveLength(0);
   });
 
-  it("errors when the membership page is truncated below the user count", async () => {
+  it("errors when the roster page names no organization", async () => {
+    vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse([]));
+
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountListResults(""), { wrapper });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.isError).toBe(true);
+    expect(mockResolveOrganizationIdAdmin).not.toHaveBeenCalled();
+    expect(authClient.admin.listUsers).not.toHaveBeenCalled();
+  });
+
+  it("requests memberships for only the users on the page", async () => {
     const users = [
-      betterAuthUser(MOCK_USERS.dj1, { role: "user" }),
-      betterAuthUser(MOCK_USERS.stationManager, { role: "admin" }),
+      betterAuthUser(MOCK_USERS.dj1),
+      betterAuthUser(MOCK_USERS.stationManager),
     ];
     vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse(users));
-    vi.mocked(authClient.organization.listMembers).mockResolvedValue({
-      data: {
-        members: [{ userId: MOCK_USERS.dj1.id, role: "dj" }],
-        total: MEMBER_PAGE_SIZE + 1,
-      },
-      error: null,
+
+    const { wrapper } = createWrapper();
+    renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
+
+    await waitFor(() => expect(authClient.organization.listMembers).toHaveBeenCalled());
+    const [options] = vi.mocked(authClient.organization.listMembers).mock.calls[0];
+    expect(options?.query).toMatchObject({
+      organizationId: ORG_ID,
+      filterField: "userId",
+      filterOperator: "in",
+      filterValue: [MOCK_USERS.dj1.id, MOCK_USERS.stationManager.id],
+      limit: 2,
     });
+  });
+
+  it("filters by equality for a single-user page", async () => {
+    // A one-element array serializes to a single query param, which the server
+    // reads back as a scalar and rejects under `in`.
+    const users = [betterAuthUser(MOCK_USERS.dj1)];
+    vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse(users));
+
+    const { wrapper } = createWrapper();
+    renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
+
+    await waitFor(() => expect(authClient.organization.listMembers).toHaveBeenCalled());
+    const [options] = vi.mocked(authClient.organization.listMembers).mock.calls[0];
+    expect(options?.query).toMatchObject({
+      filterOperator: "eq",
+      filterValue: MOCK_USERS.dj1.id,
+      limit: 1,
+    });
+  });
+
+  it("skips the membership fetch when the page is empty", async () => {
+    vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse([]));
 
     const { wrapper } = createWrapper();
     const { result } = renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.isError).toBe(true);
-    expect(result.current.data).toHaveLength(0);
+    expect(result.current.isError).toBe(false);
+    expect(authClient.organization.listMembers).not.toHaveBeenCalled();
   });
 });

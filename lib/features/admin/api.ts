@@ -5,7 +5,7 @@ import { resolveOrganizationIdAdmin } from "@/lib/features/authentication/organi
 import { throwIfBetterAuthError } from "@/src/utilities/throwIfBetterAuthError";
 import { adminSlice } from "./frontend";
 import { BetterAuthUser, convertBetterAuthToAccountResult } from "./conversions-better-auth";
-import { Account, MEMBER_PAGE_SIZE, ROSTER_PAGE_SIZE } from "./types";
+import { Account, ROSTER_PAGE_SIZE } from "./types";
 
 /**
  * `organizationSlug` must be threaded down from the roster page's server-side
@@ -43,6 +43,41 @@ function parseSdkPayload<T>(data: unknown, label: string): T | undefined {
   return (data ?? undefined) as T | undefined;
 }
 
+/**
+ * Fetch the organization roles for exactly the given users.
+ *
+ * Scoped to the ids on screen rather than the whole organization: the request
+ * stays proportional to a roster page, and no membership can be dropped by a
+ * limit, which matters because list-members applies no ORDER BY and a truncated
+ * page would be an arbitrary subset rendering as Members.
+ *
+ * A one-element array serializes to a single query parameter, which the server
+ * reads back as a scalar and rejects under `in` — use `eq` for that case.
+ */
+async function fetchMemberRoles(
+  organizationId: string,
+  userIds: string[]
+): Promise<[string, string][]> {
+  const result = await authClient.organization.listMembers({
+    query: {
+      organizationId,
+      filterField: "userId",
+      limit: userIds.length,
+      ...(userIds.length === 1
+        ? { filterOperator: "eq" as const, filterValue: userIds[0] }
+        : { filterOperator: "in" as const, filterValue: userIds }),
+    },
+  });
+  throwIfBetterAuthError(result, "Failed to fetch organization roles");
+
+  const payload = parseSdkPayload<{ members?: { userId: string; role: string }[] }>(
+    result.data,
+    "list-members"
+  );
+
+  return (payload?.members ?? []).map((member) => [member.userId, member.role]);
+}
+
 /** Normalize a rejected provisionUser mutation into a user-facing message. */
 export function provisionErrorMessage(error: unknown): string {
   if (error && typeof error === "object" && "message" in error) {
@@ -60,15 +95,9 @@ export const adminApi = createApi({
     getRoster: builder.query<RosterResult, RosterArgs>({
       queryFn: async ({ search, page, organizationSlug }) => {
         try {
-          // A DJ's or music director's role lives only on their organization
-          // membership: provisioning mirrors nothing but stationManager into
-          // the better-auth user row, so user.role reads as "user" for them.
-          // Resolve the membership before listing anyone — rendering the roster
-          // without it would silently label every DJ a Member.
-          const organizationId = await resolveOrganizationIdAdmin(organizationSlug);
-          if (!organizationId) {
+          if (!organizationSlug) {
             throw new Error(
-              "Could not resolve the station organization, so account roles are unavailable."
+              "The station organization is not configured, so account roles are unavailable."
             );
           }
 
@@ -85,7 +114,22 @@ export const adminApi = createApi({
             query.searchOperator = "contains";
           }
 
-          const result = await authClient.admin.listUsers({ query });
+          const [organizationId, result] = await Promise.all([
+            resolveOrganizationIdAdmin(organizationSlug),
+            authClient.admin.listUsers({ query }),
+          ]);
+
+          // A DJ's or music director's role lives only on their organization
+          // membership: provisioning mirrors nothing but stationManager into the
+          // better-auth user row, so user.role reads as "user" for them. Refuse
+          // to build the roster without the membership — labelling every DJ a
+          // Member looks like an answer instead of a failure.
+          if (!organizationId) {
+            throw new Error(
+              "Could not resolve the station organization, so account roles are unavailable."
+            );
+          }
+
           throwIfBetterAuthError(result, "Failed to fetch users");
 
           const parsed = parseSdkPayload<{ users?: unknown[]; total?: number }>(
@@ -93,27 +137,10 @@ export const adminApi = createApi({
             "list-users"
           );
           const users = parsed?.users ?? [];
-
-          const membersResult = await authClient.organization.listMembers({
-            query: { organizationId, limit: MEMBER_PAGE_SIZE },
-          });
-          throwIfBetterAuthError(membersResult, "Failed to fetch organization roles");
-
-          const members = parseSdkPayload<{
-            members?: { userId: string; role: string }[];
-            total?: number;
-          }>(membersResult.data, "list-members");
-
-          // list-members applies no ORDER BY, so a truncated page is an
-          // arbitrary subset — the missing members would read as Members.
-          if ((members?.total ?? 0) > MEMBER_PAGE_SIZE) {
-            throw new Error(
-              `The station has more than ${MEMBER_PAGE_SIZE} accounts, so roles could not be resolved.`
-            );
-          }
+          const userIds = users.map((user) => (user as BetterAuthUser).id);
 
           const memberRoleMap = new Map(
-            (members?.members ?? []).map((member) => [member.userId, member.role])
+            userIds.length > 0 ? await fetchMemberRoles(organizationId, userIds) : []
           );
 
           const accounts = users.map((user) => {
