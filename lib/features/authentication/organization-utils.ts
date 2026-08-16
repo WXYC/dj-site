@@ -14,13 +14,22 @@ const cachedAdminOrgIds = new Map<string, string>();
 
 /**
  * Resolves the configured organization slug to its UUID via the admin
- * endpoint (admin session required), caching per page session. Prefer
- * passing slugOverride from a server component prop to avoid build-time
- * inlining issues.
+ * endpoint (admin session required), caching per page session.
+ *
+ * Callers running in the browser MUST pass slugOverride, threaded down from a
+ * server component's read of NEXT_PUBLIC_APP_ORGANIZATION: that variable is
+ * never inlined into client bundles, so the fallback below resolves to
+ * undefined there and this returns null without attempting a lookup.
  */
 export async function resolveOrganizationIdAdmin(slugOverride?: string): Promise<string | null> {
   const slug = slugOverride || process.env.NEXT_PUBLIC_APP_ORGANIZATION;
-  if (!slug) return null;
+  if (!slug) {
+    console.warn(
+      "[auth] resolveOrganizationIdAdmin called with no organization slug; " +
+        "pass slugOverride from a server component prop"
+    );
+    return null;
+  }
 
   const cached = cachedAdminOrgIds.get(slug);
   if (cached) return cached;

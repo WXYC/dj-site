@@ -5,9 +5,15 @@ import { resolveOrganizationIdAdmin } from "@/lib/features/authentication/organi
 import { throwIfBetterAuthError } from "@/src/utilities/throwIfBetterAuthError";
 import { adminSlice } from "./frontend";
 import { BetterAuthUser, convertBetterAuthToAccountResult } from "./conversions-better-auth";
-import { Account, ROSTER_PAGE_SIZE } from "./types";
+import { Account, MEMBER_PAGE_SIZE, ROSTER_PAGE_SIZE } from "./types";
 
-type RosterArgs = { search: string; page: number };
+/**
+ * `organizationSlug` must be threaded down from the roster page's server-side
+ * read of NEXT_PUBLIC_APP_ORGANIZATION. That variable is not inlined into
+ * client bundles, so this queryFn — which runs in the browser — cannot read it
+ * from the environment itself.
+ */
+type RosterArgs = { search: string; page: number; organizationSlug: string };
 type RosterResult = { accounts: Account[]; total: number };
 
 type ProvisionUserArgs = {
@@ -25,6 +31,18 @@ type ProvisionUserResult = {
   emailError?: string;
 };
 
+/**
+ * better-auth's SDK parser (betterJSONParse, strict:false) can hand back the
+ * raw JSON string instead of a parsed object.
+ */
+function parseSdkPayload<T>(data: unknown, label: string): T | undefined {
+  if (typeof data === "string") {
+    console.warn(`[roster] better-auth returned unparsed JSON for ${label}; parsing manually`);
+    return JSON.parse(data) as T;
+  }
+  return (data ?? undefined) as T | undefined;
+}
+
 /** Normalize a rejected provisionUser mutation into a user-facing message. */
 export function provisionErrorMessage(error: unknown): string {
   if (error && typeof error === "object" && "message" in error) {
@@ -40,8 +58,20 @@ export const adminApi = createApi({
   tagTypes: ["Roster"],
   endpoints: (builder) => ({
     getRoster: builder.query<RosterResult, RosterArgs>({
-      queryFn: async ({ search, page }) => {
+      queryFn: async ({ search, page, organizationSlug }) => {
         try {
+          // A DJ's or music director's role lives only on their organization
+          // membership: provisioning mirrors nothing but stationManager into
+          // the better-auth user row, so user.role reads as "user" for them.
+          // Resolve the membership before listing anyone — rendering the roster
+          // without it would silently label every DJ a Member.
+          const organizationId = await resolveOrganizationIdAdmin(organizationSlug);
+          if (!organizationId) {
+            throw new Error(
+              "Could not resolve the station organization, so account roles are unavailable."
+            );
+          }
+
           const query: Record<string, unknown> = {
             limit: ROSTER_PAGE_SIZE,
             offset: page * ROSTER_PAGE_SIZE,
@@ -58,36 +88,41 @@ export const adminApi = createApi({
           const result = await authClient.admin.listUsers({ query });
           throwIfBetterAuthError(result, "Failed to fetch users");
 
-          // better-auth's SDK parser (betterJSONParse, strict:false) can return the
-          // raw JSON string instead of a parsed object; parse it ourselves as a fallback.
-          let responseData: unknown = result.data;
-          if (typeof responseData === "string") {
-            console.warn("[roster] better-auth returned unparsed JSON string; parsing manually");
-            responseData = JSON.parse(responseData);
-          }
-
-          const parsed = responseData as { users?: unknown[]; total?: number };
+          const parsed = parseSdkPayload<{ users?: unknown[]; total?: number }>(
+            result.data,
+            "list-users"
+          );
           const users = parsed?.users ?? [];
 
-          const memberRoleMap = new Map<string, string>();
-          const organizationId = await resolveOrganizationIdAdmin();
-          if (organizationId) {
-            const membersResult = await authClient.organization.listMembers({
-              query: { organizationId, limit: 1000 },
-            });
-            if (!membersResult.error && membersResult.data?.members) {
-              for (const member of membersResult.data.members) {
-                memberRoleMap.set(member.userId, member.role);
-              }
-            }
+          const membersResult = await authClient.organization.listMembers({
+            query: { organizationId, limit: MEMBER_PAGE_SIZE },
+          });
+          throwIfBetterAuthError(membersResult, "Failed to fetch organization roles");
+
+          const members = parseSdkPayload<{
+            members?: { userId: string; role: string }[];
+            total?: number;
+          }>(membersResult.data, "list-members");
+
+          // list-members applies no ORDER BY, so a truncated page is an
+          // arbitrary subset — the missing members would read as Members.
+          if ((members?.total ?? 0) > MEMBER_PAGE_SIZE) {
+            throw new Error(
+              `The station has more than ${MEMBER_PAGE_SIZE} accounts, so roles could not be resolved.`
+            );
           }
+
+          const memberRoleMap = new Map(
+            (members?.members ?? []).map((member) => [member.userId, member.role])
+          );
 
           const accounts = users.map((user) => {
             const betterAuthUser = user as BetterAuthUser;
-            const memberRole = memberRoleMap.get(betterAuthUser.id);
-            if (memberRole) {
-              betterAuthUser.role = memberRole as typeof betterAuthUser.role;
-            }
+            // No membership means no station role, which is what "member"
+            // encodes. Every non-anonymous user gets one on creation, so this
+            // only covers rows that predate that guarantee.
+            betterAuthUser.role = (memberRoleMap.get(betterAuthUser.id) ??
+              "member") as typeof betterAuthUser.role;
             return convertBetterAuthToAccountResult(betterAuthUser);
           });
 

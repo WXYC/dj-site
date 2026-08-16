@@ -26,7 +26,7 @@ import ImportCSVModal from "./ImportCSVModal";
 import NewAccountForm from "./NewAccountForm";
 
 export default function RosterTable({ user, organizationSlug }: { user: User; organizationSlug: string }) {
-  const { data, isLoading, isError, error, refetch } = useAccountListResults();
+  const { data, isLoading, isError, error, refetch } = useAccountListResults(organizationSlug);
 
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<Error | null>(null);
@@ -141,7 +141,7 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
             },
           }}
         >
-          <ExportDJsButton />
+          <ExportDJsButton organizationSlug={organizationSlug} />
           <Button
             variant="outlined"
             color="success"
