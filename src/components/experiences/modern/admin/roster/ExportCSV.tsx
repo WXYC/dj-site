@@ -56,13 +56,14 @@ const exportDJsAsCSV = (djs: Account[], title = "djs") => {
 };
 
 export default function ExportDJsButton({ organizationSlug }: { organizationSlug: string }) {
-  const { data, isLoading } = useAccountListResults(organizationSlug);
+  const { data, isLoading, isError } = useAccountListResults(organizationSlug);
 
   const searchString = useAppSelector(adminSlice.selectors.getSearchString);
 
   return (
     <Button
       loading={isLoading}
+      disabled={isError || data.length === 0}
       variant="outlined"
       color={"success"}
       size="sm"

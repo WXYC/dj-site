@@ -3,14 +3,6 @@ import { Authorization } from "@wxyc/shared/auth-client/auth";
 
 export const ROSTER_PAGE_SIZE = 50;
 
-/**
- * How many organization memberships the roster fetches to resolve roles. The
- * roster compares this against the membership total and refuses to render a
- * truncated answer, so raising it is only needed once the station passes this
- * many accounts.
- */
-export const MEMBER_PAGE_SIZE = 1000;
-
 export type AdminFrontendState = {
   searchString: string;
   page: number;

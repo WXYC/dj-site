@@ -24,10 +24,9 @@ const cachedAdminOrgIds = new Map<string, string>();
 export async function resolveOrganizationIdAdmin(slugOverride?: string): Promise<string | null> {
   const slug = slugOverride || process.env.NEXT_PUBLIC_APP_ORGANIZATION;
   if (!slug) {
-    console.warn(
-      "[auth] resolveOrganizationIdAdmin called with no organization slug; " +
-        "pass slugOverride from a server component prop"
-    );
+    // Reached both when a browser-side caller omits slugOverride (the env
+    // fallback never resolves there) and when it passes an empty one.
+    console.warn("[auth] resolveOrganizationIdAdmin: no organization slug to resolve");
     return null;
   }
 
