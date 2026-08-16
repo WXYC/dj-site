@@ -5,7 +5,7 @@ import { Provider } from "react-redux";
 import { makeStore, AppStore } from "@/lib/store";
 import { MOCK_USERS } from "@/tests/fixtures/fixtures";
 import { adminSlice } from "@/lib/features/admin/frontend";
-import { ROSTER_PAGE_SIZE } from "@/lib/features/admin/types";
+import { MEMBER_PAGE_SIZE, ROSTER_PAGE_SIZE } from "@/lib/features/admin/types";
 
 // Mock the auth client before importing the hook
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -91,11 +91,25 @@ function mockListUsersResponse(users: unknown[]) {
   };
 }
 
+function mockListMembersResponse(members: { userId: string; role: string }[]) {
+  return {
+    data: { members, total: members.length },
+    error: null,
+  };
+}
+
+const ORG_SLUG = "wxyc";
+const ORG_ID = "org-uuid-123";
+
 describe("useAccountListResults", () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.clearAllMocks();
     delete process.env.NEXT_PUBLIC_APP_ORGANIZATION;
+    mockResolveOrganizationIdAdmin.mockResolvedValue(ORG_ID);
+    vi.mocked(authClient.organization.listMembers).mockResolvedValue(
+      mockListMembersResponse([])
+    );
   });
 
   afterEach(() => {
@@ -105,9 +119,15 @@ describe("useAccountListResults", () => {
   it("extracts users from a parsed SDK response", async () => {
     const users = [betterAuthUser(MOCK_USERS.dj1), betterAuthUser(MOCK_USERS.stationManager)];
     vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse(users));
+    vi.mocked(authClient.organization.listMembers).mockResolvedValue(
+      mockListMembersResponse([
+        { userId: MOCK_USERS.dj1.id, role: "dj" },
+        { userId: MOCK_USERS.stationManager.id, role: "stationManager" },
+      ])
+    );
 
     const { wrapper } = createWrapper();
-    const { result } = renderHook(() => useAccountListResults(), { wrapper });
+    const { result } = renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.isError).toBe(false);
@@ -125,7 +145,7 @@ describe("useAccountListResults", () => {
     });
 
     const { wrapper } = createWrapper();
-    const { result } = renderHook(() => useAccountListResults(), { wrapper });
+    const { result } = renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.isError).toBe(false);
@@ -137,7 +157,7 @@ describe("useAccountListResults", () => {
     vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse([]));
 
     const { wrapper } = createWrapper();
-    renderHook(() => useAccountListResults(), { wrapper });
+    renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
 
     await waitFor(() => expect(authClient.admin.listUsers).toHaveBeenCalled());
     const query = vi.mocked(authClient.admin.listUsers).mock.calls[0][0].query;
@@ -156,7 +176,7 @@ describe("useAccountListResults", () => {
     vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse([]));
 
     const { store, wrapper } = createWrapper();
-    renderHook(() => useAccountListResults(), { wrapper });
+    renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
 
     // Wait for initial fetch
     await waitFor(() => expect(authClient.admin.listUsers).toHaveBeenCalledTimes(1));
@@ -182,7 +202,7 @@ describe("useAccountListResults", () => {
     vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse([]));
 
     const { store, wrapper } = createWrapper();
-    renderHook(() => useAccountListResults(), { wrapper });
+    renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
 
     await waitFor(() => expect(authClient.admin.listUsers).toHaveBeenCalledTimes(1));
 
@@ -202,7 +222,7 @@ describe("useAccountListResults", () => {
     });
 
     const { wrapper } = createWrapper();
-    const { result } = renderHook(() => useAccountListResults(), { wrapper });
+    const { result } = renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.isError).toBe(true);
@@ -216,7 +236,7 @@ describe("useAccountListResults", () => {
     });
 
     const { wrapper } = createWrapper();
-    const { result } = renderHook(() => useAccountListResults(), { wrapper });
+    const { result } = renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.isError).toBe(false);
@@ -226,39 +246,124 @@ describe("useAccountListResults", () => {
   it("merges org member roles when resolveOrganizationIdAdmin returns an ID", async () => {
     const users = [betterAuthUser(MOCK_USERS.dj1, { role: "user" })];
     vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse(users));
-    mockResolveOrganizationIdAdmin.mockResolvedValue("org-uuid-123");
-    vi.mocked(authClient.organization.listMembers).mockResolvedValue({
-      data: {
-        members: [{ userId: MOCK_USERS.dj1.id, role: "musicDirector" }],
-      },
-      error: null,
-    });
+    vi.mocked(authClient.organization.listMembers).mockResolvedValue(
+      mockListMembersResponse([{ userId: MOCK_USERS.dj1.id, role: "musicDirector" }])
+    );
 
     const { wrapper } = createWrapper();
-    const { result } = renderHook(() => useAccountListResults(), { wrapper });
+    const { result } = renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.data[0].authorization).toBe(Authorization.MD);
     expect(authClient.organization.listMembers).toHaveBeenCalledWith(
       expect.objectContaining({
-        query: expect.objectContaining({ organizationId: "org-uuid-123" }),
+        query: expect.objectContaining({ organizationId: ORG_ID }),
       })
     );
   });
 
-  it("loads accounts without org role overrides when resolveOrganizationIdAdmin returns null", async () => {
-    const users = [betterAuthUser(MOCK_USERS.dj1)];
+  it("resolves the organization with the slug the page supplies", async () => {
+    vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse([]));
+
+    const { wrapper } = createWrapper();
+    renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
+
+    await waitFor(() => expect(mockResolveOrganizationIdAdmin).toHaveBeenCalled());
+    expect(mockResolveOrganizationIdAdmin).toHaveBeenCalledWith(ORG_SLUG);
+  });
+
+  it("prefers the membership role over the better-auth user role", async () => {
+    // provisionUser mirrors only stationManager into user.role, so a DJ or
+    // music director reads as "user" there. The membership is the real answer.
+    const users = [
+      betterAuthUser(MOCK_USERS.dj1, { role: "user" }),
+      betterAuthUser(MOCK_USERS.stationManager, { role: "admin" }),
+    ];
+    vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse(users));
+    vi.mocked(authClient.organization.listMembers).mockResolvedValue(
+      mockListMembersResponse([
+        { userId: MOCK_USERS.dj1.id, role: "dj" },
+        { userId: MOCK_USERS.stationManager.id, role: "member" },
+      ])
+    );
+
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.data[0].authorization).toBe(Authorization.DJ);
+    expect(result.current.data[1].authorization).toBe(Authorization.NO);
+  });
+
+  it("parses a stringified list-members response (better-auth parser fallback)", async () => {
+    const users = [betterAuthUser(MOCK_USERS.dj1, { role: "user" })];
+    vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse(users));
+    vi.mocked(authClient.organization.listMembers).mockResolvedValue({
+      data: JSON.stringify({
+        members: [{ userId: MOCK_USERS.dj1.id, role: "dj" }],
+        total: 1,
+      }),
+      error: null,
+    });
+
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.isError).toBe(false);
+    expect(result.current.data[0].authorization).toBe(Authorization.DJ);
+  });
+
+  it("errors instead of guessing roles when the organization cannot be resolved", async () => {
+    const users = [betterAuthUser(MOCK_USERS.dj1, { role: "user" })];
     vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse(users));
     mockResolveOrganizationIdAdmin.mockResolvedValue(null);
 
     const { wrapper } = createWrapper();
-    const { result } = renderHook(() => useAccountListResults(), { wrapper });
+    const { result } = renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.isError).toBe(false);
-    expect(result.current.data).toHaveLength(1);
-    // Falls back to user-level role
-    expect(result.current.data[0].authorization).toBe(Authorization.DJ);
+    expect(result.current.isError).toBe(true);
+    expect(result.current.data).toHaveLength(0);
     expect(authClient.organization.listMembers).not.toHaveBeenCalled();
+  });
+
+  it("errors instead of guessing roles when the membership fetch fails", async () => {
+    const users = [betterAuthUser(MOCK_USERS.dj1, { role: "user" })];
+    vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse(users));
+    vi.mocked(authClient.organization.listMembers).mockResolvedValue({
+      data: null,
+      error: { message: "Forbidden", status: 403, statusText: "Forbidden" },
+    });
+
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.isError).toBe(true);
+    expect(result.current.error?.message).toContain("Forbidden");
+    expect(result.current.data).toHaveLength(0);
+  });
+
+  it("errors when the membership page is truncated below the user count", async () => {
+    const users = [
+      betterAuthUser(MOCK_USERS.dj1, { role: "user" }),
+      betterAuthUser(MOCK_USERS.stationManager, { role: "admin" }),
+    ];
+    vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse(users));
+    vi.mocked(authClient.organization.listMembers).mockResolvedValue({
+      data: {
+        members: [{ userId: MOCK_USERS.dj1.id, role: "dj" }],
+        total: MEMBER_PAGE_SIZE + 1,
+      },
+      error: null,
+    });
+
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.isError).toBe(true);
+    expect(result.current.data).toHaveLength(0);
   });
 });

@@ -55,8 +55,8 @@ const exportDJsAsCSV = (djs: Account[], title = "djs") => {
   URL.revokeObjectURL(url);
 };
 
-export default function ExportDJsButton() {
-  const { data, isLoading } = useAccountListResults();
+export default function ExportDJsButton({ organizationSlug }: { organizationSlug: string }) {
+  const { data, isLoading } = useAccountListResults(organizationSlug);
 
   const searchString = useAppSelector(adminSlice.selectors.getSearchString);
 
