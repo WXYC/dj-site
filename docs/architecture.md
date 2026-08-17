@@ -102,6 +102,8 @@ Two rows diverge from the JSP, deliberately:
 
 Page authority is **server-side** (`requireAuth` + `requireRole` in the page component), matching `@modern/admin/catalog/page.tsx`. `AuthorizedView` / `RequireMD` is a client component and hides affordances only; it is never the gate.
 
+The dashboard layout (`app/dashboard/layout.tsx`) sits in front of every one of these gates and reads the session three ways, not two: a valid session, a genuinely absent/invalid one (redirects to `/login?bounced=no-session`, as before), or a read that failed to resolve at all — rate limited, an upstream 5xx, or a transport failure. That third outcome does not redirect; the layout renders `SessionUnavailable` in place of the `@classic`/`@modern`/`@information` slots instead, so a transient auth-server problem does not sign a DJ out mid-show. Page-level `requireAuth()` calls are unaffected and keep redirecting on a failed read, since they have no notice surface of their own.
+
 ### Existing dual-slot URLs
 
 | URL | Classic slot | Modern slot | Authority |

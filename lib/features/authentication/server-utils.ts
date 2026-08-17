@@ -5,46 +5,45 @@ import { BetterAuthSession } from "./utilities";
 import { Authorization } from "../admin/types";
 import { roleToAuthorization, VerifiedData } from "./types";
 import { getAppOrganizationId } from "./organization-utils.server";
-import { getSessionCached, getOrgRoleCached } from "./session-cache";
+import { getOrgRoleCached } from "./session-cache";
+import { getServerSessionResult } from "./server-session";
 import { DEFAULT_DASHBOARD_HOME_PAGE } from "@/lib/features/application/constants";
 
-/** Gets the current session from better-auth in a server component. */
-export async function getServerSession(): Promise<BetterAuthSession | null> {
-  const cookieStore = await cookies();
-  const cookieHeader = cookieStore.toString();
-
-  const session = await getSessionCached(cookieHeader);
-
-  if (!session.data) {
-    return null;
-  }
-
-  const normalizedSession = {
-    ...session.data,
-    user: {
-      ...session.data.user,
-      username: session.data.user.username ?? undefined,
-    },
-  } as BetterAuthSession;
-
-  return normalizedSession;
-}
+export { getServerSession } from "./server-session";
 
 /**
- * Redirects to login if unauthenticated or email-unverified; otherwise
- * returns the session.
+ * Non-redirecting counterpart to `requireAuth`, for the one caller that
+ * needs to render something in place of a failed session read instead of
+ * bouncing to `/login`: the dashboard layout. On `absent` it redirects
+ * exactly as `requireAuth` does (the cookie is genuinely missing or
+ * invalid), and it keeps the existing `email-not-verified` / `incomplete`
+ * exits. On `unavailable` (rate limited, upstream 5xx, or a transport
+ * failure) it returns `{ ok: false }` instead — the caller decides what to
+ * render, because redirecting here would sign a DJ out mid-show for a
+ * transient auth-server problem while their cookie is still perfectly
+ * valid.
  *
- * Each exit carries a server-only `bounced` param so the client can emit a
- * `login_server_bounce` PostHog event — the server's VERDICT, distinct from
- * the client's post-login redirect INTENT (`login_post_redirect`): a DJ can
- * be told "login successful" client-side and still get bounced here when the
- * session cookie isn't valid server-side.
+ * Named `resolve*`, deliberately not `requireAuthOrUnavailable`: `checkRole`
+ * below is this file's one other non-redirecting check, and every
+ * `require*`-prefixed function in this module always redirects. This is the
+ * sole gate in front of every dashboard route — the worst possible place
+ * for a `require*`-prefixed function to invert that contract by returning
+ * instead of redirecting.
  */
-export async function requireAuth(): Promise<BetterAuthSession> {
-  const session = await getServerSession();
-  if (!session) {
+export async function resolveAuthGate(): Promise<
+  { ok: true; session: BetterAuthSession } | { ok: false; status?: number }
+> {
+  const result = await getServerSessionResult();
+
+  if (result.kind === "unavailable") {
+    return { ok: false, status: result.status };
+  }
+
+  if (result.kind === "absent") {
     redirect("/login?bounced=no-session");
   }
+
+  const session = result.session;
 
   if (!session.user.emailVerified) {
     redirect("/login?error=email-not-verified&bounced=email-not-verified");
@@ -59,7 +58,30 @@ export async function requireAuth(): Promise<BetterAuthSession> {
     redirect("/login?incomplete=true&bounced=incomplete");
   }
 
-  return session;
+  return { ok: true, session };
+}
+
+/**
+ * Redirects to login if unauthenticated, email-unverified, or the session
+ * read failed to resolve; otherwise returns the session. Page-level callers
+ * have no notice surface of their own, so a failed read (`unavailable`)
+ * degrades to the same "no session" bounce here — only the dashboard
+ * layout, via `resolveAuthGate` directly, distinguishes it and renders a
+ * retry notice instead.
+ *
+ * Each exit carries a server-only `bounced` param so the client can emit a
+ * `login_server_bounce` PostHog event — the server's VERDICT, distinct from
+ * the client's post-login redirect INTENT (`login_post_redirect`): a DJ can
+ * be told "login successful" client-side and still get bounced here when the
+ * session cookie isn't valid server-side.
+ */
+export async function requireAuth(): Promise<BetterAuthSession> {
+  const gate = await resolveAuthGate();
+  if (!gate.ok) {
+    redirect("/login?bounced=no-session");
+  }
+
+  return gate.session;
 }
 
 /**

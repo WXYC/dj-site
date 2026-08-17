@@ -26,12 +26,16 @@ vi.mock("@/lib/features/authentication/organization-utils.server", () => ({
 import {
   getSessionCached,
   getOrgRoleCached,
+  transportRetryConfig,
 } from "@/lib/features/authentication/session-cache";
+import { classifySessionRead } from "@/lib/features/authentication/utilities";
 
 describe("session-cache", () => {
   beforeEach(() => {
     mockGetSession.mockReset();
     mockGetUserRoleInOrganization.mockReset();
+    // Avoid waiting out the real transport-retry delay in tests that reject.
+    transportRetryConfig.delayMs = 0;
   });
 
   describe("getSessionCached", () => {
@@ -47,13 +51,55 @@ describe("session-cache", () => {
       expect(result).toBe(response);
     });
 
-    it("fails open to a null-data response when the auth fetch rejects", async () => {
+    it("tags a rejected auth fetch with an explicit transport discriminant, honestly modeling the error", async () => {
       const error = new Error("auth server unreachable");
       mockGetSession.mockRejectedValue(error);
 
       const result = await getSessionCached("cookie");
 
-      expect(result).toEqual({ data: null, error });
+      expect(result).toEqual({
+        data: null,
+        error: { message: "auth server unreachable", transport: true },
+      });
+    });
+
+    it("classifies a rejected fetch as unavailable, not absent — a regression guard distinct from a clean data: null", async () => {
+      mockGetSession.mockRejectedValue(new Error("auth server unreachable"));
+
+      const result = await getSessionCached("cookie-transport");
+
+      expect(classifySessionRead(result).kind).toBe("unavailable");
+    });
+
+    it("distinguishes a resolved 429 from a clean absent session — the regression guard for the whole issue", async () => {
+      mockGetSession.mockResolvedValue({
+        data: null,
+        error: {
+          message: "Too many requests. Please try again later.",
+          status: 429,
+          statusText: "Too Many Requests",
+        },
+      });
+      const rateLimited = await getSessionCached("cookie-429");
+      expect(classifySessionRead(rateLimited).kind).toBe("unavailable");
+
+      mockGetSession.mockResolvedValue({ data: null });
+      const absent = await getSessionCached("cookie-clean");
+      expect(classifySessionRead(absent).kind).toBe("absent");
+    });
+
+    it("retries the transport fetch exactly once on rejection, and not at all on a resolved 429", async () => {
+      mockGetSession.mockRejectedValue(new Error("boom"));
+      await getSessionCached("cookie-retry-a");
+      expect(mockGetSession).toHaveBeenCalledTimes(2);
+
+      mockGetSession.mockReset();
+      mockGetSession.mockResolvedValue({
+        data: null,
+        error: { message: "Too many requests. Please try again later.", status: 429 },
+      });
+      await getSessionCached("cookie-retry-b");
+      expect(mockGetSession).toHaveBeenCalledTimes(1);
     });
   });
 

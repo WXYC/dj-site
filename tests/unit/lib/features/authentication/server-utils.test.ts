@@ -1,6 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
+
+// Identity-mock react cache(): step 5 puts retry state inside the memoized
+// getSessionCached, so these tests exercise it through the real cache()
+// pass-through rather than relying on React 19's out-of-render behavior
+// (benign today, but not guaranteed).
+vi.mock("react", async () => {
+  const actual = await vi.importActual("react");
+  return { ...actual, cache: (fn: (...args: unknown[]) => unknown) => fn };
+});
+
 import { Authorization } from "@/lib/features/admin/types";
 
 // Mock next/headers
@@ -36,7 +46,7 @@ vi.mock("@/lib/features/authentication/organization-utils.server", () => ({
 }));
 
 import {
-  getServerSession,
+  resolveAuthGate,
   requireAuth,
   checkRole,
   requireRole,
@@ -88,59 +98,34 @@ describe("server-utils", () => {
     mockGetAppOrganizationId.mockReturnValue(undefined);
   });
 
-  describe("getServerSession", () => {
-    it("should return session when authenticated", async () => {
+  describe("resolveAuthGate", () => {
+    it("returns ok: true with the session for an authenticated read", async () => {
       const session = createTestBetterAuthSession();
       mockGetSession.mockResolvedValue({ data: session, error: null });
 
-      const result = await getServerSession();
+      const gate = await resolveAuthGate();
 
-      expect(result).not.toBeNull();
-      expect(result?.user.id).toBe(session.user.id);
+      expect(gate.ok).toBe(true);
+      expect(gate.ok && gate.session.user.id).toBe(session.user.id);
     });
 
-    it("should return null when not authenticated", async () => {
+    it("returns { ok: false } rather than redirecting on an unavailable read (a resolved 429)", async () => {
+      mockGetSession.mockResolvedValue({
+        data: null,
+        error: { message: "Too many requests. Please try again later.", status: 429, statusText: "Too Many Requests" },
+      });
+
+      const gate = await resolveAuthGate();
+
+      expect(gate).toEqual({ ok: false, status: 429 });
+      expect(mockRedirect).not.toHaveBeenCalled();
+    });
+
+    it("redirects on a genuinely absent session, same as before", async () => {
       mockGetSession.mockResolvedValue({ data: null, error: null });
 
-      const result = await getServerSession();
-
-      expect(result).toBeNull();
-    });
-
-    it("should return null on auth error", async () => {
-      mockGetSession.mockRejectedValue(new Error("Auth server error"));
-
-      const result = await getServerSession();
-
-      expect(result).toBeNull();
-    });
-
-    it("should pass cookies to auth client", async () => {
-      const session = createTestBetterAuthSession();
-      mockGetSession.mockResolvedValue({ data: session, error: null });
-
-      await getServerSession();
-
-      expect(mockGetSession).toHaveBeenCalledWith({
-        fetchOptions: {
-          headers: { cookie: "session=test-cookie" },
-        },
-      });
-    });
-
-    it("should normalize username from null to undefined", async () => {
-      const session = {
-        ...createTestBetterAuthSession(),
-        user: {
-          ...createTestBetterAuthSession().user,
-          username: null,
-        },
-      };
-      mockGetSession.mockResolvedValue({ data: session, error: null });
-
-      const result = await getServerSession();
-
-      expect(result?.user.username).toBeUndefined();
+      await expect(resolveAuthGate()).rejects.toThrow("REDIRECT:/login?bounced=no-session");
+      expect(mockRedirect).toHaveBeenCalledWith("/login?bounced=no-session");
     });
   });
 
@@ -156,6 +141,16 @@ describe("server-utils", () => {
 
     it("should redirect to /login when not authenticated", async () => {
       mockGetSession.mockResolvedValue({ data: null, error: null });
+
+      await expect(requireAuth()).rejects.toThrow("REDIRECT:/login?bounced=no-session");
+      expect(mockRedirect).toHaveBeenCalledWith("/login?bounced=no-session");
+    });
+
+    it("degrades an unavailable read (a resolved 429) to the same no-session bounce — page-level callers have no notice surface of their own", async () => {
+      mockGetSession.mockResolvedValue({
+        data: null,
+        error: { message: "Too many requests. Please try again later.", status: 429, statusText: "Too Many Requests" },
+      });
 
       await expect(requireAuth()).rejects.toThrow("REDIRECT:/login?bounced=no-session");
       expect(mockRedirect).toHaveBeenCalledWith("/login?bounced=no-session");

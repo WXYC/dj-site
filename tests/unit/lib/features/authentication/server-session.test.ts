@@ -2,17 +2,18 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
+// Identity-mock react cache(): step 5 puts retry state inside the memoized
+// getSessionCached, so these tests exercise it through the real cache()
+// pass-through rather than relying on React 19's out-of-render behavior
+// (benign today, but not guaranteed).
+vi.mock("react", async () => {
+  const actual = await vi.importActual("react");
+  return { ...actual, cache: (fn: (...args: unknown[]) => unknown) => fn };
+});
+
 const mockCookies = vi.fn();
 vi.mock("next/headers", () => ({
   cookies: () => mockCookies(),
-}));
-
-const mockRedirect = vi.fn();
-vi.mock("next/navigation", () => ({
-  redirect: (url: string) => {
-    mockRedirect(url);
-    throw new Error(`REDIRECT:${url}`);
-  },
 }));
 
 const mockGetSession = vi.fn();
@@ -24,8 +25,9 @@ vi.mock("@/lib/features/authentication/server-client", () => ({
 
 import {
   getServerSession,
-  requireAuth,
-} from "@/lib/features/authentication/server-utils";
+  getServerSessionResult,
+} from "@/lib/features/authentication/server-session";
+import { transportRetryConfig } from "@/lib/features/authentication/session-cache";
 import { createTestBetterAuthSession } from "@/tests/helpers";
 
 describe("getServerSession", () => {
@@ -34,6 +36,8 @@ describe("getServerSession", () => {
     mockCookies.mockReturnValue({
       toString: () => "session=test-cookie",
     });
+    // Avoid waiting out the real transport-retry delay in the auth-error test.
+    transportRetryConfig.delayMs = 0;
   });
 
   it("should return session when authenticated", async () => {
@@ -130,29 +134,67 @@ describe("getServerSession", () => {
 
     expect(result).toBeNull();
   });
+
+  it("returns null for an unavailable read (a resolved 429), the same as a genuinely absent session — the compatibility guarantee existing callers rely on", async () => {
+    mockGetSession.mockResolvedValue({
+      data: null,
+      error: { message: "Too many requests. Please try again later.", status: 429, statusText: "Too Many Requests" },
+    });
+
+    const result = await getServerSession();
+
+    expect(result).toBeNull();
+  });
 });
 
-describe("requireAuth", () => {
+describe("getServerSessionResult", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockCookies.mockReturnValue({
       toString: () => "session=test-cookie",
     });
+    transportRetryConfig.delayMs = 0;
   });
 
-  it("should return session when authenticated", async () => {
+  it("returns a session kind for an authenticated read", async () => {
     const session = createTestBetterAuthSession();
     mockGetSession.mockResolvedValue({ data: session, error: null });
 
-    const result = await requireAuth();
+    const result = await getServerSessionResult();
 
-    expect(result.user.id).toBe(session.user.id);
+    expect(result.kind).toBe("session");
+    expect(result.kind === "session" && result.session.user.id).toBe(session.user.id);
   });
 
-  it("should redirect to /login when not authenticated", async () => {
+  it("returns absent for a clean data: null, and forwards the cookie header to the client", async () => {
     mockGetSession.mockResolvedValue({ data: null, error: null });
 
-    await expect(requireAuth()).rejects.toThrow("REDIRECT:/login?bounced=no-session");
-    expect(mockRedirect).toHaveBeenCalledWith("/login?bounced=no-session");
+    const result = await getServerSessionResult();
+
+    expect(result).toEqual({ kind: "absent" });
+    expect(mockGetSession).toHaveBeenCalledWith({
+      fetchOptions: {
+        headers: { cookie: "session=test-cookie" },
+      },
+    });
+  });
+
+  it("returns unavailable with the status for a resolved 429", async () => {
+    mockGetSession.mockResolvedValue({
+      data: null,
+      error: { message: "Too many requests. Please try again later.", status: 429, statusText: "Too Many Requests" },
+    });
+
+    const result = await getServerSessionResult();
+
+    expect(result).toEqual({ kind: "unavailable", status: 429 });
+  });
+
+  it("returns unavailable with no status for a transport failure", async () => {
+    mockGetSession.mockRejectedValue(new Error("auth server unreachable"));
+
+    const result = await getServerSessionResult();
+
+    expect(result).toEqual({ kind: "unavailable" });
   });
 });
