@@ -10,6 +10,7 @@ import {
   useFlowsheetSubmit,
 } from "@/src/hooks/flowsheetHooks";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
+import { convertQueryToSubmission } from "@/lib/features/flowsheet/conversions";
 import { MISSING_ARTIST_REJECTION_MESSAGE } from "@/lib/features/flowsheet/various-artists-guard";
 import { useAppDispatch } from "@/lib/hooks";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
@@ -631,6 +632,103 @@ describe("flowsheetHooks", () => {
 
       const displayValue = result.current.getDisplayValue("artist");
       expect(displayValue).toBe("Test Artist");
+    });
+
+    // The submission memo is a second assembly of the query (the freeze
+    // reducer being the first), so the write-gate must hold at both: the
+    // frozen branch has to carry the read half forward, and the highlighted
+    // branch has to withhold an LML row's id the same way the freeze does.
+    describe("LML write-gate at the submission memo", () => {
+      const frozenQueryWrapper = (
+        query: Partial<
+          ReturnType<typeof flowsheetSlice.getInitialState>["search"]["query"]
+        >,
+        selectedResult = 0
+      ) =>
+        createHookWrapper(
+          { flowsheet: flowsheetSlice, liveUpdates: liveUpdatesSlice },
+          {
+            flowsheet: {
+              ...flowsheetSlice.getInitialState(),
+              search: {
+                ...flowsheetSlice.getInitialState().search,
+                selectedResult,
+                query: {
+                  ...flowsheetSlice.getInitialState().search.query,
+                  ...query,
+                },
+              },
+            },
+          }
+        );
+
+      const submit = async (
+        result: { current: { handleSubmit: (e: FormEvent) => Promise<void> } }
+      ) => {
+        await act(async () => {
+          await result.current.handleSubmit({
+            preventDefault: vi.fn(),
+          } as unknown as FormEvent);
+        });
+        return vi.mocked(convertQueryToSubmission).mock.calls.at(-1)?.[0];
+      };
+
+      it("carries the frozen query's legacy id and position into the submission", async () => {
+        const { result } = renderHook(() => useFlowsheetSubmit(), {
+          wrapper: frozenQueryWrapper({
+            song: "la paradoja",
+            artist: "Juana Molina",
+            album: "DOGA",
+            album_id: undefined,
+            legacy_release_id: 45342,
+            track_position: "A1",
+          }),
+        });
+
+        const query = await submit(result);
+        expect(query).toMatchObject({
+          legacy_release_id: 45342,
+          track_position: "A1",
+        });
+        expect(query?.album_id).toBeUndefined();
+      });
+
+      it("withholds album_id when a highlighted LML row is submitted without clicking", async () => {
+        mockUseLmlLibrarySearch.mockReturnValue({
+          results: [
+            createTestAlbum({
+              id: 45342,
+              legacy_release_id: 45342,
+              lml_source: true,
+              title: "DOGA",
+            }),
+          ],
+          isLoading: false,
+        });
+
+        const { result } = renderHook(() => useFlowsheetSubmit(), {
+          wrapper: frozenQueryWrapper({ song: "la paradoja" }, 1),
+        });
+
+        const query = await submit(result);
+        expect(query?.album_id).toBeUndefined();
+        expect(query).toMatchObject({ legacy_release_id: 45342 });
+      });
+
+      it("keeps album_id for a highlighted catalog row (the gate is LML-scoped)", async () => {
+        mockUseCatalogFlowsheetSearch.mockReturnValue({
+          searchResults: [
+            createTestAlbum({ id: 1234, title: "Linked Catalog Row" }),
+          ],
+        });
+
+        const { result } = renderHook(() => useFlowsheetSubmit(), {
+          wrapper: frozenQueryWrapper({ song: "Back, Baby" }, 1),
+        });
+
+        const query = await submit(result);
+        expect(query?.album_id).toBe(1234);
+      });
     });
 
     it("should return live status", () => {
