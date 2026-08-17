@@ -11,50 +11,15 @@ import {
 } from "@mui/joy";
 
 import {
+  ARTIST_NAME_MAX_LENGTH,
+  CODE_LETTERS_MAX_LENGTH,
+  CODE_NUMBER_MAX,
   isArtistNameConflictData,
-  parseRequiredPositiveInt,
+  normalizeCodeLetters,
+  validateNewArtistFields,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
 import type { AddArtistConflict } from "@/lib/features/catalog/types";
-// Layering note: this shared field group reaches into the modern experience for
-// the code preview. Converting the two classic artist forms onto this group
-// would have to move CallLetterPeekControl alongside it.
-import CallLetterPeekControl from "@/src/components/experiences/modern/catalog/CallLetterPeekControl";
-
-/**
- * Column ceilings on the rows an artist-creation form writes. Nothing between
- * these fields and the INSERT checks any of them — the handler validates only
- * that the keys are present — so an over-long or over-large value reaches
- * PostgreSQL and comes back as a 22001/22003 500 rather than a validation
- * error. Each ceiling has to hold here, and be visible to the MD rather than
- * failing at the far end of a submit.
- *
- * `artists.code_letters` is a `varchar(4)`; `artists.artist_name` and
- * `artists.alphabetical_name` are `varchar(128)`; the code number is filed as
- * `genre_artist_crossreference.artist_genre_code`, a PostgreSQL `integer`
- * whose range check fires at bind time, before the insert.
- */
-export const CODE_LETTERS_MAX_LENGTH = 4;
-export const ARTIST_NAME_MAX_LENGTH = 128;
-export const CODE_NUMBER_MAX = 2147483647;
-
-/**
- * Call letters are matched case-sensitively everywhere the backend uses them —
- * the duplicate pre-check and the next-code-number scan both compare the
- * column for equality, over a plain btree on a non-citext column — and the
- * existing card catalog is filed uppercase. Lowercase "mo" therefore matches
- * no row of the "MO" series: it slips past the duplicate check and previews a
- * next code of 1, opening a second series that shadows the real one while the
- * form reports success. Normalizing at the edge keeps the field, the code
- * preview, and the request body on the one casing the catalog actually uses.
- *
- * Case is the only thing normalized. The catalog files live codes that are not
- * plain letters — "V/A" for Various Artists compilations, "??" placeholders,
- * and codes carrying digits — so narrowing this field to A-Z would make those
- * releases impossible to file. The permissiveness is load-bearing.
- */
-export function normalizeCodeLetters(value: string): string {
-  return value.toUpperCase();
-}
+import CallLetterPeekControl from "@/src/components/shared/inputs/CallLetterPeekControl";
 
 /**
  * Value and caret travel together because normalizing on every keystroke makes
@@ -79,54 +44,17 @@ export type CodeLettersField = {
   caret: number | null;
 };
 
-export type NewArtistFieldValues = {
+/**
+ * The fields of this group whose value is a plain string. Call letters are
+ * absent by design: they arrive as `codeLettersField`, which carries the caret
+ * the normalizer has to restore, and a second plain copy here would be a
+ * second source for one value — free to disagree with the first, and exactly
+ * the drift `CodeLettersField` exists to prevent.
+ */
+export type NewArtistTextFieldValues = {
   alphabeticalName: string;
-  codeLetters: string;
   codeNumberRaw: string;
 };
-
-export type NewArtistFieldValidation = {
-  trimmedAlphabeticalName: string;
-  trimmedCodeLetters: string;
-  alphabeticalNameTooLong: boolean;
-  codeLettersTooLong: boolean;
-  /** Rejected as a positive whole number, before any range check. */
-  parsedCodeNumber: number | null;
-  /** Parsed *and* within the column's range, or null. */
-  codeNumber: number | null;
-  codeNumberInvalid: boolean;
-};
-
-/**
- * Derives everything both the fields and their form's submit gate need to know.
- * Pure, so a caller computing it for `canSubmit` and this component computing it
- * for display are reading one rule rather than keeping two in step.
- */
-export function validateNewArtistFields(
-  values: NewArtistFieldValues,
-): NewArtistFieldValidation {
-  const trimmedAlphabeticalName = values.alphabeticalName.trim();
-  const trimmedCodeLetters = values.codeLetters.trim();
-  const parsedCodeNumber = parseRequiredPositiveInt(values.codeNumberRaw);
-  // parseRequiredPositiveInt only rejects non-integers; the column's range is
-  // this form's to enforce.
-  const codeNumber =
-    parsedCodeNumber !== null && parsedCodeNumber <= CODE_NUMBER_MAX
-      ? parsedCodeNumber
-      : null;
-
-  return {
-    trimmedAlphabeticalName,
-    trimmedCodeLetters,
-    alphabeticalNameTooLong:
-      trimmedAlphabeticalName.length > ARTIST_NAME_MAX_LENGTH,
-    codeLettersTooLong: trimmedCodeLetters.length > CODE_LETTERS_MAX_LENGTH,
-    parsedCodeNumber,
-    codeNumber,
-    codeNumberInvalid:
-      values.codeNumberRaw.trim().length > 0 && codeNumber === null,
-  };
-}
 
 /**
  * A 409 the server sent, snapshotted with the values it actually rejected.
@@ -145,7 +73,7 @@ export type NewArtistConflict = {
 };
 
 export type NewArtistFieldsProps = {
-  values: NewArtistFieldValues;
+  values: NewArtistTextFieldValues;
   /**
    * Held by the caller so one owner keeps the value and its caret together —
    * see CodeLettersField.
@@ -184,7 +112,10 @@ export function NewArtistFields({
     codeLettersTooLong,
     codeNumberInvalid,
     parsedCodeNumber,
-  } = validateNewArtistFields(values);
+  } = validateNewArtistFields({
+    ...values,
+    codeLetters: codeLettersField.value,
+  });
 
   // Puts the caret back where the edit left it. React writes the normalized
   // value into the node during the commit's mutation phase, which is the write
@@ -235,7 +166,7 @@ export function NewArtistFields({
       <FormControl error={codeLettersTooLong}>
         <FormLabel>Call letters</FormLabel>
         <Input
-          value={values.codeLetters}
+          value={codeLettersField.value}
           disabled={disabled}
           onChange={handleCodeLettersChange}
           placeholder="e.g. MO"
@@ -275,7 +206,7 @@ export function NewArtistFields({
           no series can ever hold, so previewing it would answer "Next code: 1"
           beside the length error that blocks the submit. */}
       <CallLetterPeekControl
-        code_letters={codeLettersTooLong ? "" : values.codeLetters}
+        code_letters={codeLettersTooLong ? "" : codeLettersField.value}
         genre_id={genreId}
       />
 
