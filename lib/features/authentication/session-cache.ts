@@ -44,6 +44,14 @@ import { measure } from "@/lib/server-timing";
  * `classifySessionRead` in ./utilities). Each attempt is measured
  * separately, so a retried call reports two `auth.getSession` lines instead
  * of one artificially combined duration.
+ *
+ * The retry is unconditional on rejection, which bounds this render's worst
+ * case at two connect timeouts plus the delay — the auth client sets no
+ * fetch timeout of its own, so that ceiling is the platform's, and against a
+ * blackholed connection it is twice what a single attempt would cost. That
+ * is an accepted trade for recovering the common transient rejection; if the
+ * runtime's timeout ever rises far enough to threaten the response budget,
+ * bound this by rejection kind rather than lengthening the delay.
  */
 
 /**
