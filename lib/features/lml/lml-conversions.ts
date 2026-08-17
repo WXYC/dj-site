@@ -43,6 +43,9 @@ export function convertLmlItemToAlbumEntry(item: LmlLibraryItem): AlbumEntry {
     // belongs in this field; `id` keeps the same value for now, which makes an
     // LML row the one source where the two spaces legitimately coincide.
     legacy_release_id: item.id,
+    // The marker the freeze path's interim album_id write-gate keys on; see
+    // AlbumEntry.lml_source for the removal condition.
+    lml_source: true,
     title: item.title ?? "",
     artist: {
       name: item.artist ?? "",
