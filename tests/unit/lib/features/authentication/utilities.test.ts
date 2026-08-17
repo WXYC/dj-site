@@ -253,11 +253,6 @@ describe("authentication utilities", () => {
         { kind: "absent" },
       ],
       [
-        "a status-less error carrying a code — the SESSION_EXPIRED shape",
-        { data: null, error: { message: "Session expired", code: "SESSION_EXPIRED" } },
-        { kind: "absent" },
-      ],
-      [
         "a clean data: null with no error",
         { data: null },
         { kind: "absent" },

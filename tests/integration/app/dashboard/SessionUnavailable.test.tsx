@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen } from "@testing-library/react";
-import { renderWithProviders } from "@/tests/helpers";
+import { renderWithProviders, renderWithPublicProviders } from "@/tests/helpers";
 
 const mockRefresh = vi.fn();
 vi.mock("next/navigation", () => ({
@@ -66,5 +66,11 @@ describe("SessionUnavailable", () => {
     expect(
       screen.getByText(/session hasn.t ended/i)
     ).toBeInTheDocument();
+  });
+
+  it("renders without throwing under only the public store — the provider actually mounted at this point in the real tree, before StoreProvider seeds the dashboard store", () => {
+    renderWithPublicProviders(<SessionUnavailable status={503} />);
+
+    expect(screen.getByText(/We couldn.t reach the server/i)).toBeInTheDocument();
   });
 });

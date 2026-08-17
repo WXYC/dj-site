@@ -38,27 +38,22 @@ import { measure } from "@/lib/server-timing";
  * function so the retry counts as a single cache() entry. Never retried: a
  * resolved HTTP error (429, 5xx, ...) — better-auth's rate limiter does not
  * advance its bucket's clock on a denied request, so an immediate retry
- * during a burst just 429s again — and an aborted fetch (`error.name ===
- * "AbortError"`, e.g. the client disconnected mid-render), since retrying
- * that would issue a second request to an already-degraded auth service on
- * behalf of a caller no longer there to receive it. Both non-retried cases
- * still resolve through the same terminal handling as a retry that itself
- * rejects: the failure stamps `error.transport = true` so callers can tell
- * "this never reached the server" apart from a resolved, status-less error
- * (see `classifySessionRead` in ./utilities). Each attempt is measured
- * separately, so a retried call reports two `auth.getSession` lines instead
- * of one artificially combined duration.
+ * during a burst just 429s again — and an aborted fetch, since the caller
+ * that disconnected mid-render is no longer there to receive a second
+ * attempt's answer. Both non-retried cases resolve through the same terminal
+ * handling as a retry that itself rejects: the failure stamps
+ * `error.transport = true` so callers can tell "this never reached the
+ * server" apart from a resolved, status-less error (see `classifySessionRead`
+ * in ./utilities).
  *
  * The retry is unconditional on rejection (short of an abort), which bounds
  * every render that reaches this seam at two connect timeouts plus the delay
  * — the auth client sets no fetch timeout of its own, so that ceiling is the
- * platform's, and against a blackholed connection it is twice what a single
- * attempt would cost. That scope is wider than the dashboard: this seam is
- * also reached from `createServerSideProps` (session.ts), which the ROOT
- * layout calls on every route. Against a blackholed auth host, every page —
- * `/`, `/live`, `/login`, anonymous traffic included, not just an
- * authenticated dashboard render — pays the same two timeouts plus the
- * delay. That is an accepted trade for recovering the common transient
+ * platform's. That scope is wider than the dashboard: this seam is also
+ * reached from `createServerSideProps` (session.ts), which the ROOT layout
+ * calls on every route, so a blackholed auth host makes every page — `/`,
+ * `/live`, `/login`, anonymous traffic included — pay the same doubled worst
+ * case. That is an accepted trade for recovering the common transient
  * rejection; if the runtime's timeout ever rises far enough to threaten the
  * response budget, bound this by rejection kind rather than lengthening the
  * delay.
@@ -125,10 +120,8 @@ function transportFailure(error: unknown): BetterAuthSessionResponse {
 export const getSessionCached = cache((cookieHeader: string) =>
   fetchSession(cookieHeader).catch((error) => {
     if (isAbortError(error)) {
-      // The client disconnected mid-render, aborting the in-flight fetch.
-      // Retrying would issue a second request to an auth service that may
-      // already be degraded, on behalf of a caller no longer there to
-      // receive the answer — skip straight to the terminal shape instead.
+      // Skip the retry — see this function's docstring for why an abort
+      // never gets one.
       return transportFailure(error);
     }
     return wait(transportRetryConfig.delayMs).then(() =>
