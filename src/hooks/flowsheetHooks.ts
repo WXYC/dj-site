@@ -674,6 +674,12 @@ export const useFlowsheetSubmit = () => {
         album: flowSheetRawQuery.album as string,
         label: flowSheetRawQuery.label as string,
         album_id: flowSheetRawQuery.album_id,
+        // The read half must survive this re-assembly: the submission
+        // chokepoint forwards a picked track_position on the freeform
+        // variant only when the legacy id it was picked from rides beside
+        // it. Dropping it here would silently strip the position from every
+        // gated LML submission.
+        legacy_release_id: flowSheetRawQuery.legacy_release_id,
         rotation_id: flowSheetRawQuery.rotation_id,
         rotation_bin: flowSheetRawQuery.rotation_bin,
         track_position: flowSheetRawQuery.track_position,
@@ -697,9 +703,15 @@ export const useFlowsheetSubmit = () => {
           (flowSheetRawQuery.artist as string),
         album: selectedEntry.title || flowSheetRawQuery.album as string,
         label: selectedEntry.label || flowSheetRawQuery.label as string,
-        album_id: releaseCannotSupplyArtist(selectedEntry)
-          ? undefined
-          : selectedEntry.id ?? undefined,
+        // An LML-sourced row's id is withheld here on the same terms the
+        // freeze path withholds it — it is a legacy id, not a linkage, and
+        // this branch submits straight off the highlighted entry without a
+        // freeze in between (see AlbumEntry.lml_source).
+        album_id:
+          releaseCannotSupplyArtist(selectedEntry) || selectedEntry.lml_source
+            ? undefined
+            : selectedEntry.id ?? undefined,
+        legacy_release_id: selectedEntry.legacy_release_id ?? undefined,
         rotation_bin: selectedEntry.rotation_bin ?? undefined,
         rotation_id: selectedEntry.rotation_id ?? undefined,
         track_position: flowSheetRawQuery.track_position,
