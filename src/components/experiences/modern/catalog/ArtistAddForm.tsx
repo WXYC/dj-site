@@ -1,13 +1,12 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import {
   Button,
   FormControl,
   FormHelperText,
   FormLabel,
-  Input,
   Option,
   Select,
   Sheet,
@@ -21,57 +20,22 @@ import {
   isAddArtistConflict,
   isArtistNameConflictData,
   isConflictRejection,
-  parseRequiredPositiveInt,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
 import { isGenresUnavailable } from "@/lib/features/catalog/genreAvailability";
-import type {
-  AddArtistConflict,
-  AddArtistRequestBody,
-  ArtistInGenreOption,
-} from "@/lib/features/catalog/types";
+import type { AddArtistRequestBody } from "@/lib/features/catalog/types";
+import { useArtistDedupCheck } from "@/src/hooks/catalogHooks";
 import ArtistSearchTypeahead from "@/src/components/shared/inputs/ArtistSearchTypeahead";
-import CallLetterPeekControl from "./CallLetterPeekControl";
-
-/**
- * Column ceilings on the rows this form writes. Nothing between these fields
- * and the INSERT checks any of them — the handler validates only that the keys
- * are present — so an over-long or over-large value reaches PostgreSQL and
- * comes back as a 22001/22003 500 rather than a validation error. Each ceiling
- * has to hold here, and be visible to the MD rather than failing at the far
- * end of a submit.
- *
- * `artists.code_letters` is a `varchar(4)`; `artists.artist_name` and
- * `artists.alphabetical_name` are `varchar(128)`; the code number is filed as
- * `genre_artist_crossreference.artist_genre_code`, a PostgreSQL `integer`
- * whose range check fires at bind time, before the insert.
- */
-const CODE_LETTERS_MAX_LENGTH = 4;
-const ARTIST_NAME_MAX_LENGTH = 128;
-const CODE_NUMBER_MAX = 2147483647;
-
-/**
- * Call letters are matched case-sensitively everywhere the backend uses them —
- * the duplicate pre-check and the next-code-number scan both compare the
- * column for equality, over a plain btree on a non-citext column — and the
- * existing card catalog is filed uppercase. Lowercase "mo" therefore matches
- * no row of the "MO" series: it slips past the duplicate check and previews a
- * next code of 1, opening a second series that shadows the real one while the
- * form reports success. Normalizing at the edge keeps the field, the code
- * preview, and the request body on the one casing the catalog actually uses.
- *
- * Case is the only thing normalized. The catalog files live codes that are not
- * plain letters — "V/A" for Various Artists compilations, "??" placeholders,
- * and codes carrying digits — so narrowing this field to A-Z would make those
- * releases impossible to file. The permissiveness is load-bearing.
- */
-function normalizeCodeLetters(value: string): string {
-  return value.toUpperCase();
-}
+import NewArtistFields, {
+  ARTIST_NAME_MAX_LENGTH,
+  validateNewArtistFields,
+  type CodeLettersField,
+  type NewArtistConflict,
+} from "@/src/components/shared/inputs/NewArtistFields";
 
 /**
  * MD-gated artist-add form. Dedups against existing artists via
  * `ArtistSearchTypeahead` and previews the call-letter assignment via
- * `CallLetterPeekControl` before submitting `useAddArtistMutation`.
+ * `NewArtistFields` before submitting `useAddArtistMutation`.
  *
  * Submits dj-site's local `AddArtistRequestBody` (code_number required), not
  * the published `@wxyc/shared` `AddArtistRequest` — the latter omits
@@ -95,81 +59,33 @@ function ArtistAddFields() {
   const [addArtist, { isLoading }] = useAddArtistMutation();
 
   const [name, setName] = useState("");
-  // The artist the typeahead most recently confirmed. Non-null means the
-  // MD's search term names an artist that already exists in this genre, so
-  // submitting would create a duplicate — the create action stays disabled
-  // until either the text moves away from it or genreId changes, both of
-  // which the typeahead reports via onSelectionCleared.
-  const [existingArtist, setExistingArtist] = useState<ArtistInGenreOption | null>(
-    null,
-  );
-  // A genre change retracts a held selection but does not re-run the search:
-  // the typeahead's panel stays shut, so nothing checks the typed name against
-  // the new genre. Treating the retraction as "this name is new here" would
-  // turn a blocked duplicate into an enabled submit at the exact moment the
-  // check matters, so the check is marked stale instead. It clears only on an
-  // answer about the current genre — a row picked, "create new" chosen, or the
-  // text changed to a different question altogether. Reopening the panel
-  // re-runs the search but reports nothing back, so it does not clear this.
-  const [dedupCheckStale, setDedupCheckStale] = useState(false);
   const [genreId, setGenreId] = useState<number | null>(null);
-  // Value and caret are one state object because normalizing on every keystroke
-  // makes them inseparable. Writing the uppercased text back into a controlled
-  // input replaces `node.value`, and the HTML value setter drops the caret at
-  // the end of the field; React only restores a selection across a commit when
-  // focus moved, which it has not here. Left alone, an MD correcting a
-  // character mid-code has the caret jump silently after the first lowercase
-  // keystroke, so the next one lands at the end and files a different — but
-  // still valid-looking — four-character code with nothing reported wrong.
-  // Codes are written onto the physical cards, so a wrong-but-valid one is the
-  // expensive outcome. Pairing the caret with the value is also what guarantees
-  // the render the replacement below hangs off: an edit that only changed case
-  // normalizes back to the string already held, and a state write of an equal
-  // value would be skipped entirely.
-  const [codeLettersField, setCodeLettersField] = useState<{
-    value: string;
-    caret: number | null;
-  }>({ value: "", caret: null });
-  const codeLetters = codeLettersField.value;
-  const codeLettersInputRef = useRef<HTMLInputElement | null>(null);
+  const [codeLettersField, setCodeLettersField] = useState<CodeLettersField>({
+    value: "",
+    caret: null,
+  });
   const [codeNumberRaw, setCodeNumberRaw] = useState("");
   const [alphabeticalName, setAlphabeticalName] = useState("");
-  // Snapshots the code and name the server actually rejected, alongside the
-  // response — `conflict` must not be read against live
-  // `codeLetters`/`codeNumberRaw`/`name`, since an MD editing any of them
-  // after a 409 would otherwise have the banner keep reporting the new,
-  // unsubmitted value as taken.
-  //
-  // `response` is null when the 409 named no artist the banner could render —
-  // an intermediary's own JSON, or a shape this form cannot read. The
-  // submission was refused either way, so what blocks resubmitting the same
-  // triple is the 409 itself, not whether its body happened to parse; the
-  // server's own message reaches the MD through the global toast instead.
-  const [conflict, setConflict] = useState<{
-    code_letters: string;
-    code_number: string;
-    name: string;
-    response: AddArtistConflict | null;
-  } | null>(null);
+  const [conflict, setConflict] = useState<NewArtistConflict | null>(null);
   const [added, setAdded] = useState<{ code_letters: string; code_number: number } | null>(
     null,
   );
 
   const trimmedName = name.trim();
-  const trimmedAlphabeticalName = alphabeticalName.trim();
-  const trimmedCodeLetters = codeLetters.trim();
   const nameTooLong = trimmedName.length > ARTIST_NAME_MAX_LENGTH;
-  const alphabeticalNameTooLong =
-    trimmedAlphabeticalName.length > ARTIST_NAME_MAX_LENGTH;
-  const codeLettersTooLong = trimmedCodeLetters.length > CODE_LETTERS_MAX_LENGTH;
-  const parsedCodeNumber = parseRequiredPositiveInt(codeNumberRaw);
-  // parseRequiredPositiveInt only rejects non-integers; the column's range is
-  // this form's to enforce.
-  const codeNumber =
-    parsedCodeNumber !== null && parsedCodeNumber <= CODE_NUMBER_MAX
-      ? parsedCodeNumber
-      : null;
-  const codeNumberInvalid = codeNumberRaw.trim().length > 0 && codeNumber === null;
+  const dedup = useArtistDedupCheck(trimmedName);
+  const fieldValues = {
+    alphabeticalName,
+    codeLetters: codeLettersField.value,
+    codeNumberRaw,
+  };
+  const {
+    trimmedAlphabeticalName,
+    trimmedCodeLetters,
+    alphabeticalNameTooLong,
+    codeLettersTooLong,
+    codeNumber,
+  } = validateNewArtistFields(fieldValues);
   // See isGenresUnavailable's doc for why this is `data == null`, not
   // `isError`: a failed genres GET leaves an empty dropdown behind, and
   // `genre_id` is unreachable either way, so the outage has to say so rather
@@ -177,22 +93,10 @@ function ArtistAddFields() {
   // rejects over a good cached list must not read as the same outage.
   const genresUnavailable = isGenresUnavailable(genresQuery);
 
-  // Puts the caret back where the edit left it. React writes the normalized
-  // value into the node during the commit's mutation phase, which is the write
-  // that moves the caret, so the replacement has to run after that — a layout
-  // effect, not an effect, or the field paints for a frame with the caret at
-  // the wrong end.
-  useLayoutEffect(() => {
-    const input = codeLettersInputRef.current;
-    const { caret } = codeLettersField;
-    if (caret === null || input === null) return;
-    input.setSelectionRange(caret, caret);
-  }, [codeLettersField]);
-
   const canSubmit =
     !isLoading &&
-    existingArtist === null &&
-    !dedupCheckStale &&
+    dedup.existingArtist === null &&
+    !dedup.dedupCheckStale &&
     // Each handler below clears `conflict` once its own edit could change the
     // rejected outcome — code_letters/code_number/genre for a code-triple
     // conflict, the name for a name conflict — so a standing conflict here
@@ -215,16 +119,7 @@ function ArtistAddFields() {
   const handleNameChange = (value: string) => {
     setName(value);
     setAdded(null);
-    // A different string is a different question: whatever the previous genre
-    // said about the old text has nothing left to be stale about, and the edit
-    // reopens the typeahead's panel to search the new text under the current
-    // genre. A whitespace-only edit is not a different string — it trims back
-    // to the exact name the stale flag was raised against — so it must leave
-    // the flag standing rather than dismiss a re-check the new genre's search
-    // hasn't answered yet.
-    if (value.trim() !== trimmedName) {
-      setDedupCheckStale(false);
-    }
+    dedup.onNameChange(value);
     // A name conflict is keyed on the name itself, unlike the code-triple
     // conflict: editing it away from the rejected value is exactly the
     // remedy that lets a resubmission succeed, so it must not stay blocked by
@@ -263,8 +158,7 @@ function ArtistAddFields() {
       setCodeLettersField({ value: "", caret: null });
       setCodeNumberRaw("");
       setAlphabeticalName("");
-      setExistingArtist(null);
-      setDedupCheckStale(false);
+      dedup.reset();
       toast.success(`Added ${trimmedName}`);
     } catch (err) {
       if (isConflictRejection(err)) {
@@ -299,20 +193,8 @@ function ArtistAddFields() {
     );
   };
 
-  const handleCodeLettersChange = (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const input = event.target;
-    const raw = input.value;
-    const caret = input.selectionStart;
-    setCodeLettersField({
-      value: normalizeCodeLetters(raw),
-      // Uppercasing can lengthen the text before the caret ("ß" becomes "SS"),
-      // so the caret's new home is the length of the normalized prefix, not
-      // the index the browser reported against the raw text.
-      caret:
-        caret === null ? null : normalizeCodeLetters(raw.slice(0, caret)).length,
-    });
+  const handleCodeLettersFieldChange = (next: CodeLettersField) => {
+    setCodeLettersField(next);
     clearCodeTripleConflict();
     setAdded(null);
   };
@@ -329,8 +211,7 @@ function ArtistAddFields() {
     // server rejected under one genre may be free under another.
     setConflict(null);
     setAdded(null);
-    // Whatever the typeahead last reported was found under the previous genre.
-    setDedupCheckStale(trimmedName.length > 0);
+    dedup.onGenreChange();
   };
 
   const handleAlphabeticalNameChange = (value: string) => {
@@ -394,27 +275,21 @@ function ArtistAddFields() {
               genreId={genreId ?? -1}
               value={name}
               onChange={handleNameChange}
-              onSelect={(artist) => {
-                setExistingArtist(artist);
-                setDedupCheckStale(false);
-              }}
-              onCreateNew={() => {
-                setExistingArtist(null);
-                setDedupCheckStale(false);
-              }}
-              onSelectionCleared={() => setExistingArtist(null)}
+              onSelect={dedup.onArtistSelected}
+              onCreateNew={dedup.onCreateNewSelected}
+              onSelectionCleared={dedup.onSelectionCleared}
               disabled={genreId === null || isLoading}
             />
             {nameTooLong ? (
               <FormHelperText>
                 At most {ARTIST_NAME_MAX_LENGTH} characters
               </FormHelperText>
-            ) : existingArtist ? (
+            ) : dedup.existingArtist ? (
               <FormHelperText sx={{ color: "danger.500" }}>
-                {existingArtist.artist_name} already exists in this genre.
+                {dedup.existingArtist.artist_name} already exists in this genre.
               </FormHelperText>
             ) : (
-              dedupCheckStale && (
+              dedup.dedupCheckStale && (
                 <FormHelperText sx={{ color: "warning.500" }}>
                   Re-check this name under the new genre: pick the existing
                   artist from the suggestions, or choose &quot;Create new
@@ -424,82 +299,16 @@ function ArtistAddFields() {
             )}
           </FormControl>
 
-          <FormControl error={alphabeticalNameTooLong}>
-            <FormLabel>Alphabetical name (optional)</FormLabel>
-            <Input
-              value={alphabeticalName}
-              disabled={isLoading}
-              onChange={(e) => handleAlphabeticalNameChange(e.target.value)}
-              placeholder="Defaults to artist name"
-              slotProps={{ input: { maxLength: ARTIST_NAME_MAX_LENGTH } }}
-            />
-            {alphabeticalNameTooLong && (
-              <FormHelperText>
-                At most {ARTIST_NAME_MAX_LENGTH} characters
-              </FormHelperText>
-            )}
-          </FormControl>
-
-          <FormControl error={codeLettersTooLong}>
-            <FormLabel>Call letters</FormLabel>
-            <Input
-              value={codeLetters}
-              disabled={isLoading}
-              onChange={handleCodeLettersChange}
-              placeholder="e.g. MO"
-              slotProps={{
-                input: {
-                  ref: codeLettersInputRef,
-                  maxLength: CODE_LETTERS_MAX_LENGTH,
-                },
-              }}
-            />
-            <FormHelperText>
-              {codeLettersTooLong
-                ? `At most ${CODE_LETTERS_MAX_LENGTH} characters`
-                : `Up to ${CODE_LETTERS_MAX_LENGTH} characters, filed uppercase`}
-            </FormHelperText>
-          </FormControl>
-
-          <FormControl error={codeNumberInvalid}>
-            <FormLabel>Code number</FormLabel>
-            <Input
-              value={codeNumberRaw}
-              disabled={isLoading}
-              onChange={(e) => handleCodeNumberChange(e.target.value)}
-              placeholder="e.g. 42"
-            />
-            {codeNumberInvalid && (
-              <FormHelperText>
-                {parsedCodeNumber === null
-                  ? "Must be a positive whole number"
-                  : `Must be no greater than ${CODE_NUMBER_MAX}`}
-              </FormHelperText>
-            )}
-          </FormControl>
-
-          {/* Gated on the same length the submit checks: uppercasing can push a
-              value past the field's own maxLength ("ßxß" becomes "SSXSS"),
-              which no series can ever hold, so previewing it would answer
-              "Next code: 1" beside the length error that blocks the submit. */}
-          <CallLetterPeekControl
-            code_letters={codeLettersTooLong ? "" : codeLetters}
-            genre_id={genreId}
+          <NewArtistFields
+            values={fieldValues}
+            codeLettersField={codeLettersField}
+            onCodeLettersFieldChange={handleCodeLettersFieldChange}
+            onCodeNumberChange={handleCodeNumberChange}
+            onAlphabeticalNameChange={handleAlphabeticalNameChange}
+            genreId={genreId}
+            disabled={isLoading}
+            conflict={conflict}
           />
-
-          {conflict?.response &&
-            (isArtistNameConflictData(conflict.response) ? (
-              <Typography level="body-sm" color="danger" role="alert">
-                {conflict.name} is already taken in this genre by{" "}
-                {conflict.response.artist.artist_name}.
-              </Typography>
-            ) : (
-              <Typography level="body-sm" color="danger" role="alert">
-                {conflict.code_letters}
-                {conflict.code_number} is already taken by{" "}
-                {conflict.response.artist.artist_name}.
-              </Typography>
-            ))}
 
           {added && (
             <Typography level="body-sm" color="success" role="status">
