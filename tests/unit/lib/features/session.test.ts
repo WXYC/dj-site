@@ -40,13 +40,21 @@ vi.mock("@/lib/features/authentication/organization-utils.server", () => ({
   getAppOrganizationId: vi.fn(() => undefined),
 }));
 
-// Mock authentication utilities
-vi.mock("@/lib/features/authentication/utilities", () => ({
-  defaultAuthenticationData: { message: "Not Authenticated" },
-  betterAuthSessionToAuthenticationData: vi.fn(() => ({
-    message: "Not Authenticated",
-  })),
-}));
+// Mock authentication utilities, but keep the real classifySessionRead — it's
+// a pure function this file's own tests rely on to exercise the unavailable
+// console.warn, and it has no next/headers-style dependency to fake.
+vi.mock("@/lib/features/authentication/utilities", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/features/authentication/utilities")>(
+    "@/lib/features/authentication/utilities"
+  );
+  return {
+    ...actual,
+    defaultAuthenticationData: { message: "Not Authenticated" },
+    betterAuthSessionToAuthenticationData: vi.fn(() => ({
+      message: "Not Authenticated",
+    })),
+  };
+});
 
 // Mock authentication types (used by session.ts)
 vi.mock("@/lib/features/authentication/types", () => ({
@@ -63,9 +71,12 @@ vi.mock("@/lib/features/application/types", () => ({
 }));
 
 describe("session", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     mockGet.mockReturnValue(undefined);
+    // Avoid waiting out the real transport-retry delay in the session-fetch-error test.
+    const { transportRetryConfig } = await import("@/lib/features/authentication/session-cache");
+    transportRetryConfig.delayMs = 0;
   });
 
   describe("sessionOptions", () => {
@@ -169,6 +180,31 @@ describe("session", () => {
       const result = await createServerSideProps();
 
       expect(result.authentication).toEqual({ message: "Not Authenticated" });
+    });
+
+    it("resolves (does not throw) and fails soft to defaultAuthenticationData on an unavailable read — called from the root layout, which cannot throw", async () => {
+      const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { serverAuthClient } = await import(
+        "@/lib/features/authentication/server-client"
+      );
+      vi.mocked(serverAuthClient.getSession).mockResolvedValue({
+        data: null,
+        error: {
+          message: "Too many requests. Please try again later.",
+          status: 429,
+          statusText: "Too Many Requests",
+        },
+      } as any);
+
+      const { createServerSideProps } = await import("@/lib/features/session");
+      const result = await createServerSideProps();
+
+      expect(result.authentication).toEqual({ message: "Not Authenticated" });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "Session read unavailable while building server-side props; failing soft to unauthenticated:",
+        429
+      );
+      consoleSpy.mockRestore();
     });
 
     it("should process valid session data", async () => {

@@ -56,8 +56,61 @@ export type BetterAuthSessionResponse = {
   error?: {
     message: string;
     code?: string;
+    status?: number;
+    statusText?: string;
+    // Stamped by getSessionCached's terminal catch when the fetch itself
+    // rejected (DNS, TLS, ECONNREFUSED, abort/timeout) rather than resolving
+    // with an HTTP error status. Never inferred from an absent `status`: a
+    // resolved, status-less error (e.g. the SESSION_EXPIRED shape below)
+    // must still classify as an absent session, not an unavailable one.
+    transport?: true;
   };
 };
+
+/**
+ * The three outcomes a session read can resolve to. `unavailable` covers
+ * "the server could not tell us whether this session is valid" — a 429 or
+ * 5xx from the auth service, or a fetch that never got a response at all —
+ * as distinct from `absent`, which covers a clean `data: null`, a 401/403,
+ * and any other status-less resolved error: cases where the auth server is
+ * confidently saying no valid session exists.
+ */
+export type SessionReadResult =
+  | { kind: "session"; session: BetterAuthSession }
+  | { kind: "absent" }
+  | { kind: "unavailable"; status?: number };
+
+/**
+ * Pure classifier for a raw session-read response. Sited beside the type it
+ * classifies, not in server-utils.ts, so it unit-tests with no next/headers
+ * mocking, and so lib/features/session.ts — which deliberately avoids
+ * server-utils.ts's redirect/cookies surface — can reuse it directly.
+ *
+ * Do not infer "transport" from a missing `status`: that would render an
+ * unavailable-session notice, with a retry button that can never succeed,
+ * for a genuinely expired or invalid session (a resolved error with no
+ * `status`, e.g. the SESSION_EXPIRED shape) — the inverse of what this
+ * classification exists to prevent. Classify on the explicit tag only.
+ */
+export function classifySessionRead(
+  response: BetterAuthSessionResponse
+): SessionReadResult {
+  if (response.data) {
+    return { kind: "session", session: response.data };
+  }
+
+  const error = response.error;
+
+  if (error?.transport) {
+    return { kind: "unavailable" };
+  }
+
+  if (error?.status !== undefined && (error.status === 429 || error.status >= 500)) {
+    return { kind: "unavailable", status: error.status };
+  }
+
+  return { kind: "absent" };
+}
 
 export const defaultAuthenticationData: AuthenticationData = {
   message: "Not Authenticated",

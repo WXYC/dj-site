@@ -4,7 +4,9 @@ import { Authorization } from "@/lib/features/admin/types";
 import {
   defaultAuthenticationData,
   betterAuthSessionToAuthenticationData,
+  classifySessionRead,
   BetterAuthSession,
+  BetterAuthSessionResponse,
 } from "@/lib/features/authentication/utilities";
 import {
   createTestBetterAuthSession,
@@ -210,6 +212,70 @@ describe("authentication utilities", () => {
       expect(user.appSkin).toBe("dark");
       expect(user.createdAt).toEqual(createdAt);
       expect(user.updatedAt).toEqual(updatedAt);
+    });
+  });
+
+  describe("classifySessionRead", () => {
+    it("classifies a valid session", () => {
+      const session = createTestBetterAuthSession();
+      const response: BetterAuthSessionResponse = { data: session };
+
+      expect(classifySessionRead(response)).toEqual({
+        kind: "session",
+        session,
+      });
+    });
+
+    it.each([
+      [
+        "429",
+        { data: null, error: { message: "Too many requests. Please try again later.", status: 429, statusText: "Too Many Requests" } },
+        { kind: "unavailable", status: 429 },
+      ],
+      [
+        "5xx",
+        { data: null, error: { message: "Internal Server Error", status: 503, statusText: "Service Unavailable" } },
+        { kind: "unavailable", status: 503 },
+      ],
+      [
+        "a transport-tagged error",
+        { data: null, error: { message: "auth server unreachable", transport: true } },
+        { kind: "unavailable" },
+      ],
+      [
+        "401",
+        { data: null, error: { message: "Unauthorized", status: 401, statusText: "Unauthorized" } },
+        { kind: "absent" },
+      ],
+      [
+        "403",
+        { data: null, error: { message: "Forbidden", status: 403, statusText: "Forbidden" } },
+        { kind: "absent" },
+      ],
+      [
+        "a status-less error carrying a code — the SESSION_EXPIRED shape",
+        { data: null, error: { message: "Session expired", code: "SESSION_EXPIRED" } },
+        { kind: "absent" },
+      ],
+      [
+        "a clean data: null with no error",
+        { data: null },
+        { kind: "absent" },
+      ],
+    ] as [string, BetterAuthSessionResponse, ReturnType<typeof classifySessionRead>][])(
+      "classifies %s as %j",
+      (_description, response, expected) => {
+        expect(classifySessionRead(response)).toEqual(expected);
+      }
+    );
+
+    it("never infers a transport failure from an absent status alone — that would misclassify the SESSION_EXPIRED shape as unavailable", () => {
+      const response: BetterAuthSessionResponse = {
+        data: null,
+        error: { message: "Session expired", code: "SESSION_EXPIRED" },
+      };
+
+      expect(classifySessionRead(response).kind).toBe("absent");
     });
   });
 });

@@ -2,7 +2,7 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import "server-only";
 import { defaultApplicationState } from "./application/types";
-import { defaultAuthenticationData, betterAuthSessionToAuthenticationData, BetterAuthSession } from "./authentication/utilities";
+import { defaultAuthenticationData, betterAuthSessionToAuthenticationData, classifySessionRead, BetterAuthSession } from "./authentication/utilities";
 import { getAppOrganizationId } from "./authentication/organization-utils.server";
 import { roleToAuthorization, isAuthenticated, AuthenticatedUser } from "./authentication/types";
 import { SiteProps } from "./types";
@@ -51,6 +51,15 @@ export const createServerSideProps = cache(async (): Promise<SiteProps> => {
   try {
     const cookieHeader = cookieStore.toString();
     const session = await getSessionCached(cookieHeader);
+    const classification = classifySessionRead(session);
+
+    // Called from the root layout, so this must not throw or redirect —
+    // fail soft to defaultAuthenticationData below, same as every other
+    // failure this try/catch handles. The warning is the only trace a
+    // rate-limited/unreachable auth service leaves on this path.
+    if (classification.kind === "unavailable") {
+      console.warn("Session read unavailable while building server-side props; failing soft to unauthenticated:", classification.status);
+    }
 
     if (session.data) {
       const normalizedSession = {
