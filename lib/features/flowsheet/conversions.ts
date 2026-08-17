@@ -97,6 +97,17 @@ export function convertQueryToSubmission(
   const hasLinkedAlbum = hasLinkedAlbumId(query.album_id);
   const hasRotation =
     typeof query.rotation_id === "number" && query.rotation_id > 0;
+  // A picked position may also ride the freeform variant (BS persists it
+  // there), but only in the shape the LML write-gate produces: `album_id`
+  // absent entirely — present-but-negative is the synthesized stale-position
+  // hazard described above — while the read-half legacy id still rides,
+  // tying the position to the tracklist it was picked from. A typed freeform
+  // entry carries no legacy id, so a leftover position never rides one.
+  const freeformPickedPosition =
+    !hasLinkedAlbum &&
+    query.album_id === undefined &&
+    hasLinkedAlbumId(query.legacy_release_id) &&
+    query.track_position !== undefined;
   return {
     track_title: query.song,
     artist_name: query.artist,
@@ -111,6 +122,9 @@ export function convertQueryToSubmission(
       ...(query.track_position !== undefined && {
         track_position: query.track_position,
       }),
+    }),
+    ...(freeformPickedPosition && {
+      track_position: query.track_position,
     }),
   };
 }

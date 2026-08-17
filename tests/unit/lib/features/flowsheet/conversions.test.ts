@@ -126,6 +126,36 @@ describe("flowsheet conversions", () => {
       expect(result.track_position).toBe("A1");
     });
 
+    // The gated-LML shape: the interim write-gate withheld album_id, but the
+    // picker picked this position from the read half's tracklist and BS
+    // persists track_position on the freeform variant. The position rides
+    // exactly when the legacy id it was picked from still rides beside it.
+    it("forwards track_position on the freeform branch when the read-half legacy id rides with no album_id", () => {
+      const result = convertQueryToSubmission(
+        createTestFlowsheetQuery({
+          album_id: undefined,
+          legacy_release_id: 45342,
+          track_position: "A1",
+        })
+      ) as QuerySubmission & { track_position?: string | null };
+      expect(result.track_position).toBe("A1");
+      expect(result).not.toHaveProperty("album_id");
+    });
+
+    // Without the read-half id there is nothing tying the position to a
+    // tracklist — a typed freeform entry never picked one, so a leftover
+    // value must not ride.
+    it("omits track_position on the freeform branch when no legacy id rides", () => {
+      const result = convertQueryToSubmission(
+        createTestFlowsheetQuery({
+          album_id: undefined,
+          legacy_release_id: undefined,
+          track_position: "A1",
+        })
+      ) as QuerySubmission & { track_position?: string | null };
+      expect(result.track_position).toBeUndefined();
+    });
+
     it("should omit track_position when none was picked", () => {
       const query = createTestFlowsheetQuery({ album_id: 4242 });
       const result = convertQueryToSubmission(query) as QuerySubmission & {

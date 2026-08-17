@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, fireEvent, waitFor } from "@testing-library/react";
 import FlowsheetSearchResults from "@/src/components/experiences/modern/flowsheet/Search/Results/FlowsheetSearchResults";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
+import { entryToFreezePayload } from "@/lib/features/flowsheet/conversions";
 import {
   renderWithProviders,
   createTestAlbum,
@@ -390,6 +391,58 @@ describe("FlowsheetSearchResults", () => {
 
       await screen.findByTestId("library-track-picker-manual");
 
+      const tracks =
+        libraryTrackPickerSpy.mock.calls.at(-1)?.[0]?.tracks ?? [];
+      expect(tracks).toHaveLength(1);
+      expect(tracks[0].title).toBe("la paradoja");
+    });
+
+    it("keeps the picker offered when the write-gate withheld album_id from an LML freeze", async () => {
+      // The gated-LML shape: entryToFreezePayload withholds album_id for
+      // lml_source rows, so the frozen query carries only the read half.
+      // The picker must stay offered — the pick submits freeform, with its
+      // track_position tied to the legacy id it was read from.
+      stubBothSpaces();
+
+      const { store } = renderWithProviders(
+        <FlowsheetSearchResults
+          binResults={[]}
+          catalogResults={[]}
+          rotationResults={[]}
+          lmlResults={[]}
+        />,
+        {
+          preloadedState: {
+            flowsheet: buildFlowsheetState(true, {
+              search: {
+                open: true,
+                query: flowsheetSlice.getInitialState().search.query,
+                selectedResult: 0,
+                confirmedArtist: "",
+                resetEpoch: 0,
+              },
+            }),
+          },
+        }
+      );
+
+      store.dispatch(
+        flowsheetSlice.actions.freezeSelectionToQuery(
+          entryToFreezePayload({
+            id: LEGACY_RELEASE_ID,
+            legacy_release_id: LEGACY_RELEASE_ID,
+            lml_source: true,
+            artist: { name: "Juana Molina" },
+            title: "DOGA",
+            label: "Sonamos",
+          })
+        )
+      );
+
+      expect(store.getState().flowsheet.search.query.album_id).toBeUndefined();
+
+      await screen.findByTestId("flowsheet-search-track-picker-row");
+      await screen.findByTestId("library-track-picker-manual");
       const tracks =
         libraryTrackPickerSpy.mock.calls.at(-1)?.[0]?.tracks ?? [];
       expect(tracks).toHaveLength(1);

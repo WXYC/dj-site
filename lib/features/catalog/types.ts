@@ -258,11 +258,10 @@ export type AlbumEntry = {
    * LML search result — the one source whose `id` above is a legacy id
    * rather than a Backend serial, because LML's library.db has no other id
    * to give. `entryToFreezePayload` withholds `album_id` for flagged rows,
-   * so a submission degrades to freeform instead of persisting a wrong-space
-   * album link. Remove the flag and its gate together in dj-site#1224's
-   * post-step-3 pass, once the LML proxy emits real `library.id`s
-   * (WXYC/Backend-Service#2168) — a gate left in place past that point keeps
-   * the corrected links out of the flowsheet.
+   * so a submission goes freeform instead of persisting a wrong-space album
+   * link. Remove the flag and its gate together once the LML search proxy
+   * emits a real Backend `library.id` in `id` — a gate left in place past
+   * that point keeps the corrected links out of the flowsheet.
    */
   lml_source?: true;
   title: string;

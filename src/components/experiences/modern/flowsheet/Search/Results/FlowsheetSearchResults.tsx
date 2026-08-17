@@ -84,12 +84,10 @@ export default function FlowsheetSearchResults({
     ? idSource.legacy_release_id
     : null;
 
-  // WRITE — whether this row has a real library linkage, which is the only
-  // thing that decides if a picker is offered at all. A library-unlinked
-  // rotation/catalog row carries a synthesized negative id from
-  // synthesizeAlbumId, and the submission chokepoint drops `track_position`
-  // without a positive `album_id` behind it — so offering a picker there would
-  // let the DJ pick something that gets silently discarded.
+  // WRITE — whether this row has a real library linkage, which decides what a
+  // submission may carry. A library-unlinked rotation/catalog row carries a
+  // synthesized negative id from synthesizeAlbumId, and the submission
+  // chokepoint drops `track_position` for that shape.
   const linkedAlbumId = hasLinkedAlbumId(idSource.id) ? idSource.id : null;
 
   const [manualOverride, setManualOverride] = useState<number | null>(null);
@@ -99,7 +97,24 @@ export default function FlowsheetSearchResults({
     }
   }, [tracklistReleaseId, manualOverride]);
 
-  const showPickerRow = linkedAlbumId !== null && !rotationMode;
+  // A synthesized negative id would freeze as a present-but-invalid album_id,
+  // the one shape the submission chokepoint strips entirely — position
+  // included — so a picker over it would let the DJ pick something that gets
+  // silently discarded.
+  const synthesizedUnlinked =
+    typeof idSource.id === "number" && idSource.id < 0;
+
+  // Offered exactly when the pick survives submission: a linked row submits
+  // it alongside album_id, and a read-half-only row (an LML freeze whose
+  // album_id the interim write-gate withheld — see AlbumEntry.lml_source)
+  // submits it freeform, where the chokepoint forwards track_position
+  // whenever it rides with the legacy id it was picked from and no album_id
+  // at all. Rows with a synthesized negative id, or with both halves null,
+  // get no picker.
+  const showPickerRow =
+    (linkedAlbumId !== null ||
+      (tracklistReleaseId !== null && !synthesizedUnlinked)) &&
+    !rotationMode;
 
   // Keyed on the read half: opting out is per-release-tracklist, and the
   // release's identity for tracklist purposes is its legacy id. Gated on the
