@@ -299,7 +299,8 @@ function ArtistAddFields() {
           </FormControl>
 
           <NewArtistFields
-            values={{ alphabeticalName, codeNumberRaw }}
+            alphabeticalName={alphabeticalName}
+            codeNumberRaw={codeNumberRaw}
             codeLettersField={codeLettersField}
             onCodeLettersFieldChange={handleCodeLettersFieldChange}
             onCodeNumberChange={handleCodeNumberChange}
