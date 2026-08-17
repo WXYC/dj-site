@@ -858,5 +858,49 @@ describe("flowsheet conversions", () => {
         })
       );
     });
+
+    // The interim write-gate: an LML row's `id` is a legacy id wearing the
+    // serial field, and BS resolves album_id in serial space — forwarding it
+    // links the entry to whatever release owns that number in the wrong
+    // space, silently. The freeze withholds it; the read half still rides so
+    // the picker keeps working.
+    it("withholds album_id for an LML-sourced row but keeps the read-path id", () => {
+      expect(
+        entryToFreezePayload({
+          id: 45342,
+          legacy_release_id: 45342,
+          lml_source: true,
+          artist: { name: "Jessica Pratt" },
+          title: "On Your Own Love Again",
+          label: "Drag City",
+        })
+      ).toEqual({
+        artist: "Jessica Pratt",
+        artistProvided: true,
+        album: "On Your Own Love Again",
+        label: "Drag City",
+        album_id: undefined,
+        legacy_release_id: 45342,
+        rotation_id: undefined,
+        rotation_bin: undefined,
+      });
+    });
+
+    // With the linkage withheld there is nothing for BS to spread back over
+    // the request, so whether an artist "was provided" falls to the seeded
+    // name alone — unlike the linked-release cases above.
+    it("keys artistProvided on the seeded name, not the linkage, for an LML-sourced row", () => {
+      expect(
+        entryToFreezePayload({
+          id: 45342,
+          legacy_release_id: 45342,
+          lml_source: true,
+          artist: { name: "" },
+          title: "Untitled",
+        })
+      ).toEqual(
+        expect.objectContaining({ artistProvided: false, album_id: undefined })
+      );
+    });
   });
 });

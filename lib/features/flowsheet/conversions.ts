@@ -28,6 +28,7 @@ export function entryToFreezePayload(entry: {
   label?: string | null;
   id?: number | null;
   legacy_release_id?: number | null;
+  lml_source?: boolean;
   rotation_id?: number | null;
   rotation_bin?: Rotation | null;
 }) {
@@ -44,10 +45,20 @@ export function entryToFreezePayload(entry: {
     // straight back unless the edit strips the linkage first. Without a
     // linked row there is no linkage to strip and the deviation rule never
     // runs, so the release's own credit is the only answer left to give.
-    artistProvided: hasLinkedAlbumId(entry.id) || Boolean(entry.artist?.name),
+    // An LML-sourced row is the second exception: its album_id is withheld
+    // just below, so no linkage reaches BS to spread back, and the seeded
+    // name is the only signal left.
+    artistProvided:
+      (!entry.lml_source && hasLinkedAlbumId(entry.id)) ||
+      Boolean(entry.artist?.name),
     album: entry.title ?? "",
     label: entry.label ?? "",
-    album_id: entry.id ?? undefined,
+    // INTERIM write-gate: an LML row's `id` is a legacy id wearing the
+    // serial field, and BS resolves album_id in serial space — forwarding it
+    // links the entry to whatever release owns that number in the wrong
+    // space, silently. Withheld so the submission goes freeform; see
+    // AlbumEntry.lml_source for the removal condition.
+    album_id: entry.lml_source ? undefined : entry.id ?? undefined,
     // The read half of the freeze. Carried so the picker survives the click
     // that zeroes the highlight. Taken from this entry's own field rather than
     // derived from `album_id` — which release's tracklist to show is not the

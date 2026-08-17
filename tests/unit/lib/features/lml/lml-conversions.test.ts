@@ -4,6 +4,14 @@ import { createTestLmlLibraryItem } from "@/tests/helpers";
 import type { LmlLibraryItem } from "@/lib/features/lml/types";
 
 describe("convertLmlItemToAlbumEntry", () => {
+  // The one source whose `id` is a legacy id gets marked, so the freeze
+  // path's interim write-gate can withhold it from album_id.
+  it("marks the entry as LML-sourced for the write gate", () => {
+    const result = convertLmlItemToAlbumEntry(createTestLmlLibraryItem({ id: 7 }));
+    expect(result.lml_source).toBe(true);
+  });
+
+
   it("should map all fields correctly", () => {
     const item = createTestLmlLibraryItem({
       id: 42,
@@ -22,6 +30,7 @@ describe("convertLmlItemToAlbumEntry", () => {
     expect(result).toEqual({
       id: 42,
       legacy_release_id: 42,
+      lml_source: true,
       title: "DOGA",
       artist: {
         name: "Juana Molina",
