@@ -45,18 +45,6 @@ export type CodeLettersField = {
 };
 
 /**
- * The fields of this group whose value is a plain string. Call letters are
- * absent by design: they arrive as `codeLettersField`, which carries the caret
- * the normalizer has to restore, and a second plain copy here would be a
- * second source for one value — free to disagree with the first, and exactly
- * the drift `CodeLettersField` exists to prevent.
- */
-export type NewArtistTextFieldValues = {
-  alphabeticalName: string;
-  codeNumberRaw: string;
-};
-
-/**
  * A 409 the server sent, snapshotted with the values it actually rejected.
  * Read the snapshot rather than the live fields: an MD editing any of them
  * after the rejection would otherwise have the banner keep reporting the new,
@@ -73,10 +61,15 @@ export type NewArtistConflict = {
 };
 
 export type NewArtistFieldsProps = {
-  values: NewArtistTextFieldValues;
+  alphabeticalName: string;
+  codeNumberRaw: string;
   /**
-   * Held by the caller so one owner keeps the value and its caret together —
-   * see CodeLettersField.
+   * Must be caller-held state, never an object built inline in the caller's
+   * JSX: the caret is restored in a layout effect keyed on this object's
+   * identity, so a fresh literal every render would re-run the restore before
+   * every paint, including paints caused by the other fields — dragging the
+   * caret out from under an edit in progress. Holding it also keeps the value
+   * and its caret under one owner, which is what `CodeLettersField` is for.
    */
   codeLettersField: CodeLettersField;
   onCodeLettersFieldChange: (next: CodeLettersField) => void;
@@ -96,8 +89,9 @@ export type NewArtistFieldsProps = {
  * whatever typeahead decided this artist is new, which is outside this group,
  * and so does the submit.
  */
-export function NewArtistFields({
-  values,
+function NewArtistFields({
+  alphabeticalName,
+  codeNumberRaw,
   codeLettersField,
   onCodeLettersFieldChange,
   onCodeNumberChange,
@@ -113,7 +107,8 @@ export function NewArtistFields({
     codeNumberInvalid,
     parsedCodeNumber,
   } = validateNewArtistFields({
-    ...values,
+    alphabeticalName,
+    codeNumberRaw,
     codeLetters: codeLettersField.value,
   });
 
@@ -150,7 +145,7 @@ export function NewArtistFields({
       <FormControl error={alphabeticalNameTooLong}>
         <FormLabel>Alphabetical name (optional)</FormLabel>
         <Input
-          value={values.alphabeticalName}
+          value={alphabeticalName}
           disabled={disabled}
           onChange={(e) => onAlphabeticalNameChange(e.target.value)}
           placeholder="Defaults to artist name"
@@ -187,7 +182,7 @@ export function NewArtistFields({
       <FormControl error={codeNumberInvalid}>
         <FormLabel>Code number</FormLabel>
         <Input
-          value={values.codeNumberRaw}
+          value={codeNumberRaw}
           disabled={disabled}
           onChange={(e) => onCodeNumberChange(e.target.value)}
           placeholder="e.g. 42"

@@ -1,17 +1,19 @@
 import { describe, it, expect, vi } from "vitest";
 import { useState } from "react";
 import { screen } from "@testing-library/react";
-import { renderWithProviders } from "@/tests/helpers/render";
+import {
+  renderWithProviders,
+  TEST_ENTITY_IDS,
+  TEST_SEARCH_STRINGS,
+} from "@/tests/helpers";
 
-// The code preview is MD-gated and carries its own spec; here only the props it
-// is handed matter, so it stands in as a probe rather than dragging the auth
+// The code preview is MD-gated and carries its own spec; here only the code it
+// is handed matters, so it stands in as a probe rather than dragging the auth
 // stack into a test about three text fields.
-const peekProps: Array<{ code_letters: string; genre_id: number | null }> = [];
 vi.mock("@/src/components/shared/inputs/CallLetterPeekControl", () => ({
-  default: (props: { code_letters: string; genre_id: number | null }) => {
-    peekProps.push(props);
-    return <div data-testid="peek-probe" data-code={props.code_letters} />;
-  },
+  default: ({ code_letters }: { code_letters: string }) => (
+    <div data-testid="peek-probe" data-code={code_letters} />
+  ),
 }));
 
 import NewArtistFields, {
@@ -19,33 +21,32 @@ import NewArtistFields, {
   type NewArtistConflict,
 } from "@/src/components/shared/inputs/NewArtistFields";
 
+const MOLINA = TEST_SEARCH_STRINGS.CODE_LETTERS.MOLINA;
+
 function Harness({
   initialCodeLetters = "",
-  initialCodeNumber = "",
   conflict = null,
-  disabled = false,
 }: {
   initialCodeLetters?: string;
-  initialCodeNumber?: string;
   conflict?: NewArtistConflict | null;
-  disabled?: boolean;
 }) {
   const [codeLettersField, setCodeLettersField] = useState<CodeLettersField>({
     value: initialCodeLetters,
     caret: null,
   });
-  const [codeNumberRaw, setCodeNumberRaw] = useState(initialCodeNumber);
+  const [codeNumberRaw, setCodeNumberRaw] = useState("");
   const [alphabeticalName, setAlphabeticalName] = useState("");
 
   return (
     <NewArtistFields
-      values={{ alphabeticalName, codeNumberRaw }}
+      alphabeticalName={alphabeticalName}
+      codeNumberRaw={codeNumberRaw}
       codeLettersField={codeLettersField}
       onCodeLettersFieldChange={setCodeLettersField}
       onCodeNumberChange={setCodeNumberRaw}
       onAlphabeticalNameChange={setAlphabeticalName}
-      genreId={1}
-      disabled={disabled}
+      genreId={TEST_ENTITY_IDS.GENRE.ROCK}
+      disabled={false}
       conflict={conflict}
     />
   );
@@ -53,6 +54,10 @@ function Harness({
 
 function callLettersInput() {
   return screen.getByLabelText("Call letters") as HTMLInputElement;
+}
+
+function peekedCode() {
+  return screen.getByTestId("peek-probe").getAttribute("data-code");
 }
 
 describe("NewArtistFields", () => {
@@ -70,9 +75,9 @@ describe("NewArtistFields", () => {
     // series shadowing the real "MO" one while the form reported success.
     const { user } = renderWithProviders(<Harness />);
 
-    await user.type(callLettersInput(), "mo");
+    await user.type(callLettersInput(), MOLINA.toLowerCase());
 
-    expect(callLettersInput().value).toBe("MO");
+    expect(callLettersInput().value).toBe(MOLINA);
   });
 
   it("preserves punctuation and digits that are real filed codes", async () => {
@@ -90,7 +95,7 @@ describe("NewArtistFields", () => {
     // caret at the end of the field. Left alone, the next keystroke lands
     // there and files a different — but still valid-looking — code, onto a
     // physical card.
-    const { user } = renderWithProviders(<Harness initialCodeLetters="MO" />);
+    const { user } = renderWithProviders(<Harness initialCodeLetters={MOLINA} />);
     const input = callLettersInput();
 
     await user.click(input);
@@ -119,31 +124,29 @@ describe("NewArtistFields", () => {
     // Uppercasing can push a value past the field's own maxLength ("ßxß"
     // becomes "SSXSS"), which no series can hold — previewing it would answer
     // "Next code: 1" beside the length error that blocks the submit.
-    peekProps.length = 0;
     renderWithProviders(<Harness initialCodeLetters="MOXYZ" />);
 
-    expect(peekProps.at(-1)?.code_letters).toBe("");
+    expect(peekedCode()).toBe("");
   });
 
   it("passes a filable code straight through to the preview", () => {
-    peekProps.length = 0;
-    renderWithProviders(<Harness initialCodeLetters="MO" />);
+    renderWithProviders(<Harness initialCodeLetters={MOLINA} />);
 
-    expect(peekProps.at(-1)?.code_letters).toBe("MO");
+    expect(peekedCode()).toBe(MOLINA);
   });
 
   it("names the artist holding a rejected code triple", () => {
     renderWithProviders(
       <Harness
         conflict={{
-          code_letters: "RO",
+          code_letters: TEST_SEARCH_STRINGS.CODE_LETTERS.STEREOLAB,
           code_number: "87",
           name: "Stereolab",
           response: {
             artist: {
               artist_id: 4,
               artist_name: "Cat Power",
-              code_letters: "RO",
+              code_letters: TEST_SEARCH_STRINGS.CODE_LETTERS.STEREOLAB,
             },
           },
         }}
@@ -151,7 +154,7 @@ describe("NewArtistFields", () => {
     );
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "RO87 is already taken by Cat Power.",
+      "ST87 is already taken by Cat Power.",
     );
   });
 
@@ -159,14 +162,14 @@ describe("NewArtistFields", () => {
     renderWithProviders(
       <Harness
         conflict={{
-          code_letters: "RO",
+          code_letters: TEST_SEARCH_STRINGS.CODE_LETTERS.STEREOLAB,
           code_number: "87",
           name: "Stereolab",
           response: {
             artist: {
               artist_id: 4,
               artist_name: "Stereolab",
-              code_letters: "RO",
+              code_letters: TEST_SEARCH_STRINGS.CODE_LETTERS.STEREOLAB,
             },
             reason: "artist_name_conflict",
           },
@@ -186,7 +189,7 @@ describe("NewArtistFields", () => {
     renderWithProviders(
       <Harness
         conflict={{
-          code_letters: "RO",
+          code_letters: TEST_SEARCH_STRINGS.CODE_LETTERS.STEREOLAB,
           code_number: "87",
           name: "Stereolab",
           response: null,

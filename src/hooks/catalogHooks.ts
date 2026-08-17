@@ -483,40 +483,69 @@ export function useArtistDedupCheck(trimmedName: string) {
     useState<ArtistInGenreOption | null>(null);
   const [dedupCheckStale, setDedupCheckStale] = useState(false);
 
-  return {
-    existingArtist,
-    dedupCheckStale,
-    /**
-     * A different string is a different question: whatever the previous genre
-     * said about the old text has nothing left to be stale about, and the edit
-     * reopens the typeahead's panel to search the new text under the current
-     * genre. A whitespace-only edit is not a different string — it trims back
-     * to the exact name the flag was raised against — so it must leave the flag
-     * standing rather than dismiss a re-check that has not been answered yet.
-     */
-    onNameChange: (nextName: string) => {
+  // Stable identities, because `ArtistSearchTypeahead` takes three of these as
+  // effect and callback dependencies. Every consumer holds its field state
+  // above this hook, so without the memo an edit to any unrelated field would
+  // tear down and re-run that component's genre effect and invalidate all four
+  // of its own callbacks.
+  const clearCheck = useCallback(() => {
+    setExistingArtist(null);
+    setDedupCheckStale(false);
+  }, []);
+
+  const onNameChange = useCallback(
+    (nextName: string) => {
       if (nextName.trim() !== trimmedName) setDedupCheckStale(false);
     },
-    onArtistSelected: (artist: ArtistInGenreOption) => {
-      setExistingArtist(artist);
-      setDedupCheckStale(false);
-    },
-    onCreateNewSelected: () => {
-      setExistingArtist(null);
-      setDedupCheckStale(false);
-    },
-    /**
-     * The typeahead dropped its held selection. Deliberately does not clear the
-     * stale flag: reopening the panel re-runs the search but reports nothing
-     * back, so a cleared selection is not an answer about the current genre.
-     */
-    onSelectionCleared: () => setExistingArtist(null),
-    /** Whatever the typeahead last reported was found under the previous genre. */
-    onGenreChange: () => setDedupCheckStale(trimmedName.length > 0),
-    /** Nothing is held and nothing is pending — for use after a successful file. */
-    reset: () => {
-      setExistingArtist(null);
-      setDedupCheckStale(false);
-    },
-  };
+    [trimmedName],
+  );
+
+  const onArtistSelected = useCallback((artist: ArtistInGenreOption) => {
+    setExistingArtist(artist);
+    setDedupCheckStale(false);
+  }, []);
+
+  const onSelectionCleared = useCallback(() => setExistingArtist(null), []);
+
+  const onGenreChange = useCallback(
+    () => setDedupCheckStale(trimmedName.length > 0),
+    [trimmedName],
+  );
+
+  return useMemo(
+    () => ({
+      existingArtist,
+      dedupCheckStale,
+      /**
+       * A different string is a different question: whatever the previous genre
+       * said about the old text has nothing left to be stale about, and the edit
+       * reopens the typeahead's panel to search the new text under the current
+       * genre. A whitespace-only edit is not a different string — it trims back
+       * to the exact name the flag was raised against — so it must leave the flag
+       * standing rather than dismiss a re-check that has not been answered yet.
+       */
+      onNameChange,
+      onArtistSelected,
+      onCreateNewSelected: clearCheck,
+      /**
+       * The typeahead dropped its held selection. Deliberately does not clear the
+       * stale flag: reopening the panel re-runs the search but reports nothing
+       * back, so a cleared selection is not an answer about the current genre.
+       */
+      onSelectionCleared,
+      /** Whatever the typeahead last reported was found under the previous genre. */
+      onGenreChange,
+      /** Nothing is held and nothing is pending — for use after a successful file. */
+      reset: clearCheck,
+    }),
+    [
+      existingArtist,
+      dedupCheckStale,
+      onNameChange,
+      onArtistSelected,
+      clearCheck,
+      onSelectionCleared,
+      onGenreChange,
+    ],
+  );
 }

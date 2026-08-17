@@ -1,13 +1,14 @@
 import { describe, it, expect } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 
+import { TEST_SEARCH_STRINGS } from "@/tests/helpers";
 import { useArtistDedupCheck } from "@/src/hooks/catalogHooks";
 import type { ArtistInGenreOption } from "@/lib/features/catalog/types";
 
 const STEREOLAB: ArtistInGenreOption = {
   id: 1,
   artist_name: "Stereolab",
-  code_letters: "RO",
+  code_letters: TEST_SEARCH_STRINGS.CODE_LETTERS.STEREOLAB,
   code_number: 87,
 };
 

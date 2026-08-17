@@ -7,6 +7,7 @@ import { validateNewArtistNames } from "@/lib/features/catalog/chooserValidation
 import {
   isAddArtistConflict,
   isArtistNameConflictData,
+  normalizeCodeLetters,
   parseRequiredPositiveInt,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
 import { isGenresUnavailable } from "@/lib/features/catalog/genreAvailability";
@@ -82,7 +83,7 @@ export default function CreateLibraryCodeForm({
 
   const genreId = parseRequiredPositiveInt(genreIdRaw);
   const codeNumber = parseRequiredPositiveInt(codeNumberRaw);
-  const upperCodeLetters = codeLetters.trim().toUpperCase();
+  const upperCodeLetters = normalizeCodeLetters(codeLetters.trim());
   const heading = upperCodeLetters.startsWith("Z-") ? VARIOUS_ARTISTS_HEADING : ARTIST_HEADING;
 
   // Which part of the carried code is unusable, so the refusal can name it.

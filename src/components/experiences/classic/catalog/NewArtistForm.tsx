@@ -8,15 +8,16 @@ import {
 } from "@/lib/features/catalog/api";
 import { validateNewArtistNames } from "@/lib/features/catalog/chooserValidation";
 import {
+  CODE_LETTERS_MAX_LENGTH,
   isAddArtistConflict,
   isArtistNameConflictData,
+  normalizeCodeLetters,
   parseRequiredPositiveInt,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
 import { isGenresUnavailable } from "@/lib/features/catalog/genreAvailability";
 import type { AddArtistRequestBody, PeekArtistCodeQuery } from "@/lib/features/catalog/types";
 import { useDebouncedValue } from "@/src/hooks/useDebouncedValue";
 
-const CODE_LETTERS_MAX_LENGTH = 4;
 const PEEK_DEBOUNCE_MS = 150;
 
 /**
@@ -32,8 +33,8 @@ const PEEK_DEBOUNCE_MS = 150;
  * collects them, previewing the assigned code via `peek-code`.
  *
  * The preview debounces call letters and genre together as one composed
- * value, same as the modern `CallLetterPeekControl` (which this form cannot
- * import directly — it renders MUI Joy, and classic renders none) — a genre
+ * value, same as `CallLetterPeekControl` (which this form cannot import
+ * directly — it renders MUI Joy, and classic renders none) — a genre
  * change alone must invalidate a preview typed under the previous genre just
  * as surely as a letters edit does, or the number shown briefly names the
  * previous genre's series instead of the one about to be submitted.
@@ -106,7 +107,7 @@ export default function NewArtistForm() {
   };
 
   const handleCodeLettersChange = (value: string) => {
-    setCodeLetters(value.toUpperCase());
+    setCodeLetters(normalizeCodeLetters(value));
     setAdded(null);
   };
 

@@ -55,7 +55,7 @@ export type NewArtistFieldValidation = {
   trimmedCodeLetters: string;
   alphabeticalNameTooLong: boolean;
   codeLettersTooLong: boolean;
-  /** Rejected as a positive whole number, before any range check. */
+  /** Parsed as a positive whole number, before any range check — null if it is not one. */
   parsedCodeNumber: number | null;
   /** Parsed *and* within the column's range, or null. */
   codeNumber: number | null;
