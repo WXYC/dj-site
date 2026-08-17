@@ -14,6 +14,7 @@ import { catalogSlice } from "@/lib/features/catalog/frontend";
 import { isCompilationArtistName } from "@/lib/features/catalog/is-compilation-artist";
 import {
   AlbumEntry,
+  ArtistInGenreOption,
   CatalogFilters,
   CatalogSearchField,
   CatalogSearchRow,
@@ -460,3 +461,62 @@ export const useRotationFlowsheetSearch = () => {
     loading: isLoading,
   };
 };
+
+/**
+ * The duplicate-artist check that gates an artist-creation submit.
+ *
+ * Two pieces of state, and the rule tying them together is the subtle part.
+ * `existingArtist` is a definite answer — this name is already filed in this
+ * genre, so submitting would create a duplicate. `dedupCheckStale` is the
+ * absence of any current answer: a genre change retracts a held selection
+ * without re-running the search, because the typeahead's panel stays shut and
+ * nothing re-checks the typed name against the new genre. Reading that
+ * retraction as "this name is new here" would turn a blocked duplicate into an
+ * enabled submit at the exact moment the check matters, so it is marked stale
+ * instead, and clears only on an answer about the current genre.
+ *
+ * `trimmedName` is read at call time to decide whether an edit asks a
+ * different question, so pass the name currently on screen.
+ */
+export function useArtistDedupCheck(trimmedName: string) {
+  const [existingArtist, setExistingArtist] =
+    useState<ArtistInGenreOption | null>(null);
+  const [dedupCheckStale, setDedupCheckStale] = useState(false);
+
+  return {
+    existingArtist,
+    dedupCheckStale,
+    /**
+     * A different string is a different question: whatever the previous genre
+     * said about the old text has nothing left to be stale about, and the edit
+     * reopens the typeahead's panel to search the new text under the current
+     * genre. A whitespace-only edit is not a different string — it trims back
+     * to the exact name the flag was raised against — so it must leave the flag
+     * standing rather than dismiss a re-check that has not been answered yet.
+     */
+    onNameChange: (nextName: string) => {
+      if (nextName.trim() !== trimmedName) setDedupCheckStale(false);
+    },
+    onArtistSelected: (artist: ArtistInGenreOption) => {
+      setExistingArtist(artist);
+      setDedupCheckStale(false);
+    },
+    onCreateNewSelected: () => {
+      setExistingArtist(null);
+      setDedupCheckStale(false);
+    },
+    /**
+     * The typeahead dropped its held selection. Deliberately does not clear the
+     * stale flag: reopening the panel re-runs the search but reports nothing
+     * back, so a cleared selection is not an answer about the current genre.
+     */
+    onSelectionCleared: () => setExistingArtist(null),
+    /** Whatever the typeahead last reported was found under the previous genre. */
+    onGenreChange: () => setDedupCheckStale(trimmedName.length > 0),
+    /** Nothing is held and nothing is pending — for use after a successful file. */
+    reset: () => {
+      setExistingArtist(null);
+      setDedupCheckStale(false);
+    },
+  };
+}
