@@ -1,10 +1,15 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Box, Button, Stack, Typography } from "@mui/joy";
 import { safeCapture } from "@/lib/posthog";
+
+// Sentinel distinct from every real `status` value (including `undefined`,
+// the transport-failure case), so the telemetry guard below can tell "never
+// emitted" apart from "emitted once already, no status".
+const NOT_YET_EMITTED = Symbol("not-yet-emitted");
 
 /**
  * Renders in place of the entire dashboard subtree — the layout returns this
@@ -29,12 +34,17 @@ import { safeCapture } from "@/lib/posthog";
  * there — keep the restriction even though nothing in a test would catch
  * its absence.
  *
- * Emits a `session_unavailable` PostHog event once per mount, with the
- * classified HTTP status (when known) as a property, so the next occurrence
- * of this failure is queryable instead of only inferable from a logout.
- * Guarded by a `useRef` (matching `LoginBounceTelemetry` /
- * `SessionEndedNotice`) so React's development-mode double-invoke, or any
- * re-render, can't double-count it.
+ * Emits a `session_unavailable` PostHog event with the classified HTTP
+ * status (when known) as a property, so the next occurrence of this failure
+ * is queryable instead of only inferable from a logout — this path no
+ * longer redirects, so it is the only trace an outage leaves here. Guarded
+ * by a `useRef` keyed on `status`, not a mount-scoped boolean: the retry
+ * button calls `router.refresh()` on this same instance rather than
+ * remounting it, so a DJ retrying through a continuing outage whose failure
+ * mode changes (429 -> 503) must still report the new status. A same-status
+ * repeat — including React's development-mode double-invoke — still dedupes,
+ * which is what keeps cardinality bounded against the org's PostHog volume
+ * constraint.
  */
 export default function SessionUnavailable({
   status,
@@ -42,11 +52,15 @@ export default function SessionUnavailable({
   status?: number;
 }) {
   const router = useRouter();
-  const emitted = useRef(false);
+  // During a continuing outage a refresh resolves to an identical screen, so
+  // without a pending state the DJ has no signal the click registered and
+  // re-clicks into a service that may already be rate-limiting them.
+  const [isPending, startTransition] = useTransition();
+  const lastEmittedStatus = useRef<number | undefined | typeof NOT_YET_EMITTED>(NOT_YET_EMITTED);
 
   useEffect(() => {
-    if (emitted.current) return;
-    emitted.current = true;
+    if (lastEmittedStatus.current === status) return;
+    lastEmittedStatus.current = status;
     safeCapture("session_unavailable", { status });
   }, [status]);
 
@@ -68,11 +82,15 @@ export default function SessionUnavailable({
       >
         <Typography level="h3">We couldn&apos;t reach the server</Typography>
         <Typography level="body-md">
-          Your session hasn&apos;t ended — WXYC&apos;s server is temporarily
-          unreachable. Try again in a moment.
+          Your session hasn&apos;t ended — WXYC&apos;s server couldn&apos;t
+          be reached. Try again, or sign in again if it keeps happening.
         </Typography>
         <Stack direction="row" spacing={2}>
-          <Button variant="solid" onClick={() => router.refresh()}>
+          <Button
+            variant="solid"
+            loading={isPending}
+            onClick={() => startTransition(() => router.refresh())}
+          >
             Try again
           </Button>
           <Button component={Link} href="/login" variant="outlined">

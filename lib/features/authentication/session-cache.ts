@@ -33,25 +33,35 @@ import { measure } from "@/lib/server-timing";
  *    redundant round-trip — correctness is still preserved). Every current
  *    call site resolves a concrete header, so they collide on one key.
  *
- * A rejected fetch (DNS, TLS, ECONNREFUSED, abort/timeout) gets exactly one
+ * A rejected fetch (DNS, TLS, ECONNREFUSED, a timeout) gets exactly one
  * retry, after `transportRetryConfig.delayMs`, still inside this memoized
  * function so the retry counts as a single cache() entry. Never retried: a
  * resolved HTTP error (429, 5xx, ...) — better-auth's rate limiter does not
  * advance its bucket's clock on a denied request, so an immediate retry
- * during a burst just 429s again. If the retry also rejects, the terminal
- * `.catch` stamps `error.transport = true` so callers can tell "this never
- * reached the server" apart from a resolved, status-less error (see
- * `classifySessionRead` in ./utilities). Each attempt is measured
+ * during a burst just 429s again — and an aborted fetch (`error.name ===
+ * "AbortError"`, e.g. the client disconnected mid-render), since retrying
+ * that would issue a second request to an already-degraded auth service on
+ * behalf of a caller no longer there to receive it. Both non-retried cases
+ * still resolve through the same terminal handling as a retry that itself
+ * rejects: the failure stamps `error.transport = true` so callers can tell
+ * "this never reached the server" apart from a resolved, status-less error
+ * (see `classifySessionRead` in ./utilities). Each attempt is measured
  * separately, so a retried call reports two `auth.getSession` lines instead
  * of one artificially combined duration.
  *
- * The retry is unconditional on rejection, which bounds this render's worst
- * case at two connect timeouts plus the delay — the auth client sets no
- * fetch timeout of its own, so that ceiling is the platform's, and against a
- * blackholed connection it is twice what a single attempt would cost. That
- * is an accepted trade for recovering the common transient rejection; if the
- * runtime's timeout ever rises far enough to threaten the response budget,
- * bound this by rejection kind rather than lengthening the delay.
+ * The retry is unconditional on rejection (short of an abort), which bounds
+ * every render that reaches this seam at two connect timeouts plus the delay
+ * — the auth client sets no fetch timeout of its own, so that ceiling is the
+ * platform's, and against a blackholed connection it is twice what a single
+ * attempt would cost. That scope is wider than the dashboard: this seam is
+ * also reached from `createServerSideProps` (session.ts), which the ROOT
+ * layout calls on every route. Against a blackholed auth host, every page —
+ * `/`, `/live`, `/login`, anonymous traffic included, not just an
+ * authenticated dashboard render — pays the same two timeouts plus the
+ * delay. That is an accepted trade for recovering the common transient
+ * rejection; if the runtime's timeout ever rises far enough to threaten the
+ * response budget, bound this by rejection kind rather than lengthening the
+ * delay.
  */
 
 /**
@@ -86,22 +96,45 @@ function fetchSession(cookieHeader: string): Promise<BetterAuthSessionResponse> 
   ) as Promise<BetterAuthSessionResponse>;
 }
 
+// Fetch rejections arrive as DOMException (an abort) or Error (everything
+// else), and DOMException's inheritance from Error is not consistent enough
+// across runtimes to branch on `instanceof Error` — duck-type both checks on
+// the properties actually being asked about instead.
+function isAbortError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { name?: unknown }).name === "AbortError"
+  );
+}
+
+// Swallow auth-server fetch errors to avoid noisy Next.js errors, and model
+// the failure honestly: casting the raw Error straight into { message, code }
+// would claim a `code` it never had. Stamping `transport: true` instead is
+// the only way a caller can tell "this never reached the server" apart from
+// a resolved, status-less error (e.g. the SESSION_EXPIRED shape) —
+// classifying on an absent `status` would misclassify that shape too.
+function transportFailure(error: unknown): BetterAuthSessionResponse {
+  const message =
+    typeof error === "object" && error !== null && typeof (error as { message?: unknown }).message === "string"
+      ? (error as { message: string }).message
+      : String(error);
+  return { data: null, error: { message, transport: true } } as BetterAuthSessionResponse;
+}
+
 export const getSessionCached = cache((cookieHeader: string) =>
-  fetchSession(cookieHeader).catch(() =>
-    wait(transportRetryConfig.delayMs).then(() =>
-      fetchSession(cookieHeader).catch((error) => {
-        // Swallow auth-server fetch errors to avoid noisy Next.js errors,
-        // and model the failure honestly: casting the raw Error straight
-        // into { message, code } would claim a `code` it never had.
-        // Stamping `transport: true` instead is the only way a caller can
-        // tell "this never reached the server" apart from a resolved,
-        // status-less error (e.g. the SESSION_EXPIRED shape) — classifying
-        // on an absent `status` would misclassify that shape too.
-        const message = error instanceof Error ? error.message : String(error);
-        return { data: null, error: { message, transport: true } } as BetterAuthSessionResponse;
-      })
-    )
-  )
+  fetchSession(cookieHeader).catch((error) => {
+    if (isAbortError(error)) {
+      // The client disconnected mid-render, aborting the in-flight fetch.
+      // Retrying would issue a second request to an auth service that may
+      // already be degraded, on behalf of a caller no longer there to
+      // receive the answer — skip straight to the terminal shape instead.
+      return transportFailure(error);
+    }
+    return wait(transportRetryConfig.delayMs).then(() =>
+      fetchSession(cookieHeader).catch(transportFailure)
+    );
+  })
 );
 
 export const getOrgRoleCached = cache(

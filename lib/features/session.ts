@@ -58,7 +58,12 @@ export const createServerSideProps = cache(async (): Promise<SiteProps> => {
     // failure this try/catch handles. The warning is the only trace a
     // rate-limited/unreachable auth service leaves on this path.
     if (classification.kind === "unavailable") {
-      console.warn("Session read unavailable while building server-side props; failing soft to unauthenticated:", classification.status);
+      // `classification.status` is undefined for a transport failure (no
+      // HTTP response at all), so the fallback names that case explicitly
+      // instead of logging the literal word "undefined" — this warning is
+      // the only trace a rate-limited/unreachable auth service leaves on
+      // this path.
+      console.warn("Session read unavailable while building server-side props; failing soft to unauthenticated:", classification.status ?? "transport");
     }
 
     if (session.data) {

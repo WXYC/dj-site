@@ -65,9 +65,12 @@ export async function resolveAuthGate(): Promise<
  * Redirects to login if unauthenticated, email-unverified, or the session
  * read failed to resolve; otherwise returns the session. Page-level callers
  * have no notice surface of their own, so a failed read (`unavailable`)
- * degrades to the same "no session" bounce here — only the dashboard
- * layout, via `resolveAuthGate` directly, distinguishes it and renders a
- * retry notice instead.
+ * still bounces here — but under its own `bounced=session-unavailable`
+ * reason, never `no-session`: the cookie may be perfectly valid, and
+ * `no-session` is what drives `SessionEndedNotice`'s "Your session has
+ * ended" toast on `/login`, which would be false for this case. Only the
+ * dashboard layout, via `resolveAuthGate` directly, renders a retry notice
+ * in place instead of bouncing at all.
  *
  * Each exit carries a server-only `bounced` param so the client can emit a
  * `login_server_bounce` PostHog event — the server's VERDICT, distinct from
@@ -78,7 +81,7 @@ export async function resolveAuthGate(): Promise<
 export async function requireAuth(): Promise<BetterAuthSession> {
   const gate = await resolveAuthGate();
   if (!gate.ok) {
-    redirect("/login?bounced=no-session");
+    redirect("/login?bounced=session-unavailable");
   }
 
   return gate.session;

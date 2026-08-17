@@ -89,4 +89,25 @@ describe("SessionEndedNotice", () => {
 
     expect(container.firstChild).toBeNull();
   });
+
+  it("shows an honest notice for bounced=session-unavailable, distinct from the no-session copy", () => {
+    searchParamsMock.mockReturnValue(new URLSearchParams("bounced=session-unavailable"));
+
+    renderWithProviders(<SessionEndedNotice />);
+
+    expect(mockToastInfo).toHaveBeenCalledTimes(1);
+    const [message, options] = mockToastInfo.mock.calls[0];
+    expect(message).not.toMatch(/session has ended/i);
+    expect(message).toMatch(/may still be valid/i);
+    expect(options).toEqual(expect.objectContaining({ id: "session-unavailable" }));
+  });
+
+  it("shows the session-unavailable notice at most once for a single bounce", () => {
+    searchParamsMock.mockReturnValue(new URLSearchParams("bounced=session-unavailable"));
+
+    const { rerender } = renderWithProviders(<SessionEndedNotice />);
+    rerender(<SessionEndedNotice />);
+
+    expect(mockToastInfo).toHaveBeenCalledTimes(1);
+  });
 });
