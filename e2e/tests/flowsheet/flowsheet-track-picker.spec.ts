@@ -66,7 +66,7 @@ test.describe("Flowsheet Track Picker", { tag: "@smoke" }, () => {
     url.pathname.endsWith("/library/") &&
     !url.pathname.includes("/proxy/");
 
-  test("picks a tracklisted release and submits its title; the LML write-gate withholds album_id and track_position", async ({
+  test("picks a tracklisted release and submits track_title + track_position; the LML write-gate withholds album_id", async ({
     page,
   }) => {
     const LIBRARY_ID = 12345;
@@ -226,17 +226,18 @@ test.describe("Flowsheet Track Picker", { tag: "@smoke" }, () => {
 
     // The LML-sourced row submits freeform: its `id` is a legacy id, so the
     // interim write-gate withholds album_id rather than persist a
-    // wrong-space album link — and with it track_position, which only rides
-    // the wire alongside a linked album. The picker itself still worked (the
-    // read half rides legacy_release_id); only the linkage is withheld.
+    // wrong-space album link. The pick itself survives — track_position
+    // rides the freeform variant when the read-half legacy id it was picked
+    // from rides beside it, and the picker stayed offered on that same read
+    // half. Only the linkage is withheld.
     expect(postBody).not.toBeNull();
     expect(postBody).toMatchObject({
       track_title: "la paradoja",
+      track_position: "A1",
       artist_name: "Juana Molina",
       album_title: "DOGA",
     });
     expect(postBody).not.toHaveProperty("album_id");
-    expect(postBody).not.toHaveProperty("track_position");
   });
 
   test("shows the catalog row's own tracklist, not the one its library.id resolves to", async ({
