@@ -7,15 +7,12 @@ import { renderWithProviders } from "@/tests/helpers/render";
 // is handed matter, so it stands in as a probe rather than dragging the auth
 // stack into a test about three text fields.
 const peekProps: Array<{ code_letters: string; genre_id: number | null }> = [];
-vi.mock(
-  "@/src/components/experiences/modern/catalog/CallLetterPeekControl",
-  () => ({
-    default: (props: { code_letters: string; genre_id: number | null }) => {
-      peekProps.push(props);
-      return <div data-testid="peek-probe" data-code={props.code_letters} />;
-    },
-  }),
-);
+vi.mock("@/src/components/shared/inputs/CallLetterPeekControl", () => ({
+  default: (props: { code_letters: string; genre_id: number | null }) => {
+    peekProps.push(props);
+    return <div data-testid="peek-probe" data-code={props.code_letters} />;
+  },
+}));
 
 import NewArtistFields, {
   type CodeLettersField,
@@ -42,11 +39,7 @@ function Harness({
 
   return (
     <NewArtistFields
-      values={{
-        alphabeticalName,
-        codeLetters: codeLettersField.value,
-        codeNumberRaw,
-      }}
+      values={{ alphabeticalName, codeNumberRaw }}
       codeLettersField={codeLettersField}
       onCodeLettersFieldChange={setCodeLettersField}
       onCodeNumberChange={setCodeNumberRaw}

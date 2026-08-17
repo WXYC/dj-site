@@ -8,7 +8,7 @@ import {
   TEST_ENTITY_IDS,
   TEST_SEARCH_STRINGS,
 } from "@/tests/helpers";
-import CallLetterPeekControl from "@/src/components/experiences/modern/catalog/CallLetterPeekControl";
+import CallLetterPeekControl from "@/src/components/shared/inputs/CallLetterPeekControl";
 
 const GENRE_ID = TEST_ENTITY_IDS.GENRE.ROCK;
 const { MOLINA, STEREOLAB } = TEST_SEARCH_STRINGS.CODE_LETTERS;

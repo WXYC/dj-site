@@ -17,17 +17,17 @@ import { RequireMD } from "@/src/components/shared/Authorization";
 import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
 import { useAddArtistMutation, useGetGenresQuery } from "@/lib/features/catalog/api";
 import {
+  ARTIST_NAME_MAX_LENGTH,
   isAddArtistConflict,
   isArtistNameConflictData,
   isConflictRejection,
+  validateNewArtistFields,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
 import { isGenresUnavailable } from "@/lib/features/catalog/genreAvailability";
 import type { AddArtistRequestBody } from "@/lib/features/catalog/types";
 import { useArtistDedupCheck } from "@/src/hooks/catalogHooks";
 import ArtistSearchTypeahead from "@/src/components/shared/inputs/ArtistSearchTypeahead";
 import NewArtistFields, {
-  ARTIST_NAME_MAX_LENGTH,
-  validateNewArtistFields,
   type CodeLettersField,
   type NewArtistConflict,
 } from "@/src/components/shared/inputs/NewArtistFields";
@@ -74,18 +74,17 @@ function ArtistAddFields() {
   const trimmedName = name.trim();
   const nameTooLong = trimmedName.length > ARTIST_NAME_MAX_LENGTH;
   const dedup = useArtistDedupCheck(trimmedName);
-  const fieldValues = {
-    alphabeticalName,
-    codeLetters: codeLettersField.value,
-    codeNumberRaw,
-  };
   const {
     trimmedAlphabeticalName,
     trimmedCodeLetters,
     alphabeticalNameTooLong,
     codeLettersTooLong,
     codeNumber,
-  } = validateNewArtistFields(fieldValues);
+  } = validateNewArtistFields({
+    alphabeticalName,
+    codeLetters: codeLettersField.value,
+    codeNumberRaw,
+  });
   // See isGenresUnavailable's doc for why this is `data == null`, not
   // `isError`: a failed genres GET leaves an empty dropdown behind, and
   // `genre_id` is unreachable either way, so the outage has to say so rather
@@ -300,7 +299,7 @@ function ArtistAddFields() {
           </FormControl>
 
           <NewArtistFields
-            values={fieldValues}
+            values={{ alphabeticalName, codeNumberRaw }}
             codeLettersField={codeLettersField}
             onCodeLettersFieldChange={handleCodeLettersFieldChange}
             onCodeNumberChange={handleCodeNumberChange}
