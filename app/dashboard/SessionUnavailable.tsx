@@ -12,27 +12,24 @@ import { safeCapture } from "@/lib/posthog";
 const NOT_YET_EMITTED = Symbol("not-yet-emitted");
 
 /**
- * Renders in place of the entire dashboard subtree — the layout returns this
- * instead of `props.classic` / `props.modern` / `props.information`, so none
- * of those slots (and none of the `requireAuth()` gates inside them) ever
- * render — when the server could not determine whether the DJ has a valid
+ * Shown when the server could not determine whether the DJ has a valid
  * session: a rate limit, an upstream 5xx, or a transport failure reading the
- * session endpoint. The cookie may still be perfectly valid, so this does
- * NOT redirect to `/login`; doing so would sign a DJ out mid-show for a
- * transient network problem, which is the exact harm this component exists
- * to avoid. The "Sign in again" link is a deliberate escape hatch for the
- * case where that classification is ever wrong about the failure being
- * transient — without it, a misclassified permanent auth failure would trap
- * the DJ on a screen with no navigation.
+ * session endpoint (see app/dashboard/layout.tsx for how this gets rendered
+ * in place of the gated slots). The cookie may still be perfectly valid, so
+ * this component does NOT redirect to `/login`; doing so would sign a DJ out
+ * mid-show for a transient network problem, which is the exact harm this
+ * component exists to avoid. The "Sign in again" link is a deliberate escape
+ * hatch for the case where that classification is ever wrong about the
+ * failure being transient — without it, a misclassified permanent auth
+ * failure would trap the DJ on a screen with no navigation.
  *
  * Deliberately reads no Redux state — only `useRouter` and `safeCapture`.
  * This renders before `StoreProvider` mounts (see app/dashboard/layout.tsx),
  * so in production only the app-wide public store is available; a component
  * reading a dashboard-only slice would resolve `undefined` (or throw, for an
- * RTK Query hook) on the real route. `renderWithProviders` seeds the full
- * dashboard store for every test, so that failure mode would not show up
- * there — keep the restriction even though nothing in a test would catch
- * its absence.
+ * RTK Query hook) on the real route. Keep the restriction — the test that
+ * mounts this under only the public store is what would catch a regression
+ * here.
  *
  * Emits a `session_unavailable` PostHog event with the classified HTTP
  * status (when known) as a property, so the next occurrence of this failure

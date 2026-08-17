@@ -19,12 +19,10 @@ import SessionUnavailable from "./SessionUnavailable";
 // branch exists to prevent. What protects them is structural — an
 // unavailable read never puts those props in the returned tree at all.
 //
-// That protection covers full-document loads only. Layouts above the changed
-// segment are not re-executed on client-side navigation, so a DJ already on a
-// dashboard route who soft-navigates to a `requireAuth()`/`requireRole()`
-// page during an auth-server outage runs that page's gate without this one,
-// and still gets the redirect. This gate is therefore the first line, not the
-// only one; a page-level notice surface is what would close that gap.
+// That protection covers full-document loads only — soft navigation does not
+// re-run this layout, so a page reached by client-side nav can still bounce
+// during an outage. See docs/architecture.md's dashboard-layout section for
+// the residue and what would close it.
 const Layout = async (props: ThemedLayoutProps): Promise<JSX.Element> => {
   const gate = await resolveAuthGate();
   if (!gate.ok) {

@@ -60,9 +60,8 @@ export type BetterAuthSessionResponse = {
     statusText?: string;
     // Stamped by getSessionCached's terminal catch when the fetch itself
     // rejected (DNS, TLS, ECONNREFUSED, abort/timeout) rather than resolving
-    // with an HTTP error status. Never inferred from an absent `status`: a
-    // resolved, status-less error (e.g. the SESSION_EXPIRED shape below)
-    // must still classify as an absent session, not an unavailable one.
+    // with an HTTP error status. See classifySessionRead below for why this
+    // must never be inferred from an absent `status`.
     transport?: true;
   };
 };

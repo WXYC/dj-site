@@ -7,6 +7,7 @@ import { Provider } from "react-redux";
 import { CssVarsProvider } from "@mui/joy/styles";
 import type { AppStore, RootState } from "@/lib/store";
 import { makeStore } from "@/lib/store";
+import { PublicStoreProvider } from "@/src/PublicStoreProvider";
 
 // A caller seeds state via preloadedState (the store is built for them) or
 // hands in an already-built store (e.g. to share one across renders) — never
@@ -72,6 +73,31 @@ export function renderWithProviders(
  */
 export function createTestStore(preloadedState?: Partial<RootState>): AppStore {
   return makeStore(preloadedState);
+}
+
+/**
+ * Renders through the actual `PublicStoreProvider` (the app-wide store every
+ * route mounts in `app/layout.tsx`), not the full dashboard store that
+ * `renderWithProviders` seeds. Use this for a component that renders before
+ * `StoreProvider` mounts — e.g. `app/dashboard/SessionUnavailable.tsx` — so a
+ * dashboard-only Redux read regresses to a real failure here instead of
+ * passing on the wider store `renderWithProviders` provides.
+ */
+export function renderWithPublicProviders(
+  ui: ReactElement,
+  renderOptions: Omit<RenderOptions, "wrapper"> = {}
+): RenderResult & { user: ReturnType<typeof userEvent.setup> } {
+  const user = userEvent.setup();
+  const wrapper = ({ children }: PropsWithChildren) => (
+    <PublicStoreProvider>
+      <CssVarsProvider>{children}</CssVarsProvider>
+    </PublicStoreProvider>
+  );
+
+  return {
+    ...rtlRender(ui, { wrapper, ...renderOptions }),
+    user,
+  };
 }
 
 // Re-export everything from @testing-library/react
