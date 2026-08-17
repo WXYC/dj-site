@@ -101,6 +101,19 @@ describe("session-cache", () => {
       await getSessionCached("cookie-retry-b");
       expect(mockGetSession).toHaveBeenCalledTimes(1);
     });
+
+    it("does not retry when the fetch rejects with AbortError — a client disconnect mid-render must not issue a second request to an already-degraded auth service", async () => {
+      const abortError = new DOMException("The operation was aborted.", "AbortError");
+      mockGetSession.mockRejectedValue(abortError);
+
+      const result = await getSessionCached("cookie-abort");
+
+      expect(mockGetSession).toHaveBeenCalledTimes(1);
+      expect(result).toEqual({
+        data: null,
+        error: { message: abortError.message, transport: true },
+      });
+    });
   });
 
   describe("getOrgRoleCached", () => {

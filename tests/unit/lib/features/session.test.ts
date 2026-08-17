@@ -207,6 +207,26 @@ describe("session", () => {
       consoleSpy.mockRestore();
     });
 
+    it("names a transport failure explicitly in the warning instead of logging undefined", async () => {
+      const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { serverAuthClient } = await import(
+        "@/lib/features/authentication/server-client"
+      );
+      vi.mocked(serverAuthClient.getSession).mockRejectedValue(
+        new Error("auth server unreachable")
+      );
+
+      const { createServerSideProps } = await import("@/lib/features/session");
+      const result = await createServerSideProps();
+
+      expect(result.authentication).toEqual({ message: "Not Authenticated" });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "Session read unavailable while building server-side props; failing soft to unauthenticated:",
+        "transport"
+      );
+      consoleSpy.mockRestore();
+    });
+
     it("should process valid session data", async () => {
       const { serverAuthClient } = await import(
         "@/lib/features/authentication/server-client"

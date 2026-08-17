@@ -36,6 +36,15 @@ describe("SessionUnavailable", () => {
     expect(mockSafeCapture).toHaveBeenCalledWith("session_unavailable", { status: undefined });
   });
 
+  it("reports again when a retry lands on a different failure mode, since the guard keys on status rather than mount", () => {
+    const { rerender } = renderWithProviders(<SessionUnavailable status={429} />);
+    rerender(<SessionUnavailable status={503} />);
+
+    expect(mockSafeCapture).toHaveBeenCalledTimes(2);
+    expect(mockSafeCapture).toHaveBeenNthCalledWith(1, "session_unavailable", { status: 429 });
+    expect(mockSafeCapture).toHaveBeenNthCalledWith(2, "session_unavailable", { status: 503 });
+  });
+
   it("calls router.refresh() when the retry button is clicked", async () => {
     const { user } = renderWithProviders(<SessionUnavailable status={503} />);
 

@@ -146,14 +146,14 @@ describe("server-utils", () => {
       expect(mockRedirect).toHaveBeenCalledWith("/login?bounced=no-session");
     });
 
-    it("degrades an unavailable read (a resolved 429) to the same no-session bounce — page-level callers have no notice surface of their own", async () => {
+    it("bounces an unavailable read (a resolved 429) to its own reason, distinct from no-session — page-level callers have no notice surface of their own", async () => {
       mockGetSession.mockResolvedValue({
         data: null,
         error: { message: "Too many requests. Please try again later.", status: 429, statusText: "Too Many Requests" },
       });
 
-      await expect(requireAuth()).rejects.toThrow("REDIRECT:/login?bounced=no-session");
-      expect(mockRedirect).toHaveBeenCalledWith("/login?bounced=no-session");
+      await expect(requireAuth()).rejects.toThrow("REDIRECT:/login?bounced=session-unavailable");
+      expect(mockRedirect).toHaveBeenCalledWith("/login?bounced=session-unavailable");
     });
 
     it("should redirect to /login when email is not verified", async () => {
