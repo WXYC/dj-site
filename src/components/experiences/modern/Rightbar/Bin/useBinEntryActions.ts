@@ -1,6 +1,5 @@
 "use client";
 
-import { applicationSlice } from "@/lib/features/application/frontend";
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import {
   convertBinToFlowsheet,
@@ -16,7 +15,6 @@ import {
   releaseCreditIsRefused,
   VARIOUS_ARTISTS_BIN_PLAY_MESSAGE,
 } from "@/lib/features/flowsheet/various-artists-guard";
-import { useAppDispatch } from "@/lib/hooks";
 import {
   InfoOutlined,
   PlayArrowOutlined,
@@ -24,6 +22,7 @@ import {
   Unarchive,
 } from "@mui/icons-material";
 import { ColorPaletteProp } from "@mui/joy";
+import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import { toast } from "sonner";
 
@@ -60,7 +59,7 @@ export function useBinEntryActions(
   live: boolean,
   { addToQueue, addToFlowsheet, deleteFromBin }: BinEntryActionDeps,
 ): BinEntryAction[] {
-  const dispatch = useAppDispatch();
+  const router = useRouter();
 
   return useMemo(() => {
     const actions: BinEntryAction[] = [
@@ -70,13 +69,7 @@ export function useBinEntryActions(
         Icon: InfoOutlined,
         color: "neutral",
         // Bin rows always carry a real library.id; only LML rows go null.
-        run: () =>
-          dispatch(
-            applicationSlice.actions.openPanel({
-              type: "album-detail",
-              albumId: entry.id!,
-            }),
-          ),
+        run: () => router.push(`/dashboard/album/${entry.id}`),
       },
     ];
 
@@ -135,5 +128,5 @@ export function useBinEntryActions(
     });
 
     return actions;
-  }, [entry, live, dispatch, addToQueue, addToFlowsheet, deleteFromBin]);
+  }, [entry, live, router, addToQueue, addToFlowsheet, deleteFromBin]);
 }

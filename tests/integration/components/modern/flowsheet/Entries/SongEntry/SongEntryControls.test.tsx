@@ -6,6 +6,11 @@ import SongEntryControls from "@/src/components/experiences/modern/flowsheet/Ent
 const mockUpdateFlowsheet = vi.fn();
 const mockRemoveFromQueue = vi.fn();
 const mockRemoveFromFlowsheet = vi.fn();
+const mockPush = vi.fn();
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mockPush, refresh: vi.fn() }),
+}));
 
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useFlowsheetActions: () => ({
@@ -81,5 +86,39 @@ describe("SongEntryControls segue/request commits (unaffected by the artist guar
     );
 
     expect(mockUpdateFlowsheet).not.toHaveBeenCalled();
+  });
+});
+
+describe("SongEntryControls album information button", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("navigates to the album detail route for a linked entry", () => {
+    renderWithProviders(
+      <SongEntryControls
+        entry={createTestFlowsheetEntry({ id: 60, album_id: 42 })}
+        queue={false}
+        editable={true}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Album information" }));
+    expect(mockPush).toHaveBeenCalledWith("/dashboard/album/42");
+  });
+
+  it("stays disabled for an entry with no library linkage", () => {
+    renderWithProviders(
+      <SongEntryControls
+        entry={createTestFlowsheetEntry({ id: 60, album_id: undefined })}
+        queue={false}
+        editable={true}
+      />
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Album information" })
+    ).toHaveProperty("disabled", true);
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });

@@ -8,7 +8,7 @@ import {
   VARIOUS_ARTISTS_BIN_PLAY_MESSAGE,
 } from "@/lib/features/flowsheet/various-artists-guard";
 
-const dispatch = vi.fn();
+const mockPush = vi.fn();
 const addToQueue = vi.fn();
 const addToFlowsheet = vi.fn(() => Promise.resolve());
 const deleteFromBin = vi.fn();
@@ -19,7 +19,9 @@ const convertBinToFlowsheetMock = vi.fn(
   (e: AlbumEntry): { f: number } | null => ({ f: e.id! })
 );
 
-vi.mock("@/lib/hooks", () => ({ useAppDispatch: () => dispatch }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mockPush, refresh: vi.fn() }),
+}));
 vi.mock("@/lib/features/bin/conversions", () => ({
   convertBinToQueue: (e: AlbumEntry) => convertBinToQueueMock(e),
   convertBinToFlowsheet: (e: AlbumEntry) => convertBinToFlowsheetMock(e),
@@ -30,11 +32,6 @@ vi.mock("sonner", () => ({
   toast: {
     success: (...args: unknown[]) => toastSuccessMock(...args),
     error: (...args: unknown[]) => toastErrorMock(...args),
-  },
-}));
-vi.mock("@/lib/features/application/frontend", () => ({
-  applicationSlice: {
-    actions: { openPanel: (p: unknown) => ({ type: "openPanel", payload: p }) },
   },
 }));
 
@@ -80,10 +77,7 @@ describe("useBinEntryActions", () => {
     const byId = Object.fromEntries(result.current.map((a) => [a.id, a]));
 
     byId.info.run();
-    expect(dispatch).toHaveBeenCalledWith({
-      type: "openPanel",
-      payload: { type: "album-detail", albumId: 7 },
-    });
+    expect(mockPush).toHaveBeenCalledWith("/dashboard/album/7");
 
     byId.queue.run();
     expect(addToQueue).toHaveBeenCalledWith({ q: 7 });
