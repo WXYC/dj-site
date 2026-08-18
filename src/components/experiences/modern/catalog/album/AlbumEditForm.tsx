@@ -15,6 +15,7 @@ import {
   Typography,
 } from "@mui/joy";
 import { RequireMD } from "@/src/components/shared/Authorization";
+import FormSectionCard from "@/src/components/shared/FormSectionCard";
 import {
   useGetFormatsQuery,
   useGetGenresQuery,
@@ -105,7 +106,9 @@ function artistLinkFrom(saved: SavedFields, name: string): ArtistLink | null {
 function AlbumEditForm({ album }: AlbumEditFormProps) {
   return (
     <RequireMD>
-      <AlbumEditFormFields album={album} />
+      <FormSectionCard title="Edit release" data-testid="edit-release-section-card">
+        <AlbumEditFormFields album={album} />
+      </FormSectionCard>
     </RequireMD>
   );
 }
