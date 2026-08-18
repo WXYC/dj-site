@@ -335,7 +335,7 @@ function AddReleaseForm() {
 
   return (
     <>
-      <Button startDecorator={<AddCircle />} onClick={() => setOpen(true)}>
+      <Button color="success" startDecorator={<AddCircle />} onClick={() => setOpen(true)}>
         Add Release
       </Button>
       <Modal open={open} onClose={handleDismiss}>
@@ -472,7 +472,7 @@ function AddReleaseForm() {
                 </FormControl>
 
                 <Stack direction="row" justifyContent="flex-end">
-                  <Button type="submit" loading={isLoading}>
+                  <Button color="success" type="submit" loading={isLoading}>
                     Save Release
                   </Button>
                 </Stack>

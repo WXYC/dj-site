@@ -79,7 +79,7 @@ function GenreAdmin() {
               />
             </FormControl>
             <Stack direction="row" justifyContent="flex-end">
-              <Button type="submit" loading={isLoading}>
+              <Button color="success" type="submit" loading={isLoading}>
                 Add Genre
               </Button>
             </Stack>
