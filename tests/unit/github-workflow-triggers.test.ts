@@ -90,6 +90,20 @@ describe("GitHub workflow PR triggers", () => {
       ).toBeUndefined();
     }
   });
+
+  // Declaring `types:` REPLACES the default set rather than extending it, so a
+  // partial list is a silent subtraction: `types: [opened]` alone would stop
+  // every push to an open PR from re-running anything. None of these workflows
+  // needs a custom set — the base guards report failure rather than skipping,
+  // so nothing here depends on `edited`.
+  it.each(PR_WORKFLOWS)("%s.yml keeps the default activity types", (name) => {
+    const pr = workflow(name).on?.pull_request as Record<string, unknown> | null | undefined;
+    expect(
+      pr?.types,
+      `${name}.yml declares pull_request types, which replaces the default set — ` +
+        `dropping 'synchronize' would stop CI running on pushes to an open PR`
+    ).toBeUndefined();
+  });
 });
 
 describe("Expensive jobs refuse a non-main base rather than skipping", () => {
@@ -99,18 +113,46 @@ describe("Expensive jobs refuse a non-main base rather than skipping", () => {
   // means neither may carry a `github.base_ref` job-level guard — a guard
   // produces exactly the skip being avoided.
 
+  // The refusal must EXIT NON-ZERO, not warn. A guard that logs and returns 0
+  // reports the required check as *passing* on a PR that deployed nothing and
+  // ran zero shards — worse than the skip this design replaced. The pattern is
+  // anchored tightly (no `s` flag, bounded gap, `exit 1` required) because a
+  // loose `/BASE_REF.*!= .*"main"/s` matches any later unrelated comparison in
+  // a 600-line file and would survive deleting the refusal outright.
+  const REFUSAL = /"\$BASE_REF" != "main" \]; then\n(?:[^\n]*\n){0,3}\s*exit 1\n/;
+
   it("the preview deploy has no base guard, and refuses inside the job", () => {
-    const ci = workflow("ci");
-    expect(ci.jobs?.preview?.if ?? "").not.toContain("github.base_ref");
-    const source = readFileSync(join(WORKFLOW_DIR, "ci.yml"), "utf-8");
-    expect(source).toMatch(/BASE_REF.*!=.*"main"/s);
+    const preview = workflow("ci").jobs?.preview;
+    expect(preview, "ci.yml has no job named preview — renaming it makes this suite vacuous").toBeDefined();
+    expect(preview!.if ?? "").not.toContain("github.base_ref");
+    expect(readFileSync(join(WORKFLOW_DIR, "ci.yml"), "utf-8")).toMatch(REFUSAL);
   });
 
   it("the E2E aggregator has no base guard, and refuses inside the job", () => {
-    const e2e = workflow("e2e-tests");
-    expect(e2e.jobs?.["e2e-all"]?.if ?? "").not.toContain("github.base_ref");
-    const source = readFileSync(join(WORKFLOW_DIR, "e2e-tests.yml"), "utf-8");
-    expect(source).toMatch(/BASE_REF.*!=.*"main"/s);
+    const aggregator = workflow("e2e-tests").jobs?.["e2e-all"];
+    expect(
+      aggregator,
+      "e2e-tests.yml has no job named e2e-all — renaming it makes this suite vacuous"
+    ).toBeDefined();
+    expect(aggregator!.if ?? "").not.toContain("github.base_ref");
+    expect(readFileSync(join(WORKFLOW_DIR, "e2e-tests.yml"), "utf-8")).toMatch(REFUSAL);
+  });
+
+  // `always()` is what lets the aggregator report at all when its matrix
+  // skipped, and on a docs-only stacked PR — where the `changes` path filter
+  // skips typecheck, unit, build and preview too — its red is the *only*
+  // required check still blocking. `success()`, a missing `if:`, or any added
+  // conjunct would make it skip instead, which branch protection reads as
+  // satisfied.
+  it("the E2E aggregator runs unconditionally", () => {
+    expect(workflow("e2e-tests").jobs?.["e2e-all"]?.if).toBe("always()");
+  });
+
+  // Hardcoding this would disarm both refusals while leaving their shell text
+  // intact for the pattern above to match.
+  it.each(["ci", "e2e-tests"])("%s.yml reads BASE_REF from github.base_ref", (name) => {
+    const source = readFileSync(join(WORKFLOW_DIR, `${name}.yml`), "utf-8");
+    expect(source).toMatch(/BASE_REF: \$\{\{ github\.base_ref \}\}/);
   });
 
   // The matrix itself may skip — it is pure cost, and `e2e-all` carries the

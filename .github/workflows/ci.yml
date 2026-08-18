@@ -18,11 +18,21 @@ on:
     # the checks actually run, which is what the `branches:` filter used to
     # achieve by accident and must not be lost while fixing it.
     #
-    # Consequence worth knowing: a retargeted PR stays red until something
-    # re-runs it. `edited` in `types:` would clear that automatically, but it
-    # also fires on every title and body edit — re-running the 4-shard E2E
-    # matrix and a Cloudflare deploy each time — so the manual re-run is the
-    # cheaper half of the trade. Fail closed, clear by hand.
+    # Two consequences worth knowing, because neither is obvious.
+    #
+    # A stacked PR carries two permanently-red required checks until it is
+    # retargeted. That is the intended steady state, not a broken build — but
+    # it means `gh pr checks` and `gh run watch --exit-status` exit non-zero on
+    # every stacked PR, so any automation that treats a red as something to fix
+    # will be tempted to weaken exactly the guards above.
+    #
+    # Clearing the red after a retarget takes a NEW event: push a commit
+    # (`synchronize`) or close and reopen (`reopened`). A workflow re-run does
+    # not work — it replays the stored original event, so `github.base_ref` is
+    # still the old base and the refusal fires again identically. `edited` in
+    # `types:` would automate this, but it also fires on every title and body
+    # edit, re-running the 4-shard E2E matrix and a Cloudflare deploy each
+    # time. Fail closed; clear with a push.
 
 # cancel-in-progress only for PRs: superseded PR runs are safe to cancel to
 # save compute, but a `main` push run carries the production Direct-Upload
@@ -406,10 +416,13 @@ jobs:
           # merges, GitHub retargets this PR onto `main` and branch protection
           # re-reads whatever conclusions already exist. A skip would read as
           # satisfied in that window and let an unverified PR merge; a failure
-          # keeps it blocked until someone re-runs the workflow against the
-          # new base.
-          if [ -n "$BASE_REF" ] && [ "$BASE_REF" != "main" ]; then
-            echo "::error::Preview is not built for a PR based on '${BASE_REF}'. Retarget onto main and re-run this workflow."
+          # keeps it blocked until the checks actually run against `main`.
+          #
+          # Both conditions are load-bearing. `github.base_ref` is empty on
+          # `push`, and "" != "main" is true, so without the event-name check a
+          # push to `main` would fail here.
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ] && [ -n "$BASE_REF" ] && [ "$BASE_REF" != "main" ]; then
+            echo "::error::Preview is not built for a PR based on '${BASE_REF}'. Retarget onto main, then push a commit (an empty one is enough) or close and reopen the PR. A workflow re-run will NOT clear this — it replays the original event, base branch included."
             exit 1
           fi
 
