@@ -64,7 +64,7 @@ function FormatAdmin() {
                 required
               />
             </FormControl>
-            <Button type="submit" loading={isLoading}>
+            <Button color="success" type="submit" loading={isLoading}>
               Add Format
             </Button>
           </Stack>
