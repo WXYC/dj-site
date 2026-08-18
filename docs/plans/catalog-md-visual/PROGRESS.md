@@ -13,3 +13,9 @@ Slicing: PR A (popup everywhere + retire `album-detail` panel + relocate `Rightb
 - PR #1019 closed without merge (pin-rail abandoned; modal path already landed via the `@information` route).
 - Worktree created, `npm install` running.
 - Backend stack DOWN (nothing on 8080/8082/5432) — waiting on Jackson to run `start-wxyc-dev.sh` before dev-server baseline screenshots.
+
+### 2026-08-17 — PR A implemented (verification pending)
+- A1 `9a90d047`: five call sites → `router.push(/dashboard/album/[id])` with null-id guards; tests rewritten to assert navigation (incl. new null-id no-op cases).
+- A2 `e87f09d9`: `album-detail` dropped from the RightbarPanel union; `AlbumDetailPanel` deleted; slice/Rightbar tests re-anchored on settings/account-edit.
+- A3 `31dae687`: `Rightbar/panels/album` → `catalog/album` (components + 7 test files, `git mv`); `@information` modal imports fixed, docstring updated (issue refs dropped per repo rule); e2e `album-detail.page.ts` retargeted from `.SecondSidebar` to the `[aria-label="Album detail"]` modal.
+- **BLOCKED on verification**: worktree `npm install` 403s on `@wxyc/shared@3.5.0` (GitHub Packages token lacks scopes — `~/.npmrc` token likely stale; fresh `NPM_TOKEN` lives in Jackson's `.wxyc-dev-overrides.env`). tsc/vitest/dev-server all pending that + backend stack. Commits above are unverified until then.
