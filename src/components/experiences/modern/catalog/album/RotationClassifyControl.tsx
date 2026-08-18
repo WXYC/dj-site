@@ -1,14 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Button, Chip, Stack } from "@mui/joy";
 import { RequireMD } from "@/src/components/shared/Authorization";
 import {
   useAddRotationEntryMutation,
-  useGetRotationQuery,
   useKillRotationEntryMutation,
 } from "@/lib/features/rotation/api";
+import { useAlbumRotationEntries } from "./useAlbumRotationEntries";
 import { Rotation } from "@/lib/features/rotation/types";
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
@@ -52,40 +52,18 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
   // here — whether the album is in rotation is only answerable from the
   // active-rotation list.
   const {
-    data: rotationEntries,
-    isFetching: rotationFetching,
-    isError: rotationErrored,
-    refetch: refetchRotation,
-  } = useGetRotationQuery();
+    activeEntries,
+    albumIdValid,
+    rotationStateUnknown,
+    rotationFetching,
+    rotationErrored,
+    refetchRotation,
+  } = useAlbumRotationEntries(album);
 
   const [selectedBin, setSelectedBin] = useState<Rotation | null>(null);
   const [inFlightKillIds, setInFlightKillIds] = useState<Set<number>>(
     () => new Set(),
   );
-
-  // `synthesizeAlbumId` hands out negative ids to rows the library never
-  // linked (see conversions.ts); neither read nor write may treat one of
-  // those as a real album, so both derive from this single flag. A null id
-  // (LML row) is equally invalid here, though this panel never sees one.
-  const albumIdValid = album.id !== null && album.id > 0;
-
-  // Both reads project `library.id` as the row id, so matching on it is
-  // matching library album to library album. `getRotationFromDB` dedupes
-  // with `rotation_bin` as PART of the uniqueness key, so a re-binned album
-  // with an unkilled prior entry surfaces as more than one row here — every
-  // one of them is a genuinely active entry for this album, not a mismatch.
-  const activeEntries = useMemo(() => {
-    if (!albumIdValid || !rotationEntries) return [];
-    return rotationEntries.filter(
-      (entry): entry is AlbumEntry & { rotation_id: number } =>
-        entry.id === album.id && typeof entry.rotation_id === "number",
-    );
-  }, [rotationEntries, album.id, albumIdValid]);
-
-  // Undecidable until the first load lands. A failed first load must not
-  // fall through to the Add picker — that would offer a second insert on an
-  // album whose actual rotation membership is simply unknown, not "none".
-  const rotationStateUnknown = rotationEntries === undefined;
 
   // The add mutation invalidates the rotation list, and this control's state
   // only flips once that refetch lands, so `addBusy` stays true through the

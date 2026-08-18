@@ -488,6 +488,27 @@ describe("CatalogResult album detail navigation", () => {
     expect(mockPush).toHaveBeenCalledWith("/dashboard/album/42");
   });
 
+  it("reports right-clicks through onContextMenu with the album", () => {
+    const onContextMenu = vi.fn();
+    const album = createTestAlbum({ id: 42 });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult
+            album={album}
+            live={false}
+            addToQueue={vi.fn()}
+            onContextMenu={onContextMenu}
+          />
+        </tbody>
+      </table>
+    );
+
+    fireEvent.contextMenu(screen.getByText(album.title));
+    expect(onContextMenu).toHaveBeenCalledWith(album, expect.anything());
+  });
+
   it("does not navigate for a row without a library id", () => {
     mockPush.mockClear();
     const album = createTestAlbum({ id: null });

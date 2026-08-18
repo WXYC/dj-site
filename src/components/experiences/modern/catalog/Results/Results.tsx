@@ -3,7 +3,11 @@
 import Button from "@mui/joy/Button";
 import Checkbox from "@mui/joy/Checkbox";
 import CircularProgress from "@mui/joy/CircularProgress";
-import { ChangeEvent } from "react";
+import { ChangeEvent, useCallback, useState } from "react";
+import { AlbumEntry } from "@/lib/features/catalog/types";
+import CatalogResultContextMenu, {
+  type CatalogResultContextMenuState,
+} from "./CatalogResultContextMenu";
 
 import { Box, Table } from "@mui/joy";
 
@@ -70,6 +74,18 @@ export default function Results({
   // its own useLiveStatus + useQueue (polling-query) subscriptions.
   const { live } = useLiveStatus();
   const { addToQueue } = useQueue();
+
+  // One state cell owns the context menu: at most one open, closing unmounts it.
+  const [contextMenu, setContextMenu] =
+    useState<CatalogResultContextMenuState | null>(null);
+  const onRowContextMenu = useCallback(
+    (album: AlbumEntry, event: React.MouseEvent) => {
+      event.preventDefault();
+      setContextMenu({ album, top: event.clientY, left: event.clientX });
+    },
+    [],
+  );
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
 
   const loadMoreButton = hasMore ? (
     <Button
@@ -261,6 +277,7 @@ export default function Results({
                 album={album}
                 live={live}
                 addToQueue={addToQueue}
+                onContextMenu={onRowContextMenu}
                 key={`result-${album.id}`}
               />
             ))}
@@ -288,6 +305,9 @@ export default function Results({
         <Box data-testid="catalog-loading-overlay" sx={loadingOverlaySx(loading)}>
           <CircularProgress color="primary" size="md" />
         </Box>
+        {contextMenu && (
+          <CatalogResultContextMenu menu={contextMenu} onClose={closeContextMenu} />
+        )}
       </Box>
     </ResultsContainer>
   );
