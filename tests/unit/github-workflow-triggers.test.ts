@@ -1,32 +1,36 @@
 /**
  * Trigger and base-guard invariants for the PR workflows.
  *
- * Two ways a PR can reach `main` with no automated verification, neither of
- * which produces a red X, an annotation, or anything else a reviewer would
+ * A PR can reach `main` with no automated verification in several ways, none
+ * of which produce a red X, an annotation, or anything else a reviewer would
  * notice:
  *
- *  - A `pull_request: branches: [main]` filter. A PR based on any other
- *    branch then matches no trigger, so the workflow never starts and its
- *    required checks are simply absent.
- *  - A `github.base_ref` job guard without `edited` in `types:`. Retargeting
- *    a PR's base fires only the `edited` activity type, which the default set
- *    omits — so when a parent merges and GitHub retargets the child onto
- *    `main`, nothing re-runs, and the child's conclusions from its old base
- *    stand. Those conclusions are `skipped`, and a skipped check satisfies a
- *    required status check.
+ *  - A `pull_request` trigger narrowed by `branches`, `branches-ignore`, or
+ *    `paths`. The workflow never starts, so its required checks are absent
+ *    rather than failing — and absent reads as "still running".
+ *  - An expensive job that *skips* on a non-`main` base. Skipped satisfies a
+ *    required status check. When the parent of a stacked PR merges, GitHub
+ *    retargets the child onto `main` automatically, and branch protection
+ *    re-reads the conclusions already sitting there. A skip becomes a merge
+ *    authorization in that window, before any new run can exist. Refusing
+ *    (exiting non-zero) keeps the PR blocked instead.
+ *  - A base guard moved *up* the `needs` graph. Gating one shared upstream job
+ *    starves every downstream job transitively while each of their own `if:`
+ *    expressions still looks innocent.
  *
- * The second is the subtle one: it is the first hole wearing the disguise of
- * a fix. That is why these are assertions and not comments in the YAML.
+ * The third is why these assertions resolve the dependency graph rather than
+ * reading each job's `if:` in isolation: an earlier version of this file
+ * passed clean against a workflow whose `changes` job carried the guard.
  */
 
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { parse } from "yaml";
 
-type Job = { if?: string };
+type Job = { if?: string; needs?: string | string[] };
 type Workflow = {
-  on?: { pull_request?: { branches?: string[]; types?: string[] } | null };
+  on?: { pull_request?: { branches?: string[]; types?: string[] } | null } | null;
   jobs?: Record<string, Job>;
 };
 
@@ -36,79 +40,103 @@ function workflow(name: string): Workflow {
   return parse(readFileSync(join(WORKFLOW_DIR, `${name}.yml`), "utf-8")) as Workflow;
 }
 
-// Adding a new PR-triggered workflow to this list is the point: it inherits
-// the invariants rather than rediscovering them.
-const PR_WORKFLOWS = ["ci", "e2e-tests", "codeql"] as const;
+/**
+ * Every workflow with a `pull_request` trigger, discovered rather than listed.
+ * A hardcoded list silently exempts the next workflow someone adds, which is
+ * the population these invariants most need to cover.
+ */
+const PR_WORKFLOWS = readdirSync(WORKFLOW_DIR)
+  .filter((f) => f.endsWith(".yml") || f.endsWith(".yaml"))
+  .map((f) => f.replace(/\.ya?ml$/, ""))
+  .filter((name) => {
+    const on = workflow(name).on;
+    return !!on && "pull_request" in on;
+  });
 
-// Declaring `types:` REPLACES the default set rather than extending it, so
-// omitting `synchronize` would stop CI from running on pushes to an open PR —
-// a far wider hole than the one `edited` closes. Pin the whole set.
-const REQUIRED_TYPES = ["opened", "synchronize", "reopened", "edited"];
+/** Transitive `needs` closure, so a guard one level up is still visible. */
+function dependencyClosure(jobs: Record<string, Job>, start: string): string[] {
+  const seen = new Set<string>();
+  const queue = [start];
+  while (queue.length) {
+    const name = queue.pop()!;
+    if (seen.has(name)) continue;
+    seen.add(name);
+    const needs = jobs[name]?.needs;
+    for (const dep of typeof needs === "string" ? [needs] : (needs ?? [])) queue.push(dep);
+  }
+  return [...seen];
+}
 
 describe("GitHub workflow PR triggers", () => {
-  it.each(PR_WORKFLOWS)(
-    "%s.yml does not filter pull_request by base branch",
-    (name) => {
-      const pr = workflow(name).on?.pull_request;
-      // `pull_request:` with no mapping parses as null — every branch, default
-      // types. That shape is fine; a `branches:` key is not.
-      expect(pr?.branches).toBeUndefined();
-    }
-  );
+  it("finds the PR-triggered workflows by scanning, and there are some", () => {
+    expect(PR_WORKFLOWS.length).toBeGreaterThan(0);
+    // The three the base-guard design reasons about must be among them; a
+    // rename or a deleted trigger should fail here rather than shrink the
+    // suite's coverage in silence.
+    expect(PR_WORKFLOWS).toEqual(expect.arrayContaining(["ci", "e2e-tests", "codeql"]));
+  });
 
-  it.each(PR_WORKFLOWS)(
-    "%s.yml re-runs on base retarget whenever any job guards on github.base_ref",
-    (name) => {
-      const wf = workflow(name);
-      const guarded = Object.entries(wf.jobs ?? {}).filter(([, job]) =>
-        job.if?.includes("github.base_ref")
-      );
-      if (guarded.length === 0) return;
-
-      const types = wf.on?.pull_request?.types ?? [];
+  it.each(PR_WORKFLOWS)("%s.yml does not narrow its pull_request trigger", (name) => {
+    const on = workflow(name).on;
+    // Asserting `pr?.branches` alone passes vacuously when the trigger is gone
+    // entirely, or when a YAML 1.1 parser turns the `on` key into boolean true.
+    expect(on, `${name}.yml lost its \`on:\` block`).toBeTruthy();
+    const pr = on!.pull_request as Record<string, unknown> | null | undefined;
+    expect("pull_request" in on!, `${name}.yml lost its pull_request trigger`).toBe(true);
+    for (const narrowing of ["branches", "branches-ignore", "paths", "paths-ignore"]) {
       expect(
-        types,
-        `${name}.yml guards ${guarded.map(([n]) => n).join(", ")} on github.base_ref ` +
-          `but its pull_request types are [${types.join(", ")}] — a base retarget ` +
-          `fires only 'edited', so those guards would never be re-evaluated`
-      ).toEqual(REQUIRED_TYPES);
+        pr?.[narrowing],
+        `${name}.yml narrows pull_request by ${narrowing}, which starves whole PRs of this workflow`
+      ).toBeUndefined();
     }
-  );
+  });
 });
 
-describe("Expensive-job base guards", () => {
-  // The jobs whose cost scales with the depth of a stacked chain: a per-PR
-  // Cloudflare deployment, and an E2E matrix whose every shard boots a
-  // Backend-Service plus a mock tubafrenzy mirror.
-  it("gates the per-PR preview deploy on a main base", () => {
-    expect(workflow("ci").jobs?.preview?.if).toContain("github.base_ref == 'main'");
+describe("Expensive jobs refuse a non-main base rather than skipping", () => {
+  // Skipping is the trap: it satisfies branch protection, so it converts into
+  // a merge authorization the instant a stacked PR is retargeted onto `main`.
+  // Both of these must therefore leave a *failing* conclusion behind, which
+  // means neither may carry a `github.base_ref` job-level guard — a guard
+  // produces exactly the skip being avoided.
+
+  it("the preview deploy has no base guard, and refuses inside the job", () => {
+    const ci = workflow("ci");
+    expect(ci.jobs?.preview?.if ?? "").not.toContain("github.base_ref");
+    const source = readFileSync(join(WORKFLOW_DIR, "ci.yml"), "utf-8");
+    expect(source).toMatch(/BASE_REF.*!=.*"main"/s);
   });
 
-  it("gates the E2E matrix on a main base", () => {
+  it("the E2E aggregator has no base guard, and refuses inside the job", () => {
+    const e2e = workflow("e2e-tests");
+    expect(e2e.jobs?.["e2e-all"]?.if ?? "").not.toContain("github.base_ref");
+    const source = readFileSync(join(WORKFLOW_DIR, "e2e-tests.yml"), "utf-8");
+    expect(source).toMatch(/BASE_REF.*!=.*"main"/s);
+  });
+
+  // The matrix itself may skip — it is pure cost, and `e2e-all` carries the
+  // signal for it. This pins that the cost control is still in place, so a
+  // future edit doesn't quietly start booting four backends per stacked PR.
+  it("the E2E shard matrix still skips on a non-main base, for cost", () => {
     expect(workflow("e2e-tests").jobs?.e2e?.if).toContain("github.base_ref == 'main'");
-  });
-
-  // The aggregator maps a skipped matrix to success so a docs-only PR can
-  // satisfy the required check. Ungated, that mapping would report the
-  // required "E2E Tests" as *passing* on a stacked PR that ran zero shards —
-  // a check claiming verification it never performed, strictly worse than the
-  // honest skip branch protection already accepts.
-  it("repeats the guard on the E2E aggregator so a skipped matrix cannot report success", () => {
-    expect(workflow("e2e-tests").jobs?.["e2e-all"]?.if).toContain(
-      "github.base_ref == 'main'"
-    );
   });
 });
 
 describe("Cheap correctness jobs", () => {
-  // The whole point of the unfiltered trigger. If a future cost-trimming pass
-  // gates these on the base too, a stacked PR is back to running nothing.
+  // The whole point of the unfiltered trigger. Checked across the transitive
+  // `needs` closure: gating a shared upstream job like `changes` starves all
+  // of these at once while every `if:` here still reads clean.
   it.each(["typecheck", "test", "build", "script-tests"])(
-    "%s runs regardless of the PR's base branch",
+    "%s runs regardless of the PR's base branch, transitively",
     (jobName) => {
-      const job = workflow("ci").jobs?.[jobName];
-      expect(job, `ci.yml has no job named ${jobName}`).toBeDefined();
-      expect(job!.if ?? "").not.toContain("github.base_ref");
+      const jobs = workflow("ci").jobs ?? {};
+      expect(jobs[jobName], `ci.yml has no job named ${jobName}`).toBeDefined();
+      for (const dep of dependencyClosure(jobs, jobName)) {
+        expect(
+          jobs[dep]?.if ?? "",
+          `${jobName} depends on ${dep}, which gates on github.base_ref — that starves ` +
+            `${jobName} on every stacked PR even though its own \`if:\` looks unconditional`
+        ).not.toContain("github.base_ref");
+      }
     }
   );
 });
