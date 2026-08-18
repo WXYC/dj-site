@@ -4,7 +4,12 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    # No `branches:` filter, for the reason ci.yml's trigger spells out: with
+    # one, a stacked PR gets no security scanning at all. Unlike ci.yml and
+    # e2e-tests.yml, nothing here is gated on `github.base_ref` — a single
+    # analyze job is cheap enough to run on every PR base, and with no base
+    # guard to re-evaluate there is nothing for `edited` to fix, so the
+    # default type set stays. CodeQL is not a required status check.
   schedule:
     # Weekly baseline: catches new CodeQL query-pack advisories against
     # unchanged code, independent of the push/PR-triggered scans above.
