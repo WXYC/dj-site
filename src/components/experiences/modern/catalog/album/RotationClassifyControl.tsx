@@ -196,6 +196,7 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
         disabled={addBusy}
       />
       <Button
+        color="success"
         size="sm"
         disabled={!selectedBin}
         loading={addBusy}

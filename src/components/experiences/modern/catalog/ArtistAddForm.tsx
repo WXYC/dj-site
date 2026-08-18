@@ -317,7 +317,7 @@ function ArtistAddFields() {
             </Typography>
           )}
 
-          <Button type="submit" loading={isLoading} disabled={!canSubmit}>
+          <Button color="success" type="submit" loading={isLoading} disabled={!canSubmit}>
             Add artist
           </Button>
         </Stack>
