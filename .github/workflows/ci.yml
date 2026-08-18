@@ -4,7 +4,29 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    # Deliberately NO `branches:` filter. One here starves every PR based on
+    # anything but `main` of the entire workflow — no typecheck, no unit
+    # tests, no build, no preview. #1219 was reviewed, approved, and merged
+    # with zero automated verification for exactly that reason. The expensive
+    # jobs carry their own base guard instead (see `preview` below, and the
+    # E2E matrix in e2e-tests.yml), so a stacked PR gets the cheap
+    # correctness checks without an N-deep chain paying N times over for a
+    # Cloudflare deploy.
+    #
+    # `edited` is load-bearing, not decoration. A base retarget fires ONLY
+    # `edited`, which is absent from the default type set, so without it a
+    # base guard is never re-evaluated: the parent merges, GitHub retargets
+    # the child's base to `main`, and the stale `skipped` conclusions ride
+    # straight through branch protection — a skipped check SATISFIES a
+    # required one (the #740 silent-pass). The guard alone would rebuild the
+    # #1219 hole; the guard plus `edited` closes it.
+    #
+    # The cost is that a title or body edit re-runs CI too, and that is the
+    # deliberate trade. The tempting optimization — skip the run unless
+    # `github.event.changes.base` is set — would replace an existing red
+    # conclusion with a skipped one, making "edit the PR title" a way to
+    # launder a failing required check into a satisfied one.
+    types: [opened, synchronize, reopened, edited]
 
 # cancel-in-progress only for PRs: superseded PR runs are safe to cancel to
 # save compute, but a `main` push run carries the production Direct-Upload
@@ -336,10 +358,20 @@ jobs:
   # pr-preview-smoke.yml; the job name is preserved so branch protection still
   # matches. Fork PRs soft-skip (no secrets); same-repo missing config hard
   # fails (see #740). Every step after config-check is gated on configured.
+  #
+  # The `base_ref` half of the guard is the cost control that lets the
+  # `pull_request:` trigger above run with no `branches:` filter: a stacked PR
+  # gets typecheck/unit/build but not a per-PR Cloudflare deployment, which
+  # would otherwise multiply by the depth of the chain. It is only safe
+  # because `edited` is in `types:` — see the trigger comment for why a base
+  # guard without it re-creates #1219.
   preview:
     name: Preview URL smoke check
     needs: [changes, typecheck, unit-tests, build]
-    if: github.event_name == 'pull_request' && needs.changes.outputs.app_source == 'true'
+    if: >-
+      github.event_name == 'pull_request'
+      && needs.changes.outputs.app_source == 'true'
+      && github.base_ref == 'main'
     runs-on: ubuntu-latest
     # Job-level permissions REPLACE the workflow floor, so contents:read is
     # restated (actions/checkout needs it); pull-requests:write posts the

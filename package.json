@@ -70,7 +70,8 @@
     "pg": "^8.23.0",
     "typescript": "^6.0.3",
     "vitest": "^4.0.18",
-    "wrangler": "^4.121.0"
+    "wrangler": "^4.121.0",
+    "yaml": "^2.8.2"
   },
   "optionalDependencies": {
     "@ast-grep/napi-darwin-arm64": "^0.45.1",
