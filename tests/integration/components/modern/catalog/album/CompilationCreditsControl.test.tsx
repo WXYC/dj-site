@@ -8,7 +8,7 @@ import {
   createTestArtist,
   TEST_BACKEND_URL,
 } from "@/tests/helpers";
-import CompilationCreditsControl from "@/src/components/experiences/modern/Rightbar/panels/album/CompilationCreditsControl";
+import CompilationCreditsControl from "@/src/components/experiences/modern/catalog/album/CompilationCreditsControl";
 
 vi.mock("@/lib/features/authentication/client", () => ({
   authClient: { useSession: vi.fn() },
