@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Button, Chip, FormControl, FormLabel, Stack } from "@mui/joy";
+import { Button, Chip, Stack } from "@mui/joy";
 import { RequireMD } from "@/src/components/shared/Authorization";
 import {
   useAddRotationEntryMutation,
@@ -12,7 +12,8 @@ import {
 import { Rotation } from "@/lib/features/rotation/types";
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
-import RotationBinSelector from "@/src/components/experiences/modern/flowsheet/Search/RotationBinSelector";
+import FormSectionCard from "@/src/components/shared/FormSectionCard";
+import CatalogRotationBinPicker from "@/src/components/experiences/modern/catalog/CatalogRotationBinPicker";
 
 interface RotationClassifyControlProps {
   album: AlbumEntry;
@@ -30,7 +31,9 @@ interface RotationClassifyControlProps {
 function RotationClassifyControl({ album }: RotationClassifyControlProps) {
   return (
     <RequireMD>
-      <RotationClassifyFields album={album} />
+      <FormSectionCard title="Rotation" data-testid="rotation-section-card">
+        <RotationClassifyFields album={album} />
+      </FormSectionCard>
     </RequireMD>
   );
 }
@@ -204,27 +207,25 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
   }
 
   return (
-    <FormControl
-      orientation="horizontal"
-      sx={{ justifyContent: "space-between", alignItems: "center" }}
+    <Stack
+      direction="row"
+      spacing={1}
+      sx={{ alignItems: "flex-end", justifyContent: "space-between" }}
     >
-      <FormLabel>Rotation</FormLabel>
-      <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-        <RotationBinSelector
-          selectedBin={selectedBin}
-          onSelectBin={setSelectedBin}
-          disabled={addBusy}
-        />
-        <Button
-          size="sm"
-          disabled={!selectedBin}
-          loading={addBusy}
-          onClick={handleAdd}
-        >
-          Add to Rotation
-        </Button>
-      </Stack>
-    </FormControl>
+      <CatalogRotationBinPicker
+        selectedBin={selectedBin}
+        onSelectBin={setSelectedBin}
+        disabled={addBusy}
+      />
+      <Button
+        size="sm"
+        disabled={!selectedBin}
+        loading={addBusy}
+        onClick={handleAdd}
+      >
+        Add to Rotation
+      </Button>
+    </Stack>
   );
 }
 
