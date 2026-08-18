@@ -5,11 +5,13 @@ import { renderWithProviders } from "@/tests/helpers";
 const mockBack = vi.fn();
 const mockPush = vi.fn();
 const mockParams = vi.fn<() => { id: string }>(() => ({ id: "42" }));
+const mockPathname = vi.fn<() => string>(() => "/dashboard/album/42");
 const mockUseGetInformationQuery = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ back: mockBack, push: mockPush }),
   useParams: () => mockParams(),
+  usePathname: () => mockPathname(),
 }));
 
 vi.mock("@/lib/features/catalog/api", async (importOriginal) => {
@@ -55,6 +57,7 @@ describe("AlbumPopup — permalinkable album modal (#979)", () => {
     mockPush.mockClear();
     mockUseGetInformationQuery.mockReset();
     mockParams.mockReturnValue({ id: "42" });
+    mockPathname.mockReturnValue("/dashboard/album/42");
     setHistoryLength(2); // default: arrived via in-app navigation
   });
 
@@ -114,5 +117,15 @@ describe("AlbumPopup — permalinkable album modal (#979)", () => {
     fireEvent.click(screen.getByLabelText("Close album detail"));
     expect(mockPush).toHaveBeenCalledWith("/dashboard");
     expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  it("renders nothing once the pathname leaves the album route", () => {
+    // After a dismissal back(), the router can leave this intercepted slot
+    // mounted with stale content while the URL is already the underlying
+    // page's. The URL decides whether the modal exists.
+    mockUseGetInformationQuery.mockReturnValue(foundAlbum);
+    mockPathname.mockReturnValue("/dashboard/catalog");
+    renderWithProviders(<AlbumPopup />);
+    expect(screen.queryByLabelText("Close album detail")).not.toBeInTheDocument();
   });
 });
