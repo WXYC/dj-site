@@ -1,7 +1,7 @@
 "use client";
 
 import { Modal, ModalDialog, ModalClose } from "@mui/joy";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { useGetInformationQuery } from "@/lib/features/catalog/api";
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import { useAlbumArtwork, useArtistMetadata } from "@/lib/features/metadata/hooks";
@@ -32,6 +32,7 @@ import AlbumLoadingCard from "@/src/components/experiences/modern/catalog/album/
 export default function AlbumPopup() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
+  const pathname = usePathname();
 
   // history.length > 1 means we arrived by an in-app navigation (interception),
   // so back() restores the prior URL. length <= 1 is a cold load with no history
@@ -56,6 +57,15 @@ export default function AlbumPopup() {
   } = useAlbumArtwork(data?.artist.name, data?.title, data?.discogsUnavailable === true);
 
   const { artistMetadata, bioTokens } = useArtistMetadata(metadata?.discogsArtistId);
+
+  // After a dismissal `router.back()` restores the underlying page's URL, but
+  // the router can leave this intercepted slot mounted with its stale content
+  // (the slot only re-resolves on the next full navigation). The URL is the
+  // authority on whether the modal should exist: render nothing the moment
+  // the pathname leaves the album route.
+  if (pathname && !pathname.includes("/album/")) {
+    return null;
+  }
 
   return (
     <Modal
