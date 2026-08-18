@@ -9,7 +9,6 @@ import NowPlayingContent from "./NowPlayingContent";
 import RightbarContainer from "./RightbarContainer";
 import RightbarMobileClose from "./RightbarMobileClose";
 import AccountEditPanel from "./panels/AccountEditPanel";
-import AlbumDetailPanel from "./panels/AlbumDetailPanel";
 import SettingsPanel from "./panels/SettingsPanel";
 
 function DefaultRightbarContent() {
@@ -26,8 +25,6 @@ function DefaultRightbarContent() {
 
 function RightbarPanelRouter({ panel }: { panel: Exclude<RightbarPanel, { type: "default" }> }) {
   switch (panel.type) {
-    case "album-detail":
-      return <AlbumDetailPanel albumId={panel.albumId} />;
     case "settings":
       return <SettingsPanel />;
     case "account-edit":
