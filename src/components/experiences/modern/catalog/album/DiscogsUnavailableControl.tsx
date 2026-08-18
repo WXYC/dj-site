@@ -135,7 +135,7 @@ function DiscogsUnavailableControl({ album }: DiscogsUnavailableControlProps) {
                 {note.length}/{DISCOGS_UNAVAILABLE_NOTE_MAX_LENGTH}
               </Typography>
               {noteChanged && (
-                <Button size="sm" loading={notePending} onClick={handleSaveNote}>
+                <Button color="success" size="sm" loading={notePending} onClick={handleSaveNote}>
                   Save
                 </Button>
               )}

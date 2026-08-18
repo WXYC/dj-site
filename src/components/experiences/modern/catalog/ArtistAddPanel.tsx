@@ -25,6 +25,7 @@ export default function ArtistAddPanel() {
     <RequireMD>
       <Button
         variant="outlined"
+        color="success"
         startDecorator={<PersonAdd />}
         onClick={() => setOpen(true)}
       >
