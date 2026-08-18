@@ -3,8 +3,9 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { createTestAlbum, createTestArtist } from "@/tests/helpers";
 import { renderWithProviders } from "@/tests/helpers/render";
 
+const mockPush = vi.fn();
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  useRouter: () => ({ push: mockPush, refresh: vi.fn() }),
   usePathname: () => "/dashboard/catalog",
 }));
 
@@ -451,5 +452,55 @@ describe("CatalogResult adding a compilation to the queue", () => {
     expect(toastSuccessMock).toHaveBeenCalledWith(
       "Added On Your Own Love Again to queue"
     );
+  });
+});
+
+describe("CatalogResult album detail navigation", () => {
+  it("navigates to the album detail route when the row is clicked", () => {
+    mockPush.mockClear();
+    const album = createTestAlbum({ id: 42 });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
+        </tbody>
+      </table>
+    );
+
+    fireEvent.click(screen.getByText(album.title));
+    expect(mockPush).toHaveBeenCalledWith("/dashboard/album/42");
+  });
+
+  it("navigates from the More information button", () => {
+    mockPush.mockClear();
+    const album = createTestAlbum({ id: 42 });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
+        </tbody>
+      </table>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "More information" }));
+    expect(mockPush).toHaveBeenCalledWith("/dashboard/album/42");
+  });
+
+  it("does not navigate for a row without a library id", () => {
+    mockPush.mockClear();
+    const album = createTestAlbum({ id: null });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
+        </tbody>
+      </table>
+    );
+
+    fireEvent.click(screen.getByText(album.title));
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });
