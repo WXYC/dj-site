@@ -41,7 +41,6 @@ export interface AuthFlowState {
 
 export type RightbarPanel =
     | { type: "default" }
-    | { type: "album-detail"; albumId: number }
     | { type: "settings" }
     | {
           type: "account-edit";
