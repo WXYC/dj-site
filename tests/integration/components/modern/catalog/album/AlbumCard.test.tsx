@@ -5,28 +5,28 @@ import {
   createTestAlbum,
   createTestArtist,
 } from "@/tests/helpers";
-import AlbumCard from "@/src/components/experiences/modern/Rightbar/panels/album/AlbumCard";
+import AlbumCard from "@/src/components/experiences/modern/catalog/album/AlbumCard";
 import type { AlbumMetadata } from "@/lib/features/metadata/types";
 
-vi.mock("@/src/components/experiences/modern/Rightbar/panels/album/DiscogsMarkupRenderer", () => ({
+vi.mock("@/src/components/experiences/modern/catalog/album/DiscogsMarkupRenderer", () => ({
   default: () => <span>mocked bio</span>,
 }));
 
-vi.mock("@/src/components/experiences/modern/Rightbar/panels/album/LibraryStatus", () => ({
+vi.mock("@/src/components/experiences/modern/catalog/album/LibraryStatus", () => ({
   default: () => <span>mocked status</span>,
 }));
 
-vi.mock("@/src/components/experiences/modern/Rightbar/panels/album/DiscogsUnavailableControl", () => ({
+vi.mock("@/src/components/experiences/modern/catalog/album/DiscogsUnavailableControl", () => ({
   default: () => <span>mocked discogs-unavailable control</span>,
 }));
 
 // Marker text (rather than the real `() => null` no-op) so gate tests can
 // assert the child was never invoked, not just that it rendered nothing.
-vi.mock("@/src/components/experiences/modern/Rightbar/panels/album/StreamingLinks", () => ({
+vi.mock("@/src/components/experiences/modern/catalog/album/StreamingLinks", () => ({
   default: () => <span>mocked streaming links</span>,
 }));
 
-vi.mock("@/src/components/experiences/modern/Rightbar/panels/album/Tracklist", () => ({
+vi.mock("@/src/components/experiences/modern/catalog/album/Tracklist", () => ({
   default: () => <span>mocked tracklist</span>,
 }));
 

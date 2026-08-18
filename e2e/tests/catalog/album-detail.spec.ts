@@ -164,7 +164,9 @@ test.describe("Album Detail Panel", () => {
       await interceptAlbumApis(page);
       await openAlbumViaCatalog(page, dashboard, albumDetail);
 
-      await expect(page.locator(".SecondSidebar table")).toBeVisible({ timeout: 10000 });
+      await expect(
+        page.locator('[aria-label="Album detail"] table')
+      ).toBeVisible({ timeout: 10000 });
       await expect(page.getByText("la paradoja")).toBeVisible();
       await expect(page.getByText("el desconfiado")).toBeVisible();
       await expect(page.getByText("vaca")).toBeVisible();

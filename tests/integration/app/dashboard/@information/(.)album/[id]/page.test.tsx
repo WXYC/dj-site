@@ -27,13 +27,13 @@ vi.mock("@/lib/features/metadata/hooks", () => ({
 
 // Stub the content cards so the test asserts branch selection without pulling
 // in AlbumCard's own data dependencies.
-vi.mock("@/src/components/experiences/modern/Rightbar/panels/album/AlbumCard", () => ({
+vi.mock("@/src/components/experiences/modern/catalog/album/AlbumCard", () => ({
   default: () => <div data-testid="album-card" />,
 }));
-vi.mock("@/src/components/experiences/modern/Rightbar/panels/album/AlbumErrorCard", () => ({
+vi.mock("@/src/components/experiences/modern/catalog/album/AlbumErrorCard", () => ({
   default: () => <div data-testid="album-error" />,
 }));
-vi.mock("@/src/components/experiences/modern/Rightbar/panels/album/AlbumLoadingCard", () => ({
+vi.mock("@/src/components/experiences/modern/catalog/album/AlbumLoadingCard", () => ({
   default: () => <div data-testid="album-loading" />,
 }));
 

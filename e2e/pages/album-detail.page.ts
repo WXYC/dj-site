@@ -1,16 +1,17 @@
 import { Page, Locator, expect } from "@playwright/test";
 
 /**
- * Page Object Model for the Album Detail Panel
+ * Page Object Model for the Album Detail modal
  *
- * The album detail panel opens in the rightbar sidebar when clicking
- * an album in the catalog, flowsheet, or bin. It displays album metadata
- * fetched from the catalog API and enriched with Discogs/streaming data.
+ * Album detail opens as a centered modal (the intercepting route at
+ * /dashboard/album/[id]) when clicking an album in the catalog, flowsheet,
+ * or bin. It displays album metadata fetched from the catalog API and
+ * enriched with Discogs/streaming data.
  */
 export class AlbumDetailPage {
   readonly page: Page;
 
-  // Panel container (rightbar sidebar)
+  // Modal dialog container
   readonly panel: Locator;
 
   // Album header
@@ -45,12 +46,12 @@ export class AlbumDetailPage {
   constructor(page: Page) {
     this.page = page;
 
-    // The panel is inside the rightbar sidebar
-    this.panel = page.locator(".SecondSidebar");
+    // The centered modal dialog rendered by the intercepting route
+    this.panel = page.locator('[aria-label="Album detail"]');
 
     // The title is rendered as "Artist Name * Album Title" inside a Typography
     this.albumTitle = this.panel.locator('[class*="MuiTypography"][class*="title-lg"]');
-    this.closeButton = this.panel.locator('button[aria-label="Close panel"]');
+    this.closeButton = this.panel.locator('button[aria-label="Close album detail"]');
     this.artwork = this.panel.locator('img[alt*="cover"]');
 
     // Library status chips
@@ -80,11 +81,11 @@ export class AlbumDetailPage {
   }
 
   /**
-   * Navigate to the catalog and open an album via search.
-   * Direct URL navigation (/dashboard/album/:id) is no longer supported.
+   * Navigate to the catalog; specs open the album by clicking a result,
+   * which soft-navigates to /dashboard/album/:id and overlays the modal.
+   * (Hard navigation to that URL is also supported — it's the permalink.)
    */
   async goto(albumId: number): Promise<void> {
-    // Navigate to catalog — the album will be opened via dispatch, not URL
     await this.page.goto(`/dashboard/catalog`);
     await this.page.waitForLoadState("domcontentloaded");
   }
@@ -105,12 +106,12 @@ export class AlbumDetailPage {
   }
 
   /**
-   * Close the panel by clicking the close button.
+   * Close the modal by clicking the close button.
    */
   async close(): Promise<void> {
     await this.closeButton.click({ force: true });
-    // Wait for default rightbar content to reappear
-    await this.panel.locator('text=Now Playing').waitFor({ state: "visible", timeout: 5000 });
+    // Dismissal navigates back, unmounting the dialog
+    await this.panel.waitFor({ state: "hidden", timeout: 5000 });
   }
 
   // --- Assertions ---

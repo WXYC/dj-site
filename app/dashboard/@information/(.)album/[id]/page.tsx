@@ -5,14 +5,14 @@ import { useParams, useRouter } from "next/navigation";
 import { useGetInformationQuery } from "@/lib/features/catalog/api";
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import { useAlbumArtwork, useArtistMetadata } from "@/lib/features/metadata/hooks";
-import AlbumCard from "@/src/components/experiences/modern/Rightbar/panels/album/AlbumCard";
-import AlbumErrorCard from "@/src/components/experiences/modern/Rightbar/panels/album/AlbumErrorCard";
-import AlbumLoadingCard from "@/src/components/experiences/modern/Rightbar/panels/album/AlbumLoadingCard";
+import AlbumCard from "@/src/components/experiences/modern/catalog/album/AlbumCard";
+import AlbumErrorCard from "@/src/components/experiences/modern/catalog/album/AlbumErrorCard";
+import AlbumLoadingCard from "@/src/components/experiences/modern/catalog/album/AlbumLoadingCard";
 
 /**
- * Album detail as a permalinkable modal, restored via the App Router
- * intercepting-route pattern (WXYC/dj-site#979). Reached three ways, all
- * resolving `/dashboard/album/[id]` (the Backend-Service serial `library.id`):
+ * Album detail as a permalinkable modal via the App Router intercepting-route
+ * pattern. Reached three ways, all resolving `/dashboard/album/[id]` (the
+ * Backend-Service serial `library.id`):
  *
  *   - soft (client) navigation      → this file intercepts and overlays the modal
  *   - hard navigation / permalink   → `@information/album/[id]/page.tsx` (re-export)
@@ -26,9 +26,8 @@ import AlbumLoadingCard from "@/src/components/experiences/modern/Rightbar/panel
  * The close affordance is a real `ModalClose` above the backdrop so tests (and
  * assistive tech) can click it directly.
  *
- * Content is the existing rightbar album components, reused in place; moving
- * them to a rightbar-agnostic home and retiring the `album-detail` rightbar
- * panel are follow-on tracks of #979.
+ * This modal is the only album-detail surface: every in-app album click
+ * navigates here, and the rightbar stays reserved for its resident content.
  */
 export default function AlbumPopup() {
   const router = useRouter();
