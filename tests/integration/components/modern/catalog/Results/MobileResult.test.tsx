@@ -4,8 +4,9 @@ import userEvent from "@testing-library/user-event";
 import { createTestAlbum, createTestArtist } from "@/tests/helpers";
 import { renderWithProviders } from "@/tests/helpers/render";
 
+const mockPush = vi.fn();
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  useRouter: () => ({ push: mockPush, refresh: vi.fn() }),
   usePathname: () => "/dashboard/catalog",
 }));
 
@@ -165,6 +166,43 @@ describe("CatalogMobileResult album artwork", () => {
           album_id: credited.id,
         })
       );
+    });
+  });
+
+  describe("album detail navigation", () => {
+    it("navigates to the album detail route when the card is tapped", async () => {
+      mockPush.mockClear();
+      const tappable = createTestAlbum({ id: 42 });
+      renderWithProviders(
+        <CatalogMobileResult album={tappable} live={false} addToQueue={vi.fn()} />
+      );
+
+      await userEvent.click(screen.getByText(tappable.title));
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/album/42");
+    });
+
+    it("navigates from the More information button", async () => {
+      mockPush.mockClear();
+      const tappable = createTestAlbum({ id: 42 });
+      renderWithProviders(
+        <CatalogMobileResult album={tappable} live={false} addToQueue={vi.fn()} />
+      );
+
+      await userEvent.click(
+        screen.getByRole("button", { name: "More information" })
+      );
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/album/42");
+    });
+
+    it("does not navigate for a card without a library id", async () => {
+      mockPush.mockClear();
+      const unlinked = createTestAlbum({ id: null });
+      renderWithProviders(
+        <CatalogMobileResult album={unlinked} live={false} addToQueue={vi.fn()} />
+      );
+
+      await userEvent.click(screen.getByText(unlinked.title));
+      expect(mockPush).not.toHaveBeenCalled();
     });
   });
 });

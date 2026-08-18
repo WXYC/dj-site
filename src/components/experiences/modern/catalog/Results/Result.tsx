@@ -10,11 +10,10 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
 import { Stack, Tooltip } from "@mui/joy";
 
-import { applicationSlice } from "@/lib/features/application/frontend";
 import { useCatalogQuerySearch } from "@/src/hooks/catalogHooks";
 import { QueueMusic } from "@mui/icons-material";
 import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
-import { useAppDispatch } from "@/lib/hooks";
+import { useRouter } from "next/navigation";
 import { AlbumArtwork } from "../AlbumArtwork";
 import AddRemoveBin from "./AddRemoveBin";
 import { MatchedTrackChips } from "./MatchedTrackChips";
@@ -36,12 +35,18 @@ function CatalogResult({
   live: boolean;
   addToQueue: (entry: FlowsheetQuery) => void;
 }) {
-  const dispatch = useAppDispatch();
+  const router = useRouter();
 
   const { selected, setSelection, sortBy } = useCatalogQuerySearch();
 
   // Catalog rows always carry a real library.id; only LML rows go null.
   const isSelected = selected.includes(album.id!);
+
+  // Album detail opens as the intercepting-route modal; a row without a
+  // library id has no detail page to navigate to.
+  const openAlbumDetail = () => {
+    if (album.id != null) router.push(`/dashboard/album/${album.id}`);
+  };
 
   const artistDisplay = album.album_artist ? "Various Artists" : album.artist.name;
   const artistDetail = album.album_artist ?? album.alternate_artist;
@@ -60,7 +65,7 @@ function CatalogResult({
     <tr
       key={album.id}
       className={isSelected ? "row-selected" : undefined}
-      onClick={() => dispatch(applicationSlice.actions.openPanel({ type: "album-detail", albumId: album.id! }))}
+      onClick={openAlbumDetail}
       style={{ cursor: "pointer" }}
     >
       <td
@@ -199,7 +204,7 @@ function CatalogResult({
               variant="plain"
               color="neutral"
               size="sm"
-              onClick={() => dispatch(applicationSlice.actions.openPanel({ type: "album-detail", albumId: album.id! }))}
+              onClick={openAlbumDetail}
             >
               <InfoOutlinedIcon />
             </IconButton>

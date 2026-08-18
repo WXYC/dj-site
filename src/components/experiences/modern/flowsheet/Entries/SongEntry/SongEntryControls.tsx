@@ -1,10 +1,10 @@
 "use client";
 
-import { applicationSlice } from "@/lib/features/application/frontend";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 import { useAppDispatch } from "@/lib/hooks";
 import { useFlowsheetActions } from "@/src/hooks/flowsheetHooks";
+import { useRouter } from "next/navigation";
 import {
   InfoOutlined,
   LinkOff,
@@ -32,6 +32,7 @@ export default function SongEntryControls({
   showRemove?: boolean;
 }) {
   const dispatch = useAppDispatch();
+  const router = useRouter();
   const { updateFlowsheet } = useFlowsheetActions();
 
   const commit = (field: "segue" | "request_flag", value: boolean) => {
@@ -104,14 +105,7 @@ export default function SongEntryControls({
         size="sm"
         disabled={!entry?.album_id || entry.album_id < 0}
         aria-label="Album information"
-        onClick={() =>
-          dispatch(
-            applicationSlice.actions.openPanel({
-              type: "album-detail",
-              albumId: entry.album_id!,
-            })
-          )
-        }
+        onClick={() => router.push(`/dashboard/album/${entry.album_id}`)}
       >
         <InfoOutlined />
       </IconButton>

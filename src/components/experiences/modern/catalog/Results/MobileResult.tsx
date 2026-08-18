@@ -9,9 +9,8 @@ import Typography from "@mui/joy/Typography";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { QueueMusic } from "@mui/icons-material";
 
-import { applicationSlice } from "@/lib/features/application/frontend";
 import { FlowsheetQuery } from "@/lib/features/flowsheet/types";
-import { useAppDispatch } from "@/lib/hooks";
+import { useRouter } from "next/navigation";
 import { convertBinToQueue } from "@/lib/features/bin/conversions";
 import { queueAdditionMessage } from "@/lib/features/flowsheet/various-artists-guard";
 import { AlbumArtwork } from "../AlbumArtwork";
@@ -33,13 +32,15 @@ function CatalogMobileResult({
   live: boolean;
   addToQueue: (entry: FlowsheetQuery) => void;
 }) {
-  const dispatch = useAppDispatch();
+  const router = useRouter();
 
   const artistDisplay = album.album_artist ? "Various Artists" : album.artist.name;
 
-  // Catalog rows always carry a real library.id; only LML rows go null.
-  const openDetail = () =>
-    dispatch(applicationSlice.actions.openPanel({ type: "album-detail", albumId: album.id! }));
+  // Album detail opens as the intercepting-route modal; a row without a
+  // library id (LML rows) has no detail page to navigate to.
+  const openDetail = () => {
+    if (album.id != null) router.push(`/dashboard/album/${album.id}`);
+  };
 
   // The actions sit in the top-right corner, so only the top text lines
   // (title, artist) need to reserve room for them; everything below runs
