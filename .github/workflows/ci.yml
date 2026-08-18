@@ -7,26 +7,22 @@ on:
     # Deliberately NO `branches:` filter. One here starves every PR based on
     # anything but `main` of the entire workflow — no typecheck, no unit
     # tests, no build, no preview. #1219 was reviewed, approved, and merged
-    # with zero automated verification for exactly that reason. The expensive
-    # jobs carry their own base guard instead (see `preview` below, and the
-    # E2E matrix in e2e-tests.yml), so a stacked PR gets the cheap
-    # correctness checks without an N-deep chain paying N times over for a
-    # Cloudflare deploy.
+    # with zero automated verification for exactly that reason.
     #
-    # `edited` is load-bearing, not decoration. A base retarget fires ONLY
-    # `edited`, which is absent from the default type set, so without it a
-    # base guard is never re-evaluated: the parent merges, GitHub retargets
-    # the child's base to `main`, and the stale `skipped` conclusions ride
-    # straight through branch protection — a skipped check SATISFIES a
-    # required one (the #740 silent-pass). The guard alone would rebuild the
-    # #1219 hole; the guard plus `edited` closes it.
+    # Cost control for the expensive jobs lives in the jobs themselves, and it
+    # reports RED on a non-`main` base rather than skipping. That direction is
+    # the whole design: a skipped check SATISFIES a required one (#740), so a
+    # skip becomes a merge authorization the moment GitHub retargets a stacked
+    # PR onto `main` — which it does automatically when the parent merges,
+    # before any new run can exist. Failing instead keeps the PR blocked until
+    # the checks actually run, which is what the `branches:` filter used to
+    # achieve by accident and must not be lost while fixing it.
     #
-    # The cost is that a title or body edit re-runs CI too, and that is the
-    # deliberate trade. The tempting optimization — skip the run unless
-    # `github.event.changes.base` is set — would replace an existing red
-    # conclusion with a skipped one, making "edit the PR title" a way to
-    # launder a failing required check into a satisfied one.
-    types: [opened, synchronize, reopened, edited]
+    # Consequence worth knowing: a retargeted PR stays red until something
+    # re-runs it. `edited` in `types:` would clear that automatically, but it
+    # also fires on every title and body edit — re-running the 4-shard E2E
+    # matrix and a Cloudflare deploy each time — so the manual re-run is the
+    # cheaper half of the trade. Fail closed, clear by hand.
 
 # cancel-in-progress only for PRs: superseded PR runs are safe to cancel to
 # save compute, but a `main` push run carries the production Direct-Upload
@@ -359,19 +355,19 @@ jobs:
   # matches. Fork PRs soft-skip (no secrets); same-repo missing config hard
   # fails (see #740). Every step after config-check is gated on configured.
   #
-  # The `base_ref` half of the guard is the cost control that lets the
-  # `pull_request:` trigger above run with no `branches:` filter: a stacked PR
-  # gets typecheck/unit/build but not a per-PR Cloudflare deployment, which
-  # would otherwise multiply by the depth of the chain. It is only safe
-  # because `edited` is in `types:` — see the trigger comment for why a base
-  # guard without it re-creates #1219.
+  # A non-`main` base is refused in the config-check step below, NOT with an
+  # `if:` guard on the job. Both stop the Cloudflare deploy; only the refusal
+  # leaves a red required check behind, and red is what keeps a stacked PR
+  # blocked through the window where GitHub retargets it onto `main` and
+  # branch protection re-reads its existing conclusions. A skip would read as
+  # satisfied in exactly that window. Cost of refusing this way is one runner
+  # for a few seconds — the step runs before any checkout.
   preview:
     name: Preview URL smoke check
     needs: [changes, typecheck, unit-tests, build]
     if: >-
       github.event_name == 'pull_request'
       && needs.changes.outputs.app_source == 'true'
-      && github.base_ref == 'main'
     runs-on: ubuntu-latest
     # Job-level permissions REPLACE the workflow floor, so contents:read is
     # restated (actions/checkout needs it); pull-requests:write posts the
@@ -401,7 +397,22 @@ jobs:
           BASE_REPO: ${{ github.event.pull_request.base.repo.full_name }}
           HAS_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
           HAS_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID != '' }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
+          # A stacked PR gets no preview deployment: one per PR in an N-deep
+          # chain is N Cloudflare deploys for a base that isn't shipping. This
+          # refuses rather than skips, and it runs first — before checkout, so
+          # the refusal costs seconds. Red is deliberate: when the parent
+          # merges, GitHub retargets this PR onto `main` and branch protection
+          # re-reads whatever conclusions already exist. A skip would read as
+          # satisfied in that window and let an unverified PR merge; a failure
+          # keeps it blocked until someone re-runs the workflow against the
+          # new base.
+          if [ -n "$BASE_REF" ] && [ "$BASE_REF" != "main" ]; then
+            echo "::error::Preview is not built for a PR based on '${BASE_REF}'. Retarget onto main and re-run this workflow."
+            exit 1
+          fi
+
           # Real forks can never access repo secrets — soft-skip those so we
           # don't block external contributors on infra they don't own. For
           # same-repo PRs (including Dependabot, which runs from a same-repo

@@ -4,12 +4,12 @@ on:
   push:
     branches: [main]
   pull_request:
-    # No `branches:` filter, and `edited` in `types:`. Both halves matter, and
-    # both are explained at length on ci.yml's identical trigger — the short
-    # version: a `branches: [main]` filter gave #1219 a zero-CI merge, and a
-    # base guard without `edited` re-creates it because a base retarget fires
-    # no other event and a skipped check satisfies a required one.
-    types: [opened, synchronize, reopened, edited]
+    # No `branches:` filter — one gave #1219 a zero-CI merge. The shard matrix
+    # still skips on a non-`main` base for cost, but the `E2E Tests` aggregator
+    # below FAILS there instead of skipping, so the PR stays blocked rather
+    # than arriving pre-satisfied at its retarget onto `main`. See ci.yml's
+    # trigger for the full reasoning, including why `edited` is not in
+    # `types:`.
   workflow_dispatch:
     inputs:
       backend_ref:
@@ -484,27 +484,36 @@ jobs:
   # source, the matrix skips and we should pass — not fail — so workflow-only
   # PRs can satisfy the required check.
   #
-  # That skipped->success mapping is exactly why this job repeats the matrix's
-  # `base_ref` guard instead of inheriting it. Left ungated, a stacked PR
-  # whose matrix skipped for base reasons would report "E2E Tests: success"
-  # having run zero shards — a check that claims verification it never did,
-  # strictly worse than the honest `skipped` that branch protection already
-  # accepts. Gated, the aggregator skips too, and `edited` in `types:` above
-  # brings both back the moment the base retargets to `main`.
+  # That skipped->success mapping is also why a non-`main` base has to be
+  # FAILED here rather than skipped, and why this job stays ungated so it can
+  # do the failing. The matrix skips on a stacked PR to avoid booting four
+  # backends for a base that isn't shipping — but if this aggregator skipped
+  # too, "E2E Tests" would sit satisfied on a PR that ran zero shards, and
+  # GitHub's automatic retarget onto `main` when the parent merges would hand
+  # that satisfied state straight to branch protection. Failing keeps the PR
+  # blocked until the suite actually runs against `main`.
   e2e-all:
     name: E2E Tests
     needs: e2e
-    if: always() && (github.event_name != 'pull_request' || github.base_ref == 'main')
+    if: always()
     runs-on: ubuntu-latest
+    env:
+      BASE_REF: ${{ github.base_ref }}
+      MATRIX_RESULT: ${{ needs.e2e.result }}
     steps:
       - name: Verify all shards passed
         run: |
-          case "${{ needs.e2e.result }}" in
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ] && [ "$BASE_REF" != "main" ]; then
+            echo "::error::E2E is not run for a PR based on '${BASE_REF}'. Retarget onto main and re-run this workflow."
+            exit 1
+          fi
+
+          case "$MATRIX_RESULT" in
             success|skipped)
-              echo "E2E matrix result: ${{ needs.e2e.result }}"
+              echo "E2E matrix result: ${MATRIX_RESULT}"
               ;;
             *)
-              echo "One or more E2E shards failed: ${{ needs.e2e.result }}"
+              echo "One or more E2E shards failed: ${MATRIX_RESULT}"
               exit 1
               ;;
           esac
