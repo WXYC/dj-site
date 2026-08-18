@@ -503,8 +503,10 @@ jobs:
     steps:
       - name: Verify all shards passed
         run: |
-          if [ "$GITHUB_EVENT_NAME" = "pull_request" ] && [ "$BASE_REF" != "main" ]; then
-            echo "::error::E2E is not run for a PR based on '${BASE_REF}'. Retarget onto main and re-run this workflow."
+          # `github.base_ref` is empty on `push`; the event-name check is what
+          # keeps a push to `main` from failing on "" != "main".
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ] && [ -n "$BASE_REF" ] && [ "$BASE_REF" != "main" ]; then
+            echo "::error::E2E is not run for a PR based on '${BASE_REF}'. Retarget onto main, then push a commit (an empty one is enough) or close and reopen the PR. A workflow re-run will NOT clear this — it replays the original event, base branch included."
             exit 1
           fi
 
