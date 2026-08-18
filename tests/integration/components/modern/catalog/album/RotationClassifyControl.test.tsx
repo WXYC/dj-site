@@ -8,7 +8,7 @@ import {
   server,
   TEST_BACKEND_URL,
 } from "@/tests/helpers";
-import RotationClassifyControl from "@/src/components/experiences/modern/Rightbar/panels/album/RotationClassifyControl";
+import RotationClassifyControl from "@/src/components/experiences/modern/catalog/album/RotationClassifyControl";
 
 // Mock fonts before importing the modern theme (pulled in for the rotation palette).
 vi.mock("next/font/google", () => ({

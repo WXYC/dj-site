@@ -13,8 +13,8 @@ import {
   DISC_QUANTITY_MAX,
   DISC_QUANTITY_MIN,
 } from "@/lib/features/catalog/constants";
-import AlbumEditForm from "@/src/components/experiences/modern/Rightbar/panels/album/AlbumEditForm";
-import DiscogsUnavailableControl from "@/src/components/experiences/modern/Rightbar/panels/album/DiscogsUnavailableControl";
+import AlbumEditForm from "@/src/components/experiences/modern/catalog/album/AlbumEditForm";
+import DiscogsUnavailableControl from "@/src/components/experiences/modern/catalog/album/DiscogsUnavailableControl";
 
 vi.mock("@/lib/features/authentication/client", () => ({
   authClient: { useSession: vi.fn() },

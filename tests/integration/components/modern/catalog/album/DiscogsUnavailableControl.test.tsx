@@ -8,7 +8,7 @@ import {
   server,
   TEST_BACKEND_URL,
 } from "@/tests/helpers";
-import DiscogsUnavailableControl from "@/src/components/experiences/modern/Rightbar/panels/album/DiscogsUnavailableControl";
+import DiscogsUnavailableControl from "@/src/components/experiences/modern/catalog/album/DiscogsUnavailableControl";
 
 vi.mock("@/lib/features/authentication/client", () => ({
   authClient: { useSession: vi.fn() },

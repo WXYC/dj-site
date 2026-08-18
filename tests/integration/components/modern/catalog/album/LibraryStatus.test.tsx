@@ -5,7 +5,7 @@ import {
   createTestAlbum,
   createTestArtist,
 } from "@/tests/helpers";
-import LibraryStatus from "@/src/components/experiences/modern/Rightbar/panels/album/LibraryStatus";
+import LibraryStatus from "@/src/components/experiences/modern/catalog/album/LibraryStatus";
 
 const catPowerAlbum = () =>
   createTestAlbum({
