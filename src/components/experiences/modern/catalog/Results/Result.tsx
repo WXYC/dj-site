@@ -30,10 +30,12 @@ function CatalogResult({
   album,
   live,
   addToQueue,
+  onContextMenu,
 }: {
   album: AlbumEntry;
   live: boolean;
   addToQueue: (entry: FlowsheetQuery) => void;
+  onContextMenu?: (album: AlbumEntry, event: React.MouseEvent) => void;
 }) {
   const router = useRouter();
 
@@ -66,6 +68,9 @@ function CatalogResult({
       key={album.id}
       className={isSelected ? "row-selected" : undefined}
       onClick={openAlbumDetail}
+      onContextMenu={
+        onContextMenu ? (event) => onContextMenu(album, event) : undefined
+      }
       style={{ cursor: "pointer" }}
     >
       <td
