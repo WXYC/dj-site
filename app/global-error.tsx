@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { safeCaptureException } from "@/lib/sentry";
+import { safeCaptureException } from "@/lib/error-reporting";
 
 export default function GlobalError({
   error,

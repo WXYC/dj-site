@@ -47,10 +47,11 @@ NEXT_PUBLIC_QR_LOGIN_ENABLED=false
 # actually fired in a deployed environment.
 # APP_ORGANIZATION=wxyc
 
-# Optional — PostHog product analytics (lib/posthog.ts) and Sentry error
-# reporting (lib/sentry.ts). Each adapter is inert without its key/DSN — every
+# Optional — PostHog (lib/posthog.ts: analytics + its own $exception stream)
+# and Sentry (lib/sentry.ts: error triage). Errors go to both via
+# lib/error-reporting.ts. Each adapter is inert without its key/DSN — every
 # capture call no-ops. All are public values, not secrets. See .env.example
-# for the full comments and docs/adr/0008 for the analytics/error split;
+# for the full comments and docs/adr/0008 for the dual-sink decision;
 # NEXT_PUBLIC_SENTRY_ENVIRONMENT and NEXT_PUBLIC_SENTRY_RELEASE are set by the
 # CI deploy jobs (production/preview + commit SHA) and rarely needed locally.
 # NEXT_PUBLIC_POSTHOG_KEY=phc_...

@@ -4,7 +4,7 @@ import { Suspense, useEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useReportWebVitals } from "next/web-vitals";
 import { initTelemetry, safeCapturePageview } from "@/lib/posthog";
-import { initErrorReporting } from "@/lib/sentry";
+import { initErrorReporting } from "@/lib/error-reporting";
 import { installCspViolationReporter } from "@/lib/csp-violation-reporter";
 import { reportWebVital } from "@/lib/web-vitals-reporter";
 import type { ReactNode } from "react";

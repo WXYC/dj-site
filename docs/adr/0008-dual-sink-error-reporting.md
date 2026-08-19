@@ -1,0 +1,28 @@
+# Errors report to both Sentry and PostHog; neither carries PII
+
+Client-side errors are reported to two sinks. Sentry is added for triage — grouping, regression detection, release association, and alerting — and PostHog **keeps** the `$exception` stream it already had, because crash investigation here reads it: when a DJ reports "the site went white," the established first move is finding `$exception` events around that time, alongside the `$pageview` / `sse_*` / login events that give them context. Removing that would have broken a working diagnostic path to gain nothing Sentry doesn't already provide separately.
+
+`lib/error-reporting.ts` is the single entry point (`safeCaptureException`); it normalizes the error once and fans out to `lib/sentry.ts` and `lib/posthog.ts`. Each is an application-owned, fail-open adapter of the `lib/posthog.ts` shape — deferred SDK chunk, bounded pre-load buffer, all failures swallowed — and each adapter's failure is isolated so one sink going wrong cannot suppress the other's report. Both SDKs also install their own global handlers, so an unhandled error is recorded twice by design; counts are per-sink, not a single stream.
+
+Anonymization is a station requirement and binds both sinks. No `identify()` or `setUser` call exists anywhere. Sentry: `sendDefaultPii: false`, `beforeSend` deletes `event.user` and drops cookies/non-UA headers, and email-shaped strings are redacted from messages, exception values, and breadcrumbs. PostHog: `person_profiles: "identified_only"`, `autocapture: false` and `disable_session_recording: true` (both serialize on-screen text, and the admin roster renders DJ names and emails), plus a `before_send` that redacts emails from every event's properties — the only place the SDK's *automatic* exception capture can be scrubbed, since it never passes through this app's wrappers. `login_post_redirect` also dropped its `user_id` property. Both adapters share one redaction helper (`lib/redact.ts`) so the two can't drift.
+
+One gap is not fixable in this codebase: Sentry's ingest infers IP and geo for JavaScript-platform events regardless of what the SDK sends, so the org's **Prevent Storing of IP Addresses** setting is the other half of the guarantee.
+
+Scope is client-side only. The server runtime is workerd (OpenNext on Cloudflare Pages), and `instrumentation.ts`'s `onRequestError` stays a documented no-op seam awaiting a server sink.
+
+## Considered Options
+
+- **Move error reporting to Sentry and turn PostHog's off.** The tidier split — one system per concern, no double-recording, no duplicate quota. Rejected: it silently retires the `$exception` workflow that crash investigation already depends on, and it severs the correlation between an error and the analytics events surrounding it in the same session. Tidiness is not worth removing a diagnostic path in use.
+- **Keep PostHog only.** No migration cost, but error triage (grouping, regressions, release tagging, alert routing) is Sentry's core product and PostHog's sideline, and the rest of the WXYC stack (Backend-Service, LML, request-o-matic, semantic-index) already triages in Sentry. Rejected.
+- **Report to both, behind one facade.** Each tool used for what it's best at, no workflow lost, and one call site contract for the app. Costs double ingest and two records per unhandled error. **Selected.**
+- **Full `@sentry/nextjs` integration (client + server + `withSentryConfig`).** Complete coverage and CI source-map upload for free, but it initializes eagerly in the root client bundle (this repo deliberately lazy-loads telemetry), wraps the build pipeline used by every deploy, leaks the provider SDK past the adapter boundary, and puts OTel-sized machinery into a size-limited worker. Sentry's Next.js-on-Cloudflare support (needs `nodejs_compat` + compat date ≥ 2025-08-16, both already set) makes this viable later, but it deserves its own bundle-size evaluation. Rejected for now; the server sink is a follow-up.
+
+## Consequences
+
+- Every unhandled error consumes quota in both tools and appears in both. When reconciling counts, remember each SDK's global handler fires independently of `safeCaptureException`.
+- Server-side errors (Route Handlers, SSR auth reads, the `/auth` proxy) still have no sink beyond Cloudflare Workers Logs; `onRequestError`'s tags are carried for whenever one lands.
+- No tracing and no session replay: tracing would need Backend-Service CORS coordination for trace headers and duplicates PostHog web-vitals coverage; replay records screens containing PII. Either can be revisited as its own decision.
+- The Sentry SDK is imported through `lib/sentry-sdk.ts`, a static re-export of the three functions used. That indirection is load-bearing: a dynamic namespace import keeps every export alive, which shipped ~144 kB gzipped of replay code this app never calls.
+- Context passed to `safeCaptureException` is mirrored into Sentry **tags** (primitives only) as well as `extra`, because `extra` is stored but not indexed — filtering issues by endpoint or route is the reason those call sites pass context at all.
+- Production stack traces rely on the already-public source maps (`productionBrowserSourceMaps: true`) plus Sentry's source fetching; if frames resolve poorly, a `sentry-cli` upload step in the deploy job is the known next move (needs a `SENTRY_AUTH_TOKEN` secret).
+- The DSN, environment, and release are build-inlined `NEXT_PUBLIC_*` values (GitHub repo variables), so enabling or rotating them is a repo-variable change plus redeploy, never a code change. An unset environment in a production build reports `unknown` rather than `production`, so a preview error can't pollute the production filter.

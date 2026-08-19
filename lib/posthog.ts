@@ -1,4 +1,5 @@
-import type { PostHog } from "posthog-js";
+import type { CaptureResult, PostHog } from "posthog-js";
+import { redactEmailsDeep } from "./redact";
 
 /**
  * Telemetry is optional (CLAUDE.md optional-service rule): PostHog may be
@@ -6,12 +7,16 @@ import type { PostHog } from "posthog-js";
  * unavailable SDK fails open and never throws back into the dispatch, request,
  * or render path.
  *
- * PostHog owns product analytics only — error reporting lives in
- * `lib/sentry.ts` (docs/adr/0008). Nothing here may identify a person:
- * no `identify()` call exists anywhere, and the init options below keep
- * autocapture, session recording, and exception payloads off because each can
- * serialize on-screen or in-message PII (the admin roster renders DJ
- * names/emails).
+ * PostHog carries product analytics AND its own copy of every error: the
+ * `$exception` stream backs established crash-investigation workflows here,
+ * so it stays a first-class sink alongside Sentry (docs/adr/0008). Callers
+ * report errors through `lib/error-reporting.ts`, which fans out to both.
+ *
+ * Nothing here may identify a person: no `identify()` call exists anywhere,
+ * autocapture and session recording stay off (both serialize on-screen PII —
+ * the admin roster renders DJ names and emails), and `before_send` redacts
+ * email-shaped strings from every event, including the exceptions the SDK
+ * captures automatically.
  *
  * `posthog-js` is loaded via a dynamic `import()` inside `initTelemetry`
  * rather than a top-level static import, so the client library ships in its own
@@ -34,9 +39,9 @@ let loadFailed = false;
 // earliest, highest-value events (first pageview). Client-only: the buffer is
 // touched solely while `loading` is set, and `loading` is only ever set after
 // the `typeof window === "undefined"` bail, so SSR never enqueues.
-type BufferedCapture = {
-  readonly args: readonly [string, Record<string, unknown>?];
-};
+type BufferedCapture =
+  | { readonly method: "capture"; readonly args: readonly [string, Record<string, unknown>?] }
+  | { readonly method: "captureException"; readonly args: readonly [Error, Record<string, unknown>?] };
 const MAX_BUFFERED = 20;
 let buffer: BufferedCapture[] = [];
 
@@ -53,11 +58,24 @@ function flushBuffer(ph: PostHog): void {
   buffer = [];
   for (const item of pending) {
     try {
-      ph.capture(...item.args);
+      if (item.method === "capture") ph.capture(...item.args);
+      else ph.captureException(...item.args);
     } catch {
       // optional-service contract: swallow
     }
   }
+}
+
+/**
+ * Exposed to posthog-js as `before_send`. Applies to every event the SDK
+ * emits, which is the point: the exceptions it captures automatically (and
+ * their `$exception_list` message/stack frames) never pass through this
+ * module's own wrappers, so this is the only place their text can be scrubbed.
+ */
+function scrubEventProperties(event: CaptureResult | null): CaptureResult | null {
+  if (!event?.properties) return event;
+  event.properties = redactEmailsDeep(event.properties) as CaptureResult["properties"];
+  return event;
 }
 
 export function initTelemetry(): void {
@@ -81,15 +99,18 @@ export function initTelemetry(): void {
           api_host: host,
           capture_pageview: false,
           capture_pageleave: true,
-          // Anonymization posture (see module doc): errors belong to Sentry;
-          // autocapture serializes clicked-element text and recording captures
-          // the screen, both of which include DJ names/emails on the roster
-          // page; person_profiles is explicit so the no-identify policy is
-          // visible at the init site, not just an accident of the default.
-          capture_exceptions: false,
+          // Unhandled errors keep flowing to the $exception stream that
+          // crash investigation here already relies on.
+          capture_exceptions: true,
+          // Anonymization posture (see module doc): autocapture serializes
+          // clicked-element text and recording captures the screen, both of
+          // which include DJ names/emails on the roster page; person_profiles
+          // is explicit so the no-identify policy is visible at the init site,
+          // not just an accident of the default.
           person_profiles: "identified_only",
           autocapture: false,
           disable_session_recording: true,
+          before_send: scrubEventProperties,
         });
       }
       client = posthog;
@@ -112,7 +133,28 @@ export function safeCapture(
     if (client) {
       client.capture(event, props);
     } else {
-      bufferCapture({ args: [event, props] });
+      bufferCapture({ method: "capture", args: [event, props] });
+    }
+  } catch {
+    // optional-service contract: swallow
+  }
+}
+
+/**
+ * Reports an already-normalized Error to PostHog as `$exception`.
+ * `lib/error-reporting.ts` owns the normalization and is the only intended
+ * caller; the property shape matches what the SDK's automatic capture emits,
+ * so both arrive as the same event type.
+ */
+export function captureExceptionInPostHog(
+  error: Error,
+  context?: Record<string, unknown>
+): void {
+  try {
+    if (client) {
+      client.captureException(error, context);
+    } else {
+      bufferCapture({ method: "captureException", args: [error, context] });
     }
   } catch {
     // optional-service contract: swallow

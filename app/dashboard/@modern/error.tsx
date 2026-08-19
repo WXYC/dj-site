@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { Box, Button, Stack, Typography } from "@mui/joy";
-import { safeCaptureException } from "@/lib/sentry";
+import { safeCaptureException } from "@/lib/error-reporting";
 
 // Placed inside the @modern slot (below app/dashboard/@modern/layout.tsx,
 // which renders Leftbar/Rightbar/Header directly rather than via `children`)

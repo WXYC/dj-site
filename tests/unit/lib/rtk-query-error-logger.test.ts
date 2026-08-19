@@ -9,7 +9,7 @@ vi.mock("sonner", () => ({
 const { mockCaptureException } = vi.hoisted(() => ({
   mockCaptureException: vi.fn(),
 }));
-vi.mock("@/lib/sentry", () => ({
+vi.mock("@/lib/error-reporting", () => ({
   safeCaptureException: mockCaptureException,
 }));
 

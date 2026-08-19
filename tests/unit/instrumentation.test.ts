@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { safeCaptureException } from "@/lib/sentry";
+import { safeCaptureException } from "@/lib/error-reporting";
 import { onRequestError, register } from "@/instrumentation";
 
-vi.mock("@/lib/sentry", () => ({
+vi.mock("@/lib/error-reporting", () => ({
   safeCaptureException: vi.fn(),
 }));
 

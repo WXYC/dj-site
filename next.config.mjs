@@ -22,12 +22,11 @@ const distDir = process.env.NEXT_DIST_DIR_SUFFIX
 //
 //   script-src   'unsafe-inline' — Next.js App Router injects inline hydration/
 //                bootstrap scripts and has no nonce pipeline here. PostHog
-//                (lib/posthog.ts) lazy-loads optional feature bundles (e.g.
-//                surveys) from the region "-assets" host; the recorder and
-//                exception-autocapture bundles no longer load (recording and
-//                exception capture are disabled in init), but the host stays
-//                allowed because posthog-js decides server-side which bundles
-//                to pull. Sentry needs no script origin — its SDK is bundled.
+//                (lib/posthog.ts) lazy-loads its exception-autocapture bundle
+//                from the region "-assets" host (the session recorder does not
+//                load — recording is disabled in init — but the host is the
+//                same). Sentry needs no script origin: its SDK is bundled with
+//                the app, not fetched.
 //   style-src    'unsafe-inline' — MUI Joy UI / Emotion inject runtime <style>
 //                tags and inline style attributes; next/font emits inline
 //                @font-face. All self-hosted; no external stylesheet origins.
