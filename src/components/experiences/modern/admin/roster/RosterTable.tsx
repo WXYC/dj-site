@@ -2,7 +2,7 @@
 
 import { adminSlice } from "@/lib/features/admin/frontend";
 import { provisionErrorMessage, useProvisionUserMutation } from "@/lib/features/admin/api";
-import { Authorization, ROSTER_PAGE_SIZE } from "@/lib/features/admin/types";
+import { Authorization } from "@/lib/features/admin/types";
 import { User, authorizationToRole } from "@/lib/features/authentication/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useAccountListResults } from "@/src/hooks/adminHooks";
@@ -24,9 +24,11 @@ import AccountSearchForm from "./AccountSearchForm";
 import ExportDJsButton from "./ExportCSV";
 import ImportCSVModal from "./ImportCSVModal";
 import NewAccountForm from "./NewAccountForm";
+import RoleFilter from "./RoleFilter";
 
 export default function RosterTable({ user, organizationSlug }: { user: User; organizationSlug: string }) {
-  const { data, isLoading, isError, error, refetch } = useAccountListResults(organizationSlug);
+  const { accounts, matches, page, totalPages, totalAccounts, isLoading, isError, error, refetch } =
+    useAccountListResults(organizationSlug);
 
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<Error | null>(null);
@@ -35,9 +37,6 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
   const dispatch = useAppDispatch();
   const [provisionUser] = useProvisionUserMutation();
   const isAdding = useAppSelector(adminSlice.selectors.getAdding);
-  const page = useAppSelector(adminSlice.selectors.getPage);
-  const totalAccounts = useAppSelector(adminSlice.selectors.getTotalAccounts);
-  const totalPages = Math.max(1, Math.ceil(totalAccounts / ROSTER_PAGE_SIZE));
   const canCreateUser = user.authority >= Authorization.SM;
 
   const authorizationOfNewAccount = useAppSelector(
@@ -130,7 +129,10 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
         direction={{ xs: "column", lg: "row" }}
         sx={{ py: 2, justifyContent: "space-between" }}
       >
-        <AccountSearchForm />
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ alignItems: "center" }}>
+          <AccountSearchForm />
+          <RoleFilter />
+        </Stack>
         <Stack
           direction="row"
           spacing={1}
@@ -212,8 +214,25 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
                   <Typography level="body-sm">{String(error)}</Typography>
                 </td>
               </tr>
+            ) : matches.length === 0 && totalAccounts > 0 ? (
+              // Distinguished from an empty roster: "nothing matched" is a
+              // filter the admin can clear, and an admin who cannot tell the
+              // two apart reads a narrow search as a lost roster.
+              <tr style={{ background: "transparent" }}>
+                <td
+                  colSpan={6}
+                  style={{ textAlign: "center", paddingTop: "2rem" }}
+                >
+                  <Typography level="body-md">
+                    No accounts match your search or role filter.
+                  </Typography>
+                  <Typography level="body-sm">
+                    {totalAccounts} accounts on the roster.
+                  </Typography>
+                </td>
+              </tr>
             ) : (
-              data.map((dj) => (
+              accounts.map((dj) => (
                 <AccountEntry
                   key={`roster-entry-${dj.userName}`}
                   account={dj}

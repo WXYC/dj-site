@@ -3,18 +3,21 @@ import { authClient, authFetch } from "@/lib/features/authentication/client";
 import { authErrorMessage } from "@/lib/features/authentication/auth-fetch";
 import { resolveOrganizationIdAdmin } from "@/lib/features/authentication/organization-utils";
 import { throwIfBetterAuthError } from "@/src/utilities/throwIfBetterAuthError";
-import { adminSlice } from "./frontend";
 import { BetterAuthUser, convertBetterAuthToAccountResult } from "./conversions-better-auth";
-import { Account, ROSTER_PAGE_SIZE } from "./types";
+import { Account, ROSTER_FETCH_CHUNK_SIZE, ROSTER_MEMBER_CHUNK_SIZE } from "./types";
 
 /**
  * `organizationSlug` must be threaded down from the roster page's server-side
  * read of NEXT_PUBLIC_APP_ORGANIZATION. That variable is not inlined into
  * client bundles, so this queryFn — which runs in the browser — cannot read it
  * from the environment itself.
+ *
+ * It is the only argument: search, role filter and pagination are applied to
+ * the fetched roster (see `roster-filter.ts`), so they must not vary the cache
+ * key or every keystroke would evict the roster and refetch it.
  */
-type RosterArgs = { search: string; page: number; organizationSlug: string };
-type RosterResult = { accounts: Account[]; total: number };
+type RosterArgs = { organizationSlug: string };
+type RosterResult = { accounts: Account[] };
 
 type ProvisionUserArgs = {
   email: string;
@@ -46,10 +49,11 @@ function parseSdkPayload<T>(data: unknown, label: string): T | undefined {
 /**
  * Fetch the organization roles for exactly the given users.
  *
- * Scoped to the ids on screen rather than the whole organization: the request
- * stays proportional to a roster page, and no membership can be dropped by a
- * limit, which matters because list-members applies no ORDER BY and a truncated
- * page would be an arbitrary subset rendering as Members.
+ * Scoped to the ids asked for rather than the whole organization, so no
+ * membership can be dropped by a limit — list-members applies no ORDER BY, and
+ * a truncated page would be an arbitrary subset rendering as Members. The ids
+ * go in chunks because they travel in the query string, which a proxy will
+ * reject once it is long enough.
  *
  * A one-element array serializes to a single query parameter, which the server
  * reads back as a scalar and rejects under `in` — use `eq` for that case.
@@ -58,24 +62,84 @@ async function fetchMemberRoles(
   organizationId: string,
   userIds: string[]
 ): Promise<[string, string][]> {
-  const result = await authClient.organization.listMembers({
-    query: {
-      organizationId,
-      filterField: "userId",
-      limit: userIds.length,
-      ...(userIds.length === 1
-        ? { filterOperator: "eq" as const, filterValue: userIds[0] }
-        : { filterOperator: "in" as const, filterValue: userIds }),
-    },
-  });
-  throwIfBetterAuthError(result, "Failed to fetch organization roles");
+  const roles: [string, string][] = [];
 
-  const payload = parseSdkPayload<{ members?: { userId: string; role: string }[] }>(
-    result.data,
-    "list-members"
-  );
+  for (let start = 0; start < userIds.length; start += ROSTER_MEMBER_CHUNK_SIZE) {
+    const chunk = userIds.slice(start, start + ROSTER_MEMBER_CHUNK_SIZE);
+    const result = await authClient.organization.listMembers({
+      query: {
+        organizationId,
+        filterField: "userId",
+        limit: chunk.length,
+        ...(chunk.length === 1
+          ? { filterOperator: "eq" as const, filterValue: chunk[0] }
+          : { filterOperator: "in" as const, filterValue: chunk }),
+      },
+    });
+    throwIfBetterAuthError(result, "Failed to fetch organization roles");
 
-  return (payload?.members ?? []).map((member) => [member.userId, member.role]);
+    const payload = parseSdkPayload<{ members?: { userId: string; role: string }[] }>(
+      result.data,
+      "list-members"
+    );
+
+    for (const member of payload?.members ?? []) {
+      roles.push([member.userId, member.role]);
+    }
+  }
+
+  return roles;
+}
+
+/**
+ * Every non-anonymous account, in as many requests as it takes.
+ *
+ * The roster is fetched whole because its search and filters run client-side;
+ * anonymous users stay excluded server-side because there are more of them than
+ * real accounts and none of them belong on a DJ roster.
+ *
+ * `sortBy` is not cosmetic — without it `list-users` issues no ORDER BY, so two
+ * offsets into an unordered result can repeat one account and omit another.
+ * `id` is unique, which is all a stable offset walk needs; display order is
+ * decided later.
+ */
+async function fetchAllAccounts(): Promise<BetterAuthUser[]> {
+  const users: BetterAuthUser[] = [];
+  let total = Infinity;
+
+  while (users.length < total) {
+    const result = await authClient.admin.listUsers({
+      query: {
+        limit: ROSTER_FETCH_CHUNK_SIZE,
+        offset: users.length,
+        sortBy: "id",
+        sortDirection: "asc",
+        filterField: "isAnonymous",
+        filterValue: "false",
+        filterOperator: "eq",
+      },
+    });
+    throwIfBetterAuthError(result, "Failed to fetch users");
+
+    const parsed = parseSdkPayload<{ users?: unknown[]; total?: number }>(
+      result.data,
+      "list-users"
+    );
+    const batch = (parsed?.users ?? []) as BetterAuthUser[];
+    total = parsed?.total ?? users.length + batch.length;
+
+    // A short roster that renders as a complete one is the failure mode worth
+    // refusing: an admin cannot tell a missing DJ from a DJ who never existed.
+    if (batch.length === 0 && users.length < total) {
+      throw new Error(
+        `The roster is incomplete: the server counts ${total} accounts but stopped returning them after ${users.length}.`
+      );
+    }
+
+    users.push(...batch);
+  }
+
+  return users;
 }
 
 /** Normalize a rejected provisionUser mutation into a user-facing message. */
@@ -93,7 +157,7 @@ export const adminApi = createApi({
   tagTypes: ["Roster"],
   endpoints: (builder) => ({
     getRoster: builder.query<RosterResult, RosterArgs>({
-      queryFn: async ({ search, page, organizationSlug }) => {
+      queryFn: async ({ organizationSlug }) => {
         try {
           if (!organizationSlug) {
             throw new Error(
@@ -101,22 +165,9 @@ export const adminApi = createApi({
             );
           }
 
-          const query: Record<string, unknown> = {
-            limit: ROSTER_PAGE_SIZE,
-            offset: page * ROSTER_PAGE_SIZE,
-            filterField: "isAnonymous",
-            filterValue: "false",
-            filterOperator: "eq",
-          };
-          if (search.length > 0) {
-            query.searchValue = search;
-            query.searchField = "name";
-            query.searchOperator = "contains";
-          }
-
-          const [organizationId, result] = await Promise.all([
+          const [organizationId, users] = await Promise.all([
             resolveOrganizationIdAdmin(organizationSlug),
-            authClient.admin.listUsers({ query }),
+            fetchAllAccounts(),
           ]);
 
           // A DJ's or music director's role lives only on their organization
@@ -130,40 +181,22 @@ export const adminApi = createApi({
             );
           }
 
-          throwIfBetterAuthError(result, "Failed to fetch users");
-
-          const parsed = parseSdkPayload<{ users?: unknown[]; total?: number }>(
-            result.data,
-            "list-users"
-          );
-          const users = parsed?.users ?? [];
-          const userIds = users.map((user) => (user as BetterAuthUser).id);
-
+          const userIds = users.map((user) => user.id);
           const memberRoleMap = new Map(
             userIds.length > 0 ? await fetchMemberRoles(organizationId, userIds) : []
           );
 
           const accounts = users.map((user) => {
-            const betterAuthUser = user as BetterAuthUser;
             // No membership means no station role, which is what "member"
             // encodes. Every non-anonymous user gets one on creation, so this
             // only covers rows that predate that guarantee.
-            betterAuthUser.role = (memberRoleMap.get(betterAuthUser.id) ??
-              "member") as typeof betterAuthUser.role;
-            return convertBetterAuthToAccountResult(betterAuthUser);
+            user.role = (memberRoleMap.get(user.id) ?? "member") as typeof user.role;
+            return convertBetterAuthToAccountResult(user);
           });
 
-          return { data: { accounts, total: parsed?.total ?? 0 } };
+          return { data: { accounts } };
         } catch (err) {
           return { error: { message: err instanceof Error ? err.message : String(err) } };
-        }
-      },
-      onQueryStarted: async (_arg, { dispatch, queryFulfilled }) => {
-        try {
-          const { data } = await queryFulfilled;
-          dispatch(adminSlice.actions.setTotalAccounts(data.total));
-        } catch {
-          // Errors surface through the query's own error state.
         }
       },
       providesTags: ["Roster"],

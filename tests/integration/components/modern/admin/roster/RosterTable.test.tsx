@@ -10,7 +10,11 @@ import RosterTable from "@/src/components/experiences/modern/admin/roster/Roster
 const mockRefetch = vi.fn();
 vi.mock("@/src/hooks/adminHooks", () => ({
   useAccountListResults: () => ({
-    data: [],
+    accounts: [],
+    matches: [],
+    page: 0,
+    totalPages: 1,
+    totalAccounts: 0,
     isLoading: false,
     isError: false,
     error: null,
