@@ -1,7 +1,8 @@
 "use client";
 
 import { adminSlice } from "@/lib/features/admin/frontend";
-import { Authorization } from "@/lib/features/admin/types";
+import { Authorization, ROSTER_ROLES } from "@/lib/features/admin/types";
+import { AUTHORIZATION_LABELS } from "@/lib/features/authentication/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { ClickAwayListener } from "@mui/base/ClickAwayListener";
 import { PersonAdd } from "@mui/icons-material";
@@ -33,10 +34,11 @@ export default function NewAccountForm() {
               }}
               slotProps={{ button: { sx: { whiteSpace: "nowrap" } } }}
             >
-              <Option value={Authorization.NO}>Member</Option>
-              <Option value={Authorization.DJ}>DJ</Option>
-              <Option value={Authorization.MD}>Music Director</Option>
-              <Option value={Authorization.SM}>Station Manager</Option>
+              {ROSTER_ROLES.map((role) => (
+                <Option key={role} value={role}>
+                  {AUTHORIZATION_LABELS[role]}
+                </Option>
+              ))}
             </Select>
           </FormControl>
         </td>

@@ -1,11 +1,11 @@
 import { adminSlice } from "@/lib/features/admin/frontend";
 import { useGetRosterQuery } from "@/lib/features/admin/api";
-import { selectRosterView, type RosterView } from "@/lib/features/admin/roster-filter";
-import { ROSTER_PAGE_SIZE } from "@/lib/features/admin/types";
+import { selectRosterView, sortRosterForDisplay } from "@/lib/features/admin/roster-filter";
+import { Account, ROSTER_PAGE_SIZE } from "@/lib/features/admin/types";
 import { useAppSelector } from "@/lib/hooks";
 import { useMemo } from "react";
 
-const EMPTY_VIEW: RosterView = { matches: [], pageAccounts: [], page: 0, totalPages: 1 };
+const NO_ACCOUNTS: Account[] = [];
 
 /**
  * The roster, narrowed by the admin's search and role filter.
@@ -26,30 +26,30 @@ export const useAccountListResults = (organizationSlug: string) => {
   const { data, isLoading, isFetching, isError, error, refetch } =
     useGetRosterQuery({ organizationSlug });
 
-  const accounts = data?.accounts;
+  const accounts = data?.accounts ?? NO_ACCOUNTS;
+
+  // Ordering is a property of the roster, not of the query over it, so it is
+  // kept out of the per-keystroke path.
+  const ordered = useMemo(() => sortRosterForDisplay(accounts), [accounts]);
   const view = useMemo(
     () =>
-      accounts
-        ? selectRosterView(accounts, {
-            search: searchString,
-            roles: roleFilter,
-            page,
-            pageSize: ROSTER_PAGE_SIZE,
-          })
-        : EMPTY_VIEW,
-    [accounts, searchString, roleFilter, page]
+      selectRosterView(ordered, {
+        search: searchString,
+        roles: roleFilter,
+        page,
+        pageSize: ROSTER_PAGE_SIZE,
+      }),
+    [ordered, searchString, roleFilter, page]
   );
 
   return {
     /** The page of matching accounts the table renders. */
     accounts: view.pageAccounts,
-    /** Every matching account, across pages — what a CSV export should carry. */
     matches: view.matches,
-    /** The page being shown, which is `page` clamped into range. */
     page: view.page,
     totalPages: view.totalPages,
     /** Accounts on the roster before search and role filtering. */
-    totalAccounts: accounts?.length ?? 0,
+    totalAccounts: accounts.length,
     isLoading: isLoading || isFetching,
     isError,
     error: error ? new Error(error.message) : null,

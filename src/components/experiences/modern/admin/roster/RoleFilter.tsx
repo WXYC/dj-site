@@ -1,25 +1,17 @@
 "use client";
 
 import { adminSlice } from "@/lib/features/admin/frontend";
-import { Authorization } from "@/lib/features/admin/types";
+import { Authorization, ROSTER_ROLES } from "@/lib/features/admin/types";
 import { AUTHORIZATION_LABELS } from "@/lib/features/authentication/types";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { FilterList } from "@mui/icons-material";
 import { Chip, FormControl, Option, Select } from "@mui/joy";
 
-const FILTERABLE_ROLES = [
-  Authorization.NO,
-  Authorization.DJ,
-  Authorization.MD,
-  Authorization.SM,
-] as const;
-
 /**
  * Narrows the roster to one or more station roles.
  *
- * A role filter rather than a role search box: the free-text search covers the
- * table's text columns, and role labels share substrings with names, so an
- * exact selection is the only way to ask this question precisely.
+ * A filter rather than a search box because role labels share substrings with
+ * names — see `roster-filter.ts`.
  */
 export default function RoleFilter() {
   const roleFilter = useAppSelector(adminSlice.selectors.getRoleFilter);
@@ -45,14 +37,14 @@ export default function RoleFilter() {
           <>
             {selected.map((option) => (
               <Chip key={option.value} size="sm" variant="soft" color="success">
-                {AUTHORIZATION_LABELS[option.value as Authorization]}
+                {option.label}
               </Chip>
             ))}
           </>
         )}
         sx={{ minWidth: "180px" }}
       >
-        {FILTERABLE_ROLES.map((role) => (
+        {ROSTER_ROLES.map((role) => (
           <Option key={role} value={role}>
             {AUTHORIZATION_LABELS[role]}
           </Option>

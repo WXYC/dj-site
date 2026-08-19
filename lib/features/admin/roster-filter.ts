@@ -34,6 +34,17 @@ function searchableFields(account: Account): string[] {
   return [account.realName, account.userName, account.djName ?? "", account.email ?? ""];
 }
 
+/** Split a raw query into the folded terms every match must satisfy. */
+function searchTerms(query: string): string[] {
+  return foldForSearch(query).split(/\s+/).filter(Boolean);
+}
+
+function matchesTerms(account: Account, terms: string[]): boolean {
+  if (terms.length === 0) return true;
+  const haystack = searchableFields(account).map(foldForSearch);
+  return terms.every((term) => haystack.some((field) => field.includes(term)));
+}
+
 /**
  * Does `account` match every whitespace-separated term in `query`?
  *
@@ -42,11 +53,7 @@ function searchableFields(account: Account): string[] {
  * the one account carrying both, and word order does not matter.
  */
 export function accountMatchesSearch(account: Account, query: string): boolean {
-  const terms = foldForSearch(query).split(/\s+/).filter(Boolean);
-  if (terms.length === 0) return true;
-
-  const haystack = searchableFields(account).map(foldForSearch);
-  return terms.every((term) => haystack.some((field) => field.includes(term)));
+  return matchesTerms(account, searchTerms(query));
 }
 
 /** An empty selection means "every role", not "no roles". */
@@ -55,18 +62,29 @@ function accountMatchesRoles(account: Account, roles: Authorization[]): boolean 
 }
 
 /**
+ * Passing `locales`/`options` to `localeCompare` defeats V8's collator cache
+ * and constructs a fresh ICU collator per comparison — ~30x the cost, paid
+ * once per comparison across the whole roster.
+ */
+const DISPLAY_COLLATOR = new Intl.Collator(undefined, { sensitivity: "base" });
+
+/**
  * Alphabetical by the name the table shows, ties broken by username.
  *
  * The order has to come from here rather than the server: `admin/list-users`
  * is issued without a sort, so its row order is whatever Postgres returns and
  * can differ between two reads of the same data — which would let a row swap
  * pages under an admin who only clicked "next".
+ *
+ * Ordering belongs to the roster, not to a query over it, so this runs once
+ * per fetch; `selectRosterView` only filters and slices, both of which
+ * preserve input order.
  */
-function sortForDisplay(accounts: Account[]): Account[] {
+export function sortRosterForDisplay(accounts: Account[]): Account[] {
   return [...accounts].sort((a, b) => {
-    const byRealName = a.realName.localeCompare(b.realName, undefined, { sensitivity: "base" });
+    const byRealName = DISPLAY_COLLATOR.compare(a.realName, b.realName);
     if (byRealName !== 0) return byRealName;
-    return a.userName.localeCompare(b.userName, undefined, { sensitivity: "base" });
+    return DISPLAY_COLLATOR.compare(a.userName, b.userName);
   });
 }
 
@@ -88,18 +106,19 @@ export type RosterView = {
 };
 
 /**
- * Apply search, role filter, ordering and pagination in one pass.
+ * Narrow `orderedAccounts` to the current search, role filter and page.
+ *
+ * Returns them in the order given, so callers pass the output of
+ * `sortRosterForDisplay`.
  *
  * `page` is clamped rather than trusted: a filter can shrink the roster out
  * from under the page an admin is standing on, and an out-of-range page would
  * otherwise render as an empty roster that looks like "no accounts".
  */
-export function selectRosterView(accounts: Account[], query: RosterQuery): RosterView {
-  const matches = sortForDisplay(
-    accounts.filter(
-      (account) =>
-        accountMatchesSearch(account, query.search) && accountMatchesRoles(account, query.roles)
-    )
+export function selectRosterView(orderedAccounts: Account[], query: RosterQuery): RosterView {
+  const terms = searchTerms(query.search);
+  const matches = orderedAccounts.filter(
+    (account) => matchesTerms(account, terms) && accountMatchesRoles(account, query.roles)
   );
 
   const totalPages = Math.max(1, Math.ceil(matches.length / query.pageSize));

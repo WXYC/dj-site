@@ -1,7 +1,8 @@
 "use client";
 
 import { provisionErrorMessage, useProvisionUserMutation } from "@/lib/features/admin/api";
-import { Authorization } from "@/lib/features/admin/types";
+import { Authorization, ROSTER_ROLES } from "@/lib/features/admin/types";
+import { AUTHORIZATION_LABELS } from "@/lib/features/authentication/types";
 import { authorizationToRole } from "@/lib/features/authentication/types";
 import { CheckCircle, Error as ErrorIcon, Upload } from "@mui/icons-material";
 import {
@@ -266,10 +267,11 @@ export default function ImportCSVModal({ open, onClose, onComplete, organization
                     if (value !== null) setAuthorization(value as Authorization);
                   }}
                 >
-                  <Option value={Authorization.NO}>Member</Option>
-                  <Option value={Authorization.DJ}>DJ</Option>
-                  <Option value={Authorization.MD}>Music Director</Option>
-                  <Option value={Authorization.SM}>Station Manager</Option>
+                  {ROSTER_ROLES.map((role) => (
+                    <Option key={role} value={role}>
+                      {AUTHORIZATION_LABELS[role]}
+                    </Option>
+                  ))}
                 </Select>
               </Stack>
               <Stack direction="row" spacing={1} justifyContent="flex-end">

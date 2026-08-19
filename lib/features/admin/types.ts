@@ -1,7 +1,17 @@
 export { Authorization } from "@wxyc/shared/auth-client/auth";
-import { Authorization } from "@wxyc/shared/auth-client/auth";
+import { Authorization, ROLES, roleToAuthorization } from "@wxyc/shared/auth-client/auth";
 
-/** Accounts per page of the rendered table. */
+/**
+ * Every station role a picker can offer, least privileged first.
+ *
+ * Derived from the shared role list rather than spelled out, so a role added
+ * there cannot be silently missing from the roster's pickers — which is how
+ * the four hand-maintained copies this replaced would have drifted.
+ */
+export const ROSTER_ROLES: Authorization[] = [...new Set(ROLES.map(roleToAuthorization))].sort(
+  (a, b) => a - b
+);
+
 export const ROSTER_PAGE_SIZE = 50;
 
 /**

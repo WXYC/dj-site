@@ -7,6 +7,7 @@ import { resolveOrganizationIdAdmin } from "@/lib/features/authentication/organi
 import {
   Account,
   Authorization,
+  ROSTER_ROLES,
 } from "@/lib/features/admin/types";
 import {
   AUTHORIZATION_LABELS,
@@ -361,10 +362,11 @@ export default function AccountEditForm({
             listbox: { sx: { zIndex: 10001 } },
           }}
         >
-          <Option value={Authorization.NO}>Member</Option>
-          <Option value={Authorization.DJ}>DJ</Option>
-          <Option value={Authorization.MD}>Music Director</Option>
-          <Option value={Authorization.SM}>Station Manager</Option>
+          {ROSTER_ROLES.map((role) => (
+            <Option key={role} value={role}>
+              {AUTHORIZATION_LABELS[role]}
+            </Option>
+          ))}
         </Select>
         {isSelf && (
           <Typography level="body-xs" sx={{ mt: 0.5 }}>
