@@ -124,7 +124,21 @@ jobs:
       github.event_name != 'pull_request'
       || (needs.changes.outputs.app_source == 'true' && github.base_ref == 'main')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 20, not 15. The cap has to cover the slowest healthy shard, and "healthy"
+    # spans a wider range than the old number assumed: in a single run, with all
+    # four shards on identical cache state, `Build and start services` took 82s,
+    # 123s, 129s and 740s. The 740s shard was not cold and not on a branch that
+    # touches `package-lock.json` -- it just built nine times slower than its
+    # siblings for reasons we cannot yet name. At 15 minutes that shard has
+    # ~160s left for the tests and gets cancelled, and a cancelled shard reports
+    # no failed step and no annotation, so it reads as an infrastructure shrug
+    # rather than a signal.
+    #
+    # This is a bandaid over unexplained build variance, not a tuned number.
+    # Raising it trades a slower kill on a genuinely hung shard for not paying a
+    # full four-shard rerun every time the tail lands long. Narrowing the
+    # variance itself is the real fix.
+    timeout-minutes: 20
 
     strategy:
       fail-fast: false
@@ -297,7 +311,7 @@ jobs:
           # so hashing the entire dependency graph meant one unrelated
           # devDependency bump re-downloaded Chromium on all four shards at
           # once -- which, combined with a simultaneously-cold Next build, is
-          # what pushed shards past `timeout-minutes: 15`.
+          # what pushed shards past the job timeout.
           #
           # No `restore-keys` here on purpose. A partial restore would leave a
           # browser set from a different release in place, and the install step
