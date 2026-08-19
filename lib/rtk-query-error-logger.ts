@@ -1,7 +1,7 @@
 import type { Middleware } from "@reduxjs/toolkit";
 import { isRejectedWithValue } from "@reduxjs/toolkit";
 import { toast } from "sonner";
-import { safeCaptureException } from "./posthog";
+import { safeCaptureException } from "./sentry";
 
 type RejectionPayload = {
   data?: { message?: unknown };

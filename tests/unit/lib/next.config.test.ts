@@ -185,6 +185,39 @@ describe("next.config", () => {
       expect(connectSrc).toContain("https://us-assets.i.posthog.com");
     });
 
+    it("derives the Sentry ingest origin for connect-src from the DSN", async () => {
+      const { buildContentSecurityPolicy } = await loadModule();
+      const csp = buildContentSecurityPolicy(
+        env({
+          NEXT_PUBLIC_SENTRY_DSN:
+            "https://publickey@o4510807758143488.ingest.us.sentry.io/4510807778590720",
+        }),
+      );
+      const connectSrc = csp
+        .split(";")
+        .map((d) => d.trim())
+        .find((d) => d.startsWith("connect-src"));
+      expect(connectSrc).toContain(
+        "https://o4510807758143488.ingest.us.sentry.io",
+      );
+      // Ingest is an event sink, not a script host.
+      const scriptSrc = csp
+        .split(";")
+        .map((d) => d.trim())
+        .find((d) => d.startsWith("script-src"));
+      expect(scriptSrc).not.toContain("sentry.io");
+    });
+
+    it("omits any Sentry origin when the DSN is unset or malformed", async () => {
+      const { buildContentSecurityPolicy } = await loadModule();
+      expect(buildContentSecurityPolicy(env())).not.toContain("sentry.io");
+      expect(
+        buildContentSecurityPolicy(
+          env({ NEXT_PUBLIC_SENTRY_DSN: "not a dsn" }),
+        ),
+      ).not.toContain("sentry.io");
+    });
+
     it("declares the live audio stream and broad image origins", async () => {
       const { buildContentSecurityPolicy } = await loadModule();
       const csp = buildContentSecurityPolicy(env());

@@ -1,31 +1,31 @@
 import type { Instrumentation } from "next";
-import { safeCaptureException } from "@/lib/posthog";
+import { safeCaptureException } from "@/lib/sentry";
 
 /**
  * Single server-observability entry point.
  *
- * No server-side PostHog node client is warranted yet: telemetry is an
- * optional adapter (CLAUDE.md) and PostHog is browser-only here, so `register`
- * is an intentional no-op. Add server setup here if a node client is ever
- * introduced.
+ * No server-side error-reporting client is warranted yet: telemetry is an
+ * optional adapter (CLAUDE.md) and the Sentry adapter is browser-only here, so
+ * `register` is an intentional no-op. Add server setup here if a workerd-side
+ * client is ever introduced (see docs/adr/0008 for why it isn't yet).
  */
 export function register(): void {}
 
 /**
  * Forwards server-side errors (Server Components, Route Handlers, Server
  * Actions) to the existing fail-open `safeCaptureException` wrapper — no new
- * PostHog integration path.
+ * integration path.
  *
  * Alerting bucket, for future call sites deciding where an error belongs:
  *   - Backend-Service-origin failures (the one hard external dependency per
  *     CLAUDE.md; e.g. surfaced from lib/features/backend.ts's fetchBaseQuery
  *     wrapper) are alerting-worthy — anything reaching `onRequestError` is a
  *     real server failure in this bucket.
- *   - Optional-adapter failures (PostHog et al.) stay informational: they
- *     fail open at their `safeCapture*` wrapper and never propagate here, so
- *     this handler never needs to demote them.
+ *   - Optional-adapter failures (PostHog, Sentry et al.) stay informational:
+ *     they fail open at their `safeCapture*` wrapper and never propagate here,
+ *     so this handler never needs to demote them.
  *
- * `safeCaptureException` no-ops server-side (posthog-js is loaded via a
+ * `safeCaptureException` no-ops server-side (@sentry/browser is loaded via a
  * browser-only dynamic import) — the fail-open contract holds; the tags
  * below are carried on the event for wherever a server sink is later attached.
  */

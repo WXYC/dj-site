@@ -22,8 +22,12 @@ const distDir = process.env.NEXT_DIST_DIR_SUFFIX
 //
 //   script-src   'unsafe-inline' — Next.js App Router injects inline hydration/
 //                bootstrap scripts and has no nonce pipeline here. PostHog
-//                (lib/posthog.ts) lazy-loads its recorder/exception-autocapture
-//                bundles from the region "-assets" host.
+//                (lib/posthog.ts) lazy-loads optional feature bundles (e.g.
+//                surveys) from the region "-assets" host; the recorder and
+//                exception-autocapture bundles no longer load (recording and
+//                exception capture are disabled in init), but the host stays
+//                allowed because posthog-js decides server-side which bundles
+//                to pull. Sentry needs no script origin — its SDK is bundled.
 //   style-src    'unsafe-inline' — MUI Joy UI / Emotion inject runtime <style>
 //                tags and inline style attributes; next/font emits inline
 //                @font-face. All self-hosted; no external stylesheet origins.
@@ -38,11 +42,12 @@ const distDir = process.env.NEXT_DIST_DIR_SUFFIX
 //   connect-src  backend origin — RTK Query (lib/features/backend.ts) and the
 //                SSE EventSource (lib/features/flowsheet/live-updates-listener.ts)
 //                hit NEXT_PUBLIC_BACKEND_URL directly; PostHog host + assets for
-//                telemetry; orchestrator origin when NEXT_PUBLIC_ORCHESTRATOR_URL
-//                is set (lib/features/autoDJ/api.ts). Auth is same-origin: the
-//                client resolves a cross-origin NEXT_PUBLIC_BETTER_AUTH_URL to
-//                the local /auth proxy (lib/features/authentication/client.ts),
-//                so 'self' covers it.
+//                telemetry; Sentry ingest origin (derived from the DSN) for
+//                error envelopes (lib/sentry.ts); orchestrator origin when
+//                NEXT_PUBLIC_ORCHESTRATOR_URL is set (lib/features/autoDJ/api.ts).
+//                Auth is same-origin: the client resolves a cross-origin
+//                NEXT_PUBLIC_BETTER_AUTH_URL to the local /auth proxy
+//                (lib/features/authentication/client.ts), so 'self' covers it.
 //   frame-ancestors 'none' — nothing embeds dj-site in an iframe today (grep
 //                found no self-framing; confirmed by the maintainer 2026-07-15);
 //                mirrors X-Frame-Options: DENY. KNOWN FUTURE CAVEAT: serving
@@ -79,6 +84,13 @@ function posthogAssetsOrigin(origin) {
 
 const AUDIO_STREAM_ORIGIN = "https://audio-mp3.ibiblio.org";
 
+// A Sentry DSN is a URL (https://<key>@<ingest-host>/<project-id>); its origin
+// is where the browser SDK posts event envelopes. Only connect-src needs it —
+// the SDK ships in the app bundle, so no script origin is involved.
+function sentryIngestOrigin(dsn) {
+  return originOf(dsn);
+}
+
 export function buildContentSecurityPolicy(env = process.env) {
   const backendOrigin = originOf(env.NEXT_PUBLIC_BACKEND_URL);
   const orchestratorOrigin = originOf(env.NEXT_PUBLIC_ORCHESTRATOR_URL);
@@ -86,6 +98,7 @@ export function buildContentSecurityPolicy(env = process.env) {
     env.NEXT_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com"
   );
   const posthogAssets = posthogAssetsOrigin(posthogOrigin);
+  const sentryIngest = sentryIngestOrigin(env.NEXT_PUBLIC_SENTRY_DSN);
 
   const dedupe = (values) => [...new Set(values.filter(Boolean))];
 
@@ -101,6 +114,7 @@ export function buildContentSecurityPolicy(env = process.env) {
     orchestratorOrigin,
     posthogOrigin,
     posthogAssets,
+    sentryIngest,
   ]);
 
   const directives = [

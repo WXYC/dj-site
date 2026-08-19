@@ -34,8 +34,12 @@ const { captureSpy, captureExceptionSpy } = vi.hoisted(() => ({
   captureSpy: vi.fn(),
   captureExceptionSpy: vi.fn(),
 }));
+// The listener talks to both adapters: sse_* analytics events go to PostHog,
+// dispatch/parse failures go to the Sentry error reporter.
 vi.mock("@/lib/posthog", () => ({
   safeCapture: captureSpy,
+}));
+vi.mock("@/lib/sentry", () => ({
   safeCaptureException: captureExceptionSpy,
 }));
 

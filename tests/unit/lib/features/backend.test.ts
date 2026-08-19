@@ -5,13 +5,13 @@ vi.mock("@/lib/features/authentication/client", () => ({
   getJWTToken: vi.fn(),
 }));
 
-// PostHog is invoked by the non-JSON branch — mock it so tests don't depend on the
-// browser SDK booting in jsdom. `vi.hoisted` ensures the mock fn exists when the
-// (hoisted) `vi.mock` factory runs.
+// The Sentry adapter is invoked by the non-JSON branch — mock it so tests don't
+// depend on the browser SDK booting in jsdom. `vi.hoisted` ensures the mock fn
+// exists when the (hoisted) `vi.mock` factory runs.
 const { mockCaptureException } = vi.hoisted(() => ({
   mockCaptureException: vi.fn(),
 }));
-vi.mock("@/lib/posthog", () => ({
+vi.mock("@/lib/sentry", () => ({
   safeCaptureException: mockCaptureException,
 }));
 

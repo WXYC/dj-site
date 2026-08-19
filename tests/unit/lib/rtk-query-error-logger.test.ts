@@ -4,6 +4,15 @@ vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
+// Mocked so the capture is assertable — without this the middleware would
+// exercise the real (inert-in-tests) Sentry adapter and report nothing.
+const { mockCaptureException } = vi.hoisted(() => ({
+  mockCaptureException: vi.fn(),
+}));
+vi.mock("@/lib/sentry", () => ({
+  safeCaptureException: mockCaptureException,
+}));
+
 import {
   isUnmessagedHttpError,
   rtkQueryErrorLogger,
@@ -157,5 +166,33 @@ describe("rejection-shape gate", () => {
     ["undefined", undefined],
   ])("makes the caller speak for %s", (_case, err) => {
     expect(isUnmessagedHttpError(err)).toBe(true);
+  });
+});
+
+describe("error reporting", () => {
+  const next = vi.fn((action: unknown) => action);
+  const api = { dispatch: vi.fn(), getState: vi.fn() };
+  const middleware = rtkQueryErrorLogger(api)(next);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("captures every rejected-with-value action tagged with endpoint and status", () => {
+    middleware(
+      rejectedAction({ status: 400, data: { message: SERVER_MESSAGE } }),
+    );
+
+    expect(mockCaptureException).toHaveBeenCalledTimes(1);
+    const [captured, context] = mockCaptureException.mock.calls[0];
+    expect(captured).toBeInstanceOf(Error);
+    expect((captured as Error).message).toBe(SERVER_MESSAGE);
+    expect(context).toEqual({ endpoint: "updateAlbum", status: 400 });
+  });
+
+  it("does not capture actions that were not rejected with a value", () => {
+    middleware(rejectedAction({ error: "boom" }, { withValue: false }));
+
+    expect(mockCaptureException).not.toHaveBeenCalled();
   });
 });

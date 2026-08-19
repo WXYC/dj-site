@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { safeCaptureException } from "@/lib/posthog";
+import { safeCaptureException } from "@/lib/sentry";
 
 export default function GlobalError({
   error,

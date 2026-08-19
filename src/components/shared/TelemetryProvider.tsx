@@ -4,6 +4,7 @@ import { Suspense, useEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useReportWebVitals } from "next/web-vitals";
 import { initTelemetry, safeCapturePageview } from "@/lib/posthog";
+import { initErrorReporting } from "@/lib/sentry";
 import { installCspViolationReporter } from "@/lib/csp-violation-reporter";
 import { reportWebVital } from "@/lib/web-vitals-reporter";
 import type { ReactNode } from "react";
@@ -31,6 +32,7 @@ interface Props {
 export function TelemetryProvider({ children }: Props) {
   useEffect(() => {
     initTelemetry();
+    initErrorReporting();
     // Report-Only CSP violations (#631) fire securitypolicyviolation events
     // client-side; forward them to PostHog so the rollout gathers signal.
     installCspViolationReporter();
