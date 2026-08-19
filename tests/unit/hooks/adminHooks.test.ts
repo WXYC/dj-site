@@ -8,7 +8,6 @@ import { adminSlice } from "@/lib/features/admin/frontend";
 import {
   ROSTER_FETCH_CHUNK_SIZE,
   ROSTER_MEMBER_CHUNK_SIZE,
-  ROSTER_PAGE_SIZE,
 } from "@/lib/features/admin/types";
 
 // Mock the auth client before importing the hook
@@ -79,6 +78,18 @@ function mockListMembersResponse(members: { userId: string; role: string }[]) {
     data: { members, total: members.length },
     error: null,
   };
+}
+
+/** A roster large enough to need more than one membership chunk. */
+function bulkRoster(size: number) {
+  return Array.from({ length: size }, (_, i) =>
+    betterAuthUser(MOCK_USERS.dj1, {
+      id: `bulk-${i}`,
+      username: `bulk_${i}`,
+      email: `bulk_${i}@wxyc.org`,
+      realName: `Bulk DJ ${i}`,
+    })
+  );
 }
 
 const ORG_SLUG = "wxyc";
@@ -386,14 +397,7 @@ describe("useAccountListResults", () => {
 
   // The ids ride in the query string, so they cannot all go in one request.
   it("chunks the membership fetch so the query string stays bounded", async () => {
-    const many = Array.from({ length: ROSTER_MEMBER_CHUNK_SIZE + 1 }, (_, i) =>
-      betterAuthUser(MOCK_USERS.dj1, {
-        id: `bulk-${i}`,
-        username: `bulk_${i}`,
-        email: `bulk_${i}@wxyc.org`,
-        realName: `Bulk DJ ${i}`,
-      })
-    );
+    const many = bulkRoster(ROSTER_MEMBER_CHUNK_SIZE + 1);
     vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse(many));
 
     const { wrapper } = createWrapper();
@@ -413,13 +417,7 @@ describe("useAccountListResults", () => {
   // A roster refetch runs after every account edit, so serializing the chunks
   // would put one round trip per 50 accounts in front of the table each time.
   it("issues the membership chunks together rather than one round trip at a time", async () => {
-    const many = Array.from({ length: ROSTER_MEMBER_CHUNK_SIZE + 1 }, (_, i) =>
-      betterAuthUser(MOCK_USERS.dj1, {
-        id: `bulk-${i}`,
-        username: `bulk_${i}`,
-        email: `bulk_${i}@wxyc.org`,
-      })
-    );
+    const many = bulkRoster(ROSTER_MEMBER_CHUNK_SIZE + 1);
     vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse(many));
 
     let releaseFirstChunk = () => {};
@@ -464,32 +462,19 @@ describe("useAccountListResults filtering", () => {
     );
   });
 
-  it("searches every column the table renders, case- and diacritic-insensitively", async () => {
-    const { store, wrapper } = createWrapper();
-    const { result } = renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    for (const [query, expected] of [
-      ["juana molina", "jmolina"],
-      ["JPRATT", "jpratt"],
-      ["paradoja", "jmolina"],
-      ["nilufer@wxyc.org", "nyanya"],
-      ["nilufer", "nyanya"],
-    ] as const) {
-      act(() => {
-        store.dispatch(adminSlice.actions.setSearchString(query));
-      });
-      await waitFor(() => expect(result.current.accounts).toHaveLength(1));
-      expect(result.current.accounts[0].userName).toBe(expected);
-    }
-  });
-
-  it("narrows to the selected roles and restores every role when cleared", async () => {
+  it("routes the search box and the role filter into the roster", async () => {
     const { store, wrapper } = createWrapper();
     const { result } = renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     act(() => {
+      store.dispatch(adminSlice.actions.setSearchString("paradoja"));
+    });
+    await waitFor(() => expect(result.current.accounts).toHaveLength(1));
+    expect(result.current.accounts[0].userName).toBe("jmolina");
+
+    act(() => {
+      store.dispatch(adminSlice.actions.setSearchString(""));
       store.dispatch(adminSlice.actions.setRoleFilter([Authorization.SM]));
     });
     await waitFor(() => expect(result.current.accounts).toHaveLength(1));
@@ -527,19 +512,5 @@ describe("useAccountListResults filtering", () => {
 
     await waitFor(() => expect(result.current.matches).toHaveLength(1));
     expect(result.current.totalAccounts).toBe(3);
-  });
-
-  it("clamps a page the filtered roster no longer has", async () => {
-    const { store, wrapper } = createWrapper();
-    const { result } = renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.totalPages).toBe(Math.ceil(3 / ROSTER_PAGE_SIZE));
-
-    act(() => {
-      store.dispatch(adminSlice.actions.setPage(7));
-    });
-
-    await waitFor(() => expect(result.current.page).toBe(0));
-    expect(result.current.accounts).toHaveLength(3);
   });
 });

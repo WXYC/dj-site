@@ -1,7 +1,6 @@
 import { adminSlice } from "@/lib/features/admin/frontend";
 import { Account, Authorization } from "@/lib/features/admin/types";
 import { useAppSelector } from "@/lib/hooks";
-import { useAccountListResults } from "@/src/hooks/adminHooks";
 import { Button } from "@mui/joy";
 
 const FORMULA_PREFIXES = ["=", "+", "-", "@"];
@@ -55,19 +54,29 @@ const exportDJsAsCSV = (djs: Account[], title = "djs") => {
   URL.revokeObjectURL(url);
 };
 
-export default function ExportDJsButton({ organizationSlug }: { organizationSlug: string }) {
-  // Every account passing the filters, not the page on screen: an export that
-  // silently stopped at the page boundary would read as the whole roster.
-  const { matches, isLoading, isError } = useAccountListResults(organizationSlug);
-
+/**
+ * @param accounts Every account passing the roster's filters, not the page on
+ *   screen: an export that silently stopped at the page boundary would read as
+ *   the whole roster. Passed in rather than re-read from `useAccountListResults`
+ *   so the filter and sort run once per keystroke, not once per consumer.
+ */
+export default function ExportDJsButton({
+  accounts,
+  loading,
+  disabled,
+}: {
+  accounts: Account[];
+  loading: boolean;
+  disabled: boolean;
+}) {
   const searchString = useAppSelector(adminSlice.selectors.getSearchString);
   const roleFilter = useAppSelector(adminSlice.selectors.getRoleFilter);
   const isFiltered = searchString.length > 0 || roleFilter.length > 0;
 
   return (
     <Button
-      loading={isLoading}
-      disabled={isError || matches.length === 0}
+      loading={loading}
+      disabled={disabled || accounts.length === 0}
       variant="outlined"
       color={"success"}
       size="sm"
@@ -75,7 +84,7 @@ export default function ExportDJsButton({ organizationSlug }: { organizationSlug
         const currentDateTime = new Date();
         const formattedDate = currentDateTime.toISOString().slice(0, 10);
         exportDJsAsCSV(
-          matches,
+          accounts,
           isFiltered
             ? `wxyc-roster-filtered-${formattedDate}`
             : `wxyc-roster-${formattedDate}`

@@ -16,7 +16,7 @@ import {
   Table,
   Typography,
 } from "@mui/joy";
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { getUsernameError } from "@/src/utilities/usernameValidation";
 import { AccountEntry } from "./AccountEntry";
@@ -25,6 +25,15 @@ import ExportDJsButton from "./ExportCSV";
 import ImportCSVModal from "./ImportCSVModal";
 import NewAccountForm from "./NewAccountForm";
 import RoleFilter from "./RoleFilter";
+
+/** A full-width row spanning the table, for states that replace the accounts. */
+const MessageRow = ({ children }: { children: ReactNode }) => (
+  <tr style={{ background: "transparent" }}>
+    <td colSpan={6} style={{ textAlign: "center", paddingTop: "2rem" }}>
+      {children}
+    </td>
+  </tr>
+);
 
 export default function RosterTable({ user, organizationSlug }: { user: User; organizationSlug: string }) {
   const { accounts, matches, page, totalPages, totalAccounts, isLoading, isError, error, refetch } =
@@ -143,7 +152,7 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
             },
           }}
         >
-          <ExportDJsButton organizationSlug={organizationSlug} />
+          <ExportDJsButton accounts={matches} disabled={isError} loading={isLoading} />
           <Button
             variant="outlined"
             color="success"
@@ -192,45 +201,30 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
           </thead>
           <tbody>
             {isLoading ? (
-              <tr style={{ background: "transparent" }}>
-                <td
-                  colSpan={6}
-                  style={{ textAlign: "center", paddingTop: "2rem" }}
-                >
-                  <CircularProgress color={"success"} />
-                </td>
-              </tr>
+              <MessageRow>
+                <CircularProgress color={"success"} />
+              </MessageRow>
             ) : isError ? (
-              <tr style={{ background: "transparent" }}>
-                <td
-                  colSpan={6}
-                  style={{ textAlign: "center", paddingTop: "2rem" }}
-                >
-                  <GppBad color="error" sx={{ fontSize: "5rem" }} />
-                  <Typography level="body-md" sx={{ pb: 2 }}>
-                    Something has gone wrong with the admin panel. Please try
-                    again later.
-                  </Typography>
-                  <Typography level="body-sm">{String(error)}</Typography>
-                </td>
-              </tr>
+              <MessageRow>
+                <GppBad color="error" sx={{ fontSize: "5rem" }} />
+                <Typography level="body-md" sx={{ pb: 2 }}>
+                  Something has gone wrong with the admin panel. Please try
+                  again later.
+                </Typography>
+                <Typography level="body-sm">{String(error)}</Typography>
+              </MessageRow>
             ) : matches.length === 0 && totalAccounts > 0 ? (
               // Distinguished from an empty roster: "nothing matched" is a
               // filter the admin can clear, and an admin who cannot tell the
               // two apart reads a narrow search as a lost roster.
-              <tr style={{ background: "transparent" }}>
-                <td
-                  colSpan={6}
-                  style={{ textAlign: "center", paddingTop: "2rem" }}
-                >
-                  <Typography level="body-md">
-                    No accounts match your search or role filter.
-                  </Typography>
-                  <Typography level="body-sm">
-                    {totalAccounts} accounts on the roster.
-                  </Typography>
-                </td>
-              </tr>
+              <MessageRow>
+                <Typography level="body-md">
+                  No accounts match your search or role filter.
+                </Typography>
+                <Typography level="body-sm">
+                  {totalAccounts} accounts on the roster.
+                </Typography>
+              </MessageRow>
             ) : (
               accounts.map((dj) => (
                 <AccountEntry

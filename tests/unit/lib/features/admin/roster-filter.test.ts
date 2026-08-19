@@ -3,6 +3,7 @@ import {
   foldForSearch,
   accountMatchesSearch,
   selectRosterView,
+  sortRosterForDisplay,
 } from "@/lib/features/admin/roster-filter";
 import { Authorization } from "@/lib/features/admin/types";
 import { createTestAccountResult } from "@/tests/helpers";
@@ -87,11 +88,38 @@ describe("accountMatchesSearch", () => {
   });
 });
 
-describe("selectRosterView", () => {
-  const view = (overrides: Partial<Parameters<typeof selectRosterView>[1]> = {}) =>
-    selectRosterView(roster, { search: "", roles: [], page: 0, pageSize: 2, ...overrides });
+describe("sortRosterForDisplay", () => {
+  it("orders alphabetically by real name so pages are stable", () => {
+    expect(sortRosterForDisplay(roster).map((a) => a.realName)).toEqual([
+      "Jessica Pratt",
+      "Juana Molina",
+      "Nilüfer Yanya",
+    ]);
+  });
 
-  it("orders matches alphabetically by real name so pages are stable", () => {
+  it("breaks ties on real name with the username", () => {
+    const [a, b] = sortRosterForDisplay([
+      createTestAccountResult({ realName: "Same Name", userName: "zzz" }),
+      createTestAccountResult({ realName: "Same Name", userName: "aaa" }),
+    ]);
+    expect([a.userName, b.userName]).toEqual(["aaa", "zzz"]);
+  });
+
+  it("does not mutate its input", () => {
+    const input = [...roster];
+    sortRosterForDisplay(input);
+    expect(input).toEqual(roster);
+  });
+});
+
+describe("selectRosterView", () => {
+  // Filtering and slicing preserve input order, so the view is fed the sorted
+  // roster the hook keeps out of the per-keystroke path.
+  const ordered = sortRosterForDisplay(roster);
+  const view = (overrides: Partial<Parameters<typeof selectRosterView>[1]> = {}) =>
+    selectRosterView(ordered, { search: "", roles: [], page: 0, pageSize: 2, ...overrides });
+
+  it("preserves the order it is given", () => {
     expect(view({ pageSize: 50 }).matches.map((a) => a.realName)).toEqual([
       "Jessica Pratt",
       "Juana Molina",

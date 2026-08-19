@@ -86,8 +86,7 @@ async function fetchMemberRoles(
     )
   );
 
-  const roles: [string, string][] = [];
-  for (const result of responses) {
+  return responses.flatMap((result) => {
     throwIfBetterAuthError(result, "Failed to fetch organization roles");
 
     const payload = parseSdkPayload<{ members?: { userId: string; role: string }[] }>(
@@ -95,12 +94,8 @@ async function fetchMemberRoles(
       "list-members"
     );
 
-    for (const member of payload?.members ?? []) {
-      roles.push([member.userId, member.role]);
-    }
-  }
-
-  return roles;
+    return (payload?.members ?? []).map((member): [string, string] => [member.userId, member.role]);
+  });
 }
 
 /**
@@ -109,6 +104,13 @@ async function fetchMemberRoles(
  * The roster is fetched whole because its search and filters run client-side;
  * anonymous users stay excluded server-side because there are more of them than
  * real accounts and none of them belong on a DJ roster.
+ *
+ * Interim: the walk, the truncation guard and the client-side ordering all
+ * exist only because better-auth answers the question badly. A Backend-Service
+ * route joining `auth_user` and `auth_member` — the shape
+ * `/auth/admin/resolve-organization` and `/auth/admin/provision-user` already
+ * take when the SDK falls short — deletes all three. Worth building once the
+ * roster outgrows one request, or when it needs a second sort or filter.
  *
  * `sortBy` is not cosmetic — without it `list-users` issues no ORDER BY, so two
  * offsets into an unordered result can repeat one account and omit another.
