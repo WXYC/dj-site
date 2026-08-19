@@ -33,11 +33,7 @@ export function convertLmlItemToAlbumEntry(item: LmlLibraryItem): AlbumEntry {
       name: item.artist ?? "",
       lettercode: item.call_letters ?? "",
       numbercode: item.artist_call_number ?? 0,
-      // Verbatim. The genre vocabulary is server-owned (GET /library/genres)
-      // and grows without a dj-site deploy, so no local set of names can
-      // decide whether a value is real — testing against one rewrites
-      // correctly-filed releases into the "Unknown" sentinel, which is the
-      // UI's fallback for a row carrying no genre and nothing else.
+      // Verbatim; the sentinel is for a row with no genre. See `ArtistEntry.genre`.
       genre: item.genre ?? "Unknown",
       id: undefined,
     },

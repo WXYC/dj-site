@@ -3,10 +3,9 @@ import type { SxProps } from "@mui/joy/styles/types";
 
 import {
   formatTone,
-  GENRE_TONES,
+  genreTone,
   ROTATION_TONES,
   type FormatTone,
-  type GenreToneKey,
 } from "@/lib/features/experiences/modern/tokens/roles";
 import type { Rotation } from "@/lib/features/rotation/types";
 import {
@@ -16,35 +15,15 @@ import {
 } from "./catalogFilterStyles";
 import { isCatalogRotationTag } from "./catalogTagFilters";
 
-// Read off the tone table rather than restated, so the two can't drift. These
-// are the genres with a designed chip color, NOT the genres that exist — that
-// list is server-owned and longer.
-const GENRE_TONE_KEYS = Object.keys(GENRE_TONES) as GenreToneKey[];
-
-/**
- * Resolve a server genre name to a tone-table key, case-insensitively. A genre
- * with no designed color falls back to the neutral `Unknown` tone; only the
- * chip's color degrades, the filter's label still reads the real genre.
- */
-export function genreNameToGenreKey(name: string): GenreToneKey {
-  const trimmed = name.trim();
-  if (!trimmed) return "Unknown";
-  const hit = GENRE_TONE_KEYS.find(
-    (k) => k.toLowerCase() === trimmed.toLowerCase()
-  );
-  return hit ?? "Unknown";
-}
-
 export type CatalogFilterTagChipProps = {
   color?: FormatTone["color"];
   variant?: VariantProp;
   sx?: SxProps;
 };
 
-/** Matches catalog result genre chips (`Result.tsx`). */
+/** Matches catalog result genre chips — same resolver, so the two cannot drift. */
 export function getGenreFilterChipProps(genreName: string): CatalogFilterTagChipProps {
-  const key = genreNameToGenreKey(genreName);
-  return GENRE_TONES[key] ?? GENRE_TONES.Unknown;
+  return genreTone(genreName);
 }
 
 /** Matches catalog result format chips — dedicated vinyl/CD hues. */

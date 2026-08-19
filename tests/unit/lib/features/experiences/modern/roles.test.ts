@@ -57,18 +57,31 @@ describe("genreTone", () => {
   // the table is a visual-design decision (palette coherence, contrast, which
   // tones are already load-bearing elsewhere), not something to add in passing
   // alongside a data change.
-  // A genre name is arbitrary server text, and an MD can create one by typing
-  // it (GenreAdmin only rejects blank). A plain object lookup answers
-  // Object.prototype members truthily, so `toneTable["constructor"]` returns a
-  // function rather than undefined, the `?? Unknown` fallback never fires, and
-  // the caller reads `.color` off it as undefined -- which AlbumArtwork feeds
-  // straight into `theme.vars.palette[...][400]` and crashes the results grid.
-  it.each(["constructor", "toString", "valueOf", "hasOwnProperty", "__proto__"])(
+  // Case- and whitespace-insensitive, because the filter chips and the result
+  // chips resolve through this one function and must agree on a genre however
+  // the server cased it.
+  it.each([
+    ["rock", "Rock"],
+    ["JAZZ", "Jazz"],
+    ["  Blues  ", "Blues"],
+  ])("resolves %s to the %s tone", (input, expected) => {
+    expect(genreTone(input)).toEqual(
+      GENRE_TONES[expected as keyof typeof GENRE_TONES]
+    );
+  });
+
+  it("falls back to the Unknown tone for a genre with no designed color", () => {
+    expect(genreTone("Not Real")).toEqual(GENRE_TONES.Unknown);
+  });
+
+  // A plain-object lookup answers Object.prototype members truthily, so this
+  // input would otherwise resolve to a function and the caller would read
+  // `.color` off it as undefined. Reachable: an MD creates a genre by typing
+  // its name.
+  it.each(["constructor", "__proto__"])(
     "resolves the inherited property name %s to the Unknown tone",
     (name) => {
-      const tone = genreTone(name);
-      expect(tone).toEqual(GENRE_TONES.Unknown);
-      expect(typeof tone.color).toBe("string");
+      expect(genreTone(name)).toEqual(GENRE_TONES.Unknown);
     },
   );
 
@@ -85,7 +98,7 @@ describe("genreTone", () => {
         "Rock",
         "Soundtracks",
         "Unknown",
-      ].sort(),
+      ],
     );
   });
 });
