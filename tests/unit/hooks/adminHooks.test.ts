@@ -171,10 +171,17 @@ describe("useAccountListResults", () => {
   });
 
   // A roster that stops short but renders as complete hides the missing DJ.
-  it("errors rather than rendering a truncated roster", async () => {
+  //
+  // `list-users` answers a query that threw with 200 `{users: [], total: 0}`,
+  // so the count a mid-walk failure reports contradicts the one that opened
+  // the walk. Both shapes have to reach the same refusal.
+  it.each([
+    ["the count it opened with", 9],
+    ["the zeroed count a swallowed query error reports", 0],
+  ])("errors rather than rendering a truncated roster, given %s", async (_label, laterTotal) => {
     vi.mocked(authClient.admin.listUsers)
       .mockResolvedValueOnce(mockListUsersResponse([betterAuthUser(MOCK_USERS.dj1)], 9))
-      .mockResolvedValueOnce(mockListUsersResponse([], 9));
+      .mockResolvedValueOnce(mockListUsersResponse([], laterTotal));
 
     const { wrapper } = createWrapper();
     const { result } = renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
@@ -401,6 +408,39 @@ describe("useAccountListResults", () => {
       filterOperator: "eq",
       filterValue: `bulk-${ROSTER_MEMBER_CHUNK_SIZE}`,
     });
+  });
+
+  // A roster refetch runs after every account edit, so serializing the chunks
+  // would put one round trip per 50 accounts in front of the table each time.
+  it("issues the membership chunks together rather than one round trip at a time", async () => {
+    const many = Array.from({ length: ROSTER_MEMBER_CHUNK_SIZE + 1 }, (_, i) =>
+      betterAuthUser(MOCK_USERS.dj1, {
+        id: `bulk-${i}`,
+        username: `bulk_${i}`,
+        email: `bulk_${i}@wxyc.org`,
+      })
+    );
+    vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse(many));
+
+    let releaseFirstChunk = () => {};
+    const firstChunkInFlight = new Promise<void>((resolve) => {
+      releaseFirstChunk = resolve;
+    });
+    vi.mocked(authClient.organization.listMembers)
+      .mockImplementationOnce(async () => {
+        await firstChunkInFlight;
+        return mockListMembersResponse([]);
+      })
+      .mockImplementation(async () => mockListMembersResponse([]));
+
+    const { wrapper } = createWrapper();
+    renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
+
+    // Times out if the second chunk waits on the first, which is still pending.
+    await waitFor(() =>
+      expect(authClient.organization.listMembers).toHaveBeenCalledTimes(2)
+    );
+    releaseFirstChunk();
   });
 });
 

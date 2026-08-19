@@ -62,20 +62,32 @@ async function fetchMemberRoles(
   organizationId: string,
   userIds: string[]
 ): Promise<[string, string][]> {
-  const roles: [string, string][] = [];
-
+  const chunks: string[][] = [];
   for (let start = 0; start < userIds.length; start += ROSTER_MEMBER_CHUNK_SIZE) {
-    const chunk = userIds.slice(start, start + ROSTER_MEMBER_CHUNK_SIZE);
-    const result = await authClient.organization.listMembers({
-      query: {
-        organizationId,
-        filterField: "userId",
-        limit: chunk.length,
-        ...(chunk.length === 1
-          ? { filterOperator: "eq" as const, filterValue: chunk[0] }
-          : { filterOperator: "in" as const, filterValue: chunk }),
-      },
-    });
+    chunks.push(userIds.slice(start, start + ROSTER_MEMBER_CHUNK_SIZE));
+  }
+
+  // Chunking is a query-string limit, not an ordering constraint, so the
+  // requests go out together: a roster refetch runs after every account edit,
+  // and serializing them would put one round trip per 50 accounts in front of
+  // the table each time.
+  const responses = await Promise.all(
+    chunks.map((chunk) =>
+      authClient.organization.listMembers({
+        query: {
+          organizationId,
+          filterField: "userId",
+          limit: chunk.length,
+          ...(chunk.length === 1
+            ? { filterOperator: "eq" as const, filterValue: chunk[0] }
+            : { filterOperator: "in" as const, filterValue: chunk }),
+        },
+      })
+    )
+  );
+
+  const roles: [string, string][] = [];
+  for (const result of responses) {
     throwIfBetterAuthError(result, "Failed to fetch organization roles");
 
     const payload = parseSdkPayload<{ members?: { userId: string; role: string }[] }>(
@@ -105,9 +117,15 @@ async function fetchMemberRoles(
  */
 async function fetchAllAccounts(): Promise<BetterAuthUser[]> {
   const users: BetterAuthUser[] = [];
-  let total = Infinity;
 
-  while (users.length < total) {
+  // Latched from the first response and never revised. `list-users` answers a
+  // query that threw with 200 `{users: [], total: 0}`, so a later response's
+  // count is not evidence about the roster — believing one would let a failure
+  // mid-walk retire the loop as though the roster had shrunk to whatever had
+  // already arrived, which is the silent truncation the guard below refuses.
+  let expected: number | null = null;
+
+  do {
     const result = await authClient.admin.listUsers({
       query: {
         limit: ROSTER_FETCH_CHUNK_SIZE,
@@ -126,18 +144,18 @@ async function fetchAllAccounts(): Promise<BetterAuthUser[]> {
       "list-users"
     );
     const batch = (parsed?.users ?? []) as BetterAuthUser[];
-    total = parsed?.total ?? users.length + batch.length;
+    expected ??= parsed?.total ?? batch.length;
 
     // A short roster that renders as a complete one is the failure mode worth
     // refusing: an admin cannot tell a missing DJ from a DJ who never existed.
-    if (batch.length === 0 && users.length < total) {
+    if (batch.length === 0 && users.length < expected) {
       throw new Error(
-        `The roster is incomplete: the server counts ${total} accounts but stopped returning them after ${users.length}.`
+        `The roster is incomplete: the server counts ${expected} accounts but stopped returning them after ${users.length}.`
       );
     }
 
     users.push(...batch);
-  }
+  } while (users.length < expected);
 
   return users;
 }
