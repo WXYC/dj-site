@@ -130,7 +130,19 @@ describe("formatLabel", () => {
 
   // Anything already carrying casing or punctuation is a name the station
   // chose; title-casing it would render "Cd-r" and '12" vinyl'.
-  it.each(["CD-R", "LP", '12" Vinyl', "7-inch Single", "Cassette", "Unknown"])(
+  // "lp" and "cassette" are the cases a title-case rule got wrong: it would
+  // return "Lp" and "Cassette", rewriting server text in the one place whose
+  // job is to present it.
+  it.each([
+    "CD-R",
+    "LP",
+    "lp",
+    '12" Vinyl',
+    "7-inch Single",
+    "Cassette",
+    "cassette",
+    "Unknown",
+  ])(
     "preserves %s as sent",
     (format) => {
       expect(formatLabel(format)).toBe(format);

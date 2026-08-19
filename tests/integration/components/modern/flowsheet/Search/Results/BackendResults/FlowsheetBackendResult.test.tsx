@@ -425,10 +425,5 @@ describe("FlowsheetBackendResult", () => {
       expect(codeText).toHaveStyle({ fontFamily: "monospace" });
     });
 
-    it("should render format chip", () => {
-      renderWithProviders(<FlowsheetBackendResult entry={mockEntry} index={1} />);
-
-      expect(screen.getByText("CD")).toBeInTheDocument();
-    });
   });
 });

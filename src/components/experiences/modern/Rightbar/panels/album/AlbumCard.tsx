@@ -1,6 +1,7 @@
 "use client";
 
 import { AlbumEntry } from "@/lib/features/catalog/types";
+import { formatLabel } from "@/lib/features/experiences/modern/tokens/roles";
 import { AlbumMetadata, ResolvedToken } from "@/lib/features/metadata/types";
 import {
   Box,
@@ -127,7 +128,7 @@ export default function AlbumCard({
                 ) : null}
                 {!metadata && !metadataLoading && (
                   <Typography level="body-sm">
-                    {album.label || ""}{album.label ? " \u2022 " : ""}{album?.format ?? ""}
+                    {album.label || ""}{album.label ? " \u2022 " : ""}{album?.format ? formatLabel(album.format) : ""}
                   </Typography>
                 )}
                 {metadata?.genres?.map((g) => (

@@ -86,10 +86,9 @@ describe("convertLmlItemToAlbumEntry", () => {
   // would also pass while values were being rewritten, which is the exact
   // failure this guards.
   //
-  // The same table runs against the Backend adapter in conversions.test.ts.
-  // Both write this one field, the picker interleaves rows from both, and a
-  // DJ cannot tell which adapter produced a row — so they must agree on the
-  // text, character for character.
+  // Each adapter asserts identity on its own values, which is what makes the
+  // two agree: two functions that both return their input cannot disagree
+  // about it. The Backend adapter carries its own list for the same reason.
   it.each([
     "Vinyl",
     "vinyl",
