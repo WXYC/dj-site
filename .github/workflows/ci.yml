@@ -315,6 +315,9 @@ jobs:
       NEXT_PUBLIC_ORCHESTRATOR_URL: ${{ vars.NEXT_PUBLIC_ORCHESTRATOR_URL }}
       NEXT_PUBLIC_POSTHOG_KEY: ${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}
       NEXT_PUBLIC_POSTHOG_HOST: ${{ vars.NEXT_PUBLIC_POSTHOG_HOST }}
+      NEXT_PUBLIC_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
+      NEXT_PUBLIC_SENTRY_ENVIRONMENT: production
+      NEXT_PUBLIC_SENTRY_RELEASE: ${{ github.sha }}
       NEXT_PUBLIC_VERSION: ${{ github.sha }}
     steps:
       - name: Checkout
@@ -398,6 +401,12 @@ jobs:
       NEXT_PUBLIC_ORCHESTRATOR_URL: ${{ vars.PREVIEW_NEXT_PUBLIC_ORCHESTRATOR_URL }}
       NEXT_PUBLIC_POSTHOG_KEY: ${{ vars.PREVIEW_NEXT_PUBLIC_POSTHOG_KEY }}
       NEXT_PUBLIC_POSTHOG_HOST: ${{ vars.PREVIEW_NEXT_PUBLIC_POSTHOG_HOST }}
+      NEXT_PUBLIC_SENTRY_DSN: ${{ vars.PREVIEW_NEXT_PUBLIC_SENTRY_DSN }}
+      NEXT_PUBLIC_SENTRY_ENVIRONMENT: preview
+      # Must match NEXT_PUBLIC_VERSION's head SHA: on pull_request events
+      # github.sha is the ephemeral merge commit, which no source or release
+      # lookup can resolve.
+      NEXT_PUBLIC_SENTRY_RELEASE: ${{ github.event.pull_request.head.sha }}
       NEXT_PUBLIC_VERSION: ${{ github.event.pull_request.head.sha }}
     steps:
       - name: Check required configuration

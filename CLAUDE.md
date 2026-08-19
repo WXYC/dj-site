@@ -32,10 +32,11 @@ Established by the 2026-07 DevX refactor (retrospective:
 `docs/plans/devx-refactor/RETROSPECTIVE.md`); these outlive it:
 
 - **Backend-Service is the only core external dependency.** Every other external
-  service (telemetry, metadata lookup, artwork, flags, …) sits behind an
-  application-owned adapter that fails open — provider SDKs and types never leak
-  past the adapter (`lib/posthog.ts` is the pattern). Optional-service failure
-  must never impair an unrelated workflow.
+  service (telemetry, error reporting, metadata lookup, artwork, flags, …) sits
+  behind an application-owned adapter that fails open — provider SDKs and types
+  never leak past the adapter (`lib/posthog.ts` is the pattern; `lib/sentry.ts`
+  follows it — analytics/error split in `docs/adr/0008`). Optional-service
+  failure must never impair an unrelated workflow.
 - **One authoritative owner per value.** RTK Query owns Backend-Service server
   state; Redux only for genuinely shared client-owned state; local state for
   local interaction; URL state when shareability demands it. Don't mirror query

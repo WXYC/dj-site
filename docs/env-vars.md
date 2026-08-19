@@ -47,6 +47,16 @@ NEXT_PUBLIC_QR_LOGIN_ENABLED=false
 # actually fired in a deployed environment.
 # APP_ORGANIZATION=wxyc
 
+# Optional — PostHog product analytics (lib/posthog.ts) and Sentry error
+# reporting (lib/sentry.ts). Each adapter is inert without its key/DSN — every
+# capture call no-ops. All are public values, not secrets. See .env.example
+# for the full comments and docs/adr/0008 for the analytics/error split;
+# NEXT_PUBLIC_SENTRY_ENVIRONMENT and NEXT_PUBLIC_SENTRY_RELEASE are set by the
+# CI deploy jobs (production/preview + commit SHA) and rarely needed locally.
+# NEXT_PUBLIC_POSTHOG_KEY=phc_...
+# NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
+# NEXT_PUBLIC_SENTRY_DSN=https://<key>@<org>.ingest.us.sentry.io/<project>
+
 # Optional — the client-side variable read by getAppOrganizationIdClient(),
 # consulted the same way as APP_ORGANIZATION above but for AuthorizedView's
 # client-side tier resolution (fetchOrganizationRoleForUserClient). Its

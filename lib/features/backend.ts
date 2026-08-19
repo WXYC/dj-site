@@ -7,7 +7,7 @@ import type {
 } from "@reduxjs/toolkit/query";
 import { fetchBaseQuery } from "@reduxjs/toolkit/query";
 import { getJWTToken } from "./authentication/client";
-import { safeCaptureException } from "../posthog";
+import { safeCaptureException } from "../sentry";
 
 type BackendBaseQuery = BaseQueryFn<
   string | FetchArgs,

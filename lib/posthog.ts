@@ -6,15 +6,23 @@ import type { PostHog } from "posthog-js";
  * unavailable SDK fails open and never throws back into the dispatch, request,
  * or render path.
  *
+ * PostHog owns product analytics only — error reporting lives in
+ * `lib/sentry.ts` (docs/adr/0008). Nothing here may identify a person:
+ * no `identify()` call exists anywhere, and the init options below keep
+ * autocapture, session recording, and exception payloads off because each can
+ * serialize on-screen or in-message PII (the admin roster renders DJ
+ * names/emails).
+ *
  * `posthog-js` is loaded via a dynamic `import()` inside `initTelemetry`
  * rather than a top-level static import, so the client library ships in its own
  * deferred chunk instead of the root layout's shared bundle that every route
  * parses before hydration.
  */
 let client: PostHog | null = null;
-// Non-null once a load starts (in-flight OR settled): also the StrictMode
-// re-entry guard. `loadFailed` records a settled *rejection* so wrappers stop
-// buffering (the buffer would otherwise grow with no flush to drain it).
+// Non-null once a load starts (in-flight OR settled): also the remount /
+// double-invocation guard. `loadFailed` records a settled *rejection* so
+// wrappers stop buffering (the buffer would otherwise grow with no flush to
+// drain it).
 let loading: Promise<void> | null = null;
 let loadFailed = false;
 
@@ -26,9 +34,9 @@ let loadFailed = false;
 // earliest, highest-value events (first pageview). Client-only: the buffer is
 // touched solely while `loading` is set, and `loading` is only ever set after
 // the `typeof window === "undefined"` bail, so SSR never enqueues.
-type BufferedCapture =
-  | { readonly method: "capture"; readonly args: readonly [string, Record<string, unknown>?] }
-  | { readonly method: "captureException"; readonly args: readonly [Error, Record<string, unknown>?] };
+type BufferedCapture = {
+  readonly args: readonly [string, Record<string, unknown>?];
+};
 const MAX_BUFFERED = 20;
 let buffer: BufferedCapture[] = [];
 
@@ -45,8 +53,7 @@ function flushBuffer(ph: PostHog): void {
   buffer = [];
   for (const item of pending) {
     try {
-      if (item.method === "capture") ph.capture(...item.args);
-      else ph.captureException(...item.args);
+      ph.capture(...item.args);
     } catch {
       // optional-service contract: swallow
     }
@@ -74,7 +81,15 @@ export function initTelemetry(): void {
           api_host: host,
           capture_pageview: false,
           capture_pageleave: true,
-          capture_exceptions: true,
+          // Anonymization posture (see module doc): errors belong to Sentry;
+          // autocapture serializes clicked-element text and recording captures
+          // the screen, both of which include DJ names/emails on the roster
+          // page; person_profiles is explicit so the no-identify policy is
+          // visible at the init site, not just an accident of the default.
+          capture_exceptions: false,
+          person_profiles: "identified_only",
+          autocapture: false,
+          disable_session_recording: true,
         });
       }
       client = posthog;
@@ -89,22 +104,6 @@ export function initTelemetry(): void {
     });
 }
 
-export function safeCaptureException(
-  err: unknown,
-  context?: Record<string, unknown>
-): void {
-  try {
-    const error = err instanceof Error ? err : new Error(String(err));
-    if (client) {
-      client.captureException(error, context);
-    } else {
-      bufferCapture({ method: "captureException", args: [error, context] });
-    }
-  } catch {
-    // optional-service contract: swallow
-  }
-}
-
 export function safeCapture(
   event: string,
   props?: Record<string, unknown>
@@ -113,7 +112,7 @@ export function safeCapture(
     if (client) {
       client.capture(event, props);
     } else {
-      bufferCapture({ method: "capture", args: [event, props] });
+      bufferCapture({ args: [event, props] });
     }
   } catch {
     // optional-service contract: swallow

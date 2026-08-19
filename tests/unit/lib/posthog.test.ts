@@ -7,7 +7,6 @@ const control = vi.hoisted(() => ({
   posthog: {
     init: vi.fn(),
     capture: vi.fn(),
-    captureException: vi.fn(),
     __loaded: false,
   },
 }));
@@ -39,7 +38,6 @@ describe("initTelemetry", () => {
     vi.resetModules();
     posthog.init.mockClear();
     posthog.capture.mockClear();
-    posthog.captureException.mockClear();
     posthog.__loaded = false;
     process.env.NEXT_PUBLIC_POSTHOG_KEY = "phc_test123";
   });
@@ -57,7 +55,13 @@ describe("initTelemetry", () => {
       api_host: "https://custom.posthog.com",
       capture_pageview: false,
       capture_pageleave: true,
-      capture_exceptions: true,
+      // Anonymization posture: analytics only, never identity or error
+      // payloads — errors are Sentry's (lib/sentry.ts), and autocapture /
+      // recording would serialize on-screen PII (roster page DJ names/emails).
+      capture_exceptions: false,
+      person_profiles: "identified_only",
+      autocapture: false,
+      disable_session_recording: true,
     });
   });
 
@@ -100,7 +104,7 @@ describe("initTelemetry", () => {
     expect(posthog.init).not.toHaveBeenCalled();
   });
 
-  it("imports posthog-js exactly once when initTelemetry is called twice (StrictMode)", async () => {
+  it("imports posthog-js exactly once when initTelemetry is called twice (remount)", async () => {
     const mod = await loadTelemetry();
     mod.initTelemetry();
     mod.initTelemetry();
@@ -116,7 +120,6 @@ describe("safe capture contract", () => {
   beforeEach(() => {
     vi.resetModules();
     posthog.capture.mockReset();
-    posthog.captureException.mockReset();
     posthog.init.mockReset();
     posthog.__loaded = false;
     process.env.NEXT_PUBLIC_POSTHOG_KEY = "phc_test123";
@@ -144,34 +147,6 @@ describe("safe capture contract", () => {
     expect(() => safeCapture("some_event")).not.toThrow();
   });
 
-  it("safeCaptureException forwards an Error unchanged once loaded", async () => {
-    const err = new Error("boom");
-    const { safeCaptureException } = await initAndWait();
-    safeCaptureException(err, { domain: "flowsheet" });
-
-    expect(posthog.captureException).toHaveBeenCalledWith(err, {
-      domain: "flowsheet",
-    });
-  });
-
-  it("safeCaptureException wraps a non-Error value in an Error", async () => {
-    const { safeCaptureException } = await initAndWait();
-    safeCaptureException("just a string");
-
-    const captured = posthog.captureException.mock.calls[0][0];
-    expect(captured).toBeInstanceOf(Error);
-    expect((captured as Error).message).toBe("just a string");
-  });
-
-  it("safeCaptureException never throws when the SDK throws", async () => {
-    const { safeCaptureException } = await initAndWait();
-    posthog.captureException.mockImplementationOnce(() => {
-      throw new Error("posthog not initialized");
-    });
-
-    expect(() => safeCaptureException(new Error("boom"))).not.toThrow();
-  });
-
   it("safeCapturePageview emits $pageview with $current_url", async () => {
     const { safeCapturePageview } = await initAndWait();
     safeCapturePageview("https://wxyc.org/dashboard");
@@ -197,7 +172,6 @@ describe("pre-load buffer", () => {
   beforeEach(() => {
     vi.resetModules();
     posthog.capture.mockReset();
-    posthog.captureException.mockReset();
     posthog.init.mockReset();
     posthog.__loaded = false;
     process.env.NEXT_PUBLIC_POSTHOG_KEY = "phc_test123";
@@ -213,11 +187,9 @@ describe("pre-load buffer", () => {
 
     mod.safeCapturePageview("https://wxyc.org/live");
     mod.safeCapture("web_vitals", { name: "TTFB", value: 12 });
-    mod.safeCaptureException(new Error("early boom"));
 
     // Nothing forwarded while the chunk is still loading.
     expect(posthog.capture).not.toHaveBeenCalled();
-    expect(posthog.captureException).not.toHaveBeenCalled();
 
     await flush();
 
@@ -228,10 +200,6 @@ describe("pre-load buffer", () => {
       name: "TTFB",
       value: 12,
     });
-    expect(posthog.captureException.mock.calls[0][0]).toBeInstanceOf(Error);
-    expect(posthog.captureException.mock.calls[0][0].message).toBe(
-      "early boom"
-    );
   });
 
   it("no-ops (no buffering, no flush) when telemetry was never initialized", async () => {
@@ -253,14 +221,12 @@ describe("pre-load buffer", () => {
 
       // Buffer some events during the (doomed) load window.
       mod.safeCapture("early_event");
-      mod.safeCaptureException(new Error("early"));
       mod.safeCapturePageview("https://wxyc.org/live");
 
       // Let the rejected import settle; must not raise an unhandled rejection.
       await flush();
 
       expect(posthog.capture).not.toHaveBeenCalled();
-      expect(posthog.captureException).not.toHaveBeenCalled();
 
       // Post-failure captures also no-op (session stays dark, buffer cleared).
       mod.safeCapture("later_event");
