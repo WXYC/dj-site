@@ -61,7 +61,11 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
                   ml: -0.1,
                 }}
               >
-                {props.artist?.genre?.substring(0, 2)?.toUpperCase() ?? "—"}
+                {/* `||`, not `??`: a row can carry an empty genre string -- the adapters
+                    pass server text through verbatim and only map a null to the Unknown
+                    sentinel, because the classic screens must print what the JSP prints.
+                    `??` would render an empty badge for it instead of the dash. */}
+                {props.artist?.genre?.trim().substring(0, 2).toUpperCase() || "—"}
               </Typography>
             </Stack>
             <Stack

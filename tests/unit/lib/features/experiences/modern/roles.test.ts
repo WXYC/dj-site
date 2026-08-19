@@ -57,6 +57,21 @@ describe("genreTone", () => {
   // the table is a visual-design decision (palette coherence, contrast, which
   // tones are already load-bearing elsewhere), not something to add in passing
   // alongside a data change.
+  // A genre name is arbitrary server text, and an MD can create one by typing
+  // it (GenreAdmin only rejects blank). A plain object lookup answers
+  // Object.prototype members truthily, so `toneTable["constructor"]` returns a
+  // function rather than undefined, the `?? Unknown` fallback never fires, and
+  // the caller reads `.color` off it as undefined -- which AlbumArtwork feeds
+  // straight into `theme.vars.palette[...][400]` and crashes the results grid.
+  it.each(["constructor", "toString", "valueOf", "hasOwnProperty", "__proto__"])(
+    "resolves the inherited property name %s to the Unknown tone",
+    (name) => {
+      const tone = genreTone(name);
+      expect(tone).toEqual(GENRE_TONES.Unknown);
+      expect(typeof tone.color).toBe("string");
+    },
+  );
+
   it("keeps the genre tone table to its designed keys", () => {
     expect(Object.keys(GENRE_TONES).sort()).toEqual(
       [

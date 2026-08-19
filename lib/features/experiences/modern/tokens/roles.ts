@@ -64,8 +64,15 @@ export type GenreToneKey = keyof typeof GENRE_TONES;
  * touching the genre text beside it.
  */
 export function genreTone(genre: string | null | undefined): Tone {
+  // `Object.hasOwn` rather than a bare index: genre is arbitrary server text
+  // and an MD can create one by typing it, so a genre named "constructor" or
+  // "toString" would otherwise resolve to an Object.prototype member. That is
+  // truthy, so the fallback below never fires, and the caller reads `.color`
+  // off it as undefined -- which AlbumArtwork feeds into
+  // `theme.vars.palette[...][400]` and crashes the catalog grid.
+  const key = genre ?? "Unknown";
   const toneTable: Record<string, Tone | undefined> = GENRE_TONES;
-  return toneTable[genre ?? "Unknown"] ?? GENRE_TONES.Unknown;
+  return Object.hasOwn(GENRE_TONES, key) ? (toneTable[key] ?? GENRE_TONES.Unknown) : GENRE_TONES.Unknown;
 }
 
 export const FORMAT_TONES: Record<Format, FormatTone> = {
