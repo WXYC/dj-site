@@ -1,29 +1,11 @@
-import type { AlbumEntry, Format, Genre } from "@/lib/features/catalog/types";
+import type { AlbumEntry, Format } from "@/lib/features/catalog/types";
 import type { LmlLibraryItem } from "./types";
-
-const VALID_GENRES: ReadonlySet<string> = new Set<Genre>([
-  "Blues",
-  "Rock",
-  "Electronic",
-  "Hiphop",
-  "Jazz",
-  "Classical",
-  "Reggae",
-  "Soundtracks",
-  "OCS",
-  "Unknown",
-]);
 
 function normalizeFormat(format: string | null): Format {
   if (!format) return "Unknown";
   const lower = format.toLowerCase();
   if (lower.includes("vinyl")) return "Vinyl";
   if (lower.includes("cd")) return "CD";
-  return "Unknown";
-}
-
-function normalizeGenre(genre: string | null): Genre {
-  if (genre && VALID_GENRES.has(genre)) return genre as Genre;
   return "Unknown";
 }
 
@@ -51,7 +33,12 @@ export function convertLmlItemToAlbumEntry(item: LmlLibraryItem): AlbumEntry {
       name: item.artist ?? "",
       lettercode: item.call_letters ?? "",
       numbercode: item.artist_call_number ?? 0,
-      genre: normalizeGenre(item.genre),
+      // Verbatim. The genre vocabulary is server-owned (GET /library/genres)
+      // and grows without a dj-site deploy, so no local set of names can
+      // decide whether a value is real — testing against one rewrites
+      // correctly-filed releases into the "Unknown" sentinel, which is the
+      // UI's fallback for a row carrying no genre and nothing else.
+      genre: item.genre ?? "Unknown",
       id: undefined,
     },
     entry: item.release_call_number ?? 0,

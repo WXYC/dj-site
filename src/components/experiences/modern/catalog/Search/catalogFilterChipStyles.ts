@@ -1,4 +1,3 @@
-import type { Format, Genre } from "@/lib/features/catalog/types";
 import type { VariantProp } from "@mui/joy";
 import type { SxProps } from "@mui/joy/styles/types";
 
@@ -7,6 +6,7 @@ import {
   GENRE_TONES,
   ROTATION_TONES,
   type FormatTone,
+  type GenreToneKey,
 } from "@/lib/features/experiences/modern/tokens/roles";
 import type { Rotation } from "@/lib/features/rotation/types";
 import {
@@ -16,23 +16,22 @@ import {
 } from "./catalogFilterStyles";
 import { isCatalogRotationTag } from "./catalogTagFilters";
 
-const GENRE_KEYS: Genre[] = [
-  "Rock",
-  "Blues",
-  "Electronic",
-  "Hiphop",
-  "Jazz",
-  "Classical",
-  "Reggae",
-  "Soundtracks",
-  "OCS",
-  "Unknown",
-];
+// Read off the tone table rather than restated, so the two can't drift. These
+// are the genres with a designed chip color, NOT the genres that exist — that
+// list is server-owned and longer.
+const GENRE_TONE_KEYS = Object.keys(GENRE_TONES) as GenreToneKey[];
 
-export function genreNameToGenreKey(name: string): Genre {
+/**
+ * Resolve a server genre name to a tone-table key, case-insensitively. A genre
+ * with no designed color falls back to the neutral `Unknown` tone; only the
+ * chip's color degrades, the filter's label still reads the real genre.
+ */
+export function genreNameToGenreKey(name: string): GenreToneKey {
   const trimmed = name.trim();
   if (!trimmed) return "Unknown";
-  const hit = GENRE_KEYS.find((k) => k.toLowerCase() === trimmed.toLowerCase());
+  const hit = GENRE_TONE_KEYS.find(
+    (k) => k.toLowerCase() === trimmed.toLowerCase()
+  );
   return hit ?? "Unknown";
 }
 

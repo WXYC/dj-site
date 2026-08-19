@@ -101,16 +101,36 @@ describe("convertLmlItemToAlbumEntry", () => {
     "Reggae",
     "Soundtracks",
     "OCS",
-  ] as const)("should pass through valid genre %s", (genre) => {
+  ] as const)("should pass the genre %s through", (genre) => {
     const item = createTestLmlLibraryItem({ genre });
     const result = convertLmlItemToAlbumEntry(item);
     expect(result.artist.genre).toBe(genre);
   });
 
-  it("should default invalid genre to Unknown", () => {
+  // The library's genre vocabulary is server-owned — GET /library/genres is the
+  // authority, and it lists more genres than the modern experience has chip
+  // colors for. A genre with no designed chip color must still arrive as
+  // itself; substituting the "Unknown" sentinel is data loss, and it makes a
+  // correctly-filed release indistinguishable from one with no genre at all.
+  //
+  // Pinned by value, not by shape: an `expect.any(String)` assertion here
+  // would also pass while the sentinel was being substituted, which is the
+  // exact failure this guards.
+  it.each(["Africa", "Asia", "Comedy", "Latin", "Spoken", "Xmas"])(
+    "should carry the genre %s through even though no chip color is defined for it",
+    (genre) => {
+      const item = createTestLmlLibraryItem({ genre });
+      const result = convertLmlItemToAlbumEntry(item);
+      expect(result.artist.genre).toBe(genre);
+    },
+  );
+
+  it("should carry a genre dj-site has never heard of through unmodified", () => {
+    // The genre table grows without a dj-site deploy, so a value this build
+    // doesn't recognize is a genre added since it shipped, not one to discard.
     const item = createTestLmlLibraryItem({ genre: "Country" });
     const result = convertLmlItemToAlbumEntry(item);
-    expect(result.artist.genre).toBe("Unknown");
+    expect(result.artist.genre).toBe("Country");
   });
 
   it("should default a missing label to empty string", () => {

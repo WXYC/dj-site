@@ -1,5 +1,5 @@
 import type { ColorPaletteProp, VariantProp } from "@mui/joy/styles";
-import type { Format, Genre } from "@/lib/features/catalog/types";
+import type { Format } from "@/lib/features/catalog/types";
 import type { Rotation } from "@/lib/features/rotation/types";
 
 /**
@@ -23,7 +23,20 @@ export interface FormatTone {
   variant: VariantProp;
 }
 
-export const GENRE_TONES: Record<Genre, Tone> = {
+/**
+ * Chip tones for the genres the modern experience has a designed color for.
+ *
+ * This is a **presentation table, not the genre vocabulary**. The library's
+ * genres are server-owned (`GET /library/genres`) and the table grows without
+ * a dj-site deploy, so a genre missing from here is the normal case, not a bad
+ * value: it resolves to the neutral `Unknown` tone via `genreTone` and still
+ * renders its own name. Never read a miss as "that genre doesn't exist", and
+ * never use these keys to validate or rewrite genre data.
+ *
+ * `Unknown` is the fallback entry for a release with no genre at all; it is
+ * not one of the library's genres.
+ */
+export const GENRE_TONES = {
   Rock: { color: "primary", variant: "solid" },
   Blues: { color: "success", variant: "soft" },
   Electronic: { color: "success", variant: "solid" },
@@ -34,15 +47,25 @@ export const GENRE_TONES: Record<Genre, Tone> = {
   Soundtracks: { color: "neutral", variant: "soft" },
   OCS: { color: "success", variant: "soft" },
   Unknown: { color: "neutral", variant: "soft" },
-};
+} satisfies Record<string, Tone>;
 
 /**
- * Resolve any genre value (possibly missing or not a known `Genre`) to its
- * tone. Mirrors `formatTone` so callers never index GENRE_TONES with an
- * unvalidated string.
+ * A key of the tone table above — i.e. a genre dj-site happens to have a chip
+ * color for. Derived from the table so the two can never drift. This is a
+ * styling subset and makes no claim about which genres exist; genre data is
+ * typed `string` (`ArtistEntry.genre`).
+ */
+export type GenreToneKey = keyof typeof GENRE_TONES;
+
+/**
+ * Resolve any genre value (possibly missing, possibly one with no designed
+ * color) to its tone. Mirrors `formatTone` so callers never index GENRE_TONES
+ * with an unvalidated string, and so a miss degrades the chip's color without
+ * touching the genre text beside it.
  */
 export function genreTone(genre: string | null | undefined): Tone {
-  return GENRE_TONES[(genre ?? "Unknown") as Genre] ?? GENRE_TONES.Unknown;
+  const toneTable: Record<string, Tone | undefined> = GENRE_TONES;
+  return toneTable[genre ?? "Unknown"] ?? GENRE_TONES.Unknown;
 }
 
 export const FORMAT_TONES: Record<Format, FormatTone> = {
