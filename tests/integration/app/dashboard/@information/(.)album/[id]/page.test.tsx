@@ -119,6 +119,27 @@ describe("AlbumPopup — permalinkable album modal (#979)", () => {
     expect(mockBack).not.toHaveBeenCalled();
   });
 
+  it("unmounts the dialog immediately on dismissal, before any navigation lands", () => {
+    // The navigation that follows a dismissal does not reliably re-render
+    // this intercepted slot, so the dialog must disappear from local state
+    // at click time, not when the router catches up.
+    mockUseGetInformationQuery.mockReturnValue(foundAlbum);
+    setHistoryLength(2);
+    renderWithProviders(<AlbumPopup />);
+    fireEvent.click(screen.getByLabelText("Close album detail"));
+    expect(screen.queryByLabelText("Close album detail")).not.toBeInTheDocument();
+  });
+
+  it("unmounts the dialog on browser back to a non-album URL", () => {
+    mockUseGetInformationQuery.mockReturnValue(foundAlbum);
+    renderWithProviders(<AlbumPopup />);
+    expect(screen.getByLabelText("Close album detail")).toBeInTheDocument();
+
+    window.history.replaceState(null, "", "/dashboard/catalog");
+    fireEvent.popState(window);
+    expect(screen.queryByLabelText("Close album detail")).not.toBeInTheDocument();
+  });
+
   it("renders nothing once the pathname leaves the album route", () => {
     // After a dismissal back(), the router can leave this intercepted slot
     // mounted with stale content while the URL is already the underlying
