@@ -95,9 +95,7 @@ export function convertToAlbumEntry(
       name: response.artist_name ?? "",
       lettercode: response.code_letters ?? "",
       numbercode: response.code_artist_number ?? 0,
-      // Verbatim: the genre vocabulary is server-owned and wider than
-      // anything dj-site enumerates. "Unknown" is the UI fallback for a row
-      // that has no genre, never a stand-in for one dj-site can't style.
+      // Verbatim; the sentinel is for a row with no genre. See `ArtistEntry.genre`.
       genre: response.genre_name ?? "Unknown",
       id: isSearchResult(response)
         ? ((response as Record<string, unknown>).artist_id as number | undefined)

@@ -16,6 +16,14 @@ interface ArtistAvatarProps {
   format?: Format;
 }
 
+/**
+ * Two-letter badge for a genre or format. `||`, not `??`: either can arrive as
+ * the empty string — the adapters carry server text verbatim and map only null
+ * to a sentinel — and `??` would render a blank badge instead of the dash.
+ */
+const badgeAbbrev = (value: string | null | undefined): string =>
+  value?.trim().substring(0, 2).toUpperCase() || "—";
+
 export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
   const tone = genreTone(props.artist?.genre);
   const color_choice = tone.color;
@@ -61,11 +69,7 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
                   ml: -0.1,
                 }}
               >
-                {/* `||`, not `??`: a row can carry an empty genre string -- the adapters
-                    pass server text through verbatim and only map a null to the Unknown
-                    sentinel, because the classic screens must print what the JSP prints.
-                    `??` would render an empty badge for it instead of the dash. */}
-                {props.artist?.genre?.trim().substring(0, 2).toUpperCase() || "—"}
+                {badgeAbbrev(props.artist?.genre)}
               </Typography>
             </Stack>
             <Stack
@@ -115,9 +119,7 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
                   fontSize: "0.6rem",
                 }}
               >
-                {props.format == "Unknown"
-                  ? "—"
-                  : props.format?.substring(0, 2).toUpperCase() ?? "--"}
+                {props.format === "Unknown" ? "—" : badgeAbbrev(props.format)}
               </Typography>
             </Stack>
           </Stack>

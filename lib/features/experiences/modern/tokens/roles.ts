@@ -58,21 +58,25 @@ export const GENRE_TONES = {
 export type GenreToneKey = keyof typeof GENRE_TONES;
 
 /**
- * Resolve any genre value (possibly missing, possibly one with no designed
- * color) to its tone. Mirrors `formatTone` so callers never index GENRE_TONES
- * with an unvalidated string, and so a miss degrades the chip's color without
- * touching the genre text beside it.
+ * Case-insensitive index over the tone table. A Map rather than the object
+ * itself: a plain-object lookup answers `Object.prototype` members truthily,
+ * so a genre named "constructor" would resolve to a function and the caller
+ * would read `.color` off it as undefined. Genre is arbitrary server text and
+ * an MD can create one by typing it, so that input is reachable.
+ */
+const GENRE_TONE_BY_NAME = new Map<string, Tone>(
+  Object.entries(GENRE_TONES).map(([name, tone]) => [name.toLowerCase(), tone])
+);
+
+/**
+ * Resolve any genre value — missing, or one with no designed color — to its
+ * tone. Matching is case- and whitespace-insensitive so the filter chips and
+ * the result chips agree on a genre however the server cased it. A miss
+ * degrades the chip's color only; the genre text beside it is untouched.
  */
 export function genreTone(genre: string | null | undefined): Tone {
-  // `Object.hasOwn` rather than a bare index: genre is arbitrary server text
-  // and an MD can create one by typing it, so a genre named "constructor" or
-  // "toString" would otherwise resolve to an Object.prototype member. That is
-  // truthy, so the fallback below never fires, and the caller reads `.color`
-  // off it as undefined -- which AlbumArtwork feeds into
-  // `theme.vars.palette[...][400]` and crashes the catalog grid.
-  const key = genre ?? "Unknown";
-  const toneTable: Record<string, Tone | undefined> = GENRE_TONES;
-  return Object.hasOwn(GENRE_TONES, key) ? (toneTable[key] ?? GENRE_TONES.Unknown) : GENRE_TONES.Unknown;
+  const key = genre?.trim().toLowerCase();
+  return (key ? GENRE_TONE_BY_NAME.get(key) : undefined) ?? GENRE_TONES.Unknown;
 }
 
 export const FORMAT_TONES: Record<Format, FormatTone> = {

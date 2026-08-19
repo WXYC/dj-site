@@ -116,7 +116,7 @@ describe("convertLmlItemToAlbumEntry", () => {
   // Pinned by value, not by shape: an `expect.any(String)` assertion here
   // would also pass while the sentinel was being substituted, which is the
   // exact failure this guards.
-  it.each(["Africa", "Asia", "Comedy", "Latin", "Spoken", "Xmas"])(
+  it.each(["Africa", "Asia", "Comedy", "Latin", "Spoken", "Xmas", "Country"])(
     "should carry the genre %s through even though no chip color is defined for it",
     (genre) => {
       const item = createTestLmlLibraryItem({ genre });
@@ -144,13 +144,6 @@ describe("convertLmlItemToAlbumEntry", () => {
     expect(convertLmlItemToAlbumEntry(item).artist.genre).toBe("");
   });
 
-  it("should carry a genre dj-site has never heard of through unmodified", () => {
-    // The genre table grows without a dj-site deploy, so a value this build
-    // doesn't recognize is a genre added since it shipped, not one to discard.
-    const item = createTestLmlLibraryItem({ genre: "Country" });
-    const result = convertLmlItemToAlbumEntry(item);
-    expect(result.artist.genre).toBe("Country");
-  });
 
   it("should default a missing label to empty string", () => {
     const item = createTestLmlLibraryItem();

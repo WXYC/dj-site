@@ -1,18 +1,11 @@
 import { describe, it, expect } from "vitest";
 import {
-  genreNameToGenreKey,
   getFormatFilterChipProps,
   getGenreFilterChipProps,
   getTagFilterChipProps,
 } from "@/src/components/experiences/modern/catalog/Search/catalogFilterChipStyles";
 
 describe("catalogFilterChipStyles", () => {
-  it("maps genre names case-insensitively", () => {
-    expect(genreNameToGenreKey("rock")).toBe("Rock");
-    expect(genreNameToGenreKey("JAZZ")).toBe("Jazz");
-    expect(genreNameToGenreKey("Not Real")).toBe("Unknown");
-  });
-
   it("uses ArtistAvatar genre palettes", () => {
     expect(getGenreFilterChipProps("Rock")).toEqual({
       color: "primary",

@@ -180,10 +180,7 @@ describe("catalog conversions", () => {
       });
 
       it("passes an empty genre through rather than inventing the sentinel", () => {
-        const result = convertToAlbumEntry({
-          ...linkedRow,
-          genre_name: "",
-        } as unknown as AlbumSearchResultJSON);
+        const result = convertToAlbumEntry({ ...linkedRow, genre_name: "" });
         expect(result.artist.genre).toBe("");
       });
     });
