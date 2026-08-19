@@ -273,12 +273,39 @@ jobs:
           timeout 5 bash -c 'until curl -sf -X POST -H "Content-Type: application/json" --data "{}" http://localhost:9091/ >/dev/null; do sleep 0.1; done'
           echo "Mock tubafrenzy ready"
 
+      # Read the RESOLVED version out of the lockfile rather than the `^1.62.1`
+      # range in package.json: the range is stable across the patch bumps that
+      # actually change the browser build, so keying on it would serve stale
+      # binaries. `-re` makes jq exit non-zero if the path is missing, which
+      # fails this step loudly — an empty version would collapse every
+      # Playwright release into one cache entry, the exact hazard this avoids.
+      - name: Resolve Playwright version
+        id: playwright-version
+        run: |
+          set -euo pipefail
+          version=$(jq -re '.packages["node_modules/@playwright/test"].version' dj-site/package-lock.json)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Resolved @playwright/test $version"
+
       - name: Cache Playwright browsers
         id: playwright-cache
         uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ hashFiles('dj-site/package-lock.json') }}
+          # Keyed on the Playwright version, NOT the whole lockfile hash. The
+          # browser binaries depend on the Playwright release and nothing else,
+          # so hashing the entire dependency graph meant one unrelated
+          # devDependency bump re-downloaded Chromium on all four shards at
+          # once -- which, combined with a simultaneously-cold Next build, is
+          # what pushed shards past `timeout-minutes: 15`.
+          #
+          # No `restore-keys` here on purpose. A partial restore would leave a
+          # browser set from a different release in place, and the install step
+          # below skips work on `cache-hit == 'true'`, which is only set by an
+          # EXACT key match. Adding restore-keys would therefore never save the
+          # install anyway, and would only make what is on disk harder to
+          # reason about. A version change should download; that is correct.
+          key: playwright-${{ steps.playwright-version.outputs.version }}
 
       - name: Install dependencies
         env:
