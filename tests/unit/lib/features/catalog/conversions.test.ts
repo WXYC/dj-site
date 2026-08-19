@@ -160,7 +160,7 @@ describe("catalog conversions", () => {
     // sentinel is a UI fallback for a *missing* genre, not a substitute for
     // one dj-site has no styling for.
     describe("genre passthrough", () => {
-      it.each(["Africa", "Asia", "Comedy", "Latin", "Spoken", "Xmas"])(
+      it.each(["Africa", "Asia", "Comedy", "Latin", "Spoken", "Xmas", "Country"])(
         "carries the genre %s through even though no chip color is defined for it",
         (genre) => {
           const result = convertToAlbumEntry({ ...linkedRow, genre_name: genre });
@@ -187,10 +187,9 @@ describe("catalog conversions", () => {
 
     // Format is server-owned data too: GET /library/formats is the authority
     // and a music director creates a format by typing its name, so the shelf
-    // really holds values like "Cassette" and '12" Vinyl'. This is the same
-    // table the LML adapter is held to in lml-conversions.test.ts — the picker
-    // interleaves rows from both and a DJ cannot tell which produced a row, so
-    // the two must emit the same text, character for character.
+    // really holds values like "Cassette" and '12" Vinyl'. Each adapter asserts
+    // identity on its own values, which is what makes the two agree: two
+    // functions that both return their input cannot disagree about it.
     describe("format passthrough", () => {
       it.each([
         "Vinyl",

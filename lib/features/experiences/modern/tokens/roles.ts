@@ -52,13 +52,6 @@ export const GENRE_TONES = {
   Unknown: { color: "neutral", variant: "soft" },
 } satisfies Record<string, Tone>;
 
-/**
- * A key of the tone table above — i.e. a genre dj-site happens to have a chip
- * color for. Derived from the table so the two can never drift. This is a
- * styling subset and makes no claim about which genres exist; genre data is
- * typed `string` (`ArtistEntry.genre`).
- */
-export type GenreToneKey = keyof typeof GENRE_TONES;
 
 /**
  * Case-insensitive index over the tone table. A Map rather than the object
@@ -100,13 +93,6 @@ export const FORMAT_TONES = {
   Unknown: { color: "neutral", variant: "soft" },
 } satisfies Record<string, FormatTone>;
 
-/**
- * A key of the tone table above — i.e. a format dj-site happens to have a chip
- * hue for. Derived from the table so the two can never drift. This is a
- * styling subset and makes no claim about which formats exist; format data is
- * typed `string` (`AlbumEntry.format`).
- */
-export type FormatToneKey = keyof typeof FORMAT_TONES;
 
 /**
  * Resolve any format value — missing, or one with no dedicated hue — to its
@@ -124,23 +110,21 @@ export function formatTone(format: string | null | undefined): FormatTone {
 }
 
 /**
- * The text of a format chip. Server-owned text, presented — never rewritten:
- * only the two attested bare lowercase spellings are tidied ("cd" -> "CD",
- * "vinyl" -> "Vinyl"), and anything already carrying casing or punctuation is
- * left alone rather than title-case-mangled into "Cd-r" or `12" vinyl`.
+ * The text of a format chip: server text presented, never rewritten. Only the
+ * two bare lowercase spellings the library actually contains are tidied;
+ * everything else is returned as sent, including a format nobody anticipated.
  *
- * Every format chip in the modern experience resolves through this one
- * function, alongside `formatTone` over the same text. Two labellers drift:
- * the picker interleaves rows from more than one conversion path, and a DJ
- * cannot tell which drew a given row, so a second implementation shows the
- * same release under two names.
+ * A lookup rather than a title-case rule, because title-casing rewrites — it
+ * turns a server's "lp" into "Lp", which is the same data loss this module's
+ * tables exist to avoid, just one layer down in the label.
  */
+const TIDIED_SPELLINGS = new Map([
+  ["cd", "CD"],
+  ["vinyl", "Vinyl"],
+]);
+
 export function formatLabel(format: string): string {
-  if (/^cd$/i.test(format)) return "CD";
-  if (/^[a-z]+$/.test(format)) {
-    return format.charAt(0).toUpperCase() + format.slice(1);
-  }
-  return format;
+  return TIDIED_SPELLINGS.get(format.toLowerCase()) ?? format;
 }
 
 export const ROTATION_TONES: Record<Rotation, Tone> = {
