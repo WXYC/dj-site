@@ -267,7 +267,20 @@ export type AlbumEntry = {
   title: string;
   artist: ArtistEntry;
   entry: number;
-  format: Format;
+  /**
+   * The format name exactly as the server filed it. The vocabulary is
+   * server-owned — `GET /library/formats` is the authority and a music
+   * director creates a format by typing its name — so this is a plain string,
+   * never a union dj-site maintains a copy of. A conversion path must carry
+   * the value through unmodified; narrowing it to a locally-known set both
+   * erases formats the station really shelves (`Cassette`) and renames ones it
+   * recognises (`12" Vinyl` is not `Vinyl`).
+   *
+   * `"Unknown"` is dj-site's own fallback for a row that carries *no* format.
+   * It is not a row in the library's format table, so it must only ever appear
+   * where the source value was missing.
+   */
+  format: string;
   alternate_artist: string | undefined;
   album_artist?: string;
   rotation_bin: Rotation | undefined;
@@ -356,8 +369,6 @@ export type LibraryQueryParams = {
   /** Comma-separated active rotation bins (H, M, L, S). */
   rotation_bins?: string;
 };
-
-export type Format = "Vinyl" | "CD" | "Unknown";
 
 export type SearchIn = "Artists" | "Albums" | "All";
 

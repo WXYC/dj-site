@@ -1,5 +1,4 @@
 import type { ColorPaletteProp, VariantProp } from "@mui/joy/styles";
-import type { Format } from "@/lib/features/catalog/types";
 import type { Rotation } from "@/lib/features/rotation/types";
 
 /**
@@ -11,6 +10,10 @@ import type { Rotation } from "@/lib/features/rotation/types";
  * Layer A (real distinct colors: sidebar/format hues, exclusive purple, on-air
  * red, rotation bins) lives in the theme palette and is consumed via
  * `theme.vars.palette.*`.
+ *
+ * Where a role's *text* also needs a shared presentation rule, its resolver
+ * lives beside the tone table rather than in a component, so the two cannot
+ * disagree about the same value.
  */
 export interface Tone {
   color: ColorPaletteProp;
@@ -79,22 +82,65 @@ export function genreTone(genre: string | null | undefined): Tone {
   return (key ? GENRE_TONE_BY_NAME.get(key) : undefined) ?? GENRE_TONES.Unknown;
 }
 
-export const FORMAT_TONES: Record<Format, FormatTone> = {
+/**
+ * Chip tones for the two formats the modern experience gives a dedicated hue.
+ *
+ * This is a **presentation table, not the format vocabulary**. The library's
+ * formats are server-owned (`GET /library/formats`) and a music director
+ * creates one by typing its name, so the shelf holds values like `Cassette`
+ * and `7-inch Single` that have no hue here. Never use these keys to validate
+ * or rewrite format data.
+ *
+ * `Unknown` is the fallback entry for a release with no format at all; it is
+ * not one of the library's formats.
+ */
+export const FORMAT_TONES = {
   Vinyl: { color: "formatVinyl", variant: "soft" },
   CD: { color: "formatCd", variant: "soft" },
   Unknown: { color: "neutral", variant: "soft" },
-};
+} satisfies Record<string, FormatTone>;
 
 /**
- * Resolve any format string to its tone. `Format` is a cast string, not a real
- * closed union (the backend sends "cd", "LP", "CD-R", …), so callers must NOT
- * index FORMAT_TONES directly — normalize here and always return a valid tone.
+ * A key of the tone table above — i.e. a format dj-site happens to have a chip
+ * hue for. Derived from the table so the two can never drift. This is a
+ * styling subset and makes no claim about which formats exist; format data is
+ * typed `string` (`AlbumEntry.format`).
+ */
+export type FormatToneKey = keyof typeof FORMAT_TONES;
+
+/**
+ * Resolve any format value — missing, or one with no dedicated hue — to its
+ * tone. Matching is by substring rather than by key, deliberately: the shelf
+ * files `12" Vinyl` and `CD-R`, and those are still a record and a disc, so
+ * they earn the vinyl and CD hues that let a DJ read the medium off the row at
+ * a glance. Anything else degrades to neutral. A miss changes the chip's hue
+ * only; the format text beside it is untouched.
  */
 export function formatTone(format: string | null | undefined): FormatTone {
   const f = (format ?? "").toLowerCase();
   if (f.includes("vinyl")) return FORMAT_TONES.Vinyl;
   if (f.includes("cd")) return FORMAT_TONES.CD;
   return FORMAT_TONES.Unknown;
+}
+
+/**
+ * The text of a format chip. Server-owned text, presented — never rewritten:
+ * only the two attested bare lowercase spellings are tidied ("cd" -> "CD",
+ * "vinyl" -> "Vinyl"), and anything already carrying casing or punctuation is
+ * left alone rather than title-case-mangled into "Cd-r" or `12" vinyl`.
+ *
+ * Every format chip in the modern experience resolves through this one
+ * function, alongside `formatTone` over the same text. Two labellers drift:
+ * the picker interleaves rows from more than one conversion path, and a DJ
+ * cannot tell which drew a given row, so a second implementation shows the
+ * same release under two names.
+ */
+export function formatLabel(format: string): string {
+  if (/^cd$/i.test(format)) return "CD";
+  if (/^[a-z]+$/.test(format)) {
+    return format.charAt(0).toUpperCase() + format.slice(1);
+  }
+  return format;
 }
 
 export const ROTATION_TONES: Record<Rotation, Tone> = {

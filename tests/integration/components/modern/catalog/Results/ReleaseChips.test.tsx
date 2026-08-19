@@ -42,14 +42,14 @@ describe("ReleaseChips", () => {
 
   it("should tidy attested lowercase formats but preserve arbitrary ones", () => {
     const { unmount } = renderWithProviders(
-      <ReleaseChips genre="Rock" format={"vinyl" as never} onStreaming={undefined} />
+      <ReleaseChips genre="Rock" format="vinyl" onStreaming={undefined} />
     );
     // Bare lowercase "vinyl" is presented as "Vinyl".
     expect(screen.getByText("Vinyl")).toBeDefined();
     unmount();
 
     renderWithProviders(
-      <ReleaseChips genre="Rock" format={"CD-R" as never} onStreaming={undefined} />
+      <ReleaseChips genre="Rock" format="CD-R" onStreaming={undefined} />
     );
     // Anything with existing casing/punctuation is preserved, not "Cd-r".
     expect(screen.getByText("CD-R")).toBeDefined();

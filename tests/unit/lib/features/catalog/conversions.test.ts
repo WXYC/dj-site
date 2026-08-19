@@ -185,6 +185,42 @@ describe("catalog conversions", () => {
       });
     });
 
+    // Format is server-owned data too: GET /library/formats is the authority
+    // and a music director creates a format by typing its name, so the shelf
+    // really holds values like "Cassette" and '12" Vinyl'. This is the same
+    // table the LML adapter is held to in lml-conversions.test.ts — the picker
+    // interleaves rows from both and a DJ cannot tell which produced a row, so
+    // the two must emit the same text, character for character.
+    describe("format passthrough", () => {
+      it.each([
+        "Vinyl",
+        "vinyl",
+        "Vinyl LP",
+        '12" Vinyl',
+        "CD",
+        "cd",
+        "CD-R",
+        "Cassette",
+        "7-inch Single",
+      ])("carries the format %s through unmodified", (format) => {
+        const result = convertToAlbumEntry({ ...linkedRow, format_name: format });
+        expect(result.format).toBe(format);
+      });
+
+      it("falls back to the Unknown sentinel when the row carries no format", () => {
+        const result = convertToAlbumEntry({
+          ...linkedRow,
+          format_name: null,
+        } as unknown as AlbumSearchResultJSON);
+        expect(result.format).toBe("Unknown");
+      });
+
+      it("passes an empty format through rather than inventing the sentinel", () => {
+        const result = convertToAlbumEntry({ ...linkedRow, format_name: "" });
+        expect(result.format).toBe("");
+      });
+    });
+
     describe("library-linked rotation rows", () => {
       it("preserves rotation_id", () => {
         const result = convertToAlbumEntry(linkedRow);

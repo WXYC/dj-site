@@ -185,6 +185,25 @@ describe("Classic MissingReleases — missingReleases.jsp", () => {
       expect(genreCellOf("Edits")).toBeEmptyDOMElement();
     });
 
+    it("prints the row's format verbatim, inventing no fallback of its own", async () => {
+      mockMissingReleasePages([
+        missingRow({ format_name: '12" Vinyl' }),
+        missingRow({ id: 4203, album_title: "Edits", format_name: "" }),
+      ]);
+
+      await renderAndSettle();
+
+      const formatCellOf = (title: string) =>
+        within(screen.getByText(title).closest("tr")!).getAllByRole("cell")[0];
+      // The format vocabulary is the server's, and a music director adds to it
+      // by typing a name — so the shelf really holds values like this one, and
+      // narrowing them to a vinyl/CD pair renames releases on screen.
+      expect(formatCellOf("On Your Own Love Again")).toHaveTextContent('12" Vinyl');
+      // The JSP's <c:out> prints nothing for a format it has no value for, and
+      // this screen must not substitute a word for it.
+      expect(formatCellOf("Edits")).toBeEmptyDOMElement();
+    });
+
     it("shows 'Unknown' rather than a formatted date when date_lost is absent", async () => {
       mockMissingReleasePages([missingRow({ date_lost: undefined })]);
 

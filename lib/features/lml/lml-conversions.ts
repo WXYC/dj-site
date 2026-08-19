@@ -1,13 +1,5 @@
-import type { AlbumEntry, Format } from "@/lib/features/catalog/types";
+import type { AlbumEntry } from "@/lib/features/catalog/types";
 import type { LmlLibraryItem } from "./types";
-
-function normalizeFormat(format: string | null): Format {
-  if (!format) return "Unknown";
-  const lower = format.toLowerCase();
-  if (lower.includes("vinyl")) return "Vinyl";
-  if (lower.includes("cd")) return "CD";
-  return "Unknown";
-}
 
 /**
  * Converts an LML library search result to the frontend `AlbumEntry` type.
@@ -38,7 +30,8 @@ export function convertLmlItemToAlbumEntry(item: LmlLibraryItem): AlbumEntry {
       id: undefined,
     },
     entry: item.release_call_number ?? 0,
-    format: normalizeFormat(item.format),
+    // Verbatim; the sentinel is for a row with no format. See `AlbumEntry.format`.
+    format: item.format ?? "Unknown",
     alternate_artist: item.alternate_artist_name ?? "",
     label: item.label ?? "",
     on_streaming: item.on_streaming ?? undefined,

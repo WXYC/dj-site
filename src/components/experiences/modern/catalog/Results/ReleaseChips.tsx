@@ -3,9 +3,9 @@
 import Chip from "@mui/joy/Chip";
 import Stack from "@mui/joy/Stack";
 
-import { Format } from "@/lib/features/catalog/types";
 import { Rotation } from "@/lib/features/rotation/types";
 import {
+  formatLabel,
   formatTone,
   genreTone,
   ROTATION_TONES,
@@ -22,19 +22,6 @@ const chipSx = {
   "--Chip-paddingInline": "6px",
 } as const;
 
-// `Format` is a cast string, not a real closed union (conversions.ts casts
-// `format_name as Format`), so normalize only the attested bare lowercase
-// values ("cd" -> "CD", "vinyl" -> "Vinyl") and preserve anything that
-// already carries casing or punctuation ("CD-R", "LP", "7-inch Single",
-// "Unknown") rather than title-case-mangling it.
-function formatLabel(format: Format): string {
-  if (/^cd$/i.test(format)) return "CD";
-  if (/^[a-z]+$/.test(format)) {
-    return format.charAt(0).toUpperCase() + format.slice(1);
-  }
-  return format;
-}
-
 export function ReleaseChips({
   genre,
   format,
@@ -44,7 +31,9 @@ export function ReleaseChips({
   // Server-owned text (see ArtistEntry.genre) — rendered as sent. `genreTone`
   // absorbs the ones with no designed chip color.
   genre: string;
-  format: Format;
+  // Server-owned text (see AlbumEntry.format) — presented via `formatLabel`,
+  // never narrowed. `formatTone` absorbs the ones with no dedicated hue.
+  format: string;
   rotation?: Rotation;
   onStreaming: boolean | undefined;
 }) {

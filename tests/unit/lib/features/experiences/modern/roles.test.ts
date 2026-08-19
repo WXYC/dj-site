@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  formatLabel,
   formatTone,
   FORMAT_TONES,
   genreTone,
@@ -8,9 +9,11 @@ import {
 } from "@/lib/features/experiences/modern/tokens/roles";
 
 describe("formatTone", () => {
-  // `Format` is a cast string, not a closed union — the backend sends "cd",
-  // "LP", "CD-R", etc. formatTone must never index-crash and always return a
-  // valid tone (regression: ArtistAvatar crashed on FORMAT_TONES["cd"].color).
+  // Format is server-owned text, not a closed union — the shelf holds "cd",
+  // "LP", "CD-R", '12" Vinyl', "Cassette". Resolution is deliberately fuzzy
+  // (substring, case-insensitive) rather than exact-key: a format whose name
+  // merely *contains* Vinyl or CD still earns the dedicated hue, and anything
+  // else degrades to neutral instead of index-crashing.
   it.each([
     ["Vinyl", FORMAT_TONES.Vinyl],
     ["vinyl", FORMAT_TONES.Vinyl],
@@ -28,6 +31,15 @@ describe("formatTone", () => {
   it("handles null/undefined without throwing", () => {
     expect(formatTone(undefined)).toEqual(FORMAT_TONES.Unknown);
     expect(formatTone(null)).toEqual(FORMAT_TONES.Unknown);
+  });
+
+  // FORMAT_TONES is a presentation table, not the format vocabulary, and it is
+  // pinned so it is never mistaken for one: the two dedicated hues plus the
+  // neutral fallback for a release with no format at all. Every other format
+  // the station files under reaches a hue through the substring match above,
+  // or degrades to the fallback.
+  it("keeps the format tone table to its designed keys", () => {
+    expect(Object.keys(FORMAT_TONES).sort()).toEqual(["CD", "Unknown", "Vinyl"]);
   });
 });
 
@@ -100,6 +112,33 @@ describe("genreTone", () => {
         "Unknown",
       ],
     );
+  });
+});
+
+describe("formatLabel", () => {
+  // One label helper for every format chip in the modern experience. Two
+  // helpers drift: a result row and a picker row showing the same release
+  // must not disagree on its format, and the DJ has no way to tell which code
+  // path drew which row.
+  it.each([
+    ["cd", "CD"],
+    ["CD", "CD"],
+    ["vinyl", "Vinyl"],
+  ])("tidies the bare lowercase format %s to %s", (input, expected) => {
+    expect(formatLabel(input)).toBe(expected);
+  });
+
+  // Anything already carrying casing or punctuation is a name the station
+  // chose; title-casing it would render "Cd-r" and '12" vinyl'.
+  it.each(["CD-R", "LP", '12" Vinyl', "7-inch Single", "Cassette", "Unknown"])(
+    "preserves %s as sent",
+    (format) => {
+      expect(formatLabel(format)).toBe(format);
+    },
+  );
+
+  it("leaves an empty format empty rather than inventing a placeholder", () => {
+    expect(formatLabel("")).toBe("");
   });
 });
 

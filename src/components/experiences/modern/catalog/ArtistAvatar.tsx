@@ -1,5 +1,5 @@
 import type { JSX } from "react";
-import { ArtistEntry, Format } from "@/lib/features/catalog/types";
+import { ArtistEntry } from "@/lib/features/catalog/types";
 import { Rotation } from "@/lib/features/rotation/types";
 import {
   formatTone,
@@ -13,7 +13,7 @@ interface ArtistAvatarProps {
   entry?: number;
   background?: string;
   rotation?: Rotation;
-  format?: Format;
+  format?: string;
 }
 
 /**
