@@ -18,6 +18,9 @@ import {
   AlbumEntry,
   AlbumSearchResultJSON,
   AlbumRequestParams,
+  ArtistCard,
+  ArtistReleasesQuery,
+  ArtistReleasesResponse,
   CompilationTrackInput,
   CompilationTrackList,
   CompilationTrackSuggestions,
@@ -31,6 +34,7 @@ import {
   SearchArtistsInGenreResponse,
   SearchCatalogQueryParams,
   UpdateAlbumRequestBody,
+  UpdateArtistRequestBody,
 } from "./types";
 
 type LibraryQueryResponseJSON = {
@@ -69,7 +73,7 @@ function transformLibraryQueryResponse(
 export const catalogApi = createApi({
   reducerPath: "catalogApi",
   baseQuery: backendBaseQuery("library"),
-  tagTypes: ["Rotation", "AlbumDetail", "CatalogList", "ArtistSearch", "FormatList", "GenreList", "ArtistCodePeek", "CompilationTracks"],
+  tagTypes: ["Rotation", "AlbumDetail", "CatalogList", "ArtistSearch", "FormatList", "GenreList", "ArtistCodePeek", "CompilationTracks", "ArtistCard", "ArtistReleaseList"],
   endpoints: (builder) => ({
     searchCatalog: builder.query<AlbumEntry[], SearchCatalogQueryParams>({
       query: ({ artist_name, album_title, n, on_streaming }) => ({
@@ -146,7 +150,23 @@ export const catalogApi = createApi({
       // paginated/sorted infinite query, so a new row can't be patched into
       // the cache coherently (its correct page may be unloaded). Invalidate
       // the list instead so the panel refetches.
-      invalidatesTags: [{ type: "CatalogList", id: "LIST" }],
+      //
+      // The artist card's release table is invalidated for a second reason,
+      // not the same one: its shelf order is server-assigned. `POST /library`
+      // derives `code_number` itself (`generateAlbumCodeNumber`, max+1 for the
+      // artist), so the client cannot know where the new row lands, and the
+      // add-release form sits directly above the table it changes. Keyed by
+      // the artist the release was filed under -- when the caller identified
+      // that artist by id. A caller that sent only `artist_name` leaves the
+      // backend to resolve the id, so the specific list to refresh isn't
+      // knowable here; those invalidate the whole tag rather than guessing.
+      invalidatesTags: (_result, _error, body) => [
+        { type: "CatalogList", id: "LIST" },
+        {
+          type: "ArtistReleaseList",
+          id: body.artist_id != null ? String(body.artist_id) : "LIST",
+        },
+      ],
     }),
     updateAlbum: builder.mutation<AlbumEntry, { albumId: number; body: UpdateAlbumRequestBody }>({
       query: ({ albumId, body }) => ({
@@ -245,6 +265,56 @@ export const catalogApi = createApi({
         if (error.status !== 409) return [];
         return isArtistNameConflictData(error.data) ? [] : [codePeekTag];
       },
+    }),
+    /** The header of `/wxycdb`'s artist card (`artistCardModify.jsp`). */
+    getArtistCard: builder.query<ArtistCard, number>({
+      query: (artistId) => ({ url: `/artists/${artistId}` }),
+      // The shared base query soft-fails an unparseable body into a
+      // successful `null` payload. Here that would render as an artist card
+      // with blank names and a blank shelf code -- a screen that looks like a
+      // catalogued artist with missing data rather than like an outage, and
+      // whose add-release form would then file against an id the librarian
+      // was never shown the name of.
+      extraOptions: { surfaceNonJsonAsError: true },
+      providesTags: (_result, _error, artistId) => [
+        { type: "ArtistCard", id: String(artistId) },
+      ],
+    }),
+    /**
+     * `modifyArtist`'s one writable field. See `UpdateArtistRequestBody` for
+     * why the JSP's other four are absent.
+     */
+    updateArtistCard: builder.mutation<
+      { id: number; artist_name: string; alphabetical_name: string },
+      { artistId: number; body: UpdateArtistRequestBody }
+    >({
+      query: ({ artistId, body }) => ({
+        url: `/artists/${artistId}`,
+        method: "PATCH",
+        body,
+      }),
+      // The card refetches so the row reflects what was stored rather than
+      // what was typed -- the backend NFC-normalizes `alphabetical_name` on
+      // write, so the two can legitimately differ.
+      invalidatesTags: (_result, _error, { artistId }) => [
+        { type: "ArtistCard", id: String(artistId) },
+      ],
+    }),
+    /** The artist card's release table, in shelf order. */
+    getArtistReleases: builder.query<ArtistReleasesResponse, ArtistReleasesQuery>({
+      query: ({ artistId, page, limit }) => ({
+        url: `/artists/${artistId}/releases`,
+        params: { ...(page != null ? { page } : {}), ...(limit != null ? { limit } : {}) },
+      }),
+      // Same opt-out as the card above, for the sharper reason: soft-failing
+      // resolves to `{ releases: [] }`, which this screen renders as the JSP's
+      // "The artist does not have any library releases" -- a positive claim
+      // about the shelf. A librarian who believes it files a duplicate.
+      extraOptions: { surfaceNonJsonAsError: true },
+      providesTags: (_result, _error, { artistId }) => [
+        { type: "ArtistReleaseList", id: String(artistId) },
+        { type: "ArtistReleaseList", id: "LIST" },
+      ],
     }),
     peekArtistCode: builder.query<PeekArtistCodeResponse, PeekArtistCodeQuery>({
       query: ({ code_letters, genre_id }) => ({
@@ -454,6 +524,9 @@ export const {
   useAddAlbumMutation,
   useUpdateAlbumMutation,
   useAddArtistMutation,
+  useGetArtistCardQuery,
+  useUpdateArtistCardMutation,
+  useGetArtistReleasesQuery,
   useLazyPeekArtistCodeQuery,
   useSearchArtistsInGenreQuery,
   useGetCompilationTracksQuery,

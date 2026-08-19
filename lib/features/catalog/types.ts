@@ -123,6 +123,70 @@ export type AddArtistConflict = {
   reason?: "artist_name_conflict";
 };
 
+/**
+ * GET /library/artists/:id — the header of `/wxycdb`'s artist card
+ * (`artistCardModify.jsp`).
+ *
+ * `code_artist_number` is genre-scoped (it lives on
+ * `genre_artist_crossreference`), and the endpoint collapses a multi-genre
+ * artist to its lowest `genre_id`, so `genre_id` here names which genre's code
+ * this is — not merely which genre the artist is filed under.
+ *
+ * Deliberately carries no `last_modified`: the JSP shows a "Time Last
+ * Modified" row for the artist and this endpoint does not project one.
+ */
+export type ArtistCard = {
+  artist_id: number;
+  artist_name: string;
+  alphabetical_name: string;
+  genre_id: number;
+  code_letters: string;
+  code_artist_number: number;
+};
+
+/**
+ * PATCH /library/artists/:id.
+ *
+ * One field, not the JSP's five. The backend **rejects** `artist_name`,
+ * `genre_id`, `code_letters`, and `code_artist_number` with a 400 naming why
+ * rather than dropping them silently, so widening this type would turn a
+ * compile-time constraint into a runtime rejection. `artist_name` is the one
+ * that is merely deferred: renaming an artist moves the nightly catalog
+ * import's `fold_artist_name` match key while that import is still a live
+ * cron, so it waits on the import stopping, not on a missing column.
+ */
+export type UpdateArtistRequestBody = {
+  alphabetical_name: string;
+};
+
+/** One row of the artist card's release table (GET /library/artists/:id/releases). */
+export type ArtistRelease = {
+  id: number;
+  last_modified: string;
+  format_name: string;
+  genre_id: number;
+  code_letters: string;
+  code_artist_number: number;
+  code_number: number;
+  code_volume_letters: string | null;
+  album_title: string;
+  alternate_artist_name: string | null;
+};
+
+export type ArtistReleasesQuery = {
+  artistId: number;
+  page?: number;
+  limit?: number;
+};
+
+export type ArtistReleasesResponse = {
+  artist_id: number;
+  releases: ArtistRelease[];
+  total: number;
+  page: number;
+  totalPages: number;
+};
+
 export type PeekArtistCodeQuery = {
   code_letters: string;
   genre_id: number;

@@ -99,3 +99,19 @@ export function formatStationDateTime(isoString: string): {
 
   return { day, time, isToday: day === today };
 }
+
+// The long-form date `/wxycdb`'s catalog screens print beside the time, e.g.
+// "Saturday, June 15, 2024". Reproduces `DateTimeManager.DATE_FULL`
+// ("EEEE, MMMM d, yyyy", Locale.US) on the station's wall clock -- note the
+// Java method that renders it is named `getLongDateAsMMDDYY`, which describes
+// a different format than it produces; the rendered shape is what the
+// librarian reads, so that is what is reproduced here.
+export function formatStationLongDate(isoString: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: STATION_TIME_ZONE,
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(new Date(isoString));
+}

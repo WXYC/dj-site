@@ -119,7 +119,9 @@ describe("classic CreateLibraryCodeForm — createLibraryCode.jsp", () => {
 
     await waitFor(() => expect(getBodies()).toHaveLength(1));
     expect(getBodies()[0]).toMatchObject({ code_letters: "MO" });
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard/library"));
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/library/artist/99?created=1"),
+    );
   });
 
   // The carried code is displayed verbatim, so every refusal has to name the
@@ -204,7 +206,9 @@ describe("classic CreateLibraryCodeForm — createLibraryCode.jsp", () => {
     expect(await screen.findByText("The alphabetical name cannot be empty.")).toBeInTheDocument();
   });
 
-  it("submits POST /library/artists with the carried code and typed names, then lands where the chooser's create path lands today", async () => {
+  // `processAddArtistLibraryCode` (`ArtistAdminServlet:188`) lands on the new
+  // artist's card carrying the servlet's create confirmation.
+  it("submits POST /library/artists with the carried code and typed names, then lands on the new artist's card", async () => {
     const { getBodies } = mockAddArtist(() => created());
     const { user } = renderWithProviders(<CreateLibraryCodeForm {...defaultProps} />);
 
@@ -221,7 +225,7 @@ describe("classic CreateLibraryCodeForm — createLibraryCode.jsp", () => {
       genre_id: GENRE_ID,
       code_number: 12,
     });
-    expect(mockPush).toHaveBeenCalledWith("/dashboard/library");
+    expect(mockPush).toHaveBeenCalledWith("/dashboard/library/artist/99?created=1");
   });
 
   it("shows the code-conflict message on a 409 naming the artist_code_conflict reason", async () => {
