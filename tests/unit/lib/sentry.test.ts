@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { Breadcrumb, ErrorEvent } from "@sentry/browser";
 
-// @sentry/browser is loaded via a deferred dynamic import. Hoisted so the
-// mock SDK is available for assertions; the rejection test overrides this with
+// The SDK is loaded via a deferred dynamic import of the ./sentry-sdk
+// re-export (which exists so the chunk tree-shakes). Hoisted so the mock SDK
+// is available for assertions; the rejection test overrides this with
 // vi.doMock to make the dynamic import fail.
 const control = vi.hoisted(() => ({
   sentry: {
@@ -12,12 +13,12 @@ const control = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@sentry/browser", () => control.sentry);
+vi.mock("@/lib/sentry-sdk", () => control.sentry);
 
 const sentry = control.sentry;
 
-// initErrorReporting resolves the client on a microtask, so flush the queue
-// before asserting. Re-import per test (vi.resetModules) so the module-level
+// initSentry resolves the client on a microtask, so flush the queue before
+// asserting. Re-import per test (vi.resetModules) so the module-level
 // client/loading/buffer singletons reset.
 const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
@@ -27,7 +28,7 @@ async function loadAdapter() {
 
 async function initAndWait() {
   const mod = await loadAdapter();
-  mod.initErrorReporting();
+  mod.initSentry();
   await flush();
   return mod;
 }
@@ -58,7 +59,7 @@ function resetEverything() {
   delete process.env.NEXT_PUBLIC_SENTRY_RELEASE;
 }
 
-describe("initErrorReporting", () => {
+describe("initSentry", () => {
   const originalEnv = { ...process.env };
 
   beforeEach(resetEverything);
@@ -83,6 +84,19 @@ describe("initErrorReporting", () => {
     await initAndWait();
 
     expect(initOptions().environment).toBe("development");
+  });
+
+  // NODE_ENV is "production" for every `next build`, previews included, so it
+  // cannot identify the deployed environment on its own. Reporting "unknown"
+  // keeps a preview error from polluting the production filter that alerting
+  // reads.
+  it("reports an unset environment as unknown in a production build, not production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+
+    await initAndWait();
+
+    expect(initOptions().environment).toBe("unknown");
+    vi.unstubAllEnvs();
   });
 
   it("prefers NEXT_PUBLIC_SENTRY_ENVIRONMENT and NEXT_PUBLIC_SENTRY_RELEASE", async () => {
@@ -117,24 +131,24 @@ describe("initErrorReporting", () => {
     sentry.getClient.mockImplementation(() => ({}));
 
     const mod = await initAndWait();
-    mod.safeCaptureException(new Error("boom"));
+    mod.captureExceptionInSentry(new Error("boom"));
 
     expect(sentry.init).not.toHaveBeenCalled();
     // The already-initialized SDK is still adopted as the capture sink.
     expect(sentry.captureException).toHaveBeenCalledTimes(1);
   });
 
-  it("imports @sentry/browser exactly once when called twice (remount)", async () => {
+  it("imports the SDK exactly once when called twice (remount)", async () => {
     const mod = await loadAdapter();
-    mod.initErrorReporting();
-    mod.initErrorReporting();
+    mod.initSentry();
+    mod.initSentry();
     await flush();
 
     expect(sentry.init).toHaveBeenCalledTimes(1);
   });
 });
 
-describe("safeCaptureException", () => {
+describe("captureExceptionInSentry", () => {
   const originalEnv = { ...process.env };
 
   beforeEach(resetEverything);
@@ -143,39 +157,69 @@ describe("safeCaptureException", () => {
     process.env = { ...originalEnv };
   });
 
-  it("forwards an Error with context under extra once loaded", async () => {
+  // `extra` is stored but not indexed, so context sent only that way can't be
+  // searched or filtered — which is the whole point of tagging a capture with
+  // its endpoint or route. Primitives are mirrored into tags for that reason.
+  it("mirrors primitive context into searchable tags and keeps the whole object in extra", async () => {
     const err = new Error("boom");
-    const { safeCaptureException } = await initAndWait();
-    safeCaptureException(err, { domain: "flowsheet" });
+    const { captureExceptionInSentry } = await initAndWait();
+    captureExceptionInSentry(err, {
+      endpoint: "updateAlbum",
+      status: 500,
+      retried: false,
+    });
 
     expect(sentry.captureException).toHaveBeenCalledWith(err, {
-      extra: { domain: "flowsheet" },
+      tags: { endpoint: "updateAlbum", status: "500", retried: "false" },
+      extra: { endpoint: "updateAlbum", status: 500, retried: false },
     });
   });
 
-  it("wraps a non-Error value in an Error", async () => {
-    const { safeCaptureException } = await initAndWait();
-    safeCaptureException("just a string");
+  it("omits non-primitive and nullish context values from tags", async () => {
+    const { captureExceptionInSentry } = await initAndWait();
+    captureExceptionInSentry(new Error("boom"), {
+      payload: { id: 7 },
+      missing: null,
+      absent: undefined,
+      surface: "dashboard",
+    });
 
-    const captured = sentry.captureException.mock.calls[0][0];
-    expect(captured).toBeInstanceOf(Error);
-    expect((captured as Error).message).toBe("just a string");
+    expect(sentry.captureException.mock.calls[0][1].tags).toEqual({
+      surface: "dashboard",
+    });
+  });
+
+  it("redacts emails from tag values", async () => {
+    const { captureExceptionInSentry } = await initAndWait();
+    captureExceptionInSentry(new Error("boom"), { subject: "dj@wxyc.org" });
+
+    expect(sentry.captureException.mock.calls[0][1].tags.subject).toBe("[email]");
+  });
+
+  it("sends no tags when there is no context", async () => {
+    const { captureExceptionInSentry } = await initAndWait();
+    captureExceptionInSentry(new Error("boom"));
+
+    expect(sentry.captureException).toHaveBeenCalledWith(expect.any(Error), {
+      tags: {},
+      extra: undefined,
+    });
   });
 
   it("never throws when the SDK throws", async () => {
-    const { safeCaptureException } = await initAndWait();
+    const { captureExceptionInSentry } = await initAndWait();
     sentry.captureException.mockImplementationOnce(() => {
       throw new Error("sentry not initialized");
     });
 
-    expect(() => safeCaptureException(new Error("boom"))).not.toThrow();
+    expect(() => captureExceptionInSentry(new Error("boom"))).not.toThrow();
   });
 
   it("starts the load itself when captured before any init (root-layout crash)", async () => {
     const mod = await loadAdapter();
-    // No initErrorReporting() call: global-error.tsx replaces the root layout,
-    // so TelemetryProvider may never have mounted when this fires.
-    mod.safeCaptureException(new Error("root layout crashed"));
+    // No initSentry() call: global-error.tsx replaces the root layout, so
+    // TelemetryProvider may never have mounted when this fires.
+    mod.captureExceptionInSentry(new Error("root layout crashed"));
 
     expect(sentry.captureException).not.toHaveBeenCalled();
 
@@ -193,7 +237,7 @@ describe("safeCaptureException", () => {
 
     const mod = await loadAdapter();
     expect(() =>
-      mod.safeCaptureException(new Error("nowhere to go"))
+      mod.captureExceptionInSentry(new Error("nowhere to go"))
     ).not.toThrow();
     await flush();
 
@@ -203,10 +247,10 @@ describe("safeCaptureException", () => {
 
   it("flushes captures fired before load in order once the client resolves", async () => {
     const mod = await loadAdapter();
-    mod.initErrorReporting(); // load is in-flight, client still null
+    mod.initSentry(); // load is in-flight, client still null
 
-    mod.safeCaptureException(new Error("first"), { order: 1 });
-    mod.safeCaptureException(new Error("second"), { order: 2 });
+    mod.captureExceptionInSentry(new Error("first"), { order: 1 });
+    mod.captureExceptionInSentry(new Error("second"), { order: 2 });
 
     expect(sentry.captureException).not.toHaveBeenCalled();
 
@@ -215,15 +259,14 @@ describe("safeCaptureException", () => {
     expect(sentry.captureException).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({ message: "first" }),
-      { extra: { order: 1 } }
+      { tags: { order: "1" }, extra: { order: 1 } }
     );
     expect(sentry.captureException).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({ message: "second" }),
-      { extra: { order: 2 } }
+      { tags: { order: "2" }, extra: { order: 2 } }
     );
   });
-
 });
 
 describe("anonymization scrubbing", () => {
@@ -311,7 +354,7 @@ describe("anonymization scrubbing", () => {
 });
 
 // Kept last in the file: vi.doUnmock deregisters the module mock outright, so
-// any test running after this one would import the real @sentry/browser.
+// any test running after this one would import the real SDK.
 describe("failed chunk load", () => {
   const originalEnv = { ...process.env };
 
@@ -322,14 +365,14 @@ describe("failed chunk load", () => {
   });
 
   it("all captures no-op and the buffer clears when the dynamic import rejects", async () => {
-    // Force the @sentry/browser chunk import to fail for this test only.
-    vi.doMock("@sentry/browser", () => {
+    // Force the SDK chunk import to fail for this test only.
+    vi.doMock("@/lib/sentry-sdk", () => {
       throw new Error("chunk load failed");
     });
     try {
       const mod = await import("@/lib/sentry");
-      mod.initErrorReporting();
-      mod.safeCaptureException(new Error("early"));
+      mod.initSentry();
+      mod.captureExceptionInSentry(new Error("early"));
 
       // Let the rejected import settle; must not raise an unhandled rejection.
       await flush();
@@ -337,12 +380,12 @@ describe("failed chunk load", () => {
       expect(sentry.captureException).not.toHaveBeenCalled();
 
       // Post-failure captures also no-op (session stays dark, no re-import).
-      mod.safeCaptureException(new Error("later"));
+      mod.captureExceptionInSentry(new Error("later"));
       await flush();
       expect(sentry.init).not.toHaveBeenCalled();
       expect(sentry.captureException).not.toHaveBeenCalled();
     } finally {
-      vi.doUnmock("@sentry/browser");
+      vi.doUnmock("@/lib/sentry-sdk");
       vi.resetModules();
     }
   });

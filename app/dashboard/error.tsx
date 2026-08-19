@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { Box, Button, Stack, Typography } from "@mui/joy";
-import { safeCaptureException } from "@/lib/sentry";
+import { safeCaptureException } from "@/lib/error-reporting";
 
 // error.tsx does not wrap this segment's own layout.tsx (requireAuth()'s
 // await lives there and still falls through to app/global-error.tsx), only

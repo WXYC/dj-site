@@ -1,11 +1,11 @@
 import type { Instrumentation } from "next";
-import { safeCaptureException } from "@/lib/sentry";
+import { safeCaptureException } from "@/lib/error-reporting";
 
 /**
  * Single server-observability entry point.
  *
  * No server-side error-reporting client is warranted yet: telemetry is an
- * optional adapter (CLAUDE.md) and the Sentry adapter is browser-only here, so
+ * optional adapter (CLAUDE.md) and both sinks are browser-only here, so
  * `register` is an intentional no-op. Add server setup here if a workerd-side
  * client is ever introduced (see docs/adr/0008 for why it isn't yet).
  */
@@ -25,9 +25,9 @@ export function register(): void {}
  *     they fail open at their `safeCapture*` wrapper and never propagate here,
  *     so this handler never needs to demote them.
  *
- * `safeCaptureException` no-ops server-side (@sentry/browser is loaded via a
- * browser-only dynamic import) — the fail-open contract holds; the tags
- * below are carried on the event for wherever a server sink is later attached.
+ * `safeCaptureException` no-ops server-side (both SDKs load via browser-only
+ * dynamic imports) — the fail-open contract holds; the tags below are carried
+ * on the event for wherever a server sink is later attached.
  */
 export const onRequestError: Instrumentation.onRequestError = (
   err,

@@ -7,6 +7,7 @@ const control = vi.hoisted(() => ({
   posthog: {
     init: vi.fn(),
     capture: vi.fn(),
+    captureException: vi.fn(),
     __loaded: false,
   },
 }));
@@ -55,13 +56,14 @@ describe("initTelemetry", () => {
       api_host: "https://custom.posthog.com",
       capture_pageview: false,
       capture_pageleave: true,
-      // Anonymization posture: analytics only, never identity or error
-      // payloads — errors are Sentry's (lib/sentry.ts), and autocapture /
-      // recording would serialize on-screen PII (roster page DJ names/emails).
-      capture_exceptions: false,
+      // The $exception stream stays — crash investigation here reads it —
+      // while identity-bearing collection stays off: autocapture and recording
+      // would serialize on-screen PII (roster page DJ names/emails).
+      capture_exceptions: true,
       person_profiles: "identified_only",
       autocapture: false,
       disable_session_recording: true,
+      before_send: expect.any(Function),
     });
   });
 
@@ -120,6 +122,7 @@ describe("safe capture contract", () => {
   beforeEach(() => {
     vi.resetModules();
     posthog.capture.mockReset();
+    posthog.captureException.mockReset();
     posthog.init.mockReset();
     posthog.__loaded = false;
     process.env.NEXT_PUBLIC_POSTHOG_KEY = "phc_test123";
@@ -147,6 +150,25 @@ describe("safe capture contract", () => {
     expect(() => safeCapture("some_event")).not.toThrow();
   });
 
+  it("captureExceptionInPostHog forwards an Error with context once loaded", async () => {
+    const err = new Error("boom");
+    const { captureExceptionInPostHog } = await initAndWait();
+    captureExceptionInPostHog(err, { domain: "flowsheet" });
+
+    expect(posthog.captureException).toHaveBeenCalledWith(err, {
+      domain: "flowsheet",
+    });
+  });
+
+  it("captureExceptionInPostHog never throws when the SDK throws", async () => {
+    const { captureExceptionInPostHog } = await initAndWait();
+    posthog.captureException.mockImplementationOnce(() => {
+      throw new Error("posthog not initialized");
+    });
+
+    expect(() => captureExceptionInPostHog(new Error("boom"))).not.toThrow();
+  });
+
   it("safeCapturePageview emits $pageview with $current_url", async () => {
     const { safeCapturePageview } = await initAndWait();
     safeCapturePageview("https://wxyc.org/dashboard");
@@ -166,12 +188,64 @@ describe("safe capture contract", () => {
   });
 });
 
+describe("before_send scrubbing", () => {
+  const originalEnv = { ...process.env };
+
+  beforeEach(() => {
+    vi.resetModules();
+    posthog.capture.mockReset();
+    posthog.captureException.mockReset();
+    posthog.init.mockReset();
+    posthog.__loaded = false;
+    process.env.NEXT_PUBLIC_POSTHOG_KEY = "phc_test123";
+  });
+
+  afterEach(() => {
+    process.env = { ...originalEnv };
+  });
+
+  // The SDK's automatic exception capture never passes through this module's
+  // wrappers, so before_send is the only place its text can be scrubbed.
+  it("redacts emails throughout event properties, including $exception_list", async () => {
+    await initAndWait();
+    const { before_send: beforeSend } = posthog.init.mock.calls[0][1];
+
+    const scrubbed = beforeSend({
+      event: "$exception",
+      properties: {
+        $exception_message: "no member with email dj@wxyc.org found",
+        $exception_list: [
+          { type: "Error", value: "lookup failed for station.manager@wxyc.org" },
+        ],
+        status: 403,
+      },
+    });
+
+    expect(scrubbed.properties.$exception_message).toBe(
+      "no member with email [email] found"
+    );
+    expect(scrubbed.properties.$exception_list[0].value).toBe(
+      "lookup failed for [email]"
+    );
+    expect(scrubbed.properties.status).toBe(403);
+  });
+
+  it("passes through an event with no properties untouched", async () => {
+    await initAndWait();
+    const { before_send: beforeSend } = posthog.init.mock.calls[0][1];
+
+    expect(() => beforeSend(null)).not.toThrow();
+    expect(beforeSend(null)).toBeNull();
+  });
+});
+
 describe("pre-load buffer", () => {
   const originalEnv = { ...process.env };
 
   beforeEach(() => {
     vi.resetModules();
     posthog.capture.mockReset();
+    posthog.captureException.mockReset();
     posthog.init.mockReset();
     posthog.__loaded = false;
     process.env.NEXT_PUBLIC_POSTHOG_KEY = "phc_test123";
@@ -187,9 +261,11 @@ describe("pre-load buffer", () => {
 
     mod.safeCapturePageview("https://wxyc.org/live");
     mod.safeCapture("web_vitals", { name: "TTFB", value: 12 });
+    mod.captureExceptionInPostHog(new Error("early boom"));
 
     // Nothing forwarded while the chunk is still loading.
     expect(posthog.capture).not.toHaveBeenCalled();
+    expect(posthog.captureException).not.toHaveBeenCalled();
 
     await flush();
 
@@ -200,6 +276,7 @@ describe("pre-load buffer", () => {
       name: "TTFB",
       value: 12,
     });
+    expect(posthog.captureException.mock.calls[0][0].message).toBe("early boom");
   });
 
   it("no-ops (no buffering, no flush) when telemetry was never initialized", async () => {
@@ -221,12 +298,14 @@ describe("pre-load buffer", () => {
 
       // Buffer some events during the (doomed) load window.
       mod.safeCapture("early_event");
+      mod.captureExceptionInPostHog(new Error("early"));
       mod.safeCapturePageview("https://wxyc.org/live");
 
       // Let the rejected import settle; must not raise an unhandled rejection.
       await flush();
 
       expect(posthog.capture).not.toHaveBeenCalled();
+      expect(posthog.captureException).not.toHaveBeenCalled();
 
       // Post-failure captures also no-op (session stays dark, buffer cleared).
       mod.safeCapture("later_event");

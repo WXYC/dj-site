@@ -2,7 +2,7 @@ import { createListenerMiddleware } from "@reduxjs/toolkit";
 import type { Middleware, TypedStartListening } from "@reduxjs/toolkit";
 import type { FlowsheetEntryResponse, LiveFsEvent } from "@wxyc/shared/dtos";
 import { safeCapture } from "@/lib/posthog";
-import { safeCaptureException } from "@/lib/sentry";
+import { safeCaptureException } from "@/lib/error-reporting";
 import type { AppDispatch, RootState } from "@/lib/store";
 import { flowsheetApi } from "./api";
 import { convertV2Entry } from "./conversions";

@@ -5,13 +5,13 @@ vi.mock("@/lib/features/authentication/client", () => ({
   getJWTToken: vi.fn(),
 }));
 
-// The Sentry adapter is invoked by the non-JSON branch — mock it so tests don't
-// depend on the browser SDK booting in jsdom. `vi.hoisted` ensures the mock fn
-// exists when the (hoisted) `vi.mock` factory runs.
+// Error reporting is invoked by the non-JSON branch — mock the facade so tests
+// don't depend on either browser SDK booting in jsdom. `vi.hoisted` ensures the
+// mock fn exists when the (hoisted) `vi.mock` factory runs.
 const { mockCaptureException } = vi.hoisted(() => ({
   mockCaptureException: vi.fn(),
 }));
-vi.mock("@/lib/sentry", () => ({
+vi.mock("@/lib/error-reporting", () => ({
   safeCaptureException: mockCaptureException,
 }));
 

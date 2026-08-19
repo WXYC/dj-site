@@ -122,7 +122,7 @@ async function redirectAfterAuth(
 
   const sessionConfirmed = await confirmSessionVisible();
 
-  // Analytics events carry no account identifiers (docs/adr/0008): the
+  // Telemetry carries no account identifiers (docs/adr/0008): the
   // per-DJ correlation a user_id once bought here is traded away for the
   // no-PII guarantee — correlate reports by timestamp + destination instead.
   safeCapture(LOGIN_EVENTS.POST_LOGIN_REDIRECT, {
