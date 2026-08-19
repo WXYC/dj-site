@@ -207,7 +207,6 @@ describe("authenticationHooks", () => {
         method: "password",
         destination: "incomplete",
         has_completed_onboarding: false,
-        user_id: "user-1",
         session_confirmed: true,
       });
     });
@@ -244,7 +243,6 @@ describe("authenticationHooks", () => {
         method: "password",
         destination: "dashboard",
         has_completed_onboarding: true,
-        user_id: "user-1",
         session_confirmed: true,
       });
     });
@@ -280,7 +278,6 @@ describe("authenticationHooks", () => {
         method: "password",
         destination: "incomplete",
         has_completed_onboarding: null,
-        user_id: "user-1",
         session_confirmed: true,
       });
     });
@@ -541,7 +538,6 @@ describe("authenticationHooks", () => {
         method: "otp",
         destination: "incomplete",
         has_completed_onboarding: false,
-        user_id: "user-1",
         session_confirmed: true,
       });
     });
@@ -1165,7 +1161,6 @@ describe("authenticationHooks", () => {
         method: "qr",
         destination: "dashboard",
         has_completed_onboarding: true,
-        user_id: "dj-1",
         session_confirmed: true,
       });
     });

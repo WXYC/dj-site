@@ -122,11 +122,13 @@ async function redirectAfterAuth(
 
   const sessionConfirmed = await confirmSessionVisible();
 
+  // Analytics events carry no account identifiers (docs/adr/0008): the
+  // per-DJ correlation a user_id once bought here is traded away for the
+  // no-PII guarantee — correlate reports by timestamp + destination instead.
   safeCapture(LOGIN_EVENTS.POST_LOGIN_REDIRECT, {
     method,
     destination: incomplete ? "incomplete" : oidcTarget ? "oidc" : "dashboard",
     has_completed_onboarding: user?.hasCompletedOnboarding ?? null,
-    user_id: user?.id ?? null,
     session_confirmed: sessionConfirmed,
   });
 
