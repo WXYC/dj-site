@@ -1,9 +1,9 @@
 import type { JSX } from "react";
-import { ArtistEntry, Format, Genre } from "@/lib/features/catalog/types";
+import { ArtistEntry, Format } from "@/lib/features/catalog/types";
 import { Rotation } from "@/lib/features/rotation/types";
 import {
   formatTone,
-  GENRE_TONES,
+  genreTone,
   ROTATION_TONES,
 } from "@/lib/features/experiences/modern/tokens/roles";
 import { Avatar, Badge, Stack, Tooltip, Typography } from "@mui/joy";
@@ -17,11 +17,9 @@ interface ArtistAvatarProps {
 }
 
 export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
-  const genreTone =
-    GENRE_TONES[(props.artist?.genre as Genre) ?? "Unknown"] ??
-    GENRE_TONES.Unknown;
-  const color_choice = genreTone.color;
-  const variant_choice = genreTone.variant;
+  const tone = genreTone(props.artist?.genre);
+  const color_choice = tone.color;
+  const variant_choice = tone.variant;
   const formatColor = formatTone(props.format).color;
 
   return (

@@ -297,7 +297,19 @@ export type ArtistEntry = {
   name: string;
   lettercode: string;
   numbercode: number;
-  genre: Genre;
+  /**
+   * The genre name exactly as the server filed it. The vocabulary is
+   * server-owned — `GET /library/genres` is the authority and the table grows
+   * without a dj-site deploy — so this is a plain string, never a union
+   * dj-site maintains a copy of. A conversion path must carry the value
+   * through unmodified; narrowing it to a locally-known set discards genres
+   * the station really files under.
+   *
+   * `"Unknown"` is dj-site's own fallback for a row that carries *no* genre.
+   * It is not a row in the library's genre table, so it must only ever appear
+   * where the source value was missing.
+   */
+  genre: string;
   id: number | undefined;
 };
 
@@ -346,18 +358,6 @@ export type LibraryQueryParams = {
 };
 
 export type Format = "Vinyl" | "CD" | "Unknown";
-
-export type Genre =
-  | "Blues"
-  | "Rock"
-  | "Electronic"
-  | "Hiphop"
-  | "Jazz"
-  | "Classical"
-  | "Reggae"
-  | "Soundtracks"
-  | "OCS"
-  | "Unknown";
 
 export type SearchIn = "Artists" | "Albums" | "All";
 

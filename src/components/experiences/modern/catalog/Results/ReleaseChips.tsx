@@ -3,7 +3,7 @@
 import Chip from "@mui/joy/Chip";
 import Stack from "@mui/joy/Stack";
 
-import { Format, Genre } from "@/lib/features/catalog/types";
+import { Format } from "@/lib/features/catalog/types";
 import { Rotation } from "@/lib/features/rotation/types";
 import {
   formatTone,
@@ -41,7 +41,9 @@ export function ReleaseChips({
   rotation,
   onStreaming,
 }: {
-  genre: Genre;
+  // Server-owned text (see ArtistEntry.genre) — rendered as sent. `genreTone`
+  // absorbs the ones with no designed chip color.
+  genre: string;
   format: Format;
   rotation?: Rotation;
   onStreaming: boolean | undefined;

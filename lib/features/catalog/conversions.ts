@@ -1,6 +1,6 @@
 import type { BinLibraryDetails } from "@wxyc/shared/dtos";
 import { Rotation } from "../rotation/types";
-import { AlbumEntry, AlbumSearchResultJSON, Format, Genre } from "./types";
+import { AlbumEntry, AlbumSearchResultJSON, Format } from "./types";
 
 function isSearchResult(
   response: AlbumSearchResultJSON | BinLibraryDetails
@@ -95,7 +95,10 @@ export function convertToAlbumEntry(
       name: response.artist_name ?? "",
       lettercode: response.code_letters ?? "",
       numbercode: response.code_artist_number ?? 0,
-      genre: (response.genre_name as Genre) ?? "Unknown",
+      // Verbatim: the genre vocabulary is server-owned and wider than
+      // anything dj-site enumerates. "Unknown" is the UI fallback for a row
+      // that has no genre, never a stand-in for one dj-site can't style.
+      genre: response.genre_name ?? "Unknown",
       id: isSearchResult(response)
         ? ((response as Record<string, unknown>).artist_id as number | undefined)
         : undefined,

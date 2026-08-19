@@ -153,6 +153,30 @@ const catalogSearchRow: AlbumSearchResultJSON = {
 
 describe("catalog conversions", () => {
   describe("convertToAlbumEntry", () => {
+    // Genre is server-owned data, not a dj-site vocabulary: GET /library/genres
+    // is the authority and lists more genres than the modern experience has
+    // chip colors for. Both conversion paths (Backend here, LML in
+    // lml-conversions) must carry the value through as-is; the "Unknown"
+    // sentinel is a UI fallback for a *missing* genre, not a substitute for
+    // one dj-site has no styling for.
+    describe("genre passthrough", () => {
+      it.each(["Africa", "Asia", "Comedy", "Latin", "Spoken", "Xmas"])(
+        "carries the genre %s through even though no chip color is defined for it",
+        (genre) => {
+          const result = convertToAlbumEntry({ ...linkedRow, genre_name: genre });
+          expect(result.artist.genre).toBe(genre);
+        },
+      );
+
+      it("falls back to the Unknown sentinel when the row carries no genre", () => {
+        const result = convertToAlbumEntry({
+          ...linkedRow,
+          genre_name: null,
+        } as unknown as AlbumSearchResultJSON);
+        expect(result.artist.genre).toBe("Unknown");
+      });
+    });
+
     describe("library-linked rotation rows", () => {
       it("preserves rotation_id", () => {
         const result = convertToAlbumEntry(linkedRow);
