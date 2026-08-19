@@ -4,6 +4,7 @@ import {
   closestStationHour,
   formatStationDateTime,
   formatStationHourLabel,
+  formatStationLongDate,
   isStationHourBreakpointPresent,
   stationBreakpointMessage,
 } from "@/src/utilities/stationTime";
@@ -113,3 +114,19 @@ describe("stationTime", () => {
     });
   });
 });
+
+describe("formatStationLongDate — DateTimeManager.DATE_FULL", () => {
+  it("renders the station-local weekday, month, day, and year", () => {
+    expect(formatStationLongDate("2024-06-15T19:04:05.000Z")).toBe(
+      "Saturday, June 15, 2024",
+    );
+  });
+
+  // 00:30 UTC on the 16th is 20:30 EDT on the 15th — the station's date, not
+  // the browser's or UTC's.
+  it("uses the station's calendar day, not UTC's", () => {
+    expect(formatStationLongDate("2024-06-16T00:30:00.000Z")).toBe(
+      "Saturday, June 15, 2024",
+    );
+  });
+})

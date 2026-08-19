@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   useAddArtistMutation,
   useGetGenresQuery,
@@ -19,6 +20,17 @@ import type { AddArtistRequestBody, PeekArtistCodeQuery } from "@/lib/features/c
 import { useDebouncedValue } from "@/src/hooks/useDebouncedValue";
 
 const PEEK_DEBOUNCE_MS = 150;
+
+/**
+ * `ArtistAdminServlet:188`. This form posts `mode=addArtistLibraryCode`
+ * (`chooseLibraryCodeOrArtist.jsp:62`) -- the same handler
+ * `createLibraryCode.jsp` submits to -- which lands on the new artist's card
+ * carrying "The artist/library code below has been added to the database."
+ * `created=1` selects that fixed message on the card rather than putting its
+ * text in the URL.
+ */
+const successDestination = (artistId: number) =>
+  `/dashboard/library/artist/${artistId}?created=1`;
 
 /**
  * Reproduces `chooseLibraryCodeOrArtist.jsp`'s `newArtistForm`: presentation
@@ -40,6 +52,7 @@ const PEEK_DEBOUNCE_MS = 150;
  * previous genre's series instead of the one about to be submitted.
  */
 export default function NewArtistForm() {
+  const router = useRouter();
   const genreFieldId = useId();
   const presentationNameId = useId();
   const alphabeticalNameId = useId();
@@ -66,7 +79,6 @@ export default function NewArtistForm() {
   const [codeLetters, setCodeLetters] = useState("");
   const [codeNumberRaw, setCodeNumberRaw] = useState("");
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
-  const [added, setAdded] = useState<{ code_letters: string; code_number: number } | null>(null);
 
   const codeNumber = parseRequiredPositiveInt(codeNumberRaw);
 
@@ -98,22 +110,12 @@ export default function NewArtistForm() {
     setValidationMessage(null);
   };
 
-  // The JSP's "Reset values" button also discards the last confirmation, but
-  // a successful submit's own field-clearing must not: it would erase the
-  // "Added as ..." message in the same render that produced it.
-  const handleResetClick = () => {
-    resetFields();
-    setAdded(null);
-  };
-
   const handleCodeLettersChange = (value: string) => {
     setCodeLetters(normalizeCodeLetters(value));
-    setAdded(null);
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setAdded(null);
 
     const nameResult = validateNewArtistNames(presentationName, alphabeticalName);
     if (!nameResult.valid) {
@@ -154,12 +156,8 @@ export default function NewArtistForm() {
     };
 
     try {
-      const result = await addArtist(body).unwrap();
-      setAdded({
-        code_letters: result.code_letters ?? body.code_letters,
-        code_number: result.code_number ?? body.code_number,
-      });
-      resetFields();
+      const created = await addArtist(body).unwrap();
+      router.push(successDestination(created.id));
     } catch (err) {
       // The 409 this endpoint sends has two distinct causes that call for
       // different remedies: a taken (code_letters, genre_id, code_number)
@@ -238,10 +236,7 @@ export default function NewArtistForm() {
                 aria-label="Genre"
                 value={genreId ?? ""}
                 disabled={isLoading || genresUnavailable}
-                onChange={(e) => {
-                  setGenreId(e.target.value ? Number(e.target.value) : null);
-                  setAdded(null);
-                }}
+                onChange={(e) => setGenreId(e.target.value ? Number(e.target.value) : null)}
               >
                 <option value="" disabled>
                   Select genre...
@@ -287,10 +282,7 @@ export default function NewArtistForm() {
                 type="text"
                 value={codeNumberRaw}
                 disabled={isLoading}
-                onChange={(e) => {
-                  setCodeNumberRaw(e.target.value);
-                  setAdded(null);
-                }}
+                onChange={(e) => setCodeNumberRaw(e.target.value)}
                 size={3}
               />
               {peekArg && (
@@ -310,19 +302,13 @@ export default function NewArtistForm() {
               >
                 {validationMessage}
               </div>
-              {added && (
-                <div role="status">
-                  Added as {added.code_letters}
-                  {added.code_number}.
-                </div>
-              )}
             </td>
           </tr>
         </tbody>
       </table>
       <input type="submit" value="Submit" disabled={isLoading} />
       &nbsp;&nbsp;&nbsp;&nbsp;
-      <input type="button" value="Reset values" onClick={handleResetClick} disabled={isLoading} />
+      <input type="button" value="Reset values" onClick={resetFields} disabled={isLoading} />
     </form>
   );
 }

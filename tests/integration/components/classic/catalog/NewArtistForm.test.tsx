@@ -20,6 +20,11 @@ vi.mock("@/lib/features/authentication/client", async () => {
   };
 });
 
+const mockPush = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
+
 import NewArtistForm from "@/src/components/experiences/classic/catalog/NewArtistForm";
 
 const GENRE_ID = 3;
@@ -87,6 +92,7 @@ async function selectGenre(user: ReturnType<typeof renderWithProviders>["user"],
 
 describe("classic NewArtistForm — chooseLibraryCodeOrArtist.jsp's newArtistForm", () => {
   beforeEach(() => {
+    mockPush.mockClear();
     mockGenres();
     mockPeekCode();
   });
@@ -174,8 +180,12 @@ describe("classic NewArtistForm — chooseLibraryCodeOrArtist.jsp's newArtistFor
     expect(await screen.findByText(/next code:\s*3/i)).toBeInTheDocument();
   });
 
-  it("confirms the assigned code from the server response after submit", async () => {
-    mockAddArtist(() => created({ code_letters: "MO", code_number: 12 }));
+  // `mode=addArtistLibraryCode` (`chooseLibraryCodeOrArtist.jsp:62`) is the
+  // same handler `createLibraryCode.jsp` submits to, and it lands on the new
+  // artist's card carrying the servlet's create confirmation
+  // (`ArtistAdminServlet:188`) rather than confirming in place.
+  it("lands on the new artist's card after submit", async () => {
+    mockAddArtist(() => created({ id: 99, code_letters: "MO", code_number: 12 }));
     const { user } = renderWithProviders(<NewArtistForm />);
 
     await selectGenre(user);
@@ -185,7 +195,9 @@ describe("classic NewArtistForm — chooseLibraryCodeOrArtist.jsp's newArtistFor
     await user.type(screen.getByLabelText(/call numbers/i), "12");
     await user.click(screen.getByRole("button", { name: "Submit" }));
 
-    expect(await screen.findByText(/Added as MO12/i)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/library/artist/99?created=1"),
+    );
   });
 
   it("shows the code-conflict message on a 409 naming the artist_code_conflict reason", async () => {
