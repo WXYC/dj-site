@@ -1,6 +1,6 @@
 import type { BinLibraryDetails } from "@wxyc/shared/dtos";
 import { Rotation } from "../rotation/types";
-import { AlbumEntry, AlbumSearchResultJSON, Format } from "./types";
+import { AlbumEntry, AlbumSearchResultJSON } from "./types";
 
 function isSearchResult(
   response: AlbumSearchResultJSON | BinLibraryDetails
@@ -102,7 +102,8 @@ export function convertToAlbumEntry(
         : undefined,
     },
     entry: response.code_number ?? 0,
-    format: (response.format_name as Format) ?? "Unknown",
+    // Verbatim; the sentinel is for a row with no format. See `AlbumEntry.format`.
+    format: response.format_name ?? "Unknown",
     alternate_artist: isSearchResult(response)
       ? ((response as Record<string, unknown>).alternate_artist_name as string | undefined) ?? ""
       : "",

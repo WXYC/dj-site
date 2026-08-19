@@ -5,7 +5,10 @@ import { hasLinkedAlbumId } from "@/lib/features/flowsheet/linkage";
 import { useMetadataPrefetch } from "@/lib/features/metadata/api";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { WXYC_EXCLUSIVE_PURPLE } from "@/src/utilities/modern/brandColors";
-import { formatTone } from "@/lib/features/experiences/modern/tokens/roles";
+import {
+  formatLabel,
+  formatTone,
+} from "@/lib/features/experiences/modern/tokens/roles";
 import { Box, Chip, Typography } from "@mui/joy";
 import { memo } from "react";
 import {
@@ -132,7 +135,7 @@ function FlowsheetBackendResult({
         }}
       >
         <Chip variant="soft" size="sm" color={formatTone(entry.format).color}>
-          {entry.format.includes("vinyl") ? "vinyl" : "cd"}
+          {formatLabel(entry.format)}
         </Chip>
         {entry.on_streaming === false && (
           <Chip

@@ -76,19 +76,41 @@ describe("convertLmlItemToAlbumEntry", () => {
     expect(result.alternate_artist).toBe("");
   });
 
+  // The format vocabulary is server-owned — GET /library/formats is the
+  // authority and a music director creates a format by typing its name — so
+  // the adapter must carry the value through as sent. Collapsing it onto a
+  // locally-known set both erases formats the station really files under
+  // ("Cassette") and rewrites recognised ones ("12\" Vinyl" -> "Vinyl").
+  //
+  // Pinned by value, not by shape: an `expect.any(String)` assertion here
+  // would also pass while values were being rewritten, which is the exact
+  // failure this guards.
+  //
+  // The same table runs against the Backend adapter in conversions.test.ts.
+  // Both write this one field, the picker interleaves rows from both, and a
+  // DJ cannot tell which adapter produced a row — so they must agree on the
+  // text, character for character.
   it.each([
-    ["Vinyl LP", "Vinyl"],
-    ["vinyl", "Vinyl"],
-    ["12\" Vinyl", "Vinyl"],
-    ["CD", "CD"],
-    ["cd", "CD"],
-    ["CD-R", "CD"],
-    ["Cassette", "Unknown"],
-    ["", "Unknown"],
-  ] as const)("should normalize format %s to %s", (input, expected) => {
-    const item = createTestLmlLibraryItem({ format: input });
+    "Vinyl",
+    "vinyl",
+    "Vinyl LP",
+    '12" Vinyl',
+    "CD",
+    "cd",
+    "CD-R",
+    "Cassette",
+    "7-inch Single",
+  ])("carries the format %s through unmodified", (format) => {
+    const item = createTestLmlLibraryItem({ format });
     const result = convertLmlItemToAlbumEntry(item);
-    expect(result.format).toBe(expected);
+    expect(result.format).toBe(format);
+  });
+
+  // An empty string is NOT absence, and must not be collapsed into the
+  // sentinel here — same rule the genre field follows, for the same reason.
+  it("passes an empty format through rather than inventing the sentinel", () => {
+    const item = createTestLmlLibraryItem({ format: "" });
+    expect(convertLmlItemToAlbumEntry(item).format).toBe("");
   });
 
   it.each([

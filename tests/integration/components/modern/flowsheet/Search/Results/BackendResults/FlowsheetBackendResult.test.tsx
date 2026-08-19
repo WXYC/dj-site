@@ -62,35 +62,37 @@ describe("FlowsheetBackendResult", () => {
   });
 
   describe("Format chip", () => {
-    it("should show 'cd' chip for CD format", () => {
-      renderWithProviders(<FlowsheetBackendResult entry={mockEntry} index={1} />);
+    // The chip reads the release's own format rather than collapsing it to a
+    // vinyl-or-CD binary. The shelf holds Cassette and 7-inch Single, and a
+    // binary that tested for a lowercase substring labelled every "Vinyl"
+    // release "cd" — a mislabel a DJ acts on, made worse by the chip's hue
+    // being resolved case-insensitively and so reading vinyl at the same time.
+    it.each([
+      ["CD", "CD"],
+      ["cd", "CD"],
+      ["Vinyl", "Vinyl"],
+      ["vinyl", "Vinyl"],
+      ['12" Vinyl', '12" Vinyl'],
+      ["CD-R", "CD-R"],
+      ["Cassette", "Cassette"],
+      ["7-inch Single", "7-inch Single"],
+    ])("labels a %s release %s", (format, label) => {
+      const entry = createTestAlbum({ ...mockEntry, format });
 
-      expect(screen.getByText("cd")).toBeInTheDocument();
+      renderWithProviders(<FlowsheetBackendResult entry={entry} index={1} />);
+
+      expect(screen.getByText(label)).toBeInTheDocument();
     });
 
-    it("should show 'vinyl' chip for vinyl format", () => {
-      // Note: Component checks format.includes("vinyl") (lowercase)
-      const vinylEntry = createTestAlbum({
-        ...mockEntry,
-        format: "vinyl" as any, // Using lowercase to match component's check
-      });
+    // Label and hue come from one resolver each, over the same text, so they
+    // cannot disagree about what the release is.
+    it("gives a vinyl release the vinyl hue alongside the vinyl label", () => {
+      const entry = createTestAlbum({ ...mockEntry, format: "Vinyl" });
 
-      renderWithProviders(<FlowsheetBackendResult entry={vinylEntry} index={1} />);
+      renderWithProviders(<FlowsheetBackendResult entry={entry} index={1} />);
 
-      expect(screen.getByText("vinyl")).toBeInTheDocument();
-    });
-
-    it("should show 'cd' chip for non-vinyl format", () => {
-      const unknownFormatEntry = createTestAlbum({
-        ...mockEntry,
-        format: "Unknown",
-      });
-
-      renderWithProviders(
-        <FlowsheetBackendResult entry={unknownFormatEntry} index={1} />
-      );
-
-      expect(screen.getByText("cd")).toBeInTheDocument();
+      const chip = screen.getByText("Vinyl").closest(".MuiChip-root");
+      expect(chip?.className).toMatch(/colorFormatVinyl/i);
     });
   });
 
@@ -348,12 +350,11 @@ describe("FlowsheetBackendResult", () => {
 
   describe("Entry with all fields", () => {
     it("should render complete entry", () => {
-      // Note: Using lowercase "vinyl" to match component's includes() check
       const completeEntry: AlbumEntry = createTestAlbum({
         id: 100,
         title: "Aluminum Tunes",
         entry: 10,
-        format: "vinyl" as any,
+        format: "Vinyl",
         label: "Duophonic",
         rotation_bin: "M",
         rotation_id: 20,
@@ -374,7 +375,7 @@ describe("FlowsheetBackendResult", () => {
       expect(screen.getByText("Aluminum Tunes")).toBeInTheDocument();
       expect(screen.getByText("Duophonic")).toBeInTheDocument();
       expect(screen.getByText(/Jazz XY 456\/10/)).toBeInTheDocument();
-      expect(screen.getByText("vinyl")).toBeInTheDocument();
+      expect(screen.getByText("Vinyl")).toBeInTheDocument();
     });
   });
 
@@ -427,7 +428,7 @@ describe("FlowsheetBackendResult", () => {
     it("should render format chip", () => {
       renderWithProviders(<FlowsheetBackendResult entry={mockEntry} index={1} />);
 
-      expect(screen.getByText("cd")).toBeInTheDocument();
+      expect(screen.getByText("CD")).toBeInTheDocument();
     });
   });
 });
